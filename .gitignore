@@ -12,3 +12,6 @@ backend/.env
 backup-*/
 *.bak
 *.broken
+
+# keep deployment symlink out of source control
+www/
