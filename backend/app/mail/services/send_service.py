@@ -1,0 +1,98 @@
+"""Send service — orchestrates sending email with attachments."""
+import re
+from app.mail.clients.smtp_client import send_email as smtp_send, OutgoingEmail, EmailAttachment
+from app.mail.clients.imap_client import append_message
+
+
+def _html_to_text(html: str) -> str:
+    """Convert HTML to plain text for the text/plain MIME part."""
+    if not html:
+        return ""
+    text = re.sub(r"<br\s*/?>", "\n", html, flags=re.IGNORECASE)
+    text = re.sub(r"</h[1-6]>", "\n\n", text, flags=re.IGNORECASE)
+    text = re.sub(r"</p>", "\n\n", text, flags=re.IGNORECASE)
+    text = re.sub(r"</div>", "\n", text, flags=re.IGNORECASE)
+    text = re.sub(r"</li>", "\n", text, flags=re.IGNORECASE)
+    text = re.sub(r"<li[^>]*>", "- ", text, flags=re.IGNORECASE)
+    text = re.sub(r"<[^>]+>", "", text)
+    text = re.sub(r"&nbsp;", " ", text)
+    text = re.sub(r"&amp;", "&", text)
+    text = re.sub(r"&lt;", "<", text)
+    text = re.sub(r"&gt;", ">", text)
+    text = re.sub(r"&quot;", '"', text)
+    text = re.sub(r"&#\d+;", "", text)
+    text = re.sub(r"&[a-z]+;", "", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
+
+
+async def send_and_save(
+    imap,
+    password: str,
+    from_addr: str,
+    to: list[str],
+    subject: str,
+    text_body: str = "",
+    html_body: str = "",
+    cc: list[str] | None = None,
+    bcc: list[str] | None = None,
+    in_reply_to: str = "",
+    references: str = "",
+    attachments: list[dict] | None = None,
+    sent_folder: str = "Sent",
+    draft_uid: int | None = None,
+    display_name: str = "",
+    request_read_receipt: bool = False,
+    request_delivery_receipt: bool = False,
+) -> dict:
+    """Send email via SMTP and save copy to Sent folder."""
+    # Format From with display name if available
+    if display_name:
+        from_formatted = f"{display_name} <{from_addr}>"
+    else:
+        from_formatted = from_addr
+
+    # Build attachment list
+    email_attachments = []
+    if attachments:
+        for att in attachments:
+            email_attachments.append(EmailAttachment(
+                filename=att["filename"],
+                content=att["content"],
+                content_type=att.get("content_type", "application/octet-stream"),
+                is_inline=att.get("is_inline", False),
+                cid=att.get("cid", ""),
+            ))
+
+    # Auto-generate text_body from html_body if empty
+    if not text_body and html_body:
+        text_body = _html_to_text(html_body)
+
+    email_data = OutgoingEmail(
+        from_addr=from_formatted,
+        to=to,
+        subject=subject,
+        text_body=text_body,
+        html_body=html_body,
+        cc=cc or [],
+        bcc=bcc or [],
+        in_reply_to=in_reply_to,
+        references=references,
+        attachments=email_attachments,
+        request_read_receipt=request_read_receipt,
+        request_delivery_receipt=request_delivery_receipt,
+    )
+
+    # Send
+    result = await smtp_send(email_data, password)
+
+    # Save to Sent folder
+    if result.get("raw_message"):
+        await append_message(imap, sent_folder, result["raw_message"], "\\Seen")
+
+    # Delete draft if applicable
+    if draft_uid:
+        from app.mail.clients.imap_client import uid_delete_message
+        await uid_delete_message(imap, "Drafts", draft_uid)
+
+    return {"message_id": result["message_id"], "status": "sent"}

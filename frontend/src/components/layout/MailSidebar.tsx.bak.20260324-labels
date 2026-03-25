@@ -1,0 +1,295 @@
+import { useEffect, useState } from 'react';
+import { useMailStore } from '../../store/mailStore';
+import { api } from '../../api/client';
+import { showToast } from '../common/Toast';
+import { ContextMenu } from '../common/ContextMenu';
+import type { Folder } from '../../types';
+
+
+interface MailStats {
+  inbox_total: number;
+  inbox_unread: number;
+  sent_total: number;
+  sent_today: number;
+  sent_week: number;
+  sent_month: number;
+  drafts: number;
+  trash: number;
+  storage_used_mb: number;
+  top_senders: { email: string; name: string; count: number }[];
+}
+
+const icons: Record<string, string> = {
+  inbox: 'M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4',
+  sent: 'M12 19l9 2-9-18-9 18 9-2zm0 0v-8',
+  drafts: 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z',
+  trash: 'M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16',
+  junk: 'M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636',
+  archive: 'M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4',
+  folder: 'M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z',
+};
+const names: Record<string, string> = {
+  INBOX: 'Bandeja de entrada', Sent: 'Elementos enviados', Drafts: 'Borradores',
+  Trash: 'Elementos eliminados', Junk: 'Correo no deseado', Archive: 'Archivo',
+};
+const systemFolders = new Set(['INBOX', 'Sent', 'Drafts', 'Trash', 'Junk', 'Archive']);
+const favorites = ['INBOX', 'Sent', 'Drafts'];
+
+export function MailSidebar() {
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => {
+    const handler = () => setHidden(prev => !prev);
+    window.addEventListener("toggle-sidebar", handler);
+    return () => window.removeEventListener("toggle-sidebar", handler);
+  }, []);
+  
+
+  const { folders, currentFolder, setFolders, setCurrentFolder, setLoadingFolders, openCompose } = useMailStore();
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [createParent, setCreateParent] = useState('');
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; folder: Folder } | null>(null);
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [stats, setStats] = useState<MailStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    const fetchStats = () => {
+      setStatsLoading(true);
+      api.get<MailStats>('/mail/stats')
+        .then(r => { if (mounted) setStats(r); })
+        .catch(() => {})
+        .finally(() => { if (mounted) setStatsLoading(false); });
+    };
+    fetchStats();
+    const interval = setInterval(fetchStats, 5 * 60 * 1000);
+    return () => { mounted = false; clearInterval(interval); };
+  }, []);
+
+  const fetchFolders = () => {
+    setLoadingFolders(true);
+    api.get<{ folders: Folder[] }>('/mail/folders').then(r => setFolders(r.folders)).catch(console.error);
+  };
+  useEffect(() => { fetchFolders(); }, []);
+
+  const handleCreate = async () => {
+    if (!newName.trim()) return;
+    const fullName = createParent ? `${createParent}.${newName.trim()}` : newName.trim();
+    try { await api.post('/mail/folders', { name: fullName }); } catch {}
+    setNewName(''); setCreating(false); setCreateParent(''); fetchFolders();
+  };
+
+  const handleRename = async (oldName: string) => {
+    if (!renameValue.trim() || renameValue === oldName) { setRenaming(null); return; }
+    try { await api.put(`/mail/folders/${encodeURIComponent(oldName)}`, { new_name: renameValue.trim() }); } catch {}
+    setRenaming(null); fetchFolders();
+  };
+
+  const handleDelete = async (name: string) => {
+    if (systemFolders.has(name)) return;
+    try { await api.del(`/mail/folders/${encodeURIComponent(name)}`); } catch {}
+    fetchFolders();
+  };
+
+  const handleEmpty = async (name: string) => {
+    // Empty folder by getting all UIDs and deleting
+    try {
+      const res = await api.get<{ messages: { uid: number }[]; total: number }>(`/mail/messages/${encodeURIComponent(name)}?per_page=999`);
+      if (res.messages.length > 0) {
+        await api.post(`/mail/bulk-action/${encodeURIComponent(name)}`, {
+          uids: res.messages.map(m => m.uid), action: 'delete', dest_folder: '',
+        });
+      }
+    } catch {}
+    window.dispatchEvent(new CustomEvent('refresh-messages'));
+    fetchFolders();
+  };
+
+  const getFolderCtxItems = (f: Folder) => {
+    const isSystem = systemFolders.has(f.name);
+    return [
+      { label: 'Crear subcarpeta', icon: 'M12 4v16m8-8H4', onClick: () => { setCreateParent(f.name); setCreating(true); } },
+      ...(!isSystem ? [
+        { label: 'Renombrar', icon: 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z', onClick: () => { setRenaming(f.name); setRenameValue(f.name); } },
+      ] : []),
+      { label: '', icon: '', onClick: () => {}, divider: true },
+      { label: 'Vaciar carpeta', icon: icons.trash, onClick: () => handleEmpty(f.name) },
+      ...(!isSystem ? [
+        { label: 'Eliminar carpeta', icon: icons.trash, onClick: () => handleDelete(f.name), danger: true },
+      ] : []),
+    ];
+  };
+
+  const favFolders = folders.filter(f => favorites.includes(f.name));
+  const otherFolders = folders.filter(f => !favorites.includes(f.name));
+
+  const renderFolder = (f: Folder) => {
+    const active = currentFolder === f.name;
+    const displayName = names[f.name] || (f.name.includes('.') ? f.name.split('.').pop() : f.name);
+    const depth = f.name.split('.').length - 1;
+
+    if (renaming === f.name) {
+      return (
+        <div key={f.name} className="flex items-center gap-1 py-0.5" style={{ paddingLeft: `${8 + depth * 12}px` }}>
+          <input value={renameValue} onChange={e => setRenameValue(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') handleRename(f.name); if (e.key === 'Escape') setRenaming(null); }}
+            autoFocus className="flex-1 text-[12px] px-1.5 py-0.5 border border-[#0078d4] rounded outline-none" />
+        </div>
+      );
+    }
+
+    return (
+      <button key={f.name} onClick={() => setCurrentFolder(f.name)}
+        onContextMenu={e => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, folder: f }); }}
+        onDragOver={e => {
+          if (e.dataTransfer.types.includes('application/x-mail-uids')) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            setDropTarget(f.name);
+          }
+        }}
+        onDragLeave={() => setDropTarget(null)}
+        onDrop={async e => {
+          e.preventDefault();
+          setDropTarget(null);
+          const uidsJson = e.dataTransfer.getData('application/x-mail-uids');
+          const srcFolder = e.dataTransfer.getData('application/x-mail-folder');
+          if (!uidsJson || !srcFolder || srcFolder === f.name) return;
+          const uids = JSON.parse(uidsJson);
+          try {
+            await api.post(`/mail/bulk-action/${encodeURIComponent(srcFolder)}`, {
+              uids, action: 'move', dest_folder: f.name,
+            });
+            const displayName = names[f.name] || f.name;
+            showToast(`${uids.length} mensaje${uids.length > 1 ? 's' : ''} movido${uids.length > 1 ? 's' : ''} a ${displayName}`);
+            useMailStore.getState().clearSelection();
+            useMailStore.getState().setSelectedMessage(null);
+            window.dispatchEvent(new CustomEvent('refresh-messages'));
+          } catch {
+            showToast('Error al mover mensajes');
+          }
+        }}
+        className={`w-full flex items-center gap-2 px-2 py-[4px] rounded text-[13px] transition-colors ${
+          dropTarget === f.name ? 'bg-[#deecf9] ring-2 ring-[#0078d4]' : active ? 'bg-[#e1dfdd] font-semibold text-[#323130]' : 'text-[#323130] hover:bg-[#e1dfdd]'
+        }`} style={{ marginLeft: `${depth * 12}px` }}>
+        <svg className={`w-[15px] h-[15px] shrink-0 ${active ? 'text-[#0078d4]' : 'text-[#605e5c]'}`}
+          fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={icons[f.type] || icons.folder} />
+        </svg>
+        <span className="truncate flex-1 text-left">{displayName}</span>
+        {f.unseen > 0 && <span className="text-[11px] font-bold text-[#0078d4]">{f.unseen}</span>}
+      </button>
+    );
+  };
+
+  return (
+    <div className="w-[220px] bg-[#faf9f8] border-r border-[#edebe9] flex flex-col shrink-0 text-[13px] transition-[margin] duration-200 ease-in-out z-20" style={{ marginLeft: hidden ? -220 : 0 }}>
+      <div className="px-3 pt-2.5 pb-1.5">
+        <button onClick={() => openCompose('new')}
+          className="flex items-center gap-2 px-3 py-[5px] bg-white border border-[#8a8886] rounded shadow-sm hover:bg-[#f3f2f1] transition-colors text-[13px] text-[#323130] font-medium">
+          <svg className="w-[15px] h-[15px] text-[#0078d4]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+          Nuevo correo
+        </button>
+      </div>
+
+      <nav className="flex-1 overflow-y-auto px-1 text-[13px]" onDragLeave={() => setDropTarget(null)}>
+        <SectionHeader title="Favoritos" collapsed={collapsed.fav} onToggle={() => setCollapsed(p => ({...p, fav: !p.fav}))} />
+        {!collapsed.fav && favFolders.map(renderFolder)}
+
+        <SectionHeader title="Carpetas" collapsed={collapsed.all} onToggle={() => setCollapsed(p => ({...p, all: !p.all}))} />
+        {!collapsed.all && (
+          <>
+            {otherFolders.map(renderFolder)}
+            {creating ? (
+              <div className="flex items-center gap-1 px-2 py-1 ml-3">
+                <input value={newName} onChange={e => setNewName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleCreate(); if (e.key === 'Escape') { setCreating(false); setCreateParent(''); } }}
+                  placeholder={createParent ? `En ${createParent}` : 'Nombre'} autoFocus
+                  className="flex-1 text-[12px] px-1.5 py-0.5 border border-[#0078d4] rounded outline-none" />
+              </div>
+            ) : (
+              <button onClick={() => { setCreating(true); setCreateParent(''); }}
+                className="flex items-center gap-1.5 px-2 py-1 ml-3 text-[12px] text-[#0078d4] hover:bg-[#e1dfdd] rounded transition-colors">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Nueva carpeta
+              </button>
+            )}
+          </>
+        )}
+      </nav>
+
+
+      {/* Mi actividad - Stats Widget */}
+      <div className="border-t border-[#edebe9] px-1 pb-1 shrink-0">
+        <SectionHeader title="Mi actividad" collapsed={collapsed.stats} onToggle={() => setCollapsed(p => ({...p, stats: !p.stats}))} />
+        {!collapsed.stats && (
+          <div className="px-2 py-1 space-y-[3px] text-[11px] text-[#605e5c]">
+            {statsLoading && !stats ? (
+              <div className="text-[11px] text-[#a19f9d] italic py-1">Cargando...</div>
+            ) : stats ? (
+              <>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-[14px] text-center opacity-70" role="img" aria-label="inbox">{"\u{1F4CA}"}</span>
+                  <span>Bandeja: <b className="text-[#323130]">{stats.inbox_total}</b> mensajes</span>
+                  {stats.inbox_unread > 0 && (
+                    <span className="text-[#0078d4] font-semibold">({stats.inbox_unread} sin leer)</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-[14px] text-center opacity-70" role="img" aria-label="sent">{"\u{1F4E4}"}</span>
+                  <span>Hoy: <b className="text-[#323130]">{stats.sent_today}</b></span>
+                  <span className="text-[#a19f9d]">|</span>
+                  <span>Semana: <b className="text-[#323130]">{stats.sent_week}</b></span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-[14px] text-center opacity-70" role="img" aria-label="drafts">{"\u{1F4DD}"}</span>
+                  <span>Borradores: <b className="text-[#323130]">{stats.drafts}</b></span>
+                  <span className="text-[#a19f9d]">|</span>
+                  <span>Papelera: <b className="text-[#323130]">{stats.trash}</b></span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-[14px] text-center opacity-70" role="img" aria-label="storage">{"\u{1F4BE}"}</span>
+                  <span>Almacenamiento: <b className="text-[#323130]">{stats.storage_used_mb >= 1024 ? (stats.storage_used_mb / 1024).toFixed(1) + ' GB' : stats.storage_used_mb + ' MB'}</b></span>
+                </div>
+                {stats.top_senders.length > 0 && (
+                  <div className="mt-1 pt-1 border-t border-[#edebe9]">
+                    <div className="text-[10px] uppercase tracking-wider text-[#a19f9d] font-semibold mb-0.5">Top remitentes (30d)</div>
+                    {stats.top_senders.map((s, i) => (
+                      <div key={i} className="flex items-center gap-1 truncate">
+                        <span className="text-[10px] text-[#a19f9d] w-3 text-right">{s.count}</span>
+                        <span className="truncate">{s.name || s.email}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : null}
+          </div>
+        )}
+      </div>
+
+      {ctxMenu && <ContextMenu x={ctxMenu.x} y={ctxMenu.y} items={getFolderCtxItems(ctxMenu.folder)} onClose={() => setCtxMenu(null)} />}
+    </div>
+  );
+}
+
+function SectionHeader({ title, collapsed, onToggle }: { title: string; collapsed?: boolean; onToggle: () => void }) {
+  return (
+    <button onClick={onToggle}
+      className="flex items-center gap-1 px-1.5 py-[3px] w-full text-[11px] font-semibold text-[#605e5c] uppercase tracking-wider hover:bg-[#e1dfdd] rounded transition-colors mt-1.5">
+      <svg className={`w-[10px] h-[10px] transition-transform ${collapsed ? '' : 'rotate-90'}`} fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+      </svg>
+      {title}
+    </button>
+  );
+}

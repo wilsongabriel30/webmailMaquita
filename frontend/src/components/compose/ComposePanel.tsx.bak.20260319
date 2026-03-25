@@ -1,0 +1,380 @@
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Underline from '@tiptap/extension-underline';
+import Link from '@tiptap/extension-link';
+import Image from '@tiptap/extension-image';
+import Placeholder from '@tiptap/extension-placeholder';
+import TextAlign from '@tiptap/extension-text-align';
+import { TextStyle } from '@tiptap/extension-text-style';
+import { Color } from '@tiptap/extension-color';
+import FontFamily from '@tiptap/extension-font-family';
+import { FontSize } from './FontSize';
+
+import { useMailStore, type DraftWindow } from '../../store/mailStore';
+import { api } from '../../api/client';
+import { showToast } from '../common/Toast';
+import { Ribbon } from './Ribbon';
+import { RecipientField } from './RecipientField';
+import { Attachments } from './Attachments';
+
+interface Props { win: DraftWindow; }
+
+interface AttachmentFile { name: string; size: number; type: string; file?: File; }
+
+export function ComposePanel({ win }: Props) {
+  const { closeCompose, minimizeCompose, updateDraftUid } = useMailStore();
+  const [to, setTo] = useState('');
+  const [cc, setCc] = useState('');
+  const [bcc, setBcc] = useState('');
+  const [subject, setSubject] = useState('');
+  const [showCc, setShowCc] = useState(false);
+  const [showBcc, setShowBcc] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState('');
+  const [importance, setImportance] = useState<'normal' | 'high' | 'low'>('normal');
+  const [attachments, setAttachments] = useState<AttachmentFile[]>([]);
+  const autosaveTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
+      Underline, Link.configure({ openOnClick: false }),
+      Image.configure({ inline: true, allowBase64: true }),
+      Placeholder.configure({ placeholder: '' }),
+      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      TextStyle, Color, FontFamily, FontSize,
+    ],
+    content: '',
+    editorProps: {
+      attributes: {
+        class: 'outline-none min-h-[300px] px-6 py-4 text-[14px] leading-[22px] text-[#323130]',
+        style: 'font-family: Calibri, Segoe UI, sans-serif;',
+      },
+    },
+  });
+
+  // Initialize content
+  useEffect(() => {
+    setTo(win.data.to?.join(', ') || '');
+    setCc(win.data.cc?.join(', ') || '');
+    setBcc(win.data.bcc?.join(', ') || '');
+    setSubject(win.data.subject || '');
+    setShowCc(!!win.data.cc?.length);
+    setShowBcc(!!win.data.bcc?.length);
+    setImportance('normal');
+    setError('');
+
+    const init = async () => {
+      let sig = '';
+      try {
+        const res = await api.get<{ signature_html: string }>('/settings/signature');
+        sig = res.signature_html || '';
+      } catch {}
+
+      let content = '';
+      if (win.mode === 'new') {
+        content = sig ? `<p><br></p><div style="border-top:1px solid #edebe9;padding-top:10px;margin-top:20px;color:#605e5c">${sig}</div>` : '<p><br></p>';
+      } else {
+        const original = win.data.text_body ? `<div style="border-top:1px solid #edebe9;padding-top:10px;margin-top:20px;color:#605e5c"><p>${win.data.text_body.replace(/\n/g, '<br>')}</p></div>` : '';
+        content = sig ? `<p><br></p><div style="margin-top:20px;color:#605e5c">${sig}</div>${original}` : `<p><br></p>${original}`;
+      }
+      editor?.commands.setContent(content);
+    };
+    if (editor) init();
+  }, [editor]);
+
+  // Autosave every 30s
+  useEffect(() => {
+    autosaveTimer.current = setInterval(() => { saveDraft(); }, 30000);
+    return () => { if (autosaveTimer.current) clearInterval(autosaveTimer.current); };
+  }, [to, subject, win.draftUid, win.id, editor]);
+
+  const saveDraft = useCallback(async () => {
+    if (!to && !subject && !editor?.getHTML()) return;
+    try {
+      const res = await api.post<{ draft_uid: number | null }>('/mail/drafts', {
+        to: to.split(',').map(s => s.trim()).filter(Boolean),
+        subject, html_body: editor?.getHTML() || '', text_body: '',
+        existing_draft_uid: win.draftUid,
+      });
+      if (res.draft_uid) updateDraftUid(win.id, res.draft_uid);
+    } catch {}
+  }, [to, subject, win.draftUid, win.id, editor]);
+
+  // Keyboard shortcuts: Ctrl+Enter → send, Esc → close
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        handleSend();
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeCompose(win.id);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [to, subject, editor, win.id]);
+
+  const handleSend = useCallback(async () => {
+    const recipients = to.split(',').map(s => s.trim()).filter(Boolean);
+    if (!recipients.length) { setError('Ingresa un destinatario'); return; }
+    setSending(true);
+    setError('');
+    try {
+      await api.post('/mail/send', {
+        to: recipients,
+        cc: cc ? cc.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+        bcc: bcc ? bcc.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+        subject, html_body: editor?.getHTML() || '', text_body: '',
+        in_reply_to: win.data.in_reply_to || '', references: win.data.references || '',
+        draft_uid: win.draftUid,
+      });
+      closeCompose(win.id);
+      showToast('Mensaje enviado');
+      window.dispatchEvent(new CustomEvent('refresh-messages'));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error al enviar');
+    } finally { setSending(false); }
+  }, [to, cc, bcc, subject, editor, win]);
+
+  const handleAttach = () => { fileInputRef.current?.click(); };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    const newFiles: AttachmentFile[] = Array.from(files).map(f => ({
+      name: f.name, size: f.size, type: f.type, file: f,
+    }));
+    setAttachments(prev => [...prev, ...newFiles]);
+    e.target.value = '';
+  };
+
+  const removeAttachment = (idx: number) => {
+    setAttachments(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const insertSignature = useCallback(async () => {
+    try {
+      const res = await api.get<{ signature_html: string }>('/settings/signature');
+      if (res.signature_html) {
+        editor?.chain().focus().insertContent(`<div style="border-top:1px solid #edebe9;padding-top:10px;margin-top:10px;color:#605e5c">${res.signature_html}</div>`).run();
+        showToast('Firma insertada');
+      } else {
+        showToast('No hay firma configurada');
+      }
+    } catch { showToast('Error al cargar la firma'); }
+  }, [editor]);
+
+  const downloadDraft = useCallback(() => {
+    const html = editor?.getHTML() || '';
+    const fullHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${subject || 'Borrador'}</title></head><body style="font-family:Calibri,sans-serif;font-size:14px">${html}</body></html>`;
+    const blob = new Blob([fullHtml], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${subject || 'borrador'}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [editor, subject]);
+
+  // ====== Callbacks preparados para backends externos ======
+
+  // → VM 170 (ia-maquita): Whisper speech-to-text
+  const handleDictate = useCallback(() => {
+    // TODO: Conectar a VM 170 POST /api/whisper/transcribe
+    // 1. Grabar audio del micrófono (MediaRecorder API)
+    // 2. Enviar blob a VM 170: POST http://10.16.0.170:8000/api/whisper/transcribe
+    // 3. Insertar transcripción: editor?.chain().focus().insertContent(text).run()
+    showToast('Dictado: preparado para VM 170 Whisper');
+  }, [editor]);
+
+  // → Backend webmail: programar envío con fecha/hora
+  const handleScheduleSend = useCallback(() => {
+    // TODO: Conectar a backend POST /mail/schedule
+    // 1. Mostrar date/time picker
+    // 2. Enviar a: POST /api/mail/schedule { ...mailData, scheduled_at: ISO }
+    // 3. Backend guarda en cola y envía en la fecha
+    showToast('Programar envío: preparado para backend');
+  }, []);
+
+  // → Futuro: marketplace de complementos/aplicaciones
+  const handleOpenApps = useCallback(() => {
+    // TODO: Abrir panel lateral con lista de complementos disponibles
+    // Posible integración con marketplace interno
+    showToast('Aplicaciones: preparado para complementos');
+  }, []);
+
+  // → VM 170 (ia-maquita): Revisión IA del texto
+  const handleReviewEditor = useCallback(() => {
+    // TODO: Conectar a VM 170 POST /api/review
+    // 1. Enviar editor.getText() a la IA
+    // 2. Recibir sugerencias de corrección ortográfica/gramatical
+    // 3. Mostrar panel lateral con sugerencias
+    const text = editor?.getText() || '';
+    const words = text.split(/\s+/).filter(w => w.length > 0);
+    showToast(`Revisión: ${words.length} palabras, ${text.length} caracteres. IA pendiente VM 170`);
+  }, [editor]);
+
+  // → VM 170 (ia-maquita): Análisis de accesibilidad IA
+  const handleCheckAccessibility = useCallback(() => {
+    // TODO: Conectar a VM 170 POST /api/accessibility
+    // 1. Enviar editor.getHTML() a la IA
+    // 2. Recibir análisis de accesibilidad
+    // 3. Mostrar resultados
+    const html = editor?.getHTML() || '';
+    const issues: string[] = [];
+    if (html.includes('<img') && !html.includes('alt=')) issues.push('Imágenes sin texto alternativo');
+    if (!html.includes('<h1') && !html.includes('<h2') && !html.includes('<h3')) issues.push('Sin encabezados de estructura');
+    showToast(issues.length ? `Accesibilidad: ${issues.length} problema(s). IA pendiente VM 170` : 'Sin problemas detectados');
+  }, [editor]);
+
+  // Copiar formato entre selecciones
+  const handleFormatPaint = useCallback((marks: string[]) => {
+    // TODO: Implementar "format painter" completo
+    // 1. Guardar marks activos de la selección actual
+    // 2. En próxima selección, aplicar esos marks
+    showToast(marks.length ? `Formato copiado: ${marks.join(', ')}` : 'Seleccione texto con formato');
+  }, []);
+
+  // → VM 170 (ia-maquita): Mejorar redacción con IA - EXCLUSIVO MAQUITA
+  const handleImproveWriting = useCallback(async () => {
+    const text = editor?.getText() || '';
+    if (!text.trim() || text.trim().length < 10) {
+      showToast('Escribe al menos una oración para mejorar');
+      return;
+    }
+    showToast('Mejorando redacción con IA...');
+    try {
+      // TODO: Conectar a VM 170 POST /api/improve-writing
+      // Endpoint esperado: POST http://10.16.0.170:8000/api/improve-writing
+      // Body: { text: string, language: "es" }
+      // Response: { improved_text: string, changes_summary: string }
+      //
+      // Cuando se conecte:
+      // const res = await fetch('http://10.16.0.170:8000/api/improve-writing', {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({ text, language: 'es' })
+      // });
+      // const data = await res.json();
+      // editor?.commands.setContent(data.improved_text);
+      // showToast(`Redacción mejorada: ${data.changes_summary}`);
+      //
+      // Por ahora: feedback visual de que está preparado
+      showToast(`Mejorar redacción: ${text.split(/\s+/).length} palabras listas para IA (VM 170)`);
+    } catch (err) {
+      showToast('Error al conectar con IA');
+    }
+  }, [editor]);
+
+  // Tracking state para headers SMTP
+  const [, setTracking] = useState({ delivery: false, read: false, noReactions: false });
+  const handleTrackingChange = useCallback((t: { delivery: boolean; read: boolean; noReactions: boolean }) => {
+    setTracking(t);
+    // TODO: Estos valores se deben incluir en el payload de envío
+    // delivery → Header: Disposition-Notification-To
+    // read → Header: Return-Receipt-To
+  }, []);
+
+  if (!editor) return null;
+
+  return (
+    <div className="flex-1 flex flex-col bg-white overflow-hidden">
+      {/* Ribbon (tabs + toolbar) */}
+      <Ribbon
+        editor={editor}
+        onAttach={handleAttach}
+        onShowCc={() => setShowCc(prev => !prev)}
+        onShowBcc={() => setShowBcc(prev => !prev)}
+        showCc={showCc}
+        showBcc={showBcc}
+        onImportanceChange={setImportance}
+        importance={importance}
+        onSaveDraft={saveDraft}
+        onInsertSignature={insertSignature}
+        onDownloadDraft={downloadDraft}
+        onDictate={handleDictate}
+        onScheduleSend={handleScheduleSend}
+        onOpenApps={handleOpenApps}
+        onReviewEditor={handleReviewEditor}
+        onCheckAccessibility={handleCheckAccessibility}
+        onFormatPaint={handleFormatPaint}
+        onTrackingChange={handleTrackingChange}
+        onImproveWriting={handleImproveWriting}
+      />
+
+      {/* Hidden file input */}
+      <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileSelect} />
+
+      {/* Send row (below ribbon, above recipients) - matches OWA layout exactly */}
+      <div className="h-[44px] flex items-center px-4 bg-white border-b border-[#edebe9] shrink-0">
+        {/* Send button with dropdown caret */}
+        <div className="flex items-center">
+          <button onClick={handleSend} disabled={sending}
+            className="h-[32px] pl-3 pr-2.5 bg-[#0078d4] text-white text-[13px] font-semibold rounded-l-[4px] hover:bg-[#106ebe] disabled:opacity-50 transition-colors flex items-center gap-[6px]">
+            <svg className="w-[16px] h-[16px]" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+            </svg>
+            {sending ? 'Enviando...' : 'Enviar'}
+          </button>
+          <button className="h-[32px] px-[6px] bg-[#0078d4] text-white rounded-r-[4px] border-l border-[#ffffff40] hover:bg-[#106ebe] transition-colors">
+            <svg className="w-[10px] h-[10px]" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="flex-1" />
+
+        {/* Right icons: delete draft + minimize/save */}
+        <div className="flex items-center gap-[2px]">
+          <button onClick={() => closeCompose(win.id)} title="Eliminar borrador"
+            className="w-[32px] h-[32px] rounded-[3px] flex items-center justify-center text-[#605e5c] hover:bg-[#f3f2f1] hover:text-[#323130] transition-colors">
+            <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+          <button onClick={() => minimizeCompose(win.id)} title="Minimizar"
+            className="w-[32px] h-[32px] rounded-[3px] flex items-center justify-center text-[#605e5c] hover:bg-[#f3f2f1] hover:text-[#323130] transition-colors">
+            <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Recipients */}
+      <RecipientField label="Para" value={to} onChange={setTo} autoFocus primary
+        onToggleExtra={() => { setShowCc(true); setShowBcc(true); }}
+        showExtra={showCc || showBcc} />
+      {showCc && <RecipientField label="CC" value={cc} onChange={setCc} />}
+      {showBcc && <RecipientField label="CCO" value={bcc} onChange={setBcc} />}
+
+      {/* Subject */}
+      <div className="border-b border-[#edebe9] shrink-0">
+        <input value={subject} onChange={e => setSubject(e.target.value)}
+          placeholder="Agregar un asunto"
+          className="w-full text-[15px] px-4 py-2.5 outline-none text-[#323130] placeholder-[#a19f9d]"
+          style={{ fontFamily: 'Segoe UI, Calibri, sans-serif' }} />
+      </div>
+
+      {/* Error */}
+      {error && (
+        <div className="px-4 py-1.5 bg-[#fde7e9] text-[#a4262c] text-[12px] shrink-0">{error}</div>
+      )}
+
+      {/* Editor area */}
+      <div className="flex-1 overflow-y-auto">
+        <EditorContent editor={editor}
+          className="[&_.tiptap_h1]:text-[24px] [&_.tiptap_h1]:font-bold [&_.tiptap_h1]:mb-3 [&_.tiptap_h2]:text-[20px] [&_.tiptap_h2]:font-bold [&_.tiptap_h2]:mb-2 [&_.tiptap_h3]:text-[16px] [&_.tiptap_h3]:font-bold [&_.tiptap_h3]:mb-1 [&_.tiptap_ul]:list-disc [&_.tiptap_ul]:pl-6 [&_.tiptap_ol]:list-decimal [&_.tiptap_ol]:pl-6 [&_.tiptap_blockquote]:border-l-4 [&_.tiptap_blockquote]:border-[#e1dfdd] [&_.tiptap_blockquote]:pl-4 [&_.tiptap_blockquote]:italic [&_.tiptap_blockquote]:text-[#605e5c] [&_.tiptap_a]:text-[#0078d4] [&_.tiptap_a]:underline [&_.tiptap_pre]:bg-[#f3f2f1] [&_.tiptap_pre]:p-3 [&_.tiptap_pre]:rounded [&_.tiptap_pre]:font-mono [&_.tiptap_pre]:text-[13px] [&_.tiptap_hr]:border-[#edebe9] [&_.tiptap_hr]:my-3 [&_.tiptap_p]:mb-1 [&_.tiptap_img]:max-w-full [&_.tiptap_img]:h-auto [&_.tiptap_img]:rounded" />
+      </div>
+
+      {/* Attachments */}
+      <Attachments files={attachments} onRemove={removeAttachment} />
+    </div>
+  );
+}

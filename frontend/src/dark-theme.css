@@ -1,0 +1,285 @@
+/* ============================================
+   MAQUITA WEBMAIL — DARK MODE
+   Activated by adding class "dark" to <html>
+   ============================================ */
+
+html.dark {
+  color-scheme: dark;
+}
+
+/* ── Global backgrounds ── */
+html.dark body {
+  background-color: #1e1e1e !important;
+}
+
+/* bg-white / #ffffff / #fff */
+html.dark .bg-white,
+html.dark [style*="background-color: white"],
+html.dark [style*="background: white"] {
+  background-color: #1e1e1e !important;
+}
+
+/* bg-[#f3f2f1] — main layout bg, nav rail */
+html.dark .bg-\[\#f3f2f1\] {
+  background-color: #252525 !important;
+}
+
+/* bg-[#faf9f8] — sidebar, minimized compose bar */
+html.dark .bg-\[\#faf9f8\] {
+  background-color: #1e1e1e !important;
+}
+
+/* bg-[#e1dfdd] — active nav, hover states */
+html.dark .bg-\[\#e1dfdd\] {
+  background-color: #3a3a3a !important;
+}
+
+/* bg-[#deecf9] — search bar, selected cells */
+html.dark .bg-\[\#deecf9\] {
+  background-color: #1a3a5c !important;
+}
+
+/* bg-[#eff6fc] — hovered rows / lighter accent */
+html.dark .bg-\[\#eff6fc\] {
+  background-color: #1e3450 !important;
+}
+
+/* bg-[#c7e0f4] */
+html.dark .bg-\[\#c7e0f4\] {
+  background-color: #1a3a5c !important;
+}
+
+/* bg-[#f8f8f8] / bg-[#f0f0f0] */
+html.dark .bg-\[\#f8f8f8\],
+html.dark .bg-\[\#f0f0f0\] {
+  background-color: #2d2d2d !important;
+}
+
+/* ── Topbar — keep blue, slightly deeper ── */
+html.dark .bg-\[\#0078d4\] {
+  background-color: #005a9e !important;
+}
+
+/* ── Error / red backgrounds ── */
+html.dark .bg-\[\#fde7e9\] {
+  background-color: #442020 !important;
+}
+
+/* ── Success / green backgrounds ── */
+html.dark .bg-\[\#dff6dd\] {
+  background-color: #1a3a1a !important;
+}
+
+/* ── Text colors ── */
+html.dark .text-\[\#323130\] {
+  color: #e0e0e0 !important;
+}
+html.dark .text-\[\#605e5c\] {
+  color: #a0a0a0 !important;
+}
+html.dark .text-\[\#a19f9d\] {
+  color: #808080 !important;
+}
+html.dark .text-\[\#8a8886\] {
+  color: #909090 !important;
+}
+html.dark .text-\[\#a4262c\] {
+  color: #f1707b !important;
+}
+html.dark .text-\[\#d13438\] {
+  color: #f1707b !important;
+}
+html.dark .text-\[\#0b6a0b\],
+html.dark .text-\[\#107c10\] {
+  color: #5ec75e !important;
+}
+
+/* ── Border colors ── */
+html.dark .border-\[\#edebe9\] {
+  border-color: #3a3a3a !important;
+}
+html.dark .border-\[\#f3f2f1\] {
+  border-color: #333333 !important;
+}
+html.dark .border-\[\#e1dfdd\] {
+  border-color: #3a3a3a !important;
+}
+html.dark .border-\[\#c8c6c4\] {
+  border-color: #444444 !important;
+}
+html.dark .border-\[\#d2d0ce\] {
+  border-color: #3a3a3a !important;
+}
+
+/* ── Hover states ── */
+html.dark .hover\:bg-\[\#f3f2f1\]:hover {
+  background-color: #333333 !important;
+}
+html.dark .hover\:bg-\[\#e1dfdd\]:hover {
+  background-color: #3a3a3a !important;
+}
+html.dark .hover\:bg-\[\#eff6fc\]:hover {
+  background-color: #1e3450 !important;
+}
+html.dark .hover\:bg-\[\#faf9f8\]:hover {
+  background-color: #2d2d2d !important;
+}
+
+/* ── Inline style overrides (attribute selectors) ── */
+
+/* White backgrounds in inline styles */
+html.dark [style*="background-color: #fff"],
+html.dark [style*="background-color:#fff"],
+html.dark [style*="background: #fff"],
+html.dark [style*="background:#fff"],
+html.dark [style*="background-color: rgb(255, 255, 255)"],
+html.dark [style*="background-color: rgb(255,255,255)"],
+html.dark [style*="background: rgb(255, 255, 255)"],
+html.dark [style*="background-color: white"],
+html.dark [style*="background: white"] {
+  background-color: #1e1e1e !important;
+}
+
+/* Light gray backgrounds in inline styles */
+html.dark [style*="background-color: #f3f2f1"],
+html.dark [style*="background:#f3f2f1"],
+html.dark [style*="background-color: #faf9f8"],
+html.dark [style*="background:#faf9f8"],
+html.dark [style*="background-color: #f8f8f8"],
+html.dark [style*="background:#f8f8f8"] {
+  background-color: #252525 !important;
+}
+
+/* Dark text in inline styles */
+html.dark [style*="color: #323130"],
+html.dark [style*="color:#323130"] {
+  color: #e0e0e0 !important;
+}
+html.dark [style*="color: #605e5c"],
+html.dark [style*="color:#605e5c"] {
+  color: #a0a0a0 !important;
+}
+html.dark [style*="color: #a19f9d"],
+html.dark [style*="color:#a19f9d"] {
+  color: #808080 !important;
+}
+html.dark [style*="color: #8a8886"],
+html.dark [style*="color:#8a8886"] {
+  color: #909090 !important;
+}
+
+/* Border in inline styles */
+html.dark [style*="border-color: #edebe9"],
+html.dark [style*="border:#edebe9"] {
+  border-color: #3a3a3a !important;
+}
+
+/* ── Input / textarea / select ── */
+html.dark input,
+html.dark textarea,
+html.dark select {
+  background-color: #2d2d2d !important;
+  color: #e0e0e0 !important;
+  border-color: #444444 !important;
+}
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #808080 !important;
+}
+/* Keep search bar input special */
+html.dark input#search-input {
+  background-color: #1a3a5c !important;
+  color: #e0e0e0 !important;
+}
+html.dark input#search-input:focus {
+  background-color: #2d2d2d !important;
+}
+html.dark input#search-input::placeholder {
+  color: #808080 !important;
+}
+
+/* ── Dropdowns / modals / panels ── */
+html.dark .shadow-xl,
+html.dark .shadow-lg,
+html.dark .shadow-md {
+  box-shadow: 0 4px 24px rgba(0,0,0,0.5) !important;
+}
+
+/* ── Scrollbar ── */
+html.dark ::-webkit-scrollbar-track {
+  background: #1e1e1e;
+}
+html.dark ::-webkit-scrollbar-thumb {
+  background: #555;
+}
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: #666;
+}
+
+/* ── TipTap editor in dark mode ── */
+html.dark .tiptap {
+  color: #e0e0e0;
+}
+html.dark .tiptap p.is-editor-empty:first-child::before {
+  color: #666;
+}
+html.dark .tiptap th {
+  background: #2d2d2d;
+}
+html.dark .tiptap td,
+html.dark .tiptap th {
+  border-color: #444;
+}
+html.dark .tiptap td.selectedCell,
+html.dark .tiptap th.selectedCell {
+  background: #1a3a5c;
+}
+
+/* ── Login page — uses Tailwind utility classes ── */
+html.dark .bg-gradient-to-br {
+  background: #1a1a2e !important;
+}
+html.dark .text-slate-800 {
+  color: #e0e0e0 !important;
+}
+html.dark .text-slate-500,
+html.dark .text-slate-400 {
+  color: #a0a0a0 !important;
+}
+html.dark .text-slate-700 {
+  color: #c0c0c0 !important;
+}
+html.dark .border-slate-300 {
+  border-color: #444 !important;
+}
+html.dark .bg-red-50 {
+  background-color: #442020 !important;
+}
+html.dark .border-red-200 {
+  border-color: #6b2020 !important;
+}
+html.dark .text-red-700 {
+  color: #f1707b !important;
+}
+
+/* ── Divider lines (h-px bg-[#edebe9]) ── */
+html.dark .h-px.bg-\[\#edebe9\],
+html.dark div.bg-\[\#edebe9\] {
+  background-color: #3a3a3a !important;
+}
+
+/* ── Tailwind bg-blue-600 (login button) — keep as-is ── */
+
+/* ── Message HTML content (email body rendered HTML) ── */
+html.dark .message-body-html {
+  color: #e0e0e0;
+  background-color: transparent !important;
+}
+html.dark .message-body-html a {
+  color: #71afe5;
+}
+
+/* ── Admin area ── */
+html.dark .bg-gradient-to-r {
+  background: linear-gradient(to right, #1a2a3e, #1e3450) !important;
+}

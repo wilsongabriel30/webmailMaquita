@@ -1,0 +1,114 @@
+import React, { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useAuthStore } from './store/authStore';
+import { api } from './api/client';
+import { LoginPage } from './components/auth/LoginPage';
+import { AppLayout } from './components/layout/AppLayout';
+import { MailView } from './components/mail/MailView';
+import { SettingsView } from './components/settings/SettingsView';
+import { AdminLayout } from './components/admin/AdminLayout';
+import { Dashboard } from './components/admin/Dashboard';
+import { DomainsManager } from './components/admin/DomainsManager';
+import { MailboxManager } from './components/admin/MailboxManager';
+import { AliasManager } from './components/admin/AliasManager';
+import { QueueViewer } from './components/admin/QueueViewer';
+import { AuditLog } from './components/admin/AuditLog';
+import type { UserInfo } from './types';
+
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuthStore();
+  if (loading) return <Spinner />;
+  if (!user) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+}
+
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuthStore();
+  if (loading) return <Spinner />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (!user.is_admin) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
+
+function Spinner() {
+  return (
+    <div className="h-screen flex items-center justify-center bg-[#f3f2f1]">
+      <div className="animate-spin w-8 h-8 border-2 border-[#0078d4] border-t-transparent rounded-full" />
+    </div>
+  );
+}
+
+function PlaceholderPage({ title }: { title: string }) {
+  return (
+    <div className="flex-1 flex items-center justify-center bg-white text-[#a19f9d]">
+      <div className="text-center">
+        <p className="text-xl font-light mb-2">{title}</p>
+        <p className="text-sm">Proximamente</p>
+      </div>
+    </div>
+  );
+}
+
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: Error | null }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="h-screen flex items-center justify-center bg-[#f3f2f1]">
+          <div className="text-center max-w-md p-8 bg-white rounded-lg shadow-lg">
+            <svg className="w-12 h-12 mx-auto mb-4 text-[#d13438]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+            </svg>
+            <h2 className="text-lg font-semibold text-[#323130] mb-2">Algo salio mal</h2>
+            <p className="text-[13px] text-[#605e5c] mb-4">{this.state.error?.message || "Error inesperado"}</p>
+            <button onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-[#0078d4] text-white rounded text-[13px] font-medium hover:bg-[#106ebe]">
+              Recargar pagina
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+export default function App() {
+  const { setUser } = useAuthStore();
+
+  useEffect(() => {
+    api.get<UserInfo>('/auth/me', { skipAuth: true })
+      .then((user) => setUser(user))
+      .catch(() => setUser(null));
+  }, []);
+
+  return (
+    <ErrorBoundary>
+    <BrowserRouter basename="/webmail">
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+          <Route index element={<MailView />} />
+          <Route path="contacts" element={<PlaceholderPage title="Contactos" />} />
+          <Route path="calendar" element={<PlaceholderPage title="Calendario" />} />
+          <Route path="settings" element={<SettingsView />} />
+          <Route path="admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
+            <Route index element={<Dashboard />} />
+            <Route path="domains" element={<DomainsManager />} />
+            <Route path="mailboxes" element={<MailboxManager />} />
+            <Route path="aliases" element={<AliasManager />} />
+            <Route path="queue" element={<QueueViewer />} />
+            <Route path="audit" element={<AuditLog />} />
+          </Route>
+        </Route>
+      </Routes>
+    </BrowserRouter>
+    </ErrorBoundary>
+  );
+}

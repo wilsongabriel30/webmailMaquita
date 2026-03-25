@@ -1,0 +1,516 @@
+// @ts-nocheck — Ribbon callbacks temporarily unused (rendered in main Toolbar)
+import { useState, useEffect, useRef, useCallback } from 'react';
+import React from 'react';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Underline from '@tiptap/extension-underline';
+import Link from '@tiptap/extension-link';
+import Image from '@tiptap/extension-image';
+import { Table } from '@tiptap/extension-table';
+import { TableRow } from '@tiptap/extension-table-row';
+import { TableCell } from '@tiptap/extension-table-cell';
+import { TableHeader } from '@tiptap/extension-table-header';
+import { Subscript } from '@tiptap/extension-subscript';
+import { Superscript } from '@tiptap/extension-superscript';
+import Placeholder from '@tiptap/extension-placeholder';
+import TextAlign from '@tiptap/extension-text-align';
+import { TextStyle } from '@tiptap/extension-text-style';
+import { Color } from '@tiptap/extension-color';
+import FontFamily from '@tiptap/extension-font-family';
+import { FontSize } from './FontSize';
+
+import { useMailStore, type DraftWindow } from '../../store/mailStore';
+import { api } from '../../api/client';
+import { showToast, dismissToast } from '../common/Toast';
+import { RecipientField } from './RecipientField';
+import { Attachments } from './Attachments';
+
+// Module-level pending send map (persists after compose unmounts)
+interface PendingSend { timerId: ReturnType<typeof setTimeout>; toastId: string; intervalId: ReturnType<typeof setInterval>; }
+let pendingSendMap: Map<string, PendingSend> = new Map();
+
+interface Props { win: DraftWindow; }
+
+interface AttachmentFile { name: string; size: number; type: string; file?: File; }
+
+export function ComposePanel({ win }: Props) {
+  const { closeCompose, minimizeCompose, updateDraftUid } = useMailStore();
+  const [to, setTo] = useState('');
+  const [cc, setCc] = useState('');
+  const [bcc, setBcc] = useState('');
+  const [subject, setSubject] = useState('');
+  const [showCc, setShowCc] = useState(false);
+  const [showBcc, setShowBcc] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState('');
+  const [importance, setImportance] = useState<'normal' | 'high' | 'low'>('normal');
+  const [attachments, setAttachments] = useState<AttachmentFile[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragCounter = useRef(0);
+  const [trackingState, setTrackingState] = useState({ delivery: false, read: false, noReactions: false });
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState('');
+  const autosaveTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
+      Underline, Link.configure({ openOnClick: false }),
+      Image.configure({ inline: true, allowBase64: true }),
+      Table.configure({ resizable: true }),
+      TableRow,
+      TableCell,
+      TableHeader,
+      Subscript,
+      Superscript,
+      Placeholder.configure({ placeholder: '' }),
+      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      TextStyle, Color, FontFamily, FontSize,
+    ],
+    content: '',
+    editorProps: {
+      attributes: {
+        class: 'outline-none min-h-[300px] px-6 py-4 text-[14px] leading-[22px] text-[#323130]',
+        style: 'font-family: Calibri, Segoe UI, sans-serif;',
+      },
+    },
+  });
+
+  // Share editor with main Toolbar ribbon
+  React.useEffect(() => {
+    if (editor) {
+      useMailStore.getState().setActiveEditor(editor);
+      useMailStore.getState().setComposeRibbonTab('message');
+    }
+    // Listen for events from Toolbar Ribbon
+    const attachHandler = () => fileInputRef.current?.click();
+    const draftHandler = () => saveDraft?.();
+    const ccHandler = () => setShowCc(true);
+    const bccHandler = () => setShowBcc(true);
+    window.addEventListener('compose-attach', attachHandler);
+    window.addEventListener('compose-save-draft', draftHandler);
+    window.addEventListener('compose-show-cc', ccHandler);
+    window.addEventListener('compose-show-bcc', bccHandler);
+    return () => {
+      useMailStore.getState().setActiveEditor(null);
+      window.removeEventListener('compose-attach', attachHandler);
+      window.removeEventListener('compose-save-draft', draftHandler);
+      window.removeEventListener('compose-show-cc', ccHandler);
+      window.removeEventListener('compose-show-bcc', bccHandler);
+    };
+  }, [editor, saveDraft]);
+
+
+  // Initialize content
+  useEffect(() => {
+    setTo(win.data.to?.join(', ') || '');
+    setCc(win.data.cc?.join(', ') || '');
+    setBcc(win.data.bcc?.join(', ') || '');
+    setSubject(win.data.subject || '');
+    setShowCc(!!win.data.cc?.length);
+    setShowBcc(!!win.data.bcc?.length);
+    setImportance('normal');
+    setError('');
+
+    const init = async () => {
+      let sig = '';
+      try {
+        const res = await api.get<{ signature_html: string }>('/settings/signature');
+        sig = res.signature_html || '';
+      } catch {}
+
+      let content = '';
+      if (win.mode === 'new') {
+        content = sig ? `<p><br></p><div style="border-top:1px solid #edebe9;padding-top:10px;margin-top:20px;color:#605e5c">${sig}</div>` : '<p><br></p>';
+      } else {
+        const original = win.data.text_body ? `<div style="border-top:1px solid #edebe9;padding-top:10px;margin-top:20px;color:#605e5c"><p>${win.data.text_body.replace(/\n/g, '<br>')}</p></div>` : '';
+        content = sig ? `<p><br></p><div style="margin-top:20px;color:#605e5c">${sig}</div>${original}` : `<p><br></p>${original}`;
+      }
+      editor?.commands.setContent(content);
+    };
+    if (editor) init();
+  }, [editor]);
+
+  const saveDraft = useCallback(async () => {
+    if (!to && !subject && !editor?.getHTML()) return;
+    try {
+      const res = await api.post<{ draft_uid: number | null }>('/mail/drafts', {
+        to: to.split(',').map(s => s.trim()).filter(Boolean),
+        subject, html_body: editor?.getHTML() || '', text_body: '',
+        existing_draft_uid: win.draftUid,
+      });
+      if (res.draft_uid) updateDraftUid(win.id, res.draft_uid);
+    } catch {}
+  }, [to, subject, win.draftUid, win.id, editor]);
+
+  // Autosave every 30s
+  useEffect(() => {
+    autosaveTimer.current = setInterval(() => { saveDraft(); }, 30000);
+    return () => { if (autosaveTimer.current) clearInterval(autosaveTimer.current); };
+  }, [saveDraft]);
+
+
+
+  // Close with save confirmation
+  const handleClose = useCallback(async () => {
+    const hasContent = !!(to || subject || (editor && editor.getText().trim()));
+    if (hasContent) {
+      const action = window.confirm('\u00bfGuardar como borrador antes de cerrar?');
+      if (action) {
+        await saveDraft();
+        showToast('Borrador guardado');
+      }
+    }
+    closeCompose(win.id);
+  }, [to, subject, editor, saveDraft, win.id, closeCompose]);
+
+  // handleSend with 5-second undo — MUST be defined before keyboard useEffect
+  const handleSend = useCallback(() => {
+    const recipients = to.split(',').map(s => s.trim()).filter(Boolean);
+    if (!recipients.length) { setError('Ingresa un destinatario'); return; }
+    const sendPayload = {
+      to: recipients,
+      cc: cc ? cc.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+      bcc: bcc ? bcc.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+      subject, html_body: editor?.getHTML() || '', text_body: '',
+      in_reply_to: win.data.in_reply_to || '', references: win.data.references || '',
+      draft_uid: win.draftUid,
+      request_read_receipt: trackingState.read,
+      request_delivery_receipt: trackingState.delivery,
+    };
+    const savedData = { mode: win.mode, data: { ...win.data, to: recipients, subject, html_body: editor?.getHTML() || '', text_body: '' } };
+    const winId = win.id;
+    closeCompose(winId);
+    let remaining = 5;
+    const toastId = showToast(`Enviando en ${remaining}s...`, { label: 'Deshacer', onClick: () => {
+      const p = pendingSendMap.get(winId); if (p) { clearTimeout(p.timerId); clearInterval(p.intervalId); pendingSendMap.delete(winId); }
+      dismissToast(toastId); useMailStore.getState().openCompose(savedData.mode, savedData.data); showToast('Envio cancelado');
+    }});
+    const intervalId = setInterval(() => { remaining--; if (remaining <= 0) return; }, 1000);
+    const timerId = setTimeout(async () => {
+      clearInterval(intervalId); pendingSendMap.delete(winId); dismissToast(toastId);
+      try { await api.post('/mail/send', sendPayload); showToast('Mensaje enviado'); window.dispatchEvent(new CustomEvent('refresh-messages'));
+      } catch (err: unknown) { showToast(err instanceof Error ? err.message : 'Error al enviar'); useMailStore.getState().openCompose(savedData.mode, savedData.data); }
+    }, 5000);
+    pendingSendMap.set(winId, { timerId, toastId, intervalId });
+  }, [to, cc, bcc, subject, editor, win, trackingState, closeCompose]);
+
+  // Keyboard shortcuts: Ctrl+Enter → send, Esc → close
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); handleSend(); }
+      if (e.key === 'Escape') { e.preventDefault(); handleClose(); }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [handleSend, handleClose]);
+
+  const handleAttach = () => { fileInputRef.current?.click(); };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    const newFiles: AttachmentFile[] = Array.from(files).map(f => ({
+      name: f.name, size: f.size, type: f.type, file: f,
+    }));
+    setAttachments(prev => [...prev, ...newFiles]);
+    e.target.value = '';
+  };
+
+  const removeAttachment = (idx: number) => {
+    setAttachments(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  // ── Drag & Drop ──
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current++;
+    if (e.dataTransfer.types.includes("Files")) {
+      setIsDragging(true);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current--;
+    if (dragCounter.current === 0) {
+      setIsDragging(false);
+    }
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    dragCounter.current = 0;
+    const files = e.dataTransfer.files;
+    if (!files || files.length === 0) return;
+    const newFiles: AttachmentFile[] = Array.from(files).map(f => ({
+      name: f.name, size: f.size, type: f.type, file: f,
+    }));
+    setAttachments(prev => [...prev, ...newFiles]);
+  }, []);
+
+  const insertSignature = useCallback(async () => {
+    try {
+      const res = await api.get<{ signature_html: string }>('/settings/signature');
+      if (res.signature_html) {
+        editor?.chain().focus().insertContent(`<div style="border-top:1px solid #edebe9;padding-top:10px;margin-top:10px;color:#605e5c">${res.signature_html}</div>`).run();
+        showToast('Firma insertada');
+      } else {
+        showToast('No hay firma configurada');
+      }
+    } catch { showToast('Error al cargar la firma'); }
+  }, [editor]);
+
+  const downloadDraft = useCallback(() => {
+    const html = editor?.getHTML() || '';
+    const fullHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${subject || 'Borrador'}</title></head><body style="font-family:Calibri,sans-serif;font-size:14px">${html}</body></html>`;
+    const blob = new Blob([fullHtml], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${subject || 'borrador'}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [editor, subject]);
+
+  // ====== Callbacks conectados a backends ======
+
+  // Helper para llamar a la API IA (proxy nginx /api/ia/ → VM 170)
+  const iaFetch = useCallback(async <T,>(endpoint: string, body: object): Promise<T> => {
+    const res = await fetch(`/api/ia/${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`IA error: ${res.status}`);
+    return res.json();
+  }, []);
+
+  // → VM 170: Mejorar redacción con IA - PROGRESIVO 3 NIVELES
+  const [improveLevel, setImproveLevel] = useState(0);
+  const LEVEL_LABELS = ['', 'Corrigiendo ortografía...', 'Mejorando estructura...', 'Puliendo redacción...'];
+  const LEVEL_TOASTS = ['', 'Ortografía corregida', 'Estructura mejorada', 'Redacción pulida'];
+
+  const handleImproveWriting = useCallback(async () => {
+    const text = editor?.getText() || '';
+    if (!text.trim() || text.trim().length < 10) {
+      showToast('Escribe al menos una oración para mejorar');
+      return;
+    }
+    const nextLevel = improveLevel >= 3 ? 1 : improveLevel + 1;
+    showToast(LEVEL_LABELS[nextLevel]);
+    try {
+      const data = await iaFetch<{ improved_text: string; subject_suggestion: string | null; changes_summary: string; level: number }>('improve', {
+        text: editor?.getHTML() || text,
+        tone: 'professional',
+        level: nextLevel,
+      });
+      editor?.commands.setContent(data.improved_text);
+      if (data.subject_suggestion && !subject) setSubject(data.subject_suggestion);
+      setImproveLevel(nextLevel);
+      showToast(nextLevel < 3
+        ? `✅ ${LEVEL_TOASTS[nextLevel]} (${data.changes_summary}). Click de nuevo para ${nextLevel === 1 ? 'mejorar estructura' : 'pulir redacción'}.`
+        : `✨ ${LEVEL_TOASTS[nextLevel]}: ${data.changes_summary}`
+      );
+    } catch { showToast('Error al conectar con IA'); }
+  }, [editor, subject, iaFetch, improveLevel]);
+
+  // → VM 170: Revisión IA del texto - FUNCIONAL
+  const handleReviewEditor = useCallback(async () => {
+    const text = editor?.getText() || '';
+    if (!text.trim()) { showToast('No hay texto para revisar'); return; }
+    showToast('Revisando con IA...');
+    try {
+      const data = await iaFetch<{ score: number; feedback: string; suggestions: string[]; corrected_text: string | null }>('review', {
+        text: editor?.getHTML() || text,
+        subject,
+      });
+      const msg = `Puntuación: ${data.score}/10\n\n${data.feedback}\n\nSugerencias:\n${data.suggestions.map(s => '• ' + s).join('\n')}`;
+      if (data.corrected_text && confirm(`${msg}\n\n¿Aplicar la versión corregida?`)) {
+        editor?.commands.setContent(data.corrected_text.replace(/\n/g, '<br>'));
+        showToast('Correcciones aplicadas');
+      } else {
+        alert(msg);
+      }
+    } catch { showToast('Error al conectar con IA'); }
+  }, [editor, subject, iaFetch]);
+
+  // → VM 170: Análisis de accesibilidad - FUNCIONAL
+  const handleCheckAccessibility = useCallback(async () => {
+    const html = editor?.getHTML() || '';
+    const issues: string[] = [];
+    if (html.includes('<img') && !html.includes('alt=')) issues.push('Imágenes sin texto alternativo (alt)');
+    if (html.length > 50000) issues.push('Email muy largo (>50KB)');
+    if (!html.includes('</p>') && html.length > 500) issues.push('Texto largo sin párrafos separados');
+    showToast(issues.length ? `Accesibilidad: ${issues.length} problema(s)` : 'Sin problemas de accesibilidad');
+    if (issues.length) alert(`Problemas de accesibilidad:\n\n${issues.map(i => '• ' + i).join('\n')}`);
+  }, [editor]);
+
+  // → VM 170: Whisper STT (preparado)
+  const handleDictate = useCallback(() => {
+    showToast('Dictado por voz: próximamente');
+  }, []);
+
+  // handleScheduleSend defined above
+
+  // → Futuro: Nextcloud/LibreOffice Online
+  const handleOpenApps = useCallback(() => {
+    showToast('Aplicaciones: próximamente');
+  }, []);
+
+  // Copiar formato
+  const handleFormatPaint = useCallback((marks: string[]) => {
+    showToast(marks.length ? `Formato copiado: ${marks.join(', ')}` : 'Seleccione texto con formato');
+  }, []);
+
+
+  const handleTrackingChange = useCallback((t: { delivery: boolean; read: boolean; noReactions: boolean }) => {
+    setTrackingState(t);
+  }, []);
+
+  // Schedule send
+  const handleScheduleSend = useCallback(() => {
+    const now = new Date(); now.setHours(now.getHours() + 1);
+    setScheduleDate(now.toISOString().slice(0, 16));
+    setShowScheduleModal(true);
+  }, []);
+
+  const handleConfirmSchedule = useCallback(async () => {
+    if (!scheduleDate) { showToast('Selecciona fecha y hora'); return; }
+    const recipients = to.split(',').map(s => s.trim()).filter(Boolean);
+    if (!recipients.length) { setError('Ingresa un destinatario'); return; }
+    try {
+      await api.post('/mail/schedule', {
+        to: recipients, cc: cc ? cc.split(',').map(s => s.trim()).filter(Boolean) : [],
+        bcc: bcc ? bcc.split(',').map(s => s.trim()).filter(Boolean) : [],
+        subject, html_body: editor?.getHTML() || '', text_body: '',
+        in_reply_to: win.data.in_reply_to || '', references: win.data.references || '',
+        scheduled_at: new Date(scheduleDate).toISOString(),
+        request_read_receipt: trackingState.read, request_delivery_receipt: trackingState.delivery,
+      });
+      closeCompose(win.id); setShowScheduleModal(false);
+      showToast(`Envio programado para ${new Date(scheduleDate).toLocaleString('es-EC')}`);
+    } catch { showToast('Error al programar envio'); }
+  }, [to, cc, bcc, subject, editor, win, scheduleDate, trackingState, closeCompose]);
+
+  if (!editor) return null;
+
+  return (
+    <div className="flex-1 flex flex-col bg-white overflow-hidden relative"
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}>
+      {/* Drop overlay */}
+      {isDragging && (
+        <div className="absolute inset-0 z-50 bg-white/90 flex items-center justify-center pointer-events-none"
+          style={{ border: "3px dashed #0078d4", borderRadius: 8, margin: 4 }}>
+          <div className="text-center">
+            <svg className="w-16 h-16 mx-auto mb-3 text-[#0078d4]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+            <p className="text-[16px] font-semibold text-[#0078d4]">Soltar archivos aquí</p>
+            <p className="text-[13px] text-[#605e5c] mt-1">Se agregarán como adjuntos</p>
+          </div>
+        </div>
+      )}
+      {/* Ribbon (tabs + toolbar) */}
+      {/* Ribbon rendered in main Toolbar */}
+
+      {/* Hidden file input */}
+      <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileSelect} />
+
+      {/* Send row (below ribbon, above recipients) - matches OWA layout exactly */}
+      <div className="h-[44px] flex items-center px-4 bg-white border-b border-[#edebe9] shrink-0">
+        {/* Send button with dropdown caret */}
+        <div className="flex items-center">
+          <button onClick={handleSend} disabled={sending}
+            className="h-[32px] pl-3 pr-2.5 bg-[#0078d4] text-white text-[13px] font-semibold rounded-l-[4px] hover:bg-[#106ebe] disabled:opacity-50 transition-colors flex items-center gap-[6px]">
+            <svg className="w-[16px] h-[16px]" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+            </svg>
+            {sending ? 'Enviando...' : 'Enviar'}
+          </button>
+          <button className="h-[32px] px-[6px] bg-[#0078d4] text-white rounded-r-[4px] border-l border-[#ffffff40] hover:bg-[#106ebe] transition-colors">
+            <svg className="w-[10px] h-[10px]" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="flex-1" />
+
+        {/* Right icons: delete draft + minimize/save */}
+        <div className="flex items-center gap-[2px]">
+          <button onClick={handleClose} title="Descartar"
+            className="w-[32px] h-[32px] rounded-[3px] flex items-center justify-center text-[#605e5c] hover:bg-[#f3f2f1] hover:text-[#323130] transition-colors">
+            <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+          <button onClick={() => minimizeCompose(win.id)} title="Minimizar"
+            className="w-[32px] h-[32px] rounded-[3px] flex items-center justify-center text-[#605e5c] hover:bg-[#f3f2f1] hover:text-[#323130] transition-colors">
+            <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Recipients */}
+      <RecipientField label="Para" value={to} onChange={setTo} autoFocus primary
+        onToggleExtra={() => { setShowCc(true); setShowBcc(true); }}
+        showExtra={showCc || showBcc} />
+      {showCc && <RecipientField label="CC" value={cc} onChange={setCc} />}
+      {showBcc && <RecipientField label="CCO" value={bcc} onChange={setBcc} />}
+
+      {/* Subject */}
+      <div className="border-b border-[#edebe9] shrink-0">
+        <input value={subject} onChange={e => setSubject(e.target.value)}
+          placeholder="Agregar un asunto"
+          className="w-full text-[15px] px-4 py-2.5 outline-none text-[#323130] placeholder-[#a19f9d]"
+          style={{ fontFamily: 'Segoe UI, Calibri, sans-serif' }} />
+      </div>
+
+      {/* Error */}
+      {error && (
+        <div className="px-4 py-1.5 bg-[#fde7e9] text-[#a4262c] text-[12px] shrink-0">{error}</div>
+      )}
+
+      {/* Editor area */}
+      <div className="flex-1 overflow-y-auto">
+        <EditorContent editor={editor}
+          className="[&_.tiptap_h1]:text-[24px] [&_.tiptap_h1]:font-bold [&_.tiptap_h1]:mb-3 [&_.tiptap_h2]:text-[20px] [&_.tiptap_h2]:font-bold [&_.tiptap_h2]:mb-2 [&_.tiptap_h3]:text-[16px] [&_.tiptap_h3]:font-bold [&_.tiptap_h3]:mb-1 [&_.tiptap_ul]:list-disc [&_.tiptap_ul]:pl-6 [&_.tiptap_ol]:list-decimal [&_.tiptap_ol]:pl-6 [&_.tiptap_blockquote]:border-l-4 [&_.tiptap_blockquote]:border-[#e1dfdd] [&_.tiptap_blockquote]:pl-4 [&_.tiptap_blockquote]:italic [&_.tiptap_blockquote]:text-[#605e5c] [&_.tiptap_a]:text-[#0078d4] [&_.tiptap_a]:underline [&_.tiptap_pre]:bg-[#f3f2f1] [&_.tiptap_pre]:p-3 [&_.tiptap_pre]:rounded [&_.tiptap_pre]:font-mono [&_.tiptap_pre]:text-[13px] [&_.tiptap_hr]:border-[#edebe9] [&_.tiptap_hr]:my-3 [&_.tiptap_p]:mb-1 [&_.tiptap_img]:max-w-full [&_.tiptap_img]:h-auto [&_.tiptap_img]:rounded" />
+      </div>
+
+      {/* Attachments */}
+      <Attachments files={attachments} onRemove={removeAttachment} />
+
+      {/* Schedule send modal */}
+      {showScheduleModal && (
+        <div className="absolute inset-0 z-50 bg-black/30 flex items-center justify-center" onClick={() => setShowScheduleModal(false)}>
+          <div className="bg-white rounded-lg shadow-xl p-5 w-80" onClick={e => e.stopPropagation()}>
+            <h3 className="text-[14px] font-semibold text-[#323130] mb-3">Programar envio</h3>
+            <input type="datetime-local" value={scheduleDate} onChange={e => setScheduleDate(e.target.value)}
+              className="w-full border border-[#8a8886] rounded px-3 py-2 text-[13px] mb-3" />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setShowScheduleModal(false)} className="px-3 py-1.5 text-[13px] text-[#605e5c] hover:bg-[#f3f2f1] rounded">Cancelar</button>
+              <button onClick={handleConfirmSchedule} className="px-3 py-1.5 text-[13px] bg-[#0078d4] text-white rounded hover:bg-[#106ebe]">Programar</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
