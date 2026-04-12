@@ -33,7 +33,8 @@ class Settings(BaseSettings):
     master_password: str = ""
     admin_jwt_secret: str = ""
     ia_api_key: str = ""
-    ollama_url: str = "http://10.16.0.170:8000"
+    ollama_url: str = "http://127.0.0.1:11434"
+    onlyoffice_url: str = "http://127.0.0.1:8080"
     # Security logging
     security_log_path: str = "/var/log/webmail/security.log"
 

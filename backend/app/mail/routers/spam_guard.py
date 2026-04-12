@@ -26,7 +26,8 @@ from app.core.session import get_imap_login_user
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/mail", tags=["spam"])
 
-IA_URL = "http://10.16.0.170:8000/api/v1/email-assistant/classify/batch"
+from app.config import get_settings as _gs
+IA_URL = f"{_gs().ollama_url}/api/v1/email-assistant/classify/batch"
 IA_TIMEOUT = 60.0
 IA_HEADERS = {"X-API-Key": get_settings().ia_api_key}  # Securizado Fase 3
 

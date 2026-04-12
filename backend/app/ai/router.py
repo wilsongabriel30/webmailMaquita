@@ -22,7 +22,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
 # --- Configuracion del servidor IA (VM 170) ---
-IA_BASE_URL = "http://10.16.0.170:8000"
+from app.config import get_settings as _gs
+IA_BASE_URL = _gs().ollama_url
 IA_GENERATE_URL = f"{IA_BASE_URL}/api/v1/ia/generate"
 IA_HEADERS = {"X-API-Key": get_settings().ia_api_key, "Content-Type": "application/json"}  # Securizado Fase 3
 IA_TIMEOUT = 45.0
