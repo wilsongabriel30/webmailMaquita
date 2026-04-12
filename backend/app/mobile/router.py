@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from typing import Optional
 
 from app.auth.dependencies import get_current_user
+from app.config import get_settings
 
 logger = logging.getLogger("mobile")
 
@@ -24,13 +25,14 @@ class DeviceRegister(BaseModel):
 @router.get("/config")
 async def mobile_config(request: Request):
     """Return server configuration for mobile apps."""
+    s = get_settings()
     return {
-        "imap": {"host": "mail.example.org", "port": 993, "ssl": True},
-        "smtp": {"host": "mail.example.org", "port": 465, "ssl": True},
-        "caldav": {"url": "https://mail.example.org/radicale/"},
-        "carddav": {"url": "https://mail.example.org/radicale/"},
-        "activesync": {"url": "https://mail.example.org/Microsoft-Server-ActiveSync"},
-        "webmail": {"url": "https://mail.example.org"},
+        "imap": {"host": s.cookie_domain, "port": 993, "ssl": True},
+        "smtp": {"host": s.cookie_domain, "port": 465, "ssl": True},
+        "caldav": {"url": f"https://{s.cookie_domain}/radicale/"},
+        "carddav": {"url": f"https://{s.cookie_domain}/radicale/"},
+        "activesync": {"url": f"https://{s.cookie_domain}/Microsoft-Server-ActiveSync"},
+        "webmail": {"url": f"https://{s.cookie_domain}"},
         "api_version": "1.0",
         "features": [
             "smart-reply", "priority-inbox", "calendar",

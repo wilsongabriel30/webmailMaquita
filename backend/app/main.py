@@ -221,7 +221,7 @@ class StripCredentialsMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         response = await call_next(request)
         origin = request.headers.get("origin", "")
-        if origin and "mail.example.org" not in origin:
+        if origin and settings.cookie_domain not in origin:
             if "access-control-allow-credentials" in response.headers:
                 del response.headers["access-control-allow-credentials"]
         return response

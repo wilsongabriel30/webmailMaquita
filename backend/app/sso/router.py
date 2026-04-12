@@ -15,12 +15,14 @@ from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user, require_admin
 from app.auth.jwt import create_access_token, create_refresh_token, hash_refresh_token
+from app.config import get_settings
 
 router = APIRouter(prefix="/api/sso", tags=["sso"])
 
-SP_ENTITY_ID = "https://mail.example.org/api/sso/saml/metadata"
-SP_ACS_URL = "https://mail.example.org/api/sso/saml/acs"
-SP_SLO_URL = "https://mail.example.org/api/sso/saml/logout"
+_s = get_settings()
+SP_ENTITY_ID = f"https://{_s.cookie_domain}/api/sso/saml/metadata"
+SP_ACS_URL = f"https://{_s.cookie_domain}/api/sso/saml/acs"
+SP_SLO_URL = f"https://{_s.cookie_domain}/api/sso/saml/logout"
 
 
 def _db(request: Request):
@@ -173,7 +175,7 @@ async def saml_acs(request: Request):
     await redis.setex(f"sso_session:{email}", 86400, "saml")
 
     # Redirect to frontend with cookies
-    response = RedirectResponse(url="https://mail.example.org/", status_code=302)
+    response = RedirectResponse(url=f"https://{settings.cookie_domain}/", status_code=302)
     response.set_cookie(
         "access_token", access_token,
         httponly=True, secure=True, samesite="lax",

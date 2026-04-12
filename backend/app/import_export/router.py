@@ -15,6 +15,7 @@ from fastapi import APIRouter, Request, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
+from app.config import get_settings
 
 logger = logging.getLogger("import_export")
 
@@ -163,7 +164,8 @@ async def _import_emails_task(db, user_email: str, job_id: str, username: str, m
                 if line[3] == " ":
                     break
 
-            await _send(f"MAIL FROM:<import@maquita.org>")
+            _ie_settings = get_settings()
+            await _send(f"MAIL FROM:<import@{_ie_settings.mail_domain}>")
             await _send(f"RCPT TO:<{username}>")
             resp = await _send("DATA")
             if not resp.startswith("354"):

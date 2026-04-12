@@ -6,6 +6,7 @@ from app.mail.clients.imap_client import (
 from app.mail.parsers.mime_parser import parse_headers, parse_full_message
 from app.mail.parsers.html_sanitizer import sanitize_html
 from app.mail.rendering.policy import apply_render_policy
+from app.config import get_settings
 
 
 async def list_messages(
@@ -79,7 +80,8 @@ async def get_message(
     )
 
     # Auto-allow images from trusted Maquita domains
-    _TRUSTED_DOMAINS = {"maquita.com.ec", "maquitaturismo.com", "maquita.org"}
+    _settings = get_settings()
+    _TRUSTED_DOMAINS = {"maquita.com.ec", "maquitaturismo.com", _settings.mail_domain}
     sender = normalized.from_addr or ""
     sender_match = re.search(r"@([\w.-]+)", sender)
     if sender_match and sender_match.group(1).lower() in _TRUSTED_DOMAINS:

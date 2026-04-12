@@ -5,11 +5,12 @@ import uuid
 from datetime import datetime, timezone
 
 from icalendar import Calendar, Event, vDatetime
+from app.config import get_settings
 
 
 def generate_uid() -> str:
     """Generate a unique iCal UID."""
-    return f"{uuid.uuid4()}@maquita.org"
+    return f"{uuid.uuid4()}@{get_settings().mail_domain}"
 
 
 def build_vcalendar(event_data: dict) -> str:

@@ -17,6 +17,9 @@ from pydantic import BaseModel
 from app.auth.dependencies import get_current_user
 from app.core.session import get_user_password, get_imap_login_user
 from app.mail.clients.imap_client import get_imap_connection, fetch_attachment
+from app.config import get_settings
+
+settings = get_settings()
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +94,7 @@ async def office_preview(
         algorithm="HS256",
     )
 
-    download_url = f"https://mail.example.org/api/mail/oo-download?token={dl_token}"
+    download_url = f"https://{settings.cookie_domain}/api/mail/oo-download?token={dl_token}"
     # Key must be alphanumeric — OnlyOffice rejects keys with @ or special chars
     key_hash = hashlib.md5(f"{username}_{body.folder}_{body.uid}_{body.part_number}".encode()).hexdigest()[:16]
     doc_key = f"pv_{key_hash}_{int(time.time())}"

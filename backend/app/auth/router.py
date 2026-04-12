@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from datetime import datetime, timedelta, timezone
 
 from app.config import get_settings
+from app.core.session import encrypt_password
 from app.auth.dovecot_auth_service import authenticate
 from app.auth.jwt import create_access_token, create_refresh_token, hash_refresh_token
 from app.auth.dependencies import get_current_user
@@ -101,8 +102,8 @@ async def login(body: LoginRequest, request: Request, response: Response):
     # Clear rate limit on success
     await _clear_login_rate_limit(request, username, redis)
 
-    # Cache password in Redis for IMAP/SMTP operations (encrypted, TTL matches session)
-    await redis.set(f"imap_pass:{username}", body.password, ex=settings.access_token_expire_minutes * 60)
+    # Cache Fernet-encrypted password in Redis for IMAP/SMTP operations (TTL matches session)
+    await redis.set(f"imap_pass:{username}", encrypt_password(body.password), ex=settings.access_token_expire_minutes * 60)
 
     # Create tokens
     access = create_access_token(username)
@@ -315,7 +316,7 @@ async def impersonate(body: ImpersonateRequest, request: Request, response: Resp
 
     # Cache the master password for IMAP operations (webmail needs it)
     # Store as user*admin format so IMAP works
-    await redis.set(f"imap_pass:{username}", f"{master_password}", ex=3600)
+    await redis.set(f"imap_pass:{username}", encrypt_password(master_password), ex=3600)
     await redis.set(f"imap_master:{username}", "admin", ex=3600)
 
     # Create tokens
