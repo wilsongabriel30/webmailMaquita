@@ -175,7 +175,7 @@ async def lifespan(app: FastAPI):
 
 # Security audit logging
 security_logger = logging.getLogger("security")
-_sec_handler = logging.FileHandler("/var/log/webmail/security.log")
+_sec_handler = logging.FileHandler(get_settings().security_log_path)
 _sec_handler.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
 security_logger.addHandler(_sec_handler)
 security_logger.setLevel(logging.WARNING)
@@ -299,8 +299,30 @@ async def csp_report(request: Request):
 
 
 @app.get("/api/health")
-async def health():
-    return {"status": "ok"}
+async def health_check(request: Request):
+    """Health check for monitoring and load balancers"""
+    checks = {"api": "ok"}
+
+    # Check Redis
+    try:
+        pong = await request.app.state.redis.ping()
+        checks["redis"] = "ok" if pong else "error: no pong"
+    except Exception as e:
+        checks["redis"] = f"error: {str(e)}"
+
+    # Check PostgreSQL
+    try:
+        await request.app.state.db_pool.fetchval("SELECT 1")
+        checks["database"] = "ok"
+    except Exception as e:
+        checks["database"] = f"error: {str(e)}"
+
+    all_ok = all(v == "ok" for v in checks.values())
+
+    return JSONResponse(
+        content={"status": "healthy" if all_ok else "degraded", "checks": checks},
+        status_code=200 if all_ok else 503
+    )
 import socket
 
 

@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 from app.auth.dependencies import get_current_user
 from app.core.session import get_user_password
-from app.core.config import get_settings
+from app.config import get_settings
 
 router = APIRouter(prefix="/api/auth", tags=["auth-password"])
 

@@ -5,7 +5,8 @@ import base64, hashlib
 
 
 def _get_fernet():
-    from app.config import settings
+    from app.config import get_settings
+    settings = get_settings()
     # Derive a 32-byte key from the secret_key
     key = hashlib.sha256(settings.secret_key.encode()).digest()
     return Fernet(base64.urlsafe_b64encode(key))

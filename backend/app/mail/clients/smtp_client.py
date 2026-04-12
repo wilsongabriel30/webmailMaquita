@@ -11,7 +11,7 @@ from email import encoders
 from email.utils import formatdate, make_msgid
 from dataclasses import dataclass, field
 
-from app.core.config import get_settings
+from app.config import get_settings
 
 
 @dataclass

@@ -241,7 +241,7 @@ async def _get_password_from_redis(username: str) -> Optional[str]:
     """Try to get cached password from Redis."""
     try:
         import redis.asyncio as aioredis
-        from app.core.config import get_settings
+        from app.config import get_settings
         settings = get_settings()
         r = aioredis.from_url(f"redis://{settings.redis_host}:{settings.redis_port}")
         pwd = await r.get(f"user_password:{username}")

@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     admin_jwt_secret: str = ""
     ia_api_key: str = ""
     ollama_url: str = "http://10.16.0.170:8000"
+    # Security logging
+    security_log_path: str = "/var/log/webmail/security.log"
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 

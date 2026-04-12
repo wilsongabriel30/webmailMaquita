@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from typing import Optional
 
 from app.auth.dependencies import get_current_user
-from app.core.config import get_settings
+from app.config import get_settings
 
 router = APIRouter(prefix="/api/mail", tags=["mail-recall"])
 

@@ -6,7 +6,7 @@ No business logic: the service layer orchestrates with parsers.
 import aioimaplib
 import re
 
-from app.core.config import get_settings
+from app.config import get_settings
 
 
 def _quote_folder(name: str) -> str:
