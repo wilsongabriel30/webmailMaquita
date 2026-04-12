@@ -129,7 +129,7 @@ export function DomainsManager() {
               <th className="pb-3 font-medium">Dominio</th>
               <th className="pb-3 font-medium">Descripción</th>
               <th className="pb-3 font-medium text-center">Buzones</th>
-              <th className="pb-3 font-medium text-center">Aliases</th>
+              <th className="pb-3 font-medium text-center">Alias</th>
               <th className="pb-3 font-medium text-center">Estado</th>
               <th className="pb-3 font-medium text-right">Acciones</th>
             </tr>

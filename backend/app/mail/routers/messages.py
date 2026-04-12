@@ -3,7 +3,7 @@ from fastapi import APIRouter, Request, Depends
 from fastapi.responses import Response
 
 from app.auth.dependencies import get_current_user
-from app.core.session import get_user_password
+from app.core.session import get_user_password, get_imap_login_user
 from app.mail.clients.imap_client import (
     get_imap_connection, uid_move_message, uid_set_flags,
     uid_delete_message, uid_bulk_action, fetch_raw_message,
@@ -11,12 +11,23 @@ from app.mail.clients.imap_client import (
 from app.mail.services.message_service import list_messages, get_message
 from app.mail.schemas.messages import MoveRequest, FlagRequest, BulkActionRequest
 
+import re as _re
+
+def _validate_folder(folder: str) -> str:
+    """Validate IMAP folder name: allow letters, digits, spaces, dots, hyphens, underscores, slashes."""
+    if not _re.match(r'^[\w\s.\-/]+$', folder, _re.UNICODE) or len(folder) > 200:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Nombre de carpeta inválido")
+    return folder
+
+
 router = APIRouter(prefix="/api/mail", tags=["mail-messages"])
 
 
 async def _get_imap(request: Request, username: str):
     password = await get_user_password(request, username)
-    return await get_imap_connection(username, password)
+    login_user = await get_imap_login_user(request, username)
+    return await get_imap_connection(login_user, password)
 
 
 @router.get("/messages/{folder}")
@@ -24,15 +35,20 @@ async def get_messages(
     folder: str,
     request: Request,
     page: int = 1,
-    per_page: int = 50,
+    per_page: int = 25,
     search: str = "",
     username: str = Depends(get_current_user),
 ):
+    _validate_folder(folder)
     if per_page > 100:
         per_page = 100
     imap = await _get_imap(request, username)
     try:
-        return await list_messages(imap, folder, page, per_page, search)
+        result = await list_messages(imap, folder, page, per_page, search)
+        if result is None:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404, detail=f"Folder '{folder}' not found")
+        return result
     finally:
         try:
             await imap.logout()
@@ -48,6 +64,7 @@ async def read_message(
     load_images: bool = False,
     username: str = Depends(get_current_user),
 ):
+    _validate_folder(folder)
     imap = await _get_imap(request, username)
     try:
         msg = await get_message(imap, folder, uid, block_remote_images=not load_images)
@@ -118,12 +135,14 @@ async def move(
     request: Request,
     username: str = Depends(get_current_user),
 ):
+    _validate_folder(folder)
+    _validate_folder(body.dest_folder)
     imap = await _get_imap(request, username)
     try:
         ok = await uid_move_message(imap, folder, uid, body.dest_folder)
         if not ok:
             from fastapi import HTTPException
-            raise HTTPException(status_code=400, detail="Failed to move message")
+            raise HTTPException(status_code=404, detail="Message not found or destination folder invalid")
         return {"status": "moved"}
     finally:
         try:
@@ -161,12 +180,13 @@ async def remove_message(
     request: Request,
     username: str = Depends(get_current_user),
 ):
+    _validate_folder(folder)
     imap = await _get_imap(request, username)
     try:
         ok = await uid_delete_message(imap, folder, uid)
         if not ok:
             from fastapi import HTTPException
-            raise HTTPException(status_code=400, detail="Failed to delete message")
+            raise HTTPException(status_code=404, detail="Message not found or could not be deleted")
         return {"status": "deleted"}
     finally:
         try:
@@ -182,6 +202,7 @@ async def bulk_action(
     request: Request,
     username: str = Depends(get_current_user),
 ):
+    _validate_folder(folder)
     imap = await _get_imap(request, username)
     try:
         ok = await uid_bulk_action(imap, folder, body.uids, body.action, body.dest_folder)

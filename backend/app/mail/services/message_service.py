@@ -1,4 +1,5 @@
 """Message service — list and read messages with parsing."""
+import re
 from app.mail.clients.imap_client import (
     list_message_uids, fetch_message_headers, fetch_full_message,
 )
@@ -16,6 +17,10 @@ async def list_messages(
 ) -> dict:
     """List messages with snippets, newest first."""
     uid_result = await list_message_uids(imap, folder, page, per_page, search_query)
+
+    # If folder select failed, uid_result will have folder_error flag
+    if uid_result.get("folder_error"):
+        return None  # Signal to router that folder does not exist
 
     if not uid_result["uids"]:
         return {
@@ -72,6 +77,13 @@ async def get_message(
         uid=raw["uid"],
         flags=raw["flags"],
     )
+
+    # Auto-allow images from trusted Maquita domains
+    _TRUSTED_DOMAINS = {"maquita.com.ec", "maquitaturismo.com", "maquita.org"}
+    sender = normalized.from_addr or ""
+    sender_match = re.search(r"@([\w.-]+)", sender)
+    if sender_match and sender_match.group(1).lower() in _TRUSTED_DOMAINS:
+        block_remote_images = False
 
     # Sanitize HTML
     safe_html = ""

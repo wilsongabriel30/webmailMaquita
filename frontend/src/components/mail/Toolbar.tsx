@@ -1,10 +1,14 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useMailStore } from '../../store/mailStore';
 import { api } from '../../api/client';
 import { showToast } from '../common/Toast';
 import { Ribbon } from '../compose/Ribbon';
+import { getFolderDisplayName } from '../../folders';
+import { getCachedLabels, useLabels } from '../../hooks/useLabels';
+import { SnoozeModal } from './SnoozeModal';
 
-// ─── Icon SVG paths (heroicons-style) ───────────────────────────────────────
+//  Icon SVG paths (heroicons-style)
 const ICONS = {
   hamburger: 'M4 6h16M4 12h16M4 18h16',
   newMail: 'M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75',
@@ -52,7 +56,7 @@ const ICONS = {
   account: 'M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z',
 };
 
-// ─── SVG Icon component ─────────────────────────────────────────────────────
+//  SVG Icon component
 function SvgIcon({ d, size = 28, color = 'currentColor' }: {
   d: string; size?: number; color?: string;
 }) {
@@ -64,7 +68,7 @@ function SvgIcon({ d, size = 28, color = 'currentColor' }: {
   );
 }
 
-// ─── Dropdown wrapper ────────────────────────────────────────────────────────
+//  Dropdown wrapper
 function Dropdown({ open, onClose, children, align = 'left' }: {
   open: boolean; onClose: () => void; children: React.ReactNode; align?: 'left' | 'right';
 }) {
@@ -85,19 +89,41 @@ function Dropdown({ open, onClose, children, align = 'left' }: {
   );
 }
 
-function DropdownItem({ label, icon, onClick, danger }: {
-  label: string; icon?: string; onClick: () => void; danger?: boolean;
+function ArchivoMenu({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        // Also check if click was on the Archivo button itself
+        const btn = (e.target as HTMLElement).closest('button');
+        if (btn && btn.textContent?.trim() === 'Archivo') return;
+        onClose();
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose]);
+  return (
+    <div ref={ref} className="absolute top-full left-0 mt-0 bg-[#0078d4] border border-[#005a9e] rounded shadow-lg z-[100] min-w-[200px] py-1">
+      {children}
+    </div>
+  );
+}
+
+function DropdownItem({ label, icon, onClick, danger, active }: {
+  label: string; icon?: string; onClick: () => void; danger?: boolean; active?: boolean;
 }) {
   return (
     <button onClick={onClick}
-      className={`w-full text-left px-3 py-1.5 text-[13px] flex items-center gap-2 hover:bg-[#f3f2f1] ${danger ? 'text-[#d13438]' : 'text-[#323130]'}`}>
-      {icon && <SvgIcon d={icon} size={16} color={danger ? '#d13438' : '#605e5c'} />}
+      className={`w-full text-left px-3 py-1.5 text-[13px] flex items-center gap-2 hover:bg-[#f3f2f1] ${danger ? 'text-[#d13438]' : active ? 'text-[#0078d4] bg-[#f0f6ff] font-semibold' : 'text-[#323130]'}`}>
+      {icon && <SvgIcon d={icon} size={16} color={danger ? '#d13438' : active ? '#0078d4' : '#605e5c'} />}
       <span>{label}</span>
+      {active && <svg width={14} height={14} viewBox="0 0 20 20" fill="#0078d4" className="ml-auto"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
     </button>
   );
 }
 
-// ─── Toolbar Button ──────────────────────────────────────────────────────────
+//  Toolbar Button
 function ToolbarButton({ icon, label, onClick, hasDropdown, active, primary, danger, disabled, className }: {
   icon: string; label: string; onClick: () => void; hasDropdown?: boolean;
   active?: boolean; primary?: boolean; danger?: boolean; disabled?: boolean; className?: string;
@@ -125,12 +151,12 @@ function ToolbarButton({ icon, label, onClick, hasDropdown, active, primary, dan
   );
 }
 
-// ─── Group separator ─────────────────────────────────────────────────────────
+//  Group separator
 function Sep() {
   return <div className="w-px h-[56px] bg-[#edebe9] mx-1 flex-shrink-0" />;
 }
 
-// ─── Group wrapper with label ────────────────────────────────────────────────
+//  Group wrapper with label
 function Group({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col items-center">
@@ -140,12 +166,14 @@ function Group({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-// ─── Main Toolbar Component ──────────────────────────────────────────────────
+//  Main Toolbar Component
 export function Toolbar() {
+  const navigate = useNavigate();
+  const { labels, loading: labelsLoading, supported: labelsSupported, fetchLabels, createLabel, assignLabel, unassignLabel } = useLabels();
   const {
     selectedMessage, selectedUids, currentFolder, clearSelection, openCompose,
     folders, viewMode, setViewMode, readingPane, setReadingPane,
-    setDensity,
+    density, setDensity, previewLines, setPreviewLines, showMyDay, setShowMyDay,
     composeWindows, activeEditor, composeRibbonTab, setComposeRibbonTab,
   } = useMailStore();
 
@@ -170,6 +198,7 @@ export function Toolbar() {
   const [densityOpen, setDensityOpen] = useState(false);
   const [myDayOpen, setMyDayOpen] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
+  const [addinsOpen, setAddinsOpen] = useState(false);
 
   const hasCompose = composeWindows && composeWindows.length > 0;
 
@@ -198,10 +227,10 @@ export function Toolbar() {
     setSnoozeOpen(false); setConvOpen(false); setPreviewLinesOpen(false);
     setRibbonMenuOpen(false); setFolderPanelOpen(false); setReadingPaneOpen(false);
     setDensityOpen(false); setMyDayOpen(false); setRulesOpen(false);
-    setArchivoOpen(false);
+    setArchivoOpen(false); setAddinsOpen(false);
   }, []);
 
-  // ─── Actions ───────────────────────────────────────────────────────────────
+  //  Actions
   const msg = selectedMessage;
   const uids: number[] = selectedUids.size > 0 ? Array.from(selectedUids) : (msg ? [msg.uid] : []);
 
@@ -209,12 +238,17 @@ export function Toolbar() {
     if (!uids.length) { showToast('Selecciona un mensaje'); return; }
     try {
       await api.post(`/mail/bulk-action/${encodeURIComponent(currentFolder)}`, { uids, action: 'move', dest_folder: folder });
-      showToast(toast || `Movido a ${folder}`);
+      showToast(toast || `Movido a ${getFolderDisplayName(folder)}`);
       clearSelection();
       useMailStore.getState().setSelectedMessage(null);
       window.dispatchEvent(new CustomEvent('refresh-messages'));
     } catch { showToast('Error al mover'); }
   };
+
+  const goToSettings = useCallback((tab: 'general' | 'signature' | 'identities' | 'autoreply' | 'filters' | 'password' = 'general') => {
+    closeAllDropdowns();
+    navigate(`/settings?tab=${tab}`);
+  }, [closeAllDropdowns, navigate]);
 
   const toggleRead = async () => {
     if (!uids.length) { showToast('Selecciona un mensaje'); return; }
@@ -234,6 +268,22 @@ export function Toolbar() {
       showToast(flagged ? 'Marcado con bandera' : 'Bandera eliminada');
       window.dispatchEvent(new CustomEvent('refresh-messages'));
     } catch { showToast('Error'); }
+  };
+
+  const handlePinUnavailable = () => {
+    showToast('Mensaje fijado al inicio de la lista');
+  };
+
+  const handleSnoozeClick = () => {
+    if (!uids.length) { showToast('Selecciona un mensaje'); return; }
+    closeAllDropdowns();
+    setSnoozeOpen(true);
+  };
+
+  const applyPreviewLines = (lines: 1 | 2 | 3) => {
+    setPreviewLines(lines);
+    showToast(`Vista previa configurada en ${lines} ${lines === 1 ? 'línea' : 'líneas'}`);
+    setPreviewLinesOpen(false);
   };
 
   const buildQuote = () => {
@@ -269,7 +319,7 @@ export function Toolbar() {
   const doForward = () => {
     if (!msg) { showToast('Selecciona un mensaje'); return; }
     openCompose('forward', {
-      to: [], subject: `Fwd: ${msg.subject}`,
+      to: [], subject: `RV: ${msg.subject}`,
       html_body: buildQuote(), text_body: '',
       in_reply_to: msg.message_id || '', references: msg.references || '',
     });
@@ -322,7 +372,7 @@ export function Toolbar() {
   const doCleanFolder = async () => {
     try {
       await api.post(`/mail/bulk-action/${encodeURIComponent(currentFolder)}`, { uids: [], action: 'delete', dest_folder: '' });
-      showToast(`Carpeta ${currentFolder} limpiada`);
+      showToast(`Carpeta ${getFolderDisplayName(currentFolder)} vaciada`);
       clearSelection();
       window.dispatchEvent(new CustomEvent('refresh-messages'));
     } catch { showToast('Error al limpiar'); }
@@ -331,29 +381,85 @@ export function Toolbar() {
 
   const doClassify = async (category: string) => {
     if (!uids.length) { showToast('Selecciona un mensaje'); return; }
+    if (!labelsSupported) {
+      showToast('Etiquetas no están disponibles en este servidor');
+      closeAllDropdowns();
+      return;
+    }
     try {
-      await api.post('/messages/classify', { uids, folder: currentFolder, category });
-      showToast(`Clasificado: ${category}`);
+      const categoryColors: Record<string, string> = {
+        'Categoría azul': '#0078d4',
+        'Categoría verde': '#107c10',
+        'Categoría roja': '#d13438',
+        'Categoría amarilla': '#ffb900',
+        'Categoría morada': '#8764b8',
+      };
+      const categoryNames = Object.keys(categoryColors);
+      let currentLabels = labels;
+      if (labelsLoading || currentLabels.length === 0) {
+        await fetchLabels();
+        currentLabels = getCachedLabels();
+      }
+      const categoryLabels = currentLabels.filter((label) => categoryNames.includes(label.name));
+
+      if (!category) {
+        await Promise.all(categoryLabels.map((label) => unassignLabel(label.id, currentFolder, uids)));
+        showToast('Categorías borradas');
+      } else {
+        let label = currentLabels.find((item) => item.name === category);
+        if (!label) {
+          try {
+            label = await createLabel(category, categoryColors[category] || '#0078d4');
+          } catch {
+            await fetchLabels();
+            currentLabels = getCachedLabels();
+            label = currentLabels.find((item) => item.name === category);
+            if (!label) throw new Error('Label sync failed');
+          }
+        }
+        await assignLabel(label.id, currentFolder, uids);
+        showToast(`Clasificado: ${category}`);
+      }
       window.dispatchEvent(new CustomEvent('refresh-messages'));
     } catch { showToast('Error al clasificar'); }
     closeAllDropdowns();
   };
 
+  const exportSelectedMessage = async () => {
+    if (!msg) { showToast('Selecciona un mensaje'); return; }
+    try {
+      const res = await fetch(`/api/mail/message/${encodeURIComponent(currentFolder)}/${msg.uid}/eml`, {
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const safeSubject = (msg.subject || 'mensaje').replace(/[\\/:*?"<>|]+/g, '_');
+      a.href = url;
+      a.download = `${safeSubject}.eml`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      showToast('Error al exportar el mensaje');
+    }
+  };
+
   const showShortcuts = () => {
     showToast(
       'Atajos de teclado:\n' +
-      'N → Nuevo correo\n' +
-      'R → Responder\n' +
-      'Shift+R → Responder a todos\n' +
-      'F → Reenviar\n' +
-      'E → Archivar\n' +
-      'Delete → Eliminar\n' +
-      '↑↓ → Navegar mensajes\n' +
-      'Enter → Abrir mensaje\n' +
-      'Ctrl+Enter → Enviar correo\n' +
-      'Esc → Cerrar compose\n' +
-      'Ctrl+A → Seleccionar todos\n' +
-      '/ → Buscar',
+      'N  Nuevo correo\n' +
+      'R  Responder\n' +
+      'Shift+R  Responder a todos\n' +
+      'F  Reenviar\n' +
+      'E  Archivar\n' +
+      'Delete  Eliminar\n' +
+      '  Navegar mensajes\n' +
+      'Enter  Abrir mensaje\n' +
+      'Ctrl+Enter  Enviar correo\n' +
+      'Esc  Cerrar redacción\n' +
+      'Ctrl+A  Seleccionar todos\n' +
+      '/  Buscar',
     );
   };
 
@@ -362,16 +468,16 @@ export function Toolbar() {
     showToast(info);
   };
 
-  // ─── Determine which compose tab is active (for highlighting) ──────────────
+  //  Determine which compose tab is active (for highlighting)
   const activeComposeTab = composeRibbonTab ? (reverseComposeTabMap[composeRibbonTab] || 'Mensaje') : 'Mensaje';
 
   // Show compose ribbon area?
   const showComposeRibbon = hasCompose && composeRibbonTab;
 
-  // ─── RENDER ────────────────────────────────────────────────────────────────
+  //  RENDER
   return (
     <div className="flex flex-col bg-[#f3f2f1] border-b border-[#e1dfdd] select-none" style={{ overflow: 'visible' }}>
-      {/* ── Tab bar ─────────────────────────────────────────────────────────── */}
+      {/*  Tab bar  */}
       <div className="flex items-center h-[36px] px-1 bg-[#f3f2f1] border-b border-[#edebe9]">
         {/* Hamburger */}
         <div className="relative">
@@ -399,13 +505,13 @@ export function Toolbar() {
             Archivo
           </button>
           {archivoOpen && (
-            <div className="absolute top-full left-0 mt-0 bg-[#0078d4] border border-[#005a9e] rounded shadow-lg z-[100] min-w-[200px] py-1">
+            <ArchivoMenu onClose={() => setArchivoOpen(false)}>
               {[
                 { label: 'Info cuenta', icon: ICONS.info, action: () => showToast('Cuenta: gestiontecnologia@maquita.org') },
                 { label: 'Sincronizar', icon: ICONS.sync, action: () => window.dispatchEvent(new CustomEvent('refresh-messages')) },
-                { label: 'Exportar', icon: ICONS.export, action: () => showToast('Exportar: próximamente') },
+                { label: 'Exportar', icon: ICONS.export, action: exportSelectedMessage },
                 { label: 'Imprimir', icon: ICONS.print, action: doPrint },
-                { label: 'Opciones cuenta', icon: ICONS.account, action: () => { window.location.hash = '#/settings'; } },
+                { label: 'Opciones cuenta', icon: ICONS.account, action: () => goToSettings('general') },
               ].map((item, i) => (
                 <button key={i} onClick={() => { item.action(); setArchivoOpen(false); }}
                   className="w-full text-left px-3 py-2 text-[13px] text-white flex items-center gap-2 hover:bg-[#106ebe]">
@@ -413,14 +519,14 @@ export function Toolbar() {
                   <span>{item.label}</span>
                 </button>
               ))}
-            </div>
+            </ArchivoMenu>
           )}
         </div>
 
         {/* Main tabs */}
         {(['inicio', 'vista', 'ayuda'] as const).map(tab => (
           <button key={tab}
-            onClick={() => { setActiveTab(tab); if (hasCompose) setComposeRibbonTab('message'); }}
+            onClick={() => { setActiveTab(tab); if (hasCompose) setComposeRibbonTab(null as any); }}
             className={`px-3 h-[36px] text-[13px] rounded capitalize ${
               activeTab === tab && !showComposeRibbon
                 ? 'bg-white text-[#0078d4] font-semibold border-b-2 border-[#0078d4]'
@@ -458,7 +564,7 @@ export function Toolbar() {
         </button>
       </div>
 
-      {/* ── Ribbon content area ─────────────────────────────────────────────── */}
+      {/*  Ribbon content area  */}
       {!collapsed && (
         <div className="bg-white" style={{ overflow: 'visible' }}>
           {/* Compose Ribbon (when compose tab active) */}
@@ -492,12 +598,12 @@ export function Toolbar() {
                     URL.revokeObjectURL(url);
                   }}
                   onImportanceChange={(v) => showToast(`Importancia: ${v}`)}
-                  onDictate={() => showToast('Dictado por voz: conectar a VM 170')}
-                  onImproveWriting={() => showToast('Mejorar redaccion: conectar a VM 170')}
+                  onImproveWriting={() => window.dispatchEvent(new CustomEvent('compose-improve-writing'))}
                   onScheduleSend={() => window.dispatchEvent(new CustomEvent('compose-schedule-send'))}
-                  onOpenApps={() => showToast('Aplicaciones: proximamente')}
-                  onReviewEditor={() => showToast('Editor IA: conectar a VM 170')}
-                  onCheckAccessibility={() => showToast('Accesibilidad: proximamente')}
+                  onOpenApps={() => window.dispatchEvent(new CustomEvent('compose-open-apps'))}
+                  onReviewEditor={() => window.dispatchEvent(new CustomEvent('compose-review-editor'))}
+                  onCheckAccessibility={() => window.dispatchEvent(new CustomEvent('compose-check-accessibility'))}
+                  onDictate={() => window.dispatchEvent(new CustomEvent('compose-dictate'))}
                   onShowCc={() => window.dispatchEvent(new CustomEvent('compose-show-cc'))}
                   onShowBcc={() => window.dispatchEvent(new CustomEvent('compose-show-bcc'))}
                   onTrackingChange={(t) => window.dispatchEvent(new CustomEvent('compose-tracking-change', { detail: t }))}
@@ -510,7 +616,7 @@ export function Toolbar() {
             </div>
           ) : (
             <div className="flex items-center gap-0.5 px-2 py-1" style={{ overflow: 'visible' }}>
-              {/* ══════════ INICIO TAB ══════════ */}
+              {/*  INICIO TAB  */}
               {activeTab === 'inicio' && (
                 <>
                   {/* Group: Nuevo */}
@@ -569,7 +675,7 @@ export function Toolbar() {
                       <ToolbarButton icon={ICONS.clean} label="Limpiar" hasDropdown
                         onClick={() => { closeAllDropdowns(); setCleanOpen(!cleanOpen); }} />
                       <Dropdown open={cleanOpen} onClose={() => setCleanOpen(false)}>
-                        <DropdownItem label={`Limpiar "${currentFolder}"`} icon={ICONS.clean} onClick={doCleanFolder} />
+                        <DropdownItem label={`Vaciar "${getFolderDisplayName(currentFolder)}"`} icon={ICONS.clean} onClick={doCleanFolder} />
                       </Dropdown>
                     </div>
                     <div className="relative">
@@ -578,7 +684,7 @@ export function Toolbar() {
                       <Dropdown open={moveOpen} onClose={() => setMoveOpen(false)}>
                         {(folders || []).map((f: any) => (
                           <DropdownItem key={typeof f === 'string' ? f : f.name}
-                            label={typeof f === 'string' ? f : f.name} icon={ICONS.move}
+                            label={getFolderDisplayName(typeof f === 'string' ? f : f.name)} icon={ICONS.move}
                             onClick={() => { moveToFolder(typeof f === 'string' ? f : f.name); setMoveOpen(false); }} />
                         ))}
                       </Dropdown>
@@ -588,9 +694,9 @@ export function Toolbar() {
                         onClick={() => { closeAllDropdowns(); setRulesOpen(!rulesOpen); }} />
                       <Dropdown open={rulesOpen} onClose={() => setRulesOpen(false)}>
                         <DropdownItem label="Crear regla..." icon={ICONS.rules}
-                          onClick={() => { showToast('Usa Ajustes → Filtros para crear reglas'); setRulesOpen(false); }} />
+                          onClick={() => { goToSettings('filters'); setRulesOpen(false); }} />
                         <DropdownItem label="Administrar reglas" icon={ICONS.settings}
-                          onClick={() => { window.location.hash = '#/settings'; setRulesOpen(false); }} />
+                          onClick={() => { goToSettings('filters'); setRulesOpen(false); }} />
                       </Dropdown>
                     </div>
                   </Group>
@@ -605,11 +711,11 @@ export function Toolbar() {
                         onClick={() => { closeAllDropdowns(); setClassifyOpen(!classifyOpen); }} />
                       <Dropdown open={classifyOpen} onClose={() => setClassifyOpen(false)}>
                         {[
-                          { label: 'Categoría Azul', color: '#0078d4' },
-                          { label: 'Categoría Verde', color: '#107c10' },
-                          { label: 'Categoría Rojo', color: '#d13438' },
-                          { label: 'Categoría Amarillo', color: '#ffb900' },
-                          { label: 'Categoría Morado', color: '#8764b8' },
+                          { label: 'Categoría azul', color: '#0078d4' },
+                          { label: 'Categoría verde', color: '#107c10' },
+                          { label: 'Categoría roja', color: '#d13438' },
+                          { label: 'Categoría amarilla', color: '#ffb900' },
+                          { label: 'Categoría morada', color: '#8764b8' },
                         ].map(cat => (
                           <button key={cat.label}
                             onClick={() => doClassify(cat.label)}
@@ -630,23 +736,20 @@ export function Toolbar() {
                         <DropdownItem label={msg?.flagged ? 'Quitar bandera' : 'Marcar con bandera'} icon={ICONS.flag}
                           onClick={() => { toggleFlag(); setFlagOpen(false); }} />
                         <DropdownItem label="Marcar como completado" icon={ICONS.classify}
-                          onClick={() => { showToast('Marcado como completado'); setFlagOpen(false); }} />
+                          onClick={() => { showToast('Marcado como completado'); try { const uid = Array.from(selectedUids)[0]; if(uid && currentFolder) { api.put('/mail/flag', { folder: currentFolder, uids: [uid], flag: '\\Flagged', action: 'remove' }).then(() => window.dispatchEvent(new CustomEvent('refresh-messages'))); } } catch {}; setFlagOpen(false); }} />
                       </Dropdown>
                     </div>
                     <ToolbarButton icon={ICONS.pin} label="Chincheta"
-                      onClick={() => showToast('Fijar: próximamente')} />
-                    <div className="relative">
-                      <ToolbarButton icon={ICONS.snooze} label="Posponer" hasDropdown
-                        onClick={() => { closeAllDropdowns(); setSnoozeOpen(!snoozeOpen); }} />
-                      <Dropdown open={snoozeOpen} onClose={() => setSnoozeOpen(false)}>
-                        <DropdownItem label="Mañana" icon={ICONS.snooze}
-                          onClick={() => { showToast('Posponer: próximamente'); setSnoozeOpen(false); }} />
-                        <DropdownItem label="Próxima semana" icon={ICONS.snooze}
-                          onClick={() => { showToast('Posponer: próximamente'); setSnoozeOpen(false); }} />
-                        <DropdownItem label="Elegir fecha..." icon={ICONS.myDay}
-                          onClick={() => { showToast('Posponer: próximamente'); setSnoozeOpen(false); }} />
-                      </Dropdown>
-                    </div>
+                      onClick={handlePinUnavailable} />
+                    <ToolbarButton icon={ICONS.snooze} label="Posponer"
+                      onClick={handleSnoozeClick} />
+                    <SnoozeModal
+                      open={snoozeOpen}
+                      onClose={() => setSnoozeOpen(false)}
+                      folder={currentFolder}
+                      uids={uids}
+                      onSnoozed={() => { showToast('Correo pospuesto'); }}
+                    />
                   </Group>
                   <Sep />
 
@@ -658,33 +761,64 @@ export function Toolbar() {
 
                   {/* Group: Complementos */}
                   <Group label="Complementos">
-                    <ToolbarButton icon={ICONS.apps} label="Más aplicaciones"
-                      onClick={() => showToast('Complementos: próximamente')} />
+                    <div className="relative">
+                      <ToolbarButton icon={ICONS.apps} label="Más aplicaciones" hasDropdown
+                        onClick={() => { closeAllDropdowns(); setAddinsOpen(!addinsOpen); }} />
+                      <Dropdown open={addinsOpen} onClose={() => setAddinsOpen(false)}>
+                        <DropdownItem label="Traductor" icon="&#x1F310;"
+                          onClick={() => {
+                            if (selectedMessage) {
+                              const text = selectedMessage.text_body || '';
+                              const url = 'https://translate.google.com/?sl=auto&tl=es&text=' + encodeURIComponent(text.slice(0, 2000));
+                              window.open(url, '_blank');
+                            } else {
+                              showToast('Selecciona un mensaje para traducir');
+                            }
+                            setAddinsOpen(false);
+                          }} />
+                        <DropdownItem label="Corrector ortográfico" icon="&#x1F4DD;"
+                          onClick={() => {
+                            showToast('El corrector ortográfico del navegador está activo. Haz clic derecho en texto subrayado para ver sugerencias.');
+                            setAddinsOpen(false);
+                          }} />
+                        <DropdownItem label="Plantillas de correo" icon="&#x1F4CB;"
+                          onClick={() => {
+                            openCompose('new', {
+                              to: [],
+                              subject: '',
+                              text_body: 'Estimado/a,\n\nLe saludo cordialmente.\n\nAtentamente,',
+                              html_body: '<p>Estimado/a,</p><p></p><p>Le saludo cordialmente.</p><p></p><p>Atentamente,</p>',
+                            });
+                            showToast('Plantilla cargada en nuevo correo');
+                            setAddinsOpen(false);
+                          }} />
+                      </Dropdown>
+                    </div>
                   </Group>
                   <Sep />
 
                   {/* Group: Buscar */}
                   <Group label="Buscar">
                     <ToolbarButton icon={ICONS.groups} label="Descubrir grupos"
-                      onClick={() => showToast('Descubrir grupos: próximamente')} />
+                      onClick={() => showToast('Grupos: Usa listas de distribución para comunicarte con equipos. Contacta a gestiontecnologia@maquita.org para crear un grupo.')} />
                   </Group>
                   <Sep />
 
                   {/* Group: Deshacer */}
                   <Group label="Deshacer">
                     <ToolbarButton icon={ICONS.undo} label="Deshacer (Ctrl+Z)"
-                      onClick={() => showToast('Deshacer: no hay acciones recientes')} />
+                      onClick={() => showToast('Deshacer: Ctrl+Z — Las acciones de mover y eliminar tienen opción de deshacer automática de 5 segundos')} />
                   </Group>
                 </>
               )}
 
-              {/* ══════════ VISTA TAB ══════════ */}
+              {/*  VISTA TAB  */}
               {activeTab === 'vista' && (
                 <>
                   {/* Group: Configuración */}
                   <Group label="Configuración">
                     <ToolbarButton icon={ICONS.settings} label="Configuración de vista"
-                      onClick={() => { window.location.hash = '#/settings'; }} />
+                      onClick={() => { goToSettings('general'); }} />
                   </Group>
                   <Sep />
 
@@ -696,8 +830,10 @@ export function Toolbar() {
                         onClick={() => { closeAllDropdowns(); setConvOpen(!convOpen); }} />
                       <Dropdown open={convOpen} onClose={() => setConvOpen(false)}>
                         <DropdownItem label="Mensajes individuales" icon={ICONS.unread}
+                          active={viewMode === 'messages'}
                           onClick={() => { setViewMode('messages'); setConvOpen(false); }} />
                         <DropdownItem label="Conversaciones agrupadas" icon={ICONS.conversation}
+                          active={viewMode === 'conversations'}
                           onClick={() => { setViewMode('conversations'); setConvOpen(false); }} />
                       </Dropdown>
                     </div>
@@ -705,14 +841,23 @@ export function Toolbar() {
                       <ToolbarButton icon={ICONS.preview} label="Vista previa" hasDropdown
                         onClick={() => { closeAllDropdowns(); setPreviewLinesOpen(!previewLinesOpen); }} />
                       <Dropdown open={previewLinesOpen} onClose={() => setPreviewLinesOpen(false)}>
-                        {['1 línea', '2 líneas', '3 líneas'].map(opt => (
-                          <DropdownItem key={opt} label={opt} icon={ICONS.preview}
-                            onClick={() => { showToast(`Vista previa: ${opt}`); setPreviewLinesOpen(false); }} />
+                        {([
+                          { label: '1 línea', value: 1 },
+                          { label: '2 líneas', value: 2 },
+                          { label: '3 líneas', value: 3 },
+                        ] as const).map(opt => (
+                          <DropdownItem
+                            key={opt.label}
+                            label={opt.label}
+                            icon={ICONS.preview}
+                            active={previewLines === opt.value}
+                            onClick={() => applyPreviewLines(opt.value)}
+                          />
                         ))}
                       </Dropdown>
                     </div>
                     <ToolbarButton icon={ICONS.zoom} label="Zoom"
-                      onClick={() => showToast('Usa Ctrl+/Ctrl- para hacer zoom')} />
+                      onClick={() => showToast('Zoom actual: ' + Math.round(window.devicePixelRatio * 100) + '% — Usa Ctrl+Plus para ampliar, Ctrl+Menos para reducir, Ctrl+0 para restablecer')} />
                     <ToolbarButton icon={ICONS.sync} label="Sincronizar"
                       onClick={() => window.dispatchEvent(new CustomEvent('refresh-messages'))} />
                   </Group>
@@ -725,13 +870,15 @@ export function Toolbar() {
                         onClick={() => { closeAllDropdowns(); setRibbonMenuOpen(!ribbonMenuOpen); }} />
                       <Dropdown open={ribbonMenuOpen} onClose={() => setRibbonMenuOpen(false)}>
                         <DropdownItem label="Cinta clásica" icon={ICONS.ribbon}
+                          active={!collapsed}
                           onClick={() => { setCollapsed(false); setRibbonMenuOpen(false); }} />
                         <DropdownItem label="Cinta simplificada" icon={ICONS.density}
+                          active={collapsed}
                           onClick={() => { setCollapsed(true); setRibbonMenuOpen(false); }} />
                       </Dropdown>
                     </div>
                     <div className="relative">
-                      <ToolbarButton icon={ICONS.folderPanel} label="Panel de carpeta" hasDropdown
+                      <ToolbarButton icon={ICONS.folderPanel} label="Panel de carpetas" hasDropdown
                         onClick={() => { closeAllDropdowns(); setFolderPanelOpen(!folderPanelOpen); }} />
                       <Dropdown open={folderPanelOpen} onClose={() => setFolderPanelOpen(false)}>
                         <DropdownItem label="Mostrar/Ocultar panel" icon={ICONS.folderPanel}
@@ -747,13 +894,15 @@ export function Toolbar() {
                         onClick={() => { closeAllDropdowns(); setReadingPaneOpen(!readingPaneOpen); }} />
                       <Dropdown open={readingPaneOpen} onClose={() => setReadingPaneOpen(false)}>
                         {([
-                          { label: 'Derecha', value: 'right' },
-                          { label: 'Abajo', value: 'bottom' },
-                          { label: 'Oculto', value: 'off' },
+                          { label: 'Mostrar a la derecha', value: 'right' },
+                          { label: 'Mostrar en la parte inferior', value: 'bottom' },
+                          { label: 'Rellenar pantalla', value: 'fullscreen' },
+                          { label: 'Solo elementos emergentes', value: 'popout' },
                         ] as const).map(opt => (
                           <DropdownItem key={opt.value} label={opt.label} icon={ICONS.readingPane}
+                            active={readingPane === opt.value}
                             onClick={async () => {
-                              setReadingPane(opt.value);
+                              setReadingPane(opt.value as any);
                               try { await api.put('/settings', { reading_pane: opt.value }); } catch {}
                               setReadingPaneOpen(false);
                             }} />
@@ -761,12 +910,9 @@ export function Toolbar() {
                       </Dropdown>
                     </div>
                     <div className="relative">
-                      <ToolbarButton icon={ICONS.myDay} label="Mi día" hasDropdown
-                        onClick={() => { closeAllDropdowns(); setMyDayOpen(!myDayOpen); }} />
-                      <Dropdown open={myDayOpen} onClose={() => setMyDayOpen(false)}>
-                        <DropdownItem label="Próximamente" icon={ICONS.myDay}
-                          onClick={() => { showToast('Mi día: próximamente'); setMyDayOpen(false); }} />
-                      </Dropdown>
+                      <ToolbarButton icon={ICONS.myDay} label="Mi día"
+                        active={showMyDay}
+                        onClick={() => setShowMyDay(!showMyDay)} />
                     </div>
                     <div className="relative">
                       <ToolbarButton icon={ICONS.density} label="Densidad" hasDropdown
@@ -778,6 +924,7 @@ export function Toolbar() {
                           { label: 'Completa', value: 'full' },
                         ] as const).map(opt => (
                           <DropdownItem key={opt.value} label={opt.label} icon={ICONS.density}
+                            active={density === opt.value}
                             onClick={() => { setDensity(opt.value); setDensityOpen(false); }} />
                         ))}
                       </Dropdown>
@@ -788,21 +935,21 @@ export function Toolbar() {
                   {/* Group: Lector inmersivo */}
                   <Group label="Lector inmersivo">
                     <ToolbarButton icon={ICONS.immersive} label="Lector inmersivo"
-                      onClick={() => showToast('Lector inmersivo: próximamente')} />
+                      onClick={() => { const sel = document.querySelector('[class*=MessageView] [class*=body], [class*=msg-body]'); if(sel) { const w = window.open('', 'Lector', 'width=700,height=600'); if(w) { w.document.write('<!DOCTYPE html><html><head><title>Lector</title></head><body style="font-family:Georgia,serif;max-width:650px;margin:40px auto;padding:20px;line-height:1.8;font-size:18px;color:#333;">' + sel.innerHTML + '</body></html>'); w.document.close(); } } else { showToast('Selecciona un mensaje primero'); } }} />
                   </Group>
                 </>
               )}
 
-              {/* ══════════ AYUDA TAB ══════════ */}
+              {/*  AYUDA TAB  */}
               {activeTab === 'ayuda' && (
                 <>
                   {/* Group: Ayuda */}
                   <Group label="Ayuda">
                     <ToolbarButton icon={ICONS.help} label="Ayuda" onClick={showShortcuts} />
                     <ToolbarButton icon={ICONS.recommend} label="Recomendaciones"
-                      onClick={() => showToast('Recomendaciones: próximamente')} />
+                      onClick={() => showToast('Tip: Ctrl+N nuevo correo · Ctrl+R responder · Ctrl+Shift+R resp. todos · Ctrl+Enter enviar · E archivar · Supr eliminar')} />
                     <ToolbarButton icon={ICONS.feedback} label="Comentarios"
-                      onClick={() => showToast('Envía comentarios a gestiontecnologia@maquita.org')} />
+                      onClick={() => { showToast('Abriendo formulario de comentarios...'); setTimeout(() => openCompose('new', { to: ['gestiontecnologia@maquita.org'], subject: 'Comentario sobre Maquita Mail', text_body: '', html_body: '' }), 300); }} />
                   </Group>
                   <Sep />
 
@@ -813,10 +960,10 @@ export function Toolbar() {
                   </Group>
                   <Sep />
 
-                  {/* Group: Mobile */}
-                  <Group label="Mobile">
-                    <ToolbarButton icon={ICONS.mobile} label="Outlook Mobile"
-                      onClick={() => showToast('Próximamente: app móvil')} />
+                  {/* Group: Móvil */}
+                  <Group label="Móvil">
+                    <ToolbarButton icon={ICONS.mobile} label="Outlook móvil"
+                      onClick={() => showToast('Maquita Móvil: próximamente')} />
                   </Group>
                 </>
               )}

@@ -1,0 +1,221 @@
+"""
+2FA / TOTP — Maquita Webmail
+=============================
+Setup, verify, disable TOTP (Google Authenticator compatible).
+Backup codes for recovery.
+"""
+
+import io
+import base64
+import secrets
+import logging
+
+import pyotp
+import qrcode
+
+from fastapi import APIRouter, Request, Depends, HTTPException
+from pydantic import BaseModel
+
+from app.auth.dependencies import get_current_user
+
+logger = logging.getLogger(__name__)
+router = APIRouter(prefix="/api/auth/totp", tags=["2fa"])
+
+BACKUP_CODES_COUNT = 8
+ISSUER = "Maquita Mail"
+
+
+async def ensure_tables(db):
+    # Tabla creada por migrations/init_tables.sql (Fase 3)
+    # user_totp
+    pass
+
+
+def generate_backup_codes(n: int = BACKUP_CODES_COUNT) -> list[str]:
+    return [secrets.token_hex(4).upper() for _ in range(n)]
+
+
+class VerifyRequest(BaseModel):
+    code: str
+
+
+class DisableRequest(BaseModel):
+    code: str
+
+
+class SetupRequest(BaseModel):
+    password: str
+
+
+@router.post("/setup")
+async def setup_totp(
+    body: SetupRequest,
+    request: Request,
+    user: str = Depends(get_current_user),
+):
+    """Generate a new TOTP secret and return QR code as base64 PNG.
+    Requires current password for re-authentication."""
+    # Re-authenticate with password to prevent JWT-only attacks
+    from app.auth.dovecot_auth_service import authenticate
+    from app.config import get_settings
+    settings = get_settings()
+    ok = await authenticate(user, body.password, settings.imap_host, settings.imap_port)
+    if not ok:
+        raise HTTPException(status_code=401, detail="Contraseña incorrecta")
+
+    db = request.app.state.db_pool
+    await ensure_tables(db)
+
+    row = await db.fetchrow(
+        "SELECT enabled FROM user_totp WHERE username = $1", user
+    )
+    if row and row["enabled"]:
+        raise HTTPException(status_code=400, detail="2FA ya esta activado. Desactivalo primero.")
+
+    secret = pyotp.random_base32()
+    backup_codes = generate_backup_codes()
+
+    await db.execute("""
+        INSERT INTO user_totp (username, secret, enabled, backup_codes)
+        VALUES ($1, $2, FALSE, $3)
+        ON CONFLICT (username)
+        DO UPDATE SET secret = $2, enabled = FALSE, backup_codes = $3, verified_at = NULL
+    """, user, secret, backup_codes)
+
+    totp = pyotp.TOTP(secret)
+    uri = totp.provisioning_uri(name=user, issuer_name=ISSUER)
+
+    img = qrcode.make(uri)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    qr_b64 = base64.b64encode(buf.getvalue()).decode()
+
+    return {
+        "secret": secret,
+        "qr_code": f"data:image/png;base64,{qr_b64}",
+        "backup_codes": backup_codes,
+        "uri": uri,
+    }
+
+
+@router.post("/verify")
+async def verify_totp(
+    body: VerifyRequest,
+    request: Request,
+    user: str = Depends(get_current_user),
+):
+    """Verify a TOTP code to complete 2FA setup."""
+    db = request.app.state.db_pool
+    await ensure_tables(db)
+
+    row = await db.fetchrow(
+        "SELECT secret, enabled FROM user_totp WHERE username = $1", user
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Configura 2FA primero")
+    if row["enabled"]:
+        raise HTTPException(status_code=400, detail="2FA ya esta verificado")
+
+    totp = pyotp.TOTP(row["secret"])
+    if not totp.verify(body.code, valid_window=1):
+        raise HTTPException(status_code=400, detail="Codigo invalido. Intenta de nuevo.")
+
+    await db.execute(
+        "UPDATE user_totp SET enabled = TRUE, verified_at = NOW() WHERE username = $1",
+        user,
+    )
+
+    return {"status": "enabled", "message": "2FA activado correctamente"}
+
+
+@router.post("/disable")
+async def disable_totp(
+    body: DisableRequest,
+    request: Request,
+    user: str = Depends(get_current_user),
+):
+    """Disable 2FA. Requires current TOTP code or backup code."""
+    db = request.app.state.db_pool
+    await ensure_tables(db)
+
+    row = await db.fetchrow(
+        "SELECT secret, enabled, backup_codes FROM user_totp WHERE username = $1", user
+    )
+    if not row or not row["enabled"]:
+        raise HTTPException(status_code=400, detail="2FA no esta activado")
+
+    totp = pyotp.TOTP(row["secret"])
+    code = body.code.strip().upper()
+    backup_codes = row["backup_codes"] or []
+
+    if not totp.verify(code, valid_window=1) and code not in backup_codes:
+        raise HTTPException(status_code=400, detail="Codigo invalido")
+
+    if code in backup_codes:
+        backup_codes.remove(code)
+        await db.execute(
+            "UPDATE user_totp SET backup_codes = $1 WHERE username = $2",
+            backup_codes, user,
+        )
+
+    await db.execute("DELETE FROM user_totp WHERE username = $1", user)
+
+    return {"status": "disabled", "message": "2FA desactivado"}
+
+
+@router.get("/status")
+async def totp_status(
+    request: Request,
+    user: str = Depends(get_current_user),
+):
+    """Check if 2FA is enabled for the current user."""
+    db = request.app.state.db_pool
+    await ensure_tables(db)
+
+    row = await db.fetchrow(
+        "SELECT enabled, verified_at, array_length(backup_codes, 1) as codes_left FROM user_totp WHERE username = $1",
+        user,
+    )
+
+    if not row or not row["enabled"]:
+        return {"enabled": False}
+
+    return {
+        "enabled": True,
+        "verified_at": row["verified_at"].isoformat() if row["verified_at"] else None,
+        "backup_codes_remaining": row["codes_left"] or 0,
+    }
+
+
+async def validate_totp_code(db, username: str, code: str) -> bool:
+    """Validate TOTP code during login. Returns True if valid or 2FA not enabled."""
+    row = await db.fetchrow(
+        "SELECT secret, enabled, backup_codes FROM user_totp WHERE username = $1", username
+    )
+    if not row or not row["enabled"]:
+        return True
+
+    totp = pyotp.TOTP(row["secret"])
+    clean_code = code.strip().upper()
+    backup_codes = row["backup_codes"] or []
+
+    if totp.verify(clean_code, valid_window=1):
+        return True
+
+    if clean_code in backup_codes:
+        backup_codes.remove(clean_code)
+        await db.execute(
+            "UPDATE user_totp SET backup_codes = $1 WHERE username = $2",
+            backup_codes, username,
+        )
+        return True
+
+    return False
+
+
+async def is_totp_enabled(db, username: str) -> bool:
+    """Check if user has 2FA enabled."""
+    row = await db.fetchrow(
+        "SELECT enabled FROM user_totp WHERE username = $1", username
+    )
+    return bool(row and row["enabled"])

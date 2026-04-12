@@ -55,28 +55,24 @@
   cursor: nwse-resize;
 }
 
-/* TipTap Table styles */
+/* TipTap Table styles — no borders by default (email-friendly) */
 .tiptap table {
   border-collapse: collapse;
-  width: 100%;
-  margin: 8px 0;
-  table-layout: fixed;
+  margin: 0;
   overflow: hidden;
 }
 .tiptap td, .tiptap th {
-  border: 1px solid #d2d0ce;
-  padding: 6px 10px;
-  min-width: 60px;
+  border: none;
+  padding: 0;
   vertical-align: top;
   position: relative;
 }
 .tiptap th {
-  background: #f3f2f1;
   font-weight: 600;
   text-align: left;
 }
 .tiptap td.selectedCell, .tiptap th.selectedCell {
-  background: #deecf9;
+  background: rgba(0,120,212,0.08);
 }
 /* Table resize handle */
 .tiptap .column-resize-handle {
@@ -95,4 +91,86 @@
 }
 .tiptap .resize-cursor {
   cursor: col-resize;
+}
+
+/* ═══════ RESPONSIVE ═══════ */
+
+/* Slide-in animation for mobile drawer */
+@keyframes slideIn {
+  from { transform: translateX(-100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+.animate-slideIn {
+  animation: slideIn 0.2s ease-out;
+}
+
+/* Mobile: < 768px */
+@media (max-width: 767px) {
+  /* Topbar adjustments */
+  .topbar-logo-text { display: none; }
+  .topbar-search { max-width: 100% !important; margin: 0 4px !important; }
+  .topbar-right-actions > button:not(.topbar-essential) { display: none; }
+
+  /* Compose fullscreen */
+  .compose-panel { position: fixed !important; inset: 0 !important; z-index: 60 !important; width: 100% !important; height: 100% !important; border-radius: 0 !important; }
+
+  /* MessageList full width */
+  .message-list-container { width: 100% !important; min-width: 0 !important; max-width: 100% !important; }
+
+  /* Toolbar scroll */
+  .toolbar-actions { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+
+/* Tablet: 768px - 1023px */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .topbar-search { max-width: 400px !important; }
+  .message-list-container { width: 280px !important; min-width: 280px !important; }
+}
+
+/* Touch: larger tap targets */
+@media (pointer: coarse) {
+  .toolbar-btn { min-height: 36px; min-width: 36px; }
+  .folder-item { min-height: 36px; }
+}
+
+
+
+
+
+/* Firma en compose — revertir Tailwind Preflight para que respete estilos inline */
+.compose-signature img[style*="display:block"] {
+  display: block !important;
+}
+.compose-signature img:not([style*="display:block"]) {
+  display: inline !important;
+}
+.compose-signature a {
+  display: inline !important;
+}
+.compose-signature table {
+  border-collapse: collapse;
+}
+.compose-signature td {
+  border: none;
+  padding: 0;
+  vertical-align: top;
+}
+
+/* Vista previa de firma en Settings — mismos overrides que compose */
+.sig-preview img[style*="display:block"] {
+  display: block !important;
+}
+.sig-preview img:not([style*="display:block"]) {
+  display: inline !important;
+}
+.sig-preview a {
+  display: inline !important;
+}
+.sig-preview table {
+  border-collapse: collapse;
+}
+.sig-preview td {
+  border: none;
+  padding: 0;
+  vertical-align: top;
 }

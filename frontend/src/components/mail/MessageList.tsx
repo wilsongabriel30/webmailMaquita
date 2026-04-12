@@ -5,9 +5,11 @@ import { usePolling } from '../../hooks/usePolling';
 import { api } from '../../api/client';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ContextMenu } from '../common/ContextMenu';
+import { ContextMenu, type MenuItem } from '../common/ContextMenu';
 import { showToast } from '../common/Toast';
 import type { MessagesResponse, MessageFull, MessageSummary } from '../../types';
+import { usePriority } from '../../hooks/usePriority';
+import { getFolderDisplayName } from '../../folders';
 
 function fmtDate(s: string | null): string {
   if (!s) return '';
@@ -116,15 +118,18 @@ export function MessageList() {
     currentFolder, messages, totalMessages, currentPage, searchQuery, filter,
     loadingMessages, setMessages, setLoadingMessages,
     setSelectedMessage, setLoadingMessage, selectedMessage, selectedUids, toggleSelection,
-    openCompose, density, viewMode, setThreadMessages, setLoadingThread, clearThread,
+    openCompose, density, previewLines, viewMode, setThreadMessages, setLoadingThread, clearThread, folders,
   } = useMailStore();
 
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; msg: MessageSummary } | null>(null);
   const [activeTab, setActiveTab] = useState<'focused' | 'other'>('focused');
   const [avatarMap, setAvatarMap] = useState<Record<string, { name: string; initials: string }>>({});
   const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set());
+  const [spamScanning, setSpamScanning] = useState(false);
+  const [spamResults, setSpamResults] = useState<{ uid: number; score: number; reasons: string[] }[]>([]);
   const lastClickIdx = useRef<number>(-1);
   const prevTotalRef = useRef<number>(0);
+  const { priorityMap, loading: priorityLoading, fetchPriority, reclassify } = usePriority();
 
   // Initialize notification sound
   useEffect(() => {
@@ -147,7 +152,8 @@ export function MessageList() {
 
   const fetch_ = useCallback(() => {
     if (!currentFolder) return;
-    setLoadingMessages(true);
+    // Only show loading skeleton on first load (empty list), not on refresh
+    if (messages.length === 0) setLoadingMessages(true);
     const p = new URLSearchParams({ page: String(currentPage), per_page: '50' });
     if (searchQuery) p.set('search', searchQuery);
     api.get<MessagesResponse>(`/mail/messages/${encodeURIComponent(currentFolder)}?${p}`)
@@ -170,6 +176,54 @@ export function MessageList() {
   useEffect(() => { fetch_(); }, [fetch_]);
   useEffect(() => { const h=()=>fetch_(); window.addEventListener('refresh-messages',h); return ()=>window.removeEventListener('refresh-messages',h); }, [fetch_]);
   usePolling(fetch_, 60000, true);
+
+  // Fetch priority classification for INBOX
+  useEffect(() => {
+    if (currentFolder === 'INBOX' && messages.length > 0) {
+      fetchPriority(currentFolder);
+    }
+  }, [currentFolder, messages.length, fetchPriority]);
+
+  // Spam scan function
+  const scanSpam = useCallback(async (autoMove = false) => {
+    if (!currentFolder) return;
+    setSpamScanning(true);
+    try {
+      const res = await api.get<{ scanned: number; spam_found: number; moved: number; details: any[] }>(
+        `/mail/spam/scan?folder=${encodeURIComponent(currentFolder)}&limit=50&auto_move=${autoMove}`
+      );
+      setSpamResults(res.details || []);
+      if (res.spam_found > 0) {
+        if (autoMove && res.moved > 0) {
+          showToast(`${res.moved} correo${res.moved > 1 ? "s" : ""} de spam movido${res.moved > 1 ? "s" : ""} a Spam`);
+          window.dispatchEvent(new CustomEvent("refresh-messages"));
+        } else if (!autoMove) {
+          showToast(`${res.spam_found} posible${res.spam_found > 1 ? "s" : ""} spam detectado${res.spam_found > 1 ? "s" : ""}`);
+        }
+      } else {
+        showToast("No se detect\u00f3 spam");
+      }
+    } catch {
+      showToast("Error al escanear spam");
+    }
+    setSpamScanning(false);
+  }, [currentFolder]);
+
+  const reportSpam = useCallback(async (uids: number[]) => {
+    try {
+      await api.post("/mail/spam/report", { folder: currentFolder, uids });
+      showToast(`${uids.length} reportado${uids.length > 1 ? "s" : ""} como spam`);
+      window.dispatchEvent(new CustomEvent("refresh-messages"));
+    } catch {}
+  }, [currentFolder]);
+
+  const markNotSpam = useCallback(async (uids: number[]) => {
+    try {
+      await api.post("/mail/spam/not-spam", { folder: currentFolder, uids });
+      showToast("Movido a Bandeja de entrada");
+      window.dispatchEvent(new CustomEvent("refresh-messages"));
+    } catch {}
+  }, [currentFolder]);
 
   // Fetch avatar data
   useEffect(() => {
@@ -212,10 +266,57 @@ export function MessageList() {
   };
 
   const handleSelect = async (uid: number) => {
+    // If in Drafts folder, open in compose for editing
+    if (currentFolder === 'Drafts') {
+      setLoadingMessage(true);
+      try {
+        const msg = await api.get<MessageFull>(`/mail/message/${encodeURIComponent(currentFolder)}/${uid}`);
+        setLoadingMessage(false);
+        const toList = msg.to ? msg.to.split(',').map(s => s.trim()).filter(Boolean) : [];
+        const ccList = msg.cc ? msg.cc.split(',').map(s => s.trim()).filter(Boolean) : [];
+        openCompose('new', {
+          to: toList,
+          cc: ccList,
+          subject: msg.subject || '',
+          text_body: '',
+          html_body: msg.html_body || msg.text_body || '',
+          in_reply_to: msg.in_reply_to || '',
+          references: msg.references || '',
+          draft_uid: uid,
+        });
+        return;
+      } catch (err) {
+        console.error('Error loading draft for edit:', err);
+        setLoadingMessage(false);
+        return;
+      }
+    }
     setLoadingMessage(true);
     clearThread();
     try {
       const msg = await api.get<MessageFull>(`/mail/message/${encodeURIComponent(currentFolder)}/${uid}`);
+      // Modo 'popout': abrir mensaje en ventana emergente
+      if (useMailStore.getState().readingPane === 'popout') {
+        const w = window.open('', '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
+        if (w) {
+          const subj = msg.subject || '(sin asunto)';
+          const from = msg.from || '';
+          const date = msg.date ? new Date(msg.date).toLocaleString('es-EC') : '';
+          const body = msg.html_body || ('<pre style="white-space:pre-wrap">' + (msg.text_body || '') + '</pre>');
+          w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + subj + '</title></head>'
+            + '<body style="font-family:Segoe UI,Calibri,sans-serif;max-width:900px;margin:20px auto;padding:20px;color:#323130;">'
+            + '<h2 style="margin:0 0 8px;font-size:20px;">' + subj + '</h2>'
+            + '<div style="color:#605e5c;font-size:13px;margin-bottom:16px;border-bottom:1px solid #edebe9;padding-bottom:12px;">'
+            + '<b>De:</b> ' + from + '<br/><b>Fecha:</b> ' + date
+            + (msg.to ? '<br/><b>Para:</b> ' + msg.to : '')
+            + (msg.cc ? '<br/><b>CC:</b> ' + msg.cc : '') + '</div>'
+            + '<div style="font-size:14px;line-height:1.6;">' + body + '</div>'
+            + '</body></html>');
+          w.document.close();
+        }
+        setLoadingMessage(false);
+        return;
+      }
       setSelectedMessage(msg);
       // If in conversations mode and message has a thread_id, fetch thread
       if (useMailStore.getState().viewMode === 'conversations' && msg.thread_id) {
@@ -296,6 +397,13 @@ export function MessageList() {
     if (filter === 'unread') return !m.seen;
     if (filter === 'flagged') return m.flagged;
     return true;
+  }).filter(m => {
+    // Apply priority filter only in INBOX when priority data is loaded
+    if (currentFolder !== 'INBOX' || Object.keys(priorityMap).length === 0) return true;
+    const p = priorityMap[m.uid];
+    if (!p) return activeTab === 'focused'; // unclassified goes to focused
+    if (activeTab === 'focused') return p.priority === 'high';
+    return p.priority !== 'high'; // "other" tab shows normal + low
   }).sort((a, b) => {
     if (a.flagged && !b.flagged) return -1;
     if (!a.flagged && b.flagged) return 1;
@@ -306,17 +414,30 @@ export function MessageList() {
   const threadGroups = isConversationMode ? groupByThread(filtered) : null;
 
   const totalPages = Math.ceil(totalMessages / 50);
-  const folderLabel = { INBOX: 'Bandeja de entrada', Sent: 'Elementos enviados', Drafts: 'Borradores', Trash: 'Elementos eliminados', Junk: 'Correo no deseado', Archive: 'Archivo' }[currentFolder] || currentFolder;
+  const folderLabel = getFolderDisplayName(currentFolder);
 
-  const getCtxItems = (msg: MessageSummary) => [
+  const getCtxItems = (msg: MessageSummary): MenuItem[] => [
     { label: 'Responder', icon: replyIcon, onClick: () => openCompose('reply', { to: [msg.from], subject: `Re: ${msg.subject}`, text_body: '', html_body: '' }) },
-    { label: 'Reenviar', icon: forwardIcon, onClick: () => openCompose('forward', { to: [], subject: `Fwd: ${msg.subject}`, text_body: '', html_body: '' }) },
+    { label: 'Reenviar', icon: forwardIcon, onClick: () => openCompose('forward', { to: [], subject: `RV: ${msg.subject}`, text_body: '', html_body: '' }) },
     { label: '', icon: '', onClick: () => {}, divider: true },
-    { label: msg.seen ? 'Marcar como no leido' : 'Marcar como leido', icon: unreadIcon, onClick: () => quickAction(msg.uid, msg.seen ? 'mark_unread' : 'mark_read') },
+    { label: msg.seen ? 'Marcar como no leído' : 'Marcar como leído', icon: unreadIcon, onClick: () => quickAction(msg.uid, msg.seen ? 'mark_unread' : 'mark_read') },
     { label: msg.flagged ? 'Quitar marca' : 'Marcar con bandera', icon: flagIcon, onClick: () => handleFlag(msg.uid, msg.flagged) },
     { label: '', icon: '', onClick: () => {}, divider: true },
     { label: 'Archivar', icon: archiveIcon, onClick: () => quickAction(msg.uid, 'archive') },
-    { label: 'Mover a...', icon: moveIcon, onClick: () => {} },
+    {
+      label: 'Mover a...',
+      icon: moveIcon,
+      onClick: () => {},
+      children: (folders || []).map((folder) => {
+        const folderName = typeof folder === 'string' ? folder : folder.name;
+        return {
+          label: getFolderDisplayName(folderName),
+          icon: moveIcon,
+          disabled: folderName === currentFolder,
+          onClick: () => quickAction(msg.uid, 'move', folderName),
+        };
+      }),
+    },
     { label: '', icon: '', onClick: () => {}, divider: true },
     { label: 'Eliminar', icon: deleteIcon, onClick: () => quickAction(msg.uid, currentFolder === 'Trash' ? 'delete' : 'move', 'Trash'), danger: true },
   ];
@@ -325,6 +446,16 @@ export function MessageList() {
   const renderMessageRow = (msg: MessageSummary, idx: number, threadCount?: number) => {
     const active = selectedMessage?.uid === msg.uid;
     const checked = selectedUids.has(msg.uid);
+    const snippetStyle = previewLines === 1
+      ? undefined
+      : {
+          display: '-webkit-box',
+          WebkitBoxOrient: 'vertical' as const,
+          WebkitLineClamp: previewLines,
+          overflow: 'hidden',
+          whiteSpace: 'normal' as const,
+        };
+    const snippetMinHeight = previewLines === 1 ? undefined : `${previewLines * 16}px`;
     return (
       <div key={msg.uid}
         draggable
@@ -347,9 +478,11 @@ export function MessageList() {
           checked ? 'bg-[#deecf9]' : active ? 'bg-[#eff6fc]' : 'hover:bg-[#f3f2f1]'
         }`}>
 
-        {/* Unread dot */}
+        {/* Unread dot + spam indicator */}
         <div className="w-[4px] shrink-0 flex items-start pt-4">
-          <div className={`w-[6px] h-[6px] rounded-full ${!msg.seen ? 'bg-[#0078d4]' : ''}`} />
+          <div className={`w-[6px] h-[6px] rounded-full ${
+            spamResults.some(s => s.uid === msg.uid) ? 'bg-[#ca5010]' : !msg.seen ? 'bg-[#0078d4]' : ''
+          }`} title={spamResults.find(s => s.uid === msg.uid)?.reasons?.join(', ') || ''} />
         </div>
 
         {/* Checkbox / Avatar */}
@@ -395,7 +528,12 @@ export function MessageList() {
           <p className={`text-[13px] truncate leading-[18px] ${!msg.seen ? 'font-medium text-[#323130]' : 'text-[#605e5c]'}`}>
             {msg.subject || '(Sin asunto)'}
           </p>
-          <p className="text-[12px] text-[#a19f9d] truncate leading-[16px]">{msg.snippet || '\u00A0'}</p>
+          <p
+            className={`text-[12px] text-[#a19f9d] leading-[16px] ${previewLines === 1 ? 'truncate' : ''}`}
+            style={{ ...snippetStyle, minHeight: snippetMinHeight }}
+          >
+            {msg.snippet || '\u00A0'}
+          </p>
         </div>
 
         {/* Flag */}
@@ -413,7 +551,7 @@ export function MessageList() {
         <div className="hidden group-hover:flex items-start gap-0.5 absolute right-2 top-1 bg-[#f3f2f1] rounded shadow-sm border border-[#e1dfdd] p-0.5">
           <QA icon={deleteIcon} title="Eliminar" onClick={e => { e.stopPropagation(); quickAction(msg.uid, currentFolder === 'Trash' ? 'delete' : 'move', 'Trash'); }} />
           <QA icon={archiveIcon} title="Archivar" onClick={e => { e.stopPropagation(); quickAction(msg.uid, 'archive'); }} />
-          <QA icon={unreadIcon} title={msg.seen ? 'No leido' : 'Leido'}
+          <QA icon={unreadIcon} title={msg.seen ? 'No leído' : 'Leído'}
             onClick={e => { e.stopPropagation(); quickAction(msg.uid, msg.seen ? 'mark_unread' : 'mark_read'); }} />
           <QA icon={flagIcon} title="Marcar" filled={msg.flagged}
             onClick={e => { e.stopPropagation(); handleFlag(msg.uid, msg.flagged); }} />
@@ -472,7 +610,7 @@ export function MessageList() {
   };
 
   return (
-    <div className="w-[360px] border-r border-[#edebe9] flex flex-col shrink-0 bg-white">
+    <div className="message-list-container w-[360px] border-r border-[#edebe9] flex flex-col shrink-0 bg-white">
       {/* Header with tabs */}
       <div className="border-b border-[#edebe9]">
         <div className="flex items-center justify-between px-4 pt-2">
@@ -490,7 +628,7 @@ export function MessageList() {
               }}
               className="w-4 h-4 rounded border-[#c8c6c4] text-[#0078d4] cursor-pointer accent-[#0078d4]"
               title="Seleccionar todos" />
-            <h2 className="text-[14px] font-semibold text-[#323130]">{folderLabel}</h2>
+            <h2 className="text-[14px] font-semibold text-[#323130] cursor-pointer hover:text-[#0078d4] transition-colors" onClick={() => { useMailStore.getState().setFilter("all"); setActiveTab("focused"); }}>{folderLabel}</h2>
           </div>
           <div className="flex items-center gap-1">
             {/* View mode toggle */}
@@ -517,11 +655,29 @@ export function MessageList() {
               </svg>
             </button>
             <div className="w-px h-4 bg-[#e1dfdd]" />
+            <button
+              onClick={() => scanSpam(true)}
+              disabled={spamScanning}
+              className={`px-1.5 py-0.5 rounded transition-colors mr-1 ${
+                spamScanning ? 'text-[#ca5010] animate-pulse' : 'text-[#a19f9d] hover:text-[#ca5010] hover:bg-[#fde7e9]'
+              }`}
+              title={spamScanning ? 'Escaneando...' : 'Escanear spam con IA'}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+              </svg>
+            </button>
+            {spamResults.length > 0 && (
+              <span className="text-[10px] text-[#ca5010] font-bold mr-1" title="Spam detectado">
+                {spamResults.length}!
+              </span>
+            )}
+            <div className="w-px h-4 bg-[#e1dfdd] mr-1" />
             {(['all','unread','flagged'] as const).map(f => (
               <button key={f} onClick={() => useMailStore.getState().setFilter(f)}
                 className={`px-2 py-0.5 text-[11px] rounded transition-colors ${
                   filter === f ? 'bg-[#e1dfdd] text-[#323130] font-medium' : 'text-[#605e5c] hover:bg-[#e1dfdd]'
-                }`}>{f === 'all' ? 'Todos' : f === 'unread' ? 'No leidos' : 'Marcados'}</button>
+                }`}>{f === 'all' ? 'Todos' : f === 'unread' ? 'No leídos' : 'Marcados'}</button>
             ))}
           </div>
         </div>
@@ -554,12 +710,12 @@ export function MessageList() {
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={archiveIcon} /></svg>
             Archivar
           </button>
-          <button onClick={() => { const uids = Array.from(selectedUids); api.post(`/mail/bulk-action/${encodeURIComponent(currentFolder)}`, { uids, action: 'mark_read', dest_folder: '' }).then(() => { showToast('Marcados como leidos'); useMailStore.getState().clearSelection(); window.dispatchEvent(new CustomEvent('refresh-messages')); }); }}
-            className="px-2 py-1 text-[12px] text-[#323130] hover:bg-[#c7e0f4] rounded flex items-center gap-1 font-medium" title="Marcar como leidos">
+          <button onClick={() => { const uids = Array.from(selectedUids); api.post(`/mail/bulk-action/${encodeURIComponent(currentFolder)}`, { uids, action: 'mark_read', dest_folder: '' }).then(() => { showToast('Marcados como leídos'); useMailStore.getState().clearSelection(); window.dispatchEvent(new CustomEvent('refresh-messages')); }); }}
+            className="px-2 py-1 text-[12px] text-[#323130] hover:bg-[#c7e0f4] rounded flex items-center gap-1 font-medium" title="Marcar como leídos">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21.75 9v.906a2.25 2.25 0 01-1.183 1.981l-6.478 3.488M2.25 9v.906a2.25 2.25 0 001.183 1.981l6.478 3.488m8.839 0l.415.223a.75.75 0 00.882-.264l2.197-2.989M2.25 15.577l.415.223a.75.75 0 01.882-.264l2.197-2.989" /></svg>
-            Leidos
+            Leídos
           </button>
-          <button onClick={() => { const uids = Array.from(selectedUids); api.post(`/mail/bulk-action/${encodeURIComponent(currentFolder)}`, { uids, action: 'move', dest_folder: 'Junk' }).then(() => { showToast('Movidos a spam'); useMailStore.getState().clearSelection(); useMailStore.getState().setSelectedMessage(null); window.dispatchEvent(new CustomEvent('refresh-messages')); }); }}
+          <button onClick={() => { const uids = Array.from(selectedUids); api.post(`/mail/bulk-action/${encodeURIComponent(currentFolder)}`, { uids, action: 'move', dest_folder: 'Junk' }).then(() => { showToast('Movidos a Correo no deseado'); useMailStore.getState().clearSelection(); useMailStore.getState().setSelectedMessage(null); window.dispatchEvent(new CustomEvent('refresh-messages')); }); }}
             className="px-2 py-1 text-[12px] text-[#323130] hover:bg-[#c7e0f4] rounded flex items-center gap-1 font-medium" title="Marcar como spam">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
             Spam

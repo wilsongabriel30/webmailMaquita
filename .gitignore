@@ -1,7 +1,7 @@
 backend/venv/
 frontend/node_modules/
 frontend/dist/
-www/webmail/
+www/
 __pycache__/
 *.pyc
 *.pyo
@@ -10,8 +10,11 @@ __pycache__/
 .env
 backend/.env
 backup-*/
+backups-cleanup-*/
 *.bak
+*.bak.*
 *.broken
 
-# keep deployment symlink out of source control
-www/
+# IDE
+.vscode/
+.idea/

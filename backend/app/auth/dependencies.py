@@ -16,6 +16,12 @@ async def get_current_user(request: Request) -> str:
     if not username:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload")
 
+    # Check if session is still active (logout deletes imap_pass from Redis)
+    redis = request.app.state.redis
+    session_active = await redis.exists(f"imap_pass:{username}")
+    if not session_active:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired")
+
     return username
 
 

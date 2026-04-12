@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#f5f5f5}</style>
+</head>
+<body>
+<div id="editor" style="width:100%;height:100%"></div>
+<script src="/onlyoffice/web-apps/apps/api/documents/api.js"></script>
+<script>
+window.addEventListener('message', function(event) {
+  if (event.origin !== window.location.origin) return;
+  if (!event.data || !event.data.ooConfig) return;
+  var cfg = event.data.ooConfig;
+  cfg.height = '100%';
+  cfg.width = '100%';
+  cfg.events = {
+    onError: function(e) { console.error('OnlyOffice error:', e); },
+    onAppReady: function() { console.log('OnlyOffice ready'); }
+  };
+  try {
+    new DocsAPI.DocEditor('editor', cfg);
+  } catch(e) {
+    console.error('DocEditor init error:', e);
+    document.body.innerHTML = '<div style="padding:20px;color:red">Error: ' + e.message + '</div>';
+  }
+});
+window.parent.postMessage({ooReady: true}, window.location.origin);
+</script>
+</body>
+</html>

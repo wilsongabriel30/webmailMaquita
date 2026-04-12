@@ -73,7 +73,7 @@ export function AliasManager() {
   return (
     <div className="p-8 max-w-5xl">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">Aliases</h1>
+        <h1 className="text-2xl font-bold text-slate-800">Alias</h1>
         <div className="flex items-center gap-3">
           <select value={filterDomain} onChange={(e) => setFilterDomain(e.target.value)}
             className="px-3 py-2 border border-slate-300 rounded-lg text-sm">

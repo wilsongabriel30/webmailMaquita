@@ -92,12 +92,12 @@ function CmdIcon({ paths, className }: { paths: string; className?: string }) {
   return (
     <svg
       className={className || 'w-4 h-4'}
-      fill=none
-      stroke=currentColor
+      fill="none"
+      stroke="currentColor"
       strokeWidth={1.5}
-      strokeLinecap=round
-      strokeLinejoin=round
-      viewBox=0 0 24 24
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      viewBox="0 0 24 24"
     >
       {pathList.map((d, i) => (
         <path key={i} d={d} />
@@ -193,13 +193,13 @@ export function CommandPalette() {
         keywords: 'calendario calendar',
       },
       {
-        id: 'nav-settings', label: 'Configuracion', category: 'Navegar',
+        id: 'nav-settings', label: 'Configuración', category: 'Navegar',
         icon: ICONS.settings,
         action: () => { navigate('/settings'); close(); },
         keywords: 'configuracion ajustes settings',
       },
       {
-        id: 'nav-admin', label: 'Admin', category: 'Navegar',
+        id: 'nav-admin', label: 'Administración', category: 'Navegar',
         icon: ICONS.admin,
         action: () => { navigate('/admin'); close(); },
         keywords: 'admin administracion panel',
@@ -207,7 +207,7 @@ export function CommandPalette() {
 
       // --- Acciones ---
       {
-        id: 'mark-read', label: 'Marcar como leido', category: 'Acciones',
+        id: 'mark-read', label: 'Marcar como leído', category: 'Acciones',
         icon: ICONS.read,
         action: () => {
           const st = useMailStore.getState();
@@ -219,7 +219,7 @@ export function CommandPalette() {
           }
           close();
         },
-        keywords: 'leido read marcar',
+        keywords: 'leído read marcar',
       },
       {
         id: 'archive', label: 'Archivar', category: 'Acciones',
@@ -480,42 +480,42 @@ export function CommandPalette() {
 
   return (
     <div
-      className=fixed inset-0 z-[9999] flex items-start justify-center pt-[15vh]
+      className="fixed inset-0 z-[9999] flex items-start justify-center pt-[15vh]"
       onClick={() => setOpen(false)}
     >
       {/* overlay */}
-      <div className=absolute inset-0 bg-black/40 dark:bg-black/60 />
+      <div className="absolute inset-0 bg-black/40 dark:bg-black/60" />
 
       {/* modal */}
       <div
-        className=relative w-full max-w-[540px] bg-white dark:bg-[#2d2d2d] rounded-xl shadow-2xl border border-[#edebe9] dark:border-[#444] overflow-hidden
+        className="relative w-full max-w-[540px] bg-white dark:bg-[#2d2d2d] rounded-xl shadow-2xl border border-[#edebe9] dark:border-[#444] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* search input */}
-        <div className=flex items-center gap-2 px-4 py-3 border-b border-[#edebe9] dark:border-[#444]>
-          <svg className=w-5 h-5 text-[#a19f9d] dark:text-[#888] flex-shrink-0 fill=none stroke=currentColor strokeWidth={1.5} viewBox=0 0 24 24>
-            <path strokeLinecap=round strokeLinejoin=round d=M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z />
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-[#edebe9] dark:border-[#444]">
+          <svg className="w-5 h-5 text-[#a19f9d] dark:text-[#888] flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
           </svg>
           <input
             ref={inputRef}
-            type=text
+            type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder=Escribe un comando o busca...
-            className=flex-1 bg-transparent text-[14px] text-[#323130] dark:text-[#e0e0e0] placeholder-[#a19f9d] dark:placeholder-[#777] outline-none
+            placeholder="Escribe un comando o busca..."
+            className="flex-1 bg-transparent text-[14px] text-[#323130] dark:text-[#e0e0e0] placeholder-[#a19f9d] dark:placeholder-[#777] outline-none"
           />
-          <kbd className=hidden sm:inline-block text-[11px] text-[#a19f9d] dark:text-[#777] border border-[#edebe9] dark:border-[#555] rounded px-1.5 py-0.5 font-mono>
+          <kbd className="hidden sm:inline-block text-[11px] text-[#a19f9d] dark:text-[#777] border border-[#edebe9] dark:border-[#555] rounded px-1.5 py-0.5 font-mono">
             ESC
           </kbd>
         </div>
 
         {/* results list */}
-        <div ref={listRef} className=max-h-[360px] overflow-y-auto py-1>
+        <div ref={listRef} className="max-h-[360px] overflow-y-auto py-1">
           {/* recent */}
           {recentCommands.length > 0 && !query.trim() && (
             <div>
-              <div className=px-4 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-[#a19f9d] dark:text-[#888]>
+              <div className="px-4 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-[#a19f9d] dark:text-[#888]">
                 Recientes
               </div>
               {recentCommands.map((cmd, i) => (
@@ -537,7 +537,7 @@ export function CommandPalette() {
             flatIndex += group.items.length;
             return (
               <div key={group.category}>
-                <div className=px-4 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-[#a19f9d] dark:text-[#888]>
+                <div className="px-4 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-[#a19f9d] dark:text-[#888]">
                   {group.category}
                 </div>
                 {group.items.map((cmd, i) => (
@@ -557,7 +557,7 @@ export function CommandPalette() {
           {/* contact results */}
           {contactResults.length > 0 && (
             <div>
-              <div className=px-4 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-[#a19f9d] dark:text-[#888]>
+              <div className="px-4 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-[#a19f9d] dark:text-[#888]">
                 Contactos
               </div>
               {contactResults.map((c, i) => {
@@ -575,11 +575,11 @@ export function CommandPalette() {
                     onClick={() => executeContact(c)}
                     onMouseEnter={() => setSelectedIndex(idx)}
                   >
-                    <CmdIcon paths={ICONS.contacts} className=w-4 h-4 text-[#605e5c] dark:text-[#aaa] />
-                    <span className=flex-1 truncate>
-                      {c.name ? c.name + ' — ' + c.email : c.email}
+                    <CmdIcon paths={ICONS.contacts} className="w-4 h-4 text-[#605e5c] dark:text-[#aaa]" />
+                    <span className="flex-1 truncate">
+                      {c.name ? c.name + '  ' + c.email : c.email}
                     </span>
-                    <span className=text-[11px] text-[#a19f9d] dark:text-[#777]>Correo</span>
+                    <span className="text-[11px] text-[#a19f9d] dark:text-[#777]">Correo</span>
                   </div>
                 );
               })}
@@ -587,29 +587,29 @@ export function CommandPalette() {
           )}
 
           {contactLoading && query.length >= 2 && (
-            <div className=px-4 py-2 text-[12px] text-[#a19f9d] dark:text-[#777]>Buscando contactos...</div>
+            <div className="px-4 py-2 text-[12px] text-[#a19f9d] dark:text-[#777]">Buscando contactos...</div>
           )}
 
           {/* empty state */}
           {flatItems.length === 0 && contactResults.length === 0 && !contactLoading && query.trim() && (
-            <div className=px-4 py-8 text-center text-[13px] text-[#a19f9d] dark:text-[#777]>
+            <div className="px-4 py-8 text-center text-[13px] text-[#a19f9d] dark:text-[#777]">
               No se encontraron resultados
             </div>
           )}
         </div>
 
         {/* footer */}
-        <div className=flex items-center gap-4 px-4 py-2 border-t border-[#edebe9] dark:border-[#444] text-[11px] text-[#a19f9d] dark:text-[#777]>
-          <span className=flex items-center gap-1>
-            <kbd className=border border-[#edebe9] dark:border-[#555] rounded px-1 py-0.5 font-mono>↑↓</kbd>
+        <div className="flex items-center gap-4 px-4 py-2 border-t border-[#edebe9] dark:border-[#444] text-[11px] text-[#a19f9d] dark:text-[#777]">
+          <span className="flex items-center gap-1">
+            <kbd className="border border-[#edebe9] dark:border-[#555] rounded px-1 py-0.5 font-mono">↑↓</kbd>
             navegar
           </span>
-          <span className=flex items-center gap-1>
-            <kbd className=border border-[#edebe9] dark:border-[#555] rounded px-1 py-0.5 font-mono>↵</kbd>
+          <span className="flex items-center gap-1">
+            <kbd className="border border-[#edebe9] dark:border-[#555] rounded px-1 py-0.5 font-mono">Entrar</kbd>
             seleccionar
           </span>
-          <span className=flex items-center gap-1>
-            <kbd className=border border-[#edebe9] dark:border-[#555] rounded px-1 py-0.5 font-mono>esc</kbd>
+          <span className="flex items-center gap-1">
+            <kbd className="border border-[#edebe9] dark:border-[#555] rounded px-1 py-0.5 font-mono">Esc</kbd>
             cerrar
           </span>
         </div>
@@ -648,10 +648,10 @@ function CommandItem({
       onClick={onClick}
       onMouseEnter={onHover}
     >
-      <CmdIcon paths={cmd.icon} className=w-4 h-4 text-[#605e5c] dark:text-[#aaa] flex-shrink-0 />
-      <span className=flex-1 truncate>{cmd.label}</span>
+      <CmdIcon paths={cmd.icon} className="w-4 h-4 text-[#605e5c] dark:text-[#aaa] flex-shrink-0" />
+      <span className="flex-1 truncate">{cmd.label}</span>
       {cmd.shortcut && (
-        <kbd className=text-[11px] text-[#a19f9d] dark:text-[#777] border border-[#edebe9] dark:border-[#555] rounded px-1.5 py-0.5 font-mono flex-shrink-0>
+        <kbd className="text-[11px] text-[#a19f9d] dark:text-[#777] border border-[#edebe9] dark:border-[#555] rounded px-1.5 py-0.5 font-mono flex-shrink-0">
           {cmd.shortcut}
         </kbd>
       )}

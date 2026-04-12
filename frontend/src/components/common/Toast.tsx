@@ -14,6 +14,12 @@ export function showToast(message: string, action?: { label: string; onClick: ()
   return id;
 }
 
+let updateListener: ((id: string, message: string) => void) | null = null;
+
+export function updateToast(id: string, message: string) {
+  updateListener?.(id, message);
+}
+
 let dismissListener: ((id: string) => void) | null = null;
 
 export function dismissToast(id: string) {
@@ -28,10 +34,13 @@ export function ToastContainer() {
       setToasts(prev => [...prev, t]);
       setTimeout(() => setToasts(prev => prev.filter(x => x.id !== t.id)), 6000);
     };
+    updateListener = (id, message) => {
+      setToasts(prev => prev.map(x => x.id === id ? { ...x, message } : x));
+    };
     dismissListener = (id) => {
       setToasts(prev => prev.filter(x => x.id !== id));
     };
-    return () => { toastListener = null; dismissListener = null; };
+    return () => { toastListener = null; updateListener = null; dismissListener = null; };
   }, []);
 
   if (!toasts.length) return null;

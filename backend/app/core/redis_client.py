@@ -1,7 +1,3 @@
-import redis.asyncio as aioredis
-from app.config import get_settings
-
-
-async def create_redis() -> aioredis.Redis:
-    settings = get_settings()
-    return aioredis.from_url(settings.redis_url, decode_responses=True)
+"""Proxy — canonical source is app.redis_client (Fase 2 cleanup)."""
+from app.redis_client import *  # noqa: F401,F403
+from app.redis_client import create_redis  # explicit re-export

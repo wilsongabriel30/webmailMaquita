@@ -52,6 +52,10 @@ def build_mime_message(email_data: OutgoingEmail) -> MIMEMultipart:
     msg["Date"] = formatdate(localtime=True)
     msg["Message-ID"] = make_msgid(domain=settings.mail_domain)
     msg["X-Mailer"] = "Maquita Webmail 0.3.0"
+    msg["Organization"] = "Maquita"
+    msg["X-Priority"] = "3"
+    msg["X-MSMail-Priority"] = "Normal"
+    msg["Importance"] = "Normal"
 
     if email_data.cc:
         msg["Cc"] = ", ".join(email_data.cc)

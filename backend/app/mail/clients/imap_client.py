@@ -9,6 +9,13 @@ import re
 from app.core.config import get_settings
 
 
+def _quote_folder(name: str) -> str:
+    """Quote IMAP folder name if it contains spaces or special chars."""
+    if ' ' in name or '"' in name or '(' in name or ')' in name:
+        return '"' + name.replace('\\', '\\\\').replace('"', '\\"') + '"'
+    return name
+
+
 def _decode_lines(lines) -> list[str]:
     result = []
     for line in lines:
@@ -49,7 +56,7 @@ async def list_folders(imap: aioimaplib.IMAP4) -> list[dict]:
                 continue
             unseen = 0
             try:
-                status_resp = await imap.status(name, "(UNSEEN MESSAGES)")
+                status_resp = await imap.status(_quote_folder(name), "(UNSEEN MESSAGES)")
                 if status_resp.result == "OK":
                     for sline in _decode_lines(status_resp.lines):
                         m = re.search(r"UNSEEN\s+(\d+)", sline)
@@ -75,26 +82,40 @@ async def list_message_uids(
     search_query: str = "",
 ) -> dict:
     """List message UIDs with pagination (newest first)."""
-    resp = await imap.select(folder)
+    resp = await imap.select(_quote_folder(folder))
     if resp.result != "OK":
-        return {"uids": [], "total": 0, "page": page, "per_page": per_page}
+        return {"uids": [], "total": 0, "page": page, "per_page": per_page, "folder_error": True}
 
+    # Try SORT for server-side ordering (faster than SEARCH + client sort)
+    use_sort = True
     if search_query:
         criteria = _build_search_criteria(search_query)
-        search_resp = await imap.uid_search(*criteria)
     else:
-        search_resp = await imap.uid_search("ALL")
-
-    if search_resp.result != "OK":
-        return {"uids": [], "total": 0, "page": page, "per_page": per_page}
+        criteria = ["ALL"]
 
     all_uids = []
-    for line in _decode_lines(search_resp.lines):
-        line = line.strip()
-        if line and not line.endswith("completed."):
-            all_uids.extend(int(x) for x in line.split() if x.isdigit())
+    if use_sort:
+        try:
+            sort_resp = await imap.uid("sort", "(REVERSE DATE)", "UTF-8", *criteria)
+            if sort_resp.result == "OK":
+                for line in _decode_lines(sort_resp.lines):
+                    line = line.strip()
+                    if line and not line.endswith("completed."):
+                        all_uids.extend(int(x) for x in line.split() if x.isdigit())
+            else:
+                use_sort = False
+        except Exception:
+            use_sort = False
 
-    all_uids.sort(reverse=True)
+    if not use_sort:
+        search_resp = await imap.uid_search(*criteria)
+        if search_resp.result != "OK":
+            return {"uids": [], "total": 0, "page": page, "per_page": per_page}
+        for line in _decode_lines(search_resp.lines):
+            line = line.strip()
+            if line and not line.endswith("completed."):
+                all_uids.extend(int(x) for x in line.split() if x.isdigit())
+        all_uids.sort(reverse=True)
     total = len(all_uids)
     start_idx = (page - 1) * per_page
     end_idx = start_idx + per_page
@@ -104,11 +125,8 @@ async def list_message_uids(
 
 
 def _build_search_criteria(query: str) -> list[str]:
-    q = query.strip()
-    if not q:
-        return ["ALL"]
-    return ["OR", "OR", f'FROM "{q}"', f'SUBJECT "{q}"', f'BODY "{q}"']
-
+    from app.mail.search_advanced import parse_search_query
+    return parse_search_query(query)
 
 async def fetch_message_headers(
     imap: aioimaplib.IMAP4,
@@ -120,7 +138,7 @@ async def fetch_message_headers(
 
     uid_set = ",".join(str(u) for u in uids)
     # BODYSTRUCTURE for attachment detection, BODY.PEEK[TEXT]<0.512> for snippet
-    fetch_items = "(UID FLAGS RFC822.SIZE BODYSTRUCTURE BODY.PEEK[HEADER.FIELDS (FROM TO SUBJECT DATE MESSAGE-ID REFERENCES IN-REPLY-TO X-PRIORITY IMPORTANCE)] BODY.PEEK[TEXT]<0.512>)"
+    fetch_items = "(UID FLAGS RFC822.SIZE BODY.PEEK[HEADER.FIELDS (FROM TO SUBJECT DATE MESSAGE-ID REFERENCES IN-REPLY-TO X-PRIORITY IMPORTANCE)])"
 
     fetch_resp = await imap.uid("fetch", uid_set, fetch_items)
     if fetch_resp.result != "OK":
@@ -135,10 +153,18 @@ def _clean_snippet(raw: str) -> str:
         return ""
     # Remove IMAP fetch prefixes like "BODY[TEXT] {242}"
     text = re.sub(r"^BODY\[TEXT\](?:\s*<\d+>)?\s*\{\d+\}\s*", "", raw, flags=re.IGNORECASE)
+    # Decode quoted-printable encoding (=C3=B3 -> ó, =20 -> space, etc.)
+    import quopri
+    try:
+        text = quopri.decodestring(text.encode("utf-8", errors="replace")).decode("utf-8", errors="replace")
+    except Exception:
+        pass
     # Remove MIME boundaries and headers
     text = re.sub(r"--[A-Za-z0-9_=+/.-]+", "", text)
     text = re.sub(r"Content-[A-Za-z-]+:.*", "", text, flags=re.IGNORECASE)
     text = re.sub(r"charset=.*", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"MIME-Version:.*", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"boundary=.*", "", text, flags=re.IGNORECASE)
     # Remove base64 encoded blocks
     text = re.sub(r"[A-Za-z0-9+/=]{40,}", "", text)
     # Remove HTML tags
@@ -259,7 +285,7 @@ async def fetch_full_message(
     uid: int,
 ) -> dict | None:
     """Fetch a full message by UID. Returns raw email data."""
-    resp = await imap.select(folder)
+    resp = await imap.select(_quote_folder(folder))
     if resp.result != "OK":
         return None
 
@@ -303,7 +329,7 @@ async def fetch_raw_message(
     uid: int,
 ) -> str | None:
     """Fetch raw RFC822 message for .eml download or source view."""
-    resp = await imap.select(folder)
+    resp = await imap.select(_quote_folder(folder))
     if resp.result != "OK":
         return None
 
@@ -324,8 +350,15 @@ async def fetch_attachment(
     uid: int,
     part_number: str,
 ) -> bytes | None:
-    """Fetch a specific MIME part by UID and part number."""
-    resp = await imap.select(folder)
+    """Fetch a specific MIME part by UID and part number.
+
+    aioimaplib returns FETCH responses as multiple lines:
+    - Line 0: IMAP header like b'9026 FETCH (UID 9036 BODY[2] {452802}'
+    - Line 1: The actual attachment data (largest bytes line)
+    - Line N: Closing paren b')'
+    We return the largest bytes line which is the actual content.
+    """
+    resp = await imap.select(_quote_folder(folder))
     if resp.result != "OK":
         return None
 
@@ -333,17 +366,29 @@ async def fetch_attachment(
     if fetch_resp.result != "OK":
         return None
 
+    # Find the largest bytes line — that's the attachment data
+    largest = None
     for line in fetch_resp.lines:
         if isinstance(line, (bytes, bytearray)):
-            return bytes(line)
-    return None
+            if largest is None or len(line) > len(largest):
+                largest = line
+    if largest is None:
+        return None
+
+    # IMAP returns attachment data as base64-encoded.
+    # Try to decode; if it fails, return raw bytes.
+    import base64
+    try:
+        return base64.b64decode(largest)
+    except Exception:
+        return bytes(largest)
 
 
 async def uid_move_message(imap: aioimaplib.IMAP4, folder: str, uid: int, dest_folder: str) -> bool:
-    resp = await imap.select(folder)
+    resp = await imap.select(_quote_folder(folder))
     if resp.result != "OK":
         return False
-    copy_resp = await imap.uid("copy", str(uid), dest_folder)
+    copy_resp = await imap.uid("copy", str(uid), _quote_folder(dest_folder))
     if copy_resp.result != "OK":
         return False
     await imap.uid("store", str(uid), "+FLAGS", "(\\Deleted)")
@@ -352,7 +397,7 @@ async def uid_move_message(imap: aioimaplib.IMAP4, folder: str, uid: int, dest_f
 
 
 async def uid_set_flags(imap: aioimaplib.IMAP4, folder: str, uid: int, flags: str, add: bool = True) -> bool:
-    resp = await imap.select(folder)
+    resp = await imap.select(_quote_folder(folder))
     if resp.result != "OK":
         return False
     action = "+FLAGS" if add else "-FLAGS"
@@ -361,8 +406,16 @@ async def uid_set_flags(imap: aioimaplib.IMAP4, folder: str, uid: int, flags: st
 
 
 async def uid_delete_message(imap: aioimaplib.IMAP4, folder: str, uid: int) -> bool:
-    resp = await imap.select(folder)
+    resp = await imap.select(_quote_folder(folder))
     if resp.result != "OK":
+        return False
+    # Verify UID exists before deleting
+    check = await imap.uid("fetch", str(uid), "(FLAGS)")
+    if check.result != "OK":
+        return False
+    lines = _decode_lines(check.lines)
+    uid_found = any(f"UID {uid}" in line or f"UID  {uid}" in line for line in lines if "FETCH" in line)
+    if not uid_found:
         return False
     await imap.uid("store", str(uid), "+FLAGS", "(\\Deleted)")
     await imap.expunge()
@@ -377,7 +430,7 @@ async def uid_bulk_action(
     dest_folder: str = "",
 ) -> bool:
     """Bulk actions: delete, move, mark_read, mark_unread, flag, unflag, archive."""
-    resp = await imap.select(folder)
+    resp = await imap.select(_quote_folder(folder))
     if resp.result != "OK":
         return False
 
@@ -387,7 +440,7 @@ async def uid_bulk_action(
         await imap.uid("store", uid_set, "+FLAGS", "(\\Deleted)")
         await imap.expunge()
     elif action == "move" and dest_folder:
-        copy_resp = await imap.uid("copy", uid_set, dest_folder)
+        copy_resp = await imap.uid("copy", uid_set, _quote_folder(dest_folder))
         if copy_resp.result != "OK":
             return False
         await imap.uid("store", uid_set, "+FLAGS", "(\\Deleted)")
@@ -419,7 +472,7 @@ async def append_message(
 ) -> int | None:
     """Append a message to a folder (for drafts). Returns UID if available."""
     flag_str = f"({flags})" if flags else None
-    resp = await imap.append(raw_message.encode("utf-8"), mailbox=folder, flags=flag_str)
+    resp = await imap.append(raw_message.encode("utf-8"), mailbox=_quote_folder(folder), flags=flag_str)
     if resp.result != "OK":
         return None
     for line in _decode_lines(resp.lines):

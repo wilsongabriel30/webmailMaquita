@@ -38,7 +38,7 @@ export function Dashboard() {
     { label: 'Dominios', value: data.stats.domains, color: 'bg-blue-50 text-blue-700' },
     { label: 'Buzones', value: data.stats.mailboxes, color: 'bg-green-50 text-green-700' },
     { label: 'Activos', value: data.stats.active_mailboxes, color: 'bg-emerald-50 text-emerald-700' },
-    { label: 'Aliases', value: data.stats.aliases, color: 'bg-purple-50 text-purple-700' },
+    { label: 'Alias', value: data.stats.aliases, color: 'bg-purple-50 text-purple-700' },
   ];
 
   const serviceColors: Record<string, string> = {
@@ -50,7 +50,7 @@ export function Dashboard() {
 
   return (
     <div className="p-8 max-w-5xl">
-      <h1 className="text-2xl font-bold text-slate-800 mb-6">Dashboard</h1>
+      <h1 className="text-2xl font-bold text-slate-800 mb-6">Resumen</h1>
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">

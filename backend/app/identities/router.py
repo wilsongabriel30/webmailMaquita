@@ -66,9 +66,30 @@ async def list_identities(request: Request, username: str = Depends(get_current_
     return [_row_to_dict(r) for r in rows]
 
 
+async def _user_owns_email(db, username: str, email: str) -> bool:
+    """Check if user owns the email: is their primary address or an alias pointing to them."""
+    email = email.strip().lower()
+    # Primary address
+    if email == username.lower():
+        return True
+    # Check aliases in PostfixAdmin alias table
+    row = await db.fetchrow(
+        "SELECT goto FROM alias WHERE address = $1 AND active = true", email)
+    if row and username.lower() in row["goto"].lower():
+        return True
+    return False
+
+
 @router.post("", status_code=201)
 async def create_identity(request: Request, body: IdentityCreate, username: str = Depends(get_current_user)):
     db = request.app.state.db_pool
+
+    # Validate email belongs to user (primary or alias)
+    if not await _user_owns_email(db, username, body.email):
+        raise HTTPException(
+            status_code=403,
+            detail=f"No tienes permiso para usar {body.email} como identidad. Solo puedes usar tu dirección principal o alias asignados.")
+
     count = await db.fetchval("SELECT COUNT(*) FROM user_identities WHERE username=$1", username)
     if count >= 10:
         raise HTTPException(status_code=400, detail="Maximo 10 identidades")
@@ -94,6 +115,8 @@ async def update_identity(identity_id: int, request: Request, body: IdentityUpda
     if body.name is not None:
         updates["display_name"] = body.name
     if body.email is not None:
+        if not await _user_owns_email(db, username, body.email):
+            raise HTTPException(status_code=403, detail=f"No tienes permiso para usar {body.email} como identidad")
         updates["email"] = body.email
     if body.signature_html is not None:
         updates["signature_html"] = body.signature_html

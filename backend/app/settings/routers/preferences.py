@@ -39,6 +39,21 @@ def _sig_to_dict(row) -> dict:
     return d
 
 
+async def _audit_signature(db, username: str, action: str, sig_id: int = None,
+                           sig_name: str = "", old_html: str = "", new_html: str = "",
+                           ip_address: str = "", user_agent: str = ""):
+    """Log signature changes for audit/fraud detection."""
+    try:
+        await db.execute(
+            """INSERT INTO signature_audit_log
+                (username, action, signature_id, signature_name, old_html, new_html, ip_address, user_agent)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)""",
+            username, action, sig_id, sig_name, old_html, new_html, ip_address, user_agent
+        )
+    except Exception:
+        pass  # Don't let audit failure break the operation
+
+
 @router.get("")
 async def get_settings(request: Request, username: str = Depends(get_current_user)):
     db = request.app.state.db_pool
@@ -98,18 +113,40 @@ async def get_signature(request: Request, username: str = Depends(get_current_us
 # -- Multiple Signatures CRUD --
 
 async def _migrate_legacy_signature(db, username: str):
-    """If user has signature_html in preferences but no entries in user_signatures, migrate it."""
+    """If user has no entries in user_signatures, create one from domain template or legacy."""
     count = await db.fetchval(
         "SELECT COUNT(*) FROM user_signatures WHERE owner = $1", username
     )
     if count > 0:
         return
-    # Check legacy
+    # Check legacy preferences first
     row = await db.fetchrow(
         "SELECT signature_html FROM user_preferences WHERE username = $1", username
     )
     legacy_html = row["signature_html"] if row and row["signature_html"] else ""
-    # Create a default entry
+    # If no legacy, try domain template
+    if not legacy_html:
+        domain = username.split("@")[1] if "@" in username else ""
+        if domain:
+            tpl_row = await db.fetchrow(
+                "SELECT name, html_template FROM default_signatures WHERE domain = $1 OR $1 LIKE domain_pattern", domain
+            )
+            if tpl_row and tpl_row["html_template"]:
+                # Replace placeholders with user info
+                local_part = username.split("@")[0]
+                display = local_part.replace(".", " ").title()
+                html = tpl_row["html_template"]
+                html = html.replace("{{NOMBRE}}", display)
+                html = html.replace("{{CARGO}}", "")
+                html = html.replace("{{EMAIL}}", username)
+                legacy_html = html
+                sig_name = tpl_row["name"] or "Principal"
+                await db.execute(
+                    "INSERT INTO user_signatures (owner, name, html_content, is_default) VALUES ($1, $2, $3, true)",
+                    username, sig_name, legacy_html
+                )
+                return
+    # Create default entry
     await db.execute(
         "INSERT INTO user_signatures (owner, name, html_content, is_default) VALUES ($1, $2, $3, true)",
         username, "Principal", legacy_html
@@ -154,6 +191,10 @@ async def create_signature(body: SignatureCreate, request: Request, username: st
         username, body.name, body.html_content, body.is_default
     )
     await _ensure_one_default(db, username)
+    await _audit_signature(db, username, "create", sig_id=row["id"], sig_name=body.name,
+                           new_html=body.html_content,
+                           ip_address=request.client.host if request.client else "",
+                           user_agent=request.headers.get("user-agent", ""))
     return _sig_to_dict(row)
 
 
@@ -184,6 +225,12 @@ async def update_signature(sig_id: int, body: SignatureUpdate, request: Request,
         row = existing
 
     await _ensure_one_default(db, username)
+    await _audit_signature(db, username, "update", sig_id=sig_id,
+                           sig_name=body.name or existing["name"],
+                           old_html=existing["html_content"],
+                           new_html=body.html_content or existing["html_content"],
+                           ip_address=request.client.host if request.client else "",
+                           user_agent=request.headers.get("user-agent", ""))
     return _sig_to_dict(row)
 
 
@@ -198,6 +245,37 @@ async def delete_signature(sig_id: int, request: Request, username: str = Depend
     count = await db.fetchval("SELECT COUNT(*) FROM user_signatures WHERE owner = $1", username)
     if count <= 1:
         raise HTTPException(status_code=400, detail="No puedes eliminar la unica firma")
+    await _audit_signature(db, username, "delete", sig_id=sig_id,
+                           sig_name=existing["name"],
+                           old_html=existing["html_content"],
+                           ip_address=request.client.host if request.client else "",
+                           user_agent=request.headers.get("user-agent", ""))
     await db.execute("DELETE FROM user_signatures WHERE id = $1", sig_id)
     await _ensure_one_default(db, username, exclude_id=sig_id)
     return {"status": "deleted"}
+
+
+@router.get("/signatures/load-default")
+async def load_default_signature(request: Request, username: str = Depends(get_current_user)):
+    """Return domain default signature template for the user to customize."""
+    db = request.app.state.db_pool
+    domain = username.split("@")[1] if "@" in username else ""
+    if not domain:
+        return {"template": "", "name": ""}
+    tpl_row = await db.fetchrow(
+        "SELECT name, html_template FROM default_signatures WHERE domain = $1 OR $1 LIKE domain_pattern",
+        domain
+    )
+    if not tpl_row or not tpl_row["html_template"]:
+        return {"template": "", "name": ""}
+    # Return both raw template (with placeholders) and pre-filled version
+    raw = tpl_row["html_template"]
+    local_part = username.split("@")[0]
+    display = local_part.replace(".", " ").title()
+    filled = raw.replace("{{NOMBRE}}", display)
+    filled = filled.replace("{{CARGO}}", "")
+    filled = filled.replace("{{TELEFONO1}}", "")
+    filled = filled.replace("{{TELEFONO2}}", "")
+    filled = filled.replace("{{EMAIL}}", username)
+    filled = filled.replace("{{CIUDAD}}", "Quito - Ecuador")
+    return {"template": filled, "raw_template": raw, "name": tpl_row["name"], "email": username}

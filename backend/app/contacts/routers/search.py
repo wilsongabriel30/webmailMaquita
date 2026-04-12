@@ -1,313 +1,172 @@
-"""Contacts search router — autocomplete from DB + sent history."""
-import json
+"""Search — autocomplete para compose y busqueda global.
+
+Actualizado 2026-04-12: incluye org_contacts y meeting_rooms como fuentes.
+"""
 from fastapi import APIRouter, Request, Depends
 from app.auth.dependencies import get_current_user
 
 router = APIRouter(prefix="/api/contacts", tags=["contacts"])
 
-def _compute_initials(name: str) -> str:
-    """Compute 2-letter initials from a display name."""
-    if not name or not name.strip():
-        return "?"
-    parts = name.strip().split()
-    if len(parts) >= 2:
-        return (parts[0][0] + parts[-1][0]).upper()
-    return parts[0][0].upper()
 
-
-@router.get("/avatars")
-async def get_avatars(
-    emails: str = "",
-    request: Request = None,
-    username: str = Depends(get_current_user),
-):
-    """Batch lookup display names and initials for a list of emails.
-    Returns a map: { "email": { "name": "Full Name", "initials": "FN" }, ... }
-    Results are cached in Redis for 10 minutes.
-    """
-    if not emails:
-        return {}
-
-    email_list = [e.strip().lower() for e in emails.split(",") if e.strip()]
-    if not email_list or len(email_list) > 200:
-        return {}
-
-    redis = request.app.state.redis
-    db = request.app.state.db_pool
-    result = {}
-    uncached = []
-
-    # Check Redis cache first
-    for email in email_list:
-        cache_key = f"avatar:{email}"
-        cached = await redis.get(cache_key)
-        if cached:
-            try:
-                result[email] = json.loads(cached)
-            except (json.JSONDecodeError, TypeError):
-                uncached.append(email)
-        else:
-            uncached.append(email)
-
-    if not uncached:
-        return result
-
-    # Source 1: user_preferences (display_name) joined with mailbox
-    rows = await db.fetch("""
-        SELECT LOWER(m.username) AS email,
-               COALESCE(up.display_name, '') AS display_name
-        FROM mailbox m
-        LEFT JOIN user_preferences up ON up.username = m.username
-        WHERE LOWER(m.username) = ANY($1::text[])
-    """, uncached)
-    found = {}
-    for row in rows:
-        name = row["display_name"]
-        if name and name.strip():
-            found[row["email"]] = name.strip()
-
-    # Source 2: mailbox name field for those not yet found
-    still_missing = [e for e in uncached if e not in found]
-    if still_missing:
-        rows = await db.fetch("""
-            SELECT LOWER(username) AS email, COALESCE(name, '') AS name
-            FROM mailbox
-            WHERE LOWER(username) = ANY($1::text[])
-        """, still_missing)
-        for row in rows:
-            name = row["name"]
-            if name and name.strip():
-                found[row["email"]] = name.strip()
-
-    # Source 3: sent_recipients for remaining
-    still_missing = [e for e in uncached if e not in found]
-    if still_missing:
-        rows = await db.fetch("""
-            SELECT LOWER(recipient_email) AS email,
-                   recipient_name AS name
-            FROM sent_recipients
-            WHERE LOWER(recipient_email) = ANY($1::text[])
-              AND recipient_name IS NOT NULL
-              AND recipient_name != ''
-            LIMIT 500
-        """, still_missing)
-        for row in rows:
-            name = row["name"]
-            if name and name.strip() and row["email"] not in found:
-                found[row["email"]] = name.strip()
-
-    # Source 4: user_contacts (personal contacts)
-    still_missing = [e for e in uncached if e not in found]
-    if still_missing:
-        rows = await db.fetch("""
-            SELECT LOWER(email) AS email, display_name AS name
-            FROM user_contacts
-            WHERE LOWER(email) = ANY($1::text[])
-              AND display_name IS NOT NULL
-              AND display_name != ''
-            LIMIT 500
-        """, still_missing)
-        for row in rows:
-            name = row["name"]
-            if name and name.strip() and row["email"] not in found:
-                found[row["email"]] = name.strip()
-
-    # Build result and cache
-    for email in uncached:
-        name = found.get(email, "")
-        initials = _compute_initials(name) if name else ""
-        entry = {"name": name, "initials": initials}
-        result[email] = entry
-        # Cache for 10 minutes
-        await redis.set(f"avatar:{email}", json.dumps(entry), ex=600)
-
-    return result
-
-
+def _get_domain(user: str) -> str:
+    return user.split("@")[1] if "@" in user else user
 
 
 @router.get("/search")
-async def search_contacts(
-    q: str = "",
-    limit: int = 15,
-    request: Request = None,
-    username: str = Depends(get_current_user),
-):
-    """Search contacts from multiple sources:
-    1. User's personal contacts (user_contacts table)
-    2. Global directory (all mailbox users)
-    3. Sent history (recent recipients)
+async def search_contacts(q: str = "", limit: int = 15, request: Request = None, username: str = Depends(get_current_user)):
+    """
+    Autocomplete unificado: busca en contactos personales, listas, directorio institucional,
+    mailbox, historial de envios y salas de reuniones.
+    Prioridad: favoritos -> usage_count -> last_contacted -> nombre.
     """
     if not q or len(q) < 1:
         return {"contacts": []}
-
     if limit > 50:
         limit = 50
 
     db = request.app.state.db_pool
+    domain = _get_domain(username)
     query_like = f"%{q}%"
     contacts = []
-    seen_emails = set()
+    seen_emails: set[str] = set()
 
-    # Source 1: Personal contacts
+    # Fuente 1: Contactos personales (favoritos primero, luego uso frecuente)
     rows = await db.fetch("""
-        SELECT display_name, email, 'personal' AS source
+        SELECT display_name, email, 'personal' AS source, is_favorite, usage_count
         FROM user_contacts
-        WHERE owner = $1 AND (
+        WHERE owner = $1 AND deleted_at IS NULL AND (
             LOWER(display_name) LIKE LOWER($2) OR LOWER(email) LIKE LOWER($2)
+            OR LOWER(COALESCE(organization, '')) LIKE LOWER($2)
+            OR LOWER(COALESCE(company, '')) LIKE LOWER($2)
+            OR LOWER(COALESCE(first_name, '')) LIKE LOWER($2)
+            OR LOWER(COALESCE(last_name, '')) LIKE LOWER($2)
         )
-        ORDER BY display_name
+        ORDER BY is_favorite DESC, usage_count DESC, last_contacted_at DESC NULLS LAST, display_name
         LIMIT $3
     """, username, query_like, limit)
     for row in rows:
         if row["email"] not in seen_emails:
             contacts.append({
-                "name": row["display_name"] or "",
-                "email": row["email"],
-                "source": "personal",
+                "name": row["display_name"] or "", "email": row["email"],
+                "source": "personal", "is_favorite": row["is_favorite"],
             })
             seen_emails.add(row["email"])
 
-    # Source 2: Global directory (all active mailboxes)
+    # Fuente 2: Listas de contactos (por nombre de lista)
+    remaining = limit - len(contacts)
+    if remaining > 0:
+        list_rows = await db.fetch("""
+            SELECT cl.id, cl.name, COUNT(clm.contact_id) AS member_count
+            FROM contact_lists cl
+            LEFT JOIN contact_list_members clm ON clm.list_id = cl.id
+            LEFT JOIN user_contacts uc ON uc.id = clm.contact_id AND uc.deleted_at IS NULL
+            WHERE cl.owner = $1 AND LOWER(cl.name) LIKE LOWER($2)
+            GROUP BY cl.id, cl.name LIMIT $3
+        """, username, query_like, remaining)
+        for row in list_rows:
+            list_key = f"list:{row['id']}"
+            if list_key not in seen_emails:
+                contacts.append({
+                    "name": row["name"], "email": f"[Lista: {row['member_count']} miembros]",
+                    "source": "list", "list_id": row["id"], "member_count": row["member_count"],
+                })
+                seen_emails.add(list_key)
+
+    # Fuente 3: Directorio institucional (org_contacts)
+    remaining = limit - len(contacts)
+    if remaining > 0:
+        org_rows = await db.fetch("""
+            SELECT display_name, email, job_title, department, company,
+                   'org_directory' AS source
+            FROM org_contacts
+            WHERE domain = $1 AND (
+                LOWER(email) LIKE LOWER($2)
+                OR LOWER(display_name) LIKE LOWER($2)
+                OR LOWER(COALESCE(first_name, '')) LIKE LOWER($2)
+                OR LOWER(COALESCE(last_name, '')) LIKE LOWER($2)
+                OR LOWER(COALESCE(department, '')) LIKE LOWER($2)
+                OR LOWER(COALESCE(job_title, '')) LIKE LOWER($2)
+            )
+            ORDER BY display_name
+            LIMIT $3
+        """, domain, query_like, remaining)
+        for row in org_rows:
+            if row["email"] not in seen_emails:
+                subtitle_parts = [p for p in [row["job_title"], row["department"]] if p]
+                contacts.append({
+                    "name": row["display_name"] or "",
+                    "email": row["email"],
+                    "source": "org_directory",
+                    "subtitle": " - ".join(subtitle_parts) if subtitle_parts else "",
+                })
+                seen_emails.add(row["email"])
+
+    # Fuente 4: Directorio global (mailbox activos)
     remaining = limit - len(contacts)
     if remaining > 0:
         rows = await db.fetch("""
-            SELECT COALESCE(up.display_name, SPLIT_PART(m.username, '@', 1)) AS display_name,
-                   m.username AS email, 'directory' AS source
+            SELECT COALESCE(p.display_name, m.name, SPLIT_PART(m.username, '@', 1)) AS display_name,
+                   m.username AS email, 'directory' AS source,
+                   COALESCE(p.title, '') AS title,
+                   COALESCE(p.department, '') AS department
             FROM mailbox m
-            LEFT JOIN user_preferences up ON up.username = m.username
+            LEFT JOIN user_profiles p ON p.user_email = m.username
             WHERE m.active = true AND (
                 LOWER(m.username) LIKE LOWER($1)
-                OR LOWER(COALESCE(up.display_name, '')) LIKE LOWER($1)
-            )
-            ORDER BY m.username
-            LIMIT $2
+                OR LOWER(COALESCE(m.name, '')) LIKE LOWER($1)
+                OR LOWER(COALESCE(p.display_name, '')) LIKE LOWER($1)
+                OR LOWER(COALESCE(p.department, '')) LIKE LOWER($1)
+                OR LOWER(COALESCE(p.title, '')) LIKE LOWER($1)
+            ) ORDER BY display_name LIMIT $2
         """, query_like, remaining)
         for row in rows:
             if row["email"] not in seen_emails:
+                subtitle_parts = [p for p in [row["title"], row["department"]] if p]
                 contacts.append({
                     "name": row["display_name"] or "",
                     "email": row["email"],
                     "source": "directory",
+                    "subtitle": " - ".join(subtitle_parts) if subtitle_parts else "",
                 })
                 seen_emails.add(row["email"])
 
-    # Source 3: Sent history (recent unique recipients)
+    # Fuente 5: Historial de envios
     remaining = limit - len(contacts)
     if remaining > 0:
         rows = await db.fetch("""
-            SELECT DISTINCT recipient_email AS email,
-                   COALESCE(recipient_name, '') AS display_name,
-                   'history' AS source
-            FROM sent_recipients
-            WHERE sender = $1 AND (
-                LOWER(recipient_email) LIKE LOWER($2)
-                OR LOWER(COALESCE(recipient_name, '')) LIKE LOWER($2)
-            )
-            ORDER BY recipient_email
-            LIMIT $3
+            SELECT DISTINCT recipient_email AS email, COALESCE(recipient_name, '') AS display_name, 'history' AS source
+            FROM sent_recipients WHERE sender = $1 AND (
+                LOWER(recipient_email) LIKE LOWER($2) OR LOWER(COALESCE(recipient_name, '')) LIKE LOWER($2)
+            ) ORDER BY recipient_email LIMIT $3
         """, username, query_like, remaining)
         for row in rows:
             if row["email"] not in seen_emails:
+                contacts.append({"name": row["display_name"] or "", "email": row["email"], "source": "history"})
+                seen_emails.add(row["email"])
+
+    # Fuente 6: Salas de reuniones
+    remaining = limit - len(contacts)
+    if remaining > 0:
+        room_rows = await db.fetch("""
+            SELECT name, email, COALESCE(location, '') AS location,
+                   capacity, 'room' AS source
+            FROM meeting_rooms
+            WHERE is_active = true AND email IS NOT NULL AND (
+                LOWER(name) LIKE LOWER($1)
+                OR LOWER(COALESCE(email, '')) LIKE LOWER($1)
+                OR LOWER(COALESCE(location, '')) LIKE LOWER($1)
+            )
+            ORDER BY name LIMIT $2
+        """, query_like, remaining)
+        for row in room_rows:
+            if row["email"] not in seen_emails:
+                loc_info = f" ({row['location']})" if row["location"] else ""
                 contacts.append({
-                    "name": row["display_name"] or "",
+                    "name": row["name"] or "",
                     "email": row["email"],
-                    "source": "history",
+                    "source": "room",
+                    "subtitle": f"Sala de reuniones{loc_info} - Cap. {row['capacity']}",
                 })
                 seen_emails.add(row["email"])
 
     return {"contacts": contacts}
-
-
-@router.get("")
-async def list_contacts(
-    request: Request,
-    page: int = 1,
-    per_page: int = 50,
-    search: str = "",
-    username: str = Depends(get_current_user),
-):
-    """List user's personal contacts with pagination."""
-    db = request.app.state.db_pool
-    offset = (page - 1) * per_page
-
-    if search:
-        query_like = f"%{search}%"
-        rows = await db.fetch("""
-            SELECT id, display_name, email, phone, organization, notes, created_at
-            FROM user_contacts
-            WHERE owner = $1 AND (
-                LOWER(display_name) LIKE LOWER($2) OR LOWER(email) LIKE LOWER($2)
-                OR LOWER(COALESCE(organization, '')) LIKE LOWER($2)
-            )
-            ORDER BY display_name
-            LIMIT $3 OFFSET $4
-        """, username, query_like, per_page, offset)
-        count_row = await db.fetchrow("""
-            SELECT COUNT(*) AS total FROM user_contacts
-            WHERE owner = $1 AND (
-                LOWER(display_name) LIKE LOWER($2) OR LOWER(email) LIKE LOWER($2)
-                OR LOWER(COALESCE(organization, '')) LIKE LOWER($2)
-            )
-        """, username, query_like)
-    else:
-        rows = await db.fetch("""
-            SELECT id, display_name, email, phone, organization, notes, created_at
-            FROM user_contacts WHERE owner = $1
-            ORDER BY display_name LIMIT $2 OFFSET $3
-        """, username, per_page, offset)
-        count_row = await db.fetchrow(
-            "SELECT COUNT(*) AS total FROM user_contacts WHERE owner = $1", username
-        )
-
-    total = count_row["total"] if count_row else 0
-    return {
-        "contacts": [dict(r) for r in rows],
-        "total": total,
-        "page": page,
-        "per_page": per_page,
-    }
-
-
-@router.post("")
-async def create_contact(
-    request: Request,
-    username: str = Depends(get_current_user),
-):
-    """Create a new personal contact."""
-    body = await request.json()
-    db = request.app.state.db_pool
-    row = await db.fetchrow("""
-        INSERT INTO user_contacts (owner, display_name, email, phone, organization, notes)
-        VALUES ($1, $2, $3, $4, $5, $6)
-        RETURNING id
-    """, username, body.get("name", ""), body.get("email", ""),
-        body.get("phone", ""), body.get("organization", ""), body.get("notes", ""))
-    return {"status": "created", "id": row["id"]}
-
-
-@router.put("/{contact_id}")
-async def update_contact(
-    contact_id: int,
-    request: Request,
-    username: str = Depends(get_current_user),
-):
-    body = await request.json()
-    db = request.app.state.db_pool
-    await db.execute("""
-        UPDATE user_contacts SET display_name=$3, email=$4, phone=$5, organization=$6, notes=$7
-        WHERE id=$1 AND owner=$2
-    """, contact_id, username, body.get("name", ""), body.get("email", ""),
-        body.get("phone", ""), body.get("organization", ""), body.get("notes", ""))
-    return {"status": "updated"}
-
-
-@router.delete("/{contact_id}")
-async def delete_contact(
-    contact_id: int,
-    request: Request,
-    username: str = Depends(get_current_user),
-):
-    db = request.app.state.db_pool
-    await db.execute("DELETE FROM user_contacts WHERE id=$1 AND owner=$2", contact_id, username)
-    return {"status": "deleted"}

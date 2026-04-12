@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { api } from '../../api/client';
 import { PasswordChange } from './PasswordChange';
 import { IdentityManager } from './IdentityManager';
 import { SignatureManager } from './SignatureManager';
+import { TwoFactorSetup } from './TwoFactorSetup';
 
 interface Settings {
   display_name: string;
@@ -30,9 +32,10 @@ interface FilterRule {
   action: { type: string; value: string };
 }
 
-type Tab = 'general' | 'signature' | 'identities' | 'autoreply' | 'filters' | 'password';
+type Tab = 'general' | 'signature' | 'identities' | 'autoreply' | 'filters' | 'password' | 'security';
 
 export function SettingsView() {
+  const location = useLocation();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -51,6 +54,15 @@ export function SettingsView() {
   useEffect(() => {
     api.get<Settings>('/settings').then(setSettings).catch(console.error);
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const requestedTab = params.get('tab');
+    const validTabs: Tab[] = ['general', 'signature', 'identities', 'autoreply', 'filters', 'password', 'security'];
+    if (requestedTab && validTabs.includes(requestedTab as Tab)) {
+      setTab(requestedTab as Tab);
+    }
+  }, [location.search]);
 
   useEffect(() => {
     if (tab === 'autoreply') {
@@ -121,16 +133,17 @@ export function SettingsView() {
     { id: 'general', label: 'General' },
     { id: 'signature', label: 'Firmas' },
     { id: 'identities', label: 'Identidades' },
-    { id: 'autoreply', label: 'Respuesta automatica' },
+    { id: 'autoreply', label: 'Respuesta automática' },
     { id: 'filters', label: 'Filtros' },
-    { id: 'password', label: 'Contrasena' },
+    { id: 'password', label: 'Contraseña' },
+    { id: 'security', label: 'Seguridad' },
   ];
 
   return (
     <div className="flex-1 flex flex-col bg-white overflow-hidden">
       {/* Header */}
       <div className="px-6 py-4 border-b border-[#edebe9] flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-[#323130]">Ajustes</h1>
+        <h1 className="text-lg font-semibold text-[#323130]">Configuración</h1>
         <div className="flex items-center gap-3">
           {saved && <span className="text-xs text-green-600">Guardado</span>}
           {tab === 'general' && (
@@ -160,7 +173,7 @@ export function SettingsView() {
               <input value={settings.display_name} onChange={e => update('display_name', e.target.value)}
                 className="w-full px-3 py-2 border border-[#8a8886] rounded text-sm focus:border-[#0078d4] outline-none" />
             </Field>
-            <Field label="Mensajes por pagina">
+            <Field label="Mensajes por página">
               <select value={settings.messages_per_page} onChange={e => update('messages_per_page', Number(e.target.value))}
                 className="px-3 py-2 border border-[#8a8886] rounded text-sm focus:border-[#0078d4] outline-none">
                 <option value={25}>25</option>
@@ -176,7 +189,7 @@ export function SettingsView() {
                 <option value="off">Desactivado</option>
               </select>
             </Field>
-            <Toggle label="Bloquear imagenes remotas" checked={settings.block_remote_images}
+            <Toggle label="Bloquear imágenes remotas" checked={settings.block_remote_images}
               onChange={v => update('block_remote_images', v)} />
             <Toggle label="Confirmar al eliminar" checked={settings.confirm_delete}
               onChange={v => update('confirm_delete', v)} />
@@ -194,10 +207,10 @@ export function SettingsView() {
         {tab === 'autoreply' && (
           <div className="space-y-5">
             {vacationLoading ? (
-              <div className="text-sm text-[#a19f9d]">Cargando configuracion de Sieve...</div>
+              <div className="text-sm text-[#a19f9d]">Cargando configuración de Sieve...</div>
             ) : (
               <>
-                <Toggle label="Activar respuesta automatica" checked={vacation.enabled}
+                <Toggle label="Activar respuesta automática" checked={vacation.enabled}
                   onChange={v => setVacation({ ...vacation, enabled: v })} />
                 {vacation.enabled && (
                   <>
@@ -209,7 +222,7 @@ export function SettingsView() {
                     <Field label="Mensaje">
                       <textarea value={vacation.body} onChange={e => setVacation({ ...vacation, body: e.target.value })}
                         rows={5} className="w-full px-3 py-2 border border-[#8a8886] rounded text-sm focus:border-[#0078d4] outline-none resize-none"
-                        placeholder="Gracias por su correo. Estare de vuelta el..." />
+                        placeholder="Gracias por su correo. Estaré de vuelta el..." />
                     </Field>
                     <div className="flex gap-4">
                       <Field label="Desde (opcional)">
@@ -223,14 +236,14 @@ export function SettingsView() {
                     </div>
                     <button onClick={handleSaveVacation} disabled={saving}
                       className="px-4 py-1.5 bg-[#0078d4] text-white text-sm rounded hover:bg-[#106ebe] disabled:opacity-50">
-                      {saving ? 'Guardando...' : 'Guardar respuesta automatica'}
+                      {saving ? 'Guardando...' : 'Guardar respuesta automática'}
                     </button>
                   </>
                 )}
                 {!vacation.enabled && (
                   <button onClick={handleSaveVacation} disabled={saving}
                     className="px-4 py-1.5 bg-[#0078d4] text-white text-sm rounded hover:bg-[#106ebe] disabled:opacity-50">
-                    Desactivar respuesta automatica
+                    Desactivar respuesta automática
                   </button>
                 )}
               </>
@@ -241,7 +254,7 @@ export function SettingsView() {
         {tab === 'filters' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <p className="text-sm text-[#605e5c]">Reglas para organizar tu correo automaticamente.</p>
+              <p className="text-sm text-[#605e5c]">Reglas para organizar tu correo automáticamente.</p>
               <button onClick={() => setShowAddFilter(!showAddFilter)}
                 className="px-3 py-1.5 bg-[#0078d4] text-white text-sm rounded hover:bg-[#106ebe]">
                 + Nueva regla
@@ -260,8 +273,8 @@ export function SettingsView() {
                     <select value={newFilter.condition.field}
                       onChange={e => setNewFilter({ ...newFilter, condition: { ...newFilter.condition, field: e.target.value } })}
                       className="px-2 py-2 border border-[#8a8886] rounded text-sm">
-                      <option value="from">De (From)</option>
-                      <option value="to">Para (To)</option>
+                      <option value="from">De</option>
+                      <option value="to">Para</option>
                       <option value="subject">Asunto</option>
                     </select>
                   </Field>
@@ -340,6 +353,10 @@ export function SettingsView() {
               </div>
             )}
           </div>
+        )}
+
+        {tab === 'security' && (
+          <TwoFactorSetup />
         )}
 
         {tab === 'password' && (

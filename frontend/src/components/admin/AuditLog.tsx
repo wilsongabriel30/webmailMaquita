@@ -81,7 +81,7 @@ export function AuditLog() {
             <thead>
               <tr className="border-b border-slate-200 text-left text-sm text-slate-500">
                 <th className="pb-3 font-medium">Fecha</th>
-                <th className="pb-3 font-medium">Admin</th>
+                <th className="pb-3 font-medium">Administrador</th>
                 <th className="pb-3 font-medium">Acción</th>
                 <th className="pb-3 font-medium">Objetivo</th>
                 <th className="pb-3 font-medium">IP</th>

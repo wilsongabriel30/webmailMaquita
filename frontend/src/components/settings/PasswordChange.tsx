@@ -9,7 +9,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { api } from '../../api/client';
 
-// ─── Types ──────────────────────────────────────────────────────────────────
+//  Types
 
 interface PasswordForm {
   current: string;
@@ -31,10 +31,10 @@ interface StrengthResult {
   color: string;
 }
 
-// ─── Password rules ─────────────────────────────────────────────────────────
+//  Password rules
 
 const RULES = [
-  { id: 'length', label: 'At least 8 characters', test: (p: string) => p.length >= 8 },
+  { id: 'length', label: 'Al menos 8 caracteres', test: (p: string) => p.length >= 8 },
   { id: 'upper', label: 'One uppercase letter', test: (p: string) => /[A-Z]/.test(p) },
   { id: 'lower', label: 'One lowercase letter', test: (p: string) => /[a-z]/.test(p) },
   { id: 'digit', label: 'One number', test: (p: string) => /[0-9]/.test(p) },
@@ -53,11 +53,11 @@ function evaluateStrength(password: string): StrengthResult {
   const total = Math.min(score + lengthBonus, 4);
 
   const map: Record<number, Omit<StrengthResult, 'score'>> = {
-    0: { level: 'weak', label: 'Weak', color: '#d13438' },
-    1: { level: 'weak', label: 'Weak', color: '#d13438' },
-    2: { level: 'fair', label: 'Fair', color: '#ca5010' },
+    0: { level: 'weak', label: 'Débil', color: '#d13438' },
+    1: { level: 'weak', label: 'Débil', color: '#d13438' },
+    2: { level: 'fair', label: 'Aceptable', color: '#ca5010' },
     3: { level: 'good', label: 'Good', color: '#498205' },
-    4: { level: 'strong', label: 'Strong', color: '#0b6a0b' },
+    4: { level: 'strong', label: 'Fuerte', color: '#0b6a0b' },
   };
 
   const info = map[total] ?? map[0];
@@ -68,7 +68,7 @@ function allRulesPass(password: string): boolean {
   return RULES.every((r) => r.test(password));
 }
 
-// ─── Component ──────────────────────────────────────────────────────────────
+//  Component
 
 export function PasswordChange() {
   const [form, setForm] = useState<PasswordForm>({
@@ -111,13 +111,13 @@ export function PasswordChange() {
           current_password: form.current,
           new_password: form.next,
         });
-        setFeedback({ type: 'success', message: 'Password changed successfully.' });
+        setFeedback({ type: 'success', message: 'Contraseña cambiada correctamente.' });
         setForm({ current: '', next: '', confirm: '' });
       } catch (err: unknown) {
         const message =
           err instanceof Error
             ? err.message
-            : 'Failed to change password. Please try again.';
+            : 'No se pudo cambiar la contraseña. Inténtalo de nuevo.';
         setFeedback({ type: 'error', message });
       } finally {
         setLoading(false);
@@ -134,17 +134,17 @@ export function PasswordChange() {
       {/* Section header */}
       <div className="border-b border-[#edebe9] px-5 py-3">
         <h2 className="text-[15px] font-semibold text-[#323130]">
-          Change Password
+          Cambiar contraseña
         </h2>
         <p className="mt-0.5 text-[12px] text-[#605e5c]">
-          Update the password for your mail account.
+          Actualiza la contraseña de tu cuenta de correo.
         </p>
       </div>
 
       {/* Form */}
       <form onSubmit={handleSubmit} className="max-w-md px-5 py-4">
         {/* Current password */}
-        <FieldGroup label="Current password" htmlFor="pw-current">
+        <FieldGroup label="Contraseña actual" htmlFor="pw-current">
           <div className="relative">
             <input
               id="pw-current"
@@ -162,7 +162,7 @@ export function PasswordChange() {
         </FieldGroup>
 
         {/* New password */}
-        <FieldGroup label="New password" htmlFor="pw-new">
+        <FieldGroup label="Nueva contraseña" htmlFor="pw-new">
           <div className="relative">
             <input
               id="pw-new"
@@ -223,7 +223,7 @@ export function PasswordChange() {
         </FieldGroup>
 
         {/* Confirm password */}
-        <FieldGroup label="Confirm new password" htmlFor="pw-confirm">
+        <FieldGroup label="Confirmar nueva contraseña" htmlFor="pw-confirm">
           <input
             id="pw-confirm"
             type="password"
@@ -237,7 +237,7 @@ export function PasswordChange() {
           />
           {mismatch && (
             <p className="mt-1 text-[11px] text-[#d13438]">
-              Passwords do not match.
+              Las contraseñas no coinciden.
             </p>
           )}
         </FieldGroup>
@@ -267,14 +267,14 @@ export function PasswordChange() {
               : 'cursor-not-allowed bg-[#c8c6c4]',
           ].join(' ')}
         >
-          {loading ? 'Saving...' : 'Change Password'}
+          {loading ? 'Guardando...' : 'Cambiar contraseña'}
         </button>
       </form>
     </section>
   );
 }
 
-// ─── Subcomponents & helpers ────────────────────────────────────────────────
+//  Subcomponents & helpers
 
 function FieldGroup({
   label,
@@ -311,7 +311,7 @@ function ToggleEye({
       onClick={onToggle}
       tabIndex={-1}
       className="absolute right-2 top-1/2 -translate-y-1/2 text-[13px] text-[#605e5c] hover:text-[#323130]"
-      aria-label={show ? 'Hide password' : 'Show password'}
+      aria-label={show ? 'Ocultar contraseña' : 'Mostrar contraseña'}
     >
       {show ? '\u25C9' : '\u25CE'}
     </button>

@@ -5,15 +5,15 @@
  * Renders below the main search bar when the user clicks the filter icon.
  *
  * Props:
- *   folders     – list of available IMAP folder names
- *   onSearch    – callback that receives the structured criteria
- *   onClose     – close the panel
- *   initialCriteria – optional pre-filled criteria (e.g. from a previous search)
+ *   folders      list of available IMAP folder names
+ *   onSearch     callback that receives the structured criteria
+ *   onClose      close the panel
+ *   initialCriteria  optional pre-filled criteria (e.g. from a previous search)
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 
-// ─── Types ──────────────────────────────────────────────────────────────────
+//  Types
 
 export interface SearchCriteria {
   from?: string;
@@ -33,7 +33,7 @@ export interface AdvancedSearchProps {
   initialCriteria?: Partial<SearchCriteria>;
 }
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+//  Helpers
 
 const EMPTY_CRITERIA: SearchCriteria = {
   from: '',
@@ -78,7 +78,7 @@ function formatImapDate(iso: string): string | null {
   return `${date.getDate()}-${months[date.getMonth()]}-${date.getFullYear()}`;
 }
 
-// ─── Component ──────────────────────────────────────────────────────────────
+//  Component
 
 export function AdvancedSearch({
   folders,
@@ -152,7 +152,7 @@ export function AdvancedSearch({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#edebe9] px-4 py-2">
           <span className="text-[14px] font-semibold text-[#323130]">
-            Advanced Search
+            Búsqueda avanzada
           </span>
           <button
             type="button"
@@ -295,7 +295,7 @@ export function AdvancedSearch({
   );
 }
 
-// ─── Shared styles ──────────────────────────────────────────────────────────
+//  Shared styles
 
 const inputClass = [
   'mt-1 block w-full rounded border border-[#edebe9] bg-white px-2 py-[5px]',

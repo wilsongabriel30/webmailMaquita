@@ -4,6 +4,7 @@ import { formatDistanceToNow, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { api } from '../../api/client';
 import { useMailStore } from '../../store/mailStore';
+import { AttachmentPreview } from './AttachmentPreview';
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                           */
@@ -63,8 +64,13 @@ function buildQuoteHtml(
 
   const ccLine = cc ? `<b>CC:</b> ${cc}<br>` : '';
 
+  // Escalar imagenes y tablas de firmas para que no se desborden en compose
+  // Bug 2026-04-10: firmas con imagenes grandes ocupaban toda la pantalla
+  // Se aplican estilos INLINE porque TipTap elimina <style> tags
+  // Imagenes/tablas se escalan via CSS en EditorContent (clase .quoted-content)
+
   return `
-<div style="border-top:1px solid #edebe9;padding-top:12px;margin-top:20px">
+<div class="quoted-content" style="border-top:1px solid #edebe9;padding-top:12px;margin-top:20px;max-width:100%;overflow:hidden">
   ${header}
   <p style="font-size:12px;color:#605e5c;margin:0 0 8px">
     <b>De:</b> ${from}<br>
@@ -73,9 +79,32 @@ function buildQuoteHtml(
     ${ccLine}
     <b>Asunto:</b> ${subject}
   </p>
-  ${htmlBody}
+  <div style="font-size:14px">${htmlBody}</div>
 </div>`.trim();
 }
+
+
+/* ── Add to contacts button (Fase 1 Premium) ── */
+const AddToContactBtn: React.FC<{ name: string; email: string }> = ({ name, email }) => {
+  const [status, setStatus] = React.useState<'idle' | 'saving' | 'done' | 'exists'>('idle');
+  const handleAdd = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (status !== 'idle') return;
+    setStatus('saving');
+    try {
+      const res = await api.post<{ status: string; id: number }>('/contacts/from-email', { name, email });
+      setStatus(res.status === 'exists' ? 'exists' : 'done');
+    } catch { setStatus('idle'); }
+  };
+  if (status === 'done') return <span style={{ fontSize: 11, color: '#498205', marginLeft: 4 }} title="Contacto agregado">✓</span>;
+  if (status === 'exists') return <span style={{ fontSize: 11, color: '#0078d4', marginLeft: 4 }} title="Ya existe en contactos">✓</span>;
+  return (
+    <button onClick={handleAdd} disabled={status === 'saving'} title="Agregar a contactos"
+      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px', fontSize: 13, color: '#0078d4', fontWeight: 600, marginLeft: 2 }}>
+      {status === 'saving' ? '...' : '+'}
+    </button>
+  );
+};
 
 /* ------------------------------------------------------------------ */
 /*  Source modal                                                      */
@@ -181,7 +210,7 @@ const SourceModal: React.FC<SourceModalProps> = ({ source, onClose }) => {
 };
 
 /* ------------------------------------------------------------------ */
-/*  ThreadMessageCard — a single message in the thread view           */
+/*  ThreadMessageCard  a single message in the thread view           */
 /* ------------------------------------------------------------------ */
 
 interface ThreadMessageCardProps {
@@ -191,10 +220,11 @@ interface ThreadMessageCardProps {
   isLast: boolean;
   currentFolder: string;
   openCompose: any;
+  onAttachmentClick?: (folder: string, uid: number, attachments: any[], index: number) => void;
 }
 
 const ThreadMessageCard: React.FC<ThreadMessageCardProps> = ({
-  msg, isExpanded, onToggle, isLast, currentFolder, openCompose,
+  msg, isExpanded, onToggle, isLast, currentFolder, openCompose, onAttachmentClick,
 }) => {
   const senderName = extractName(msg.from);
   const senderEmail = extractEmail(msg.from);
@@ -298,17 +328,34 @@ const ThreadMessageCard: React.FC<ThreadMessageCardProps> = ({
 
       {/* Attachments */}
       {msg.has_attachments && msg.attachments && msg.attachments.length > 0 && (
-        <div style={{ padding: '4px 16px 8px', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {msg.attachments.map((att: any, i: number) => (
+        <div style={{ padding: '4px 16px 8px', display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+          {msg.attachments.filter((a: any) => !a.is_inline).length > 1 && (
             <a
+              href={`/api/mail/attachments-zip/${encodeURIComponent(msg.folder || currentFolder)}/${msg.uid}`}
+              download
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                padding: '4px 10px', border: '1px solid #0078d4', borderRadius: 4,
+                textDecoration: 'none', color: '#0078d4', fontSize: 11,
+                background: '#f0f6ff', cursor: 'pointer', fontWeight: 600,
+              }}
+              title="Descargar todos los adjuntos como ZIP"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              Descargar todo (.zip)
+            </a>
+          )}
+          {msg.attachments.map((att: any, i: number) => (
+            <button
               key={i}
-              href={`/api/mail/attachment/${encodeURIComponent(msg.folder || currentFolder)}/${msg.uid}/${encodeURIComponent(att.filename)}`}
-              download={att.filename}
+              onClick={() => onAttachmentClick?.(msg.folder || currentFolder, msg.uid, msg.attachments, i)}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 4,
                 padding: '4px 8px', border: '1px solid #d2d0ce', borderRadius: 4,
                 textDecoration: 'none', color: '#323130', fontSize: 11,
-                background: '#faf9f8',
+                background: '#faf9f8', cursor: 'pointer',
               }}
               title={`${att.filename} (${formatSize(att.size)})`}
             >
@@ -318,7 +365,7 @@ const ThreadMessageCard: React.FC<ThreadMessageCardProps> = ({
               <span style={{ maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {att.filename}
               </span>
-            </a>
+            </button>
           ))}
         </div>
       )}
@@ -361,6 +408,21 @@ const MessageView: React.FC = () => {
   const [loadingSource, setLoadingSource] = useState(false);
   const [recallStatus, setRecallStatus] = React.useState<'idle'|'checking'|'recalling'|'done'|'error'>('idle');
   const [recallInfo, setRecallInfo] = React.useState<{can_recall:boolean,was_read:boolean|null,recipient:string}[]>([]);
+  // IA: Smart Reply + Summarize
+  const [smartReplies, setSmartReplies] = useState<string[]>([]);
+  const [loadingReplies, setLoadingReplies] = useState(false);
+  const [summary, setSummary] = useState('');
+  const [loadingSummary, setLoadingSummary] = useState(false);
+
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewAttIdx, setPreviewAttIdx] = useState(0);
+  const [previewContext, setPreviewContext] = useState<{ folder: string; uid: number; attachments: any[] }>({ folder: '', uid: 0, attachments: [] });
+
+  const openAttachmentPreview = useCallback((folder: string, uid: number, attachments: any[], index: number) => {
+    setPreviewContext({ folder, uid, attachments });
+    setPreviewAttIdx(index);
+    setPreviewOpen(true);
+  }, []);
 
   const displayMsg = imageMsg?.uid === msg?.uid ? imageMsg : msg;
 
@@ -432,6 +494,18 @@ const MessageView: React.FC = () => {
     printWindow.document.close();
   }, [displayMsg]);
 
+  // ==========================================================================
+  // REPLY / REPLY ALL / FORWARD
+  // Los datos se pasan a ComposePanel via openCompose(mode, data):
+  //   - to: [email del remitente] (Reply) o [remitente + otros] (ReplyAll)
+  //   - subject: con prefijo "Re:" o "RV:"
+  //   - html_body: quote HTML completo generado por buildQuoteHtml()
+  //   - text_body: SIEMPRE VACIO ('') — el quote va en html_body
+  //
+  // ComposePanel.tsx usa html_body para el contenido citado (ver comentarios alla).
+  // RecipientField.tsx sincroniza los chips via useEffect([value]).
+  // NO cambiar text_body por html_body ni viceversa — rompe reply.
+  // ==========================================================================
   const handleReply = useCallback(() => {
     if (!msg || !openCompose) return;
     const formattedDate = msg.date ? format(new Date(msg.date), "d 'de' MMMM 'de' yyyy, HH:mm", { locale: es }) : '';
@@ -479,11 +553,27 @@ const MessageView: React.FC = () => {
     );
     openCompose('forward', {
       to: [],
-      subject: msg.subject.startsWith('Fwd:') ? msg.subject : `Fwd: ${msg.subject}`,
+      subject: msg.subject.startsWith('RV:') ? msg.subject : `RV: ${msg.subject}`,
       text_body: '',
       in_reply_to: msg.message_id || '',
       references: msg.references ? `${msg.references} ${msg.message_id}` : (msg.message_id || ''),
       html_body: quoteHtml,
+    });
+  }, [msg, openCompose]);
+
+  const handleEditDraft = useCallback(() => {
+    if (!msg || !openCompose) return;
+    const toList = msg.to ? msg.to.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
+    const ccList = msg.cc ? msg.cc.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
+    openCompose('new', {
+      to: toList,
+      cc: ccList,
+      subject: msg.subject || '',
+      text_body: '',
+      html_body: msg.html_body || msg.text_body || '',
+      in_reply_to: msg.in_reply_to || '',
+      references: msg.references || '',
+      draft_uid: msg.uid,
     });
   }, [msg, openCompose]);
 
@@ -514,6 +604,70 @@ const MessageView: React.FC = () => {
       setRecallInfo(res.results?.map((r: any) => ({can_recall: r.status === 'recalled', was_read: null, recipient: r.recipient, detail: r.detail, status: r.status})) || []);
     } catch { setRecallStatus('error'); }
   }, [msg]);
+
+  //  IA: Smart Reply — genera 3 respuestas sugeridas
+  const handleSmartReply = useCallback(async () => {
+    if (!msg || loadingReplies) return;
+    setLoadingReplies(true);
+    setSmartReplies([]);
+    try {
+      const data = await api.post<{ suggestions: string[] }>('/ai/smart-reply', {
+        message_id: String(msg.uid),
+        folder: currentFolder,
+      });
+      setSmartReplies(data.suggestions || []);
+    } catch {
+      setSmartReplies([]);
+    }
+    setLoadingReplies(false);
+  }, [msg, currentFolder, loadingReplies]);
+
+  const handleUseSmartReply = useCallback((text: string) => {
+    if (!msg || !openCompose) return;
+    const formattedDate = msg.date ? format(new Date(msg.date), "d 'de' MMMM 'de' yyyy, HH:mm", { locale: es }) : '';
+    const quoteHtml = buildQuoteHtml(
+      msg.from, formattedDate, msg.to, msg.cc, msg.subject,
+      msg.html_body || `<pre style="white-space:pre-wrap">${msg.text_body}</pre>`,
+      false,
+    );
+    openCompose('reply', {
+      to: [extractEmail(msg.from)],
+      subject: msg.subject.startsWith('Re:') ? msg.subject : `Re: ${msg.subject}`,
+      text_body: '',
+      in_reply_to: msg.message_id || '',
+      references: msg.references ? `${msg.references} ${msg.message_id}` : (msg.message_id || ''),
+      html_body: quoteHtml,
+      prefill_body: `<p>${text.replace(/\n/g, '<br>')}</p>`,
+    });
+    setSmartReplies([]);
+  }, [msg, openCompose, currentFolder]);
+
+  //  IA: Resumir hilo de correos
+  const handleSummarize = useCallback(async () => {
+    if (loadingSummary) return;
+    setLoadingSummary(true);
+    setSummary('');
+    const uids = threadMessages.length > 1
+      ? threadMessages.map(m => String(m.uid))
+      : msg ? [String(msg.uid)] : [];
+    if (!uids.length) { setLoadingSummary(false); return; }
+    try {
+      const data = await api.post<{ summary: string }>('/ai/summarize', {
+        message_ids: uids,
+        folder: currentFolder,
+      });
+      setSummary(data.summary || 'No se pudo generar resumen');
+    } catch {
+      setSummary('Error al conectar con IA');
+    }
+    setLoadingSummary(false);
+  }, [msg, threadMessages, currentFolder, loadingSummary]);
+
+  // Reset IA state when message changes
+  React.useEffect(() => {
+    setSmartReplies([]);
+    setSummary('');
+  }, [msg?.uid]);
 
   /* ---- Loading state ---- */
 
@@ -605,6 +759,7 @@ const MessageView: React.FC = () => {
                     isLast={isLast}
                     currentFolder={currentFolder}
                     openCompose={openCompose}
+                    onAttachmentClick={openAttachmentPreview}
                   />
                 </div>
               );
@@ -612,30 +767,96 @@ const MessageView: React.FC = () => {
           </div>
         </div>
 
-        {/* Bottom reply bar */}
+      {/* IA: Smart Reply suggestions (thread) */}
+      {smartReplies.length > 0 && (
+        <div style={{ padding: '8px 24px', borderTop: '1px solid #edebe9', background: '#faf9f8', flexShrink: 0 }}>
+          <div style={{ fontSize: 11, color: '#8764b8', fontWeight: 600, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
+            Respuestas sugeridas por IA
+          </div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {smartReplies.map((reply, i) => (
+              <button key={i} onClick={() => handleUseSmartReply(reply)}
+                style={{ padding: '6px 12px', fontSize: 12, background: '#fff', border: '1px solid #d2d0ce', borderRadius: 16, color: '#323130', cursor: 'pointer', maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                title={reply}>
+                {reply.length > 60 ? reply.slice(0, 60) + '...' : reply}
+              </button>
+            ))}
+            <button onClick={() => setSmartReplies([])} style={{ padding: '6px 8px', fontSize: 11, background: 'none', border: 'none', color: '#a19f9d', cursor: 'pointer' }}>&times;</button>
+          </div>
+        </div>
+      )}
+      {/* IA: Summary panel (thread) */}
+      {summary && (
+        <div style={{ padding: '8px 24px', borderTop: '1px solid #edebe9', background: '#f8fbf5', flexShrink: 0 }}>
+          <div style={{ fontSize: 11, color: '#498205', fontWeight: 600, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" /></svg>
+            Resumen IA
+            <button onClick={() => setSummary('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#a19f9d', cursor: 'pointer', fontSize: 11 }}>&times;</button>
+          </div>
+          <p style={{ fontSize: 13, color: '#323130', lineHeight: 1.5, margin: 0 }}>{summary}</p>
+        </div>
+      )}
+
+        {/* Bottom reply/edit bar */}
         <div style={{
           padding: '12px 24px', borderTop: '1px solid #edebe9', flexShrink: 0,
           display: 'flex', gap: 4, background: '#faf9f8',
         }}>
-          <button style={actionBtnStyle} onClick={handleReply}>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style={{ marginRight: 2 }}>
-              <path d="M6.5 3L1 8l5.5 5V10c4.5 0 7 1.5 8.5 5-1-4.5-3.5-8-8.5-8.5V3z"/>
-            </svg>
-            Responder
-          </button>
-          <button style={actionBtnStyle} onClick={handleReplyAll}>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style={{ marginRight: 2 }}>
-              <path d="M9.5 3L4 8l5.5 5V10c4.5 0 6 1.5 7.5 5-1-4.5-3-8-7.5-8.5V3zM3 8L0 5.5v5L3 8z"/>
-            </svg>
-            Responder a todos
-          </button>
-          <button style={actionBtnStyle} onClick={handleForward}>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style={{ marginRight: 2 }}>
-              <path d="M9.5 3L15 8l-5.5 5V10C5 10 2.5 11.5 1 15c1-4.5 3.5-8 8.5-8.5V3z"/>
-            </svg>
-            Reenviar
-          </button>
+          {currentFolder === 'Drafts' ? (
+            <button style={{ ...actionBtnStyle, background: '#0078d4', color: '#fff', borderRadius: 4, padding: '8px 24px' }} onClick={handleEditDraft}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 4 }}>
+                <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+              Editar borrador
+            </button>
+          ) : (<>
+            <button style={actionBtnStyle} onClick={handleReply}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style={{ marginRight: 2 }}>
+                <path d="M6.5 3L1 8l5.5 5V10c4.5 0 7 1.5 8.5 5-1-4.5-3.5-8-8.5-8.5V3z"/>
+              </svg>
+              Responder
+            </button>
+            <button style={actionBtnStyle} onClick={handleReplyAll}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style={{ marginRight: 2 }}>
+                <path d="M9.5 3L4 8l5.5 5V10c4.5 0 6 1.5 7.5 5-1-4.5-3-8-7.5-8.5V3zM3 8L0 5.5v5L3 8z"/>
+              </svg>
+              Responder a todos
+            </button>
+            <button style={actionBtnStyle} onClick={handleForward}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style={{ marginRight: 2 }}>
+                <path d="M9.5 3L15 8l-5.5 5V10C5 10 2.5 11.5 1 15c1-4.5 3.5-8 8.5-8.5V3z"/>
+              </svg>
+              Reenviar
+            </button>
+            <button style={{ ...actionBtnStyle, marginLeft: 'auto', color: '#8764b8' }} onClick={handleSmartReply} disabled={loadingReplies}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
+              {loadingReplies ? 'Generando...' : 'Respuesta IA'}
+            </button>
+            <button style={{ ...actionBtnStyle, color: '#498205' }} onClick={handleSummarize} disabled={loadingSummary}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" /></svg>
+              {loadingSummary ? 'Resumiendo...' : 'Resumir'}
+            </button>
+          </>)}
         </div>
+
+        {/* ================================================================
+            AttachmentPreview — DEBE estar en AMBOS returns (thread + single)
+            Bug 2026-04-10: faltaba aqui, click en adjunto no abria nada.
+            Si se reorganiza el JSX, asegurar que este modal exista en
+            TODOS los branches de render donde haya adjuntos clickeables.
+            ================================================================ */}
+        <AttachmentPreview
+          open={previewOpen}
+          onClose={() => setPreviewOpen(false)}
+          folder={previewContext.folder}
+          uid={previewContext.uid}
+          attachment={previewContext.attachments[previewAttIdx]}
+          allAttachments={previewContext.attachments}
+          currentIndex={previewAttIdx}
+          onNavigate={(idx: number) => setPreviewAttIdx(idx)}
+        />
       </div>
     );
   }
@@ -700,6 +921,7 @@ const MessageView: React.FC = () => {
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
               <span style={{ fontWeight: 600, fontSize: 14, color: '#323130' }}>{senderName}</span>
               <span style={{ fontSize: 12, color: '#605e5c' }}>&lt;{senderEmail}&gt;</span>
+              <AddToContactBtn name={senderName} email={senderEmail} />
               <span style={{ fontSize: 12, color: '#a19f9d', marginLeft: 'auto', whiteSpace: 'nowrap' }} title={fullDate}>
                 {relDate}
               </span>
@@ -778,7 +1000,7 @@ const MessageView: React.FC = () => {
                 fontWeight: 600, marginLeft: 'auto', opacity: loadingImages ? 0.6 : 1,
               }}
             >
-              {loadingImages ? 'Cargando...' : 'Cargar imagenes'}
+              {loadingImages ? 'Cargando...' : 'Cargar imágenes'}
             </button>
           </div>
         )}
@@ -789,17 +1011,34 @@ const MessageView: React.FC = () => {
       {/* Attachments */}
       {msg.has_attachments && msg.attachments && msg.attachments.length > 0 && (
         <div style={{ padding: '10px 24px', borderBottom: '1px solid #edebe9', flexShrink: 0 }}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {msg.attachments.map((att, i) => (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+            {msg.attachments.filter(a => !a.is_inline).length > 1 && (
               <a
+                href={`/api/mail/attachments-zip/${encodeURIComponent(msg.folder)}/${msg.uid}`}
+                download
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  padding: '6px 12px', border: '1px solid #0078d4', borderRadius: 4,
+                  textDecoration: 'none', color: 'white', fontSize: 12,
+                  background: '#0078d4', cursor: 'pointer', fontWeight: 600,
+                }}
+                title="Descargar todos los adjuntos como ZIP"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                Descargar todo (.zip)
+              </a>
+            )}
+            {msg.attachments.map((att, i) => (
+              <button
                 key={i}
-                href={`/api/mail/attachment/${encodeURIComponent(msg.folder)}/${msg.uid}/${encodeURIComponent(att.filename)}`}
-                download={att.filename}
+                onClick={() => openAttachmentPreview(msg.folder, msg.uid, msg.attachments, i)}
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 6,
                   padding: '6px 10px', border: '1px solid #d2d0ce', borderRadius: 4,
                   textDecoration: 'none', color: '#323130', fontSize: 12,
-                  background: '#faf9f8',
+                  background: '#faf9f8', cursor: 'pointer',
                 }}
                 title={`${att.filename} (${formatSize(att.size)})`}
               >
@@ -810,7 +1049,7 @@ const MessageView: React.FC = () => {
                   {att.filename}
                 </span>
                 <span style={{ color: '#a19f9d' }}>({formatSize(att.size)})</span>
-              </a>
+              </button>
             ))}
           </div>
         </div>
@@ -834,29 +1073,81 @@ const MessageView: React.FC = () => {
         )}
       </div>
 
-      {/* Bottom reply bar */}
+      {/* IA: Smart Reply suggestions */}
+      {smartReplies.length > 0 && (
+        <div style={{ padding: '8px 24px', borderTop: '1px solid #edebe9', background: '#faf9f8', flexShrink: 0 }}>
+          <div style={{ fontSize: 11, color: '#8764b8', fontWeight: 600, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
+            Respuestas sugeridas por IA
+          </div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {smartReplies.map((reply, i) => (
+              <button key={i} onClick={() => handleUseSmartReply(reply)}
+                style={{ padding: '6px 12px', fontSize: 12, background: '#fff', border: '1px solid #d2d0ce', borderRadius: 16, color: '#323130', cursor: 'pointer', maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', transition: 'all 0.15s' }}
+                onMouseEnter={e => { (e.target as HTMLElement).style.background = '#deecf9'; (e.target as HTMLElement).style.borderColor = '#0078d4'; }}
+                onMouseLeave={e => { (e.target as HTMLElement).style.background = '#fff'; (e.target as HTMLElement).style.borderColor = '#d2d0ce'; }}
+                title={reply}>
+                {reply.length > 60 ? reply.slice(0, 60) + '...' : reply}
+              </button>
+            ))}
+            <button onClick={() => setSmartReplies([])} style={{ padding: '6px 8px', fontSize: 11, background: 'none', border: 'none', color: '#a19f9d', cursor: 'pointer' }}>✕</button>
+          </div>
+        </div>
+      )}
+
+      {/* IA: Summary panel */}
+      {summary && (
+        <div style={{ padding: '8px 24px', borderTop: '1px solid #edebe9', background: '#f8fbf5', flexShrink: 0 }}>
+          <div style={{ fontSize: 11, color: '#498205', fontWeight: 600, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" /></svg>
+            Resumen IA
+            <button onClick={() => setSummary('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#a19f9d', cursor: 'pointer', fontSize: 11 }}>✕</button>
+          </div>
+          <p style={{ fontSize: 13, color: '#323130', lineHeight: 1.5, margin: 0 }}>{summary}</p>
+        </div>
+      )}
+
+      {/* Bottom reply/edit bar */}
       <div style={{
         padding: '12px 24px', borderTop: '1px solid #edebe9', flexShrink: 0,
         display: 'flex', gap: 4, background: '#faf9f8',
       }}>
-        <button style={actionBtnStyle} onClick={handleReply}>
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style={{ marginRight: 2 }}>
-            <path d="M6.5 3L1 8l5.5 5V10c4.5 0 7 1.5 8.5 5-1-4.5-3.5-8-8.5-8.5V3z"/>
-          </svg>
-          Responder
-        </button>
-        <button style={actionBtnStyle} onClick={handleReplyAll}>
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style={{ marginRight: 2 }}>
-            <path d="M9.5 3L4 8l5.5 5V10c4.5 0 6 1.5 7.5 5-1-4.5-3-8-7.5-8.5V3zM3 8L0 5.5v5L3 8z"/>
-          </svg>
-          Responder a todos
-        </button>
-        <button style={actionBtnStyle} onClick={handleForward}>
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style={{ marginRight: 2 }}>
-            <path d="M9.5 3L15 8l-5.5 5V10C5 10 2.5 11.5 1 15c1-4.5 3.5-8 8.5-8.5V3z"/>
-          </svg>
-          Reenviar
-        </button>
+        {currentFolder === 'Drafts' ? (
+          <button style={{ ...actionBtnStyle, background: '#0078d4', color: '#fff', borderRadius: 4, padding: '8px 24px' }} onClick={handleEditDraft}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 4 }}>
+              <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+            Editar borrador
+          </button>
+        ) : (<>
+          <button style={actionBtnStyle} onClick={handleReply}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style={{ marginRight: 2 }}>
+              <path d="M6.5 3L1 8l5.5 5V10c4.5 0 7 1.5 8.5 5-1-4.5-3.5-8-8.5-8.5V3z"/>
+            </svg>
+            Responder
+          </button>
+          <button style={actionBtnStyle} onClick={handleReplyAll}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style={{ marginRight: 2 }}>
+              <path d="M9.5 3L4 8l5.5 5V10c4.5 0 6 1.5 7.5 5-1-4.5-3-8-7.5-8.5V3zM3 8L0 5.5v5L3 8z"/>
+            </svg>
+            Responder a todos
+          </button>
+          <button style={actionBtnStyle} onClick={handleForward}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style={{ marginRight: 2 }}>
+              <path d="M9.5 3L15 8l-5.5 5V10C5 10 2.5 11.5 1 15c1-4.5 3.5-8 8.5-8.5V3z"/>
+            </svg>
+            Reenviar
+          </button>
+          <button style={{ ...actionBtnStyle, marginLeft: 'auto', color: '#8764b8' }} onClick={handleSmartReply} disabled={loadingReplies}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
+            {loadingReplies ? 'Generando...' : 'Respuesta IA'}
+          </button>
+          <button style={{ ...actionBtnStyle, color: '#498205' }} onClick={handleSummarize} disabled={loadingSummary}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" /></svg>
+            {loadingSummary ? 'Resumiendo...' : 'Resumir'}
+          </button>
+        </>)}
         {currentFolder === 'Sent' && (
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
             {recallStatus === 'done' ? (
@@ -868,7 +1159,7 @@ const MessageView: React.FC = () => {
                 <div style={{ fontSize: 11, color: '#605e5c' }}>
                   {recallInfo.map((r: any, i: number) => (
                     <div key={i}>
-                      {r.recipient}: {r.can_recall ? (r.was_read ? 'Ya leido' : 'Recuperable') : (r.reason || 'No disponible')}
+                      {r.recipient}: {r.can_recall ? (r.was_read ? 'Ya leído' : 'Recuperable') : (r.reason || 'No disponible')}
                     </div>
                   ))}
                 </div>
@@ -891,6 +1182,17 @@ const MessageView: React.FC = () => {
           </div>
         )}
       </div>
+
+      <AttachmentPreview
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        folder={previewContext.folder}
+        uid={previewContext.uid}
+        attachment={previewContext.attachments[previewAttIdx]}
+        allAttachments={previewContext.attachments}
+        currentIndex={previewAttIdx}
+        onNavigate={(idx: number) => setPreviewAttIdx(idx)}
+      />
     </div>
   );
 };

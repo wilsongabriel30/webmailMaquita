@@ -3,7 +3,7 @@ from fastapi import APIRouter, Request, Depends, HTTPException
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
-from app.core.session import get_user_password
+from app.core.session import get_user_password, get_imap_login_user
 from app.mail.clients.imap_client import get_imap_connection
 from app.mail.services.folder_service import get_folders
 
@@ -21,7 +21,8 @@ class FolderRename(BaseModel):
 @router.get("/folders")
 async def list_folders(request: Request, username: str = Depends(get_current_user)):
     password = await get_user_password(request, username)
-    imap = await get_imap_connection(username, password)
+    login_user = await get_imap_login_user(request, username)
+    imap = await get_imap_connection(login_user, password)
     try:
         folders = await get_folders(imap)
         return {"folders": folders}
@@ -35,7 +36,8 @@ async def list_folders(request: Request, username: str = Depends(get_current_use
 @router.post("/folders")
 async def create_folder(body: FolderCreate, request: Request, username: str = Depends(get_current_user)):
     password = await get_user_password(request, username)
-    imap = await get_imap_connection(username, password)
+    login_user = await get_imap_login_user(request, username)
+    imap = await get_imap_connection(login_user, password)
     try:
         resp = await imap.create(body.name)
         if resp.result != "OK":
@@ -52,7 +54,8 @@ async def create_folder(body: FolderCreate, request: Request, username: str = De
 @router.put("/folders/{folder_name}")
 async def rename_folder(folder_name: str, body: FolderRename, request: Request, username: str = Depends(get_current_user)):
     password = await get_user_password(request, username)
-    imap = await get_imap_connection(username, password)
+    login_user = await get_imap_login_user(request, username)
+    imap = await get_imap_connection(login_user, password)
     try:
         resp = await imap.rename(folder_name, body.new_name)
         if resp.result != "OK":
@@ -73,7 +76,8 @@ async def delete_folder(folder_name: str, request: Request, username: str = Depe
     if folder_name in protected:
         raise HTTPException(status_code=400, detail="Cannot delete system folder")
     password = await get_user_password(request, username)
-    imap = await get_imap_connection(username, password)
+    login_user = await get_imap_login_user(request, username)
+    imap = await get_imap_connection(login_user, password)
     try:
         await imap.unsubscribe(folder_name)
         resp = await imap.delete(folder_name)

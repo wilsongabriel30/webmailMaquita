@@ -1,4 +1,4 @@
-// @ts-nocheck — Ribbon callbacks temporarily unused (rendered in main Toolbar)
+// @ts-nocheck  Ribbon callbacks temporarily unused (rendered in main Toolbar)
 import { useState, useEffect, useRef, useCallback } from 'react';
 import React from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
@@ -13,17 +13,20 @@ import { TableHeader } from '@tiptap/extension-table-header';
 import { Subscript } from '@tiptap/extension-subscript';
 import { Superscript } from '@tiptap/extension-superscript';
 import Placeholder from '@tiptap/extension-placeholder';
+import { VoiceDictation } from './VoiceDictation';
 import TextAlign from '@tiptap/extension-text-align';
 import { TextStyle } from '@tiptap/extension-text-style';
 import { Color } from '@tiptap/extension-color';
 import FontFamily from '@tiptap/extension-font-family';
 import { FontSize } from './FontSize';
+import { Highlight } from './Highlight';
 
 import { useMailStore, type DraftWindow } from '../../store/mailStore';
 import { api } from '../../api/client';
-import { showToast, dismissToast } from '../common/Toast';
+import { showToast, updateToast, dismissToast } from '../common/Toast';
 import { RecipientField } from './RecipientField';
 import { Attachments } from './Attachments';
+import { DirectoryPanel } from '../contacts/DirectoryPanel';
 
 // Module-level pending send map (persists after compose unmounts)
 interface PendingSend { timerId: ReturnType<typeof setTimeout>; toastId: string; intervalId: ReturnType<typeof setInterval>; }
@@ -49,13 +52,19 @@ export function ComposePanel({ win }: Props) {
   const dragCounter = useRef(0);
   const [trackingState, setTrackingState] = useState({ delivery: false, read: false, noReactions: false });
   const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [showDirectoryPicker, setShowDirectoryPicker] = useState(false);
+  const [directoryPickerTarget, setDirectoryPickerTarget] = useState<'to' | 'cc' | 'bcc'>('to');
+  const [signatureHtml, setSignatureHtml] = useState('');
+  const [quotedHtml, setQuotedHtml] = useState('');  // Contenido citado (reply/forward) — se renderiza DESPUES de la firma
+  const [showSendDropdown, setShowSendDropdown] = useState(false);
+  const sendDropdownRef = useRef<HTMLDivElement>(null);
   const [scheduleDate, setScheduleDate] = useState('');
   const autosaveTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
+      StarterKit.configure({ heading: { levels: [1, 2, 3] }, link: false, underline: false }),
       Underline, Link.configure({ openOnClick: false }),
       Image.configure({ inline: true, allowBase64: true }),
       Table.configure({ resizable: true }),
@@ -66,44 +75,50 @@ export function ComposePanel({ win }: Props) {
       Superscript,
       Placeholder.configure({ placeholder: '' }),
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      TextStyle, Color, FontFamily, FontSize,
+      TextStyle, Color, FontFamily, FontSize, Highlight,
     ],
     content: '',
     editorProps: {
       attributes: {
-        class: 'outline-none min-h-[300px] px-6 py-4 text-[14px] leading-[22px] text-[#323130]',
+        class: 'outline-none px-6 py-2 text-[14px] leading-[22px] text-[#323130]',
         style: 'font-family: Calibri, Segoe UI, sans-serif;',
       },
     },
   });
 
-  // Share editor with main Toolbar ribbon
-  React.useEffect(() => {
-    if (editor) {
-      useMailStore.getState().setActiveEditor(editor);
-      useMailStore.getState().setComposeRibbonTab('message');
+  // Helper: full HTML = editor body + signature (for send/drafts)
+  // Orden al enviar: texto del usuario + firma + contenido citado
+  // Bug 2026-04-10: firma aparecia despues del quote, debe ir antes
+  const getFullHtml = useCallback(() => {
+    const body = editor?.getHTML() || '';
+    let html = body;
+    if (signatureHtml) {
+      html += '<div class="email-signature" style="margin-top:12px;color:#605e5c">' + signatureHtml + '</div>';
     }
-    // Listen for events from Toolbar Ribbon
-    const attachHandler = () => fileInputRef.current?.click();
-    const draftHandler = () => saveDraft?.();
-    const ccHandler = () => setShowCc(true);
-    const bccHandler = () => setShowBcc(true);
-    window.addEventListener('compose-attach', attachHandler);
-    window.addEventListener('compose-save-draft', draftHandler);
-    window.addEventListener('compose-show-cc', ccHandler);
-    window.addEventListener('compose-show-bcc', bccHandler);
-    return () => {
-      useMailStore.getState().setActiveEditor(null);
-      window.removeEventListener('compose-attach', attachHandler);
-      window.removeEventListener('compose-save-draft', draftHandler);
-      window.removeEventListener('compose-show-cc', ccHandler);
-      window.removeEventListener('compose-show-bcc', bccHandler);
-    };
-  }, [editor, saveDraft]);
-
+    if (quotedHtml) {
+      html += quotedHtml;
+    }
+    return html;
+  }, [editor, signatureHtml, quotedHtml]);
 
   // Initialize content
+  // ==========================================================================
+  // INICIALIZACION DEL COMPOSE (destinatarios + cuerpo)
+  // --------------------------------------------------------------------------
+  // FLUJO: MessageView.handleReply() -> openCompose('reply', { to, subject,
+  //        html_body: quoteHtml }) -> store crea DraftWindow -> ComposePanel
+  //        monta -> este useEffect inicializa campos.
+  //
+  // BUGS CORREGIDOS (2026-04-10):
+  //   1. Reply perdia contenido citado: el else usaba win.data.text_body pero
+  //      handleReply pasa el quote en win.data.html_body (text_body='').
+  //      FIX: priorizar html_body, fallback a text_body.
+  //   2. Campo "Para" quedaba vacio: setTo() se ejecuta aqui pero
+  //      RecipientField ya estaba montado con value="". Ver comentarios
+  //      en RecipientField.tsx para la solucion completa.
+  // ==========================================================================
   useEffect(() => {
+    // Precargar destinatarios (RecipientField sincroniza via useEffect[value])
     setTo(win.data.to?.join(', ') || '');
     setCc(win.data.cc?.join(', ') || '');
     setBcc(win.data.bcc?.join(', ') || '');
@@ -121,11 +136,27 @@ export function ComposePanel({ win }: Props) {
       } catch {}
 
       let content = '';
-      if (win.mode === 'new') {
-        content = sig ? `<p><br></p><div style="border-top:1px solid #edebe9;padding-top:10px;margin-top:20px;color:#605e5c">${sig}</div>` : '<p><br></p>';
+      if (win.mode === 'new' && win.data.html_body) {
+        // Editing an existing draft — load its HTML content as-is
+        content = win.data.html_body;
+      } else if (win.mode === 'new') {
+        content = '<p><br></p>';
+        if (sig) setSignatureHtml(sig);
       } else {
-        const original = win.data.text_body ? `<div style="border-top:1px solid #edebe9;padding-top:10px;margin-top:20px;color:#605e5c"><p>${win.data.text_body.replace(/\n/g, '<br>')}</p></div>` : '';
-        content = sig ? `<p><br></p><div style="margin-top:20px;color:#605e5c">${sig}</div>${original}` : `<p><br></p>${original}`;
+        // Reply / ReplyAll / Forward
+        // El quote se renderiza FUERA del editor, DESPUES de la firma.
+        // Orden visual: [editor: texto usuario] → [firma] → [quote]
+        // Bug 2026-04-10: antes el quote iba dentro del editor y la firma
+        // quedaba al final de todo, lejos de donde el usuario escribe.
+        if (win.data.html_body) {
+          setQuotedHtml(win.data.html_body);
+        } else if (win.data.text_body) {
+          setQuotedHtml(`<div style="border-top:1px solid #edebe9;padding-top:10px;margin-top:20px;color:#605e5c"><p>${win.data.text_body.replace(/\n/g, "<br>")}</p></div>`);
+        }
+        if (sig) setSignatureHtml(sig);
+        // Smart Reply: prefill_body contiene el texto IA pre-generado
+        content = win.data.prefill_body || '<p><br></p>';
+
       }
       editor?.commands.setContent(content);
     };
@@ -137,24 +168,46 @@ export function ComposePanel({ win }: Props) {
     try {
       const res = await api.post<{ draft_uid: number | null }>('/mail/drafts', {
         to: to.split(',').map(s => s.trim()).filter(Boolean),
-        subject, html_body: editor?.getHTML() || '', text_body: '',
+        subject, html_body: getFullHtml(), text_body: '',
         existing_draft_uid: win.draftUid,
       });
       if (res.draft_uid) updateDraftUid(win.id, res.draft_uid);
     } catch {}
   }, [to, subject, win.draftUid, win.id, editor]);
 
+  // Share editor with main Toolbar ribbon
+  React.useEffect(() => {
+    // Keep this effect below `saveDraft`: moving it above reintroduces a TDZ crash
+    // when `compose-save-draft` is wired before the callback is initialized.
+    if (editor) {
+      useMailStore.getState().setActiveEditor(editor);
+      useMailStore.getState().setComposeRibbonTab('message');
+    }
+    const attachHandler = () => fileInputRef.current?.click();
+    const draftHandler = () => saveDraft();
+    const ccHandler = () => setShowCc(true);
+    const bccHandler = () => setShowBcc(true);
+    window.addEventListener('compose-attach', attachHandler);
+    window.addEventListener('compose-save-draft', draftHandler);
+    window.addEventListener('compose-show-cc', ccHandler);
+    window.addEventListener('compose-show-bcc', bccHandler);
+    return () => {
+      useMailStore.getState().setActiveEditor(null);
+      window.removeEventListener('compose-attach', attachHandler);
+      window.removeEventListener('compose-save-draft', draftHandler);
+      window.removeEventListener('compose-show-cc', ccHandler);
+      window.removeEventListener('compose-show-bcc', bccHandler);
+    };
+  }, [editor, saveDraft]);
+
   // Autosave every 30s
   useEffect(() => {
     autosaveTimer.current = setInterval(() => { saveDraft(); }, 30000);
     return () => { if (autosaveTimer.current) clearInterval(autosaveTimer.current); };
   }, [saveDraft]);
-
-
-
   // Close with save confirmation
   const handleClose = useCallback(async () => {
-    const hasContent = !!(to || subject || (editor && editor.getText().trim()));
+    const hasContent = !!(to || subject || (editor && editor.getText().trim()) || signatureHtml);
     if (hasContent) {
       const action = window.confirm('\u00bfGuardar como borrador antes de cerrar?');
       if (action) {
@@ -165,27 +218,46 @@ export function ComposePanel({ win }: Props) {
     closeCompose(win.id);
   }, [to, subject, editor, saveDraft, win.id, closeCompose]);
 
-  // handleSend with 5-second undo — MUST be defined before keyboard useEffect
-  const handleSend = useCallback(() => {
+  // Convertir File a base64 para enviar adjuntos al backend
+  const readFileAsBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        resolve(result.split(',')[1] ?? '');
+      };
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+
+  // handleSend with 5-second undo  MUST be defined before keyboard useEffect
+  const handleSend = useCallback(async () => {
     const recipients = to.split(',').map(s => s.trim()).filter(Boolean);
     if (!recipients.length) { setError('Ingresa un destinatario'); return; }
     const sendPayload = {
       to: recipients,
       cc: cc ? cc.split(',').map(s => s.trim()).filter(Boolean) : undefined,
       bcc: bcc ? bcc.split(',').map(s => s.trim()).filter(Boolean) : undefined,
-      subject, html_body: editor?.getHTML() || '', text_body: '',
+      subject, html_body: getFullHtml(), text_body: '',
       in_reply_to: win.data.in_reply_to || '', references: win.data.references || '',
+      attachments: await Promise.all(
+        attachments.filter(a => a.file).map(async (a) => ({
+          filename: a.name,
+          content_b64: await readFileAsBase64(a.file!),
+          content_type: a.type || 'application/octet-stream',
+        }))
+      ),
       draft_uid: win.draftUid,
       request_read_receipt: trackingState.read,
       request_delivery_receipt: trackingState.delivery,
     };
-    const savedData = { mode: win.mode, data: { ...win.data, to: recipients, subject, html_body: editor?.getHTML() || '', text_body: '' } };
+    const savedData = { mode: win.mode, data: { ...win.data, to: recipients, subject, html_body: getFullHtml(), text_body: '' } };
     const winId = win.id;
     closeCompose(winId);
     let remaining = 5;
     const toastId = showToast(`Enviando en ${remaining}s...`, { label: 'Deshacer', onClick: () => {
       const p = pendingSendMap.get(winId); if (p) { clearTimeout(p.timerId); clearInterval(p.intervalId); pendingSendMap.delete(winId); }
-      dismissToast(toastId); useMailStore.getState().openCompose(savedData.mode, savedData.data); showToast('Envio cancelado');
+      dismissToast(toastId); useMailStore.getState().openCompose(savedData.mode, savedData.data); showToast('Envío cancelado');
     }});
     const intervalId = setInterval(() => { remaining--; if (remaining <= 0) return; }, 1000);
     const timerId = setTimeout(async () => {
@@ -194,9 +266,21 @@ export function ComposePanel({ win }: Props) {
       } catch (err: unknown) { showToast(err instanceof Error ? err.message : 'Error al enviar'); useMailStore.getState().openCompose(savedData.mode, savedData.data); }
     }, 5000);
     pendingSendMap.set(winId, { timerId, toastId, intervalId });
-  }, [to, cc, bcc, subject, editor, win, trackingState, closeCompose]);
+  }, [to, cc, bcc, subject, editor, win, trackingState, closeCompose, attachments]);
 
-  // Keyboard shortcuts: Ctrl+Enter → send, Esc → close
+  // Close send dropdown on click outside
+  useEffect(() => {
+    if (!showSendDropdown) return;
+    function handleClick(e: MouseEvent) {
+      if (sendDropdownRef.current && !sendDropdownRef.current.contains(e.target as Node)) {
+        setShowSendDropdown(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showSendDropdown]);
+
+  // Keyboard shortcuts: Ctrl+Enter  send, Esc  close
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); handleSend(); }
@@ -222,7 +306,7 @@ export function ComposePanel({ win }: Props) {
     setAttachments(prev => prev.filter((_, i) => i !== idx));
   };
 
-  // ── Drag & Drop ──
+  //  Drag & Drop
   const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -263,16 +347,16 @@ export function ComposePanel({ win }: Props) {
     try {
       const res = await api.get<{ signature_html: string }>('/settings/signature');
       if (res.signature_html) {
-        editor?.chain().focus().insertContent(`<div style="border-top:1px solid #edebe9;padding-top:10px;margin-top:10px;color:#605e5c">${res.signature_html}</div>`).run();
+        setSignatureHtml(res.signature_html);
         showToast('Firma insertada');
       } else {
         showToast('No hay firma configurada');
       }
     } catch { showToast('Error al cargar la firma'); }
-  }, [editor]);
+  }, []);
 
   const downloadDraft = useCallback(() => {
-    const html = editor?.getHTML() || '';
+    const html = getFullHtml();
     const fullHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${subject || 'Borrador'}</title></head><body style="font-family:Calibri,sans-serif;font-size:14px">${html}</body></html>`;
     const blob = new Blob([fullHtml], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
@@ -285,7 +369,7 @@ export function ComposePanel({ win }: Props) {
 
   // ====== Callbacks conectados a backends ======
 
-  // Helper para llamar a la API IA (proxy nginx /api/ia/ → VM 170)
+  // Helper para llamar a la API IA (proxy nginx /api/ia/  VM 170)
   const iaFetch = useCallback(async <T,>(endpoint: string, body: object): Promise<T> => {
     const res = await fetch(`/api/ia/${endpoint}`, {
       method: 'POST',
@@ -296,10 +380,14 @@ export function ComposePanel({ win }: Props) {
     return res.json();
   }, []);
 
-  // → VM 170: Mejorar redacción con IA - PROGRESIVO 3 NIVELES
+  //  VM 170: Mejorar redacción con IA - PROGRESIVO 4 NIVELES
   const [improveLevel, setImproveLevel] = useState(0);
-  const LEVEL_LABELS = ['', 'Corrigiendo ortografía...', 'Mejorando estructura...', 'Puliendo redacción...'];
-  const LEVEL_TOASTS = ['', 'Ortografía corregida', 'Estructura mejorada', 'Redacción pulida'];
+  const MAX_LEVEL = 4;
+  const LEVEL_LABELS = ['', 'Nivel 1/4 · Corrigiendo ortografía...', 'Nivel 2/4 · Mejorando sintaxis...', 'Nivel 3/4 · Alineando a Maquita...', 'Nivel 4/4 · Pulido ejecutivo...'];
+  const LEVEL_TOASTS = ['', 'Ortografía corregida', 'Sintaxis mejorada', 'Alineado a Maquita', 'Pulido ejecutivo aplicado'];
+  const LEVEL_NEXT = ['', 'mejorar sintaxis', 'alinear a Maquita', 'pulido ejecutivo', ''];
+
+  const [improving, setImproving] = useState(false);
 
   const handleImproveWriting = useCallback(async () => {
     const text = editor?.getText() || '';
@@ -307,25 +395,86 @@ export function ComposePanel({ win }: Props) {
       showToast('Escribe al menos una oración para mejorar');
       return;
     }
-    const nextLevel = improveLevel >= 3 ? 1 : improveLevel + 1;
-    showToast(LEVEL_LABELS[nextLevel]);
-    try {
-      const data = await iaFetch<{ improved_text: string; subject_suggestion: string | null; changes_summary: string; level: number }>('improve', {
-        text: editor?.getHTML() || text,
-        tone: 'professional',
-        level: nextLevel,
-      });
-      editor?.commands.setContent(data.improved_text);
-      if (data.subject_suggestion && !subject) setSubject(data.subject_suggestion);
-      setImproveLevel(nextLevel);
-      showToast(nextLevel < 3
-        ? `✅ ${LEVEL_TOASTS[nextLevel]} (${data.changes_summary}). Click de nuevo para ${nextLevel === 1 ? 'mejorar estructura' : 'pulir redacción'}.`
-        : `✨ ${LEVEL_TOASTS[nextLevel]}: ${data.changes_summary}`
-      );
-    } catch { showToast('Error al conectar con IA'); }
-  }, [editor, subject, iaFetch, improveLevel]);
+    if (improving) return;
+    const nextLevel = improveLevel >= MAX_LEVEL ? 1 : improveLevel + 1;
+    setImproving(true);
+    const progressId = showToast(LEVEL_LABELS[nextLevel]);
 
-  // → VM 170: Revisión IA del texto - FUNCIONAL
+    const finishToast = (summary: string, lvl: number) => {
+      dismissToast(progressId);
+      const next = LEVEL_NEXT[lvl];
+      showToast(next
+        ? `${LEVEL_TOASTS[lvl]} (${summary}). Click para ${next}.`
+        : `${LEVEL_TOASTS[lvl]}: ${summary}`
+      );
+    };
+
+    try {
+      const res = await fetch('/api/ia/improve/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: editor?.getHTML() || text,
+          tone: 'professional',
+          level: nextLevel,
+        }),
+      });
+
+      if (!res.ok || !res.body) {
+        // Fallback al endpoint sin streaming
+        const data = await iaFetch<{ improved_text: string; subject_suggestion: string | null; changes_summary: string; level: number }>('improve', {
+          text: editor?.getHTML() || text,
+          tone: 'professional',
+          level: nextLevel,
+        });
+        editor?.commands.setContent(data.improved_text);
+        if (data.subject_suggestion && !subject) setSubject(data.subject_suggestion);
+        setImproveLevel(nextLevel);
+        finishToast(data.changes_summary, nextLevel);
+        setImproving(false);
+        return;
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const parts = buffer.split('\n\n');
+        buffer = parts.pop() || '';
+
+        for (const part of parts) {
+          const line = part.trim();
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const evt = JSON.parse(line.slice(6));
+
+            if (evt.type === 'progress') {
+              updateToast(progressId, `${LEVEL_LABELS[nextLevel]} ${evt.pct}%`);
+            } else if (evt.type === 'done') {
+              editor?.commands.setContent(evt.improved_text);
+              if (evt.subject_suggestion && !subject) setSubject(evt.subject_suggestion);
+              setImproveLevel(nextLevel);
+              finishToast(evt.changes_summary, nextLevel);
+            } else if (evt.type === 'error') {
+              dismissToast(progressId);
+              showToast('Error al conectar con IA');
+            }
+          } catch { /* ignore parse errors */ }
+        }
+      }
+    } catch {
+      dismissToast(progressId);
+      showToast('Error al conectar con IA');
+    }
+    setImproving(false);
+  }, [editor, subject, iaFetch, improveLevel, improving]);
+
+  //  VM 170: Revisión IA del texto - FUNCIONAL
   const handleReviewEditor = useCallback(async () => {
     const text = editor?.getText() || '';
     if (!text.trim()) { showToast('No hay texto para revisar'); return; }
@@ -335,7 +484,7 @@ export function ComposePanel({ win }: Props) {
         text: editor?.getHTML() || text,
         subject,
       });
-      const msg = `Puntuación: ${data.score}/10\n\n${data.feedback}\n\nSugerencias:\n${data.suggestions.map(s => '• ' + s).join('\n')}`;
+      const msg = `Puntuación: ${data.score}/10\n\n${data.feedback}\n\nSugerencias:\n${data.suggestions.map(s => ' ' + s).join('\n')}`;
       if (data.corrected_text && confirm(`${msg}\n\n¿Aplicar la versión corregida?`)) {
         editor?.commands.setContent(data.corrected_text.replace(/\n/g, '<br>'));
         showToast('Correcciones aplicadas');
@@ -345,7 +494,7 @@ export function ComposePanel({ win }: Props) {
     } catch { showToast('Error al conectar con IA'); }
   }, [editor, subject, iaFetch]);
 
-  // → VM 170: Análisis de accesibilidad - FUNCIONAL
+  //  VM 170: Análisis de accesibilidad - FUNCIONAL
   const handleCheckAccessibility = useCallback(async () => {
     const html = editor?.getHTML() || '';
     const issues: string[] = [];
@@ -353,19 +502,105 @@ export function ComposePanel({ win }: Props) {
     if (html.length > 50000) issues.push('Email muy largo (>50KB)');
     if (!html.includes('</p>') && html.length > 500) issues.push('Texto largo sin párrafos separados');
     showToast(issues.length ? `Accesibilidad: ${issues.length} problema(s)` : 'Sin problemas de accesibilidad');
-    if (issues.length) alert(`Problemas de accesibilidad:\n\n${issues.map(i => '• ' + i).join('\n')}`);
+    if (issues.length) alert(`Problemas de accesibilidad:\n\n${issues.map(i => ' ' + i).join('\n')}`);
   }, [editor]);
 
-  // → VM 170: Whisper STT (preparado)
+
+  //  VM 170: Sugerir asunto con IA
+  const [suggestingSubject, setSuggestingSubject] = useState(false);
+  const handleSuggestSubject = useCallback(async () => {
+    const text = editor?.getText() || '';
+    if (!text.trim() || text.trim().length < 10) {
+      showToast('Escribe algo en el cuerpo para sugerir asunto');
+      return;
+    }
+    if (suggestingSubject) return;
+    setSuggestingSubject(true);
+    showToast('Generando sugerencias de asunto...');
+    try {
+      const data = await api.post<{ suggestions: string[] }>('/ai/suggest-subject', { body: text });
+      if (data.suggestions?.length) {
+        const choice = data.suggestions.length === 1
+          ? data.suggestions[0]
+          : await new Promise<string | null>((resolve) => {
+              const msg = data.suggestions.map((s, i) => `${i + 1}. ${s}`).join('\n');
+              const pick = prompt(`Sugerencias de asunto:\n\n${msg}\n\nEscribe el numero (1-${data.suggestions.length}):`);
+              if (pick) {
+                const idx = parseInt(pick) - 1;
+                resolve(idx >= 0 && idx < data.suggestions.length ? data.suggestions[idx] : null);
+              } else resolve(null);
+            });
+        if (choice) {
+          setSubject(choice);
+          showToast('Asunto aplicado');
+        }
+      } else {
+        showToast('No se pudieron generar sugerencias');
+      }
+    } catch { showToast('Error al conectar con IA'); }
+    setSuggestingSubject(false);
+  }, [editor, api, suggestingSubject]);
+
+  //  VM 170: Smart Compose — autocompletado IA
+  const [composeSuggestion, setComposeSuggestion] = useState('');
+  const composeDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const fetchSmartCompose = useCallback(async (context: string) => {
+    if (context.trim().length < 15) { setComposeSuggestion(''); return; }
+    try {
+      const data = await api.post<{ suggestion: string }>('/ai/smart-compose', {
+        context, subject, to,
+      });
+      if (data.suggestion) setComposeSuggestion(data.suggestion);
+    } catch { /* silent fail for autocomplete */ }
+  }, [subject, to]);
+
+  // Trigger smart compose on editor update (debounced 2s)
+  useEffect(() => {
+    if (!editor) return;
+    const handler = () => {
+      if (composeDebounce.current) clearTimeout(composeDebounce.current);
+      setComposeSuggestion('');
+      composeDebounce.current = setTimeout(() => {
+        const text = editor.getText();
+        if (text.length >= 15) fetchSmartCompose(text);
+      }, 2000);
+    };
+    editor.on('update', handler);
+    return () => { editor.off('update', handler); if (composeDebounce.current) clearTimeout(composeDebounce.current); };
+  }, [editor, fetchSmartCompose]);
+
+  const acceptComposeSuggestion = useCallback(() => {
+    if (composeSuggestion && editor) {
+      editor.chain().focus().insertContent(composeSuggestion).run();
+      setComposeSuggestion('');
+      showToast('Sugerencia aceptada');
+    }
+  }, [editor, composeSuggestion]);
+  //  VM 170: Whisper STT
+  const [dictating, setDictating] = useState(false);
   const handleDictate = useCallback(() => {
-    showToast('Dictado por voz: próximamente');
+    setDictating(prev => !prev);
   }, []);
+  const handleTranscript = useCallback((text: string) => {
+    if (editor) {
+      editor.chain().focus().insertContent(text + ' ').run();
+      showToast('Texto dictado insertado');
+    }
+    setDictating(false);
+  }, [editor]);
 
   // handleScheduleSend defined above
 
-  // → Futuro: Nextcloud/LibreOffice Online
+  //  Futuro: Nextcloud/LibreOffice Online
   const handleOpenApps = useCallback(() => {
-    showToast('Aplicaciones: próximamente');
+    const appList = [
+      'Traductor de idiomas',
+      'Corrector ortográfico avanzado',
+      'Plantillas de correo',
+      'Generador de firmas',
+    ].join(' · ');
+    showToast('Complementos disponibles: ' + appList);
   }, []);
 
   // Copiar formato
@@ -393,15 +628,52 @@ export function ComposePanel({ win }: Props) {
       await api.post('/mail/schedule', {
         to: recipients, cc: cc ? cc.split(',').map(s => s.trim()).filter(Boolean) : [],
         bcc: bcc ? bcc.split(',').map(s => s.trim()).filter(Boolean) : [],
-        subject, html_body: editor?.getHTML() || '', text_body: '',
+        subject, html_body: getFullHtml(), text_body: '',
         in_reply_to: win.data.in_reply_to || '', references: win.data.references || '',
         scheduled_at: new Date(scheduleDate).toISOString(),
         request_read_receipt: trackingState.read, request_delivery_receipt: trackingState.delivery,
       });
       closeCompose(win.id); setShowScheduleModal(false);
-      showToast(`Envio programado para ${new Date(scheduleDate).toLocaleString('es-EC')}`);
-    } catch { showToast('Error al programar envio'); }
+      showToast(`Envío programado para ${new Date(scheduleDate).toLocaleString('es-EC')}`);
+    } catch { showToast('Error al programar envío'); }
   }, [to, cc, bcc, subject, editor, win, scheduleDate, trackingState, closeCompose]);
+
+  useEffect(() => {
+    const scheduleHandler = () => handleScheduleSend();
+    const reviewHandler = () => handleReviewEditor();
+    const accessibilityHandler = () => handleCheckAccessibility();
+    const improveHandler = () => handleImproveWriting();
+    const dictateHandler = () => handleDictate();
+    const openAppsHandler = () => handleOpenApps();
+    const trackingHandler = (event: Event) => {
+      const customEvent = event as CustomEvent<{ delivery: boolean; read: boolean; noReactions: boolean }>;
+      if (customEvent.detail) handleTrackingChange(customEvent.detail);
+    };
+
+    window.addEventListener('compose-schedule-send', scheduleHandler);
+    window.addEventListener('compose-review-editor', reviewHandler);
+    window.addEventListener('compose-check-accessibility', accessibilityHandler);
+    const suggestSubjectHandler = () => handleSuggestSubject();
+    const acceptComposeHandler = () => acceptComposeSuggestion();
+    window.addEventListener('compose-improve-writing', improveHandler);
+    window.addEventListener('compose-suggest-subject', suggestSubjectHandler);
+    window.addEventListener('compose-accept-suggestion', acceptComposeHandler);
+    window.addEventListener('compose-dictate', dictateHandler);
+    window.addEventListener('compose-open-apps', openAppsHandler);
+    window.addEventListener('compose-tracking-change', trackingHandler as EventListener);
+
+    return () => {
+      window.removeEventListener('compose-schedule-send', scheduleHandler);
+      window.removeEventListener('compose-review-editor', reviewHandler);
+      window.removeEventListener('compose-check-accessibility', accessibilityHandler);
+      window.removeEventListener('compose-improve-writing', improveHandler);
+      window.removeEventListener('compose-suggest-subject', suggestSubjectHandler);
+      window.removeEventListener('compose-accept-suggestion', acceptComposeHandler);
+      window.removeEventListener('compose-dictate', dictateHandler);
+      window.removeEventListener('compose-open-apps', openAppsHandler);
+      window.removeEventListener('compose-tracking-change', trackingHandler as EventListener);
+    };
+  }, [handleScheduleSend, handleReviewEditor, handleCheckAccessibility, handleImproveWriting, handleDictate, handleOpenApps, handleTrackingChange, handleSuggestSubject, acceptComposeSuggestion]);
 
   if (!editor) return null;
 
@@ -434,7 +706,7 @@ export function ComposePanel({ win }: Props) {
       {/* Send row (below ribbon, above recipients) - matches OWA layout exactly */}
       <div className="h-[44px] flex items-center px-4 bg-white border-b border-[#edebe9] shrink-0">
         {/* Send button with dropdown caret */}
-        <div className="flex items-center">
+        <div className="flex items-center relative" ref={sendDropdownRef}>
           <button onClick={handleSend} disabled={sending}
             className="h-[32px] pl-3 pr-2.5 bg-[#0078d4] text-white text-[13px] font-semibold rounded-l-[4px] hover:bg-[#106ebe] disabled:opacity-50 transition-colors flex items-center gap-[6px]">
             <svg className="w-[16px] h-[16px]" viewBox="0 0 24 24" fill="currentColor">
@@ -442,11 +714,37 @@ export function ComposePanel({ win }: Props) {
             </svg>
             {sending ? 'Enviando...' : 'Enviar'}
           </button>
-          <button className="h-[32px] px-[6px] bg-[#0078d4] text-white rounded-r-[4px] border-l border-[#ffffff40] hover:bg-[#106ebe] transition-colors">
-            <svg className="w-[10px] h-[10px]" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-            </svg>
-          </button>
+            <button
+              onClick={() => setShowSendDropdown(!showSendDropdown)}
+              className="h-[32px] px-[6px] bg-[#0078d4] text-white rounded-r-[4px] border-l border-[#ffffff40] hover:bg-[#106ebe] transition-colors"
+            >
+              <svg className="w-[10px] h-[10px]" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
+            {showSendDropdown && (
+              <div className="absolute left-0 top-full mt-1 bg-white border border-[#e0e0e0] rounded shadow-lg z-[9999] py-1 min-w-[220px]">
+                <button
+                  className="w-full text-left px-3 py-[7px] text-[13px] text-[#323130] hover:bg-[#f3f2f1] flex items-center gap-2"
+                  onClick={() => { setShowSendDropdown(false); handleSend(); }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="#0078d4">
+                    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+                  </svg>
+                  Enviar
+                </button>
+                <button
+                  className="w-full text-left px-3 py-[7px] text-[13px] text-[#323130] hover:bg-[#f3f2f1] flex items-center gap-2"
+                  onClick={() => { setShowSendDropdown(false); handleScheduleSend(); }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#605e5c" strokeWidth="1.5">
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M12 6v6l4 4" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  Programar envío
+                </button>
+              </div>
+            )}
         </div>
 
         <div className="flex-1" />
@@ -471,16 +769,27 @@ export function ComposePanel({ win }: Props) {
       {/* Recipients */}
       <RecipientField label="Para" value={to} onChange={setTo} autoFocus primary
         onToggleExtra={() => { setShowCc(true); setShowBcc(true); }}
-        showExtra={showCc || showBcc} />
-      {showCc && <RecipientField label="CC" value={cc} onChange={setCc} />}
-      {showBcc && <RecipientField label="CCO" value={bcc} onChange={setBcc} />}
+        showExtra={showCc || showBcc}
+        onOpenDirectory={(target) => { setDirectoryPickerTarget(target); setShowDirectoryPicker(true); }} />
+      {showCc && <RecipientField label="CC" value={cc} onChange={setCc}
+        onOpenDirectory={(target) => { setDirectoryPickerTarget(target); setShowDirectoryPicker(true); }} />}
+      {showBcc && <RecipientField label="CCO" value={bcc} onChange={setBcc}
+        onOpenDirectory={(target) => { setDirectoryPickerTarget(target); setShowDirectoryPicker(true); }} />}
 
       {/* Subject */}
       <div className="border-b border-[#edebe9] shrink-0">
-        <input value={subject} onChange={e => setSubject(e.target.value)}
-          placeholder="Agregar un asunto"
-          className="w-full text-[15px] px-4 py-2.5 outline-none text-[#323130] placeholder-[#a19f9d]"
-          style={{ fontFamily: 'Segoe UI, Calibri, sans-serif' }} />
+        <div className="flex items-center">
+          <input value={subject} onChange={e => setSubject(e.target.value)}
+            placeholder="Agregar un asunto"
+            className="flex-1 text-[15px] px-4 py-2.5 outline-none text-[#323130] placeholder-[#a19f9d]"
+            style={{ fontFamily: 'Segoe UI, Calibri, sans-serif' }} />
+          <button onClick={handleSuggestSubject} disabled={suggestingSubject}
+            title="Sugerir asunto con IA"
+            className="mr-2 px-2 py-1 text-[11px] text-[#0078d4] hover:bg-[#f3f2f1] rounded flex items-center gap-1 disabled:opacity-50 whitespace-nowrap">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0078d4" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
+            IA
+          </button>
+        </div>
       </div>
 
       {/* Error */}
@@ -488,10 +797,112 @@ export function ComposePanel({ win }: Props) {
         <div className="px-4 py-1.5 bg-[#fde7e9] text-[#a4262c] text-[12px] shrink-0">{error}</div>
       )}
 
+      {/* Voice dictation bar */}
+      {dictating && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-[#fef6f6] border-b border-[#f3d6d8]">
+          <VoiceDictation onTranscript={handleTranscript} />
+          <span className="text-[12px] text-[#605e5c]">Habla y el texto se insertará en el editor</span>
+          <button onClick={() => setDictating(false)} className="ml-auto text-[12px] text-[#605e5c] hover:text-[#323130]">Cerrar</button>
+        </div>
+      )}
+
       {/* Editor area */}
-      <div className="flex-1 overflow-y-auto">
+      {/* ================================================================
+          CSS para escalar imagenes de firmas en contenido citado (reply).
+          Bug 2026-04-10: las firmas HTML tienen imagenes de 600px+ que
+          desbordaban el compose. TipTap elimina class/style de <div>,
+          por eso usamos <style> global apuntando al editor .tiptap.
+          max-width:280px limita logos de firma a tamaño razonable.
+          ================================================================ */}
+      <style>{`
+        .compose-editor-area > div { height: auto !important; }
+        .compose-editor-area .ProseMirror { min-height: 60px !important; height: auto !important; }
+        .compose-editor-area .tiptap img {
+          max-width: 160px !important;
+          max-height: 70px !important;
+          width: auto !important;
+          height: auto !important;
+        }
+        .compose-editor-area .tiptap table {
+          max-width: 100% !important;
+          font-size: 12px;
+          border-collapse: collapse;
+          width: 100%;
+          margin: 8px 0;
+        }
+        .compose-editor-area .tiptap td,
+        .compose-editor-area .tiptap th {
+          border: 1px solid #323130;
+          padding: 6px 10px;
+          min-width: 60px;
+          vertical-align: top;
+          position: relative;
+        }
+        .compose-editor-area .tiptap th {
+          font-weight: 600;
+          background: #f3f2f1;
+        }
+        .compose-editor-area .tiptap .selectedCell {
+          background: #e1f0ff;
+        }
+        .compose-editor-area .tiptap .column-resize-handle {
+          position: absolute;
+          right: -2px;
+          top: 0;
+          bottom: 0;
+          width: 4px;
+          background: #0078d4;
+          cursor: col-resize;
+          z-index: 20;
+        }
+        .compose-editor-area .tiptap .tableWrapper {
+          overflow-x: auto;
+          margin: 8px 0;
+        }
+      `}</style>
+      {/* Smart Compose suggestion */}
+      {composeSuggestion && (
+        <div className="flex items-center gap-2 px-4 py-1.5 bg-[#f0f6ff] border-b border-[#c7e0f4] shrink-0">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0078d4" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
+          <span className="text-[12px] text-[#605e5c] truncate flex-1" title={composeSuggestion}>
+            {composeSuggestion.length > 80 ? composeSuggestion.slice(0, 80) + '...' : composeSuggestion}
+          </span>
+          <button onClick={acceptComposeSuggestion}
+            className="text-[11px] font-semibold text-[#0078d4] hover:bg-[#deecf9] px-2 py-0.5 rounded">
+            Tab para aceptar
+          </button>
+          <button onClick={() => setComposeSuggestion('')}
+            className="text-[11px] text-[#a19f9d] hover:text-[#605e5c] px-1">
+            ✕
+          </button>
+        </div>
+      )}
+      <div className="flex-1 overflow-y-auto compose-editor-area">
         <EditorContent editor={editor}
           className="[&_.tiptap_h1]:text-[24px] [&_.tiptap_h1]:font-bold [&_.tiptap_h1]:mb-3 [&_.tiptap_h2]:text-[20px] [&_.tiptap_h2]:font-bold [&_.tiptap_h2]:mb-2 [&_.tiptap_h3]:text-[16px] [&_.tiptap_h3]:font-bold [&_.tiptap_h3]:mb-1 [&_.tiptap_ul]:list-disc [&_.tiptap_ul]:pl-6 [&_.tiptap_ol]:list-decimal [&_.tiptap_ol]:pl-6 [&_.tiptap_blockquote]:border-l-4 [&_.tiptap_blockquote]:border-[#e1dfdd] [&_.tiptap_blockquote]:pl-4 [&_.tiptap_blockquote]:italic [&_.tiptap_blockquote]:text-[#605e5c] [&_.tiptap_a]:text-[#0078d4] [&_.tiptap_a]:underline [&_.tiptap_pre]:bg-[#f3f2f1] [&_.tiptap_pre]:p-3 [&_.tiptap_pre]:rounded [&_.tiptap_pre]:font-mono [&_.tiptap_pre]:text-[13px] [&_.tiptap_hr]:border-[#edebe9] [&_.tiptap_hr]:my-3 [&_.tiptap_p]:mb-1 [&_.tiptap_img]:max-w-full [&_.tiptap_img]:h-auto [&_.tiptap_img]:rounded" />
+
+        {/* Firma — renderizada fuera del editor para preservar HTML complejo */}
+        {signatureHtml && (
+          <div className="compose-signature" style={{ position: 'relative', padding: '0 24px', marginTop: 8, color: '#605e5c' }}>
+            <button
+              onClick={() => setSignatureHtml('')}
+              title="Quitar firma"
+              style={{ position: 'absolute', top: 0, right: 24, background: 'none', border: 'none', cursor: 'pointer', color: '#a19f9d', fontSize: 14, padding: '2px 6px', borderRadius: 3 }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = '#323130'; e.currentTarget.style.background = '#f3f2f1'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = '#a19f9d'; e.currentTarget.style.background = 'none'; }}
+            >×</button>
+            <div dangerouslySetInnerHTML={{ __html: signatureHtml }} />
+          </div>
+        )}
+        {/* Contenido citado (reply/forward) — se muestra DESPUES de la firma */}
+        {quotedHtml && (
+          <div
+            contentEditable={false}
+            className="compose-quoted-content"
+            style={{ padding: '0 24px 16px', color: '#605e5c', userSelect: 'text', cursor: 'default', fontSize: 13 }}
+            dangerouslySetInnerHTML={{ __html: quotedHtml }}
+          />
+        )}
       </div>
 
       {/* Attachments */}
@@ -501,7 +912,7 @@ export function ComposePanel({ win }: Props) {
       {showScheduleModal && (
         <div className="absolute inset-0 z-50 bg-black/30 flex items-center justify-center" onClick={() => setShowScheduleModal(false)}>
           <div className="bg-white rounded-lg shadow-xl p-5 w-80" onClick={e => e.stopPropagation()}>
-            <h3 className="text-[14px] font-semibold text-[#323130] mb-3">Programar envio</h3>
+            <h3 className="text-[14px] font-semibold text-[#323130] mb-3">Programar envío</h3>
             <input type="datetime-local" value={scheduleDate} onChange={e => setScheduleDate(e.target.value)}
               className="w-full border border-[#8a8886] rounded px-3 py-2 text-[13px] mb-3" />
             <div className="flex justify-end gap-2">
@@ -510,6 +921,30 @@ export function ComposePanel({ win }: Props) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Directory picker for recipients */}
+      {showDirectoryPicker && (
+        <DirectoryPanel
+          isOpen={showDirectoryPicker}
+          onClose={() => setShowDirectoryPicker(false)}
+          pickerMode
+          pickerTarget={directoryPickerTarget}
+          onPickContact={(contact, target) => {
+            const emailAddr = contact.display_name
+              ? `${contact.display_name} <${contact.email}>`
+              : contact.email;
+            if (target === 'to') {
+              setTo(prev => prev ? `${prev}, ${emailAddr}` : emailAddr);
+            } else if (target === 'cc') {
+              setShowCc(true);
+              setCc(prev => prev ? `${prev}, ${emailAddr}` : emailAddr);
+            } else {
+              setShowBcc(true);
+              setBcc(prev => prev ? `${prev}, ${emailAddr}` : emailAddr);
+            }
+          }}
+        />
       )}
     </div>
   );

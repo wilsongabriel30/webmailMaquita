@@ -6,8 +6,8 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, Request, Depends
 
 from app.auth.dependencies import get_current_user
-from app.core.session import get_user_password
-from app.mail.clients.imap_client import get_imap_connection
+from app.core.session import get_user_password, get_imap_login_user
+from app.mail.clients.imap_client import get_imap_connection, _quote_folder
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ def _decode_lines(lines) -> list[str]:
 async def _get_folder_status(imap, folder_name: str) -> dict:
     """Get MESSAGES and UNSEEN counts for a folder."""
     try:
-        resp = await imap.status(folder_name, "(MESSAGES UNSEEN)")
+        resp = await imap.status(_quote_folder(folder_name), "(MESSAGES UNSEEN)")
         if resp.result == "OK":
             for line in _decode_lines(resp.lines):
                 messages_m = re.search(r"MESSAGES\s+(\d+)", line)
@@ -59,6 +59,48 @@ async def _count_sent_since(imap, since_date: str) -> int:
     except Exception as e:
         logger.debug(f"Sent count failed: {e}")
         return 0
+
+
+async def _get_quota(imap) -> dict:
+    """Get storage used/limit via IMAP GETQUOTAROOT."""
+    storage_kb = 0
+    storage_limit_kb = 0
+    message_count = 0
+    message_limit = 0
+    try:
+        import aioimaplib
+        cmd = aioimaplib.Command(
+            "GETQUOTAROOT", imap.protocol.new_tag(), "INBOX",
+            untagged_resp_name="QUOTA",
+        )
+        resp = await imap.protocol.execute(cmd)
+        if resp.result == "OK":
+            for line in _decode_lines(resp.lines):
+                # QUOTA "" (STORAGE 19923876 0) or (STORAGE 19923876)
+                storage_m = re.search(r"STORAGE\s+(\d+)\s+(\d+)", line)
+                if storage_m:
+                    storage_kb = int(storage_m.group(1))
+                    storage_limit_kb = int(storage_m.group(2))
+                elif not storage_kb:
+                    storage_m2 = re.search(r"STORAGE\s+(\d+)", line)
+                    if storage_m2:
+                        storage_kb = int(storage_m2.group(1))
+                msg_m = re.search(r"MESSAGE\s+(\d+)\s+(\d+)", line)
+                if msg_m:
+                    message_count = int(msg_m.group(1))
+                    message_limit = int(msg_m.group(2))
+                elif not message_count:
+                    msg_m2 = re.search(r"MESSAGE\s+(\d+)", line)
+                    if msg_m2:
+                        message_count = int(msg_m2.group(1))
+    except Exception as e:
+        logger.debug(f"GETQUOTAROOT failed: {e}")
+    return {
+        "storage_kb": storage_kb,
+        "storage_limit_kb": storage_limit_kb,
+        "message_count": message_count,
+        "message_limit": message_limit,
+    }
 
 
 async def _get_top_senders(imap, limit: int = 5) -> list[dict]:
@@ -97,7 +139,6 @@ async def _get_top_senders(imap, limit: int = 5) -> list[dict]:
             from_m = re.search(r"From:\s*(.+)", line, re.IGNORECASE)
             if from_m:
                 raw_from = from_m.group(1).strip()
-                # Parse "Name <email>" or just "email"
                 addr_m = re.search(r"<([^>]+)>", raw_from)
                 if addr_m:
                     email = addr_m.group(1).lower()
@@ -121,7 +162,8 @@ async def _get_top_senders(imap, limit: int = 5) -> list[dict]:
 @router.get("/stats")
 async def get_mail_stats(request: Request, username: str = Depends(get_current_user)):
     password = await get_user_password(request, username)
-    imap = await get_imap_connection(username, password)
+    login_user = await get_imap_login_user(request, username)
+    imap = await get_imap_connection(login_user, password)
     try:
         # Folder stats
         inbox_status = await _get_folder_status(imap, "INBOX")
@@ -139,17 +181,10 @@ async def get_mail_stats(request: Request, username: str = Depends(get_current_u
         sent_week = await _count_sent_since(imap, week_ago)
         sent_month = await _count_sent_since(imap, month_ago)
 
-        # Storage from quota2 table
-        storage_used_mb = 0.0
-        try:
-            db = request.app.state.db_pool
-            row = await db.fetchrow(
-                "SELECT bytes FROM quota2 WHERE username = $1", username
-            )
-            if row and row["bytes"]:
-                storage_used_mb = round(row["bytes"] / (1024 * 1024), 1)
-        except Exception as e:
-            logger.debug(f"Quota lookup failed: {e}")
+        # Storage from IMAP GETQUOTAROOT
+        quota = await _get_quota(imap)
+        storage_used_mb = round(quota["storage_kb"] / 1024, 1)
+        storage_limit_mb = round(quota["storage_limit_kb"] / 1024, 1) if quota["storage_limit_kb"] else 0
 
         # Top senders
         top_senders = await _get_top_senders(imap, limit=5)
@@ -164,6 +199,7 @@ async def get_mail_stats(request: Request, username: str = Depends(get_current_u
             "drafts": drafts_status["messages"],
             "trash": trash_status["messages"],
             "storage_used_mb": storage_used_mb,
+            "storage_limit_mb": storage_limit_mb,
             "top_senders": top_senders,
         }
     finally:

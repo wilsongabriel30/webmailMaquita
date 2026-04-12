@@ -1,8 +1,19 @@
 import { useMailStore } from "../../store/mailStore";
 import React, { useState, useRef, type ReactNode } from 'react';
 import type { Editor } from '@tiptap/react';
+import { showToast } from '../common/Toast';
 
 type Tab = 'message' | 'insert' | 'format' | 'options';
+
+type FormatPaintSnapshot = {
+  marks: string[];
+  color?: string;
+  backgroundColor?: string;
+  fontFamily?: string;
+  fontSize?: string;
+};
+
+let formatPaintBuffer: FormatPaintSnapshot | null = null;
 
 interface Props {
   editor: Editor;
@@ -99,19 +110,118 @@ function stepFontSize(editor: Editor, direction: 'up' | 'down') {
 }
 
 /* ===== Helper: clipboard operations ===== */
-function doCopy(editor: Editor) {
+function getSelectedText(editor: Editor) {
   const { from, to } = editor.state.selection;
-  const text = editor.state.doc.textBetween(from, to, '\n');
-  if (text) navigator.clipboard.writeText(text);
+  return editor.state.doc.textBetween(from, to, '\n');
 }
-function doCut(editor: Editor) {
-  doCopy(editor);
+
+async function doCopy(editor: Editor) {
+  const text = getSelectedText(editor);
+  if (!text) {
+    showToast('Selecciona texto para copiar');
+    return false;
+  }
+
+  // Algunos navegadores bloquean portapapeles si la página no tiene permiso explícito.
+  // Si falla aquí, no intentamos una alternativa insegura ni silenciosa.
+  if (!navigator.clipboard?.writeText) {
+    showToast('Este navegador no permite copiar desde la cinta');
+    return false;
+  }
+
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast('Texto copiado');
+    return true;
+  } catch {
+    showToast('El navegador no permitió copiar el texto');
+    return false;
+  }
+}
+
+async function doCut(editor: Editor) {
+  const copied = await doCopy(editor);
+  if (!copied) return false;
   editor.chain().focus().deleteSelection().run();
+  showToast('Texto cortado');
+  return true;
 }
-function doPaste(editor: Editor) {
-  navigator.clipboard.readText().then(t => {
-    if (t) editor.chain().focus().insertContent(t).run();
-  }).catch(() => {});
+
+async function doPaste(editor: Editor) {
+  if (!navigator.clipboard?.readText) {
+    showToast('Este navegador no permite pegar desde la cinta');
+    return false;
+  }
+
+  try {
+    const text = await navigator.clipboard.readText();
+    if (!text) {
+      showToast('El portapapeles está vacío');
+      return false;
+    }
+    editor.chain().focus().insertContent(text).run();
+    showToast('Texto pegado');
+    return true;
+  } catch {
+    showToast('El navegador no permitió pegar el texto');
+    return false;
+  }
+}
+
+function captureFormatSnapshot(editor: Editor): FormatPaintSnapshot | null {
+  const marks: string[] = [];
+  if (editor.isActive('bold')) marks.push('bold');
+  if (editor.isActive('italic')) marks.push('italic');
+  if (editor.isActive('underline')) marks.push('underline');
+  if (editor.isActive('strike')) marks.push('strike');
+  if (editor.isActive('subscript')) marks.push('subscript');
+  if (editor.isActive('superscript')) marks.push('superscript');
+
+  const textStyle = editor.getAttributes('textStyle') || {};
+  const snapshot: FormatPaintSnapshot = {
+    marks,
+    color: textStyle.color,
+    backgroundColor: textStyle.backgroundColor,
+    fontFamily: textStyle.fontFamily,
+    fontSize: textStyle.fontSize,
+  };
+
+  if (!snapshot.marks.length && !snapshot.color && !snapshot.backgroundColor && !snapshot.fontFamily && !snapshot.fontSize) {
+    return null;
+  }
+
+  return snapshot;
+}
+
+function applyFormatSnapshot(editor: Editor, snapshot: FormatPaintSnapshot) {
+  const { from, to } = editor.state.selection;
+  if (from === to) {
+    showToast('Selecciona texto para aplicar el formato');
+    return false;
+  }
+
+  let chain = editor.chain().focus();
+  chain = chain.unsetAllMarks();
+
+  if (snapshot.fontFamily) chain = (chain as any).setFontFamily(snapshot.fontFamily);
+  if (snapshot.fontSize) chain = (chain as any).setFontSize(snapshot.fontSize);
+  if (snapshot.color) chain = (chain as any).setColor(snapshot.color);
+  if (snapshot.backgroundColor) chain = (chain as any).setHighlight(snapshot.backgroundColor);
+  else chain = (chain as any).unsetHighlight();
+
+  if (snapshot.marks.includes('bold')) chain = chain.toggleBold();
+  if (snapshot.marks.includes('italic')) chain = chain.toggleItalic();
+  if (snapshot.marks.includes('underline')) chain = (chain as any).toggleUnderline();
+  if (snapshot.marks.includes('strike')) chain = chain.toggleStrike();
+  if (snapshot.marks.includes('subscript')) chain = (chain as any).toggleSubscript();
+  if (snapshot.marks.includes('superscript')) chain = (chain as any).toggleSuperscript();
+
+  chain.run();
+  return true;
+}
+
+function hasHighlight(editor: Editor) {
+  return Boolean(editor.getAttributes('textStyle')?.backgroundColor);
 }
 
 /* ===== Helper: insert table with interactive grid ===== */
@@ -280,7 +390,7 @@ function MessageTab({ editor, onAttach, onImportanceChange, importance, onSaveDr
     <>
       {/* Portapapeles */}
       <RGroup label="Portapapeles">
-        <LargeBtn icon={<ClipboardIcon />} label="Pegar" onClick={() => doPaste(editor)} />
+        <LargeBtn icon={<ClipboardIcon />} label="Pegar" onClick={() => { void doPaste(editor); }} />
       </RGroup>
       <GSep />
 
@@ -314,7 +424,7 @@ function MessageTab({ editor, onAttach, onImportanceChange, importance, onSaveDr
               </button>
               {showColor && <ColorPicker editor={editor} onClose={() => setShowColor(false)} />}
             </div>
-            <SmBtn o={() => editor.chain().focus().toggleCode().run()} t="Resaltado" icon={<span className="text-[9px] bg-[#fff100] px-[2px] rounded-sm font-medium">ab</span>} />
+            <SmBtn a={hasHighlight(editor)} o={() => (editor.chain().focus() as any).toggleHighlight().run()} t="Resaltado" icon={<span className="text-[9px] bg-[#fff100] px-[2px] rounded-sm font-medium">ab</span>} />
             <SmBtn o={() => editor.chain().focus().clearNodes().unsetAllMarks().run()} t="Borrar formato" icon={<SvgI d="M4 7V4h16v3M9 20h6M12 4v16" s={12} />} />
           </div>
         </div>
@@ -465,24 +575,38 @@ function InsertTab({ editor, onAttach, onInsertSignature, onOpenApps }: { editor
 /* ========== FORMAT TAB ========== */
 function FormatTab({ editor, onFormatPaint }: { editor: Editor; onFormatPaint?: (marks: string[]) => void }) {
   const [showColor, setShowColor] = useState(false);
+  const [formatPaintArmed, setFormatPaintArmed] = useState(Boolean(formatPaintBuffer));
 
   return (
     <>
       <RGroup label="Portapapeles">
         <div className="flex items-center gap-[3px]">
           <LargeBtn icon={<SvgI d="M3 10h10a5 5 0 015 5v2M3 10l4-4m-4 4l4 4" s={20} />} label="Deshacer" onClick={() => editor.chain().focus().undo().run()} />
-          <LargeBtn icon={<ClipboardIcon />} label="Pegar" onClick={() => doPaste(editor)} />
+          <LargeBtn icon={<ClipboardIcon />} label="Pegar" onClick={() => { void doPaste(editor); }} />
           <div className="flex flex-col gap-[1px] py-[6px]">
-            <SmBtn o={() => doCut(editor)} t="Cortar (Ctrl+X)" icon={<span className="text-[10px]">✂</span>}>Cortar</SmBtn>
-            <SmBtn o={() => doCopy(editor)} t="Copiar (Ctrl+C)" icon={<SvgI d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" s={12} />}>Copiar</SmBtn>
-            <SmBtn o={() => {
-              const marks: string[] = [];
-              if (editor.isActive('bold')) marks.push('bold');
-              if (editor.isActive('italic')) marks.push('italic');
-              if (editor.isActive('underline')) marks.push('underline');
-              if (editor.isActive('strike')) marks.push('strike');
-              onFormatPaint?.(marks);
-            }} t="Copiar formato" icon={<SvgI d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2" s={12} />}>Copiar formato</SmBtn>
+            <SmBtn o={() => { void doCut(editor); }} t="Cortar (Ctrl+X)" icon={<span className="text-[10px]">✂</span>}>Cortar</SmBtn>
+            <SmBtn o={() => { void doCopy(editor); }} t="Copiar (Ctrl+C)" icon={<SvgI d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" s={12} />}>Copiar</SmBtn>
+            <SmBtn a={formatPaintArmed} o={() => {
+              if (!formatPaintBuffer) {
+                const snapshot = captureFormatSnapshot(editor);
+                if (!snapshot) {
+                  showToast('Coloca el cursor en texto con formato para copiarlo');
+                  return;
+                }
+                formatPaintBuffer = snapshot;
+                setFormatPaintArmed(true);
+                onFormatPaint?.(snapshot.marks);
+                showToast('Formato copiado. Selecciona texto y pulsa de nuevo para aplicarlo');
+                return;
+              }
+
+              const applied = applyFormatSnapshot(editor, formatPaintBuffer);
+              if (!applied) return;
+              onFormatPaint?.(formatPaintBuffer.marks);
+              formatPaintBuffer = null;
+              setFormatPaintArmed(false);
+              showToast('Formato aplicado');
+            }} t={formatPaintArmed ? 'Aplicar formato copiado' : 'Copiar formato'} icon={<SvgI d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2" s={12} />}>Copiar formato</SmBtn>
           </div>
         </div>
       </RGroup>
@@ -509,7 +633,7 @@ function FormatTab({ editor, onFormatPaint }: { editor: Editor; onFormatPaint?: 
             <SmBtn a={editor.isActive('strike')} o={() => editor.chain().focus().toggleStrike().run()} t="Tachado" icon={<span className="line-through text-[11px]">S</span>} />
             <SmBtn o={() => toggleSubscript(editor)} t="Subíndice" icon={<span className="text-[9px]">x<sub>2</sub></span>} />
             <SmBtn o={() => toggleSuperscript(editor)} t="Superíndice" icon={<span className="text-[9px]">x<sup>2</sup></span>} />
-            <SmBtn o={() => editor.chain().focus().toggleCode().run()} t="Resaltado" icon={<span className="text-[9px] bg-[#fff100] px-[2px] rounded-sm">ab</span>} />
+            <SmBtn a={hasHighlight(editor)} o={() => (editor.chain().focus() as any).toggleHighlight().run()} t="Resaltado" icon={<span className="text-[9px] bg-[#fff100] px-[2px] rounded-sm">ab</span>} />
             <div className="relative">
               <button onClick={() => setShowColor(!showColor)} title="Color de fuente"
                 className="w-[22px] h-[22px] rounded-[2px] flex flex-col items-center justify-center hover:bg-[#e1dfdd]">

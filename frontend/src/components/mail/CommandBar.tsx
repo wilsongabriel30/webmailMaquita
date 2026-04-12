@@ -48,7 +48,7 @@ export function CommandBar() {
           <span className="text-xs text-[#605e5c] mx-2">{selectedUids.size} seleccionado{selectedUids.size > 1 ? 's' : ''}</span>
           <CmdBtn icon="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" label="Eliminar" onClick={() => handleBulkAction('delete')} danger />
           <CmdBtn icon="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" label="Archivar" onClick={() => handleBulkAction('archive')} />
-          <CmdBtn icon="M3 19v-8.93a2 2 0 01.89-1.664l7-4.666a2 2 0 012.22 0l7 4.666A2 2 0 0121 10.07V19M3 19a2 2 0 002 2h14a2 2 0 002-2M3 19l6.75-4.5M21 19l-6.75-4.5M3 10l6.75 4.5M21 10l-6.75 4.5" label="Marcar leido" onClick={() => handleBulkAction('mark_read')} />
+          <CmdBtn icon="M3 19v-8.93a2 2 0 01.89-1.664l7-4.666a2 2 0 012.22 0l7 4.666A2 2 0 0121 10.07V19M3 19a2 2 0 002 2h14a2 2 0 002-2M3 19l6.75-4.5M21 19l-6.75-4.5M3 10l6.75 4.5M21 10l-6.75 4.5" label="Marcar leído" onClick={() => handleBulkAction('mark_read')} />
         </>
       ) : (
         <>
@@ -59,7 +59,7 @@ export function CommandBar() {
                 className={`px-2.5 py-1 text-xs rounded transition-colors ${
                   filter === f ? 'bg-[#e1dfdd] text-[#323130] font-medium' : 'text-[#605e5c] hover:bg-[#e1dfdd]'
                 }`}>
-                {f === 'all' ? 'Todos' : f === 'unread' ? 'No leidos' : 'Marcados'}
+                {f === 'all' ? 'Todos' : f === 'unread' ? 'No leídos' : 'Marcados'}
               </button>
             ))}
           </div>

@@ -20,29 +20,9 @@ DEFAULT_LABELS = [
 
 
 async def ensure_tables(db):
-    await db.execute("""
-        CREATE TABLE IF NOT EXISTS user_labels (
-            id SERIAL PRIMARY KEY,
-            owner VARCHAR(255) NOT NULL,
-            name VARCHAR(100) NOT NULL,
-            color VARCHAR(7) NOT NULL DEFAULT '#0078d4',
-            created_at TIMESTAMP DEFAULT NOW(),
-            UNIQUE(owner, name)
-        )
-    """)
-    await db.execute("CREATE INDEX IF NOT EXISTS idx_labels_owner ON user_labels(owner)")
-    await db.execute("""
-        CREATE TABLE IF NOT EXISTS message_labels (
-            id SERIAL PRIMARY KEY,
-            owner VARCHAR(255) NOT NULL,
-            folder VARCHAR(255) NOT NULL,
-            message_uid INTEGER NOT NULL,
-            label_id INTEGER NOT NULL REFERENCES user_labels(id) ON DELETE CASCADE,
-            created_at TIMESTAMP DEFAULT NOW(),
-            UNIQUE(owner, folder, message_uid, label_id)
-        )
-    """)
-    await db.execute("CREATE INDEX IF NOT EXISTS idx_mlabels_owner_folder ON message_labels(owner, folder)")
+    # Tablas creadas por migrations/init_tables.sql (Fase 3)
+    # user_labels, message_labels + índices
+    pass
 
 
 async def seed_defaults(db, owner: str):

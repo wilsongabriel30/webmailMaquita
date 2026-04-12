@@ -33,9 +33,13 @@ interface MailState {
   filter: Filter;
   // View
   viewMode: ViewMode;
-  readingPane: 'right' | 'bottom' | 'off';
+  readingPane: 'right' | 'bottom' | 'off' | 'fullscreen' | 'popout';
   density: 'compact' | 'medium' | 'full';
+  showMyDay: boolean;
+  setShowMyDay: (v: boolean) => void;
+  previewLines: 1 | 2 | 3;
   setDensity: (d: 'compact' | 'medium' | 'full') => void;
+  setPreviewLines: (lines: 1 | 2 | 3) => void;
   setReadingPane: (p: 'right' | 'bottom' | 'off') => void;
   // Compose — multiple drafts
   composeWindows: DraftWindow[];
@@ -96,7 +100,11 @@ export const useMailStore = create<MailState>((set, get) => ({
   viewMode: 'conversations',
   readingPane: 'right',
   density: 'compact' as const,
+  showMyDay: false,
+  previewLines: 1,
   setDensity: (d: any) => set({ density: d }),
+  setShowMyDay: (v) => set({ showMyDay: v }),
+  setPreviewLines: (lines: any) => set({ previewLines: lines }),
   setReadingPane: (p: any) => set({ readingPane: p }),
   composeWindows: [],
   threadMessages: [],
@@ -138,7 +146,7 @@ export const useMailStore = create<MailState>((set, get) => ({
       id,
       mode,
       data: data || { to: [], subject: '', text_body: '', html_body: '' },
-      draftUid: null,
+      draftUid: data?.draft_uid || null,
       minimized: false,
     };
     set({ composeWindows: [...get().composeWindows, win] });

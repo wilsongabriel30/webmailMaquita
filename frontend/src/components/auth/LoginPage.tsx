@@ -6,6 +6,9 @@ import { api } from '../../api/client';
 export function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [totpCode, setTotpCode] = useState('');
+  const [needs2FA, setNeeds2FA] = useState(false);
+  const [savedUsername, setSavedUsername] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -17,14 +20,37 @@ export function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await api.post<{ username: string; is_admin: boolean }>('/auth/login', {
-        username,
-        password,
-      });
-      setUser({ username: res.username, is_admin: res.is_admin });
-      navigate('/');
+      const payload: any = { username, password };
+      if (needs2FA) {
+        payload.totp_code = totpCode;
+      }
+
+      const res = await api.post<{ success?: boolean; error?: string; username?: string; is_admin?: boolean; requires_2fa?: boolean }>('/auth/login', payload);
+
+      if (res.success === false) {
+        setError(res.error || 'Credenciales incorrectas');
+        setLoading(false);
+        return;
+      }
+
+      if (res.requires_2fa) {
+        setNeeds2FA(true);
+        setSavedUsername(res.username || username);
+        setLoading(false);
+        return;
+      }
+
+      // Verify session is established before navigating
+      const meRes = await fetch('/api/auth/me', { credentials: 'include' });
+      const meData = await meRes.json();
+      if (meData.user) {
+        setUser(meData.user);
+        navigate('/');
+      } else {
+        setError('Sesión no establecida. Intenta de nuevo.');
+      }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Error al iniciar sesión');
+      setError(err instanceof Error ? err.message : 'Error al iniciar sesion');
     } finally {
       setLoading(false);
     }
@@ -43,7 +69,9 @@ export function LoginPage() {
               </svg>
             </div>
             <h1 className="text-2xl font-bold text-slate-800">Maquita Mail</h1>
-            <p className="text-slate-500 mt-1">Inicia sesión en tu correo</p>
+            <p className="text-slate-500 mt-1">
+              {needs2FA ? 'Verificacion en dos pasos' : 'Inicia sesion en tu correo'}
+            </p>
           </div>
 
           {error && (
@@ -53,42 +81,81 @@ export function LoginPage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Correo electrónico
-              </label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="usuario@maquita.org"
-                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
-                required
-                autoFocus
-              />
-            </div>
+            {!needs2FA ? (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Correo electronico
+                  </label>
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="usuario@maquita.org"
+                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                    required
+                    autoFocus
+                    autoComplete="username"
+                  />
+                </div>
 
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Contraseña
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
-                required
-              />
-            </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Contrasena
+                  </label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
+                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                    required
+                    autoComplete="current-password"
+                  />
+                </div>
+              </>
+            ) : (
+              <div>
+                <p className="text-sm text-slate-600 mb-3">
+                  Ingresa el codigo de tu app de autenticacion{savedUsername ? ` para ${savedUsername}` : ''}.
+                </p>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Codigo de verificacion
+                </label>
+                <input
+                  type="text"
+                  value={totpCode}
+                  onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                  placeholder="000000"
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors text-center font-mono text-lg tracking-[0.3em]"
+                  required
+                  autoFocus
+                  maxLength={8}
+                  autoComplete="one-time-code"
+                />
+                <p className="text-xs text-slate-400 mt-1">
+                  Tambien puedes usar un codigo de respaldo
+                </p>
+              </div>
+            )}
 
             <button
               type="submit"
               disabled={loading}
               className="w-full py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Ingresando...' : 'Iniciar sesión'}
+              {loading ? 'Verificando...' : needs2FA ? 'Verificar' : 'Iniciar sesion'}
             </button>
+
+            {needs2FA && (
+              <button
+                type="button"
+                onClick={() => { setNeeds2FA(false); setTotpCode(''); setError(''); }}
+                className="w-full py-2 text-sm text-slate-500 hover:text-slate-700 transition-colors"
+              >
+                Volver al inicio de sesion
+              </button>
+            )}
           </form>
         </div>
 

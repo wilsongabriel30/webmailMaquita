@@ -45,7 +45,7 @@ async def get_service_status() -> dict:
 async def get_mail_log_stats(db: asyncpg.Pool, hours: int = 24) -> dict:
     rows = await db.fetch(
         """SELECT status, count(*) as cnt
-           FROM webmail.mail_log
+           FROM mail_log
            WHERE timestamp > NOW() - make_interval(hours => $1)
            GROUP BY status""",
         hours,
@@ -53,7 +53,7 @@ async def get_mail_log_stats(db: asyncpg.Pool, hours: int = 24) -> dict:
     stats = {r["status"]: r["cnt"] for r in rows}
 
     total = await db.fetchval(
-        """SELECT count(*) FROM webmail.mail_log
+        """SELECT count(*) FROM mail_log
            WHERE timestamp > NOW() - make_interval(hours => $1)""",
         hours,
     )

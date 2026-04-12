@@ -21,15 +21,19 @@ export const LABEL_COLORS = [
 
 let _labels: Label[] = [];
 let _listeners: Set<() => void> = new Set();
-let _loaded = false;
+let _supported: boolean | null = null;
 
 function notify() {
   _listeners.forEach(fn => fn());
 }
 
+export function getCachedLabels() {
+  return [..._labels];
+}
+
 export function useLabels() {
   const [labels, setLabels] = useState<Label[]>(_labels);
-  const [loading, setLoading] = useState(!_loaded);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const listener = () => setLabels([..._labels]);
@@ -38,57 +42,77 @@ export function useLabels() {
   }, []);
 
   const fetchLabels = useCallback(async () => {
+    if (_supported === false) {
+      setLoading(false);
+      return [];
+    }
     setLoading(true);
     try {
       const res = await api.get<{ labels: Label[] }>('/mail/labels');
       _labels = res.labels;
-      _loaded = true;
+      _supported = true;
       notify();
-    } catch {}
-    setLoading(false);
+      return res.labels;
+    } catch (error) {
+      // Some deployed servers still do not expose `/mail/labels`.
+      // Treating 404 as "unsupported" avoids noisy requests and unrelated UI regressions.
+      if (error instanceof Error && (error.message === 'HTTP 404' || error.message === 'Not Found')) {
+        _labels = [];
+        _supported = false;
+        notify();
+        return [];
+      }
+      return [];
+    } finally {
+      setLoading(false);
+    }
   }, []);
-
-  useEffect(() => {
-    if (!_loaded) fetchLabels();
-  }, [fetchLabels]);
 
   // Listen for label refresh events
   useEffect(() => {
-    const handler = () => fetchLabels();
+    const handler = () => {
+      if (_supported === false) return;
+      fetchLabels();
+    };
     window.addEventListener('refresh-labels', handler);
     return () => window.removeEventListener('refresh-labels', handler);
   }, [fetchLabels]);
 
   const createLabel = useCallback(async (name: string, color: string) => {
+    if (_supported === false) throw new Error('Etiquetas no disponibles');
     const res = await api.post<Label>('/mail/labels', { name, color });
     await fetchLabels();
     return res;
   }, [fetchLabels]);
 
   const updateLabel = useCallback(async (id: number, data: { name?: string; color?: string }) => {
-    const res = await api.put<Label>(, data);
+    if (_supported === false) throw new Error('Etiquetas no disponibles');
+    const res = await api.put<Label>(`/mail/labels/${id}`, data);
     await fetchLabels();
     return res;
   }, [fetchLabels]);
 
   const deleteLabel = useCallback(async (id: number) => {
-    await api.del();
+    if (_supported === false) throw new Error('Etiquetas no disponibles');
+    await api.del(`/mail/labels/${id}`);
     await fetchLabels();
   }, [fetchLabels]);
 
   const assignLabel = useCallback(async (labelId: number, folder: string, uids: number[]) => {
-    await api.post(, { folder, uids });
+    if (_supported === false) throw new Error('Etiquetas no disponibles');
+    await api.post(`/mail/labels/${labelId}/assign`, { folder, uids });
     window.dispatchEvent(new CustomEvent('refresh-message-labels'));
     await fetchLabels();
   }, [fetchLabels]);
 
   const unassignLabel = useCallback(async (labelId: number, folder: string, uids: number[]) => {
-    await api.post(, { folder, uids });
+    if (_supported === false) throw new Error('Etiquetas no disponibles');
+    await api.post(`/mail/labels/${labelId}/unassign`, { folder, uids });
     window.dispatchEvent(new CustomEvent('refresh-message-labels'));
     await fetchLabels();
   }, [fetchLabels]);
 
-  return { labels, loading, fetchLabels, createLabel, updateLabel, deleteLabel, assignLabel, unassignLabel };
+  return { labels, loading, supported: _supported !== false, fetchLabels, createLabel, updateLabel, deleteLabel, assignLabel, unassignLabel };
 }
 
 export function useMessageLabels(folder: string, uids: number[]) {
@@ -98,9 +122,7 @@ export function useMessageLabels(folder: string, uids: number[]) {
     if (!folder || !uids.length) { setMsgLabels({}); return; }
     try {
       const uidStr = uids.join(',');
-      const res = await api.get<{ message_labels: Record<string, Label[]> }>(
-        
-      );
+      const res = await api.get<{ message_labels: Record<string, Label[]> }>(`/mail/labels/messages/${encodeURIComponent(folder)}?uids=${encodeURIComponent(uidStr)}`);
       setMsgLabels(res.message_labels);
     } catch { setMsgLabels({}); }
   }, [folder, uids.join(',')]);

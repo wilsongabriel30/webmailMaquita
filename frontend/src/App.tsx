@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
-import { api } from './api/client';
 import { LoginPage } from './components/auth/LoginPage';
 import { AppLayout } from './components/layout/AppLayout';
 import { MailView } from './components/mail/MailView';
@@ -14,7 +13,9 @@ import { AliasManager } from './components/admin/AliasManager';
 import { QueueViewer } from './components/admin/QueueViewer';
 import { AuditLog } from './components/admin/AuditLog';
 import { ContactsView } from './components/contacts/ContactsView';
-import type { UserInfo } from './types';
+import { TasksView } from "./components/tasks/TasksView";
+import CalendarView from "./components/calendar/CalendarView";
+import { ComposePopup } from "./components/mail/ComposePopup";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuthStore();
@@ -39,16 +40,6 @@ function Spinner() {
   );
 }
 
-function PlaceholderPage({ title }: { title: string }) {
-  return (
-    <div className="flex-1 flex items-center justify-center bg-white text-[#a19f9d]">
-      <div className="text-center">
-        <p className="text-xl font-light mb-2">{title}</p>
-        <p className="text-sm">Proximamente</p>
-      </div>
-    </div>
-  );
-}
 
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: Error | null }> {
   constructor(props: { children: React.ReactNode }) {
@@ -70,7 +61,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
             <p className="text-[13px] text-[#605e5c] mb-4">{this.state.error?.message || "Error inesperado"}</p>
             <button onClick={() => window.location.reload()}
               className="px-4 py-2 bg-[#0078d4] text-white rounded text-[13px] font-medium hover:bg-[#106ebe]">
-              Recargar pagina
+              Recargar página
             </button>
           </div>
         </div>
@@ -84,9 +75,44 @@ export default function App() {
   const { setUser } = useAuthStore();
 
   useEffect(() => {
-    api.get<UserInfo>('/auth/me', { skipAuth: true })
-      .then((user) => setUser(user))
+    // Check for impersonate token from admin panel
+    const params = new URLSearchParams(window.location.search);
+    const impToken = params.get('impersonate');
+    const impUser = params.get('user');
+    if (impToken && impUser) {
+      // Remove params from URL immediately
+      window.history.replaceState({}, '', window.location.pathname);
+      fetch('/api/auth/impersonate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: impUser, admin_token: impToken }),
+        credentials: 'include',
+      })
+        .then((r) => {
+          if (r.ok) return r.json();
+          throw new Error('Impersonate failed');
+        })
+        .then(() => {
+          // Re-fetch user session after impersonate sets cookies
+          return fetch('/api/auth/me', { credentials: 'include' });
+        })
+        .then((r) => r.json())
+        .then((data) => setUser(data.user || null))
+        .catch(() => setUser(null));
+      return;
+    }
+
+    fetch('/api/auth/me', { credentials: 'include' })
+      .then((res) => res.json())
+      .then((data) => setUser(data.user || null))
       .catch(() => setUser(null));
+
+    // Global error handler for unhandled promise rejections
+    const handler = (e: PromiseRejectionEvent) => {
+      console.error('[Maquita] Unhandled:', e.reason);
+    };
+    window.addEventListener('unhandledrejection', handler);
+    return () => window.removeEventListener('unhandledrejection', handler);
   }, []);
 
   return (
@@ -94,10 +120,12 @@ export default function App() {
     <BrowserRouter basename="/webmail">
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/compose" element={<ProtectedRoute><ComposePopup /></ProtectedRoute>} />
         <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
           <Route index element={<MailView />} />
           <Route path="contacts" element={<ContactsView />} />
-          <Route path="calendar" element={<PlaceholderPage title="Calendario" />} />
+          <Route path="calendar" element={<CalendarView />} />
+          <Route path="tasks" element={<TasksView />} />
           <Route path="settings" element={<SettingsView />} />
           <Route path="admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
             <Route index element={<Dashboard />} />

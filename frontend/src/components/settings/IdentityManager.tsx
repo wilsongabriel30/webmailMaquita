@@ -14,7 +14,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../api/client';
 
-// ─── Types ──────────────────────────────────────────────────────────────────
+//  Types
 
 export interface Identity {
   id: string;
@@ -31,10 +31,10 @@ interface Feedback {
   message: string;
 }
 
-// ─── Component ──────────────────────────────────────────────────────────────
+//  Component
 
 export function IdentityManager() {
-  const [identities, setIdentities] = useState<Identity[]>([]);
+  const [identities, setIdentidades] = useState<Identity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
@@ -47,26 +47,26 @@ export function IdentityManager() {
   // Delete confirmation
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // ── Fetch identities ───────────────────────────────────────────────────
+  //  Fetch identities
 
-  const fetchIdentities = useCallback(async () => {
+  const fetchIdentidades = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const res = await api.get<Identity[]>('/identities');
-      setIdentities(res);
+      setIdentidades(res);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load identities.');
+      setError(err instanceof Error ? err.message : 'No se pudieron cargar las identidades.');
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchIdentities();
-  }, [fetchIdentities]);
+    fetchIdentidades();
+  }, [fetchIdentidades]);
 
-  // ── Helpers ─────────────────────────────────────────────────────────────
+  //  Helpers
 
   const clearEdit = useCallback(() => {
     setEditingId(null);
@@ -88,7 +88,7 @@ export function IdentityManager() {
 
   const draftValid = draft.name.trim().length > 0 && draft.email.trim().length > 0;
 
-  // ── CRUD operations ─────────────────────────────────────────────────────
+  //  CRUD operations
 
   const startCreate = useCallback(() => {
     clearEdit();
@@ -115,20 +115,20 @@ export function IdentityManager() {
     try {
       if (isCreating) {
         await api.post('/identities', draft);
-        flash({ type: 'success', message: 'Identity created.' });
+        flash({ type: 'success', message: 'Identidad creada.' });
       } else if (editingId) {
         await api.put(`/api/identities/${editingId}`, draft);
-        flash({ type: 'success', message: 'Identity updated.' });
+        flash({ type: 'success', message: 'Identidad actualizada.' });
       }
       clearEdit();
-      await fetchIdentities();
+      await fetchIdentidades();
     } catch (err: unknown) {
       flash({
         type: 'error',
-        message: err instanceof Error ? err.message : 'Failed to save identity.',
+        message: err instanceof Error ? err.message : 'No se pudo guardar la identidad.',
       });
     }
-  }, [draftValid, isCreating, editingId, draft, clearEdit, fetchIdentities, flash]);
+  }, [draftValid, isCreating, editingId, draft, clearEdit, fetchIdentidades, flash]);
 
   const handleDelete = useCallback(
     async (id: string) => {
@@ -140,26 +140,26 @@ export function IdentityManager() {
 
       try {
         await api.del(`/api/identities/${id}`);
-        flash({ type: 'success', message: 'Identity deleted.' });
+        flash({ type: 'success', message: 'Identidad eliminada.' });
         setDeletingId(null);
         clearEdit();
-        await fetchIdentities();
+        await fetchIdentidades();
       } catch (err: unknown) {
         flash({
           type: 'error',
-          message: err instanceof Error ? err.message : 'Failed to delete identity.',
+          message: err instanceof Error ? err.message : 'No se pudo eliminar la identidad.',
         });
       }
     },
-    [identities.length, clearEdit, fetchIdentities, flash],
+    [identities.length, clearEdit, fetchIdentidades, flash],
   );
 
   const handleSetDefault = useCallback(
     async (id: string) => {
       try {
         await api.put(`/api/identities/${id}`, { isDefault: true });
-        flash({ type: 'success', message: 'Default identity updated.' });
-        await fetchIdentities();
+        flash({ type: 'success', message: 'Identidad predeterminada actualizada.' });
+        await fetchIdentidades();
       } catch (err: unknown) {
         flash({
           type: 'error',
@@ -167,10 +167,10 @@ export function IdentityManager() {
         });
       }
     },
-    [fetchIdentities, flash],
+    [fetchIdentidades, flash],
   );
 
-  // ── Render ──────────────────────────────────────────────────────────────
+  //  Render
 
   return (
     <section
@@ -181,10 +181,10 @@ export function IdentityManager() {
       <div className="flex items-center justify-between border-b border-[#edebe9] px-5 py-3">
         <div>
           <h2 className="text-[15px] font-semibold text-[#323130]">
-            Identities
+            Identidades
           </h2>
           <p className="mt-0.5 text-[12px] text-[#605e5c]">
-            Manage your sender profiles and signatures.
+            Administra tus perfiles de envío y firmas.
           </p>
         </div>
         <button
@@ -198,7 +198,7 @@ export function IdentityManager() {
               : 'bg-[#0078d4] hover:bg-[#106ebe]',
           ].join(' ')}
         >
-          + New Identity
+          + Nueva identidad
         </button>
       </div>
 
@@ -219,7 +219,7 @@ export function IdentityManager() {
       {/* Loading */}
       {loading && (
         <div className="px-5 py-6 text-center text-[13px] text-[#605e5c]">
-          Loading identities...
+          Cargando identidades...
         </div>
       )}
 
@@ -228,10 +228,10 @@ export function IdentityManager() {
         <div className="px-5 py-6 text-center text-[13px] text-[#d13438]">
           {error}
           <button
-            onClick={fetchIdentities}
+            onClick={fetchIdentidades}
             className="ml-2 underline hover:no-underline"
           >
-            Retry
+            Reintentar
           </button>
         </div>
       )}
@@ -240,14 +240,14 @@ export function IdentityManager() {
       {isCreating && (
         <div className="border-b border-[#edebe9] bg-[#faf9f8] px-5 py-4">
           <h3 className="mb-3 text-[13px] font-semibold text-[#323130]">
-            New Identity
+            Nueva identidad
           </h3>
           <IdentityForm
             draft={draft}
             onUpdate={updateDraft}
             onSave={handleSave}
             onCancel={clearEdit}
-            saveLabel="Create"
+            saveLabel="Crear"
             valid={draftValid}
           />
         </div>
@@ -263,22 +263,22 @@ export function IdentityManager() {
             return (
               <li key={identity.id} className="px-5 py-3">
                 {isEditing ? (
-                  /* ── Edit form ─────────────────────────────────────── */
+                  /*  Edit form  */
                   <div>
                     <h3 className="mb-3 text-[13px] font-semibold text-[#323130]">
-                      Edit Identity
+                      Editar identidad
                     </h3>
                     <IdentityForm
                       draft={draft}
                       onUpdate={updateDraft}
                       onSave={handleSave}
                       onCancel={clearEdit}
-                      saveLabel="Save"
+                      saveLabel="Guardar"
                       valid={draftValid}
                     />
                   </div>
                 ) : (
-                  /* ── Display row ───────────────────────────────────── */
+                  /*  Display row  */
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
@@ -287,7 +287,7 @@ export function IdentityManager() {
                         </span>
                         {identity.isDefault && (
                           <span className="rounded bg-[#deecf9] px-1.5 py-0.5 text-[10px] font-semibold text-[#0078d4]">
-                            DEFAULT
+                            PREDETERMINADA
                           </span>
                         )}
                       </div>
@@ -308,12 +308,12 @@ export function IdentityManager() {
                     <div className="flex shrink-0 items-center gap-1">
                       {!identity.isDefault && (
                         <ActionBtn
-                          label="Set default"
+                          label="Marcar como predeterminada"
                           onClick={() => handleSetDefault(identity.id)}
                         />
                       )}
                       <ActionBtn
-                        label="Edit"
+                        label="Editar"
                         onClick={() => startEdit(identity)}
                       />
                       {isDeleting ? (
@@ -331,7 +331,7 @@ export function IdentityManager() {
                         </span>
                       ) : (
                         <ActionBtn
-                          label="Delete"
+                          label="Eliminar"
                           danger
                           onClick={() => setDeletingId(identity.id)}
                         />
@@ -354,7 +354,7 @@ export function IdentityManager() {
   );
 }
 
-// ─── Subcomponents ──────────────────────────────────────────────────────────
+//  Subcomponents
 
 function IdentityForm({
   draft,
@@ -481,7 +481,7 @@ function ActionBtn({
   );
 }
 
-// ─── Utilities ──────────────────────────────────────────────────────────────
+//  Utilities
 
 /** Strip HTML to a short plain-text preview. */
 function stripToPreview(html: string): string {

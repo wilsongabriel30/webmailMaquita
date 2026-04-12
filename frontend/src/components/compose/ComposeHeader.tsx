@@ -24,7 +24,7 @@ export function ComposeHeader({ onSend, onDiscard, onMinimize, onClose, sending,
           </svg>
           {sending ? 'Enviando...' : 'Enviar'}
         </button>
-        <button className="h-[32px] px-1.5 bg-[#0078d4] text-white rounded-r-[3px] border-l border-[#106ebe] hover:bg-[#106ebe] transition-colors">
+        <button onClick={() => window.dispatchEvent(new CustomEvent("compose-schedule-send"))} className="h-[32px] px-1.5 bg-[#0078d4] text-white rounded-r-[3px] border-l border-[#106ebe] hover:bg-[#106ebe] transition-colors">
           <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
           </svg>

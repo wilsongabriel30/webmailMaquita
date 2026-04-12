@@ -15,6 +15,30 @@ from pydantic import BaseModel, Field
 from app.auth.dependencies import get_current_user
 from app.core.session import get_user_password
 
+
+# ---------------------------------------------------------------------------
+# Input sanitization — prevent sieve code injection
+# ---------------------------------------------------------------------------
+
+_SIEVE_DANGEROUS_RE = re.compile(r"[\r\n\x00-\x08\x0b\x0c\x0e-\x1f\x7f\x85\u2028\u2029]")
+
+
+def _sanitize_sieve_value(v: str) -> str:
+    """Strip newlines and control chars from sieve values to prevent injection."""
+    return _SIEVE_DANGEROUS_RE.sub("", v).strip()
+
+
+def _validate_forward_email(addr: str) -> str:
+    """Validate that a forward address is a proper email."""
+    addr = _sanitize_sieve_value(addr)
+    if not re.match(r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$", addr):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Dirección de reenvío inválida: {addr}",
+        )
+    return addr
+
+
 router = APIRouter(prefix="/api/sieve", tags=["sieve"])
 
 SIEVE_HOST = "127.0.0.1"
@@ -286,8 +310,8 @@ def generate_sieve_script(
     # Vacation block
     parts.append("# --- VACATION ---")
     if vacation and vacation.enabled:
-        subject_escaped = vacation.subject.replace('"', '\\"')
-        body_escaped = vacation.body.replace('"', '\\"')
+        subject_escaped = _sanitize_sieve_value(vacation.subject).replace('"', '\\"')
+        body_escaped = _sanitize_sieve_value(vacation.body).replace('"', '\\"')
 
         date_conditions: list[str] = []
         if vacation.start_date:
@@ -317,19 +341,19 @@ def generate_sieve_script(
     for idx, f in enumerate(filters):
         header = _sieve_header_name(f.condition.field)
         match = _sieve_match_type(f.condition.operator)
-        value_escaped = f.condition.value.replace('"', '\\"')
-        name_escaped = f.name.replace('"', '\\"')
+        value_escaped = _sanitize_sieve_value(f.condition.value).replace('"', '\\"')
+        name_escaped = _sanitize_sieve_value(f.name).replace('"', '\\"')
 
         parts.append(f'# filter[{idx}]: {name_escaped}')
         condition_line = f'if header {match} "{header}" "{value_escaped}"'
 
         if f.action.type == "move":
-            folder = (f.action.value or "INBOX").replace('"', '\\"')
+            folder = _sanitize_sieve_value(f.action.value or "INBOX").replace('"', '\\"')
             parts.append(f'{condition_line} {{')
             parts.append(f'    fileinto "{folder}";')
             parts.append("}")
         elif f.action.type == "flag":
-            flag_val = (f.action.value or "\\\\Flagged").replace('"', '\\"')
+            flag_val = _sanitize_sieve_value(f.action.value or "\\\\Flagged").replace('"', '\\"')
             parts.append(f'{condition_line} {{')
             parts.append(f'    setflag "{flag_val}";')
             parts.append("}")
@@ -338,7 +362,7 @@ def generate_sieve_script(
             parts.append("    discard;")
             parts.append("}")
         elif f.action.type == "forward":
-            addr = (f.action.value or "").replace('"', '\\"')
+            addr = _validate_forward_email(f.action.value or "")
             parts.append(f'{condition_line} {{')
             parts.append(f'    redirect "{addr}";')
             parts.append("}")
@@ -540,12 +564,15 @@ async def create_filter(
     username: str = Depends(get_current_user),
 ):
     """Create a new filter rule."""
-    # username from Depends
+    MAX_FILTERS = 20
     password: str = await get_user_password(request, username)
 
     current_script = await _get_current_script(username, password)
     vacation = parse_vacation_from_script(current_script)
     filters = parse_filters_from_script(current_script)
+
+    if len(filters) >= MAX_FILTERS:
+        raise HTTPException(status_code=400, detail=f"Máximo {MAX_FILTERS} filtros por usuario")
 
     filters.append(rule)
 
@@ -610,3 +637,230 @@ async def delete_filter(
     await _save_script(username, password, new_script)
 
     return {"status": "deleted", "removed": removed.model_dump()}
+
+
+# ---------------------------------------------------------------------------
+# BRECHA 6 — Additional Sieve endpoints: from-message, preview, templates
+# ---------------------------------------------------------------------------
+
+from app.core.session import get_imap_login_user
+from app.mail.clients.imap_client import get_imap_connection
+
+
+class FilterFromMessage(BaseModel):
+    folder: str = Field(default="INBOX")
+    uid: int = Field(..., gt=0)
+    action_type: str = Field(..., pattern="^(move|flag|delete|forward)$")
+    action_value: Optional[str] = None
+
+
+class FilterPreviewOut(BaseModel):
+    matching_count: int
+    sample_subjects: list[str]
+
+
+# Static filter templates
+_FILTER_TEMPLATES = [
+    {
+        "id": "newsletters",
+        "name": "Newsletters a carpeta",
+        "description": "Mueve correos de newsletters a una carpeta dedicada",
+        "condition": {"field": "from", "operator": "contains", "value": "newsletter"},
+        "action": {"type": "move", "value": "Newsletter"},
+    },
+    {
+        "id": "notifications",
+        "name": "Notificaciones a carpeta",
+        "description": "Mueve correos de noreply a una carpeta de notificaciones",
+        "condition": {"field": "from", "operator": "contains", "value": "noreply"},
+        "action": {"type": "move", "value": "Notificaciones"},
+    },
+    {
+        "id": "boss_important",
+        "name": "Correo de jefe como importante",
+        "description": "Marca como importante los correos del jefe",
+        "condition": {"field": "from", "operator": "is", "value": "jefe@maquita.org"},
+        "action": {"type": "flag", "value": "\\\\Flagged"},
+    },
+    {
+        "id": "spam_recurrent",
+        "name": "Eliminar spam recurrente",
+        "description": "Elimina correos con asuntos sospechosos de spam",
+        "condition": {"field": "subject", "operator": "matches", "value": "*viagra*|*casino*|*lottery*"},
+        "action": {"type": "delete", "value": None},
+    },
+]
+
+
+@router.post("/filters/from-message", status_code=status.HTTP_201_CREATED)
+async def create_filter_from_message(
+    request: Request,
+    body: FilterFromMessage,
+    username: str = Depends(get_current_user),
+):
+    """Create a filter based on an existing message's From/Subject headers."""
+    MAX_FILTERS = 20
+    password: str = await get_user_password(request, username)
+    login_user = await get_imap_login_user(request, username)
+
+    # Fetch message headers via IMAP
+    imap = await get_imap_connection(login_user, password)
+    try:
+        resp = await imap.select(body.folder)
+        if resp.result != "OK":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"No se pudo abrir la carpeta: {body.folder}",
+            )
+
+        # Fetch From and Subject headers
+        fetch_resp = await imap.uid("fetch", str(body.uid), "(BODY.PEEK[HEADER.FIELDS (FROM SUBJECT)])")
+        if fetch_resp.result != "OK":
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Mensaje UID {body.uid} no encontrado en {body.folder}",
+            )
+
+        # Parse headers from response
+        from_addr = ""
+        subject = ""
+        for line in fetch_resp.lines:
+            if isinstance(line, (bytes, bytearray)):
+                line = line.decode("utf-8", errors="replace")
+            line = str(line)
+            line_lower = line.lower().strip()
+            if line_lower.startswith("from:"):
+                from_addr = line[5:].strip()
+                # Extract email from "Name <email>" format
+                email_match = re.search(r"<([^>]+)>", from_addr)
+                if email_match:
+                    from_addr = email_match.group(1)
+            elif line_lower.startswith("subject:"):
+                subject = line[8:].strip()
+    finally:
+        try:
+            await imap.logout()
+        except Exception:
+            pass
+
+    if not from_addr:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="No se pudo extraer el remitente del mensaje",
+        )
+
+    # Auto-generate filter name
+    filter_name = f"Auto: {from_addr[:40]}"
+
+    # Build filter rule based on the message
+    condition = FilterCondition(field="from", operator="contains", value=from_addr)
+    action = FilterAction(type=body.action_type, value=body.action_value)
+    rule = FilterRule(name=filter_name, condition=condition, action=action)
+
+    # Get current script and add filter
+    current_script = await _get_current_script(username, password)
+    vacation = parse_vacation_from_script(current_script)
+    filters = parse_filters_from_script(current_script)
+
+    if len(filters) >= MAX_FILTERS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Máximo {MAX_FILTERS} filtros por usuario",
+        )
+
+    filters.append(rule)
+    new_script = generate_sieve_script(vacation, filters)
+    await _save_script(username, password, new_script)
+
+    return {
+        "index": len(filters) - 1,
+        "filter": rule.model_dump(),
+        "source_from": from_addr,
+        "source_subject": subject,
+    }
+
+
+@router.get("/filters/preview")
+async def preview_filter(
+    request: Request,
+    field: str,
+    operator: str,
+    value: str,
+    username: str = Depends(get_current_user),
+):
+    """Preview how many INBOX messages would match a filter rule.
+    
+    Uses IMAP SEARCH to count matching messages and returns sample subjects.
+    """
+    # Validate params
+    if field not in ("from", "to", "subject"):
+        raise HTTPException(status_code=422, detail="field debe ser from, to o subject")
+    if operator not in ("contains", "is", "matches"):
+        raise HTTPException(status_code=422, detail="operator debe ser contains, is o matches")
+
+    password: str = await get_user_password(request, username)
+    login_user = await get_imap_login_user(request, username)
+
+    imap = await get_imap_connection(login_user, password)
+    try:
+        resp = await imap.select("INBOX")
+        if resp.result != "OK":
+            raise HTTPException(status_code=500, detail="No se pudo abrir INBOX")
+
+        # Build IMAP SEARCH command
+        # IMAP SEARCH supports: HEADER <field> <string> for contains-like matching
+        header_map = {"from": "FROM", "to": "TO", "subject": "SUBJECT"}
+        imap_header = header_map[field]
+
+        if operator == "is":
+            # Exact match — use HEADER which does substring, then we'll filter
+            search_cmd = f'HEADER {imap_header} "{value}"'
+        else:
+            # contains / matches — use HEADER search (substring match)
+            search_cmd = f'HEADER {imap_header} "{value}"'
+
+        search_resp = await imap.uid("search", search_cmd)
+        matching_uids = []
+        if search_resp.result == "OK":
+            for line in search_resp.lines:
+                if isinstance(line, (bytes, bytearray)):
+                    line = line.decode("utf-8", errors="replace")
+                line = str(line).strip()
+                if line and not line.endswith("completed."):
+                    matching_uids.extend(line.split())
+
+        matching_count = len(matching_uids)
+
+        # Fetch sample subjects (up to 5 most recent)
+        sample_subjects = []
+        if matching_uids:
+            sample_uids = matching_uids[-5:]  # Last 5 (most recent)
+            uid_str = ",".join(sample_uids)
+            fetch_resp = await imap.uid(
+                "fetch", uid_str, "(BODY.PEEK[HEADER.FIELDS (SUBJECT)])"
+            )
+            if fetch_resp.result == "OK":
+                for line in fetch_resp.lines:
+                    if isinstance(line, (bytes, bytearray)):
+                        line = line.decode("utf-8", errors="replace")
+                    line = str(line).strip()
+                    if line.lower().startswith("subject:"):
+                        subj = line[8:].strip()
+                        if subj:
+                            sample_subjects.append(subj[:100])
+
+        return {
+            "matching_count": matching_count,
+            "sample_subjects": sample_subjects,
+        }
+    finally:
+        try:
+            await imap.logout()
+        except Exception:
+            pass
+
+
+@router.get("/filter-templates")
+async def list_filter_templates():
+    """Return a list of predefined filter templates."""
+    return _FILTER_TEMPLATES

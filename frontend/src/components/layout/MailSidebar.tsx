@@ -4,6 +4,7 @@ import { api } from '../../api/client';
 import { showToast } from '../common/Toast';
 import { ContextMenu } from '../common/ContextMenu';
 import type { Folder } from '../../types';
+import { getFolderDisplayName } from '../../folders';
 
 
 interface MailStats {
@@ -27,10 +28,6 @@ const icons: Record<string, string> = {
   junk: 'M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636',
   archive: 'M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4',
   folder: 'M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z',
-};
-const names: Record<string, string> = {
-  INBOX: 'Bandeja de entrada', Sent: 'Elementos enviados', Drafts: 'Borradores',
-  Trash: 'Elementos eliminados', Junk: 'Correo no deseado', Archive: 'Archivo',
 };
 const systemFolders = new Set(['INBOX', 'Sent', 'Drafts', 'Trash', 'Junk', 'Archive']);
 const favorites = ['INBOX', 'Sent', 'Drafts'];
@@ -124,13 +121,53 @@ export function MailSidebar() {
     ];
   };
 
-  const favFolders = folders.filter(f => favorites.includes(f.name));
-  const otherFolders = folders.filter(f => !favorites.includes(f.name));
+  // Build folder tree: group children under their parent by dot separator
+  type FolderNode = { folder: Folder; children: FolderNode[] };
 
-  const renderFolder = (f: Folder) => {
+  const buildTree = (flatFolders: Folder[]): FolderNode[] => {
+    const folderMap = new Map<string, Folder>();
+    for (const f of flatFolders) folderMap.set(f.name, f);
+
+    const rootNodes: FolderNode[] = [];
+    const nodeMap = new Map<string, FolderNode>();
+
+    // Sort: system folders first, then alphabetical
+    const sortOrder: Record<string, number> = { inbox: 0, drafts: 1, sent: 2, junk: 3, trash: 4, archive: 5 };
+    const sorted = [...flatFolders].sort((a, b) => {
+      const oa = sortOrder[a.type] ?? 6, ob = sortOrder[b.type] ?? 6;
+      if (oa !== ob) return oa - ob;
+      return a.name.localeCompare(b.name);
+    });
+
+    for (const f of sorted) {
+      const node: FolderNode = { folder: f, children: [] };
+      nodeMap.set(f.name, node);
+
+      // Find parent: "INBOX.Facturas" → parent is "INBOX", "Bandeja de entrada 2016.Pendientes" → parent is "Bandeja de entrada 2016"
+      const dotIdx = f.name.lastIndexOf('.');
+      const parentName = dotIdx > 0 ? f.name.substring(0, dotIdx) : null;
+
+      if (parentName && nodeMap.has(parentName)) {
+        nodeMap.get(parentName)!.children.push(node);
+      } else {
+        rootNodes.push(node);
+      }
+    }
+    return rootNodes;
+  };
+
+  const fullTree = buildTree(folders);
+  const favNodes = fullTree.filter(n => favorites.includes(n.folder.name));
+  const otherNodes = fullTree.filter(n => !favorites.includes(n.folder.name));
+
+  // Track which tree nodes are collapsed
+  const [treeCollapsed, setTreeCollapsed] = useState<Record<string, boolean>>({});
+  const toggleTreeNode = (name: string) => setTreeCollapsed(p => ({ ...p, [name]: !p[name] }));
+
+  const renderFolderButton = (f: Folder, depth: number, hasChildren: boolean) => {
     const active = currentFolder === f.name;
-    const displayName = names[f.name] || (f.name.includes('.') ? f.name.split('.').pop() : f.name);
-    const depth = f.name.split('.').length - 1;
+    const displayName = getFolderDisplayName(f.name);
+    const isCollapsed = treeCollapsed[f.name];
 
     if (renaming === f.name) {
       return (
@@ -164,8 +201,8 @@ export function MailSidebar() {
             await api.post(`/mail/bulk-action/${encodeURIComponent(srcFolder)}`, {
               uids, action: 'move', dest_folder: f.name,
             });
-            const displayName = names[f.name] || f.name;
-            showToast(`${uids.length} mensaje${uids.length > 1 ? 's' : ''} movido${uids.length > 1 ? 's' : ''} a ${displayName}`);
+            const displayName2 = getFolderDisplayName(f.name);
+            showToast(`${uids.length} mensaje${uids.length > 1 ? 's' : ''} movido${uids.length > 1 ? 's' : ''} a ${displayName2}`);
             useMailStore.getState().clearSelection();
             useMailStore.getState().setSelectedMessage(null);
             window.dispatchEvent(new CustomEvent('refresh-messages'));
@@ -173,9 +210,16 @@ export function MailSidebar() {
             showToast('Error al mover mensajes');
           }
         }}
-        className={`w-full flex items-center gap-2 px-2 py-[4px] rounded text-[13px] transition-colors ${
+        className={`w-full flex items-center gap-1.5 px-2 py-[4px] rounded text-[13px] transition-colors ${
           dropTarget === f.name ? 'bg-[#deecf9] ring-2 ring-[#0078d4]' : active ? 'bg-[#e1dfdd] font-semibold text-[#323130]' : 'text-[#323130] hover:bg-[#e1dfdd]'
-        }`} style={{ marginLeft: `${depth * 12}px` }}>
+        }`} style={{ paddingLeft: `${8 + depth * 14}px` }}>
+        {hasChildren ? (
+          <span className="w-[12px] h-[12px] flex items-center justify-center shrink-0 cursor-pointer" onClick={ev => { ev.stopPropagation(); toggleTreeNode(f.name); }}>
+            <svg className={`w-[10px] h-[10px] text-[#605e5c] transition-transform ${isCollapsed ? '' : 'rotate-90'}`} fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+            </svg>
+          </span>
+        ) : <span className="w-[12px] shrink-0" />}
         <svg className={`w-[15px] h-[15px] shrink-0 ${active ? 'text-[#0078d4]' : 'text-[#605e5c]'}`}
           fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={icons[f.type] || icons.folder} />
@@ -186,8 +230,19 @@ export function MailSidebar() {
     );
   };
 
+  const renderNode = (node: FolderNode, depth: number): React.ReactNode => {
+    const isCollapsed = treeCollapsed[node.folder.name];
+    return (
+      <div key={node.folder.name}>
+        {renderFolderButton(node.folder, depth, node.children.length > 0)}
+        {node.children.length > 0 && !isCollapsed && node.children.map(child => renderNode(child, depth + 1))}
+      </div>
+    );
+  };
+
+
   return (
-    <div className="w-[220px] bg-[#faf9f8] border-r border-[#edebe9] flex flex-col shrink-0 text-[13px] transition-[margin] duration-200 ease-in-out z-20" style={{ marginLeft: hidden ? -220 : 0 }}>
+    <div className={`bg-[#faf9f8] border-r border-[#edebe9] flex flex-col shrink-0 text-[13px] transition-all duration-200 ease-in-out z-20 overflow-hidden ${hidden ? "w-0 border-r-0" : "w-[220px]"}`}>
       <div className="px-3 pt-2.5 pb-1.5">
         <button onClick={() => openCompose('new')}
           className="flex items-center gap-2 px-3 py-[5px] bg-white border border-[#8a8886] rounded shadow-sm hover:bg-[#f3f2f1] transition-colors text-[13px] text-[#323130] font-medium">
@@ -201,17 +256,17 @@ export function MailSidebar() {
 
       <nav className="flex-1 overflow-y-auto px-1 text-[13px]" onDragLeave={() => setDropTarget(null)}>
         <SectionHeader title="Favoritos" collapsed={collapsed.fav} onToggle={() => setCollapsed(p => ({...p, fav: !p.fav}))} />
-        {!collapsed.fav && favFolders.map(renderFolder)}
+        {!collapsed.fav && favNodes.map(node => renderNode(node, 0))}
 
         <SectionHeader title="Carpetas" collapsed={collapsed.all} onToggle={() => setCollapsed(p => ({...p, all: !p.all}))} />
         {!collapsed.all && (
           <>
-            {otherFolders.map(renderFolder)}
+            {otherNodes.map(node => renderNode(node, 0))}
             {creating ? (
               <div className="flex items-center gap-1 px-2 py-1 ml-3">
                 <input value={newName} onChange={e => setNewName(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') handleCreate(); if (e.key === 'Escape') { setCreating(false); setCreateParent(''); } }}
-                  placeholder={createParent ? `En ${createParent}` : 'Nombre'} autoFocus
+                  placeholder={createParent ? `En ${getFolderDisplayName(createParent)}` : 'Nombre'} autoFocus
                   className="flex-1 text-[12px] px-1.5 py-0.5 border border-[#0078d4] rounded outline-none" />
               </div>
             ) : (

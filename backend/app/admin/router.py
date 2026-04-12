@@ -1,8 +1,13 @@
 from fastapi import APIRouter, Request, HTTPException, Depends
+from fastapi.responses import StreamingResponse
 
 from app.auth.dependencies import require_admin
 from app.admin import domains_service, mailboxes_service, aliases_service
 from app.admin import queue_service, audit_service, stats_service
+
+import csv
+import io
+import json
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -21,7 +26,7 @@ async def _audit(request: Request, admin: str, action: str, target: str = None, 
     )
 
 
-# ── Dashboard ──────────────────────────────────────────────
+# -- Dashboard --
 
 @router.get("/dashboard")
 async def dashboard(request: Request, admin: str = Depends(require_admin)):
@@ -37,7 +42,7 @@ async def mail_stats(request: Request, hours: int = 24, admin: str = Depends(req
     return await stats_service.get_mail_log_stats(db, hours)
 
 
-# ── Domains ────────────────────────────────────────────────
+# -- Domains --
 
 @router.get("/domains")
 async def list_domains(request: Request, admin: str = Depends(require_admin)):
@@ -110,7 +115,7 @@ async def delete_domain(domain: str, request: Request, admin: str = Depends(requ
     return {"ok": True}
 
 
-# ── Mailboxes ──────────────────────────────────────────────
+# -- Mailboxes --
 
 @router.get("/mailboxes")
 async def list_mailboxes(request: Request, domain: str = None, admin: str = Depends(require_admin)):
@@ -191,7 +196,7 @@ async def toggle_mailbox_active(username: str, request: Request, admin: str = De
     return result
 
 
-# ── Aliases ────────────────────────────────────────────────
+# -- Aliases --
 
 @router.get("/aliases")
 async def list_aliases(request: Request, domain: str = None, admin: str = Depends(require_admin)):
@@ -240,7 +245,7 @@ async def delete_alias(address: str, request: Request, admin: str = Depends(requ
     return {"ok": True}
 
 
-# ── Queue ──────────────────────────────────────────────────
+# -- Queue --
 
 @router.get("/queue")
 async def get_queue(request: Request, admin: str = Depends(require_admin)):
@@ -264,7 +269,7 @@ async def queue_action(request: Request, admin: str = Depends(require_admin)):
     return {"ok": ok}
 
 
-# ── Audit Log ──────────────────────────────────────────────
+# -- Audit Log --
 
 @router.get("/audit-log")
 async def get_audit_log(
@@ -274,8 +279,58 @@ async def get_audit_log(
     admin_user: str = None,
     action: str = None,
     target: str = None,
+    date_from: str = None,
+    date_to: str = None,
     admin: str = Depends(require_admin),
 ):
     return await audit_service.get_audit_log(
-        _get_db(request), page, per_page, admin_user, action, target
+        _get_db(request), page, per_page, admin_user, action, target, date_from, date_to
     )
+
+
+@router.get("/audit-log/export")
+async def export_audit_log(
+    request: Request,
+    admin_user: str = None,
+    action: str = None,
+    date_from: str = None,
+    date_to: str = None,
+    admin: str = Depends(require_admin),
+):
+    """Export audit log as CSV for compliance."""
+    rows = await audit_service.get_audit_export(
+        _get_db(request), admin_user, action, date_from, date_to
+    )
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["id", "admin_user", "action", "target", "details", "ip_address", "created_at"])
+    for row in rows:
+        writer.writerow([
+            row["id"],
+            row["admin_user"],
+            row["action"],
+            row["target"],
+            json.dumps(row["details"]) if row["details"] else "",
+            str(row["ip_address"]) if row["ip_address"] else "",
+            row["created_at"].isoformat() if row["created_at"] else "",
+        ])
+
+    output.seek(0)
+    await _audit(request, admin, "audit_export", None, {"filters": {"admin_user": admin_user, "action": action, "date_from": date_from, "date_to": date_to}})
+
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=audit-log.csv"},
+    )
+
+
+@router.get("/audit-log/stats")
+async def audit_stats(
+    request: Request,
+    days: int = 30,
+    admin: str = Depends(require_admin),
+):
+    """Audit log statistics: actions per day, top admins, top actions."""
+    return await audit_service.get_audit_stats(_get_db(request), days)

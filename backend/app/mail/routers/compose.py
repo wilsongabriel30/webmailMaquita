@@ -1,11 +1,13 @@
 """Compose router — send, drafts, upload attachments, schedule."""
 import base64
+import re
+import nh3
 from fastapi import APIRouter, Request, Depends, UploadFile, File, Form, HTTPException
 from typing import Optional
 import json
 
 from app.auth.dependencies import get_current_user
-from app.core.session import get_user_password
+from app.core.session import get_user_password, get_imap_login_user
 from app.mail.clients.imap_client import get_imap_connection
 from app.mail.services.send_service import send_and_save
 from app.mail.services.draft_service import save_draft, delete_draft
@@ -38,6 +40,35 @@ async def _save_sent_recipients(db, sender: str, recipients: list[str]):
             pass
 
 
+
+
+async def _check_send_rate(request, username: str):
+    """Rate limit email sending: 10/min, 50/hour per user."""
+    redis = request.app.state.redis
+    # Per-minute
+    min_key = f"send_rl:min:{username}"
+    min_count = await redis.incr(min_key)
+    if min_count == 1:
+        await redis.expire(min_key, 60)
+    if min_count > 5:
+        raise HTTPException(status_code=429, detail="Límite de envío: máximo 5 correos por minuto")
+
+    # Per-hour
+    hour_key = f"send_rl:hour:{username}"
+    hour_count = await redis.incr(hour_key)
+    if hour_count == 1:
+        await redis.expire(hour_key, 3600)
+    if hour_count > 30:
+        raise HTTPException(status_code=429, detail="Límite de envío: máximo 30 correos por hora")
+
+    # Per-day
+    day_key = f"send_rl:day:{username}"
+    day_count = await redis.incr(day_key)
+    if day_count == 1:
+        await redis.expire(day_key, 86400)
+    if day_count > 200:
+        raise HTTPException(status_code=429, detail="Límite de envío: máximo 200 correos por día")
+
 router = APIRouter(prefix="/api/mail", tags=["mail-compose"])
 
 
@@ -48,7 +79,9 @@ async def send(
     username: str = Depends(get_current_user),
 ):
     password = await get_user_password(request, username)
-    imap = await get_imap_connection(username, password)
+    await _check_send_rate(request, username)
+    login_user = await get_imap_login_user(request, username)
+    imap = await get_imap_connection(login_user, password)
     try:
         # Get display name from user preferences
         db = request.app.state.db_pool
@@ -127,7 +160,9 @@ async def send_multipart(
 ):
     """Alternative multipart/form-data endpoint for large attachments."""
     password = await get_user_password(request, username)
-    imap = await get_imap_connection(username, password)
+    await _check_send_rate(request, username)
+    login_user = await get_imap_login_user(request, username)
+    imap = await get_imap_connection(login_user, password)
     try:
         db = request.app.state.db_pool
         display_name = ""
@@ -188,7 +223,9 @@ async def create_draft(
     username: str = Depends(get_current_user),
 ):
     password = await get_user_password(request, username)
-    imap = await get_imap_connection(username, password)
+    await _check_send_rate(request, username)
+    login_user = await get_imap_login_user(request, username)
+    imap = await get_imap_connection(login_user, password)
     try:
         email_data = OutgoingEmail(
             from_addr=username,
@@ -217,7 +254,9 @@ async def remove_draft(
     username: str = Depends(get_current_user),
 ):
     password = await get_user_password(request, username)
-    imap = await get_imap_connection(username, password)
+    await _check_send_rate(request, username)
+    login_user = await get_imap_login_user(request, username)
+    imap = await get_imap_connection(login_user, password)
     try:
         ok = await delete_draft(imap, uid)
         if not ok:
@@ -234,26 +273,9 @@ async def remove_draft(
 # -- Scheduled emails ----------------------------------------------------------
 
 async def _ensure_scheduled_table(db):
-    """Create scheduled_emails table if it does not exist."""
-    await db.execute("""
-        CREATE TABLE IF NOT EXISTS scheduled_emails (
-            id SERIAL PRIMARY KEY,
-            username TEXT NOT NULL,
-            to_list JSONB NOT NULL DEFAULT '[]',
-            cc_list JSONB NOT NULL DEFAULT '[]',
-            bcc_list JSONB NOT NULL DEFAULT '[]',
-            subject TEXT NOT NULL DEFAULT '',
-            html_body TEXT NOT NULL DEFAULT '',
-            text_body TEXT NOT NULL DEFAULT '',
-            in_reply_to TEXT NOT NULL DEFAULT '',
-            "references" TEXT NOT NULL DEFAULT '',
-            scheduled_at TIMESTAMPTZ NOT NULL,
-            status TEXT NOT NULL DEFAULT 'pending',
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            request_read_receipt BOOLEAN NOT NULL DEFAULT FALSE,
-            request_delivery_receipt BOOLEAN NOT NULL DEFAULT FALSE
-        )
-    """)
+    # Tabla creada por migrations/init_tables.sql (Fase 3)
+    # scheduled_emails
+    pass
 
 
 @router.post("/schedule")
@@ -349,7 +371,7 @@ async def cancel_scheduled(
 
 # -- Email Templates -----------------------------------------------------------
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 class TemplateCreate(BaseModel):
     name: str
@@ -357,22 +379,40 @@ class TemplateCreate(BaseModel):
     html_body: str = ""
     category: str = ""
 
-async def _ensure_templates_table(db):
-    """Create email_templates table if it does not exist and seed defaults."""
-    await db.execute("""
-        CREATE TABLE IF NOT EXISTS email_templates (
-            id SERIAL PRIMARY KEY,
-            owner VARCHAR(255) NOT NULL,
-            name VARCHAR(255) NOT NULL,
-            category VARCHAR(100) DEFAULT '',
-            subject VARCHAR(500) DEFAULT '',
-            html_body TEXT DEFAULT '',
-            created_at TIMESTAMP DEFAULT NOW()
+    @field_validator("subject", mode="before")
+    @classmethod
+    def strip_html_subject(cls, v):
+        # Strip ALL HTML from subject
+        return re.sub(r"<[^>]+>", "", v).strip() if v else ""
+
+    @field_validator("html_body", mode="before")
+    @classmethod
+    def sanitize_body(cls, v):
+        if not v:
+            return ""
+        return nh3.clean(
+            v,
+            tags={"p","br","strong","em","u","s","a","ul","ol","li",
+                  "h1","h2","h3","h4","blockquote","img","table","tr",
+                  "td","th","thead","tbody","span","div","sub","sup","hr"},
+            attributes={
+                "a": {"href","title","target"},
+                "img": {"src","alt","width","height"},
+                "td": {"colspan","rowspan"},
+                "th": {"colspan","rowspan"},
+            },
+            url_schemes={"http","https","mailto"},
         )
-    """)
-    await db.execute("""
-        CREATE INDEX IF NOT EXISTS idx_templates_owner ON email_templates(owner)
-    """)
+
+    @field_validator("name", "category", mode="before")
+    @classmethod
+    def strip_html_text(cls, v):
+        return re.sub(r"<[^>]+>", "", v).strip() if v else ""
+
+async def _ensure_templates_table(db):
+    # Tabla creada por migrations/init_tables.sql (Fase 3)
+    # email_templates + índice
+    # Seed de defaults se mantiene:
     # Seed default templates if none exist for __default__
     count = await db.fetchval(
         "SELECT COUNT(*) FROM email_templates WHERE owner = '__default__'"
@@ -383,6 +423,7 @@ async def _ensure_templates_table(db):
                 "Solicitud de información",
                 "Solicitud de información",
                 """<p>Estimado/a <strong>[NOMBRE]</strong>,</p>
+
 <p>Reciba un cordial saludo de parte de <strong>Maquita Cushunchic</strong>.</p>
 <p>Por medio de la presente, me permito solicitar información sobre <strong>[TEMA]</strong>, con el fin de dar seguimiento a las actividades programadas.</p>
 <p>Agradezco de antemano su pronta respuesta y quedo atento/a a cualquier indicación adicional.</p>

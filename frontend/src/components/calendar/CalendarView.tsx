@@ -1,0 +1,365 @@
+import { useState, useEffect, useCallback, useMemo } from "react";
+import type { ViewMode, CalendarInfo, CalendarEvent, EventFormData } from "./types/calendar";
+import { useCalendarApi } from "./hooks/useCalendarApi";
+import { CalendarHeader } from "./CalendarHeader";
+import { CalendarSidebar } from "./CalendarSidebar";
+import { MonthView } from "./MonthView";
+import { WeekView } from "./WeekView";
+import { DayView } from "./DayView";
+import { AgendaView } from "./AgendaView";
+import { EventModal } from "./EventModal";
+import {
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  endOfWeek,
+  addDays,
+  format,
+} from "date-fns";
+
+function getDateRange(date: Date, view: ViewMode): { start: string; end: string } {
+  let s: Date;
+  let e: Date;
+  switch (view) {
+    case "month":
+      s = startOfWeek(startOfMonth(date), { weekStartsOn: 1 });
+      e = endOfWeek(endOfMonth(date), { weekStartsOn: 1 });
+      break;
+    case "week":
+      s = startOfWeek(date, { weekStartsOn: 1 });
+      e = endOfWeek(date, { weekStartsOn: 1 });
+      break;
+    case "workweek":
+      s = startOfWeek(date, { weekStartsOn: 1 });
+      e = addDays(s, 4);
+      e.setHours(23, 59, 59, 999);
+      break;
+    case "day":
+      s = new Date(date);
+      s.setHours(0, 0, 0, 0);
+      e = new Date(date);
+      e.setHours(23, 59, 59, 999);
+      break;
+    case "agenda":
+      s = new Date(date);
+      s.setHours(0, 0, 0, 0);
+      e = addDays(s, 30);
+      break;
+  }
+  return {
+    start: format(s, "yyyy-MM-dd'T'HH:mm:ss"),
+    end: format(e, "yyyy-MM-dd'T'HH:mm:ss"),
+  };
+}
+
+export default function CalendarView() {
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [viewMode, setViewMode] = useState<ViewMode>("month");
+  const [calendars, setCalendars] = useState<CalendarInfo[]>([]);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [selectedCalendarIds, setSelectedCalendarIds] = useState<Set<string>>(new Set());
+  const [sidebarVisible, setSidebarVisible] = useState(true);
+
+  // Modal state
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editEvent, setEditEvent] = useState<CalendarEvent | null>(null);
+  const [modalInitialDate, setModalInitialDate] = useState<Date | undefined>();
+  const [modalInitialHour, setModalInitialHour] = useState<number | undefined>();
+
+  const calApi = useCalendarApi();
+  const { fetchCalendars, fetchEvents, createEvent, updateEvent, deleteEvent, moveEvent, createCalendar,
+          shareCalendar, listSharedWithMe,
+          loading, error } = calApi;
+
+  // Compartición de calendarios
+  const [sharedCalendars, setSharedCalendars] = useState<object[]>([]);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [shareCalendarId, setShareCalendarId] = useState<string>('');
+  const [shareWithEmail, setShareWithEmail] = useState('');
+  const [sharePermission, setSharePermission] = useState<'read' | 'read-write'>('read');
+
+  // Load calendars on mount + calendarios compartidos conmigo
+  useEffect(() => {
+    fetchCalendars().then((cals) => {
+      if (cals) {
+        setCalendars(cals);
+        setSelectedCalendarIds(new Set(cals.map((c) => c.id)));
+      }
+    });
+    listSharedWithMe().then((shared) => {
+      if (shared) setSharedCalendars(shared as object[]);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchCalendars]);
+
+  // Load events when date/view changes
+  const loadEvents = useCallback(async () => {
+    const { start, end } = getDateRange(currentDate, viewMode);
+    const evts = await fetchEvents(start, end);
+    if (evts) {
+      setEvents(evts);
+    }
+  }, [currentDate, viewMode, fetchEvents]);
+
+  useEffect(() => {
+    if (calendars.length > 0) {
+      loadEvents();
+    }
+  }, [loadEvents, calendars]);
+
+  // Filter events by selected calendars
+  const filteredEvents = useMemo(
+    () => events.filter((ev) => selectedCalendarIds.has(ev.calendar_id)),
+    [events, selectedCalendarIds]
+  );
+
+  function toggleCalendar(id: string) {
+    setSelectedCalendarIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function openNewEvent(date?: Date, hour?: number) {
+    setEditEvent(null);
+    setModalInitialDate(date);
+    setModalInitialHour(hour);
+    setModalOpen(true);
+  }
+
+  function openEditEvent(ev: CalendarEvent) {
+    setEditEvent(ev);
+    setModalInitialDate(undefined);
+    setModalInitialHour(undefined);
+    setModalOpen(true);
+  }
+
+  async function handleSaveEvent(data: EventFormData) {
+    let savedEvent: object | null = null;
+    if (editEvent) {
+      savedEvent = await updateEvent(editEvent.id, data);
+    } else {
+      savedEvent = await createEvent(data);
+    }
+    setModalOpen(false);
+    loadEvents();
+    // Si hay asistentes, enviar invitaciones automáticamente
+    if (savedEvent && data.attendees && data.attendees.length > 0) {
+      const eventId = (savedEvent as { id: string }).id;
+      if (eventId) {
+        calApi.sendEventInvitations(eventId).then((res) => {
+          if (res && (res as { sent: number }).sent > 0) {
+            console.info(`Invitaciones enviadas: ${(res as { sent: number }).sent}`);
+          }
+        }).catch(() => {/* silencioso */});
+      }
+    }
+  }
+
+  async function handleDeleteEvent(id: string) {
+    await deleteEvent(id);
+    setModalOpen(false);
+    loadEvents();
+  }
+
+  async function handleMoveEvent(eventId: string, dtstart: string, dtend: string) {
+    await moveEvent(eventId, dtstart, dtend);
+    loadEvents();
+  }
+
+  function handleDateClick(date: Date) {
+    openNewEvent(date);
+  }
+
+  function handleSlotClick(date: Date, hour: number) {
+    openNewEvent(date, hour);
+  }
+
+  function handleOpenShareModal(calendarId: string) {
+    setShareCalendarId(calendarId);
+    setShareWithEmail('');
+    setSharePermission('read');
+    setShareModalOpen(true);
+  }
+
+  async function handleShareCalendar() {
+    if (!shareWithEmail.trim()) return;
+    await shareCalendar(shareCalendarId, shareWithEmail.trim(), sharePermission);
+    setShareModalOpen(false);
+    // Recargar compartidos
+    listSharedWithMe().then((shared) => {
+      if (shared) setSharedCalendars(shared as object[]);
+    });
+  }
+
+  function handleAddCalendar() {
+    const name = prompt("Nombre del nuevo calendario:");
+    if (!name) return;
+    const color = "#0078d4";
+    createCalendar({ name, color }).then((cal) => {
+      if (cal) {
+        setCalendars((prev) => [...prev, cal]);
+        setSelectedCalendarIds((prev) => new Set([...prev, cal.id]));
+      }
+    });
+  }
+
+  // Listen for sidebar toggle
+  useEffect(() => {
+    const handler = () => setSidebarVisible((v) => !v);
+    window.addEventListener("toggle-sidebar", handler);
+    return () => window.removeEventListener("toggle-sidebar", handler);
+  }, []);
+
+  return (
+    <div className="flex flex-1 overflow-hidden">
+      {/* Sidebar */}
+      {sidebarVisible && (
+        <CalendarSidebar
+          calendars={calendars}
+          selectedCalendarIds={selectedCalendarIds}
+          currentDate={currentDate}
+          onDateSelect={(d) => {
+            setCurrentDate(d);
+            setViewMode("day");
+          }}
+          onToggleCalendar={toggleCalendar}
+          onNewEvent={() => openNewEvent()}
+          onAddCalendar={handleAddCalendar}
+          sharedCalendars={sharedCalendars as any[]}
+          onShareCalendar={handleOpenShareModal}
+        />
+      )}
+
+      {/* Main */}
+      <div className="flex-1 flex flex-col bg-white dark:bg-[#292827]" style={{ minWidth: 0 }}>
+        <CalendarHeader
+          currentDate={currentDate}
+          viewMode={viewMode}
+          onDateChange={setCurrentDate}
+          onViewChange={setViewMode}
+          onNewEvent={() => openNewEvent()}
+          onToday={() => setCurrentDate(new Date())}
+        />
+
+        <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Loading indicator */}
+        {loading && (
+          <div className="h-0.5 bg-[#0078d4]/20 overflow-hidden">
+            <div className="h-full w-1/3 bg-[#0078d4] animate-[loading_1s_ease-in-out_infinite]" />
+          </div>
+        )}
+
+        {/* Error */}
+        {error && (
+          <div className="px-4 py-2 bg-[#fde7e9] dark:bg-[#442726] text-[#a4262c] dark:text-[#f1707b] text-[12px] flex items-center gap-2">
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            {error}
+          </div>
+        )}
+
+        {/* Views */}
+        {viewMode === "month" && (
+          <MonthView
+            currentDate={currentDate}
+            events={filteredEvents}
+            onEventClick={openEditEvent}
+            onDateClick={handleDateClick}
+            onEventMove={handleMoveEvent}
+          />
+        )}
+        {viewMode === "week" && (
+          <WeekView
+            currentDate={currentDate}
+            events={filteredEvents}
+            onEventClick={openEditEvent}
+            onSlotClick={handleSlotClick}
+            onEventMove={handleMoveEvent}
+          />
+        )}
+        {viewMode === "workweek" && (
+          <WeekView
+            currentDate={currentDate}
+            events={filteredEvents}
+            onEventClick={openEditEvent}
+            onSlotClick={handleSlotClick}
+            onEventMove={handleMoveEvent}
+          />
+        )}
+        {viewMode === "day" && (
+          <DayView
+            currentDate={currentDate}
+            events={filteredEvents}
+            onEventClick={openEditEvent}
+            onSlotClick={handleSlotClick}
+          />
+        )}
+        {viewMode === "agenda" && (
+          <AgendaView
+            currentDate={currentDate}
+            events={filteredEvents}
+            onEventClick={openEditEvent}
+          />
+        )}
+        </div>{/* end overflow content area */}
+      </div>
+
+      {/* Modal de compartición */}
+      {shareModalOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#fff', borderRadius: 8, padding: 24, minWidth: 340, boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }}>
+            <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16, color: '#323130' }}>Compartir calendario</h3>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 12, color: '#605e5c', display: 'block', marginBottom: 4 }}>Compartir con (email)</label>
+              <input
+                type="email"
+                value={shareWithEmail}
+                onChange={(e) => setShareWithEmail(e.target.value)}
+                placeholder="usuario@maquita.org"
+                style={{ width: '100%', border: '1px solid #c8c6c4', borderRadius: 4, padding: '6px 8px', fontSize: 13 }}
+              />
+            </div>
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ fontSize: 12, color: '#605e5c', display: 'block', marginBottom: 4 }}>Permiso</label>
+              <select
+                value={sharePermission}
+                onChange={(e) => setSharePermission(e.target.value as 'read' | 'read-write')}
+                style={{ width: '100%', border: '1px solid #c8c6c4', borderRadius: 4, padding: '6px 8px', fontSize: 13 }}
+              >
+                <option value="read">Solo lectura</option>
+                <option value="read-write">Lectura y escritura</option>
+              </select>
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => setShareModalOpen(false)} style={{ padding: '6px 16px', fontSize: 13, border: '1px solid #c8c6c4', borderRadius: 4, background: '#fff', cursor: 'pointer' }}>Cancelar</button>
+              <button onClick={handleShareCalendar} style={{ padding: '6px 16px', fontSize: 13, border: 'none', borderRadius: 4, background: '#0078d4', color: '#fff', cursor: 'pointer' }}>Compartir</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Event Modal */}
+      <EventModal
+        isOpen={modalOpen}
+        event={editEvent}
+        initialDate={modalInitialDate}
+        initialHour={modalInitialHour}
+        calendars={calendars}
+        onSave={handleSaveEvent}
+        onDelete={handleDeleteEvent}
+        onClose={() => setModalOpen(false)}
+      />
+
+      <style>{`
+        @keyframes loading {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(400%); }
+        }
+      `}</style>
+    </div>
+  );
+}

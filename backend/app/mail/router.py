@@ -38,7 +38,7 @@ async def _get_user_imap(request: Request, username: str):
     redis = request.app.state.redis
     password = await redis.get(f"imap_pass:{username}")
     if not password:
-        raise HTTPException(status_code=401, detail="Session expired, please login again")
+        raise HTTPException(status_code=401, detail="Session expired")
     return await get_imap_connection(username, password)
 
 

@@ -139,7 +139,7 @@ export function useKeyboardShortcuts() {
             const quoteHtml = buildQuoteHtml(msg, 'forward');
             state.openCompose('forward', {
               to: [],
-              subject: msg.subject.startsWith('Fwd:') ? msg.subject : `Fwd: ${msg.subject}`,
+              subject: msg.subject.startsWith('RV:') ? msg.subject : `RV: ${msg.subject}`,
               text_body: '',
               html_body: quoteHtml,
             });

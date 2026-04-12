@@ -3,8 +3,8 @@ from functools import lru_cache
 
 
 class Settings(BaseSettings):
-    database_url: str = "postgresql://mailserver:***REDACTED***@localhost:5432/maildb"
-    redis_url: str = "redis://localhost:6379/0"
+    database_url: str = ""
+    redis_url: str = ""
     secret_key: str = "change-me"
     imap_host: str = "127.0.0.1"
     imap_port: int = 143
@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     sieve_port: int = 4190
     mail_domain: str = "maquita.org"
     cookie_domain: str = "mail.example.org"
-    cors_origins: str = "https://mail.example.org"
+    cors_origins: str = "https://mail.example.org,https://mail.example.org:8443"
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
     # SOGo DAV
@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     cache_calendars_ttl: int = 300
     # Drafts
     draft_autosave_interval_s: int = 30
+    # Secrets centralizados (Fase 3)
+    master_password: str = ""
+    admin_jwt_secret: str = ""
+    ia_api_key: str = ""
+    ollama_url: str = "http://10.16.0.170:8000"
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 
