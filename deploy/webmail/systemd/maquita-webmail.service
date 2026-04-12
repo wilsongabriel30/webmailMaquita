@@ -1,0 +1,18 @@
+[Unit]
+Description=Fundación Maquita Webmail API
+After=network.target postgresql.service redis-server.service dovecot.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/maquita-webmail/backend
+Environment=PATH=/opt/maquita-webmail/backend/venv/bin:/usr/local/bin:/usr/bin
+EnvironmentFile=/opt/maquita-webmail/backend/.env
+ExecStart=/opt/maquita-webmail/backend/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 4 --loop uvloop
+Restart=always
+RestartSec=5
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

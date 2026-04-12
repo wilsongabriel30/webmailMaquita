@@ -1,0 +1,36 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.5, pytest-9.0.3, pluggy-1.6.0 -- /opt/maquita-webmail/backend/venv/bin/python
+cachedir: .pytest_cache
+rootdir: /opt/maquita-webmail/backend
+configfile: pytest.ini
+plugins: anyio-4.12.1, asyncio-1.3.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 15 items
+
+tests/test_auth.py::test_login_missing_fields PASSED                     [  6%]
+tests/test_auth.py::test_login_invalid_credentials SKIPPED (Login en...) [ 13%]
+tests/test_auth.py::test_protected_endpoint_no_auth PASSED               [ 20%]
+tests/test_auth.py::test_refresh_no_token PASSED                         [ 26%]
+tests/test_auth.py::test_logout_no_auth PASSED                           [ 33%]
+tests/test_endpoints.py::test_protected_endpoint_rejects_unauth[GET-/api/mail/folders] PASSED [ 40%]
+tests/test_endpoints.py::test_protected_endpoint_rejects_unauth[GET-/api/mail/messages/INBOX] PASSED [ 46%]
+tests/test_endpoints.py::test_protected_endpoint_rejects_unauth[GET-/api/contacts/] PASSED [ 53%]
+tests/test_endpoints.py::test_protected_endpoint_rejects_unauth[GET-/api/calendar/calendars] PASSED [ 60%]
+tests/test_endpoints.py::test_protected_endpoint_rejects_unauth[GET-/api/tasks/boards] PASSED [ 66%]
+tests/test_endpoints.py::test_protected_endpoint_rejects_unauth[GET-/api/identities/] PASSED [ 73%]
+tests/test_health.py::test_api_docs PASSED                               [ 80%]
+tests/test_health.py::test_openapi_schema PASSED                         [ 86%]
+tests/test_security.py::test_cors_headers PASSED                         [ 93%]
+tests/test_security.py::test_no_server_header_leak PASSED                [100%]
+
+=============================== warnings summary ===============================
+app/mail/schemas/messages.py:218
+  /opt/maquita-webmail/backend/app/mail/schemas/messages.py:218: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class MessageSummaryResponse(BaseModel):
+
+app/mail/routers/shared.py:21
+  /opt/maquita-webmail/backend/app/mail/routers/shared.py:21: PydanticDeprecatedSince20: `min_items` is deprecated and will be removed, use `min_length` instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    permissions: list[str] = Field(..., min_items=1)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================== 14 passed, 1 skipped, 2 warnings in 0.17s ===================
