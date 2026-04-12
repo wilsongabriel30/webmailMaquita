@@ -1,4 +1,4 @@
-# Z-Push — ActiveSync para Maquita Webmail
+# Z-Push — ActiveSync para Fundación Maquita Webmail
 
 Sincronización de **correo, calendario y contactos** con dispositivos móviles (Android, iOS, Outlook) mediante el protocolo Microsoft ActiveSync.
 

@@ -1,8 +1,8 @@
-# Maquita Webmail
+# Fundación Maquita Webmail
 
 Sistema de correo electrónico completo con interfaz web tipo Microsoft Outlook. Software libre para la inteligencia colectiva.
 
-![Maquita Webmail](https://img.shields.io/badge/Maquita-Webmail-0078d4?style=for-the-badge)
+![Fundación Maquita Webmail](https://img.shields.io/badge/Fundación%20Maquita-Webmail-0078d4?style=for-the-badge)
 ![License](https://img.shields.io/badge/Licencia-MIT-green?style=for-the-badge)
 ![Python](https://img.shields.io/badge/Python-3.11+-blue?style=flat-square)
 ![React](https://img.shields.io/badge/React-19-61dafb?style=flat-square)
@@ -341,7 +341,7 @@ certbot certonly --nginx -d mail.tudominio.com
 certbot certonly --manual --preferred-challenges dns -d "*.tudominio.com" -d "tudominio.com"
 ```
 
-### 10. Instalar Maquita Webmail
+### 10. Instalar Fundación Maquita Webmail
 
 ```bash
 # Clonar repositorio
@@ -429,7 +429,7 @@ ADMIN_JWT_SECRET=GENERA_OTRO_SECRET_AQUI
 Crear `/etc/systemd/system/maquita-webmail.service`:
 ```ini
 [Unit]
-Description=Maquita Webmail API
+Description=Fundación Maquita Webmail API
 After=network.target postgresql.service redis-server.service dovecot.service
 
 [Service]
@@ -723,7 +723,7 @@ Las tablas se crean automáticamente al iniciar el backend por primera vez.
 | 5232 | Radicale CalDAV | Local |
 | 5432 | PostgreSQL | Local |
 | 6379 | Redis | Local |
-| 8000 | Maquita API | Local |
+| 8000 | Fundación Maquita API | Local |
 
 *Local = solo accesible desde 127.0.0.1, protegido por Nginx
 
@@ -795,7 +795,7 @@ Desarrollado con amor por la inteligencia colectiva.
 
 ## Créditos
 
-- **Maquita** — Comercializadora asociativa sin fines de lucro, Ecuador
+- **Fundación Maquita** — Comercializadora asociativa sin fines de lucro, Ecuador
 - **Wilson Gabriel** — Desarrollo y arquitectura
 - **IA AI** — Asistente de desarrollo
 

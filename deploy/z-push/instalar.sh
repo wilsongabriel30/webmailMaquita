@@ -1,7 +1,7 @@
 #!/bin/bash
 # ============================================
 # Instalador de Z-Push (ActiveSync)
-# Para Maquita Webmail
+# Para Fundación Maquita Webmail
 # ============================================
 
 set -e
@@ -11,7 +11,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-echo -e "${GREEN}=== Instalador Z-Push para Maquita Webmail ===${NC}"
+echo -e "${GREEN}=== Instalador Z-Push para Fundación Maquita Webmail ===${NC}"
 echo ""
 
 # Verificar root
