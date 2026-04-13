@@ -200,7 +200,7 @@ export function Toolbar() {
   const [rulesOpen, setRulesOpen] = useState(false);
   const [addinsOpen, setAddinsOpen] = useState(false);
 
-  const hasCompose = composeWindows && composeWindows.length > 0;
+  const hasCompose = composeWindows && composeWindows.some(w => !w.minimized);
 
   // Compose tabs
   const composeTabs = ['Mensaje', 'Insertar', 'Aplicar formato', 'Opciones'] as const;

@@ -117,12 +117,13 @@ export const useMailStore = create<MailState>((set, get) => ({
 
   setFolders: (folders) => set({ folders, loadingFolders: false }),
   setCurrentFolder: (folder) => set({
+    composeWindows: get().composeWindows.map(w => w.minimized ? w : { ...w, minimized: true }),
     currentFolder: folder, messages: [], selectedMessage: null,
     currentPage: 1, selectedUids: new Set(), searchQuery: '', activeIndex: -1,
     threadMessages: [],
   }),
   setMessages: (messages, total, page) => set({ messages, totalMessages: total, currentPage: page, loadingMessages: false }),
-  setSelectedMessage: (msg) => set({ selectedMessage: msg, loadingMessage: false }),
+  setSelectedMessage: (msg) => set({ selectedMessage: msg, loadingMessage: false, composeWindows: msg ? get().composeWindows.map(w => w.minimized ? w : { ...w, minimized: true }) : get().composeWindows }),
   setLoadingFolders: (v) => set({ loadingFolders: v }),
   setLoadingMessages: (v) => set({ loadingMessages: v }),
   setLoadingMessage: (v) => set({ loadingMessage: v }),
