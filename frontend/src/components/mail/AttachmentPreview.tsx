@@ -19,10 +19,12 @@ interface AttachmentPreviewProps {
 }
 
 function getPreviewType(ct: string, filename: string = ''): 'image' | 'pdf' | 'text' | 'office' | 'unsupported' {
-  if (ct.startsWith('image/')) return 'image';
-  if (ct === 'application/pdf') return 'pdf';
-  if (ct.startsWith('text/')) return 'text';
   const ext = filename.split('.').pop()?.toLowerCase() || '';
+  if (ct.startsWith('image/')) return 'image';
+  // Verificar PDF por MIME o por extensión (.pdf) — muchos servidores envían
+  // adjuntos PDF como application/octet-stream en vez de application/pdf.
+  if (ct === 'application/pdf' || ext === 'pdf') return 'pdf';
+  if (ct.startsWith('text/')) return 'text';
   const officeExts = new Set(['docx','doc','odt','rtf','xlsx','xls','ods','csv','pptx','ppt','odp']);
   if (officeExts.has(ext)) return 'office';
   const officeMimes = new Set([
@@ -76,13 +78,15 @@ export function AttachmentPreview({
   }, [attachment?.part_number, type]);
 
   // Convert Office files to PDF via OnlyOffice for preview
-  const [officePdfUrl, setOfficePdfUrl] = useState('');
+  // OnlyOffice editor state (no PDF conversion needed)
+  const ooEditorRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open || !attachment || type !== 'office') return;
     setLoading(true);
     setError(false);
-    setOfficePdfUrl('');
-    fetch('/api/mail/office-preview', {
+    // cleared;
+    // Get OnlyOffice editor config from backend
+    fetch('/api/mail/office-editor-config', {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
@@ -93,15 +97,35 @@ export function AttachmentPreview({
         filename: attachment.filename,
       }),
     })
-      .then(r => { if (!r.ok) throw new Error('Conversion failed'); return r.arrayBuffer(); })
-      .then(buf => {
-        const blob = new Blob([buf], { type: 'application/pdf' });
-        const pdfUrl = URL.createObjectURL(blob);
-        setOfficePdfUrl(pdfUrl);
-        setLoading(false);
+      .then(r => { if (!r.ok) throw new Error('Config failed'); return r.json(); })
+      .then(config => {
+        // Load OnlyOffice API script dynamically
+        const scriptId = 'onlyoffice-api-script';
+        let script = document.getElementById(scriptId) as HTMLScriptElement | null;
+        const initEditor = () => {
+          // Set loading=false FIRST so the div ref gets mounted by React,
+          // then initialize OnlyOffice in the next tick.
+          setLoading(false);
+          setTimeout(() => {
+            if (ooEditorRef.current && (window as any).DocsAPI) {
+              ooEditorRef.current.innerHTML = '';
+              new (window as any).DocsAPI.DocEditor(ooEditorRef.current, config);
+            } else {
+              setError(true);
+            }
+          }, 100);
+        };
+        if (!script) {
+          script = document.createElement('script');
+          script.id = scriptId;
+          script.src = '/onlyoffice/web-apps/apps/api/documents/api.js';
+          script.onload = initEditor;
+          document.head.appendChild(script);
+        } else {
+          initEditor();
+        }
       })
       .catch(() => { setError(true); setLoading(false); });
-    return () => { if (officePdfUrl) URL.revokeObjectURL(officePdfUrl); };
   }, [open, attachment?.part_number, type, folder, uid]);
 
   const onKeyDown = useCallback((e: KeyboardEvent) => {
@@ -202,15 +226,11 @@ export function AttachmentPreview({
           {type === 'office' && loading && (
             <div className="flex flex-col items-center gap-3">
               <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#0078d4] border-t-transparent" />
-              <p className="text-[13px] text-[#605e5c] dark:text-[#999]">Convirtiendo documento...</p>
+              <p className="text-[13px] text-[#605e5c] dark:text-[#999]">Cargando visor...</p>
             </div>
           )}
-          {type === 'office' && !loading && !error && officePdfUrl && (
-            <iframe
-              src={officePdfUrl}
-              className="w-full h-[70vh] border-0"
-              title={attachment.filename}
-            />
+          {type === 'office' && !loading && !error && (
+            <div ref={ooEditorRef} className="w-full h-[70vh]" />
           )}
           {type === 'text' && !loading && !error && (
             <pre className="w-full h-[70vh] overflow-auto p-4 bg-[#faf9f8] dark:bg-[#1e1e1e] text-[13px] font-mono text-[#323130] dark:text-[#e0e0e0] whitespace-pre-wrap">
