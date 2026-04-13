@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
+from pydantic import BaseModel
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
@@ -324,3 +326,90 @@ async def delete_label(label_id: uuid.UUID, request: Request, user: str = Depend
         await task_service.delete_label(_db(request), user, label_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+# ── Subtasks / Checklist Steps ────────────────────────────
+
+class StepCreate(BaseModel):
+    title: str
+
+class StepUpdate(BaseModel):
+    title: str | None = None
+    completed: bool | None = None
+    position: int | None = None
+
+class StepOut(BaseModel):
+    id: uuid.UUID
+    card_id: uuid.UUID
+    title: str
+    completed: bool
+    position: int
+    created_at: datetime
+
+
+StepCreate.model_rebuild()
+StepUpdate.model_rebuild()
+StepOut.model_rebuild()
+
+async def _ensure_steps_table(db):
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS task_steps (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            card_id UUID NOT NULL REFERENCES task_cards(id) ON DELETE CASCADE,
+            title TEXT NOT NULL,
+            completed BOOLEAN NOT NULL DEFAULT FALSE,
+            position INT NOT NULL DEFAULT 0,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+    """)
+
+
+@router.get("/cards/{card_id}/steps", response_model=list[StepOut])
+async def list_steps(card_id: uuid.UUID, request: Request, user: str = Depends(get_current_user)):
+    db = _db(request)
+    await _ensure_steps_table(db)
+    rows = await db.fetch(
+        "SELECT * FROM task_steps WHERE card_id = $1 ORDER BY position, created_at", card_id
+    )
+    return [StepOut(**dict(r)) for r in rows]
+
+
+@router.post("/cards/{card_id}/steps", response_model=StepOut, status_code=201)
+async def create_step(card_id: uuid.UUID, data: StepCreate, request: Request, user: str = Depends(get_current_user)):
+    db = _db(request)
+    await _ensure_steps_table(db)
+    max_pos = await db.fetchval("SELECT COALESCE(MAX(position), -1) FROM task_steps WHERE card_id = $1", card_id)
+    row = await db.fetchrow(
+        "INSERT INTO task_steps (card_id, title, position) VALUES ($1, $2, $3) RETURNING *",
+        card_id, data.title.strip(), (max_pos or 0) + 1,
+    )
+    return StepOut(**dict(row))
+
+
+@router.put("/steps/{step_id}", response_model=StepOut)
+async def update_step(step_id: uuid.UUID, data: StepUpdate, request: Request, user: str = Depends(get_current_user)):
+    db = _db(request)
+    await _ensure_steps_table(db)
+    sets, vals, idx = [], [], 1
+    if data.title is not None:
+        sets.append(f"title = ${idx}"); vals.append(data.title.strip()); idx += 1
+    if data.completed is not None:
+        sets.append(f"completed = ${idx}"); vals.append(data.completed); idx += 1
+    if data.position is not None:
+        sets.append(f"position = ${idx}"); vals.append(data.position); idx += 1
+    if not sets:
+        raise HTTPException(400, "Nada que actualizar")
+    vals.append(step_id)
+    row = await db.fetchrow(f"UPDATE task_steps SET {", ".join(sets)} WHERE id = ${idx} RETURNING *", *vals)
+    if not row:
+        raise HTTPException(404, "Paso no encontrado")
+    return StepOut(**dict(row))
+
+
+@router.delete("/steps/{step_id}", status_code=204)
+async def delete_step(step_id: uuid.UUID, request: Request, user: str = Depends(get_current_user)):
+    db = _db(request)
+    await _ensure_steps_table(db)
+    result = await db.execute("DELETE FROM task_steps WHERE id = $1", step_id)
+    if result == "DELETE 0":
+        raise HTTPException(404, "Paso no encontrado")

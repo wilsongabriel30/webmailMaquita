@@ -300,3 +300,78 @@ async def respond_event_invitation(
         return await calendar_service.respond_invitation(db, user, event_id, data.status)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+# ─── Scheduling Assistant ─────────────────────────────────
+@router.get("/scheduling-assistant")
+async def scheduling_assistant(
+    attendees: str = Query(..., description="Comma-separated emails"),
+    date: str = Query(..., description="YYYY-MM-DD"),
+    duration: int = Query(30, description="Minutes"),
+    request: Request = None,
+    user: str = Depends(get_current_user),
+):
+    """Find common free slots for multiple attendees on a given date."""
+    db = request.app.state.db_pool
+    emails = [e.strip() for e in attendees.split(",") if e.strip()]
+    if not emails:
+        raise HTTPException(400, "Se requiere al menos un asistente")
+    
+    from datetime import datetime as dt, timedelta
+    target = dt.strptime(date, "%Y-%m-%d").date()
+    start_str = f"{date}T00:00:00"
+    end_str = f"{date}T23:59:59"
+    
+    # Collect busy times per attendee
+    all_busy: list[tuple[dt, dt]] = []
+    for email in emails:
+        # Query events for this user on this date
+        rows = await db.fetch(
+            """SELECT start_time, end_time FROM calendar_events ce
+               JOIN calendars c ON ce.calendar_id = c.id
+               WHERE c.owner = $1 AND ce.start_time::date = $2
+               ORDER BY ce.start_time""",
+            email, target
+        )
+        for row in rows:
+            s = row["start_time"] if isinstance(row["start_time"], dt) else dt.fromisoformat(str(row["start_time"]))
+            e = row["end_time"] if isinstance(row["end_time"], dt) else dt.fromisoformat(str(row["end_time"]))
+            all_busy.append((s, e))
+    
+    # Merge overlapping busy intervals
+    all_busy.sort(key=lambda x: x[0])
+    merged: list[tuple[dt, dt]] = []
+    for s, e in all_busy:
+        if merged and s <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], e))
+        else:
+            merged.append((s, e))
+    
+    # Find free slots in work hours (8:00-18:00)
+    work_start = dt.combine(target, dt.min.time().replace(hour=8))
+    work_end = dt.combine(target, dt.min.time().replace(hour=18))
+    dur = timedelta(minutes=duration)
+    
+    free_slots = []
+    cursor = work_start
+    for bs, be in merged:
+        while cursor + dur <= bs and cursor + dur <= work_end:
+            free_slots.append({"start": cursor.isoformat(), "end": (cursor + dur).isoformat()})
+            cursor += timedelta(minutes=15)
+            if len(free_slots) >= 20:
+                break
+        cursor = max(cursor, be)
+        if len(free_slots) >= 20:
+            break
+    # After last busy period
+    while cursor + dur <= work_end and len(free_slots) < 20:
+        free_slots.append({"start": cursor.isoformat(), "end": (cursor + dur).isoformat()})
+        cursor += timedelta(minutes=15)
+    
+    return {
+        "date": date,
+        "attendees": emails,
+        "duration_minutes": duration,
+        "busy_periods": [{"start": s.isoformat(), "end": e.isoformat()} for s, e in merged],
+        "free_slots": free_slots,
+    }

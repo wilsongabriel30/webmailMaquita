@@ -1,3 +1,4 @@
+import { StepsList } from './StepsList';
 import React, { useState, useEffect } from 'react';
 import type { Task } from '../types';
 import { COLORS } from '../types';
@@ -302,6 +303,8 @@ export function TaskDetailPanel({ task, onUpdate, onDelete, onClose }: Props) {
           </div>
         )}
 
+{/* Subtasks / Steps */}
+        {!isMailTask && <StepsList cardId={task.id} />}
         {/* Created date */}
         {task.created_at && (
           <div style={{ padding: '12px 20px', fontSize: 12, color: COLORS.muted }}>

@@ -1,3 +1,4 @@
+import { SchedulingAssistant } from './SchedulingAssistant';
 import { useState, useEffect, useCallback, useMemo } from "react";
 import type { ViewMode, CalendarInfo, CalendarEvent, EventFormData } from "./types/calendar";
 import { useCalendarApi } from "./hooks/useCalendarApi";
@@ -77,6 +78,7 @@ export default function CalendarView() {
   const [shareCalendarId, setShareCalendarId] = useState<string>('');
   const [shareWithEmail, setShareWithEmail] = useState('');
   const [sharePermission, setSharePermission] = useState<'read' | 'read-write'>('read');
+const [showScheduling, setShowScheduling] = useState(false);
 
   // Load calendars on mount + calendarios compartidos conmigo
   useEffect(() => {
@@ -242,6 +244,7 @@ export default function CalendarView() {
           onViewChange={setViewMode}
           onNewEvent={() => openNewEvent()}
           onToday={() => setCurrentDate(new Date())}
+          onScheduling={() => setShowScheduling(true)}
         />
 
         <div className="flex-1 flex flex-col overflow-hidden">
@@ -343,6 +346,7 @@ export default function CalendarView() {
       )}
 
       {/* Event Modal */}
+{showScheduling && <SchedulingAssistant onClose={() => setShowScheduling(false)} onSelectSlot={(start) => { setModalInitialDate(new Date(start)); setModalOpen(true); setShowScheduling(false); }} />}
       <EventModal
         isOpen={modalOpen}
         event={editEvent}

@@ -1,3 +1,4 @@
+import { PresenceSelector } from '../common/PresenceSelector';
 import { useState, useEffect, useRef } from 'react';
 import { useAuthStore } from '../../store/authStore';
 import { useMailStore } from '../../store/mailStore';
@@ -281,6 +282,7 @@ export function Topbar() {
 
         {/* Profile */}
         <div ref={profileRef} className="relative ml-1">
+<PresenceSelector />
           <button onClick={() => setShowProfile(!showProfile)}
             className="w-8 h-8 rounded-full bg-[#106ebe] flex items-center justify-center text-white text-[11px] font-semibold hover:ring-2 hover:ring-white/30 transition-all">
             {initials}

@@ -13,6 +13,7 @@ from app.mail.services.send_service import send_and_save
 from app.mail.services.draft_service import save_draft, delete_draft
 from app.mail.clients.smtp_client import OutgoingEmail
 from app.mail.schemas.messages import ComposeRequest, DraftRequest, ScheduleRequest
+from app.mail.services.large_attachments import SIZE_THRESHOLD, upload_and_share, format_link_html
 
 async def _save_sent_recipients(db, sender: str, recipients: list[str]):
     """Auto-save recipients to sent_recipients for future autocomplete."""
@@ -92,14 +93,21 @@ async def send(
         if row and row["display_name"]:
             display_name = row["display_name"]
 
-        # Decode base64 attachments from frontend
+        # Decode base64 attachments — large files go to Nextcloud
         attachments = []
+        large_links_html = []
         if body.attachments:
             for att in body.attachments:
                 try:
                     content = base64.b64decode(att.content_b64)
                 except Exception:
                     content = b""
+                if len(content) >= SIZE_THRESHOLD and not (att.is_inline or False):
+                    # Upload to Nextcloud and get share link
+                    share_url = await upload_and_share(username, password, att.filename, content)
+                    if share_url:
+                        large_links_html.append(format_link_html(att.filename, len(content), share_url))
+                        continue  # skip inline attachment
                 attachments.append({
                     "filename": att.filename,
                     "content": content,
@@ -107,7 +115,10 @@ async def send(
                     "is_inline": att.is_inline or False,
                     "cid": att.cid or "",
                 })
-
+        # Append Nextcloud links to HTML body
+        if large_links_html:
+            links_block = "<br>".join(large_links_html)
+            body.html_body = (body.html_body or "") + "<br>" + links_block
         result = await send_and_save(
             imap=imap,
             password=password,
@@ -122,6 +133,7 @@ async def send(
             references=body.references,
             draft_uid=body.draft_uid,
             display_name=display_name,
+            db=db,
             attachments=attachments,
             request_read_receipt=body.request_read_receipt,
             request_delivery_receipt=body.request_delivery_receipt,

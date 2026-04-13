@@ -10,6 +10,7 @@ interface Props {
   viewMode: ViewMode;
   onDateChange: (date: Date) => void;
   onViewChange: (mode: ViewMode) => void;
+  onScheduling?: () => void;
   onNewEvent: () => void;
   onToday: () => void;
 }

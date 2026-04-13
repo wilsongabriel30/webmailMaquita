@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, HTTPException, Depends
+from fastapi import APIRouter, Request, HTTPException, Depends, Query
 from fastapi.responses import StreamingResponse
 
 from app.auth.dependencies import require_admin
@@ -334,3 +334,137 @@ async def audit_stats(
 ):
     """Audit log statistics: actions per day, top admins, top actions."""
     return await audit_service.get_audit_stats(_get_db(request), days)
+
+
+# ── Corporate Disclaimer / Footer ─────────────────────────
+
+@router.get("/disclaimer")
+async def get_disclaimer(request: Request, admin: str = Depends(require_admin)):
+    """Get current corporate disclaimer settings."""
+    db = request.app.state.db_pool
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS corporate_disclaimer (
+            id SERIAL PRIMARY KEY,
+            domain TEXT NOT NULL UNIQUE,
+            html_footer TEXT NOT NULL DEFAULT '',
+            text_footer TEXT NOT NULL DEFAULT '',
+            is_active BOOLEAN NOT NULL DEFAULT TRUE,
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+    """)
+    rows = await db.fetch("SELECT * FROM corporate_disclaimer ORDER BY domain")
+    return [dict(r) for r in rows]
+
+
+@router.post("/disclaimer", status_code=201)
+async def upsert_disclaimer(request: Request, admin: str = Depends(require_admin)):
+    """Create or update corporate disclaimer for a domain."""
+    data = await request.json()
+    domain = data.get("domain", "").strip()
+    html_footer = data.get("html_footer", "").strip()
+    text_footer = data.get("text_footer", "").strip()
+    is_active = data.get("is_active", True)
+    if not domain:
+        raise HTTPException(400, "Dominio requerido")
+    db = request.app.state.db_pool
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS corporate_disclaimer (
+            id SERIAL PRIMARY KEY,
+            domain TEXT NOT NULL UNIQUE,
+            html_footer TEXT NOT NULL DEFAULT '',
+            text_footer TEXT NOT NULL DEFAULT '',
+            is_active BOOLEAN NOT NULL DEFAULT TRUE,
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+    """)
+    row = await db.fetchrow("""
+        INSERT INTO corporate_disclaimer (domain, html_footer, text_footer, is_active)
+        VALUES (, , , )
+        ON CONFLICT (domain) DO UPDATE SET
+            html_footer = EXCLUDED.html_footer,
+            text_footer = EXCLUDED.text_footer,
+            is_active = EXCLUDED.is_active,
+            updated_at = NOW()
+        RETURNING *
+    """, domain, html_footer, text_footer, is_active)
+    await _audit(request, admin, "disclaimer_update", domain)
+    return dict(row)
+
+
+@router.delete("/disclaimer/{domain}")
+async def delete_disclaimer(domain: str, request: Request, admin: str = Depends(require_admin)):
+    """Delete disclaimer for a domain."""
+    db = request.app.state.db_pool
+    await db.execute("DELETE FROM corporate_disclaimer WHERE domain = ", domain)
+    return {"ok": True}
+
+
+
+# ── Message Tracking / Mail Trace ─────────────────────────
+
+@router.get("/message-tracking")
+async def track_message(
+    request: Request,
+    q: str = Query("", description="Message-ID, sender email, or recipient email"),
+    hours: int = Query(24, description="Search last N hours"),
+    admin: str = Depends(require_admin),
+):
+    """Search Postfix logs for message delivery tracking."""
+    import subprocess
+    import re
+    from datetime import datetime, timedelta
+
+    if not q or len(q) < 3:
+        raise HTTPException(400, "Consulta muy corta (min 3 caracteres)")
+
+    # Sanitize input
+    q_safe = re.sub(r"[^a-zA-Z0-9@._\-<>]", "", q)
+
+    # Search in Postfix logs
+    try:
+        result = subprocess.run(
+            ["grep", "-i", q_safe, "/var/log/mail.log"],
+            capture_output=True, text=True, timeout=30,
+        )
+        lines = result.stdout.strip().split("\n") if result.stdout.strip() else []
+
+        # Parse log entries
+        entries = []
+        for line in lines[-200:]:  # Last 200 matches
+            entry = {"raw": line}
+            # Extract queue ID
+            qid_match = re.search(r": ([A-F0-9]{10,}): ", line)
+            if qid_match:
+                entry["queue_id"] = qid_match.group(1)
+            # Extract from=
+            from_match = re.search(r"from=<([^>]*)>", line)
+            if from_match:
+                entry["from"] = from_match.group(1)
+            # Extract to=
+            to_match = re.search(r"to=<([^>]*)>", line)
+            if to_match:
+                entry["to"] = to_match.group(1)
+            # Extract status
+            status_match = re.search(r"status=(\w+)", line)
+            if status_match:
+                entry["status"] = status_match.group(1)
+            # Extract dsn
+            dsn_match = re.search(r"dsn=([0-9.]+)", line)
+            if dsn_match:
+                entry["dsn"] = dsn_match.group(1)
+            # Extract timestamp (syslog format)
+            ts_match = re.match(r"^(\w{3}\s+\d+\s+\d+:\d+:\d+)", line)
+            if ts_match:
+                entry["timestamp"] = ts_match.group(1)
+
+            entries.append(entry)
+
+        return {
+            "query": q_safe,
+            "results": len(entries),
+            "entries": entries,
+        }
+    except subprocess.TimeoutExpired:
+        raise HTTPException(504, "Búsqueda en logs timeout")
+    except Exception as e:
+        raise HTTPException(500, f"Error buscando en logs: {str(e)}")

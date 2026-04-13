@@ -26,6 +26,20 @@ def _html_to_text(html: str) -> str:
     return text.strip()
 
 
+async def _get_disclaimer(db, domain: str) -> tuple[str, str] | None:
+    """Get active corporate disclaimer for domain."""
+    try:
+        row = await db.fetchrow(
+            "SELECT html_footer, text_footer FROM corporate_disclaimer WHERE domain = $1 AND is_active = TRUE",
+            domain
+        )
+        if row and (row["html_footer"] or row["text_footer"]):
+            return row["html_footer"], row["text_footer"]
+    except Exception:
+        pass
+    return None
+
+
 async def send_and_save(
     imap,
     password: str,
@@ -42,6 +56,7 @@ async def send_and_save(
     sent_folder: str = "Sent",
     draft_uid: int | None = None,
     display_name: str = "",
+    db = None,
     request_read_receipt: bool = False,
     request_delivery_receipt: bool = False,
 ) -> dict:
@@ -67,6 +82,17 @@ async def send_and_save(
     # Auto-generate text_body from html_body if empty
     if not text_body and html_body:
         text_body = _html_to_text(html_body)
+
+    # Inject corporate disclaimer if configured
+    if db:
+        _domain = from_addr.split('@')[1] if '@' in from_addr else ''
+        _disc = await _get_disclaimer(db, _domain)
+        if _disc:
+            _dh, _dt = _disc
+            if _dh and html_body:
+                html_body = html_body + '<div style="margin-top:16px;padding-top:12px;border-top:1px solid #edebe9;font-size:11px;color:#605e5c;">' + _dh + '</div>'
+            if _dt and text_body:
+                text_body = text_body + chr(10) + chr(10) + '---' + chr(10) + _dt
 
     email_data = OutgoingEmail(
         from_addr=from_formatted,

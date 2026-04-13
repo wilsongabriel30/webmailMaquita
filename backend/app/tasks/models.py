@@ -175,3 +175,16 @@ async def ensure_tables(pool: asyncpg.Pool) -> None:
     await pool.execute(CREATE_TABLES_SQL)
     await pool.execute(MIGRATE_SQL)
     await pool.execute(POST_MIGRATE_INDEXES_SQL)
+
+# Subtasks / checklist steps
+CREATE_SUBTASKS_SQL = """
+CREATE TABLE IF NOT EXISTS task_steps (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    card_id     UUID NOT NULL REFERENCES task_cards(id) ON DELETE CASCADE,
+    title       TEXT NOT NULL,
+    completed   BOOLEAN NOT NULL DEFAULT FALSE,
+    position    INT NOT NULL DEFAULT 0,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_task_steps_card ON task_steps(card_id);
+"""

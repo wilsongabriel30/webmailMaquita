@@ -52,6 +52,7 @@ from app.retention.router import router as retention_router
 from app.gal.router import router as gal_router
 from app.rooms.router import router as rooms_router
 from app.tasks.router import router as tasks_router
+from app.presence.router import router as presence_router
 from app.tasks.models import ensure_tables as ensure_task_tables
 from app.calendar.attachments import router as cal_attachments_router
 
@@ -294,6 +295,7 @@ app.include_router(smime_router)
 app.include_router(sso_router)
 app.include_router(meetings_router)
 app.include_router(tasks_router, prefix="/api/tasks", tags=["tasks"])
+app.include_router(presence_router)
 
 
 @app.post("/api/csp-report")

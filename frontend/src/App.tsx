@@ -12,6 +12,8 @@ import { MailboxManager } from './components/admin/MailboxManager';
 import { AliasManager } from './components/admin/AliasManager';
 import { QueueViewer } from './components/admin/QueueViewer';
 import { AuditLog } from './components/admin/AuditLog';
+import { DisclaimerManager } from './components/admin/DisclaimerManager';
+import { MessageTracking } from './components/admin/MessageTracking';
 import { ContactsView } from './components/contacts/ContactsView';
 import { TasksView } from "./components/tasks/TasksView";
 import CalendarView from "./components/calendar/CalendarView";
@@ -134,6 +136,8 @@ export default function App() {
             <Route path="aliases" element={<AliasManager />} />
             <Route path="queue" element={<QueueViewer />} />
             <Route path="audit" element={<AuditLog />} />
+            <Route path="disclaimer" element={<DisclaimerManager />} />
+            <Route path="tracking" element={<MessageTracking />} />
           </Route>
         </Route>
       </Routes>
