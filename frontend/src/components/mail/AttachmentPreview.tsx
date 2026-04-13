@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { api } from '../../api/client';
 
 interface AttachmentInfo {
   filename: string;
@@ -53,6 +54,8 @@ export function AttachmentPreview({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [textContent, setTextContent] = useState('');
+  const [savingToCloud, setSavingToCloud] = useState(false);
+  const [cloudSaveResult, setCloudSaveResult] = useState<{ok: boolean; message: string} | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
 
   // Compute derived values safely (handle null attachment)
@@ -150,6 +153,22 @@ export function AttachmentPreview({
     if (open) modalRef.current?.focus();
   }, [open]);
 
+
+  const saveToNextcloud = async () => {
+    if (!attachment || savingToCloud) return;
+    setSavingToCloud(true);
+    setCloudSaveResult(null);
+    try {
+      const res = await api.post<{ok: boolean; message: string; nc_url?: string}>('/nextcloud/save-attachment', {
+        folder, uid, part_number: attachment.part_number, filename: attachment.filename,
+      });
+      setCloudSaveResult({ ok: true, message: res.message || 'Guardado en Nextcloud' });
+    } catch (e: any) {
+      setCloudSaveResult({ ok: false, message: e?.detail || e?.message || 'Error al guardar en Nextcloud' });
+    }
+    setSavingToCloud(false);
+  };
+
   // Early returns AFTER all hooks (React rules of hooks)
   if (!attachment) return null;
   if (!open) return null;
@@ -190,6 +209,17 @@ export function AttachmentPreview({
               Descargar
             </a>
             <button
+              onClick={saveToNextcloud}
+              disabled={savingToCloud}
+              className="flex items-center gap-1 px-3 py-1.5 text-[13px] text-[#0078d4] hover:bg-[#f3f2f1] dark:hover:bg-[#383838] rounded disabled:opacity-50"
+              title="Guardar en Nextcloud (Nube Maquita)"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
+              </svg>
+              {savingToCloud ? 'Guardando...' : 'Guardar en Nube'}
+            </button>
+            <button
               onClick={onClose}
               className="p-1.5 hover:bg-[#f3f2f1] dark:hover:bg-[#383838] rounded text-[#605e5c] dark:text-[#aaa]"
               aria-label="Cerrar"
@@ -200,6 +230,14 @@ export function AttachmentPreview({
             </button>
           </div>
         </div>
+
+        {/* Notificacion de guardado en nube */}
+        {cloudSaveResult && (
+          <div className={`mx-4 mt-2 px-3 py-2 rounded text-[13px] flex items-center justify-between ${cloudSaveResult.ok ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+            <span>{cloudSaveResult.message}</span>
+            <button onClick={() => setCloudSaveResult(null)} className="ml-2 text-xs hover:underline">✕</button>
+          </div>
+        )}
 
         {/* Preview area */}
         <div className="flex-1 overflow-auto flex items-center justify-center p-4 bg-[#faf9f8] dark:bg-[#1e1e1e] min-h-[300px]">

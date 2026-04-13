@@ -1,4 +1,4 @@
-const CACHE_NAME = "maquita-mail-v10";
+const CACHE_NAME = "maquita-mail-v11";
 const BASE = "/webmail/";
 const STATIC_ASSETS = [
   BASE,
