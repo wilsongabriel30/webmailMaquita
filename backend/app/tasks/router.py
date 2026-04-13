@@ -18,12 +18,19 @@ from app.tasks.schemas import (
     TaskListCreate, TaskListUpdate,
 )
 from app.tasks.service import task_service
+from app.tasks.task_calendar_sync import sync_task_to_calendar, remove_task_from_calendar, notify_task_assignment
+
+import logging
+_sync_logger = logging.getLogger("task_sync")
 
 router = APIRouter()
 
 
 def _db(request: Request):
     return request.app.state.db_pool
+
+def _redis(request: Request):
+    return request.app.state.redis
 
 
 # ════════════════════════════════════════════════
@@ -66,14 +73,30 @@ async def todo_list_tasks(list_id: uuid.UUID, request: Request, user: str = Depe
 @router.post("/lists/{list_id}/tasks", response_model=CardOut, status_code=201)
 async def todo_create_task_in_list(list_id: uuid.UUID, data: CardCreate, request: Request, user: str = Depends(get_current_user)):
     try:
-        return await task_service.create_task(_db(request), user, list_id, data)
+        result = await task_service.create_task(_db(request), user, list_id, data)
+        # Sincronizar con calendario y notificar
+        try:
+            await sync_task_to_calendar(_db(request), _redis(request), dict(result), user)
+            if data.assigned_to:
+                await notify_task_assignment(_redis(request), dict(result), data.assigned_to, "assigned", user)
+        except Exception as e:
+            _sync_logger.warning("Sync error (create_in_list): %s", e)
+        return result
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
 @router.post("/tasks", response_model=CardOut, status_code=201)
 async def todo_create_task_default(data: CardCreate, request: Request, user: str = Depends(get_current_user)):
     """Create task in default 'Tareas' list."""
-    return await task_service.create_task(_db(request), user, None, data)
+    result = await task_service.create_task(_db(request), user, None, data)
+    # Sincronizar con calendario y notificar
+    try:
+        await sync_task_to_calendar(_db(request), _redis(request), dict(result), user)
+        if data.assigned_to:
+            await notify_task_assignment(_redis(request), dict(result), data.assigned_to, "assigned", user)
+    except Exception as e:
+        _sync_logger.warning("Sync error (create_default): %s", e)
+    return result
 
 # ── Smart Views ──
 
@@ -145,14 +168,35 @@ async def todo_view_flagged(request: Request, user: str = Depends(get_current_us
 @router.patch("/tasks/{card_id}", response_model=CardOut)
 async def todo_update_task(card_id: uuid.UUID, data: CardUpdate, request: Request, user: str = Depends(get_current_user)):
     try:
-        return await task_service.update_card(_db(request), user, card_id, data)
+        result = await task_service.update_card(_db(request), user, card_id, data)
+        # Sincronizar con calendario si cambio fecha o asignado
+        try:
+            if data.due_date is not None or data.assigned_to is not None:
+                await sync_task_to_calendar(_db(request), _redis(request), dict(result), user)
+            if data.assigned_to is not None:
+                await notify_task_assignment(_redis(request), dict(result), data.assigned_to, "updated", user)
+        except Exception as e:
+            _sync_logger.warning("Sync error (update): %s", e)
+        return result
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
 @router.patch("/tasks/{card_id}/toggle", response_model=CardOut)
 async def todo_toggle_task(card_id: uuid.UUID, request: Request, user: str = Depends(get_current_user)):
     try:
-        return await task_service.toggle_card(_db(request), user, card_id)
+        result = await task_service.toggle_card(_db(request), user, card_id)
+        # Si se completo, eliminar del calendario; si se reabrio, re-sincronizar
+        try:
+            rd = dict(result)
+            assigned = rd.get("assigned_to") or rd.get("created_by", user)
+            if rd.get("completed"):
+                await remove_task_from_calendar(_db(request), rd, assigned)
+                await notify_task_assignment(_redis(request), rd, assigned, "completed", user)
+            else:
+                await sync_task_to_calendar(_db(request), _redis(request), rd, user)
+        except Exception as e:
+            _sync_logger.warning("Sync error (toggle): %s", e)
+        return result
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -173,7 +217,17 @@ async def todo_toggle_my_day(card_id: uuid.UUID, request: Request, user: str = D
 @router.delete("/tasks/{card_id}", status_code=204)
 async def todo_delete_task(card_id: uuid.UUID, request: Request, user: str = Depends(get_current_user)):
     try:
-        await task_service.delete_card(_db(request), user, card_id)
+        # Leer tarea antes de eliminar para poder limpiar calendario
+        db = _db(request)
+        task_row = await db.fetchrow("SELECT * FROM task_cards WHERE id = $1", card_id)
+        await task_service.delete_card(db, user, card_id)
+        # Limpiar calendario
+        if task_row and task_row.get("due_date"):
+            try:
+                assigned = task_row.get("assigned_to") or user
+                await remove_task_from_calendar(db, dict(task_row), assigned)
+            except Exception as e:
+                _sync_logger.warning("Sync error (delete): %s", e)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 

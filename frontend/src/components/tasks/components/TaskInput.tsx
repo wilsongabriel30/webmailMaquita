@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { COLORS } from '../types';
 
 interface Props {
@@ -11,6 +11,8 @@ export function TaskInput({ onAdd }: Props) {
   const [reminder, setReminder] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showReminderPicker, setShowReminderPicker] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [shake, setShake] = useState(false);
 
   const handleAdd = () => {
     if (title.trim()) {
@@ -20,6 +22,11 @@ export function TaskInput({ onAdd }: Props) {
       setReminder('');
       setShowDatePicker(false);
       setShowReminderPicker(false);
+    } else {
+      // Si no hay texto, enfocar el input y hacer shake visual
+      inputRef.current?.focus();
+      setShake(true);
+      setTimeout(() => setShake(false), 600);
     }
   };
 
@@ -55,7 +62,10 @@ export function TaskInput({ onAdd }: Props) {
           value={title}
           onChange={e => setTitle(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }}
-          placeholder="Agregar una tarea"
+          placeholder="Escriba aqui y presione Enter o Agregar..."
+          ref={inputRef}
+          autoFocus
+          className={shake ? 'task-input-shake' : ''}
           style={{
             flex: 1, border: 'none', outline: 'none', fontSize: 14,
             color: COLORS.text, background: 'transparent',
@@ -63,12 +73,13 @@ export function TaskInput({ onAdd }: Props) {
         />
         <button
           onClick={handleAdd}
-          disabled={!title.trim()}
           style={{
             padding: '6px 16px', fontSize: 13, borderRadius: 4,
-            border: `1px solid ${COLORS.border}`, background: 'white',
-            color: title.trim() ? COLORS.primary : COLORS.muted,
-            cursor: title.trim() ? 'pointer' : 'default', fontWeight: 500,
+            border: title.trim() ? 'none' : `1px solid ${COLORS.border}`,
+            background: title.trim() ? COLORS.primary : 'white',
+            color: title.trim() ? 'white' : COLORS.muted,
+            cursor: title.trim() ? 'pointer' : 'default', fontWeight: 600,
+            transition: 'all 0.15s ease',
           }}
         >
           Agregar
@@ -178,4 +189,15 @@ export function TaskInput({ onAdd }: Props) {
       </div>
     </div>
   );
+}
+
+// Inyectar CSS de animacion shake
+if (typeof document !== 'undefined' && !document.getElementById('task-input-shake-style')) {
+  const style = document.createElement('style');
+  style.id = 'task-input-shake-style';
+  style.textContent = `
+    @keyframes task-shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-6px)} 40%{transform:translateX(6px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} }
+    .task-input-shake { animation: task-shake 0.4s ease-in-out; border-bottom: 2px solid #d13438 !important; }
+  `;
+  document.head.appendChild(style);
 }

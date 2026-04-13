@@ -116,6 +116,25 @@ export function useWebSocket(enabled: boolean = true) {
               break;
             }
 
+
+            case 'task_notification': {
+              // Notificacion de tarea asignada/actualizada/completada
+              const taskMsg = data.message || 'Actualizacion de tarea';
+              showToast(taskMsg);
+              playNotificationSound();
+              if (Notification.permission === 'granted') {
+                try {
+                  new Notification('Maquita - Tareas', {
+                    body: taskMsg,
+                    icon: '/favicon.ico',
+                    tag: 'task-' + (data.task_id || ''),
+                  });
+                } catch {}
+              }
+              window.dispatchEvent(new CustomEvent('refresh-tasks'));
+              break;
+            }
+
             case 'session_expired':
               // Session lost — redirect to login
               ws.close();

@@ -32,7 +32,7 @@ export function TasksView() {
         if (l.list_type === 'smart') counts[l.name] = l.task_count;
       });
       setSmartCounts(counts);
-    } catch {
+    } catch (e: any) {
       // API not ready yet, use empty state
       setCustomLists([]);
     }
@@ -63,7 +63,7 @@ export function TasksView() {
           } else {
             result = [];
           }
-        } catch {
+        } catch (e: any) {
           result = [];
         }
       } else {
@@ -71,7 +71,7 @@ export function TasksView() {
         result = await api.get<Task[]>(`/tasks/lists/${activeView}/tasks`);
       }
       setTasks(result);
-    } catch {
+    } catch (e: any) {
       setTasks([]);
       // Don't show error if API is not ready
     } finally {
@@ -81,6 +81,13 @@ export function TasksView() {
 
   useEffect(() => { fetchLists(); }, [fetchLists]);
   useEffect(() => { fetchTasks(); }, [fetchTasks]);
+
+  // Escuchar evento de refresh desde WebSocket (tarea asignada/actualizada)
+  useEffect(() => {
+    const handler = () => { fetchTasks(); fetchLists(); };
+    window.addEventListener('refresh-tasks', handler);
+    return () => window.removeEventListener('refresh-tasks', handler);
+  }, [fetchTasks, fetchLists]);
 
   // ─── Task actions ──────────────────────────────────────────────
 
@@ -101,8 +108,8 @@ export function TasksView() {
       }
       fetchTasks();
       fetchLists();
-    } catch {
-      setError('No se pudo agregar la tarea');
+    } catch (e: any) {
+      setError('Error al agregar tarea: ' + (e?.message || 'desconocido'));
     }
   };
 
@@ -114,7 +121,7 @@ export function TasksView() {
     try {
       await api.patch(`/tasks/tasks/${id}/toggle`);
       fetchLists();
-    } catch {
+    } catch (e: any) {
       fetchTasks(); // revert
     }
   };
@@ -125,7 +132,7 @@ export function TasksView() {
     try {
       await api.patch(`/tasks/tasks/${id}/important`);
       fetchLists();
-    } catch {
+    } catch (e: any) {
       fetchTasks();
     }
   };
@@ -138,7 +145,7 @@ export function TasksView() {
       await api.patch(`/tasks/tasks/${id}`, data);
       if ('my_day' in data) fetchTasks();
       fetchLists();
-    } catch {
+    } catch (e: any) {
       fetchTasks();
     }
   };
@@ -150,7 +157,7 @@ export function TasksView() {
     try {
       await api.del(`/tasks/tasks/${id}`);
       fetchLists();
-    } catch {
+    } catch (e: any) {
       fetchTasks();
     }
   };
@@ -159,7 +166,7 @@ export function TasksView() {
     try {
       await api.post('/tasks/lists', { name });
       fetchLists();
-    } catch {
+    } catch (e: any) {
       setError('No se pudo crear la lista');
     }
   };
@@ -170,7 +177,7 @@ export function TasksView() {
       await api.del(`/tasks/lists/${id}`);
       if (activeView === id) setActiveView('tasks');
       fetchLists();
-    } catch {
+    } catch (e: any) {
       setError('No se pudo eliminar la lista');
     }
   };
