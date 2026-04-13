@@ -1,4 +1,4 @@
-import React from 'react';
+
 import type { ActiveView } from '../types';
 import { COLORS } from '../types';
 

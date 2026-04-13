@@ -232,5 +232,4 @@ class MessageSummaryResponse(BaseModel):
     has_attachments: bool = False
     importance: str = 'normal'
 
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)

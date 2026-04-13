@@ -196,7 +196,7 @@ export function Toolbar() {
   const [folderPanelOpen, setFolderPanelOpen] = useState(false);
   const [readingPaneOpen, setReadingPaneOpen] = useState(false);
   const [densityOpen, setDensityOpen] = useState(false);
-  const [myDayOpen, setMyDayOpen] = useState(false);
+  const [, setMyDayOpen] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [addinsOpen, setAddinsOpen] = useState(false);
 

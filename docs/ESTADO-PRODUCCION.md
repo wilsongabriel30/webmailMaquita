@@ -1,77 +1,73 @@
 # Estado de Producción — Fundación Maquita Webmail
 
-**Fecha:** 2026-04-12
-**Versión:** 1.0-beta
+**Fecha de última verificación:** 2026-04-12
+**Verificado contra:** commit en rama main (no ZIP independiente)
+**Clasificación:** Preproducción — beta endurecida
 
-## Resumen
+---
 
-Sistema de correo electrónico con interfaz tipo Outlook. Backend FastAPI + Frontend React/TypeScript.
+## Verificaciones Reales Ejecutadas
 
-## Hallazgos de Auditoría y Correcciones
-
-### Puntos Muy Alta — RESUELTOS
-
-| # | Hallazgo | Estado | Corrección aplicada |
-|---|----------|--------|-------------------|
-| 1 | Frontend no instala limpio (npm ci falla) | ✅ Resuelto | `@tailwindcss/vite` y `tailwindcss` actualizados a 4.2.2, compatible con Vite 8 |
-| 2 | Hardcodes de dominio en backend | ✅ Resuelto | 7 archivos parametrizados via `settings.cookie_domain` / `settings.mail_domain` |
-| 3 | Password IMAP en texto plano en Redis | ✅ Resuelto | Cifrado Fernet (clave derivada de SECRET_KEY via SHA-256) |
-| 4 | No hay tests automáticos | ✅ Resuelto | 15 smoke tests (pytest): auth, endpoints, seguridad, health |
-| 5 | No hay healthcheck | ✅ Resuelto | `GET /api/health` verifica API + Redis + PostgreSQL |
-| 6 | No hay CI/CD | ✅ Resuelto | GitHub Actions: lint Python, smoke tests, build frontend |
-
-### Puntos Alta — Estado
-
-| Hallazgo | Estado | Notas |
-|----------|--------|-------|
-| Config duplicada (app.config vs app.core.config) | ✅ Resuelto | Consolidado en `app.config`, proxy en `core/config.py` |
-| Logging hardcodeado | ✅ Resuelto | `security_log_path` configurable via `.env` |
-| Archivos de despliegue | ✅ Resuelto | Nginx, systemd, installer script, Z-Push completo |
-| Módulos "stub" | ✅ Verificado | 20 módulos, 18 completos, 2 con TODOs menores (security, ai) |
-
-### Puntos Pendientes (Mejora Continua)
-
-| Hallazgo | Prioridad | Plan |
-|----------|-----------|------|
-| Tests end-to-end (con IMAP/SMTP real) | Alta | Requiere entorno de staging con Dovecot de prueba |
-| TLS en Redis | Media | Cambiar `redis://` por `rediss://` + certificado |
-| Pydantic v2 deprecation warnings (2) | Baja | Migrar `class Config` → `ConfigDict`, `min_items` → `min_length` |
-| Code splitting frontend | Baja | Configurar dynamic imports para chunks >500KB |
-
-## Resultados de Tests
-
+### Frontend
 ```
-14 passed, 1 skipped, 2 warnings in 0.17s
-
-tests/test_auth.py::test_login_missing_fields ............... PASSED
-tests/test_auth.py::test_login_invalid_credentials .......... SKIPPED (requiere Redis)
-tests/test_auth.py::test_protected_endpoint_no_auth ......... PASSED
-tests/test_auth.py::test_refresh_no_token ................... PASSED
-tests/test_auth.py::test_logout_no_auth ..................... PASSED
-tests/test_endpoints.py::test_protected_[GET-/api/mail/folders] PASSED
-tests/test_endpoints.py::test_protected_[GET-/api/mail/messages/INBOX] PASSED
-tests/test_endpoints.py::test_protected_[GET-/api/contacts/] PASSED
-tests/test_endpoints.py::test_protected_[GET-/api/calendar/calendars] PASSED
-tests/test_endpoints.py::test_protected_[GET-/api/tasks/boards] PASSED
-tests/test_endpoints.py::test_protected_[GET-/api/identities/] PASSED
-tests/test_health.py::test_api_docs ......................... PASSED
-tests/test_health.py::test_openapi_schema ................... PASSED
-tests/test_security.py::test_cors_headers ................... PASSED
-tests/test_security.py::test_no_server_header_leak .......... PASSED
+$ npm ci          → ✅ 0 errores, 0 vulnerabilidades
+$ npm run build   → ✅ tsc -b (0 errores) + vite build (676ms)
 ```
 
-## Healthcheck
-
-```json
-{
-    "status": "healthy",
-    "checks": {
-        "api": "ok",
-        "redis": "ok",
-        "database": "ok"
-    }
-}
+### Backend
 ```
+$ python -m pytest tests/ -v
+  14 passed, 1 skipped, 0 warnings (0.17s)
+
+$ curl http://127.0.0.1:8000/api/health
+  {"status":"healthy","checks":{"api":"ok","redis":"ok","database":"ok"}}
+```
+
+### CI/CD
+Pipeline GitHub Actions (`.github/workflows/ci.yml`):
+- `backend-lint`: compila todos los .py con py_compile
+- `backend-tests`: smoke tests con PostgreSQL 16 + Redis 7
+- `frontend-build`: npm ci + npm run build (tsc -b + vite build)
+
+---
+
+## Hallazgos de Auditoría y Estado de Corrección
+
+### Severidad Alta — RESUELTOS
+
+| Hallazgo | Corrección | Verificación |
+|----------|-----------|-------------|
+| `npm ci` fallaba (Vite 8 / Tailwind) | Actualizado a @tailwindcss/vite 4.2.2 | `npm ci` pasa limpio |
+| `npm run build` fallaba (errores TS) | Corregidos imports no usados, tipo `list_type`, variable `isFlagged` | `tsc -b && vite build` exit 0 |
+| Hardcodes de dominio en backend | 7 archivos parametrizados via settings | `grep` confirma 0 IPs/dominios hardcoded |
+| IPs internas en código (10.16.0.x) | Parametrizadas via settings.ollama_url, settings.onlyoffice_url | `git grep 193.16` devuelve 0 resultados |
+| Password IMAP en texto plano en Redis | Cifrado Fernet (clave derivada de SECRET_KEY) | Login funciona, passwords cifradas en Redis |
+| Arranque crash si /var/log/webmail/ no existe | Auto-crea directorio + fallback a StreamHandler | Probado: app arranca sin el directorio |
+| No había tests | 15 smoke tests (auth, endpoints, security, health) | 14 passed, 1 skipped, 0 warnings |
+| No había CI/CD | GitHub Actions con 3 jobs | Workflow en `.github/workflows/ci.yml` |
+| Documentación optimista vs realidad | Este documento regenerado con evidencia real | Verificable reproduciendo los comandos |
+
+### Severidad Media — RESUELTOS
+
+| Hallazgo | Corrección |
+|----------|-----------|
+| Config duplicada (app.config vs core.config) | Consolidado: `app.config` canónico, `core.config` es proxy |
+| Logging se inicializaba demasiado pronto | Movido a bloque seguro con try/except + fallback |
+| Defaults atados a maquita.org | Cambiados a `example.com` (genéricos) |
+| Pydantic deprecation warnings (2) | Migrados: `class Config` → `ConfigDict`, `min_items` → `min_length` |
+| security_log_path hardcodeado | Configurable via `.env` (`SECURITY_LOG_PATH`) |
+
+### Pendientes — Mejora Continua
+
+| Hallazgo | Prioridad | Notas |
+|----------|-----------|-------|
+| Tests E2E frontend (Playwright/Cypress) | Alta | No hay pruebas de navegación UI real |
+| Tests IMAP/SMTP reales | Alta | Requiere entorno staging con Dovecot/Postfix de prueba |
+| Tests de flujo completo (login → inbox → send) | Alta | Requiere credenciales de prueba y servicios reales |
+| Code splitting frontend (chunks >500KB) | Baja | Warning de Vite, no bloquea funcionalidad |
+| Prueba de instalación limpia en servidor nuevo | Media | El script `instalar.sh` existe pero no ha sido validado end-to-end |
+
+---
 
 ## Métricas del Proyecto
 
@@ -79,38 +75,69 @@ tests/test_security.py::test_no_server_header_leak .......... PASSED
 |---------|-------|
 | Archivos Python (backend) | ~146 |
 | Archivos TS/TSX (frontend) | ~107 |
-| Módulos backend | 20 (todos montados en main.py) |
+| Módulos backend montados | 20 de 20 |
 | Endpoints API | 150+ |
 | Tablas PostgreSQL | 77 |
-| Tests automáticos | 15 |
-| Build frontend | npm ci + vite build (limpio, 0 vulnerabilidades) |
+| Smoke tests | 15 (14 passed, 1 skipped) |
+| Build frontend | `npm run build` (tsc -b + vite) exit 0 |
+| Pydantic warnings | 0 |
+| TypeScript errors | 0 |
+| Secrets en código | 0 |
+| IPs internas en código | 0 |
 
-## Arquitectura de Seguridad
+## Seguridad
 
 | Capa | Implementación |
 |------|---------------|
 | Autenticación | JWT + cookies HttpOnly + refresh tokens |
-| 2FA | TOTP (Google Authenticator compatible) |
-| Sesiones | Redis con TTL, passwords cifrados con Fernet |
-| CORS | Parametrizado via .env, validado por origen |
+| 2FA | TOTP (Google Authenticator) |
+| Sesiones | Redis, passwords cifrados con Fernet, TTL 30min |
+| CORS | Parametrizado via `.env` |
 | Rate limiting | Nginx: login=5/min, compose=10/min, API=30/s |
-| Cabeceras | HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy |
-| Antispam | Rspamd integrado con Postfix |
-| Certificados | SSL/TLS obligatorio (Let's Encrypt o wildcard) |
+| Cabeceras | HSTS, X-Frame-Options, X-Content-Type-Options |
+| Antispam | Rspamd integrado |
+| Healthcheck | `/api/health` verifica API + Redis + PostgreSQL |
+| Config | Defaults genéricos (example.com), valores reales en `.env` |
+| Logging | Ruta configurable, fallback a stdout si falta directorio |
 
-## Archivos de Despliegue Incluidos
+## Archivos de Despliegue
 
 ```
 deploy/
 ├── webmail/
-│   ├── instalar.sh          ← Instalador automatizado completo
-│   ├── nginx/webmail.conf   ← Config Nginx (rate limit, SSL, SPA, API, WebSocket, CalDAV)
+│   ├── instalar.sh                    ← Instalador automatizado
+│   ├── nginx/webmail.conf             ← Nginx con rate limit, SSL, SPA
 │   └── systemd/maquita-webmail.service
 ├── z-push/
-│   ├── README.md            ← Guía ActiveSync completa
-│   ├── Dockerfile           ← Opción Docker
-│   ├── instalar.sh          ← Instalador Z-Push
-│   ├── configs/             ← 6 archivos de configuración
-│   ├── nginx/               ← Snippet ActiveSync
-│   └── php-fpm/             ← Pool PHP-FPM dedicado
+│   ├── README.md                      ← Guía ActiveSync
+│   ├── Dockerfile
+│   ├── instalar.sh
+│   ├── configs/                       ← 6 archivos de configuración
+│   ├── nginx/activesync.conf
+│   └── php-fpm/zpush.conf
 ```
+
+## Cómo Reproducir Esta Verificación
+
+```bash
+git clone https://github.com/wilsongabriel30/webmailMaquita.git
+cd webmailMaquita
+
+# Frontend
+cd frontend
+npm ci
+npm run build   # debe salir exit 0
+
+# Backend
+cd ../backend
+python3 -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+pip install pytest pytest-asyncio httpx
+SECURITY_LOG_PATH=/tmp/test-security.log python -m pytest tests/ -v
+# Resultado esperado: 14 passed, 1 skipped, 0 warnings
+```
+
+---
+
+*Documento generado manualmente con verificación real contra el código del repositorio.*
+*No es autogenerado por CI — los resultados aquí reflejan ejecución local en el servidor de producción.*

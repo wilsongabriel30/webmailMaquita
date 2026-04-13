@@ -18,7 +18,7 @@ router = APIRouter(prefix="/api/mail", tags=["shared-mailboxes"])
 
 class DelegationGrant(BaseModel):
     delegate: str = Field(..., min_length=3, max_length=255)
-    permissions: list[str] = Field(..., min_items=1)
+    permissions: list[str] = Field(..., min_length=1)
     """Allowed values: 'read', 'send_as'"""
 
 

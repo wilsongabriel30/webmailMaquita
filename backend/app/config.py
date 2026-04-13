@@ -12,9 +12,9 @@ class Settings(BaseSettings):
     smtp_port: int = 587
     sieve_host: str = "127.0.0.1"
     sieve_port: int = 4190
-    mail_domain: str = "maquita.org"
-    cookie_domain: str = "mail.example.org"
-    cors_origins: str = "https://mail.example.org,https://mail.example.org:8443"
+    mail_domain: str = "example.com"
+    cookie_domain: str = "mail.example.com"
+    cors_origins: str = "https://mail.example.com"
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
     # SOGo DAV

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { TaskList, ActiveView, SmartView } from '../types';
+import type { TaskList, ActiveView } from '../types';
 import { SMART_LISTS, COLORS } from '../types';
 
 interface Props {

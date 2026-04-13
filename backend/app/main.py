@@ -1,6 +1,7 @@
 """Maquita Webmail API — main entrypoint v0.5.0."""
 import asyncio
 import json
+import os
 import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
@@ -175,7 +176,12 @@ async def lifespan(app: FastAPI):
 
 # Security audit logging
 security_logger = logging.getLogger("security")
-_sec_handler = logging.FileHandler(get_settings().security_log_path)
+_security_log_path = get_settings().security_log_path
+try:
+    os.makedirs(os.path.dirname(_security_log_path), exist_ok=True)
+    _sec_handler = logging.FileHandler(_security_log_path)
+except (OSError, PermissionError):
+    _sec_handler = logging.StreamHandler()  # fallback to stdout
 _sec_handler.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
 security_logger.addHandler(_sec_handler)
 security_logger.setLevel(logging.WARNING)

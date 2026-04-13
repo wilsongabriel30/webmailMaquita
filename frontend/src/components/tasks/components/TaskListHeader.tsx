@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import type { ActiveView } from '../types';
 import { SMART_LISTS, COLORS } from '../types';
 

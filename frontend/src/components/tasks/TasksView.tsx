@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { Task, TaskList, ActiveView } from './types';
-import { COLORS, SMART_LISTS } from './types';
+import { COLORS } from './types';
 import { TasksSidebar } from './components/TasksSidebar';
 import { TaskListHeader } from './components/TaskListHeader';
 import { TaskInput } from './components/TaskInput';
@@ -230,7 +230,6 @@ export function TasksView() {
 
   const isPlanned = activeView === 'planned';
   const showInput = activeView !== 'flagged' && activeView !== 'assigned';
-  const isFlagged = activeView === 'flagged';
 
   return (
     <div style={{ display: 'flex', height: '100%', width: '100%', overflow: 'hidden', fontFamily: "'Segoe UI', system-ui, sans-serif" }}>

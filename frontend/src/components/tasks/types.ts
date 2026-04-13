@@ -3,7 +3,7 @@
 export interface TaskList {
   id: string;
   name: string;
-  list_type: 'smart' | 'custom';
+  list_type: 'smart' | 'custom' | 'default';
   icon?: string;
   task_count: number;
 }
