@@ -43,6 +43,12 @@ async def download_attachment(
         content_type, _ = mimetypes.guess_type(filename)
         if not content_type:
             content_type = "application/octet-stream"
+        # Fallback: si la extensión es conocida, corregir octet-stream
+        if content_type == "application/octet-stream":
+            ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+            ext_map = {"pdf": "application/pdf", "jpg": "image/jpeg", "jpeg": "image/jpeg",
+                       "png": "image/png", "gif": "image/gif", "svg": "image/svg+xml"}
+            content_type = ext_map.get(ext, content_type)
 
         return Response(
             content=data,
@@ -75,6 +81,12 @@ async def preview_attachment(
     content_type, _ = mimetypes.guess_type(filename)
     if not content_type:
         content_type = "application/octet-stream"
+
+    # Muchos servidores envían PDFs como application/octet-stream.
+    # Usar la extensión del archivo como fallback para detectar el tipo real.
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    if content_type == "application/octet-stream" and ext == "pdf":
+        content_type = "application/pdf"
 
     # Check if previewable
     is_image = content_type in _PREVIEWABLE_IMAGE or content_type.startswith("image/")

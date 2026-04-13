@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     admin_jwt_secret: str = ""
     ia_api_key: str = ""
     ollama_url: str = "http://127.0.0.1:11434"
-    onlyoffice_url: str = "http://127.0.0.1:8080"
+    onlyoffice_url: str = "http://10.16.0.155:8080"  # Nextcloud VM (NO localhost, OnlyOffice está en VM 300)
     # Security logging
     security_log_path: str = "/var/log/webmail/security.log"
 

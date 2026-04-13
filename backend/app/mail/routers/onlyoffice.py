@@ -127,6 +127,85 @@ async def office_preview(
     )
 
 
+
+class OfficeEditorRequest(BaseModel):
+    folder: str
+    uid: int
+    part_number: str
+    filename: str
+
+
+@router.post("/office-editor-config")
+async def office_editor_config(
+    body: OfficeEditorRequest,
+    request: Request,
+    username: str = Depends(get_current_user),
+):
+    ext = body.filename.rsplit(".", 1)[-1].lower() if "." in body.filename else ""
+    if ext not in _OFFICE_EXT:
+        raise HTTPException(status_code=400, detail=f"Extension not supported: {ext}")
+
+    dl_token = jwt.encode(
+        {
+            "sub": username,
+            "folder": body.folder,
+            "uid": body.uid,
+            "part": body.part_number,
+            "filename": body.filename,
+            "exp": int(time.time()) + 3600,
+        },
+        _DOWNLOAD_SECRET,
+        algorithm="HS256",
+    )
+
+    download_url = f"https://{settings.cookie_domain}/api/mail/oo-download?token={dl_token}"
+    key_hash = hashlib.md5(f"{username}_{body.folder}_{body.uid}_{body.part_number}".encode()).hexdigest()[:16]
+    doc_key = f"view_{key_hash}_{int(time.time())}"
+
+    doc_type_map = {
+        "docx": "word", "doc": "word", "odt": "word", "rtf": "word", "txt": "word",
+        "xlsx": "cell", "xls": "cell", "ods": "cell", "csv": "cell",
+        "pptx": "slide", "ppt": "slide", "odp": "slide",
+    }
+    doc_type = doc_type_map.get(ext, "word")
+
+    editor_config = {
+        "document": {
+            "fileType": ext,
+            "key": doc_key,
+            "title": body.filename,
+            "url": download_url,
+            "permissions": {
+                "edit": False,
+                "download": True,
+                "print": True,
+                "comment": False,
+                "review": False,
+            },
+        },
+        "documentType": doc_type,
+        "editorConfig": {
+            "mode": "view",
+            "lang": "es",
+            "callbackUrl": f"https://{settings.cookie_domain}/api/mail/oo-callback",
+            "customization": {
+                "compactToolbar": True,
+                "hideRightMenu": True,
+                "toolbarNoTabs": True,
+                "chat": False,
+                "comments": False,
+                "help": False,
+                "about": False,
+            },
+        },
+    }
+
+    token = jwt.encode(editor_config, _OO_SECRET, algorithm="HS256")
+    editor_config["token"] = token
+
+    return editor_config
+
+
 @router.get("/oo-download")
 async def onlyoffice_download(
     token: str = Query(...),
@@ -146,10 +225,9 @@ async def onlyoffice_download(
     part_number = payload["part"]
     filename = payload["filename"]
 
-    redis = request.app.state.redis
-    password = await redis.get(f"imap_pass:{username}")
-    if not password:
-        raise HTTPException(status_code=401, detail="Session expired")
+    # IMPORTANTE: Las contraseñas en Redis están cifradas con Fernet.
+    # SIEMPRE usar get_user_password() — NUNCA redis.get() directo.
+    password = await get_user_password(request, username)
 
     login_user = await get_imap_login_user(request, username)
     imap = await get_imap_connection(login_user, password)

@@ -21,8 +21,14 @@ def decrypt_password(token: str) -> str:
 
 
 async def get_user_password(request: Request, username: str) -> str:
-    """Retrieve cached password from Redis for backend service auth.
-    For master user sessions, returns the master password."""
+    """Retrieve and DECRYPT cached password from Redis.
+    
+    OBLIGATORIO usar esta función en todos los routers que necesiten la contraseña IMAP/SMTP.
+    Las contraseñas en Redis (key imap_pass:{user}) están cifradas con Fernet.
+    Leer directo con redis.get() devuelve el token cifrado, NO la contraseña real.
+    
+    Lanza HTTP 401 si la sesión expiró (no hay key en Redis).
+    """
     redis = request.app.state.redis
     raw = await redis.get(f"imap_pass:{username}")
     if not raw:

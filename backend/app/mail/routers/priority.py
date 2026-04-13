@@ -58,10 +58,12 @@ async def get_priority_inbox(
     from app.mail.clients.imap_client import get_imap_connection
     from app.mail.services.message_service import list_messages
 
-    redis = request.app.state.redis
-    password = await redis.get(f"imap_pass:{user}")
-    if not password:
-        raise HTTPException(status_code=401, detail="Sesión IMAP expirada")
+    # IMPORTANTE: Las contraseñas en Redis están cifradas con Fernet.
+    # NUNCA leer directo con redis.get("imap_pass:...") — eso devuelve el token cifrado.
+    # SIEMPRE usar get_user_password() que descifra automáticamente.
+    # Bug original (2026-04-13): se pasaba el token cifrado a IMAP → "login failed".
+    from app.core.session import get_user_password as _get_pass
+    password = await _get_pass(request, user)
 
     login_user = await get_imap_login_user(request, user)
     imap = await get_imap_connection(login_user, password)
