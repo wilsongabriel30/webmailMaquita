@@ -1,7 +1,8 @@
 """GAL (Global Address List) — Directorio unificado enterprise.
 
-Combina: mailbox + user_profiles + org_contacts + meeting_rooms
+Combina: mailbox + user_profiles + org_contacts + meeting_rooms + mail_groups
 Reescrito: 2026-04-12
+Actualizado: 2026-04-13 — Agregadas listas de distribucion (mail_groups) al directorio
 """
 from __future__ import annotations
 
@@ -31,7 +32,7 @@ class GALEntry(BaseModel):
     office_location: str | None = None
     photo_url: str | None = None
     company: str | None = None
-    source: str = "mailbox"  # mailbox | directory | room
+    source: str = "mailbox"  # mailbox | directory | room | group
     active: bool = True
 
 
@@ -64,6 +65,7 @@ class StatsResponse(BaseModel):
     total_mailbox: int
     total_directory: int
     total_rooms: int
+    total_groups: int = 0
     total_combined: int
     by_department: list[dict]
     active_mailbox: int
@@ -198,6 +200,29 @@ async def unified_search(db, query: str, domain: str, limit: int = 15, include_r
                     results.append(_row_to_entry(r, "room"))
                     seen_emails.add(r["email"])
 
+    # 4. Listas de distribucion (mail_groups)
+    remaining = limit - len(results)
+    if remaining > 0:
+        group_rows = await db.fetch("""
+            SELECT g.address AS email, g.name AS display_name, g.name,
+                   'Lista de distribucion' AS title,
+                   COALESCE(g.description, '') AS department,
+                   '' AS phone, '' AS mobile,
+                   '' AS office_location, '' AS photo_url, '' AS company,
+                   g.active,
+                   (SELECT count(*) FROM mail_group_members gm WHERE gm.group_id = g.id) AS member_count
+            FROM mail_groups g
+            WHERE g.active = true AND (
+                g.address ILIKE $1 OR g.name ILIKE $1 OR
+                COALESCE(g.description, '') ILIKE $1
+            )
+            LIMIT $2
+        """, q, remaining)
+        for r in group_rows:
+            if r["email"] not in seen_emails:
+                results.append(_row_to_entry(r, "group"))
+                seen_emails.add(r["email"])
+
     return results
 
 
@@ -308,6 +333,38 @@ async def list_gal(
     for r in oc_rows:
         if r["email"] not in seen:
             all_items.append(_row_to_entry(r, "directory"))
+            seen.add(r["email"])
+
+    # Listas de distribucion (mail_groups)
+    gr_clauses = ["g.active = true"]
+    gr_params = []
+    gr_idx = 1
+
+    if search:
+        gr_clauses.append(f"""(
+            g.address ILIKE ${gr_idx} OR g.name ILIKE ${gr_idx} OR
+            COALESCE(g.description, '') ILIKE ${gr_idx}
+        )""")
+        gr_params.append(pattern)
+        gr_idx += 1
+
+    gr_where = " AND ".join(gr_clauses)
+
+    gr_rows = await db.fetch(f"""
+        SELECT g.address AS email, g.name AS display_name, g.name,
+               'Lista de distribucion' AS title,
+               COALESCE(g.description, '') AS department,
+               '' AS phone, '' AS mobile,
+               '' AS office_location, '' AS photo_url, '' AS company,
+               g.active
+        FROM mail_groups g
+        WHERE {gr_where}
+        ORDER BY g.name
+    """, *gr_params)
+
+    for r in gr_rows:
+        if r["email"] not in seen:
+            all_items.append(_row_to_entry(r, "group"))
             seen.add(r["email"])
 
     total = len(all_items)
@@ -429,6 +486,7 @@ async def gal_stats(
     active_mb = await db.fetchval("SELECT COUNT(*) FROM mailbox WHERE active = true")
     total_dir = await db.fetchval("SELECT COUNT(*) FROM org_contacts WHERE domain = $1", domain)
     total_rooms = await db.fetchval("SELECT COUNT(*) FROM meeting_rooms WHERE is_active = true")
+    total_groups = await db.fetchval("SELECT COUNT(*) FROM mail_groups WHERE active = true")
 
     # Por departamento
     dept_rows = await db.fetch("""
@@ -444,7 +502,8 @@ async def gal_stats(
         total_mailbox=total_mb,
         total_directory=total_dir,
         total_rooms=total_rooms,
-        total_combined=total_mb + total_dir + total_rooms,
+        total_groups=total_groups,
+        total_combined=total_mb + total_dir + total_rooms + total_groups,
         by_department=by_dept,
         active_mailbox=active_mb,
     )
@@ -477,7 +536,16 @@ async def export_gal(
         FROM org_contacts WHERE domain = $1 ORDER BY display_name
     """, domain)
 
-    all_rows = list(mb_rows) + list(oc_rows)
+    gr_rows = await db.fetch("""
+        SELECT address AS email, name AS display_name,
+               'Lista de distribucion' AS title,
+               COALESCE(description, '') AS department,
+               '' AS phone, '' AS mobile,
+               '' AS office_location, 'group' AS source
+        FROM mail_groups WHERE active = true ORDER BY name
+    """)
+
+    all_rows = list(mb_rows) + list(oc_rows) + list(gr_rows)
 
     if format == "vcard":
         vcards = []
@@ -586,6 +654,24 @@ async def get_user_detail(
             title="Sala de reuniones",
             office_location=row["location"] or "",
             source="room",
+        )
+
+    # Try mail_groups (listas de distribucion)
+    row = await db.fetchrow("""
+        SELECT g.address AS email, g.name, g.description, g.active, g.domain,
+               (SELECT count(*) FROM mail_group_members gm WHERE gm.group_id = g.id) AS member_count
+        FROM mail_groups g WHERE g.address = $1
+    """, email)
+    if row:
+        return GALDetailEntry(
+            email=row["email"],
+            name=row["name"],
+            display_name=row["name"],
+            title="Lista de distribucion",
+            department=row["description"] or "",
+            notes=f"Miembros: {row['member_count']}",
+            source="group",
+            active=row["active"],
         )
 
     raise HTTPException(status_code=404, detail="Entrada no encontrada en el directorio")
