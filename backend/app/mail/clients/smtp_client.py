@@ -1,6 +1,26 @@
 """Pure SMTP client — handles email sending only.
 
 Supports text+HTML multipart, file attachments, inline CID images.
+
+╔══════════════════════════════════════════════════════════════════════╗
+║  CRITICAL: NO MODIFICAR SIN CORRER LOS TESTS DE ENTREGABILIDAD    ║
+║                                                                      ║
+║  Este módulo construye los correos MIME que salen al mundo.          ║
+║  Cualquier cambio incorrecto ENVÍA CORREOS A SPAM.                   ║
+║                                                                      ║
+║  Auditoría: 14-Abril-2026 — Score 10/10 en mail-tester.com          ║
+║  Reglas que NO se deben romper:                                      ║
+║    1. Siempre generar text/plain real (nunca vacío)                  ║
+║    2. Siempre envolver HTML en DOCTYPE + <html> + <body>             ║
+║    3. NUNCA agregar X-Priority, X-MSMail-Priority, Importance        ║
+║    4. Content-Type DEBE ser multipart/alternative o multipart/mixed  ║
+║    5. Charset DEBE ser utf-8                                         ║
+║                                                                      ║
+║  Antes de modificar, ejecutar:                                       ║
+║    python3 backend/tests/test_mime_deliverability.py                 ║
+║                                                                      ║
+║  Doc: /home/Documentacion/00-IA-CONTEXTO/09-AUDITORIA-*.md      ║
+╚══════════════════════════════════════════════════════════════════════╝
 """
 import aiosmtplib
 from email.mime.multipart import MIMEMultipart
@@ -14,9 +34,24 @@ from dataclasses import dataclass, field
 from app.config import get_settings
 import re as _re
 
+# ─── Headers que NUNCA deben estar en un correo saliente ───
+# Agregar cualquiera de estos sube el score de SpamAssassin y envía a spam.
+_FORBIDDEN_HEADERS = frozenset({
+    "X-Priority",
+    "X-MSMail-Priority",
+    "Importance",
+    "X-MimeOLE",
+    "X-Mailer-Version",
+})
+
 
 def _html_to_text(html: str) -> str:
-    """Convert HTML to plain text for multipart/alternative."""
+    """Convert HTML to plain text for multipart/alternative.
+
+    CRITICAL: Esta función DEBE retornar texto real, nunca string vacío
+    cuando se le pasa HTML con contenido. Si retorna vacío, SpamAssassin
+    penaliza con MPART_ALT_DIFF y MIME_HTML_ONLY (+0.1 a +1.1 puntos).
+    """
     text = _re.sub(r'<br\s*/?>|</p>|</div>|</li>', '\n', html)
     text = _re.sub(r'<[^>]+>', '', text)
     text = _re.sub(r'&nbsp;', ' ', text)
@@ -29,7 +64,12 @@ def _html_to_text(html: str) -> str:
 
 
 def _wrap_html(html: str) -> str:
-    """Ensure HTML has proper document structure."""
+    """Ensure HTML has proper document structure.
+
+    CRITICAL: Sin DOCTYPE + <html> + <body>, SpamAssassin penaliza con
+    HTML_MIME_NO_HTML_TAG (+0.377 puntos). Gmail y Outlook también
+    pueden renderizar mal el correo.
+    """
     stripped = html.strip()
     if stripped.lower().startswith('<!doctype') or stripped.lower().startswith('<html'):
         return stripped
@@ -70,12 +110,21 @@ class OutgoingEmail:
 
 
 def build_mime_message(email_data: OutgoingEmail) -> MIMEMultipart:
+    """Build a MIME message optimized for maximum deliverability.
+
+    INVARIANTES (no romper):
+    - Siempre multipart/alternative (o mixed si hay adjuntos)
+    - Siempre text/plain + text/html (text/plain NUNCA vacío si hay HTML)
+    - HTML siempre con DOCTYPE + <html> + <body>
+    - Sin headers prohibidos (_FORBIDDEN_HEADERS)
+    """
     settings = get_settings()
     has_attachments = any(not a.is_inline for a in email_data.attachments)
     has_inline = any(a.is_inline for a in email_data.attachments)
 
     msg = MIMEMultipart("mixed") if has_attachments else MIMEMultipart("alternative")
 
+    # ─── Headers estándar (SOLO estos, no agregar más sin verificar spam score) ───
     msg["From"] = email_data.from_addr
     msg["To"] = ", ".join(email_data.to)
     msg["Subject"] = email_data.subject
@@ -91,7 +140,6 @@ def build_mime_message(email_data: OutgoingEmail) -> MIMEMultipart:
     if email_data.references:
         msg["References"] = email_data.references
 
-    # Read / delivery receipt headers
     if email_data.request_read_receipt:
         msg["Disposition-Notification-To"] = email_data.from_addr
     if email_data.request_delivery_receipt:
@@ -99,13 +147,14 @@ def build_mime_message(email_data: OutgoingEmail) -> MIMEMultipart:
 
     body_part = MIMEMultipart("alternative") if has_attachments else msg
 
-    # Always include a real text/plain part (prevents MPART_ALT_DIFF, MIME_HTML_ONLY)
+    # ─── REGLA 1: text/plain SIEMPRE real (nunca vacío si hay HTML) ───
     text_body = email_data.text_body or (
         _html_to_text(email_data.html_body) if email_data.html_body else ""
     )
     if text_body:
         body_part.attach(MIMEText(text_body, "plain", "utf-8"))
 
+    # ─── REGLA 2: HTML siempre con estructura DOCTYPE completa ───
     if email_data.html_body:
         wrapped_html = _wrap_html(email_data.html_body)
         if has_inline:
@@ -131,7 +180,25 @@ def build_mime_message(email_data: OutgoingEmail) -> MIMEMultipart:
             part.add_header("Content-Disposition", "attachment", filename=att.filename)
             msg.attach(part)
 
+    # ─── REGLA 3: Validación final — rechazar headers prohibidos ───
+    _assert_no_forbidden_headers(msg)
+
     return msg
+
+
+def _assert_no_forbidden_headers(msg: MIMEMultipart) -> None:
+    """Safety check: asegurar que no se colaron headers que causan spam.
+
+    Si alguien agrega un header prohibido por error, este check lo detecta
+    ANTES de que el correo salga. Falla ruidosamente para que se note.
+    """
+    for header_name in _FORBIDDEN_HEADERS:
+        if msg.get(header_name):
+            raise ValueError(
+                f"HEADER PROHIBIDO detectado: '{header_name}'. "
+                f"Este header causa que los correos vayan a spam. "
+                f"Ver documentación en 09-AUDITORIA-ENTREGABILIDAD-20260414.md"
+            )
 
 
 def _build_attachment_part(att: EmailAttachment) -> MIMEBase:
@@ -152,7 +219,6 @@ async def send_email(email_data: OutgoingEmail, password: str) -> dict:
 
     import ssl
     tls_context = ssl.create_default_context()
-    # Local SMTP: skip cert verification (cert is for mail.example.org, not 127.0.0.1)
     if settings.smtp_host in ("127.0.0.1", "localhost"):
         tls_context.check_hostname = False
         tls_context.verify_mode = ssl.CERT_NONE

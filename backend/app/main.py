@@ -149,6 +149,52 @@ async def _process_scheduled_emails(db_pool, redis):
             await asyncio.sleep(30)
 
 
+
+
+def _validate_mime_on_startup():
+    """Verifica que smtp_client.py construye MIME correcto al arrancar.
+    
+    Si falla, el backend NO arranca — protege contra cambios accidentales
+    que enviarían correos a spam. Ver: 09-AUDITORIA-ENTREGABILIDAD-20260414.md
+    """
+    from app.mail.clients.smtp_client import build_mime_message, OutgoingEmail
+    msg = build_mime_message(OutgoingEmail(
+        from_addr="test@maquita.org", to=["x@x.com"], subject="startup-check",
+        html_body="<p>test</p>"
+    ))
+    parts = [p.get_content_type() for p in msg.walk()
+             if not p.get_content_type().startswith("multipart")]
+    raw = msg.as_string()
+    
+    errors = []
+    if "text/plain" not in parts:
+        errors.append("FALTA text/plain — causa MIME_HTML_ONLY en spam")
+    if "text/html" not in parts:
+        errors.append("FALTA text/html")
+    
+    for p in msg.walk():
+        if p.get_content_type() == "text/plain":
+            txt = p.get_payload(decode=True).decode()
+            if not txt.strip():
+                errors.append("text/plain VACÍO — causa MPART_ALT_DIFF en spam")
+        if p.get_content_type() == "text/html":
+            html = p.get_payload(decode=True).decode()
+            if "<!DOCTYPE" not in html:
+                errors.append("HTML sin DOCTYPE — causa HTML_MIME_NO_HTML_TAG en spam")
+    
+    for bad_h in ("X-Priority", "X-MSMail-Priority", "Importance"):
+        if bad_h in raw:
+            errors.append(f"Header {bad_h} presente — spam trigger")
+    
+    if errors:
+        raise RuntimeError(
+            "MIME VALIDATION FAILED — backend NO arranca para proteger entregabilidad:\n"
+            + "\n".join(f"  - {e}" for e in errors)
+            + "\nEjecutar: python3 backend/tests/test_mime_deliverability.py"
+        )
+    logging.getLogger("uvicorn").warning("MIME validation OK — correos seguros")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
@@ -156,6 +202,8 @@ async def lifespan(app: FastAPI):
     app.state.db_pool = await create_db_pool()
     app.state.redis = await create_redis()
     await ensure_task_tables(app.state.db_pool)
+    # ── Validación MIME al arranque (protección anti-spam) ──
+    _validate_mime_on_startup()
     # Start scheduled email background task
     scheduler_task = asyncio.create_task(
         _process_scheduled_emails(app.state.db_pool, app.state.redis)
