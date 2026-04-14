@@ -97,7 +97,7 @@ export function EventModal({
   const [allDay, setAllDay] = useState(event?.all_day || false);
   const [rrule, setRrule] = useState(event?.rrule || "");
   const [reminders, setReminders] = useState<EventReminder[]>(event?.reminders || []);
-  const [attendees, setAttendees] = useState<string[]>(event?.attendees?.map((a) => a.email) || []);
+  const [attendees, setAttendees] = useState<string[]>(event?.attendees?.map((a) => a.email).filter(Boolean) as string[] || []);
   const [newAttendee, setNewAttendee] = useState("");
   const [attendeeSuggestions, setAttendeeSuggestions] = useState<{email:string;display_name?:string}[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -140,7 +140,7 @@ export function EventModal({
       setAllDay(event?.all_day || false);
       setRrule(event?.rrule || "");
       setReminders(event?.reminders || []);
-      setAttendees(event?.attendees?.map((a) => a.email) || []);
+      setAttendees(event?.attendees?.map((a) => a.email).filter(Boolean) as string[] || []);
       setNewAttendee("");
       setConfirmDelete(false);
       setStatus(event?.status || "busy");
@@ -469,7 +469,7 @@ export function EventModal({
                     {attendees.map((email, idx) => (
                       <span key={idx} className="olkm-attendee-chip">
                         <span className="olkm-attendee-avatar">
-                          {email.charAt(0).toUpperCase()}
+                          {(email || "?").charAt(0).toUpperCase()}
                         </span>
                         {email}
                         <button
