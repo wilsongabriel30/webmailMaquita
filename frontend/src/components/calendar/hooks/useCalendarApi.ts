@@ -13,27 +13,23 @@ interface CalendarsResponse {
 export function useCalendarApi() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const requestIdRef = useRef(0);
+  const loadingCount = useRef(0);
 
   const withLoading = useCallback(async <T>(fn: () => Promise<T>): Promise<T | null> => {
-    const currentRequestId = ++requestIdRef.current;
+    loadingCount.current++;
     setLoading(true);
     setError(null);
     try {
       const result = await fn();
-      if (requestIdRef.current !== currentRequestId) {
-        return null;
-      }
       return result;
     } catch (err) {
-      if (requestIdRef.current !== currentRequestId) {
-        return null;
-      }
       const msg = err instanceof Error ? err.message : "Error desconocido";
       setError(msg);
       return null;
     } finally {
-      if (requestIdRef.current === currentRequestId) {
+      loadingCount.current--;
+      if (loadingCount.current <= 0) {
+        loadingCount.current = 0;
         setLoading(false);
       }
     }
