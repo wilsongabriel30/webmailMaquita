@@ -93,7 +93,7 @@ fi
 
 # --- Paso 6: Verificación final ---
 echo -e "\n${YELLOW}[5/5] Verificación...${NC}"
-HTTP_CODE=$(curl -sk -o /dev/null -w '%{http_code}' https://localhost/webmail/)
+HTTP_CODE=$(curl -sk -L -o /dev/null -w '%{http_code}' https://mail.example.org/webmail/)
 if [ "$HTTP_CODE" = "200" ]; then
     echo -e "${GREEN}Webmail respondiendo: HTTP ${HTTP_CODE}${NC}"
 else
