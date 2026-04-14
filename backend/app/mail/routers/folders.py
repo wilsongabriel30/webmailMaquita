@@ -4,6 +4,9 @@ from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
 from app.core.session import get_user_password, get_imap_login_user
+# IMPORTANTE: Todas las operaciones IMAP requieren nombres de carpeta en Modified UTF-7.
+# Los nombres llegan del frontend como UTF-8 (display name) y se convierten con _imap_utf7_encode.
+# Sin esta conversión, carpetas con tildes/ñ/caracteres especiales fallan silenciosamente.
 from app.mail.clients.imap_client import get_imap_connection, _imap_utf7_encode
 from app.mail.services.folder_service import get_folders
 
