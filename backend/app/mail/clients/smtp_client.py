@@ -12,6 +12,36 @@ from email.utils import formatdate, make_msgid
 from dataclasses import dataclass, field
 
 from app.config import get_settings
+import re as _re
+
+
+def _html_to_text(html: str) -> str:
+    """Convert HTML to plain text for multipart/alternative."""
+    text = _re.sub(r'<br\s*/?>|</p>|</div>|</li>', '\n', html)
+    text = _re.sub(r'<[^>]+>', '', text)
+    text = _re.sub(r'&nbsp;', ' ', text)
+    text = _re.sub(r'&amp;', '&', text)
+    text = _re.sub(r'&lt;', '<', text)
+    text = _re.sub(r'&gt;', '>', text)
+    text = _re.sub(r'&quot;', '"', text)
+    text = _re.sub(r'\n{3,}', '\n\n', text)
+    return text.strip()
+
+
+def _wrap_html(html: str) -> str:
+    """Ensure HTML has proper document structure."""
+    stripped = html.strip()
+    if stripped.lower().startswith('<!doctype') or stripped.lower().startswith('<html'):
+        return stripped
+    return (
+        '<!DOCTYPE html>\n'
+        '<html lang="es">\n'
+        '<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>\n'
+        '<body style="font-family: Calibri, Arial, sans-serif; font-size: 14px; color: #333;">\n'
+        f'{stripped}\n'
+        '</body>\n'
+        '</html>'
+    )
 
 
 @dataclass
@@ -51,11 +81,8 @@ def build_mime_message(email_data: OutgoingEmail) -> MIMEMultipart:
     msg["Subject"] = email_data.subject
     msg["Date"] = formatdate(localtime=True)
     msg["Message-ID"] = make_msgid(domain=settings.mail_domain)
-    msg["X-Mailer"] = "Maquita Webmail 0.3.0"
+    msg["X-Mailer"] = "Maquita Webmail/1.0"
     msg["Organization"] = "Maquita"
-    msg["X-Priority"] = "3"
-    msg["X-MSMail-Priority"] = "Normal"
-    msg["Importance"] = "Normal"
 
     if email_data.cc:
         msg["Cc"] = ", ".join(email_data.cc)
@@ -72,13 +99,18 @@ def build_mime_message(email_data: OutgoingEmail) -> MIMEMultipart:
 
     body_part = MIMEMultipart("alternative") if has_attachments else msg
 
-    if email_data.text_body:
-        body_part.attach(MIMEText(email_data.text_body, "plain", "utf-8"))
+    # Always include a real text/plain part (prevents MPART_ALT_DIFF, MIME_HTML_ONLY)
+    text_body = email_data.text_body or (
+        _html_to_text(email_data.html_body) if email_data.html_body else ""
+    )
+    if text_body:
+        body_part.attach(MIMEText(text_body, "plain", "utf-8"))
 
     if email_data.html_body:
+        wrapped_html = _wrap_html(email_data.html_body)
         if has_inline:
             related = MIMEMultipart("related")
-            related.attach(MIMEText(email_data.html_body, "html", "utf-8"))
+            related.attach(MIMEText(wrapped_html, "html", "utf-8"))
             for att in email_data.attachments:
                 if att.is_inline and att.cid:
                     img_part = _build_attachment_part(att)
@@ -86,8 +118,8 @@ def build_mime_message(email_data: OutgoingEmail) -> MIMEMultipart:
                     related.attach(img_part)
             body_part.attach(related)
         else:
-            body_part.attach(MIMEText(email_data.html_body, "html", "utf-8"))
-    elif not email_data.text_body:
+            body_part.attach(MIMEText(wrapped_html, "html", "utf-8"))
+    elif not text_body:
         body_part.attach(MIMEText("", "plain", "utf-8"))
 
     if has_attachments and body_part is not msg:
