@@ -469,3 +469,124 @@ async def track_message(
     except Exception as e:
         raise HTTPException(500, f"Error buscando en logs: {str(e)}")
 
+
+
+# ═══════════════════════════════════════════════════════════════
+# Seguridad de cuentas — protección anti-compromiso
+# ═══════════════════════════════════════════════════════════════
+from app.security.account_protection import (
+    get_account_status, admin_unblock_account, admin_approve_forward
+)
+
+
+@router.get("/security/incidents")
+async def get_security_incidents(
+    request: Request,
+    limit: int = 50,
+    admin: str = Depends(require_admin),
+):
+    """Ver incidentes de seguridad recientes."""
+    import json
+    redis = request.app.state.redis
+    raw = await redis.lrange("security_incidents", 0, limit - 1)
+    incidents = [json.loads(r) for r in raw]
+    return {"total": len(incidents), "incidents": incidents}
+
+
+@router.get("/security/account/{username}")
+async def get_account_security_status(
+    request: Request,
+    username: str,
+    admin: str = Depends(require_admin),
+):
+    """Ver estado de seguridad de una cuenta específica."""
+    return await get_account_status(request.app.state.redis, username)
+
+
+@router.post("/security/unblock/{username}")
+async def unblock_account(
+    request: Request,
+    username: str,
+    admin: str = Depends(require_admin),
+):
+    """Desbloquear una cuenta bloqueada por actividad sospechosa."""
+    await admin_unblock_account(request.app.state.redis, username)
+    return {"status": "ok", "message": f"Cuenta {username} desbloqueada"}
+
+
+@router.post("/security/approve-forward")
+async def approve_forward(
+    request: Request,
+    body: dict,
+    admin: str = Depends(require_admin),
+):
+    """Aprobar forwarding externo para un usuario.
+    Body: {"username": "user@maquita.org", "forward_address": "user@gmail.com"}
+    """
+    username = body.get("username", "")
+    forward_address = body.get("forward_address", "")
+    if not username or not forward_address:
+        raise HTTPException(400, "username y forward_address requeridos")
+
+    await admin_approve_forward(
+        request.app.state.redis, request.app.state.db_pool,
+        username, forward_address, admin
+    )
+    return {"status": "ok", "message": f"Forward aprobado: {username} → {forward_address}"}
+
+
+@router.get("/security/approved-forwards")
+async def list_approved_forwards(
+    request: Request,
+    admin: str = Depends(require_admin),
+):
+    """Listar todos los forwards externos aprobados."""
+    db = request.app.state.db_pool
+    rows = await db.fetch(
+        "SELECT username, forward_address, approved_by, created_at FROM approved_forwards WHERE is_active = TRUE ORDER BY created_at DESC"
+    )
+    return [dict(r) for r in rows]
+
+
+@router.delete("/security/approved-forwards/{username}/{forward_address}")
+async def revoke_forward(
+    request: Request,
+    username: str,
+    forward_address: str,
+    admin: str = Depends(require_admin),
+):
+    """Revocar un forward externo aprobado."""
+    db = request.app.state.db_pool
+    await db.execute(
+        "UPDATE approved_forwards SET is_active = FALSE WHERE username = $1 AND forward_address = $2",
+        username, forward_address
+    )
+    redis = request.app.state.redis
+    await redis.srem(f"approved_forwards:{username}", forward_address.lower())
+    return {"status": "ok", "message": f"Forward revocado: {username} → {forward_address}"}
+
+
+@router.get("/security/blocked-accounts")
+async def list_blocked_accounts(
+    request: Request,
+    admin: str = Depends(require_admin),
+):
+    """Listar cuentas actualmente bloqueadas por anomalía."""
+    redis = request.app.state.redis
+    # Scan for all account_blocked:* keys
+    blocked = []
+    cursor = 0
+    while True:
+        cursor, keys = await redis.scan(cursor, match="account_blocked:*", count=100)
+        for key in keys:
+            username = key.split(":", 1)[1] if isinstance(key, str) else key.decode().split(":", 1)[1]
+            reason = await redis.get(key)
+            ttl = await redis.ttl(key)
+            blocked.append({
+                "username": username,
+                "reason": reason.decode() if isinstance(reason, bytes) else reason,
+                "ttl_seconds": max(0, ttl),
+            })
+        if cursor == 0:
+            break
+    return {"blocked_accounts": blocked}

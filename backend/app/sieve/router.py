@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 
 from app.auth.dependencies import get_current_user
 from app.core.session import get_user_password
+from app.security.account_protection import check_forward_policy, audit_sieve_change
 
 
 # ---------------------------------------------------------------------------
@@ -567,6 +568,18 @@ async def create_filter(
     MAX_FILTERS = 20
     password: str = await get_user_password(request, username)
 
+    # ── Protección: forwarding externo requiere aprobación admin ──
+    if rule.action.type == "forward" and rule.action.value:
+        fwd_check = await check_forward_policy(
+            request.app.state.redis, username, rule.action.value, request.app.state.db_pool
+        )
+        if not fwd_check["allowed"]:
+            raise HTTPException(status_code=403, detail=fwd_check["reason"])
+        await audit_sieve_change(
+            request.app.state.redis, username, "forward_created",
+            f"Forward to {rule.action.value}"
+        )
+
     current_script = await _get_current_script(username, password)
     vacation = parse_vacation_from_script(current_script)
     filters = parse_filters_from_script(current_script)
@@ -592,6 +605,14 @@ async def update_filter(
     """Update a filter rule by index."""
     # username from Depends
     password: str = await get_user_password(request, username)
+
+    # ── Protección: forwarding externo requiere aprobación admin ──
+    if rule.action.type == "forward" and rule.action.value:
+        fwd_check = await check_forward_policy(
+            request.app.state.redis, username, rule.action.value, request.app.state.db_pool
+        )
+        if not fwd_check["allowed"]:
+            raise HTTPException(status_code=403, detail=fwd_check["reason"])
 
     current_script = await _get_current_script(username, password)
     vacation = parse_vacation_from_script(current_script)

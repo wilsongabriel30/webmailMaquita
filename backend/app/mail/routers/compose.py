@@ -13,6 +13,7 @@ from app.mail.services.send_service import send_and_save
 from app.mail.services.draft_service import save_draft, delete_draft
 from app.mail.clients.smtp_client import OutgoingEmail
 from app.mail.schemas.messages import ComposeRequest, DraftRequest, ScheduleRequest
+from app.security.account_protection import check_send_anomaly
 from app.mail.services.large_attachments import SIZE_THRESHOLD, upload_and_share, format_link_html
 
 async def _save_sent_recipients(db, sender: str, recipients: list[str]):
@@ -81,6 +82,13 @@ async def send(
 ):
     password = await get_user_password(request, username)
     await _check_send_rate(request, username)
+
+    # ── Detección de envío masivo anómalo (protección anti-compromiso) ──
+    all_rcpts = list(body.to or []) + list(body.cc or []) + list(body.bcc or [])
+    anomaly = await check_send_anomaly(request.app.state.redis, username, all_rcpts)
+    if not anomaly["allowed"]:
+        raise HTTPException(status_code=429, detail=anomaly["reason"])
+
     login_user = await get_imap_login_user(request, username)
     imap = await get_imap_connection(login_user, password)
     try:
@@ -173,6 +181,13 @@ async def send_multipart(
     """Alternative multipart/form-data endpoint for large attachments."""
     password = await get_user_password(request, username)
     await _check_send_rate(request, username)
+
+    # ── Detección de envío masivo anómalo (protección anti-compromiso) ──
+    all_rcpts = list(body.to or []) + list(body.cc or []) + list(body.bcc or [])
+    anomaly = await check_send_anomaly(request.app.state.redis, username, all_rcpts)
+    if not anomaly["allowed"]:
+        raise HTTPException(status_code=429, detail=anomaly["reason"])
+
     login_user = await get_imap_login_user(request, username)
     imap = await get_imap_connection(login_user, password)
     try:
@@ -236,6 +251,13 @@ async def create_draft(
 ):
     password = await get_user_password(request, username)
     await _check_send_rate(request, username)
+
+    # ── Detección de envío masivo anómalo (protección anti-compromiso) ──
+    all_rcpts = list(body.to or []) + list(body.cc or []) + list(body.bcc or [])
+    anomaly = await check_send_anomaly(request.app.state.redis, username, all_rcpts)
+    if not anomaly["allowed"]:
+        raise HTTPException(status_code=429, detail=anomaly["reason"])
+
     login_user = await get_imap_login_user(request, username)
     imap = await get_imap_connection(login_user, password)
     try:
@@ -267,6 +289,13 @@ async def remove_draft(
 ):
     password = await get_user_password(request, username)
     await _check_send_rate(request, username)
+
+    # ── Detección de envío masivo anómalo (protección anti-compromiso) ──
+    all_rcpts = list(body.to or []) + list(body.cc or []) + list(body.bcc or [])
+    anomaly = await check_send_anomaly(request.app.state.redis, username, all_rcpts)
+    if not anomaly["allowed"]:
+        raise HTTPException(status_code=429, detail=anomaly["reason"])
+
     login_user = await get_imap_login_user(request, username)
     imap = await get_imap_connection(login_user, password)
     try:
