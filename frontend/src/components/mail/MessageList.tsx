@@ -25,6 +25,7 @@ function fmtDate(s: string | null): string {
 }
 
 function extractName(from: string, avatarMap?: Record<string, { name: string; initials: string }>): string {
+  if (!from) return "?";
   if (avatarMap) {
     const email = extractEmail(from);
     const avatar = avatarMap[email];
@@ -40,6 +41,7 @@ function extractEmail(from: string): string {
 }
 
 function getInitials(from: string, avatarMap?: Record<string, { name: string; initials: string }>): string {
+  if (!from) return "?";
   if (avatarMap) {
     const email = extractEmail(from);
     const avatar = avatarMap[email];
@@ -490,10 +492,10 @@ export function MessageList() {
           onClick={e => { e.stopPropagation(); handleShiftClick(idx, e); }}>
           <div className={`w-[32px] h-[32px] rounded-full flex items-center justify-center text-[11px] font-semibold cursor-pointer transition-all ${
             checked ? 'bg-[#0078d4] text-white' : 'text-white group-hover:ring-2 group-hover:ring-[#c8c6c4]'
-          }`} style={checked ? {} : { backgroundColor: getColor(msg.from) }}>
+          }`} style={checked ? {} : { backgroundColor: getColor(msg.from || '') }}>
             {checked ? (
               <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-            ) : getInitials(msg.from, avatarMap)}
+            ) : getInitials(msg.from || '', avatarMap)}
           </div>
         </div>
 
@@ -502,7 +504,7 @@ export function MessageList() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 min-w-0 flex-1">
               <span className={`text-[13px] truncate ${!msg.seen ? 'font-semibold text-[#323130]' : 'text-[#605e5c]'}`}>
-                {extractName(msg.from, avatarMap)}
+                {extractName(msg.from || '', avatarMap)}
               </span>
               {/* Thread count badge */}
               {threadCount && threadCount > 1 && (
