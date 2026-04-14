@@ -39,7 +39,7 @@ export function MailSidebar() {
     window.addEventListener("toggle-sidebar", handler);
     return () => window.removeEventListener("toggle-sidebar", handler);
   }, []);
-  
+
 
   const { folders, currentFolder, setFolders, setCurrentFolder, setLoadingFolders, openCompose } = useMailStore();
   const [creating, setCreating] = useState(false);
@@ -50,8 +50,10 @@ export function MailSidebar() {
   const [renameValue, setRenameValue] = useState('');
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; folder: Folder } | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [folderDropTarget, setFolderDropTarget] = useState<string | null>(null);
   const [stats, setStats] = useState<MailStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
+  const [moveModal, setMoveModal] = useState<{ folder: Folder } | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -93,7 +95,6 @@ export function MailSidebar() {
   };
 
   const handleEmpty = async (name: string) => {
-    // Empty folder by getting all UIDs and deleting
     try {
       const res = await api.get<{ messages: { uid: number }[]; total: number }>(`/mail/messages/${encodeURIComponent(name)}?per_page=999`);
       if (res.messages.length > 0) {
@@ -106,12 +107,25 @@ export function MailSidebar() {
     fetchFolders();
   };
 
+  const handleMoveFolder = async (folderName: string, newParent: string) => {
+    if (systemFolders.has(folderName)) { showToast('No se puede mover una carpeta del sistema'); return; }
+    try {
+      await api.post(`/mail/folders/${encodeURIComponent(folderName)}/move`, { new_parent: newParent });
+      showToast(`Carpeta movida a ${newParent || 'raíz'}`);
+      fetchFolders();
+    } catch (e: any) {
+      showToast(e.message || 'Error al mover carpeta');
+    }
+    setMoveModal(null);
+  };
+
   const getFolderCtxItems = (f: Folder) => {
     const isSystem = systemFolders.has(f.name);
     return [
       { label: 'Crear subcarpeta', icon: 'M12 4v16m8-8H4', onClick: () => { setCreateParent(f.name); setCreating(true); } },
       ...(!isSystem ? [
         { label: 'Renombrar', icon: 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z', onClick: () => { setRenaming(f.name); setRenameValue(f.name); } },
+        { label: 'Mover carpeta', icon: 'M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4', onClick: () => setMoveModal({ folder: f }) },
       ] : []),
       { label: '', icon: '', onClick: () => {}, divider: true },
       { label: 'Vaciar carpeta', icon: icons.trash, onClick: () => handleEmpty(f.name) },
@@ -121,17 +135,13 @@ export function MailSidebar() {
     ];
   };
 
-  // Build folder tree: group children under their parent by dot separator
+  // Build folder tree
   type FolderNode = { folder: Folder; children: FolderNode[] };
 
   const buildTree = (flatFolders: Folder[]): FolderNode[] => {
-    const folderMap = new Map<string, Folder>();
-    for (const f of flatFolders) folderMap.set(f.name, f);
-
     const rootNodes: FolderNode[] = [];
     const nodeMap = new Map<string, FolderNode>();
 
-    // Sort: system folders first, then alphabetical
     const sortOrder: Record<string, number> = { inbox: 0, drafts: 1, sent: 2, junk: 3, trash: 4, archive: 5 };
     const sorted = [...flatFolders].sort((a, b) => {
       const oa = sortOrder[a.type] ?? 6, ob = sortOrder[b.type] ?? 6;
@@ -143,7 +153,6 @@ export function MailSidebar() {
       const node: FolderNode = { folder: f, children: [] };
       nodeMap.set(f.name, node);
 
-      // Find parent: "INBOX.Facturas" → parent is "INBOX", "Bandeja de entrada 2016.Pendientes" → parent is "Bandeja de entrada 2016"
       const dotIdx = f.name.lastIndexOf('.');
       const parentName = dotIdx > 0 ? f.name.substring(0, dotIdx) : null;
 
@@ -160,7 +169,6 @@ export function MailSidebar() {
   const favNodes = fullTree.filter(n => favorites.includes(n.folder.name));
   const otherNodes = fullTree.filter(n => !favorites.includes(n.folder.name));
 
-  // Track which tree nodes are collapsed
   const [treeCollapsed, setTreeCollapsed] = useState<Record<string, boolean>>({});
   const toggleTreeNode = (name: string) => setTreeCollapsed(p => ({ ...p, [name]: !p[name] }));
 
@@ -168,6 +176,8 @@ export function MailSidebar() {
     const active = currentFolder === f.name;
     const displayName = getFolderDisplayName(f.name);
     const isCollapsed = treeCollapsed[f.name];
+    const isSystem = systemFolders.has(f.name);
+    const isDragTarget = dropTarget === f.name || folderDropTarget === f.name;
 
     if (renaming === f.name) {
       return (
@@ -181,38 +191,63 @@ export function MailSidebar() {
 
     return (
       <button key={f.name} onClick={() => setCurrentFolder(f.name)}
+        draggable={!isSystem}
+        onDragStart={e => {
+          if (isSystem) { e.preventDefault(); return; }
+          e.dataTransfer.setData('application/x-folder-name', f.name);
+          e.dataTransfer.effectAllowed = 'move';
+        }}
         onContextMenu={e => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, folder: f }); }}
         onDragOver={e => {
+          e.preventDefault();
           if (e.dataTransfer.types.includes('application/x-mail-uids')) {
-            e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
             setDropTarget(f.name);
+          } else if (e.dataTransfer.types.includes('application/x-folder-name')) {
+            e.dataTransfer.dropEffect = 'move';
+            setFolderDropTarget(f.name);
           }
         }}
-        onDragLeave={() => setDropTarget(null)}
+        onDragLeave={() => { setDropTarget(null); setFolderDropTarget(null); }}
         onDrop={async e => {
           e.preventDefault();
           setDropTarget(null);
+          setFolderDropTarget(null);
+
+          // Handle message drop
           const uidsJson = e.dataTransfer.getData('application/x-mail-uids');
           const srcFolder = e.dataTransfer.getData('application/x-mail-folder');
-          if (!uidsJson || !srcFolder || srcFolder === f.name) return;
-          const uids = JSON.parse(uidsJson);
-          try {
-            await api.post(`/mail/bulk-action/${encodeURIComponent(srcFolder)}`, {
-              uids, action: 'move', dest_folder: f.name,
-            });
-            const displayName2 = getFolderDisplayName(f.name);
-            showToast(`${uids.length} mensaje${uids.length > 1 ? 's' : ''} movido${uids.length > 1 ? 's' : ''} a ${displayName2}`);
-            useMailStore.getState().clearSelection();
-            useMailStore.getState().setSelectedMessage(null);
-            window.dispatchEvent(new CustomEvent('refresh-messages'));
-          } catch {
-            showToast('Error al mover mensajes');
+          if (uidsJson && srcFolder && srcFolder !== f.name) {
+            const uids = JSON.parse(uidsJson);
+            try {
+              await api.post(`/mail/bulk-action/${encodeURIComponent(srcFolder)}`, {
+                uids, action: 'move', dest_folder: f.name,
+              });
+              const dn = getFolderDisplayName(f.name);
+              showToast(`${uids.length} mensaje${uids.length > 1 ? 's' : ''} movido${uids.length > 1 ? 's' : ''} a ${dn}`);
+              useMailStore.getState().clearSelection();
+              useMailStore.getState().setSelectedMessage(null);
+              window.dispatchEvent(new CustomEvent('refresh-messages'));
+            } catch {
+              showToast('Error al mover mensajes');
+            }
+            return;
+          }
+
+          // Handle folder drop
+          const draggedFolder = e.dataTransfer.getData('application/x-folder-name');
+          if (draggedFolder && draggedFolder !== f.name && !systemFolders.has(draggedFolder)) {
+            // Don't allow dropping a parent into its own child
+            if (f.name.startsWith(draggedFolder + '.')) {
+              showToast('No se puede mover una carpeta dentro de sí misma');
+              return;
+            }
+            handleMoveFolder(draggedFolder, f.name);
           }
         }}
         className={`w-full flex items-center gap-1.5 px-2 py-[4px] rounded text-[13px] transition-colors ${
-          dropTarget === f.name ? 'bg-[#deecf9] ring-2 ring-[#0078d4]' : active ? 'bg-[#e1dfdd] font-semibold text-[#323130]' : 'text-[#323130] hover:bg-[#e1dfdd]'
-        }`} style={{ paddingLeft: `${8 + depth * 14}px` }}>
+          isDragTarget ? 'bg-[#deecf9] ring-2 ring-[#0078d4]' : active ? 'bg-[#e1dfdd] font-semibold text-[#323130]' : 'text-[#323130] hover:bg-[#e1dfdd]'
+        } ${!isSystem ? 'cursor-grab active:cursor-grabbing' : ''}`} style={{ paddingLeft: `${8 + depth * 14}px` }}>
         {hasChildren ? (
           <span className="w-[12px] h-[12px] flex items-center justify-center shrink-0 cursor-pointer" onClick={ev => { ev.stopPropagation(); toggleTreeNode(f.name); }}>
             <svg className={`w-[10px] h-[10px] text-[#605e5c] transition-transform ${isCollapsed ? '' : 'rotate-90'}`} fill="currentColor" viewBox="0 0 20 20">
@@ -240,6 +275,8 @@ export function MailSidebar() {
     );
   };
 
+  // Flat list of non-system folders for move modal
+  const allFolderNames = folders.map(f => f.name);
 
   return (
     <div className={`bg-[#faf9f8] border-r border-[#edebe9] flex flex-col shrink-0 text-[13px] transition-all duration-200 ease-in-out z-20 overflow-hidden ${hidden ? "w-0 border-r-0" : "w-[220px]"}`}>
@@ -254,7 +291,7 @@ export function MailSidebar() {
         </button>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-1 text-[13px]" onDragLeave={() => setDropTarget(null)}>
+      <nav className="flex-1 overflow-y-auto px-1 text-[13px]" onDragLeave={() => { setDropTarget(null); setFolderDropTarget(null); }}>
         <SectionHeader title="Favoritos" collapsed={collapsed.fav} onToggle={() => setCollapsed(p => ({...p, fav: !p.fav}))} />
         {!collapsed.fav && favNodes.map(node => renderNode(node, 0))}
 
@@ -333,6 +370,36 @@ export function MailSidebar() {
       </div>
 
       {ctxMenu && <ContextMenu x={ctxMenu.x} y={ctxMenu.y} items={getFolderCtxItems(ctxMenu.folder)} onClose={() => setCtxMenu(null)} />}
+
+      {/* Modal para mover carpeta */}
+      {moveModal && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50" onClick={() => setMoveModal(null)}>
+          <div className="bg-white rounded-lg shadow-xl p-4 w-[300px] max-h-[400px] flex flex-col" onClick={e => e.stopPropagation()}>
+            <h3 className="text-sm font-semibold text-[#323130] mb-3">
+              Mover &quot;{getFolderDisplayName(moveModal.folder.name)}&quot;
+            </h3>
+            <div className="flex-1 overflow-y-auto space-y-0.5 mb-3">
+              <button onClick={() => handleMoveFolder(moveModal.folder.name, '')}
+                className="w-full text-left px-3 py-1.5 text-sm hover:bg-[#e1dfdd] rounded text-[#323130]">
+                / (raíz)
+              </button>
+              {allFolderNames
+                .filter(n => n !== moveModal.folder.name && !n.startsWith(moveModal.folder.name + '.'))
+                .map(n => (
+                  <button key={n} onClick={() => handleMoveFolder(moveModal.folder.name, n)}
+                    className="w-full text-left px-3 py-1.5 text-sm hover:bg-[#e1dfdd] rounded text-[#323130] truncate"
+                    style={{ paddingLeft: `${12 + (n.split('.').length - 1) * 12}px` }}>
+                    {getFolderDisplayName(n)}
+                  </button>
+                ))}
+            </div>
+            <button onClick={() => setMoveModal(null)}
+              className="w-full px-3 py-1.5 text-sm text-[#605e5c] hover:bg-[#e1dfdd] rounded border border-[#edebe9]">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

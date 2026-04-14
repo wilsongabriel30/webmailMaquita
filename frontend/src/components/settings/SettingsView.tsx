@@ -5,6 +5,8 @@ import { PasswordChange } from './PasswordChange';
 import { IdentityManager } from './IdentityManager';
 import { SignatureManager } from './SignatureManager';
 import { TwoFactorSetup } from './TwoFactorSetup';
+import { useMailStore } from '../../store/mailStore';
+import { getFolderDisplayName } from '../../folders';
 
 interface Settings {
   display_name: string;
@@ -27,15 +29,21 @@ interface VacationSettings {
 }
 
 interface FilterRule {
+  index?: number;
   name: string;
   condition: { field: string; operator: string; value: string };
-  action: { type: string; value: string };
+  action: { type: string; value: string | null };
 }
 
 type Tab = 'general' | 'signature' | 'identities' | 'autoreply' | 'filters' | 'password' | 'security';
 
+const FIELD_LABELS: Record<string, string> = { from: 'De', to: 'Para', subject: 'Asunto' };
+const OP_LABELS: Record<string, string> = { contains: 'contiene', is: 'es exactamente', matches: 'coincide con' };
+const ACTION_LABELS: Record<string, string> = { move: 'Mover a', flag: 'Marcar', delete: 'Eliminar', forward: 'Reenviar a' };
+
 export function SettingsView() {
   const location = useLocation();
+  const folders = useMailStore(s => s.folders);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -50,6 +58,10 @@ export function SettingsView() {
   const [filtersLoading, setFiltersLoading] = useState(false);
   const [newFilter, setNewFilter] = useState<FilterRule>({ name: '', condition: { field: 'from', operator: 'contains', value: '' }, action: { type: 'move', value: '' } });
   const [showAddFilter, setShowAddFilter] = useState(false);
+  const [editingFilter, setEditingFilter] = useState<number | null>(null);
+  const [editFilter, setEditFilter] = useState<FilterRule | null>(null);
+  const [previewResult, setPreviewResult] = useState<{ matching_count: number; sample_subjects: string[] } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   useEffect(() => {
     api.get<Settings>('/settings').then(setSettings).catch(console.error);
@@ -64,6 +76,18 @@ export function SettingsView() {
     }
   }, [location.search]);
 
+  const fetchFilters = () => {
+    setFiltersLoading(true);
+    api.get<FilterRule[]>('/sieve/filters')
+      .then(data => {
+        // API returns array directly
+        const arr = Array.isArray(data) ? data : (data as any).filters || [];
+        setFilters(arr);
+      })
+      .catch(() => setFilters([]))
+      .finally(() => setFiltersLoading(false));
+  };
+
   useEffect(() => {
     if (tab === 'autoreply') {
       setVacationLoading(true);
@@ -73,11 +97,7 @@ export function SettingsView() {
         .finally(() => setVacationLoading(false));
     }
     if (tab === 'filters') {
-      setFiltersLoading(true);
-      api.get<{ filters: FilterRule[] }>('/sieve/filters')
-        .then(r => setFilters(r.filters || []))
-        .catch(() => {})
-        .finally(() => setFiltersLoading(false));
+      fetchFilters();
     }
   }, [tab]);
 
@@ -107,17 +127,44 @@ export function SettingsView() {
     if (!newFilter.name || !newFilter.condition.value) return;
     try {
       await api.post('/sieve/filters', newFilter);
-      setFilters([...filters, newFilter]);
       setNewFilter({ name: '', condition: { field: 'from', operator: 'contains', value: '' }, action: { type: 'move', value: '' } });
       setShowAddFilter(false);
+      setPreviewResult(null);
+      fetchFilters();
+    } catch (err) { console.error(err); }
+  };
+
+  const handleUpdateFilter = async (index: number) => {
+    if (!editFilter || !editFilter.name || !editFilter.condition.value) return;
+    try {
+      await api.put(`/sieve/filters/${index}`, {
+        name: editFilter.name,
+        condition: editFilter.condition,
+        action: editFilter.action,
+      });
+      setEditingFilter(null);
+      setEditFilter(null);
+      fetchFilters();
     } catch (err) { console.error(err); }
   };
 
   const handleDeleteFilter = async (index: number) => {
     try {
       await api.del(`/sieve/filters/${index}`);
-      setFilters(filters.filter((_, i) => i !== index));
+      fetchFilters();
     } catch (err) { console.error(err); }
+  };
+
+  const handlePreview = async (condition: { field: string; operator: string; value: string }) => {
+    if (!condition.value) return;
+    setPreviewLoading(true);
+    try {
+      const res = await api.get<{ matching_count: number; sample_subjects: string[] }>(
+        `/sieve/filters/preview?field=${condition.field}&operator=${condition.operator}&value=${encodeURIComponent(condition.value)}`
+      );
+      setPreviewResult(res);
+    } catch { setPreviewResult(null); }
+    finally { setPreviewLoading(false); }
   };
 
   if (!settings) return (
@@ -134,10 +181,121 @@ export function SettingsView() {
     { id: 'signature', label: 'Firmas' },
     { id: 'identities', label: 'Identidades' },
     { id: 'autoreply', label: 'Respuesta automática' },
-    { id: 'filters', label: 'Filtros' },
+    { id: 'filters', label: 'Reglas de correo' },
     { id: 'password', label: 'Contraseña' },
     { id: 'security', label: 'Seguridad' },
   ];
+
+  const folderOptions = folders.map(f => f.name);
+
+  const renderFilterForm = (
+    filter: FilterRule,
+    setFilter: (f: FilterRule) => void,
+    onSave: () => void,
+    onCancel: () => void,
+    saveLabel: string,
+  ) => (
+    <div className="p-4 bg-[#faf9f8] border border-[#edebe9] rounded space-y-3">
+      <Field label="Nombre de la regla">
+        <input value={filter.name} onChange={e => setFilter({ ...filter, name: e.target.value })}
+          className="w-full px-3 py-2 border border-[#8a8886] rounded text-sm focus:border-[#0078d4] outline-none"
+          placeholder="Ej: Correos de proveedores" />
+      </Field>
+
+      <div className="bg-white p-3 rounded border border-[#edebe9]">
+        <div className="text-xs font-semibold text-[#605e5c] uppercase tracking-wider mb-2">Condición</div>
+        <div className="flex gap-2 items-end flex-wrap">
+          <Field label="Si el campo">
+            <select value={filter.condition.field}
+              onChange={e => setFilter({ ...filter, condition: { ...filter.condition, field: e.target.value } })}
+              className="px-2 py-2 border border-[#8a8886] rounded text-sm">
+              <option value="from">De (remitente)</option>
+              <option value="to">Para (destinatario)</option>
+              <option value="subject">Asunto</option>
+            </select>
+          </Field>
+          <Field label="">
+            <select value={filter.condition.operator}
+              onChange={e => setFilter({ ...filter, condition: { ...filter.condition, operator: e.target.value } })}
+              className="px-2 py-2 border border-[#8a8886] rounded text-sm">
+              <option value="contains">contiene</option>
+              <option value="is">es exactamente</option>
+              <option value="matches">coincide con patrón</option>
+            </select>
+          </Field>
+          <Field label="">
+            <input value={filter.condition.value}
+              onChange={e => setFilter({ ...filter, condition: { ...filter.condition, value: e.target.value } })}
+              className="px-3 py-2 border border-[#8a8886] rounded text-sm focus:border-[#0078d4] outline-none min-w-[200px]"
+              placeholder="valor..." />
+          </Field>
+          <button onClick={() => handlePreview(filter.condition)}
+            disabled={!filter.condition.value || previewLoading}
+            className="px-3 py-2 text-xs text-[#0078d4] border border-[#0078d4] rounded hover:bg-[#deecf9] disabled:opacity-50">
+            {previewLoading ? '...' : 'Vista previa'}
+          </button>
+        </div>
+        {previewResult && (
+          <div className="mt-2 p-2 bg-[#deecf9] rounded text-xs text-[#323130]">
+            <b>{previewResult.matching_count}</b> mensaje{previewResult.matching_count !== 1 ? 's' : ''} coinciden en Bandeja de entrada
+            {previewResult.sample_subjects.length > 0 && (
+              <ul className="mt-1 space-y-0.5 text-[#605e5c]">
+                {previewResult.sample_subjects.map((s, i) => <li key={i} className="truncate">- {s}</li>)}
+              </ul>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="bg-white p-3 rounded border border-[#edebe9]">
+        <div className="text-xs font-semibold text-[#605e5c] uppercase tracking-wider mb-2">Acción</div>
+        <div className="flex gap-2 items-end flex-wrap">
+          <Field label="Entonces">
+            <select value={filter.action.type}
+              onChange={e => setFilter({ ...filter, action: { ...filter.action, type: e.target.value } })}
+              className="px-2 py-2 border border-[#8a8886] rounded text-sm">
+              <option value="move">Mover a carpeta</option>
+              <option value="flag">Marcar con bandera</option>
+              <option value="delete">Eliminar</option>
+              <option value="forward">Reenviar a</option>
+            </select>
+          </Field>
+          {filter.action.type === 'move' && (
+            <Field label="Carpeta destino">
+              <select value={filter.action.value || ''}
+                onChange={e => setFilter({ ...filter, action: { ...filter.action, value: e.target.value } })}
+                className="px-2 py-2 border border-[#8a8886] rounded text-sm min-w-[180px]">
+                <option value="">-- Seleccionar --</option>
+                {folderOptions.map(f => (
+                  <option key={f} value={f}>{getFolderDisplayName(f)}</option>
+                ))}
+              </select>
+            </Field>
+          )}
+          {filter.action.type === 'forward' && (
+            <Field label="Reenviar a">
+              <input value={filter.action.value || ''}
+                onChange={e => setFilter({ ...filter, action: { ...filter.action, value: e.target.value } })}
+                className="px-3 py-2 border border-[#8a8886] rounded text-sm focus:border-[#0078d4] outline-none"
+                placeholder="email@ejemplo.com" />
+            </Field>
+          )}
+        </div>
+      </div>
+
+      <div className="flex gap-2 pt-1">
+        <button onClick={onSave}
+          disabled={!filter.name || !filter.condition.value}
+          className="px-4 py-1.5 bg-[#0078d4] text-white text-sm rounded hover:bg-[#106ebe] disabled:opacity-50">
+          {saveLabel}
+        </button>
+        <button onClick={onCancel}
+          className="px-4 py-1.5 text-sm text-[#605e5c] hover:bg-[#e1dfdd] rounded">
+          Cancelar
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="flex-1 flex flex-col bg-white overflow-hidden">
@@ -253,101 +411,92 @@ export function SettingsView() {
 
         {tab === 'filters' && (
           <div className="space-y-4">
+            {/* Header con descripción clara */}
+            <div className="bg-[#deecf9] p-3 rounded text-sm text-[#323130]">
+              <p className="font-medium mb-1">Reglas de correo</p>
+              <p className="text-xs text-[#605e5c]">
+                Organiza tu correo automáticamente. Las reglas se aplican a los mensajes nuevos que llegan a tu buzón.
+                Puedes mover correos a carpetas, marcarlos, eliminarlos o reenviarlos según el remitente, destinatario o asunto.
+              </p>
+            </div>
+
             <div className="flex items-center justify-between">
-              <p className="text-sm text-[#605e5c]">Reglas para organizar tu correo automáticamente.</p>
-              <button onClick={() => setShowAddFilter(!showAddFilter)}
-                className="px-3 py-1.5 bg-[#0078d4] text-white text-sm rounded hover:bg-[#106ebe]">
-                + Nueva regla
+              <span className="text-sm text-[#605e5c]">{filters.length} regla{filters.length !== 1 ? 's' : ''} configurada{filters.length !== 1 ? 's' : ''}</span>
+              <button onClick={() => { setShowAddFilter(!showAddFilter); setPreviewResult(null); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0078d4] text-white text-sm rounded hover:bg-[#106ebe]">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Nueva regla
               </button>
             </div>
 
-            {showAddFilter && (
-              <div className="p-4 bg-[#faf9f8] border border-[#edebe9] rounded space-y-3">
-                <Field label="Nombre de la regla">
-                  <input value={newFilter.name} onChange={e => setNewFilter({ ...newFilter, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-[#8a8886] rounded text-sm focus:border-[#0078d4] outline-none"
-                    placeholder="Mover correos de..." />
-                </Field>
-                <div className="flex gap-2 items-end">
-                  <Field label="Si">
-                    <select value={newFilter.condition.field}
-                      onChange={e => setNewFilter({ ...newFilter, condition: { ...newFilter.condition, field: e.target.value } })}
-                      className="px-2 py-2 border border-[#8a8886] rounded text-sm">
-                      <option value="from">De</option>
-                      <option value="to">Para</option>
-                      <option value="subject">Asunto</option>
-                    </select>
-                  </Field>
-                  <Field label="">
-                    <select value={newFilter.condition.operator}
-                      onChange={e => setNewFilter({ ...newFilter, condition: { ...newFilter.condition, operator: e.target.value } })}
-                      className="px-2 py-2 border border-[#8a8886] rounded text-sm">
-                      <option value="contains">contiene</option>
-                      <option value="is">es exactamente</option>
-                      <option value="matches">coincide con</option>
-                    </select>
-                  </Field>
-                  <Field label="">
-                    <input value={newFilter.condition.value}
-                      onChange={e => setNewFilter({ ...newFilter, condition: { ...newFilter.condition, value: e.target.value } })}
-                      className="px-3 py-2 border border-[#8a8886] rounded text-sm focus:border-[#0078d4] outline-none"
-                      placeholder="valor..." />
-                  </Field>
-                </div>
-                <div className="flex gap-2 items-end">
-                  <Field label="Entonces">
-                    <select value={newFilter.action.type}
-                      onChange={e => setNewFilter({ ...newFilter, action: { ...newFilter.action, type: e.target.value } })}
-                      className="px-2 py-2 border border-[#8a8886] rounded text-sm">
-                      <option value="move">Mover a carpeta</option>
-                      <option value="flag">Marcar con bandera</option>
-                      <option value="delete">Eliminar</option>
-                      <option value="forward">Reenviar a</option>
-                    </select>
-                  </Field>
-                  {(newFilter.action.type === 'move' || newFilter.action.type === 'forward') && (
-                    <Field label="">
-                      <input value={newFilter.action.value}
-                        onChange={e => setNewFilter({ ...newFilter, action: { ...newFilter.action, value: e.target.value } })}
-                        className="px-3 py-2 border border-[#8a8886] rounded text-sm focus:border-[#0078d4] outline-none"
-                        placeholder={newFilter.action.type === 'move' ? 'Nombre de carpeta' : 'email@ejemplo.com'} />
-                    </Field>
-                  )}
-                </div>
-                <div className="flex gap-2 pt-2">
-                  <button onClick={handleAddFilter}
-                    className="px-4 py-1.5 bg-[#0078d4] text-white text-sm rounded hover:bg-[#106ebe]">
-                    Crear regla
-                  </button>
-                  <button onClick={() => setShowAddFilter(false)}
-                    className="px-4 py-1.5 text-sm text-[#605e5c] hover:bg-[#e1dfdd] rounded">
-                    Cancelar
-                  </button>
-                </div>
-              </div>
+            {showAddFilter && renderFilterForm(
+              newFilter,
+              setNewFilter,
+              handleAddFilter,
+              () => { setShowAddFilter(false); setPreviewResult(null); },
+              'Crear regla',
             )}
 
             {filtersLoading ? (
-              <div className="text-sm text-[#a19f9d]">Cargando filtros...</div>
-            ) : filters.length === 0 ? (
-              <div className="text-center py-8 text-[#a19f9d]">
-                <p className="text-sm">No hay reglas de filtro configuradas</p>
+              <div className="text-sm text-[#a19f9d]">Cargando reglas...</div>
+            ) : filters.length === 0 && !showAddFilter ? (
+              <div className="text-center py-12 text-[#a19f9d]">
+                <svg className="w-12 h-12 mx-auto mb-3 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                    d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                <p className="text-sm font-medium">No hay reglas configuradas</p>
+                <p className="text-xs mt-1">Crea una regla para organizar tu correo automáticamente</p>
               </div>
             ) : (
               <div className="space-y-2">
                 {filters.map((f, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 bg-[#faf9f8] border border-[#edebe9] rounded">
-                    <div>
-                      <p className="text-sm font-medium text-[#323130]">{f.name}</p>
-                      <p className="text-xs text-[#605e5c]">
-                        Si {f.condition.field} {f.condition.operator} &quot;{f.condition.value}&quot; &rarr; {f.action.type}
-                        {f.action.value ? ` "${f.action.value}"` : ''}
-                      </p>
-                    </div>
-                    <button onClick={() => handleDeleteFilter(i)}
-                      className="text-xs text-[#a4262c] hover:bg-[#fde7e9] px-2 py-1 rounded">
-                      Eliminar
-                    </button>
+                  <div key={i}>
+                    {editingFilter === i && editFilter ? (
+                      renderFilterForm(
+                        editFilter,
+                        setEditFilter,
+                        () => handleUpdateFilter(i),
+                        () => { setEditingFilter(null); setEditFilter(null); setPreviewResult(null); },
+                        'Guardar cambios',
+                      )
+                    ) : (
+                      <div className="flex items-center justify-between p-3 bg-[#faf9f8] border border-[#edebe9] rounded hover:border-[#8a8886] transition-colors group">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-[#323130]">{f.name}</span>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                              f.action.type === 'move' ? 'bg-blue-100 text-blue-700' :
+                              f.action.type === 'flag' ? 'bg-yellow-100 text-yellow-700' :
+                              f.action.type === 'delete' ? 'bg-red-100 text-red-700' :
+                              'bg-green-100 text-green-700'
+                            }`}>
+                              {ACTION_LABELS[f.action.type] || f.action.type}
+                            </span>
+                          </div>
+                          <p className="text-xs text-[#605e5c] mt-0.5">
+                            Si <b>{FIELD_LABELS[f.condition.field] || f.condition.field}</b>{' '}
+                            {OP_LABELS[f.condition.operator] || f.condition.operator}{' '}
+                            &quot;<span className="text-[#323130]">{f.condition.value}</span>&quot;
+                            {f.action.value && (
+                              <> → <span className="text-[#323130]">{f.action.type === 'move' ? getFolderDisplayName(f.action.value) : f.action.value}</span></>
+                            )}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => { setEditingFilter(i); setEditFilter({ ...f }); setPreviewResult(null); }}
+                            className="text-xs text-[#0078d4] hover:bg-[#deecf9] px-2 py-1 rounded" title="Editar">
+                            Editar
+                          </button>
+                          <button onClick={() => handleDeleteFilter(i)}
+                            className="text-xs text-[#a4262c] hover:bg-[#fde7e9] px-2 py-1 rounded" title="Eliminar">
+                            Eliminar
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

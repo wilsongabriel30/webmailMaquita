@@ -8,9 +8,63 @@ import re
 
 from app.config import get_settings
 
+import base64 as _b64
+
+
+def _imap_utf7_decode(s: str) -> str:
+    """Decode IMAP Modified UTF-7 folder name to UTF-8."""
+    result = []
+    i = 0
+    while i < len(s):
+        if s[i] == "&":
+            try:
+                end = s.index("-", i + 1)
+            except ValueError:
+                result.append(s[i:])
+                break
+            if end == i + 1:
+                result.append("&")
+            else:
+                encoded = s[i + 1:end].replace(",", "/")
+                padded = encoded + "=" * (4 - len(encoded) % 4) if len(encoded) % 4 else encoded
+                try:
+                    decoded = _b64.b64decode(padded).decode("utf-16-be")
+                    result.append(decoded)
+                except Exception:
+                    result.append(s[i:end + 1])
+            i = end + 1
+        else:
+            result.append(s[i])
+            i += 1
+    return "".join(result)
+
+
+def _imap_utf7_encode(s: str) -> str:
+    """Encode UTF-8 folder name to IMAP Modified UTF-7."""
+    result = []
+    buf = ""
+    for ch in s:
+        if ord(ch) < 0x20 or ord(ch) > 0x7e:
+            buf += ch
+        else:
+            if buf:
+                encoded = _b64.b64encode(buf.encode("utf-16-be")).decode("ascii").rstrip("=").replace("/", ",")
+                result.append("&" + encoded + "-")
+                buf = ""
+            if ch == "&":
+                result.append("&-")
+            else:
+                result.append(ch)
+    if buf:
+        encoded = _b64.b64encode(buf.encode("utf-16-be")).decode("ascii").rstrip("=").replace("/", ",")
+        result.append("&" + encoded + "-")
+    return "".join(result)
+
+
 
 def _quote_folder(name: str) -> str:
-    """Quote IMAP folder name if it contains spaces or special chars."""
+    """Encode to IMAP Modified UTF-7 and quote if needed."""
+    name = _imap_utf7_encode(name)
     if ' ' in name or '"' in name or '(' in name or ')' in name:
         return '"' + name.replace('\\', '\\\\').replace('"', '\\"') + '"'
     return name
@@ -65,8 +119,10 @@ async def list_folders(imap: aioimaplib.IMAP4) -> list[dict]:
             except Exception:
                 pass
             flags = [f.strip() for f in flags_str.split("\\") if f.strip()]
+            display = _imap_utf7_decode(name)
             folders.append({
-                "name": name,
+                "name": display,
+                "imap_name": name,
                 "delimiter": delimiter,
                 "flags": flags,
                 "unseen": unseen,
