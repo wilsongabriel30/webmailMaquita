@@ -51,8 +51,9 @@ export function useCalendarApi() {
 
   const fetchCalendars = useCallback(() =>
     withLoading(async () => {
-      const res = await api.get<CalendarsResponse>("/calendar/calendars");
-      return res.calendars;
+      const res = await api.get<CalendarInfo[] | CalendarsResponse>("/calendar/calendars");
+      // Backend retorna array plano, no objeto envuelto
+      return Array.isArray(res) ? res : (res as CalendarsResponse).calendars ?? [];
     }),
   [withLoading]);
 
@@ -72,8 +73,9 @@ export function useCalendarApi() {
     withLoading(async () => {
       let url = "/calendar/events?start=" + encodeURIComponent(start) + "&end=" + encodeURIComponent(end);
       if (calendarId) url += "&calendar_id=" + encodeURIComponent(calendarId);
-      const res = await api.get<EventsResponse>(url);
-      return res.events;
+      const res = await api.get<CalendarEvent[] | EventsResponse>(url);
+      // Backend retorna array plano, no objeto envuelto
+      return Array.isArray(res) ? res : (res as EventsResponse).events ?? [];
     }),
   [withLoading]);
 

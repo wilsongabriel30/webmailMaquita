@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger(__name__)
 """Folders router — list, create, rename, delete, move folders."""
 from fastapi import APIRouter, Request, Depends, HTTPException
 from pydantic import BaseModel
@@ -61,16 +63,32 @@ async def create_folder(body: FolderCreate, request: Request, username: str = De
 
 @router.put("/folders/{folder_name:path}")
 async def rename_folder(folder_name: str, body: FolderRename, request: Request, username: str = Depends(get_current_user)):
+    """Renombrar carpeta IMAP. El frontend envía el nuevo nombre COMPLETO (con path).
+    Ej: renombrar INBOX.Camaras a INBOX.Cámaras → new_name='INBOX.Cámaras'
+    """
+    if body.new_name == folder_name:
+        return {"status": "unchanged", "name": folder_name}
     password = await get_user_password(request, username)
     login_user = await get_imap_login_user(request, username)
     imap = await get_imap_connection(login_user, password)
     try:
-        old_imap = _imap_utf7_encode(folder_name)
-        new_imap = _imap_utf7_encode(body.new_name)
-        resp = await imap.rename(old_imap, new_imap)
+        old_encoded = _imap_utf7_encode(folder_name)
+        new_encoded = _imap_utf7_encode(body.new_name)
+        # CRÍTICO: aioimaplib pasa argumentos raw al socket IMAP.
+        # SIEMPRE quotear para que nombres con espacios/especiales sean un solo token.
+        old_q = '"' + old_encoded.replace('\\', '\\\\').replace('"', '\\"') + '"'
+        new_q = '"' + new_encoded.replace('\\', '\\\\').replace('"', '\\"') + '"'
+        logger.info(f"RENAME: {folder_name!r} -> {body.new_name!r} | imap: {old_q} -> {new_q}")
+        resp = await imap.rename(old_q, new_q)
+        logger.info(f"RENAME result: {resp.result} {resp.lines}")
         if resp.result != "OK":
-            raise HTTPException(status_code=400, detail="Failed to rename folder")
-        await imap.subscribe(new_imap)
+            imap_err = resp.lines[0] if resp.lines else "unknown"
+            logger.error(f"RENAME FAILED: {imap_err}")
+            raise HTTPException(status_code=400, detail=f"IMAP RENAME error: {imap_err}")
+        try:
+            await imap.subscribe(new_q)
+        except Exception:
+            pass
         return {"status": "renamed", "old_name": folder_name, "new_name": body.new_name}
     finally:
         try:
@@ -106,16 +124,32 @@ async def move_folder_named(folder_name: str, body: FolderMove, request: Request
     if new_full_name == folder_name:
         return {"status": "unchanged", "name": folder_name}
 
+    # No mover una carpeta dentro de sí misma (IMAP rechaza esto)
+    if new_full_name.startswith(folder_name + "."):
+        raise HTTPException(status_code=400, detail="No se puede mover una carpeta dentro de sí misma")
+
     password = await get_user_password(request, username)
     login_user = await get_imap_login_user(request, username)
     imap = await get_imap_connection(login_user, password)
     try:
         old_imap = _imap_utf7_encode(folder_name)
         new_imap = _imap_utf7_encode(new_full_name)
-        resp = await imap.rename(old_imap, new_imap)
+        # CRÍTICO: aioimaplib pasa los argumentos de RENAME directamente al socket IMAP.
+        # Si el nombre tiene espacios, IMAP lo interpreta como tokens separados.
+        # SIEMPRE quotear con comillas dobles para que IMAP lo trate como un solo argumento.
+        old_q = '"' + old_imap.replace('"', '\\"') + '"'
+        new_q = '"' + new_imap.replace('"', '\\"') + '"'
+        logger.info(f"MOVE: old_q={old_q!r} new_q={new_q!r}")
+        resp = await imap.rename(old_q, new_q)
+        logger.info(f"MOVE result: {resp.result} lines={resp.lines}")
         if resp.result != "OK":
-            raise HTTPException(status_code=400, detail=f"No se pudo mover la carpeta: {folder_name}")
-        await imap.subscribe(new_imap)
+            imap_err = resp.lines[0] if resp.lines else "unknown"
+            logger.error(f"MOVE FAILED: {imap_err}")
+            raise HTTPException(status_code=400, detail=f"IMAP RENAME error: {imap_err}")
+        try:
+            await imap.subscribe(new_q)
+        except Exception:
+            pass  # subscribe failure is non-critical
         return {"status": "moved", "old_name": folder_name, "new_name": new_full_name}
     finally:
         try:

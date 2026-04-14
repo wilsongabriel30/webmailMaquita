@@ -689,7 +689,7 @@ class CalendarService:
                 continue
             try:
                 msg = MIMEMultipart("alternative")
-                msg["Subject"] = f"Invitación: {row[summary]}"
+                msg["Subject"] = f"Invitación: {row['summary']}"
                 msg["From"] = user
                 msg["To"] = email
                 msg["Date"] = formatdate(localtime=True)

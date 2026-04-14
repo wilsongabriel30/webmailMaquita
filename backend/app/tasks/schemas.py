@@ -80,7 +80,6 @@ class CardCreate(BaseModel):
     my_day: bool = False
     reminder: Optional[datetime] = None
     note: str = ""
-    recurrence: Optional[str] = None
     recurrence: Optional[str] = None  # daily, weekdays, weekly, monthly, yearly
 
 class CardUpdate(BaseModel):
@@ -120,7 +119,6 @@ class CardOut(BaseModel):
     my_day: bool = False
     reminder: Optional[datetime] = None
     note: str = ""
-    recurrence: Optional[str] = None
     recurrence: Optional[str] = None  # daily, weekdays, weekly, monthly, yearly
     created_at: datetime
     updated_at: datetime

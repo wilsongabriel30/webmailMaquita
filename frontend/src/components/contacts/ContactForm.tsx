@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Avatar } from './Avatar';
 import type { Contact } from './types';
 
@@ -59,6 +59,49 @@ export function contactToFormData(c: Contact): ContactFormData {
   };
 }
 
+/* ── Estilos compartidos ── */
+const inputStyle: React.CSSProperties = {
+  width: '100%', padding: '8px 12px', fontSize: 14,
+  border: '1px solid #8a8886', borderRadius: 4, outline: 'none',
+  fontFamily: "'Segoe UI', Calibri, sans-serif", boxSizing: 'border-box',
+};
+const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: '#605e5c', marginBottom: 4, display: 'block' };
+
+/* ── Componente Field FUERA de ContactForm para evitar re-mount en cada keystroke ── */
+function Field({ label: lbl, value, onChange, type = 'text', placeholder = '' }: {
+  label: string; value: string; onChange: (val: string) => void; type?: string; placeholder?: string;
+}) {
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <label style={labelStyle}>{lbl}</label>
+      <input style={inputStyle} type={type} value={value}
+        onChange={e => onChange(e.target.value)} placeholder={placeholder}
+        onFocus={e => { e.target.style.borderColor = '#0078d4'; }}
+        onBlur={e => { e.target.style.borderColor = '#8a8886'; }} />
+    </div>
+  );
+}
+
+/* ── SectionHeader FUERA de ContactForm ── */
+function SectionHeader({ id, label, open, onToggle }: { id: string; label: string; open: boolean; onToggle: (id: string) => void }) {
+  return (
+    <div
+      onClick={() => onToggle(id)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 8, padding: '10px 0',
+        cursor: 'pointer', fontSize: 14, fontWeight: 600, color: '#323130',
+        borderBottom: '1px solid #edebe9',
+      }}
+    >
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+        style={{ transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }}>
+        <polyline points="9,18 15,12 9,6" />
+      </svg>
+      {label}
+    </div>
+  );
+}
+
 interface Props {
   initial: ContactFormData;
   onSave: (data: ContactFormData) => void;
@@ -73,45 +116,15 @@ export function ContactForm({ initial, onSave, onCancel, saving, title }: Props)
     nombre: true, contacto: true, trabajo: false, direccion: false, personal: false, notas: false,
   });
 
-  const set = (key: keyof ContactFormData, val: string) => setForm({ ...form, [key]: val });
+  const set = useCallback((key: keyof ContactFormData, val: string) => {
+    setForm(prev => ({ ...prev, [key]: val }));
+  }, []);
+
+  const toggleSection = useCallback((id: string) => {
+    setOpenSection(prev => ({ ...prev, [id]: !prev[id] }));
+  }, []);
 
   const displayName = form.display_name || `${form.first_name} ${form.last_name}`.trim() || 'Nuevo contacto';
-
-  const inputStyle: React.CSSProperties = {
-    width: '100%', padding: '8px 12px', fontSize: 14,
-    border: '1px solid #8a8886', borderRadius: 4, outline: 'none',
-    fontFamily: "'Segoe UI', Calibri, sans-serif", boxSizing: 'border-box',
-  };
-  const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: '#605e5c', marginBottom: 4, display: 'block' };
-
-  const SectionHeader = ({ id, label }: { id: string; label: string }) => (
-    <div
-      onClick={() => setOpenSection({ ...openSection, [id]: !openSection[id] })}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 8, padding: '10px 0',
-        cursor: 'pointer', fontSize: 14, fontWeight: 600, color: '#323130',
-        borderBottom: '1px solid #edebe9',
-      }}
-    >
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-        style={{ transform: openSection[id] ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }}>
-        <polyline points="9,18 15,12 9,6" />
-      </svg>
-      {label}
-    </div>
-  );
-
-  const Field = ({ label: lbl, field, type = 'text', placeholder = '' }: {
-    label: string; field: keyof ContactFormData; type?: string; placeholder?: string;
-  }) => (
-    <div style={{ marginBottom: 12 }}>
-      <label style={labelStyle}>{lbl}</label>
-      <input style={inputStyle} type={type} value={form[field]}
-        onChange={e => set(field, e.target.value)} placeholder={placeholder}
-        onFocus={e => { e.target.style.borderColor = '#0078d4'; }}
-        onBlur={e => { e.target.style.borderColor = '#8a8886'; }} />
-    </div>
-  );
 
   return (
     <div style={{ flex: 1, overflowY: 'auto', padding: 32, maxWidth: 600 }}>
@@ -121,73 +134,73 @@ export function ContactForm({ initial, onSave, onCancel, saving, title }: Props)
         <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600, color: '#323130' }}>{title}</h2>
       </div>
 
-      {/* Sección: Nombre */}
-      <SectionHeader id="nombre" label="Nombre" />
+      {/* Seccion: Nombre */}
+      <SectionHeader id="nombre" label="Nombre" open={!!openSection.nombre} onToggle={toggleSection} />
       {openSection.nombre && (
         <div style={{ padding: '12px 0' }}>
           <div style={{ display: 'flex', gap: 12 }}>
-            <div style={{ flex: 1 }}><Field label="Nombre" field="first_name" placeholder="Nombre" /></div>
-            <div style={{ flex: 1 }}><Field label="Apellido" field="last_name" placeholder="Apellido" /></div>
+            <div style={{ flex: 1 }}><Field label="Nombre" value={form.first_name} onChange={v => set('first_name', v)} placeholder="Nombre" /></div>
+            <div style={{ flex: 1 }}><Field label="Apellido" value={form.last_name} onChange={v => set('last_name', v)} placeholder="Apellido" /></div>
           </div>
-          <Field label="Nombre para mostrar" field="display_name" placeholder="Se calcula automáticamente" />
-          <Field label="Apodo" field="nickname" />
+          <Field label="Nombre para mostrar" value={form.display_name} onChange={v => set('display_name', v)} placeholder="Se calcula automaticamente" />
+          <Field label="Apodo" value={form.nickname} onChange={v => set('nickname', v)} />
         </div>
       )}
 
-      {/* Sección: Contacto */}
-      <SectionHeader id="contacto" label="Información de contacto" />
+      {/* Seccion: Contacto */}
+      <SectionHeader id="contacto" label="Informacion de contacto" open={!!openSection.contacto} onToggle={toggleSection} />
       {openSection.contacto && (
         <div style={{ padding: '12px 0' }}>
-          <Field label="Email principal *" field="email" type="email" placeholder="correo@ejemplo.com" />
-          <Field label="Email 2" field="email2" type="email" />
-          <Field label="Email 3" field="email3" type="email" />
-          <Field label="Teléfono" field="phone" placeholder="+593 ..." />
-          <Field label="Celular" field="phone_mobile" />
-          <Field label="Teléfono trabajo" field="phone_work" />
-          <Field label="Teléfono casa" field="phone_home" />
-          <Field label="Fax" field="fax" />
+          <Field label="Email principal *" value={form.email} onChange={v => set('email', v)} type="email" placeholder="correo@ejemplo.com" />
+          <Field label="Email 2" value={form.email2} onChange={v => set('email2', v)} type="email" />
+          <Field label="Email 3" value={form.email3} onChange={v => set('email3', v)} type="email" />
+          <Field label="Telefono" value={form.phone} onChange={v => set('phone', v)} placeholder="+593 ..." />
+          <Field label="Celular" value={form.phone_mobile} onChange={v => set('phone_mobile', v)} />
+          <Field label="Telefono trabajo" value={form.phone_work} onChange={v => set('phone_work', v)} />
+          <Field label="Telefono casa" value={form.phone_home} onChange={v => set('phone_home', v)} />
+          <Field label="Fax" value={form.fax} onChange={v => set('fax', v)} />
         </div>
       )}
 
-      {/* Sección: Trabajo */}
-      <SectionHeader id="trabajo" label="Trabajo" />
+      {/* Seccion: Trabajo */}
+      <SectionHeader id="trabajo" label="Trabajo" open={!!openSection.trabajo} onToggle={toggleSection} />
       {openSection.trabajo && (
         <div style={{ padding: '12px 0' }}>
-          <Field label="Empresa" field="company" placeholder="Empresa u organización" />
-          <Field label="Organización" field="organization" />
-          <Field label="Cargo" field="job_title" />
-          <Field label="Departamento" field="department" />
+          <Field label="Empresa" value={form.company} onChange={v => set('company', v)} placeholder="Empresa u organizacion" />
+          <Field label="Organizacion" value={form.organization} onChange={v => set('organization', v)} />
+          <Field label="Cargo" value={form.job_title} onChange={v => set('job_title', v)} />
+          <Field label="Departamento" value={form.department} onChange={v => set('department', v)} />
         </div>
       )}
 
-      {/* Sección: Dirección */}
-      <SectionHeader id="direccion" label="Dirección" />
+      {/* Seccion: Direccion */}
+      <SectionHeader id="direccion" label="Direccion" open={!!openSection.direccion} onToggle={toggleSection} />
       {openSection.direccion && (
         <div style={{ padding: '12px 0' }}>
-          <Field label="Calle" field="address_street" />
+          <Field label="Calle" value={form.address_street} onChange={v => set('address_street', v)} />
           <div style={{ display: 'flex', gap: 12 }}>
-            <div style={{ flex: 1 }}><Field label="Ciudad" field="address_city" /></div>
-            <div style={{ flex: 1 }}><Field label="Provincia/Estado" field="address_state" /></div>
+            <div style={{ flex: 1 }}><Field label="Ciudad" value={form.address_city} onChange={v => set('address_city', v)} /></div>
+            <div style={{ flex: 1 }}><Field label="Provincia/Estado" value={form.address_state} onChange={v => set('address_state', v)} /></div>
           </div>
           <div style={{ display: 'flex', gap: 12 }}>
-            <div style={{ flex: 1 }}><Field label="Código postal" field="address_zip" /></div>
-            <div style={{ flex: 1 }}><Field label="País" field="address_country" /></div>
+            <div style={{ flex: 1 }}><Field label="Codigo postal" value={form.address_zip} onChange={v => set('address_zip', v)} /></div>
+            <div style={{ flex: 1 }}><Field label="Pais" value={form.address_country} onChange={v => set('address_country', v)} /></div>
           </div>
         </div>
       )}
 
-      {/* Sección: Personal */}
-      <SectionHeader id="personal" label="Personal" />
+      {/* Seccion: Personal */}
+      <SectionHeader id="personal" label="Personal" open={!!openSection.personal} onToggle={toggleSection} />
       {openSection.personal && (
         <div style={{ padding: '12px 0' }}>
-          <Field label="Cumpleaños" field="birthday" type="date" />
-          <Field label="Sitio web" field="website" placeholder="https://..." />
-          <Field label="Mensajería instantánea" field="im_address" />
+          <Field label="Cumpleanos" value={form.birthday} onChange={v => set('birthday', v)} type="date" />
+          <Field label="Sitio web" value={form.website} onChange={v => set('website', v)} placeholder="https://..." />
+          <Field label="Mensajeria instantanea" value={form.im_address} onChange={v => set('im_address', v)} />
         </div>
       )}
 
-      {/* Sección: Notas */}
-      <SectionHeader id="notas" label="Notas" />
+      {/* Seccion: Notas */}
+      <SectionHeader id="notas" label="Notas" open={!!openSection.notas} onToggle={toggleSection} />
       {openSection.notas && (
         <div style={{ padding: '12px 0' }}>
           <textarea

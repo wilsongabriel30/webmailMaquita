@@ -104,6 +104,9 @@ async def login(body: LoginRequest, request: Request, response: Response):
 
     # Cache Fernet-encrypted password in Redis for IMAP/SMTP operations (TTL matches session)
     await redis.set(f"imap_pass:{username}", encrypt_password(body.password), ex=settings.access_token_expire_minutes * 60)
+    # CRÍTICO: Limpiar imap_master si existía de una sesión de impersonación previa.
+    # Sin esto, el backend intenta login como user*admin con la contraseña personal → IMAP falla.
+    await redis.delete(f"imap_master:{username}")
 
     # Create tokens
     access = create_access_token(username)

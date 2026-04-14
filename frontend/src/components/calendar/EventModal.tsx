@@ -3,6 +3,7 @@ import type { CalendarInfo, CalendarEvent, EventFormData, EventReminder, FreeBus
 import { toDateInputValue, toTimeInputValue, formatTime } from "./utils/dateHelpers";
 import { parseISO, addMinutes, format } from "date-fns";
 import { useCalendarApi } from "./hooks/useCalendarApi";
+import { api } from "../../api/client";
 import { es } from "date-fns/locale";
 
 interface Props {
@@ -98,6 +99,9 @@ export function EventModal({
   const [reminders, setReminders] = useState<EventReminder[]>(event?.reminders || []);
   const [attendees, setAttendees] = useState<string[]>(event?.attendees?.map((a) => a.email) || []);
   const [newAttendee, setNewAttendee] = useState("");
+  const [attendeeSuggestions, setAttendeeSuggestions] = useState<{email:string;display_name?:string}[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [status, setStatus] = useState("busy");
   const [activeTab, setActiveTab] = useState<"event" | "series">("event");
@@ -231,6 +235,7 @@ export function EventModal({
 
   function handleSave() {
     if (!summary.trim()) return;
+    if (!calendarId) { alert("Selecciona un calendario"); return; }
     const dtstart = allDay ? `${startDate}T00:00:00` : `${startDate}T${startTime}:00`;
     const dtend = allDay ? `${endDate}T23:59:59` : `${endDate}T${endTime}:00`;
     onSave({
@@ -267,12 +272,24 @@ export function EventModal({
     setReminders(reminders.filter((_, i) => i !== idx));
   }
 
-  function addAttendee() {
-    const email = newAttendee.trim();
+  function addAttendee(emailOverride?: string) {
+    const email = (emailOverride || newAttendee).trim();
     if (email && !attendees.includes(email)) {
       setAttendees([...attendees, email]);
       setNewAttendee("");
+      setAttendeeSuggestions([]);
+      setShowSuggestions(false);
     }
+  }
+
+  async function searchContacts(q: string) {
+    if (q.length < 2) { setAttendeeSuggestions([]); setShowSuggestions(false); return; }
+    try {
+      const data = await api.get<{contacts:{email:string;display_name?:string}[]}>("/contacts/search?q=" + encodeURIComponent(q) + "&limit=8");
+      const list = Array.isArray(data) ? data : (data as any)?.contacts || [];
+      setAttendeeSuggestions(list.filter((c: any) => c.email && !attendees.includes(c.email)));
+      setShowSuggestions(true);
+    } catch { setAttendeeSuggestions([]); }
   }
 
   if (!isOpen) return null;
@@ -463,20 +480,46 @@ export function EventModal({
                         </button>
                       </span>
                     ))}
-                    <input
-                      type="email"
-                      value={newAttendee}
-                      onChange={(e) => setNewAttendee(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          addAttendee();
-                        }
-                      }}
-                      placeholder="Invita a los asistentes obligatorios"
-                      className="olkm-inline-input"
-                    />
+                    <div style={{ position: "relative", flex: 1 }}>
+                      <input
+                        type="text"
+                        value={newAttendee}
+                        onChange={(e) => { setNewAttendee(e.target.value); searchContacts(e.target.value); }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            addAttendee();
+                          }
+                          if (e.key === "Escape") { setShowSuggestions(false); }
+                        }}
+                        onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                        placeholder="Buscar contacto o escribir email..."
+                        className="olkm-inline-input"
+                      />
+                      {showSuggestions && attendeeSuggestions.length > 0 && (
+                        <div ref={suggestionsRef} style={{
+                          position: "absolute", top: "100%", left: 0, right: 0, zIndex: 1000,
+                          background: "#fff", border: "1px solid #e1dfdd", borderRadius: 4,
+                          boxShadow: "0 4px 12px rgba(0,0,0,0.15)", maxHeight: 200, overflowY: "auto",
+                        }}>
+                          {attendeeSuggestions.map((s, i) => (
+                            <div key={i}
+                              onMouseDown={(e) => { e.preventDefault(); addAttendee(s.email); }}
+                              style={{
+                                padding: "8px 12px", cursor: "pointer", fontSize: 13,
+                                borderBottom: "1px solid #f3f2f1",
+                              }}
+                              onMouseEnter={(e) => { (e.target as HTMLElement).style.background = "#f3f2f1"; }}
+                              onMouseLeave={(e) => { (e.target as HTMLElement).style.background = "#fff"; }}
+                            >
+                              <div style={{ fontWeight: 600 }}>{s.display_name || s.email}</div>
+                              {s.display_name && <div style={{ fontSize: 11, color: "#605e5c" }}>{s.email}</div>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="olkm-separator" />

@@ -43,9 +43,32 @@ async def get_user_password(request: Request, username: str) -> str:
 
 
 async def get_imap_login_user(request: Request, username: str) -> str:
-    """Get the IMAP login username. For master user sessions, returns user*admin."""
+    """Get the IMAP login username. For master user sessions, returns user*admin.
+
+    BLINDAJE: Si existe imap_master:{user} pero la contraseña almacenada NO es
+    la master password, significa que el usuario hizo login normal después de una
+    impersonación y la key quedó stale. En ese caso se limpia automáticamente
+    para evitar que IMAP intente user*admin con la contraseña personal (→ 500).
+    """
     redis = request.app.state.redis
     master_user = await redis.get(f"imap_master:{username}")
     if master_user:
+        # Verificar que la contraseña almacenada sea realmente la master password
+        from app.config import get_settings
+        settings = get_settings()
+        raw_pass = await redis.get(f"imap_pass:{username}")
+        if raw_pass:
+            try:
+                stored_pass = decrypt_password(raw_pass)
+                if stored_pass != settings.master_password:
+                    # KEY STALE: la contraseña no es la master → limpiar y usar login normal
+                    import logging
+                    logging.getLogger(__name__).warning(
+                        f"imap_master stale para {username}: password no es master. Limpiando."
+                    )
+                    await redis.delete(f"imap_master:{username}")
+                    return username
+            except Exception:
+                pass  # si no se puede descifrar, dejar pasar
         return f"{username}*{master_user}"
     return username

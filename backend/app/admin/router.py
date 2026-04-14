@@ -468,3 +468,4 @@ async def track_message(
         raise HTTPException(504, "Búsqueda en logs timeout")
     except Exception as e:
         raise HTTPException(500, f"Error buscando en logs: {str(e)}")
+

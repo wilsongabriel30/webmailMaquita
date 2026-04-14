@@ -15,7 +15,7 @@ import re as _re
 
 def _validate_folder(folder: str) -> str:
     """Validate IMAP folder name: allow letters, digits, spaces, dots, hyphens, underscores, slashes."""
-    if not _re.match(r'^[\w\s.\-/]+$', folder, _re.UNICODE) or len(folder) > 200:
+    if not _re.match(r'^[\w\s.\-/&+,()]+$', folder, _re.UNICODE) or len(folder) > 200:
         from fastapi import HTTPException
         raise HTTPException(status_code=400, detail="Nombre de carpeta inválido")
     return folder

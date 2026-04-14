@@ -84,11 +84,35 @@ def _decode_lines(lines) -> list[str]:
 
 
 async def get_imap_connection(username: str, password: str) -> aioimaplib.IMAP4:
+    """Conectar a IMAP con las credenciales dadas.
+
+    BLINDAJE contra imap_master stale:
+    Si el login falla y el username tiene formato user*admin (master user),
+    reintenta SIN el sufijo *admin. Esto cubre el caso donde imap_master
+    quedó stale en Redis y la contraseña almacenada es la personal, no la master.
+    Sin este fallback, el usuario ve pantalla en blanco con 500 en consola.
+    """
     settings = get_settings()
     imap = aioimaplib.IMAP4(host=settings.imap_host, port=settings.imap_port, timeout=30)
     await imap.wait_hello_from_server()
     resp = await imap.login(username, password)
     if resp.result != "OK":
+        # FALLBACK: si es master user y falló, reintentar como usuario normal
+        if "*" in username:
+            import logging
+            logging.getLogger(__name__).warning(
+                f"IMAP master login failed for {username}, retrying without master suffix"
+            )
+            try:
+                await imap.logout()
+            except Exception:
+                pass
+            base_user = username.split("*")[0]
+            imap = aioimaplib.IMAP4(host=settings.imap_host, port=settings.imap_port, timeout=30)
+            await imap.wait_hello_from_server()
+            resp = await imap.login(base_user, password)
+            if resp.result == "OK":
+                return imap
         raise ConnectionError("IMAP login failed")
     return imap
 

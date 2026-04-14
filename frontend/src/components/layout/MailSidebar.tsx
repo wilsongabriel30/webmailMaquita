@@ -93,7 +93,8 @@ export function MailSidebar() {
   };
 
   const handleRename = async (oldName: string) => {
-    if (!renameValue.trim() || renameValue === oldName) { setRenaming(null); return; }
+    // Comparar con el nombre hoja (display), no con el path completo IMAP
+    if (!renameValue.trim() || renameValue.trim() === getFolderDisplayName(oldName)) { setRenaming(null); return; }
     // Preserve parent path, only rename the leaf
     const dotIdx = oldName.lastIndexOf('.');
     const newFull = dotIdx > 0 ? oldName.substring(0, dotIdx + 1) + renameValue.trim() : renameValue.trim();

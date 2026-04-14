@@ -145,10 +145,15 @@ const [showScheduling, setShowScheduling] = useState(false);
     } else {
       savedEvent = await createEvent(data);
     }
+    if (!savedEvent) {
+      // No cerrar modal si hubo error — el usuario debe ver que falló
+      console.error("[Calendar] Error guardando evento");
+      return;
+    }
     setModalOpen(false);
     loadEvents();
     // Si hay asistentes, enviar invitaciones automáticamente
-    if (savedEvent && data.attendees && data.attendees.length > 0) {
+    if (data.attendees && data.attendees.length > 0) {
       const eventId = (savedEvent as { id: string }).id;
       if (eventId) {
         calApi.sendEventInvitations(eventId).then((res) => {

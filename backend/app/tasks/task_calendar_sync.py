@@ -9,9 +9,12 @@ Autor: IA Code — 2026-04-13
 import json
 import logging
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 logger = logging.getLogger(__name__)
+
+# Zona horaria de Ecuador (UTC-5)
+EC_TZ = timezone(timedelta(hours=-5))
 
 
 async def sync_task_to_calendar(db, redis, task_row: dict, created_by: str):
@@ -54,20 +57,31 @@ async def sync_task_to_calendar(db, redis, task_row: dict, created_by: str):
 
     calendar_id = cal_row["id"]
 
-    # Verificar si ya existe un evento vinculado a esta tarea
+    # Verificar si ya existe un evento vinculado a esta tarea (por UID)
+    task_uid_prefix = "task-" + task_id
     existing = await db.fetchrow(
-        "SELECT id FROM events WHERE calendar_id = $1 AND summary LIKE $2",
-        calendar_id, f"[Tarea] {title}%",
+        "SELECT id, uid FROM events WHERE calendar_id = $1 AND uid LIKE $2",
+        calendar_id, task_uid_prefix + "%",
     )
 
     # Preparar datos del evento
     if isinstance(due_date, str):
         due_date = datetime.fromisoformat(due_date.replace("Z", "+00:00"))
 
-    # Evento de todo el dia si no tiene hora especifica (hora = 00:00)
-    all_day = due_date.hour == 0 and due_date.minute == 0
-    dtstart = due_date
-    dtend = due_date + timedelta(hours=1) if not all_day else due_date + timedelta(days=1)
+    # Convertir a hora local de Ecuador para detectar all-day
+    # Si el usuario puso solo fecha (sin hora), el frontend envia YYYY-MM-DD
+    # que se convierte a 00:00 local → 05:00 UTC
+    local_dt = due_date.astimezone(EC_TZ) if due_date.tzinfo else due_date
+    all_day = local_dt.hour == 0 and local_dt.minute == 0
+
+    if all_day:
+        # Para eventos all-day: dtstart = inicio del dia, dtend = inicio del dia siguiente
+        # Usar la fecha local (sin zona para all-day)
+        dtstart = due_date
+        dtend = due_date + timedelta(days=1)
+    else:
+        dtstart = due_date
+        dtend = due_date + timedelta(hours=1)
 
     event_summary = "[Tarea] " + title
     if important:
@@ -92,7 +106,7 @@ async def sync_task_to_calendar(db, redis, task_row: dict, created_by: str):
         logger.info("Evento calendario actualizado para tarea %s -> %s", task_id, assigned_to)
     else:
         # Crear nuevo evento
-        event_uid = "task-" + task_id + "-" + uuid.uuid4().hex[:8]
+        event_uid = task_uid_prefix + "-" + uuid.uuid4().hex[:8]
         await db.execute(
             """INSERT INTO events
                (calendar_id, uid, summary, description, location, dtstart, dtend,
@@ -107,7 +121,9 @@ async def sync_task_to_calendar(db, redis, task_row: dict, created_by: str):
 
 async def remove_task_from_calendar(db, task_row: dict, assigned_to: str):
     """Eliminar evento del calendario cuando se completa o elimina una tarea."""
-    title = task_row.get("title", "")
+    task_id = str(task_row.get("id", ""))
+    if not task_id:
+        return
     cal_row = await db.fetchrow(
         "SELECT id FROM calendars WHERE owner_email = $1 AND is_default = true",
         assigned_to,
@@ -115,11 +131,13 @@ async def remove_task_from_calendar(db, task_row: dict, assigned_to: str):
     if not cal_row:
         return
 
-    await db.execute(
-        "DELETE FROM events WHERE calendar_id = $1 AND summary LIKE $2",
-        cal_row["id"], f"[Tarea] {title}%",
+    # Buscar por UID de tarea (mas robusto que buscar por titulo)
+    task_uid_prefix = "task-" + task_id
+    result = await db.execute(
+        "DELETE FROM events WHERE calendar_id = $1 AND uid LIKE $2",
+        cal_row["id"], task_uid_prefix + "%",
     )
-    logger.info("Evento calendario eliminado para tarea completada: %s", title)
+    logger.info("Evento calendario eliminado para tarea %s: %s", task_id, result)
 
 
 async def notify_task_assignment(redis, task_row: dict, assigned_to: str, action: str, by_user: str):
@@ -156,9 +174,9 @@ def _build_notification_message(action: str, title: str, by_user: str) -> str:
     """Construir mensaje legible para la notificacion."""
     by_name = by_user.split("@")[0].replace(".", " ").title()
     if action == "assigned":
-        return f"{by_name} te asigno la tarea: {title}"
+        return f"{by_name} te asignó la tarea: {title}"
     elif action == "updated":
-        return f"{by_name} actualizo la tarea: {title}"
+        return f"{by_name} actualizó la tarea: {title}"
     elif action == "completed":
-        return f"{by_name} completo la tarea: {title}"
-    return f"Actualizacion de tarea: {title}"
+        return f"{by_name} completó la tarea: {title}"
+    return f"Actualización de tarea: {title}"

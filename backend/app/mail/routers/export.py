@@ -23,7 +23,7 @@ MAX_EXPORT_SIZE = 10 * 1024 * 1024  # 10 MB max export size
 
 def _validate_export_folder(folder: str) -> str:
     """Validate folder name for export endpoints."""
-    if not re.match(r"^[\w\s.\-/]+$", folder) or len(folder) > 200:
+    if not re.match(r"^[\w\s.\-/&+,()]+$", folder, re.UNICODE) or len(folder) > 200:
         raise HTTPException(status_code=400, detail="Nombre de carpeta inválido")
     return folder
 

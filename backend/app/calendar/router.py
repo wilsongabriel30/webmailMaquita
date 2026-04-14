@@ -276,9 +276,11 @@ async def send_event_invitations(
 ):
     """Enviar emails de invitación a todos los asistentes de un evento."""
     db = _db(request)
+    from app.config import get_settings
+    _s = get_settings()
     smtp_config = {
-        "host": request.app.state.settings.get("SMTP_HOST", "127.0.0.1"),
-        "port": int(request.app.state.settings.get("SMTP_PORT", 587)),
+        "host": getattr(_s, "smtp_host", "127.0.0.1"),
+        "port": int(getattr(_s, "smtp_port", 25)),
     }
     try:
         sent = await calendar_service.send_invitations(db, user, event_id, smtp_config)

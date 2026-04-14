@@ -10,7 +10,7 @@ from app.mail.clients.imap_client import get_imap_connection, fetch_attachment
 import re as _re
 
 def _validate_folder(folder: str) -> str:
-    if not _re.match(r'^[\w\s.\-/]+$', folder, _re.UNICODE) or len(folder) > 200:
+    if not _re.match(r'^[\w\s.\-/&+,()]+$', folder, _re.UNICODE) or len(folder) > 200:
         from fastapi import HTTPException
         raise HTTPException(status_code=400, detail="Nombre de carpeta inválido")
     return folder
