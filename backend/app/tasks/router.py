@@ -415,6 +415,26 @@ StepCreate.model_rebuild()
 StepUpdate.model_rebuild()
 StepOut.model_rebuild()
 
+async def _verify_card_access(db, card_id, user: str):
+    """Verify user has access to the card via board ownership or membership."""
+    row = await db.fetchrow(
+        """SELECT tc.board_id FROM task_cards tc
+           JOIN task_boards tb ON tb.id = tc.board_id
+           WHERE tc.id = $1 AND tb.owner = $2""",
+        card_id, user
+    )
+    if not row:
+        row = await db.fetchval(
+            """SELECT 1 FROM task_cards tc
+               JOIN task_board_members tbm ON tbm.board_id = tc.board_id
+               WHERE tc.id = $1 AND tbm.username = $2""",
+            card_id, user
+        )
+        if not row:
+            from fastapi import HTTPException
+            raise HTTPException(403, "No tiene acceso a esta tarea")
+
+
 async def _ensure_steps_table(db):
     await db.execute("""
         CREATE TABLE IF NOT EXISTS task_steps (
@@ -432,6 +452,7 @@ async def _ensure_steps_table(db):
 async def list_steps(card_id: uuid.UUID, request: Request, user: str = Depends(get_current_user)):
     db = _db(request)
     await _ensure_steps_table(db)
+    await _verify_card_access(db, card_id, user)
     rows = await db.fetch(
         "SELECT * FROM task_steps WHERE card_id = $1 ORDER BY position, created_at", card_id
     )
@@ -442,6 +463,7 @@ async def list_steps(card_id: uuid.UUID, request: Request, user: str = Depends(g
 async def create_step(card_id: uuid.UUID, data: StepCreate, request: Request, user: str = Depends(get_current_user)):
     db = _db(request)
     await _ensure_steps_table(db)
+    await _verify_card_access(db, card_id, user)
     max_pos = await db.fetchval("SELECT COALESCE(MAX(position), -1) FROM task_steps WHERE card_id = $1", card_id)
     row = await db.fetchrow(
         "INSERT INTO task_steps (card_id, title, position) VALUES ($1, $2, $3) RETURNING *",

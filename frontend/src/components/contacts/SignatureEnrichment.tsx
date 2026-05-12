@@ -21,7 +21,7 @@ const FIELD_LABELS: Record<string, string> = {
   website: 'Sitio web',
   job_title: 'Cargo',
   company: 'Empresa',
-  address: 'Direccion',
+  address: 'Dirección',
 };
 
 export function SignatureEnrichment({ contactId }: Props) {

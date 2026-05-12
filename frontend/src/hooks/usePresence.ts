@@ -9,8 +9,26 @@ export interface UserPresence {
 
 let wsInstance: WebSocket | null = null;
 let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+let batchTimer: ReturnType<typeof setTimeout> | null = null;
 const listeners = new Set<(users: Record<string, UserPresence>) => void>();
 let presenceCache: Record<string, UserPresence> = {};
+let hasPendingUpdates = false;
+
+function flushPresenceUpdates() {
+  if (!hasPendingUpdates) return;
+  hasPendingUpdates = false;
+  const snapshot = { ...presenceCache };
+  listeners.forEach(fn => fn(snapshot));
+}
+
+function schedulePresenceFlush() {
+  hasPendingUpdates = true;
+  if (batchTimer) return; // already scheduled
+  batchTimer = setTimeout(() => {
+    batchTimer = null;
+    flushPresenceUpdates();
+  }, 3000); // batch updates every 3 seconds
+}
 
 function connectPresenceWS() {
   if (wsInstance && wsInstance.readyState <= 1) return;
@@ -21,7 +39,7 @@ function connectPresenceWS() {
       const data = JSON.parse(ev.data);
       if (data.email) {
         presenceCache[data.email] = data;
-        listeners.forEach(fn => fn({ ...presenceCache }));
+        schedulePresenceFlush();
       }
     } catch {}
   };

@@ -84,12 +84,15 @@ async def login(body: LoginRequest, request: Request, response: Response):
     await _check_login_rate_limit(request, username, redis)
 
     ok = await authenticate(username, body.password, settings.imap_host, settings.imap_port)
+
+    # Anti-timing: pad ALL responses (success AND failure) to uniform 2s
+    # This prevents user enumeration via response time differences
+    elapsed = asyncio.get_event_loop().time() - start_time
+    if elapsed < 2.0:
+        await asyncio.sleep(2.0 - elapsed)
+
     if not ok:
-        # Pad response time to prevent user enumeration via timing
-        elapsed = asyncio.get_event_loop().time() - start_time
-        if elapsed < 7.0:
-            await asyncio.sleep(7.0 - elapsed)
-        return {"success": False, "error": "Credenciales incorrectas"}
+        raise HTTPException(status_code=401, detail="Credenciales incorrectas")
 
     # 2FA check
     db = request.app.state.db_pool
@@ -97,7 +100,7 @@ async def login(body: LoginRequest, request: Request, response: Response):
         if not body.totp_code:
             return {"requires_2fa": True, "username": username}
         if not await validate_totp_code(db, username, body.totp_code):
-            return {"success": False, "error": "Código 2FA inválido"}
+            raise HTTPException(status_code=401, detail="Código 2FA inválido")
 
     # Clear rate limit on success
     await _clear_login_rate_limit(request, username, redis)
@@ -294,6 +297,16 @@ async def impersonate(body: ImpersonateRequest, request: Request, response: Resp
     import jwt as pyjwt
     settings = get_settings()
 
+    # Rate limit impersonate: max 5 attempts per 15 min per IP
+    redis_imp = request.app.state.redis
+    ip_imp = request.client.host if request.client else "unknown"
+    imp_key = f"impersonate_rl:ip:{ip_imp}"
+    imp_count = await redis_imp.incr(imp_key)
+    if imp_count == 1:
+        await redis_imp.expire(imp_key, 900)
+    if imp_count > 5:
+        raise HTTPException(429, "Demasiados intentos de impersonacion")
+
     # Verify the admin token is valid (from admin panel)
     try:
         payload = pyjwt.decode(body.admin_token, settings.admin_jwt_secret, algorithms=["HS256"])
@@ -345,7 +358,7 @@ async def impersonate(body: ImpersonateRequest, request: Request, response: Resp
     response.set_cookie(
         key="refresh_token", value=refresh_raw,
         httponly=True, secure=True, samesite="strict",
-        domain=settings.cookie_domain, max_age=3600, path="/",
+        domain=settings.cookie_domain, max_age=3600, path="/api/auth/refresh",
     )
 
     return {"message": "Impersonation successful", "username": username}

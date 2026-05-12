@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import React, { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { Topbar } from "./Topbar";
 import { NavRail } from "./NavRail";
@@ -7,6 +7,7 @@ import { Outlet } from "react-router-dom";
 import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts";
 import { useWebSocket } from "../../hooks/useWebSocket";
 import { useThemeStore } from "../../store/themeStore";
+import { useMailStore } from "../../store/mailStore";
 import { CommandPalette } from "../common/CommandPalette";
 import { useResponsive } from "../../hooks/useResponsive";
 import { OfflineBanner } from "../common/OfflineBanner";
@@ -21,6 +22,18 @@ export function AppLayout() {
   // Only show mail sidebar on mail routes (index, /)
   const isMailRoute = location.pathname === '/' || location.pathname === '/webmail' || location.pathname === '/webmail/';
   const showMailSidebar = isMailRoute;
+
+  // Al volver a la vista de mail desde otra sección, resetear a INBOX
+  const prevIsMailRef = React.useRef(isMailRoute);
+  useEffect(() => {
+    if (isMailRoute && !prevIsMailRef.current) {
+      const store = useMailStore.getState();
+      if (store.currentFolder !== 'INBOX') {
+        store.setCurrentFolder('INBOX');
+      }
+    }
+    prevIsMailRef.current = isMailRoute;
+  }, [isMailRoute]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
@@ -39,12 +52,16 @@ export function AppLayout() {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-[#f3f2f1]">
+      {/* Skip to content — accesibilidad (navegación por teclado) */}
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-[9999] focus:top-2 focus:left-2 focus:bg-[#0078d4] focus:text-white focus:px-4 focus:py-2 focus:rounded focus:text-sm">
+        Ir al contenido principal
+      </a>
       <OfflineBanner />
       <Topbar />
       <div className="flex-1 flex overflow-hidden">
         {/* Desktop: show NavRail always, Sidebar only for mail */}
-        {!isMobile && <NavRail />}
-        {!isMobile && !isTablet && showMailSidebar && <Sidebar />}
+        {!isMobile && <nav role="navigation" aria-label="Navegación principal"><NavRail /></nav>}
+        {!isMobile && !isTablet && showMailSidebar && <aside role="complementary" aria-label="Carpetas de correo"><Sidebar /></aside>}
 
         {/* Tablet: show Sidebar in drawer only for mail */}
         {isTablet && drawerOpen && showMailSidebar && (
@@ -67,9 +84,11 @@ export function AppLayout() {
           </>
         )}
 
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <main id="main-content" role="main" className="flex-1 flex flex-col overflow-hidden">
           <Outlet />
-        </div>
+        </main>
+        {/* Region de anuncios para lectores de pantalla */}
+        <div aria-live="polite" aria-atomic="true" className="sr-only" id="a11y-announcer" />
       </div>
       <CommandPalette />
     </div>

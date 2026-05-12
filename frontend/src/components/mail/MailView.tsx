@@ -233,7 +233,14 @@ function MyDayPanel({ onClose }: { onClose: () => void }) {
 }
 
 export function MailView() {
-  const { composeWindows, restoreCompose, openCompose, readingPane: storeReadingPane, selectedMessage, setSelectedMessage, showMyDay, setShowMyDay } = useMailStore();
+  const composeWindows = useMailStore(s => s.composeWindows);
+  const restoreCompose = useMailStore(s => s.restoreCompose);
+  const openCompose = useMailStore(s => s.openCompose);
+  const storeReadingPane = useMailStore(s => s.readingPane);
+  const selectedMessage = useMailStore(s => s.selectedMessage);
+  const setSelectedMessage = useMailStore(s => s.setSelectedMessage);
+  const showMyDay = useMailStore(s => s.showMyDay);
+  const setShowMyDay = useMailStore(s => s.setShowMyDay);
   const { isMobile } = useResponsive();
   const readingPane = isMobile ? "off" : storeReadingPane;
 

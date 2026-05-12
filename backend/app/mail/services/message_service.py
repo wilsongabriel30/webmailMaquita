@@ -15,9 +15,11 @@ async def list_messages(
     page: int = 1,
     per_page: int = 50,
     search_query: str = "",
+    redis=None,
+    username: str = "",
 ) -> dict:
     """List messages with snippets, newest first."""
-    uid_result = await list_message_uids(imap, folder, page, per_page, search_query)
+    uid_result = await list_message_uids(imap, folder, page, per_page, search_query, redis=redis, username=username)
 
     # If folder select failed, uid_result will have folder_error flag
     if uid_result.get("folder_error"):
@@ -129,6 +131,7 @@ async def get_message(
         "snippet": normalized.snippet,
         "references": normalized.references,
         "in_reply_to": normalized.in_reply_to,
+        "calendar_invite": _serialize_calendar_invite(normalized.calendar_invite),
     }
 
 
@@ -169,3 +172,21 @@ def _compute_thread_id(n) -> str:
         import hashlib
         return hashlib.md5(subj.lower().encode()).hexdigest()[:12]
     return ""
+
+
+def _serialize_calendar_invite(invite) -> dict | None:
+    """Serialize CalendarInviteInfo to dict for API response."""
+    if not invite:
+        return None
+    return {
+        "method": invite.method,
+        "event_uid": invite.event_uid,
+        "summary": invite.summary,
+        "dtstart": invite.dtstart,
+        "dtend": invite.dtend,
+        "location": invite.location,
+        "organizer": invite.organizer,
+        "organizer_name": invite.organizer_name,
+        "attendees": invite.attendees,
+        "description": invite.description,
+    }

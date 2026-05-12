@@ -11,6 +11,7 @@ export async function syncOfflineActions() {
           await fetch("/api/mail/messages/" + action.messageId + "/flags", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
+            credentials: "include",
             body: JSON.stringify({ flags: ["\\Seen"] })
           });
           break;
@@ -18,18 +19,21 @@ export async function syncOfflineActions() {
           await fetch("/api/mail/messages/" + action.messageId + "/flags", {
             method: "DELETE",
             headers: { "Content-Type": "application/json" },
+            credentials: "include",
             body: JSON.stringify({ flags: ["\\Seen"] })
           });
           break;
         case "delete":
           await fetch("/api/mail/messages/" + action.messageId, {
-            method: "DELETE"
+            method: "DELETE",
+            credentials: "include"
           });
           break;
         case "move":
           await fetch("/api/mail/messages/" + action.messageId + "/move", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
+            credentials: "include",
             body: JSON.stringify({ folder: action.data?.folder })
           });
           break;
@@ -37,6 +41,7 @@ export async function syncOfflineActions() {
           await fetch("/api/mail/messages/" + action.messageId + "/flags", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
+            credentials: "include",
             body: JSON.stringify({ flags: ["\\Flagged"] })
           });
           break;

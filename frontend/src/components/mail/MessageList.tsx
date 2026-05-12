@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useEffect, useCallback, useRef, useState } from 'react';
+import { useEffect, useCallback, useRef, useState, useMemo } from 'react';
 import { useMailStore } from '../../store/mailStore';
 import { usePolling } from '../../hooks/usePolling';
 import { api } from '../../api/client';
@@ -9,6 +9,7 @@ import { ContextMenu, type MenuItem } from '../common/ContextMenu';
 import { showToast } from '../common/Toast';
 import type { MessagesResponse, MessageFull, MessageSummary } from '../../types';
 import { usePriority } from '../../hooks/usePriority';
+import { sanitizeHtml } from '../../lib/sanitize';
 import { getFolderDisplayName } from '../../folders';
 
 function fmtDate(s: string | null): string {
@@ -56,6 +57,16 @@ function getInitials(from: string, avatarMap?: Record<string, { name: string; in
   const parts = name.trim().split(/\s+/);
   if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   return name.charAt(0).toUpperCase();
+}
+
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 const palette = ['#0078d4','#107c10','#8764b8','#ca5010','#b4009e','#038387','#4f6bed','#c239b3','#da3b01','#00b7c3'];
@@ -116,12 +127,29 @@ function groupByThread(messages: MessageSummary[]): ThreadGroup[] {
 }
 
 export function MessageList() {
-  const {
-    currentFolder, messages, totalMessages, currentPage, searchQuery, filter,
-    loadingMessages, setMessages, setLoadingMessages,
-    setSelectedMessage, setLoadingMessage, selectedMessage, selectedUids, toggleSelection,
-    openCompose, density, previewLines, viewMode, setThreadMessages, setLoadingThread, clearThread, folders,
-  } = useMailStore();
+  const currentFolder = useMailStore(s => s.currentFolder);
+  const messages = useMailStore(s => s.messages);
+  const totalMessages = useMailStore(s => s.totalMessages);
+  const currentPage = useMailStore(s => s.currentPage);
+  const searchQuery = useMailStore(s => s.searchQuery);
+  const filter = useMailStore(s => s.filter);
+  const debouncedSearchQuery = useMailStore(s => s.debouncedSearchQuery);
+  const loadingMessages = useMailStore(s => s.loadingMessages);
+  const setMessages = useMailStore(s => s.setMessages);
+  const setLoadingMessages = useMailStore(s => s.setLoadingMessages);
+  const setSelectedMessage = useMailStore(s => s.setSelectedMessage);
+  const setLoadingMessage = useMailStore(s => s.setLoadingMessage);
+  const selectedMessage = useMailStore(s => s.selectedMessage);
+  const selectedUids = useMailStore(s => s.selectedUids);
+  const toggleSelection = useMailStore(s => s.toggleSelection);
+  const openCompose = useMailStore(s => s.openCompose);
+  const density = useMailStore(s => s.density);
+  const previewLines = useMailStore(s => s.previewLines);
+  const viewMode = useMailStore(s => s.viewMode);
+  const setThreadMessages = useMailStore(s => s.setThreadMessages);
+  const setLoadingThread = useMailStore(s => s.setLoadingThread);
+  const clearThread = useMailStore(s => s.clearThread);
+  const folders = useMailStore(s => s.folders);
 
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; msg: MessageSummary } | null>(null);
   const [activeTab, setActiveTab] = useState<'focused' | 'other'>('focused');
@@ -157,10 +185,13 @@ export function MessageList() {
     // Only show loading skeleton on first load (empty list), not on refresh
     if (messages.length === 0) setLoadingMessages(true);
     const p = new URLSearchParams({ page: String(currentPage), per_page: '50' });
-    if (searchQuery) p.set('search', searchQuery);
+    if (debouncedSearchQuery) p.set('search', debouncedSearchQuery);
+    // Send filter to backend so IMAP does server-side SEARCH UNSEEN/FLAGGED
+    if (filter === 'unread') p.set('is_unread', 'true');
+    if (filter === 'flagged') p.set('is_flagged', 'true');
     api.get<MessagesResponse>(`/mail/messages/${encodeURIComponent(currentFolder)}?${p}`)
       .then(r => {
-      if (prevTotalRef.current > 0 && r.total > prevTotalRef.current && currentFolder === 'INBOX') {
+      if (filter === 'all' && prevTotalRef.current > 0 && r.total > prevTotalRef.current && currentFolder === 'INBOX') {
         const newCount = r.total - prevTotalRef.current;
         try { (window as any).__maquitaBeep?.(); } catch {}
         if (Notification.permission === 'granted') {
@@ -170,14 +201,38 @@ export function MessageList() {
         }
         document.title = `(${r.total - (r.messages.filter((m: any) => m.seen).length)}) Maquita Mail`;
       }
-      prevTotalRef.current = r.total;
+      if (filter === 'all') prevTotalRef.current = r.total;
       setMessages(r.messages, r.total, r.page);
     }).catch(console.error);
-  }, [currentFolder, currentPage, searchQuery]);
+  }, [currentFolder, currentPage, debouncedSearchQuery, filter]);
+
+  // Limpiar selección al cambiar de carpeta, pero mantener skeleton breve
+  useEffect(() => {
+    useMailStore.getState().setSelectedMessage(null);
+    // Solo mostrar loading skeleton si no es cambio rápido
+    const timer = setTimeout(() => {
+      if (useMailStore.getState().loadingMessages) {
+        useMailStore.getState().setMessages([], 0, 1);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [currentFolder]);
+
+  // Debounce search query — wait 400ms after user stops typing
+  useEffect(() => {
+    if (!searchQuery) {
+      useMailStore.getState().setDebouncedSearchQuery('');
+      return;
+    }
+    const timer = setTimeout(() => {
+      useMailStore.getState().setDebouncedSearchQuery(searchQuery);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   useEffect(() => { fetch_(); }, [fetch_]);
   useEffect(() => { const h=()=>fetch_(); window.addEventListener('refresh-messages',h); return ()=>window.removeEventListener('refresh-messages',h); }, [fetch_]);
-  usePolling(fetch_, 60000, true);
+  usePolling(fetch_, 120000, true);
 
   // Fetch priority classification for INBOX
   useEffect(() => {
@@ -227,7 +282,8 @@ export function MessageList() {
     } catch {}
   }, [currentFolder]);
 
-  // Fetch avatar data
+  // Fetch avatar data — use stable messageIds to avoid re-fetching on every render
+  const messageIds = useMemo(() => messages.map(m => m.uid).join(','), [messages]);
   useEffect(() => {
     if (!messages.length) return;
     const emails = [...new Set(messages.map(m => extractEmail(m.from)))];
@@ -237,7 +293,7 @@ export function MessageList() {
     api.get<Record<string, { name: string; initials: string }>>(`/contacts/avatars?emails=${encodeURIComponent(batch)}`)
       .then(data => { setAvatarMap(prev => ({ ...prev, ...data })); })
       .catch(() => {});
-  }, [messages]);
+  }, [messageIds]);
 
   const handleFlag = async (uid: number, flagged: boolean) => {
     try {
@@ -301,17 +357,19 @@ export function MessageList() {
       if (useMailStore.getState().readingPane === 'popout') {
         const w = window.open('', '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
         if (w) {
-          const subj = msg.subject || '(sin asunto)';
-          const from = msg.from || '';
-          const date = msg.date ? new Date(msg.date).toLocaleString('es-EC') : '';
-          const body = msg.html_body || ('<pre style="white-space:pre-wrap">' + (msg.text_body || '') + '</pre>');
+          const subj = escapeHtml(msg.subject || '(sin asunto)');
+          const from = escapeHtml(msg.from || '');
+          const date = escapeHtml(msg.date ? new Date(msg.date).toLocaleString('es-EC') : '');
+          const body = msg.html_body ? sanitizeHtml(msg.html_body) : ('<pre style="white-space:pre-wrap">' + escapeHtml(msg.text_body || '') + '</pre>');
+          const safeTo = msg.to ? escapeHtml(msg.to) : '';
+          const safeCc = msg.cc ? escapeHtml(msg.cc) : '';
           w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + subj + '</title></head>'
             + '<body style="font-family:Segoe UI,Calibri,sans-serif;max-width:900px;margin:20px auto;padding:20px;color:#323130;">'
             + '<h2 style="margin:0 0 8px;font-size:20px;">' + subj + '</h2>'
             + '<div style="color:#605e5c;font-size:13px;margin-bottom:16px;border-bottom:1px solid #edebe9;padding-bottom:12px;">'
             + '<b>De:</b> ' + from + '<br/><b>Fecha:</b> ' + date
-            + (msg.to ? '<br/><b>Para:</b> ' + msg.to : '')
-            + (msg.cc ? '<br/><b>CC:</b> ' + msg.cc : '') + '</div>'
+            + (safeTo ? '<br/><b>Para:</b> ' + safeTo : '')
+            + (safeCc ? '<br/><b>CC:</b> ' + safeCc : '') + '</div>'
             + '<div style="font-size:14px;line-height:1.6;">' + body + '</div>'
             + '</body></html>');
           w.document.close();

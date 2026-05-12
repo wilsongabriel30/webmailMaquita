@@ -50,21 +50,12 @@ async def heartbeat(request: Request, user: str = Depends(get_current_user)):
 
 @router.get("/users")
 async def get_all_presence(request: Request, user: str = Depends(get_current_user)):
+    """Return only the current user's own presence status for privacy."""
     r = _redis(request)
-    keys = []
-    async for key in r.scan_iter(match=f"{PREFIX}*"):
-        keys.append(key)
-    if not keys:
-        return []
-    values = await r.mget(keys)
-    result = []
-    for v in values:
-        if v:
-            try:
-                result.append(json.loads(v))
-            except Exception:
-                pass
-    return result
+    data = await r.get(f"{PREFIX}{user}")
+    if data:
+        return [json.loads(data)]
+    return [{"user": user, "status": "offline", "ts": None}]
 
 
 @router.get("/user/{email}")
@@ -78,7 +69,23 @@ async def get_user_presence(email: str, request: Request, user: str = Depends(ge
 
 @router.websocket("/ws")
 async def presence_ws(websocket: WebSocket):
+    # Autenticar via cookie antes de aceptar la conexión
+    from app.auth.jwt import decode_access_token
+    token = websocket.cookies.get("access_token")
+    if not token:
+        await websocket.close(code=4001, reason="No autenticado")
+        return
+    try:
+        username = decode_access_token(token)
+        if not username:
+            await websocket.close(code=4001, reason="Token invalido")
+            return
+    except Exception:
+        await websocket.close(code=4001, reason="Token invalido")
+        return
+
     await websocket.accept()
+    logger.info("Presence WS conectado: %s", username)
     r = websocket.app.state.redis
     pubsub = r.pubsub()
     await pubsub.subscribe(CHANNEL)

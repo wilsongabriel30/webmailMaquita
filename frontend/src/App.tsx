@@ -4,19 +4,19 @@ import { useAuthStore } from './store/authStore';
 import { LoginPage } from './components/auth/LoginPage';
 import { AppLayout } from './components/layout/AppLayout';
 import { MailView } from './components/mail/MailView';
-import { SettingsView } from './components/settings/SettingsView';
-import { AdminLayout } from './components/admin/AdminLayout';
-import { Dashboard } from './components/admin/Dashboard';
-import { DomainsManager } from './components/admin/DomainsManager';
-import { MailboxManager } from './components/admin/MailboxManager';
-import { AliasManager } from './components/admin/AliasManager';
-import { QueueViewer } from './components/admin/QueueViewer';
-import { AuditLog } from './components/admin/AuditLog';
-import { DisclaimerManager } from './components/admin/DisclaimerManager';
-import { MessageTracking } from './components/admin/MessageTracking';
-import { ContactsView } from './components/contacts/ContactsView';
-import { TasksView } from "./components/tasks/TasksView";
-import CalendarView from "./components/calendar/CalendarView";
+const SettingsView = React.lazy(() => import('./components/settings/SettingsView').then(m => ({ default: m.SettingsView })));
+const AdminLayout = React.lazy(() => import('./components/admin/AdminLayout').then(m => ({ default: m.AdminLayout })));
+const Dashboard = React.lazy(() => import('./components/admin/Dashboard').then(m => ({ default: m.Dashboard })));
+const DomainsManager = React.lazy(() => import('./components/admin/DomainsManager').then(m => ({ default: m.DomainsManager })));
+const MailboxManager = React.lazy(() => import('./components/admin/MailboxManager').then(m => ({ default: m.MailboxManager })));
+const AliasManager = React.lazy(() => import('./components/admin/AliasManager').then(m => ({ default: m.AliasManager })));
+const QueueViewer = React.lazy(() => import('./components/admin/QueueViewer').then(m => ({ default: m.QueueViewer })));
+const AuditLog = React.lazy(() => import('./components/admin/AuditLog').then(m => ({ default: m.AuditLog })));
+const DisclaimerManager = React.lazy(() => import('./components/admin/DisclaimerManager').then(m => ({ default: m.DisclaimerManager })));
+const MessageTracking = React.lazy(() => import('./components/admin/MessageTracking').then(m => ({ default: m.MessageTracking })));
+const ContactsView = React.lazy(() => import('./components/contacts/ContactsView').then(m => ({ default: m.ContactsView })));
+const TasksView = React.lazy(() => import('./components/tasks/TasksView').then(m => ({ default: m.TasksView })));
+const CalendarView = React.lazy(() => import('./components/calendar/CalendarView'));
 import { ComposePopup } from "./components/mail/ComposePopup";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -59,7 +59,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
             <svg className="w-12 h-12 mx-auto mb-4 text-[#d13438]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
             </svg>
-            <h2 className="text-lg font-semibold text-[#323130] mb-2">Algo salio mal</h2>
+            <h2 className="text-lg font-semibold text-[#323130] mb-2">Algo salió mal</h2>
             <p className="text-[13px] text-[#605e5c] mb-4">{this.state.error?.message || "Error inesperado"}</p>
             <button onClick={() => window.location.reload()}
               className="px-4 py-2 bg-[#0078d4] text-white rounded text-[13px] font-medium hover:bg-[#106ebe]">
@@ -117,6 +117,26 @@ export default function App() {
     return () => window.removeEventListener('unhandledrejection', handler);
   }, []);
 
+
+  // Load branding (favicon, title) from admin config
+  useEffect(() => {
+    fetch("/api/branding")
+      .then(r => r.ok ? r.json() : ({} as any))
+      .then((b: any) => {
+        if (b.favicon_url) {
+          const link = document.querySelector("link[rel=\"icon\"]") as HTMLLinkElement;
+          if (link) {
+            link.href = b.favicon_url;
+            link.type = "";
+          }
+        }
+        if (b.org_name) {
+          document.title = b.org_name + " Mail";
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   return (
     <ErrorBoundary>
     <BrowserRouter basename="/webmail">
@@ -125,19 +145,19 @@ export default function App() {
         <Route path="/compose" element={<ProtectedRoute><ComposePopup /></ProtectedRoute>} />
         <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
           <Route index element={<MailView />} />
-          <Route path="contacts" element={<ContactsView />} />
-          <Route path="calendar" element={<CalendarView />} />
-          <Route path="tasks" element={<TasksView />} />
-          <Route path="settings" element={<SettingsView />} />
-          <Route path="admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
-            <Route index element={<Dashboard />} />
-            <Route path="domains" element={<DomainsManager />} />
-            <Route path="mailboxes" element={<MailboxManager />} />
-            <Route path="aliases" element={<AliasManager />} />
-            <Route path="queue" element={<QueueViewer />} />
-            <Route path="audit" element={<AuditLog />} />
-            <Route path="disclaimer" element={<DisclaimerManager />} />
-            <Route path="tracking" element={<MessageTracking />} />
+          <Route path="contacts" element={<React.Suspense fallback={<Spinner />}><ContactsView /></React.Suspense>} />
+          <Route path="calendar" element={<React.Suspense fallback={<Spinner />}><CalendarView /></React.Suspense>} />
+          <Route path="tasks" element={<React.Suspense fallback={<Spinner />}><TasksView /></React.Suspense>} />
+          <Route path="settings" element={<React.Suspense fallback={<Spinner />}><SettingsView /></React.Suspense>} />
+          <Route path="admin" element={<AdminRoute><React.Suspense fallback={<Spinner />}><AdminLayout /></React.Suspense></AdminRoute>}>
+            <Route index element={<React.Suspense fallback={<Spinner />}><Dashboard /></React.Suspense>} />
+            <Route path="domains" element={<React.Suspense fallback={<Spinner />}><DomainsManager /></React.Suspense>} />
+            <Route path="mailboxes" element={<React.Suspense fallback={<Spinner />}><MailboxManager /></React.Suspense>} />
+            <Route path="aliases" element={<React.Suspense fallback={<Spinner />}><AliasManager /></React.Suspense>} />
+            <Route path="queue" element={<React.Suspense fallback={<Spinner />}><QueueViewer /></React.Suspense>} />
+            <Route path="audit" element={<React.Suspense fallback={<Spinner />}><AuditLog /></React.Suspense>} />
+            <Route path="disclaimer" element={<React.Suspense fallback={<Spinner />}><DisclaimerManager /></React.Suspense>} />
+            <Route path="tracking" element={<React.Suspense fallback={<Spinner />}><MessageTracking /></React.Suspense>} />
           </Route>
         </Route>
       </Routes>

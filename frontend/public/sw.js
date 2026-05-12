@@ -1,8 +1,9 @@
-const CACHE_NAME = "maquita-mail-v17";
+const CACHE_NAME = "maquita-mail-v22";
 const BASE = "/webmail/";
+// NO cachear index.html — siempre servir desde red para evitar
+// que coexistan dos versiones de bundles JS (bug SPA dual-bundle).
+// Solo cachear manifest y assets inmutables (con hash en nombre).
 const STATIC_ASSETS = [
-  BASE,
-  BASE + "index.html",
   BASE + "manifest.json"
 ];
 
@@ -20,8 +21,15 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
+      // Eliminar TODOS los caches que no sean la versión actual
       return Promise.all(
-        keys.filter((key) => key !== CACHE_NAME && key !== CACHE_NAME + "-api").map((key) => caches.delete(key))
+        keys.filter((key) => key !== CACHE_NAME && key !== CACHE_NAME + "-api")
+            .map((key) => { console.log("[SW] Deleting old cache:", key); return caches.delete(key); })
+      );
+    }).then(() => {
+      // También limpiar el cache API viejo para evitar datos stale
+      return caches.open(CACHE_NAME + "-api").then((cache) =>
+        cache.keys().then((requests) => Promise.all(requests.map((r) => cache.delete(r))))
       );
     })
   );
@@ -35,8 +43,7 @@ self.addEventListener("fetch", (event) => {
   // Skip non-GET requests
   if (event.request.method !== "GET") return;
 
-  // Skip external URLs - let the browser handle them directly
-  // Fixes CSP violations for external images in email signatures
+  // Skip external URLs completely
   if (url.origin !== self.location.origin) return;
 
   // API calls - Network first, fall back to cache
@@ -53,18 +60,29 @@ self.addEventListener("fetch", (event) => {
           return response;
         })
         .catch(() => {
-          return caches.match(event.request);
+          return caches.match(event.request).then((r) => r || new Response("Offline", { status: 503 }));
         })
     );
     return;
   }
 
-  // Static assets - Cache first, fall back to network
+  // Navigation requests (HTML) — SIEMPRE red primero para evitar bundles stale
+  if (event.request.destination === "document" || event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request)
+        .catch(() => caches.match(BASE + "index.html")
+          .then((r) => r || new Response("Offline", { status: 503 })))
+    );
+    return;
+  }
+
+  // Static assets (JS/CSS con hash) — Cache first, fall back to network
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
       return fetch(event.request).then((response) => {
-        if (response.ok) {
+        if (response.ok && event.request.url.match(/\.[a-f0-9]{8,}\./)) {
+          // Solo cachear assets con hash en nombre (inmutables)
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(event.request, clone);
@@ -72,19 +90,13 @@ self.addEventListener("fetch", (event) => {
         }
         return response;
       });
-    }).catch(() => {
-      // If both fail and its a navigation, show cached app shell
-      if (event.request.destination === "document") {
-        return caches.match(BASE);
-      }
-    })
+    }).catch(() => new Response("", { status: 404 }))
   );
 });
 
 // Background sync for offline actions
 self.addEventListener("sync", (event) => {
   if (event.tag === "sync-actions") {
-    // Will be handled by the app when it regains connectivity
     console.log("[SW] Background sync triggered");
   }
 });

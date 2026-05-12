@@ -10,6 +10,7 @@
  *   - Optional HTML source view for advanced users
  */
 
+import { sanitizeSignatureHtml } from '../../lib/sanitize';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../../api/client';
 
@@ -75,7 +76,7 @@ export function SignatureManager() {
   const saveSigSettings = useCallback((s: SignatureSettings) => {
     setSigSettings(s);
     localStorage.setItem('maquita_sig_settings', JSON.stringify(s));
-    flash({ type: 'success', message: 'Configuracion de firma guardada' });
+    flash({ type: 'success', message: 'Configuración de firma guardada' });
   }, [flash]);
 
   const clearEdit = useCallback(() => {
@@ -151,18 +152,18 @@ export function SignatureManager() {
       {/* Signature Position Settings */}
       <div className="rounded border border-[#edebe9] bg-white">
         <div className="border-b border-[#edebe9] px-5 py-3">
-          <h2 className="text-[15px] font-semibold text-[#323130]">Configuracion de firma</h2>
+          <h2 className="text-[15px] font-semibold text-[#323130]">Configuración de firma</h2>
           <p className="mt-0.5 text-[12px] text-[#605e5c]">Elige donde aparece tu firma en los correos</p>
         </div>
         <div className="px-5 py-4 space-y-3">
           <div>
-            <label className="block text-[12px] font-semibold text-[#605e5c] mb-2">Posicion de la firma</label>
+            <label className="block text-[12px] font-semibold text-[#605e5c] mb-2">Posición de la firma</label>
             <div className="space-y-2">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="radio" name="sig_pos" checked={sigSettings.position === 'bottom'}
                   onChange={() => saveSigSettings({ ...sigSettings, position: 'bottom' })}
                   className="w-4 h-4 text-[#0078d4]" />
-                <span className="text-[13px] text-[#323130]">Al pie del correo (despues del mensaje)</span>
+                <span className="text-[13px] text-[#323130]">Al pie del correo (después del mensaje)</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="radio" name="sig_pos" checked={sigSettings.position === 'before_quote'}
@@ -194,7 +195,7 @@ export function SignatureManager() {
         <div className="flex items-center justify-between border-b border-[#edebe9] px-5 py-3">
           <div>
             <h2 className="text-[15px] font-semibold text-[#323130]">Firmas de correo</h2>
-            <p className="mt-0.5 text-[12px] text-[#605e5c]">La firma predeterminada se inserta automaticamente al redactar.</p>
+            <p className="mt-0.5 text-[12px] text-[#605e5c]">La firma predeterminada se inserta automáticamente al redactar.</p>
           </div>
           {!isEditing && (
             <button type="button" onClick={startCreate}
@@ -242,7 +243,7 @@ export function SignatureManager() {
                       </div>
                       {sig.html_content ? (
                         <div className="rounded border border-[#edebe9] bg-white p-3 max-h-[200px] overflow-auto">
-                          <div className="text-[13px] sig-preview" dangerouslySetInnerHTML={{ __html: sig.html_content }} />
+                          <div className="text-[13px] sig-preview" dangerouslySetInnerHTML={{ __html: sanitizeSignatureHtml(sig.html_content) }} />
                         </div>
                       ) : (
                         <p className="text-[12px] text-[#a19f9d] italic py-2">Sin contenido - haz clic en Editar para agregar tu firma</p>
@@ -567,7 +568,7 @@ function VisualSignatureEditor({
         <div className="rounded border border-[#edebe9] bg-white p-4 shadow-sm">
           <div className="text-[13px] text-[#605e5c] italic mb-3">...contenido del correo...</div>
           <div className="border-t border-[#edebe9] pt-3 mt-3">
-            <div className="text-[13px] sig-preview" dangerouslySetInnerHTML={{ __html: previewHtml }} />
+            <div className="text-[13px] sig-preview" dangerouslySetInnerHTML={{ __html: sanitizeSignatureHtml(previewHtml) }} />
           </div>
         </div>
       </div>

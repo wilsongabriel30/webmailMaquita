@@ -30,6 +30,7 @@ interface MailState {
   activeIndex: number; // keyboard nav
   // Search & filter
   searchQuery: string;
+  debouncedSearchQuery: string;
   filter: Filter;
   // View
   viewMode: ViewMode;
@@ -61,6 +62,7 @@ interface MailState {
   setLoadingMessages: (v: boolean) => void;
   setLoadingMessage: (v: boolean) => void;
   setSearchQuery: (q: string) => void;
+  setDebouncedSearchQuery: (q: string) => void;
   setFilter: (f: Filter) => void;
   setViewMode: (m: ViewMode) => void;
   toggleSelection: (uid: number) => void;
@@ -96,8 +98,9 @@ export const useMailStore = create<MailState>((set, get) => ({
   selectedUids: new Set(),
   activeIndex: -1,
   searchQuery: '',
+  debouncedSearchQuery: '',
   filter: 'all',
-  viewMode: 'conversations',
+  viewMode: "messages",
   readingPane: 'right',
   density: 'compact' as const,
   showMyDay: false,
@@ -128,7 +131,8 @@ export const useMailStore = create<MailState>((set, get) => ({
   setLoadingMessages: (v) => set({ loadingMessages: v }),
   setLoadingMessage: (v) => set({ loadingMessage: v }),
   setSearchQuery: (q) => set({ searchQuery: q, currentPage: 1 }),
-  setFilter: (f) => set({ filter: f }),
+  setDebouncedSearchQuery: (q: string) => set({ debouncedSearchQuery: q }),
+  setFilter: (f) => set({ filter: f, currentPage: 1, messages: [], loadingMessages: true }),
   setViewMode: (m) => set({ viewMode: m }),
   toggleSelection: (uid) => {
     const s = new Set(get().selectedUids);
@@ -150,14 +154,16 @@ export const useMailStore = create<MailState>((set, get) => ({
       draftUid: data?.draft_uid || null,
       minimized: false,
     };
-    set({ composeWindows: [...get().composeWindows, win] });
+    // Minimize all existing compose windows before opening new one
+    const existing = get().composeWindows.map(w => ({ ...w, minimized: true }));
+    set({ composeWindows: [...existing, win] });
   },
   closeCompose: (id) => set({ composeWindows: get().composeWindows.filter(w => w.id !== id) }),
   minimizeCompose: (id) => set({
     composeWindows: get().composeWindows.map(w => w.id === id ? { ...w, minimized: true } : w),
   }),
   restoreCompose: (id) => set({
-    composeWindows: get().composeWindows.map(w => w.id === id ? { ...w, minimized: false } : w),
+    composeWindows: get().composeWindows.map(w => w.id === id ? { ...w, minimized: false } : { ...w, minimized: true }),
   }),
   updateDraftUid: (id, uid) => set({
     composeWindows: get().composeWindows.map(w => w.id === id ? { ...w, draftUid: uid } : w),

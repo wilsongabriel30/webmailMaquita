@@ -142,13 +142,13 @@ export function ContactForm({ initial, onSave, onCancel, saving, title }: Props)
             <div style={{ flex: 1 }}><Field label="Nombre" value={form.first_name} onChange={v => set('first_name', v)} placeholder="Nombre" /></div>
             <div style={{ flex: 1 }}><Field label="Apellido" value={form.last_name} onChange={v => set('last_name', v)} placeholder="Apellido" /></div>
           </div>
-          <Field label="Nombre para mostrar" value={form.display_name} onChange={v => set('display_name', v)} placeholder="Se calcula automaticamente" />
+          <Field label="Nombre para mostrar" value={form.display_name} onChange={v => set('display_name', v)} placeholder="Se calcula automáticamente" />
           <Field label="Apodo" value={form.nickname} onChange={v => set('nickname', v)} />
         </div>
       )}
 
       {/* Seccion: Contacto */}
-      <SectionHeader id="contacto" label="Informacion de contacto" open={!!openSection.contacto} onToggle={toggleSection} />
+      <SectionHeader id="contacto" label="Información de contacto" open={!!openSection.contacto} onToggle={toggleSection} />
       {openSection.contacto && (
         <div style={{ padding: '12px 0' }}>
           <Field label="Email principal *" value={form.email} onChange={v => set('email', v)} type="email" placeholder="correo@ejemplo.com" />
@@ -173,8 +173,8 @@ export function ContactForm({ initial, onSave, onCancel, saving, title }: Props)
         </div>
       )}
 
-      {/* Seccion: Direccion */}
-      <SectionHeader id="direccion" label="Direccion" open={!!openSection.direccion} onToggle={toggleSection} />
+      {/* Seccion: Dirección */}
+      <SectionHeader id="direccion" label="Dirección" open={!!openSection.direccion} onToggle={toggleSection} />
       {openSection.direccion && (
         <div style={{ padding: '12px 0' }}>
           <Field label="Calle" value={form.address_street} onChange={v => set('address_street', v)} />

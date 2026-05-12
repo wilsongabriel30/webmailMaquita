@@ -377,7 +377,7 @@ async def list_gal(
 @router.get("/search")
 async def search_gal(
     request: Request,
-    q: str = Query(..., min_length=1, description="Texto de busqueda"),
+    q: str = Query(..., min_length=2, description="Texto de busqueda (min 2 caracteres)"),
     limit: int = Query(15, ge=1, le=50),
     include_rooms: bool = Query(True),
     user: str = Depends(get_current_user),

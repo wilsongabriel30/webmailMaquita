@@ -18,3 +18,5 @@ backups-cleanup-*/
 # IDE
 .vscode/
 .idea/
+uploads/
+deploy-backups/

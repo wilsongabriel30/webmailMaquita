@@ -92,7 +92,7 @@ async def get_room(
     user: str = Depends(get_current_user),
 ):
     db = _db(request)
-    row = await db.fetchrow("SELECT * FROM meeting_rooms WHERE id = ", room_id)
+    row = await db.fetchrow("SELECT * FROM meeting_rooms WHERE id = $1", room_id)
     if not row:
         raise HTTPException(status_code=404, detail="Sala no encontrada")
     return RoomOut(**dict(row))
@@ -107,7 +107,7 @@ async def create_room(
     db = _db(request)
     row = await db.fetchrow(
         """INSERT INTO meeting_rooms (name, email, capacity, location, amenities)
-           VALUES (, , , , ) RETURNING *""",
+           VALUES ($1, $2, $3, $4, $5) RETURNING *""",
         data.name, data.email, data.capacity, data.location, data.amenities,
     )
     return RoomOut(**dict(row))
@@ -121,7 +121,7 @@ async def update_room(
     admin: str = Depends(require_admin),
 ):
     db = _db(request)
-    existing = await db.fetchrow("SELECT * FROM meeting_rooms WHERE id = ", room_id)
+    existing = await db.fetchrow("SELECT * FROM meeting_rooms WHERE id = $1", room_id)
     if not existing:
         raise HTTPException(status_code=404, detail="Sala no encontrada")
 
@@ -130,16 +130,16 @@ async def update_room(
         return RoomOut(**dict(existing))
 
     set_clauses = []
-    params = []
+    params = [room_id]  # $1 = room_id
     idx = 2
     for key, val in updates.items():
-        set_clauses.append(f"{key} = ")
+        set_clauses.append(f"{key} = ${idx}")
         params.append(val)
         idx += 1
 
     row = await db.fetchrow(
-        f"UPDATE meeting_rooms SET {', '.join(set_clauses)} WHERE id =  RETURNING *",
-        room_id, *params,
+        f"UPDATE meeting_rooms SET {', '.join(set_clauses)} WHERE id = $1 RETURNING *",
+        *params,
     )
     return RoomOut(**dict(row))
 
@@ -151,7 +151,7 @@ async def delete_room(
     admin: str = Depends(require_admin),
 ):
     db = _db(request)
-    result = await db.execute("DELETE FROM meeting_rooms WHERE id = ", room_id)
+    result = await db.execute("DELETE FROM meeting_rooms WHERE id = $1", room_id)
     if result == "DELETE 0":
         raise HTTPException(status_code=404, detail="Sala no encontrada")
 
@@ -166,7 +166,7 @@ async def room_availability(
     user: str = Depends(get_current_user),
 ):
     db = _db(request)
-    room = await db.fetchrow("SELECT * FROM meeting_rooms WHERE id = ", room_id)
+    room = await db.fetchrow("SELECT * FROM meeting_rooms WHERE id = $1", room_id)
     if not room:
         raise HTTPException(status_code=404, detail="Sala no encontrada")
 
@@ -182,9 +182,9 @@ async def room_availability(
         """SELECT rb.*, mr.name AS room_name
            FROM room_bookings rb
            JOIN meeting_rooms mr ON mr.id = rb.room_id
-           WHERE rb.room_id = 
-             AND rb.start_time < 
-             AND rb.end_time > 
+           WHERE rb.room_id = $1
+             AND rb.start_time < $3
+             AND rb.end_time > $2
              AND rb.status = 'confirmed'
            ORDER BY rb.start_time""",
         room_id, day_start, day_end,
@@ -230,7 +230,7 @@ async def book_room(
     user: str = Depends(get_current_user),
 ):
     db = _db(request)
-    room = await db.fetchrow("SELECT * FROM meeting_rooms WHERE id =  AND is_active = true", room_id)
+    room = await db.fetchrow("SELECT * FROM meeting_rooms WHERE id = $1 AND is_active = true", room_id)
     if not room:
         raise HTTPException(status_code=404, detail="Sala no encontrada o inactiva")
 
@@ -240,10 +240,10 @@ async def book_room(
     # Verificar conflictos
     conflict = await db.fetchval(
         """SELECT COUNT(*) FROM room_bookings
-           WHERE room_id = 
+           WHERE room_id = $1
              AND status = 'confirmed'
-             AND start_time < 
-             AND end_time > """,
+             AND start_time < $2
+             AND end_time > $3""",
         room_id, data.start_time, data.end_time,
     )
     if conflict > 0:
@@ -251,7 +251,7 @@ async def book_room(
 
     row = await db.fetchrow(
         """INSERT INTO room_bookings (room_id, event_id, user_email, title, start_time, end_time)
-           VALUES (, , , , , ) RETURNING *""",
+           VALUES ($1, $2, $3, $4, $5, $6) RETURNING *""",
         room_id, data.event_id, user, data.title, data.start_time, data.end_time,
     )
     return BookingOut(
@@ -275,20 +275,20 @@ async def cancel_booking(
 ):
     db = _db(request)
     row = await db.fetchrow(
-        "SELECT * FROM room_bookings WHERE id = ", booking_id
+        "SELECT * FROM room_bookings WHERE id = $1", booking_id
     )
     if not row:
         raise HTTPException(status_code=404, detail="Reserva no encontrada")
     if row["user_email"] != user:
         # Verificar si es admin
         admin_row = await db.fetchrow(
-            "SELECT 1 FROM admin WHERE username =  AND active = true", user
+            "SELECT 1 FROM admin WHERE username = $1 AND active = true", user
         )
         if not admin_row:
             raise HTTPException(status_code=403, detail="Solo el creador o un admin puede cancelar")
 
     await db.execute(
-        "UPDATE room_bookings SET status = 'cancelled' WHERE id = ", booking_id
+        "UPDATE room_bookings SET status = 'cancelled' WHERE id = $1", booking_id
     )
 
 
@@ -302,7 +302,7 @@ async def my_bookings(
         """SELECT rb.*, mr.name AS room_name
            FROM room_bookings rb
            JOIN meeting_rooms mr ON mr.id = rb.room_id
-           WHERE rb.user_email = 
+           WHERE rb.user_email = $1
              AND rb.status = 'confirmed'
              AND rb.end_time > NOW()
            ORDER BY rb.start_time""",

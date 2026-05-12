@@ -1,3 +1,4 @@
+from app.core.sanitize import sanitize_html
 """Email identities router — multiple From addresses."""
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, status

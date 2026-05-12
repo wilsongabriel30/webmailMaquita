@@ -1,7 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { api } from '../../api/client';
+
+interface Branding {
+  org_name?: string;
+  org_slogan?: string;
+  primary_color?: string;
+  logo_url?: string;
+  favicon_url?: string;
+  footer_text?: string;
+}
 
 export function LoginPage() {
   const [username, setUsername] = useState('');
@@ -11,8 +20,21 @@ export function LoginPage() {
   const [savedUsername, setSavedUsername] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [brand, setBrand] = useState<Branding>({});
   const navigate = useNavigate();
   const setUser = useAuthStore((s) => s.setUser);
+
+  const color = brand.primary_color || '#0078d4';
+  const orgName = brand.org_name || 'Maquita Mail';
+  const slogan = brand.org_slogan || '';
+  const footerText = brand.footer_text || '';
+
+  useEffect(() => {
+    fetch('/api/branding')
+      .then(r => r.ok ? r.json() : {})
+      .then((b: Branding) => setBrand(b))
+      .catch(() => {});
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,7 +62,6 @@ export function LoginPage() {
         return;
       }
 
-      // Verify session is established before navigating
       const meRes = await fetch('/api/auth/me', { credentials: 'include' });
       const meData = await meRes.json();
       if (meData.user) {
@@ -57,111 +78,153 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-slate-100">
-      <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-xl p-8">
-          {/* Logo / Header */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl mb-4">
-              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-            </div>
-            <h1 className="text-2xl font-bold text-slate-800">Maquita Mail</h1>
-            <p className="text-slate-500 mt-1">
-              {needs2FA ? 'Verificacion en dos pasos' : 'Inicia sesion en tu correo'}
-            </p>
-          </div>
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#faf9f8' }}>
+      {/* Top bar */}
+      <div className="h-12 flex items-center px-6" style={{ backgroundColor: color }}>
+        <svg className="w-5 h-5 text-white mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        </svg>
+        <span className="text-white font-semibold text-sm">{orgName}</span>
+      </div>
 
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {!needs2FA ? (
-              <>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Correo electronico
-                  </label>
-                  <input
-                    type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="usuario@maquita.org"
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
-                    required
-                    autoFocus
-                    autoComplete="username"
-                  />
+      <div className="flex-1 flex items-center justify-center p-4">
+        <div className="w-full max-w-sm">
+          <div className="bg-white rounded shadow-lg p-8" style={{ borderColor: '#edebe9', borderWidth: '1px' }}>
+            {/* Header with logo or icon */}
+            <div className="text-center mb-6">
+              {brand.logo_url ? (
+                <img src={brand.logo_url} alt={orgName}
+                  className="h-16 mx-auto mb-3 object-contain" />
+              ) : (
+                <div className="inline-flex items-center justify-center w-14 h-14 rounded-full mb-3" style={{ backgroundColor: color }}>
+                  {needs2FA ? (
+                    <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  ) : (
+                    <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  )}
                 </div>
+              )}
+              <h1 className="text-xl font-semibold" style={{ color: '#323130' }}>
+                {needs2FA ? 'Verificación en dos pasos' : 'Iniciar sesión'}
+              </h1>
+              <p className="text-sm mt-1" style={{ color: '#605e5c' }}>
+                {needs2FA
+                  ? `Ingresa el código para ${savedUsername || 'tu cuenta'}`
+                  : `Correo electrónico${brand.org_name ? ' de ' + brand.org_name : ''}`}
+              </p>
+            </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Contrasena
-                  </label>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
-                    required
-                    autoComplete="current-password"
-                  />
-                </div>
-              </>
-            ) : (
-              <div>
-                <p className="text-sm text-slate-600 mb-3">
-                  Ingresa el codigo de tu app de autenticacion{savedUsername ? ` para ${savedUsername}` : ''}.
-                </p>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Codigo de verificacion
-                </label>
-                <input
-                  type="text"
-                  value={totpCode}
-                  onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                  placeholder="000000"
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors text-center font-mono text-lg tracking-[0.3em]"
-                  required
-                  autoFocus
-                  maxLength={8}
-                  autoComplete="one-time-code"
-                />
-                <p className="text-xs text-slate-400 mt-1">
-                  Tambien puedes usar un codigo de respaldo
-                </p>
+            {error && (
+              <div className="mb-4 p-3 rounded text-sm flex items-center gap-2" style={{ backgroundColor: '#fde7e9', borderColor: 'rgba(209,52,56,0.3)', borderWidth: '1px', color: '#d13438' }}>
+                <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+                {error}
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Verificando...' : needs2FA ? 'Verificar' : 'Iniciar sesion'}
-            </button>
+            <form onSubmit={handleSubmit}>
+              {!needs2FA ? (
+                <>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium mb-1.5" style={{ color: '#323130' }}>
+                      Correo electrónico
+                    </label>
+                    <input
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      placeholder="usuario@maquita.org"
+                      className="w-full px-3 py-2 rounded text-sm outline-none transition-colors"
+                      style={{ borderColor: '#d2d0ce', borderWidth: '1px', color: '#323130' }}
+                      onFocus={(e) => { e.target.style.borderColor = color; e.target.style.boxShadow = `0 0 0 1px ${color}`; }}
+                      onBlur={(e) => { e.target.style.borderColor = '#d2d0ce'; e.target.style.boxShadow = 'none'; }}
+                      required
+                      autoFocus
+                      autoComplete="username"
+                    />
+                  </div>
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium mb-1.5" style={{ color: '#323130' }}>
+                      Contraseña
+                    </label>
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Ingrese su contraseña"
+                      className="w-full px-3 py-2 rounded text-sm outline-none transition-colors"
+                      style={{ borderColor: '#d2d0ce', borderWidth: '1px', color: '#323130' }}
+                      onFocus={(e) => { e.target.style.borderColor = color; e.target.style.boxShadow = `0 0 0 1px ${color}`; }}
+                      onBlur={(e) => { e.target.style.borderColor = '#d2d0ce'; e.target.style.boxShadow = 'none'; }}
+                      required
+                      autoComplete="current-password"
+                    />
+                  </div>
+                </>
+              ) : (
+                <div className="mb-6">
+                  <label className="block text-sm font-medium mb-1.5" style={{ color: '#323130' }}>
+                    Código de verificación
+                  </label>
+                  <input
+                    type="text"
+                    value={totpCode}
+                    onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                    placeholder="000000"
+                    className="w-full px-3 py-2 rounded text-sm text-center font-mono text-lg tracking-[0.3em] outline-none transition-colors"
+                    style={{ borderColor: '#d2d0ce', borderWidth: '1px', color: '#323130' }}
+                    onFocus={(e) => { e.target.style.borderColor = color; e.target.style.boxShadow = `0 0 0 1px ${color}`; }}
+                    onBlur={(e) => { e.target.style.borderColor = '#d2d0ce'; e.target.style.boxShadow = 'none'; }}
+                    required
+                    autoFocus
+                    maxLength={8}
+                    autoComplete="one-time-code"
+                  />
+                  <p className="text-xs mt-1" style={{ color: '#a19f9d' }}>
+                    También puedes usar un código de respaldo
+                  </p>
+                </div>
+              )}
 
-            {needs2FA && (
               <button
-                type="button"
-                onClick={() => { setNeeds2FA(false); setTotpCode(''); setError(''); }}
-                className="w-full py-2 text-sm text-slate-500 hover:text-slate-700 transition-colors"
+                type="submit"
+                disabled={loading}
+                className="w-full py-2.5 text-white font-medium rounded text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ backgroundColor: color }}
+                onMouseEnter={(e) => { if (!loading) (e.currentTarget).style.opacity = '0.85'; }}
+                onMouseLeave={(e) => { (e.currentTarget).style.opacity = '1'; }}
               >
-                Volver al inicio de sesion
+                {loading ? 'Verificando...' : needs2FA ? 'Verificar' : 'Iniciar sesión'}
               </button>
-            )}
-          </form>
-        </div>
 
-        <p className="text-center text-slate-400 text-sm mt-6">
-          Maquita Comercializando como Hermanos &copy; {new Date().getFullYear()}
-        </p>
+              {needs2FA && (
+                <button
+                  type="button"
+                  onClick={() => { setNeeds2FA(false); setTotpCode(''); setError(''); }}
+                  className="w-full py-2 text-sm mt-2 transition-colors"
+                  style={{ color: '#605e5c' }}
+                  onMouseEnter={(e) => { (e.currentTarget).style.color = '#323130'; }}
+                  onMouseLeave={(e) => { (e.currentTarget).style.color = '#605e5c'; }}
+                >
+                  ← Volver al inicio de sesión
+                </button>
+              )}
+            </form>
+          </div>
+          <p className="text-center text-xs mt-4" style={{ color: '#a19f9d' }}>
+            {footerText || (
+              <>{orgName}{slogan ? ` — ${slogan}` : ''} &middot; {new Date().getFullYear()}</>
+            )}
+          </p>
+        </div>
       </div>
     </div>
   );

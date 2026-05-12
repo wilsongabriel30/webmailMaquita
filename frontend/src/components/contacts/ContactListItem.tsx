@@ -74,7 +74,7 @@ export function ContactListItem({
             fontSize: 14, fontWeight: 600, color: '#323130',
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}>
-            {contact.display_name || '(Sin nombre)'}
+            {(contact.display_name || '(Sin nombre)').replace(/\\,/g, ',')}
           </span>
           {contact.categories?.length > 0 && contact.categories.map(cat => (
             <div key={cat.id} title={cat.name}

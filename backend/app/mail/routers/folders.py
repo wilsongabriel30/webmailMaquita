@@ -1,3 +1,4 @@
+import json
 import logging
 logger = logging.getLogger(__name__)
 """Folders router — list, create, rename, delete, move folders."""
@@ -10,6 +11,7 @@ from app.core.session import get_user_password, get_imap_login_user
 # Los nombres llegan del frontend como UTF-8 (display name) y se convierten con _imap_utf7_encode.
 # Sin esta conversión, carpetas con tildes/ñ/caracteres especiales fallan silenciosamente.
 from app.mail.clients.imap_client import get_imap_connection, _imap_utf7_encode
+from app.mail.clients.imap_pool import get_pooled_imap
 from app.mail.services.folder_service import get_folders
 
 router = APIRouter(prefix="/api/mail", tags=["mail-folders"])
@@ -31,15 +33,18 @@ class FolderMove(BaseModel):
 async def list_folders(request: Request, username: str = Depends(get_current_user)):
     password = await get_user_password(request, username)
     login_user = await get_imap_login_user(request, username)
-    imap = await get_imap_connection(login_user, password)
-    try:
+    # Cache en Redis (30s TTL) — evita N+1 STATUS en cada carga
+    redis = request.app.state.redis
+    cache_key = f"folders:{username}"
+    cached = await redis.get(cache_key)
+    if cached:
+        return json.loads(cached)
+
+    async with get_pooled_imap(login_user, password) as imap:
         folders = await get_folders(imap)
-        return {"folders": folders}
-    finally:
-        try:
-            await imap.logout()
-        except Exception:
-            pass
+        result = {"folders": folders}
+        await redis.set(cache_key, json.dumps(result), ex=30)
+        return result
 
 
 @router.post("/folders")
@@ -51,8 +56,9 @@ async def create_folder(body: FolderCreate, request: Request, username: str = De
         imap_name = _imap_utf7_encode(body.name)
         resp = await imap.create(imap_name)
         if resp.result != "OK":
-            raise HTTPException(status_code=400, detail=f"Failed to create folder: {body.name}")
+            raise HTTPException(status_code=400, detail="Nombre de carpeta no valido")
         await imap.subscribe(imap_name)
+        await request.app.state.redis.delete(f"folders:{username}")
         return {"status": "created", "name": body.name}
     finally:
         try:
@@ -89,6 +95,7 @@ async def rename_folder(folder_name: str, body: FolderRename, request: Request, 
             await imap.subscribe(new_q)
         except Exception:
             pass
+        await request.app.state.redis.delete(f"folders:{username}")
         return {"status": "renamed", "old_name": folder_name, "new_name": body.new_name}
     finally:
         try:
@@ -150,6 +157,7 @@ async def move_folder_named(folder_name: str, body: FolderMove, request: Request
             await imap.subscribe(new_q)
         except Exception:
             pass  # subscribe failure is non-critical
+        await request.app.state.redis.delete(f"folders:{username}")
         return {"status": "moved", "old_name": folder_name, "new_name": new_full_name}
     finally:
         try:
@@ -172,6 +180,7 @@ async def delete_folder(folder_name: str, request: Request, username: str = Depe
         resp = await imap.delete(imap_name)
         if resp.result != "OK":
             raise HTTPException(status_code=400, detail="Failed to delete folder")
+        await request.app.state.redis.delete(f"folders:{username}")
         return {"status": "deleted", "name": folder_name}
     finally:
         try:

@@ -2,7 +2,28 @@
 from datetime import datetime
 from fastapi import APIRouter, Request, Depends, HTTPException
 from app.auth.dependencies import get_current_user
+from app.core.sanitize import strip_html
 from .helpers import ALL_FIELDS, compute_display_name, audit, enrich_contact
+
+# Campos de texto que deben sanitizarse antes de guardar
+_TEXT_FIELDS = (
+    "first_name", "last_name", "nickname", "phone", "organization", "notes",
+    "job_title", "department", "company", "email2", "email3",
+    "phone_mobile", "phone_work", "phone_home", "fax",
+    "address_street", "address_city", "address_state", "address_zip", "address_country",
+    "website", "im_address",
+)
+
+
+def _sanitize_body(body: dict) -> dict:
+    """Aplica strip_html a todos los campos de texto del contacto."""
+    for field in _TEXT_FIELDS:
+        if field in body and isinstance(body[field], str):
+            body[field] = strip_html(body[field])
+    # display_name se computa despues, pero sanitizamos si viene explicito
+    if "display_name" in body and isinstance(body["display_name"], str):
+        body["display_name"] = strip_html(body["display_name"])
+    return body
 
 router = APIRouter(prefix="/api/contacts", tags=["contacts"])
 
@@ -70,13 +91,52 @@ async def list_contacts(
     )
     contacts = [await enrich_contact(db, row) for row in rows]
 
-    return {"contacts": contacts, "total": count, "page": page, "per_page": per_page}
+    # FQA-007: When searching, also include org_contacts (directory) results
+    org_contacts_list = []
+    org_total = 0
+    if search:
+        domain = username.split("@")[1] if "@" in username else username
+        org_rows = await db.fetch(
+            """SELECT id, display_name, email, COALESCE(phone, ) as phone,
+                   department, job_title, directory as source
+            FROM org_contacts
+            WHERE domain = $1 AND (
+                LOWER(display_name) LIKE LOWER($2)
+                OR LOWER(email) LIKE LOWER($2)
+                OR LOWER(COALESCE(department, )) LIKE LOWER($2)
+                OR LOWER(COALESCE(first_name, )) LIKE LOWER($2)
+                OR LOWER(COALESCE(last_name, )) LIKE LOWER($2)
+            )
+            ORDER BY display_name
+            LIMIT $3""",
+            domain, f"%{search}%", per_page
+        )
+        seen_emails = {c.get("email", "").lower() for c in contacts}
+        for row in org_rows:
+            if row["email"].lower() not in seen_emails:
+                org_contacts_list.append({
+                    "id": row["id"],
+                    "display_name": row["display_name"],
+                    "email": row["email"],
+                    "phone": row["phone"],
+                    "department": row["department"],
+                    "job_title": row["job_title"],
+                    "source": "directory",
+                    "is_favorite": False,
+                    "categories": [],
+                })
+                seen_emails.add(row["email"].lower())
+        org_total = len(org_contacts_list)
+
+    all_contacts = contacts + org_contacts_list
+    return {"contacts": all_contacts, "total": count + org_total, "page": page, "per_page": per_page}
 
 
 @router.post("")
 async def create_contact(request: Request, username: str = Depends(get_current_user)):
     """Crea un contacto nuevo. Requiere email. Verifica deduplicación."""
     body = await request.json()
+    body = _sanitize_body(body)
     db = request.app.state.db_pool
     email = body.get("email", "").strip()
     if not email:
@@ -124,6 +184,7 @@ async def create_contact(request: Request, username: str = Depends(get_current_u
 async def update_contact(contact_id: int, request: Request, username: str = Depends(get_current_user)):
     """Actualiza campos de un contacto existente."""
     body = await request.json()
+    body = _sanitize_body(body)
     db = request.app.state.db_pool
 
     existing = await db.fetchrow("SELECT * FROM user_contacts WHERE id=$1 AND owner=$2", contact_id, username)

@@ -1,4 +1,6 @@
 // @ts-nocheck
+import SafeEmailViewer from './SafeEmailViewer';
+import { sanitizeHtml } from '../../lib/sanitize';
 import React, { useState, useCallback } from 'react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -9,6 +11,16 @@ import { AttachmentPreview } from './AttachmentPreview';
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                           */
 /* ------------------------------------------------------------------ */
+
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
 
 const AVATAR_COLORS = [
   '#0078d4', '#00b294', '#e74856', '#8764b8', '#ca5010',
@@ -44,6 +56,18 @@ function formatSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+// Decode \\uXXXX escape sequences in plain text bodies (e.g. from automated emails)
+function decodeUnicodeEscapes(text: string): string {
+  if (!text) return text;
+  // Handle \\uXXXX (literal backslash + u + 4 hex)
+  let result = text.replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+  // Handle &#xXXXX; HTML hex entities
+  result = result.replace(/&#x([0-9a-fA-F]{2,5});/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+  // Handle &#NNNNN; HTML decimal entities
+  result = result.replace(/&#(\d{2,5});/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)));
+  return result;
+}
+
 
 /* ------------------------------------------------------------------ */
 /*  Quote builder for Reply / Forward                                 */
@@ -62,7 +86,7 @@ function buildQuoteHtml(
     ? '<p style="font-weight:bold;margin:0 0 8px">--- Mensaje reenviado ---</p>'
     : '';
 
-  const ccLine = cc ? `<b>CC:</b> ${cc}<br>` : '';
+  const ccLine = cc ? `<b>CC:</b> ${escapeHtml(cc)}<br>` : '';
 
   // Escalar imagenes y tablas de firmas para que no se desborden en compose
   // Bug 2026-04-10: firmas con imagenes grandes ocupaban toda la pantalla
@@ -73,13 +97,13 @@ function buildQuoteHtml(
 <div class="quoted-content" style="border-top:1px solid #edebe9;padding-top:12px;margin-top:20px;max-width:100%;overflow:hidden">
   ${header}
   <p style="font-size:12px;color:#605e5c;margin:0 0 8px">
-    <b>De:</b> ${from}<br>
-    <b>Enviado:</b> ${date}<br>
-    <b>Para:</b> ${to}<br>
+    <b>De:</b> ${escapeHtml(from)}<br>
+    <b>Enviado:</b> ${escapeHtml(date)}<br>
+    <b>Para:</b> ${escapeHtml(to)}<br>
     ${ccLine}
-    <b>Asunto:</b> ${subject}
+    <b>Asunto:</b> ${escapeHtml(subject)}
   </p>
-  <div style="font-size:14px">${htmlBody}</div>
+  <div style="font-size:14px">${sanitizeHtml(htmlBody)}</div>
 </div>`.trim();
 }
 
@@ -103,6 +127,289 @@ const AddToContactBtn: React.FC<{ name: string; email: string }> = ({ name, emai
       style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px', fontSize: 13, color: '#0078d4', fontWeight: 600, marginLeft: 2 }}>
       {status === 'saving' ? '...' : '+'}
     </button>
+  );
+};
+
+
+
+
+
+/* ── Render email addresses with add-to-contacts button ── */
+const EmailsWithContacts: React.FC<{ raw: string }> = ({ raw }) => {
+  if (!raw) return null;
+  // Split by comma, preserve "Name <email>" format
+  const addrs = raw.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map(s => s.trim()).filter(Boolean);
+  return (
+    <span>
+      {addrs.map((addr, i) => {
+        const name = extractName(addr);
+        const email = extractEmail(addr);
+        return (
+          <span key={i}>
+            {i > 0 && ', '}
+            <span>{addr}</span>
+            <AddToContactBtn name={name} email={email} />
+          </span>
+        );
+      })}
+    </span>
+  );
+};
+
+/* ------------------------------------------------------------------ */
+/*  Calendar Invitation Banner (estilo Outlook)                       */
+/* ------------------------------------------------------------------ */
+
+const CalendarInviteBanner: React.FC<{
+  invite: any;
+  folder: string;
+  uid: number;
+}> = ({ invite, folder, uid }) => {
+  const [rsvpStatus, setRsvpStatus] = React.useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+  const [rsvpResponse, setRsvpResponse] = React.useState('');
+
+  const handleRsvp = async (response: string) => {
+    setRsvpStatus('loading');
+    setRsvpResponse(response);
+    try {
+      await api.post(`/mail/message/${encodeURIComponent(folder)}/${uid}/rsvp`, { response });
+      setRsvpStatus('done');
+    } catch {
+      setRsvpStatus('error');
+    }
+  };
+
+  const formatInviteDate = (dtstart: string, dtend: string) => {
+    try {
+      const start = new Date(dtstart);
+      const end = dtend ? new Date(dtend) : null;
+      const dateStr = format(start, "EEEE, d 'de' MMMM 'de' yyyy", { locale: es });
+      const startTime = format(start, 'HH:mm');
+      const endTime = end ? format(end, 'HH:mm') : '';
+      return `${dateStr}, ${startTime}${endTime ? ' - ' + endTime : ''}`;
+    } catch {
+      return dtstart;
+    }
+  };
+
+  const methodLabels: Record<string, { text: string; color: string; bg: string; icon: string }> = {
+    REQUEST: { text: 'Invitacion a reunion', color: '#0078d4', bg: '#deecf9', icon: 'M' },
+    CANCEL: { text: 'Reunion cancelada', color: '#a80000', bg: '#fde7e9', icon: 'X' },
+    REPLY: { text: 'Respuesta a reunion', color: '#498205', bg: '#dff6dd', icon: 'R' },
+  };
+  const methodInfo = methodLabels[invite.method] || methodLabels.REQUEST;
+
+  const roleLabels: Record<string, string> = {
+    'REQ-PARTICIPANT': 'Requerido',
+    'OPT-PARTICIPANT': 'Opcional',
+    'CHAIR': 'Organizador',
+  };
+
+  return (
+    <div style={{
+      margin: '12px 0', border: `1px solid ${methodInfo.color}40`, borderRadius: 8,
+      overflow: 'hidden', background: '#fff',
+    }}>
+      {/* Header bar */}
+      <div style={{
+        background: methodInfo.bg, padding: '10px 16px',
+        display: 'flex', alignItems: 'center', gap: 10, borderBottom: `1px solid ${methodInfo.color}30`,
+      }}>
+        <div style={{
+          width: 36, height: 36, borderRadius: 8, background: methodInfo.color,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: '#fff', fontWeight: 700, fontSize: 16,
+        }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 600, fontSize: 14, color: methodInfo.color }}>{methodInfo.text}</div>
+          <div style={{ fontSize: 18, fontWeight: 600, color: '#323130', marginTop: 2 }}>{invite.summary}</div>
+        </div>
+      </div>
+
+      {/* Event details */}
+      <div style={{ padding: '12px 16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '8px 12px', fontSize: 13, color: '#323130' }}>
+          {/* Cuando */}
+          <div style={{ color: '#605e5c', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#605e5c" strokeWidth="2">
+              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+            Cuando
+          </div>
+          <div>{formatInviteDate(invite.dtstart, invite.dtend)}</div>
+
+          {/* Ubicacion */}
+          {invite.location && (<>
+            <div style={{ color: '#605e5c', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#605e5c" strokeWidth="2">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>
+              </svg>
+              Donde
+            </div>
+            <div>{invite.location}</div>
+          </>)}
+
+          {/* Organizador */}
+          <div style={{ color: '#605e5c', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#605e5c" strokeWidth="2">
+              <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
+            </svg>
+            Organizador
+          </div>
+          <div>{invite.organizer_name ? `${invite.organizer_name} <${invite.organizer}>` : invite.organizer}</div>
+
+          {/* Asistentes */}
+          {invite.attendees && invite.attendees.length > 0 && (<>
+            <div style={{ color: '#605e5c', fontWeight: 600, display: 'flex', alignItems: 'flex-start', gap: 6, paddingTop: 2 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#605e5c" strokeWidth="2">
+                <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
+              </svg>
+              Asistentes
+            </div>
+            <div>
+              {invite.attendees.map((att: any, i: number) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                  <span>{att.name || att.email}</span>
+                  {att.name && att.name !== att.email && (
+                    <span style={{ color: '#a19f9d', fontSize: 11 }}>&lt;{att.email}&gt;</span>
+                  )}
+                  <span style={{
+                    fontSize: 10, padding: '1px 6px', borderRadius: 8,
+                    background: att.role === 'OPT-PARTICIPANT' ? '#f3f2f1' : '#deecf9',
+                    color: att.role === 'OPT-PARTICIPANT' ? '#605e5c' : '#0078d4',
+                  }}>
+                    {roleLabels[att.role] || att.role}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </>)}
+
+          {/* Descripcion */}
+          {invite.description && (<>
+            <div style={{ color: '#605e5c', fontWeight: 600, display: 'flex', alignItems: 'flex-start', gap: 6, paddingTop: 2 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#605e5c" strokeWidth="2">
+                <line x1="17" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/>
+                <line x1="21" y1="14" x2="3" y2="14"/><line x1="17" y1="18" x2="3" y2="18"/>
+              </svg>
+              Nota
+            </div>
+            <div style={{ whiteSpace: 'pre-wrap' }}>{invite.description}</div>
+          </>)}
+        </div>
+      </div>
+
+      {/* RSVP Buttons */}
+      {invite.method === 'REQUEST' && (
+        <div style={{
+          padding: '12px 16px', borderTop: '1px solid #edebe9',
+          display: 'flex', alignItems: 'center', gap: 8, background: '#faf9f8',
+        }}>
+          {rsvpStatus === 'done' ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#498205" strokeWidth="2">
+                <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+              </svg>
+              <span style={{ color: '#498205', fontWeight: 600 }}>
+                {rsvpResponse === 'ACCEPTED' && 'Reunion aceptada - agregada a tu calendario'}
+                {rsvpResponse === 'DECLINED' && 'Reunion rechazada'}
+                {rsvpResponse === 'TENTATIVE' && 'Marcada como tentativa en tu calendario'}
+              </span>
+              {(rsvpResponse === 'ACCEPTED' || rsvpResponse === 'TENTATIVE') && (
+                <a
+                  href="/webmail/calendar"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    padding: '6px 16px', background: '#0078d4', color: '#fff',
+                    border: 'none', borderRadius: 4, fontSize: 13, fontWeight: 600,
+                    textDecoration: 'none', cursor: 'pointer', marginLeft: 8,
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+                    <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                  </svg>
+                  Ver en calendario
+                </a>
+              )}
+            </div>
+          ) : rsvpStatus === 'error' ? (
+            <div style={{ fontSize: 13, color: '#a80000' }}>Error al responder. Intenta de nuevo.</div>
+          ) : (
+            <>
+              <span style={{ fontSize: 12, color: '#605e5c', marginRight: 4 }}>Responder:</span>
+              <button
+                onClick={() => handleRsvp('ACCEPTED')}
+                disabled={rsvpStatus === 'loading'}
+                style={{
+                  background: '#498205', color: '#fff', border: 'none', borderRadius: 4,
+                  padding: '7px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  opacity: rsvpStatus === 'loading' && rsvpResponse === 'ACCEPTED' ? 0.6 : 1,
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                {rsvpStatus === 'loading' && rsvpResponse === 'ACCEPTED' ? 'Aceptando...' : 'Aceptar'}
+              </button>
+              <button
+                onClick={() => handleRsvp('TENTATIVE')}
+                disabled={rsvpStatus === 'loading'}
+                style={{
+                  background: '#fff', color: '#323130', border: '1px solid #8a8886', borderRadius: 4,
+                  padding: '7px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  opacity: rsvpStatus === 'loading' && rsvpResponse === 'TENTATIVE' ? 0.6 : 1,
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>
+                  <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                Tentativo
+              </button>
+              <button
+                onClick={() => handleRsvp('DECLINED')}
+                disabled={rsvpStatus === 'loading'}
+                style={{
+                  background: '#fff', color: '#a80000', border: '1px solid #d2d0ce', borderRadius: 4,
+                  padding: '7px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  opacity: rsvpStatus === 'loading' && rsvpResponse === 'DECLINED' ? 0.6 : 1,
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+                Rechazar
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Cancel notice */}
+      {invite.method === 'CANCEL' && (
+        <div style={{
+          padding: '12px 16px', borderTop: '1px solid #edebe9',
+          display: 'flex', alignItems: 'center', gap: 8, background: '#fde7e9',
+          fontSize: 13, color: '#a80000', fontWeight: 600,
+        }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/>
+            <line x1="9" y1="9" x2="15" y2="15"/>
+          </svg>
+          Esta reunion ha sido cancelada por el organizador
+        </div>
+      )}
+    </div>
   );
 };
 
@@ -235,7 +542,7 @@ const ThreadMessageCard: React.FC<ThreadMessageCardProps> = ({
 
   // First line of text for collapsed view
   const snippet = msg.text_body
-    ? msg.text_body.substring(0, 120).replace(/\n/g, ' ').trim()
+    ? decodeUnicodeEscapes(msg.text_body).substring(0, 120).replace(/\n/g, ' ').trim()
     : msg.snippet || '';
 
   if (!isExpanded) {
@@ -370,20 +677,26 @@ const ThreadMessageCard: React.FC<ThreadMessageCardProps> = ({
         </div>
       )}
 
+      {/* Calendar Invitation */}
+      {msg.calendar_invite && (
+        <div style={{ padding: '0 16px' }}>
+          <CalendarInviteBanner invite={msg.calendar_invite} folder={currentFolder} uid={msg.uid} />
+        </div>
+      )}
+
       {/* Body */}
       <div style={{ padding: '0 16px 14px' }}>
         {msg.html_body ? (
-          <div
-            className="message-html-body"
-            style={{ fontSize: 14, lineHeight: 1.6, color: '#323130', wordBreak: 'break-word' }}
-            dangerouslySetInnerHTML={{ __html: '<style>.message-html-body a { color: #0078d4 !important; text-decoration: underline !important; cursor: pointer !important; }</style>' + msg.html_body }}
+          <SafeEmailViewer
+            htmlBody={msg.html_body}
+            style={{ fontSize: 14, lineHeight: 1.6 }}
           />
         ) : (
           <pre style={{
             margin: 0, fontSize: 14, lineHeight: 1.6, color: '#323130',
             whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'inherit',
           }}>
-            {msg.text_body}
+            {decodeUnicodeEscapes(msg.text_body)}
           </pre>
         )}
       </div>
@@ -396,10 +709,15 @@ const ThreadMessageCard: React.FC<ThreadMessageCardProps> = ({
 /* ------------------------------------------------------------------ */
 
 const MessageView: React.FC = () => {
-  const {
-    selectedMessage: msg, loadingMessage, currentFolder, openCompose,
-    threadMessages, threadExpanded, toggleThreadExpand, loadingThread, viewMode,
-  } = useMailStore();
+  const msg = useMailStore(s => s.selectedMessage);
+  const loadingMessage = useMailStore(s => s.loadingMessage);
+  const currentFolder = useMailStore(s => s.currentFolder);
+  const openCompose = useMailStore(s => s.openCompose);
+  const threadMessages = useMailStore(s => s.threadMessages);
+  const threadExpanded = useMailStore(s => s.threadExpanded);
+  const toggleThreadExpand = useMailStore(s => s.toggleThreadExpand);
+  const loadingThread = useMailStore(s => s.loadingThread);
+  const viewMode = useMailStore(s => s.viewMode);
 
   const [showDetails, setShowDetails] = useState(false);
   const [loadingImages, setLoadingImages] = useState(false);
@@ -486,7 +804,6 @@ const MessageView: React.FC = () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
     const formattedDate = displayMsg.date ? format(new Date(displayMsg.date), "d 'de' MMMM 'de' yyyy, HH:mm", { locale: es }) : '';
-    const body = displayMsg.html_body || `<pre style="white-space:pre-wrap;font-family:inherit">${displayMsg.text_body}</pre>`;
     printWindow.document.write(`<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>${displayMsg.subject}</title>
 <style>body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;max-width:800px;margin:24px auto;color:#323130;font-size:14px}.header{border-bottom:1px solid #edebe9;padding-bottom:16px;margin-bottom:16px}.subject{font-size:20px;font-weight:600;margin:0 0 12px}.meta{font-size:12px;color:#605e5c;line-height:1.6}.body-content img{max-width:100%}@media print{body{margin:0}}</style>
@@ -927,7 +1244,7 @@ const MessageView: React.FC = () => {
               </span>
             </div>
             <div style={{ fontSize: 12, color: '#605e5c', marginTop: 2 }}>
-              Para: {msg.to}
+              Para: <EmailsWithContacts raw={msg.to} />
             </div>
 
             <button
@@ -945,9 +1262,9 @@ const MessageView: React.FC = () => {
                 marginTop: 8, padding: 12, background: '#faf9f8', borderRadius: 4,
                 fontSize: 12, lineHeight: 1.8, color: '#323130',
               }}>
-                <div><b>De:</b> {msg.from}</div>
-                <div><b>Para:</b> {msg.to}</div>
-                {msg.cc && <div><b>CC:</b> {msg.cc}</div>}
+                <div><b>De:</b> <EmailsWithContacts raw={msg.from} /></div>
+                <div><b>Para:</b> <EmailsWithContacts raw={msg.to} /></div>
+                {msg.cc && <div><b>CC:</b> <EmailsWithContacts raw={msg.cc} /></div>}
                 <div><b>Fecha:</b> {fullDate}</div>
                 {msg.message_id && <div><b>ID:</b> <span style={{ wordBreak: 'break-all' }}>{msg.message_id}</span></div>}
                 {msg.importance && msg.importance.toLowerCase() !== 'normal' && (
@@ -1055,20 +1372,26 @@ const MessageView: React.FC = () => {
         </div>
       )}
 
+      {/* Calendar Invitation Banner */}
+      {displayMsg!.calendar_invite && (
+        <div style={{ padding: '0 24px' }}>
+          <CalendarInviteBanner invite={displayMsg!.calendar_invite} folder={currentFolder} uid={msg.uid} />
+        </div>
+      )}
+
       {/* Body */}
       <div style={{ flex: 1, overflow: 'auto', padding: '16px 24px' }}>
         {displayMsg!.html_body ? (
-          <div
-            className="message-html-body"
-            style={{ fontSize: 14, lineHeight: 1.6, color: '#323130', wordBreak: 'break-word' }}
-            dangerouslySetInnerHTML={{ __html: '<style>.message-html-body a { color: #0078d4 !important; text-decoration: underline !important; cursor: pointer !important; } .message-html-body a:hover { color: #106ebe !important; text-decoration: underline !important; }</style>' + displayMsg!.html_body }}
+          <SafeEmailViewer
+            htmlBody={displayMsg!.html_body}
+            style={{ fontSize: 14, lineHeight: 1.6 }}
           />
         ) : (
           <pre style={{
             margin: 0, fontSize: 14, lineHeight: 1.6, color: '#323130',
             whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'inherit',
           }}>
-            {displayMsg!.text_body}
+            {decodeUnicodeEscapes(displayMsg!.text_body)}
           </pre>
         )}
       </div>

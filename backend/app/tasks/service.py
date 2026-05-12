@@ -1,5 +1,6 @@
 """TaskService — all DB operations with Microsoft To Do style + backward compat."""
 from __future__ import annotations
+from app.core.sanitize import strip_html, sanitize_html
 
 import json
 import uuid
@@ -246,9 +247,9 @@ class TaskService:
             """INSERT INTO task_cards (list_id, title, description, due_date, priority, labels, position,
                assigned_to, created_by, important, my_day, reminder, note, recurrence)
                VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *""",
-            list_id, data.title, data.description, data.due_date,
+            list_id, strip_html(data.title), sanitize_html(data.description or ''), data.due_date,
             data.priority, json.dumps(data.labels), max_pos + 1,
-            data.assigned_to, user, data.important, data.my_day, data.reminder, data.note,
+            data.assigned_to, user, data.important, data.my_day, data.reminder, sanitize_html(data.note or ''),
             getattr(data, "recurrence", None))
         board_id = await self._get_board_id_for_list(db, list_id)
         if board_id:

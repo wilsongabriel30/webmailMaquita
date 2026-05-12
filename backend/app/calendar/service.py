@@ -1,7 +1,29 @@
 """CalendarService — dual-write to Radicale + PostgreSQL."""
 from __future__ import annotations
 
+from app.core.sanitize import strip_html, sanitize_html
+
 import json
+
+
+def _merge_attendees(data):
+    """Merge required and optional attendees into a single list with roles."""
+    attendees = []
+    req = getattr(data, "attendees", []) or []
+    opt = getattr(data, "optional_attendees", []) or []
+    for a in req:
+        if isinstance(a, str):
+            attendees.append({"email": a, "role": "REQ-PARTICIPANT"})
+        elif isinstance(a, dict):
+            a.setdefault("role", "REQ-PARTICIPANT")
+            attendees.append(a)
+    for a in opt:
+        if isinstance(a, str):
+            attendees.append({"email": a, "role": "OPT-PARTICIPANT"})
+        elif isinstance(a, dict):
+            a["role"] = "OPT-PARTICIPANT"
+            attendees.append(a)
+    return attendees
 import logging
 import uuid
 from datetime import datetime, timedelta
@@ -257,7 +279,7 @@ class CalendarService:
         # Build iCal
         event_dict = {
             "uid": uid,
-            "summary": data.summary,
+            "summary": strip_html(data.summary),
             "description": data.description,
             "location": data.location,
             "dtstart": data.dtstart,
@@ -268,7 +290,7 @@ class CalendarService:
             "transparency": "OPAQUE",
             "timezone": data.timezone,
             "reminders": data.reminders,
-            "attendees": data.attendees,
+            "attendees": _merge_attendees(data),
         }
         vcal_str = build_vcalendar(event_dict)
 
@@ -315,7 +337,7 @@ class CalendarService:
             calendar_name=cal["name"],
             timezone=row["timezone"] or "America/Guayaquil",
             reminders=data.reminders,
-            attendees=data.attendees,
+            attendees=_merge_attendees(data),
         )
 
     async def list_events(
@@ -399,11 +421,19 @@ class CalendarService:
         if not updates:
             return _row_to_event(existing)
 
+        # Sanitize text fields
+        if "summary" in updates:
+            updates["summary"] = strip_html(updates["summary"])
+        if "description" in updates:
+            updates["description"] = sanitize_html(updates["description"] or "")
+
         # Build SET clause
         set_clauses = []
         params = []
         idx = 3
         for key, val in updates.items():
+            if key == "optional_attendees":
+                continue  # handled below with attendees
             if key in ("reminders", "attendees"):
                 set_clauses.append(f"{key} = ${idx}::jsonb")
                 params.append(json.dumps(val))

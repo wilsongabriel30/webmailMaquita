@@ -9,6 +9,7 @@ from datetime import datetime
 from fastapi import APIRouter, Request, HTTPException
 
 from app.auth.dependencies import get_current_user
+from app.core.session import get_user_password
 
 logger = logging.getLogger("security.scanner")
 
@@ -118,10 +119,7 @@ async def scan_attachment(request: Request, message_id: str, filename: str):
 
     # Fetch attachment via IMAP
     from app.mail.clients.imap_client import get_imap_connection
-    redis = request.app.state.redis
-    password = await redis.get(f"imap_pass:{user}")
-    if not password:
-        raise HTTPException(401, "Sesion expirada")
+    password = await get_user_password(request, user)
 
     imap = await get_imap_connection(user, password)
     try:

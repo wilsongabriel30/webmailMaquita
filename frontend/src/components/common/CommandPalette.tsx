@@ -122,7 +122,7 @@ export function CommandPalette() {
   const contactTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const navigate = useNavigate();
 
-  const mailStore = useMailStore();
+  const mailStore = useMailStore; // use .getState() for actions only
   const themeStore = useThemeStore();
 
   /* ---------- build commands list ---------- */
@@ -133,7 +133,7 @@ export function CommandPalette() {
       {
         id: 'new-mail', label: 'Nuevo correo', category: 'Correo',
         icon: ICONS.compose, shortcut: 'N',
-        action: () => { mailStore.openCompose('new'); close(); },
+        action: () => { mailStore.getState().openCompose('new'); close(); },
         keywords: 'componer escribir redactar nuevo',
       },
       {
@@ -159,25 +159,25 @@ export function CommandPalette() {
       {
         id: 'nav-inbox', label: 'Bandeja de entrada', category: 'Navegar',
         icon: ICONS.inbox,
-        action: () => { mailStore.setCurrentFolder('INBOX'); navigate('/'); close(); },
+        action: () => { mailStore.getState().setCurrentFolder('INBOX'); navigate('/'); close(); },
         keywords: 'inbox bandeja entrada',
       },
       {
         id: 'nav-sent', label: 'Enviados', category: 'Navegar',
         icon: ICONS.sent,
-        action: () => { mailStore.setCurrentFolder('Sent'); navigate('/'); close(); },
+        action: () => { mailStore.getState().setCurrentFolder('Sent'); navigate('/'); close(); },
         keywords: 'enviados sent',
       },
       {
         id: 'nav-drafts', label: 'Borradores', category: 'Navegar',
         icon: ICONS.drafts,
-        action: () => { mailStore.setCurrentFolder('Drafts'); navigate('/'); close(); },
+        action: () => { mailStore.getState().setCurrentFolder('Drafts'); navigate('/'); close(); },
         keywords: 'borradores drafts',
       },
       {
         id: 'nav-trash', label: 'Papelera', category: 'Navegar',
         icon: ICONS.trash,
-        action: () => { mailStore.setCurrentFolder('Trash'); navigate('/'); close(); },
+        action: () => { mailStore.getState().setCurrentFolder('Trash'); navigate('/'); close(); },
         keywords: 'papelera trash basura',
       },
       {
@@ -260,7 +260,7 @@ export function CommandPalette() {
       {
         id: 'select-all', label: 'Seleccionar todos', category: 'Acciones',
         icon: ICONS.selectAll, shortcut: 'Ctrl+A',
-        action: () => { mailStore.selectAll(); close(); },
+        action: () => { mailStore.getState().selectAll(); close(); },
         keywords: 'seleccionar todos select all',
       },
 
@@ -274,37 +274,37 @@ export function CommandPalette() {
       {
         id: 'pane-right', label: 'Panel de lectura: Derecha', category: 'Vista',
         icon: ICONS.layout,
-        action: () => { mailStore.setReadingPane('right'); close(); },
+        action: () => { mailStore.getState().setReadingPane('right'); close(); },
         keywords: 'panel lectura derecha right',
       },
       {
         id: 'pane-bottom', label: 'Panel de lectura: Abajo', category: 'Vista',
         icon: ICONS.layout,
-        action: () => { mailStore.setReadingPane('bottom'); close(); },
+        action: () => { mailStore.getState().setReadingPane('bottom'); close(); },
         keywords: 'panel lectura abajo bottom',
       },
       {
         id: 'pane-off', label: 'Panel de lectura: Oculto', category: 'Vista',
         icon: ICONS.layout,
-        action: () => { mailStore.setReadingPane('off'); close(); },
+        action: () => { mailStore.getState().setReadingPane('off'); close(); },
         keywords: 'panel lectura oculto off hidden',
       },
       {
         id: 'density-compact', label: 'Densidad: Compacta', category: 'Vista',
         icon: ICONS.density,
-        action: () => { mailStore.setDensity('compact'); close(); },
+        action: () => { mailStore.getState().setDensity('compact'); close(); },
         keywords: 'densidad compacta compact',
       },
       {
         id: 'density-medium', label: 'Densidad: Media', category: 'Vista',
         icon: ICONS.density,
-        action: () => { mailStore.setDensity('medium'); close(); },
+        action: () => { mailStore.getState().setDensity('medium'); close(); },
         keywords: 'densidad media medium',
       },
       {
         id: 'density-full', label: 'Densidad: Completa', category: 'Vista',
         icon: ICONS.density,
-        action: () => { mailStore.setDensity('full'); close(); },
+        action: () => { mailStore.getState().setDensity('full'); close(); },
         keywords: 'densidad completa full',
       },
 
@@ -427,7 +427,7 @@ export function CommandPalette() {
   const executeContact = useCallback(
     (c: ContactResult) => {
       setOpen(false);
-      mailStore.openCompose('new', {
+      mailStore.getState().openCompose('new', {
         to: [c.email],
         subject: '',
         text_body: '',

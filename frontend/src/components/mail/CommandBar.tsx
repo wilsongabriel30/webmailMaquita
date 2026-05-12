@@ -2,10 +2,15 @@ import { useMailStore } from '../../store/mailStore';
 import { api } from '../../api/client';
 
 export function CommandBar() {
-  const {
-    currentFolder, searchQuery, setSearchQuery, filter, setFilter,
-    selectedUids, clearSelection, messages, selectAll,
-  } = useMailStore();
+  const currentFolder = useMailStore(s => s.currentFolder);
+  const searchQuery = useMailStore(s => s.searchQuery);
+  const setSearchQuery = useMailStore(s => s.setSearchQuery);
+  const filter = useMailStore(s => s.filter);
+  const setFilter = useMailStore(s => s.setFilter);
+  const selectedUids = useMailStore(s => s.selectedUids);
+  const clearSelection = useMailStore(s => s.clearSelection);
+  const messages = useMailStore(s => s.messages);
+  const selectAll = useMailStore(s => s.selectAll);
 
   const hasSelection = selectedUids.size > 0;
   const allSelected = messages.length > 0 && selectedUids.size === messages.length;

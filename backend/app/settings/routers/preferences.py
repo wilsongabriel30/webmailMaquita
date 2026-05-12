@@ -61,9 +61,13 @@ async def get_settings(request: Request, username: str = Depends(get_current_use
         "SELECT * FROM user_preferences WHERE username = $1", username
     )
     if row:
-        return dict(row)
+        result = dict(row)
+        # Fallback: if display_name is empty, use email local part
+        if not result.get("display_name"):
+            result["display_name"] = username.split("@")[0].replace(".", " ").title()
+        return result
     # Return defaults
-    return UserSettings(display_name=username.split("@")[0]).model_dump()
+    return UserSettings(display_name=username.split("@")[0].replace(".", " ").title()).model_dump()
 
 
 @router.put("")
@@ -100,7 +104,13 @@ async def get_signature(request: Request, username: str = Depends(get_current_us
         "SELECT * FROM user_signatures WHERE owner = $1 AND is_default = true LIMIT 1", username
     )
     if sig_row:
-        return {"display_name": username.split("@")[0], "signature_html": sig_row["html_content"]}
+        # Get real display_name from preferences
+        pref_row = await db.fetchrow(
+            "SELECT display_name FROM user_preferences WHERE username = $1", username
+        )
+        dn = (pref_row["display_name"] if pref_row and pref_row["display_name"]
+              else username.split("@")[0].replace(".", " ").title())
+        return {"display_name": dn, "signature_html": sig_row["html_content"]}
     # Fallback to legacy user_preferences
     row = await db.fetchrow(
         "SELECT display_name, signature_html FROM user_preferences WHERE username = $1", username

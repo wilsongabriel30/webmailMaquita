@@ -229,6 +229,14 @@ async def apply_suggestion(request: Request, contact_id: int, suggestion_id: int
     db = request.app.state.db_pool
     user = username
 
+    # Verificar ownership del contacto
+    owns = await db.fetchval(
+        "SELECT 1 FROM user_contacts WHERE id = $1 AND owner = $2",
+        contact_id, user
+    )
+    if not owns:
+        raise HTTPException(403, "No tiene acceso a este contacto")
+
     sug = await db.fetchrow(
         """SELECT * FROM contact_signature_data
            WHERE id=$1 AND contact_id=$2""",
@@ -266,6 +274,14 @@ async def dismiss_suggestion(request: Request, contact_id: int, suggestion_id: i
     """Descartar una sugerencia."""
     db = request.app.state.db_pool
     user = username
+
+    # Verificar ownership del contacto
+    owns = await db.fetchval(
+        "SELECT 1 FROM user_contacts WHERE id = $1 AND owner = $2",
+        contact_id, user
+    )
+    if not owns:
+        raise HTTPException(403, "No tiene acceso a este contacto")
 
     await db.execute(
         "UPDATE contact_signature_data SET status='dismissed' WHERE id=$1 AND contact_id=$2",

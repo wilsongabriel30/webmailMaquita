@@ -28,6 +28,8 @@ async def import_vcard_file(request: Request, file: UploadFile = File(...), user
         raise HTTPException(422, "El archivo debe ser .vcf (vCard)")
 
     content = await file.read()
+    if len(content) > 10_000_000:  # 10MB max
+        raise HTTPException(413, "Archivo demasiado grande (max 10MB)")
     try:
         text = content.decode('utf-8')
     except UnicodeDecodeError:
@@ -178,6 +180,8 @@ async def import_linkedin(request: Request, file: UploadFile = File(...), userna
     import io
 
     content = await file.read()
+    if len(content) > 10_000_000:  # 10MB max
+        raise HTTPException(413, "Archivo demasiado grande (max 10MB)")
     try:
         text = content.decode('utf-8-sig')
     except UnicodeDecodeError:

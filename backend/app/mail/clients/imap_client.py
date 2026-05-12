@@ -5,6 +5,7 @@ No business logic: the service layer orchestrates with parsers.
 """
 import aioimaplib
 import re
+import json
 
 from app.config import get_settings
 
@@ -118,12 +119,16 @@ async def get_imap_connection(username: str, password: str) -> aioimaplib.IMAP4:
 
 
 async def list_folders(imap: aioimaplib.IMAP4) -> list[dict]:
-    """List all IMAP folders with unseen counts."""
+    """List all IMAP folders with unseen counts.
+
+    Optimized: first collects all folder names, then batches STATUS calls.
+    """
     resp = await imap.list('""', "*")
     if resp.result != "OK":
         return []
 
-    folders = []
+    # Phase 1: parse folder names (no IMAP calls)
+    parsed = []
     for line in _decode_lines(resp.lines):
         if not line or line.endswith("completed."):
             continue
@@ -135,26 +140,32 @@ async def list_folders(imap: aioimaplib.IMAP4) -> list[dict]:
             name = name.strip('"').strip()
             if not name:
                 continue
-            unseen = 0
-            try:
-                status_resp = await imap.status(_quote_folder(name), "(UNSEEN MESSAGES)")
-                if status_resp.result == "OK":
-                    for sline in _decode_lines(status_resp.lines):
-                        m = re.search(r"UNSEEN\s+(\d+)", sline)
-                        if m:
-                            unseen = int(m.group(1))
-            except Exception:
-                pass
             flags = [f.strip() for f in flags_str.split("\\") if f.strip()]
             display = _imap_utf7_decode(name)
-            folders.append({
+            parsed.append({
                 "name": display,
                 "imap_name": name,
                 "delimiter": delimiter,
                 "flags": flags,
-                "unseen": unseen,
+                "unseen": 0,
             })
-    return folders
+
+    # Phase 2: batch STATUS calls — still serial (single IMAP conn)
+    # but skip non-selectable folders (\\Noselect flag)
+    for folder in parsed:
+        if "Noselect" in folder["flags"]:
+            continue
+        try:
+            status_resp = await imap.status(_quote_folder(folder["imap_name"]), "(UNSEEN MESSAGES)")
+            if status_resp.result == "OK":
+                for sline in _decode_lines(status_resp.lines):
+                    m = re.search(r"UNSEEN\s+(\d+)", sline)
+                    if m:
+                        folder["unseen"] = int(m.group(1))
+        except Exception:
+            pass
+
+    return parsed
 
 
 async def list_message_uids(
@@ -163,8 +174,14 @@ async def list_message_uids(
     page: int = 1,
     per_page: int = 50,
     search_query: str = "",
+    redis=None,
+    username: str = "",
 ) -> dict:
-    """List message UIDs with pagination (newest first)."""
+    """List message UIDs with pagination (newest first).
+    
+    FQA-002: Redis caching for sorted UIDs (60s TTL) to avoid
+    repeated IMAP SORT on large folders like Sent (7k+ messages).
+    """
     resp = await imap.select(_quote_folder(folder))
     if resp.result != "OK":
         return {"uids": [], "total": 0, "page": page, "per_page": per_page, "folder_error": True}
@@ -177,28 +194,49 @@ async def list_message_uids(
         criteria = ["ALL"]
 
     all_uids = []
-    if use_sort:
-        try:
-            sort_resp = await imap.uid("sort", "(REVERSE DATE)", "UTF-8", *criteria)
-            if sort_resp.result == "OK":
-                for line in _decode_lines(sort_resp.lines):
-                    line = line.strip()
-                    if line and not line.endswith("completed."):
-                        all_uids.extend(int(x) for x in line.split() if x.isdigit())
-            else:
-                use_sort = False
-        except Exception:
-            use_sort = False
 
-    if not use_sort:
-        search_resp = await imap.uid_search(*criteria)
-        if search_resp.result != "OK":
-            return {"uids": [], "total": 0, "page": page, "per_page": per_page}
-        for line in _decode_lines(search_resp.lines):
-            line = line.strip()
-            if line and not line.endswith("completed."):
-                all_uids.extend(int(x) for x in line.split() if x.isdigit())
-        all_uids.sort(reverse=True)
+    # FQA-002: Try Redis cache for sorted UIDs (avoids 25s+ IMAP SORT on large folders)
+    cache_key = ""
+    if redis and username:
+        cache_key = f"uids:{username}:{folder}:{search_query}"
+        try:
+            cached = await redis.get(cache_key)
+            if cached:
+                all_uids = json.loads(cached)
+        except Exception:
+            pass
+
+    if not all_uids:
+        if use_sort:
+            try:
+                sort_resp = await imap.uid("sort", "(REVERSE DATE)", "UTF-8", *criteria)
+                if sort_resp.result == "OK":
+                    for line in _decode_lines(sort_resp.lines):
+                        line = line.strip()
+                        if line and not line.endswith("completed."):
+                            all_uids.extend(int(x) for x in line.split() if x.isdigit())
+                else:
+                    use_sort = False
+            except Exception:
+                use_sort = False
+
+        if not use_sort:
+            search_resp = await imap.uid_search(*criteria)
+            if search_resp.result != "OK":
+                return {"uids": [], "total": 0, "page": page, "per_page": per_page}
+            for line in _decode_lines(search_resp.lines):
+                line = line.strip()
+                if line and not line.endswith("completed."):
+                    all_uids.extend(int(x) for x in line.split() if x.isdigit())
+            all_uids.sort(reverse=True)
+
+        # FQA-002: Cache sorted UIDs in Redis for 60s
+        if redis and username and cache_key and all_uids:
+            try:
+                await redis.set(cache_key, json.dumps(all_uids), ex=60)
+            except Exception:
+                pass
+
     total = len(all_uids)
     start_idx = (page - 1) * per_page
     end_idx = start_idx + per_page

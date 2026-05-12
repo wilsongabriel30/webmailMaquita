@@ -1,3 +1,4 @@
+import { sanitizeHtml } from '../../lib/sanitize';
 import { useState, useEffect } from 'react';
 import { api } from '../../api/client';
 
@@ -87,7 +88,7 @@ export function DisclaimerManager() {
                   </span>
                 </div>
                 <div className="text-xs text-slate-500 bg-slate-50 p-2 rounded font-mono max-h-20 overflow-auto"
-                  dangerouslySetInnerHTML={{ __html: d.html_footer }} />
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(d.html_footer || '') }} />
               </div>
               <button onClick={() => remove(d.domain)} className="ml-4 text-red-500 hover:text-red-700 text-sm">Eliminar</button>
             </div>

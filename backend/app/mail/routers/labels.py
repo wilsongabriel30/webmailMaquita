@@ -100,10 +100,10 @@ async def update_label(label_id: int, body: LabelUpdate, request: Request, usern
     if not existing:
         raise HTTPException(status_code=404, detail="Label not found")
     if body.name is not None:
-        await db.execute("UPDATE user_labels SET name = $1 WHERE id = $2", body.name.strip(), label_id)
+        await db.execute("UPDATE user_labels SET name = $1 WHERE id = $2 AND owner = $3", body.name.strip(), label_id, username)
     if body.color is not None:
-        await db.execute("UPDATE user_labels SET color = $1 WHERE id = $2", body.color, label_id)
-    row = await db.fetchrow("SELECT id, name, color FROM user_labels WHERE id = $1", label_id)
+        await db.execute("UPDATE user_labels SET color = $1 WHERE id = $2 AND owner = $3", body.color, label_id, username)
+    row = await db.fetchrow("SELECT id, name, color FROM user_labels WHERE id = $1 AND owner = $2", label_id, username)
     return {"id": row["id"], "name": row["name"], "color": row["color"]}
 
 

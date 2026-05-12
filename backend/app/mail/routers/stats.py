@@ -1,3 +1,4 @@
+import json
 """Stats router — mailbox statistics for the sidebar widget."""
 import re
 import logging
@@ -8,6 +9,7 @@ from fastapi import APIRouter, Request, Depends
 from app.auth.dependencies import get_current_user
 from app.core.session import get_user_password, get_imap_login_user
 from app.mail.clients.imap_client import get_imap_connection, _quote_folder
+from app.mail.clients.imap_pool import get_pooled_imap
 
 logger = logging.getLogger(__name__)
 
@@ -161,10 +163,16 @@ async def _get_top_senders(imap, limit: int = 5) -> list[dict]:
 
 @router.get("/stats")
 async def get_mail_stats(request: Request, username: str = Depends(get_current_user)):
+    # Cache en Redis (60s TTL) — stats no cambian segundo a segundo
+    redis = request.app.state.redis
+    cache_key = f"stats:{username}"
+    cached = await redis.get(cache_key)
+    if cached:
+        return json.loads(cached)
+
     password = await get_user_password(request, username)
     login_user = await get_imap_login_user(request, username)
-    imap = await get_imap_connection(login_user, password)
-    try:
+    async with get_pooled_imap(login_user, password) as imap:
         # Folder stats
         inbox_status = await _get_folder_status(imap, "INBOX")
         drafts_status = await _get_folder_status(imap, "Drafts")
@@ -189,7 +197,7 @@ async def get_mail_stats(request: Request, username: str = Depends(get_current_u
         # Top senders
         top_senders = await _get_top_senders(imap, limit=5)
 
-        return {
+        result = {
             "inbox_total": inbox_status["messages"],
             "inbox_unread": inbox_status["unseen"],
             "sent_total": sent_status["messages"],
@@ -202,8 +210,5 @@ async def get_mail_stats(request: Request, username: str = Depends(get_current_u
             "storage_limit_mb": storage_limit_mb,
             "top_senders": top_senders,
         }
-    finally:
-        try:
-            await imap.logout()
-        except Exception:
-            pass
+        await redis.set(cache_key, json.dumps(result), ex=60)
+        return result

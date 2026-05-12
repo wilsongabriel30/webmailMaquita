@@ -47,7 +47,8 @@ export function useWebSocket(enabled: boolean = true) {
   }, []);
 
   const connect = useCallback(() => {
-    if (!mountedRef.current || wsRef.current?.readyState === WebSocket.OPEN) return;
+    if (!mountedRef.current) return;
+    if (wsRef.current?.readyState === WebSocket.OPEN || wsRef.current?.readyState === WebSocket.CONNECTING) return;
 
     try {
       const ws = new WebSocket(WS_URL);
@@ -173,19 +174,27 @@ export function useWebSocket(enabled: boolean = true) {
   useEffect(() => {
     mountedRef.current = true;
     if (enabled) {
-      connect();
+      // Small delay to ensure auth cookies are set after login
+      const initTimer = setTimeout(() => {
+        connect();
+      }, 1000);
       // Request notification permission once
       if (Notification.permission === 'default') {
         Notification.requestPermission().catch(() => {});
       }
+      return () => {
+        clearTimeout(initTimer);
+        mountedRef.current = false;
+        if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
+        if (wsRef.current) {
+          wsRef.current.close(1000);
+          wsRef.current = null;
+        }
+      };
     }
     return () => {
       mountedRef.current = false;
-      if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
-      if (wsRef.current) {
-        wsRef.current.close(1000);
-        wsRef.current = null;
-      }
     };
-  }, [enabled, connect]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled]);
 }

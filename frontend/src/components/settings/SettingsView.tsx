@@ -52,10 +52,12 @@ export function SettingsView() {
   // Vacation (Sieve)
   const [vacation, setVacation] = useState<VacationSettings>({ enabled: false, subject: '', body: '', start_date: '', end_date: '' });
   const [vacationLoading, setVacationLoading] = useState(false);
+  const [vacationLoaded, setVacationLoaded] = useState(false);
 
   // Filters (Sieve)
   const [filters, setFilters] = useState<FilterRule[]>([]);
   const [filtersLoading, setFiltersLoading] = useState(false);
+  const [filtersLoaded, setFiltersLoaded] = useState(false);
   const [newFilter, setNewFilter] = useState<FilterRule>({ name: '', condition: { field: 'from', operator: 'contains', value: '' }, action: { type: 'move', value: '' } });
   const [showAddFilter, setShowAddFilter] = useState(false);
   const [editingFilter, setEditingFilter] = useState<number | null>(null);
@@ -85,20 +87,21 @@ export function SettingsView() {
         setFilters(arr);
       })
       .catch(() => setFilters([]))
-      .finally(() => setFiltersLoading(false));
+      .finally(() => { setFiltersLoading(false); setFiltersLoaded(true); });
   };
 
   useEffect(() => {
-    if (tab === 'autoreply') {
+    if (tab === 'autoreply' && !vacationLoaded) {
       setVacationLoading(true);
       api.get<VacationSettings>('/sieve/vacation')
-        .then(setVacation)
+        .then(v => { setVacation(v); setVacationLoaded(true); })
         .catch(() => {})
         .finally(() => setVacationLoading(false));
     }
-    if (tab === 'filters') {
+    if (tab === 'filters' && !filtersLoaded) {
       fetchFilters();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
   const handleSave = async () => {
@@ -400,8 +403,8 @@ export function SettingsView() {
                 )}
                 {!vacation.enabled && (
                   <button onClick={handleSaveVacation} disabled={saving}
-                    className="px-4 py-1.5 bg-[#0078d4] text-white text-sm rounded hover:bg-[#106ebe] disabled:opacity-50">
-                    Desactivar respuesta automática
+                    className="px-4 py-1.5 bg-[#605e5c] text-white text-sm rounded hover:bg-[#484644] disabled:opacity-50">
+                    {saving ? 'Guardando...' : 'Respuesta automática desactivada'}
                   </button>
                 )}
               </>

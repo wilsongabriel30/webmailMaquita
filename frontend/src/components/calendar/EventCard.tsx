@@ -41,7 +41,7 @@ export function EventCard({ event, onClick, compact, style }: Props) {
           e.stopPropagation();
           onClick(event);
         }}
-        onMouseEnter={() => setShowTooltip(true)}
+        onMouseEnter={() => { setShowTooltip(true); setTimeout(() => setShowTooltip(false), 4000); }}
         onMouseLeave={() => setShowTooltip(false)}
         style={{
           borderLeft: `3px solid ${color}`,
@@ -84,7 +84,7 @@ export function EventCard({ event, onClick, compact, style }: Props) {
         e.stopPropagation();
         onClick(event);
       }}
-      onMouseEnter={() => setShowTooltip(true)}
+      onMouseEnter={() => { setShowTooltip(true); setTimeout(() => setShowTooltip(false), 4000); }}
       onMouseLeave={() => setShowTooltip(false)}
       style={{
         backgroundColor: color,

@@ -14,7 +14,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user, require_admin
-from app.auth.jwt import create_access_token, create_refresh_token, hash_refresh_token
+from app.auth.jwt import create_access_token, create_refresh_token
 from app.config import get_settings
 
 router = APIRouter(prefix="/api/sso", tags=["sso"])
@@ -135,6 +135,23 @@ async def saml_acs(request: Request):
     except Exception as exc:
         raise HTTPException(400, f"SAMLResponse invalido: {exc}")
 
+    # ── Verify SAML XML signature (critical: prevents auth bypass) ──
+    cfg = await db.fetchrow(
+        "SELECT certificate FROM sso_config WHERE is_active = true LIMIT 1"
+    )
+    if not cfg or not cfg["certificate"]:
+        raise HTTPException(500, "SSO: No hay certificado IdP configurado para verificar firma")
+
+    try:
+        from signxml import XMLVerifier
+        from lxml import etree as lxml_etree
+
+        idp_cert_pem = cfg["certificate"]
+        lxml_root = lxml_etree.fromstring(saml_xml)
+        XMLVerifier().verify(lxml_root, x509_cert=idp_cert_pem)
+    except Exception as sig_exc:
+        raise HTTPException(403, f"Firma SAML invalida: {sig_exc}")
+
     # Extract NameID (email)
     ns = {
         "saml": "urn:oasis:names:tc:SAML:2.0:assertion",
@@ -163,12 +180,11 @@ async def saml_acs(request: Request):
 
     # Create JWT session
     access_token = create_access_token(email)
-    refresh_token = create_refresh_token(email)
-    hashed = hash_refresh_token(refresh_token)
+    refresh_raw, refresh_hash = create_refresh_token()
     await db.execute(
         "INSERT INTO refresh_tokens (username, token_hash, expires_at) "
         "VALUES ($1, $2, NOW() + interval '7 days')",
-        email, hashed,
+        email, refresh_hash,
     )
 
     # Set flag so frontend knows this is SSO session
@@ -182,7 +198,7 @@ async def saml_acs(request: Request):
         domain=settings.cookie_domain, max_age=settings.access_token_expire_minutes * 60,
     )
     response.set_cookie(
-        "refresh_token", refresh_token,
+        "refresh_token", refresh_raw,
         httponly=True, secure=True, samesite="lax",
         domain=settings.cookie_domain, path="/api/auth/refresh",
         max_age=settings.refresh_token_expire_days * 86400,

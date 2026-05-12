@@ -14,7 +14,7 @@ from fastapi.responses import StreamingResponse
 
 from app.auth.dependencies import get_current_user
 from app.mail.clients.imap_client import get_imap_connection, fetch_raw_message
-from app.core.session import get_imap_login_user
+from app.core.session import get_imap_login_user, get_user_password
 
 logger = logging.getLogger(__name__)
 MAX_EXPORT_LIMIT = 200  # Max messages per export to prevent abuse
@@ -56,10 +56,7 @@ async def export_mbox(
     limit = min(limit, MAX_EXPORT_LIMIT)
     from app.mail.clients.imap_client import list_message_uids
 
-    redis = request.app.state.redis
-    password = await redis.get(f"imap_pass:{user}")
-    if not password:
-        raise HTTPException(status_code=401, detail="Sesión IMAP expirada")
+    password = await get_user_password(request, user)
 
     login_user = await get_imap_login_user(request, user)
     imap = await get_imap_connection(login_user, password)
@@ -166,10 +163,7 @@ async def export_eml_batch(
     if len(uid_list) > 50:
         raise HTTPException(status_code=400, detail="Máximo 50 mensajes por exportación EML")
 
-    redis = request.app.state.redis
-    password = await redis.get(f"imap_pass:{user}")
-    if not password:
-        raise HTTPException(status_code=401, detail="Sesión IMAP expirada")
+    password = await get_user_password(request, user)
 
     login_user = await get_imap_login_user(request, user)
     imap = await get_imap_connection(login_user, password)

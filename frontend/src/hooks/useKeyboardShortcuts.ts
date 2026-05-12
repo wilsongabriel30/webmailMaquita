@@ -2,6 +2,17 @@ import { useEffect } from 'react';
 import { useMailStore } from '../store/mailStore';
 import { api } from '../api/client';
 import type { MessageFull } from '../types';
+import { sanitizeHtml } from '../lib/sanitize';
+
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
 
 function buildQuoteHtml(msg: MessageFull, type: 'reply' | 'forward'): string {
   const header = type === 'forward'
@@ -10,12 +21,12 @@ function buildQuoteHtml(msg: MessageFull, type: 'reply' | 'forward'): string {
   return `<div style="border-top:1px solid #edebe9;padding-top:12px;margin-top:20px">
     ${header}
     <p style="font-size:12px;color:#605e5c;margin:0 0 8px">
-      <b>De:</b> ${msg.from}<br>
-      <b>Para:</b> ${msg.to}<br>
-      ${msg.cc ? `<b>CC:</b> ${msg.cc}<br>` : ''}
-      <b>Asunto:</b> ${msg.subject}
+      <b>De:</b> ${escapeHtml(msg.from)}<br>
+      <b>Para:</b> ${escapeHtml(msg.to)}<br>
+      ${msg.cc ? `<b>CC:</b> ${escapeHtml(msg.cc)}<br>` : ''}
+      <b>Asunto:</b> ${escapeHtml(msg.subject)}
     </p>
-    ${msg.html_body || `<pre style="white-space:pre-wrap;font-family:inherit">${msg.text_body || ''}</pre>`}
+    ${msg.html_body ? sanitizeHtml(msg.html_body) : `<pre style="white-space:pre-wrap;font-family:inherit">${escapeHtml(msg.text_body || '')}</pre>`}
   </div>`;
 }
 

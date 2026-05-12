@@ -40,6 +40,7 @@ export function ContactsView() {
   const [saving, setSaving] = useState(false);
   const [showEmptyTrashConfirm, setShowEmptyTrashConfirm] = useState(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const fetchIdRef = useRef(0);
 
   /* Multi-select */
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
@@ -76,16 +77,19 @@ export function ContactsView() {
 
   /* ── Fetch contacts ── */
   const fetchContacts = useCallback(async (p: number, q: string, f: SidebarFilter) => {
+    const myId = ++fetchIdRef.current;
     setLoading(true);
     try {
       const params = new URLSearchParams({ page: String(p), per_page: String(perPage), filter: f });
       if (q) params.set('search', q);
       const res = await api.get<ContactsResponse>('/contacts?' + params.toString());
-      setContacts(res.contacts);
-      setTotal(res.total);
-      setPage(res.page);
+      if (myId === fetchIdRef.current) {
+        setContacts(res.contacts);
+        setTotal(res.total);
+        setPage(res.page);
+      }
     } catch { /* silently */ } finally {
-      setLoading(false);
+      if (myId === fetchIdRef.current) setLoading(false);
     }
   }, []);
 
@@ -112,7 +116,8 @@ export function ContactsView() {
     fetchContacts(1, '', filter);
     fetchDeletedCount();
     fetchSidebarData();
-  }, [fetchContacts, fetchDeletedCount, fetchSidebarData, filter]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /* Search debounce */
   const handleSearch = (val: string) => {

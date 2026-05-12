@@ -15,6 +15,7 @@ import logging
 from typing import Dict, Set
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
 from app.auth.jwt import decode_access_token
+from app.core.session import decrypt_password
 
 logger = logging.getLogger("websocket")
 
@@ -105,15 +106,20 @@ async def _poll_user_inbox(username: str, app_state):
             if username not in _connections or not _connections[username]:
                 break
 
-            # Get cached password from Redis
+            # Get cached password from Redis and decrypt
             redis = app_state.redis
-            password = await redis.get(f"imap_pass:{username}")
-            if not password:
+            raw_pass = await redis.get(f"imap_pass:{username}")
+            if not raw_pass:
                 # Session expired — notify client
                 await redis.publish(f"ws:user:{username}", json.dumps({
                     "type": "session_expired",
                 }))
                 break
+
+            try:
+                password = decrypt_password(raw_pass)
+            except Exception:
+                password = raw_pass  # fallback for unencrypted legacy values
 
             # Quick IMAP check: just get INBOX unseen count
             from app.mail.clients.imap_client import get_imap_connection

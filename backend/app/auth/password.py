@@ -1,4 +1,5 @@
 """Password change router — uses doveadm for SHA512-CRYPT hashing."""
+import re
 import subprocess
 import imaplib
 
@@ -6,15 +7,64 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 from app.auth.dependencies import get_current_user
-from app.core.session import get_user_password
+from app.core.session import get_user_password, encrypt_password
 from app.config import get_settings
+
+
+# Contraseñas comunes prohibidas (top 50)
+_COMMON_PASSWORDS = frozenset({
+    "password", "123456", "12345678", "1234567890", "qwerty", "abc123",
+    "monkey", "master", "dragon", "111111", "baseball", "iloveyou",
+    "trustno1", "sunshine", "letmein", "football", "shadow", "123123",
+    "654321", "superman", "qazwsx", "michael", "password1", "password123",
+    "welcome", "login", "admin", "princess", "mustang", "access",
+    "hello", "charlie", "donald", "888888", "passw0rd", "whatever",
+    "qwerty123", "000000", 
+    "12345", "123456789", "1234", "changeme",
+})
+
+
+def validate_password_strength(password: str, username: str = "") -> str | None:
+    """Validate password complexity. Returns error message or None if valid."""
+    if len(password) < 10:
+        return "La contrasena debe tener al menos 10 caracteres"
+    if len(password) > 256:
+        return "La contrasena no debe exceder 256 caracteres"
+    if not re.search(r'[A-Z]', password):
+        return "La contrasena debe incluir al menos una letra mayuscula"
+    if not re.search(r'[a-z]', password):
+        return "La contrasena debe incluir al menos una letra minuscula"
+    if not re.search(r'[0-9]', password):
+        return "La contrasena debe incluir al menos un numero"
+    if not re.search(r"[!@#$%^&*(),.?:{}|<>_+\\-]", password):
+        return "La contrasena debe incluir al menos un caracter especial (!@#$%&*.)"
+    # Check common passwords (case-insensitive, also strip trailing digits/symbols)
+    pw_lower = password.lower()
+    pw_base = pw_lower.rstrip("0123456789!@#$%^&*()_+-=.,")
+    if pw_lower in _COMMON_PASSWORDS or pw_base in _COMMON_PASSWORDS:
+        return "Esa contrasena es demasiado comun. Elija una mas segura"
+    # Check if password contains username
+    if username:
+        user_part = username.split("@")[0].lower()
+        if len(user_part) > 3 and user_part in password.lower():
+            return "La contrasena no debe contener su nombre de usuario"
+    # Check for repeated characters (aaaa, 1111)
+    if re.search(r'(.){3,}', password):
+        return "La contrasena no debe tener 4 o mas caracteres repetidos seguidos"
+    # Check for sequential patterns (1234, abcd)
+    for i in range(len(password) - 3):
+        seq = password[i:i+4]
+        if seq in "0123456789" or seq in "abcdefghijklmnopqrstuvwxyz" or seq in "ABCDEFGHIJKLMNOPQRSTUVWXYZ":
+            return "La contrasena no debe contener secuencias obvias (1234, abcd)"
+    return None
+
 
 router = APIRouter(prefix="/api/auth", tags=["auth-password"])
 
 
 class ChangePasswordRequest(BaseModel):
     current_password: str = Field(..., min_length=1)
-    new_password: str = Field(..., min_length=8, max_length=256)
+    new_password: str = Field(..., min_length=10, max_length=256)
 
 
 def hash_password_doveadm(password: str) -> str:
@@ -56,11 +106,16 @@ async def change_password(
     if body.current_password == body.new_password:
         raise HTTPException(status_code=400, detail="La nueva contrasena debe ser diferente")
 
+    # 1b. Validate password strength
+    strength_error = validate_password_strength(body.new_password, username)
+    if strength_error:
+        raise HTTPException(status_code=400, detail=strength_error)
+
     # 2. Hash with doveadm
     try:
         hashed = hash_password_doveadm(body.new_password)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al generar hash: {e}")
+        raise HTTPException(status_code=500, detail="Error al cambiar la contraseña")
 
     # 3. Update DB
     db = request.app.state.db_pool
@@ -77,7 +132,7 @@ async def change_password(
         settings = get_settings()
         await redis.set(
             f"imap_pass:{username}",
-            body.new_password,
+            encrypt_password(body.new_password),
             ex=settings.access_token_expire_minutes * 60,
         )
     except Exception:

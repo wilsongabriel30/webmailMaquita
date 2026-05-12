@@ -1,14 +1,24 @@
+import re
 from fastapi import APIRouter, Request, HTTPException, Depends, UploadFile, File, Form
 from pydantic import BaseModel
 from typing import Optional
 
 from app.auth.dependencies import get_current_user
+from app.core.session import get_user_password
 from app.mail.imap_service import (
     get_imap_connection, list_folders, list_messages,
     get_message, move_message, set_flags, delete_message,
 )
 from app.mail.smtp_service import send_email
 from app.mail.utils import sanitize_html
+
+def _validate_folder(folder: str) -> str:
+    """Reject folder names with control characters (CRLF injection prevention)."""
+    if re.search(r'[-]', folder):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Nombre de carpeta inválido")
+    return folder
+
 
 router = APIRouter(prefix="/api/mail", tags=["mail"])
 
@@ -35,10 +45,7 @@ class FlagRequest(BaseModel):
 
 async def _get_user_imap(request: Request, username: str):
     """Get an IMAP connection for the current user using cached credentials."""
-    redis = request.app.state.redis
-    password = await redis.get(f"imap_pass:{username}")
-    if not password:
-        raise HTTPException(status_code=401, detail="Session expired")
+    password = await get_user_password(request, username)
     return await get_imap_connection(username, password)
 
 
@@ -65,6 +72,7 @@ async def get_messages(
 ):
     if per_page > 100:
         per_page = 100
+    folder = _validate_folder(folder)
     imap = await _get_user_imap(request, username)
     try:
         result = await list_messages(imap, folder, page, per_page)
@@ -83,6 +91,7 @@ async def read_message(
     request: Request,
     username: str = Depends(get_current_user),
 ):
+    folder = _validate_folder(folder)
     imap = await _get_user_imap(request, username)
     try:
         msg = await get_message(imap, folder, seq)
@@ -107,10 +116,7 @@ async def send(
     request: Request,
     username: str = Depends(get_current_user),
 ):
-    redis = request.app.state.redis
-    password = await redis.get(f"imap_pass:{username}")
-    if not password:
-        raise HTTPException(status_code=401, detail="Session expired")
+    password = await get_user_password(request, username)
 
     result = await send_email(
         username=username,
@@ -137,6 +143,8 @@ async def move(
 ):
     imap = await _get_user_imap(request, username)
     try:
+        folder = _validate_folder(folder)
+        body.dest_folder = _validate_folder(body.dest_folder)
         ok = await move_message(imap, folder, seq, body.dest_folder)
         if not ok:
             raise HTTPException(status_code=400, detail="Failed to move message")
@@ -158,6 +166,7 @@ async def update_flags(
 ):
     imap = await _get_user_imap(request, username)
     try:
+        folder = _validate_folder(folder)
         ok = await set_flags(imap, folder, seq, body.flags, body.add)
         if not ok:
             raise HTTPException(status_code=400, detail="Failed to update flags")
@@ -178,6 +187,7 @@ async def remove_message(
 ):
     imap = await _get_user_imap(request, username)
     try:
+        folder = _validate_folder(folder)
         ok = await delete_message(imap, folder, seq)
         if not ok:
             raise HTTPException(status_code=400, detail="Failed to delete message")

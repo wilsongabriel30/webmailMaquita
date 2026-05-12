@@ -25,10 +25,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/mail", tags=["mail-onlyoffice"])
 
-_OO_SECRET = "MaquitaOnlyOffice2026SecretKey"
-from app.config import get_settings as _gs
-_OO_URL = _gs().onlyoffice_url
-_DOWNLOAD_SECRET = "webmail-oo-download-2026"
+_OO_SECRET = settings.onlyoffice_secret
+_OO_URL = settings.onlyoffice_url
+_DOWNLOAD_SECRET = settings.onlyoffice_download_secret
 
 _OFFICE_EXT = {
     "docx", "doc", "odt", "rtf", "txt",

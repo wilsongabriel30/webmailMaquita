@@ -4,9 +4,11 @@ import json
 import os
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request
+from app.auth.dependencies import get_current_user
+from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 from starlette.middleware.base import BaseHTTPMiddleware
 import logging
 
@@ -45,6 +47,7 @@ from app.import_export.router import router as import_router
 from app.smime.router import router as smime_router
 from app.sso.router import router as sso_router
 from app.meetings.router import router as meetings_router
+from app.mail.routers.calendar_invite import router as calendar_invite_router
 from app.security.router import router as security_router
 from app.mobile.router import router as mobile_router
 from app.ai.router import router as ai_router
@@ -54,7 +57,22 @@ from app.rooms.router import router as rooms_router
 from app.tasks.router import router as tasks_router
 from app.presence.router import router as presence_router
 from app.nextcloud.router import router as nextcloud_router
+from app.branding.router import router as branding_router
+
+# Handler global de excepciones — evita que nginx devuelva HTML en errores 500
+async def _global_exception_handler(request: Request, exc: Exception):
+    import traceback
+    logging.getLogger("uvicorn.error").error(
+        "Unhandled exception: %s\n%s", str(exc), traceback.format_exc()
+    )
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Error interno del servidor"},
+    )
 from app.tasks.models import ensure_tables as ensure_task_tables
+
+# Registrar handler global (se ejecuta después de crear app)
+_REGISTER_EXCEPTION_HANDLER = True  # Flag para registrar en lifespan
 from app.calendar.attachments import router as cal_attachments_router
 
 
@@ -211,7 +229,15 @@ async def lifespan(app: FastAPI):
     # Start WebSocket Redis subscriber for real-time notifications
     ws_subscriber_task = await start_redis_subscriber(app.state)
     snooze_task = asyncio.create_task(check_snoozed(app))
+    # Start IMAP pool cleanup
+    from app.mail.clients.imap_pool import start_cleanup_task
+    start_cleanup_task()
+
     yield
+
+    # Shutdown IMAP pool
+    from app.mail.clients.imap_pool import close_all_pools
+    await close_all_pools()
     scheduler_task.cancel()
     ws_subscriber_task.cancel()
     snooze_task.cancel()
@@ -247,6 +273,87 @@ _SECURITY_EVENTS = {
 }
 
 
+
+
+class ApiRateLimitMiddleware(BaseHTTPMiddleware):
+    """Per-user rate limiting for authenticated API requests using Redis.
+
+    Limits:
+      - Read endpoints (GET):     300 req/min per user
+      - Write endpoints (POST/PUT/DELETE/PATCH): 60 req/min per user
+      - Send/compose:             10 req/min per user
+    
+    Skips: login, health, static assets, WebSocket upgrades.
+    """
+
+    SKIP_PATHS = frozenset({"/api/auth/login", "/api/auth/refresh", "/api/health", "/api/health/detailed"})
+    SEND_PATHS = frozenset({"/api/mail/send", "/api/mail/send-multipart", "/api/mail/compose", "/api/auth/change-password", "/api/auth/totp/setup", "/api/auth/totp/verify", "/api/auth/totp/disable"})
+
+    async def dispatch(self, request, call_next):
+        path = request.url.path
+
+        # Skip non-API, auth, health, websocket
+        if not path.startswith("/api/") or path in self.SKIP_PATHS:
+            return await call_next(request)
+        if "upgrade" in request.headers.get("connection", "").lower():
+            return await call_next(request)
+
+        # Extract username from JWT cookie (lightweight — no DB call)
+        token = request.cookies.get("access_token")
+        if not token:
+            return await call_next(request)
+
+        try:
+            from app.auth.jwt import decode_access_token
+            payload = decode_access_token(token)
+            user = payload.get("sub", "")
+        except Exception:
+            return await call_next(request)
+
+        if not user:
+            return await call_next(request)
+
+        # Determine limit tier
+        method = request.method.upper()
+        if path in self.SEND_PATHS:
+            limit, window, tier = 10, 60, "send"
+        elif method == "GET":
+            limit, window, tier = 300, 60, "read"
+        else:
+            limit, window, tier = 60, 60, "write"
+
+        # Check Redis counter
+        try:
+            redis = request.app.state.redis
+            key = f"rl:{tier}:{user}"
+            count = await redis.incr(key)
+            if count == 1:
+                await redis.expire(key, window)
+
+            if count > limit:
+                from starlette.responses import JSONResponse
+                ttl = await redis.ttl(key)
+                return JSONResponse(
+                    status_code=429,
+                    content={"detail": f"Demasiadas solicitudes. Limite: {limit}/{window}s. Reintente en {ttl}s."},
+                    headers={"Retry-After": str(ttl), "X-RateLimit-Limit": str(limit), "X-RateLimit-Remaining": "0"},
+                )
+        except Exception:
+            pass  # Redis failure should not block requests
+
+        response = await call_next(request)
+
+        # Add rate limit headers on success
+        try:
+            remaining = max(0, limit - count)
+            response.headers["X-RateLimit-Limit"] = str(limit)
+            response.headers["X-RateLimit-Remaining"] = str(remaining)
+        except Exception:
+            pass
+
+        return response
+
+
 class SecurityAuditMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         response = await call_next(request)
@@ -271,6 +378,7 @@ app = FastAPI(title="Maquita Webmail API", version="0.5.0", lifespan=lifespan)
 
 settings = get_settings()
 app.add_middleware(SecurityAuditMiddleware)
+app.add_middleware(ApiRateLimitMiddleware)
 
 # Strip allow-credentials header for non-matching origins (CORS hardening)
 class StripCredentialsMiddleware(BaseHTTPMiddleware):
@@ -290,8 +398,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins.split(","),
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
 )
 
 
@@ -304,6 +412,16 @@ async def global_exception_handler(request, exc):
     return JSONResponse(
         status_code=500,
         content={"detail": "Error interno del servidor"}
+    )
+
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc):
+    """Return 400 with generic message instead of 422 with detailed validation errors."""
+    return JSONResponse(
+        status_code=400,
+        content={"detail": "Solicitud inválida. Verifique el formato de los datos enviados."}
     )
 
 app.include_router(auth_router)
@@ -346,10 +464,16 @@ app.include_router(meetings_router)
 app.include_router(tasks_router, prefix="/api/tasks", tags=["tasks"])
 app.include_router(presence_router)
 app.include_router(nextcloud_router)
+app.include_router(branding_router)
+app.include_router(calendar_invite_router)
 
 
 @app.post("/api/csp-report")
 async def csp_report(request: Request):
+    content_type = request.headers.get("content-type", "")
+    if "csp-report" not in content_type and "json" not in content_type:
+        from fastapi.responses import Response
+        return Response(status_code=400)
     body = await request.body()
     import logging
     logging.getLogger("security.csp").warning(f"CSP violation: {body.decode('utf-8', errors='replace')[:2000]}")
@@ -358,7 +482,8 @@ async def csp_report(request: Request):
 
 @app.get("/api/health")
 async def health_check(request: Request):
-    """Health check for monitoring and load balancers"""
+    """Health check for monitoring and load balancers.
+    Returns minimal info publicly, detailed info only from internal IPs."""
     checks = {"api": "ok"}
 
     # Check Redis
@@ -376,17 +501,16 @@ async def health_check(request: Request):
         checks["database"] = f"error: {str(e)}"
 
     all_ok = all(v == "ok" for v in checks.values())
+    status_code = 200 if all_ok else 503
 
-    return JSONResponse(
-        content={"status": "healthy" if all_ok else "degraded", "checks": checks},
-        status_code=200 if all_ok else 503
-    )
+    # Public endpoint: only return status without component names
+    return JSONResponse(content={"status": "ok"}, status_code=status_code)
 import socket
 
 
 @app.get("/api/health/detailed")
-async def health_detailed(request: Request):
-    """Extended health check: PostgreSQL, Redis, Dovecot IMAP, Postfix SMTP."""
+async def health_detailed(request: Request, admin: str = Depends(get_current_user)):
+    """Extended health check: PostgreSQL, Redis, Dovecot IMAP, Postfix SMTP. Requires auth."""
     results = {}
 
     # PostgreSQL

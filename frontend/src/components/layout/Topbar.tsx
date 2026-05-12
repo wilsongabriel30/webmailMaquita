@@ -18,7 +18,10 @@ const sunIcon = 'M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.59
 export function Topbar() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
-  const { searchQuery, setSearchQuery, folders, setCurrentFolder } = useMailStore();
+  const searchQuery = useMailStore(s => s.searchQuery);
+  const setSearchQuery = useMailStore(s => s.setSearchQuery);
+  const folders = useMailStore(s => s.folders);
+  const setCurrentFolder = useMailStore(s => s.setCurrentFolder);
   const { dark, toggle: toggleTheme } = useThemeStore();
   const navigate = useNavigate();
   const { isMobile, isTablet } = useResponsive();
@@ -100,7 +103,7 @@ export function Topbar() {
   ];
 
   return (
-    <div className="h-12 bg-[#0078d4] flex items-center px-3 gap-2 shrink-0 relative z-[100]">
+    <header role="banner" className="h-12 bg-[#0078d4] flex items-center px-3 gap-2 shrink-0 relative z-[100]">
       {/* Mobile hamburger */}
       {(isMobile || isTablet) && (
         <button onClick={() => window.dispatchEvent(new CustomEvent("toggle-mobile-drawer"))}
@@ -314,6 +317,6 @@ export function Topbar() {
           )}
         </div>
       </div>
-    </div>
+    </header>
   );
 }

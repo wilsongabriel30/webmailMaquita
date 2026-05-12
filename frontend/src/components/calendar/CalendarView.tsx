@@ -153,7 +153,7 @@ const [showScheduling, setShowScheduling] = useState(false);
     setModalOpen(false);
     loadEvents();
     // Si hay asistentes, enviar invitaciones automáticamente
-    if (data.attendees && data.attendees.length > 0) {
+    if ((data.attendees && data.attendees.length > 0) || (data.optional_attendees && data.optional_attendees.length > 0)) {
       const eventId = (savedEvent as { id: string }).id;
       if (eventId) {
         calApi.sendEventInvitations(eventId).then((res) => {

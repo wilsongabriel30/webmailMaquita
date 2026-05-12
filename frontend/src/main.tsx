@@ -12,32 +12,39 @@ createRoot(document.getElementById("root")!).render(
 )
 
 // Register service worker for PWA / offline support
-// IMPORTANTE: El SW se auto-actualiza en cada carga de página.
-// Al detectar nueva versión, recarga la página para aplicar cambios.
+// Registro único: solo se registra una vez por sesión. Las actualizaciones
+// se manejan con un banner en vez de recargas automáticas para evitar loops.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("/webmail/sw.js")
       .then((reg) => {
-        console.log("SW registered:", reg.scope);
-        // Forzar check de actualizaciones cada vez que se carga
-        reg.update();
-        // Cuando hay un SW nuevo esperando, activarlo y recargar
+        // Check for updates cada 30 min (no en cada carga)
+        setInterval(() => reg.update(), 30 * 60 * 1000);
+
         reg.addEventListener("updatefound", () => {
           const newSW = reg.installing;
           if (newSW) {
             newSW.addEventListener("statechange", () => {
-              if (newSW.state === "activated" && navigator.serviceWorker.controller) {
-                console.log("SW updated — reloading for new version");
-                window.location.reload();
+              // Solo notificar si ya hay un SW activo (no es primera instalación)
+              if (newSW.state === "installed" && navigator.serviceWorker.controller) {
+                // Mostrar banner discreto en vez de recargar automáticamente
+                const banner = document.createElement("div");
+                banner.id = "sw-update-banner";
+                banner.style.cssText = "position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:9999;background:#0078d4;color:#fff;padding:8px 20px;border-radius:6px;font:13px/1.4 Calibri,sans-serif;display:flex;align-items:center;gap:12px;box-shadow:0 4px 12px rgba(0,0,0,.2)";
+                banner.textContent = 'Nueva versión disponible ';
+                const btn = document.createElement('button');
+                btn.textContent = 'Actualizar';
+                btn.style.cssText = 'margin-left:12px;padding:4px 16px;border:none;background:#fff;color:#0078d4;border-radius:4px;cursor:pointer;font-weight:600';
+                btn.addEventListener('click', () => window.location.reload());
+                banner.appendChild(btn);
+                if (!document.getElementById("sw-update-banner")) {
+                  document.body.appendChild(banner);
+                }
               }
             });
           }
         });
       })
-      .catch((err) => console.error("SW registration failed:", err));
-  });
-  // Si el SW controlador cambia (otro tab activó nueva versión), recargar
-  navigator.serviceWorker.addEventListener("controllerchange", () => {
-    window.location.reload();
+      .catch(() => {});
   });
 }

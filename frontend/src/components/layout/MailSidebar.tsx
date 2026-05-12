@@ -45,7 +45,12 @@ export function MailSidebar() {
     return () => window.removeEventListener("toggle-sidebar", handler);
   }, []);
 
-  const { folders, currentFolder, setFolders, setCurrentFolder, setLoadingFolders, openCompose } = useMailStore();
+  const folders = useMailStore(s => s.folders);
+  const currentFolder = useMailStore(s => s.currentFolder);
+  const setFolders = useMailStore(s => s.setFolders);
+  const setCurrentFolder = useMailStore(s => s.setCurrentFolder);
+  const setLoadingFolders = useMailStore(s => s.setLoadingFolders);
+  const openCompose = useMailStore(s => s.openCompose);
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [createParent, setCreateParent] = useState('');
@@ -60,6 +65,17 @@ export function MailSidebar() {
   const [moveModal, setMoveModal] = useState<{ folder: Folder } | null>(null);
   const [confirmModal, setConfirmModal] = useState<{ title: string; message: string; onConfirm: () => void; danger?: boolean } | null>(null);
   const [tooltip, setTooltip] = useState<{ x: number; y: number; folder: Folder } | null>(null);
+  const sidebarRef = useRef<HTMLDivElement>(null);
+
+  // Limpiar tooltip al hacer scroll o al salir del sidebar
+  useEffect(() => {
+    const el = sidebarRef.current;
+    if (!el) return;
+    const hide = () => { clearTimeout(tooltipTimer.current); setTooltip(null); };
+    el.addEventListener('scroll', hide, { passive: true });
+    el.addEventListener('mouseleave', hide);
+    return () => { el.removeEventListener('scroll', hide); el.removeEventListener('mouseleave', hide); };
+  }, []);
   const tooltipTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Stats polling
@@ -246,7 +262,7 @@ export function MailSidebar() {
           <input value={renameValue} onChange={e => setRenameValue(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') handleRename(f.name); if (e.key === 'Escape') setRenaming(null); }}
             onBlur={() => handleRename(f.name)}
-            autoFocus className="flex-1 text-[12px] px-1.5 py-0.5 border border-[#0078d4] rounded outline-none bg-white" />
+            autoFocus className="flex-1 text-[12px] px-1.5 py-0.5 border border-[#0078d4] rounded outline-none bg-white dark:bg-[#1e1e1e]" />
         </div>
       );
     }
@@ -330,6 +346,8 @@ export function MailSidebar() {
           const rect = (e.target as HTMLElement).getBoundingClientRect();
           tooltipTimer.current = setTimeout(() => {
             setTooltip({ x: rect.right + 8, y: rect.top, folder: f });
+            // Auto-ocultar tooltip después de 3s
+            setTimeout(() => setTooltip(null), 3000);
           }, 600);
         }}
         onMouseLeave={() => { clearTimeout(tooltipTimer.current); setTooltip(null); }}
@@ -416,7 +434,7 @@ export function MailSidebar() {
                   onKeyDown={e => { if (e.key === 'Enter') handleCreate(); if (e.key === 'Escape') { setCreating(false); setCreateParent(''); } }}
                   onBlur={() => { if (!newName.trim()) { setCreating(false); setCreateParent(''); } }}
                   placeholder={createParent ? `Subcarpeta en ${getFolderDisplayName(createParent)}` : 'Nombre de carpeta'} autoFocus
-                  className="flex-1 text-[12px] px-1.5 py-0.5 border border-[#0078d4] rounded outline-none bg-white" />
+                  className="flex-1 text-[12px] px-1.5 py-0.5 border border-[#0078d4] rounded outline-none bg-white dark:bg-[#1e1e1e]" />
               </div>
             ) : (
               <button onClick={() => { setCreating(true); setCreateParent(''); }}
@@ -435,34 +453,34 @@ export function MailSidebar() {
       <div className="border-t border-[#edebe9] px-1 pb-1 shrink-0">
         <SectionHeader title="Mi actividad" collapsed={collapsed.stats} onToggle={() => setCollapsed(p => ({...p, stats: !p.stats}))} />
         {!collapsed.stats && (
-          <div className="px-2 py-1 space-y-[3px] text-[11px] text-[#605e5c]">
+          <div className="px-2 py-1 space-y-[3px] text-[11px] text-[#605e5c] dark:text-[#999]">
             {statsLoading && !stats ? (
               <div className="text-[11px] text-[#a19f9d] italic py-1">Cargando...</div>
             ) : stats ? (
               <>
                 <div className="flex items-center gap-1.5">
                   <span className="w-[14px] text-center opacity-70">{"\u{1F4CA}"}</span>
-                  <span>Bandeja: <b className="text-[#323130]">{stats.inbox_total}</b> mensajes</span>
+                  <span>Bandeja: <b className="text-[#323130] dark:text-[#e0e0e0]">{stats.inbox_total}</b> mensajes</span>
                   {stats.inbox_unread > 0 && <span className="text-[#0078d4] font-semibold">({stats.inbox_unread} sin leer)</span>}
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="w-[14px] text-center opacity-70">{"\u{1F4E4}"}</span>
-                  <span>Hoy: <b className="text-[#323130]">{stats.sent_today}</b></span>
+                  <span>Hoy: <b className="text-[#323130] dark:text-[#e0e0e0]">{stats.sent_today}</b></span>
                   <span className="text-[#a19f9d]">|</span>
-                  <span>Semana: <b className="text-[#323130]">{stats.sent_week}</b></span>
+                  <span>Semana: <b className="text-[#323130] dark:text-[#e0e0e0]">{stats.sent_week}</b></span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="w-[14px] text-center opacity-70">{"\u{1F4DD}"}</span>
-                  <span>Borradores: <b className="text-[#323130]">{stats.drafts}</b></span>
+                  <span>Borradores: <b className="text-[#323130] dark:text-[#e0e0e0]">{stats.drafts}</b></span>
                   <span className="text-[#a19f9d]">|</span>
-                  <span>Papelera: <b className="text-[#323130]">{stats.trash}</b></span>
+                  <span>Papelera: <b className="text-[#323130] dark:text-[#e0e0e0]">{stats.trash}</b></span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="w-[14px] text-center opacity-70">{"\u{1F4BE}"}</span>
-                  <span>Almacenamiento: <b className="text-[#323130]">{stats.storage_used_mb >= 1024 ? (stats.storage_used_mb / 1024).toFixed(1) + ' GB' : stats.storage_used_mb + ' MB'}</b></span>
+                  <span>Almacenamiento: <b className="text-[#323130] dark:text-[#e0e0e0]">{stats.storage_used_mb >= 1024 ? (stats.storage_used_mb / 1024).toFixed(1) + ' GB' : stats.storage_used_mb + ' MB'}</b></span>
                 </div>
                 {stats.top_senders.length > 0 && (
-                  <div className="mt-1 pt-1 border-t border-[#edebe9]">
+                  <div className="mt-1 pt-1 border-t border-[#edebe9] dark:border-[#333]">
                     <div className="text-[10px] uppercase tracking-wider text-[#a19f9d] font-semibold mb-0.5">Top remitentes (30d)</div>
                     {stats.top_senders.map((s, i) => (
                       <div key={i} className="flex items-center gap-1 truncate">
@@ -509,7 +527,7 @@ export function MailSidebar() {
             <div className="flex-1 overflow-y-auto space-y-0.5 mb-3 border border-[#edebe9] rounded p-1">
               <button onClick={() => handleMoveFolder(moveModal.folder.name, '')}
                 className="w-full text-left px-3 py-1.5 text-sm hover:bg-[#e1dfdd] rounded text-[#323130] flex items-center gap-2">
-                <svg className="w-4 h-4 text-[#605e5c]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 text-[#605e5c] dark:text-[#999]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3" />
                 </svg>
                 Nivel principal (raíz)
@@ -529,7 +547,7 @@ export function MailSidebar() {
                 ))}
             </div>
             <button onClick={() => setMoveModal(null)}
-              className="w-full px-3 py-1.5 text-sm text-[#605e5c] hover:bg-[#e1dfdd] rounded border border-[#edebe9]">
+              className="w-full px-3 py-1.5 text-sm text-[#605e5c] hover:bg-[#e1dfdd] rounded border border-[#edebe9] dark:border-[#333]">
               Cancelar
             </button>
           </div>
@@ -546,7 +564,7 @@ export function MailSidebar() {
             <p className="text-sm text-[#605e5c] mb-4">{confirmModal.message}</p>
             <div className="flex gap-2 justify-end">
               <button onClick={() => setConfirmModal(null)}
-                className="px-4 py-1.5 text-sm text-[#605e5c] hover:bg-[#e1dfdd] rounded border border-[#edebe9]">
+                className="px-4 py-1.5 text-sm text-[#605e5c] hover:bg-[#e1dfdd] rounded border border-[#edebe9] dark:border-[#333]">
                 Cancelar
               </button>
               <button onClick={() => { confirmModal.onConfirm(); setConfirmModal(null); }}

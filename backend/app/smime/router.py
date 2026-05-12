@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
+from app.core.session import get_user_password
 
 router = APIRouter(prefix="/api/smime", tags=["smime"])
 
@@ -279,10 +280,7 @@ async def message_smime_status(
     request: Request,
     user: str = Depends(get_current_user),
 ):
-    redis = _redis(request)
-    password = await redis.get(f"imap_pass:{user}")
-    if not password:
-        raise HTTPException(401, "Sesion IMAP no disponible")
+    password = await get_user_password(request, user)
 
     from app.mail.clients.imap_client import get_imap_connection
     imap = await get_imap_connection(user, password)

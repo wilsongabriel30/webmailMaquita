@@ -7,6 +7,17 @@ import { Ribbon } from '../compose/Ribbon';
 import { getFolderDisplayName } from '../../folders';
 import { getCachedLabels, useLabels } from '../../hooks/useLabels';
 import { SnoozeModal } from './SnoozeModal';
+import { sanitizeHtml } from '../../lib/sanitize';
+
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
 
 //  Icon SVG paths (heroicons-style)
 const ICONS = {
@@ -170,12 +181,26 @@ function Group({ label, children }: { label: string; children: React.ReactNode }
 export function Toolbar() {
   const navigate = useNavigate();
   const { labels, loading: labelsLoading, supported: labelsSupported, fetchLabels, createLabel, assignLabel, unassignLabel } = useLabels();
-  const {
-    selectedMessage, selectedUids, currentFolder, clearSelection, openCompose,
-    folders, viewMode, setViewMode, readingPane, setReadingPane,
-    density, setDensity, previewLines, setPreviewLines, showMyDay, setShowMyDay,
-    composeWindows, activeEditor, composeRibbonTab, setComposeRibbonTab,
-  } = useMailStore();
+  const selectedMessage = useMailStore(s => s.selectedMessage);
+  const selectedUids = useMailStore(s => s.selectedUids);
+  const currentFolder = useMailStore(s => s.currentFolder);
+  const clearSelection = useMailStore(s => s.clearSelection);
+  const openCompose = useMailStore(s => s.openCompose);
+  const folders = useMailStore(s => s.folders);
+  const viewMode = useMailStore(s => s.viewMode);
+  const setViewMode = useMailStore(s => s.setViewMode);
+  const readingPane = useMailStore(s => s.readingPane);
+  const setReadingPane = useMailStore(s => s.setReadingPane);
+  const density = useMailStore(s => s.density);
+  const setDensity = useMailStore(s => s.setDensity);
+  const previewLines = useMailStore(s => s.previewLines);
+  const setPreviewLines = useMailStore(s => s.setPreviewLines);
+  const showMyDay = useMailStore(s => s.showMyDay);
+  const setShowMyDay = useMailStore(s => s.setShowMyDay);
+  const composeWindows = useMailStore(s => s.composeWindows);
+  const activeEditor = useMailStore(s => s.activeEditor);
+  const composeRibbonTab = useMailStore(s => s.composeRibbonTab);
+  const setComposeRibbonTab = useMailStore(s => s.setComposeRibbonTab);
 
   const [activeTab, setActiveTab] = useState<'inicio' | 'vista' | 'ayuda'>('inicio');
   const [collapsed, setCollapsed] = useState(false);
@@ -289,13 +314,14 @@ export function Toolbar() {
   const buildQuote = () => {
     if (!msg) return '';
     const date = msg.date ? new Date(msg.date).toLocaleString('es-EC') : '';
+    const bodyHtml = msg.html_body ? sanitizeHtml(msg.html_body) : escapeHtml(msg.text_body || '');
     return `<br/><br/><div style="border-left:2px solid #0078d4;padding-left:12px;margin-left:0;color:#605e5c">
-      <p style="margin:0 0 8px 0"><b>De:</b> ${msg.from}<br/>
-      <b>Enviado:</b> ${date}<br/>
-      <b>Para:</b> ${msg.to}<br/>
-      ${msg.cc ? `<b>CC:</b> ${msg.cc}<br/>` : ''}
-      <b>Asunto:</b> ${msg.subject}</p>
-      <div>${msg.html_body || msg.text_body || ''}</div></div>`;
+      <p style="margin:0 0 8px 0"><b>De:</b> ${escapeHtml(msg.from)}<br/>
+      <b>Enviado:</b> ${escapeHtml(date)}<br/>
+      <b>Para:</b> ${escapeHtml(msg.to)}<br/>
+      ${msg.cc ? `<b>CC:</b> ${escapeHtml(msg.cc)}<br/>` : ''}
+      <b>Asunto:</b> ${escapeHtml(msg.subject)}</p>
+      <div>${bodyHtml}</div></div>`;
   };
 
   const doReply = () => {
@@ -330,8 +356,13 @@ export function Toolbar() {
     if (!msg) { showToast('Selecciona un mensaje'); return; }
     const w = window.open('', '_blank');
     if (!w) return;
-    const date = msg.date ? new Date(msg.date).toLocaleString('es-EC') : '';
-    w.document.write(`<!DOCTYPE html><html><head><title>${msg.subject}</title>
+    const date = escapeHtml(msg.date ? new Date(msg.date).toLocaleString('es-EC') : '');
+    const safeSubject = escapeHtml(msg.subject || '');
+    const safeFrom = escapeHtml(msg.from || '');
+    const safeTo = escapeHtml(msg.to || '');
+    const safeCc = msg.cc ? escapeHtml(msg.cc) : '';
+    const safeBody = msg.html_body ? sanitizeHtml(msg.html_body) : escapeHtml(msg.text_body || '') || '<em>Sin contenido</em>';
+    w.document.write(`<!DOCTYPE html><html><head><title>${safeSubject}</title>
       <style>
         @page { size: A4; margin: 20mm; }
         body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 12pt; color: #323130; margin: 20mm; }
@@ -342,13 +373,13 @@ export function Toolbar() {
         @media print { body { margin: 0; } }
       </style></head><body>
       <div class="header">
-        <h1>${msg.subject}</h1>
-        <p><strong>De:</strong> ${msg.from}</p>
-        <p><strong>Para:</strong> ${msg.to}</p>
-        ${msg.cc ? `<p><strong>CC:</strong> ${msg.cc}</p>` : ''}
+        <h1>${safeSubject}</h1>
+        <p><strong>De:</strong> ${safeFrom}</p>
+        <p><strong>Para:</strong> ${safeTo}</p>
+        ${safeCc ? `<p><strong>CC:</strong> ${safeCc}</p>` : ''}
         <p><strong>Fecha:</strong> ${date}</p>
       </div>
-      <div class="body">${msg.html_body || msg.text_body || '<em>Sin contenido</em>'}</div>
+      <div class="body">${safeBody}</div>
       </body></html>`);
     w.document.close();
     w.print();
@@ -483,7 +514,7 @@ export function Toolbar() {
         <div className="relative">
           <button
             onClick={() => window.dispatchEvent(new CustomEvent('toggle-sidebar'))}
-            onMouseEnter={() => setHamburgerTooltip(true)}
+            onMouseEnter={() => { setHamburgerTooltip(true); setTimeout(() => setHamburgerTooltip(false), 3000); }}
             onMouseLeave={() => setHamburgerTooltip(false)}
             className="w-[36px] h-[36px] flex items-center justify-center hover:bg-[#e1dfdd] rounded"
           >
@@ -770,7 +801,7 @@ export function Toolbar() {
                             if (selectedMessage) {
                               const text = selectedMessage.text_body || '';
                               const url = 'https://translate.google.com/?sl=auto&tl=es&text=' + encodeURIComponent(text.slice(0, 2000));
-                              window.open(url, '_blank');
+                              window.open(url, '_blank', 'noopener,noreferrer');
                             } else {
                               showToast('Selecciona un mensaje para traducir');
                             }
@@ -935,7 +966,7 @@ export function Toolbar() {
                   {/* Group: Lector inmersivo */}
                   <Group label="Lector inmersivo">
                     <ToolbarButton icon={ICONS.immersive} label="Lector inmersivo"
-                      onClick={() => { const sel = document.querySelector('[class*=MessageView] [class*=body], [class*=msg-body]'); if(sel) { const w = window.open('', 'Lector', 'width=700,height=600'); if(w) { w.document.write('<!DOCTYPE html><html><head><title>Lector</title></head><body style="font-family:Georgia,serif;max-width:650px;margin:40px auto;padding:20px;line-height:1.8;font-size:18px;color:#333;">' + sel.innerHTML + '</body></html>'); w.document.close(); } } else { showToast('Selecciona un mensaje primero'); } }} />
+                      onClick={() => { const iframe = document.querySelector('iframe[title="Email content"]') as HTMLIFrameElement; const body = iframe?.contentDocument?.body?.innerHTML || ''; if(body) { const w = window.open('', 'Lector', 'width=700,height=600'); if(w) { w.document.write('<!DOCTYPE html><html><head><title>Lector</title><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src https: data:; style-src \'unsafe-inline\'; font-src https:;"></head><body style="font-family:Georgia,serif;max-width:650px;margin:40px auto;padding:20px;line-height:1.8;font-size:18px;color:#333;">' + sanitizeHtml(body) + '</body></html>'); w.document.close(); } } else { showToast('Selecciona un mensaje primero'); } }} />
                   </Group>
                 </>
               )}

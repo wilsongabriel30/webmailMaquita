@@ -12,18 +12,19 @@ from fastapi import APIRouter, Request, Depends, HTTPException
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
-from app.core.session import get_user_password, get_imap_login_user
+from app.core.session import get_user_password, get_imap_login_user, encrypt_password, decrypt_password
 from app.mail.clients.imap_client import get_imap_connection, fetch_attachment
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/nextcloud", tags=["nextcloud"])
 
-# Configuracion Nextcloud
-NC_BASE_URL = "http://10.16.0.155"
-NC_ADMIN_USER = "gestiontecnologia@maquita.com.ec"
-NC_ADMIN_PASS = "***REDACTED***"
-NC_PUBLIC_URL = "https://nube.example.com"
+# Configuracion Nextcloud desde settings (securizado)
+from app.config import get_settings as _nc_settings
+
+def _nc_config():
+    s = _nc_settings()
+    return s.nc_base_url, s.nc_admin_user, s.nc_admin_pass, s.nc_public_url
 
 
 class SaveAttachmentRequest(BaseModel):
@@ -43,7 +44,11 @@ async def _get_nc_credentials(request: Request, username: str):
             username,
         )
         if row:
-            return row["nc_userid"], row["nc_password"]
+            try:
+                nc_pass = decrypt_password(row["nc_password"])
+            except Exception:
+                nc_pass = row["nc_password"]  # Legacy sin cifrar
+            return row["nc_userid"], nc_pass
     except Exception:
         pass
     return None
@@ -51,12 +56,13 @@ async def _get_nc_credentials(request: Request, username: str):
 
 async def _find_nc_userid_by_email(email: str) -> str | None:
     """Buscar userid de Nextcloud que tenga este email."""
+    nc_base, nc_user, nc_pass, _ = _nc_config()
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             r = await client.get(
-                NC_BASE_URL + "/ocs/v1.php/cloud/users",
+                nc_base + "/ocs/v1.php/cloud/users",
                 params={"search": email, "limit": 5},
-                auth=(NC_ADMIN_USER, NC_ADMIN_PASS),
+                auth=(nc_user, nc_pass),
                 headers={"OCS-APIREQUEST": "true", "Accept": "application/json"},
             )
             if r.status_code != 200:
@@ -64,8 +70,8 @@ async def _find_nc_userid_by_email(email: str) -> str | None:
             users = r.json().get("ocs", {}).get("data", {}).get("users", [])
             for nc_user in users[:5]:
                 detail_r = await client.get(
-                    NC_BASE_URL + "/ocs/v1.php/cloud/users/" + urllib.parse.quote(nc_user),
-                    auth=(NC_ADMIN_USER, NC_ADMIN_PASS),
+                    nc_base + "/ocs/v1.php/cloud/users/" + urllib.parse.quote(nc_user),
+                    auth=(nc_user, nc_pass),
                     headers={"OCS-APIREQUEST": "true", "Accept": "application/json"},
                 )
                 if detail_r.status_code == 200:
@@ -79,7 +85,8 @@ async def _find_nc_userid_by_email(email: str) -> str | None:
 
 async def _nc_webdav_upload(userid: str, password: str, remote_path: str, data: bytes, filename: str) -> bool:
     """Subir archivo a Nextcloud via WebDAV."""
-    folder_url = NC_BASE_URL + "/remote.php/dav/files/" + urllib.parse.quote(userid) + remote_path
+    nc_base, _, _, _ = _nc_config()
+    folder_url = nc_base + "/remote.php/dav/files/" + urllib.parse.quote(userid) + remote_path
     file_url = folder_url + urllib.parse.quote(filename)
 
     async with httpx.AsyncClient(timeout=30) as client:
@@ -102,9 +109,10 @@ async def _nc_webdav_test(userid: str, password: str) -> bool:
     """Verificar que credenciales WebDAV funcionan."""
     try:
         async with httpx.AsyncClient(timeout=10) as client:
+            nc_base, _, _, _ = _nc_config()
             r = await client.request(
                 "PROPFIND",
-                NC_BASE_URL + "/remote.php/dav/files/" + urllib.parse.quote(userid) + "/",
+                nc_base + "/remote.php/dav/files/" + urllib.parse.quote(userid) + "/",
                 auth=(userid, password),
                 headers={"Depth": "0"},
             )
@@ -122,20 +130,23 @@ async def nextcloud_status(
     # 1. Buscar en tabla de cuentas vinculadas
     creds = await _get_nc_credentials(request, username)
     if creds:
-        return {"linked": True, "nc_userid": creds[0], "nc_url": NC_PUBLIC_URL}
+        _, _, _, nc_pub = _nc_config()
+        return {"linked": True, "nc_userid": creds[0], "nc_url": nc_pub}
 
     # 2. Buscar por email en Nextcloud
     nc_userid = await _find_nc_userid_by_email(username)
     if nc_userid:
+        _, _, _, nc_pub = _nc_config()
         return {
             "linked": False,
             "nc_exists": True,
             "nc_userid": nc_userid,
-            "nc_url": NC_PUBLIC_URL,
+            "nc_url": nc_pub,
             "message": "Cuenta Nextcloud encontrada. Al guardar un adjunto se usara su contraseña de correo.",
         }
 
-    return {"linked": False, "nc_exists": False, "nc_url": NC_PUBLIC_URL}
+    _, _, _, nc_pub = _nc_config()
+    return {"linked": False, "nc_exists": False, "nc_url": nc_pub}
 
 
 @router.post("/save-attachment")
@@ -193,7 +204,8 @@ async def save_attachment_to_nextcloud(
     if not ok:
         raise HTTPException(502, "Error al subir archivo a Nextcloud")
 
-    nc_file_url = NC_PUBLIC_URL + "/apps/files/?dir=" + urllib.parse.quote(nc_path) + "&openfile=true"
+    _, _, _, nc_pub = _nc_config()
+    nc_file_url = nc_pub + "/apps/files/?dir=" + urllib.parse.quote(nc_path) + "&openfile=true"
 
     logger.info("Adjunto guardado en NC: %s -> %s%s", username, nc_userid, nc_path + body.filename)
 
@@ -223,11 +235,12 @@ async def link_nextcloud_account(
         raise HTTPException(401, "Credenciales de Nextcloud incorrectas")
 
     db = request.app.state.db_pool
+    encrypted_nc_pass = encrypt_password(nc_password)
     await db.execute(
         "INSERT INTO nextcloud_accounts (mail_username, nc_userid, nc_password, active) "
         "VALUES ($1, $2, $3, true) "
         "ON CONFLICT (mail_username) DO UPDATE SET nc_userid=$2, nc_password=$3, active=true",
-        username, nc_userid, nc_password,
+        username, nc_userid, encrypted_nc_pass,
     )
 
     return {"ok": True, "nc_userid": nc_userid, "message": "Cuenta Nextcloud vinculada correctamente"}

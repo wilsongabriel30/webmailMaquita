@@ -82,7 +82,7 @@ export function ContactDetail({ contact, onSendEmail, onEdit, onDelete, onRestor
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <h2 style={{ margin: 0, fontSize: 24, fontWeight: 600, color: '#323130' }}>
-                {contact.display_name || '(Sin nombre)'}
+                {(contact.display_name || '(Sin nombre)').replace(/\\,/g, ',')}
               </h2>
               {contact.is_favorite && (
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="#ffb900" stroke="#ffb900" strokeWidth="1">

@@ -89,7 +89,7 @@ export function TwoFactorSetup() {
   return (
     <div className="p-4 max-w-[480px]">
       <h3 className="text-[15px] font-semibold text-[#323130] dark:text-[#e0e0e0] mb-1">
-        Autenticacion de dos factores (2FA)
+        Autenticación de dos factores (2FA)
       </h3>
       <p className="text-[12px] text-[#605e5c] dark:text-[#999] mb-4">
         Agrega una capa extra de seguridad a tu cuenta usando Google Authenticator, Authy u otra app TOTP.

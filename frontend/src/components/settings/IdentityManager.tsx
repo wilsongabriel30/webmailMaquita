@@ -11,6 +11,7 @@
  *   DELETE /api/identities/:id          -> void       (delete)
  */
 
+import { sanitizeSignatureHtml } from '../../lib/sanitize';
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../api/client';
 
@@ -86,7 +87,7 @@ export function IdentityManager() {
     [],
   );
 
-  const draftValid = draft.name.trim().length > 0 && draft.email.trim().length > 0;
+  const draftValid = (draft.name?.trim()?.length ?? 0) > 0 && (draft.email?.trim()?.length ?? 0) > 0;
 
   //  CRUD operations
 
@@ -101,9 +102,9 @@ export function IdentityManager() {
       clearEdit();
       setEditingId(identity.id);
       setDraft({
-        name: identity.name,
-        email: identity.email,
-        signature: identity.signature,
+        name: identity.name || '',
+        email: identity.email || '',
+        signature: identity.signature || '',
       });
     },
     [clearEdit],
@@ -133,7 +134,7 @@ export function IdentityManager() {
   const handleDelete = useCallback(
     async (id: string) => {
       if (identities.length <= 1) {
-        flash({ type: 'error', message: 'Cannot delete the last identity.' });
+        flash({ type: 'error', message: 'No se puede eliminar la última identidad.' });
         setDeletingId(null);
         return;
       }
@@ -246,7 +247,7 @@ export function IdentityManager() {
             draft={draft}
             onUpdate={updateDraft}
             onSave={handleSave}
-            onCancel={clearEdit}
+            onCancelar={clearEdit}
             saveLabel="Crear"
             valid={draftValid}
           />
@@ -272,7 +273,7 @@ export function IdentityManager() {
                       draft={draft}
                       onUpdate={updateDraft}
                       onSave={handleSave}
-                      onCancel={clearEdit}
+                      onCancelar={clearEdit}
                       saveLabel="Guardar"
                       valid={draftValid}
                     />
@@ -297,10 +298,7 @@ export function IdentityManager() {
                       {identity.signature && (
                         <div
                           className="mt-1 max-h-[60px] overflow-hidden text-[11px] text-[#a19f9d]"
-                          dangerouslySetInnerHTML={{
-                            __html: stripToPreview(identity.signature),
-                          }}
-                        />
+                        >{stripToPreview(identity.signature)}</div>
                       )}
                     </div>
 
@@ -318,9 +316,9 @@ export function IdentityManager() {
                       />
                       {isDeleting ? (
                         <span className="flex items-center gap-1 text-[12px]">
-                          <span className="text-[#d13438]">Delete?</span>
+                          <span className="text-[#d13438]">¿Eliminar?</span>
                           <ActionBtn
-                            label="Yes"
+                            label="Sí"
                             danger
                             onClick={() => handleDelete(identity.id)}
                           />
@@ -345,7 +343,7 @@ export function IdentityManager() {
 
           {identities.length === 0 && !isCreating && (
             <li className="px-5 py-6 text-center text-[13px] text-[#a19f9d]">
-              No identities configured.
+              No hay identidades configuradas.
             </li>
           )}
         </ul>
@@ -360,14 +358,14 @@ function IdentityForm({
   draft,
   onUpdate,
   onSave,
-  onCancel,
+  onCancelar,
   saveLabel,
   valid,
 }: {
   draft: IdentityDraft;
   onUpdate: (field: keyof IdentityDraft, value: string) => void;
   onSave: () => void;
-  onCancel: () => void;
+  onCancelar: () => void;
   saveLabel: string;
   valid: boolean;
 }) {
@@ -376,25 +374,25 @@ function IdentityForm({
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="mb-1 block text-[12px] font-semibold text-[#605e5c]">
-            Display name *
+            Nombre para mostrar *
           </label>
           <input
             type="text"
             value={draft.name}
             onChange={(e) => onUpdate('name', e.target.value)}
-            placeholder="John Doe"
+            placeholder="Juan Pérez"
             className={inputClass}
           />
         </div>
         <div>
           <label className="mb-1 block text-[12px] font-semibold text-[#605e5c]">
-            Email address *
+            Dirección de correo *
           </label>
           <input
             type="email"
             value={draft.email}
             onChange={(e) => onUpdate('email', e.target.value)}
-            placeholder="john@example.com"
+            placeholder="correo@ejemplo.com"
             className={inputClass}
           />
         </div>
@@ -402,13 +400,13 @@ function IdentityForm({
 
       <div>
         <label className="mb-1 block text-[12px] font-semibold text-[#605e5c]">
-          Signature (HTML)
+          Firma (HTML)
         </label>
         <textarea
           value={draft.signature}
           onChange={(e) => onUpdate('signature', e.target.value)}
           rows={5}
-          placeholder="<p>Best regards,<br/>John Doe</p>"
+          placeholder="<p>Saludos cordiales,<br/>Su nombre</p>"
           className={[
             'block w-full rounded border border-[#edebe9] bg-white px-2 py-[5px]',
             'text-[13px] text-[#323130] placeholder-[#a19f9d]',
@@ -417,14 +415,14 @@ function IdentityForm({
           ].join(' ')}
         />
         {/* Preview */}
-        {draft.signature.trim().length > 0 && (
+        {(draft.signature || "").trim().length > 0 && (
           <div className="mt-2 rounded border border-[#edebe9] bg-[#faf9f8] p-2">
             <p className="mb-1 text-[10px] font-semibold uppercase text-[#a19f9d]">
               Preview
             </p>
             <div
               className="text-[12px] text-[#323130]"
-              dangerouslySetInnerHTML={{ __html: draft.signature }}
+              dangerouslySetInnerHTML={{ __html: sanitizeSignatureHtml(draft.signature || '') }}
             />
           </div>
         )}
@@ -446,10 +444,10 @@ function IdentityForm({
         </button>
         <button
           type="button"
-          onClick={onCancel}
+          onClick={onCancelar}
           className="rounded px-3 py-[5px] text-[13px] text-[#323130] hover:bg-[#f3f2f1]"
         >
-          Cancel
+          Cancelar
         </button>
       </div>
     </div>
@@ -485,9 +483,7 @@ function ActionBtn({
 
 /** Strip HTML to a short plain-text preview. */
 function stripToPreview(html: string): string {
-  const tmp = document.createElement('div');
-  tmp.innerHTML = html;
-  const text = tmp.textContent ?? tmp.innerText ?? '';
+  const text = html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
   return text.length > 120 ? text.slice(0, 117) + '...' : text;
 }
 

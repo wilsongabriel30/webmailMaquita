@@ -22,11 +22,24 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
 # --- Configuracion del servidor IA (VM 170) ---
-from app.config import get_settings as _gs
-IA_BASE_URL = _gs().ollama_url
-IA_GENERATE_URL = f"{IA_BASE_URL}/api/v1/ia/generate"
-IA_HEADERS = {"X-API-Key": get_settings().ia_api_key, "Content-Type": "application/json"}  # Securizado Fase 3
+# URLs permitidas para el proxy IA (whitelist anti-SSRF)
+_ALLOWED_IA_HOSTS = frozenset({"10.16.0.170", "127.0.0.1", "localhost"})
 IA_TIMEOUT = 45.0
+
+
+def _get_ia_config():
+    """Obtener config IA con validación de URL (anti-SSRF)."""
+    from urllib.parse import urlparse
+    s = get_settings()
+    parsed = urlparse(s.ollama_url)
+    if parsed.hostname not in _ALLOWED_IA_HOSTS:
+        raise ValueError(f"URL de IA no permitida: {s.ollama_url}")
+    base = s.ollama_url.rstrip("/")
+    return {
+        "base_url": base,
+        "generate_url": f"{base}/api/v1/ia/generate",
+        "headers": {"X-API-Key": s.ia_api_key, "Content-Type": "application/json"},
+    }
 
 
 # --- Schemas de request/response ---
@@ -71,12 +84,19 @@ async def _call_llm(prompt: str, system: str = "", temperature: float = 0.7, max
         "preferir_gpu": "local",
     }
     try:
+        ia = _get_ia_config()
         async with httpx.AsyncClient(timeout=IA_TIMEOUT) as client:
-            resp = await client.post(IA_GENERATE_URL, json=payload, headers=IA_HEADERS)
+            resp = await client.post(ia["generate_url"], json=payload, headers=ia["headers"])
             resp.raise_for_status()
             data = resp.json()
             # El campo puede ser "response", "text" o "output" segun la API
-            return data.get("respuesta", data.get("response", data.get("text", data.get("output", ""))))
+            raw_resp = data.get("respuesta", data.get("response", data.get("text", data.get("output", ""))))
+            # Sanitizar respuesta: truncar a 5000 chars, eliminar tags HTML potenciales
+            import re as _re
+            if raw_resp:
+                raw_resp = _re.sub(r'<script[^>]*>.*?</script>', '', raw_resp, flags=_re.DOTALL | _re.IGNORECASE)
+                raw_resp = raw_resp[:5000]
+            return raw_resp
     except httpx.TimeoutException:
         logger.error("LLM timeout")
         raise HTTPException(status_code=504, detail="El servicio de IA no respondio a tiempo")
@@ -310,10 +330,11 @@ async def suggest_subject(
 async def ai_health():
     """Verifica conectividad con el servidor IA."""
     try:
+        ia = _get_ia_config()
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(
-                f"{IA_BASE_URL}/api/v1/email-assistant/health",
-                headers=IA_HEADERS,
+                f"{ia['base_url']}/api/v1/email-assistant/health",
+                headers=ia["headers"],
             )
             resp.raise_for_status()
             return {"status": "ok", "ia_server": "connected", "detail": resp.json()}

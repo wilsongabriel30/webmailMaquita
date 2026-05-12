@@ -127,25 +127,32 @@ async def send(
         if large_links_html:
             links_block = "<br>".join(large_links_html)
             body.html_body = (body.html_body or "") + "<br>" + links_block
-        result = await send_and_save(
-            imap=imap,
-            password=password,
-            from_addr=username,
-            to=body.to,
-            subject=body.subject,
-            text_body=body.text_body,
-            html_body=body.html_body,
-            cc=body.cc,
-            bcc=body.bcc,
-            in_reply_to=body.in_reply_to,
-            references=body.references,
-            draft_uid=body.draft_uid,
-            display_name=display_name,
-            db=db,
-            attachments=attachments,
-            request_read_receipt=body.request_read_receipt,
-            request_delivery_receipt=body.request_delivery_receipt,
-        )
+        try:
+            result = await send_and_save(
+                imap=imap,
+                password=password,
+                from_addr=username,
+                to=body.to,
+                subject=body.subject,
+                text_body=body.text_body,
+                html_body=body.html_body,
+                cc=body.cc,
+                bcc=body.bcc,
+                in_reply_to=body.in_reply_to,
+                references=body.references,
+                draft_uid=body.draft_uid,
+                display_name=display_name,
+                db=db,
+                attachments=attachments,
+                request_read_receipt=body.request_read_receipt,
+                request_delivery_receipt=body.request_delivery_receipt,
+            )
+        except Exception as smtp_err:
+            import logging
+            logging.getLogger("compose").error(f"Send failed for {username}: {smtp_err}")
+            if "authentication" in str(smtp_err).lower():
+                raise HTTPException(status_code=401, detail="Sesion SMTP expirada. Cierra sesion y vuelve a iniciar.")
+            raise HTTPException(status_code=500, detail=f"Error al enviar: {str(smtp_err)[:200]}")
 
         # Auto-save all recipients for future autocomplete
         all_recipients = list(body.to or [])
@@ -182,8 +189,13 @@ async def send_multipart(
     password = await get_user_password(request, username)
     await _check_send_rate(request, username)
 
+    # Parse recipients from form parameters
+    to_list = [s.strip() for s in to.split(",") if s.strip()]
+    cc_list = [s.strip() for s in cc.split(",") if s.strip()] if cc else []
+    bcc_list = [s.strip() for s in bcc.split(",") if s.strip()] if bcc else []
+
     # ── Detección de envío masivo anómalo (protección anti-compromiso) ──
-    all_rcpts = list(body.to or []) + list(body.cc or []) + list(body.bcc or [])
+    all_rcpts = to_list + cc_list + bcc_list
     anomaly = await check_send_anomaly(request.app.state.redis, username, all_rcpts)
     if not anomaly["allowed"]:
         raise HTTPException(status_code=429, detail=anomaly["reason"])
@@ -209,10 +221,6 @@ async def send_multipart(
                 "is_inline": False,
                 "cid": "",
             })
-
-        to_list = [s.strip() for s in to.split(",") if s.strip()]
-        cc_list = [s.strip() for s in cc.split(",") if s.strip()] if cc else []
-        bcc_list = [s.strip() for s in bcc.split(",") if s.strip()] if bcc else []
 
         result = await send_and_save(
             imap=imap,
@@ -250,13 +258,6 @@ async def create_draft(
     username: str = Depends(get_current_user),
 ):
     password = await get_user_password(request, username)
-    await _check_send_rate(request, username)
-
-    # ── Detección de envío masivo anómalo (protección anti-compromiso) ──
-    all_rcpts = list(body.to or []) + list(body.cc or []) + list(body.bcc or [])
-    anomaly = await check_send_anomaly(request.app.state.redis, username, all_rcpts)
-    if not anomaly["allowed"]:
-        raise HTTPException(status_code=429, detail=anomaly["reason"])
 
     login_user = await get_imap_login_user(request, username)
     imap = await get_imap_connection(login_user, password)
@@ -288,13 +289,6 @@ async def remove_draft(
     username: str = Depends(get_current_user),
 ):
     password = await get_user_password(request, username)
-    await _check_send_rate(request, username)
-
-    # ── Detección de envío masivo anómalo (protección anti-compromiso) ──
-    all_rcpts = list(body.to or []) + list(body.cc or []) + list(body.bcc or [])
-    anomaly = await check_send_anomaly(request.app.state.redis, username, all_rcpts)
-    if not anomaly["allowed"]:
-        raise HTTPException(status_code=429, detail=anomaly["reason"])
 
     login_user = await get_imap_login_user(request, username)
     imap = await get_imap_connection(login_user, password)

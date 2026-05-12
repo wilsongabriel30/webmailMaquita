@@ -36,6 +36,7 @@ export interface EventAttendee {
   email: string;
   name?: string;
   status?: string;
+  role?: string;
 }
 
 export interface EventFormData {
@@ -50,6 +51,7 @@ export interface EventFormData {
   timezone: string;
   reminders: EventReminder[];
   attendees: string[];
+  optional_attendees: string[];
 }
 
 export interface FreeBusySlot {

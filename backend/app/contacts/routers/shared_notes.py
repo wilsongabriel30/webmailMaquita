@@ -33,17 +33,12 @@ async def get_shared_notes(request: Request, contact_id: int, username: str = De
     db = request.app.state.db_pool
     user = username
 
-    # Verificar que el contacto pertenece al mismo dominio
+    # Verificar que el contacto pertenece al usuario
     contact = await db.fetchrow(
-        "SELECT owner FROM user_contacts WHERE id = $1", contact_id
+        "SELECT owner FROM user_contacts WHERE id = $1 AND owner = $2", contact_id, user
     )
     if not contact:
         raise HTTPException(404, "Contacto no encontrado")
-
-    domain = _get_domain(user)
-    contact_domain = _get_domain(contact["owner"])
-    if domain != contact_domain:
-        raise HTTPException(403, "No tiene acceso a las notas de este contacto")
 
     rows = await db.fetch(
         """SELECT id, contact_id, org_contact_id, author, content, tags, created_at, updated_at
@@ -89,6 +84,23 @@ async def create_shared_note(request: Request, body: NoteCreate, username: str =
 
     if not body.contact_id and not body.org_contact_id:
         raise HTTPException(422, "Debe especificar contact_id o org_contact_id")
+
+    # Validar ownership del contacto
+    if body.contact_id:
+        owns = await db.fetchval(
+            "SELECT 1 FROM user_contacts WHERE id = $1 AND owner = $2",
+            body.contact_id, user
+        )
+        if not owns:
+            raise HTTPException(403, "No tiene acceso a este contacto")
+    if body.org_contact_id:
+        domain = _get_domain(user)
+        owns = await db.fetchval(
+            "SELECT 1 FROM org_contacts WHERE id = $1 AND domain = $2",
+            body.org_contact_id, domain
+        )
+        if not owns:
+            raise HTTPException(403, "Contacto de directorio no encontrado")
 
     row = await db.fetchrow(
         """INSERT INTO contact_shared_notes (contact_id, org_contact_id, author, content, tags)

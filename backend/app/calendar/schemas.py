@@ -45,6 +45,7 @@ class EventCreate(BaseModel):
     timezone: str = "America/Guayaquil"
     reminders: list = Field(default_factory=list)
     attendees: list = Field(default_factory=list)
+    optional_attendees: list = Field(default_factory=list)
 
 
 class EventUpdate(BaseModel):
@@ -59,6 +60,7 @@ class EventUpdate(BaseModel):
     timezone: Optional[str] = None
     reminders: Optional[list] = None
     attendees: Optional[list] = None
+    optional_attendees: Optional[list] = None
 
 
 class EventMove(BaseModel):

@@ -1,3 +1,4 @@
+from app.core.sanitize import strip_html
 """Message recall/retract router — recover sent messages within the same server.
 
 Only works for recipients on local domains (maquita.org).
@@ -28,6 +29,15 @@ class RecallResult(BaseModel):
     status: str  # "recalled", "not_found", "external", "error"
     detail: str
 
+
+def _validate_email(email: str) -> bool:
+    """Validate email format to prevent injection in doveadm args."""
+    return bool(re.match(r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$", email))
+
+
+def _validate_message_id(msg_id: str) -> bool:
+    """Validate Message-ID format."""
+    return bool(re.match(r"^<[^>\s]{1,500}>$", msg_id)) or bool(re.match(r"^[^\s<>]{1,500}$", msg_id))
 
 def _is_local_domain(email: str, local_domains: list[str]) -> bool:
     """Check if email belongs to a local domain."""
@@ -175,6 +185,21 @@ async def recall_message(
     db = request.app.state.db_pool
     domain_rows = await db.fetch("SELECT domain FROM domain WHERE active = true")
     local_domains = [r["domain"] for r in domain_rows if r["domain"] != "ALL"]
+    
+    # Validar inputs
+    if not _validate_message_id(body.message_id):
+        raise HTTPException(status_code=422, detail="Message-ID inválido")
+    for r in body.recipients:
+        if not _validate_email(r):
+            raise HTTPException(status_code=422, detail=f"Email inválido: {r}")
+
+    # Verificar que el mensaje existe en la carpeta Sent del usuario (ownership)
+    sender_search = subprocess.run(
+        ["sudo", "doveadm", "search", "-u", username, "mailbox", "Sent", "header", "message-id", msg_id],
+        capture_output=True, text=True, timeout=10,
+    )
+    if sender_search.returncode != 0 or not sender_search.stdout.strip():
+        raise HTTPException(status_code=403, detail="Solo puede recuperar mensajes que usted envio")
 
     results = []
 

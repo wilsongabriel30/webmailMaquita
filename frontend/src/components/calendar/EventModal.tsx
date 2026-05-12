@@ -97,8 +97,12 @@ export function EventModal({
   const [allDay, setAllDay] = useState(event?.all_day || false);
   const [rrule, setRrule] = useState(event?.rrule || "");
   const [reminders, setReminders] = useState<EventReminder[]>(event?.reminders || []);
-  const [attendees, setAttendees] = useState<string[]>(event?.attendees?.map((a) => a.email).filter(Boolean) as string[] || []);
+  const [attendees, setAttendees] = useState<string[]>(event?.attendees?.filter((a) => a.role !== "OPT-PARTICIPANT").map((a) => a.email).filter(Boolean) as string[] || []);
+  const [optionalAttendees, setOptionalAttendees] = useState<string[]>(event?.attendees?.filter((a) => a.role === "OPT-PARTICIPANT").map((a) => a.email).filter(Boolean) as string[] || []);
   const [newAttendee, setNewAttendee] = useState("");
+  const [newOptionalAttendee, setNewOptionalAttendee] = useState("");
+  const [optionalSuggestions, setOptionalSuggestions] = useState<{email:string;display_name?:string}[]>([]);
+  const [showOptionalSuggestions, setShowOptionalSuggestions] = useState(false);
   const [attendeeSuggestions, setAttendeeSuggestions] = useState<{email:string;display_name?:string}[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const suggestionsRef = useRef<HTMLDivElement>(null);
@@ -111,6 +115,7 @@ export function EventModal({
   const [isExpanded, setIsExpanded] = useState(false);
   const descRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [attachments, setAttachments] = useState<{file: File; preview?: string}[]>([]);
 
   // Custom recurrence state
   const [customFreq, setCustomFreq] = useState<"DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY">("WEEKLY");
@@ -140,8 +145,11 @@ export function EventModal({
       setAllDay(event?.all_day || false);
       setRrule(event?.rrule || "");
       setReminders(event?.reminders || []);
-      setAttendees(event?.attendees?.map((a) => a.email).filter(Boolean) as string[] || []);
+      setAttendees(event?.attendees?.filter((a) => a.role !== "OPT-PARTICIPANT").map((a) => a.email).filter(Boolean) as string[] || []);
+      setOptionalAttendees(event?.attendees?.filter((a) => a.role === "OPT-PARTICIPANT").map((a) => a.email).filter(Boolean) as string[] || []);
       setNewAttendee("");
+      setNewOptionalAttendee("");
+      setAttachments([]);
       setConfirmDelete(false);
       setStatus(event?.status || "busy");
       setActiveTab("event");
@@ -155,7 +163,7 @@ export function EventModal({
 
   // Fetch Free/Busy when attendees change
   useEffect(() => {
-    if (!isOpen || attendees.length === 0) {
+    if (!isOpen || (attendees.length === 0 && optionalAttendees.length === 0)) {
       setFreeBusyData(new Map());
       return;
     }
@@ -165,7 +173,7 @@ export function EventModal({
       const dayStart = startDate + "T00:00:00";
       const dayEnd = startDate + "T23:59:59";
       const results = new Map<string, FreeBusySlot[]>();
-      for (const email of attendees) {
+      for (const email of [...attendees, ...optionalAttendees]) {
         try {
           const res = await fetchFreeBusy(email, dayStart, dayEnd);
           if (res && !abortController.signal.aborted) {
@@ -233,6 +241,29 @@ export function EventModal({
     return STATUS_OPTIONS.find((s) => s.value === status)?.label || "Ocupado";
   }, [status]);
 
+  function handleFileAttach(files: FileList | null) {
+    if (!files) return;
+    const newAtts = Array.from(files).map(file => {
+      const item: {file: File; preview?: string} = { file };
+      if (file.type.startsWith("image/")) item.preview = URL.createObjectURL(file);
+      return item;
+    });
+    setAttachments(prev => [...prev, ...newAtts]);
+  }
+
+  function removeAttachment(idx: number) {
+    setAttachments(prev => {
+      if (prev[idx].preview) URL.revokeObjectURL(prev[idx].preview!);
+      return prev.filter((_, i) => i !== idx);
+    });
+  }
+
+  function fmtSize(b: number) {
+    if (b < 1024) return b + " B";
+    if (b < 1048576) return (b / 1024).toFixed(1) + " KB";
+    return (b / 1048576).toFixed(1) + " MB";
+  }
+
   function handleSave() {
     if (!summary.trim()) return;
     if (!calendarId) { alert("Selecciona un calendario"); return; }
@@ -250,6 +281,7 @@ export function EventModal({
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       reminders,
       attendees,
+      optional_attendees: optionalAttendees,
     });
   }
 
@@ -276,10 +308,30 @@ export function EventModal({
     const email = (emailOverride || newAttendee).trim();
     if (email && !attendees.includes(email)) {
       setAttendees([...attendees, email]);
-      setNewAttendee("");
-      setAttendeeSuggestions([]);
-      setShowSuggestions(false);
     }
+    setNewAttendee("");
+    setAttendeeSuggestions([]);
+    setShowSuggestions(false);
+  }
+
+  function addOptionalAttendee(emailOverride?: string) {
+    const email = (emailOverride || newOptionalAttendee).trim();
+    if (email && !optionalAttendees.includes(email) && !attendees.includes(email)) {
+      setOptionalAttendees([...optionalAttendees, email]);
+    }
+    setNewOptionalAttendee("");
+    setOptionalSuggestions([]);
+    setShowOptionalSuggestions(false);
+  }
+
+  async function searchOptionalContacts(q: string) {
+    if (q.length < 2) { setOptionalSuggestions([]); setShowOptionalSuggestions(false); return; }
+    try {
+      const data = await api.get<{contacts:{email:string;display_name?:string}[]}>("/contacts/search?q=" + encodeURIComponent(q) + "&limit=8");
+      const list = Array.isArray(data) ? data : (data as any)?.contacts || [];
+      setOptionalSuggestions(list.filter((c: any) => c.email && !attendees.includes(c.email) && !optionalAttendees.includes(c.email)).map((c: any) => ({ email: c.email, display_name: c.display_name || c.name || "" })));
+      setShowOptionalSuggestions(true);
+    } catch { setOptionalSuggestions([]); }
   }
 
   async function searchContacts(q: string) {
@@ -287,7 +339,7 @@ export function EventModal({
     try {
       const data = await api.get<{contacts:{email:string;display_name?:string}[]}>("/contacts/search?q=" + encodeURIComponent(q) + "&limit=8");
       const list = Array.isArray(data) ? data : (data as any)?.contacts || [];
-      setAttendeeSuggestions(list.filter((c: any) => c.email && !attendees.includes(c.email)));
+      setAttendeeSuggestions(list.filter((c: any) => c.email && !attendees.includes(c.email)).map((c: any) => ({ email: c.email, display_name: c.display_name || c.name || "" })));
       setShowSuggestions(true);
     } catch { setAttendeeSuggestions([]); }
   }
@@ -302,7 +354,7 @@ export function EventModal({
       <div className="olkm-overlay" onClick={onClose} />
 
       {/* Modal Panel */}
-      <div className="olkm-panel">
+      <div className={`olkm-panel${isExpanded ? " olkm-dialog-expanded" : ""}`}>
         {/* Title Bar */}
         <div className="olkm-titlebar">
           <div className="olkm-titlebar-left">
@@ -486,15 +538,17 @@ export function EventModal({
                         value={newAttendee}
                         onChange={(e) => { setNewAttendee(e.target.value); searchContacts(e.target.value); }}
                         onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            addAttendee();
+                          if (e.key === "Enter" || e.key === "Tab" || e.key === ",") {
+                            if (newAttendee.trim()) {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              addAttendee();
+                            }
                           }
                           if (e.key === "Escape") { setShowSuggestions(false); }
                         }}
                         onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                        placeholder="Buscar contacto o escribir email..."
+                        placeholder="Requeridos: buscar contacto o escribir email..."
                         className="olkm-inline-input"
                       />
                       {showSuggestions && attendeeSuggestions.length > 0 && (
@@ -506,6 +560,75 @@ export function EventModal({
                           {attendeeSuggestions.map((s, i) => (
                             <div key={i}
                               onMouseDown={(e) => { e.preventDefault(); addAttendee(s.email); }}
+                              style={{
+                                padding: "8px 12px", cursor: "pointer", fontSize: 13,
+                                borderBottom: "1px solid #f3f2f1",
+                              }}
+                              onMouseEnter={(e) => { (e.target as HTMLElement).style.background = "#f3f2f1"; }}
+                              onMouseLeave={(e) => { (e.target as HTMLElement).style.background = "#fff"; }}
+                            >
+                              <div style={{ fontWeight: 600 }}>{s.display_name || s.email}</div>
+                              {s.display_name && <div style={{ fontSize: 11, color: "#605e5c" }}>{s.email}</div>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Optional Attendees field */}
+                <div className="olkm-field">
+                  <div className="olkm-field-icon">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" opacity="0.6">
+                      <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7zm4-6a3 3 0 100-6 3 3 0 000 6z"/>
+                      <path fillRule="evenodd" d="M5.216 14A2.238 2.238 0 015 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 005 9c-4 0-5 3-5 4s1 1 1 1h4.216z"/>
+                      <path d="M4.5 8a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"/>
+                    </svg>
+                  </div>
+                  <div className="olkm-attendees-area">
+                    {optionalAttendees.map((email, idx) => (
+                      <span key={idx} className="olkm-attendee-chip" style={{ background: "#f3f2f1", borderColor: "#d2d0ce" }}>
+                        <span className="olkm-attendee-avatar" style={{ background: "#a19f9d" }}>
+                          {(email || "?").charAt(0).toUpperCase()}
+                        </span>
+                        {email}
+                        <button
+                          className="olkm-attendee-remove"
+                          onClick={() => setOptionalAttendees(optionalAttendees.filter((_, i) => i !== idx))}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                    <div style={{ position: "relative", flex: 1 }}>
+                      <input
+                        type="text"
+                        value={newOptionalAttendee}
+                        onChange={(e) => { setNewOptionalAttendee(e.target.value); searchOptionalContacts(e.target.value); }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === "Tab" || e.key === ",") {
+                            if (newOptionalAttendee.trim()) {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              addOptionalAttendee();
+                            }
+                          }
+                          if (e.key === "Escape") { setShowOptionalSuggestions(false); }
+                        }}
+                        onBlur={() => setTimeout(() => setShowOptionalSuggestions(false), 200)}
+                        placeholder="Opcional: buscar contacto o escribir email..."
+                        className="olkm-inline-input"
+                      />
+                      {showOptionalSuggestions && optionalSuggestions.length > 0 && (
+                        <div style={{
+                          position: "absolute", top: "100%", left: 0, right: 0, zIndex: 1000,
+                          background: "#fff", border: "1px solid #e1dfdd", borderRadius: 4,
+                          boxShadow: "0 4px 12px rgba(0,0,0,0.15)", maxHeight: 200, overflowY: "auto",
+                        }}>
+                          {optionalSuggestions.map((s, i) => (
+                            <div key={i}
+                              onMouseDown={(e) => { e.preventDefault(); addOptionalAttendee(s.email); }}
                               style={{
                                 padding: "8px 12px", cursor: "pointer", fontSize: 13,
                                 borderBottom: "1px solid #f3f2f1",
@@ -822,7 +945,7 @@ export function EventModal({
 
                     {/* Count / end */}
                     <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
-                      <span style={{ fontSize: "13px", color: "#323130" }}>Terminar despues de</span>
+                      <span style={{ fontSize: "13px", color: "#323130" }}>Terminar después de</span>
                       <input
                         type="number"
                         min={1}
@@ -1080,6 +1203,29 @@ export function EventModal({
           )}
         </div>
 
+        {/* Attachments preview */}
+        {attachments.length > 0 && (
+          <div style={{ padding: "8px 24px", borderTop: "1px solid #edebe9", background: "#faf9f8", maxHeight: 120, overflowY: "auto" }}>
+            <div style={{ fontSize: 11, color: "#605e5c", marginBottom: 4, fontWeight: 600 }}>Adjuntos ({attachments.length})</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {attachments.map((att, idx) => (
+                <div key={idx} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 8px", background: "#fff", border: "1px solid #e1dfdd", borderRadius: 4, fontSize: 12 }}>
+                  {att.preview ? (
+                    <img src={att.preview} alt={att.file.name} style={{ width: 32, height: 32, objectFit: "cover", borderRadius: 3 }} />
+                  ) : (
+                    <svg width="20" height="20" viewBox="0 0 16 16" fill="#605e5c"><path d="M4 0a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V4.414A2 2 0 0013.414 3L11 .586A2 2 0 009.586 0H4zm5.586 1H10v3a1 1 0 001 1h3v9a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1h5.586z"/></svg>
+                  )}
+                  <div style={{ maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <div style={{ fontWeight: 500 }}>{att.file.name}</div>
+                    <div style={{ fontSize: 10, color: "#a19f9d" }}>{fmtSize(att.file.size)}</div>
+                  </div>
+                  <button onClick={() => removeAttachment(idx)} style={{ background: "none", border: "none", cursor: "pointer", color: "#a19f9d", fontSize: 14, padding: "0 2px" }}>\u00d7</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Bottom bar */}
         <div className="olkm-bottom">
           <div className="olkm-bottom-icons">
@@ -1088,8 +1234,8 @@ export function EventModal({
                 <path d="M4.5 3a2.5 2.5 0 015 0v9a1.5 1.5 0 01-3 0V5a.5.5 0 011 0v7a.5.5 0 001 0V3a1.5 1.5 0 00-3 0v9a2.5 2.5 0 005 0V5a.5.5 0 011 0v7a3.5 3.5 0 01-7 0V3z"/>
               </svg>
             </button>
-            <input ref={fileInputRef} type="file" className="hidden" onChange={(e) => { if(e.target.files?.[0]) setDescription(prev => prev + "\n[Adjunto: " + e.target.files![0].name + "]"); }} />
-            <button className="olkm-bottom-btn" title="Insertar imagen" onClick={() => { const inp = document.createElement("input"); inp.type = "file"; inp.accept = "image/*"; inp.onchange = (e) => { const f = (e.target as HTMLInputElement).files?.[0]; if(f) setDescription(prev => prev + "\n[Imagen: " + f.name + "]"); }; inp.click(); }}>
+            <input ref={fileInputRef} type="file" multiple className="hidden" onChange={(e) => handleFileAttach(e.target.files)} />
+            <button className="olkm-bottom-btn" title="Insertar imagen" onClick={() => { const inp = document.createElement("input"); inp.type = "file"; inp.accept = "image/*"; inp.multiple = true; inp.onchange = (e) => handleFileAttach((e.target as HTMLInputElement).files); inp.click(); }}>
               <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                 <path d="M6.002 5.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/>
                 <path d="M2.002 1a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V3a2 2 0 00-2-2h-12zm12 1a1 1 0 011 1v6.5l-3.777-1.947a.5.5 0 00-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 00-.63.062L1.002 12V3a1 1 0 011-1h12z"/>

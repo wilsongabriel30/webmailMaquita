@@ -11,7 +11,9 @@ import { useMailStore } from '../../store/mailStore';
 import { useAuthStore } from '../../store/authStore';
 
 export function ComposePopup() {
-  const { composeWindows, openCompose, restoreCompose } = useMailStore();
+  const composeWindows = useMailStore(s => s.composeWindows);
+  const openCompose = useMailStore(s => s.openCompose);
+  const restoreCompose = useMailStore(s => s.restoreCompose);
   const { user, setUser } = useAuthStore();
 
   // Authenticate if needed

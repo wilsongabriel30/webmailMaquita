@@ -59,7 +59,14 @@ def build_vcalendar(event_data: dict) -> str:
 
     for att in event_data.get("attendees", []):
         if isinstance(att, dict) and att.get("email"):
-            ev.add("attendee", f"mailto:{att['email']}")
+            from icalendar import vCalAddress, vText
+            attendee = vCalAddress(f"mailto:{att['email']}")
+            role = att.get("role", "REQ-PARTICIPANT")
+            attendee.params["ROLE"] = role
+            attendee.params["PARTSTAT"] = att.get("status", "NEEDS-ACTION")
+            if att.get("name"):
+                attendee.params["CN"] = att["name"]
+            ev.add("attendee", attendee, encode=0)
 
     # Reminders / VALARM
     for rem in event_data.get("reminders", []):

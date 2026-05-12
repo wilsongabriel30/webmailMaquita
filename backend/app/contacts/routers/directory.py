@@ -43,12 +43,21 @@ def _get_domain(user: str) -> str:
 
 async def _is_admin(db, user: str) -> bool:
     """Verifica si el usuario es admin del dominio.
-    Regla: solo usuarios con rol postmaster o admin en el dominio,
-    o el primer usuario que creó contactos institucionales.
-    Fallback: si no hay tabla de roles, permite al owner del dominio.
+    Solo permite: superadmins de tabla admin, domain_admins activos,
+    o postmaster@/admin@ del dominio.
     """
     domain = _get_domain(user)
-    # Verificar si existe tabla de admin de dominio
+    # 1. Verificar superadmin en tabla admin (PostfixAdmin)
+    try:
+        is_super = await db.fetchval(
+            "SELECT 1 FROM admin WHERE username=$1 AND active=true",
+            user
+        )
+        if is_super:
+            return True
+    except Exception:
+        pass
+    # 2. Verificar domain_admins
     try:
         row = await db.fetchval(
             "SELECT 1 FROM domain_admins WHERE domain=$1 AND username=$2 AND is_active=true",
@@ -57,24 +66,10 @@ async def _is_admin(db, user: str) -> bool:
         if row:
             return True
     except Exception:
-        pass  # Tabla no existe aún
-    # Fallback: si el usuario es postmaster@ del dominio
+        pass
+    # 3. Solo postmaster@ y admin@ del dominio
     if user.startswith("postmaster@") or user.startswith("admin@"):
         return True
-    # Fallback: si hay pocos contactos de directorio y el usuario creó alguno
-    try:
-        count = await db.fetchval(
-            "SELECT COUNT(*) FROM org_contacts WHERE domain=$1", domain
-        )
-        if count == 0:
-            return True  # Primer usuario puede crear directorio
-        created = await db.fetchval(
-            "SELECT COUNT(*) FROM org_contacts WHERE domain=$1 AND created_by=$2", domain, user
-        )
-        if created > 0:
-            return True  # Contribuyó al directorio
-    except Exception:
-        pass
     return False
 
 

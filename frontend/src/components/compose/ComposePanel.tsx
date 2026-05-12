@@ -1,4 +1,5 @@
 // @ts-nocheck  Ribbon callbacks temporarily unused (rendered in main Toolbar)
+import { sanitizeHtml, sanitizeSignatureHtml } from '../../lib/sanitize';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import React from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
@@ -37,7 +38,9 @@ interface Props { win: DraftWindow; }
 interface AttachmentFile { name: string; size: number; type: string; file?: File; }
 
 export function ComposePanel({ win }: Props) {
-  const { closeCompose, minimizeCompose, updateDraftUid } = useMailStore();
+  const closeCompose = useMailStore(s => s.closeCompose);
+  const minimizeCompose = useMailStore(s => s.minimizeCompose);
+  const updateDraftUid = useMailStore(s => s.updateDraftUid);
   const [to, setTo] = useState('');
   const [cc, setCc] = useState('');
   const [bcc, setBcc] = useState('');
@@ -61,6 +64,12 @@ export function ComposePanel({ win }: Props) {
   const [scheduleDate, setScheduleDate] = useState('');
   const autosaveTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // FQA-006: Refs to capture latest values for auto-save (avoids stale closures with React batching)
+  const subjectRef = useRef(subject);
+  const toRef = useRef(to);
+  useEffect(() => { subjectRef.current = subject; }, [subject]);
+  useEffect(() => { toRef.current = to; }, [to]);
 
   const editor = useEditor({
     extensions: [
@@ -131,8 +140,15 @@ export function ComposePanel({ win }: Props) {
     const init = async () => {
       let sig = '';
       try {
-        const res = await api.get<{ signature_html: string }>('/settings/signature');
-        sig = res.signature_html || '';
+        // Cache signature in session to avoid re-fetching (and re-loading external images)
+        const cached = sessionStorage.getItem('maquita_sig_cache');
+        if (cached) {
+          sig = cached;
+        } else {
+          const res = await api.get<{ signature_html: string }>('/settings/signature');
+          sig = res.signature_html || '';
+          if (sig) sessionStorage.setItem('maquita_sig_cache', sig);
+        }
       } catch {}
 
       let content = '';
@@ -159,6 +175,8 @@ export function ComposePanel({ win }: Props) {
 
       }
       editor?.commands.setContent(content);
+      // Allow smart-compose after init is done
+      setTimeout(() => { initializingRef.current = false; }, 500);
     };
     if (editor) init();
   }, [editor]);
@@ -207,13 +225,19 @@ export function ComposePanel({ win }: Props) {
   }, [saveDraft]);
   // Close with save confirmation
   const handleClose = useCallback(async () => {
-    const hasContent = !!(to || subject || (editor && editor.getText().trim()) || signatureHtml);
+    const hasContent = !!(to || subject || (editor && editor.getText().trim()));
     if (hasContent) {
-      const action = window.confirm('\u00bfGuardar como borrador antes de cerrar?');
-      if (action) {
+      // Auto-guardar borrador silenciosamente al cerrar (sin diálogo intrusivo)
+      try {
         await saveDraft();
         showToast('Borrador guardado');
+      } catch {
+        // Si falla el guardado, cerrar de todas formas
       }
+    }
+    // Destruir editor antes de cerrar para evitar HTML residual
+    if (editor) {
+      editor.commands.clearContent();
     }
     closeCompose(win.id);
   }, [to, subject, editor, saveDraft, win.id, closeCompose]);
@@ -234,6 +258,10 @@ export function ComposePanel({ win }: Props) {
   const handleSend = useCallback(async () => {
     const recipients = to.split(',').map(s => s.trim()).filter(Boolean);
     if (!recipients.length) { setError('Ingresa un destinatario'); return; }
+    // Advertencia si el asunto está vacío
+    if (!subject.trim()) {
+      if (!window.confirm("¿Enviar sin asunto?")) return;
+    }
     const sendPayload = {
       to: recipients,
       cc: cc ? cc.split(',').map(s => s.trim()).filter(Boolean) : undefined,
@@ -263,7 +291,15 @@ export function ComposePanel({ win }: Props) {
     const timerId = setTimeout(async () => {
       clearInterval(intervalId); pendingSendMap.delete(winId); dismissToast(toastId);
       try { await api.post('/mail/send', sendPayload); showToast('Mensaje enviado'); window.dispatchEvent(new CustomEvent('refresh-messages'));
-      } catch (err: unknown) { showToast(err instanceof Error ? err.message : 'Error al enviar'); useMailStore.getState().openCompose(savedData.mode, savedData.data); }
+      } catch (err: unknown) {
+        const errMsg = err instanceof Error ? err.message : 'Error al enviar';
+        if (errMsg.includes('Session expired') || errMsg.includes('SMTP expirada') || errMsg.includes('401')) {
+          showToast('Sesión expirada. Cierra sesión y vuelve a iniciar.');
+        } else {
+          showToast('Error al enviar: ' + errMsg);
+        }
+        useMailStore.getState().openCompose(savedData.mode, savedData.data);
+      }
     }, 5000);
     pendingSendMap.set(winId, { timerId, toastId, intervalId });
   }, [to, cc, bcc, subject, editor, win, trackingState, closeCompose, attachments]);
@@ -284,11 +320,19 @@ export function ComposePanel({ win }: Props) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); handleSend(); }
-      if (e.key === 'Escape') { e.preventDefault(); handleClose(); }
+      if (e.key === 'Escape') {
+        // No cerrar compose si hay un dropdown/popup abierto (tabla, color, etc.)
+        const hasOpenPopup = document.querySelector('.tippy-box, [data-tippy-root], [role="listbox"], .tiptap-menu, [data-radix-popper-content-wrapper], [role="dialog"], [role="menu"]');
+        if (hasOpenPopup) { e.stopPropagation(); return; }
+        // Si hay send dropdown abierto, cerrarlo en vez de cerrar compose
+        if (showSendDropdown) { setShowSendDropdown(false); e.preventDefault(); return; }
+        e.preventDefault();
+        handleClose();
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [handleSend, handleClose]);
+  }, [handleSend, handleClose, showSendDropdown]);
 
   const handleAttach = () => { fileInputRef.current?.click(); };
 
@@ -345,9 +389,11 @@ export function ComposePanel({ win }: Props) {
 
   const insertSignature = useCallback(async () => {
     try {
-      const res = await api.get<{ signature_html: string }>('/settings/signature');
-      if (res.signature_html) {
-        setSignatureHtml(res.signature_html);
+      const cached = sessionStorage.getItem('maquita_sig_cache');
+      const sig = cached || (await api.get<{ signature_html: string }>('/settings/signature')).signature_html;
+      if (sig) {
+        if (!cached) sessionStorage.setItem('maquita_sig_cache', sig);
+        setSignatureHtml(sig);
         showToast('Firma insertada');
       } else {
         showToast('No hay firma configurada');
@@ -544,6 +590,8 @@ export function ComposePanel({ win }: Props) {
   //  VM 170: Smart Compose — autocompletado IA
   const [composeSuggestion, setComposeSuggestion] = useState('');
   const composeDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const smartComposeAbort = useRef<AbortController | null>(null);
+  const initializingRef = useRef(true);
 
   const fetchSmartCompose = useCallback(async (context: string) => {
     if (context.trim().length < 15) { setComposeSuggestion(''); return; }
@@ -559,11 +607,18 @@ export function ComposePanel({ win }: Props) {
   useEffect(() => {
     if (!editor) return;
     const handler = () => {
+      // Skip during initialization to prevent double-call
+      if (initializingRef.current) return;
       if (composeDebounce.current) clearTimeout(composeDebounce.current);
       setComposeSuggestion('');
       composeDebounce.current = setTimeout(() => {
         const text = editor.getText();
-        if (text.length >= 15) fetchSmartCompose(text);
+        if (text.length >= 15) {
+          // Cancelar petición anterior antes de iniciar nueva
+          if (smartComposeAbort.current) smartComposeAbort.current.abort();
+          smartComposeAbort.current = new AbortController();
+          fetchSmartCompose(text);
+        }
       }, 2000);
     };
     editor.on('update', handler);
@@ -891,7 +946,7 @@ export function ComposePanel({ win }: Props) {
               onMouseEnter={(e) => { e.currentTarget.style.color = '#323130'; e.currentTarget.style.background = '#f3f2f1'; }}
               onMouseLeave={(e) => { e.currentTarget.style.color = '#a19f9d'; e.currentTarget.style.background = 'none'; }}
             >×</button>
-            <div dangerouslySetInnerHTML={{ __html: signatureHtml }} />
+            <div dangerouslySetInnerHTML={{ __html: sanitizeSignatureHtml(signatureHtml) }} />
           </div>
         )}
         {/* Contenido citado (reply/forward) — se muestra DESPUES de la firma */}
@@ -900,7 +955,7 @@ export function ComposePanel({ win }: Props) {
             contentEditable={false}
             className="compose-quoted-content"
             style={{ padding: '0 24px 16px', color: '#605e5c', userSelect: 'text', cursor: 'default', fontSize: 13 }}
-            dangerouslySetInnerHTML={{ __html: quotedHtml }}
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(quotedHtml) }}
           />
         )}
       </div>

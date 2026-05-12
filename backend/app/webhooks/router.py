@@ -12,6 +12,36 @@ from fastapi import APIRouter, Request, Depends, HTTPException, status, Backgrou
 from pydantic import BaseModel, Field, HttpUrl
 
 from app.auth.dependencies import get_current_user
+import ipaddress
+import socket
+from urllib.parse import urlparse
+
+# Anti-SSRF: bloquear URLs a redes internas
+_BLOCKED_NETS = [
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("169.254.0.0/16"),
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fc00::/7"),
+]
+
+def _validate_webhook_url(url: str) -> None:
+    """Validate webhook URL is not pointing to internal services."""
+    parsed = urlparse(url)
+    if parsed.scheme not in ("https", "http"):
+        raise ValueError("Solo se permiten URLs HTTP/HTTPS")
+    if not parsed.hostname:
+        raise ValueError("URL sin hostname")
+    try:
+        resolved = socket.gethostbyname(parsed.hostname)
+        ip = ipaddress.ip_address(resolved)
+        for net in _BLOCKED_NETS:
+            if ip in net:
+                raise ValueError(f"URL apunta a red interna/privada")
+    except socket.gaierror:
+        raise ValueError("Hostname no resolvible")
 
 logger = logging.getLogger("webhooks")
 
@@ -66,6 +96,11 @@ async def create_webhook(body: WebhookCreate, request: Request, username: str = 
     for ev in body.events:
         if ev not in VALID_EVENTS:
             raise HTTPException(400, detail=f"Invalid event: {ev}")
+    # Validar URL anti-SSRF
+    try:
+        _validate_webhook_url(str(body.url))
+    except ValueError as e:
+        raise HTTPException(400, detail=f"URL no permitida: {e}")
     db = request.app.state.db_pool
     secret = secrets.token_urlsafe(32)
     row = await db.fetchrow(
@@ -97,6 +132,10 @@ async def update_webhook(webhook_id: int, body: WebhookUpdate, request: Request,
         raise HTTPException(404, "Webhook not found")
     updates = {}
     if body.url is not None:
+        try:
+            _validate_webhook_url(body.url)
+        except ValueError as e:
+            raise HTTPException(400, detail=f"URL no permitida: {e}")
         updates["url"] = body.url
     if body.events is not None:
         for ev in body.events:
@@ -106,6 +145,11 @@ async def update_webhook(webhook_id: int, body: WebhookUpdate, request: Request,
     if body.is_active is not None:
         updates["is_active"] = body.is_active
         if body.is_active:
+            # Re-validate URL when reactivating (catches legacy invalid URLs)
+            try:
+                _validate_webhook_url(row["url"])
+            except ValueError as e:
+                raise HTTPException(400, detail=f"URL del webhook no valida: {e}. Actualice la URL primero.")
             updates["failure_count"] = 0
     if not updates:
         return _row_to_dict(row)
