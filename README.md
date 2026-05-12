@@ -141,6 +141,7 @@ Webmail completo desarrollado por la Fundacion Maquita (Ecuador). Interfaz moder
 | **Busqueda** | FTS Xapian | Integrado en Dovecot |
 | **Runtime** | Python 3.12+ / Node.js 18+ | - |
 | **SO** | Debian 12+ o Ubuntu 22.04+ | - |
+| **IA (opcional)** | Ollama + FastAPI Gateway | Ollama 0.6+, cualquier modelo |
 
 ---
 
@@ -821,6 +822,338 @@ dig +short TXT mail._domainkey.tudominio.com
 ```
 
 Abrir en el navegador: `https://mail.tudominio.com/webmail/`
+
+---
+
+
+### 18. Configurar Inteligencia Artificial (opcional)
+
+El webmail incluye funciones de IA para ayudar a redactar correos: respuestas inteligentes, autocompletado, resumenes y sugerencias de asunto. Todo funciona con modelos locales (sin enviar datos a terceros).
+
+**Requisitos:**
+- Un servidor (puede ser el mismo del correo o uno separado) con GPU NVIDIA
+- Minimo 8 GB de VRAM para modelos pequenos, 16+ GB para modelos grandes
+- NVIDIA drivers + CUDA instalados
+
+#### 18.1 Instalar NVIDIA drivers y CUDA
+
+```bash
+# Verificar que el sistema detecta la GPU
+lspci | grep -i nvidia
+
+# Instalar drivers NVIDIA (Debian/Ubuntu)
+apt install -y nvidia-driver firmware-misc-nonfree
+# O en Ubuntu:
+# apt install -y nvidia-driver-535
+
+# Reiniciar
+reboot
+
+# Verificar que funciona
+nvidia-smi
+# Debe mostrar tu GPU, memoria VRAM y version del driver
+```
+
+#### 18.2 Instalar Ollama
+
+Ollama es el motor que ejecuta los modelos de IA localmente. Es gratuito y open source.
+
+```bash
+# Instalar Ollama (una sola linea)
+curl -fsSL https://ollama.com/install.sh | sh
+
+# Verificar que esta corriendo
+systemctl status ollama
+# Debe decir "active (running)"
+
+# Si no esta corriendo:
+systemctl enable --now ollama
+```
+
+#### 18.3 Descargar un modelo de lenguaje
+
+Necesitas al menos un modelo. Recomendaciones segun tu VRAM:
+
+| VRAM | Modelo recomendado | Comando | Calidad |
+|------|-------------------|---------|---------|
+| 8 GB | Gemma 2 9B | `ollama pull gemma2:9b` | Buena |
+| 8 GB | Llama 3.1 8B | `ollama pull llama3.1:8b` | Buena |
+| 8 GB | Qwen 2.5 7B | `ollama pull qwen2.5:7b` | Buena |
+| 16 GB | Qwen 2.5 14B | `ollama pull qwen2.5:14b` | Muy buena |
+| 24 GB | Gemma 4 26B | `ollama pull gemma4:26b` | Excelente |
+| 24 GB | Llama 3.1 70B (Q4) | `ollama pull llama3.1:70b` | Excelente |
+
+```bash
+# Ejemplo: descargar Gemma 2 9B (funciona con 8GB VRAM)
+ollama pull gemma2:9b
+
+# Verificar que se descargo
+ollama list
+# Debe mostrar el modelo con su tamano
+
+# Probar que funciona (chat rapido)
+ollama run gemma2:9b "Hola, responde en una frase"
+# Debe responder en 2-5 segundos
+```
+
+#### 18.4 Configurar Ollama para aceptar conexiones remotas
+
+Por defecto Ollama solo escucha en localhost. Si el servidor de IA es diferente al servidor de correo, hay que abrirlo:
+
+```bash
+# Editar la configuracion de Ollama
+mkdir -p /etc/systemd/system/ollama.service.d
+cat > /etc/systemd/system/ollama.service.d/override.conf << 'EOF'
+[Service]
+Environment="OLLAMA_HOST=0.0.0.0:11434"
+Environment="OLLAMA_ORIGINS=*"
+EOF
+
+# Recargar y reiniciar
+systemctl daemon-reload
+systemctl restart ollama
+
+# Verificar que escucha en todas las interfaces
+ss -tlnp | grep 11434
+# Debe mostrar 0.0.0.0:11434
+```
+
+**IMPORTANTE:** Si abres Ollama a la red, asegurate de que solo sea accesible desde tu red interna. Usa firewall:
+```bash
+# Solo permitir acceso desde la IP del servidor de correo
+ufw allow from IP_SERVIDOR_CORREO to any port 11434
+ufw deny 11434
+```
+
+#### 18.5 Crear el gateway de IA (API intermedia)
+
+El webmail no se conecta directamente a Ollama. Necesita un gateway FastAPI que:
+- Autentica las peticiones con API key
+- Enruta a la GPU correcta
+- Hace failover si una GPU falla
+- Expone endpoints estandarizados
+
+Crear `/opt/maquita-ia-gateway/gateway.py`:
+```python
+"""
+Gateway IA para Maquita Webmail
+Proxy autenticado entre el webmail y Ollama
+"""
+import logging
+import httpx
+from fastapi import FastAPI, HTTPException, Header
+from pydantic import BaseModel
+
+app = FastAPI(title="Maquita IA Gateway")
+logging.basicConfig(level=logging.INFO)
+
+# --- CONFIGURACION ---
+API_KEY = "tu-clave-api-segura"  # Cambiar por una clave segura
+OLLAMA_URL = "http://localhost:11434"  # URL de Ollama
+MODELO_DEFAULT = "gemma2:9b"  # Cambiar por tu modelo
+
+# --- AUTENTICACION ---
+def verificar_token(x_api_key: str = Header(None)):
+    if x_api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="Token de autenticacion requerido")
+    return "webmail"
+
+# --- SCHEMAS ---
+class GenerateRequest(BaseModel):
+    prompt: str
+    system: str = ""
+    model: str | None = None
+    temperature: float = 0.7
+    max_tokens: int = 500
+    preferir_gpu: str = "auto"
+    usar_rag: bool = False
+
+# --- ENDPOINTS ---
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
+@app.post("/api/v1/ia/generate")
+async def generate(req: GenerateRequest, user: str = Header(None, alias="X-API-Key")):
+    verificar_token(user)
+    modelo = req.model or MODELO_DEFAULT
+    payload = {
+        "model": modelo,
+        "prompt": req.prompt,
+        "system": req.system,
+        "stream": False,
+        "options": {"temperature": req.temperature, "num_predict": req.max_tokens},
+    }
+    try:
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            resp = await client.post(f"{OLLAMA_URL}/api/generate", json=payload)
+            resp.raise_for_status()
+            data = resp.json()
+        return {
+            "respuesta": data.get("response", ""),
+            "tokens_usados": data.get("eval_count", 0),
+            "modelo": modelo,
+            "gpu": "local",
+            "gpu_url": OLLAMA_URL,
+            "tiempo_ms": int(data.get("total_duration", 0) / 1_000_000),
+            "rag_usado": False,
+            "rag_documentos": 0,
+            "authenticated_as": "webmail",
+        }
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Error Ollama: {e}")
+
+@app.get("/api/v1/ia/status")
+async def status(user: str = Header(None, alias="X-API-Key")):
+    verificar_token(user)
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(f"{OLLAMA_URL}/api/tags")
+            modelos = [m["name"] for m in resp.json().get("models", [])]
+        return {"gpus": {"local": {"url": OLLAMA_URL, "modelos": modelos, "status": "ok"}}, "gateway": "ok"}
+    except Exception as e:
+        return {"gpus": {"local": {"status": "offline", "error": str(e)}}, "gateway": "ok"}
+
+@app.get("/api/v1/ia/models")
+async def models(user: str = Header(None, alias="X-API-Key")):
+    verificar_token(user)
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(f"{OLLAMA_URL}/api/tags")
+            modelos = [m["name"] for m in resp.json().get("models", [])]
+        return {"modelos": modelos}
+    except:
+        return {"modelos": []}
+
+@app.get("/api/v1/email-assistant/health")
+async def email_health(user: str = Header(None, alias="X-API-Key")):
+    verificar_token(user)
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(f"{OLLAMA_URL}/api/tags")
+            modelos = [m["name"] for m in resp.json().get("models", [])]
+        return {"status": "ok", "model": MODELO_DEFAULT, "available_models": modelos, "ollama_url": OLLAMA_URL}
+    except Exception as e:
+        return {"status": "offline", "error": str(e)}
+```
+
+Instalar dependencias y ejecutar:
+```bash
+# Crear entorno virtual
+cd /opt/maquita-ia-gateway
+python3 -m venv venv
+source venv/bin/activate
+pip install fastapi uvicorn httpx
+
+# Probar que funciona
+uvicorn gateway:app --host 0.0.0.0 --port 8000
+
+# En otra terminal, probar:
+curl -s -H "X-API-Key: tu-clave-api-segura" \
+  -H "Content-Type: application/json" \
+  -X POST http://localhost:8000/api/v1/ia/generate \
+  -d '{"prompt": "Hola, responde brevemente"}'
+# Debe retornar JSON con "respuesta"
+```
+
+Crear servicio systemd para que arranque automaticamente:
+```bash
+cat > /etc/systemd/system/maquita-ia-gateway.service << 'EOF'
+[Unit]
+Description=Maquita IA Gateway
+After=network.target ollama.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/maquita-ia-gateway
+ExecStart=/opt/maquita-ia-gateway/venv/bin/uvicorn gateway:app --host 0.0.0.0 --port 8000 --workers 2
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable --now maquita-ia-gateway
+
+# Verificar
+systemctl status maquita-ia-gateway
+curl -s http://localhost:8000/health
+# Debe responder {"status": "ok"}
+```
+
+#### 18.6 Conectar el webmail al servidor de IA
+
+En el archivo `.env` del webmail, agregar estas dos lineas:
+```ini
+# Si el gateway IA esta en el mismo servidor:
+OLLAMA_URL=http://localhost:8000
+IA_API_KEY=tu-clave-api-segura
+
+# Si esta en otro servidor (reemplazar IP):
+# OLLAMA_URL=http://192.168.1.100:8000
+# IA_API_KEY=tu-clave-api-segura
+```
+
+Reiniciar el webmail:
+```bash
+systemctl restart maquita-webmail
+```
+
+Verificar la conexion desde el webmail:
+```bash
+curl -s http://localhost:8000/api/ai/health
+# Debe responder {"status": "ok", "ia_server": "connected", ...}
+```
+
+#### 18.7 Verificar que funciona en el navegador
+
+1. Ir a `https://mail.tudominio.com/webmail/`
+2. Abrir un correo recibido
+3. Buscar el boton de "Respuesta inteligente" o el icono de IA
+4. Debe generar 3 opciones de respuesta contextualizadas
+5. Al redactar un correo, el autocompletado debe sugerir texto
+
+#### 18.8 Configuracion avanzada: multiples GPUs (opcional)
+
+Si tienes dos o mas GPUs, puedes distribuir la carga. Para eso necesitas:
+
+1. Ollama corriendo en cada servidor/GPU
+2. Modificar el gateway para incluir ambas URLs
+3. El sistema rutea automaticamente:
+   - GPU principal: tareas pesadas (resumenes largos, razonamiento)
+   - GPU secundaria: tareas rapidas (autocompletado, chat)
+   - Failover automatico si una GPU falla
+
+Ejemplo con dos GPUs:
+```python
+# En el gateway, agregar segunda GPU
+GPU_LOCAL = "http://localhost:11434"      # GPU 1 (ej: P40)
+GPU_REMOTA = "http://192.168.1.50:11434"  # GPU 2 (ej: RTX 3090)
+```
+
+#### 18.9 Solucionar problemas de IA
+
+| Problema | Solucion |
+|----------|----------|
+| "El servicio de IA no respondio a tiempo" | El modelo es muy grande para tu GPU. Prueba uno mas pequeno |
+| "Error al comunicarse con el servicio de IA" | Verificar que Ollama y el gateway estan corriendo: `systemctl status ollama maquita-ia-gateway` |
+| Las respuestas son muy lentas (>30 seg) | Usa un modelo mas pequeno o una GPU con mas VRAM |
+| Las respuestas son de baja calidad | Usa un modelo mas grande (14B o 26B) |
+| "Token de autenticacion requerido" | Verificar que `IA_API_KEY` en `.env` coincide con `API_KEY` en el gateway |
+| GPU no detectada por Ollama | Verificar drivers: `nvidia-smi`. Si no funciona: `apt install nvidia-driver` y reiniciar |
+| Ollama usa CPU en vez de GPU | Verificar CUDA: `nvcc --version`. Reinstalar Ollama si es necesario |
+
+**Modelos recomendados por idioma:**
+- **Espanol**: Gemma 4, Qwen 2.5, Llama 3.1 (todos funcionan bien en espanol)
+- **Solo ingles**: Phi-3, Mistral (menos recomendados para webmail en espanol)
+
+**Recursos:**
+- Ollama: https://ollama.com
+- Lista de modelos: https://ollama.com/library
+- Documentacion NVIDIA CUDA: https://developer.nvidia.com/cuda-downloads
+
 
 ---
 
