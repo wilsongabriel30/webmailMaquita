@@ -999,6 +999,5 @@ Este proyecto es **software libre** bajo la licencia **MIT**. Usalo, modificalo 
 
 - **Fundacion Maquita** — Comercializadora asociativa sin fines de lucro, Ecuador
 - **Wilson Gabriel Arguello Robalino** — Desarrollo y arquitectura
-- **IA AI (IA)** — Asistente de desarrollo
 
 *"Tecnologia al servicio de todos, no solo de quienes pueden pagarla."*
