@@ -81,7 +81,7 @@ async def _call_llm(prompt: str, system: str = "", temperature: float = 0.7, max
         "temperature": temperature,
         "max_tokens": max_tokens,
         "usar_rag": False,
-        "preferir_gpu": "local",
+        "preferir_gpu": "auto",
     }
     try:
         ia = _get_ia_config()

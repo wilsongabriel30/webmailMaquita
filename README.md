@@ -104,6 +104,23 @@ Webmail completo desarrollado por la Fundacion Maquita (Ecuador). Interfaz moder
 - WebSocket para notificaciones en tiempo real
 - Modo responsive
 
+### Inteligencia Artificial (opcional)
+- Smart Reply: genera 3 respuestas contextualizadas para cada correo
+- Smart Compose: autocompletado inteligente al redactar
+- Resumenes automaticos de hilos de correo
+- Sugerencias de asunto basadas en el contenido
+- Requiere servidor con GPU y Ollama (LLM local, sin dependencia de servicios externos)
+- Soporte multi-GPU con failover automatico
+- Compatible con cualquier modelo de Ollama (Llama, Gemma, Qwen, Mistral, etc.)
+
+### Cuarentena Anti-Spam (Admin)
+- Vista de todos los correos en Junk de todos los usuarios
+- Aprobar correos (mover a Inbox), confirmar spam o eliminar
+- Seleccion masiva con acciones en lote
+- Log del filtro en tiempo real (veredictos, scores, razones)
+- Editor de palabras clave con pesos (sin reiniciar servicios)
+- Editor de whitelist de remitentes confiables
+
 ---
 
 ## Stack Tecnologico
@@ -624,6 +641,10 @@ CORS_ORIGINS=https://mail.tudominio.com
 # Administracion
 MASTER_PASSWORD=GENERA_PASSWORD_SEGURA
 ADMIN_JWT_SECRET=GENERA_OTRO_SECRET
+
+# Inteligencia Artificial (opcional — requiere servidor con Ollama + GPU)
+# IA_API_KEY=tu-clave-api
+# OLLAMA_URL=http://ip-servidor-ia:8000
 ```
 
 ### 14. Crear servicio systemd

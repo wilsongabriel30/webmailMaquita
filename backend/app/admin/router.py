@@ -590,3 +590,129 @@ async def list_blocked_accounts(
         if cursor == 0:
             break
     return {"blocked_accounts": blocked}
+
+
+# =============================================
+# CUARENTENA / FILTRO SPAM
+# =============================================
+
+from app.admin import quarantine_service
+
+
+@router.get("/spam/junk")
+async def list_junk_messages(
+    request: Request,
+    limit: int = 100,
+    admin: str = Depends(require_admin),
+):
+    """Listar correos en carpeta Junk de todos los usuarios."""
+    messages = await quarantine_service.get_all_junk_messages(limit=limit)
+    return {"junk_messages": messages, "total": len(messages)}
+
+
+@router.post("/spam/approve")
+async def approve_spam_message(
+    request: Request,
+    admin: str = Depends(require_admin),
+):
+    """Mover correo de Junk a Inbox (falso positivo)."""
+    body = await request.json()
+    username = body.get("username")
+    uid = body.get("uid")
+    if not username or not uid:
+        return {"error": "username y uid son requeridos"}
+    ok = await quarantine_service.approve_message(username, uid)
+    if ok:
+        await _audit(request, admin, "spam_approve", username, {"uid": uid})
+    return {"status": "ok" if ok else "error"}
+
+
+@router.post("/spam/confirm")
+async def confirm_spam_message(
+    request: Request,
+    admin: str = Depends(require_admin),
+):
+    """Confirmar que es spam (marcar como leido en Junk)."""
+    body = await request.json()
+    username = body.get("username")
+    uid = body.get("uid")
+    if not username or not uid:
+        return {"error": "username y uid son requeridos"}
+    ok = await quarantine_service.confirm_spam(username, uid)
+    return {"status": "ok" if ok else "error"}
+
+
+@router.post("/spam/delete")
+async def delete_spam_message(
+    request: Request,
+    admin: str = Depends(require_admin),
+):
+    """Eliminar correo de Junk permanentemente."""
+    body = await request.json()
+    username = body.get("username")
+    uid = body.get("uid")
+    if not username or not uid:
+        return {"error": "username y uid son requeridos"}
+    ok = await quarantine_service.delete_spam(username, uid)
+    if ok:
+        await _audit(request, admin, "spam_delete", username, {"uid": uid})
+    return {"status": "ok" if ok else "error"}
+
+
+@router.get("/spam/log")
+async def get_spam_log(
+    request: Request,
+    lines: int = 50,
+    admin: str = Depends(require_admin),
+):
+    """Ver log del filtro anti-spam Python."""
+    entries = await quarantine_service.get_spam_filter_log(lines=lines)
+    return {"log": entries, "total": len(entries)}
+
+
+@router.get("/spam/keywords")
+async def get_spam_keywords(
+    request: Request,
+    admin: str = Depends(require_admin),
+):
+    """Obtener las keywords del filtro anti-spam."""
+    content = await quarantine_service.get_keywords()
+    return {"keywords": content}
+
+
+@router.put("/spam/keywords")
+async def update_spam_keywords(
+    request: Request,
+    admin: str = Depends(require_admin),
+):
+    """Actualizar las keywords del filtro anti-spam."""
+    body = await request.json()
+    content = body.get("keywords", "")
+    ok = await quarantine_service.save_keywords(content)
+    if ok:
+        await _audit(request, admin, "spam_keywords_update", details={"length": len(content)})
+    return {"status": "ok" if ok else "error"}
+
+
+@router.get("/spam/whitelist")
+async def get_spam_whitelist(
+    request: Request,
+    admin: str = Depends(require_admin),
+):
+    """Obtener la whitelist de remitentes."""
+    content = await quarantine_service.get_whitelist()
+    return {"whitelist": content}
+
+
+@router.put("/spam/whitelist")
+async def update_spam_whitelist(
+    request: Request,
+    admin: str = Depends(require_admin),
+):
+    """Actualizar la whitelist de remitentes."""
+    body = await request.json()
+    content = body.get("whitelist", "")
+    ok = await quarantine_service.save_whitelist(content)
+    if ok:
+        await _audit(request, admin, "spam_whitelist_update", details={"length": len(content)})
+    return {"status": "ok" if ok else "error"}
