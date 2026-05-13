@@ -1,245 +1,560 @@
-"""Mail Log Ingestor — Parsea /var/log/mail.log y lo ingesta en tabla mail_trace.
+"""Mail Log Ingestor v2 — Postfix + Rspamd + Dovecot correlation.
 
-Se ejecuta como tarea en background del backend, leyendo el archivo de log
-continuamente (estilo tail -f) y parseando líneas de Postfix/Rspamd/Dovecot.
+Tails /var/log/mail.log and parses:
+- Postfix: queue_id, sender, recipient, size, status, relay, delay, dsn, message_id
+- Rspamd: score, action, symbols
+- Dovecot: LMTP delivery, user actions (expunge, copy, delete, save, append, flag_change)
+
+Correlates Dovecot delivery with Postfix queue entries via message_id.
 """
+
 import asyncio
-import hashlib
 import logging
 import os
 import re
-from datetime import datetime
+import time
+from datetime import datetime, timedelta
 
-logger = logging.getLogger("log_ingestor")
+logger = logging.getLogger("compliance.ingestor")
 
 MAIL_LOG = "/var/log/mail.log"
-POSITION_FILE = "/tmp/mail_log_ingestor.pos"
 
-# Regex patterns para Postfix
-RE_QUEUEID = re.compile(r"postfix/\w+\[\d+\]: ([A-F0-9]{10,14}): ")
-RE_FROM = re.compile(r"from=<([^>]*)>")
-RE_TO = re.compile(r"to=<([^>]*)>")
-RE_STATUS = re.compile(r"status=(\w+)")
-RE_DSN = re.compile(r"dsn=([0-9.]+)")
-RE_SIZE = re.compile(r"size=(\d+)")
-RE_DELAY = re.compile(r"delay=([0-9.]+)")
-RE_RELAY = re.compile(r"relay=([^\s,]+)")
-RE_MSGID = re.compile(r"message-id=<([^>]+)>")
-RE_CLIENT = re.compile(r"client=\S+\[([0-9.]+)\]")
-RE_HELO = re.compile(r"helo=<([^>]*)>")
+# --- Regex patterns ---
 
-# Rspamd headers en mail.log
-RE_RSPAMD_SCORE = re.compile(r"X-Spamd-Result:.*\[(-?[0-9.]+)\s*/")
-RE_RSPAMD_ACTION = re.compile(r"rspamd.*action\s*=\s*(\w+)")
+# Generic syslog prefix: "May 13 10:30:01 mail-maquita service[pid]:"
+RE_SYSLOG = re.compile(
+    r"^(\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})\s+\S+\s+(\S+?)(?:\[(\d+)\])?:\s+(.*)"
+)
 
-# Dovecot LMTP
-RE_DOVECOT_LMTP = re.compile(r"lmtp\(\d+,\s*([^)]+)\).*msgid=<([^>]+)>.*saved mail to (\S+)")
+# Postfix smtpd client connect
+RE_PF_CLIENT = re.compile(
+    r"^([A-F0-9]+):\s+client=(\S+?)(?:\[([^\]]+)\])?,?\s*(.*)"
+)
+
+# Postfix cleanup message-id
+RE_PF_MSGID = re.compile(
+    r"^([A-F0-9]+):\s+message-id=<([^>]*)>"
+)
+
+# Postfix qmgr from
+RE_PF_FROM = re.compile(
+    r"^([A-F0-9]+):\s+from=<([^>]*)>,\s+size=(\d+),\s+nrcpt=(\d+)"
+)
+
+# Postfix smtp/lmtp delivery
+RE_PF_DELIVERY = re.compile(
+    r"^([A-F0-9]+):\s+to=<([^>]*)>,\s+"
+    r"relay=([^,]+),\s+"
+    r"(?:conn_use=\d+,\s+)?"
+    r"delay=([^,]+),\s+"
+    r"(?:delays=([^,]+),\s+)?"
+    r"dsn=([^,]+),\s+"
+    r"status=(\w+)\s*"
+    r"(?:\((.+)\))?"
+)
+
+# Postfix qmgr removed
+RE_PF_REMOVED = re.compile(r"^([A-F0-9]+):\s+removed$")
+
+# Rspamd log line
+RE_RSPAMD = re.compile(
+    r"id:\s*<([^>]*)>.*?"
+    r"score:\s*([\d.]+)\s*/\s*([\d.]+).*?"
+    r"action:\s*(\S[^;]*?)(?:\s*;|$)"
+)
+
+# Rspamd symbols (between parentheses in the log)
+RE_RSPAMD_SYMBOLS = re.compile(
+    r"symbols:\s*(.+?)(?:\s*;|$)"
+)
+
+# Dovecot LMTP delivery
+RE_DOVECOT_LMTP = re.compile(
+    r"lmtp\(([^)<]+)\)<[^>]*>:\s+(?:\w+:\s+)?msgid=<([^>]*)>:\s+saved\s+mail\s+to\s+(\S+)"
+)
+
+# Dovecot LMTP with sieve (e.g., "saved mail to Junk" via sieve)
+RE_DOVECOT_LMTP_SIEVE = re.compile(
+    r"lmtp\(([^)<]+)\)<[^>]*>:\s+(?:\w+:\s+)?msgid=<([^>]*)>:\s+(?:sieve:\s+)?saved\s+mail\s+to\s+(\S+)"
+)
+
+# Dovecot imap actions
+RE_DOVECOT_IMAP = re.compile(
+    r"imap\(([^)<]+)\)<[^>]*>:\s+(.*)"
+)
+
+# Dovecot imap expunge
+RE_DOVECOT_EXPUNGE = re.compile(
+    r"[Ee]xpunged?\s+(?:message\s+)?(?:UID\s+)?(\d+)\s+from\s+(\S+)", re.IGNORECASE
+)
+
+# Dovecot imap copy
+RE_DOVECOT_COPY = re.compile(
+    r"[Cc]opy\s+.*?from\s+(\S+)\s+to\s+(\S+)", re.IGNORECASE
+)
+
+# Dovecot imap delete mailbox
+RE_DOVECOT_DELETE_MBOX = re.compile(
+    r"[Dd]elete(?:d)?\s+mailbox\s+(\S+)", re.IGNORECASE
+)
+
+# Dovecot imap rename mailbox
+RE_DOVECOT_RENAME_MBOX = re.compile(
+    r"[Rr]ename(?:d)?\s+(\S+)\s+to\s+(\S+)", re.IGNORECASE
+)
+
+# Dovecot imap save/append
+RE_DOVECOT_SAVE = re.compile(
+    r"(?:[Ss]ave|[Aa]ppend)(?:ed)?\s+.*?(?:to|in)\s+(\S+)", re.IGNORECASE
+)
+
+# Dovecot imap flag change
+RE_DOVECOT_FLAGS = re.compile(
+    r"[Ff]lag(?:s)?\s+(?:change|set|clear).*?UID\s+(\d+).*?(\S+)", re.IGNORECASE
+)
+
+# Queue map entry expiry (seconds)
+QUEUE_MAP_TTL = 3600  # 1 hour
+QUEUE_MAP_CLEANUP_INTERVAL = 300  # 5 minutes
 
 
 class MailLogIngestor:
+    """Ingests mail.log lines and correlates Postfix/Rspamd/Dovecot events."""
+
     def __init__(self, db_pool):
         self.db = db_pool
-        self.queue_data = {}  # queue_id → accumulated data
+        self._task = None
+        self._cleanup_task = None
         self._running = False
+        # Track queue_id -> {message_id, sender, recipients, size, ...}
+        self._queue_map: dict[str, dict] = {}
 
     async def start(self):
-        """Inicia el ingestor en background."""
+        """Start the log ingestor background tasks."""
         self._running = True
-        logger.info("Mail log ingestor starting — watching %s", MAIL_LOG)
+        self._task = asyncio.create_task(self._tail_loop())
+        self._cleanup_task = asyncio.create_task(self._cleanup_loop())
+        logger.info("Mail log ingestor v2 started")
 
-        # Leer posición previa
-        position = self._read_position()
+    def stop(self):
+        """Stop all background tasks."""
+        self._running = False
+        if self._task:
+            self._task.cancel()
+        if self._cleanup_task:
+            self._cleanup_task.cancel()
+        logger.info("Mail log ingestor v2 stopped")
 
+    async def _cleanup_loop(self):
+        """Periodically remove stale entries from _queue_map."""
+        while self._running:
+            try:
+                await asyncio.sleep(QUEUE_MAP_CLEANUP_INTERVAL)
+                self._expire_queue_map()
+            except asyncio.CancelledError:
+                break
+            except Exception:
+                logger.exception("Error in queue_map cleanup loop")
+
+    def _expire_queue_map(self):
+        """Remove queue_map entries older than QUEUE_MAP_TTL."""
+        now = time.monotonic()
+        expired = [
+            qid for qid, data in self._queue_map.items()
+            if now - data.get("_ts", 0) > QUEUE_MAP_TTL
+        ]
+        for qid in expired:
+            del self._queue_map[qid]
+        if expired:
+            logger.debug("Expired %d stale queue_map entries", len(expired))
+
+    async def _tail_loop(self):
+        """Tail /var/log/mail.log continuously, handling rotation."""
         while self._running:
             try:
                 if not os.path.exists(MAIL_LOG):
+                    logger.warning("Mail log not found: %s — waiting...", MAIL_LOG)
                     await asyncio.sleep(5)
                     continue
 
-                with open(MAIL_LOG, "r") as f:
-                    # Seek a posición previa
-                    file_size = os.path.getsize(MAIL_LOG)
-                    if position > file_size:
-                        position = 0  # Log fue rotado
-                    f.seek(position)
+                stat = os.stat(MAIL_LOG)
+                inode = stat.st_ino
 
-                    lines_processed = 0
-                    for line in f:
-                        await self._process_line(line.strip())
-                        lines_processed += 1
+                with open(MAIL_LOG, "r", encoding="utf-8", errors="replace") as f:
+                    # Seek to end to only process new lines
+                    f.seek(0, os.SEEK_END)
+                    current_pos = f.tell()
+                    logger.info("Tailing %s from position %d (inode %d)", MAIL_LOG, current_pos, inode)
 
-                        if lines_processed % 100 == 0:
-                            await asyncio.sleep(0)  # Yield control
+                    while self._running:
+                        line = f.readline()
+                        if line:
+                            line = line.rstrip("\n")
+                            if line:
+                                try:
+                                    await self._process_line(line)
+                                except Exception:
+                                    logger.exception("Error processing line: %.200s", line)
+                        else:
+                            # No new data — check for rotation
+                            try:
+                                new_stat = os.stat(MAIL_LOG)
+                                if new_stat.st_ino != inode:
+                                    logger.info("Log file rotated (inode changed), reopening")
+                                    break
+                                if new_stat.st_size < f.tell():
+                                    logger.info("Log file truncated, seeking to beginning")
+                                    f.seek(0)
+                                    continue
+                            except FileNotFoundError:
+                                logger.warning("Log file disappeared, waiting for recreation")
+                                break
 
-                    position = f.tell()
-                    self._save_position(position)
+                            await asyncio.sleep(0.2)
 
-            except Exception as exc:
-                logger.error("Ingestor error: %s", exc)
-
-            await asyncio.sleep(5)  # Poll cada 5 segundos
-
-    def stop(self):
-        self._running = False
-
-    def _read_position(self) -> int:
-        try:
-            with open(POSITION_FILE, "r") as f:
-                return int(f.read().strip())
-        except (FileNotFoundError, ValueError):
-            return 0
-
-    def _save_position(self, pos: int):
-        try:
-            with open(POSITION_FILE, "w") as f:
-                f.write(str(pos))
-        except Exception:
-            pass
+            except asyncio.CancelledError:
+                logger.info("Tail loop cancelled")
+                break
+            except Exception:
+                logger.exception("Unexpected error in tail loop, restarting in 5s")
+                await asyncio.sleep(5)
 
     async def _process_line(self, line: str):
-        """Procesa una línea de mail.log."""
-        if not line:
+        """Parse syslog prefix and route to appropriate handler."""
+        m = RE_SYSLOG.match(line)
+        if not m:
             return
 
-        # Detectar programa (postfix/smtpd, postfix/cleanup, postfix/smtp, dovecot, rspamd)
-        qid_match = RE_QUEUEID.search(line)
-        if not qid_match:
-            # Líneas de Dovecot LMTP
-            lmtp_match = RE_DOVECOT_LMTP.search(line)
-            if lmtp_match:
-                user = lmtp_match.group(1)
-                msgid = lmtp_match.group(2)
-                folder = lmtp_match.group(3)
-                await self._update_by_msgid(msgid, {"dovecot_user": user, "dovecot_folder": folder})
+        timestamp_str, service, pid, payload = m.groups()
+
+        # Route by service
+        if service.startswith("postfix/"):
+            component = service.split("/", 1)[1] if "/" in service else service
+            await self._handle_postfix(payload, component, timestamp_str)
+        elif service.startswith("rspamd"):
+            await self._handle_rspamd(payload, timestamp_str)
+        elif service.startswith("dovecot"):
+            await self._handle_dovecot(payload, timestamp_str)
+
+    # -------------------------------------------------------------------------
+    # Postfix handlers
+    # -------------------------------------------------------------------------
+
+    async def _handle_postfix(self, payload: str, component: str, timestamp_str: str):
+        """Handle Postfix log lines (smtpd, cleanup, qmgr, smtp, lmtp, etc.)."""
+
+        # cleanup: message-id
+        m = RE_PF_MSGID.match(payload)
+        if m:
+            queue_id, message_id = m.groups()
+            entry = self._get_queue_entry(queue_id)
+            entry["message_id"] = message_id
             return
 
-        qid = qid_match.group(1)
+        # qmgr: from=, size=, nrcpt=
+        m = RE_PF_FROM.match(payload)
+        if m:
+            queue_id, sender, size, nrcpt = m.groups()
+            entry = self._get_queue_entry(queue_id)
+            entry["sender"] = sender
+            entry["size"] = int(size)
+            entry["nrcpt"] = int(nrcpt)
+            return
 
-        if qid not in self.queue_data:
-            self.queue_data[qid] = {
-                "queue_id": qid,
-                "raw_lines": [],
-                "created_at": self._parse_timestamp(line),
-            }
+        # smtpd: client connection
+        m = RE_PF_CLIENT.match(payload)
+        if m:
+            queue_id, client_host, client_ip, extra = m.groups()
+            entry = self._get_queue_entry(queue_id)
+            entry["client_host"] = client_host
+            entry["client_ip"] = client_ip or ""
+            return
 
-        data = self.queue_data[qid]
-        data["raw_lines"].append(line[-300:])  # Limitar tamaño
+        # smtp/lmtp delivery
+        m = RE_PF_DELIVERY.match(payload)
+        if m:
+            queue_id = m.group(1)
+            recipient = m.group(2)
+            relay = m.group(3)
+            delay = m.group(4)
+            delays = m.group(5) or ""
+            dsn = m.group(6)
+            status = m.group(7)
+            status_detail = m.group(8) or ""
 
-        # Extraer campos
-        from_match = RE_FROM.search(line)
-        if from_match:
-            data["sender"] = from_match.group(1)
+            entry = self._get_queue_entry(queue_id)
 
-        to_match = RE_TO.search(line)
-        if to_match:
-            data["recipient"] = to_match.group(1)
-
-        status_match = RE_STATUS.search(line)
-        if status_match:
-            data["status"] = status_match.group(1)
-
-        dsn_match = RE_DSN.search(line)
-        if dsn_match:
-            data["dsn"] = dsn_match.group(1)
-
-        size_match = RE_SIZE.search(line)
-        if size_match:
-            data["size_bytes"] = int(size_match.group(1))
-
-        delay_match = RE_DELAY.search(line)
-        if delay_match:
-            data["delay_seconds"] = float(delay_match.group(1))
-
-        relay_match = RE_RELAY.search(line)
-        if relay_match:
-            data["relay"] = relay_match.group(1)
-
-        msgid_match = RE_MSGID.search(line)
-        if msgid_match:
-            data["message_id"] = msgid_match.group(1)
-
-        client_match = RE_CLIENT.search(line)
-        if client_match:
-            data["source_ip"] = client_match.group(1)
-
-        helo_match = RE_HELO.search(line)
-        if helo_match:
-            data["helo_name"] = helo_match.group(1)
-
-        # Si tiene status, está completa → insertar
-        if "status" in data and "recipient" in data:
-            await self._insert_trace(data)
-            del self.queue_data[qid]
-
-        # Limpiar entries viejos (>5 min sin completar)
-        if len(self.queue_data) > 1000:
-            to_remove = list(self.queue_data.keys())[:500]
-            for k in to_remove:
-                del self.queue_data[k]
-
-    async def _insert_trace(self, data: dict):
-        """Inserta un registro completo en mail_trace."""
-        try:
-            sender = data.get("sender", "")
-            recipient = data.get("recipient", "")
-            source_ip = data.get("source_ip")
-
-            # Determinar dirección
-            direction = "outbound"
-            if recipient and ("@maquita.org" in recipient or "@maquita.com.ec" in recipient):
-                direction = "inbound"
-            if sender and ("@maquita.org" in sender or "@maquita.com.ec" in sender):
-                if direction == "inbound":
-                    direction = "internal"
-                else:
-                    direction = "outbound"
-
-            raw_log = "\n".join(data.get("raw_lines", []))[:2000]
-
-            await self.db.execute(
-                """INSERT INTO mail_trace
-                   (queue_id, message_id, direction, sender, recipient,
-                    source_ip, helo_name, size_bytes, status, dsn,
-                    delay_seconds, relay, raw_log, created_at)
-                   VALUES ($1, $2, $3, $4, $5, $6::inet, $7, $8, $9, $10, $11, $12, $13,
-                           COALESCE($14, NOW()))""",
-                data.get("queue_id"),
-                data.get("message_id"),
-                direction,
-                sender,
-                recipient,
-                source_ip if source_ip and re.match(r"^\d+\.\d+\.\d+\.\d+$", source_ip) else None,
-                data.get("helo_name"),
-                data.get("size_bytes"),
-                data.get("status"),
-                data.get("dsn"),
-                data.get("delay_seconds"),
-                data.get("relay"),
-                raw_log,
-                data.get("created_at"),
+            await self._insert_mail_trace(
+                queue_id=queue_id,
+                message_id=entry.get("message_id", ""),
+                sender=entry.get("sender", ""),
+                recipient=recipient,
+                size=entry.get("size", 0),
+                status=status,
+                relay=relay,
+                delay=delay,
+                dsn=dsn,
+                status_detail=status_detail,
+                client_ip=entry.get("client_ip", ""),
+                rspamd_score=entry.get("rspamd_score"),
+                rspamd_action=entry.get("rspamd_action"),
+                rspamd_symbols=entry.get("rspamd_symbols"),
+                timestamp_str=timestamp_str,
             )
-        except Exception as exc:
-            logger.debug("Insert trace error: %s", exc)
+            return
 
-    async def _update_by_msgid(self, msgid: str, updates: dict):
-        """Actualiza registro de mail_trace con info de Dovecot."""
-        pass  # Fase 2: correlación Dovecot
+        # removed from queue
+        m = RE_PF_REMOVED.match(payload)
+        if m:
+            queue_id = m.group(1)
+            # Keep entry a bit longer for late Dovecot correlation, but mark done
+            if queue_id in self._queue_map:
+                self._queue_map[queue_id]["_removed"] = True
+            return
 
-    def _parse_timestamp(self, line: str) -> datetime:
-        """Parsea timestamp de syslog format."""
+    def _get_queue_entry(self, queue_id: str) -> dict:
+        """Get or create a queue map entry, updating its timestamp."""
+        if queue_id not in self._queue_map:
+            self._queue_map[queue_id] = {"_ts": time.monotonic()}
+        else:
+            self._queue_map[queue_id]["_ts"] = time.monotonic()
+        return self._queue_map[queue_id]
+
+    async def _insert_mail_trace(self, *, queue_id, message_id, sender, recipient,
+                                  size, status, relay, delay, dsn, status_detail,
+                                  client_ip, rspamd_score, rspamd_action,
+                                  rspamd_symbols, timestamp_str):
+        """Insert a record into mail_trace."""
         try:
-            match = re.match(r"^(\w{3}\s+\d+\s+\d+:\d+:\d+)", line)
-            if match:
-                ts_str = match.group(1)
-                year = datetime.now().year
-                return datetime.strptime(f"{year} {ts_str}", "%Y %b %d %H:%M:%S")
+            ts = self._parse_syslog_timestamp(timestamp_str)
+            await self.db.execute("""
+                INSERT INTO mail_trace (
+                    queue_id, message_id, sender, recipient, size,
+                    status, relay, delay, dsn, status_detail,
+                    client_ip, rspamd_score, rspamd_action, rspamd_symbols,
+                    log_timestamp
+                ) VALUES (
+                    $1, $2, $3, $4, $5,
+                    $6, $7, $8, $9, $10,
+                    $11, $12, $13, $14,
+                    $15
+                )
+                ON CONFLICT (queue_id, recipient) DO UPDATE SET
+                    status = EXCLUDED.status,
+                    relay = EXCLUDED.relay,
+                    delay = EXCLUDED.delay,
+                    dsn = EXCLUDED.dsn,
+                    status_detail = EXCLUDED.status_detail,
+                    log_timestamp = EXCLUDED.log_timestamp
+            """,
+                queue_id, message_id, sender, recipient, size,
+                status, relay, delay, dsn, status_detail,
+                client_ip, rspamd_score, rspamd_action, rspamd_symbols,
+                ts,
+            )
         except Exception:
-            pass
-        return datetime.now()
+            logger.exception("Failed to insert mail_trace for queue_id=%s", queue_id)
+
+    # -------------------------------------------------------------------------
+    # Rspamd handler
+    # -------------------------------------------------------------------------
+
+    async def _handle_rspamd(self, payload: str, timestamp_str: str):
+        """Handle Rspamd log lines — extract score, action, symbols."""
+        m = RE_RSPAMD.search(payload)
+        if not m:
+            return
+
+        message_id = m.group(1)
+        score = float(m.group(2))
+        threshold = float(m.group(3))
+        action = m.group(4).strip()
+
+        symbols = ""
+        ms = RE_RSPAMD_SYMBOLS.search(payload)
+        if ms:
+            symbols = ms.group(1).strip()
+
+        # Try to find the queue entry that has this message_id and enrich it
+        for qid, entry in self._queue_map.items():
+            if entry.get("message_id") == message_id:
+                entry["rspamd_score"] = score
+                entry["rspamd_action"] = action
+                entry["rspamd_symbols"] = symbols
+                break
+        else:
+            # No queue entry yet — update directly in DB if trace already exists
+            try:
+                await self.db.execute("""
+                    UPDATE mail_trace
+                    SET rspamd_score = $1, rspamd_action = $2, rspamd_symbols = $3
+                    WHERE message_id = $4
+                      AND rspamd_score IS NULL
+                """, score, action, symbols, message_id)
+            except Exception:
+                logger.exception("Failed to update rspamd info for msgid=%s", message_id)
+
+    # -------------------------------------------------------------------------
+    # Dovecot handler
+    # -------------------------------------------------------------------------
+
+    async def _handle_dovecot(self, payload: str, timestamp_str: str):
+        """Handle Dovecot log lines — LMTP delivery + IMAP actions."""
+
+        # --- LMTP delivery ---
+        m = RE_DOVECOT_LMTP.search(payload) or RE_DOVECOT_LMTP_SIEVE.search(payload)
+        if m:
+            dovecot_user = m.group(1)
+            message_id = m.group(2)
+            folder = m.group(3)
+            await self._correlate_by_message_id(message_id, dovecot_user, folder)
+            return
+
+        # --- IMAP actions ---
+        m = RE_DOVECOT_IMAP.search(payload)
+        if not m:
+            return
+
+        username = m.group(1)
+        action_text = m.group(2)
+
+        # Expunge
+        em = RE_DOVECOT_EXPUNGE.search(action_text)
+        if em:
+            uid = em.group(1)
+            folder = em.group(2)
+            await self._log_dovecot_action(
+                username, "email_expunge",
+                uid=uid, folder=folder, detail=action_text
+            )
+            return
+
+        # Copy
+        cm = RE_DOVECOT_COPY.search(action_text)
+        if cm:
+            src_folder = cm.group(1)
+            dst_folder = cm.group(2)
+            await self._log_dovecot_action(
+                username, "email_copy",
+                src_folder=src_folder, dst_folder=dst_folder, detail=action_text
+            )
+            return
+
+        # Delete mailbox
+        dm = RE_DOVECOT_DELETE_MBOX.search(action_text)
+        if dm:
+            folder = dm.group(1)
+            await self._log_dovecot_action(
+                username, "mailbox_delete",
+                folder=folder, detail=action_text
+            )
+            return
+
+        # Rename mailbox
+        rm = RE_DOVECOT_RENAME_MBOX.search(action_text)
+        if rm:
+            old_name = rm.group(1)
+            new_name = rm.group(2)
+            await self._log_dovecot_action(
+                username, "mailbox_rename",
+                old_name=old_name, new_name=new_name, detail=action_text
+            )
+            return
+
+        # Save / Append
+        sm = RE_DOVECOT_SAVE.search(action_text)
+        if sm:
+            folder = sm.group(1)
+            await self._log_dovecot_action(
+                username, "email_save",
+                folder=folder, detail=action_text
+            )
+            return
+
+        # Flag change
+        fm = RE_DOVECOT_FLAGS.search(action_text)
+        if fm:
+            uid = fm.group(1)
+            flags_info = fm.group(2)
+            await self._log_dovecot_action(
+                username, "email_flag_change",
+                uid=uid, flags=flags_info, detail=action_text
+            )
+            return
+
+        # Generic delete (non-mailbox)
+        if re.search(r"\b[Dd]elete(?:d)?\b", action_text) and not dm:
+            await self._log_dovecot_action(
+                username, "email_delete",
+                detail=action_text
+            )
+            return
+
+    async def _correlate_by_message_id(self, message_id: str, dovecot_user: str, folder: str):
+        """Update mail_trace record with Dovecot delivery info."""
+        try:
+            result = await self.db.execute("""
+                UPDATE mail_trace
+                SET dovecot_user = $1,
+                    dovecot_folder = $2,
+                    delivered_at = NOW()
+                WHERE message_id = $3
+                  AND dovecot_user IS NULL
+            """, dovecot_user, folder, message_id)
+            logger.debug(
+                "Dovecot correlation: msgid=%s user=%s folder=%s result=%s",
+                message_id, dovecot_user, folder, result,
+            )
+        except Exception:
+            logger.exception(
+                "Failed Dovecot correlation for msgid=%s user=%s",
+                message_id, dovecot_user,
+            )
+
+    async def _log_dovecot_action(self, username: str, action: str, **kwargs):
+        """Insert Dovecot action into user_activity_log."""
+        detail = kwargs.pop("detail", "")
+        metadata = {k: v for k, v in kwargs.items() if v is not None}
+
+        try:
+            await self.db.execute("""
+                INSERT INTO user_activity_log (
+                    username, action, detail, metadata, created_at
+                ) VALUES ($1, $2, $3, $4, NOW())
+            """,
+                username,
+                action,
+                detail[:500],  # Truncate long detail strings
+                str(metadata) if metadata else None,
+            )
+            logger.debug("Dovecot action logged: user=%s action=%s", username, action)
+        except Exception:
+            logger.exception(
+                "Failed to log Dovecot action: user=%s action=%s",
+                username, action,
+            )
+
+    # -------------------------------------------------------------------------
+    # Utilities
+    # -------------------------------------------------------------------------
+
+    @staticmethod
+    def _parse_syslog_timestamp(ts_str: str) -> datetime:
+        """Parse syslog timestamp (no year) into a datetime using current year."""
+        now = datetime.now()
+        try:
+            dt = datetime.strptime(ts_str, "%b %d %H:%M:%S")
+            dt = dt.replace(year=now.year)
+            # Handle December→January wrap-around
+            if dt.month > now.month + 1:
+                dt = dt.replace(year=now.year - 1)
+            return dt
+        except ValueError:
+            return now
 
 
 async def start_log_ingestor(db_pool) -> MailLogIngestor:
-    """Inicia el ingestor como tarea background."""
+    """Create and start the mail log ingestor."""
     ingestor = MailLogIngestor(db_pool)
-    asyncio.create_task(ingestor.start())
+    await ingestor.start()
     return ingestor
