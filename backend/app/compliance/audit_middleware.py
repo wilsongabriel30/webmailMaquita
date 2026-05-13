@@ -3,6 +3,7 @@
 Captures: login, logout, mail send/delete/move/copy, sieve rules,
 forwards, impersonation, eDiscovery, legal hold, exports.
 """
+
 import logging
 import time
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -22,7 +23,6 @@ _AUDIT_ROUTES = {
     ("POST", "/api/auth/totp/verify"): ("totp_verify", "security", "medium"),
     ("POST", "/api/auth/totp/disable"): ("totp_disable", "security", "critical"),
     ("POST", "/api/auth/impersonate"): ("impersonation_start", "security", "critical"),
-
     # Mail events
     ("POST", "/api/mail/send"): ("email_send", "email", "medium"),
     ("POST", "/api/mail/send-multipart"): ("email_send", "email", "medium"),
@@ -32,39 +32,45 @@ _AUDIT_ROUTES = {
     ("POST", "/api/mail/messages/copy"): ("email_copy", "email", "low"),
     ("POST", "/api/mail/messages/flag"): ("email_flag", "email", "low"),
     ("DELETE", "/api/mail/folders"): ("folder_delete", "email", "high"),
-
     # Sieve rules
     ("POST", "/api/sieve/filters"): ("sieve_rule_created", "sieve", "medium"),
     ("PUT", "/api/sieve/filters"): ("sieve_rule_updated", "sieve", "medium"),
     ("DELETE", "/api/sieve/filters"): ("sieve_rule_deleted", "sieve", "medium"),
     ("POST", "/api/sieve/vacation"): ("vacation_changed", "sieve", "low"),
-
     # Forwarding
     ("POST", "/api/admin/forwarding"): ("forward_created", "admin", "high"),
     ("PUT", "/api/admin/forwarding"): ("forward_updated", "admin", "high"),
     ("DELETE", "/api/admin/forwarding"): ("forward_deleted", "admin", "medium"),
-
     # Identity/signatures
     ("POST", "/api/identities"): ("identity_created", "security", "medium"),
     ("PUT", "/api/identities"): ("identity_updated", "security", "medium"),
     ("DELETE", "/api/identities"): ("identity_deleted", "security", "medium"),
-
     # Admin actions
     ("POST", "/api/admin/mailboxes"): ("mailbox_created", "admin", "high"),
     ("DELETE", "/api/admin/mailboxes"): ("mailbox_deleted", "admin", "critical"),
     ("PUT", "/api/admin/mailboxes"): ("mailbox_updated", "admin", "medium"),
     ("POST", "/api/admin/domains"): ("domain_created", "admin", "high"),
     ("DELETE", "/api/admin/domains"): ("domain_deleted", "admin", "critical"),
-
     # Compliance actions (self-audit)
     ("POST", "/api/compliance/cases"): ("case_created", "compliance", "high"),
     ("PUT", "/api/compliance/cases"): ("case_updated", "compliance", "medium"),
-    ("POST", "/api/compliance/ediscovery/search"): ("ediscovery_search", "compliance", "high"),
-    ("POST", "/api/compliance/ediscovery/export"): ("ediscovery_export", "compliance", "critical"),
+    ("POST", "/api/compliance/ediscovery/search"): (
+        "ediscovery_search",
+        "compliance",
+        "high",
+    ),
+    ("POST", "/api/compliance/ediscovery/export"): (
+        "ediscovery_export",
+        "compliance",
+        "critical",
+    ),
     ("POST", "/api/compliance/holds"): ("legal_hold_enabled", "compliance", "critical"),
-    ("DELETE", "/api/compliance/holds"): ("legal_hold_released", "compliance", "critical"),
+    ("DELETE", "/api/compliance/holds"): (
+        "legal_hold_released",
+        "compliance",
+        "critical",
+    ),
     ("PUT", "/api/compliance/alerts"): ("alert_acknowledged", "compliance", "medium"),
-
     # Import/Export
     ("POST", "/api/import"): ("bulk_import", "admin", "high"),
     ("POST", "/api/mail/export"): ("mail_export", "email", "high"),
@@ -126,6 +132,7 @@ class UserActivityAuditMiddleware(BaseHTTPMiddleware):
             token = request.cookies.get("access_token")
             if token:
                 from app.auth.jwt import decode_access_token
+
                 payload = decode_access_token(token)
                 username = payload.get("sub", "")
             # From Bearer token
@@ -134,9 +141,12 @@ class UserActivityAuditMiddleware(BaseHTTPMiddleware):
                 if auth_header.startswith("Bearer "):
                     import jwt as pyjwt
                     import os
+
                     secret = os.getenv("ADMIN_JWT_SECRET", "")
                     if secret:
-                        payload = pyjwt.decode(auth_header[7:], secret, algorithms=["HS256"])
+                        payload = pyjwt.decode(
+                            auth_header[7:], secret, algorithms=["HS256"]
+                        )
                         username = payload.get("sub", payload.get("username", ""))
         except Exception:
             pass
@@ -145,7 +155,9 @@ class UserActivityAuditMiddleware(BaseHTTPMiddleware):
         if not username and path == "/api/auth/login":
             username = "(login_attempt)"
 
-        ip = request.headers.get("x-real-ip", request.client.host if request.client else "")
+        ip = request.headers.get(
+            "x-real-ip", request.client.host if request.client else ""
+        )
         user_agent = request.headers.get("user-agent", "")[:500]
 
         # Log to database asynchronously
@@ -156,9 +168,13 @@ class UserActivityAuditMiddleware(BaseHTTPMiddleware):
                     """INSERT INTO user_activity_log
                        (username, action, category, risk_level, ip_address, user_agent, details)
                        VALUES ($1, $2, $3, $4, $5::inet, $6, $7::jsonb)""",
-                    username, action, category, risk_level,
-                    ip if ip else None, user_agent,
-                    f'{{"path": "{path}", "method": "{method}", "status": {response.status_code}, "elapsed_ms": {int(elapsed*1000)}}}'
+                    username,
+                    action,
+                    category,
+                    risk_level,
+                    ip if ip else None,
+                    user_agent,
+                    f'{{"path": "{path}", "method": "{method}", "status": {response.status_code}, "elapsed_ms": {int(elapsed*1000)}}}',
                 )
         except Exception as e:
             logger.warning("Audit log failed: %s", e)

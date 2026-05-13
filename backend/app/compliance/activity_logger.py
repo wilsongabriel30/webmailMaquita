@@ -3,6 +3,7 @@
 Registra acciones críticas: login, password, 2FA, sieve, reenvíos, envío,
 eliminación, exportación, impersonación, eDiscovery.
 """
+
 import json
 import logging
 from datetime import datetime
@@ -51,20 +52,37 @@ ACTION_RISK = {
 }
 
 CATEGORY_MAP = {
-    "login_success": "auth", "login_failed": "auth", "logout": "auth",
-    "password_change": "auth", "password_reset": "auth",
-    "totp_setup": "security", "totp_disable": "security",
-    "email_send": "email", "email_delete": "email", "email_expunge": "email",
-    "email_bulk_delete": "email", "email_move": "email", "email_export": "email",
-    "email_export_bulk": "email", "attachment_download": "email",
+    "login_success": "auth",
+    "login_failed": "auth",
+    "logout": "auth",
+    "password_change": "auth",
+    "password_reset": "auth",
+    "totp_setup": "security",
+    "totp_disable": "security",
+    "email_send": "email",
+    "email_delete": "email",
+    "email_expunge": "email",
+    "email_bulk_delete": "email",
+    "email_move": "email",
+    "email_export": "email",
+    "email_export_bulk": "email",
+    "attachment_download": "email",
     "attachment_download_bulk": "email",
-    "sieve_create": "sieve", "sieve_modify": "sieve", "sieve_delete": "sieve",
-    "forward_create": "sieve", "forward_modify": "sieve", "forward_delete": "sieve",
+    "sieve_create": "sieve",
+    "sieve_modify": "sieve",
+    "sieve_delete": "sieve",
+    "forward_create": "sieve",
+    "forward_modify": "sieve",
+    "forward_delete": "sieve",
     "autoresponder_change": "sieve",
-    "impersonate": "admin", "ediscovery_search": "compliance",
-    "ediscovery_export": "compliance", "ediscovery_preview": "compliance",
-    "legal_hold_enable": "compliance", "legal_hold_release": "compliance",
-    "api_key_create": "security", "api_key_delete": "security",
+    "impersonate": "admin",
+    "ediscovery_search": "compliance",
+    "ediscovery_export": "compliance",
+    "ediscovery_preview": "compliance",
+    "legal_hold_enable": "compliance",
+    "legal_hold_release": "compliance",
+    "api_key_create": "security",
+    "api_key_delete": "security",
     "session_revoke": "security",
 }
 
@@ -92,8 +110,15 @@ async def log_user_activity(
                (username, action, category, message_id, mailbox, folder, target,
                 ip_address, user_agent, details, risk_level)
                VALUES ($1, $2, $3, $4, $5, $6, $7, $8::inet, $9, $10::jsonb, $11)""",
-            username, action, category, message_id, mailbox, folder, target,
-            ip_address, user_agent,
+            username,
+            action,
+            category,
+            message_id,
+            mailbox,
+            folder,
+            target,
+            ip_address,
+            user_agent,
             json.dumps(details) if details else None,
             risk,
         )
@@ -104,7 +129,11 @@ async def log_user_activity(
     if risk in ("high", "critical"):
         logger.warning(
             "ACTIVITY user=%s action=%s risk=%s target=%s ip=%s",
-            username, action, risk, target or "", ip_address or "",
+            username,
+            action,
+            risk,
+            target or "",
+            ip_address or "",
         )
 
 
@@ -152,7 +181,9 @@ async def get_user_activities(
 
     where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
-    total = await db.fetchval(f"SELECT count(*) FROM user_activity_log {where}", *params)
+    total = await db.fetchval(
+        f"SELECT count(*) FROM user_activity_log {where}", *params
+    )
 
     offset = (page - 1) * per_page
     rows = await db.fetch(
@@ -161,13 +192,18 @@ async def get_user_activities(
             FROM user_activity_log {where}
             ORDER BY created_at DESC
             LIMIT ${idx} OFFSET ${idx + 1}""",
-        *params, per_page, offset,
+        *params,
+        per_page,
+        offset,
     )
 
     return {
         "entries": [
-            {**dict(r), "ip_address": str(r["ip_address"]) if r["ip_address"] else None,
-             "created_at": r["created_at"].isoformat() if r["created_at"] else None}
+            {
+                **dict(r),
+                "ip_address": str(r["ip_address"]) if r["ip_address"] else None,
+                "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+            }
             for r in rows
         ],
         "total": total,
@@ -181,27 +217,31 @@ async def get_activity_stats(db, days: int = 30) -> dict:
     stats = {}
 
     stats["total"] = await db.fetchval(
-        "SELECT count(*) FROM user_activity_log WHERE created_at >= NOW() - make_interval(days => $1)", days
+        "SELECT count(*) FROM user_activity_log WHERE created_at >= NOW() - make_interval(days => $1)",
+        days,
     )
 
     rows = await db.fetch(
         """SELECT risk_level, count(*) as total FROM user_activity_log
            WHERE created_at >= NOW() - make_interval(days => $1)
-           GROUP BY risk_level ORDER BY total DESC""", days
+           GROUP BY risk_level ORDER BY total DESC""",
+        days,
     )
     stats["by_risk"] = {r["risk_level"]: r["total"] for r in rows}
 
     rows = await db.fetch(
         """SELECT category, count(*) as total FROM user_activity_log
            WHERE created_at >= NOW() - make_interval(days => $1)
-           GROUP BY category ORDER BY total DESC""", days
+           GROUP BY category ORDER BY total DESC""",
+        days,
     )
     stats["by_category"] = {r["category"]: r["total"] for r in rows}
 
     rows = await db.fetch(
         """SELECT action, count(*) as total FROM user_activity_log
            WHERE created_at >= NOW() - make_interval(days => $1)
-           GROUP BY action ORDER BY total DESC LIMIT 15""", days
+           GROUP BY action ORDER BY total DESC LIMIT 15""",
+        days,
     )
     stats["top_actions"] = [dict(r) for r in rows]
 
@@ -209,7 +249,8 @@ async def get_activity_stats(db, days: int = 30) -> dict:
         """SELECT username, count(*) as total FROM user_activity_log
            WHERE created_at >= NOW() - make_interval(days => $1)
            AND risk_level IN ('high', 'critical')
-           GROUP BY username ORDER BY total DESC LIMIT 10""", days
+           GROUP BY username ORDER BY total DESC LIMIT 10""",
+        days,
     )
     stats["high_risk_users"] = [dict(r) for r in rows]
 

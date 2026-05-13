@@ -27,19 +27,13 @@ RE_SYSLOG = re.compile(
 )
 
 # Postfix smtpd client connect
-RE_PF_CLIENT = re.compile(
-    r"^([A-F0-9]+):\s+client=(\S+?)(?:\[([^\]]+)\])?,?\s*(.*)"
-)
+RE_PF_CLIENT = re.compile(r"^([A-F0-9]+):\s+client=(\S+?)(?:\[([^\]]+)\])?,?\s*(.*)")
 
 # Postfix cleanup message-id
-RE_PF_MSGID = re.compile(
-    r"^([A-F0-9]+):\s+message-id=<([^>]*)>"
-)
+RE_PF_MSGID = re.compile(r"^([A-F0-9]+):\s+message-id=<([^>]*)>")
 
 # Postfix qmgr from
-RE_PF_FROM = re.compile(
-    r"^([A-F0-9]+):\s+from=<([^>]*)>,\s+size=(\d+),\s+nrcpt=(\d+)"
-)
+RE_PF_FROM = re.compile(r"^([A-F0-9]+):\s+from=<([^>]*)>,\s+size=(\d+),\s+nrcpt=(\d+)")
 
 # Postfix smtp/lmtp delivery
 RE_PF_DELIVERY = re.compile(
@@ -64,9 +58,7 @@ RE_RSPAMD = re.compile(
 )
 
 # Rspamd symbols (between parentheses in the log)
-RE_RSPAMD_SYMBOLS = re.compile(
-    r"symbols:\s*(.+?)(?:\s*;|$)"
-)
+RE_RSPAMD_SYMBOLS = re.compile(r"symbols:\s*(.+?)(?:\s*;|$)")
 
 # Dovecot LMTP delivery
 RE_DOVECOT_LMTP = re.compile(
@@ -79,9 +71,7 @@ RE_DOVECOT_LMTP_SIEVE = re.compile(
 )
 
 # Dovecot imap actions
-RE_DOVECOT_IMAP = re.compile(
-    r"imap\(([^)<]+)\)<[^>]*>:\s+(.*)"
-)
+RE_DOVECOT_IMAP = re.compile(r"imap\(([^)<]+)\)<[^>]*>:\s+(.*)")
 
 # Dovecot imap expunge
 RE_DOVECOT_EXPUNGE = re.compile(
@@ -89,14 +79,10 @@ RE_DOVECOT_EXPUNGE = re.compile(
 )
 
 # Dovecot imap copy
-RE_DOVECOT_COPY = re.compile(
-    r"[Cc]opy\s+.*?from\s+(\S+)\s+to\s+(\S+)", re.IGNORECASE
-)
+RE_DOVECOT_COPY = re.compile(r"[Cc]opy\s+.*?from\s+(\S+)\s+to\s+(\S+)", re.IGNORECASE)
 
 # Dovecot imap delete mailbox
-RE_DOVECOT_DELETE_MBOX = re.compile(
-    r"[Dd]elete(?:d)?\s+mailbox\s+(\S+)", re.IGNORECASE
-)
+RE_DOVECOT_DELETE_MBOX = re.compile(r"[Dd]elete(?:d)?\s+mailbox\s+(\S+)", re.IGNORECASE)
 
 # Dovecot imap rename mailbox
 RE_DOVECOT_RENAME_MBOX = re.compile(
@@ -160,7 +146,8 @@ class MailLogIngestor:
         """Remove queue_map entries older than QUEUE_MAP_TTL."""
         now = time.monotonic()
         expired = [
-            qid for qid, data in self._queue_map.items()
+            qid
+            for qid, data in self._queue_map.items()
             if now - data.get("_ts", 0) > QUEUE_MAP_TTL
         ]
         for qid in expired:
@@ -184,7 +171,12 @@ class MailLogIngestor:
                     # Seek to end to only process new lines
                     f.seek(0, os.SEEK_END)
                     current_pos = f.tell()
-                    logger.info("Tailing %s from position %d (inode %d)", MAIL_LOG, current_pos, inode)
+                    logger.info(
+                        "Tailing %s from position %d (inode %d)",
+                        MAIL_LOG,
+                        current_pos,
+                        inode,
+                    )
 
                     while self._running:
                         line = f.readline()
@@ -194,20 +186,28 @@ class MailLogIngestor:
                                 try:
                                     await self._process_line(line)
                                 except Exception:
-                                    logger.exception("Error processing line: %.200s", line)
+                                    logger.exception(
+                                        "Error processing line: %.200s", line
+                                    )
                         else:
                             # No new data — check for rotation
                             try:
                                 new_stat = os.stat(MAIL_LOG)
                                 if new_stat.st_ino != inode:
-                                    logger.info("Log file rotated (inode changed), reopening")
+                                    logger.info(
+                                        "Log file rotated (inode changed), reopening"
+                                    )
                                     break
                                 if new_stat.st_size < f.tell():
-                                    logger.info("Log file truncated, seeking to beginning")
+                                    logger.info(
+                                        "Log file truncated, seeking to beginning"
+                                    )
                                     f.seek(0)
                                     continue
                             except FileNotFoundError:
-                                logger.warning("Log file disappeared, waiting for recreation")
+                                logger.warning(
+                                    "Log file disappeared, waiting for recreation"
+                                )
                                 break
 
                             await asyncio.sleep(0.2)
@@ -320,14 +320,30 @@ class MailLogIngestor:
             self._queue_map[queue_id]["_ts"] = time.monotonic()
         return self._queue_map[queue_id]
 
-    async def _insert_mail_trace(self, *, queue_id, message_id, sender, recipient,
-                                  size, status, relay, delay, dsn, status_detail,
-                                  client_ip, rspamd_score, rspamd_action,
-                                  rspamd_symbols, timestamp_str):
+    async def _insert_mail_trace(
+        self,
+        *,
+        queue_id,
+        message_id,
+        sender,
+        recipient,
+        size,
+        status,
+        relay,
+        delay,
+        dsn,
+        status_detail,
+        client_ip,
+        rspamd_score,
+        rspamd_action,
+        rspamd_symbols,
+        timestamp_str
+    ):
         """Insert a record into mail_trace."""
         try:
             ts = self._parse_syslog_timestamp(timestamp_str)
-            await self.db.execute("""
+            await self.db.execute(
+                """
                 INSERT INTO mail_trace (
                     queue_id, message_id, sender, recipient, size,
                     status, relay, delay, dsn, status_detail,
@@ -347,9 +363,20 @@ class MailLogIngestor:
                     status_detail = EXCLUDED.status_detail,
                     log_timestamp = EXCLUDED.log_timestamp
             """,
-                queue_id, message_id, sender, recipient, size,
-                status, relay, delay, dsn, status_detail,
-                client_ip, rspamd_score, rspamd_action, rspamd_symbols,
+                queue_id,
+                message_id,
+                sender,
+                recipient,
+                size,
+                status,
+                relay,
+                delay,
+                dsn,
+                status_detail,
+                client_ip,
+                rspamd_score,
+                rspamd_action,
+                rspamd_symbols,
                 ts,
             )
         except Exception:
@@ -385,14 +412,22 @@ class MailLogIngestor:
         else:
             # No queue entry yet — update directly in DB if trace already exists
             try:
-                await self.db.execute("""
+                await self.db.execute(
+                    """
                     UPDATE mail_trace
                     SET rspamd_score = $1, rspamd_action = $2, rspamd_symbols = $3
                     WHERE message_id = $4
                       AND rspamd_score IS NULL
-                """, score, action, symbols, message_id)
+                """,
+                    score,
+                    action,
+                    symbols,
+                    message_id,
+                )
             except Exception:
-                logger.exception("Failed to update rspamd info for msgid=%s", message_id)
+                logger.exception(
+                    "Failed to update rspamd info for msgid=%s", message_id
+                )
 
     # -------------------------------------------------------------------------
     # Dovecot handler
@@ -424,8 +459,7 @@ class MailLogIngestor:
             uid = em.group(1)
             folder = em.group(2)
             await self._log_dovecot_action(
-                username, "email_expunge",
-                uid=uid, folder=folder, detail=action_text
+                username, "email_expunge", uid=uid, folder=folder, detail=action_text
             )
             return
 
@@ -435,8 +469,11 @@ class MailLogIngestor:
             src_folder = cm.group(1)
             dst_folder = cm.group(2)
             await self._log_dovecot_action(
-                username, "email_copy",
-                src_folder=src_folder, dst_folder=dst_folder, detail=action_text
+                username,
+                "email_copy",
+                src_folder=src_folder,
+                dst_folder=dst_folder,
+                detail=action_text,
             )
             return
 
@@ -445,8 +482,7 @@ class MailLogIngestor:
         if dm:
             folder = dm.group(1)
             await self._log_dovecot_action(
-                username, "mailbox_delete",
-                folder=folder, detail=action_text
+                username, "mailbox_delete", folder=folder, detail=action_text
             )
             return
 
@@ -456,8 +492,11 @@ class MailLogIngestor:
             old_name = rm.group(1)
             new_name = rm.group(2)
             await self._log_dovecot_action(
-                username, "mailbox_rename",
-                old_name=old_name, new_name=new_name, detail=action_text
+                username,
+                "mailbox_rename",
+                old_name=old_name,
+                new_name=new_name,
+                detail=action_text,
             )
             return
 
@@ -466,8 +505,7 @@ class MailLogIngestor:
         if sm:
             folder = sm.group(1)
             await self._log_dovecot_action(
-                username, "email_save",
-                folder=folder, detail=action_text
+                username, "email_save", folder=folder, detail=action_text
             )
             return
 
@@ -477,38 +515,49 @@ class MailLogIngestor:
             uid = fm.group(1)
             flags_info = fm.group(2)
             await self._log_dovecot_action(
-                username, "email_flag_change",
-                uid=uid, flags=flags_info, detail=action_text
+                username,
+                "email_flag_change",
+                uid=uid,
+                flags=flags_info,
+                detail=action_text,
             )
             return
 
         # Generic delete (non-mailbox)
         if re.search(r"\b[Dd]elete(?:d)?\b", action_text) and not dm:
-            await self._log_dovecot_action(
-                username, "email_delete",
-                detail=action_text
-            )
+            await self._log_dovecot_action(username, "email_delete", detail=action_text)
             return
 
-    async def _correlate_by_message_id(self, message_id: str, dovecot_user: str, folder: str):
+    async def _correlate_by_message_id(
+        self, message_id: str, dovecot_user: str, folder: str
+    ):
         """Update mail_trace record with Dovecot delivery info."""
         try:
-            result = await self.db.execute("""
+            result = await self.db.execute(
+                """
                 UPDATE mail_trace
                 SET dovecot_user = $1,
                     dovecot_folder = $2,
                     delivered_at = NOW()
                 WHERE message_id = $3
                   AND dovecot_user IS NULL
-            """, dovecot_user, folder, message_id)
+            """,
+                dovecot_user,
+                folder,
+                message_id,
+            )
             logger.debug(
                 "Dovecot correlation: msgid=%s user=%s folder=%s result=%s",
-                message_id, dovecot_user, folder, result,
+                message_id,
+                dovecot_user,
+                folder,
+                result,
             )
         except Exception:
             logger.exception(
                 "Failed Dovecot correlation for msgid=%s user=%s",
-                message_id, dovecot_user,
+                message_id,
+                dovecot_user,
             )
 
     async def _log_dovecot_action(self, username: str, action: str, **kwargs):
@@ -517,7 +566,8 @@ class MailLogIngestor:
         metadata = {k: v for k, v in kwargs.items() if v is not None}
 
         try:
-            await self.db.execute("""
+            await self.db.execute(
+                """
                 INSERT INTO user_activity_log (
                     username, action, detail, metadata, created_at
                 ) VALUES ($1, $2, $3, $4, NOW())
@@ -531,7 +581,8 @@ class MailLogIngestor:
         except Exception:
             logger.exception(
                 "Failed to log Dovecot action: user=%s action=%s",
-                username, action,
+                username,
+                action,
             )
 
     # -------------------------------------------------------------------------

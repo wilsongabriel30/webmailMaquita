@@ -58,6 +58,7 @@ COMPLIANCE_ROLES: dict[str, set[str]] = {
 # Helpers internos
 # ---------------------------------------------------------------------------
 
+
 def _decode_admin_token(token: str) -> dict:
     """Decodifica un Bearer JWT del admin panel."""
     try:
@@ -73,9 +74,12 @@ def _decode_webmail_token(token: str) -> dict:
     """Decodifica un JWT de cookie del webmail usando SECRET_KEY de la app."""
     try:
         from app.config import get_settings
+
         secret = get_settings().secret_key
     except Exception:
-        raise HTTPException(status_code=500, detail="No se pudo obtener SECRET_KEY del webmail")
+        raise HTTPException(
+            status_code=500, detail="No se pudo obtener SECRET_KEY del webmail"
+        )
 
     try:
         payload = jwt.decode(token, secret, algorithms=["HS256"])
@@ -103,11 +107,19 @@ async def _get_user_and_role(request: Request) -> tuple[str, str]:
         raw_token = auth_header[7:].strip()
         if raw_token:
             payload = _decode_admin_token(raw_token)
-            username = payload.get("sub") or payload.get("username") or payload.get("email", "unknown")
+            username = (
+                payload.get("sub")
+                or payload.get("username")
+                or payload.get("email", "unknown")
+            )
             role = payload.get("role", "admin")
             # Validar que el rol exista en nuestra tabla
             if role not in COMPLIANCE_ROLES:
-                logger.warning("Rol desconocido '%s' para usuario '%s', asignando admin", role, username)
+                logger.warning(
+                    "Rol desconocido '%s' para usuario '%s', asignando admin",
+                    role,
+                    username,
+                )
                 role = "admin"
             logger.info("Auth Bearer: usuario=%s rol=%s", username, role)
             return (str(username), role)
@@ -120,7 +132,11 @@ async def _get_user_and_role(request: Request) -> tuple[str, str]:
             cookie_token = cookie_token[7:].strip()
         if cookie_token:
             payload = _decode_webmail_token(cookie_token)
-            username = payload.get("sub") or payload.get("username") or payload.get("email", "unknown")
+            username = (
+                payload.get("sub")
+                or payload.get("username")
+                or payload.get("email", "unknown")
+            )
             is_admin = payload.get("is_admin", False)
             # Webmail: si es admin, minimo compliance_auditor
             if is_admin:
@@ -141,13 +157,19 @@ async def _get_user_and_role(request: Request) -> tuple[str, str]:
 # Funciones de autorizacion (se usan como dependencias de FastAPI)
 # ---------------------------------------------------------------------------
 
+
 async def require_compliance_admin(request: Request) -> str:
     """Backward compatible — requiere admin o superadmin."""
     username, role = await _get_user_and_role(request)
     perms = COMPLIANCE_ROLES.get(role, set())
     if "compliance_admin" not in perms:
-        logger.warning("Acceso denegado (compliance_admin): usuario=%s rol=%s", username, role)
-        raise HTTPException(status_code=403, detail="Rol insuficiente para compliance (se requiere admin o superadmin)")
+        logger.warning(
+            "Acceso denegado (compliance_admin): usuario=%s rol=%s", username, role
+        )
+        raise HTTPException(
+            status_code=403,
+            detail="Rol insuficiente para compliance (se requiere admin o superadmin)",
+        )
     return username
 
 
@@ -156,8 +178,12 @@ async def require_compliance_read(request: Request) -> str:
     username, role = await _get_user_and_role(request)
     perms = COMPLIANCE_ROLES.get(role, set())
     if "compliance_read" not in perms:
-        logger.warning("Acceso denegado (compliance_read): usuario=%s rol=%s", username, role)
-        raise HTTPException(status_code=403, detail="Rol insuficiente para lectura de compliance")
+        logger.warning(
+            "Acceso denegado (compliance_read): usuario=%s rol=%s", username, role
+        )
+        raise HTTPException(
+            status_code=403, detail="Rol insuficiente para lectura de compliance"
+        )
     return username
 
 
@@ -166,8 +192,13 @@ async def require_compliance_write(request: Request) -> str:
     username, role = await _get_user_and_role(request)
     perms = COMPLIANCE_ROLES.get(role, set())
     if "compliance_write" not in perms:
-        logger.warning("Acceso denegado (compliance_write): usuario=%s rol=%s", username, role)
-        raise HTTPException(status_code=403, detail="Rol insuficiente para escritura de compliance (se requiere compliance_manager o superadmin)")
+        logger.warning(
+            "Acceso denegado (compliance_write): usuario=%s rol=%s", username, role
+        )
+        raise HTTPException(
+            status_code=403,
+            detail="Rol insuficiente para escritura de compliance (se requiere compliance_manager o superadmin)",
+        )
     return username
 
 
@@ -176,8 +207,13 @@ async def require_compliance_export(request: Request) -> str:
     username, role = await _get_user_and_role(request)
     perms = COMPLIANCE_ROLES.get(role, set())
     if "compliance_export" not in perms:
-        logger.warning("Acceso denegado (compliance_export): usuario=%s rol=%s", username, role)
-        raise HTTPException(status_code=403, detail="Rol insuficiente para exportacion de compliance (se requiere compliance_exporter o superadmin)")
+        logger.warning(
+            "Acceso denegado (compliance_export): usuario=%s rol=%s", username, role
+        )
+        raise HTTPException(
+            status_code=403,
+            detail="Rol insuficiente para exportacion de compliance (se requiere compliance_exporter o superadmin)",
+        )
     return username
 
 
@@ -186,6 +222,11 @@ async def require_compliance_security(request: Request) -> str:
     username, role = await _get_user_and_role(request)
     perms = COMPLIANCE_ROLES.get(role, set())
     if "compliance_security" not in perms:
-        logger.warning("Acceso denegado (compliance_security): usuario=%s rol=%s", username, role)
-        raise HTTPException(status_code=403, detail="Rol insuficiente para seguridad de compliance (se requiere security_admin o superadmin)")
+        logger.warning(
+            "Acceso denegado (compliance_security): usuario=%s rol=%s", username, role
+        )
+        raise HTTPException(
+            status_code=403,
+            detail="Rol insuficiente para seguridad de compliance (se requiere security_admin o superadmin)",
+        )
     return username

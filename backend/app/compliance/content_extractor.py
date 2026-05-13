@@ -3,6 +3,7 @@
 Provides deep search capability for eDiscovery: extracts searchable text
 from email body (plain + HTML) and common attachment formats.
 """
+
 import email
 import email.policy
 import hashlib
@@ -19,6 +20,7 @@ logger = logging.getLogger("compliance.extractor")
 
 class _HTMLTextExtractor(HTMLParser):
     """Strip HTML tags, keep text content."""
+
     def __init__(self):
         super().__init__()
         self._parts: list[str] = []
@@ -57,6 +59,7 @@ def extract_pdf_text(data: bytes) -> str:
     """Extract text from PDF bytes."""
     try:
         import pdfplumber
+
         with pdfplumber.open(io.BytesIO(data)) as pdf:
             parts = []
             for page in pdf.pages[:50]:  # Limit to 50 pages
@@ -73,6 +76,7 @@ def extract_docx_text(data: bytes) -> str:
     """Extract text from DOCX bytes."""
     try:
         from docx import Document
+
         doc = Document(io.BytesIO(data))
         parts = []
         for para in doc.paragraphs:
@@ -94,6 +98,7 @@ def extract_xlsx_text(data: bytes) -> str:
     """Extract text from XLSX bytes."""
     try:
         from openpyxl import load_workbook
+
         wb = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
         parts = []
         for ws in wb.worksheets[:10]:  # Limit sheets
@@ -257,7 +262,9 @@ def parse_email_file(filepath: str) -> Optional[EmailContent]:
                     try:
                         att_info["text"] = extractor(payload)
                     except Exception as e:
-                        logger.debug("Attachment extraction failed for %s: %s", filename, e)
+                        logger.debug(
+                            "Attachment extraction failed for %s: %s", filename, e
+                        )
 
                 content.attachments.append(att_info)
 
@@ -348,7 +355,11 @@ def search_maildir(
     scan_dirs = []
     if folders:
         for folder in folders:
-            folder_path = os.path.join(user_maildir, f".{folder}") if folder != "INBOX" else user_maildir
+            folder_path = (
+                os.path.join(user_maildir, f".{folder}")
+                if folder != "INBOX"
+                else user_maildir
+            )
             if os.path.isdir(folder_path):
                 scan_dirs.append((folder, folder_path))
     else:
@@ -359,7 +370,11 @@ def search_maildir(
         try:
             for entry in os.listdir(user_maildir):
                 full = os.path.join(user_maildir, entry)
-                if entry.startswith(".") and os.path.isdir(full) and entry not in (".dovecot", ".dovecot.lda-dupes.locks"):
+                if (
+                    entry.startswith(".")
+                    and os.path.isdir(full)
+                    and entry not in (".dovecot", ".dovecot.lda-dupes.locks")
+                ):
                     folder_name = entry[1:]  # Remove leading dot
                     scan_dirs.append((folder_name, full))
         except Exception:
@@ -407,7 +422,9 @@ def search_maildir(
                     continue
 
                 # Build searchable text based on options
-                search_text = content.subject + "\n" + content.sender + "\n" + content.recipients
+                search_text = (
+                    content.subject + "\n" + content.sender + "\n" + content.recipients
+                )
                 if search_body:
                     search_text += "\n" + content.body_plain
                 if search_attachments:
@@ -436,30 +453,37 @@ def search_maildir(
                         except Exception:
                             pass
 
-                    results.append({
-                        "mailbox": mailbox,
-                        "folder": folder_name,
-                        "uid": uid,
-                        "message_id": content.message_id,
-                        "subject": content.subject,
-                        "sender": content.sender,
-                        "recipients": content.recipients,
-                        "sent_at": sent_at,
-                        "size_bytes": content.size_bytes,
-                        "has_attachments": len(content.attachments) > 0,
-                        "attachment_names": [a["name"] for a in content.attachments],
-                        "matched_keywords": matched_kw,
-                        "snippet": content.get_snippet(keywords),
-                        "hash_sha256": content.hash_sha256,
-                        "storage_path": filepath,
-                        "search_scope": {
-                            "body": search_body,
-                            "attachments": search_attachments,
-                        },
-                    })
+                    results.append(
+                        {
+                            "mailbox": mailbox,
+                            "folder": folder_name,
+                            "uid": uid,
+                            "message_id": content.message_id,
+                            "subject": content.subject,
+                            "sender": content.sender,
+                            "recipients": content.recipients,
+                            "sent_at": sent_at,
+                            "size_bytes": content.size_bytes,
+                            "has_attachments": len(content.attachments) > 0,
+                            "attachment_names": [
+                                a["name"] for a in content.attachments
+                            ],
+                            "matched_keywords": matched_kw,
+                            "snippet": content.get_snippet(keywords),
+                            "hash_sha256": content.hash_sha256,
+                            "storage_path": filepath,
+                            "search_scope": {
+                                "body": search_body,
+                                "attachments": search_attachments,
+                            },
+                        }
+                    )
 
     logger.info(
         "eDiscovery search: mailbox=%s, keywords=%s, scanned=%d, matches=%d",
-        mailbox, keywords, scanned, len(results),
+        mailbox,
+        keywords,
+        scanned,
+        len(results),
     )
     return results

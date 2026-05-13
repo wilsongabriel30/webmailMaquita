@@ -7,10 +7,12 @@ Provides immutable evidence chain:
 5. Append-only audit trail
 Deployed to: /opt/maquita-webmail/backend/app/compliance/evidence_signer.py
 """
+
 import hashlib
 import json
 import logging
 import os
+
 os.environ.setdefault("GNUPGHOME", "/opt/maquita-webmail/.gnupg")
 import platform
 import subprocess
@@ -18,14 +20,19 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+
 logger = logging.getLogger("compliance.signer")
 GPG_KEY_EMAIL = "compliance@maquita.org"
 GPG_KEY_NAME = "Maquita Compliance"
 EVIDENCE_AUDIT_LOG = "/var/lib/maquita-compliance/audit.log"
 AUDIT_DIR = "/var/lib/maquita-compliance"
+
+
 def _ensure_audit_dir() -> None:
     """Create the audit log directory if it doesn't exist."""
     os.makedirs(AUDIT_DIR, mode=0o700, exist_ok=True)
+
+
 def _get_gpg_fingerprint() -> Optional[str]:
     """Return the fingerprint of the compliance GPG key, or None if not found."""
     try:
@@ -47,6 +54,8 @@ def _get_gpg_fingerprint() -> Optional[str]:
     except subprocess.TimeoutExpired:
         logger.error("gpg --list-keys timed out")
         return None
+
+
 async def ensure_gpg_key() -> str:
     """Ensure GPG key exists, create if not. Returns key fingerprint.
     The key is RSA-4096, no passphrase, created for server automation.
@@ -56,7 +65,9 @@ async def ensure_gpg_key() -> str:
     if existing_fp:
         logger.info("GPG compliance key already exists: %s", existing_fp)
         return existing_fp
-    logger.info("Generating new GPG compliance key for %s <%s>", GPG_KEY_NAME, GPG_KEY_EMAIL)
+    logger.info(
+        "Generating new GPG compliance key for %s <%s>", GPG_KEY_NAME, GPG_KEY_EMAIL
+    )
     key_params = (
         "%no-protection\n"
         "Key-Type: RSA\n"
@@ -83,9 +94,13 @@ async def ensure_gpg_key() -> str:
         raise RuntimeError("GPG key generation timed out (120s)")
     fingerprint = _get_gpg_fingerprint()
     if not fingerprint:
-        raise RuntimeError("GPG key was generated but fingerprint could not be retrieved")
+        raise RuntimeError(
+            "GPG key was generated but fingerprint could not be retrieved"
+        )
     logger.info("GPG compliance key created: %s", fingerprint)
     return fingerprint
+
+
 def sign_manifest(manifest_path: str) -> str:
     """Create detached GPG signature for manifest file.
     Uses the compliance key to produce a binary detached signature (.sig).
@@ -107,9 +122,11 @@ def sign_manifest(manifest_path: str) -> str:
                 "gpg",
                 "--batch",
                 "--yes",
-                "--local-user", GPG_KEY_EMAIL,
+                "--local-user",
+                GPG_KEY_EMAIL,
                 "--detach-sign",
-                "--output", sig_path,
+                "--output",
+                sig_path,
                 manifest_path,
             ],
             capture_output=True,
@@ -126,6 +143,8 @@ def sign_manifest(manifest_path: str) -> str:
         raise RuntimeError("GPG signature file was not created")
     logger.info("Manifest signed: %s -> %s", manifest_path, sig_path)
     return sig_path
+
+
 def create_timestamp_seal(manifest_hash: str, export_id: int, exported_by: str) -> dict:
     """Create a timestamp seal for the export (RFC 3161-inspired).
     The seal binds the manifest hash to a point in time and the server identity.
@@ -153,6 +172,8 @@ def create_timestamp_seal(manifest_hash: str, export_id: int, exported_by: str) 
     }
     logger.info("Timestamp seal created for export %d: %s", export_id, seal_hash[:16])
     return seal
+
+
 def verify_manifest_signature(manifest_path: str, sig_path: str) -> bool:
     """Verify GPG detached signature of a manifest file.
     Returns True if signature is valid, False otherwise.
@@ -184,6 +205,8 @@ def verify_manifest_signature(manifest_path: str, sig_path: str) -> bool:
     except subprocess.TimeoutExpired:
         logger.error("GPG verify timed out")
         return False
+
+
 def append_audit_entry(entry: dict) -> None:
     """Append an entry to the immutable audit log.
     The log file is opened in append-only mode. Each line is a JSON object
@@ -205,6 +228,8 @@ def append_audit_entry(entry: dict) -> None:
     except OSError as exc:
         logger.error("Failed to write audit log: %s", exc)
         raise
+
+
 def _sha256_file(path: str) -> str:
     """Compute SHA256 hex digest of a file."""
     h = hashlib.sha256()
@@ -215,6 +240,8 @@ def _sha256_file(path: str) -> str:
                 break
             h.update(chunk)
     return h.hexdigest()
+
+
 def _verify_eml_hashes(export_path: str, manifest: dict) -> list:
     """Verify that all EML files in the manifest match their recorded hashes.
     Returns a list of mismatched files (empty list = all OK).
@@ -232,13 +259,17 @@ def _verify_eml_hashes(export_path: str, manifest: dict) -> list:
             continue
         actual_hash = _sha256_file(eml_path)
         if actual_hash != expected_hash:
-            mismatches.append({
-                "file": eml_file,
-                "error": "hash_mismatch",
-                "expected": expected_hash,
-                "actual": actual_hash,
-            })
+            mismatches.append(
+                {
+                    "file": eml_file,
+                    "error": "hash_mismatch",
+                    "expected": expected_hash,
+                    "actual": actual_hash,
+                }
+            )
     return mismatches
+
+
 async def sign_export(
     export_path: str,
     manifest_path: str,
@@ -344,6 +375,8 @@ async def sign_export(
     }
     logger.info("Export %d signed successfully (verified=%s)", export_id, verified)
     return result
+
+
 def get_export_signing_info(export_path: str) -> dict:
     """Get signing info for an existing export (for verification).
     Looks for manifest.json, manifest.json.sig, and timestamp_seal.json

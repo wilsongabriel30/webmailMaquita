@@ -1,6 +1,7 @@
 # Evidencia Compliance Module v1.0.1
 **Fecha:** 2026-05-13
-**Commit:** `e826a71`
+**Commit funcional auditado:** `e826a71`
+**Commit final documentado (main/tag):** `540d397`
 **Tag:** `v1.0.1-compliance-audit`
 **Pruebas:** 73/73
 

@@ -37,7 +37,9 @@ async def _check_table_exists(db_pool, table_name: str) -> bool:
 async def _get_record_count(db_pool, table_name: str) -> int:
     """Cuenta registros de una tabla. Retorna -1 si hay error."""
     try:
-        count = await db_pool.fetchval(f'SELECT COUNT(*) FROM "{table_name}"')  # noqa: S608
+        count = await db_pool.fetchval(
+            f'SELECT COUNT(*) FROM "{table_name}"'
+        )  # noqa: S608
         return count or 0
     except Exception:
         return -1
