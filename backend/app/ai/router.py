@@ -21,9 +21,17 @@ from app.core.session import get_imap_login_user
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
-# --- Configuracion del servidor IA (VM 170) ---
+# --- Configuracion del servidor IA ---
 # URLs permitidas para el proxy IA (whitelist anti-SSRF)
-_ALLOWED_IA_HOSTS = frozenset({"10.16.0.170", "127.0.0.1", "localhost"})
+# Hosts permitidos se construyen dinamicamente desde la config
+def _get_allowed_ia_hosts():
+    from urllib.parse import urlparse
+    s = get_settings()
+    hosts = {"127.0.0.1", "localhost"}
+    parsed = urlparse(s.ollama_url)
+    if parsed.hostname:
+        hosts.add(parsed.hostname)
+    return hosts
 IA_TIMEOUT = 45.0
 
 
@@ -32,7 +40,7 @@ def _get_ia_config():
     from urllib.parse import urlparse
     s = get_settings()
     parsed = urlparse(s.ollama_url)
-    if parsed.hostname not in _ALLOWED_IA_HOSTS:
+    if parsed.hostname not in _get_allowed_ia_hosts():
         raise ValueError(f"URL de IA no permitida: {s.ollama_url}")
     base = s.ollama_url.rstrip("/")
     return {

@@ -34,11 +34,11 @@ class Settings(BaseSettings):
     admin_jwt_secret: str = ""
     ia_api_key: str = ""
     ollama_url: str = "http://127.0.0.1:11434"
-    nc_base_url: str = "http://10.16.0.155"
+    nc_base_url: str = "http://nextcloud-server"
     nc_admin_user: str = ""
     nc_admin_pass: str = ""
     nc_public_url: str = "https://nube.example.com"
-    onlyoffice_url: str = "http://10.16.0.155:8080"  # Nextcloud VM (NO localhost, OnlyOffice está en VM 300)
+    onlyoffice_url: str = "http://nextcloud-server:8080"  # URL de OnlyOffice (configurar en .env)
     onlyoffice_secret: str = ""
     onlyoffice_download_secret: str = ""
     # Security logging
