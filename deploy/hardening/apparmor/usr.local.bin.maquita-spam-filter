@@ -1,0 +1,96 @@
+# =============================================================================
+# AppArmor — Perfil para Maquita Spam Filter (Python)
+# Archivo: /etc/apparmor.d/usr.local.bin.maquita-spam-filter
+# =============================================================================
+# Restringe el filtro de spam a solo los recursos que necesita:
+#   - Leer su configuracion y librerias Python
+#   - Escribir a su archivo de log
+#   - Conectarse a localhost:10025 para reinyectar correo limpio via SMTP
+#   - Todo lo demas esta DENEGADO por defecto (enforce mode)
+#
+# Cargar perfil:  apparmor_parser -r /etc/apparmor.d/usr.local.bin.maquita-spam-filter
+# Modo queja:     aa-complain /usr/local/bin/maquita-spam-filter
+# Modo enforce:   aa-enforce /usr/local/bin/maquita-spam-filter
+# Ver estado:     aa-status
+# =============================================================================
+
+#include <tunables/global>
+
+/usr/local/bin/maquita-spam-filter {
+
+  # Incluir abstracciones base (acceso a libc, ld, locale, etc.)
+  #include <abstractions/base>
+
+  # Incluir abstraccion de Python (acceso a modulos estandar)
+  #include <abstractions/python>
+
+  # Incluir abstraccion de resolucion de nombres (DNS para localhost)
+  #include <abstractions/nameservice>
+
+  # -------------------------------------------------------------------------
+  # LECTURA: Interprete Python y librerias
+  # -------------------------------------------------------------------------
+
+  # Interprete Python — necesario para ejecutar el script
+  /usr/bin/python3*               mr,
+  /usr/bin/python3                ix,
+
+  # Librerias estandar de Python y paquetes instalados
+  /usr/lib/python3/**             r,
+  /usr/lib/python3*/**            r,
+  /usr/local/lib/python3*/**      r,
+  /usr/share/python3/**           r,
+
+  # Archivos compilados de Python (__pycache__)
+  /usr/lib/python3/**/*.pyc       r,
+  /usr/local/lib/python3*/**/*.pyc r,
+
+  # -------------------------------------------------------------------------
+  # LECTURA: Configuracion del filtro de spam
+  # -------------------------------------------------------------------------
+
+  # Directorio de configuracion de Maquita Mail (reglas, listas, etc.)
+  /etc/maquita-mail/*             r,
+  /etc/maquita-mail/**            r,
+
+  # El propio script
+  /usr/local/bin/maquita-spam-filter r,
+
+  # -------------------------------------------------------------------------
+  # ESCRITURA: Log del filtro
+  # -------------------------------------------------------------------------
+
+  # Solo puede escribir en su propio archivo de log
+  /var/log/maquita-spam-filter.log  w,
+
+  # -------------------------------------------------------------------------
+  # RED: Reinyeccion SMTP a localhost
+  # -------------------------------------------------------------------------
+
+  # Permitir conexiones TCP salientes (necesario para SMTP reinject a 127.0.0.1:10025)
+  network inet stream,
+
+  # -------------------------------------------------------------------------
+  # DENEGACIONES EXPLICITAS
+  # -------------------------------------------------------------------------
+
+  # Denegar acceso a directorios sensibles (ya denegado por defecto,
+  # pero se hace explicito para documentacion y auditoria)
+  deny /home/** rwklx,
+  deny /root/** rwklx,
+  deny /etc/shadow r,
+  deny /etc/passwd w,
+  deny /etc/ssh/** rwklx,
+  deny /proc/*/mem rwklx,
+
+  # Denegar ejecucion de binarios que no sean Python
+  deny /usr/bin/bash x,
+  deny /usr/bin/sh x,
+  deny /usr/bin/dash x,
+  deny /bin/** x,
+  deny /usr/sbin/** x,
+
+  # Denegar acceso raw a red (solo stream TCP permitido arriba)
+  deny network raw,
+  deny network packet,
+}

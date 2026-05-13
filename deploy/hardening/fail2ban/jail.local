@@ -1,0 +1,117 @@
+# =============================================================================
+# Fail2Ban — Jails para infraestructura Maquita
+# Archivo: /etc/fail2ban/jail.local
+# =============================================================================
+# Este archivo sobreescribe valores de jail.conf. No editar jail.conf directamente.
+# Reiniciar tras cambios: systemctl restart fail2ban
+# Verificar jails activos: fail2ban-client status
+# =============================================================================
+
+[DEFAULT]
+# Ignorar redes internas de Maquita para evitar bloqueos accidentales
+ignoreip = 127.0.0.1/8 ::1 TU_RED_INTERNA/24
+
+# Backend por defecto — systemd para distros modernas Debian/Ubuntu
+backend = systemd
+
+# Accion por defecto: bloquear via iptables y enviar info al log
+banaction = iptables-multiport
+banaction_allports = iptables-allports
+
+# Enviar notificaciones por correo (opcional, descomentar si se desea)
+# action = %(action_mwl)s
+# destemail = sysadmin@tudominio.com
+# sender = fail2ban@tudominio.com
+
+# Ventana de tiempo para contar intentos fallidos (10 minutos por defecto)
+findtime = 600
+
+
+# -----------------------------------------------------------------------------
+# JAIL: Postfix SMTP Auth
+# -----------------------------------------------------------------------------
+# Detecta intentos fallidos de autenticacion SMTP (SASL).
+# Protege contra ataques de fuerza bruta al servidor de correo saliente.
+[postfix-sasl]
+enabled  = true
+port     = smtp,465,587,submission
+filter   = postfix[mode=auth]
+logpath  = /var/log/mail.log
+maxretry = 5
+bantime  = 3600
+findtime = 600
+
+
+# -----------------------------------------------------------------------------
+# JAIL: Dovecot IMAP Auth
+# -----------------------------------------------------------------------------
+# Detecta intentos fallidos de login IMAP/POP3.
+# Protege buzones de correo contra acceso no autorizado.
+[dovecot]
+enabled  = true
+port     = pop3,pop3s,imap,imaps,submission,465,sieve
+filter   = dovecot
+logpath  = /var/log/mail.log
+maxretry = 5
+bantime  = 3600
+findtime = 600
+
+
+# -----------------------------------------------------------------------------
+# JAIL: Nginx HTTP Auth y Rate Limit
+# -----------------------------------------------------------------------------
+# Detecta errores 401/403 de autenticacion HTTP y abuso de rate limiting
+# (codigos 429/444). Protege paneles web y APIs expuestas.
+[nginx-http-auth]
+enabled  = true
+port     = http,https
+filter   = nginx-http-auth
+logpath  = /var/log/nginx/error.log
+maxretry = 10
+bantime  = 600
+findtime = 300
+
+# Nginx limit_req abuse (codigos 429/444 en access log)
+[nginx-limit-req]
+enabled  = true
+port     = http,https
+filter   = nginx-limit-req
+logpath  = /var/log/nginx/access.log
+maxretry = 10
+bantime  = 600
+findtime = 300
+
+
+# -----------------------------------------------------------------------------
+# JAIL: Maquita Webmail — Login failures
+# -----------------------------------------------------------------------------
+# Usa filtro personalizado para detectar intentos fallidos de login
+# en la API del webmail (endpoint /api/auth/login). Los logs provienen
+# de uvicorn/journalctl del servicio maquita-webmail.
+[maquita-webmail]
+enabled  = true
+port     = http,https
+filter   = maquita-webmail
+# journalctl como fuente (el backend corre como servicio systemd)
+logpath  = /var/log/maquita-webmail/access.log
+# Alternativa si se usa journalctl directamente:
+# backend  = systemd
+# journalmatch = _SYSTEMD_UNIT=maquita-webmail.service
+maxretry = 5
+bantime  = 1800
+findtime = 600
+
+
+# -----------------------------------------------------------------------------
+# JAIL: Rspamd Web UI
+# -----------------------------------------------------------------------------
+# Protege la interfaz web de Rspamd (puerto 11334) contra fuerza bruta.
+# Ban mas agresivo (2 horas) porque solo admins deben acceder.
+[rspamd]
+enabled  = true
+port     = 11334
+filter   = rspamd
+logpath  = /var/log/rspamd/rspamd.log
+maxretry = 3
+bantime  = 7200
+findtime = 600

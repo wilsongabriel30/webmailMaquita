@@ -1,0 +1,67 @@
+# =============================================================================
+# Pre-commit Hooks — Seguridad para repositorios Maquita
+# Archivo: .pre-commit-config.yaml (copiar a la raiz de cada repositorio)
+# =============================================================================
+# Instalar:  pip install pre-commit && pre-commit install
+# Ejecutar manual: pre-commit run --all-files
+# Actualizar hooks: pre-commit autoupdate
+# =============================================================================
+
+repos:
+
+  # ---------------------------------------------------------------------------
+  # Gitleaks — Escaneo de secretos y credenciales
+  # ---------------------------------------------------------------------------
+  # Detecta passwords, API keys, tokens, claves privadas y otros secretos
+  # que se hayan incluido accidentalmente en el codigo fuente.
+  # Docs: https://github.com/gitleaks/gitleaks
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+        name: "gitleaks — detectar secretos en el codigo"
+        # Escanear solo archivos staged (no todo el historial en cada commit)
+        args: ["protect", "--staged"]
+
+  # ---------------------------------------------------------------------------
+  # Bandit — Linting de seguridad para Python
+  # ---------------------------------------------------------------------------
+  # Analiza codigo Python en busca de vulnerabilidades comunes:
+  #   - Uso de eval/exec, subprocess con shell=True
+  #   - SQL injection, hardcoded passwords
+  #   - Uso inseguro de pickle, yaml.load, etc.
+  # Docs: https://github.com/PyCQA/bandit
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.8.3
+    hooks:
+      - id: bandit
+        name: "bandit — seguridad Python"
+        # -r: recursivo, -ll: solo severidad media+alta, -ii: solo confianza media+alta
+        args: ["-r", "-ll", "-ii"]
+        # Excluir tests y migraciones (suelen tener falsos positivos)
+        exclude: "(tests/|migrations/|test_)"
+        types: [python]
+
+  # ---------------------------------------------------------------------------
+  # ESLint Security — Reglas de seguridad para JavaScript/TypeScript
+  # ---------------------------------------------------------------------------
+  # Detecta patrones inseguros en JS/TS:
+  #   - innerHTML sin sanitizar (XSS)
+  #   - eval() y Function() dinamico
+  #   - Regex vulnerables a ReDoS
+  #   - Uso inseguro de crypto
+  # Requiere: npm install -D eslint eslint-plugin-security
+  # Docs: https://github.com/eslint-community/eslint-plugin-security
+  - repo: https://github.com/pre-commit/mirrors-eslint
+    rev: v9.18.0
+    hooks:
+      - id: eslint
+        name: "eslint-security — seguridad JS/TS"
+        files: \.(js|jsx|ts|tsx)$
+        types: [file]
+        # Usar la config del proyecto que debe incluir eslint-plugin-security
+        # En eslint.config.js agregar: import security from 'eslint-plugin-security'
+        additional_dependencies:
+          - eslint@9.18.0
+          - eslint-plugin-security@3.0.1
+          - typescript-eslint@8.21.0

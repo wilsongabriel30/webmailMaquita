@@ -1,91 +1,72 @@
-name: CI — Fundación Maquita Webmail
+name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
-  backend-lint:
-    name: Backend — Sintaxis Python
+  # -------------------------------------------------------------------
+  # Backend: tests + security
+  # -------------------------------------------------------------------
+  backend:
+    name: Backend (Python 3.12)
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - run: pip install py_compile
-      - name: Verificar sintaxis de todos los .py
-        run: |
-          find backend/app -name '*.py' | while read f; do
-            python -m py_compile "$f" || exit 1
-          done
-          echo "✅ Todos los archivos Python compilan correctamente"
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-  backend-tests:
-    name: Backend — Smoke Tests
-    runs-on: ubuntu-latest
-    services:
-      redis:
-        image: redis:7
-        ports: [6379:6379]
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: mailserver
-          POSTGRES_PASSWORD: testpass
-          POSTGRES_DB: maildb
-        ports: [5432:5432]
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    env:
-      DATABASE_URL: postgresql://mailserver:testpass@localhost:5432/maildb
-      REDIS_URL: redis://localhost:6379/0
-      SECRET_KEY: test-secret-key-for-ci-only-not-production
-      IMAP_HOST: 127.0.0.1
-      IMAP_PORT: 143
-      SMTP_HOST: 127.0.0.1
-      SMTP_PORT: 587
-      SIEVE_HOST: 127.0.0.1
-      SIEVE_PORT: 4190
-      MAIL_DOMAIN: test.local
-      COOKIE_DOMAIN: mail.test.local
-      CORS_ORIGINS: http://localhost:3000
-      MASTER_PASSWORD: test-master
-      ADMIN_JWT_SECRET: test-admin-secret
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-      - name: Instalar dependencias
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+
+      - name: Install dependencies
         run: |
-          cd backend
+          python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest pytest-asyncio httpx
-      - name: Ejecutar smoke tests
-        run: |
-          cd backend
-          python -m pytest tests/ -v --tb=short
+          pip install pytest bandit
 
-  frontend-build:
-    name: Frontend — Build limpio
+      - name: Run tests
+        run: pytest --tb=short -q
+
+      - name: Security check — bandit (medium+ severity)
+        run: bandit -r backend/app -ll
+
+  # -------------------------------------------------------------------
+  # Frontend: build + security
+  # -------------------------------------------------------------------
+  frontend:
+    name: Frontend (Node 20)
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
         with:
-          node-version: '20'
-      - name: Instalación limpia (npm ci)
-        run: cd frontend && npm ci
-      - name: Compilar
-        run: cd frontend && npx vite build
-      - name: Verificar artefactos
-        run: |
-          test -f frontend/dist/index.html && echo "✅ index.html existe"
-          ls -la frontend/dist/assets/
-          echo "✅ Build completado correctamente"
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Security check — npm audit (high+)
+        run: npm audit --audit-level=high

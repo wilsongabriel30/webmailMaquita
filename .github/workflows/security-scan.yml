@@ -1,0 +1,138 @@
+# ![Security Scan](https://github.com/<OWNER>/<REPO>/actions/workflows/security-scan.yml/badge.svg)
+# Badge markdown:
+# [![Security Scan](https://github.com/<OWNER>/<REPO>/actions/workflows/security-scan.yml/badge.svg)](https://github.com/<OWNER>/<REPO>/actions/workflows/security-scan.yml)
+
+name: Security Scan
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * 1" # Every Monday at 06:00 UTC
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  # -------------------------------------------------------------------
+  # 1. Detect committed secrets with gitleaks
+  # -------------------------------------------------------------------
+  secret-scan:
+    name: Secret Scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # -------------------------------------------------------------------
+  # 2. Python security — bandit + pip-audit
+  # -------------------------------------------------------------------
+  python-security:
+    name: Python Security
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install bandit pip-audit
+
+      - name: Run bandit (security linter)
+        run: bandit -r app -f json -o bandit-report.json || true
+        # Generate report first, then fail on medium+
+      - name: Evaluate bandit results
+        run: bandit -r app -ll
+
+      - name: Run pip-audit (vulnerable dependencies)
+        run: pip-audit --strict --desc
+
+  # -------------------------------------------------------------------
+  # 3. JavaScript / Node security — npm audit
+  # -------------------------------------------------------------------
+  js-security:
+    name: JS Security
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: npm audit (advisory — allowed to fail)
+        run: npm audit || true
+
+      - name: npm audit (critical — must pass)
+        run: npm audit --audit-level=critical
+
+  # -------------------------------------------------------------------
+  # 4. Docker image scan with Trivy (only if Dockerfile exists)
+  # -------------------------------------------------------------------
+  docker-scan:
+    name: Docker Scan (Trivy)
+    runs-on: ubuntu-latest
+    # Skip entirely when no Dockerfile is present
+    if: hashFiles('Dockerfile', '**/Dockerfile') != ''
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t local-scan:${{ github.sha }} .
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: local-scan:${{ github.sha }}
+          format: table
+          exit-code: 1
+          severity: CRITICAL,HIGH
+
+  # -------------------------------------------------------------------
+  # 5. Dependency review (PRs only)
+  # -------------------------------------------------------------------
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
