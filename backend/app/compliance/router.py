@@ -1108,3 +1108,18 @@ async def mail_trace_stats(
         "by_status": {r["status"]: r["total"] for r in by_status},
         "by_direction": {r["direction"]: r["total"] for r in by_direction},
     }
+
+
+# =====================================================
+# HEALTHCHECK — Estado del módulo compliance
+# =====================================================
+
+@router.get("/health")
+async def compliance_health(
+    request: Request,
+    admin: str = Depends(require_admin),
+):
+    """Healthcheck del módulo compliance — estado de tablas, servicios, conteos."""
+    from app.compliance.compliance_health import get_compliance_health
+    db = _get_db(request)
+    return await get_compliance_health(db)
