@@ -159,12 +159,6 @@ case_created        |     9
 ## 10. Verificacion de Secretos
 
 Patrones buscados con `git grep`:
-- `***REDACTED***`: no encontrado
-- `maquita-admin-secret`: no encontrado
-- `maquita2026secure`: no encontrado
-- `ghp_`: no encontrado
-- `sshpass`: no encontrado
-- `PGPASSWORD`: no encontrado
 - `.env` no esta en git (verificado con `git ls-files`)
 
 ## 11. Limitaciones Restantes
