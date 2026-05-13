@@ -58,6 +58,10 @@ from app.tasks.router import router as tasks_router
 from app.presence.router import router as presence_router
 from app.nextcloud.router import router as nextcloud_router
 from app.branding.router import router as branding_router
+from app.compliance.router import router as compliance_router
+from app.compliance.audit_middleware import UserActivityAuditMiddleware
+from app.log_ingestor.mail_log_ingestor import start_log_ingestor
+from app.compliance.fraud_detector import start_fraud_detector
 
 # Handler global de excepciones — evita que nginx devuelva HTML en errores 500
 async def _global_exception_handler(request: Request, exc: Exception):
@@ -229,6 +233,9 @@ async def lifespan(app: FastAPI):
     # Start WebSocket Redis subscriber for real-time notifications
     ws_subscriber_task = await start_redis_subscriber(app.state)
     snooze_task = asyncio.create_task(check_snoozed(app))
+    # Start compliance services
+    app.state.log_ingestor = await start_log_ingestor(app.state.db_pool)
+    app.state.fraud_detector = await start_fraud_detector(app.state.db_pool)
     # Start IMAP pool cleanup
     from app.mail.clients.imap_pool import start_cleanup_task
     start_cleanup_task()
@@ -238,6 +245,9 @@ async def lifespan(app: FastAPI):
     # Shutdown IMAP pool
     from app.mail.clients.imap_pool import close_all_pools
     await close_all_pools()
+    # Stop compliance services
+    app.state.log_ingestor.stop()
+    app.state.fraud_detector.stop()
     scheduler_task.cancel()
     ws_subscriber_task.cancel()
     snooze_task.cancel()
@@ -378,6 +388,7 @@ app = FastAPI(title="Maquita Webmail API", version="0.5.0", lifespan=lifespan)
 
 settings = get_settings()
 app.add_middleware(SecurityAuditMiddleware)
+app.add_middleware(UserActivityAuditMiddleware)
 app.add_middleware(ApiRateLimitMiddleware)
 
 # Strip allow-credentials header for non-matching origins (CORS hardening)
@@ -466,6 +477,7 @@ app.include_router(presence_router)
 app.include_router(nextcloud_router)
 app.include_router(branding_router)
 app.include_router(calendar_invite_router)
+app.include_router(compliance_router)
 
 
 @app.post("/api/csp-report")

@@ -122,6 +122,22 @@ def _count_messages(user_flag, folder, days):
         return 0
 
 
+def _check_legal_hold(user):
+    """Verifica si el usuario tiene legal hold activo via doveadm."""
+    import subprocess
+    try:
+        # Check legal_holds table via psql
+        result = subprocess.run(
+            ['sudo', '-u', 'postgres', 'psql', '-d', 'maildb', '-t', '-A', '-c',
+             f"SELECT count(*) FROM legal_holds WHERE mailbox = '{user}' AND is_active = TRUE"],
+            capture_output=True, text=True, timeout=10,
+        )
+        count = int(result.stdout.strip()) if result.stdout.strip().isdigit() else 0
+        return count > 0
+    except Exception:
+        return False  # En caso de error, NO bloquear (safe default)
+
+
 def _expunge_messages(user_flag, folder, days):
     """Expunge messages matching criteria using doveadm expunge."""
     try:
@@ -192,7 +208,10 @@ async def run_policy(
                 c = _count_messages(uf, folder, days)
                 total += c
                 if not dry_run and action == "delete":
-                    _expunge_messages(uf, folder, days)
+                    if _check_legal_hold(user):
+                        logger.warning(f"Retention BLOCKED for {user}: legal hold active")
+                    else:
+                        _expunge_messages(uf, folder, days)
             return total
 
     loop = asyncio.get_event_loop()
