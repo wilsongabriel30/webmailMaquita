@@ -1,0 +1,24 @@
+# ============================================
+# LISTA NEGRA DE IPs — Maquita Mail
+# ============================================
+# IPs y rangos conocidos por enviar spam
+# Formato: IP o rango CIDR por linea
+# Se evalua en Rspamd: score +8 (va a Junk, NO se rechaza)
+# Actualizar sin reiniciar: rspamc reload
+# ============================================
+
+# === RANGOS DE HOSTING BARATOS USADOS PARA SPAM ===
+# Estos rangos son EJEMPLOS — agregar solo los que confirmes
+# como fuente de spam hacia tu servidor
+# Revisar /var/log/mail.log para encontrar IPs que spamean
+
+# === IPs INDIVIDUALES BLOQUEADAS ===
+# Agregar aqui IPs especificas que envian spam a tu servidor
+# Ejemplo:
+# 123.45.67.89
+# 98.76.54.32
+
+# === COMO ENCONTRAR IPs SPAM ===
+# 1. Revisar log: grep "reject\|spam\|SPAM" /var/log/maquita-spam-filter.log
+# 2. Ver IPs frecuentes: grep "connect from" /var/log/mail.log | awk '{print $NF}' | sort | uniq -c | sort -rn | head -20
+# 3. Agregar la IP aqui y ejecutar: rspamc reload

@@ -1,0 +1,5 @@
+# Patrones que indican falta de autenticacion (DKIM/SPF fail)
+/dkim=none.*spf=none/i
+/dkim=fail.*spf=fail/i
+/dkim=fail.*spf=softfail/i
+/dkim=none.*spf=fail/i

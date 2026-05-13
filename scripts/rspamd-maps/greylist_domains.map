@@ -1,0 +1,23 @@
+# ============================================
+# LISTA GRIS DE DOMINIOS — Maquita Mail
+# ============================================
+# Dominios sospechosos pero no confirmados como spam
+# Score +4 (necesitan mas evidencia para ir a Junk)
+# Si un dominio aqui TAMBIEN tiene keywords spam → va a Junk
+# ============================================
+
+# === TLDs frecuentemente abusados ===
+# No todos son spam, pero requieren mas escrutinio
+# Agregar dominios especificos, NO TLDs completos
+
+# === Servicios de email marketing agresivos ===
+# No son ilegales pero a menudo envian sin consentimiento
+# Si recibes spam de estos, agregarlos aqui
+# sendgrid.net  # (no agregar, muchos legitimos lo usan)
+# mailchimp.com # (no agregar, muchos legitimos lo usan)
+
+# === COMO USAR ESTA LISTA ===
+# 1. Cuando recibes correo sospechoso pero no seguro
+# 2. Agregarlo aqui le suma +4 puntos
+# 3. Si ademas tiene keywords spam (+3), total = 7 → va a Junk
+# 4. Si NO tiene keywords, total = 4 → va a Inbox (beneficio de la duda)

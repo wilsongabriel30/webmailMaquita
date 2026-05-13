@@ -1,0 +1,16 @@
+# Asuntos tipicos de spam (regex, case insensitive)
+/^(Re: |Fw: )?(You |Your ).*(won|winner|selected|prize|lottery)/i
+/^(Re: |Fw: )?(Usted |Su ).*(ganado|ganador|premio|loteria|herencia)/i
+/^(Re: |Fw: )?URGENT.*CONFIDENTIAL/i
+/^(Re: |Fw: )?Dear (Winner|Beneficiary|Friend|Customer)/i
+/^(Re: |Fw: )?Estimado (Ganador|Beneficiario)/i
+/^(Re: |Fw: )?(Make|Earn) .*\$[0-9].*per (day|week|month|hour)/i
+/^(Re: |Fw: )?(Gana|Gane) .*\$[0-9].*(diario|semanal|mensual)/i
+/^(Re: |Fw: )?Your (account|password) (has been|will be) (suspended|locked|disabled)/i
+/^(Re: |Fw: )?Su (cuenta|contrase.a) (ha sido|sera) (suspendida|bloqueada)/i
+/^(Re: |Fw: )?(Invoice|Receipt|Payment) #?[A-Z0-9]{6,}/i
+/^(Re: |Fw: )?(ACT NOW|LIMITED TIME|LAST CHANCE|FINAL NOTICE)/i
+/^(Re: |Fw: )?(ACTUA AHORA|ULTIMA OPORTUNIDAD|AVISO FINAL)/i
+/^(Re: |Fw: )?100% FREE/i
+/^(Re: |Fw: )?Viagra|Cialis|Pharmacy/i
+/^(Re: |Fw: )?Bitcoin.*free|Crypto.*profit/i

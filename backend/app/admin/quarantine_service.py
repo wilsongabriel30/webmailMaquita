@@ -160,3 +160,61 @@ async def save_whitelist(content: str) -> bool:
         return True
     except Exception:
         return False
+
+
+async def get_blacklist_domains() -> str:
+    try:
+        with open("/etc/maquita-mail/blacklist-domains.txt", "r") as f:
+            return f.read()
+    except Exception:
+        return ""
+
+
+async def save_blacklist_domains(content: str) -> bool:
+    try:
+        with open("/etc/maquita-mail/blacklist-domains.txt", "w") as f:
+            f.write(content)
+        # Sincronizar con Rspamd
+        with open("/etc/rspamd/local.d/maps/blacklist_domains.map", "w") as f:
+            f.write(content)
+        return True
+    except Exception:
+        return False
+
+
+async def get_blacklist_ips() -> str:
+    try:
+        with open("/etc/maquita-mail/blacklist-ips.txt", "r") as f:
+            return f.read()
+    except Exception:
+        return ""
+
+
+async def save_blacklist_ips(content: str) -> bool:
+    try:
+        with open("/etc/maquita-mail/blacklist-ips.txt", "w") as f:
+            f.write(content)
+        with open("/etc/rspamd/local.d/maps/blacklist_ips.map", "w") as f:
+            f.write(content)
+        return True
+    except Exception:
+        return False
+
+
+async def get_greylist_domains() -> str:
+    try:
+        with open("/etc/maquita-mail/greylist-domains.txt", "r") as f:
+            return f.read()
+    except Exception:
+        return ""
+
+
+async def save_greylist_domains(content: str) -> bool:
+    try:
+        with open("/etc/maquita-mail/greylist-domains.txt", "w") as f:
+            f.write(content)
+        with open("/etc/rspamd/local.d/maps/greylist_domains.map", "w") as f:
+            f.write(content)
+        return True
+    except Exception:
+        return False

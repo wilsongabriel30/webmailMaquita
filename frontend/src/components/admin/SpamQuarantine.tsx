@@ -18,7 +18,7 @@ interface LogEntry {
   details: string;
 }
 
-type Tab = 'quarantine' | 'log' | 'keywords' | 'whitelist';
+type Tab = 'quarantine' | 'log' | 'keywords' | 'whitelist' | 'blacklist_domains' | 'blacklist_ips' | 'greylist';
 
 export function SpamQuarantine() {
   const [tab, setTab] = useState<Tab>('quarantine');
@@ -28,6 +28,9 @@ export function SpamQuarantine() {
     { key: 'log', label: 'Log del Filtro', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' },
     { key: 'keywords', label: 'Palabras Clave', icon: 'M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z' },
     { key: 'whitelist', label: 'Whitelist', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' },
+    { key: 'blacklist_domains', label: 'Lista Negra', icon: 'M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636' },
+    { key: 'blacklist_ips', label: 'IPs Bloqueadas', icon: 'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z' },
+    { key: 'greylist', label: 'Lista Gris', icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' },
   ];
 
   return (
@@ -59,6 +62,27 @@ export function SpamQuarantine() {
       {tab === 'log' && <LogTab />}
       {tab === 'keywords' && <KeywordsTab />}
       {tab === 'whitelist' && <WhitelistTab />}
+      {tab === 'blacklist_domains' && <TextEditorTab
+        title="Lista Negra de Dominios"
+        description="Dominios conocidos como fuentes de spam. Score +10 (van directo a Junk). Un dominio por linea."
+        endpoint="/admin/spam/blacklist-domains"
+        fieldName="content"
+        placeholder={"# Un dominio por linea\n# Score +10 = va a Junk\nspam-domain.com\nphishing-site.net"}
+      />}
+      {tab === 'blacklist_ips' && <TextEditorTab
+        title="IPs Bloqueadas"
+        description="IPs o rangos CIDR de servidores spam. Score +8. Formato: 1.2.3.4 o 1.2.3.0/24"
+        endpoint="/admin/spam/blacklist-ips"
+        fieldName="content"
+        placeholder={"# IP individual o rango CIDR\n# Score +8 = probablemente va a Junk\n# 123.45.67.89\n# 10.0.0.0/8"}
+      />}
+      {tab === 'greylist' && <TextEditorTab
+        title="Lista Gris de Dominios"
+        description="Dominios sospechosos pero no confirmados. Score +4 (necesitan mas evidencia para ir a Junk)."
+        endpoint="/admin/spam/greylist-domains"
+        fieldName="content"
+        placeholder={"# Dominios sospechosos (score +4)\n# Si ademas tiene keywords spam, total >= 7 → Junk\n# Si NO tiene keywords, total = 4 → Inbox\nsuspicious-domain.com"}
+      />}
     </div>
   );
 }
@@ -425,6 +449,76 @@ function WhitelistTab() {
           onChange={e => setContent(e.target.value)}
           className="w-full h-[500px] font-mono text-sm border border-slate-300 rounded-lg p-4 focus:ring-2 focus:ring-orange-300 focus:border-orange-400 outline-none resize-none bg-slate-50"
           placeholder="# Un dominio o email por línea&#10;gmail.com&#10;usuario@ejemplo.com"
+          spellCheck={false}
+        />
+      )}
+    </div>
+  );
+}
+
+
+// =====================================================
+// COMPONENTE GENERICO: Editor de texto para listas
+// =====================================================
+function TextEditorTab({ title, description, endpoint, fieldName, placeholder }: {
+  title: string;
+  description: string;
+  endpoint: string;
+  fieldName: string;
+  placeholder: string;
+}) {
+  const [content, setContent] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    api.get<Record<string, string>>(endpoint)
+      .then(d => setContent(d[fieldName] || d.content || ''))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [endpoint, fieldName]);
+
+  const save = async () => {
+    setSaving(true);
+    setSaved(false);
+    try {
+      await api.put(endpoint, { [fieldName]: content });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Error al guardar');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div>
+      <div className="mb-4">
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-700">{title}</h3>
+            <p className="text-xs text-slate-500 mt-1">{description}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            {saved && <span className="text-xs text-green-600 font-medium">Guardado correctamente</span>}
+            <button onClick={save} disabled={saving}
+              className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 text-sm font-medium disabled:opacity-50">
+              {saving ? 'Guardando...' : 'Guardar cambios'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="text-center py-8 text-slate-400">Cargando...</div>
+      ) : (
+        <textarea
+          value={content}
+          onChange={e => setContent(e.target.value)}
+          className="w-full h-[500px] font-mono text-sm border border-slate-300 rounded-lg p-4 focus:ring-2 focus:ring-orange-300 focus:border-orange-400 outline-none resize-none bg-slate-50"
+          placeholder={placeholder}
           spellCheck={false}
         />
       )}

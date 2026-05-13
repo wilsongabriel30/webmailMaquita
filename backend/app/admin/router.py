@@ -716,3 +716,73 @@ async def update_spam_whitelist(
     if ok:
         await _audit(request, admin, "spam_whitelist_update", details={"length": len(content)})
     return {"status": "ok" if ok else "error"}
+
+
+# =====================================================
+# LISTAS NEGRAS PROPIAS
+# =====================================================
+
+@router.get("/spam/blacklist-domains")
+async def get_blacklist_domains(
+    request: Request,
+    admin: str = Depends(require_admin),
+):
+    content = await quarantine_service.get_blacklist_domains()
+    return {"content": content}
+
+
+@router.put("/spam/blacklist-domains")
+async def update_blacklist_domains(
+    request: Request,
+    admin: str = Depends(require_admin),
+):
+    body = await request.json()
+    content = body.get("content", "")
+    ok = await quarantine_service.save_blacklist_domains(content)
+    if ok:
+        await _audit(request, admin, "blacklist_domains_update", details={"length": len(content)})
+    return {"status": "ok" if ok else "error"}
+
+
+@router.get("/spam/blacklist-ips")
+async def get_blacklist_ips(
+    request: Request,
+    admin: str = Depends(require_admin),
+):
+    content = await quarantine_service.get_blacklist_ips()
+    return {"content": content}
+
+
+@router.put("/spam/blacklist-ips")
+async def update_blacklist_ips(
+    request: Request,
+    admin: str = Depends(require_admin),
+):
+    body = await request.json()
+    content = body.get("content", "")
+    ok = await quarantine_service.save_blacklist_ips(content)
+    if ok:
+        await _audit(request, admin, "blacklist_ips_update", details={"length": len(content)})
+    return {"status": "ok" if ok else "error"}
+
+
+@router.get("/spam/greylist-domains")
+async def get_greylist_domains(
+    request: Request,
+    admin: str = Depends(require_admin),
+):
+    content = await quarantine_service.get_greylist_domains()
+    return {"content": content}
+
+
+@router.put("/spam/greylist-domains")
+async def update_greylist_domains(
+    request: Request,
+    admin: str = Depends(require_admin),
+):
+    body = await request.json()
+    content = body.get("content", "")
+    ok = await quarantine_service.save_greylist_domains(content)
+    if ok:
+        await _audit(request, admin, "greylist_domains_update", details={"length": len(content)})
+    return {"status": "ok" if ok else "error"}

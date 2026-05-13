@@ -1,0 +1,85 @@
+# === FILTRO SPAM MAQUITA ===
+# Formato: palabra_o_frase | peso
+# Score >= 3 = SPAM
+# Editar este archivo para ajustar el filtro
+# Reinicio NO necesario, se lee en cada correo
+
+# --- Phishing / Estafas ---
+your account has been suspended|3
+verify your account immediately|3
+confirm your identity|2
+unusual sign-in activity|2
+su cuenta ha sido suspendida|3
+verifique su cuenta|2
+confirme su identidad|2
+actividad inusual en su cuenta|2
+hemos detectado un problema|2
+click here to verify|3
+haga clic para verificar|3
+
+# --- Premios / Lotería ---
+you have won|3
+has ganado|3
+lottery winner|3
+ganador de loteria|3
+premio millonario|3
+congratulations you won|3
+felicitaciones ha ganado|3
+claim your prize|3
+reclame su premio|3
+
+# --- Financiero / Fraude ---
+nigerian prince|5
+herencia millonaria|3
+transfer of funds|3
+transferencia de fondos|2
+wire transfer|2
+bitcoin investment|2
+crypto opportunity|2
+inversion garantizada|3
+gane dinero desde casa|3
+earn money from home|3
+make money fast|3
+gane dinero rapido|3
+forex trading|2
+binary options|2
+
+# --- Farmacia / Salud spam ---
+viagra|3
+cialis|3
+pharmacy online|2
+farmacia online|2
+weight loss miracle|3
+perdida de peso milagrosa|3
+enlargement|2
+
+# --- Urgencia falsa ---
+act now|1
+urgent action required|2
+accion urgente requerida|2
+limited time offer|1
+oferta por tiempo limitado|1
+expires today|1
+expira hoy|1
+last chance|1
+ultima oportunidad|1
+
+# --- Contenido adulto ---
+adult content|3
+contenido adulto|3
+xxx|3
+dating site|2
+hot singles|3
+
+# --- Malware / Adjuntos sospechosos ---
+open the attached file|2
+abra el archivo adjunto|2
+enable macros|3
+habilitar macros|3
+password is in the attachment|3
+
+# --- Suplantación ---
+dear valued customer|1
+estimado cliente valorado|1
+dear user|1
+estimado usuario|1

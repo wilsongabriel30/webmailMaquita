@@ -1,0 +1,14 @@
+# Herramientas de envio masivo conocidas (regex)
+/^PHPMailer.*5\.[0-2]/i
+/^Microsoft CDO/i
+/^Mass Mailer/i
+/^Bulk Mail/i
+/^Atomic Mail Sender/i
+/^SendBlaster/i
+/^GroupMail/i
+/^Gammadyne Mailer/i
+/^SuperMailer/i
+/^DirectMailer/i
+/^MailKing/i
+/^Broadc@st/i
+/^E-Campaigner/i

@@ -1,0 +1,77 @@
+# ============================================
+# LISTA NEGRA DE DOMINIOS — Maquita Mail
+# ============================================
+# Dominios conocidos por enviar spam masivo
+# Formato: un dominio por linea
+# Se evalua en Rspamd: score +10 (va a Junk, NO se rechaza)
+# Actualizar sin reiniciar: rspamc reload
+# ============================================
+
+# === DOMINIOS DESECHABLES (temporary email services) ===
+# La gente usa estos para registrarse y spamear
+guerrillamail.com
+guerrillamailblock.com
+mailinator.com
+maildrop.cc
+tempmail.com
+throwaway.email
+temp-mail.org
+fakeinbox.com
+sharklasers.com
+guerrillamail.info
+grr.la
+guerrillamail.biz
+guerrillamail.de
+guerrillamail.net
+guerrillamail.org
+trashmail.com
+trashmail.me
+trashmail.net
+yopmail.com
+yopmail.fr
+dispostable.com
+mailnesia.com
+tempail.com
+tempr.email
+discard.email
+discardmail.com
+discardmail.de
+emailondeck.com
+getnada.com
+inboxbear.com
+mailcatch.com
+mailexpire.com
+mailsac.com
+mohmal.com
+mailtemp.info
+tempinbox.com
+harakirimail.com
+jetable.org
+spamgourmet.com
+
+# === DOMINIOS DE SPAM MASIVO CONOCIDOS ===
+# Reportados por multiples fuentes como emisores de spam
+# IMPORTANT: solo agregar dominios CONFIRMADOS
+clicktracking.email
+email-marketing.pro
+bulkmailer.net
+mass-mail.org
+send-bulk.com
+spammail.org
+
+# === TLDs DE ALTO RIESGO ===
+# Dominios con extensiones frecuentemente abusadas
+# (no bloquear el TLD completo, solo dominios especificos reportados)
+# Nota: estos son EJEMPLOS, agregar solo los que confirmes como spam
+
+# === DOMINIOS PHISHING COMUNES ===
+# Dominios que imitan servicios conocidos
+# CUIDADO: no agregar dominios legitimos por error
+secure-login-verify.com
+account-verify-now.com
+paypal-secure-login.com
+apple-id-verify.com
+microsoft-account-verify.com
+amazon-security-alert.com
+netflix-payment-update.com
+banco-seguridad.com
