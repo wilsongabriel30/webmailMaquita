@@ -193,7 +193,7 @@ BASE_URL=https://mail.example.com
 
 # Compliance
 COMPLIANCE_ENABLED=true
-COMPLIANCE_GPG_KEY_ID=ABCDEF1234567890
+COMPLIANCE_GPG_KEY_ID=your-dkim-key-id
 
 # Logging
 LOG_LEVEL=INFO
