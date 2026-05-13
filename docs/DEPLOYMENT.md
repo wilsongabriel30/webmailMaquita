@@ -153,7 +153,7 @@ useradd -r -s /usr/sbin/nologin -m -d /opt/maquita-webmail maquita
 
 ```bash
 cd /opt/maquita-webmail
-git clone https://github.com/maquita/maquita-webmail.git app
+git clone https://github.com/wilsongabriel30/webmailMaquita.git app
 cd app/backend
 
 python3.12 -m venv .venv

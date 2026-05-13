@@ -11,7 +11,7 @@ Nothing yet.
 
 ## [1.0.1] - 2026-05-13
 
-Tag: `compliance-audit`
+Tag: `v1.0.1-compliance-audit`
 
 ### Added
 
@@ -78,7 +78,7 @@ Tag: `compliance-audit`
 - Session-based authentication
 - Basic admin interface
 
-[Unreleased]: https://github.com/maquita/maquita-webmail/compare/v1.0.1...HEAD
-[1.0.1]: https://github.com/maquita/maquita-webmail/compare/v1.0.0...v1.0.1
-[1.0.0]: https://github.com/maquita/maquita-webmail/compare/v0.9.0...v1.0.0
-[0.9.0]: https://github.com/maquita/maquita-webmail/releases/tag/v0.9.0
+[Unreleased]: https://github.com/wilsongabriel30/webmailMaquita/compare/v1.0.1-compliance-audit...HEAD
+[1.0.1]: https://github.com/wilsongabriel30/webmailMaquita/compare/v1.0.0...v1.0.1-compliance-audit
+[1.0.0]: https://github.com/wilsongabriel30/webmailMaquita/compare/v0.9.0...v1.0.0
+[0.9.0]: https://github.com/wilsongabriel30/webmailMaquita/releases/tag/v0.9.0

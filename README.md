@@ -1,10 +1,10 @@
 # Maquita Webmail
 
-[![CI](https://img.shields.io/github/actions/workflow/status/fundacion-maquita/maquita-webmail/ci.yml?branch=main&label=CI)](https://github.com/fundacion-maquita/maquita-webmail/actions)
-[![Security Scan](https://img.shields.io/github/actions/workflow/status/fundacion-maquita/maquita-webmail/security.yml?branch=main&label=security%20scan)](https://github.com/fundacion-maquita/maquita-webmail/actions)
-[![Tests](https://img.shields.io/badge/tests-passing-brightgreen)](https://github.com/fundacion-maquita/maquita-webmail/actions)
+[![CI](https://img.shields.io/github/actions/workflow/status/wilsongabriel30/webmailMaquita/ci.yml?branch=main&label=CI)](https://github.com/wilsongabriel30/webmailMaquita/actions)
+[![Security Scan](https://img.shields.io/github/actions/workflow/status/wilsongabriel30/webmailMaquita/security-scan.yml?branch=main&label=security%20scan)](https://github.com/wilsongabriel30/webmailMaquita/actions)
+[![Tests](https://img.shields.io/badge/tests-passing-brightgreen)](https://github.com/wilsongabriel30/webmailMaquita/actions)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Release](https://img.shields.io/github/v/release/fundacion-maquita/maquita-webmail)](https://github.com/fundacion-maquita/maquita-webmail/releases)
+[![Release](https://img.shields.io/github/v/release/wilsongabriel30/webmailMaquita)](https://github.com/wilsongabriel30/webmailMaquita/releases)
 
 **Open-source mail compliance and eDiscovery layer with a full-featured webmail client for Postfix/Dovecot-based mail platforms.**
 
@@ -139,7 +139,7 @@ Maquita Webmail addresses all four.
 Prerequisites: Docker 24+, Docker Compose v2, GNU Make.
 
 ```bash
-git clone https://github.com/fundacion-maquita/maquita-webmail.git
+git clone https://github.com/wilsongabriel30/webmailMaquita.git
 cd maquita-webmail
 cp .env.example .env
 docker compose up -d
@@ -250,12 +250,12 @@ To report a security vulnerability, please email security@maquita.org. Do not op
 
 Detailed documentation is available in the `docs/` directory:
 
-- `docs/architecture.md` -- system design and component interaction
-- `docs/deployment.md` -- production deployment guide
-- `docs/compliance.md` -- eDiscovery and legal hold usage
-- `docs/api.md` -- API reference
-- `docs/contributing.md` -- development workflow and coding standards
-- `docs/security.md` -- security model and threat mitigations
+- `docs/ARCHITECTURE.md` -- system design and component interaction
+- `docs/DEPLOYMENT.md` -- production deployment guide
+- `docs/COMPLIANCE.md` -- eDiscovery and legal hold usage
+- `docs/CONFIGURATION.md` -- environment variables and configuration
+- `CONTRIBUTING.md` -- development workflow and coding standards
+- `SECURITY.md` -- security model and threat mitigations
 
 ## Roadmap
 
@@ -263,7 +263,7 @@ See [ROADMAP.md](ROADMAP.md) for planned features and milestones.
 
 ## Contributing
 
-Contributions are welcome. Please read `docs/contributing.md` before submitting a pull request.
+Contributions are welcome. Please read `CONTRIBUTING.md` before submitting a pull request.
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/your-feature`)

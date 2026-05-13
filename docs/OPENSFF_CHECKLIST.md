@@ -13,7 +13,7 @@
 | Signed Releases | Planificado | Firmar tags con GPG o usar Sigstore/cosign para releases |
 | Dependency Pinning | Hecho | Dependencias fijadas en `requirements.txt` y `package-lock.json` |
 | Token Permissions | Hecho | Workflows usan `permissions: contents: read` por defecto |
-| Security Policy | Recomendado | Crear `SECURITY.md` con proceso de reporte de vulnerabilidades |
+| Security Policy | Hecho | `SECURITY.md` con proceso de reporte, timeline, scope, disclosure responsable |
 | Maintained Status | Hecho | Commits y actividad recientes en el repositorio |
 | Tests | Hecho | CI con pytest (backend) y npm build (frontend) |
 | Fuzzing | Planificado | Integrar OSS-Fuzz o Atheris para endpoints críticos |
@@ -21,7 +21,7 @@
 | License | Hecho | MIT — archivo `LICENSES/MIT.txt` |
 | SBOM | Hecho | Script `scripts/generate_sbom.sh` genera CycloneDX |
 | Vulnerabilities | Hecho | pip-audit, npm audit, Trivy en CI |
-| Code Review | Recomendado | Requerir al menos 1 aprobación en PRs a `main` |
+| Code Review | Recomendado | Activar branch protection: requerir al menos 1 aprobación en PRs a `main` |
 | CI Tests | Hecho | GitHub Actions en push y PRs |
 | Dangerous Workflow | Hecho | No se usa `pull_request_target` con checkout inseguro |
 | Packaging | Planificado | Publicar imagen Docker firmada en GHCR |
@@ -74,9 +74,9 @@ Todos los workflows declaran `permissions: contents: read` a nivel top-level.
 Solo el job de Scorecard eleva a `security-events: write`.
 
 ### 5. Security Policy
-**Estado:** Recomendado
+**Estado:** Hecho
 
-Crear `SECURITY.md` en la raíz del repositorio:
+`SECURITY.md` ya existe en la raíz con:
 
 ```markdown
 # Security Policy
@@ -136,7 +136,7 @@ Formato: CycloneDX JSON
 ## Próximos pasos (prioridad)
 
 1. **Activar branch protection** en `main`
-2. **Crear `SECURITY.md`** con proceso de reporte
+2. ~~Crear SECURITY.md~~ — **Hecho**
 3. **Pinnear actions por SHA** en workflows
 4. **Firmar releases** con GPG o Sigstore
 5. **Integrar fuzzing** con Atheris

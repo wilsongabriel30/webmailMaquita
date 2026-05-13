@@ -21,7 +21,7 @@ Optional but recommended:
 ## Clone and Setup
 
 ```bash
-git clone https://github.com/maquita/maquita-webmail.git
+git clone https://github.com/wilsongabriel30/webmailMaquita.git
 cd maquita-webmail
 ```
 
