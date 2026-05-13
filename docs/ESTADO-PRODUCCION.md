@@ -40,7 +40,7 @@ Pipeline GitHub Actions (`.github/workflows/ci.yml`):
 | `npm ci` fallaba (Vite 8 / Tailwind) | Actualizado a @tailwindcss/vite 4.2.2 | `npm ci` pasa limpio |
 | `npm run build` fallaba (errores TS) | Corregidos imports no usados, tipo `list_type`, variable `isFlagged` | `tsc -b && vite build` exit 0 |
 | Hardcodes de dominio en backend | 7 archivos parametrizados via settings | `grep` confirma 0 IPs/dominios hardcoded |
-| IPs internas en código (10.16.0.x) | Parametrizadas via settings.ollama_url, settings.onlyoffice_url | `git grep 193.16` devuelve 0 resultados |
+| IPs internas en código (red interna) | Parametrizadas via settings.ollama_url, settings.onlyoffice_url | `git grep` de IPs internas devuelve 0 resultados |
 | Password IMAP en texto plano en Redis | Cifrado Fernet (clave derivada de SECRET_KEY) | Login funciona, passwords cifradas en Redis |
 | Arranque crash si /var/log/webmail/ no existe | Auto-crea directorio + fallback a StreamHandler | Probado: app arranca sin el directorio |
 | No había tests | 15 smoke tests (auth, endpoints, security, health) | 14 passed, 1 skipped, 0 warnings |
