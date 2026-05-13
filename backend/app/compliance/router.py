@@ -57,7 +57,7 @@ async def list_activities(
     date_to: Optional[str] = None,
     page: int = Query(1, ge=1),
     per_page: int = Query(50, ge=1, le=200),
-    admin: str = Depends(require_admin),
+    admin: str = Depends(require_compliance_read),
 ):
     """Listar actividad de usuarios con filtros."""
     db = _get_db(request)
@@ -72,7 +72,7 @@ async def list_activities(
 async def activity_stats(
     request: Request,
     days: int = Query(30, ge=1, le=365),
-    admin: str = Depends(require_admin),
+    admin: str = Depends(require_compliance_read),
 ):
     """Estadísticas de actividad para dashboard compliance."""
     db = _get_db(request)
@@ -88,7 +88,7 @@ async def export_activities(
     risk_level: Optional[str] = None,
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
-    admin: str = Depends(require_admin),
+    admin: str = Depends(require_compliance_export),
 ):
     """Exportar actividades en formato JSON (máx 10000)."""
     db = _get_db(request)
@@ -132,7 +132,7 @@ async def list_cases(
     status: Optional[str] = None,
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
-    admin: str = Depends(require_admin),
+    admin: str = Depends(require_compliance_read),
 ):
     """Listar casos de compliance."""
     db = _get_db(request)
@@ -172,7 +172,7 @@ async def list_cases(
 async def create_case(
     body: CaseCreate,
     request: Request,
-    admin: str = Depends(require_admin),
+    admin: str = Depends(require_compliance_write),
 ):
     """Crear nuevo caso de compliance/eDiscovery."""
     db = _get_db(request)
@@ -197,7 +197,7 @@ async def create_case(
 
 
 @router.get("/cases/{case_id}")
-async def get_case(case_id: int, request: Request, admin: str = Depends(require_admin)):
+async def get_case(case_id: int, request: Request, admin: str = Depends(require_compliance_read)):
     """Detalle de un caso."""
     db = _get_db(request)
     row = await db.fetchrow("SELECT * FROM compliance_cases WHERE id = $1", case_id)
@@ -221,7 +221,7 @@ async def get_case(case_id: int, request: Request, admin: str = Depends(require_
 
 
 @router.put("/cases/{case_id}")
-async def update_case(case_id: int, body: CaseUpdate, request: Request, admin: str = Depends(require_admin)):
+async def update_case(case_id: int, body: CaseUpdate, request: Request, admin: str = Depends(require_compliance_write)):
     """Actualizar caso."""
     db = _get_db(request)
 
@@ -291,7 +291,7 @@ class SearchCreate(BaseModel):
 async def execute_search(
     body: SearchCreate,
     request: Request,
-    admin: str = Depends(require_admin),
+    admin: str = Depends(require_compliance_export),
 ):
     """Ejecutar búsqueda eDiscovery en buzones vía IMAP master user."""
     db = _get_db(request)
@@ -542,7 +542,7 @@ async def list_searches(
     case_id: Optional[int] = None,
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
-    admin: str = Depends(require_admin),
+    admin: str = Depends(require_compliance_read),
 ):
     """Listar búsquedas eDiscovery."""
     db = _get_db(request)
@@ -576,7 +576,7 @@ async def get_search_results(
     request: Request,
     page: int = Query(1, ge=1),
     per_page: int = Query(50, ge=1, le=200),
-    admin: str = Depends(require_admin),
+    admin: str = Depends(require_compliance_read),
 ):
     """Obtener resultados de una búsqueda eDiscovery."""
     db = _get_db(request)
@@ -625,7 +625,7 @@ class ExportRequest(BaseModel):
 async def export_evidence(
     body: ExportRequest,
     request: Request,
-    admin: str = Depends(require_admin),
+    admin: str = Depends(require_compliance_export),
 ):
     """Exportar evidencia con hash SHA256 y cadena de custodia."""
     db = _get_db(request)
@@ -785,7 +785,7 @@ async def export_evidence(
 async def list_exports(
     request: Request,
     case_id: Optional[int] = None,
-    admin: str = Depends(require_admin),
+    admin: str = Depends(require_compliance_read),
 ):
     """Listar exportaciones (cadena de custodia)."""
     db = _get_db(request)
@@ -820,7 +820,7 @@ class HoldCreate(BaseModel):
 async def list_holds(
     request: Request,
     active_only: bool = True,
-    admin: str = Depends(require_admin),
+    admin: str = Depends(require_compliance_read),
 ):
     """Listar retenciones legales."""
     db = _get_db(request)
@@ -839,7 +839,7 @@ async def list_holds(
 async def create_hold(
     body: HoldCreate,
     request: Request,
-    admin: str = Depends(require_admin),
+    admin: str = Depends(require_compliance_write),
 ):
     """Crear retención legal sobre un buzón."""
     db = _get_db(request)
@@ -876,7 +876,7 @@ async def create_hold(
 async def release_hold(
     hold_id: int,
     request: Request,
-    admin: str = Depends(require_admin),
+    admin: str = Depends(require_compliance_write),
 ):
     """Liberar retención legal."""
     db = _get_db(request)
@@ -912,7 +912,7 @@ async def list_alerts(
     acknowledged: Optional[bool] = None,
     page: int = Query(1, ge=1),
     per_page: int = Query(50, ge=1, le=200),
-    admin: str = Depends(require_admin),
+    admin: str = Depends(require_compliance_read),
 ):
     """Listar alertas antifraude."""
     db = _get_db(request)
@@ -956,7 +956,7 @@ async def list_alerts(
 async def acknowledge_alert(
     alert_id: int,
     request: Request,
-    admin: str = Depends(require_admin),
+    admin: str = Depends(require_compliance_write),
 ):
     """Marcar alerta como revisada."""
     db = _get_db(request)
@@ -974,7 +974,7 @@ async def link_alert_to_case(
     alert_id: int,
     request: Request,
     case_id: int = Query(...),
-    admin: str = Depends(require_admin),
+    admin: str = Depends(require_compliance_write),
 ):
     """Vincular alerta a un caso de compliance."""
     db = _get_db(request)
@@ -986,7 +986,7 @@ async def link_alert_to_case(
 async def alert_stats(
     request: Request,
     days: int = Query(30, ge=1, le=365),
-    admin: str = Depends(require_admin),
+    admin: str = Depends(require_compliance_read),
 ):
     """Estadísticas de alertas antifraude."""
     db = _get_db(request)
@@ -1142,7 +1142,7 @@ async def mail_trace_stats(
 @router.get("/health")
 async def compliance_health(
     request: Request,
-    admin: str = Depends(require_admin),
+    admin: str = Depends(require_compliance_read),
 ):
     """Healthcheck del módulo compliance — estado de tablas, servicios, conteos."""
     from app.compliance.compliance_health import get_compliance_health
