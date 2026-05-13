@@ -15,6 +15,7 @@ const AuditLog = React.lazy(() => import('./components/admin/AuditLog').then(m =
 const DisclaimerManager = React.lazy(() => import('./components/admin/DisclaimerManager').then(m => ({ default: m.DisclaimerManager })));
 const MessageTracking = React.lazy(() => import('./components/admin/MessageTracking').then(m => ({ default: m.MessageTracking })));
 const SpamQuarantine = React.lazy(() => import("./components/admin/SpamQuarantine").then(m => ({ default: m.SpamQuarantine })));
+const CompliancePanel = React.lazy(() => import("./components/admin/CompliancePanel").then(m => ({ default: m.CompliancePanel })));
 const ContactsView = React.lazy(() => import('./components/contacts/ContactsView').then(m => ({ default: m.ContactsView })));
 const TasksView = React.lazy(() => import('./components/tasks/TasksView').then(m => ({ default: m.TasksView })));
 const CalendarView = React.lazy(() => import('./components/calendar/CalendarView'));
@@ -160,6 +161,7 @@ export default function App() {
             <Route path="disclaimer" element={<React.Suspense fallback={<Spinner />}><DisclaimerManager /></React.Suspense>} />
             <Route path="tracking" element={<React.Suspense fallback={<Spinner />}><MessageTracking /></React.Suspense>} />
             <Route path="spam" element={<React.Suspense fallback={<Spinner />}><SpamQuarantine /></React.Suspense>} />
+            <Route path="compliance" element={<React.Suspense fallback={<Spinner />}><CompliancePanel /></React.Suspense>} />
           </Route>
         </Route>
       </Routes>
