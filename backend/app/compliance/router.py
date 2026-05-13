@@ -19,6 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from app.compliance.auth import require_compliance_admin as require_admin
+from app.compliance.content_extractor import search_maildir
 from app.compliance.activity_logger import (
     get_activity_stats,
     get_user_activities,
