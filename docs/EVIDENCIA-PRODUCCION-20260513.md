@@ -1,6 +1,6 @@
 # Evidencia de Producción — Módulo Compliance/eDiscovery
 **Generado:** 2026-05-13 11:22:05
-**Servidor:** VM 130 (mail-maquita) — mail.example.org
+**Servidor:** VM 130 (mail-server) — mail.example.org
 **Tag:** v1.0-compliance
 
 ---
@@ -112,21 +112,21 @@ id |        username        |    action     | category | risk_level |          c
 
 ## 7. Logs de Servicios Background (journalctl)
 ```
-May 13 11:18:47 mail-maquita uvicorn[1777370]: INFO:     127.0.0.1:47606 - "GET /api/compliance/alerts?per_page=3 HTTP/1.1" 401 Unauthorized
-May 13 11:21:10 mail-maquita uvicorn[1777370]: 2026-05-13 11:21:10 [INFO] rid=6a770e3a | action=http_request | module=core | ms=3.8 | status=401 | method=GET | path=/api/compliance/activity
-May 13 11:21:10 mail-maquita uvicorn[1777370]: INFO:     127.0.0.1:56128 - "GET /api/compliance/activity HTTP/1.1" 401 Unauthorized
-May 13 11:21:10 mail-maquita uvicorn[1777373]: 2026-05-13 11:21:10 [INFO] rid=f850ab38 | action=http_request | module=core | ms=7.1 | status=401 | method=GET | path=/api/compliance/mail-trace
-May 13 11:21:10 mail-maquita uvicorn[1777373]: INFO:     127.0.0.1:56130 - "GET /api/compliance/mail-trace HTTP/1.1" 401 Unauthorized
-May 13 11:21:10 mail-maquita uvicorn[1777372]: 2026-05-13 11:21:10 [INFO] rid=d92adc62 | action=http_request | module=core | ms=7.4 | status=401 | method=GET | path=/api/compliance/alerts
-May 13 11:21:10 mail-maquita uvicorn[1777372]: INFO:     127.0.0.1:56140 - "GET /api/compliance/alerts HTTP/1.1" 401 Unauthorized
-May 13 11:22:06 mail-maquita uvicorn[1777373]: 2026-05-13 11:22:06 [INFO] rid=7209840a | action=http_request | module=core | ms=4.1 | status=401 | method=GET | path=/api/compliance/activity
-May 13 11:22:06 mail-maquita uvicorn[1777373]: INFO:     127.0.0.1:52588 - "GET /api/compliance/activity HTTP/1.1" 401 Unauthorized
-May 13 11:22:06 mail-maquita uvicorn[1777373]: 2026-05-13 11:22:06 [INFO] rid=3ed17324 | action=http_request | module=core | ms=3.5 | status=401 | method=GET | path=/api/compliance/mail-trace
-May 13 11:22:06 mail-maquita uvicorn[1777373]: INFO:     127.0.0.1:52594 - "GET /api/compliance/mail-trace HTTP/1.1" 401 Unauthorized
-May 13 11:22:06 mail-maquita uvicorn[1777371]: 2026-05-13 11:22:06 [INFO] rid=ced8e31e | action=http_request | module=core | ms=8.6 | status=401 | method=GET | path=/api/compliance/alerts
-May 13 11:22:06 mail-maquita uvicorn[1777371]: INFO:     127.0.0.1:52600 - "GET /api/compliance/alerts HTTP/1.1" 401 Unauthorized
-May 13 11:22:06 mail-maquita uvicorn[1777372]: 2026-05-13 11:22:06 [INFO] rid=6377ed81 | action=http_request | module=core | ms=2.1 | status=401 | method=GET | path=/api/compliance/cases
-May 13 11:22:06 mail-maquita uvicorn[1777372]: INFO:     127.0.0.1:52616 - "GET /api/compliance/cases HTTP/1.1" 401 Unauthorized
+May 13 11:18:47 mail-server uvicorn[1777370]: INFO:     127.0.0.1:47606 - "GET /api/compliance/alerts?per_page=3 HTTP/1.1" 401 Unauthorized
+May 13 11:21:10 mail-server uvicorn[1777370]: 2026-05-13 11:21:10 [INFO] rid=6a770e3a | action=http_request | module=core | ms=3.8 | status=401 | method=GET | path=/api/compliance/activity
+May 13 11:21:10 mail-server uvicorn[1777370]: INFO:     127.0.0.1:56128 - "GET /api/compliance/activity HTTP/1.1" 401 Unauthorized
+May 13 11:21:10 mail-server uvicorn[1777373]: 2026-05-13 11:21:10 [INFO] rid=f850ab38 | action=http_request | module=core | ms=7.1 | status=401 | method=GET | path=/api/compliance/mail-trace
+May 13 11:21:10 mail-server uvicorn[1777373]: INFO:     127.0.0.1:56130 - "GET /api/compliance/mail-trace HTTP/1.1" 401 Unauthorized
+May 13 11:21:10 mail-server uvicorn[1777372]: 2026-05-13 11:21:10 [INFO] rid=d92adc62 | action=http_request | module=core | ms=7.4 | status=401 | method=GET | path=/api/compliance/alerts
+May 13 11:21:10 mail-server uvicorn[1777372]: INFO:     127.0.0.1:56140 - "GET /api/compliance/alerts HTTP/1.1" 401 Unauthorized
+May 13 11:22:06 mail-server uvicorn[1777373]: 2026-05-13 11:22:06 [INFO] rid=7209840a | action=http_request | module=core | ms=4.1 | status=401 | method=GET | path=/api/compliance/activity
+May 13 11:22:06 mail-server uvicorn[1777373]: INFO:     127.0.0.1:52588 - "GET /api/compliance/activity HTTP/1.1" 401 Unauthorized
+May 13 11:22:06 mail-server uvicorn[1777373]: 2026-05-13 11:22:06 [INFO] rid=3ed17324 | action=http_request | module=core | ms=3.5 | status=401 | method=GET | path=/api/compliance/mail-trace
+May 13 11:22:06 mail-server uvicorn[1777373]: INFO:     127.0.0.1:52594 - "GET /api/compliance/mail-trace HTTP/1.1" 401 Unauthorized
+May 13 11:22:06 mail-server uvicorn[1777371]: 2026-05-13 11:22:06 [INFO] rid=ced8e31e | action=http_request | module=core | ms=8.6 | status=401 | method=GET | path=/api/compliance/alerts
+May 13 11:22:06 mail-server uvicorn[1777371]: INFO:     127.0.0.1:52600 - "GET /api/compliance/alerts HTTP/1.1" 401 Unauthorized
+May 13 11:22:06 mail-server uvicorn[1777372]: 2026-05-13 11:22:06 [INFO] rid=6377ed81 | action=http_request | module=core | ms=2.1 | status=401 | method=GET | path=/api/compliance/cases
+May 13 11:22:06 mail-server uvicorn[1777372]: INFO:     127.0.0.1:52616 - "GET /api/compliance/cases HTTP/1.1" 401 Unauthorized
 ```
 
 ## 8. Configuración Dovecot Compliance

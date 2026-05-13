@@ -12,7 +12,7 @@ from fastapi import HTTPException, Request, status
 logger = logging.getLogger("compliance.auth")
 
 # Admin panel JWT config (mismos valores que /opt/maquita-admin/backend/app/config.py)
-ADMIN_JWT_SECRET = os.getenv("ADMIN_JWT_SECRET", "maquita-admin-secret-2026-xK9pL2mN")
+ADMIN_JWT_SECRET = os.getenv("ADMIN_JWT_SECRET", "")
 ADMIN_JWT_ALGORITHM = "HS256"
 
 
