@@ -105,7 +105,7 @@ We recommend enabling the following on your fork/deployment:
 See [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) for a complete threat model including residual risks and system boundaries.
 
 Key limitations:
-- JWT refresh token rotation is not yet implemented
+- JWT refresh token rotation is implemented (old tokens are revoked on refresh); however, token revocation does not propagate to already-issued access tokens until they expire
 - AppArmor/SELinux profiles are not yet deployed
 - The compliance module requires `sudo doveadm` access for eDiscovery operations
 - HTML email sanitization relies on DOMPurify (ongoing arms race with bypass techniques)
