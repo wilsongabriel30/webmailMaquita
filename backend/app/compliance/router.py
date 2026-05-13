@@ -484,7 +484,7 @@ async def _fetch_message_headers(user: str, uid: str, folder: str, loop) -> dict
     def _do():
         try:
             result = subprocess.run(
-                ["doveadm", "fetch", "-u", user, "hdr date.sent size flags",
+                ["doveadm", "fetch", "-u", user, "hdr.subject hdr.from hdr.to hdr.message-id hdr.date hdr.content-type date.sent size.physical",
                  "mailbox", folder, "uid", uid],
                 capture_output=True, text=True, timeout=30,
             )
@@ -508,7 +508,7 @@ async def _fetch_message_headers(user: str, uid: str, folder: str, loop) -> dict
                     data["has_attachments"] = "multipart/mixed" in ct
                 elif line.startswith("date.sent:"):
                     data["date"] = line.split(":", 1)[1].strip() if ":" in line else ""
-                elif line.startswith("size:"):
+                elif line.startswith("size.physical:") or line.startswith("size:"):
                     try:
                         data["size"] = int(line.split(":", 1)[1].strip())
                     except (ValueError, IndexError):
@@ -525,7 +525,7 @@ async def _fetch_message_body_text(user: str, uid: str, folder: str, loop) -> st
     def _do():
         try:
             result = subprocess.run(
-                ["doveadm", "fetch", "-u", user, "body.snippet",
+                ["doveadm", "fetch", "-u", user, "body.preview",
                  "mailbox", folder, "uid", uid],
                 capture_output=True, text=True, timeout=30,
             )
