@@ -20,3 +20,4 @@ backups-cleanup-*/
 .idea/
 uploads/
 deploy-backups/
+*.bak2.*

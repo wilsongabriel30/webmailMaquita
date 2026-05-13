@@ -13,6 +13,18 @@ Segunda version beta con auditorias de seguridad, optimizaciones de rendimiento 
 - **Filtro anti-spam Python** — clasificacion por keywords configurable sin rechazar correos
 - **Boton agregar contacto** desde correos recibidos
 - **Script zimbra-sync.sh** para migracion desde Zimbra
+- **Panel cuarentena anti-spam** — gestion de correos en Junk desde admin (aprobar, confirmar, eliminar)
+- **Editor de keywords y whitelist** — editar reglas del filtro spam desde el navegador
+- **Log del filtro spam** — ver decisiones del filtro en tiempo real desde admin
+- **Integracion IA dual-GPU** — distribucion automatica de carga entre P40 y RTX 5070
+
+
+### Documentacion
+- README reescrito para principiantes: diagrama de arquitectura, explicaciones paso a paso
+- Guia completa de instalacion de IA con Ollama (9 sub-secciones)
+- Tabla de modelos recomendados por VRAM
+- Tabla DNS con explicacion de cada registro
+- Verificaciones despues de cada paso de instalacion
 
 ### Seguridad
 - Auditoria externa: 15 hallazgos, 14 corregidos (86/100 comparable a Gmail 87/100)
@@ -53,7 +65,7 @@ Segunda version beta con auditorias de seguridad, optimizaciones de rendimiento 
 - 84 tablas en PostgreSQL (antes 77)
 
 ### Estadisticas
-- 89 archivos cambiados, +3,226 / -674 lineas
+- 96 archivos cambiados, +4,559 / -807 lineas
 - 48,000+ emails en produccion
 - 13 buzones activos
 
