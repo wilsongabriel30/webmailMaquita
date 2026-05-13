@@ -143,62 +143,168 @@ Webmail completo desarrollado por la Fundacion Maquita (Ecuador). Interfaz moder
 | **SO** | Debian 12+ o Ubuntu 22.04+ | - |
 | **IA (opcional)** | Ollama + FastAPI Gateway | Ollama 0.6+, cualquier modelo |
 
+
 ---
 
-## Requisitos del Servidor
+## Antes de Empezar
 
-### Hardware minimo
+### Que vas a construir
 
-| Recurso | Minimo | Recomendado |
-|---------|--------|-------------|
-| CPU | 2 cores | 4+ cores |
-| RAM | 4 GB | 8+ GB |
-| Disco | 20 GB | 50+ GB (segun buzones) |
+Este sistema de correo tiene muchas piezas que trabajan juntas, como un equipo:
 
-### Registros DNS necesarios
+```
+Internet
+   |
+   v
+[Postfix] -----> Recibe y envia correos (como el cartero)
+   |
+   v
+[Rspamd] ------> Analiza spam y virus (como el guardia de seguridad)
+   |
+   v
+[Filtro Python] -> Clasifica con tus reglas (tu filtro personalizado)
+   |
+   v
+[Dovecot] ------> Guarda los correos y permite leerlos (como el archivo/bodega)
+   |
+   v
+[Webmail API] --> La aplicacion web que conecta todo (FastAPI/Python)
+   |
+   v
+[Frontend] -----> Lo que ves en el navegador (React/TypeScript)
+   |
+   v
+[Nginx] --------> Sirve la pagina web con HTTPS (como la puerta de entrada)
+```
 
-Antes de instalar, configura estos registros en tu proveedor de dominio:
+**Otros servicios de apoyo:**
+- **PostgreSQL**: base de datos donde se guardan usuarios, contactos, tareas, calendario, configuracion
+- **Redis**: cache rapida para sesiones y datos temporales (hace todo mas rapido)
+- **Radicale**: servidor de calendario y contactos (CalDAV/CardDAV)
+- **ClamAV**: antivirus que escanea adjuntos
+- **Certbot**: genera certificados SSL gratuitos (el candadito verde en el navegador)
 
-| Tipo | Nombre | Valor |
-|------|--------|-------|
-| **A** | `mail.tudominio.com` | `IP_DE_TU_SERVIDOR` |
-| **MX** | `tudominio.com` | `mail.tudominio.com` (prioridad 10) |
-| **TXT** | `tudominio.com` | `v=spf1 ip4:IP_SERVIDOR mx -all` |
-| **TXT** | `_dmarc.tudominio.com` | `v=DMARC1; p=reject; rua=mailto:postmaster@tudominio.com` |
-| **TXT** | `mail._domainkey.tudominio.com` | *(se genera en paso 7)* |
-| **TXT** | `_mta-sts.tudominio.com` | `v=STSv1; id=YYYYMMDD` |
-| **CNAME** | `autoconfig.tudominio.com` | `mail.tudominio.com` |
-| **CNAME** | `autodiscover.tudominio.com` | `mail.tudominio.com` |
-| **SRV** | `_imaps._tcp.tudominio.com` | `0 1 993 mail.tudominio.com` |
-| **SRV** | `_submission._tcp.tudominio.com` | `0 1 587 mail.tudominio.com` |
+### Que necesitas antes de empezar
+
+1. **Un servidor** con acceso root (puede ser):
+   - VPS en la nube (DigitalOcean, Hetzner, OVH, AWS, etc.) — desde $10/mes
+   - Servidor fisico en tu oficina
+   - Maquina virtual en Proxmox, VMware, VirtualBox, etc.
+   - Requisitos: 2+ cores, 4+ GB RAM, 20+ GB disco, Debian 12+ o Ubuntu 22.04+
+
+2. **Un dominio** (ej: `tudominio.com`) — puedes comprar uno en Namecheap, GoDaddy, NIC.ec, etc.
+
+3. **IP publica fija** — tu proveedor de internet o hosting debe darte una
+
+4. **Acceso al panel DNS** de tu dominio — para configurar registros MX, SPF, DKIM, etc.
+
+5. **Puerto 25 abierto** — algunos proveedores de nube (AWS, Azure) bloquean el puerto 25 por defecto. Debes solicitar que lo abran. Sin esto NO puedes recibir correos.
+
+
+6. **Registros DNS** — configura estos registros en el panel de tu proveedor de dominio ANTES de empezar:
+
+| Tipo | Nombre | Valor | Para que sirve |
+|------|--------|-------|----------------|
+| **A** | `mail.tudominio.com` | `IP_DE_TU_SERVIDOR` | Apuntar el subdominio al servidor |
+| **MX** | `tudominio.com` | `mail.tudominio.com` (prioridad 10) | Decirle al mundo donde recibir correos |
+| **TXT** | `tudominio.com` | `v=spf1 ip4:IP_SERVIDOR mx -all` | Autorizar tu IP para enviar correos |
+| **TXT** | `_dmarc.tudominio.com` | `v=DMARC1; p=reject; rua=mailto:postmaster@tudominio.com` | Politica anti-suplantacion |
+| **TXT** | `mail._domainkey.tudominio.com` | *(se genera en paso 7)* | Firma digital de correos (DKIM) |
+| **CNAME** | `autoconfig.tudominio.com` | `mail.tudominio.com` | Auto-configuracion para Thunderbird |
+| **CNAME** | `autodiscover.tudominio.com` | `mail.tudominio.com` | Auto-configuracion para Outlook |
+| **SRV** | `_imaps._tcp.tudominio.com` | `0 1 993 mail.tudominio.com` | Auto-configuracion IMAP |
+| **SRV** | `_submission._tcp.tudominio.com` | `0 1 587 mail.tudominio.com` | Auto-configuracion SMTP |
+
+   > **Donde configuro esto?** En el panel web de tu proveedor de dominio (Namecheap, GoDaddy, Cloudflare, NIC.ec, etc.). Busca la seccion "DNS" o "Zona DNS". Los registros MX, SPF y A son los mas importantes — sin ellos el correo no funciona.
+
+
+### Tiempo estimado de instalacion
+- Primera vez: 2-4 horas (leyendo y entendiendo cada paso)
+- Con experiencia: 30-60 minutos
 
 ---
 
 ## Instalacion Paso a Paso
 
+> **IMPORTANTE:** En todos los pasos donde veas `tudominio.com`, reemplazalo por tu dominio real (ej: `maquita.org`). Donde veas `IP_DE_TU_SERVIDOR`, pon la IP publica de tu servidor.
+
 ### 1. Preparar el servidor
 
+Conectate a tu servidor por SSH (desde tu computadora):
 ```bash
-# Actualizar sistema
+ssh root@IP_DE_TU_SERVIDOR
+```
+
+Actualiza el sistema e instala lo basico:
+```bash
+# Actualizar lista de paquetes y actualizarlos
 apt update && apt upgrade -y
 
-# Instalar paquetes base
+# Instalar herramientas necesarias
 apt install -y curl wget git sudo ufw software-properties-common \
   build-essential python3 python3-venv python3-pip nodejs npm
 ```
 
+**Que instalamos y por que:**
+| Paquete | Para que sirve |
+|---------|---------------|
+| `curl`, `wget` | Descargar archivos de internet |
+| `git` | Clonar el codigo del webmail desde GitHub |
+| `sudo` | Ejecutar comandos como administrador |
+| `ufw` | Firewall (cortafuegos) para proteger el servidor |
+| `python3`, `python3-venv`, `python3-pip` | Python y su gestor de paquetes (el backend esta hecho en Python) |
+| `nodejs`, `npm` | Node.js y su gestor de paquetes (el frontend esta hecho en React/TypeScript) |
+| `build-essential` | Compiladores necesarios para instalar algunas librerias |
+
+Configurar firewall basico:
+```bash
+# Permitir SSH (para no perder acceso)
+ufw allow 22/tcp
+
+# Permitir correo
+ufw allow 25/tcp    # SMTP - recibir correos
+ufw allow 587/tcp   # Submission - enviar correos
+ufw allow 993/tcp   # IMAPS - leer correos desde apps (Outlook, etc)
+
+# Permitir web
+ufw allow 80/tcp    # HTTP (redirige a HTTPS)
+ufw allow 443/tcp   # HTTPS - la pagina del webmail
+
+# Activar firewall
+ufw enable
+# Responder "y" cuando pregunte
+```
+
+**Verificar:** `ufw status` debe mostrar los puertos abiertos.
+
 ### 2. Configurar hostname
 
+El hostname es el "nombre" de tu servidor. Los servidores de correo del mundo lo verifican para asegurarse de que eres legitimo.
+
 ```bash
+# Establecer el nombre del servidor
 hostnamectl set-hostname mail.tudominio.com
+
+# Agregar a /etc/hosts (para que el servidor se reconozca a si mismo)
 echo "IP_DE_TU_SERVIDOR mail.tudominio.com" >> /etc/hosts
 ```
 
-### 3. Instalar PostgreSQL
+**Verificar:**
+```bash
+hostname -f
+# Debe mostrar: mail.tudominio.com
+```
+
+### 3. Instalar PostgreSQL (base de datos)
+
+PostgreSQL es la base de datos donde se guardan los usuarios, contactos, eventos del calendario, tareas, configuraciones, etc. Es como un Excel gigante pero mucho mas rapido y seguro.
 
 ```bash
+# Instalar PostgreSQL
 apt install -y postgresql postgresql-contrib
 
+# Crear la base de datos y el usuario
+# (Reemplaza TU_PASSWORD_SEGURA por una contraseña real)
 sudo -u postgres psql << 'SQL'
 CREATE USER mailserver WITH PASSWORD 'TU_PASSWORD_SEGURA';
 CREATE DATABASE maildb OWNER mailserver;
@@ -208,72 +314,122 @@ GRANT ALL ON SCHEMA public TO mailserver;
 SQL
 ```
 
-### 4. Instalar Redis
+**IMPORTANTE:** Anota la password que elegiste. La necesitaras en el paso 13.
+
+**Verificar:**
+```bash
+# Debe conectar sin errores y mostrar "maildb=>"
+sudo -u postgres psql -d maildb -c "SELECT version();"
+```
+
+### 4. Instalar Redis (cache)
+
+Redis es una base de datos ultra-rapida que guarda datos temporales en memoria RAM. El webmail la usa para:
+- Sesiones de usuario (que no te pida login cada 5 minutos)
+- Cache de carpetas (que no tarde al abrir la bandeja)
+- Passwords cifrados temporales
 
 ```bash
+# Instalar Redis
 apt install -y redis-server
 
-# Configurar contraseña
+# Poner una contraseña (reemplaza TU_REDIS_PASSWORD por una real)
 sed -i 's/# requirepass foobared/requirepass TU_REDIS_PASSWORD/' /etc/redis/redis.conf
+
+# Reiniciar para aplicar
 systemctl restart redis-server
 ```
 
-### 5. Instalar Postfix
+**IMPORTANTE:** Anota esta password tambien. La necesitaras en el paso 13.
 
+**Verificar:**
 ```bash
-apt install -y postfix postfix-pgsql
-
-# Seleccionar "Internet Site" cuando pregunte
-# Hostname: mail.tudominio.com
+redis-cli -a TU_REDIS_PASSWORD ping
+# Debe responder: PONG
 ```
 
-Configurar `/etc/postfix/main.cf`:
+### 5. Instalar Postfix (servidor SMTP)
+
+Postfix es el programa que **recibe y envia correos**. Es como el cartero: recibe cartas del mundo y las entrega al buzon correcto.
+
+```bash
+# Instalar Postfix
+apt install -y postfix postfix-pgsql
+
+# Cuando pregunte el tipo de configuracion, elegir: "Internet Site"
+# Cuando pregunte el hostname: mail.tudominio.com
+```
+
+Ahora hay que configurarlo. Abre el archivo principal de configuracion:
+```bash
+# Hacer backup del original (por si algo sale mal)
+cp /etc/postfix/main.cf /etc/postfix/main.cf.original
+
+# Editar (puedes usar nano, vim, o el editor que prefieras)
+nano /etc/postfix/main.cf
+```
+
+Reemplaza TODO el contenido por esto (cambia `tudominio.com` por tu dominio real):
 ```ini
+# === IDENTIFICACION DEL SERVIDOR ===
+# Estos le dicen al mundo quien eres
 myhostname = mail.tudominio.com
 mydomain = tudominio.com
 myorigin = $mydomain
 mydestination = localhost
 mynetworks = 127.0.0.0/8
 
-# Buzones virtuales via PostgreSQL
+# === BUZONES VIRTUALES ===
+# Postfix busca los usuarios en PostgreSQL (no en /etc/passwd)
 virtual_mailbox_domains = pgsql:/etc/postfix/pgsql-virtual-domains.cf
 virtual_mailbox_maps = pgsql:/etc/postfix/pgsql-virtual-mailboxes.cf
 virtual_alias_maps = pgsql:/etc/postfix/pgsql-virtual-aliases.cf
 
-# Entregar via Dovecot LMTP
+# === ENTREGA DE CORREOS ===
+# Postfix le pasa los correos a Dovecot para que los guarde
 virtual_transport = lmtp:unix:private/dovecot-lmtp
 
-# TLS
+# === SEGURIDAD TLS (cifrado) ===
+# Para que nadie lea los correos en transito
 smtpd_tls_cert_file = /etc/letsencrypt/live/mail.tudominio.com/fullchain.pem
 smtpd_tls_key_file = /etc/letsencrypt/live/mail.tudominio.com/privkey.pem
 smtpd_tls_security_level = may
 smtpd_tls_protocols = >=TLSv1.2
 smtp_tls_security_level = dane
 
-# Limites
+# === LIMITES ===
+# Tamano maximo de correo: 25 MB
 message_size_limit = 26214400
+# Sin limite de buzon (el admin controla esto)
 mailbox_size_limit = 0
 
-# Autenticacion SASL via Dovecot
+# === AUTENTICACION ===
+# Los usuarios se autentican via Dovecot (no directamente en Postfix)
 smtpd_sasl_type = dovecot
 smtpd_sasl_path = private/auth
 smtpd_sasl_auth_enable = yes
 
-# Restricciones (permisivas - el filtro Python clasifica internamente)
+# === RESTRICCIONES ===
+# Quienes pueden enviar correos a traves de este servidor
+# - Usuarios autenticados (empleados con cuenta)
+# - Servidores de la red local
+# - Rechazar todo lo demas que no sea para nuestro dominio
 smtpd_recipient_restrictions = permit_sasl_authenticated, permit_mynetworks, reject_unauth_destination
 smtpd_client_restrictions = permit_mynetworks, permit
 
-# Rspamd como milter
+# === ANTISPAM ===
+# Rspamd analiza cada correo y agrega headers de spam
 smtpd_milters = inet:localhost:11332
 non_smtpd_milters = inet:localhost:11332
 milter_protocol = 6
 milter_default_action = accept
 ```
 
-Crear archivos de consulta PostgreSQL:
+Ahora crea los archivos que Postfix usa para consultar PostgreSQL. Estos le dicen a Postfix "que dominios aceptas" y "que usuarios existen":
 
-`/etc/postfix/pgsql-virtual-domains.cf`:
+**Archivo 1** — `/etc/postfix/pgsql-virtual-domains.cf`:
 ```ini
+# Consulta: ¿Este dominio es nuestro?
 hosts = localhost
 user = mailserver
 password = TU_PASSWORD_SEGURA
@@ -281,8 +437,9 @@ dbname = maildb
 query = SELECT domain FROM domain WHERE domain='%s' AND active='1'
 ```
 
-`/etc/postfix/pgsql-virtual-mailboxes.cf`:
+**Archivo 2** — `/etc/postfix/pgsql-virtual-mailboxes.cf`:
 ```ini
+# Consulta: ¿Este buzon existe?
 hosts = localhost
 user = mailserver
 password = TU_PASSWORD_SEGURA
@@ -290,8 +447,9 @@ dbname = maildb
 query = SELECT maildir FROM mailbox WHERE username='%s' AND active='1'
 ```
 
-`/etc/postfix/pgsql-virtual-aliases.cf`:
+**Archivo 3** — `/etc/postfix/pgsql-virtual-aliases.cf`:
 ```ini
+# Consulta: ¿Este alias a donde redirige?
 hosts = localhost
 user = mailserver
 password = TU_PASSWORD_SEGURA
@@ -299,42 +457,88 @@ dbname = maildb
 query = SELECT goto FROM alias WHERE address='%s' AND active='1'
 ```
 
-### 6. Instalar Dovecot
+Proteger estos archivos (tienen passwords):
+```bash
+chmod 640 /etc/postfix/pgsql-*.cf
+chgrp postfix /etc/postfix/pgsql-*.cf
+```
+
+**Verificar:**
+```bash
+postfix check
+# No debe mostrar errores
+# Si sale algo con "TLS" no te preocupes, el certificado se genera en el paso 11
+```
+
+### 6. Instalar Dovecot (servidor IMAP)
+
+Dovecot es el programa que **guarda los correos y permite leerlos**. Cuando abres el webmail o Outlook, estas hablando con Dovecot.
 
 ```bash
+# Instalar Dovecot y sus modulos
 apt install -y dovecot-core dovecot-imapd dovecot-lmtpd dovecot-pgsql \
   dovecot-sieve dovecot-managesieved dovecot-fts-xapian
 ```
 
-Crear usuario vmail:
+**Que instalamos:**
+| Modulo | Para que |
+|--------|---------|
+| `dovecot-core` | El servidor base |
+| `dovecot-imapd` | Protocolo IMAP (leer correos) |
+| `dovecot-lmtpd` | Recibir correos de Postfix |
+| `dovecot-pgsql` | Buscar usuarios en PostgreSQL |
+| `dovecot-sieve` | Reglas automaticas (ej: mover spam a Junk) |
+| `dovecot-managesieved` | Gestionar reglas desde el webmail |
+| `dovecot-fts-xapian` | Busqueda full-text (buscar dentro del contenido de los correos) |
+
+Crear el usuario que posee todos los correos en disco:
 ```bash
+# Crear usuario "vmail" que sera dueno de todos los archivos de correo
 groupadd -g 150 vmail
 useradd -u 150 -g vmail -d /var/vmail -s /usr/sbin/nologin -m vmail
+
+# Crear directorio para correos
+mkdir -p /var/vmail
+chown -R vmail:vmail /var/vmail
 ```
 
-Configurar `/etc/dovecot/conf.d/10-mail.conf`:
+Configurar donde se guardan los correos — `/etc/dovecot/conf.d/10-mail.conf`:
 ```ini
+# Cada usuario tiene su carpeta: /var/vmail/dominio/usuario/Maildir/
 mail_location = maildir:/var/vmail/%d/%n/Maildir
 mail_home = /var/vmail/%d/%n
 mail_uid = vmail
 mail_gid = vmail
 first_valid_uid = 150
 
-# Plugins: FTS, cifrado, compresion, quota
+# Plugins que mejoran rendimiento y seguridad
+# quota: limites de espacio por usuario
+# fts + fts_xapian: busqueda rapida dentro de correos
+# mail_crypt: cifrado de correos en disco
+# mail_compress: comprimir correos para ahorrar espacio
+# lazy_expunge: borrado rapido (mueve a papelera interna primero)
 mail_plugins = quota acl fts fts_xapian lazy_expunge mail_crypt mail_compress
 
-# Compresion de emails almacenados
+# Comprimir correos almacenados (ahorra ~60% de disco)
 mail_compress_write_method = gz
+
+# Cifrado de emails en disco (si alguien roba el disco, no puede leerlos)
+plugin {
+  mail_crypt_curve = secp521r1
+}
 ```
 
-Configurar `/etc/dovecot/conf.d/10-auth.conf`:
+Configurar autenticacion — `/etc/dovecot/conf.d/10-auth.conf`:
 ```ini
+# No permitir passwords en texto plano sin TLS
 disable_plaintext_auth = yes
 auth_mechanisms = plain login
+
+# Buscar usuarios en PostgreSQL (no en /etc/passwd)
 !include auth-sql.conf.ext
 ```
 
-Crear `/etc/dovecot/dovecot-sql.conf.ext`:
+Crear consulta SQL — `/etc/dovecot/dovecot-sql.conf.ext`:
 ```ini
 driver = pgsql
 connect = host=localhost dbname=maildb user=mailserver password=TU_PASSWORD_SEGURA
@@ -348,12 +552,14 @@ user_query = SELECT '/var/vmail/%d/%n/Maildir' AS home, \
   FROM mailbox WHERE username = '%u'
 ```
 
-Configurar FTS Xapian `/etc/dovecot/conf.d/90-fts.conf`:
+Configurar busqueda full-text (para poder buscar dentro del contenido de los correos) — `/etc/dovecot/conf.d/90-fts.conf`:
 ```ini
+# Indexar automaticamente todos los correos nuevos
 fts_autoindex = yes
 fts_autoindex_max_recent_msgs = 999
 fts_search_add_missing = yes
 
+# Soporte para espanol e ingles
 language "en" {
   default = yes
 }
@@ -361,6 +567,7 @@ language "en" {
 language "es" {
 }
 
+# Motor de busqueda Xapian (rapido y ligero)
 fts xapian {
   verbose = 0
   maxthreads = 4
@@ -374,33 +581,51 @@ service indexer-worker {
 }
 ```
 
-Configurar cifrado en reposo `/etc/dovecot/conf.d/10-mail.conf` (agregar):
-```ini
-# Cifrado de emails en disco
-plugin {
-  mail_crypt_curve = secp521r1
-}
+```bash
+# Reiniciar ambos servicios
+systemctl restart dovecot postfix
 ```
 
+**Verificar:**
 ```bash
-systemctl restart dovecot postfix
+# Ambos deben estar "active (running)"
+systemctl status dovecot
+systemctl status postfix
 ```
 
 ### 7. Instalar Rspamd (antispam) y ClamAV (antivirus)
 
+Rspamd analiza cada correo entrante y le asigna un puntaje de spam. ClamAV escanea los adjuntos buscando virus.
+
 ```bash
+# Instalar ambos
 apt install -y rspamd clamav clamav-daemon
 
-# Generar clave DKIM
+# Actualizar base de datos de virus (toma 1-2 minutos)
+freshclam
+```
+
+**Generar clave DKIM** — DKIM es una firma digital que demuestra que el correo realmente salio de tu servidor (como un sello oficial). Sin DKIM, Gmail y Outlook pueden enviar tus correos a spam.
+
+```bash
+# Crear directorio para las claves
 mkdir -p /var/lib/rspamd/dkim
+
+# Generar la clave (reemplaza tudominio.com)
 rspamadm dkim_keygen -b 2048 -s mail -d tudominio.com \
   -k /var/lib/rspamd/dkim/tudominio.com.mail.key \
   > /var/lib/rspamd/dkim/tudominio.com.mail.txt
+
+# Dar permisos correctos
 chown -R _rspamd:_rspamd /var/lib/rspamd/dkim
 
-# Mostrar registro DKIM para agregar en DNS
+# IMPORTANTE: Mostrar el registro DNS que debes agregar
+echo "=== COPIA ESTO A TU DNS ==="
 cat /var/lib/rspamd/dkim/tudominio.com.mail.txt
+echo "==========================="
 ```
+
+**ACCION REQUERIDA:** Copia el contenido que se muestra y agregalo como registro TXT en tu DNS con el nombre `mail._domainkey.tudominio.com`. Sin esto, tus correos llegaran a spam de otros servidores.
 
 Configurar DKIM en `/etc/rspamd/local.d/dkim_signing.conf`:
 ```ini
@@ -413,9 +638,10 @@ path = "/var/lib/rspamd/dkim/$domain.mail.key";
 allow_username_mismatch = true;
 ```
 
-Configurar acciones en `/etc/rspamd/local.d/actions.conf`:
+Configurar acciones de spam en `/etc/rspamd/local.d/actions.conf`:
 ```ini
-# NUNCA rechazar correos - solo marcar para que sieve clasifique
+# IMPORTANTE: Nunca rechazar correos
+# Solo marcarlos para que el filtro interno decida
 reject = null;
 greylist = 4;
 add_header = 6;
@@ -424,6 +650,8 @@ rewrite_subject = 12;
 
 Configurar ClamAV en `/etc/rspamd/local.d/antivirus.conf`:
 ```ini
+# Si encuentra virus, NO rechazar — solo agregar header
+# Asi el admin puede revisar en cuarentena
 clamav {
   action = "add_header";
   type = "clamav";
@@ -437,13 +665,26 @@ clamav {
 systemctl restart rspamd clamav-daemon
 ```
 
+**Verificar:**
+```bash
+systemctl status rspamd clamav-daemon
+# Ambos deben estar activos
+```
+
 ### 8. Configurar Sieve (clasificacion automatica de spam)
+
+Sieve es un lenguaje de reglas que dice "si un correo tiene esta marca, muevelo a esta carpeta". Es como un asistente que clasifica tu correo automaticamente.
+
+```bash
+# Crear directorio para reglas globales
+mkdir -p /var/vmail/sieve
+```
 
 Crear `/var/vmail/sieve/before.sieve`:
 ```sieve
 require ["fileinto", "mailbox"];
 
-# Rspamd marca como spam
+# Si Rspamd lo marco como spam → mover a carpeta Junk
 if header :is "X-Spam-Flag" "YES" {
     fileinto :create "Junk";
     stop;
@@ -454,7 +695,7 @@ if header :contains "X-Spam-Status" "Yes" {
     stop;
 }
 
-# Filtro Python personalizado
+# Si el filtro Python personalizado lo marco como spam → mover a Junk
 if header :is "X-Maquita-Spam" "YES" {
     fileinto :create "Junk";
     stop;
@@ -462,61 +703,117 @@ if header :is "X-Maquita-Spam" "YES" {
 ```
 
 ```bash
+# Compilar las reglas (genera el archivo .svbin)
 sievec /var/vmail/sieve/before.sieve
+
+# Dar permisos al usuario de correo
 chown -R vmail:vmail /var/vmail/sieve
 ```
 
 ### 9. Instalar filtro anti-spam Python (opcional pero recomendado)
 
-El filtro analiza cada correo entrante buscando palabras clave configurables y los clasifica sin rechazar nada.
+Este es un filtro personalizado que TU controlas. Puedes agregar palabras clave para detectar spam especifico de tu organizacion. A diferencia de Rspamd (que usa reglas genericas), este filtro es tuyo.
+
+**Como funciona:**
+1. Postfix recibe un correo
+2. Se lo pasa al script Python
+3. El script busca palabras clave en el asunto y cuerpo
+4. Si encuentra suficientes coincidencias → marca como SPAM
+5. El correo se entrega (NUNCA se rechaza)
+6. Sieve lo mueve a Junk si esta marcado
 
 ```bash
+# Crear directorios
 mkdir -p /opt/maquita-mail-filter /etc/maquita-mail
 
-# Copiar el script (esta en el repo)
+# Copiar el script del filtro (viene con el webmail)
 cp /opt/maquita-webmail/scripts/spam-filter-service.py /opt/maquita-mail-filter/
 chmod +x /opt/maquita-mail-filter/spam-filter-service.py
 ```
 
-Crear `/etc/maquita-mail/spam-keywords.txt`:
+Crear tu lista de palabras clave — `/etc/maquita-mail/spam-keywords.txt`:
 ```
+# ============================================
+# PALABRAS CLAVE DEL FILTRO ANTI-SPAM
+# ============================================
 # Formato: palabra_o_frase | peso
-# Score >= 3 = SPAM (va a Junk)
-# Se lee en cada correo, no requiere reiniciar
+# Si la suma de pesos >= 3, el correo va a Junk
+# Se lee en cada correo nuevo — no necesitas reiniciar nada
+# Las lineas que empiezan con # son comentarios
+# ============================================
 
-# Phishing
+# --- Phishing (suplantacion de identidad) ---
 your account has been suspended|3
 verify your account immediately|3
 su cuenta ha sido suspendida|3
+verifique su identidad ahora|3
+hemos detectado actividad sospechosa|2
 
-# Premios / Estafas
+# --- Premios y estafas ---
 you have won|3
 has ganado|3
 claim your prize|3
+reclama tu premio|3
+felicidades has sido seleccionado|3
 
-# Financiero
+# --- Estafas financieras ---
 nigerian prince|5
 herencia millonaria|3
 earn money from home|3
+gana dinero desde casa|3
+inversion sin riesgo|2
+bitcoin gratis|3
+
+# --- Farmacia spam ---
+viagra|3
+cialis|3
+pharmacy online|2
+
+# --- Urgencia falsa ---
+act now|1
+limited time offer|1
+oferta por tiempo limitado|1
+urgente abrir inmediatamente|2
+
+# --- Puedes agregar las tuyas aqui ---
+# ejemplo: palabra sospechosa|2
 ```
 
-Crear `/etc/maquita-mail/whitelist-senders.txt`:
+Crear tu lista de remitentes de confianza — `/etc/maquita-mail/whitelist-senders.txt`:
 ```
-# Dominios que NUNCA van a spam
+# ============================================
+# WHITELIST — Remitentes que NUNCA van a spam
+# ============================================
+# Un dominio o email por linea
+# Si el remitente coincide, siempre va a Inbox
+# ============================================
+
+# Proveedores grandes de correo
 gmail.com
 outlook.com
 hotmail.com
 yahoo.com
+live.com
+icloud.com
+
+# Tu propio dominio
 tudominio.com
+
+# Gobierno y educacion (ajusta a tu pais)
+# gov.ec
+# edu.ec
+# gob.mx
 ```
 
-Agregar en `/etc/postfix/master.cf`:
+Configurar Postfix para usar el filtro — agregar al final de `/etc/postfix/master.cf`:
 ```
-# Filtro anti-spam Python
+# === FILTRO ANTI-SPAM PYTHON ===
+# Postfix le pasa cada correo al script Python para analisis
 maquita-filter unix - n n - 10 pipe
   flags=Rq user=vmail argv=/opt/maquita-mail-filter/spam-filter-service.py -f ${sender} -- ${recipient}
 
-# Reinyeccion sin filtro (evitar loop)
+# Puerto de reinyeccion (el script devuelve el correo por aqui)
+# Sin content_filter para evitar loop infinito
 10025 inet n - n - 10 smtpd
   -o content_filter=
   -o receive_override_options=no_unknown_recipient_checks,no_header_body_checks
@@ -524,32 +821,53 @@ maquita-filter unix - n n - 10 pipe
   -o mynetworks=127.0.0.0/8
 ```
 
-En `/etc/postfix/main.cf` agregar:
+Activar el filtro — agregar en `/etc/postfix/main.cf`:
 ```ini
+# Activar filtro Python (cada correo pasa por el script)
 content_filter = maquita-filter:
 ```
 
 ```bash
+# Crear archivo de log y dar permisos
 touch /var/log/maquita-spam-filter.log
 chown vmail:vmail /var/log/maquita-spam-filter.log
+
+# Reiniciar Postfix para activar
 systemctl restart postfix
+```
+
+**Verificar:**
+```bash
+# Enviar un correo de prueba (debe aparecer en el log)
+echo "Correo de prueba" | mail -s "Test filtro" usuario@tudominio.com
+
+# Ver el log (Ctrl+C para salir)
+tail -f /var/log/maquita-spam-filter.log
+# Debe mostrar algo como: HAM | score=0/3 | from=... | subject=Test filtro
 ```
 
 ### 10. Instalar Radicale (CalDAV/CardDAV)
 
+Radicale es un servidor de calendario y contactos. Permite que el webmail tenga un calendario funcional y sincronice contactos con telefonos y Outlook.
+
 ```bash
+# Instalar Radicale
 pip3 install radicale
-mkdir -p /var/lib/radicale/collections /etc/radicale
+
+# Crear usuario y directorios
 useradd -r -s /usr/sbin/nologin radicale
+mkdir -p /var/lib/radicale/collections /etc/radicale
 chown -R radicale:radicale /var/lib/radicale
 ```
 
-Crear `/etc/radicale/config`:
+Crear configuracion — `/etc/radicale/config`:
 ```ini
 [server]
+# Solo escuchar en localhost (Nginx lo expone al mundo)
 hosts = 127.0.0.1:5232
 
 [auth]
+# Sin autenticacion propia (el webmail maneja la autenticacion)
 type = none
 
 [storage]
@@ -559,7 +877,7 @@ filesystem_folder = /var/lib/radicale/collections
 level = warning
 ```
 
-Crear `/etc/systemd/system/radicale.service`:
+Crear servicio systemd — `/etc/systemd/system/radicale.service`:
 ```ini
 [Unit]
 Description=Radicale CalDAV/CardDAV Server
@@ -576,57 +894,155 @@ WantedBy=multi-user.target
 ```
 
 ```bash
+# Iniciar y habilitar para que arranque automaticamente
+systemctl daemon-reload
 systemctl enable --now radicale
 ```
 
-### 11. Certificado SSL
+**Verificar:**
+```bash
+systemctl status radicale
+# Debe estar activo
+
+curl -s http://127.0.0.1:5232/.web/
+# Debe responder HTML (la interfaz web de Radicale)
+```
+
+### 11. Certificado SSL (HTTPS)
+
+El certificado SSL es lo que pone el **candadito verde** en el navegador. Sin esto, los navegadores marcan tu sitio como "No seguro" y las contraseñas viajan sin cifrar.
+
+**Let's Encrypt** te da certificados **gratuitos** que se renuevan automaticamente cada 90 dias.
+
+**REQUISITO:** Antes de este paso, tu dominio (`mail.tudominio.com`) debe apuntar a la IP de tu servidor. Puedes verificar con: `dig +short mail.tudominio.com` — debe mostrar tu IP.
 
 ```bash
-apt install -y certbot python3-certbot-nginx
-certbot certonly --nginx -d mail.tudominio.com
+# Instalar Certbot (el programa que obtiene certificados)
+apt install -y certbot
+
+# Obtener el certificado
+# Certbot verificara que el dominio apunta a este servidor
+certbot certonly --standalone -d mail.tudominio.com
+
+# Si el puerto 80 esta ocupado por Nginx, usa este comando en su lugar:
+# certbot certonly --nginx -d mail.tudominio.com
+```
+
+Certbot te pedira:
+1. Tu email (para avisos de renovacion)
+2. Aceptar terminos de servicio
+3. Si quieres compartir tu email con EFF (opcional)
+
+Los certificados se guardan en: `/etc/letsencrypt/live/mail.tudominio.com/`
+
+Configurar renovacion automatica:
+```bash
+# Probar que la renovacion funciona
+certbot renew --dry-run
+
+# Certbot ya crea un timer automatico, verificar:
+systemctl list-timers | grep certbot
+```
+
+**Ahora si puedes reiniciar Postfix** (que necesitaba el certificado):
+```bash
+systemctl restart postfix
 ```
 
 ### 12. Instalar Fundacion Maquita Webmail
 
+Aqui es donde instalas la aplicacion web en si.
+
 ```bash
+# Ir al directorio donde se instala
 cd /opt
+
+# Descargar el codigo desde GitHub
 git clone https://github.com/wilsongabriel30/webmailMaquita.git maquita-webmail
 cd maquita-webmail
+```
 
-# === Backend ===
+**Instalar el Backend (la parte de Python que procesa todo):**
+```bash
 cd backend
+
+# Crear un "entorno virtual" de Python
+# (es como una carpeta aislada para que las librerias del webmail
+#  no interfieran con las del sistema)
 python3 -m venv venv
+
+# Activar el entorno virtual
 source venv/bin/activate
+
+# Instalar todas las librerias necesarias
 pip install -r requirements.txt
+# Esto toma 1-2 minutos. Instala FastAPI, SQLAlchemy, Redis, etc.
 
-# Configurar variables de entorno
-cp .env.example .env
-nano .env  # Editar con tus datos
+# Volver al directorio principal
+cd ..
+```
 
-# === Frontend ===
-cd ../frontend
+**Instalar el Frontend (la interfaz que ves en el navegador):**
+```bash
+cd frontend
+
+# Instalar librerias de JavaScript
 npm install
-npm run build
+# Esto toma 1-3 minutos. Instala React, TypeScript, Vite, etc.
 
-# Crear estructura de despliegue
+# Compilar la interfaz (genera los archivos HTML/CSS/JS optimizados)
+npm run build
+# Debe terminar sin errores y mostrar los archivos generados en dist/
+
+# Volver al directorio principal
+cd ..
+```
+
+**Crear la estructura de despliegue:**
+```bash
+# Crear directorio donde Nginx buscara los archivos
 mkdir -p /opt/maquita-webmail/www
+
+# Enlazar la interfaz compilada
 ln -sf /opt/maquita-webmail/frontend/dist /opt/maquita-webmail/www/webmail
+```
+
+**Verificar:**
+```bash
+# Debe existir y tener archivos
+ls /opt/maquita-webmail/www/webmail/
+# Debe mostrar: index.html, assets/, etc.
 ```
 
 ### 13. Configurar variables de entorno
 
-Editar `/opt/maquita-webmail/backend/.env` (copiar de `.env.example`):
-```ini
-# Base de datos
-DATABASE_URL=postgresql://mailserver:TU_PASSWORD@localhost:5432/maildb
+El archivo `.env` contiene todas las contraseñas y configuraciones del webmail. **NUNCA lo subas a GitHub** (ya esta en `.gitignore`).
 
-# Redis
+```bash
+# Copiar el ejemplo
+cp /opt/maquita-webmail/backend/.env.example /opt/maquita-webmail/backend/.env
+
+# Editar con tus datos reales
+nano /opt/maquita-webmail/backend/.env
+```
+
+Contenido del archivo (reemplaza TODOS los valores):
+```ini
+# === BASE DE DATOS ===
+# La password que creaste en el paso 3
+DATABASE_URL=postgresql://mailserver:TU_PASSWORD_SEGURA@localhost:5432/maildb
+
+# === REDIS ===
+# La password que creaste en el paso 4
 REDIS_URL=redis://:TU_REDIS_PASSWORD@localhost:6379/0
 
-# JWT (generar con: python3 -c "import secrets; print(secrets.token_hex(32))")
-SECRET_KEY=GENERA_CON_SECRETS_TOKEN_HEX
+# === JWT (tokens de sesion) ===
+# Genera una clave aleatoria con este comando:
+#   python3 -c "import secrets; print(secrets.token_hex(32))"
+SECRET_KEY=PEGA_AQUI_LA_CLAVE_GENERADA
 
-# Servidor de correo
+# === SERVIDOR DE CORREO ===
+# Si todo esta en el mismo servidor, deja estos valores
 IMAP_HOST=127.0.0.1
 IMAP_PORT=143
 SMTP_HOST=127.0.0.1
@@ -634,26 +1050,32 @@ SMTP_PORT=587
 SIEVE_HOST=127.0.0.1
 SIEVE_PORT=4190
 
-# Tu dominio
+# === TU DOMINIO ===
 MAIL_DOMAIN=tudominio.com
 COOKIE_DOMAIN=mail.tudominio.com
 CORS_ORIGINS=https://mail.tudominio.com
 
-# Administracion
-MASTER_PASSWORD=GENERA_PASSWORD_SEGURA
-ADMIN_JWT_SECRET=GENERA_OTRO_SECRET
+# === ADMINISTRACION ===
+# Password para el panel de admin (elige una segura)
+MASTER_PASSWORD=ELIGE_UNA_PASSWORD_SEGURA
+# Otra clave aleatoria (genera con el mismo comando de arriba)
+ADMIN_JWT_SECRET=PEGA_OTRA_CLAVE_GENERADA
 
-# Inteligencia Artificial (opcional — requiere servidor con Ollama + GPU)
+# === INTELIGENCIA ARTIFICIAL (opcional) ===
+# Si configuraste el servidor de IA (paso 18), descomenta estas lineas:
 # IA_API_KEY=tu-clave-api
 # OLLAMA_URL=http://ip-servidor-ia:8000
 ```
 
 ### 14. Crear servicio systemd
 
+Systemd es el administrador de servicios de Linux. Le decimos que arranque el webmail automaticamente cuando el servidor se enciende.
+
 Crear `/etc/systemd/system/maquita-webmail.service`:
 ```ini
 [Unit]
 Description=Fundacion Maquita Webmail API
+# Esperar a que estos servicios esten listos antes de arrancar
 After=network.target postgresql.service redis-server.service dovecot.service
 
 [Service]
@@ -674,85 +1096,117 @@ WantedBy=multi-user.target
 ```
 
 ```bash
+# Dar permisos al usuario www-data
+chown -R www-data:www-data /opt/maquita-webmail/backend
+
+# Cargar y arrancar el servicio
 systemctl daemon-reload
 systemctl enable --now maquita-webmail
+
+# Esperar 5 segundos a que arranque
+sleep 5
 ```
 
-### 15. Configurar Nginx
+**Verificar:**
+```bash
+systemctl status maquita-webmail
+# Debe estar "active (running)"
+
+curl -s http://127.0.0.1:8000/api/health | python3 -m json.tool
+# Debe mostrar {"status": "ok", ...}
+```
+
+### 15. Configurar Nginx (proxy web)
+
+Nginx es el **servidor web** que recibe las peticiones del navegador y las dirige al webmail. Tambien maneja HTTPS, compresion y cache.
+
+```bash
+apt install -y nginx
+```
 
 Crear `/etc/nginx/sites-available/mail.tudominio.com`:
 ```nginx
-# Rate limiting
-limit_req_zone $binary_remote_addr zone=login:10m rate=5r/m;
-limit_req_zone $binary_remote_addr zone=api:10m rate=30r/s;
+# === LIMITES DE VELOCIDAD ===
+# Proteccion contra ataques de fuerza bruta
+limit_req_zone $binary_remote_addr zone=login:10m rate=5r/m;   # Max 5 intentos de login por minuto
+limit_req_zone $binary_remote_addr zone=api:10m rate=30r/s;     # Max 30 peticiones API por segundo
 
+# === REDIRECCION HTTP → HTTPS ===
 server {
     listen 80;
     server_name mail.tudominio.com;
+    # Permitir verificacion de certificados Let's Encrypt
     location /.well-known/acme-challenge/ { root /var/www/certbot; }
+    # Todo lo demas va a HTTPS
     location / { return 301 https://$host$request_uri; }
 }
 
+# === SERVIDOR PRINCIPAL (HTTPS) ===
 server {
     listen 443 ssl http2;
     server_name mail.tudominio.com;
 
+    # Certificados SSL (generados en paso 11)
     ssl_certificate /etc/letsencrypt/live/mail.tudominio.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/mail.tudominio.com/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers HIGH:!aNULL:!MD5;
 
-    # Seguridad
+    # Cabeceras de seguridad
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 
-    # Gzip
+    # Compresion (hace la pagina mas rapida)
     gzip on;
     gzip_vary on;
     gzip_proxied any;
     gzip_comp_level 6;
     gzip_types text/plain text/css application/json application/javascript text/xml application/xml text/javascript;
 
-    # Webmail SPA
+    # --- WEBMAIL (frontend) ---
     location /webmail/ {
         root /opt/maquita-webmail/www;
+        # Service Worker sin cache (para actualizaciones)
         location = /webmail/sw.js {
             add_header Cache-Control "no-cache, no-store, must-revalidate";
             add_header Service-Worker-Allowed "/webmail/";
         }
+        # Assets con cache largo (tienen hash en el nombre, cambian al actualizar)
         location ~* /webmail/assets/ {
             expires 1y;
             add_header Cache-Control "public, immutable";
         }
+        # Si no encuentra el archivo, servir index.html (SPA routing)
         try_files $uri $uri/ /webmail/index.html;
     }
 
-    # API
+    # --- API: Login (con limite estricto contra fuerza bruta) ---
     location = /api/auth/login {
         limit_req zone=login burst=3 nodelay;
         proxy_pass http://127.0.0.1:8000;
         include proxy_params;
     }
 
+    # --- API: Todo lo demas ---
     location /api/ {
         limit_req zone=api burst=80 nodelay;
         proxy_pass http://127.0.0.1:8000;
         include proxy_params;
-        client_max_body_size 25M;
-        proxy_read_timeout 120s;
+        client_max_body_size 25M;     # Adjuntos hasta 25 MB
+        proxy_read_timeout 120s;      # Timeout para operaciones lentas
     }
 
-    # WebSocket
+    # --- WebSocket (notificaciones en tiempo real) ---
     location /api/ws {
         proxy_pass http://127.0.0.1:8000/api/ws;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
-        proxy_read_timeout 3600s;
+        proxy_read_timeout 3600s;    # Mantener conexion 1 hora
     }
 
-    # CalDAV/CardDAV
+    # --- CalDAV/CardDAV (calendario y contactos) ---
     location /.well-known/caldav { return 301 /dav/; }
     location /.well-known/carddav { return 301 /dav/; }
     location /dav/ {
@@ -760,70 +1214,150 @@ server {
         client_max_body_size 50M;
     }
 
-    # Rspamd UI (solo admin)
+    # --- Rspamd UI (panel antispam, solo admin) ---
     location /rspamd/ {
         auth_basic "Rspamd Admin";
         auth_basic_user_file /etc/nginx/.htpasswd_rspamd;
         proxy_pass http://127.0.0.1:11334/;
     }
 
+    # Redirigir la raiz al webmail
     location / { return 301 /webmail; }
 }
 ```
 
+Crear password para Rspamd UI:
 ```bash
-ln -sf /etc/nginx/sites-available/mail.tudominio.com /etc/nginx/sites-enabled/
-nginx -t && systemctl reload nginx
+# Instalar herramienta de passwords
+apt install -y apache2-utils
+
+# Crear usuario admin para Rspamd (reemplaza TU_PASSWORD)
+htpasswd -c /etc/nginx/.htpasswd_rspamd admin
+# Te pedira una password, escogela segura
 ```
 
-### 16. Crear primer buzon
+Activar el sitio:
+```bash
+# Habilitar el sitio
+ln -sf /etc/nginx/sites-available/mail.tudominio.com /etc/nginx/sites-enabled/
+
+# Desactivar el sitio por defecto
+rm -f /etc/nginx/sites-enabled/default
+
+# Verificar que no hay errores de sintaxis
+nginx -t
+# Debe decir: "test is successful"
+
+# Recargar Nginx
+systemctl reload nginx
+```
+
+**Verificar:**
+```bash
+# Abrir en el navegador (debe mostrar la pagina de login):
+# https://mail.tudominio.com/webmail/
+
+# O probar desde terminal:
+curl -s -o /dev/null -w "%{http_code}" https://mail.tudominio.com/webmail/
+# Debe responder: 200
+```
+
+### 16. Crear primer buzon de correo
+
+Ahora vamos a crear tu primera cuenta de correo. Este proceso crea un usuario en la base de datos.
 
 ```bash
-# Generar password cifrado
+# Paso 1: Generar password cifrada
+# Reemplaza "TuPasswordSegura" por la password que quieras para el correo
 doveadm pw -s BLF-CRYPT -p TuPasswordSegura
+# Copia el resultado (empieza con $2y$05$...)
+```
 
-# Crear dominio y buzon
+```bash
+# Paso 2: Crear el dominio y el buzon en la base de datos
+# IMPORTANTE: Reemplaza:
+#   - tudominio.com por tu dominio real
+#   - usuario por el nombre del buzon (ej: admin, info, wilson)
+#   - $2y$05$...HASH... por el hash del paso anterior
+#   - "Nombre del Usuario" por el nombre real
+
 sudo -u postgres psql -d maildb << 'SQL'
+
+-- Registrar tu dominio
 INSERT INTO domain (domain, description, transport, active)
 VALUES ('tudominio.com', 'Dominio principal', 'virtual', 1);
 
+-- Crear el buzon de correo
 INSERT INTO mailbox (username, password, name, maildir, domain, active)
 VALUES (
   'usuario@tudominio.com',
-  '$2y$05$...HASH_GENERADO...',
+  '$2y$05$...HASH_DEL_PASO_ANTERIOR...',
   'Nombre del Usuario',
   'tudominio.com/usuario/Maildir/',
   'tudominio.com',
   1
 );
 
+-- Crear alias (necesario para que Postfix acepte correos)
 INSERT INTO alias (address, goto, domain, active)
 VALUES ('usuario@tudominio.com', 'usuario@tudominio.com', 'tudominio.com', 1);
+
 SQL
 ```
 
-### 17. Verificar instalacion
+**NOTA:** Para crear mas buzones despues, podras hacerlo desde el panel de administracion del webmail (mas facil que por terminal).
+
+### 17. Verificar instalacion completa
+
+Llegaste al final. Vamos a verificar que todo funciona:
 
 ```bash
-# Servicios
-systemctl status maquita-webmail postfix dovecot postgresql redis-server nginx rspamd radicale
+echo "=== VERIFICANDO SERVICIOS ==="
 
-# Puertos
+# 1. Todos los servicios deben estar activos
+for svc in maquita-webmail postfix dovecot postgresql redis-server nginx rspamd radicale; do
+  status=$(systemctl is-active $svc 2>/dev/null || echo "no instalado")
+  echo "$svc: $status"
+done
+
+echo ""
+echo "=== VERIFICANDO PUERTOS ==="
+# 2. Puertos que deben estar escuchando
 ss -tlnp | grep -E '25|143|443|587|993|5232|8000'
 
-# API
-curl -s http://127.0.0.1:8000/docs | head -5
+echo ""
+echo "=== VERIFICANDO API ==="
+# 3. La API debe responder
+curl -s http://127.0.0.1:8000/api/health
 
-# Test envio
-echo "Prueba de instalacion" | mail -s "Test" usuario@tudominio.com
-
-# Test DKIM
+echo ""
+echo "=== VERIFICANDO DNS ==="
+# 4. Registros DNS (reemplaza tudominio.com)
+echo "MX:"
+dig +short MX tudominio.com
+echo "SPF:"
+dig +short TXT tudominio.com | grep spf
+echo "DKIM:"
 dig +short TXT mail._domainkey.tudominio.com
+echo "DMARC:"
+dig +short TXT _dmarc.tudominio.com
 ```
 
-Abrir en el navegador: `https://mail.tudominio.com/webmail/`
+Si todo esta verde, abre en tu navegador:
 
----
+**https://mail.tudominio.com/webmail/**
+
+Inicia sesion con el usuario y password que creaste en el paso 16.
+
+**Enviar un correo de prueba:**
+1. Desde el webmail, envia un correo a una cuenta de Gmail
+2. Verifica que llego a Gmail (revisa spam si no lo ves)
+3. Responde desde Gmail para verificar que recibes correos
+
+**Si los correos van a spam de Gmail:**
+- Verifica DKIM: `dig +short TXT mail._domainkey.tudominio.com` (debe tener valor)
+- Verifica SPF: `dig +short TXT tudominio.com` (debe incluir tu IP)
+- Verifica PTR: tu IP debe resolver a `mail.tudominio.com` (pide a tu proveedor de hosting)
 
 
 ### 18. Configurar Inteligencia Artificial (opcional)
