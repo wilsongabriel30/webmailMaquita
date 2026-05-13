@@ -393,7 +393,7 @@ async def _search_mailbox_imap(
     count = 0
 
     # Construir criterio doveadm search
-    search_args = ["sudo", "doveadm", "search", "-u", mailbox_user, "mailbox", folder]
+    search_args = ["/usr/bin/sudo", "/usr/bin/doveadm", "search", "-u", mailbox_user, "mailbox", folder]
 
     if criteria.date_from:
         search_args += ["since", criteria.date_from[:10]]
@@ -408,10 +408,13 @@ async def _search_mailbox_imap(
                 search_args, capture_output=True, text=True, timeout=120
             )
             if result.returncode != 0:
+                logger.warning("doveadm search failed rc=%d: %s", result.returncode, result.stderr[:200])
                 return []
             lines = [l.strip() for l in result.stdout.strip().split("\n") if l.strip()]
+            logger.info("doveadm search found %d UIDs for %s/%s", len(lines), mailbox_user, folder)
             return lines
-        except Exception:
+        except Exception as e:
+            logger.error("doveadm search exception: %s", e)
             return []
 
     uid_lines = await loop.run_in_executor(None, _do_search)
@@ -476,9 +479,10 @@ async def _search_mailbox_imap(
                 msg_data.get("has_attachments", False), msg_hash,
             )
             count += 1
+            logger.info("eDiscovery: indexed %s/%s uid=%s subject=%s", mailbox_user, folder, uid, msg_data.get("subject", "?")[:50])
 
         except Exception as exc:
-            logger.debug("Error procesando %s uid %s: %s", mailbox_user, uid, exc)
+            logger.warning("Error procesando %s uid %s: %s", mailbox_user, uid, exc)
 
     return count
 
@@ -488,11 +492,12 @@ async def _fetch_message_headers(user: str, uid: str, folder: str, loop) -> dict
     def _do():
         try:
             result = subprocess.run(
-                ["sudo", "doveadm", "fetch", "-u", user, "hdr.subject hdr.from hdr.to hdr.message-id hdr.date hdr.content-type date.sent size.physical",
+                ["/usr/bin/sudo", "/usr/bin/doveadm", "fetch", "-u", user, "hdr.subject hdr.from hdr.to hdr.message-id hdr.date hdr.content-type date.sent size.physical",
                  "mailbox", folder, "uid", uid],
                 capture_output=True, text=True, timeout=30,
             )
             if result.returncode != 0:
+                logger.warning("doveadm fetch failed for %s uid %s: rc=%d stderr=%s", user, uid, result.returncode, result.stderr[:200])
                 return None
 
             data = {"raw_header": result.stdout}
@@ -532,7 +537,7 @@ async def _fetch_message_body_text(user: str, uid: str, folder: str, loop) -> st
     def _do():
         try:
             result = subprocess.run(
-                ["sudo", "doveadm", "fetch", "-u", user, "body.preview",
+                ["/usr/bin/sudo", "/usr/bin/doveadm", "fetch", "-u", user, "body.preview",
                  "mailbox", folder, "uid", uid],
                 capture_output=True, text=True, timeout=30,
             )
@@ -679,7 +684,7 @@ async def export_evidence(
             def _export_msg(m=mailbox, u=str(uid), f=folder):
                 try:
                     result = subprocess.run(
-                        ["sudo", "doveadm", "fetch", "-u", m, "text", "mailbox", f, "uid", u],
+                        ["/usr/bin/sudo", "/usr/bin/doveadm", "fetch", "-u", m, "text", "mailbox", f, "uid", u],
                         capture_output=True, timeout=30,
                     )
                     return result.stdout if result.returncode == 0 else None
