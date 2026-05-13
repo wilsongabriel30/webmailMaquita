@@ -393,7 +393,7 @@ async def _search_mailbox_imap(
     count = 0
 
     # Construir criterio doveadm search
-    search_args = ["doveadm", "search", "-u", mailbox_user, "mailbox", folder]
+    search_args = ["sudo", "doveadm", "search", "-u", mailbox_user, "mailbox", folder]
 
     if criteria.date_from:
         search_args += ["since", criteria.date_from[:10]]
@@ -488,7 +488,7 @@ async def _fetch_message_headers(user: str, uid: str, folder: str, loop) -> dict
     def _do():
         try:
             result = subprocess.run(
-                ["doveadm", "fetch", "-u", user, "hdr.subject hdr.from hdr.to hdr.message-id hdr.date hdr.content-type date.sent size.physical",
+                ["sudo", "doveadm", "fetch", "-u", user, "hdr.subject hdr.from hdr.to hdr.message-id hdr.date hdr.content-type date.sent size.physical",
                  "mailbox", folder, "uid", uid],
                 capture_output=True, text=True, timeout=30,
             )
@@ -532,7 +532,7 @@ async def _fetch_message_body_text(user: str, uid: str, folder: str, loop) -> st
     def _do():
         try:
             result = subprocess.run(
-                ["doveadm", "fetch", "-u", user, "body.preview",
+                ["sudo", "doveadm", "fetch", "-u", user, "body.preview",
                  "mailbox", folder, "uid", uid],
                 capture_output=True, text=True, timeout=30,
             )
@@ -679,7 +679,7 @@ async def export_evidence(
             def _export_msg(m=mailbox, u=str(uid), f=folder):
                 try:
                     result = subprocess.run(
-                        ["doveadm", "fetch", "-u", m, "text", "mailbox", f, "uid", u],
+                        ["sudo", "doveadm", "fetch", "-u", m, "text", "mailbox", f, "uid", u],
                         capture_output=True, timeout=30,
                     )
                     return result.stdout if result.returncode == 0 else None
