@@ -459,6 +459,10 @@ async def _search_mailbox_imap(
             msg_hash = hashlib.sha256(raw.encode("utf-8", errors="replace")).hexdigest()
 
             # Guardar resultado
+            sent_date = msg_data.get("date", "")
+            msg_size = msg_data.get("size", 0)
+            if isinstance(msg_size, str):
+                msg_size = int(msg_size) if msg_size.isdigit() else 0
             await db.execute(
                 """INSERT INTO ediscovery_results
                    (search_id, mailbox, folder, uid, message_id, subject, sender,
@@ -468,7 +472,7 @@ async def _search_mailbox_imap(
                 search_id, mailbox_user, folder, int(uid),
                 msg_data.get("message_id"), msg_data.get("subject"),
                 msg_data.get("from"), msg_data.get("to"),
-                msg_data.get("date"), msg_data.get("size"),
+                sent_date, msg_size,
                 msg_data.get("has_attachments", False), msg_hash,
             )
             count += 1
@@ -507,10 +511,13 @@ async def _fetch_message_headers(user: str, uid: str, folder: str, loop) -> dict
                     ct = line.split(":", 1)[1].strip().lower() if ":" in line else ""
                     data["has_attachments"] = "multipart/mixed" in ct
                 elif line.startswith("date.sent:"):
-                    data["date"] = line.split(":", 1)[1].strip() if ":" in line else ""
+                    raw_date = line.split(":", 1)[1].strip() if ":" in line else ""
+                    # Dovecot 2.4 uses (+0000) format — strip parens for PostgreSQL
+                    data["date"] = raw_date.replace("(", "").replace(")", "").strip()
                 elif line.startswith("size.physical:") or line.startswith("size:"):
                     try:
-                        data["size"] = int(line.split(":", 1)[1].strip())
+                        size_str = line.split(":", 1)[1].strip()
+                        data["size"] = int(size_str) if size_str.isdigit() else 0
                     except (ValueError, IndexError):
                         data["size"] = 0
             return data
