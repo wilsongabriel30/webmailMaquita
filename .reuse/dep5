@@ -1,0 +1,16 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: Maquita Webmail
+Upstream-Contact: Wilson Gabriel Arguello Robalino <seguridad@maquita.org>
+Source: https://github.com/wilsongabriel30/webmailMaquita
+
+Files: *
+Copyright: 2026 Fundación Maquita — Wilson Gabriel Arguello Robalino
+License: MIT
+
+Files: frontend/package-lock.json
+Copyright: 2026 Fundación Maquita — Wilson Gabriel Arguello Robalino
+License: MIT
+
+Files: docs/*
+Copyright: 2026 Fundación Maquita — Wilson Gabriel Arguello Robalino
+License: MIT

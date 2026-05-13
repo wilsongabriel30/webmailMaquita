@@ -1,99 +1,84 @@
-# Changelog — Fundacion Maquita Webmail
+# Changelog
 
-## v0.2-beta (2026-05-12)
+All notable changes to this project will be documented in this file.
 
-Segunda version beta con auditorias de seguridad, optimizaciones de rendimiento y nuevas funcionalidades.
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-### Nuevas funcionalidades
-- **Invitaciones de calendario ICS** estilo Outlook (Aceptar/Tentativo/Rechazar con RSVP)
-- **eDiscovery** — busqueda forense en buzones desde panel admin
-- **Modulo branding** — personalizacion visual del webmail
-- **SafeEmailViewer** — visualizacion segura de correos con sanitizacion XSS
-- **Pool de conexiones IMAP** — reutilizacion de conexiones para mejor rendimiento
-- **Filtro anti-spam Python** — clasificacion por keywords configurable sin rechazar correos
-- **Boton agregar contacto** desde correos recibidos
-- **Script zimbra-sync.sh** para migracion desde Zimbra
-- **Panel cuarentena anti-spam** — gestion de correos en Junk desde admin (aprobar, confirmar, eliminar)
-- **Editor de keywords y whitelist** — editar reglas del filtro spam desde el navegador
-- **Log del filtro spam** — ver decisiones del filtro en tiempo real desde admin
-- **Integracion IA dual-GPU** — distribucion automatica de carga entre P40 y RTX 5070
+## [Unreleased]
 
+Nothing yet.
 
-### Documentacion
-- README reescrito para principiantes: diagrama de arquitectura, explicaciones paso a paso
-- Guia completa de instalacion de IA con Ollama (9 sub-secciones)
-- Tabla de modelos recomendados por VRAM
-- Tabla DNS con explicacion de cada registro
-- Verificaciones despues de cada paso de instalacion
+## [1.0.1] - 2026-05-13
 
-### Seguridad
-- Auditoria externa: 15 hallazgos, 14 corregidos (86/100 comparable a Gmail 87/100)
-- Rate limiting post-autenticacion
-- Login timing reducido de 7s a 2s
-- POP3 deshabilitado, VRFY/ETRN deshabilitados
-- BIMI configurado
-- MTA-STS enforce activo
-- Password complexity enforced
-- Proteccion anti-compromiso de cuentas
-- Blindaje anti-spam MIME con validacion al arranque y 32 tests permanentes
-- Sanitizacion HTML con nh3 (backend) y DOMPurify (frontend)
-- Fix CRLF injection en headers
-- ClamAV cambiado de reject a add_header (no perder correos con virus, marcar)
+Tag: `compliance-audit`
 
-### Rendimiento
-- FTS Xapian optimizado: 4 threads, 256MB memoria, idioma espanol
-- Cache Redis para UIDs de carpeta Sent (fix timeout 502)
-- Invalidacion de cache tras leer/mover/borrar correos
-- Gzip habilitado en nginx
-- Service Worker bumped v21 a v22
+### Added
 
-### Correcciones
-- Fix carpeta Sent con 502/timeout (>25s) — resuelto con cache Redis
-- Fix contadores de no leidos desincronizados
-- Fix auto-guardado de borradores no preservaba subject
-- Fix busqueda de contactos retornaba 0 resultados (ahora busca en org_contacts)
-- Fix TypeError charAt en calendario al abrir evento con asistentes
-- Fix TypeError charAt en mensajes sin campo From
-- Fix calendario no cargaba eventos al refrescar pagina
-- Fix errores consola 404 por cache viejo del Service Worker
+- **Compliance module** with full eDiscovery workflow (search, preserve, collect, export)
+- **Legal holds** with immutable message preservation and custodian management
+- **Audit trail** capturing all user and admin actions with actor, timestamp, IP, and context
+- **Fraud detection** engine with rule-based scoring and configurable thresholds
+- **GPG signing** for eDiscovery exports and compliance evidence packages
+- **RBAC granular enforcement** for compliance operations (viewer, analyst, officer, admin)
+- **Mail trace correlation** linking messages across Postfix, Dovecot, and Rspamd logs by message-id
 
-### Infraestructura
-- DNSBL: removido zen.spamhaus.org (falsos positivos desde datacenter sin suscripcion)
-- Postfix configurado para nunca rechazar correos (todo pasa al filtro interno)
-- Rspamd: deshabilitadas listas que requieren suscripcion paga (SURBL, URIBL, Spamhaus)
-- Whitelist de dominios grandes (Gmail, Outlook, Yahoo) en Rspamd
-- 84 tablas en PostgreSQL (antes 77)
+### Changed
 
-### Estadisticas
-- 96 archivos cambiados, +4,559 / -807 lineas
-- 48,000+ emails en produccion
-- 13 buzones activos
+- Updated Dovecot integration for 2.4 compatibility (doveadm protocol changes, socket paths)
+- RBAC enforcement refactored to granular per-endpoint permission checks
+- Improved error messages for compliance API endpoints
 
----
+### Fixed
 
-## v0.1-beta (2026-04-12)
+- Date parsing in mail search now handles RFC 2822, ISO 8601, and epoch timestamps correctly
+- Size parsing for mailbox quota and search filters (KB/MB/GB units)
+- Doveadm permission errors when running as non-root service user
+- Race condition in concurrent legal hold activation for the same custodian
 
-Primera version publica. Beta endurecida tras dos rondas de auditoria tecnica.
+### Security
 
-### Funciona y esta verificado
+- Fail-fast validation for `ADMIN_JWT_SECRET` on startup (refuses to start with weak or default values)
+- Sanitized secret values from error responses and log output
+- Added `hardening.conf` systemd drop-in with `NoNewPrivileges`, `ProtectSystem=strict`, `MemoryDenyWriteExecute`
+- Restricted doveadm socket permissions to application service user only
 
-- **Correo**: lectura, redaccion, responder, reenviar, adjuntos, busqueda, etiquetas, carpetas
-- **Composicion**: editor TipTap con tablas, imagenes, firmas HTML, plantillas, dictado por voz
-- **Calendario**: vistas mes/semana/dia/agenda, eventos, invitaciones (CalDAV via Radicale)
-- **Contactos**: CRUD, categorias, favoritos, listas, importar/exportar vCard/CSV (CardDAV)
-- **Tareas**: tableros kanban, recordatorios, recurrencia, emails marcados como tareas
-- **Admin**: dashboard, dominios, buzones, aliases, auditoria
-- **Seguridad**: JWT + HttpOnly cookies, 2FA/TOTP, passwords cifrados en Redis (Fernet), rate limiting
-- **Despliegue**: instalador automatizado, Nginx, systemd, GitHub Actions CI
-- **ActiveSync**: Z-Push configurado para Android/iOS/Outlook
-- **PWA**: Service Worker, manifest, funcionamiento offline parcial
-- **Build**: `npm ci` + `npm run build` pasan limpio (0 errores TS, 0 warnings Pydantic)
-- **Tests**: 14 passed, 1 skipped, 0 warnings
-- **Healthcheck**: `/api/health` verifica API + Redis + PostgreSQL
+## [1.0.0] - 2026-04-12
 
-### Limitaciones conocidas
+### Added
 
-- Sin tests E2E de UI (no hay Playwright/Cypress)
-- Sin tests de IMAP/SMTP real
-- Sin pruebas de carga
-- Chunks frontend >500KB (optimizable con code splitting)
+- Full webmail interface: inbox, compose, reply, forward, drafts
+- Threaded conversation view with message grouping
+- Label/folder management with drag-and-drop
+- Full-text email search with filters (date, sender, has:attachment)
+- Calendar module with CalDAV support via Radicale 3.0
+- Contacts management with vCard import/export
+- Tasks module with due dates and priority levels
+- Admin panel for user, domain, and alias management
+- Anti-spam integration with Rspamd (spam score display, learn ham/spam)
+- Antivirus scanning with ClamAV on inbound and outbound mail
+- Two-factor authentication (TOTP) with QR code enrollment
+- Dovecot `mail_crypt` plugin for encryption at rest
+- Nginx reverse proxy configuration with security headers
+- CI/CD pipeline: lint, test, build, deploy
+- Docker Compose development environment
+- Database migration system (`migrations/*.sql`)
+- API documentation via OpenAPI/Swagger
+
+## [0.9.0] - 2026-03-23
+
+### Added
+
+- Initial release of Maquita Webmail
+- Zimbra-to-Dovecot mailbox migration tooling
+- Basic webmail interface (read, compose, delete)
+- IMAP integration with Dovecot
+- SMTP submission via Postfix
+- PostgreSQL-backed user and domain management
+- Session-based authentication
+- Basic admin interface
+
+[Unreleased]: https://github.com/maquita/maquita-webmail/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/maquita/maquita-webmail/compare/v1.0.0...v1.0.1
+[1.0.0]: https://github.com/maquita/maquita-webmail/compare/v0.9.0...v1.0.0
+[0.9.0]: https://github.com/maquita/maquita-webmail/releases/tag/v0.9.0

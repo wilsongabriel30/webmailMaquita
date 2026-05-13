@@ -21,3 +21,6 @@ backups-cleanup-*/
 uploads/
 deploy-backups/
 *.bak2.*
+
+.gnupg/
+exports/

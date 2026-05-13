@@ -1,0 +1,105 @@
+# =============================================================================
+# Maquita Webmail — Docker Compose
+# =============================================================================
+# Quick start:
+#   1. cp .env.example .env   # edit with your values
+#   2. docker compose up -d
+#   3. docker compose exec backend python -m scripts.seed_demo_data  # optional
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL 17 — primary database for mail metadata, compliance, and users
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-mailserver}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-maildb}
+    volumes:
+      # Persistent data volume
+      - pgdata:/var/lib/postgresql/data
+      # Run migration SQL files on first start
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mailserver} -d ${POSTGRES_DB:-maildb}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
+  # ---------------------------------------------------------------------------
+  # Redis 7 — session cache, rate limiting, and real-time event pub/sub
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
+  # ---------------------------------------------------------------------------
+  # Backend — FastAPI application (API + workers)
+  # ---------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: ../Dockerfile.backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      # Persistent volume for compliance exports (eDiscovery, reports)
+      - exports:/app/exports
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    networks:
+      - internal
+
+  # ---------------------------------------------------------------------------
+  # Frontend — React SPA served by nginx, proxies /api to backend
+  # ---------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../Dockerfile.frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    networks:
+      - internal
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  pgdata:
+    driver: local
+  exports:
+    driver: local
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  internal:
+    driver: bridge

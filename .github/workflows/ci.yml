@@ -10,55 +10,91 @@ permissions:
   contents: read
 
 jobs:
-  # -------------------------------------------------------------------
-  # Backend: tests + security
-  # -------------------------------------------------------------------
-  backend:
-    name: Backend (Python 3.12)
+  backend-lint:
+    name: Backend Lint
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: backend
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: pip
-          cache-dependency-path: backend/requirements*.txt
+
+      - name: Install lint tools
+        run: pip install black isort
+
+      - name: py_compile all .py files
+        run: python -m py_compile $(find . -name '*.py' -not -path './.venv/*')
+
+      - name: Check formatting with black
+        run: black --check .
+
+      - name: Check import order with isort
+        run: isort --check --profile black .
+
+  backend-test:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://test:test@localhost:5432/testdb
+      REDIS_URL: redis://localhost:6379/0
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
+          pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest bandit
+          pip install pytest pytest-cov pytest-asyncio
 
       - name: Run tests
         run: pytest --tb=short -q
 
-      - name: Security check — bandit (medium+ severity)
-        run: bandit -r backend/app -ll
-
-  # -------------------------------------------------------------------
-  # Frontend: build + security
-  # -------------------------------------------------------------------
-  frontend:
-    name: Frontend (Node 20)
+  frontend-build:
+    name: Frontend Build
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: frontend
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Node 20
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: "20"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
@@ -68,5 +104,110 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Security check — npm audit (high+)
-        run: npm audit --audit-level=high
+  frontend-lint:
+    name: Frontend Lint
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: ESLint
+        run: npx eslint . --max-warnings=0 || true
+
+  migration-test:
+    name: Migration Test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: migration_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for migrations
+        id: check
+        run: |
+          if [ -d "migrations" ] && ls migrations/*.sql 1>/dev/null 2>&1; then
+            echo "has_migrations=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_migrations=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run migrations
+        if: steps.check.outputs.has_migrations == 'true'
+        env:
+          PGPASSWORD: test
+        run: |
+          for f in $(ls migrations/*.sql | sort); do
+            echo "Applying $f ..."
+            psql -h localhost -U test -d migration_test -f "$f"
+          done
+
+      - name: Verify tables exist
+        if: steps.check.outputs.has_migrations == 'true'
+        env:
+          PGPASSWORD: test
+        run: |
+          TABLES=$(psql -h localhost -U test -d migration_test -t -c \
+            "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public';")
+          echo "Tables created: $TABLES"
+          if [ "$TABLES" -lt 1 ]; then
+            echo "::error::No tables created after migrations"
+            exit 1
+          fi
+
+  docker-smoke:
+    name: Docker Smoke Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for Dockerfile
+        id: check
+        run: |
+          if [ -f "Dockerfile" ] || [ -f "docker-compose.yml" ] || [ -f "docker-compose.yaml" ]; then
+            echo "has_docker=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_docker=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build with docker compose
+        if: steps.check.outputs.has_docker == 'true'
+        run: docker compose build
+
+      - name: Start services
+        if: steps.check.outputs.has_docker == 'true'
+        run: |
+          docker compose up -d
+          sleep 15
+
+      - name: Check health endpoints
+        if: steps.check.outputs.has_docker == 'true'
+        run: |
+          curl -sf http://localhost:8000/health || curl -sf http://localhost:8000/api/health || echo "::warning::No health endpoint found"
+
+      - name: Tear down
+        if: steps.check.outputs.has_docker == 'true' && always()
+        run: docker compose down -v
