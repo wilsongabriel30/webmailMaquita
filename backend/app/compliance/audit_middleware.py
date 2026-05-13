@@ -1,112 +1,166 @@
-"""Audit Middleware — intercepta acciones críticas de usuarios y las registra.
+"""User Activity Audit Middleware — intercepts and logs sensitive actions.
 
-Se instala como middleware FastAPI. Captura POST/PUT/DELETE en rutas sensibles
-y registra automáticamente en user_activity_log.
+Captures: login, logout, mail send/delete/move/copy, sieve rules,
+forwards, impersonation, eDiscovery, legal hold, exports.
 """
 import logging
+import time
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
 
 logger = logging.getLogger("compliance.audit")
 
-# Mapeo de rutas → acción de auditoría
-# (method, path_prefix, action, category)
-AUDIT_ROUTES = [
-    # Auth
-    ("POST", "/api/auth/login", "login_success", None),
-    ("POST", "/api/auth/change-password", "password_change", None),
-    ("POST", "/api/auth/totp/setup", "totp_setup", None),
-    ("POST", "/api/auth/totp/disable", "totp_disable", None),
-    # Email
-    ("POST", "/api/mail/send", "email_send", None),
-    ("POST", "/api/mail/send-multipart", "email_send", None),
-    ("POST", "/api/mail/compose", "email_send", None),
-    ("DELETE", "/api/mail/messages/", "email_delete", None),
-    ("POST", "/api/mail/messages/bulk", "email_bulk_delete", None),
-    ("POST", "/api/mail/export", "email_export", None),
-    # Sieve
-    ("POST", "/api/sieve/filters", "sieve_create", None),
-    ("PUT", "/api/sieve/filters", "sieve_modify", None),
-    ("DELETE", "/api/sieve/filters", "sieve_delete", None),
-    ("POST", "/api/sieve/vacation", "autoresponder_change", None),
-    # Identities (reenvíos)
-    ("POST", "/api/identities", "forward_create", None),
-    ("PUT", "/api/identities", "forward_modify", None),
-    # API Keys
-    ("POST", "/api/apikeys", "api_key_create", None),
-    ("DELETE", "/api/apikeys", "api_key_delete", None),
-    # Admin
-    ("POST", "/api/admin/impersonate", "impersonate", None),
-    # Compliance
-    ("POST", "/api/compliance/ediscovery/search", "ediscovery_search", None),
-    ("POST", "/api/compliance/ediscovery/export", "ediscovery_export", None),
-]
+# Route → (action, category, risk_level)
+# POST/PUT/DELETE routes that should be audited
+_AUDIT_ROUTES = {
+    # Auth events
+    ("POST", "/api/auth/login"): ("login_attempt", "auth", "medium"),
+    ("POST", "/api/auth/logout"): ("logout", "auth", "low"),
+    ("POST", "/api/auth/refresh"): ("token_refresh", "auth", "low"),
+    ("POST", "/api/auth/change-password"): ("password_change", "security", "high"),
+    ("POST", "/api/auth/totp/setup"): ("totp_setup", "security", "high"),
+    ("POST", "/api/auth/totp/verify"): ("totp_verify", "security", "medium"),
+    ("POST", "/api/auth/totp/disable"): ("totp_disable", "security", "critical"),
+    ("POST", "/api/auth/impersonate"): ("impersonation_start", "security", "critical"),
 
+    # Mail events
+    ("POST", "/api/mail/send"): ("email_send", "email", "medium"),
+    ("POST", "/api/mail/send-multipart"): ("email_send", "email", "medium"),
+    ("POST", "/api/mail/compose"): ("email_send", "email", "medium"),
+    ("DELETE", "/api/mail/messages"): ("email_delete", "email", "medium"),
+    ("POST", "/api/mail/messages/move"): ("email_move", "email", "low"),
+    ("POST", "/api/mail/messages/copy"): ("email_copy", "email", "low"),
+    ("POST", "/api/mail/messages/flag"): ("email_flag", "email", "low"),
+    ("DELETE", "/api/mail/folders"): ("folder_delete", "email", "high"),
 
-def _match_route(method: str, path: str):
-    """Busca si la ruta coincide con alguna acción auditable."""
-    for r_method, r_path, r_action, _ in AUDIT_ROUTES:
-        if method == r_method and path.startswith(r_path):
-            return r_action
-    return None
+    # Sieve rules
+    ("POST", "/api/sieve/filters"): ("sieve_rule_created", "sieve", "medium"),
+    ("PUT", "/api/sieve/filters"): ("sieve_rule_updated", "sieve", "medium"),
+    ("DELETE", "/api/sieve/filters"): ("sieve_rule_deleted", "sieve", "medium"),
+    ("POST", "/api/sieve/vacation"): ("vacation_changed", "sieve", "low"),
+
+    # Forwarding
+    ("POST", "/api/admin/forwarding"): ("forward_created", "admin", "high"),
+    ("PUT", "/api/admin/forwarding"): ("forward_updated", "admin", "high"),
+    ("DELETE", "/api/admin/forwarding"): ("forward_deleted", "admin", "medium"),
+
+    # Identity/signatures
+    ("POST", "/api/identities"): ("identity_created", "security", "medium"),
+    ("PUT", "/api/identities"): ("identity_updated", "security", "medium"),
+    ("DELETE", "/api/identities"): ("identity_deleted", "security", "medium"),
+
+    # Admin actions
+    ("POST", "/api/admin/mailboxes"): ("mailbox_created", "admin", "high"),
+    ("DELETE", "/api/admin/mailboxes"): ("mailbox_deleted", "admin", "critical"),
+    ("PUT", "/api/admin/mailboxes"): ("mailbox_updated", "admin", "medium"),
+    ("POST", "/api/admin/domains"): ("domain_created", "admin", "high"),
+    ("DELETE", "/api/admin/domains"): ("domain_deleted", "admin", "critical"),
+
+    # Compliance actions (self-audit)
+    ("POST", "/api/compliance/cases"): ("case_created", "compliance", "high"),
+    ("PUT", "/api/compliance/cases"): ("case_updated", "compliance", "medium"),
+    ("POST", "/api/compliance/ediscovery/search"): ("ediscovery_search", "compliance", "high"),
+    ("POST", "/api/compliance/ediscovery/export"): ("ediscovery_export", "compliance", "critical"),
+    ("POST", "/api/compliance/holds"): ("legal_hold_enabled", "compliance", "critical"),
+    ("DELETE", "/api/compliance/holds"): ("legal_hold_released", "compliance", "critical"),
+    ("PUT", "/api/compliance/alerts"): ("alert_acknowledged", "compliance", "medium"),
+
+    # Import/Export
+    ("POST", "/api/import"): ("bulk_import", "admin", "high"),
+    ("POST", "/api/mail/export"): ("mail_export", "email", "high"),
+}
+
+# Login result mapping based on response status
+_LOGIN_RESULTS = {
+    200: "login_success",
+    401: "login_failed",
+    403: "login_blocked",
+    429: "login_rate_limited",
+}
 
 
 class UserActivityAuditMiddleware(BaseHTTPMiddleware):
-    """Middleware que registra actividad de usuarios en acciones críticas."""
+    """Intercepts HTTP requests and logs sensitive actions to user_activity_log."""
 
-    async def dispatch(self, request, call_next):
+    async def dispatch(self, request: Request, call_next):
+        method = request.method.upper()
+        path = request.url.path.rstrip("/")
+
+        # Quick skip for non-auditable requests
+        if method == "GET" or method == "OPTIONS":
+            return await call_next(request)
+
+        if not path.startswith("/api/"):
+            return await call_next(request)
+
+        start = time.time()
         response = await call_next(request)
+        elapsed = time.time() - start
 
-        # Solo registrar respuestas exitosas (2xx)
-        if response.status_code < 200 or response.status_code >= 300:
-            # Excepción: login fallido (401)
-            if request.url.path == "/api/auth/login" and request.method == "POST":
-                if response.status_code in (401, 403):
-                    await self._log_activity(request, "login_failed", response.status_code)
+        # Check if this route should be audited
+        route_key = (method, path)
+        audit_info = _AUDIT_ROUTES.get(route_key)
+
+        # Also check prefix matches for parameterized routes
+        if not audit_info:
+            for (m, p), info in _AUDIT_ROUTES.items():
+                if m == method and path.startswith(p):
+                    audit_info = info
+                    break
+
+        if not audit_info:
             return response
 
-        action = _match_route(request.method, request.url.path)
-        if action:
-            await self._log_activity(request, action, response.status_code)
+        action, category, risk_level = audit_info
 
-        return response
+        # Special handling for login — action depends on response code
+        if path == "/api/auth/login" and method == "POST":
+            action = _LOGIN_RESULTS.get(response.status_code, "login_attempt")
+            if response.status_code != 200:
+                risk_level = "high"
 
-    async def _log_activity(self, request, action, status_code):
-        """Registra la actividad en la base de datos."""
+        # Extract username
+        username = ""
         try:
-            from app.compliance.activity_logger import log_user_activity
-
-            # Extraer usuario del JWT
-            username = None
+            # From cookie JWT
             token = request.cookies.get("access_token")
             if token:
-                try:
-                    from app.auth.jwt import decode_access_token
-                    payload = decode_access_token(token)
-                    username = payload.get("sub", "")
-                except Exception:
-                    pass
-
-            if not username and action == "login_failed":
-                username = "unknown"
-
+                from app.auth.jwt import decode_access_token
+                payload = decode_access_token(token)
+                username = payload.get("sub", "")
+            # From Bearer token
             if not username:
-                return
+                auth_header = request.headers.get("authorization", "")
+                if auth_header.startswith("Bearer "):
+                    import jwt as pyjwt
+                    import os
+                    secret = os.getenv("ADMIN_JWT_SECRET", "")
+                    if secret:
+                        payload = pyjwt.decode(auth_header[7:], secret, algorithms=["HS256"])
+                        username = payload.get("sub", payload.get("username", ""))
+        except Exception:
+            pass
 
-            ip = request.headers.get("x-real-ip", request.client.host if request.client else None)
-            ua = request.headers.get("user-agent", "")[:500]
+        # For login attempts, try to extract username from request body
+        if not username and path == "/api/auth/login":
+            username = "(login_attempt)"
 
-            details = {"status_code": status_code, "path": request.url.path}
+        ip = request.headers.get("x-real-ip", request.client.host if request.client else "")
+        user_agent = request.headers.get("user-agent", "")[:500]
 
-            db = request.app.state.db_pool
+        # Log to database asynchronously
+        try:
+            db = getattr(request.app.state, "db_pool", None)
+            if db and username:
+                await db.execute(
+                    """INSERT INTO user_activity_log
+                       (username, action, category, risk_level, ip_address, user_agent, details)
+                       VALUES ($1, $2, $3, $4, $5::inet, $6, $7::jsonb)""",
+                    username, action, category, risk_level,
+                    ip if ip else None, user_agent,
+                    f'{{"path": "{path}", "method": "{method}", "status": {response.status_code}, "elapsed_ms": {int(elapsed*1000)}}}'
+                )
+        except Exception as e:
+            logger.warning("Audit log failed: %s", e)
 
-            await log_user_activity(
-                db,
-                username,
-                action,
-                ip_address=ip,
-                user_agent=ua,
-                target=request.url.path,
-                details=details,
-            )
-        except Exception as exc:
-            logger.error("Audit middleware error: %s", exc)
+        return response

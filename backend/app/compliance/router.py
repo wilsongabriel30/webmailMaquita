@@ -18,8 +18,15 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
-from app.compliance.auth import require_compliance_admin as require_admin
+from app.compliance.auth import (
+    require_compliance_admin as require_admin,
+    require_compliance_read,
+    require_compliance_write,
+    require_compliance_export,
+    require_compliance_security,
+)
 from app.compliance.content_extractor import search_maildir
+from app.compliance.evidence_signer import sign_export, ensure_gpg_key
 from app.compliance.activity_logger import (
     get_activity_stats,
     get_user_activities,
@@ -746,6 +753,22 @@ async def export_evidence(
         details={"total_exported": len(exported), "format": body.export_format},
     )
 
+    # Sign with GPG
+    try:
+        sign_result = await sign_export(
+            export_path=export_path,
+            manifest_path=manifest_path,
+            export_id=0,  # Will be updated
+            exported_by=admin,
+            db_pool=db,
+        )
+        gpg_sig = sign_result.get("gpg_signature_path", "")
+        timestamp = sign_result.get("timestamp_seal", {})
+    except Exception as sign_err:
+        logger.warning("GPG signing failed: %s", sign_err)
+        gpg_sig = ""
+        timestamp = {}
+
     return {
         "case_id": body.case_id,
         "search_id": body.search_id,
@@ -753,6 +776,8 @@ async def export_evidence(
         "export_path": export_path,
         "manifest_hash": manifest_hash,
         "total_size": total_size,
+        "gpg_signature": gpg_sig,
+        "timestamp_seal": timestamp,
     }
 
 
