@@ -18,7 +18,7 @@
 | Tests | Hecho | CI con pytest (backend) y npm build (frontend) |
 | Fuzzing | Planificado | Integrar OSS-Fuzz o Atheris para endpoints críticos |
 | SAST | Hecho | Bandit (Python) integrado en `security-scan.yml` |
-| License | Hecho | MIT — archivo `LICENSES/MIT.txt` |
+| License | Hecho | AGPL-3.0-or-later — archivo `LICENSES/AGPL-3.0-or-later.txt` |
 | SBOM | Hecho | Script `scripts/generate_sbom.sh` genera CycloneDX |
 | Vulnerabilities | Hecho | pip-audit, npm audit, Trivy en CI |
 | Code Review | Recomendado | Activar branch protection: requerir al menos 1 aprobación en PRs a `main` |

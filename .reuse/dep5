@@ -5,12 +5,12 @@ Source: https://github.com/wilsongabriel30/webmailMaquita
 
 Files: *
 Copyright: 2026 Fundación Maquita — Wilson Gabriel Arguello Robalino
-License: MIT
+License: AGPL-3.0-or-later
 
 Files: frontend/package-lock.json
 Copyright: 2026 Fundación Maquita — Wilson Gabriel Arguello Robalino
-License: MIT
+License: AGPL-3.0-or-later
 
 Files: docs/*
 Copyright: 2026 Fundación Maquita — Wilson Gabriel Arguello Robalino
-License: MIT
+License: AGPL-3.0-or-later
