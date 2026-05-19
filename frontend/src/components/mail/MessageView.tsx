@@ -136,7 +136,7 @@ const AddToContactBtn: React.FC<{ name: string; email: string }> = ({ name, emai
 
 /* ── Render email addresses with add-to-contacts button ── */
 const EmailsWithContacts: React.FC<{ raw: string }> = ({ raw }) => {
-  if (!raw) return null;
+  if (!raw || !raw.trim()) return <span style={{ color: '#a19f9d', fontStyle: 'italic' }}>(destinatarios ocultos)</span>;
   // Split by comma, preserve "Name <email>" format
   const addrs = raw.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map(s => s.trim()).filter(Boolean);
   return (

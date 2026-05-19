@@ -23,11 +23,23 @@ export function AppLayout() {
   const isMailRoute = location.pathname === '/' || location.pathname === '/webmail' || location.pathname === '/webmail/';
   const showMailSidebar = isMailRoute;
 
-  // Al volver a la vista de mail desde otra sección, resetear a INBOX
+  // Al volver a la vista de mail desde otra sección, resetear estado
   const prevIsMailRef = React.useRef(isMailRoute);
   useEffect(() => {
     if (isMailRoute && !prevIsMailRef.current) {
       const store = useMailStore.getState();
+      // Limpiar mensaje seleccionado para evitar vista fantasma
+      store.setSelectedMessage(null);
+      // Resetear filtro para mostrar todos los mensajes
+      if (store.filter !== 'all') {
+        store.setFilter('all');
+      }
+      // Limpiar búsqueda
+      if (store.searchQuery) {
+        store.setSearchQuery('');
+        store.setDebouncedSearchQuery('');
+      }
+      // Volver a INBOX si estaba en otra carpeta
       if (store.currentFolder !== 'INBOX') {
         store.setCurrentFolder('INBOX');
       }

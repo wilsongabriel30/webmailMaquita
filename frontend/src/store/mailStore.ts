@@ -76,6 +76,8 @@ interface MailState {
   minimizeCompose: (id: string) => void;
   restoreCompose: (id: string) => void;
   updateDraftUid: (id: string, uid: number | null) => void;
+  // Reset
+  reset: () => void;
   // Thread
   setThreadMessages: (msgs: MessageFull[]) => void;
   toggleThreadExpand: (uid: number) => void;
@@ -169,6 +171,27 @@ export const useMailStore = create<MailState>((set, get) => ({
     composeWindows: get().composeWindows.map(w => w.id === id ? { ...w, draftUid: uid } : w),
   }),
 
+  // Reset all state (on account/session change)
+  reset: () => set({
+    folders: [],
+    currentFolder: 'INBOX',
+    loadingFolders: false,
+    messages: [],
+    totalMessages: 0,
+    currentPage: 1,
+    loadingMessages: false,
+    selectedMessage: null,
+    loadingMessage: false,
+    selectedUids: new Set(),
+    activeIndex: -1,
+    searchQuery: '',
+    debouncedSearchQuery: '',
+    filter: 'all' as const,
+    threadMessages: [],
+    threadExpanded: new Set(),
+    loadingThread: false,
+    composeWindows: [],
+  }),
   // Thread
   setThreadMessages: (msgs) => set({ threadMessages: msgs }),
   toggleThreadExpand: (uid) => {

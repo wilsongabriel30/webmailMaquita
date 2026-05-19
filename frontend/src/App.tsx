@@ -16,10 +16,12 @@ const DisclaimerManager = React.lazy(() => import('./components/admin/Disclaimer
 const MessageTracking = React.lazy(() => import('./components/admin/MessageTracking').then(m => ({ default: m.MessageTracking })));
 const SpamQuarantine = React.lazy(() => import("./components/admin/SpamQuarantine").then(m => ({ default: m.SpamQuarantine })));
 const CompliancePanel = React.lazy(() => import("./components/admin/CompliancePanel").then(m => ({ default: m.CompliancePanel })));
+const FirewallPanel = React.lazy(() => import("./components/admin/FirewallPanel").then(m => ({ default: m.FirewallPanel })));
 const ContactsView = React.lazy(() => import('./components/contacts/ContactsView').then(m => ({ default: m.ContactsView })));
 const TasksView = React.lazy(() => import('./components/tasks/TasksView').then(m => ({ default: m.TasksView })));
 const CalendarView = React.lazy(() => import('./components/calendar/CalendarView'));
 import { ComposePopup } from "./components/mail/ComposePopup";
+import { useMailStore } from "./store/mailStore";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuthStore();
@@ -76,7 +78,41 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 }
 
 export default function App() {
-  const { setUser } = useAuthStore();
+  const { setUser, user } = useAuthStore();
+  const prevUserRef = React.useRef<string | null>(null);
+
+  // BUG 6: Reset mail state when user account changes
+  useEffect(() => {
+    const currentEmail = user?.username || null;
+    if (prevUserRef.current !== null && prevUserRef.current !== currentEmail) {
+      // User changed — reset all mail state
+      useMailStore.getState().reset();
+      document.title = 'Maquita Mail';
+    }
+    prevUserRef.current = currentEmail;
+  }, [user?.username]);
+
+  // BUG 2: Re-validate session when tab becomes visible (prevents blank screen)
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        fetch('/api/auth/me', { credentials: 'include' })
+          .then((res) => {
+            if (!res.ok) {
+              setUser(null);
+              return;
+            }
+            return res.json();
+          })
+          .then((data) => {
+            if (data) setUser(data.user || null);
+          })
+          .catch(() => setUser(null));
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, []);
 
   useEffect(() => {
     // Check for impersonate token from admin panel
@@ -162,6 +198,7 @@ export default function App() {
             <Route path="tracking" element={<React.Suspense fallback={<Spinner />}><MessageTracking /></React.Suspense>} />
             <Route path="spam" element={<React.Suspense fallback={<Spinner />}><SpamQuarantine /></React.Suspense>} />
             <Route path="compliance" element={<React.Suspense fallback={<Spinner />}><CompliancePanel /></React.Suspense>} />
+            <Route path="firewall" element={<React.Suspense fallback={<Spinner />}><FirewallPanel /></React.Suspense>} />
           </Route>
         </Route>
       </Routes>

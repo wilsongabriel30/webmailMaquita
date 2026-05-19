@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useEffect, useCallback, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useCallback, useRef, useState, useMemo, memo } from 'react';
 import { useMailStore } from '../../store/mailStore';
 import { usePolling } from '../../hooks/usePolling';
 import { api } from '../../api/client';
@@ -182,8 +182,9 @@ export function MessageList() {
 
   const fetch_ = useCallback(() => {
     if (!currentFolder) return;
-    // Only show loading skeleton on first load (empty list), not on refresh
-    if (messages.length === 0) setLoadingMessages(true);
+    // Show loading skeleton on first load or when messages are empty (folder change)
+    const state = useMailStore.getState();
+    if (state.messages.length === 0) setLoadingMessages(true);
     const p = new URLSearchParams({ page: String(currentPage), per_page: '50' });
     if (debouncedSearchQuery) p.set('search', debouncedSearchQuery);
     // Send filter to backend so IMAP does server-side SEARCH UNSEEN/FLAGGED
@@ -199,23 +200,25 @@ export function MessageList() {
         } else if (Notification.permission !== 'denied') {
           Notification.requestPermission();
         }
-        document.title = `(${r.total - (r.messages.filter((m: any) => m.seen).length)}) Maquita Mail`;
+        // Update tab badge with actual unseen count from INBOX folder
+        const inboxFolder = useMailStore.getState().folders.find(f => f.name === 'INBOX');
+        const unseenCount = inboxFolder?.unseen ?? 0;
+        const base = document.title.replace(/^\(\d+\)\s*/, '');
+        document.title = unseenCount > 0 ? `(${unseenCount}) ${base}` : base;
       }
       if (filter === 'all') prevTotalRef.current = r.total;
       setMessages(r.messages, r.total, r.page);
-    }).catch(console.error);
+    }).catch((err) => {
+      console.error(err);
+      // Clear loading state on error to prevent infinite skeleton
+      setLoadingMessages(false);
+    });
   }, [currentFolder, currentPage, debouncedSearchQuery, filter]);
 
-  // Limpiar selección al cambiar de carpeta, pero mantener skeleton breve
+  // Limpiar selección al cambiar de carpeta
   useEffect(() => {
     useMailStore.getState().setSelectedMessage(null);
-    // Solo mostrar loading skeleton si no es cambio rápido
-    const timer = setTimeout(() => {
-      if (useMailStore.getState().loadingMessages) {
-        useMailStore.getState().setMessages([], 0, 1);
-      }
-    }, 300);
-    return () => clearTimeout(timer);
+    useMailStore.getState().clearThread();
   }, [currentFolder]);
 
   // Debounce search query — wait 400ms after user stops typing
@@ -453,9 +456,9 @@ export function MessageList() {
     } catch {}
   };
 
+  // Note: unread/flagged filtering is done server-side via IMAP SEARCH
+  // Do NOT re-filter here — backend results are already correct
   const filtered = messages.filter(m => {
-    if (filter === 'unread') return !m.seen;
-    if (filter === 'flagged') return m.flagged;
     return true;
   }).filter(m => {
     // Apply priority filter only in INBOX when priority data is loaded
@@ -502,8 +505,8 @@ export function MessageList() {
     { label: 'Eliminar', icon: deleteIcon, onClick: () => quickAction(msg.uid, currentFolder === 'Trash' ? 'delete' : 'move', 'Trash'), danger: true },
   ];
 
-  /* ---- Render a single message row ---- */
-  const renderMessageRow = (msg: MessageSummary, idx: number, threadCount?: number) => {
+  /* ---- Render a single message row (memoized) ---- */
+  const renderMessageRow = useCallback((msg: MessageSummary, idx: number, threadCount?: number) => {
     const active = selectedMessage?.uid === msg.uid;
     const checked = selectedUids.has(msg.uid);
     const snippetStyle = previewLines === 1
@@ -618,7 +621,7 @@ export function MessageList() {
         </div>
       </div>
     );
-  };
+  }, [selectedMessage?.uid, selectedUids, previewLines, density, currentFolder, avatarMap, folders, spamResults, filter, activeTab, priorityMap]);
 
   /* ---- Render thread group (conversation mode) ---- */
   const renderThreadGroup = (group: ThreadGroup, gIdx: number) => {
@@ -830,7 +833,7 @@ export function MessageList() {
   );
 }
 
-function QA({ icon, title, onClick, filled }: {
+const QA = memo(function QA({ icon, title, onClick, filled }: {
   icon: string; title: string; onClick: (e: React.MouseEvent) => void; filled?: boolean;
 }) {
   return (
@@ -841,4 +844,4 @@ function QA({ icon, title, onClick, filled }: {
       </svg>
     </button>
   );
-}
+});
