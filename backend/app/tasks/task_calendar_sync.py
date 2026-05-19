@@ -4,7 +4,7 @@ Cuando se crea/actualiza una tarea con fecha (due_date) y/o asignado (assigned_t
 se crea automaticamente un evento en el calendario del responsable y se envia
 notificacion via WebSocket (Redis pub/sub).
 
-Autor: IA Code — 2026-04-13
+Autor: Wilson Argüello — Equipo de Tecnología, Fundación Maquita
 """
 import json
 import logging

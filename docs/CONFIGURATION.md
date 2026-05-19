@@ -135,7 +135,7 @@ rediss://[:PASSWORD@]HOST:PORT/DB
 | `AI_ENABLED`           | `false`  | Enable AI-powered features                    |
 | `AI_PROVIDER`          | (none)   | AI provider: `openai`, `IA`, `ollama`  |
 | `AI_API_KEY`           | (none)   | API key for the AI provider                   |
-| `AI_MODEL`             | (none)   | Model identifier (e.g., `gpt-4o`, `IA-sonnet-4-20250514`) |
+| `AI_MODEL`             | (none)   | Model identifier (e.g., `gpt-4o`, `llama3`) |
 | `AI_BASE_URL`          | (none)   | Custom API endpoint (for Ollama or proxies)   |
 | `AI_MAX_TOKENS`        | `1024`   | Max tokens per AI request                     |
 | `AI_TIMEOUT_SECONDS`   | `30`     | Request timeout                               |

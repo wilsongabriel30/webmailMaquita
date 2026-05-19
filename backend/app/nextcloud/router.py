@@ -3,7 +3,7 @@
 Permite a los usuarios del webmail guardar archivos adjuntos directamente
 en su cuenta de Nextcloud para editarlos online con OnlyOffice.
 
-Autor: IA Code — 2026-04-13
+Autor: Wilson Argüello — Equipo de Tecnología, Fundación Maquita
 """
 import logging
 import urllib.parse
