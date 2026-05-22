@@ -133,7 +133,7 @@ rediss://[:PASSWORD@]HOST:PORT/DB
 | Variable               | Default  | Description                                   |
 |------------------------|----------|-----------------------------------------------|
 | `AI_ENABLED`           | `false`  | Enable AI-powered features                    |
-| `AI_PROVIDER`          | (none)   | AI provider: `openai`, `cloud_ai`, `ollama`  |
+| `AI_PROVIDER`          | (none)   | AI provider: `openai`, `custom`, `ollama`  |
 | `AI_API_KEY`           | (none)   | API key for the AI provider                   |
 | `AI_MODEL`             | (none)   | Model identifier (e.g., `gpt-4o`, `llama3`) |
 | `AI_BASE_URL`          | (none)   | Custom API endpoint (for Ollama or proxies)   |
