@@ -1,8 +1,0 @@
-{
-    "status": "healthy",
-    "checks": {
-        "api": "ok",
-        "redis": "ok",
-        "database": "ok"
-    }
-}

@@ -44,7 +44,7 @@ Maquita Webmail addresses all four.
 
 - **Not a hosted email service.** You must operate your own mail infrastructure or be willing to set one up.
 - **Not a drop-in replacement for Microsoft 365 or Google Workspace.** It does not include spreadsheets, video conferencing, or a full office suite. It is a webmail and compliance tool.
-- **Not battle-tested at massive scale.** It is in production at Fundacion Maquita with 13 mailboxes and 48,000+ emails. It has not been tested with thousands of concurrent users.
+- **Not battle-tested at massive scale.** It is in production at Fundacion Maquita with 200+ mailboxes and 100,000+ emails. It has not been tested with thousands of concurrent users.
 - **Not a mail server.** It requires Postfix and Dovecot to be installed and configured separately (Docker Compose handles this for you in the default deployment).
 - **Not feature-frozen.** The project is actively evolving. APIs and database schemas may change between releases.
 
@@ -56,6 +56,28 @@ Maquita Webmail addresses all four.
 - 150+ API endpoints
 - 77 PostgreSQL tables
 - 39 auditable event types
+
+
+## Screenshots
+
+<table>
+<tr>
+<td><b>Calendar - Month View</b></td>
+<td><b>Event Editor</b></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/calendar-month.png" width="450" alt="Calendar month view with events"></td>
+<td><img src="docs/screenshots/calendar-event-editor.png" width="450" alt="Event editor with attendees, reminders, and rich text"></td>
+</tr>
+<tr>
+<td><b>Event Invitation Email</b></td>
+<td></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/calendar-invitation.png" width="450" alt="Calendar with invitation email received by attendee"></td>
+<td></td>
+</tr>
+</table>
 
 ## Architecture
 
