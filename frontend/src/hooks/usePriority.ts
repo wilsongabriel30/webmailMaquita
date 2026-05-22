@@ -33,7 +33,21 @@ export function usePriority() {
       for (const msg of data.low) {
         map[msg.uid] = { priority: 'low', category: msg.category || '', reason: msg.priority_reason || '' };
       }
-      setPriorityMap(map);
+      setPriorityMap(prev => {
+        // Merge: keep existing classifications, add/update new ones
+        // Never downgrade: if a message was high/normal, don't move to low automatically
+        const merged = { ...prev };
+        for (const [uid, data] of Object.entries(map)) {
+          const numUid = Number(uid);
+          const existing = merged[numUid];
+          if (existing && (existing.priority === 'high' || existing.priority === 'normal') && (data as any).priority === 'low') {
+            // Don't downgrade - keep existing classification
+            continue;
+          }
+          merged[numUid] = data as any;
+        }
+        return merged;
+      });
     } catch (err) {
       console.warn('Priority fetch failed, using default:', err);
     } finally {

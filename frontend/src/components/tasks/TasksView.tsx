@@ -100,6 +100,7 @@ export function TasksView() {
       if (reminder) payload.reminder = reminder;
       if (activeView === 'my-day') payload.my_day = true;
       if (activeView === 'important') payload.important = true;
+      if (activeView === 'planned' && !dueDate) payload.due_date = new Date().toISOString().slice(0, 10);
 
       if (listId) {
         await api.post(`/tasks/lists/${listId}/tasks`, payload);

@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { loadOfflineMessages } from "../../hooks/useOfflineSync";
 import React, { useEffect, useCallback, useRef, useState, useMemo, memo } from 'react';
 import { useMailStore } from '../../store/mailStore';
 import { usePolling } from '../../hooks/usePolling';
@@ -184,7 +185,7 @@ export function MessageList() {
     if (!currentFolder) return;
     // Show loading skeleton on first load or when messages are empty (folder change)
     const state = useMailStore.getState();
-    if (state.messages.length === 0) setLoadingMessages(true);
+    if (state.messages.length === 0 && !state.loadingMessages) setLoadingMessages(true);
     const p = new URLSearchParams({ page: String(currentPage), per_page: '50' });
     if (debouncedSearchQuery) p.set('search', debouncedSearchQuery);
     // Send filter to backend so IMAP does server-side SEARCH UNSEEN/FLAGGED
@@ -208,9 +209,18 @@ export function MessageList() {
       }
       if (filter === 'all') prevTotalRef.current = r.total;
       setMessages(r.messages, r.total, r.page);
-    }).catch((err) => {
+    }).catch(async (err) => {
       console.error(err);
-      // Clear loading state on error to prevent infinite skeleton
+      // Offline fallback: load from IndexedDB cache
+      if (!navigator.onLine) {
+        try {
+          const cached = await loadOfflineMessages(currentFolder);
+          if (cached.length > 0) {
+            setMessages(cached, cached.length, 1);
+            return;
+          }
+        } catch {}
+      }
       setLoadingMessages(false);
     });
   }, [currentFolder, currentPage, debouncedSearchQuery, filter]);
@@ -244,24 +254,46 @@ export function MessageList() {
     }
   }, [currentFolder, messages.length, fetchPriority]);
 
-  // Spam scan function
+  // Spam scan function — context-aware: si hay mensaje seleccionado escanea solo ese, si no escanea la carpeta
   const scanSpam = useCallback(async (autoMove = false) => {
     if (!currentFolder) return;
+    const sel = useMailStore.getState().selectedMessage;
     setSpamScanning(true);
     try {
-      const res = await api.get<{ scanned: number; spam_found: number; moved: number; details: any[] }>(
-        `/mail/spam/scan?folder=${encodeURIComponent(currentFolder)}&limit=50&auto_move=${autoMove}`
-      );
+      let url = `/mail/spam/scan?folder=${encodeURIComponent(currentFolder)}`;
+      if (sel?.uid) {
+        // Escaneo individual del mensaje seleccionado
+        url += `&uid=${sel.uid}&auto_move=${autoMove}`;
+      } else {
+        // Escaneo de toda la carpeta
+        url += `&limit=50&auto_move=${autoMove}`;
+      }
+      const res = await api.get<{ scanned: number; spam_found: number; moved: number; details: any[] }>(url);
       setSpamResults(res.details || []);
-      if (res.spam_found > 0) {
-        if (autoMove && res.moved > 0) {
-          showToast(`${res.moved} correo${res.moved > 1 ? "s" : ""} de spam movido${res.moved > 1 ? "s" : ""} a Spam`);
-          window.dispatchEvent(new CustomEvent("refresh-messages"));
-        } else if (!autoMove) {
-          showToast(`${res.spam_found} posible${res.spam_found > 1 ? "s" : ""} spam detectado${res.spam_found > 1 ? "s" : ""}`);
+      if (sel?.uid) {
+        // Resultado individual
+        const det = res.details?.[0];
+        if (det?.is_spam) {
+          if (autoMove && res.moved > 0) {
+            showToast(`Spam confirmado — movido a Spam (score: ${det.score})`);
+            window.dispatchEvent(new CustomEvent("refresh-messages"));
+          } else {
+            showToast(`⚠ Spam detectado (score: ${det.score}): ${(det.reasons || []).join(', ')}`);
+          }
+        } else {
+          showToast(`Este mensaje parece legítimo (score: ${det?.score || 0})`);
         }
       } else {
-        showToast("No se detect\u00f3 spam");
+        if (res.spam_found > 0) {
+          if (autoMove && res.moved > 0) {
+            showToast(`${res.moved} correo${res.moved > 1 ? "s" : ""} de spam movido${res.moved > 1 ? "s" : ""} a Spam`);
+            window.dispatchEvent(new CustomEvent("refresh-messages"));
+          } else if (!autoMove) {
+            showToast(`${res.spam_found} posible${res.spam_found > 1 ? "s" : ""} spam detectado${res.spam_found > 1 ? "s" : ""}`);
+          }
+        } else {
+          showToast("No se detectó spam");
+        }
       }
     } catch {
       showToast("Error al escanear spam");
@@ -458,18 +490,36 @@ export function MessageList() {
 
   // Note: unread/flagged filtering is done server-side via IMAP SEARCH
   // Do NOT re-filter here — backend results are already correct
+  // Check if there are any high-priority messages before filtering
+  const classifiedUids = Object.keys(priorityMap).map(Number);
+  const hasAnyClassification = classifiedUids.length > 0;
+  const hasHighPriority = hasAnyClassification && Object.values(priorityMap).some(p => p.priority === 'high');
+
   const filtered = messages.filter(m => {
     return true;
   }).filter(m => {
-    // Apply priority filter only in INBOX when priority data is loaded
-    if (currentFolder !== 'INBOX' || Object.keys(priorityMap).length === 0) return true;
+    // Apply priority filter only in INBOX
+    if (currentFolder !== 'INBOX') return true;
+    // If no classification data at all, show everything
+    if (!hasAnyClassification) return true;
+    // Prioritarios tab: show ALL messages (never hide anything)
+    if (activeTab === 'focused') return true;
+    // Otros tab: only show low priority messages
     const p = priorityMap[m.uid];
-    if (!p) return activeTab === 'focused'; // unclassified goes to focused
-    if (activeTab === 'focused') return p.priority === 'high';
-    return p.priority !== 'high'; // "other" tab shows normal + low
+    if (!p) return false; // unclassified = not in otros
+    return p.priority === 'low';
   }).sort((a, b) => {
     if (a.flagged && !b.flagged) return -1;
     if (!a.flagged && b.flagged) return 1;
+    // In Prioritarios, sort high priority first
+    if (currentFolder === 'INBOX' && activeTab === 'focused' && hasAnyClassification) {
+      const pa = priorityMap[a.uid];
+      const pb = priorityMap[b.uid];
+      const order = { high: 0, normal: 1, low: 2 };
+      const oa = pa ? order[pa.priority] : 1;
+      const ob = pb ? order[pb.priority] : 1;
+      if (oa !== ob) return oa - ob;
+    }
     return 0;
   });
 
@@ -673,120 +723,131 @@ export function MessageList() {
   };
 
   return (
-    <div className="message-list-container w-[360px] border-r border-[#edebe9] flex flex-col shrink-0 bg-white">
+    <div className="message-list-container w-[360px] min-w-[260px] border-r border-[#edebe9] flex flex-col shrink-0 bg-white">
       {/* Header with tabs */}
       <div className="border-b border-[#edebe9]">
-        <div className="flex items-center justify-between px-4 pt-2">
-          <div className="flex items-center gap-2">
-            <input type="checkbox"
-              checked={selectedUids.size > 0 && selectedUids.size === filtered.length}
-              ref={(el) => { if (el) el.indeterminate = selectedUids.size > 0 && selectedUids.size < filtered.length; }}
-              onChange={(e) => {
-                if (e.target.checked) {
-                  const s = new Set(filtered.map(m => m.uid));
-                  useMailStore.setState({ selectedUids: s });
-                } else {
-                  useMailStore.getState().clearSelection();
-                }
-              }}
-              className="w-4 h-4 rounded border-[#c8c6c4] text-[#0078d4] cursor-pointer accent-[#0078d4]"
-              title="Seleccionar todos" />
-            <h2 className="text-[14px] font-semibold text-[#323130] cursor-pointer hover:text-[#0078d4] transition-colors" onClick={() => { useMailStore.getState().setFilter("all"); setActiveTab("focused"); }}>{folderLabel}</h2>
-          </div>
-          <div className="flex items-center gap-1">
-            {/* View mode toggle */}
-            <button
-              onClick={() => useMailStore.getState().setViewMode(isConversationMode ? 'messages' : 'conversations')}
-              className={`px-1.5 py-0.5 rounded transition-colors mr-1 ${
-                isConversationMode ? 'text-[#0078d4]' : 'text-[#a19f9d] hover:text-[#605e5c]'
-              }`}
-              title={isConversationMode ? 'Vista de conversaciones (clic para cambiar a mensajes)' : 'Vista de mensajes (clic para cambiar a conversaciones)'}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                {isConversationMode ? (
-                  /* Conversation/stack icon */
-                  <g strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}>
-                    <path d="M19 7H5a2 2 0 00-2 2v8a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2z" />
-                    <path d="M5 7V5a2 2 0 012-2h10a2 2 0 012 2v2" />
-                  </g>
-                ) : (
-                  /* List icon */
-                  <g strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}>
-                    <path d="M4 6h16M4 12h16M4 18h16" />
-                  </g>
-                )}
-              </svg>
-            </button>
-            <div className="w-px h-4 bg-[#e1dfdd]" />
-            <button
-              onClick={() => scanSpam(true)}
-              disabled={spamScanning}
-              className={`px-1.5 py-0.5 rounded transition-colors mr-1 ${
-                spamScanning ? 'text-[#ca5010] animate-pulse' : 'text-[#a19f9d] hover:text-[#ca5010] hover:bg-[#fde7e9]'
-              }`}
-              title={spamScanning ? 'Escaneando...' : 'Escanear spam con IA'}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-              </svg>
-            </button>
-            {spamResults.length > 0 && (
-              <span className="text-[10px] text-[#ca5010] font-bold mr-1" title="Spam detectado">
-                {spamResults.length}!
-              </span>
-            )}
-            <div className="w-px h-4 bg-[#e1dfdd] mr-1" />
+        <div className="flex items-center px-3 pt-2 gap-1.5">
+          <input type="checkbox"
+            checked={selectedUids.size > 0 && selectedUids.size === filtered.length}
+            ref={(el) => { if (el) el.indeterminate = selectedUids.size > 0 && selectedUids.size < filtered.length; }}
+            onChange={(e) => {
+              if (e.target.checked) {
+                const s = new Set(filtered.map(m => m.uid));
+                useMailStore.setState({ selectedUids: s });
+              } else {
+                useMailStore.getState().clearSelection();
+              }
+            }}
+            className="w-4 h-4 shrink-0 rounded border-[#c8c6c4] text-[#0078d4] cursor-pointer accent-[#0078d4]"
+            title="Seleccionar todos" />
+          <h2 className="text-[14px] font-semibold text-[#323130] cursor-pointer hover:text-[#0078d4] transition-colors whitespace-nowrap" onClick={() => { const s = useMailStore.getState(); if (s.filter !== 'all') s.setFilter('all'); setActiveTab('focused'); }}>{folderLabel}</h2>
+          <div className="flex-1" />
+          <div className="flex items-center shrink-0 bg-[#f3f2f1] rounded-md p-0.5">
             {(['all','unread','flagged'] as const).map(f => (
               <button key={f} onClick={() => useMailStore.getState().setFilter(f)}
-                className={`px-2 py-0.5 text-[11px] rounded transition-colors ${
-                  filter === f ? 'bg-[#e1dfdd] text-[#323130] font-medium' : 'text-[#605e5c] hover:bg-[#e1dfdd]'
+                className={`px-2 py-0.5 text-[11px] rounded cursor-pointer transition-colors whitespace-nowrap ${
+                  filter === f ? 'bg-white text-[#323130] font-medium shadow-sm' : 'text-[#605e5c] hover:text-[#323130]'
                 }`}>{f === 'all' ? 'Todos' : f === 'unread' ? 'No leídos' : 'Marcados'}</button>
             ))}
           </div>
         </div>
-        {/* Focused / Other tabs */}
+        {/* Focused / Other tabs + action icons */}
         {currentFolder === 'INBOX' && (
-          <div className="flex px-4 mt-1">
+          <div className="flex items-center px-3 mt-1">
             {(['focused','other'] as const).map(tab => (
               <button key={tab} onClick={() => setActiveTab(tab)}
                 className={`px-3 py-1.5 text-[13px] border-b-2 transition-colors ${
                   activeTab === tab ? 'border-[#0078d4] text-[#0078d4] font-medium' : 'border-transparent text-[#605e5c] hover:text-[#323130]'
                 }`}>{tab === 'focused' ? 'Prioritarios' : 'Otros'}</button>
             ))}
+            <div className="flex-1" />
+            <button
+              onClick={() => scanSpam(true)}
+              disabled={spamScanning}
+              className={`p-1 rounded transition-colors ${
+                spamScanning ? 'text-[#ca5010] animate-pulse' : 'text-[#a19f9d] hover:text-[#ca5010] hover:bg-[#fde7e9]'
+              }`}
+              title={spamScanning ? 'Escaneando...' : selectedMessage ? 'Escanear este mensaje con IA' : 'Escanear carpeta por spam'}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+              </svg>
+            </button>
+            {spamResults.length > 0 && (
+              <span className="text-[10px] text-[#ca5010] font-bold" title="Spam detectado">
+                {spamResults.length}!
+              </span>
+            )}
+            <button
+              onClick={() => useMailStore.getState().setViewMode(isConversationMode ? 'messages' : 'conversations')}
+              className={`p-1 rounded transition-colors ${
+                isConversationMode ? 'text-[#0078d4]' : 'text-[#a19f9d] hover:text-[#605e5c]'
+              }`}
+              title={isConversationMode ? 'Conversaciones (clic → mensajes)' : 'Mensajes (clic → conversaciones)'}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                {isConversationMode ? (
+                  <g strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}>
+                    <path d="M19 7H5a2 2 0 00-2 2v8a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2z" />
+                    <path d="M5 7V5a2 2 0 012-2h10a2 2 0 012 2v2" />
+                  </g>
+                ) : (
+                  <g strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}>
+                    <path d="M4 6h16M4 12h16M4 18h16" />
+                  </g>
+                )}
+              </svg>
+            </button>
+          </div>
+        )}
+        {/* Action icons for non-INBOX folders */}
+        {currentFolder !== 'INBOX' && (
+          <div className="flex items-center px-3 pb-1">
+            <div className="flex-1" />
+            <button
+              onClick={() => scanSpam(true)}
+              disabled={spamScanning}
+              className={`p-1 rounded transition-colors ${
+                spamScanning ? 'text-[#ca5010] animate-pulse' : 'text-[#a19f9d] hover:text-[#ca5010] hover:bg-[#fde7e9]'
+              }`}
+              title={spamScanning ? 'Escaneando...' : selectedMessage ? 'Escanear este mensaje con IA' : 'Escanear carpeta por spam'}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+              </svg>
+            </button>
           </div>
         )}
       </div>
 
       {/* Bulk actions bar */}
       {selectedUids.size > 0 && (
-        <div className="flex items-center gap-1 px-3 py-1.5 bg-[#deecf9] border-b border-[#c7e0f4] shrink-0">
-          <span className="text-[12px] text-[#0078d4] font-semibold mr-2">
-            {selectedUids.size} seleccionado{selectedUids.size > 1 ? 's' : ''}
+        <div className="flex items-center gap-0.5 px-2 py-1 bg-[#deecf9] border-b border-[#c7e0f4] shrink-0">
+          <span className="text-[11px] text-[#0078d4] font-semibold mr-1 whitespace-nowrap shrink-0">
+            {selectedUids.size}
           </span>
-          <button onClick={() => { const uids = Array.from(selectedUids); api.post(`/mail/bulk-action/${encodeURIComponent(currentFolder)}`, { uids, action: currentFolder === 'Trash' ? 'delete' : 'move', dest_folder: 'Trash' }).then(() => { showToast(`${uids.length} mensaje${uids.length > 1 ? 's' : ''} eliminado${uids.length > 1 ? 's' : ''}`); useMailStore.getState().clearSelection(); useMailStore.getState().setSelectedMessage(null); window.dispatchEvent(new CustomEvent('refresh-messages')); }); }}
-            className="px-2 py-1 text-[12px] text-[#d13438] hover:bg-[#fde7e9] rounded flex items-center gap-1 font-medium" title="Eliminar seleccionados">
+          <button onClick={() => { const uids = Array.from(selectedUids); api.post(`/mail/bulk-action/${encodeURIComponent(currentFolder)}`, { uids, action: currentFolder === 'Trash' ? 'delete' : 'move', dest_folder: 'Trash' }).then(() => { showToast(`${uids.length} eliminado${uids.length > 1 ? 's' : ''}`); useMailStore.getState().clearSelection(); useMailStore.getState().setSelectedMessage(null); window.dispatchEvent(new CustomEvent('refresh-messages')); }); }}
+            className="px-1.5 py-1 text-[11px] text-[#d13438] hover:bg-[#fde7e9] rounded flex items-center gap-1 shrink-0" title="Eliminar">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={deleteIcon} /></svg>
-            Eliminar
+            <span>Eliminar</span>
           </button>
           <button onClick={() => { const uids = Array.from(selectedUids); api.post(`/mail/bulk-action/${encodeURIComponent(currentFolder)}`, { uids, action: 'archive', dest_folder: '' }).then(() => { showToast(`${uids.length} archivado${uids.length > 1 ? 's' : ''}`); useMailStore.getState().clearSelection(); useMailStore.getState().setSelectedMessage(null); window.dispatchEvent(new CustomEvent('refresh-messages')); }); }}
-            className="px-2 py-1 text-[12px] text-[#323130] hover:bg-[#c7e0f4] rounded flex items-center gap-1 font-medium" title="Archivar seleccionados">
+            className="px-1.5 py-1 text-[11px] text-[#323130] hover:bg-[#c7e0f4] rounded flex items-center gap-1 shrink-0" title="Archivar">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={archiveIcon} /></svg>
-            Archivar
+            <span>Archivar</span>
           </button>
           <button onClick={() => { const uids = Array.from(selectedUids); api.post(`/mail/bulk-action/${encodeURIComponent(currentFolder)}`, { uids, action: 'mark_read', dest_folder: '' }).then(() => { showToast('Marcados como leídos'); useMailStore.getState().clearSelection(); window.dispatchEvent(new CustomEvent('refresh-messages')); }); }}
-            className="px-2 py-1 text-[12px] text-[#323130] hover:bg-[#c7e0f4] rounded flex items-center gap-1 font-medium" title="Marcar como leídos">
+            className="p-1.5 text-[#323130] hover:bg-[#c7e0f4] rounded shrink-0" title="Marcar como leídos">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21.75 9v.906a2.25 2.25 0 01-1.183 1.981l-6.478 3.488M2.25 9v.906a2.25 2.25 0 001.183 1.981l6.478 3.488m8.839 0l.415.223a.75.75 0 00.882-.264l2.197-2.989M2.25 15.577l.415.223a.75.75 0 01.882-.264l2.197-2.989" /></svg>
-            Leídos
           </button>
           <button onClick={() => { const uids = Array.from(selectedUids); api.post(`/mail/bulk-action/${encodeURIComponent(currentFolder)}`, { uids, action: 'move', dest_folder: 'Junk' }).then(() => { showToast('Movidos a Correo no deseado'); useMailStore.getState().clearSelection(); useMailStore.getState().setSelectedMessage(null); window.dispatchEvent(new CustomEvent('refresh-messages')); }); }}
-            className="px-2 py-1 text-[12px] text-[#323130] hover:bg-[#c7e0f4] rounded flex items-center gap-1 font-medium" title="Marcar como spam">
+            className="p-1.5 text-[#323130] hover:bg-[#c7e0f4] rounded shrink-0" title="Marcar como spam">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
-            Spam
           </button>
           <div className="flex-1" />
           <button onClick={() => useMailStore.getState().clearSelection()}
-            className="px-2 py-1 text-[12px] text-[#605e5c] hover:bg-[#c7e0f4] rounded" title="Deseleccionar">
-            x
+            className="p-1.5 text-[#605e5c] hover:bg-[#c7e0f4] rounded shrink-0" title="Deseleccionar">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
       )}
@@ -809,7 +870,8 @@ export function MessageList() {
             <svg className="w-10 h-10 mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
             </svg>
-            <p className="text-[13px]">No hay mensajes</p>
+            <p className="text-[13px]">{filter === 'flagged' ? 'No hay correos con bandera' : filter === 'unread' ? 'No hay correos sin leer' : 'No hay mensajes'}</p>
+            {filter === 'flagged' && <p className="text-[11px] mt-1 text-[#a19f9d]">Usa el icono de bandera en un correo para marcarlo</p>}
           </div>
         ) : isConversationMode && threadGroups ? (
           threadGroups.map((group, gIdx) => renderThreadGroup(group, gIdx))

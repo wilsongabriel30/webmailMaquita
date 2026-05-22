@@ -1,0 +1,480 @@
+"""
+Firewall & fail2ban management router for Maquita Webmail Admin.
+Prefix: /api/admin/firewall
+"""
+
+import asyncio
+import ipaddress
+import re
+from datetime import datetime, timedelta
+from collections import Counter
+from typing import Optional
+
+from fastapi import APIRouter, Request, HTTPException, Depends, Query
+from pydantic import BaseModel
+
+from app.auth.dependencies import require_admin
+from app.admin import audit_service
+
+router = APIRouter(prefix="/api/admin/firewall", tags=["admin-firewall"])
+
+BLACKLIST_FILE = "/etc/maquita-mail/blacklist-ips.txt"
+RSPAMD_BLACKLIST = "/etc/rspamd/local.d/maps/blacklist-ips.txt"
+MAIL_LOG = "/var/log/mail.log"
+
+FAIL2BAN_JAILS = [
+    "postfix-sasl",
+    "dovecot",
+    "postfix-rbl",
+    "recidive",
+]
+
+
+# ── Helpers ──────────────────────────────────────────────────
+
+
+def _get_ip(request: Request) -> str:
+    return request.headers.get("X-Real-IP", request.client.host if request.client else "unknown")
+
+
+async def _audit(request: Request, admin: str, action: str, target: str = None, details: dict = None):
+    db = request.app.state.db_pool
+    await audit_service.log_action(db, admin, action, target, details, _get_ip(request))
+
+
+async def _run_cmd(*args: str, timeout: int = 30) -> tuple[str, str, int]:
+    """Run a subprocess and return (stdout, stderr, returncode)."""
+    proc = await asyncio.create_subprocess_exec(
+        *args,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    try:
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+    except asyncio.TimeoutError:
+        proc.kill()
+        await proc.communicate()
+        raise HTTPException(504, f"Comando timeout: {' '.join(args[:2])}")
+    return (
+        stdout.decode("utf-8", errors="replace"),
+        stderr.decode("utf-8", errors="replace"),
+        proc.returncode,
+    )
+
+
+def _parse_blacklist(content: str) -> list[dict]:
+    """Parse blacklist file content into list of {ip, reason, date}."""
+    entries = []
+    pending_comment = ""
+    for line in content.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            pending_comment = ""
+            continue
+        if stripped.startswith("#"):
+            pending_comment = stripped.lstrip("# ").strip()
+            continue
+        # It's an IP/CIDR line
+        parts = pending_comment.rsplit(" - ", 1) if pending_comment else ["", ""]
+        reason = parts[0] if len(parts) >= 1 else ""
+        date_str = parts[1] if len(parts) >= 2 else ""
+        entries.append({
+            "ip": stripped,
+            "reason": reason,
+            "date": date_str,
+        })
+        pending_comment = ""
+    return entries
+
+
+def _validate_ip_or_cidr(value: str) -> bool:
+    """Validate that value is a valid IP address or CIDR range."""
+    try:
+        if "/" in value:
+            ipaddress.ip_network(value, strict=False)
+        else:
+            ipaddress.ip_address(value)
+        return True
+    except ValueError:
+        return False
+
+
+async def _read_file(path: str) -> str:
+    """Read file content."""
+    try:
+        stdout, _, rc = await _run_cmd("cat", path)
+        if rc != 0:
+            return ""
+        return stdout
+    except Exception:
+        return ""
+
+
+async def _get_blacklist_ips() -> list[dict]:
+    content = await _read_file(BLACKLIST_FILE)
+    return _parse_blacklist(content)
+
+
+# ── Models ───────────────────────────────────────────────────
+
+
+class BlacklistAddRequest(BaseModel):
+    ip: str
+    reason: str = ""
+
+
+class BanToPermanentRequest(BaseModel):
+    ip: str
+
+
+# ── Endpoints ────────────────────────────────────────────────
+
+
+@router.get("/dashboard")
+async def firewall_dashboard(request: Request, admin: str = Depends(require_admin)):
+    """Dashboard con estadísticas generales del firewall."""
+
+    # 1. Total IPs bloqueadas permanentes
+    blacklist_entries = await _get_blacklist_ips()
+    total_blocked = len(blacklist_entries)
+
+    # 2. fail2ban stats por jail
+    jail_stats = {}
+    total_banned = 0
+    active_jails = 0
+    for jail in FAIL2BAN_JAILS:
+        stdout, _, rc = await _run_cmd("fail2ban-client", "status", jail)
+        if rc == 0:
+            active_jails += 1
+            # Parse "Currently banned: N"
+            match = re.search(r"Currently banned:\s*(\d+)", stdout)
+            banned = int(match.group(1)) if match else 0
+            # Parse "Total banned: N"
+            total_match = re.search(r"Total banned:\s*(\d+)", stdout)
+            total_hist = int(total_match.group(1)) if total_match else 0
+            jail_stats[jail] = {
+                "currently_banned": banned,
+                "total_banned": total_hist,
+            }
+            total_banned += banned
+        else:
+            jail_stats[jail] = {"currently_banned": 0, "total_banned": 0, "error": "jail no activo"}
+
+    # 3. Ataques últimas 24h
+    since = (datetime.now() - timedelta(hours=24)).strftime("%b %d")
+    stdout, _, _ = await _run_cmd(
+        "grep", "-c", "-i", "authentication fail", MAIL_LOG,
+    )
+    attacks_24h = int(stdout.strip()) if stdout.strip().isdigit() else 0
+
+    # Also count SASL failures
+    stdout2, _, _ = await _run_cmd(
+        "grep", "-c", "-i", "SASL.*authentication failed", MAIL_LOG,
+    )
+    sasl_fails = int(stdout2.strip()) if stdout2.strip().isdigit() else 0
+    attacks_24h = max(attacks_24h, sasl_fails)
+
+    # 4. Top 10 IPs atacantes
+    stdout, _, _ = await _run_cmd(
+        "bash", "-c",
+        f'grep -i -E "(authentication fail|SASL.*authentication failed)" {MAIL_LOG} '
+        f'| grep -oP "\\b(?:[0-9]{{1,3}}\\.?){{4}}\\b" '
+        f'| sort | uniq -c | sort -rn | head -10',
+    )
+    top_ips = []
+    for line in stdout.strip().splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        parts = line.split(None, 1)
+        if len(parts) == 2:
+            count_str, ip = parts
+            if _validate_ip_or_cidr(ip):
+                top_ips.append({"ip": ip, "count": int(count_str), "type": "auth_fail"})
+
+    return {
+        "total_blocked_permanent": total_blocked,
+        "total_banned_fail2ban": total_banned,
+        "attacks_24h": attacks_24h,
+        "active_jails": active_jails,
+        "jail_stats": jail_stats,
+        "top_attacking_ips": top_ips[:10],
+    }
+
+
+@router.get("/attacks")
+async def list_attacks(
+    request: Request,
+    hours: int = Query(24, ge=1, le=168),
+    limit: int = Query(50, ge=1, le=500),
+    admin: str = Depends(require_admin),
+):
+    """Listar ataques recientes agrupados por IP."""
+    stdout, _, _ = await _run_cmd(
+        "bash", "-c",
+        f'grep -i -E "(authentication fail|SASL.*authentication failed|unknown\\[)" {MAIL_LOG} '
+        f'| tail -{limit * 5}',
+        timeout=60,
+    )
+
+    ip_data: dict[str, dict] = {}
+    for line in stdout.strip().splitlines():
+        if not line:
+            continue
+
+        # Extract IP
+        ip_match = re.search(r"\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b", line)
+        if not ip_match:
+            continue
+        ip = ip_match.group(1)
+
+        # Determine attack type
+        if "SASL" in line.upper():
+            attack_type = "sasl_fail"
+        elif "authentication fail" in line.lower():
+            attack_type = "auth_fail"
+        else:
+            attack_type = "other"
+
+        # Extract username attempted
+        user_match = re.search(r"user=<?([^>,\s]+)", line)
+        username = user_match.group(1) if user_match else ""
+        if not username:
+            user_match2 = re.search(r"SASL\s+\w+\s+authentication failed:?\s*(.*)", line, re.IGNORECASE)
+            username = user_match2.group(1).strip() if user_match2 else ""
+
+        # Extract timestamp
+        ts_match = re.match(r"^(\w{3}\s+\d+\s+\d+:\d+:\d+)", line)
+        timestamp = ts_match.group(1) if ts_match else ""
+
+        if ip not in ip_data:
+            ip_data[ip] = {
+                "ip": ip,
+                "count": 0,
+                "type": attack_type,
+                "username_attempted": username,
+                "timestamp": timestamp,
+                "events": [],
+            }
+        ip_data[ip]["count"] += 1
+        if len(ip_data[ip]["events"]) < 5:
+            ip_data[ip]["events"].append({
+                "timestamp": timestamp,
+                "type": attack_type,
+                "username_attempted": username,
+            })
+
+    # Sort by count descending
+    sorted_attacks = sorted(ip_data.values(), key=lambda x: x["count"], reverse=True)
+    return {"attacks": sorted_attacks[:limit], "total": len(sorted_attacks)}
+
+
+@router.get("/banned")
+async def list_banned(request: Request, admin: str = Depends(require_admin)):
+    """Listar IPs actualmente baneadas por fail2ban."""
+    banned_list = []
+
+    for jail in FAIL2BAN_JAILS:
+        stdout, _, rc = await _run_cmd("fail2ban-client", "status", jail)
+        if rc != 0:
+            continue
+
+        # Parse banned IP list
+        ip_match = re.search(r"Banned IP list:\s*(.*)", stdout)
+        if not ip_match:
+            continue
+
+        ips_str = ip_match.group(1).strip()
+        if not ips_str:
+            continue
+
+        for ip in ips_str.split():
+            ip = ip.strip()
+            if not ip:
+                continue
+            banned_list.append({
+                "ip": ip,
+                "jail": jail,
+                "status": "banned",
+            })
+
+    return {"banned": banned_list, "total": len(banned_list)}
+
+
+@router.get("/blacklist")
+async def list_blacklist(request: Request, admin: str = Depends(require_admin)):
+    """Listar IPs en la blacklist permanente."""
+    entries = await _get_blacklist_ips()
+    return {"blacklist": entries, "total": len(entries)}
+
+
+@router.post("/blacklist")
+async def add_to_blacklist(
+    body: BlacklistAddRequest,
+    request: Request,
+    admin: str = Depends(require_admin),
+):
+    """Agregar IP/CIDR a la blacklist permanente."""
+    ip = body.ip.strip()
+    reason = body.reason.strip() or "Bloqueado manualmente"
+
+    if not _validate_ip_or_cidr(ip):
+        raise HTTPException(400, f"IP/CIDR inválido: {ip}")
+
+    # Check if already in blacklist
+    existing = await _get_blacklist_ips()
+    for entry in existing:
+        if entry["ip"] == ip:
+            raise HTTPException(409, f"IP {ip} ya está en la blacklist")
+
+    date_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+    comment_line = f"# {reason} - {date_str}"
+    ip_line = ip
+
+    # 1. Add to main blacklist file
+    append_text = f"\n{comment_line}\n{ip_line}\n"
+    await _run_cmd("bash", "-c", f'echo -n {repr(append_text)} >> {BLACKLIST_FILE}')
+
+    # 2. Copy to rspamd maps
+    await _run_cmd("cp", BLACKLIST_FILE, RSPAMD_BLACKLIST)
+
+    # 3. Add to nftables blacklist_ips set
+    ip_for_nft = ip.split("/")[0] if "/" not in ip else ip
+    await _run_cmd("nft", "add", "element", "inet", "filter", "blacklist_ips", f"{{ {ip_for_nft} }}")
+
+    # 4. Reload rspamd
+    await _run_cmd("rspamc", "reload")
+
+    # 5. Audit log
+    await _audit(request, admin, "firewall_blacklist_add", ip, {"reason": reason})
+
+    return {"ok": True, "message": f"IP {ip} agregada a la blacklist permanente"}
+
+
+@router.delete("/blacklist/{ip:path}")
+async def remove_from_blacklist(
+    ip: str,
+    request: Request,
+    admin: str = Depends(require_admin),
+):
+    """Eliminar IP de la blacklist permanente."""
+    ip = ip.strip()
+    if not _validate_ip_or_cidr(ip):
+        raise HTTPException(400, f"IP/CIDR inválido: {ip}")
+
+    # 1. Remove from blacklist file
+    content = await _read_file(BLACKLIST_FILE)
+    lines = content.splitlines()
+    new_lines = []
+    skip_next = False
+    found = False
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped == ip:
+            found = True
+            # Also remove the comment line before it if it exists
+            if new_lines and new_lines[-1].strip().startswith("#"):
+                new_lines.pop()
+            continue
+        new_lines.append(line)
+
+    if not found:
+        raise HTTPException(404, f"IP {ip} no encontrada en la blacklist")
+
+    new_content = "\n".join(new_lines) + "\n"
+    await _run_cmd("bash", "-c", f"cat > {BLACKLIST_FILE} << 'ENDOFFILE'\n{new_content}ENDOFFILE")
+
+    # 2. Update rspamd maps
+    await _run_cmd("cp", BLACKLIST_FILE, RSPAMD_BLACKLIST)
+
+    # 3. Remove from nftables set
+    ip_for_nft = ip.split("/")[0] if "/" not in ip else ip
+    await _run_cmd("nft", "delete", "element", "inet", "filter", "blacklist_ips", f"{{ {ip_for_nft} }}")
+
+    # 4. Reload rspamd
+    await _run_cmd("rspamc", "reload")
+
+    # 5. Audit log
+    await _audit(request, admin, "firewall_blacklist_remove", ip)
+
+    return {"ok": True, "message": f"IP {ip} eliminada de la blacklist"}
+
+
+@router.post("/ban-to-permanent")
+async def ban_to_permanent(
+    body: BanToPermanentRequest,
+    request: Request,
+    admin: str = Depends(require_admin),
+):
+    """Promover un ban temporal de fail2ban a blacklist permanente."""
+    ip = body.ip.strip()
+    if not _validate_ip_or_cidr(ip):
+        raise HTTPException(400, f"IP inválido: {ip}")
+
+    reason = "Reincidente - promovido desde fail2ban"
+    date_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+    comment_line = f"# {reason} - {date_str}"
+
+    # Check if already in blacklist
+    existing = await _get_blacklist_ips()
+    for entry in existing:
+        if entry["ip"] == ip:
+            return {"ok": True, "message": f"IP {ip} ya estaba en la blacklist permanente"}
+
+    # Add to blacklist
+    append_text = f"\n{comment_line}\n{ip}\n"
+    await _run_cmd("bash", "-c", f'echo -n {repr(append_text)} >> {BLACKLIST_FILE}')
+    await _run_cmd("cp", BLACKLIST_FILE, RSPAMD_BLACKLIST)
+    await _run_cmd("nft", "add", "element", "inet", "filter", "blacklist_ips", f"{{ {ip} }}")
+    await _run_cmd("rspamc", "reload")
+
+    await _audit(request, admin, "firewall_ban_to_permanent", ip, {"reason": reason})
+
+    return {"ok": True, "message": f"IP {ip} promovida a blacklist permanente"}
+
+
+@router.get("/fail2ban/config")
+async def fail2ban_config(request: Request, admin: str = Depends(require_admin)):
+    """Obtener configuración actual de cada jail de fail2ban."""
+    configs = {}
+    for jail in FAIL2BAN_JAILS:
+        jail_config = {"name": jail}
+
+        for prop in ["bantime", "maxretry", "findtime"]:
+            stdout, _, rc = await _run_cmd("fail2ban-client", "get", jail, prop)
+            if rc == 0:
+                val = stdout.strip()
+                try:
+                    jail_config[prop] = int(val)
+                except ValueError:
+                    jail_config[prop] = val
+            else:
+                jail_config[prop] = None
+
+        # Human-readable bantime
+        if isinstance(jail_config.get("bantime"), int):
+            secs = jail_config["bantime"]
+            if secs >= 86400:
+                jail_config["bantime_human"] = f"{secs // 86400} día(s)"
+            elif secs >= 3600:
+                jail_config["bantime_human"] = f"{secs // 3600} hora(s)"
+            else:
+                jail_config["bantime_human"] = f"{secs // 60} minuto(s)"
+        else:
+            jail_config["bantime_human"] = str(jail_config.get("bantime", "N/A"))
+
+        # Human-readable findtime
+        if isinstance(jail_config.get("findtime"), int):
+            secs = jail_config["findtime"]
+            if secs >= 86400:
+                jail_config["findtime_human"] = f"{secs // 86400} día(s)"
+            elif secs >= 3600:
+                jail_config["findtime_human"] = f"{secs // 3600} hora(s)"
+            else:
+                jail_config["findtime_human"] = f"{secs // 60} minuto(s)"
+        else:
+            jail_config["findtime_human"] = str(jail_config.get("findtime", "N/A"))
+
+        configs[jail] = jail_config
+
+    return {"jails": configs}

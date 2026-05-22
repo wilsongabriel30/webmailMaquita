@@ -5,6 +5,7 @@ export const SYSTEM_FOLDER_LABELS: Record<string, string> = {
   Trash: 'Papelera',
   Junk: 'Correo no deseado',
   Archive: 'Archivo',
+  Snoozed: 'Pospuestos',
 };
 
 export function getFolderDisplayName(name: string): string {

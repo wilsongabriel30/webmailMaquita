@@ -14,6 +14,14 @@ createRoot(document.getElementById("root")!).render(
 // Register service worker for PWA / offline support
 // Registro único: solo se registra una vez por sesión. Las actualizaciones
 // se manejan con un banner en vez de recargas automáticas para evitar loops.
+// Reset PWA install dismiss if not installed (allows re-prompt after uninstall)
+if (!window.matchMedia('(display-mode: standalone)').matches) {
+  const dismissed = localStorage.getItem('pwa-install-dismissed');
+  if (dismissed && Date.now() - parseInt(dismissed) > 24 * 60 * 60 * 1000) {
+    localStorage.removeItem('pwa-install-dismissed');
+  }
+}
+
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("/webmail/sw.js")
@@ -48,3 +56,22 @@ if ("serviceWorker" in navigator) {
       .catch(() => {});
   });
 }
+
+// Listen for SW messages (offline outbox queuing)
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', async (event) => {
+    if (event.data?.type === 'queue-outbox') {
+      const { addToOutbox } = await import('./lib/offlineStore');
+      await addToOutbox(event.data.payload);
+    }
+    if (event.data?.type === 'trigger-sync') {
+      const { syncAll } = await import('./lib/syncQueue');
+      const result = await syncAll();
+      if (result.sent > 0 || result.actions > 0) {
+        window.dispatchEvent(new CustomEvent('offline-sync-complete', { detail: result }));
+        window.dispatchEvent(new CustomEvent('refresh-messages'));
+      }
+    }
+  });
+}
+

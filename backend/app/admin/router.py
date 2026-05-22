@@ -196,6 +196,44 @@ async def toggle_mailbox_active(username: str, request: Request, admin: str = De
     return result
 
 
+
+
+@router.post("/mailboxes/{username:path}/unlock")
+async def unlock_mailbox(username: str, request: Request, admin: str = Depends(require_admin)):
+    """Desbloquea una cuenta: limpia rate limits de login y bloqueos de seguridad."""
+    redis = request.app.state.redis
+    cleared = []
+    # Rate limit de login por usuario
+    if await redis.delete(f"login_rl:user:{username}"):
+        cleared.append("login_rate_limit")
+    # Bloqueo de cuenta (security module)
+    if await redis.delete(f"account_blocked:{username}"):
+        cleared.append("account_blocked")
+    # Rate limit de envío
+    if await redis.delete(f"send_history:{username}"):
+        cleared.append("send_history")
+    if await redis.delete(f"send_recipients:{username}"):
+        cleared.append("send_recipients")
+    await _audit(request, admin, "mailbox_unlock", username, {"cleared": cleared})
+    return {"unlocked": True, "username": username, "cleared": cleared}
+
+
+@router.get("/mailboxes/{username:path}/lock-status")
+async def mailbox_lock_status(username: str, request: Request, admin: str = Depends(require_admin)):
+    """Verifica si una cuenta está bloqueada por rate limit o seguridad."""
+    redis = request.app.state.redis
+    login_rl = await redis.get(f"login_rl:user:{username}")
+    login_rl_ttl = await redis.ttl(f"login_rl:user:{username}") if login_rl else -1
+    account_blocked = await redis.exists(f"account_blocked:{username}")
+    return {
+        "username": username,
+        "login_attempts": int(login_rl) if login_rl else 0,
+        "login_blocked": int(login_rl or 0) > 10,
+        "login_ttl_seconds": login_rl_ttl if login_rl_ttl > 0 else 0,
+        "account_blocked": bool(account_blocked),
+    }
+
+
 # -- Aliases --
 
 @router.get("/aliases")
@@ -242,6 +280,145 @@ async def delete_alias(address: str, request: Request, admin: str = Depends(requ
         raise HTTPException(404, "Alias not found")
 
     await _audit(request, admin, "alias_delete", address)
+    return {"ok": True}
+
+
+
+# -- Distribution Groups --
+
+@router.get("/groups")
+async def list_groups(request: Request, domain: str = None, search: str = None, admin: str = Depends(require_admin)):
+    db = _get_db(request)
+    clauses = []
+    params = []
+    idx = 1
+    if domain:
+        clauses.append(f"g.domain = ${idx}")
+        params.append(domain)
+        idx += 1
+    if search:
+        clauses.append(f"(g.address ILIKE ${idx} OR g.name ILIKE ${idx} OR g.description ILIKE ${idx})")
+        params.append(f"%{search}%")
+        idx += 1
+    where = "WHERE " + " AND ".join(clauses) if clauses else ""
+    rows = await db.fetch(f"""
+        SELECT g.*, (SELECT count(*) FROM mail_group_members gm WHERE gm.group_id = g.id) AS member_count
+        FROM mail_groups g {where}
+        ORDER BY g.name
+    """, *params)
+    return [dict(r) for r in rows]
+
+
+@router.post("/groups", status_code=201)
+async def create_group(request: Request, admin: str = Depends(require_admin)):
+    data = await request.json()
+    address = data.get("address", "").strip().lower()
+    name = data.get("name", "").strip()
+    description = data.get("description", "").strip()
+    domain = data.get("domain", "").strip()
+    if not address:
+        raise HTTPException(400, "Address required")
+    if not domain and "@" in address:
+        domain = address.split("@")[1]
+    db = _get_db(request)
+    try:
+        row = await db.fetchrow("""
+            INSERT INTO mail_groups (address, name, description, domain, active, allow_external, created_at, modified_at)
+            VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+            RETURNING *
+        """, address, name or address.split("@")[0], description, domain,
+            data.get("active", True), data.get("allow_external", False))
+    except Exception as e:
+        if "duplicate" in str(e).lower():
+            raise HTTPException(400, f"Group {address} already exists")
+        raise HTTPException(400, str(e))
+    await _audit(request, admin, "group_create", address, {"name": name})
+    result = dict(row)
+    result["member_count"] = 0
+    return result
+
+
+@router.put("/groups/{group_id}")
+async def update_group(group_id: int, request: Request, admin: str = Depends(require_admin)):
+    data = await request.json()
+    db = _get_db(request)
+    sets = []
+    params = []
+    idx = 1
+    for field in ("name", "description", "active", "allow_external", "allowed_senders"):
+        if field in data:
+            sets.append(f"{field} = ${idx}")
+            params.append(data[field])
+            idx += 1
+    if not sets:
+        raise HTTPException(400, "Nothing to update")
+    sets.append(f"modified_at = NOW()")
+    params.append(group_id)
+    row = await db.fetchrow(f"""
+        UPDATE mail_groups SET {', '.join(sets)} WHERE id = ${idx} RETURNING *
+    """, *params)
+    if not row:
+        raise HTTPException(404, "Group not found")
+    await _audit(request, admin, "group_update", row["address"], data)
+    result = dict(row)
+    result["member_count"] = await db.fetchval(
+        "SELECT count(*) FROM mail_group_members WHERE group_id = $1", group_id)
+    return result
+
+
+@router.delete("/groups/{group_id}")
+async def delete_group(group_id: int, request: Request, admin: str = Depends(require_admin)):
+    db = _get_db(request)
+    row = await db.fetchrow("DELETE FROM mail_groups WHERE id = $1 RETURNING address", group_id)
+    if not row:
+        raise HTTPException(404, "Group not found")
+    await _audit(request, admin, "group_delete", row["address"])
+    return {"ok": True}
+
+
+@router.get("/groups/{group_id}/members")
+async def list_group_members(group_id: int, request: Request, admin: str = Depends(require_admin)):
+    db = _get_db(request)
+    rows = await db.fetch("""
+        SELECT * FROM mail_group_members WHERE group_id = $1 ORDER BY member_email
+    """, group_id)
+    return [dict(r) for r in rows]
+
+
+@router.post("/groups/{group_id}/members", status_code=201)
+async def add_group_member(group_id: int, request: Request, admin: str = Depends(require_admin)):
+    data = await request.json()
+    member_email = data.get("member_email", "").strip().lower()
+    if not member_email:
+        raise HTTPException(400, "member_email required")
+    db = _get_db(request)
+    group = await db.fetchrow("SELECT address FROM mail_groups WHERE id = $1", group_id)
+    if not group:
+        raise HTTPException(404, "Group not found")
+    try:
+        row = await db.fetchrow("""
+            INSERT INTO mail_group_members (group_id, member_email, member_name, can_send, receive, added_at)
+            VALUES ($1, $2, $3, true, true, NOW())
+            RETURNING *
+        """, group_id, member_email, data.get("member_name", member_email.split("@")[0]))
+    except Exception as e:
+        if "duplicate" in str(e).lower():
+            raise HTTPException(400, f"{member_email} already in group")
+        raise HTTPException(400, str(e))
+    await _audit(request, admin, "group_member_add", group["address"], {"member": member_email})
+    return dict(row)
+
+
+@router.delete("/groups/{group_id}/members/{member_id}")
+async def remove_group_member(group_id: int, member_id: int, request: Request, admin: str = Depends(require_admin)):
+    db = _get_db(request)
+    row = await db.fetchrow("""
+        DELETE FROM mail_group_members WHERE id = $1 AND group_id = $2 RETURNING member_email
+    """, member_id, group_id)
+    if not row:
+        raise HTTPException(404, "Member not found")
+    group = await db.fetchrow("SELECT address FROM mail_groups WHERE id = $1", group_id)
+    await _audit(request, admin, "group_member_remove", group["address"] if group else str(group_id), {"member": row["member_email"]})
     return {"ok": True}
 
 

@@ -11,10 +11,13 @@ import { useMailStore } from "../../store/mailStore";
 import { CommandPalette } from "../common/CommandPalette";
 import { useResponsive } from "../../hooks/useResponsive";
 import { OfflineBanner } from "../common/OfflineBanner";
+import { useOfflineSync } from "../../hooks/useOfflineSync";
+import { InstallPrompt } from "../common/InstallPrompt";
 
 export function AppLayout() {
   useKeyboardShortcuts();
   useWebSocket();
+  useOfflineSync();
   const dark = useThemeStore((s) => s.dark);
   const { isMobile, isTablet, drawerOpen, closeDrawer, toggleDrawer } = useResponsive();
   const location = useLocation();
@@ -103,6 +106,7 @@ export function AppLayout() {
         <div aria-live="polite" aria-atomic="true" className="sr-only" id="a11y-announcer" />
       </div>
       <CommandPalette />
+      <InstallPrompt />
     </div>
   );
 }

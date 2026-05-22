@@ -42,6 +42,7 @@ export function useWebSocket(enabled: boolean = true) {
   }, []);
 
   const updateTabBadge = useCallback((unseen: number) => {
+    if (unseen < 0 || unseen > 99999) return;
     const base = document.title.replace(/^\(\d+\)\s*/, '');
     document.title = unseen > 0 ? `(${unseen}) ${base}` : base;
   }, []);
@@ -74,8 +75,10 @@ export function useWebSocket(enabled: boolean = true) {
               );
               useMailStore.getState().setFolders(folders);
 
-              // Update tab badge
-              updateTabBadge(data.unseen);
+              // Update tab badge — only from INBOX unseen
+              if (data.folder === 'INBOX') {
+                updateTabBadge(data.unseen);
+              }
 
               // Show toast notification
               const delta = data.delta || 1;

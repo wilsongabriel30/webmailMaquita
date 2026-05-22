@@ -3,13 +3,25 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" href="/api/branding/file/favicon/favicon.jpg" />
-    <meta name="theme-color" content="#2563eb" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0078d4" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>Maquita Mail</title>
     <link rel="manifest" href="/webmail/manifest.json">
+    <!-- PWA Android -->
     <meta name="mobile-web-app-capable" content="yes">
+    <!-- PWA iOS -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Maquita Mail">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="apple-touch-icon" href="/webmail/icons/icon-192.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/webmail/icons/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="512x512" href="/webmail/icons/icon-512.png">
+    <!-- Splash screen iOS -->
+    <meta name="apple-mobile-web-app-orientations" content="portrait-any">
+    <!-- Prevent phone number detection -->
+    <meta name="format-detection" content="telephone=no">
+    <!-- MS Tile -->
+    <meta name="msapplication-TileColor" content="#0078d4">
+    <meta name="msapplication-TileImage" content="/webmail/icons/icon-192.png">
   </head>
   <body>
     <div id="root"></div>

@@ -137,7 +137,7 @@ def _expand_recurrence(event: EventOut, range_start: datetime, range_end: dateti
 class CalendarService:
     """Dual-write calendar service (PostgreSQL + Radicale)."""
 
-    # ── Calendars ──────────────────────────────────────────
+    # Ã¢ÂÂÃ¢ÂÂ Calendars Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
 
     async def ensure_default_calendar(
         self, db: asyncpg.Pool, user: str
@@ -260,7 +260,7 @@ class CalendarService:
         await db.execute("DELETE FROM calendars WHERE id = $1", calendar_id)
         return True
 
-    # ── Events ─────────────────────────────────────────────
+    # Ã¢ÂÂÃ¢ÂÂ Events Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
 
     async def create_event(
         self, db: asyncpg.Pool, user: str, data: EventCreate
@@ -318,8 +318,16 @@ class CalendarService:
             "OPAQUE",
             data.timezone,
             json.dumps(data.reminders),
-            json.dumps(data.attendees),
+            json.dumps(_merge_attendees(data)),
         )
+
+        # Auto-invite attendees
+        merged_att = _merge_attendees(data)
+        if merged_att:
+            try:
+                await self._auto_invite_attendees(db, user, row, merged_att)
+            except Exception as e:
+                logger.warning("Auto-invite failed: %s", e)
 
         return EventOut(
             id=row["id"],
@@ -427,13 +435,30 @@ class CalendarService:
         if "description" in updates:
             updates["description"] = sanitize_html(updates["description"] or "")
 
+        # Merge attendees with optional_attendees into proper format
+        if "attendees" in updates or "optional_attendees" in updates:
+            merged = []
+            for a in (updates.get("attendees") or []):
+                if isinstance(a, str):
+                    merged.append({"email": a, "role": "REQ-PARTICIPANT"})
+                elif isinstance(a, dict):
+                    a.setdefault("role", "REQ-PARTICIPANT")
+                    merged.append(a)
+            for a in (updates.get("optional_attendees") or []):
+                if isinstance(a, str):
+                    merged.append({"email": a, "role": "OPT-PARTICIPANT"})
+                elif isinstance(a, dict):
+                    a["role"] = "OPT-PARTICIPANT"
+                    merged.append(a)
+            updates["attendees"] = merged
+
         # Build SET clause
         set_clauses = []
         params = []
         idx = 3
         for key, val in updates.items():
             if key == "optional_attendees":
-                continue  # handled below with attendees
+                continue  # already merged into attendees above
             if key in ("reminders", "attendees"):
                 set_clauses.append(f"{key} = ${idx}::jsonb")
                 params.append(json.dumps(val))
@@ -475,6 +500,13 @@ class CalendarService:
         await radicale_client.put_event(
             user, cal["radicale_path"], row["uid"], vcal_str
         )
+
+        # Auto-invite attendees on update
+        if event_dict["attendees"]:
+            try:
+                await self._auto_invite_attendees(db, user, row, event_dict["attendees"])
+            except Exception as e:
+                logger.warning("Auto-invite on update failed: %s", e)
 
         return EventOut(
             id=row["id"],
@@ -584,7 +616,7 @@ class CalendarService:
         return ical.to_ical().decode("utf-8")
 
 
-    # ── Calendar Sharing ───────────────────────────────────
+    # Ã¢ÂÂÃ¢ÂÂ Calendar Sharing Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
 
     async def share_calendar(
         self, db: asyncpg.Pool, owner: str, calendar_id: uuid.UUID, shared_with: str, permission: str
@@ -687,7 +719,112 @@ class CalendarService:
         )
         return [_row_to_event(r) for r in rows]
 
-    # ── Event Invitations ─────────────────────────────────
+    # Ã¢ÂÂÃ¢ÂÂ Event Invitations Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+
+
+    async def _auto_invite_attendees(self, db: asyncpg.Pool, organizer: str, event_row, attendees: list):
+        """Auto-create event in attendee calendars and send email notifications."""
+        if not attendees:
+            return
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+        from email.mime.base import MIMEBase
+        from email import encoders
+        from email.utils import formatdate
+
+        for att in attendees:
+            email = att if isinstance(att, str) else att.get("email", "")
+            if not email or email == organizer:
+                continue
+
+            # 1. Create event in attendee's calendar (if they have an account)
+            try:
+                att_cal = await db.fetchrow(
+                    "SELECT * FROM calendars WHERE owner_email = $1 AND is_default = true",
+                    email,
+                )
+                if not att_cal:
+                    # Try with @maquita.org version
+                    alt_email = email.replace("@maquita.com.ec", "@maquita.org")
+                    att_cal = await db.fetchrow(
+                        "SELECT * FROM calendars WHERE owner_email = $1 AND is_default = true",
+                        alt_email,
+                    )
+                if att_cal:
+                    # Check if event already exists (by uid) in attendee's calendar
+                    existing = await db.fetchrow(
+                        "SELECT id FROM events WHERE uid = $1 AND calendar_id = $2",
+                        event_row["uid"], att_cal["id"],
+                    )
+                    if not existing:
+                        await db.execute(
+                            """INSERT INTO events
+                               (calendar_id, uid, summary, description, location,
+                                dtstart, dtend, all_day, rrule, status, transparency,
+                                timezone, reminders, attendees)
+                               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14::jsonb)""",
+                            att_cal["id"],
+                            event_row["uid"],
+                            event_row["summary"],
+                            event_row["description"],
+                            event_row["location"],
+                            event_row["dtstart"],
+                            event_row["dtend"],
+                            event_row["all_day"],
+                            event_row["rrule"],
+                            "CONFIRMED",
+                            "OPAQUE",
+                            event_row["timezone"],
+                            json.dumps(event_row["reminders"] if event_row["reminders"] else []) if not isinstance(event_row["reminders"], str) else event_row["reminders"],
+                            json.dumps([{"email": organizer, "role": "ORGANIZER"}] + list(attendees)),
+                        )
+                    else:
+                        # Update existing
+                        await db.execute(
+                            """UPDATE events SET summary=$1, description=$2, location=$3,
+                               dtstart=$4, dtend=$5, all_day=$6, rrule=$7, timezone=$8,
+                               attendees=$9::jsonb, updated_at=now()
+                               WHERE uid = $10 AND calendar_id = $11""",
+                            event_row["summary"], event_row["description"], event_row["location"],
+                            event_row["dtstart"], event_row["dtend"], event_row["all_day"],
+                            event_row["rrule"], event_row["timezone"],
+                            json.dumps([{"email": organizer, "role": "ORGANIZER"}] + list(attendees)),
+                            event_row["uid"], att_cal["id"],
+                        )
+            except Exception as e:
+                logger.warning("Could not create event in attendee %s calendar: %s", email, e)
+
+            # 2. Send email notification
+            try:
+                from zoneinfo import ZoneInfo
+                tz = ZoneInfo(event_row.get("timezone") or "America/Guayaquil")
+                dtstart_str = event_row["dtstart"].astimezone(tz).strftime("%d/%m/%Y %H:%M") if event_row["dtstart"] else ""
+                dtend_str = event_row["dtend"].astimezone(tz).strftime("%d/%m/%Y %H:%M") if event_row["dtend"] else ""
+
+                msg = MIMEMultipart("alternative")
+                msg["Subject"] = f"Invitación: {event_row['summary']}"
+                msg["From"] = organizer
+                msg["To"] = email
+                msg["Date"] = formatdate(localtime=True)
+
+                body = (
+                    f"<h3>Ha sido invitado a un evento</h3>"
+                    f"<p><b>{event_row['summary']}</b></p>"
+                    f"<p>Inicio: {dtstart_str}<br>"
+                    f"Fin: {dtend_str}<br>"
+                    f"Lugar: {event_row.get('location', '') or ''}<br></p>"
+                    f"<p>{event_row.get('description', '') or ''}</p>"
+                    f"<p>Organizador: {organizer}</p>"
+                    f"<hr><p><small>Este evento ha sido agregado a su calendario automáticamente.</small></p>"
+                )
+                msg.attach(MIMEText(body, "html", "utf-8"))
+
+                with smtplib.SMTP("127.0.0.1", 25) as s:
+                    s.sendmail(organizer, [email], msg.as_string())
+                logger.info("Invitation sent to %s for event %s", email, event_row["summary"])
+            except Exception as e:
+                logger.warning("Could not send invitation to %s: %s", email, e)
 
     async def send_invitations(
         self, db: asyncpg.Pool, user: str, event_id: uuid.UUID, smtp_config: dict
@@ -723,8 +860,10 @@ class CalendarService:
                 msg["From"] = user
                 msg["To"] = email
                 msg["Date"] = formatdate(localtime=True)
-                dtstart_str = row["dtstart"].strftime("%d/%m/%Y %H:%M") if row["dtstart"] else ""
-                dtend_str = row["dtend"].strftime("%d/%m/%Y %H:%M") if row["dtend"] else ""
+                from zoneinfo import ZoneInfo
+                tz = ZoneInfo(row.get("timezone") or "America/Guayaquil")
+                dtstart_str = row["dtstart"].astimezone(tz).strftime("%d/%m/%Y %H:%M") if row["dtstart"] else ""
+                dtend_str = row["dtend"].astimezone(tz).strftime("%d/%m/%Y %H:%M") if row["dtend"] else ""
                 body = (
                     f"Ha sido invitado al evento: <b>{row['summary']}</b><br>"
                     f"Inicio: {dtstart_str}<br>"
@@ -771,7 +910,7 @@ class CalendarService:
         )
         return {"event_id": str(event_id), "status": status, "user": user}
 
-    # ── Free/Busy ───────────────────────────────────────────
+    # Ã¢ÂÂÃ¢ÂÂ Free/Busy Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
 
     async def freebusy(
         self,
@@ -823,4 +962,5 @@ class CalendarService:
 
 
 calendar_service = CalendarService()
+
 

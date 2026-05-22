@@ -21,7 +21,7 @@ from fastapi import APIRouter, Request, Depends, HTTPException
 
 from app.auth.dependencies import get_current_user
 from app.config import get_settings
-from app.core.session import get_imap_login_user
+from app.core.session import get_imap_login_user, get_user_password
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/mail", tags=["spam"])
@@ -154,30 +154,49 @@ async def scan_for_spam(
     folder: str = "INBOX",
     limit: int = 50,
     auto_move: bool = False,
+    uid: Optional[int] = None,
     user: str = Depends(get_current_user),
 ):
     """
     Escanea el folder buscando spam. Combina heurísticas + IA.
+    Si uid se proporciona, escanea solo ese mensaje específico.
     Si auto_move=true, mueve automáticamente los detectados a Junk.
     """
     db = request.app.state.db_pool
     await ensure_spam_table(db)
 
     # 1) Obtener mensajes
-    from app.mail.clients.imap_client import get_imap_connection
+    from app.mail.clients.imap_client import get_imap_connection, fetch_message_headers
     from app.mail.services.message_service import list_messages
 
-    redis = request.app.state.redis
-    password = await redis.get(f"imap_pass:{user}")
-    if not password:
-        raise HTTPException(status_code=401, detail="Sesión IMAP expirada")
+    password = await get_user_password(request, user)
 
     login_user = await get_imap_login_user(request, user)
     imap = await get_imap_connection(login_user, password)
     try:
-        result = await list_messages(imap, folder, page=1, per_page=limit)
-        messages = result.get("messages", [])
-    except Exception:
+        if uid:
+            # Escaneo de un solo mensaje por UID
+            await imap.select(folder)
+            headers = await fetch_message_headers(imap, [uid])
+            messages = []
+            for h in headers:
+                msg = h if isinstance(h, dict) else {
+                    "uid": getattr(h, "uid", uid),
+                    "subject": getattr(h, "subject", ""),
+                    "from": getattr(h, "from_addr", getattr(h, "sender", "")),
+                    "snippet": getattr(h, "snippet", ""),
+                    "has_attachments": getattr(h, "has_attachments", False),
+                }
+                if isinstance(h, dict):
+                    msg.setdefault("uid", uid)
+                messages.append(msg)
+            if not messages:
+                messages = [{"uid": uid, "subject": "", "from": "", "snippet": ""}]
+        else:
+            result = await list_messages(imap, folder, page=1, per_page=limit)
+            messages = result.get("messages", [])
+    except Exception as e:
+        logger.warning(f"SpamGuard fetch error: {e}")
         messages = []
 
     if not messages:
@@ -385,8 +404,7 @@ async def report_spam(
         )
 
     # Mover a Junk
-    redis = request.app.state.redis
-    password = await redis.get(f"imap_pass:{user}")
+    password = await get_user_password(request, user)
     moved = 0
     if password:
         from app.mail.clients.imap_client import get_imap_connection, uid_bulk_action
@@ -437,8 +455,7 @@ async def mark_not_spam(
         )
 
     # Mover a INBOX si está en Junk
-    redis = request.app.state.redis
-    password = await redis.get(f"imap_pass:{user}")
+    password = await get_user_password(request, user)
     moved = 0
     if password and folder == "Junk":
         from app.mail.clients.imap_client import get_imap_connection, uid_bulk_action

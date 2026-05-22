@@ -98,8 +98,8 @@ export function Topbar() {
     { name: 'Correo', icon: '\u2709\uFE0F', path: '/' },
     { name: 'Calendario', icon: '\uD83D\uDCC5', path: '/calendar' },
     { name: 'Contactos', icon: '\uD83D\uDC65', path: '/contacts' },
-    { name: 'Tareas', icon: '✅', path: '/tasks' },
-    ...(user?.is_admin ? [{ name: 'Administración', icon: '\uD83D\uDEE1\uFE0F', path: '/admin' }] : []),
+    { name: 'Tareas', icon: 'â', path: '/tasks' },
+    ...(user?.is_admin ? [{ name: 'AdministraciÃ³n', icon: '\uD83D\uDEE1\uFE0F', path: '/admin' }] : []),
   ];
 
   return (
@@ -108,7 +108,7 @@ export function Topbar() {
       {(isMobile || isTablet) && (
         <button onClick={() => window.dispatchEvent(new CustomEvent("toggle-mobile-drawer"))}
           className="w-8 h-8 rounded flex items-center justify-center text-white/80 hover:bg-white/15 transition-colors"
-          title="Menú">
+          title="MenÃº">
           <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
@@ -199,12 +199,12 @@ export function Topbar() {
                 </p>
                 <p className="text-[11px] text-[#605e5c] mt-1">
                   {notificationPermission === 'granted'
-                    ? 'Las alertas del navegador están activas para nuevos correos.'
+                    ? 'Las alertas del navegador estÃ¡n activas para nuevos correos.'
                     : notificationPermission === 'denied'
-                      ? 'Debes habilitar las notificaciones desde la configuración del navegador.'
+                      ? 'Debes habilitar las notificaciones desde la configuraciÃ³n del navegador.'
                       : notificationPermission === 'unsupported'
                         ? 'Este navegador no expone notificaciones del sistema.'
-                        : 'Puedes activar las notificaciones del navegador desde aquí.'}
+                        : 'Puedes activar las notificaciones del navegador desde aquÃ­.'}
                 </p>
               </div>
               <div className="py-1">
@@ -233,7 +233,7 @@ export function Topbar() {
             </div>
           )}
         </div>
-        <button onClick={() => navigate('/settings')} title="Configuración"
+        <button onClick={() => navigate('/settings')} title="ConfiguraciÃ³n"
           className="w-8 h-8 rounded flex items-center justify-center text-white/80 hover:bg-white/15 transition-colors">
           <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={settingsIcon} />
@@ -250,22 +250,22 @@ export function Topbar() {
             <div className="absolute right-0 top-full mt-1 w-[340px] bg-white rounded-lg shadow-xl border border-[#edebe9] z-[200] overflow-hidden">
               <div className="px-4 py-3 border-b border-[#edebe9]">
                 <p className="text-[13px] font-semibold text-[#323130]">Ayuda</p>
-                <p className="text-[11px] text-[#605e5c] mt-1">Guía rápida con funciones reales disponibles hoy en Maquita Mail.</p>
+                <p className="text-[11px] text-[#605e5c] mt-1">GuÃ­a rÃ¡pida con funciones reales disponibles hoy en Maquita Mail.</p>
               </div>
 
               <div className="px-4 py-3 border-b border-[#edebe9]">
-                <p className="text-[12px] font-semibold text-[#323130] mb-2">Acciones rápidas</p>
+                <p className="text-[12px] font-semibold text-[#323130] mb-2">Acciones rÃ¡pidas</p>
                 <div className="space-y-1.5 text-[12px] text-[#323130]">
                   <p><span className="font-medium">Buscar:</span> usa la barra superior o presiona <span className="font-mono text-[11px]">/</span>.</p>
                   <p><span className="font-medium">Vista:</span> puedes cambiar conversaciones, panel de lectura y vista previa desde la cinta.</p>
-                  <p><span className="font-medium">Correo:</span> responder, reenviar, mover, archivar y eliminar ya están conectados al flujo real.</p>
+                  <p><span className="font-medium">Correo:</span> responder, reenviar, mover, archivar y eliminar ya estÃ¡n conectados al flujo real.</p>
                 </div>
               </div>
 
               <div className="px-4 py-3 border-b border-[#edebe9] bg-[#faf9f8]">
                 <p className="text-[12px] font-semibold text-[#323130] mb-2">Atajos de teclado</p>
                 <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[12px] text-[#323130]">
-                  <span className="font-mono text-[11px]">/</span><span>Enfocar la búsqueda</span>
+                  <span className="font-mono text-[11px]">/</span><span>Enfocar la bÃºsqueda</span>
                   <span className="font-mono text-[11px]">N</span><span>Nuevo correo</span>
                   <span className="font-mono text-[11px]">R</span><span>Responder</span>
                   <span className="font-mono text-[11px]">Shift+R</span><span>Responder a todos</span>
@@ -306,12 +306,49 @@ export function Topbar() {
                 <svg className="w-4 h-4 text-[#605e5c]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={settingsIcon} />
                 </svg>
-                Configuración
+                ConfiguraciÃ³n
               </button>
+              <button onClick={() => {
+                  setShowProfile(false);
+                  // Check if installed
+                  if (window.matchMedia('(display-mode: standalone)').matches) {
+                    return;
+                  }
+                  if ((window as any).__pwaInstallPrompt) {
+                    (window as any).__pwaInstallPrompt.prompt();
+                  } else {
+                    // iOS or no prompt available - dispatch event to show guide
+                    if ((window as any).__pwaInstallFn) {
+                      (window as any).__pwaInstallFn();
+                    } else {
+                      // Fallback: show manual instructions
+                      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                      if (isIOS) {
+                        alert('Para instalar: toca Compartir > Agregar a pantalla de inicio');
+                      } else {
+                        alert('Para instalar: toca el men\u00fa del navegador (\u22ee) > Instalar aplicaci\u00f3n');
+                      }
+                    }
+                  }
+                }}
+                className="w-full text-left px-4 py-2 text-[13px] text-[#323130] hover:bg-[#f3f2f1] flex items-center gap-2">
+                <svg className="w-4 h-4 text-[#605e5c]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                </svg>
+                Instalar aplicaci\u00f3n
+              </button>
+              <a href="/webmail/downloads/MaquitaMail.apk" download="MaquitaMail.apk"
+                className="w-full text-left px-4 py-2 text-[13px] text-[#323130] hover:bg-[#f3f2f1] flex items-center gap-2"
+                onClick={() => setShowProfile(false)}>
+                <svg className="w-4 h-4 text-[#3ddc84]" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M6 18c0 .55.45 1 1 1h1v3.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5V19h2v3.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5V19h1c.55 0 1-.45 1-1V7H6v11zM3.5 7C2.67 7 2 7.67 2 8.5v7c0 .83.67 1.5 1.5 1.5S5 16.33 5 15.5v-7C5 7.67 4.33 7 3.5 7zm17 0c-.83 0-1.5.67-1.5 1.5v7c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5v-7c0-.83-.67-1.5-1.5-1.5zm-4.97-5.84l1.3-1.3c.2-.2.2-.51 0-.71-.2-.2-.51-.2-.71 0l-1.48 1.48C13.85.55 12.95.25 12 .25s-1.85.3-2.64.83L7.88.59c-.2-.2-.51-.2-.71 0-.2.2-.2.51 0 .71l1.31 1.31C7.6 3.6 7 4.97 7 6h10c0-1.03-.6-2.4-1.47-3.84zM10 5H9V4h1v1zm5 0h-1V4h1v1z" />
+                </svg>
+                Descargar APK Android
+              </a>
               <div className="h-px bg-[#edebe9] my-1" />
               <button onClick={handleLogout}
                 className="w-full text-left px-4 py-2 text-[13px] text-[#a4262c] hover:bg-[#f3f2f1]">
-                Cerrar sesión
+                Cerrar sesiÃ³n
               </button>
             </div>
           )}
@@ -320,3 +357,4 @@ export function Topbar() {
     </header>
   );
 }
+

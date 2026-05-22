@@ -110,13 +110,20 @@ async def get_signature(request: Request, username: str = Depends(get_current_us
         )
         dn = (pref_row["display_name"] if pref_row and pref_row["display_name"]
               else username.split("@")[0].replace(".", " ").title())
-        return {"display_name": dn, "signature_html": sig_row["html_content"]}
+        sig_html = sig_row["html_content"]
+        # Clean any unreplaced template variables
+        import re as _re
+        sig_html = _re.sub(r'\{\{[A-Z0-9_]+\}\}', '', sig_html)
+        return {"display_name": dn, "signature_html": sig_html}
     # Fallback to legacy user_preferences
     row = await db.fetchrow(
         "SELECT display_name, signature_html FROM user_preferences WHERE username = $1", username
     )
     if row:
-        return {"display_name": row["display_name"], "signature_html": row["signature_html"]}
+        sig_html = row["signature_html"] or ""
+        import re as _re
+        sig_html = _re.sub(r'\{\{[A-Z0-9_]+\}\}', '', sig_html)
+        return {"display_name": row["display_name"], "signature_html": sig_html}
     return {"display_name": username.split("@")[0], "signature_html": ""}
 
 
@@ -149,6 +156,9 @@ async def _migrate_legacy_signature(db, username: str):
                 html = html.replace("{{NOMBRE}}", display)
                 html = html.replace("{{CARGO}}", "")
                 html = html.replace("{{EMAIL}}", username)
+                html = html.replace("{{TELEFONO1}}", "")
+                html = html.replace("{{TELEFONO2}}", "")
+                html = html.replace("{{CIUDAD}}", "Quito - Ecuador")
                 legacy_html = html
                 sig_name = tpl_row["name"] or "Principal"
                 await db.execute(

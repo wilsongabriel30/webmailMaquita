@@ -10,6 +10,7 @@ const Dashboard = React.lazy(() => import('./components/admin/Dashboard').then(m
 const DomainsManager = React.lazy(() => import('./components/admin/DomainsManager').then(m => ({ default: m.DomainsManager })));
 const MailboxManager = React.lazy(() => import('./components/admin/MailboxManager').then(m => ({ default: m.MailboxManager })));
 const AliasManager = React.lazy(() => import('./components/admin/AliasManager').then(m => ({ default: m.AliasManager })));
+const GroupManager = React.lazy(() => import('./components/admin/GroupManager').then(m => ({ default: m.GroupManager })));
 const QueueViewer = React.lazy(() => import('./components/admin/QueueViewer').then(m => ({ default: m.QueueViewer })));
 const AuditLog = React.lazy(() => import('./components/admin/AuditLog').then(m => ({ default: m.AuditLog })));
 const DisclaimerManager = React.lazy(() => import('./components/admin/DisclaimerManager').then(m => ({ default: m.DisclaimerManager })));
@@ -192,6 +193,7 @@ export default function App() {
             <Route path="domains" element={<React.Suspense fallback={<Spinner />}><DomainsManager /></React.Suspense>} />
             <Route path="mailboxes" element={<React.Suspense fallback={<Spinner />}><MailboxManager /></React.Suspense>} />
             <Route path="aliases" element={<React.Suspense fallback={<Spinner />}><AliasManager /></React.Suspense>} />
+            <Route path="groups" element={<React.Suspense fallback={<Spinner />}><GroupManager /></React.Suspense>} />
             <Route path="queue" element={<React.Suspense fallback={<Spinner />}><QueueViewer /></React.Suspense>} />
             <Route path="audit" element={<React.Suspense fallback={<Spinner />}><AuditLog /></React.Suspense>} />
             <Route path="disclaimer" element={<React.Suspense fallback={<Spinner />}><DisclaimerManager /></React.Suspense>} />

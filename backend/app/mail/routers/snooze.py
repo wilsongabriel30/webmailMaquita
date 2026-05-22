@@ -90,10 +90,14 @@ async def snooze_email(body: SnoozeRequest, request: Request, username: str = De
             await imap.select(body.folder)
             hdrs = await fetch_message_headers(imap, [body.uid])
             if hdrs:
-                from app.mail.parsers.mime_parser import parse_headers
-                parsed = parse_headers(hdrs[0].get("raw_headers", ""))
-                subject = parsed.get("subject", "")[:500]
-                from_addr = parsed.get("from", "")[:255]
+                h = hdrs[0]
+                # hdrs[0] can be dict or NormalizedMessage
+                if hasattr(h, "subject"):
+                    subject = (h.subject or "")[:500]
+                    from_addr = (h.from_addr or "")[:255]
+                elif isinstance(h, dict):
+                    subject = (h.get("subject", "") or "")[:500]
+                    from_addr = (h.get("from", "") or h.get("from_addr", "") or "")[:255]
 
             moved = await uid_move_message(imap, body.folder, body.uid, SNOOZE_FOLDER)
             if not moved:
@@ -212,7 +216,7 @@ async def check_snoozed(app):
                 try:
                     password = await _get_password_from_redis(r["owner"])
                     if not password:
-                        logger.warning("Snooze: no password cached for %s, skipping", r["owner"])
+                        logger.debug("Snooze: no password cached for %s, skipping", r["owner"])
                         continue
 
                     imap = await get_imap_connection(r["owner"], password)

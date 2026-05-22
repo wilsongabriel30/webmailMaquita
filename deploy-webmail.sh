@@ -65,6 +65,8 @@ echo -e "\n${YELLOW}[3/5] Desplegando en ${DEPLOY_TARGET}...${NC}"
 rm -rf "${DEPLOY_TARGET}"
 mkdir -p "${DEPLOY_TARGET}"
 cp -r "${DIST_DIR}/"* "${DEPLOY_TARGET}/"
+# Recrear symlink de downloads (directorio persistente fuera del deploy)
+ln -sf /opt/maquita-webmail/downloads "${DEPLOY_TARGET}/downloads"
 
 # Verificación post-deploy
 if [ ! -f "${DEPLOY_TARGET}/index.html" ]; then

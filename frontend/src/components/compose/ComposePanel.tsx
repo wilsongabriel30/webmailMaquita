@@ -1,4 +1,5 @@
 // @ts-nocheck  Ribbon callbacks temporarily unused (rendered in main Toolbar)
+import { addToOutbox } from "../../lib/offlineStore";
 import { sanitizeHtml, sanitizeSignatureHtml } from '../../lib/sanitize';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import React from 'react';
@@ -289,6 +290,22 @@ export function ComposePanel({ win }: Props) {
     }});
     const intervalId = setInterval(() => { remaining--; if (remaining <= 0) return; }, 1000);
     const timerId = setTimeout(async () => {
+      // OFFLINE: queue in outbox instead of sending
+      if (!navigator.onLine) {
+        clearInterval(intervalId); pendingSendMap.delete(winId); dismissToast(toastId);
+        try {
+          await addToOutbox({
+            to: sendPayload.to, cc: sendPayload.cc, bcc: sendPayload.bcc,
+            subject: sendPayload.subject, html_body: sendPayload.html_body,
+            text_body: sendPayload.text_body, in_reply_to: sendPayload.in_reply_to,
+            references: sendPayload.references, attachments: sendPayload.attachments,
+            request_read_receipt: sendPayload.request_read_receipt,
+            request_delivery_receipt: sendPayload.request_delivery_receipt,
+          });
+          showToast('Sin conexion: correo guardado en bandeja de salida. Se enviara al reconectar.');
+        } catch { showToast('Error al guardar correo offline'); }
+        return;
+      }
       clearInterval(intervalId); pendingSendMap.delete(winId); dismissToast(toastId);
       try { await api.post('/mail/send', sendPayload); showToast('Mensaje enviado'); window.dispatchEvent(new CustomEvent('refresh-messages'));
       } catch (err: unknown) {

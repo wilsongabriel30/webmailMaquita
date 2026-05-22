@@ -121,12 +121,15 @@ export const useMailStore = create<MailState>((set, get) => ({
   setComposeRibbonTab: (tab: any) => set({ composeRibbonTab: tab }),
 
   setFolders: (folders) => set({ folders, loadingFolders: false }),
-  setCurrentFolder: (folder) => set({
-    composeWindows: get().composeWindows.map(w => w.minimized ? w : { ...w, minimized: true }),
-    currentFolder: folder, messages: [], selectedMessage: null,
-    currentPage: 1, selectedUids: new Set(), searchQuery: '', activeIndex: -1,
-    threadMessages: [],
-  }),
+  setCurrentFolder: (folder) => {
+    if (folder === get().currentFolder) return;
+    set({
+      composeWindows: get().composeWindows.map(w => w.minimized ? w : { ...w, minimized: true }),
+      currentFolder: folder, messages: [], selectedMessage: null,
+      currentPage: 1, selectedUids: new Set(), searchQuery: '', activeIndex: -1,
+      threadMessages: [],
+    });
+  },
   setMessages: (messages, total, page) => set({ messages, totalMessages: total, currentPage: page, loadingMessages: false }),
   setSelectedMessage: (msg) => set({ selectedMessage: msg, loadingMessage: false, composeWindows: msg ? get().composeWindows.map(w => w.minimized ? w : { ...w, minimized: true }) : get().composeWindows }),
   setLoadingFolders: (v) => set({ loadingFolders: v }),
@@ -134,7 +137,7 @@ export const useMailStore = create<MailState>((set, get) => ({
   setLoadingMessage: (v) => set({ loadingMessage: v }),
   setSearchQuery: (q) => set({ searchQuery: q, currentPage: 1 }),
   setDebouncedSearchQuery: (q: string) => set({ debouncedSearchQuery: q }),
-  setFilter: (f) => set({ filter: f, currentPage: 1, messages: [], loadingMessages: true }),
+  setFilter: (f) => { if (f === get().filter) return; set({ filter: f, currentPage: 1, messages: [], loadingMessages: true }); },
   setViewMode: (m) => set({ viewMode: m }),
   toggleSelection: (uid) => {
     const s = new Set(get().selectedUids);

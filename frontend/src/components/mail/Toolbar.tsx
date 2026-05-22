@@ -225,6 +225,32 @@ export function Toolbar() {
   const [rulesOpen, setRulesOpen] = useState(false);
   const [addinsOpen, setAddinsOpen] = useState(false);
 
+  // Ribbon scroll indicator
+  const ribbonRef = useRef<HTMLDivElement>(null);
+  const [showScrollArrow, setShowScrollArrow] = useState(false);
+
+  const checkRibbonOverflow = useCallback(() => {
+    const el = ribbonRef.current;
+    if (!el) return;
+    const hasOverflow = el.scrollWidth > el.clientWidth + 2;
+    const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 2;
+    setShowScrollArrow(hasOverflow && !atEnd);
+  }, []);
+
+  useEffect(() => {
+    checkRibbonOverflow();
+    window.addEventListener('resize', checkRibbonOverflow);
+    return () => window.removeEventListener('resize', checkRibbonOverflow);
+  }, [checkRibbonOverflow, activeTab]);
+
+  const scrollRibbonRight = useCallback(() => {
+    const el = ribbonRef.current;
+    if (el) {
+      el.scrollBy({ left: 200, behavior: 'smooth' });
+      setTimeout(checkRibbonOverflow, 350);
+    }
+  }, [checkRibbonOverflow]);
+
   const hasCompose = composeWindows && composeWindows.some(w => !w.minimized);
 
   // Compose tabs
@@ -597,10 +623,10 @@ export function Toolbar() {
 
       {/*  Ribbon content area  */}
       {!collapsed && (
-        <div className="bg-white" style={{ overflow: 'visible' }}>
+        <div className="bg-white" style={{ overflow: 'visible', position: 'relative' }}>
           {/* Compose Ribbon (when compose tab active) */}
           {showComposeRibbon ? (
-            <div className="px-2 py-1" style={{ overflow: 'visible' }}>
+            <div className="px-2 py-1 overflow-x-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#c8c6c4 transparent' }}>
               {activeEditor ? (
                 <Ribbon editor={activeEditor}
                   onAttach={() => {
@@ -646,7 +672,10 @@ export function Toolbar() {
               )}
             </div>
           ) : (
-            <div className="flex items-center gap-0.5 px-2 py-1" style={{ overflow: 'visible' }}>
+            <div className="relative">
+            <div ref={ribbonRef} onScroll={checkRibbonOverflow}
+              className="flex items-center gap-0.5 px-2 py-1 overflow-x-auto ribbon-scroll"
+              style={{ scrollbarWidth: 'auto', scrollbarColor: '#a19f9d #f3f2f1' }}>
               {/*  INICIO TAB  */}
               {activeTab === 'inicio' && (
                 <>
@@ -998,6 +1027,19 @@ export function Toolbar() {
                   </Group>
                 </>
               )}
+            </div>
+            {showScrollArrow && (
+              <button
+                onClick={scrollRibbonRight}
+                className="absolute right-0 top-0 bottom-0 w-[28px] flex items-center justify-center bg-gradient-to-l from-white via-white/95 to-transparent cursor-pointer hover:from-[#f3f2f1] z-10 border-l border-[#edebe9]"
+                title="Ver más herramientas"
+                style={{ backdropFilter: 'blur(2px)' }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#605e5c" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            )}
             </div>
           )}
         </div>

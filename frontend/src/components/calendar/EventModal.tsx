@@ -46,11 +46,11 @@ const REMINDER_OPTIONS = [
 ];
 
 const STATUS_OPTIONS = [
-  { value: "busy", label: "Ocupado", icon: "■" },
-  { value: "free", label: "Disponible", icon: "□" },
-  { value: "workingElsewhere", label: "Trabajando en otro sitio", icon: "◫" },
-  { value: "tentative", label: "Provisional", icon: "◧" },
-  { value: "oof", label: "Fuera de oficina", icon: "▨" },
+  { value: "busy", label: "Ocupado", icon: "â " },
+  { value: "free", label: "Disponible", icon: "â¡" },
+  { value: "workingElsewhere", label: "Trabajando en otro sitio", icon: "â«" },
+  { value: "tentative", label: "Provisional", icon: "â§" },
+  { value: "oof", label: "Fuera de oficina", icon: "â¨" },
 ];
 
 export function EventModal({
@@ -97,8 +97,8 @@ export function EventModal({
   const [allDay, setAllDay] = useState(event?.all_day || false);
   const [rrule, setRrule] = useState(event?.rrule || "");
   const [reminders, setReminders] = useState<EventReminder[]>(event?.reminders || []);
-  const [attendees, setAttendees] = useState<string[]>(event?.attendees?.filter((a) => a.role !== "OPT-PARTICIPANT").map((a) => a.email).filter(Boolean) as string[] || []);
-  const [optionalAttendees, setOptionalAttendees] = useState<string[]>(event?.attendees?.filter((a) => a.role === "OPT-PARTICIPANT").map((a) => a.email).filter(Boolean) as string[] || []);
+  const [attendees, setAttendees] = useState<string[]>(event?.attendees?.filter((a: any) => typeof a === "string" || (a.role && a.role !== "OPT-PARTICIPANT")).map((a: any) => typeof a === "string" ? a : a.email).filter(Boolean) as string[] || []);
+  const [optionalAttendees, setOptionalAttendees] = useState<string[]>(event?.attendees?.filter((a: any) => typeof a !== "string" && a.role === "OPT-PARTICIPANT").map((a: any) => typeof a === "string" ? a : a.email).filter(Boolean) as string[] || []);
   const [newAttendee, setNewAttendee] = useState("");
   const [newOptionalAttendee, setNewOptionalAttendee] = useState("");
   const [optionalSuggestions, setOptionalSuggestions] = useState<{email:string;display_name?:string}[]>([]);
@@ -145,8 +145,8 @@ export function EventModal({
       setAllDay(event?.all_day || false);
       setRrule(event?.rrule || "");
       setReminders(event?.reminders || []);
-      setAttendees(event?.attendees?.filter((a) => a.role !== "OPT-PARTICIPANT").map((a) => a.email).filter(Boolean) as string[] || []);
-      setOptionalAttendees(event?.attendees?.filter((a) => a.role === "OPT-PARTICIPANT").map((a) => a.email).filter(Boolean) as string[] || []);
+      setAttendees(event?.attendees?.filter((a: any) => typeof a === "string" || (a.role && a.role !== "OPT-PARTICIPANT")).map((a: any) => typeof a === "string" ? a : a.email).filter(Boolean) as string[] || []);
+      setOptionalAttendees(event?.attendees?.filter((a: any) => typeof a !== "string" && a.role === "OPT-PARTICIPANT").map((a: any) => typeof a === "string" ? a : a.email).filter(Boolean) as string[] || []);
       setNewAttendee("");
       setNewOptionalAttendee("");
       setAttachments([]);
@@ -453,7 +453,7 @@ export function EventModal({
                 <div className="olkm-toolbar-sep" />
                 {confirmDelete ? (
                   <div className="olkm-delete-confirm">
-                    <span className="olkm-delete-question">¿Eliminar este evento?</span>
+                    <span className="olkm-delete-question">Â¿Eliminar este evento?</span>
                     <button
                       className="olkm-delete-yes"
                       onClick={() => onDelete(event!.id)}
@@ -528,7 +528,7 @@ export function EventModal({
                           className="olkm-attendee-remove"
                           onClick={() => setAttendees(attendees.filter((_, i) => i !== idx))}
                         >
-                          ×
+                          Ã
                         </button>
                       </span>
                     ))}
@@ -597,7 +597,7 @@ export function EventModal({
                           className="olkm-attendee-remove"
                           onClick={() => setOptionalAttendees(optionalAttendees.filter((_, i) => i !== idx))}
                         >
-                          ×
+                          Ã
                         </button>
                       </span>
                     ))}
@@ -813,7 +813,7 @@ export function EventModal({
                           ))}
                         </select>
                         <button onClick={() => removeReminder(idx)} className="olkm-reminder-remove">
-                          ×
+                          Ã
                         </button>
                       </div>
                     ))}
@@ -1241,7 +1241,7 @@ export function EventModal({
                 <path d="M2.002 1a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V3a2 2 0 00-2-2h-12zm12 1a1 1 0 011 1v6.5l-3.777-1.947a.5.5 0 00-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 00-.63.062L1.002 12V3a1 1 0 011-1h12z"/>
               </svg>
             </button>
-            <button className="olkm-bottom-btn" title="Emoji" onClick={() => { if(descRef.current) { const ta = descRef.current; const pos = ta.selectionStart; const emojis = ["😀","📅","✅","❌","⏰","📌","🔔","⭐","💼","📞"]; const emoji = emojis[Math.floor(Math.random() * emojis.length)]; setDescription(ta.value.substring(0,pos) + emoji + ta.value.substring(pos)); setTimeout(() => { ta.focus(); ta.setSelectionRange(pos+2, pos+2); }, 0); } }}>
+            <button className="olkm-bottom-btn" title="Emoji" onClick={() => { if(descRef.current) { const ta = descRef.current; const pos = ta.selectionStart; const emojis = ["ð","ð","â","â","â°","ð","ð","â­","ð¼","ð"]; const emoji = emojis[Math.floor(Math.random() * emojis.length)]; setDescription(ta.value.substring(0,pos) + emoji + ta.value.substring(pos)); setTimeout(() => { ta.focus(); ta.setSelectionRange(pos+2, pos+2); }, 0); } }}>
               <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                 <path d="M8 15A7 7 0 118 1a7 7 0 010 14zm0 1A8 8 0 108 0a8 8 0 000 16z"/>
                 <path d="M4.285 9.567a.5.5 0 01.683.183A3.498 3.498 0 008 11.5a3.498 3.498 0 003.032-1.75.5.5 0 11.866.5A4.498 4.498 0 018 12.5a4.498 4.498 0 01-3.898-2.25.5.5 0 01.183-.683zM7 6.5C7 7.328 6.552 8 6 8s-1-.672-1-1.5S5.448 5 6 5s1 .672 1 1.5zm4 0c0 .828-.448 1.5-1 1.5s-1-.672-1-1.5S9.448 5 10 5s1 .672 1 1.5z"/>
@@ -1775,3 +1775,4 @@ export function EventModal({
     </div>
   );
 }
+

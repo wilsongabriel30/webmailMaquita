@@ -24,3 +24,7 @@ deploy-backups/
 
 .gnupg/
 exports/
+downloads/
+IA.md
+.IA/
+migracion-masiva.sh

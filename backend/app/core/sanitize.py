@@ -18,7 +18,7 @@ def sanitize_html(dirty: str) -> str:
         },
         attributes={
             "*": {"style", "class", "id", "dir", "lang"},
-            "a": {"href", "target", "rel", "title"},
+            "a": {"href", "target", "title"},
             "img": {"src", "alt", "title", "width", "height"},
             "td": {"colspan", "rowspan", "align", "valign"},
             "th": {"colspan", "rowspan", "align", "valign"},

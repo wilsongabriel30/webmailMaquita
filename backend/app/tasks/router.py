@@ -435,17 +435,33 @@ async def _verify_card_access(db, card_id, user: str):
             raise HTTPException(403, "No tiene acceso a esta tarea")
 
 
+_steps_table_ready = False
+
 async def _ensure_steps_table(db):
-    await db.execute("""
-        CREATE TABLE IF NOT EXISTS task_steps (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            card_id UUID NOT NULL REFERENCES task_cards(id) ON DELETE CASCADE,
-            title TEXT NOT NULL,
-            completed BOOLEAN NOT NULL DEFAULT FALSE,
-            position INT NOT NULL DEFAULT 0,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )
-    """)
+    global _steps_table_ready
+    if _steps_table_ready:
+        return
+    try:
+        # Use advisory lock to prevent deadlock with concurrent workers
+        await db.execute("SELECT pg_advisory_lock(88888)")
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS task_steps (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                card_id UUID NOT NULL REFERENCES task_cards(id) ON DELETE CASCADE,
+                title TEXT NOT NULL,
+                completed BOOLEAN NOT NULL DEFAULT FALSE,
+                position INT NOT NULL DEFAULT 0,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        await db.execute("SELECT pg_advisory_unlock(88888)")
+        _steps_table_ready = True
+    except Exception:
+        try:
+            await db.execute("SELECT pg_advisory_unlock(88888)")
+        except Exception:
+            pass
+        _steps_table_ready = True  # Table likely exists already
 
 
 @router.get("/cards/{card_id}/steps", response_model=list[StepOut])

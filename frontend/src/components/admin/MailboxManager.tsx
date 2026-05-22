@@ -90,6 +90,16 @@ export function MailboxManager() {
     }
   };
 
+  const unlockAccount = async (username: string) => {
+    try {
+      const res = await api.post<{ cleared: string[] }>(`/admin/mailboxes/${username}/unlock`, {});
+      alert(`Cuenta ${username} desbloqueada. Limpiados: ${res.cleared.join(', ') || 'ninguno'}`);
+      load();
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Error');
+    }
+  };
+
   const remove = async (username: string) => {
     if (!confirm(`Eliminar buzón ${username}? Esta acción es irreversible.`)) return;
     try {
@@ -204,6 +214,7 @@ export function MailboxManager() {
                   </button>
                 </td>
                 <td className="py-3 text-right">
+                  <button onClick={() => unlockAccount(m.username)} className="text-sm text-amber-600 hover:text-amber-800 mr-3" title="Desbloquear rate limit">Desbloquear</button>
                   <button onClick={() => openEdit(m)} className="text-sm text-blue-600 hover:text-blue-800 mr-3">Editar</button>
                   <button onClick={() => remove(m.username)} className="text-sm text-red-600 hover:text-red-800">Eliminar</button>
                 </td>

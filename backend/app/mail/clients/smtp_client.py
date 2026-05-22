@@ -19,7 +19,6 @@ Supports text+HTML multipart, file attachments, inline CID images.
 ║  Antes de modificar, ejecutar:                                       ║
 ║    python3 backend/tests/test_mime_deliverability.py                 ║
 ║                                                                      ║
-║  Doc: /home/Documentacion/00-IA-CONTEXTO/09-AUDITORIA-*.md      ║
 ╚══════════════════════════════════════════════════════════════════════╝
 """
 import aiosmtplib
