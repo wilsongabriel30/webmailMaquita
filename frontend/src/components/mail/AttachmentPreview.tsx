@@ -112,7 +112,10 @@ export function AttachmentPreview({
           setTimeout(() => {
             if (ooEditorRef.current && (window as any).DocsAPI) {
               ooEditorRef.current.innerHTML = '';
-              new (window as any).DocsAPI.DocEditor(ooEditorRef.current, config);
+              config.type = 'embedded';
+              config.width = '100%';
+              config.height = '100%';
+              new (window as any).DocsAPI.DocEditor("oo-editor-placeholder", config);
             } else {
               setError(true);
             }
@@ -181,7 +184,7 @@ export function AttachmentPreview({
       <div
         ref={modalRef}
         tabIndex={-1}
-        className="bg-white dark:bg-[#2d2d2d] rounded-lg shadow-2xl w-[90vw] max-w-[900px] max-h-[90vh] flex flex-col overflow-hidden outline-none"
+        className={`bg-white dark:bg-[#2d2d2d] rounded-lg shadow-2xl flex flex-col overflow-hidden outline-none ${type === 'office' ? 'w-[96vw] max-w-[1400px] h-[94vh]' : 'w-[90vw] max-w-[900px] max-h-[90vh]'}`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -268,7 +271,7 @@ export function AttachmentPreview({
             </div>
           )}
           {type === 'office' && !loading && !error && (
-            <div ref={ooEditorRef} className="w-full h-[70vh]" />
+            <div id="oo-editor-placeholder" ref={ooEditorRef} className="w-full" style={{ height: '100%', minHeight: 520, alignSelf: 'stretch' }} />
           )}
           {type === 'text' && !loading && !error && (
             <pre className="w-full h-[70vh] overflow-auto p-4 bg-[#faf9f8] dark:bg-[#1e1e1e] text-[13px] font-mono text-[#323130] dark:text-[#e0e0e0] whitespace-pre-wrap">
