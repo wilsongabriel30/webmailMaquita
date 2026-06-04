@@ -1,51 +1,63 @@
-# Native Installation Guide (Production)
+# Guía de instalación nativa (producción)
 
-This guide installs Maquita Webmail **natively** (no Docker) on a single Debian
-server, alongside a real Postfix + Dovecot mail stack. It mirrors the reference
-production deployment.
+Esta guía instala Maquita Webmail de forma **nativa** (sin Docker) en un único
+servidor Debian, junto a una plataforma de correo real Postfix + Dovecot.
+Reproduce el despliegue de producción de referencia.
 
-> The bundled `docker-compose.yml` is a **demo** stack (PostgreSQL, Redis,
-> backend, frontend) that connects to an *external* mail server. For a real
-> mail platform you own end-to-end, follow this guide.
+> El correo y el webmail corren **nativos, directo sobre el sistema operativo**.
+> Docker se usa únicamente para Z-Push (ActiveSync) — ver `deploy/z-push/`.
+> Esta guía es la vía recomendada y soportada para producción.
 
-## Reference stack (tested)
+## Stack de referencia (probado)
 
-| Component   | Version       | Role                                   |
-|-------------|---------------|----------------------------------------|
-| Debian      | 12 / 13       | Base OS                                |
-| PostgreSQL  | 17            | Mailbox accounts + app data            |
-| Dovecot     | 2.4           | IMAP/POP3, ManageSieve, master user    |
-| Postfix     | 3.10          | SMTP MTA, LMTP delivery to Dovecot     |
-| Redis       | 7 / 8         | Sessions & caches                      |
-| Python      | 3.12+         | Backend (FastAPI / uvicorn)            |
-| Node        | 20            | Frontend build (Vite)                  |
-| nginx       | 1.24+         | TLS reverse proxy                      |
-| SOGo        | 5 (optional)  | CalDAV/CardDAV (calendar & contacts)   |
-| Ollama      | (optional)    | Local AI assistant                     |
+| Componente  | Versión        | Rol                                    |
+|-------------|----------------|----------------------------------------|
+| Debian      | 12 / 13        | Sistema operativo base                 |
+| PostgreSQL  | 17             | Cuentas de correo + datos de la app    |
+| Dovecot     | 2.4            | IMAP/POP3, ManageSieve, usuario maestro|
+| Postfix     | 3.10           | MTA SMTP, entrega LMTP a Dovecot       |
+| Redis       | 7 / 8          | Sesiones y cachés                      |
+| Python      | 3.12+          | Backend (FastAPI / uvicorn)            |
+| Node        | 20             | Compilación del frontend (Vite)        |
+| nginx       | 1.24+          | Proxy inverso con TLS                  |
+| SOGo        | 5 (opcional)   | CalDAV/CardDAV (calendario y contactos)|
+| Ollama      | (opcional)     | Asistente de IA local                  |
 
-## Architecture
+## Forma más fácil: instalador automático
+
+```bash
+git clone https://github.com/wilsongabriel30/webmailMaquita.git /opt/maquita-webmail
+cd /opt/maquita-webmail
+sudo bash deploy/webmail/instalar.sh
+```
+
+El instalador deja el sistema arrancado e imprime las credenciales generadas.
+Si prefieres entender o adaptar cada componente, sigue los pasos manuales de
+abajo.
+
+## Arquitectura
 
 ```
             Internet :443 (TLS, nginx)
                        |
-   /            -> frontend (static, /var/www/webmail)
+   /            -> frontend (estático, /var/www/webmail)
    /api/        -> backend  127.0.0.1:8000  (uvicorn, systemd)
-   /SOGo/       -> SOGo      127.0.0.1:20000 (optional)
+   /SOGo/       -> SOGo      127.0.0.1:20000 (opcional)
                        |
-   backend --IMAP/Sieve--> Dovecot 143/4190  (master user login)
-   backend --SMTP-------->  Postfix 587       (per-user auth)
+   backend --IMAP/Sieve--> Dovecot 143/4190  (login con usuario maestro)
+   backend --SMTP-------->  Postfix 587       (auth por usuario)
    backend --SQL-------->   PostgreSQL :5432
-   backend --cache----->    Redis :6379
-   Postfix --LMTP------->    Dovecot (delivery)
+   backend --caché----->    Redis :6379
+   Postfix --LMTP------->    Dovecot (entrega)
 ```
 
-The backend never stores mailbox passwords: it reads any mailbox through the
-**Dovecot master user** (`MASTER_PASSWORD`), and sends through Postfix
-submission using the end user's own credentials.
+El backend nunca almacena las contraseñas de los buzones: lee cualquier buzón a
+través del **usuario maestro de Dovecot** (`MASTER_PASSWORD`) y envía a través de
+la sumisión (submission) de Postfix usando las credenciales propias del usuario.
 
 ---
 
-## 1. System packages
+## 1. Paquetes del sistema
 
 ```bash
 sudo apt update
@@ -58,25 +70,25 @@ curl -fsSL https://deb.nodesource.com/setup_20.x | sudo bash -
 sudo apt install -y nodejs
 ```
 
-## 2. PostgreSQL — mail accounts + app schema
+## 2. PostgreSQL — cuentas de correo + esquema de la app
 
 ```bash
 sudo -u postgres psql <<SQL
-CREATE USER mailserver WITH PASSWORD 'CHANGE_ME_DB';
+CREATE USER mailserver WITH PASSWORD 'CAMBIAME_DB';
 CREATE DATABASE maildb OWNER mailserver;
 SQL
 ```
 
-Minimal virtual-mailbox schema used by Postfix/Dovecot (extend as needed):
+Esquema mínimo de buzones virtuales que usan Postfix/Dovecot (amplíalo según necesites):
 
 ```sql
 \c maildb
 CREATE TABLE domain  (domain text PRIMARY KEY, active boolean DEFAULT true);
 CREATE TABLE mailbox (
-  username text PRIMARY KEY,          -- full address user@domain
-  password text NOT NULL,             -- {SSHA512} hash (doveadm pw)
+  username text PRIMARY KEY,          -- dirección completa usuario@dominio
+  password text NOT NULL,             -- hash {SSHA512} (doveadm pw)
   domain   text REFERENCES domain(domain),
-  maildir  text,                      -- e.g. user@domain/
+  maildir  text,                      -- ej. usuario@dominio/
   quota_bytes bigint DEFAULT 0,
   active   boolean DEFAULT true
 );
@@ -84,37 +96,37 @@ CREATE TABLE alias   (address text PRIMARY KEY, goto text, active boolean DEFAUL
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO mailserver;
 ```
 
-Then apply the app migrations (creates webmail/compliance tables in the same DB):
+Luego aplica las migraciones de la app (crea las tablas de webmail/cumplimiento en la misma BD):
 
 ```bash
 cd /opt/maquita-webmail
 for f in migrations/*.sql; do sudo -u postgres psql -d maildb -f "$f"; done
 ```
 
-Create a domain + a mailbox to test with:
+Crea un dominio + un buzón de prueba:
 
 ```bash
 sudo -u postgres psql -d maildb -c \
  "INSERT INTO domain(domain) VALUES ('example.com');"
-HASH=$(doveadm pw -s SSHA512 -p 'UserPass123')
+HASH=$(doveadm pw -s SSHA512 -p 'ClaveUsuario123')
 sudo -u postgres psql -d maildb -c \
  "INSERT INTO mailbox(username,password,domain,maildir) \
   VALUES ('user@example.com','$HASH','example.com','example.com/user/');"
 ```
 
-## 3. Dovecot — virtual users + master user
+## 3. Dovecot — usuarios virtuales + usuario maestro
 
 `/etc/dovecot/dovecot-sql.conf.ext`:
 ```
 driver = pgsql
-connect = host=127.0.0.1 dbname=maildb user=mailserver password=CHANGE_ME_DB
+connect = host=127.0.0.1 dbname=maildb user=mailserver password=CAMBIAME_DB
 password_query = SELECT username AS user, password FROM mailbox \
   WHERE username = '%u' AND active = true
 user_query     = SELECT maildir AS home FROM mailbox WHERE username='%u'
 iterate_query  = SELECT username AS user FROM mailbox WHERE active = true
 ```
 
-Mail location & vmail user:
+Ubicación del correo y usuario vmail:
 ```
 mail_home = /var/vmail/%{user|domain}/%{user|username}
 mail_location = maildir:~/Maildir
@@ -124,26 +136,26 @@ sudo groupadd -g 5000 vmail
 sudo useradd  -u 5000 -g vmail -d /var/vmail -m -s /usr/sbin/nologin vmail
 ```
 
-**Master user** (lets the backend open any mailbox). In a passwd-file
+**Usuario maestro** (permite al backend abrir cualquier buzón). En un passwd-file
 `/etc/dovecot/master-users`:
 ```
-webmaster@*:{SSHA512}<hash from: doveadm pw -s SSHA512>
+webmaster@*:{SSHA512}<hash de: doveadm pw -s SSHA512>
 ```
-And in the `auth` config:
+Y en la configuración `auth`:
 ```
 auth_master_user_separator = *
 passdb { driver = passwd-file ; args = /etc/dovecot/master-users ; master = yes }
 ```
-The plaintext you hash here is what goes into the backend `.env` as
-`MASTER_PASSWORD`. Enable IMAP (143/993), LMTP, and ManageSieve (4190).
+La clave en texto plano que aquí cifras es la que va en el `.env` del backend como
+`MASTER_PASSWORD`. Habilita IMAP (143/993), LMTP y ManageSieve (4190).
 
 ```bash
 sudo systemctl restart dovecot
 ```
 
-## 4. Postfix — SMTP + LMTP delivery
+## 4. Postfix — SMTP + entrega LMTP
 
-`/etc/postfix/main.cf` (key lines):
+`/etc/postfix/main.cf` (líneas clave):
 ```
 virtual_mailbox_domains = pgsql:/etc/postfix/pgsql/domains.cf
 virtual_mailbox_maps    = pgsql:/etc/postfix/pgsql/mailbox.cf
@@ -152,9 +164,9 @@ virtual_transport       = lmtp:unix:private/dovecot-lmtp
 smtpd_sasl_type = dovecot
 smtpd_sasl_path = private/auth
 ```
-Enable the `submission` (587) service in `master.cf` with SASL via Dovecot.
-Each `pgsql/*.cf` map is a small file (`hosts/user/password/dbname` + a
-`query`), e.g. `domains.cf`:
+Habilita el servicio `submission` (587) en `master.cf` con SASL vía Dovecot.
+Cada mapa `pgsql/*.cf` es un archivo pequeño (`hosts/user/password/dbname` + una
+`query`), por ejemplo `domains.cf`:
 ```
 query = SELECT 1 FROM domain WHERE domain='%s' AND active=true
 ```
@@ -165,17 +177,17 @@ sudo systemctl restart postfix
 ## 5. Backend (FastAPI)
 
 ```bash
-sudo git clone https://github.com/wilsongabriel30/webmailMaquita.git /opt/maquita-webmail
 cd /opt/maquita-webmail/backend
 python3 -m venv venv
 ./venv/bin/pip install -r requirements.txt
-cp ../.env.example .env      # then edit .env (see variable table in README)
+cp ../.env.example .env      # luego edita .env (ver la tabla de variables del README)
 ```
-Set in `.env`: `DATABASE_URL`, `REDIS_URL`, `SECRET_KEY`, `ADMIN_JWT_SECRET`,
-`MASTER_PASSWORD` (the Dovecot master password from step 3), `IMAP_HOST=127.0.0.1`,
-`SMTP_HOST=127.0.0.1`, `MAIL_DOMAIN`, `COOKIE_DOMAIN`, `CORS_ORIGINS`.
+Define en `.env`: `DATABASE_URL`, `REDIS_URL`, `SECRET_KEY`, `ADMIN_JWT_SECRET`,
+`MASTER_PASSWORD` (la clave del usuario maestro de Dovecot del paso 3),
+`IMAP_HOST=127.0.0.1`, `SMTP_HOST=127.0.0.1`, `MAIL_DOMAIN`, `COOKIE_DOMAIN`,
+`CORS_ORIGINS`.
 
-systemd unit `/etc/systemd/system/maquita-webmail.service`:
+Unidad systemd `/etc/systemd/system/maquita-webmail.service`:
 ```ini
 [Unit]
 Description=Maquita Webmail backend
@@ -197,7 +209,7 @@ sudo systemctl daemon-reload && sudo systemctl enable --now maquita-webmail
 curl -s http://127.0.0.1:8000/api/health      # -> {"status":"ok",...}
 ```
 
-## 6. Frontend (build + nginx)
+## 6. Frontend (compilar + nginx)
 
 ```bash
 cd /opt/maquita-webmail/frontend
@@ -205,7 +217,7 @@ npm ci && npm run build
 sudo mkdir -p /var/www/webmail && sudo cp -r dist/* /var/www/webmail/
 ```
 
-nginx site `/etc/nginx/sites-available/webmail` (TLS via certbot):
+Sitio nginx `/etc/nginx/sites-available/webmail` (TLS con certbot):
 ```nginx
 server {
     listen 443 ssl;
@@ -223,7 +235,7 @@ server {
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
     }
-    # optional: location /SOGo/ { proxy_pass http://127.0.0.1:20000; }
+    # opcional: location /SOGo/ { proxy_pass http://127.0.0.1:20000; }
 }
 server { listen 80; server_name mail.example.com; return 301 https://$host$request_uri; }
 ```
@@ -234,28 +246,29 @@ sudo certbot --nginx -d mail.example.com
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-## 7. Optional components
+## 7. Componentes opcionales
 
-- **Calendar/Contacts:** install `sogo`, point `SOGO_DAV_URL` at it, proxy `/SOGo/`.
-- **AI assistant:** install Ollama, `ollama pull qwen2.5:7b`, set `OLLAMA_URL`.
-  Leave `IA_API_KEY` blank unless you front Ollama with an auth gateway.
-- **Spam filtering:** add rspamd and wire it into Postfix as a milter.
+- **Calendario/Contactos:** instala `sogo`, apunta `SOGO_DAV_URL` a él y haz proxy de `/SOGo/`.
+- **Asistente de IA:** instala Ollama, `ollama pull qwen2.5:7b`, define `OLLAMA_URL`.
+  Deja `IA_API_KEY` en blanco salvo que pongas un gateway de autenticación delante de Ollama.
+- **Filtrado de spam:** agrega rspamd e intégralo en Postfix como milter.
+- **Sincronización con móviles (ActiveSync):** ver `deploy/z-push/` (único componente en Docker).
 
-## 8. Verify
+## 8. Verificar
 
 ```bash
 systemctl is-active postgresql dovecot postfix redis-server nginx maquita-webmail
 curl -s http://127.0.0.1:8000/api/health
-# log into https://mail.example.com with user@example.com / UserPass123
+# inicia sesión en https://mail.example.com con user@example.com / ClaveUsuario123
 ```
 
-## Troubleshooting
+## Resolución de problemas
 
-| Symptom                               | Check |
-|---------------------------------------|-------|
-| Login OK but mailbox empty / IMAP err | `MASTER_PASSWORD` matches the Dovecot master passwd-file hash |
-| Cannot send (535)                     | `submission` (587) up; user exists in `mailbox`; Postfix SASL via Dovecot |
-| `/api/health` fails                   | backend `.env` (DATABASE_URL/REDIS_URL); `journalctl -u maquita-webmail` |
-| 502 from nginx                        | backend listening on 127.0.0.1:8000 |
+| Síntoma                                | Revisa |
+|----------------------------------------|--------|
+| Login OK pero buzón vacío / error IMAP | que `MASTER_PASSWORD` coincida con el hash del passwd-file maestro de Dovecot |
+| No se puede enviar (535)               | `submission` (587) activo; el usuario existe en `mailbox`; SASL de Postfix vía Dovecot |
+| `/api/health` falla                    | `.env` del backend (DATABASE_URL/REDIS_URL); `journalctl -u maquita-webmail` |
+| 502 desde nginx                        | que el backend escuche en 127.0.0.1:8000 |
 
-See also `docs/INSTALL.md`, `docs/DEPLOYMENT.md`, `docs/TROUBLESHOOTING.md`.
+Ver también `docs/INSTALL.md`, `docs/DEPLOYMENT.md`, `docs/TROUBLESHOOTING.md`.
