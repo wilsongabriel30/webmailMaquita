@@ -2,6 +2,7 @@
 import { loadOfflineMessages } from "../../hooks/useOfflineSync";
 import React, { useEffect, useCallback, useRef, useState, useMemo, memo } from 'react';
 import { useMailStore } from '../../store/mailStore';
+import { getPinnedSet, isPinned, pinKey } from '../../lib/pins';
 import { usePolling } from '../../hooks/usePolling';
 import { api } from '../../api/client';
 import { formatDistanceToNow } from 'date-fns';
@@ -152,6 +153,13 @@ export function MessageList() {
   const setLoadingThread = useMailStore(s => s.setLoadingThread);
   const clearThread = useMailStore(s => s.clearThread);
   const folders = useMailStore(s => s.folders);
+  // Mensajes fijados con chincheta (localStorage): se muestran al inicio.
+  const [pinnedSet, setPinnedSet] = useState<Set<string>>(() => getPinnedSet());
+  useEffect(() => {
+    const h = () => setPinnedSet(getPinnedSet());
+    window.addEventListener('pins-changed', h);
+    return () => window.removeEventListener('pins-changed', h);
+  }, []);
   const readingPane = useMailStore(s => s.readingPane);
 
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; msg: MessageSummary } | null>(null);
@@ -533,6 +541,13 @@ export function MessageList() {
     return 0;
   });
 
+  // Los mensajes fijados con chincheta van primero (sort estable, ES2019+).
+  if (pinnedSet.size > 0) {
+    filtered.sort((a, b) =>
+      (pinnedSet.has(pinKey(currentFolder, b.uid)) ? 1 : 0) - (pinnedSet.has(pinKey(currentFolder, a.uid)) ? 1 : 0)
+    );
+  }
+
   const isConversationMode = viewMode === 'conversations';
   const threadGroups = isConversationMode ? groupByThread(filtered) : null;
 
@@ -635,6 +650,12 @@ export function MessageList() {
               )}
             </div>
             <div className="flex items-center gap-1 shrink-0 ml-2">
+              {isPinned(currentFolder, msg.uid) && (
+                <svg className="w-[12px] h-[12px] text-[#0078d4]" fill="currentColor" viewBox="0 0 20 20">
+                  <title>Fijado</title>
+                  <path d="M9 2a1 1 0 00-1 1v4.586L5.707 9.879A1 1 0 006.414 11.5H9V17a1 1 0 002 0v-5.5h2.586a1 1 0 00.707-1.621L12 7.586V3a1 1 0 00-1-1H9z" />
+                </svg>
+              )}
               {msg.has_attachments && (
                 <svg className="w-[12px] h-[12px] text-[#605e5c]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />

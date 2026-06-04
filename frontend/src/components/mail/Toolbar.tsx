@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
+import { togglePins } from '../../lib/pins';
 import { useMailStore } from '../../store/mailStore';
 import { api } from '../../api/client';
 import { showToast } from '../common/Toast';
@@ -455,8 +456,11 @@ export function Toolbar() {
     } catch { showToast('Error'); }
   };
 
-  const handlePinUnavailable = () => {
-    showToast('Mensaje fijado al inicio de la lista');
+  const handlePin = () => {
+    if (!uids.length) { showToast('Selecciona un mensaje'); return; }
+    const pinned = togglePins(currentFolder, uids);
+    showToast(pinned ? 'Mensaje fijado al inicio de la lista' : 'Mensaje desfijado');
+    window.dispatchEvent(new CustomEvent('refresh-messages'));
   };
 
   const handleSnoozeClick = () => {
@@ -948,7 +952,7 @@ export function Toolbar() {
                       </Dropdown>
                     </div>
                     <ToolbarButton icon={ICONS.pin} label="Chincheta"
-                      onClick={handlePinUnavailable} />
+                      onClick={handlePin} />
                     <ToolbarButton icon={ICONS.snooze} label="Posponer"
                       onClick={handleSnoozeClick} />
                     <SnoozeModal
