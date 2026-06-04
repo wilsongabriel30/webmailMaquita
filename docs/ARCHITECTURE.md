@@ -15,20 +15,20 @@ Sistema modular de correo electronico con interfaz web. Cada componente tiene un
                                │
                     ┌──────────▼──────────────────────┐
                     │         NGINX (443/80)           │
-                    │   Reverse proxy + TLS + Headers  │
+                    │   Proxy reverso + TLS + Cabeceras│
                     └──┬───────────────┬──────────────┘
                        │               │
             ┌──────────▼───┐    ┌──────▼──────────────┐
             │  Frontend    │    │  Backend API (:8000) │
             │  React/TS    │    │  FastAPI/Python      │
-            │  (static)    │    │                      │
+            │ (estático)   │    │                      │
             └──────────────┘    └──┬──┬──┬──┬─────────┘
                                    │  │  │  │
                     ┌──────────────┘  │  │  └──────────────┐
                     │                 │  │                  │
              ┌──────▼─────┐   ┌──────▼──▼───┐    ┌────────▼───────┐
              │ PostgreSQL  │   │   Dovecot   │    │    Redis       │
-             │ (datos)     │   │   (IMAP)    │    │    (cache)     │
+             │ (datos)     │   │   (IMAP)    │    │    (caché)     │
              └─────────────┘   └──────┬──────┘    └────────────────┘
                                       │
                                ┌──────▼──────┐
@@ -49,34 +49,34 @@ El backend esta organizado en modulos independientes, cada uno con su propio rou
 | Modulo | Directorio | Responsabilidad |
 |--------|-----------|-----------------|
 | **Auth** | `app/auth/` | Login JWT, refresh tokens, 2FA/TOTP |
-| **Mail** | `app/mail/` | IMAP client, MIME parser, SMTP compose, threads |
-| **Admin** | `app/admin/` | Dashboard, gestion de dominios/buzones, eDiscovery, auditoria, anti-spam |
+| **Mail** | `app/mail/` | Cliente IMAP, parser MIME, composición SMTP, hilos |
+| **Admin** | `app/admin/` | Panel de control, gestión de dominios/buzones, eDiscovery, auditoría, anti-spam |
 | **Calendar** | `app/calendar/` | CalDAV con Radicale, eventos, invitaciones ICS |
 | **Contacts** | `app/contacts/` | CardDAV, CRUD, importar/exportar vCard/CSV |
-| **Tasks** | `app/tasks/` | Kanban boards, listas, tarjetas, recurrencia |
-| **AI** | `app/ai/` | Proxy a gateway IA, respuestas inteligentes, autocompletado |
+| **Tasks** | `app/tasks/` | Tableros Kanban, listas, tarjetas, recurrencia |
+| **AI** | `app/ai/` | Proxy a gateway de IA, respuestas inteligentes, autocompletado |
 | **Settings** | `app/settings/` | Preferencias de usuario, firmas, identidades |
 | **Sieve** | `app/sieve/` | Reglas de correo (ManageSieve) |
 | **Security** | `app/security/` | S/MIME, anti-compromiso, blindaje MIME |
-| **SSO** | `app/sso/` | Single Sign-On |
-| **Core** | `app/core/` | DB, Redis, sesion, sanitizacion, utilidades compartidas |
+| **SSO** | `app/sso/` | Inicio de sesión único |
+| **Core** | `app/core/` | BD, Redis, sesión, saneamiento, utilidades compartidas |
 
-### Principios de diseno
+### Principios de diseño
 
 1. **Cada modulo es un router FastAPI** — se monta en `main.py` con prefix `/api/`
 2. **Sin dependencias circulares** — los modulos solo importan de `core/`
-3. **Servicios separados de routers** — logica de negocio en `services/`, endpoints en `routers/`
-4. **Validacion en fronteras** — Pydantic schemas para input/output de API
+3. **Servicios separados de routers** — lógica de negocio en `services/`, endpoints en `routers/`
+4. **Validacion en fronteras** — esquemas Pydantic para entrada/salida de la API
 
 ## Modulos del frontend
 
 | Modulo | Directorio | Responsabilidad |
 |--------|-----------|-----------------|
-| **Mail** | `components/mail/` | MailView, MessageList, SafeEmailViewer, threads |
+| **Mail** | `components/mail/` | MailView, MessageList, SafeEmailViewer, hilos |
 | **Compose** | `components/compose/` | Editor TipTap, adjuntos, firma HTML |
-| **Admin** | `components/admin/` | Dashboard, buzones, dominios, anti-spam, eDiscovery |
-| **Calendar** | `components/calendar/` | Vistas mes/semana/dia, eventos, invitaciones |
-| **Contacts** | `components/contacts/` | CRUD, categorias, importar/exportar |
+| **Admin** | `components/admin/` | Panel de control, buzones, dominios, anti-spam, eDiscovery |
+| **Calendar** | `components/calendar/` | Vistas mes/semana/día, eventos, invitaciones |
+| **Contacts** | `components/contacts/` | CRUD, categorías, importar/exportar |
 | **Tasks** | `components/tasks/` | Kanban, listas, tarjetas |
 | **Auth** | `components/auth/` | Login, 2FA |
 | **Settings** | `components/settings/` | Preferencias, firmas, reglas de correo |
@@ -85,12 +85,12 @@ El backend esta organizado en modulos independientes, cada uno con su propio rou
 ### Estado global
 
 - **Zustand** para estado global (store/)
-- **React Query** para cache de datos del servidor
-- **Custom hooks** para shortcuts, presencia, websocket
+- **React Query** para caché de datos del servidor
+- **Custom hooks** para atajos de teclado, presencia, websocket
 
 ## Estructura de la base de datos
 
-**84 tablas** en PostgreSQL, organizadas por modulo:
+**84 tablas** en PostgreSQL, organizadas por módulo:
 
 | Modulo | Tablas principales |
 |--------|-------------------|
@@ -102,35 +102,35 @@ El backend esta organizado en modulos independientes, cada uno con su propio rou
 | **Seguridad** | `user_totp`, `smime_certificates`, `api_keys`, `sso_config`, `spam_analysis` |
 | **Otros** | `user_preferences`, `user_signatures`, `email_templates`, `webhooks` |
 
-Las tablas se crean automaticamente al iniciar el backend por primera vez (SQLAlchemy).
+Las tablas se crean automáticamente al iniciar el backend por primera vez (SQLAlchemy).
 
 ## Puertos utilizados
 
 | Puerto | Servicio | Acceso |
 |--------|----------|--------|
-| 25 | Postfix SMTP | Publico |
-| 80 | Nginx HTTP (redirect a HTTPS) | Publico |
+| 25 | Postfix SMTP | Público |
+| 80 | Nginx HTTP (redirección a HTTPS) | Público |
 | 143 | Dovecot IMAP | Local |
-| 443 | Nginx HTTPS | Publico |
-| 587 | Postfix Submission | Publico |
-| 993 | Dovecot IMAPS | Publico |
+| 443 | Nginx HTTPS | Público |
+| 587 | Postfix Submission | Público |
+| 993 | Dovecot IMAPS | Público |
 | 4190 | ManageSieve | Local |
 | 5232 | Radicale CalDAV/CardDAV | Local |
 | 5432 | PostgreSQL | Local |
 | 6379 | Redis | Local |
 | 8000 | Webmail API (FastAPI) | Local |
-| 10025 | Postfix reinyeccion (filtro) | Local |
+| 10025 | Postfix reinyección (filtro) | Local |
 | 11332 | Rspamd milter | Local |
 | 11334 | Rspamd Web UI | Local |
 
-## Stack tecnologico
+## Stack tecnológico
 
-| Componente | Tecnologia | Version |
+| Componente | Tecnología | Versión |
 |------------|-----------|---------|
 | Frontend | React + TypeScript + Vite | React 19, Vite 6 |
 | Backend | FastAPI + Uvicorn | FastAPI 0.115 |
 | Base de datos | PostgreSQL | 17+ |
-| Cache | Redis | 7+ |
+| Caché | Redis | 7+ |
 | SMTP | Postfix | 3.7+ |
 | IMAP | Dovecot | 2.4+ |
 | Antispam | Rspamd | 3.8+ |
@@ -138,7 +138,7 @@ Las tablas se crean automaticamente al iniciar el backend por primera vez (SQLAl
 | Proxy | Nginx | 1.22+ |
 | CalDAV/CardDAV | Radicale | 3.0+ |
 | SSL | Let's Encrypt / Certbot | - |
-| Busqueda | FTS Xapian | Integrado en Dovecot |
+| Búsqueda | FTS Xapian | Integrado en Dovecot |
 | IA (opcional) | Ollama + FastAPI Gateway | Ollama 0.6+ |
 | SO | Debian 12+ o Ubuntu 22.04+ | - |
 

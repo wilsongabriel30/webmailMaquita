@@ -1,40 +1,40 @@
-# Production Deployment Guide
+# Guía de Despliegue en Producción
 
-This guide covers deploying Maquita Webmail on a production server with full mail stack.
+Esta guía cubre el despliegue de Maquita Webmail en un servidor de producción con la pila de correo completa.
 
-## System Requirements
+## Requisitos del Sistema
 
-| Resource | Minimum       | Recommended         |
-|----------|---------------|---------------------|
-| OS       | Debian 12+ / Ubuntu 24.04+ | Debian 12     |
-| CPU      | 2 cores       | 4 cores             |
-| RAM      | 4 GB          | 8 GB                |
-| Disk     | 40 GB SSD     | 100 GB+ SSD         |
-| Network  | Public IPv4, PTR record set | IPv4 + IPv6  |
+| Recurso  | Mínimo                              | Recomendado          |
+|----------|-------------------------------------|----------------------|
+| SO       | Debian 12+ / Ubuntu 24.04+          | Debian 12            |
+| CPU      | 2 núcleos                           | 4 núcleos            |
+| RAM      | 4 GB                                | 8 GB                 |
+| Disco    | 40 GB SSD                           | 100 GB+ SSD          |
+| Red      | IPv4 pública, registro PTR configurado | IPv4 + IPv6       |
 
-A valid domain name with full DNS control is required.
+Se requiere un nombre de dominio válido con control total de DNS.
 
-## Install System Packages
+## Instalar Paquetes del Sistema
 
 ```bash
 apt update && apt upgrade -y
 
-# Mail stack
+# Pila de correo
 apt install -y postfix postfix-pgsql dovecot-core dovecot-imapd dovecot-lmtpd \
   dovecot-pgsql rspamd clamav clamav-daemon
 
-# Web and database
+# Web y base de datos
 apt install -y nginx postgresql-17 postgresql-client-17 redis-server
 
-# Runtime
+# Entorno de ejecución
 apt install -y python3.12 python3.12-venv python3-pip nodejs npm certbot \
   python3-certbot-nginx
 
-# Utilities
+# Utilidades
 apt install -y git curl jq fail2ban ufw
 ```
 
-## Service Configuration
+## Configuración de Servicios
 
 ### PostgreSQL
 
@@ -44,7 +44,7 @@ sudo -u postgres createdb -O maquita maquita_webmail
 sudo -u postgres psql -c "ALTER USER maquita PASSWORD 'STRONG_PASSWORD_HERE';"
 ```
 
-Apply migrations:
+Aplique las migraciones:
 
 ```bash
 for f in $(ls migrations/*.sql | sort); do
@@ -52,11 +52,11 @@ for f in $(ls migrations/*.sql | sort); do
 done
 ```
 
-For tuning, see the [PostgreSQL documentation](https://www.postgresql.org/docs/17/runtime-config.html). Key settings: `shared_buffers`, `work_mem`, `effective_cache_size`.
+Para ajuste de rendimiento, consulte la [documentación de PostgreSQL](https://www.postgresql.org/docs/17/runtime-config.html). Parámetros clave: `shared_buffers`, `work_mem`, `effective_cache_size`.
 
 ### Redis
 
-Edit `/etc/redis/redis.conf`:
+Edite `/etc/redis/redis.conf`:
 
 ```
 bind 127.0.0.1 ::1
@@ -70,13 +70,13 @@ systemctl enable --now redis-server
 
 ### Postfix
 
-Configure as an internet-facing MTA. Key files:
+Configure como MTA de cara a internet. Archivos clave:
 
-- `/etc/postfix/main.cf` -- main configuration
-- `/etc/postfix/master.cf` -- service definitions
-- `/etc/postfix/pgsql-*.cf` -- PostgreSQL lookup maps
+- `/etc/postfix/main.cf` -- configuración principal
+- `/etc/postfix/master.cf` -- definiciones de servicios
+- `/etc/postfix/pgsql-*.cf` -- mapas de consulta a PostgreSQL
 
-Essential `main.cf` settings:
+Parámetros esenciales de `main.cf`:
 
 ```
 myhostname = mail.example.com
@@ -94,18 +94,18 @@ smtpd_milters = inet:localhost:11332
 non_smtpd_milters = inet:localhost:11332
 ```
 
-See [Postfix documentation](http://www.postfix.org/documentation.html).
+Consulte la [documentación de Postfix](http://www.postfix.org/documentation.html).
 
 ### Dovecot
 
-Configure IMAP and LMTP. Key files:
+Configure IMAP y LMTP. Archivos clave:
 
 - `/etc/dovecot/dovecot.conf`
 - `/etc/dovecot/conf.d/10-auth.conf`
 - `/etc/dovecot/conf.d/10-mail.conf`
 - `/etc/dovecot/conf.d/10-ssl.conf`
 
-Essential settings:
+Parámetros esenciales:
 
 ```
 protocols = imap lmtp
@@ -114,22 +114,22 @@ ssl_cert = </etc/letsencrypt/live/mail.example.com/fullchain.pem
 ssl_key = </etc/letsencrypt/live/mail.example.com/privkey.pem
 ```
 
-See [Dovecot documentation](https://doc.dovecot.org/).
+Consulte la [documentación de Dovecot](https://doc.dovecot.org/).
 
 ### Rspamd
 
-Rspamd handles spam filtering, DKIM signing, and greylisting.
+Rspamd gestiona el filtrado de spam, la firma DKIM y la lista gris.
 
 ```bash
 systemctl enable --now rspamd
 ```
 
-Configure DKIM signing in `/etc/rspamd/local.d/dkim_signing.conf`. See [Rspamd documentation](https://rspamd.com/doc/).
+Configure la firma DKIM en `/etc/rspamd/local.d/dkim_signing.conf`. Consulte la [documentación de Rspamd](https://rspamd.com/doc/).
 
 ### ClamAV
 
 ```bash
-freshclam                          # update virus definitions
+freshclam                          # actualizar definiciones de virus
 systemctl enable --now clamav-daemon clamav-freshclam
 ```
 
@@ -139,17 +139,17 @@ systemctl enable --now clamav-daemon clamav-freshclam
 pip3 install radicale==3.0
 ```
 
-Configure in `/etc/radicale/config`. See [Radicale documentation](https://radicale.org/v3.html).
+Configure en `/etc/radicale/config`. Consulte la [documentación de Radicale](https://radicale.org/v3.html).
 
-## Deploy Backend
+## Desplegar el Backend
 
-### Create system user
+### Crear usuario del sistema
 
 ```bash
 useradd -r -s /usr/sbin/nologin -m -d /opt/maquita-webmail maquita
 ```
 
-### Install application
+### Instalar la aplicación
 
 ```bash
 cd /opt/maquita-webmail
@@ -161,18 +161,18 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### Configure environment
+### Configurar el entorno
 
 ```bash
 cp .env.example .env
-# Edit .env with production values -- see CONFIGURATION.md
+# Edite .env con los valores de producción -- vea CONFIGURATION.md
 chmod 600 .env
 chown maquita:maquita .env
 ```
 
-### Systemd service
+### Servicio systemd
 
-Create `/etc/systemd/system/maquita-webmail.service`:
+Cree `/etc/systemd/system/maquita-webmail.service`:
 
 ```ini
 [Unit]
@@ -191,7 +191,7 @@ EnvironmentFile=/opt/maquita-webmail/app/backend/.env
 Restart=always
 RestartSec=5
 
-# Hardening
+# Endurecimiento de seguridad
 NoNewPrivileges=yes
 ProtectSystem=strict
 ProtectHome=yes
@@ -213,7 +213,7 @@ systemctl daemon-reload
 systemctl enable --now maquita-webmail
 ```
 
-## Deploy Frontend
+## Desplegar el Frontend
 
 ```bash
 cd /opt/maquita-webmail/app/frontend
@@ -221,7 +221,7 @@ npm ci --production=false
 npm run build
 ```
 
-Copy build output to nginx:
+Copie el resultado del build a nginx:
 
 ```bash
 rm -rf /opt/maquita-webmail/www/webmail
@@ -229,15 +229,15 @@ cp -r dist /opt/maquita-webmail/www/webmail
 chown -R www-data:www-data /opt/maquita-webmail/www/webmail
 ```
 
-Or use the deploy script:
+O use el script de despliegue:
 
 ```bash
 bash /opt/maquita-webmail/deploy-webmail.sh
 ```
 
-### Nginx configuration
+### Configuración de nginx
 
-Create `/etc/nginx/sites-available/maquita-webmail`:
+Cree `/etc/nginx/sites-available/maquita-webmail`:
 
 ```nginx
 server {
@@ -264,7 +264,7 @@ server {
         try_files $uri $uri/ /index.html;
     }
 
-    # Backend API
+    # API del backend
     location /api/ {
         proxy_pass http://127.0.0.1:8000;
         proxy_set_header Host $host;
@@ -286,36 +286,36 @@ ln -s /etc/nginx/sites-available/maquita-webmail /etc/nginx/sites-enabled/
 nginx -t && systemctl reload nginx
 ```
 
-## SSL/TLS with Let's Encrypt
+## SSL/TLS con Let's Encrypt
 
 ```bash
 certbot certonly --nginx -d mail.example.com
 ```
 
-Set up automatic renewal:
+Configure la renovación automática:
 
 ```bash
 systemctl enable --now certbot.timer
 ```
 
-## DNS Records
+## Registros DNS
 
-Configure these DNS records for your domain:
+Configure estos registros DNS para su dominio:
 
-| Type  | Name                      | Value                                              |
-|-------|---------------------------|----------------------------------------------------|
-| A     | mail.example.com          | `<server-ip>`                                      |
-| MX    | example.com               | `10 mail.example.com`                              |
-| TXT   | example.com               | `v=spf1 mx a:mail.example.com -all`                |
-| TXT   | mail._domainkey.example.com | `v=DKIM1; k=rsa; p=<public-key>`                 |
-| TXT   | _dmarc.example.com        | `v=DMARC1; p=reject; rua=mailto:dmarc@example.com` |
-| TXT   | _mta-sts.example.com      | `v=STSv1; id=<timestamp>`                          |
-| TLSA  | _25._tcp.mail.example.com | DANE record (3 1 1 <hash>)                         |
-| PTR   | `<server-ip>`             | mail.example.com (set via hosting provider)         |
+| Tipo  | Nombre                        | Valor                                              |
+|-------|-------------------------------|----------------------------------------------------|
+| A     | mail.example.com              | `<server-ip>`                                      |
+| MX    | example.com                   | `10 mail.example.com`                              |
+| TXT   | example.com                   | `v=spf1 mx a:mail.example.com -all`                |
+| TXT   | mail._domainkey.example.com   | `v=DKIM1; k=rsa; p=<public-key>`                   |
+| TXT   | _dmarc.example.com            | `v=DMARC1; p=reject; rua=mailto:dmarc@example.com` |
+| TXT   | _mta-sts.example.com          | `v=STSv1; id=<timestamp>`                          |
+| TLSA  | _25._tcp.mail.example.com     | Registro DANE (3 1 1 <hash>)                       |
+| PTR   | `<server-ip>`                 | mail.example.com (configure con el proveedor de hosting) |
 
-### MTA-STS Policy
+### Política MTA-STS
 
-Host at `https://mta-sts.example.com/.well-known/mta-sts.txt`:
+Publique en `https://mta-sts.example.com/.well-known/mta-sts.txt`:
 
 ```
 version: STSv1
@@ -324,15 +324,15 @@ mx: mail.example.com
 max_age: 604800
 ```
 
-## Systemd Hardening
+## Endurecimiento con systemd
 
-The service unit above includes hardening directives. Verify the security score:
+La unidad de servicio anterior incluye directivas de endurecimiento. Verifique la puntuación de seguridad:
 
 ```bash
 systemd-analyze security maquita-webmail
 ```
 
-Target a score of 5.0 or lower (good). Additional hardening options:
+Apunte a una puntuación de 5.0 o menor (buena). Opciones adicionales de endurecimiento:
 
 ```ini
 CapabilityBoundingSet=
@@ -342,54 +342,54 @@ RestrictSUIDSGID=yes
 LockPersonality=yes
 ```
 
-## Monitoring
+## Monitoreo
 
-Recommended monitoring stack:
+Pila de monitoreo recomendada:
 
-- **Prometheus + Grafana** -- metrics and dashboards
-- **Loki** -- centralized log aggregation
-- **/api/health** endpoint -- HTTP health check
-- **Uptime Kuma** or **Blackbox Exporter** -- external uptime monitoring
+- **Prometheus + Grafana** -- métricas y paneles de control
+- **Loki** -- agregación centralizada de registros
+- **/api/health** endpoint -- verificación de salud por HTTP
+- **Uptime Kuma** o **Blackbox Exporter** -- monitoreo externo de disponibilidad
 
-Key metrics to monitor:
+Métricas clave a monitorear:
 
-- Mail queue size (`postqueue -p | tail -1`)
-- Dovecot connections
-- Backend response time (p95, p99)
-- Disk usage on mail storage
-- ClamAV definition freshness
-- Certificate expiry
+- Tamaño de la cola de correo (`postqueue -p | tail -1`)
+- Conexiones de Dovecot
+- Tiempo de respuesta del backend (p95, p99)
+- Uso de disco en el almacenamiento de correo
+- Vigencia de las definiciones de ClamAV
+- Vencimiento de certificados
 
-## Backup Strategy
+## Estrategia de Respaldo
 
-### Database
+### Base de datos
 
 ```bash
-# Daily logical backup
+# Respaldo lógico diario
 pg_dump -U maquita maquita_webmail | gzip > /backup/db/maquita_$(date +%Y%m%d).sql.gz
 
-# Retain 30 days
+# Retener 30 días
 find /backup/db/ -name "*.sql.gz" -mtime +30 -delete
 ```
 
-### Mail storage
+### Almacenamiento de correo
 
 ```bash
-# Incremental with rsync
+# Respaldo incremental con rsync
 rsync -a --delete /var/vmail/ /backup/vmail/
 ```
 
-### Configuration files
+### Archivos de configuración
 
 ```bash
-# Version-controlled backup
+# Respaldo con control de versiones
 tar czf /backup/conf/etc_$(date +%Y%m%d).tar.gz \
   /etc/postfix /etc/dovecot /etc/rspamd /etc/nginx /etc/radicale
 ```
 
-### Backup verification
+### Verificación de respaldos
 
-- Test restore monthly on a staging server
-- Verify database integrity: `pg_restore --list backup.sql.gz`
-- Monitor backup job exit codes
-- Store backups off-site (S3-compatible, separate datacenter)
+- Pruebe la restauración mensualmente en un servidor de pruebas
+- Verifique la integridad de la base de datos: `pg_restore --list backup.sql.gz`
+- Monitoree los códigos de salida de los trabajos de respaldo
+- Almacene los respaldos fuera del sitio (compatible con S3, datacenter separado)

@@ -7,10 +7,10 @@ Interfaz web tipo Outlook construida con React 19, TypeScript y Vite 6.
 - **React 19** con TypeScript
 - **Vite 6** (build + HMR)
 - **TailwindCSS 4** para estilos
-- **TipTap** como editor de correo (tablas, imagenes, firmas HTML)
+- **TipTap** como editor de correo (tablas, imágenes, firmas HTML)
 - **Zustand** para estado global
-- **React Router 7** para navegacion
-- **DOMPurify** para sanitizar HTML de correos
+- **React Router 7** para navegación
+- **DOMPurify** para sanear HTML de correos
 
 ## Desarrollo
 
@@ -19,7 +19,7 @@ npm ci
 npm run dev
 ```
 
-Abre http://localhost:5173 — el proxy a la API backend esta configurado en `vite.config.ts`.
+Abre http://localhost:5173 — el proxy hacia la API del backend está configurado en `vite.config.ts`.
 
 ## Build
 
@@ -27,7 +27,7 @@ Abre http://localhost:5173 — el proxy a la API backend esta configurado en `vi
 npm run build
 ```
 
-Produce la carpeta `dist/` lista para servir con Nginx.
+Genera la carpeta `dist/` lista para servir con Nginx.
 
 ## Lint
 
@@ -42,7 +42,7 @@ src/
 ├── components/    # Componentes reutilizables
 ├── pages/         # Vistas principales (Inbox, Compose, Calendar, etc.)
 ├── stores/        # Estado global (Zustand)
-├── services/      # Llamadas API
+├── services/      # Llamadas a la API
 ├── hooks/         # Hooks personalizados
 ├── types/         # Tipos TypeScript
 └── utils/         # Utilidades
@@ -51,6 +51,6 @@ src/
 ## Notas
 
 - El frontend se comunica con el backend FastAPI en `/api/`
-- Los correos HTML se renderizan con sanitizacion DOMPurify
-- PWA habilitada via Service Worker
+- Los correos HTML se renderizan con saneamiento DOMPurify
+- PWA habilitada mediante Service Worker
 - Atajos de teclado y paleta de comandos (Ctrl+K)

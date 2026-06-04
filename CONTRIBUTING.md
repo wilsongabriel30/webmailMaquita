@@ -1,4 +1,4 @@
-# Contributing to Webmail Maquita
+# Contribuir a Webmail Maquita
 
 Gracias por tu interés en contribuir a **Webmail Maquita**, una plataforma libre de correo institucional con capa de auditoría, trazabilidad, eDiscovery, legal hold y preservación de evidencia para entornos basados en Postfix/Dovecot.
 
@@ -95,10 +95,10 @@ psql -d maildb -f migrations/002_compliance_columns.sql
 ### 3.5. Arrancar en desarrollo
 
 ```bash
-# Backend (hot reload)
+# Backend (recarga automática)
 cd backend && uvicorn app.main:app --reload --port 8000
 
-# Frontend (hot reload)
+# Frontend (recarga automática)
 cd frontend && npm run dev
 ```
 
@@ -110,7 +110,7 @@ Ver [docs/LOCAL_DEVELOPMENT.md](docs/LOCAL_DEVELOPMENT.md) para la guía complet
 
 ### Python (backend)
 
-- **Formatter:** [black](https://github.com/psf/black) (configuración por defecto)
+- **Formateador:** [black](https://github.com/psf/black) (configuración por defecto)
 - **Imports:** [isort](https://pycqa.github.io/isort/) (perfil: black)
 - **Seguridad:** [bandit](https://bandit.readthedocs.io/) para análisis estático
 
@@ -123,7 +123,7 @@ bandit -r backend/app/ -ll
 ### TypeScript / JavaScript (frontend)
 
 - **Linting:** ESLint con la configuración del proyecto
-- **Formatting:** Prettier (vía eslint-plugin-prettier)
+- **Formateo:** Prettier (vía eslint-plugin-prettier)
 
 ```bash
 cd frontend && npm run lint
@@ -146,7 +146,7 @@ cd backend
 source venv/bin/activate
 pytest --tb=short -q
 
-# Frontend (build = type-check + compilación)
+# Frontend (build = verificación de tipos + compilación)
 cd frontend
 npm run build
 
@@ -188,7 +188,7 @@ security: sanitizar archivos de evidencia exportados
 chore: actualizar dependencias
 ```
 
-- Commits firmados (GPG o SSH) son recomendados pero no obligatorios.
+- Los commits firmados (GPG o SSH) son recomendados pero no obligatorios.
 - Un commit debe representar un cambio lógico completo.
 - No mezclar cambios funcionales con cambios de formato.
 
@@ -262,7 +262,7 @@ Usa la [plantilla de bug report](.github/ISSUE_TEMPLATE/bug_report.yml). Incluye
 
 - Pasos para reproducir
 - Comportamiento esperado vs real
-- Detalles del entorno (OS, versión de Python/Node, navegador)
+- Detalles del entorno (SO, versión de Python/Node, navegador)
 - Logs relevantes (sin secretos ni credenciales)
 
 ---

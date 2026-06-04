@@ -1,4 +1,4 @@
-# OpenSSF Scorecard & Best Practices — Checklist
+# OpenSSF Scorecard y Mejores Prácticas — Lista de verificación
 
 > Repositorio: [wilsongabriel30/webmailMaquita](https://github.com/wilsongabriel30/webmailMaquita)
 > Resultados Scorecard: https://scorecard.dev/viewer/?uri=github.com/wilsongabriel30/webmailMaquita
@@ -9,17 +9,17 @@
 
 | Criterio | Estado | Acción requerida |
 |---|---|---|
-| Branch Protection | Recomendado | Activar reglas en `main`: require PR review, status checks, no force push |
+| Branch Protection | Recomendado | Activar reglas en `main`: requerir revisión de PR, verificaciones de estado, sin force push |
 | Signed Releases | Planificado | Firmar tags con GPG o usar Sigstore/cosign para releases |
 | Dependency Pinning | Hecho | Dependencias fijadas en `requirements.txt` y `package-lock.json` |
-| Token Permissions | Hecho | Workflows usan `permissions: contents: read` por defecto |
-| Security Policy | Hecho | `SECURITY.md` con proceso de reporte, timeline, scope, disclosure responsable |
+| Token Permissions | Hecho | Los workflows usan `permissions: contents: read` por defecto |
+| Security Policy | Hecho | `SECURITY.md` con proceso de reporte, plazos, alcance y divulgación responsable |
 | Maintained Status | Hecho | Commits y actividad recientes en el repositorio |
 | Tests | Hecho | CI con pytest (backend) y npm build (frontend) |
 | Fuzzing | Planificado | Integrar OSS-Fuzz o Atheris para endpoints críticos |
 | SAST | Hecho | Bandit (Python) integrado en `security-scan.yml` |
 | License | Hecho | AGPL-3.0-or-later — archivo `LICENSES/AGPL-3.0-or-later.txt` |
-| SBOM | Hecho | Script `scripts/generate_sbom.sh` genera CycloneDX |
+| SBOM | Hecho | El script `scripts/generate_sbom.sh` genera CycloneDX |
 | Vulnerabilities | Hecho | pip-audit, npm audit, Trivy en CI |
 | Code Review | Recomendado | Activar branch protection: requerir al menos 1 aprobación en PRs a `main` |
 | CI Tests | Hecho | GitHub Actions en push y PRs |
@@ -34,11 +34,11 @@
 **Estado:** Recomendado
 
 Ir a Settings > Branches > Branch protection rules para `main`:
-- [x] Require pull request reviews (mínimo 1)
-- [x] Require status checks to pass
-- [x] Do not allow force pushes
-- [x] Do not allow deletions
-- [ ] Require signed commits (opcional pero recomendado)
+- [x] Requerir revisión de pull request (mínimo 1)
+- [x] Requerir que las verificaciones de estado pasen
+- [x] No permitir force pushes
+- [x] No permitir eliminaciones
+- [ ] Requerir commits firmados (opcional pero recomendado)
 
 ### 2. Signed Releases
 **Estado:** Planificado
@@ -57,9 +57,9 @@ cosign sign-blob --bundle release.bundle release.tar.gz
 
 - `backend/requirements.txt` — versiones fijadas con `==`
 - `frontend/package-lock.json` — lockfile con hashes
-- GitHub Actions — actions pinneadas a SHA o versión mayor
+- GitHub Actions — actions fijadas a SHA o versión mayor
 
-Para mejorar: pinnear actions por SHA completo:
+Para mejorar: fijar actions por SHA completo:
 ```yaml
 # En vez de:
 uses: actions/checkout@v4
@@ -79,15 +79,15 @@ Solo el job de Scorecard eleva a `security-events: write`.
 `SECURITY.md` ya existe en la raíz con:
 
 ```markdown
-# Security Policy
+# Política de Seguridad
 
-## Reporting a Vulnerability
+## Reporte de Vulnerabilidades
 
-Please report vulnerabilities to: seguridad@maquita.org
+Por favor, reporta las vulnerabilidades a: security@maquita.org
 
-Do NOT create public issues for security vulnerabilities.
+NO crees issues públicos para vulnerabilidades de seguridad.
 
-We will acknowledge within 48 hours and provide a fix timeline within 7 days.
+Acusaremos recibo en 48 horas y proporcionaremos un plazo de corrección en 7 días.
 ```
 
 ### 6. Tests
@@ -95,7 +95,7 @@ We will acknowledge within 48 hours and provide a fix timeline within 7 days.
 
 - Backend: pytest con PostgreSQL y Redis en CI
 - Frontend: npm run build (verificación de compilación)
-- Migraciones: test de SQL contra PostgreSQL limpio
+- Migraciones: prueba de SQL contra PostgreSQL limpio
 
 ### 7. Fuzzing
 **Estado:** Planificado
@@ -104,7 +104,7 @@ Opciones:
 - [Atheris](https://github.com/google/atheris) para fuzzing de Python
 - [OSS-Fuzz](https://google.github.io/oss-fuzz/) para integración continua
 
-### 8. SAST (Static Analysis)
+### 8. SAST (Análisis estático)
 **Estado:** Hecho
 
 - Bandit para código Python
@@ -118,10 +118,10 @@ Formato: CycloneDX JSON
 
 ---
 
-## Aplicar al OpenSSF Best Practices Badge
+## Aplicar al badge de Mejores Prácticas de OpenSSF
 
 1. Ir a https://www.bestpractices.dev/en
-2. Click "Get Your Badge Now"
+2. Hacer clic en "Get Your Badge Now"
 3. Ingresar la URL del repositorio: `https://github.com/wilsongabriel30/webmailMaquita`
 4. Completar el cuestionario (la mayoría de criterios ya están cubiertos)
 5. Agregar el badge al README:
@@ -137,6 +137,6 @@ Formato: CycloneDX JSON
 
 1. **Activar branch protection** en `main`
 2. ~~Crear SECURITY.md~~ — **Hecho**
-3. **Pinnear actions por SHA** en workflows
+3. **Fijar actions por SHA** en workflows
 4. **Firmar releases** con GPG o Sigstore
 5. **Integrar fuzzing** con Atheris

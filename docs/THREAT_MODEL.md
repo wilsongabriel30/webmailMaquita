@@ -1,236 +1,237 @@
-# Threat Model
+# Modelo de Amenazas
 
-This document describes the threat model for Maquita Webmail, covering key threats, mitigations, and residual risks.
+Este documento describe el modelo de amenazas de Maquita Webmail, incluyendo las amenazas principales, las mitigaciones aplicadas y los riesgos residuales.
 
-## Trust Boundaries
+## Fronteras de Confianza
 
 ```
                             INTERNET
                                |
               +----------------+----------------+
               |          NGINX (TLS)            |
-              |         (trust boundary)        |
+              |         (frontera de confianza) |
               +------+------------------+-------+
                      |                  |
               +------+------+   +------+------+
               |  Frontend   |   |   Backend   |
-              |  (static)   |   |  (FastAPI)  |
+              |  (estático) |   |  (FastAPI)  |
               +-------------+   +------+------+
                                        |
                      +---------+-------+---------+
                      |         |                 |
               +------+--+  +--+------+  +-------+------+
-              |PostgreSQL|  |  Redis  |  | Mail Stack   |
-              |  (data)  |  |(session)|  | Postfix      |
-              +----------+  +---------+  | Dovecot      |
-                                         | Rspamd       |
-                                         | ClamAV       |
+              |PostgreSQL|  |  Redis  |  | Pila de Correo|
+              |  (datos) |  |(sesión) |  | Postfix       |
+              +----------+  +---------+  | Dovecot       |
+                                         | Rspamd        |
+                                         | ClamAV        |
                                          +------+-------+
                                                 |
                                          +------+-------+
-                                         | Mail Storage |
-                                         | /var/vmail   |
+                                         | Almacenamiento|
+                                         | de Correo     |
+                                         | /var/vmail    |
                                          +--------------+
 ```
 
-**Trust boundaries:**
+**Fronteras de confianza:**
 
-1. **Internet to Nginx** -- untrusted network traffic enters the system
-2. **Nginx to Backend** -- reverse proxy validates TLS, forwards to application
-3. **Backend to Database/Redis** -- application accesses data stores on localhost
-4. **Backend to Mail Stack** -- application issues commands to Dovecot/Postfix via sockets
-5. **Mail Stack to Storage** -- Dovecot reads/writes maildir on filesystem
+1. **Internet → Nginx** -- el tráfico no confiable de red ingresa al sistema
+2. **Nginx → Backend** -- el proxy inverso valida TLS y reenvía al aplicativo
+3. **Backend → Base de datos/Redis** -- el aplicativo accede a los almacenes de datos en localhost
+4. **Backend → Pila de correo** -- el aplicativo emite comandos a Dovecot/Postfix a través de sockets
+5. **Pila de correo → Almacenamiento** -- Dovecot lee y escribe maildir en el sistema de archivos
 
-## Data Flow: Compliance Operations
+## Flujo de Datos: Operaciones de Compliance
 
 ```
-  Admin/Officer                    Backend                      Dovecot
+  Admin/Oficial                    Backend                      Dovecot
        |                             |                            |
        |-- POST /api/compliance/ --> |                            |
-       |   (JWT + RBAC check)        |                            |
+       |   (JWT + verificación RBAC) |                            |
        |                             |-- doveadm search --------> |
-       |                             |<-- message list ---------- |
+       |                             |<-- lista de mensajes ----- |
        |                             |-- doveadm fetch ---------> |
-       |                             |<-- message content ------- |
+       |                             |<-- contenido del mensaje-- |
        |                             |                            |
        |                             |-- INSERT audit_log ------> PostgreSQL
-       |                             |-- GPG sign export -------> |
+       |                             |-- firma GPG exportación -> |
        |                             |                            |
-       |<-- export package --------- |                            |
-       |   (signed, checksummed)     |                            |
+       |<-- paquete exportado ------- |                            |
+       |   (firmado, con checksum)   |                            |
 ```
 
-## Threat Catalog
+## Catálogo de Amenazas
 
-### T1: Unauthorized Mailbox Access
+### T1: Acceso No Autorizado a Buzones
 
-**Description:** An attacker gains access to another user's mailbox through session hijacking, credential theft, or authentication bypass.
+**Descripción:** Un atacante obtiene acceso al buzón de otro usuario mediante secuestro de sesión, robo de credenciales o evasión de la autenticación.
 
-**Mitigations:**
-- Session tokens stored in Redis with configurable TTL
-- TOTP-based two-factor authentication
-- Rate limiting on authentication endpoints
-- Session invalidation on password change
-- `HttpOnly`, `Secure`, `SameSite=Strict` cookie attributes
-- Failed login attempt logging and alerting
+**Mitigaciones:**
+- Tokens de sesión almacenados en Redis con TTL configurable
+- Autenticación de dos factores basada en TOTP
+- Limitación de tasa en los endpoints de autenticación
+- Invalidación de sesión al cambiar la contraseña
+- Atributos de cookie `HttpOnly`, `Secure`, `SameSite=Strict`
+- Registro y alertas por intentos de inicio de sesión fallidos
 
-**Residual risk:** Medium. A compromised TOTP device combined with a phished password could still grant access. Mitigated by session monitoring and anomaly detection (planned).
-
----
-
-### T2: Email Impersonation / Spoofing
-
-**Description:** An attacker sends email appearing to originate from the organization's domain.
-
-**Mitigations:**
-- SPF record with `-all` policy
-- DKIM signing via Rspamd for all outbound mail
-- DMARC policy set to `reject`
-- MTA-STS enforcing TLS for inbound connections
-- DANE/TLSA records for transport security
-
-**Residual risk:** Low. Properly configured SPF/DKIM/DMARC prevents domain spoofing. Display-name spoofing remains possible but is a client-side issue.
+**Riesgo residual:** Medio. Un dispositivo TOTP comprometido combinado con una contraseña obtenida por phishing podría aún otorgar acceso. Se mitiga con monitoreo de sesiones y detección de anomalías (planificado).
 
 ---
 
-### T3: Unauthorized eDiscovery Export
+### T2: Suplantación / Spoofing de Correo
 
-**Description:** A user with partial access exports mailbox data they are not authorized to access, exfiltrating sensitive communications.
+**Descripción:** Un atacante envía correos que aparentan provenir del dominio de la organización.
 
-**Mitigations:**
-- RBAC enforcement: only `compliance_officer` and `compliance_admin` roles can initiate exports
-- All export operations recorded in the audit trail with actor, scope, timestamp, and IP
-- GPG-signed export packages with SHA-256 checksums for integrity verification
-- Export directory permissions restricted to the application service user
-- Rate limiting on export endpoints
+**Mitigaciones:**
+- Registro SPF con política `-all`
+- Firma DKIM a través de Rspamd para todo el correo saliente
+- Política DMARC configurada en `reject`
+- MTA-STS que impone TLS para las conexiones entrantes
+- Registros DANE/TLSA para la seguridad del transporte
 
-**Residual risk:** Medium. A compromised compliance officer account could export data within their authorized scope. Mitigated by audit trail review and separation of duties.
-
----
-
-### T4: Evidence Tampering
-
-**Description:** An attacker modifies or deletes compliance evidence (audit logs, exported data, legal hold records) to cover tracks or undermine legal proceedings.
-
-**Mitigations:**
-- Audit log entries are append-only (no UPDATE/DELETE grants on `audit_log` table)
-- GPG signatures on all export packages
-- SHA-256 checksums for exported files
-- Legal hold records are immutable once activated (soft-delete only, with audit entry)
-- Database backups with integrity verification
-
-**Residual risk:** Medium. A database administrator with direct PostgreSQL access could theoretically modify records. Mitigated by backup comparison and external log forwarding (planned via Wazuh).
+**Riesgo residual:** Bajo. Una configuración correcta de SPF/DKIM/DMARC previene la suplantación del dominio. La suplantación del nombre visible sigue siendo posible, pero es un problema del lado del cliente.
 
 ---
 
-### T5: Email Deletion Under Legal Hold
+### T3: Exportación No Autorizada de eDiscovery
 
-**Description:** A user or automated process deletes emails that are subject to a legal hold, destroying potentially relevant evidence.
+**Descripción:** Un usuario con acceso parcial exporta datos de buzones que no está autorizado a consultar, exfiltrando comunicaciones sensibles.
 
-**Mitigations:**
-- Legal hold flag prevents message deletion at the Dovecot level
-- Backend enforces hold status check before any delete operation
-- Held messages are excluded from automated retention/purge policies
-- Audit trail records all deletion attempts (including blocked ones)
+**Mitigaciones:**
+- Aplicación de RBAC: solo los roles `compliance_officer` y `compliance_admin` pueden iniciar exportaciones
+- Todas las operaciones de exportación quedan registradas en el audit trail con actor, alcance, marca temporal e IP
+- Paquetes de exportación firmados con GPG y checksums SHA-256 para verificación de integridad
+- Permisos del directorio de exportación restringidos al usuario del servicio de la aplicación
+- Limitación de tasa en los endpoints de exportación
 
-**Residual risk:** Low. Direct filesystem access to `/var/vmail` could bypass application controls. Mitigated by filesystem permissions and integrity monitoring (planned).
-
----
-
-### T6: Secret Leakage
-
-**Description:** Secrets (JWT keys, database passwords, API keys) are exposed through logs, error messages, source code, or environment dumps.
-
-**Mitigations:**
-- Fail-fast validation on startup: refuses to run with default or weak `ADMIN_JWT_SECRET`
-- Secret values sanitized from all log output and error responses
-- `.env` file permissions restricted to `600` (owner read/write only)
-- `gitleaks` runs in CI to prevent secrets from entering the repository
-- Secrets never passed as command-line arguments (visible in `/proc`)
-
-**Residual risk:** Low. Memory dumps or core files could theoretically contain secrets. Mitigated by disabling core dumps in production (`MemoryDenyWriteExecute` in systemd).
+**Riesgo residual:** Medio. Una cuenta de oficial de compliance comprometida podría exportar datos dentro del alcance autorizado. Se mitiga con revisión del audit trail y separación de funciones.
 
 ---
 
-### T7: Log Manipulation
+### T4: Manipulación de Evidencia
 
-**Description:** An attacker with system access modifies or deletes application or system logs to hide malicious activity.
+**Descripción:** Un atacante modifica o elimina evidencia de compliance (logs de auditoría, datos exportados, registros de legal hold) para encubrir actividades o socavar procesos legales.
 
-**Mitigations:**
-- Application logs forwarded to syslog (configurable)
-- Systemd journal captures stdout/stderr with tamper-evident storage
-- Audit trail stored in PostgreSQL (separate from file-based logs)
-- Log rotation preserves historical data with configurable retention
+**Mitigaciones:**
+- Las entradas del audit log son de solo adición (no se otorgan permisos UPDATE/DELETE sobre la tabla `audit_log`)
+- Firmas GPG en todos los paquetes de exportación
+- Checksums SHA-256 para los archivos exportados
+- Los registros de legal hold son inmutables una vez activados (solo eliminación lógica, con entrada en el audit trail)
+- Copias de seguridad de la base de datos con verificación de integridad
 
-**Residual risk:** High. A root-level attacker can modify any local log. Mitigated by forwarding logs to an external, append-only system (Wazuh/OpenSearch integration planned in v1.3).
-
----
-
-### T8: Admin Role Abuse
-
-**Description:** An administrator uses elevated privileges to access mailboxes, modify compliance data, or grant unauthorized access without oversight.
-
-**Mitigations:**
-- All admin actions recorded in audit trail (no silent operations)
-- RBAC separates admin roles: `mail_admin`, `compliance_officer`, `compliance_admin`, `system_admin`
-- Compliance operations require specific compliance roles (mail admins cannot access eDiscovery)
-- Admin session activity visible in the admin panel
-
-**Residual risk:** Medium. A `system_admin` with database access could bypass RBAC. Mitigated by audit trail review and planned separation of database credentials per role.
+**Riesgo residual:** Medio. Un administrador de base de datos con acceso directo a PostgreSQL podría teóricamente modificar registros. Se mitiga con comparación de respaldos y reenvío externo de logs (planificado mediante Wazuh).
 
 ---
 
-### T9: Doveadm Privilege Escalation
+### T5: Eliminación de Correos Bajo Legal Hold
 
-**Description:** The `doveadm` command-line tool runs with elevated privileges and can access any mailbox. Compromise of the doveadm socket or credentials grants full mailbox access.
+**Descripción:** Un usuario o proceso automatizado elimina correos sujetos a un legal hold, destruyendo evidencia potencialmente relevante.
 
-**Mitigations:**
-- Doveadm socket permissions restricted to the application service user
-- Doveadm HTTP API protected with a strong password
-- Backend validates authorization before issuing doveadm commands
-- All doveadm operations logged in the audit trail
-- Systemd hardening prevents the backend from escalating privileges (`NoNewPrivileges=yes`)
+**Mitigaciones:**
+- La bandera de legal hold impide la eliminación de mensajes a nivel de Dovecot
+- El backend verifica el estado del hold antes de cualquier operación de eliminación
+- Los mensajes retenidos quedan excluidos de las políticas automáticas de retención y depuración
+- El audit trail registra todos los intentos de eliminación, incluidos los bloqueados
 
-**Residual risk:** Medium. The application service user inherently has broad mailbox access via doveadm. Mitigated by audit logging and systemd sandboxing. A dedicated doveadm proxy with per-operation authorization is under consideration.
-
----
-
-### T10: System Resource Exhaustion
-
-**Description:** An attacker overwhelms the system through large attachments, rapid API calls, mail bombing, or search queries that consume excessive CPU/memory.
-
-**Mitigations:**
-- `MAX_UPLOAD_SIZE_MB` limits attachment size (default: 25 MB)
-- API rate limiting per user per minute
-- Postfix `message_size_limit` and `smtpd_recipient_limit`
-- Rspamd rate limiting and greylisting for inbound mail
-- Database connection pool limits (`DB_POOL_SIZE`, `DB_MAX_OVERFLOW`)
-- Systemd resource controls (`MemoryMax`, `CPUQuota`) available
-
-**Residual risk:** Low. Distributed attacks could still cause degradation. Mitigated by upstream firewall rules and monitoring alerts.
+**Riesgo residual:** Bajo. El acceso directo al sistema de archivos en `/var/vmail` podría eludir los controles del aplicativo. Se mitiga con permisos de sistema de archivos y monitoreo de integridad (planificado).
 
 ---
 
-## Summary Matrix
+### T6: Filtración de Secretos
 
-| ID  | Threat                        | Severity | Likelihood | Residual Risk |
-|-----|-------------------------------|----------|------------|---------------|
-| T1  | Unauthorized mailbox access   | High     | Medium     | Medium        |
-| T2  | Email impersonation           | High     | Low        | Low           |
-| T3  | Unauthorized export           | High     | Low        | Medium        |
-| T4  | Evidence tampering            | Critical | Low        | Medium        |
-| T5  | Deletion under legal hold     | Critical | Low        | Low           |
-| T6  | Secret leakage                | High     | Low        | Low           |
-| T7  | Log manipulation              | Medium   | Medium     | High          |
-| T8  | Admin role abuse              | High     | Low        | Medium        |
-| T9  | Doveadm privilege escalation  | High     | Low        | Medium        |
-| T10 | System resource exhaustion    | Medium   | Medium     | Low           |
+**Descripción:** Los secretos (claves JWT, contraseñas de base de datos, API keys) quedan expuestos a través de logs, mensajes de error, código fuente o volcados de variables de entorno.
 
-## Review Schedule
+**Mitigaciones:**
+- Validación estricta al arrancar: el sistema se niega a ejecutarse con un `ADMIN_JWT_SECRET` débil o por defecto
+- Los valores de secretos son eliminados de todos los logs y respuestas de error
+- Permisos del archivo `.env` restringidos a `600` (solo lectura/escritura del propietario)
+- `gitleaks` se ejecuta en CI para evitar que los secretos ingresen al repositorio
+- Los secretos nunca se pasan como argumentos de línea de comandos (visibles en `/proc`)
 
-This threat model should be reviewed:
+**Riesgo residual:** Bajo. Los volcados de memoria o archivos core podrían teóricamente contener secretos. Se mitiga deshabilitando los core dumps en producción (`MemoryDenyWriteExecute` en systemd).
 
-- Before every major release (vX.0.0)
-- After any security incident
-- When new features introduce new trust boundaries or data flows
-- At minimum, annually
+---
+
+### T7: Manipulación de Logs
+
+**Descripción:** Un atacante con acceso al sistema modifica o elimina logs de la aplicación o del sistema operativo para ocultar actividad maliciosa.
+
+**Mitigaciones:**
+- Los logs de la aplicación se reenvían a syslog (configurable)
+- El journal de systemd captura stdout/stderr con almacenamiento resistente a manipulaciones
+- El audit trail se almacena en PostgreSQL (separado de los logs en archivos)
+- La rotación de logs preserva datos históricos con retención configurable
+
+**Riesgo residual:** Alto. Un atacante con acceso root puede modificar cualquier log local. Se mitiga reenviando los logs a un sistema externo de solo adición (integración Wazuh/OpenSearch planificada para v1.3).
+
+---
+
+### T8: Abuso de Rol de Administrador
+
+**Descripción:** Un administrador utiliza sus privilegios elevados para acceder a buzones, modificar datos de compliance u otorgar accesos no autorizados sin supervisión.
+
+**Mitigaciones:**
+- Todas las acciones de administración quedan registradas en el audit trail (sin operaciones silenciosas)
+- RBAC separa los roles de administración: `mail_admin`, `compliance_officer`, `compliance_admin`, `system_admin`
+- Las operaciones de compliance requieren roles específicos de compliance (los administradores de correo no pueden acceder a eDiscovery)
+- La actividad de las sesiones de administración es visible en el panel de administración
+
+**Riesgo residual:** Medio. Un `system_admin` con acceso a la base de datos podría eludir RBAC. Se mitiga con revisión del audit trail y separación planificada de credenciales de base de datos por rol.
+
+---
+
+### T9: Escalada de Privilegios mediante Doveadm
+
+**Descripción:** La herramienta de línea de comandos `doveadm` se ejecuta con privilegios elevados y puede acceder a cualquier buzón. El compromiso del socket o las credenciales de doveadm otorga acceso completo a todos los buzones.
+
+**Mitigaciones:**
+- Permisos del socket de doveadm restringidos al usuario del servicio de la aplicación
+- API HTTP de doveadm protegida con una contraseña robusta
+- El backend valida la autorización antes de emitir comandos doveadm
+- Todas las operaciones de doveadm quedan registradas en el audit trail
+- El endurecimiento con systemd impide que el backend escale privilegios (`NoNewPrivileges=yes`)
+
+**Riesgo residual:** Medio. El usuario del servicio de la aplicación tiene inherentemente acceso amplio a los buzones vía doveadm. Se mitiga con audit logging y sandboxing de systemd. Se está evaluando un proxy de doveadm dedicado con autorización por operación.
+
+---
+
+### T10: Agotamiento de Recursos del Sistema
+
+**Descripción:** Un atacante satura el sistema mediante adjuntos de gran tamaño, llamadas masivas a la API, bombardeo de correos o consultas de búsqueda que consumen excesiva CPU o memoria.
+
+**Mitigaciones:**
+- `MAX_UPLOAD_SIZE_MB` limita el tamaño de los adjuntos (por defecto: 25 MB)
+- Limitación de tasa por usuario por minuto en la API
+- `message_size_limit` y `smtpd_recipient_limit` en Postfix
+- Limitación de tasa y greylisting de Rspamd para el correo entrante
+- Límites del pool de conexiones a la base de datos (`DB_POOL_SIZE`, `DB_MAX_OVERFLOW`)
+- Controles de recursos de systemd disponibles (`MemoryMax`, `CPUQuota`)
+
+**Riesgo residual:** Bajo. Los ataques distribuidos podrían aún provocar degradación. Se mitiga con reglas de firewall en capa superior y alertas de monitoreo.
+
+---
+
+## Matriz Resumen
+
+| ID  | Amenaza                                  | Severidad | Probabilidad | Riesgo Residual |
+|-----|------------------------------------------|-----------|--------------|-----------------|
+| T1  | Acceso no autorizado a buzones           | Alta      | Media        | Medio           |
+| T2  | Suplantación de correo                   | Alta      | Baja         | Bajo            |
+| T3  | Exportación no autorizada                | Alta      | Baja         | Medio           |
+| T4  | Manipulación de evidencia                | Crítica   | Baja         | Medio           |
+| T5  | Eliminación bajo legal hold              | Crítica   | Baja         | Bajo            |
+| T6  | Filtración de secretos                   | Alta      | Baja         | Bajo            |
+| T7  | Manipulación de logs                     | Media     | Media        | Alto            |
+| T8  | Abuso de rol de administrador            | Alta      | Baja         | Medio           |
+| T9  | Escalada de privilegios por doveadm      | Alta      | Baja         | Medio           |
+| T10 | Agotamiento de recursos del sistema      | Media     | Media        | Bajo            |
+
+## Calendario de Revisión
+
+Este modelo de amenazas debe revisarse:
+
+- Antes de cada versión mayor (vX.0.0)
+- Después de cualquier incidente de seguridad
+- Cuando nuevas funcionalidades introduzcan nuevas fronteras de confianza o flujos de datos
+- Como mínimo, anualmente

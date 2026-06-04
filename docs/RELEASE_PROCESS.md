@@ -1,79 +1,79 @@
-# Release Process
+# Proceso de publicación de versiones
 
-This document describes how to prepare, test, and publish a new release of Maquita Webmail.
+Este documento describe cómo preparar, probar y publicar una nueva versión de Maquita Webmail.
 
-## Versioning Policy
+## Política de versionado
 
-This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html):
+Este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.html):
 
-- **MAJOR** (X.0.0) -- breaking API changes, major architecture shifts
-- **MINOR** (0.X.0) -- new features, backward-compatible
-- **PATCH** (0.0.X) -- bug fixes, security patches, backward-compatible
+- **MAJOR** (X.0.0) -- cambios de API que rompen compatibilidad, cambios arquitectónicos mayores
+- **MINOR** (0.X.0) -- nuevas funcionalidades, compatibles con versiones anteriores
+- **PATCH** (0.0.X) -- correcciones de errores, parches de seguridad, compatibles con versiones anteriores
 
-Pre-release versions use suffixes: `1.2.0-rc.1`, `1.2.0-beta.1`.
+Las versiones previas al lanzamiento usan sufijos: `1.2.0-rc.1`, `1.2.0-beta.1`.
 
-## Branch Strategy
+## Estrategia de ramas
 
-| Branch    | Purpose                                    |
-|-----------|--------------------------------------------|
-| `main`    | Stable release branch. Always deployable.  |
-| `develop` | Integration branch for next release.       |
-| `feature/*` | Feature branches, merged into `develop`. |
-| `hotfix/*` | Urgent fixes, branched from and merged to `main` and `develop`. |
-| `release/*` | Release preparation, branched from `develop`. |
+| Rama        | Propósito                                                              |
+|-------------|------------------------------------------------------------------------|
+| `main`      | Rama de lanzamiento estable. Siempre desplegable.                      |
+| `develop`   | Rama de integración para la próxima versión.                           |
+| `feature/*` | Ramas de funcionalidades, se integran a `develop`.                     |
+| `hotfix/*`  | Correcciones urgentes, se ramifican desde `main` y se integran a `main` y `develop`. |
+| `release/*` | Preparación de la versión, se ramifica desde `develop`.                |
 
-### Flow
+### Flujo de trabajo
 
-1. Features are developed in `feature/*` branches and merged to `develop` via pull request.
-2. When `develop` is ready for release, create a `release/vX.Y.Z` branch.
-3. Final testing and changelog updates happen on the release branch.
-4. Merge release branch to `main` and tag.
-5. Merge release branch back to `develop`.
-6. For urgent fixes, branch `hotfix/*` from `main`, fix, merge to both `main` and `develop`.
+1. Las funcionalidades se desarrollan en ramas `feature/*` y se integran a `develop` mediante pull request.
+2. Cuando `develop` está listo para publicación, crea una rama `release/vX.Y.Z`.
+3. Las pruebas finales y actualizaciones del changelog ocurren en la rama de lanzamiento.
+4. Integra la rama de lanzamiento a `main` y aplica la etiqueta.
+5. Integra la rama de lanzamiento de vuelta a `develop`.
+6. Para correcciones urgentes, ramifica `hotfix/*` desde `main`, corrige e integra a `main` y `develop`.
 
-## Release Checklist
+## Lista de verificación para el lanzamiento
 
-Before tagging a release, verify every item:
+Verifica cada elemento antes de etiquetar una versión:
 
-### Code Quality
+### Calidad del código
 
-- [ ] All CI tests pass on the release branch
-- [ ] No linting errors (`black --check`, `isort --check`, `npm run lint`)
-- [ ] No type errors (`mypy app/`, `npx tsc --noEmit`)
-- [ ] Code coverage meets minimum threshold (80%+)
+- [ ] Todas las pruebas de CI pasan en la rama de lanzamiento
+- [ ] Sin errores de linting (`black --check`, `isort --check`, `npm run lint`)
+- [ ] Sin errores de tipos (`mypy app/`, `npx tsc --noEmit`)
+- [ ] La cobertura de código cumple el umbral mínimo (80%+)
 
-### Security
+### Seguridad
 
-- [ ] `gitleaks detect` reports no findings
-- [ ] No new dependencies with known vulnerabilities (`pip audit`, `npm audit`)
-- [ ] Secrets are not hardcoded anywhere in the codebase
-- [ ] SBOM generated and included in release artifacts
+- [ ] `gitleaks detect` no reporta hallazgos
+- [ ] No hay dependencias nuevas con vulnerabilidades conocidas (`pip audit`, `npm audit`)
+- [ ] No hay secretos codificados directamente en el código fuente
+- [ ] SBOM generado e incluido en los artefactos de la versión
 
-### Documentation
+### Documentación
 
-- [ ] `CHANGELOG.md` updated with all changes under the new version
-- [ ] Version number bumped in `backend/app/__init__.py` and `frontend/package.json`
-- [ ] Migration guide written (if breaking changes)
-- [ ] API documentation reflects any endpoint changes
+- [ ] `CHANGELOG.md` actualizado con todos los cambios bajo la nueva versión
+- [ ] Número de versión incrementado en `backend/app/__init__.py` y `frontend/package.json`
+- [ ] Guía de migración redactada (si hay cambios que rompen compatibilidad)
+- [ ] La documentación de API refleja los cambios en los endpoints
 
-### Database
+### Base de datos
 
-- [ ] New migrations tested from a clean database (`createdb` + apply all)
-- [ ] New migrations tested as upgrade from previous version
-- [ ] Rollback migration exists (if applicable)
-- [ ] No data loss in migration path
+- [ ] Migraciones nuevas probadas desde una base de datos limpia (`createdb` + aplicar todas)
+- [ ] Migraciones nuevas probadas como actualización desde la versión anterior
+- [ ] Existe migración de reversión (si aplica)
+- [ ] No hay pérdida de datos en la ruta de migración
 
-### Final Verification
+### Verificación final
 
-- [ ] Fresh install tested on a clean Debian 12 VM
-- [ ] Upgrade path tested from previous release
-- [ ] All compliance features verified (legal hold, audit trail, export)
-- [ ] Email send/receive tested end-to-end
-- [ ] Calendar, contacts, and tasks functional
+- [ ] Instalación nueva probada en una VM Debian 12 limpia
+- [ ] Ruta de actualización probada desde la versión anterior
+- [ ] Todas las funcionalidades de cumplimiento verificadas (retención legal, auditoría, exportación)
+- [ ] Envío y recepción de correo probados de extremo a extremo
+- [ ] Calendario, contactos y tareas funcionando
 
-## How to Create a Release
+## Cómo crear una versión
 
-### 1. Prepare the release branch
+### 1. Prepara la rama de lanzamiento
 
 ```bash
 git checkout develop
@@ -81,9 +81,9 @@ git pull origin develop
 git checkout -b release/v1.2.0
 ```
 
-### 2. Update version and changelog
+### 2. Actualiza la versión y el changelog
 
-Edit version numbers:
+Edita los números de versión:
 
 ```bash
 # backend/app/__init__.py
@@ -93,16 +93,16 @@ __version__ = "1.2.0"
 # "version": "1.2.0"
 ```
 
-Move `[Unreleased]` entries in `CHANGELOG.md` to the new version section.
+Mueve las entradas de `[Unreleased]` en `CHANGELOG.md` a la sección de la nueva versión.
 
-### 3. Run the full test suite
+### 3. Ejecuta la suite de pruebas completa
 
 ```bash
 cd backend && pytest --cov=app
 cd frontend && npm test && npm run test:e2e
 ```
 
-### 4. Security scan
+### 4. Análisis de seguridad
 
 ```bash
 gitleaks detect --source .
@@ -110,7 +110,7 @@ pip audit
 cd frontend && npm audit
 ```
 
-### 5. Generate SBOM
+### 5. Genera el SBOM
 
 ```bash
 # Python
@@ -120,7 +120,7 @@ pip-licenses --format=json --output-file=sbom-backend.json
 npx @cyclonedx/cyclonedx-npm --output-file sbom-frontend.json
 ```
 
-### 6. Merge and tag
+### 6. Integra y etiqueta
 
 ```bash
 git checkout main
@@ -128,19 +128,19 @@ git merge --no-ff release/v1.2.0
 git tag -s v1.2.0 -m "Release v1.2.0: <brief description>"
 git push origin main --tags
 
-# Merge back to develop
+# Integrar de vuelta a develop
 git checkout develop
 git merge --no-ff release/v1.2.0
 git push origin develop
 
-# Clean up
+# Limpiar
 git branch -d release/v1.2.0
 ```
 
-### 7. Create GitHub release
+### 7. Crea el lanzamiento en GitHub
 
 ```bash
-# Generate checksums
+# Generar sumas de verificación
 sha256sum sbom-*.json > SHA256SUMS
 
 gh release create v1.2.0 \
@@ -151,23 +151,23 @@ gh release create v1.2.0 \
   SHA256SUMS
 ```
 
-### 8. Post-release
+### 8. Tareas posteriores al lanzamiento
 
-- [ ] Verify the release page on GitHub
-- [ ] Deploy to staging and run smoke tests
-- [ ] Deploy to production
-- [ ] Announce the release (if applicable)
-- [ ] Close the milestone on GitHub
+- [ ] Verifica la página del lanzamiento en GitHub
+- [ ] Despliega en staging y ejecuta pruebas de humo
+- [ ] Despliega en producción
+- [ ] Anuncia la versión (si aplica)
+- [ ] Cierra el hito en GitHub
 
-## Hotfix Process
+## Proceso de corrección urgente (hotfix)
 
-For critical fixes that cannot wait for the next regular release:
+Para correcciones críticas que no pueden esperar al próximo lanzamiento regular:
 
 ```bash
 git checkout main
 git checkout -b hotfix/v1.2.1
 
-# Fix the issue, update CHANGELOG.md, bump patch version
+# Corrige el problema, actualiza CHANGELOG.md, incrementa la versión de parche
 
 git checkout main
 git merge --no-ff hotfix/v1.2.1
@@ -179,21 +179,21 @@ git merge --no-ff hotfix/v1.2.1
 git push origin develop
 ```
 
-## Evidence Package
+## Paquete de evidencia
 
-For compliance-relevant releases, create an evidence package:
+Para versiones con relevancia de cumplimiento normativo, crea un paquete de evidencia:
 
 ```
 evidence/
   v1.2.0/
-    CHANGELOG.md          # Changes in this release
-    test-results.xml      # CI test output
-    coverage-report.html  # Code coverage
-    gitleaks-report.json  # Secret scan results
-    sbom-backend.json     # Backend dependencies
-    sbom-frontend.json    # Frontend dependencies
-    SHA256SUMS            # Checksums of all artifacts
-    migration-test.log    # Database migration test output
+    CHANGELOG.md          # Cambios en esta versión
+    test-results.xml      # Salida de las pruebas de CI
+    coverage-report.html  # Cobertura de código
+    gitleaks-report.json  # Resultados del análisis de secretos
+    sbom-backend.json     # Dependencias del backend
+    sbom-frontend.json    # Dependencias del frontend
+    SHA256SUMS            # Sumas de verificación de todos los artefactos
+    migration-test.log    # Registro de pruebas de migración de base de datos
 ```
 
-This package should be archived and retained per the organization's compliance retention policy.
+Este paquete debe archivarse y conservarse según la política de retención de cumplimiento de la organización.

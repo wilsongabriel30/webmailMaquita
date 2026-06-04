@@ -1,54 +1,54 @@
-# Project Governance
+# Gobernanza del Proyecto
 
-## Overview
+## Descripción General
 
-Maquita Webmail is maintained by the Technology Team at Fundacion Maquita, a non-profit organization based in Ecuador. This document describes how the project is governed.
+Maquita Webmail es mantenido por el Equipo de Tecnología de la Fundación Maquita, una organización sin fines de lucro con sede en Ecuador. Este documento describe cómo se gobierna el proyecto.
 
 ## Roles
 
 ### Maintainers
 
-Maintainers have full commit access and release authority. Current maintainers:
+Los maintainers tienen acceso completo de escritura al repositorio y autoridad para publicar versiones. Maintainers actuales:
 
-- **Wilson Gabriel Arguello Robalino** — Lead developer, Fundacion Maquita
+- **Wilson Gabriel Arguello Robalino** — Desarrollador principal, Fundación Maquita
 
-### Contributors
+### Contribuidores
 
-Anyone who submits a merged pull request is a contributor. Contributors are recognized in release notes.
+Cualquier persona que tenga un pull request fusionado es un contribuidor. Los contribuidores son reconocidos en las notas de versión.
 
-### Community Members
+### Miembros de la Comunidad
 
-Anyone who opens issues, participates in discussions, or uses the software.
+Cualquier persona que abra issues, participe en discusiones o utilice el software.
 
-## Decision Making
+## Toma de Decisiones
 
-- **Minor changes** (bug fixes, documentation, dependency updates): A single maintainer can merge after CI passes.
-- **Feature additions**: Require at least one maintainer review and approval.
-- **Compliance module changes**: Require discussion in a GitHub issue before implementation, plus maintainer review.
-- **Architecture changes**: Require an RFC-style issue with community input period (minimum 7 days).
-- **License changes**: Require consensus among all maintainers and a public discussion period of at least 30 days.
+- **Cambios menores** (corrección de bugs, documentación, actualización de dependencias): un solo maintainer puede fusionar una vez que CI pase.
+- **Adición de funcionalidades**: requiere la revisión y aprobación de al menos un maintainer.
+- **Cambios al módulo de compliance**: requieren discusión en un issue de GitHub antes de la implementación, más revisión de un maintainer.
+- **Cambios de arquitectura**: requieren un issue estilo RFC con un período de opinión de la comunidad (mínimo 7 días).
+- **Cambios de licencia**: requieren consenso entre todos los maintainers y un período de discusión pública de al menos 30 días.
 
-## Becoming a Maintainer
+## Convertirse en Maintainer
 
-Contributors who demonstrate sustained, high-quality contributions over time may be invited to become maintainers. Criteria include:
+Los contribuidores que demuestren contribuciones sostenidas y de alta calidad a lo largo del tiempo pueden ser invitados a convertirse en maintainers. Los criterios incluyen:
 
-- Multiple merged PRs demonstrating understanding of the codebase
-- Constructive participation in issues and code reviews
-- Adherence to the Code of Conduct
-- Understanding of the project's goals and values
+- Múltiples PRs fusionados que demuestren comprensión del código base
+- Participación constructiva en issues y revisiones de código
+- Cumplimiento del Código de Conducta
+- Comprensión de los objetivos y valores del proyecto
 
-## Release Authority
+## Autoridad de Publicación de Versiones
 
-Only maintainers can create releases. See [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) for the release checklist.
+Solo los maintainers pueden crear versiones. Ver [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) para la lista de verificación del proceso de publicación.
 
-## Code of Conduct
+## Código de Conducta
 
-All participants must follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+Todos los participantes deben seguir el [Código de Conducta](CODE_OF_CONDUCT.md).
 
-## Changes to Governance
+## Cambios a la Gobernanza
 
-This document can be amended by maintainer consensus with a 14-day public comment period.
+Este documento puede modificarse por consenso de los maintainers con un período de comentarios públicos de 14 días.
 
 ---
 
-*Fundacion Maquita — Technology for everyone, not just those who can afford it.*
+*Fundación Maquita — Tecnología para todos, no solo para quienes pueden pagarla.*

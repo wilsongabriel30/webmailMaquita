@@ -1,115 +1,115 @@
-# Security Policy
+# Política de Seguridad
 
-> **Version:** 2.0
-> **Last updated:** 2026-05-13
-> **Maintainer:** Fundacion Maquita — Technology Team
+> **Versión:** 2.0
+> **Última actualización:** 2026-05-13
+> **Responsable:** Fundación Maquita — Equipo de Tecnología
 
-## Supported Versions
+## Versiones con Soporte
 
-| Version | Supported |
-|---------|-----------|
-| 1.0.x   | Yes       |
-| < 1.0   | No        |
+| Versión | Con soporte |
+|---------|-------------|
+| 1.0.x   | Sí          |
+| < 1.0   | No          |
 
-## Reporting a Vulnerability
+## Reporte de Vulnerabilidades
 
-**Do NOT open a public GitHub issue for security vulnerabilities.**
+**NO abras un issue público en GitHub para reportar vulnerabilidades de seguridad.**
 
-Instead, please report vulnerabilities via email:
+En su lugar, reporta las vulnerabilidades por correo electrónico:
 
-- **Email:** security@maquita.org
-- **Subject line:** `[SECURITY] Brief description`
-- **PGP encryption:** Request our public key via the same email address
+- **Correo:** security@maquita.org
+- **Asunto:** `[SECURITY] Descripción breve`
+- **Cifrado PGP:** Solicita nuestra clave pública a través de la misma dirección de correo
 
-### What to Include
+### Qué incluir
 
-- Description of the vulnerability and potential impact
-- Steps to reproduce (versions, configurations, payloads)
-- Proof-of-concept code (non-destructive only)
-- Your name and contact information (for credit, if desired)
+- Descripción de la vulnerabilidad y su impacto potencial
+- Pasos para reproducirla (versiones, configuraciones, payloads)
+- Código de prueba de concepto (solo no destructivo)
+- Tu nombre e información de contacto (para crédito, si lo deseas)
 
-### Response Timeline
+### Tiempos de respuesta
 
-| Stage | Target Time |
-|-------|-------------|
-| Acknowledgment of report | 48 hours |
-| Initial triage and severity assessment | 5 business days |
-| Status update to reporter | 10 business days |
-| Patch for critical/high severity | 15 business days |
-| Patch for medium/low severity | 30 business days |
-| Coordinated public disclosure | 90 days after report, or upon patch release |
+| Etapa | Plazo objetivo |
+|-------|----------------|
+| Acuse de recibo del reporte | 48 horas |
+| Triage inicial y evaluación de severidad | 5 días hábiles |
+| Actualización de estado al reportante | 10 días hábiles |
+| Parche para severidad crítica/alta | 15 días hábiles |
+| Parche para severidad media/baja | 30 días hábiles |
+| Divulgación pública coordinada | 90 días tras el reporte, o al publicar el parche |
 
-### Responsible Disclosure Terms
+### Términos de divulgación responsable
 
-- We will not pursue legal action against researchers who follow this policy.
-- Do not access, modify, or delete data belonging to other users.
-- Do not degrade the availability of the service during testing.
-- We will credit reporters in release notes unless anonymity is requested.
+- No iniciaremos acciones legales contra investigadores que sigan esta política.
+- No accedas, modifiques ni elimines datos de otros usuarios.
+- No degradues la disponibilidad del servicio durante las pruebas.
+- Acreditaremos a los reportantes en las notas de versión, salvo que se solicite anonimato.
 
-## Scope
+## Alcance
 
-### In Scope
+### Dentro del alcance
 
-- The webmail frontend application
-- The backend API (FastAPI)
-- Authentication and session management (JWT, 2FA/TOTP)
-- Compliance module (eDiscovery, legal holds, audit trail)
-- Email processing pipeline (Postfix, Dovecot, Rspamd integration)
-- CalDAV/CardDAV integration (Radicale)
-- Docker images and deployment configurations
-- CI/CD workflows
+- La aplicación frontend del webmail
+- La API del backend (FastAPI)
+- Autenticación y gestión de sesiones (JWT, 2FA/TOTP)
+- Módulo de compliance (eDiscovery, retenciones legales, trazabilidad de auditoría)
+- Pipeline de procesamiento de correo (integración con Postfix, Dovecot, Rspamd)
+- Integración CalDAV/CardDAV (Radicale)
+- Imágenes Docker y configuraciones de despliegue
+- Flujos de CI/CD
 
-### Out of Scope
+### Fuera del alcance
 
-- Third-party software bugs (report those upstream)
-- Social engineering attacks
-- Physical security of hosting infrastructure
-- Denial-of-service attacks requiring significant bandwidth
-- Issues in dependencies (report to the dependency maintainer)
+- Errores en software de terceros (repórtalos directamente al proveedor)
+- Ataques de ingeniería social
+- Seguridad física de la infraestructura de alojamiento
+- Ataques de denegación de servicio que requieran ancho de banda significativo
+- Problemas en dependencias (repórtalos al mantenedor de la dependencia)
 
-## What NOT to Report via Public Issues
+## Qué NO reportar mediante issues públicos
 
-- Authentication bypasses or credential exposure
-- Injection vulnerabilities (SQL, command, template)
-- Privilege escalation paths
-- Data exposure or exfiltration vectors
-- Cryptographic weaknesses
-- Any issue that could be exploited before a patch is available
+- Evasión de autenticación o exposición de credenciales
+- Vulnerabilidades de inyección (SQL, comandos, plantillas)
+- Rutas de escalación de privilegios
+- Vectores de exposición o exfiltración de datos
+- Debilidades criptográficas
+- Cualquier problema que pueda ser explotado antes de que haya un parche disponible
 
-These must go through the private reporting channel above.
+Estos deben enviarse por el canal de reporte privado indicado arriba.
 
-## Security Architecture Overview
+## Resumen de la arquitectura de seguridad
 
-- **Authentication:** JWT tokens in HttpOnly/Secure/SameSite=Strict cookies + optional 2FA/TOTP
-- **Authorization:** Role-based access control (RBAC) with 5 compliance roles
-- **Encryption at rest:** Dovecot mail_crypt plugin (secp521r1)
-- **Encryption in transit:** TLS 1.2+ on all connections
-- **Email security:** SPF, DKIM, DMARC (reject), MTA-STS, DANE
-- **Session storage:** Redis with Fernet-encrypted sensitive fields
-- **Anti-spam:** Rspamd with custom scoring rules + ClamAV
-- **Audit:** 39 audited events, append-only audit log
-- **Evidence integrity:** GPG detached signatures + timestamp sealing
-- **Systemd hardening:** ProtectSystem=strict, PrivateTmp, MemoryMax, TasksMax
+- **Autenticación:** Tokens JWT en cookies HttpOnly/Secure/SameSite=Strict + 2FA/TOTP opcional
+- **Autorización:** Control de acceso basado en roles (RBAC) con 5 roles de compliance
+- **Cifrado en reposo:** Plugin `mail_crypt` de Dovecot (secp521r1)
+- **Cifrado en tránsito:** TLS 1.2+ en todas las conexiones
+- **Seguridad de correo:** SPF, DKIM, DMARC (reject), MTA-STS, DANE
+- **Almacenamiento de sesiones:** Redis con campos sensibles cifrados con Fernet
+- **Antispam:** Rspamd con reglas de puntuación personalizadas + ClamAV
+- **Auditoría:** 39 eventos auditados, registro de auditoría de solo anexo
+- **Integridad de evidencia:** Firmas GPG separadas + sellado de marca de tiempo
+- **Endurecimiento con systemd:** ProtectSystem=strict, PrivateTmp, MemoryMax, TasksMax
 
-## GitHub Security Features
+## Funciones de seguridad de GitHub
 
-We recommend enabling the following on your fork/deployment:
+Recomendamos habilitar lo siguiente en tu fork o despliegue:
 
-- **Secret scanning:** Detects committed credentials across full history
-- **Dependabot:** Automated dependency update PRs
-- **Code scanning:** CodeQL or similar SAST tool
-- **Security advisories:** For coordinated vulnerability disclosure
+- **Escaneo de secretos:** Detecta credenciales comprometidas en todo el historial
+- **Dependabot:** PRs automáticos de actualización de dependencias
+- **Escaneo de código:** CodeQL u otra herramienta SAST similar
+- **Avisos de seguridad:** Para divulgación coordinada de vulnerabilidades
 
-## Known Limitations
+## Limitaciones conocidas
 
-See [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) for a complete threat model including residual risks and system boundaries.
+Consulta [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) para el modelo de amenazas completo, incluyendo riesgos residuales y límites del sistema.
 
-Key limitations:
-- JWT refresh token rotation is implemented (old tokens are revoked on refresh); however, token revocation does not propagate to already-issued access tokens until they expire
-- AppArmor/SELinux profiles are not yet deployed
-- The compliance module requires `sudo doveadm` access for eDiscovery operations
-- HTML email sanitization relies on DOMPurify (ongoing arms race with bypass techniques)
+Limitaciones principales:
+- La rotación de tokens de actualización JWT está implementada (los tokens antiguos se revocan al renovar); sin embargo, la revocación no se propaga a los tokens de acceso ya emitidos hasta que expiran
+- Los perfiles de AppArmor/SELinux aún no están desplegados
+- El módulo de compliance requiere acceso `sudo doveadm` para operaciones de eDiscovery
+- El saneamiento de correo HTML depende de DOMPurify (carrera continua contra técnicas de evasión)
 
 ---
 
-*This policy follows guidelines from GitHub security policy documentation and OpenSSF Best Practices.*
+*Esta política sigue las directrices de la documentación de políticas de seguridad de GitHub y las Mejores Prácticas de OpenSSF.*

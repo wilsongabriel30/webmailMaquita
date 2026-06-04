@@ -1,4 +1,4 @@
-# Solucion de Problemas — Fundacion Maquita Webmail
+# Solución de Problemas — Fundacion Maquita Webmail
 
 > **Proyecto de la Fundacion Maquita** — Comercializadora asociativa sin fines de lucro, Ecuador.
 
@@ -6,22 +6,22 @@
 
 ## Problemas comunes
 
-| Problema | Solucion |
+| Problema | Solución |
 |----------|----------|
-| No carga la interfaz | `systemctl status maquita-webmail` — verificar backend activo |
-| Error 502 Bad Gateway | Backend no responde: `curl http://127.0.0.1:8000/docs` |
+| No carga la interfaz | `systemctl status maquita-webmail` — verificar que el backend esté activo |
+| Error 502 Bad Gateway | El backend no responde: `curl http://127.0.0.1:8000/docs` |
 | No llegan correos | Verificar: `tail -f /var/log/mail.log` y registros MX en DNS |
 | Correos van a spam en Gmail | Verificar DKIM: `dig +short TXT mail._domainkey.tudominio.com` |
 | No se puede enviar | Verificar Dovecot SASL y puerto 587 |
-| Busqueda lenta | Reindexar FTS: `doveadm fts rescan -u usuario@tudominio.com` |
-| Cache vieja del navegador | Ctrl+Shift+R o borrar Service Worker en DevTools |
+| Búsqueda lenta | Reindexar FTS: `doveadm fts rescan -u usuario@tudominio.com` |
+| Caché vieja del navegador | Ctrl+Shift+R o borrar el Service Worker en DevTools |
 | Error de certificado | Renovar: `certbot renew` |
 | Calendario no funciona | Verificar Radicale: `systemctl status radicale` |
-| Correos legitimos en Junk | Agregar dominio a whitelist desde Admin > Anti-Spam > Whitelist |
+| Correos legítimos en Junk | Agregar dominio a la lista blanca desde Admin > Anti-Spam > Whitelist |
 | Login lento | Verificar Redis: `redis-cli ping` |
 | Adjuntos no se descargan | Verificar permisos en /var/vmail y espacio en disco |
 
-## Diagnostico rapido
+## Diagnóstico rápido
 
 ```bash
 # 1. Estado de todos los servicios
@@ -54,7 +54,7 @@ free -h
 
 ### No llegan correos
 
-1. Verificar que el puerto 25 esta abierto:
+1. Verificar que el puerto 25 está abierto:
    ```bash
    ss -tlnp | grep :25
    ```
@@ -68,21 +68,21 @@ free -h
    tail -100 /var/log/mail.log | grep -i "reject\|error\|warning"
    ```
 
-### Correos van a Junk sin razon
+### Correos van a Junk sin razón
 
-1. Revisar por que fue clasificado:
+1. Revisar por qué fue clasificado:
    ```bash
    tail -50 /var/log/maquita-spam-filter.log | grep "from=remitente"
    ```
-2. Si el score es bajo pero esta en Junk, revisar Rspamd:
+2. Si el puntaje es bajo pero está en Junk, revisar Rspamd:
    ```bash
    rspamc stat
    ```
-3. Agregar a whitelist desde Admin > Anti-Spam > Whitelist
+3. Agregar a la lista blanca desde Admin > Anti-Spam > Whitelist
 
 ### No se pueden enviar correos
 
-1. Verificar autenticacion SASL:
+1. Verificar autenticación SASL:
    ```bash
    doveadm auth test usuario@tudominio.com password
    ```
@@ -93,14 +93,14 @@ free -h
 
 ## Problemas del webmail
 
-### Backend no arranca
+### El backend no arranca
 
-1. Ver error especifico:
+1. Ver el error específico:
    ```bash
    journalctl -u maquita-webmail -n 100 --no-pager
    ```
-2. Verificar que .env existe y tiene valores correctos
-3. Verificar que PostgreSQL y Redis estan corriendo
+2. Verificar que el archivo .env existe y tiene los valores correctos
+3. Verificar que PostgreSQL y Redis están corriendo
 4. Probar manualmente:
    ```bash
    cd /opt/maquita-webmail/backend
@@ -108,7 +108,7 @@ free -h
    uvicorn app.main:app --host 127.0.0.1 --port 8000
    ```
 
-### Frontend no carga
+### El frontend no carga
 
 1. Verificar que los archivos existen:
    ```bash
@@ -118,19 +118,19 @@ free -h
    ```bash
    bash /opt/maquita-webmail/deploy-webmail.sh
    ```
-3. Verificar configuracion de Nginx:
+3. Verificar la configuración de Nginx:
    ```bash
    nginx -t
    ```
 
 ### Error 401 en API
 
-- Token JWT expirado: cerrar sesion y volver a entrar
-- Password cambiada: limpiar cookies del navegador
+- Token JWT expirado: cerrar sesión y volver a entrar
+- Contraseña cambiada: limpiar las cookies del navegador
 
 ## Problemas de rendimiento
 
-### Todo esta lento
+### Todo está lento
 
 1. Verificar uso de recursos:
    ```bash
@@ -138,29 +138,29 @@ free -h
    df -h
    free -h
    ```
-2. Verificar que Redis esta funcionando:
+2. Verificar que Redis está funcionando:
    ```bash
    redis-cli ping
    ```
-3. Verificar indices de busqueda:
+3. Verificar índices de búsqueda:
    ```bash
    doveadm fts rescan -u usuario@tudominio.com
    ```
 
-### Busqueda no encuentra correos
+### La búsqueda no encuentra correos
 
 ```bash
 # Reindexar un usuario
 doveadm fts rescan -u usuario@tudominio.com
 
-# Reindexar todos
+# Reindexar todos los usuarios
 doveadm fts rescan -A
 ```
 
-## Comandos utiles
+## Comandos útiles
 
 ```bash
-# Reiniciar webmail
+# Reiniciar el webmail
 systemctl restart maquita-webmail
 
 # Ver logs en tiempo real
@@ -175,10 +175,10 @@ bash /opt/maquita-webmail/deploy-webmail.sh
 # Ver buzones de un usuario
 doveadm mailbox list -u usuario@tudominio.com
 
-# Buscar en emails (FTS)
+# Buscar en correos (FTS)
 doveadm search -u usuario@tudominio.com mailbox INBOX text "busqueda"
 
-# Generar password para nuevo buzon
+# Generar contraseña para nuevo buzón
 doveadm pw -s BLF-CRYPT
 
 # Backup de base de datos
@@ -190,7 +190,7 @@ git pull origin main
 bash deploy-webmail.sh
 ```
 
-## Migracion desde Zimbra
+## Migración desde Zimbra
 
 El proyecto incluye un script para migrar buzones:
 
@@ -202,4 +202,4 @@ Usa `imapsync` para copiar todos los correos preservando carpetas, fechas y flag
 
 ---
 
-*Fundacion Maquita — Tecnologia al servicio de todos, no solo de quienes pueden pagarla.*
+*Fundacion Maquita — Tecnología al servicio de todos, no solo de quienes pueden pagarla.*

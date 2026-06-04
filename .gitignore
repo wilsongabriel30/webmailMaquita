@@ -27,3 +27,4 @@ exports/
 downloads/
 migracion-masiva.sh
 *.bak*
+zimbra-sync.sh

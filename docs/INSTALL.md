@@ -1,6 +1,6 @@
-# Guia de Instalacion Completa
+# Guía de Instalación Completa
 
-Guia paso a paso para instalar Maquita Webmail desde cero. Escrita para personas con poca experiencia tecnica.
+Guía paso a paso para instalar Maquita Webmail desde cero. Escrita para personas con poca experiencia técnica.
 
 > **Tiempo estimado:** 2-4 horas (primera vez) | 30-60 minutos (con experiencia)
 
@@ -8,7 +8,7 @@ Guia paso a paso para instalar Maquita Webmail desde cero. Escrita para personas
 
 ## Antes de Empezar
 
-### Que vas a construir
+### Qué se va a construir
 
 Este sistema de correo tiene muchas piezas que trabajan juntas, como un equipo:
 
@@ -16,65 +16,65 @@ Este sistema de correo tiene muchas piezas que trabajan juntas, como un equipo:
 Internet
    |
    v
-[Postfix] -----> Recibe y envia correos (como el cartero)
+[Postfix] -----> Recibe y envía correos (como el cartero)
    |
    v
 [Rspamd] ------> Analiza spam y virus (como el guardia de seguridad)
    |
    v
-[Filtro Python] -> Clasifica con tus reglas (tu filtro personalizado)
+[Filtro Python] -> Clasifica con las reglas definidas (filtro personalizado)
    |
    v
 [Dovecot] ------> Guarda los correos y permite leerlos (como el archivo/bodega)
    |
    v
-[Webmail API] --> La aplicacion web que conecta todo (FastAPI/Python)
+[Webmail API] --> La aplicación web que conecta todo (FastAPI/Python)
    |
    v
-[Frontend] -----> Lo que ves en el navegador (React/TypeScript)
+[Frontend] -----> Lo que se ve en el navegador (React/TypeScript)
    |
    v
-[Nginx] --------> Sirve la pagina web con HTTPS (como la puerta de entrada)
+[Nginx] --------> Sirve la página web con HTTPS (como la puerta de entrada)
 ```
 
 **Otros servicios de apoyo:**
-- **PostgreSQL**: base de datos donde se guardan usuarios, contactos, tareas, calendario, configuracion
-- **Redis**: cache rapida para sesiones y datos temporales (hace todo mas rapido)
+- **PostgreSQL**: base de datos donde se guardan usuarios, contactos, tareas, calendario, configuración
+- **Redis**: caché rápida para sesiones y datos temporales (hace todo más rápido)
 - **Radicale**: servidor de calendario y contactos (CalDAV/CardDAV)
 - **ClamAV**: antivirus que escanea adjuntos
-- **Certbot**: genera certificados SSL gratuitos (el candadito verde en el navegador)
+- **Certbot**: genera certificados SSL gratuitos (el candado en el navegador)
 
 ### Requisitos previos
 
 1. **Un servidor** con acceso root (puede ser):
    - VPS en la nube (DigitalOcean, Hetzner, OVH, AWS, etc.) — desde $10/mes
-   - Servidor fisico en tu oficina
-   - Maquina virtual en Proxmox, VMware, VirtualBox, etc.
-   - Requisitos minimos: 2+ cores, 4+ GB RAM, 20+ GB disco, Debian 12+ o Ubuntu 22.04+
+   - Servidor físico en la oficina
+   - Máquina virtual en Proxmox, VMware, VirtualBox, etc.
+   - Requisitos mínimos: 2+ cores, 4+ GB RAM, 20+ GB disco, Debian 12+ o Ubuntu 22.04+
 
 2. **Un dominio** (ej: tudominio.com)
 
-3. **IP publica fija**
+3. **IP pública fija**
 
-4. **Acceso al panel DNS** de tu dominio
+4. **Acceso al panel DNS** del dominio
 
-5. **Puerto 25 abierto** — algunos proveedores de nube bloquean el puerto 25 por defecto. Solicita que lo abran.
+5. **Puerto 25 abierto** — algunos proveedores de nube bloquean el puerto 25 por defecto. Solicite que lo abran.
 
 ### Registros DNS necesarios
 
-Configura estos registros en el panel de tu proveedor de dominio **ANTES** de empezar:
+Configure estos registros en el panel de su proveedor de dominio **ANTES** de empezar:
 
-| Tipo | Nombre | Valor | Para que sirve |
+| Tipo | Nombre | Valor | Para qué sirve |
 |------|--------|-------|----------------|
 | **A** | `mail.tudominio.com` | `IP_DE_TU_SERVIDOR` | Apuntar el subdominio al servidor |
-| **MX** | `tudominio.com` | `mail.tudominio.com` (prioridad 10) | Donde recibir correos |
-| **TXT** | `tudominio.com` | `v=spf1 ip4:IP_SERVIDOR mx -all` | Autorizar tu IP para enviar |
-| **TXT** | `_dmarc.tudominio.com` | `v=DMARC1; p=reject; rua=mailto:postmaster@tudominio.com` | Anti-suplantacion |
-| **TXT** | `mail._domainkey.tudominio.com` | *(se genera en paso 7)* | Firma digital DKIM |
-| **CNAME** | `autoconfig.tudominio.com` | `mail.tudominio.com` | Auto-config Thunderbird |
-| **CNAME** | `autodiscover.tudominio.com` | `mail.tudominio.com` | Auto-config Outlook |
+| **MX** | `tudominio.com` | `mail.tudominio.com` (prioridad 10) | Dónde recibir correos |
+| **TXT** | `tudominio.com` | `v=spf1 ip4:IP_SERVIDOR mx -all` | Autorizar la IP para enviar |
+| **TXT** | `_dmarc.tudominio.com` | `v=DMARC1; p=reject; rua=mailto:postmaster@tudominio.com` | Anti-suplantación |
+| **TXT** | `mail._domainkey.tudominio.com` | *(se genera en el paso 7)* | Firma digital DKIM |
+| **CNAME** | `autoconfig.tudominio.com` | `mail.tudominio.com` | Auto-configuración Thunderbird |
+| **CNAME** | `autodiscover.tudominio.com` | `mail.tudominio.com` | Auto-configuración Outlook |
 
-> **Donde configuro esto?** En el panel web de tu proveedor de dominio (Namecheap, GoDaddy, Cloudflare, NIC.ec, etc.). Busca la seccion "DNS" o "Zona DNS".
+> **¿Dónde se configura esto?** En el panel web del proveedor de dominio (Namecheap, GoDaddy, Cloudflare, NIC.ec, etc.). Busque la sección "DNS" o "Zona DNS".
 
 ---
 
@@ -120,7 +120,7 @@ GRANT ALL PRIVILEGES ON DATABASE maildb TO mailserver;
 \q
 SQL
 
-# Verificar conexion:
+# Verificar conexión:
 psql -U mailserver -d maildb -h 127.0.0.1
 # Debe conectar sin errores y mostrar "maildb=>"
 ```
@@ -130,7 +130,7 @@ psql -U mailserver -d maildb -h 127.0.0.1
 ```bash
 apt install -y redis-server
 
-# Poner password
+# Establecer contraseña
 sed -i "s/# requirepass .*/requirepass TU_REDIS_PASSWORD/" /etc/redis/redis.conf
 systemctl restart redis
 
@@ -148,7 +148,7 @@ apt install -y postfix postfix-pgsql
 # Cuando pregunte hostname: mail.tudominio.com
 ```
 
-Editar `/etc/postfix/main.cf`:
+Edite `/etc/postfix/main.cf`:
 
 ```bash
 # Hacer backup primero
@@ -158,10 +158,10 @@ cp /etc/postfix/main.cf /etc/postfix/main.cf.bak
 nano /etc/postfix/main.cf
 ```
 
-Contenido principal (ver repositorio para configuracion completa con comentarios):
+Contenido principal (ver repositorio para configuración completa con comentarios):
 
 ```ini
-# === IDENTIFICACION ===
+# === IDENTIFICACIÓN ===
 myhostname = mail.tudominio.com
 mydomain = tudominio.com
 myorigin = $mydomain
@@ -179,7 +179,7 @@ smtpd_tls_cert_file = /etc/letsencrypt/live/mail.tudominio.com/fullchain.pem
 smtpd_tls_key_file = /etc/letsencrypt/live/mail.tudominio.com/privkey.pem
 smtpd_use_tls = yes
 
-# === LIMITES ===
+# === LÍMITES ===
 message_size_limit = 26214400
 
 # === ANTISPAM ===
@@ -206,18 +206,18 @@ useradd -g vmail -u 5000 -d /var/vmail -m vmail
 mkdir -p /var/vmail && chown -R vmail:vmail /var/vmail
 ```
 
-Plugins importantes a habilitar en Dovecot:
-- `quota` — limites de espacio por usuario
-- `fts` + `fts_xapian` — busqueda rapida dentro de correos
+Complementos importantes a habilitar en Dovecot:
+- `quota` — límites de espacio por usuario
+- `fts` + `fts_xapian` — búsqueda rápida dentro de correos
 - `mail_crypt` — cifrado de correos en disco
-- `mail_compress` — comprimir correos (~60% ahorro)
-- `lazy_expunge` — borrado rapido
+- `mail_compress` — comprimir correos (~60% de ahorro)
+- `lazy_expunge` — borrado rápido
 
 ```bash
 # Reiniciar
 systemctl restart postfix dovecot
 
-# Verificar ambos activos
+# Verificar que ambos estén activos
 systemctl status postfix dovecot
 ```
 
@@ -234,19 +234,19 @@ rspamadm dkim_keygen -d tudominio.com -s mail \
   -k /var/lib/rspamd/dkim/mail.tudominio.com.key
 
 # IMPORTANTE: el comando muestra un registro DNS TXT
-# Debes agregarlo en tu panel DNS
+# Debe agregarlo en el panel DNS
 ```
 
-Configuracion anti-spam (nunca rechazar, solo marcar):
+Configuración anti-spam (nunca rechazar, solo marcar):
 ```
 # /etc/rspamd/local.d/actions.conf
 reject = null;            # Nunca rechazar
-add_header = 6;           # Agregar header si score >= 6
+add_header = 6;           # Agregar encabezado si score >= 6
 greylist = null;          # No usar greylisting
 ```
 
 ```bash
-# Verificar configuracion
+# Verificar configuración
 rspamadm configtest
 
 # Reiniciar
@@ -261,13 +261,13 @@ mkdir -p /var/vmail/sieve-global
 cat > /var/vmail/sieve-global/default.sieve << 'EOF'
 require ["fileinto", "mailbox"];
 
-# Si Rspamd lo marco como spam
+# Si Rspamd lo marcó como spam
 if header :contains "X-Spam" "Yes" {
     fileinto :create "Junk";
     stop;
 }
 
-# Si el filtro Python lo marco como spam
+# Si el filtro Python lo marcó como spam
 if header :is "X-Maquita-Spam" "YES" {
     fileinto :create "Junk";
     stop;
@@ -301,7 +301,7 @@ chown vmail:vmail /var/log/maquita-spam-filter.log
 # Agregar a /etc/postfix/main.cf:
 # content_filter = maquita-filter:
 
-# Puerto de reinyeccion en /etc/postfix/master.cf:
+# Puerto de reinyección en /etc/postfix/master.cf:
 # 127.0.0.1:10025 inet n - n - 10 smtpd
 #   -o content_filter=
 #   -o receive_override_options=no_unknown_recipient_checks
@@ -329,10 +329,10 @@ apt install -y certbot
 # Obtener certificado (el dominio debe apuntar a este servidor)
 certbot certonly --standalone -d mail.tudominio.com
 
-# Si Nginx ya esta corriendo:
+# Si Nginx ya está corriendo:
 # certbot certonly --nginx -d mail.tudominio.com
 
-# Verificar renovacion automatica
+# Verificar renovación automática
 certbot renew --dry-run
 ```
 
@@ -370,13 +370,13 @@ nano backend/.env
 
 Variables principales:
 ```ini
-# Base de datos (la password del paso 3)
+# Base de datos (la contraseña del paso 3)
 DATABASE_URL=postgresql://mailserver:TU_PASSWORD@localhost:5432/maildb
 
-# Redis (la password del paso 4)
+# Redis (la contraseña del paso 4)
 REDIS_PASSWORD=TU_REDIS_PASSWORD
 
-# JWT (genera con: python3 -c "import secrets; print(secrets.token_hex(32))")
+# JWT (generar con: python3 -c "import secrets; print(secrets.token_hex(32))")
 JWT_SECRET=CLAVE_ALEATORIA_AQUI
 
 # Servidor de correo
@@ -388,7 +388,7 @@ MAIL_DOMAIN=tudominio.com
 ADMIN_PASSWORD=tu_password_admin
 ADMIN_SECRET=OTRA_CLAVE_ALEATORIA
 
-# IA (opcional, ver docs/AI.md)
+# IA local (opcional, ver docs/AI.md)
 # OLLAMA_URL=http://ip-servidor-ia:8000
 # IA_API_KEY=tu-clave-api
 ```
@@ -425,10 +425,10 @@ curl -s http://localhost:8000/api/health
 
 ## Paso 15: Nginx
 
-Configurar virtual host con SSL, proxy al backend, rate limiting y headers de seguridad. Ejemplo en el repositorio.
+Configure el virtual host con SSL, proxy al backend, rate limiting y encabezados de seguridad. Ejemplo disponible en el repositorio.
 
 ```bash
-# Crear configuracion
+# Crear configuración
 nano /etc/nginx/sites-available/maquita-webmail
 
 # Habilitar
@@ -440,12 +440,12 @@ nginx -t
 systemctl reload nginx
 ```
 
-## Paso 16: Crear primer buzon de correo
+## Paso 16: Crear primer buzón de correo
 
 ```bash
-# Generar password cifrada
+# Generar contraseña cifrada
 doveadm pw -s BLF-CRYPT
-# Ingresa la password y copia el hash (empieza con $2y$05$...)
+# Ingrese la contraseña y copie el hash (empieza con $2y$05$...)
 
 # Insertar en base de datos
 sudo -u postgres psql -d maildb << SQL
@@ -458,22 +458,22 @@ VALUES ('admin@tudominio.com', 'admin@tudominio.com', 'tudominio.com', true);
 SQL
 ```
 
-## Paso 17: Verificacion final
+## Paso 17: Verificación final
 
 ```bash
-# 1. Todos los servicios activos
+# 1. Verificar que todos los servicios estén activos
 systemctl status postfix dovecot rspamd clamav-daemon \
   redis-server postgresql nginx radicale maquita-webmail
 
-# 2. Puertos escuchando
+# 2. Verificar puertos en escucha
 ss -tlnp | grep -E "25|80|143|443|587|993|5232|8000"
 
-# 3. API responde
+# 3. Verificar que la API responde
 curl -s http://localhost:8000/api/health
 
 # 4. Abrir en navegador: https://mail.tudominio.com/webmail/
 
-# 5. Registros DNS (verificar propagacion)
+# 5. Verificar registros DNS (propagación)
 dig +short MX tudominio.com
 dig +short A mail.tudominio.com
 dig +short TXT tudominio.com
@@ -481,9 +481,9 @@ dig +short TXT tudominio.com
 
 ---
 
-## Siguiente paso
+## Siguientes pasos
 
-- [Configurar IA](AI.md) — Asistente de correo con IA local (opcional)
-- [Seguridad](SECURITY.md) — Medidas de hardening implementadas
+- [Configurar IA local](AI.md) — Asistente de correo con IA local (opcional)
+- [Seguridad](SECURITY.md) — Medidas de endurecimiento implementadas
 - [Arquitectura](ARCHITECTURE.md) — Entender la estructura del proyecto
 - [Solucionar problemas](TROUBLESHOOTING.md) — Errores comunes y soluciones

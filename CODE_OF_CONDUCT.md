@@ -1,12 +1,12 @@
-# Code of Conduct
+# Código de Conducta
 
-## 1. Proposito
+## 1. Propósito
 
-Este proyecto busca construir una comunidad tecnica respetuosa, segura y colaborativa alrededor de Webmail Maquita, una plataforma libre de correo institucional con auditoria, trazabilidad, eDiscovery y controles antifraude.
+Este proyecto busca construir una comunidad técnica respetuosa, segura y colaborativa alrededor de Webmail Maquita, una plataforma libre de correo institucional con auditoría, trazabilidad, eDiscovery y controles antifraude.
 
-Queremos que este espacio sea util para desarrolladores, administradores de sistemas, equipos de seguridad, organizaciones sociales, cooperativas, instituciones educativas, comunidades tecnicas y cualquier persona interesada en tecnologias libres, auditables y soberanas.
+Queremos que este espacio sea útil para desarrolladores, administradores de sistemas, equipos de seguridad, organizaciones sociales, cooperativas, instituciones educativas, comunidades técnicas y cualquier persona interesada en tecnologías libres, auditables y soberanas.
 
-Este Codigo de Conducta define los comportamientos esperados, los comportamientos no aceptados y el proceso de aplicacion.
+Este Código de Conducta define los comportamientos esperados, los comportamientos no aceptados y el proceso de aplicación.
 
 ---
 
@@ -15,21 +15,21 @@ Este Codigo de Conducta define los comportamientos esperados, los comportamiento
 Como comunidad, nos comprometemos a crear un ambiente abierto, respetuoso y libre de acoso para todas las personas, sin importar:
 
 - edad,
-- identidad o expresion de genero,
-- orientacion sexual,
+- identidad o expresión de género,
+- orientación sexual,
 - discapacidad,
-- apariencia fisica,
+- apariencia física,
 - nacionalidad,
-- origen etnico,
+- origen étnico,
 - idioma,
-- nivel socioeconomico,
-- religion,
-- experiencia tecnica,
+- nivel socioeconómico,
+- religión,
+- experiencia técnica,
 - trayectoria profesional,
-- afiliacion institucional,
-- ubicacion geografica.
+- afiliación institucional,
+- ubicación geográfica.
 
-El desacuerdo tecnico es normal. La falta de respeto no lo es.
+El desacuerdo técnico es normal. La falta de respeto no lo es.
 
 ---
 
@@ -37,14 +37,14 @@ El desacuerdo tecnico es normal. La falta de respeto no lo es.
 
 Se espera que todas las personas participantes:
 
-1. **Traten a los demas con respeto.**
-   Las discusiones deben centrarse en ideas, codigo, documentacion, arquitectura y seguridad, no en ataques personales.
+1. **Traten a los demás con respeto.**
+   Las discusiones deben centrarse en ideas, código, documentación, arquitectura y seguridad, no en ataques personales.
 
 2. **Sean claras y constructivas.**
-   Explica problemas tecnicos con evidencia, pasos de reproduccion y propuestas cuando sea posible.
+   Explica problemas técnicos con evidencia, pasos de reproducción y propuestas cuando sea posible.
 
-3. **Acepten retroalimentacion.**
-   El codigo y la documentacion pueden mejorar mediante revision colectiva.
+3. **Acepten retroalimentación.**
+   El código y la documentación pueden mejorar mediante revisión colectiva.
 
 4. **Reconozcan errores.**
    Si algo se rompe, se corrige. Lo importante es proteger a los usuarios y al proyecto.
@@ -53,7 +53,7 @@ Se espera que todas las personas participantes:
    No publiques correos reales, logs sensibles, credenciales, datos personales ni evidencia privada.
 
 6. **Prioricen la seguridad.**
-   Si descubres una vulnerabilidad, reportala por el canal definido en `SECURITY.md`, no en un issue publico.
+   Si descubres una vulnerabilidad, repórtala por el canal definido en `SECURITY.md`, no en un issue público.
 
 7. **Usen lenguaje profesional.**
    Puede ser directo, pero no humillante, agresivo ni discriminatorio.
@@ -62,10 +62,10 @@ Se espera que todas las personas participantes:
    Los reportes deben ser claros. Las solicitudes deben tener contexto suficiente.
 
 9. **Ayuden a mantener el proyecto comprensible.**
-   Codigo, documentacion y pruebas deben ser mantenibles.
+   Código, documentación y pruebas deben ser mantenibles.
 
-10. **Eviten conflictos de interes no declarados.**
-    Si propones cambios relacionados con servicios, empresas o intereses propios, indicalo con transparencia.
+10. **Eviten conflictos de interés no declarados.**
+    Si propones cambios relacionados con servicios, empresas o intereses propios, indícalo con transparencia.
 
 ---
 
@@ -78,43 +78,43 @@ No se aceptan:
 - humillaciones,
 - amenazas,
 - acoso,
-- discriminacion,
+- discriminación,
 - ataques personales,
 - lenguaje sexualizado,
-- intimidacion,
+- intimidación,
 - doxxing,
-- publicacion de informacion privada,
-- exposicion de credenciales,
-- publicacion de correos reales,
-- publicacion de datos personales,
+- publicación de información privada,
+- exposición de credenciales,
+- publicación de correos reales,
+- publicación de datos personales,
 - spam,
-- sabotaje tecnico,
-- manipulacion maliciosa de reportes,
-- presion indebida sobre mantenedores,
-- insistencia agresiva despues de recibir una respuesta clara,
-- uso del proyecto para vulnerar sistemas sin autorizacion.
+- sabotaje técnico,
+- manipulación maliciosa de reportes,
+- presión indebida sobre mantenedores,
+- insistencia agresiva después de recibir una respuesta clara,
+- uso del proyecto para vulnerar sistemas sin autorización.
 
-Tambien se considera inaceptable publicar publicamente vulnerabilidades explotables antes de dar al equipo mantenedor una oportunidad razonable de corregirlas mediante el proceso definido en `SECURITY.md`.
+También se considera inaceptable publicar públicamente vulnerabilidades explotables antes de dar al equipo mantenedor una oportunidad razonable de corregirlas mediante el proceso definido en `SECURITY.md`.
 
 ---
 
-## 5. Ambito de aplicacion
+## 5. Ámbito de aplicación
 
-Este Codigo de Conducta aplica en todos los espacios del proyecto, incluyendo:
+Este Código de Conducta aplica en todos los espacios del proyecto, incluyendo:
 
 - repositorio GitHub,
 - issues,
 - pull requests,
 - discussions,
-- documentacion,
+- documentación,
 - chats comunitarios,
 - listas de correo,
-- reuniones tecnicas,
+- reuniones técnicas,
 - eventos,
 - comunicaciones privadas relacionadas con el proyecto,
 - espacios donde una persona represente oficialmente al proyecto.
 
-Tambien aplica cuando una conducta fuera de los espacios oficiales afecta de forma directa la seguridad, confianza o participacion dentro del proyecto.
+También aplica cuando una conducta fuera de los espacios oficiales afecta de forma directa la seguridad, confianza o participación dentro del proyecto.
 
 ---
 
@@ -126,10 +126,10 @@ Por la naturaleza del proyecto, se aplican reglas especiales:
 
 No se permite publicar:
 
-- correos electronicos reales,
+- correos electrónicos reales,
 - contenido de buzones reales,
 - adjuntos reales,
-- logs de produccion no sanitizados,
+- logs de producción no sanitizados,
 - IPs internas sensibles,
 - nombres de usuarios reales,
 - credenciales,
@@ -137,71 +137,71 @@ No se permite publicar:
 - llaves privadas,
 - hashes de evidencia real,
 - rutas internas sensibles,
-- capturas con informacion privada.
+- capturas con información privada.
 
 ### Vulnerabilidades
 
 Las vulnerabilidades deben reportarse mediante `SECURITY.md`.
 
-No abras issues publicos para reportar problemas de seguridad que puedan ser explotados antes de ser corregidos.
+No abras issues públicos para reportar problemas de seguridad que puedan ser explotados antes de ser corregidos.
 
 ### Pruebas de seguridad
 
-No ejecutes pruebas intrusivas contra servidores de terceros ni contra entornos reales sin autorizacion explicita.
+No ejecutes pruebas intrusivas contra servidores de terceros ni contra entornos reales sin autorización explícita.
 
 Las pruebas deben realizarse en entornos locales, demos o laboratorios autorizados.
 
 ---
 
-## 7. Como reportar una conducta inapropiada
+## 7. Cómo reportar una conducta inapropiada
 
-Si observas o sufres una conducta que incumple este Codigo de Conducta, puedes reportarla al equipo mantenedor.
+Si observas o sufres una conducta que incumple este Código de Conducta, puedes reportarla al equipo mantenedor.
 
-Usa el canal definido por el proyecto. Si aun no existe un canal especifico, abre una comunicacion privada con los mantenedores principales.
+Usa el canal definido por el proyecto. Si aún no existe un canal específico, abre una comunicación privada con los mantenedores principales.
 
 Incluye, si es posible:
 
-1. Que ocurrio.
-2. Donde ocurrio.
-3. Cuando ocurrio.
-4. Quienes estuvieron involucrados.
+1. Qué ocurrió.
+2. Dónde ocurrió.
+3. Cuándo ocurrió.
+4. Quiénes estuvieron involucrados.
 5. Evidencia disponible.
 6. Si existe riesgo inmediato.
-7. Que medida consideras necesaria.
+7. Qué medida consideras necesaria.
 
 ---
 
-## 8. Aplicacion
+## 8. Aplicación
 
 ### Proceso
 
 1. El equipo mantenedor recibe el reporte.
-2. Se evalua la gravedad y el contexto.
+2. Se evalúa la gravedad y el contexto.
 3. Se contacta a las partes involucradas si es necesario.
-4. Se toma una decision y se comunica a las partes.
+4. Se toma una decisión y se comunica a las partes.
 5. Se documenta internamente (sin publicar datos personales).
 
 ### Acciones posibles
 
-Segun la gravedad, el equipo mantenedor puede:
+Según la gravedad, el equipo mantenedor puede:
 
 - emitir una advertencia privada,
-- solicitar una disculpa publica o privada,
+- solicitar una disculpa pública o privada,
 - eliminar contenido inapropiado,
-- restringir temporalmente la participacion,
-- bloquear permanentemente la participacion,
+- restringir temporalmente la participación,
+- bloquear permanentemente la participación,
 - reportar a plataformas externas si corresponde.
 
 ### Confidencialidad
 
-Los reportes se manejan con confidencialidad. No se revelara la identidad de quien reporta sin su consentimiento, salvo obligacion legal.
+Los reportes se manejan con confidencialidad. No se revelará la identidad de quien reporta sin su consentimiento, salvo obligación legal.
 
 ---
 
-## 9. Atribucion
+## 9. Atribución
 
-Este Codigo de Conducta esta basado en el [Contributor Covenant v2.1](https://www.contributor-covenant.org/version/2/1/code_of_conduct/), adaptado al contexto especifico de Webmail Maquita como plataforma de correo con capa de compliance, auditoria y preservacion de evidencia.
+Este Código de Conducta está basado en el [Contributor Covenant v2.1](https://www.contributor-covenant.org/version/2/1/code_of_conduct/), adaptado al contexto específico de Webmail Maquita como plataforma de correo con capa de compliance, auditoría y preservación de evidencia.
 
 ---
 
-*Fundacion Maquita — Tecnologia al servicio de todos, no solo de quienes pueden pagarla.*
+*Fundación Maquita — Tecnología al servicio de todos, no solo de quienes pueden pagarla.*

@@ -1,33 +1,33 @@
-# Local Development Guide
+# Guía de Desarrollo Local
 
-This guide covers setting up a local development environment for Maquita Webmail.
+Esta guía cubre la configuración de un entorno de desarrollo local para Maquita Webmail.
 
-## Prerequisites
+## Requisitos previos
 
-| Tool         | Version   | Notes                          |
+| Herramienta  | Versión   | Notas                          |
 |--------------|-----------|--------------------------------|
-| Python       | 3.12+     | Required for backend           |
-| Node.js      | 20 LTS    | Required for frontend          |
-| PostgreSQL   | 17        | Primary database               |
-| Redis        | 7         | Caching and sessions           |
-| Git          | 2.40+     | Version control                |
+| Python       | 3.12+     | Requerido para el backend      |
+| Node.js      | 20 LTS    | Requerido para el frontend     |
+| PostgreSQL   | 17        | Base de datos principal        |
+| Redis        | 7         | Caché y sesiones               |
+| Git          | 2.40+     | Control de versiones           |
 
-Optional but recommended:
+Opcionales pero recomendados:
 
-- **Docker / Podman** -- for running PostgreSQL and Redis without local install
-- **direnv** -- automatic `.env` loading
-- **httpie** or **curl** -- API testing
+- **Docker / Podman** -- para ejecutar PostgreSQL y Redis sin instalación local
+- **direnv** -- carga automática de `.env`
+- **httpie** o **curl** -- pruebas de API
 
-## Clone and Setup
+## Clonar y configurar
 
 ```bash
 git clone https://github.com/wilsongabriel30/webmailMaquita.git
 cd maquita-webmail
 ```
 
-## Backend Setup
+## Configuración del backend
 
-### 1. Create a virtual environment
+### 1. Crea un entorno virtual
 
 ```bash
 cd backend
@@ -35,7 +35,7 @@ python3.12 -m venv .venv
 source .venv/bin/activate
 ```
 
-### 2. Install dependencies
+### 2. Instala las dependencias
 
 ```bash
 pip install --upgrade pip
@@ -43,13 +43,13 @@ pip install -r requirements.txt
 pip install -r requirements-dev.txt   # linting, testing, etc.
 ```
 
-### 3. Configure environment
+### 3. Configura el entorno
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` with your local settings. At a minimum set:
+Edita `.env` con tu configuración local. Como mínimo, define:
 
 ```
 DATABASE_URL=postgresql://maquita:maquita@localhost:5432/maquita_webmail
@@ -59,17 +59,17 @@ SECRET_KEY=change-me-local-dev-only
 CORS_ORIGINS=http://localhost:5173
 ```
 
-See [CONFIGURATION.md](CONFIGURATION.md) for the full reference.
+Consulta [CONFIGURATION.md](CONFIGURATION.md) para la referencia completa.
 
-### 4. Run the backend
+### 4. Ejecuta el backend
 
 ```bash
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-The API docs are available at `http://localhost:8000/docs` (Swagger) and `http://localhost:8000/redoc`.
+La documentación de la API está disponible en `http://localhost:8000/docs` (Swagger) y `http://localhost:8000/redoc`.
 
-## Frontend Setup
+## Configuración del frontend
 
 ```bash
 cd frontend
@@ -77,20 +77,20 @@ npm ci
 npm run dev
 ```
 
-The dev server starts at `http://localhost:5173` and proxies API calls to the backend.
+El servidor de desarrollo inicia en `http://localhost:5173` y redirige las llamadas de API hacia el backend.
 
-## Database Setup
+## Configuración de la base de datos
 
-### Create the database
+### Crear la base de datos
 
 ```bash
 createuser -s maquita 2>/dev/null || true
 createdb -O maquita maquita_webmail
 ```
 
-### Run migrations
+### Ejecutar las migraciones
 
-Migrations are plain SQL files in `migrations/`. Apply them in order:
+Las migraciones son archivos SQL planos ubicados en `migrations/`. Aplícalos en orden:
 
 ```bash
 for f in $(ls migrations/*.sql | sort); do
@@ -99,19 +99,19 @@ for f in $(ls migrations/*.sql | sort); do
 done
 ```
 
-Or use the helper script if available:
+O utiliza el script auxiliar si está disponible:
 
 ```bash
 python scripts/migrate.py
 ```
 
-### Seed data (optional)
+### Datos de prueba (opcional)
 
 ```bash
 psql -U maquita -d maquita_webmail -f scripts/seed_dev.sql
 ```
 
-## Running Tests
+## Ejecutar las pruebas
 
 ### Backend
 
@@ -119,13 +119,13 @@ psql -U maquita -d maquita_webmail -f scripts/seed_dev.sql
 cd backend
 source .venv/bin/activate
 
-# All tests
+# Todas las pruebas
 pytest
 
-# With coverage
+# Con cobertura
 pytest --cov=app --cov-report=term-missing
 
-# Specific module
+# Módulo específico
 pytest tests/test_compliance.py -v
 ```
 
@@ -133,20 +133,20 @@ pytest tests/test_compliance.py -v
 
 ```bash
 cd frontend
-npm test            # unit tests (Vitest)
-npm run test:e2e    # end-to-end tests (Playwright), requires backend running
+npm test            # pruebas unitarias (Vitest)
+npm run test:e2e    # pruebas de extremo a extremo (Playwright), requiere el backend en ejecución
 ```
 
-## Code Formatting
+## Formato de código
 
 ### Python (backend)
 
 ```bash
-# Format
+# Formatear
 black app/ tests/
 isort app/ tests/
 
-# Check only (CI mode)
+# Solo verificar (modo CI)
 black --check app/ tests/
 isort --check-only app/ tests/
 ```
@@ -154,28 +154,28 @@ isort --check-only app/ tests/
 ### TypeScript/React (frontend)
 
 ```bash
-# Lint
+# Linting
 npm run lint
 
-# Fix automatically
+# Corregir automáticamente
 npm run lint -- --fix
 
-# Format with Prettier (if configured)
+# Formatear con Prettier (si está configurado)
 npx prettier --write "src/**/*.{ts,tsx,css}"
 ```
 
-## Hot Reload
+## Recarga en caliente
 
-- **Backend**: `uvicorn --reload` watches for file changes and restarts automatically.
-- **Frontend**: Vite HMR updates the browser instantly on save.
+- **Backend**: `uvicorn --reload` detecta cambios en los archivos y reinicia automáticamente.
+- **Frontend**: Vite HMR actualiza el navegador al instante al guardar.
 
-Both are enabled by default when using the dev commands above.
+Ambos están habilitados por defecto al usar los comandos de desarrollo indicados arriba.
 
-## Troubleshooting
+## Solución de problemas
 
 ### `psql: FATAL: role "maquita" does not exist`
 
-Create the role first:
+Crea el rol primero:
 
 ```bash
 sudo -u postgres createuser -s maquita
@@ -183,26 +183,26 @@ sudo -u postgres createuser -s maquita
 
 ### `ModuleNotFoundError: No module named 'app'`
 
-Make sure you activated the virtualenv and installed dependencies:
+Asegúrate de haber activado el entorno virtual e instalado las dependencias:
 
 ```bash
 source backend/.venv/bin/activate
 pip install -r backend/requirements.txt
 ```
 
-### Port 5173 already in use
+### El puerto 5173 ya está en uso
 
-Another Vite instance or process is using the port. Kill it or change the port:
+Otra instancia de Vite o un proceso distinto está ocupando el puerto. Termínalo o cambia el puerto:
 
 ```bash
 lsof -ti :5173 | xargs kill -9
-# or
+# o
 npm run dev -- --port 5174
 ```
 
-### Redis connection refused
+### Conexión a Redis rechazada
 
-Start the Redis server:
+Inicia el servidor de Redis:
 
 ```bash
 # systemd
@@ -212,23 +212,23 @@ sudo systemctl start redis-server
 docker run -d --name redis -p 6379:6379 redis:7-alpine
 ```
 
-### Migrations fail with "relation already exists"
+### Las migraciones fallan con "relation already exists"
 
-Migrations are not idempotent by default. If you need a fresh start:
+Las migraciones no son idempotentes por defecto. Si necesitas comenzar desde cero:
 
 ```bash
 dropdb maquita_webmail
 createdb -O maquita maquita_webmail
-# Re-run migrations
+# Vuelve a ejecutar las migraciones
 ```
 
-### CORS errors in the browser
+### Errores de CORS en el navegador
 
-Ensure `CORS_ORIGINS` in `.env` includes your frontend URL (e.g., `http://localhost:5173`).
+Asegúrate de que `CORS_ORIGINS` en `.env` incluya la URL de tu frontend (por ejemplo, `http://localhost:5173`).
 
-### Backend cannot connect to PostgreSQL on macOS
+### El backend no puede conectarse a PostgreSQL en macOS
 
-If using Homebrew PostgreSQL, the socket path may differ. Use TCP explicitly:
+Si usas PostgreSQL de Homebrew, la ruta del socket puede ser diferente. Usa TCP explícitamente:
 
 ```
 DATABASE_URL=postgresql://maquita:maquita@127.0.0.1:5432/maquita_webmail

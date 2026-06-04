@@ -2,21 +2,21 @@
 
 > **Proyecto de la Fundacion Maquita** — Comercializadora asociativa sin fines de lucro, Ecuador.
 
-Guia para configurar el asistente de IA integrado en el webmail. Usa modelos de lenguaje ejecutados localmente (Ollama), sin enviar datos a servicios externos.
+Guía para configurar el asistente de IA integrado en el webmail. Usa modelos de lenguaje ejecutados localmente (Ollama), sin enviar datos a servicios externos.
 
 ---
 
-## Que puede hacer la IA
+## Qué puede hacer la IA
 
 - **Respuestas inteligentes** — sugiere 3 opciones de respuesta contextualizadas
 - **Autocompletado** — completa frases mientras escribes
 - **Resumen de correos** — resume correos largos
-- **Redaccion asistida** — ayuda a redactar correos profesionales
-- **Dictado por voz** — transcripcion con Whisper
+- **Redacción asistida** — ayuda a redactar correos profesionales
+- **Dictado por voz** — transcripción con Whisper
 
 ## Requisitos
 
-- Un servidor o PC con GPU NVIDIA (minimo 8 GB VRAM)
+- Un servidor o PC con GPU NVIDIA (mínimo 8 GB VRAM)
 - NVIDIA drivers + CUDA instalados
 - Puede ser el mismo servidor del correo u otro dedicado
 
@@ -37,27 +37,27 @@ reboot
 
 # Verificar
 nvidia-smi
-# Debe mostrar tu GPU, memoria VRAM y version del driver
+# Debe mostrar la GPU, la memoria VRAM y la versión del driver
 ```
 
 ## Paso 2: Instalar Ollama
 
-Ollama es el motor que ejecuta los modelos de IA localmente. Gratuito y open source.
+Ollama es el motor que ejecuta los modelos de IA localmente. Gratuito y de código abierto.
 
 ```bash
 curl -fsSL https://ollama.com/install.sh | sh
 
 # Verificar
 systemctl status ollama
-# Debe decir "active (running)"
+# Debe indicar "active (running)"
 
-# Si no esta corriendo:
+# Si no está corriendo:
 systemctl enable --now ollama
 ```
 
 ## Paso 3: Descargar un modelo
 
-Recomendaciones segun tu VRAM:
+Recomendaciones según la VRAM disponible:
 
 | VRAM | Modelo recomendado | Comando | Calidad |
 |------|-------------------|---------|---------|
@@ -72,16 +72,16 @@ Recomendaciones segun tu VRAM:
 # Ejemplo: descargar Gemma 2 9B
 ollama pull gemma2:9b
 
-# Verificar
+# Verificar modelos instalados
 ollama list
 
-# Probar
+# Probar el modelo
 ollama run gemma2:9b "Hola, responde en una frase"
 ```
 
 **Modelos recomendados por idioma:**
-- **Espanol**: Gemma 4, Qwen 2.5, Llama 3.1 (todos funcionan bien)
-- **Solo ingles**: Phi-3, Mistral (menos recomendados para webmail en espanol)
+- **Español**: Gemma 4, Qwen 2.5, Llama 3.1 (todos funcionan bien)
+- **Solo inglés**: Phi-3, Mistral (menos recomendados para webmail en español)
 
 ## Paso 4: Configurar acceso remoto
 
@@ -98,7 +98,7 @@ EOF
 systemctl daemon-reload
 systemctl restart ollama
 
-# Verificar
+# Verificar que el puerto está escuchando
 ss -tlnp | grep 11434
 # Debe mostrar 0.0.0.0:11434
 ```
@@ -110,14 +110,14 @@ ufw allow from IP_SERVIDOR_CORREO to any port 11434
 ufw deny 11434
 ```
 
-## Paso 5: Crear el gateway IA
+## Paso 5: Crear el gateway de IA
 
-El webmail no se conecta directamente a Ollama. Necesita un gateway FastAPI que autentica, enruta y hace failover.
+El webmail no se conecta directamente a Ollama. Necesita un gateway FastAPI que autentica, enruta y realiza failover automático.
 
 Crear `/opt/maquita-ia-gateway/gateway.py`:
 ```python
 """
-Gateway IA para Maquita Webmail
+Gateway de IA para Maquita Webmail
 Proxy autenticado entre el webmail y Ollama
 """
 import logging
@@ -131,7 +131,7 @@ logging.basicConfig(level=logging.INFO)
 # --- CONFIGURACION ---
 API_KEY = "tu-clave-api-segura"  # Cambiar por una clave real
 OLLAMA_URL = "http://localhost:11434"
-MODELO_DEFAULT = "gemma2:9b"  # Cambiar por tu modelo
+MODELO_DEFAULT = "gemma2:9b"  # Cambiar por el modelo deseado
 
 def verificar_token(x_api_key: str = Header(None)):
     if x_api_key != API_KEY:
@@ -249,7 +249,7 @@ OLLAMA_URL=http://IP_SERVIDOR_IA:8000
 IA_API_KEY=tu-clave-api-segura
 ```
 
-Reiniciar:
+Reiniciar el servicio:
 ```bash
 systemctl restart maquita-webmail
 ```
@@ -258,17 +258,17 @@ systemctl restart maquita-webmail
 
 1. Ir al webmail
 2. Abrir un correo recibido
-3. Buscar el boton de "Respuesta inteligente" o icono de IA
+3. Buscar el botón de "Respuesta inteligente" o el ícono de IA
 4. Debe generar opciones de respuesta contextualizadas
 5. Al redactar, el autocompletado debe sugerir texto
 
-## Configuracion avanzada: multiples GPUs
+## Configuración avanzada: múltiples GPUs
 
-Si tienes dos o mas GPUs, el sistema puede distribuir la carga:
+Si hay dos o más GPUs disponibles, el sistema puede distribuir la carga:
 
-- **GPU principal**: tareas pesadas (resumenes largos, razonamiento)
-- **GPU secundaria**: tareas rapidas (autocompletado, chat)
-- **Failover automatico** si una GPU falla
+- **GPU principal**: tareas pesadas (resúmenes largos, razonamiento)
+- **GPU secundaria**: tareas rápidas (autocompletado, chat)
+- **Failover automático** si una GPU falla
 
 ```python
 # En el gateway, agregar segunda GPU
@@ -278,13 +278,13 @@ GPU_REMOTA = "http://IP_SEGUNDA_GPU:11434"  # GPU 2
 
 ## Solucionar problemas
 
-| Problema | Solucion |
+| Problema | Solución |
 |----------|----------|
-| "El servicio de IA no respondio a tiempo" | El modelo es muy grande para tu GPU. Prueba uno mas pequeno |
+| "El servicio de IA no respondió a tiempo" | El modelo es muy grande para la GPU disponible. Probar con uno más pequeño |
 | "Error al comunicarse con el servicio de IA" | Verificar: `systemctl status ollama maquita-ia-gateway` |
-| Respuestas lentas (>30 seg) | Usa un modelo mas pequeno o GPU con mas VRAM |
-| Respuestas de baja calidad | Usa un modelo mas grande (14B o 26B) |
-| "Token de autenticacion requerido" | Verificar que `IA_API_KEY` en `.env` coincide con `API_KEY` en el gateway |
+| Respuestas lentas (>30 seg) | Usar un modelo más pequeño o una GPU con más VRAM |
+| Respuestas de baja calidad | Usar un modelo más grande (14B o 26B) |
+| "Token de autenticación requerido" | Verificar que `IA_API_KEY` en `.env` coincide con `API_KEY` en el gateway |
 | GPU no detectada | Verificar drivers: `nvidia-smi`. Reinstalar si es necesario |
 | Ollama usa CPU en vez de GPU | Verificar CUDA: `nvcc --version`. Reinstalar Ollama |
 
@@ -296,4 +296,4 @@ GPU_REMOTA = "http://IP_SEGUNDA_GPU:11434"  # GPU 2
 
 ---
 
-*Fundacion Maquita — Tecnologia al servicio de todos, no solo de quienes pueden pagarla.*
+*Fundacion Maquita — Tecnología al servicio de todos, no solo de quienes pueden pagarla.*

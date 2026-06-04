@@ -1,113 +1,113 @@
-# Roadmap
+# Hoja de ruta
 
-This document outlines the development roadmap for Maquita Webmail. Status labels indicate progress:
+Este documento describe la hoja de ruta de desarrollo de Maquita Webmail. Las etiquetas de estado indican el avance:
 
-- **DONE** -- Completed and released
-- **IN PROGRESS** -- Actively being developed
-- **PLANNED** -- Approved and scheduled for development
-- **PROPOSED** -- Under consideration, not yet committed
-
----
-
-## v1.0.x -- Compliance and eDiscovery Core `DONE`
-
-The foundation release with full compliance capabilities.
-
-- Full webmail: inbox, compose, threads, labels, search
-- Calendar (CalDAV via Radicale), contacts, tasks
-- Admin panel with RBAC
-- Anti-spam (Rspamd), antivirus (ClamAV)
-- Two-factor authentication (TOTP)
-- Dovecot mail_crypt encryption at rest
-- **eDiscovery module**: search, preserve, collect, export
-- **Legal holds**: immutable preservation with audit trail
-- **Compliance audit trail**: all actions logged with actor, timestamp, and context
-- **Fraud detection**: rule-based email analysis with scoring
-- **GPG signing**: cryptographic integrity for exports and evidence
-- **RBAC enforcement**: granular role-based access for compliance operations
-- **Mail trace correlation**: end-to-end message tracking across MTA/MDA/MUA
-- CI/CD pipeline with gitleaks, SBOM generation
-
-## v1.1 -- Scalable Full-Text Indexing `PLANNED`
-
-High-performance search across large mailboxes and compliance data.
-
-- Integrate Apache Solr or Manticore Search for full-text indexing
-- Index email bodies, headers, and attachment text
-- Support complex query syntax (boolean operators, date ranges, field-specific search)
-- Real-time index updates via LMTP hook
-- Search result highlighting and relevance scoring
-- Compliance-aware search: respect legal holds and retention policies
-
-## v1.2 -- Advanced Attachment Extraction `PLANNED`
-
-Deep content extraction from common document formats.
-
-- PDF text extraction (with OCR fallback via Tesseract)
-- DOCX/XLSX/PPTX content parsing
-- Archive inspection (ZIP, TAR, 7z) with nested extraction
-- Image metadata extraction (EXIF)
-- Content indexing for full-text search integration
-- Malware scanning of extracted content
-- File type validation beyond MIME sniffing
-
-## v1.3 -- Wazuh and OpenSearch Integration `PROPOSED`
-
-Security monitoring and centralized log analysis.
-
-- Wazuh agent deployment and configuration
-- OpenSearch as log backend for mail, auth, and compliance events
-- Pre-built alert rules for suspicious mail activity
-- Integration with compliance audit trail
-- Dashboards for security posture overview
-- File integrity monitoring for mail storage and configuration
-
-## v1.4 -- SIEM Dashboards `PROPOSED`
-
-Operational and security dashboards for administrators.
-
-- Grafana dashboards for mail flow metrics
-- Authentication event visualization (success, failure, geographic)
-- Compliance module activity dashboard
-- Alert management and escalation workflows
-- Anomaly detection for mailbox access patterns
-- Report generation (PDF/CSV) for compliance audits
-
-## v1.5 -- Multi-Tenant and Multi-Domain `PROPOSED`
-
-Support for hosting multiple organizations on a single instance.
-
-- Domain-level isolation for mailboxes, settings, and compliance data
-- Per-tenant admin roles and RBAC policies
-- Tenant-specific branding and configuration
-- Resource quotas per tenant (storage, users, rate limits)
-- Shared infrastructure with data isolation guarantees
-- Tenant provisioning API and admin UI
-- Cross-tenant compliance operations (for parent organizations)
-
-## v2.0 -- Stable Production Architecture `PROPOSED`
-
-The first long-term support release with architectural maturity.
-
-- Horizontal scaling: stateless backend behind load balancer
-- Database read replicas and connection pooling (PgBouncer)
-- Redis Sentinel or Cluster for HA caching
-- Queue-based async processing (Celery or equivalent)
-- Zero-downtime deployment strategy (blue-green or rolling)
-- Comprehensive API versioning (v1 stable, v2 preview)
-- Performance benchmarks and SLA targets
-- Long-term support commitment (security patches for 2+ years)
-- Complete OpenAPI specification with SDK generation
-- Plugin/extension system for custom compliance rules
+- **DONE** -- Completado y publicado
+- **IN PROGRESS** -- En desarrollo activo
+- **PLANNED** -- Aprobado y programado para desarrollo
+- **PROPOSED** -- En consideración, aún sin compromiso
 
 ---
 
-## Contributing to the Roadmap
+## v1.0.x -- Cumplimiento normativo y núcleo eDiscovery `DONE`
 
-Community input is welcome. To propose a feature:
+La versión base con capacidades completas de cumplimiento normativo.
 
-1. Open a GitHub issue with the `roadmap` label
-2. Describe the use case and expected behavior
-3. The maintainers will review and assign a milestone if accepted
+- Webmail completo: bandeja de entrada, redacción, hilos, etiquetas, búsqueda
+- Calendario (CalDAV vía Radicale), contactos, tareas
+- Panel de administración con RBAC
+- Antispam (Rspamd), antivirus (ClamAV)
+- Autenticación de dos factores (TOTP)
+- Cifrado en reposo con Dovecot mail_crypt
+- **Módulo eDiscovery**: búsqueda, preservación, recopilación, exportación
+- **Retenciones legales**: preservación inmutable con auditoría
+- **Auditoría de cumplimiento**: todas las acciones registradas con actor, marca de tiempo y contexto
+- **Detección de fraude**: análisis de correo basado en reglas con puntuación
+- **Firma GPG**: integridad criptográfica para exportaciones y evidencia
+- **Aplicación de RBAC**: acceso granular basado en roles para operaciones de cumplimiento
+- **Correlación de trazas de correo**: seguimiento de mensajes de extremo a extremo en MTA/MDA/MUA
+- Pipeline CI/CD con gitleaks y generación de SBOM
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
+## v1.1 -- Indexación de texto completo escalable `PLANNED`
+
+Búsqueda de alto rendimiento en buzones grandes y datos de cumplimiento.
+
+- Integrar Apache Solr o Manticore Search para indexación de texto completo
+- Indexar cuerpos de correo, encabezados y texto de adjuntos
+- Soporte para sintaxis de consulta compleja (operadores booleanos, rangos de fechas, búsqueda por campo)
+- Actualizaciones de índice en tiempo real vía gancho LMTP
+- Resaltado de resultados de búsqueda y puntuación de relevancia
+- Búsqueda con conciencia de cumplimiento: respeta retenciones legales y políticas de retención
+
+## v1.2 -- Extracción avanzada de adjuntos `PLANNED`
+
+Extracción profunda de contenido de formatos de documento habituales.
+
+- Extracción de texto en PDF (con OCR de respaldo vía Tesseract)
+- Análisis de contenido DOCX/XLSX/PPTX
+- Inspección de archivos comprimidos (ZIP, TAR, 7z) con extracción anidada
+- Extracción de metadatos de imagen (EXIF)
+- Indexación de contenido para integración con búsqueda de texto completo
+- Análisis de malware en el contenido extraído
+- Validación de tipo de archivo más allá del sniffing de MIME
+
+## v1.3 -- Integración con Wazuh y OpenSearch `PROPOSED`
+
+Monitoreo de seguridad y análisis centralizado de registros.
+
+- Despliegue y configuración del agente Wazuh
+- OpenSearch como backend de registros para eventos de correo, autenticación y cumplimiento
+- Reglas de alerta predefinidas para actividad sospechosa de correo
+- Integración con la auditoría de cumplimiento
+- Paneles de control para visión general del estado de seguridad
+- Monitoreo de integridad de archivos para almacenamiento de correo y configuración
+
+## v1.4 -- Paneles SIEM `PROPOSED`
+
+Paneles de control operativos y de seguridad para administradores.
+
+- Paneles Grafana para métricas de flujo de correo
+- Visualización de eventos de autenticación (éxito, fallo, geográfico)
+- Panel de actividad del módulo de cumplimiento
+- Gestión de alertas y flujos de escalamiento
+- Detección de anomalías en patrones de acceso a buzones
+- Generación de informes (PDF/CSV) para auditorías de cumplimiento
+
+## v1.5 -- Multi-tenant y multi-dominio `PROPOSED`
+
+Soporte para alojar múltiples organizaciones en una sola instancia.
+
+- Aislamiento a nivel de dominio para buzones, configuraciones y datos de cumplimiento
+- Roles de administrador por tenant y políticas RBAC
+- Marca y configuración específicas por tenant
+- Cuotas de recursos por tenant (almacenamiento, usuarios, límites de tasa)
+- Infraestructura compartida con garantías de aislamiento de datos
+- API de aprovisionamiento de tenants e interfaz de administración
+- Operaciones de cumplimiento entre tenants (para organizaciones matrices)
+
+## v2.0 -- Arquitectura de producción estable `PROPOSED`
+
+La primera versión de soporte a largo plazo con madurez arquitectónica.
+
+- Escalado horizontal: backend sin estado detrás de balanceador de carga
+- Réplicas de lectura de base de datos y agrupación de conexiones (PgBouncer)
+- Redis Sentinel o Cluster para caché de alta disponibilidad
+- Procesamiento asíncrono basado en colas (Celery o equivalente)
+- Estrategia de despliegue sin tiempo de inactividad (blue-green o rolling)
+- Versionado completo de API (v1 estable, v2 en vista previa)
+- Benchmarks de rendimiento y objetivos de SLA
+- Compromiso de soporte a largo plazo (parches de seguridad por 2+ años)
+- Especificación OpenAPI completa con generación de SDK
+- Sistema de complementos/extensiones para reglas de cumplimiento personalizadas
+
+---
+
+## Contribuir a la hoja de ruta
+
+Las sugerencias de la comunidad son bienvenidas. Para proponer una funcionalidad:
+
+1. Abre un issue en GitHub con la etiqueta `roadmap`
+2. Describe el caso de uso y el comportamiento esperado
+3. Los mantenedores revisarán y asignarán un hito si la propuesta es aceptada
+
+Consulta [CONTRIBUTING.md](CONTRIBUTING.md) para las pautas de contribución.

@@ -1,43 +1,43 @@
-## Summary
+## Resumen
 
-<!-- Brief description of what this PR does and why -->
+<!-- Descripción breve de qué hace este PR y por qué -->
 
-## Changes
+## Cambios
 
 - 
 
-## Type of Change
+## Tipo de cambio
 
-- [ ] Bug fix (non-breaking change that fixes an issue)
-- [ ] New feature (non-breaking change that adds functionality)
-- [ ] Breaking change (fix or feature that would cause existing functionality to change)
-- [ ] Documentation update
-- [ ] Security improvement
-- [ ] Compliance module change
+- [ ] Corrección de error (cambio no disruptivo que resuelve un problema)
+- [ ] Nueva funcionalidad (cambio no disruptivo que añade capacidades)
+- [ ] Cambio disruptivo (corrección o funcionalidad que modifica el comportamiento existente)
+- [ ] Actualización de documentación
+- [ ] Mejora de seguridad
+- [ ] Cambio en el módulo de compliance
 
-## Checklist
+## Lista de verificación
 
-- [ ] Code follows the project style guide (black, isort, eslint)
-- [ ] Self-review completed
-- [ ] Tests added/updated and passing
-- [ ] No secrets, credentials, or real user data included
-- [ ] No hardcoded IPs, domains, or internal paths
-- [ ] Migrations are idempotent (if applicable)
-- [ ] Documentation updated (if behavior changed)
-- [ ] CHANGELOG.md updated (if user-facing change)
+- [ ] El código sigue la guía de estilo del proyecto (black, isort, eslint)
+- [ ] Autorrevisión completada
+- [ ] Pruebas añadidas/actualizadas y pasando
+- [ ] Sin secretos, credenciales ni datos reales de usuarios
+- [ ] Sin IPs, dominios o rutas internas codificadas directamente
+- [ ] Las migraciones son idempotentes (si aplica)
+- [ ] Documentación actualizada (si se modificó el comportamiento)
+- [ ] CHANGELOG.md actualizado (si el cambio es visible para el usuario)
 
-## Security Checklist (if touching auth/compliance/data)
+## Lista de verificación de seguridad (si afecta autenticación/compliance/datos)
 
-- [ ] Input validation on user-facing parameters
-- [ ] SQL uses parameterized queries
-- [ ] RBAC permissions correctly enforced
-- [ ] Audit trail entries generated for sensitive operations
-- [ ] No new `sudo` or privilege escalation paths without justification
+- [ ] Validación de entrada en parámetros expuestos al usuario
+- [ ] SQL utiliza consultas parametrizadas
+- [ ] Permisos RBAC correctamente aplicados
+- [ ] Entradas de trazabilidad de auditoría generadas para operaciones sensibles
+- [ ] Sin nuevas rutas de `sudo` o escalación de privilegios sin justificación
 
-## Testing
+## Pruebas
 
-<!-- How was this tested? -->
+<!-- ¿Cómo se probó esto? -->
 
-## Related Issues
+## Issues relacionados
 
 <!-- Closes #XX, Fixes #YY -->

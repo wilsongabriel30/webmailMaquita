@@ -131,8 +131,8 @@ systemctl restart php${PHP_VERSION}-fpm
 Agregar estas secciones a tu configuración de Nginx del servidor de correo:
 
 ```bash
-# Copiar snippet de Nginx
-# (Integrar el contenido de nginx/activesync.conf en tu server block HTTPS)
+# Copiar fragmento de Nginx
+# (Integrar el contenido de nginx/activesync.conf en tu bloque server HTTPS)
 ```
 
 Dentro del bloque `server { ... }` de tu dominio HTTPS, agregar:
@@ -146,7 +146,7 @@ location /Microsoft-Server-ActiveSync {
     fastcgi_param SCRIPT_FILENAME /opt/z-push/src/index.php;
     include fastcgi_params;
 
-    # Push/long polling necesita timeouts largos
+    # Push/long polling necesita tiempos de espera largos
     fastcgi_read_timeout 3600;
     fastcgi_send_timeout 3600;
     fastcgi_connect_timeout 60;
@@ -159,7 +159,7 @@ location /Microsoft-Server-ActiveSync {
     error_log /var/log/nginx/activesync-error.log;
 }
 
-# Autodiscover para Outlook (autodiscovery automática)
+# Autodiscover para Outlook (configuración automática)
 location ~* /[Aa]utodiscover/[Aa]utodiscover.xml {
     # Cambiar 8.4 por tu versión de PHP
     fastcgi_pass unix:/run/php/php8.4-zpush.sock;
@@ -211,7 +211,7 @@ tail -f /var/log/z-push/z-push.log
 
 ### Android (Gmail / Outlook / Samsung Email)
 
-1. Abrir la app de correo
+1. Abrir la aplicación de correo
 2. Agregar cuenta → **Exchange / ActiveSync**
 3. Correo: `usuario@tudominio.com`
 4. Contraseña: tu contraseña del correo
@@ -233,9 +233,9 @@ tail -f /var/log/z-push/z-push.log
 
 1. Archivo → Agregar cuenta
 2. Ingresar `usuario@tudominio.com`
-3. Seleccionar **Exchange ActiveSync** si pregunta
+3. Seleccionar **Exchange ActiveSync** si lo solicita
 4. Servidor: `mail.tudominio.com`
-5. Outlook debería autoconfigurar vía Autodiscover
+5. Outlook debería configurarse automáticamente vía Autodiscover
 
 ---
 
@@ -253,7 +253,7 @@ php /opt/z-push/src/z-push-admin.php -a list -u usuario@tudominio.com
 # Forzar resincronización de un dispositivo
 php /opt/z-push/src/z-push-admin.php -a resync -u usuario@tudominio.com -d DEVICE_ID
 
-# Borrar estado de sincronización (resetear dispositivo)
+# Borrar estado de sincronización (reiniciar dispositivo)
 php /opt/z-push/src/z-push-admin.php -a remove -u usuario@tudominio.com -d DEVICE_ID
 
 # Limpiar estados huérfanos
@@ -337,8 +337,8 @@ location /Microsoft-Server-ActiveSync {
 | Calendario no sincroniza | Verificar Radicale: `curl http://127.0.0.1:5232` debe responder |
 | Error "Failed opening XMLDocument.php" | Instalar `libawl-php`: `apt install libawl-php` |
 | Outlook no autodescubre | Verificar DNS: `nslookup autodiscover.tudominio.com` |
-| Correo llega al móvil pero no se envía | Verificar config SMTP en `backend/imap/config.php` (puerto 465 con ssl://) |
-| Sincronización lenta | Aumentar `pm.max_children` en pool PHP-FPM |
+| Correo llega al móvil pero no se envía | Verificar configuración SMTP en `backend/imap/config.php` (puerto 465 con ssl://) |
+| Sincronización lenta | Aumentar `pm.max_children` en el pool de PHP-FPM |
 | Dispositivo no se conecta | Ver log: `tail -f /var/log/z-push/z-push.log` |
 
 ---
@@ -353,12 +353,12 @@ location /Microsoft-Server-ActiveSync {
 │   ├── z-push-admin.php             ← Herramienta de administración
 │   ├── autodiscover/
 │   │   ├── autodiscover.php         ← Autodiscover para Outlook
-│   │   └── config.php               ← Config autodiscover
+│   │   └── config.php               ← Configuración de autodiscover
 │   └── backend/
-│       ├── imap/config.php          ← Config IMAP
-│       ├── caldav/config.php        ← Config CalDAV
-│       ├── carddav/config.php       ← Config CardDAV
-│       └── combined/config.php      ← Config combinada
+│       ├── imap/config.php          ← Configuración IMAP
+│       ├── caldav/config.php        ← Configuración CalDAV
+│       ├── carddav/config.php       ← Configuración CardDAV
+│       └── combined/config.php      ← Configuración combinada
 ├── /var/lib/z-push/                 ← Estado de sincronización
 └── /var/log/z-push/                 ← Logs
 ```
