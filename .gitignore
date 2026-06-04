@@ -29,3 +29,8 @@ migracion-masiva.sh
 *.bak*
 zimbra-sync.sh
 subir.sh
+admin-panel/backend/venv/
+admin-panel/backend/.env
+admin-panel/frontend/node_modules/
+admin-panel/frontend/dist/
+admin-panel/backend/__pycache__/

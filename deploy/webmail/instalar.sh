@@ -38,7 +38,7 @@ if [ -z "$ASSUME_YES" ]; then
 fi
 
 # --- 1. Paquetes base ---
-echo -e "\n${GREEN}[1/14] Instalando paquetes base...${NC}"
+echo -e "\n${GREEN}[1/15] Instalando paquetes base...${NC}"
 apt update && apt install -y \
     curl wget git sudo ufw openssl \
     python3 python3-venv python3-pip \
@@ -51,7 +51,7 @@ apt update && apt install -y \
     ssl-cert rspamd
 
 # --- 2. Node.js 20 ---
-echo -e "\n${GREEN}[2/14] Instalando Node.js 20...${NC}"
+echo -e "\n${GREEN}[2/15] Instalando Node.js 20...${NC}"
 if ! command -v node &>/dev/null; then
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
     apt install -y nodejs
@@ -59,7 +59,7 @@ fi
 echo "Node $(node -v), NPM $(npm -v)"
 
 # --- 3. PostgreSQL: usuario + base de datos ---
-echo -e "\n${GREEN}[3/14] Configurando PostgreSQL...${NC}"
+echo -e "\n${GREEN}[3/15] Configurando PostgreSQL...${NC}"
 DB_PASS=$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | head -c 20)
 sudo -u postgres psql -c "CREATE USER mailserver WITH PASSWORD '${DB_PASS}';" 2>/dev/null \
     || sudo -u postgres psql -c "ALTER USER mailserver WITH PASSWORD '${DB_PASS}';"
@@ -69,7 +69,7 @@ sudo -u postgres psql -d maildb -c "GRANT ALL ON SCHEMA public TO mailserver;" 2
 # --- 4. Redis / Valkey ---
 # En Debian 13 (trixie), redis-server arrastra Valkey (fork de Redis) que toma el
 # puerto 6379 y usa /etc/valkey/valkey.conf. Detectamos cuál está presente.
-echo -e "\n${GREEN}[4/14] Configurando Redis/Valkey...${NC}"
+echo -e "\n${GREEN}[4/15] Configurando Redis/Valkey...${NC}"
 REDIS_PASS=$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | head -c 20)
 if systemctl list-unit-files | grep -q '^valkey-server'; then
     RCONF=/etc/valkey/valkey.conf; RSVC=valkey-server
@@ -81,20 +81,20 @@ systemctl restart "$RSVC"
 echo "  Servicio de caché activo: ${RSVC}"
 
 # --- 5. Usuario vmail (uid/gid 5000, igual que Dovecot) ---
-echo -e "\n${GREEN}[5/14] Creando usuario vmail (uid 5000)...${NC}"
+echo -e "\n${GREEN}[5/15] Creando usuario vmail (uid 5000)...${NC}"
 groupadd -g 5000 vmail 2>/dev/null || true
 useradd -u 5000 -g vmail -d /var/vmail -s /usr/sbin/nologin -m vmail 2>/dev/null || true
 mkdir -p /var/vmail && chown -R vmail:vmail /var/vmail
 
 # --- 6. Código de la aplicación ---
-echo -e "\n${GREEN}[6/14] Obteniendo Maquita Webmail...${NC}"
+echo -e "\n${GREEN}[6/15] Obteniendo Maquita Webmail...${NC}"
 if [ ! -d "${APP_DIR}/backend" ]; then
     git clone https://github.com/wilsongabriel30/webmailMaquita.git "${APP_DIR}"
 fi
 CFG="${APP_DIR}/deploy/webmail/configs"
 
 # --- 7. Esquema de la base de datos (todas las tablas de la app) ---
-echo -e "\n${GREEN}[7/14] Aplicando esquema de la base de datos...${NC}"
+echo -e "\n${GREEN}[7/15] Aplicando esquema de la base de datos...${NC}"
 for f in "${APP_DIR}"/migrations/*.sql; do
     echo "  → $(basename "$f")"
     # ON_ERROR_STOP=0: el esquema usa IF NOT EXISTS; tolera re-ejecución sin abortar
@@ -102,7 +102,7 @@ for f in "${APP_DIR}"/migrations/*.sql; do
 done
 
 # --- 8. Backend (.env + entorno virtual) ---
-echo -e "\n${GREEN}[8/14] Configurando backend...${NC}"
+echo -e "\n${GREEN}[8/15] Configurando backend...${NC}"
 cd "${APP_DIR}/backend"
 python3 -m venv venv
 source venv/bin/activate
@@ -128,14 +128,14 @@ CORS_ORIGINS=https://${MAIL_HOST}
 ENVEOF
 
 # --- 9. Frontend (compilar) ---
-echo -e "\n${GREEN}[9/14] Compilando frontend...${NC}"
+echo -e "\n${GREEN}[9/15] Compilando frontend...${NC}"
 cd "${APP_DIR}/frontend"
 npm ci --quiet && npx vite build
 mkdir -p "${APP_DIR}/www" && ln -sf "${APP_DIR}/frontend/dist" "${APP_DIR}/www/webmail"
 [ -f public/sw.js ] && cp public/sw.js dist/sw.js || true
 
 # --- 10. Dovecot (buzones virtuales SQL + usuario maestro 'admin') ---
-echo -e "\n${GREEN}[10/14] Configurando Dovecot...${NC}"
+echo -e "\n${GREEN}[10/15] Configurando Dovecot...${NC}"
 [ -f /etc/dovecot/dovecot.conf ] && cp /etc/dovecot/dovecot.conf "/etc/dovecot/dovecot.conf.bak.$(date +%Y%m%d%H%M%S)"
 sed "s|__DB_PASS__|${DB_PASS}|g" "${CFG}/dovecot.conf" > /etc/dovecot/dovecot.conf
 # Asegurar certificado snakeoil para que Dovecot arranque con TLS
@@ -152,7 +152,7 @@ doveconf -n >/dev/null && echo "  Dovecot: sintaxis OK"
 systemctl restart dovecot
 
 # --- 11. Postfix (SMTP + entrega LMTP a Dovecot) ---
-echo -e "\n${GREEN}[11/14] Configurando Postfix...${NC}"
+echo -e "\n${GREEN}[11/15] Configurando Postfix...${NC}"
 mkdir -p /etc/postfix/pgsql
 for m in "${CFG}"/postfix-pgsql/*.cf; do
     sed "s|__DB_PASS__|${DB_PASS}|g" "$m" > "/etc/postfix/pgsql/$(basename "$m")"
@@ -189,7 +189,7 @@ postfix check && echo "  Postfix: configuración OK"
 systemctl restart postfix
 
 # --- 12. Servicios (systemd + nginx) ---
-echo -e "\n${GREEN}[12/14] Configurando servicios web...${NC}"
+echo -e "\n${GREEN}[12/15] Configurando servicios web...${NC}"
 cp "${APP_DIR}/deploy/webmail/systemd/maquita-webmail.service" /etc/systemd/system/
 systemctl daemon-reload && systemctl enable maquita-webmail
 NGINX_CONF="/etc/nginx/sites-available/${MAIL_HOST}"
@@ -205,7 +205,7 @@ mkdir -p /var/log/webmail /var/www/certbot
 chown www-data:www-data /var/log/webmail
 
 # --- 13. Buzón de demostración ---
-echo -e "\n${GREEN}[13/14] Creando buzón de demostración...${NC}"
+echo -e "\n${GREEN}[13/15] Creando buzón de demostración...${NC}"
 DEMO_PASS=$(openssl rand -base64 18 | tr -dc 'A-Za-z0-9' | head -c 14)
 DEMO_HASH=$(doveadm pw -s SHA512-CRYPT -p "${DEMO_PASS}")
 sudo -u postgres psql -d maildb >/dev/null <<SQL
@@ -219,8 +219,51 @@ INSERT INTO admin(username,superadmin,active) VALUES('demo@${DOMAIN}',true,true)
   ON CONFLICT (username) DO UPDATE SET superadmin=true, active=true;
 SQL
 
-# --- 14. Iniciar + verificar ---
-echo -e "\n${GREEN}[14/14] Iniciando y verificando...${NC}"
+# --- 14. Panel de administración avanzado (adminMaquita, puerto 8443) ---
+echo -e "\n${GREEN}[14/15] Instalando panel de administración avanzado...${NC}"
+# Backend del panel (puerto 8001)
+cd "${APP_DIR}/admin-panel/backend"
+python3 -m venv venv
+./venv/bin/pip install --quiet -r requirements.txt
+ADMIN_JWT=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+cat > .env <<ENVADMIN
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=maildb
+DB_USER=mailserver
+DB_PASS=${DB_PASS}
+JWT_SECRET=${ADMIN_JWT}
+RSPAMD_URL=http://localhost:11334
+MASTER_PASSWORD=${MASTER_PASS}
+ENVADMIN
+# Frontend del panel
+cd "${APP_DIR}/admin-panel/frontend"
+npm ci --quiet && npx vite build
+# Servicio systemd
+cp "${APP_DIR}/admin-panel/deploy/maquita-admin.service" /etc/systemd/system/
+systemctl daemon-reload && systemctl enable maquita-admin && systemctl restart maquita-admin
+# nginx :8443 (auth básica + snakeoil hasta certbot)
+ADMIN_NGINX="/etc/nginx/sites-available/${MAIL_HOST}-admin"
+sed "s/__MAIL_HOST__/${MAIL_HOST}/g" "${APP_DIR}/admin-panel/deploy/nginx-admin.conf" > "${ADMIN_NGINX}"
+ln -sf "${ADMIN_NGINX}" /etc/nginx/sites-enabled/
+# Credencial de acceso (auth básica de nginx, usuario 'admin')
+ADMIN_WEB_PASS=$(openssl rand -base64 12 | tr -dc 'A-Za-z0-9' | head -c 12)
+printf "admin:%s\n" "$(openssl passwd -apr1 "${ADMIN_WEB_PASS}")" > /etc/nginx/.htpasswd_admin
+chmod 640 /etc/nginx/.htpasswd_admin; chgrp www-data /etc/nginx/.htpasswd_admin
+# Primer usuario del panel (tabla admin_users, hash bcrypt)
+sleep 3
+ADMIN_PANEL_PASS=$(openssl rand -base64 12 | tr -dc 'A-Za-z0-9' | head -c 12)
+ADMIN_BHASH=$(./venv/bin/python -c "import bcrypt,sys; print(bcrypt.hashpw(sys.argv[1].encode(), bcrypt.gensalt()).decode())" "${ADMIN_PANEL_PASS}" 2>/dev/null) || \
+  ADMIN_BHASH=$("${APP_DIR}/admin-panel/backend/venv/bin/python" -c "import bcrypt,sys; print(bcrypt.hashpw(sys.argv[1].encode(), bcrypt.gensalt()).decode())" "${ADMIN_PANEL_PASS}")
+PGPASSWORD="${DB_PASS}" psql -v ON_ERROR_STOP=0 -h localhost -U mailserver -d maildb >/dev/null 2>&1 <<SQLADMIN
+INSERT INTO admin_users(username,password_hash,display_name,role,active)
+  VALUES('admin','${ADMIN_BHASH}','Administrador','superadmin',true)
+  ON CONFLICT (username) DO UPDATE SET password_hash=EXCLUDED.password_hash, active=true;
+SQLADMIN
+echo "  Panel de administración: https://${MAIL_HOST}:8443"
+
+# --- 15. Iniciar + verificar ---
+echo -e "\n${GREEN}[15/15] Iniciando y verificando...${NC}"
 systemctl restart maquita-webmail
 nginx -t && systemctl reload nginx
 sleep 3
@@ -251,6 +294,11 @@ echo -e "${YELLOW}CREDENCIALES GENERADAS (guardar en lugar seguro):${NC}"
 echo "  DB password:      ${DB_PASS}"
 echo "  Redis password:   ${REDIS_PASS}"
 echo "  Master password:  ${MASTER_PASS}"
+echo ""
+echo -e "${YELLOW}PANEL DE ADMINISTRACIÓN AVANZADO — https://${MAIL_HOST}:8443${NC}"
+echo "  (funciones extra: autoresponder, firmas masivas, buzones compartidos, rspamd, firewall)"
+echo "  1) Acceso del navegador (auth básica):  usuario: admin   clave: ${ADMIN_WEB_PASS}"
+echo "  2) Login del panel:                      usuario: admin   clave: ${ADMIN_PANEL_PASS}"
 echo ""
 echo -e "${YELLOW}PASOS FINALES (los únicos manuales):${NC}"
 echo "  1. DNS:  A ${MAIL_HOST} → IP del servidor · MX ${DOMAIN} → ${MAIL_HOST} (10) · TXT ${DOMAIN} → v=spf1 mx a ~all"

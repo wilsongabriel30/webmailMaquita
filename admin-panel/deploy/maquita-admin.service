@@ -1,0 +1,17 @@
+[Unit]
+Description=Maquita Mail Admin Panel
+After=network.target postgresql.service dovecot.service postfix.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/maquita-webmail/admin-panel/backend
+ExecStart=/opt/maquita-webmail/admin-panel/backend/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8001 --workers 2
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=/opt/maquita-webmail/admin-panel/backend/.env
+
+[Install]
+WantedBy=multi-user.target

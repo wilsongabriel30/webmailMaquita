@@ -223,6 +223,22 @@ ON CONFLICT (username) DO UPDATE SET superadmin = true, active = true;
 El acceso al panel se concede consultando la tabla `admin`; el inicio de sesión
 se hace con el buzón normal (no hay una contraseña de admin aparte).
 
+### Panel avanzado (puerto 8443)
+
+Además del panel integrado, el instalador monta un **panel de administración
+avanzado** e independiente en `https://tudominio:8443` (carpeta `admin-panel/`)
+con funciones de nivel empresarial:
+
+- **Autoresponder** (respuestas automáticas / vacaciones)
+- **Firmas corporativas masivas** por dominio
+- **Buzones compartidos** y delegación
+- **Interfaz de Rspamd** (cuarentena, entrenamiento de spam)
+- **Firewall** y verificación de DNS
+- Cola de correo, recuperación y branding
+
+Está protegido con doble credencial (auth básica de nginx + login propio del
+panel); el instalador genera ambas y las muestra al terminar.
+
 ## Sincronización con móviles (Z-Push / ActiveSync) — opcional
 
 El **único** componente que usa Docker. Permite sincronizar correo, calendario y
