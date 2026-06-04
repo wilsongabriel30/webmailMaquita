@@ -204,6 +204,11 @@ dig +short -x 203.0.113.45
 Herramientas web útiles (pega tu dominio): **mxtoolbox.com**, **mail-tester.com**
 (envía un correo de prueba y te da una nota de 0 a 10 con qué falta).
 
+> **¿Quieres sacar 10/10?** Los 6 registros de arriba son el mínimo. Para la nota
+> perfecta en los tests más exigentes hay más piezas (MTA-STS, TLS-RPT, DANE/TLSA,
+> BIMI, cuentas `postmaster@`/`abuse@`, salir de listas negras, contenido) — todo
+> explicado en **[ENTREGABILIDAD.md](ENTREGABILIDAD.md)**.
+
 ---
 
 ## Después del DNS
