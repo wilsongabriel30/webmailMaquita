@@ -1,0 +1,6 @@
+# Postfix → PostgreSQL: dominios virtuales. __DB_PASS__ se reemplaza al instalar.
+hosts = localhost
+user = mailserver
+password = __DB_PASS__
+dbname = maildb
+query = SELECT domain FROM domain WHERE domain='%s' AND active = true

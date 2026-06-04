@@ -1,0 +1,6 @@
+# Postfix → PostgreSQL: alias virtuales. __DB_PASS__ se reemplaza al instalar.
+hosts = localhost
+user = mailserver
+password = __DB_PASS__
+dbname = maildb
+query = SELECT goto FROM alias WHERE address='%s' AND active = true
