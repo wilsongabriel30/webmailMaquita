@@ -14,7 +14,7 @@ APP_DIR=/opt/maquita-webmail
 CFG="${APP_DIR}/deploy/webmail/configs"
 
 # Si algo falla, indica el paso en vez de abortar en silencio
-trap 'echo -e "\n${RED}✗ La instalación se detuvo (línea ${LINENO}). Revisa el último paso [N/14] mostrado arriba y el error inmediatamente anterior.${NC}"' ERR
+trap 'echo -e "\n${RED}✗ La instalación se detuvo (línea ${LINENO}). Revisa el último paso [N/15] mostrado arriba y el error inmediatamente anterior.${NC}"' ERR
 
 echo -e "${GREEN}"
 echo "╔══════════════════════════════════════════════════╗"
