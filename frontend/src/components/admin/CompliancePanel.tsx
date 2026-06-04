@@ -828,7 +828,7 @@ function HoldsTab() {
                 <option key={c.id} value={c.id}>#{c.id} — {c.title}</option>
               ))}
             </select>
-            <input placeholder="Buzon (ej: contabilidad@maquita.org) *" value={form.mailbox}
+            <input placeholder="Buzon (ej: contabilidad@ejemplo.com) *" value={form.mailbox}
               onChange={e => setForm(f => ({ ...f, mailbox: e.target.value }))}
               className="px-3 py-2 border border-slate-300 rounded-lg text-sm" />
             <select value={form.scope} onChange={e => setForm(f => ({ ...f, scope: e.target.value }))}

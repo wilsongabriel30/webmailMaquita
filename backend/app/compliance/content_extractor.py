@@ -311,7 +311,7 @@ def search_maildir(
 
     Args:
         maildir_base: Base vmail path (e.g., /var/vmail)
-        mailbox: Email address (e.g., user@maquita.org)
+        mailbox: Email address (e.g., user@ejemplo.com)
         keywords: List of search terms
         folders: Specific folders to search (None = all)
         date_from/date_to: Date filters (ISO format)

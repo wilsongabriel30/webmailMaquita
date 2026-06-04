@@ -19,8 +19,8 @@ logger = logging.getLogger("account_protection")
 
 # ─── Dominios del organización (forwarding permitido sin restricción) ───
 INTERNAL_DOMAINS = frozenset({
-    "maquita.org",
-    "maquita.com.ec",
+    "ejemplo.com",
+    "ejemplo.com",
 })
 
 # ─── Umbrales de detección ───
@@ -105,7 +105,7 @@ async def check_forward_policy(redis, username: str, forward_address: str, db=No
     """Verificar si un forwarding externo está permitido.
 
     Política:
-    - Forward a dominios internos (maquita.org, maquita.com.ec): PERMITIDO
+    - Forward a dominios internos (ejemplo.com, ejemplo.com): PERMITIDO
     - Forward a dominios externos: REQUIERE APROBACIÓN ADMIN
 
     Returns:

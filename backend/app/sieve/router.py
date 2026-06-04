@@ -700,7 +700,7 @@ _FILTER_TEMPLATES = [
         "id": "boss_important",
         "name": "Correo de jefe como importante",
         "description": "Marca como importante los correos del jefe",
-        "condition": {"field": "from", "operator": "is", "value": "jefe@maquita.org"},
+        "condition": {"field": "from", "operator": "is", "value": "jefe@ejemplo.com"},
         "action": {"type": "flag", "value": "\\\\Flagged"},
     },
     {

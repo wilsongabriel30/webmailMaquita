@@ -698,7 +698,7 @@ async def approve_forward(
     admin: str = Depends(require_admin),
 ):
     """Aprobar forwarding externo para un usuario.
-    Body: {"username": "user@maquita.org", "forward_address": "user@gmail.com"}
+    Body: {"username": "user@ejemplo.com", "forward_address": "user@gmail.com"}
     """
     username = body.get("username", "")
     forward_address = body.get("forward_address", "")

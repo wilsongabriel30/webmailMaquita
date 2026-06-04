@@ -6,7 +6,7 @@ import { showToast } from '../components/common/Toast';
 /**
  * WebSocket hook for real-time mail notifications.
  *
- * - Connects to wss://mail.example.org/api/ws
+ * - Connects to wss://mail.ejemplo.com/api/ws
  * - Reconnects automatically with exponential backoff (1s, 2s, 4s, 8s, max 30s)
  * - Responds to server pings with pongs
  * - Updates folder unseen counts when new mail arrives

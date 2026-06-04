@@ -745,8 +745,8 @@ class CalendarService:
                     email,
                 )
                 if not att_cal:
-                    # Try with @maquita.org version
-                    alt_email = email.replace("@maquita.com.ec", "@maquita.org")
+                    # Try with @ejemplo.com version
+                    alt_email = email.replace("@ejemplo.com", "@ejemplo.com")
                     att_cal = await db.fetchrow(
                         "SELECT * FROM calendars WHERE owner_email = $1 AND is_default = true",
                         alt_email,

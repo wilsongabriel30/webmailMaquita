@@ -61,7 +61,7 @@ export function SchedulingAssistant({ onSelectSlot, onClose }: Props) {
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Asistentes (emails separados por coma)</label>
             <input value={attendees} onChange={e => setAttendees(e.target.value)}
-              placeholder="ana@maquita.org, carlos@maquita.org"
+              placeholder="ana@ejemplo.com, carlos@ejemplo.com"
               className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-300 outline-none" />
           </div>
           <div className="flex gap-3">

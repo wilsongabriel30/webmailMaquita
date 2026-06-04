@@ -1,7 +1,7 @@
 from app.core.sanitize import strip_html
 """Message recall/retract router — recover sent messages within the same server.
 
-Only works for recipients on local domains (maquita.org).
+Only works for recipients on local domains (ejemplo.com).
 Uses doveadm to search and delete/replace messages in recipient mailboxes.
 """
 import subprocess

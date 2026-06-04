@@ -142,7 +142,7 @@ export function LoginPage() {
                       type="text"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
-                      placeholder="usuario@maquita.org"
+                      placeholder="usuario@ejemplo.com"
                       className="w-full px-3 py-2 pr-10 rounded text-sm outline-none transition-colors"
                       style={{ borderColor: '#d2d0ce', borderWidth: '1px', color: '#323130' }}
                       onFocus={(e) => { e.target.style.borderColor = color; e.target.style.boxShadow = `0 0 0 1px ${color}`; }}

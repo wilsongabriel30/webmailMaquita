@@ -189,7 +189,7 @@ def _validate_mime_on_startup():
     """
     from app.mail.clients.smtp_client import build_mime_message, OutgoingEmail
     msg = build_mime_message(OutgoingEmail(
-        from_addr="test@maquita.org", to=["x@x.com"], subject="startup-check",
+        from_addr="test@ejemplo.com", to=["x@x.com"], subject="startup-check",
         html_body="<p>test</p>"
     ))
     parts = [p.get_content_type() for p in msg.walk()

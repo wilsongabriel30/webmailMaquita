@@ -65,7 +65,7 @@ export function DnsCheck() {
       <div className="flex gap-2">
         <input value={domain} onChange={(e) => setDomain(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && check()}
-          placeholder="maquita.org, maquita.com.ec, gmail.com..."
+          placeholder="ejemplo.com, ejemplo.com, gmail.com..."
           title="Dominio a verificar (sin prefijo mail. ni http://)"
           className="flex-1 px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
         <button onClick={() => check()} disabled={loading}

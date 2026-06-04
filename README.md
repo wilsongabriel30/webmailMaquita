@@ -195,6 +195,17 @@ que entres de inmediato:
 > entres**, en ambos accesos. El buzón demo usa un dominio falso (`ejemplo.local`)
 > a propósito, para que pruebes el login aunque todavía no tengas el DNS configurado.
 
+**Ojo: el panel `:8443` pide la clave DOS veces** (es a propósito — doble capa de
+seguridad). Con el instalador, ambas son `Cambiar2026`:
+
+1. Primero un **popup del navegador** (autenticación básica de nginx) → usuario
+   `admin`, clave `Cambiar2026`.
+2. Después la **pantalla de login del panel** → usuario `admin`, clave `Cambiar2026`.
+
+Para cambiarlas: la del **panel** se cambia desde dentro del propio panel; la del
+**navegador** se regenera en el servidor con
+`htpasswd /etc/nginx/.htpasswd_admin admin` (o `openssl passwd -apr1`).
+
 Al terminar te indica los pasos finales (DNS, certificado SSL con `certbot`, crear el primer buzón) y **genera tu clave DKIM**. La guía detallada de instalación está en **[docs/INSTALL-NATIVE.md](docs/INSTALL-NATIVE.md)**.
 
 > **¿Nunca configuraste un DNS?** La parte de DNS (registros A, MX, SPF, DKIM,

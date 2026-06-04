@@ -83,7 +83,7 @@ async def get_message(
 
     # Auto-allow images from trusted Maquita domains
     _settings = get_settings()
-    _TRUSTED_DOMAINS = {"maquita.com.ec", "maquitaturismo.com", _settings.mail_domain}
+    _TRUSTED_DOMAINS = {"ejemplo.com", "maquitaturismo.com", _settings.mail_domain}
     sender = normalized.from_addr or ""
     sender_match = re.search(r"@([\w.-]+)", sender)
     if sender_match and sender_match.group(1).lower() in _TRUSTED_DOMAINS:

@@ -52,7 +52,7 @@ export function DisclaimerManager() {
       <div className="bg-white border border-slate-200 rounded-lg p-5 mb-6 space-y-4">
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Dominio</label>
-          <input value={domain} onChange={e => setDomain(e.target.value)} placeholder="maquita.org"
+          <input value={domain} onChange={e => setDomain(e.target.value)} placeholder="ejemplo.com"
             className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-orange-300 focus:border-orange-400 outline-none" />
         </div>
         <div>

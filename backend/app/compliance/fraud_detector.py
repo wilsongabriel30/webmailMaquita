@@ -36,7 +36,7 @@ FRAUD_KEYWORDS = [
 ]
 
 # Dominios internos (no generan alerta de reenvío externo)
-INTERNAL_DOMAINS = {"maquita.org", "maquita.com.ec"}
+INTERNAL_DOMAINS = {"ejemplo.com", "ejemplo.com"}
 
 
 class FraudDetector:

@@ -740,7 +740,7 @@ export function CalendarHeader({
               calToast('Tip: Haz clic en cualquier hora del calendario para crear un evento rápido');
             }} />
             <RibbonBtn icon={<IconFeedback />} label="Comentarios" onClick={() => {
-              window.open('/webmail/?compose=new&to=gestiontecnologia@maquita.org&subject=Comentario sobre Calendario', '_blank');
+              window.open('/webmail/?compose=new&subject=Comentario sobre Calendario', '_blank');
             }} />
             <RibbonBtn icon={<IconDiag />} label="Obtener diagnósticos" onClick={() => {
               const info = [

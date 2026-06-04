@@ -575,7 +575,7 @@ function HoldsTab() {
               <option value="">Caso *</option>
               {cases.filter(c => c.status !== "closed").map(c => <option key={c.id} value={c.id}>#{c.id} — {c.title}</option>)}
             </select>
-            <input placeholder="Buzon (ej: contabilidad@maquita.org) *" value={form.mailbox} onChange={e => setForm(f => ({ ...f, mailbox: e.target.value }))} className="px-2 py-1.5 border rounded text-sm" />
+            <input placeholder="Buzon (ej: contabilidad@ejemplo.com) *" value={form.mailbox} onChange={e => setForm(f => ({ ...f, mailbox: e.target.value }))} className="px-2 py-1.5 border rounded text-sm" />
             <select value={form.scope} onChange={e => setForm(f => ({ ...f, scope: e.target.value }))} className="px-2 py-1.5 border rounded text-sm">
               <option value="all">Todo el buzon</option><option value="inbox">Solo INBOX</option><option value="sent">Solo Enviados</option>
             </select>

@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Optional
 
 logger = logging.getLogger("compliance.signer")
-GPG_KEY_EMAIL = "compliance@maquita.org"
+GPG_KEY_EMAIL = "compliance@ejemplo.com"
 GPG_KEY_NAME = "Maquita Compliance"
 EVIDENCE_AUDIT_LOG = "/var/lib/maquita-compliance/audit.log"
 AUDIT_DIR = "/var/lib/maquita-compliance"

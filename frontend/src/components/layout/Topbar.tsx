@@ -277,7 +277,7 @@ export function Topbar() {
 
               <div className="px-4 py-3">
                 <p className="text-[12px] font-semibold text-[#323130] mb-2">Soporte</p>
-                <p className="text-[12px] text-[#323130]">Si necesitas ayuda operativa, escribe a <span className="font-medium">gestiontecnologia@maquita.org</span>.</p>
+                <p className="text-[12px] text-[#323130]">Si necesitas ayuda operativa, escribe a <span className="font-medium">gestiontecnologia@ejemplo.com</span>.</p>
               </div>
             </div>
           )}

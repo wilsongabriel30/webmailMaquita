@@ -92,7 +92,7 @@ export function Mailboxes() {
       const token = encodeURIComponent(res.token);
       const user = encodeURIComponent(u);
       window.open(
-        `https://mail.example.org/webmail/?impersonate=${token}&user=${user}`,
+        `${window.location.protocol}//${window.location.hostname}/webmail/?impersonate=${token}&user=${user}`,
         "_blank"
       );
     } catch (e: any) {
@@ -160,9 +160,9 @@ export function Mailboxes() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-medium text-ms-gray-90 mb-1 block">Dirección de correo *</label>
-              <input placeholder="usuario@maquita.org" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value.toLowerCase() })}
+              <input placeholder="usuario@ejemplo.com" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value.toLowerCase() })}
                 className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
-              <span className="text-[10px] text-ms-gray-60 mt-0.5 block">Ejemplo: juan.perez@maquita.org</span>
+              <span className="text-[10px] text-ms-gray-60 mt-0.5 block">Ejemplo: juan.perez@ejemplo.com</span>
             </div>
             <div>
               <label className="text-xs font-medium text-ms-gray-90 mb-1 block">Nombre completo *</label>
@@ -200,7 +200,7 @@ export function Mailboxes() {
                 </div>
                 <div>
                   <span className="text-xs font-medium">Crear cuenta Nextcloud</span>
-                  <span className="text-[10px] text-ms-gray-60 block">Acceso a nube.example.com con 5 GB de almacenamiento</span>
+                  <span className="text-[10px] text-ms-gray-60 block">Acceso a nube.ejemplo.com con 5 GB de almacenamiento</span>
                 </div>
               </label>
             </div>

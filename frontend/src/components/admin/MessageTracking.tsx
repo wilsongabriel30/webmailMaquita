@@ -42,7 +42,7 @@ export function MessageTracking() {
       <div className="flex gap-3 mb-6">
         <input value={query} onChange={e => setQuery(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && search()}
-          placeholder="usuario@maquita.org o dominio.com"
+          placeholder="usuario@ejemplo.com o dominio.com"
           className="flex-1 px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-300 focus:border-orange-400 outline-none" />
         <button onClick={search} disabled={loading}
           className="px-5 py-2.5 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 disabled:opacity-50">

@@ -289,7 +289,7 @@ export function Groups() {
           <input placeholder="Descripción" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
           <label className="flex items-center gap-2 text-sm text-ms-gray-130">
             <input type="checkbox" checked={form.allow_external} onChange={(e) => setForm({ ...form, allow_external: e.target.checked })} className="accent-ms-blue" />
-            Permitir miembros externos (correos fuera de @maquita.com.ec)
+            Permitir miembros externos (correos fuera de @ejemplo.com)
           </label>
           {form.allow_external && (
             <div className="px-3 py-2 bg-yellow-50 border border-yellow-300 rounded text-xs text-yellow-800">

@@ -716,7 +716,7 @@ export function Toolbar() {
           {archivoOpen && (
             <ArchivoMenu onClose={() => setArchivoOpen(false)}>
               {[
-                { label: 'Info cuenta', icon: ICONS.info, action: () => showToast('Cuenta: gestiontecnologia@maquita.org') },
+                { label: 'Info cuenta', icon: ICONS.info, action: () => showToast('Cuenta: gestiontecnologia@ejemplo.com') },
                 { label: 'Sincronizar', icon: ICONS.sync, action: () => window.dispatchEvent(new CustomEvent('refresh-messages')) },
                 { label: 'Exportar', icon: ICONS.export, action: exportSelectedMessage },
                 { label: 'Imprimir', icon: ICONS.print, action: doPrint },
@@ -1012,7 +1012,7 @@ export function Toolbar() {
                   {/* Group: Buscar */}
                   <Group label="Buscar">
                     <ToolbarButton icon={ICONS.groups} label="Descubrir grupos"
-                      onClick={() => showToast('Grupos: Usa listas de distribución para comunicarte con equipos. Contacta a gestiontecnologia@maquita.org para crear un grupo.')} />
+                      onClick={() => showToast('Grupos: Usa listas de distribución para comunicarte con equipos. Contacta a gestiontecnologia@ejemplo.com para crear un grupo.')} />
                   </Group>
                   <Sep />
 
@@ -1185,7 +1185,7 @@ export function Toolbar() {
                     <ToolbarButton icon={ICONS.recommend} label="Recomendaciones"
                       onClick={() => showToast('Tip: Ctrl+N nuevo correo · Ctrl+R responder · Ctrl+Shift+R resp. todos · Ctrl+Enter enviar · E archivar · Supr eliminar')} />
                     <ToolbarButton icon={ICONS.feedback} label="Comentarios"
-                      onClick={() => { showToast('Abriendo formulario de comentarios...'); setTimeout(() => openCompose('new', { to: ['gestiontecnologia@maquita.org'], subject: 'Comentario sobre Maquita Mail', text_body: '', html_body: '' }), 300); }} />
+                      onClick={() => { showToast('Abriendo formulario de comentarios...'); setTimeout(() => openCompose('new', { to: [], subject: 'Comentario sobre Maquita Mail', text_body: '', html_body: '' }), 300); }} />
                   </Group>
                   <Sep />
 

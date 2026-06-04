@@ -327,7 +327,7 @@ const [showScheduling, setShowScheduling] = useState(false);
                 type="email"
                 value={shareWithEmail}
                 onChange={(e) => setShareWithEmail(e.target.value)}
-                placeholder="usuario@maquita.org"
+                placeholder="usuario@ejemplo.com"
                 style={{ width: '100%', border: '1px solid #c8c6c4', borderRadius: 4, padding: '6px 8px', fontSize: 13 }}
               />
             </div>
