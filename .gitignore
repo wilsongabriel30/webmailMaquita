@@ -28,3 +28,4 @@ downloads/
 migracion-masiva.sh
 *.bak*
 zimbra-sync.sh
+subir.sh
