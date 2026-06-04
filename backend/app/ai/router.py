@@ -50,19 +50,37 @@ MAQUITA_CONTEXT = (
 
 
 
-def _get_ia_config():
-    """Obtener config IA con validación de URL (anti-SSRF)."""
-    from urllib.parse import urlparse
+async def _get_ia_config():
+    """Config de IA: de la tabla ai_config (si está activada) o del .env (fallback).
+    Soporta gateway propio, Ollama nativo y OpenAI (o compatibles)."""
     s = get_settings()
-    parsed = urlparse(s.ollama_url)
-    if parsed.hostname not in _get_allowed_ia_hosts():
-        raise ValueError(f"URL de IA no permitida: {s.ollama_url}")
-    base = s.ollama_url.rstrip("/")
-    return {
-        "base_url": base,
-        "generate_url": f"{base}/api/v1/ia/generate",
-        "headers": {"X-API-Key": s.ia_api_key, "Content-Type": "application/json"},
-    }
+    provider, base, api_key, model = "gateway", s.ollama_url.rstrip("/"), s.ia_api_key, "qwen2.5:7b"
+    try:
+        import asyncpg
+        conn = await asyncpg.connect(s.database_url)
+        try:
+            row = await conn.fetchrow(
+                "SELECT provider, base_url, api_key, model FROM ai_config WHERE id = 1 AND enabled = true")
+        finally:
+            await conn.close()
+        if row and (row["base_url"] or row["provider"] == "openai"):
+            provider = row["provider"] or "gateway"
+            base = (row["base_url"] or "").rstrip("/")
+            api_key = row["api_key"] or ""
+            model = row["model"] or model
+    except Exception:
+        pass  # tabla inexistente / sin conexión -> usar el .env
+    if provider == "ollama":
+        generate_url = f"{base}/api/generate"
+        headers = {"Content-Type": "application/json"}
+    elif provider == "openai":
+        generate_url = f"{base or 'https://api.openai.com'}/v1/chat/completions"
+        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    else:  # gateway / custom (formato del gateway propio)
+        generate_url = f"{base}/api/v1/ia/generate"
+        headers = {"X-API-Key": api_key, "Content-Type": "application/json"}
+    return {"provider": provider, "base_url": base, "api_key": api_key,
+            "model": model, "generate_url": generate_url, "headers": headers}
 
 
 # --- Schemas de request/response ---
@@ -98,16 +116,18 @@ class SuggestSubjectResponse(BaseModel):
 # --- Utilidad: llamar al LLM ---
 async def _call_llm(prompt: str, system: str = "", temperature: float = 0.7, max_tokens: int = 800) -> str:
     """Llama al endpoint /api/v1/ia/generate del servidor IA con retry automático."""
-    payload = {
-        "prompt": prompt,
-        "system": system,
-        "temperature": temperature,
-        "max_tokens": max_tokens,
-        "usar_rag": False,
-        "model": "qwen2.5:7b",
-        "preferir_gpu": "remota",
-    }
-    ia = _get_ia_config()
+    ia = await _get_ia_config()
+    prov = ia["provider"]
+    if prov == "ollama":
+        payload = {"model": ia["model"], "prompt": prompt, "system": system,
+                   "stream": False, "options": {"temperature": temperature, "num_predict": max_tokens}}
+    elif prov == "openai":
+        payload = {"model": ia["model"],
+                   "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}],
+                   "temperature": temperature, "max_tokens": max_tokens}
+    else:  # gateway / custom
+        payload = {"prompt": prompt, "system": system, "temperature": temperature,
+                   "max_tokens": max_tokens, "usar_rag": False, "model": ia["model"], "preferir_gpu": "remota"}
     last_error = None
 
     for intento in range(2):  # max 2 intentos
@@ -123,8 +143,10 @@ async def _call_llm(prompt: str, system: str = "", temperature: float = 0.7, max
                     last_error = data["error"]
                     continue
 
-                # El campo puede ser "respuesta", "response", "text" o "output"
-                raw_resp = data.get("respuesta", data.get("response", data.get("text", data.get("output", ""))))
+                # gateway/ollama: respuesta/response/text/output ; OpenAI: choices[].message.content
+                raw_resp = data.get("respuesta") or data.get("response") or data.get("text") or data.get("output") or ""
+                if not raw_resp and isinstance(data.get("choices"), list) and data["choices"]:
+                    raw_resp = data["choices"][0].get("message", {}).get("content", "")
 
                 # Validar respuesta vacía
                 if not raw_resp or not raw_resp.strip():
@@ -392,7 +414,7 @@ async def suggest_subject(
 async def ai_health():
     """Verifica conectividad con el servidor IA y valida que genera texto."""
     try:
-        ia = _get_ia_config()
+        ia = await _get_ia_config()
         async with httpx.AsyncClient(timeout=15.0) as client:
             # 1. Status del gateway (GPUs + servicios)
             resp = await client.get(

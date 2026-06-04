@@ -22,6 +22,7 @@ import { MailViewer } from "./pages/MailViewer";
 import { Signatures } from "./pages/Signatures";
 import { AutoResponder } from "./pages/AutoResponder";
 import { DnsCheck } from "./pages/DnsCheck";
+import { AiConfig } from "./pages/AiConfig";
 import { SharedMailboxes } from "./pages/SharedMailboxes";
 import { EDiscovery } from "./pages/EDiscovery";
 import { Branding } from "./pages/Branding";
@@ -98,6 +99,7 @@ function App() {
             <Route path="admins" element={<Admins />} />
             <Route path="ediscovery" element={<EDiscovery />} />
             <Route path="branding" element={<Branding />} />
+            <Route path="ai" element={<AiConfig />} />
             <Route path="compliance" element={<Compliance />} />
           </Route>
         </Routes>

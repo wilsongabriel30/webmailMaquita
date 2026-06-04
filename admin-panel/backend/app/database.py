@@ -49,4 +49,15 @@ async def init_admin_tables(pool: asyncpg.Pool):
 
         CREATE INDEX IF NOT EXISTS idx_admin_audit_created ON admin_audit(created_at DESC);
         CREATE INDEX IF NOT EXISTS idx_admin_audit_action ON admin_audit(action);
+
+        CREATE TABLE IF NOT EXISTS ai_config (
+            id INT PRIMARY KEY DEFAULT 1,
+            provider VARCHAR(50) NOT NULL DEFAULT 'ollama',
+            base_url VARCHAR(500) NOT NULL DEFAULT '',
+            api_key VARCHAR(500) NOT NULL DEFAULT '',
+            model VARCHAR(100) NOT NULL DEFAULT '',
+            enabled BOOLEAN NOT NULL DEFAULT false,
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            CONSTRAINT ai_config_singleton CHECK (id = 1)
+        );
     """)
