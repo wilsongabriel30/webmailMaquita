@@ -222,11 +222,18 @@ async def send_email(email_data: OutgoingEmail, password: str) -> dict:
         tls_context.check_hostname = False
         tls_context.verify_mode = ssl.CERT_NONE
 
+    # En sesión impersonada (admin abre el buzón de un usuario) el password es el
+    # master de Dovecot, que exige el formato usuario*admin para el SASL SMTP
+    # (igual que el login IMAP). Si no, Dovecot responde 535 auth failed.
+    auth_user = parseaddr(email_data.from_addr)[1] or email_data.from_addr
+    if password and password == settings.master_password:
+        auth_user = f"{auth_user}*admin"
+
     await aiosmtplib.send(
         msg,
         hostname=settings.smtp_host,
         port=settings.smtp_port,
-        username=parseaddr(email_data.from_addr)[1] or email_data.from_addr,
+        username=auth_user,
         password=password,
         start_tls=True,
         tls_context=tls_context,
