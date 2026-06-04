@@ -61,3 +61,17 @@ async def init_admin_tables(pool: asyncpg.Pool):
             CONSTRAINT ai_config_singleton CHECK (id = 1)
         );
     """)
+    await pool.execute("""
+        CREATE TABLE IF NOT EXISTS office_config (
+            id INT PRIMARY KEY DEFAULT 1,
+            onlyoffice_url VARCHAR(500) NOT NULL DEFAULT '',
+            onlyoffice_secret VARCHAR(500) NOT NULL DEFAULT '',
+            nc_base_url VARCHAR(500) NOT NULL DEFAULT '',
+            nc_public_url VARCHAR(500) NOT NULL DEFAULT '',
+            nc_admin_user VARCHAR(200) NOT NULL DEFAULT '',
+            nc_admin_pass VARCHAR(500) NOT NULL DEFAULT '',
+            enabled BOOLEAN NOT NULL DEFAULT false,
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            CONSTRAINT office_config_singleton CHECK (id = 1)
+        );
+    """)
