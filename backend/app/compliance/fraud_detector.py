@@ -159,13 +159,19 @@ class FraudDetector:
         # Fase 2: búsqueda por keywords en subject via doveadm
 
     async def _check_unusual_login(self):
-        """Detecta login desde IPs diferentes a las habituales."""
-        # Buscar usuarios que se loguearon desde una IP nueva (no vista en últimos 30 días)
+        """Detecta login desde IPs EXTERNAS no habituales. Ignora las redes
+        confiables (LAN/VPN, configurables en TRUSTED_NETWORKS) y no repite la
+        misma alerta (ip+usuario) en 7 días."""
+        from app.config import get_settings
+        nets = [n.strip() for n in get_settings().trusted_networks.split(",") if n.strip()]
+        # Buscar logins desde una IP nueva (no vista en 30 días), que NO esté en una
+        # red confiable y que no tenga ya una alerta reciente.
         rows = await self.db.fetch("""SELECT a.username, a.ip_address, a.created_at
                FROM user_activity_log a
                WHERE a.action = 'login_success'
                AND a.created_at >= NOW() - INTERVAL '5 minutes'
                AND a.ip_address IS NOT NULL
+               AND NOT (a.ip_address <<= ANY($1::inet[]))
                AND a.ip_address::text NOT IN (
                    SELECT DISTINCT ip_address::text FROM user_activity_log
                    WHERE username = a.username
@@ -173,7 +179,14 @@ class FraudDetector:
                    AND created_at < NOW() - INTERVAL '5 minutes'
                    AND created_at >= NOW() - INTERVAL '30 days'
                    AND ip_address IS NOT NULL
-               )""")
+               )
+               AND NOT EXISTS (
+                   SELECT 1 FROM fraud_alerts fa
+                   WHERE fa.alert_type = 'unusual_login'
+                   AND fa.source_ip::text = a.ip_address::text
+                   AND fa.username = a.username
+                   AND fa.created_at >= NOW() - INTERVAL '7 days'
+               )""", nets)
         for r in rows:
             await self._create_alert(
                 "unusual_login",

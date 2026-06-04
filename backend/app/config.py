@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     onlyoffice_download_secret: str = ""
     # Security logging
     security_log_path: str = "/var/log/webmail/security.log"
+    # Redes confiables (LAN/VPN): los logins desde aquí NO generan alerta de "IP no habitual".
+    # Coma-separadas (CIDR). Por defecto las privadas RFC1918 + loopback.
+    trusted_networks: str = "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.0/8"
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 

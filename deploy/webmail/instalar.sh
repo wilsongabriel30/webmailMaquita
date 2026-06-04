@@ -127,6 +127,7 @@ MAIL_DOMAIN=${DOMAIN}
 COOKIE_DOMAIN=.${DOMAIN}
 CORS_ORIGINS=https://${MAIL_HOST},https://${DOMAIN},https://webmail.${DOMAIN},https://correo.${DOMAIN}
 RADICALE_URL=http://127.0.0.1:5232
+TRUSTED_NETWORKS=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.0/8
 ENVEOF
 
 # --- 9. Frontend (compilar) ---
