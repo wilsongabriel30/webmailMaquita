@@ -104,7 +104,9 @@ export function ComposePanel({ win }: Props) {
   const getFullHtml = useCallback(() => {
     const body = editor?.getHTML() || '';
     let html = body;
-    if (signatureHtml) {
+    // No duplicar: si el cuerpo ya trae la firma (p.ej. un borrador antiguo
+    // guardado con la firma incrustada), no la reagregamos.
+    if (signatureHtml && !body.includes('email-signature')) {
       html += '<div class="email-signature" style="margin-top:12px;color:#605e5c">' + signatureHtml + '</div>';
     }
     if (quotedHtml) {
@@ -112,6 +114,15 @@ export function ComposePanel({ win }: Props) {
     }
     return html;
   }, [editor, signatureHtml, quotedHtml]);
+
+  // Para GUARDAR borradores: cuerpo + cita, SIN la firma. La firma se conserva
+  // como estado aparte y se re-aplica al reabrir, para que no quede incrustada
+  // en el editor (donde se distorsiona) ni se duplique al enviar.
+  const getDraftHtml = useCallback(() => {
+    let html = editor?.getHTML() || '';
+    if (quotedHtml) html += quotedHtml;
+    return html;
+  }, [editor, quotedHtml]);
 
   // Initialize content
   // ==========================================================================
@@ -156,8 +167,11 @@ export function ComposePanel({ win }: Props) {
 
       let content = '';
       if (win.mode === 'new' && win.data.html_body) {
-        // Editing an existing draft — load its HTML content as-is
-        content = win.data.html_body;
+        // Editando un borrador: quitamos la firma incrustada (de borradores
+        // guardados antes de este fix) para que NO se distorsione en el editor
+        // ni se duplique; se re-aplica aparte, editable, mas abajo.
+        content = win.data.html_body.replace(/<div class="email-signature"[\s\S]*$/i, '');
+        if (sig) setSignatureHtml(sig);
       } else if (win.mode === 'new') {
         content = '<p><br></p>';
         if (sig) setSignatureHtml(sig);
@@ -189,7 +203,7 @@ export function ComposePanel({ win }: Props) {
     try {
       const res = await api.post<{ draft_uid: number | null }>('/mail/drafts', {
         to: to.split(',').map(s => s.trim()).filter(Boolean),
-        subject, html_body: getFullHtml(), text_body: '',
+        subject, html_body: getDraftHtml(), text_body: '',
         existing_draft_uid: win.draftUid,
       });
       if (res.draft_uid) updateDraftUid(win.id, res.draft_uid);
@@ -407,12 +421,12 @@ export function ComposePanel({ win }: Props) {
   }, []);
 
   const insertSignature = useCallback(async () => {
-    // Toggle: si la firma ya esta puesta, el boton la QUITA (no se duplica).
-    // La firma se inserta automaticamente al redactar, asi que volver a
-    // pulsar el boton no debe agregar una segunda firma.
+    // Si la firma ya esta puesta, llevamos el foco a ella para EDITARLA
+    // (no se agrega una segunda firma).
     if (signatureHtml) {
-      setSignatureHtml('');
-      showToast('Firma quitada');
+      const el = document.getElementById('compose-signature-edit');
+      if (el) { el.focus(); el.scrollIntoView({ block: 'center' }); }
+      showToast('Edita tu firma abajo');
       return;
     }
     try {
@@ -925,7 +939,15 @@ export function ComposePanel({ win }: Props) {
               onMouseEnter={(e) => { e.currentTarget.style.color = '#323130'; e.currentTarget.style.background = '#f3f2f1'; }}
               onMouseLeave={(e) => { e.currentTarget.style.color = '#a19f9d'; e.currentTarget.style.background = 'none'; }}
             >×</button>
-            <div dangerouslySetInnerHTML={{ __html: sanitizeSignatureHtml(signatureHtml) }} />
+            <div
+              id="compose-signature-edit"
+              contentEditable
+              suppressContentEditableWarning
+              onBlur={(e) => setSignatureHtml(e.currentTarget.innerHTML)}
+              style={{ outline: 'none' }}
+              title="Puedes editar tu firma aqui"
+              dangerouslySetInnerHTML={{ __html: sanitizeSignatureHtml(signatureHtml) }}
+            />
           </div>
         )}
         {/* Contenido citado (reply/forward) — se muestra DESPUES de la firma */}
