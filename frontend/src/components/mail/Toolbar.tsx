@@ -785,16 +785,12 @@ export function Toolbar() {
                     // Trigger file input in ComposePanel via custom event
                     window.dispatchEvent(new CustomEvent('compose-attach'));
                   }}
-                  onInsertSignature={() => {
-                    // Load signature from API and insert
-                    api.get<{signature_html?: string}>('/settings/signature').then(res => {
-                      const sig = res?.signature_html || '';
-                      if (sig && activeEditor) {
-                        activeEditor.chain().focus().insertContent(
-                          `<div style="border-top:1px solid #edebe9;padding-top:10px;margin-top:10px;color:#605e5c">${sig}</div>`
-                        ).run();
-                      } else { showToast('No hay firma configurada'); }
-                    }).catch(() => showToast('Error al cargar firma'));
+                  onInsertSignature={(html?: string) => {
+                    // La firma se gestiona en ComposePanel (se muestra editable
+                    // ABAJO, no dentro del editor). El menu de firmas pasa el HTML
+                    // elegido; lo mandamos por evento para que REEMPLACE la firma
+                    // actual sin duplicar ni insertarla en el cuerpo.
+                    window.dispatchEvent(new CustomEvent('compose-insert-signature', { detail: html ?? '' }));
                   }}
                   onSaveDraft={() => window.dispatchEvent(new CustomEvent('compose-save-draft'))}
                   onDownloadDraft={() => {

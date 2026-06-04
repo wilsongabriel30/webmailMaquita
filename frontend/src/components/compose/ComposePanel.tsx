@@ -222,16 +222,21 @@ export function ComposePanel({ win }: Props) {
     const draftHandler = () => saveDraft();
     const ccHandler = () => setShowCc(true);
     const bccHandler = () => setShowBcc(true);
+    // Firma elegida en el menu del Ribbon: la mostramos abajo (editable),
+    // reemplazando la actual. No se inserta en el editor (evita duplicados).
+    const sigHandler = (e: Event) => { setSignatureHtml((e as CustomEvent<string>).detail ?? ''); };
     window.addEventListener('compose-attach', attachHandler);
     window.addEventListener('compose-save-draft', draftHandler);
     window.addEventListener('compose-show-cc', ccHandler);
     window.addEventListener('compose-show-bcc', bccHandler);
+    window.addEventListener('compose-insert-signature', sigHandler);
     return () => {
       useMailStore.getState().setActiveEditor(null);
       window.removeEventListener('compose-attach', attachHandler);
       window.removeEventListener('compose-save-draft', draftHandler);
       window.removeEventListener('compose-show-cc', ccHandler);
       window.removeEventListener('compose-show-bcc', bccHandler);
+      window.removeEventListener('compose-insert-signature', sigHandler);
     };
   }, [editor, saveDraft]);
 
