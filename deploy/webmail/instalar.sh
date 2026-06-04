@@ -38,7 +38,7 @@ if [ -z "$ASSUME_YES" ]; then
 fi
 
 # --- 1. Paquetes base ---
-echo -e "\n${GREEN}[1/15] Instalando paquetes base...${NC}"
+echo -e "\n${GREEN}[1/14] Instalando paquetes base...${NC}"
 apt update && apt install -y \
     curl wget git sudo ufw openssl \
     python3 python3-venv python3-pip \
@@ -51,7 +51,7 @@ apt update && apt install -y \
     ssl-cert rspamd
 
 # --- 2. Node.js 20 ---
-echo -e "\n${GREEN}[2/15] Instalando Node.js 20...${NC}"
+echo -e "\n${GREEN}[2/14] Instalando Node.js 20...${NC}"
 if ! command -v node &>/dev/null; then
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
     apt install -y nodejs
@@ -59,7 +59,7 @@ fi
 echo "Node $(node -v), NPM $(npm -v)"
 
 # --- 3. PostgreSQL: usuario + base de datos ---
-echo -e "\n${GREEN}[3/15] Configurando PostgreSQL...${NC}"
+echo -e "\n${GREEN}[3/14] Configurando PostgreSQL...${NC}"
 DB_PASS=$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | head -c 20)
 sudo -u postgres psql -c "CREATE USER mailserver WITH PASSWORD '${DB_PASS}';" 2>/dev/null \
     || sudo -u postgres psql -c "ALTER USER mailserver WITH PASSWORD '${DB_PASS}';"
@@ -69,7 +69,7 @@ sudo -u postgres psql -d maildb -c "GRANT ALL ON SCHEMA public TO mailserver;" 2
 # --- 4. Redis / Valkey ---
 # En Debian 13 (trixie), redis-server arrastra Valkey (fork de Redis) que toma el
 # puerto 6379 y usa /etc/valkey/valkey.conf. Detectamos cuál está presente.
-echo -e "\n${GREEN}[4/15] Configurando Redis/Valkey...${NC}"
+echo -e "\n${GREEN}[4/14] Configurando Redis/Valkey...${NC}"
 REDIS_PASS=$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | head -c 20)
 if systemctl list-unit-files | grep -q '^valkey-server'; then
     RCONF=/etc/valkey/valkey.conf; RSVC=valkey-server
@@ -81,20 +81,20 @@ systemctl restart "$RSVC"
 echo "  Servicio de caché activo: ${RSVC}"
 
 # --- 5. Usuario vmail (uid/gid 5000, igual que Dovecot) ---
-echo -e "\n${GREEN}[5/15] Creando usuario vmail (uid 5000)...${NC}"
+echo -e "\n${GREEN}[5/14] Creando usuario vmail (uid 5000)...${NC}"
 groupadd -g 5000 vmail 2>/dev/null || true
 useradd -u 5000 -g vmail -d /var/vmail -s /usr/sbin/nologin -m vmail 2>/dev/null || true
 mkdir -p /var/vmail && chown -R vmail:vmail /var/vmail
 
 # --- 6. Código de la aplicación ---
-echo -e "\n${GREEN}[6/15] Obteniendo Maquita Webmail...${NC}"
+echo -e "\n${GREEN}[6/14] Obteniendo Maquita Webmail...${NC}"
 if [ ! -d "${APP_DIR}/backend" ]; then
     git clone https://github.com/wilsongabriel30/webmailMaquita.git "${APP_DIR}"
 fi
 CFG="${APP_DIR}/deploy/webmail/configs"
 
 # --- 7. Esquema de la base de datos (todas las tablas de la app) ---
-echo -e "\n${GREEN}[7/15] Aplicando esquema de la base de datos...${NC}"
+echo -e "\n${GREEN}[7/14] Aplicando esquema de la base de datos...${NC}"
 for f in "${APP_DIR}"/migrations/*.sql; do
     echo "  → $(basename "$f")"
     # ON_ERROR_STOP=0: el esquema usa IF NOT EXISTS; tolera re-ejecución sin abortar
@@ -102,7 +102,7 @@ for f in "${APP_DIR}"/migrations/*.sql; do
 done
 
 # --- 8. Backend (.env + entorno virtual) ---
-echo -e "\n${GREEN}[8/15] Configurando backend...${NC}"
+echo -e "\n${GREEN}[8/14] Configurando backend...${NC}"
 cd "${APP_DIR}/backend"
 python3 -m venv venv
 source venv/bin/activate
@@ -128,14 +128,14 @@ CORS_ORIGINS=https://${MAIL_HOST}
 ENVEOF
 
 # --- 9. Frontend (compilar) ---
-echo -e "\n${GREEN}[9/15] Compilando frontend...${NC}"
+echo -e "\n${GREEN}[9/14] Compilando frontend...${NC}"
 cd "${APP_DIR}/frontend"
 npm ci --quiet && npx vite build
 mkdir -p "${APP_DIR}/www" && ln -sf "${APP_DIR}/frontend/dist" "${APP_DIR}/www/webmail"
 [ -f public/sw.js ] && cp public/sw.js dist/sw.js || true
 
 # --- 10. Dovecot (buzones virtuales SQL + usuario maestro 'admin') ---
-echo -e "\n${GREEN}[10/15] Configurando Dovecot...${NC}"
+echo -e "\n${GREEN}[10/14] Configurando Dovecot...${NC}"
 [ -f /etc/dovecot/dovecot.conf ] && cp /etc/dovecot/dovecot.conf "/etc/dovecot/dovecot.conf.bak.$(date +%Y%m%d%H%M%S)"
 sed "s|__DB_PASS__|${DB_PASS}|g" "${CFG}/dovecot.conf" > /etc/dovecot/dovecot.conf
 # Asegurar certificado snakeoil para que Dovecot arranque con TLS
@@ -152,7 +152,7 @@ doveconf -n >/dev/null && echo "  Dovecot: sintaxis OK"
 systemctl restart dovecot
 
 # --- 11. Postfix (SMTP + entrega LMTP a Dovecot) ---
-echo -e "\n${GREEN}[11/15] Configurando Postfix...${NC}"
+echo -e "\n${GREEN}[11/14] Configurando Postfix...${NC}"
 mkdir -p /etc/postfix/pgsql
 for m in "${CFG}"/postfix-pgsql/*.cf; do
     sed "s|__DB_PASS__|${DB_PASS}|g" "$m" > "/etc/postfix/pgsql/$(basename "$m")"
@@ -186,10 +186,28 @@ submission inet n       -       y       -       -       smtpd
 EOF
 fi
 postfix check && echo "  Postfix: configuración OK"
+# rspamd como milter (procesa y FIRMA el correo) + generación de la clave DKIM
+postconf -e \
+  "smtpd_milters = inet:localhost:11332" \
+  "non_smtpd_milters = inet:localhost:11332" \
+  "milter_protocol = 6" \
+  "milter_default_action = accept"
+mkdir -p /var/lib/rspamd/dkim
+rspamadm dkim_keygen -d "${DOMAIN}" -s mail -b 2048 \
+  -k "/var/lib/rspamd/dkim/${DOMAIN}.mail.key" > "/tmp/dkim-${DOMAIN}.txt" 2>/dev/null || true
+chown _rspamd:_rspamd "/var/lib/rspamd/dkim/${DOMAIN}.mail.key" 2>/dev/null || true
+cat > /etc/rspamd/local.d/dkim_signing.conf <<DKIMC
+enabled = true;
+selector = "mail";
+allow_username_mismatch = true;
+path = "/var/lib/rspamd/dkim/\$domain.mail.key";
+DKIMC
+systemctl restart rspamd 2>/dev/null || true
 systemctl restart postfix
+echo "  DKIM generado (registro DNS en /tmp/dkim-${DOMAIN}.txt)"
 
 # --- 12. Servicios (systemd + nginx) ---
-echo -e "\n${GREEN}[12/15] Configurando servicios web...${NC}"
+echo -e "\n${GREEN}[12/14] Configurando servicios web...${NC}"
 cp "${APP_DIR}/deploy/webmail/systemd/maquita-webmail.service" /etc/systemd/system/
 systemctl daemon-reload && systemctl enable maquita-webmail
 NGINX_CONF="/etc/nginx/sites-available/${MAIL_HOST}"
@@ -300,8 +318,25 @@ echo "  (funciones extra: autoresponder, firmas masivas, buzones compartidos, rs
 echo "  1) Acceso del navegador (auth básica):  usuario: admin   clave: ${ADMIN_WEB_PASS}"
 echo "  2) Login del panel:                      usuario: admin   clave: ${ADMIN_PANEL_PASS}"
 echo ""
-echo -e "${YELLOW}PASOS FINALES (los únicos manuales):${NC}"
-echo "  1. DNS:  A ${MAIL_HOST} → IP del servidor · MX ${DOMAIN} → ${MAIL_HOST} (10) · TXT ${DOMAIN} → v=spf1 mx a ~all"
-echo "  2. Certificado TLS:  certbot --nginx -d ${MAIL_HOST}"
-echo "  3. Entra a:  https://${MAIL_HOST}/webmail/  con demo@${DOMAIN}"
+echo -e "${YELLOW}PASOS FINALES — DNS (imprescindible para enviar y recibir correo):${NC}"
+echo "  Crea estos registros donde administras tu dominio (tu proveedor de DNS):"
+echo ""
+echo "  1) A      ${MAIL_HOST}              -> <IP PÚBLICA DE ESTE SERVIDOR>"
+echo "  2) MX     ${DOMAIN}                 -> ${MAIL_HOST}   (prioridad 10)"
+echo "  3) TXT    ${DOMAIN}                 -> v=spf1 mx ~all        (SPF: autoriza a tu servidor a enviar)"
+echo "  4) TXT    _dmarc.${DOMAIN}          -> v=DMARC1; p=quarantine; rua=mailto:postmaster@${DOMAIN}"
+echo "  5) TXT    mail._domainkey.${DOMAIN}  -> (DKIM, ya generado; ver abajo)"
+echo "  6) PTR (DNS inverso):  <IP> -> ${MAIL_HOST}"
+echo "        Lo configura el PROVEEDOR de tu servidor/VPS, no aquí. SIN PTR, Gmail/Outlook"
+echo "        rechazan tu correo. Pídeselo a tu proveedor (Hetzner, OVH, DigitalOcean, etc.)."
+echo ""
+echo "  >> Registro DKIM a publicar (copia el contenido entre comillas en el valor del TXT):"
+sed "s/^/     /" "/tmp/dkim-${DOMAIN}.txt" 2>/dev/null || echo "     (no se generó; revisa rspamd)"
+echo ""
+echo "  Explicación paso a paso de cada registro (para principiantes):  docs/CONFIGURAR-DNS.md"
+echo ""
+echo -e "${YELLOW}DESPUÉS DEL DNS:${NC}"
+echo "  • Certificado TLS (HTTPS):   certbot --nginx -d ${MAIL_HOST}"
+echo "  • Webmail:                   https://${MAIL_HOST}/webmail/   (usuario demo@${DOMAIN})"
+echo "  • Panel de administración:   https://${MAIL_HOST}:8443"
 echo ""

@@ -182,7 +182,13 @@ El instalador (como root, en Debian 12/13 o Ubuntu 22.04+):
 3. Compila el frontend y configura el backend (systemd + uvicorn).
 4. Deja los servicios arrancados e imprime las **credenciales generadas**.
 
-Al terminar te indica los pasos finales (DNS, certificado SSL con `certbot`, crear el primer buzón). La guía detallada está en **[docs/INSTALL-NATIVE.md](docs/INSTALL-NATIVE.md)**.
+Al terminar te indica los pasos finales (DNS, certificado SSL con `certbot`, crear el primer buzón) y **genera tu clave DKIM**. La guía detallada de instalación está en **[docs/INSTALL-NATIVE.md](docs/INSTALL-NATIVE.md)**.
+
+> **¿Nunca configuraste un DNS?** La parte de DNS (registros A, MX, SPF, DKIM,
+> DMARC y PTR) es imprescindible para enviar/recibir sin caer en spam. Está
+> explicada **paso a paso para principiantes** en
+> **[docs/CONFIGURAR-DNS.md](docs/CONFIGURAR-DNS.md)** — incluye los casos de
+> panel web, proveedor de VPS y servidor DNS propio (BIND/PowerDNS).
 
 ### Opción B — Paso a paso manual
 
@@ -308,6 +314,7 @@ Para reportar una vulnerabilidad de seguridad escribe a security@maquita.org. No
 Documentación detallada en el directorio `docs/`:
 
 - `docs/INSTALL-NATIVE.md` — guía de instalación nativa (recomendada)
+- `docs/CONFIGURAR-DNS.md` — DNS/dominio paso a paso (A, MX, SPF, DKIM, DMARC, PTR) para principiantes
 - `docs/ARCHITECTURE.md` — diseño del sistema e interacción de componentes
 - `docs/DEPLOYMENT.md` — guía de despliegue en producción
 - `docs/COMPLIANCE.md` — uso de eDiscovery y retención legal
