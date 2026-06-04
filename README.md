@@ -282,6 +282,17 @@ cat README.md      # instrucciones de configuración
 bash instalar.sh
 ```
 
+## Nube de archivos y ofimática en línea (Nextcloud + OnlyOffice) — opcional
+
+Opcionalmente puedes integrar **Nextcloud** (almacenamiento en la nube, archivos,
+compartir, adjuntos grandes) y, dentro de él, **OnlyOffice** (editar documentos
+Word/Excel/PowerPoint en el navegador). El webmail ya trae la integración vía las
+variables `NC_*` y `ONLYOFFICE_*` del `.env`.
+
+> Es una **recomendación opcional**; la guía de configuración paso a paso se
+> añadirá más adelante. Resumen en [`docs/INSTALL-NATIVE.md`](docs/INSTALL-NATIVE.md)
+> (sección "Componentes opcionales").
+
 ## Actualizar a una nueva versión
 
 Cuando publiquemos mejoras, actualiza así (en el servidor, en `/opt/maquita-webmail`):
