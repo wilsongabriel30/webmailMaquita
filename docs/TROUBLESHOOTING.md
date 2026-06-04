@@ -32,7 +32,7 @@ systemctl status postfix dovecot rspamd clamav-daemon \
 ss -tlnp | grep -E "25|80|143|443|587|993|5232|8000"
 
 # 3. API del webmail
-curl -s http://localhost:8000/api/auth/health
+curl -s http://localhost:8000/api/health
 
 # 4. Logs del webmail
 journalctl -u maquita-webmail -f --no-pager -n 50

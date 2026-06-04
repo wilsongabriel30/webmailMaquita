@@ -58,7 +58,7 @@ migrate:
 
 ## Seed synthetic demo data into the database
 seed-demo:
-	python scripts/seed_demo_data.py
+	docker compose exec -T backend python -m scripts.seed_demo_data
 
 ## Full demo environment: docker up + migrate + seed
 demo: docker-up migrate seed-demo

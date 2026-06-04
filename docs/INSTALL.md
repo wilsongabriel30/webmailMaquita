@@ -420,7 +420,7 @@ systemctl enable --now maquita-webmail
 # Verificar
 sleep 5
 systemctl status maquita-webmail
-curl -s http://localhost:8000/api/auth/health
+curl -s http://localhost:8000/api/health
 ```
 
 ## Paso 15: Nginx
@@ -469,7 +469,7 @@ systemctl status postfix dovecot rspamd clamav-daemon \
 ss -tlnp | grep -E "25|80|143|443|587|993|5232|8000"
 
 # 3. API responde
-curl -s http://localhost:8000/api/auth/health
+curl -s http://localhost:8000/api/health
 
 # 4. Abrir en navegador: https://mail.tudominio.com/webmail/
 

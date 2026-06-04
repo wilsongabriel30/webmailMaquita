@@ -55,8 +55,8 @@ services:
   # ---------------------------------------------------------------------------
   backend:
     build:
-      context: ./backend
-      dockerfile: ../Dockerfile.backend
+      context: .
+      dockerfile: Dockerfile.backend
     restart: unless-stopped
     env_file:
       - .env
@@ -78,8 +78,8 @@ services:
   # ---------------------------------------------------------------------------
   frontend:
     build:
-      context: ./frontend
-      dockerfile: ../Dockerfile.frontend
+      context: .
+      dockerfile: Dockerfile.frontend
     restart: unless-stopped
     depends_on:
       - backend

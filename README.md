@@ -162,7 +162,7 @@ Prerequisites: Docker 24+, Docker Compose v2, GNU Make.
 
 ```bash
 git clone https://github.com/wilsongabriel30/webmailMaquita.git
-cd maquita-webmail
+cd webmailMaquita
 cp .env.example .env
 docker compose up -d
 make migrate
@@ -170,7 +170,7 @@ make seed-demo
 make test
 ```
 
-The webmail UI will be available at `https://localhost` (self-signed certificate by default). Demo credentials are printed by `make seed-demo`.
+The webmail UI will be available at `http://localhost` (the demo stack serves plain HTTP on port 80; put it behind a TLS reverse proxy for production — see the native install guide). Demo credentials are printed by `make seed-demo`.
 
 ## Local Development Installation
 
@@ -197,7 +197,7 @@ npm run dev
 
 ### External Services
 
-The backend expects running instances of PostgreSQL 17, Redis 7, Dovecot 2.4, and Postfix. For local development, `docker compose up postgres redis dovecot postfix` will start only the infrastructure services.
+The backend expects running instances of PostgreSQL 17, Redis 7, Dovecot 2.4, and Postfix. The bundled `docker-compose.yml` starts PostgreSQL, Redis, the backend and the frontend; it does **not** ship a mail server. Point `IMAP_HOST`/`SMTP_HOST`/`SIEVE_HOST` at your existing Dovecot/Postfix (or set up one natively — see `docs/INSTALL-NATIVE.md`). For just the infra services: `docker compose up postgres redis`.
 
 ## Environment Variables
 
