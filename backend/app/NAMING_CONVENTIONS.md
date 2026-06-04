@@ -2,7 +2,7 @@
 
 ## Identificación de usuario
 La clave primaria de un usuario es su correo electrónico (mailbox.username).
-`get_current_user()` devuelve un `str` con el email completo (ej: `usuario@maquita.org`).
+`get_current_user()` devuelve un `str` con el email completo (ej: `usuario@ejemplo.com`).
 
 Diferentes tablas usan diferentes nombres para este campo (legado):
 - `mailbox.username` → email del usuario (fuente de verdad)
