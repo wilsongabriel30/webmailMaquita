@@ -48,7 +48,8 @@ apt update && apt install -y \
     postfix postfix-pgsql \
     dovecot-core dovecot-imapd dovecot-pop3d dovecot-lmtpd dovecot-pgsql \
     dovecot-sieve dovecot-managesieved \
-    ssl-cert rspamd
+    ssl-cert rspamd \
+    clamav clamav-daemon clamav-freshclam
 
 # --- 2. Node.js 20 ---
 echo -e "\n${GREEN}[2/15] Instalando Node.js 20...${NC}"
@@ -203,6 +204,10 @@ selector = "mail";
 allow_username_mismatch = true;
 path = "/var/lib/rspamd/dkim/\$domain.mail.key";
 DKIMC
+# Antivirus: rspamd escanea adjuntos/correo con ClamAV (clamd); el backend usa clamdscan
+cp "${CFG}/rspamd-antivirus.conf" /etc/rspamd/local.d/antivirus.conf
+systemctl enable --now clamav-freshclam clamav-daemon 2>/dev/null || true
+echo "  ClamAV (antivirus de adjuntos) habilitado (las firmas se descargan en 2.º plano)"
 systemctl restart rspamd 2>/dev/null || true
 systemctl restart postfix
 echo "  DKIM generado (registro DNS en /tmp/dkim-${DOMAIN}.txt)"
