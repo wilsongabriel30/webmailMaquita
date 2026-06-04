@@ -73,6 +73,7 @@ interface MailState {
   setPage: (page: number) => void;
   // Compose
   openCompose: (mode: ComposeMode, data?: ComposeData) => void;
+  updateComposeData: (id: string, partial: Partial<ComposeData>) => void;
   closeCompose: (id: string) => void;
   minimizeCompose: (id: string) => void;
   restoreCompose: (id: string) => void;
@@ -174,6 +175,11 @@ export const useMailStore = create<MailState>((set, get) => ({
   }),
   updateDraftUid: (id, uid) => set({
     composeWindows: get().composeWindows.map(w => w.id === id ? { ...w, draftUid: uid } : w),
+  }),
+  // Sincroniza datos editados (asunto, destinatarios) al store para que la
+  // pestana minimizada muestre el titulo/asunto ACTUAL del borrador.
+  updateComposeData: (id, partial) => set({
+    composeWindows: get().composeWindows.map(w => w.id === id ? { ...w, data: { ...w.data, ...partial } } : w),
   }),
 
   // Reset all state (on account/session change)

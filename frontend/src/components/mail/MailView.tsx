@@ -375,7 +375,7 @@ export function MailView() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                     d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
-                <span className="truncate">{win.data.subject || 'Nuevo mensaje'}</span>
+                <span className="truncate">{(win.data.subject && win.data.subject !== '(No Subject)') ? win.data.subject : 'Nuevo mensaje'}</span>
               </button>
               <button onClick={(e) => { e.stopPropagation(); closeCompose(win.id); }}
                 className="px-2 py-2.5 hover:bg-[#c42b1c] transition-colors rounded-tr-lg text-white/80 hover:text-white" title="Cerrar">

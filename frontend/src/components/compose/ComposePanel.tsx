@@ -42,6 +42,7 @@ export function ComposePanel({ win }: Props) {
   const closeCompose = useMailStore(s => s.closeCompose);
   const minimizeCompose = useMailStore(s => s.minimizeCompose);
   const updateDraftUid = useMailStore(s => s.updateDraftUid);
+  const updateComposeData = useMailStore(s => s.updateComposeData);
   const [to, setTo] = useState('');
   const [cc, setCc] = useState('');
   const [bcc, setBcc] = useState('');
@@ -406,6 +407,14 @@ export function ComposePanel({ win }: Props) {
   }, []);
 
   const insertSignature = useCallback(async () => {
+    // Toggle: si la firma ya esta puesta, el boton la QUITA (no se duplica).
+    // La firma se inserta automaticamente al redactar, asi que volver a
+    // pulsar el boton no debe agregar una segunda firma.
+    if (signatureHtml) {
+      setSignatureHtml('');
+      showToast('Firma quitada');
+      return;
+    }
     try {
       const cached = sessionStorage.getItem('maquita_sig_cache');
       const sig = cached || (await api.get<{ signature_html: string }>('/settings/signature')).signature_html;
@@ -417,7 +426,7 @@ export function ComposePanel({ win }: Props) {
         showToast('No hay firma configurada');
       }
     } catch { showToast('Error al cargar la firma'); }
-  }, []);
+  }, [signatureHtml]);
 
   const downloadDraft = useCallback(() => {
     const html = getFullHtml();
@@ -801,7 +810,7 @@ export function ComposePanel({ win }: Props) {
       {/* Subject */}
       <div className="border-b border-[#edebe9] shrink-0">
         <div className="flex items-center">
-          <input value={subject} onChange={e => setSubject(e.target.value)}
+          <input value={subject} onChange={e => { setSubject(e.target.value); updateComposeData(win.id, { subject: e.target.value }); }}
             placeholder="Agregar un asunto"
             className="flex-1 text-[15px] px-4 py-2.5 outline-none text-[#323130] placeholder-[#a19f9d]"
             style={{ fontFamily: 'Segoe UI, Calibri, sans-serif' }} />
