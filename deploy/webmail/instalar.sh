@@ -13,6 +13,9 @@ GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[1;33m'; NC='\033[0m'
 APP_DIR=/opt/maquita-webmail
 CFG="${APP_DIR}/deploy/webmail/configs"
 
+# Si algo falla, indica el paso en vez de abortar en silencio
+trap 'echo -e "\n${RED}✗ La instalación se detuvo (línea ${LINENO}). Revisa el último paso [N/14] mostrado arriba y el error inmediatamente anterior.${NC}"' ERR
+
 echo -e "${GREEN}"
 echo "╔══════════════════════════════════════════════════╗"
 echo "║    Fundación Maquita Webmail — Instalador        ║"
@@ -63,12 +66,19 @@ sudo -u postgres psql -c "CREATE USER mailserver WITH PASSWORD '${DB_PASS}';" 2>
 sudo -u postgres psql -c "CREATE DATABASE maildb OWNER mailserver;" 2>/dev/null || true
 sudo -u postgres psql -d maildb -c "GRANT ALL ON SCHEMA public TO mailserver;" 2>/dev/null || true
 
-# --- 4. Redis ---
-echo -e "\n${GREEN}[4/14] Configurando Redis...${NC}"
+# --- 4. Redis / Valkey ---
+# En Debian 13 (trixie), redis-server arrastra Valkey (fork de Redis) que toma el
+# puerto 6379 y usa /etc/valkey/valkey.conf. Detectamos cuál está presente.
+echo -e "\n${GREEN}[4/14] Configurando Redis/Valkey...${NC}"
 REDIS_PASS=$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | head -c 20)
-sed -i "s/^# *requirepass .*/requirepass ${REDIS_PASS}/" /etc/redis/redis.conf
-sed -i "s/^requirepass .*/requirepass ${REDIS_PASS}/" /etc/redis/redis.conf
-systemctl restart redis-server
+if systemctl list-unit-files | grep -q '^valkey-server'; then
+    RCONF=/etc/valkey/valkey.conf; RSVC=valkey-server
+else
+    RCONF=/etc/redis/redis.conf;   RSVC=redis-server
+fi
+sed -i "s/^# *requirepass .*/requirepass ${REDIS_PASS}/; s/^requirepass .*/requirepass ${REDIS_PASS}/" "$RCONF"
+systemctl restart "$RSVC"
+echo "  Servicio de caché activo: ${RSVC}"
 
 # --- 5. Usuario vmail (uid/gid 5000, igual que Dovecot) ---
 echo -e "\n${GREEN}[5/14] Creando usuario vmail (uid 5000)...${NC}"
