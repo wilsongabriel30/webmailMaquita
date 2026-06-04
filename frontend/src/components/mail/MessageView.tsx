@@ -8,6 +8,24 @@ import { api } from '../../api/client';
 import { useMailStore } from '../../store/mailStore';
 import { AttachmentPreview } from './AttachmentPreview';
 
+// Badge de tipo de archivo por extensión (color + etiqueta). Los ejecutables y
+// comprimidos se resaltan para que el usuario note extensiones peligrosas/raras.
+const EXT_BADGE: Record<string, { bg: string; label: string }> = {
+  pdf: { bg: '#d13438', label: 'PDF' },
+  doc: { bg: '#2b579a', label: 'DOC' }, docx: { bg: '#2b579a', label: 'DOC' }, rtf: { bg: '#2b579a', label: 'RTF' }, odt: { bg: '#2b579a', label: 'ODT' },
+  xls: { bg: '#217346', label: 'XLS' }, xlsx: { bg: '#217346', label: 'XLS' }, csv: { bg: '#217346', label: 'CSV' }, ods: { bg: '#217346', label: 'ODS' },
+  ppt: { bg: '#d24726', label: 'PPT' }, pptx: { bg: '#d24726', label: 'PPT' }, odp: { bg: '#d24726', label: 'ODP' },
+  zip: { bg: '#8661c5', label: 'ZIP' }, rar: { bg: '#8661c5', label: 'RAR' }, '7z': { bg: '#8661c5', label: '7Z' }, gz: { bg: '#8661c5', label: 'GZ' }, tar: { bg: '#8661c5', label: 'TAR' },
+  txt: { bg: '#605e5c', label: 'TXT' }, log: { bg: '#605e5c', label: 'LOG' },
+  jpg: { bg: '#0b6a0b', label: 'IMG' }, jpeg: { bg: '#0b6a0b', label: 'IMG' }, png: { bg: '#0b6a0b', label: 'PNG' }, gif: { bg: '#0b6a0b', label: 'GIF' }, webp: { bg: '#0b6a0b', label: 'IMG' }, svg: { bg: '#0b6a0b', label: 'SVG' },
+  exe: { bg: '#a80000', label: 'EXE' }, msi: { bg: '#a80000', label: 'MSI' }, bat: { bg: '#a80000', label: 'BAT' }, cmd: { bg: '#a80000', label: 'CMD' }, scr: { bg: '#a80000', label: 'SCR' }, vbs: { bg: '#a80000', label: 'VBS' }, js: { bg: '#a80000', label: 'JS' },
+};
+function attBadge(filename: string): { bg: string; label: string } {
+  const ext = (filename.split('.').pop() || '').toLowerCase();
+  return EXT_BADGE[ext] || { bg: '#605e5c', label: (ext || '?').toUpperCase().slice(0, 4) };
+}
+
+
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                           */
 /* ------------------------------------------------------------------ */
@@ -666,10 +684,10 @@ const ThreadMessageCard: React.FC<ThreadMessageCardProps> = ({
               }}
               title={`${att.filename} (${formatSize(att.size)})`}
             >
-              <svg width="12" height="12" viewBox="0 0 16 16" fill="#605e5c">
-                <path d="M14 4.5V14a2 2 0 01-2 2H4a2 2 0 01-2-2V2a2 2 0 012-2h5.5L14 4.5zM9.5 1H4a1 1 0 00-1 1v12a1 1 0 001 1h8a1 1 0 001-1V5h-3.5V1z"/>
-              </svg>
-              <span style={{ maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {(() => { const b = attBadge(att.filename); return (
+                <span style={{ background: b.bg, color: '#fff', fontSize: 9, fontWeight: 700, padding: '2px 4px', borderRadius: 3, flexShrink: 0, letterSpacing: 0.3 }}>{b.label}</span>
+              ); })()}
+              <span style={{ maxWidth: 150, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'break-all', lineHeight: 1.2, textAlign: 'left' }}>
                 {att.filename}
               </span>
             </button>
@@ -1361,10 +1379,10 @@ const MessageView: React.FC = () => {
                 }}
                 title={`${att.filename} (${formatSize(att.size)})`}
               >
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="#605e5c">
-                  <path d="M14 4.5V14a2 2 0 01-2 2H4a2 2 0 01-2-2V2a2 2 0 012-2h5.5L14 4.5zM9.5 1H4a1 1 0 00-1 1v12a1 1 0 001 1h8a1 1 0 001-1V5h-3.5V1z"/>
-                </svg>
-                <span style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {(() => { const b = attBadge(att.filename); return (
+                  <span style={{ background: b.bg, color: '#fff', fontSize: 10, fontWeight: 700, padding: '2px 5px', borderRadius: 3, flexShrink: 0, letterSpacing: 0.3 }}>{b.label}</span>
+                ); })()}
+                <span style={{ maxWidth: 200, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'break-all', lineHeight: 1.25, textAlign: 'left' }}>
                   {att.filename}
                 </span>
                 <span style={{ color: '#a19f9d' }}>({formatSize(att.size)})</span>
