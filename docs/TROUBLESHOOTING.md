@@ -235,3 +235,33 @@ fuerza IPv4:
 postconf -e "inet_protocols = ipv4"
 systemctl restart postfix
 ```
+
+
+## Los correos CON adjunto no se envían (sin adjunto sí) — error 500 en nginx
+
+**Síntoma:** los correos de solo texto salen bien, pero al adjuntar un archivo el
+envío falla y el correo no llega. En la consola del navegador (F12) puede verse un
+`401`/redirección rara, pero el backend **no registra** la petición `/api/mail/send`.
+
+**Causa:** un cuerpo de petición grande (el adjunto) hace que nginx lo escriba a un
+archivo temporal en `/var/lib/nginx/body/`. Si ese directorio no es escribible por
+el usuario de nginx, nginx responde **500 antes de llegar al backend**. En el log de
+errores de nginx aparece:
+
+```
+[crit] open() "/var/lib/nginx/body/0000000017" failed (13: Permission denied),
+request: "POST /api/mail/send"
+```
+
+(Los correos SIN adjunto funcionan porque su cuerpo cabe en memoria y no usa ese archivo.)
+
+**Solución:** dar la propiedad de los directorios temporales de nginx a su usuario
+(normalmente `www-data`) y recargar:
+
+```bash
+# Verifica el usuario de nginx:
+grep ^user /etc/nginx/nginx.conf          # p.ej. "user www-data;"
+# Corrige permisos:
+sudo chown -R www-data:www-data /var/lib/nginx
+sudo systemctl reload nginx
+```
