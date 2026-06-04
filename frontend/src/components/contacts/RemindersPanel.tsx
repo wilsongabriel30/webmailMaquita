@@ -31,17 +31,21 @@ export function RemindersPanel({ contactId }: Props) {
   const loadReminders = async () => {
     try {
       const data = await api.get<Reminder[]>(`/contacts/${contactId}/reminders`);
-      setReminders(data);
+      setReminders(Array.isArray(data) ? data : []);
     } catch { /* ignore */ }
   };
 
   const handleAdd = async () => {
     if (!title.trim() || !dueDate) return;
+    // El campo es solo fecha (cumpleanos/aniversarios). Si no trae hora, usamos
+    // las 09:00. Validamos para no romper la vista con una fecha invalida.
+    const d = new Date(dueDate.length <= 10 ? `${dueDate}T09:00:00` : dueDate);
+    if (isNaN(d.getTime())) return;
     setSaving(true);
     try {
       const r = await api.post<Reminder>(`/contacts/${contactId}/reminders`, {
         title: title.trim(),
-        due_date: new Date(dueDate).toISOString(),
+        due_date: d.toISOString(),
       });
       setReminders(prev => [...prev, r]);
       setTitle('');
@@ -66,11 +70,14 @@ export function RemindersPanel({ contactId }: Props) {
   };
 
   const isOverdue = (dateStr: string) => {
-    return new Date(dateStr) < new Date() ;
+    const d = new Date(dateStr);
+    return !isNaN(d.getTime()) && d < new Date();
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('es-EC', {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return 'Sin fecha';
+    return d.toLocaleDateString('es-EC', {
       day: '2-digit', month: 'short', year: 'numeric',
     });
   };
@@ -146,7 +153,7 @@ export function RemindersPanel({ contactId }: Props) {
                 autoFocus
               />
               <input
-                type="datetime-local"
+                type="date"
                 value={dueDate}
                 onChange={e => setDueDate(e.target.value)}
                 style={styles.input}
