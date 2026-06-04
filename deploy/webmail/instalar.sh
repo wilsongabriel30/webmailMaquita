@@ -93,11 +93,12 @@ if [ ! -d "${APP_DIR}/backend" ]; then
 fi
 CFG="${APP_DIR}/deploy/webmail/configs"
 
-# --- 7. Migraciones (esquema de correo + cumplimiento) ---
-echo -e "\n${GREEN}[7/14] Aplicando migraciones (esquema de correo + app)...${NC}"
+# --- 7. Esquema de la base de datos (todas las tablas de la app) ---
+echo -e "\n${GREEN}[7/14] Aplicando esquema de la base de datos...${NC}"
 for f in "${APP_DIR}"/migrations/*.sql; do
     echo "  → $(basename "$f")"
-    PGPASSWORD="${DB_PASS}" psql -h localhost -U mailserver -d maildb -f "$f" >/dev/null
+    # ON_ERROR_STOP=0: el esquema usa IF NOT EXISTS; tolera re-ejecución sin abortar
+    PGPASSWORD="${DB_PASS}" psql -v ON_ERROR_STOP=0 -h localhost -U mailserver -d maildb -f "$f" >/dev/null 2>&1
 done
 
 # --- 8. Backend (.env + entorno virtual) ---
