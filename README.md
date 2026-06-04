@@ -156,7 +156,17 @@ Maquita Webmail addresses all four.
 - Voice dictation via Whisper
 - All AI processing runs locally -- no data leaves your infrastructure
 
-## Quick Start (Docker)
+## Production Install (recommended)
+
+This project is built to run **natively** on a Debian server next to a real
+Postfix + Dovecot mail stack — that is the supported, robust deployment.
+See **[docs/INSTALL-NATIVE.md](docs/INSTALL-NATIVE.md)** for the full guide.
+
+## Quick Demo (Docker — evaluation only)
+
+> Docker is provided **only** for a quick local look at the UI. It does **not**
+> run a mail server (Postfix/Dovecot are never containerized here) and is **not**
+> a production deployment. For real use, follow the native guide above.
 
 Prerequisites: Docker 24+, Docker Compose v2, GNU Make.
 
