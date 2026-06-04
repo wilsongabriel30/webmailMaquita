@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 import logging
+import os
 
 import httpx
 
 logger = logging.getLogger("calendar.radicale")
 
-RADICALE_BASE = "http://127.0.0.1:5232"
+RADICALE_BASE = os.getenv("RADICALE_URL", "http://127.0.0.1:5232")
 
 
 class RadicaleClient:

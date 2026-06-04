@@ -125,6 +125,7 @@ SIEVE_PORT=4190
 MAIL_DOMAIN=${DOMAIN}
 COOKIE_DOMAIN=.${DOMAIN}
 CORS_ORIGINS=https://${MAIL_HOST},https://${DOMAIN},https://webmail.${DOMAIN},https://correo.${DOMAIN}
+RADICALE_URL=http://127.0.0.1:5232
 ENVEOF
 
 # --- 9. Frontend (compilar) ---
@@ -251,6 +252,13 @@ server {
 MTANGINX
 ln -sf "/etc/nginx/sites-available/mta-sts.${DOMAIN}" /etc/nginx/sites-enabled/
 echo "  MTA-STS preparado (política servida en mta-sts.${DOMAIN})"
+# Radicale: backend CalDAV/CardDAV del calendario y los contactos (puerto 5232)
+mkdir -p /etc/radicale /var/lib/radicale/collections
+cp "${CFG}/radicale.config" /etc/radicale/config
+chown -R www-data:www-data /var/lib/radicale
+cp "${APP_DIR}/deploy/webmail/configs/radicale.service" /etc/systemd/system/radicale.service
+systemctl daemon-reload && systemctl enable --now radicale 2>/dev/null
+echo "  Radicale (calendario/contactos) configurado en :5232"
 
 # --- 13. Buzón de demostración (dominio FALSO + clave genérica para el 1er ingreso) ---
 echo -e "\n${GREEN}[13/15] Creando buzón de demostración...${NC}"
@@ -332,6 +340,7 @@ echo -e "${YELLOW}VERIFICACIÓN:${NC}"
 echo "  Backend /api/health : ${HEALTH}"
 echo "  Login buzón demo    : $([ "$AUTH_DEMO" = "1" ] && echo OK || echo FALLO)"
 echo "  Login usuario maestro: $([ "$AUTH_MASTER" = "1" ] && echo OK || echo FALLO)"
+echo "  Radicale (calendario) : $(curl -s -o /dev/null -w \"%{http_code}\" --max-time 4 http://127.0.0.1:5232/ 2>/dev/null) (000=no responde)"
 echo ""
 echo -e "${RED}==============================================================${NC}"
 echo -e "${RED}  CLAVE DE PRIMER INGRESO (para TODOS los accesos):  ${CLAVE_GENERICA}${NC}"
