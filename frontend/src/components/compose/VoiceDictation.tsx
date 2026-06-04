@@ -98,7 +98,7 @@ export function VoiceDictation({ onTranscript, disabled = false }: VoiceDictatio
     try {
       const formData = new FormData();
       const ext = mimeType.includes('webm') ? 'webm' : mimeType.includes('mp4') ? 'mp4' : 'wav';
-      formData.append('file', blob, `recording.${ext}`);
+      formData.append('audio', blob, `recording.${ext}`);
       formData.append('language', 'es');
 
       const resp = await fetch('/api/whisper/transcribe', {
@@ -113,7 +113,7 @@ export function VoiceDictation({ onTranscript, disabled = false }: VoiceDictatio
       }
 
       const data = await resp.json();
-      const text = data.text || data.transcription || '';
+      const text = data.full_text || data.text || data.transcription || data.texto || '';
 
       if (text.trim()) {
         onTranscript(text.trim());
