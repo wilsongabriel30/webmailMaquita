@@ -6,85 +6,90 @@
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/wilsongabriel30/webmailMaquita)](https://github.com/wilsongabriel30/webmailMaquita/releases)
 
-**Open-source mail compliance and eDiscovery layer with a full-featured webmail client for Postfix/Dovecot-based mail platforms.**
+**Cliente de correo web (webmail) completo, con capa de cumplimiento legal y eDiscovery, para plataformas de correo basadas en Postfix/Dovecot.**
 
-Built and maintained by [Fundacion Maquita](https://maquita.org), a non-profit organization in Ecuador.
+Desarrollado y mantenido por [Fundación Maquita](https://maquita.org), organización sin fines de lucro de Ecuador.
 
 ---
 
-## What Is This
+## Qué es esto
 
-Maquita Webmail is two things in one repository:
+Maquita Webmail son dos cosas en un mismo repositorio:
 
-1. **A webmail client** -- a modern, Outlook-style interface for reading, composing, and managing email on top of an existing Postfix + Dovecot mail stack.
+1. **Un cliente webmail** — una interfaz moderna estilo Outlook para leer, redactar y gestionar correo sobre una plataforma de correo Postfix + Dovecot existente.
 
-2. **A compliance and eDiscovery layer** -- forensic search, legal holds, audit trails, fraud detection, and cryptographically signed exports, designed for organizations that need to meet regulatory or internal governance requirements for email.
+2. **Una capa de cumplimiento y eDiscovery** — búsqueda forense, retenciones legales (legal holds), pistas de auditoría, detección de fraude y exportaciones firmadas criptográficamente, pensada para organizaciones que deben cumplir requisitos regulatorios o de gobierno interno sobre el correo.
 
-It does not replace your MTA or IMAP server. It sits alongside them, connecting to Postfix, Dovecot, Rspamd, and PostgreSQL to provide a unified interface for end users and compliance officers.
+No reemplaza tu MTA ni tu servidor IMAP. Funciona **junto a ellos**, conectándose a Postfix, Dovecot, Rspamd y PostgreSQL para ofrecer una interfaz unificada a usuarios y oficiales de cumplimiento.
 
-## What Problem It Solves
+## Filosofía: nativo, robusto, reproducible
 
-Small and mid-size organizations running self-hosted Postfix/Dovecot have few options for:
+Todo el sistema corre **de forma nativa, directo sobre el sistema operativo** (Debian 13 o similar): webmail, Postfix, Dovecot, PostgreSQL, Redis y SOGo. **No depende de Docker.** Está pensado para ser **reproducible e instalable por cualquiera** en su propio servidor Debian — incluso por estudiantes — con un solo script.
 
-- A usable webmail interface that goes beyond Roundcube
-- eDiscovery and legal hold without purchasing enterprise software
-- Unified audit trails that correlate events across Postfix, Rspamd, Dovecot, and user actions
-- Mail compliance tooling that works with open-source mail infrastructure
+> **Docker se usa únicamente para Z-Push** (ActiveSync: sincronización de correo, calendario y contactos con teléfonos móviles). Es un componente **opcional** y aislado — ver [`deploy/z-push/`](deploy/z-push/). El correo y el webmail **nunca** se ejecutan en contenedores.
 
-Maquita Webmail addresses all four.
+## Qué problema resuelve
 
-## Who It Is For
+Las organizaciones pequeñas y medianas que operan Postfix/Dovecot por su cuenta tienen pocas opciones para:
 
-- Organizations already running (or willing to run) Postfix + Dovecot
-- IT teams that need compliance and audit capabilities without vendor lock-in
-- Non-profits, universities, and government agencies with self-hosted mail
-- Teams that want a modern webmail UI on top of standard mail protocols
+- Una interfaz webmail usable que vaya más allá de Roundcube
+- eDiscovery y retención legal sin comprar software empresarial
+- Pistas de auditoría unificadas que correlacionan eventos de Postfix, Rspamd, Dovecot y acciones de usuario
+- Herramientas de cumplimiento de correo que funcionen con infraestructura de código abierto
 
-## What This Is NOT
+Maquita Webmail resuelve las cuatro.
 
-- **Not a hosted email service.** You must operate your own mail infrastructure or be willing to set one up.
-- **Not a drop-in replacement for Microsoft 365 or Google Workspace.** It does not include spreadsheets, video conferencing, or a full office suite. It is a webmail and compliance tool.
-- **Not battle-tested at massive scale.** It is in production at Fundacion Maquita with 200+ mailboxes and 100,000+ emails. It has not been tested with thousands of concurrent users.
-- **Not a mail server.** It requires Postfix and Dovecot to be installed and configured separately (Docker Compose handles this for you in the default deployment).
-- **Not feature-frozen.** The project is actively evolving. APIs and database schemas may change between releases.
+## Para quién es
 
-## Current Status
+- Organizaciones que ya operan (o están dispuestas a operar) Postfix + Dovecot
+- Equipos de TI que necesitan capacidades de cumplimiento y auditoría sin dependencia de un proveedor
+- ONG, universidades y entidades públicas con correo autoalojado
+- Equipos que quieren una interfaz webmail moderna sobre protocolos de correo estándar
 
-**Production, early-stage open source.** Maquita Webmail has been running in production at Fundacion Maquita since 2024. The codebase is being prepared for broader community adoption. Expect rough edges, ongoing refactoring, and breaking changes until a 1.0 release.
+## Qué NO es
 
-- 380 tracked files
-- 150+ API endpoints
-- 77 PostgreSQL tables
-- 39 auditable event types
+- **No es un servicio de correo alojado.** Debes operar tu propia infraestructura de correo o estar dispuesto a montarla.
+- **No es un reemplazo directo de Microsoft 365 o Google Workspace.** No incluye hojas de cálculo, videoconferencia ni una suite ofimática completa. Es una herramienta de webmail y cumplimiento.
+- **No está probado a escala masiva.** Está en producción en Fundación Maquita con más de 200 buzones y más de 100 000 correos. No se ha probado con miles de usuarios concurrentes.
+- **No es un servidor de correo.** Requiere Postfix y Dovecot instalados y configurados (el instalador nativo los deja listos).
+- **No está congelado en funciones.** El proyecto evoluciona activamente. Las APIs y los esquemas de base de datos pueden cambiar entre versiones.
 
+## Estado actual
 
-## Screenshots
+**Producción, código abierto en etapa temprana.** Maquita Webmail está en producción en Fundación Maquita desde 2024. El código se está preparando para una adopción comunitaria más amplia. Espera detalles ásperos, refactorización continua y cambios incompatibles hasta una versión 1.0.
+
+- 380 archivos versionados
+- Más de 150 endpoints de API
+- 77 tablas en PostgreSQL
+- 39 tipos de evento auditables
+
+## Capturas de pantalla
 
 <table>
 <tr>
-<td><b>Calendar - Month View</b></td>
-<td><b>Event Editor</b></td>
+<td><b>Calendario — vista mensual</b></td>
+<td><b>Editor de eventos</b></td>
 </tr>
 <tr>
-<td><img src="docs/screenshots/calendar-month.png" width="450" alt="Calendar month view with events"></td>
-<td><img src="docs/screenshots/calendar-event-editor.png" width="450" alt="Event editor with attendees, reminders, and rich text"></td>
+<td><img src="docs/screenshots/calendar-month.png" width="450" alt="Vista mensual del calendario con eventos"></td>
+<td><img src="docs/screenshots/calendar-event-editor.png" width="450" alt="Editor de eventos con invitados, recordatorios y texto enriquecido"></td>
 </tr>
 <tr>
-<td><b>Event Invitation Email</b></td>
+<td><b>Correo de invitación a evento</b></td>
 <td></td>
 </tr>
 <tr>
-<td><img src="docs/screenshots/calendar-invitation.png" width="450" alt="Calendar with invitation email received by attendee"></td>
+<td><img src="docs/screenshots/calendar-invitation.png" width="450" alt="Calendario con correo de invitación recibido por el invitado"></td>
 <td></td>
 </tr>
 </table>
 
-## Architecture
+## Arquitectura
 
 ```
                           +-------------------+
                           |     Nginx         |
-                          | (TLS termination) |
+                          | (terminación TLS) |
                           +--------+----------+
                                    |
                     +--------------+--------------+
@@ -99,9 +104,9 @@ Maquita Webmail addresses all four.
                     |                            |                      |
            +--------v---------+     +-----------v----------+   +-------v--------+
            |  PostgreSQL 17   |     |      Dovecot 2.4     |   |    Redis 7     |
-           |  77 tables       |     |  IMAP / mail_crypt   |   |  cache/queue   |
-           |  audit trail     |     |  Xapian FTS          |   +----------------+
-           |  compliance data |     |  Sieve               |
+           |  77 tablas       |     |  IMAP / mail_crypt   |   |  caché/cola    |
+           |  auditoría       |     |  Xapian FTS          |   +----------------+
+           |  cumplimiento    |     |  Sieve               |
            +------------------+     +----------+-----------+
                                                |
                                     +----------v-----------+
@@ -115,198 +120,178 @@ Maquita Webmail addresses all four.
                                     |  anti-spam / scoring |
                                     +----------------------+
 
-           +------------------+     +----------------------+
-           |    Radicale      |     |  Ollama (optional)   |
-           |  CalDAV/CardDAV  |     |  smart replies, AI   |
-           |  calendar/contacts|    |  autocomplete,       |
-           +------------------+     |  Whisper dictation   |
-                                    +----------------------+
+  Componentes opcionales:
+  - SOGo: calendario y contactos (CalDAV/CardDAV)         -> nativo
+  - Ollama: respuestas/redacción asistidas por IA local   -> nativo
+  - Z-Push: ActiveSync (sincronización con móviles)        -> Docker (deploy/z-push)
 ```
 
-## Key Features
+## Características principales
 
 ### Webmail
-- Outlook-style UI with folders, threads, and labels
-- Rich text editor (TipTap) with inline images and attachments
-- Full-text search powered by Dovecot Xapian
-- Server-side Sieve rule management
-- Calendar (CalDAV via Radicale)
-- Contacts (CardDAV via Radicale)
-- Kanban-style task boards
-- Two-factor authentication (TOTP)
-- Mail encryption at rest (Dovecot mail_crypt)
+- Interfaz estilo Outlook con carpetas, conversaciones y etiquetas
+- Editor de texto enriquecido (TipTap) con imágenes en línea y adjuntos
+- Búsqueda de texto completo con Dovecot Xapian
+- Gestión de reglas Sieve del lado del servidor
+- Calendario (CalDAV vía SOGo)
+- Contactos (CardDAV vía SOGo)
+- Tableros de tareas estilo Kanban
+- Autenticación de dos factores (TOTP)
+- Cifrado del correo en reposo (Dovecot mail_crypt)
 
-### Compliance and eDiscovery
-- **Forensic search**: query across all mailboxes by date range, sender, recipient, keywords, attachments
-- **Legal holds**: freeze mailboxes to prevent deletion during investigations
-- **Export with integrity**: GPG-signed exports with RFC 3161 timestamp sealing
-- **Audit trail**: 39 event types covering login, send, delete, admin actions, and more
-- **Fraud detection**: pattern-based alerting on suspicious mail activity
-- **Mail trace correlation**: unified view linking Postfix queue IDs to Rspamd scores to Dovecot delivery to user actions
-- **RBAC**: 5 roles (superadmin, admin, compliance officer, auditor, user)
+### Cumplimiento y eDiscovery
+- **Búsqueda forense**: consulta sobre todos los buzones por rango de fechas, remitente, destinatario, palabras clave y adjuntos
+- **Retenciones legales**: congela buzones para impedir el borrado durante investigaciones
+- **Exportación con integridad**: exportaciones firmadas con GPG y sellado de tiempo RFC 3161
+- **Pista de auditoría**: 39 tipos de evento (inicio de sesión, envío, borrado, acciones de administración y más)
+- **Detección de fraude**: alertas basadas en patrones de actividad sospechosa
+- **Correlación de trazas de correo**: vista unificada que enlaza IDs de cola de Postfix con puntajes de Rspamd, entrega de Dovecot y acciones de usuario
+- **RBAC**: 5 roles (superadmin, administrador, oficial de cumplimiento, auditor, usuario)
 
-### Mail Security
-- SPF, DKIM, DMARC validation and reporting
-- MTA-STS and DANE/TLSA support
-- Rspamd integration for spam scoring and filtering
+### Seguridad del correo
+- Validación y reportes de SPF, DKIM, DMARC
+- Soporte de MTA-STS y DANE/TLSA
+- Integración con Rspamd para puntaje y filtrado de spam
 
-### Optional AI Features
-- Smart reply suggestions (Ollama, local inference)
-- Compose autocomplete
-- Voice dictation via Whisper
-- All AI processing runs locally -- no data leaves your infrastructure
+### Funciones de IA (opcionales)
+- Sugerencias de respuesta inteligente (Ollama, inferencia local)
+- Autocompletado al redactar
+- Dictado por voz vía Whisper
+- Todo el procesamiento de IA se ejecuta localmente — ningún dato sale de tu infraestructura
 
-## Production Install (recommended)
+---
 
-This project is built to run **natively** on a Debian server next to a real
-Postfix + Dovecot mail stack — that is the supported, robust deployment.
-See **[docs/INSTALL-NATIVE.md](docs/INSTALL-NATIVE.md)** for the full guide.
+## Instalación (nativa — recomendada)
 
-## Quick Demo (Docker — evaluation only)
+Pensada para que **cualquiera** la reproduzca en un Debian 13 limpio (o similar).
 
-> Docker is provided **only** for a quick local look at the UI. It does **not**
-> run a mail server (Postfix/Dovecot are never containerized here) and is **not**
-> a production deployment. For real use, follow the native guide above.
-
-Prerequisites: Docker 24+, Docker Compose v2, GNU Make.
+### Opción A — Instalador automático (lo más fácil)
 
 ```bash
 git clone https://github.com/wilsongabriel30/webmailMaquita.git
 cd webmailMaquita
-cp .env.example .env
-docker compose up -d
-make migrate
-make seed-demo
-make test
+sudo bash deploy/webmail/instalar.sh
 ```
 
-The webmail UI will be available at `http://localhost` (the demo stack serves plain HTTP on port 80; put it behind a TLS reverse proxy for production — see the native install guide). Demo credentials are printed by `make seed-demo`.
+El instalador (como root, en Debian 12/13 o Ubuntu 22.04+):
 
-## Local Development Installation
+1. Instala los paquetes base (PostgreSQL, Redis, Postfix, Dovecot, nginx, rspamd, Python, Node 20).
+2. Crea la base de datos, el usuario `vmail` y los secretos.
+3. Compila el frontend y configura el backend (systemd + uvicorn).
+4. Deja los servicios arrancados e imprime las **credenciales generadas**.
 
-### Backend
+Al terminar te indica los pasos finales (DNS, certificado SSL con `certbot`, crear el primer buzón). La guía detallada está en **[docs/INSTALL-NATIVE.md](docs/INSTALL-NATIVE.md)**.
 
-```bash
-cd backend
-python3.12 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env
-# Edit .env with your database and mail server settings
-uvicorn app.main:app --reload --port 8000
-```
+### Opción B — Paso a paso manual
 
-### Frontend
+Si prefieres entender cada componente o adaptarlo, sigue la guía completa:
+**[docs/INSTALL-NATIVE.md](docs/INSTALL-NATIVE.md)** (PostgreSQL, Dovecot con usuarios virtuales + usuario maestro, Postfix, backend, frontend, nginx + TLS).
 
-```bash
-cd frontend
-npm install
-cp .env.example .env
-npm run dev
-```
+### Stack de referencia (probado en producción)
 
-### External Services
-
-The backend expects running instances of PostgreSQL 17, Redis 7, Dovecot 2.4, and Postfix. The bundled `docker-compose.yml` starts PostgreSQL, Redis, the backend and the frontend; it does **not** ship a mail server. Point `IMAP_HOST`/`SMTP_HOST`/`SIEVE_HOST` at your existing Dovecot/Postfix (or set up one natively — see `docs/INSTALL-NATIVE.md`). For just the infra services: `docker compose up postgres redis`.
-
-## Environment Variables
-
-Copy `.env.example` to `.env` and review the following key variables:
-
-| Variable | Description | Default |
+| Componente | Versión | Rol |
 |---|---|---|
-| `DATABASE_URL` | PostgreSQL connection string | `postgresql://maquita:changeme@localhost:5432/maquita` |
-| `REDIS_URL` | Redis connection string | `redis://localhost:6379/0` |
-| `IMAP_HOST` | Dovecot IMAP server | `localhost` |
-| `SMTP_HOST` | Postfix SMTP server | `localhost` |
-| `SECRET_KEY` | JWT signing key | (none, required) |
-| `MAIL_DOMAIN` | Primary mail domain | `example.org` |
-| `OLLAMA_URL` | Ollama API endpoint (optional) | `http://localhost:11434` |
-| `RADICALE_URL` | Radicale CalDAV/CardDAV URL | `http://localhost:5232` |
+| Debian | 12 / 13 | Sistema operativo base |
+| PostgreSQL | 17 | Cuentas de correo + datos de la app |
+| Dovecot | 2.4 | IMAP/POP3, ManageSieve, usuario maestro |
+| Postfix | 3.10 | MTA SMTP, entrega LMTP a Dovecot |
+| Redis | 7 / 8 | Sesiones y cachés |
+| Python | 3.12+ | Backend (FastAPI / uvicorn) |
+| Node | 20 | Compilación del frontend (Vite) |
+| nginx | 1.24+ | Proxy inverso con TLS |
 
-See `.env.example` for the full list.
+## Sincronización con móviles (Z-Push / ActiveSync) — opcional
 
-## Running Tests
-
-```bash
-# All tests
-make test
-
-# Backend only
-make test-backend
-
-# Frontend only
-make test-frontend
-
-# With coverage
-make test-coverage
-```
-
-## Running Migrations
+El **único** componente que usa Docker. Permite sincronizar correo, calendario y
+contactos con teléfonos (Android/iOS) vía Exchange ActiveSync. Es opcional:
 
 ```bash
-# Apply all pending migrations
-make migrate
-
-# Create a new migration
-make migration-create name="description_of_change"
-
-# Roll back the last migration
-make migrate-rollback
+cd deploy/z-push
+cat README.md      # instrucciones de configuración
+bash instalar.sh
 ```
 
-## Generating Demo Data
+## Variables de entorno
+
+Copia `.env.example` a `.env` y revísalo. Las variables coinciden 1:1 con
+`backend/app/config.py`. Las principales:
+
+| Variable | Descripción | Por defecto |
+|---|---|---|
+| `DATABASE_URL` | Cadena de conexión a PostgreSQL | `postgresql://mailserver:CHANGE_ME@postgres:5432/maildb` |
+| `REDIS_URL` | Cadena de conexión a Redis | `redis://redis:6379/0` |
+| `SECRET_KEY` | Clave de firma JWT (obligatoria) | (ninguna) |
+| `ADMIN_JWT_SECRET` | Clave JWT de administración (obligatoria) | (ninguna) |
+| `MASTER_PASSWORD` | Contraseña del usuario maestro de Dovecot | (ninguna) |
+| `IMAP_HOST` / `SMTP_HOST` | Dovecot / Postfix | `127.0.0.1` |
+| `MAIL_DOMAIN` | Dominio de correo principal | `example.com` |
+| `OLLAMA_URL` | Endpoint de Ollama (IA, opcional) | `http://127.0.0.1:11434` |
+
+Lista completa en `.env.example`.
+
+## Ejecutar pruebas
 
 ```bash
-# Seed the database with sample mailboxes, emails, and compliance data
-make seed-demo
-
-# Reset demo data (WARNING: deletes all data and re-seeds)
-make seed-demo-reset
+make test        # pruebas del backend (pytest)
+make lint        # ruff + eslint
 ```
 
-## Security and Compliance
+## Migraciones
 
-- All authentication endpoints are rate-limited
-- TOTP-based two-factor authentication
-- RBAC with five distinct roles
-- Audit log captures 39 event types with IP address, user agent, and timestamp
-- eDiscovery exports are GPG-signed with optional RFC 3161 timestamping
-- Mail at rest is encrypted via Dovecot mail_crypt plugin
-- TLS enforced for all external connections (MTA-STS, DANE)
-- Dependencies are scanned with `pip-audit` and `npm audit` in CI
+```bash
+make migrate     # aplica todas las migraciones SQL contra DATABASE_URL
+```
 
-To report a security vulnerability, please email security@maquita.org. Do not open a public issue.
+## Datos de demostración
 
-## Documentation
+```bash
+# Con el entorno virtual del backend activo:
+make seed-demo   # carga buzones, correos y datos de cumplimiento de ejemplo
+```
 
-Detailed documentation is available in the `docs/` directory:
+## Seguridad y cumplimiento
 
-- `docs/ARCHITECTURE.md` -- system design and component interaction
-- `docs/DEPLOYMENT.md` -- production deployment guide
-- `docs/COMPLIANCE.md` -- eDiscovery and legal hold usage
-- `docs/CONFIGURATION.md` -- environment variables and configuration
-- `CONTRIBUTING.md` -- development workflow and coding standards
-- `SECURITY.md` -- security model and threat mitigations
+- Todos los endpoints de autenticación tienen límite de tasa (rate limit)
+- Autenticación de dos factores basada en TOTP
+- RBAC con cinco roles distintos
+- El registro de auditoría captura 39 tipos de evento con IP, agente de usuario y marca de tiempo
+- Las exportaciones de eDiscovery se firman con GPG y sellado de tiempo RFC 3161 opcional
+- El correo en reposo se cifra con el plugin mail_crypt de Dovecot
+- TLS obligatorio en todas las conexiones externas (MTA-STS, DANE)
+- Las dependencias se escanean con `pip-audit` y `npm audit` en CI
 
-## Roadmap
+Para reportar una vulnerabilidad de seguridad escribe a security@maquita.org. No abras un issue público.
 
-See [ROADMAP.md](ROADMAP.md) for planned features and milestones.
+## Documentación
 
-## Contributing
+Documentación detallada en el directorio `docs/`:
 
-Contributions are welcome. Please read `CONTRIBUTING.md` before submitting a pull request.
+- `docs/INSTALL-NATIVE.md` — guía de instalación nativa (recomendada)
+- `docs/ARCHITECTURE.md` — diseño del sistema e interacción de componentes
+- `docs/DEPLOYMENT.md` — guía de despliegue en producción
+- `docs/COMPLIANCE.md` — uso de eDiscovery y retención legal
+- `docs/CONFIGURATION.md` — variables de entorno y configuración
+- `CONTRIBUTING.md` — flujo de desarrollo y estándares de código
+- `SECURITY.md` — modelo de seguridad y mitigaciones
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/your-feature`)
-3. Write tests for your changes
-4. Ensure `make test` and `make lint` pass
-5. Submit a pull request with a clear description of the change
+## Hoja de ruta
 
-## License
+Ver [ROADMAP.md](ROADMAP.md) para funciones y hitos planificados.
 
-This project is licensed under the [GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0-or-later).
+## Contribuir
 
-## Acknowledgments
+Las contribuciones son bienvenidas. Lee `CONTRIBUTING.md` antes de enviar un pull request.
 
-Built by the technology team at [Fundacion Maquita](https://maquita.org), Quito, Ecuador.
+1. Haz un fork del repositorio
+2. Crea una rama de función (`git checkout -b feature/tu-funcion`)
+3. Escribe pruebas para tus cambios
+4. Asegúrate de que `make test` y `make lint` pasen
+5. Envía un pull request con una descripción clara del cambio
+
+## Licencia
+
+Este proyecto está licenciado bajo la [Licencia Pública General Affero de GNU v3.0](LICENSE) (AGPL-3.0-or-later).
+
+## Créditos
+
+Desarrollado por el equipo de tecnología de [Fundación Maquita](https://maquita.org), Quito, Ecuador.

@@ -1,98 +1,88 @@
 # =============================================================================
-# Maquita Webmail — Makefile
+# Maquita Webmail — Makefile (instalación NATIVA, sin Docker)
+# =============================================================================
+# El webmail, el correo (Postfix/Dovecot), PostgreSQL y Redis corren de forma
+# NATIVA directo sobre el sistema operativo (Debian 13 o similar).
+# Docker se usa ÚNICAMENTE para Z-Push (ActiveSync) — ver deploy/z-push/.
+# Forma más fácil de instalar todo:  sudo bash deploy/webmail/instalar.sh
 # =============================================================================
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install dev build test lint format migrate seed-demo demo \
-        docker-up docker-down docker-build sbom clean gitleaks
+.PHONY: help instalar install dev build test lint format migrate seed-demo \
+        sbom clean gitleaks
 
 # ---------- General -----------------------------------------------------------
 
-## Show this help message
+## Muestra esta ayuda
 help:
-	@echo "Maquita Webmail — available targets:"
+	@echo "Maquita Webmail — objetivos disponibles:"
 	@echo ""
 	@grep -E '^## ' $(MAKEFILE_LIST) | sed 's/^## //'
 	@echo ""
 	@awk '/^[a-zA-Z_-]+:.*##/ { printf "  \033[36m%-16s\033[0m %s\n", $$1, substr($$0, index($$0,"##")+3) }' $(MAKEFILE_LIST)
 
-## Install backend + frontend dependencies
+## Instalación nativa completa (Debian 13) — ejecutar como root
+instalar:
+	bash deploy/webmail/instalar.sh
+
+## Instala dependencias de backend + frontend
 install:
 	cd backend  && pip install -r requirements.txt
 	cd frontend && npm ci
 
-## Start backend (uvicorn reload) + frontend (vite dev) for local development
+## Arranca backend (uvicorn reload) + frontend (vite dev) para desarrollo local
 dev:
-	@echo "Starting backend …"
+	@echo "Arrancando backend …"
 	cd backend && uvicorn app.main:app --reload --port 8000 &
-	@echo "Starting frontend …"
+	@echo "Arrancando frontend …"
 	cd frontend && npm run dev
 
-## Build frontend production bundle
+## Compila el frontend de producción
 build:
 	cd frontend && npm run build
 
-## Run backend test suite (pytest)
+## Ejecuta las pruebas del backend (pytest)
 test:
 	cd backend && python -m pytest -v
 
-## Lint backend (ruff) + frontend (eslint)
+## Lint del backend (ruff) + frontend (eslint)
 lint:
 	cd backend  && ruff check .
 	cd frontend && npx eslint .
 
-## Auto-format backend (ruff) + frontend (prettier)
+## Formatea el backend (ruff) + frontend (prettier)
 format:
 	cd backend  && ruff format .
 	cd frontend && npx prettier --write src/
 
-# ---------- Database ----------------------------------------------------------
+# ---------- Base de datos -----------------------------------------------------
 
-## Run SQL migrations against DATABASE_URL
+## Aplica las migraciones SQL contra DATABASE_URL
 migrate:
 	@for f in migrations/*.sql; do \
-		echo "Applying $$f …"; \
+		echo "Aplicando $$f …"; \
 		psql "$(DATABASE_URL)" -f "$$f"; \
 	done
 
-## Seed synthetic demo data into the database
+## Carga datos de demostración en la base de datos (ejecutar con el venv activo)
 seed-demo:
-	docker compose exec -T backend python -m scripts.seed_demo_data
+	cd backend && python ../scripts/seed_demo_data.py
 
-## Full demo environment: docker up + migrate + seed
-demo: docker-up migrate seed-demo
-	@echo ""
-	@echo "Demo environment ready!  Open http://localhost in your browser."
+# ---------- Seguridad y calidad -----------------------------------------------
 
-# ---------- Docker ------------------------------------------------------------
-
-## Start all services via Docker Compose
-docker-up:
-	docker compose up -d
-
-## Stop all services
-docker-down:
-	docker compose down
-
-## Build Docker images (no cache)
-docker-build:
-	docker compose build --no-cache
-
-# ---------- Security & Quality ------------------------------------------------
-
-## Generate Software Bill of Materials (CycloneDX)
+## Genera el inventario de software (SBOM, CycloneDX)
 sbom:
 	cd backend  && pip install cyclonedx-bom && cyclonedx-py environment -o ../sbom-backend.json
 	cd frontend && npx @cyclonedx/cyclonedx-npm --output-file ../sbom-frontend.json
 
-## Scan repo for leaked secrets with gitleaks
+## Busca secretos filtrados en el repo (gitleaks)
 gitleaks:
 	gitleaks detect --source . --verbose
 
-# ---------- Housekeeping ------------------------------------------------------
+# ---------- Limpieza ----------------------------------------------------------
 
-## Remove build artifacts and caches
+## Elimina artefactos de compilación y cachés
 clean:
 	rm -rf frontend/dist frontend/node_modules/.cache
 	find backend -type d -name __pycache__ -exec rm -rf {} +
