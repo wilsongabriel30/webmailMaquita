@@ -182,6 +182,19 @@ El instalador (como root, en Debian 12/13 o Ubuntu 22.04+):
 3. Compila el frontend y configura el backend (systemd + uvicorn).
 4. Deja los servicios arrancados e imprime las **credenciales generadas**.
 
+**Primer ingreso (sin necesidad de DNS todavía):** el instalador crea un buzón de
+prueba y un administrador del panel, ambos con una **clave genérica conocida** para
+que entres de inmediato:
+
+| Acceso | URL | Usuario | Clave |
+|---|---|---|---|
+| Webmail | `https://tudominio/webmail/` | `demo@ejemplo.local` | `Cambiar2026` |
+| Panel avanzado | `https://tudominio:8443` | `admin` | `Cambiar2026` |
+
+> ⚠️ **`Cambiar2026` es genérica y pública (está en este README). CÁMBIALA apenas
+> entres**, en ambos accesos. El buzón demo usa un dominio falso (`ejemplo.local`)
+> a propósito, para que pruebes el login aunque todavía no tengas el DNS configurado.
+
 Al terminar te indica los pasos finales (DNS, certificado SSL con `certbot`, crear el primer buzón) y **genera tu clave DKIM**. La guía detallada de instalación está en **[docs/INSTALL-NATIVE.md](docs/INSTALL-NATIVE.md)**.
 
 > **¿Nunca configuraste un DNS?** La parte de DNS (registros A, MX, SPF, DKIM,

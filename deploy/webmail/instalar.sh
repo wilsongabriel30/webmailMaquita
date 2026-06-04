@@ -252,18 +252,24 @@ MTANGINX
 ln -sf "/etc/nginx/sites-available/mta-sts.${DOMAIN}" /etc/nginx/sites-enabled/
 echo "  MTA-STS preparado (política servida en mta-sts.${DOMAIN})"
 
-# --- 13. Buzón de demostración ---
+# --- 13. Buzón de demostración (dominio FALSO + clave genérica para el 1er ingreso) ---
 echo -e "\n${GREEN}[13/15] Creando buzón de demostración...${NC}"
-DEMO_PASS=$(openssl rand -base64 18 | tr -dc 'A-Za-z0-9' | head -c 14)
-DEMO_HASH=$(doveadm pw -s SHA512-CRYPT -p "${DEMO_PASS}")
+# Clave genérica y conocida SOLO para el primer ingreso. El instalador avisa cambiarla.
+CLAVE_GENERICA="Cambiar2026"
+DEMO_DOM="ejemplo.local"
+DEMO_HASH=$(doveadm pw -s SHA512-CRYPT -p "${CLAVE_GENERICA}")
 sudo -u postgres psql -d maildb >/dev/null <<SQL
+-- Dominio real (para que crees tus buzones cuando configures el DNS)
 INSERT INTO domain(domain,description) VALUES('${DOMAIN}','dominio principal')
   ON CONFLICT (domain) DO NOTHING;
+-- Dominio FALSO para el buzón de prueba: permite entrar al webmail SIN tener DNS configurado
+INSERT INTO domain(domain,description) VALUES('${DEMO_DOM}','dominio de prueba')
+  ON CONFLICT (domain) DO NOTHING;
 INSERT INTO mailbox(username,password,name,maildir,local_part,domain,active)
-  VALUES('demo@${DOMAIN}','${DEMO_HASH}','Demo','${DOMAIN}/demo/','demo','${DOMAIN}',true)
+  VALUES('demo@${DEMO_DOM}','${DEMO_HASH}','Demostración','${DEMO_DOM}/demo/','demo','${DEMO_DOM}',true)
   ON CONFLICT (username) DO UPDATE SET password=EXCLUDED.password;
--- El buzón demo queda como administrador para poder entrar al panel /admin
-INSERT INTO admin(username,superadmin,active) VALUES('demo@${DOMAIN}',true,true)
+-- El buzón demo queda como administrador para poder entrar al panel /admin del webmail
+INSERT INTO admin(username,superadmin,active) VALUES('demo@${DEMO_DOM}',true,true)
   ON CONFLICT (username) DO UPDATE SET superadmin=true, active=true;
 SQL
 
@@ -294,15 +300,13 @@ systemctl daemon-reload && systemctl enable maquita-admin && systemctl restart m
 ADMIN_NGINX="/etc/nginx/sites-available/${MAIL_HOST}-admin"
 sed "s/__MAIL_HOST__/${MAIL_HOST}/g" "${APP_DIR}/admin-panel/deploy/nginx-admin.conf" > "${ADMIN_NGINX}"
 ln -sf "${ADMIN_NGINX}" /etc/nginx/sites-enabled/
-# Credencial de acceso (auth básica de nginx, usuario 'admin')
-ADMIN_WEB_PASS=$(openssl rand -base64 12 | tr -dc 'A-Za-z0-9' | head -c 12)
-printf "admin:%s\n" "$(openssl passwd -apr1 "${ADMIN_WEB_PASS}")" > /etc/nginx/.htpasswd_admin
+# Credencial de acceso (auth básica de nginx, usuario 'admin') — misma clave genérica
+printf "admin:%s\n" "$(openssl passwd -apr1 "${CLAVE_GENERICA}")" > /etc/nginx/.htpasswd_admin
 chmod 640 /etc/nginx/.htpasswd_admin; chgrp www-data /etc/nginx/.htpasswd_admin
-# Primer usuario del panel (tabla admin_users, hash bcrypt)
+# Primer usuario del panel (tabla admin_users, hash bcrypt) — misma clave genérica
 sleep 3
-ADMIN_PANEL_PASS=$(openssl rand -base64 12 | tr -dc 'A-Za-z0-9' | head -c 12)
-ADMIN_BHASH=$(./venv/bin/python -c "import bcrypt,sys; print(bcrypt.hashpw(sys.argv[1].encode(), bcrypt.gensalt()).decode())" "${ADMIN_PANEL_PASS}" 2>/dev/null) || \
-  ADMIN_BHASH=$("${APP_DIR}/admin-panel/backend/venv/bin/python" -c "import bcrypt,sys; print(bcrypt.hashpw(sys.argv[1].encode(), bcrypt.gensalt()).decode())" "${ADMIN_PANEL_PASS}")
+ADMIN_BHASH=$(./venv/bin/python -c "import bcrypt,sys; print(bcrypt.hashpw(sys.argv[1].encode(), bcrypt.gensalt()).decode())" "${CLAVE_GENERICA}" 2>/dev/null) || \
+  ADMIN_BHASH=$("${APP_DIR}/admin-panel/backend/venv/bin/python" -c "import bcrypt,sys; print(bcrypt.hashpw(sys.argv[1].encode(), bcrypt.gensalt()).decode())" "${CLAVE_GENERICA}")
 PGPASSWORD="${DB_PASS}" psql -v ON_ERROR_STOP=0 -h localhost -U mailserver -d maildb >/dev/null 2>&1 <<SQLADMIN
 INSERT INTO admin_users(username,password_hash,display_name,role,active)
   VALUES('admin','${ADMIN_BHASH}','Administrador','superadmin',true)
@@ -316,8 +320,8 @@ systemctl restart maquita-webmail
 nginx -t && systemctl reload nginx
 sleep 3
 HEALTH=$(curl -s http://127.0.0.1:8000/api/health 2>/dev/null || echo "sin respuesta")
-AUTH_DEMO=$(doveadm auth test "demo@${DOMAIN}" "${DEMO_PASS}" 2>&1 | grep -c "auth succeeded" || true)
-AUTH_MASTER=$(doveadm auth test "demo@${DOMAIN}*admin" "${MASTER_PASS}" 2>&1 | grep -c "auth succeeded" || true)
+AUTH_DEMO=$(doveadm auth test "demo@${DEMO_DOM}" "${CLAVE_GENERICA}" 2>&1 | grep -c "auth succeeded" || true)
+AUTH_MASTER=$(doveadm auth test "demo@${DEMO_DOM}*admin" "${MASTER_PASS}" 2>&1 | grep -c "auth succeeded" || true)
 
 echo ""
 echo -e "${GREEN}╔══════════════════════════════════════════════════╗${NC}"
@@ -329,24 +333,32 @@ echo "  Backend /api/health : ${HEALTH}"
 echo "  Login buzón demo    : $([ "$AUTH_DEMO" = "1" ] && echo OK || echo FALLO)"
 echo "  Login usuario maestro: $([ "$AUTH_MASTER" = "1" ] && echo OK || echo FALLO)"
 echo ""
-echo -e "${YELLOW}BUZÓN DE PRUEBA (es ADMINISTRADOR):${NC}"
-echo "  Usuario:  demo@${DOMAIN}"
-echo "  Clave:    ${DEMO_PASS}"
-echo "  → Inicia sesión en el webmail y abre el panel de administración:"
-echo "    gestión de dominios, buzones y alias, auditoría, colas, anti-spam,"
-echo "    disclaimers, cumplimiento/eDiscovery y más."
-echo "  Para hacer admin a otro usuario:"
-echo "    INSERT INTO admin(username,superadmin,active) VALUES('correo@${DOMAIN}',true,true);"
+echo -e "${RED}==============================================================${NC}"
+echo -e "${RED}  CLAVE DE PRIMER INGRESO (para TODOS los accesos):  ${CLAVE_GENERICA}${NC}"
+echo -e "${RED}  >>> CÁMBIALA APENAS ENTRES. Es genérica y conocida. <<<${NC}"
+echo -e "${RED}==============================================================${NC}"
 echo ""
-echo -e "${YELLOW}CREDENCIALES GENERADAS (guardar en lugar seguro):${NC}"
+echo -e "${YELLOW}1) WEBMAIL  (puedes entrar YA, sin necesidad de DNS):${NC}"
+echo "     URL:      https://${MAIL_HOST}/webmail/"
+echo "     Usuario:  demo@${DEMO_DOM}"
+echo "     Clave:    ${CLAVE_GENERICA}      (recuerda cambiarla en Ajustes)"
+echo "     Este buzón es ADMINISTRADOR: dentro del webmail tienes el panel /admin"
+echo "     (dominios, buzones, alias, auditoría, anti-spam, eDiscovery...)."
+echo ""
+echo -e "${YELLOW}2) PANEL DE ADMINISTRACIÓN AVANZADO:${NC}"
+echo "     URL:      https://${MAIL_HOST}:8443"
+echo "     Usuario:  admin"
+echo "     Clave:    ${CLAVE_GENERICA}      (sirve para el aviso del navegador y para el panel)"
+echo "     (autoresponder, firmas masivas, buzones compartidos, rspamd, firewall)"
+echo "     Cámbiala dentro del panel; la del navegador, en /etc/nginx/.htpasswd_admin"
+echo ""
+echo "  Cuando configures tu dominio real, crea tus buzones desde el panel."
+echo "  Hacer admin a otro:  INSERT INTO admin(username,superadmin,active) VALUES('correo@${DOMAIN}',true,true);"
+echo ""
+echo -e "${YELLOW}CREDENCIALES DE SISTEMA (guárdalas en lugar seguro):${NC}"
 echo "  DB password:      ${DB_PASS}"
 echo "  Redis password:   ${REDIS_PASS}"
 echo "  Master password:  ${MASTER_PASS}"
-echo ""
-echo -e "${YELLOW}PANEL DE ADMINISTRACIÓN AVANZADO — https://${MAIL_HOST}:8443${NC}"
-echo "  (funciones extra: autoresponder, firmas masivas, buzones compartidos, rspamd, firewall)"
-echo "  1) Acceso del navegador (auth básica):  usuario: admin   clave: ${ADMIN_WEB_PASS}"
-echo "  2) Login del panel:                      usuario: admin   clave: ${ADMIN_PANEL_PASS}"
 echo ""
 echo -e "${YELLOW}PASOS FINALES — DNS (imprescindible para enviar y recibir correo):${NC}"
 echo "  Crea estos registros donde administras tu dominio (tu proveedor de DNS):"
