@@ -168,6 +168,8 @@ Pensada para que **cualquiera** la reproduzca en un Debian 13 limpio (o similar)
 ### Opción A — Instalador automático (lo más fácil)
 
 ```bash
+# En un Debian recién instalado, git puede no venir incluido:
+sudo apt update && sudo apt install -y git
 git clone https://github.com/wilsongabriel30/webmailMaquita.git
 cd webmailMaquita
 sudo bash deploy/webmail/instalar.sh
