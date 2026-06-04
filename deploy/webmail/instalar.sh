@@ -221,6 +221,36 @@ ln -sf "${NGINX_CONF}" /etc/nginx/sites-enabled/
 rm -f /etc/nginx/sites-enabled/default   # evita conflicto con el server_name por defecto
 mkdir -p /var/log/webmail /var/www/certbot
 chown www-data:www-data /var/log/webmail
+# MTA-STS: política de TLS obligatorio en tránsito (sube la nota de entregabilidad)
+STS_ID=$(date +%Y%m%d%H%M%S)
+mkdir -p /var/www/mta-sts/.well-known
+cat > /var/www/mta-sts/.well-known/mta-sts.txt <<MTASTS
+version: STSv1
+mode: enforce
+mx: ${MAIL_HOST}
+max_age: 604800
+MTASTS
+cat > "/etc/nginx/sites-available/mta-sts.${DOMAIN}" <<MTANGINX
+server {
+    listen 80;
+    server_name mta-sts.${DOMAIN};
+    location /.well-known/acme-challenge/ { root /var/www/certbot; }
+    location / { return 301 https://\$host\$request_uri; }
+}
+server {
+    listen 443 ssl;
+    server_name mta-sts.${DOMAIN};
+    ssl_certificate     /etc/ssl/certs/ssl-cert-snakeoil.pem;
+    ssl_certificate_key /etc/ssl/private/ssl-cert-snakeoil.key;
+    location = /.well-known/mta-sts.txt {
+        default_type text/plain;
+        alias /var/www/mta-sts/.well-known/mta-sts.txt;
+    }
+    location / { return 404; }
+}
+MTANGINX
+ln -sf "/etc/nginx/sites-available/mta-sts.${DOMAIN}" /etc/nginx/sites-enabled/
+echo "  MTA-STS preparado (política servida en mta-sts.${DOMAIN})"
 
 # --- 13. Buzón de demostración ---
 echo -e "\n${GREEN}[13/15] Creando buzón de demostración...${NC}"
@@ -332,6 +362,14 @@ echo "        rechazan tu correo. Pídeselo a tu proveedor (Hetzner, OVH, Digita
 echo ""
 echo "  >> Registro DKIM a publicar (copia el contenido entre comillas en el valor del TXT):"
 sed "s/^/     /" "/tmp/dkim-${DOMAIN}.txt" 2>/dev/null || echo "     (no se generó; revisa rspamd)"
+echo ""
+echo ""
+echo "  RECOMENDADO (para 10/10 — MTA-STS ya quedó montado en el servidor):"
+echo "    7) A      mta-sts.${DOMAIN}            -> <IP PÚBLICA DE ESTE SERVIDOR>"
+echo "    8) TXT    _mta-sts.${DOMAIN}           -> v=STSv1; id=${STS_ID}"
+echo "    9) TXT    _smtp._tls.${DOMAIN}         -> v=TLSRPTv1; rua=mailto:postmaster@${DOMAIN}"
+echo "       Después de publicar el A:  certbot --nginx -d mta-sts.${DOMAIN}"
+echo "       Más (DANE, BIMI, listas negras, 10/10):  docs/ENTREGABILIDAD.md"
 echo ""
 echo "  Explicación paso a paso de cada registro (para principiantes):  docs/CONFIGURAR-DNS.md"
 echo ""
