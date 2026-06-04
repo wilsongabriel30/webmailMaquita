@@ -382,6 +382,8 @@ function SignatureMenu({ onSelect, size }: { onSelect?: (html?: string) => void;
   const [open, setOpen] = useState(false);
   const [sigs, setSigs] = useState<SigItem[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const anchorRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (open && !loaded) {
       api.get<SigItem[]>('/settings/signatures')
@@ -390,16 +392,23 @@ function SignatureMenu({ onSelect, size }: { onSelect?: (html?: string) => void;
         .finally(() => setLoaded(true));
     }
   }, [open, loaded]);
+  const toggle = () => {
+    if (!open && anchorRef.current) {
+      const r = anchorRef.current.getBoundingClientRect();
+      setPos({ top: r.bottom + 4, left: r.left });
+    }
+    setOpen((o) => !o);
+  };
   const icon = <SvgI d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" s={size === 'large' ? 22 : 16} />;
   return (
-    <div className="relative">
+    <div className="relative" ref={anchorRef}>
       {size === 'large'
-        ? <LargeBtn icon={icon} label="Firma" onClick={() => setOpen(!open)} hasDropdown />
-        : <MedBtn icon={icon} label="Firma" onClick={() => setOpen(!open)} hasDropdown />}
-      {open && (
+        ? <LargeBtn icon={icon} label="Firma" onClick={toggle} hasDropdown />
+        : <MedBtn icon={icon} label="Firma" onClick={toggle} hasDropdown />}
+      {open && createPortal(
         <>
-          <div className="fixed inset-0 z-[190]" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full mt-1 w-[240px] bg-white rounded shadow-lg border border-[#edebe9] z-[200] py-1 max-h-[320px] overflow-auto">
+          <div className="fixed inset-0 z-[9998]" onClick={() => setOpen(false)} />
+          <div className="fixed w-[240px] bg-white rounded shadow-lg border border-[#edebe9] z-[9999] py-1 max-h-[320px] overflow-auto" style={{ top: pos.top, left: pos.left }}>
             <div className="px-3 py-1 text-[11px] font-semibold text-[#605e5c] uppercase tracking-wide">Mis firmas</div>
             {loaded && sigs.length === 0 && (
               <div className="px-3 py-2 text-[12px] text-[#605e5c]">No tienes firmas. Crea una en Configuracion &rarr; Firmas.</div>
@@ -416,7 +425,8 @@ function SignatureMenu({ onSelect, size }: { onSelect?: (html?: string) => void;
                 className="w-full text-left px-3 py-[6px] text-[12px] text-[#a4262c] hover:bg-[#f3f2f1]">Quitar firma</button>
             </div>
           </div>
-        </>
+        </>,
+        document.body
       )}
     </div>
   );
