@@ -1,0 +1,7 @@
+[Unit]
+Description=Respaldo cifrado de Maquita Webmail
+After=postgresql.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/maquita-webmail/deploy/webmail/backup/respaldar.sh

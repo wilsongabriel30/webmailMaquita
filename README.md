@@ -367,6 +367,7 @@ make seed-demo   # carga buzones, correos y datos de cumplimiento de ejemplo
 - El correo en reposo se cifra con el plugin mail_crypt de Dovecot
 - TLS obligatorio en todas las conexiones externas (MTA-STS, DANE)
 - Las dependencias se escanean con `pip-audit` y `npm audit` en CI
+- **Respaldos cifrados** (GPG/AES-256) con script de respaldo diario y **prueba de restauración** verificable — ver [`docs/BACKUP-RESTAURACION.md`](docs/BACKUP-RESTAURACION.md)
 
 Para reportar una vulnerabilidad de seguridad escribe a security@maquita.org. No abras un issue público.
 
@@ -377,6 +378,7 @@ Documentación detallada en el directorio `docs/`:
 - `docs/INSTALL-NATIVE.md` — guía de instalación nativa (recomendada)
 - `docs/CONFIGURAR-DNS.md` — DNS/dominio paso a paso (A, MX, SPF, DKIM, DMARC, PTR) para principiantes
 - `docs/ENTREGABILIDAD.md` — cómo llegar a 10/10 y no caer en spam (MTA-STS, TLS-RPT, DANE, BIMI, listas negras)
+- `docs/BACKUP-RESTAURACION.md` — respaldos cifrados, respaldo diario automático y **prueba de restauración**
 - `docs/ARCHITECTURE.md` — diseño del sistema e interacción de componentes
 - `docs/DEPLOYMENT.md` — guía de despliegue en producción
 - `docs/COMPLIANCE.md` — uso de eDiscovery y retención legal
