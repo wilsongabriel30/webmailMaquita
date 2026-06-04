@@ -29,6 +29,21 @@ _OO_SECRET = settings.onlyoffice_secret
 _OO_URL = settings.onlyoffice_url
 _DOWNLOAD_SECRET = settings.onlyoffice_download_secret
 
+
+async def _oo_cfg(request):
+    """Lee onlyoffice_url/secret de la tabla office_config (configurada en el
+    panel). Si no hay fila habilitada o falla, usa los valores del .env."""
+    url, secret = _OO_URL, _OO_SECRET
+    try:
+        row = await request.app.state.db_pool.fetchrow(
+            "SELECT onlyoffice_url, onlyoffice_secret, enabled FROM office_config WHERE id = 1")
+        if row and row["enabled"]:
+            url = row["onlyoffice_url"] or url
+            secret = row["onlyoffice_secret"] or secret
+    except Exception:
+        pass
+    return url, secret
+
 _OFFICE_EXT = {
     "docx", "doc", "odt", "rtf", "txt",
     "xlsx", "xls", "ods", "csv",
@@ -199,7 +214,8 @@ async def office_editor_config(
         },
     }
 
-    token = jwt.encode(editor_config, _OO_SECRET, algorithm="HS256")
+    _oo_url, _oo_secret = await _oo_cfg(request)
+    token = jwt.encode(editor_config, _oo_secret, algorithm="HS256")
     editor_config["token"] = token
 
     return editor_config
