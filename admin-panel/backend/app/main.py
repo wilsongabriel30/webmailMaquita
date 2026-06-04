@@ -34,6 +34,7 @@ from app.ediscovery.router import router as ediscovery_router
 from app.branding.router import router as branding_router
 from app.ai_config.router import router as ai_config_router
 from app.office_config.router import router as office_config_router
+from app.voice_config.router import router as voice_config_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -108,6 +109,7 @@ app.include_router(dnscheck_router)
 app.include_router(shared_router)
 app.include_router(ai_config_router)
 app.include_router(office_config_router)
+app.include_router(voice_config_router)
 app.include_router(nextcloud_router)
 app.include_router(ediscovery_router)
 app.include_router(branding_router)

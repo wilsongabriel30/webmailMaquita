@@ -30,6 +30,7 @@ from app.mail.routers.stats import router as stats_router
 from app.mail.routers.labels import router as labels_router
 from app.mail.routers.snooze import router as snooze_router, check_snoozed
 from app.mail.routers.priority import router as priority_router
+from app.mail.routers.transcribe import router as transcribe_router
 from app.mail.routers.spam_guard import router as spam_router
 from app.mail.routers.onlyoffice import router as onlyoffice_router
 from app.settings.routers.preferences import router as settings_router
@@ -457,6 +458,7 @@ app.include_router(stats_router)
 app.include_router(labels_router)
 app.include_router(snooze_router)
 app.include_router(priority_router)
+app.include_router(transcribe_router)
 app.include_router(spam_router)
 app.include_router(settings_router)
 app.include_router(contacts_router)

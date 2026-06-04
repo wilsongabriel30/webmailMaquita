@@ -24,6 +24,7 @@ import { AutoResponder } from "./pages/AutoResponder";
 import { DnsCheck } from "./pages/DnsCheck";
 import { AiConfig } from "./pages/AiConfig";
 import { OfficeConfig } from "./pages/OfficeConfig";
+import { VoiceConfig } from "./pages/VoiceConfig";
 import { SharedMailboxes } from "./pages/SharedMailboxes";
 import { EDiscovery } from "./pages/EDiscovery";
 import { Branding } from "./pages/Branding";
@@ -102,6 +103,7 @@ function App() {
             <Route path="branding" element={<Branding />} />
             <Route path="ai" element={<AiConfig />} />
             <Route path="office" element={<OfficeConfig />} />
+            <Route path="voice" element={<VoiceConfig />} />
             <Route path="compliance" element={<Compliance />} />
           </Route>
         </Routes>

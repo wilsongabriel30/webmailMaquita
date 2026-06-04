@@ -101,7 +101,7 @@ export function VoiceDictation({ onTranscript, disabled = false }: VoiceDictatio
       formData.append('audio', blob, `recording.${ext}`);
       formData.append('language', 'es');
 
-      const resp = await fetch('/api/whisper/transcribe', {
+      const resp = await fetch('/api/mail/transcribe', {
         method: 'POST',
         body: formData,
         credentials: 'include',
