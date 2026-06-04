@@ -143,7 +143,10 @@ sed "s|__DB_PASS__|${DB_PASS}|g" "${CFG}/dovecot.conf" > /etc/dovecot/dovecot.co
 # Usuario maestro 'admin' con la MASTER_PASSWORD del backend
 MASTER_HASH=$(doveadm pw -s SHA512-CRYPT -p "${MASTER_PASS}")
 echo "admin:${MASTER_HASH}" > /etc/dovecot/master-users
-chmod 600 /etc/dovecot/master-users
+# El proceso auth de Dovecot 2.4 corre como usuario 'dovecot' (no root): debe poder
+# leer el archivo. root:root 600 daria "internal auth failure" al abrir buzones.
+chown root:dovecot /etc/dovecot/master-users
+chmod 640 /etc/dovecot/master-users
 doveconf -n >/dev/null && echo "  Dovecot: sintaxis OK"
 systemctl restart dovecot
 
@@ -191,7 +194,12 @@ systemctl daemon-reload && systemctl enable maquita-webmail
 NGINX_CONF="/etc/nginx/sites-available/${MAIL_HOST}"
 cp "${APP_DIR}/deploy/webmail/nginx/webmail.conf" "${NGINX_CONF}"
 sed -i "s/mail\.tudominio\.com/${MAIL_HOST}/g; s/tudominio\.com/${DOMAIN}/g" "${NGINX_CONF}"
+# El certificado de Let's Encrypt aun NO existe (certbot es un paso posterior).
+# Arrancar con el certificado snakeoil para que nginx valide y sirva desde ya;
+# 'certbot --nginx' reemplazara estas rutas por el certificado real.
+sed -i "s|/etc/letsencrypt/live/${MAIL_HOST}/fullchain.pem|/etc/ssl/certs/ssl-cert-snakeoil.pem|; s|/etc/letsencrypt/live/${MAIL_HOST}/privkey.pem|/etc/ssl/private/ssl-cert-snakeoil.key|" "${NGINX_CONF}"
 ln -sf "${NGINX_CONF}" /etc/nginx/sites-enabled/
+rm -f /etc/nginx/sites-enabled/default   # evita conflicto con el server_name por defecto
 mkdir -p /var/log/webmail /var/www/certbot
 chown www-data:www-data /var/log/webmail
 
