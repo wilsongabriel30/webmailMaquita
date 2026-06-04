@@ -221,3 +221,17 @@ cd admin-panel/frontend && npx vite build # panel
 ```
 
 Al reconstruir, los hashes de integridad se recalculan y la app vuelve a cargar.
+
+
+## Entregas lentas / "deferred" con "Network unreachable" (IPv6)
+
+Si el servidor NO tiene IPv6 pero Postfix intenta entregar por IPv6, en los logs
+aparece `connect to ...: Network unreachable` y los correos se retrasan (deferred).
+
+Postfix usa `inet_protocols = all` por defecto. Si tu servidor es solo IPv4,
+fuerza IPv4:
+
+```bash
+postconf -e "inet_protocols = ipv4"
+systemctl restart postfix
+```

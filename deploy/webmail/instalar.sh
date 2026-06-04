@@ -123,8 +123,8 @@ SMTP_PORT=587
 SIEVE_HOST=127.0.0.1
 SIEVE_PORT=4190
 MAIL_DOMAIN=${DOMAIN}
-COOKIE_DOMAIN=${MAIL_HOST}
-CORS_ORIGINS=https://${MAIL_HOST}
+COOKIE_DOMAIN=.${DOMAIN}
+CORS_ORIGINS=https://${MAIL_HOST},https://${DOMAIN},https://webmail.${DOMAIN},https://correo.${DOMAIN}
 ENVEOF
 
 # --- 9. Frontend (compilar) ---
@@ -279,14 +279,14 @@ echo -e "\n${GREEN}[14/15] Instalando panel de administración avanzado...${NC}"
 cd "${APP_DIR}/admin-panel/backend"
 python3 -m venv venv
 ./venv/bin/pip install --quiet -r requirements.txt
-ADMIN_JWT=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+# JWT_SECRET del panel = ADMIN_JWT_SECRET del webmail (si difieren, impersonate da 403)
 cat > .env <<ENVADMIN
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=maildb
 DB_USER=mailserver
 DB_PASS=${DB_PASS}
-JWT_SECRET=${ADMIN_JWT}
+JWT_SECRET=${ADMIN_SECRET}
 RSPAMD_URL=http://localhost:11334
 MASTER_PASSWORD=${MASTER_PASS}
 ENVADMIN
