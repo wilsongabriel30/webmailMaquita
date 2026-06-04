@@ -126,6 +126,11 @@ async def change_password(
     if result == "UPDATE 0":
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
+    # 3b. GARANTIA anti-desincronizacion: confirmar que la NUEVA contrasena autentica de verdad
+    #     contra Dovecot/BD antes de declarar exito. Si no, el cambio NO quedo aplicado.
+    if not verify_imap(username, body.new_password):
+        raise HTTPException(status_code=500, detail="La contrasena no se aplico correctamente. Intenta nuevamente.")
+
     # 4. Update Redis cache
     try:
         redis = request.app.state.redis

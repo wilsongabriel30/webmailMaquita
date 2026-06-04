@@ -69,7 +69,7 @@ export function DuplicatesModal({ isOpen, onClose, onMerged }: Props) {
       <div style={styles.modal} onClick={e => e.stopPropagation()}>
         <div style={styles.header}>
           <h2 style={styles.title}>Contactos duplicados</h2>
-          <button onClick={onClose} style={styles.closeBtn}>\u00D7</button>
+          <button onClick={onClose} style={styles.closeBtn}>×</button>
         </div>
 
         <div style={styles.body}>

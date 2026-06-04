@@ -98,8 +98,8 @@ export function Topbar() {
     { name: 'Correo', icon: '\u2709\uFE0F', path: '/' },
     { name: 'Calendario', icon: '\uD83D\uDCC5', path: '/calendar' },
     { name: 'Contactos', icon: '\uD83D\uDC65', path: '/contacts' },
-    { name: 'Tareas', icon: 'â', path: '/tasks' },
-    ...(user?.is_admin ? [{ name: 'AdministraciÃ³n', icon: '\uD83D\uDEE1\uFE0F', path: '/admin' }] : []),
+    { name: 'Tareas', icon: '\u2705', path: '/tasks' },
+    ...(user?.is_admin ? [{ name: 'Administración', icon: '\uD83D\uDEE1\uFE0F', path: '/admin' }] : []),
   ];
 
   return (
@@ -108,7 +108,7 @@ export function Topbar() {
       {(isMobile || isTablet) && (
         <button onClick={() => window.dispatchEvent(new CustomEvent("toggle-mobile-drawer"))}
           className="w-8 h-8 rounded flex items-center justify-center text-white/80 hover:bg-white/15 transition-colors"
-          title="MenÃº">
+          title="Menú">
           <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
@@ -142,11 +142,11 @@ export function Topbar() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
             d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
         </svg>
-        <span className="topbar-logo-text text-white font-semibold text-[14px]">Maquita Mail</span>
+        <span className="topbar-logo-text text-white font-semibold text-[14px] max-md:hidden">Maquita Mail</span>
       </div>
 
       {/* Search bar */}
-      <div className="topbar-search flex-1 max-w-[680px] mx-auto">
+      <div className="topbar-search flex-1 max-w-[680px] mx-auto max-md:mx-1">
         <SearchAdvanced
           value={searchQuery}
           onChange={setSearchQuery}
@@ -199,12 +199,12 @@ export function Topbar() {
                 </p>
                 <p className="text-[11px] text-[#605e5c] mt-1">
                   {notificationPermission === 'granted'
-                    ? 'Las alertas del navegador estÃ¡n activas para nuevos correos.'
+                    ? 'Las alertas del navegador están activas para nuevos correos.'
                     : notificationPermission === 'denied'
-                      ? 'Debes habilitar las notificaciones desde la configuraciÃ³n del navegador.'
+                      ? 'Debes habilitar las notificaciones desde la configuración del navegador.'
                       : notificationPermission === 'unsupported'
                         ? 'Este navegador no expone notificaciones del sistema.'
-                        : 'Puedes activar las notificaciones del navegador desde aquÃ­.'}
+                        : 'Puedes activar las notificaciones del navegador desde aquí.'}
                 </p>
               </div>
               <div className="py-1">
@@ -233,13 +233,13 @@ export function Topbar() {
             </div>
           )}
         </div>
-        <button onClick={() => navigate('/settings')} title="ConfiguraciÃ³n"
-          className="w-8 h-8 rounded flex items-center justify-center text-white/80 hover:bg-white/15 transition-colors">
+        <button onClick={() => navigate('/settings')} title="Configuración"
+          className="w-8 h-8 rounded flex items-center justify-center text-white/80 hover:bg-white/15 transition-colors max-md:hidden">
           <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={settingsIcon} />
           </svg>
         </button>
-        <div ref={helpRef} className="relative">
+        <div ref={helpRef} className="relative max-md:hidden">
           <button onClick={() => setShowHelp(!showHelp)} title="Ayuda"
             className="w-8 h-8 rounded flex items-center justify-center text-white/80 hover:bg-white/15 transition-colors">
             <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -250,22 +250,22 @@ export function Topbar() {
             <div className="absolute right-0 top-full mt-1 w-[340px] bg-white rounded-lg shadow-xl border border-[#edebe9] z-[200] overflow-hidden">
               <div className="px-4 py-3 border-b border-[#edebe9]">
                 <p className="text-[13px] font-semibold text-[#323130]">Ayuda</p>
-                <p className="text-[11px] text-[#605e5c] mt-1">GuÃ­a rÃ¡pida con funciones reales disponibles hoy en Maquita Mail.</p>
+                <p className="text-[11px] text-[#605e5c] mt-1">Guía rápida con funciones reales disponibles hoy en Maquita Mail.</p>
               </div>
 
               <div className="px-4 py-3 border-b border-[#edebe9]">
-                <p className="text-[12px] font-semibold text-[#323130] mb-2">Acciones rÃ¡pidas</p>
+                <p className="text-[12px] font-semibold text-[#323130] mb-2">Acciones rápidas</p>
                 <div className="space-y-1.5 text-[12px] text-[#323130]">
                   <p><span className="font-medium">Buscar:</span> usa la barra superior o presiona <span className="font-mono text-[11px]">/</span>.</p>
                   <p><span className="font-medium">Vista:</span> puedes cambiar conversaciones, panel de lectura y vista previa desde la cinta.</p>
-                  <p><span className="font-medium">Correo:</span> responder, reenviar, mover, archivar y eliminar ya estÃ¡n conectados al flujo real.</p>
+                  <p><span className="font-medium">Correo:</span> responder, reenviar, mover, archivar y eliminar ya están conectados al flujo real.</p>
                 </div>
               </div>
 
               <div className="px-4 py-3 border-b border-[#edebe9] bg-[#faf9f8]">
                 <p className="text-[12px] font-semibold text-[#323130] mb-2">Atajos de teclado</p>
                 <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[12px] text-[#323130]">
-                  <span className="font-mono text-[11px]">/</span><span>Enfocar la bÃºsqueda</span>
+                  <span className="font-mono text-[11px]">/</span><span>Enfocar la búsqueda</span>
                   <span className="font-mono text-[11px]">N</span><span>Nuevo correo</span>
                   <span className="font-mono text-[11px]">R</span><span>Responder</span>
                   <span className="font-mono text-[11px]">Shift+R</span><span>Responder a todos</span>
@@ -306,7 +306,7 @@ export function Topbar() {
                 <svg className="w-4 h-4 text-[#605e5c]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={settingsIcon} />
                 </svg>
-                ConfiguraciÃ³n
+                Configuración
               </button>
               <button onClick={() => {
                   setShowProfile(false);
@@ -326,7 +326,7 @@ export function Topbar() {
                       if (isIOS) {
                         alert('Para instalar: toca Compartir > Agregar a pantalla de inicio');
                       } else {
-                        alert('Para instalar: toca el men\u00fa del navegador (\u22ee) > Instalar aplicaci\u00f3n');
+                        alert('Para instalar: toca el men\u00fa del navegador (\u22ee) > Instalar aplicación');
                       }
                     }
                   }
@@ -335,7 +335,7 @@ export function Topbar() {
                 <svg className="w-4 h-4 text-[#605e5c]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
                 </svg>
-                Instalar aplicaci\u00f3n
+                Instalar aplicación
               </button>
               <a href="/webmail/downloads/MaquitaMail.apk" download="MaquitaMail.apk"
                 className="w-full text-left px-4 py-2 text-[13px] text-[#323130] hover:bg-[#f3f2f1] flex items-center gap-2"
@@ -348,7 +348,7 @@ export function Topbar() {
               <div className="h-px bg-[#edebe9] my-1" />
               <button onClick={handleLogout}
                 className="w-full text-left px-4 py-2 text-[13px] text-[#a4262c] hover:bg-[#f3f2f1]">
-                Cerrar sesiÃ³n
+                Cerrar sesión
               </button>
             </div>
           )}

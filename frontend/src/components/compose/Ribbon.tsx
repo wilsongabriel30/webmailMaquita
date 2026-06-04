@@ -1,7 +1,8 @@
 import { useMailStore } from "../../store/mailStore";
-import React, { useState, useRef, type ReactNode } from 'react';
+import React, { useState, useRef, useLayoutEffect, type ReactNode } from 'react';
 import type { Editor } from '@tiptap/react';
 import { showToast } from '../common/Toast';
+import { createPortal } from 'react-dom';
 
 type Tab = 'message' | 'insert' | 'format' | 'options';
 
@@ -382,6 +383,7 @@ function MessageTab({ editor, onAttach, onImportanceChange, importance, onSaveDr
   const { onReviewEditor, onCheckAccessibility, onImproveWriting } = rest;
   const [showColor, setShowColor] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
+  const emojiAnchorRef = useRef<HTMLDivElement>(null);
   const [showStyles, setShowStyles] = useState(false);
   const imgRef = useRef<HTMLInputElement>(null);
   const handleImage = mkImageHandler(editor, imgRef);
@@ -463,9 +465,9 @@ function MessageTab({ editor, onAttach, onImportanceChange, importance, onSaveDr
           </div>
           <div className="flex items-center gap-[2px]">
             <MedBtn icon={<SvgI d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" s={16} />} label="Imágenes" onClick={() => imgRef.current?.click()} />
-            <div className="relative">
+            <div className="relative" ref={emojiAnchorRef}>
               <MedBtn icon={<span className="text-[14px]">&#128578;</span>} label="Emoji" onClick={() => setShowEmoji(!showEmoji)} />
-              {showEmoji && <EmojiPicker editor={editor} onClose={() => setShowEmoji(false)} />}
+              {showEmoji && <EmojiPicker editor={editor} onClose={() => setShowEmoji(false)} anchorRef={emojiAnchorRef} />}
             </div>
             <div className="relative">
                 <MedBtn icon={<SvgI d="M3 10h18M3 14h18M10 3v18M14 3v18" s={16} />} label="Tabla" onClick={() => setShowTblGrid(!showTblGrid)} hasDropdown />
@@ -545,6 +547,7 @@ function InsertTab({ editor, onAttach, onInsertSignature, onOpenApps }: { editor
   const [showTblGrid, setShowTblGrid] = useState(false);
   const imgRef = useRef<HTMLInputElement>(null);
   const [showEmoji, setShowEmoji] = useState(false);
+  const emojiAnchorRef = useRef<HTMLDivElement>(null);
   const handleImage = mkImageHandler(editor, imgRef);
 
   return (
@@ -555,9 +558,9 @@ function InsertTab({ editor, onAttach, onInsertSignature, onOpenApps }: { editor
           <LargeBtn icon={<SvgI d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" s={22} />} label="Vincular" onClick={() => doLink(editor)} />
           <LargeBtn icon={<SvgI d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" s={22} />} label="Firma" onClick={() => onInsertSignature?.()} hasDropdown />
           <LargeBtn icon={<SvgI d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" s={22} />} label="Imágenes" onClick={() => imgRef.current?.click()} />
-          <div className="relative">
+          <div className="relative" ref={emojiAnchorRef}>
             <LargeBtn icon={<span className="text-[20px]">&#128578;</span>} label="Emoji" onClick={() => setShowEmoji(!showEmoji)} />
-            {showEmoji && <EmojiPicker editor={editor} onClose={() => setShowEmoji(false)} />}
+            {showEmoji && <EmojiPicker editor={editor} onClose={() => setShowEmoji(false)} anchorRef={emojiAnchorRef} />}
           </div>
           <LargeBtn icon={<SvgI d="M3 10h18M3 14h18M10 3v18M14 3v18" s={22} />} label="Tabla" onClick={() => setShowTblGrid(!showTblGrid)} hasDropdown />
                 {showTblGrid && <TableGridSelector onSelect={(r,c) => insertTable(editor, r, c)} onClose={() => setShowTblGrid(false)} />}
@@ -774,20 +777,26 @@ function OptionsTab({ editor, onShowCc, onShowBcc, showCc, showBcc, onImportance
 }
 
 /* ========== EMOJI PICKER ========== */
-function EmojiPicker({ editor, onClose }: { editor: Editor; onClose: () => void }) {
+function EmojiPicker({ editor, onClose, anchorRef }: { editor: Editor; onClose: () => void; anchorRef: { current: HTMLDivElement | null } }) {
+  const [pos, setPos] = useState<{ top: number; left: number }>({ top: -9999, left: -9999 });
+  useLayoutEffect(() => {
+    const r = anchorRef.current?.getBoundingClientRect();
+    if (r) setPos({ top: r.bottom + 4, left: r.left });
+  }, [anchorRef]);
   const emojis = ['😊','😂','❤️','👍','🎉','🔥','😍','🤔','👏','💪','✨','🙏','😎','🥳','💯','⭐','🚀','💡','📌','✅','❌','⚠️','📎','📧','🗓️','📝','🎯','💼','🤝','👋'];
-  return (
+  return createPortal(
     <>
       <div className="fixed inset-0 z-[190]" onClick={onClose} />
-      <div className="absolute left-0 top-full mt-1 grid grid-cols-6 gap-[2px] p-2 bg-white rounded shadow-lg border border-[#edebe9] z-[200] w-[200px]">
+      <div className="fixed grid grid-cols-6 gap-[2px] p-2 bg-white rounded shadow-lg border border-[#edebe9] z-[200] w-[200px]" style={{ top: pos.top, left: pos.left }}>
         {emojis.map(e => (
-          <button key={e} onClick={() => { editor.chain().focus().insertContent(e).run(); onClose(); }}
+          <button key={e} onMouseDown={(ev) => ev.preventDefault()} onClick={() => { editor.chain().focus().insertContent(e).run(); onClose(); }}
             className="w-[28px] h-[28px] rounded hover:bg-[#f3f2f1] flex items-center justify-center text-[16px] transition-colors">
             {e}
           </button>
         ))}
       </div>
-    </>
+    </>,
+    document.body
   );
 }
 
@@ -808,7 +817,7 @@ function LargeBtn({ icon, label, onClick, disabled, active, hasDropdown }: {
 }) {
   const lines = label.split('\n');
   return (
-    <button onClick={onClick} disabled={disabled} title={lines.join(' ')}
+    <button onMouseDown={(e) => e.preventDefault()} onClick={onClick} disabled={disabled} title={lines.join(' ')}
       className={`flex flex-col items-center justify-center min-w-[44px] px-[4px] rounded-[3px] transition-colors h-[62px] ${
         active ? 'bg-[#c7e0f4]' : disabled ? 'opacity-40 cursor-not-allowed' : 'hover:bg-[#e1dfdd]'
       }`}>
@@ -823,7 +832,7 @@ function LargeBtn({ icon, label, onClick, disabled, active, hasDropdown }: {
 
 function MedBtn({ icon, label, onClick, hasDropdown }: { icon: ReactNode; label: string; onClick: () => void; hasDropdown?: boolean; }) {
   return (
-    <button onClick={onClick} title={label}
+    <button onMouseDown={(e) => e.preventDefault()} onClick={onClick} title={label}
       className="flex items-center gap-[3px] h-[24px] px-[4px] rounded-[2px] hover:bg-[#e1dfdd] transition-colors">
       {icon}
       <span className="text-[10px] text-[#323130] whitespace-nowrap">{label}</span>
@@ -835,14 +844,14 @@ function MedBtn({ icon, label, onClick, hasDropdown }: { icon: ReactNode; label:
 function SmBtn({ a, o, t, icon, children }: { a?: boolean; o: () => void; t: string; icon: ReactNode; children?: ReactNode }) {
   if (children) {
     return (
-      <button onClick={o} title={t}
+      <button onMouseDown={(e) => e.preventDefault()} onClick={o} title={t}
         className="flex items-center gap-[3px] h-[20px] px-[3px] rounded-[2px] text-[#323130] hover:bg-[#e1dfdd] transition-colors">
         {icon}<span className="text-[10px]">{children}</span>
       </button>
     );
   }
   return (
-    <button onClick={o} title={t}
+    <button onMouseDown={(e) => e.preventDefault()} onClick={o} title={t}
       className={`w-[22px] h-[22px] rounded-[2px] flex items-center justify-center transition-colors ${
         a ? 'bg-[#c7e0f4] text-[#0078d4]' : 'text-[#323130] hover:bg-[#e1dfdd]'
       }`}>
@@ -853,7 +862,7 @@ function SmBtn({ a, o, t, icon, children }: { a?: boolean; o: () => void; t: str
 
 function CBtn({ icon, label, onClick, active }: { icon: ReactNode; label: string; onClick: () => void; active?: boolean }) {
   return (
-    <button onClick={onClick} title={label}
+    <button onMouseDown={(e) => e.preventDefault()} onClick={onClick} title={label}
       className={`h-[28px] px-[6px] rounded-[3px] flex items-center gap-[4px] transition-colors whitespace-nowrap ${
         active ? 'bg-[#c7e0f4] text-[#0078d4]' : 'text-[#323130] hover:bg-[#e1dfdd]'
       }`}>

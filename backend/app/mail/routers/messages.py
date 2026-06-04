@@ -197,10 +197,10 @@ async def move(
             await redis.delete(f"folders:{username}")
             await redis.delete(f"stats:{username}")
             # Invalidate UID cache for both source and dest folders
-            keys = await redis.keys(f"uids:{username}:{folder}:*")
-            keys += await redis.keys(f"uids:{username}:{body.dest_folder}:*")
-            for k in keys:
-                await redis.delete(k)
+            # Invalidar cache UIDs para source y dest (SCAN en vez de KEYS — O(1) amortizado)
+            for pattern in [f"uids:{username}:{folder}:*", f"uids:{username}:{body.dest_folder}:*"]:
+                async for k in redis.scan_iter(match=pattern, count=100):
+                    await redis.delete(k)
         except Exception:
             pass
         return {"status": "moved"}
@@ -259,8 +259,8 @@ async def remove_message(
             redis = request.app.state.redis
             await redis.delete(f"folders:{username}")
             await redis.delete(f"stats:{username}")
-            keys = await redis.keys(f"uids:{username}:{folder}:*")
-            for k in keys:
+            # Invalidar cache UIDs (SCAN en vez de KEYS — O(1) amortizado)
+            async for k in redis.scan_iter(match=f"uids:{username}:{folder}:*", count=100):
                 await redis.delete(k)
         except Exception:
             pass

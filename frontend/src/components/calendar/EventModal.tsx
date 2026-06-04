@@ -46,11 +46,11 @@ const REMINDER_OPTIONS = [
 ];
 
 const STATUS_OPTIONS = [
-  { value: "busy", label: "Ocupado", icon: "â " },
-  { value: "free", label: "Disponible", icon: "â¡" },
-  { value: "workingElsewhere", label: "Trabajando en otro sitio", icon: "â«" },
-  { value: "tentative", label: "Provisional", icon: "â§" },
-  { value: "oof", label: "Fuera de oficina", icon: "â¨" },
+  { value: "busy", label: "Ocupado", icon: "\u25A0" },
+  { value: "free", label: "Disponible", icon: "\u25A1" },
+  { value: "workingElsewhere", label: "Trabajando en otro sitio", icon: "\u25EB" },
+  { value: "tentative", label: "Provisional", icon: "\u25E7" },
+  { value: "oof", label: "Fuera de oficina", icon: "\u25A8" },
 ];
 
 export function EventModal({
@@ -105,6 +105,9 @@ export function EventModal({
   const [showOptionalSuggestions, setShowOptionalSuggestions] = useState(false);
   const [attendeeSuggestions, setAttendeeSuggestions] = useState<{email:string;display_name?:string}[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [locationSuggestions, setLocationSuggestions] = useState<string[]>([]);
+  const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
+  const locDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [status, setStatus] = useState("busy");
@@ -114,6 +117,9 @@ export function EventModal({
   const [virtualMeeting, setVirtualMeeting] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const descRef = useRef<HTMLTextAreaElement>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
+  const EMOJI_LIST = ["\uD83D\uDE00", "\uD83D\uDE0A", "\uD83D\uDE02", "\uD83E\uDD70", "\uD83D\uDE0E", "\uD83E\uDD14", "\uD83D\uDE05", "\uD83D\uDE4F", "\uD83D\uDC4D", "\uD83D\uDC4E", "\u2764\uFE0F", "\uD83D\uDD25", "\u2705", "\u274C", "\u26A0\uFE0F", "\uD83D\uDCCC", "\uD83D\uDCCE", "\uD83D\uDCC5", "\u23F0", "\uD83C\uDF89", "\uD83C\uDF1F", "\uD83D\uDCA1", "\uD83D\uDCDD", "\uD83D\uDCAC", "\uD83D\uDD14", "\uD83D\uDCCA", "\uD83D\uDE80", "\uD83C\uDFAF", "\uD83D\uDE4C", "\uD83D\uDC4B", "\uD83D\uDCAA", "\uD83E\uDD1D", "\u2B50", "\uD83D\uDCB0", "\uD83D\uDCC8", "\u270F\uFE0F", "\uD83D\uDDD3\uFE0F", "\uD83D\uDCDE", "\uD83D\uDD12", "\uD83C\uDFC6"];
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [attachments, setAttachments] = useState<{file: File; preview?: string}[]>([]);
 
@@ -241,6 +247,10 @@ export function EventModal({
     return STATUS_OPTIONS.find((s) => s.value === status)?.label || "Ocupado";
   }, [status]);
 
+  const currentStatusIcon = useMemo(() => {
+    return STATUS_OPTIONS.find((s) => s.value === status)?.icon || "\u25A0";
+  }, [status]);
+
   function handleFileAttach(files: FileList | null) {
     if (!files) return;
     const newAtts = Array.from(files).map(file => {
@@ -262,6 +272,23 @@ export function EventModal({
     if (b < 1024) return b + " B";
     if (b < 1048576) return (b / 1024).toFixed(1) + " KB";
     return (b / 1048576).toFixed(1) + " MB";
+  }
+
+  useEffect(() => {
+    if (!showEmojiPicker) return;
+    function onDown(ev: MouseEvent) {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(ev.target as Node)) setShowEmojiPicker(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [showEmojiPicker]);
+
+  function insertEmoji(emoji: string) {
+    const ta = descRef.current;
+    const pos = ta ? (ta.selectionStart ?? description.length) : description.length;
+    setDescription(description.substring(0, pos) + emoji + description.substring(pos));
+    setShowEmojiPicker(false);
+    setTimeout(() => { if (ta) { ta.focus(); ta.setSelectionRange(pos + emoji.length, pos + emoji.length); } }, 0);
   }
 
   function handleSave() {
@@ -332,6 +359,20 @@ export function EventModal({
       setOptionalSuggestions(list.filter((c: any) => c.email && !attendees.includes(c.email) && !optionalAttendees.includes(c.email)).map((c: any) => ({ email: c.email, display_name: c.display_name || c.name || "" })));
       setShowOptionalSuggestions(true);
     } catch { setOptionalSuggestions([]); }
+  }
+
+  function searchLocation(q: string) {
+    if (locDebounce.current) clearTimeout(locDebounce.current);
+    const term = q.trim();
+    if (term.length < 3) { setLocationSuggestions([]); setShowLocationSuggestions(false); return; }
+    locDebounce.current = setTimeout(async () => {
+      try {
+        const data = await api.get<{suggestions:{label:string}[]}>("/calendar/places/autocomplete?q=" + encodeURIComponent(term));
+        const list = (data as any)?.suggestions || [];
+        setLocationSuggestions(list.map((x: any) => x.label));
+        setShowLocationSuggestions(list.length > 0);
+      } catch { setLocationSuggestions([]); setShowLocationSuggestions(false); }
+    }, 350);
   }
 
   async function searchContacts(q: string) {
@@ -424,9 +465,7 @@ export function EventModal({
                 className="olkm-tab-btn"
                 onClick={() => setShowStatusDropdown(!showStatusDropdown)}
               >
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                  <rect x="3" y="3" width="10" height="10" rx="1" />
-                </svg>
+                <span style={{ fontSize: 14, lineHeight: 1 }}>{currentStatusIcon}</span>
                 <span>{currentStatusLabel}</span>
                 <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" style={{ marginLeft: 2 }}>
                   <path d="M4.427 7.427l3.396 3.396a.25.25 0 00.354 0l3.396-3.396A.25.25 0 0011.396 7H4.604a.25.25 0 00-.177.427z"/>
@@ -528,7 +567,7 @@ export function EventModal({
                           className="olkm-attendee-remove"
                           onClick={() => setAttendees(attendees.filter((_, i) => i !== idx))}
                         >
-                          Ã
+                          ×
                         </button>
                       </span>
                     ))}
@@ -597,7 +636,7 @@ export function EventModal({
                           className="olkm-attendee-remove"
                           onClick={() => setOptionalAttendees(optionalAttendees.filter((_, i) => i !== idx))}
                         >
-                          Ã
+                          ×
                         </button>
                       </span>
                     ))}
@@ -729,18 +768,33 @@ export function EventModal({
                       <path d="M8 16s6-5.686 6-10A6 6 0 002 6c0 4.314 6 10 6 10zm0-7a3 3 0 110-6 3 3 0 010 6z"/>
                     </svg>
                   </div>
-                  <input
-                    type="text"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    placeholder="Buscar una ubicación"
-                    className="olkm-inline-input"
-                  />
-                  <button className="olkm-field-action-btn" title="Configuración de sala" onClick={() => setVirtualMeeting(!virtualMeeting)}>
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                      <path d="M9.405 1.05c-.413-1.4-2.397-1.4-2.81 0l-.1.34a1.464 1.464 0 01-2.105.872l-.31-.17c-1.283-.698-2.686.705-1.987 1.987l.169.311c.446.82.023 1.841-.872 2.105l-.34.1c-1.4.413-1.4 2.397 0 2.81l.34.1a1.464 1.464 0 01.872 2.105l-.17.31c-.698 1.283.705 2.686 1.987 1.987l.311-.169a1.464 1.464 0 012.105.872l.1.34c.413 1.4 2.397 1.4 2.81 0l.1-.34a1.464 1.464 0 012.105-.872l.31.17c1.283.698 2.686-.705 1.987-1.987l-.169-.311a1.464 1.464 0 01.872-2.105l.34-.1c1.4-.413 1.4-2.397 0-2.81l-.34-.1a1.464 1.464 0 01-.872-2.105l.17-.31c.698-1.283-.705-2.686-1.987-1.987l-.311.169a1.464 1.464 0 01-2.105-.872l-.1-.34zM8 10.93a2.929 2.929 0 110-5.858 2.929 2.929 0 010 5.858z"/>
-                    </svg>
-                  </button>
+                  <div style={{ position: "relative", flex: 1 }}>
+                    <input
+                      type="text"
+                      value={location}
+                      onChange={(e) => { setLocation(e.target.value); searchLocation(e.target.value); }}
+                      onKeyDown={(e) => { if (e.key === "Escape") setShowLocationSuggestions(false); }}
+                      onBlur={() => setTimeout(() => setShowLocationSuggestions(false), 200)}
+                      placeholder="Buscar una ubicación"
+                      className="olkm-inline-input"
+                      style={{ width: "100%" }}
+                    />
+                    {showLocationSuggestions && locationSuggestions.length > 0 && (
+                      <div style={{
+                        position: "absolute", top: "100%", left: 0, right: 0, zIndex: 1000,
+                        background: "#fff", border: "1px solid #e1dfdd", borderRadius: 4,
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.15)", maxHeight: 220, overflowY: "auto",
+                      }}>
+                        {locationSuggestions.map((loc, i) => (
+                          <div key={i}
+                            onMouseDown={(e) => { e.preventDefault(); setLocation(loc); setShowLocationSuggestions(false); }}
+                            style={{ padding: "8px 12px", cursor: "pointer", fontSize: 13, borderBottom: "1px solid #f3f2f1" }}>
+                            {loc}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="olkm-separator" />
 
@@ -813,7 +867,7 @@ export function EventModal({
                           ))}
                         </select>
                         <button onClick={() => removeReminder(idx)} className="olkm-reminder-remove">
-                          Ã
+                          ×
                         </button>
                       </div>
                     ))}
@@ -832,12 +886,18 @@ export function EventModal({
                     </svg>
                   </div>
                   <div className="olkm-desc-wrapper">
-                    <div className="olkm-desc-toolbar">
-                      <button className="olkm-desc-btn" title="Negrita" onClick={() => { if(descRef.current) { const ta = descRef.current; const s = ta.selectionStart; const e = ta.selectionEnd; const sel = ta.value.substring(s,e); setDescription(ta.value.substring(0,s) + "**" + sel + "**" + ta.value.substring(e)); setTimeout(() => { ta.focus(); ta.setSelectionRange(s+2, e+2); }, 0); } }}><strong>B</strong></button>
-                      <button className="olkm-desc-btn" title="Cursiva" onClick={() => { if(descRef.current) { const ta = descRef.current; const s = ta.selectionStart; const e = ta.selectionEnd; const sel = ta.value.substring(s,e); setDescription(ta.value.substring(0,s) + "_" + sel + "_" + ta.value.substring(e)); setTimeout(() => { ta.focus(); ta.setSelectionRange(s+1, e+1); }, 0); } }}><em>I</em></button>
-                      <button className="olkm-desc-btn" title="Subrayado" onClick={() => { if(descRef.current) { const ta = descRef.current; const s = ta.selectionStart; const e = ta.selectionEnd; const sel = ta.value.substring(s,e); setDescription(ta.value.substring(0,s) + "<u>" + sel + "</u>" + ta.value.substring(e)); setTimeout(() => { ta.focus(); ta.setSelectionRange(s+3, e+3); }, 0); } }}><span style={{ textDecoration: "underline" }}>U</span></button>
+                    <div className="olkm-desc-toolbar" style={{ position: "relative" }}>
+                      <button type="button" className="olkm-desc-btn" title="Insertar emoji" onClick={() => setShowEmojiPicker(v => !v)}>{"\uD83D\uDE0A"}</button>
+                      {showEmojiPicker && (
+                        <div ref={emojiPickerRef} style={{ position: "absolute", top: "100%", left: 0, zIndex: 999, background: "#fff", border: "1px solid #c8c6c4", borderRadius: 8, padding: 8, display: "grid", gridTemplateColumns: "repeat(8, 26px)", gap: 2, boxShadow: "0 4px 16px rgba(0,0,0,0.15)", marginTop: 4 }}>
+                          {EMOJI_LIST.map((em) => (
+                            <button key={em} type="button" onClick={() => insertEmoji(em)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, padding: 2, borderRadius: 4, lineHeight: 1 }}>{em}</button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <textarea
+                      ref={descRef}
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
                       placeholder="Agregar detalles del evento..."
@@ -1219,7 +1279,7 @@ export function EventModal({
                     <div style={{ fontWeight: 500 }}>{att.file.name}</div>
                     <div style={{ fontSize: 10, color: "#a19f9d" }}>{fmtSize(att.file.size)}</div>
                   </div>
-                  <button onClick={() => removeAttachment(idx)} style={{ background: "none", border: "none", cursor: "pointer", color: "#a19f9d", fontSize: 14, padding: "0 2px" }}>\u00d7</button>
+                  <button onClick={() => removeAttachment(idx)} style={{ background: "none", border: "none", cursor: "pointer", color: "#a19f9d", fontSize: 14, padding: "0 2px" }}>×</button>
                 </div>
               ))}
             </div>
@@ -1241,7 +1301,7 @@ export function EventModal({
                 <path d="M2.002 1a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V3a2 2 0 00-2-2h-12zm12 1a1 1 0 011 1v6.5l-3.777-1.947a.5.5 0 00-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 00-.63.062L1.002 12V3a1 1 0 011-1h12z"/>
               </svg>
             </button>
-            <button className="olkm-bottom-btn" title="Emoji" onClick={() => { if(descRef.current) { const ta = descRef.current; const pos = ta.selectionStart; const emojis = ["ð","ð","â","â","â°","ð","ð","â­","ð¼","ð"]; const emoji = emojis[Math.floor(Math.random() * emojis.length)]; setDescription(ta.value.substring(0,pos) + emoji + ta.value.substring(pos)); setTimeout(() => { ta.focus(); ta.setSelectionRange(pos+2, pos+2); }, 0); } }}>
+            <button className="olkm-bottom-btn" title="Emoji" onClick={() => setShowEmojiPicker(v => !v)}>
               <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                 <path d="M8 15A7 7 0 118 1a7 7 0 010 14zm0 1A8 8 0 108 0a8 8 0 000 16z"/>
                 <path d="M4.285 9.567a.5.5 0 01.683.183A3.498 3.498 0 008 11.5a3.498 3.498 0 003.032-1.75.5.5 0 11.866.5A4.498 4.498 0 018 12.5a4.498 4.498 0 01-3.898-2.25.5.5 0 01.183-.683zM7 6.5C7 7.328 6.552 8 6 8s-1-.672-1-1.5S5.448 5 6 5s1 .672 1 1.5zm4 0c0 .828-.448 1.5-1 1.5s-1-.672-1-1.5S9.448 5 10 5s1 .672 1 1.5z"/>

@@ -128,6 +128,7 @@ export function TasksView() {
   };
 
   const toggleImportant = async (id: string) => {
+    if (id.startsWith('mail-')) return;
     setTasks(prev => prev.map(t => t.id === id ? { ...t, important: !t.important } : t));
     if (selectedTask?.id === id) setSelectedTask(prev => prev ? { ...prev, important: !prev.important } : null);
     try {
@@ -273,7 +274,7 @@ export function TasksView() {
         )}
 
         {/* Task input */}
-        {showInput && <TaskInput onAdd={addTask} />}
+        {showInput && <TaskInput onAdd={addTask} activeView={activeView} />}
 
         {/* Task list */}
         <div style={{ flex: 1, overflowY: 'auto', marginTop: 8 }}>

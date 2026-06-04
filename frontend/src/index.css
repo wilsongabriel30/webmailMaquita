@@ -112,21 +112,75 @@
 }
 
 /* Mobile: < 768px */
+/* ── Mobile app-like experience ── */
 @media (max-width: 767px) {
-  /* Topbar adjustments */
-  .topbar-logo-text { display: none; }
-  .topbar-search { max-width: 100% !important; margin: 0 4px !important; }
-  .topbar-right-actions > button:not(.topbar-essential) { display: none; }
+  /* Topbar compacto */
+  header[role="banner"] {
+    height: 44px !important;
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
 
-  /* Compose fullscreen */
-  .compose-panel { position: fixed !important; inset: 0 !important; z-index: 60 !important; width: 100% !important; height: 100% !important; border-radius: 0 !important; }
+  /* Message list full width */
+  .message-list-container {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    border-right: none !important;
+  }
 
-  /* MessageList full width */
-  .message-list-container { width: 100% !important; min-width: 0 !important; max-width: 100% !important; }
+  /* Compose panel full screen on mobile */
+  .compose-panel {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 200 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 0 !important;
+  }
 
-  /* Toolbar scroll */
-  .toolbar-actions { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  /* Toolbar actions overflow */
+  .toolbar-actions {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Search advanced dropdown full width */
+  .search-advanced-dropdown {
+    left: 0 !important;
+    right: 0 !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+  }
+
+  /* Back button more tappable */
+  .back-to-inbox {
+    min-height: 44px;
+  }
+
+  /* Swipe hint on message items */
+  .message-item {
+    touch-action: pan-y;
+  }
+
+  /* Hide desktop-only quick action buttons on hover */
+  .message-item .quick-actions {
+    display: none !important;
+  }
 }
+
+/* ── Tablet adjustments ── */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .message-list-container {
+    width: 280px !important;
+    min-width: 280px !important;
+  }
+
+  header[role="banner"] {
+    height: 44px !important;
+  }
+}
+
 
 /* Tablet: 768px - 1023px */
 @media (min-width: 768px) and (max-width: 1023px) {

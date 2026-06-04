@@ -420,14 +420,14 @@ async def _verify_card_access(db, card_id, user: str):
     row = await db.fetchrow(
         """SELECT tc.board_id FROM task_cards tc
            JOIN task_boards tb ON tb.id = tc.board_id
-           WHERE tc.id = $1 AND tb.owner = $2""",
+           WHERE tc.id = $1 AND tb."user" = $2""",
         card_id, user
     )
     if not row:
         row = await db.fetchval(
             """SELECT 1 FROM task_cards tc
                JOIN task_board_members tbm ON tbm.board_id = tc.board_id
-               WHERE tc.id = $1 AND tbm.username = $2""",
+               WHERE tc.id = $1 AND tbm.user_email = $2""",
             card_id, user
         )
         if not row:

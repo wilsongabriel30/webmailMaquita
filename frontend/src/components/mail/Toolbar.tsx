@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useMailStore } from '../../store/mailStore';
 import { api } from '../../api/client';
@@ -8,6 +9,7 @@ import { getFolderDisplayName } from '../../folders';
 import { getCachedLabels, useLabels } from '../../hooks/useLabels';
 import { SnoozeModal } from './SnoozeModal';
 import { sanitizeHtml } from '../../lib/sanitize';
+import { useResponsive } from '../../hooks/useResponsive';
 
 
 function escapeHtml(str: string): string {
@@ -79,33 +81,67 @@ function SvgIcon({ d, size = 28, color = 'currentColor' }: {
   );
 }
 
-//  Dropdown wrapper
+//  Dropdown wrapper — portal to body to escape overflow containers
 function Dropdown({ open, onClose, children, align = 'left' }: {
   open: boolean; onClose: () => void; children: React.ReactNode; align?: 'left' | 'right';
 }) {
-  const ref = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const anchorRef = useRef<HTMLSpanElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number }>({ top: -9999, left: -9999 });
+
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+      if (menuRef.current && !menuRef.current.contains(e.target as Node) &&
+          anchorRef.current && !anchorRef.current.parentElement?.contains(e.target as Node)) {
+        onClose();
+      }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [open, onClose]);
-  if (!open) return null;
+
+  useEffect(() => {
+    if (!open || !anchorRef.current) return;
+    const parent = anchorRef.current.parentElement;
+    if (!parent) return;
+    const rect = parent.getBoundingClientRect();
+    const menuWidth = ref_width(menuRef) || 180;
+    let left = align === 'right' ? rect.right - menuWidth : rect.left;
+    if (left + menuWidth > window.innerWidth) left = window.innerWidth - menuWidth - 8;
+    if (left < 4) left = 4;
+    let top = rect.bottom + 2;
+    // If menu would go below viewport, show above
+    if (top + 300 > window.innerHeight) top = rect.top - 300;
+    setPos({ top, left });
+  }, [open, align]);
+
+  function ref_width(r: React.RefObject<HTMLDivElement | null>) {
+    return r.current?.offsetWidth || 0;
+  }
+
   return (
-    <div ref={ref} className={`absolute top-full ${align === 'right' ? 'right-0' : 'left-0'} mt-1 bg-white border border-[#e1dfdd] rounded shadow-lg z-[100] min-w-[180px] py-1`}>
-      {children}
-    </div>
+    <>
+      <span ref={anchorRef} style={{ position: 'absolute', top: 0, left: 0, width: 0, height: 0, overflow: 'hidden' }} />
+      {open && ReactDOM.createPortal(
+        <div ref={menuRef} style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999 }}
+          className="bg-white border border-[#e1dfdd] rounded shadow-lg min-w-[180px] py-1 ">
+          {children}
+        </div>,
+        document.body
+      )}
+    </>
   );
 }
 
 function ArchivoMenu({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const anchorRef = useRef<HTMLSpanElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number }>({ top: -9999, left: -9999 });
+
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        // Also check if click was on the Archivo button itself
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         const btn = (e.target as HTMLElement).closest('button');
         if (btn && btn.textContent?.trim() === 'Archivo') return;
         onClose();
@@ -114,10 +150,26 @@ function ArchivoMenu({ onClose, children }: { onClose: () => void; children: Rea
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [onClose]);
+
+  useEffect(() => {
+    if (!anchorRef.current) return;
+    const parent = anchorRef.current.parentElement;
+    if (!parent) return;
+    const rect = parent.getBoundingClientRect();
+    setPos({ top: rect.bottom, left: rect.left });
+  }, []);
+
   return (
-    <div ref={ref} className="absolute top-full left-0 mt-0 bg-[#0078d4] border border-[#005a9e] rounded shadow-lg z-[100] min-w-[200px] py-1">
-      {children}
-    </div>
+    <>
+      <span ref={anchorRef} style={{ position: 'absolute', top: 0, left: 0, width: 0, height: 0, overflow: 'hidden' }} />
+      {ReactDOM.createPortal(
+        <div ref={menuRef} style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999 }}
+          className="bg-[#0078d4] border border-[#005a9e] rounded shadow-lg min-w-[200px] py-1">
+          {children}
+        </div>,
+        document.body
+      )}
+    </>
   );
 }
 
@@ -127,7 +179,7 @@ function DropdownItem({ label, icon, onClick, danger, active }: {
   return (
     <button onClick={onClick}
       className={`w-full text-left px-3 py-1.5 text-[13px] flex items-center gap-2 hover:bg-[#f3f2f1] ${danger ? 'text-[#d13438]' : active ? 'text-[#0078d4] bg-[#f0f6ff] font-semibold' : 'text-[#323130]'}`}>
-      {icon && <SvgIcon d={icon} size={16} color={danger ? '#d13438' : active ? '#0078d4' : '#605e5c'} />}
+      {icon && (/^[Mm]/.test(icon) ? <SvgIcon d={icon} size={16} color={danger ? '#d13438' : active ? '#0078d4' : '#605e5c'} /> : <span className='text-[14px] leading-none'>{icon}</span>)}
       <span>{label}</span>
       {active && <svg width={14} height={14} viewBox="0 0 20 20" fill="#0078d4" className="ml-auto"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
     </button>
@@ -154,7 +206,7 @@ function ToolbarButton({ icon, label, onClick, hasDropdown, active, primary, dan
         ${className || ''}
       `}
     >
-      <SvgIcon d={icon} size={28} color={danger ? '#d13438' : primary ? 'white' : active ? '#0078d4' : '#323130'} />
+      <SvgIcon d={icon} size={28} color={danger ? '#d13438' : primary ? 'white' : active ? '#0078d4' : 'currentColor'} />
       <span className={`text-[10px] mt-0.5 leading-tight whitespace-nowrap flex items-center gap-0.5 ${danger ? 'text-[#d13438]' : ''}`}>
         {label}{hasDropdown && <span className="text-[8px]">&#9662;</span>}
       </span>
@@ -173,6 +225,86 @@ function Group({ label, children }: { label: string; children: React.ReactNode }
     <div className="flex flex-col items-center">
       <div className="flex items-end gap-0.5">{children}</div>
       <span className="text-[9px] text-[#a19f9d] mt-0.5 leading-none">{label}</span>
+    </div>
+  );
+}
+
+
+// ── Mobile Toolbar: compact single-row with essential actions + overflow ──
+function MobileToolbar({ onCompose, onDelete, onReply, onReplyAll, onForward, onArchive, onFlag, onToggleRead, onPrint, msg }: {
+  onCompose: () => void; onDelete: () => void; onReply: () => void; onReplyAll: () => void;
+  onForward: () => void; onArchive: () => void; onFlag: () => void; onToggleRead: () => void;
+  onPrint: () => void; msg: any;
+}) {
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) setMoreOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [moreOpen]);
+
+  const iconBtn = (d: string, label: string, onClick: () => void, opts?: { primary?: boolean; danger?: boolean; active?: boolean }) => (
+    <button onClick={onClick} title={label}
+      className={`w-10 h-10 flex items-center justify-center rounded-lg transition-colors ${
+        opts?.primary ? 'bg-[#0078d4] text-white active:bg-[#106ebe]' :
+        opts?.danger ? 'text-[#d13438] active:bg-red-50' :
+        opts?.active ? 'text-[#0078d4] bg-[#e1dfdd]' :
+        'text-[#323130] active:bg-[#e1dfdd]'
+      }`}>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+        stroke={opts?.primary ? 'white' : opts?.danger ? '#d13438' : opts?.active ? '#0078d4' : '#323130'}
+        strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d={d} /></svg>
+    </button>
+  );
+
+  return (
+    <div className="flex items-center gap-1 px-2 py-1.5 bg-white border-b border-[#edebe9]">
+      {iconBtn(ICONS.newMail, 'Nuevo correo', onCompose, { primary: true })}
+      <div className="w-px h-6 bg-[#edebe9] mx-0.5" />
+      {iconBtn(ICONS.reply, 'Responder', onReply)}
+      {iconBtn(ICONS.forward, 'Reenviar', onForward)}
+      {iconBtn(ICONS.delete, 'Eliminar', onDelete, { danger: true })}
+      {iconBtn(ICONS.archive, 'Archivar', onArchive)}
+      {iconBtn(ICONS.flag, 'Marcar', onFlag, { active: msg?.flagged })}
+      <div className="flex-1" />
+      <div className="relative" ref={moreRef}>
+        {iconBtn('M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z', 'Más acciones', () => setMoreOpen(!moreOpen))}
+        {moreOpen && (
+          <div className="absolute right-0 top-full mt-1 bg-white border border-[#e1dfdd] rounded-lg shadow-xl z-[200] min-w-[200px] py-1">
+            <button onClick={() => { onReplyAll(); setMoreOpen(false); }}
+              className="w-full text-left px-4 py-2.5 text-[13px] flex items-center gap-3 hover:bg-[#f3f2f1] text-[#323130]">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#605e5c" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d={ICONS.replyAll} /></svg>
+              Responder a todos
+            </button>
+            <button onClick={() => { onToggleRead(); setMoreOpen(false); }}
+              className="w-full text-left px-4 py-2.5 text-[13px] flex items-center gap-3 hover:bg-[#f3f2f1] text-[#323130]">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#605e5c" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d={msg?.seen ? ICONS.unread : ICONS.read} /></svg>
+              {msg?.seen ? 'Marcar no leído' : 'Marcar leído'}
+            </button>
+            <button onClick={() => { onPrint(); setMoreOpen(false); }}
+              className="w-full text-left px-4 py-2.5 text-[13px] flex items-center gap-3 hover:bg-[#f3f2f1] text-[#323130]">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#605e5c" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d={ICONS.print} /></svg>
+              Imprimir
+            </button>
+            <div className="h-px bg-[#edebe9] my-1" />
+            <button onClick={() => { window.dispatchEvent(new CustomEvent('toggle-sidebar')); setMoreOpen(false); }}
+              className="w-full text-left px-4 py-2.5 text-[13px] flex items-center gap-3 hover:bg-[#f3f2f1] text-[#323130]">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#605e5c" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d={ICONS.folderPanel} /></svg>
+              Carpetas
+            </button>
+            <button onClick={() => { window.dispatchEvent(new CustomEvent('refresh-messages')); setMoreOpen(false); }}
+              className="w-full text-left px-4 py-2.5 text-[13px] flex items-center gap-3 hover:bg-[#f3f2f1] text-[#323130]">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#605e5c" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d={ICONS.sync} /></svg>
+              Sincronizar
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -201,6 +333,8 @@ export function Toolbar() {
   const activeEditor = useMailStore(s => s.activeEditor);
   const composeRibbonTab = useMailStore(s => s.composeRibbonTab);
   const setComposeRibbonTab = useMailStore(s => s.setComposeRibbonTab);
+
+    const { isMobile } = useResponsive();
 
   const [activeTab, setActiveTab] = useState<'inicio' | 'vista' | 'ayuda'>('inicio');
   const [collapsed, setCollapsed] = useState(false);
@@ -532,6 +666,24 @@ export function Toolbar() {
   const showComposeRibbon = hasCompose && composeRibbonTab;
 
   //  RENDER
+  // Mobile: compact toolbar
+  if (isMobile) {
+    return (
+      <MobileToolbar
+        onCompose={() => openCompose('new')}
+        onDelete={doDelete}
+        onReply={doReply}
+        onReplyAll={doReplyAll}
+        onForward={doForward}
+        onArchive={() => moveToFolder('Archive', 'Archivado')}
+        onFlag={toggleFlag}
+        onToggleRead={toggleRead}
+        onPrint={doPrint}
+        msg={msg}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col bg-[#f3f2f1] border-b border-[#e1dfdd] select-none" style={{ overflow: 'visible' }}>
       {/*  Tab bar  */}
@@ -995,7 +1147,31 @@ export function Toolbar() {
                   {/* Group: Lector inmersivo */}
                   <Group label="Lector inmersivo">
                     <ToolbarButton icon={ICONS.immersive} label="Lector inmersivo"
-                      onClick={() => { const iframe = document.querySelector('iframe[title="Email content"]') as HTMLIFrameElement; const body = iframe?.contentDocument?.body?.innerHTML || ''; if(body) { const w = window.open('', 'Lector', 'width=700,height=600'); if(w) { w.document.write('<!DOCTYPE html><html><head><title>Lector</title><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src https: data:; style-src \'unsafe-inline\'; font-src https:;"></head><body style="font-family:Georgia,serif;max-width:650px;margin:40px auto;padding:20px;line-height:1.8;font-size:18px;color:#333;">' + sanitizeHtml(body) + '</body></html>'); w.document.close(); } } else { showToast('Selecciona un mensaje primero'); } }} />
+                      onClick={() => {
+                        if (!msg) { showToast('Selecciona un mensaje primero'); return; }
+                        const body = msg.html_body || msg.text_body || '';
+                        if (!body) { showToast('El mensaje no tiene contenido'); return; }
+                        const safeBody = msg.html_body ? sanitizeHtml(msg.html_body) : '<pre style="white-space:pre-wrap">' + escapeHtml(msg.text_body || '') + '</pre>';
+                        const w = window.open('', 'Lector', 'width=700,height=600');
+                        if (w) {
+                          const safeSubj = escapeHtml(msg.subject || 'Mensaje');
+                          const safeFrm = escapeHtml(msg.from || '');
+                          const safeDate = escapeHtml(msg.date ? new Date(msg.date).toLocaleString('es-EC') : '');
+                          w.document.write(
+                            '<!DOCTYPE html><html><head><title>' + safeSubj + '</title>' +
+                            "<meta http-equiv='Content-Security-Policy' content='default-src \x27none\x27; img-src https: data:; style-src \x27unsafe-inline\x27; font-src https:;'>" +
+                            '<style>body{font-family:Georgia,serif;max-width:650px;margin:40px auto;padding:20px;line-height:1.8;font-size:18px;color:#333}' +
+                            'h1{font-size:22px;color:#0078d4;border-bottom:2px solid #edebe9;padding-bottom:12px}' +
+                            '.meta{font-size:13px;color:#605e5c;margin:4px 0}.content{margin-top:20px}</style>' +
+                            '</head><body><h1>' + safeSubj + '</h1>' +
+                            '<p class="meta"><b>De:</b> ' + safeFrm + '</p>' +
+                            '<p class="meta"><b>Fecha:</b> ' + safeDate + '</p>' +
+                            '<div class="content">' + safeBody + '</div></body></html>'
+                          );
+                          w.document.close();
+                          w.focus();
+                        }
+                      }} />
                   </Group>
                 </>
               )}

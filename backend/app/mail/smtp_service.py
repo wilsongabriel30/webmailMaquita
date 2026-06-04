@@ -3,7 +3,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
-from email.utils import formataddr, formatdate, make_msgid
+from email.utils import formataddr, formatdate, make_msgid, parseaddr
 from typing import Optional
 
 from app.config import get_settings
@@ -72,7 +72,7 @@ async def send_email(
         msg,
         hostname=settings.smtp_host,
         port=settings.smtp_port,
-        username=username,
+        username=parseaddr(username)[1] or username,
         password=password,
         start_tls=True,
         recipients=all_recipients,

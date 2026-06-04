@@ -1,11 +1,12 @@
-import { useState, useRef } from 'react';
-import { COLORS } from '../types';
+import { useState, useRef, useEffect } from 'react';
+import { COLORS, type ActiveView } from '../types';
 
 interface Props {
   onAdd: (title: string, dueDate?: string, reminder?: string) => void;
+  activeView: ActiveView;
 }
 
-export function TaskInput({ onAdd }: Props) {
+export function TaskInput({ onAdd, activeView }: Props) {
   const [title, setTitle] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [reminder, setReminder] = useState('');
@@ -13,6 +14,9 @@ export function TaskInput({ onAdd }: Props) {
   const [showReminderPicker, setShowReminderPicker] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const [shake, setShake] = useState(false);
+
+  // Cerrar los selectores al cambiar de vista (evita que persistan en otra pestana)
+  useEffect(() => { setShowDatePicker(false); setShowReminderPicker(false); }, [activeView]);
 
   const handleAdd = () => {
     if (title.trim()) {
@@ -99,6 +103,8 @@ export function TaskInput({ onAdd }: Props) {
             </svg>
           </button>
           {showDatePicker && (
+            <>
+            <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setShowDatePicker(false)} />
             <div style={{
               position: 'absolute', top: 28, left: 0, zIndex: 100,
               background: 'white', border: `1px solid ${COLORS.border}`,
@@ -110,6 +116,7 @@ export function TaskInput({ onAdd }: Props) {
                 autoFocus
               />
             </div>
+            </>
           )}
         </div>
 
@@ -125,6 +132,8 @@ export function TaskInput({ onAdd }: Props) {
             </svg>
           </button>
           {showReminderPicker && (
+            <>
+            <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setShowReminderPicker(false)} />
             <div style={{
               position: 'absolute', top: 28, left: 0, zIndex: 100,
               background: 'white', border: `1px solid ${COLORS.border}`,
@@ -156,6 +165,7 @@ export function TaskInput({ onAdd }: Props) {
                 />
               </div>
             </div>
+            </>
           )}
         </div>
 

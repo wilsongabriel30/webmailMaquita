@@ -27,7 +27,7 @@ from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email.mime.image import MIMEImage
 from email import encoders
-from email.utils import formatdate, make_msgid
+from email.utils import formatdate, make_msgid, parseaddr
 from dataclasses import dataclass, field
 
 from app.config import get_settings
@@ -226,7 +226,7 @@ async def send_email(email_data: OutgoingEmail, password: str) -> dict:
         msg,
         hostname=settings.smtp_host,
         port=settings.smtp_port,
-        username=email_data.from_addr,
+        username=parseaddr(email_data.from_addr)[1] or email_data.from_addr,
         password=password,
         start_tls=True,
         tls_context=tls_context,

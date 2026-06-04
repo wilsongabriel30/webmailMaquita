@@ -65,6 +65,7 @@ export function ComposePanel({ win }: Props) {
   const [scheduleDate, setScheduleDate] = useState('');
   const autosaveTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const initializedRef = useRef(false);
 
   // FQA-006: Refs to capture latest values for auto-save (avoids stale closures with React batching)
   const subjectRef = useRef(subject);
@@ -179,7 +180,7 @@ export function ComposePanel({ win }: Props) {
       // Allow smart-compose after init is done
       setTimeout(() => { initializingRef.current = false; }, 500);
     };
-    if (editor) init();
+    if (editor && !initializedRef.current) { initializedRef.current = true; init(); }
   }, [editor]);
 
   const saveDraft = useCallback(async () => {
@@ -459,83 +460,48 @@ export function ComposePanel({ win }: Props) {
       return;
     }
     if (improving) return;
+    // BLINDAJE: guardamos el contenido original; NUNCA se reemplaza salvo mejora valida.
+    const originalHtml = editor?.getHTML() || '';
     const nextLevel = improveLevel >= MAX_LEVEL ? 1 : improveLevel + 1;
     setImproving(true);
     const progressId = showToast(LEVEL_LABELS[nextLevel]);
-
-    const finishToast = (summary: string, lvl: number) => {
-      dismissToast(progressId);
-      const next = LEVEL_NEXT[lvl];
-      showToast(next
-        ? `${LEVEL_TOASTS[lvl]} (${summary}). Click para ${next}.`
-        : `${LEVEL_TOASTS[lvl]}: ${summary}`
-      );
-    };
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 30000);
 
     try {
-      const res = await fetch('/api/ia/improve/stream', {
+      const res = await fetch('/api/ia/improve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: editor?.getHTML() || text,
-          tone: 'professional',
-          level: nextLevel,
-        }),
+        body: JSON.stringify({ text: originalHtml || text, tone: 'professional', level: nextLevel }),
+        signal: controller.signal,
       });
-
-      if (!res.ok || !res.body) {
-        // Fallback al endpoint sin streaming
-        const data = await iaFetch<{ improved_text: string; subject_suggestion: string | null; changes_summary: string; level: number }>('improve', {
-          text: editor?.getHTML() || text,
-          tone: 'professional',
-          level: nextLevel,
-        });
-        editor?.commands.setContent(data.improved_text);
+      if (!res.ok) throw new Error(`IA ${res.status}`);
+      const data = await res.json();
+      const improved = ((data && data.improved_text) || '').trim();
+      const plainLen = improved.replace(/<[^>]+>/g, '').trim().length;
+      // Solo reemplazamos si la IA devolvio una mejora con contenido REAL. Si no, mantenemos el texto del usuario.
+      if (improved && plainLen >= 5) {
+        editor?.commands.setContent(improved);
         if (data.subject_suggestion && !subject) setSubject(data.subject_suggestion);
         setImproveLevel(nextLevel);
-        finishToast(data.changes_summary, nextLevel);
-        setImproving(false);
-        return;
-      }
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-
-        const parts = buffer.split('\n\n');
-        buffer = parts.pop() || '';
-
-        for (const part of parts) {
-          const line = part.trim();
-          if (!line.startsWith('data: ')) continue;
-          try {
-            const evt = JSON.parse(line.slice(6));
-
-            if (evt.type === 'progress') {
-              updateToast(progressId, `${LEVEL_LABELS[nextLevel]} ${evt.pct}%`);
-            } else if (evt.type === 'done') {
-              editor?.commands.setContent(evt.improved_text);
-              if (evt.subject_suggestion && !subject) setSubject(evt.subject_suggestion);
-              setImproveLevel(nextLevel);
-              finishToast(evt.changes_summary, nextLevel);
-            } else if (evt.type === 'error') {
-              dismissToast(progressId);
-              showToast('Error al conectar con IA');
-            }
-          } catch { /* ignore parse errors */ }
-        }
+        dismissToast(progressId);
+        const next = LEVEL_NEXT[nextLevel];
+        showToast(next
+          ? `${LEVEL_TOASTS[nextLevel]} (${data.changes_summary || ''}). Click para ${next}.`
+          : `${LEVEL_TOASTS[nextLevel]}: ${data.changes_summary || ''}`
+        );
+      } else {
+        dismissToast(progressId);
+        showToast('La IA no devolvió una mejora válida. Tu texto se mantiene intacto.');
       }
     } catch {
       dismissToast(progressId);
-      showToast('Error al conectar con IA');
+      showToast('No se pudo mejorar (IA ocupada). Tu texto se mantiene intacto.');
+    } finally {
+      clearTimeout(timer);
+      setImproving(false);
     }
-    setImproving(false);
-  }, [editor, subject, iaFetch, improveLevel, improving]);
+  }, [editor, subject, improveLevel, improving]);
 
   //  VM 170: Revisión IA del texto - FUNCIONAL
   const handleReviewEditor = useCallback(async () => {
@@ -606,41 +572,25 @@ export function ComposePanel({ win }: Props) {
 
   //  VM 170: Smart Compose — autocompletado IA
   const [composeSuggestion, setComposeSuggestion] = useState('');
+  const [composingSuggestion, setComposingSuggestion] = useState(false);
   const composeDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const smartComposeAbort = useRef<AbortController | null>(null);
   const initializingRef = useRef(true);
 
-  const fetchSmartCompose = useCallback(async (context: string) => {
-    if (context.trim().length < 15) { setComposeSuggestion(''); return; }
-    try {
-      const data = await api.post<{ suggestion: string }>('/ai/smart-compose', {
-        context, subject, to,
-      });
-      if (data.suggestion) setComposeSuggestion(data.suggestion);
-    } catch { /* silent fail for autocomplete */ }
-  }, [subject, to]);
-
-  // Trigger smart compose on editor update (debounced 2s)
-  useEffect(() => {
+  // VM 170: Smart Compose — ON-DEMAND (boton), ya NO automatico (evita saturar el GPU)
+  const requestSmartCompose = useCallback(async () => {
     if (!editor) return;
-    const handler = () => {
-      // Skip during initialization to prevent double-call
-      if (initializingRef.current) return;
-      if (composeDebounce.current) clearTimeout(composeDebounce.current);
-      setComposeSuggestion('');
-      composeDebounce.current = setTimeout(() => {
-        const text = editor.getText();
-        if (text.length >= 15) {
-          // Cancelar petición anterior antes de iniciar nueva
-          if (smartComposeAbort.current) smartComposeAbort.current.abort();
-          smartComposeAbort.current = new AbortController();
-          fetchSmartCompose(text);
-        }
-      }, 2000);
-    };
-    editor.on('update', handler);
-    return () => { editor.off('update', handler); if (composeDebounce.current) clearTimeout(composeDebounce.current); };
-  }, [editor, fetchSmartCompose]);
+    const context = editor.getText();
+    if (context.trim().length < 10) { showToast('Escribe algo de texto primero'); return; }
+    setComposingSuggestion(true);
+    setComposeSuggestion('');
+    try {
+      const data = await api.post<{ suggestion: string }>('/ai/smart-compose', { context, subject, to });
+      if (data.suggestion) setComposeSuggestion(data.suggestion);
+      else showToast('La IA no devolvio una sugerencia');
+    } catch { showToast('No se pudo generar (IA ocupada, reintenta)'); }
+    finally { setComposingSuggestion(false); }
+  }, [editor, subject, to]);
 
   const acceptComposeSuggestion = useCallback(() => {
     if (composeSuggestion && editor) {
@@ -932,23 +882,26 @@ export function ComposePanel({ win }: Props) {
           margin: 8px 0;
         }
       `}</style>
-      {/* Smart Compose suggestion */}
-      {composeSuggestion && (
-        <div className="flex items-center gap-2 px-4 py-1.5 bg-[#f0f6ff] border-b border-[#c7e0f4] shrink-0">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0078d4" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
-          <span className="text-[12px] text-[#605e5c] truncate flex-1" title={composeSuggestion}>
-            {composeSuggestion.length > 80 ? composeSuggestion.slice(0, 80) + '...' : composeSuggestion}
-          </span>
-          <button onClick={acceptComposeSuggestion}
-            className="text-[11px] font-semibold text-[#0078d4] hover:bg-[#deecf9] px-2 py-0.5 rounded">
-            Tab para aceptar
-          </button>
-          <button onClick={() => setComposeSuggestion('')}
-            className="text-[11px] text-[#a19f9d] hover:text-[#605e5c] px-1">
-            ✕
-          </button>
-        </div>
-      )}
+      {/* Smart Compose — barra ON-DEMAND */}
+      <div className="flex items-center gap-2 px-4 py-1.5 bg-[#f0f6ff] border-b border-[#c7e0f4] shrink-0">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0078d4" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
+        {composingSuggestion ? (
+          <span className="text-[12px] text-[#605e5c] flex-1">Generando sugerencia con IA...</span>
+        ) : composeSuggestion ? (
+          <>
+            <span className="text-[12px] text-[#605e5c] truncate flex-1" title={composeSuggestion}>
+              {composeSuggestion.length > 80 ? composeSuggestion.slice(0, 80) + '...' : composeSuggestion}
+            </span>
+            <button onClick={acceptComposeSuggestion} className="text-[11px] font-semibold text-[#0078d4] hover:bg-[#deecf9] px-2 py-0.5 rounded">Insertar</button>
+            <button onClick={() => setComposeSuggestion('')} className="text-[11px] text-[#a19f9d] hover:text-[#605e5c] px-1">{'\u2715'}</button>
+          </>
+        ) : (
+          <>
+            <span className="text-[12px] text-[#605e5c] flex-1">Asistente de redaccion IA</span>
+            <button onClick={requestSmartCompose} className="text-[11px] font-semibold text-[#0078d4] hover:bg-[#deecf9] px-2 py-0.5 rounded">Autocompletar con IA</button>
+          </>
+        )}
+      </div>
       <div className="flex-1 overflow-y-auto compose-editor-area">
         <EditorContent editor={editor}
           className="[&_.tiptap_h1]:text-[24px] [&_.tiptap_h1]:font-bold [&_.tiptap_h1]:mb-3 [&_.tiptap_h2]:text-[20px] [&_.tiptap_h2]:font-bold [&_.tiptap_h2]:mb-2 [&_.tiptap_h3]:text-[16px] [&_.tiptap_h3]:font-bold [&_.tiptap_h3]:mb-1 [&_.tiptap_ul]:list-disc [&_.tiptap_ul]:pl-6 [&_.tiptap_ol]:list-decimal [&_.tiptap_ol]:pl-6 [&_.tiptap_blockquote]:border-l-4 [&_.tiptap_blockquote]:border-[#e1dfdd] [&_.tiptap_blockquote]:pl-4 [&_.tiptap_blockquote]:italic [&_.tiptap_blockquote]:text-[#605e5c] [&_.tiptap_a]:text-[#0078d4] [&_.tiptap_a]:underline [&_.tiptap_pre]:bg-[#f3f2f1] [&_.tiptap_pre]:p-3 [&_.tiptap_pre]:rounded [&_.tiptap_pre]:font-mono [&_.tiptap_pre]:text-[13px] [&_.tiptap_hr]:border-[#edebe9] [&_.tiptap_hr]:my-3 [&_.tiptap_p]:mb-1 [&_.tiptap_img]:max-w-full [&_.tiptap_img]:h-auto [&_.tiptap_img]:rounded" />

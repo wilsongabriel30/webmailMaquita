@@ -235,6 +235,7 @@ function MyDayPanel({ onClose }: { onClose: () => void }) {
 export function MailView() {
   const composeWindows = useMailStore(s => s.composeWindows);
   const restoreCompose = useMailStore(s => s.restoreCompose);
+  const closeCompose = useMailStore(s => s.closeCompose);
   const openCompose = useMailStore(s => s.openCompose);
   const storeReadingPane = useMailStore(s => s.readingPane);
   const selectedMessage = useMailStore(s => s.selectedMessage);
@@ -274,7 +275,7 @@ export function MailView() {
           <MessageList />
           <div className="flex-1 min-w-0 flex flex-col">
             {activeCompose ? (
-              <ComposePanel win={activeCompose} />
+              <ComposePanel key={activeCompose.id} win={activeCompose} />
             ) : (
               <MessageView />
             )}
@@ -290,7 +291,7 @@ export function MailView() {
           </div>
           <div className="flex-1 overflow-hidden">
             {activeCompose ? (
-              <ComposePanel win={activeCompose} />
+              <ComposePanel key={activeCompose.id} win={activeCompose} />
             ) : (
               <MessageView />
             )}
@@ -298,11 +299,11 @@ export function MailView() {
         </div>
       )}
 
-      {readingPane === 'off' && (
+      {readingPane === "off" && (
         /* ── OCULTO (legacy) ── */
         <div className="flex-1 flex flex-col overflow-hidden min-h-0">
           {activeCompose ? (
-            <ComposePanel win={activeCompose} />
+            <ComposePanel key={activeCompose.id} win={activeCompose} />
           ) : selectedMessage ? (
             <>
               <div className="shrink-0 flex items-center gap-2 px-3 py-1.5 border-b border-[#edebe9] bg-[#faf9f8]">
@@ -326,7 +327,7 @@ export function MailView() {
         /* ── RELLENAR PANTALLA ── */
         <div className="flex-1 flex overflow-hidden min-h-0">
           {activeCompose ? (
-            <ComposePanel win={activeCompose} />
+            <ComposePanel key={activeCompose.id} win={activeCompose} />
           ) : selectedMessage ? (
             <>
               <div className="flex-1 flex flex-col min-w-0">
@@ -365,15 +366,22 @@ export function MailView() {
       {minimizedComposes.length > 0 && (
         <div className="fixed bottom-0 right-6 z-[99] flex gap-2">
           {minimizedComposes.map(win => (
-            <button key={win.id} onClick={() => restoreCompose(win.id)}
-              className="bg-[#0078d4] text-white rounded-t-lg px-4 py-2.5 text-[12px] font-semibold hover:bg-[#106ebe] transition-colors max-w-[220px] truncate flex items-center gap-2 shadow-lg"
+            <div key={win.id}
+              className="bg-[#0078d4] text-white rounded-t-lg text-[12px] font-semibold shadow-lg flex items-center"
               style={{ boxShadow: '0 -2px 12px rgba(0,120,212,0.3)' }}>
-              <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-              {win.data.subject || 'Nuevo mensaje'}
-            </button>
+              <button onClick={() => restoreCompose(win.id)}
+                className="flex items-center gap-2 px-3 py-2.5 hover:bg-[#106ebe] transition-colors max-w-[190px] truncate rounded-tl-lg">
+                <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                <span className="truncate">{win.data.subject || 'Nuevo mensaje'}</span>
+              </button>
+              <button onClick={(e) => { e.stopPropagation(); closeCompose(win.id); }}
+                className="px-2 py-2.5 hover:bg-[#c42b1c] transition-colors rounded-tr-lg text-white/80 hover:text-white" title="Cerrar">
+                {'\u00D7'}
+              </button>
+            </div>
           ))}
         </div>
       )}

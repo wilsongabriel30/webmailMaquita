@@ -804,11 +804,13 @@ const MessageView: React.FC = () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
     const formattedDate = displayMsg.date ? format(new Date(displayMsg.date), "d 'de' MMMM 'de' yyyy, HH:mm", { locale: es }) : '';
+    const body = displayMsg.html_body ? sanitizeHtml(displayMsg.html_body) : `<pre style="white-space:pre-wrap">${escapeHtml(displayMsg.text_body || '')}</pre>`;
     printWindow.document.write(`<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>${displayMsg.subject}</title>
 <style>body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;max-width:800px;margin:24px auto;color:#323130;font-size:14px}.header{border-bottom:1px solid #edebe9;padding-bottom:16px;margin-bottom:16px}.subject{font-size:20px;font-weight:600;margin:0 0 12px}.meta{font-size:12px;color:#605e5c;line-height:1.6}.body-content img{max-width:100%}@media print{body{margin:0}}</style>
-</head><body><div class="header"><h1 class="subject">${displayMsg.subject}</h1><div class="meta"><b>De:</b> ${displayMsg.from}<br><b>Para:</b> ${displayMsg.to}<br>${displayMsg.cc ? `<b>CC:</b> ${displayMsg.cc}<br>` : ''}<b>Fecha:</b> ${formattedDate}<br></div></div><div class="body-content">${body}</div><script>window.onload=function(){window.print();}</script></body></html>`);
+</head><body><div class="header"><h1 class="subject">${displayMsg.subject}</h1><div class="meta"><b>De:</b> ${displayMsg.from}<br><b>Para:</b> ${displayMsg.to}<br>${displayMsg.cc ? `<b>CC:</b> ${displayMsg.cc}<br>` : ''}<b>Fecha:</b> ${formattedDate}<br></div></div><div class="body-content">${body}</div></body></html>`);
     printWindow.document.close();
+    printWindow.print();
   }, [displayMsg]);
 
   // ==========================================================================
@@ -975,7 +977,7 @@ const MessageView: React.FC = () => {
       });
       setSummary(data.summary || 'No se pudo generar resumen');
     } catch {
-      setSummary('Error al conectar con IA');
+      setSummary('No se pudo generar resumen para este mensaje');
     }
     setLoadingSummary(false);
   }, [msg, threadMessages, currentFolder, loadingSummary]);

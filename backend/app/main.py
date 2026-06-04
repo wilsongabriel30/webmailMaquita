@@ -107,10 +107,17 @@ async def _process_scheduled_emails(db_pool, redis):
             for row in rows:
                 try:
                     username = row["username"]
-                    password = await redis.get(f"imap_pass:{username}")
-                    if not password:
+                    raw_pass = await redis.get(f"imap_pass:{username}")
+                    if not raw_pass:
                         logger.warning(f"Scheduled email {row['id']}: no session for {username}")
                         continue
+
+                    # Descifrar contraseña Fernet (las passwords en Redis están cifradas)
+                    from app.core.session import decrypt_password
+                    try:
+                        password = decrypt_password(raw_pass)
+                    except Exception:
+                        password = raw_pass  # fallback legacy sin cifrar
 
                     from app.mail.clients.imap_client import get_imap_connection
                     from app.mail.services.send_service import send_and_save

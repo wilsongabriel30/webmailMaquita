@@ -233,7 +233,7 @@ async def list_message_uids(
         # FQA-002: Cache sorted UIDs in Redis for 60s
         if redis and username and cache_key and all_uids:
             try:
-                await redis.set(cache_key, json.dumps(all_uids), ex=60)
+                await redis.set(cache_key, json.dumps(all_uids), ex=300)  # 5min TTL (era 60s)
             except Exception:
                 pass
 

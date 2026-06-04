@@ -1,10 +1,12 @@
 """FastAPI router for Calendar API."""
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import datetime
 from typing import Optional
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import PlainTextResponse
 
@@ -195,6 +197,72 @@ async def freebusy(
     db = _db(request)
     slots = await calendar_service.freebusy(db, user_email, start, end)
     return FreeBusyResponse(user=user_email, slots=slots)
+
+
+# ── Autocompletado de ubicaciones (OpenStreetMap / Photon, sin API key) ──
+
+_PHOTON_URL = "https://photon.komoot.io/api/"
+_PLACES_UA = "MaquitaWebmail/1.0 (gestiontecnologia@maquita.com.ec)"
+
+
+@router.get("/places/autocomplete")
+async def places_autocomplete(
+    request: Request,
+    q: str = Query(..., min_length=2, description="Texto de la ubicacion a buscar"),
+    _current_user: str = Depends(get_current_user),
+):
+    """Autocompletado de ubicaciones via OpenStreetMap (Photon). Gratis, sin API key.
+    Sesga hacia Ecuador (centro Quito) y prioriza lugares de EC."""
+    query = q.strip()
+    if len(query) < 2:
+        return {"suggestions": []}
+
+    cache_key = f"places:photon:{query.lower()}"
+    redis = getattr(request.app.state, "redis", None)
+    if redis is not None:
+        try:
+            cached = await redis.get(cache_key)
+            if cached:
+                return {"suggestions": json.loads(cached)}
+        except Exception:
+            pass
+
+    params = {
+        "q": query, "limit": "6", "lang": "default",
+        "lat": "-0.1807", "lon": "-78.4678",  # Quito (location bias)
+    }
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(6.0)) as client:
+            resp = await client.get(_PHOTON_URL, params=params, headers={"User-Agent": _PLACES_UA})
+            resp.raise_for_status()
+            data = resp.json()
+    except Exception:
+        return {"suggestions": [], "error": "lookup_failed"}
+
+    suggestions = []
+    for feat in data.get("features", []):
+        p = feat.get("properties", {})
+        parts = []
+        for key in ("name", "street", "district", "city", "state", "country"):
+            v = p.get(key)
+            if v and v not in parts:
+                parts.append(v)
+        label = ", ".join(parts)
+        if label:
+            suggestions.append({"label": label, "cc": p.get("countrycode")})
+    suggestions.sort(key=lambda x: 0 if x.get("cc") == "EC" else 1)
+    _seen = set(); _dedup = []
+    for x in suggestions:
+        if x["label"] not in _seen:
+            _seen.add(x["label"]); _dedup.append({"label": x["label"]})
+    suggestions = _dedup[:6]
+
+    if redis is not None and suggestions:
+        try:
+            await redis.set(cache_key, json.dumps(suggestions), ex=86400)
+        except Exception:
+            pass
+    return {"suggestions": suggestions}
 
 
 # ── Calendar Sharing ──────────────────────────────────────

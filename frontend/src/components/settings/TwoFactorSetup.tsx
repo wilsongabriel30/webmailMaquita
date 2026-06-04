@@ -39,7 +39,7 @@ export function TwoFactorSetup() {
   const startSetup = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.post('/api/auth/totp/setup');
+      const res = await api.post('/auth/totp/setup');
       setSetupData(res as SetupData);
       setStep('setup');
     } catch (e: any) {
@@ -53,7 +53,7 @@ export function TwoFactorSetup() {
     if (!verifyCode.trim()) return;
     setLoading(true);
     try {
-      await api.post('/api/auth/totp/verify', { code: verifyCode.trim() });
+      await api.post('/auth/totp/verify', { code: verifyCode.trim() });
       showToast('2FA activado correctamente');
       setStep('backup');
       fetchStatus();
@@ -68,7 +68,7 @@ export function TwoFactorSetup() {
     if (!disableCode.trim()) return;
     setLoading(true);
     try {
-      await api.post('/api/auth/totp/disable', { code: disableCode.trim() });
+      await api.post('/auth/totp/disable', { code: disableCode.trim() });
       showToast('2FA desactivado');
       setSetupData(null);
       setStep('idle');

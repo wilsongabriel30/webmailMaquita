@@ -136,6 +136,7 @@ export function MessageList() {
   const filter = useMailStore(s => s.filter);
   const debouncedSearchQuery = useMailStore(s => s.debouncedSearchQuery);
   const loadingMessages = useMailStore(s => s.loadingMessages);
+  const filterChanging = useMailStore(s => s.filterChanging);
   const setMessages = useMailStore(s => s.setMessages);
   const setLoadingMessages = useMailStore(s => s.setLoadingMessages);
   const setSelectedMessage = useMailStore(s => s.setSelectedMessage);
@@ -151,6 +152,7 @@ export function MessageList() {
   const setLoadingThread = useMailStore(s => s.setLoadingThread);
   const clearThread = useMailStore(s => s.clearThread);
   const folders = useMailStore(s => s.folders);
+  const readingPane = useMailStore(s => s.readingPane);
 
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; msg: MessageSummary } | null>(null);
   const [activeTab, setActiveTab] = useState<'focused' | 'other'>('focused');
@@ -164,21 +166,29 @@ export function MessageList() {
 
   // Initialize notification sound
   useEffect(() => {
-    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const createBeep = () => {
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.frequency.value = 880;
-      osc.type = 'sine';
-      gain.gain.value = 0.08;
-      osc.start();
-      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
-      osc.stop(audioCtx.currentTime + 0.3);
-    };
-    (window as any).__maquitaBeep = createBeep;
-    return () => { audioCtx.close(); };
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const audioCtx = new AudioCtx();
+      const createBeep = () => {
+        try {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.frequency.value = 880;
+          osc.type = 'sine';
+          gain.gain.value = 0.08;
+          osc.start();
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+          osc.stop(audioCtx.currentTime + 0.3);
+        } catch { /* audio not available */ }
+      };
+      (window as any).__maquitaBeep = createBeep;
+      return () => { audioCtx.close(); };
+    } catch {
+      // AudioContext not supported
+    }
   }, []);
 
   const fetch_ = useCallback(() => {
@@ -221,7 +231,7 @@ export function MessageList() {
           }
         } catch {}
       }
-      setLoadingMessages(false);
+      useMailStore.getState().setMessages(useMailStore.getState().messages, useMailStore.getState().totalMessages, useMailStore.getState().currentPage);
     });
   }, [currentFolder, currentPage, debouncedSearchQuery, filter]);
 
@@ -587,7 +597,7 @@ export function MessageList() {
         }}
         onClick={(e) => handleRowClick(msg.uid, idx, e)}
         onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, msg }); }}
-        className={`group relative flex gap-2.5 pl-1 pr-3 ${density === "full" ? "py-[14px]" : density === "medium" ? "py-[10px]" : "py-[6px]"} cursor-pointer border-b border-[#f3f2f1] transition-all ${
+        className={`group relative flex gap-2.5 pl-2 pr-3 ${density === "full" ? "py-[14px]" : density === "medium" ? "py-[10px]" : "py-[6px]"} cursor-pointer border-b border-[#f3f2f1] transition-all ${
           checked ? 'bg-[#deecf9]' : active ? 'bg-[#eff6fc]' : 'hover:bg-[#f3f2f1]'
         }`}>
 
@@ -661,7 +671,7 @@ export function MessageList() {
         </div>
 
         {/* Quick actions on hover */}
-        <div className="hidden group-hover:flex items-start gap-0.5 absolute right-2 top-1 bg-[#f3f2f1] rounded shadow-sm border border-[#e1dfdd] p-0.5">
+        <div className="hidden group-hover:flex max-md:hidden items-start gap-0.5 absolute right-2 top-1 bg-[#f3f2f1] rounded shadow-sm border border-[#e1dfdd] p-0.5">
           <QA icon={deleteIcon} title="Eliminar" onClick={e => { e.stopPropagation(); quickAction(msg.uid, currentFolder === 'Trash' ? 'delete' : 'move', 'Trash'); }} />
           <QA icon={archiveIcon} title="Archivar" onClick={e => { e.stopPropagation(); quickAction(msg.uid, 'archive'); }} />
           <QA icon={unreadIcon} title={msg.seen ? 'No leído' : 'Leído'}
@@ -723,10 +733,14 @@ export function MessageList() {
   };
 
   return (
-    <div className="message-list-container w-[360px] min-w-[260px] border-r border-[#edebe9] flex flex-col shrink-0 bg-white">
+    <div className={`message-list-container flex flex-col bg-white ${
+        readingPane === "off" || readingPane === "fullscreen" || readingPane === "popout"
+          ? "w-full min-w-0"
+          : "w-[360px] min-w-[260px] shrink-0 border-r border-[#edebe9]"
+      } max-md:w-full max-md:min-w-0 max-md:border-r-0`}>
       {/* Header with tabs */}
       <div className="border-b border-[#edebe9]">
-        <div className="flex items-center px-3 pt-2 gap-1.5">
+        <div className="flex flex-wrap items-center px-3 pt-2 gap-1.5">
           <input type="checkbox"
             checked={selectedUids.size > 0 && selectedUids.size === filtered.length}
             ref={(el) => { if (el) el.indeterminate = selectedUids.size > 0 && selectedUids.size < filtered.length; }}
@@ -740,9 +754,9 @@ export function MessageList() {
             }}
             className="w-4 h-4 shrink-0 rounded border-[#c8c6c4] text-[#0078d4] cursor-pointer accent-[#0078d4]"
             title="Seleccionar todos" />
-          <h2 className="text-[14px] font-semibold text-[#323130] cursor-pointer hover:text-[#0078d4] transition-colors whitespace-nowrap" onClick={() => { const s = useMailStore.getState(); if (s.filter !== 'all') s.setFilter('all'); setActiveTab('focused'); }}>{folderLabel}</h2>
+          <h2 className="text-[14px] font-semibold text-[#323130] cursor-pointer hover:text-[#0078d4] transition-colors truncate max-w-[120px] sm:max-w-none sm:whitespace-nowrap" onClick={() => { const s = useMailStore.getState(); if (s.filter !== 'all') s.setFilter('all'); setActiveTab('focused'); }}>{folderLabel}</h2>
           <div className="flex-1" />
-          <div className="flex items-center shrink-0 bg-[#f3f2f1] rounded-md p-0.5">
+          <div className="flex items-center bg-[#f3f2f1] rounded-md p-0.5">
             {(['all','unread','flagged'] as const).map(f => (
               <button key={f} onClick={() => useMailStore.getState().setFilter(f)}
                 className={`px-2 py-0.5 text-[11px] rounded cursor-pointer transition-colors whitespace-nowrap ${
@@ -853,8 +867,8 @@ export function MessageList() {
       )}
 
       {/* List */}
-      <div className="flex-1 overflow-y-auto">
-        {loadingMessages ? (
+      <div className="flex-1 overflow-y-auto relative">
+        {loadingMessages && !filterChanging ? (
           Array.from({length:12}).map((_,i) => (
             <div key={i} className="animate-pulse flex gap-2.5 px-4 py-[6px] border-b border-[#f3f2f1]">
               <div className="w-[32px] h-[32px] bg-[#e1dfdd] rounded-full shrink-0 mt-0.5" />
@@ -865,6 +879,11 @@ export function MessageList() {
               </div>
             </div>
           ))
+        ) : filterChanging ? (
+          <div className="flex flex-col items-center justify-center h-40">
+            <div className="w-5 h-5 border-2 border-[#0078d4] border-t-transparent rounded-full animate-spin" />
+            <p className="text-[12px] text-[#a19f9d] mt-2">Cargando...</p>
+          </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-40 text-[#a19f9d]">
             <svg className="w-10 h-10 mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -32,6 +32,7 @@ interface MailState {
   searchQuery: string;
   debouncedSearchQuery: string;
   filter: Filter;
+  filterChanging: boolean;
   // View
   viewMode: ViewMode;
   readingPane: 'right' | 'bottom' | 'off' | 'fullscreen' | 'popout';
@@ -102,6 +103,7 @@ export const useMailStore = create<MailState>((set, get) => ({
   searchQuery: '',
   debouncedSearchQuery: '',
   filter: 'all',
+  filterChanging: false,
   viewMode: "messages",
   readingPane: 'right',
   density: 'compact' as const,
@@ -130,14 +132,14 @@ export const useMailStore = create<MailState>((set, get) => ({
       threadMessages: [],
     });
   },
-  setMessages: (messages, total, page) => set({ messages, totalMessages: total, currentPage: page, loadingMessages: false }),
+  setMessages: (messages, total, page) => set({ messages, totalMessages: total, currentPage: page, loadingMessages: false, filterChanging: false }),
   setSelectedMessage: (msg) => set({ selectedMessage: msg, loadingMessage: false, composeWindows: msg ? get().composeWindows.map(w => w.minimized ? w : { ...w, minimized: true }) : get().composeWindows }),
   setLoadingFolders: (v) => set({ loadingFolders: v }),
   setLoadingMessages: (v) => set({ loadingMessages: v }),
   setLoadingMessage: (v) => set({ loadingMessage: v }),
   setSearchQuery: (q) => set({ searchQuery: q, currentPage: 1 }),
   setDebouncedSearchQuery: (q: string) => set({ debouncedSearchQuery: q }),
-  setFilter: (f) => { if (f === get().filter) return; set({ filter: f, currentPage: 1, messages: [], loadingMessages: true }); },
+  setFilter: (f) => { if (f === get().filter) return; set({ filter: f, currentPage: 1, filterChanging: true }); },
   setViewMode: (m) => set({ viewMode: m }),
   toggleSelection: (uid) => {
     const s = new Set(get().selectedUids);
@@ -190,6 +192,7 @@ export const useMailStore = create<MailState>((set, get) => ({
     searchQuery: '',
     debouncedSearchQuery: '',
     filter: 'all' as const,
+    filterChanging: false,
     threadMessages: [],
     threadExpanded: new Set(),
     loadingThread: false,
