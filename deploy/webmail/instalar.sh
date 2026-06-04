@@ -213,6 +213,9 @@ INSERT INTO domain(domain,description) VALUES('${DOMAIN}','dominio principal')
 INSERT INTO mailbox(username,password,name,maildir,local_part,domain,active)
   VALUES('demo@${DOMAIN}','${DEMO_HASH}','Demo','${DOMAIN}/demo/','demo','${DOMAIN}',true)
   ON CONFLICT (username) DO UPDATE SET password=EXCLUDED.password;
+-- El buzón demo queda como administrador para poder entrar al panel /admin
+INSERT INTO admin(username,superadmin,active) VALUES('demo@${DOMAIN}',true,true)
+  ON CONFLICT (username) DO UPDATE SET superadmin=true, active=true;
 SQL
 
 # --- 14. Iniciar + verificar ---
@@ -234,9 +237,14 @@ echo "  Backend /api/health : ${HEALTH}"
 echo "  Login buzón demo    : $([ "$AUTH_DEMO" = "1" ] && echo OK || echo FALLO)"
 echo "  Login usuario maestro: $([ "$AUTH_MASTER" = "1" ] && echo OK || echo FALLO)"
 echo ""
-echo -e "${YELLOW}BUZÓN DE PRUEBA:${NC}"
+echo -e "${YELLOW}BUZÓN DE PRUEBA (es ADMINISTRADOR):${NC}"
 echo "  Usuario:  demo@${DOMAIN}"
 echo "  Clave:    ${DEMO_PASS}"
+echo "  → Inicia sesión en el webmail y abre el panel de administración:"
+echo "    gestión de dominios, buzones y alias, auditoría, colas, anti-spam,"
+echo "    disclaimers, cumplimiento/eDiscovery y más."
+echo "  Para hacer admin a otro usuario:"
+echo "    INSERT INTO admin(username,superadmin,active) VALUES('correo@${DOMAIN}',true,true);"
 echo ""
 echo -e "${YELLOW}CREDENCIALES GENERADAS (guardar en lugar seguro):${NC}"
 echo "  DB password:      ${DB_PASS}"

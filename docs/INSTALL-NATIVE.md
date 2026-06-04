@@ -110,8 +110,17 @@ sudo -u postgres psql -d maildb -c \
  "INSERT INTO domain(domain) VALUES ('example.com');"
 HASH=$(doveadm pw -s SSHA512 -p 'ClaveUsuario123')
 sudo -u postgres psql -d maildb -c \
- "INSERT INTO mailbox(username,password,domain,maildir) \
-  VALUES ('user@example.com','$HASH','example.com','example.com/user/');"
+ "INSERT INTO mailbox(username,password,domain,maildir,local_part) \
+  VALUES ('user@example.com','$HASH','example.com','example.com/user/','user');"
+```
+
+Marca ese buzón como **administrador** del panel (gestión de dominios, buzones,
+auditoría, eDiscovery, colas, anti-spam, etc.):
+
+```bash
+sudo -u postgres psql -d maildb -c \
+ "INSERT INTO admin(username,superadmin,active) VALUES ('user@example.com',true,true) \
+  ON CONFLICT (username) DO UPDATE SET superadmin=true, active=true;"
 ```
 
 ## 3. Dovecot — usuarios virtuales + usuario maestro

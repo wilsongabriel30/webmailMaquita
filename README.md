@@ -200,6 +200,29 @@ Si prefieres entender cada componente o adaptarlo, sigue la guía completa:
 | Node | 20 | Compilación del frontend (Vite) |
 | nginx | 1.24+ | Proxy inverso con TLS |
 
+## Panel de administración
+
+El webmail incluye un **panel de administración integrado** (no requiere instalar
+nada aparte). El instalador deja el buzón `demo@tudominio` como **administrador**;
+inicia sesión con él y tendrás acceso a funciones avanzadas:
+
+- Gestión de **dominios, buzones y alias** (crear, editar, activar/desactivar, desbloquear)
+- **Auditoría** (39 tipos de evento) y **eDiscovery / retención legal**
+- **Colas de correo** y trazas (Postfix ↔ Rspamd ↔ Dovecot ↔ acciones de usuario)
+- **Anti-spam** (listas negras/grises de dominios), **disclaimers** por dominio
+- **Seguridad**: desbloqueo de cuentas, reenvíos aprobados, RBAC (5 roles)
+
+**Hacer administrador a otro usuario** (el usuario debe tener buzón en `mailbox`):
+
+```sql
+INSERT INTO admin(username, superadmin, active)
+VALUES ('correo@tudominio.com', true, true)
+ON CONFLICT (username) DO UPDATE SET superadmin = true, active = true;
+```
+
+El acceso al panel se concede consultando la tabla `admin`; el inicio de sesión
+se hace con el buzón normal (no hay una contraseña de admin aparte).
+
 ## Sincronización con móviles (Z-Push / ActiveSync) — opcional
 
 El **único** componente que usa Docker. Permite sincronizar correo, calendario y
