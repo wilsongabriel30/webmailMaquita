@@ -117,7 +117,18 @@ export function ContactForm({ initial, onSave, onCancel, saving, title }: Props)
   });
 
   const set = useCallback((key: keyof ContactFormData, val: string) => {
-    setForm(prev => ({ ...prev, [key]: val }));
+    setForm(prev => {
+      const next = { ...prev, [key]: val };
+      // Autocalcular "Nombre para mostrar" = Nombre + Apellido, mientras el
+      // usuario no lo haya personalizado (vacio o igual al auto-generado).
+      if (key === 'first_name' || key === 'last_name') {
+        const prevAuto = `${prev.first_name} ${prev.last_name}`.trim();
+        if (!prev.display_name || prev.display_name === prevAuto) {
+          next.display_name = `${next.first_name} ${next.last_name}`.trim();
+        }
+      }
+      return next;
+    });
   }, []);
 
   const toggleSection = useCallback((id: string) => {
