@@ -1,5 +1,6 @@
 import { useMailStore } from "../../store/mailStore";
-import React, { useState, useRef, useLayoutEffect, type ReactNode } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, type ReactNode } from 'react';
+import { api } from '../../api/client';
 import type { Editor } from '@tiptap/react';
 import { showToast } from '../common/Toast';
 import { createPortal } from 'react-dom';
@@ -26,7 +27,7 @@ interface Props {
   onImportanceChange?: (v: 'normal' | 'high' | 'low') => void;
   importance?: 'normal' | 'high' | 'low';
   onSaveDraft?: () => void;
-  onInsertSignature?: () => void;
+  onInsertSignature?: (html?: string) => void;
   onDownloadDraft?: () => void;
   // Callbacks preparados para backends externos
   onDictate?: () => void;             // → VM 170 (ia-maquita) Whisper STT
@@ -372,10 +373,59 @@ function mkImageHandler(editor: Editor, _imgRef: React.RefObject<HTMLInputElemen
 }
 
 /* ========== MESSAGE TAB ========== */
+interface SigItem { id: number; name: string; html_content: string; is_default: boolean; }
+
+// Menu desplegable del boton Firma: lista las firmas creadas por el usuario
+// (Configuracion -> Firmas) y permite SELECCIONAR cual aplicar. Reemplaza la
+// firma actual, no agrega una nueva.
+function SignatureMenu({ onSelect, size }: { onSelect?: (html?: string) => void; size: 'med' | 'large' }) {
+  const [open, setOpen] = useState(false);
+  const [sigs, setSigs] = useState<SigItem[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => {
+    if (open && !loaded) {
+      api.get<SigItem[]>('/settings/signatures')
+        .then((r) => setSigs(r || []))
+        .catch(() => {})
+        .finally(() => setLoaded(true));
+    }
+  }, [open, loaded]);
+  const icon = <SvgI d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" s={size === 'large' ? 22 : 16} />;
+  return (
+    <div className="relative">
+      {size === 'large'
+        ? <LargeBtn icon={icon} label="Firma" onClick={() => setOpen(!open)} hasDropdown />
+        : <MedBtn icon={icon} label="Firma" onClick={() => setOpen(!open)} hasDropdown />}
+      {open && (
+        <>
+          <div className="fixed inset-0 z-[190]" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 top-full mt-1 w-[240px] bg-white rounded shadow-lg border border-[#edebe9] z-[200] py-1 max-h-[320px] overflow-auto">
+            <div className="px-3 py-1 text-[11px] font-semibold text-[#605e5c] uppercase tracking-wide">Mis firmas</div>
+            {loaded && sigs.length === 0 && (
+              <div className="px-3 py-2 text-[12px] text-[#605e5c]">No tienes firmas. Crea una en Configuracion &rarr; Firmas.</div>
+            )}
+            {sigs.map((sg) => (
+              <button key={sg.id} onClick={() => { onSelect?.(sg.html_content); setOpen(false); }}
+                className="w-full text-left px-3 py-[6px] text-[13px] hover:bg-[#f3f2f1] flex items-center justify-between gap-2">
+                <span className="truncate">{sg.name}</span>
+                {sg.is_default && <span className="text-[10px] text-[#0078d4] flex-shrink-0">predet.</span>}
+              </button>
+            ))}
+            <div className="border-t border-[#edebe9] mt-1 pt-1">
+              <button onClick={() => { onSelect?.(''); setOpen(false); }}
+                className="w-full text-left px-3 py-[6px] text-[12px] text-[#a4262c] hover:bg-[#f3f2f1]">Quitar firma</button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function MessageTab({ editor, onAttach, onImportanceChange, importance, onSaveDraft, onInsertSignature, onDownloadDraft, onDictate, onOpenApps, ...rest }: {
   editor: Editor; onAttach?: () => void;
   onImportanceChange?: (v: 'normal' | 'high' | 'low') => void; importance?: string;
-  onSaveDraft?: () => void; onInsertSignature?: () => void; onDownloadDraft?: () => void;
+  onSaveDraft?: () => void; onInsertSignature?: (html?: string) => void; onDownloadDraft?: () => void;
   onDictate?: () => void; onOpenApps?: () => void; onReviewEditor?: () => void; onCheckAccessibility?: () => void; onImproveWriting?: () => void;
 }) {
 
@@ -461,7 +511,7 @@ function MessageTab({ editor, onAttach, onImportanceChange, importance, onSaveDr
           <div className="flex items-center gap-[2px]">
             <MedBtn icon={<SvgI d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" s={16} />} label="Adjuntar" onClick={() => onAttach?.()} hasDropdown />
             <MedBtn icon={<SvgI d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" s={16} />} label="Vincular" onClick={() => doLink(editor)} />
-            <MedBtn icon={<SvgI d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" s={16} />} label="Firma" onClick={() => onInsertSignature?.()} hasDropdown />
+            <SignatureMenu onSelect={onInsertSignature} size="med" />
           </div>
           <div className="flex items-center gap-[2px]">
             <MedBtn icon={<SvgI d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" s={16} />} label="Imágenes" onClick={() => imgRef.current?.click()} />
@@ -542,7 +592,7 @@ function MessageTab({ editor, onAttach, onImportanceChange, importance, onSaveDr
 }
 
 /* ========== INSERT TAB ========== */
-function InsertTab({ editor, onAttach, onInsertSignature, onOpenApps }: { editor: Editor; onAttach?: () => void; onInsertSignature?: () => void; onOpenApps?: () => void }) {
+function InsertTab({ editor, onAttach, onInsertSignature, onOpenApps }: { editor: Editor; onAttach?: () => void; onInsertSignature?: (html?: string) => void; onOpenApps?: () => void }) {
 
   const [showTblGrid, setShowTblGrid] = useState(false);
   const imgRef = useRef<HTMLInputElement>(null);
@@ -556,7 +606,7 @@ function InsertTab({ editor, onAttach, onInsertSignature, onOpenApps }: { editor
         <div className="flex items-center gap-[3px]">
           <LargeBtn icon={<SvgI d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" s={22} />} label={"Adjuntar\narchivo"} onClick={() => onAttach?.()} hasDropdown />
           <LargeBtn icon={<SvgI d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" s={22} />} label="Vincular" onClick={() => doLink(editor)} />
-          <LargeBtn icon={<SvgI d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" s={22} />} label="Firma" onClick={() => onInsertSignature?.()} hasDropdown />
+          <SignatureMenu onSelect={onInsertSignature} size="large" />
           <LargeBtn icon={<SvgI d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" s={22} />} label="Imágenes" onClick={() => imgRef.current?.click()} />
           <div className="relative" ref={emojiAnchorRef}>
             <LargeBtn icon={<span className="text-[20px]">&#128578;</span>} label="Emoji" onClick={() => setShowEmoji(!showEmoji)} />

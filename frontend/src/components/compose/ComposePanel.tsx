@@ -420,7 +420,13 @@ export function ComposePanel({ win }: Props) {
     setAttachments(prev => [...prev, ...newFiles]);
   }, []);
 
-  const insertSignature = useCallback(async () => {
+  const insertSignature = useCallback(async (html?: string) => {
+    // Seleccion desde el menu de firmas: aplica ESA firma (reemplaza, no duplica).
+    if (html !== undefined) {
+      setSignatureHtml(html);
+      showToast(html ? 'Firma aplicada' : 'Firma quitada');
+      return;
+    }
     // Si la firma ya esta puesta, llevamos el foco a ella para EDITARLA
     // (no se agrega una segunda firma).
     if (signatureHtml) {
