@@ -203,3 +203,21 @@ Usa `imapsync` para copiar todos los correos preservando carpetas, fechas y flag
 ---
 
 *Fundacion Maquita — Tecnología al servicio de todos, no solo de quienes pueden pagarla.*
+
+
+## Pantalla en blanco: "Failed to find a valid digest in the integrity attribute"
+
+**Causa:** se editó a mano un archivo JavaScript ya compilado en `dist/`. El build
+usa SRI (Subresource Integrity): `index.html` guarda un hash de cada `.js`, y al
+modificar el `.js` el hash deja de coincidir, por lo que el navegador bloquea el
+archivo y no carga nada.
+
+**Solución:** no parchees nunca el `dist/`. Corrige el **código fuente** (`src/`) y
+reconstruye:
+
+```bash
+cd frontend && npx vite build            # webmail
+cd admin-panel/frontend && npx vite build # panel
+```
+
+Al reconstruir, los hashes de integridad se recalculan y la app vuelve a cargar.

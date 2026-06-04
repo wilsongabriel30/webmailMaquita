@@ -282,6 +282,30 @@ cat README.md      # instrucciones de configuración
 bash instalar.sh
 ```
 
+## Actualizar a una nueva versión
+
+Cuando publiquemos mejoras, actualiza así (en el servidor, en `/opt/maquita-webmail`):
+
+```bash
+git pull
+# Reconstruye los frontends desde el código fuente (NO edites la carpeta dist a mano)
+cd frontend            && npm ci && npx vite build && cd ..
+cd admin-panel/frontend && npm ci && npx vite build && cd ../..
+# Reinstala dependencias del backend si cambiaron y reinicia los servicios
+cd backend && ./venv/bin/pip install -r requirements.txt && cd ..
+cd admin-panel/backend && ./venv/bin/pip install -r requirements.txt && cd ../..
+# Aplica el esquema por si hay tablas nuevas (idempotente)
+for f in migrations/*.sql; do sudo -u postgres psql -d maildb -f "$f"; done
+systemctl restart maquita-webmail maquita-admin
+```
+
+> ⚠️ **Nunca edites los archivos ya compilados de `dist/` directamente.** El build
+> usa **SRI (Subresource Integrity)**: el `index.html` lleva un hash de cada `.js`.
+> Si modificas el `.js` compilado, el hash deja de cuadrar y el navegador muestra
+> **pantalla en blanco** con `Failed to find a valid digest in the integrity
+> attribute`. Cambia siempre el **código fuente** (`src/`) y **reconstruye** con
+> `vite build` — así el hash se recalcula solo.
+
 ## Variables de entorno
 
 Copia `.env.example` a `.env` y revísalo. Las variables coinciden 1:1 con
