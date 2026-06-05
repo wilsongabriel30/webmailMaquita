@@ -40,9 +40,11 @@ interface MailState {
   showMyDay: boolean;
   setShowMyDay: (v: boolean) => void;
   previewLines: 1 | 2 | 3;
+  messageListWidth: number;
   setDensity: (d: 'compact' | 'medium' | 'full') => void;
   setPreviewLines: (lines: 1 | 2 | 3) => void;
   setReadingPane: (p: 'right' | 'bottom' | 'off') => void;
+  setMessageListWidth: (w: number) => void;
   // Compose — multiple drafts
   composeWindows: DraftWindow[];
   // Threading
@@ -110,10 +112,16 @@ export const useMailStore = create<MailState>((set, get) => ({
   density: 'compact' as const,
   showMyDay: false,
   previewLines: 1,
+  messageListWidth: (typeof window !== 'undefined' && Number(localStorage.getItem('maquita_list_width'))) || 360,
   setDensity: (d: any) => set({ density: d }),
   setShowMyDay: (v) => set({ showMyDay: v }),
   setPreviewLines: (lines: any) => set({ previewLines: lines }),
   setReadingPane: (p: any) => set({ readingPane: p }),
+  setMessageListWidth: (w: number) => {
+    const clamped = Math.max(260, Math.min(720, Math.round(w)));
+    try { localStorage.setItem('maquita_list_width', String(clamped)); } catch { /* ignore */ }
+    set({ messageListWidth: clamped });
+  },
   composeWindows: [],
   threadMessages: [],
   threadExpanded: new Set(),

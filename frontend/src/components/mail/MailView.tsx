@@ -232,6 +232,36 @@ function MyDayPanel({ onClose }: { onClose: () => void }) {
   );
 }
 
+// Divisor arrastrable entre la lista de mensajes y el panel de lectura.
+// Al arrastrarlo cambia el ancho de la lista; el panel de la derecha (flex-1)
+// se ajusta solo, asi el correo abierto se ve mas ancho o mas angosto.
+function ListResizeHandle() {
+  const setMessageListWidth = useMailStore(s => s.setMessageListWidth);
+  const onMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = useMailStore.getState().messageListWidth;
+    const onMove = (ev: MouseEvent) => setMessageListWidth(startW + (ev.clientX - startX));
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+  return (
+    <div
+      onMouseDown={onMouseDown}
+      title="Arrastra para ajustar el ancho de la lista"
+      className="w-[5px] shrink-0 cursor-col-resize bg-transparent hover:bg-[#0078d4]/40 active:bg-[#0078d4]/60 transition-colors max-md:hidden"
+    />
+  );
+}
+
 export function MailView() {
   const composeWindows = useMailStore(s => s.composeWindows);
   const restoreCompose = useMailStore(s => s.restoreCompose);
@@ -273,6 +303,7 @@ export function MailView() {
         /* ── DERECHA: lista izquierda + lectura/compose derecha (default Outlook) ── */
         <div className="flex-1 flex overflow-hidden min-h-0">
           <MessageList />
+          <ListResizeHandle />
           <div className="flex-1 min-w-0 flex flex-col">
             {activeCompose ? (
               <ComposePanel key={activeCompose.id} win={activeCompose} />

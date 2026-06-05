@@ -153,6 +153,7 @@ export function MessageList() {
   const setLoadingThread = useMailStore(s => s.setLoadingThread);
   const clearThread = useMailStore(s => s.clearThread);
   const folders = useMailStore(s => s.folders);
+  const messageListWidth = useMailStore(s => s.messageListWidth);
   // Mensajes fijados con chincheta (localStorage): se muestran al inicio.
   const [pinnedSet, setPinnedSet] = useState<Set<string>>(() => getPinnedSet());
   useEffect(() => {
@@ -754,10 +755,12 @@ export function MessageList() {
   };
 
   return (
-    <div className={`message-list-container flex flex-col bg-white ${
+    <div
+      style={(readingPane === "off" || readingPane === "fullscreen" || readingPane === "popout") ? undefined : { width: messageListWidth }}
+      className={`message-list-container flex flex-col bg-white ${
         readingPane === "off" || readingPane === "fullscreen" || readingPane === "popout"
           ? "w-full min-w-0"
-          : "w-[360px] min-w-[260px] shrink-0 border-r border-[#edebe9]"
+          : "min-w-[260px] shrink-0 border-r border-[#edebe9]"
       } max-md:w-full max-md:min-w-0 max-md:border-r-0`}>
       {/* Header with tabs */}
       <div className="border-b border-[#edebe9]">
