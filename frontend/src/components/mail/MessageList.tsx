@@ -154,6 +154,7 @@ export function MessageList() {
   const clearThread = useMailStore(s => s.clearThread);
   const folders = useMailStore(s => s.folders);
   const messageListWidth = useMailStore(s => s.messageListWidth);
+  const loadingMore = useMailStore(s => s.loadingMore);
   // Mensajes fijados con chincheta (localStorage): se muestran al inicio.
   const [pinnedSet, setPinnedSet] = useState<Set<string>>(() => getPinnedSet());
   useEffect(() => {
@@ -171,6 +172,8 @@ export function MessageList() {
   const [spamResults, setSpamResults] = useState<{ uid: number; score: number; reasons: string[] }[]>([]);
   const lastClickIdx = useRef<number>(-1);
   const prevTotalRef = useRef<number>(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
   const { priorityMap, loading: priorityLoading, fetchPriority, reclassify } = usePriority();
 
   // Initialize notification sound
@@ -205,7 +208,7 @@ export function MessageList() {
     // Show loading skeleton on first load or when messages are empty (folder change)
     const state = useMailStore.getState();
     if (state.messages.length === 0 && !state.loadingMessages) setLoadingMessages(true);
-    const p = new URLSearchParams({ page: String(currentPage), per_page: '50' });
+    const p = new URLSearchParams({ page: '1', per_page: String(50 * currentPage) });
     if (debouncedSearchQuery) p.set('search', debouncedSearchQuery);
     // Send filter to backend so IMAP does server-side SEARCH UNSEEN/FLAGGED
     if (filter === 'unread') p.set('is_unread', 'true');
@@ -264,6 +267,18 @@ export function MessageList() {
 
   useEffect(() => { fetch_(); }, [fetch_]);
   useEffect(() => { const h=()=>fetch_(); window.addEventListener('refresh-messages',h); return ()=>window.removeEventListener('refresh-messages',h); }, [fetch_]);
+  // Scroll infinito: cuando el centinela del final entra en vista, cargamos la
+  // siguiente tanda (fetch_ recarga con per_page mayor, manteniendo el scroll).
+  useEffect(() => {
+    const sentinel = loadMoreRef.current;
+    const root = scrollRef.current;
+    if (!sentinel || !root) return;
+    const obs = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) useMailStore.getState().loadMore();
+    }, { root, rootMargin: '300px' });
+    obs.observe(sentinel);
+    return () => obs.disconnect();
+  }, [messages.length, totalMessages, loadingMessages]);
   usePolling(fetch_, 120000, true);
 
   // Fetch priority classification for INBOX
@@ -891,7 +906,7 @@ export function MessageList() {
       )}
 
       {/* List */}
-      <div className="flex-1 overflow-y-auto relative">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto relative">
         {loadingMessages && !filterChanging ? (
           Array.from({length:12}).map((_,i) => (
             <div key={i} className="animate-pulse flex gap-2.5 px-4 py-[6px] border-b border-[#f3f2f1]">
@@ -921,17 +936,13 @@ export function MessageList() {
         ) : (
           filtered.map((msg, idx) => renderMessageRow(msg, idx))
         )}
+        {/* Centinela de scroll infinito */}
+        {!loadingMessages && filtered.length > 0 && messages.length < totalMessages && (
+          <div ref={loadMoreRef} className="py-4 flex justify-center">
+            {loadingMore && <div className="w-4 h-4 border-2 border-[#0078d4] border-t-transparent rounded-full animate-spin" />}
+          </div>
+        )}
       </div>
-
-      {totalPages > 1 && (
-        <div className="px-3 py-1.5 border-t border-[#edebe9] flex items-center justify-between text-[11px] text-[#605e5c]">
-          <button disabled={currentPage<=1} onClick={() => useMailStore.getState().setPage(currentPage-1)}
-            className="px-2 py-0.5 rounded hover:bg-[#e1dfdd] disabled:opacity-30">Anterior</button>
-          <span>{currentPage} de {totalPages}</span>
-          <button disabled={currentPage>=totalPages} onClick={() => useMailStore.getState().setPage(currentPage+1)}
-            className="px-2 py-0.5 rounded hover:bg-[#e1dfdd] disabled:opacity-30">Siguiente</button>
-        </div>
-      )}
 
       {ctxMenu && <ContextMenu x={ctxMenu.x} y={ctxMenu.y} items={getCtxItems(ctxMenu.msg)} onClose={() => setCtxMenu(null)} />}
     </div>

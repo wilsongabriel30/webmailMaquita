@@ -92,8 +92,8 @@ async def get_messages(
     username: str = Depends(get_current_user),
 ):
     _validate_folder(folder)
-    if per_page > 100:
-        per_page = 100
+    if per_page > 300:
+        per_page = 300
     search_query = _build_unified_search(
         search, q_from, q_to, q_subject, has_attachment,
         date_from, date_to, is_unread, is_flagged,

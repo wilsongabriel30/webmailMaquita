@@ -23,6 +23,7 @@ interface MailState {
   totalMessages: number;
   currentPage: number;
   loadingMessages: boolean;
+  loadingMore: boolean;
   // Selected
   selectedMessage: MessageFull | null;
   loadingMessage: boolean;
@@ -59,7 +60,8 @@ interface MailState {
   // Actions
   setFolders: (folders: Folder[]) => void;
   setCurrentFolder: (folder: string) => void;
-  setMessages: (messages: MessageSummary[], total: number, page: number) => void;
+  setMessages: (messages: MessageSummary[], total: number, page?: number) => void;
+  loadMore: () => void;
   setSelectedMessage: (msg: MessageFull | null) => void;
   setLoadingFolders: (v: boolean) => void;
   setLoadingMessages: (v: boolean) => void;
@@ -99,6 +101,7 @@ export const useMailStore = create<MailState>((set, get) => ({
   totalMessages: 0,
   currentPage: 1,
   loadingMessages: false,
+  loadingMore: false,
   selectedMessage: null,
   loadingMessage: false,
   selectedUids: new Set(),
@@ -141,7 +144,7 @@ export const useMailStore = create<MailState>((set, get) => ({
       threadMessages: [],
     });
   },
-  setMessages: (messages, total, page) => set({ messages, totalMessages: total, currentPage: page, loadingMessages: false, filterChanging: false }),
+  setMessages: (messages, total) => set({ messages, totalMessages: total, loadingMessages: false, loadingMore: false, filterChanging: false }),
   setSelectedMessage: (msg) => set({ selectedMessage: msg, loadingMessage: false, composeWindows: msg ? get().composeWindows.map(w => w.minimized ? w : { ...w, minimized: true }) : get().composeWindows }),
   setLoadingFolders: (v) => set({ loadingFolders: v }),
   setLoadingMessages: (v) => set({ loadingMessages: v }),
@@ -159,6 +162,15 @@ export const useMailStore = create<MailState>((set, get) => ({
   clearSelection: () => set({ selectedUids: new Set() }),
   setActiveIndex: (i) => set({ activeIndex: i }),
   setPage: (page) => set({ currentPage: page, loadingMessages: true }),
+  loadMore: () => {
+    const st = get();
+    const maxPages = Math.ceil(st.totalMessages / 50);
+    if (st.loadingMore || st.loadingMessages) return;
+    if (st.currentPage >= maxPages) return;        // ya se cargaron todas las tandas
+    if (st.currentPage >= 6) return;               // tope de 300 msgs por scroll (cap del backend)
+    if (st.messages.length >= st.totalMessages) return;
+    set({ currentPage: st.currentPage + 1, loadingMore: true });
+  },
 
   // Compose — multiple windows
   openCompose: (mode, data) => {
