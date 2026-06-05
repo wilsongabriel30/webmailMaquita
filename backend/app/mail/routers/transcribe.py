@@ -23,33 +23,39 @@ async def _voice_config(request: Request):
     url = os.getenv("WHISPER_URL", "")
     key = os.getenv("WHISPER_API_KEY", "")
     lang = os.getenv("WHISPER_LANGUAGE", "es")
+    mode = os.getenv("WHISPER_MODE", "whisper")
     enabled = bool(url)
     try:
         pool = request.app.state.db_pool
         row = await pool.fetchrow(
-            "SELECT whisper_url, whisper_key, language, enabled FROM voice_config WHERE id = 1")
+            "SELECT whisper_url, whisper_key, language, mode, enabled FROM voice_config WHERE id = 1")
         if row:
             url = row["whisper_url"] or url
             key = row["whisper_key"] or key
             lang = row["language"] or lang
+            mode = row["mode"] or mode
             enabled = row["enabled"]
     except Exception:
         pass
-    return url.rstrip("/"), key, lang, enabled
+    return url.rstrip("/"), key, lang, mode, enabled
 
 
 @router.get("/transcribe/health")
 async def transcribe_health(request: Request, username: str = Depends(get_current_user)):
     """¿Está habilitado y disponible el dictado por voz?"""
-    url, key, _lang, enabled = await _voice_config(request)
-    if not enabled or not url:
-        return {"enabled": False, "available": False}
+    url, key, _lang, mode, enabled = await _voice_config(request)
+    if not enabled:
+        return {"enabled": False, "available": False, "mode": mode}
+    if mode == "browser":
+        return {"enabled": True, "available": True, "mode": "browser"}
+    if not url:
+        return {"enabled": False, "available": False, "mode": mode}
     try:
         async with httpx.AsyncClient(timeout=5, verify=False) as c:
             r = await c.get(f"{url}/health")
-            return {"enabled": True, "available": r.status_code == 200}
+            return {"enabled": True, "available": r.status_code == 200, "mode": mode}
     except Exception:
-        return {"enabled": True, "available": False}
+        return {"enabled": True, "available": False, "mode": mode}
 
 
 @router.post("/transcribe")
@@ -58,7 +64,7 @@ async def transcribe(request: Request, audio: UploadFile = File(...),
                      username: str = Depends(get_current_user)):
     """Recibe el audio del compositor y lo transcribe en el servidor Whisper
     configurado. Devuelve {success, text}."""
-    url, key, lang, enabled = await _voice_config(request)
+    url, key, lang, mode, enabled = await _voice_config(request)
     if not enabled or not url:
         raise HTTPException(503, "El dictado por voz no está configurado. Actívalo en el panel de administración.")
     data = await audio.read()

@@ -4,6 +4,7 @@ import { api } from "../api/client";
 interface VoiceCfg {
   whisper_url: string;
   language: string;
+  mode: string;
   enabled: boolean;
   has_key?: boolean;
 }
@@ -12,7 +13,7 @@ const inputCls = "w-full px-3 py-2 border border-ms-gray-30 rounded text-sm";
 const labelCls = "block text-sm font-medium text-ms-gray-130 mb-1";
 
 export function VoiceConfig() {
-  const [cfg, setCfg] = useState<VoiceCfg>({ whisper_url: "", language: "es", enabled: false });
+  const [cfg, setCfg] = useState<VoiceCfg>({ whisper_url: "", language: "es", mode: "whisper", enabled: false });
   const [key, setKey] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -61,6 +62,20 @@ export function VoiceConfig() {
             onChange={(e) => setCfg({ ...cfg, enabled: e.target.checked })} />
           Habilitar el dictado por voz
         </label>
+
+        <div>
+          <label className={labelCls}>Motor de transcripción</label>
+          <select className={inputCls} value={cfg.mode}
+            onChange={(e) => setCfg({ ...cfg, mode: e.target.value })}>
+            <option value="whisper">Whisper — privado, en tu servidor (recomendado)</option>
+            <option value="browser">Navegador — streaming en vivo (usa Google · solo Chrome/Edge)</option>
+          </select>
+          <p className="text-xs text-ms-gray-110 mt-1">
+            {cfg.mode === "browser"
+              ? "El texto aparece mientras hablas; el audio pasa por servidores de Google."
+              : "Pulsas, hablas y al callar se escribe solo. Todo queda en tu infraestructura (no usa terceros)."}
+          </p>
+        </div>
 
         <div>
           <label className={labelCls}>URL del servidor Whisper</label>

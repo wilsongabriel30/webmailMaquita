@@ -81,6 +81,7 @@ async def init_admin_tables(pool: asyncpg.Pool):
             whisper_url VARCHAR(500) NOT NULL DEFAULT '',
             whisper_key VARCHAR(500) NOT NULL DEFAULT '',
             language VARCHAR(10) NOT NULL DEFAULT 'es',
+            mode VARCHAR(20) NOT NULL DEFAULT 'whisper',
             enabled BOOLEAN NOT NULL DEFAULT false,
             updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
             CONSTRAINT voice_config_singleton CHECK (id = 1)
