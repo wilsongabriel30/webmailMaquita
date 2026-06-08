@@ -68,10 +68,13 @@ export function VoiceConfig() {
           <select className={inputCls} value={cfg.mode}
             onChange={(e) => setCfg({ ...cfg, mode: e.target.value })}>
             <option value="whisper">Whisper — privado, en tu servidor (recomendado)</option>
+            <option value="whisperlive">Whisper en vivo (privado) — streaming en TU GPU (recomendado para fluidez)</option>
             <option value="browser">Navegador — streaming en vivo (usa Google · solo Chrome/Edge)</option>
           </select>
           <p className="text-xs text-ms-gray-110 mt-1">
-            {cfg.mode === "browser"
+            {cfg.mode === "whisperlive"
+              ? "Streaming en vivo (palabra por palabra) procesado en tu servidor con GPU. Privado y fluido. Requiere el servicio WhisperLive y la ruta /whisperlive/ en nginx."
+              : cfg.mode === "browser"
               ? "El texto aparece mientras hablas; el audio pasa por servidores de Google."
               : "Pulsas, hablas y al callar se escribe solo. Todo queda en tu infraestructura (no usa terceros)."}
           </p>

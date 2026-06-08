@@ -17,7 +17,7 @@ export function VoiceDictation({ onTranscript, disabled = false }: VoiceDictatio
   const [state, setState] = useState<DictationState>('idle');
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState('');
-  const [mode, setMode] = useState<'whisper' | 'browser'>('whisper');
+  const [mode, setMode] = useState<'whisper' | 'browser' | 'whisperlive'>('whisper');
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -26,13 +26,17 @@ export function VoiceDictation({ onTranscript, disabled = false }: VoiceDictatio
   const audioCtxRef = useRef<AudioContext | null>(null);
   const vadRafRef = useRef<number>(0);
   const recognitionRef = useRef<any>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const wlCtxRef = useRef<AudioContext | null>(null);
+  const wlProcRef = useRef<any>(null);
+  const wlSeenRef = useRef<string>('');
   const activeRef = useRef<boolean>(false);
 
   // Modo configurado por el admin
   useEffect(() => {
     fetch('/api/mail/transcribe/health', { credentials: 'include' })
       .then(r => r.json())
-      .then(d => { if (d && d.mode === 'browser') setMode('browser'); })
+      .then(d => { if (d && (d.mode === 'browser' || d.mode === 'whisperlive')) setMode(d.mode); })
       .catch(() => {});
   }, []);
 
@@ -50,6 +54,11 @@ export function VoiceDictation({ onTranscript, disabled = false }: VoiceDictatio
     try { if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') mediaRecorderRef.current.stop(); } catch { /* ignore */ }
     try { if (recognitionRef.current) recognitionRef.current.stop(); } catch { /* ignore */ }
     recognitionRef.current = null;
+    try { if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) { wsRef.current.send('END_OF_AUDIO'); wsRef.current.close(); } } catch { /* ignore */ }
+    wsRef.current = null;
+    try { if (wlProcRef.current) wlProcRef.current.disconnect(); } catch { /* ignore */ }
+    try { if (wlCtxRef.current) wlCtxRef.current.close(); } catch { /* ignore */ }
+    wlProcRef.current = null; wlCtxRef.current = null;
     cleanupAudio();
   };
 
@@ -172,26 +181,87 @@ export function VoiceDictation({ onTranscript, disabled = false }: VoiceDictatio
     setState('recording');
   }, [onTranscript]);
 
+  // ---- Modo WHISPERLIVE: streaming en vivo y PRIVADO (WebSocket a tu GPU) ----
+  const startWLAudio = (stream: MediaStream, ws: WebSocket) => {
+    const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
+    const ctx = new AudioCtx({ sampleRate: 16000 });
+    wlCtxRef.current = ctx;
+    const source = ctx.createMediaStreamSource(stream);
+    const proc = ctx.createScriptProcessor(4096, 1, 1);
+    proc.onaudioprocess = (ev: any) => {
+      if (ws.readyState !== WebSocket.OPEN) return;
+      const input = ev.inputBuffer.getChannelData(0); // Float32 a 16 kHz
+      ws.send(new Float32Array(input).buffer);        // PCM float32 mono
+    };
+    source.connect(proc);
+    proc.connect(ctx.destination);
+    wlProcRef.current = proc;
+  };
+
+  const startWhisperLive = useCallback(async () => {
+    setError('');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      streamRef.current = stream;
+      const uid = (window.crypto && (window.crypto as any).randomUUID) ? (window.crypto as any).randomUUID() : String(Date.now()) + Math.random();
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      const ws = new WebSocket(`${proto}://${location.host}/whisperlive/`);
+      ws.binaryType = 'arraybuffer';
+      wsRef.current = ws;
+      wlSeenRef.current = '';
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ uid, language: 'es', task: 'transcribe', model: 'base', use_vad: true }));
+      };
+      ws.onmessage = (e) => {
+        let m: any;
+        try { m = JSON.parse(typeof e.data === 'string' ? e.data : ''); } catch { return; }
+        if (!m) return;
+        if (m.uid && m.uid !== uid) return;
+        if (m.message === 'SERVER_READY') { startWLAudio(stream, ws); return; }
+        if (m.status === 'WAIT') { setError('Servidor de dictado ocupado, intenta en un momento'); return; }
+        if (m.segments && Array.isArray(m.segments)) {
+          const completed = m.segments.filter((sg: any) => sg.completed).map((sg: any) => sg.text).join(' ').replace(/\s+/g, ' ').trim();
+          if (completed && completed !== wlSeenRef.current) {
+            const nuevo = completed.startsWith(wlSeenRef.current) ? completed.slice(wlSeenRef.current.length) : completed;
+            if (nuevo.trim()) onTranscript(nuevo.trim() + ' ');
+            wlSeenRef.current = completed;
+          }
+        }
+      };
+      ws.onerror = () => { setError('No se pudo conectar al dictado en vivo'); activeRef.current = false; setState('idle'); };
+      ws.onclose = () => { if (!activeRef.current) setState('idle'); };
+      activeRef.current = true;
+      setState('recording');
+      setElapsed(0);
+      timerRef.current = window.setInterval(() => setElapsed(p => p + 1), 1000);
+    } catch (err: any) {
+      handleMicError(err);
+    }
+  }, [onTranscript]);
+
   const handleClick = () => {
     if (disabled || state === 'processing') return;
     if (state === 'recording') {
       activeRef.current = false;
-      if (mode === 'browser') { try { recognitionRef.current?.stop(); } catch { /* ignore */ } setState('idle'); }
+      if (mode === 'whisperlive') { hardStop(); setState('idle'); }
+      else if (mode === 'browser') { try { recognitionRef.current?.stop(); } catch { /* ignore */ } setState('idle'); }
       else {
         if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = 0; }
         try { if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') mediaRecorderRef.current.stop(); } catch { /* ignore */ }
       }
     } else if (state === 'idle') {
-      if (mode === 'browser') startBrowser(); else startWhisper();
+      if (mode === 'browser') startBrowser();
+      else if (mode === 'whisperlive') startWhisperLive();
+      else startWhisper();
     }
   };
 
   const formatTime = (s: number) => { const m = Math.floor(s / 60); const sec = s % 60; return `${m}:${sec.toString().padStart(2, '0')}`; };
 
   const title = state === 'recording'
-    ? (mode === 'browser' ? 'Dictando en vivo — clic para terminar' : 'Escuchando — habla; al callar se escribe. Clic para terminar')
+    ? ((mode === 'browser' || mode === 'whisperlive') ? 'Dictando en vivo — clic para terminar' : 'Escuchando — habla; al callar se escribe. Clic para terminar')
     : state === 'processing' ? 'Transcribiendo...'
-    : (mode === 'browser' ? 'Dictar en vivo' : 'Dictar por voz (privado)');
+    : (mode === 'whisperlive' ? 'Dictar en vivo (privado)' : mode === 'browser' ? 'Dictar en vivo' : 'Dictar por voz (privado)');
 
   return (
     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -224,7 +294,7 @@ export function VoiceDictation({ onTranscript, disabled = false }: VoiceDictatio
       {state === 'recording' && (
         <span style={{ fontSize: 11, color: '#d13438', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
           <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#d13438', animation: 'pulse 1s ease-in-out infinite' }} />
-          {mode === 'browser' ? 'En vivo' : formatTime(elapsed)}
+          {(mode === 'browser' || mode === 'whisperlive') ? 'En vivo' : formatTime(elapsed)}
         </span>
       )}
       {state === 'processing' && (<span style={{ fontSize: 11, color: '#605e5c' }}>Transcribiendo...</span>)}

@@ -46,8 +46,8 @@ async def transcribe_health(request: Request, username: str = Depends(get_curren
     url, key, _lang, mode, enabled = await _voice_config(request)
     if not enabled:
         return {"enabled": False, "available": False, "mode": mode}
-    if mode == "browser":
-        return {"enabled": True, "available": True, "mode": "browser"}
+    if mode in ("browser", "whisperlive"):
+        return {"enabled": True, "available": True, "mode": mode}
     if not url:
         return {"enabled": False, "available": False, "mode": mode}
     try:
