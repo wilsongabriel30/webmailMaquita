@@ -291,6 +291,13 @@ async def bulk_action(
             redis = request.app.state.redis
             await redis.delete(f"folders:{username}")
             await redis.delete(f"stats:{username}")
+            # Invalidar el cache de UIDs de la carpeta: sin esto, tras vaciar/borrar
+            # la lista sigue mostrando los mensajes ya eliminados (parecia que no se vaciaba).
+            async for k in redis.scan_iter(match=f"uids:{username}:{folder}:*", count=100):
+                await redis.delete(k)
+            if body.dest_folder:
+                async for k in redis.scan_iter(match=f"uids:{username}:{body.dest_folder}:*", count=100):
+                    await redis.delete(k)
         except Exception:
             pass
         return {"status": "ok", "count": len(body.uids)}
