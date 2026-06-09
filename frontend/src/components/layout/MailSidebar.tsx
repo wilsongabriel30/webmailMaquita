@@ -141,12 +141,18 @@ export function MailSidebar() {
       danger: true,
       onConfirm: async () => {
         try {
-          const res = await api.get<{ messages: { uid: number }[]; total: number }>(`/mail/messages/${encodeURIComponent(name)}?per_page=999`);
-          if (res.messages.length > 0) {
-            await api.post(`/mail/bulk-action/${encodeURIComponent(name)}`, { uids: res.messages.map(m => m.uid), action: 'delete', dest_folder: '' });
-            showToast(`${res.messages.length} mensaje(s) eliminados`);
+          let total = 0;
+          // Vaciar en tandas (el backend limita per_page a 300) hasta que no queden.
+          for (let i = 0; i < 50; i++) {
+            const res = await api.get<{ messages: { uid: number }[] }>(`/mail/messages/${encodeURIComponent(name)}?per_page=300`);
+            const uids = (res.messages || []).map(m => m.uid);
+            if (uids.length === 0) break;
+            await api.post(`/mail/bulk-action/${encodeURIComponent(name)}`, { uids, action: 'delete', dest_folder: '' });
+            total += uids.length;
+            if (uids.length < 300) break;
           }
-        } catch {}
+          showToast(total > 0 ? `${total} mensaje(s) eliminados` : 'La carpeta ya estaba vacía');
+        } catch { showToast('Error al vaciar la carpeta'); }
         window.dispatchEvent(new CustomEvent('refresh-messages'));
         fetchFolders();
       },

@@ -1,4 +1,5 @@
 """Recordatorios — CRUD de reminders para contactos."""
+from datetime import datetime
 from fastapi import APIRouter, Request, Depends, HTTPException
 from app.auth.dependencies import get_current_user
 from .helpers import audit
@@ -66,6 +67,12 @@ async def create_reminder(contact_id: int, request: Request, username: str = Dep
         raise HTTPException(400, "Título requerido")
     if not due_date:
         raise HTTPException(400, "Fecha requerida")
+    # asyncpg espera datetime, no str: parseamos el ISO que envia el frontend
+    if isinstance(due_date, str):
+        try:
+            due_date = datetime.fromisoformat(due_date.replace("Z", "+00:00"))
+        except ValueError:
+            raise HTTPException(400, "Fecha invalida")
 
     exists = await db.fetchval(
         "SELECT id FROM user_contacts WHERE id=$1 AND owner=$2", contact_id, username
@@ -75,7 +82,7 @@ async def create_reminder(contact_id: int, request: Request, username: str = Dep
 
     row = await db.fetchrow(
         "INSERT INTO contact_reminders (owner, contact_id, title, description, due_date) "
-        "VALUES ($1,$2,$3,$4,$5::timestamptz) RETURNING *",
+        "VALUES ($1,$2,$3,$4,$5) RETURNING *",
         username, contact_id, title, description, due_date
     )
     await audit(db, username, contact_id, "reminder_created", {"title": title})

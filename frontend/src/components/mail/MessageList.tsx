@@ -771,7 +771,7 @@ export function MessageList() {
 
   return (
     <div
-      style={(readingPane === "off" || readingPane === "fullscreen" || readingPane === "popout") ? undefined : { width: messageListWidth }}
+      style={readingPane === "right" ? { width: messageListWidth } : undefined}
       className={`message-list-container flex flex-col bg-white ${
         readingPane === "off" || readingPane === "fullscreen" || readingPane === "popout"
           ? "w-full min-w-0"

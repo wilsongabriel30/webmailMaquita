@@ -110,6 +110,7 @@ export function SettingsView() {
     setSaved(false);
     try {
       await api.put('/settings', settings);
+      if (settings.reading_pane) useMailStore.getState().setReadingPane(settings.reading_pane as 'right' | 'bottom' | 'off');
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (err) { console.error(err); }

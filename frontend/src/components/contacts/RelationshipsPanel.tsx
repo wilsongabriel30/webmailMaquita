@@ -60,9 +60,9 @@ export function RelationshipsPanel({ contactId, onNavigateToContact }: Props) {
     if (q.length < 2) { setSearchResults([]); return; }
     setSearching(true);
     try {
-      const data = await api.get<{ contacts: ContactOption[] }>(`/contacts/search?q=${encodeURIComponent(q)}&limit=8`);
+      const data = await api.get<{ contacts: ContactOption[] }>(`/contacts?search=${encodeURIComponent(q)}&per_page=8`);
       // Filter out current contact
-      setSearchResults((data?.contacts || []).filter((c) => c.id !== contactId));
+      setSearchResults((data?.contacts || []).filter((c) => c.id && c.id !== contactId));
     } catch { setSearchResults([]); }
     setSearching(false);
   };
