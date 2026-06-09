@@ -353,6 +353,7 @@ export function MessageList() {
 
   // Fetch avatar data — use stable messageIds to avoid re-fetching on every render
   const messageIds = useMemo(() => messages.map(m => m.uid).join(','), [messages]);
+  const msgLabelsMap = useMessageLabels(currentFolder, useMemo(() => messages.map(m => m.uid), [messageIds]));
   useEffect(() => {
     if (!messages.length) return;
     const emails = [...new Set(messages.map(m => extractEmail(m.from)))];
@@ -685,9 +686,18 @@ export function MessageList() {
               <span className="text-[11px] text-[#a19f9d] group-hover:hidden">{fmtDate(msg.date)}</span>
             </div>
           </div>
-          <p className={`text-[13px] truncate leading-[18px] ${!msg.seen ? 'font-medium text-[#323130]' : 'text-[#605e5c]'}`}>
-            {msg.subject || '(Sin asunto)'}
-          </p>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <p className={`text-[13px] truncate leading-[18px] ${!msg.seen ? 'font-medium text-[#323130]' : 'text-[#605e5c]'}`}>
+              {msg.subject || '(Sin asunto)'}
+            </p>
+            {(msgLabelsMap[String(msg.uid)] || []).map((lbl) => (
+              <span key={lbl.id} title={lbl.name}
+                className="shrink-0 inline-flex items-center px-1.5 h-[15px] rounded-[3px] text-[10px] font-medium text-white capitalize leading-none"
+                style={{ backgroundColor: lbl.color }}>
+                {lbl.name.replace(/^Categor[ií]a\s+/i, '') || lbl.name}
+              </span>
+            ))}
+          </div>
           <p
             className={`text-[12px] text-[#a19f9d] leading-[16px] ${previewLines === 1 ? 'truncate' : ''}`}
             style={{ ...snippetStyle, minHeight: snippetMinHeight }}

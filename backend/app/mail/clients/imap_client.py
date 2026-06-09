@@ -557,8 +557,15 @@ async def uid_bulk_action(
 
     uid_set = ",".join(str(u) for u in uids)
 
+    # Vaciar carpeta: el boton "Limpiar" envia uids=[] esperando borrar TODO.
+    # Sin esto, uid_set queda vacio y el store no marca nada (parecia que no vaciaba).
+    empty_whole_folder = (not uids) and action == "delete"
+    if not uids and not empty_whole_folder:
+        return False  # acciones que requieren UIDs: nada que hacer
+
     if action == "delete":
-        await imap.uid("store", uid_set, "+FLAGS", "(\\Deleted)")
+        target = "1:*" if empty_whole_folder else uid_set
+        await imap.uid("store", target, "+FLAGS", "(\\Deleted)")
         await imap.expunge()
     elif action == "move" and dest_folder:
         copy_resp = await imap.uid("copy", uid_set, _quote_folder(dest_folder))

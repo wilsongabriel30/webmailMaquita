@@ -98,7 +98,7 @@ async def list_contacts(
         domain = username.split("@")[1] if "@" in username else username
         org_rows = await db.fetch(
             """SELECT id, display_name, email, COALESCE(phone, ) as phone,
-                   department, job_title, directory as source
+                   department, job_title, 'directory' as source
             FROM org_contacts
             WHERE domain = $1 AND (
                 LOWER(display_name) LIKE LOWER($2)
