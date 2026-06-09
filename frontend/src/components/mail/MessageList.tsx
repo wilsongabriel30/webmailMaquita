@@ -353,6 +353,25 @@ export function MessageList() {
 
   // Fetch avatar data — use stable messageIds to avoid re-fetching on every render
   const messageIds = useMemo(() => messages.map(m => m.uid).join(','), [messages]);
+
+  // Categorias/etiquetas por mensaje — INLINE (sin hook externo) para que el
+  // empaquetador no pueda eliminar la definicion y romper el correo.
+  const [msgLabelsMap, setMsgLabelsMap] = useState({});
+  useEffect(() => {
+    const uids = messages.map((m) => m.uid);
+    if (!currentFolder || uids.length === 0) { setMsgLabelsMap({}); return; }
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await api.get(`/mail/labels/messages/${encodeURIComponent(currentFolder)}?uids=${encodeURIComponent(uids.join(','))}`);
+        if (!cancelled) setMsgLabelsMap((res && res.message_labels) || {});
+      } catch { if (!cancelled) setMsgLabelsMap({}); }
+    };
+    load();
+    const handler = () => load();
+    window.addEventListener('refresh-message-labels', handler);
+    return () => { cancelled = true; window.removeEventListener('refresh-message-labels', handler); };
+  }, [currentFolder, messageIds]);
   useEffect(() => {
     if (!messages.length) return;
     const emails = [...new Set(messages.map(m => extractEmail(m.from)))];
@@ -685,9 +704,18 @@ export function MessageList() {
               <span className="text-[11px] text-[#a19f9d] group-hover:hidden">{fmtDate(msg.date)}</span>
             </div>
           </div>
-          <p className={`text-[13px] truncate leading-[18px] ${!msg.seen ? 'font-medium text-[#323130]' : 'text-[#605e5c]'}`}>
-            {msg.subject || '(Sin asunto)'}
-          </p>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <p className={`text-[13px] truncate leading-[18px] ${!msg.seen ? 'font-medium text-[#323130]' : 'text-[#605e5c]'}`}>
+              {msg.subject || '(Sin asunto)'}
+            </p>
+            {(msgLabelsMap[String(msg.uid)] || []).map((lbl) => (
+              <span key={lbl.id} title={lbl.name}
+                className="shrink-0 inline-flex items-center px-1.5 h-[15px] rounded-[3px] text-[10px] font-medium text-white capitalize leading-none"
+                style={{ backgroundColor: lbl.color }}>
+                {String(lbl.name).replace(/^Categor[ií]a\s+/i, '') || lbl.name}
+              </span>
+            ))}
+          </div>
           <p
             className={`text-[12px] text-[#a19f9d] leading-[16px] ${previewLines === 1 ? 'truncate' : ''}`}
             style={{ ...snippetStyle, minHeight: snippetMinHeight }}

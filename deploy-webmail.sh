@@ -46,6 +46,16 @@ fi
 FILE_COUNT=$(find "${DIST_DIR}" -type f | wc -l)
 echo -e "${GREEN}Build OK: ${FILE_COUNT} archivos generados${NC}"
 
+# --- Paso 2.5: GUARDIA de integridad del bundle (anti "X is not defined") ---
+# Detecta referencias usadas pero no definidas (tree-shaking roto) ANTES de
+# tocar produccion. Esto evito que un bundle roto rompa el correo para todos.
+echo -e "\n${YELLOW}[2.5/5] Verificando integridad del bundle...${NC}"
+if ! node "${FRONTEND_DIR}/scripts/check-bundle.mjs" "${DIST_DIR}/assets"; then
+    echo -e "${RED}ERROR: El bundle contiene referencias indefinidas.${NC}"
+    echo -e "${RED}Deploy ABORTADO — produccion queda INTACTA.${NC}"
+    exit 1
+fi
+
 # --- Paso 3: Backup del deploy actual ---
 echo -e "\n${YELLOW}[2/5] Backup del deploy actual...${NC}"
 mkdir -p "${BACKUP_DIR}"
