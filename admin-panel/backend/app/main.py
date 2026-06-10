@@ -47,6 +47,7 @@ from app.advanced_audit.router import router as advanced_audit_router
 from app.risky_login.router import router as risky_login_router
 from app.antispam_avanzado.router import router as antispam_avanzado_router
 from app.zap.router import router as zap_router
+from app.safeattach.router import router as safeattach_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -134,6 +135,7 @@ app.include_router(advanced_audit_router)
 app.include_router(risky_login_router)
 app.include_router(antispam_avanzado_router)
 app.include_router(zap_router)
+app.include_router(safeattach_router)
 app.include_router(nextcloud_router)
 app.include_router(ediscovery_router)
 app.include_router(branding_router)
