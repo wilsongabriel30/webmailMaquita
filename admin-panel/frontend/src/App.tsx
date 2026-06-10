@@ -34,6 +34,7 @@ import { CommCompliance } from "./pages/CommCompliance";
 import { InsiderRisk } from "./pages/InsiderRisk";
 import { EDiscoveryPremium } from "./pages/EDiscoveryPremium";
 import { AdvancedAudit } from "./pages/AdvancedAudit";
+import { RiskyLogins } from "./pages/RiskyLogins";
 import { AntispamAvanzado } from "./pages/AntispamAvanzado";
 import { SharedMailboxes } from "./pages/SharedMailboxes";
 import { EDiscovery } from "./pages/EDiscovery";
@@ -125,6 +126,7 @@ function App() {
             <Route path="insider-risk" element={<InsiderRisk />} />
             <Route path="ediscovery-premium" element={<EDiscoveryPremium />} />
             <Route path="advanced-audit" element={<AdvancedAudit />} />
+            <Route path="risky-logins" element={<RiskyLogins />} />
           </Route>
         </Routes>
       </BrowserRouter>

@@ -1187,3 +1187,26 @@ CREATE TABLE IF NOT EXISTS audit_retention_config (
     CONSTRAINT audit_retention_singleton CHECK (id = 1)
 );
 INSERT INTO audit_retention_config (id, retention_days) VALUES (1, 0) ON CONFLICT (id) DO NOTHING;
+
+-- 5) Detección de inicios de sesión riesgosos (cuenta comprometida)
+CREATE TABLE IF NOT EXISTS login_events (
+    id BIGSERIAL PRIMARY KEY, username VARCHAR(255) NOT NULL, ip VARCHAR(64) NOT NULL DEFAULT '',
+    is_internal BOOLEAN NOT NULL DEFAULT false, country VARCHAR(80) NOT NULL DEFAULT '',
+    city VARCHAR(120) NOT NULL DEFAULT '', lat REAL, lon REAL, user_agent TEXT NOT NULL DEFAULT '',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_login_events_user ON login_events(username, created_at DESC);
+CREATE TABLE IF NOT EXISTS risky_logins (
+    id BIGSERIAL PRIMARY KEY, username VARCHAR(255) NOT NULL, ip VARCHAR(64) NOT NULL DEFAULT '',
+    country VARCHAR(80) NOT NULL DEFAULT '', city VARCHAR(120) NOT NULL DEFAULT '',
+    reason TEXT NOT NULL DEFAULT '', risk VARCHAR(10) NOT NULL DEFAULT 'medium', distance_km INT,
+    status VARCHAR(12) NOT NULL DEFAULT 'open', created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_risky_logins_created ON risky_logins(created_at DESC);
+CREATE TABLE IF NOT EXISTS risky_login_config (
+    id INT PRIMARY KEY DEFAULT 1, enabled BOOLEAN NOT NULL DEFAULT true, auto_block BOOLEAN NOT NULL DEFAULT false,
+    trusted_countries JSONB NOT NULL DEFAULT '["Ecuador"]'::jsonb,
+    occasional_countries JSONB NOT NULL DEFAULT '[]'::jsonb,
+    updated_at TIMESTAMPTZ DEFAULT now(), CONSTRAINT risky_login_singleton CHECK (id = 1)
+);
+INSERT INTO risky_login_config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;

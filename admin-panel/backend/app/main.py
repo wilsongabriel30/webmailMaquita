@@ -44,6 +44,7 @@ from app.comm_compliance.router import router as comm_router
 from app.insider_risk.router import router as insider_router
 from app.ediscovery_premium.router import router as edp_router
 from app.advanced_audit.router import router as advanced_audit_router
+from app.risky_login.router import router as risky_login_router
 from app.antispam_avanzado.router import router as antispam_avanzado_router
 
 logging.basicConfig(level=logging.INFO)
@@ -129,6 +130,7 @@ app.include_router(comm_router)
 app.include_router(insider_router)
 app.include_router(edp_router)
 app.include_router(advanced_audit_router)
+app.include_router(risky_login_router)
 app.include_router(antispam_avanzado_router)
 app.include_router(nextcloud_router)
 app.include_router(ediscovery_router)

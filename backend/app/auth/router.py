@@ -104,6 +104,15 @@ async def login(body: LoginRequest, request: Request, response: Response):
 
     # Clear rate limit on success
     await _clear_login_rate_limit(request, username, redis)
+    # Detección de login riesgoso (en segundo plano, no bloquea la respuesta)
+    try:
+        import asyncio as _asyncio
+        from app.risky_login import detection as _rl
+        _rip = request.headers.get("x-real-ip") or (request.headers.get("x-forwarded-for","").split(",")[0].strip()) or (request.client.host if request.client else "")
+        _rua = request.headers.get("user-agent", "")
+        _asyncio.create_task(_rl.analyze(db, redis, username, _rip, _rua))
+    except Exception:
+        pass
 
     # Cache Fernet-encrypted password in Redis for IMAP/SMTP operations (TTL matches session)
     await redis.set(f"imap_pass:{username}", encrypt_password(body.password), ex=settings.access_token_expire_minutes * 60)
