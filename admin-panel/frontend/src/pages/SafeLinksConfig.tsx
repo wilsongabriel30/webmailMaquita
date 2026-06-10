@@ -4,7 +4,7 @@ import { api } from "../api/client";
 interface BlockItem { pattern: string; kind: string; note?: string; }
 interface Cfg {
   enabled: boolean; rewrite_enabled: boolean; warn_suspicious: boolean;
-  block_listed: boolean; blocklist: BlockItem[];
+  block_listed: boolean; milter_inbound_enabled: boolean; blocklist: BlockItem[];
 }
 interface Click { url: string; host: string; verdict: string; proceeded: boolean; ip: string; created_at: string | null; }
 
@@ -17,7 +17,7 @@ const VERDICT: Record<string, { label: string; cls: string }> = {
 const inputCls = "w-full px-3 py-2 border border-ms-gray-30 rounded text-sm";
 
 export function SafeLinksConfig() {
-  const [cfg, setCfg] = useState<Cfg>({ enabled: true, rewrite_enabled: true, warn_suspicious: true, block_listed: true, blocklist: [] });
+  const [cfg, setCfg] = useState<Cfg>({ enabled: true, rewrite_enabled: true, warn_suspicious: true, block_listed: true, milter_inbound_enabled: false, blocklist: [] });
   const [clicks, setClicks] = useState<Click[]>([]);
   const [newPat, setNewPat] = useState("");
   const [newKind, setNewKind] = useState("domain");
@@ -78,6 +78,12 @@ export function SafeLinksConfig() {
           <Toggle k="rewrite_enabled" label="Reescribir enlaces de los correos" desc="Necesario para revisar el enlace al hacer clic." />
           <Toggle k="warn_suspicious" label="Avisar de enlaces sospechosos" desc="Imitación de marcas, IPs, acortadores, etc." />
           <Toggle k="block_listed" label="Bloquear lo que esté en la lista negra" desc="Dominios/direcciones/términos que definas abajo." />
+        </div>
+
+        <div className="mt-4 pt-4 border-t border-ms-gray-30">
+          <Toggle k="milter_inbound_enabled"
+            label="Proteger enlaces en TODOS los clientes (Outlook, móvil, etc.)"
+            desc="Reescribe los enlaces de los correos entrantes a nivel del servidor, no solo en el webmail. Si lo apagas, los correos vuelven a entregarse sin tocar al instante. Diseño a prueba de fallos: nunca retiene ni corrompe un correo." />
         </div>
 
         <div className={cfg.enabled ? "" : "opacity-50 pointer-events-none"}>

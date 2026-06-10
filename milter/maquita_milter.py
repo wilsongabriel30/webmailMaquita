@@ -1,10 +1,17 @@
 #!/opt/maquita-webmail/backend/venv/bin/python
-"""Milter de Maquita — Fase 1: DLP en correo SALIENTE (todos los clientes).
+"""Milter de Maquita — Fase 1 (DLP saliente) + Fase 2 (Safe Links entrante).
 
-INSPECCIONA el correo saliente (Outlook, móvil, Thunderbird, etc.), y si detecta
-datos sensibles agrega una cabecera X-DLP-Alert y lo registra en dlp_violations.
-NO modifica el cuerpo, NO rechaza, NO retiene: es SOLO visibilidad/auditoría.
-Diseño FAIL-OPEN: ante cualquier error, deja pasar el correo intacto.
+SALIENTE (remitente local): inspecciona y, si detecta datos sensibles, agrega la
+cabecera X-DLP-Alert y lo registra. NO modifica el cuerpo. Solo visibilidad.
+
+ENTRANTE (remitente externo, destinatario local): si el interruptor del panel
+(safelinks_config.milter_inbound_enabled) está ENCENDIDO, reescribe los enlaces
+<a href> a la pasarela de Safe Links para que TODOS los clientes (Outlook, móvil,
+etc.) tengan protección al hacer clic. El reescritor valida el resultado parte
+por parte; si algo no cuadra, deja el correo INTACTO.
+
+Diseño FAIL-OPEN en todo: ante cualquier error -> el correo se entrega intacto.
+NUNCA rechaza, NUNCA retiene, NUNCA corrompe.
 """
 from __future__ import annotations
 import asyncio
@@ -12,19 +19,24 @@ import json
 import os
 import re
 import sys
+import time
 from email import message_from_bytes
 
 sys.path.insert(0, "/opt/maquita-webmail/backend")
 
 import asyncpg  # noqa: E402
 from purepythonmilter import (  # noqa: E402
-    PurePythonMilter, Continue, AppendHeader,
+    PurePythonMilter, Continue, AppendHeader, ReplaceBodyChunk,
 )
 from purepythonmilter.api.models import connection_id_context  # noqa: E402
 from app.dlp import detectors  # noqa: E402
+from app.safelinks import inbound_rewriter  # noqa: E402
 
 LOCAL_DOMAINS = {"maquita.org", "maquita.com.ec"}
-MAX_BODY = 2_000_000
+MAX_BODY = 12_000_000   # cuerpos mayores no se reescriben (se entregan intactos)
+
+# Caché del interruptor del panel (evita consultar la BD en cada correo)
+_toggle = {"val": False, "ts": 0.0}
 
 _state: dict = {}
 _pool = None
@@ -61,13 +73,31 @@ def _st():
     k = _cid()
     s = _state.get(k)
     if s is None:
-        s = {"from": "", "rcpts": [], "headers": [], "body": bytearray()}
+        s = {"from": "", "rcpts": [], "headers": [], "body": bytearray(), "trunc": False}
         _state[k] = s
     return s
 
 
+async def _inbound_enabled(pool) -> bool:
+    """Lee el interruptor del panel, cacheado 20s."""
+    now = time.monotonic()
+    if now - _toggle["ts"] < 20:
+        return _toggle["val"]
+    try:
+        row = await pool.fetchrow("SELECT milter_inbound_enabled FROM safelinks_config WHERE id = 1")
+        _toggle["val"] = bool(row and row["milter_inbound_enabled"])
+    except Exception:
+        _toggle["val"] = False
+    _toggle["ts"] = now
+    return _toggle["val"]
+
+
+def _reconstruct(headers, body: bytes) -> bytes:
+    return b"\r\n".join(f"{n}: {t}".encode("utf-8", "replace") for n, t in headers) + b"\r\n\r\n" + body
+
+
 async def on_mail_from(cmd) -> Continue:
-    _state[_cid()] = {"from": (cmd.address or "").lower(), "rcpts": [], "headers": [], "body": bytearray()}
+    _state[_cid()] = {"from": (cmd.address or "").lower(), "rcpts": [], "headers": [], "body": bytearray(), "trunc": False}
     return Continue()
 
 
@@ -87,6 +117,10 @@ async def on_body_chunk(cmd) -> Continue:
     st = _st()
     if len(st["body"]) < MAX_BODY:
         st["body"].extend(cmd.data_raw or b"")
+        if len(st["body"]) >= MAX_BODY:
+            st["trunc"] = True   # cuerpo grande: no reescribir (entregar intacto)
+    else:
+        st["trunc"] = True
     return Continue()
 
 
@@ -115,6 +149,44 @@ def _extract_text(headers, body: bytes) -> str:
     return " ".join(parts)
 
 
+async def _outbound_dlp(st, sender) -> Continue:
+    pool = await _get_pool()
+    try:
+        kws = [r["term"] for r in await pool.fetch("SELECT term FROM dlp_keywords")]
+    except Exception:
+        kws = []
+    text = _extract_text(st["headers"], bytes(st["body"]))
+    findings = detectors.detect_all(text, kws)
+    if not findings:
+        return Continue()
+    types = sorted({f.data_type for f in findings})
+    subj = next((t for n, t in st["headers"] if n.lower() == "subject"), "")
+    try:
+        await pool.execute(
+            "INSERT INTO dlp_violations (username, recipients, subject, data_types, action, overridden) "
+            "VALUES ($1,$2,$3,$4,'milter_log',true)",
+            sender, json.dumps(st["rcpts"]), (subj or "")[:500], json.dumps(types))
+    except Exception:
+        pass
+    return Continue(manipulations=[AppendHeader(headername="X-DLP-Alert",
+                                                headertext="posibles datos sensibles: " + ", ".join(types))])
+
+
+async def _inbound_safelinks(st) -> Continue:
+    if st.get("trunc"):
+        return Continue()   # cuerpo truncado -> entregar intacto (fail-safe)
+    if not any((r.split("@")[-1] in LOCAL_DOMAINS) for r in st["rcpts"] if "@" in r):
+        return Continue()   # sin destinatario local
+    pool = await _get_pool()
+    if not await _inbound_enabled(pool):
+        return Continue()   # interruptor del panel APAGADO
+    raw = _reconstruct(st["headers"], bytes(st["body"]))
+    new_body = inbound_rewriter.rewrite_inbound(raw)
+    if not new_body:
+        return Continue()   # sin enlaces, sin cambios, o no fue seguro -> intacto
+    return Continue(manipulations=[ReplaceBodyChunk(chunk=new_body)])
+
+
 async def on_end_of_message(cmd) -> Continue:
     st = _state.pop(_cid(), None)
     if not st:
@@ -122,28 +194,9 @@ async def on_end_of_message(cmd) -> Continue:
     try:
         sender = st["from"]
         dom = sender.split("@")[-1] if "@" in sender else ""
-        if dom not in LOCAL_DOMAINS:   # solo SALIENTE (remitente local)
-            return Continue()
-        pool = await _get_pool()
-        try:
-            kws = [r["term"] for r in await pool.fetch("SELECT term FROM dlp_keywords")]
-        except Exception:
-            kws = []
-        text = _extract_text(st["headers"], bytes(st["body"]))
-        findings = detectors.detect_all(text, kws)
-        if not findings:
-            return Continue()
-        types = sorted({f.data_type for f in findings})
-        subj = next((t for n, t in st["headers"] if n.lower() == "subject"), "")
-        try:
-            await pool.execute(
-                "INSERT INTO dlp_violations (username, recipients, subject, data_types, action, overridden) "
-                "VALUES ($1,$2,$3,$4,'milter_log',true)",
-                sender, json.dumps(st["rcpts"]), (subj or "")[:500], json.dumps(types))
-        except Exception:
-            pass
-        return Continue(manipulations=[AppendHeader(headername="X-DLP-Alert",
-                                                    headertext="posibles datos sensibles: " + ", ".join(types))])
+        if dom in LOCAL_DOMAINS:
+            return await _outbound_dlp(st, sender)        # SALIENTE: DLP
+        return await _inbound_safelinks(st)               # ENTRANTE: Safe Links
     except Exception:
         return Continue()   # FAIL-OPEN: nunca afecta la entrega
 
@@ -162,6 +215,7 @@ milter = PurePythonMilter(
     hook_on_end_of_message=on_end_of_message,
     hook_on_abort=on_abort,
     can_add_headers=True,
+    can_change_body=True,
 )
 
 if __name__ == "__main__":

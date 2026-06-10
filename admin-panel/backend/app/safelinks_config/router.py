@@ -28,14 +28,15 @@ class SafeLinksIn(BaseModel):
     rewrite_enabled: bool = True
     warn_suspicious: bool = True
     block_listed: bool = True
+    milter_inbound_enabled: bool = False
     blocklist: list[BlockItem] = []
 
 
 @router.get("")
 async def get_config(request: Request, admin: dict = Depends(get_current_admin)):
     row = await _db(request).fetchrow(
-        "SELECT enabled, rewrite_enabled, warn_suspicious, block_listed FROM safelinks_config WHERE id = 1")
-    cfg = dict(row) if row else {"enabled": True, "rewrite_enabled": True, "warn_suspicious": True, "block_listed": True}
+        "SELECT enabled, rewrite_enabled, warn_suspicious, block_listed, milter_inbound_enabled FROM safelinks_config WHERE id = 1")
+    cfg = dict(row) if row else {"enabled": True, "rewrite_enabled": True, "warn_suspicious": True, "block_listed": True, "milter_inbound_enabled": False}
     bl = await _db(request).fetch("SELECT pattern, kind, note FROM safelinks_blocklist ORDER BY pattern")
     cfg["blocklist"] = [{"pattern": b["pattern"], "kind": b["kind"], "note": b["note"]} for b in bl]
     return cfg
@@ -46,13 +47,14 @@ async def save_config(body: SafeLinksIn, request: Request,
                       admin: dict = Depends(require_role("superadmin", "admin"))):
     await _db(request).execute(
         """
-        INSERT INTO safelinks_config (id, enabled, rewrite_enabled, warn_suspicious, block_listed, updated_at)
-        VALUES (1, $1, $2, $3, $4, now())
+        INSERT INTO safelinks_config (id, enabled, rewrite_enabled, warn_suspicious, block_listed, milter_inbound_enabled, updated_at)
+        VALUES (1, $1, $2, $3, $4, $5, now())
         ON CONFLICT (id) DO UPDATE SET
           enabled=EXCLUDED.enabled, rewrite_enabled=EXCLUDED.rewrite_enabled,
-          warn_suspicious=EXCLUDED.warn_suspicious, block_listed=EXCLUDED.block_listed, updated_at=now()
+          warn_suspicious=EXCLUDED.warn_suspicious, block_listed=EXCLUDED.block_listed,
+          milter_inbound_enabled=EXCLUDED.milter_inbound_enabled, updated_at=now()
         """,
-        body.enabled, body.rewrite_enabled, body.warn_suspicious, body.block_listed)
+        body.enabled, body.rewrite_enabled, body.warn_suspicious, body.block_listed, body.milter_inbound_enabled)
 
     # reemplazar lista negra
     seen = set()
