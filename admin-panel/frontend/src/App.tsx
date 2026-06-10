@@ -33,6 +33,7 @@ import { ThreatDashboard } from "./pages/ThreatDashboard";
 import { CommCompliance } from "./pages/CommCompliance";
 import { InsiderRisk } from "./pages/InsiderRisk";
 import { EDiscoveryPremium } from "./pages/EDiscoveryPremium";
+import { AdvancedAudit } from "./pages/AdvancedAudit";
 import { AntispamAvanzado } from "./pages/AntispamAvanzado";
 import { SharedMailboxes } from "./pages/SharedMailboxes";
 import { EDiscovery } from "./pages/EDiscovery";
@@ -123,6 +124,7 @@ function App() {
             <Route path="comm-compliance" element={<CommCompliance />} />
             <Route path="insider-risk" element={<InsiderRisk />} />
             <Route path="ediscovery-premium" element={<EDiscoveryPremium />} />
+            <Route path="advanced-audit" element={<AdvancedAudit />} />
           </Route>
         </Routes>
       </BrowserRouter>

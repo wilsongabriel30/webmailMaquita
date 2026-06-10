@@ -67,6 +67,7 @@ const navSections = [
   {
     title: "Compliance",
     items: [
+      { to: "/advanced-audit", label: "Auditoría avanzada", icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
       { to: "/ediscovery-premium", label: "Custodios y retención legal", icon: "M3 6l9-4 9 4v6c0 5-3.8 8.6-9 10-5.2-1.4-9-5-9-10V6z M9 11l2 2 4-4" },
       { to: "/insider-risk", label: "Riesgo interno", icon: "M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4a2 2 0 00-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" },
       { to: "/comm-compliance", label: "Cumplimiento de comunicaciones", icon: "M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.7 9.7 0 01-4-.85L3 20l1.4-3.5A7.9 7.9 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" },

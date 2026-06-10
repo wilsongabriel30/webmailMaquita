@@ -1178,3 +1178,12 @@ ALTER TABLE ediscovery_exports
   ADD COLUMN IF NOT EXISTS gpg_fingerprint VARCHAR(80),
   ADD COLUMN IF NOT EXISTS verified BOOLEAN;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ediscovery_exports TO mailserver;
+
+-- 4) Auditoria avanzada: tabla de configuracion de retencion
+CREATE TABLE IF NOT EXISTS audit_retention_config (
+    id INT PRIMARY KEY DEFAULT 1,
+    retention_days INT NOT NULL DEFAULT 0,
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    CONSTRAINT audit_retention_singleton CHECK (id = 1)
+);
+INSERT INTO audit_retention_config (id, retention_days) VALUES (1, 0) ON CONFLICT (id) DO NOTHING;
