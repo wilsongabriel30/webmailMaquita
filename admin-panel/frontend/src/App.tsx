@@ -28,6 +28,7 @@ import { VoiceConfig } from "./pages/VoiceConfig";
 import { DlpConfig } from "./pages/DlpConfig";
 import { SecureConfig } from "./pages/SecureConfig";
 import { SafeLinksConfig } from "./pages/SafeLinksConfig";
+import { Zap } from "./pages/Zap";
 import { PhishSim } from "./pages/PhishSim";
 import { ThreatDashboard } from "./pages/ThreatDashboard";
 import { CommCompliance } from "./pages/CommCompliance";
@@ -120,6 +121,7 @@ function App() {
             <Route path="dlp" element={<DlpConfig />} />
             <Route path="secure" element={<SecureConfig />} />
             <Route path="safelinks" element={<SafeLinksConfig />} />
+            <Route path="zap" element={<Zap />} />
             <Route path="phishsim" element={<PhishSim />} />
             <Route path="threats" element={<ThreatDashboard />} />
             <Route path="comm-compliance" element={<CommCompliance />} />

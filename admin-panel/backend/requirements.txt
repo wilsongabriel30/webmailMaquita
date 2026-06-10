@@ -7,3 +7,4 @@ PyJWT
 pydantic
 aioimaplib
 python-multipart
+redis

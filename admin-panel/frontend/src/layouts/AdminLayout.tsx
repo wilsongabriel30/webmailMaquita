@@ -53,6 +53,7 @@ const navSections = [
       { to: "/dlp", label: "Protección de datos (DLP)", icon: "M12 2l7 4v6c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6l7-4z M9 12l2 2 4-4" },
       { to: "/secure", label: "Correo cifrado", icon: "M12 11c0-1.1.9-2 2-2s2 .9 2 2 M5 11h14v10H5z M8 11V7a4 4 0 018 0v4" },
       { to: "/safelinks", label: "Protección de enlaces", icon: "M13.828 10.172a4 4 0 010 5.656l-3 3a4 4 0 01-5.656-5.656l1.5-1.5 M10.172 13.828a4 4 0 010-5.656l3-3a4 4 0 015.656 5.656l-1.5 1.5" },
+      { to: "/zap", label: "Retiro de correos maliciosos (ZAP)", icon: "M3 7l9 6 9-6 M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z M9 11l3 3 3-3" },
       { to: "/phishsim", label: "Simulación de phishing", icon: "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" },
       { to: "__rspamd__", label: "Rspamd Antispam", icon: "M20.618 5.984A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z", external: "/rspamd/" },
     ],
