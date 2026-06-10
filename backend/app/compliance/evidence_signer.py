@@ -347,7 +347,7 @@ async def sign_export(
             async with db_pool.acquire() as conn:
                 await conn.execute(
                     """
-                    UPDATE compliance_exports
+                    UPDATE ediscovery_exports
                     SET gpg_signature_path = $1,
                         manifest_hash = $2,
                         timestamp_seal = $3,

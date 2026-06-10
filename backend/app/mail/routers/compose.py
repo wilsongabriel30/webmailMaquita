@@ -87,7 +87,43 @@ async def send(
     all_rcpts = list(body.to or []) + list(body.cc or []) + list(body.bcc or [])
     anomaly = await check_send_anomaly(request.app.state.redis, username, all_rcpts)
     if not anomaly["allowed"]:
+        # Respuesta automatica a incidentes (AIR): registrar alerta y, si esta
+        # activado en el panel de amenazas, deshabilitar el buzon comprometido.
+        try:
+            _adb = request.app.state.db_pool
+            await _adb.execute(
+                "INSERT INTO fraud_alerts (alert_type, severity, username, description, details, status) "
+                "VALUES ('mass_send','high',$1,$2,$3::jsonb,'open')",
+                username, anomaly.get("reason", "Envio masivo anomalo"),
+                json.dumps({"recipients": len(all_rcpts)}))
+            _tc = await _adb.fetchrow("SELECT auto_disable_on_compromise FROM threat_config WHERE id = 1")
+            if _tc and _tc["auto_disable_on_compromise"]:
+                await _adb.execute("UPDATE mailbox SET active = false, modified = now() WHERE username = $1", username)
+                await _adb.execute(
+                    "INSERT INTO threat_actions (action, target, detail, actor, auto) "
+                    "VALUES ('disable_mailbox',$1,$2,'sistema',true)",
+                    username, "Auto-deshabilitado por envio masivo anomalo")
+        except Exception:
+            pass
         raise HTTPException(status_code=429, detail=anomaly["reason"])
+
+    # -- DLP: prevencion de fuga de datos sensibles (salientes) --
+    from app.dlp import service as dlp_service
+    _dlp_db = request.app.state.db_pool
+    _dlp = await dlp_service.scan(_dlp_db, body.subject, body.text_body, body.html_body)
+    if _dlp["findings"]:
+        if _dlp["action"] == "block" and not getattr(body, "dlp_override", False):
+            await dlp_service.log_violation(_dlp_db, username, all_rcpts, body.subject, _dlp["findings"], "block", False)
+            raise HTTPException(status_code=422, detail={"dlp_blocked": True, "findings": _dlp["findings"]})
+        await dlp_service.log_violation(_dlp_db, username, all_rcpts, body.subject, _dlp["findings"], _dlp["action"], bool(getattr(body, "dlp_override", False)))
+
+    # -- Communication Compliance: monitoreo segun politicas (no bloquea) --
+    try:
+        from app.comm_compliance import service as cc_service
+        await cc_service.scan(request.app.state.db_pool, username, "outbound", all_rcpts,
+                              body.subject, body.text_body, body.html_body)
+    except Exception:
+        pass
 
     login_user = await get_imap_login_user(request, username)
     imap = await get_imap_connection(login_user, password)

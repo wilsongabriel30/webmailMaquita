@@ -22,8 +22,22 @@ MAIL_LOG = "/var/log/mail.log"
 # --- Regex patterns ---
 
 # Generic syslog prefix: "May 13 10:30:01 mail-maquita service[pid]:"
+def _safe_int(v):
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def _safe_float(v):
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
 RE_SYSLOG = re.compile(
-    r"^(\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})\s+\S+\s+(\S+?)(?:\[(\d+)\])?:\s+(.*)"
+    r"^(\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}|\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[+-]\d{2}:\d{2}|Z)?)\s+\S+\s+(\S+?)(?:\[(\d+)\])?:\s+(.*)"
 )
 
 # Postfix smtpd client connect
@@ -342,42 +356,35 @@ class MailLogIngestor:
         """Insert a record into mail_trace."""
         try:
             ts = self._parse_syslog_timestamp(timestamp_str)
+            import ipaddress
+            try:
+                src_ip = str(ipaddress.ip_address(client_ip)) if client_ip else None
+            except (ValueError, TypeError):
+                src_ip = None
             await self.db.execute(
                 """
                 INSERT INTO mail_trace (
-                    queue_id, message_id, sender, recipient, size,
-                    status, relay, delay, dsn, status_detail,
-                    client_ip, rspamd_score, rspamd_action, rspamd_symbols,
-                    log_timestamp
+                    queue_id, message_id, sender, recipient, size_bytes,
+                    status, relay, delay_seconds, dsn,
+                    source_ip, rspamd_score, rspamd_action
                 ) VALUES (
                     $1, $2, $3, $4, $5,
-                    $6, $7, $8, $9, $10,
-                    $11, $12, $13, $14,
-                    $15
+                    $6, $7, $8, $9,
+                    $10, $11, $12
                 )
-                ON CONFLICT (queue_id, recipient) DO UPDATE SET
-                    status = EXCLUDED.status,
-                    relay = EXCLUDED.relay,
-                    delay = EXCLUDED.delay,
-                    dsn = EXCLUDED.dsn,
-                    status_detail = EXCLUDED.status_detail,
-                    log_timestamp = EXCLUDED.log_timestamp
             """,
                 queue_id,
                 message_id,
                 sender,
                 recipient,
-                size,
+                _safe_int(size),
                 status,
                 relay,
-                delay,
+                _safe_float(delay),
                 dsn,
-                status_detail,
-                client_ip,
-                rspamd_score,
+                src_ip,
+                _safe_float(rspamd_score),
                 rspamd_action,
-                rspamd_symbols,
-                ts,
             )
         except Exception:
             logger.exception("Failed to insert mail_trace for queue_id=%s", queue_id)
@@ -593,6 +600,12 @@ class MailLogIngestor:
     def _parse_syslog_timestamp(ts_str: str) -> datetime:
         """Parse syslog timestamp (no year) into a datetime using current year."""
         now = datetime.now()
+        # ISO8601 (rsyslog RFC3339): 2026-06-09T19:37:11.984504-05:00
+        if "T" in ts_str and ts_str[:4].isdigit():
+            try:
+                return datetime.fromisoformat(ts_str).replace(tzinfo=None)
+            except ValueError:
+                pass
         try:
             dt = datetime.strptime(ts_str, "%b %d %H:%M:%S")
             dt = dt.replace(year=now.year)

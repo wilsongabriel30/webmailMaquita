@@ -25,6 +25,15 @@ import { DnsCheck } from "./pages/DnsCheck";
 import { AiConfig } from "./pages/AiConfig";
 import { OfficeConfig } from "./pages/OfficeConfig";
 import { VoiceConfig } from "./pages/VoiceConfig";
+import { DlpConfig } from "./pages/DlpConfig";
+import { SecureConfig } from "./pages/SecureConfig";
+import { SafeLinksConfig } from "./pages/SafeLinksConfig";
+import { PhishSim } from "./pages/PhishSim";
+import { ThreatDashboard } from "./pages/ThreatDashboard";
+import { CommCompliance } from "./pages/CommCompliance";
+import { InsiderRisk } from "./pages/InsiderRisk";
+import { EDiscoveryPremium } from "./pages/EDiscoveryPremium";
+import { AntispamAvanzado } from "./pages/AntispamAvanzado";
 import { SharedMailboxes } from "./pages/SharedMailboxes";
 import { EDiscovery } from "./pages/EDiscovery";
 import { Branding } from "./pages/Branding";
@@ -104,7 +113,16 @@ function App() {
             <Route path="ai" element={<AiConfig />} />
             <Route path="office" element={<OfficeConfig />} />
             <Route path="voice" element={<VoiceConfig />} />
+            <Route path="antispam" element={<AntispamAvanzado />} />
             <Route path="compliance" element={<Compliance />} />
+            <Route path="dlp" element={<DlpConfig />} />
+            <Route path="secure" element={<SecureConfig />} />
+            <Route path="safelinks" element={<SafeLinksConfig />} />
+            <Route path="phishsim" element={<PhishSim />} />
+            <Route path="threats" element={<ThreatDashboard />} />
+            <Route path="comm-compliance" element={<CommCompliance />} />
+            <Route path="insider-risk" element={<InsiderRisk />} />
+            <Route path="ediscovery-premium" element={<EDiscoveryPremium />} />
           </Route>
         </Routes>
       </BrowserRouter>

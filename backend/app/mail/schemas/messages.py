@@ -61,6 +61,7 @@ class ComposeRequest(BaseModel):
     request_delivery_receipt: bool = False
     identity_id: int | None = None
     reply_to: str | None = None
+    dlp_override: bool = False
 
     @field_validator('to', mode='before')
     @classmethod

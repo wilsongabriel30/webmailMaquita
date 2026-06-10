@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     draft_autosave_interval_s: int = 30
     # Secrets centralizados (Fase 3)
     master_password: str = ""
+    secure_msg_key: str = ""
     admin_jwt_secret: str = ""
     ia_api_key: str = ""
     ollama_url: str = "http://127.0.0.1:11434"

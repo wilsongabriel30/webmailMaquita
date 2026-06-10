@@ -23,6 +23,11 @@ from app.admin.router import router as admin_router
 from app.mail.routers.folders import router as folders_router
 from app.mail.routers.messages import router as messages_router
 from app.mail.routers.compose import router as compose_router
+from app.dlp.router import router as dlp_router
+from app.secure_message.router import auth_router as secure_auth_router, public_router as secure_public_router
+from app.safelinks.router import router as safelinks_router
+from app.phishsim.router import router as phishsim_router
+from app.hold_ack.router import router as hold_ack_router
 from app.mail.routers.attachments import router as attachments_router
 from app.mail.routers.threads import router as threads_router
 from app.mail.routers.recall import router as recall_router
@@ -450,6 +455,12 @@ app.include_router(admin_router)
 app.include_router(folders_router)
 app.include_router(messages_router)
 app.include_router(compose_router)
+app.include_router(dlp_router)
+app.include_router(secure_auth_router)
+app.include_router(secure_public_router)
+app.include_router(safelinks_router)
+app.include_router(phishsim_router)
+app.include_router(hold_ack_router)
 app.include_router(attachments_router)
 app.include_router(threads_router)
 app.include_router(onlyoffice_router)

@@ -395,11 +395,11 @@ async def report_spam(
     for uid in uids:
         await db.execute(
             """INSERT INTO spam_analysis (owner, folder, message_uid, is_spam, spam_score, method, reasons, user_override)
-               VALUES ($1, $2, $3, true, 100, user_report, ARRAY[Reportado como spam por el usuario], spam)
+               VALUES ($1, $2, $3, true, 100, 'user_report', ARRAY['Reportado como spam por el usuario'], 'spam')
                ON CONFLICT (owner, folder, message_uid) DO UPDATE
-               SET is_spam=true, spam_score=100, method=user_report,
-                   reasons=ARRAY[Reportado como spam por el usuario],
-                   user_override=spam, analyzed_at=now()""",
+               SET is_spam=true, spam_score=100, method='user_report',
+                   reasons=ARRAY['Reportado como spam por el usuario'],
+                   user_override='spam', analyzed_at=now()""",
             user, folder, uid
         )
 
@@ -411,6 +411,11 @@ async def report_spam(
         login_user = await get_imap_login_user(request, user)
         imap = await get_imap_connection(login_user, password)
         try:
+            try:
+                from app.phishsim import service as _phsvc
+                await _phsvc.mark_reports_from_imap(imap, folder, uids, db)
+            except Exception:
+                pass
             ok = await uid_bulk_action(imap, folder, uids, "move", "Junk")
             if ok:
                 moved = len(uids)

@@ -62,6 +62,9 @@ export function ComposePanel({ win }: Props) {
   const [signatureHtml, setSignatureHtml] = useState('');
   const [quotedHtml, setQuotedHtml] = useState('');  // Contenido citado (reply/forward) — se renderiza DESPUES de la firma
   const [showSendDropdown, setShowSendDropdown] = useState(false);
+  const [encrypt, setEncrypt] = useState(false);
+  const [secureEnabled, setSecureEnabled] = useState(false);
+  useEffect(() => { api.get('/mail/secure/config').then((r: any) => setSecureEnabled(!!(r && r.enabled))).catch(() => {}); }, []);
   const sendDropdownRef = useRef<HTMLDivElement>(null);
   const [scheduleDate, setScheduleDate] = useState('');
   const autosaveTimer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -278,12 +281,51 @@ export function ComposePanel({ win }: Props) {
 
   // handleSend with 5-second undo  MUST be defined before keyboard useEffect
   const handleSend = useCallback(async () => {
+    if (encrypt) {
+      const recipients = to.split(',').map(x => x.trim()).filter(Boolean);
+      if (!recipients.length) { setError('Ingresa un destinatario'); return; }
+      setSending(true); setError('');
+      try {
+        const att = await Promise.all(
+          attachments.filter(a => a.file).map(async (a) => ({
+            filename: a.name,
+            content_b64: await readFileAsBase64(a.file!),
+            content_type: a.type || 'application/octet-stream',
+          }))
+        );
+        await api.post('/mail/secure/send', { to: recipients, subject, html_body: getFullHtml(), attachments: att });
+        showToast('Mensaje seguro enviado \uD83D\uDD12');
+        window.dispatchEvent(new CustomEvent('refresh-messages'));
+        closeCompose(win.id);
+      } catch (err: any) {
+        setSending(false);
+        setError('No se pudo enviar cifrado: ' + (err?.message || ''));
+      }
+      return;
+    }
     const recipients = to.split(',').map(s => s.trim()).filter(Boolean);
     if (!recipients.length) { setError('Ingresa un destinatario'); return; }
     // Advertencia si el asunto está vacío
     if (!subject.trim()) {
       if (!window.confirm("¿Enviar sin asunto?")) return;
     }
+    // -- DLP: prevención de fuga de datos sensibles --
+    let dlpOverride = false;
+    try {
+      const dlp: any = await api.post('/mail/dlp/check', { subject, html_body: getFullHtml(), text_body: '' });
+      if (dlp && Array.isArray(dlp.findings) && dlp.findings.length) {
+        const tipos = dlp.findings.map((x: any) => '\u2022 ' + x.label).join('\n');
+        if (dlp.action === 'block') {
+          window.alert('\uD83D\uDD12 Env\u00edo bloqueado por Protecci\u00f3n de datos.\n\nEste correo contiene:\n' + tipos + '\n\nQuita esos datos para poder enviarlo.');
+          return;
+        }
+        if (dlp.action === 'warn') {
+          const ok = window.confirm('\u26A0\uFE0F Atenci\u00f3n: este correo contiene datos sensibles:\n\n' + tipos + '\n\n\u00bfEnviar de todas formas?');
+          if (!ok) return;
+          dlpOverride = true;
+        }
+      }
+    } catch { /* si DLP no responde, no bloqueamos el env\u00edo */ }
     const sendPayload = {
       to: recipients,
       cc: cc ? cc.split(',').map(s => s.trim()).filter(Boolean) : undefined,
@@ -298,6 +340,7 @@ export function ComposePanel({ win }: Props) {
         }))
       ),
       draft_uid: win.draftUid,
+      dlp_override: dlpOverride,
       request_read_receipt: trackingState.read,
       request_delivery_receipt: trackingState.delivery,
     };
@@ -340,7 +383,7 @@ export function ComposePanel({ win }: Props) {
       }
     }, 5000);
     pendingSendMap.set(winId, { timerId, toastId, intervalId });
-  }, [to, cc, bcc, subject, editor, win, trackingState, closeCompose, attachments]);
+  }, [to, cc, bcc, subject, editor, win, trackingState, closeCompose, attachments, encrypt]);
 
   // Close send dropdown on click outside
   useEffect(() => {
@@ -802,6 +845,14 @@ export function ComposePanel({ win }: Props) {
               </div>
             )}
         </div>
+
+        {secureEnabled && (
+          <button onClick={() => setEncrypt(v => !v)} title="Cifrar este mensaje (solo el destinatario podrá abrirlo)"
+            className={`ml-3 h-[32px] px-3 rounded-[4px] text-[13px] font-medium flex items-center gap-1.5 border transition-colors ${encrypt ? 'bg-[#0078d4] text-white border-[#0078d4]' : 'bg-white text-[#605e5c] border-[#c8c6c4] hover:bg-[#f3f2f1]'}`}>
+            <svg className="w-[15px] h-[15px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 11V7a4 4 0 018 0v4M5 11h14v10H5z" /></svg>
+            {encrypt ? 'Cifrado' : 'Cifrar'}
+          </button>
+        )}
 
         <div className="flex-1" />
 

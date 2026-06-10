@@ -128,6 +128,14 @@ async def read_message(
         # FQA-003/004: Invalidate folder/stats cache — fetch_full_message sets \Seen flag
         await redis.delete(f"folders:{username}")
         await redis.delete(f"stats:{username}")
+        # Safe Links: reescribir enlaces para protección al hacer clic
+        try:
+            from app.safelinks import service as sl_service, rewriter as sl_rewriter
+            _sl = await sl_service.get_config(request.app.state.db_pool)
+            if _sl["enabled"] and _sl["rewrite_enabled"] and msg.get("html_body"):
+                msg["html_body"] = sl_rewriter.rewrite(msg["html_body"])
+        except Exception:
+            pass
         return msg
 
 

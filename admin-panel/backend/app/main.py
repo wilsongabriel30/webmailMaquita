@@ -35,6 +35,15 @@ from app.branding.router import router as branding_router
 from app.ai_config.router import router as ai_config_router
 from app.office_config.router import router as office_config_router
 from app.voice_config.router import router as voice_config_router
+from app.dlp_config.router import router as dlp_config_router
+from app.secure_config.router import router as secure_config_router
+from app.safelinks_config.router import router as safelinks_config_router
+from app.phish_campaigns.router import router as phish_router
+from app.threats.router import router as threats_router
+from app.comm_compliance.router import router as comm_router
+from app.insider_risk.router import router as insider_router
+from app.ediscovery_premium.router import router as edp_router
+from app.antispam_avanzado.router import router as antispam_avanzado_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -110,6 +119,15 @@ app.include_router(shared_router)
 app.include_router(ai_config_router)
 app.include_router(office_config_router)
 app.include_router(voice_config_router)
+app.include_router(dlp_config_router)
+app.include_router(secure_config_router)
+app.include_router(safelinks_config_router)
+app.include_router(phish_router)
+app.include_router(threats_router)
+app.include_router(comm_router)
+app.include_router(insider_router)
+app.include_router(edp_router)
+app.include_router(antispam_avanzado_router)
 app.include_router(nextcloud_router)
 app.include_router(ediscovery_router)
 app.include_router(branding_router)
