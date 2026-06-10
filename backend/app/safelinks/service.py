@@ -21,7 +21,7 @@ async def get_blocklist(db) -> list[tuple[str, str]]:
         return []
 
 
-async def check_url(db, url: str) -> dict:
+async def check_url(db, url: str, redis=None) -> dict:
     cfg = await get_config(db)
     res = checker.analyze(url)
     host = res["host"]
@@ -38,6 +38,15 @@ async def check_url(db, url: str) -> dict:
                 return {"verdict": "blocked", "reason": f"Contiene un término bloqueado ({pat})", "host": host}
     if res["verdict"] == "suspicious" and not cfg["warn_suspicious"]:
         return {"verdict": "safe", "reason": "", "host": host}
+    if redis is not None:
+        try:
+            from . import threatfeeds
+            reg = checker._registrable(host) if host else ""
+            ti = await threatfeeds.classify(redis, host, reg)
+            if ti:
+                return {"verdict": ti[0], "reason": ti[1], "host": host}
+        except Exception:
+            pass
     return res
 
 

@@ -55,8 +55,9 @@ export function Quarantine() {
   };
 
   const release = async (msg: any) => {
-    if (!confirm("Mover este correo de spam a la bandeja de entrada del usuario? Verificar que no sea malicioso. Se registra en auditoria.")) return;
-    await api.post("/quarantine/release", { username: junkUser, mailbox_guid: msg.mailbox_guid, uid: msg.uid });
+    if (!confirm(`Liberar este correo a la bandeja de ${junkUser} y marcar al remitente como \"No es spam\" (siempre llegara)?`)) return;
+    const r: any = await api.post("/quarantine/release", { username: junkUser, mailbox_guid: msg.mailbox_guid, uid: msg.uid, sender: msg.from, whitelist: true });
+    if (r && r.whitelisted) alert(`Liberado. \"${r.whitelisted}\" quedo en lista blanca: sus correos siempre llegaran.`);
     loadJunk();
   };
 

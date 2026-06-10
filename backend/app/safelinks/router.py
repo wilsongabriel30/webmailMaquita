@@ -32,7 +32,7 @@ async def safelink(request: Request, u: str = "", s: str = "", go: int = 0):
         await service.log_click(db, "", url, "", "untrusted", False, ip)
         return HTMLResponse(_warn_page(url, "No pudimos verificar este enlace. Procede con cuidado.", "suspicious", u + ":" + s))
 
-    res = await service.check_url(db, url)
+    res = await service.check_url(db, url, request.app.state.redis)
     verdict = res["verdict"]
 
     if verdict == "safe":

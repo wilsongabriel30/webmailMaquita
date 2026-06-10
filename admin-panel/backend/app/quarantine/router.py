@@ -79,8 +79,29 @@ async def release_from_spam(request: Request, admin: dict = Depends(require_role
     if not ok:
         raise HTTPException(500, "Error al mover mensaje")
 
-    await _audit(request, admin, "spam_release", username, {"uid": uid})
-    return {"ok": True}
+    # "No es spam": poner al remitente en lista blanca para que SIEMPRE llegue
+    whitelisted = None
+    sender = (data.get("sender") or "").strip()
+    if data.get("whitelist", True) and sender:
+        import os as _os, re as _re, asyncio as _aio, subprocess as _sp
+        m = _re.search(r"[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}", sender)
+        if m:
+            addr = m.group(0).lower()
+            path = "/etc/rspamd/local.d/maps/whitelist_senders.map"
+            try:
+                existing = set()
+                if _os.path.exists(path):
+                    existing = {l.strip().lower() for l in open(path) if l.strip() and not l.startswith("#")}
+                if addr not in existing:
+                    with open(path, "a") as fh:
+                        fh.write(addr + "\n")
+                    await _aio.to_thread(_sp.run, ["systemctl", "reload", "rspamd"], timeout=15, capture_output=True)
+                whitelisted = addr
+            except Exception:
+                whitelisted = None
+
+    await _audit(request, admin, "spam_release", username, {"uid": uid, "whitelisted": whitelisted})
+    return {"ok": True, "whitelisted": whitelisted}
 
 
 @router.post("/mark-spam")

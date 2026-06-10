@@ -1210,3 +1210,11 @@ CREATE TABLE IF NOT EXISTS risky_login_config (
     updated_at TIMESTAMPTZ DEFAULT now(), CONSTRAINT risky_login_singleton CHECK (id = 1)
 );
 INSERT INTO risky_login_config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+
+-- 6) Inteligencia de amenazas (Safe Links): metadatos de feeds
+CREATE TABLE IF NOT EXISTS threat_feed_meta (
+    id INT PRIMARY KEY DEFAULT 1, malware_count INT NOT NULL DEFAULT 0, phish_count INT NOT NULL DEFAULT 0,
+    sources JSONB NOT NULL DEFAULT '{}'::jsonb, updated_at TIMESTAMPTZ,
+    CONSTRAINT threat_feed_meta_singleton CHECK (id = 1)
+);
+INSERT INTO threat_feed_meta (id) VALUES (1) ON CONFLICT (id) DO NOTHING;

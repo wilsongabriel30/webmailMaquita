@@ -249,6 +249,8 @@ async def lifespan(app: FastAPI):
     snooze_task = asyncio.create_task(check_snoozed(app))
     # Start compliance services
     app.state.log_ingestor = await start_log_ingestor(app.state.db_pool)
+    from app.safelinks import threatfeeds as _tfeeds
+    app.state.tintel_task = asyncio.create_task(_tfeeds.loop(app))
     app.state.fraud_detector = await start_fraud_detector(app.state.db_pool)
     # Start IMAP pool cleanup
     from app.mail.clients.imap_pool import start_cleanup_task

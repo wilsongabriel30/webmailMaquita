@@ -50,12 +50,15 @@ async def analyze(db, redis, username: str, ip: str, user_agent: str = "") -> No
         country = geo.get("country", "") or ""
         city = geo.get("city", "") or ""
         lat, lon = geo.get("lat"), geo.get("lon")
+        if internal:
+            # Anclar los logins internos a la sede para poder detectar saltos LAN->exterior
+            country, city, lat, lon = "Ecuador", "Sede/Interna", -0.1807, -78.4678
 
         prev = []
         if not internal:
             prev = await db.fetch(
                 "SELECT country, lat, lon, created_at FROM login_events "
-                "WHERE username=$1 AND NOT is_internal AND lat IS NOT NULL "
+                "WHERE username=$1 AND lat IS NOT NULL "
                 "ORDER BY created_at DESC LIMIT 30", username)
 
         await db.execute(
