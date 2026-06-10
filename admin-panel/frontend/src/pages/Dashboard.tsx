@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { Link } from "react-router-dom";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from "recharts";
 
 interface DashData {
@@ -56,6 +57,22 @@ export function Dashboard() {
         <h1 className="text-xl font-semibold text-ms-gray-130">Dashboard</h1>
         <span className="text-xs text-ms-gray-60">Última actualización: {new Date().toLocaleTimeString()}</span>
       </div>
+
+      {/* Acceso rapido — Filtro Avanzado (nuevo) */}
+      <Link to="/antispam"
+        className="flex items-center gap-3 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded p-4 transition-colors">
+        <svg className="w-6 h-6 text-blue-700 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2l7 4v6c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6l7-4z" />
+        </svg>
+        <div className="flex-1">
+          <p className="text-sm font-semibold text-ms-gray-130">
+            Filtro Avanzado de Adjuntos
+            <span className="text-[10px] bg-blue-700 text-white px-1.5 py-0.5 rounded ml-2 align-middle">NUEVO</span>
+          </p>
+          <p className="text-xs text-ms-gray-60">Afina deteccion de malware en comprimidos, Office con macros, la neurona de spam y la depuracion mensual.</p>
+        </div>
+        <span className="text-blue-700 text-lg">&rarr;</span>
+      </Link>
 
       {/* Stats cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
