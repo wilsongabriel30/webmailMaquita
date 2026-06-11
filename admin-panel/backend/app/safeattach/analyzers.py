@@ -72,8 +72,11 @@ def _office(name: str, data: bytes) -> list[tuple[str, str]]:
         if vp.detect_vba_macros():
             res = vp.analyze_macros() or []
             kinds = {r[0] for r in res}  # AutoExec, Suspicious, IOC, ...
-            if "AutoExec" in kinds or "Suspicious" in kinds:
-                out.append(("malicious", f"Macro Office con auto-ejecución/sospechosa ({', '.join(sorted(kinds))})"))
+            blob = " ".join(str(r[2]) for r in res).lower()
+            peligro = any(w in blob for w in ("shell", "powershell", "wscript", "createobject",
+                          "urldownloadtofile", "cmd.exe", "msxml", "winhttp", "regwrite"))
+            if "AutoExec" in kinds and peligro:
+                out.append(("suspicious", "Macro Office con auto-ejecucion y comandos sospechosos"))
             else:
                 out.append(("suspicious", "Documento Office contiene macros VBA"))
         vp.close()
@@ -85,11 +88,17 @@ def _office(name: str, data: bytes) -> list[tuple[str, str]]:
 def _pdf(name: str, data: bytes) -> list[tuple[str, str]]:
     if _ext(name) != "pdf" and not data.startswith(b"%PDF"):
         return []
-    found = [k.decode() for k in PDF_BAD if k in data[:5_000_000]]
-    if found:
-        sev = "malicious" if ("/Launch" in found or "/JavaScript" in found or "/JS" in found) else "suspicious"
-        return [(sev, f"PDF con elementos activos: {', '.join(found)}")]
-    return []
+    head = data[:5_000_000]
+    out = []
+    if b"/Launch" in head:
+        out.append(("malicious", "PDF con /Launch (puede ejecutar programas externos)"))
+    has_js = (b"/JavaScript" in head) or (b"/JS" in head)
+    has_auto = (b"/OpenAction" in head) or (b"/AA" in head)
+    if has_js and has_auto:
+        out.append(("suspicious", "PDF con JavaScript de auto-ejecucion (/JS + /OpenAction)"))
+    # /JS, /OpenAction o /EmbeddedFile por separado son demasiado comunes en PDFs
+    # legitimos (catalogos, estados de cuenta, formularios) -> no se marcan.
+    return out
 
 
 def _archive(name: str, data: bytes, depth: int, redis_client) -> list[tuple[str, str]]:
