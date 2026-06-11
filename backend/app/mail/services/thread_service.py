@@ -15,6 +15,9 @@ def compute_thread_id(message_id: str = "", references: str = "", in_reply_to: s
             return ids[0].strip("<>")
     if in_reply_to:
         return in_reply_to.strip("<>")
+    # Mensaje raíz: su propio Message-ID (coincide con references[0] de las respuestas)
+    if message_id:
+        return message_id.strip("<>")
     # Fallback: normalized subject
     subj = re.sub(r"^(Re|Fwd|Fw)\s*:\s*", "", subject, flags=re.IGNORECASE).strip()
     if subj:

@@ -165,6 +165,9 @@ def _compute_thread_id(n) -> str:
             return ids[0].strip("<>")
     if n.in_reply_to:
         return n.in_reply_to.strip("<>")
+    # Mensaje raíz: su propio Message-ID (coincide con references[0] de las respuestas)
+    if getattr(n, "message_id", ""):
+        return n.message_id.strip("<>")
     # Fallback: normalized subject
     import re
     subj = re.sub(r"^(Re|Fwd|Fw)\s*:\s*", "", n.subject, flags=re.IGNORECASE).strip()

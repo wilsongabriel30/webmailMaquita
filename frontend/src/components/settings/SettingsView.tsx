@@ -380,7 +380,16 @@ export function SettingsView() {
             ) : (
               <>
                 <Toggle label="Activar respuesta automática" checked={vacation.enabled}
-                  onChange={v => setVacation({ ...vacation, enabled: v })} />
+                  onChange={v => {
+                    const next = { ...vacation, enabled: v };
+                    setVacation(next);
+                    if (!v) {
+                      // Apagar debe persistirse al instante (el botón Guardar solo existe encendido)
+                      api.put('/sieve/vacation', next).then(() => {
+                        setSaved(true); setTimeout(() => setSaved(false), 3000);
+                      }).catch(err => console.error(err));
+                    }
+                  }} />
                 {vacation.enabled && (
                   <>
                     <Field label="Asunto">

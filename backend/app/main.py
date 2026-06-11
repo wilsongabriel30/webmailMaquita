@@ -112,10 +112,22 @@ async def _process_scheduled_emails(db_pool, redis):
 
             for row in rows:
                 try:
+                    # Reclamo atómico: solo UN worker envía cada correo programado
+                    claimed = await db_pool.fetchrow(
+                        "UPDATE scheduled_emails SET status = 'sending' "
+                        "WHERE id = $1 AND status = 'pending' RETURNING id",
+                        row["id"],
+                    )
+                    if not claimed:
+                        continue
                     username = row["username"]
                     raw_pass = await redis.get(f"imap_pass:{username}")
                     if not raw_pass:
                         logger.warning(f"Scheduled email {row['id']}: no session for {username}")
+                        await db_pool.execute(
+                            "UPDATE scheduled_emails SET status = 'pending' WHERE id = $1",
+                            row["id"],
+                        )
                         continue
 
                     # Descifrar contraseña Fernet (las passwords en Redis están cifradas)
