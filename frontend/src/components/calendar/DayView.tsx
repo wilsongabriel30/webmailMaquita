@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useRef, useState } from "react";
+import { useMemo, useEffect, useRef, useState, useCallback } from "react";
 import type { CalendarEvent } from "./types/calendar";
 import {
   getHourSlots,
@@ -7,7 +7,7 @@ import {
   getOverlappingGroups,
   formatTime,
 } from "./utils/dateHelpers";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 
 interface Props {
@@ -15,14 +15,107 @@ interface Props {
   events: CalendarEvent[];
   onEventClick: (event: CalendarEvent) => void;
   onSlotClick: (date: Date, hour: number) => void;
+  onRangeSelect?: (date: Date, startHour: number, endHour: number) => void;
+  onEventMove?: (eventId: string, dtstart: string, dtend: string) => void;
 }
 
 const HOUR_HEIGHT = 64;
 
-export function DayView({ currentDate, events, onEventClick, onSlotClick }: Props) {
+export function DayView({ currentDate, events, onEventClick, onSlotClick, onRangeSelect, onEventMove }: Props) {
   const hours = useMemo(() => getHourSlots(), []);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [nowLine, setNowLine] = useState(0);
+  interface DragState { eventId: string; origDtstart: string; origDtend: string; startY: number; origTop: number; currentDeltaY: number; mode: "move" | "resize"; }
+  const [dragging, setDragging] = useState<DragState | null>(null);
+  const draggingRef = useRef<DragState | null>(null);
+  const suppressClickRef = useRef(false);
+  const [selecting, setSelecting] = useState<{ y0: number; y1: number } | null>(null);
+  const selectingRef = useRef<{ y0: number; y1: number; colTop: number } | null>(null);
+
+  useEffect(() => {
+    if (!selecting) return;
+    function onMove(e: MouseEvent) {
+      const sel = selectingRef.current;
+      if (!sel) return;
+      const y1 = Math.min(24 * HOUR_HEIGHT, Math.max(0, e.clientY - sel.colTop));
+      selectingRef.current = { ...sel, y1 };
+      setSelecting({ y0: sel.y0, y1 });
+    }
+    function onUp() {
+      const sel = selectingRef.current;
+      selectingRef.current = null;
+      setSelecting(null);
+      if (!sel) return;
+      const dist = Math.abs(sel.y1 - sel.y0);
+      if (dist < 12) {
+        const hour = Math.floor(sel.y0 / HOUR_HEIGHT);
+        onSlotClick(currentDate, Math.min(23, Math.max(0, hour)));
+        return;
+      }
+      if (!onRangeSelect) return;
+      const snap = (y: number) => Math.round((y / HOUR_HEIGHT) * 4) / 4;
+      const a = snap(Math.min(sel.y0, sel.y1));
+      const b = Math.max(snap(Math.max(sel.y0, sel.y1)), a + 0.25);
+      onRangeSelect(currentDate, a, Math.min(24, b));
+    }
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, [selecting !== null, onRangeSelect, onSlotClick, currentDate]);
+  useEffect(() => { draggingRef.current = dragging; }, [dragging]);
+
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent, eventId: string, top: number, dtstart: string, dtend: string, mode: "move" | "resize" = "move") => {
+      if (!onEventMove) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setDragging({ eventId, origDtstart: dtstart, origDtend: dtend, startY: e.clientY, origTop: top, currentDeltaY: 0, mode });
+    },
+    [onEventMove]
+  );
+
+  useEffect(() => {
+    if (!dragging) return;
+    function handleMouseMove(e: MouseEvent) {
+      if (!draggingRef.current) return;
+      const deltaY = e.clientY - draggingRef.current.startY;
+      setDragging((prev) => prev ? { ...prev, currentDeltaY: deltaY } : null);
+    }
+    function handleMouseUp(e: MouseEvent) {
+      const d = draggingRef.current;
+      if (!d || !onEventMove) { setDragging(null); return; }
+      const deltaY = e.clientY - d.startY;
+      const deltaMinutes = Math.round((deltaY / HOUR_HEIGHT) * 60 / 15) * 15;
+      const fmtDate = (dt: Date) => format(dt, "yyyy-MM-dd'T'HH:mm:ss");
+      if (deltaMinutes !== 0) {
+        suppressClickRef.current = true;
+        setTimeout(() => { suppressClickRef.current = false; }, 300);
+        const origStart = parseISO(d.origDtstart);
+        const origEnd = parseISO(d.origDtend);
+        if (d.mode === "resize") {
+          let newEnd = new Date(origEnd.getTime() + deltaMinutes * 60000);
+          if (newEnd.getTime() - origStart.getTime() < 15 * 60000) {
+            newEnd = new Date(origStart.getTime() + 15 * 60000);
+          }
+          onEventMove(d.eventId, fmtDate(origStart), fmtDate(newEnd));
+        } else {
+          const newStart = new Date(origStart.getTime() + deltaMinutes * 60000);
+          const newEnd = new Date(origEnd.getTime() + deltaMinutes * 60000);
+          onEventMove(d.eventId, fmtDate(newStart), fmtDate(newEnd));
+        }
+      }
+      setDragging(null);
+    }
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [dragging, onEventMove]);
   const today = isToday(currentDate);
 
   const dayEvents = useMemo(() => events.filter((ev) => !ev.all_day), [events]);
@@ -63,11 +156,11 @@ export function DayView({ currentDate, events, onEventClick, onSlotClick }: Prop
             {currentDate.getDate()}
           </span>
           <span
-            className={`text-[13px] mt-0.5 capitalize ${
+            className={`text-[13px] mt-0.5 ${
               today ? "text-[#0078d4] font-semibold" : "text-[#616161] dark:text-[#a19f9d]"
             }`}
           >
-            {format(currentDate, "EEEE, d 'de' MMMM", { locale: es })}
+            {(() => { const t = format(currentDate, "EEEE, d 'de' MMMM", { locale: es }); return t.charAt(0).toUpperCase() + t.slice(1); })()}
           </span>
         </div>
       </div>
@@ -112,13 +205,25 @@ export function DayView({ currentDate, events, onEventClick, onSlotClick }: Prop
           {/* Single day column */}
           <div
             className="flex-1 relative"
-            onClick={(e) => {
+            onMouseDown={(e) => {
+              if (dragging || e.button !== 0) return;
               const rect = e.currentTarget.getBoundingClientRect();
-              const y = e.clientY - rect.top;
-              const hour = Math.floor(y / HOUR_HEIGHT);
-              onSlotClick(currentDate, Math.min(23, Math.max(0, hour)));
+              const y0 = e.clientY - rect.top;
+              selectingRef.current = { y0, y1: y0, colTop: rect.top };
+              setSelecting({ y0, y1: y0 });
             }}
           >
+            {selecting && Math.abs(selecting.y1 - selecting.y0) >= 12 && (
+              <div style={{
+                position: "absolute",
+                top: Math.min(selecting.y0, selecting.y1),
+                height: Math.abs(selecting.y1 - selecting.y0),
+                left: 1, right: 1,
+                background: "rgba(0,120,212,0.18)",
+                border: "1px solid rgba(0,120,212,0.6)",
+                borderRadius: 4, zIndex: 5, pointerEvents: "none",
+              }} />
+            )}
             {/* Hour lines */}
             {hours.map((h) => (
               <div key={h.hour}>
@@ -155,20 +260,30 @@ export function DayView({ currentDate, events, onEventClick, onSlotClick }: Prop
                 const width = `calc(${colWidth}% - 8px)`;
                 const left = `calc(${ev.column * colWidth}% + 4px)`;
 
+                const isDragging = dragging?.eventId === ev.id;
+                const isResizing = isDragging && dragging!.mode === "resize";
+                const dragOffset = isDragging && !isResizing ? dragging!.currentDeltaY : 0;
+                const resizeDelta = isResizing ? dragging!.currentDeltaY : 0;
                 return (
                   <div
                     key={ev.id}
-                    className="absolute rounded cursor-pointer overflow-hidden z-10 hover:z-30 hover:brightness-90 transition-all"
+                    className="absolute rounded overflow-hidden hover:z-30 hover:brightness-90"
                     style={{
-                      top: pos.top,
-                      height: Math.max(pos.height, 24),
+                      top: pos.top + dragOffset,
+                      height: Math.max(pos.height + resizeDelta, 24),
                       width,
                       left,
                       backgroundColor: ev.color || "#0078d4",
                       borderRadius: "4px",
+                      zIndex: isDragging ? 30 : 10,
+                      opacity: isDragging ? 0.85 : 1,
+                      cursor: isDragging ? "grabbing" : "grab",
+                      transition: isDragging ? "none" : "top 0.15s ease",
                     }}
+                    onMouseDown={(e) => handleMouseDown(e, ev.id, pos.top, ev.dtstart, ev.dtend)}
                     onClick={(e) => {
                       e.stopPropagation();
+                      if (suppressClickRef.current) return;
                       onEventClick(ev);
                     }}
                   >
@@ -203,6 +318,12 @@ export function DayView({ currentDate, events, onEventClick, onSlotClick }: Prop
                         </div>
                       )}
                     </div>
+                    {onEventMove && (
+                      <div
+                        onMouseDown={(e) => handleMouseDown(e, ev.id, pos.top, ev.dtstart, ev.dtend, "resize")}
+                        style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 7, cursor: "ns-resize", zIndex: 5 }}
+                      />
+                    )}
                   </div>
                 );
               })

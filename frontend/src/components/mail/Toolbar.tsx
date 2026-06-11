@@ -225,7 +225,7 @@ function Group({ label, children }: { label: string; children: React.ReactNode }
   return (
     <div className="flex flex-col items-center">
       <div className="flex items-end gap-0.5">{children}</div>
-      <span className="text-[9px] text-[#a19f9d] mt-0.5 leading-none">{label}</span>
+      <span className="text-[9px] text-[#605e5c] mt-0.5 leading-none">{label}</span>
     </div>
   );
 }
@@ -419,6 +419,7 @@ export function Toolbar() {
   //  Actions
   const msg = selectedMessage;
   const uids: number[] = selectedUids.size > 0 ? Array.from(selectedUids) : (msg ? [msg.uid] : []);
+  const noSel = uids.length === 0;
 
   const moveToFolder = async (folder: string, toast?: string) => {
     if (!uids.length) { showToast('Selecciona un mensaje'); return; }
@@ -696,6 +697,7 @@ export function Toolbar() {
         <div className="relative">
           <button
             onClick={() => window.dispatchEvent(new CustomEvent('toggle-sidebar'))}
+            aria-label="Alternar panel de carpetas"
             onMouseEnter={() => { setHamburgerTooltip(true); setTimeout(() => setHamburgerTooltip(false), 3000); }}
             onMouseLeave={() => setHamburgerTooltip(false)}
             className="w-[36px] h-[36px] flex items-center justify-center hover:bg-[#e1dfdd] rounded"
@@ -772,6 +774,7 @@ export function Toolbar() {
         {/* Spacer + collapse button */}
         <div className="flex-1" />
         <button onClick={() => setCollapsed(!collapsed)}
+          aria-label={collapsed ? 'Expandir cinta de opciones' : 'Contraer cinta de opciones'}
           className="w-[36px] h-[36px] flex items-center justify-center hover:bg-[#e1dfdd] rounded text-[#605e5c]">
           <SvgIcon d={collapsed ? ICONS.chevronDown : ICONS.chevronUp} size={14} />
         </button>
@@ -842,10 +845,10 @@ export function Toolbar() {
 
                   {/* Group: Eliminar */}
                   <Group label="Eliminar">
-                    <ToolbarButton icon={ICONS.ignore} label="Ignorar"
+                    <ToolbarButton icon={ICONS.ignore} label="Ignorar" disabled={noSel}
                       onClick={() => moveToFolder('Trash', 'Conversación ignorada')} />
                     <div className="relative">
-                      <ToolbarButton icon={ICONS.block} label="Bloquear" hasDropdown
+                      <ToolbarButton icon={ICONS.block} label="Bloquear" hasDropdown disabled={noSel}
                         onClick={() => { closeAllDropdowns(); setBlockOpen(!blockOpen); }} />
                       <Dropdown open={blockOpen} onClose={() => setBlockOpen(false)}>
                         <DropdownItem label="Bloquear remitente" icon={ICONS.block}
@@ -854,15 +857,15 @@ export function Toolbar() {
                           onClick={() => { moveToFolder('Junk', 'Movido a No deseado'); setBlockOpen(false); }} />
                       </Dropdown>
                     </div>
-                    <ToolbarButton icon={ICONS.delete} label="Eliminar (Supr)" danger onClick={doDelete} />
-                    <ToolbarButton icon={ICONS.archive} label="Archivar (E)"
+                    <ToolbarButton icon={ICONS.delete} label="Eliminar (Supr)" danger disabled={noSel} onClick={doDelete} />
+                    <ToolbarButton icon={ICONS.archive} label="Archivar (E)" disabled={noSel}
                       onClick={() => moveToFolder('Archive', 'Archivado')} />
                   </Group>
                   <Sep />
 
                   {/* Group: Informar */}
                   <Group label="Informar">
-                    <ToolbarButton icon={ICONS.report} label="Informar"
+                    <ToolbarButton icon={ICONS.report} label="Informar" disabled={noSel}
                       onClick={() => moveToFolder('Junk', 'Reportado como phishing')} />
                   </Group>
                   <Sep />
@@ -870,7 +873,7 @@ export function Toolbar() {
                   {/* Group: Responder */}
                   <Group label="Responder">
                     <div className="relative">
-                      <ToolbarButton icon={ICONS.reply} label="Responder (R)" hasDropdown
+                      <ToolbarButton icon={ICONS.reply} label="Responder (R)" hasDropdown disabled={!msg}
                         onClick={() => { closeAllDropdowns(); setReplyOpen(!replyOpen); }} />
                       <Dropdown open={replyOpen} onClose={() => setReplyOpen(false)}>
                         <DropdownItem label="Responder" icon={ICONS.reply} onClick={doReply} />
@@ -891,7 +894,7 @@ export function Toolbar() {
                       </Dropdown>
                     </div>
                     <div className="relative">
-                      <ToolbarButton icon={ICONS.move} label="Mover" hasDropdown
+                      <ToolbarButton icon={ICONS.move} label="Mover" hasDropdown disabled={noSel}
                         onClick={() => { closeAllDropdowns(); setMoveOpen(!moveOpen); }} />
                       <Dropdown open={moveOpen} onClose={() => setMoveOpen(false)}>
                         {(folders || []).map((f: any) => (
@@ -916,10 +919,10 @@ export function Toolbar() {
 
                   {/* Group: Etiquetas */}
                   <Group label="Etiquetas">
-                    <ToolbarButton icon={msg?.seen ? ICONS.unread : ICONS.read}
+                    <ToolbarButton icon={msg?.seen ? ICONS.unread : ICONS.read} disabled={noSel}
                       label={msg?.seen ? 'No leído' : 'Leído'} onClick={toggleRead} />
                     <div className="relative">
-                      <ToolbarButton icon={ICONS.classify} label="Clasificar" hasDropdown
+                      <ToolbarButton icon={ICONS.classify} label="Clasificar" hasDropdown disabled={noSel}
                         onClick={() => { closeAllDropdowns(); setClassifyOpen(!classifyOpen); }} />
                       <Dropdown open={classifyOpen} onClose={() => setClassifyOpen(false)}>
                         {[
@@ -942,7 +945,7 @@ export function Toolbar() {
                       </Dropdown>
                     </div>
                     <div className="relative">
-                      <ToolbarButton icon={ICONS.flag} label="Marcar" hasDropdown active={msg?.flagged}
+                      <ToolbarButton icon={ICONS.flag} label="Marcar" hasDropdown active={msg?.flagged} disabled={noSel}
                         onClick={() => { closeAllDropdowns(); setFlagOpen(!flagOpen); }} />
                       <Dropdown open={flagOpen} onClose={() => setFlagOpen(false)}>
                         <DropdownItem label={msg?.flagged ? 'Quitar bandera' : 'Marcar con bandera'} icon={ICONS.flag}
@@ -951,9 +954,9 @@ export function Toolbar() {
                           onClick={() => { showToast('Marcado como completado'); try { const uid = Array.from(selectedUids)[0]; if(uid && currentFolder) { api.put('/mail/flag', { folder: currentFolder, uids: [uid], flag: '\\Flagged', action: 'remove' }).then(() => window.dispatchEvent(new CustomEvent('refresh-messages'))); } } catch {}; setFlagOpen(false); }} />
                       </Dropdown>
                     </div>
-                    <ToolbarButton icon={ICONS.pin} label="Chincheta"
+                    <ToolbarButton icon={ICONS.pin} label="Chincheta" disabled={noSel}
                       onClick={handlePin} />
-                    <ToolbarButton icon={ICONS.snooze} label="Posponer"
+                    <ToolbarButton icon={ICONS.snooze} label="Posponer" disabled={noSel}
                       onClick={handleSnoozeClick} />
                     <SnoozeModal
                       open={snoozeOpen}
@@ -967,7 +970,7 @@ export function Toolbar() {
 
                   {/* Group: Imprimir */}
                   <Group label="Imprimir">
-                    <ToolbarButton icon={ICONS.print} label="Imprimir (Ctrl+P)" onClick={doPrint} />
+                    <ToolbarButton icon={ICONS.print} label="Imprimir (Ctrl+P)" disabled={!msg} onClick={doPrint} />
                   </Group>
                   <Sep />
 

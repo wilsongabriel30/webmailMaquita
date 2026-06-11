@@ -14,6 +14,8 @@ _CSV_MAP = {
     "first name": "first_name", "nombre": "first_name",
     "last name": "last_name", "apellido": "last_name",
     "display name": "display_name", "nombre completo": "display_name",
+    "display_name": "display_name", "first_name": "first_name", "last_name": "last_name",
+    "full name": "display_name", "name": "display_name",
     "e-mail address": "email", "email": "email", "correo": "email",
     "e-mail 2 address": "email2", "email 2": "email2",
     "e-mail 3 address": "email3", "email 3": "email3",

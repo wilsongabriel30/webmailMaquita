@@ -67,7 +67,7 @@ def _decode_admin_token(token: str) -> dict:
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expirado")
     except jwt.InvalidTokenError as exc:
-        raise HTTPException(status_code=401, detail=f"Token invalido: {exc}")
+        raise HTTPException(status_code=401, detail=f"Token inválido: {exc}")
 
 
 def _decode_webmail_token(token: str) -> dict:
@@ -87,7 +87,7 @@ def _decode_webmail_token(token: str) -> dict:
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token de webmail expirado")
     except jwt.InvalidTokenError as exc:
-        raise HTTPException(status_code=401, detail=f"Token de webmail invalido: {exc}")
+        raise HTTPException(status_code=401, detail=f"Token de webmail inválido: {exc}")
 
 
 async def _get_user_and_role(request: Request) -> tuple[str, str]:
@@ -150,7 +150,7 @@ async def _get_user_and_role(request: Request) -> tuple[str, str]:
             return (str(username), role)
 
     # --- Sin credenciales ---
-    raise HTTPException(status_code=401, detail="No se encontro token de autenticacion")
+    raise HTTPException(status_code=401, detail="No se encontró token de autenticación")
 
 
 # ---------------------------------------------------------------------------

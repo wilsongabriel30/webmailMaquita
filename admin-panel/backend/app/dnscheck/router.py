@@ -150,7 +150,7 @@ async def check_domain(domain: str, admin: dict = Depends(get_current_admin)):
     results["dmarc"] = {
         "records": dmarc,
         "ok": len(dmarc) > 0,
-        "message": "DMARC configurado" if dmarc else "Sin DMARC — no hay politica de autenticacion. Agregue _dmarc.{} TXT".format(domain),
+        "message": "DMARC configurado" if dmarc else "Sin DMARC — no hay política de autenticación. Agregue _dmarc.{} TXT".format(domain),
     }
 
     # --- A record ---
@@ -225,7 +225,7 @@ async def check_domain(domain: str, admin: dict = Depends(get_current_admin)):
         "autoconfig": autoconfig_records,
         "autodiscover": autodiscover_records,
         "ok": bool(autoconfig_records or autodiscover_records),
-        "message": "Autoconfiguracion disponible" if (autoconfig_records or autodiscover_records) else "Sin autoconfig/autodiscover — los clientes de correo no se configuraran automaticamente",
+        "message": "Autoconfiguración disponible" if (autoconfig_records or autodiscover_records) else "Sin autoconfig/autodiscover — los clientes de correo no se configuraran automaticamente",
     }
 
     # --- Score ---

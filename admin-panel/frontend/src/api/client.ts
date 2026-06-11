@@ -14,8 +14,12 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   if (res.status === 401) {
     localStorage.removeItem("admin_token");
     localStorage.removeItem("admin_user");
-    window.location.href = "/login";
-    throw new Error("No autorizado");
+    if (path !== "/auth/login") {
+      window.location.href = "/login";
+      throw new Error("No autorizado");
+    }
+    const err = await res.json().catch(() => ({ detail: "Credenciales inválidas" }));
+    throw new Error(err.detail || "Credenciales inválidas");
   }
 
   if (!res.ok) {

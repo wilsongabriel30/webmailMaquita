@@ -229,7 +229,7 @@ async def link_nextcloud_account(
     nc_password = body.get("nc_password", "")
 
     if not nc_userid or not nc_password:
-        raise HTTPException(400, "Se requiere usuario y contrasena de Nextcloud")
+        raise HTTPException(400, "Se requiere usuario y contraseña de Nextcloud")
 
     if not await _nc_webdav_test(nc_userid, nc_password):
         raise HTTPException(401, "Credenciales de Nextcloud incorrectas")

@@ -31,7 +31,7 @@ export function PresenceSelector() {
     <div ref={ref} className="relative">
       <button onClick={() => setOpen(!open)} className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-black/10 transition-colors">
         <PresenceDot status={currentStatus} size={8} />
-        <span className="text-xs text-white/80 hidden sm:inline">{STATUSES.find(s => s.value === currentStatus)?.label}</span>
+        <span className="text-xs text-white hidden sm:inline">{STATUSES.find(s => s.value === currentStatus)?.label}</span>
       </button>
       {open && (
         <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-50 min-w-[160px]">

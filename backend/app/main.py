@@ -237,7 +237,13 @@ async def lifespan(app: FastAPI):
     setup_logging()
     app.state.db_pool = await create_db_pool()
     app.state.redis = await create_redis()
-    await ensure_task_tables(app.state.db_pool)
+    # DDL serializado entre workers (evita deadlocks de arranque)
+    async with app.state.db_pool.acquire() as _ddl_conn:
+        await _ddl_conn.execute("SELECT pg_advisory_lock(815000)")
+        try:
+            await ensure_task_tables(app.state.db_pool)
+        finally:
+            await _ddl_conn.execute("SELECT pg_advisory_unlock(815000)")
     # ── Validación MIME al arranque (protección anti-spam) ──
     _validate_mime_on_startup()
     # Start scheduled email background task
@@ -247,6 +253,8 @@ async def lifespan(app: FastAPI):
     # Start WebSocket Redis subscriber for real-time notifications
     ws_subscriber_task = await start_redis_subscriber(app.state)
     snooze_task = asyncio.create_task(check_snoozed(app))
+    from app.reminders_scheduler import check_reminders
+    reminders_task = asyncio.create_task(check_reminders(app))
     # Start compliance services
     app.state.log_ingestor = await start_log_ingestor(app.state.db_pool)
     from app.safelinks import threatfeeds as _tfeeds

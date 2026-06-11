@@ -44,6 +44,13 @@ const ACTION_LABELS: Record<string, string> = { move: 'Mover a', flag: 'Marcar',
 export function SettingsView() {
   const location = useLocation();
   const folders = useMailStore(s => s.folders);
+  useEffect(() => {
+    if (useMailStore.getState().folders.length === 0) {
+      api.get<{ folders: { name: string }[] }>('/mail/folders')
+        .then(r => useMailStore.getState().setFolders(r.folders as never[]))
+        .catch(() => {});
+    }
+  }, []);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -210,7 +217,7 @@ export function SettingsView() {
         <div className="text-xs font-semibold text-[#605e5c] uppercase tracking-wider mb-2">Condición</div>
         <div className="flex gap-2 items-end flex-wrap">
           <Field label="Si el campo">
-            <select value={filter.condition.field}
+            <select aria-label="Campo de la condición" value={filter.condition.field}
               onChange={e => setFilter({ ...filter, condition: { ...filter.condition, field: e.target.value } })}
               className="px-2 py-2 border border-[#8a8886] rounded text-sm">
               <option value="from">De (remitente)</option>
@@ -219,7 +226,7 @@ export function SettingsView() {
             </select>
           </Field>
           <Field label="">
-            <select value={filter.condition.operator}
+            <select aria-label="Operador de la condición" value={filter.condition.operator}
               onChange={e => setFilter({ ...filter, condition: { ...filter.condition, operator: e.target.value } })}
               className="px-2 py-2 border border-[#8a8886] rounded text-sm">
               <option value="contains">contiene</option>
@@ -255,7 +262,7 @@ export function SettingsView() {
         <div className="text-xs font-semibold text-[#605e5c] uppercase tracking-wider mb-2">Acción</div>
         <div className="flex gap-2 items-end flex-wrap">
           <Field label="Entonces">
-            <select value={filter.action.type}
+            <select aria-label="Tipo de acción" value={filter.action.type}
               onChange={e => setFilter({ ...filter, action: { ...filter.action, type: e.target.value } })}
               className="px-2 py-2 border border-[#8a8886] rounded text-sm">
               <option value="move">Mover a carpeta</option>
@@ -266,7 +273,7 @@ export function SettingsView() {
           </Field>
           {filter.action.type === 'move' && (
             <Field label="Carpeta destino">
-              <select value={filter.action.value || ''}
+              <select aria-label="Carpeta destino" value={filter.action.value || ''}
                 onChange={e => setFilter({ ...filter, action: { ...filter.action, value: e.target.value } })}
                 className="px-2 py-2 border border-[#8a8886] rounded text-sm min-w-[180px]">
                 <option value="">-- Seleccionar --</option>
@@ -289,7 +296,7 @@ export function SettingsView() {
 
       <div className="flex gap-2 pt-1">
         <button onClick={onSave}
-          disabled={!filter.name || !filter.condition.value}
+          disabled={!filter.name || !filter.condition.value || ((filter.action.type === 'move' || filter.action.type === 'forward') && !filter.action.value)}
           className="px-4 py-1.5 bg-[#0078d4] text-white text-sm rounded hover:bg-[#106ebe] disabled:opacity-50">
           {saveLabel}
         </button>
@@ -332,11 +339,11 @@ export function SettingsView() {
         {tab === 'general' && (
           <div className="space-y-5">
             <Field label="Nombre para mostrar">
-              <input value={settings.display_name} onChange={e => update('display_name', e.target.value)}
+              <input value={settings.display_name} onChange={e => update('display_name', e.target.value)} aria-label="Nombre para mostrar"
                 className="w-full px-3 py-2 border border-[#8a8886] rounded text-sm focus:border-[#0078d4] outline-none" />
             </Field>
             <Field label="Mensajes por página">
-              <select value={settings.messages_per_page} onChange={e => update('messages_per_page', Number(e.target.value))}
+              <select value={settings.messages_per_page} onChange={e => update('messages_per_page', Number(e.target.value))} aria-label="Mensajes por página"
                 className="px-3 py-2 border border-[#8a8886] rounded text-sm focus:border-[#0078d4] outline-none">
                 <option value={25}>25</option>
                 <option value={50}>50</option>
@@ -344,7 +351,7 @@ export function SettingsView() {
               </select>
             </Field>
             <Field label="Panel de lectura">
-              <select value={settings.reading_pane} onChange={e => update('reading_pane', e.target.value)}
+              <select value={settings.reading_pane} onChange={e => update('reading_pane', e.target.value)} aria-label="Panel de lectura"
                 className="px-3 py-2 border border-[#8a8886] rounded text-sm focus:border-[#0078d4] outline-none">
                 <option value="right">A la derecha</option>
                 <option value="bottom">Abajo</option>

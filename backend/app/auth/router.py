@@ -324,7 +324,7 @@ async def impersonate(body: ImpersonateRequest, request: Request, response: Resp
             raise HTTPException(403, "Se requiere rol de administrador")
         admin_user = payload.get("username", "unknown")
     except Exception:
-        raise HTTPException(403, "Token de administrador invalido")
+        raise HTTPException(403, "Token de administrador inválido")
 
     # Normalize target username
     username = body.username.strip().lower()

@@ -72,7 +72,8 @@ export function TasksSidebar({ activeView, onViewChange, customLists, onCreateLi
   const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null);
 
   const today = new Date();
-  const dateStr = today.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+  const dateStrRaw = today.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+  const dateStr = dateStrRaw.charAt(0).toUpperCase() + dateStrRaw.slice(1);
 
   const handleCreateList = () => {
     if (newListName.trim()) {
@@ -98,9 +99,15 @@ export function TasksSidebar({ activeView, onViewChange, customLists, onCreateLi
     >
       {/* Header */}
       <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, borderBottom: `1px solid ${COLORS.border}` }}>
-        <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={COLORS.secondary} strokeWidth={2}>
-          <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
-        </svg>
+        <button
+          aria-label="Alternar panel de listas"
+          onClick={() => window.dispatchEvent(new CustomEvent('toggle-tasks-sidebar'))}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex' }}
+        >
+          <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={COLORS.secondary} strokeWidth={2}>
+            <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
+          </svg>
+        </button>
       </div>
 
       {/* Smart lists */}
@@ -132,7 +139,7 @@ export function TasksSidebar({ activeView, onViewChange, customLists, onCreateLi
                   {sl.name}
                 </div>
                 {sl.id === 'my-day' && isActive && (
-                  <div style={{ fontSize: 12, color: COLORS.secondary, marginTop: 2, textTransform: 'capitalize' }}>
+                  <div style={{ fontSize: 12, color: COLORS.secondary, marginTop: 2 }}>
                     {dateStr}
                   </div>
                 )}

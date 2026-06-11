@@ -145,11 +145,11 @@ export function Mailboxes() {
   return (
     <div className="p-6 space-y-5">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-ms-gray-130">Buzónes ({mailboxes.length})</h1>
+        <h1 className="text-xl font-semibold text-ms-gray-130">Buzones ({mailboxes.length})</h1>
         <button onClick={() => setShowForm(!showForm)} title="Crea un nuevo buzón de correo. El usuario podra enviar y recibir correos inmediatamente. Se registra en auditoria." className="px-3 py-1.5 bg-ms-blue text-white rounded text-sm hover:bg-ms-blue-dark">+ Nuevo buzón</button>
       </div>
 
-      <input placeholder="Buscar por nombre o email..." value={filter} onChange={(e) => setFilter(e.target.value)} title="Filtra la lista de buzónes por nombre o dirección de correo."
+      <input placeholder="Buscar por nombre o email..." value={filter} onChange={(e) => setFilter(e.target.value)} title="Filtra la lista de buzones por nombre o dirección de correo."
         className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm bg-white focus:outline-none focus:border-ms-blue focus:ring-1 focus:ring-ms-blue" />
 
       {showForm && (

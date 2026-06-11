@@ -46,7 +46,7 @@ export function Health() {
           <p className="text-[11px] text-ms-gray-60 font-medium uppercase">Uptime</p>
           <p className="text-2xl font-bold text-ms-gray-130">{uptimeDays}d {uptimeHours}h</p>
         </div>
-        <div className="bg-white rounded border border-ms-gray-30 p-4" title="Numero de conexiones IMAP activas en este momento. Solo lectura.">
+        <div className="bg-white rounded border border-ms-gray-30 p-4" title="Número de conexiones IMAP activas en este momento. Solo lectura.">
           <p className="text-[11px] text-ms-gray-60 font-medium uppercase">Conexiones IMAP</p>
           <p className="text-2xl font-bold text-ms-gray-130">{conns.length}</p>
         </div>

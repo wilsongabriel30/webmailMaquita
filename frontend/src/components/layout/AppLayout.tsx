@@ -13,6 +13,7 @@ import { useResponsive } from "../../hooks/useResponsive";
 import { OfflineBanner } from "../common/OfflineBanner";
 import { useOfflineSync } from "../../hooks/useOfflineSync";
 import { InstallPrompt } from "../common/InstallPrompt";
+import { ReminderPopup } from "../common/ReminderPopup";
 
 export function AppLayout() {
   useKeyboardShortcuts();
@@ -100,6 +101,7 @@ export function AppLayout() {
         )}
 
         <main id="main-content" role="main" className="flex-1 flex flex-col overflow-hidden">
+          <h1 className="sr-only">Maquita Mail</h1>
           <Outlet />
         </main>
         {/* Region de anuncios para lectores de pantalla */}
@@ -107,6 +109,7 @@ export function AppLayout() {
       </div>
       <CommandPalette />
       <InstallPrompt />
+      <ReminderPopup />
     </div>
   );
 }

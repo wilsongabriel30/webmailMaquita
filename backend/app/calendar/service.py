@@ -95,7 +95,13 @@ def _expand_recurrence(event: EventOut, range_start: datetime, range_end: dateti
     """Expand a recurrent event into individual occurrences within [range_start, range_end]."""
     try:
         duration = event.dtend - event.dtstart
-        dtstart_str = event.dtstart.strftime("%Y%m%dT%H%M%S")
+        tzinfo = event.dtstart.tzinfo
+        if tzinfo is not None:
+            if range_start.tzinfo is None:
+                range_start = range_start.replace(tzinfo=tzinfo)
+            if range_end.tzinfo is None:
+                range_end = range_end.replace(tzinfo=tzinfo)
+        dtstart_str = event.dtstart.replace(tzinfo=None).strftime("%Y%m%dT%H%M%S")
         rrule_text = f"DTSTART:{dtstart_str}\n{event.rrule}"
         rule = rrulestr(rrule_text, ignoretz=True)
 
@@ -103,6 +109,8 @@ def _expand_recurrence(event: EventOut, range_start: datetime, range_end: dateti
         for i, occ_start in enumerate(rule):
             if i > 500:
                 break
+            if tzinfo is not None:
+                occ_start = occ_start.replace(tzinfo=tzinfo)
             occ_end = occ_start + duration
             if occ_end <= range_start:
                 continue
@@ -456,6 +464,9 @@ class CalendarService:
         set_clauses = []
         params = []
         idx = 3
+        # Si cambia el horario o los recordatorios, re-armar el aviso
+        if "dtstart" in updates or "reminders" in updates:
+            set_clauses.append("reminder_sent_at = NULL")
         for key, val in updates.items():
             if key == "optional_attendees":
                 continue  # already merged into attendees above
@@ -874,6 +885,15 @@ class CalendarService:
                 )
                 msg.attach(MIMEText(body, "html"))
                 with smtplib.SMTP(smtp_config["host"], smtp_config["port"]) as s:
+                    try:
+                        s.starttls()
+                    except smtplib.SMTPNotSupportedError:
+                        pass
+                    if smtp_config.get("password"):
+                        try:
+                            s.login(user, smtp_config["password"])
+                        except smtplib.SMTPNotSupportedError:
+                            pass
                     s.sendmail(user, [email], msg.as_string())
                 sent += 1
             except Exception as e:
@@ -931,6 +951,8 @@ class CalendarService:
                WHERE c.owner_email = $1
                  AND e.dtstart < $3
                  AND e.dtend > $2
+                 AND e.all_day = FALSE
+                 AND e.status <> 'CANCELLED'
                  AND COALESCE(e.transparency, 'OPAQUE') != 'TRANSPARENT'
                ORDER BY e.dtstart""",
             target_user, start, end,

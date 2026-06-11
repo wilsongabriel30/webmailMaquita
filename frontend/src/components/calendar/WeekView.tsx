@@ -16,19 +16,21 @@ interface Props {
   events: CalendarEvent[];
   onEventClick: (event: CalendarEvent) => void;
   onSlotClick: (date: Date, hour: number) => void;
+  onRangeSelect?: (date: Date, startHour: number, endHour: number) => void;
   onEventMove?: (eventId: string, dtstart: string, dtend: string) => void;
   daysToShow?: 5 | 7;
 }
 
 const HOUR_HEIGHT = 64;
 const GUTTER_WIDTH = 45;
-const WEEKDAY_FULL = ["Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado", "Domingo"];
+const WEEKDAY_FULL = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 
 export function WeekView({
   currentDate,
   events,
   onEventClick,
   onSlotClick,
+  onRangeSelect,
   onEventMove,
   daysToShow = 7,
 }: Props) {
@@ -47,12 +49,19 @@ export function WeekView({
     origDtstart: string;
     origDtend: string;
     startY: number;
+    startX: number;
+    colWidth: number;
     dayIdx: number;
     origTop: number;
     currentDeltaY: number;
+    currentDeltaX: number;
+    mode: "move" | "resize";
   } | null>(null);
+  const [selecting, setSelecting] = useState<{ dayIdx: number; y0: number; y1: number } | null>(null);
+  const selectingRef = useRef<{ dayIdx: number; y0: number; y1: number; day: Date; colTop: number } | null>(null);
   const draggingRef = useRef(dragging);
   draggingRef.current = dragging;
+  const suppressClickRef = useRef(false);
 
   // Auto-scroll to current hour
   useEffect(() => {
@@ -101,13 +110,50 @@ export function WeekView({
 
   // Mouse drag for vertical movement within WeekView
   const handleMouseDown = useCallback(
-    (e: React.MouseEvent, eventId: string, top: number, dtstart: string, dtend: string, dayIdx: number) => {
+    (e: React.MouseEvent, eventId: string, top: number, dtstart: string, dtend: string, dayIdx: number, mode: "move" | "resize" = "move") => {
       e.preventDefault();
       e.stopPropagation();
-      setDragging({ eventId, origDtstart: dtstart, origDtend: dtend, startY: e.clientY, dayIdx, origTop: top, currentDeltaY: 0 });
+      const col = (e.currentTarget as HTMLElement).closest("[data-daycol]") as HTMLElement | null;
+      const colWidth = col ? col.getBoundingClientRect().width : 0;
+      setDragging({ eventId, origDtstart: dtstart, origDtend: dtend, startY: e.clientY, startX: e.clientX, colWidth, dayIdx, origTop: top, currentDeltaY: 0, currentDeltaX: 0, mode });
     },
     []
   );
+
+  // Selección de rango sobre área vacía (crear evento arrastrando)
+  useEffect(() => {
+    if (!selecting) return;
+    function onMove(e: MouseEvent) {
+      const sel = selectingRef.current;
+      if (!sel) return;
+      const y1 = Math.min(24 * HOUR_HEIGHT, Math.max(0, e.clientY - sel.colTop));
+      selectingRef.current = { ...sel, y1 };
+      setSelecting({ dayIdx: sel.dayIdx, y0: sel.y0, y1 });
+    }
+    function onUp() {
+      const sel = selectingRef.current;
+      selectingRef.current = null;
+      setSelecting(null);
+      if (!sel) return;
+      const dist = Math.abs(sel.y1 - sel.y0);
+      if (dist < 12) {
+        const hour = Math.floor(sel.y0 / HOUR_HEIGHT);
+        onSlotClick(sel.day, Math.min(23, Math.max(0, hour)));
+        return;
+      }
+      if (!onRangeSelect) return;
+      const snap = (y: number) => Math.round((y / HOUR_HEIGHT) * 4) / 4; // 15 min
+      const a = snap(Math.min(sel.y0, sel.y1));
+      const b = Math.max(snap(Math.max(sel.y0, sel.y1)), a + 0.25);
+      onRangeSelect(sel.day, a, Math.min(24, b));
+    }
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, [selecting !== null, onRangeSelect, onSlotClick]);
 
   useEffect(() => {
     if (!dragging) return;
@@ -115,7 +161,8 @@ export function WeekView({
     function handleMouseMove(e: MouseEvent) {
       if (!draggingRef.current) return;
       const deltaY = e.clientY - draggingRef.current.startY;
-      setDragging((prev) => prev ? { ...prev, currentDeltaY: deltaY } : null);
+      const deltaX = e.clientX - draggingRef.current.startX;
+      setDragging((prev) => prev ? { ...prev, currentDeltaY: deltaY, currentDeltaX: deltaX } : null);
     }
 
     function handleMouseUp(e: MouseEvent) {
@@ -126,15 +173,41 @@ export function WeekView({
       }
 
       const deltaY = e.clientY - d.startY;
+      const deltaX = e.clientX - d.startX;
       // Snap to 15-minute intervals
       const deltaMinutes = Math.round((deltaY / HOUR_HEIGHT) * 60 / 15) * 15;
+      const fmtDate = (dt: Date) => format(dt, "yyyy-MM-dd'T'HH:mm:ss");
 
-      if (deltaMinutes !== 0) {
+      if (d.mode === "resize") {
+        if (deltaMinutes !== 0) {
+          suppressClickRef.current = true;
+          setTimeout(() => { suppressClickRef.current = false; }, 300);
+          const origStart = parseISO(d.origDtstart);
+          const origEnd = parseISO(d.origDtend);
+          let newEnd = new Date(origEnd.getTime() + deltaMinutes * 60000);
+          if (newEnd.getTime() - origStart.getTime() < 15 * 60000) {
+            newEnd = new Date(origStart.getTime() + 15 * 60000);
+          }
+          onEventMove(d.eventId, fmtDate(origStart), fmtDate(newEnd));
+        }
+        setDragging(null);
+        return;
+      }
+
+      // Cambio de dia arrastrando horizontalmente
+      let dayDelta = d.colWidth > 0 ? Math.round(deltaX / d.colWidth) : 0;
+      const maxIdx = (daysToShow === 5 ? 5 : 7) - 1;
+      const newIdx = Math.min(maxIdx, Math.max(0, d.dayIdx + dayDelta));
+      dayDelta = newIdx - d.dayIdx;
+
+      if (deltaMinutes !== 0 || dayDelta !== 0) {
+        suppressClickRef.current = true;
+        setTimeout(() => { suppressClickRef.current = false; }, 300);
         const origStart = parseISO(d.origDtstart);
         const origEnd = parseISO(d.origDtend);
-        const newStart = new Date(origStart.getTime() + deltaMinutes * 60000);
-        const newEnd = new Date(origEnd.getTime() + deltaMinutes * 60000);
-        const fmtDate = (dt: Date) => format(dt, "yyyy-MM-dd'T'HH:mm:ss");
+        const offsetMs = deltaMinutes * 60000 + dayDelta * 86400000;
+        const newStart = new Date(origStart.getTime() + offsetMs);
+        const newEnd = new Date(origEnd.getTime() + offsetMs);
         onEventMove(d.eventId, fmtDate(newStart), fmtDate(newEnd));
       }
 
@@ -173,7 +246,7 @@ export function WeekView({
               <span style={{ fontSize: "26px", fontWeight: 700, lineHeight: 1.1, color: today ? "#0078d4" : "#323130" }}>
                 {day.getDate()}
               </span>
-              <span style={{ fontSize: "12px", marginTop: "2px", textTransform: "capitalize", color: today ? "#0078d4" : "#616161", fontWeight: today ? 600 : 400 }}>
+              <span style={{ fontSize: "12px", marginTop: "2px", color: today ? "#0078d4" : "#616161", fontWeight: today ? 600 : 400 }}>
                 {WEEKDAY_FULL[allWeekDates.indexOf(day)] ?? format(day, "EEEE", { locale: es })}
               </span>
             </div>
@@ -260,15 +333,27 @@ export function WeekView({
             return (
               <div
                 key={dayIdx}
+                data-daycol
                 style={{ flex: 1, position: "relative", borderLeft: "1px solid #e0e0e0" }}
-                onClick={(e) => {
-                  if (dragging) return;
+                onMouseDown={(e) => {
+                  if (dragging || e.button !== 0) return;
                   const rect = e.currentTarget.getBoundingClientRect();
-                  const y = e.clientY - rect.top;
-                  const hour = Math.floor(y / HOUR_HEIGHT);
-                  onSlotClick(day, Math.min(23, Math.max(0, hour)));
+                  const y0 = e.clientY - rect.top;
+                  selectingRef.current = { dayIdx, y0, y1: y0, day, colTop: rect.top };
+                  setSelecting({ dayIdx, y0, y1: y0 });
                 }}
               >
+                {selecting && selecting.dayIdx === dayIdx && Math.abs(selecting.y1 - selecting.y0) >= 12 && (
+                  <div style={{
+                    position: "absolute",
+                    top: Math.min(selecting.y0, selecting.y1),
+                    height: Math.abs(selecting.y1 - selecting.y0),
+                    left: 1, right: 1,
+                    background: "rgba(0,120,212,0.18)",
+                    border: "1px solid rgba(0,120,212,0.6)",
+                    borderRadius: 4, zIndex: 5, pointerEvents: "none",
+                  }} />
+                )}
                 {/* Hour lines */}
                 {hours.map((h) => (
                   <div key={h.hour}>
@@ -294,7 +379,10 @@ export function WeekView({
                     const left = `calc(${ev.column * colWidth}% + 2px)`;
 
                     const isDragging = dragging?.eventId === ev.id;
-                    const dragOffset = isDragging ? dragging!.currentDeltaY : 0;
+                    const isResizing = isDragging && dragging!.mode === "resize";
+                    const dragOffset = isDragging && !isResizing ? dragging!.currentDeltaY : 0;
+                    const dragOffsetX = isDragging && !isResizing ? dragging!.currentDeltaX : 0;
+                    const resizeDelta = isResizing ? dragging!.currentDeltaY : 0;
 
                     return (
                       <div
@@ -302,7 +390,8 @@ export function WeekView({
                         style={{
                           position: "absolute",
                           top: pos.top + dragOffset,
-                          height: Math.max(pos.height, 20),
+                          transform: dragOffsetX !== 0 ? `translateX(${dragOffsetX}px)` : undefined,
+                          height: Math.max(pos.height + resizeDelta, 20),
                           width,
                           left,
                           zIndex: isDragging ? 30 : 10,
@@ -313,12 +402,21 @@ export function WeekView({
                         onMouseDown={(e) =>
                           handleMouseDown(e, ev.id, pos.top, ev.dtstart, ev.dtend, dayIdx)
                         }
+                        onClickCapture={(e) => {
+                          if (suppressClickRef.current) { e.stopPropagation(); e.preventDefault(); }
+                        }}
                       >
                         <EventCard
                           event={ev}
                           onClick={onEventClick}
                           compact={false}
                         />
+                        {onEventMove && (
+                          <div
+                            onMouseDown={(e) => handleMouseDown(e, ev.id, pos.top, ev.dtstart, ev.dtend, dayIdx, "resize")}
+                            style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 7, cursor: "ns-resize", zIndex: 5 }}
+                          />
+                        )}
                       </div>
                     );
                   })

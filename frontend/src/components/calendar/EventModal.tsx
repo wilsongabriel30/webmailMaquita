@@ -11,6 +11,9 @@ interface Props {
   event: CalendarEvent | null;
   initialDate?: Date;
   initialHour?: number;
+  initialDurationMinutes?: number;
+  initialSummary?: string;
+  initialDescription?: string;
   calendars: CalendarInfo[];
   onSave: (data: EventFormData) => void;
   onDelete: (id: string) => void;
@@ -58,6 +61,9 @@ export function EventModal({
   event,
   initialDate,
   initialHour,
+  initialDurationMinutes,
+  initialSummary,
+  initialDescription,
   calendars,
   onSave,
   onDelete,
@@ -70,7 +76,8 @@ export function EventModal({
     if (event) return parseISO(event.dtstart);
     if (initialDate) {
       const d = new Date(initialDate);
-      d.setHours(initialHour ?? 9, 0, 0, 0);
+      const h = initialHour ?? 9;
+      d.setHours(Math.floor(h), Math.round((h % 1) * 60), 0, 0);
       return d;
     }
     const now = new Date();
@@ -81,13 +88,13 @@ export function EventModal({
 
   const getDefaultEnd = useCallback(() => {
     if (event) return parseISO(event.dtend);
-    return addMinutes(getDefaultStart(), 30);
-  }, [event, getDefaultStart]);
+    return addMinutes(getDefaultStart(), initialDurationMinutes ?? 30);
+  }, [event, getDefaultStart, initialDurationMinutes]);
 
   const defaultCalId = event?.calendar_id || calendars.find((c) => c.is_default)?.id || calendars[0]?.id || "";
 
-  const [summary, setSummary] = useState(event?.summary || "");
-  const [description, setDescription] = useState(event?.description || "");
+  const [summary, setSummary] = useState(event?.summary || initialSummary || "");
+  const [description, setDescription] = useState(event?.description || initialDescription || "");
   const [location, setLocation] = useState(event?.location || "");
   const [calendarId, setCalendarId] = useState(defaultCalId);
   const [startDate, setStartDate] = useState(toDateInputValue(getDefaultStart()));
@@ -140,8 +147,8 @@ export function EventModal({
     if (isOpen) {
       const start = getDefaultStart();
       const end = getDefaultEnd();
-      setSummary(event?.summary || "");
-      setDescription(event?.description || "");
+      setSummary(event?.summary || initialSummary || "");
+      setDescription(event?.description || initialDescription || "");
       setLocation(event?.location || "");
       setCalendarId(event?.calendar_id || calendars.find((c) => c.is_default)?.id || calendars[0]?.id || "");
       setStartDate(toDateInputValue(start));

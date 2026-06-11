@@ -144,7 +144,7 @@ export function MailViewer() {
 
   return (
     <div className="p-6 space-y-4">
-      <h1 className="text-xl font-semibold text-ms-gray-130">Visor de buzónes</h1>
+      <h1 className="text-xl font-semibold text-ms-gray-130">Visor de buzones</h1>
 
       {/* User search */}
       <div className="flex gap-2 relative">

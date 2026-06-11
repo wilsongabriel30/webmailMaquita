@@ -11,6 +11,12 @@ import { api } from '../../api/client';
 
 export function TasksView() {
   const [activeView, setActiveView] = useState<ActiveView>('my-day');
+  const [sidebarVisible, setSidebarVisible] = useState(() => typeof window === 'undefined' || window.innerWidth >= 768);
+  useEffect(() => {
+    const h = () => setSidebarVisible(v => !v);
+    window.addEventListener('toggle-tasks-sidebar', h);
+    return () => window.removeEventListener('toggle-tasks-sidebar', h);
+  }, []);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [customLists, setCustomLists] = useState<TaskList[]>([]);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -243,14 +249,14 @@ export function TasksView() {
   return (
     <div style={{ display: 'flex', height: '100%', width: '100%', overflow: 'hidden', fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
       {/* Sidebar */}
-      <TasksSidebar
+      {sidebarVisible && <TasksSidebar
         activeView={activeView}
         onViewChange={v => { setActiveView(v); setSelectedTask(null); }}
         customLists={customLists}
         onCreateList={createList}
         onDeleteList={deleteList}
         smartCounts={smartCounts}
-      />
+      />}
 
       {/* Main content */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#faf9f8', overflow: 'hidden' }}>

@@ -133,7 +133,7 @@ async def saml_acs(request: Request):
         saml_xml = base64.b64decode(saml_response_b64)
         root = ET.fromstring(saml_xml)
     except Exception as exc:
-        raise HTTPException(400, f"SAMLResponse invalido: {exc}")
+        raise HTTPException(400, f"SAMLResponse inválido: {exc}")
 
     # ── Verify SAML XML signature (critical: prevents auth bypass) ──
     cfg = await db.fetchrow(
@@ -150,7 +150,7 @@ async def saml_acs(request: Request):
         lxml_root = lxml_etree.fromstring(saml_xml)
         XMLVerifier().verify(lxml_root, x509_cert=idp_cert_pem)
     except Exception as sig_exc:
-        raise HTTPException(403, f"Firma SAML invalida: {sig_exc}")
+        raise HTTPException(403, f"Firma SAML inválida: {sig_exc}")
 
     # Extract NameID (email)
     ns = {

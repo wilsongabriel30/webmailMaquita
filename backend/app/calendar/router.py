@@ -345,10 +345,12 @@ async def send_event_invitations(
     """Enviar emails de invitación a todos los asistentes de un evento."""
     db = _db(request)
     from app.config import get_settings
+    from app.core.session import get_user_password
     _s = get_settings()
     smtp_config = {
         "host": getattr(_s, "smtp_host", "127.0.0.1"),
         "port": int(getattr(_s, "smtp_port", 25)),
+        "password": await get_user_password(request, user),
     }
     try:
         sent = await calendar_service.send_invitations(db, user, event_id, smtp_config)
@@ -397,15 +399,24 @@ async def scheduling_assistant(
     for email in emails:
         # Query events for this user on this date
         rows = await db.fetch(
-            """SELECT start_time, end_time FROM calendar_events ce
+            """SELECT ce.dtstart AS start_time, ce.dtend AS end_time FROM events ce
                JOIN calendars c ON ce.calendar_id = c.id
-               WHERE c.owner = $1 AND ce.start_time::date = $2
-               ORDER BY ce.start_time""",
+               WHERE c.owner_email = $1 AND ce.dtstart::date = $2
+                 AND ce.all_day = FALSE
+                 AND ce.status <> 'CANCELLED'
+                 AND COALESCE(ce.transparency, 'OPAQUE') != 'TRANSPARENT'
+               ORDER BY ce.dtstart""",
             email, target
         )
+        from zoneinfo import ZoneInfo
+        _tz_local = ZoneInfo("America/Guayaquil")
         for row in rows:
             s = row["start_time"] if isinstance(row["start_time"], dt) else dt.fromisoformat(str(row["start_time"]))
             e = row["end_time"] if isinstance(row["end_time"], dt) else dt.fromisoformat(str(row["end_time"]))
+            if s.tzinfo is not None:
+                s = s.astimezone(_tz_local).replace(tzinfo=None)
+            if e.tzinfo is not None:
+                e = e.astimezone(_tz_local).replace(tzinfo=None)
             all_busy.append((s, e))
     
     # Merge overlapping busy intervals

@@ -54,8 +54,14 @@ export function IdentityManager() {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get<Identity[]>('/identities');
-      setIdentidades(res);
+      const res = await api.get<Array<Record<string, unknown>>>('/identities');
+      setIdentidades(res.map(r => ({
+        id: String(r.id),
+        name: (r.name as string) ?? (r.display_name as string) ?? '',
+        email: (r.email as string) ?? '',
+        signature: (r.signature as string) ?? (r.signature_html as string) ?? '',
+        isDefault: Boolean(r.isDefault ?? r.is_default),
+      })));
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'No se pudieron cargar las identidades.');
     } finally {
@@ -115,10 +121,10 @@ export function IdentityManager() {
 
     try {
       if (isCreating) {
-        await api.post('/identities', draft);
+        await api.post('/identities', { name: draft.name, email: draft.email, signature_html: draft.signature });
         flash({ type: 'success', message: 'Identidad creada.' });
       } else if (editingId) {
-        await api.put(`/api/identities/${editingId}`, draft);
+        await api.put(`/identities/${editingId}`, { name: draft.name, email: draft.email, signature_html: draft.signature });
         flash({ type: 'success', message: 'Identidad actualizada.' });
       }
       clearEdit();
@@ -140,7 +146,7 @@ export function IdentityManager() {
       }
 
       try {
-        await api.del(`/api/identities/${id}`);
+        await api.del(`/identities/${id}`);
         flash({ type: 'success', message: 'Identidad eliminada.' });
         setDeletingId(null);
         clearEdit();
@@ -158,13 +164,13 @@ export function IdentityManager() {
   const handleSetDefault = useCallback(
     async (id: string) => {
       try {
-        await api.put(`/api/identities/${id}`, { isDefault: true });
+        await api.put(`/identities/${id}`, { is_default: true });
         flash({ type: 'success', message: 'Identidad predeterminada actualizada.' });
         await fetchIdentidades();
       } catch (err: unknown) {
         flash({
           type: 'error',
-          message: err instanceof Error ? err.message : 'Failed to set default.',
+          message: err instanceof Error ? err.message : 'No se pudo establecer como predeterminada.',
         });
       }
     },

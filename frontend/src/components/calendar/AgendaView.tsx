@@ -60,7 +60,7 @@ export function AgendaView({ currentDate, events, onEventClick }: Props) {
               }`}
             >
               <span
-                className={`text-[13px] font-semibold capitalize ${
+                className={`text-[13px] font-semibold ${
                   today ? "text-[#0078d4]" : "text-[#323130] dark:text-[#f3f2f1]"
                 }`}
               >

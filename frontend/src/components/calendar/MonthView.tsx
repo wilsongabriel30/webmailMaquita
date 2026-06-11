@@ -130,7 +130,7 @@ export function MonthView({ currentDate, events, onEventClick, onDateClick, onEv
                     <span
                       className={`text-[13px] leading-none flex items-center justify-center
                         ${todayFlag ? "bg-[#0078d4] text-white font-bold w-[24px] h-[24px] rounded-full" : "w-[24px] h-[24px]"}
-                        ${!inMonth && !todayFlag ? "text-[#c8c6c4] dark:text-[#484644]" : ""}
+                        ${!inMonth && !todayFlag ? "text-[#605e5c] dark:text-[#484644]" : ""}
                         ${inMonth && !todayFlag ? "text-[#323130] dark:text-[#d2d0ce] font-medium" : ""}
                       `}
                     >

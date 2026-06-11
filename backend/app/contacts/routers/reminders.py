@@ -72,7 +72,7 @@ async def create_reminder(contact_id: int, request: Request, username: str = Dep
         try:
             due_date = datetime.fromisoformat(due_date.replace("Z", "+00:00"))
         except ValueError:
-            raise HTTPException(400, "Fecha invalida")
+            raise HTTPException(400, "Fecha inválida")
 
     exists = await db.fetchval(
         "SELECT id FROM user_contacts WHERE id=$1 AND owner=$2", contact_id, username

@@ -139,6 +139,22 @@ export function useWebSocket(enabled: boolean = true) {
               break;
             }
 
+            case 'reminder': {
+              const remMsg = data.message || 'Recordatorio';
+              window.dispatchEvent(new CustomEvent('show-reminder', { detail: data }));
+              playNotificationSound();
+              if (Notification.permission === 'granted') {
+                try {
+                  new Notification('Maquita — Recordatorio', {
+                    body: remMsg,
+                    icon: '/favicon.ico',
+                    tag: data.tag || 'reminder',
+                  });
+                } catch {}
+              }
+              break;
+            }
+
             case 'session_expired':
               // Session lost — redirect to login
               ws.close();

@@ -126,7 +126,7 @@ async def fail2ban_jails(admin: dict = Depends(get_current_admin)):
 async def fail2ban_search_ip(ip: str, admin: dict = Depends(get_current_admin)):
     """Buscar en que jails esta baneada una IP."""
     if not re.match(r"^[\d.:a-fA-F]+$", ip):
-        raise HTTPException(400, "IP invalida")
+        raise HTTPException(400, "IP inválida")
     jails_raw, _, _ = await _run("sudo", "fail2ban-client", "status")
     found_in = []
     for line in jails_raw.split("\n"):
@@ -224,7 +224,7 @@ async def fail2ban_ban_all(request: Request, admin: dict = Depends(require_role(
 async def fail2ban_jail_config(jail_name: str, admin: dict = Depends(get_current_admin)):
     """Get config of a specific fail2ban jail."""
     if not re.match(r"^[a-zA-Z0-9_-]+$", jail_name):
-        raise HTTPException(400, "Nombre de jail invalido")
+        raise HTTPException(400, "Nombre de jail inválido")
     config = {}
     for prop in ["bantime", "maxretry", "findtime"]:
         out, _, rc = await _run("sudo", "fail2ban-client", "get", jail_name, prop)
@@ -244,7 +244,7 @@ async def fail2ban_update_jail_config(
 ):
     """Update fail2ban jail config (bantime, maxretry, findtime)."""
     if not re.match(r"^[a-zA-Z0-9_-]+$", jail_name):
-        raise HTTPException(400, "Nombre de jail invalido")
+        raise HTTPException(400, "Nombre de jail inválido")
     data = await request.json()
     allowed = {"bantime", "maxretry", "findtime"}
     results = {}
@@ -272,7 +272,7 @@ async def service_action(
     admin: dict = Depends(require_role("superadmin")),
 ):
     if action not in ("start", "stop", "restart", "reload"):
-        raise HTTPException(400, f"Accion invalida: {action}")
+        raise HTTPException(400, f"Acción inválida: {action}")
     unit = _get_unit(service_key)
     if action == "stop" and service_key in ("postgresql", "nginx"):
         raise HTTPException(400, f"No se puede detener {service_key}: servicio critico")
@@ -312,7 +312,7 @@ async def service_config(service_key: str, admin: dict = Depends(get_current_adm
     elif service_key == "clamav":
         return await _clamav_config()
     else:
-        return {"service": service_key, "config": {}, "editable": [], "message": "Configuracion no disponible para este servicio"}
+        return {"service": service_key, "config": {}, "editable": [], "message": "Configuración no disponible para este servicio"}
 
 
 @router.put("/{service_key}/config")
@@ -328,7 +328,7 @@ async def update_service_config(
         # Handled by jail-specific endpoint
         raise HTTPException(400, "Use /fail2ban/jail-config/{jail} para configurar fail2ban")
     else:
-        raise HTTPException(400, f"Edicion de configuracion no soportada para {service_key}")
+        raise HTTPException(400, f"Edición de configuración no soportada para {service_key}")
 
 
 async def _postfix_config():

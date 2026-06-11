@@ -199,7 +199,7 @@ async def recall_message(
         capture_output=True, text=True, timeout=10,
     )
     if sender_search.returncode != 0 or not sender_search.stdout.strip():
-        raise HTTPException(status_code=403, detail="Solo puede recuperar mensajes que usted envio")
+        raise HTTPException(status_code=403, detail="Solo puede recuperar mensajes que usted envió")
 
     results = []
 

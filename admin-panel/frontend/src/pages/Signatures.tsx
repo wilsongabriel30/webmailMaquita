@@ -161,7 +161,7 @@ export function Signatures() {
               </select>
               <input placeholder="Nombre personalizado" value={assignForm.custom_name} onChange={(e) => setAssignForm({ ...assignForm, custom_name: e.target.value })} className="px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" title="Nombre que aparecera en la firma. Si se deja vacio, se usara el nombre del usuario en el sistema." />
               <input placeholder="Cargo" value={assignForm.custom_title} onChange={(e) => setAssignForm({ ...assignForm, custom_title: e.target.value })} className="px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" title="Cargo o titulo del usuario que aparecera en la firma. Ejemplo: Gerente Comercial." />
-              <input placeholder="Teléfono" value={assignForm.custom_phone} onChange={(e) => setAssignForm({ ...assignForm, custom_phone: e.target.value })} className="px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" title="Numero de teléfono que aparecera en la firma del usuario." />
+              <input placeholder="Teléfono" value={assignForm.custom_phone} onChange={(e) => setAssignForm({ ...assignForm, custom_phone: e.target.value })} className="px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" title="Número de teléfono que aparecera en la firma del usuario." />
               <button onClick={assign} className="px-4 py-2 bg-ms-blue text-white rounded text-sm" title="Asigna esta plantilla de firma al usuario seleccionado. Se aplicara automaticamente en sus correos. Se registra en auditoria.">Asignar firma</button>
             </div>
           </div>

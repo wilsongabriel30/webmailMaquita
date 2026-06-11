@@ -70,7 +70,7 @@ async def setup_totp(
         "SELECT enabled FROM user_totp WHERE username = $1", user
     )
     if row and row["enabled"]:
-        raise HTTPException(status_code=400, detail="2FA ya esta activado. Desactivalo primero.")
+        raise HTTPException(status_code=400, detail="2FA ya está activado. Desactívalo primero.")
 
     secret = pyotp.random_base32()
     backup_codes = generate_backup_codes()
@@ -118,7 +118,7 @@ async def verify_totp(
 
     totp = pyotp.TOTP(row["secret"])
     if not totp.verify(body.code, valid_window=1):
-        raise HTTPException(status_code=400, detail="Codigo invalido. Intenta de nuevo.")
+        raise HTTPException(status_code=400, detail="Código inválido. Intenta de nuevo.")
 
     await db.execute(
         "UPDATE user_totp SET enabled = TRUE, verified_at = NOW() WHERE username = $1",
@@ -149,7 +149,7 @@ async def disable_totp(
     backup_codes = row["backup_codes"] or []
 
     if not totp.verify(code, valid_window=1) and code not in backup_codes:
-        raise HTTPException(status_code=400, detail="Codigo invalido")
+        raise HTTPException(status_code=400, detail="Código inválido")
 
     if code in backup_codes:
         backup_codes.remove(code)

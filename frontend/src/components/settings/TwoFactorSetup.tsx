@@ -23,6 +23,8 @@ export function TwoFactorSetup() {
   const [disableCode, setDisableCode] = useState('');
   const [showDisable, setShowDisable] = useState(false);
   const [step, setStep] = useState<'idle' | 'setup' | 'backup'>('idle');
+  const [askPassword, setAskPassword] = useState(false);
+  const [setupPassword, setSetupPassword] = useState('');
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -37,17 +39,20 @@ export function TwoFactorSetup() {
   useEffect(() => { fetchStatus(); }, [fetchStatus]);
 
   const startSetup = useCallback(async () => {
+    if (!setupPassword.trim()) { showToast('Ingresa tu contraseña actual'); return; }
     setLoading(true);
     try {
-      const res = await api.post('/auth/totp/setup');
+      const res = await api.post('/auth/totp/setup', { password: setupPassword });
       setSetupData(res as SetupData);
       setStep('setup');
+      setAskPassword(false);
+      setSetupPassword('');
     } catch (e: any) {
       showToast(e.message || 'Error al configurar 2FA');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [setupPassword]);
 
   const handleVerify = useCallback(async () => {
     if (!verifyCode.trim()) return;
@@ -58,7 +63,7 @@ export function TwoFactorSetup() {
       setStep('backup');
       fetchStatus();
     } catch (e: any) {
-      showToast(e.message || 'Codigo invalido');
+      showToast(e.message || 'Código inválido');
     } finally {
       setLoading(false);
     }
@@ -76,7 +81,7 @@ export function TwoFactorSetup() {
       setDisableCode('');
       fetchStatus();
     } catch (e: any) {
-      showToast(e.message || 'Codigo invalido');
+      showToast(e.message || 'Código inválido');
     } finally {
       setLoading(false);
     }
@@ -112,20 +117,51 @@ export function TwoFactorSetup() {
         </span>
         {status.enabled && status.backup_codes_remaining !== undefined && (
           <span className="text-[11px] text-[#605e5c]">
-            {status.backup_codes_remaining} codigos de respaldo restantes
+            {status.backup_codes_remaining} códigos de respaldo restantes
           </span>
         )}
       </div>
 
       {/* If not enabled: show setup button */}
-      {!status.enabled && step === 'idle' && (
+      {!status.enabled && step === 'idle' && !askPassword && (
         <button
-          onClick={startSetup}
+          onClick={() => setAskPassword(true)}
           disabled={loading}
           className="px-4 py-2 bg-[#0078d4] text-white text-[13px] rounded hover:bg-[#106ebe] disabled:opacity-50 transition-colors"
         >
-          {loading ? 'Configurando...' : 'Activar 2FA'}
+          Activar 2FA
         </button>
+      )}
+      {!status.enabled && step === 'idle' && askPassword && (
+        <div className="space-y-2">
+          <p className="text-[12px] text-[#323130] dark:text-[#e0e0e0]">
+            Por seguridad, confirma tu contraseña actual:
+          </p>
+          <div className="flex gap-2">
+            <input
+              type="password"
+              value={setupPassword}
+              onChange={e => setSetupPassword(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && startSetup()}
+              placeholder="Contraseña actual"
+              autoFocus
+              className="w-[220px] px-3 py-1.5 text-[13px] border border-[#e1dfdd] dark:border-[#555] rounded bg-white dark:bg-[#1e1e1e] text-[#323130] dark:text-[#e0e0e0] outline-none focus:border-[#0078d4]"
+            />
+            <button
+              onClick={startSetup}
+              disabled={loading || !setupPassword.trim()}
+              className="px-4 py-1.5 bg-[#0078d4] text-white text-[13px] rounded hover:bg-[#106ebe] disabled:opacity-50 transition-colors"
+            >
+              {loading ? 'Configurando...' : 'Continuar'}
+            </button>
+            <button
+              onClick={() => { setAskPassword(false); setSetupPassword(''); }}
+              className="px-3 py-1.5 text-[13px] text-[#605e5c] dark:text-[#999] hover:bg-[#e1dfdd] dark:hover:bg-[#383838] rounded"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Setup step: show QR and verify */}
@@ -133,7 +169,7 @@ export function TwoFactorSetup() {
         <div className="space-y-4">
           <div className="bg-[#faf9f8] dark:bg-[#2d2d2d] border border-[#edebe9] dark:border-[#444] rounded p-4">
             <p className="text-[12px] text-[#323130] dark:text-[#e0e0e0] mb-3">
-              1. Escanea este codigo QR con tu app de autenticacion:
+              1. Escanea este código QR con tu app de autenticación:
             </p>
             <div className="flex justify-center mb-3">
               <img src={setupData.qr_code} alt="QR Code" className="w-[200px] h-[200px] rounded" />
@@ -148,7 +184,7 @@ export function TwoFactorSetup() {
 
           <div>
             <p className="text-[12px] text-[#323130] dark:text-[#e0e0e0] mb-2">
-              2. Ingresa el codigo de 6 digitos de tu app:
+              2. Ingresa el código de 6 dígitos de tu app:
             </p>
             <div className="flex gap-2">
               <input
@@ -185,7 +221,7 @@ export function TwoFactorSetup() {
         <div className="space-y-4">
           <div className="bg-[#fff4ce] dark:bg-[#3a3520] border border-[#ffb900] dark:border-[#665d1e] rounded p-4">
             <p className="text-[13px] font-semibold text-[#323130] dark:text-[#e0e0e0] mb-2">
-              Guarda estos codigos de respaldo
+              Guarda estos códigos de respaldo
             </p>
             <p className="text-[12px] text-[#605e5c] dark:text-[#999] mb-3">
               Usa estos codigos si pierdes acceso a tu app de autenticacion. Cada codigo solo se puede usar una vez.
@@ -220,7 +256,7 @@ export function TwoFactorSetup() {
           ) : (
             <div className="space-y-2">
               <p className="text-[12px] text-[#323130] dark:text-[#e0e0e0]">
-                Ingresa tu codigo TOTP o un codigo de respaldo para desactivar:
+                Ingresa tu código TOTP o un código de respaldo para desactivar:
               </p>
               <div className="flex gap-2">
                 <input

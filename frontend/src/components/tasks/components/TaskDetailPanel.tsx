@@ -47,6 +47,7 @@ function recurrenceLabel(r?: string) {
 
 export function TaskDetailPanel({ task, onUpdate, onDelete, onClose }: Props) {
   const [title, setTitle] = useState(task.title);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [notes, setNotes] = useState(task.note || '');
   const [dueDate, setDueDate] = useState((task.due_date || '').slice(0, 10));
   const [showReminder, setShowReminder] = useState(false);
@@ -316,18 +317,40 @@ export function TaskDetailPanel({ task, onUpdate, onDelete, onClose }: Props) {
       {/* Delete/action button */}
       {!isMailTask && (
         <div style={{ padding: '12px 20px', borderTop: `1px solid ${COLORS.border}` }}>
-          <button
-            onClick={() => { if (confirm('¿Eliminar esta tarea?')) onDelete(task.id); }}
-            style={{
-              width: '100%', padding: '8px 16px', fontSize: 13,
-              background: 'transparent', border: `1px solid #d13438`,
-              color: '#d13438', borderRadius: 4, cursor: 'pointer',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#fde7e9'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
-          >
-            Eliminar tarea
-          </button>
+          {!confirmDelete ? (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              style={{
+                width: '100%', padding: '8px 16px', fontSize: 13,
+                background: 'transparent', border: `1px solid #d13438`,
+                color: '#d13438', borderRadius: 4, cursor: 'pointer',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#fde7e9'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+            >
+              Eliminar tarea
+            </button>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <span style={{ fontSize: 12, color: COLORS.text }}>¿Eliminar esta tarea?</span>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={() => onDelete(task.id)}
+                  style={{ flex: 1, padding: '8px 16px', fontSize: 13, background: '#d13438',
+                    border: 'none', color: 'white', borderRadius: 4, cursor: 'pointer' }}
+                >
+                  Eliminar
+                </button>
+                <button
+                  onClick={() => setConfirmDelete(false)}
+                  style={{ flex: 1, padding: '8px 16px', fontSize: 13, background: 'transparent',
+                    border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 4, cursor: 'pointer' }}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

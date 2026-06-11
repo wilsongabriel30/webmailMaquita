@@ -81,15 +81,15 @@ export function LoginPage() {
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#faf9f8' }}>
       {/* Top bar */}
-      <div className="h-12 flex items-center px-6" style={{ backgroundColor: color }}>
+      <header className="h-12 flex items-center px-6" style={{ backgroundColor: color }}>
         <svg className="w-5 h-5 text-white mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
             d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
         </svg>
         <span className="text-white font-semibold text-sm">{orgName}</span>
-      </div>
+      </header>
 
-      <div className="flex-1 flex items-center justify-center p-4">
+      <main className="flex-1 flex items-center justify-center p-4">
         <div className="w-full max-w-sm">
           <div className="bg-white rounded shadow-lg p-8" style={{ borderColor: '#edebe9', borderWidth: '1px' }}>
             {/* Header with logo or icon */}
@@ -172,6 +172,7 @@ export function LoginPage() {
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
+                        aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                         className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-[#605e5c] hover:text-[#323130] transition-colors"
                         tabIndex={-1}
                       >
@@ -208,7 +209,7 @@ export function LoginPage() {
                     maxLength={8}
                     autoComplete="one-time-code"
                   />
-                  <p className="text-xs mt-1" style={{ color: '#a19f9d' }}>
+                  <p className="text-xs mt-1" style={{ color: '#605e5c' }}>
                     También puedes usar un código de respaldo
                   </p>
                 </div>
@@ -239,13 +240,13 @@ export function LoginPage() {
               )}
             </form>
           </div>
-          <p className="text-center text-xs mt-4" style={{ color: '#a19f9d' }}>
+          <p className="text-center text-xs mt-4" style={{ color: '#605e5c' }}>
             {footerText || (
               <>{orgName}{slogan ? ` — ${slogan}` : ''} &middot; {new Date().getFullYear()}</>
             )}
           </p>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

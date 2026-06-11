@@ -1031,7 +1031,7 @@ const MessageView: React.FC = () => {
             <path d="M6 12l18 12 18-12" stroke="#a19f9d" strokeWidth="2" fill="none"/>
             <rect x="4" y="10" width="40" height="28" rx="3" stroke="#a19f9d" strokeWidth="2" fill="none"/>
           </svg>
-          <p style={{ fontSize: 14, margin: 0 }}>Selecciona un mensaje para leerlo</p>
+          <p style={{ fontSize: 14, margin: 0, color: '#605e5c' }}>Selecciona un mensaje para leerlo</p>
         </div>
       </div>
     );

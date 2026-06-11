@@ -62,17 +62,21 @@ export function formatDate(date: Date | string): string {
   return format(d, "d MMM yyyy", { locale: es });
 }
 
+export function capFirst(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 export function formatDateFull(date: Date | string): string {
   const d = typeof date === "string" ? parseISO(date) : date;
-  return format(d, "EEEE, d de MMMM de yyyy", { locale: es });
+  return capFirst(format(d, "EEEE, d de MMMM de yyyy", { locale: es }));
 }
 
 export function formatMonthYear(date: Date): string {
-  return format(date, "MMMM yyyy", { locale: es });
+  return capFirst(format(date, "MMMM yyyy", { locale: es }));
 }
 
 export function formatDayHeader(date: Date): string {
-  return format(date, "EEE d", { locale: es });
+  return capFirst(format(date, "EEE d", { locale: es }));
 }
 
 export function isSameDay(a: Date | string, b: Date | string): boolean {

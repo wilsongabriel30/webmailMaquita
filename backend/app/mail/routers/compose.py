@@ -187,7 +187,7 @@ async def send(
             import logging
             logging.getLogger("compose").error(f"Send failed for {username}: {smtp_err}")
             if "authentication" in str(smtp_err).lower():
-                raise HTTPException(status_code=401, detail="Sesion SMTP expirada. Cierra sesion y vuelve a iniciar.")
+                raise HTTPException(status_code=401, detail="Sesión SMTP expirada. Cierra sesión y vuelve a iniciar.")
             raise HTTPException(status_code=500, detail=f"Error al enviar: {str(smtp_err)[:200]}")
 
         # Auto-save all recipients for future autocomplete
@@ -359,6 +359,12 @@ async def schedule_send(
     db = request.app.state.db_pool
     await _ensure_scheduled_table(db)
 
+    from datetime import datetime as _dt
+    try:
+        sched_dt = _dt.fromisoformat(body.scheduled_at.replace("Z", "+00:00"))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Fecha de envío programado inválida (use ISO 8601)")
+
     row = await db.fetchrow("""
         INSERT INTO scheduled_emails
             (username, to_list, cc_list, bcc_list, subject, html_body, text_body,
@@ -376,7 +382,7 @@ async def schedule_send(
         body.text_body or "",
         body.in_reply_to or "",
         body.references or "",
-        body.scheduled_at,
+        sched_dt,
         body.request_read_receipt,
         body.request_delivery_receipt,
     )

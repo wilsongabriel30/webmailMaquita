@@ -173,7 +173,7 @@ async def room_availability(
     try:
         target_date = date.fromisoformat(date_str)
     except ValueError:
-        raise HTTPException(status_code=400, detail="Formato de fecha invalido. Use YYYY-MM-DD")
+        raise HTTPException(status_code=400, detail="Formato de fecha inválido. Use YYYY-MM-DD")
 
     day_start = datetime.combine(target_date, datetime.min.time().replace(hour=8))
     day_end = datetime.combine(target_date, datetime.min.time().replace(hour=18))

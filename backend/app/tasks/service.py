@@ -480,6 +480,7 @@ class TaskService:
             idx += 1
             sets.append(f"reminder = ${idx}")
             params.append(data.reminder)
+            sets.append("reminder_sent = FALSE")
         if not sets:
             raise ValueError("Nothing to update")
         sets.append("updated_at = NOW()")

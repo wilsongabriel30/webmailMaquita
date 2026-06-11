@@ -126,16 +126,19 @@ def _check_legal_hold(user):
     """Verifica si el usuario tiene legal hold activo via doveadm."""
     import subprocess
     try:
-        # Check legal_holds table via psql
+        # Check legal_holds via psql. :'mb' hace quoting seguro (sin inyeccion SQL).
+        # SQL por stdin (psql interpola :'mb' de forma segura; con -c NO se interpola)
         result = subprocess.run(
-            ['sudo', '-u', 'postgres', 'psql', '-d', 'maildb', '-t', '-A', '-c',
-             f"SELECT count(*) FROM legal_holds WHERE mailbox = '{user}' AND is_active = TRUE"],
+            ['sudo', '-u', 'postgres', 'psql', '-d', 'maildb', '-t', '-A', '-v', f'mb={user}'],
+            input="SELECT count(*) FROM legal_holds WHERE mailbox = :'mb' AND is_active = TRUE;",
             capture_output=True, text=True, timeout=10,
         )
-        count = int(result.stdout.strip()) if result.stdout.strip().isdigit() else 0
-        return count > 0
+        out = result.stdout.strip()
+        if result.returncode != 0 or not out.isdigit():
+            return True  # FALLAR CERRADO: si no se puede verificar el hold, NO borrar
+        return int(out) > 0
     except Exception:
-        return False  # En caso de error, NO bloquear (safe default)
+        return True  # FALLAR CERRADO: ante error, asumir hold activo (no borrar)
 
 
 def _expunge_messages(user_flag, folder, days):

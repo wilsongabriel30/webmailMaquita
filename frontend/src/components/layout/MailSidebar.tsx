@@ -379,7 +379,7 @@ export function MailSidebar() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={icons[f.type] || icons.folder} />
         </svg>
         <span className="truncate flex-1 text-left">{displayName}</span>
-        {f.unseen > 0 && <span className="text-[11px] font-bold text-[#0078d4] tabular-nums">{f.unseen}</span>}
+        {f.unseen > 0 && <span className="text-[11px] font-bold text-[#005a9e] tabular-nums">{f.unseen}</span>}
       </button>
     );
   };
@@ -444,7 +444,7 @@ export function MailSidebar() {
               </div>
             ) : (
               <button onClick={() => { setCreating(true); setCreateParent(''); }}
-                className="flex items-center gap-1.5 px-2 py-1 ml-3 text-[12px] text-[#0078d4] hover:bg-[#e1dfdd] rounded transition-colors">
+                className="flex items-center gap-1.5 px-2 py-1 ml-3 text-[12px] text-[#106ebe] hover:bg-[#e1dfdd] rounded transition-colors">
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
@@ -467,7 +467,7 @@ export function MailSidebar() {
                 <div className="flex items-center gap-1.5">
                   <span className="w-[14px] text-center opacity-70">{"\u{1F4CA}"}</span>
                   <span>Bandeja: <b className="text-[#323130] dark:text-[#e0e0e0]">{stats.inbox_total}</b> mensajes</span>
-                  {stats.inbox_unread > 0 && <span className="text-[#0078d4] font-semibold">({stats.inbox_unread} sin leer)</span>}
+                  {stats.inbox_unread > 0 && <span className="text-[#106ebe] font-semibold">({stats.inbox_unread} sin leer)</span>}
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="w-[14px] text-center opacity-70">{"\u{1F4E4}"}</span>
@@ -487,10 +487,10 @@ export function MailSidebar() {
                 </div>
                 {stats.top_senders.length > 0 && (
                   <div className="mt-1 pt-1 border-t border-[#edebe9] dark:border-[#333]">
-                    <div className="text-[10px] uppercase tracking-wider text-[#a19f9d] font-semibold mb-0.5">Top remitentes (30d)</div>
+                    <div className="text-[10px] uppercase tracking-wider text-[#605e5c] font-semibold mb-0.5">Top remitentes (30d)</div>
                     {stats.top_senders.map((s, i) => (
                       <div key={i} className="flex items-center gap-1 truncate">
-                        <span className="text-[10px] text-[#a19f9d] w-3 text-right">{s.count}</span>
+                        <span className="text-[10px] text-[#605e5c] w-3 text-right">{s.count}</span>
                         <span className="truncate">{s.name || s.email}</span>
                       </div>
                     ))}

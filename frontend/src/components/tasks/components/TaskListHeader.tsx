@@ -23,7 +23,8 @@ export function TaskListHeader({ activeView, customListName, sortBy, onSortChang
   const isSmartList = !!smart;
 
   const today = new Date();
-  const dateStr = today.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+  const dateStrRaw = today.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+  const dateStr = dateStrRaw.charAt(0).toUpperCase() + dateStrRaw.slice(1);
 
   const currentSort = SORT_OPTIONS.find(o => o.value === sortBy);
 
@@ -33,6 +34,15 @@ export function TaskListHeader({ activeView, customListName, sortBy, onSortChang
       fontFamily: "'Segoe UI', system-ui, sans-serif",
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <button
+          aria-label="Alternar panel de listas"
+          onClick={() => window.dispatchEvent(new CustomEvent('toggle-tasks-sidebar'))}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', color: COLORS.secondary }}
+        >
+          <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+            <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
+          </svg>
+        </button>
         <h1 style={{
           fontSize: 20, fontWeight: 600, margin: 0,
           color: isSmartList ? COLORS.primary : COLORS.text,
@@ -99,7 +109,7 @@ export function TaskListHeader({ activeView, customListName, sortBy, onSortChang
       </div>
 
       {activeView === 'my-day' && (
-        <div style={{ fontSize: 13, color: COLORS.secondary, textTransform: 'capitalize' }}>{dateStr}</div>
+        <div style={{ fontSize: 13, color: COLORS.secondary }}>{dateStr}</div>
       )}
     </div>
   );

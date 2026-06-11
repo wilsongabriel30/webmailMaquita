@@ -1,5 +1,8 @@
+import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
+import { api } from '../../api/client';
+import { showToast } from '../common/Toast';
 
 /* Outlook-style nav rail — filled icons, blue active indicator */
 
@@ -95,6 +98,7 @@ export function NavRail() {
   const location = useLocation();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
 
   return (
     <div className="w-[48px] bg-[#f3f2f1] border-r border-[#edebe9] flex flex-col items-center py-1 shrink-0">
@@ -107,7 +111,40 @@ export function NavRail() {
             key={item.path}
             onClick={() => navigate(item.path)}
             title={item.label}
-            className="relative w-full flex items-center justify-center h-[44px] transition-colors group"
+            onDragOver={(e) => {
+              if ((item.path === '/calendar' || item.path === '/tasks') && e.dataTransfer.types.includes('application/x-mail-meta')) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'copy';
+                setDropTarget(item.path);
+              }
+            }}
+            onDragLeave={() => setDropTarget(null)}
+            onDrop={(e) => {
+              if (item.path !== '/calendar' && item.path !== '/tasks') return;
+              const meta = e.dataTransfer.getData('application/x-mail-meta');
+              if (!meta) return;
+              e.preventDefault();
+              setDropTarget(null);
+              if (item.path === '/calendar') {
+                try { sessionStorage.setItem('pending-event-from-mail', meta); } catch {}
+                navigate('/calendar');
+                return;
+              }
+              // Tareas: crear directamente con el asunto del correo
+              try {
+                const m = JSON.parse(meta);
+                api.post('/tasks/tasks', {
+                  title: m.subject || 'Tarea desde correo',
+                  note: `Creada desde el correo de ${m.from || 'remitente desconocido'}`,
+                }).then(() => {
+                  showToast(`Tarea creada: ${(m.subject || '').slice(0, 60) || 'desde correo'}`);
+                  window.dispatchEvent(new CustomEvent('refresh-tasks'));
+                }).catch(() => showToast('No se pudo crear la tarea'));
+              } catch {}
+            }}
+            className={`relative w-full flex items-center justify-center h-[44px] transition-colors group ${
+              dropTarget === item.path ? 'bg-[#deecf9] ring-2 ring-inset ring-[#0078d4] rounded' : ''
+            }`}
           >
             {/* Blue left indicator bar */}
             {active && (

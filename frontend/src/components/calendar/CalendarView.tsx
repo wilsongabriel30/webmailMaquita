@@ -59,13 +59,33 @@ export default function CalendarView() {
   const [calendars, setCalendars] = useState<CalendarInfo[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [selectedCalendarIds, setSelectedCalendarIds] = useState<Set<string>>(new Set());
-  const [sidebarVisible, setSidebarVisible] = useState(true);
+  const [sidebarVisible, setSidebarVisible] = useState(() => typeof window === 'undefined' || window.innerWidth >= 768);
 
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
   const [editEvent, setEditEvent] = useState<CalendarEvent | null>(null);
   const [modalInitialDate, setModalInitialDate] = useState<Date | undefined>();
   const [modalInitialHour, setModalInitialHour] = useState<number | undefined>();
+  const [modalInitialDuration, setModalInitialDuration] = useState<number | undefined>();
+  const [modalInitialSummary, setModalInitialSummary] = useState<string | undefined>();
+  const [modalInitialDescription, setModalInitialDescription] = useState<string | undefined>();
+
+  useEffect(() => {
+    let raw: string | null = null;
+    try { raw = sessionStorage.getItem('pending-event-from-mail'); } catch {}
+    if (!raw) return;
+    try { sessionStorage.removeItem('pending-event-from-mail'); } catch {}
+    try {
+      const m = JSON.parse(raw);
+      setEditEvent(null);
+      setModalInitialDate(new Date());
+      setModalInitialHour(undefined);
+      setModalInitialDuration(undefined);
+      setModalInitialSummary(m.subject || 'Evento desde correo');
+      setModalInitialDescription(`Creado desde el correo de ${m.from || 'remitente desconocido'}:\n"${m.subject || ''}"`);
+      setModalOpen(true);
+    } catch {}
+  }, []);
 
   const calApi = useCalendarApi();
   const { fetchCalendars, fetchEvents, createEvent, updateEvent, deleteEvent, moveEvent, createCalendar,
@@ -124,11 +144,18 @@ const [showScheduling, setShowScheduling] = useState(false);
     });
   }
 
-  function openNewEvent(date?: Date, hour?: number) {
+  function openNewEvent(date?: Date, hour?: number, durationMinutes?: number) {
     setEditEvent(null);
     setModalInitialDate(date);
     setModalInitialHour(hour);
+    setModalInitialDuration(durationMinutes);
+    setModalInitialSummary(undefined);
+    setModalInitialDescription(undefined);
     setModalOpen(true);
+  }
+
+  function handleRangeSelect(date: Date, startHour: number, endHour: number) {
+    openNewEvent(date, startHour, Math.round((endHour - startHour) * 60));
   }
 
   function openEditEvent(ev: CalendarEvent) {
@@ -286,6 +313,7 @@ const [showScheduling, setShowScheduling] = useState(false);
             events={filteredEvents}
             onEventClick={openEditEvent}
             onSlotClick={handleSlotClick}
+            onRangeSelect={handleRangeSelect}
             onEventMove={handleMoveEvent}
           />
         )}
@@ -295,6 +323,7 @@ const [showScheduling, setShowScheduling] = useState(false);
             events={filteredEvents}
             onEventClick={openEditEvent}
             onSlotClick={handleSlotClick}
+            onRangeSelect={handleRangeSelect}
             onEventMove={handleMoveEvent}
           />
         )}
@@ -304,6 +333,8 @@ const [showScheduling, setShowScheduling] = useState(false);
             events={filteredEvents}
             onEventClick={openEditEvent}
             onSlotClick={handleSlotClick}
+            onRangeSelect={handleRangeSelect}
+            onEventMove={handleMoveEvent}
           />
         )}
         {viewMode === "agenda" && (
@@ -357,6 +388,9 @@ const [showScheduling, setShowScheduling] = useState(false);
         event={editEvent}
         initialDate={modalInitialDate}
         initialHour={modalInitialHour}
+        initialDurationMinutes={modalInitialDuration}
+        initialSummary={modalInitialSummary}
+        initialDescription={modalInitialDescription}
         calendars={calendars}
         onSave={handleSaveEvent}
         onDelete={handleDeleteEvent}

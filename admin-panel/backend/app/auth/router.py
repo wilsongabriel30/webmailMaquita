@@ -39,7 +39,7 @@ async def login(request: Request):
     )
 
     if not user:
-        raise HTTPException(401, "Credenciales invalidas")
+        raise HTTPException(401, "Credenciales inválidas")
 
     if user["locked_until"] and user["locked_until"] > datetime.now(timezone.utc):
         raise HTTPException(423, "Cuenta bloqueada temporalmente")
@@ -58,7 +58,7 @@ async def login(request: Request):
             "UPDATE admin_users SET failed_attempts = $1, locked_until = $2 WHERE id = $3",
             attempts, locked, user["id"],
         )
-        raise HTTPException(401, "Credenciales invalidas")
+        raise HTTPException(401, "Credenciales inválidas")
 
     # Reset failed attempts
     await db.execute(
@@ -109,13 +109,13 @@ async def change_password(request: Request, admin: dict = Depends(get_current_ad
     new_pw = data.get("new_password", "")
 
     if len(new_pw) < 8:
-        raise HTTPException(400, "La contrasena debe tener al menos 8 caracteres")
+        raise HTTPException(400, "La contraseña debe tener al menos 8 caracteres")
 
     db = _db(request)
     user = await db.fetchrow("SELECT password_hash FROM admin_users WHERE id = $1", admin["id"])
 
     if not _check_pw(current, user["password_hash"]):
-        raise HTTPException(401, "Contrasena actual incorrecta")
+        raise HTTPException(401, "Contraseña actual incorrecta")
 
     await db.execute(
         "UPDATE admin_users SET password_hash = $1 WHERE id = $2",
@@ -145,9 +145,9 @@ async def create_admin(request: Request, admin: dict = Depends(require_superadmi
     role = data.get("role", "admin")
 
     if role not in ("superadmin", "admin", "viewer"):
-        raise HTTPException(400, "Rol invalido. Opciones: superadmin, admin, viewer")
+        raise HTTPException(400, "Rol inválido. Opciones: superadmin, admin, viewer")
     if len(password) < 8:
-        raise HTTPException(400, "Contrasena minimo 8 caracteres")
+        raise HTTPException(400, "Contraseña mínimo 8 caracteres")
 
     db = _db(request)
     try:
@@ -224,8 +224,8 @@ async def verify_password(request: Request, admin: dict = Depends(get_current_ad
     data = await request.json()
     password = data.get("password", "")
     if not password:
-        raise HTTPException(400, "Contrasena requerida")
+        raise HTTPException(400, "Contraseña requerida")
     row = await db.fetchrow("SELECT password_hash FROM admin_users WHERE id = $1", admin["id"])
     if not row or not _check_pw(password, row["password_hash"]):
-        raise HTTPException(403, "Contrasena incorrecta")
+        raise HTTPException(403, "Contraseña incorrecta")
     return {"ok": True, "verified": True}

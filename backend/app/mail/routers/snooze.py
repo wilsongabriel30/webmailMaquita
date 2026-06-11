@@ -96,8 +96,14 @@ async def snooze_email(body: SnoozeRequest, request: Request, username: str = De
                     subject = (h.subject or "")[:500]
                     from_addr = (h.from_addr or "")[:255]
                 elif isinstance(h, dict):
-                    subject = (h.get("subject", "") or "")[:500]
-                    from_addr = (h.get("from", "") or h.get("from_addr", "") or "")[:255]
+                    if h.get("raw_headers"):
+                        from app.mail.parsers.mime_parser import parse_headers
+                        nm = parse_headers(h["raw_headers"], uid=h.get("uid", 0))
+                        subject = (nm.subject or "")[:500]
+                        from_addr = (nm.from_addr or "")[:255]
+                    else:
+                        subject = (h.get("subject", "") or "")[:500]
+                        from_addr = (h.get("from", "") or h.get("from_addr", "") or "")[:255]
 
             moved = await uid_move_message(imap, body.folder, body.uid, SNOOZE_FOLDER)
             if not moved:

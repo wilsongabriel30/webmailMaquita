@@ -637,6 +637,10 @@ export function MessageList() {
             ? Array.from(selectedUids) : [msg.uid];
           e.dataTransfer.setData('application/x-mail-uids', JSON.stringify(uids));
           e.dataTransfer.setData('application/x-mail-folder', currentFolder);
+          e.dataTransfer.setData('application/x-mail-meta', JSON.stringify({
+            subject: msg.subject || '', from: msg.from || '', date: msg.date || '',
+            uid: msg.uid, folder: currentFolder,
+          }));
           e.dataTransfer.effectAllowed = 'move';
           const badge = document.createElement('div');
           badge.textContent = uids.length > 1 ? `${uids.length} mensajes` : msg.subject || '1 mensaje';
@@ -701,7 +705,7 @@ export function MessageList() {
                   <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                 </svg>
               )}
-              <span className="text-[11px] text-[#a19f9d] group-hover:hidden">{fmtDate(msg.date)}</span>
+              <span className="text-[11px] text-[#605e5c] group-hover:hidden">{fmtDate(msg.date)}</span>
             </div>
           </div>
           <div className="flex items-center gap-1.5 min-w-0">
@@ -820,7 +824,7 @@ export function MessageList() {
               }
             }}
             className="w-4 h-4 shrink-0 rounded border-[#c8c6c4] text-[#0078d4] cursor-pointer accent-[#0078d4]"
-            title="Seleccionar todos" />
+            title="Seleccionar todos" aria-label="Seleccionar todos" />
           <h2 className="text-[14px] font-semibold text-[#323130] cursor-pointer hover:text-[#0078d4] transition-colors truncate max-w-[120px] sm:max-w-none sm:whitespace-nowrap" onClick={() => { const s = useMailStore.getState(); if (s.filter !== 'all') s.setFilter('all'); setActiveTab('focused'); }}>{folderLabel}</h2>
           <div className="flex-1" />
           <div className="flex items-center bg-[#f3f2f1] rounded-md p-0.5">

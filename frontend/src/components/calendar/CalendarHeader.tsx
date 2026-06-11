@@ -416,8 +416,10 @@ export function CalendarHeader({
         const e = format(days[4], "d 'de' MMMM 'de' yyyy", { locale: es });
         return `${s}\u2013${e}`;
       }
-      case "day":
-        return format(currentDate, "EEEE, d 'de' MMMM 'de' yyyy", { locale: es });
+      case "day": {
+        const t = format(currentDate, "EEEE, d 'de' MMMM 'de' yyyy", { locale: es });
+        return t.charAt(0).toUpperCase() + t.slice(1);
+      }
       case "agenda":
         return formatMonthYear(currentDate);
     }
@@ -473,7 +475,7 @@ export function CalendarHeader({
               </div>
             )}
           </div>
-          <span className="text-[9px] text-[#a19f9d] pb-[3px] mt-[1px]">Nuevo</span>
+          <span className="text-[9px] text-[#605e5c] pb-[3px] mt-[1px]">Nuevo</span>
         </div>
 
         <div className="w-px bg-[#e0e0e0] self-stretch my-[6px] mx-[4px]" />
@@ -529,7 +531,7 @@ export function CalendarHeader({
               onClick={() => { setSplitView(!splitView); calToast(splitView ? 'Vista simple activada' : 'Vista en dos paneles activada'); }}
             />
           </div>
-          <span className="text-[9px] text-[#a19f9d] pb-[3px] mt-[1px]">Organizar</span>
+          <span className="text-[9px] text-[#605e5c] pb-[3px] mt-[1px]">Organizar</span>
         </div>
 
         <div className="w-px bg-[#e0e0e0] self-stretch my-[6px] mx-[4px]" />
@@ -546,7 +548,7 @@ export function CalendarHeader({
             />
             {renderFilterDropdown()}
           </div>
-          <span className="text-[9px] text-[#a19f9d] pb-[3px] mt-[1px]">Filtrar</span>
+          <span className="text-[9px] text-[#605e5c] pb-[3px] mt-[1px]">Filtrar</span>
         </div>
 
         <div className="w-px bg-[#e0e0e0] self-stretch my-[6px] mx-[4px]" />
@@ -571,7 +573,7 @@ export function CalendarHeader({
               onClick={() => window.print()}
             />
           </div>
-          <span className="text-[9px] text-[#a19f9d] pb-[3px] mt-[1px]">Compartir</span>
+          <span className="text-[9px] text-[#605e5c] pb-[3px] mt-[1px]">Compartir</span>
         </div>
       </div>
     );
@@ -625,7 +627,7 @@ export function CalendarHeader({
               onClick={() => onViewChange("month")}
             />
           </div>
-          <span className="text-[9px] text-[#a19f9d] pb-[3px] mt-[1px]">Organizar</span>
+          <span className="text-[9px] text-[#605e5c] pb-[3px] mt-[1px]">Organizar</span>
         </div>
 
         <div className="w-px bg-[#e0e0e0] self-stretch my-[6px] mx-[4px]" />
@@ -691,7 +693,7 @@ export function CalendarHeader({
               )}
             </div>
           </div>
-          <span className="text-[9px] text-[#a19f9d] pb-[3px] mt-[1px]">Organizar</span>
+          <span className="text-[9px] text-[#605e5c] pb-[3px] mt-[1px]">Organizar</span>
         </div>
 
         <div className="w-px bg-[#e0e0e0] self-stretch my-[6px] mx-[4px]" />
@@ -708,7 +710,7 @@ export function CalendarHeader({
             />
             {renderFilterDropdown()}
           </div>
-          <span className="text-[9px] text-[#a19f9d] pb-[3px] mt-[1px]">Filtrar</span>
+          <span className="text-[9px] text-[#605e5c] pb-[3px] mt-[1px]">Filtrar</span>
         </div>
 
         <div className="w-px bg-[#e0e0e0] self-stretch my-[6px] mx-[4px]" />
@@ -722,7 +724,7 @@ export function CalendarHeader({
               onClick={() => { window.location.href = '/webmail/settings'; }}
             />
           </div>
-          <span className="text-[9px] text-[#a19f9d] pb-[3px] mt-[1px]">Configuración</span>
+          <span className="text-[9px] text-[#605e5c] pb-[3px] mt-[1px]">Configuración</span>
         </div>
       </div>
     );
@@ -759,7 +761,7 @@ export function CalendarHeader({
               calToast('Maquita Móvil: próximamente');
             }} />
           </div>
-          <span className="text-[9px] text-[#a19f9d] pb-[3px] mt-[1px]">Ayuda</span>
+          <span className="text-[9px] text-[#605e5c] pb-[3px] mt-[1px]">Ayuda</span>
         </div>
       </div>
     );
@@ -954,6 +956,7 @@ export function CalendarHeader({
         <button
           className="flex items-center justify-center w-[32px] h-[32px] hover:bg-[#f3f2f1] rounded-sm"
           onClick={() => window.dispatchEvent(new CustomEvent('toggle-sidebar'))}
+          aria-label="Alternar panel lateral"
         >
           <IconHamburger />
         </button>
@@ -1038,7 +1041,7 @@ export function CalendarHeader({
         </button>
 
         {/* Date label */}
-        <h2 className="text-[15px] font-semibold text-[#323130] capitalize flex items-center gap-[4px] cursor-default ml-[2px]">
+        <h2 className="text-[15px] font-semibold text-[#323130] flex items-center gap-[4px] cursor-default ml-[2px]">
           {getLabel()}
           <ChevronDown className="w-[12px] h-[12px] text-[#605e5c]" />
         </h2>

@@ -9,7 +9,7 @@ async def get_current_admin(request: Request) -> dict:
 
     payload = decode_token(auth[7:])
     if not payload:
-        raise HTTPException(401, "Token invalido o expirado")
+        raise HTTPException(401, "Token inválido o expirado")
 
     return {
         "id": int(payload["sub"]),

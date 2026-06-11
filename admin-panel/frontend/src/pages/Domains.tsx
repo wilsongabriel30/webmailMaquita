@@ -15,7 +15,7 @@ export function Domains() {
     await api.post("/domains", form);
     setShowForm(false); setForm({ domain: "", description: "", mailboxes: 0, maxquota: 0 }); load();
   };
-  const del = async (d: string) => { if (confirm(`PRECAUCION EXTREMA: Se eliminara el dominio ${d} y potencialmente todos los buzónes asociados. Verificar que no haya usuarios activos antes de eliminar. Continuar?`)) { await api.del(`/domains/${d}`); load(); } };
+  const del = async (d: string) => { if (confirm(`PRECAUCION EXTREMA: Se eliminara el dominio ${d} y potencialmente todos los buzones asociados. Verificar que no haya usuarios activos antes de eliminar. Continuar?`)) { await api.del(`/domains/${d}`); load(); } };
 
   return (
     <div className="p-6 space-y-5">
@@ -41,8 +41,8 @@ export function Domains() {
             <tr>
               <th className="text-left px-4 py-2.5 font-medium text-ms-gray-90 text-xs">Dominio</th>
               <th className="text-left px-4 py-2.5 font-medium text-ms-gray-90 text-xs">Descripcion</th>
-              <th className="text-center px-4 py-2.5 font-medium text-ms-gray-90 text-xs" title="Numero de buzónes de correo creados en este dominio.">Buzónes</th>
-              <th className="text-center px-4 py-2.5 font-medium text-ms-gray-90 text-xs" title="Numero de alias de correo configurados en este dominio.">Alias</th>
+              <th className="text-center px-4 py-2.5 font-medium text-ms-gray-90 text-xs" title="Número de buzones de correo creados en este dominio.">Buzones</th>
+              <th className="text-center px-4 py-2.5 font-medium text-ms-gray-90 text-xs" title="Número de alias de correo configurados en este dominio.">Alias</th>
               <th className="text-center px-4 py-2.5 font-medium text-ms-gray-90 text-xs" title="Estado actual del dominio. Activo = acepta correos. Inactivo = rechaza correos.">Estado</th>
               <th className="text-right px-4 py-2.5 font-medium text-ms-gray-90 text-xs">Acciones</th>
             </tr>
@@ -58,7 +58,7 @@ export function Domains() {
                   <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${d.active ? "bg-green-50 text-ms-green" : "bg-red-50 text-ms-red"}`}>{d.active ? "Activo" : "Inactivo"}</span>
                 </td>
                 <td className="px-4 py-2.5 text-right">
-                  <button onClick={() => del(d.domain)} title="PRECAUCION EXTREMA: Elimina el dominio y potencialmente todos los buzónes asociados. Verificar que no haya usuarios activos antes de eliminar. Se registra en auditoria." className="text-ms-red hover:underline text-xs">Eliminar</button>
+                  <button onClick={() => del(d.domain)} title="PRECAUCION EXTREMA: Elimina el dominio y potencialmente todos los buzones asociados. Verificar que no haya usuarios activos antes de eliminar. Se registra en auditoria." className="text-ms-red hover:underline text-xs">Eliminar</button>
                 </td>
               </tr>
             ))}

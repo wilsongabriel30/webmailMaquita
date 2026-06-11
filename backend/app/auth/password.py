@@ -101,10 +101,10 @@ async def change_password(
     stored = await get_user_password(request, username)
     if body.current_password != stored:
         if not verify_imap(username, body.current_password):
-            raise HTTPException(status_code=401, detail="Contrasena actual incorrecta")
+            raise HTTPException(status_code=401, detail="Contraseña actual incorrecta")
 
     if body.current_password == body.new_password:
-        raise HTTPException(status_code=400, detail="La nueva contrasena debe ser diferente")
+        raise HTTPException(status_code=400, detail="La nueva contraseña debe ser diferente")
 
     # 1b. Validate password strength
     strength_error = validate_password_strength(body.new_password, username)
@@ -129,7 +129,7 @@ async def change_password(
     # 3b. GARANTIA anti-desincronizacion: confirmar que la NUEVA contrasena autentica de verdad
     #     contra Dovecot/BD antes de declarar exito. Si no, el cambio NO quedo aplicado.
     if not verify_imap(username, body.new_password):
-        raise HTTPException(status_code=500, detail="La contrasena no se aplico correctamente. Intenta nuevamente.")
+        raise HTTPException(status_code=500, detail="La contraseña no se aplicó correctamente. Intenta nuevamente.")
 
     # 4. Update Redis cache
     try:

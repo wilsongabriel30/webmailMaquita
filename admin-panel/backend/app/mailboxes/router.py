@@ -83,7 +83,7 @@ async def create_mailbox(request: Request, admin: dict = Depends(require_role("s
     if not username or "@" not in username:
         raise HTTPException(400, "Username en formato user@domain requerido")
     if not password or len(password) < 6:
-        raise HTTPException(400, "Password minimo 6 caracteres")
+        raise HTTPException(400, "Contraseña mínimo 6 caracteres")
 
     domain = username.split("@")[1]
     local = username.split("@")[0]
@@ -134,7 +134,7 @@ async def update_mailbox(username: str, request: Request, admin: dict = Depends(
         data.get("phone", cur["phone"]), data.get("email_other", cur["email_other"]))
 
     if pw_changed and not await verify_password(username, data["password"]):
-        raise HTTPException(500, "La contrasena no se aplico correctamente. Intente nuevamente.")
+        raise HTTPException(500, "La contraseña no se aplicó correctamente. Intente nuevamente.")
     await _audit(request, admin, "mailbox_update", username, {k: v for k, v in data.items() if k != "password"})
     return dict(row)
 
@@ -188,7 +188,7 @@ async def cambiar_titular(
     if not new_name:
         raise HTTPException(400, "El nombre del nuevo titular es obligatorio")
     if not new_password or len(new_password) < 6:
-        raise HTTPException(400, "La contrasena del nuevo titular es obligatoria (minimo 6 caracteres)")
+        raise HTTPException(400, "La contraseña del nuevo titular es obligatoria (mínimo 6 caracteres)")
 
     # 1. Verify mailbox exists
     cur = await db.fetchrow("SELECT * FROM mailbox WHERE username = $1", username)
@@ -205,7 +205,7 @@ async def cambiar_titular(
     )
     # GARANTIA anti-desincronizacion: confirmar que la nueva contrasena autentica
     if not await verify_password(username, new_password):
-        raise HTTPException(500, "La contrasena no se aplico correctamente. Intente nuevamente.")
+        raise HTTPException(500, "La contraseña no se aplicó correctamente. Intente nuevamente.")
 
     # 3. Update signature if has template assigned
     sig_updated = False

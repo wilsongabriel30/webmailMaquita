@@ -42,7 +42,7 @@ async def queue_action(request: Request, admin: dict = Depends(require_role("sup
     elif action == "requeue_all":
         fn = postfix.requeue_all
     else:
-        raise HTTPException(400, f"Accion invalida: {action}")
+        raise HTTPException(400, f"Acción inválida: {action}")
     try:
         await fn()
     except Exception as e:

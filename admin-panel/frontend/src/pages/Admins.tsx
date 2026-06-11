@@ -79,7 +79,7 @@ export function Admins() {
       </div>
 
       <div className="bg-ms-blue-lighter rounded border border-ms-blue/20 p-4 text-sm text-ms-blue" title="Descripcion de los roles de administrador disponibles en el panel.">
-        <strong>Roles:</strong> <span className="text-xs">Viewer = solo lectura | Admin = gestiona buzónes, alias, dominios | Superadmin = todo + gestionar admins + eliminar</span>
+        <strong>Roles:</strong> <span className="text-xs">Viewer = solo lectura | Admin = gestiona buzones, alias, dominios | Superadmin = todo + gestionar admins + eliminar</span>
       </div>
     </div>
   );
