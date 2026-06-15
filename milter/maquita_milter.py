@@ -132,6 +132,8 @@ async def _inbound_phishing(st, pool) -> list:
         mode, ext = await _phishing_config(pool)
         if mode == "off":
             return []
+        if any(n.lower() == "x-maquita-phishing" for n, _ in st["headers"]):
+            return []   # ya clasificado (reinyeccion del content_filter) -> no duplicar
         from app.safelinks import classifier
         sender = next((t for n, t in st["headers"] if n.lower() == "from"), "")
         subject = next((t for n, t in st["headers"] if n.lower() == "subject"), "")
