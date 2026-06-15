@@ -163,20 +163,29 @@ def score_message(sender: str = "", subject: str = "", body: str = "",
     label = "phishing" if score >= 70 else "suspicious" if score >= 40 else "clean"
     result = {"label": label, "score": score, "reasons": reasons, "source": "heuristica"}
 
-    # 6) Capa externa opcional (agnóstica) — fusiona si está configurada
+    # 6) Capa externa opcional (agnóstica) — fusiona si está configurada.
+    # El 'score' externo se interpreta como RIESGO de phishing: si el veredicto
+    # externo es 'clean', su riesgo es 0 (su número suele ser confianza-en-limpio,
+    # no riesgo). Se toma el mayor riesgo y se recalcula el label final.
     ext = _external_classify(sender, subject, body, all_urls, signals)
     if ext:
-        if ext.get("score", 0) > result["score"]:
-            result["label"] = ext.get("label", result["label"])
-            result["score"] = ext["score"]
+        elabel = (ext.get("label") or "").lower()
+        erisk = 0 if elabel == "clean" else int(ext.get("score") or 0)
+        result["score"] = max(result["score"], min(erisk, 100))
+        result["label"] = ("phishing" if result["score"] >= 70
+                           else "suspicious" if result["score"] >= 40 else "clean")
         result["reasons"] = result["reasons"] + ext.get("reasons", [])
         result["source"] = "heuristica+externo"
     return result
 
 
 def _external_classify(sender, subject, body, urls, signals) -> dict | None:
-    """POST a un clasificador externo si PHISH_CLASSIFIER_URL está definido.
-    Agnóstico de proveedor. Fail-open: cualquier error → None."""
+    """Capa externa opcional. Dos modos (PHISH_CLASSIFIER_KIND):
+      - "gateway": consulta el modelo vía el gateway propio (OLLAMA_URL/IA_API_KEY).
+      - vacío/"contract": POST genérico a PHISH_CLASSIFIER_URL (contrato directo).
+    Fail-open: cualquier error o falta de config → None (nunca bloquea)."""
+    if os.getenv("PHISH_CLASSIFIER_KIND", "").strip().lower() == "gateway":
+        return _gateway_classify(sender, subject, body, urls)
     url = os.getenv("PHISH_CLASSIFIER_URL", "").strip()
     if not url:
         return None
@@ -196,5 +205,55 @@ def _external_classify(sender, subject, body, urls, signals) -> dict | None:
             data = json.loads(r.read().decode())
         return {"label": data.get("label"), "score": int(data.get("score", 0)),
                 "reasons": list(data.get("reasons", []))}
+    except Exception:
+        return None
+
+
+_GW_SYSTEM = ("Eres un analista de seguridad de correo. Determinas si un mensaje es "
+              "phishing. Respondes SOLO con JSON válido, sin texto adicional.")
+
+
+def _gateway_classify(sender, subject, body, urls) -> dict | None:
+    """Clasifica usando el gateway de modelos propio (reusa OLLAMA_URL/IA_API_KEY
+    del .env del webmail). Espera del modelo un JSON {label, score, reasons}."""
+    base = os.getenv("OLLAMA_URL", "").strip().rstrip("/")
+    if not base:
+        return None
+    model = os.getenv("PHISH_CLASSIFIER_MODEL", "qwen2.5:7b")
+    key = os.getenv("IA_API_KEY", "").strip()
+    prompt = (
+        "Clasifica el siguiente correo como phishing.\n"
+        f"Remitente: {sender}\nAsunto: {subject}\n"
+        f"Cuerpo (recortado):\n{(body or '')[:4000]}\n"
+        f"Enlaces: {', '.join((urls or [])[:20])}\n\n"
+        'Responde SOLO con este JSON: {"label":"phishing|suspicious|clean",'
+        '"score":0-100,"reasons":["motivo breve"]}')
+    try:
+        payload = json.dumps({
+            "prompt": prompt, "system": _GW_SYSTEM, "temperature": 0.1,
+            "max_tokens": 300, "usar_rag": False, "model": model,
+            "preferir_gpu": "remota",
+        }).encode()
+        headers = {"Content-Type": "application/json"}
+        if key:
+            headers["X-API-Key"] = key
+        req = urllib.request.Request(f"{base}/api/v1/ia/generate",
+                                     data=payload, headers=headers)
+        timeout = float(os.getenv("PHISH_CLASSIFIER_TIMEOUT", "8"))
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            data = json.loads(r.read().decode())
+        if "error" in data:
+            return None
+        raw = (data.get("respuesta") or data.get("response") or
+               data.get("text") or data.get("output") or "")
+        m = re.search(r"\{.*\}", raw, re.S)
+        if not m:
+            return None
+        obj = json.loads(m.group(0))
+        label = str(obj.get("label", "")).lower()
+        if label not in ("phishing", "suspicious", "clean"):
+            label = None
+        return {"label": label, "score": int(obj.get("score", 0)),
+                "reasons": [f"modelo: {x}" for x in list(obj.get("reasons", []))[:5]]}
     except Exception:
         return None

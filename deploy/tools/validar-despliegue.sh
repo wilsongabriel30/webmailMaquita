@@ -65,8 +65,9 @@ SC=$($PSQL "SELECT enabled FROM safelinks_config LIMIT 1" 2>/dev/null)
 hdr "Anti-phishing - clasificador de contenido"
 CLF=$(cd /opt/maquita-webmail/backend && venv/bin/python3 -c "from app.safelinks import classifier as c; print(c.score_message(sender='Soporte TI <admin@x.com>', subject='Cuenta suspendida - accion urgente', body='Estimado cliente, verifique su contrasena de inmediato: <a href=\"http://evil-site.ru/login\">https://www.portal-seguro.com</a>')['label'])" 2>/dev/null)
 [ "$CLF" = phishing ] && ok "clasificador detecta phishing en la muestra" || bad "clasificador no funciona (revisar safelinks/classifier.py; dio: ${CLF:-vacio})"
+EXTK=$(grep -oE '^PHISH_CLASSIFIER_KIND=.+' /opt/maquita-webmail/backend/.env 2>/dev/null | cut -d= -f2-)
 EXTU=$(grep -oE '^PHISH_CLASSIFIER_URL=.+' /opt/maquita-webmail/backend/.env 2>/dev/null | cut -d= -f2-)
-[ -n "$EXTU" ] && ok "capa externa de clasificacion configurada" || warn "capa externa no configurada (solo heuristica local; OK al instalar)"
+if [ -n "$EXTK" ] || [ -n "$EXTU" ]; then ok "capa externa configurada (${EXTK:-contrato})"; else warn "capa externa no configurada (solo heuristica local; OK al instalar)"; fi
 
 hdr "MFA / TOTP"
 code=$(curl -s -o /dev/null -w '%{http_code}' "$WEBMAIL/api/auth/totp/status" 2>/dev/null)
