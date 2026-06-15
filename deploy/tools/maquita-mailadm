@@ -309,6 +309,15 @@ PYEOF
     $PSQL "SELECT created_at||'  '||username||'  '||COALESCE(country,'?')||'  ['||risk||']  '||reason FROM risky_logins ORDER BY created_at DESC LIMIT $N"
     ;;
 
+  "mfa status")
+    T=$($PSQL "SELECT count(*) FROM mailbox WHERE active")
+    M=$($PSQL "SELECT count(*) FROM user_totp WHERE enabled")
+    echo "Buzones activos: ${T:-0}  |  con 2FA activo: ${M:-0}"
+    ;;
+  "mfa list")
+    $PSQL "SELECT username, enabled FROM user_totp ORDER BY username"
+    ;;
+
   *)
     cat <<'HELP'
 maquita-mailadm — administración del correo Maquita (estilo zmprov/zmcontrol)
@@ -363,6 +372,10 @@ VIAJE IMPOSIBLE / LOGIN RIESGOSO (risky_login):
 
 DOMINIOS:
   domain list                          listar dominios
+
+MFA / 2FA (TOTP):
+  mfa status                           cobertura de 2FA (buzones con/sin)
+  mfa list                             usuarios con 2FA
 
 SERVICIOS (cont.):
   service restart <servicio>           reiniciar un servicio
