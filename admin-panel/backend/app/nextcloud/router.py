@@ -20,7 +20,7 @@ router = APIRouter(prefix="/api/nextcloud", tags=["nextcloud"])
 NC_BASE_URL = "http://localhost"
 NC_ADMIN_USER = "gestiontecnologia@maquita.com.ec"
 NC_ADMIN_PASS = os.getenv("NC_ADMIN_PASS", "")
-NC_PUBLIC_URL = "https://nube.example.com"
+NC_PUBLIC_URL = os.getenv("NC_PUBLIC_URL", "https://nube.example.com")
 NC_DEFAULT_QUOTA = "5 GB"
 
 

@@ -1,3 +1,4 @@
+import os
 """Simulación de phishing — gestión de campañas desde el panel admin.
 
 Crear campañas (plantilla + destinatarios), enviarlas, y ver resultados
@@ -16,7 +17,7 @@ from pydantic import BaseModel
 from app.auth.dependencies import get_current_admin, require_role
 
 router = APIRouter(prefix="/api/phish", tags=["phish"])
-PUBLIC_BASE = "https://mail.example.org"
+PUBLIC_BASE = os.getenv("PUBLIC_BASE", "https://mail.example.org")
 
 
 def _db(r: Request):

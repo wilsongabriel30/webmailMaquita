@@ -101,7 +101,7 @@ export function OfficeConfig() {
           <div className="space-y-3">
             <div>
               <label className={labelCls}>URL interna (servidor a servidor)</label>
-              <input className={inputCls} placeholder="http://10.16.0.155"
+              <input className={inputCls} placeholder="http://10.0.0.10"
                 value={cfg.nc_base_url} onChange={(e) => setCfg({ ...cfg, nc_base_url: e.target.value })} />
             </div>
             <div>

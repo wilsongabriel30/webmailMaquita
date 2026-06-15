@@ -1,3 +1,4 @@
+import os
 """eDiscovery Premium — admin: custodios + avisos de retención legal.
 
 Construye sobre lo existente: compliance_cases (casos) y legal_holds (la
@@ -18,7 +19,7 @@ from pydantic import BaseModel
 from app.auth.dependencies import get_current_admin, require_role
 
 router = APIRouter(prefix="/api/ediscovery-premium", tags=["ediscovery-premium"])
-PUBLIC_BASE = "https://mail.example.org"
+PUBLIC_BASE = os.getenv("PUBLIC_BASE", "https://mail.example.org")
 
 
 def _db(r: Request):
