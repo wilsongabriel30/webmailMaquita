@@ -88,3 +88,45 @@ def _warn_page(url: str, reason: str, verdict: str, proceed_token: str | None) -
 </div>
 <div class="foot">Protección de enlaces de Maquita · No ingreses contraseñas si no estás seguro</div>
 </body></html>"""
+
+
+# =====================================================
+# Clasificación de phishing on-demand (autenticada)
+# =====================================================
+from fastapi import Depends, HTTPException  # noqa: E402
+from pydantic import BaseModel  # noqa: E402
+from starlette.concurrency import run_in_threadpool  # noqa: E402
+from app.auth.dependencies import get_current_user  # noqa: E402
+from . import classifier  # noqa: E402
+
+
+class ClassifyRequest(BaseModel):
+    message_id: str | None = None
+    folder: str = "INBOX"
+    sender: str = ""
+    subject: str = ""
+    body: str = ""
+
+
+@router.post("/api/safelinks/classify")
+async def classify_phishing(payload: ClassifyRequest, request: Request,
+                            user: str = Depends(get_current_user)):
+    """Clasifica un correo como phishing/suspicious/clean (heuristica + capa externa).
+    Acepta {message_id, folder} (lo trae por IMAP) o {sender, subject, body} directos."""
+    sender, subject, body = payload.sender, payload.subject, payload.body
+    if payload.message_id:
+        from app.ai.router import _fetch_message
+        try:
+            msg = await _fetch_message(request, user, payload.folder, int(payload.message_id))
+        except HTTPException:
+            raise
+        except Exception:
+            raise HTTPException(status_code=502, detail="No se pudo obtener el mensaje")
+        sender = msg.get("from", "") or sender
+        subject = msg.get("subject", "") or subject
+        body = (msg.get("html_body") or msg.get("text_body")
+                or msg.get("snippet") or body)
+    if not (sender or subject or body):
+        raise HTTPException(status_code=400, detail="Falta message_id o sender/subject/body")
+    return await run_in_threadpool(classifier.score_message,
+                                   sender=sender, subject=subject, body=body)
