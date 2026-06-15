@@ -37,6 +37,24 @@ MAX_BODY = 12_000_000   # cuerpos mayores no se reescriben (se entregan intactos
 
 # Caché del interruptor del panel (evita consultar la BD en cada correo)
 _toggle = {"val": False, "ts": 0.0}
+_phish = {"mode": "off", "ext": False, "ts": 0.0}
+
+
+def _load_env_keys() -> None:
+    """Carga claves del .env del webmail al entorno (el servicio milter no usa
+    EnvironmentFile). Necesario para que el clasificador alcance el gateway."""
+    keys = ("OLLAMA_URL", "IA_API_KEY", "PHISH_CLASSIFIER_KIND",
+            "PHISH_CLASSIFIER_MODEL", "PHISH_CLASSIFIER_TIMEOUT")
+    try:
+        for line in open("/opt/maquita-webmail/backend/.env"):
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            if k in keys and k not in os.environ:
+                os.environ[k] = v
+    except Exception:
+        pass
 
 _state: dict = {}
 _pool = None
@@ -90,6 +108,43 @@ async def _inbound_enabled(pool) -> bool:
         _toggle["val"] = False
     _toggle["ts"] = now
     return _toggle["val"]
+
+
+async def _phishing_config(pool):
+    """(mode, external) del panel, cacheado 20s. mode: off|header."""
+    now = time.monotonic()
+    if now - _phish["ts"] < 20:
+        return _phish["mode"], _phish["ext"]
+    try:
+        row = await pool.fetchrow("SELECT phishing_milter_mode, phishing_milter_external FROM safelinks_config WHERE id = 1")
+        _phish["mode"] = (row and row["phishing_milter_mode"]) or "off"
+        _phish["ext"] = bool(row and row["phishing_milter_external"])
+    except Exception:
+        _phish["mode"], _phish["ext"] = "off", False
+    _phish["ts"] = now
+    return _phish["mode"], _phish["ext"]
+
+
+async def _inbound_phishing(st, pool) -> list:
+    """Clasifica el entrante y devuelve manipulaciones (cabeceras). Heuristica en
+    todos; escala al modelo solo en banda incierta [30,70). Fail-open."""
+    try:
+        mode, ext = await _phishing_config(pool)
+        if mode == "off":
+            return []
+        from app.safelinks import classifier
+        sender = next((t for n, t in st["headers"] if n.lower() == "from"), "")
+        subject = next((t for n, t in st["headers"] if n.lower() == "subject"), "")
+        text = _extract_text(st["headers"], bytes(st["body"]))[:20000]
+        res = await asyncio.to_thread(classifier.score_message, sender=sender,
+                                      subject=subject, body=text, use_external=False)
+        if ext and 30 <= res["score"] < 70:
+            res = await asyncio.to_thread(classifier.score_message, sender=sender,
+                                          subject=subject, body=text, use_external=True)
+        return [AppendHeader(headername="X-Maquita-Phishing",
+                             headertext=f"{res['label']}; score={res['score']}; src={res['source']}")]
+    except Exception:
+        return []
 
 
 def _reconstruct(headers, body: bytes) -> bytes:
@@ -178,13 +233,14 @@ async def _inbound_safelinks(st) -> Continue:
     if not any((r.split("@")[-1] in LOCAL_DOMAINS) for r in st["rcpts"] if "@" in r):
         return Continue()   # sin destinatario local
     pool = await _get_pool()
-    if not await _inbound_enabled(pool):
-        return Continue()   # interruptor del panel APAGADO
-    raw = _reconstruct(st["headers"], bytes(st["body"]))
-    new_body = inbound_rewriter.rewrite_inbound(raw)
-    if not new_body:
-        return Continue()   # sin enlaces, sin cambios, o no fue seguro -> intacto
-    return Continue(manipulations=[ReplaceBodyChunk(chunk=new_body)])
+    manips = []
+    if await _inbound_enabled(pool):
+        raw = _reconstruct(st["headers"], bytes(st["body"]))
+        new_body = inbound_rewriter.rewrite_inbound(raw)
+        if new_body:
+            manips.append(ReplaceBodyChunk(chunk=new_body))   # Safe Links
+    manips.extend(await _inbound_phishing(st, pool))          # Anti-phishing (default off)
+    return Continue(manipulations=manips) if manips else Continue()
 
 
 async def on_end_of_message(cmd) -> Continue:
@@ -221,4 +277,5 @@ milter = PurePythonMilter(
 if __name__ == "__main__":
     import logging
     logging.basicConfig(level=logging.WARNING)
+    _load_env_keys()
     milter.run_server(host="127.0.0.1", port=11335)

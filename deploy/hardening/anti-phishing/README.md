@@ -70,3 +70,17 @@ RESP  <-  {label: "phishing|suspicious|clean", score: 0-100, reasons: [str]}
 Combinar señales en la entrega o on-demand desde el panel:
 `Rspamd score + lookalike(From) + classifier.score_message(...) → decisión`
 (avisar / etiquetar / cuarentena según el puntaje).
+
+## Integración en el milter de entrega (automático)
+`milter/maquita_milter.py` clasifica cada correo **entrante** y agrega la cabecera
+`X-Maquita-Phishing: <label>; score=<n>; src=<heuristica|heuristica+externo>`
+(estilo Rspamd) para que reglas/Sieve/clientes actúen. **Default OFF**, fail-open
+(nunca bloquea la entrega). Control por BD (`safelinks_config`, seteable desde el panel):
+
+| Columna | Valores | Efecto |
+|---|---|---|
+| `phishing_milter_mode` | `off` (def) / `header` | `header` agrega la cabecera a cada entrante |
+| `phishing_milter_external` | `false` (def) / `true` | escala al modelo (gateway) **solo en la banda incierta [30,70)** — muestreo/umbral para no penalizar todo el flujo |
+
+Heurística en TODOS los correos (rápida, sin red). El modelo se consulta solo para
+los ambiguos y solo si `phishing_milter_external=true`. Aplicar: `psql ... -f deploy/seeds/phishing-milter.sql`.

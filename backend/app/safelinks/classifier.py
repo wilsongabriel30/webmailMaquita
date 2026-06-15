@@ -84,8 +84,10 @@ def _extract_urls(body: str) -> list[str]:
 
 def score_message(sender: str = "", subject: str = "", body: str = "",
                   urls: list[str] | None = None, signals: dict | None = None,
-                  protected: set | None = None) -> dict:
-    """Veredicto de phishing para un mensaje. No bloquea: solo puntúa."""
+                  protected: set | None = None, use_external: bool = True) -> dict:
+    """Veredicto de phishing para un mensaje. No bloquea: solo puntúa.
+    use_external=False fuerza heurística pura (sin llamadas de red); útil en el
+    path de entrega para escalar al modelo solo en la banda incierta."""
     reasons: list[str] = []
     score = 0
     text = _norm(f"{subject}\n{body}")
@@ -167,7 +169,7 @@ def score_message(sender: str = "", subject: str = "", body: str = "",
     # El 'score' externo se interpreta como RIESGO de phishing: si el veredicto
     # externo es 'clean', su riesgo es 0 (su número suele ser confianza-en-limpio,
     # no riesgo). Se toma el mayor riesgo y se recalcula el label final.
-    ext = _external_classify(sender, subject, body, all_urls, signals)
+    ext = _external_classify(sender, subject, body, all_urls, signals) if use_external else None
     if ext:
         elabel = (ext.get("label") or "").lower()
         erisk = 0 if elabel == "clean" else int(ext.get("score") or 0)
