@@ -157,19 +157,19 @@ export function SharedMailboxes() {
             {/* Buzón */}
             <div>
               <label className="block text-xs font-medium text-ms-gray-90 mb-1">Buzón (propietario)</label>
-              <select
+              <input
+                list="mailbox-options"
                 value={form.mailbox}
                 onChange={(e) => setForm({ ...form, mailbox: e.target.value })}
+                placeholder="Escriba o seleccione un buzón…"
                 className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue"
-                title="Seleccione el buzón al que se otorgará acceso"
-              >
-                <option value="">— Seleccione un buzón —</option>
+                title="Escriba el buzón al que se otorgará acceso (autocompleta)"
+              />
+              <datalist id="mailbox-options">
                 {mailboxes.map((m) => (
-                  <option key={m.username} value={m.username}>
-                    {m.username}{m.name ? ` (${m.name})` : ""}
-                  </option>
+                  <option key={m.username} value={m.username}>{m.name || ""}</option>
                 ))}
-              </select>
+              </datalist>
             </div>
 
             {/* Delegado */}

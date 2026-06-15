@@ -1,0 +1,354 @@
+#!/bin/bash
+# maquita-mailadm — utilidad CLI de administración del correo Maquita
+# (inspirada en zmprov / zmcontrol de Zimbra, adaptada a nuestro stack).
+# Todas las acciones quedan en log de auditoría.
+#
+#   Buzones de correo  -> tabla 'mailbox' (SHA512-CRYPT via doveadm) + 'alias'
+#   Admins del panel   -> tabla 'admin_users' (bcrypt) + lockout
+#   Servicios          -> systemctl (whitelist del stack de correo)
+#
+# Uso: maquita-mailadm <objeto> <accion> [args]   |   maquita-mailadm help
+set -uo pipefail
+
+DB=maildb
+PSQL="sudo -u postgres psql -d $DB -tAc"
+SQL="sudo -u postgres psql -d $DB"
+LOG=/var/log/maquita-mailadm.log
+ACTOR="${SUDO_USER:-$(whoami)}"
+GB=1073741824
+# Servicios del stack que se pueden gestionar (whitelist por seguridad)
+SERVICES="postfix dovecot rspamd redis-server nginx clamav-daemon maquita-webmail maquita-admin fail2ban postgresql@17-main"
+
+[ "$(id -u)" -eq 0 ] || { echo "ERROR: ejecutar como root (sudo)"; exit 1; }
+
+log_audit(){ echo "$(date '+%F %T') actor=$ACTOR $*" >> "$LOG"; }
+die(){ echo "ERROR: $*" >&2; exit 1; }
+confirm(){ read -rp "$1 [escribir 'si' para confirmar]: " a; [ "$a" = "si" ] || die "cancelado"; }
+
+# Deja la contraseña en la global PW_RESULT. Devuelve 1 si falla (el caller aborta).
+PW_RESULT=""
+get_password(){
+  local p="${1:-}"
+  if [ -z "$p" ]; then
+    read -rsp "Nueva contraseña: " p; echo >&2
+    [ -n "$p" ] || { echo "ERROR: contraseña vacía" >&2; return 1; }
+    read -rsp "Repetir contraseña: " p2; echo >&2
+    [ "$p" = "$p2" ] || { echo "ERROR: no coinciden" >&2; return 1; }
+  fi
+  PW_RESULT="$p"
+}
+
+mailbox_exists(){ [ "$($PSQL "SELECT 1 FROM mailbox WHERE username='$1'")" = "1" ]; }
+admin_exists(){   [ "$($PSQL "SELECT 1 FROM admin_users WHERE username='$1'")" = "1" ]; }
+domain_exists(){  [ "$($PSQL "SELECT 1 FROM domain WHERE domain='$1'")" = "1" ]; }
+in_whitelist(){ for s in $SERVICES; do [ "$s" = "$1" ] && return 0; done; return 1; }
+
+case "${1:-help} ${2:-}" in
+
+  "mailbox passwd")
+    EMAIL="${3:?uso: mailbox passwd <email> [nueva]}"
+    mailbox_exists "$EMAIL" || die "buzón no existe: $EMAIL"
+    get_password "${4:-}" || exit 1; PASS="$PW_RESULT"
+    HASH="$(doveadm pw -s SHA512-CRYPT -p "$PASS")" || die "fallo al generar hash"
+    printf "UPDATE mailbox SET password='%s', modified=NOW() WHERE username='%s';" "$HASH" "$EMAIL" | $SQL >/dev/null
+    log_audit "mailbox-passwd target=$EMAIL"; echo "OK: contraseña actualizada para $EMAIL"
+    ;;
+
+  "mailbox create")
+    EMAIL="${3:?uso: mailbox create <email> [quota_GB] [password]}"
+    mailbox_exists "$EMAIL" && die "ya existe: $EMAIL"
+    LOCAL="${EMAIL%@*}"; DOMAIN="${EMAIL#*@}"
+    [ "$LOCAL" != "$EMAIL" ] || die "email inválido (sin @): $EMAIL"
+    domain_exists "$DOMAIN" || die "dominio no registrado: $DOMAIN (créalo en el panel admin primero)"
+    QGB="${4:-5}"; QBYTES=$(( QGB * GB ))
+    get_password "${5:-}" || exit 1; PASS="$PW_RESULT"
+    HASH="$(doveadm pw -s SHA512-CRYPT -p "$PASS")" || die "fallo al generar hash"
+    printf "INSERT INTO mailbox (username,password,name,maildir,quota,domain,local_part,active) VALUES ('%s','%s','%s','%s/%s/',%s,'%s','%s',true);" \
+      "$EMAIL" "$HASH" "$LOCAL" "$DOMAIN" "$LOCAL" "$QBYTES" "$DOMAIN" "$LOCAL" | $SQL >/dev/null || die "fallo INSERT"
+    $PSQL "INSERT INTO alias (address,goto,domain,active) VALUES ('$EMAIL','$EMAIL','$DOMAIN',true) ON CONFLICT DO NOTHING" >/dev/null
+    log_audit "mailbox-create target=$EMAIL quota=${QGB}GB"
+    echo "OK: buzón $EMAIL creado (quota ${QGB}GB). El maildir se crea solo al primer correo."
+    ;;
+
+  "mailbox delete")
+    EMAIL="${3:?uso: mailbox delete <email>}"
+    mailbox_exists "$EMAIL" || die "buzón no existe: $EMAIL"
+    MD=$($PSQL "SELECT maildir FROM mailbox WHERE username='$EMAIL'")
+    echo "Vas a borrar el buzón: $EMAIL"
+    echo "  (los datos en /var/vmail/$MD NO se borran; eliminar a mano si se desea)"
+    confirm "¿Confirmar borrado de $EMAIL?"
+    $PSQL "DELETE FROM mailbox WHERE username='$EMAIL'" >/dev/null
+    $PSQL "DELETE FROM alias WHERE address='$EMAIL'" >/dev/null
+    log_audit "mailbox-delete target=$EMAIL maildir=$MD"
+    echo "OK: buzón $EMAIL eliminado (registro + alias). Maildir conservado en /var/vmail/$MD"
+    ;;
+
+  "mailbox quota")
+    EMAIL="${3:?uso: mailbox quota <email> <GB> (0 = ilimitado)}"
+    mailbox_exists "$EMAIL" || die "buzón no existe: $EMAIL"
+    QGB="${4:?falta el valor en GB}"; QBYTES=$(( QGB * GB ))
+    $PSQL "UPDATE mailbox SET quota=$QBYTES, modified=NOW() WHERE username='$EMAIL'" >/dev/null
+    log_audit "mailbox-quota target=$EMAIL quota=${QGB}GB"
+    echo "OK: quota de $EMAIL = ${QGB}GB"$([ "$QGB" = 0 ] && echo " (ilimitado)")
+    ;;
+
+  "mailbox enable"|"mailbox disable")
+    EMAIL="${3:?uso: mailbox $2 <email>}"
+    mailbox_exists "$EMAIL" || die "buzón no existe: $EMAIL"
+    VAL=$([ "$2" = "enable" ] && echo true || echo false)
+    $PSQL "UPDATE mailbox SET active=$VAL WHERE username='$EMAIL'" >/dev/null
+    log_audit "mailbox-$2 target=$EMAIL"; echo "OK: $EMAIL active=$VAL"
+    ;;
+
+  "mailbox info")
+    EMAIL="${3:?uso: mailbox info <email>}"
+    mailbox_exists "$EMAIL" || die "buzón no existe: $EMAIL"
+    $PSQL "SELECT 'usuario: '||username||E'\nnombre: '||COALESCE(name,'')||E'\nactivo: '||active||E'\nquota: '||CASE WHEN quota=0 THEN 'ilimitado' ELSE round(quota/1073741824.0,2)||' GB' END||E'\ncreado: '||created||E'\nmodificado: '||COALESCE(modified::text,'') FROM mailbox WHERE username='$EMAIL'"
+    ;;
+
+  "mailbox list")
+    DOM="${3:-}"
+    if [ -n "$DOM" ]; then $PSQL "SELECT username||'  active='||active FROM mailbox WHERE domain='$DOM' ORDER BY username";
+    else $PSQL "SELECT username||'  active='||active FROM mailbox ORDER BY username"; fi
+    ;;
+
+  "admin passwd")
+    USER="${3:?uso: admin passwd <usuario> [nueva]}"
+    admin_exists "$USER" || die "admin no existe: $USER"
+    get_password "${4:-}" || exit 1; PASS="$PW_RESULT"
+    HASH="$(PW="$PASS" python3 -c "import bcrypt,os;print(bcrypt.hashpw(os.environ['PW'].encode(),bcrypt.gensalt()).decode())")" || die "fallo bcrypt"
+    printf "UPDATE admin_users SET password_hash='%s', failed_attempts=0, locked_until=NULL WHERE username='%s';" "$HASH" "$USER" | $SQL >/dev/null
+    log_audit "admin-passwd target=$USER"; echo "OK: contraseña del admin '$USER' actualizada (y desbloqueado)"
+    ;;
+
+  "admin unlock")
+    USER="${3:?uso: admin unlock <usuario>}"
+    admin_exists "$USER" || die "admin no existe: $USER"
+    $PSQL "UPDATE admin_users SET failed_attempts=0, locked_until=NULL WHERE username='$USER'" >/dev/null
+    log_audit "admin-unlock target=$USER"; echo "OK: admin '$USER' desbloqueado"
+    ;;
+
+  "admin list")
+    $PSQL "SELECT username||'  ('||role||')  active='||active||CASE WHEN locked_until>NOW() THEN '  [BLOQUEADO]' ELSE '' END FROM admin_users ORDER BY id"
+    ;;
+
+  "service status"|"service list")
+    printf "%-22s %s\n" "SERVICIO" "ESTADO"
+    for s in $SERVICES; do printf "%-22s %s\n" "$s" "$(systemctl is-active "$s" 2>/dev/null)"; done
+    ;;
+
+  "service restart"|"service reload")
+    SVC="${3:?uso: service $2 <servicio>  (ver: service status)}"
+    in_whitelist "$SVC" || die "servicio no permitido: $SVC (whitelist: $SERVICES)"
+    systemctl "$2" "$SVC" 2>&1 && { log_audit "service-$2 target=$SVC"; echo "OK: $SVC $2 -> $(systemctl is-active "$SVC")"; } || die "fallo al $2 $SVC"
+    ;;
+
+  "alias create")
+    A="${3:?uso: alias create <alias_email> <destino>}"; DEST="${4:?falta destino}"
+    DOMAIN="${A#*@}"; [ "$DOMAIN" != "$A" ] || die "alias inválido (sin @): $A"
+    domain_exists "$DOMAIN" || die "dominio no registrado: $DOMAIN"
+    [ "$($PSQL "SELECT 1 FROM alias WHERE address='$A'")" = "1" ] && die "ya existe alias/buzón con esa dirección: $A"
+    $PSQL "INSERT INTO alias (address,goto,domain,active) VALUES ('$A','$DEST','$DOMAIN',true)" >/dev/null
+    log_audit "alias-create $A -> $DEST"; echo "OK: alias $A -> $DEST"
+    ;;
+
+  "alias delete")
+    A="${3:?uso: alias delete <alias_email>}"
+    [ "$($PSQL "SELECT 1 FROM alias WHERE address='$A'")" = "1" ] || die "no existe alias: $A"
+    mailbox_exists "$A" && die "$A es un BUZÓN real; usá 'forward off' (borrar su alias rompe la entrega)"
+    $PSQL "DELETE FROM alias WHERE address='$A'" >/dev/null
+    log_audit "alias-delete $A"; echo "OK: alias $A eliminado"
+    ;;
+
+  "alias list")
+    DOM="${3:-}"; Q="SELECT address||'  ->  '||goto FROM alias WHERE address <> goto"
+    [ -n "$DOM" ] && Q="$Q AND domain='$DOM'"
+    $PSQL "$Q ORDER BY address"
+    ;;
+
+  "forward set")
+    EMAIL="${3:?uso: forward set <buzon> <destino> [keep]}"; DEST="${4:?falta destino}"
+    mailbox_exists "$EMAIL" || die "buzón no existe: $EMAIL"
+    if [ "${5:-}" = "keep" ]; then GOTO="$EMAIL,$DEST"; else GOTO="$DEST"; fi
+    if [ "$($PSQL "SELECT 1 FROM alias WHERE address='$EMAIL'")" = "1" ]; then
+      $PSQL "UPDATE alias SET goto='$GOTO', active=true, modified=NOW() WHERE address='$EMAIL'" >/dev/null
+    else
+      $PSQL "INSERT INTO alias (address,goto,domain,active) VALUES ('$EMAIL','$GOTO','${EMAIL#*@}',true)" >/dev/null
+    fi
+    log_audit "forward-set $EMAIL -> $GOTO"
+    echo "OK: $EMAIL reenvía a $GOTO"$([ "${5:-}" = keep ] && echo " (conserva copia local)")
+    ;;
+
+  "forward off")
+    EMAIL="${3:?uso: forward off <buzon>}"
+    mailbox_exists "$EMAIL" || die "buzón no existe: $EMAIL"
+    $PSQL "UPDATE alias SET goto='$EMAIL', modified=NOW() WHERE address='$EMAIL'" >/dev/null
+    log_audit "forward-off $EMAIL"; echo "OK: reenvío desactivado, $EMAIL entrega local"
+    ;;
+
+  "forward list")
+    $PSQL "SELECT a.address||'  ->  '||a.goto FROM alias a JOIN mailbox m ON m.username=a.address WHERE a.address <> a.goto ORDER BY a.address"
+    ;;
+
+  "autoresponder set")
+    EMAIL="${3:?uso: autoresponder set <email> <asunto> <mensaje> [dias] [desde AAAA-MM-DD] [hasta AAAA-MM-DD]}"
+    SUBJ="${4:?falta el asunto}"; BODY="${5:?falta el mensaje}"; DAYS="${6:-1}"
+    DESDE="${7:-}"; HASTA="${8:-}"
+    mailbox_exists "$EMAIL" || die "buzón no existe: $EMAIL"
+    if [ -n "$DESDE$HASTA" ]; then
+      [[ "$DESDE" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ && "$HASTA" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] \
+        || die "el rango de fechas debe ser AAAA-MM-DD en AMBAS (desde y hasta)"
+      [[ "$DESDE" > "$HASTA" ]] && die "la fecha 'desde' es posterior a 'hasta'"
+    fi
+    LOCAL="${EMAIL%@*}"; DOMAIN="${EMAIL#*@}"; BASEDIR="/var/vmail/$DOMAIN/$LOCAL"; SDIR="$BASEDIR/sieve"
+    # 1) registro en BD (escapado SQL via env -> python, evita inyección)
+    AR_EMAIL="$EMAIL" AR_SUBJ="$SUBJ" AR_BODY="$BODY" AR_FROM="$DESDE" AR_UNTIL="$HASTA" python3 <<'PYEOF' | $SQL >/dev/null || die "fallo INSERT"
+import os
+q=lambda s: s.replace("'","''")
+d=lambda s: ("'%s'" % s) if s else "NULL"
+print("INSERT INTO mail_autoresponders (username,active,subject,body,start_date,end_date,reply_once_per_day) "
+      "VALUES ('%s',true,'%s','%s',%s,%s,true) ON CONFLICT (username) DO UPDATE SET "
+      "active=true,subject=excluded.subject,body=excluded.body,"
+      "start_date=excluded.start_date,end_date=excluded.end_date,modified_at=NOW();"
+      % (q(os.environ['AR_EMAIL']), q(os.environ['AR_SUBJ']), q(os.environ['AR_BODY']),
+         d(os.environ['AR_FROM']), d(os.environ['AR_UNTIL'])))
+PYEOF
+    # 2) generar el script Sieve (con condicional de fechas si hay rango)
+    mkdir -p "$SDIR"
+    AR_SUBJ="$SUBJ" AR_BODY="$BODY" AR_DAYS="$DAYS" AR_FROM="$DESDE" AR_UNTIL="$HASTA" python3 <<'PYEOF' > "$SDIR/vacation.sieve"
+import os
+e=lambda s: s.replace("\\","\\\\").replace('"','\\"')
+subj=e(os.environ['AR_SUBJ']); body=e(os.environ['AR_BODY']); days=os.environ['AR_DAYS']
+f=os.environ['AR_FROM']; u=os.environ['AR_UNTIL']
+out=['require ["vacation"];','']
+if f and u:
+    out.append('require ["date", "relational"];')
+    out.append('if allof(currentdate :value "ge" "date" "%s",' % f)
+    out.append('         currentdate :value "le" "date" "%s") {' % u)
+    out.append('  vacation :days %s :subject "%s"' % (days, subj))
+    out.append('    "%s";' % body)
+    out.append('}')
+else:
+    out.append('vacation :days %s :subject "%s"' % (days, subj))
+    out.append('  "%s";' % body)
+print("\n".join(out))
+PYEOF
+    # 3) compilar (valida sintaxis), activar y permisos
+    sievec "$SDIR/vacation.sieve" 2>&1 | head -2
+    [ -f "$SDIR/vacation.svbin" ] || die "sievec falló: el Sieve no compiló (no se activó nada)"
+    ln -sf "$SDIR/vacation.sieve" "$BASEDIR/.dovecot.sieve"
+    chown -R vmail:vmail "$SDIR"; chown -h vmail:vmail "$BASEDIR/.dovecot.sieve"
+    log_audit "autoresponder-set target=$EMAIL dias=$DAYS rango=${DESDE:-sin}..${HASTA:-sin}"
+    echo "OK: autorespuesta ACTIVADA para $EMAIL${DESDE:+ (del $DESDE al $HASTA)}"
+    ;;
+
+  "autoresponder off")
+    EMAIL="${3:?uso: autoresponder off <email>}"
+    mailbox_exists "$EMAIL" || die "buzón no existe: $EMAIL"
+    LOCAL="${EMAIL%@*}"; DOMAIN="${EMAIL#*@}"; BASEDIR="/var/vmail/$DOMAIN/$LOCAL"
+    $PSQL "UPDATE mail_autoresponders SET active=false, modified_at=NOW() WHERE username='$EMAIL'" >/dev/null
+    rm -f "$BASEDIR/.dovecot.sieve"
+    log_audit "autoresponder-off target=$EMAIL"
+    echo "OK: autorespuesta DESACTIVADA para $EMAIL"
+    ;;
+
+  "autoresponder show")
+    EMAIL="${3:?uso: autoresponder show <email>}"
+    $PSQL "SELECT 'activo: '||active||E'\nasunto: '||subject||E'\nmensaje: '||body||E'\ndesde: '||COALESCE(start_date::text,'(sin límite)')||E'\nhasta: '||COALESCE(end_date::text,'(sin límite)') FROM mail_autoresponders WHERE username='$EMAIL'"
+    ;;
+
+  "autoresponder list")
+    $PSQL "SELECT username||'  ['||CASE WHEN active THEN 'ACTIVO' ELSE 'inactivo' END||']  '||subject FROM mail_autoresponders ORDER BY username"
+    ;;
+
+  "queue list")
+    echo "Resumen: $(postqueue -p 2>/dev/null | tail -1)"; postqueue -p 2>&1 | head -20
+    ;;
+  "queue flush")
+    postqueue -f 2>&1; log_audit "queue-flush"; echo "OK: cola forzada a reintentar entrega"
+    ;;
+  "queue delete-all")
+    confirm "¿Borrar TODA la cola? (correos sin entregar se pierden)"
+    postsuper -d ALL 2>&1; log_audit "queue-delete-all"; echo "OK: cola vaciada"
+    ;;
+
+  "fail2ban status")
+    fail2ban-client status 2>&1 | head -4
+    for j in postfix-sasl dovecot recidive sshd webmail-login; do
+      echo "[$j] baneadas: $(fail2ban-client status "$j" 2>/dev/null | sed -n 's/.*Banned IP list:[[:space:]]*//p')"
+    done
+    ;;
+  "fail2ban unban")
+    IP="${3:?uso: fail2ban unban <ip>}"
+    for j in $(fail2ban-client status 2>/dev/null | sed -n 's/.*Jail list:[[:space:]]*//p' | tr ',' ' '); do
+      fail2ban-client set "$j" unbanip "$IP" >/dev/null 2>&1
+    done
+    log_audit "fail2ban-unban $IP"; echo "OK: $IP desbaneada de todos los jails"
+    ;;
+
+  "domain list")
+    $PSQL "SELECT domain FROM domain ORDER BY domain"
+    ;;
+
+  *)
+    cat <<'HELP'
+maquita-mailadm — administración del correo Maquita (estilo zmprov/zmcontrol)
+
+BUZONES (equiv. zmprov):
+  mailbox create  <email> [quota_GB]   crear buzón (createAccount) — pide contraseña
+  mailbox delete  <email>              borrar buzón (deleteAccount) — pide confirmación
+  mailbox passwd  <email> [nueva]      resetear contraseña (setAccountPassword)
+  mailbox quota   <email> <GB>         cambiar quota en GB (0=ilimitado)
+  mailbox enable|disable <email>       activar/desactivar
+  mailbox info    <email>              ver estado (getAccount)
+  mailbox list    [dominio]            listar (getAllAccounts)
+
+PANEL ADMIN (https://mail.example.org:8443):
+  admin passwd <usuario> [nueva]       resetear contraseña (desbloquea)
+  admin unlock <usuario>               desbloquear (tras 5 intentos -> 15 min)
+  admin list                           listar admins
+
+ALIAS Y REENVÍO (equiv. zmprov aaa / forwarding):
+  alias create <alias> <destino>       crear alias (correo a <alias> va a <destino>)
+  alias delete <alias>                 borrar alias (protege buzones reales)
+  alias list   [dominio]               listar alias y reenvíos
+  forward set  <buzon> <destino> [keep] reenviar buzón ('keep' = conserva copia local)
+  forward off  <buzon>                 desactivar reenvío (entrega local)
+  forward list                         listar buzones con reenvío activo
+
+AUTORESPUESTA / VACACIONES (equiv. zmprov + Sieve vacation):
+  autoresponder set  <email> <asunto> <mensaje> [dias] [desde] [hasta]  activar (Sieve)
+                                       (fechas AAAA-MM-DD: solo responde dentro del rango)
+  autoresponder off  <email>                            desactivar
+  autoresponder show <email>                            ver configuración
+  autoresponder list                                    listar autorespuestas
+
+SERVICIOS (equiv. zmcontrol):
+  service status                       estado de todos los servicios del correo
+  (los siguientes son atajos operativos; ver también el bloque COLA/FAIL2BAN abajo)
+
+COLA DE CORREO (equiv. zmcontrol mta/postqueue):
+  queue list                           ver la cola de correo
+  queue flush                          forzar reintento de entrega
+  queue delete-all                     vaciar la cola (pide confirmación)
+
+SEGURIDAD / FAIL2BAN:
+  fail2ban status                      ver baneos por jail
+  fail2ban unban <ip>                  desbanear una IP de todos los jails
+
+DOMINIOS:
+  domain list                          listar dominios
+
+SERVICIOS (cont.):
+  service restart <servicio>           reiniciar un servicio
+  service reload  <servicio>           recargar un servicio
+
+Ejemplos:
+  maquita-mailadm mailbox create juan@example.org 10
+  maquita-mailadm mailbox quota  juan@example.org 20
+  maquita-mailadm service restart postfix
+  maquita-mailadm admin unlock admin
+Auditoría: /var/log/maquita-mailadm.log
+HELP
+    ;;
+esac

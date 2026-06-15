@@ -9,7 +9,7 @@
 
 [DEFAULT]
 # Ignorar redes internas de Maquita para evitar bloqueos accidentales
-ignoreip = 127.0.0.1/8 ::1 TU_RED_INTERNA/24
+ignoreip = 127.0.0.1/8 ::1 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16
 
 # Backend por defecto — systemd para distros modernas Debian/Ubuntu
 backend = systemd
@@ -36,7 +36,7 @@ findtime = 600
 enabled  = true
 port     = smtp,465,587,submission
 filter   = postfix[mode=auth]
-logpath  = /var/log/mail.log
+backend  = systemd
 maxretry = 5
 bantime  = 3600
 findtime = 600
@@ -51,7 +51,7 @@ findtime = 600
 enabled  = true
 port     = pop3,pop3s,imap,imaps,submission,465,sieve
 filter   = dovecot
-logpath  = /var/log/mail.log
+backend  = systemd
 maxretry = 5
 bantime  = 3600
 findtime = 600
@@ -108,7 +108,7 @@ findtime = 600
 # Protege la interfaz web de Rspamd (puerto 11334) contra fuerza bruta.
 # Ban mas agresivo (2 horas) porque solo admins deben acceder.
 [rspamd]
-enabled  = true
+enabled  = false
 port     = 11334
 filter   = rspamd
 logpath  = /var/log/rspamd/rspamd.log
