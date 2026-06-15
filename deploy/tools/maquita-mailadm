@@ -290,6 +290,25 @@ PYEOF
     $PSQL "SELECT domain FROM domain ORDER BY domain"
     ;;
 
+  "risky-login status")
+    $PSQL "SELECT 'habilitado: '||enabled||E'\nauto_block: '||auto_block||E'\npaises confiables: '||trusted_countries::text FROM risky_login_config WHERE id=1"
+    echo "logins registrados: $($PSQL 'SELECT count(*) FROM login_events')  |  eventos de riesgo: $($PSQL 'SELECT count(*) FROM risky_logins')"
+    ;;
+  "risky-login auto-block")
+    V="${3:?uso: risky-login auto-block on|off}"; B=$([ "$V" = on ] && echo true || echo false)
+    $PSQL "UPDATE risky_login_config SET auto_block=$B, updated_at=NOW() WHERE id=1" >/dev/null
+    log_audit "risky-login auto-block=$B"; echo "OK: auto_block=$B"
+    ;;
+  "risky-login enable"|"risky-login disable")
+    B=$([ "$2" = enable ] && echo true || echo false)
+    $PSQL "UPDATE risky_login_config SET enabled=$B, updated_at=NOW() WHERE id=1" >/dev/null
+    log_audit "risky-login $2"; echo "OK: risky-login enabled=$B"
+    ;;
+  "risky-login events")
+    N="${3:-10}"
+    $PSQL "SELECT created_at||'  '||username||'  '||COALESCE(country,'?')||'  ['||risk||']  '||reason FROM risky_logins ORDER BY created_at DESC LIMIT $N"
+    ;;
+
   *)
     cat <<'HELP'
 maquita-mailadm — administración del correo Maquita (estilo zmprov/zmcontrol)
@@ -335,6 +354,12 @@ COLA DE CORREO (equiv. zmcontrol mta/postqueue):
 SEGURIDAD / FAIL2BAN:
   fail2ban status                      ver baneos por jail
   fail2ban unban <ip>                  desbanear una IP de todos los jails
+
+VIAJE IMPOSIBLE / LOGIN RIESGOSO (risky_login):
+  risky-login status                   ver config y conteos
+  risky-login auto-block on|off        bloquear automaticamente logins de riesgo alto
+  risky-login enable|disable           activar/desactivar la deteccion
+  risky-login events [N]               ultimos eventos de riesgo
 
 DOMINIOS:
   domain list                          listar dominios

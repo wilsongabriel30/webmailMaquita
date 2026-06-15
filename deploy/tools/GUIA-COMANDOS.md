@@ -46,6 +46,7 @@ Requisitos: PostgreSQL local (`maildb`), `doveadm` + `sievec` (Dovecot),
 | `queue list\|flush\|delete-all` | `zmcontrol` / `postqueue` | Cola de correo |
 | `fail2ban status` / `unban <ip>` | — | Ver baneos / desbanear |
 | `domain list` | `zmprov gad` | Listar dominios |
+| `risky-login status\|auto-block\|events` | — | Viaje imposible / login riesgoso |
 | `service status\|restart\|reload <svc>` | `zmcontrol` | Control de servicios |
 
 ---
