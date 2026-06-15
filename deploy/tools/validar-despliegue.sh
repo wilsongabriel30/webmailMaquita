@@ -62,6 +62,12 @@ SC=$($PSQL "SELECT enabled FROM safelinks_config LIMIT 1" 2>/dev/null)
 [ "$SC" = t ] && ok "Safe Links habilitado" || warn "Safe Links deshabilitado"
 [ -f /opt/maquita-webmail/backend/app/safelinks/inbound_rewriter.py ] && ok "reescritor de inbound presente" || warn "reescritor no encontrado"
 
+hdr "Anti-phishing - clasificador de contenido"
+CLF=$(cd /opt/maquita-webmail/backend && venv/bin/python3 -c "from app.safelinks import classifier as c; print(c.score_message(sender='Soporte TI <admin@x.com>', subject='Cuenta suspendida - accion urgente', body='Estimado cliente, verifique su contrasena de inmediato: <a href=\"http://evil-site.ru/login\">https://www.portal-seguro.com</a>')['label'])" 2>/dev/null)
+[ "$CLF" = phishing ] && ok "clasificador detecta phishing en la muestra" || bad "clasificador no funciona (revisar safelinks/classifier.py; dio: ${CLF:-vacio})"
+EXTU=$(grep -oE '^PHISH_CLASSIFIER_URL=.+' /opt/maquita-webmail/backend/.env 2>/dev/null | cut -d= -f2-)
+[ -n "$EXTU" ] && ok "capa externa de clasificacion configurada" || warn "capa externa no configurada (solo heuristica local; OK al instalar)"
+
 hdr "MFA / TOTP"
 code=$(curl -s -o /dev/null -w '%{http_code}' "$WEBMAIL/api/auth/totp/status" 2>/dev/null)
 [ "$code" = 401 ] || [ "$code" = 200 ] && ok "endpoint TOTP responde ($code)" || bad "endpoint TOTP no responde ($code)"
