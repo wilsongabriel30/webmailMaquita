@@ -51,8 +51,10 @@ fail2ban-client -t >/dev/null 2>&1 && ok "configuración válida" || bad "config
 grep -q '^backend\s*=\s*systemd' /etc/fail2ban/jail.local 2>/dev/null && ok "backend journald (apto Debian 13)" || warn "backend no es systemd — en Debian 13 no leerá logs"
 
 hdr "DLP (prevención de fuga de datos)"
+DEN=$($PSQL "SELECT enabled FROM dlp_config WHERE id=1" 2>/dev/null)
+[ "$DEN" = t ] && ok "DLP habilitado (detectores cédula/RUC/Luhn/IBAN/cuenta activos)" || bad "DLP deshabilitado (aplicar deploy/seeds/dlp-seed.sql)"
 DK=$($PSQL "SELECT count(*) FROM dlp_keywords" 2>/dev/null)
-if [ "${DK:-0}" -gt 0 ]; then ok "DLP con $DK reglas/keywords"; else warn "DLP SIN reglas — no detecta nada (cargar set inicial)"; fi
+[ "${DK:-0}" -gt 0 ] && ok "$DK palabras clave cargadas" || warn "sin keywords (los detectores de patrón igual funcionan; ver dlp-seed.sql)"
 DV=$($PSQL "SELECT count(*) FROM dlp_violations" 2>/dev/null); ok "violaciones DLP registradas: ${DV:-0}"
 
 hdr "Safe Links (reescritura de URLs entrantes)"
