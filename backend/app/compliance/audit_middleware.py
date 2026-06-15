@@ -176,6 +176,16 @@ class UserActivityAuditMiddleware(BaseHTTPMiddleware):
                     user_agent,
                     f'{{"path": "{path}", "method": "{method}", "status": {response.status_code}, "elapsed_ms": {int(elapsed*1000)}}}',
                 )
+                # Dual-write a audit_log (registro de compliance/eDiscovery)
+                await db.execute(
+                    """INSERT INTO audit_log (admin_user, action, target, details, ip_address)
+                       VALUES ($1, $2, $3, $4::jsonb, $5::inet)""",
+                    username,
+                    action,
+                    category,
+                    f'{{"path": "{path}", "method": "{method}", "status": {response.status_code}, "risk": "{risk_level}"}}',
+                    ip if ip else None,
+                )
         except Exception as e:
             logger.warning("Audit log failed: %s", e)
 
