@@ -67,7 +67,10 @@ TC=$($PSQL "SELECT count(*) FROM user_totp" 2>/dev/null); ok "usuarios con 2FA a
 
 hdr "Redis / Valkey"
 RU=$(grep -oE '^REDIS_URL=.*' /opt/maquita-webmail/backend/.env 2>/dev/null | cut -d= -f2-)
-if [ -n "$RU" ]; then PONG=$(redis-cli -u "$RU" ping 2>/dev/null); else PONG=$(redis-cli ping 2>/dev/null); fi
+RPASS=$(printf '%s' "$RU" | sed -E 's#redis://[^:]*:([^@]*)@.*#\1#')
+if [ -n "$RPASS" ] && [ "$RPASS" != "$RU" ]; then
+  PONG=$(redis-cli -a "$RPASS" --no-auth-warning ping 2>/dev/null)
+else PONG=$(redis-cli ping 2>/dev/null); fi
 echo "$PONG" | grep -q PONG && ok "Redis responde PONG" || bad "Redis no responde (login dará 500)"
 
 hdr "DNS de correo (informativo)"
