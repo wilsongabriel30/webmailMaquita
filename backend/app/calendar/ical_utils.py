@@ -23,8 +23,18 @@ def build_vcalendar(event_data: dict) -> str:
     cal.add("prodid", "-//Maquita Webmail//Calendar//ES")
     cal.add("version", "2.0")
     cal.add("calscale", "GREGORIAN")
+    _method = event_data.get("method")
+    if _method:
+        cal.add("method", _method)
 
     ev = Event()
+    _organizer = event_data.get("organizer")
+    if _organizer:
+        from icalendar import vCalAddress
+        org = vCalAddress(f"mailto:{_organizer}")
+        if event_data.get("organizer_name"):
+            org.params["CN"] = event_data["organizer_name"]
+        ev.add("organizer", org, encode=0)
     ev.add("uid", event_data["uid"])
     ev.add("summary", event_data.get("summary", ""))
     ev.add("description", event_data.get("description", ""))

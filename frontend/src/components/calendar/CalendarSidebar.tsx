@@ -27,6 +27,7 @@ interface Props {
   onToggleCalendar: (id: string) => void;
   onNewEvent: () => void;
   onAddCalendar: () => void;
+  onDeleteCalendar?: (id: string, name: string) => void;
   sharedCalendars?: SharedCalendarInfo[];
   onShareCalendar?: (calendarId: string) => void;
 }
@@ -39,10 +40,12 @@ export function CalendarSidebar({
   onToggleCalendar,
   onNewEvent: _onNewEvent,
   onAddCalendar,
+  onDeleteCalendar,
   sharedCalendars = [],
   onShareCalendar: _onShareCalendar,
 }: Props) {
   const [miniDate, setMiniDate] = useState(new Date());
+  const [menuFor, setMenuFor] = useState<string | null>(null);
   const [calendarsSectionOpen, setCalendarsSectionOpen] = useState(true);
   const [showAllCalendars, setShowAllCalendars] = useState(false);
 
@@ -184,10 +187,11 @@ export function CalendarSidebar({
             {displayedCalendars.map((cal) => {
               const checked = selectedCalendarIds.has(cal.id);
               return (
-                <label
+                <div
                   key={cal.id}
-                  className="flex items-center gap-2 py-1 px-1 rounded cursor-pointer hover:bg-[#edebe9] transition-colors"
+                  className="group/cal relative flex items-center gap-2 py-1 px-1 rounded hover:bg-[#edebe9] transition-colors"
                 >
+                  <label className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={checked}
@@ -213,7 +217,34 @@ export function CalendarSidebar({
                     )}
                   </span>
                   <span className="text-[12px] text-[#323130] truncate">{cal.name}</span>
-                </label>
+                  </label>
+                  {onDeleteCalendar && displayedCalendars.length > 1 && (
+                    <div className="relative shrink-0">
+                      <button
+                        type="button"
+                        aria-label="Opciones del calendario"
+                        onClick={(e) => { e.stopPropagation(); setMenuFor(menuFor === cal.id ? null : cal.id); }}
+                        className="opacity-0 group-hover/cal:opacity-100 text-[#605e5c] hover:text-[#323130] px-1 rounded"
+                      >
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+                      </button>
+                      {menuFor === cal.id && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setMenuFor(null)} />
+                          <div className="absolute right-0 top-full mt-1 z-50 bg-white rounded-md shadow-lg border border-[#e0e0e0] py-1 min-w-[160px]">
+                            <button
+                              type="button"
+                              onClick={() => { setMenuFor(null); onDeleteCalendar(cal.id, cal.name); }}
+                              className="w-full text-left px-3 py-1.5 text-[12px] text-[#d13438] hover:bg-[#fde7e9]"
+                            >
+                              Eliminar calendario
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
               );
             })}
 

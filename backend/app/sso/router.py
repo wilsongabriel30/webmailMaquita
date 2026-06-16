@@ -168,7 +168,7 @@ async def saml_acs(request: Request):
     if name_id_el is None:
         name_id_el = root.find(".//saml:NameID", ns)
     if name_id_el is None or not name_id_el.text:
-        raise HTTPException(400, "No se encontro NameID en la respuesta SAML")
+        raise HTTPException(400, "No se encontró NameID en la respuesta SAML")
 
     email = name_id_el.text.strip().lower()
 

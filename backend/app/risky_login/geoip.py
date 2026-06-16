@@ -1,6 +1,6 @@
 """Geolocalización de IPs para detección de logins riesgosos.
 
-IPs internas/propias (LAN, VPN, rango 10.16.0.0/24) se tratan como confiables y
+IPs internas/propias (LAN, VPN, rango 193.16.0.0/24) se tratan como confiables y
 NO se geolocalizan. Las públicas se resuelven con ip-api.com (gratis) y se cachean
 en Redis 30 días para no exceder el límite y no consultar lo mismo dos veces.
 """
@@ -10,11 +10,11 @@ import ipaddress
 import json
 import urllib.request
 
-# Redes propias/confiables (su LAN usa el bloque público 10.16.0.0/24)
+# Redes propias/confiables (su LAN usa el bloque público 193.16.0.0/24)
 _TRUSTED = [
     ipaddress.ip_network(n) for n in (
         "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.0/8",
-        "169.254.0.0/16", "100.64.0.0/10", "10.16.0.0/24",
+        "169.254.0.0/16", "100.64.0.0/10", "193.16.0.0/24",
     )
 ]
 

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { usePresence } from '../../hooks/usePresence';
+import { useAuthStore } from '../../store/authStore';
 import { PresenceDot } from './PresenceDot';
 
 const STATUSES = [
@@ -12,12 +13,14 @@ const STATUSES = [
 export function PresenceSelector() {
   const { users, setStatus } = usePresence();
   const [open, setOpen] = useState(false);
+  const [localStatus, setLocalStatus] = useState<'online' | 'busy' | 'away' | 'offline' | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
-  // Get own status - find by matching current user
-  const myEmail = document.cookie.match(/user=([^;]+)/)?.[1] || '';
+  // Estado propio: email desde la sesión (la cookie de auth es httpOnly)
+  const authUser = useAuthStore(st => st.user);
+  const myEmail = (authUser?.username || '').toLowerCase();
   const myPresence = users[myEmail];
-  const currentStatus = myPresence?.status || 'online';
+  const currentStatus = localStatus || myPresence?.status || 'online';
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -37,7 +40,7 @@ export function PresenceSelector() {
         <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-50 min-w-[160px]">
           {STATUSES.map(s => (
             <button key={s.value}
-              onClick={() => { setStatus(s.value); setOpen(false); }}
+              onClick={() => { setStatus(s.value); setLocalStatus(s.value); setOpen(false); }}
               className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-slate-50 ${currentStatus === s.value ? 'font-medium' : ''}`}>
               <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.color }} />
               {s.label}

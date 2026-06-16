@@ -5,6 +5,18 @@ import "./dark-theme.css"
 import App from "./App"
 import "./lib/syncQueue"
 
+// Auto-recuperación de chunks tras un deploy: si falla la carga dinámica de un
+// módulo (hash viejo en una pestaña abierta), recargar UNA vez para tomar la
+// versión nueva. Guard en sessionStorage para no entrar en bucle.
+window.addEventListener("vite:preloadError", (event) => {
+  const key = "chunk-reload-" + window.location.pathname;
+  if (!sessionStorage.getItem(key)) {
+    sessionStorage.setItem(key, String(Date.now()));
+    event.preventDefault();
+    window.location.reload();
+  }
+});
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <App />

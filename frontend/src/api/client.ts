@@ -79,7 +79,11 @@ async function request<T>(path: string, options: RequestInit & { skipAuth?: bool
     throw new Error(detail || `HTTP ${res.status}`);
   }
 
-  return res.json();
+  // 204 No Content o cuerpo vacío (p. ej. DELETE) → no intentar parsear JSON
+  if (res.status === 204) return undefined as T;
+  const text = await res.text();
+  if (!text) return undefined as T;
+  try { return JSON.parse(text) as T; } catch { return undefined as T; }
 }
 
 export const api = {

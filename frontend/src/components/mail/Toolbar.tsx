@@ -852,7 +852,22 @@ export function Toolbar() {
                         onClick={() => { closeAllDropdowns(); setBlockOpen(!blockOpen); }} />
                       <Dropdown open={blockOpen} onClose={() => setBlockOpen(false)}>
                         <DropdownItem label="Bloquear remitente" icon={ICONS.block}
-                          onClick={() => { moveToFolder('Junk', 'Remitente bloqueado'); setBlockOpen(false); }} />
+                          onClick={() => {
+                            setBlockOpen(false);
+                            const from = msg?.from || '';
+                            const m = from.match(/<([^>]+)>/);
+                            const email = (m ? m[1] : from).trim();
+                            if (email && email.includes('@')) {
+                              api.post('/sieve/filters', {
+                                name: `Bloqueado: ${email}`,
+                                condition: { field: 'from', operator: 'contains', value: email },
+                                action: { type: 'move', value: 'Junk' },
+                              }).then(() => {
+                                showToast(`Remitente ${email} bloqueado: sus correos irán a Correo no deseado`);
+                              }).catch(() => showToast('No se pudo crear la regla de bloqueo'));
+                            }
+                            moveToFolder('Junk', 'Remitente bloqueado');
+                          }} />
                         <DropdownItem label="Mover a correo no deseado" icon={ICONS.move}
                           onClick={() => { moveToFolder('Junk', 'Movido a No deseado'); setBlockOpen(false); }} />
                       </Dropdown>
@@ -866,7 +881,15 @@ export function Toolbar() {
                   {/* Group: Informar */}
                   <Group label="Informar">
                     <ToolbarButton icon={ICONS.report} label="Informar" disabled={noSel}
-                      onClick={() => moveToFolder('Junk', 'Reportado como phishing')} />
+                      onClick={() => {
+                        if (!uids.length) { showToast('Selecciona un mensaje'); return; }
+                        api.post('/mail/spam/report', { folder: currentFolder, uids }).then(() => {
+                          showToast('Reportado como phishing — gracias, esto mejora la detección');
+                          useMailStore.getState().clearSelection();
+                          useMailStore.getState().setSelectedMessage(null);
+                          window.dispatchEvent(new CustomEvent('refresh-messages'));
+                        }).catch(() => showToast('No se pudo reportar'));
+                      }} />
                   </Group>
                   <Sep />
 
@@ -1022,7 +1045,7 @@ export function Toolbar() {
                   {/* Group: Deshacer */}
                   <Group label="Deshacer">
                     <ToolbarButton icon={ICONS.undo} label="Deshacer (Ctrl+Z)"
-                      onClick={() => showToast('Deshacer: Ctrl+Z — Las acciones de mover y eliminar tienen opción de deshacer automática de 5 segundos')} />
+                      onClick={() => showToast('El envío de correos se puede deshacer durante 5 segundos. Un correo movido o eliminado se recupera desde su carpeta destino (p. ej. Papelera).')} />
                   </Group>
                 </>
               )}

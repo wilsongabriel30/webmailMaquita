@@ -150,6 +150,14 @@ def _extract_parts(msg, part_prefix: str = "") -> tuple[str, str, list[Attachmen
             cid = (part.get("Content-ID", "") or "").strip("<>")
 
             if "attachment" in disposition:
+                # Una invitación text/calendar puede venir como adjunto
+                # (Outlook/Google y nuestro propio invite.ics): parsearla
+                # igualmente para mostrar el banner RSVP.
+                if content_type == "text/calendar" and not calendar_invite:
+                    try:
+                        calendar_invite = _parse_ics_part(part)
+                    except Exception:
+                        pass
                 payload = part.get_payload(decode=True)
                 attachments.append(AttachmentInfo(
                     filename=part.get_filename() or "unnamed",

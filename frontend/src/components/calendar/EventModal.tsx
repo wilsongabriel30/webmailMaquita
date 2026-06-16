@@ -316,6 +316,8 @@ export function EventModal({
       reminders,
       attendees,
       optional_attendees: optionalAttendees,
+      _attachments: attachments.map((a) => a.file),
+      _virtualMeeting: virtualMeeting,
     });
   }
 

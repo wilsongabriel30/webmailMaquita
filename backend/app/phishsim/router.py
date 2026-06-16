@@ -98,7 +98,7 @@ def _training_html() -> str:
     <ul>
       <li><b>Urgencia y miedo:</b> "tu cuenta se bloquea hoy", "buzón lleno". Buscan que actúes sin pensar.</li>
       <li><b>Revisa el enlace:</b> pasa el mouse por encima y mira a dónde apunta de verdad antes de hacer clic.</li>
-      <li><b>Nunca escribas tu contraseña</b> en una página a la que llegaste desde un correo. Entra tú mismo a mail.example.org.</li>
+      <li><b>Nunca escribas tu contraseña</b> en una página a la que llegaste desde un correo. Entra tú mismo a mail.maquita.org.</li>
       <li><b>Remitente sospechoso:</b> dominios raros o parecidos al oficial pero no iguales.</li>
     </ul>
   </div>

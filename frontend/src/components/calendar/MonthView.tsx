@@ -12,13 +12,14 @@ interface Props {
   events: CalendarEvent[];
   onEventClick: (event: CalendarEvent) => void;
   onDateClick: (date: Date) => void;
+  onShowMore?: (date: Date) => void;
   onEventMove?: (eventId: string, dtstart: string, dtend: string) => void;
 }
 
 const MAX_VISIBLE = 3;
 const DAY_HEADERS = ["L", "M", "X", "J", "V", "S", "D"];
 
-export function MonthView({ currentDate, events, onEventClick, onDateClick, onEventMove }: Props) {
+export function MonthView({ currentDate, events, onEventClick, onDateClick, onEventMove, onShowMore }: Props) {
   const grid = useMemo(() => getMonthGrid(currentDate), [currentDate]);
   const currentMonth = currentDate.getMonth();
 
@@ -177,7 +178,10 @@ export function MonthView({ currentDate, events, onEventClick, onDateClick, onEv
                       </div>
                     ))}
                     {remaining > 0 && (
-                      <div className="text-[10px] text-[#0078d4] pl-1 font-medium cursor-pointer hover:underline">
+                      <div
+                        onClick={(e) => { e.stopPropagation(); (onShowMore || onDateClick)(day); }}
+                        className="text-[10px] text-[#0078d4] pl-1 font-medium cursor-pointer hover:underline"
+                      >
                         +{remaining} mas
                       </div>
                     )}

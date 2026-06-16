@@ -136,7 +136,7 @@ export function AttachmentPreview({
 
   const onKeyDown = useCallback((e: KeyboardEvent) => {
     if (!open || !attachment) return;
-    if (e.key === 'Escape') { e.preventDefault(); onClose(); }
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onClose(); }
     if (e.key === 'ArrowLeft' && hasNav) { e.preventDefault(); onNavigate!((idx - 1 + total) % total); }
     if (e.key === 'ArrowRight' && hasNav) { e.preventDefault(); onNavigate!((idx + 1) % total); }
     if (e.key === 'd' || e.key === 'D') {
@@ -148,8 +148,9 @@ export function AttachmentPreview({
   }, [open, onClose, hasNav, onNavigate, idx, total, url, attachment]);
 
   useEffect(() => {
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    // captura: el Escape del visor no debe cerrar también el mensaje de fondo
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
   }, [onKeyDown]);
 
   useEffect(() => {

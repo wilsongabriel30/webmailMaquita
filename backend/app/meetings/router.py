@@ -13,7 +13,9 @@ from app.auth.dependencies import get_current_user
 router = APIRouter(prefix="/api/meetings", tags=["meetings"])
 
 # Use public Jitsi instance (no private Jitsi detected in infra)
-JITSI_BASE_URL = "https://meet.jit.si"
+import os
+# Jitsi PROPIO de Maquita (soberano). Configurable vía .env si algún día cambia.
+JITSI_BASE_URL = os.environ.get("JITSI_BASE_URL", "https://meet.maquita.com.ec").rstrip("/")
 
 
 def _db(request: Request):

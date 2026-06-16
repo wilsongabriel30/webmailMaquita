@@ -45,7 +45,29 @@ def parse_search_query(query: str) -> list[str]:
 
     q = re.sub(r'"([^"]+)"', replace_quote, q)
 
-    tokens = q.split()
+    # Alias en español → operadores canónicos
+    _ES = {
+        "de:": "from:", "para:": "to:", "copia:": "cc:", "asunto:": "subject:",
+        "cuerpo:": "body:", "antes:": "before:", "despues:": "after:",
+        "después:": "after:", "etiqueta:": "label:", "mayor:": "larger:",
+        "menor:": "smaller:",
+    }
+    _ES_EXACT = {
+        "tiene:adjunto": "has:attachment", "con:adjunto": "has:attachment",
+        "adjunto:si": "has:attachment", "adjunto:sí": "has:attachment",
+        "es:noleido": "is:unread", "es:noleído": "is:unread",
+        "es:marcado": "is:flagged",
+    }
+    def _traducir(t: str) -> str:
+        low = t.lower()
+        if low in _ES_EXACT:
+            return _ES_EXACT[low]
+        for es, en in _ES.items():
+            if low.startswith(es):
+                return en + t[len(es):]
+        return t
+
+    tokens = [_traducir(t) for t in q.split()]
     i = 0
     while i < len(tokens):
         token = tokens[i]

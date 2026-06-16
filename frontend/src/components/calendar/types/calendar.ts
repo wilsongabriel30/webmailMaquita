@@ -52,6 +52,10 @@ export interface EventFormData {
   reminders: EventReminder[];
   attendees: string[];
   optional_attendees: string[];
+  /** Solo UI: archivos a subir tras crear/editar el evento */
+  _attachments?: File[];
+  /** Solo UI: generar enlace de reunión virtual (Jitsi) al guardar */
+  _virtualMeeting?: boolean;
 }
 
 export interface FreeBusySlot {

@@ -72,15 +72,15 @@ async def list_managed_domains(request: Request, admin: dict = Depends(get_curre
 
 
 def _extract_base_domain(domain: str) -> str | None:
-    """Si el dominio es un subdominio (ej: mail.example.com), extraer dominio base.
+    """Si el dominio es un subdominio (ej: mail.maquita.com.ec), extraer dominio base.
     Maneja TLDs de dos niveles como .com.ec, .org.ec, .gob.ec, .co.uk, etc."""
     parts = domain.split(".")
     two_level_tlds = {"com", "org", "gob", "gov", "edu", "net", "mil", "co"}
     if len(parts) >= 4 and parts[-2] in two_level_tlds:
-        # mail.example.com → maquita.com.ec
+        # mail.maquita.com.ec → maquita.com.ec
         return ".".join(parts[-3:])
     elif len(parts) >= 3 and parts[-2] not in two_level_tlds:
-        # mail.example.org → maquita.org
+        # mail.maquita.org → maquita.org
         return ".".join(parts[-2:])
     return None
 
@@ -163,7 +163,7 @@ async def check_domain(domain: str, admin: dict = Depends(get_current_admin)):
     # --- PTR (DNS inverso) para IPs del MX ---
     ptr_results = []
     if mx_records:
-        # Extraer hostname del MX (ej: "10 mail.example.org." → "mail.example.org")
+        # Extraer hostname del MX (ej: "10 mail.maquita.org." → "mail.maquita.org")
         mx_hosts = []
         for mx in mx_records[:3]:
             parts = mx.split()

@@ -317,7 +317,7 @@ export function MailView() {
       {readingPane === 'bottom' && (
         /* ── ABAJO: lista arriba + lectura/compose abajo (split horizontal) ── */
         <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-          <div className="h-[45%] min-h-[150px] border-b border-[#edebe9] overflow-hidden [&_.message-list-container]:w-full [&_.message-list-container]:border-r-0">
+          <div className="h-[45%] min-h-[150px] border-b border-[#edebe9] overflow-hidden flex [&_.message-list-container]:w-full [&_.message-list-container]:h-full [&_.message-list-container]:border-r-0">
             <MessageList />
           </div>
           <div className="flex-1 overflow-hidden">

@@ -105,6 +105,7 @@ export function SearchAdvanced({ value, onChange, onSearch, placeholder = 'Busca
 
         <input
           ref={inputRef}
+          id="search-input"
           type="text"
           value={getInputPart(value)}
           onChange={handleInputChange}

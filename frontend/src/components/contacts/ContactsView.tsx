@@ -157,6 +157,8 @@ export function ContactsView() {
       setShowNewContact(false);
       setEditing(false);
       refresh();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Error al crear el contacto');
     } finally { setSaving(false); }
   };
 
@@ -176,7 +178,9 @@ export function ContactsView() {
       fetchDeletedCount();
       fetchSidebarData();
       sidebarRefreshRef.current?.();
-    } catch { /* silently */ } finally {
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Error al guardar el contacto');
+    } finally {
       setSaving(false);
     }
   };

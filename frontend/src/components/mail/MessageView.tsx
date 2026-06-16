@@ -1303,11 +1303,11 @@ const MessageView: React.FC = () => {
             </svg>
             Descargar .eml
           </button>
-          <button style={btnStyle} onClick={handleViewSource} disabled={loadingSource} title="Ver fuente del mensaje">
+          <button style={btnStyle} onClick={handleViewSource} disabled={loadingSource} title="Ver origen del mensaje (cabeceras completas, como Mostrar original)">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
               <path d="M5.5 4L1.5 8l4 4M10.5 4l4 4-4 4"/>
             </svg>
-            {loadingSource ? 'Cargando...' : 'Ver fuente'}
+            {loadingSource ? 'Cargando...' : 'Ver origen del mensaje'}
           </button>
           <button style={btnStyle} onClick={handlePrint} title="Imprimir">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
@@ -1392,28 +1392,28 @@ const MessageView: React.FC = () => {
         </div>
       )}
 
-      {/* Calendar Invitation Banner */}
-      {displayMsg!.calendar_invite && (
-        <div style={{ padding: '0 24px' }}>
-          <CalendarInviteBanner invite={displayMsg!.calendar_invite} folder={currentFolder} uid={msg.uid} />
-        </div>
-      )}
-
-      {/* Body */}
-      <div style={{ flex: 1, overflow: 'auto', padding: '16px 24px' }}>
-        {displayMsg!.html_body ? (
-          <SafeEmailViewer
-            htmlBody={displayMsg!.html_body}
-            style={{ fontSize: 14, lineHeight: 1.6 }}
-          />
-        ) : (
-          <pre style={{
-            margin: 0, fontSize: 14, lineHeight: 1.6, color: '#323130',
-            whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'inherit',
-          }}>
-            {decodeUnicodeEscapes(displayMsg!.text_body)}
-          </pre>
+      {/* Body (scrollable; la invitación va DENTRO para poder verla completa) */}
+      <div style={{ flex: 1, overflow: 'auto' }}>
+        {displayMsg!.calendar_invite && (
+          <div style={{ padding: '16px 24px 0' }}>
+            <CalendarInviteBanner invite={displayMsg!.calendar_invite} folder={currentFolder} uid={msg.uid} />
+          </div>
         )}
+        <div style={{ padding: '16px 24px' }}>
+          {displayMsg!.html_body ? (
+            <SafeEmailViewer
+              htmlBody={displayMsg!.html_body}
+              style={{ fontSize: 14, lineHeight: 1.6 }}
+            />
+          ) : (
+            <pre style={{
+              margin: 0, fontSize: 14, lineHeight: 1.6, color: '#323130',
+              whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'inherit',
+            }}>
+              {decodeUnicodeEscapes(displayMsg!.text_body)}
+            </pre>
+          )}
+        </div>
       </div>
 
       {/* IA: Smart Reply suggestions */}

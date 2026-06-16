@@ -148,7 +148,7 @@ async def get_public_key(email: str, request: Request, user: str = Depends(get_c
         email,
     )
     if not row:
-        raise HTTPException(404, "No se encontro certificado publico para este email")
+        raise HTTPException(404, "No se encontró certificado público para este email")
     return {"email": email, "certificate_pem": row["certificate_pem"],
             "issuer": row["issuer"], "subject": row["subject"], "valid_to": row["valid_to"]}
 
@@ -217,7 +217,7 @@ async def encrypt_message(
         body.recipient_email,
     )
     if not row:
-        raise HTTPException(404, f"No hay certificado publico para {body.recipient_email}")
+        raise HTTPException(404, f"No hay certificado público para {body.recipient_email}")
 
     with tempfile.NamedTemporaryFile(suffix=".pem", mode="w", delete=False) as cf:
         cf.write(row["certificate_pem"])

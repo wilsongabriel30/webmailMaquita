@@ -48,7 +48,7 @@ async def upload_attachment(
     ev = await db.fetchrow(
         """SELECT e.id FROM events e
            JOIN calendars c ON c.id = e.calendar_id
-           WHERE e.id =  AND c.owner_email = """,
+           WHERE e.id = $1 AND c.owner_email = $2""",
         event_id, user,
     )
     if not ev:
@@ -70,7 +70,7 @@ async def upload_attachment(
     row = await db.fetchrow(
         """INSERT INTO calendar_event_attachments
            (event_id, filename, content_type, size, storage_path, uploaded_by)
-           VALUES (, , , , , ) RETURNING *""",
+           VALUES ($1, $2, $3, $4, $5, $6) RETURNING *""",
         event_id, file.filename, file.content_type, len(content),
         str(file_path), user,
     )
@@ -95,7 +95,7 @@ async def list_attachments(
     """Listar adjuntos de un evento."""
     db = _db(request)
     rows = await db.fetch(
-        "SELECT * FROM calendar_event_attachments WHERE event_id =  ORDER BY created_at",
+        "SELECT * FROM calendar_event_attachments WHERE event_id = $1 ORDER BY created_at",
         event_id,
     )
     return [
@@ -122,7 +122,7 @@ async def download_attachment(
     """Descargar un adjunto."""
     db = _db(request)
     row = await db.fetchrow(
-        "SELECT * FROM calendar_event_attachments WHERE id =  AND event_id = ",
+        "SELECT * FROM calendar_event_attachments WHERE id = $1 AND event_id = $2",
         att_id, event_id,
     )
     if not row:
@@ -152,8 +152,8 @@ async def delete_attachment(
         """SELECT a.* FROM calendar_event_attachments a
            JOIN events e ON e.id = a.event_id
            JOIN calendars c ON c.id = e.calendar_id
-           WHERE a.id =  AND a.event_id = 
-             AND (a.uploaded_by =  OR c.owner_email = )""",
+           WHERE a.id = $1 AND a.event_id = $2
+             AND (a.uploaded_by = $3 OR c.owner_email = $3)""",
         att_id, event_id, user,
     )
     if not row:
@@ -164,4 +164,4 @@ async def delete_attachment(
     if file_path.exists():
         file_path.unlink()
 
-    await db.execute("DELETE FROM calendar_event_attachments WHERE id = ", att_id)
+    await db.execute("DELETE FROM calendar_event_attachments WHERE id = $1", att_id)

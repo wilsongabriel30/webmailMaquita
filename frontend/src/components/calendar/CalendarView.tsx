@@ -1,3 +1,4 @@
+import { api } from "../../api/client";
 import { SchedulingAssistant } from './SchedulingAssistant';
 import { useState, useEffect, useCallback, useMemo } from "react";
 import type { ViewMode, CalendarInfo, CalendarEvent, EventFormData } from "./types/calendar";
@@ -88,7 +89,7 @@ export default function CalendarView() {
   }, []);
 
   const calApi = useCalendarApi();
-  const { fetchCalendars, fetchEvents, createEvent, updateEvent, deleteEvent, moveEvent, createCalendar,
+  const { fetchCalendars, fetchEvents, createEvent, updateEvent, deleteEvent, moveEvent, createCalendar, deleteCalendar,
           shareCalendar, listSharedWithMe,
           loading, error } = calApi;
 
@@ -166,11 +167,31 @@ const [showScheduling, setShowScheduling] = useState(false);
   }
 
   async function handleSaveEvent(data: EventFormData) {
+    const { _attachments, _virtualMeeting, ...payload } = data;
+
+    // Reunión virtual: generar sala Jitsi y dejar el enlace en ubicación/descripción
+    if (_virtualMeeting && !/https?:\/\//.test(payload.location || "")) {
+      try {
+        const m = await api.post<{ meeting_url: string }>("/meetings/create", {
+          title: payload.summary,
+          start_time: payload.dtstart,
+          attendees: [...(payload.attendees || []), ...(payload.optional_attendees || [])],
+        });
+        if (m?.meeting_url) {
+          if (!payload.location) payload.location = m.meeting_url;
+          payload.description = (payload.description ? payload.description + "\n\n" : "") +
+            `Reunión virtual: ${m.meeting_url}`;
+        }
+      } catch {
+        console.error("[Calendar] No se pudo crear la sala de reunión virtual");
+      }
+    }
+
     let savedEvent: object | null = null;
     if (editEvent) {
-      savedEvent = await updateEvent(editEvent.id, data);
+      savedEvent = await updateEvent(editEvent.id, payload);
     } else {
-      savedEvent = await createEvent(data);
+      savedEvent = await createEvent(payload);
     }
     if (!savedEvent) {
       // No cerrar modal si hubo error — el usuario debe ver que falló
@@ -178,6 +199,23 @@ const [showScheduling, setShowScheduling] = useState(false);
       return;
     }
     setModalOpen(false);
+
+    // Subir adjuntos del evento (el endpoint requiere el id ya creado)
+    const evId = (savedEvent as { id?: string }).id || editEvent?.id;
+    if (_attachments && _attachments.length > 0 && evId) {
+      for (const file of _attachments) {
+        const fd = new FormData();
+        fd.append("file", file);
+        try {
+          await fetch(`/api/calendar/events/${evId}/attachments`, {
+            method: "POST", body: fd, credentials: "include",
+          });
+        } catch {
+          console.error("[Calendar] Error subiendo adjunto", file.name);
+        }
+      }
+    }
+
     loadEvents();
     // Si hay asistentes, enviar invitaciones automáticamente
     if ((data.attendees && data.attendees.length > 0) || (data.optional_attendees && data.optional_attendees.length > 0)) {
@@ -189,6 +227,18 @@ const [showScheduling, setShowScheduling] = useState(false);
           }
         }).catch(() => {/* silencioso */});
       }
+    }
+  }
+
+  async function handleDeleteCalendar(id: string, name: string) {
+    if (!window.confirm(`¿Eliminar el calendario "${name}" y todos sus eventos? Esta acción no se puede deshacer.`)) return;
+    const ok = await deleteCalendar(id);
+    if (ok) {
+      setCalendars((prev) => prev.filter((c) => c.id !== id));
+      setSelectedCalendarIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
+      loadEvents();
+    } else {
+      window.alert("No se pudo eliminar el calendario.");
     }
   }
 
@@ -262,6 +312,7 @@ const [showScheduling, setShowScheduling] = useState(false);
           onToggleCalendar={toggleCalendar}
           onNewEvent={() => openNewEvent()}
           onAddCalendar={handleAddCalendar}
+          onDeleteCalendar={handleDeleteCalendar}
           sharedCalendars={sharedCalendars as any[]}
           onShareCalendar={handleOpenShareModal}
         />
@@ -305,6 +356,7 @@ const [showScheduling, setShowScheduling] = useState(false);
             onEventClick={openEditEvent}
             onDateClick={handleDateClick}
             onEventMove={handleMoveEvent}
+            onShowMore={(d) => { setCurrentDate(d); setViewMode("day"); }}
           />
         )}
         {viewMode === "week" && (

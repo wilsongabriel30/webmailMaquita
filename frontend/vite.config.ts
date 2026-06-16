@@ -1,6 +1,6 @@
 // ===========================================================================
 // IMPORTANTE: base: '/webmail/' es CRÍTICO para el funcionamiento.
-// NO CAMBIAR base sin actualizar nginx (sites-enabled/mail.example.org).
+// NO CAMBIAR base sin actualizar nginx (sites-enabled/mail.maquita.org).
 // Deploy: usar /opt/maquita-webmail/deploy-webmail.sh
 // Los archivos compilados van en: /opt/maquita-webmail/www/webmail/
 // NUNCA copiar dist/* directo a www/ — debe ser a www/webmail/

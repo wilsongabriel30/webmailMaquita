@@ -831,6 +831,35 @@ class CalendarService:
                 )
                 msg.attach(MIMEText(body, "html", "utf-8"))
 
+                # ICS (METHOD:REQUEST) para que la invitación se vea como tarjeta
+                # con RSVP (Aceptar/Tentativa/Rechazar), igual que send_invitations.
+                # Sin esto el correo salía solo en HTML y se veía como texto plano.
+                try:
+                    from app.calendar.ical_utils import build_vcalendar
+                    ics = build_vcalendar({
+                        "uid": event_row["uid"],
+                        "summary": event_row["summary"],
+                        "description": event_row.get("description", "") or "",
+                        "location": event_row.get("location", "") or "",
+                        "dtstart": event_row["dtstart"],
+                        "dtend": event_row["dtend"],
+                        "all_day": event_row.get("all_day", False),
+                        "rrule": event_row.get("rrule", "") or "",
+                        "status": event_row.get("status", "CONFIRMED") or "CONFIRMED",
+                        "timezone": event_row.get("timezone") or "America/Guayaquil",
+                        "attendees": list(attendees),
+                        "method": "REQUEST",
+                        "organizer": organizer,
+                    })
+                    cal_part = MIMEText(ics, "calendar", "utf-8")
+                    cal_part.replace_header("Content-Type",
+                        'text/calendar; method=REQUEST; charset="utf-8"')
+                    cal_part.add_header("Content-Disposition",
+                        "attachment; filename=\"invite.ics\"")
+                    msg.attach(cal_part)
+                except Exception as _ics_exc:
+                    logger.warning("auto-invite: no se pudo adjuntar invite.ics: %s", _ics_exc)
+
                 with smtplib.SMTP("127.0.0.1", 25) as s:
                     s.sendmail(organizer, [email], msg.as_string())
                 logger.info("Invitation sent to %s for event %s", email, event_row["summary"])
@@ -860,30 +889,147 @@ class CalendarService:
         from email.mime.text import MIMEText
         from email.mime.multipart import MIMEMultipart
         from email.utils import formatdate
+        import html as _html
+        import re as _re
         sent = 0
+
+        from zoneinfo import ZoneInfo
+        _tz = ZoneInfo(row.get("timezone") or "America/Guayaquil")
+        _DIAS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
+        _MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
+                  "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+
+        def _fecha_linda(dt):
+            if not dt:
+                return ""
+            d = dt.astimezone(_tz)
+            return f"{_DIAS[d.weekday()].capitalize()}, {d.day} de {_MESES[d.month-1]} de {d.year} · {d.strftime('%H:%M')}"
+
+        _inicio = _fecha_linda(row["dtstart"])
+        _fin = row["dtend"].astimezone(_tz).strftime("%H:%M") if row["dtend"] else ""
+        _lugar = row.get("location", "") or ""
+        _desc = row.get("description", "") or ""
+        # Detectar enlace de reunión (Jitsi u otro) en lugar o descripción
+        _m = _re.search(r"https?://\S+", _lugar) or _re.search(r"https?://\S+", _desc)
+        _join_url = _m.group(0).rstrip(".,)") if _m else ""
+
+        def _cuerpo_html(titulo_cabecera: str, es_organizador: bool = False) -> str:
+            esc = _html.escape
+            boton = ""
+            if _join_url:
+                boton_moderador = ""
+                if es_organizador and "meet.maquita.com.ec/" in _join_url:
+                    _sala = _join_url.rstrip("/").rsplit("/", 1)[-1].split("?")[0]
+                    _mod_url = f"https://datos.maquita.com.ec/reuniones/unirse?sala={_sala}"
+                    boton_moderador = (
+                        f"<br><a href='{esc(_mod_url)}' style='background:#107c10;color:#ffffff;"
+                        f"text-decoration:none;padding:10px 24px;border-radius:4px;font-size:14px;"
+                        f"font-weight:600;display:inline-block;margin-top:10px;'>"
+                        f"<span style='color:#ffffff !important;'>🛡️ Entrar como moderador (con tu cuenta FARO)</span></a>"
+                        f"<p style='font-size:11px;color:#605e5c;margin:6px 0 0;'>"
+                        f"Como organizador, entra por este botón: FARO te autentica y te da el control de la sala.</p>"
+                    )
+                boton = (
+                    f"<div style='margin:20px 0;text-align:center;'>"
+                    f"<a href='{esc(_join_url)}' style='background:#0078d4;color:#ffffff;"
+                    f"text-decoration:none;padding:12px 28px;border-radius:4px;font-size:15px;"
+                    f"font-weight:600;display:inline-block;'>"
+                    f"<span style='color:#ffffff !important;'>🎥 Unirse a la reunión</span></a>"
+                    + boton_moderador +
+                    f"<p style='font-size:12px;color:#605e5c;margin:10px 0 0;'>"
+                    f"Si el botón no funciona, copia y pega este enlace en tu navegador:<br>"
+                    f"<a href='{esc(_join_url)}' style='color:#0078d4;word-break:break-all;'>{esc(_join_url)}</a></p>"
+                    f"</div>"
+                )
+            fila = lambda et, val: (
+                f"<tr><td style='padding:6px 12px 6px 0;color:#605e5c;font-size:13px;"
+                f"white-space:nowrap;vertical-align:top;'>{et}</td>"
+                f"<td style='padding:6px 0;color:#323130;font-size:13px;'>{val}</td></tr>"
+            ) if val else ""
+            cuando = esc(_inicio) + (f" – {esc(_fin)}" if _fin else "")
+            lugar_html = esc(_lugar)
+            if _join_url and _join_url in _lugar:
+                lugar_html = f"<a href='{esc(_join_url)}' style='color:#0078d4;'>{esc(_join_url)}</a>"
+            return (
+                "<div style='font-family:Segoe UI,Arial,sans-serif;max-width:560px;margin:0 auto;"
+                "border:1px solid #edebe9;border-radius:8px;overflow:hidden;'>"
+                f"<div style='background:#0078d4;color:#ffffff;padding:18px 24px;'>"
+                f"<div style='font-size:12px;opacity:.85;margin-bottom:4px;'>{esc(titulo_cabecera)}</div>"
+                f"<div style='font-size:19px;font-weight:600;'>📅 {esc(row['summary'])}</div>"
+                f"</div>"
+                f"<div style='padding:20px 24px;background:#ffffff;'>"
+                f"<table style='border-collapse:collapse;width:100%;'>"
+                + fila("🕒 Cuándo", cuando)
+                + fila("📍 Lugar", lugar_html)
+                + fila("👤 Organizador", esc(user))
+                + (fila("📝 Detalles", esc(_desc).replace(chr(10), "<br>")) if _desc else "")
+                + "</table>"
+                + boton +
+                "<p style='font-size:12px;color:#605e5c;border-top:1px solid #edebe9;"
+                "padding-top:12px;margin-top:16px;'>Puedes responder con los botones "
+                "<b>Aceptar / Rechazar / Provisional</b> de tu cliente de correo "
+                "(Maquita Mail, Outlook, Thunderbird…). El evento se añadió "
+                "automáticamente a tu calendario.</p>"
+                "</div>"
+                "<div style='background:#faf9f8;padding:10px 24px;font-size:11px;color:#a19f9d;'>"
+                "Maquita Mail · Fundación Maquita</div>"
+                "</div>"
+            )
+
+        # Destinatarios: asistentes + copia para el organizador (con su enlace)
+        _destinos = []
         for att in attendees_raw:
-            email = att if isinstance(att, str) else att.get("email", "")
-            if not email:
-                continue
+            _e = att if isinstance(att, str) else att.get("email", "")
+            if _e:
+                _destinos.append((_e, "Invitación a evento", f"Invitación: {row['summary']}", True))
+        _destinos.append((user, "Confirmación — evento creado",
+                          f"Tu evento: {row['summary']}", False))
+
+        for email, _cab, _subj, _con_ics in _destinos:
             try:
                 msg = MIMEMultipart("alternative")
-                msg["Subject"] = f"Invitación: {row['summary']}"
+                msg["Subject"] = _subj
                 msg["From"] = user
                 msg["To"] = email
                 msg["Date"] = formatdate(localtime=True)
-                from zoneinfo import ZoneInfo
-                tz = ZoneInfo(row.get("timezone") or "America/Guayaquil")
-                dtstart_str = row["dtstart"].astimezone(tz).strftime("%d/%m/%Y %H:%M") if row["dtstart"] else ""
-                dtend_str = row["dtend"].astimezone(tz).strftime("%d/%m/%Y %H:%M") if row["dtend"] else ""
-                body = (
-                    f"Ha sido invitado al evento: <b>{row['summary']}</b><br>"
-                    f"Inicio: {dtstart_str}<br>"
-                    f"Fin: {dtend_str}<br>"
-                    f"Lugar: {row.get('location', '') or '' }<br>"
-                    f"Descripción: {row.get('description', '') or '' }<br><br>"
-                    f"Organizador: {user}"
-                )
+                body = _cuerpo_html(_cab, es_organizador=not _con_ics)
                 msg.attach(MIMEText(body, "html"))
+
+                # Invite iCalendar (METHOD:REQUEST) → habilita RSVP nativo en
+                # Outlook/Thunderbird y el banner inline del propio webmail.
+                # (la copia del organizador va sin ics: él no se auto-responde)
+                try:
+                    if not _con_ics:
+                        raise StopIteration()
+                    from app.calendar.ical_utils import build_vcalendar
+                    from email.mime.base import MIMEBase
+                    _att_list = attendees_raw if isinstance(attendees_raw, list) else []
+                    ics = build_vcalendar({
+                        "uid": row.get("uid") or str(row["id"]),
+                        "summary": row["summary"],
+                        "description": row.get("description", "") or "",
+                        "location": row.get("location", "") or "",
+                        "dtstart": row["dtstart"],
+                        "dtend": row["dtend"],
+                        "all_day": row.get("all_day", False),
+                        "rrule": row.get("rrule", "") or "",
+                        "status": row.get("status", "CONFIRMED") or "CONFIRMED",
+                        "timezone": row.get("timezone") or "America/Guayaquil",
+                        "attendees": _att_list,
+                        "method": "REQUEST",
+                        "organizer": user,
+                    })
+                    cal_part = MIMEText(ics, "calendar", "utf-8")
+                    cal_part.replace_header("Content-Type",
+                        'text/calendar; method=REQUEST; charset="utf-8"')
+                    cal_part.add_header("Content-Disposition",
+                        "attachment; filename=\"invite.ics\"")
+                    msg.attach(cal_part)
+                except StopIteration:
+                    pass
+                except Exception as _ics_exc:
+                    logger.warning("No se pudo adjuntar invite.ics: %s", _ics_exc)
+
                 with smtplib.SMTP(smtp_config["host"], smtp_config["port"]) as s:
                     try:
                         s.starttls()

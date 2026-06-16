@@ -71,10 +71,24 @@ fi
 
 # --- Paso 4: Deploy (NUNCA tocar www/ raíz, solo www/webmail/) ---
 echo -e "\n${YELLOW}[3/5] Desplegando en ${DEPLOY_TARGET}...${NC}"
+# Conservar assets con hash de deploys anteriores (pestañas abiertas siguen
+# pidiendo chunks viejos; sin esto ven \"Failed to fetch dynamically imported module\").
+OLD_ASSETS=""
+if [ -d "${DEPLOY_TARGET}/assets" ]; then
+    OLD_ASSETS=$(mktemp -d)
+    cp -r "${DEPLOY_TARGET}/assets/." "${OLD_ASSETS}/"
+fi
 # CRÍTICO: Solo borrar el contenido de www/webmail/, NUNCA www/ completo
 rm -rf "${DEPLOY_TARGET}"
 mkdir -p "${DEPLOY_TARGET}"
 cp -r "${DIST_DIR}/"* "${DEPLOY_TARGET}/"
+# Restaurar assets anteriores SIN pisar los nuevos (hash único = sin colisiones)
+if [ -n "${OLD_ASSETS}" ] && [ -d "${OLD_ASSETS}" ]; then
+    cp -rn "${OLD_ASSETS}/." "${DEPLOY_TARGET}/assets/" 2>/dev/null || true
+    rm -rf "${OLD_ASSETS}"
+    # Purgar assets con más de 14 días (huérfanos de deploys muy viejos)
+    find "${DEPLOY_TARGET}/assets" -type f -mtime +14 -delete 2>/dev/null || true
+fi
 # Recrear symlink de downloads (directorio persistente fuera del deploy)
 ln -sf /opt/maquita-webmail/downloads "${DEPLOY_TARGET}/downloads"
 
@@ -105,7 +119,7 @@ fi
 
 # --- Paso 6: Verificación final ---
 echo -e "\n${YELLOW}[5/5] Verificación...${NC}"
-HTTP_CODE=$(curl -sk -L -o /dev/null -w '%{http_code}' https://mail.example.org/webmail/)
+HTTP_CODE=$(curl -sk -L -o /dev/null -w '%{http_code}' https://mail.maquita.org/webmail/)
 if [ "$HTTP_CODE" = "200" ]; then
     echo -e "${GREEN}Webmail respondiendo: HTTP ${HTTP_CODE}${NC}"
 else
@@ -116,4 +130,4 @@ else
 fi
 
 echo -e "\n${GREEN}=== Deploy completado exitosamente ===${NC}"
-echo "URL: https://mail.example.org/webmail/"
+echo "URL: https://mail.maquita.org/webmail/"

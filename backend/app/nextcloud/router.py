@@ -167,7 +167,7 @@ async def save_attachment_to_nextcloud(
         if not nc_userid:
             raise HTTPException(
                 404,
-                "No se encontro cuenta Nextcloud vinculada a este correo. "
+                "No se encontró cuenta Nextcloud vinculada a este correo. "
                 "Contacte al administrador para que le asigne acceso a la nube."
             )
         # Verificar credenciales
