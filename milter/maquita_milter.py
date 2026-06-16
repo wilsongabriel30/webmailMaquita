@@ -59,6 +59,50 @@ async def _local_domains(pool) -> set:
     return _domains_cache["val"]
 
 
+_attach = {"on": False, "ts": 0.0}
+
+
+async def _attach_scan_enabled(pool) -> bool:
+    now = time.monotonic()
+    if now - _attach["ts"] < 20:
+        return _attach["on"]
+    try:
+        row = await pool.fetchrow("SELECT milter_attach_scan FROM safeattach_config WHERE id = 1")
+        _attach["on"] = bool(row and row["milter_attach_scan"])
+    except Exception:
+        _attach["on"] = False
+    _attach["ts"] = now
+    return _attach["on"]
+
+
+async def _inbound_attachments(st, pool) -> list:
+    """Detecta adjuntos Office con macros -> cabecera X-Macro-Attachment. Fail-open."""
+    try:
+        if not await _attach_scan_enabled(pool):
+            return []
+        if any(n.lower() == "x-macro-attachment" for n, _ in st["headers"]):
+            return []   # ya analizado (reinyeccion del content_filter)
+        from app.security import cdr
+        raw = _reconstruct(st["headers"], bytes(st["body"]))
+        msg = message_from_bytes(raw)
+        found = []
+        for part in msg.walk():
+            fn = part.get_filename()
+            if not fn:
+                continue
+            payload = part.get_payload(decode=True) or b""
+            if not payload or len(payload) > 8_000_000:
+                continue
+            if cdr.is_ooxml(fn, payload) and cdr.has_macros(payload, fn):
+                found.append(fn)
+        if found:
+            return [AppendHeader(headername="X-Macro-Attachment",
+                                 headertext="adjuntos con macros: " + ", ".join(found[:5]))]
+        return []
+    except Exception:
+        return []
+
+
 def _load_env_keys() -> None:
     """Carga claves del .env del webmail al entorno (el servicio milter no usa
     EnvironmentFile). Necesario para que el clasificador alcance el gateway."""
@@ -260,6 +304,7 @@ async def _inbound_safelinks(st, pool, locals_) -> Continue:
         if new_body:
             manips.append(ReplaceBodyChunk(chunk=new_body))   # Safe Links
     manips.extend(await _inbound_phishing(st, pool))          # Anti-phishing (default off)
+    manips.extend(await _inbound_attachments(st, pool))      # Macros en adjuntos (default off)
     return Continue(manipulations=manips) if manips else Continue()
 
 
