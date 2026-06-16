@@ -15,14 +15,17 @@ hdr(){  printf '\n\033[1m== %s ==\033[0m\n' "$*"; }
 [ "$(id -u)" -eq 0 ] || { echo "ejecutar como root (sudo)"; exit 2; }
 
 hdr "Servicios"
-for s in postfix dovecot rspamd redis-server nginx clamav-daemon maquita-webmail maquita-admin fail2ban; do
+for s in postfix dovecot rspamd nginx clamav-daemon maquita-webmail maquita-admin maquita-milter fail2ban; do
   [ "$(systemctl is-active "$s" 2>/dev/null)" = active ] && ok "$s activo" || bad "$s NO activo"
 done
+# Redis o Valkey (cualquiera sirve)
+systemctl is-active redis-server valkey valkey-server 2>/dev/null | grep -q active && ok "redis/valkey activo" || bad "redis/valkey NO activo"
 
 hdr "Puertos en escucha"
-for p in 25 465 587 143 993 443; do
+for p in 25 465 587 143 993; do
   ss -ltn 2>/dev/null | grep -q ":$p " && ok "puerto $p" || bad "puerto $p cerrado"
 done
+ss -ltn 2>/dev/null | grep -q ":443 " && ok "puerto 443" || warn "puerto 443 no escucha local (¿HTTPS/proxy en otro host? OK si aplica)"
 
 hdr "Postfix — AUTH deshabilitado en el 25 (anti fuerza bruta SASL)"
 if timeout 6 bash -c "printf 'EHLO t\r\nQUIT\r\n' | openssl s_client -connect 127.0.0.1:25 -starttls smtp -quiet 2>/dev/null | grep -qi '250.*AUTH'"; then

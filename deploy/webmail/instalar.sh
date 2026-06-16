@@ -191,7 +191,7 @@ fi
 postfix check && echo "  Postfix: configuración OK"
 # rspamd como milter (procesa y FIRMA el correo) + generación de la clave DKIM
 postconf -e \
-  "smtpd_milters = inet:localhost:11332" \
+  "smtpd_milters = inet:localhost:11332, inet:localhost:11335" \
   "non_smtpd_milters = inet:localhost:11332" \
   "milter_protocol = 6" \
   "milter_default_action = accept"
@@ -217,6 +217,8 @@ echo "  DKIM generado (registro DNS en /tmp/dkim-${DOMAIN}.txt)"
 echo -e "\n${GREEN}[12/15] Configurando servicios web...${NC}"
 cp "${APP_DIR}/deploy/webmail/systemd/maquita-webmail.service" /etc/systemd/system/
 systemctl daemon-reload && systemctl enable maquita-webmail
+cp "${APP_DIR}/deploy/webmail/systemd/maquita-milter.service" /etc/systemd/system/
+systemctl daemon-reload && systemctl enable maquita-milter
 NGINX_CONF="/etc/nginx/sites-available/${MAIL_HOST}"
 cp "${APP_DIR}/deploy/webmail/nginx/webmail.conf" "${NGINX_CONF}"
 sed -i "s/mail\.tudominio\.com/${MAIL_HOST}/g; s/tudominio\.com/${DOMAIN}/g" "${NGINX_CONF}"

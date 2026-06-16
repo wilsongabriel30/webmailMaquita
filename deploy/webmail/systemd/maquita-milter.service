@@ -1,0 +1,13 @@
+[Unit]
+Description=Maquita Milter (DLP saliente + Safe Links / anti-phishing / macros entrante)
+After=network.target postgresql.service redis-server.service
+Wants=postgresql.service
+
+[Service]
+ExecStart=/opt/maquita-webmail/backend/venv/bin/python /opt/maquita-webmail/milter/maquita_milter.py
+Restart=always
+RestartSec=5
+User=root
+
+[Install]
+WantedBy=multi-user.target
