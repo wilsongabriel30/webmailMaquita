@@ -163,6 +163,36 @@ async def send(
         if large_links_html:
             links_block = "<br>".join(large_links_html)
             body.html_body = (body.html_body or "") + "<br>" + links_block
+
+        # Anti-malware de adjuntos salientes (safeattach: ClamAV + oletools + file-type).
+        # Escanea y registra; bloquea solo si es malicioso Y enforce. Fail-open.
+        if attachments:
+            try:
+                _sa = await db.fetchrow("SELECT enabled, enforce FROM safeattach_config WHERE id=1")
+                if _sa and _sa["enabled"]:
+                    import json as _json
+                    from app.security.router import deep_scan_attachment
+                    for _a in attachments:
+                        _scan = await deep_scan_attachment(_a["content"], _a["filename"], _a["content_type"])
+                        if _scan["result"] in ("malicious", "suspicious"):
+                            try:
+                                await db.execute(
+                                    """INSERT INTO attachment_scans
+                                       (message_id, filename, content_type, size, scan_result, threats_found, scan_details)
+                                       VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb)""",
+                                    f"outbound:{username}", _a["filename"], _a["content_type"],
+                                    len(_a["content"]), _scan["result"],
+                                    _json.dumps(_scan["threats"]), _json.dumps(_scan["details"]))
+                            except Exception:
+                                pass
+                        if _scan["result"] == "malicious" and _sa["enforce"] and not getattr(body, "dlp_override", False):
+                            raise HTTPException(status_code=422, detail={
+                                "attachment_blocked": True, "filename": _a["filename"],
+                                "threats": _scan["threats"]})
+            except HTTPException:
+                raise
+            except Exception:
+                pass  # fail-open: el escaner no debe romper el envio
         try:
             result = await send_and_save(
                 imap=imap,

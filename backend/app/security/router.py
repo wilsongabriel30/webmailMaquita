@@ -31,7 +31,7 @@ async def deep_scan_attachment(content: bytes, filename: str, content_type: str)
         # 1. ClamAV
         try:
             result = subprocess.run(
-                ["clamdscan", "--no-summary", tmp_path],
+                ["clamdscan", "--no-summary", "--fdpass", tmp_path],
                 capture_output=True, text=True, timeout=60,
             )
             details["clamav"] = result.stdout.strip()
