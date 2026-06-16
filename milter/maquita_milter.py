@@ -38,6 +38,25 @@ MAX_BODY = 12_000_000   # cuerpos mayores no se reescriben (se entregan intactos
 # Caché del interruptor del panel (evita consultar la BD en cada correo)
 _toggle = {"val": False, "ts": 0.0}
 _phish = {"mode": "off", "ext": False, "ts": 0.0}
+_domains_cache = {"val": None, "ts": 0.0}
+
+
+async def _local_domains(pool) -> set:
+    """Dominios locales desde la tabla 'domain', cacheados 60s. Fallback al set fijo."""
+    now = time.monotonic()
+    if _domains_cache["val"] is not None and now - _domains_cache["ts"] < 60:
+        return _domains_cache["val"]
+    try:
+        rows = await pool.fetch("SELECT domain FROM domain")
+        vals = {(r["domain"] or "").lower() for r in rows if r["domain"]}
+        if vals:
+            _domains_cache["val"] = vals
+    except Exception:
+        pass
+    if _domains_cache["val"] is None:
+        _domains_cache["val"] = set(LOCAL_DOMAINS)
+    _domains_cache["ts"] = now
+    return _domains_cache["val"]
 
 
 def _load_env_keys() -> None:
@@ -229,12 +248,11 @@ async def _outbound_dlp(st, sender) -> Continue:
                                                 headertext="posibles datos sensibles: " + ", ".join(types))])
 
 
-async def _inbound_safelinks(st) -> Continue:
+async def _inbound_safelinks(st, pool, locals_) -> Continue:
     if st.get("trunc"):
         return Continue()   # cuerpo truncado -> entregar intacto (fail-safe)
-    if not any((r.split("@")[-1] in LOCAL_DOMAINS) for r in st["rcpts"] if "@" in r):
+    if not any((r.split("@")[-1] in locals_) for r in st["rcpts"] if "@" in r):
         return Continue()   # sin destinatario local
-    pool = await _get_pool()
     manips = []
     if await _inbound_enabled(pool):
         raw = _reconstruct(st["headers"], bytes(st["body"]))
@@ -250,11 +268,13 @@ async def on_end_of_message(cmd) -> Continue:
     if not st:
         return Continue()
     try:
+        pool = await _get_pool()
+        locals_ = await _local_domains(pool)
         sender = st["from"]
         dom = sender.split("@")[-1] if "@" in sender else ""
-        if dom in LOCAL_DOMAINS:
+        if dom in locals_:
             return await _outbound_dlp(st, sender)        # SALIENTE: DLP
-        return await _inbound_safelinks(st)               # ENTRANTE: Safe Links
+        return await _inbound_safelinks(st, pool, locals_)  # ENTRANTE
     except Exception:
         return Continue()   # FAIL-OPEN: nunca afecta la entrega
 
