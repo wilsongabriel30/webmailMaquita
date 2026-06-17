@@ -47,6 +47,35 @@ async def mail_stats(request: Request, hours: int = 24, admin: str = Depends(req
 
 # -- Domains --
 
+# ---- Auditoria de claves (seguridad de migracion) ----
+@router.get("/password-audit")
+async def password_audit(request: Request, admin: str = Depends(require_admin)):
+    from app.admin import password_audit_service
+    return await password_audit_service.audit(_get_db(request))
+
+
+@router.post("/password-audit/reset")
+async def password_audit_reset(request: Request, admin: str = Depends(require_admin)):
+    import secrets
+    data = await request.json()
+    username = (data.get("username") or "").strip().lower()
+    if "@" not in username:
+        raise HTTPException(400, "username requerido")
+    temp = "Mq-" + secrets.token_urlsafe(9)
+    try:
+        result = await mailboxes_service.update_mailbox(_get_db(request), username=username, password=temp, active=True)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    if not result:
+        raise HTTPException(404, "Mailbox not found")
+    try:
+        await request.app.state.redis.delete(f"imap_pass:{username}", f"imap_master:{username}")
+    except Exception:
+        pass
+    await _audit(request, admin, "password_reset_temp", username)
+    return {"username": username, "temp_password": temp}
+
+
 @router.get("/domains")
 async def list_domains(request: Request, admin: str = Depends(require_admin)):
     return await domains_service.list_domains(_get_db(request))
@@ -184,6 +213,14 @@ async def update_mailbox(username: str, request: Request, admin: str = Depends(r
         raise HTTPException(404, "Mailbox not found")
 
     await _audit(request, admin, "mailbox_update", username, {k: v for k, v in data.items() if k != "password"})
+    # CONSISTENCIA: si el admin cambio la clave, invalidar la sesion cacheada del usuario
+    # (imap_pass/imap_master) para que el webmail re-autentique con la clave NUEVA. Sin esto,
+    # la sesion activa seguiria usando la clave vieja cacheada (desync admin vs Dovecot).
+    if data.get("password"):
+        try:
+            await request.app.state.redis.delete(f"imap_pass:{username}", f"imap_master:{username}")
+        except Exception:
+            pass
     return result
 
 
