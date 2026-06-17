@@ -75,7 +75,7 @@ export function TaskDetailPanel({ task, onUpdate, onDelete, onClose }: Props) {
   };
 
   const setReminder = (dateStr: string) => {
-    onUpdate(task.id, { reminder: dateStr || undefined } as any);
+    onUpdate(task.id, { reminder: dateStr || null } as any);
     setShowReminder(false);
     setCustomReminder('');
   };
@@ -182,7 +182,7 @@ export function TaskDetailPanel({ task, onUpdate, onDelete, onClose }: Props) {
               )}
             </div>
             <input type="date" value={dueDate}
-              onChange={e => { setDueDate(e.target.value); onUpdate(task.id, { due_date: e.target.value || undefined }); }}
+              onChange={e => { setDueDate(e.target.value); onUpdate(task.id, { due_date: e.target.value || null }); }}
               style={{ marginLeft: 30, fontSize: 13, border: `1px solid ${COLORS.border}`, borderRadius: 4, padding: '4px 8px', color: COLORS.text }}
             />
           </div>
@@ -271,7 +271,7 @@ export function TaskDetailPanel({ task, onUpdate, onDelete, onClose }: Props) {
               }}>
                 {RECURRENCE_OPTIONS.map(o => (
                   <div key={o.value}
-                    onClick={() => { onUpdate(task.id, { recurrence: o.value || undefined } as any); setShowRecurrence(false); }}
+                    onClick={() => { onUpdate(task.id, { recurrence: o.value || null } as any); setShowRecurrence(false); }}
                     style={{
                       padding: '8px 12px', fontSize: 13, cursor: 'pointer', borderRadius: 4,
                       fontWeight: task.recurrence === o.value ? 600 : 400,

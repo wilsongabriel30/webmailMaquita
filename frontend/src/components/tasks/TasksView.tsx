@@ -149,8 +149,10 @@ export function TasksView() {
     if (id.startsWith('mail-')) return; // mail tasks are read-only
     setTasks(prev => prev.map(t => t.id === id ? { ...t, ...data } : t));
     if (selectedTask?.id === id) setSelectedTask(prev => prev ? { ...prev, ...data } : null);
+    const payload = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined));
+    if (Object.keys(payload).length === 0) return; // nada que actualizar -> no PATCH vacio
     try {
-      await api.patch(`/tasks/tasks/${id}`, data);
+      await api.patch(`/tasks/tasks/${id}`, payload);
       if ('my_day' in data) fetchTasks();
       fetchLists();
     } catch (e: any) {
