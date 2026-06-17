@@ -182,7 +182,7 @@ export function TaskDetailPanel({ task, onUpdate, onDelete, onClose }: Props) {
               )}
             </div>
             <input type="date" value={dueDate}
-              onChange={e => { setDueDate(e.target.value); onUpdate(task.id, { due_date: e.target.value || null }); }}
+              onChange={e => { setDueDate(e.target.value); onUpdate(task.id, { due_date: e.target.value || null } as any); }}
               style={{ marginLeft: 30, fontSize: 13, border: `1px solid ${COLORS.border}`, borderRadius: 4, padding: '4px 8px', color: COLORS.text }}
             />
           </div>
