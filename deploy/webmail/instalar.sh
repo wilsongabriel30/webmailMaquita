@@ -217,6 +217,9 @@ cp "${CFG}/rspamd-ratelimit-whitelist.map" /etc/rspamd/maps.d/ratelimit_whitelis
 systemctl enable --now clamav-freshclam clamav-daemon 2>/dev/null || true
 echo "  ClamAV (antivirus de adjuntos) habilitado (las firmas se descargan en 2.º plano)"
 systemctl restart rspamd 2>/dev/null || true
+# Observabilidad: alerta de 0 accesos externos (IMAP/POP)
+install -m755 "${APP_DIR}/deploy/tools/check-external-logins.sh" /usr/local/bin/check-external-logins.sh
+install -m644 "${APP_DIR}/deploy/webmail/configs/cron-check-external-logins" /etc/cron.d/check-external-logins
 systemctl restart postfix
 echo "  DKIM generado (registro DNS en /tmp/dkim-${DOMAIN}.txt)"
 

@@ -1,8 +1,10 @@
+import asyncio
 from fastapi import APIRouter, Request, HTTPException, Depends, Query
 from fastapi.responses import StreamingResponse
 
 from app.auth.dependencies import require_admin
 from app.admin import outbound_service
+from app.admin import login_health_service
 from app.admin import domains_service, mailboxes_service, aliases_service
 from app.admin import queue_service, audit_service, stats_service
 
@@ -117,6 +119,11 @@ async def delete_domain(domain: str, request: Request, admin: str = Depends(requ
 
 
 # -- Mailboxes --
+
+@router.get("/login-health")
+async def login_health(request: Request, hours: int = 24, admin: str = Depends(require_admin)):
+    return await asyncio.to_thread(login_health_service.login_health, hours)
+
 
 @router.get("/mailboxes")
 async def list_mailboxes(request: Request, domain: str = None, admin: str = Depends(require_admin)):
