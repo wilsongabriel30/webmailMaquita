@@ -38,6 +38,7 @@ import { EDiscoveryPremium } from "./pages/EDiscoveryPremium";
 import { AdvancedAudit } from "./pages/AdvancedAudit";
 import { RiskyLogins } from "./pages/RiskyLogins";
 import { AntispamAvanzado } from "./pages/AntispamAvanzado";
+import { OutboundProtection } from "./pages/OutboundProtection";
 import { SharedMailboxes } from "./pages/SharedMailboxes";
 import { EDiscovery } from "./pages/EDiscovery";
 import { Branding } from "./pages/Branding";
@@ -118,6 +119,7 @@ function App() {
             <Route path="office" element={<OfficeConfig />} />
             <Route path="voice" element={<VoiceConfig />} />
             <Route path="antispam" element={<AntispamAvanzado />} />
+            <Route path="/outbound" element={<OutboundProtection />} />
             <Route path="compliance" element={<Compliance />} />
             <Route path="dlp" element={<DlpConfig />} />
             <Route path="secure" element={<SecureConfig />} />

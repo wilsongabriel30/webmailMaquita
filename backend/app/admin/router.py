@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request, HTTPException, Depends, Query
 from fastapi.responses import StreamingResponse
 
 from app.auth.dependencies import require_admin
+from app.admin import outbound_service
 from app.admin import domains_service, mailboxes_service, aliases_service
 from app.admin import queue_service, audit_service, stats_service
 
@@ -159,16 +160,19 @@ async def create_mailbox(request: Request, admin: str = Depends(require_admin)):
 @router.put("/mailboxes/{username:path}")
 async def update_mailbox(username: str, request: Request, admin: str = Depends(require_admin)):
     data = await request.json()
-    result = await mailboxes_service.update_mailbox(
-        _get_db(request),
-        username=username,
-        name=data.get("name"),
-        password=data.get("password"),
-        quota=data.get("quota"),
-        active=data.get("active"),
-        phone=data.get("phone"),
-        email_other=data.get("email_other"),
-    )
+    try:
+        result = await mailboxes_service.update_mailbox(
+            _get_db(request),
+            username=username,
+            name=data.get("name"),
+            password=data.get("password"),
+            quota=data.get("quota"),
+            active=data.get("active"),
+            phone=data.get("phone"),
+            email_other=data.get("email_other"),
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e))
     if not result:
         raise HTTPException(404, "Mailbox not found")
 
@@ -235,6 +239,66 @@ async def mailbox_lock_status(username: str, request: Request, admin: str = Depe
 
 
 # -- Aliases --
+
+# ---- Proteccion de salida (anti cuenta comprometida) ----
+@router.get("/outbound/limits")
+async def outbound_limits(request: Request, admin: str = Depends(require_admin)):
+    try:
+        return await outbound_service.get_limits()
+    except ValueError as e:
+        raise HTTPException(500, str(e))
+
+
+@router.put("/outbound/limits")
+async def outbound_set_limits(request: Request, admin: str = Depends(require_admin)):
+    data = await request.json()
+    try:
+        burst = int(data["burst"]); rate = int(data["rate_per_min"])
+    except (KeyError, TypeError, ValueError):
+        raise HTTPException(400, "burst y rate_per_min deben ser enteros")
+    try:
+        await outbound_service.set_limits(burst, rate)
+        if isinstance(data.get("whitelist"), list):
+            await outbound_service.set_whitelist([str(x).strip().lower() for x in data["whitelist"] if str(x).strip()])
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    await _audit(request, admin, "outbound_set_limits", None, {"burst": burst, "rate_per_min": rate})
+    return await outbound_service.get_limits()
+
+
+@router.get("/outbound/activity")
+async def outbound_activity(request: Request, hours: int = 1, admin: str = Depends(require_admin)):
+    try:
+        return await outbound_service.activity(hours)
+    except ValueError as e:
+        raise HTTPException(500, str(e))
+
+
+@router.post("/outbound/lock")
+async def outbound_lock(request: Request, admin: str = Depends(require_admin)):
+    email = ((await request.json()).get("email") or "").strip().lower()
+    if "@" not in email:
+        raise HTTPException(400, "email requerido")
+    try:
+        res = await outbound_service.lock(email)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    await _audit(request, admin, "outbound_lock", email)
+    return res
+
+
+@router.post("/outbound/unlock")
+async def outbound_unlock(request: Request, admin: str = Depends(require_admin)):
+    email = ((await request.json()).get("email") or "").strip().lower()
+    if "@" not in email:
+        raise HTTPException(400, "email requerido")
+    try:
+        res = await outbound_service.unlock(email)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    await _audit(request, admin, "outbound_unlock", email)
+    return res
+
 
 @router.get("/aliases")
 async def list_aliases(request: Request, domain: str = None, admin: str = Depends(require_admin)):

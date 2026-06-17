@@ -207,6 +207,13 @@ path = "/var/lib/rspamd/dkim/\$domain.mail.key";
 DKIMC
 # Antivirus: rspamd escanea adjuntos/correo con ClamAV (clamd); el backend usa clamdscan
 cp "${CFG}/rspamd-antivirus.conf" /etc/rspamd/local.d/antivirus.conf
+# Proteccion de salida: helpers de contencion/limite + sudoers acotado + ratelimit
+install -m755 "${APP_DIR}/deploy/tools/maquita-contener" /usr/local/sbin/maquita-contener
+install -m755 "${APP_DIR}/deploy/tools/maquita-outbound" /usr/local/sbin/maquita-outbound
+install -m440 "${APP_DIR}/deploy/webmail/configs/sudoers-maquita-outbound" /etc/sudoers.d/maquita-outbound
+cp "${CFG}/rspamd-ratelimit.conf" /etc/rspamd/local.d/ratelimit.conf
+mkdir -p /etc/rspamd/maps.d
+cp "${CFG}/rspamd-ratelimit-whitelist.map" /etc/rspamd/maps.d/ratelimit_whitelist.map
 systemctl enable --now clamav-freshclam clamav-daemon 2>/dev/null || true
 echo "  ClamAV (antivirus de adjuntos) habilitado (las firmas se descargan en 2.º plano)"
 systemctl restart rspamd 2>/dev/null || true
