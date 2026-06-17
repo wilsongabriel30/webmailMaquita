@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings
+from pydantic import Field, AliasChoices
 from functools import lru_cache
 
 
@@ -20,7 +21,9 @@ class Settings(BaseSettings):
     # SOGo DAV
     sogo_dav_url: str = "http://127.0.0.1:20000/SOGo/dav"
     # Limits
-    max_attachment_size_mb: int = 25
+    max_attachment_size_mb: int = Field(
+        25, validation_alias=AliasChoices("MAX_ATTACHMENT_MB", "MAX_ATTACHMENT_SIZE_MB")
+    )
     # Cache TTLs (seconds)
     cache_messages_ttl: int = 45
     cache_autocomplete_ttl: int = 90

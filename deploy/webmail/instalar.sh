@@ -128,11 +128,13 @@ COOKIE_DOMAIN=.${DOMAIN}
 CORS_ORIGINS=https://${MAIL_HOST},https://${DOMAIN},https://webmail.${DOMAIN},https://correo.${DOMAIN}
 RADICALE_URL=http://127.0.0.1:5232
 TRUSTED_NETWORKS=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.0/8
+MAX_ATTACHMENT_MB=${MAX_ATTACHMENT_MB:-25}
 ENVEOF
 
 # --- 9. Frontend (compilar) ---
 echo -e "\n${GREEN}[9/15] Compilando frontend...${NC}"
 cd "${APP_DIR}/frontend"
+printf 'VITE_MAX_ATTACHMENT_MB=%s\n' "${MAX_ATTACHMENT_MB:-25}" > .env.production
 npm ci --quiet && npx vite build
 mkdir -p "${APP_DIR}/www" && ln -sf "${APP_DIR}/frontend/dist" "${APP_DIR}/www/webmail"
 [ -f public/sw.js ] && cp public/sw.js dist/sw.js || true
@@ -231,6 +233,8 @@ cp "${APP_DIR}/deploy/webmail/systemd/maquita-milter.service" /etc/systemd/syste
 systemctl daemon-reload && systemctl enable maquita-milter
 NGINX_CONF="/etc/nginx/sites-available/${MAIL_HOST}"
 cp "${APP_DIR}/deploy/webmail/nginx/webmail.conf" "${NGINX_CONF}"
+# Limite de tamano de adjuntos coordinado (nginx snippet + postfix + perms mail.log)
+bash "${APP_DIR}/deploy/tools/aplicar-limites-tamano.sh" "${MAX_ATTACHMENT_MB:-25}" || true
 sed -i "s/mail\.tudominio\.com/${MAIL_HOST}/g; s/tudominio\.com/${DOMAIN}/g" "${NGINX_CONF}"
 # El certificado de Let's Encrypt aun NO existe (certbot es un paso posterior).
 # Arrancar con el certificado snakeoil para que nginx valide y sirva desde ya;

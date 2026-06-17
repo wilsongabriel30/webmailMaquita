@@ -37,6 +37,9 @@ let pendingSendMap: Map<string, PendingSend> = new Map();
 interface Props { win: DraftWindow; }
 
 interface AttachmentFile { name: string; size: number; type: string; file?: File; }
+// Limite de adjuntos (fuente unica: MAX_ATTACHMENT_MB -> VITE en build)
+const MAX_ATTACH_MB = Number((import.meta as any).env?.VITE_MAX_ATTACHMENT_MB) || 25;
+const totalAttachBytes = (atts: AttachmentFile[]) => atts.reduce((sum, a) => sum + (a.size || 0), 0);
 
 export function ComposePanel({ win }: Props) {
   const closeCompose = useMailStore(s => s.closeCompose);
@@ -284,6 +287,7 @@ export function ComposePanel({ win }: Props) {
     if (encrypt) {
       const recipients = to.split(',').map(x => x.trim()).filter(Boolean);
       if (!recipients.length) { setError('Ingresa un destinatario'); return; }
+      if (totalAttachBytes(attachments) / (1024 * 1024) > MAX_ATTACH_MB) { setError(`El correo supera el tamaño máximo (${MAX_ATTACH_MB} MB). Reduce los adjuntos.`); return; }
       setSending(true); setError('');
       try {
         const att = await Promise.all(
@@ -299,12 +303,20 @@ export function ComposePanel({ win }: Props) {
         closeCompose(win.id);
       } catch (err: any) {
         setSending(false);
-        setError('No se pudo enviar cifrado: ' + (err?.message || ''));
+        const m = err?.message || '';
+        if (m.includes('413')) setError(`El correo supera el tamaño máximo (${MAX_ATTACH_MB} MB). Reduce los adjuntos.`);
+        else setError('No se pudo enviar cifrado: ' + m);
       }
       return;
     }
     const recipients = to.split(',').map(s => s.trim()).filter(Boolean);
     if (!recipients.length) { setError('Ingresa un destinatario'); return; }
+    // Límite de tamaño de adjuntos (fuente: VITE_MAX_ATTACHMENT_MB)
+    const totalAttachMB = totalAttachBytes(attachments) / (1024 * 1024);
+    if (totalAttachMB > MAX_ATTACH_MB) {
+      setError(`El correo supera el tamaño máximo (${MAX_ATTACH_MB} MB). Adjuntos: ${totalAttachMB.toFixed(1)} MB. Quita o reduce archivos.`);
+      return;
+    }
     // Advertencia si el asunto está vacío
     if (!subject.trim()) {
       if (!window.confirm("¿Enviar sin asunto?")) return;
@@ -374,7 +386,9 @@ export function ComposePanel({ win }: Props) {
       try { await api.post('/mail/send', sendPayload); showToast('Mensaje enviado'); window.dispatchEvent(new CustomEvent('refresh-messages'));
       } catch (err: unknown) {
         const errMsg = err instanceof Error ? err.message : 'Error al enviar';
-        if (errMsg.includes('Session expired') || errMsg.includes('SMTP expirada') || errMsg.includes('401')) {
+        if (errMsg.includes('413')) {
+          showToast(`El correo supera el tamaño máximo (${MAX_ATTACH_MB} MB). Reduce los adjuntos.`);
+        } else if (errMsg.includes('Session expired') || errMsg.includes('SMTP expirada') || errMsg.includes('401')) {
           showToast('Sesión expirada. Cierra sesión y vuelve a iniciar.');
         } else {
           showToast('Error al enviar: ' + errMsg);
