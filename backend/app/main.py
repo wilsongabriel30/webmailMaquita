@@ -20,6 +20,7 @@ from app.core.logging import setup_logging, RequestIdMiddleware
 from app.auth.router import router as auth_router
 from app.auth.password import router as password_router
 from app.admin.router import router as admin_router
+from app.onboarding.router import router as onboarding_router
 from app.mail.routers.folders import router as folders_router
 from app.mail.routers.messages import router as messages_router
 from app.mail.routers.compose import router as compose_router
@@ -474,6 +475,7 @@ async def validation_exception_handler(request, exc):
 app.include_router(auth_router)
 app.include_router(password_router)
 app.include_router(admin_router)
+app.include_router(onboarding_router)
 app.include_router(folders_router)
 app.include_router(messages_router)
 app.include_router(compose_router)

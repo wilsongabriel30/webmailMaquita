@@ -5,6 +5,7 @@ import { PasswordChange } from './PasswordChange';
 import { IdentityManager } from './IdentityManager';
 import { SignatureManager } from './SignatureManager';
 import { TwoFactorSetup } from './TwoFactorSetup';
+import { MailSetup } from './MailSetup';
 import { useMailStore } from '../../store/mailStore';
 import { getFolderDisplayName } from '../../folders';
 
@@ -35,7 +36,7 @@ interface FilterRule {
   action: { type: string; value: string | null };
 }
 
-type Tab = 'general' | 'signature' | 'identities' | 'autoreply' | 'filters' | 'password' | 'security';
+type Tab = 'general' | 'signature' | 'identities' | 'autoreply' | 'filters' | 'password' | 'security' | 'mailsetup';
 
 const FIELD_LABELS: Record<string, string> = { from: 'De', to: 'Para', subject: 'Asunto' };
 const OP_LABELS: Record<string, string> = { contains: 'contiene', is: 'es exactamente', matches: 'coincide con' };
@@ -79,7 +80,7 @@ export function SettingsView() {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const requestedTab = params.get('tab');
-    const validTabs: Tab[] = ['general', 'signature', 'identities', 'autoreply', 'filters', 'password', 'security'];
+    const validTabs: Tab[] = ['general', 'signature', 'identities', 'autoreply', 'filters', 'password', 'security', 'mailsetup'];
     if (requestedTab && validTabs.includes(requestedTab as Tab)) {
       setTab(requestedTab as Tab);
     }
@@ -195,6 +196,7 @@ export function SettingsView() {
     { id: 'filters', label: 'Reglas de correo' },
     { id: 'password', label: 'Contraseña' },
     { id: 'security', label: 'Seguridad' },
+    { id: 'mailsetup', label: 'Configurar mi correo' },
   ];
 
   const folderOptions = folders.map(f => f.name);
@@ -530,6 +532,9 @@ export function SettingsView() {
 
         {tab === 'password' && (
           <PasswordChange />
+        )}
+        {tab === 'mailsetup' && (
+          <MailSetup />
         )}
       </div>
     </div>
