@@ -19,96 +19,17 @@ _KW = "keyword"
 
 
 async def deep_scan_attachment(content: bytes, filename: str, content_type: str) -> dict:
-    """Run ClamAV + oletools + file-type analysis on an attachment."""
-    threats = []
-    details = {}
+    """Análisis de adjuntos (Safe Attachments).
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(filename)[1]) as tmp:
-        tmp.write(content)
-        tmp_path = tmp.name
-
-    try:
-        # 1. ClamAV
-        try:
-            result = subprocess.run(
-                ["clamdscan", "--no-summary", "--fdpass", tmp_path],
-                capture_output=True, text=True, timeout=60,
-            )
-            details["clamav"] = result.stdout.strip()
-            if "FOUND" in result.stdout:
-                parts = result.stdout.split(":")
-                threat_name = parts[1].strip() if len(parts) > 1 else "unknown"
-                threats.append({"engine": "clamav", "threat": threat_name})
-        except FileNotFoundError:
-            details["clamav"] = "clamdscan not available"
-        except subprocess.TimeoutExpired:
-            details["clamav"] = "timeout"
-
-        # 2. oletools for Office documents
-        office_exts = [".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".rtf"]
-        if any(filename.lower().endswith(ext) for ext in office_exts):
-            try:
-                result = subprocess.run(
-                    ["/opt/maquita-webmail/backend/venv/bin/olevba", "--json", tmp_path],
-                    capture_output=True, text=True, timeout=30,
-                )
-                if result.returncode == 0 and result.stdout.strip():
-                    try:
-                        ole_data = json.loads(result.stdout)
-                        details["oletools"] = ole_data
-                        if isinstance(ole_data, list):
-                            for item in ole_data:
-                                if isinstance(item, dict):
-                                    if item.get("type") == "AutoExec":
-                                        threats.append({
-                                            "engine": "oletools",
-                                            "threat": f"AutoExec macro: {item.get(_KW, '?')}",
-                                        })
-                                    if item.get("type") == "Suspicious":
-                                        threats.append({
-                                            "engine": "oletools",
-                                            "threat": f"Suspicious: {item.get(_KW, '?')}",
-                                        })
-                    except json.JSONDecodeError:
-                        details["oletools"] = result.stdout[:500]
-                else:
-                    details["oletools"] = "no macros detected"
-            except FileNotFoundError:
-                details["oletools"] = "olevba not available"
-            except subprocess.TimeoutExpired:
-                details["oletools"] = "timeout"
-
-        # 3. Real MIME type check
-        try:
-            result = subprocess.run(
-                ["file", "--mime-type", tmp_path],
-                capture_output=True, text=True, timeout=10,
-            )
-            real_type = result.stdout.split(":")[1].strip() if ":" in result.stdout else ""
-            details["real_mime_type"] = real_type
-
-            dangerous_types = [
-                "application/x-executable", "application/x-dosexec",
-                "application/x-msdos-program", "application/x-sharedlib",
-            ]
-            if real_type in dangerous_types:
-                threats.append({
-                    "engine": "file_analysis",
-                    "threat": f"File is actually {real_type} despite extension {os.path.splitext(filename)[1]}",
-                })
-        except Exception:
-            pass
-
-        # Overall result
-        if threats:
-            scan_result = "malicious" if any(t["engine"] == "clamav" for t in threats) else "suspicious"
-        else:
-            scan_result = "clean"
-
-    finally:
-        os.unlink(tmp_path)
-
-    return {"result": scan_result, "threats": threats, "details": details}
+    Delega en el paquete modular ``app.safeattach`` (clamav + filetype +
+    oletools + archive + yara + detonación opcional en contenedor aislado).
+    Se corre en un threadpool para no bloquear el event loop.
+    Devuelve {"result", "threats", "details"} — formato estable para compose.py.
+    """
+    import asyncio
+    from app.safeattach import scan_attachment as _scan
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, _scan, content, filename, content_type)
 
 
 @router.post("/scan")
