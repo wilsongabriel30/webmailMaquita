@@ -34,7 +34,8 @@ def verify(u_b64: str, sig: str) -> bool:
 
 def gateway_link(url: str) -> str:
     ub = encode_url(url)
-    return f"/api/safelink?u={ub}&s={sign(ub)}"
+    base = (get_settings().public_base_url or "https://mail.maquita.org").rstrip("/")
+    return f"{base}/api/safelink?u={ub}&s={sign(ub)}"
 
 
 _HREF = re.compile(r'(<a\b[^>]*?\shref=")(https?://[^"]*)(")', re.IGNORECASE)

@@ -104,8 +104,28 @@ export function ComposePanel({ win }: Props) {
   // Helper: full HTML = editor body + signature (for send/drafts)
   // Orden al enviar: texto del usuario + firma + contenido citado
   // Bug 2026-04-10: firma aparecia despues del quote, debe ir antes
+  // Fix #5 (2026-06-19): TipTap serializa <table>/<td> sin estilos inline;
+  // los bordes del editor vienen del CSS .tiptap, que NO existe en el correo
+  // recibido -> la tabla se ve como texto. Inyectamos estilos inline al enviar.
+  const styleTablesForEmail = (html: string): string => {
+    if (!html || html.indexOf('<table') === -1) return html;
+    try {
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const add = (el: Element, css: string) => {
+        const prev = el.getAttribute('style') || '';
+        el.setAttribute('style', (prev ? prev.replace(/;?\s*$/, ';') : '') + css);
+      };
+      doc.querySelectorAll('table').forEach((t) => add(t, 'border-collapse:collapse;border:1px solid #d0d0d0;'));
+      doc.querySelectorAll('td,th').forEach((c) => add(c, 'border:1px solid #d0d0d0;padding:6px 8px;'));
+      doc.querySelectorAll('th').forEach((h) => add(h, 'background:#f3f2f1;font-weight:600;text-align:left;'));
+      return doc.body.innerHTML;
+    } catch {
+      return html;
+    }
+  };
+
   const getFullHtml = useCallback(() => {
-    const body = editor?.getHTML() || '';
+    const body = styleTablesForEmail(editor?.getHTML() || '');
     let html = body;
     // No duplicar: si el cuerpo ya trae la firma (p.ej. un borrador antiguo
     // guardado con la firma incrustada), no la reagregamos.

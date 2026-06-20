@@ -247,12 +247,17 @@ function insertTable(editor: Editor, rows: number = 2, cols: number = 2) {
 }
 
 /* ===== Table grid selector component ===== */
-function TableGridSelector({ onSelect, onClose }: { onSelect: (rows: number, cols: number) => void; onClose: () => void }) {
+function TableGridSelector({ anchorRef, onSelect, onClose }: { anchorRef: { current: HTMLDivElement | null }; onSelect: (rows: number, cols: number) => void; onClose: () => void }) {
   const [hoverRow, setHoverRow] = React.useState(0);
   const [hoverCol, setHoverCol] = React.useState(0);
   const maxRows = 6, maxCols = 6;
-  return (
-    <div style={{ position: 'absolute', left: 0, top: '100%', marginTop: 4, background: 'white', border: '1px solid #edebe9', borderRadius: 4, padding: 8, zIndex: 200, boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
+  const _r = anchorRef.current?.getBoundingClientRect();
+  const _top = (_r?.bottom ?? 0) + 4;
+  const _left = _r?.left ?? 0;
+  return createPortal(
+    <>
+    <div className="fixed inset-0" style={{ zIndex: 9998 }} onClick={onClose} />
+    <div style={{ position: 'fixed', left: _left, top: _top, background: 'white', border: '1px solid #edebe9', borderRadius: 4, padding: 8, zIndex: 9999, boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
       onClick={e => e.stopPropagation()}>
       <div style={{ marginBottom: 6, fontSize: 11, color: '#605e5c', textAlign: 'center' }}>
         {hoverRow > 0 ? `${hoverRow} x ${hoverCol} tabla` : 'Selecciona tamano'}
@@ -276,6 +281,8 @@ function TableGridSelector({ onSelect, onClose }: { onSelect: (rows: number, col
         })}
       </div>
     </div>
+    </>,
+    document.body
   );
 }
 
@@ -351,7 +358,7 @@ function CollapsedRibbon({ editor, onAttach, onImportanceChange, importance }: {
   );
 }
 
-const FONTS = ['Calibri','Arial','Segoe UI','Times New Roman','Courier New','Georgia','Verdana','Tahoma'];
+const FONTS = ['Calibri','Arial','Helvetica','Segoe UI','Verdana','Tahoma','Trebuchet MS','Times New Roman','Georgia','Garamond','Palatino Linotype','Book Antiqua','Cambria','Century Gothic','Franklin Gothic Medium','Lucida Sans Unicode','Courier New','Consolas','Lucida Console','Comic Sans MS','Impact','Brush Script MT'];
 
 function doLink(editor: Editor) {
   if (editor.isActive('link')) { editor.chain().focus().unsetLink().run(); return; }
@@ -445,6 +452,8 @@ function MessageTab({ editor, onAttach, onImportanceChange, importance, onSaveDr
   const [showEmoji, setShowEmoji] = useState(false);
   const emojiAnchorRef = useRef<HTMLDivElement>(null);
   const [showStyles, setShowStyles] = useState(false);
+  const stylesAnchorRef = useRef<HTMLDivElement>(null);
+  const tblAnchorRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLInputElement>(null);
   const handleImage = mkImageHandler(editor, imgRef);
 
@@ -495,12 +504,12 @@ function MessageTab({ editor, onAttach, onImportanceChange, importance, onSaveDr
 
       {/* Estilos */}
       <RGroup label="Estilos">
-        <div className="relative">
+        <div className="relative" ref={stylesAnchorRef}>
           <LargeBtn icon={<SvgI d="M4 6h16M4 10h16M4 14h10M4 18h12" s={20} />} label="Estilos" onClick={() => setShowStyles(!showStyles)} hasDropdown />
-          {showStyles && (
+          {showStyles && createPortal(
             <>
-              <div className="fixed inset-0 z-[190]" onClick={() => setShowStyles(false)} />
-              <div className="absolute left-0 top-full mt-1 w-[180px] bg-white rounded shadow-lg border border-[#edebe9] z-50 py-1">
+              <div className="fixed inset-0 z-[9998]" onClick={() => setShowStyles(false)} />
+              <div className="fixed w-[180px] bg-white rounded shadow-lg border border-[#edebe9] z-[9999] py-1" style={{ top: (stylesAnchorRef.current?.getBoundingClientRect().bottom ?? 0) + 4, left: (stylesAnchorRef.current?.getBoundingClientRect().left ?? 0) }}>
                 <button onClick={() => { editor.chain().focus().setParagraph().run(); setShowStyles(false); }} className="w-full text-left px-3 py-[5px] text-[13px] hover:bg-[#f3f2f1]">Normal</button>
                 <button onClick={() => { editor.chain().focus().toggleHeading({level:1}).run(); setShowStyles(false); }} className="w-full text-left px-3 py-[5px] text-[20px] font-bold hover:bg-[#f3f2f1]">Título 1</button>
                 <button onClick={() => { editor.chain().focus().toggleHeading({level:2}).run(); setShowStyles(false); }} className="w-full text-left px-3 py-[5px] text-[16px] font-bold hover:bg-[#f3f2f1]">Título 2</button>
@@ -509,7 +518,8 @@ function MessageTab({ editor, onAttach, onImportanceChange, importance, onSaveDr
                 <button onClick={() => { editor.chain().focus().toggleBlockquote().run(); setShowStyles(false); }} className="w-full text-left px-3 py-[5px] text-[13px] italic text-[#605e5c] hover:bg-[#f3f2f1]">Cita</button>
                 <button onClick={() => { editor.chain().focus().toggleCodeBlock().run(); setShowStyles(false); }} className="w-full text-left px-3 py-[5px] text-[12px] font-mono hover:bg-[#f3f2f1]">Código</button>
               </div>
-            </>
+            </>,
+            document.body
           )}
         </div>
       </RGroup>
@@ -529,9 +539,9 @@ function MessageTab({ editor, onAttach, onImportanceChange, importance, onSaveDr
               <MedBtn icon={<span className="text-[14px]">&#128578;</span>} label="Emoji" onClick={() => setShowEmoji(!showEmoji)} />
               {showEmoji && <EmojiPicker editor={editor} onClose={() => setShowEmoji(false)} anchorRef={emojiAnchorRef} />}
             </div>
-            <div className="relative">
+            <div className="relative" ref={tblAnchorRef}>
                 <MedBtn icon={<SvgI d="M3 10h18M3 14h18M10 3v18M14 3v18" s={16} />} label="Tabla" onClick={() => setShowTblGrid(!showTblGrid)} hasDropdown />
-                {showTblGrid && <TableGridSelector onSelect={(r,c) => insertTable(editor, r, c)} onClose={() => setShowTblGrid(false)} />}
+                {showTblGrid && <TableGridSelector anchorRef={tblAnchorRef} onSelect={(r,c) => insertTable(editor, r, c)} onClose={() => setShowTblGrid(false)} />}
               </div>
           </div>
         </div>
@@ -603,6 +613,7 @@ function MessageTab({ editor, onAttach, onImportanceChange, importance, onSaveDr
 
 /* ========== INSERT TAB ========== */
 function InsertTab({ editor, onAttach, onInsertSignature, onOpenApps }: { editor: Editor; onAttach?: () => void; onInsertSignature?: (html?: string) => void; onOpenApps?: () => void }) {
+  const tblAnchorRef = useRef<HTMLDivElement>(null);
 
   const [showTblGrid, setShowTblGrid] = useState(false);
   const imgRef = useRef<HTMLInputElement>(null);
@@ -622,8 +633,10 @@ function InsertTab({ editor, onAttach, onInsertSignature, onOpenApps }: { editor
             <LargeBtn icon={<span className="text-[20px]">&#128578;</span>} label="Emoji" onClick={() => setShowEmoji(!showEmoji)} />
             {showEmoji && <EmojiPicker editor={editor} onClose={() => setShowEmoji(false)} anchorRef={emojiAnchorRef} />}
           </div>
+          <div className="relative" ref={tblAnchorRef}>
           <LargeBtn icon={<SvgI d="M3 10h18M3 14h18M10 3v18M14 3v18" s={22} />} label="Tabla" onClick={() => setShowTblGrid(!showTblGrid)} hasDropdown />
-                {showTblGrid && <TableGridSelector onSelect={(r,c) => insertTable(editor, r, c)} onClose={() => setShowTblGrid(false)} />}
+                {showTblGrid && <TableGridSelector anchorRef={tblAnchorRef} onSelect={(r,c) => insertTable(editor, r, c)} onClose={() => setShowTblGrid(false)} />}
+          </div>
         </div>
         <input ref={imgRef} type="file" accept="image/*" className="hidden" onChange={handleImage} />
       </RGroup>

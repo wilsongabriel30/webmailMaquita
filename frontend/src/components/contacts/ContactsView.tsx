@@ -344,7 +344,7 @@ export function ContactsView() {
   };
 
   return (
-    <div style={{
+    <div className="contacts-view" style={{
       display: 'flex', height: '100%', background: '#f3f2f1',
       fontFamily: "'Segoe UI', Calibri, sans-serif",
     }}>

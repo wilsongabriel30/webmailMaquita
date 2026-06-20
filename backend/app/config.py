@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     nc_admin_user: str = ""
     nc_admin_pass: str = ""
     nc_public_url: str = "https://nube.ejemplo.com"
+    public_base_url: str = "https://mail.maquita.org"
     onlyoffice_url: str = "http://nextcloud-server:8080"  # URL de OnlyOffice (configurar en .env)
     onlyoffice_secret: str = ""
     onlyoffice_download_secret: str = ""

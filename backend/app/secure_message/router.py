@@ -191,7 +191,7 @@ def _page(inner: str) -> str:
  button{{width:100%;background:#0078d4;color:#fff;border:0;border-radius:6px;padding:12px;font-size:15px;font-weight:600;cursor:pointer}}
  button:hover{{background:#106ebe}} button:disabled{{opacity:.6;cursor:default}}
  .error{{color:#d13438;font-size:14px;margin-top:10px;min-height:18px;text-align:center}}
- #body{{line-height:1.5}} hr{{border:none;border-top:1px solid #edebe9;margin:18px 0}}
+ #body{{line-height:1.5;overflow-wrap:break-word}} #body img{{max-width:100%;height:auto;border-radius:4px}} #body table{{max-width:100%;border-collapse:collapse}} hr{{border:none;border-top:1px solid #edebe9;margin:18px 0}}
  .file{{display:block;background:#f3f2f1;border:1px solid #e1dfdd;border-radius:6px;padding:10px 12px;margin:8px 0;text-decoration:none;color:#0078d4}}
  .foot{{text-align:center;color:#aaa;font-size:12px;margin-top:16px}}
 </style></head><body><div class="wrap">{inner}

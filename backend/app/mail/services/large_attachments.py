@@ -15,10 +15,11 @@ SIZE_THRESHOLD = 25 * 1024 * 1024  # 25 MB
 from app.config import get_settings as _gs
 
 def _nc_base():
-    return _gs().onlyoffice_url.rsplit(":", 1)[0] if ":" in _gs().onlyoffice_url else _gs().onlyoffice_url
+    return _gs().nc_base_url
 
 # Nextcloud server — uses settings.onlyoffice_url base
-NC_PUBLIC = os.getenv("NEXTCLOUD_PUBLIC_URL", "https://nube.example.com")
+def _nc_public():
+    return _gs().nc_public_url
 
 
 async def upload_and_share(
@@ -86,12 +87,12 @@ async def upload_and_share(
             if url_match:
                 share_url = url_match.group(1)
                 # Replace internal URL with public
-                share_url = share_url.replace(_nc_base(), NC_PUBLIC)
+                share_url = share_url.replace(_nc_base(), _nc_public())
                 return share_url
 
             token_match = re.search(r"<token>([^<]+)</token>", text)
             if token_match:
-                return f"{NC_PUBLIC}/s/{token_match.group(1)}"
+                return f"{_nc_public()}/s/{token_match.group(1)}"
 
             logger.error("Could not parse share URL from response")
             return None

@@ -249,7 +249,7 @@ export function TasksView() {
   const showInput = activeView !== 'flagged' && activeView !== 'assigned';
 
   return (
-    <div style={{ display: 'flex', height: '100%', width: '100%', overflow: 'hidden', fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
+    <div className="tasks-view" style={{ display: 'flex', height: '100%', width: '100%', overflow: 'hidden', fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
       {/* Sidebar */}
       {sidebarVisible && <TasksSidebar
         activeView={activeView}
