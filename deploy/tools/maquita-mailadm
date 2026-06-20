@@ -474,6 +474,132 @@ SQLDL
     doveadm acl get -u "$OWN" "$BUZ"
     ;;
 
+  # ===== DLP — PREVENCIÓN DE FUGA DE DATOS =====
+  "dlp status")
+    echo "DLP: $($PSQL "SELECT 'habilitado='||enabled||' | accion-default='||default_action FROM dlp_config WHERE id=1")"
+    echo "Palabras clave: $($PSQL "SELECT count(*) FROM dlp_keywords")  |  Violaciones: $($PSQL "SELECT count(*) FROM dlp_violations")"
+    ;;
+  "dlp enable"|"dlp disable")
+    B=$([ "$2" = enable ] && echo true || echo false)
+    $PSQL "UPDATE dlp_config SET enabled=$B, updated_at=NOW() WHERE id=1" >/dev/null
+    log_audit "dlp $2"; echo "OK: dlp enabled=$B"
+    ;;
+  "dlp keywords")
+    $PSQL "SELECT '  '||term FROM dlp_keywords ORDER BY term"
+    ;;
+  "dlp keyword")
+    SUB="${3:-}"; TERM="${4:-}"; TERM="${TERM//\'/\'\'}"
+    case "$SUB" in
+      add)    [ -n "$TERM" ] || die "uso: dlp keyword add <termino>"
+              $PSQL "INSERT INTO dlp_keywords(term) SELECT '$TERM' WHERE NOT EXISTS (SELECT 1 FROM dlp_keywords WHERE term='$TERM')" >/dev/null
+              log_audit "dlp keyword add $TERM"; echo "OK: agregado";;
+      remove) [ -n "$TERM" ] || die "uso: dlp keyword remove <termino>"
+              $PSQL "DELETE FROM dlp_keywords WHERE term='$TERM'" >/dev/null
+              log_audit "dlp keyword remove $TERM"; echo "OK: quitado";;
+      *) die "uso: dlp keyword add|remove <termino>";;
+    esac
+    ;;
+  "dlp violations")
+    N="${3:-10}"
+    $PSQL "SELECT created_at||'  '||username||'  ['||action||']  '||COALESCE(subject,'(sin asunto)') FROM dlp_violations ORDER BY created_at DESC LIMIT $N"
+    ;;
+
+  # ===== SAFE LINKS =====
+  "safelinks status")
+    $PSQL "SELECT 'enabled='||enabled||' | rewrite='||rewrite_enabled||' | warn='||warn_suspicious||' | block_listed='||block_listed||' | milter_inbound='||milter_inbound_enabled FROM safelinks_config WHERE id=1"
+    echo "Clics: $($PSQL "SELECT count(*) FROM safelinks_clicks")  |  Bloqueos: $($PSQL "SELECT count(*) FROM safelinks_blocklist")"
+    ;;
+  "safelinks enable"|"safelinks disable")
+    B=$([ "$2" = enable ] && echo true || echo false)
+    $PSQL "UPDATE safelinks_config SET enabled=$B, updated_at=NOW() WHERE id=1" >/dev/null
+    log_audit "safelinks $2"; echo "OK: safelinks enabled=$B"
+    ;;
+  "safelinks clicks")
+    N="${3:-15}"
+    $PSQL "SELECT created_at||'  '||username||'  ['||COALESCE(verdict,'?')||']  '||host FROM safelinks_clicks ORDER BY created_at DESC LIMIT $N"
+    ;;
+  "safelinks block")
+    SUB="${3:-}"; PAT="${4:-}"; PAT="${PAT//\'/\'\'}"
+    case "$SUB" in
+      list)   $PSQL "SELECT '  '||pattern||'  ('||COALESCE(kind,'?')||')  '||COALESCE(note,'') FROM safelinks_blocklist ORDER BY pattern";;
+      add)    [ -n "$PAT" ] || die "uso: safelinks block add <patron> [nota]"
+              NOTE="${*:5}"; NOTE="${NOTE//\'/\'\'}"
+              $PSQL "INSERT INTO safelinks_blocklist(pattern,kind,note) SELECT '$PAT','manual','$NOTE' WHERE NOT EXISTS (SELECT 1 FROM safelinks_blocklist WHERE pattern='$PAT')" >/dev/null
+              log_audit "safelinks block add $PAT"; echo "OK: bloqueado";;
+      remove) [ -n "$PAT" ] || die "uso: safelinks block remove <patron>"
+              $PSQL "DELETE FROM safelinks_blocklist WHERE pattern='$PAT'" >/dev/null
+              log_audit "safelinks block remove $PAT"; echo "OK: desbloqueado";;
+      *) die "uso: safelinks block list|add|remove";;
+    esac
+    ;;
+
+  # ===== RETENCIÓN =====
+  "retention list")
+    $PSQL "SELECT '  ['||id||'] '||name||' | '||target||' | '||max_age_days||'d | '||action||' | activa='||is_active||COALESCE(' | ult.run='||last_run::text,'') FROM retention_policies ORDER BY id"
+    ;;
+  "retention enable"|"retention disable")
+    ID="${3:-}"; [ -n "$ID" ] || die "uso: retention $2 <id>"
+    B=$([ "$2" = enable ] && echo true || echo false)
+    $PSQL "UPDATE retention_policies SET is_active=$B WHERE id=$ID" >/dev/null
+    log_audit "retention $2 $ID"; echo "OK: politica $ID is_active=$B"
+    ;;
+
+  # ===== LEGAL HOLDS (retención legal) =====
+  "hold list")
+    $PSQL "SELECT '  ['||id||'] '||mailbox||' | caso='||case_id||' | '||COALESCE(scope,'all')||' | activa='||is_active||' | '||COALESCE(reason,'') FROM legal_holds ORDER BY id DESC"
+    ;;
+  "hold show")
+    ID="${3:-}"; [ -n "$ID" ] || die "uso: hold show <id>"
+    $PSQL "SELECT 'mailbox='||mailbox||E'\ncaso='||case_id||E'\nscope='||COALESCE(scope,'')||E'\nmotivo='||COALESCE(reason,'')||E'\nactiva='||is_active||E'\ncreada='||enabled_at||' por '||COALESCE(enabled_by,'') FROM legal_holds WHERE id=$ID"
+    ;;
+  "hold create")
+    MB="${3:-}"; CASE="${4:-}"; REASON="${*:5}"; REASON="${REASON//\'/\'\'}"
+    [ -n "$MB" ] && [ -n "$CASE" ] || die "uso: hold create <mailbox> <case_id> [motivo]  (ver 'case list')"
+    mailbox_exists "$MB" || die "no existe el buzón $MB"
+    [ "$($PSQL "SELECT 1 FROM compliance_cases WHERE id=$CASE")" = "1" ] || die "no existe el caso $CASE"
+    $PSQL "INSERT INTO legal_holds(case_id,mailbox,scope,reason,enabled_by,enabled_at,is_active) VALUES($CASE,'$MB','all','$REASON','$ACTOR',NOW(),true)" >/dev/null
+    log_audit "hold create $MB caso=$CASE"; echo "OK: legal hold en $MB (caso $CASE)"
+    ;;
+  "hold release")
+    ID="${3:-}"; [ -n "$ID" ] || die "uso: hold release <id>"
+    confirm "Liberar el legal hold $ID (el buzón deja de estar retenido)"
+    $PSQL "UPDATE legal_holds SET is_active=false, released_by='$ACTOR', released_at=NOW() WHERE id=$ID" >/dev/null
+    log_audit "hold release $ID"; echo "OK: hold $ID liberado"
+    ;;
+
+  # ===== CASOS DE CUMPLIMIENTO =====
+  "case list")
+    $PSQL "SELECT '  ['||id||'] '||title||' | '||COALESCE(case_type,'')||' | '||status||' | '||COALESCE(priority,'') FROM compliance_cases ORDER BY id DESC"
+    ;;
+  "case show")
+    ID="${3:-}"; [ -n "$ID" ] || die "uso: case show <id>"
+    $PSQL "SELECT 'titulo='||title||E'\ntipo='||COALESCE(case_type,'')||E'\nestado='||status||E'\nprioridad='||COALESCE(priority,'')||E'\ncreado='||created_at||' por '||COALESCE(created_by,'')||E'\ndescripcion='||COALESCE(description,'') FROM compliance_cases WHERE id=$ID"
+    ;;
+
+  # ===== eDISCOVERY (búsquedas registradas) =====
+  "ediscovery list")
+    $PSQL "SELECT '  ['||id||'] caso='||case_id||' | '||status||' | '||result_count||' result | '||COALESCE(executed_by,'')||' | '||executed_at FROM ediscovery_searches ORDER BY id DESC LIMIT 20"
+    ;;
+  "ediscovery show")
+    ID="${3:-}"; [ -n "$ID" ] || die "uso: ediscovery show <id>"
+    $PSQL "SELECT 'query='||COALESCE(query_text,'')||E'\ncaso='||case_id||E'\nestado='||status||E'\nresultados='||result_count||E'\nejecutado='||executed_at||' por '||COALESCE(executed_by,'')||E'\nduracion_ms='||COALESCE(duration_ms,0) FROM ediscovery_searches WHERE id=$ID"
+    ;;
+
+  # ===== AUDITORÍA DEL PANEL =====
+  "audit tail")
+    N="${3:-20}"
+    $PSQL "SELECT created_at||'  '||COALESCE(admin_user,'?')||'  '||action||'  '||COALESCE(target,'') FROM audit_log ORDER BY created_at DESC LIMIT $N"
+    ;;
+  "audit user")
+    U="${3:-}"; [ -n "$U" ] || die "uso: audit user <usuario>"
+    $PSQL "SELECT created_at||'  '||action||'  '||COALESCE(target,'') FROM audit_log WHERE admin_user='$U' ORDER BY created_at DESC LIMIT 30"
+    ;;
+
+  # ===== AMENAZAS =====
+  "threat status")
+    $PSQL "SELECT 'auto_disable_on_compromise='||auto_disable_on_compromise||' | auto_block_dmarc_reject='||auto_block_dmarc_reject FROM threat_config WHERE id=1"
+    ;;
+
   *)
     cat <<'HELP'
 maquita-mailadm — administración del correo Maquita (estilo zmprov/zmcontrol)
@@ -563,6 +689,42 @@ ESTADÍSTICAS:
 BÚSQUEDA EN LOGS (grep mail.log):
   log search <patrón>                  buscar en mail.log (+ rotado .1)
   log mailbox <email>                  rastrear entregas de un buzón
+
+DLP — PREVENCIÓN DE FUGA DE DATOS (equiv. Purview DLP):
+  dlp status                           estado + nº palabras clave y violaciones
+  dlp enable|disable                   activar/desactivar
+  dlp keywords                         listar palabras clave vigiladas
+  dlp keyword add|remove <termino>     agregar/quitar palabra clave
+  dlp violations [N]                   últimas violaciones
+
+SAFE LINKS (equiv. Defender Safe Links):
+  safelinks status                     estado de la pasarela
+  safelinks enable|disable             activar/desactivar
+  safelinks clicks [N]                 últimos clics analizados
+  safelinks block list|add|remove <patron> [nota]   lista de bloqueo
+
+RETENCIÓN (equiv. Purview retention):
+  retention list                       políticas de retención
+  retention enable|disable <id>        activar/desactivar una política
+
+RETENCIÓN LEGAL / LEGAL HOLDS (equiv. eDiscovery hold):
+  hold list                            holds activos
+  hold show <id>                       detalle
+  hold create <mailbox> <case_id> [motivo]   poner un buzón en retención legal
+  hold release <id>                    liberar (pide confirmación)
+
+CASOS DE CUMPLIMIENTO:
+  case list / case show <id>           casos de compliance
+
+eDISCOVERY:
+  ediscovery list / ediscovery show <id>   búsquedas registradas
+
+AUDITORÍA DEL PANEL (equiv. Purview audit):
+  audit tail [N]                       últimas acciones de admin
+  audit user <usuario>                 acciones de un admin
+
+AMENAZAS:
+  threat status                        respuesta automática a amenazas
 
 Ejemplos:
   maquita-mailadm mailbox create juan@example.org 10

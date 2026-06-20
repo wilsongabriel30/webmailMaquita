@@ -148,6 +148,33 @@ maquita-mailadm stats                            # resumen: buzones, dominios, c
 maquita-mailadm log mailbox juan@example.org     # rastrear sus correos en mail.log
 ```
 
+## Administración enterprise / cumplimiento
+
+Equivalentes a Microsoft Purview / Defender, desde consola:
+
+| Comando | Equivalente | Qué hace |
+|---|---|---|
+| `dlp status\|enable\|disable` | Purview DLP | Prevención de fuga de datos |
+| `dlp keywords` / `dlp keyword add\|remove <t>` | — | Palabras clave vigiladas |
+| `dlp violations [N]` | — | Violaciones DLP registradas |
+| `safelinks status\|enable\|disable` | Defender Safe Links | Pasarela de enlaces |
+| `safelinks block list\|add\|remove <patron>` | — | Lista de bloqueo de URLs |
+| `safelinks clicks [N]` | — | Clics analizados |
+| `retention list` / `retention enable\|disable <id>` | Purview retention | Políticas de retención |
+| `hold list\|show\|create\|release` | eDiscovery hold | Retención legal (legal holds) |
+| `case list\|show <id>` | — | Casos de cumplimiento |
+| `ediscovery list\|show <id>` | eDiscovery | Búsquedas registradas |
+| `audit tail [N]` / `audit user <u>` | Purview audit | Auditoría del panel |
+| `threat status` | — | Respuesta automática a amenazas |
+
+**Ejemplo — retención legal de un buzón + palabra clave DLP:**
+```bash
+maquita-mailadm case list                                  # ver casos de compliance
+maquita-mailadm hold create gerencia@example.org 1 "litigio 2026"
+maquita-mailadm dlp keyword add "numero de tarjeta"
+maquita-mailadm dlp violations 20                          # revisar fugas detectadas
+```
+
 ---
 
 ## Seguridad y buenas prácticas
