@@ -36,6 +36,6 @@ debe re-sincronizarse a LDAP (re-correr el sync o añadir el hook).
 ## Estado
 - [x] LDAP desde maildb (488 usuarios) — gap LDAP cerrado
 - [x] Federación LDAP en Keycloak (realm maquita)
-- [ ] Webmail como cliente OIDC (flujo add-on, login local = break-glass)
+- [x] Webmail como cliente OIDC (flujo add-on, login local = break-glass) — client `webmail-maquita`, `app/auth/oidc.py`
 - [ ] Nextcloud / Jitsi / Matrix como clientes OIDC
 - [ ] XOAUTH2 en Dovecot/Postfix (clientes de escritorio con token)
