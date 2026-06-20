@@ -25,6 +25,7 @@ export function LoginPage() {
   const [newPass, setNewPass] = useState('');
   const [confirmPass, setConfirmPass] = useState('');
   const [brand, setBrand] = useState<Branding>({});
+  const [ssoEnabled, setSsoEnabled] = useState(false);
   const navigate = useNavigate();
   const setUser = useAuthStore((s) => s.setUser);
 
@@ -38,6 +39,21 @@ export function LoginPage() {
       .then(r => r.ok ? r.json() : {})
       .then((b: Branding) => setBrand(b))
       .catch(() => {});
+    fetch('/api/auth/oidc/enabled')
+      .then(r => r.ok ? r.json() : { enabled: false })
+      .then((d: { enabled?: boolean }) => setSsoEnabled(!!d.enabled))
+      .catch(() => {});
+    const ssoErr = new URLSearchParams(window.location.search).get('sso_error');
+    if (ssoErr) {
+      const msg: Record<string, string> = {
+        nomailbox: 'Tu cuenta no tiene un buzón activo en el correo.',
+        nouser: 'No se pudo identificar tu cuenta en el SSO.',
+        state: 'Sesión de SSO expirada. Intenta de nuevo.',
+        token: 'No se pudo validar el inicio de sesión con el SSO.',
+        imap: 'No se pudo abrir tu buzón. Contacta a soporte.',
+      };
+      setError(msg[ssoErr] || 'No se pudo iniciar sesión con SSO.');
+    }
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -292,6 +308,26 @@ export function LoginPage() {
                 </button>
               )}
             </form>
+            )}
+
+            {ssoEnabled && !needs2FA && !forceChange && (
+              <>
+                <div className="flex items-center gap-3 my-4">
+                  <div className="flex-1 h-px" style={{ backgroundColor: '#edebe9' }} />
+                  <span className="text-xs" style={{ color: '#a19f9d' }}>o</span>
+                  <div className="flex-1 h-px" style={{ backgroundColor: '#edebe9' }} />
+                </div>
+                <a href="/api/auth/oidc/login"
+                  className="w-full py-2.5 rounded text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+                  style={{ border: '1px solid #d2d0ce', color: '#323130' }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = '#f3f2f1'; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                  </svg>
+                  Iniciar sesión con SSO ({orgName})
+                </a>
+              </>
             )}
           </div>
           <p className="text-center text-xs mt-4" style={{ color: '#605e5c' }}>

@@ -40,6 +40,12 @@ class Settings(BaseSettings):
     nc_admin_pass: str = ""
     nc_public_url: str = "https://nube.ejemplo.com"
     public_base_url: str = "https://mail.maquita.org"
+    # SSO / OIDC (Keycloak)
+    kc_oidc_enabled: bool = False
+    kc_base: str = "https://auth.maquita.org"
+    kc_realm: str = "maquita"
+    kc_client_id: str = "webmail-maquita"
+    kc_client_secret: str = ""
     onlyoffice_url: str = "http://nextcloud-server:8080"  # URL de OnlyOffice (configurar en .env)
     onlyoffice_secret: str = ""
     onlyoffice_download_secret: str = ""
