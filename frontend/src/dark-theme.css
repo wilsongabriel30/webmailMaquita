@@ -458,3 +458,11 @@ html.dark .contacts-view [style*="color: rgb(96, 94, 92)"], html.dark .tasks-vie
 html.dark .contacts-view [style*="color: rgb(161, 159, 157)"], html.dark .tasks-view [style*="color: rgb(161, 159, 157)"]
 { color: #a0a0a0 !important; }
 /* FIN Contactos+Tareas scoped */
+
+/* ── Calendario: clases Tailwind claras faltantes (2026-06-19) ── */
+html.dark .border-\[\#e0e0e0\] { border-color: #3a3a3a !important; }
+html.dark .bg-\[\#fafafa\],
+html.dark .bg-\[\#f5f5f5\]     { background-color: #252525 !important; }
+html.dark .bg-\[\#e8f4fd\]     { background-color: #1a3a5c !important; }
+html.dark .text-\[\#616161\]   { color: #a0a0a0 !important; }
+html.dark .text-\[\#484644\]   { color: #b0b0b0 !important; }

@@ -21,6 +21,9 @@ export function LoginPage() {
   const [savedUsername, setSavedUsername] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [forceChange, setForceChange] = useState(false);
+  const [newPass, setNewPass] = useState('');
+  const [confirmPass, setConfirmPass] = useState('');
   const [brand, setBrand] = useState<Branding>({});
   const navigate = useNavigate();
   const setUser = useAuthStore((s) => s.setUser);
@@ -48,7 +51,7 @@ export function LoginPage() {
         payload.totp_code = totpCode;
       }
 
-      const res = await api.post<{ success?: boolean; error?: string; username?: string; is_admin?: boolean; requires_2fa?: boolean }>('/auth/login', payload);
+      const res = await api.post<{ success?: boolean; error?: string; username?: string; is_admin?: boolean; requires_2fa?: boolean; must_change_password?: boolean }>('/auth/login', payload);
 
       if (res.success === false) {
         setError(res.error || 'Credenciales incorrectas');
@@ -59,6 +62,12 @@ export function LoginPage() {
       if (res.requires_2fa) {
         setNeeds2FA(true);
         setSavedUsername(res.username || username);
+        setLoading(false);
+        return;
+      }
+
+      if (res.must_change_password) {
+        setForceChange(true);
         setLoading(false);
         return;
       }
@@ -76,6 +85,26 @@ export function LoginPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleForceChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    if (newPass !== confirmPass) { setError('Las contrasenas no coinciden'); return; }
+    if (newPass.length < 8 || !/[A-Z]/.test(newPass) || !/[a-z]/.test(newPass) || !/[0-9]/.test(newPass)) {
+      setError('Minimo 8 caracteres, con mayuscula, minuscula y numero'); return;
+    }
+    setLoading(true);
+    try {
+      const r = await api.post<{ success?: boolean; error?: string }>('/auth/change-password', { current_password: password, new_password: newPass });
+      if (r && r.success === false) { setError(r.error || 'No se pudo cambiar la contrasena'); setLoading(false); return; }
+      const meRes = await fetch('/api/auth/me', { credentials: 'include' });
+      const meData = await meRes.json();
+      if (meData.user) { setUser(meData.user); navigate('/'); }
+      else { setError('Sesion no establecida. Intenta de nuevo.'); }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error al cambiar la contrasena');
+    } finally { setLoading(false); }
   };
 
   return (
@@ -113,7 +142,7 @@ export function LoginPage() {
                 </div>
               )}
               <h1 className="text-xl font-semibold" style={{ color: '#323130' }}>
-                {needs2FA ? 'Verificación en dos pasos' : 'Iniciar sesión'}
+                {forceChange ? 'Cambia tu contraseña' : needs2FA ? 'Verificación en dos pasos' : 'Iniciar sesión'}
               </h1>
               <p className="text-sm mt-1" style={{ color: '#605e5c' }}>
                 {needs2FA
@@ -131,6 +160,30 @@ export function LoginPage() {
               </div>
             )}
 
+            {forceChange ? (
+            <form onSubmit={handleForceChange}>
+              <div className="mb-3 p-3 rounded text-sm" style={{ backgroundColor: '#fff4ce', borderColor: '#f0d98a', borderWidth: '1px', color: '#7a6400' }}>
+                Por seguridad, debes cambiar la contraseña por defecto antes de continuar.
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-1.5" style={{ color: '#323130' }}>Nueva contraseña</label>
+                <input type="password" value={newPass} onChange={(e) => setNewPass(e.target.value)}
+                  className="w-full px-3 py-2 rounded text-sm outline-none" style={{ borderColor: '#d2d0ce', borderWidth: '1px', color: '#323130' }}
+                  required autoFocus autoComplete="new-password" />
+              </div>
+              <div className="mb-6">
+                <label className="block text-sm font-medium mb-1.5" style={{ color: '#323130' }}>Confirmar contraseña</label>
+                <input type="password" value={confirmPass} onChange={(e) => setConfirmPass(e.target.value)}
+                  className="w-full px-3 py-2 rounded text-sm outline-none" style={{ borderColor: '#d2d0ce', borderWidth: '1px', color: '#323130' }}
+                  required autoComplete="new-password" />
+              </div>
+              <button type="submit" disabled={loading}
+                className="w-full py-2.5 text-white font-medium rounded text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ backgroundColor: color }}>
+                {loading ? 'Guardando...' : 'Cambiar y continuar'}
+              </button>
+            </form>
+            ) : (
             <form onSubmit={handleSubmit}>
               {!needs2FA ? (
                 <>
@@ -239,6 +292,7 @@ export function LoginPage() {
                 </button>
               )}
             </form>
+            )}
           </div>
           <p className="text-center text-xs mt-4" style={{ color: '#605e5c' }}>
             {footerText || (

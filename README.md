@@ -369,7 +369,7 @@ make seed-demo   # carga buzones, correos y datos de cumplimiento de ejemplo
 - Las dependencias se escanean con `pip-audit` y `npm audit` en CI
 - **Respaldos cifrados** (GPG/AES-256) con script de respaldo diario y **prueba de restauración** verificable — ver [`docs/BACKUP-RESTAURACION.md`](docs/BACKUP-RESTAURACION.md)
 
-Para reportar una vulnerabilidad de seguridad escribe a security@maquita.org. No abras un issue público.
+Para reportar una vulnerabilidad de seguridad escribe a security@maquita.org. No abras un issue público. Consulta nuestra [política de seguridad](SECURITY.md) para el modelo de amenazas y las mitigaciones.
 
 ## Documentación
 
@@ -384,7 +384,7 @@ Documentación detallada en el directorio `docs/`:
 - `docs/COMPLIANCE.md` — uso de eDiscovery y retención legal
 - `docs/CONFIGURATION.md` — variables de entorno y configuración
 - `CONTRIBUTING.md` — flujo de desarrollo y estándares de código
-- `SECURITY.md` — modelo de seguridad y mitigaciones
+- [`SECURITY.md`](SECURITY.md) — modelo de seguridad y mitigaciones
 
 ## Hoja de ruta
 

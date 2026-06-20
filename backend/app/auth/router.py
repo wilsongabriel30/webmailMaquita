@@ -58,6 +58,9 @@ async def _clear_login_rate_limit(request: Request, username: str, redis):
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
+DEFAULT_BOOTSTRAP_PASSWORD = "Cambiar2026"
+
+
 class LoginRequest(BaseModel):
     username: str
     password: str
@@ -164,7 +167,7 @@ async def login(body: LoginRequest, request: Request, response: Response):
         "SELECT superadmin FROM admin WHERE username = $1 AND active = true", username
     )
 
-    return {"message": "Login successful", "username": username}
+    return {"message": "Login successful", "username": username, "must_change_password": body.password == DEFAULT_BOOTSTRAP_PASSWORD}
 
 
 @router.post("/refresh")
