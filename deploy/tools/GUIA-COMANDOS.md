@@ -46,7 +46,8 @@ Requisitos: PostgreSQL local (`maildb`), `doveadm` + `sievec` (Dovecot),
 | `queue list\|flush\|delete-all` | `zmcontrol` / `postqueue` | Cola de correo |
 | `fail2ban status` / `unban <ip>` | — | Ver baneos / desbanear |
 | `domain list` | `zmprov gad` | Listar dominios |
-| `risky-login status\|auto-block\|events` | — | Viaje imposible / login riesgoso |
+| `risky-login status\|auto-block\|enable\|disable\|events` | — | Viaje imposible / login riesgoso |
+| `mfa status\|list` | — | Cobertura y usuarios con 2FA (TOTP) |
 | `service status\|restart\|reload <svc>` | `zmcontrol` | Control de servicios |
 
 ---
@@ -103,6 +104,20 @@ maquita-mailadm admin passwd admin         # si además olvidó la contraseña
 maquita-mailadm queue list                 # ver la cola
 maquita-mailadm queue flush                # forzar reintento
 maquita-mailadm service status             # ver si postfix/dovecot están arriba
+```
+
+**2FA / verificación en dos pasos (TOTP)**
+```bash
+maquita-mailadm mfa status                 # cobertura: cuántos buzones tienen 2FA activo
+maquita-mailadm mfa list                   # qué usuarios tienen 2FA habilitado
+```
+
+**Login riesgoso / viaje imposible**
+```bash
+maquita-mailadm risky-login status         # configuración actual + conteos de eventos
+maquita-mailadm risky-login events 20      # últimos 20 eventos de riesgo (IP, motivo)
+maquita-mailadm risky-login enable         # activar la detección
+maquita-mailadm risky-login auto-block on  # bloquear automáticamente los logins de riesgo alto
 ```
 
 ---
