@@ -1,0 +1,3 @@
+# AIR — investigación automática nocturna (detect-only, registra en threat_actions)
+# Instalar: cp deploy/air/maquita-air.cron /etc/cron.d/maquita-air
+0 7 * * * root cd /opt/maquita-webmail/backend && set -a && . .env && set +a && venv/bin/python -m app.air.run 24 >> /var/log/air.log 2>&1

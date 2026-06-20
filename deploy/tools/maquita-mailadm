@@ -600,6 +600,12 @@ SQLDL
     $PSQL "SELECT 'auto_disable_on_compromise='||auto_disable_on_compromise||' | auto_block_dmarc_reject='||auto_block_dmarc_reject FROM threat_config WHERE id=1"
     ;;
 
+  # ===== AIR — investigacion y respuesta automatica =====
+  "air incidents")
+    H="${3:-24}"
+    cd /opt/maquita-webmail/backend && set -a && . .env && set +a && venv/bin/python -m app.air.run "$H"
+    ;;
+
   *)
     cat <<'HELP'
 maquita-mailadm — administración del correo Maquita (estilo zmprov/zmcontrol)
