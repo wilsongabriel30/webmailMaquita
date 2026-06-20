@@ -18,7 +18,7 @@ Desarrollado y mantenido por [Fundación Maquita](https://maquita.org), organiza
 
 Maquita Webmail son dos cosas en un mismo repositorio:
 
-1. **Un cliente webmail** — una interfaz moderna estilo Outlook para leer, redactar y gestionar correo sobre una plataforma de correo Postfix + Dovecot existente.
+1. **Un cliente webmail** — una interfaz web moderna para leer, redactar y gestionar correo sobre una plataforma de correo Postfix + Dovecot existente.
 
 2. **Una capa de cumplimiento y eDiscovery** — búsqueda forense, retenciones legales (legal holds), pistas de auditoría, detección de fraude y exportaciones firmadas criptográficamente, pensada para organizaciones que deben cumplir requisitos regulatorios o de gobierno interno sobre el correo.
 
@@ -131,7 +131,7 @@ Maquita Webmail resuelve las cuatro.
 ## Características principales
 
 ### Webmail
-- Interfaz estilo Outlook con carpetas, conversaciones y etiquetas
+- Interfaz moderna con carpetas, conversaciones y etiquetas
 - Editor de texto enriquecido (TipTap) con imágenes en línea y adjuntos
 - Búsqueda de texto completo con Dovecot Xapian
 - Gestión de reglas Sieve del lado del servidor

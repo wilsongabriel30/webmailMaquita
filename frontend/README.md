@@ -1,6 +1,6 @@
 # Maquita Webmail — Frontend
 
-Interfaz web tipo Outlook construida con React 19, TypeScript y Vite 6.
+Interfaz web moderna de correo construida con React 19, TypeScript y Vite 6.
 
 ## Stack
 
