@@ -49,6 +49,12 @@ Requisitos: PostgreSQL local (`maildb`), `doveadm` + `sievec` (Dovecot),
 | `risky-login status\|auto-block\|enable\|disable\|events` | — | Viaje imposible / login riesgoso |
 | `mfa status\|list` | — | Cobertura y usuarios con 2FA (TOTP) |
 | `service status\|restart\|reload <svc>` | `zmcontrol` | Control de servicios |
+| `dl create\|addmember\|removemember\|show\|list\|delete` | `zmprov cdl/adlm` | Listas de distribución |
+| `shared grant\|revoke\|list` | compartir buzón | Buzones compartidos (ACL Dovecot) |
+| `backup db\|mailbox\|list` | `zmbackup` | Respaldos (pg_dump / tar) |
+| `restore mailbox\|db` | `zmrestore` | Restaurar (la BD se restaura en base NUEVA) |
+| `stats` | — | Resumen del sistema |
+| `log search\|mailbox` | — | Buscar/rastrear en mail.log |
 
 ---
 
@@ -118,6 +124,28 @@ maquita-mailadm risky-login status         # configuración actual + conteos de 
 maquita-mailadm risky-login events 20      # últimos 20 eventos de riesgo (IP, motivo)
 maquita-mailadm risky-login enable         # activar la detección
 maquita-mailadm risky-login auto-block on  # bloquear automáticamente los logins de riesgo alto
+```
+
+**Crear una lista de distribución (un correo → llega a varios)**
+```bash
+maquita-mailadm dl create ventas@example.org juan@example.org ana@example.org
+maquita-mailadm dl addmember ventas@example.org pedro@example.org
+maquita-mailadm dl show     ventas@example.org
+```
+
+**Compartir un buzón con otra persona (ACL Dovecot)**
+```bash
+maquita-mailadm shared grant  gerencia@example.org asistente@example.org INBOX escritura
+maquita-mailadm shared list   gerencia@example.org
+maquita-mailadm shared revoke gerencia@example.org asistente@example.org
+```
+
+**Respaldar, ver estado y rastrear correo**
+```bash
+maquita-mailadm backup db                        # respaldo de toda la BD (maildb)
+maquita-mailadm backup mailbox juan@example.org  # respaldo de un buzón (.tar.gz)
+maquita-mailadm stats                            # resumen: buzones, dominios, cola, disco
+maquita-mailadm log mailbox juan@example.org     # rastrear sus correos en mail.log
 ```
 
 ---

@@ -318,6 +318,162 @@ PYEOF
     $PSQL "SELECT username, enabled FROM user_totp ORDER BY username"
     ;;
 
+  # ===== ESTADÍSTICAS =====
+  "stats "*)
+    echo "== BUZONES =="
+    echo "  activos:    $($PSQL "SELECT count(*) FROM mailbox WHERE active")"
+    echo "  inactivos:  $($PSQL "SELECT count(*) FROM mailbox WHERE NOT active")"
+    echo "  con 2FA:    $($PSQL "SELECT count(*) FROM user_totp WHERE enabled")"
+    echo "== BUZONES POR DOMINIO =="
+    $PSQL "SELECT '  '||domain||': '||count(*) FROM mailbox GROUP BY domain ORDER BY count(*) DESC"
+    echo "== ALIAS / REENVÍOS / LISTAS =="
+    echo "  alias+reenvíos: $($PSQL "SELECT count(*) FROM alias WHERE address<>goto")"
+    echo "  listas (multi): $($PSQL "SELECT count(*) FROM alias WHERE goto LIKE '%,%'")"
+    echo "== COLA DE CORREO =="
+    echo "  en cola: $(postqueue -p 2>/dev/null | grep -cE '^[0-9A-F]{8,}')"
+    echo "== DISCO (/var/vmail) =="
+    df -h /var/vmail 2>/dev/null | tail -1 | awk '{print "  usado "$3" de "$2" ("$5")"}'
+    log_audit "stats"
+    ;;
+
+  # ===== LISTAS DE DISTRIBUCIÓN (tabla alias, goto con comas) =====
+  "dl create")
+    LST="${3:-}"; MEMBERS=""; [ $# -ge 4 ] && MEMBERS="${*:4}"
+    [ -n "$LST" ] && [ -n "$MEMBERS" ] || die "uso: dl create <lista@dom> <miembro1> [miembro2 ...]"
+    mailbox_exists "$LST" && die "$LST es un buzón real; elige otro nombre para la lista"
+    GOTO=$(echo "$MEMBERS" | tr ' ' ',' | sed 's/,,*/,/g; s/^,//; s/,$//')
+    DOM="${LST#*@}"
+    domain_exists "$DOM" || die "el dominio $DOM no existe"
+    $SQL >/dev/null <<SQLDL
+INSERT INTO alias(address,goto,domain,active) VALUES('$LST','$GOTO','$DOM',true)
+  ON CONFLICT (address) DO UPDATE SET goto='$GOTO', modified=NOW(), active=true;
+SQLDL
+    log_audit "dl create $LST -> $GOTO"
+    echo "OK: lista $LST con $(echo "$GOTO" | tr ',' '\n' | grep -c .) miembros"
+    ;;
+  "dl addmember")
+    LST="${3:-}"; M="${4:-}"; [ -n "$LST" ] && [ -n "$M" ] || die "uso: dl addmember <lista> <email>"
+    CUR=$($PSQL "SELECT goto FROM alias WHERE address='$LST'"); [ -n "$CUR" ] || die "la lista $LST no existe"
+    echo ",$CUR," | grep -q ",$M," && die "$M ya es miembro de $LST"
+    $PSQL "UPDATE alias SET goto='$CUR,$M', modified=NOW() WHERE address='$LST'" >/dev/null
+    log_audit "dl addmember $LST + $M"; echo "OK: $M agregado a $LST"
+    ;;
+  "dl removemember")
+    LST="${3:-}"; M="${4:-}"; [ -n "$LST" ] && [ -n "$M" ] || die "uso: dl removemember <lista> <email>"
+    CUR=$($PSQL "SELECT goto FROM alias WHERE address='$LST'"); [ -n "$CUR" ] || die "la lista $LST no existe"
+    NEW=$(echo "$CUR" | tr ',' '\n' | grep -vxF "$M" | paste -sd,)
+    [ "$NEW" = "$CUR" ] && die "$M no es miembro de $LST"
+    [ -n "$NEW" ] || die "quedaría sin miembros; usa 'dl delete'"
+    $PSQL "UPDATE alias SET goto='$NEW', modified=NOW() WHERE address='$LST'" >/dev/null
+    log_audit "dl removemember $LST - $M"; echo "OK: $M quitado de $LST"
+    ;;
+  "dl delete")
+    LST="${3:-}"; [ -n "$LST" ] || die "uso: dl delete <lista>"
+    mailbox_exists "$LST" && die "$LST es un buzón real, no una lista"
+    [ "$($PSQL "SELECT 1 FROM alias WHERE address='$LST'")" = "1" ] || die "la lista $LST no existe"
+    confirm "Borrar la lista de distribución $LST"
+    $PSQL "DELETE FROM alias WHERE address='$LST'" >/dev/null
+    log_audit "dl delete $LST"; echo "OK: lista $LST borrada"
+    ;;
+  "dl show")
+    LST="${3:-}"; [ -n "$LST" ] || die "uso: dl show <lista>"
+    G=$($PSQL "SELECT goto FROM alias WHERE address='$LST'"); [ -n "$G" ] || die "la lista $LST no existe"
+    echo "Lista $LST:"; echo "$G" | tr ',' '\n' | sed 's/^/  /'
+    ;;
+  "dl list")
+    echo "Listas de distribución (alias con >1 destino):"
+    $PSQL "SELECT '  '||address||'  ('||(length(goto)-length(replace(goto,',',''))+1)||' miembros)' FROM alias WHERE goto LIKE '%,%' ORDER BY address"
+    ;;
+
+  # ===== BÚSQUEDA EN LOGS =====
+  "log search")
+    PAT="${3:-}"; [ -n "$PAT" ] || die "uso: log search <patrón>"
+    grep -ahiE -- "$PAT" /var/log/mail.log /var/log/mail.log.1 2>/dev/null | tail -80
+    log_audit "log search '$PAT'"
+    ;;
+  "log mailbox")
+    EM="${3:-}"; [ -n "$EM" ] || die "uso: log mailbox <email>"
+    grep -ahiF -- "$EM" /var/log/mail.log /var/log/mail.log.1 2>/dev/null | tail -80
+    log_audit "log mailbox $EM"
+    ;;
+
+  # ===== RESPALDO =====
+  "backup db")
+    DEST="${3:-/var/backups/postgresql/maildb_$(date +%F_%H%M%S).sql.gz}"
+    mkdir -p "$(dirname "$DEST")"
+    sudo -u postgres pg_dump "$DB" | gzip > "$DEST" || die "falló el pg_dump"
+    log_audit "backup db -> $DEST"; echo "OK: $DEST ($(du -h "$DEST" | cut -f1))"
+    ;;
+  "backup mailbox")
+    EM="${3:-}"; [ -n "$EM" ] || die "uso: backup mailbox <email> [archivo]"
+    mailbox_exists "$EM" || die "no existe el buzón $EM"
+    MD=$($PSQL "SELECT maildir FROM mailbox WHERE username='$EM'"); MD="${MD%/}"
+    [ -d "/var/vmail/$MD" ] || die "no se encuentra /var/vmail/$MD"
+    DEST="${4:-/var/backups/maildir/$(echo "$EM" | tr '@/' '__')_$(date +%F_%H%M%S).tar.gz}"
+    mkdir -p "$(dirname "$DEST")"
+    tar -czf "$DEST" -C /var/vmail "$MD" || die "falló el tar"
+    log_audit "backup mailbox $EM -> $DEST"; echo "OK: $DEST ($(du -h "$DEST" | cut -f1))"
+    ;;
+  "backup list")
+    echo "== Respaldos de BD (maildb) =="
+    ls -1t /var/backups/postgresql/maildb_*.sql.gz 2>/dev/null | head -20 | while read -r x; do echo "  $(du -h "$x" | cut -f1)  $x"; done
+    echo "== Respaldos de buzones =="
+    ls -1t /var/backups/maildir/*.tar.gz 2>/dev/null | head -20 | while read -r x; do echo "  $(du -h "$x" | cut -f1)  $x"; done
+    ;;
+
+  # ===== RESTAURACIÓN =====
+  "restore mailbox")
+    EM="${3:-}"; SRC="${4:-}"
+    [ -n "$EM" ] && [ -n "$SRC" ] || die "uso: restore mailbox <email> <archivo.tar.gz>"
+    [ -f "$SRC" ] || die "archivo no encontrado: $SRC"
+    MD=$($PSQL "SELECT maildir FROM mailbox WHERE username='$EM'"); MD="${MD%/}"
+    [ -n "$MD" ] || die "no existe el buzón $EM"
+    echo "ATENCIÓN: sobrescribe el maildir de $EM con $SRC."
+    confirm "Restaurar el correo de $EM"
+    tar -xzf "$SRC" -C /var/vmail || die "falló al extraer"
+    chown -R vmail:vmail "/var/vmail/$MD" 2>/dev/null || true
+    log_audit "restore mailbox $EM <- $SRC"; echo "OK: maildir de $EM restaurado"
+    ;;
+  "restore db")
+    SRC="${3:-}"; NEWDB="${4:-maildb_restore_$(date +%Y%m%d_%H%M%S)}"
+    [ -f "$SRC" ] || die "uso: restore db <archivo.sql.gz> [nombre_bd]  (archivo no encontrado)"
+    echo "Por seguridad NO se toca la base de producción ('$DB')."
+    echo "Se restaurará en una base NUEVA: '$NEWDB' (para inspeccionar/migrar)."
+    confirm "Crear '$NEWDB' y restaurar ahí"
+    sudo -u postgres createdb "$NEWDB" || die "no se pudo crear $NEWDB"
+    if echo "$SRC" | grep -q '\.gz$'; then zcat "$SRC" | sudo -u postgres psql -d "$NEWDB" >/dev/null 2>&1; else sudo -u postgres psql -d "$NEWDB" < "$SRC" >/dev/null 2>&1; fi
+    log_audit "restore db $SRC -> $NEWDB"
+    echo "OK: restaurado en '$NEWDB'. Revisa: sudo -u postgres psql -d $NEWDB"
+    ;;
+
+  # ===== BUZONES COMPARTIDOS (ACL Dovecot) =====
+  "shared grant")
+    OWN="${3:-}"; USR="${4:-}"; BUZ="${5:-INBOX}"; MODE="${6:-escritura}"
+    [ -n "$OWN" ] && [ -n "$USR" ] || die "uso: shared grant <propietario> <usuario> [buzon=INBOX] [lectura|escritura]"
+    mailbox_exists "$OWN" || die "no existe el propietario $OWN"
+    mailbox_exists "$USR" || die "no existe el usuario $USR"
+    case "$MODE" in
+      lectura)   RIGHTS="lookup read";;
+      escritura) RIGHTS="lookup read write write-seen write-deleted insert expunge";;
+      *) die "permiso inválido: usa 'lectura' o 'escritura'";;
+    esac
+    doveadm acl add -u "$OWN" "$BUZ" "user=$USR" $RIGHTS || die "falló doveadm acl"
+    log_audit "shared grant $OWN:$BUZ -> $USR ($MODE)"
+    echo "OK: $USR accede a '$BUZ' de $OWN ($MODE)"
+    ;;
+  "shared revoke")
+    OWN="${3:-}"; USR="${4:-}"; BUZ="${5:-INBOX}"
+    [ -n "$OWN" ] && [ -n "$USR" ] || die "uso: shared revoke <propietario> <usuario> [buzon=INBOX]"
+    doveadm acl delete -u "$OWN" "$BUZ" "user=$USR" || die "falló doveadm acl"
+    log_audit "shared revoke $OWN:$BUZ -> $USR"; echo "OK: revocado acceso de $USR a '$BUZ' de $OWN"
+    ;;
+  "shared list")
+    OWN="${3:-}"; BUZ="${4:-INBOX}"
+    [ -n "$OWN" ] || die "uso: shared list <propietario> [buzon=INBOX]"
+    echo "ACL de '$BUZ' de $OWN:"
+    doveadm acl get -u "$OWN" "$BUZ"
+    ;;
+
   *)
     cat <<'HELP'
 maquita-mailadm — administración del correo Maquita (estilo zmprov/zmcontrol)
@@ -380,6 +536,33 @@ MFA / 2FA (TOTP):
 SERVICIOS (cont.):
   service restart <servicio>           reiniciar un servicio
   service reload  <servicio>           recargar un servicio
+
+LISTAS DE DISTRIBUCIÓN (equiv. zmprov createDistributionList):
+  dl create <lista@dom> <m1> [m2 ...]  crear lista (alias con varios destinos)
+  dl addmember <lista> <email>         agregar miembro
+  dl removemember <lista> <email>      quitar miembro
+  dl show <lista>                      ver miembros
+  dl list                              listar todas las listas
+  dl delete <lista>                    borrar lista (pide confirmación)
+
+BUZONES COMPARTIDOS (ACL Dovecot, equiv. compartir buzón):
+  shared grant <propietario> <usuario> [buzon=INBOX] [lectura|escritura]   dar acceso
+  shared revoke <propietario> <usuario> [buzon=INBOX]                      quitar acceso
+  shared list <propietario> [buzon=INBOX]                                  ver accesos
+
+RESPALDO Y RESTAURACIÓN (equiv. zmbackup/zmrestore):
+  backup db [archivo]                  pg_dump de maildb (.sql.gz)
+  backup mailbox <email> [archivo]     tar.gz del maildir
+  backup list                          listar respaldos
+  restore mailbox <email> <archivo>    restaurar maildir (pide confirmación)
+  restore db <archivo> [nombre_bd]     restaurar la BD en una base NUEVA (segura)
+
+ESTADÍSTICAS:
+  stats                                resumen: buzones, dominios, alias, cola, disco
+
+BÚSQUEDA EN LOGS (grep mail.log):
+  log search <patrón>                  buscar en mail.log (+ rotado .1)
+  log mailbox <email>                  rastrear entregas de un buzón
 
 Ejemplos:
   maquita-mailadm mailbox create juan@example.org 10
