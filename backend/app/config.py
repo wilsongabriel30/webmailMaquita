@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     ia_model: str = ""                    # sin hardcode; definir en .env o panel
     ia_timeout: int = 60
     ia_embed_model: str = "nomic-embed-text"
+    ia_embed_url: str = ""   # endpoint de embeddings; vacio -> usa ia_base_url
     ollama_url: str = "http://127.0.0.1:11434"
     nc_base_url: str = "http://nextcloud-server"
     nc_admin_user: str = ""
