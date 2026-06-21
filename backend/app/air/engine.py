@@ -39,8 +39,11 @@ async def run_cycle(db, redis, hours: int = 24, use_ai: bool = True,
                                          pb["rationale"], auto=True)
             inc["responded"] = True
         else:
-            await responder.record_incident(db, username, pb["severity"],
-                                             "; ".join(pb["reasons"]) or pb["rationale"])
+            detail = "; ".join(pb["reasons"]) or pb["rationale"]
+            if ai:
+                detail += (f" | IA(Qwen): {ai.get('recomendacion','')} "
+                           f"({ai.get('confianza',0)}%) {ai.get('resumen','')}")
+            await responder.record_incident(db, username, pb["severity"], detail)
         incidents.append(inc)
     logger.info("AIR ciclo: %d incidentes (auto=%s)", len(incidents), auto_ok)
     return incidents
