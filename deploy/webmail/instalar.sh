@@ -102,6 +102,13 @@ for f in "${APP_DIR}"/migrations/*.sql; do
     PGPASSWORD="${DB_PASS}" psql -v ON_ERROR_STOP=0 -h localhost -U mailserver -d maildb -f "$f" >/dev/null 2>&1
 done
 
+# --- 7b. Seeds de features (DLP, SafeAttach, milters) ---
+for f in "${APP_DIR}"/deploy/seeds/*.sql; do
+    [ -e "$f" ] || continue
+    echo "  → seed $(basename "$f")"
+    PGPASSWORD="${DB_PASS}" psql -v ON_ERROR_STOP=0 -h localhost -U mailserver -d maildb -f "$f" >/dev/null 2>&1
+done
+
 # --- 8. Backend (.env + entorno virtual) ---
 echo -e "\n${GREEN}[8/15] Configurando backend...${NC}"
 cd "${APP_DIR}/backend"
