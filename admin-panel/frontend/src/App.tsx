@@ -35,6 +35,7 @@ import { ThreatDashboard } from "./pages/ThreatDashboard";
 import { Air } from "./pages/Air";
 import { Sso } from "./pages/Sso";
 import { Agents } from "./pages/Agents";
+import { Copiloto } from "./pages/Copiloto";
 import { CommCompliance } from "./pages/CommCompliance";
 import { InsiderRisk } from "./pages/InsiderRisk";
 import { EDiscoveryPremium } from "./pages/EDiscoveryPremium";
@@ -132,6 +133,7 @@ function App() {
             <Route path="air" element={<Air />} />
             <Route path="sso" element={<Sso />} />
             <Route path="agents" element={<Agents />} />
+            <Route path="copiloto" element={<Copiloto />} />
             <Route path="comm-compliance" element={<CommCompliance />} />
             <Route path="insider-risk" element={<InsiderRisk />} />
             <Route path="ediscovery-premium" element={<EDiscoveryPremium />} />

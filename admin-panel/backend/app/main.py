@@ -43,6 +43,7 @@ from app.threats.router import router as threats_router
 from app.air.router import router as air_router
 from app.sso.router import router as sso_router
 from app.agents.router import router as agents_router
+from app.copiloto.router import router as copiloto_router
 from app.comm_compliance.router import router as comm_router
 from app.insider_risk.router import router as insider_router
 from app.ediscovery_premium.router import router as edp_router
@@ -134,6 +135,7 @@ app.include_router(threats_router)
 app.include_router(air_router)
 app.include_router(sso_router)
 app.include_router(agents_router)
+app.include_router(copiloto_router)
 app.include_router(comm_router)
 app.include_router(insider_router)
 app.include_router(edp_router)

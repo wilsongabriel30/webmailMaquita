@@ -21,6 +21,7 @@ from app.auth.router import router as auth_router
 from app.auth.oidc import router as oidc_router
 from app.air.router import router as air_router
 from app.agents.router import router as agents_router
+from app.copiloto.router import router as copiloto_router
 from app.auth.password import router as password_router
 from app.admin.router import router as admin_router
 from app.mail.routers.folders import router as folders_router
@@ -478,6 +479,7 @@ app.include_router(auth_router)
 app.include_router(oidc_router)
 app.include_router(air_router)
 app.include_router(agents_router)
+app.include_router(copiloto_router)
 app.include_router(password_router)
 app.include_router(admin_router)
 app.include_router(folders_router)
