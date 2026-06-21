@@ -30,6 +30,10 @@ export function SafeAttachments() {
   const [saving, setSaving] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [file, setFile] = useState<{ name: string; b64: string } | null>(null);
+  const [report, setReport] = useState<any>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [engStatus, setEngStatus] = useState<{ engines?: string[]; yara_rules?: number; detonation?: boolean }>({});
 
   const loadResults = () =>
     api.get<Result[]>("/safeattach/results").then((r) => setResults(r || [])).catch(() => {});
@@ -77,6 +81,22 @@ export function SafeAttachments() {
     </label>
   );
 
+  useEffect(() => { api.get<any>("/safeattach/engine-status").then(setEngStatus).catch(() => {}); }, []);
+
+  const onFile = (e: any) => {
+    const fl = e.target.files?.[0]; if (!fl) return;
+    const reader = new FileReader();
+    reader.onload = () => { const res = String(reader.result || ""); setFile({ name: fl.name, b64: res.split(",")[1] || "" }); setReport(null); };
+    reader.readAsDataURL(fl);
+  };
+  const doAnalyze = async () => {
+    if (!file) return;
+    setAnalyzing(true); setReport(null);
+    try { setReport(await api.post<any>("/safeattach/analyze", { filename: file.name, content_b64: file.b64 })); }
+    catch { setReport({ error: "Error al analizar." }); }
+    setAnalyzing(false);
+  };
+
   if (loading) return <div className="p-6 text-sm text-ms-gray-110">Cargando…</div>;
 
   return (
@@ -91,6 +111,47 @@ export function SafeAttachments() {
       </div>
 
       {msg && <div className={`text-sm px-4 py-2 rounded ${msg.ok ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>{msg.text}</div>}
+
+      <div className="bg-white border border-ms-gray-30 rounded-lg p-5 space-y-3">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <h2 className="text-sm font-semibold text-ms-gray-160">Analizar un archivo — motor avanzado</h2>
+          <span className="text-xs text-ms-gray-110">
+            Motores: {(engStatus.engines || []).join(", ") || "—"} · YARA: {engStatus.yara_rules ?? 0} reglas · Detonación: {engStatus.detonation ? "activa" : "lista (off)"}
+          </span>
+        </div>
+        <p className="text-xs text-ms-gray-110">Multi-motor (ClamAV, tipo real, macros, ZIP, YARA) + detonación aislada. Sube una muestra para ver el veredicto por motor.</p>
+        <div className="flex items-center gap-3 flex-wrap">
+          <input type="file" onChange={onFile} className="text-sm" />
+          <button onClick={doAnalyze} disabled={!file || analyzing}
+            className="text-white text-sm px-4 py-2 rounded disabled:opacity-50" style={{ backgroundColor: "#0078d4" }}>
+            {analyzing ? "Analizando…" : "Analizar"}
+          </button>
+        </div>
+        {report && (report.error ? (
+          <div className="text-sm text-red-600">{report.error}</div>
+        ) : (
+          <div className="border border-ms-gray-30 rounded p-3 space-y-2">
+            <div className="text-sm">Veredicto:{" "}
+              <span className={`font-semibold ${report.result === "malicious" ? "text-red-600" : report.result === "suspicious" ? "text-amber-600" : "text-green-600"}`}>
+                {report.result === "malicious" ? "Malicioso" : report.result === "suspicious" ? "Sospechoso" : "Limpio"}
+              </span>
+            </div>
+            {(report.threats || []).length > 0 && (
+              <ul className="text-xs text-red-600 list-disc pl-5">
+                {report.threats.map((t: any, k: number) => <li key={k}>{t.engine}: {t.threat}</li>)}
+              </ul>
+            )}
+            <div className="text-xs text-ms-gray-110">
+              <span className="font-medium">Por motor:</span>
+              <ul className="pl-2 mt-1 space-y-0.5">
+                {Object.entries(report.details || {}).map(([eng, val]) => (
+                  <li key={eng}><span className="font-mono">{eng}</span>: {typeof val === "string" ? val : JSON.stringify(val).slice(0, 120)}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        ))}
+      </div>
 
       <div className="bg-white border border-ms-gray-30 rounded-lg p-5 space-y-4">
         <Toggle k="enabled" label="Safe Attachments activado" desc="Interruptor general. Si está apagado, no analiza ni retira nada." />

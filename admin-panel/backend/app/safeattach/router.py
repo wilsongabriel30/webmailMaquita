@@ -91,3 +91,65 @@ async def stats(r: Request, a=Depends(get_current_admin)):
         "count(*) FILTER (WHERE verdict='malicious') AS maliciosos, "
         "count(*) FILTER (WHERE verdict='suspicious') AS sospechosos FROM safeattach_results")
     return dict(row) if row else {}
+
+
+# ── Motor AVANZADO (multi-motor + detonación) del webmail ──
+WEBMAIL = "/opt/maquita-webmail/backend"
+
+
+class AnalyzeReq(BaseModel):
+    filename: str
+    content_b64: str
+
+
+@router.post("/analyze")
+async def analyze(r: Request, body: AnalyzeReq, a=Depends(get_current_admin)):
+    """Analiza un archivo con el motor avanzado (clamav+filetype+oletools+archive+yara+detonación)."""
+    import base64, os, subprocess, tempfile
+    try:
+        content = base64.b64decode(body.content_b64)
+    except Exception:
+        return {"error": "base64 inválido"}
+    if len(content) > 30 * 1024 * 1024:
+        return {"error": "archivo demasiado grande (máx 30 MB)"}
+    fd, path = tempfile.mkstemp()
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(content)
+        name = os.path.basename(body.filename) or "muestra"
+        p = subprocess.run(
+            ["bash", "-c",
+             f"cd {WEBMAIL} && set -a && . .env && set +a && "
+             f"venv/bin/python -m app.safeattach.scan_file {path} {json.dumps(name)}"],
+            capture_output=True, text=True, timeout=150)
+        out = (p.stdout or "").strip()
+        try:
+            report = json.loads(out.splitlines()[-1]) if out else {"error": (p.stderr or "")[-400:]}
+        except Exception:
+            report = {"error": (p.stderr or out)[-400:]}
+        await _audit(r, a, "safeattach_analyze", target=name,
+                     details={"result": report.get("result")})
+        return report
+    finally:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+
+
+@router.get("/engine-status")
+async def engine_status(r: Request, a=Depends(get_current_admin)):
+    import subprocess
+    py = ("import json,os,glob;"
+          "from app.safeattach.pipeline import ANALYZERS;"
+          "d=os.getenv('SAFEATTACH_YARA_DIR','/opt/maquita-webmail/deploy/safeattach/yara');"
+          "print(json.dumps({'engines':[x.name for x in ANALYZERS],"
+          "'yara_rules':len(glob.glob(d+'/*.yar')),"
+          "'detonation':os.getenv('SAFEATTACH_DETONATE','0')=='1'}))")
+    try:
+        p = subprocess.run(
+            ["bash", "-c", f"cd {WEBMAIL} && set -a && . .env && set +a && venv/bin/python -c {json.dumps(py)}"],
+            capture_output=True, text=True, timeout=30)
+        return json.loads((p.stdout or "{}").strip().splitlines()[-1])
+    except Exception as e:
+        return {"engines": [], "yara_rules": 0, "detonation": False, "error": str(e)}
