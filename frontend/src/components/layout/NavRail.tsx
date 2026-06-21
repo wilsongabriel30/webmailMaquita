@@ -92,6 +92,17 @@ const navItems = [
       </svg>
     ),
   },
+  {
+    path: '/asistente',
+    label: 'Asistente',
+    color: '#0078d4',
+    icon: (active: boolean) => (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? '#0078d4' : '#605e5c'} strokeWidth="1.5">
+        <path d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8L12 3z" fill={active ? '#0078d4' : 'none'} strokeLinejoin="round"/>
+        <path d="M5 16l.9 2.1L8 19l-2.1.9L5 22l-.9-2.1L2 19l2.1-.9L5 16z" fill={active ? '#0078d4' : 'none'} strokeLinejoin="round"/>
+      </svg>
+    ),
+  },
 ];
 
 export function NavRail() {

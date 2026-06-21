@@ -19,6 +19,7 @@ const SpamQuarantine = React.lazy(() => import("./components/admin/SpamQuarantin
 const CompliancePanel = React.lazy(() => import("./components/admin/CompliancePanel").then(m => ({ default: m.CompliancePanel })));
 const FirewallPanel = React.lazy(() => import("./components/admin/FirewallPanel").then(m => ({ default: m.FirewallPanel })));
 const ContactsView = React.lazy(() => import('./components/contacts/ContactsView').then(m => ({ default: m.ContactsView })));
+const RagAssistant = React.lazy(() => import('./components/rag/RagAssistant').then(m => ({ default: m.RagAssistant })));
 const TasksView = React.lazy(() => import('./components/tasks/TasksView').then(m => ({ default: m.TasksView })));
 const CalendarView = React.lazy(() => import('./components/calendar/CalendarView'));
 import { ComposePopup } from "./components/mail/ComposePopup";
@@ -187,6 +188,7 @@ export default function App() {
           <Route path="contacts" element={<React.Suspense fallback={<Spinner />}><ContactsView /></React.Suspense>} />
           <Route path="calendar" element={<React.Suspense fallback={<Spinner />}><CalendarView /></React.Suspense>} />
           <Route path="tasks" element={<React.Suspense fallback={<Spinner />}><TasksView /></React.Suspense>} />
+          <Route path="asistente" element={<React.Suspense fallback={<Spinner />}><RagAssistant /></React.Suspense>} />
           <Route path="settings" element={<React.Suspense fallback={<Spinner />}><SettingsView /></React.Suspense>} />
           <Route path="admin" element={<AdminRoute><React.Suspense fallback={<Spinner />}><AdminLayout /></React.Suspense></AdminRoute>}>
             <Route index element={<React.Suspense fallback={<Spinner />}><Dashboard /></React.Suspense>} />
