@@ -37,6 +37,7 @@ import { Sso } from "./pages/Sso";
 import { Agents } from "./pages/Agents";
 import { Copiloto } from "./pages/Copiloto";
 import { ConditionalAccess } from "./pages/ConditionalAccess";
+import { Rag } from "./pages/Rag";
 import { CommCompliance } from "./pages/CommCompliance";
 import { InsiderRisk } from "./pages/InsiderRisk";
 import { EDiscoveryPremium } from "./pages/EDiscoveryPremium";
@@ -136,6 +137,7 @@ function App() {
             <Route path="agents" element={<Agents />} />
             <Route path="copiloto" element={<Copiloto />} />
             <Route path="conditional-access" element={<ConditionalAccess />} />
+            <Route path="rag" element={<Rag />} />
             <Route path="comm-compliance" element={<CommCompliance />} />
             <Route path="insider-risk" element={<InsiderRisk />} />
             <Route path="ediscovery-premium" element={<EDiscoveryPremium />} />
