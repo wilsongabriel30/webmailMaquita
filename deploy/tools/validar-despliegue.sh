@@ -96,3 +96,10 @@ printf '\n\033[1mRESUMEN:\033[0m %d OK · %d advertencias · %d fallos\n' "$PASS
 [ "$FAIL" -eq 0 ] && printf '\033[32mVALIDACIÓN OK\033[0m — el despliegue responde en todo lo crítico\n' \
                   || printf '\033[31mVALIDACIÓN CON FALLOS\033[0m — revisar los [FALLO] de arriba\n'
 exit "$FAIL"
+
+# --- IA enchufable (WARN, no falla la validacion) ---
+echo ""
+echo "[IA] Probando IA configurada (opcional)..."
+if bash /opt/maquita-webmail/deploy/webmail/probar-ia.sh 2>&1 | sed 's/^/    /'; then :; else
+  echo "    WARN: la IA no respondio (no critico: las funciones de IA se degradan, el correo sigue)."
+fi
