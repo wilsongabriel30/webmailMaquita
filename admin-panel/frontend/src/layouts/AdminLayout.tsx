@@ -80,6 +80,7 @@ const navSections = [
       { to: "/ediscovery-premium", label: "Custodios y retención legal", icon: "M3 6l9-4 9 4v6c0 5-3.8 8.6-9 10-5.2-1.4-9-5-9-10V6z M9 11l2 2 4-4" },
       { to: "/insider-risk", label: "Riesgo interno", icon: "M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4a2 2 0 00-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" },
       { to: "/comm-compliance", label: "Cumplimiento de comunicaciones", icon: "M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.7 9.7 0 01-4-.85L3 20l1.4-3.5A7.9 7.9 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" },
+      { to: "/retention", label: "Retención", icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" },
       { to: "/compliance", label: "Centro de Compliance", icon: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" },
     ],
   },
