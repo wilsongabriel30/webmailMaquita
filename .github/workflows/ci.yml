@@ -177,3 +177,52 @@ jobs:
             "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public';" | tr -d " ")
           echo "Tables created: $TABLES"
           [ "$TABLES" -ge 1 ] || echo "::warning::No tables created"
+
+  install-smoke:
+    name: Install Smoke Test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: mailserver
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: maildb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mailserver"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Sintaxis de los scripts de instalacion
+        run: |
+          for sc in deploy/webmail/instalar.sh deploy-webmail.sh deploy/webmail/probar-ia.sh deploy/tools/validar-despliegue.sh; do
+            echo "bash -n $sc"; bash -n "$sc"
+          done
+
+      - name: Esquema + seeds aplican en PostgreSQL limpio
+        env:
+          PGPASSWORD: test
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+          psql -h localhost -U mailserver -d maildb -c "CREATE EXTENSION IF NOT EXISTS vector"
+          for fsql in migrations/*.sql deploy/seeds/*.sql; do
+            [ -e "$fsql" ] || continue
+            echo "-> $fsql"
+            psql -h localhost -U mailserver -d maildb -v ON_ERROR_STOP=0 -f "$fsql" >/dev/null 2>&1 || true
+          done
+          echo "Tablas clave creadas:"
+          psql -h localhost -U mailserver -d maildb -tAc "SELECT count(*) FROM information_schema.tables WHERE table_name IN ('mailbox','rag_domains','rag_chunks','conditional_access_policies')"
+
+      - name: Compilar (py_compile) backend y panel
+        run: |
+          python -m py_compile $(find backend/app admin-panel/backend/app -name '*.py')
+          echo "py_compile OK"

@@ -4,6 +4,19 @@ Guía **canónica** y mínima. Para detalle por componente ver `docs/` y `deploy
 Filosofía: todo extra es **opt-in** y **fail-open** (si un componente externo no
 está, el correo sigue funcionando; el login local es el respaldo "break-glass").
 
+## Antes de empezar: ¿Evaluar o Producción?
+
+| | **Evaluar / probar** | **Producción real** |
+|---|---|---|
+| Objetivo | Ver cómo funciona | Servir correo de verdad |
+| Infra | Una **VM Debian 13 desechable** (nube por horas o VirtualBox) | Servidor Debian 13 estable |
+| Dominio / DNS | No hace falta (`DOMAIN=example.test`) | Dominio propio + **MX/SPF/DKIM/DMARC** (ver `CONFIGURAR-DNS.md`) |
+| IP / PTR | No importa | IP fija con **PTR** (reverso), si no el correo cae en spam |
+| TLS | Opcional (autofirmado) | **Obligatorio** (certbot, paso 4) |
+| Cómo | `DOMAIN=example.test bash deploy/webmail/instalar.sh` → imprime URL + credenciales demo | Pasos 1→5 completos |
+
+> **No hay modo "sin servidor"**: un servidor de correo necesita PostgreSQL + Dovecot + Postfix corriendo. Lo más liviano para evaluar es una VM Debian desechable; el instalador hace el resto (auto-genera secretos y una cuenta demo).
+
 ## 1. Prerequisitos del sistema (Debian 13 recomendado)
 ```bash
 apt update && apt install -y \
@@ -33,11 +46,21 @@ bash deploy/webmail/instalar.sh
 Aplica el esquema (`migrations/*.sql`) **y los seeds** (`deploy/seeds/*.sql`:
 DLP, SafeAttach, milters), crea el buzón demo y levanta los servicios.
 
-## 4. Frontend + validar
+## 4. TLS / HTTPS (solo producción)
+El webmail debe ir por HTTPS. Con el dominio ya apuntando a tu IP:
 ```bash
-cd frontend && npm install && npm run build   # nginx sirve desde dist/
-curl -s https://TU-DOMINIO/api/health           # debe responder 200
+apt install -y certbot python3-certbot-nginx
+certbot --nginx -d TU-DOMINIO -d mail.TU-DOMINIO
+# certbot instala el timer systemd de renovación automática
 ```
+Para evaluar en una VM desechable puedes omitir esto (Dovecot/nginx usan certificado autofirmado).
+
+## 5. Validar
+```bash
+bash deploy/tools/validar-despliegue.sh          # chequeos (incluye IA como WARN)
+curl -sk https://TU-DOMINIO/api/health           # debe responder 200
+```
+> El **frontend lo compila `instalar.sh`** (paso 3). Para recompilarlo tras cambios usa `bash deploy-webmail.sh` (build + deploy seguro a `www/webmail`). **No** corras `npm build` suelto: el deploy retiene los assets viejos para no romper pestañas abiertas.
 
 ---
 

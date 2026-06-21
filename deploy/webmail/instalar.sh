@@ -141,8 +141,12 @@ ENVEOF
 echo -e "\n${GREEN}[9/15] Compilando frontend...${NC}"
 cd "${APP_DIR}/frontend"
 npm ci --quiet && npx vite build
-mkdir -p "${APP_DIR}/www" && ln -sf "${APP_DIR}/frontend/dist" "${APP_DIR}/www/webmail"
 [ -f public/sw.js ] && cp public/sw.js dist/sw.js || true
+# Deploy del SPA: copia EXPLICITA dist -> www/webmail (no symlink: deploy-webmail.sh
+# retiene assets viejos para no romper pestañas abiertas). Recompilar luego = deploy-webmail.sh
+rm -rf "${APP_DIR}/www/webmail"; mkdir -p "${APP_DIR}/www/webmail"
+cp -r "${APP_DIR}/frontend/dist/." "${APP_DIR}/www/webmail/"
+mkdir -p "${APP_DIR}/downloads"; ln -sfn "${APP_DIR}/downloads" "${APP_DIR}/www/webmail/downloads"
 
 # --- 10. Dovecot (buzones virtuales SQL + usuario maestro 'admin') ---
 echo -e "\n${GREEN}[10/15] Configurando Dovecot...${NC}"
