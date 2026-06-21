@@ -3,5 +3,6 @@ agents/ y añadir su instancia aquí."""
 from app.agents.agents.seguridad import SecurityAgent
 from app.agents.agents.postura import PostureAgent
 from app.agents.agents.briefing import BriefingAgent
+from app.agents.agents.bandeja import InboxTriageAgent
 
-AGENTS = {a.name: a for a in (SecurityAgent(), PostureAgent(), BriefingAgent())}
+AGENTS = {a.name: a for a in (SecurityAgent(), PostureAgent(), BriefingAgent(), InboxTriageAgent())}

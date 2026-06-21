@@ -23,10 +23,13 @@ async def _main():
         return
     name = sys.argv[1]
     dry = "--apply" not in sys.argv[2:]
+    params = {}
+    if "--user" in sys.argv and sys.argv.index("--user") + 1 < len(sys.argv):
+        params["user"] = sys.argv[sys.argv.index("--user") + 1]
     s = get_settings()
     db = await asyncpg.create_pool(s.database_url, min_size=1, max_size=2)
     try:
-        res = await run_agent(name, db, _NoRedis(), s, dry_run=dry)
+        res = await run_agent(name, db, _NoRedis(), s, dry_run=dry, params=params)
         print(json.dumps(res, ensure_ascii=False, indent=2, default=str))
     finally:
         await db.close()

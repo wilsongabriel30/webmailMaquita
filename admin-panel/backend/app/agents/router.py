@@ -46,6 +46,7 @@ async def list_agents(r: Request, a=Depends(get_current_admin)):
 class RunReq(BaseModel):
     name: str
     apply: bool = False
+    user: str = ""
 
 
 @router.post("/run")
@@ -54,8 +55,10 @@ async def run(r: Request, body: RunReq, a=Depends(get_current_admin)):
     if not name:
         raise HTTPException(400, "agente inválido")
     flag = "--apply" if body.apply else ""
+    u = "".join(c for c in (body.user or "") if c.isalnum() or c in "@._-")
+    uflag = f"--user {u}" if u else ""
     p = _sh(f'cd {WEBMAIL} && set -a && . .env && set +a && '
-            f'venv/bin/python -m app.agents.run {name} {flag}')
+            f'venv/bin/python -m app.agents.run {name} {flag} {uflag}')
     if not p:
         raise HTTPException(500, "No se pudo ejecutar el agente")
     res = _slice(p.stdout or "", "{", "}") or {"error": (p.stderr or p.stdout or "")[-600:]}

@@ -7,16 +7,17 @@ export function Agents() {
   const [agents, setAgents] = useState<AgentInfo[]>([]);
   const [running, setRunning] = useState<string | null>(null);
   const [results, setResults] = useState<Record<string, any>>({});
+  const [userInput, setUserInput] = useState("");
 
   useEffect(() => {
     api.get<{ agents: AgentInfo[] }>("/agents/list").then((r) => setAgents(r?.agents || [])).catch(() => {});
   }, []);
 
-  const run = async (name: string, apply: boolean) => {
+  const run = async (name: string, apply: boolean, user?: string) => {
     if (apply && !confirm(`El agente "${name}" APLICARÁ acciones (puede contener cuentas). ¿Continuar?`)) return;
     setRunning(name);
     try {
-      const r = await api.post<any>("/agents/run", { name, apply });
+      const r = await api.post<any>("/agents/run", { name, apply, user: user || "" });
       setResults((p) => ({ ...p, [name]: r }));
     } catch {
       setResults((p) => ({ ...p, [name]: { error: "Error al ejecutar." } }));
@@ -40,8 +41,12 @@ export function Agents() {
                 <h2 className="text-sm font-semibold text-ms-gray-160 capitalize">{ag.name}</h2>
                 <p className="text-xs text-ms-gray-110">{ag.descripcion}</p>
               </div>
-              <div className="flex gap-2">
-                <button onClick={() => run(ag.name, false)} disabled={running === ag.name}
+              <div className="flex gap-2 items-center">
+                {ag.name === "bandeja" && (
+                  <input value={userInput} onChange={(e) => setUserInput(e.target.value)} placeholder="buzon@maquita.org"
+                    className="text-sm px-2 py-1.5 border border-ms-gray-30 rounded w-56" />
+                )}
+                <button onClick={() => run(ag.name, false, ag.name === "bandeja" ? userInput : undefined)} disabled={running === ag.name}
                   className="text-sm px-3 py-1.5 rounded border border-ms-gray-30 disabled:opacity-50">
                   {running === ag.name ? "Ejecutando…" : "Ejecutar (simulación)"}
                 </button>
@@ -66,6 +71,23 @@ export function Agents() {
                   </div>
                 )}
                 {res.ai && <pre className="text-xs whitespace-pre-wrap p-3 rounded text-ms-gray-160" style={{ backgroundColor: "#faf9f8" }}>{res.ai}</pre>}
+                {(res.items || []).length > 0 && (
+                  <ul className="text-xs space-y-1">
+                    {res.items.map((it: any, i: number) => {
+                      const c = it.categoria === "accion_requerida" ? { bg: "#fde7e9", t: "#a4262c", l: "acción" } :
+                        it.categoria === "probable_spam" ? { bg: "#fff4ce", t: "#7a6400", l: "spam?" } :
+                        it.categoria === "newsletter" ? { bg: "#eef2f8", t: "#605e5c", l: "newsletter" } :
+                        { bg: "#f3f2f1", t: "#605e5c", l: "info" };
+                      return (
+                        <li key={i} className="flex items-center gap-2">
+                          <span className="px-1.5 py-0.5 rounded" style={{ background: c.bg, color: c.t }}>{c.l}</span>
+                          <span className="text-ms-gray-110">{it.prioridad}</span>
+                          <span className="text-ms-gray-160 truncate">{it.subject}</span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
                 {(res.actions || []).length > 0 && (
                   <ul className="text-xs space-y-1">
                     {res.actions.map((act: any, i: number) => (

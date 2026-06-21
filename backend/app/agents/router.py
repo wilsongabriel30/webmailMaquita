@@ -24,10 +24,11 @@ async def agents(request: Request):
 
 
 @router.post("/{name}/run")
-async def run(request: Request, name: str, dry_run: bool = True):
+async def run(request: Request, name: str, dry_run: bool = True, user: str = ""):
     await _require_admin(request)
     try:
         return await run_agent(name, request.app.state.db_pool,
-                               request.app.state.redis, get_settings(), dry_run=dry_run)
+                               request.app.state.redis, get_settings(), dry_run=dry_run,
+                               params={"user": user} if user else None)
     except ValueError as e:
         raise HTTPException(404, str(e))
