@@ -116,6 +116,12 @@ async def analyze(db, redis, username: str, ip: str, user_agent: str = "") -> No
         except Exception:
             pass
 
+        try:
+            from app.conditional_access.service import evaluate_and_apply
+            await evaluate_and_apply(db, username, risk, country, reasons, cfg.get("trusted_countries"))
+        except Exception:
+            pass
+
         if risk == "high" and cfg["auto_block"]:
             try:
                 await db.execute("UPDATE mailbox SET active=false, modified=now() WHERE username=$1", username)
