@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { IntegrationsSettings } from './IntegrationsSettings';
 import { useLocation } from 'react-router-dom';
 import { api } from '../../api/client';
 import { PasswordChange } from './PasswordChange';
@@ -35,7 +36,7 @@ interface FilterRule {
   action: { type: string; value: string | null };
 }
 
-type Tab = 'general' | 'signature' | 'identities' | 'autoreply' | 'filters' | 'password' | 'security';
+type Tab = 'general' | 'signature' | 'identities' | 'autoreply' | 'filters' | 'password' | 'security' | 'integrations';
 
 const FIELD_LABELS: Record<string, string> = { from: 'De', to: 'Para', subject: 'Asunto' };
 const OP_LABELS: Record<string, string> = { contains: 'contiene', is: 'es exactamente', matches: 'coincide con' };
@@ -79,7 +80,7 @@ export function SettingsView() {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const requestedTab = params.get('tab');
-    const validTabs: Tab[] = ['general', 'signature', 'identities', 'autoreply', 'filters', 'password', 'security'];
+    const validTabs: Tab[] = ['general', 'signature', 'identities', 'autoreply', 'filters', 'password', 'security', 'integrations'];
     if (requestedTab && validTabs.includes(requestedTab as Tab)) {
       setTab(requestedTab as Tab);
     }
@@ -195,6 +196,7 @@ export function SettingsView() {
     { id: 'filters', label: 'Reglas de correo' },
     { id: 'password', label: 'Contraseña' },
     { id: 'security', label: 'Seguridad' },
+    { id: 'integrations', label: 'Integraciones' },
   ];
 
   const folderOptions = folders.map(f => f.name);
@@ -527,6 +529,8 @@ export function SettingsView() {
         {tab === 'security' && (
           <TwoFactorSetup />
         )}
+
+        {tab === 'integrations' && <IntegrationsSettings />}
 
         {tab === 'password' && (
           <PasswordChange />
