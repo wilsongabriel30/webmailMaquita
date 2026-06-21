@@ -51,10 +51,15 @@ MAQUITA_CONTEXT = (
 
 
 async def _get_ia_config():
-    """Config de IA: de la tabla ai_config (si está activada) o del .env (fallback).
-    Soporta gateway propio, Ollama nativo y OpenAI (o compatibles)."""
+    """Config de IA ENCHUFABLE. Lee la config central (.env: IA_PROVIDER/IA_BASE_URL/
+    IA_MODEL/IA_API_KEY) y, opcionalmente, el override del panel (tabla ai_config).
+    Por defecto OpenAI-compatible; adapters finos para ollama/anthropic/gateway."""
     s = get_settings()
-    provider, base, api_key, model = "gateway", s.ollama_url.rstrip("/"), s.ia_api_key, "qwen2.5:7b"
+    provider = (s.ia_provider or "openai").lower()
+    base = (s.ia_base_url or s.ollama_url or "").rstrip("/")
+    api_key = s.ia_api_key
+    model = s.ia_model
+    timeout = s.ia_timeout or 60
     try:
         import asyncpg
         conn = await asyncpg.connect(s.database_url)
@@ -63,24 +68,29 @@ async def _get_ia_config():
                 "SELECT provider, base_url, api_key, model FROM ai_config WHERE id = 1 AND enabled = true")
         finally:
             await conn.close()
-        if row and (row["base_url"] or row["provider"] == "openai"):
-            provider = row["provider"] or "gateway"
-            base = (row["base_url"] or "").rstrip("/")
-            api_key = row["api_key"] or ""
+        if row and (row["base_url"] or row["provider"]):
+            provider = (row["provider"] or provider).lower()
+            base = (row["base_url"] or base).rstrip("/")
+            api_key = row["api_key"] or api_key
             model = row["model"] or model
     except Exception:
-        pass  # tabla inexistente / sin conexión -> usar el .env
+        pass  # tabla inexistente / sin conexion -> usar el .env (fail-open)
+    if not model:
+        logger.warning("IA_MODEL no configurado: define IA_MODEL en .env o activa el panel de IA")
     if provider == "ollama":
         generate_url = f"{base}/api/generate"
         headers = {"Content-Type": "application/json"}
-    elif provider == "openai":
-        generate_url = f"{base or 'https://api.openai.com'}/v1/chat/completions"
-        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-    else:  # gateway / custom (formato del gateway propio)
+    elif provider == "anthropic":
+        generate_url = f"{base or 'https://api.anthropic.com'}/v1/messages"
+        headers = {"x-api-key": api_key, "anthropic-version": "2023-06-01", "Content-Type": "application/json"}
+    elif provider in ("gateway", "custom"):
         generate_url = f"{base}/api/v1/ia/generate"
         headers = {"X-API-Key": api_key, "Content-Type": "application/json"}
+    else:  # openai-compatible (vLLM, LM Studio, OpenRouter, LocalAI, ...)
+        generate_url = f"{base or 'https://api.openai.com'}/v1/chat/completions"
+        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     return {"provider": provider, "base_url": base, "api_key": api_key,
-            "model": model, "generate_url": generate_url, "headers": headers}
+            "model": model, "generate_url": generate_url, "headers": headers, "timeout": timeout}
 
 
 # --- Schemas de request/response ---
@@ -125,6 +135,9 @@ async def _call_llm(prompt: str, system: str = "", temperature: float = 0.7, max
         payload = {"model": ia["model"],
                    "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}],
                    "temperature": temperature, "max_tokens": max_tokens}
+    elif prov == "anthropic":
+        payload = {"model": ia["model"], "system": system, "max_tokens": max_tokens,
+                   "temperature": temperature, "messages": [{"role": "user", "content": prompt}]}
     else:  # gateway / custom
         payload = {"prompt": prompt, "system": system, "temperature": temperature,
                    "max_tokens": max_tokens, "usar_rag": False, "model": ia["model"], "preferir_gpu": "remota"}
@@ -132,7 +145,7 @@ async def _call_llm(prompt: str, system: str = "", temperature: float = 0.7, max
 
     for intento in range(2):  # max 2 intentos
         try:
-            async with httpx.AsyncClient(timeout=IA_TIMEOUT) as client:
+            async with httpx.AsyncClient(timeout=ia.get("timeout") or IA_TIMEOUT) as client:
                 resp = await client.post(ia["generate_url"], json=payload, headers=ia["headers"])
                 resp.raise_for_status()
                 data = resp.json()
@@ -147,6 +160,8 @@ async def _call_llm(prompt: str, system: str = "", temperature: float = 0.7, max
                 raw_resp = data.get("respuesta") or data.get("response") or data.get("text") or data.get("output") or ""
                 if not raw_resp and isinstance(data.get("choices"), list) and data["choices"]:
                     raw_resp = data["choices"][0].get("message", {}).get("content", "")
+                if not raw_resp and isinstance(data.get("content"), list) and data["content"]:
+                    raw_resp = data["content"][0].get("text", "")
 
                 # Validar respuesta vacía
                 if not raw_resp or not raw_resp.strip():
@@ -444,3 +459,27 @@ async def ai_health():
             }
     except Exception as e:
         return {"status": "degraded", "ia_server": "unreachable", "detail": str(e)}
+
+
+async def embed_text(text: str) -> list:
+    """Hook opcional de embeddings para RAG/grounding (futuro). Fail-open: [] si falla.
+    Usa IA_EMBED_MODEL contra el backend (ollama /api/embeddings u OpenAI /v1/embeddings)."""
+    s = get_settings()
+    base = (s.ia_base_url or s.ollama_url or "").rstrip("/")
+    model = s.ia_embed_model
+    if not base or not model:
+        return []
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            if (s.ia_provider or "").lower() == "ollama":
+                rr = await client.post(f"{base}/api/embeddings", json={"model": model, "prompt": text[:4000]})
+                rr.raise_for_status()
+                return rr.json().get("embedding", [])
+            rr = await client.post(f"{base}/v1/embeddings",
+                                   json={"model": model, "input": text[:4000]},
+                                   headers={"Authorization": f"Bearer {s.ia_api_key}"})
+            rr.raise_for_status()
+            return (rr.json().get("data") or [{}])[0].get("embedding", [])
+    except Exception as e:
+        logger.warning("embedding (IA_EMBED_MODEL) fallo: %s", e)
+        return []

@@ -76,3 +76,24 @@ UPDATE threat_config SET auto_disable_on_compromise=true WHERE id=1;  -- habilit
 - `COOKIE_DOMAIN` puede llevar punto inicial (`.dominio`) para cookies de subdominios;
   las URLs públicas (OnlyOffice, mensaje seguro) ya quitan ese punto automáticamente.
 - Todos los motores de seguridad son **fail-open**: si ClamAV/YARA/IA fallan, el correo se entrega igual (se registra, no se bloquea salvo configuración explícita).
+
+---
+
+## Conectar una IA (opcional)
+
+La app **arranca sin IA** (fail-open: las funciones de IA se degradan solas; el correo y el login nunca se afectan). Para activarla, **3 pasos**:
+
+1. En `backend/.env`, descomenta **UN** preset y ajusta `IA_MODEL` / `IA_API_KEY`.
+2. `bash deploy/webmail/probar-ia.sh` → debe imprimir **"IA OK"** (o el error con su causa y solución).
+3. `systemctl restart maquita-webmail`.
+
+Cambiar de proveedor (OpenAI → Ollama → Anthropic → gateway propio) = **2–4 líneas del `.env`, cero código**.
+
+| Preset | IA_PROVIDER | IA_BASE_URL | Notas |
+|---|---|---|---|
+| **[A] Ollama local (INFINITO)** | `ollama` | `http://192.168.2.4:11434` | Recomendado local · `IA_MODEL=infinito-qwen36-lora:latest` |
+| [B] OpenAI | `openai` | `https://api.openai.com` | requiere `IA_API_KEY` |
+| [C] Anthropic | `anthropic` | `https://api.anthropic.com` | requiere `IA_API_KEY` |
+| [D] OpenAI-compatible | `openai` | `http://tu-endpoint:puerto` | vLLM, LM Studio, OpenRouter, LocalAI… |
+
+Config central (todas las features de IA la leen): `IA_PROVIDER`, `IA_BASE_URL`, `IA_MODEL`, `IA_API_KEY`, `IA_TIMEOUT`, `IA_EMBED_MODEL` (este último, para RAG/grounding futuro). El `probar-ia.sh` está integrado en `validar-despliegue.sh` como **WARN** (no bloquea el despliegue si la IA no está).

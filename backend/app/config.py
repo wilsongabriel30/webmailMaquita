@@ -34,6 +34,12 @@ class Settings(BaseSettings):
     secure_msg_key: str = ""
     admin_jwt_secret: str = ""
     ia_api_key: str = ""
+    # --- IA enchufable (config central; todas las features la leen) ---
+    ia_provider: str = "gateway"          # openai | ollama | anthropic | gateway
+    ia_base_url: str = ""                 # vacio -> usa ollama_url
+    ia_model: str = ""                    # sin hardcode; definir en .env o panel
+    ia_timeout: int = 60
+    ia_embed_model: str = "nomic-embed-text"
     ollama_url: str = "http://127.0.0.1:11434"
     nc_base_url: str = "http://nextcloud-server"
     nc_admin_user: str = ""
