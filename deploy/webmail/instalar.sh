@@ -419,3 +419,8 @@ echo "  • Webmail:                   https://${MAIL_HOST}/webmail/   (usuario 
 echo "  • Panel de administración:   https://${MAIL_HOST}:8443"
   echo "  • Respaldos cifrados:        configura deploy/webmail/backup/ (ver docs/BACKUP-RESTAURACION.md)"
 echo ""
+
+# --- Cron: cache de almacenamiento por dominio del dashboard (quota Dovecot, no camina disco) ---
+printf '17 * * * * root /opt/maquita-webmail/deploy/tools/calc-storage.sh >/dev/null 2>&1\n' > /etc/cron.d/maquita-storage
+chmod +x /opt/maquita-webmail/deploy/tools/calc-storage.sh 2>/dev/null || true
+bash /opt/maquita-webmail/deploy/tools/calc-storage.sh >/dev/null 2>&1 || true

@@ -65,26 +65,15 @@ async def mail_volume(request: Request, hours: int = 24, admin: dict = Depends(g
 
 @router.get("/storage")
 async def storage_overview(request: Request, admin: dict = Depends(get_current_admin)):
-    """Uso de disco por dominio."""
-    import os
-    from app.config import VMAIL_PATH
-    storage = {}
+    """Uso por dominio (CACHEADO; lo calcula deploy/tools/calc-storage.sh por cron con la quota de Dovecot, sin caminar 2TB)."""
+    import json as _json
     try:
-        for domain in os.listdir(VMAIL_PATH):
-            domain_path = os.path.join(VMAIL_PATH, domain)
-            if os.path.isdir(domain_path):
-                total = 0
-                users = {}
-                for user in os.listdir(domain_path):
-                    user_path = os.path.join(domain_path, user)
-                    if os.path.isdir(user_path):
-                        size = _dir_size(user_path)
-                        users[user] = size
-                        total += size
-                storage[domain] = {"total_bytes": total, "users": users}
+        data = await _db(request).fetchval("SELECT data FROM dashboard_cache WHERE key='storage'")
+        if data:
+            return _json.loads(data) if isinstance(data, str) else data
     except Exception:
         pass
-    return storage
+    return {}
 
 
 def _dir_size(path: str) -> int:
