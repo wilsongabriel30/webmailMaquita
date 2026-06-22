@@ -5,6 +5,7 @@ los buzones a LDAP. Solo lectura + una acción (sync). Admin.
 
 Autor: Wilson Argüello — Equipo de Tecnología, Fundación Maquita
 """
+import asyncio
 import subprocess
 
 from fastapi import APIRouter, Request, Depends, HTTPException
@@ -22,9 +23,9 @@ def _db(r: Request):
     return r.app.state.db
 
 
-def _sh(cmd: str, timeout: int = 20):
+async def _sh(cmd: str, timeout: int = 20):
     try:
-        return subprocess.run(["bash", "-c", cmd], capture_output=True, text=True, timeout=timeout)
+        return await asyncio.to_thread(subprocess.run, ["bash", "-c", cmd], capture_output=True, text=True, timeout=timeout)
     except Exception:
         return None
 
@@ -33,16 +34,16 @@ def _sh(cmd: str, timeout: int = 20):
 async def status(r: Request, a=Depends(get_current_admin)):
     mailbox = await _db(r).fetchval("SELECT count(*) FROM mailbox WHERE active") or 0
 
-    p = _sh('. /etc/maquita/ldap-sync.env 2>/dev/null; '
+    p = await _sh('. /etc/maquita/ldap-sync.env 2>/dev/null; '
             'ldapsearch -x -H "$LDAP_URI" -D "$LDAP_ADMIN_DN" -w "$LDAP_ADMIN_PW" '
             '-b "ou=people,$LDAP_BASE" "(uid=*)" dn 2>/dev/null | grep -c "^dn:"')
     txt = (p.stdout.strip() if p else "0")
     ldap_users = int(txt) if txt.isdigit() else 0
 
-    p2 = _sh(f'curl -s -m 8 -o /dev/null -w "%{{http_code}}" {KC_REALM}/.well-known/openid-configuration')
+    p2 = await _sh(f'curl -s -m 8 -o /dev/null -w "%{{http_code}}" {KC_REALM}/.well-known/openid-configuration')
     kc_ok = bool(p2 and p2.stdout.strip() == "200")
 
-    p3 = _sh(f'curl -s -m 8 {WEBMAIL_OIDC}')
+    p3 = await _sh(f'curl -s -m 8 {WEBMAIL_OIDC}')
     oidc = bool(p3 and '"enabled":true' in (p3.stdout or ""))
 
     return {
@@ -59,7 +60,7 @@ async def status(r: Request, a=Depends(get_current_admin)):
 
 @router.post("/sync")
 async def sync(r: Request, a=Depends(get_current_admin)):
-    p = _sh(f"bash {SYNC}", timeout=120)
+    p = await _sh(f"bash {SYNC}", timeout=120)
     if not p:
         raise HTTPException(500, "No se pudo ejecutar la sincronización")
     try:

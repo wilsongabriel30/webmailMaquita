@@ -5,6 +5,7 @@ permite 'investigar ahora' (corre el motor con triage Qwen) y contener cuentas.
 
 Autor: Wilson Argüello — Equipo de Tecnología, Fundación Maquita
 """
+import asyncio
 import subprocess
 
 from fastapi import APIRouter, Request, Depends, HTTPException
@@ -47,7 +48,7 @@ async def incidents(request: Request, hours: int = 168,
 async def investigate(request: Request, hours: int = 24,
                       admin: dict = Depends(get_current_admin)):
     try:
-        p = subprocess.run(
+        p = await asyncio.to_thread(subprocess.run, 
             ["bash", "-c",
              f"cd {WEBMAIL} && set -a && . .env && set +a && "
              f"venv/bin/python -m app.air.run {int(hours)}"],
