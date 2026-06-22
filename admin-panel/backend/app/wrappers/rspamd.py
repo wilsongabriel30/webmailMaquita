@@ -27,7 +27,22 @@ async def get_stat() -> dict:
 
 async def get_history(offset: int = 0, limit: int = 50) -> list[dict]:
     data = await _get(f"/history?offset={offset}&limit={limit}")
-    return data.get("rows", []) if isinstance(data, dict) else data
+    rows = data.get("rows", []) if isinstance(data, dict) else (data or [])
+    import datetime as _dt
+    out = []
+    for r in rows:
+        if not isinstance(r, dict):
+            out.append(r); continue
+        ut = r.get("unix_time") or r.get("time")
+        try:
+            r["time"] = _dt.datetime.fromtimestamp(int(float(ut))).strftime("%Y-%m-%d %H:%M") if ut else ""
+        except Exception:
+            r["time"] = ""
+        r["from"] = r.get("sender_smtp") or r.get("sender_mime") or r.get("from") or ""
+        rc = r.get("rcpt_smtp") or r.get("rcpt_mime") or r.get("rcpt") or ""
+        r["rcpt"] = ", ".join(str(x) for x in rc) if isinstance(rc, list) else str(rc).strip("[]'\" ")
+        out.append(r)
+    return out
 
 
 async def get_errors() -> list[dict]:
