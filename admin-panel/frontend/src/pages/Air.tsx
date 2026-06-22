@@ -88,7 +88,7 @@ export function Air() {
                     <span className="px-2 py-0.5 rounded text-xs font-medium" style={{ background: s.bg, color: s.text }}>{s.label}</span>
                     {i.action === "account_locked" && <span className="ml-1 text-xs text-[#a4262c]">contenido</span>}
                   </td>
-                  <td className="px-3 py-2 font-medium text-[#323130]">{i.username}</td>
+                  <td className="px-3 py-2 font-medium text-[#323130]">{i.username || "—"}</td>
                   <td className="px-3 py-2 text-[#605e5c]">{i.detail}</td>
                   <td className="px-3 py-2 text-[#605e5c] whitespace-nowrap">{i.created_at ? new Date(i.created_at).toLocaleString() : ""}</td>
                   <td className="px-3 py-2">
