@@ -49,7 +49,7 @@ def validate_password_strength(password: str, username: str = "") -> str | None:
         if len(user_part) > 3 and user_part in password.lower():
             return "La contrasena no debe contener su nombre de usuario"
     # Check for repeated characters (aaaa, 1111)
-    if re.search(r'(.){3,}', password):
+    if re.search(r'(.)\1{3,}', password):
         return "La contrasena no debe tener 4 o mas caracteres repetidos seguidos"
     # Check for sequential patterns (1234, abcd)
     for i in range(len(password) - 3):
