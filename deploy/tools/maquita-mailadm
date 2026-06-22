@@ -166,6 +166,41 @@ case "${1:-help} ${2:-}" in
     curl -s -m 8 -o /dev/null -w "  /api/health: HTTP %{http_code}  %{time_total}s\n" http://127.0.0.1:8001/api/health 2>/dev/null
     ;;
 
+  "voice diag"|"voice status")
+    echo "== DIAGNOSTICO DEL DICTADO POR VOZ =="
+    ROW=$($PSQL "SELECT whisper_url||'|'||COALESCE(NULLIF(whisper_key,''),'-')||'|'||mode||'|'||language||'|'||enabled FROM voice_config WHERE id=1")
+    URL="${ROW%%|*}"; R2="${ROW#*|}"; KEY="${R2%%|*}"; R3="${R2#*|}"; MODE="${R3%%|*}"; R4="${R3#*|}"; LANG="${R4%%|*}"; EN="${R4##*|}"
+    echo "Modo:        $MODE"
+    echo "Servidor:    $URL"
+    echo "Habilitado:  $EN"
+    [ "$EN" != "true" ] && { echo "DIAGNOSTICO: dictado DESHABILITADO. Actívalo en el panel (Voz)."; exit 0; }
+    if [ "$MODE" = "whisperlive" ]; then
+      echo "AVISO: el modo 'whisperlive' (streaming) tiene un bug conocido de libreria (transcribe pero no envia el texto)."
+      echo "RECOMENDADO -> maquita-mailadm voice mode whisper"
+    fi
+    python3 -c "import wave;w=wave.open('/tmp/_vd.wav','wb');w.setnchannels(1);w.setsampwidth(2);w.setframerate(16000);w.writeframes(b'\\x00\\x00'*16000);w.close()" 2>/dev/null
+    RESP=$(curl -s -m 25 -H "X-API-Key: $KEY" -F "audio=@/tmp/_vd.wav;type=audio/wav" -F "language=$LANG" "$URL/api/transcribe" 2>&1)
+    rm -f /tmp/_vd.wav
+    echo "------------------------------------------"
+    if echo "$RESP" | grep -q '"success":true'; then
+      MODEL=$(echo "$RESP" | grep -oE '"model_used":"[^"]*"' | cut -d'"' -f4)
+      echo "DIAGNOSTICO: servidor de transcripcion OK (modelo: ${MODEL:-?}). El dictado FUNCIONA."
+    else
+      echo "DIAGNOSTICO: el servidor de transcripcion FALLA."
+      echo "  respuesta: ${RESP:0:170}"
+      echo "SOLUCION: verificar que $URL este arriba y el API key sea correcto (panel -> Voz)."
+    fi
+    ;;
+
+  "voice mode")
+    M="${3:?uso: voice mode <whisper|browser|whisperlive>}"
+    case "$M" in whisper|browser|whisperlive) ;; *) die "modo invalido: $M (usar whisper|browser|whisperlive)";; esac
+    [ "$M" = "whisperlive" ] && echo "AVISO: 'whisperlive' tiene un bug conocido; se recomienda 'whisper'."
+    $PSQL "UPDATE voice_config SET mode='$M' WHERE id=1" >/dev/null
+    log_audit "voice-mode $M"
+    echo "OK: modo de dictado -> $M  (los usuarios deben refrescar el webmail con Ctrl+F5)"
+    ;;
+
   "service status"|"service list")
     printf "%-22s %s\n" "SERVICIO" "ESTADO"
     for s in $SERVICES; do printf "%-22s %s\n" "$s" "$(systemctl is-active "$s" 2>/dev/null)"; done
@@ -661,6 +696,10 @@ PANEL ADMIN (https://mail.example.org:8443):
 PANEL DE ADMINISTRACION (:8443):
   panel diag                           diagnosticar el panel (servicio/workers/tiempos) + que hacer
   panel restart                        reiniciar el panel (soluciona la "bolita girando")
+
+DICTADO POR VOZ:
+  voice diag                           probar el dictado de extremo a extremo + que hacer si falla
+  voice mode <whisper|browser|whisperlive>   cambiar el modo (recomendado: whisper)
 
 ALIAS Y REENVÍO (equiv. zmprov aaa / forwarding):
   alias create <alias> <destino>       crear alias (correo a <alias> va a <destino>)
