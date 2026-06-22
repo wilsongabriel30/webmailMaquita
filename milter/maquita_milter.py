@@ -316,18 +316,20 @@ async def _inbound_safeattach(st, pool) -> list:
             fn = part.get_filename()
             if not fn:
                 continue
-            try:
-                payload = part.get_payload(decode=True) or b""
-            except Exception:
-                continue
-            if not payload or len(payload) > 25_000_000:
-                continue
-            ct = part.get_content_type() or ""
             ext = _os.path.splitext(fn)[1].lower()
+            ct = part.get_content_type() or ""
             reason = ""
+            psize = 0
             if ext in _EXE_EXT:
-                reason = "ejecutable (" + ext + ")"
+                reason = "ejecutable (" + ext + ")"   # por extension: sin importar tamaño/truncamiento
             else:
+                try:
+                    payload = part.get_payload(decode=True) or b""
+                except Exception:
+                    continue
+                psize = len(payload)
+                if not payload or psize > 25_000_000:
+                    continue
                 try:
                     from app.safeattach import scan_attachment
                     rep = await _aio.wait_for(_aio.to_thread(scan_attachment, payload, fn, ct), timeout=15)
@@ -344,7 +346,7 @@ async def _inbound_safeattach(st, pool) -> list:
                         "INSERT INTO attachment_scans (message_id, filename, content_type, size, "
                         "scan_result, threats_found, scanned_by, scanned_at) "
                         "VALUES ($1,$2,$3,$4,$5,$6::jsonb,'milter',now())",
-                        mid, fn, ct, len(payload), "quarantined", json.dumps([reason[:300]]))
+                        mid, fn, ct, psize, "quarantined", json.dumps([reason[:300]]))
                 except Exception:
                     pass
         if flagged:

@@ -13,7 +13,16 @@ local function maq_check_own_spoof(task)
   if not (from and from[1] and from[1].domain) then from = task:get_from('mime') end
   if not (from and from[1] and from[1].domain) then return false end
   local fdom = tostring(from[1].domain):lower()
-  if not (maq_local_domains and maq_local_domains:get_key(fdom)) then return false end
+  local function maq_is_ours(d)
+    while d and d ~= '' do
+      if maq_local_domains:get_key(d) then return true end
+      local nd = d:gsub('^[^.]+%.', '', 1)
+      if nd == d then break end
+      d = nd
+    end
+    return false
+  end
+  if not (maq_local_domains and maq_is_ours(fdom)) then return false end
   if task:has_symbol('R_DKIM_ALLOW') or task:has_symbol('R_SPF_ALLOW')
      or task:has_symbol('DMARC_POLICY_ALLOW') then return false end
   return true, 1.0, fdom
