@@ -285,7 +285,7 @@ async def _outbound_dlp(st, sender) -> Continue:
         has_card = any(f.data_type == "tarjeta" for f in findings)
         locals_ = await _local_domains(pool)
         has_external = any((r.split("@")[-1].lower() not in locals_) for r in st["rcpts"] if "@" in r)
-        block = has_card and has_external
+        block = has_card and has_external and (await _security_config(pool))["block_cards"]
         try:
             await pool.execute(
                 "INSERT INTO dlp_violations (username, recipients, subject, data_types, action, overridden) "
@@ -368,12 +368,36 @@ async def _inbound_safeattach(st, pool) -> list:
         return []
 
 
+_secfg = {"ts": 0.0, "imp_on": True, "imp_terms": ["maquita", "mcch", "cushunchic"], "block_cards": True}
+
+
+async def _security_config(pool):
+    """Lee security_config (panel :8443) con cache de 20s. Fail-safe a los valores por defecto."""
+    now = time.monotonic()
+    if now - _secfg["ts"] < 20:
+        return _secfg
+    try:
+        row = await pool.fetchrow(
+            "SELECT impersonation_enabled, impersonation_terms, dlp_block_cards_external FROM security_config WHERE id = 1")
+        if row:
+            _secfg["imp_on"] = bool(row["impersonation_enabled"])
+            _secfg["imp_terms"] = list(row["impersonation_terms"] or [])
+            _secfg["block_cards"] = bool(row["dlp_block_cards_external"])
+    except Exception:
+        pass
+    _secfg["ts"] = now
+    return _secfg
+
+
 async def _inbound_impersonation(st, pool, locals_) -> list:
     """Anti-impersonation: correo de dominio AJENO cuyo NOMBRE visible suplanta a Maquita
     (marca o dominio propio en el display-name) -> cuarentena en Junk. Fail-open."""
     try:
         from email.utils import parseaddr
         from email.header import decode_header, make_header
+        cfg = await _security_config(pool)
+        if not cfg["imp_on"]:
+            return []
         if any(n.lower() == "x-maquita-quarantine" for n, _ in st["headers"]):
             return []
         from_hdr = next((v for n, v in st["headers"] if n.lower() == "from"), "")
@@ -389,7 +413,7 @@ async def _inbound_impersonation(st, pool, locals_) -> list:
         addr_dom = addr.split("@")[-1].lower() if "@" in addr else ""
         if addr_dom and addr_dom in locals_:
             return []   # dominio propio -> ya lo cubre MAQ_OWN_DOMAIN_SPOOF
-        terms = set(["maquita", "mcch", "cushunchic"])
+        terms = set(cfg["imp_terms"])
         for d in locals_:
             terms.add(str(d).lower())
         name_l = name.lower()
