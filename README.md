@@ -407,3 +407,6 @@ Este proyecto está licenciado bajo la [Licencia Pública General Affero de GNU 
 ## Créditos
 
 Desarrollado por el equipo de tecnología de [Fundación Maquita](https://maquita.org), Quito, Ecuador.
+
+## Características
+Ver **[docs/CARACTERISTICAS-PLATAFORMA.md](docs/CARACTERISTICAS-PLATAFORMA.md)** — qué ofrece la plataforma (correo, seguridad, cumplimiento e IA), a costo cero de licencias.
