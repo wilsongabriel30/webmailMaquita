@@ -358,6 +358,41 @@ async def _inbound_safeattach(st, pool) -> list:
         return []
 
 
+async def _inbound_impersonation(st, pool, locals_) -> list:
+    """Anti-impersonation: correo de dominio AJENO cuyo NOMBRE visible suplanta a Maquita
+    (marca o dominio propio en el display-name) -> cuarentena en Junk. Fail-open."""
+    try:
+        from email.utils import parseaddr
+        from email.header import decode_header, make_header
+        if any(n.lower() == "x-maquita-quarantine" for n, _ in st["headers"]):
+            return []
+        from_hdr = next((v for n, v in st["headers"] if n.lower() == "from"), "")
+        if not from_hdr:
+            return []
+        name, addr = parseaddr(from_hdr)
+        try:
+            name = str(make_header(decode_header(name))) if name else ""
+        except Exception:
+            pass
+        if not name:
+            return []
+        addr_dom = addr.split("@")[-1].lower() if "@" in addr else ""
+        if addr_dom and addr_dom in locals_:
+            return []   # dominio propio -> ya lo cubre MAQ_OWN_DOMAIN_SPOOF
+        terms = set(["maquita", "mcch", "cushunchic"])
+        for d in locals_:
+            terms.add(str(d).lower())
+        name_l = name.lower()
+        hit = next((t for t in terms if t and t in name_l), None)
+        if hit:
+            return [AppendHeader(headername="X-Maquita-Quarantine",
+                                 headertext=("impersonation: nombre '" + name[:50] +
+                                             "' (dominio real " + (addr_dom or "?") + ")")[:300])]
+        return []
+    except Exception:
+        return []
+
+
 async def _inbound_safelinks(st, pool, locals_) -> Continue:
     if st.get("trunc"):
         return Continue()   # cuerpo truncado -> entregar intacto (fail-safe)
@@ -372,6 +407,7 @@ async def _inbound_safelinks(st, pool, locals_) -> Continue:
     manips.extend(await _inbound_phishing(st, pool))          # Anti-phishing (default off)
     manips.extend(await _inbound_attachments(st, pool))      # Macros en adjuntos (default off)
     manips.extend(await _inbound_safeattach(st, pool))     # Safe Attachments inline + ejecutables -> cuarentena
+    manips.extend(await _inbound_impersonation(st, pool, locals_))  # anti-impersonation (display-name)
     return Continue(manipulations=manips) if manips else Continue()
 
 
