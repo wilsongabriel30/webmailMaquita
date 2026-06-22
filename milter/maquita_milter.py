@@ -26,7 +26,7 @@ sys.path.insert(0, "/opt/maquita-webmail/backend")
 
 import asyncpg  # noqa: E402
 from purepythonmilter import (  # noqa: E402
-    PurePythonMilter, Continue, AppendHeader, ReplaceBodyChunk,
+    PurePythonMilter, Continue, AppendHeader, ReplaceBodyChunk, RejectWithCode,
 )
 from purepythonmilter.api.models import connection_id_context  # noqa: E402
 from app.dlp import detectors  # noqa: E402
@@ -281,13 +281,23 @@ async def _outbound_dlp(st, sender) -> Continue:
     if findings:
         types = sorted({f.data_type for f in findings})
         subj = next((t for n, t in st["headers"] if n.lower() == "subject"), "")
+        # Bloquear SOLO tarjetas de credito (Luhn) que salen a destinatarios EXTERNOS
+        has_card = any(f.data_type == "tarjeta" for f in findings)
+        locals_ = await _local_domains(pool)
+        has_external = any((r.split("@")[-1].lower() not in locals_) for r in st["rcpts"] if "@" in r)
+        block = has_card and has_external
         try:
             await pool.execute(
                 "INSERT INTO dlp_violations (username, recipients, subject, data_types, action, overridden) "
-                "VALUES ($1,$2,$3,$4,'milter_log',true)",
-                sender, json.dumps(st["rcpts"]), (subj or "")[:500], json.dumps(types))
+                "VALUES ($1,$2,$3,$4,$5,$6)",
+                sender, json.dumps(st["rcpts"]), (subj or "")[:500], json.dumps(types),
+                "milter_reject" if block else "milter_log", (not block))
         except Exception:
             pass
+        if block:
+            return RejectWithCode(
+                primary_code=(5, 5, 4), enhanced_code=(5, 7, 1),
+                text="Bloqueado por politica DLP: no se permite enviar numeros de tarjeta de credito a destinatarios externos.")
         manips.append(AppendHeader(headername="X-DLP-Alert",
                                    headertext="posibles datos sensibles: " + ", ".join(types)))
     return Continue(manipulations=manips) if manips else Continue()
