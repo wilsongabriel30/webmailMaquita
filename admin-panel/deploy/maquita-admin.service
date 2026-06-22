@@ -7,7 +7,10 @@ Wants=postgresql.service
 Type=simple
 User=root
 WorkingDirectory=/opt/maquita-webmail/admin-panel/backend
-ExecStart=/opt/maquita-webmail/admin-panel/backend/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8001 --workers 2
+# Gunicorn gestiona uvicorn workers y los RECICLA cada ~800 req (jitter 200)
+# para acotar la fuga de memoria: el worker se reinicia uno a la vez (sin downtime)
+# y libera la memoria filtrada ANTES de acercarse al limite. Evita el cuelgue/502.
+ExecStart=/opt/maquita-webmail/admin-panel/backend/venv/bin/gunicorn app.main:app --workers 6 --worker-class uvicorn.workers.UvicornWorker --bind 127.0.0.1:8001 --max-requests 800 --max-requests-jitter 200 --timeout 120 --graceful-timeout 30 --access-logfile - --error-logfile -
 Restart=always
 RestartSec=5
 Environment=PYTHONUNBUFFERED=1
