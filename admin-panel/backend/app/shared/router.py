@@ -1,7 +1,7 @@
 """Shared mailbox management — ACL-based delegation."""
 from fastapi import APIRouter, Request, Depends, HTTPException
 from app.auth.dependencies import require_role
-import subprocess, json
+import subprocess, json, asyncio
 
 router = APIRouter(prefix="/api/shared", tags=["shared-mailboxes"])
 
@@ -49,7 +49,7 @@ async def get_permissions(username: str, request: Request, admin: dict = Depends
     permissions = {}
     for folder in folders:
         try:
-            acls = _doveadm_acl_get(username, folder)
+            acls = await asyncio.to_thread(_doveadm_acl_get, username, folder)
             if acls:
                 permissions[folder] = acls
         except Exception:
@@ -78,7 +78,7 @@ async def grant_access(username: str, request: Request, admin: dict = Depends(re
     target_id = f"user={delegate}"
 
     for folder in folders:
-        _doveadm_acl_set(username, folder, target_id, rights)
+        await asyncio.to_thread(_doveadm_acl_set, username, folder, target_id, rights)
 
     await _audit(request, admin, "shared_grant",
                  f"{delegate} -> {username} level={level} folders={','.join(folders)}")
@@ -98,7 +98,7 @@ async def revoke_access(username: str, request: Request, admin: dict = Depends(r
     target_id = f"user={delegate}"
     for folder in folders:
         try:
-            _doveadm_acl_delete(username, folder, target_id)
+            await asyncio.to_thread(_doveadm_acl_delete, username, folder, target_id)
         except Exception:
             pass
 
@@ -117,7 +117,7 @@ async def list_all_delegations(request: Request, admin: dict = Depends(require_r
     for row in rows:
         username = row["username"]
         try:
-            acls = _doveadm_acl_get(username, "INBOX")
+            acls = await asyncio.to_thread(_doveadm_acl_get, username, "INBOX")
             for acl in acls:
                 if acl["id"].startswith("user="):
                     delegate = acl["id"].replace("user=", "")
