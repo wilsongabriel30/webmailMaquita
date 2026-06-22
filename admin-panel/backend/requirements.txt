@@ -8,3 +8,4 @@ pydantic
 aioimaplib
 python-multipart
 redis
+gunicorn==26.0.0
