@@ -12,7 +12,7 @@ MANAGED_SERVICES = {
     "dovecot": {"unit": "dovecot", "label": "Dovecot (IMAP/POP3)"},
     "rspamd": {"unit": "rspamd", "label": "Rspamd (Anti-Spam)"},
     "redis": {"unit": "redis-server", "label": "Redis"},
-    "postgresql": {"unit": "postgresql", "label": "PostgreSQL"},
+    "postgresql": {"unit": "postgresql@17-main", "label": "PostgreSQL"},
     "nginx": {"unit": "nginx", "label": "Nginx"},
     "clamav": {"unit": "clamav-daemon", "label": "ClamAV (Antivirus)"},
     "fail2ban": {"unit": "fail2ban", "label": "Fail2ban (Firewall)"},
