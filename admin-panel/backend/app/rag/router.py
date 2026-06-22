@@ -4,6 +4,7 @@ Reusa el motor RAG del webmail vía subprocess. Autor: Wilson Argüello — Tecn
 """
 import json
 import shlex
+import asyncio
 import subprocess
 
 from fastapi import APIRouter, Request, Depends, HTTPException
@@ -19,10 +20,10 @@ def _db(r: Request):
     return r.app.state.db
 
 
-def _run(args, timeout=185):
+async def _run(args, timeout=185):
     cmd = f"cd {WEBMAIL} && set -a && . .env && set +a && venv/bin/python -m app.rag.run {args}"
     try:
-        p = subprocess.run(["bash", "-c", cmd], capture_output=True, text=True, timeout=timeout)
+        p = await asyncio.to_thread(subprocess.run, ["bash", "-c", cmd], capture_output=True, text=True, timeout=timeout)
     except Exception as e:
         return {"error": str(e)}
     out = (p.stdout or "").strip()
@@ -74,7 +75,7 @@ async def ingest(r: Request, body: UserReq, a=Depends(get_current_admin)):
     u = "".join(c for c in (body.user or "") if c.isalnum() or c in "@._-")
     if not u:
         raise HTTPException(400, "usuario inválido")
-    return _run(f"--user {shlex.quote(u)}")
+    return await _run(f"--user {shlex.quote(u)}")
 
 
 class AskReq(BaseModel):
@@ -88,4 +89,4 @@ async def ask_test(r: Request, body: AskReq, a=Depends(get_current_admin)):
     q = (body.question or "").strip()[:300]
     if not u or not q:
         raise HTTPException(400, "faltan datos")
-    return _run(f"--user {shlex.quote(u)} --ask {shlex.quote(q)}", timeout=60)
+    return await _run(f"--user {shlex.quote(u)} --ask {shlex.quote(q)}", timeout=60)

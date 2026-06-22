@@ -132,6 +132,40 @@ case "${1:-help} ${2:-}" in
     $PSQL "SELECT username||'  ('||role||')  active='||active||CASE WHEN locked_until>NOW() THEN '  [BLOQUEADO]' ELSE '' END FROM admin_users ORDER BY id"
     ;;
 
+  "panel diag"|"panel status")
+    echo "== DIAGNOSTICO DEL PANEL :8443 (maquita-admin) =="
+    ACT=$(systemctl is-active maquita-admin 2>/dev/null)
+    echo "Servicio:            $ACT"
+    MPID=$(systemctl show maquita-admin -p MainPID --value 2>/dev/null)
+    MEM=$(systemctl show maquita-admin -p MemoryCurrent --value 2>/dev/null)
+    [ "$MEM" -gt 0 ] 2>/dev/null && echo "Memoria:             $((MEM/1048576)) MB"
+    STATES=$(ps -o stat= --ppid "$MPID" 2>/dev/null | tr "\n" " ")
+    echo "Workers:             $(echo $STATES | wc -w)  estados: ${STATES:-?}  (D/Dl = BLOQUEADO)"
+    BLOQ=$(echo "$STATES" | grep -oE "D" | wc -l)
+    H=$(curl -s -m 8 -o /dev/null -w "%{time_total}" http://127.0.0.1:8001/api/health 2>/dev/null)
+    DB=$(curl -s -m 8 -o /dev/null -w "%{time_total}" http://127.0.0.1:8001/api/dashboard 2>/dev/null)
+    echo "Resp /api/health:    ${H:-TIMEOUT}s"
+    echo "Resp /api/dashboard: ${DB:-TIMEOUT}s   (>5s = problema)"
+    echo "Procesos IA en curso: $(ps -eo cmd 2>/dev/null | grep -E "app\.(rag|agents|copiloto|air|safeattach)\." | grep -v grep | wc -l)"
+    echo "------------------------------------------"
+    SLOW=$(awk -v h="${H:-9}" -v d="${DB:-9}" "BEGIN{print (h>5 || d>5)?1:0}")
+    if [ "$ACT" != "active" ]; then
+      echo "DIAGNOSTICO: el servicio NO esta activo.   SOLUCION -> maquita-mailadm panel restart"
+    elif [ "${BLOQ:-0}" -gt 0 ] || [ "$SLOW" = "1" ]; then
+      echo "DIAGNOSTICO: WORKERS BLOQUEADOS o panel lento (bolita girando)."
+      echo "SOLUCION  -> maquita-mailadm panel restart"
+    else
+      echo "DIAGNOSTICO: panel SANO.  Si el navegador muestra bolita, refresca con Ctrl+Shift+R."
+    fi
+    ;;
+
+  "panel restart")
+    systemctl restart maquita-admin && sleep 3
+    log_audit "panel-restart"
+    echo "OK: panel reiniciado -> $(systemctl is-active maquita-admin)"
+    curl -s -m 8 -o /dev/null -w "  /api/health: HTTP %{http_code}  %{time_total}s\n" http://127.0.0.1:8001/api/health 2>/dev/null
+    ;;
+
   "service status"|"service list")
     printf "%-22s %s\n" "SERVICIO" "ESTADO"
     for s in $SERVICES; do printf "%-22s %s\n" "$s" "$(systemctl is-active "$s" 2>/dev/null)"; done
@@ -623,6 +657,10 @@ PANEL ADMIN (https://mail.example.org:8443):
   admin passwd <usuario> [nueva]       resetear contraseña (desbloquea)
   admin unlock <usuario>               desbloquear (tras 5 intentos -> 15 min)
   admin list                           listar admins
+
+PANEL DE ADMINISTRACION (:8443):
+  panel diag                           diagnosticar el panel (servicio/workers/tiempos) + que hacer
+  panel restart                        reiniciar el panel (soluciona la "bolita girando")
 
 ALIAS Y REENVÍO (equiv. zmprov aaa / forwarding):
   alias create <alias> <destino>       crear alias (correo a <alias> va a <destino>)

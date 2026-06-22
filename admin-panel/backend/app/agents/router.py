@@ -6,6 +6,7 @@ por defecto; 'apply' solo cuando se pide explícito (y la política lo permita).
 Autor: Wilson Argüello — Equipo de Tecnología, Fundación Maquita
 """
 import json
+import asyncio
 import subprocess
 
 from fastapi import APIRouter, Request, Depends, HTTPException
@@ -17,9 +18,9 @@ router = APIRouter(prefix="/api/agents", tags=["agents"])
 WEBMAIL = "/opt/maquita-webmail/backend"
 
 
-def _sh(cmd: str, timeout: int = 160):
+async def _sh(cmd: str, timeout: int = 160):
     try:
-        return subprocess.run(["bash", "-c", cmd], capture_output=True, text=True, timeout=timeout)
+        return await asyncio.to_thread(subprocess.run, ["bash", "-c", cmd], capture_output=True, text=True, timeout=timeout)
     except Exception:
         return None
 
@@ -36,7 +37,7 @@ def _slice(out: str, op: str, cl: str):
 
 @router.get("/list")
 async def list_agents(r: Request, a=Depends(get_current_admin)):
-    p = _sh(f'cd {WEBMAIL} && set -a && . .env && set +a && venv/bin/python -c '
+    p = await _sh(f'cd {WEBMAIL} && set -a && . .env && set +a && venv/bin/python -c '
             f'"import json; from app.agents.runner import list_agents; print(json.dumps(list_agents()))"',
             timeout=30)
     data = _slice((p.stdout or "") if p else "", "[", "]")
@@ -57,7 +58,7 @@ async def run(r: Request, body: RunReq, a=Depends(get_current_admin)):
     flag = "--apply" if body.apply else ""
     u = "".join(c for c in (body.user or "") if c.isalnum() or c in "@._-")
     uflag = f"--user {u}" if u else ""
-    p = _sh(f'cd {WEBMAIL} && set -a && . .env && set +a && '
+    p = await _sh(f'cd {WEBMAIL} && set -a && . .env && set +a && '
             f'venv/bin/python -m app.agents.run {name} {flag} {uflag}')
     if not p:
         raise HTTPException(500, "No se pudo ejecutar el agente")

@@ -6,6 +6,7 @@ Autor: Wilson Argüello — Equipo de Tecnología, Fundación Maquita
 """
 import json
 import shlex
+import asyncio
 import subprocess
 
 from fastapi import APIRouter, Request, Depends, HTTPException
@@ -31,7 +32,7 @@ async def ask(r: Request, body: AskReq, a=Depends(get_current_admin)):
     cmd = (f"cd {WEBMAIL} && set -a && . .env && set +a && "
            f"venv/bin/python -m app.copiloto.run {shlex.quote(q)} {days}")
     try:
-        p = subprocess.run(["bash", "-c", cmd], capture_output=True, text=True, timeout=120)
+        p = await asyncio.to_thread(subprocess.run, ["bash", "-c", cmd], capture_output=True, text=True, timeout=120)
     except Exception as e:
         raise HTTPException(500, str(e))
     out = (p.stdout or "").strip()
