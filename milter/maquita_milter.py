@@ -271,25 +271,89 @@ def _extract_text(headers, body: bytes) -> str:
 
 async def _outbound_dlp(st, sender) -> Continue:
     pool = await _get_pool()
+    manips = await _inbound_safeattach(st, pool)   # Safe Attachments tambien en interno/saliente
     try:
         kws = [r["term"] for r in await pool.fetch("SELECT term FROM dlp_keywords")]
     except Exception:
         kws = []
     text = _extract_text(st["headers"], bytes(st["body"]))
     findings = detectors.detect_all(text, kws)
-    if not findings:
-        return Continue()
-    types = sorted({f.data_type for f in findings})
-    subj = next((t for n, t in st["headers"] if n.lower() == "subject"), "")
+    if findings:
+        types = sorted({f.data_type for f in findings})
+        subj = next((t for n, t in st["headers"] if n.lower() == "subject"), "")
+        try:
+            await pool.execute(
+                "INSERT INTO dlp_violations (username, recipients, subject, data_types, action, overridden) "
+                "VALUES ($1,$2,$3,$4,'milter_log',true)",
+                sender, json.dumps(st["rcpts"]), (subj or "")[:500], json.dumps(types))
+        except Exception:
+            pass
+        manips.append(AppendHeader(headername="X-DLP-Alert",
+                                   headertext="posibles datos sensibles: " + ", ".join(types)))
+    return Continue(manipulations=manips) if manips else Continue()
+
+
+_EXE_EXT = {".exe", ".scr", ".bat", ".cmd", ".com", ".pif", ".msi", ".js", ".jse",
+            ".vbs", ".vbe", ".jar", ".ps1", ".lnk", ".hta", ".cpl", ".reg", ".wsf",
+            ".msc", ".gadget", ".vb", ".ws", ".sct", ".inf"}
+
+
+async def _inbound_safeattach(st, pool) -> list:
+    """Safe Attachments INLINE: analiza cada adjunto (multi-motor estatico) y los ejecutables.
+    Si es malicioso/sospechoso/ejecutable -> cabecera X-Maquita-Quarantine (sieve lo manda a Junk).
+    Fail-open: si algo falla, el correo se entrega intacto."""
+    import os as _os, asyncio as _aio, logging as _lg
     try:
-        await pool.execute(
-            "INSERT INTO dlp_violations (username, recipients, subject, data_types, action, overridden) "
-            "VALUES ($1,$2,$3,$4,'milter_log',true)",
-            sender, json.dumps(st["rcpts"]), (subj or "")[:500], json.dumps(types))
-    except Exception:
-        pass
-    return Continue(manipulations=[AppendHeader(headername="X-DLP-Alert",
-                                                headertext="posibles datos sensibles: " + ", ".join(types))])
+        if not await _attach_scan_enabled(pool):
+            return []
+        if any(n.lower() == "x-maquita-quarantine" for n, _ in st["headers"]):
+            return []
+        raw = _reconstruct(st["headers"], bytes(st["body"]))
+        msg = message_from_bytes(raw)
+        mid = next((v for n, v in st["headers"] if n.lower() == "message-id"), "")
+        flagged = []
+        for part in msg.walk():
+            fn = part.get_filename()
+            if not fn:
+                continue
+            try:
+                payload = part.get_payload(decode=True) or b""
+            except Exception:
+                continue
+            if not payload or len(payload) > 25_000_000:
+                continue
+            ct = part.get_content_type() or ""
+            ext = _os.path.splitext(fn)[1].lower()
+            reason = ""
+            if ext in _EXE_EXT:
+                reason = "ejecutable (" + ext + ")"
+            else:
+                try:
+                    from app.safeattach import scan_attachment
+                    rep = await _aio.wait_for(_aio.to_thread(scan_attachment, payload, fn, ct), timeout=15)
+                    res = (rep or {}).get("result")
+                    if res in ("malicious", "suspicious"):
+                        thr = "; ".join(str(t.get("threat", "")) for t in (rep.get("threats") or [])[:2])
+                        reason = res + ": " + thr
+                except Exception:
+                    reason = ""
+            if reason:
+                flagged.append((fn, reason))
+                try:
+                    await pool.execute(
+                        "INSERT INTO attachment_scans (message_id, filename, content_type, size, "
+                        "scan_result, threats_found, scanned_by, scanned_at) "
+                        "VALUES ($1,$2,$3,$4,$5,$6::jsonb,'milter',now())",
+                        mid, fn, ct, len(payload), "quarantined", json.dumps([reason[:300]]))
+                except Exception:
+                    pass
+        if flagged:
+            txt = "; ".join(fn + " [" + r + "]" for fn, r in flagged[:5])
+            return [AppendHeader(headername="X-Maquita-Quarantine", headertext=txt[:400])]
+        return []
+    except Exception as _e:
+        _lg.warning("Safe Attachments milter: %r", _e)
+        return []
 
 
 async def _inbound_safelinks(st, pool, locals_) -> Continue:
@@ -305,6 +369,7 @@ async def _inbound_safelinks(st, pool, locals_) -> Continue:
             manips.append(ReplaceBodyChunk(chunk=new_body))   # Safe Links
     manips.extend(await _inbound_phishing(st, pool))          # Anti-phishing (default off)
     manips.extend(await _inbound_attachments(st, pool))      # Macros en adjuntos (default off)
+    manips.extend(await _inbound_safeattach(st, pool))     # Safe Attachments inline + ejecutables -> cuarentena
     return Continue(manipulations=manips) if manips else Continue()
 
 
