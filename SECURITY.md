@@ -86,10 +86,28 @@ Estos deben enviarse por el canal de reporte privado indicado arriba.
 - **Cifrado en tránsito:** TLS 1.2+ en todas las conexiones
 - **Seguridad de correo:** SPF, DKIM, DMARC (reject), MTA-STS, DANE
 - **Almacenamiento de sesiones:** Redis con campos sensibles cifrados con Fernet
-- **Antispam:** Rspamd con reglas de puntuación personalizadas + ClamAV
+- **Antispam / antivirus:** Rspamd como **milter** (scoring propio) + **ClamAV** integrado (módulo `antivirus` de Rspamd) + milter propio anti-suplantación
 - **Auditoría:** 39 eventos auditados, registro de auditoría de solo anexo
 - **Integridad de evidencia:** Firmas GPG separadas + sellado de marca de tiempo
 - **Endurecimiento con systemd:** ProtectSystem=strict, PrivateTmp, MemoryMax, TasksMax
+
+> **Nota para técnicos acostumbrados a amavis / SpamAssassin.** Este sistema **no
+> usa amavis ni SpamAssassin**. Rspamd reemplaza a ambos en un único demonio
+> moderno (Hyperscan + LuaJIT) y filtra por **protocolo milter** —inline en la
+> sesión SMTP (`smtpd_milters`)— en lugar del `content_filter` por re-inyección
+> que usa amavis (más lento). Equivalencias para ubicarte:
+>
+> | Mundo amavis (clásico) | Aquí (Rspamd) |
+> |---|---|
+> | `amavisd-new` (pegamento `content_filter`) | **Rspamd milter** en `localhost:11332` |
+> | SpamAssassin (reglas + Bayes) | **Rspamd**: reglas Lua, red neuronal, RBL/SURBL, greylisting, phishing |
+> | `clamd` invocado por amavis | **ClamAV** invocado por el módulo `antivirus` de Rspamd |
+> | opendkim / firma vía amavis | firma nativa de Rspamd (`dkim_signing`, `arc`) |
+>
+> **ClamAV no desapareció:** sigue corriendo, solo que ahora lo llama Rspamd y no
+> amavis. Hay además un milter propio (`milter/maquita_milter.py`, puerto 11335)
+> para anti-suplantación/políticas y un `content_filter` propio con heurísticas
+> extra. Si buscas amavis en el servidor no lo vas a encontrar: es intencional.
 
 ## Funciones de seguridad de GitHub
 
