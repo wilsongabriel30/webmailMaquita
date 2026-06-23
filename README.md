@@ -299,6 +299,30 @@ con funciones de nivel empresarial. Organizado por áreas, hoy incluye:
 Está protegido con doble credencial (auth básica de nginx + login propio del
 panel); el instalador genera ambas y las muestra al terminar.
 
+### Administración por consola (CLI) — `maquita-mailadm`
+
+Para administradores que prefieren la terminal (o automatizar), el instalador
+incluye **`maquita-mailadm`** (en `/usr/local/sbin/`): una herramienta de consola
+estilo `zmprov`/`zmcontrol` de Zimbra que gestiona cuentas, alias, reenvíos,
+autorespuestas, cola y servicios **sin tocar la base de datos a mano**. Toda
+acción que modifica algo queda registrada en `/var/log/maquita-mailadm.log`.
+
+```bash
+maquita-mailadm help                            # ver todos los comandos
+maquita-mailadm mailbox create user@dominio 5   # crear buzón (5 GB)
+maquita-mailadm mailbox passwd user@dominio     # resetear contraseña
+maquita-mailadm mailbox enable|disable user@dominio
+maquita-mailadm mailbox list [dominio]          # listar buzones
+maquita-mailadm alias create alias@d destino@d  # crear alias
+maquita-mailadm forward set buzon@d destino@d   # reenvío (añade 'keep' para copia local)
+maquita-mailadm queue list|flush                # cola de correo
+maquita-mailadm service status|restart|reload <svc>
+maquita-mailadm stats                           # resumen del sistema
+```
+
+**Referencia completa** (todos los comandos, con su equivalente Zimbra):
+[`deploy/tools/GUIA-COMANDOS.md`](deploy/tools/GUIA-COMANDOS.md).
+
 ## Sincronización con móviles (Z-Push / ActiveSync) — opcional
 
 El **único** componente que usa Docker. Permite sincronizar correo, calendario y
@@ -409,6 +433,7 @@ Documentación detallada en el directorio `docs/`:
 - `docs/DEPLOYMENT.md` — guía de despliegue en producción
 - `docs/COMPLIANCE.md` — uso de eDiscovery y retención legal
 - `docs/CONFIGURATION.md` — variables de entorno y configuración
+- [`deploy/tools/GUIA-COMANDOS.md`](deploy/tools/GUIA-COMANDOS.md) — **comandos de consola** (`maquita-mailadm`): cuentas, alias, reenvíos, autorespuestas, cola y servicios
 - `CONTRIBUTING.md` — flujo de desarrollo y estándares de código
 - [`SECURITY.md`](SECURITY.md) — modelo de seguridad y mitigaciones
 
