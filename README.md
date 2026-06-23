@@ -320,8 +320,43 @@ maquita-mailadm service status|restart|reload <svc>
 maquita-mailadm stats                           # resumen del sistema
 ```
 
-**Referencia completa** (todos los comandos, con su equivalente Zimbra):
-[`deploy/tools/GUIA-COMANDOS.md`](deploy/tools/GUIA-COMANDOS.md).
+**Todos los comandos** (con su equivalente Zimbra):
+
+| maquita-mailadm | Zimbra | Qué hace |
+|---|---|---|
+| `mailbox create <email> [GB] [pass]` | `zmprov ca` | Crear buzón |
+| `mailbox delete <email>` | `zmprov da` | Borrar buzón (conserva el maildir) |
+| `mailbox passwd <email> [nueva]` | `zmprov sp` | Resetear contraseña |
+| `mailbox quota <email> <GB>` | `zmprov ma zimbraMailQuota` | Cambiar cuota (0=ilimitado) |
+| `mailbox enable\|disable <email>` | `zmprov ma zimbraAccountStatus` | Activar/desactivar |
+| `mailbox info <email>` | `zmprov ga` | Ver estado |
+| `mailbox list [dominio]` | `zmprov gaa` | Listar buzones |
+| `alias create <alias> <destino>` | `zmprov aaa` | Crear alias |
+| `alias delete <alias>` | `zmprov raa` | Borrar alias |
+| `alias list [dominio]` | — | Listar alias/reenvíos |
+| `forward set <buzon> <destino> [keep]` | `zmprov ma zimbraPrefMailForwardingAddress` | Reenviar (keep=copia local) |
+| `forward off <buzon>` | — | Quitar reenvío |
+| `forward list` | — | Buzones con reenvío |
+| `autoresponder set <email> <asunto> <msg> [dias] [desde] [hasta]` | `zmprov ma zimbraPrefOutOfOffice*` | Autorespuesta (Sieve) |
+| `autoresponder off\|show <email>` / `list` | — | Gestionar autorespuesta |
+| `admin passwd <user> [nueva]` | — | Resetear admin del panel |
+| `admin unlock <user>` | — | Desbloquear admin |
+| `admin list` | — | Listar admins |
+| `queue list\|flush\|delete-all` | `zmcontrol` / `postqueue` | Cola de correo |
+| `fail2ban status` / `unban <ip>` | — | Ver baneos / desbanear |
+| `domain list` | `zmprov gad` | Listar dominios |
+| `risky-login status\|auto-block\|enable\|disable\|events` | — | Viaje imposible / login riesgoso |
+| `mfa status\|list` | — | Cobertura y usuarios con 2FA (TOTP) |
+| `service status\|restart\|reload <svc>` | `zmcontrol` | Control de servicios |
+| `dl create\|addmember\|removemember\|show\|list\|delete` | `zmprov cdl/adlm` | Listas de distribución |
+| `shared grant\|revoke\|list` | compartir buzón | Buzones compartidos (ACL Dovecot) |
+| `backup db\|mailbox\|list` | `zmbackup` | Respaldos (pg_dump / tar) |
+| `restore mailbox\|db` | `zmrestore` | Restaurar (la BD se restaura en base NUEVA) |
+| `stats` | — | Resumen del sistema |
+| `log search\|mailbox` | — | Buscar/rastrear en mail.log |
+
+> Para recetas paso a paso (casos comunes) e instalación de la herramienta, ver
+> la guía extendida: [`deploy/tools/GUIA-COMANDOS.md`](deploy/tools/GUIA-COMANDOS.md).
 
 ## Sincronización con móviles (Z-Push / ActiveSync) — opcional
 
