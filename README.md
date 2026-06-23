@@ -261,14 +261,40 @@ se hace con el buzón normal (no hay una contraseña de admin aparte).
 
 Además del panel integrado, el instalador monta un **panel de administración
 avanzado** e independiente en `https://tudominio:8443` (carpeta `admin-panel/`)
-con funciones de nivel empresarial:
+con funciones de nivel empresarial. Organizado por áreas, hoy incluye:
 
-- **Autoresponder** (respuestas automáticas / vacaciones)
-- **Firmas corporativas masivas** por dominio
+**Flujo de correo**
+- **Rastreo de mensajes** (message trace) de extremo a extremo
+- **Colas de correo** (ver, flush, eliminar)
+- **Cuarentena** (revisar, liberar, marcar como spam)
+
+**Destinatarios**
+- **Buzones**, **Dominios**, **Alias** y **Reenvíos**
+- **Grupos de distribución**
+- **Firmas corporativas masivas** por dominio (plantillas y asignación)
 - **Buzones compartidos** y delegación
-- **Interfaz de Rspamd** (cuarentena, entrenamiento de spam)
-- **Firewall** y verificación de DNS
-- Cola de correo, recuperación y branding
+- **Configurar IA**, **OnlyOffice / Nube** y **Dictado por voz**
+
+**Herramientas**
+- **Visor de buzones** (lectura administrativa)
+- **Respuestas automáticas** (autoresponder / vacaciones)
+- **Verificación de DNS** (SPF/DKIM/DMARC/MX/MTA-STS)
+- **eDiscovery forense**
+
+**Protección y seguridad**
+- **Inicios de sesión riesgosos**, **Acceso condicional** y **SSO / Identidad**
+- **Panel de amenazas** y **AIR** (investigación y respuesta automatizada)
+- **Filtro avanzado**, **interfaz de Rspamd** (entrenamiento de spam) y **anti-suplantación**
+- **DLP** (protección de datos), **correo cifrado**, **protección de enlaces** (Safe Links),
+  **análisis de adjuntos** (Safe Attachments) y **retiro de correos maliciosos** (ZAP)
+- **Simulación de phishing**
+- **Agentes IA**, **Copiloto Maquita** y **RAG** ("pregúntale a tu correo")
+- **Servicios**, **estado del sistema** y **recuperación** de correo
+
+**Administración y cumplimiento**
+- **Auditoría** y **auditoría avanzada**, **administradores** y **personalización** (branding)
+- **Compliance (E5):** centro de compliance, **retención** y **custodios / retención legal**,
+  **riesgo interno** y **cumplimiento de comunicaciones**
 
 Está protegido con doble credencial (auth básica de nginx + login propio del
 panel); el instalador genera ambas y las muestra al terminar.
