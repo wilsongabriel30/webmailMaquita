@@ -3,7 +3,7 @@ import { SchedulingAssistant } from './SchedulingAssistant';
 import { useState, useEffect, useCallback, useMemo } from "react";
 import type { ViewMode, CalendarInfo, CalendarEvent, EventFormData } from "./types/calendar";
 import { useCalendarApi } from "./hooks/useCalendarApi";
-import { CalendarHeader } from "./CalendarHeader";
+import { CalendarHeader, type CalendarFilters } from "./CalendarHeader";
 import { CalendarSidebar } from "./CalendarSidebar";
 import { MonthView } from "./MonthView";
 import { WeekView } from "./WeekView";
@@ -18,6 +18,50 @@ import {
   addDays,
   format,
 } from "date-fns";
+
+/* Colores del submenú "Categorías" del filtro (CalendarHeader) */
+const CATEGORY_COLORS: Record<string, string> = {
+  "#e74c3c": "Categoría roja",
+  "#e67e22": "Categoría naranja",
+  "#f1c40f": "Categoría amarilla",
+  "#2ecc71": "Categoría verde",
+  "#3498db": "Categoría azul",
+  "#9b59b6": "Categoría púrpura",
+};
+
+/** Aplica los filtros del menú Filtrar. Todo marcado (estado por defecto) = se muestra todo. */
+function eventPassesFilters(ev: CalendarEvent, f: CalendarFilters | null): boolean {
+  if (!f) return true;
+  const sub = (cat: string, label: string) => f.subs[`${cat}:${label}`] !== false;
+  const isMeeting = (ev.attendees?.length || 0) > 0;
+
+  // Citas = sin asistentes; Reuniones = con asistentes
+  if (!isMeeting) {
+    if (!f.cats.citas) return false;
+  } else {
+    if (!f.cats.reuniones) return false;
+    const st = (ev.status || "").toUpperCase();
+    if (st === "CANCELLED" && !sub("reuniones", "Cancelado")) return false;
+    if (st === "TENTATIVE" && !sub("reuniones", "Provisional")) return false;
+    if (st === "CONFIRMED" && !sub("reuniones", "Aceptado")) return false;
+    // Estado vacío o no estándar: tratar como "Sin respuesta" para que el
+    // filtro de reuniones también aplique a estos eventos.
+    if (!["CANCELLED", "TENTATIVE", "CONFIRMED"].includes(st) && !sub("reuniones", "Sin respuesta")) return false;
+  }
+
+  // Periodicidad: Simples (sin rrule) / Serie (con rrule)
+  if (ev.rrule) {
+    if (!f.cats.periodicidad || !sub("periodicidad", "Serie")) return false;
+  } else if (!f.cats.periodicidad || !sub("periodicidad", "Simples")) {
+    return false;
+  }
+
+  // Categorías por color del evento
+  const catLabel = CATEGORY_COLORS[(ev.color || "").toLowerCase()] || "Sin categoría";
+  if (!f.cats.categorias || !sub("categorias", catLabel)) return false;
+
+  return true;
+}
 
 function getDateRange(date: Date, view: ViewMode): { start: string; end: string } {
   let s: Date;
@@ -61,6 +105,8 @@ export default function CalendarView() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [selectedCalendarIds, setSelectedCalendarIds] = useState<Set<string>>(new Set());
   const [sidebarVisible, setSidebarVisible] = useState(() => typeof window === 'undefined' || window.innerWidth >= 768);
+  const [splitView, setSplitView] = useState(false);
+  const [calFilters, setCalFilters] = useState<CalendarFilters | null>(null);
 
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
@@ -130,10 +176,13 @@ const [showScheduling, setShowScheduling] = useState(false);
     }
   }, [loadEvents, calendars]);
 
-  // Filter events by selected calendars
+  // Filter events by selected calendars + filtros del menú Filtrar
   const filteredEvents = useMemo(
-    () => events.filter((ev) => selectedCalendarIds.has(ev.calendar_id)),
-    [events, selectedCalendarIds]
+    () =>
+      events.filter(
+        (ev) => selectedCalendarIds.has(ev.calendar_id) && eventPassesFilters(ev, calFilters)
+      ),
+    [events, selectedCalendarIds, calFilters]
   );
 
   function toggleCalendar(id: string) {
@@ -172,10 +221,14 @@ const [showScheduling, setShowScheduling] = useState(false);
     // Reunión virtual: generar sala Jitsi y dejar el enlace en ubicación/descripción
     if (_virtualMeeting && !/https?:\/\//.test(payload.location || "")) {
       try {
+        // Sin attendees aquí: pasarlos hacía que /meetings/create enviara su propio
+        // correo simple por SMTP síncrono (guardado lento + invitación duplicada sin
+        // formato). La única invitación (formateada, con el enlace en ubicación/
+        // descripción) la envía sendEventInvitations() al final.
         const m = await api.post<{ meeting_url: string }>("/meetings/create", {
           title: payload.summary,
           start_time: payload.dtstart,
-          attendees: [...(payload.attendees || []), ...(payload.optional_attendees || [])],
+          attendees: [],
         });
         if (m?.meeting_url) {
           if (!payload.location) payload.location = m.meeting_url;
@@ -328,6 +381,9 @@ const [showScheduling, setShowScheduling] = useState(false);
           onNewEvent={() => openNewEvent()}
           onToday={() => setCurrentDate(new Date())}
           onScheduling={() => setShowScheduling(true)}
+          splitView={splitView}
+          onSplitViewChange={setSplitView}
+          onFiltersChange={setCalFilters}
         />
 
         <div className="flex-1 flex flex-col overflow-hidden">
@@ -348,7 +404,9 @@ const [showScheduling, setShowScheduling] = useState(false);
           </div>
         )}
 
-        {/* Views */}
+        {/* Views (+ panel de agenda cuando "Vista en dos paneles" está activa) */}
+        <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden" style={{ minWidth: 0 }}>
         {viewMode === "month" && (
           <MonthView
             currentDate={currentDate}
@@ -396,6 +454,22 @@ const [showScheduling, setShowScheduling] = useState(false);
             onEventClick={openEditEvent}
           />
         )}
+        </div>{/* end vista principal */}
+
+        {/* Panel derecho: agenda de próximos eventos (Vista en dos paneles) */}
+        {splitView && viewMode !== "agenda" && (
+          <div className="w-[340px] shrink-0 border-l border-[#edebe9] dark:border-[#3b3a39] flex flex-col overflow-y-auto bg-white dark:bg-[#292827]">
+            <div className="px-4 py-[10px] text-[13px] font-semibold text-[#323130] dark:text-[#f3f2f1] border-b border-[#edebe9] dark:border-[#3b3a39] shrink-0">
+              Próximos eventos
+            </div>
+            <AgendaView
+              currentDate={new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate())}
+              events={filteredEvents}
+              onEventClick={openEditEvent}
+            />
+          </div>
+        )}
+        </div>{/* end split container */}
         </div>{/* end overflow content area */}
       </div>
 
