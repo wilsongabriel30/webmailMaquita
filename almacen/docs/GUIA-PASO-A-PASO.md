@@ -27,9 +27,12 @@ personas a la vez**.
 | Recurso | Mínimo para probar | Recomendado |
 |---|---|---|
 | Máquina virtual | 2 vCPU, 4 GB RAM, 30 GB disco | 4 vCPU, 8 GB RAM, 60+ GB |
-| Sistema operativo | Ubuntu Server 22.04 o 24.04 | ídem |
+| Sistema operativo | **Debian 13** (recomendado) — Ubuntu Server 22.04/24.04 también sirve | ídem |
 | Software previo | El webmail Maquita ya instalado y funcionando | ídem |
 
+> Los comandos de esta guía son los mismos en Debian y Ubuntu (apt,
+> systemd, PostgreSQL, nginx y docker se usan idéntico en ambos).
+>
 > **En VirtualBox:** crea la VM con red en modo *Puente (Bridged)* para
 > que tenga su propia IP en tu red. **En Proxmox:** una VM normal con
 > disco suficiente para los archivos de los usuarios.
