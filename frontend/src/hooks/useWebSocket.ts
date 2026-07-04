@@ -96,7 +96,7 @@ export function useWebSocket(enabled: boolean = true) {
                 try {
                   new Notification('Maquita Mail', {
                     body: delta === 1 ? 'Nuevo correo recibido' : `${delta} correos nuevos`,
-                    icon: '/favicon.ico',
+                    icon: '/webmail/favicon.svg',
                     tag: 'new-mail',
                   });
                 } catch {}
@@ -130,7 +130,7 @@ export function useWebSocket(enabled: boolean = true) {
                 try {
                   new Notification('Maquita - Tareas', {
                     body: taskMsg,
-                    icon: '/favicon.ico',
+                    icon: '/webmail/favicon.svg',
                     tag: 'task-' + (data.task_id || ''),
                   });
                 } catch {}
@@ -147,7 +147,7 @@ export function useWebSocket(enabled: boolean = true) {
                 try {
                   new Notification('Maquita — Recordatorio', {
                     body: remMsg,
-                    icon: '/favicon.ico',
+                    icon: '/webmail/favicon.svg',
                     tag: data.tag || 'reminder',
                   });
                 } catch {}

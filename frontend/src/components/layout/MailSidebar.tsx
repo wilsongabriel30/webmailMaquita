@@ -100,6 +100,22 @@ export function MailSidebar() {
 
   useEffect(() => { fetchFolders(); }, []);
 
+  // Refrescar contadores de carpetas y stats cuando cambian los mensajes
+  // (marcar leidos, eliminar, mover, sync offline). Antes solo se cargaban
+  // al montar y el badge de no leidos quedaba congelado hasta recargar.
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout> | undefined;
+    const h = () => {
+      clearTimeout(t);
+      t = setTimeout(() => {
+        api.get<{ folders: Folder[] }>('/mail/folders').then(r => setFolders(r.folders)).catch(() => {});
+        api.get<MailStats>('/mail/stats').then(r => setStats(r)).catch(() => {});
+      }, 1200);
+    };
+    window.addEventListener('refresh-messages', h);
+    return () => { clearTimeout(t); window.removeEventListener('refresh-messages', h); };
+  }, []);
+
   // --- Folder operations ---
   const handleCreate = async () => {
     if (!newName.trim()) return;
