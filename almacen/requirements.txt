@@ -1,0 +1,7 @@
+# Almacén Maquita — servicio de archivos del webmail (superficie mínima)
+flask>=3.0
+gunicorn>=21.0
+psycopg2-binary>=2.9
+PyJWT>=2.8
+redis>=5.0
+requests>=2.31

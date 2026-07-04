@@ -71,6 +71,20 @@ const navItems = [
     ),
   },
   {
+    path: '/files',
+    label: 'Archivos',
+    color: '#0078d4',
+    icon: (active: boolean) => (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+        {active ? (
+          <path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" fill="#0078d4"/>
+        ) : (
+          <path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" stroke="#605e5c" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        )}
+      </svg>
+    ),
+  },
+  {
     path: '/tasks',
     label: 'Tareas',
     color: '#0078d4',

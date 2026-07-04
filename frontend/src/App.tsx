@@ -22,6 +22,7 @@ const ContactsView = React.lazy(() => import('./components/contacts/ContactsView
 const RagAssistant = React.lazy(() => import('./components/rag/RagAssistant').then(m => ({ default: m.RagAssistant })));
 const TasksView = React.lazy(() => import('./components/tasks/TasksView').then(m => ({ default: m.TasksView })));
 const CalendarView = React.lazy(() => import('./components/calendar/CalendarView'));
+const FilesView = React.lazy(() => import('./components/files/FilesView').then(m => ({ default: m.FilesView })));
 import { ComposePopup } from "./components/mail/ComposePopup";
 import { useMailStore } from "./store/mailStore";
 
@@ -188,6 +189,7 @@ export default function App() {
           <Route path="contacts" element={<React.Suspense fallback={<Spinner />}><ContactsView /></React.Suspense>} />
           <Route path="calendar" element={<React.Suspense fallback={<Spinner />}><CalendarView /></React.Suspense>} />
           <Route path="tasks" element={<React.Suspense fallback={<Spinner />}><TasksView /></React.Suspense>} />
+          <Route path="files" element={<React.Suspense fallback={<Spinner />}><FilesView /></React.Suspense>} />
           <Route path="asistente" element={<React.Suspense fallback={<Spinner />}><RagAssistant /></React.Suspense>} />
           <Route path="settings" element={<React.Suspense fallback={<Spinner />}><SettingsView /></React.Suspense>} />
           <Route path="admin" element={<AdminRoute><React.Suspense fallback={<Spinner />}><AdminLayout /></React.Suspense></AdminRoute>}>

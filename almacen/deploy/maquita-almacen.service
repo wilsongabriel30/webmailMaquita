@@ -1,0 +1,23 @@
+# Servicio del Almacén (Archivos + OnlyOffice del webmail)
+# Instalar:  cp deploy/maquita-almacen.service /etc/systemd/system/
+#            systemctl daemon-reload && systemctl enable --now maquita-almacen
+[Unit]
+Description=Almacen Maquita (archivos del webmail)
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/maquita-webmail/almacen/servicio
+EnvironmentFile=/opt/maquita-webmail/almacen/.env
+ExecStart=/opt/maquita-webmail/almacen/venv/bin/gunicorn \
+    --workers 4 --threads 2 \
+    --bind 127.0.0.1:8788 \
+    --timeout 600 \
+    --access-logfile - --error-logfile - \
+    "app_webmail:crear_app_webmail()"
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

@@ -34,3 +34,9 @@ admin-panel/backend/.env
 admin-panel/frontend/node_modules/
 admin-panel/frontend/dist/
 admin-panel/backend/__pycache__/
+
+# Almacen (archivos del webmail)
+almacen/venv/
+almacen/datos/
+almacen/.env
+almacen/servicio/__pycache__/
