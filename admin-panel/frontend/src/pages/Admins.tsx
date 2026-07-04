@@ -9,6 +9,9 @@ export function Admins() {
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ username: "", password: "", display_name: "", role: "admin" });
+  const [pwFor, setPwFor] = useState<Admin | null>(null);
+  const [pwForm, setPwForm] = useState({ password: "", confirm: "" });
+  const [pwError, setPwError] = useState("");
 
   const load = () => api.get<Admin[]>("/auth/admins").then(setAdmins).catch(() => {});
   useEffect(() => { load(); }, []);
@@ -21,6 +24,23 @@ export function Admins() {
   const del = async (id: number, name: string) => {
     if (!confirm(`PRECAUCION: Eliminar administrador "${name}"? Perdera acceso al panel inmediatamente. Esta accion no se puede deshacer. Se registra en auditoria.`)) return;
     await api.del(`/auth/admins/${id}`); load();
+  };
+
+  const openPwForm = (a: Admin) => {
+    setPwFor(a); setPwForm({ password: "", confirm: "" }); setPwError("");
+  };
+  const changePassword = async () => {
+    if (!pwFor) return;
+    if (pwForm.password.length < 8) { setPwError("La contraseña debe tener al menos 8 caracteres"); return; }
+    if (pwForm.password !== pwForm.confirm) { setPwError("Las contraseñas no coinciden"); return; }
+    if (!confirm(`Cambiar la contraseña de "${pwFor.username}"? Se registra en auditoria.`)) return;
+    try {
+      await api.put(`/auth/admins/${pwFor.id}`, { password: pwForm.password });
+      setPwFor(null); setPwForm({ password: "", confirm: "" });
+      alert(`Contraseña de "${pwFor.username}" actualizada.`);
+    } catch (e) {
+      setPwError(e instanceof Error ? e.message : "Error al cambiar la contraseña");
+    }
   };
 
   const roleColors: Record<string, string> = {
@@ -71,12 +91,30 @@ export function Admins() {
                 <td className="px-4 py-2.5 text-center"><span className={`px-2 py-0.5 rounded text-[10px] font-medium ${roleColors[a.role]}`} title={`Rol: ${a.role}. superadmin: control total. admin: gestion sin configuración critica. viewer: solo lectura.`}>{a.role}</span></td>
                 <td className="px-4 py-2.5 text-center"><span className={`px-2 py-0.5 rounded text-[10px] font-medium ${a.active ? "bg-green-50 text-ms-green" : "bg-red-50 text-ms-red"}`} title={a.active ? "El administrador esta activo y puede acceder al panel." : "El administrador esta inactivo y no puede acceder al panel."}>{a.active ? "Activo" : "Inactivo"}</span></td>
                 <td className="px-4 py-2.5 text-xs text-ms-gray-60">{a.last_login ? new Date(a.last_login).toLocaleString() : "Nunca"}</td>
-                <td className="px-4 py-2.5 text-right">{a.id !== user?.id && <button onClick={() => del(a.id, a.username)} title="PRECAUCION: Elimina el administrador. Perdera acceso al panel inmediatamente. Se registra en auditoria." className="text-ms-red text-xs hover:underline">Eliminar</button>}</td>
+                <td className="px-4 py-2.5 text-right space-x-3">
+                  <button onClick={() => openPwForm(a)} title="Cambia la contraseña de este administrador. Se registra en auditoria." className="text-ms-blue text-xs hover:underline">Cambiar contraseña</button>
+                  {a.id !== user?.id && <button onClick={() => del(a.id, a.username)} title="PRECAUCION: Elimina el administrador. Perdera acceso al panel inmediatamente. Se registra en auditoria." className="text-ms-red text-xs hover:underline">Eliminar</button>}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {pwFor && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setPwFor(null)}>
+          <div className="bg-white rounded border border-ms-gray-30 p-5 w-96 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-base font-semibold text-ms-gray-130">Cambiar contraseña de {pwFor.username}</h2>
+            <input type="password" placeholder="Nueva contraseña (min 8)" value={pwForm.password} onChange={(e) => setPwForm({ ...pwForm, password: e.target.value })} autoFocus className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
+            <input type="password" placeholder="Confirmar contraseña" value={pwForm.confirm} onChange={(e) => setPwForm({ ...pwForm, confirm: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") changePassword(); }} className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
+            {pwError && <div className="text-ms-red text-xs">{pwError}</div>}
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setPwFor(null)} title="Cancela el cambio de contraseña. No se guarda nada." className="px-4 py-2 border border-ms-gray-40 rounded text-sm text-ms-gray-90">Cancelar</button>
+              <button onClick={changePassword} title="Guarda la nueva contraseña del administrador. Se registra en auditoria." className="px-4 py-2 bg-ms-blue text-white rounded text-sm hover:bg-ms-blue-dark">Guardar</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="bg-ms-blue-lighter rounded border border-ms-blue/20 p-4 text-sm text-ms-blue" title="Descripcion de los roles de administrador disponibles en el panel.">
         <strong>Roles:</strong> <span className="text-xs">Viewer = solo lectura | Admin = gestiona buzones, alias, dominios | Superadmin = todo + gestionar admins + eliminar</span>
