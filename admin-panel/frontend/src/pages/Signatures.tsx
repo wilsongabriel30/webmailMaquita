@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { SectionHelp } from "../components/SectionHelp";
 
 interface Template { id: number; name: string; description: string; html_content: string; text_content: string; is_default: boolean; domain: string }
 interface UserSig { id: number; username: string; signature_id: number; custom_name: string; custom_title: string; custom_phone: string; template_name: string; user_fullname: string }
@@ -71,7 +72,17 @@ export function Signatures() {
 
   return (
     <div className="p-6 space-y-5">
-      <h1 className="text-xl font-semibold text-ms-gray-130">Firmas de correo</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold text-ms-gray-130">Firmas de correo</h1>
+        <SectionHelp titulo="Firmas de correo" items={[
+          { titulo: "Para qué sirve", desc: "Administra plantillas HTML de firma corporativa y las asigna a los usuarios del servidor de correo, para que todos firmen con un formato uniforme." },
+          { titulo: "Pestaña Plantillas", desc: "Crea y edita el HTML de cada firma. Puede usar las variables {{nombre}}, {{email}}, {{cargo}}, {{teléfono}} y {{dominio}}, que se reemplazan automáticamente con los datos de cada usuario." },
+          { titulo: "Plantilla por defecto", desc: "La plantilla marcada como default se asigna automáticamente a los nuevos usuarios del dominio. Solo puede haber una por dominio." },
+          { titulo: "Vista previa", desc: "Mientras edita el HTML, debajo del editor se muestra cómo se verá la firma renderizada." },
+          { titulo: "Pestaña Asignaciones", desc: "Vincula una plantilla a un usuario concreto y permite personalizar su nombre, cargo y teléfono. La tabla inferior lista todas las asignaciones actuales." },
+          { titulo: "Eliminar plantilla", desc: "Borra la plantilla de forma permanente; los usuarios que la tenían asignada se quedan sin firma. Todas las acciones se registran en auditoría." },
+        ]} />
+      </div>
 
       <div className="flex border-b border-ms-gray-30">
         <button onClick={() => setTab("templates")} className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px ${tab === "templates" ? "border-ms-blue text-ms-blue" : "border-transparent text-ms-gray-90"}`} title="Ver y administrar las plantillas de firma HTML disponibles.">Plantillas</button>

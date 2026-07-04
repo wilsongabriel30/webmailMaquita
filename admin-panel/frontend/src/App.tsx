@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthContext, AdminUser } from "./api/auth";
 import { api } from "./api/client";
 import { Login } from "./pages/Login";
+import { HelpTip } from "./components/HelpTip";
 import { AdminLayout } from "./layouts/AdminLayout";
 import { Dashboard } from "./pages/Dashboard";
 import { Domains } from "./pages/Domains";
@@ -99,6 +100,7 @@ function App() {
 
   return (
     <AuthContext.Provider value={{ user, login, logout }}>
+      <HelpTip />
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />

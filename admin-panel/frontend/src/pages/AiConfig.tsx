@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "../api/client";
+import { SectionHelp } from "../components/SectionHelp";
 
 interface AiCfg {
   provider: string;
@@ -74,6 +75,19 @@ export function AiConfig() {
 
   return (
     <div className="p-6 max-w-2xl">
+      <div className="flex justify-end">
+        <SectionHelp
+          titulo="Configurar IA"
+          items={[
+            { titulo: "Qué hace esta sección", desc: "Conecta el motor de IA que usa el webmail para redacción asistida, respuestas sugeridas y resúmenes de correos." },
+            { titulo: "Activar la IA", desc: "La casilla superior decide si se usa lo configurado aquí; si queda desactivada, el webmail toma la configuración del archivo .env del servidor." },
+            { titulo: "Tipo de conexión", desc: "IA propia/Ollama corre en tu data center sin salir a internet; Gateway propio usa tu servicio con cabecera X-API-Key; Proveedor por API usa OpenAI o compatibles (Groq, Together) con API key." },
+            { titulo: "URL y modelo", desc: "La URL apunta al servidor de IA (ej. http://127.0.0.1:11434 para Ollama) y el modelo es el nombre exacto que ese servidor expone (ej. qwen2.5:7b, gpt-4o-mini)." },
+            { titulo: "API Key", desc: "Solo se pide cuando el proveedor la requiere. Si ya hay una guardada, deja el campo vacío para conservarla; se almacena cifrada en el servidor." },
+            { titulo: "Guardar y probar", desc: "Guardar aplica la configuración de inmediato; Probar conexión hace una consulta real al servidor de IA sin guardar nada, para verificar antes de aplicar." },
+          ]}
+        />
+      </div>
       <h1 className="text-xl font-semibold text-ms-gray-130 mb-1">Configurar IA</h1>
       <p className="text-sm text-ms-gray-60 mb-5">
         Conecta la IA que usará el webmail (redacción asistida, respuestas, resúmenes).
@@ -85,6 +99,7 @@ export function AiConfig() {
         {/* Activar */}
         <label className="flex items-center gap-2 text-sm font-medium text-ms-gray-130">
           <input type="checkbox" checked={cfg.enabled}
+            title="Activa o desactiva la IA configurada en esta pantalla. Si la desactivas, el webmail vuelve a usar los valores del archivo .env del servidor."
             onChange={(e) => setCfg({ ...cfg, enabled: e.target.checked })} />
           Activar la IA configurada aquí (si se desactiva, se usa el <code>.env</code>)
         </label>
@@ -93,6 +108,7 @@ export function AiConfig() {
         <div>
           <label className="block text-sm font-medium text-ms-gray-130 mb-1">Tipo de conexión</label>
           <select className="w-full px-3 py-2 border border-ms-gray-30 rounded text-sm"
+            title="Elige cómo se conecta el webmail a la IA: servidor Ollama propio, gateway propio con X-API-Key, o proveedor externo por API (OpenAI o compatible). Cambia los campos que se piden abajo."
             value={cfg.provider} onChange={(e) => setCfg({ ...cfg, provider: e.target.value })}>
             {PROVIDERS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
           </select>
@@ -106,6 +122,7 @@ export function AiConfig() {
           </label>
           <input className="w-full px-3 py-2 border border-ms-gray-30 rounded text-sm"
             placeholder="http://127.0.0.1:11434"
+            title="Dirección HTTP del servidor de IA (ej. http://127.0.0.1:11434 para Ollama). Con proveedor OpenAI puedes dejarla vacía para usar la oficial, o poner la de un servicio compatible."
             value={cfg.base_url} onChange={(e) => setCfg({ ...cfg, base_url: e.target.value })} />
         </div>
 
@@ -117,6 +134,7 @@ export function AiConfig() {
             </label>
             <input type="password" className="w-full px-3 py-2 border border-ms-gray-30 rounded text-sm"
               placeholder={cfg.has_key ? "•••••••• (sin cambios)" : "Pega tu API key"}
+              title="Clave de acceso al proveedor de IA. Se guarda cifrada en el servidor al pulsar Guardar; si ya existe una y dejas el campo vacío, se conserva la actual."
               value={apiKey} onChange={(e) => setApiKey(e.target.value)} />
           </div>
         )}
@@ -126,6 +144,7 @@ export function AiConfig() {
           <label className="block text-sm font-medium text-ms-gray-130 mb-1">Modelo</label>
           <input className="w-full px-3 py-2 border border-ms-gray-30 rounded text-sm"
             placeholder="Ej: qwen2.5:7b  ·  llama3  ·  gpt-4o-mini"
+            title="Nombre exacto del modelo que expone el servidor de IA (ej. qwen2.5:7b, llama3, gpt-4o-mini). Si el nombre no existe en el servidor, las funciones de IA fallarán."
             value={cfg.model} onChange={(e) => setCfg({ ...cfg, model: e.target.value })} />
         </div>
 
@@ -139,10 +158,12 @@ export function AiConfig() {
         {/* Botones */}
         <div className="flex gap-3 pt-1">
           <button onClick={save} disabled={saving}
+            title="Guarda esta configuración en el servidor y la aplica de inmediato a las funciones de IA del webmail (redacción, respuestas, resúmenes)."
             className="px-4 py-2 bg-ms-blue text-white rounded text-sm font-medium disabled:opacity-50">
             {saving ? "Guardando…" : "Guardar"}
           </button>
           <button onClick={test} disabled={testing}
+            title="Hace una consulta de prueba al servidor de IA con los datos del formulario, sin guardar nada. Úsalo para verificar URL, clave y modelo antes de guardar."
             className="px-4 py-2 border border-ms-gray-30 rounded text-sm font-medium disabled:opacity-50">
             {testing ? "Probando…" : "Probar conexión"}
           </button>

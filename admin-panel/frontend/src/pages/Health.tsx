@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { SectionHelp } from "../components/SectionHelp";
 
 export function Health() {
   const [health, setHealth] = useState<any>(null);
@@ -26,6 +27,17 @@ export function Health() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-ms-gray-130" title="Estado del sistema en tiempo real. Muestra CPU, memoria, discos, Fail2ban y conexiones. Solo lectura.">Estado del sistema</h1>
         <button onClick={loadAll} title="Recarga el estado del sistema. Solo lectura, no modifica nada." className="px-3 py-1.5 border border-ms-gray-40 rounded text-xs text-ms-gray-130 hover:bg-ms-gray-20">Actualizar</button>
+        <SectionHelp
+          titulo="Estado del sistema"
+          items={[
+            { titulo: "Para qué sirve", desc: "Panel de monitoreo del servidor de correo en tiempo real. Toda la pantalla es de solo lectura: aquí no se modifica nada." },
+            { titulo: "Tarjetas superiores", desc: "CPU (núcleos y carga promedio a 1/5/15 minutos), porcentaje de memoria RAM usada, uptime (días encendido sin reiniciar) y conexiones IMAP activas." },
+            { titulo: "Discos", desc: "Uso de espacio por partición. La barra cambia de color: verde normal, amarillo sobre 70% y rojo sobre 90% (riesgo de que el correo deje de recibirse por falta de espacio)." },
+            { titulo: "Fail2ban Jails", desc: "IPs bloqueadas por intentos de acceso maliciosos, agrupadas por servicio protegido. Para banear o desbanear IPs use la sección Servicios, pestaña Fail2ban." },
+            { titulo: "Conexiones activas", desc: "Usuarios conectados por IMAP/POP3 en este momento, con el número de conexiones de cada uno. Útil para detectar actividad inusual." },
+            { titulo: "Actualizar", desc: "Los datos no se refrescan solos; pulse Actualizar para volver a consultarlos." },
+          ]}
+        />
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

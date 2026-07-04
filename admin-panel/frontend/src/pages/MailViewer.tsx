@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { api } from "../api/client";
+import { SectionHelp } from "../components/SectionHelp";
 
 interface Folder { name: string; messages: number; unseen: number; recent: number }
 interface Msg { mailbox_guid: string; uid: string; from: string; to: string; subject: string; date: string; flags: string; folder: string; mailbox: string }
@@ -144,6 +145,19 @@ export function MailViewer() {
 
   return (
     <div className="p-6 space-y-4">
+      <div className="flex justify-end">
+        <SectionHelp
+          titulo="Visor de buzones"
+          items={[
+            { titulo: "Qué hace esta sección", desc: "Permite al administrador abrir cualquier buzón del servidor y revisar sus carpetas y correos en modo solo lectura, por ejemplo para soporte o auditoría." },
+            { titulo: "Buscar y abrir buzón", desc: "Escribe el nombre o correo del usuario (con autocompletado) y pulsa Abrir buzón para cargar sus carpetas y su cuota de espacio." },
+            { titulo: "Barra de cuota", desc: "Muestra el espacio usado del buzón frente a su límite; cambia a amarillo sobre 60% y a rojo sobre 80% de uso." },
+            { titulo: "Carpetas y mensajes", desc: "La columna izquierda lista las carpetas (con no leídos y total); al abrir una carpeta se cargan los mensajes de 50 en 50 y al bajar se cargan más automáticamente." },
+            { titulo: "Buscar en el correo", desc: "El cuadro Buscar filtra por texto dentro del buzón (en la carpeta seleccionada, o en todo el buzón si no hay carpeta elegida)." },
+            { titulo: "Solo lectura", desc: "Abrir un mensaje muestra sus cabeceras y cuerpo sin marcarlo como leído: nada de lo que hagas aquí modifica el buzón del usuario." },
+          ]}
+        />
+      </div>
       <h1 className="text-xl font-semibold text-ms-gray-130">Visor de buzones</h1>
 
       {/* User search */}

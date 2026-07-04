@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { api } from "../api/client";
+import { SectionHelp } from "../components/SectionHelp";
 
 // ─── Traducciones de acciones ───
 const ACTION_LABELS: Record<string, string> = {
@@ -47,13 +48,13 @@ interface SearchResult {
 
 // ─── Helpers ───
 const TABS = [
-  { id: "dashboard", label: "Dashboard" },
-  { id: "activity", label: "Actividad" },
-  { id: "trace", label: "Mail Trace" },
-  { id: "cases", label: "Casos" },
-  { id: "ediscovery", label: "eDiscovery" },
-  { id: "holds", label: "Legal Hold" },
-  { id: "alerts", label: "Alertas" },
+  { id: "dashboard", label: "Dashboard", title: "Resumen general: actividad de los últimos 30 días, correos trazados en 24 horas y alertas pendientes de revisar." },
+  { id: "activity", label: "Actividad", title: "Registro auditable de acciones de los usuarios: inicios de sesión, envíos, borrados, cambios de contraseña, etc." },
+  { id: "trace", label: "Mail Trace", title: "Trazabilidad de cada correo que pasó por el servidor: remitente, destinatario, estado de entrega y autenticación." },
+  { id: "cases", label: "Casos", title: "Casos de investigación que agrupan búsquedas forenses, retenciones legales y exportaciones." },
+  { id: "ediscovery", label: "eDiscovery", title: "Búsquedas forenses de correos dentro de un caso, con resultados exportables y hash de integridad." },
+  { id: "holds", label: "Legal Hold", title: "Retenciones legales: buzones cuyos correos no pueden eliminarse mientras dure el caso." },
+  { id: "alerts", label: "Alertas", title: "Alertas automáticas de posible fraude o abuso: envío masivo, reenvío externo, destrucción de evidencia, logins inusuales." },
 ];
 
 const riskBg: Record<string, string> = { low: "bg-gray-100 text-gray-600", medium: "bg-yellow-100 text-yellow-700", high: "bg-orange-100 text-orange-700", critical: "bg-red-100 text-red-700" };
@@ -81,8 +82,8 @@ function Pager({ page, total, perPage, onPage }: { page: number; total: number; 
     <div className="flex items-center justify-between mt-3 text-xs text-gray-500">
       <span>Pag. {page}/{tp}</span>
       <div className="flex gap-1">
-        <button onClick={() => onPage(page - 1)} disabled={page <= 1} className="px-2 py-1 border rounded disabled:opacity-30">Ant</button>
-        <button onClick={() => onPage(page + 1)} disabled={page >= tp} className="px-2 py-1 border rounded disabled:opacity-30">Sig</button>
+        <button onClick={() => onPage(page - 1)} disabled={page <= 1} title="Vuelve a la página anterior de resultados." className="px-2 py-1 border rounded disabled:opacity-30">Ant</button>
+        <button onClick={() => onPage(page + 1)} disabled={page >= tp} title="Avanza a la página siguiente de resultados." className="px-2 py-1 border rounded disabled:opacity-30">Sig</button>
       </div>
     </div>
   );
@@ -93,13 +94,26 @@ export function Compliance() {
   const [tab, setTab] = useState("dashboard");
   return (
     <div className="p-6">
+      <div className="flex justify-end">
+        <SectionHelp
+          titulo="Compliance & eDiscovery"
+          items={[
+            { titulo: "Para qué sirve", desc: "Auditoría completa del correo: quién hizo qué, por dónde pasó cada mensaje y búsquedas forenses para investigaciones internas o legales." },
+            { titulo: "Dashboard y Actividad", desc: "El dashboard resume actividad, correos y alertas. La pestaña Actividad lista cada acción de los usuarios con su nivel de riesgo, IP y fecha." },
+            { titulo: "Mail Trace", desc: "Rastro de cada correo: dirección (entrada/salida/interno), estado de entrega, puntaje antispam y resultados SPF/DKIM/DMARC." },
+            { titulo: "Casos y eDiscovery", desc: "Primero se crea un caso (investigación, fraude, legal…) y dentro de él se ejecutan búsquedas forenses por buzón, palabras clave y fechas. Los resultados se exportan con hash de integridad." },
+            { titulo: "Legal Hold", desc: "Retención legal: mientras esté activa, los correos del buzón indicado no pueden eliminarse. Se libera desde la misma pestaña." },
+            { titulo: "Alertas", desc: "Detección automática de comportamientos sospechosos (envío masivo, reenvío externo, destrucción de evidencia). Márcalas como revisadas para limpiar el contador de pendientes." },
+          ]}
+        />
+      </div>
       <div className="mb-5">
         <h1 className="text-xl font-bold text-gray-800">Compliance & eDiscovery</h1>
         <p className="text-xs text-gray-500 mt-1">Auditoria, trazabilidad y busqueda forense</p>
       </div>
       <div className="flex gap-1 mb-5 border-b border-gray-200 overflow-x-auto">
         {TABS.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)}
+          <button key={t.id} onClick={() => setTab(t.id)} title={t.title}
             className={`px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
               tab === t.id ? "border-ms-blue text-ms-blue" : "border-transparent text-gray-500 hover:text-gray-700"
             }`}>{t.label}</button>
@@ -198,17 +212,17 @@ function ActivityTab() {
   return (
     <div>
       <div className="flex flex-wrap gap-2 mb-4">
-        <input placeholder="Usuario" value={f.username} onChange={e => setF(x => ({ ...x, username: e.target.value }))} className="px-2 py-1.5 border rounded text-sm w-40" />
-        <select value={f.action} onChange={e => setF(x => ({ ...x, action: e.target.value }))} className="px-2 py-1.5 border rounded text-sm">
+        <input placeholder="Usuario" title="Filtra el registro por usuario o correo. Vacío muestra la actividad de todos." value={f.username} onChange={e => setF(x => ({ ...x, username: e.target.value }))} className="px-2 py-1.5 border rounded text-sm w-40" />
+        <select title="Filtra por tipo de acción registrada: logins (exitosos o fallidos), cambios de contraseña, envíos y borrados de correo, filtros, reenvíos, impersonación o desactivación de TOTP." value={f.action} onChange={e => setF(x => ({ ...x, action: e.target.value }))} className="px-2 py-1.5 border rounded text-sm">
           <option value="">Toda accion</option>
           {["login_success","login_failed","password_change","email_send","email_delete","sieve_create","forward_create","impersonate","totp_disable"].map(a =>
             <option key={a} value={a}>{a}</option>)}
         </select>
-        <select value={f.risk_level} onChange={e => setF(x => ({ ...x, risk_level: e.target.value }))} className="px-2 py-1.5 border rounded text-sm">
+        <select title="Filtra por el nivel de riesgo asignado a cada acción: bajo, medio, alto o crítico." value={f.risk_level} onChange={e => setF(x => ({ ...x, risk_level: e.target.value }))} className="px-2 py-1.5 border rounded text-sm">
           <option value="">Todo riesgo</option>
           <option value="low">Bajo</option><option value="medium">Medio</option><option value="high">Alto</option><option value="critical">Critico</option>
         </select>
-        <button onClick={() => load(1)} className="px-3 py-1.5 bg-ms-blue text-white rounded text-sm">Buscar</button>
+        <button onClick={() => load(1)} title="Aplica los filtros y recarga el registro de actividad desde la primera página. No modifica nada." className="px-3 py-1.5 bg-ms-blue text-white rounded text-sm">Buscar</button>
       </div>
       <div className="text-xs text-gray-500 mb-2">{total} registros</div>
       {loading ? <Loader /> : (
@@ -266,15 +280,15 @@ function TraceTab() {
   return (
     <div>
       <div className="flex flex-wrap gap-2 mb-4">
-        <input placeholder="Remitente" value={f.sender} onChange={e => setF(x => ({ ...x, sender: e.target.value }))} className="px-2 py-1.5 border rounded text-sm w-44" />
-        <input placeholder="Destinatario" value={f.recipient} onChange={e => setF(x => ({ ...x, recipient: e.target.value }))} className="px-2 py-1.5 border rounded text-sm w-44" />
-        <select value={f.status} onChange={e => setF(x => ({ ...x, status: e.target.value }))} className="px-2 py-1.5 border rounded text-sm">
+        <input placeholder="Remitente" title="Filtra los correos por la dirección del remitente. Vacío muestra todos." value={f.sender} onChange={e => setF(x => ({ ...x, sender: e.target.value }))} className="px-2 py-1.5 border rounded text-sm w-44" />
+        <input placeholder="Destinatario" title="Filtra los correos por la dirección del destinatario. Vacío muestra todos." value={f.recipient} onChange={e => setF(x => ({ ...x, recipient: e.target.value }))} className="px-2 py-1.5 border rounded text-sm w-44" />
+        <select title="Filtra por estado de entrega: Enviado (entregado con éxito), Diferido (en reintento) o Rebotado (rechazado, no llegó)." value={f.status} onChange={e => setF(x => ({ ...x, status: e.target.value }))} className="px-2 py-1.5 border rounded text-sm">
           <option value="">Todo estado</option><option value="sent">Enviado</option><option value="deferred">Diferido</option><option value="bounced">Rebotado</option>
         </select>
-        <select value={f.direction} onChange={e => setF(x => ({ ...x, direction: e.target.value }))} className="px-2 py-1.5 border rounded text-sm">
+        <select title="Filtra por dirección del tráfico: Entrada (recibido de fuera), Salida (enviado hacia fuera) o Interno (entre buzones del propio servidor)." value={f.direction} onChange={e => setF(x => ({ ...x, direction: e.target.value }))} className="px-2 py-1.5 border rounded text-sm">
           <option value="">Toda dir</option><option value="inbound">Entrada</option><option value="outbound">Salida</option><option value="internal">Interno</option>
         </select>
-        <button onClick={() => load(1)} className="px-3 py-1.5 bg-ms-blue text-white rounded text-sm">Buscar</button>
+        <button onClick={() => load(1)} title="Aplica los filtros y recarga la trazabilidad de correos desde la primera página. No modifica nada." className="px-3 py-1.5 bg-ms-blue text-white rounded text-sm">Buscar</button>
       </div>
       <div className="text-xs text-gray-500 mb-2">{total} registros</div>
       {loading ? <Loader /> : (
@@ -346,20 +360,20 @@ function CasesTab() {
     <div>
       <div className="flex justify-between mb-4">
         <span className="text-xs text-gray-500">{cases.length} casos</span>
-        <button onClick={() => setShowNew(!showNew)} className="px-3 py-1.5 bg-ms-blue text-white rounded text-sm">+ Nuevo caso</button>
+        <button onClick={() => setShowNew(!showNew)} title="Muestra u oculta el formulario para abrir un caso de investigación. No crea nada hasta pulsar Crear." className="px-3 py-1.5 bg-ms-blue text-white rounded text-sm">+ Nuevo caso</button>
       </div>
       {showNew && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-            <input placeholder="Titulo *" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="px-2 py-1.5 border rounded text-sm" />
-            <select value={form.case_type} onChange={e => setForm(f => ({ ...f, case_type: e.target.value }))} className="px-2 py-1.5 border rounded text-sm">
+            <input placeholder="Titulo *" title="Título del caso. Obligatorio; identifica la investigación en las listas y en eDiscovery." value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="px-2 py-1.5 border rounded text-sm" />
+            <select title="Tipo de caso: investigación, fraude, compliance, legal o seguridad. Solo clasifica el caso; no cambia su comportamiento." value={form.case_type} onChange={e => setForm(f => ({ ...f, case_type: e.target.value }))} className="px-2 py-1.5 border rounded text-sm">
               <option value="investigation">Investigacion</option><option value="fraud">Fraude</option><option value="compliance">Compliance</option><option value="legal">Legal</option><option value="security">Seguridad</option>
             </select>
           </div>
-          <textarea placeholder="Motivo *" value={form.reason} onChange={e => setForm(f => ({ ...f, reason: e.target.value }))} className="w-full px-2 py-1.5 border rounded text-sm mb-3" rows={2} />
+          <textarea placeholder="Motivo *" title="Justificación del caso. Obligatorio; queda guardado como evidencia de por qué se abrió la investigación." value={form.reason} onChange={e => setForm(f => ({ ...f, reason: e.target.value }))} className="w-full px-2 py-1.5 border rounded text-sm mb-3" rows={2} />
           <div className="flex gap-2">
-            <button onClick={create} className="px-3 py-1.5 bg-ms-blue text-white rounded text-sm">Crear</button>
-            <button onClick={() => setShowNew(false)} className="px-3 py-1.5 bg-white border text-gray-600 rounded text-sm">Cancelar</button>
+            <button onClick={create} title="Crea el caso en estado abierto. Requiere título y motivo. Se registra en auditoría." className="px-3 py-1.5 bg-ms-blue text-white rounded text-sm">Crear</button>
+            <button onClick={() => setShowNew(false)} title="Cierra el formulario sin crear el caso." className="px-3 py-1.5 bg-white border text-gray-600 rounded text-sm">Cancelar</button>
           </div>
         </div>
       )}
@@ -367,7 +381,7 @@ function CasesTab() {
         <div className="bg-white border-2 border-blue-300 rounded-lg p-4 mb-4 shadow">
           <div className="flex justify-between mb-3">
             <h3 className="font-bold text-gray-800">#{detail.id} — {detail.title}</h3>
-            <button onClick={() => setDetail(null)} className="text-gray-400 hover:text-gray-600">&times;</button>
+            <button onClick={() => setDetail(null)} title="Cierra el panel de detalle del caso. No modifica nada." className="text-gray-400 hover:text-gray-600">&times;</button>
           </div>
           <p className="text-sm text-gray-600 mb-3">{detail.reason}</p>
           <div className="flex gap-4 text-sm mb-3">
@@ -384,16 +398,16 @@ function CasesTab() {
             </div>
           )}
           <div className="flex gap-2">
-            {detail.status === "open" && <button onClick={() => updateStatus(detail.id, "approved")} className="px-3 py-1 bg-green-600 text-white rounded text-xs">Aprobar</button>}
-            {detail.status === "approved" && <button onClick={() => updateStatus(detail.id, "in_progress")} className="px-3 py-1 bg-yellow-600 text-white rounded text-xs">Iniciar</button>}
-            {["open","approved","in_progress"].includes(detail.status) && <button onClick={() => updateStatus(detail.id, "closed")} className="px-3 py-1 bg-gray-600 text-white rounded text-xs">Cerrar</button>}
+            {detail.status === "open" && <button onClick={() => updateStatus(detail.id, "approved")} title="Aprueba el caso: pasa de abierto a aprobado y habilita iniciar el trabajo de investigación." className="px-3 py-1 bg-green-600 text-white rounded text-xs">Aprobar</button>}
+            {detail.status === "approved" && <button onClick={() => updateStatus(detail.id, "in_progress")} title="Marca el caso como en progreso: la investigación está en curso." className="px-3 py-1 bg-yellow-600 text-white rounded text-xs">Iniciar</button>}
+            {["open","approved","in_progress"].includes(detail.status) && <button onClick={() => updateStatus(detail.id, "closed")} title="Cierra el caso definitivamente. Un caso cerrado ya no aparece para nuevas búsquedas eDiscovery ni retenciones legales." className="px-3 py-1 bg-gray-600 text-white rounded text-xs">Cerrar</button>}
           </div>
         </div>
       )}
       {loading ? <Loader /> : (
         <div className="space-y-2">
           {cases.map(c => (
-            <div key={c.id} onClick={() => viewDetail(c.id)} className="bg-white border rounded-lg p-3 hover:border-blue-300 cursor-pointer flex justify-between items-center">
+            <div key={c.id} onClick={() => viewDetail(c.id)} title="Abre el detalle del caso: estadísticas de búsquedas, resultados, retenciones y acciones para cambiar su estado." className="bg-white border rounded-lg p-3 hover:border-blue-300 cursor-pointer flex justify-between items-center">
               <div>
                 <span className="text-gray-300 font-bold mr-2">#{c.id}</span>
                 <span className="font-semibold text-gray-800">{c.title}</span>
@@ -464,20 +478,20 @@ function EDiscoveryTab() {
       <div className="bg-gray-50 border rounded-lg p-4 mb-5">
         <h3 className="font-semibold text-gray-700 text-sm mb-3">Nueva busqueda forense</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-          <select value={form.case_id} onChange={e => setForm(f => ({ ...f, case_id: e.target.value }))} className="px-2 py-1.5 border rounded text-sm">
+          <select title="Caso al que se asociará la búsqueda forense. Obligatorio; solo aparecen casos que no estén cerrados." value={form.case_id} onChange={e => setForm(f => ({ ...f, case_id: e.target.value }))} className="px-2 py-1.5 border rounded text-sm">
             <option value="">Caso *</option>
             {cases.filter(c => c.status !== "closed").map(c => <option key={c.id} value={c.id}>#{c.id} — {c.title}</option>)}
           </select>
-          <input placeholder="Buzones (coma)" value={form.mailboxes_scope} onChange={e => setForm(f => ({ ...f, mailboxes_scope: e.target.value }))} className="px-2 py-1.5 border rounded text-sm" />
-          <input placeholder="Palabras clave (coma)" value={form.keywords} onChange={e => setForm(f => ({ ...f, keywords: e.target.value }))} className="px-2 py-1.5 border rounded text-sm" />
+          <input placeholder="Buzones (coma)" title="Buzones donde buscar, separados por coma (ej: ana@dominio.com, ventas@dominio.com). Vacío busca en todos los buzones." value={form.mailboxes_scope} onChange={e => setForm(f => ({ ...f, mailboxes_scope: e.target.value }))} className="px-2 py-1.5 border rounded text-sm" />
+          <input placeholder="Palabras clave (coma)" title="Palabras o frases a buscar dentro de los correos, separadas por coma. Un mensaje coincide si contiene alguna." value={form.keywords} onChange={e => setForm(f => ({ ...f, keywords: e.target.value }))} className="px-2 py-1.5 border rounded text-sm" />
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-          <input placeholder="Remitentes" value={form.senders_filter} onChange={e => setForm(f => ({ ...f, senders_filter: e.target.value }))} className="px-2 py-1.5 border rounded text-sm" />
-          <input placeholder="Destinatarios" value={form.recipients_filter} onChange={e => setForm(f => ({ ...f, recipients_filter: e.target.value }))} className="px-2 py-1.5 border rounded text-sm" />
-          <input type="date" value={form.date_from} onChange={e => setForm(f => ({ ...f, date_from: e.target.value }))} className="px-2 py-1.5 border rounded text-sm" />
-          <input type="date" value={form.date_to} onChange={e => setForm(f => ({ ...f, date_to: e.target.value }))} className="px-2 py-1.5 border rounded text-sm" />
+          <input placeholder="Remitentes" title="Limita la búsqueda a correos enviados por estas direcciones, separadas por coma. Vacío no filtra por remitente." value={form.senders_filter} onChange={e => setForm(f => ({ ...f, senders_filter: e.target.value }))} className="px-2 py-1.5 border rounded text-sm" />
+          <input placeholder="Destinatarios" title="Limita la búsqueda a correos dirigidos a estas direcciones, separadas por coma. Vacío no filtra por destinatario." value={form.recipients_filter} onChange={e => setForm(f => ({ ...f, recipients_filter: e.target.value }))} className="px-2 py-1.5 border rounded text-sm" />
+          <input type="date" title="Fecha inicial del rango: solo se buscarán correos enviados desde este día." value={form.date_from} onChange={e => setForm(f => ({ ...f, date_from: e.target.value }))} className="px-2 py-1.5 border rounded text-sm" />
+          <input type="date" title="Fecha final del rango: solo se buscarán correos enviados hasta este día." value={form.date_to} onChange={e => setForm(f => ({ ...f, date_to: e.target.value }))} className="px-2 py-1.5 border rounded text-sm" />
         </div>
-        <button onClick={runSearch} disabled={sLoading || !form.case_id} className="px-4 py-1.5 bg-ms-blue text-white rounded text-sm disabled:opacity-50">
+        <button onClick={runSearch} disabled={sLoading || !form.case_id} title="Ejecuta la búsqueda forense en los buzones indicados y guarda los resultados dentro del caso. Puede tardar según la cantidad de correo. Queda registrada en auditoría." className="px-4 py-1.5 bg-ms-blue text-white rounded text-sm disabled:opacity-50">
           {sLoading ? "Buscando..." : "Ejecutar busqueda"}
         </button>
       </div>
@@ -485,7 +499,7 @@ function EDiscoveryTab() {
       <h3 className="font-semibold text-gray-700 text-sm mb-2">Busquedas</h3>
       <div className="space-y-2 mb-5">
         {searches.map(s => (
-          <div key={s.id} onClick={() => viewResults(s.id)} className={`flex justify-between items-center p-3 rounded border cursor-pointer ${selSearch === s.id ? "border-blue-400 bg-blue-50" : "hover:border-gray-300"}`}>
+          <div key={s.id} onClick={() => viewResults(s.id)} title="Muestra en la tabla inferior los correos encontrados por esta búsqueda." className={`flex justify-between items-center p-3 rounded border cursor-pointer ${selSearch === s.id ? "border-blue-400 bg-blue-50" : "hover:border-gray-300"}`}>
             <div className="flex items-center gap-2 text-sm">
               <span className="font-mono text-gray-400 text-xs">#{s.id}</span>
               <span>Caso #{s.case_id}</span>
@@ -566,24 +580,24 @@ function HoldsTab() {
     <div>
       <div className="flex justify-between mb-4">
         <span className="text-xs text-gray-500">{holds.length} retenciones</span>
-        <button onClick={() => setShowNew(!showNew)} className="px-3 py-1.5 bg-ms-blue text-white rounded text-sm">+ Nueva retencion</button>
+        <button onClick={() => setShowNew(!showNew)} title="Muestra u oculta el formulario para poner un buzón en retención legal. No aplica nada hasta pulsar Crear." className="px-3 py-1.5 bg-ms-blue text-white rounded text-sm">+ Nueva retencion</button>
       </div>
       {showNew && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-            <select value={form.case_id} onChange={e => setForm(f => ({ ...f, case_id: e.target.value }))} className="px-2 py-1.5 border rounded text-sm">
+            <select title="Caso que justifica la retención legal. Obligatorio; solo aparecen casos que no estén cerrados." value={form.case_id} onChange={e => setForm(f => ({ ...f, case_id: e.target.value }))} className="px-2 py-1.5 border rounded text-sm">
               <option value="">Caso *</option>
               {cases.filter(c => c.status !== "closed").map(c => <option key={c.id} value={c.id}>#{c.id} — {c.title}</option>)}
             </select>
-            <input placeholder="Buzon (ej: contabilidad@ejemplo.com) *" value={form.mailbox} onChange={e => setForm(f => ({ ...f, mailbox: e.target.value }))} className="px-2 py-1.5 border rounded text-sm" />
-            <select value={form.scope} onChange={e => setForm(f => ({ ...f, scope: e.target.value }))} className="px-2 py-1.5 border rounded text-sm">
+            <input placeholder="Buzon (ej: contabilidad@ejemplo.com) *" title="Correo del buzón a proteger. Obligatorio. Mientras la retención esté activa, sus mensajes no podrán eliminarse." value={form.mailbox} onChange={e => setForm(f => ({ ...f, mailbox: e.target.value }))} className="px-2 py-1.5 border rounded text-sm" />
+            <select title="Alcance de la retención: todo el buzón, solo la bandeja de entrada (INBOX) o solo la carpeta de Enviados." value={form.scope} onChange={e => setForm(f => ({ ...f, scope: e.target.value }))} className="px-2 py-1.5 border rounded text-sm">
               <option value="all">Todo el buzon</option><option value="inbox">Solo INBOX</option><option value="sent">Solo Enviados</option>
             </select>
           </div>
-          <textarea placeholder="Motivo *" value={form.reason} onChange={e => setForm(f => ({ ...f, reason: e.target.value }))} className="w-full px-2 py-1.5 border rounded text-sm mb-3" rows={2} />
+          <textarea placeholder="Motivo *" title="Justificación legal de la retención. Obligatorio; queda registrado junto con quién la activó y cuándo." value={form.reason} onChange={e => setForm(f => ({ ...f, reason: e.target.value }))} className="w-full px-2 py-1.5 border rounded text-sm mb-3" rows={2} />
           <div className="flex gap-2">
-            <button onClick={create} className="px-3 py-1.5 bg-ms-blue text-white rounded text-sm">Crear</button>
-            <button onClick={() => setShowNew(false)} className="px-3 py-1.5 bg-white border text-gray-600 rounded text-sm">Cancelar</button>
+            <button onClick={create} title="Activa la retención legal de inmediato: los correos del buzón quedan protegidos contra borrado. Requiere caso, buzón y motivo." className="px-3 py-1.5 bg-ms-blue text-white rounded text-sm">Crear</button>
+            <button onClick={() => setShowNew(false)} title="Cierra el formulario sin crear la retención." className="px-3 py-1.5 bg-white border text-gray-600 rounded text-sm">Cancelar</button>
           </div>
         </div>
       )}
@@ -597,7 +611,7 @@ function HoldsTab() {
             <div className="flex items-center gap-2">
               <Badge text={h.is_active ? "ACTIVO" : "Liberado"} color={h.is_active ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-500"} />
               <span className="text-xs text-gray-400">{fmtDate(h.enabled_at)}</span>
-              {h.is_active && <button onClick={() => release(h.id)} className="px-2 py-1 bg-white border text-gray-600 rounded text-xs">Liberar</button>}
+              {h.is_active && <button onClick={() => release(h.id)} title="PRECAUCIÓN: Libera la retención legal. Los correos del buzón volverán a poder eliminarse. Pide confirmación antes." className="px-2 py-1 bg-white border text-gray-600 rounded text-xs">Liberar</button>}
             </div>
           </div>
         ))}
@@ -631,18 +645,18 @@ function AlertsTab() {
   return (
     <div>
       <div className="flex flex-wrap gap-2 mb-4">
-        <select value={f.alert_type} onChange={e => setF(x => ({ ...x, alert_type: e.target.value }))} className="px-2 py-1.5 border rounded text-sm">
+        <select title="Filtra por tipo de alerta: envío masivo de correos, destrucción de evidencia (borrados sospechosos), reenvío automático a direcciones externas o inicio de sesión inusual." value={f.alert_type} onChange={e => setF(x => ({ ...x, alert_type: e.target.value }))} className="px-2 py-1.5 border rounded text-sm">
           <option value="">Todos los tipos</option>
           <option value="mass_send">Envio masivo</option><option value="evidence_destruction">Destruccion evidencia</option>
           <option value="external_forward">Reenvio externo</option><option value="unusual_login">Login inusual</option>
         </select>
-        <select value={f.severity} onChange={e => setF(x => ({ ...x, severity: e.target.value }))} className="px-2 py-1.5 border rounded text-sm">
+        <select title="Filtra por severidad de la alerta: alta o crítica. Vacío muestra todas las severidades." value={f.severity} onChange={e => setF(x => ({ ...x, severity: e.target.value }))} className="px-2 py-1.5 border rounded text-sm">
           <option value="">Toda severidad</option><option value="high">Alta</option><option value="critical">Critica</option>
         </select>
-        <select value={f.acknowledged} onChange={e => setF(x => ({ ...x, acknowledged: e.target.value }))} className="px-2 py-1.5 border rounded text-sm">
+        <select title="Filtra entre alertas pendientes (sin revisar) y las ya marcadas como revisadas." value={f.acknowledged} onChange={e => setF(x => ({ ...x, acknowledged: e.target.value }))} className="px-2 py-1.5 border rounded text-sm">
           <option value="">Todas</option><option value="false">Sin revisar</option><option value="true">Revisadas</option>
         </select>
-        <button onClick={() => load(1)} className="px-3 py-1.5 bg-ms-blue text-white rounded text-sm">Filtrar</button>
+        <button onClick={() => load(1)} title="Aplica los filtros y recarga la lista de alertas desde la primera página. No modifica nada." className="px-3 py-1.5 bg-ms-blue text-white rounded text-sm">Filtrar</button>
       </div>
       <div className="text-xs text-gray-500 mb-2">{total} alertas</div>
       {loading ? <Loader /> : (
@@ -664,7 +678,7 @@ function AlertsTab() {
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <span className="text-xs text-gray-400">{fmtDate(a.created_at)}</span>
-                  {!a.is_acknowledged && <button onClick={() => ack(a.id)} className="px-2 py-1 bg-green-600 text-white rounded text-xs">Revisar</button>}
+                  {!a.is_acknowledged && <button onClick={() => ack(a.id)} title="Marca la alerta como revisada: deja de contar como pendiente en el dashboard. La acción queda registrada." className="px-2 py-1 bg-green-600 text-white rounded text-xs">Revisar</button>}
                 </div>
               </div>
             </div>

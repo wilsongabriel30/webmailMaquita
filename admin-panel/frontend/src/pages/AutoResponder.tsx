@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { api } from "../api/client";
+import { SectionHelp } from "../components/SectionHelp";
 
 interface AR { id: number; username: string; active: boolean; subject: string; body: string; start_date: string; end_date: string; reply_once_per_day: boolean; user_fullname: string }
 interface Suggestion { username: string; name: string }
@@ -56,7 +57,16 @@ export function AutoResponder() {
 
   return (
     <div className="p-6 space-y-5">
-      <h1 className="text-xl font-semibold text-ms-gray-130">Respuestas automáticas (Fuera de oficina)</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold text-ms-gray-130">Respuestas automáticas (Fuera de oficina)</h1>
+        <SectionHelp titulo="Respuestas automáticas" items={[
+          { titulo: "Para qué sirve", desc: "Configura mensajes de fuera de oficina: cuando alguien escribe al usuario, el servidor le responde automáticamente con el asunto y mensaje definidos aquí." },
+          { titulo: "Formulario", desc: "Escriba el email del usuario (con autocompletado), el asunto y el cuerpo del mensaje. Las fechas de inicio y fin delimitan el periodo; si se dejan vacías la respuesta es permanente." },
+          { titulo: "Responder una vez por día", desc: "Evita spam: cada remitente recibe la respuesta automática como máximo una vez al día, aunque envíe varios correos." },
+          { titulo: "Tabla inferior", desc: "Lista todas las respuestas configuradas con su estado (Activo/Inactivo) y su periodo de vigencia." },
+          { titulo: "Acciones", desc: "Editar modifica el mensaje, Desactivar lo pausa sin borrarlo (se puede reactivar) y Eliminar lo borra permanentemente. Todo se registra en auditoría." },
+        ]} />
+      </div>
 
       <div className="bg-white rounded border border-ms-gray-30 p-5 space-y-3">
         <h2 className="text-sm font-semibold text-ms-gray-130">{editing ? "Editar respuesta" : "Configurar respuesta automatica"}</h2>

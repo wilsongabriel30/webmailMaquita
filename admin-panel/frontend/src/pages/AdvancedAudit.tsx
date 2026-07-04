@@ -1,5 +1,6 @@
 import { useState, useEffect, Fragment } from "react";
 import { api } from "../api/client";
+import { SectionHelp } from "../components/SectionHelp";
 
 interface Entry { ts: string | null; source: string; actor: string; action: string; category: string; target: string | null; ip: string | null; risk: string | null; details: string | null; }
 interface Summary { total: number; by_source: { source: string; n: number }[]; failed_logins: number; critical: number; top_actors: { actor: string; n: number }[]; }
@@ -69,7 +70,17 @@ export function AdvancedAudit() {
 
   return (
     <div className="max-w-5xl">
-      <h1 className="text-xl font-semibold text-ms-gray-160 mb-1">Auditoría avanzada</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold text-ms-gray-160 mb-1">Auditoría avanzada</h1>
+        <SectionHelp titulo="Auditoría avanzada" items={[
+          { titulo: "Qué es esta sección", desc: "Registro unificado de TODA la actividad del sistema en un solo lugar: acciones de administradores del panel, actividad de usuarios de correo y eventos de seguridad." },
+          { titulo: "Tarjetas de resumen", desc: "Total de eventos registrados, logins fallidos y eventos de riesgo alto de los últimos 30 días, y el actor más activo del período." },
+          { titulo: "Búsqueda y filtros", desc: "Busque por actor, acción u objetivo; filtre por origen (admin, usuario, seguridad), tipo de acción, nivel de riesgo y rango de fechas. Enter o el botón Buscar aplican los filtros." },
+          { titulo: "Detalle de eventos", desc: "Haga clic en una fila con flecha para desplegar los detalles completos del evento en formato texto." },
+          { titulo: "Exportar CSV", desc: "Descarga los eventos que cumplen los filtros actuales como archivo CSV, útil para informes o análisis externo. No modifica nada." },
+          { titulo: "Retención", desc: "Define cuántos días se conservan los registros (0 = para siempre). El botón rojo borra de inmediato y de forma irreversible los registros más antiguos que ese plazo." },
+        ]} />
+      </div>
       <p className="text-sm text-ms-gray-110 mb-4">Registro unificado de toda la actividad: acciones del panel, actividad de usuarios y acciones de seguridad. Con búsqueda, filtros y exportación.</p>
       {msg && <div className={`text-sm mb-4 px-3 py-2 rounded ${msg.ok ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`}>{msg.text}</div>}
 
@@ -83,14 +94,14 @@ export function AdvancedAudit() {
 
       {/* Filtros */}
       <div className="bg-white border border-ms-gray-30 rounded-lg p-3 mb-4 flex flex-wrap gap-2 items-end">
-        <input className="flex-1 min-w-[160px] px-3 py-2 border border-ms-gray-30 rounded text-sm" placeholder="Buscar (actor, acción, objetivo…)" value={f.q} onChange={(e) => setF({ ...f, q: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") load(1); }} />
-        <select className="px-2 py-2 border border-ms-gray-30 rounded text-sm" value={f.source} onChange={(e) => setF({ ...f, source: e.target.value })}><option value="">Todo origen</option>{facets.sources.map((s) => <option key={s} value={s}>{SRC[s]?.label || s}</option>)}</select>
-        <select className="px-2 py-2 border border-ms-gray-30 rounded text-sm max-w-[160px]" value={f.action} onChange={(e) => setF({ ...f, action: e.target.value })}><option value="">Toda acción</option>{facets.actions.map((a) => <option key={a} value={a}>{a}</option>)}</select>
-        <select className="px-2 py-2 border border-ms-gray-30 rounded text-sm" value={f.risk} onChange={(e) => setF({ ...f, risk: e.target.value })}><option value="">Todo riesgo</option>{facets.risks.map((r) => <option key={r} value={r}>{r}</option>)}</select>
+        <input className="flex-1 min-w-[160px] px-3 py-2 border border-ms-gray-30 rounded text-sm" placeholder="Buscar (actor, acción, objetivo…)" value={f.q} onChange={(e) => setF({ ...f, q: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") load(1); }} title="Texto libre a buscar en actor, acción u objetivo de los eventos. Enter ejecuta la búsqueda. Solo lectura." />
+        <select className="px-2 py-2 border border-ms-gray-30 rounded text-sm" value={f.source} onChange={(e) => setF({ ...f, source: e.target.value })} title="Filtra por origen del evento: Admin (acciones del panel), Usuario (actividad de correo) o Seguridad (alertas y bloqueos). Vacío = todos."><option value="">Todo origen</option>{facets.sources.map((s) => <option key={s} value={s}>{SRC[s]?.label || s}</option>)}</select>
+        <select className="px-2 py-2 border border-ms-gray-30 rounded text-sm max-w-[160px]" value={f.action} onChange={(e) => setF({ ...f, action: e.target.value })} title="Filtra por tipo de acción exacto (login, delete, create, etc.). Vacío = todas las acciones."><option value="">Toda acción</option>{facets.actions.map((a) => <option key={a} value={a}>{a}</option>)}</select>
+        <select className="px-2 py-2 border border-ms-gray-30 rounded text-sm" value={f.risk} onChange={(e) => setF({ ...f, risk: e.target.value })} title="Filtra por nivel de riesgo del evento: high (alto), medium (medio) o low (bajo). Vacío = todos."><option value="">Todo riesgo</option>{facets.risks.map((r) => <option key={r} value={r}>{r}</option>)}</select>
         <input type="date" className="px-2 py-2 border border-ms-gray-30 rounded text-sm" value={f.date_from} onChange={(e) => setF({ ...f, date_from: e.target.value })} title="Desde" />
         <input type="date" className="px-2 py-2 border border-ms-gray-30 rounded text-sm" value={f.date_to} onChange={(e) => setF({ ...f, date_to: e.target.value })} title="Hasta" />
-        <button onClick={() => load(1)} className="px-4 py-2 bg-ms-blue text-white rounded text-sm font-medium">Buscar</button>
-        <button onClick={exportCsv} className="px-3 py-2 bg-ms-gray-20 text-ms-gray-160 rounded text-sm">Exportar CSV</button>
+        <button onClick={() => load(1)} title="Ejecuta la búsqueda con los filtros seleccionados y muestra la primera página de resultados. Solo lectura, no modifica nada." className="px-4 py-2 bg-ms-blue text-white rounded text-sm font-medium">Buscar</button>
+        <button onClick={exportCsv} title="Descarga un archivo CSV con todos los eventos que cumplen los filtros actuales. No modifica ningún registro." className="px-3 py-2 bg-ms-gray-20 text-ms-gray-160 rounded text-sm">Exportar CSV</button>
       </div>
 
       {/* Tabla */}
@@ -103,7 +114,7 @@ export function AdvancedAudit() {
             {entries.length === 0 ? <tr><td colSpan={7} className="p-4 text-ms-gray-110 text-sm">Sin resultados.</td></tr> :
               entries.map((e, i) => (
                 <Fragment key={i}>
-                  <tr key={i} className="border-t border-ms-gray-10 hover:bg-ms-gray-10 cursor-pointer" onClick={() => setOpenRow(openRow === i ? null : i)}>
+                  <tr key={i} className="border-t border-ms-gray-10 hover:bg-ms-gray-10 cursor-pointer" onClick={() => setOpenRow(openRow === i ? null : i)} title="Haga clic para mostrar u ocultar los detalles completos de este evento. Solo lectura.">
                     <td className="px-3 py-2 text-ms-gray-110 whitespace-nowrap">{e.ts ? new Date(e.ts).toLocaleString("es-EC", { dateStyle: "short", timeStyle: "short" }) : "—"}</td>
                     <td className="px-3 py-2"><span className={`text-xs rounded px-2 py-0.5 ${SRC[e.source]?.cls || ""}`}>{SRC[e.source]?.label || e.source}</span></td>
                     <td className="px-3 py-2 text-ms-gray-160 max-w-[160px] truncate">{e.actor}</td>
@@ -125,8 +136,8 @@ export function AdvancedAudit() {
       <div className="flex items-center justify-between mb-6">
         <span className="text-xs text-ms-gray-110">{total} eventos · página {page}/{pages}</span>
         <div className="flex gap-1">
-          <button disabled={page <= 1} onClick={() => load(page - 1)} className="px-3 py-1 border border-ms-gray-30 rounded text-sm disabled:opacity-40">‹ Anterior</button>
-          <button disabled={page >= pages} onClick={() => load(page + 1)} className="px-3 py-1 border border-ms-gray-30 rounded text-sm disabled:opacity-40">Siguiente ›</button>
+          <button disabled={page <= 1} onClick={() => load(page - 1)} title="Muestra la página anterior de resultados. Solo lectura." className="px-3 py-1 border border-ms-gray-30 rounded text-sm disabled:opacity-40">‹ Anterior</button>
+          <button disabled={page >= pages} onClick={() => load(page + 1)} title="Muestra la página siguiente de resultados. Solo lectura." className="px-3 py-1 border border-ms-gray-30 rounded text-sm disabled:opacity-40">Siguiente ›</button>
         </div>
       </div>
 
@@ -134,10 +145,10 @@ export function AdvancedAudit() {
       <h2 className="text-base font-semibold text-ms-gray-160 mb-1">Retención de registros</h2>
       <div className="bg-white border border-ms-gray-30 rounded-lg p-4 flex items-center gap-3 flex-wrap">
         <label className="text-sm text-ms-gray-130">Conservar registros por</label>
-        <input type="number" min={0} max={3650} className="w-24 px-3 py-2 border border-ms-gray-30 rounded text-sm" value={retention} onChange={(e) => setRetention(parseInt(e.target.value || "0"))} />
+        <input type="number" min={0} max={3650} className="w-24 px-3 py-2 border border-ms-gray-30 rounded text-sm" value={retention} onChange={(e) => setRetention(parseInt(e.target.value || "0"))} title="Días que se conservan los registros de auditoría (0 a 3650). 0 = conservar siempre. Se aplica al pulsar Guardar." />
         <span className="text-sm text-ms-gray-130">días <span className="text-ms-gray-110 text-xs">(0 = conservar siempre)</span></span>
-        <button onClick={saveRetention} className="px-3 py-2 bg-ms-blue text-white rounded text-sm">Guardar</button>
-        {retention > 0 && <button onClick={purge} className="px-3 py-2 bg-red-600 text-white rounded text-sm">Borrar más antiguos ahora</button>}
+        <button onClick={saveRetention} title="Guarda la política de retención. No borra nada por sí solo; solo define el plazo de conservación." className="px-3 py-2 bg-ms-blue text-white rounded text-sm">Guardar</button>
+        {retention > 0 && <button onClick={purge} title="PRECAUCIÓN: Borra de inmediato todos los registros más antiguos que el plazo configurado. Esta acción es irreversible. Pide confirmación." className="px-3 py-2 bg-red-600 text-white rounded text-sm">Borrar más antiguos ahora</button>}
       </div>
     </div>
   );

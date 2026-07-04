@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { SectionHelp } from "../components/SectionHelp";
 
 interface Mailbox { username: string; name: string; domain: string; quota: number; active: boolean; phone: string; email_other: string; created: string }
 
@@ -172,7 +173,20 @@ export function Mailboxes() {
     <div className="p-6 space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-ms-gray-130">Buzones ({mailboxes.length})</h1>
-        <button onClick={() => setShowForm(!showForm)} title="Crea un nuevo buzón de correo. El usuario podra enviar y recibir correos inmediatamente. Se registra en auditoria." className="px-3 py-1.5 bg-ms-blue text-white rounded text-sm hover:bg-ms-blue-dark">+ Nuevo buzón</button>
+        <div className="flex items-center gap-2">
+          <SectionHelp
+            titulo="Buzones de correo"
+            items={[
+              { titulo: "Para qué sirve", desc: "Administra las cuentas de correo reales del servidor: crear, editar, bloquear, cambiar contraseñas y eliminar buzones. Cada fila es una cuenta que puede enviar y recibir correos." },
+              { titulo: "Columnas Cuota y Uso", desc: "Cuota es el espacio máximo asignado (Sin límite si es 0). Uso muestra cuánto ocupa el buzón hoy; la barra se pone amarilla sobre 70% y roja sobre 90%." },
+              { titulo: "Estado y Bloquear", desc: "Un buzón Inactivo queda bloqueado: no envía ni recibe, pero sus correos se conservan. Útil para suspender sin borrar nada." },
+              { titulo: "Abrir buzón", desc: "Entra al webmail del usuario como administrador (impersonación) sin conocer su contraseña, para soporte o revisión. Queda registrado en auditoría." },
+              { titulo: "Cambiar titular", desc: "Cuando un colaborador sale y otro toma su correo: cambia nombre, contraseña, firma y avisa a los contactos internos en un solo paso." },
+              { titulo: "Eliminar", desc: "Borra el buzón y TODOS sus correos de forma permanente e irreversible. Si solo necesita suspender la cuenta, use Bloquear." },
+            ]}
+          />
+          <button onClick={() => setShowForm(!showForm)} title="Crea un nuevo buzón de correo. El usuario podra enviar y recibir correos inmediatamente. Se registra en auditoria." className="px-3 py-1.5 bg-ms-blue text-white rounded text-sm hover:bg-ms-blue-dark">+ Nuevo buzón</button>
+        </div>
       </div>
 
       <input placeholder="Buscar por nombre o email..." value={filter} onChange={(e) => setFilter(e.target.value)} title="Filtra la lista de buzones por nombre o dirección de correo."
@@ -187,23 +201,27 @@ export function Mailboxes() {
             <div>
               <label className="text-xs font-medium text-ms-gray-90 mb-1 block">Dirección de correo *</label>
               <input placeholder="usuario@ejemplo.com" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value.toLowerCase() })}
+                title="Dirección de correo completa del nuevo buzón (usuario@dominio). Debe incluir la arroba y un dominio administrado por este servidor. Se convierte a minúsculas automáticamente."
                 className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
               <span className="text-[10px] text-ms-gray-60 mt-0.5 block">Ejemplo: juan.perez@ejemplo.com</span>
             </div>
             <div>
               <label className="text-xs font-medium text-ms-gray-90 mb-1 block">Nombre completo *</label>
               <input placeholder="Juan Perez" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
+                title="Nombre completo del titular. Obligatorio. Aparecerá como remitente en los correos que envíe."
                 className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
               <span className="text-[10px] text-ms-gray-60 mt-0.5 block">Aparece como remitente en los correos</span>
             </div>
             <div>
               <label className="text-xs font-medium text-ms-gray-90 mb-1 block">Contraseña *</label>
               <input type="password" autoComplete="new-password" placeholder="Mínimo 6 caracteres" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })}
+                title="Contraseña inicial del buzón. Mínimo 6 caracteres. El usuario la usará para entrar al webmail y a IMAP/SMTP."
                 className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
             </div>
             <div>
               <label className="text-xs font-medium text-ms-gray-90 mb-1 block">Confirmar contraseña *</label>
               <input type="password" autoComplete="new-password" placeholder="Repita la contraseña" value={form.password2} onChange={(e) => setForm({ ...form, password2: e.target.value })}
+                title="Repita exactamente la misma contraseña para descartar errores de escritura. Si no coinciden, no se creará el buzón."
                 className={`w-full px-3 py-2 border rounded text-sm focus:outline-none focus:border-ms-blue ${form.password2 && form.password !== form.password2 ? "border-red-400 bg-red-50" : "border-ms-gray-40"}`} />
               {form.password2 && form.password !== form.password2 && (
                 <span className="text-[10px] text-red-500 mt-0.5 block">Las contraseñas no coinciden</span>
@@ -212,6 +230,7 @@ export function Mailboxes() {
             <div>
               <label className="text-xs font-medium text-ms-gray-90 mb-1 block">Cuota (MB)</label>
               <input type="number" placeholder="0" value={form.quota_mb} onChange={(e) => setForm({ ...form, quota_mb: +e.target.value })}
+                title="Espacio máximo del buzón en megabytes. 0 = sin límite. Al llenarse la cuota, el buzón rechaza correos nuevos."
                 className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
               <span className="text-[10px] text-ms-gray-60 mt-0.5 block">0 = sin límite. Ej: 2048 = 2 GB</span>
             </div>
@@ -219,6 +238,7 @@ export function Mailboxes() {
               <label className="flex items-center gap-2 text-sm text-ms-gray-130 cursor-pointer">
                 <div className="relative">
                   <input type="checkbox" checked={createNc} onChange={(e) => setCreateNc(e.target.checked)}
+                    title="Si está activo, al crear el buzón también se crea una cuenta Nextcloud (nube) con la misma contraseña y 5 GB de almacenamiento. Si falla Nextcloud, el buzón se crea igual y se muestra un aviso."
                     className="sr-only" />
                   <div className={`w-10 h-5 rounded-full transition-colors ${createNc ? "bg-ms-blue" : "bg-ms-gray-40"}`}>
                     <div className={`w-4 h-4 bg-white rounded-full shadow transform transition-transform mt-0.5 ${createNc ? "translate-x-5 ml-0.5" : "translate-x-0.5"}`} />
@@ -232,8 +252,8 @@ export function Mailboxes() {
             </div>
           </div>
           <div className="flex gap-2 pt-1">
-            <button onClick={create} className="px-4 py-2 bg-ms-blue text-white rounded text-sm font-medium hover:bg-ms-blue-dark">Crear buzón</button>
-            <button onClick={() => { setShowForm(false); setForm({ username: "", password: "", password2: "", name: "", quota_mb: 0 }); setCreateError(""); }} className="px-4 py-2 border border-ms-gray-40 rounded text-sm text-ms-gray-90">Cancelar</button>
+            <button onClick={create} title="Crea el buzón con los datos ingresados. El usuario podrá enviar y recibir correos de inmediato. Si el interruptor Nextcloud está activo, también crea la cuenta de nube. Se registra en auditoría." className="px-4 py-2 bg-ms-blue text-white rounded text-sm font-medium hover:bg-ms-blue-dark">Crear buzón</button>
+            <button onClick={() => { setShowForm(false); setForm({ username: "", password: "", password2: "", name: "", quota_mb: 0 }); setCreateError(""); }} title="Cierra el formulario y descarta los datos ingresados. No se crea ningún buzón." className="px-4 py-2 border border-ms-gray-40 rounded text-sm text-ms-gray-90">Cancelar</button>
           </div>
         </div>
       )}
@@ -241,7 +261,7 @@ export function Mailboxes() {
       {ncStatus && (
         <div className={`px-4 py-3 rounded text-sm flex items-center justify-between ${ncStatus.includes("fallo") ? "bg-yellow-50 border border-yellow-200 text-yellow-800" : "bg-green-50 border border-green-200 text-green-700"}`}>
           <span>{ncStatus}</span>
-          <button onClick={() => setNcStatus("")} className="text-xs hover:underline ml-2">Cerrar</button>
+          <button onClick={() => setNcStatus("")} title="Oculta este aviso del resultado de Nextcloud. No afecta la cuenta creada." className="text-xs hover:underline ml-2">Cerrar</button>
         </div>
       )}
 
@@ -253,7 +273,7 @@ export function Mailboxes() {
               <h2 className="text-sm font-bold text-purple-700">Membresía en grupos</h2>
               <p className="text-xs text-ms-gray-90 mt-0.5">Correo: <span className="font-semibold text-ms-gray-130">{groupsUser}</span></p>
             </div>
-            <button onClick={() => setGroupsUser(null)} className="text-ms-gray-60 hover:text-ms-gray-130 text-xs">Cerrar</button>
+            <button onClick={() => setGroupsUser(null)} title="Cierra el panel de membresía en grupos. No modifica nada." className="text-ms-gray-60 hover:text-ms-gray-130 text-xs">Cerrar</button>
           </div>
 
           {groupsLoading ? (
@@ -330,7 +350,7 @@ export function Mailboxes() {
                 <p>Notificacion: {titularResult.notification_sent ? <span className="text-ms-green font-semibold">Enviada a {titularResult.recipients_count} contactos</span> : <span className="text-ms-gray-60">No enviada</span>}</p>
               </div>
               <p className="text-[10px] text-ms-gray-60 mt-2">Todo registrado en auditoria. Puede revertir restaurando el nombre anterior desde esta misma página.</p>
-              <button onClick={closeTitular} className="px-3 py-1.5 bg-ms-blue text-white rounded text-xs mt-2">Cerrar</button>
+              <button onClick={closeTitular} title="Cierra el resumen del cambio de titular ya aplicado y limpia el formulario." className="px-3 py-1.5 bg-ms-blue text-white rounded text-xs mt-2">Cerrar</button>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3">
@@ -452,11 +472,13 @@ export function Mailboxes() {
                     title="Editar nombre, cuota, teléfono y correo alterno de este buzón"
                     className="text-ms-blue hover:underline text-xs">Editar</button>
                   <button onClick={() => { setEditPw(editPw === m.username ? null : m.username); setNewPw(""); setNewPw2(""); }}
+                    title="Abre el formulario para asignar una nueva contraseña a este buzón. La actual dejará de funcionar al confirmar."
                     className="text-ms-blue hover:underline text-xs">Contraseña</button>
                   <button onClick={() => loadUserGroups(m.username)}
                     title="Ver en qué grupos de distribución está este correo"
                     className={`${groupsUser === m.username ? "text-purple-700 font-semibold" : "text-purple-600"} hover:underline text-xs`}>Grupos</button>
                   <button onClick={() => { setTitularUser(titularUser === m.username ? null : m.username); setTitularResult(null); setTitularForm({ new_name: "", new_password: "", new_password2: "", new_cargo: "", new_phone: "", send_notification: true, notification_message: "" }); }}
+                    title="Abre el panel para cambiar el titular del buzón: nombre, contraseña, firma y notificación a contactos. Útil cuando otra persona toma este correo."
                     className="text-ms-orange hover:underline text-xs">Titular</button>
                   <button onClick={() => del(m.username)}
                     title="Elimina el buzón y TODOS sus correos permanentemente"
@@ -495,7 +517,7 @@ export function Mailboxes() {
             <h2 className="text-base font-semibold text-ms-gray-130">Editar buzón: {editBox.username}</h2>
             <div>
               <label className="block text-xs text-ms-gray-90 mb-1">Nombre para mostrar</label>
-              <input value={editBoxForm.name} onChange={(e) => setEditBoxForm({ ...editBoxForm, name: e.target.value })} className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
+              <input value={editBoxForm.name} onChange={(e) => setEditBoxForm({ ...editBoxForm, name: e.target.value })} title="Nombre visible del titular. Aparece como remitente en los correos enviados." className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
             </div>
             <div>
               <label className="block text-xs text-ms-gray-90 mb-1">Cuota en MB (0 = sin límite)</label>
@@ -503,15 +525,15 @@ export function Mailboxes() {
             </div>
             <div>
               <label className="block text-xs text-ms-gray-90 mb-1">Teléfono</label>
-              <input value={editBoxForm.phone} onChange={(e) => setEditBoxForm({ ...editBoxForm, phone: e.target.value })} className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
+              <input value={editBoxForm.phone} onChange={(e) => setEditBoxForm({ ...editBoxForm, phone: e.target.value })} title="Teléfono de contacto del titular. Dato informativo; puede usarse en la firma." className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
             </div>
             <div>
               <label className="block text-xs text-ms-gray-90 mb-1">Correo alterno (recuperación)</label>
-              <input value={editBoxForm.email_other} onChange={(e) => setEditBoxForm({ ...editBoxForm, email_other: e.target.value })} className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
+              <input value={editBoxForm.email_other} onChange={(e) => setEditBoxForm({ ...editBoxForm, email_other: e.target.value })} title="Correo alterno personal del titular. Se usa para recuperación de contraseña." className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
             </div>
             {editBoxError && <div className="text-ms-red text-xs">{editBoxError}</div>}
             <div className="flex gap-2 justify-end">
-              <button onClick={() => setEditBox(null)} className="px-4 py-2 border border-ms-gray-40 rounded text-sm text-ms-gray-90">Cancelar</button>
+              <button onClick={() => setEditBox(null)} title="Cierra la ventana sin guardar. Se descartan los cambios." className="px-4 py-2 border border-ms-gray-40 rounded text-sm text-ms-gray-90">Cancelar</button>
               <button onClick={saveEditBox} title="Guarda los cambios del buzón. Se registra en auditoria." className="px-4 py-2 bg-ms-blue text-white rounded text-sm hover:bg-ms-blue-dark">Guardar</button>
             </div>
           </div>

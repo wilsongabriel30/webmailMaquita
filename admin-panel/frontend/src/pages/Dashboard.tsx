@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { Link } from "react-router-dom";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from "recharts";
+import { SectionHelp } from "../components/SectionHelp";
 
 interface DashData {
   stats: { domains: number; mailboxes: number; active_mailboxes: number; aliases: number; total_quota: number };
@@ -27,12 +28,12 @@ export function Dashboard() {
   if (!data) return <div className="p-8 flex items-center justify-center h-full"><div className="animate-spin w-8 h-8 border-2 border-ms-blue border-t-transparent rounded-full" /></div>;
 
   const cards = [
-    { label: "Dominios", value: data.stats.domains, color: "text-ms-blue", bg: "bg-ms-blue-lighter" },
-    { label: "Buzones", value: data.stats.mailboxes, color: "text-ms-purple", bg: "bg-purple-50" },
-    { label: "Activos", value: data.stats.active_mailboxes, color: "text-ms-green", bg: "bg-green-50" },
-    { label: "Alias", value: data.stats.aliases, color: "text-ms-orange", bg: "bg-orange-50" },
-    { label: "Conexiones", value: data.active_connections, color: "text-ms-blue", bg: "bg-blue-50" },
-    { label: "Emails escaneados", value: data.rspamd?.scanned || 0, color: "text-ms-gray-130", bg: "bg-ms-gray-20" },
+    { label: "Dominios", value: data.stats.domains, color: "text-ms-blue", bg: "bg-ms-blue-lighter", help: "Cantidad de dominios de correo dados de alta en el servidor (ej. maquita.com.ec). Se gestionan en la sección Dominios." },
+    { label: "Buzones", value: data.stats.mailboxes, color: "text-ms-purple", bg: "bg-purple-50", help: "Total de buzones (cuentas de correo) creados en el servidor, incluyendo los desactivados." },
+    { label: "Activos", value: data.stats.active_mailboxes, color: "text-ms-green", bg: "bg-green-50", help: "Buzones habilitados que pueden enviar y recibir correo actualmente (excluye los desactivados)." },
+    { label: "Alias", value: data.stats.aliases, color: "text-ms-orange", bg: "bg-orange-50", help: "Direcciones alias que redirigen el correo a otro buzón sin ser cuentas propias (ej. info@ que entrega a una persona)." },
+    { label: "Conexiones", value: data.active_connections, color: "text-ms-blue", bg: "bg-blue-50", help: "Sesiones IMAP/POP3 conectadas al servidor en este momento; da una idea de cuántos usuarios están usando el correo ahora." },
+    { label: "Emails escaneados", value: data.rspamd?.scanned || 0, color: "text-ms-gray-130", bg: "bg-ms-gray-20", help: "Correos analizados por el filtro antispam Rspamd desde su último reinicio; el detalle de acciones se ve en el gráfico Rspamd." },
   ];
 
   const spamActions = data.rspamd?.actions || {};
@@ -55,11 +56,25 @@ export function Dashboard() {
     <div className="p-6 space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-ms-gray-130">Dashboard</h1>
-        <span className="text-xs text-ms-gray-60">Última actualización: {new Date().toLocaleTimeString()}</span>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-ms-gray-60">Última actualización: {new Date().toLocaleTimeString()}</span>
+          <SectionHelp
+            titulo="Dashboard"
+            items={[
+              { titulo: "Qué hace esta sección", desc: "Es la pantalla de inicio del panel: resume en tiempo real el estado del servidor de correo. Los datos se cargan al abrir la página; recarga el navegador para actualizarlos." },
+              { titulo: "Tarjetas de resumen", desc: "Arriba se muestran los totales de dominios, buzones, buzones activos, alias, conexiones en curso y correos escaneados por el antispam." },
+              { titulo: "Servicios", desc: "Estado de cada servicio del servidor (Postfix, Dovecot, Rspamd, etc.): punto verde = funcionando, rojo = caído o con fallas. Si algo está en rojo, revisa la sección Servicios." },
+              { titulo: "Rspamd y volumen de correo", desc: "El gráfico circular muestra qué hizo el antispam con los correos (aceptar, rechazar, marcar spam) y el de área compara correo legítimo vs spam en las últimas 24 horas." },
+              { titulo: "Almacenamiento y conexiones", desc: "La barra por dominio indica cuántos GB ocupa el correo de cada dominio, y la lista final detalla qué usuarios están conectados y por qué servicio (IMAP, POP3)." },
+              { titulo: "Acceso rápido", desc: "La tarjeta azul lleva al Filtro Avanzado de Adjuntos, donde se afinan la detección de malware en comprimidos y la neurona antispam." },
+            ]}
+          />
+        </div>
       </div>
 
       {/* Acceso rapido — Filtro Avanzado (nuevo) */}
       <Link to="/antispam"
+        title="Abre la sección Filtro Avanzado de Adjuntos para configurar la detección de malware en comprimidos, Office con macros, la neurona de spam y la depuración mensual. Solo navega, no cambia nada."
         className="flex items-center gap-3 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded p-4 transition-colors">
         <svg className="w-6 h-6 text-blue-700 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2l7 4v6c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6l7-4z" />
@@ -77,7 +92,7 @@ export function Dashboard() {
       {/* Stats cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         {cards.map((c) => (
-          <div key={c.label} className={`${c.bg} rounded border border-ms-gray-30 p-4`}>
+          <div key={c.label} title={c.help} className={`${c.bg} rounded border border-ms-gray-30 p-4`}>
             <p className="text-[11px] font-medium text-ms-gray-90 uppercase">{c.label}</p>
             <p className={`text-2xl font-bold mt-1 ${c.color}`}>{c.value.toLocaleString()}</p>
           </div>
@@ -158,7 +173,7 @@ export function Dashboard() {
           ) : (
             <div className="flex flex-col items-center justify-center h-[200px] text-ms-gray-60">
               <p className="text-sm">No se pudo obtener datos de almacenamiento</p>
-              <button onClick={() => api.get("/dashboard/storage").then((d: any) => setStorage(d)).catch(() => setStorage({}))} className="mt-2 text-xs text-ms-blue hover:underline">Reintentar</button>
+              <button onClick={() => api.get("/dashboard/storage").then((d: any) => setStorage(d)).catch(() => setStorage({}))} title="Vuelve a consultar al servidor el almacenamiento usado por cada dominio. Solo lectura, puede tardar unos segundos en calcularse." className="mt-2 text-xs text-ms-blue hover:underline">Reintentar</button>
             </div>
           )}
         </div>

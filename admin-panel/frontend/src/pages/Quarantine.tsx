@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { api } from "../api/client";
+import { SectionHelp } from "../components/SectionHelp";
 
 interface SpamRow { time: string; ip: string; action: string; score: number; from: string; rcpt: string; subject: string }
 interface Suggestion { username: string; name: string }
@@ -71,6 +72,18 @@ export function Quarantine() {
 
   return (
     <div className="p-6 space-y-5">
+      <div className="flex justify-end">
+        <SectionHelp
+          titulo="Cuarentena y Spam"
+          items={[
+            { titulo: "Para qué sirve", desc: "Gestiona el correo clasificado como spam: revisa qué decidió el filtro Rspamd y recupera correos legítimos que cayeron en la carpeta de spam de un usuario." },
+            { titulo: "Tarjetas de estadísticas", desc: "Conteo de correos por acción de Rspamd: reject (rechazado), add header (marcado como spam), greylist (pospuesto), no action (aceptado limpio)." },
+            { titulo: "Pestaña Historial Rspamd", desc: "Últimos correos analizados por el filtro, con IP de origen, remitente, asunto, puntaje (score) y acción tomada. A mayor score, más indicios de spam. Solo lectura." },
+            { titulo: "Pestaña Carpeta Spam de Usuario", desc: "Busque un usuario (autocompleta con nombre o email) y pulse Ver Spam para listar los correos de sus carpetas de spam/junk." },
+            { titulo: "Botón Liberar", desc: "Mueve el correo a la bandeja de entrada del usuario y pone al remitente en lista blanca (sus próximos correos siempre llegarán). Verificar antes que no sea malicioso. Se registra en auditoría." },
+          ]}
+        />
+      </div>
       <h1 className="text-xl font-semibold text-ms-gray-130" title="Gestion de correos en cuarentena y spam. Permite ver historial de Rspamd y gestionar carpetas de spam de usuarios.">Cuarentena y Spam</h1>
 
       {/* Stats */}

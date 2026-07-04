@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { SectionHelp } from "../components/SectionHelp";
 
 interface Forward { address: string; goto: string; domain: string; active: boolean; has_mailbox: boolean }
 
@@ -18,7 +19,19 @@ export function Forwarding() {
     <div className="p-6 space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-ms-gray-130">Reenvíos ({forwards.length})</h1>
-        <button onClick={() => setShowForm(!showForm)} title="Reenvia una copia de todos los correos entrantes a otra dirección. El original se mantiene en el buzón. Se registra en auditoria." className="px-3 py-1.5 bg-ms-blue text-white rounded text-sm hover:bg-ms-blue-dark">+ Nuevo reenvio</button>
+        <div className="flex items-center gap-2">
+          <SectionHelp
+            titulo="Reenvíos de correo"
+            items={[
+              { titulo: "Para qué sirve", desc: "Configura que los correos que llegan a una dirección (origen) se envíen automáticamente a otra (destino). Útil cuando alguien está de vacaciones, cambió de correo o quiere recibir copias en otra cuenta." },
+              { titulo: "Mantener copia", desc: "Si el reenvío se crea con la casilla marcada, el correo original queda también en el buzón de origen. Si no, solo llega al destino y el buzón de origen no lo conserva." },
+              { titulo: "Columna Buzón", desc: "Indica si la dirección de origen tiene un buzón real en el servidor (Sí) o es solo una dirección que redirige (No)." },
+              { titulo: "Columna Estado", desc: "Activo = el reenvío está funcionando. Inactivo = está definido pero no reenvía correos." },
+              { titulo: "Eliminar", desc: "Quita el reenvío: los correos dejan de copiarse al destino y siguen llegando solo al buzón de origen. Se registra en auditoría." },
+            ]}
+          />
+          <button onClick={() => setShowForm(!showForm)} title="Reenvia una copia de todos los correos entrantes a otra dirección. El original se mantiene en el buzón. Se registra en auditoria." className="px-3 py-1.5 bg-ms-blue text-white rounded text-sm hover:bg-ms-blue-dark">+ Nuevo reenvio</button>
+        </div>
       </div>
 
       {showForm && (

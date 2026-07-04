@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { SectionHelp } from "../components/SectionHelp";
 
 export function DnsCheck() {
   const [domain, setDomain] = useState("");
@@ -42,7 +43,16 @@ export function DnsCheck() {
 
   return (
     <div className="p-6 space-y-5">
-      <h1 className="text-xl font-semibold text-ms-gray-130">Verificación DNS de dominios</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold text-ms-gray-130">Verificación DNS de dominios</h1>
+        <SectionHelp titulo="Verificación DNS" items={[
+          { titulo: "Para qué sirve", desc: "Audita la configuración DNS de correo de cualquier dominio (propio o externo) para diagnosticar por qué un correo no llega o cae en spam. Es solo lectura: no modifica nada." },
+          { titulo: "Dominios del servidor", desc: "Los chips azules son los dominios ya administrados por este servidor; haga clic en uno para analizarlo sin escribirlo." },
+          { titulo: "Calificación y puntuación", desc: "Resume la salud del dominio con una letra (A a F) y un puntaje sobre 100, más indicadores de si puede recibir correo, entregar correo y autenticarse por completo." },
+          { titulo: "Tarjetas de detalle", desc: "MX (a dónde llega el correo), SPF (quién puede enviar), DKIM (firma digital), DMARC (política de autenticación), PTR (DNS inverso, clave para no caer en spam) y Autoconfig (configuración automática de clientes)." },
+          { titulo: "Recomendaciones", desc: "Al final se listan los registros DNS faltantes o mal configurados que debe corregir en el proveedor DNS del dominio." },
+        ]} />
+      </div>
       <p className="text-xs text-ms-gray-60">
         Analiza MX, SPF, DKIM, DMARC, PTR y autoconfig de cualquier dominio. Usa resolvers públicos (Google DNS).
       </p>
@@ -87,6 +97,7 @@ export function DnsCheck() {
           </svg>
           <p className="text-sm text-blue-800 flex-1">{result.hint}</p>
           <button onClick={() => check(result.base_domain)}
+            title={`Ejecuta la verificación DNS sobre el dominio base ${result.base_domain} en lugar del hostname ingresado. Solo lectura, no modifica nada.`}
             className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 whitespace-nowrap">
             Verificar {result.base_domain}
           </button>

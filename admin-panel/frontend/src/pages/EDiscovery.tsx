@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "../api/client";
+import { SectionHelp } from "../components/SectionHelp";
 
 interface Mailbox {
   email: string;
@@ -126,6 +127,19 @@ export function EDiscovery() {
   return (
     <div className="p-6 max-w-[1400px] mx-auto">
       {/* Header */}
+      <div className="flex justify-end">
+        <SectionHelp
+          titulo="eDiscovery — Búsqueda Forense"
+          items={[
+            { titulo: "¿Qué es?", desc: "Buscador forense que rastrea correos en todos los buzones del servidor a la vez, usando autenticación administrativa (no necesita las contraseñas de los usuarios)." },
+            { titulo: "Formulario de búsqueda", desc: "Escribe el término, elige dónde buscar (todo el mensaje, asunto, remitente, destinatario o cuerpo), la carpeta (entrada, enviados, papelera…) y el límite de resultados por buzón." },
+            { titulo: "Filtros de fecha", desc: "«Desde» y «Hasta» acotan la búsqueda a un rango de fechas del correo; déjalos vacíos para buscar sin límite temporal." },
+            { titulo: "Selección de buzones", desc: "Por defecto se buscan todos los buzones. Despliega «Seleccionar buzones» para limitar la búsqueda solo a algunos." },
+            { titulo: "Exportar evidencia", desc: "El icono de descarga en cada resultado exporta el mensaje como archivo .eml con cadena de custodia (hash SHA256, marcas de tiempo y origen), válido como evidencia." },
+            { titulo: "Auditoría", desc: "Cada búsqueda y exportación queda registrada en el log de auditoría con el administrador que la hizo. Úsalo solo para investigaciones legítimas." },
+          ]}
+        />
+      </div>
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
           <svg className="w-6 h-6 text-ms-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -150,6 +164,7 @@ export function EDiscovery() {
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && search()}
               placeholder="Buscar en correos..."
+              title="Texto a buscar dentro de los correos según el campo elegido en «Buscar en». Pulsa Enter o el botón «Buscar» para lanzar la búsqueda; quedará registrada en auditoría."
               className="w-full px-3 py-2 border rounded-md text-sm focus:ring-2 focus:ring-ms-blue focus:border-ms-blue"
             />
           </div>
@@ -157,7 +172,7 @@ export function EDiscovery() {
           {/* Field */}
           <div className="md:col-span-2">
             <label className="block text-xs font-medium text-gray-600 mb-1">Buscar en</label>
-            <select value={field} onChange={(e) => setField(e.target.value)} className="w-full px-3 py-2 border rounded-md text-sm">
+            <select value={field} onChange={(e) => setField(e.target.value)} title="Campo del correo donde buscar el término: todo el mensaje (más lento pero completo), solo el asunto, el remitente, el destinatario o solo el cuerpo." className="w-full px-3 py-2 border rounded-md text-sm">
               <option value="TEXT">Todo el mensaje</option>
               <option value="SUBJECT">Asunto</option>
               <option value="FROM">Remitente</option>
@@ -169,7 +184,7 @@ export function EDiscovery() {
           {/* Folder */}
           <div className="md:col-span-2">
             <label className="block text-xs font-medium text-gray-600 mb-1">Carpeta</label>
-            <select value={folder} onChange={(e) => setFolder(e.target.value)} className="w-full px-3 py-2 border rounded-md text-sm">
+            <select value={folder} onChange={(e) => setFolder(e.target.value)} title="Carpeta IMAP donde buscar en cada buzón: bandeja de entrada, enviados, borradores, papelera, spam o archivo. Se busca solo en la carpeta elegida." className="w-full px-3 py-2 border rounded-md text-sm">
               <option value="INBOX">Bandeja de entrada</option>
               <option value="Sent">Enviados</option>
               <option value="Drafts">Borradores</option>
@@ -182,7 +197,7 @@ export function EDiscovery() {
           {/* Limit */}
           <div className="md:col-span-1">
             <label className="block text-xs font-medium text-gray-600 mb-1">Límite</label>
-            <select value={limit} onChange={(e) => setLimit(Number(e.target.value))} className="w-full px-3 py-2 border rounded-md text-sm">
+            <select value={limit} onChange={(e) => setLimit(Number(e.target.value))} title="Número máximo de resultados a devolver. Un límite bajo hace la búsqueda más rápida; súbelo si sospechas que hay más coincidencias de las mostradas." className="w-full px-3 py-2 border rounded-md text-sm">
               <option value={25}>25</option>
               <option value={50}>50</option>
               <option value={100}>100</option>
@@ -196,6 +211,7 @@ export function EDiscovery() {
             <button
               onClick={search}
               disabled={loading || !query.trim()}
+              title="Lanza la búsqueda en los buzones seleccionados (o en todos si no elegiste ninguno) con los filtros indicados. Puede tardar según la cantidad de buzones; la búsqueda queda registrada en el log de auditoría."
               className="w-full px-4 py-2 bg-ms-blue text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {loading ? (
@@ -212,11 +228,11 @@ export function EDiscovery() {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mt-3">
           <div className="md:col-span-3">
             <label className="block text-xs font-medium text-gray-600 mb-1">Desde</label>
-            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-full px-3 py-2 border rounded-md text-sm" />
+            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} title="Fecha inicial del rango: solo se incluirán correos con fecha igual o posterior a esta. Déjala vacía para no limitar el inicio." className="w-full px-3 py-2 border rounded-md text-sm" />
           </div>
           <div className="md:col-span-3">
             <label className="block text-xs font-medium text-gray-600 mb-1">Hasta</label>
-            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-full px-3 py-2 border rounded-md text-sm" />
+            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} title="Fecha final del rango: solo se incluirán correos con fecha igual o anterior a esta. Déjala vacía para no limitar el final." className="w-full px-3 py-2 border rounded-md text-sm" />
           </div>
         </div>
 
@@ -227,13 +243,13 @@ export function EDiscovery() {
           </summary>
           <div className="mt-2 border rounded-md p-3 bg-gray-50 max-h-48 overflow-y-auto">
             <div className="flex gap-3 mb-2 pb-2 border-b">
-              <button onClick={() => toggleAll(true)} className="text-xs text-ms-blue hover:underline">Seleccionar todos</button>
-              <button onClick={() => toggleAll(false)} className="text-xs text-red-500 hover:underline">Ninguno</button>
+              <button onClick={() => toggleAll(true)} title="Marca todos los buzones del servidor para incluirlos en la búsqueda." className="text-xs text-ms-blue hover:underline">Seleccionar todos</button>
+              <button onClick={() => toggleAll(false)} title="Desmarca todos los buzones; sin ninguno marcado la búsqueda se hace igualmente en todos los buzones del servidor." className="text-xs text-red-500 hover:underline">Ninguno</button>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-1">
               {mailboxes.map((m) => (
                 <label key={m.email} className="flex items-center gap-2 text-sm py-0.5 cursor-pointer hover:bg-gray-100 px-1 rounded">
-                  <input type="checkbox" checked={selected.has(m.email)} onChange={() => toggle(m.email)} className="rounded text-ms-blue" />
+                  <input type="checkbox" checked={selected.has(m.email)} onChange={() => toggle(m.email)} title="Incluye o excluye este buzón de la búsqueda. Si ningún buzón queda marcado, se buscará en todos." className="rounded text-ms-blue" />
                   <span className={m.active ? "" : "text-gray-400 line-through"}>{m.email.split("@")[0]}</span>
                 </label>
               ))}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { useAuth } from "../api/auth";
+import { SectionHelp } from "../components/SectionHelp";
 
 interface Admin { id: number; username: string; display_name: string; role: string; active: boolean; created_at: string; last_login: string }
 
@@ -73,6 +74,14 @@ export function Admins() {
     <div className="p-6 space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-ms-gray-130" title="Gestion de administradores del panel. Solo accesible por superadmins.">Administradores</h1>
+        <SectionHelp titulo="Administradores del panel" items={[
+          { titulo: "Qué es esta sección", desc: "Gestiona las cuentas que pueden entrar a ESTE panel de administración (no son buzones de correo). Solo los superadmins ven esta página." },
+          { titulo: "Roles", desc: "Viewer: solo lectura. Admin: gestiona buzones, alias y dominios. Superadmin: control total, incluida la gestión de otros administradores." },
+          { titulo: "Crear un admin", desc: "Botón + Nuevo admin: pide usuario, contraseña (mínimo 8 caracteres), nombre visible y rol. Queda registrado en auditoría." },
+          { titulo: "Editar", desc: "Cambia nombre, rol o desactiva la cuenta. Una cuenta inactiva no puede iniciar sesión. No puede quitarse a sí mismo el rol superadmin ni desactivarse." },
+          { titulo: "Cambiar contraseña", desc: "Asigna una nueva contraseña a otro administrador sin conocer la anterior. Se aplica de inmediato." },
+          { titulo: "Eliminar", desc: "Borra el administrador definitivamente: pierde acceso al instante y no se puede deshacer. Todas las acciones quedan en el log de auditoría." },
+        ]} />
         <button onClick={() => setShowForm(!showForm)} title="Crea un nuevo usuario administrador del panel. Tendra acceso segun el rol asignado. Se registra en auditoria." className="px-3 py-1.5 bg-ms-blue text-white rounded text-sm hover:bg-ms-blue-dark">+ Nuevo admin</button>
       </div>
 
@@ -126,19 +135,19 @@ export function Admins() {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setEditFor(null)}>
           <div className="bg-white rounded border border-ms-gray-30 p-5 w-96 space-y-3" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-base font-semibold text-ms-gray-130">Editar administrador: {editFor.username}</h2>
-            <input placeholder="Nombre para mostrar" value={editForm.display_name} onChange={(e) => setEditForm({ ...editForm, display_name: e.target.value })} className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
+            <input placeholder="Nombre para mostrar" value={editForm.display_name} onChange={(e) => setEditForm({ ...editForm, display_name: e.target.value })} title="Nombre visible del administrador en el panel. Solo informativo, no afecta el inicio de sesión." className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
             <select value={editForm.role} onChange={(e) => setEditForm({ ...editForm, role: e.target.value })} title="superadmin: control total. admin: gestion sin configuración critica. viewer: solo lectura." className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue">
               <option value="viewer">Viewer (solo lectura)</option>
               <option value="admin">Admin (gestion)</option>
               <option value="superadmin">Superadmin (total)</option>
             </select>
             <label className="flex items-center gap-2 text-sm text-ms-gray-90">
-              <input type="checkbox" checked={editForm.active} onChange={(e) => setEditForm({ ...editForm, active: e.target.checked })} />
+              <input type="checkbox" checked={editForm.active} onChange={(e) => setEditForm({ ...editForm, active: e.target.checked })} title="Marcado: la cuenta puede iniciar sesión. Desmarcado: la cuenta queda inactiva y no podrá entrar al panel al guardar." />
               Cuenta activa (si se desmarca, no podrá iniciar sesión en el panel)
             </label>
             {editError && <div className="text-ms-red text-xs">{editError}</div>}
             <div className="flex gap-2 justify-end">
-              <button onClick={() => setEditFor(null)} className="px-4 py-2 border border-ms-gray-40 rounded text-sm text-ms-gray-90">Cancelar</button>
+              <button onClick={() => setEditFor(null)} title="Cierra el formulario de edición sin guardar ningún cambio." className="px-4 py-2 border border-ms-gray-40 rounded text-sm text-ms-gray-90">Cancelar</button>
               <button onClick={saveEdit} title="Guarda los cambios del administrador. Se registra en auditoria." className="px-4 py-2 bg-ms-blue text-white rounded text-sm hover:bg-ms-blue-dark">Guardar</button>
             </div>
           </div>
@@ -149,8 +158,8 @@ export function Admins() {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setPwFor(null)}>
           <div className="bg-white rounded border border-ms-gray-30 p-5 w-96 space-y-3" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-base font-semibold text-ms-gray-130">Cambiar contraseña de {pwFor.username}</h2>
-            <input type="password" placeholder="Nueva contraseña (min 8)" value={pwForm.password} onChange={(e) => setPwForm({ ...pwForm, password: e.target.value })} autoFocus className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
-            <input type="password" placeholder="Confirmar contraseña" value={pwForm.confirm} onChange={(e) => setPwForm({ ...pwForm, confirm: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") changePassword(); }} className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
+            <input type="password" placeholder="Nueva contraseña (min 8)" value={pwForm.password} onChange={(e) => setPwForm({ ...pwForm, password: e.target.value })} autoFocus title="Nueva contraseña para este administrador. Mínimo 8 caracteres. Se aplicará al pulsar Guardar." className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
+            <input type="password" placeholder="Confirmar contraseña" value={pwForm.confirm} onChange={(e) => setPwForm({ ...pwForm, confirm: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") changePassword(); }} title="Repita la nueva contraseña. Debe coincidir exactamente con la anterior. Enter guarda." className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
             {pwError && <div className="text-ms-red text-xs">{pwError}</div>}
             <div className="flex gap-2 justify-end">
               <button onClick={() => setPwFor(null)} title="Cancela el cambio de contraseña. No se guarda nada." className="px-4 py-2 border border-ms-gray-40 rounded text-sm text-ms-gray-90">Cancelar</button>
