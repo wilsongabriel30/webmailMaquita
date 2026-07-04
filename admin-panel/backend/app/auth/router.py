@@ -60,6 +60,25 @@ async def login(request: Request):
         )
         raise HTTPException(401, "Credenciales inválidas")
 
+    # 2FA (TOTP): si está habilitado, exigir código antes de emitir sesión.
+    # ("totp_enabled" in keys: tolera BD sin la migración 2026-07-admin-totp.sql)
+    if "totp_enabled" in user.keys() and user["totp_enabled"]:
+        totp_code = str(data.get("totp_code", "")).strip()
+        if not totp_code:
+            return {"requires_totp": True}
+        import pyotp
+        if not pyotp.TOTP(user["totp_secret"]).verify(totp_code, valid_window=1):
+            attempts = (user["failed_attempts"] or 0) + 1
+            locked = None
+            if attempts >= 5:
+                from datetime import timedelta
+                locked = datetime.now(timezone.utc) + timedelta(minutes=15)
+            await db.execute(
+                "UPDATE admin_users SET failed_attempts = $1, locked_until = $2 WHERE id = $3",
+                attempts, locked, user["id"],
+            )
+            raise HTTPException(401, "Código de verificación inválido")
+
     # Reset failed attempts
     await db.execute(
         "UPDATE admin_users SET failed_attempts = 0, locked_until = NULL, last_login = NOW() WHERE id = $1",
@@ -229,3 +248,85 @@ async def verify_password(request: Request, admin: dict = Depends(get_current_ad
     if not row or not _check_pw(password, row["password_hash"]):
         raise HTTPException(403, "Contraseña incorrecta")
     return {"ok": True, "verified": True}
+
+
+# ── 2FA (TOTP) del panel ──────────────────────────────────
+
+async def _require_own_password(db, request: Request, admin: dict):
+    data = await request.json()
+    row = await db.fetchrow("SELECT password_hash FROM admin_users WHERE id = $1", admin["id"])
+    if not row or not _check_pw(data.get("password", ""), row["password_hash"]):
+        raise HTTPException(403, "Contraseña incorrecta")
+    return data
+
+
+@router.get("/totp/status")
+async def totp_status(request: Request, admin: dict = Depends(get_current_admin)):
+    db = _db(request)
+    row = await db.fetchrow("SELECT totp_enabled FROM admin_users WHERE id = $1", admin["id"])
+    return {"enabled": bool(row and row["totp_enabled"])}
+
+
+@router.post("/totp/setup")
+async def totp_setup(request: Request, admin: dict = Depends(get_current_admin)):
+    """Genera un secreto TOTP pendiente (requiere contraseña actual). Se activa con /totp/verify."""
+    import base64
+    import io
+
+    import pyotp
+    import qrcode
+    import qrcode.image.svg
+
+    db = _db(request)
+    await _require_own_password(db, request, admin)
+
+    secret = pyotp.random_base32()
+    await db.execute(
+        "UPDATE admin_users SET totp_secret = $1, totp_enabled = FALSE WHERE id = $2",
+        secret, admin["id"],
+    )
+    uri = pyotp.TOTP(secret).provisioning_uri(name=admin["username"], issuer_name="Maquita Mail Admin")
+    img = qrcode.make(uri, image_factory=qrcode.image.svg.SvgPathImage)
+    buf = io.BytesIO()
+    img.save(buf)
+    qr_data_uri = "data:image/svg+xml;base64," + base64.b64encode(buf.getvalue()).decode()
+    return {"secret": secret, "otpauth_uri": uri, "qr_svg": qr_data_uri}
+
+
+@router.post("/totp/verify")
+async def totp_verify(request: Request, admin: dict = Depends(get_current_admin)):
+    """Confirma el código del autenticador y activa el 2FA."""
+    import pyotp
+
+    db = _db(request)
+    data = await request.json()
+    code = str(data.get("code", "")).strip()
+    row = await db.fetchrow("SELECT totp_secret, totp_enabled FROM admin_users WHERE id = $1", admin["id"])
+    if not row or not row["totp_secret"]:
+        raise HTTPException(400, "Primero genere el secreto con /totp/setup")
+    if not pyotp.TOTP(row["totp_secret"]).verify(code, valid_window=1):
+        raise HTTPException(401, "Código de verificación inválido")
+
+    await db.execute("UPDATE admin_users SET totp_enabled = TRUE WHERE id = $1", admin["id"])
+    await db.execute(
+        "INSERT INTO admin_audit (admin_id, admin_username, action, ip_address) VALUES ($1, $2, $3, $4)",
+        admin["id"], admin["username"], "totp_enabled", _ip(request),
+    )
+    return {"ok": True, "enabled": True}
+
+
+@router.post("/totp/disable")
+async def totp_disable(request: Request, admin: dict = Depends(get_current_admin)):
+    """Desactiva el 2FA (requiere contraseña actual)."""
+    db = _db(request)
+    await _require_own_password(db, request, admin)
+
+    await db.execute(
+        "UPDATE admin_users SET totp_secret = NULL, totp_enabled = FALSE WHERE id = $1",
+        admin["id"],
+    )
+    await db.execute(
+        "INSERT INTO admin_audit (admin_id, admin_username, action, ip_address) VALUES ($1, $2, $3, $4)",
+        admin["id"], admin["username"], "totp_disabled", _ip(request),
+    )
+    return {"ok": True, "enabled": False}

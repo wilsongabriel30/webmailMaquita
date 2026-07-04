@@ -12,6 +12,9 @@ export function Admins() {
   const [pwFor, setPwFor] = useState<Admin | null>(null);
   const [pwForm, setPwForm] = useState({ password: "", confirm: "" });
   const [pwError, setPwError] = useState("");
+  const [editFor, setEditFor] = useState<Admin | null>(null);
+  const [editForm, setEditForm] = useState({ display_name: "", role: "admin", active: true });
+  const [editError, setEditError] = useState("");
 
   const load = () => api.get<Admin[]>("/auth/admins").then(setAdmins).catch(() => {});
   useEffect(() => { load(); }, []);
@@ -24,6 +27,23 @@ export function Admins() {
   const del = async (id: number, name: string) => {
     if (!confirm(`PRECAUCION: Eliminar administrador "${name}"? Perdera acceso al panel inmediatamente. Esta accion no se puede deshacer. Se registra en auditoria.`)) return;
     await api.del(`/auth/admins/${id}`); load();
+  };
+
+  const openEditForm = (a: Admin) => {
+    setEditFor(a); setEditForm({ display_name: a.display_name, role: a.role, active: a.active }); setEditError("");
+  };
+  const saveEdit = async () => {
+    if (!editFor) return;
+    if (editFor.id === user?.id && (editForm.role !== "superadmin" || !editForm.active)) {
+      setEditError("No puede quitarse el rol superadmin ni desactivarse a sí mismo"); return;
+    }
+    if (!confirm(`Guardar cambios de "${editFor.username}"? (rol: ${editForm.role}, ${editForm.active ? "activo" : "INACTIVO"}). Se registra en auditoria.`)) return;
+    try {
+      await api.put(`/auth/admins/${editFor.id}`, editForm);
+      setEditFor(null); load();
+    } catch (e) {
+      setEditError(e instanceof Error ? e.message : "Error al guardar");
+    }
   };
 
   const openPwForm = (a: Admin) => {
@@ -92,6 +112,7 @@ export function Admins() {
                 <td className="px-4 py-2.5 text-center"><span className={`px-2 py-0.5 rounded text-[10px] font-medium ${a.active ? "bg-green-50 text-ms-green" : "bg-red-50 text-ms-red"}`} title={a.active ? "El administrador esta activo y puede acceder al panel." : "El administrador esta inactivo y no puede acceder al panel."}>{a.active ? "Activo" : "Inactivo"}</span></td>
                 <td className="px-4 py-2.5 text-xs text-ms-gray-60">{a.last_login ? new Date(a.last_login).toLocaleString() : "Nunca"}</td>
                 <td className="px-4 py-2.5 text-right space-x-3">
+                  <button onClick={() => openEditForm(a)} title="Edita nombre, rol y estado (activo/inactivo) de este administrador. Se registra en auditoria." className="text-ms-blue text-xs hover:underline">Editar</button>
                   <button onClick={() => openPwForm(a)} title="Cambia la contraseña de este administrador. Se registra en auditoria." className="text-ms-blue text-xs hover:underline">Cambiar contraseña</button>
                   {a.id !== user?.id && <button onClick={() => del(a.id, a.username)} title="PRECAUCION: Elimina el administrador. Perdera acceso al panel inmediatamente. Se registra en auditoria." className="text-ms-red text-xs hover:underline">Eliminar</button>}
                 </td>
@@ -100,6 +121,29 @@ export function Admins() {
           </tbody>
         </table>
       </div>
+
+      {editFor && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setEditFor(null)}>
+          <div className="bg-white rounded border border-ms-gray-30 p-5 w-96 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-base font-semibold text-ms-gray-130">Editar administrador: {editFor.username}</h2>
+            <input placeholder="Nombre para mostrar" value={editForm.display_name} onChange={(e) => setEditForm({ ...editForm, display_name: e.target.value })} className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
+            <select value={editForm.role} onChange={(e) => setEditForm({ ...editForm, role: e.target.value })} title="superadmin: control total. admin: gestion sin configuración critica. viewer: solo lectura." className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue">
+              <option value="viewer">Viewer (solo lectura)</option>
+              <option value="admin">Admin (gestion)</option>
+              <option value="superadmin">Superadmin (total)</option>
+            </select>
+            <label className="flex items-center gap-2 text-sm text-ms-gray-90">
+              <input type="checkbox" checked={editForm.active} onChange={(e) => setEditForm({ ...editForm, active: e.target.checked })} />
+              Cuenta activa (si se desmarca, no podrá iniciar sesión en el panel)
+            </label>
+            {editError && <div className="text-ms-red text-xs">{editError}</div>}
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setEditFor(null)} className="px-4 py-2 border border-ms-gray-40 rounded text-sm text-ms-gray-90">Cancelar</button>
+              <button onClick={saveEdit} title="Guarda los cambios del administrador. Se registra en auditoria." className="px-4 py-2 bg-ms-blue text-white rounded text-sm hover:bg-ms-blue-dark">Guardar</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {pwFor && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setPwFor(null)}>
