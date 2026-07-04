@@ -228,6 +228,18 @@ export async function clearActions() {
   tx.objectStore("actions").clear();
 }
 
+export async function removeActions(ids: string[]) {
+  if (ids.length === 0) return;
+  const db = await openDB();
+  const tx = db.transaction("actions", "readwrite");
+  const store = tx.objectStore("actions");
+  for (const id of ids) store.delete(id);
+  return new Promise<void>((resolve) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => resolve();
+  });
+}
+
 // === OUTBOX ===
 
 export async function addToOutbox(email: Omit<OutboxEmail, "id" | "createdAt" | "status" | "retries">): Promise<string> {

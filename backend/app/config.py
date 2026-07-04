@@ -61,6 +61,10 @@ class Settings(BaseSettings):
     # Redes confiables (LAN/VPN): los logins desde aquí NO generan alerta de "IP no habitual".
     # Coma-separadas (CIDR). Por defecto las privadas RFC1918 + loopback.
     trusted_networks: str = "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.0/8"
+    # Rate limiting por usuario (peticiones por minuto). 0 = deshabilitar ese tier.
+    rate_limit_read_per_min: int = 300
+    rate_limit_write_per_min: int = 60
+    rate_limit_send_per_min: int = 10
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 

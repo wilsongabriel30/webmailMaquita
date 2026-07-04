@@ -329,11 +329,11 @@ _SECURITY_EVENTS = {
 class ApiRateLimitMiddleware(BaseHTTPMiddleware):
     """Per-user rate limiting for authenticated API requests using Redis.
 
-    Limits:
-      - Read endpoints (GET):     300 req/min per user
-      - Write endpoints (POST/PUT/DELETE/PATCH): 60 req/min per user
-      - Send/compose:             10 req/min per user
-    
+    Limits (configurables via .env; 0 = tier deshabilitado):
+      - Read endpoints (GET):     RATE_LIMIT_READ_PER_MIN  (default 300)
+      - Write endpoints (POST/PUT/DELETE/PATCH): RATE_LIMIT_WRITE_PER_MIN (default 60)
+      - Send/compose:             RATE_LIMIT_SEND_PER_MIN  (default 10)
+
     Skips: login, health, static assets, WebSocket upgrades.
     """
 
@@ -366,12 +366,16 @@ class ApiRateLimitMiddleware(BaseHTTPMiddleware):
 
         # Determine limit tier
         method = request.method.upper()
+        rl = get_settings()
         if path in self.SEND_PATHS:
-            limit, window, tier = 10, 60, "send"
+            limit, window, tier = rl.rate_limit_send_per_min, 60, "send"
         elif method == "GET":
-            limit, window, tier = 300, 60, "read"
+            limit, window, tier = rl.rate_limit_read_per_min, 60, "read"
         else:
-            limit, window, tier = 60, 60, "write"
+            limit, window, tier = rl.rate_limit_write_per_min, 60, "write"
+
+        if limit <= 0:
+            return await call_next(request)
 
         # Check Redis counter
         try:
@@ -384,6 +388,9 @@ class ApiRateLimitMiddleware(BaseHTTPMiddleware):
             if count > limit:
                 from starlette.responses import JSONResponse
                 ttl = await redis.ttl(key)
+                if ttl < 0:
+                    await redis.expire(key, window)
+                    ttl = window
                 return JSONResponse(
                     status_code=429,
                     content={"detail": f"Demasiadas solicitudes. Limite: {limit}/{window}s. Reintente en {ttl}s."},
