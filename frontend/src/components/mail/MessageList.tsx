@@ -262,7 +262,7 @@ export function MessageList() {
         const newCount = r.total - prevTotalRef.current;
         try { (window as any).__maquitaBeep?.(); } catch {}
         if (Notification.permission === 'granted') {
-          new Notification('Maquita Mail', { body: `${newCount} correo${newCount > 1 ? 's' : ''} nuevo${newCount > 1 ? 's' : ''}`, icon: '/favicon.svg' });
+          new Notification('Maquita Mail', { body: `${newCount} correo${newCount > 1 ? 's' : ''} nuevo${newCount > 1 ? 's' : ''}`, icon: '/webmail/favicon.svg' });
         } else if (Notification.permission !== 'denied') {
           Notification.requestPermission();
         }
@@ -513,10 +513,13 @@ export function MessageList() {
       if (useMailStore.getState().viewMode === 'conversations' && msg.thread_id) {
         fetchThreadMessages(msg.thread_id, msg.uid);
       }
+      const wasUnseen = useMailStore.getState().messages.some(m => m.uid === uid && !m.seen);
       const updated = useMailStore.getState().messages.map(m => m.uid === uid ? { ...m, seen: true, flags: m.flags.includes('\\Seen') ? m.flags : [...m.flags, '\\Seen'] } : m);
       useMailStore.getState().setMessages(updated, totalMessages, currentPage);
-      const flds = useMailStore.getState().folders.map(f => f.name === currentFolder && f.unseen > 0 ? { ...f, unseen: f.unseen - 1 } : f);
-      useMailStore.getState().setFolders(flds);
+      if (wasUnseen) {
+        const flds = useMailStore.getState().folders.map(f => f.name === currentFolder && f.unseen > 0 ? { ...f, unseen: f.unseen - 1 } : f);
+        useMailStore.getState().setFolders(flds);
+      }
     } catch (err) {
       console.error(err);
       useMailStore.getState().setLoadingMessage(false);
