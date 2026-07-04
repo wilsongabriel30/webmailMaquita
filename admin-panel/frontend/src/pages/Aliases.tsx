@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { SectionHelp } from "../components/SectionHelp";
 
 interface Alias { address: string; goto: string; domain: string; active: boolean }
 
@@ -18,7 +19,19 @@ export function Aliases() {
     <div className="p-6 space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-ms-gray-130">Alias ({aliases.length})</h1>
-        <button onClick={() => setShowForm(!showForm)} title="Crea una redirección de correo. Los correos enviados al alias se entregan al destino. Se registra en auditoria." className="px-3 py-1.5 bg-ms-blue text-white rounded text-sm hover:bg-ms-blue-dark">+ Nuevo alias</button>
+        <div className="flex items-center gap-2">
+          <SectionHelp
+            titulo="Alias de correo"
+            items={[
+              { titulo: "Para qué sirve", desc: "Un alias es una dirección de correo alternativa que no tiene buzón propio: todo lo que llega al alias se entrega en el buzón de destino. Ejemplo: info@dominio.com puede ser alias de juan.perez@dominio.com." },
+              { titulo: "Diferencia con Reenvíos", desc: "El alias es una dirección virtual sin buzón. El reenvío copia correos de un buzón real hacia otra dirección. Use alias para direcciones genéricas (info, ventas, contacto)." },
+              { titulo: "Columnas de la tabla", desc: "Alias = la dirección virtual. Destino = el buzón real que recibe. Dominio = a qué dominio pertenece el alias. Estado = si la redirección está funcionando (Activo) o pausada (Inactivo)." },
+              { titulo: "Crear alias", desc: "Con el botón + Nuevo alias se indica la dirección virtual y el buzón de destino. Funciona de inmediato y se registra en auditoría." },
+              { titulo: "Eliminar", desc: "Los correos enviados al alias empezarán a rebotar al remitente porque la dirección deja de existir. El buzón de destino no se toca." },
+            ]}
+          />
+          <button onClick={() => setShowForm(!showForm)} title="Crea una redirección de correo. Los correos enviados al alias se entregan al destino. Se registra en auditoria." className="px-3 py-1.5 bg-ms-blue text-white rounded text-sm hover:bg-ms-blue-dark">+ Nuevo alias</button>
+        </div>
       </div>
       {showForm && (
         <div className="bg-white rounded border border-ms-gray-30 p-5 grid grid-cols-2 gap-3">

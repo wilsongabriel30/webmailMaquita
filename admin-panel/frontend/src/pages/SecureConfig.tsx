@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "../api/client";
+import { SectionHelp } from "../components/SectionHelp";
 
 interface Cfg { enabled: boolean; expire_days: number; max_views: number; intro_text: string; }
 interface Msg {
@@ -52,6 +53,18 @@ export function SecureConfig() {
 
   return (
     <div className="max-w-3xl">
+      <div className="flex justify-end">
+        <SectionHelp
+          titulo="Correo cifrado (mensaje seguro)"
+          items={[
+            { titulo: "¿Qué es?", desc: "Permite enviar correos cuyo contenido no viaja por email: el destinatario recibe solo un enlace y debe verificar su identidad con un código de un solo uso para leerlo." },
+            { titulo: "Activar / desactivar", desc: "La casilla superior enciende la función; al activarla aparece el botón «Cifrar» al redactar un correo. Al desactivarla el botón desaparece, pero los mensajes ya enviados siguen su curso." },
+            { titulo: "Caducidad y aperturas", desc: "«Caduca a los (días)» y «Máximo de aperturas» limitan cuánto tiempo y cuántas veces se puede leer cada mensaje. 0 significa sin límite." },
+            { titulo: "Texto de aviso", desc: "El mensaje opcional se muestra en el correo de notificación que recibe el destinatario, antes de abrir el contenido cifrado." },
+            { titulo: "Mensajes enviados", desc: "La tabla inferior lista cada mensaje seguro con su estado (abierto, sin abrir, caducado, revocado). El botón «Revocar» anula el enlace para que ya no pueda abrirse." },
+          ]}
+        />
+      </div>
       <h1 className="text-xl font-semibold text-ms-gray-160 mb-1">Correo cifrado (mensaje seguro)</h1>
       <p className="text-sm text-ms-gray-110 mb-4">
         Permite enviar correos que <b>solo el destinatario puede abrir</b>, confirmando su identidad con un
@@ -73,6 +86,7 @@ export function SecureConfig() {
       <div className="bg-white border border-ms-gray-30 rounded-lg p-5 space-y-4">
         <label className="flex items-center gap-3 text-sm font-medium text-ms-gray-160">
           <input type="checkbox" className="w-4 h-4" checked={cfg.enabled}
+            title="Activa o desactiva el correo cifrado en todo el servidor: si está activado, el botón «Cifrar» aparece al redactar; si lo desactivas, nadie podrá enviar nuevos mensajes seguros. Recuerda pulsar «Guardar cambios»."
             onChange={(e) => setCfg({ ...cfg, enabled: e.target.checked })} />
           <span>Correo cifrado <b>{cfg.enabled ? "ACTIVADO" : "desactivado"}</b>
             <span className="text-ms-gray-110 font-normal"> — {cfg.enabled ? "el botón «Cifrar» aparece en el correo" : "el botón no aparece"}</span></span>
@@ -82,12 +96,14 @@ export function SecureConfig() {
           <div>
             <label className="block text-sm font-medium text-ms-gray-130 mb-1">Caduca a los (días)</label>
             <input type="number" min={0} max={365} className={inputCls} value={cfg.expire_days}
+              title="Días que el mensaje seguro permanece disponible desde su envío; pasado ese plazo el enlace caduca y ya no se puede abrir. Escribe 0 para que nunca caduque."
               onChange={(e) => setCfg({ ...cfg, expire_days: parseInt(e.target.value || "0") })} />
             <p className="text-xs text-ms-gray-110 mt-1">0 = no caduca nunca.</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-ms-gray-130 mb-1">Máximo de aperturas</label>
             <input type="number" min={0} max={1000} className={inputCls} value={cfg.max_views}
+              title="Número máximo de veces que el destinatario puede abrir el mensaje; al alcanzarlo el enlace deja de funcionar. Escribe 0 para permitir aperturas ilimitadas."
               onChange={(e) => setCfg({ ...cfg, max_views: parseInt(e.target.value || "0") })} />
             <p className="text-xs text-ms-gray-110 mt-1">0 = sin límite.</p>
           </div>
@@ -96,11 +112,13 @@ export function SecureConfig() {
         <div className={cfg.enabled ? "" : "opacity-50 pointer-events-none"}>
           <label className="block text-sm font-medium text-ms-gray-130 mb-1">Mensaje en el correo de aviso (opcional)</label>
           <input className={inputCls} placeholder="Ej.: Este documento es confidencial de Fundación Maquita."
+            title="Texto opcional que se incluye en el correo de aviso que recibe el destinatario (el que contiene el botón para abrir el mensaje seguro). Déjalo vacío para usar el aviso estándar."
             value={cfg.intro_text} onChange={(e) => setCfg({ ...cfg, intro_text: e.target.value })} />
         </div>
 
         <div className="flex items-center gap-3 pt-1">
           <button onClick={save} disabled={saving}
+            title="Guarda la configuración del correo cifrado en el servidor; los cambios se aplican de inmediato a los próximos mensajes seguros que se envíen."
             className="px-4 py-2 bg-ms-blue text-white rounded text-sm font-medium disabled:opacity-60">
             {saving ? "Guardando…" : "Guardar cambios"}
           </button>
@@ -141,6 +159,7 @@ export function SecureConfig() {
                     <td className="px-3 py-2 text-right">
                       {canRevoke && (
                         <button onClick={() => revoke(m.token)}
+                          title="Revoca este mensaje seguro: el enlace deja de funcionar y el destinatario ya no podrá abrirlo ni descargar sus adjuntos. Pide confirmación y no se puede deshacer."
                           className="text-xs text-red-600 hover:underline">Revocar</button>
                       )}
                     </td>

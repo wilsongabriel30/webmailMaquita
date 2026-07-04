@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "../api/client";
+import { SectionHelp } from "../components/SectionHelp";
 
 interface Policy { id: number; name: string; description: string; terms: string[]; scope: string; severity: string; enabled: boolean; }
 interface Flag { id: number; policy_name: string; username: string; direction: string; recipients: string[]; subject: string; snippet: string; matched_terms: string[]; severity: string; status: string; created_at: string | null; }
@@ -49,6 +50,18 @@ export function CommCompliance() {
 
   return (
     <div className="max-w-4xl">
+      <div className="flex justify-end">
+        <SectionHelp
+          titulo="Cumplimiento de comunicaciones"
+          items={[
+            { titulo: "Para qué sirve", desc: "Vigila el contenido de los correos según políticas de términos (conducta, información confidencial…). Los correos que coinciden entran a una cola de revisión. Nunca se bloquea el envío." },
+            { titulo: "Cola de revisión", desc: "Cada coincidencia muestra la política, el usuario, los destinatarios, el asunto, los términos detectados y un fragmento del mensaje." },
+            { titulo: "Acciones sobre coincidencias", desc: "Revisado: atendida y cerrada. Escalar: pasa a un nivel superior (RR. HH., legal). Descartar: falso positivo. Todas salen del contador de pendientes." },
+            { titulo: "Crear políticas", desc: "Define un nombre, los términos a vigilar separados por coma, el alcance (salientes, entrantes o todos) y la severidad. Se activa al instante." },
+            { titulo: "Gestionar políticas", desc: "La casilla junto a cada política la activa o desactiva sin borrarla; Eliminar la quita definitivamente y deja de vigilar sus términos." },
+          ]}
+        />
+      </div>
       <h1 className="text-xl font-semibold text-ms-gray-160 mb-1">Cumplimiento de comunicaciones</h1>
       <p className="text-sm text-ms-gray-110 mb-4">
         Monitorea los correos según las políticas que definas (conducta, términos confidenciales…). Cuando un
@@ -59,7 +72,7 @@ export function CommCompliance() {
       {/* Cola de revisión */}
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-base font-semibold text-ms-gray-160">Cola de revisión {openCount > 0 && <span className="ml-1 text-xs bg-red-100 text-red-700 rounded-full px-2 py-0.5">{openCount} pendientes</span>}</h2>
-        <select className="px-2 py-1 border border-ms-gray-30 rounded text-xs" value={filter} onChange={(e) => { setFilter(e.target.value); loadFlags(e.target.value); }}>
+        <select title="Filtra la cola de revisión: solo coincidencias pendientes o todas (incluye revisadas, escaladas y descartadas)." className="px-2 py-1 border border-ms-gray-30 rounded text-xs" value={filter} onChange={(e) => { setFilter(e.target.value); loadFlags(e.target.value); }}>
           <option value="open">Pendientes</option><option value="all">Todas</option>
         </select>
       </div>
@@ -80,9 +93,9 @@ export function CommCompliance() {
                 </div>
                 {f.status === "open" ? (
                   <div className="flex flex-col gap-1 shrink-0">
-                    <button onClick={() => setFlagStatus(f, "reviewed")} className="px-2 py-1 bg-ms-gray-20 text-ms-gray-160 rounded text-xs">Revisado ✓</button>
-                    <button onClick={() => setFlagStatus(f, "escalated")} className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs">Escalar</button>
-                    <button onClick={() => setFlagStatus(f, "dismissed")} className="px-2 py-1 text-ms-gray-110 text-xs hover:underline">Descartar</button>
+                    <button onClick={() => setFlagStatus(f, "reviewed")} title="Marca la coincidencia como revisada y la saca de la cola de pendientes. El correo no se toca." className="px-2 py-1 bg-ms-gray-20 text-ms-gray-160 rounded text-xs">Revisado ✓</button>
+                    <button onClick={() => setFlagStatus(f, "escalated")} title="Marca la coincidencia como escalada para que la trate un nivel superior (RR. HH., legal). Sale de pendientes." className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs">Escalar</button>
+                    <button onClick={() => setFlagStatus(f, "dismissed")} title="Descarta la coincidencia como falso positivo. Sale de la cola de pendientes sin más acción." className="px-2 py-1 text-ms-gray-110 text-xs hover:underline">Descartar</button>
                   </div>
                 ) : <span className="text-xs text-ms-gray-110 shrink-0">{f.status}</span>}
               </div>
@@ -95,18 +108,18 @@ export function CommCompliance() {
       <div className="bg-white border border-ms-gray-30 rounded-lg p-4 mb-4">
         <div className="text-sm font-medium text-ms-gray-130 mb-2">Nueva política</div>
         <div className="grid grid-cols-2 gap-3 mb-2">
-          <input className={inputCls} placeholder="Nombre (ej. Lenguaje inapropiado)" value={np.name} onChange={(e) => setNp({ ...np, name: e.target.value })} />
-          <input className={inputCls} placeholder="Descripción (opcional)" value={np.description} onChange={(e) => setNp({ ...np, description: e.target.value })} />
+          <input className={inputCls} placeholder="Nombre (ej. Lenguaje inapropiado)" title="Nombre de la política. Obligatorio; identifica la regla en la lista y en cada coincidencia de la cola." value={np.name} onChange={(e) => setNp({ ...np, name: e.target.value })} />
+          <input className={inputCls} placeholder="Descripción (opcional)" title="Descripción opcional para recordar el propósito de la política. No afecta la detección." value={np.description} onChange={(e) => setNp({ ...np, description: e.target.value })} />
         </div>
-        <input className={inputCls + " mb-2"} placeholder="Términos separados por coma (ej. insulto, amenaza, soborno)" value={np.termsInput} onChange={(e) => setNp({ ...np, termsInput: e.target.value })} />
+        <input className={inputCls + " mb-2"} placeholder="Términos separados por coma (ej. insulto, amenaza, soborno)" title="Palabras o frases a vigilar, separadas por coma. Obligatorio al menos una. Si un correo contiene alguna, queda marcado para revisión." value={np.termsInput} onChange={(e) => setNp({ ...np, termsInput: e.target.value })} />
         <div className="flex items-center gap-2">
-          <select className="px-2 py-2 border border-ms-gray-30 rounded text-sm" value={np.scope} onChange={(e) => setNp({ ...np, scope: e.target.value })}>
+          <select title="A qué correos aplica la política: solo salientes, solo entrantes o todos." className="px-2 py-2 border border-ms-gray-30 rounded text-sm" value={np.scope} onChange={(e) => setNp({ ...np, scope: e.target.value })}>
             <option value="outbound">Salientes</option><option value="inbound">Entrantes</option><option value="all">Todos</option>
           </select>
-          <select className="px-2 py-2 border border-ms-gray-30 rounded text-sm" value={np.severity} onChange={(e) => setNp({ ...np, severity: e.target.value })}>
+          <select title="Severidad con la que se marcarán las coincidencias (baja, media o alta). Solo prioriza la revisión; no bloquea nada." className="px-2 py-2 border border-ms-gray-30 rounded text-sm" value={np.severity} onChange={(e) => setNp({ ...np, severity: e.target.value })}>
             <option value="baja">Baja</option><option value="media">Media</option><option value="alta">Alta</option>
           </select>
-          <button onClick={createPolicy} className="px-4 py-2 bg-ms-blue text-white rounded text-sm font-medium">Crear y activar</button>
+          <button onClick={createPolicy} title="Crea la política y la deja activa de inmediato: los próximos correos que coincidan entrarán a la cola de revisión. Requiere nombre y al menos un término." className="px-4 py-2 bg-ms-blue text-white rounded text-sm font-medium">Crear y activar</button>
         </div>
       </div>
       <div className="space-y-2">
@@ -117,7 +130,7 @@ export function CommCompliance() {
               <div className="text-sm font-medium text-ms-gray-160">{p.name} <span className={`ml-1 text-xs rounded px-1.5 py-0.5 ${SEV[p.severity] || SEV.baja}`}>{p.severity}</span> <span className="text-xs text-ms-gray-110">· {SCOPE_LBL[p.scope]}</span></div>
               <div className="text-xs text-ms-gray-110 truncate">{p.terms.join(", ")}</div>
             </div>
-            <button onClick={() => removePolicy(p)} className="text-xs text-red-600 hover:underline shrink-0">Eliminar</button>
+            <button onClick={() => removePolicy(p)} title="PRECAUCIÓN: Elimina la política definitivamente y deja de vigilar sus términos. Pide confirmación antes." className="text-xs text-red-600 hover:underline shrink-0">Eliminar</button>
           </div>
         ))}
       </div>

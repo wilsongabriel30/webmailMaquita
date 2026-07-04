@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "../api/client";
+import { SectionHelp } from "../components/SectionHelp";
 
 type Action = "warn" | "block" | "audit";
 interface Rule { enabled: boolean; action: Action | null; }
@@ -68,6 +69,19 @@ export function DlpConfig() {
 
   return (
     <div className="max-w-3xl">
+      <div className="flex justify-end">
+        <SectionHelp
+          titulo="Protección de datos (DLP)"
+          items={[
+            { titulo: "Qué es", desc: "Detecta datos sensibles (cédulas, RUC, tarjetas, cuentas, IBAN o palabras clave) en los correos salientes y actúa antes de que salgan. Todo se analiza en tus propios servidores, sin terceros." },
+            { titulo: "Interruptor general", desc: "Activa o desactiva toda la protección. Desactivado, los correos salen sin revisión y no se registra nada." },
+            { titulo: "Acción general", desc: "Qué hacer al detectar un dato sensible: Advertir (el usuario decide), Bloquear (el correo no sale) o Solo registrar (sale normal pero queda anotado aquí)." },
+            { titulo: "Tipos de dato", desc: "Marca qué datos vigilar y, si quieres, define una acción distinta por tipo; si no, se usa la acción general." },
+            { titulo: "Palabras clave", desc: "Términos confidenciales propios (proyectos, salarios…). Si aparecen en un correo saliente, se aplica la regla de Palabras clave." },
+            { titulo: "Actividad reciente", desc: "Tabla con los últimos correos donde se detectaron datos sensibles: quién, qué dato y qué acción se aplicó (y si el usuario envió igual)." },
+          ]}
+        />
+      </div>
       <h1 className="text-xl font-semibold text-ms-gray-160 mb-1">Protección de datos (DLP)</h1>
       <p className="text-sm text-ms-gray-110 mb-4">
         Evita que <b>datos sensibles salgan por correo</b> sin querer (cédulas, tarjetas, cuentas…).
@@ -89,6 +103,7 @@ export function DlpConfig() {
         {/* Interruptor maestro */}
         <label className="flex items-center gap-3 text-sm font-medium text-ms-gray-160">
           <input type="checkbox" className="w-4 h-4" checked={cfg.enabled}
+            title="Interruptor general de la protección de datos. Activado: se revisan los correos salientes en busca de datos sensibles. Desactivado: los correos salen sin ninguna revisión ni registro. Recuerda pulsar Guardar cambios."
             onChange={(e) => setCfg({ ...cfg, enabled: e.target.checked })} />
           <span>Protección de datos <b>{cfg.enabled ? "ACTIVADA" : "desactivada"}</b></span>
         </label>
@@ -99,6 +114,7 @@ export function DlpConfig() {
             ¿Qué hacer cuando se detecta un dato sensible? <span className="text-ms-gray-110">(acción general)</span>
           </label>
           <select className={inputCls} value={cfg.default_action}
+            title="Acción por defecto al detectar un dato sensible en un correo saliente: Advertir muestra un aviso y el usuario decide si envía; Bloquear impide el envío; Solo registrar deja salir el correo pero lo anota en la actividad reciente. Los tipos de dato sin acción propia usan esta."
             onChange={(e) => setCfg({ ...cfg, default_action: e.target.value as Action })}>
             <option value="warn">Advertir y dejar decidir al usuario (recomendado)</option>
             <option value="block">Bloquear el envío</option>
@@ -113,6 +129,7 @@ export function DlpConfig() {
             {DATA_TYPES.map((dt) => (
               <div key={dt.key} className="flex items-center gap-3 border border-ms-gray-20 rounded-lg p-3">
                 <input type="checkbox" className="w-4 h-4 shrink-0" checked={rule(dt.key).enabled}
+                  title={`Activa o desactiva la vigilancia de «${dt.label}» en los correos salientes. Desactivado, este tipo de dato saldrá por correo sin aviso ni registro.`}
                   onChange={(e) => setRule(dt.key, { enabled: e.target.checked })} />
                 <span className="text-xl shrink-0">{dt.icon}</span>
                 <div className="flex-1 min-w-0">
@@ -120,6 +137,7 @@ export function DlpConfig() {
                   <div className="text-xs text-ms-gray-110">{dt.desc}</div>
                 </div>
                 <select className="px-2 py-1.5 border border-ms-gray-30 rounded text-xs shrink-0"
+                  title={`Acción específica cuando se detecta «${dt.label}»: Advertir (el usuario decide), Bloquear (el correo no sale) o Solo registrar. Si eliges «Usar acción general», se aplica la acción configurada arriba.`}
                   value={rule(dt.key).action || ""}
                   disabled={!rule(dt.key).enabled}
                   onChange={(e) => setRule(dt.key, { action: (e.target.value || null) as Action | null })}>
@@ -143,16 +161,17 @@ export function DlpConfig() {
           </p>
           <div className="flex gap-2 mb-2">
             <input className={inputCls} placeholder="Escribe una palabra y pulsa Agregar"
+              title="Escribe una palabra o frase confidencial (ej. «salarios», nombre de un proyecto) y pulsa Enter o Agregar. Si aparece en un correo saliente, se aplicará la regla de Palabras clave."
               value={newKw} onChange={(e) => setNewKw(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addKw(); } }} />
-            <button onClick={addKw} className="px-3 py-2 bg-ms-gray-20 text-ms-gray-160 rounded text-sm whitespace-nowrap">Agregar</button>
+            <button onClick={addKw} title="Agrega la palabra escrita a la lista de palabras clave vigiladas. El cambio se aplica al pulsar Guardar cambios." className="px-3 py-2 bg-ms-gray-20 text-ms-gray-160 rounded text-sm whitespace-nowrap">Agregar</button>
           </div>
           <div className="flex flex-wrap gap-2">
             {cfg.keywords.length === 0 && <span className="text-xs text-ms-gray-110">Sin palabras clave aún.</span>}
             {cfg.keywords.map((k) => (
               <span key={k} className="inline-flex items-center gap-1 bg-blue-50 border border-blue-200 text-ms-gray-160 text-xs rounded-full pl-3 pr-1 py-1">
                 {k}
-                <button onClick={() => removeKw(k)} className="w-4 h-4 rounded-full hover:bg-blue-200 text-ms-gray-110">×</button>
+                <button onClick={() => removeKw(k)} title={`Quita «${k}» de la lista: esta palabra dejará de vigilarse en los correos salientes. El cambio se aplica al pulsar Guardar cambios.`} className="w-4 h-4 rounded-full hover:bg-blue-200 text-ms-gray-110">×</button>
               </span>
             ))}
           </div>
@@ -160,6 +179,7 @@ export function DlpConfig() {
 
         <div className="flex items-center gap-3 pt-1">
           <button onClick={save} disabled={saving}
+            title="Guarda toda la configuración de DLP (interruptor, acciones, tipos de dato y palabras clave). Los cambios quedan activos de inmediato para todos los usuarios."
             className="px-4 py-2 bg-ms-blue text-white rounded text-sm font-medium disabled:opacity-60">
             {saving ? "Guardando…" : "Guardar cambios"}
           </button>

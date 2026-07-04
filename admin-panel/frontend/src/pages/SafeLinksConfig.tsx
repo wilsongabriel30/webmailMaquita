@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "../api/client";
+import { SectionHelp } from "../components/SectionHelp";
 
 interface BlockItem { pattern: string; kind: string; note?: string; }
 interface Cfg {
@@ -53,6 +54,7 @@ export function SafeLinksConfig() {
   const Toggle = ({ k, label, desc }: { k: keyof Cfg; label: string; desc: string }) => (
     <label className="flex items-start gap-3 text-sm">
       <input type="checkbox" className="w-4 h-4 mt-0.5" checked={cfg[k] as boolean}
+        title={`${label}. ${desc} Recuerda pulsar Guardar cambios para aplicar.`}
         onChange={(e) => setCfg({ ...cfg, [k]: e.target.checked })} />
       <span><b className="text-ms-gray-160">{label}</b><br /><span className="text-ms-gray-110 text-xs">{desc}</span></span>
     </label>
@@ -60,6 +62,19 @@ export function SafeLinksConfig() {
 
   return (
     <div className="max-w-3xl">
+      <div className="flex justify-end">
+        <SectionHelp
+          titulo="Protección de enlaces (Safe Links)"
+          items={[
+            { titulo: "Qué es", desc: "Los enlaces de los correos se reescriben para pasar por una pasarela propia que evalúa el destino en el momento del clic (imitación de marcas, dominios falsos, IPs, acortadores). Si hay riesgo, el usuario ve una página de aviso antes de continuar." },
+            { titulo: "Interruptor y reescritura", desc: "El interruptor general enciende toda la protección; la reescritura de enlaces es necesaria para poder evaluarlos al hacer clic. Apagados, los enlaces se abren directo sin revisión." },
+            { titulo: "Avisos y bloqueos", desc: "«Avisar de enlaces sospechosos» muestra advertencia ante señales de riesgo; «Bloquear lo de la lista negra» impide abrir lo que definas abajo." },
+            { titulo: "Todos los clientes", desc: "La opción de milter reescribe los enlaces en el servidor al recibir el correo, protegiendo también Outlook y móvil (no solo el webmail). Es a prueba de fallos: nunca retiene ni corrompe correos." },
+            { titulo: "Lista negra", desc: "Bloquea por dominio, dirección completa o término dentro de la URL. Se aplica al hacer clic si «Bloquear lo que esté en la lista negra» está activo." },
+            { titulo: "Clics peligrosos", desc: "Tabla con los clics en enlaces sospechosos o bloqueados: destino, resultado y si el usuario decidió continuar de todos modos." },
+          ]}
+        />
+      </div>
       <h1 className="text-xl font-semibold text-ms-gray-160 mb-1">Protección de enlaces (Safe Links)</h1>
       <p className="text-sm text-ms-gray-110 mb-4">
         Protege a los usuarios de enlaces peligrosos. Maquita <b>revisa cada enlace en el momento de hacer clic</b>:
@@ -90,27 +105,29 @@ export function SafeLinksConfig() {
           <label className="block text-sm font-medium text-ms-gray-130 mb-1">Lista negra</label>
           <p className="text-xs text-ms-gray-110 mb-2">Bloquea por dominio (ej. <code>malo.com</code>), dirección completa o un término que aparezca en la URL.</p>
           <div className="flex gap-2 mb-2">
-            <select className="px-2 py-2 border border-ms-gray-30 rounded text-sm" value={newKind} onChange={(e) => setNewKind(e.target.value)}>
+            <select className="px-2 py-2 border border-ms-gray-30 rounded text-sm" value={newKind} onChange={(e) => setNewKind(e.target.value)}
+              title="Tipo de entrada para la lista negra: Dominio bloquea todo un sitio (ej. malo.com), Dirección bloquea una URL exacta y Término bloquea cualquier enlace cuya URL contenga ese texto.">
               <option value="domain">Dominio</option><option value="url">Dirección</option><option value="keyword">Término</option>
             </select>
             <input className={inputCls} placeholder="Ej.: sitio-falso.com" value={newPat}
+              title="Escribe el dominio, la dirección o el término a bloquear y pulsa Enter o Agregar. Los usuarios que hagan clic en un enlace que coincida verán una página de bloqueo en vez del sitio."
               onChange={(e) => setNewPat(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addPat(); } }} />
-            <button onClick={addPat} className="px-3 py-2 bg-ms-gray-20 text-ms-gray-160 rounded text-sm whitespace-nowrap">Agregar</button>
+            <button onClick={addPat} title="Agrega el patrón escrito a la lista negra. El bloqueo se hace efectivo al pulsar Guardar cambios." className="px-3 py-2 bg-ms-gray-20 text-ms-gray-160 rounded text-sm whitespace-nowrap">Agregar</button>
           </div>
           <div className="flex flex-wrap gap-2">
             {cfg.blocklist.length === 0 && <span className="text-xs text-ms-gray-110">Lista negra vacía.</span>}
             {cfg.blocklist.map((b, i) => (
               <span key={i} className="inline-flex items-center gap-1 bg-red-50 border border-red-200 text-ms-gray-160 text-xs rounded-full pl-2 pr-1 py-1">
                 <span className="text-red-700">{KIND_LABEL[b.kind]}:</span> {b.pattern}
-                <button onClick={() => removePat(b)} className="w-4 h-4 rounded-full hover:bg-red-200 text-ms-gray-110">×</button>
+                <button onClick={() => removePat(b)} title={`Quita «${b.pattern}» de la lista negra: los enlaces que coincidan dejarán de bloquearse. El cambio se aplica al pulsar Guardar cambios.`} className="w-4 h-4 rounded-full hover:bg-red-200 text-ms-gray-110">×</button>
               </span>
             ))}
           </div>
         </div>
 
         <div className="flex items-center gap-3 pt-1">
-          <button onClick={save} disabled={saving} className="px-4 py-2 bg-ms-blue text-white rounded text-sm font-medium disabled:opacity-60">
+          <button onClick={save} disabled={saving} title="Guarda toda la configuración de Safe Links (interruptores y lista negra). Los cambios se aplican de inmediato a los clics de todos los usuarios." className="px-4 py-2 bg-ms-blue text-white rounded text-sm font-medium disabled:opacity-60">
             {saving ? "Guardando…" : "Guardar cambios"}
           </button>
           {msg && <span className={`text-sm ${msg.ok ? "text-green-700" : "text-red-600"}`}>{msg.text}</span>}

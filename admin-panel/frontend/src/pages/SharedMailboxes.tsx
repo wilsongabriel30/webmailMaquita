@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { SectionHelp } from "../components/SectionHelp";
 
 interface Delegation {
   id: number;
@@ -133,6 +134,17 @@ export function SharedMailboxes() {
     <div className="p-6 space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-ms-gray-130">Buzones compartidos y delegación</h1>
+        <div className="flex items-center gap-2">
+        <SectionHelp
+          titulo="Buzones compartidos y delegación"
+          items={[
+            { titulo: "Para qué sirve", desc: "Permite que un usuario (delegado) acceda al buzón de otro sin conocer su contraseña. Típico para secretarias, equipos de soporte o buzones tipo info@ atendidos por varias personas." },
+            { titulo: "Niveles de acceso", desc: "Lectura: solo puede ver los correos. Escritura: además puede marcar, mover y borrar. Completo: control total de carpetas. Enviar como: puede enviar correos a nombre del buzón." },
+            { titulo: "Carpetas accesibles", desc: "Define a qué carpetas IMAP del buzón (INBOX, Sent, Drafts, Trash, Junk) tendrá acceso el delegado. Solo verá las marcadas." },
+            { titulo: "Tabla de delegaciones", desc: "Lista cada permiso vigente: qué buzón se comparte, quién es el delegado, con qué nivel y en qué carpetas." },
+            { titulo: "Revocar", desc: "Quita el acceso del delegado de forma inmediata. El buzón y sus correos no se ven afectados." },
+          ]}
+        />
         <button
           onClick={() => { setShowForm(!showForm); setError(""); }}
           className="px-3 py-1.5 bg-ms-blue text-white rounded text-sm hover:bg-ms-blue-dark"
@@ -140,6 +152,7 @@ export function SharedMailboxes() {
         >
           + Otorgar acceso
         </button>
+        </div>
       </div>
 
       {/* Formulario para otorgar acceso */}
@@ -215,6 +228,7 @@ export function SharedMailboxes() {
                     type="checkbox"
                     checked={form.folders.includes(folder)}
                     onChange={() => toggleFolder(folder)}
+                    title={`Marca o desmarca la carpeta ${folder}. El delegado solo tendrá acceso a las carpetas marcadas.`}
                     className="accent-ms-blue"
                   />
                   {folder}

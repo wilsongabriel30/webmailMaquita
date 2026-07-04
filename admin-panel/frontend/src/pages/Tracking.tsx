@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { SectionHelp } from "../components/SectionHelp";
 
 interface TrackEntry { queue_id: string; date: string; from: string; to: string[]; status: string; size: number; relay: string; delay: string; dsn: string }
 interface TrackData { summary: { total: number; sent: number; bounced: number; deferred: number; rejected: number }; entries: TrackEntry[] }
@@ -38,6 +39,18 @@ export function Tracking() {
 
   return (
     <div className="p-6 space-y-5">
+      <div className="flex justify-end">
+        <SectionHelp
+          titulo="Rastreo de mensajes"
+          items={[
+            { titulo: "Para qué sirve", desc: "Historial de los correos procesados por el servidor (logs de Postfix): permite averiguar si un correo salió, llegó, rebotó o fue rechazado. Todo es de solo lectura." },
+            { titulo: "Búsqueda", desc: "Escriba un email (remitente o destinatario) o un Queue ID y pulse Buscar o Enter para filtrar los registros." },
+            { titulo: "Tarjetas de resumen", desc: "Conteo de los resultados: Total, Enviados, Rebotados, Diferidos y Rechazados." },
+            { titulo: "Estados", desc: "Enviado: entregado al destino. Rebotado: devuelto por el servidor destino. Diferido: falló temporalmente y se reintentará. Rechazado: bloqueado en la entrada (spam, política)." },
+            { titulo: "Tabla", desc: "Fecha, remitente, destinatarios, estado, tamaño y relay (servidor por el que se entregó). Se muestran los 100 registros más recientes del filtro." },
+          ]}
+        />
+      </div>
       <h1 className="text-xl font-semibold text-ms-gray-130" title="Rastreo de mensajes enviados y recibidos. Solo lectura, no modifica nada.">Rastreo de mensajes</h1>
 
       <div className="flex gap-2">

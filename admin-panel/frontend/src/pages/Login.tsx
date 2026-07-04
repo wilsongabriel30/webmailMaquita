@@ -62,6 +62,7 @@ export function Login() {
                 <label className="block text-sm font-medium text-ms-gray-130 mb-1.5">Usuario</label>
                 <input
                   type="text" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)}
+                  title="Nombre de usuario de su cuenta de administrador del panel (no es su correo)."
                   className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm text-ms-gray-130 focus:outline-none focus:border-ms-blue focus:ring-1 focus:ring-ms-blue"
                   placeholder="admin" autoFocus
                 />
@@ -70,6 +71,7 @@ export function Login() {
                 <label className="block text-sm font-medium text-ms-gray-130 mb-1.5">Contraseña</label>
                 <input
                   type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)}
+                  title="Contraseña de su cuenta de administrador. Los intentos fallidos quedan registrados en auditoría."
                   className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm text-ms-gray-130 focus:outline-none focus:border-ms-blue focus:ring-1 focus:ring-ms-blue"
                   placeholder="Ingrese su contraseña"
                 />
@@ -79,6 +81,7 @@ export function Login() {
                   <label className="block text-sm font-medium text-ms-gray-130 mb-1.5">Código de verificación (2FA)</label>
                   <input
                     type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={6}
+                    title="Código temporal de 6 dígitos generado por su aplicación de autenticación (Google Authenticator, Microsoft Authenticator, Aegis...). Solo acepta números."
                     value={totpCode} onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ""))}
                     className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm text-ms-gray-130 tracking-widest text-center focus:outline-none focus:border-ms-blue focus:ring-1 focus:ring-ms-blue"
                     placeholder="000000" autoFocus
@@ -88,6 +91,7 @@ export function Login() {
               )}
               <button
                 type="submit" disabled={loading || (needTotp && totpCode.length !== 6)}
+                title="Envía las credenciales para entrar al panel. Si su cuenta tiene 2FA activado, se pedirá además el código de 6 dígitos. El inicio de sesión queda registrado en auditoría."
                 className="w-full py-2.5 bg-ms-blue hover:bg-ms-blue-dark disabled:opacity-50 text-white font-medium rounded text-sm transition-colors"
               >
                 {loading ? "Ingresando..." : needTotp ? "Verificar código" : "Iniciar sesión"}

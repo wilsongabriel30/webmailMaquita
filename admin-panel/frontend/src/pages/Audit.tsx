@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { SectionHelp } from "../components/SectionHelp";
 
 interface AuditEntry { id: number; admin_username: string; action: string; target: string; details: any; ip_address: string; created_at: string }
 
@@ -62,7 +63,16 @@ export function Audit() {
 
   return (
     <div className="p-6 space-y-5">
-      <h1 className="text-xl font-semibold text-ms-gray-130" title="Registro de auditoria. Muestra todas las acciones realizadas en el panel. Solo lectura.">Log de auditoría ({total} registros)</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold text-ms-gray-130" title="Registro de auditoria. Muestra todas las acciones realizadas en el panel. Solo lectura.">Log de auditoría ({total} registros)</h1>
+        <SectionHelp titulo="Log de auditoría" items={[
+          { titulo: "Qué es esta sección", desc: "Historial de todas las acciones hechas por los administradores del panel: logins, creación y borrado de buzones, alias, dominios, servicios, etc. Es solo lectura: aquí no se modifica nada." },
+          { titulo: "Columnas", desc: "Fecha y hora de la acción, administrador que la hizo, tipo de acción, recurso afectado (objetivo) y dirección IP desde donde se realizó." },
+          { titulo: "Filtrar", desc: "Escriba parte del nombre técnico de la acción (create, delete, login, ban...) y pulse Filtrar para ver solo esos registros." },
+          { titulo: "Colores", desc: "Rojo: acciones destructivas (eliminar, banear). Verde: creaciones. Azul: inicios de sesión. Gris: el resto." },
+          { titulo: "Paginación", desc: "Se muestran 30 registros por página. Use Anterior y Siguiente para navegar por el historial completo." },
+        ]} />
+      </div>
 
       <div className="flex gap-2">
         <input value={actionFilter} onChange={(e) => setActionFilter(e.target.value)} placeholder="Filtrar por acción..."

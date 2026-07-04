@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "../api/client";
+import { SectionHelp } from "../components/SectionHelp";
 
 interface Summary { window: string; spam_blocked: number; auth_fail: number; login_fail: number; bad_clicks: number; acct_alerts: number; }
 interface FeedItem { type: string; when: string | null; source: string; detail: string; severity: string; }
@@ -65,6 +66,19 @@ export function ThreatDashboard() {
 
   return (
     <div className="max-w-4xl">
+      <div className="flex justify-end">
+        <SectionHelp
+          titulo="Panel de amenazas"
+          items={[
+            { titulo: "Tarjetas resumen", desc: "Contadores del período: spam detectado, accesos fallidos, clics en enlaces peligrosos y alertas de cuenta. Sirven para ver de un vistazo si algo anda mal." },
+            { titulo: "Respuesta automática (AIR)", desc: "Acciones que el sistema toma solo: al activar la casilla, una cuenta que empiece a enviar correo masivo anómalo (señal de robo) se deshabilita al instante sin esperar al administrador." },
+            { titulo: "Bloquear remitente", desc: "Añade un dominio o dirección a la lista negra del filtro antispam (rspamd); el bloqueo se aplica de inmediato a todo el correo entrante." },
+            { titulo: "Deshabilitar buzón", desc: "Corta el acceso de una cuenta sospechosa: no podrá iniciar sesión ni enviar correo hasta que la reactives desde Buzones." },
+            { titulo: "Amenazas recientes", desc: "Feed cronológico de eventos de seguridad (correos, enlaces, cuentas, accesos) con su severidad: alta en rojo, media en ámbar." },
+            { titulo: "Listas inferiores", desc: "«Remitentes bloqueados» muestra los patrones activos en el filtro; «Acciones recientes» registra qué hizo el sistema o el administrador, marcando con «automático» lo que hizo AIR solo." },
+          ]}
+        />
+      </div>
       <h1 className="text-xl font-semibold text-ms-gray-160 mb-1">Panel de amenazas</h1>
       <p className="text-sm text-ms-gray-110 mb-4">Vista unificada de la seguridad del correo y respuesta automática a incidentes.</p>
       {msg && <div className={`text-sm mb-4 px-3 py-2 rounded ${msg.ok ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`}>{msg.text}</div>}
@@ -85,6 +99,7 @@ export function ThreatDashboard() {
         <p className="text-xs text-ms-gray-110 mb-3">Acciones que el sistema toma solo, sin esperar al admin.</p>
         <label className="flex items-start gap-3 text-sm">
           <input type="checkbox" className="w-4 h-4 mt-0.5" checked={cfg.auto_disable_on_compromise}
+            title="Se guarda al instante: si lo activas, cualquier cuenta que muestre señales de robo (envío masivo anómalo) se deshabilitará automáticamente sin intervención del administrador; el usuario afectado perderá el acceso hasta que la reactives."
             onChange={(e) => saveCfg({ ...cfg, auto_disable_on_compromise: e.target.checked })} />
           <span><b className="text-ms-gray-160">Deshabilitar cuentas comprometidas automáticamente</b><br />
             <span className="text-ms-gray-110 text-xs">Si una cuenta empieza a enviar correo masivo anómalo (señal de robo), se deshabilita al instante.</span></span>
@@ -96,16 +111,18 @@ export function ThreatDashboard() {
         <div className="bg-white border border-ms-gray-30 rounded-lg p-4">
           <div className="text-sm font-medium text-ms-gray-160 mb-2">🚫 Bloquear remitente</div>
           <div className="flex gap-2">
-            <input className="flex-1 px-3 py-2 border border-ms-gray-30 rounded text-sm" placeholder="dominio.com" value={blockPat} onChange={(e) => setBlockPat(e.target.value)} />
-            <button onClick={block} className="px-3 py-2 bg-red-600 text-white rounded text-sm">Bloquear</button>
+            <input className="flex-1 px-3 py-2 border border-ms-gray-30 rounded text-sm" placeholder="dominio.com" value={blockPat} onChange={(e) => setBlockPat(e.target.value)}
+              title="Escribe el dominio (ej.: dominio.com) o la dirección de correo del remitente malicioso que quieres bloquear en el filtro antispam." />
+            <button onClick={block} title="Añade el remitente a la lista negra del filtro antispam (rspamd) y lo recarga de inmediato: todo el correo que envíe será rechazado o marcado como spam para toda la organización." className="px-3 py-2 bg-red-600 text-white rounded text-sm">Bloquear</button>
           </div>
           <p className="text-xs text-ms-gray-110 mt-1">Se aplica en el filtro antispam (rspamd) de inmediato.</p>
         </div>
         <div className="bg-white border border-ms-gray-30 rounded-lg p-4">
           <div className="text-sm font-medium text-ms-gray-160 mb-2">⛔ Deshabilitar buzón</div>
           <div className="flex gap-2">
-            <input className="flex-1 px-3 py-2 border border-ms-gray-30 rounded text-sm" placeholder="usuario@maquita.org" value={disableUser} onChange={(e) => setDisableUser(e.target.value)} />
-            <button onClick={disable} className="px-3 py-2 bg-ms-gray-160 text-white rounded text-sm">Deshabilitar</button>
+            <input className="flex-1 px-3 py-2 border border-ms-gray-30 rounded text-sm" placeholder="usuario@maquita.org" value={disableUser} onChange={(e) => setDisableUser(e.target.value)}
+              title="Escribe la dirección completa del buzón que quieres deshabilitar, por ejemplo cuando sospechas que la cuenta fue robada." />
+            <button onClick={disable} title="Deshabilita el buzón indicado: el usuario no podrá iniciar sesión ni enviar correo hasta que lo reactives. Pide confirmación antes de aplicar." className="px-3 py-2 bg-ms-gray-160 text-white rounded text-sm">Deshabilitar</button>
           </div>
           <p className="text-xs text-ms-gray-110 mt-1">La cuenta no podrá iniciar sesión hasta reactivarla.</p>
         </div>

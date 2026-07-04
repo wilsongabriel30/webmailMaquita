@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { api } from "../api/client";
+import { SectionHelp } from "../components/SectionHelp";
 
 /* ── Types ── */
 interface Service {
@@ -352,6 +353,17 @@ export function Services() {
         >
           Actualizar
         </button>
+        <SectionHelp
+          titulo="Gestión de Servicios"
+          items={[
+            { titulo: "Para qué sirve", desc: "Controla los servicios del servidor de correo (Postfix, Dovecot, Rspamd, Fail2ban, etc.): estado, arranque, logs y configuración desde un solo lugar." },
+            { titulo: "Pestaña Servicios", desc: "Tarjetas por servicio con estado (verde activo, rojo fallido, amarillo detenido), PID y memoria. Botones: Reiniciar, Detener, Iniciar, Reload (recarga config sin cortar) y Ver logs." },
+            { titulo: "Pestaña Fail2ban", desc: "Busca si una IP está baneada, banea IPs atacantes o desbanea IPs legítimas. Cada jail agrupa los baneos de un servicio protegido (SSH, SMTP, IMAP...)." },
+            { titulo: "Pestaña Configuración", desc: "Permite ver y editar parámetros de cada servicio. Al guardar se recarga el servicio y se pide la contraseña de administrador como confirmación." },
+            { titulo: "Precauciones", desc: "No detener servicios en horario laboral salvo emergencia. Antes de banear o desbanear una IP, verificar si pertenece a un usuario legítimo o a un atacante." },
+            { titulo: "Auditoría", desc: "Todas las acciones (reinicios, baneos, cambios de configuración) quedan registradas en el módulo de auditoría con usuario y fecha." },
+          ]}
+        />
       </div>
 
       {/* Tabs */}
@@ -854,13 +866,14 @@ export function Services() {
               onChange={(e) => { setAuthPassword(e.target.value); setAuthError(""); }}
               onKeyDown={(e) => e.key === "Enter" && confirmAuth()}
               placeholder="Contraseña de administrador"
+              title="Escriba su contraseña de administrador para confirmar la acción. Sin la contraseña correcta el cambio no se aplica."
               className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue"
               autoFocus
             />
             {authError && <p className="text-xs text-ms-red">{authError}</p>}
             <div className="flex gap-2 justify-end">
-              <button onClick={() => setAuthModal(null)} className="px-4 py-2 border border-ms-gray-40 rounded text-sm text-ms-gray-90">Cancelar</button>
-              <button onClick={confirmAuth} className="px-4 py-2 bg-ms-blue text-white rounded text-sm hover:bg-ms-blue-dark">Confirmar</button>
+              <button onClick={() => setAuthModal(null)} title="Cierra esta ventana sin aplicar ningún cambio de configuración." className="px-4 py-2 border border-ms-gray-40 rounded text-sm text-ms-gray-90">Cancelar</button>
+              <button onClick={confirmAuth} title="Verifica su contraseña y, si es correcta, ejecuta la acción pendiente (guardar y recargar el servicio). Se registra en auditoría." className="px-4 py-2 bg-ms-blue text-white rounded text-sm hover:bg-ms-blue-dark">Confirmar</button>
             </div>
           </div>
         </div>

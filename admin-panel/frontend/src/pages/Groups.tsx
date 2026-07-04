@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { api } from "../api/client";
+import { SectionHelp } from "../components/SectionHelp";
 
 interface Group { id: number; address: string; name: string; description: string; domain: string; active: boolean; allow_external: boolean; allowed_senders: string; member_count: number; external_count?: number; nested_group_count?: number }
 interface Member { id: number; member_email: string; member_name: string; can_send: boolean; receive: boolean; member_type?: "internal" | "external" | "group" }
@@ -194,6 +195,17 @@ export function Groups() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-ms-gray-130">Grupos de distribución</h1>
         <div className="flex gap-2">
+          <SectionHelp
+            titulo="Grupos de distribución"
+            items={[
+              { titulo: "Para qué sirve", desc: "Un grupo es una dirección (ej: todos@dominio.com) que reparte cada correo recibido a todos sus miembros. Sirve para comunicar a departamentos o a toda la organización sin escribir cada dirección." },
+              { titulo: "Panel izquierdo", desc: "Lista de grupos con su estado y número de miembros. Las etiquetas rojas (ext.) y moradas (subgr.) avisan de miembros externos o grupos anidados. Haga clic en un grupo para ver su detalle." },
+              { titulo: "Permisos Enviar y Recibir", desc: "Por cada miembro: Enviar = puede escribir al grupo. Recibir = le llegan los correos del grupo. Haga clic sobre el Sí/No de la tabla para invertir el permiso al instante." },
+              { titulo: "Miembros externos", desc: "Direcciones fuera de la organización (gmail, hotmail...). Solo se permiten si el grupo tiene activada esa opción; implican que la información sale de la empresa, por eso se marcan en rojo." },
+              { titulo: "Grupos anidados", desc: "Un grupo puede ser miembro de otro: el correo se expande de forma recursiva a los miembros del subgrupo. Se marcan en morado porque multiplican los destinatarios reales." },
+              { titulo: "Auditar grupos", desc: "Revisa todos los grupos de una sola vez y reporta miembros externos y subgrupos anidados, para detectar posibles fugas de información." },
+            ]}
+          />
           <button onClick={runAudit} disabled={auditLoading}
             className="px-3 py-1.5 border border-yellow-400 text-yellow-700 bg-yellow-50 rounded text-sm hover:bg-yellow-100 disabled:opacity-50"
             title="Ejecuta una auditoría completa de todos los grupos: detecta miembros externos y grupos anidados que pueden causar fugas de información.">
@@ -210,7 +222,7 @@ export function Groups() {
             <h2 className="text-sm font-bold text-yellow-800 flex items-center gap-2">
               <span className="text-lg">⚠</span> Resultado de auditoría de grupos
             </h2>
-            <button onClick={() => setShowAudit(false)} className="text-ms-gray-60 text-xs hover:text-ms-gray-130">Cerrar</button>
+            <button onClick={() => setShowAudit(false)} title="Oculta el resultado de la auditoría. Puede volver a ejecutarla cuando quiera; no modifica ningún grupo." className="text-ms-gray-60 text-xs hover:text-ms-gray-130">Cerrar</button>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -286,9 +298,9 @@ export function Groups() {
             <input placeholder="grupo@dominio.com" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" title="Dirección de correo del grupo." />
             <input placeholder="Nombre del grupo" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" title="Nombre descriptivo del grupo." />
           </div>
-          <input placeholder="Descripción" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
+          <input placeholder="Descripción" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} title="Texto libre que explica el propósito del grupo (ej: Comunicados a todo el personal). Solo informativo." className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
           <label className="flex items-center gap-2 text-sm text-ms-gray-130">
-            <input type="checkbox" checked={form.allow_external} onChange={(e) => setForm({ ...form, allow_external: e.target.checked })} className="accent-ms-blue" />
+            <input type="checkbox" checked={form.allow_external} onChange={(e) => setForm({ ...form, allow_external: e.target.checked })} title="Si se activa, el grupo aceptará miembros con correos de fuera de la organización. PRECAUCIÓN: los mensajes del grupo llegarán a personas externas." className="accent-ms-blue" />
             Permitir miembros externos (correos fuera de @ejemplo.com)
           </label>
           {form.allow_external && (
@@ -297,8 +309,8 @@ export function Groups() {
             </div>
           )}
           <div className="flex gap-2">
-            <button onClick={createGroup} className="px-4 py-2 bg-ms-blue text-white rounded text-sm">Crear grupo</button>
-            <button onClick={() => setShowForm(false)} className="px-4 py-2 border border-ms-gray-40 rounded text-sm text-ms-gray-90">Cancelar</button>
+            <button onClick={createGroup} title="Crea el grupo con la dirección indicada. Quedará activo de inmediato pero sin miembros: agréguelos desde el detalle del grupo. Se registra en auditoría." className="px-4 py-2 bg-ms-blue text-white rounded text-sm">Crear grupo</button>
+            <button onClick={() => setShowForm(false)} title="Cierra el formulario sin crear el grupo. No se realizan cambios." className="px-4 py-2 border border-ms-gray-40 rounded text-sm text-ms-gray-90">Cancelar</button>
           </div>
         </div>
       )}
@@ -320,6 +332,7 @@ export function Groups() {
           <div className="divide-y divide-ms-gray-30 max-h-[500px] overflow-auto">
             {filteredGroups.map((g) => (
               <button key={g.id} onClick={() => selectGroup(g.id)}
+                title={`Abre el detalle del grupo ${g.address}: miembros, permisos y configuración. No modifica nada.`}
                 className={`w-full text-left p-3 hover:bg-ms-blue-lighter/50 ${selected === g.id ? "bg-ms-blue-lighter border-l-3 border-ms-blue" : ""} ${hasIssues(g) ? "border-l-3 border-l-yellow-400" : ""}`}>
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-ms-gray-130 truncate">{g.name || g.address}</span>
@@ -348,26 +361,29 @@ export function Groups() {
                       <div>
                         <label className="block text-xs font-medium text-ms-gray-90 mb-1">Nombre</label>
                         <input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                          title="Nombre descriptivo del grupo, visible en la lista. No cambia la dirección de correo."
                           className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-ms-gray-90 mb-1">Dirección</label>
                         <input value={groupDetail.address} disabled
+                          title="La dirección del grupo no se puede cambiar. Para usar otra dirección, cree un grupo nuevo."
                           className="w-full px-3 py-2 border border-ms-gray-30 rounded text-sm bg-ms-gray-10 text-ms-gray-60" />
                       </div>
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-ms-gray-90 mb-1">Descripción</label>
                       <input value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                        title="Texto libre que explica el propósito del grupo. Solo informativo."
                         className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
                     </div>
                     <div className="flex items-center gap-4">
                       <label className="flex items-center gap-2 text-xs text-ms-gray-130">
-                        <input type="checkbox" checked={editForm.active} onChange={(e) => setEditForm({ ...editForm, active: e.target.checked })} className="accent-ms-blue" />
+                        <input type="checkbox" checked={editForm.active} onChange={(e) => setEditForm({ ...editForm, active: e.target.checked })} title="Si se desmarca, el grupo queda inactivo: deja de repartir correos a sus miembros hasta reactivarlo. Los miembros se conservan." className="accent-ms-blue" />
                         Grupo activo
                       </label>
                       <label className="flex items-center gap-2 text-xs text-ms-gray-130">
-                        <input type="checkbox" checked={editForm.allow_external} onChange={(e) => setEditForm({ ...editForm, allow_external: e.target.checked })} className="accent-ms-blue" />
+                        <input type="checkbox" checked={editForm.allow_external} onChange={(e) => setEditForm({ ...editForm, allow_external: e.target.checked })} title="Si se activa, el grupo aceptará miembros con correos de fuera de la organización. PRECAUCIÓN: los mensajes del grupo saldrán de la empresa." className="accent-ms-blue" />
                         Permitir miembros externos
                       </label>
                     </div>
@@ -377,8 +393,8 @@ export function Groups() {
                       </div>
                     )}
                     <div className="flex gap-2">
-                      <button onClick={saveEdit} className="px-4 py-2 bg-ms-blue text-white rounded text-sm hover:bg-ms-blue-dark">Guardar</button>
-                      <button onClick={cancelEdit} className="px-4 py-2 border border-ms-gray-40 rounded text-sm text-ms-gray-90">Cancelar</button>
+                      <button onClick={saveEdit} title="Guarda los cambios del grupo (nombre, descripción, activo, miembros externos). Se aplican de inmediato y se registran en auditoría." className="px-4 py-2 bg-ms-blue text-white rounded text-sm hover:bg-ms-blue-dark">Guardar</button>
+                      <button onClick={cancelEdit} title="Sale del modo edición sin guardar. Se descartan los cambios." className="px-4 py-2 border border-ms-gray-40 rounded text-sm text-ms-gray-90">Cancelar</button>
                     </div>
                   </div>
                 ) : (
@@ -390,8 +406,8 @@ export function Groups() {
                         {groupDetail.description && <p className="text-xs text-ms-gray-60 mt-1">{groupDetail.description}</p>}
                       </div>
                       <div className="flex gap-2">
-                        <button onClick={startEdit} className="px-3 py-1.5 border border-ms-blue text-ms-blue rounded text-xs hover:bg-ms-blue-lighter">Editar</button>
-                        <button onClick={() => deleteGroup(groupDetail.id)} className="px-3 py-1.5 border border-ms-red text-ms-red rounded text-xs hover:bg-red-50">Eliminar</button>
+                        <button onClick={startEdit} title="Abre el modo edición del grupo: nombre, descripción, estado activo y permiso de miembros externos. La dirección no se puede cambiar." className="px-3 py-1.5 border border-ms-blue text-ms-blue rounded text-xs hover:bg-ms-blue-lighter">Editar</button>
+                        <button onClick={() => deleteGroup(groupDetail.id)} title="PRECAUCIÓN: Elimina el grupo y TODOS sus miembros permanentemente. Los correos enviados a esta dirección empezarán a rebotar. Se registra en auditoría." className="px-3 py-1.5 border border-ms-red text-ms-red rounded text-xs hover:bg-red-50">Eliminar</button>
                       </div>
                     </div>
                     <div className="flex gap-3 text-xs">
@@ -459,10 +475,12 @@ export function Groups() {
                     </p>
                     <div className="flex gap-2">
                       <button onClick={confirmAdd}
+                        title="Ignora la advertencia y agrega el miembro de todos modos (forzado). Asuma la consecuencia indicada en el mensaje. Se registra en auditoría."
                         className={`px-4 py-1.5 rounded text-sm text-white font-medium ${pendingConfirm.type === "external_warning" ? "bg-ms-red hover:bg-red-700" : "bg-yellow-600 hover:bg-yellow-700"}`}>
                         Sí, agregar de todos modos
                       </button>
                       <button onClick={cancelConfirm}
+                        title="No agrega el miembro. Descarta la advertencia y vuelve al formulario."
                         className="px-4 py-1.5 border border-ms-gray-40 rounded text-sm text-ms-gray-90 hover:bg-ms-gray-10">
                         Cancelar
                       </button>
@@ -475,11 +493,12 @@ export function Groups() {
                     <input value={memberForm.email} onChange={(e) => searchUsers(e.target.value)}
                       onFocus={() => suggestions.length > 0 && setShowSugg(true)}
                       onKeyDown={(e) => e.key === "Enter" && (setShowSugg(false), addMember())}
-                      placeholder="Email del miembro..." className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
+                      placeholder="Email del miembro..." title="Escriba el correo del nuevo miembro. Desde 2 letras aparecen sugerencias de buzones internos; también puede escribir una dirección externa o la de otro grupo (con confirmación). Enter agrega directamente." className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
                     {showSugg && suggestions.length > 0 && (
                       <div className="absolute z-10 w-full mt-1 bg-white border border-ms-gray-30 rounded shadow-lg max-h-40 overflow-auto">
                         {suggestions.map((s) => (
                           <button key={s.username} onClick={() => { setMemberForm({ ...memberForm, email: s.username, name: s.name }); setShowSugg(false); }}
+                            title={`Selecciona ${s.username} como miembro a agregar. Solo rellena el campo; aún debe pulsar Agregar.`}
                             className="w-full text-left px-3 py-2 hover:bg-ms-blue-lighter text-sm flex justify-between">
                             <span className="font-medium">{s.username}</span>
                             {s.name && <span className="text-ms-gray-60 text-xs">{s.name}</span>}
@@ -490,15 +509,15 @@ export function Groups() {
                   </div>
                   <div className="flex items-center gap-3 text-xs">
                     <label className="flex items-center gap-1 text-ms-gray-90">
-                      <input type="checkbox" checked={memberForm.can_send} onChange={(e) => setMemberForm({ ...memberForm, can_send: e.target.checked })} className="accent-ms-blue" />
+                      <input type="checkbox" checked={memberForm.can_send} onChange={(e) => setMemberForm({ ...memberForm, can_send: e.target.checked })} title="Si está marcado, el nuevo miembro podrá enviar correos a la dirección del grupo. Se puede cambiar después en la tabla." className="accent-ms-blue" />
                       Enviar
                     </label>
                     <label className="flex items-center gap-1 text-ms-gray-90">
-                      <input type="checkbox" checked={memberForm.receive} onChange={(e) => setMemberForm({ ...memberForm, receive: e.target.checked })} className="accent-ms-blue" />
+                      <input type="checkbox" checked={memberForm.receive} onChange={(e) => setMemberForm({ ...memberForm, receive: e.target.checked })} title="Si está marcado, el nuevo miembro recibirá los correos enviados al grupo. Se puede cambiar después en la tabla." className="accent-ms-blue" />
                       Recibir
                     </label>
                   </div>
-                  <button onClick={() => addMember()} className="px-4 py-2 bg-ms-blue text-white rounded text-sm shrink-0">Agregar</button>
+                  <button onClick={() => addMember()} title="Agrega el correo indicado como miembro del grupo con los permisos marcados. Si es externo o es otro grupo, pedirá confirmación. Se registra en auditoría." className="px-4 py-2 bg-ms-blue text-white rounded text-sm shrink-0">Agregar</button>
                 </div>
               </div>
 
@@ -551,18 +570,20 @@ export function Groups() {
                         </td>
                         <td className="px-4 py-2 text-center">
                           <button onClick={() => togglePerm(m.id, "can_send", !m.can_send)}
+                            title={m.can_send ? "Este miembro puede enviar correos al grupo. Clic para QUITARLE el permiso de envío; el cambio es inmediato." : "Este miembro NO puede enviar correos al grupo. Clic para PERMITIRLE enviar; el cambio es inmediato."}
                             className={`px-2 py-0.5 rounded text-[10px] font-medium ${m.can_send ? "bg-green-50 text-ms-green" : "bg-red-50 text-ms-red"}`}>
                             {m.can_send ? "Sí" : "No"}
                           </button>
                         </td>
                         <td className="px-4 py-2 text-center">
                           <button onClick={() => togglePerm(m.id, "receive", !m.receive)}
+                            title={m.receive ? "Este miembro recibe los correos del grupo. Clic para que DEJE de recibirlos; el cambio es inmediato." : "Este miembro NO recibe los correos del grupo. Clic para que EMPIECE a recibirlos; el cambio es inmediato."}
                             className={`px-2 py-0.5 rounded text-[10px] font-medium ${m.receive ? "bg-green-50 text-ms-green" : "bg-red-50 text-ms-red"}`}>
                             {m.receive ? "Sí" : "No"}
                           </button>
                         </td>
                         <td className="px-4 py-2 text-right">
-                          <button onClick={() => removeMember(m.id)} className="text-ms-red text-xs hover:underline">Quitar</button>
+                          <button onClick={() => removeMember(m.id)} title="Remueve este miembro del grupo: dejará de recibir y enviar correos del grupo. Su buzón personal no se toca. Se registra en auditoría." className="text-ms-red text-xs hover:underline">Quitar</button>
                         </td>
                       </tr>
                     ))}

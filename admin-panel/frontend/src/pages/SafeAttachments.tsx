@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "../api/client";
+import { SectionHelp } from "../components/SectionHelp";
 
 interface Cfg {
   enabled: boolean; enforce: boolean; window_hours: number; max_per_user: number;
@@ -75,6 +76,7 @@ export function SafeAttachments() {
   const Toggle = ({ k, label, desc }: { k: keyof Cfg; label: string; desc: string }) => (
     <label className="flex items-start gap-3 cursor-pointer">
       <input type="checkbox" className="w-4 h-4 mt-0.5" checked={cfg[k] as boolean}
+        title={`${label}. ${desc} Recuerda pulsar Guardar configuración para aplicar el cambio.`}
         onChange={(e) => setCfg({ ...cfg, [k]: e.target.checked })} />
       <span><span className="text-sm font-medium text-ms-gray-130">{label}</span>
         <span className="block text-xs text-ms-gray-110">{desc}</span></span>
@@ -102,6 +104,19 @@ export function SafeAttachments() {
   return (
     <div className="p-6 max-w-5xl space-y-6">
       <div>
+        <div className="flex justify-end">
+          <SectionHelp
+            titulo="Análisis de adjuntos (Safe Attachments)"
+            items={[
+              { titulo: "Qué es", desc: "Analiza los adjuntos de los correos ya entregados con varios motores (ClamAV, tipo real del archivo, macros de Office, PDF con JavaScript, ZIP recursivo, YARA) y retira a cuarentena los correos con adjuntos maliciosos. Nunca borra: mueve y se puede soltar." },
+              { titulo: "Analizar un archivo", desc: "Laboratorio manual: sube una muestra y obtén el veredicto de cada motor (limpio, sospechoso o malicioso) sin afectar ningún correo." },
+              { titulo: "Simulación vs. real", desc: "Con «Retirar de verdad» apagado, solo registra qué retiraría sin tocar los correos. Empieza en simulación y actívalo cuando confíes en los resultados." },
+              { titulo: "Sospechosos y ZIP", desc: "Por defecto solo se retiran los adjuntos «maliciosos»; puedes incluir también los «sospechosos» (más falsos positivos) y activar la inspección recursiva dentro de ZIP." },
+              { titulo: "Ventana y límite", desc: "La ventana (horas) define qué correos recientes se analizan y el máximo por usuario limita cuántos se procesan por buzón en cada escaneo." },
+              { titulo: "Tabla de detectados", desc: "Historial de adjuntos detectados o retirados, con veredicto y motivo. Los correos «En cuarentena» se devuelven a la bandeja con «Soltar a bandeja»." },
+            ]}
+          />
+        </div>
         <h1 className="text-xl font-semibold text-ms-gray-160">Análisis de adjuntos (Safe Attachments)</h1>
         <p className="text-sm text-ms-gray-110 mt-1">
           Analiza los adjuntos de los correos entregados (ClamAV, macros de Office, PDF con JavaScript,
@@ -121,8 +136,10 @@ export function SafeAttachments() {
         </div>
         <p className="text-xs text-ms-gray-110">Multi-motor (ClamAV, tipo real, macros, ZIP, YARA) + detonación aislada. Sube una muestra para ver el veredicto por motor.</p>
         <div className="flex items-center gap-3 flex-wrap">
-          <input type="file" onChange={onFile} className="text-sm" />
+          <input type="file" onChange={onFile} className="text-sm"
+            title="Selecciona un archivo de tu equipo para analizarlo con todos los motores. Solo se analiza: no se envía a nadie ni afecta ningún correo." />
           <button onClick={doAnalyze} disabled={!file || analyzing}
+            title="Envía el archivo seleccionado al motor de análisis y muestra el veredicto (limpio, sospechoso o malicioso) con el detalle por motor. No modifica correos ni configuración."
             className="text-white text-sm px-4 py-2 rounded disabled:opacity-50" style={{ backgroundColor: "#0078d4" }}>
             {analyzing ? "Analizando…" : "Analizar"}
           </button>
@@ -166,20 +183,24 @@ export function SafeAttachments() {
             <label className="block">
               <span className="text-sm font-medium text-ms-gray-130">Ventana (horas)</span>
               <input type="number" className={inputCls + " w-32"} value={cfg.window_hours} min={1} max={720}
+                title="Cuántas horas hacia atrás se analizan los correos ya entregados (1 a 720). Una ventana más grande cubre más correos antiguos pero el escaneo tarda más."
                 onChange={(e) => setCfg({ ...cfg, window_hours: parseInt(e.target.value) || 24 })} />
             </label>
             <label className="block">
               <span className="text-sm font-medium text-ms-gray-130">Máx. por usuario</span>
               <input type="number" className={inputCls + " w-32"} value={cfg.max_per_user} min={1} max={2000}
+                title="Máximo de correos que se analizan por cada usuario en un escaneo (1 a 2000). Limita la carga del servidor; los correos que excedan el límite no se revisan en esa pasada."
                 onChange={(e) => setCfg({ ...cfg, max_per_user: parseInt(e.target.value) || 200 })} />
             </label>
           </div>
         </div>
         <div className="flex gap-3 pt-2">
           <button onClick={save} disabled={saving}
+            title="Guarda la configuración de Safe Attachments (interruptores, ventana y máximo por usuario). Los próximos escaneos usarán estos valores."
             className="px-4 py-2 bg-ms-blue text-white rounded text-sm disabled:opacity-50">
             {saving ? "Guardando…" : "Guardar configuración"}</button>
           <button onClick={() => scan(true)} disabled={scanning || !cfg.enabled}
+            title="Ejecuta un análisis en modo simulación: registra qué correos con adjuntos retiraría, pero NO toca ningún correo. Útil para probar antes de activar el retiro real. Requiere Safe Attachments activado."
             className="px-4 py-2 bg-ms-gray-20 text-ms-gray-160 rounded text-sm disabled:opacity-50">
             {scanning ? "Escaneando…" : "Escanear ahora (simulación)"}</button>
           <button onClick={() => scan(false)} disabled={scanning || !cfg.enabled || !cfg.enforce}
@@ -211,7 +232,7 @@ export function SafeAttachments() {
                     <td className="pr-3"><span className={`text-xs px-2 py-0.5 rounded ${STATUS[a.status]?.cls || ""}`}>{STATUS[a.status]?.label || a.status}</span></td>
                     <td className="text-right">
                       {a.status === "cuarentena" && (
-                        <button onClick={() => release(a)} className="text-xs text-ms-blue hover:underline">Soltar a bandeja</button>
+                        <button onClick={() => release(a)} title="Devuelve este correo de la cuarentena a la bandeja de entrada del usuario, con su adjunto incluido. Úsalo cuando confirmes que fue un falso positivo. Pide confirmación." className="text-xs text-ms-blue hover:underline">Soltar a bandeja</button>
                       )}
                     </td>
                   </tr>

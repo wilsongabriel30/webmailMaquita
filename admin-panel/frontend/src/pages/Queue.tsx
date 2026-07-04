@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { SectionHelp } from "../components/SectionHelp";
 
 interface QueueMsg { queue_id: string; queue_name: string; arrival_time: number; message_size: number; sender: string; recipients: { address: string; delay_reason: string }[] }
 
@@ -31,6 +32,17 @@ export function Queue() {
           <button onClick={() => action("flush_all")} title="Forzar envio: Reintenta enviar TODOS los correos en cola inmediatamente. Util si hubo un problema temporal. Se registra en auditoria." className="px-3 py-1.5 bg-ms-blue text-white rounded text-xs hover:bg-ms-blue-dark">Flush todo</button>
           <button onClick={() => action("requeue_all")} title="Reencola todos los mensajes para reprocesarlos. Util para aplicar cambios de configuración. Se registra en auditoria." className="px-3 py-1.5 border border-ms-blue text-ms-blue rounded text-xs hover:bg-ms-blue-lighter">Requeue todo</button>
           <button onClick={() => action("delete_all")} title="PRECAUCION EXTREMA: Elimina TODOS los correos en cola. Ningun destinatario los recibira. Solo usar en emergencias. Se registra en auditoria." className="px-3 py-1.5 bg-ms-red text-white rounded text-xs hover:bg-red-700">Eliminar todo</button>
+          <SectionHelp
+            titulo="Colas de correo"
+            items={[
+              { titulo: "Para qué sirve", desc: "Muestra los correos que Postfix aún no ha podido entregar y siguen esperando en la cola. Si la cola está vacía, todo el correo fluye con normalidad." },
+              { titulo: "Columnas", desc: "Queue ID (identificador del mensaje en Postfix), remitente, destinatarios, razón del retraso (por qué no se ha entregado), y tamaño del mensaje." },
+              { titulo: "Flush", desc: "Fuerza un reintento de envío inmediato, de un correo o de toda la cola. Es la acción segura de primera opción cuando hubo un problema temporal (DNS, destino caído)." },
+              { titulo: "Hold y Requeue", desc: "Hold retiene un correo para que no se envíe hasta liberarlo. Requeue todo reencola los mensajes para reprocesarlos, útil tras cambiar la configuración de Postfix." },
+              { titulo: "Eliminar", desc: "Descarta el correo definitivamente: el destinatario nunca lo recibirá y no hay forma de recuperarlo. Usar solo en emergencias (spam masivo, cola atascada)." },
+              { titulo: "Auditoría", desc: "Todas las acciones sobre la cola quedan registradas en auditoría con usuario y fecha." },
+            ]}
+          />
         </div>
       </div>
 

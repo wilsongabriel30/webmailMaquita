@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { SectionHelp } from "../components/SectionHelp";
 
 interface Domain { domain: string; description: string; mailbox_count: number; alias_count: number; active: boolean; created: string }
 
@@ -21,7 +22,16 @@ export function Domains() {
     <div className="p-6 space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-ms-gray-130">Dominios aceptados</h1>
-        <button onClick={() => setShowForm(!showForm)} title="Agrega un nuevo dominio al servidor de correo. Asegurese de que los registros DNS (MX, SPF, DKIM) esten configurados. Se registra en auditoria." className="px-3 py-1.5 bg-ms-blue text-white rounded text-sm hover:bg-ms-blue-dark">+ Agregar dominio</button>
+        <div className="flex items-center gap-2">
+          <SectionHelp titulo="Dominios aceptados" items={[
+            { titulo: "Para qué sirve", desc: "Lista los dominios para los que este servidor acepta y entrega correo. Solo se pueden crear buzones y alias en dominios registrados aquí." },
+            { titulo: "Agregar dominio", desc: "Registra un dominio nuevo. Antes de agregarlo, configure sus registros DNS (MX apuntando a este servidor, SPF, DKIM y DMARC); puede validarlos en la sección Verificación DNS." },
+            { titulo: "Columnas Buzones y Alias", desc: "Muestran cuántas cuentas de correo y cuántos alias existen en cada dominio, para dimensionar su uso antes de cualquier cambio." },
+            { titulo: "Estado", desc: "Activo significa que el dominio acepta correo entrante; Inactivo hace que el servidor lo rechace." },
+            { titulo: "Eliminar", desc: "PRECAUCIÓN EXTREMA: borra el dominio y potencialmente todos sus buzones. Verifique que no queden usuarios activos antes de hacerlo. Se registra en auditoría." },
+          ]} />
+          <button onClick={() => setShowForm(!showForm)} title="Agrega un nuevo dominio al servidor de correo. Asegurese de que los registros DNS (MX, SPF, DKIM) esten configurados. Se registra en auditoria." className="px-3 py-1.5 bg-ms-blue text-white rounded text-sm hover:bg-ms-blue-dark">+ Agregar dominio</button>
+        </div>
       </div>
 
       {showForm && (

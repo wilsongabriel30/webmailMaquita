@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { SectionHelp } from "../components/SectionHelp";
 
 interface Status {
   realm: string; idp_url: string; keycloak_ok: boolean; oidc_enabled: boolean;
@@ -34,10 +35,20 @@ export function Sso() {
           <h1 className="text-xl font-semibold text-ms-gray-160">SSO / Identidad unificada</h1>
           <p className="text-sm text-ms-gray-110">Inicio de sesión único del ecosistema vía Keycloak (OIDC) y federación LDAP.</p>
         </div>
-        <button onClick={sync} disabled={syncing}
-          className="text-white text-sm px-4 py-2 rounded disabled:opacity-50" style={{ backgroundColor: "#0078d4" }}>
-          {syncing ? "Sincronizando…" : "Sincronizar usuarios → LDAP"}
-        </button>
+        <div className="flex items-center gap-2">
+          <SectionHelp titulo="SSO / Identidad unificada" items={[
+            { titulo: "Qué es esta sección", desc: "Muestra el estado del inicio de sesión único (SSO): los usuarios entran al webmail con la misma cuenta del ecosistema, gestionada por Keycloak vía OIDC y federación LDAP." },
+            { titulo: "Proveedor de identidad (Keycloak)", desc: "Servidor central de identidades. La tarjeta indica si está en línea, el realm usado y su URL. Si está caído, el SSO no funciona (queda el login local de respaldo)." },
+            { titulo: "SSO del Webmail (OIDC)", desc: "Indica si el webmail tiene habilitado el inicio de sesión vía Keycloak y qué client OIDC usa. El login local break-glass sigue disponible como respaldo." },
+            { titulo: "Federación LDAP", desc: "Muestra cuántos buzones activos están sincronizados en LDAP. Las contraseñas no se copian: LDAP valida los hashes Dovecot existentes." },
+            { titulo: "Sincronizar usuarios", desc: "El botón vuelca los buzones de correo hacia LDAP para que Keycloak los reconozca. Ejecútelo tras crear o eliminar buzones. La salida del proceso se muestra abajo." },
+          ]} />
+          <button onClick={sync} disabled={syncing}
+            title="Ejecuta la sincronización de los buzones de correo hacia LDAP para que Keycloak los reconozca en el SSO. No borra usuarios ni cambia contraseñas; la salida del proceso se muestra abajo."
+            className="text-white text-sm px-4 py-2 rounded disabled:opacity-50" style={{ backgroundColor: "#0078d4" }}>
+            {syncing ? "Sincronizando…" : "Sincronizar usuarios → LDAP"}
+          </button>
+        </div>
       </div>
       {!st ? <div className="text-sm text-ms-gray-110">Cargando…</div> : (
         <div className="grid gap-4 md:grid-cols-2">

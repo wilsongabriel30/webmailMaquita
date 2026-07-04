@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { api } from "../api/client";
+import { SectionHelp } from "../components/SectionHelp";
 
 interface Suggestion { username: string; name: string }
 
@@ -49,6 +50,19 @@ export function Recovery() {
 
   return (
     <div className="p-6 space-y-5">
+      <div className="flex justify-end">
+        <SectionHelp
+          titulo="Recuperación de correos eliminados"
+          items={[
+            { titulo: "Para qué sirve", desc: "Recupera correos que un usuario eliminó y que todavía están en su papelera, sin necesidad de acceder a su buzón con su contraseña." },
+            { titulo: "Buscar usuario", desc: "Escriba el nombre o email del usuario; el campo autocompleta con los buzones existentes. Pulse Buscar en papelera para listar sus correos eliminados." },
+            { titulo: "Lista de mensajes", desc: "Muestra remitente, asunto, fecha y la carpeta de papelera donde está cada correo. Es solo lectura hasta que decida restaurar." },
+            { titulo: "Restaurar individual", desc: "El botón Restaurar de cada fila mueve ese correo de la papelera a la bandeja de entrada (INBOX) del usuario." },
+            { titulo: "Restauración masiva", desc: "Marque varias casillas (o Seleccionar todos) y use Restaurar seleccionados para moverlos todos de una vez. Al final se informa cuántos se restauraron y cuántos fallaron." },
+            { titulo: "Auditoría", desc: "Cada restauración queda registrada en auditoría con usuario y fecha." },
+          ]}
+        />
+      </div>
       <h1 className="text-xl font-semibold text-ms-gray-130" title="Permite recuperar correos eliminados (en papelera) de los usuarios. Los correos se restauran a la bandeja de entrada.">Recuperación de correos eliminados</h1>
 
       <div className="flex gap-2 relative">

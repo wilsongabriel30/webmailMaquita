@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { SectionHelp } from "../components/SectionHelp";
 
 interface Incident {
   id: number; action: string; username: string; detail: string;
@@ -54,12 +55,25 @@ export function Air() {
           <p className="text-sm text-[#605e5c]">Incidentes correlacionados con triage de IA local (Qwen). Detecta y recomienda; contiene bajo control.</p>
         </div>
         <div className="flex items-center gap-2">
-          <select value={hours} onChange={(e) => setHours(Number(e.target.value))} className="border border-[#d2d0ce] rounded px-2 py-1 text-sm">
+          <SectionHelp
+            titulo="AIR — Investigación y respuesta automática"
+            items={[
+              { titulo: "¿Qué hace?", desc: "Correlaciona señales de seguridad (accesos fallidos, envíos anómalos, alertas) y usa una IA local (Qwen) para hacer triage: detecta incidentes, evalúa severidad y recomienda acciones." },
+              { titulo: "Investigar ahora", desc: "Lanza una investigación manual sobre las últimas 24 horas; el resultado del análisis se muestra en el recuadro negro y los incidentes nuevos aparecen en la tabla." },
+              { titulo: "Filtro de período", desc: "El selector (24 h, 7 días, 30 días) limita qué incidentes se listan en la tabla según su fecha." },
+              { titulo: "Tabla de incidentes", desc: "Cada fila muestra severidad (alta/media/baja), buzón afectado, detalle con señales e interpretación de la IA, y fecha. La etiqueta «contenido» indica que la cuenta ya fue desactivada." },
+              { titulo: "Contener", desc: "Desactiva el buzón afectado para frenar el incidente: el usuario no podrá iniciar sesión hasta que lo reactives desde Buzones." },
+            ]}
+          />
+          <select value={hours} onChange={(e) => setHours(Number(e.target.value))}
+            title="Período de incidentes a mostrar en la tabla: solo se listan los detectados en las últimas 24 horas, 7 días o 30 días."
+            className="border border-[#d2d0ce] rounded px-2 py-1 text-sm">
             <option value={24}>24 h</option>
             <option value={168}>7 días</option>
             <option value={720}>30 días</option>
           </select>
           <button onClick={investigate} disabled={running}
+            title="Ejecuta ahora una investigación de las últimas 24 horas: correlaciona señales y pasa el triage por la IA local. Puede tardar unos segundos; el resultado se muestra debajo y los incidentes nuevos aparecen en la tabla. No toma acciones por sí sola."
             className="bg-[#0078d4] text-white text-sm px-4 py-2 rounded disabled:opacity-50">
             {running ? "Investigando…" : "Investigar ahora"}
           </button>
@@ -93,7 +107,7 @@ export function Air() {
                   <td className="px-3 py-2 text-[#605e5c] whitespace-nowrap">{i.created_at ? new Date(i.created_at).toLocaleString() : ""}</td>
                   <td className="px-3 py-2">
                     {i.action !== "account_locked" &&
-                      <button onClick={() => lock(i.username)} className="text-[#a4262c] text-xs hover:underline">Contener</button>}
+                      <button onClick={() => lock(i.username)} title="Contiene el incidente desactivando este buzón: el usuario no podrá iniciar sesión ni enviar correo hasta que lo reactives. Pide confirmación antes de aplicar." className="text-[#a4262c] text-xs hover:underline">Contener</button>}
                   </td>
                 </tr>
               );
