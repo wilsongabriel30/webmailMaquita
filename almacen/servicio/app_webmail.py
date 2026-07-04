@@ -51,6 +51,8 @@ def crear_app_webmail() -> Flask:
 
     asegurar_esquema()          # esquema del motor (idempotente)
     asegurar_tablas_webmail()   # directorio local de usuarios
+    from alias_correo import asegurar_tabla_alias
+    asegurar_tabla_alias()      # alias: varios buzones -> una identidad
 
     from api_archivos import bp_archivos
     from api_compartir import bp_compartir
@@ -61,9 +63,11 @@ def crear_app_webmail() -> Flask:
     from api_unidades import bp_unidades
     from api_actividad import bp_actividad
     from api_almacenamiento import bp_almacenamiento
+    from api_alias import bp_alias
 
     for bp in (bp_archivos, bp_compartir, bp_extras, bp_admin, bp_versiones,
-               bp_onlyoffice, bp_unidades, bp_actividad, bp_almacenamiento):
+               bp_onlyoffice, bp_unidades, bp_actividad, bp_almacenamiento,
+               bp_alias):
         app.register_blueprint(bp, url_prefix='/api/almacen')
     app.register_blueprint(bp_onlyoffice_web)   # /archivos-almacen/editar
 

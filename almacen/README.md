@@ -26,6 +26,11 @@ navegador ──cookie del webmail──► nginx (mismo dominio)
   guarda solo metadatos (compartidos, papelera, versiones, cuotas...).
 - Contrato completo de la API: `docs/CONTRATO-API.md` (49 endpoints).
 
+> 🧑‍🎓 **¿Primera vez o quieres el detalle completo?** Hay dos guías pensadas
+> para que cualquier estudiante lo replique en una VM (VirtualBox/Proxmox):
+> - **[docs/GUIA-PASO-A-PASO.md](docs/GUIA-PASO-A-PASO.md)** — todo desde cero, con verificación de cada paso.
+> - **[docs/GUIA-ONLYOFFICE.md](docs/GUIA-ONLYOFFICE.md)** — instalar y conectar OnlyOffice, explicado pieza por pieza.
+
 ## Instalación (5 pasos)
 
 ```bash
@@ -79,6 +84,21 @@ en vez de editarse en línea.
   recuperan) → purga definitiva. Cron sugerido:
   `0 3 * * * /opt/maquita-webmail/almacen/venv/bin/python3 /opt/maquita-webmail/almacen/servicio/purgar_retencion.py`
 - Vista previa de PDFs: instalar `poppler-utils` (opcional).
+
+## Alias de correo (una persona, varios buzones)
+
+Si alguien tiene dos buzones (ej. usuario@dominio.org y
+usuario@dominio.com.ec), regístrale un alias y ambos abrirán EL MISMO
+almacén. Se administra con la API (solo administradores):
+
+```
+GET    /api/almacen/admin/alias-correo                 lista
+POST   /api/almacen/admin/alias-correo                 {"alias": "...", "canonico": "..."}
+DELETE /api/almacen/admin/alias-correo?alias=...       elimina
+```
+
+Los cambios aplican solos en menos de 1 minuto. Detalle y ejemplos:
+[docs/GUIA-PASO-A-PASO.md](docs/GUIA-PASO-A-PASO.md#alias-de-correo-una-persona-varios-buzones).
 
 ## Seguridad
 

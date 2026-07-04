@@ -109,6 +109,10 @@ def usuario_webmail() -> tuple:
     username = (payload.get('sub') or '').strip().lower()
     if not username or not _sesion_viva(username):
         return None, None
+    # Alias: varios buzones de la misma persona -> un solo correo canónico
+    # (la sesión Redis se valida con el buzón REAL; todo lo demás usa el canónico)
+    from alias_correo import resolver_alias
+    username = resolver_alias(username)
     if _PILOTO and username not in _PILOTO and username not in _ADMINS:
         return None, None
     if username in _cache_usuarios:
