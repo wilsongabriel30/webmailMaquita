@@ -13,6 +13,32 @@ export function Mailboxes() {
   const [newPw, setNewPw] = useState("");
   const [newPw2, setNewPw2] = useState("");
 
+  // Editar datos del buzón (nombre, cuota, teléfono, correo alterno)
+  const [editBox, setEditBox] = useState<Mailbox | null>(null);
+  const [editBoxForm, setEditBoxForm] = useState({ name: "", quota_mb: 0, phone: "", email_other: "" });
+  const [editBoxError, setEditBoxError] = useState("");
+  const openEditBox = (m: Mailbox) => {
+    setEditBox(m);
+    setEditBoxForm({ name: m.name || "", quota_mb: Math.round((m.quota || 0) / 1048576), phone: m.phone || "", email_other: m.email_other || "" });
+    setEditBoxError("");
+  };
+  const saveEditBox = async () => {
+    if (!editBox) return;
+    if (editBoxForm.quota_mb < 0) { setEditBoxError("La cuota no puede ser negativa"); return; }
+    if (!confirm(`Guardar cambios de ${editBox.username}? Cuota: ${editBoxForm.quota_mb > 0 ? editBoxForm.quota_mb + " MB" : "sin límite"}. Se registra en auditoria.`)) return;
+    try {
+      await api.put(`/mailboxes/${encodeURIComponent(editBox.username)}`, {
+        name: editBoxForm.name,
+        quota: editBoxForm.quota_mb * 1048576,
+        phone: editBoxForm.phone,
+        email_other: editBoxForm.email_other,
+      });
+      setEditBox(null); load();
+    } catch (e: any) {
+      setEditBoxError(e.message || "Error al guardar");
+    }
+  };
+
   // Grupos del usuario
   const [groupsUser, setGroupsUser] = useState<string | null>(null);
   const [userGroups, setUserGroups] = useState<any[]>([]);
@@ -422,6 +448,9 @@ export function Mailboxes() {
                   <button onClick={() => toggle(m.username)}
                     title={m.active ? "Bloquear cuenta: no podrá enviar ni recibir" : "Desbloquear cuenta"}
                     className={`${m.active ? "text-yellow-600" : "text-green-600"} hover:underline text-xs`}>{m.active ? "Bloquear" : "Activar"}</button>
+                  <button onClick={() => openEditBox(m)}
+                    title="Editar nombre, cuota, teléfono y correo alterno de este buzón"
+                    className="text-ms-blue hover:underline text-xs">Editar</button>
                   <button onClick={() => { setEditPw(editPw === m.username ? null : m.username); setNewPw(""); setNewPw2(""); }}
                     className="text-ms-blue hover:underline text-xs">Contraseña</button>
                   <button onClick={() => loadUserGroups(m.username)}
@@ -459,6 +488,35 @@ export function Mailboxes() {
           </form>
         )}
       </div>
+
+      {editBox && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setEditBox(null)}>
+          <div className="bg-white rounded border border-ms-gray-30 p-5 w-[26rem] space-y-3" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-base font-semibold text-ms-gray-130">Editar buzón: {editBox.username}</h2>
+            <div>
+              <label className="block text-xs text-ms-gray-90 mb-1">Nombre para mostrar</label>
+              <input value={editBoxForm.name} onChange={(e) => setEditBoxForm({ ...editBoxForm, name: e.target.value })} className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
+            </div>
+            <div>
+              <label className="block text-xs text-ms-gray-90 mb-1">Cuota en MB (0 = sin límite)</label>
+              <input type="number" min={0} value={editBoxForm.quota_mb} onChange={(e) => setEditBoxForm({ ...editBoxForm, quota_mb: +e.target.value })} title="Espacio máximo del buzón en MB. 0 = sin límite." className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
+            </div>
+            <div>
+              <label className="block text-xs text-ms-gray-90 mb-1">Teléfono</label>
+              <input value={editBoxForm.phone} onChange={(e) => setEditBoxForm({ ...editBoxForm, phone: e.target.value })} className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
+            </div>
+            <div>
+              <label className="block text-xs text-ms-gray-90 mb-1">Correo alterno (recuperación)</label>
+              <input value={editBoxForm.email_other} onChange={(e) => setEditBoxForm({ ...editBoxForm, email_other: e.target.value })} className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
+            </div>
+            {editBoxError && <div className="text-ms-red text-xs">{editBoxError}</div>}
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setEditBox(null)} className="px-4 py-2 border border-ms-gray-40 rounded text-sm text-ms-gray-90">Cancelar</button>
+              <button onClick={saveEditBox} title="Guarda los cambios del buzón. Se registra en auditoria." className="px-4 py-2 bg-ms-blue text-white rounded text-sm hover:bg-ms-blue-dark">Guardar</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

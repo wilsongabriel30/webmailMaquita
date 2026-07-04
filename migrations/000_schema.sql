@@ -199,7 +199,9 @@ CREATE TABLE IF NOT EXISTS public.admin_users (
     created_at timestamp with time zone DEFAULT now(),
     last_login timestamp with time zone,
     failed_attempts integer DEFAULT 0,
-    locked_until timestamp with time zone
+    locked_until timestamp with time zone,
+    totp_secret text,
+    totp_enabled boolean DEFAULT false NOT NULL
 );
 
 

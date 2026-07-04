@@ -9,7 +9,8 @@ export interface AdminUser {
 
 export interface AuthContextType {
   user: AdminUser | null;
-  login: (username: string, password: string) => Promise<void>;
+  // Devuelve { requires_totp: true } cuando la cuenta tiene 2FA y falta el código
+  login: (username: string, password: string, totpCode?: string) => Promise<{ requires_totp?: boolean } | void>;
   logout: () => void;
 }
 

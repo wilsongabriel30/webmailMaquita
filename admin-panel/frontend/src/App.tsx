@@ -57,11 +57,13 @@ function App() {
     return saved ? JSON.parse(saved) : null;
   });
 
-  const login = async (username: string, password: string) => {
-    const res = await api.post<{ token: string; user: AdminUser }>("/auth/login", { username, password });
-    localStorage.setItem("admin_token", res.token);
+  const login = async (username: string, password: string, totpCode?: string) => {
+    const res = await api.post<{ token?: string; user?: AdminUser; requires_totp?: boolean }>(
+      "/auth/login", { username, password, totp_code: totpCode || undefined });
+    if (res.requires_totp) return { requires_totp: true };
+    localStorage.setItem("admin_token", res.token!);
     localStorage.setItem("admin_user", JSON.stringify(res.user));
-    setUser(res.user);
+    setUser(res.user!);
   };
 
   const logout = () => {

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../api/auth";
+import { MyAccountModal } from "../components/MyAccountModal";
 
 const navSections = [
   {
@@ -90,6 +91,7 @@ const navSections = [
 export function AdminLayout() {
   const { user, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
+  const [showAccount, setShowAccount] = useState(false);
 
   return (
     <div className="flex flex-col h-screen">
@@ -113,6 +115,15 @@ export function AdminLayout() {
         <div className="ml-auto flex items-center gap-3">
           <span className="text-white/80 text-xs hidden md:block">{user?.display_name || user?.username}</span>
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/20 text-white">{user?.role}</span>
+          <button
+            onClick={() => setShowAccount(true)}
+            className="p-1.5 rounded hover:bg-white/15 text-white/80 hover:text-white"
+            title="Mi cuenta: cambiar mi contraseña y verificación en dos pasos (2FA)"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+          </button>
           <button
             onClick={logout}
             className="p-1.5 rounded hover:bg-white/15 text-white/80 hover:text-white"
@@ -187,6 +198,8 @@ export function AdminLayout() {
           <Outlet />
         </main>
       </div>
+
+      {showAccount && <MyAccountModal onClose={() => setShowAccount(false)} />}
     </div>
   );
 }

@@ -6,6 +6,8 @@ export function Login() {
   const { login } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [totpCode, setTotpCode] = useState("");
+  const [needTotp, setNeedTotp] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -14,7 +16,10 @@ export function Login() {
     setError("");
     setLoading(true);
     try {
-      await login(username, password);
+      const res = await login(username, password, needTotp ? totpCode : undefined);
+      if (res?.requires_totp) {
+        setNeedTotp(true);
+      }
     } catch (err: any) {
       setError(err.message || "Error de autenticacion");
     } finally {
@@ -69,11 +74,23 @@ export function Login() {
                   placeholder="Ingrese su contraseña"
                 />
               </div>
+              {needTotp && (
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-ms-gray-130 mb-1.5">Código de verificación (2FA)</label>
+                  <input
+                    type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={6}
+                    value={totpCode} onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ""))}
+                    className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm text-ms-gray-130 tracking-widest text-center focus:outline-none focus:border-ms-blue focus:ring-1 focus:ring-ms-blue"
+                    placeholder="000000" autoFocus
+                  />
+                  <p className="text-xs text-ms-gray-60 mt-1">Ingrese el código de 6 dígitos de su aplicación de autenticación.</p>
+                </div>
+              )}
               <button
-                type="submit" disabled={loading}
+                type="submit" disabled={loading || (needTotp && totpCode.length !== 6)}
                 className="w-full py-2.5 bg-ms-blue hover:bg-ms-blue-dark disabled:opacity-50 text-white font-medium rounded text-sm transition-colors"
               >
-                {loading ? "Ingresando..." : "Iniciar sesión"}
+                {loading ? "Ingresando..." : needTotp ? "Verificar código" : "Iniciar sesión"}
               </button>
             </form>
           </div>
