@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Editor — Almacén Maquita</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  html, body { margin:0; padding:0; height:100%; background:#f1f3f4;
+               font-family: Arial, Helvetica, sans-serif; }
+  #cabecera { height:44px; display:flex; align-items:center; gap:10px;
+              padding:0 14px; background:#fff; border-bottom:1px solid #dadce0; }
+  #cabecera img { height:26px; }
+  #nombre-archivo { font-size:15px; color:#202124; font-weight:600;
+                    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #cerrar { margin-left:auto; border:none; background:#f1f3f4; color:#3c4043;
+            padding:7px 14px; border-radius:6px; cursor:pointer; font-size:13px; }
+  #cerrar:hover { background:#e8eaed; }
+  #contenedor { position:absolute; top:44px; bottom:0; left:0; right:0; }
+  #editor { width:100%; height:100%; }
+  #estado { position:absolute; top:40%; left:0; right:0; text-align:center;
+            color:#5f6368; font-size:15px; line-height:1.7; padding:0 24px; }
+</style>
+</head>
+<body>
+<div id="cabecera">
+  <img src="/static/img/maquita.jpg" alt="Maquita" onerror="this.style.display='none'">
+  <span id="nombre-archivo">Documento</span>
+  <button id="cerrar" onclick="window.close()">Cerrar</button>
+</div>
+<div id="contenedor">
+  <div id="estado">Cargando el editor&hellip;</div>
+  <div id="editor"></div>
+</div>
+<script>
+(async function () {
+  const parametros = new URLSearchParams(location.search);
+  const ruta = parametros.get('ruta') || '';
+  const nombre = ruta.split('/').pop() || 'Documento';
+  document.title = nombre + ' — Almacén Maquita';
+  document.getElementById('nombre-archivo').textContent = nombre;
+  const estado = document.getElementById('estado');
+
+  function fallo(mensaje) {
+    estado.innerHTML = '<b>No se pudo abrir el editor</b><br>' + mensaje;
+  }
+
+  if (!ruta) { return fallo('Falta la ruta del archivo.'); }
+
+  // 1. Configuración firmada del motor del Almacén
+  let data;
+  try {
+    const r = await fetch('/api/almacen/onlyoffice/config?ruta=' + encodeURIComponent(ruta));
+    data = await r.json();
+  } catch (e) { return fallo('Sin conexión con el Almacén.'); }
+  if (!data.success) { return fallo(data.error || 'Error obteniendo la configuración.'); }
+
+  // 2. Cargar api.js del Document Server dedicado
+  try {
+    await new Promise((listo, error) => {
+      const s = document.createElement('script');
+      s.src = data.api_js_url;
+      s.onload = listo;
+      s.onerror = error;
+      document.head.appendChild(s);
+    });
+  } catch (e) {
+    return fallo('No responde el servidor de documentos.<br>' +
+                 'Verifica que la VM de OnlyOffice esté encendida.');
+  }
+
+  // 3. Crear el editor embebido
+  const config = data.config;
+  config.events = {
+    onAppReady: function () { estado.style.display = 'none'; },
+    onError: function (e) {
+      fallo('Error del editor: ' + JSON.stringify(e && e.data));
+    }
+  };
+  new DocsAPI.DocEditor('editor', config);
+})();
+</script>
+</body>
+</html>

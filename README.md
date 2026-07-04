@@ -496,3 +496,13 @@ Desarrollado por el equipo de tecnología de [Fundación Maquita](https://maquit
 
 ## Características
 Ver **[docs/CARACTERISTICAS-PLATAFORMA.md](docs/CARACTERISTICAS-PLATAFORMA.md)** — qué ofrece la plataforma (correo, seguridad, cumplimiento e IA), a costo cero de licencias.
+
+## 📁 Archivos — nube integrada con edición Office en línea (Almacén Maquita)
+
+Sección **Archivos** en la barra lateral del webmail: nube personal por
+usuario (subida, carpetas, papelera con retención, versiones, cuotas,
+deduplicación) con **edición colaborativa** de documentos Word/Excel/
+PowerPoint vía OnlyOffice, autenticada con la misma sesión del correo.
+
+Es un servicio opcional e independiente incluido en `almacen/`.
+Instalación completa (5 pasos) y arquitectura: **[almacen/README.md](almacen/README.md)**.
