@@ -13,6 +13,16 @@ interface Props {
   onScheduling?: () => void;
   onNewEvent: () => void;
   onToday: () => void;
+  splitView?: boolean;
+  onSplitViewChange?: (v: boolean) => void;
+  onFiltersChange?: (f: CalendarFilters) => void;
+}
+
+/** Estado completo de filtros que consume CalendarView para filtrar eventos.
+ *  subs: clave "categoria:etiqueta"; ausente = marcado (true). */
+export interface CalendarFilters {
+  cats: FilterState;
+  subs: Record<string, boolean>;
 }
 
 /* ── dropdown hook ──────────────────────────────────────── */
@@ -275,7 +285,7 @@ const IconX = () => (
 );
 
 /* ── Filter state types ─────────────────────────────────── */
-interface FilterState {
+export interface FilterState {
   citas: boolean;
   reuniones: boolean;
   sondeos: boolean;
@@ -357,6 +367,9 @@ export function CalendarHeader({
   onViewChange,
   onNewEvent,
   onToday,
+  splitView = false,
+  onSplitViewChange,
+  onFiltersChange,
 }: Props) {
   const [activeTab, setActiveTab] = useState<TabId>("inicio");
   const newDrop = useDropdown();
@@ -365,9 +378,15 @@ export function CalendarHeader({
   const timeScaleDrop = useDropdown();
   const savedViewsDrop = useDropdown();
   const [filterState, setFilterState] = useState<FilterState>(defaultFilters);
+  const [subFilters, setSubFilters] = useState<Record<string, boolean>>({});
   const [expandedFilter, setExpandedFilter] = useState<string | null>(null);
   const [selectedTimeScale, setSelectedTimeScale] = useState("30");
-  const [splitView, setSplitView] = useState(false);
+
+  // Notificar a CalendarView cada cambio de filtros para que filtre los eventos
+  useEffect(() => {
+    onFiltersChange?.({ cats: filterState, subs: subFilters });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterState, subFilters]);
   
   const calToast = (msg: string) => {
     const el = document.createElement('div');
@@ -429,8 +448,28 @@ export function CalendarHeader({
     setFilterState((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
+  const isSubChecked = (cat: string, label: string) =>
+    subFilters[`${cat}:${label}`] !== false;
+
+  const toggleSub = (cat: string, label: string) => {
+    const key = `${cat}:${label}`;
+    setSubFilters((prev) => ({ ...prev, [key]: prev[key] === false }));
+  };
+
+  /** "Deseleccionar todo": si hay alguno marcado los desmarca todos; si no, los marca todos.
+   *  Con checkAll=true ("Ver todo") siempre los marca todos. */
+  const deselectAllSubs = (cat: string, labels: string[], checkAll = false) => {
+    const target = checkAll ? true : !labels.some((l) => isSubChecked(cat, l));
+    setSubFilters((prev) => {
+      const next = { ...prev };
+      for (const l of labels) next[`${cat}:${l}`] = target;
+      return next;
+    });
+  };
+
   const clearFilters = () => {
     setFilterState(defaultFilters);
+    setSubFilters({});
     filterDrop.setOpen(false);
   };
 
@@ -528,7 +567,7 @@ export function CalendarHeader({
               icon={<IconSplit />}
               label="Vista en dos paneles"
               active={splitView}
-              onClick={() => { setSplitView(!splitView); calToast(splitView ? 'Vista simple activada' : 'Vista en dos paneles activada'); }}
+              onClick={() => { onSplitViewChange?.(!splitView); calToast(splitView ? 'Vista simple activada' : 'Vista en dos paneles activada'); }}
             />
           </div>
           <span className="text-[9px] text-[#605e5c] pb-[3px] mt-[1px]">Organizar</span>
@@ -658,7 +697,7 @@ export function CalendarHeader({
               icon={<IconSplit />}
               label="Vista en dos paneles"
               active={splitView}
-              onClick={() => { setSplitView(!splitView); calToast(splitView ? 'Vista simple activada' : 'Vista en dos paneles activada'); }}
+              onClick={() => { onSplitViewChange?.(!splitView); calToast(splitView ? 'Vista simple activada' : 'Vista en dos paneles activada'); }}
             />
             <div className="relative" ref={timeScaleDrop.ref}>
               <RibbonBtn
@@ -876,7 +915,7 @@ export function CalendarHeader({
           >
             <button
               className="w-full text-left px-3 py-[6px] text-[12px] text-[#323130] hover:bg-[#f3f2f1] flex items-center justify-between"
-              onClick={() => !cat.hasSub && toggleFilter(cat.key)}
+              onClick={() => toggleFilter(cat.key)}
             >
               <span className="flex items-center gap-[6px]">
                 <span
@@ -909,7 +948,13 @@ export function CalendarHeader({
                       <button
                         key={idx}
                         className="w-full text-left px-3 py-[6px] text-[12px] text-[#0078d4] hover:bg-[#f3f2f1]"
-                        onClick={() => calToast(sub.label + ': aplicado')}
+                        onClick={() =>
+                          deselectAllSubs(
+                            cat.key,
+                            (cat.subItems || []).filter((s) => s.type === "item").map((s) => s.label),
+                            sub.label === "Ver todo"
+                          )
+                        }
                       >
                         {sub.label}
                       </button>
@@ -919,10 +964,16 @@ export function CalendarHeader({
                     <button
                       key={idx}
                       className="w-full text-left px-3 py-[6px] text-[12px] text-[#323130] hover:bg-[#f3f2f1] flex items-center gap-[6px]"
-                      onClick={() => calToast('Filtro "' + sub.label + '" aplicado')}
+                      onClick={() => toggleSub(cat.key, sub.label)}
                     >
-                      <span className="w-[14px] h-[14px] border border-[#0078d4] bg-[#0078d4] rounded-[2px] flex items-center justify-center text-[10px] text-white">
-                        ✓
+                      <span
+                        className={`w-[14px] h-[14px] border rounded-[2px] flex items-center justify-center text-[10px] ${
+                          isSubChecked(cat.key, sub.label)
+                            ? "border-[#0078d4] bg-[#0078d4] text-white"
+                            : "border-[#8a8886] bg-white text-transparent"
+                        }`}
+                      >
+                        {isSubChecked(cat.key, sub.label) && "✓"}
                       </span>
                       {(sub as any).color && (
                         <span

@@ -10,6 +10,7 @@ export function TaskInput({ onAdd, activeView }: Props) {
   const [title, setTitle] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [reminder, setReminder] = useState('');
+  const [customReminder, setCustomReminder] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showReminderPicker, setShowReminderPicker] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -111,10 +112,15 @@ export function TaskInput({ onAdd, activeView }: Props) {
               borderRadius: 4, boxShadow: '0 2px 8px rgba(0,0,0,0.15)', padding: 8,
             }}>
               <input type="date" value={dueDate}
-                onChange={e => { setDueDate(e.target.value); setShowDatePicker(false); }}
+                onChange={e => setDueDate(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') setShowDatePicker(false); }}
                 style={{ fontSize: 13, border: `1px solid ${COLORS.border}`, borderRadius: 4, padding: '4px 8px' }}
                 autoFocus
               />
+              <button onClick={() => setShowDatePicker(false)}
+                style={{ marginLeft: 6, padding: '4px 10px', fontSize: 12, background: COLORS.primary, color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
+                Listo
+              </button>
             </div>
             </>
           )}
@@ -159,10 +165,29 @@ export function TaskInput({ onAdd, activeView }: Props) {
               </div>
               <div style={{ borderTop: `1px solid ${COLORS.border}`, margin: '4px 0' }} />
               <div style={{ padding: '4px 8px' }}>
-                <input type="datetime-local"
-                  onChange={e => { if (e.target.value) { setReminder(new Date(e.target.value).toISOString()); setShowReminderPicker(false); } }}
+                <div style={{ fontSize: 11, color: COLORS.muted, marginBottom: 4 }}>Fecha y hora personalizada</div>
+                <input type="datetime-local" value={customReminder}
+                  onChange={e => setCustomReminder(e.target.value)}
                   style={{ width: '100%', fontSize: 12, border: `1px solid ${COLORS.border}`, borderRadius: 4, padding: '4px 6px' }}
                 />
+                <button
+                  disabled={!customReminder || isNaN(new Date(customReminder).getTime())}
+                  onClick={() => {
+                    if (customReminder && !isNaN(new Date(customReminder).getTime())) {
+                      setReminder(new Date(customReminder).toISOString());
+                      setCustomReminder('');
+                      setShowReminderPicker(false);
+                    }
+                  }}
+                  style={{
+                    marginTop: 4, width: '100%', padding: '5px', fontSize: 12,
+                    background: customReminder ? COLORS.primary : '#f3f2f1',
+                    color: customReminder ? 'white' : COLORS.muted,
+                    border: 'none', borderRadius: 4,
+                    cursor: customReminder ? 'pointer' : 'default',
+                  }}>
+                  Establecer
+                </button>
               </div>
             </div>
             </>
