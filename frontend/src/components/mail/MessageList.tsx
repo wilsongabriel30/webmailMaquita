@@ -14,6 +14,49 @@ import { usePriority } from '../../hooks/usePriority';
 import { sanitizeHtml } from '../../lib/sanitize';
 import { getFolderDisplayName } from '../../folders';
 
+// Agrupa acciones rápidas consecutivas (eliminar/archivar fila por fila) en UNA
+// petición bulk: N clics seguidos generaban N POSTs y disparaban el rate limit (429).
+const QUICK_BATCH_MS = 500;
+const quickBatches = new Map<string, { uids: number[]; timer: ReturnType<typeof setTimeout> }>();
+
+function flushQuickAction(key: string, folder: string, action: string, dest: string) {
+  const batch = quickBatches.get(key);
+  if (!batch) return;
+  quickBatches.delete(key);
+  const uids = batch.uids;
+  api.post(`/mail/bulk-action/${encodeURIComponent(folder)}`, { uids, action, dest_folder: dest })
+    .then(() => {
+      const n = uids.length;
+      showToast(
+        action === 'move' ? (n > 1 ? `${n} movidos a ${dest}` : `Movido a ${dest}`)
+          : action === 'delete' ? (n > 1 ? `${n} eliminados` : 'Eliminado')
+          : action === 'archive' ? (n > 1 ? `${n} archivados` : 'Archivado')
+          : 'Hecho'
+      );
+      const sel = useMailStore.getState().selectedMessage;
+      if (sel && uids.includes(sel.uid)) {
+        useMailStore.getState().setSelectedMessage(null);
+      }
+      window.dispatchEvent(new CustomEvent('refresh-messages'));
+    })
+    .catch(() => {});
+}
+
+function enqueueQuickAction(folder: string, uid: number, action: string, dest = '') {
+  const key = `${folder}|${action}|${dest}`;
+  const existing = quickBatches.get(key);
+  if (existing) {
+    if (!existing.uids.includes(uid)) existing.uids.push(uid);
+    clearTimeout(existing.timer);
+    existing.timer = setTimeout(() => flushQuickAction(key, folder, action, dest), QUICK_BATCH_MS);
+  } else {
+    quickBatches.set(key, {
+      uids: [uid],
+      timer: setTimeout(() => flushQuickAction(key, folder, action, dest), QUICK_BATCH_MS),
+    });
+  }
+}
+
 function fmtDate(s: string | null): string {
   if (!s) return '';
   try {
@@ -524,21 +567,8 @@ export function MessageList() {
     lastClickIdx.current = idx;
   };
 
-  const quickAction = async (uid: number, action: string, dest?: string) => {
-    try {
-      await api.post(`/mail/bulk-action/${encodeURIComponent(currentFolder)}`, {
-        uids: [uid], action, dest_folder: dest || '',
-      });
-      showToast(
-        action === 'move' ? `Movido a ${dest}` : action === 'delete' ? 'Eliminado' : action === 'archive' ? 'Archivado' : 'Hecho',
-        { label: 'Deshacer', onClick: () => {} }
-      );
-      const sel = useMailStore.getState().selectedMessage;
-      if (sel && sel.uid === uid) {
-        useMailStore.getState().setSelectedMessage(null);
-      }
-      window.dispatchEvent(new CustomEvent('refresh-messages'));
-    } catch {}
+  const quickAction = (uid: number, action: string, dest?: string) => {
+    enqueueQuickAction(currentFolder, uid, action, dest || '');
   };
 
   // Note: unread/flagged filtering is done server-side via IMAP SEARCH

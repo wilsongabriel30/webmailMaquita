@@ -39,13 +39,17 @@ async function tryRefresh(): Promise<boolean> {
   return refreshPromise;
 }
 
+// Máxima espera (s) que aceptamos para reintentar automáticamente tras un 429
+const MAX_RETRY_AFTER_S = 15;
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 async function request<T>(path: string, options: RequestInit & { skipAuth?: boolean } = {}): Promise<T> {
   const { skipAuth, ...fetchOptions } = options;
 
   // Never intercept 401 on auth endpoints (login, refresh, logout)
   const isAuthEndpoint = path.startsWith("/auth/");
 
-  const res = await fetch(`${BASE}${path}`, {
+  let res = await fetch(`${BASE}${path}`, {
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
@@ -53,6 +57,18 @@ async function request<T>(path: string, options: RequestInit & { skipAuth?: bool
     },
     ...fetchOptions,
   });
+
+  // 429: respetar Retry-After y reintentar (hasta 2 veces) si la espera es corta
+  for (let attempt = 0; res.status === 429 && attempt < 2 && !isAuthEndpoint; attempt++) {
+    const retryAfter = parseInt(res.headers.get("Retry-After") || "", 10);
+    if (!Number.isFinite(retryAfter) || retryAfter < 0 || retryAfter > MAX_RETRY_AFTER_S) break;
+    await sleep((retryAfter || 1) * 1000);
+    res = await fetch(`${BASE}${path}`, {
+      credentials: "include",
+      headers: { "Content-Type": "application/json", ...fetchOptions.headers },
+      ...fetchOptions,
+    });
+  }
 
   if (res.status === 401 && !skipAuth && !isAuthEndpoint) {
     const refreshed = await tryRefresh();
