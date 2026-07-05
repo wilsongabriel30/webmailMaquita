@@ -3,7 +3,7 @@
 API de archivos del Almacén Maquita.
 ====================================
 Implementa el contrato /api/nextcloud/* (ver docs/CONTRATO-API.md) para que
-el explorador web de FARO funcione sin cambiar UNA línea del frontend.
+el explorador web del sistema central funcione sin cambiar UNA línea del frontend.
 
 Códigos según el contrato REAL congelado en Fase 0:
   - crear (carpeta, archivo) → HTTP 201 · lo demás → 200 · error → JSON con success=false.
@@ -27,7 +27,7 @@ bp_archivos = Blueprint('almacen_archivos', __name__)
 # ── autenticación ────────────────────────────────────────────────────────
 def usuario_actual() -> int:
     """ID del usuario autenticado.
-    - Montado dentro de FARO: usa la sesión de FARO (`usuario_id`) o flask_login.
+    - Montado dentro del sistema central: usa la sesión del sistema central (`usuario_id`) o flask_login.
     - Servicio independiente (futuro, tras nginx): cabecera interna de confianza.
     Sin identidad → aborta con 401."""
     from flask import abort

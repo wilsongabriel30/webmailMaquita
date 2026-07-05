@@ -1,8 +1,8 @@
 # CONTRATO DE LA API DEL ALMACÉN — congelado 2026-07-03
 
-Inventario REAL de la API que consume el explorador de la Nube (frontend FARO).
-Fuente: `modulos/nextcloud/interfaces/api/nextcloud_api.py` del sistema en producción.
-Prefijo: `/api/nextcloud`. Autenticación: sesión FARO (login_required).
+Inventario REAL de la API que consume el explorador de archivos original.
+Fuente: `modulos/nextcloud/interfaces/api/nextcloud_api.py` del sistema de origen.
+Prefijo: `/api/nextcloud`. Autenticación: sesión del sistema de origen (login_required).
 
 El Almacén Maquita debe implementar estos endpoints con LAS MISMAS entradas y salidas.
 La suite `pruebas_contrato/` verifica los marcados con ✅ (núcleo v1).
@@ -28,7 +28,7 @@ La suite `pruebas_contrato/` verifica los marcados con ✅ (núcleo v1).
 | 17 | GET | `/shares` | obtener_shares_archivo | Obtiene todos los shares de un archivo/carpeta específico. Usado por el modal de compartir para mostrar usuari |
 | 18 | PUT | `/compartidos/<share_id>` | actualizar_compartido | Body: {"permisos": 1} Actualiza los permisos de un share existente. |
 | 19 | GET | `/usuarios/buscar` ✅ | buscar_usuarios | Busca usuarios y grupos de Nextcloud para el autocompletado de compartir. |
-| 20 | GET | `/usuarios/buscar-faro` | buscar_usuarios_faro | Busca usuarios institucionales de FARO/Nómina y permite correos externos. |
+| 20 | GET | `/usuarios/buscar-directorio` (alias histórico) | buscar_usuarios_directorio | Busca usuarios institucionales del sistema central/Nómina y permite correos externos. |
 | 21 | GET | `/archivos/editar` | obtener_url_edicion | Obtiene URL para editar con OnlyOffice |
 | 22 | GET | `/cuota` ✅ | obtener_cuota | Obtiene información de cuota del usuario |
 | 23 | GET | `/status` | verificar_estado | Verifica estado de conexión con Nextcloud |

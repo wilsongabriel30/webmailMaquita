@@ -239,10 +239,10 @@ function extraerToken(share) {
     return match ? match[1] : null;
 }
 
-// Construir URL de FARO desde token
-function construirUrlFaro(token) {
+// Construir URL del sistema central desde token
+function construirUrlEnlace(token) {
     if (!token) return null;
-    // Siempre usar datos.maquita.com.ec para evitar errores de notify_push
+    // Siempre construir sobre el dominio actual (window.location.origin)
     return `${window.location.origin}/archivos/s/${token}`;
 }
 
@@ -272,13 +272,13 @@ function activarVistaEnlacePublico(linkShare) {
     document.getElementById('shareLinkConfig').style.display = 'block';
     document.getElementById('shareCopyLinkBtn').style.display = 'flex';
 
-    // Construir URL de FARO (NUNCA usar URL de Nextcloud directamente)
+    // Construir URL del sistema central (NUNCA usar URL de Nextcloud directamente)
     const token = extraerToken(linkShare);
-    const urlFaro = construirUrlFaro(token);
+    const urlEnlace = construirUrlEnlace(token);
 
     // Mostrar URL
     document.getElementById('shareLinkUrlContainer').style.display = 'block';
-    document.getElementById('shareLinkUrl').value = urlFaro || 'Error: No se pudo generar enlace';
+    document.getElementById('shareLinkUrl').value = urlEnlace || 'Error: No se pudo generar enlace';
 
     // Establecer permisos actuales (normalizar para dropdown)
     const permisos = linkShare.permisos || linkShare.permissions || 1;
@@ -375,15 +375,15 @@ async function crearEnlacePublico() {
         if (data.success && data.compartido) {
             shareEnlaceActual = data.compartido;
 
-            // Construir URL de FARO (NUNCA usar URL de Nextcloud)
+            // Construir URL del sistema central (NUNCA usar URL de Nextcloud)
             const token = extraerToken(data.compartido);
-            const urlFaro = construirUrlFaro(token);
+            const urlEnlace = construirUrlEnlace(token);
 
             // Mostrar configuración
             document.getElementById('shareLinkConfig').style.display = 'block';
             document.getElementById('shareCopyLinkBtn').style.display = 'flex';
             document.getElementById('shareLinkUrlContainer').style.display = 'block';
-            document.getElementById('shareLinkUrl').value = urlFaro || 'Error generando enlace';
+            document.getElementById('shareLinkUrl').value = urlEnlace || 'Error generando enlace';
 
             // Actualizar regla de prioridad si hay usuarios
             if (shareUsuariosActuales && shareUsuariosActuales.length > 0) {
@@ -417,7 +417,7 @@ function togglePasswordVisibility() {
     }
 }
 
-// Buscar usuarios para compartir (integrado con FARO/Nómina)
+// Buscar usuarios para compartir (integrado con el sistema central/Nómina)
 async function buscarUsuarios(query) {
     const resultsContainer = document.getElementById('shareSearchResults');
 
@@ -430,8 +430,8 @@ async function buscarUsuarios(query) {
     if (searchTimeout) clearTimeout(searchTimeout);
     searchTimeout = setTimeout(async () => {
         try {
-            // Usar endpoint integrado con FARO/Nómina
-            const response = await fetch(`${API_BASE}/usuarios/buscar-faro?q=${encodeURIComponent(query)}`);
+            // Usar endpoint integrado con el sistema central/Nómina
+            const response = await fetch(`${API_BASE}/usuarios/buscar?q=${encodeURIComponent(query)}`);
             const data = await response.json();
 
             if (data.success && data.usuarios && data.usuarios.length > 0) {
@@ -457,10 +457,10 @@ async function buscarUsuarios(query) {
 
                         // Usar username_nc para usuarios internos (Nextcloud), email para externos.
                         // Si el usuario interno aún no tiene cuenta Nube (requiere_sync),
-                        // se envía destinatario vacío y se crea en NC al compartir vía faro_id.
+                        // se envía destinatario vacío y se crea en NC al compartir vía id_directorio.
                         const userIdCompartir = user.username_nc || (user.requiere_sync ? '' : user.email);
                         const shareType = user.share_type || 0;  // 0=usuario, 4=email
-                        const faroId = (user.faro_id !== undefined && user.faro_id !== null) ? user.faro_id : 'null';
+                        const idDirectorio = (user.usuario_id !== undefined && user.usuario_id !== null) ? user.usuario_id : 'null';
 
                         // Usuarios internos SIN cuenta Nube y que no se pueden crear
                         // automáticamente (operarios sin correo institucional): se muestran
@@ -469,7 +469,7 @@ async function buscarUsuarios(query) {
                         if (noCreable) icono = 'person_off';
                         const onClickAttr = noCreable
                             ? `onclick="usuarioSinCuentaNube('${escapeHtml(user.nombre)}')"`
-                            : `onclick="agregarUsuario('${escapeHtml(userIdCompartir)}', '${escapeHtml(user.nombre)}', '${escapeHtml(user.email)}', '${user.tipo}', ${shareType}, ${faroId})"`;
+                            : `onclick="agregarUsuario('${escapeHtml(userIdCompartir)}', '${escapeHtml(user.nombre)}', '${escapeHtml(user.email)}', '${user.tipo}', ${shareType}, ${idDirectorio})"`;
 
                         html += `
                             <div class="share-search-item${noCreable ? ' share-search-item-disabled' : ''}" ${onClickAttr}>
@@ -548,7 +548,7 @@ function usuarioSinCuentaNube(nombre) {
     }
 }
 
-async function agregarUsuario(userId, nombre, email, tipoUsuario = 'interno', shareType = 0, faroId = null) {
+async function agregarUsuario(userId, nombre, email, tipoUsuario = 'interno', shareType = 0, idDirectorio = null) {
     if (!shareArchivoActual) return;
 
     const ruta = shareArchivoActual.ruta_completa || shareArchivoActual.ruta;
@@ -569,7 +569,7 @@ async function agregarUsuario(userId, nombre, email, tipoUsuario = 'interno', sh
                 tipo: shareType,  // 0=usuario NC, 4=email
                 destinatario: destinatario,
                 permisos: permisos,
-                faro_id_destino: faroId  // Si el destinatario no tiene cuenta Nube, se crea con este ID FARO
+                id_directorio_destino: idDirectorio  // Si el destinatario no tiene cuenta Nube, se crea con este ID el sistema central
             })
         });
         const data = await response.json();
@@ -759,10 +759,10 @@ async function copiarEnlaceCompartir() {
     let url = urlInput ? urlInput.value : '';
 
     // Si no hay URL en el campo o es de Nextcloud, reconstruir desde token
-    if (!url || url.includes('nube.maquita.com.ec')) {
+    if (!url || url.includes('/index.php/s/')) {
         if (shareEnlaceActual) {
             const token = extraerToken(shareEnlaceActual);
-            url = construirUrlFaro(token);
+            url = construirUrlEnlace(token);
         }
     }
 
