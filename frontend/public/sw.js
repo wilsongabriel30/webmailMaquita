@@ -1,4 +1,4 @@
-const CACHE_NAME = "maquita-mail-v36";
+const CACHE_NAME = "maquita-mail-v37";
 const API_CACHE = CACHE_NAME + "-api";
 const BASE = "/webmail/";
 

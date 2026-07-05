@@ -65,4 +65,6 @@ export interface ComposeData {
   in_reply_to?: string;
   references?: string;
   draft_uid?: number | null;
+  // Archivos del Almacén a adjuntar al abrir el redactor (accion "Enviar por correo")
+  adjuntos_almacen?: { nombre: string; ruta: string }[];
 }
