@@ -53,6 +53,31 @@ export function ComposePanel({ win }: Props) {
   const [error, setError] = useState('');
   const [importance, setImportance] = useState<'normal' | 'high' | 'low'>('normal');
   const [attachments, setAttachments] = useState<AttachmentFile[]>([]);
+
+  // Adjuntos provenientes de la sección Archivos (Almacén): se descargan con
+  // la misma sesión y entran como adjuntos normales del mensaje.
+  useEffect(() => {
+    const pendientes = win.data?.adjuntos_almacen;
+    if (!pendientes?.length) return;
+    (async () => {
+      for (const pendiente of pendientes) {
+        try {
+          const res = await fetch(`/api/almacen/archivos/descargar?ruta=${encodeURIComponent(pendiente.ruta)}`, { credentials: 'include' });
+          if (!res.ok) throw new Error();
+          const blob = await res.blob();
+          if (blob.size > 25 * 1024 * 1024) {
+            showToast(`"${pendiente.nombre}" supera 25 MB — compártelo comprimido`);
+            continue;
+          }
+          const file = new File([blob], pendiente.nombre, { type: blob.type || 'application/octet-stream' });
+          setAttachments(prev => [...prev, { name: file.name, size: file.size, type: file.type, file }]);
+        } catch {
+          showToast(`No se pudo adjuntar "${pendiente.nombre}"`);
+        }
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [isDragging, setIsDragging] = useState(false);
   const dragCounter = useRef(0);
   const [trackingState, setTrackingState] = useState({ delivery: false, read: false, noReactions: false });
