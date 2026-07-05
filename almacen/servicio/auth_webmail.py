@@ -93,29 +93,33 @@ def _sesion_viva(username: str) -> bool:
 
 
 def sesion_actual() -> tuple:
-    """(usuario_id, rol, correo_canonico) de la cookie, o (None, None, None).
-    Para las páginas web que necesitan mostrar quién es (el explorador)."""
+    """(usuario_id, rol, correo, motivo) de la cookie.
+    motivo: None (ok) | 'sin_sesion' (no logueado) | 'sin_enlace' (buzón válido
+    pero sin identidad en el directorio — mostrar mensaje de ayuda) |
+    'piloto' (fase de pruebas restringida)."""
     if not _SECRETO:
-        return None, None, None
+        return None, None, None, 'sin_sesion'
     token = request.cookies.get('access_token')
     if not token:
-        return None, None, None
+        return None, None, None, 'sin_sesion'
     try:
         payload = jwt.decode(token, _SECRETO, algorithms=['HS256'])
     except jwt.PyJWTError:
-        return None, None, None
+        return None, None, None, 'sin_sesion'
     if payload.get('type') != 'access':
-        return None, None, None
+        return None, None, None, 'sin_sesion'
     username = (payload.get('sub') or '').strip().lower()
     if not username or not _sesion_viva(username):
-        return None, None, None
+        return None, None, None, 'sin_sesion'
     from alias_correo import resolver_alias
     username = resolver_alias(username)
     if _PILOTO and username not in _PILOTO and username not in _ADMINS:
-        return None, None, None
+        return None, None, username, 'piloto'
     uid, rol = (_buscar_en_nomina(username) if _MODO == 'nomina'
                 else _obtener_o_crear_local(username))
-    return uid, rol, username
+    if not uid:
+        return None, None, username, 'sin_enlace'
+    return uid, rol, username, None
 
 
 def usuario_webmail() -> tuple:
