@@ -446,6 +446,118 @@ def onlyoffice_estado():
                     'conectado': conectado, 'url_publica': url_publica_ds()})
 
 
+def _share_por_token(token: str):
+    """Share vigente por token (o None). Valida expiración; la clave la valida
+    quien llama (viaja en el query `clave=`)."""
+    filas = consultar("""
+        SELECT id, propietario_id, ruta, token, puede_editar, permite_descarga,
+               clave_hash, expira_en, email
+        FROM compartidos WHERE token = %s
+    """, (token,))
+    if not filas:
+        return None
+    comp = dict(filas[0])
+    if comp['expira_en'] is not None:
+        from datetime import datetime, timezone
+        if comp['expira_en'] < datetime.now(timezone.utc):
+            return None
+    return comp
+
+
+def _clave_ok(comp) -> bool:
+    if not comp.get('clave_hash'):
+        return True
+    clave = request.args.get('clave', '')
+    return hashlib.sha256(clave.encode()).hexdigest() == comp['clave_hash']
+
+
+@bp_onlyoffice.route('/onlyoffice/config-public', methods=['GET'])
+def onlyoffice_config_public():
+    """GET /onlyoffice/config-public?token=<share>&clave= — configuración del
+    editor para un ENLACE COMPARTIDO, sin sesión. La credencial es el token del
+    share (+ su clave si tiene). Usa la MISMA key de sala que los usuarios
+    internos → un invitado coedita en la misma sala. El DS descarga y guarda
+    con los tokens firmados de siempre (u = propietario del archivo)."""
+    if not (secreto_ds() and url_publica_ds()):
+        return error('La edición online aún no está configurada', 503)
+    comp = _share_por_token(request.args.get('token', ''))
+    if not comp:
+        return error('Enlace inválido o expirado', 404)
+    if not _clave_ok(comp):
+        return error('Clave incorrecta', 401)
+
+    propietario, ruta = comp['propietario_id'], comp['ruta']
+    nombre = ruta.rsplit('/', 1)[-1]
+    extension = nombre.rsplit('.', 1)[-1].lower() if '.' in nombre else ''
+    tipo_documento = TIPOS_DOCUMENTO.get(extension)
+    if not tipo_documento:
+        return error(f'Este tipo de archivo no se abre en línea: {extension}', 400)
+    try:
+        fisica = ruta_fisica(propietario, ruta)
+    except RutaInvalida as excepcion:
+        return error(str(excepcion), 400)
+    if not os.path.isfile(fisica):
+        return error('El archivo ya no existe', 404)
+
+    puede_editar = bool(comp['puede_editar']) and extension in EXTENSIONES_EDITABLES
+
+    # MISMA sala que los internos: misma base de documento y versión de sesión
+    doc_base = _base_documento(propietario, ruta)
+    version = _version_sesion(doc_base)
+    doc_key = hashlib.sha1(f'{doc_base}:v{version}'.encode()).hexdigest()[:20]
+
+    exp = int(time.time()) + DIAS_TOKEN * 86400
+    token_descarga = firmar_jwt({'u': propietario, 'r': ruta, 'uso': 'descarga', 'exp': exp})
+    token_callback = firmar_jwt({'u': propietario, 'r': ruta, 'uso': 'callback',
+                                 'b': doc_base, 'exp': exp})
+
+    invitado = comp.get('email') or 'Invitado'
+    config = {
+        'document': {
+            'fileType': extension,
+            'key': doc_key,
+            'title': nombre,
+            'url': f'{URL_PUBLICA}/api/almacen/onlyoffice/download?t={token_descarga}',
+            'permissions': {
+                'comment': puede_editar,
+                'download': bool(comp['permite_descarga']),
+                'edit': puede_editar,
+                'print': bool(comp['permite_descarga']),
+                'review': puede_editar,
+            },
+        },
+        'documentType': tipo_documento,
+        'editorConfig': {
+            'callbackUrl': f'{URL_PUBLICA}/api/almacen/onlyoffice/callback?t={token_callback}',
+            'coEditing': {'mode': 'fast', 'change': False},
+            'lang': 'es',
+            'mode': 'edit' if puede_editar else 'view',
+            'user': {'id': f'invitado-{comp["id"]}', 'name': f'{invitado} (invitado)'},
+            'customization': {
+                'autosave': True,
+                'chat': puede_editar,
+                'comments': puede_editar,
+                'compactHeader': True,
+                'feedback': False,
+                'forcesave': True,
+                'help': False,
+                'zoom': 100,
+            },
+        },
+        'height': '100%',
+        'width': '100%',
+        'type': 'desktop',
+    }
+    config['token'] = firmar_jwt(config)
+    return jsonify({
+        'success': True,
+        'config': config,
+        'api_js_url': f'{url_publica_ds()}/web-apps/apps/api/documents/api.js',
+        'puede_editar': puede_editar,
+        'nombre': nombre,
+    })
+
+
 # ── página del editor (web) ──────────────────────────────────────────────
 @bp_onlyoffice_web.route('/archivos-almacen/editar')
 def editor_almacen():

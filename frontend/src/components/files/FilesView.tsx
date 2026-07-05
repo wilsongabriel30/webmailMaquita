@@ -34,6 +34,11 @@ interface Unidad {
 }
 
 interface Miembro { usuario_id: number; rol: string; nombre: string; username: string; }
+interface Conmigo {
+  id: number; nombre: string; extension?: string; tamano_bytes?: number;
+  token: string; de: string; puede_editar: boolean; abre_en_linea: boolean;
+  permite_descarga: boolean; requiere_clave: boolean; expira_en?: string; creado_en: string;
+}
 interface UsuarioDir { id: number | string; usuario_id?: number; nombre: string; email?: string; }
 
 const ROL_ETIQUETA: Record<string, string> = { manager: 'Administrador', editor: 'Editor', viewer: 'Lector' };
@@ -79,7 +84,7 @@ export function FilesView() {
   const [params, setParams] = useSearchParams();
   const ruta = params.get('ruta') || '/';
   const vistaParam = params.get('vista');
-  const vista = (['papelera', 'favoritos', 'unidades'].includes(vistaParam || '') ? vistaParam : 'archivos') as 'archivos' | 'papelera' | 'favoritos' | 'unidades';
+  const vista = (['papelera', 'favoritos', 'unidades', 'conmigo'].includes(vistaParam || '') ? vistaParam : 'archivos') as 'archivos' | 'papelera' | 'favoritos' | 'unidades' | 'conmigo';
 
   const [modo, setModo] = useState<'cuadricula' | 'lista'>(
     () => (localStorage.getItem('almacen_modo_vista') as 'cuadricula' | 'lista') || 'cuadricula');
@@ -96,12 +101,13 @@ export function FilesView() {
   const [persona, setPersona] = useState({ correo: '', rol: 'lector' });
   const [sugerencias, setSugerencias] = useState<UsuarioDir[]>([]);
   const [unidades, setUnidades] = useState<Unidad[]>([]);
+  const [conmigo, setConmigo] = useState<Conmigo[]>([]);
   const [miembrosModal, setMiembrosModal] = useState<{ unidad: Unidad; miembros: Miembro[]; buscar: string; encontrados: UsuarioDir[]; rol: string } | null>(null);
   const [opcionesEnlace, setOpcionesEnlace] = useState({ expira_dias: 0, clave: '', permite_descarga: true });
   const inputSubir = useRef<HTMLInputElement>(null);
   const timerBusqueda = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  const irA = (nuevaRuta: string, nuevaVista: 'archivos' | 'papelera' | 'favoritos' | 'unidades' = 'archivos') => {
+  const irA = (nuevaRuta: string, nuevaVista: 'archivos' | 'papelera' | 'favoritos' | 'unidades' | 'conmigo' = 'archivos') => {
     const p: Record<string, string> = {};
     if (nuevaRuta !== '/') p.ruta = nuevaRuta;
     if (nuevaVista !== 'archivos') p.vista = nuevaVista;
@@ -114,8 +120,17 @@ export function FilesView() {
     localStorage.setItem('almacen_modo_vista', m);
   };
 
-  const cargar = useCallback(async (r: string, v: 'archivos' | 'papelera' | 'favoritos' | 'unidades') => {
+  const cargar = useCallback(async (r: string, v: 'archivos' | 'papelera' | 'favoritos' | 'unidades' | 'conmigo') => {
     if (v === 'unidades') { setItems([]); setCargando(false); return; }
+    if (v === 'conmigo') {
+      setItems([]); setCargando(true);
+      try {
+        const res = await api.get<{ compartidos: Conmigo[] }>('/almacen/compartidos-conmigo');
+        setConmigo(res.compartidos || []);
+      } catch { setConmigo([]); }
+      setCargando(false);
+      return;
+    }
     setCargando(true);
     try {
       if (v === 'papelera') {
@@ -464,6 +479,11 @@ export function FilesView() {
           className={`px-3 py-1.5 rounded text-sm font-semibold ${vista === 'unidades' ? 'bg-[#deecf9] text-[#106ebe] dark:bg-[#004578] dark:text-white' : 'text-[#323130] dark:text-[#e0e0e0] hover:bg-[#f3f2f1] dark:hover:bg-[#323130]'}`}>
           👥 Unidades
         </button>
+        <button onClick={() => irA('/', 'conmigo')}
+          title="Archivos que otras personas te compartieron a tu correo"
+          className={`px-3 py-1.5 rounded text-sm font-semibold ${vista === 'conmigo' ? 'bg-[#deecf9] text-[#106ebe] dark:bg-[#004578] dark:text-white' : 'text-[#323130] dark:text-[#e0e0e0] hover:bg-[#f3f2f1] dark:hover:bg-[#323130]'}`}>
+          🤝 Conmigo
+        </button>
         <button onClick={() => irA('/', 'favoritos')}
           title="Tus archivos y carpetas marcados con estrella"
           className={`px-3 py-1.5 rounded text-sm font-semibold ${vista === 'favoritos' ? 'bg-[#deecf9] text-[#106ebe] dark:bg-[#004578] dark:text-white' : 'text-[#323130] dark:text-[#e0e0e0] hover:bg-[#f3f2f1] dark:hover:bg-[#323130]'}`}>
@@ -553,7 +573,57 @@ export function FilesView() {
 
       {/* Contenido */}
       <div className="flex-1 overflow-y-auto">
-        {vista === 'unidades' ? (
+        {vista === 'conmigo' ? (
+          cargando ? (
+            <div className="p-8 text-center text-[#605e5c] dark:text-[#a19f9d]">Cargando…</div>
+          ) : conmigo.length === 0 ? (
+            <div className="p-12 text-center text-[#605e5c] dark:text-[#a19f9d]">
+              Nadie te ha compartido archivos todavía.<br/>
+              Cuando alguien use "Compartir con una persona" hacia tu correo, aparecerá aquí.
+            </div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs text-[#605e5c] dark:text-[#a19f9d] border-b border-[#edebe9] dark:border-[#3b3a39]">
+                  <th className="px-4 py-2 font-semibold">Nombre</th>
+                  <th className="px-2 py-2 font-semibold w-44 hidden sm:table-cell">Compartido por</th>
+                  <th className="px-2 py-2 font-semibold w-32 hidden md:table-cell">Fecha</th>
+                  <th className="px-2 py-2 w-48"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {conmigo.map(c => (
+                  <tr key={c.id} className="border-b border-[#f3f2f1] dark:border-[#292827] hover:bg-[#f3f2f1] dark:hover:bg-[#292827]">
+                    <td className="px-4 py-2 cursor-pointer"
+                      onDoubleClick={() => window.open(c.abre_en_linea ? `/almacen-s/${c.token}/editar` : `/almacen-s/${c.token}`, '_blank')}
+                      title={c.puede_editar ? 'Doble clic: editar en línea (misma sala que el dueño)' : c.abre_en_linea ? 'Doble clic: ver en línea' : 'Doble clic: descargar'}>
+                      <span className="mr-2">{ICONOS[(c.extension || '').toLowerCase()] || '📎'}</span>
+                      <span className="text-[#323130] dark:text-[#e0e0e0]">{c.nombre}</span>
+                      {c.requiere_clave && <span className="ml-2 text-xs" title="El enlace tiene clave">🔒</span>}
+                      {c.puede_editar && <span className="ml-2 text-[10px] font-semibold text-[#107c10]" title="Puedes editarlo">EDITOR</span>}
+                    </td>
+                    <td className="px-2 py-2 text-[#605e5c] dark:text-[#a19f9d] hidden sm:table-cell truncate max-w-[180px]">{c.de}</td>
+                    <td className="px-2 py-2 text-[#605e5c] dark:text-[#a19f9d] hidden md:table-cell">{fechaCorta(c.creado_en)}</td>
+                    <td className="px-2 py-2 text-right whitespace-nowrap">
+                      {c.abre_en_linea && (
+                        <button onClick={() => window.open(`/almacen-s/${c.token}/editar`, '_blank')}
+                          title={c.puede_editar ? 'Editar en línea' : 'Ver en línea'}
+                          className="px-2 py-1 text-xs rounded text-[#106ebe] hover:bg-[#deecf9] dark:hover:bg-[#004578] font-semibold">
+                          {c.puede_editar ? '✏️ Editar' : '👁 Ver'}
+                        </button>
+                      )}
+                      {c.permite_descarga && (
+                        <button onClick={() => window.open(`/almacen-s/${c.token}`, '_blank')}
+                          title="Descargar el archivo"
+                          className="px-2 py-1 text-xs rounded text-[#323130] dark:text-[#e0e0e0] hover:bg-[#edebe9] dark:hover:bg-[#3b3a39]">Descargar</button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )
+        ) : vista === 'unidades' ? (
           unidades.length === 0 ? (
             <div className="p-12 text-center text-[#605e5c] dark:text-[#a19f9d]">
               No perteneces a ninguna unidad de equipo todavía.<br/>

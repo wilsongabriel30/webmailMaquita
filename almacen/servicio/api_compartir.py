@@ -8,6 +8,7 @@ listado de compartidos y búsqueda de usuarios para el autocompletado.
 Autoría: Equipo de Tecnología Maquita — 2026-07-03
 """
 import logging
+import os
 import secrets
 
 from flask import Blueprint, jsonify, request
@@ -15,7 +16,7 @@ from flask import Blueprint, jsonify, request
 from almacen_bd import consultar, ejecutar
 from api_archivos import error, usuario_actual
 from config_almacen import URL_PUBLICA
-from seguridad_rutas import RutaInvalida, normalizar_ruta_virtual
+from seguridad_rutas import RutaInvalida, normalizar_ruta_virtual, ruta_fisica
 
 log = logging.getLogger('almacen.compartir')
 
@@ -120,6 +121,61 @@ def listar_compartidos():
         compartidos.append(fila)
     return jsonify({'success': True, 'compartidos': compartidos,
                     'total': len(compartidos)})
+
+
+@bp_compartir.route('/compartidos-conmigo', methods=['GET'])
+def compartidos_conmigo():
+    """GET /compartidos-conmigo — lo que otras personas me compartieron a MI
+    correo (vigente). El acceso a cada elemento es su token de enlace: la UI
+    usa /publico/<token> (descargar) y el editor público (abrir en línea)."""
+    usuario = usuario_actual()
+    fila = consultar('SELECT email FROM usuarios WHERE id = %s', (usuario,), nomina=True)
+    correo = (fila[0]['email'] or '').strip().lower() if fila else ''
+    if not correo:
+        return jsonify({'success': True, 'compartidos': [], 'total': 0})
+    filas = consultar("""
+        SELECT id, propietario_id, ruta, token, puede_editar, permite_descarga,
+               clave_hash, expira_en, creado_en
+        FROM compartidos
+        WHERE LOWER(email) = %s AND propietario_id <> %s
+          AND (expira_en IS NULL OR expira_en > NOW())
+        ORDER BY creado_en DESC
+    """, (correo, usuario))
+    if not filas:
+        return jsonify({'success': True, 'compartidos': [], 'total': 0})
+    duenos = tuple({int(f['propietario_id']) for f in filas})
+    nombres = consultar("""
+        SELECT u.id, COALESCE(t.nombres || ' ' || t.apellidos, u.full_name, u.username) AS nombre
+        FROM usuarios u LEFT JOIN trabajadores t ON u.trabajador_id = t.id
+        WHERE u.id IN %s
+    """, (duenos,), nomina=True)
+    nombre_de = {n['id']: n['nombre'] for n in nombres}
+    from api_onlyoffice import EXTENSIONES_EDITABLES, TIPOS_DOCUMENTO
+    resultado = []
+    for f in filas:
+        nombre = f['ruta'].rsplit('/', 1)[-1]
+        extension = nombre.rsplit('.', 1)[-1].lower() if '.' in nombre else ''
+        tamano = None
+        try:
+            fisica = ruta_fisica(f['propietario_id'], f['ruta'])
+            if os.path.isfile(fisica):
+                tamano = os.path.getsize(fisica)
+        except RutaInvalida:
+            pass
+        if tamano is None:
+            continue   # el dueño lo movió o borró: no se muestra
+        resultado.append({
+            'id': f['id'], 'nombre': nombre, 'extension': extension,
+            'tamano_bytes': tamano, 'token': f['token'],
+            'de': nombre_de.get(f['propietario_id']) or f"Usuario {f['propietario_id']}",
+            'puede_editar': bool(f['puede_editar']) and extension in EXTENSIONES_EDITABLES,
+            'abre_en_linea': extension in TIPOS_DOCUMENTO,
+            'permite_descarga': bool(f['permite_descarga']),
+            'requiere_clave': bool(f['clave_hash']),
+            'expira_en': f['expira_en'].isoformat() if f['expira_en'] else None,
+            'creado_en': f['creado_en'].isoformat(),
+        })
+    return jsonify({'success': True, 'compartidos': resultado, 'total': len(resultado)})
 
 
 @bp_compartir.route('/compartidos/<int:compartido_id>', methods=['DELETE'])

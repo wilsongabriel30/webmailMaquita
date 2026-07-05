@@ -38,6 +38,8 @@ _EXENTAS = (
     '/api/almacen/onlyoffice/download',
     '/api/almacen/onlyoffice/callback',
     '/api/almacen/publico/',    # descarga por enlace compartido (token propio)
+    '/api/almacen/publico-info/',           # datos del enlace (misma seguridad)
+    '/api/almacen/onlyoffice/config-public',  # editor por enlace (token + clave)
     '/almacen-s/',              # página del enlace compartido
     '/healthz',
 )
@@ -107,33 +109,63 @@ def crear_app_webmail() -> Flask:
  body{font-family:'Segoe UI',system-ui,sans-serif;background:#f3f2f1;display:flex;
       align-items:center;justify-content:center;min-height:100vh;margin:0}
  .tarjeta{background:#fff;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,.12);
-      padding:32px;max-width:380px;width:90%;text-align:center}
- h1{font-size:18px;color:#323130;margin:0 0 6px}
- p{font-size:13px;color:#605e5c;margin:0 0 18px}
+      padding:32px;max-width:400px;width:90%;text-align:center}
+ h1{font-size:17px;color:#323130;margin:0 0 4px;word-break:break-word}
+ p{font-size:13px;color:#605e5c;margin:0 0 16px}
  input{width:100%;box-sizing:border-box;padding:9px;border:1px solid #8a8886;
       border-radius:6px;font-size:14px;margin-bottom:12px;display:none}
- button{width:100%;padding:10px;background:#0078d4;color:#fff;border:0;
-      border-radius:6px;font-size:14px;font-weight:600;cursor:pointer}
- button:hover{background:#106ebe}
- #mensaje{font-size:13px;color:#d13438;margin-top:12px;min-height:18px}
+ button{width:100%;padding:10px;border:0;border-radius:6px;font-size:14px;
+      font-weight:600;cursor:pointer;margin-bottom:8px}
+ .principal{background:#0078d4;color:#fff}.principal:hover{background:#106ebe}
+ .secundario{background:#fff;color:#0078d4;border:1px solid #0078d4;display:none}
+ .secundario:hover{background:#deecf9}
+ #mensaje{font-size:13px;color:#d13438;margin-top:8px;min-height:18px}
 </style></head><body>
 <div class="tarjeta">
-  <div style="font-size:42px">📎</div>
-  <h1>Archivo compartido contigo</h1>
-  <p>Este enlace fue generado desde el Almacén. Si tiene clave, se pedirá.</p>
+  <div style="font-size:42px" id="icono">📎</div>
+  <h1 id="titulo">Archivo compartido contigo</h1>
+  <p id="detalle">Verificando el enlace…</p>
   <input id="clave" type="password" placeholder="Clave del enlace" autocomplete="off">
-  <button onclick="descargar()">Descargar archivo</button>
+  <button id="btnAbrir" class="secundario" onclick="abrir()">✏️ Abrir en línea</button>
+  <button id="btnBajar" class="principal" onclick="descargar()">⬇️ Descargar archivo</button>
   <div id="mensaje"></div>
 </div>
 <script>
- const TOKEN = location.pathname.split('/').pop();
+ const TOKEN = location.pathname.split('/').filter(Boolean).pop();
+ const $ = id => document.getElementById(id);
+ function claveQS(){ const c = $('clave').value; return c ? '&clave=' + encodeURIComponent(c) : ''; }
+
+ async function cargarInfo(){
+   const r = await fetch('/api/almacen/publico-info/' + encodeURIComponent(TOKEN) + '?x=1' + claveQS());
+   if (!r.ok){
+     const d = await r.json().catch(() => ({}));
+     $('detalle').textContent = d.error || 'El enlace no existe o fue retirado';
+     $('btnBajar').style.display = 'none';
+     return;
+   }
+   const d = await r.json();
+   if (d.requiere_clave && !d.clave_valida){
+     $('clave').style.display = 'block';
+     $('detalle').textContent = 'Este enlace tiene clave: escríbela y pulsa un botón';
+     $('btnAbrir').style.display = 'block';   // se re-valida al pulsar
+     return;
+   }
+   $('titulo').textContent = d.nombre || 'Archivo compartido';
+   $('detalle').textContent = (d.tamano_bytes != null ? (d.tamano_bytes/1048576).toFixed(2) + ' MB · ' : '')
+                            + (d.puede_editar ? 'puedes editarlo en línea' : d.abre_en_linea ? 'puedes verlo en línea' : 'listo para descargar');
+   if (d.abre_en_linea) $('btnAbrir').style.display = 'block';
+   $('btnBajar').style.display = d.permite_descarga ? 'block' : 'none';
+   if (!d.permite_descarga && !d.abre_en_linea) $('detalle').textContent = 'Este enlace es de solo lectura';
+ }
+
+ function abrir(){
+   location.href = '/almacen-s/' + encodeURIComponent(TOKEN) + '/editar' + ($('clave').value ? '?clave=' + encodeURIComponent($('clave').value) : '');
+ }
+
  async function descargar(){
-   const clave = document.getElementById('clave').value;
-   const m = document.getElementById('mensaje');
+   const m = $('mensaje');
    m.textContent = 'Verificando…'; m.style.color = '#605e5c';
-   const url = '/api/almacen/publico/' + encodeURIComponent(TOKEN)
-             + (clave ? '?clave=' + encodeURIComponent(clave) : '');
-   const r = await fetch(url);
+   const r = await fetch('/api/almacen/publico/' + encodeURIComponent(TOKEN) + '?x=1' + claveQS());
    if (r.ok){
      m.textContent = '';
      const blob = await r.blob();
@@ -145,13 +177,56 @@ def crear_app_webmail() -> Flask:
      return;
    }
    m.style.color = '#d13438';
-   if (r.status === 401){
-     document.getElementById('clave').style.display = 'block';
-     m.textContent = clave ? 'Clave incorrecta' : 'Este enlace tiene clave: escríbela';
-   } else if (r.status === 410){ m.textContent = 'Este enlace ya expiró'; }
+   if (r.status === 401){ $('clave').style.display = 'block'; m.textContent = $('clave').value ? 'Clave incorrecta' : 'Este enlace tiene clave: escríbela'; }
+   else if (r.status === 410){ m.textContent = 'Este enlace ya expiró'; }
    else if (r.status === 403){ m.textContent = 'Este enlace no permite descargar'; }
    else { m.textContent = 'El enlace no existe o fue retirado'; }
  }
+ cargarInfo();
+</script></body></html>"""
+        return html, 200, {'Content-Type': 'text/html; charset=utf-8'}
+
+    @app.get('/almacen-s/<token>/editar')
+    def editor_publico(token):
+        """Editor OnlyOffice para un enlace compartido (sin sesión). Pide la
+        configuración a /api/almacen/onlyoffice/config-public con el token del
+        enlace (+clave si viaja en el query)."""
+        import re as _re
+        if not _re.fullmatch(r'[A-Za-z0-9_-]{10,64}', token):
+            return jsonify({'success': False, 'error': 'Enlace inválido'}), 404
+        html = r"""<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Editor — archivo compartido</title>
+<style>
+ html,body{height:100%;margin:0;background:#f3f2f1;font-family:'Segoe UI',system-ui,sans-serif}
+ #contenedor{height:100%}
+ #estado{position:absolute;top:40%;left:0;right:0;text-align:center;color:#605e5c;font-size:14px}
+</style></head><body>
+<div id="estado">Cargando el editor…</div>
+<div id="contenedor"><div id="editor"></div></div>
+<script>
+ const partes = location.pathname.split('/').filter(Boolean);   // almacen-s, <token>, editar
+ const TOKEN = partes[1];
+ const CLAVE = new URLSearchParams(location.search).get('clave') || '';
+ const estado = document.getElementById('estado');
+ function fallo(m){ estado.innerHTML = '<b>No se pudo abrir el editor</b><br>' + m; }
+
+ (async () => {
+   const r = await fetch('/api/almacen/onlyoffice/config-public?token=' + encodeURIComponent(TOKEN)
+                       + (CLAVE ? '&clave=' + encodeURIComponent(CLAVE) : ''));
+   const d = await r.json().catch(() => ({}));
+   if (!r.ok || !d.success){ fallo(d.error || 'Enlace inválido'); return; }
+   document.title = d.nombre + ' — compartido';
+   const s = document.createElement('script');
+   s.src = d.api_js_url;
+   s.onerror = () => fallo('No se pudo cargar el servidor de documentos');
+   s.onload = () => {
+     d.config.events = { onAppReady: () => { estado.style.display = 'none'; } };
+     new DocsAPI.DocEditor('editor', d.config);
+   };
+   document.head.appendChild(s);
+ })();
 </script></body></html>"""
         return html, 200, {'Content-Type': 'text/html; charset=utf-8'}
 
