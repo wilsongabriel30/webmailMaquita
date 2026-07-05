@@ -11,7 +11,11 @@
 # Nginx sirve desde root=/opt/maquita-webmail/www con location /webmail/
 # por lo que los archivos DEBEN estar en el subdirectorio /webmail/.
 #
-# Uso: bash /opt/maquita-webmail/deploy-webmail.sh
+# Uso:
+#   bash deploy-webmail.sh                  → build + deploy + reinicia backend
+#   bash deploy-webmail.sh --solo-frontend  → build + deploy SIN tocar el backend
+#     (para cambios solo de React/HTML/CSS: el reinicio del backend corta el
+#      correo ~30 segundos a los usuarios conectados y no hace falta)
 # ===========================================================================
 
 set -euo pipefail
@@ -105,7 +109,15 @@ fi
 DEPLOYED_COUNT=$(find "${DEPLOY_TARGET}" -type f | wc -l)
 echo -e "${GREEN}Deploy OK: ${DEPLOYED_COUNT} archivos en ${DEPLOY_TARGET}${NC}"
 
-# --- Paso 5: Restart backend ---
+# --- Paso 5: Restart backend (omitido con --solo-frontend) ---
+if [[ "$1" == "--solo-frontend" ]]; then
+    echo -e "\n${YELLOW}[4/5] Backend NO reiniciado (--solo-frontend)${NC}"
+    if systemctl is-active --quiet "${BACKEND_SERVICE}"; then
+        echo -e "${GREEN}Backend sigue activo, sin corte para los usuarios${NC}"
+    else
+        echo -e "${RED}AVISO: el backend está caído — revisar: journalctl -u ${BACKEND_SERVICE}${NC}"
+    fi
+else
 echo -e "\n${YELLOW}[4/5] Reiniciando backend...${NC}"
 systemctl restart "${BACKEND_SERVICE}"
 sleep 2
@@ -115,6 +127,7 @@ if systemctl is-active --quiet "${BACKEND_SERVICE}"; then
 else
     echo -e "${RED}ERROR: Backend no arrancó — revisar: journalctl -u ${BACKEND_SERVICE}${NC}"
     exit 1
+fi
 fi
 
 # --- Paso 6: Verificación final ---
