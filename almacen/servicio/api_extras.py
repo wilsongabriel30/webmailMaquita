@@ -81,6 +81,50 @@ def vaciar_papelera():
 
 
 # ── enlaces públicos (sin login) ────────────────────────────────────────
+@bp_extras.route('/publico-info/<token>', methods=['GET'])
+def info_publico(token):
+    """GET /publico-info/<token>?clave= — datos del enlace para la página
+    pública (sin sesión). Si el enlace tiene clave, los detalles del archivo
+    solo se entregan con la clave correcta."""
+    filas = consultar("""
+        SELECT propietario_id, ruta, expira_en, clave_hash, permite_descarga, puede_editar
+        FROM compartidos WHERE token = %s
+    """, (token,))
+    if not filas:
+        return error('Enlace no encontrado', 404)
+    comp = filas[0]
+    if comp['expira_en'] is not None:
+        from datetime import datetime, timezone
+        if comp['expira_en'] < datetime.now(timezone.utc):
+            return error('El enlace expiró', 410)
+    requiere_clave = bool(comp['clave_hash'])
+    if requiere_clave:
+        from hashlib import sha256
+        clave = request.args.get('clave', '')
+        if sha256(clave.encode()).hexdigest() != comp['clave_hash']:
+            return jsonify({'success': True, 'requiere_clave': True,
+                            'clave_valida': False}), 200
+    nombre = comp['ruta'].rsplit('/', 1)[-1]
+    extension = nombre.rsplit('.', 1)[-1].lower() if '.' in nombre else ''
+    from api_onlyoffice import EXTENSIONES_EDITABLES, TIPOS_DOCUMENTO
+    abre_en_linea = extension in TIPOS_DOCUMENTO
+    tamano = None
+    try:
+        fisica = ruta_fisica(comp['propietario_id'], comp['ruta'])
+        if os.path.isfile(fisica):
+            tamano = os.path.getsize(fisica)
+    except RutaInvalida:
+        pass
+    return jsonify({
+        'success': True, 'requiere_clave': requiere_clave, 'clave_valida': True,
+        'nombre': nombre, 'extension': extension,
+        'tamano_bytes': tamano,
+        'permite_descarga': bool(comp['permite_descarga']),
+        'puede_editar': bool(comp['puede_editar']) and extension in EXTENSIONES_EDITABLES,
+        'abre_en_linea': abre_en_linea,
+    })
+
+
 @bp_extras.route('/publico/<token>', methods=['GET'])
 def descargar_publico(token):
     """
