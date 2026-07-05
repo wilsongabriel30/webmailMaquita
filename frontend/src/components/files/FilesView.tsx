@@ -210,7 +210,10 @@ export function FilesView() {
     if (vista === 'favoritos' && item.es_carpeta) { irA(item.ruta); return; }
     if (item.es_carpeta) { irA(item.ruta); return; }
     if (item.es_editable) {
-      window.open(`/archivos-almacen/editar?ruta=${encodeURIComponent(item.ruta)}`, '_blank');
+      // Ventana NOMBRADA por documento: si ya está abierto, se reutiliza la
+      // pestaña en vez de abrir otra (cada editor abierto consume 1 de las
+      // 20 conexiones de edición del Document Server Community).
+      window.open(`/archivos-almacen/editar?ruta=${encodeURIComponent(item.ruta)}`, `oo-${item.id}`);
     } else {
       window.open(`/api/almacen/archivos/ver?ruta=${encodeURIComponent(item.ruta)}`, '_blank');
     }
@@ -620,7 +623,7 @@ export function FilesView() {
                 {conmigo.map(c => (
                   <tr key={c.id} className="border-b border-[#f3f2f1] dark:border-[#292827] hover:bg-[#f3f2f1] dark:hover:bg-[#292827]">
                     <td className="px-4 py-2 cursor-pointer"
-                      onDoubleClick={() => window.open(c.abre_en_linea ? `/almacen-s/${c.token}/editar` : `/almacen-s/${c.token}`, '_blank')}
+                      onDoubleClick={() => window.open(c.abre_en_linea ? `/almacen-s/${c.token}/editar` : `/almacen-s/${c.token}`, `oo-${c.token}`)}
                       title={c.puede_editar ? 'Doble clic: editar en línea (misma sala que el dueño)' : c.abre_en_linea ? 'Doble clic: ver en línea' : 'Doble clic: descargar'}>
                       <span className="mr-2">{ICONOS[(c.extension || '').toLowerCase()] || '📎'}</span>
                       <span className="text-[#323130] dark:text-[#e0e0e0]">{c.nombre}</span>
@@ -631,7 +634,7 @@ export function FilesView() {
                     <td className="px-2 py-2 text-[#605e5c] dark:text-[#a19f9d] hidden md:table-cell">{fechaCorta(c.creado_en)}</td>
                     <td className="px-2 py-2 text-right whitespace-nowrap">
                       {c.abre_en_linea && (
-                        <button onClick={() => window.open(`/almacen-s/${c.token}/editar`, '_blank')}
+                        <button onClick={() => window.open(`/almacen-s/${c.token}/editar`, `oo-${c.token}`)}
                           title={c.puede_editar ? 'Editar en línea' : 'Ver en línea'}
                           className="px-2 py-1 text-xs rounded text-[#106ebe] hover:bg-[#deecf9] dark:hover:bg-[#004578] font-semibold">
                           {c.puede_editar ? '✏️ Editar' : '👁 Ver'}
