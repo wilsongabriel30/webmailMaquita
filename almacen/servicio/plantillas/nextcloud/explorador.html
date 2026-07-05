@@ -42,55 +42,10 @@
 
     <!-- Acciones de header -->
     <div class="gd-header-actions">
-        <!-- IA Maquita - Botón Mejorar (En desarrollo) -->
-        <button class="gd-ia-btn" onclick="abrirIAMaquita()" title="IA Maquita - En desarrollo">
-            <span class="material-icons">auto_awesome</span>
-            <span class="gd-ia-btn-text">Mejorar</span>
-        </button>
         <!-- Estado de sincronización -->
         <button class="gd-icon-btn" id="syncStatusBtn" title="Sincronizado">
             <span class="material-icons gd-sync-status" id="syncStatusIcon">check_circle</span>
         </button>
-        <!-- Chat / Messenger -->
-        <div class="dropdown" style="position:relative;">
-            <a class="gd-icon-btn position-relative" href="#" data-bs-toggle="dropdown" title="Messenger"
-               onclick="cargarMensajesMessengerNC();">
-                <i class="fab fa-facebook-messenger" style="font-size:1.2rem;"></i>
-                <span id="chatBadgeNC" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size:.55rem;display:none;">0</span>
-            </a>
-            <div class="dropdown-menu dropdown-menu-end messenger-dropdown" style="min-width:340px;">
-                <div class="messenger-header">
-                    <h5 class="messenger-title">Chats</h5>
-                    <div class="messenger-header-actions">
-                        <button class="messenger-action-btn" title="Expandir" onclick="event.stopPropagation(); window.location.href='/chat/';">
-                            <i class="fas fa-expand-alt"></i>
-                        </button>
-                        <button class="messenger-action-btn" title="Nuevo mensaje" onclick="event.stopPropagation(); window.location.href='/chat/';">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                    </div>
-                </div>
-                <div class="messenger-search">
-                    <div class="messenger-search-input">
-                        <i class="fas fa-search"></i>
-                        <input type="text" placeholder="Buscar en Messenger" id="ncSearchInput" oninput="filtrarChatsNC(this.value)">
-                    </div>
-                </div>
-                <div class="messenger-chat-list" id="ncChatList">
-                    <div class="text-center py-4">
-                        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
-                        <p class="mb-0 small mt-2 text-muted">Cargando chats...</p>
-                    </div>
-                </div>
-                <div class="messenger-footer">
-                    <a href="/chat/" class="messenger-footer-link">Ver todo en Messenger</a>
-                </div>
-            </div>
-        </div>
-        <!-- Mesa de Ayuda -->
-        <a class="gd-icon-btn" href="{{ url_for('helpdesk.index') }}" title="Mesa de Ayuda - Soporte Técnico">
-            <i class="fas fa-headset" style="font-size:1.1rem;"></i>
-        </a>
         <!-- Ayuda -->
         <button class="gd-icon-btn" title="Soporte">
             <span class="material-icons">help_outline</span>
@@ -123,63 +78,48 @@
         </div>
         <!-- Menú de Apps -->
         <div style="position: relative;">
-            <button class="gd-icon-btn" onclick="toggleAppsMenu()" title="Aplicaciones FARO" id="btnApps">
+            <button class="gd-icon-btn" onclick="toggleAppsMenu()" title="Aplicaciones" id="btnApps">
                 <span class="material-icons">apps</span>
             </button>
 
             <div class="gd-apps-menu" id="appsMenu">
                 <div class="gd-apps-menu-header">
-                    <h4>Aplicaciones FARO</h4>
-                    <a href="{{ url_for('home') }}">Ver todas</a>
+                    <h4>Aplicaciones</h4>
+                    <a href="/webmail">Ir al correo</a>
                 </div>
                 <div class="gd-apps-grid">
-                    {% if modulos_disponibles %}
-                        {# Iterar dinámicamente sobre todos los módulos visibles #}
-                        {% for codigo, modulo in modulos_disponibles.items() %}
-                            {% if modulo is mapping and modulo.get('visible', False) and modulo.get('activo', True) %}
-                            <a href="{{ modulo.get('url', '/' ~ codigo ~ '/') }}" class="gd-app-item {% if codigo == 'nube' %}current{% endif %}">
-                                <div class="gd-app-item-icon" style="background: {{ modulo.get('color', '#0061a1') }};">
-                                    <i class="{{ modulo.get('icono', 'fas fa-cube') }}"></i>
-                                </div>
-                                <span class="gd-app-item-name">{{ modulo.get('nombre', codigo|title) }}</span>
-                            </a>
-                            {% elif modulo == True %}
-                            {# Compatibilidad con formato booleano simple #}
-                            <a href="/{{ codigo }}/" class="gd-app-item {% if codigo == 'nube' %}current{% endif %}">
-                                <div class="gd-app-item-icon" style="background: var(--primary-color, #0061a1);">
-                                    <i class="fas fa-cube"></i>
-                                </div>
-                                <span class="gd-app-item-name">{{ codigo|title }}</span>
-                            </a>
-                            {% endif %}
-                        {% endfor %}
-                    {% else %}
-                        <!-- Fallback si no hay modulos_disponibles -->
-                        <a href="/herramientas/" class="gd-app-item">
-                            <div class="gd-app-item-icon" style="background: #667eea;">
-                                <i class="fas fa-toolbox"></i>
-                            </div>
-                            <span class="gd-app-item-name">Herramientas</span>
-                        </a>
-                        <a href="{{ '/archivos-almacen' if almacen_modo else '/archivos/' }}" class="gd-app-item current">
-                            <div class="gd-app-item-icon" style="background: #4285f4;">
-                                <i class="fas fa-cloud"></i>
-                            </div>
-                            <span class="gd-app-item-name">Nube Maquita</span>
-                        </a>
-                    {% endif %}
-
-                    <!-- Siempre mostrar enlace al Inicio -->
-                    <a href="{{ url_for('home') }}" class="gd-app-item">
-                        <div class="gd-app-item-icon" style="background: var(--primary-color, #0061a1);">
-                            <i class="fas fa-home"></i>
+                    <a href="/webmail" class="gd-app-item">
+                        <div class="gd-app-item-icon" style="background: #0078d4;">
+                            <span class="material-icons">mail</span>
                         </div>
-                        <span class="gd-app-item-name">Inicio</span>
+                        <span class="gd-app-item-name">Correo</span>
+                    </a>
+                    <a href="/webmail/calendar" class="gd-app-item">
+                        <div class="gd-app-item-icon" style="background: #7719aa;">
+                            <span class="material-icons">calendar_month</span>
+                        </div>
+                        <span class="gd-app-item-name">Calendario</span>
+                    </a>
+                    <a href="/webmail/contacts" class="gd-app-item">
+                        <div class="gd-app-item-icon" style="background: #038387;">
+                            <span class="material-icons">contacts</span>
+                        </div>
+                        <span class="gd-app-item-name">Contactos</span>
+                    </a>
+                    <a href="/webmail/tasks" class="gd-app-item">
+                        <div class="gd-app-item-icon" style="background: #ca5010;">
+                            <span class="material-icons">task_alt</span>
+                        </div>
+                        <span class="gd-app-item-name">Tareas</span>
+                    </a>
+                    <a href="/archivos-almacen" class="gd-app-item current">
+                        <div class="gd-app-item-icon" style="background: #4285f4;">
+                            <span class="material-icons">folder</span>
+                        </div>
+                        <span class="gd-app-item-name">Archivos</span>
                     </a>
                 </div>
             </div>
-        </div>
-
         <!-- Avatar con menú desplegable -->
         <div class="user-dropdown dropdown">
             <div class="user-avatar" data-bs-toggle="dropdown" aria-expanded="false" title="{{ current_user.username if current_user else 'Usuario' }}" style="width: 36px; height: 36px; overflow: hidden;">
@@ -1264,118 +1204,4 @@ window.ALMACEN_OVERRIDE = { api: '/api/almacen', url: '/archivos-almacen' };
 <script src="{{ url_for('static', filename='js/nextcloud/explorador-almacen-admin.js') }}?v=20260703l"></script>
 {% endif %}
 
-<!-- Messenger autónomo para Nextcloud -->
-<script>
-let ncChatsData = [];
-let ncCargando = false;
-
-async function cargarMensajesMessengerNC() {
-    if (ncCargando) return;
-    ncCargando = true;
-    const container = document.getElementById('ncChatList');
-    if (!container) { ncCargando = false; return; }
-
-    try {
-        const [convRes, trabRes] = await Promise.all([
-            fetch('/api/chat/conversations?limit=20').catch(() => null),
-            fetch('/api/chat/trabajadores/activos?limit=30').catch(() => null)
-        ]);
-
-        ncChatsData = [];
-        let totalNoLeidos = 0;
-
-        if (convRes && convRes.ok) {
-            const data = await convRes.json();
-            if (data.success && data.conversations) {
-                data.conversations.forEach(c => {
-                    totalNoLeidos += c.unread_count || 0;
-                    ncChatsData.push({
-                        id: c.id, type: 'conversation',
-                        name: c.display_name,
-                        photo: c.avatar || (c.other_user && c.other_user.photo),
-                        lastMessage: c.last_message || 'Sin mensajes',
-                        lastMessageTime: c.last_message_at,
-                        unreadCount: c.unread_count || 0,
-                        online: c.other_user?.online || false,
-                        isGroup: c.conversation_type === 'group',
-                        trabajador_id: c.other_user?.id || null
-                    });
-                });
-            }
-        }
-
-        if (trabRes && trabRes.ok) {
-            const tData = await trabRes.json();
-            if (tData.success && tData.trabajadores) {
-                tData.trabajadores.forEach(t => {
-                    if (!ncChatsData.find(c => c.trabajador_id === t.id)) {
-                        ncChatsData.push({
-                            id: 'trab-' + t.id, type: 'contact',
-                            trabajador_id: t.id,
-                            name: t.nombre_completo || (t.nombres + ' ' + (t.apellidos||'')).trim(),
-                            photo: t.foto_perfil,
-                            cargo: t.cargo || '',
-                            departamento: t.departamento || '',
-                            online: false, unreadCount: 0
-                        });
-                    }
-                });
-            }
-        }
-
-        // Badge
-        const badge = document.getElementById('chatBadgeNC');
-        if (badge) {
-            if (totalNoLeidos > 0) { badge.textContent = totalNoLeidos > 9 ? '9+' : totalNoLeidos; badge.style.display = ''; }
-            else { badge.style.display = 'none'; }
-        }
-
-        renderNCChats(ncChatsData);
-    } catch(e) {
-        container.innerHTML = '<div class="text-center py-3 text-muted"><i class="fas fa-exclamation-circle me-1"></i>Error al cargar</div>';
-    }
-    ncCargando = false;
-}
-
-function renderNCChats(chats) {
-    const container = document.getElementById('ncChatList');
-    if (!container) return;
-    if (!chats.length) {
-        container.innerHTML = '<div class="text-center py-4 text-muted"><i class="fab fa-facebook-messenger" style="font-size:2rem;opacity:.3;"></i><p class="mt-2 small">No hay conversaciones</p></div>';
-        return;
-    }
-    // Sort: unread first, then by time
-    chats.sort((a,b) => (b.unreadCount||0) - (a.unreadCount||0));
-    let html = '';
-    chats.slice(0, 15).forEach(chat => {
-        const initials = (chat.name||'??').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
-        const photoHtml = chat.photo
-            ? `<img src="${chat.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span style="display:none;width:100%;height:100%;align-items:center;justify-content:center;">${initials}</span>`
-            : `<span style="display:flex;width:100%;height:100%;align-items:center;justify-content:center;">${initials}</span>`;
-        const unreadBadge = chat.unreadCount > 0 ? `<span class="badge bg-danger rounded-pill" style="font-size:.65rem;">${chat.unreadCount}</span>` : '';
-        const subtitle = chat.type === 'contact' ? (chat.cargo || chat.departamento || 'Contacto') : (chat.lastMessage || '');
-        const chatUrl = chat.type === 'conversation' ? `/chat/?conv=${chat.id}` : `/chat/?new=${chat.trabajador_id}`;
-
-        html += `<a href="${chatUrl}" class="d-flex align-items-center gap-2 px-3 py-2 text-decoration-none" style="color:inherit;border-bottom:1px solid #f0f0f0;${chat.unreadCount>0?'background:#f0f7ff;':''}">
-            <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#0061a1,#eb6018);color:#fff;font-size:.7rem;font-weight:700;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;">
-                ${photoHtml}
-            </div>
-            <div style="flex:1;min-width:0;">
-                <div class="d-flex justify-content-between align-items-center">
-                    <strong style="font-size:.82rem;${chat.unreadCount>0?'color:#0061a1;':''}">${chat.name}</strong>
-                    ${unreadBadge}
-                </div>
-                <div class="text-muted text-truncate" style="font-size:.75rem;">${subtitle}</div>
-            </div>
-        </a>`;
-    });
-    container.innerHTML = html;
-}
-
-function filtrarChatsNC(query) {
-    if (!query) { renderNCChats(ncChatsData); return; }
-    const q = query.toLowerCase();
-    renderNCChats(ncChatsData.filter(c => (c.name||'').toLowerCase().includes(q)));
-}
-</script>
 {% endblock %}
