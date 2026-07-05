@@ -74,6 +74,23 @@ function fechaCorta(iso?: string): string {
   } catch { return ''; }
 }
 
+const _EXT_PREVIEW = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'pdf',
+  'docx', 'doc', 'odt', 'xlsx', 'xls', 'ods', 'csv', 'pptx', 'ppt', 'odp']);
+
+function MiniaturaOIcono({ item }: { item: Item }) {
+  const [fallo, setFallo] = useState(false);
+  const puede = !item.es_carpeta && _EXT_PREVIEW.has((item.extension || '').toLowerCase());
+  if (!puede || fallo) {
+    return <div className="text-4xl text-center mb-2 h-20 flex items-center justify-center">{iconoDe(item)}</div>;
+  }
+  return (
+    <img src={`/api/almacen/preview?file=${encodeURIComponent(item.ruta)}&x=256&y=256`}
+      loading="lazy" decoding="async" alt=""
+      onError={() => setFallo(true)}
+      className="w-full h-20 object-contain mb-2 rounded bg-[#faf9f8] dark:bg-[#1b1a19]" />
+  );
+}
+
 function carpetaDe(ruta: string): string {
   const i = ruta.lastIndexOf('/');
   return i <= 0 ? '/' : ruta.slice(0, i);
@@ -140,8 +157,16 @@ export function FilesView() {
         const res = await api.get<{ carpetas: Item[]; archivos: Item[] }>('/almacen/favoritos');
         setItems([...(res.carpetas || []), ...(res.archivos || [])].map(i => ({ ...i, es_favorito: true })));
       } else {
+        // Pinta al instante lo último conocido de esta carpeta y refresca detrás
+        const clave = `alm_cache:${r}`;
+        try {
+          const previo = sessionStorage.getItem(clave);
+          if (previo) { setItems(JSON.parse(previo)); setCargando(false); }
+        } catch { /* caché corrupta: se ignora */ }
         const res = await api.get<{ carpetas: Item[]; archivos: Item[] }>(`/almacen/archivos?ruta=${encodeURIComponent(r)}`);
-        setItems([...(res.carpetas || []), ...(res.archivos || [])]);
+        const lista = [...(res.carpetas || []), ...(res.archivos || [])];
+        setItems(lista);
+        try { sessionStorage.setItem(clave, JSON.stringify(lista)); } catch { /* llena: se ignora */ }
       }
     } catch {
       showToast('No se pudieron cargar los archivos');
@@ -665,7 +690,7 @@ export function FilesView() {
                 className="relative rounded-lg border border-[#edebe9] dark:border-[#3b3a39] p-3 cursor-pointer select-none hover:shadow-md hover:border-[#0078d4] dark:hover:border-[#2899f5] transition-all group bg-white dark:bg-[#252423]">
                 <button onClick={e => abrirMenu(e, item)} title="Opciones"
                   className="absolute top-1 right-1 w-7 h-7 rounded-full text-[#605e5c] dark:text-[#a19f9d] opacity-0 group-hover:opacity-100 hover:bg-[#edebe9] dark:hover:bg-[#3b3a39] text-lg leading-none">⋯</button>
-                <div className="text-4xl text-center mb-2">{iconoDe(item)}</div>
+                <MiniaturaOIcono item={item} />
                 <div className="text-xs text-center text-[#323130] dark:text-[#e0e0e0] break-words leading-tight"
                   style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                   {item.nombre}

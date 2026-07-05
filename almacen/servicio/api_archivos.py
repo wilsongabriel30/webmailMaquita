@@ -194,10 +194,91 @@ def _miniatura_pdf(fisica: str) -> str:
         return None
 
 
+_CACHE_PREVIEWS = '/tmp/almacen-previews'
+
+
+def _clave_cache(fisica: str, sufijo: str = '') -> str:
+    import hashlib
+    mtime = int(os.path.getmtime(fisica))
+    return hashlib.sha1(f'{fisica}:{mtime}{sufijo}'.encode()).hexdigest()
+
+
+def _miniatura_imagen(fisica: str, lado: int = 400) -> str:
+    """Miniatura real de una imagen (Pillow). Enviar la foto completa (varios MB)
+    por cada celda de la cuadrícula era lo que hacía lenta la vista."""
+    try:
+        os.makedirs(_CACHE_PREVIEWS, exist_ok=True)
+        png = os.path.join(_CACHE_PREVIEWS, _clave_cache(fisica, f':{lado}') + '.jpg')
+        if not os.path.exists(png):
+            from PIL import Image
+            with Image.open(fisica) as im:
+                im.thumbnail((lado, lado))
+                if im.mode not in ('RGB', 'L'):
+                    im = im.convert('RGB')
+                im.save(png, 'JPEG', quality=80)
+        return png if os.path.exists(png) else None
+    except Exception as excepcion:
+        log.debug('miniatura imagen falló: %s', excepcion)
+        return None
+
+
+def _miniatura_office(usuario: int, ruta: str, fisica: str, ext: str) -> str:
+    """Miniatura de un documento office generada por el CONVERSOR del Document
+    Server (el mismo OnlyOffice de la edición) y cacheada en disco. El DS
+    descarga el archivo con un token firmado, igual que al editar."""
+    try:
+        from api_onlyoffice import (TIPOS_DOCUMENTO, URL_PUBLICA,
+                                    firmar_jwt, secreto_ds, url_interna_ds)
+        if ext not in TIPOS_DOCUMENTO or not (secreto_ds() and url_interna_ds()):
+            return None
+        os.makedirs(_CACHE_PREVIEWS, exist_ok=True)
+        png = os.path.join(_CACHE_PREVIEWS, _clave_cache(fisica, ':oo') + '.png')
+        if os.path.exists(png):
+            return png
+        import time as _time
+        import requests as _requests
+        exp = int(_time.time()) + 3600
+        t_desc = firmar_jwt({'u': usuario, 'r': ruta, 'uso': 'descarga', 'exp': exp})
+        cuerpo = {
+            'async': False,
+            'filetype': ext,
+            'outputtype': 'png',
+            'thumbnail': {'aspect': 1, 'first': True, 'width': 400, 'height': 400},
+            'key': _clave_cache(fisica, ':thumb')[:20],
+            'url': f'{URL_PUBLICA}/api/almacen/onlyoffice/download?t={t_desc}',
+        }
+        cuerpo['token'] = firmar_jwt(cuerpo)
+        r = _requests.post(f'{url_interna_ds()}/ConvertService.ashx',
+                           json=cuerpo, headers={'Accept': 'application/json'},
+                           timeout=20)
+        datos = r.json()
+        if not datos.get('fileUrl'):
+            log.debug('conversor sin fileUrl: %s', datos)
+            return None
+        img = _requests.get(datos['fileUrl'], timeout=20)
+        if img.status_code != 200 or not img.content:
+            return None
+        with open(png, 'wb') as destino:
+            destino.write(img.content)
+        return png
+    except Exception as excepcion:
+        log.debug('miniatura office falló: %s', excepcion)
+        return None
+
+
+def _respuesta_preview(archivo: str, mime: str = 'image/png'):
+    """send_file + caché de navegador: la miniatura de un archivo no cambia
+    (la clave incluye el mtime), así que el navegador puede guardarla un día."""
+    respuesta = send_file(archivo, mimetype=mime, as_attachment=False)
+    respuesta.headers['Cache-Control'] = 'private, max-age=86400'
+    return respuesta
+
+
 @bp_archivos.route('/preview', methods=['GET'])
 def preview():
-    """GET /preview?file=<ruta> — miniatura/vista previa. Imágenes: sirve el archivo.
-    PDF: primera página como PNG (pdftoppm, cacheado). Otros: 404 JSON (se muestra icono)."""
+    """GET /preview?file=<ruta> — miniatura/vista previa RÁPIDA (todo cacheado
+    en disco y en el navegador). Imágenes: thumbnail real. PDF: primera página.
+    Office: miniatura generada por el Document Server. Otros: 404 (icono)."""
     usuario = usuario_actual()
     ruta = request.args.get('file') or request.args.get('ruta') or ''
     try:
@@ -208,11 +289,19 @@ def preview():
         return error('Sin vista previa', 404)
     ext = os.path.splitext(fisica)[1].lstrip('.').lower()
     if ext in _EXT_IMAGEN:
+        if ext == 'svg':
+            return _respuesta_preview(fisica, 'image/svg+xml')
+        png = _miniatura_imagen(fisica)
+        if png:
+            return _respuesta_preview(png, 'image/jpeg')
         return send_file(fisica, as_attachment=False)
     if ext == 'pdf':
         png = _miniatura_pdf(fisica)
         if png:
-            return send_file(png, mimetype='image/png')
+            return _respuesta_preview(png)
+    png = _miniatura_office(usuario, ruta, fisica, ext)
+    if png:
+        return _respuesta_preview(png)
     return error('Sin vista previa', 404)
 
 
