@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate , useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { api } from '../../api/client';
 
@@ -27,6 +27,8 @@ export function LoginPage() {
   const [brand, setBrand] = useState<Branding>({});
   const [ssoEnabled, setSsoEnabled] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const destino = (location.state as { from?: string } | null)?.from || '/';
   const setUser = useAuthStore((s) => s.setUser);
 
   const color = brand.primary_color || '#0078d4';
@@ -92,7 +94,7 @@ export function LoginPage() {
       const meData = await meRes.json();
       if (meData.user) {
         setUser(meData.user);
-        navigate('/');
+        navigate(destino);
       } else {
         setError('Sesión no establecida. Intenta de nuevo.');
       }
@@ -116,7 +118,7 @@ export function LoginPage() {
       if (r && r.success === false) { setError(r.error || 'No se pudo cambiar la contrasena'); setLoading(false); return; }
       const meRes = await fetch('/api/auth/me', { credentials: 'include' });
       const meData = await meRes.json();
-      if (meData.user) { setUser(meData.user); navigate('/'); }
+      if (meData.user) { setUser(meData.user); navigate(destino); }
       else { setError('Sesion no establecida. Intenta de nuevo.'); }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Error al cambiar la contrasena');

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate , useLocation } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import { LoginPage } from './components/auth/LoginPage';
 import { AppLayout } from './components/layout/AppLayout';
@@ -23,13 +23,15 @@ const RagAssistant = React.lazy(() => import('./components/rag/RagAssistant').th
 const TasksView = React.lazy(() => import('./components/tasks/TasksView').then(m => ({ default: m.TasksView })));
 const CalendarView = React.lazy(() => import('./components/calendar/CalendarView'));
 const FilesView = React.lazy(() => import('./components/files/FilesView').then(m => ({ default: m.FilesView })));
+const DriveStandalone = React.lazy(() => import('./components/files/DriveStandalone').then(m => ({ default: m.DriveStandalone })));
 import { ComposePopup } from "./components/mail/ComposePopup";
 import { useMailStore } from "./store/mailStore";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuthStore();
+  const location = useLocation();
   if (loading) return <Spinner />;
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
   return <>{children}</>;
 }
 
@@ -184,6 +186,7 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/compose" element={<ProtectedRoute><ComposePopup /></ProtectedRoute>} />
+        <Route path="/drive" element={<ProtectedRoute><React.Suspense fallback={<Spinner />}><DriveStandalone /></React.Suspense></ProtectedRoute>} />
         <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
           <Route index element={<MailView />} />
           <Route path="contacts" element={<React.Suspense fallback={<Spinner />}><ContactsView /></React.Suspense>} />
