@@ -189,8 +189,11 @@ def listar(usuario_id: int, ruta_virtual: str) -> tuple:
                     item['icono'] = estilo['icono']
             (carpetas if item['es_carpeta'] else archivos).append(item)
 
-    # Orden "natural": archivo2 antes que archivo10 (igual que el explorador)
-    clave = lambda item: [int(t) if t.isdigit() else t.lower()
+    # Orden "natural": archivo2 antes que archivo10 (igual que el explorador).
+    # Tuplas (tipo, valor) porque int y str no son comparables entre sí: sin
+    # esto, una carpeta con nombres mixtos ("006.FFVV..." junto a "Anexos")
+    # rompía el listado con TypeError.
+    clave = lambda item: [(0, int(t)) if t.isdigit() else (1, t.lower())
                           for t in re.split(r'(\d+)', item['nombre']) if t]
     carpetas.sort(key=clave)
     archivos.sort(key=clave)

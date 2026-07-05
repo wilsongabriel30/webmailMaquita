@@ -4,7 +4,8 @@ import { showToast } from '../common/Toast';
 
 /* Archivos (Almacén Maquita) — nube personal integrada al webmail.
    Consume /api/almacen (contrato en almacen/docs/CONTRATO-API.md).
-   La sesión es la misma cookie del webmail: no hay segundo login. */
+   La sesión es la misma cookie del webmail: no hay segundo login.
+   Dos vistas: cuadrícula estilo Drive (default) y lista tipo explorador. */
 
 interface Item {
   id: string;
@@ -46,11 +47,19 @@ function fechaCorta(iso?: string): string {
 export function FilesView() {
   const [ruta, setRuta] = useState('/');
   const [vista, setVista] = useState<'archivos' | 'papelera'>('archivos');
+  const [modo, setModo] = useState<'cuadricula' | 'lista'>(
+    () => (localStorage.getItem('almacen_modo_vista') as 'cuadricula' | 'lista') || 'cuadricula');
   const [items, setItems] = useState<Item[]>([]);
   const [cargando, setCargando] = useState(false);
   const [subiendo, setSubiendo] = useState(false);
   const [cuota, setCuota] = useState<Cuota | null>(null);
+  const [menu, setMenu] = useState<{ item: Item; x: number; y: number } | null>(null);
   const inputSubir = useRef<HTMLInputElement>(null);
+
+  const cambiarModo = (m: 'cuadricula' | 'lista') => {
+    setModo(m);
+    localStorage.setItem('almacen_modo_vista', m);
+  };
 
   const cargar = useCallback(async (r: string, v: 'archivos' | 'papelera' = 'archivos') => {
     setCargando(true);
@@ -76,6 +85,11 @@ export function FilesView() {
 
   useEffect(() => { cargar(ruta, vista); }, [ruta, vista, cargar]);
   useEffect(() => { cargarCuota(); }, [cargarCuota]);
+  useEffect(() => {
+    const cerrar = () => setMenu(null);
+    window.addEventListener('click', cerrar);
+    return () => window.removeEventListener('click', cerrar);
+  }, []);
 
   const refrescar = () => { cargar(ruta, vista); cargarCuota(); };
 
@@ -162,7 +176,24 @@ export function FilesView() {
     } catch { showToast('No se pudo vaciar'); }
   };
 
+  const abrirMenu = (e: React.MouseEvent, item: Item) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setMenu({ item, x: Math.min(e.clientX, window.innerWidth - 200), y: Math.min(e.clientY, window.innerHeight - 220) });
+  };
+
   const migas = ruta.split('/').filter(Boolean);
+  const botonModo = 'px-2 py-1.5 rounded text-sm';
+
+  const accionesDe = (item: Item) => vista === 'archivos' ? ([
+    ...(!item.es_carpeta && item.es_editable ? [{ texto: '✏️ Editar en línea', fn: () => abrir(item) }] : []),
+    ...(!item.es_carpeta ? [{ texto: '⬇️ Descargar', fn: () => window.open(`/api/almacen/archivos/descargar?ruta=${encodeURIComponent(item.ruta)}`) }] : []),
+    { texto: '✍️ Renombrar', fn: () => renombrar(item) },
+    { texto: '🗑️ Eliminar', fn: () => eliminar(item) },
+  ]) : ([
+    { texto: '♻️ Restaurar', fn: () => restaurar(item) },
+    { texto: '🗑️ Eliminar definitivo', fn: () => eliminarDefinitivo(item) },
+  ]);
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-[#1b1a19]">
@@ -200,6 +231,13 @@ export function FilesView() {
             Vaciar papelera
           </button>
         )}
+        {/* Selector cuadrícula / lista */}
+        <div className="flex rounded border border-[#8a8886] overflow-hidden" role="group">
+          <button onClick={() => cambiarModo('cuadricula')} title="Vista de cuadrícula (estilo Drive)"
+            className={`${botonModo} ${modo === 'cuadricula' ? 'bg-[#deecf9] text-[#106ebe] dark:bg-[#004578] dark:text-white' : 'text-[#323130] dark:text-[#e0e0e0]'}`}>▦</button>
+          <button onClick={() => cambiarModo('lista')} title="Vista de lista (estilo explorador)"
+            className={`${botonModo} ${modo === 'lista' ? 'bg-[#deecf9] text-[#106ebe] dark:bg-[#004578] dark:text-white' : 'text-[#323130] dark:text-[#e0e0e0]'}`}>☰</button>
+        </div>
         <button onClick={refrescar} title="Actualizar el listado"
           className="px-2 py-1.5 rounded text-sm text-[#323130] dark:text-[#e0e0e0] hover:bg-[#f3f2f1] dark:hover:bg-[#323130]">🔄</button>
       </div>
@@ -217,13 +255,36 @@ export function FilesView() {
         </div>
       )}
 
-      {/* Listado */}
+      {/* Contenido */}
       <div className="flex-1 overflow-y-auto">
         {cargando ? (
           <div className="p-8 text-center text-[#605e5c] dark:text-[#a19f9d]">Cargando…</div>
         ) : items.length === 0 ? (
           <div className="p-12 text-center text-[#605e5c] dark:text-[#a19f9d]">
             {vista === 'papelera' ? 'La papelera está vacía' : 'Esta carpeta está vacía — usa "Subir" para empezar'}
+          </div>
+        ) : modo === 'cuadricula' ? (
+          <div className="grid gap-3 p-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))' }}>
+            {items.map(item => (
+              <div key={item.id || item.ruta}
+                onClick={() => item.es_carpeta && vista === 'archivos' ? abrir(item) : undefined}
+                onDoubleClick={() => abrir(item)}
+                onContextMenu={e => abrirMenu(e, item)}
+                title={`${item.nombre}${item.es_carpeta ? '' : ` — ${item.tamano_humano}`}\nClic derecho: opciones${item.es_editable ? ' · Doble clic: editar en línea' : item.es_carpeta ? '' : ' · Doble clic: ver'}`}
+                className="relative rounded-lg border border-[#edebe9] dark:border-[#3b3a39] p-3 cursor-pointer select-none hover:shadow-md hover:border-[#0078d4] dark:hover:border-[#2899f5] transition-all group bg-white dark:bg-[#252423]">
+                <button onClick={e => abrirMenu(e, item)}
+                  title="Opciones"
+                  className="absolute top-1 right-1 w-7 h-7 rounded-full text-[#605e5c] dark:text-[#a19f9d] opacity-0 group-hover:opacity-100 hover:bg-[#edebe9] dark:hover:bg-[#3b3a39] text-lg leading-none">⋯</button>
+                <div className="text-4xl text-center mb-2">{iconoDe(item)}</div>
+                <div className="text-xs text-center text-[#323130] dark:text-[#e0e0e0] break-words leading-tight"
+                  style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                  {item.nombre}
+                </div>
+                <div className="text-[10px] text-center text-[#a19f9d] mt-1">
+                  {item.es_carpeta ? fechaCorta(item.eliminado_en || item.modificado_at) : item.tamano_humano}
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
           <table className="w-full text-sm">
@@ -232,12 +293,13 @@ export function FilesView() {
                 <th className="px-4 py-2 font-semibold">Nombre</th>
                 <th className="px-2 py-2 font-semibold w-24">Tamaño</th>
                 <th className="px-2 py-2 font-semibold w-36 hidden sm:table-cell">{vista === 'papelera' ? 'Eliminado' : 'Modificado'}</th>
-                <th className="px-2 py-2 w-44"></th>
+                <th className="px-2 py-2 w-10"></th>
               </tr>
             </thead>
             <tbody>
               {items.map(item => (
                 <tr key={item.id || item.ruta}
+                  onContextMenu={e => abrirMenu(e, item)}
                   className="border-b border-[#f3f2f1] dark:border-[#292827] hover:bg-[#f3f2f1] dark:hover:bg-[#292827] group">
                   <td className="px-4 py-2 cursor-pointer" onDoubleClick={() => abrir(item)} onClick={() => item.es_carpeta && vista === 'archivos' ? abrir(item) : undefined}
                     title={item.es_carpeta ? 'Abrir la carpeta' : (item.es_editable ? 'Doble clic: editar en línea' : 'Doble clic: ver/descargar')}>
@@ -246,31 +308,9 @@ export function FilesView() {
                   </td>
                   <td className="px-2 py-2 text-[#605e5c] dark:text-[#a19f9d]">{item.tamano_humano}</td>
                   <td className="px-2 py-2 text-[#605e5c] dark:text-[#a19f9d] hidden sm:table-cell">{fechaCorta(item.eliminado_en || item.modificado_at)}</td>
-                  <td className="px-2 py-2 text-right whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
-                    {vista === 'archivos' ? (
-                      <>
-                        {!item.es_carpeta && item.es_editable && (
-                          <button onClick={() => abrir(item)} title="Editar en línea (colaborativo)"
-                            className="px-2 py-1 text-xs rounded text-[#106ebe] hover:bg-[#deecf9] dark:hover:bg-[#004578] font-semibold">Editar</button>
-                        )}
-                        {!item.es_carpeta && (
-                          <button onClick={() => window.open(`/api/almacen/archivos/descargar?ruta=${encodeURIComponent(item.ruta)}`)}
-                            title="Descargar el archivo"
-                            className="px-2 py-1 text-xs rounded text-[#323130] dark:text-[#e0e0e0] hover:bg-[#edebe9] dark:hover:bg-[#3b3a39]">Descargar</button>
-                        )}
-                        <button onClick={() => renombrar(item)} title="Cambiar el nombre"
-                          className="px-2 py-1 text-xs rounded text-[#323130] dark:text-[#e0e0e0] hover:bg-[#edebe9] dark:hover:bg-[#3b3a39]">Renombrar</button>
-                        <button onClick={() => eliminar(item)} title="Enviar a la papelera"
-                          className="px-2 py-1 text-xs rounded text-[#d13438] hover:bg-[#fde7e9]">Eliminar</button>
-                      </>
-                    ) : (
-                      <>
-                        <button onClick={() => restaurar(item)} title="Devolver a su ubicación original"
-                          className="px-2 py-1 text-xs rounded text-[#106ebe] hover:bg-[#deecf9] font-semibold">Restaurar</button>
-                        <button onClick={() => eliminarDefinitivo(item)} title="Eliminar definitivamente"
-                          className="px-2 py-1 text-xs rounded text-[#d13438] hover:bg-[#fde7e9]">Eliminar</button>
-                      </>
-                    )}
+                  <td className="px-2 py-2 text-right">
+                    <button onClick={e => abrirMenu(e, item)} title="Opciones"
+                      className="w-7 h-7 rounded-full text-[#605e5c] dark:text-[#a19f9d] opacity-0 group-hover:opacity-100 hover:bg-[#edebe9] dark:hover:bg-[#3b3a39] text-lg leading-none">⋯</button>
                   </td>
                 </tr>
               ))}
@@ -278,6 +318,20 @@ export function FilesView() {
           </table>
         )}
       </div>
+
+      {/* Menú contextual (clic derecho o botón ⋯) */}
+      {menu && (
+        <div className="fixed z-50 bg-white dark:bg-[#252423] border border-[#edebe9] dark:border-[#3b3a39] rounded-lg shadow-lg py-1 min-w-[180px]"
+          style={{ left: menu.x, top: menu.y }} onClick={e => e.stopPropagation()}>
+          <div className="px-3 py-1.5 text-xs text-[#a19f9d] border-b border-[#f3f2f1] dark:border-[#3b3a39] truncate max-w-[220px]">{menu.item.nombre}</div>
+          {accionesDe(menu.item).map((a, i) => (
+            <button key={i} onClick={() => { setMenu(null); a.fn(); }}
+              className="block w-full text-left px-3 py-1.5 text-sm text-[#323130] dark:text-[#e0e0e0] hover:bg-[#f3f2f1] dark:hover:bg-[#3b3a39]">
+              {a.texto}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Cuota */}
       {cuota && (
