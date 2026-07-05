@@ -25,6 +25,19 @@ interface Item {
   eliminado_en?: string;
 }
 
+interface Unidad {
+  id: number;
+  nombre: string;
+  mi_rol: string;
+  miembros: number;
+  ruta: string;
+}
+
+interface Miembro { usuario_id: number; rol: string; nombre: string; username: string; }
+interface UsuarioDir { id: number | string; usuario_id?: number; nombre: string; email?: string; }
+
+const ROL_ETIQUETA: Record<string, string> = { manager: 'Administrador', editor: 'Editor', viewer: 'Lector' };
+
 interface Share {
   id: number;
   ruta: string;
@@ -66,7 +79,7 @@ export function FilesView() {
   const [params, setParams] = useSearchParams();
   const ruta = params.get('ruta') || '/';
   const vistaParam = params.get('vista');
-  const vista = (vistaParam === 'papelera' ? 'papelera' : vistaParam === 'favoritos' ? 'favoritos' : 'archivos') as 'archivos' | 'papelera' | 'favoritos';
+  const vista = (['papelera', 'favoritos', 'unidades'].includes(vistaParam || '') ? vistaParam : 'archivos') as 'archivos' | 'papelera' | 'favoritos' | 'unidades';
 
   const [modo, setModo] = useState<'cuadricula' | 'lista'>(
     () => (localStorage.getItem('almacen_modo_vista') as 'cuadricula' | 'lista') || 'cuadricula');
@@ -80,11 +93,15 @@ export function FilesView() {
   const [versiones, setVersiones] = useState<{ item: Item; lista: Version[] } | null>(null);
   const [selector, setSelector] = useState<{ item: Item; accion: 'mover' | 'copiar'; carpeta: string; subcarpetas: Item[] } | null>(null);
   const [compartirModal, setCompartirModal] = useState<{ item: Item; shares: Share[]; creando: boolean } | null>(null);
+  const [persona, setPersona] = useState({ correo: '', rol: 'lector' });
+  const [sugerencias, setSugerencias] = useState<UsuarioDir[]>([]);
+  const [unidades, setUnidades] = useState<Unidad[]>([]);
+  const [miembrosModal, setMiembrosModal] = useState<{ unidad: Unidad; miembros: Miembro[]; buscar: string; encontrados: UsuarioDir[]; rol: string } | null>(null);
   const [opcionesEnlace, setOpcionesEnlace] = useState({ expira_dias: 0, clave: '', permite_descarga: true });
   const inputSubir = useRef<HTMLInputElement>(null);
   const timerBusqueda = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  const irA = (nuevaRuta: string, nuevaVista: 'archivos' | 'papelera' | 'favoritos' = 'archivos') => {
+  const irA = (nuevaRuta: string, nuevaVista: 'archivos' | 'papelera' | 'favoritos' | 'unidades' = 'archivos') => {
     const p: Record<string, string> = {};
     if (nuevaRuta !== '/') p.ruta = nuevaRuta;
     if (nuevaVista !== 'archivos') p.vista = nuevaVista;
@@ -97,7 +114,8 @@ export function FilesView() {
     localStorage.setItem('almacen_modo_vista', m);
   };
 
-  const cargar = useCallback(async (r: string, v: 'archivos' | 'papelera' | 'favoritos') => {
+  const cargar = useCallback(async (r: string, v: 'archivos' | 'papelera' | 'favoritos' | 'unidades') => {
+    if (v === 'unidades') { setItems([]); setCargando(false); return; }
     setCargando(true);
     try {
       if (v === 'papelera') {
@@ -124,6 +142,9 @@ export function FilesView() {
 
   useEffect(() => { cargar(ruta, vista); }, [ruta, vista, cargar]);
   useEffect(() => { cargarCuota(); }, [cargarCuota]);
+  useEffect(() => {
+    api.get<{ unidades: Unidad[] }>('/almacen/unidades').then(r => setUnidades(r.unidades || [])).catch(() => {});
+  }, [vista]);
   useEffect(() => {
     const cerrar = () => setMenu(null);
     window.addEventListener('click', cerrar);
@@ -299,6 +320,88 @@ export function FilesView() {
     }
   };
 
+  useEffect(() => {
+    const q = persona.correo.trim();
+    if (q.length < 2 || q.includes('@')) { setSugerencias([]); return; }
+    const t = setTimeout(() => {
+      api.get<{ usuarios: UsuarioDir[] }>(`/almacen/usuarios/buscar?q=${encodeURIComponent(q)}`)
+        .then(r => setSugerencias((r.usuarios || []).slice(0, 6)))
+        .catch(() => setSugerencias([]));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [persona.correo]);
+
+  const compartirConPersona = async () => {
+    if (!compartirModal) return;
+    const correo = persona.correo.trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo)) { showToast('Escribe un correo válido'); return; }
+    setCompartirModal({ ...compartirModal, creando: true });
+    try {
+      const r = await api.post<{ compartido: Share & { url?: string } }>('/almacen/compartir', {
+        ruta: compartirModal.item.ruta, tipo: 3,
+        permisos: persona.rol === 'editor' ? 3 : 1,
+        email: correo, rol: persona.rol,
+        permite_descarga: true,
+      });
+      setCompartirModal(prev => prev ? { ...prev, shares: [r.compartido, ...prev.shares], creando: false } : prev);
+      setSugerencias([]);
+      // Abre el redactor con el enlace listo para esa persona
+      const url = r.compartido.url || '';
+      useMailStore.getState().openCompose('new', {
+        to: [correo], subject: `Te comparto: ${compartirModal.item.nombre}`,
+        text_body: '', html_body: `<p>Hola,</p><p>Te comparto <b>${compartirModal.item.nombre}</b> desde mi nube:</p><p><a href="${url}">${url}</a></p>`,
+      } as never);
+      navigate('/');
+    } catch {
+      showToast('No se pudo compartir con esa persona');
+      setCompartirModal(prev => prev ? { ...prev, creando: false } : prev);
+    }
+  };
+
+  const nuevaUnidad = async () => {
+    const nombre = prompt('Nombre de la unidad de equipo (ej: Contabilidad):');
+    if (!nombre?.trim()) return;
+    try {
+      await api.post('/almacen/unidades', { nombre: nombre.trim() });
+      showToast(`Unidad "${nombre.trim()}" creada`);
+      api.get<{ unidades: Unidad[] }>('/almacen/unidades').then(r => setUnidades(r.unidades || []));
+    } catch { showToast('No se pudo crear (solo administradores crean unidades)'); }
+  };
+
+  const abrirMiembros = async (unidad: Unidad) => {
+    try {
+      const r = await api.get<{ miembros: Miembro[] }>(`/almacen/unidades/${unidad.id}/miembros`);
+      setMiembrosModal({ unidad, miembros: r.miembros || [], buscar: '', encontrados: [], rol: 'editor' });
+    } catch { showToast('No se pudieron cargar los miembros'); }
+  };
+
+  const buscarParaUnidad = (q: string) => {
+    setMiembrosModal(prev => prev ? { ...prev, buscar: q } : prev);
+    if (q.trim().length < 2) { setMiembrosModal(prev => prev ? { ...prev, encontrados: [] } : prev); return; }
+    api.get<{ usuarios: UsuarioDir[] }>(`/almacen/usuarios/buscar?q=${encodeURIComponent(q.trim())}`)
+      .then(r => setMiembrosModal(prev => prev ? { ...prev, encontrados: (r.usuarios || []).slice(0, 6) } : prev))
+      .catch(() => {});
+  };
+
+  const agregarMiembro = async (u: UsuarioDir) => {
+    if (!miembrosModal) return;
+    if (!u.usuario_id) { showToast('Ese usuario no está en el directorio central'); return; }
+    try {
+      await api.post(`/almacen/unidades/${miembrosModal.unidad.id}/miembros`, { usuario_id: u.usuario_id, rol: miembrosModal.rol });
+      showToast(`${u.nombre} agregado como ${ROL_ETIQUETA[miembrosModal.rol] || miembrosModal.rol}`);
+      abrirMiembros(miembrosModal.unidad);
+    } catch { showToast('No se pudo agregar (solo el administrador de la unidad puede)'); }
+  };
+
+  const quitarMiembro = async (m: Miembro) => {
+    if (!miembrosModal) return;
+    if (!confirm(`¿Quitar a ${m.nombre} de "${miembrosModal.unidad.nombre}"?`)) return;
+    try {
+      await api.del(`/almacen/unidades/${miembrosModal.unidad.id}/miembros/${m.usuario_id}`);
+      abrirMiembros(miembrosModal.unidad);
+    } catch { showToast('No se pudo quitar'); }
+  };
+
   const copiarEnlace = (url: string, mensaje = 'Enlace copiado') => {
     navigator.clipboard?.writeText(url).then(() => showToast(mensaje)).catch(() => prompt('Copia el enlace:', url));
   };
@@ -356,6 +459,11 @@ export function FilesView() {
           className={`px-3 py-1.5 rounded text-sm font-semibold ${vista === 'archivos' ? 'bg-[#deecf9] text-[#106ebe] dark:bg-[#004578] dark:text-white' : 'text-[#323130] dark:text-[#e0e0e0] hover:bg-[#f3f2f1] dark:hover:bg-[#323130]'}`}>
           📁 Mis archivos
         </button>
+        <button onClick={() => irA('/', 'unidades')}
+          title="Unidades compartidas de equipo: carpetas comunes donde varios miembros trabajan con roles (administrador, editor, lector)"
+          className={`px-3 py-1.5 rounded text-sm font-semibold ${vista === 'unidades' ? 'bg-[#deecf9] text-[#106ebe] dark:bg-[#004578] dark:text-white' : 'text-[#323130] dark:text-[#e0e0e0] hover:bg-[#f3f2f1] dark:hover:bg-[#323130]'}`}>
+          👥 Unidades
+        </button>
         <button onClick={() => irA('/', 'favoritos')}
           title="Tus archivos y carpetas marcados con estrella"
           className={`px-3 py-1.5 rounded text-sm font-semibold ${vista === 'favoritos' ? 'bg-[#deecf9] text-[#106ebe] dark:bg-[#004578] dark:text-white' : 'text-[#323130] dark:text-[#e0e0e0] hover:bg-[#f3f2f1] dark:hover:bg-[#323130]'}`}>
@@ -394,6 +502,12 @@ export function FilesView() {
               📁 Nueva carpeta
             </button>
           </>
+        ) : vista === 'unidades' ? (
+          <button onClick={nuevaUnidad}
+            title="Crear una unidad de equipo (solo administradores)"
+            className="px-3 py-1.5 rounded text-sm font-semibold bg-[#0078d4] text-white hover:bg-[#106ebe]">
+            ➕ Nueva unidad
+          </button>
         ) : vista === 'papelera' ? (
           <button onClick={vaciarPapelera}
             title="Vaciar la papelera (los administradores aún pueden recuperar por un tiempo)"
@@ -418,19 +532,53 @@ export function FilesView() {
         </div>
       ) : (
         <div className="flex items-center gap-1 px-4 py-2 text-sm text-[#605e5c] dark:text-[#a19f9d] flex-wrap">
-          <button onClick={() => irA('/')} className="hover:underline font-semibold text-[#106ebe]" title="Ir a la raíz de mis archivos">Mis archivos</button>
-          {migas.map((parte, i) => (
-            <span key={i} className="flex items-center gap-1">
-              <span>›</span>
-              <button onClick={() => irA('/' + migas.slice(0, i + 1).join('/'))} className="hover:underline" title={`Ir a ${parte}`}>{parte}</button>
-            </span>
-          ))}
+          {migas[0] === 'unidades' ? (
+            <button onClick={() => irA('/', 'unidades')} className="hover:underline font-semibold text-[#106ebe]" title="Ver todas las unidades de equipo">👥 Unidades</button>
+          ) : (
+            <button onClick={() => irA('/')} className="hover:underline font-semibold text-[#106ebe]" title="Ir a la raíz de mis archivos">Mis archivos</button>
+          )}
+          {migas.map((parte, i) => {
+            if (migas[0] === 'unidades' && i === 0) return null;
+            const etiqueta = (migas[0] === 'unidades' && i === 1)
+              ? (unidades.find(u => String(u.id) === parte)?.nombre || parte) : parte;
+            return (
+              <span key={i} className="flex items-center gap-1">
+                <span>›</span>
+                <button onClick={() => irA('/' + migas.slice(0, i + 1).join('/'))} className="hover:underline" title={`Ir a ${etiqueta}`}>{etiqueta}</button>
+              </span>
+            );
+          })}
         </div>
       ))}
 
       {/* Contenido */}
       <div className="flex-1 overflow-y-auto">
-        {cargando && resultados === null ? (
+        {vista === 'unidades' ? (
+          unidades.length === 0 ? (
+            <div className="p-12 text-center text-[#605e5c] dark:text-[#a19f9d]">
+              No perteneces a ninguna unidad de equipo todavía.<br/>
+              Las unidades son carpetas comunes donde un equipo trabaja junto (con roles y co-edición).
+            </div>
+          ) : (
+            <div className="grid gap-3 p-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))' }}>
+              {unidades.map(u => (
+                <div key={u.id}
+                  onClick={() => irA(u.ruta)}
+                  title={`Abrir "${u.nombre}" — tu rol: ${ROL_ETIQUETA[u.mi_rol] || u.mi_rol}`}
+                  className="relative rounded-lg border border-[#edebe9] dark:border-[#3b3a39] p-4 cursor-pointer select-none hover:shadow-md hover:border-[#0078d4] dark:hover:border-[#2899f5] transition-all group bg-white dark:bg-[#252423]">
+                  <button onClick={e => { e.stopPropagation(); abrirMiembros(u); }}
+                    title="Ver y gestionar los miembros de la unidad"
+                    className="absolute top-2 right-2 px-2 py-0.5 rounded text-[11px] text-[#106ebe] opacity-0 group-hover:opacity-100 hover:bg-[#deecf9] dark:hover:bg-[#004578] font-semibold">Miembros</button>
+                  <div className="text-4xl text-center mb-2">👥</div>
+                  <div className="text-sm text-center font-semibold text-[#323130] dark:text-[#e0e0e0] break-words">{u.nombre}</div>
+                  <div className="text-[11px] text-center text-[#a19f9d] mt-1">
+                    {u.miembros} miembro{u.miembros !== 1 ? 's' : ''} · {ROL_ETIQUETA[u.mi_rol] || u.mi_rol}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        ) : cargando && resultados === null ? (
           <div className="p-8 text-center text-[#605e5c] dark:text-[#a19f9d]">Cargando…</div>
         ) : mostrados.length === 0 ? (
           <div className="p-12 text-center text-[#605e5c] dark:text-[#a19f9d]">
@@ -509,6 +657,63 @@ export function FilesView() {
         </div>
       )}
 
+      {/* Modal: miembros de una unidad de equipo */}
+      {miembrosModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setMiembrosModal(null)}>
+          <div className="bg-white dark:bg-[#252423] rounded-lg shadow-xl w-full max-w-md max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="px-4 py-3 border-b border-[#edebe9] dark:border-[#3b3a39]">
+              <div className="font-semibold text-[#323130] dark:text-[#e0e0e0]">👥 Miembros de la unidad</div>
+              <div className="text-xs text-[#605e5c] dark:text-[#a19f9d] truncate">{miembrosModal.unidad.nombre}</div>
+            </div>
+            <div className="p-4 border-b border-[#f3f2f1] dark:border-[#3b3a39] space-y-2">
+              <div className="text-xs font-semibold text-[#323130] dark:text-[#e0e0e0]">Agregar persona</div>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <input value={miembrosModal.buscar}
+                    onChange={e => buscarParaUnidad(e.target.value)}
+                    placeholder="Buscar por nombre o usuario…"
+                    className="w-full px-2 py-1.5 rounded border border-[#8a8886] text-sm bg-white dark:bg-[#1b1a19] text-[#323130] dark:text-[#e0e0e0]" />
+                  {miembrosModal.encontrados.length > 0 && (
+                    <div className="absolute z-10 left-0 right-0 mt-1 bg-white dark:bg-[#252423] border border-[#edebe9] dark:border-[#3b3a39] rounded shadow-lg max-h-40 overflow-y-auto">
+                      {miembrosModal.encontrados.map(u => (
+                        <button key={u.id} onClick={() => agregarMiembro(u)}
+                          title={`Agregar como ${ROL_ETIQUETA[miembrosModal.rol]}`}
+                          className="block w-full text-left px-3 py-1.5 text-sm text-[#323130] dark:text-[#e0e0e0] hover:bg-[#f3f2f1] dark:hover:bg-[#3b3a39]">
+                          {u.nombre} <span className="text-xs text-[#a19f9d]">{u.email || ''}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <select value={miembrosModal.rol}
+                  onChange={e => setMiembrosModal(prev => prev ? { ...prev, rol: e.target.value } : prev)}
+                  title="Administrador: gestiona miembros. Editor: sube y edita. Lector: solo ve y descarga."
+                  className="px-2 py-1 rounded border border-[#8a8886] text-sm bg-white dark:bg-[#1b1a19] text-[#323130] dark:text-[#e0e0e0]">
+                  <option value="manager">Administrador</option>
+                  <option value="editor">Editor</option>
+                  <option value="viewer">Lector</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2">
+              {miembrosModal.miembros.map(m => (
+                <div key={m.usuario_id} className="flex items-center gap-2 px-3 py-2 rounded hover:bg-[#f3f2f1] dark:hover:bg-[#3b3a39]">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm text-[#323130] dark:text-[#e0e0e0] truncate">{m.nombre}</div>
+                    <div className="text-[10px] text-[#a19f9d]">{m.username} · {ROL_ETIQUETA[m.rol] || m.rol}</div>
+                  </div>
+                  <button onClick={() => quitarMiembro(m)} title="Quitar de la unidad"
+                    className="px-2 py-1 rounded text-xs text-[#d13438] hover:bg-[#fde7e9]">Quitar</button>
+                </div>
+              ))}
+            </div>
+            <div className="px-4 py-2 border-t border-[#edebe9] dark:border-[#3b3a39] text-right">
+              <button onClick={() => setMiembrosModal(null)} className="px-3 py-1.5 rounded text-sm text-[#323130] dark:text-[#e0e0e0] hover:bg-[#f3f2f1] dark:hover:bg-[#3b3a39]">Cerrar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal: compartir con enlace */}
       {compartirModal && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setCompartirModal(null)}>
@@ -540,6 +745,39 @@ export function FilesView() {
                 {compartirModal.creando ? 'Creando…' : 'Crear y copiar enlace'}
               </button>
               <div className="text-[11px] text-[#a19f9d]">Cualquiera con el enlace podrá descargar el archivo (con la clave, si le pusiste una).</div>
+            </div>
+            <div className="p-4 border-b border-[#f3f2f1] dark:border-[#3b3a39] space-y-2">
+              <div className="text-xs font-semibold text-[#323130] dark:text-[#e0e0e0]">Compartir con una persona</div>
+              <div className="relative">
+                <input value={persona.correo}
+                  onChange={e => setPersona(p => ({ ...p, correo: e.target.value }))}
+                  placeholder="Nombre o correo (interno o externo)"
+                  title="Escribe un nombre para buscar en el directorio, o un correo completo"
+                  className="w-full px-2 py-1.5 rounded border border-[#8a8886] text-sm bg-white dark:bg-[#1b1a19] text-[#323130] dark:text-[#e0e0e0]" />
+                {sugerencias.length > 0 && (
+                  <div className="absolute z-10 left-0 right-0 mt-1 bg-white dark:bg-[#252423] border border-[#edebe9] dark:border-[#3b3a39] rounded shadow-lg max-h-40 overflow-y-auto">
+                    {sugerencias.map(u => (
+                      <button key={u.id} onClick={() => { setPersona(p => ({ ...p, correo: u.email || '' })); setSugerencias([]); }}
+                        className="block w-full text-left px-3 py-1.5 text-sm text-[#323130] dark:text-[#e0e0e0] hover:bg-[#f3f2f1] dark:hover:bg-[#3b3a39]">
+                        {u.nombre} <span className="text-xs text-[#a19f9d]">{u.email || ''}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-2 items-center">
+                <select value={persona.rol} onChange={e => setPersona(p => ({ ...p, rol: e.target.value }))}
+                  title="Lector: puede descargar. Editor: además podrá editar cuando se habilite la edición por enlace."
+                  className="px-2 py-1 rounded border border-[#8a8886] text-sm bg-white dark:bg-[#1b1a19] text-[#323130] dark:text-[#e0e0e0]">
+                  <option value="lector">Lector</option>
+                  <option value="editor">Editor</option>
+                </select>
+                <button onClick={compartirConPersona} disabled={compartirModal.creando}
+                  title="Crea el enlace para esa persona y abre el correo listo para enviárselo"
+                  className="flex-1 px-3 py-1.5 rounded text-sm font-semibold border border-[#0078d4] text-[#0078d4] hover:bg-[#deecf9] dark:hover:bg-[#004578] disabled:opacity-50">
+                  ✉️ Compartir y enviar por correo
+                </button>
+              </div>
             </div>
             <div className="flex-1 overflow-y-auto p-2">
               {compartirModal.shares.length === 0 ? (

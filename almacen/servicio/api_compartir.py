@@ -149,6 +149,7 @@ def buscar_usuarios():
 
     filas = consultar("""
         SELECT u.username AS id,
+               u.id AS usuario_id,
                COALESCE(t.nombres || ' ' || t.apellidos, u.full_name, u.username) AS nombre,
                COALESCE(u.email, '') AS email
         FROM usuarios u
@@ -161,7 +162,7 @@ def buscar_usuarios():
         LIMIT %s
     """, (consulta, consulta, consulta, limite), nomina=True)
 
-    usuarios = [{'id': f['id'], 'nombre': f['nombre'], 'email': f['email'],
-                 'tipo': 'usuario'} for f in filas]
+    usuarios = [{'id': f['id'], 'usuario_id': f['usuario_id'], 'nombre': f['nombre'],
+                 'email': f['email'], 'tipo': 'usuario'} for f in filas]
     return jsonify({'success': True, 'usuarios': usuarios, 'grupos': [],
                     'total': len(usuarios)})
