@@ -1,4 +1,5 @@
 import React, { useEffect } from "react";
+import { ChatFlotante } from '../chat/ChatFlotante';
 import { useLocation } from "react-router-dom";
 import { Topbar } from "./Topbar";
 import { NavRail } from "./NavRail";
@@ -74,6 +75,7 @@ export function AppLayout() {
       </a>
       <OfflineBanner />
       <Topbar />
+      <ChatFlotante />
       <div className="flex-1 flex overflow-hidden">
         {/* Desktop: show NavRail always, Sidebar only for mail */}
         {!isMobile && <nav role="navigation" aria-label="Navegación principal"><NavRail /></nav>}
