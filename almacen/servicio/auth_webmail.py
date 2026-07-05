@@ -92,6 +92,32 @@ def _sesion_viva(username: str) -> bool:
         return False
 
 
+def sesion_actual() -> tuple:
+    """(usuario_id, rol, correo_canonico) de la cookie, o (None, None, None).
+    Para las páginas web que necesitan mostrar quién es (el explorador)."""
+    if not _SECRETO:
+        return None, None, None
+    token = request.cookies.get('access_token')
+    if not token:
+        return None, None, None
+    try:
+        payload = jwt.decode(token, _SECRETO, algorithms=['HS256'])
+    except jwt.PyJWTError:
+        return None, None, None
+    if payload.get('type') != 'access':
+        return None, None, None
+    username = (payload.get('sub') or '').strip().lower()
+    if not username or not _sesion_viva(username):
+        return None, None, None
+    from alias_correo import resolver_alias
+    username = resolver_alias(username)
+    if _PILOTO and username not in _PILOTO and username not in _ADMINS:
+        return None, None, None
+    uid, rol = (_buscar_en_nomina(username) if _MODO == 'nomina'
+                else _obtener_o_crear_local(username))
+    return uid, rol, username
+
+
 def usuario_webmail() -> tuple:
     """Valida la cookie del webmail. Devuelve (usuario_id, role) o (None, None)."""
     if not _SECRETO:

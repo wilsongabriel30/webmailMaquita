@@ -41,6 +41,9 @@ _EXENTAS = (
     '/api/almacen/publico-info/',           # datos del enlace (misma seguridad)
     '/api/almacen/onlyoffice/config-public',  # editor por enlace (token + clave)
     '/almacen-s/',              # página del enlace compartido
+    '/archivos-almacen',        # páginas del explorador (redirigen a login solas)
+    '/drive',                   # acceso corto del producto
+    '/almacen-static/',         # css/js del explorador
     '/healthz',
 )
 
@@ -49,7 +52,11 @@ def crear_app_webmail() -> Flask:
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s %(name)s %(levelname)s %(message)s')
 
-    app = Flask('almacen_webmail')
+    base = os.path.dirname(os.path.abspath(__file__))
+    app = Flask('almacen_webmail',
+                template_folder=os.path.join(base, 'plantillas'),
+                static_folder=os.path.join(base, 'estaticos'),
+                static_url_path='/almacen-static')
     app.secret_key = CLAVE_SESION
     app.config['MAX_CONTENT_LENGTH'] = TAMANO_MAX_SUBIDA
 
@@ -74,6 +81,20 @@ def crear_app_webmail() -> Flask:
                bp_alias):
         app.register_blueprint(bp, url_prefix='/api/almacen')
     app.register_blueprint(bp_onlyoffice_web)   # /archivos-almacen/editar
+
+    # El template del explorador viene del sistema mayor y enlaza a modulos
+    # que aqui no existen (helpdesk, etc.): esos enlaces van al correo en vez
+    # de tumbar el render con BuildError.
+    from flask import url_for as _url_for_real
+
+    @app.context_processor
+    def _url_for_tolerante():
+        def url_for(endpoint, **valores):
+            try:
+                return _url_for_real(endpoint, **valores)
+            except Exception:
+                return '/webmail'
+        return {'url_for': url_for}
 
     @app.before_request
     def _candado_webmail():
@@ -185,6 +206,65 @@ def crear_app_webmail() -> Flask:
  cargarInfo();
 </script></body></html>"""
         return html, 200, {'Content-Type': 'text/html; charset=utf-8'}
+
+    # ── Explorador web (el template estilo Drive del equipo) ─────────────
+    # El menú lateral del template enlaza a /archivos-almacen/<vista>; /drive
+    # es el acceso corto de producto (nginx: mail.dominio/drive llega aquí).
+    _VISTAS_ESPECIALES = ('compartidos', 'recientes', 'favoritos', 'papelera')
+
+    @app.route('/drive')
+    @app.route('/drive/', endpoint='drive_barra')
+    def drive():
+        from flask import redirect
+        return redirect('/archivos-almacen', code=302)
+
+    # El template trae {{ url_for('home') }} (volver al inicio): aquí el
+    # inicio es el correo.
+    @app.route('/webmail-inicio', endpoint='home')
+    def _home():
+        from flask import redirect
+        return redirect('/webmail', code=302)
+
+    class _UsuarioPlantilla:
+        """current_user mínimo que consume el template del explorador."""
+        def __init__(self, correo, rol):
+            self.username = correo
+            self.nombre = correo.split('@')[0].replace('.', ' ').title()
+            self.email = correo
+            self.role = rol or 'user'
+            self.profile_picture = ''
+            self.is_authenticated = True
+
+    @app.route('/archivos-almacen')
+    @app.route('/archivos-almacen/<path:ruta>')
+    def explorador_web(ruta=''):
+        from flask import render_template
+        from auth_webmail import sesion_actual
+        uid, rol, correo = sesion_actual()
+        if not uid:
+            from flask import redirect
+            return redirect('/webmail/login', code=302)
+        ruta = (ruta or '').strip('/')
+        primera = ruta.split('/')[0] if ruta else ''
+        if primera in _VISTAS_ESPECIALES:
+            vista, ruta_inicial = primera, '/'
+        elif primera == 'mi-unidad':
+            vista, ruta_inicial = 'archivos', '/'
+        else:
+            vista, ruta_inicial = 'archivos', '/' + ruta
+        subperms = {k: True for k in ('mi_unidad', 'compartidos', 'recientes',
+                                      'favoritos', 'papelera')}
+        return render_template(
+            'nextcloud/explorador.html',
+            ruta_inicial=ruta_inicial,
+            vista=vista,
+            usuario_nextcloud='',
+            modulos_disponibles={},
+            nube_subperms=subperms,
+            almacen_modo=True,
+            current_user=_UsuarioPlantilla(correo, rol),
+            usuario=_UsuarioPlantilla(correo, rol),
+        )
 
     @app.get('/almacen-s/<token>/editar')
     def editor_publico(token):

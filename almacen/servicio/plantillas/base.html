@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+{# base.html MÍNIMO para el explorador del Almacén en el webmail.
+   El template del explorador viene del sistema mayor (FARO), donde extiende un
+   base con chat/notificaciones. Aquí solo hace falta el esqueleto: el
+   explorador trae su propio encabezado, menús y estilos. #}
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Archivos{% endblock %}</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Google Sans', 'Segoe UI', Roboto, sans-serif; }
+  </style>
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+  {% block content %}{% endblock %}
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,1381 @@
+{% extends "base.html" %}
+{% set nube_subperms = nube_subperms | default({}) %}
+
+{% block title %}Mi unidad - Nube Maquita{% endblock %}
+
+{% block extra_css %}
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/nextcloud/explorador.css') }}?v=20260610k">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/nextcloud/explorador-compartir.css') }}?v=20260703">
+{% endblock %}
+
+{% block content %}
+<!-- Drop Zone -->
+<div class="gd-drop-zone" id="dropZone">
+    <span class="material-icons">cloud_upload</span>
+    <p>Suelta los archivos para subirlos a Nube Maquita</p>
+</div>
+
+<!-- Header Optimizado -->
+<header class="gd-header">
+    <!-- Logo Nube Maquita -->
+    <div class="gd-header-logo" onclick="navegarA('/')">
+        <div class="drive-icon">
+            <img src="{{ url_for('static', filename='favicon.ico') }}" alt="Maquita" style="width: 36px; height: 36px;">
+        </div>
+        <span>Nube</span>
+    </div>
+
+    <!-- Buscador estilo Google Drive -->
+    <div class="gd-search">
+        <div class="gd-search-box">
+            <span class="material-icons">search</span>
+            <input type="text" placeholder="Buscar en Nube" id="searchInput" autocomplete="off" onkeyup="buscarArchivos(this.value)">
+            <span class="material-icons" style="display: none; cursor: pointer;" id="searchClear" onclick="limpiarBusqueda()">close</span>
+            <div class="search-filter-btn" title="Filtros de búsqueda" onclick="mostrarFiltrosBusqueda()">
+                <span class="material-icons">tune</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Acciones de header -->
+    <div class="gd-header-actions">
+        <!-- IA Maquita - Botón Mejorar (En desarrollo) -->
+        <button class="gd-ia-btn" onclick="abrirIAMaquita()" title="IA Maquita - En desarrollo">
+            <span class="material-icons">auto_awesome</span>
+            <span class="gd-ia-btn-text">Mejorar</span>
+        </button>
+        <!-- Estado de sincronización -->
+        <button class="gd-icon-btn" id="syncStatusBtn" title="Sincronizado">
+            <span class="material-icons gd-sync-status" id="syncStatusIcon">check_circle</span>
+        </button>
+        <!-- Chat / Messenger -->
+        <div class="dropdown" style="position:relative;">
+            <a class="gd-icon-btn position-relative" href="#" data-bs-toggle="dropdown" title="Messenger"
+               onclick="cargarMensajesMessengerNC();">
+                <i class="fab fa-facebook-messenger" style="font-size:1.2rem;"></i>
+                <span id="chatBadgeNC" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size:.55rem;display:none;">0</span>
+            </a>
+            <div class="dropdown-menu dropdown-menu-end messenger-dropdown" style="min-width:340px;">
+                <div class="messenger-header">
+                    <h5 class="messenger-title">Chats</h5>
+                    <div class="messenger-header-actions">
+                        <button class="messenger-action-btn" title="Expandir" onclick="event.stopPropagation(); window.location.href='/chat/';">
+                            <i class="fas fa-expand-alt"></i>
+                        </button>
+                        <button class="messenger-action-btn" title="Nuevo mensaje" onclick="event.stopPropagation(); window.location.href='/chat/';">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="messenger-search">
+                    <div class="messenger-search-input">
+                        <i class="fas fa-search"></i>
+                        <input type="text" placeholder="Buscar en Messenger" id="ncSearchInput" oninput="filtrarChatsNC(this.value)">
+                    </div>
+                </div>
+                <div class="messenger-chat-list" id="ncChatList">
+                    <div class="text-center py-4">
+                        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                        <p class="mb-0 small mt-2 text-muted">Cargando chats...</p>
+                    </div>
+                </div>
+                <div class="messenger-footer">
+                    <a href="/chat/" class="messenger-footer-link">Ver todo en Messenger</a>
+                </div>
+            </div>
+        </div>
+        <!-- Mesa de Ayuda -->
+        <a class="gd-icon-btn" href="{{ url_for('helpdesk.index') }}" title="Mesa de Ayuda - Soporte Técnico">
+            <i class="fas fa-headset" style="font-size:1.1rem;"></i>
+        </a>
+        <!-- Ayuda -->
+        <button class="gd-icon-btn" title="Soporte">
+            <span class="material-icons">help_outline</span>
+        </button>
+        <!-- Configuración -->
+        <div style="position: relative;">
+            <button class="gd-icon-btn" onclick="toggleConfigMenu()" title="Configuración" id="btnConfig">
+                <span class="material-icons">settings</span>
+            </button>
+            <div class="gd-config-menu" id="configMenu">
+                <div class="gd-config-item" onclick="abrirConfiguracion()">
+                    <span class="material-icons">settings</span>
+                    <span>Configuración</span>
+                </div>
+                <div class="gd-config-item" onclick="restaurarVersiones()">
+                    <span class="material-icons">history</span>
+                    <span>Restaurar versiones de archivos</span>
+                </div>
+                <div class="gd-config-divider"></div>
+                <div class="gd-config-item" onclick="instalarAppEscritorio()">
+                    <span class="material-icons">computer</span>
+                    <span>Instala Nube para ordenadores</span>
+                </div>
+                <div class="gd-config-divider"></div>
+                <div class="gd-config-item" onclick="mostrarAtajosTeclado()">
+                    <span class="material-icons">keyboard</span>
+                    <span>Combinaciones de teclas</span>
+                </div>
+            </div>
+        </div>
+        <!-- Menú de Apps -->
+        <div style="position: relative;">
+            <button class="gd-icon-btn" onclick="toggleAppsMenu()" title="Aplicaciones FARO" id="btnApps">
+                <span class="material-icons">apps</span>
+            </button>
+
+            <div class="gd-apps-menu" id="appsMenu">
+                <div class="gd-apps-menu-header">
+                    <h4>Aplicaciones FARO</h4>
+                    <a href="{{ url_for('home') }}">Ver todas</a>
+                </div>
+                <div class="gd-apps-grid">
+                    {% if modulos_disponibles %}
+                        {# Iterar dinámicamente sobre todos los módulos visibles #}
+                        {% for codigo, modulo in modulos_disponibles.items() %}
+                            {% if modulo is mapping and modulo.get('visible', False) and modulo.get('activo', True) %}
+                            <a href="{{ modulo.get('url', '/' ~ codigo ~ '/') }}" class="gd-app-item {% if codigo == 'nube' %}current{% endif %}">
+                                <div class="gd-app-item-icon" style="background: {{ modulo.get('color', '#0061a1') }};">
+                                    <i class="{{ modulo.get('icono', 'fas fa-cube') }}"></i>
+                                </div>
+                                <span class="gd-app-item-name">{{ modulo.get('nombre', codigo|title) }}</span>
+                            </a>
+                            {% elif modulo == True %}
+                            {# Compatibilidad con formato booleano simple #}
+                            <a href="/{{ codigo }}/" class="gd-app-item {% if codigo == 'nube' %}current{% endif %}">
+                                <div class="gd-app-item-icon" style="background: var(--primary-color, #0061a1);">
+                                    <i class="fas fa-cube"></i>
+                                </div>
+                                <span class="gd-app-item-name">{{ codigo|title }}</span>
+                            </a>
+                            {% endif %}
+                        {% endfor %}
+                    {% else %}
+                        <!-- Fallback si no hay modulos_disponibles -->
+                        <a href="/herramientas/" class="gd-app-item">
+                            <div class="gd-app-item-icon" style="background: #667eea;">
+                                <i class="fas fa-toolbox"></i>
+                            </div>
+                            <span class="gd-app-item-name">Herramientas</span>
+                        </a>
+                        <a href="{{ '/archivos-almacen' if almacen_modo else '/archivos/' }}" class="gd-app-item current">
+                            <div class="gd-app-item-icon" style="background: #4285f4;">
+                                <i class="fas fa-cloud"></i>
+                            </div>
+                            <span class="gd-app-item-name">Nube Maquita</span>
+                        </a>
+                    {% endif %}
+
+                    <!-- Siempre mostrar enlace al Inicio -->
+                    <a href="{{ url_for('home') }}" class="gd-app-item">
+                        <div class="gd-app-item-icon" style="background: var(--primary-color, #0061a1);">
+                            <i class="fas fa-home"></i>
+                        </div>
+                        <span class="gd-app-item-name">Inicio</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Avatar con menú desplegable -->
+        <div class="user-dropdown dropdown">
+            <div class="user-avatar" data-bs-toggle="dropdown" aria-expanded="false" title="{{ current_user.username if current_user else 'Usuario' }}" style="width: 36px; height: 36px; overflow: hidden;">
+                {% if trabajador_foto_perfil %}
+                <img src="{{ url_for('static', filename=trabajador_foto_perfil) }}"
+                     alt="{{ current_user.username if current_user else 'U' }}"
+                     style="width: 100%; height: 100%; object-fit: cover; background: white;"
+                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <span style="display: none;">{{ current_user.username[:2].upper() if current_user else 'U' }}</span>
+                {% elif current_user and current_user.profile_picture %}
+                <img src="{{ url_for('static', filename='uploads/profiles/' ~ current_user.profile_picture) }}?v={{ current_user.profile_picture }}"
+                     alt="{{ current_user.username }}"
+                     style="width: 100%; height: 100%; object-fit: cover; background: white;"
+                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <span style="display: none;">{{ current_user.username[:2].upper() }}</span>
+                {% else %}
+                {{ current_user.username[:2].upper() if current_user else 'U' }}
+                {% endif %}
+            </div>
+
+            <ul class="dropdown-menu dropdown-menu-end shadow" style="min-width: 280px;">
+                <li class="dropdown-header">
+                    <div class="d-flex align-items-center">
+                        <div class="user-avatar me-2" style="width: 40px; height: 40px; overflow: hidden;">
+                            {% if trabajador_foto_perfil %}
+                            <img src="{{ url_for('static', filename=trabajador_foto_perfil) }}"
+                                 alt="{{ current_user.username if current_user else 'U' }}"
+                                 style="width: 100%; height: 100%; object-fit: cover; background: white;">
+                            {% elif current_user and current_user.profile_picture %}
+                            <img src="{{ url_for('static', filename='uploads/profiles/' ~ current_user.profile_picture) }}"
+                                 alt="{{ current_user.username }}"
+                                 style="width: 100%; height: 100%; object-fit: cover; background: white;">
+                            {% else %}
+                            {{ current_user.username[:2].upper() if current_user else 'U' }}
+                            {% endif %}
+                        </div>
+                        <div>
+                            <div class="fw-bold">{{ current_user.username if current_user else 'Usuario' }}</div>
+                            <small class="text-muted">{{ current_user.email if current_user else '' }}</small>
+                        </div>
+                    </div>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                    <a class="dropdown-item" href="{{ url_for('auth.profile') }}">
+                        <i class="fas fa-user me-2"></i> Mi Perfil
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="{{ url_for('autenticacion.configuracion_usuario') }}">
+                        <i class="fas fa-cog me-2"></i> Configuración
+                    </a>
+                </li>
+                {% if current_user and (current_user.role == 'master' or current_user.role == 'master_admin') %}
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                    <a class="dropdown-item text-primary fw-bold" href="{{ url_for('admin.dashboard') }}">
+                        <i class="fas fa-shield-alt me-2"></i> Panel de Administración
+                    </a>
+                </li>
+                {% endif %}
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                    <a class="dropdown-item text-danger" href="#" onclick="confirmLogout()">
+                        <i class="fas fa-sign-out-alt me-2"></i> Cerrar Sesión
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</header>
+
+<!-- Layout -->
+<div class="gd-layout">
+    <!-- Sidebar -->
+    <aside class="gd-sidebar">
+        <!-- Botón Nuevo -->
+        <div style="position: relative;">
+            <button class="gd-btn-new" id="btnNew" onclick="toggleNewMenu()">
+                <span class="plus-icon">
+                    <span class="material-icons add-icon">add</span>
+                </span>
+                <span>Nuevo</span>
+            </button>
+
+            <!-- Menú Nuevo - Estilo Google Drive -->
+            <div class="gd-new-menu" id="newMenu">
+                <div class="gd-new-menu-item" onclick="crearCarpeta()">
+                    <span class="material-icons" style="color: #5f6368;">create_new_folder</span>
+                    <span class="item-label">Nueva carpeta</span>
+                    <span class="item-shortcut">Alt+C, F</span>
+                </div>
+                <div class="gd-menu-divider"></div>
+                <div class="gd-new-menu-item" onclick="document.getElementById('fileInput').click()">
+                    <span class="material-icons" style="color: #5f6368;">upload_file</span>
+                    <span class="item-label">Subir archivo</span>
+                    <span class="item-shortcut">Alt+C, U</span>
+                </div>
+                <div class="gd-new-menu-item" onclick="document.getElementById('folderInput').click()">
+                    <span class="material-icons" style="color: #5f6368;">drive_folder_upload</span>
+                    <span class="item-label">Subir carpeta</span>
+                    <span class="item-shortcut">Alt+C, I</span>
+                </div>
+                <div class="gd-menu-divider"></div>
+                <!-- Documentos (clic directo, estilo Google Drive) -->
+                <div class="gd-new-menu-item" onclick="crearDocumento('documento')">
+                    <span class="material-icons" style="color: #2b579a;">description</span>
+                    <span class="item-label">Documento (Word)</span>
+                </div>
+                <div class="gd-new-menu-item" onclick="crearDocumento('hoja')">
+                    <span class="material-icons" style="color: #0f9d58;">grid_on</span>
+                    <span class="item-label">Hoja de cálculo (Excel)</span>
+                </div>
+                <div class="gd-new-menu-item" onclick="crearDocumento('presentacion')">
+                    <span class="material-icons" style="color: #d93025;">slideshow</span>
+                    <span class="item-label">Presentación (PowerPoint)</span>
+                </div>
+                <div class="gd-new-menu-item" onclick="crearDocumento('texto')">
+                    <span class="material-icons" style="color: #5f6368;">article</span>
+                    <span class="item-label">Archivo de texto</span>
+                </div>
+                <div class="gd-new-menu-item" onclick="crearDocumento('diagrama')">
+                    <span class="material-icons" style="color: #f08705;">account_tree</span>
+                    <span class="item-label">Diagrama (Draw.io)</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navegación Principal -->
+        <nav class="gd-nav">
+            <a href="{{ '/archivos-almacen' if almacen_modo else url_for('nextcloud_web.principal') }}" class="gd-nav-item" id="navPaginaPrincipal">
+                <span class="material-icons">home</span>
+                <span>Página principal</span>
+            </a>
+{% if nube_subperms.get('mi_unidad') %}
+            <a href="{{ '/archivos-almacen' if almacen_modo else url_for('nextcloud_web.explorador') }}" class="gd-nav-item" id="navMiUnidad">
+                <span class="gd-tree-toggle material-icons" onclick="event.preventDefault();event.stopPropagation();_toggleSidebarRoot(this)" style="font-size:18px;color:#5f6368;width:18px;margin-right:0;">expand_more</span>
+                <span class="material-icons">folder</span>
+                <span>Mi unidad</span>
+            </a>
+            <div id="sidebarTree" class="gd-tree"></div>
+{% endif %}
+{% if not almacen_modo %}
+            <a href="https://nextcloud.com/install/#install-clients" target="_blank" class="gd-nav-item" id="navOrdenadores">
+                <span class="material-icons">computer</span>
+                <span>Descargar cliente</span>
+            </a>
+{% endif %}
+            <a href="#" class="gd-nav-item" id="navMiPerfil" onclick="event.preventDefault(); abrirPanelPerfil();">
+                <span class="material-icons">account_circle</span>
+                <span>Mi perfil</span>
+            </a>
+{% if almacen_modo %}
+            <a href="#" class="gd-nav-item" id="navConfigAlmacen" onclick="event.preventDefault(); abrirConfigAlmacen();">
+                <span class="material-icons">settings</span>
+                <span>Configuración</span>
+            </a>
+{% endif %}
+        </nav>
+
+        <div class="gd-nav-divider"></div>
+
+        <nav class="gd-nav">
+{% if nube_subperms.get('compartidos') %}
+            <a href="{{ '/archivos-almacen/compartidos' if almacen_modo else url_for('nextcloud_web.compartidos') }}" class="gd-nav-item" id="navCompartido">
+                <span class="material-icons">people</span>
+                <span>Compartido conmigo</span>
+            </a>
+{% endif %}
+{% if nube_subperms.get('recientes') %}
+            <a href="{{ '/archivos-almacen/recientes' if almacen_modo else url_for('nextcloud_web.recientes') }}" class="gd-nav-item" id="navReciente">
+                <span class="material-icons">schedule</span>
+                <span>Reciente</span>
+            </a>
+{% endif %}
+{% if nube_subperms.get('favoritos') %}
+            <a href="{{ '/archivos-almacen/favoritos' if almacen_modo else url_for('nextcloud_web.favoritos') }}" class="gd-nav-item" id="navDestacados">
+                <span class="material-icons">star</span>
+                <span>Destacados</span>
+            </a>
+{% endif %}
+{% if almacen_modo %}
+            <a href="/archivos-almacen/unidades" class="gd-nav-item" id="navUnidades">
+                <span class="material-icons">groups</span>
+                <span>Unidades compartidas</span>
+            </a>
+{% endif %}
+        </nav>
+
+        <div class="gd-nav-divider"></div>
+
+        <nav class="gd-nav">
+            <a href="#" class="gd-nav-item" id="navSpam" onclick="event.preventDefault(); navegarASpam();">
+                <span class="material-icons">report</span>
+                <span>Spam</span>
+            </a>
+{% if nube_subperms.get('papelera') %}
+            <a href="{{ '/archivos-almacen/papelera' if almacen_modo else url_for('nextcloud_web.papelera') }}" class="gd-nav-item" id="navPapelera">
+                <span class="material-icons">delete</span>
+                <span>Papelera</span>
+            </a>
+{% endif %}
+        </nav>
+
+        <div class="gd-nav-divider"></div>
+
+        <!-- Almacenamiento - Google Drive Style -->
+        <div class="gd-storage">
+            <div class="gd-storage-header" onclick="mostrarDetallesAlmacenamiento()">
+                <span class="material-icons">cloud</span>
+                <span>Almacenamiento</span>
+            </div>
+            <!-- Barra segmentada por colores -->
+            <div class="gd-storage-bar">
+                <div class="segment drive" id="storageBarDrive" style="width: 0%"></div>
+                <div class="segment email" id="storageBarEmail" style="width: 0%"></div>
+                <div class="segment other" id="storageBarOther" style="width: 0%"></div>
+            </div>
+            <div class="gd-storage-text" id="storageText">Cargando...</div>
+            <!-- Leyenda de colores -->
+            <div class="gd-storage-legend">
+                <div class="gd-storage-legend-item">
+                    <span class="legend-dot drive"></span>
+                    <span>Nube Maquita</span>
+                </div>
+                <div class="gd-storage-legend-item">
+                    <span class="legend-dot email"></span>
+                    <a href="https://mail.maquita.com.ec" target="_blank">Email</a>
+                </div>
+                <div class="gd-storage-legend-item">
+                    <span class="legend-dot other"></span>
+                    <span>Otro</span>
+                </div>
+            </div>
+            <div class="gd-storage-actions">
+                <a class="gd-storage-link" href="#" onclick="event.preventDefault(); mostrarDetallesAlmacenamiento()">Obtener más almacenamiento</a>
+                <a class="gd-storage-link" href="#" onclick="event.preventDefault(); liberarEspacio()">Liberar espacio</a>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="gd-main">
+        <!-- Toolbar - Google Drive Style -->
+        <div class="gd-toolbar">
+            <!-- Section Header -->
+            <div class="gd-section-header">
+                <h1 id="sectionTitle">Mi unidad</h1>
+                <span class="material-icons">arrow_drop_down</span>
+            </div>
+
+            <!-- Breadcrumb (se muestra en subcarpetas) -->
+            <div class="gd-breadcrumb" id="breadcrumb" style="display: none;">
+                <a href="#" onclick="navegarA('/')">Mi unidad</a>
+            </div>
+
+            <!-- Filtros Google Drive Style -->
+            <div class="gd-filters">
+                <button class="gd-filter-btn" onclick="mostrarFiltroTipo()">
+                    Tipo
+                    <span class="material-icons">arrow_drop_down</span>
+                </button>
+                <button class="gd-filter-btn" onclick="mostrarFiltroPersonas()">
+                    Personas
+                    <span class="material-icons">arrow_drop_down</span>
+                </button>
+                <button class="gd-filter-btn" onclick="mostrarFiltroModificado()">
+                    Modificado
+                    <span class="material-icons">arrow_drop_down</span>
+                </button>
+                <button class="gd-filter-btn" onclick="mostrarFiltroFuente()">
+                    Fuente
+                    <span class="material-icons">arrow_drop_down</span>
+                </button>
+            </div>
+
+            <!-- Acciones del toolbar -->
+            <div class="gd-toolbar-actions">
+                <!-- Controles de vista -->
+                <div class="gd-view-controls">
+                    <button class="gd-view-btn" id="btnViewList" onclick="cambiarVista('lista')" title="Vista de lista">
+                        <span class="material-icons">view_list</span>
+                    </button>
+                    <button class="gd-view-btn active" id="btnViewGrid" onclick="cambiarVista('cuadricula')" title="Vista de cuadrícula">
+                        <span class="material-icons">grid_view</span>
+                    </button>
+                </div>
+
+                <!-- Info -->
+                <button class="gd-icon-btn" onclick="togglePanelInfo()" title="Información">
+                    <span class="material-icons">info</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Content -->
+        <div class="gd-content" id="content">
+            <!-- Loader con mensaje -->
+            <div class="gd-loader" id="loader">
+                <div class="spinner"></div>
+                <p class="loader-text">Cargando tu información...</p>
+            </div>
+
+            <!-- Página Principal - Dashboard Informativo -->
+            <div id="paginaPrincipal" style="display: none;">
+                <div class="dashboard-welcome">
+                    <div class="welcome-header">
+                        <h1>Bienvenido a Nube Maquita</h1>
+                        <p>Tu espacio de trabajo en la nube</p>
+                    </div>
+
+                    <div class="dashboard-grid">
+                        <!-- Acceso rápido -->
+{% if nube_subperms.get('mi_unidad') %}
+                        <div class="dashboard-card" onclick="window.location.href='{{ '/archivos-almacen' if almacen_modo else url_for('nextcloud_web.explorador') }}'">
+                            <div class="card-icon" style="background: #4285f4;">
+                                <span class="material-icons">folder</span>
+                            </div>
+                            <div class="card-content">
+                                <h3>Mi Unidad</h3>
+                                <p>Accede a todos tus archivos y carpetas</p>
+                            </div>
+                        </div>
+{% endif %}
+
+{% if nube_subperms.get('compartidos') %}
+                        <div class="dashboard-card" onclick="window.location.href='{{ '/archivos-almacen/compartidos' if almacen_modo else url_for('nextcloud_web.compartidos') }}'">
+                            <div class="card-icon" style="background: #34a853;">
+                                <span class="material-icons">people</span>
+                            </div>
+                            <div class="card-content">
+                                <h3>Compartido conmigo</h3>
+                                <p>Archivos que otros han compartido contigo</p>
+                            </div>
+                        </div>
+{% endif %}
+
+{% if nube_subperms.get('recientes') %}
+                        <div class="dashboard-card" onclick="window.location.href='{{ '/archivos-almacen/recientes' if almacen_modo else url_for('nextcloud_web.recientes') }}'">
+                            <div class="card-icon" style="background: #fbbc04;">
+                                <span class="material-icons">schedule</span>
+                            </div>
+                            <div class="card-content">
+                                <h3>Recientes</h3>
+                                <p>Archivos que has abierto recientemente</p>
+                            </div>
+                        </div>
+{% endif %}
+
+{% if nube_subperms.get('favoritos') %}
+                        <div class="dashboard-card" onclick="window.location.href='{{ '/archivos-almacen/favoritos' if almacen_modo else url_for('nextcloud_web.favoritos') }}'">
+                            <div class="card-icon" style="background: #ea4335;">
+                                <span class="material-icons">star</span>
+                            </div>
+                            <div class="card-content">
+                                <h3>Destacados</h3>
+                                <p>Tus archivos destacados</p>
+                            </div>
+                        </div>
+{% endif %}
+                    </div>
+
+                    <!-- Archivos recientes -->
+                    <div class="dashboard-section">
+                        <h2><span class="material-icons">history</span> Actividad reciente</h2>
+                        <div id="actividadReciente" class="activity-list">
+                            <p class="loading-text">Cargando actividad reciente...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Secciones de archivos -->
+            <div id="filesContainer" style="display: none;">
+                <!-- Grilla única compartida: carpetas y archivos alineados -->
+                <div class="gd-main-grid" id="mainGrid">
+                    <!-- Carpetas (primero, ocupan filas completas antes de archivos) -->
+                    <div class="gd-grid-group" id="foldersBlock"></div>
+                    <!-- Archivos (después) -->
+                    <div class="gd-grid-group" id="filesBlock"></div>
+                </div>
+
+                <!-- Legacy -->
+                <div id="unifiedGrid" style="display:none;"></div>
+                <section class="gd-section" id="foldersSection" style="display:none;"></section>
+                <section class="gd-section" id="filesSection" style="display:none;"></section>
+
+                <!-- Vista lista -->
+                <table class="gd-list" id="listView">
+                    <thead>
+                        <tr>
+                            <th class="sorted" data-sort="nombre" onclick="ordenarLista('nombre')">
+                                <div class="th-content">
+                                    Nombre
+                                    <span class="material-icons sort-icon">arrow_upward</span>
+                                </div>
+                            </th>
+                            <th data-sort="propietario" onclick="ordenarLista('propietario')">
+                                <div class="th-content">
+                                    Propietario
+                                    <span class="material-icons sort-icon">arrow_upward</span>
+                                </div>
+                            </th>
+                            <th data-sort="modificado" onclick="ordenarLista('modificado')">
+                                <div class="th-content">
+                                    Última modificación
+                                    <span class="material-icons sort-icon">arrow_upward</span>
+                                </div>
+                            </th>
+                            <th data-sort="tamano" onclick="ordenarLista('tamano')">
+                                <div class="th-content">
+                                    Tamaño del archivo
+                                    <span class="material-icons sort-icon">arrow_upward</span>
+                                </div>
+                            </th>
+                            <th style="width: 100px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="listBody"></tbody>
+                </table>
+            </div>
+
+            <!-- Empty state -->
+            <div class="gd-empty" id="emptyState" style="display: none;">
+                <img src="https://ssl.gstatic.com/docs/doclist/images/empty_state_my_drive_v2.svg" alt="">
+                <h2>Bienvenido a Nube Maquita</h2>
+                <p>Arrastra archivos y carpetas aquí, o usa el botón "Nuevo"</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Panel lateral derecho - Estilo Google Drive -->
+    <aside class="gd-right-panel" id="rightPanel">
+        <!-- Panel colapsado (iconos) -->
+        <div class="gd-right-panel-collapsed" id="rightPanelCollapsed">
+            <button class="gd-right-panel-btn" onclick="abrirCalendario()" title="Maquita Calendario">
+                <span class="material-icons">calendar_today</span>
+            </button>
+            <button class="gd-right-panel-btn" onclick="abrirNotas()" title="Maquita Notas">
+                <span class="material-icons">lightbulb</span>
+            </button>
+            <button class="gd-right-panel-btn" onclick="abrirTareas()" title="Maquita Tareas">
+                <span class="material-icons">check_circle</span>
+            </button>
+            <button class="gd-right-panel-btn" onclick="abrirContactos()" title="Contactos">
+                <span class="material-icons">contacts</span>
+            </button>
+            <div class="gd-right-panel-divider"></div>
+            <button class="gd-right-panel-btn gd-ia-chat-btn" onclick="abrirIAChat()" title="Maquita IA - Asistente de ayuda">
+                <span class="material-icons">smart_toy</span>
+            </button>
+            <div class="gd-right-panel-divider"></div>
+            <button class="gd-right-panel-btn" onclick="mostrarComplementos()" title="Obtener complementos">
+                <span class="material-icons">add</span>
+            </button>
+        </div>
+
+        <!-- Panel expandido (contenido) -->
+        <div class="gd-right-panel-expanded" id="rightPanelExpanded">
+            <div class="gd-right-panel-header">
+                <h3 id="rightPanelTitle">Detalles</h3>
+                <button class="gd-icon-btn" onclick="cerrarPanelDerecho()">
+                    <span class="material-icons">close</span>
+                </button>
+            </div>
+            <div class="gd-right-panel-content" id="rightPanelContent">
+                <!-- Contenido dinámico -->
+            </div>
+        </div>
+    </aside>
+
+    <!-- Botón toggle panel lateral -->
+    <button class="gd-panel-toggle" id="panelToggle" onclick="togglePanelLateral()" data-tooltip="Ocultar panel lateral">
+        <span class="material-icons">chevron_right</span>
+    </button>
+</div>
+
+<!-- Modal de Búsqueda Avanzada - Estilo Google Drive -->
+<div class="gd-search-modal" id="searchModal">
+    <div class="gd-search-modal-content">
+        <div class="gd-search-modal-header">
+            <h3>Búsqueda avanzada</h3>
+            <button class="gd-icon-btn" onclick="cerrarBusquedaAvanzada()">
+                <span class="material-icons">close</span>
+            </button>
+        </div>
+        <div class="gd-search-modal-body">
+            <div class="gd-search-field">
+                <label>Tipo</label>
+                <select id="searchType">
+                    <option value="">Cualquiera</option>
+                    <option value="carpeta">Carpetas</option>
+                    <option value="documento">Documentos</option>
+                    <option value="hoja">Hojas de cálculo</option>
+                    <option value="presentacion">Presentaciones</option>
+                    <option value="pdf">PDF</option>
+                    <option value="imagen">Imágenes</option>
+                    <option value="video">Videos</option>
+                    <option value="audio">Audio</option>
+                    <option value="archivo">Archivos comprimidos</option>
+                </select>
+            </div>
+            <div class="gd-search-field">
+                <label>Propietario</label>
+                <select id="searchOwner">
+                    <option value="">Cualquiera</option>
+                    <option value="yo">De mi propiedad</option>
+                    <option value="compartido">Compartidos conmigo</option>
+                </select>
+            </div>
+            <div class="gd-search-field">
+                <label>Contiene las palabras</label>
+                <input type="text" id="searchWords" placeholder="Buscar palabras en el contenido...">
+            </div>
+            <div class="gd-search-field">
+                <label>Nombre del elemento</label>
+                <input type="text" id="searchName" placeholder="Nombre exacto o parcial...">
+            </div>
+            <div class="gd-search-field">
+                <label>Ubicación</label>
+                <select id="searchLocation">
+                    <option value="">En cualquier lugar</option>
+                    <option value="mi-unidad">Mi unidad</option>
+                    <option value="compartido">Compartido conmigo</option>
+                    <option value="destacados">Destacados</option>
+                    <option value="papelera">Papelera</option>
+                </select>
+            </div>
+            <div class="gd-search-field">
+                <label>Fecha de modificación</label>
+                <select id="searchDate">
+                    <option value="">En cualquier momento</option>
+                    <option value="hoy">Hoy</option>
+                    <option value="semana">Últimos 7 días</option>
+                    <option value="mes">Últimos 30 días</option>
+                    <option value="año">Este año</option>
+                </select>
+            </div>
+            <div class="gd-search-field">
+                <label>Compartido con</label>
+                <input type="text" id="searchSharedWith" placeholder="Correo electrónico o nombre...">
+            </div>
+            <div class="gd-search-checkboxes">
+                <label class="gd-checkbox">
+                    <input type="checkbox" id="searchInTrash">
+                    <span>Incluir papelera</span>
+                </label>
+                <label class="gd-checkbox">
+                    <input type="checkbox" id="searchStarred">
+                    <span>Solo destacados</span>
+                </label>
+            </div>
+        </div>
+        <div class="gd-search-modal-footer">
+            <button class="gd-btn-secondary" onclick="restablecerBusquedaAvanzada()">Restablecer</button>
+            <button class="gd-btn-primary" onclick="ejecutarBusquedaAvanzada()">Buscar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Menú contextual - Estilo Nube Maquita con submenús -->
+<div class="gd-context-menu" id="contextMenu">
+    <!-- 1. Descargar -->
+    <div class="gd-context-item" onclick="descargarSeleccionado()">
+        <span class="material-icons">download</span>
+        <span class="ctx-label">Descargar</span>
+    </div>
+
+    <!-- 2. Cambiar nombre -->
+    <div class="gd-context-item" onclick="renombrarSeleccionado()">
+        <span class="material-icons">edit</span>
+        <span class="ctx-label">Cambiar nombre</span>
+        <span class="ctx-shortcut">Ctrl+Alt+E</span>
+    </div>
+
+    <div class="gd-context-divider"></div>
+
+    <!-- 3. Mover -->
+    <div class="gd-context-item" onclick="moverSeleccionado()">
+        <span class="material-icons">drive_file_move</span>
+        <span class="ctx-label">Mover a...</span>
+        <span class="ctx-shortcut">Ctrl+Alt+M</span>
+    </div>
+
+    <!-- 4. Copiar -->
+    <div class="gd-context-item" onclick="copiarSeleccionado()">
+        <span class="material-icons">content_copy</span>
+        <span class="ctx-label">Copiar a...</span>
+    </div>
+
+    <div class="gd-context-divider"></div>
+
+    <!-- 5. Compartir (submenú) -->
+    <div class="gd-context-item has-submenu" data-submenu="submenuCompartir">
+        <span class="material-icons">person_add</span>
+        <span class="ctx-label">Compartir</span>
+        <span class="material-icons ctx-arrow">chevron_right</span>
+    </div>
+
+    <!-- 6. Organizar (submenú) -->
+    <div class="gd-context-item has-submenu" data-submenu="submenuOrganizar">
+        <span class="material-icons">folder</span>
+        <span class="ctx-label">Organizar</span>
+        <span class="material-icons ctx-arrow">chevron_right</span>
+    </div>
+
+    <!-- 7. Color de la carpeta (submenú, solo carpetas) -->
+    <div class="gd-context-item has-submenu ctx-folder-only" data-submenu="submenuColor">
+        <span class="material-icons">palette</span>
+        <span class="ctx-label">Color de la carpeta</span>
+        <span class="material-icons ctx-arrow">chevron_right</span>
+    </div>
+
+    <div class="gd-context-divider"></div>
+
+    <!-- 8. Información (submenú) -->
+    <div class="gd-context-item has-submenu" data-submenu="submenuInfo">
+        <span class="material-icons">info</span>
+        <span class="ctx-label" id="ctxInfoLabel">Información del archivo</span>
+        <span class="material-icons ctx-arrow">chevron_right</span>
+    </div>
+
+    <div class="gd-context-divider"></div>
+
+    <!-- 9. Mover a la papelera -->
+    <div class="gd-context-item danger" onclick="eliminarSeleccionado()">
+        <span class="material-icons">delete</span>
+        <span class="ctx-label">Mover a la papelera</span>
+        <span class="ctx-shortcut">Delete</span>
+    </div>
+</div>
+
+<!-- Submenús del menú contextual -->
+<!-- Submenú Compartir -->
+<div class="gd-context-submenu" id="submenuCompartir">
+    <div class="gd-context-item" onclick="compartirSeleccionado()">
+        <span class="material-icons">share</span>
+        <span class="ctx-label">Compartir</span>
+    </div>
+    <div class="gd-context-item" onclick="copiarLinkSeleccionado()">
+        <span class="material-icons">link</span>
+        <span class="ctx-label">Copiar enlace</span>
+    </div>
+    <div class="gd-context-item" onclick="cambiarDuenoSeleccionado()">
+        <span class="material-icons">swap_horiz</span>
+        <span class="ctx-label">Cambiar de dueño</span>
+    </div>
+{% if almacen_modo %}
+    <div class="gd-context-item" onclick="compartirCorreoItem()">
+        <span class="material-icons">alternate_email</span>
+        <span class="ctx-label">Compartir con correo (externo)</span>
+    </div>
+    <div class="gd-context-item" onclick="comentariosItem()">
+        <span class="material-icons">comment</span>
+        <span class="ctx-label">Comentarios</span>
+    </div>
+    <div class="gd-context-item" onclick="versionesItem()">
+        <span class="material-icons">history</span>
+        <span class="ctx-label">Historial de versiones</span>
+    </div>
+{% endif %}
+</div>
+
+<!-- Submenú Organizar -->
+<div class="gd-context-submenu" id="submenuOrganizar">
+    <div class="gd-context-item" onclick="moverSeleccionado()">
+        <span class="material-icons">drive_file_move</span>
+        <span class="ctx-label">Mover</span>
+        <span class="ctx-shortcut">Ctrl+Alt+M</span>
+    </div>
+    <div class="gd-context-item" onclick="crearAccesoDirecto()">
+        <span class="material-icons">add_link</span>
+        <span class="ctx-label">Añadir acceso directo</span>
+        <span class="ctx-shortcut">Ctrl+Alt+R</span>
+    </div>
+    <div class="gd-context-item" onclick="toggleFavorito()">
+        <span class="material-icons" id="iconoDestacado">star_border</span>
+        <span class="ctx-label" id="labelDestacado">Añadir a Destacados</span>
+        <span class="ctx-shortcut">Ctrl+Alt+S</span>
+    </div>
+</div>
+
+<!-- Submenú Color de carpeta - 24 colores pasteles -->
+<div class="gd-context-submenu" id="submenuColor">
+    <div class="gd-color-grid">
+        <!-- Fila 1: Sin color + Pasteles fuertes -->
+        <button class="gd-color-btn" data-color="" title="Sin color" onclick="aplicarColorDirecto('')">
+            <span class="material-icons" style="font-size:14px;color:#5f6368;">block</span>
+        </button>
+        <button class="gd-color-btn" data-color="#ef9a9a" style="background:#ef9a9a" title="Rojo pastel" onclick="aplicarColorDirecto('#ef9a9a')"></button>
+        <button class="gd-color-btn" data-color="#f48fb1" style="background:#f48fb1" title="Rosa fuerte" onclick="aplicarColorDirecto('#f48fb1')"></button>
+        <button class="gd-color-btn" data-color="#ce93d8" style="background:#ce93d8" title="Púrpura pastel" onclick="aplicarColorDirecto('#ce93d8')"></button>
+        <button class="gd-color-btn" data-color="#b39ddb" style="background:#b39ddb" title="Violeta pastel" onclick="aplicarColorDirecto('#b39ddb')"></button>
+        <button class="gd-color-btn" data-color="#9fa8da" style="background:#9fa8da" title="Índigo pastel" onclick="aplicarColorDirecto('#9fa8da')"></button>
+        <!-- Fila 2: Azules y verdes pasteles fuertes -->
+        <button class="gd-color-btn" data-color="#90caf9" style="background:#90caf9" title="Azul pastel" onclick="aplicarColorDirecto('#90caf9')"></button>
+        <button class="gd-color-btn" data-color="#81d4fa" style="background:#81d4fa" title="Celeste pastel" onclick="aplicarColorDirecto('#81d4fa')"></button>
+        <button class="gd-color-btn" data-color="#80deea" style="background:#80deea" title="Cyan pastel" onclick="aplicarColorDirecto('#80deea')"></button>
+        <button class="gd-color-btn" data-color="#80cbc4" style="background:#80cbc4" title="Teal pastel" onclick="aplicarColorDirecto('#80cbc4')"></button>
+        <button class="gd-color-btn" data-color="#a5d6a7" style="background:#a5d6a7" title="Verde pastel" onclick="aplicarColorDirecto('#a5d6a7')"></button>
+        <button class="gd-color-btn" data-color="#c5e1a5" style="background:#c5e1a5" title="Lima pastel" onclick="aplicarColorDirecto('#c5e1a5')"></button>
+        <!-- Fila 3: Cálidos pasteles -->
+        <button class="gd-color-btn" data-color="#e6ee9c" style="background:#e6ee9c" title="Limón pastel" onclick="aplicarColorDirecto('#e6ee9c')"></button>
+        <button class="gd-color-btn" data-color="#fff59d" style="background:#fff59d" title="Amarillo pastel" onclick="aplicarColorDirecto('#fff59d')"></button>
+        <button class="gd-color-btn" data-color="#ffe082" style="background:#ffe082" title="Ámbar pastel" onclick="aplicarColorDirecto('#ffe082')"></button>
+        <button class="gd-color-btn" data-color="#ffcc80" style="background:#ffcc80" title="Naranja pastel" onclick="aplicarColorDirecto('#ffcc80')"></button>
+        <button class="gd-color-btn" data-color="#ffab91" style="background:#ffab91" title="Durazno pastel" onclick="aplicarColorDirecto('#ffab91')"></button>
+        <button class="gd-color-btn" data-color="#bcaaa4" style="background:#bcaaa4" title="Marrón pastel" onclick="aplicarColorDirecto('#bcaaa4')"></button>
+        <!-- Fila 4: Pasteles nobles/suaves -->
+        <button class="gd-color-btn" data-color="#b0bec5" style="background:#b0bec5" title="Gris azulado" onclick="aplicarColorDirecto('#b0bec5')"></button>
+        <button class="gd-color-btn" data-color="#d7ccc8" style="background:#d7ccc8" title="Beige suave" onclick="aplicarColorDirecto('#d7ccc8')"></button>
+        <button class="gd-color-btn" data-color="#e8d5b7" style="background:#e8d5b7" title="Arena suave" onclick="aplicarColorDirecto('#e8d5b7')"></button>
+        <button class="gd-color-btn" data-color="#c8e6c9" style="background:#c8e6c9" title="Menta suave" onclick="aplicarColorDirecto('#c8e6c9')"></button>
+        <button class="gd-color-btn" data-color="#b3e5fc" style="background:#b3e5fc" title="Cielo suave" onclick="aplicarColorDirecto('#b3e5fc')"></button>
+        <button class="gd-color-btn" data-color="#f8bbd9" style="background:#f8bbd9" title="Rosa suave" onclick="aplicarColorDirecto('#f8bbd9')"></button>
+    </div>
+</div>
+
+<!-- Submenú Información -->
+<div class="gd-context-submenu" id="submenuInfo">
+    <div class="gd-context-item" onclick="verDetalles()">
+        <span class="material-icons">description</span>
+        <span class="ctx-label">Detalles</span>
+        <span class="ctx-shortcut">I</span>
+    </div>
+    <div class="gd-context-item" onclick="verActividad()">
+        <span class="material-icons">history</span>
+        <span class="ctx-label">Actividad</span>
+    </div>
+    <div class="gd-context-item ctx-file-only" onclick="verVersiones()">
+        <span class="material-icons">restore</span>
+        <span class="ctx-label">Versiones</span>
+    </div>
+    <div class="gd-context-item ctx-folder-only" onclick="buscarEnCarpeta()">
+        <span class="material-icons">search</span>
+        <span class="ctx-label">Buscar en carpeta</span>
+    </div>
+</div>
+
+<!-- Barra de acciones para selección múltiple - Estilo Google Drive -->
+<div class="gd-selection-bar" id="selectionBar">
+    <button class="gd-selection-btn" onclick="seleccionarTodosVisible()" title="Seleccionar todos" style="margin-right:8px;background:#e3f2fd;border-radius:4px;padding:4px 10px;">
+        <span class="material-icons" style="font-size:18px;">select_all</span>
+        <span style="font-size:12px;margin-left:4px;">Todos</span>
+    </button>
+    <button class="gd-selection-close" onclick="limpiarSeleccion()">
+        <span class="material-icons">close</span>
+    </button>
+    <span class="gd-selection-count" id="selectionCount">1 seleccionado</span>
+    <div class="gd-selection-actions">
+        <button class="gd-selection-btn" onclick="compartirSeleccionados()" title="Compartir (Ctrl+Alt+A)">
+            <span class="material-icons">person_add</span>
+        </button>
+        <button class="gd-selection-btn" onclick="descargarSeleccionados()" title="Descargar">
+            <span class="material-icons">download</span>
+        </button>
+        <button class="gd-selection-btn" onclick="moverSeleccionados()" title="Mover (Ctrl+Alt+M)">
+            <span class="material-icons">drive_file_move</span>
+        </button>
+        <button class="gd-selection-btn" onclick="eliminarSeleccionados()" title="Quitar (Delete)">
+            <span class="material-icons">delete</span>
+        </button>
+        <button class="gd-selection-btn" onclick="copiarLinksSeleccionados()" title="Copiar enlaces">
+            <span class="material-icons">link</span>
+        </button>
+        <button class="gd-selection-btn" onclick="mostrarMasAcciones()" title="Más acciones">
+            <span class="material-icons">more_vert</span>
+        </button>
+    </div>
+</div>
+
+<!-- Inputs ocultos -->
+<input type="file" id="fileInput" multiple>
+<input type="file" id="folderInput" webkitdirectory directory multiple>
+
+<!-- Upload panel mejorado -->
+<div class="gd-upload-panel" id="uploadPanel">
+    <div class="gd-upload-header">
+        <div class="gd-upload-progress-circle" id="uploadProgressCircle">
+            <svg viewBox="0 0 36 36">
+                <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+                <path class="circle-progress" id="uploadCircleProgress" stroke-dasharray="0, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+                <text x="18" y="20.35" class="circle-text" id="uploadCircleText">0%</text>
+            </svg>
+        </div>
+        <div class="gd-upload-info">
+            <h4 id="uploadTitle">Subiendo archivos</h4>
+            <span class="gd-upload-counter" id="uploadCounter">0 de 0 archivos</span>
+        </div>
+        <button class="gd-icon-btn" onclick="cerrarUpload()">
+            <span class="material-icons">close</span>
+        </button>
+    </div>
+    <div id="uploadItems" class="gd-upload-items-list"></div>
+</div>
+
+<!-- Lightbox Visor de Archivos -->
+<div class="gd-lightbox" id="lightbox">
+    <!-- Barra superior -->
+    <div class="gd-lightbox-toolbar">
+        <div class="gd-lightbox-title" id="lightboxTitle">archivo.jpg</div>
+        <div class="gd-lightbox-actions">
+            <button class="gd-icon-btn" onclick="lightboxAbrir()" title="Abrir con OnlyOffice" id="btnLightboxAbrir">
+                <span class="material-icons">open_in_new</span>
+            </button>
+            <button class="gd-icon-btn" onclick="lightboxCompartir()" title="Compartir">
+                <span class="material-icons">share</span>
+            </button>
+            <button class="gd-icon-btn" onclick="lightboxImprimir()" title="Imprimir">
+                <span class="material-icons">print</span>
+            </button>
+            <button class="gd-icon-btn" onclick="lightboxDescargar()" title="Descargar">
+                <span class="material-icons">download</span>
+            </button>
+            <button class="gd-icon-btn" onclick="cerrarLightbox()" title="Cerrar">
+                <span class="material-icons">close</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Navegación lateral -->
+    <button class="gd-lightbox-nav gd-lightbox-prev" onclick="lightboxAnterior()">
+        <span class="material-icons">chevron_left</span>
+    </button>
+    <button class="gd-lightbox-nav gd-lightbox-next" onclick="lightboxSiguiente()">
+        <span class="material-icons">chevron_right</span>
+    </button>
+
+    <!-- Contenido central -->
+    <div class="gd-lightbox-content" id="lightboxContent">
+        <!-- Se llena dinámicamente según tipo de archivo -->
+    </div>
+</div>
+
+<!-- ============================================================================= -->
+<!-- MODAL DE COMPARTIR (Gobernanza de Información Institucional) -->
+<!-- ============================================================================= -->
+<div class="share-modal-overlay" id="shareModalOverlay" onclick="cerrarModalCompartir(event)">
+    <div class="share-modal" onclick="event.stopPropagation()">
+        <!-- Header -->
+        <div class="share-modal-header">
+            <h2 id="shareModalTitle">Compartir "archivo.pdf"</h2>
+            <button class="share-modal-close" onclick="cerrarModalCompartir()">
+                <span class="material-icons">close</span>
+            </button>
+        </div>
+
+        <!-- Contenido -->
+        <div class="share-modal-body">
+            <!-- ============================================ -->
+            <!-- SECCIÓN 1: AÑADIR PERSONAS ESPECÍFICAS -->
+            <!-- ============================================ -->
+            <div class="share-section">
+                <h3 class="share-section-title">
+                    <span class="material-icons">person_add</span>
+                    Añadir personas o grupos
+                </h3>
+                <p class="share-section-hint">Busca colaboradores de Maquita o ingresa un correo externo (Gmail, Outlook, etc.) para compartir.</p>
+                <div class="share-input-wrapper">
+                    <span class="material-icons">search</span>
+                    <input type="text"
+                           id="shareSearchInput"
+                           class="share-search-input"
+                           placeholder="Nombre, correo institucional o externo..."
+                           autocomplete="off"
+                           oninput="buscarUsuarios(this.value)">
+                    <select id="shareNewPermission" class="share-permission-select-inline" title="Permiso para nuevos usuarios">
+                        <option value="1">Lector</option>
+                        <option value="17">Comentador</option>
+                        <option value="15">Editor</option>
+                    </select>
+                </div>
+                <!-- Resultados de búsqueda -->
+                <div id="shareSearchResults" class="share-search-results"></div>
+            </div>
+
+            <!-- ============================================ -->
+            <!-- SECCIÓN 2: PERSONAS CON ACCESO -->
+            <!-- ============================================ -->
+            <div class="share-section">
+                <div class="share-section-header">
+                    <h3 class="share-section-title">
+                        <span class="material-icons">group</span>
+                        Personas con acceso
+                    </h3>
+                    <span class="share-count-badge" id="shareCountBadge">0</span>
+                </div>
+
+                <div id="shareUsersList" class="share-users-list">
+                    <!-- Propietario - Siempre visible, no editable -->
+                    <div class="share-user-item share-user-owner" id="shareOwnerItem">
+                        <div class="share-user-avatar owner-avatar">
+                            <span class="material-icons">shield</span>
+                        </div>
+                        <div class="share-user-info">
+                            <span class="share-user-name">{{ usuario.nombre if usuario.nombre else usuario.username }}</span>
+                            <span class="share-user-email">{{ usuario.email }}</span>
+                        </div>
+                        <div class="share-user-role-container">
+                            <span class="share-user-role owner-role" title="El propietario tiene control total y no puede ser eliminado">
+                                <span class="material-icons">verified</span>
+                                Propietario
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Usuarios compartidos se agregan dinámicamente aquí -->
+                    <div id="shareUsersContainer"></div>
+
+                    <!-- Estado vacío -->
+                    <div id="shareEmptyState" class="share-empty-state" style="display: none;">
+                        <span class="material-icons">person_off</span>
+                        <p>Solo tú tienes acceso a este archivo</p>
+                        <small>Añade personas arriba o habilita el acceso general abajo</small>
+                    </div>
+                </div>
+
+                <!-- Regla de prioridad de permisos -->
+                <div class="share-priority-rule" id="sharePriorityRule" style="display: none;">
+                    <span class="material-icons">info</span>
+                    <span><strong>Regla de permisos:</strong> Si una persona tiene acceso directo Y existe un enlace, prevalece su permiso directo.</span>
+                </div>
+            </div>
+
+            <!-- ============================================ -->
+            <!-- SECCIÓN 3: ACCESO GENERAL (Política del archivo) -->
+            <!-- ============================================ -->
+            <div class="share-section share-access-section">
+                <h3 class="share-section-title">Acceso general</h3>
+
+                <!-- Acceso general: un solo desplegable estilo Google Drive -->
+                <div class="share-general-row">
+                    <div class="share-general-icon restricted" id="shareGeneralIcon">
+                        <span class="material-icons">lock</span>
+                    </div>
+                    <div class="share-general-main">
+                        <select id="shareGeneralAccess" class="share-general-select" onchange="cambiarNivelAcceso(this.value)">
+                            <option value="restricted" selected>Restringido</option>
+                            <option value="public">Cualquiera con el vínculo</option>
+                        </select>
+                        <span class="share-general-desc" id="shareGeneralDesc">Solo las personas con acceso pueden abrir</span>
+                    </div>
+                </div>
+
+                <!-- Panel de configuración del enlace público -->
+                <div id="shareLinkConfig" class="share-link-config" style="display: none;">
+                    <div class="share-link-config-header">
+                        <span class="material-icons">link</span>
+                        <span>Configuración del enlace público</span>
+                    </div>
+
+                    <div class="share-link-config-body">
+                        <!-- Permisos del enlace -->
+                        <div class="share-config-row">
+                            <label class="share-config-label">
+                                <span class="material-icons">edit</span>
+                                Permisos:
+                            </label>
+                            <select id="shareLinkPermission" class="share-config-select" onchange="actualizarPermisoEnlace()">
+                                <option value="1">Lector - Puede ver y descargar</option>
+                                <option value="15">Editor - Puede modificar el archivo</option>
+                                <option value="4">Solo subida (buzón) - No puede descargar</option>
+                            </select>
+                        </div>
+
+                        <!-- Contraseña -->
+                        <div class="share-config-row">
+                            <label class="share-config-label">
+                                <span class="material-icons">password</span>
+                                Contraseña:
+                            </label>
+                            <div class="share-config-input-group">
+                                <input type="password" id="shareLinkPassword" class="share-config-input"
+                                       placeholder="Sin contraseña (opcional)"
+                                       onblur="actualizarPasswordEnlace()">
+                                <button type="button" class="share-config-toggle" onclick="togglePasswordVisibility()" title="Mostrar/ocultar">
+                                    <span class="material-icons">visibility</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Expiración -->
+                        <div class="share-config-row">
+                            <label class="share-config-label">
+                                <span class="material-icons">event</span>
+                                Expira:
+                            </label>
+                            <input type="date" id="shareLinkExpiration" class="share-config-input"
+                                   onchange="actualizarExpiracionEnlace()">
+                        </div>
+
+                        <!-- URL del enlace -->
+                        <div class="share-link-url-container" id="shareLinkUrlContainer" style="display: none;">
+                            <label class="share-config-label">
+                                <span class="material-icons">content_copy</span>
+                                Enlace:
+                            </label>
+                            <div class="share-link-url-row">
+                                <input type="text" id="shareLinkUrl" class="share-link-url" readonly>
+                                <button class="share-copy-btn" onclick="copiarEnlaceCompartir()" title="Copiar enlace">
+                                    <span class="material-icons">content_copy</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Advertencia de seguridad -->
+                    <div class="share-security-warning">
+                        <span class="material-icons">warning</span>
+                        <span>Cualquier persona con este enlace podrá acceder al archivo. Usa contraseña y fecha de expiración para mayor seguridad.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer estilo Google Drive: Copiar vínculo (izq) + Listo (der) -->
+        <div class="share-modal-footer">
+            <button class="share-btn-copylink" id="shareCopyLinkBtn" onclick="copiarEnlaceCompartir()">
+                <span class="material-icons">link</span>
+                Copiar vínculo
+            </button>
+            <button class="share-btn-primary" onclick="cerrarModalCompartir()">Listo</button>
+        </div>
+    </div>
+</div>
+<!-- Modal Versiones de Archivo -->
+<div class="modal fade" id="versionesModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius: 12px; border: none;">
+            <div class="modal-header" style="border-bottom: 1px solid var(--gd-border, #e0e0e0); padding: 16px 20px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span class="material-icons" style="color: var(--gd-primary, #1a73e8);">restore</span>
+                    <h5 class="modal-title" style="margin: 0; font-size: 16px; font-weight: 500;">Versiones del archivo</h5>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="padding: 0;">
+                <div id="versionesNombreArchivo" style="padding: 12px 20px; background: var(--gd-bg-secondary, #f8f9fa); font-size: 13px; color: var(--gd-text-secondary, #5f6368); border-bottom: 1px solid var(--gd-border, #e0e0e0);">
+                    <span class="material-icons" style="font-size: 16px; vertical-align: middle;">description</span>
+                    <span id="versionesFileName"></span>
+                </div>
+                <div id="versionesContenido" style="max-height: 400px; overflow-y: auto; padding: 8px 0;">
+                    <div style="padding: 40px; text-align: center; color: var(--gd-text-secondary, #5f6368);">
+                        <div class="spinner-border spinner-border-sm" role="status"></div>
+                        <p style="margin-top: 8px;">Cargando versiones...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Variables inyectadas desde Jinja2 (necesarias antes de cargar módulos)
+// FIX 2026-04-10: Usar tojson en vez de comillas + {{ var }}.
+// Jinja2 auto-escapa HTML: & -> &amp;. Con tojson se evita doble escape
+// que causaba rutas rotas en carpetas con caracteres especiales (& < > etc).
+let rutaActual = {{ ruta_inicial | default("/") | tojson }};
+let vistaActual = '{{ vista | default("archivos") }}';
+const USUARIO_NC = {{ (usuario_nextcloud or '') | tojson }};
+{% if almacen_modo %}
+// MODO PRUEBAS: conectar el explorador al motor propio (Almacén Maquita).
+// Solo master llega aquí. No afecta la Nube en producción.
+window.ALMACEN_OVERRIDE = { api: '/api/almacen', url: '/archivos-almacen' };
+{% endif %}
+</script>
+<script src="{{ url_for('static', filename='js/nextcloud/explorador-config.js') }}?v=20260703d"></script>
+<script src="{{ url_for('static', filename='js/nextcloud/explorador-core.js') }}?v=20260703"></script>
+<script src="{{ url_for('static', filename='js/nextcloud/explorador-interactions.js') }}?v=20260703d"></script>
+<script src="{{ url_for('static', filename='js/nextcloud/explorador-arbol.js') }}?v=20260703c"></script>
+<script src="{{ url_for('static', filename='js/nextcloud/explorador-render.js') }}?v=20260703d"></script>
+<script src="{{ url_for('static', filename='js/nextcloud/explorador-compartidos.js') }}?v=20260610k"></script>
+<script src="{{ url_for('static', filename='js/nextcloud/explorador-perfil.js') }}?v=20260610k"></script>
+<script src="{{ url_for('static', filename='js/nextcloud/explorador-navegacion.js') }}?v=20260610k"></script>
+<script src="{{ url_for('static', filename='js/nextcloud/explorador-panels.js') }}?v=20260703c"></script>
+<script src="{{ url_for('static', filename='js/nextcloud/explorador-notify-push.js') }}?v=20260704"></script>
+<script src="{{ url_for('static', filename='js/nextcloud/explorador-compartir.js') }}?v=20260703"></script>
+{% if almacen_modo %}
+<script src="{{ url_for('static', filename='js/nextcloud/explorador-almacen-admin.js') }}?v=20260703l"></script>
+{% endif %}
+
+<!-- Messenger autónomo para Nextcloud -->
+<script>
+let ncChatsData = [];
+let ncCargando = false;
+
+async function cargarMensajesMessengerNC() {
+    if (ncCargando) return;
+    ncCargando = true;
+    const container = document.getElementById('ncChatList');
+    if (!container) { ncCargando = false; return; }
+
+    try {
+        const [convRes, trabRes] = await Promise.all([
+            fetch('/api/chat/conversations?limit=20').catch(() => null),
+            fetch('/api/chat/trabajadores/activos?limit=30').catch(() => null)
+        ]);
+
+        ncChatsData = [];
+        let totalNoLeidos = 0;
+
+        if (convRes && convRes.ok) {
+            const data = await convRes.json();
+            if (data.success && data.conversations) {
+                data.conversations.forEach(c => {
+                    totalNoLeidos += c.unread_count || 0;
+                    ncChatsData.push({
+                        id: c.id, type: 'conversation',
+                        name: c.display_name,
+                        photo: c.avatar || (c.other_user && c.other_user.photo),
+                        lastMessage: c.last_message || 'Sin mensajes',
+                        lastMessageTime: c.last_message_at,
+                        unreadCount: c.unread_count || 0,
+                        online: c.other_user?.online || false,
+                        isGroup: c.conversation_type === 'group',
+                        trabajador_id: c.other_user?.id || null
+                    });
+                });
+            }
+        }
+
+        if (trabRes && trabRes.ok) {
+            const tData = await trabRes.json();
+            if (tData.success && tData.trabajadores) {
+                tData.trabajadores.forEach(t => {
+                    if (!ncChatsData.find(c => c.trabajador_id === t.id)) {
+                        ncChatsData.push({
+                            id: 'trab-' + t.id, type: 'contact',
+                            trabajador_id: t.id,
+                            name: t.nombre_completo || (t.nombres + ' ' + (t.apellidos||'')).trim(),
+                            photo: t.foto_perfil,
+                            cargo: t.cargo || '',
+                            departamento: t.departamento || '',
+                            online: false, unreadCount: 0
+                        });
+                    }
+                });
+            }
+        }
+
+        // Badge
+        const badge = document.getElementById('chatBadgeNC');
+        if (badge) {
+            if (totalNoLeidos > 0) { badge.textContent = totalNoLeidos > 9 ? '9+' : totalNoLeidos; badge.style.display = ''; }
+            else { badge.style.display = 'none'; }
+        }
+
+        renderNCChats(ncChatsData);
+    } catch(e) {
+        container.innerHTML = '<div class="text-center py-3 text-muted"><i class="fas fa-exclamation-circle me-1"></i>Error al cargar</div>';
+    }
+    ncCargando = false;
+}
+
+function renderNCChats(chats) {
+    const container = document.getElementById('ncChatList');
+    if (!container) return;
+    if (!chats.length) {
+        container.innerHTML = '<div class="text-center py-4 text-muted"><i class="fab fa-facebook-messenger" style="font-size:2rem;opacity:.3;"></i><p class="mt-2 small">No hay conversaciones</p></div>';
+        return;
+    }
+    // Sort: unread first, then by time
+    chats.sort((a,b) => (b.unreadCount||0) - (a.unreadCount||0));
+    let html = '';
+    chats.slice(0, 15).forEach(chat => {
+        const initials = (chat.name||'??').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+        const photoHtml = chat.photo
+            ? `<img src="${chat.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span style="display:none;width:100%;height:100%;align-items:center;justify-content:center;">${initials}</span>`
+            : `<span style="display:flex;width:100%;height:100%;align-items:center;justify-content:center;">${initials}</span>`;
+        const unreadBadge = chat.unreadCount > 0 ? `<span class="badge bg-danger rounded-pill" style="font-size:.65rem;">${chat.unreadCount}</span>` : '';
+        const subtitle = chat.type === 'contact' ? (chat.cargo || chat.departamento || 'Contacto') : (chat.lastMessage || '');
+        const chatUrl = chat.type === 'conversation' ? `/chat/?conv=${chat.id}` : `/chat/?new=${chat.trabajador_id}`;
+
+        html += `<a href="${chatUrl}" class="d-flex align-items-center gap-2 px-3 py-2 text-decoration-none" style="color:inherit;border-bottom:1px solid #f0f0f0;${chat.unreadCount>0?'background:#f0f7ff;':''}">
+            <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#0061a1,#eb6018);color:#fff;font-size:.7rem;font-weight:700;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;">
+                ${photoHtml}
+            </div>
+            <div style="flex:1;min-width:0;">
+                <div class="d-flex justify-content-between align-items-center">
+                    <strong style="font-size:.82rem;${chat.unreadCount>0?'color:#0061a1;':''}">${chat.name}</strong>
+                    ${unreadBadge}
+                </div>
+                <div class="text-muted text-truncate" style="font-size:.75rem;">${subtitle}</div>
+            </div>
+        </a>`;
+    });
+    container.innerHTML = html;
+}
+
+function filtrarChatsNC(query) {
+    if (!query) { renderNCChats(ncChatsData); return; }
+    const q = query.toLowerCase();
+    renderNCChats(ncChatsData.filter(c => (c.name||'').toLowerCase().includes(q)));
+}
+</script>
+{% endblock %}
