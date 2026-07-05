@@ -94,16 +94,29 @@ def listar_miembros(unidad_id):
     usuario = usuario_actual()
     if rol_en_unidad(usuario, unidad_id) is None:
         return error('No eres miembro de esta unidad', 403)
-    filas = consultar("""
-        SELECT m.usuario_id, m.rol,
-               COALESCE(t.nombres || ' ' || t.apellidos, u.full_name, u.username) AS nombre,
-               u.username
-        FROM unidad_miembros m
-        JOIN usuarios u ON u.id = m.usuario_id
+    # Dos consultas: la membresía vive en la BD del almacén y los nombres en el
+    # directorio (otra BD) — no se pueden JOINear entre bases en PostgreSQL.
+    membresia = consultar("""
+        SELECT usuario_id, rol FROM unidad_miembros WHERE unidad_id = %s
+    """, (unidad_id,))
+    if not membresia:
+        return jsonify({'success': True, 'miembros': []})
+    ids = tuple({int(m['usuario_id']) for m in membresia})
+    personas = consultar("""
+        SELECT u.id, u.username,
+               COALESCE(t.nombres || ' ' || t.apellidos, u.full_name, u.username) AS nombre
+        FROM usuarios u
         LEFT JOIN trabajadores t ON u.trabajador_id = t.id
-        WHERE m.unidad_id = %s ORDER BY m.rol, nombre
-    """, (unidad_id,), nomina=True)
-    return jsonify({'success': True, 'miembros': [dict(f) for f in filas]})
+        WHERE u.id IN %s
+    """, (ids,), nomina=True)
+    por_id = {p['id']: p for p in personas}
+    miembros = [{
+        'usuario_id': m['usuario_id'], 'rol': m['rol'],
+        'nombre': (por_id.get(m['usuario_id']) or {}).get('nombre') or f"Usuario {m['usuario_id']}",
+        'username': (por_id.get(m['usuario_id']) or {}).get('username') or '',
+    } for m in membresia]
+    miembros.sort(key=lambda x: (x['rol'], x['nombre'].lower()))
+    return jsonify({'success': True, 'miembros': miembros})
 
 
 @bp_unidades.route('/unidades/<int:unidad_id>/miembros', methods=['POST'])

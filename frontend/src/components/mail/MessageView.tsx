@@ -7,6 +7,7 @@ import { es } from 'date-fns/locale';
 import { api } from '../../api/client';
 import { useMailStore } from '../../store/mailStore';
 import { AttachmentPreview } from './AttachmentPreview';
+import { BotonGuardarEnAlmacen } from '../files/GuardarEnAlmacen';
 
 // Badge de tipo de archivo por extensión (color + etiqueta). Los ejecutables y
 // comprimidos se resaltan para que el usuario note extensiones peligrosas/raras.
@@ -673,8 +674,8 @@ const ThreadMessageCard: React.FC<ThreadMessageCardProps> = ({
             </a>
           )}
           {msg.attachments.map((att: any, i: number) => (
+            <span key={i} style={{ display: 'inline-flex', gap: 2, alignItems: 'stretch' }}>
             <button
-              key={i}
               onClick={() => onAttachmentClick?.(msg.folder || currentFolder, msg.uid, msg.attachments, i)}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 4,
@@ -691,6 +692,8 @@ const ThreadMessageCard: React.FC<ThreadMessageCardProps> = ({
                 {att.filename}
               </span>
             </button>
+            {!att.is_inline && <BotonGuardarEnAlmacen folder={msg.folder || currentFolder} uid={msg.uid} att={att} />}
+            </span>
           ))}
         </div>
       )}
@@ -1368,8 +1371,8 @@ const MessageView: React.FC = () => {
               </a>
             )}
             {msg.attachments.map((att, i) => (
+              <span key={i} style={{ display: 'inline-flex', gap: 2, alignItems: 'stretch' }}>
               <button
-                key={i}
                 onClick={() => openAttachmentPreview(msg.folder, msg.uid, msg.attachments, i)}
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -1387,6 +1390,8 @@ const MessageView: React.FC = () => {
                 </span>
                 <span style={{ color: '#a19f9d' }}>({formatSize(att.size)})</span>
               </button>
+              {!att.is_inline && <BotonGuardarEnAlmacen folder={msg.folder} uid={msg.uid} att={att} />}
+              </span>
             ))}
           </div>
         </div>
