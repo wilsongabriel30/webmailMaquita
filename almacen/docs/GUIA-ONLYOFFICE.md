@@ -199,6 +199,15 @@ docker stop onlyoffice && docker rm onlyoffice
 # Lo único a conservar es TU SECRETO JWT y las carpetas /opt/onlyoffice.
 ```
 
+## Antes de operar en serio: lee las lecciones
+
+Esta no es la primera instalación de OnlyOffice del equipo: una instancia
+anterior sufrió pérdida de datos y cortes cuyas causas están documentadas con
+sus protecciones en **[LECCIONES-ONLYOFFICE.md](LECCIONES-ONLYOFFICE.md)**
+(key de co-edición, timeouts del callback, autoguardado periódico, límite de
+20 conexiones del Community, AppArmor y tormenta de conversiones). Diez
+minutos de lectura que valen días de diagnóstico.
+
 ## Relacionado
 
 - Guía general de instalación del Almacén: `GUIA-PASO-A-PASO.md`
