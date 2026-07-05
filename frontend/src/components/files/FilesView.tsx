@@ -21,7 +21,17 @@ interface Item {
   tamano_humano: string;
   modificado_at?: string;
   es_editable?: boolean;
+  es_favorito?: boolean;
   eliminado_en?: string;
+}
+
+interface Share {
+  id: number;
+  ruta: string;
+  tipo: number;
+  con_quien?: string;
+  url?: string;
+  creado_en?: string;
 }
 
 interface Cuota { usado_humano: string; total_humano: string; porcentaje: number; }
@@ -55,7 +65,8 @@ export function FilesView() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const ruta = params.get('ruta') || '/';
-  const vista = (params.get('vista') === 'papelera' ? 'papelera' : 'archivos') as 'archivos' | 'papelera';
+  const vistaParam = params.get('vista');
+  const vista = (vistaParam === 'papelera' ? 'papelera' : vistaParam === 'favoritos' ? 'favoritos' : 'archivos') as 'archivos' | 'papelera' | 'favoritos';
 
   const [modo, setModo] = useState<'cuadricula' | 'lista'>(
     () => (localStorage.getItem('almacen_modo_vista') as 'cuadricula' | 'lista') || 'cuadricula');
@@ -68,13 +79,15 @@ export function FilesView() {
   const [resultados, setResultados] = useState<Item[] | null>(null);
   const [versiones, setVersiones] = useState<{ item: Item; lista: Version[] } | null>(null);
   const [selector, setSelector] = useState<{ item: Item; accion: 'mover' | 'copiar'; carpeta: string; subcarpetas: Item[] } | null>(null);
+  const [compartirModal, setCompartirModal] = useState<{ item: Item; shares: Share[]; creando: boolean } | null>(null);
+  const [opcionesEnlace, setOpcionesEnlace] = useState({ expira_dias: 0, clave: '', permite_descarga: true });
   const inputSubir = useRef<HTMLInputElement>(null);
   const timerBusqueda = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  const irA = (nuevaRuta: string, nuevaVista: 'archivos' | 'papelera' = 'archivos') => {
+  const irA = (nuevaRuta: string, nuevaVista: 'archivos' | 'papelera' | 'favoritos' = 'archivos') => {
     const p: Record<string, string> = {};
     if (nuevaRuta !== '/') p.ruta = nuevaRuta;
-    if (nuevaVista === 'papelera') p.vista = 'papelera';
+    if (nuevaVista !== 'archivos') p.vista = nuevaVista;
     setParams(p);           // entra al historial → el botón atrás retrocede carpetas
     setBusqueda(''); setResultados(null);
   };
@@ -84,12 +97,15 @@ export function FilesView() {
     localStorage.setItem('almacen_modo_vista', m);
   };
 
-  const cargar = useCallback(async (r: string, v: 'archivos' | 'papelera') => {
+  const cargar = useCallback(async (r: string, v: 'archivos' | 'papelera' | 'favoritos') => {
     setCargando(true);
     try {
       if (v === 'papelera') {
         const res = await api.get<{ carpetas: Item[]; archivos: Item[] }>('/almacen/papelera');
         setItems([...(res.carpetas || []), ...(res.archivos || [])]);
+      } else if (v === 'favoritos') {
+        const res = await api.get<{ carpetas: Item[]; archivos: Item[] }>('/almacen/favoritos');
+        setItems([...(res.carpetas || []), ...(res.archivos || [])].map(i => ({ ...i, es_favorito: true })));
       } else {
         const res = await api.get<{ carpetas: Item[]; archivos: Item[] }>(`/almacen/archivos?ruta=${encodeURIComponent(r)}`);
         setItems([...(res.carpetas || []), ...(res.archivos || [])]);
@@ -130,6 +146,7 @@ export function FilesView() {
 
   const abrir = (item: Item) => {
     if (vista === 'papelera') return;
+    if (vista === 'favoritos' && item.es_carpeta) { irA(item.ruta); return; }
     if (item.es_carpeta) { irA(item.ruta); return; }
     if (item.es_editable) {
       window.open(`/archivos-almacen/editar?ruta=${encodeURIComponent(item.ruta)}`, '_blank');
@@ -248,6 +265,52 @@ export function FilesView() {
     } catch { showToast(`No se pudo ${selector.accion}`); }
   };
 
+  const toggleFavorito = async (item: Item) => {
+    try {
+      const r = await api.post<{ es_favorito: boolean }>('/almacen/archivos/favorito', { ruta: item.ruta });
+      showToast(r.es_favorito ? 'Agregado a favoritos ⭐' : 'Quitado de favoritos');
+      refrescar();
+    } catch { showToast('No se pudo cambiar el favorito'); }
+  };
+
+  const abrirCompartir = async (item: Item) => {
+    setOpcionesEnlace({ expira_dias: 0, clave: '', permite_descarga: true });
+    try {
+      const r = await api.get<{ compartidos: Share[] }>('/almacen/compartidos');
+      setCompartirModal({ item, shares: (r.compartidos || []).filter(c => c.ruta === item.ruta), creando: false });
+    } catch { showToast('No se pudo abrir compartir'); }
+  };
+
+  const crearEnlace = async () => {
+    if (!compartirModal) return;
+    setCompartirModal({ ...compartirModal, creando: true });
+    try {
+      const r = await api.post<{ compartido: Share }>('/almacen/compartir', {
+        ruta: compartirModal.item.ruta, tipo: 3, permisos: 1,
+        expira_dias: opcionesEnlace.expira_dias || 0,
+        clave: opcionesEnlace.clave.trim(),
+        permite_descarga: opcionesEnlace.permite_descarga,
+      });
+      setCompartirModal(prev => prev ? { ...prev, shares: [r.compartido, ...prev.shares], creando: false } : prev);
+      if (r.compartido.url) copiarEnlace(r.compartido.url, 'Enlace creado y copiado 🔗');
+    } catch {
+      showToast('No se pudo crear el enlace');
+      setCompartirModal(prev => prev ? { ...prev, creando: false } : prev);
+    }
+  };
+
+  const copiarEnlace = (url: string, mensaje = 'Enlace copiado') => {
+    navigator.clipboard?.writeText(url).then(() => showToast(mensaje)).catch(() => prompt('Copia el enlace:', url));
+  };
+
+  const dejarDeCompartir = async (share: Share) => {
+    try {
+      await api.del(`/almacen/compartidos/${share.id}`);
+      setCompartirModal(prev => prev ? { ...prev, shares: prev.shares.filter(x => x.id !== share.id) } : prev);
+      showToast('Se dejó de compartir');
+    } catch { showToast('No se pudo eliminar'); }
+  };
+
   const enviarPorCorreo = (item: Item) => {
     useMailStore.getState().openCompose('new', {
       to: [], subject: item.nombre, text_body: '', html_body: '',
@@ -266,12 +329,14 @@ export function FilesView() {
   const botonModo = 'px-2 py-1.5 rounded text-sm';
   const mostrados = resultados ?? items;
 
-  const accionesDe = (item: Item) => vista === 'archivos' ? ([
+  const accionesDe = (item: Item) => vista !== 'papelera' ? ([
     ...(!item.es_carpeta && item.es_editable ? [{ texto: '✏️ Editar en línea', fn: () => abrir(item) }] : []),
     ...(!item.es_carpeta ? [
       { texto: '⬇️ Descargar', fn: () => window.open(`/api/almacen/archivos/descargar?ruta=${encodeURIComponent(item.ruta)}`) },
       { texto: '✉️ Enviar por correo', fn: () => enviarPorCorreo(item) },
     ] : []),
+    { texto: '🔗 Compartir', fn: () => abrirCompartir(item) },
+    { texto: item.es_favorito ? '⭐ Quitar de favoritos' : '⭐ Agregar a favoritos', fn: () => toggleFavorito(item) },
     { texto: '📂 Mover a…', fn: () => abrirSelector(item, 'mover') },
     { texto: '📋 Copiar a…', fn: () => abrirSelector(item, 'copiar') },
     { texto: '✍️ Renombrar', fn: () => renombrar(item) },
@@ -290,6 +355,11 @@ export function FilesView() {
           title="Ver mis archivos"
           className={`px-3 py-1.5 rounded text-sm font-semibold ${vista === 'archivos' ? 'bg-[#deecf9] text-[#106ebe] dark:bg-[#004578] dark:text-white' : 'text-[#323130] dark:text-[#e0e0e0] hover:bg-[#f3f2f1] dark:hover:bg-[#323130]'}`}>
           📁 Mis archivos
+        </button>
+        <button onClick={() => irA('/', 'favoritos')}
+          title="Tus archivos y carpetas marcados con estrella"
+          className={`px-3 py-1.5 rounded text-sm font-semibold ${vista === 'favoritos' ? 'bg-[#deecf9] text-[#106ebe] dark:bg-[#004578] dark:text-white' : 'text-[#323130] dark:text-[#e0e0e0] hover:bg-[#f3f2f1] dark:hover:bg-[#323130]'}`}>
+          ⭐ Favoritos
         </button>
         <button onClick={() => irA('/', 'papelera')}
           title="Ver la papelera (lo eliminado se puede restaurar)"
@@ -324,13 +394,13 @@ export function FilesView() {
               📁 Nueva carpeta
             </button>
           </>
-        ) : (
+        ) : vista === 'papelera' ? (
           <button onClick={vaciarPapelera}
             title="Vaciar la papelera (los administradores aún pueden recuperar por un tiempo)"
             className="px-3 py-1.5 rounded text-sm font-semibold border border-[#d13438] text-[#d13438] hover:bg-[#fde7e9]">
             Vaciar papelera
           </button>
-        )}
+        ) : null}
         <div className="flex rounded border border-[#8a8886] overflow-hidden" role="group">
           <button onClick={() => cambiarModo('cuadricula')} title="Vista de cuadrícula (estilo Drive)"
             className={`${botonModo} ${modo === 'cuadricula' ? 'bg-[#deecf9] text-[#106ebe] dark:bg-[#004578] dark:text-white' : 'text-[#323130] dark:text-[#e0e0e0]'}`}>▦</button>
@@ -364,13 +434,13 @@ export function FilesView() {
           <div className="p-8 text-center text-[#605e5c] dark:text-[#a19f9d]">Cargando…</div>
         ) : mostrados.length === 0 ? (
           <div className="p-12 text-center text-[#605e5c] dark:text-[#a19f9d]">
-            {resultados !== null ? 'Sin resultados' : vista === 'papelera' ? 'La papelera está vacía' : 'Esta carpeta está vacía — usa "Subir" para empezar'}
+            {resultados !== null ? 'Sin resultados' : vista === 'papelera' ? 'La papelera está vacía' : vista === 'favoritos' ? 'Aún no marcas favoritos — clic derecho → ⭐ Agregar a favoritos' : 'Esta carpeta está vacía — usa "Subir" para empezar'}
           </div>
         ) : modo === 'cuadricula' ? (
           <div className="grid gap-3 p-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))' }}>
             {mostrados.map(item => (
               <div key={item.id || item.ruta}
-                onClick={() => resultados !== null ? irA(item.es_carpeta ? item.ruta : carpetaDe(item.ruta)) : (item.es_carpeta && vista === 'archivos' ? abrir(item) : undefined)}
+                onClick={() => resultados !== null ? irA(item.es_carpeta ? item.ruta : carpetaDe(item.ruta)) : (item.es_carpeta && vista !== 'papelera' ? abrir(item) : undefined)}
                 onDoubleClick={() => abrir(item)}
                 onContextMenu={e => abrirMenu(e, item)}
                 title={`${item.nombre}${item.es_carpeta ? '' : ` — ${item.tamano_humano}`}${resultados !== null ? `\nUbicación: ${carpetaDe(item.ruta)}` : ''}\nClic derecho: opciones`}
@@ -405,7 +475,7 @@ export function FilesView() {
                   className="border-b border-[#f3f2f1] dark:border-[#292827] hover:bg-[#f3f2f1] dark:hover:bg-[#292827] group">
                   <td className="px-4 py-2 cursor-pointer"
                     onDoubleClick={() => abrir(item)}
-                    onClick={() => resultados !== null ? irA(item.es_carpeta ? item.ruta : carpetaDe(item.ruta)) : (item.es_carpeta && vista === 'archivos' ? abrir(item) : undefined)}
+                    onClick={() => resultados !== null ? irA(item.es_carpeta ? item.ruta : carpetaDe(item.ruta)) : (item.es_carpeta && vista !== 'papelera' ? abrir(item) : undefined)}
                     title={item.es_carpeta ? 'Abrir la carpeta' : (item.es_editable ? 'Doble clic: editar en línea' : 'Doble clic: ver/descargar')}>
                     <span className="mr-2">{iconoDe(item)}</span>
                     <span className="text-[#323130] dark:text-[#e0e0e0]">{item.nombre}</span>
@@ -436,6 +506,63 @@ export function FilesView() {
               {a.texto}
             </button>
           ))}
+        </div>
+      )}
+
+      {/* Modal: compartir con enlace */}
+      {compartirModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setCompartirModal(null)}>
+          <div className="bg-white dark:bg-[#252423] rounded-lg shadow-xl w-full max-w-md max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="px-4 py-3 border-b border-[#edebe9] dark:border-[#3b3a39]">
+              <div className="font-semibold text-[#323130] dark:text-[#e0e0e0]">🔗 Compartir</div>
+              <div className="text-xs text-[#605e5c] dark:text-[#a19f9d] truncate">{compartirModal.item.nombre}</div>
+            </div>
+            <div className="p-4 border-b border-[#f3f2f1] dark:border-[#3b3a39] space-y-2">
+              <div className="text-xs font-semibold text-[#323130] dark:text-[#e0e0e0]">Crear enlace de descarga</div>
+              <div className="flex gap-2 items-center text-sm">
+                <label className="text-xs text-[#605e5c] dark:text-[#a19f9d]" title="El enlace deja de funcionar pasado este plazo">Expira:</label>
+                <select value={opcionesEnlace.expira_dias}
+                  onChange={e => setOpcionesEnlace(o => ({ ...o, expira_dias: Number(e.target.value) }))}
+                  className="px-2 py-1 rounded border border-[#8a8886] text-sm bg-white dark:bg-[#1b1a19] text-[#323130] dark:text-[#e0e0e0]">
+                  <option value={0}>Nunca</option>
+                  <option value={7}>7 días</option>
+                  <option value={30}>30 días</option>
+                  <option value={90}>90 días</option>
+                </select>
+                <input value={opcionesEnlace.clave}
+                  onChange={e => setOpcionesEnlace(o => ({ ...o, clave: e.target.value }))}
+                  placeholder="Clave (opcional)" title="Quien reciba el enlace deberá escribir esta clave"
+                  className="flex-1 min-w-0 px-2 py-1 rounded border border-[#8a8886] text-sm bg-white dark:bg-[#1b1a19] text-[#323130] dark:text-[#e0e0e0]" />
+              </div>
+              <button onClick={crearEnlace} disabled={compartirModal.creando}
+                title="Genera el enlace y lo copia al portapapeles"
+                className="w-full px-3 py-1.5 rounded text-sm font-semibold bg-[#0078d4] text-white hover:bg-[#106ebe] disabled:opacity-50">
+                {compartirModal.creando ? 'Creando…' : 'Crear y copiar enlace'}
+              </button>
+              <div className="text-[11px] text-[#a19f9d]">Cualquiera con el enlace podrá descargar el archivo (con la clave, si le pusiste una).</div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2">
+              {compartirModal.shares.length === 0 ? (
+                <div className="p-4 text-center text-sm text-[#605e5c] dark:text-[#a19f9d]">Este elemento aún no tiene enlaces activos</div>
+              ) : compartirModal.shares.map(sh => (
+                <div key={sh.id} className="flex items-center gap-2 px-3 py-2 rounded hover:bg-[#f3f2f1] dark:hover:bg-[#3b3a39]">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs text-[#323130] dark:text-[#e0e0e0] truncate">{sh.url || sh.con_quien || `Compartido #${sh.id}`}</div>
+                    <div className="text-[10px] text-[#a19f9d]">{sh.tipo === 3 ? 'Enlace público' : `Con: ${sh.con_quien || '—'}`}</div>
+                  </div>
+                  {sh.url && (
+                    <button onClick={() => copiarEnlace(sh.url!)} title="Copiar el enlace"
+                      className="px-2 py-1 rounded text-xs font-semibold text-[#106ebe] hover:bg-[#deecf9] dark:hover:bg-[#004578]">Copiar</button>
+                  )}
+                  <button onClick={() => dejarDeCompartir(sh)} title="El enlace deja de funcionar de inmediato"
+                    className="px-2 py-1 rounded text-xs text-[#d13438] hover:bg-[#fde7e9]">Quitar</button>
+                </div>
+              ))}
+            </div>
+            <div className="px-4 py-2 border-t border-[#edebe9] dark:border-[#3b3a39] text-right">
+              <button onClick={() => setCompartirModal(null)} className="px-3 py-1.5 rounded text-sm text-[#323130] dark:text-[#e0e0e0] hover:bg-[#f3f2f1] dark:hover:bg-[#3b3a39]">Cerrar</button>
+            </div>
+          </div>
         </div>
       )}
 
