@@ -11,7 +11,7 @@ User=root
 WorkingDirectory=/opt/maquita-webmail/almacen/servicio
 EnvironmentFile=/opt/maquita-webmail/almacen/.env
 ExecStart=/opt/maquita-webmail/almacen/venv/bin/gunicorn \
-    --workers 4 --threads 2 \
+    --workers 6 --threads 4 \
     --bind 127.0.0.1:8788 \
     --timeout 600 \
     --access-logfile - --error-logfile - \

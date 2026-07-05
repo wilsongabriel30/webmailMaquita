@@ -14,9 +14,13 @@ logger = logging.getLogger("imap_pool")
 
 _pools: dict[str, asyncio.Queue] = {}
 _locks: dict[str, asyncio.Lock] = {}
+_semaforos: dict[str, asyncio.Semaphore] = {}
 _global_lock = asyncio.Lock()
 
-MAX_PER_USER = 3
+MAX_PER_USER = 2            # conexiones OCIOSAS guardadas por usuario (por worker)
+MAX_EN_VUELO = 5            # peticiones simultaneas por usuario (por worker):
+                            # el resto espera su turno en vez de abrir conexiones
+                            # nuevas y chocar con mail_max_userip_connections
 TTL_SECONDS = 300
 CLEANUP_INTERVAL = 60
 
@@ -68,6 +72,18 @@ class PooledIMAP:
         self._returned = False
 
     async def __aenter__(self) -> aioimaplib.IMAP4:
+        async with _global_lock:
+            if self.username not in _semaforos:
+                _semaforos[self.username] = asyncio.Semaphore(MAX_EN_VUELO)
+        self._semaforo = _semaforos[self.username]
+        await self._semaforo.acquire()
+        try:
+            return await self._abrir()
+        except BaseException:
+            self._semaforo.release()
+            raise
+
+    async def _abrir(self) -> aioimaplib.IMAP4:
         pool = await _get_user_pool(self.username)
 
         # Try to reuse existing connection
@@ -99,8 +115,12 @@ class PooledIMAP:
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         if self._returned or self.imap is None:
+            if not self._returned:
+                self._returned = True
+                self._semaforo.release()
             return
         self._returned = True
+        self._semaforo.release()
 
         if exc_type is not None:
             # Error — don't return to pool
