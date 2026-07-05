@@ -30,6 +30,7 @@ navegador ──cookie del webmail──► nginx (mismo dominio)
 > para que cualquier estudiante lo replique en una VM (VirtualBox/Proxmox):
 > - **[docs/GUIA-PASO-A-PASO.md](docs/GUIA-PASO-A-PASO.md)** — todo desde cero, con verificación de cada paso.
 > - **[docs/GUIA-ONLYOFFICE.md](docs/GUIA-ONLYOFFICE.md)** — instalar y conectar OnlyOffice, explicado pieza por pieza.
+> - **[docs/GUIA-CHAT.md](docs/GUIA-CHAT.md)** — el botón de chat flotante: cómo conectar tu propio chat (o Matrix/Element libre) a la suite.
 > - **[docs/GUIA-ALMACENAMIENTO.md](docs/GUIA-ALMACENAMIENTO.md)** — dónde viven los archivos y cómo moverlos a un disco externo, NAS, otro servidor o Google Drive/OneDrive (¡desde el panel!).
 
 ## Instalación (5 pasos)
