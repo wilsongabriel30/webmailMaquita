@@ -1,5 +1,5 @@
 // ============================================================================
-// FARO — Almacén Maquita: PANEL DE CONFIGURACIÓN / ADMINISTRACIÓN (solo master)
+// el sistema central — Almacén Maquita: PANEL DE CONFIGURACIÓN / ADMINISTRACIÓN (solo master)
 // Se carga SOLO en modo Almacén. Da al master la recuperación global:
 // ver la papelera y la retención (papelera vaciada, 90 días) de CUALQUIER
 // persona y restaurar en minutos. Usa los endpoints /api/almacen/admin/*.
@@ -45,7 +45,7 @@ async function abrirRecuperacionAlmacen() {
         title: '♻️ Recuperar archivos',
         input: 'text',
         inputLabel: '¿De qué persona? (nombre o usuario)',
-        inputPlaceholder: 'Ej: maria, wilson...',
+        inputPlaceholder: 'Ej: maria, jose...',
         showCancelButton: true,
         confirmButtonText: 'Buscar',
         cancelButtonText: 'Cancelar',

@@ -31,9 +31,9 @@ tabla `onlyoffice_sesion`.
 Configuración (variable de entorno, o tabla config_kv si no hay variable):
   ALMACEN_ONLYOFFICE_SECRET      / config_kv 'onlyoffice_secret'
   ALMACEN_ONLYOFFICE_URL_PUBLICA / config_kv 'onlyoffice_url_publica'
-      (la que ve el navegador, ej. https://datos.maquita.com.ec/office-almacen)
+      (la que ve el navegador, ej. https://SU-DOMINIO/office)
   ALMACEN_ONLYOFFICE_URL_INTERNA / config_kv 'onlyoffice_url_interna'
-      (la que usa el motor para hablar con el DS, ej. http://193.16.0.X:8080)
+      (la que usa el motor para hablar con el DS, ej. http://IP-INTERNA:8080)
 
 Autoría: Equipo de Tecnología Maquita — 2026-07-03
 """
@@ -564,7 +564,7 @@ def editor_almacen():
     """Página del editor embebido del Almacén. La ruta del archivo viaja en
     ?ruta= y el JavaScript de la página pide la configuración a
     /api/almacen/onlyoffice/config. El candado maestro de /archivos-almacen*
-    (integracion_faro) protege el acceso durante la fase de pruebas."""
+    del sistema de origen protege el acceso durante la fase de pruebas."""
     plantilla = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                              'plantillas', 'editor_onlyoffice.html')
     return send_file(plantilla, mimetype='text/html')

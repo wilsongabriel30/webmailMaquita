@@ -195,7 +195,7 @@ def buscar_usuarios():
     """
     GET /usuarios/buscar?q= — autocompletado para compartir.
     Contrato: {usuarios: [{id, nombre, email, tipo}], grupos, total}.
-    Lee de la base de nómina (solo lectura): son los mismos usuarios de FARO.
+    Lee de la base de nómina (solo lectura): son los mismos usuarios del sistema central.
     """
     usuario_actual()
     consulta = (request.args.get('q') or '').strip()

@@ -77,7 +77,7 @@ _cache_roles = {}   # usuario_id -> rol (los roles casi no cambian)
 
 
 def rol_usuario(usuario_id: int) -> str:
-    """Rol FARO del usuario (master, master_admin, admin, user...), leído de nómina.
+    """Rol del usuario en el directorio (master, master_admin, admin, user...), leído de nómina.
     Cacheado en memoria porque cambia rara vez."""
     usuario_id = int(usuario_id)
     if usuario_id in _cache_roles:

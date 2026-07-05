@@ -3,7 +3,7 @@
 Aplicación del Almacén Maquita.
 ===============================
 Fábrica de la app Flask: registra los módulos de la API bajo el MISMO
-prefijo del contrato (/api/nextcloud) para que el explorador de FARO
+prefijo del contrato (/api/nextcloud) para que el explorador
 funcione sin cambios. Cuando el proyecto madure, el prefijo podrá ser
 /api/almacen con un alias de compatibilidad.
 
@@ -58,7 +58,7 @@ def crear_app_almacen() -> Flask:
 
     @app.errorhandler(401)
     def sin_sesion(_error):
-        """Sin sesión válida: el explorador redirige al login de FARO."""
+        """Sin sesión válida: el explorador redirige al login del sistema central."""
         return jsonify({'success': False, 'error': 'Sesión requerida'}), 401
 
     @app.errorhandler(413)

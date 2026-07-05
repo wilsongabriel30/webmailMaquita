@@ -928,7 +928,7 @@ async function copiarLinkSeleccionado() {
         const data = await response.json();
 
         if (data.success && data.compartido) {
-            // SIEMPRE construir URL de FARO, NUNCA usar URL de Nextcloud
+            // SIEMPRE construir URL del sistema central, NUNCA usar URL de Nextcloud
             // Usar las funciones helper definidas en el modal de compartir
             const token = data.compartido.token ||
                           (data.compartido.url_publica || data.compartido.url || '').match(/\/s\/([a-zA-Z0-9]+)/)?.[1];
@@ -938,11 +938,11 @@ async function copiarLinkSeleccionado() {
                 return;
             }
 
-            // Construir URL de FARO (datos.maquita.com.ec/archivos/s/TOKEN)
-            const urlFaro = `${window.location.origin}/archivos/s/${token}`;
+            // Construir URL de compartido sobre el dominio actual
+            const urlEnlace = `${window.location.origin}/archivos/s/${token}`;
 
             // Copiar al portapapeles
-            await navigator.clipboard.writeText(urlFaro);
+            await navigator.clipboard.writeText(urlEnlace);
 
             await Swal.fire({
                 icon: 'success',
@@ -950,7 +950,7 @@ async function copiarLinkSeleccionado() {
                 html: `
                     <p>El enlace se copió al portapapeles:</p>
                     <div class="bg-light p-2 rounded" style="word-break: break-all; font-size: 12px;">
-                        ${urlFaro}
+                        ${urlEnlace}
                     </div>
                 `,
                 confirmButtonText: 'Aceptar',

@@ -35,7 +35,7 @@ def _exigir_master() -> int:
 def admin_buscar_usuarios():
     """
     GET /admin/usuarios?q= — busca personas para elegir de quién recuperar.
-    Devuelve id FARO (el que usa el Almacén como carpeta), nombre y usuario.
+    Devuelve id el sistema central (el que usa el Almacén como carpeta), nombre y usuario.
     """
     _exigir_master()
     consulta = (request.args.get('q') or '').strip()

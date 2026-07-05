@@ -3,7 +3,7 @@
 // =============================================================================
 
 (function() {
-    const NOTIFY_PUSH_URL = 'wss://nube.maquita.com.ec/push/ws';
+    const NOTIFY_PUSH_URL = '';   // sin servidor push propio: se usa polling
     let notifySocket = null;
     let reconnectAttempts = 0;
     const MAX_RECONNECT_ATTEMPTS = 5;
@@ -81,7 +81,7 @@
         }
 
         try {
-            // Obtener token de pre-autenticación desde el backend FARO
+            // Obtener token de pre-autenticación desde el backend el sistema central
             let preAuthToken = null;
             let ncUsername = '';
             try {
