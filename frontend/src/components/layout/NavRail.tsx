@@ -71,7 +71,7 @@ const navItems = [
     ),
   },
   {
-    path: '/files',
+    path: '/archivos-almacen',
     label: 'Archivos',
     color: '#0078d4',
     icon: (active: boolean) => (
@@ -134,7 +134,11 @@ export function NavRail() {
         return (
           <button
             key={item.path}
-            onClick={() => navigate(item.path)}
+            onClick={() => {
+              // Archivos vive FUERA de la SPA (explorador clasico del equipo)
+              if (item.path.startsWith('/archivos-almacen')) { window.location.href = item.path; return; }
+              navigate(item.path);
+            }}
             title={item.label}
             onDragOver={(e) => {
               if ((item.path === '/calendar' || item.path === '/tasks') && e.dataTransfer.types.includes('application/x-mail-meta')) {
