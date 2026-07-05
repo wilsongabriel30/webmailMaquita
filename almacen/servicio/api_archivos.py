@@ -222,6 +222,15 @@ def _miniatura_imagen(fisica: str, lado: int = 400) -> str:
         return None
 
 
+# Lección de la Nube (2026): una carpeta llena de documentos disparaba TODAS
+# las conversiones a la vez y tumbaba el servidor de previews ("fork storm").
+# Aquí: máximo 2 conversiones simultáneas por worker (las demás esperan) y
+# los fallos no se reintentan por 5 minutos (caché negativa).
+import threading as _threading_conv
+_SEM_CONVERSIONES = _threading_conv.Semaphore(2)
+_FALLOS_CONVERSION: dict = {}   # clave_cache -> momento del fallo
+
+
 def _miniatura_office(usuario: int, ruta: str, fisica: str, ext: str) -> str:
     """Miniatura de un documento office generada por el CONVERSOR del Document
     Server (el mismo OnlyOffice de la edición) y cacheada en disco. El DS
@@ -232,11 +241,18 @@ def _miniatura_office(usuario: int, ruta: str, fisica: str, ext: str) -> str:
         if ext not in TIPOS_DOCUMENTO or not (secreto_ds() and url_interna_ds()):
             return None
         os.makedirs(_CACHE_PREVIEWS, exist_ok=True)
-        png = os.path.join(_CACHE_PREVIEWS, _clave_cache(fisica, ':oo') + '.png')
+        clave = _clave_cache(fisica, ':oo')
+        png = os.path.join(_CACHE_PREVIEWS, clave + '.png')
         if os.path.exists(png):
             return png
         import time as _time
         import requests as _requests
+        # caché negativa: si acaba de fallar, no insistir (protege al DS)
+        ultimo_fallo = _FALLOS_CONVERSION.get(clave, 0)
+        if _time.time() - ultimo_fallo < 300:
+            return None
+        if not _SEM_CONVERSIONES.acquire(timeout=10):
+            return None   # DS ocupado: mejor icono que avalancha
         exp = int(_time.time()) + 3600
         t_desc = firmar_jwt({'u': usuario, 'r': ruta, 'uso': 'descarga', 'exp': exp})
         cuerpo = {
@@ -248,19 +264,24 @@ def _miniatura_office(usuario: int, ruta: str, fisica: str, ext: str) -> str:
             'url': f'{URL_PUBLICA}/api/almacen/onlyoffice/download?t={t_desc}',
         }
         cuerpo['token'] = firmar_jwt(cuerpo)
-        r = _requests.post(f'{url_interna_ds()}/ConvertService.ashx',
-                           json=cuerpo, headers={'Accept': 'application/json'},
-                           timeout=20)
-        datos = r.json()
-        if not datos.get('fileUrl'):
-            log.debug('conversor sin fileUrl: %s', datos)
-            return None
-        img = _requests.get(datos['fileUrl'], timeout=20)
-        if img.status_code != 200 or not img.content:
-            return None
-        with open(png, 'wb') as destino:
-            destino.write(img.content)
-        return png
+        try:
+            r = _requests.post(f'{url_interna_ds()}/ConvertService.ashx',
+                               json=cuerpo, headers={'Accept': 'application/json'},
+                               timeout=20)
+            datos = r.json()
+            if not datos.get('fileUrl'):
+                log.debug('conversor sin fileUrl: %s', datos)
+                _FALLOS_CONVERSION[clave] = _time.time()
+                return None
+            img = _requests.get(datos['fileUrl'], timeout=20)
+            if img.status_code != 200 or not img.content:
+                _FALLOS_CONVERSION[clave] = _time.time()
+                return None
+            with open(png, 'wb') as destino:
+                destino.write(img.content)
+            return png
+        finally:
+            _SEM_CONVERSIONES.release()
     except Exception as excepcion:
         log.debug('miniatura office falló: %s', excepcion)
         return None
