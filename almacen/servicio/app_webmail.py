@@ -48,6 +48,52 @@ _EXENTAS = (
 )
 
 
+_CONTACTO_SOPORTE = os.getenv('ALMACEN_CONTACTO_SOPORTE', '')
+
+
+def _mensaje_sin_enlace(correo, motivo):
+    """Mensaje de ayuda cuando el buzón entra pero la cuenta no está enlazada
+    al directorio institucional (o la fase piloto no lo incluye aún)."""
+    if motivo == 'piloto':
+        base = ('El módulo de Archivos está en fase de pruebas y tu cuenta '
+                'aún no está incluida.')
+    else:
+        base = (f'Tu buzón ({correo}) todavía no está conectado a tu '
+                'identidad institucional.')
+    if _CONTACTO_SOPORTE:
+        return (f'{base} Escríbenos a {_CONTACTO_SOPORTE} y lo activamos: '
+                'creamos o conectamos tu cuenta y te avisamos por correo.')
+    return f'{base} Comunícate con el administrador del sistema para activarla.'
+
+
+def _pagina_ayuda_enlace(correo, motivo):
+    """Página amigable para el usuario con buzón pero sin identidad enlazada."""
+    mensaje = _mensaje_sin_enlace(correo, motivo)
+    html = f"""<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Un paso más — Archivos</title>
+<style>
+ body{{font-family:'Segoe UI',system-ui,sans-serif;background:#f3f2f1;display:flex;
+      align-items:center;justify-content:center;min-height:100vh;margin:0}}
+ .tarjeta{{background:#fff;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,.12);
+      padding:36px;max-width:440px;width:90%;text-align:center}}
+ h1{{font-size:18px;color:#323130;margin:0 0 10px}}
+ p{{font-size:14px;color:#605e5c;line-height:1.5;margin:0 0 20px}}
+ a.boton{{display:inline-block;padding:10px 22px;background:#0078d4;color:#fff;
+      border-radius:6px;text-decoration:none;font-weight:600;font-size:14px}}
+ a.boton:hover{{background:#106ebe}}
+</style></head><body>
+<div class="tarjeta">
+  <div style="font-size:46px">🔗</div>
+  <h1>Falta un paso para activar tus Archivos</h1>
+  <p>{mensaje}</p>
+  <a class="boton" href="/webmail">Volver al correo</a>
+</div>
+</body></html>"""
+    return html, 403, {'Content-Type': 'text/html; charset=utf-8'}
+
+
 def crear_app_webmail() -> Flask:
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s %(name)s %(levelname)s %(message)s')
@@ -104,8 +150,15 @@ def crear_app_webmail() -> Flask:
         ruta = request.path
         if ruta.startswith(_EXENTAS):
             return None
-        uid, rol = usuario_webmail()
+        from auth_webmail import sesion_actual
+        uid, rol, correo, motivo = sesion_actual()
         if not uid:
+            if motivo in ('sin_enlace', 'piloto'):
+                return jsonify({
+                    'success': False,
+                    'error': 'cuenta_sin_enlace',
+                    'mensaje': _mensaje_sin_enlace(correo, motivo),
+                }), 403
             return jsonify({'success': False, 'error': 'No autenticado'}), 401
         # Las rutas administrativas exigen master (los endpoints además lo
         # re-validan por su cuenta vía es_master: defensa en profundidad).
@@ -240,10 +293,12 @@ def crear_app_webmail() -> Flask:
     def explorador_web(ruta=''):
         from flask import render_template
         from auth_webmail import sesion_actual
-        uid, rol, correo = sesion_actual()
+        uid, rol, correo, motivo = sesion_actual()
         if not uid:
             from flask import redirect
-            return redirect('/webmail/login', code=302)
+            if motivo == 'sin_sesion':
+                return redirect('/webmail/login', code=302)
+            return _pagina_ayuda_enlace(correo, motivo)
         ruta = (ruta or '').strip('/')
         primera = ruta.split('/')[0] if ruta else ''
         if primera in _VISTAS_ESPECIALES:
