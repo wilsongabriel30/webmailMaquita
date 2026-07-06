@@ -1,10 +1,15 @@
 """Ingesta incremental de la bandeja de un usuario al índice RAG."""
+import os
 from app.config import get_settings
 from app.rag import store, config as rag_config
 from app.rag.embeddings import embed
 
 
-async def ingest_user(db, username, limit=200):
+async def ingest_user(db, username, limit=None):
+    # Tope configurable via RAG_INGEST_LIMIT (antes 200 fijo: el asistente
+    # solo veia los ultimos 200 correos). Default alto para cubrir la bandeja.
+    if limit is None:
+        limit = int(os.getenv('RAG_INGEST_LIMIT', '3000'))
     if not await rag_config.domain_enabled(db, username):
         return {"username": username, "skipped": "dominio no habilitado", "indexed": 0}
     await store.ensure_schema(db)

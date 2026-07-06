@@ -47,6 +47,7 @@ from .shared_notes import router as shared_notes_router
 from .carddav import router as carddav_router
 from .signature import router as signature_router
 from .multi_import import router as multi_import_router
+from .import_history import router as import_history_router
 
 # Router combinado para registrar en main.py
 router = APIRouter()
@@ -70,6 +71,7 @@ router.include_router(shared_notes_router)  # /shared-notes antes de /{contact_i
 router.include_router(carddav_router)       # /carddav/* antes de /{contact_id}
 router.include_router(signature_router)     # /signature/* antes de /{contact_id}
 router.include_router(multi_import_router)  # /import/* antes de /{contact_id}
+router.include_router(import_history_router) # /import/from-history antes de /{contact_id}
 router.include_router(interactions_router)  # /{contact_id}/interactions, /{contact_id}/stats
 router.include_router(favorites_router)     # /{contact_id}/favorite, etc.
 router.include_router(crud_router)          # /{contact_id} al final (catch-all)
