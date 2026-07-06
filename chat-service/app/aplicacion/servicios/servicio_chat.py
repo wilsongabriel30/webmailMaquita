@@ -15,9 +15,9 @@ from datetime import datetime
 from uuid import uuid4
 from dataclasses import dataclass
 
-from dominio.entidades.conversacion import Conversacion, Participante
-from dominio.entidades.mensaje import Mensaje, ArchivoMensaje, ReaccionMensaje
-from dominio.value_objects.tipos_chat import (
+from modulos.chat.dominio.entidades.conversacion import Conversacion, Participante
+from modulos.chat.dominio.entidades.mensaje import Mensaje, ArchivoMensaje, ReaccionMensaje
+from modulos.chat.dominio.value_objects.tipos_chat import (
     TipoConversacion,
     TipoMensaje,
     TipoMedia,
@@ -27,7 +27,7 @@ from dominio.value_objects.tipos_chat import (
     UbicacionMensaje,
     ContactoMensaje
 )
-from dominio.repositorios.repositorio_chat import (
+from modulos.chat.dominio.repositorios.repositorio_chat import (
     RepositorioConversacion,
     RepositorioParticipante,
     RepositorioMensaje,

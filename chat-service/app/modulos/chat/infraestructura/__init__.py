@@ -33,8 +33,8 @@
 
 5. EJEMPLO DE REPOSITORIO CORRECTO:
 
-   from dominio.repositorios import RepositorioMensaje  # Interface
-   from dominio.entidades import Mensaje                 # Entidad
+   from modulos.chat.dominio.repositorios import RepositorioMensaje  # Interface
+   from modulos.chat.dominio.entidades import Mensaje                 # Entidad
    from sqlalchemy.orm import Session
 
    class RepositorioMensajePostgreSQL(RepositorioMensaje):
