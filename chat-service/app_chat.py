@@ -2,27 +2,55 @@
 """
 Servicio de Chat Maquita — arranque standalone (Flask + Socket.IO).
 ====================================================================
-Servicio de chat INDEPENDIENTE (Fase A). El controlador del chat ya está
-desacoplado de las capas globales del sistema de origen (dominio/infraestructura
-eran bridges legacy → reapuntados a modulos.chat.*).
+Servicio de chat INDEPENDIENTE. El controlador del chat está desacoplado de las
+capas globales del sistema de origen (dominio/infraestructura eran bridges legacy
+→ reapuntados a modulos.chat.*).
 
 Auth: JWT propio (secreto compartido con el cliente/correo; en producción Keycloak).
 El before_request traduce el JWT (sub=correo) a la sesión que el controlador espera
 (session['usuario_id']), resolviendo el correo contra la BD de usuarios.
 
-Tiempo real: Socket.IO con Redis como message_queue (escalable a varios workers).
+Tiempo real: Socket.IO (eventlet) con Redis como message_queue → escalable a varios
+workers. La BD del chat se inicializa al arrancar.
 """
+# eventlet debe parchear ANTES de importar cualquier librería de red/BD.
+import eventlet  # noqa
+eventlet.monkey_patch()
+
 import os
 import sys
+from urllib.parse import urlparse
 
 _BASE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(_BASE, "app"))
 sys.path.insert(0, os.path.join(_BASE, "shims"))
 
-from flask import Flask, request, jsonify, session
+from flask import Flask, request, jsonify, session, render_template
+
+_PLANTILLAS = os.path.join(_BASE, "app", "interfaces", "web", "plantillas")
+_ESTATICOS = os.path.join(_BASE, "app", "interfaces", "web", "estaticos")
 
 _JWT_SECRET = os.getenv("CHAT_JWT_SECRET", "")
+_REDIS_URL = os.getenv("CHAT_REDIS_URL", "")
 _RUTAS_PROTEGIDAS = ("/api/chat", "/chat", "/socket.io")
+
+
+def _sembrar_redis():
+    """Crea el cliente Redis singleton con las credenciales del .env ANTES de que
+    los módulos del chat lo instancien con valores por defecto (localhost sin clave)."""
+    if not _REDIS_URL:
+        return
+    try:
+        u = urlparse(_REDIS_URL)
+        from modulos.chat.infraestructura.cache.cliente_redis import obtener_cliente_redis
+        obtener_cliente_redis(
+            host=u.hostname or "localhost",
+            port=u.port or 6379,
+            db=int((u.path or "/0").lstrip("/") or 0),
+            password=u.password or None,
+        )
+    except Exception as e:  # nunca tumbar el arranque por Redis: hay fallback in-memory
+        print(f"[chat] aviso: no se pudo sembrar Redis: {e}", file=sys.stderr)
 
 
 def _resolver_usuario():
@@ -47,7 +75,6 @@ def _resolver_usuario():
     correo = (datos.get("sub") or "").strip().lower()
     if not correo:
         return None, None
-    # correo -> usuario_id (BD). Cacheado por proceso.
     uid = _uid_por_correo(correo)
     return uid, correo
 
@@ -74,12 +101,44 @@ def _uid_por_correo(correo):
 
 
 def crear_app():
-    app = Flask(__name__)
+    # BD del chat: inicializar el gestor global antes de montar el controlador.
+    from compartido.infraestructura.base_datos import inicializar_base_datos
+    inicializar_base_datos(os.environ["DATABASE_URL"])
+
+    _sembrar_redis()
+
+    app = Flask(
+        __name__,
+        template_folder=_PLANTILLAS,
+        static_folder=_ESTATICOS,
+        static_url_path="/static",
+    )
     app.secret_key = os.getenv("CHAT_SESSION_KEY", os.urandom(24).hex())
+
+    class _UsuarioSesion:
+        """Shim para las plantillas: expone .id / .is_authenticated desde la sesión
+        (el chat autentica por JWT del correo, no por Flask-Login)."""
+        def __init__(self, uid):
+            self.id = uid
+            self.is_authenticated = uid is not None
+
+    @app.context_processor
+    def _inyectar_usuario():
+        return {"current_user": _UsuarioSesion(session.get("usuario_id"))}
 
     @app.get("/healthz")
     def healthz():
-        return jsonify({"success": True, "servicio": "chat-maquita"})
+        return jsonify({
+            "success": True,
+            "servicio": "chat-maquita",
+            "chat_montado": app.config.get("CHAT_MONTADO", False),
+        })
+
+    @app.route("/chat/")
+    @app.route("/chat")
+    def pagina_chat():
+        # La protege el before_request (exige JWT válido → session['usuario_id']).
+        return render_template("chat/index.html")
 
     # Montar el chat (62 endpoints). El controlador ya carga desacoplado.
     try:
@@ -89,6 +148,7 @@ def crear_app():
     except Exception as e:
         app.config["CHAT_MONTADO"] = False
         app.config["CHAT_ERROR"] = str(e)
+        print(f"[chat] ERROR montando el controlador: {e}", file=sys.stderr)
 
     @app.before_request
     def _auth():
@@ -107,5 +167,9 @@ def crear_app():
 
 application = crear_app()
 
+# Socket.IO (tiempo real). Envuelve la app Flask; gunicorn usa el worker eventlet.
+from interfaces.websocket.manejador_websocket import crear_socketio
+socketio = crear_socketio(application, redis_url=_REDIS_URL or None)
+
 if __name__ == "__main__":
-    application.run(host="0.0.0.0", port=int(os.getenv("CHAT_PORT", "8790")))
+    socketio.run(application, host="0.0.0.0", port=int(os.getenv("CHAT_PORT", "8790")))
