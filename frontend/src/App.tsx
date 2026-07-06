@@ -18,6 +18,7 @@ const MessageTracking = React.lazy(() => import('./components/admin/MessageTrack
 const SpamQuarantine = React.lazy(() => import("./components/admin/SpamQuarantine").then(m => ({ default: m.SpamQuarantine })));
 const CompliancePanel = React.lazy(() => import("./components/admin/CompliancePanel").then(m => ({ default: m.CompliancePanel })));
 const FirewallPanel = React.lazy(() => import("./components/admin/FirewallPanel").then(m => ({ default: m.FirewallPanel })));
+const MailGuardPanel = React.lazy(() => import("./components/admin/MailGuardPanel").then(m => ({ default: m.MailGuardPanel })));
 const ContactsView = React.lazy(() => import('./components/contacts/ContactsView').then(m => ({ default: m.ContactsView })));
 const RagAssistant = React.lazy(() => import('./components/rag/RagAssistant').then(m => ({ default: m.RagAssistant })));
 const TasksView = React.lazy(() => import('./components/tasks/TasksView').then(m => ({ default: m.TasksView })));
@@ -214,6 +215,7 @@ export default function App() {
             <Route path="spam" element={<React.Suspense fallback={<Spinner />}><SpamQuarantine /></React.Suspense>} />
             <Route path="compliance" element={<React.Suspense fallback={<Spinner />}><CompliancePanel /></React.Suspense>} />
             <Route path="firewall" element={<React.Suspense fallback={<Spinner />}><FirewallPanel /></React.Suspense>} />
+            <Route path="bloqueos" element={<React.Suspense fallback={<Spinner />}><MailGuardPanel /></React.Suspense>} />
           </Route>
         </Route>
       </Routes>

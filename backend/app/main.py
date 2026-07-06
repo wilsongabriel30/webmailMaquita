@@ -71,6 +71,7 @@ from app.nextcloud.router import router as nextcloud_router
 from app.branding.router import router as branding_router
 from app.compliance.router import router as compliance_router
 from app.admin.firewall_router import router as firewall_router
+from app.admin.mailguard_router import router as mailguard_router
 from app.compliance.audit_middleware import UserActivityAuditMiddleware
 from app.log_ingestor.mail_log_ingestor import start_log_ingestor
 from app.compliance.fraud_detector import start_fraud_detector
@@ -539,6 +540,7 @@ app.include_router(branding_router)
 app.include_router(calendar_invite_router)
 app.include_router(compliance_router)
 app.include_router(firewall_router)
+app.include_router(mailguard_router)
 
 
 @app.post("/api/csp-report")
