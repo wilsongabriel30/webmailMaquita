@@ -39,9 +39,10 @@ interface Props {
 // ── Helpers ──
 
 function ContactAvatar({ contact, size = 40 }: { contact: OrgContact; size?: number }) {
-  if (contact.photo_url) {
+  const [fotoRota, setFotoRota] = useState(false);
+  if (contact.photo_url && !fotoRota) {
     return <img src={contact.photo_url} alt="" className="rounded-full object-cover shrink-0"
-      style={{ width: size, height: size }} />;
+      style={{ width: size, height: size }} onError={() => setFotoRota(true)} />;
   }
   const name = contact.display_name || contact.email;
   const color = getAvatarColor(contact.email || name);
