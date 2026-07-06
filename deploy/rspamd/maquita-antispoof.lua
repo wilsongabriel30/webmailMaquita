@@ -1,3 +1,5 @@
+
+
 -- ===== Anti-spoofing de dominio propio (Maquita) =====
 local maq_local_domains = rspamd_config:add_map({
   url = '/etc/rspamd/local.d/maps/local_domains.map',
@@ -61,4 +63,38 @@ rspamd_config:register_symbol({
   score = 7.0,
   description = 'Patron de sextorsion con billetera bitcoin',
   group = 'spam',
+})
+
+-- ===== Suplantacion del nombre visible (RRHH falso 2026-07-06) =====
+-- Display name menciona la marca (maquita/mcch) pero el remitente es externo
+-- y no es un dominio propio. Score 6 = va a Junk directo.
+rspamd_config:register_symbol({
+  name = "MAQ_DISPNAME_SPOOF",
+  callback = function(task)
+    if task:get_user() then return false end
+    local ip = task:get_from_ip()
+    if ip and ip:is_valid() and ip:is_local() then return false end
+    local from = task:get_from("mime")
+    if not (from and from[1]) then return false end
+    local name = (from[1].name or ""):lower()
+    if not (name:find("maquita") or name:find("mcch")) then return false end
+    local dom = tostring(from[1].domain or ""):lower()
+    local function is_ours(d)
+      while d and d ~= "" do
+        if maq_local_domains:get_key(d) then return true end
+        local nd = d:gsub("^[^.]+%.", "", 1)
+        if nd == d then break end
+        d = nd
+      end
+      return false
+    end
+    if dom ~= "" and is_ours(dom) then return false end
+    -- dominios propios del Zimbra tambien son legitimos
+    local zimbra = { ["maquita.com.ec"]=true, ["mcch.com.ec"]=true, ["fundmcch.com.ec"]=true }
+    if zimbra[dom] or dom:match("%.maquita%.com%.ec$") or dom:match("%.mcch%.com%.ec$") then return false end
+    return true, 1.0, name
+  end,
+  score = 6.0,
+  description = "Nombre visible dice Maquita/MCCH pero remitente externo",
+  group = "spoofing",
 })

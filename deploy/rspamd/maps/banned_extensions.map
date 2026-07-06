@@ -1,0 +1,117 @@
+# Extensiones de adjunto PROHIBIDAS (rechazo total) - administrable desde panel webmail
+# Formato estricto: /\.EXT$/i  (una por linea)
+
+/\.exe$/i
+/\.scr$/i
+/\.pif$/i
+/\.bat$/i
+/\.cmd$/i
+/\.hta$/i
+/\.vbs$/i
+/\.vbe$/i
+/\.jse$/i
+/\.wsf$/i
+/\.jar$/i
+/\.iso$/i
+/\.img$/i
+/\.msi$/i
+/\.ps1$/i
+# Archivos partidos - evasion de malware (RRHH falso) - 2026-07-06
+/\.001$/i
+/\.002$/i
+/\.003$/i
+/\.z01$/i
+
+
+# Paridad con Zimbra (zimbraMtaBlockedExtension) - 2026-07-06 16:58
+/\.ace$/i
+
+# Paridad con Zimbra (zimbraMtaBlockedExtension) - 2026-07-06 16:58
+/\.asd$/i
+
+# Paridad con Zimbra (zimbraMtaBlockedExtension) - 2026-07-06 16:58
+/\.chm$/i
+
+# Paridad con Zimbra (zimbraMtaBlockedExtension) - 2026-07-06 16:58
+/\.com$/i
+
+# Paridad con Zimbra (zimbraMtaBlockedExtension) - 2026-07-06 16:58
+/\.dll$/i
+
+# Paridad con Zimbra (zimbraMtaBlockedExtension) - 2026-07-06 16:58
+/\.do$/i
+
+# Paridad con Zimbra (zimbraMtaBlockedExtension) - 2026-07-06 16:58
+/\.hlp$/i
+
+# Paridad con Zimbra (zimbraMtaBlockedExtension) - 2026-07-06 16:58
+/\.js$/i
+
+# Paridad con Zimbra (zimbraMtaBlockedExtension) - 2026-07-06 16:58
+/\.lnk$/i
+
+# Paridad con Zimbra (zimbraMtaBlockedExtension) - 2026-07-06 16:58
+/\.ocx$/i
+
+# Paridad con Zimbra (zimbraMtaBlockedExtension) - 2026-07-06 16:58
+/\.reg$/i
+
+# Paridad con Zimbra (zimbraMtaBlockedExtension) - 2026-07-06 16:58
+/\.shb$/i
+
+# Paridad con Zimbra (zimbraMtaBlockedExtension) - 2026-07-06 16:58
+/\.shm$/i
+
+# Paridad con Zimbra (zimbraMtaBlockedExtension) - 2026-07-06 16:58
+/\.shs$/i
+
+# Paridad con Zimbra (zimbraMtaBlockedExtension) - 2026-07-06 16:58
+/\.vbx$/i
+
+# Paridad con Zimbra (zimbraMtaBlockedExtension) - 2026-07-06 16:58
+/\.vxd$/i
+
+# Paridad con Zimbra (zimbraMtaBlockedExtension) - 2026-07-06 16:58
+/\.wsh$/i
+
+# Paridad con Zimbra (zimbraMtaBlockedExtension) - 2026-07-06 16:58
+/\.xl$/i
+
+# Paridad con Zimbra (zimbraMtaBlockedExtension) - 2026-07-06 16:58
+/\.msp$/i
+
+# Paridad con Zimbra (zimbraMtaBlockedExtension) - 2026-07-06 16:58
+/\.msc$/i
+
+# Paridad con Zimbra (zimbraMtaBlockedExtension) - 2026-07-06 16:58
+/\.ps2$/i
+
+# Paridad con Zimbra (zimbraMtaBlockedExtension) - 2026-07-06 16:58
+/\.psc1$/i
+
+# Paridad con Zimbra (zimbraMtaBlockedExtension) - 2026-07-06 16:58
+/\.psc2$/i
+
+# Paridad con Zimbra (zimbraMtaBlockedExtension) - 2026-07-06 16:58
+/\.psm1$/i
+
+# Paridad con Zimbra (zimbraMtaBlockedExtension) - 2026-07-06 16:58
+/\.psd1$/i
+
+# Paridad con Zimbra (zimbraMtaBlockedExtension) - 2026-07-06 16:58
+/\.vhd$/i
+
+# Paridad con Zimbra (zimbraMtaBlockedExtension) - 2026-07-06 16:58
+/\.vhdx$/i
+
+# Paridad con Zimbra (zimbraMtaBlockedExtension) - 2026-07-06 16:58
+/\.rar$/i
+
+# Paridad con Zimbra (zimbraMtaBlockedExtension) - 2026-07-06 16:58
+/\.7z$/i
+
+# Paridad con Zimbra (zimbraMtaBlockedExtension) - 2026-07-06 16:58
+/\.cab$/i
+
+# Paridad con Zimbra (zimbraMtaBlockedExtension) - 2026-07-06 16:58
+/\.lzh$/i
