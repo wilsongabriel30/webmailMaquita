@@ -40,3 +40,4 @@ almacen/venv/
 almacen/datos/
 almacen/.env
 almacen/servicio/__pycache__/
+chat-service/backups/

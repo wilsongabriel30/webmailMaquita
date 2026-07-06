@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Chat{% endblock %}</title>
+  <!-- Assets compartidos (se sirven vía /static; en el piloto los entrega el
+       servidor central por HTTP, solo lectura). Base mínima e independiente:
+       no arrastra el chrome del sistema de origen. -->
+  <link rel="stylesheet" href="/static/vendor/cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="/static/vendor/cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/static/vendor/cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+  <div class="main-content">
+    {% block content %}{% endblock %}
+  </div>
+  <script src="/static/vendor/cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>
