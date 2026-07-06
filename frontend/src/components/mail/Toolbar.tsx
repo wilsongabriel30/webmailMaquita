@@ -792,6 +792,7 @@ export function Toolbar() {
                     // Trigger file input in ComposePanel via custom event
                     window.dispatchEvent(new CustomEvent('compose-attach'));
                   }}
+                  onAttachCloud={() => window.dispatchEvent(new CustomEvent('compose-attach-cloud'))}
                   onInsertSignature={(html?: string) => {
                     // La firma se gestiona en ComposePanel (se muestra editable
                     // ABAJO, no dentro del editor). El menu de firmas pasa el HTML

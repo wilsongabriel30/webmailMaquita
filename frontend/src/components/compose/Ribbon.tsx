@@ -20,6 +20,7 @@ let formatPaintBuffer: FormatPaintSnapshot | null = null;
 interface Props {
   editor: Editor;
   onAttach?: () => void;
+  onAttachCloud?: () => void;
   onShowCc?: () => void;
   onShowBcc?: () => void;
   showCc?: boolean;
@@ -40,7 +41,7 @@ interface Props {
   onImproveWriting?: () => void;      // → VM 170 (ia-maquita) mejorar redacción con IA
 }
 
-export function Ribbon({ editor, onAttach, onShowCc, onShowBcc, showCc, showBcc, onImportanceChange, importance, onSaveDraft, onInsertSignature, onDownloadDraft, onDictate, onScheduleSend, onOpenApps, onReviewEditor, onCheckAccessibility, onFormatPaint, onTrackingChange, onImproveWriting }: Props) {
+export function Ribbon({ editor, onAttach, onAttachCloud, onShowCc, onShowBcc, showCc, showBcc, onImportanceChange, importance, onSaveDraft, onInsertSignature, onDownloadDraft, onDictate, onScheduleSend, onOpenApps, onReviewEditor, onCheckAccessibility, onFormatPaint, onTrackingChange, onImproveWriting }: Props) {
   const storeTab = useMailStore(s => s.composeRibbonTab);
   const [localTab, setLocalTab] = useState<Tab>('message');
   const tab = storeTab || localTab;
@@ -77,7 +78,7 @@ export function Ribbon({ editor, onAttach, onShowCc, onShowBcc, showCc, showBcc,
       ) : (
         <div className="flex items-stretch border-b border-[#edebe9] bg-[#f8f8f8] " style={{ height: '84px', overflow: 'visible' }}>
           {tab === 'message' && <MessageTab editor={editor} onAttach={onAttach} onImportanceChange={onImportanceChange} importance={importance} onSaveDraft={onSaveDraft} onInsertSignature={onInsertSignature} onDownloadDraft={onDownloadDraft} onDictate={onDictate} onOpenApps={onOpenApps} onReviewEditor={onReviewEditor} onCheckAccessibility={onCheckAccessibility} onImproveWriting={onImproveWriting} />}
-          {tab === 'insert' && <InsertTab editor={editor} onAttach={onAttach} onInsertSignature={onInsertSignature} onOpenApps={onOpenApps} />}
+          {tab === 'insert' && <InsertTab editor={editor} onAttach={onAttach} onAttachCloud={onAttachCloud} onInsertSignature={onInsertSignature} onOpenApps={onOpenApps} />}
           {tab === 'format' && <FormatTab editor={editor} onFormatPaint={onFormatPaint} />}
           {tab === 'options' && <OptionsTab editor={editor} onShowCc={onShowCc} onShowBcc={onShowBcc} showCc={showCc} showBcc={showBcc} onImportanceChange={onImportanceChange} importance={importance} onSaveDraft={onSaveDraft} onDownloadDraft={onDownloadDraft} onScheduleSend={onScheduleSend} onReviewEditor={onReviewEditor} onCheckAccessibility={onCheckAccessibility} onTrackingChange={onTrackingChange} />}
         </div>
@@ -612,7 +613,7 @@ function MessageTab({ editor, onAttach, onImportanceChange, importance, onSaveDr
 }
 
 /* ========== INSERT TAB ========== */
-function InsertTab({ editor, onAttach, onInsertSignature, onOpenApps }: { editor: Editor; onAttach?: () => void; onInsertSignature?: (html?: string) => void; onOpenApps?: () => void }) {
+function InsertTab({ editor, onAttach, onAttachCloud, onInsertSignature, onOpenApps }: { editor: Editor; onAttach?: () => void; onAttachCloud?: () => void; onInsertSignature?: (html?: string) => void; onOpenApps?: () => void }) {
   const tblAnchorRef = useRef<HTMLDivElement>(null);
 
   const [showTblGrid, setShowTblGrid] = useState(false);
@@ -626,6 +627,7 @@ function InsertTab({ editor, onAttach, onInsertSignature, onOpenApps }: { editor
       <RGroup label="Incluir">
         <div className="flex items-center gap-[3px]">
           <LargeBtn icon={<SvgI d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" s={22} />} label={"Adjuntar\narchivo"} onClick={() => onAttach?.()} hasDropdown />
+          <LargeBtn icon={<SvgI d="M7 16a4 4 0 01-.88-7.9A5 5 0 0115.9 6.1 4.5 4.5 0 0117 15h-1m-4-1v6m0-6l-2 2m2-2l2 2" s={22} />} label={"Desde la\nNube"} onClick={() => onAttachCloud?.()} />
           <LargeBtn icon={<SvgI d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" s={22} />} label="Vincular" onClick={() => doLink(editor)} />
           <SignatureMenu onSelect={onInsertSignature} size="large" />
           <LargeBtn icon={<SvgI d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" s={22} />} label="Imágenes" onClick={() => imgRef.current?.click()} />
