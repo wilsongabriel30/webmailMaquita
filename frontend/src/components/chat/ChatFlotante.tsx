@@ -30,7 +30,7 @@ export function ChatFlotante() {
         display: abierto ? 'block' : 'none',
       }}>
         {(abierto || cargado) && (
-          <iframe src="/chat/" title="Chat institucional"
+          <iframe src="/chat/?embed=1" title="Chat institucional"
             onLoad={() => setCargado(true)}
             style={{ width: '100%', height: '100%', border: 0 }} />
         )}
