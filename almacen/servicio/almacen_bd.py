@@ -39,11 +39,40 @@ def _obtener_pool_nomina():
     return _pool_nomina
 
 
+def _conexion_viva(con) -> bool:
+    """True si la conexión responde a un SELECT 1. Las conexiones idle a la BD
+    remota se cortan (SSL closed) y el pool las reutilizaba muertas → 500."""
+    try:
+        con.reset() if con.closed else None
+        with con.cursor() as cur:
+            cur.execute('SELECT 1')
+            cur.fetchone()
+        con.rollback()
+        return True
+    except Exception:
+        return False
+
+
 @contextmanager
 def conexion(nomina: bool = False):
-    """Presta una conexión del pool (commit al salir bien, rollback si falla)."""
+    """Presta una conexión del pool, VALIDÁNDOLA antes de usarla; si está
+    caída la descarta y toma/crea otra. commit al salir bien, rollback si falla."""
     pool = _obtener_pool_nomina() if nomina else _obtener_pool()
     con = pool.getconn()
+    if con.closed or not _conexion_viva(con):
+        # conexión muerta: descartarla del pool y pedir/crear una nueva
+        try:
+            pool.putconn(con, close=True)
+        except Exception:
+            pass
+        con = pool.getconn()
+        if con.closed or not _conexion_viva(con):
+            # segunda muerta: reponerla también y crear una fresca fuera del pool
+            try:
+                pool.putconn(con, close=True)
+            except Exception:
+                pass
+            con = pool.getconn()
     try:
         yield con
         con.commit()
