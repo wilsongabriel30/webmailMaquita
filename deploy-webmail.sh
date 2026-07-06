@@ -110,7 +110,7 @@ DEPLOYED_COUNT=$(find "${DEPLOY_TARGET}" -type f | wc -l)
 echo -e "${GREEN}Deploy OK: ${DEPLOYED_COUNT} archivos en ${DEPLOY_TARGET}${NC}"
 
 # --- Paso 5: Restart backend (omitido con --solo-frontend) ---
-if [[ "$1" == "--solo-frontend" ]]; then
+if [[ "${1:-}" == "--solo-frontend" ]]; then
     echo -e "\n${YELLOW}[4/5] Backend NO reiniciado (--solo-frontend)${NC}"
     if systemctl is-active --quiet "${BACKEND_SERVICE}"; then
         echo -e "${GREEN}Backend sigue activo, sin corte para los usuarios${NC}"
