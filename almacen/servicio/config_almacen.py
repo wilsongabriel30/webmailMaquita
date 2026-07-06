@@ -54,6 +54,10 @@ BD = {
     'dbname': os.getenv('ALMACEN_DB_NAME', 'almacen'),
     'user': os.getenv('ALMACEN_DB_USER', 'almacen'),
     'password': os.getenv('ALMACEN_DB_PASSWORD', ''),
+    # keepalives: detecta y evita conexiones cortadas por inactividad
+    # (firewall/NAT o timeout de la BD remota) — el fix del 'SSL connection closed'.
+    'keepalives': 1, 'keepalives_idle': 30, 'keepalives_interval': 10,
+    'keepalives_count': 5, 'connect_timeout': 10,
 }
 
 # Base de nómina (solo LECTURA: búsqueda de usuarios para compartir)
@@ -62,6 +66,10 @@ BD_NOMINA = {
     'dbname': os.getenv('NOMINA_DB_NAME', 'almacen'),
     'user': os.getenv('NOMINA_DB_USER', 'almacen'),
     'password': os.getenv('NOMINA_DB_PASSWORD', ''),
+    # keepalives: detecta y evita conexiones cortadas por inactividad
+    # (firewall/NAT o timeout de la BD remota) — el fix del 'SSL connection closed'.
+    'keepalives': 1, 'keepalives_idle': 30, 'keepalives_interval': 10,
+    'keepalives_count': 5, 'connect_timeout': 10,
 }
 
 # ── Límites ──────────────────────────────────────────────────────────────
