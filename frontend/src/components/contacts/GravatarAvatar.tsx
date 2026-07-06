@@ -16,6 +16,7 @@ interface GravatarResult {
 const cache = new Map<string, GravatarResult>();
 
 const GravatarAvatar: React.FC<Props> = ({ name, email, size }) => {
+  const [imgError, setImgError] = React.useState(false);
   const [result, setResult] = useState<GravatarResult | null>(
     cache.get(email) ?? null
   );
@@ -42,7 +43,7 @@ const GravatarAvatar: React.FC<Props> = ({ name, email, size }) => {
     return () => { cancelled = true; };
   }, [email]);
 
-  if (result?.has_avatar && result.url) {
+  if (result?.has_avatar && result.url && !imgError) {
     return (
       <img
         src={result.url}
@@ -50,6 +51,7 @@ const GravatarAvatar: React.FC<Props> = ({ name, email, size }) => {
         width={size}
         height={size}
         style={{ borderRadius: '50%', objectFit: 'cover' }}
+        onError={() => setImgError(true)}
       />
     );
   }

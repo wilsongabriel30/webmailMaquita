@@ -84,9 +84,13 @@ export const CATEGORY_COLORS = [
 /* Helpers */
 export function getInitials(name: string): string {
   if (!name || !name.trim()) return '?';
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  return parts[0][0].toUpperCase();
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  // Primer nombre + primer apellido. En nombres completos (2 nombres + 2
+  // apellidos) el primer apellido esta a la mitad; en "Nombre Apellido" es el 2do.
+  const nombre = parts[0];
+  const apellido = parts[Math.floor(parts.length / 2)];
+  return (nombre[0] + apellido[0]).toUpperCase();
 }
 
 export function getAvatarColor(name: string): string {
