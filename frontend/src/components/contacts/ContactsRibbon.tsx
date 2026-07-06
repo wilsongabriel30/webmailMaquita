@@ -13,6 +13,7 @@ interface Props {
   onRestore: () => void;
   onToggleFavorite: () => void;
   onImport: () => void;
+  onImportHistory: () => void;
   onExport: () => void;
   onEmptyTrash: () => void;
   onCategorize: () => void;
@@ -30,7 +31,7 @@ interface Props {
 export function ContactsRibbon({
   filter, hasSelection, isFavorite, selectionCount,
   onNewContact, onNewList, onEdit, onDelete, onRestore,
-  onToggleFavorite, onImport, onExport, onEmptyTrash,
+  onToggleFavorite, onImport, onImportHistory, onExport, onEmptyTrash,
   onCategorize, onManageCategories, onBulkDelete, onBulkFavorite,
   onShowDuplicates, onShowReminders, onShowCustomFields,
   onShowDirectory, onShowMultiImport, onShowCardDAV,
@@ -110,6 +111,12 @@ export function ContactsRibbon({
               onMouseEnter={e => (e.currentTarget.style.background = '#f3f2f1')}
               onMouseLeave={e => (e.currentTarget.style.background = '#fff')}
             >Nueva lista</div>
+            <div onClick={() => { onImportHistory(); setShowNewMenu(false); }}
+              style={{ padding: '8px 16px', fontSize: 13, cursor: 'pointer', borderTop: '1px solid #edebe9' }}
+              onMouseEnter={e => (e.currentTarget.style.background = '#f3f2f1')}
+              onMouseLeave={e => (e.currentTarget.style.background = '#fff')}
+              title="Crea contactos con las direcciones de tus correos recibidos y enviados"
+            >📥 Importar del historial</div>
           </div>
         )}
       </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../../api/client';
+import { showToast } from '../common/Toast';
 import { useMailStore } from '../../store/mailStore';
 import { useNavigate } from 'react-router-dom';
 import type { Contact, ContactsResponse, ContactCategory, ContactList, SidebarFilter } from './types';
@@ -76,6 +77,17 @@ export function ContactsView() {
   const navigate = useNavigate();
 
   /* ── Fetch contacts ── */
+  const handleImportHistory = async () => {
+    showToast('Buscando contactos en tu historial de correo…');
+    try {
+      const r = await api.post<{ importados: number; total: number; mensaje?: string }>('/contacts/import/from-history', {});
+      showToast(r.mensaje || `${r.importados} contacto(s) importado(s) del historial`);
+      fetchContacts(1, '', filter);
+    } catch {
+      showToast('No se pudo importar del historial');
+    }
+  };
+
   const fetchContacts = useCallback(async (p: number, q: string, f: SidebarFilter) => {
     const myId = ++fetchIdRef.current;
     setLoading(true);
@@ -376,6 +388,7 @@ export function ContactsView() {
           onRestore={handleRestore}
           onToggleFavorite={() => handleToggleFavorite()}
           onImport={() => setShowImportExport('import')}
+          onImportHistory={handleImportHistory}
           onExport={() => setShowImportExport('export')}
           onEmptyTrash={handleEmptyTrash}
           onCategorize={handleCategorize}
