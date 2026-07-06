@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Llamada — FARO Maquita</title>
+    <link rel="stylesheet" href="/static/vendor/font-awesome/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { height: 100%; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f1115;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .vc-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 18px;
+            background: rgba(0,0,0,.35);
+            flex-shrink: 0;
+        }
+        .vc-title {
+            font-weight: 600;
+            font-size: 1rem;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .vc-timer { font-variant-numeric: tabular-nums; opacity: .8; }
+        .vc-stage { flex: 1; position: relative; min-height: 0; background: #000; }
+        #remoteVideo {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: #000;
+        }
+        #localVideo {
+            position: absolute;
+            bottom: 18px;
+            right: 18px;
+            width: 200px;
+            height: 150px;
+            border-radius: 10px;
+            object-fit: cover;
+            border: 2px solid rgba(255,255,255,.7);
+            box-shadow: 0 4px 16px rgba(0,0,0,.5);
+            background: #1c1e21;
+        }
+        .vc-estado {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 18px;
+            background: #0f1115;
+        }
+        .vc-avatar {
+            width: 110px;
+            height: 110px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #0061a1, #28a745);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.6rem;
+            font-weight: 700;
+        }
+        .vc-estado .nombre { font-size: 1.3rem; font-weight: 600; }
+        .vc-estado .detalle { opacity: .75; }
+        .vc-controls {
+            display: flex;
+            justify-content: center;
+            gap: 14px;
+            padding: 14px;
+            background: rgba(0,0,0,.35);
+            flex-shrink: 0;
+        }
+        .vc-controls button {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            border: none;
+            color: #fff;
+            font-size: 1.05rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #374151;
+            transition: background .15s, transform .1s;
+        }
+        .vc-controls button:hover { transform: scale(1.06); }
+        .vc-controls button.active { background: #ef4444; }
+        .vc-controls .btn-colgar { background: #ef4444; width: 64px; }
+        .vc-controls .btn-share.sharing { background: #22c55e; }
+        .vc-controls .btn-rec.grabando { background: #ef4444; animation: recpulse 1.4s infinite; }
+        @keyframes recpulse { 0%,100%{opacity:1;} 50%{opacity:.5;} }
+        @keyframes pulso { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
+        .pulsando { animation: pulso 1.6s ease infinite; }
+            .media-unlock {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100090;
+            background: #f59e0b; color: #1c1300; text-align: center;
+            padding: 10px 14px; font-weight: 600; cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0,0,0,.4); display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="media-unlock" id="mediaUnlock" onclick="desbloquearMedia()">
+        🔊 Toca aquí para activar el audio y el video de la llamada
+    </div>
+
+    <div class="vc-header">
+        <div class="vc-title">
+            <i id="iconoTipo" class="fas fa-phone"></i>
+            <span id="tituloNombre"></span>
+            <span class="vc-timer" id="vcTimer">00:00</span>
+        </div>
+        <div style="opacity:.6;font-size:.8rem;">FARO — esta ventana mantiene tu llamada aunque navegues en FARO</div>
+    </div>
+    <div class="vc-stage">
+        <video id="remoteVideo" autoplay playsinline style="display:none;"></video>
+        <video id="localVideo" autoplay playsinline muted style="display:none;"></video>
+        <audio id="remoteAudio" autoplay></audio>
+        <div class="vc-estado" id="vcEstado">
+            <div class="vc-avatar pulsando" id="vcAvatar">?</div>
+            <div class="nombre" id="vcNombre"></div>
+            <div class="detalle" id="vcDetalle">Conectando…</div>
+        </div>
+    </div>
+    <div class="vc-controls">
+        <button id="btnMute" onclick="toggleMute()" title="Silenciar"><i class="fas fa-microphone"></i></button>
+        <button id="btnCam" onclick="toggleCam()" title="Apagar cámara" style="display:none;"><i class="fas fa-video"></i></button>
+        <button id="btnShare" class="btn-share" onclick="toggleShare()" title="Compartir pantalla"><i class="fas fa-desktop"></i></button>
+        <button id="btnRec" class="btn-rec" onclick="toggleGrabacion()" title="Grabar llamada"><i class="fas fa-circle"></i></button>
+        <button class="btn-colgar" onclick="colgar()" title="Colgar"><i class="fas fa-phone-slash"></i></button>
+    </div>
+
+    <script src="/static/js/lib/socket.io.min.js"></script>
+    <script src="/static/js/lib/livekit-client.umd.min.js?v=2.15.7"></script>
+    <script>
+        // Cierra la vista de llamada: window.close() si es popup; si corre en un
+        // iframe (fallback por bloqueo de popups en Firefox/Safari), avisa al padre.
+        function cerrarVistaLlamada() {
+            try {
+                if (window.self !== window.top) {
+                    window.parent.postMessage({ faroCall: 'close' }, '*');
+                    return;
+                }
+            } catch (e) {}
+            window.close();
+        }
+
+        // Desbloqueo de autoplay (Firefox/Safari): reproduce todos los medios tras un gesto
+        function desbloquearMedia() {
+            document.querySelectorAll('audio, video').forEach(function(el) {
+                try { el.play().catch(function(){}); } catch (e) {}
+            });
+            try { if (est && est.ringCtx && est.ringCtx.resume) est.ringCtx.resume(); } catch (e) {}
+            var b = document.getElementById('mediaUnlock');
+            if (b) b.style.display = 'none';
+        }
+        function pedirDesbloqueoMedia() {
+            var b = document.getElementById('mediaUnlock');
+            if (b) b.style.display = 'block';
+        }
+        // Cualquier clic en la ventana tambien desbloquea (gesto del usuario)
+        document.addEventListener('click', function() {
+            var b = document.getElementById('mediaUnlock');
+            if (b && b.style.display === 'block') desbloquearMedia();
+        });
+
+        // ===== Parámetros =====
+        const Q = new URLSearchParams(location.search);
+        const ROLE = Q.get('role') === 'callee' ? 'callee' : 'caller';
+        const TIPO = Q.get('tipo') === 'video' ? 'video' : 'audio';
+        const PEER_ID = parseInt(Q.get('peer_id'), 10);
+        const PEER_NAME = Q.get('peer_name') || 'Usuario';
+        const CONV_ID = Q.get('conv') || '';
+        const MY_ID = {{ session.get('usuario_id', 0) }};
+        const MY_NAME = {{ session.get('usuario_nombre', 'Usuario') | tojson }};
+        const ROOM = 'llamada_' + Math.min(MY_ID, PEER_ID) + '_' + Math.max(MY_ID, PEER_ID);
+
+        const est = {
+            socket: null, room: null, localStream: null,
+            conectada: false, finalizada: false,
+            muted: false, camOff: false,
+            timerSeconds: 0, timerInterval: null,
+            ringTimeout: null, ringCtx: null, ringInterval: null,
+            screenTrack: null, camTrack: null, peerGoneTimer: null
+        };
+
+        // ===== UI inicial =====
+        document.getElementById('tituloNombre').textContent = PEER_NAME;
+        document.getElementById('vcNombre').textContent = PEER_NAME;
+        document.getElementById('vcAvatar').textContent = (PEER_NAME[0] || '?').toUpperCase();
+        document.getElementById('iconoTipo').className = TIPO === 'video' ? 'fas fa-video' : 'fas fa-phone';
+        document.getElementById('vcDetalle').textContent = ROLE === 'caller' ? 'Llamando…' : 'Conectando…';
+        if (TIPO === 'video') document.getElementById('btnCam').style.display = '';
+        document.title = (TIPO === 'video' ? 'Videollamada' : 'Llamada') + ' con ' + PEER_NAME + ' — FARO';
+
+        function setDetalle(t) { const d = document.getElementById('vcDetalle'); if (d) d.textContent = t; }
+
+        // ===== Tono de llamada saliente =====
+        function iniciarRingback() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                est.ringCtx = ctx;
+                function play() {
+                    if (est.conectada || est.finalizada) return;
+                    const t = ctx.currentTime;
+                    [440, 480].forEach(f => {
+                        const o = ctx.createOscillator(), g = ctx.createGain();
+                        o.type = 'sine'; o.frequency.value = f; o.connect(g); g.connect(ctx.destination);
+                        g.gain.setValueAtTime(0, t);
+                        g.gain.linearRampToValueAtTime(.06, t + .08);
+                        g.gain.setValueAtTime(.06, t + 1.9);
+                        g.gain.linearRampToValueAtTime(0, t + 2);
+                        o.start(t); o.stop(t + 2.1);
+                    });
+                }
+                play();
+                est.ringInterval = setInterval(play, 6000);
+            } catch (e) {}
+        }
+        function pararRingback() {
+            if (est.ringInterval) { clearInterval(est.ringInterval); est.ringInterval = null; }
+            if (est.ringCtx) { est.ringCtx.close().catch(() => {}); est.ringCtx = null; }
+        }
+
+        // ===== Registro de la llamada en la conversación (solo el llamante) =====
+        async function registrarEnChat(motivo) {
+            if (ROLE !== 'caller' || !CONV_ID) return;
+            const icono = TIPO === 'video' ? '📹' : '📞';
+            const hora = new Date().toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' });
+            let msg = '';
+            if (motivo === 'sin_respuesta') {
+                msg = icono + ' Llamada ' + (TIPO === 'video' ? 'de video ' : '') + 'a ' + PEER_NAME + ' - Sin respuesta (' + hora + ')';
+            } else if (motivo === 'rechazada') {
+                msg = icono + ' Llamada ' + (TIPO === 'video' ? 'de video ' : '') + 'a ' + PEER_NAME + ' - No disponible (' + hora + ')';
+            } else if (motivo === 'completada' && est.timerSeconds > 0) {
+                const m = String(Math.floor(est.timerSeconds / 60)).padStart(2, '0');
+                const s = String(est.timerSeconds % 60).padStart(2, '0');
+                msg = icono + ' Llamada ' + (TIPO === 'video' ? 'de video ' : '') + 'con ' + PEER_NAME + ' - ' + m + ':' + s + ' (' + hora + ')';
+            }
+            if (!msg) return;
+            try {
+                await fetch('/api/chat/conversations/' + CONV_ID + '/messages', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ contenido: msg })
+                });
+            } catch (e) {}
+        }
+
+        // Registro estructurado en el historial de llamadas (solo el llamante)
+        async function registrarHistorial(estado) {
+            if (ROLE !== 'caller') return;
+            try {
+                await fetch('/api/chat/llamadas/registrar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({
+                        room: ROOM, tipo: TIPO, peer_id: PEER_ID,
+                        conversation_id: CONV_ID || null,
+                        estado: estado, duracion: est.timerSeconds
+                    })
+                });
+            } catch (e) {}
+        }
+
+        // ===== Timer =====
+        function iniciarTimer() {
+            if (est.timerInterval) return;
+            est.timerInterval = setInterval(() => {
+                est.timerSeconds++;
+                const m = String(Math.floor(est.timerSeconds / 60)).padStart(2, '0');
+                const s = String(est.timerSeconds % 60).padStart(2, '0');
+                const el = document.getElementById('vcTimer');
+                if (el) el.textContent = m + ':' + s;
+            }, 1000);
+        }
+
+        // ===== Media remota =====
+        function refrescarVideoRemoto() {
+            const rv = document.getElementById('remoteVideo');
+            const track = est.screenTrack || est.camTrack;
+            if (track) {
+                track.attach(rv);
+                rv.style.display = '';
+                document.getElementById('vcEstado').style.display = 'none';
+            } else {
+                rv.style.display = 'none';
+                document.getElementById('vcEstado').style.display = '';
+                setDetalle(est.conectada ? 'Sin video (solo audio)' : 'Conectando…');
+            }
+        }
+
+        // ===== Conexión LiveKit =====
+        async function empezar() {
+            if (est.conectada || est.finalizada) return;
+            est.conectada = true;
+            pararRingback();
+            if (est.ringTimeout) { clearTimeout(est.ringTimeout); est.ringTimeout = null; }
+            document.getElementById('vcAvatar').classList.remove('pulsando');
+            setDetalle('Conectando audio y video…');
+
+            try {
+                est.localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: TIPO === 'video' });
+            } catch (e) {
+                setDetalle('No se pudo acceder al micrófono' + (TIPO === 'video' ? '/cámara' : '') + '. Revisa los permisos.');
+                return;
+            }
+            if (TIPO === 'video') {
+                const lv = document.getElementById('localVideo');
+                lv.srcObject = est.localStream;
+                lv.style.display = '';
+            }
+
+            try {
+                const resp = await fetch('/api/chat/llamada/token?room=' + encodeURIComponent(ROOM), { credentials: 'same-origin' });
+                const data = await resp.json();
+                if (!resp.ok || !data.exito) throw new Error(data.error || 'token');
+
+                const room = new LivekitClient.Room({ adaptiveStream: true, dynacast: true });
+                est.room = room;
+
+                room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, pub) => {
+                    if (track.kind === 'video') {
+                        if (pub && pub.source === LivekitClient.Track.Source.ScreenShare) est.screenTrack = track;
+                        else est.camTrack = track;
+                        refrescarVideoRemoto();
+                    } else {
+                        const ra = document.getElementById('remoteAudio');
+                        track.attach(ra);
+                        ra.play().catch(() => { pedirDesbloqueoMedia(); });
+                        if (TIPO === 'audio') setDetalle('En llamada');
+                    }
+                    iniciarTimer();
+                });
+                room.on(LivekitClient.RoomEvent.TrackUnsubscribed, (track, pub) => {
+                    if (track.kind !== 'video') return;
+                    if (pub && pub.source === LivekitClient.Track.Source.ScreenShare) est.screenTrack = null;
+                    else if (est.camTrack === track) est.camTrack = null;
+                    refrescarVideoRemoto();
+                });
+                room.on(LivekitClient.RoomEvent.ParticipantConnected, () => {
+                    if (est.peerGoneTimer) { clearTimeout(est.peerGoneTimer); est.peerGoneTimer = null; }
+                });
+                room.on(LivekitClient.RoomEvent.ParticipantDisconnected, () => {
+                    if (est.finalizada) return;
+                    if (est.peerGoneTimer) clearTimeout(est.peerGoneTimer);
+                    est.peerGoneTimer = setTimeout(() => {
+                        if (!est.finalizada && est.room && est.room.remoteParticipants.size === 0) {
+                            finalizar('El otro participante se desconectó');
+                        }
+                    }, 5000);
+                });
+                room.on(LivekitClient.RoomEvent.Disconnected, () => {
+                    if (!est.finalizada && est.timerSeconds > 0) finalizar('Conexión perdida');
+                });
+
+                await room.connect(data.url, data.token);
+                for (const t of est.localStream.getTracks()) {
+                    await room.localParticipant.publishTrack(t);
+                }
+                setDetalle(TIPO === 'video' ? 'Esperando video del otro participante…' : 'En llamada');
+            } catch (e) {
+                console.error('Error conectando:', e);
+                setDetalle('Error estableciendo la conexión');
+                setTimeout(() => finalizar('Error de conexión'), 1500);
+            }
+        }
+
+        // ===== Controles =====
+        function toggleMute() {
+            if (!est.localStream) return;
+            est.muted = !est.muted;
+            est.localStream.getAudioTracks().forEach(t => t.enabled = !est.muted);
+            const b = document.getElementById('btnMute');
+            b.classList.toggle('active', est.muted);
+            b.innerHTML = est.muted ? '<i class="fas fa-microphone-slash"></i>' : '<i class="fas fa-microphone"></i>';
+        }
+        function toggleCam() {
+            if (!est.localStream) return;
+            est.camOff = !est.camOff;
+            est.localStream.getVideoTracks().forEach(t => t.enabled = !est.camOff);
+            const b = document.getElementById('btnCam');
+            b.classList.toggle('active', est.camOff);
+            b.innerHTML = est.camOff ? '<i class="fas fa-video-slash"></i>' : '<i class="fas fa-video"></i>';
+        }
+        async function toggleShare() {
+            if (!est.room) { setDetalle('Espera a que conecte la llamada'); return; }
+            const b = document.getElementById('btnShare');
+            try {
+                const activo = est.room.localParticipant.isScreenShareEnabled;
+                await est.room.localParticipant.setScreenShareEnabled(!activo);
+                const ahora = est.room.localParticipant.isScreenShareEnabled;
+                b.classList.toggle('sharing', ahora);
+                b.title = ahora ? 'Dejar de compartir' : 'Compartir pantalla';
+            } catch (e) {
+                if (e && (e.name === 'NotAllowedError' || /Permission|cancel/i.test(String(e)))) return;
+                console.error('Error compartiendo pantalla:', e);
+            }
+        }
+
+        // ===== Grabacion =====
+        let _egressId = null;
+        async function toggleGrabacion() {
+            const b = document.getElementById('btnRec');
+            if (!est.room) { setDetalle('Espera a que conecte la llamada'); return; }
+            if (!_egressId) {
+                try {
+                    const r = await fetch('/api/chat/grabacion/iniciar', {
+                        method: 'POST', headers: {'Content-Type':'application/json'},
+                        credentials: 'same-origin', body: JSON.stringify({ room: ROOM })
+                    });
+                    const d = await r.json();
+                    if (!r.ok || !d.exito) throw new Error(d.error || 'no');
+                    _egressId = d.egress_id;
+                    b.classList.add('grabando'); b.title = 'Detener grabacion';
+                    setDetalle('● Grabando la llamada');
+                    setTimeout(() => { if (_egressId) setDetalle(null); }, 2500);
+                } catch (e) { setDetalle('No se pudo iniciar la grabacion'); }
+            } else {
+                try {
+                    await fetch('/api/chat/grabacion/detener', {
+                        method: 'POST', headers: {'Content-Type':'application/json'},
+                        credentials: 'same-origin', body: JSON.stringify({ egress_id: _egressId })
+                    });
+                } catch (e) {}
+                _egressId = null;
+                b.classList.remove('grabando'); b.title = 'Grabar llamada';
+                setDetalle('Grabacion guardada'); setTimeout(() => setDetalle(null), 2000);
+            }
+        }
+
+        // ===== Fin de llamada =====
+        function colgar() {
+            if (est.socket && est.socket.connected) {
+                est.socket.emit('call_hangup', { target_user_id: PEER_ID });
+            }
+            finalizar('Llamada finalizada');
+        }
+        async function finalizar(motivo) {
+            if (est.finalizada) return;
+            est.finalizada = true;
+            pararRingback();
+            if (est.ringTimeout) clearTimeout(est.ringTimeout);
+            if (est.timerInterval) clearInterval(est.timerInterval);
+            setDetalle(motivo || 'Llamada finalizada');
+            document.getElementById('vcEstado').style.display = '';
+            document.getElementById('remoteVideo').style.display = 'none';
+            const desenlace = est.timerSeconds > 0 ? 'completada' : 'sin_respuesta';
+            await registrarEnChat(ROLE === 'caller' ? desenlace : (est.timerSeconds > 0 ? 'completada' : ''));
+            await registrarHistorial(desenlace);
+            if (_egressId) { try { await fetch('/api/chat/grabacion/detener', {method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({egress_id:_egressId})}); } catch(e){} _egressId = null; }
+            try { if (est.room) est.room.disconnect(); } catch (e) {}
+            if (est.localStream) est.localStream.getTracks().forEach(t => t.stop());
+            setTimeout(() => cerrarVistaLlamada(), 1300);
+        }
+
+        // ===== Señalización =====
+        const socket = io({ transports: ['websocket', 'polling'] });
+        est.socket = socket;
+        socket.on('connect', () => {
+            if (ROLE === 'callee') {
+                socket.emit('call_accepted', { target_user_id: PEER_ID });
+                empezar();
+            } else {
+                socket.emit('call_invite', {
+                    target_user_id: PEER_ID,
+                    tipo: TIPO,
+                    caller_name: MY_NAME,
+                    chat_id: CONV_ID || PEER_ID
+                });
+                iniciarRingback();
+                est.ringTimeout = setTimeout(async () => {
+                    if (!est.conectada && !est.finalizada) {
+                        socket.emit('call_hangup', { target_user_id: PEER_ID });
+                        await registrarEnChat('sin_respuesta');
+                        await registrarHistorial('sin_respuesta');
+                        est.finalizada = true;
+                        pararRingback();
+                        setDetalle('Sin respuesta');
+                        setTimeout(() => cerrarVistaLlamada(), 1300);
+                    }
+                }, 30000);
+            }
+        });
+        socket.on('call_accepted', (data) => {
+            if (ROLE !== 'caller') return;
+            if (data.accepted_by && String(data.accepted_by) !== String(PEER_ID)) return;
+            empezar();
+        });
+        socket.on('call_rejected', async (data) => {
+            if (data.rejected_by && String(data.rejected_by) !== String(PEER_ID)) return;
+            if (est.conectada) return;
+            await registrarEnChat('rechazada');
+            await registrarHistorial('rechazada');
+            est.finalizada = true;
+            pararRingback();
+            if (est.ringTimeout) clearTimeout(est.ringTimeout);
+            setDetalle(PEER_NAME + ' no está disponible');
+            setTimeout(() => cerrarVistaLlamada(), 1500);
+        });
+        socket.on('call_hangup', (data) => {
+            if (data.from && String(data.from) !== String(PEER_ID)) return;
+            finalizar('Llamada finalizada por ' + PEER_NAME);
+        });
+
+        // Mejor esfuerzo al cerrar la ventana directamente
+        window.addEventListener('beforeunload', () => {
+            if (!est.finalizada) {
+                if (est.socket && est.socket.connected) {
+                    est.socket.emit('call_hangup', { target_user_id: PEER_ID });
+                }
+                try { if (est.room) est.room.disconnect(); } catch (e) {}
+            }
+        });
+    </script>
+</body>
+</html>

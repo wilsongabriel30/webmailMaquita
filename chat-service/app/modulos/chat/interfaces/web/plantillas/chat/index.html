@@ -1,0 +1,124 @@
+{% extends "base_module.html" %}
+{% block title %}Chat - Sistema FARO{% endblock %}
+
+{% block extra_css %}
+<!-- Estilos del Chat Modular -->
+<link rel="stylesheet" href="{{ url_for('static', filename='modulos/chat/interfaces/web/estaticos/css/chat-modular.css') }}">
+
+<style>
+    /* Override para integracion con base_module */
+    .main-content {
+        padding: 0 !important;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .chat-container {
+        flex: 1;
+        display: flex;
+        overflow: hidden;
+    }
+
+    /* Ajustes para el navbar */
+    .navbar + .main-content {
+        height: calc(100vh - 56px);
+        min-height: calc(100vh - 56px);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="chat-container" id="chat-app">
+    <!-- El ChatApp renderizara aqui su contenido -->
+    <div class="d-flex align-items-center justify-content-center w-100">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Cargando chat...</span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Socket.IO -->
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+<!-- Chat Modular (ES6 Modules) -->
+<script type="module">
+    import { ChatApp } from '{{ url_for("static", filename="modulos/chat/interfaces/web/estaticos/js/chat/index.js") }}';
+
+    // Datos del usuario desde el backend
+    const userData = {
+        id: {{ current_user.id if current_user else 0 }},
+        name: '{{ current_user.nombre if current_user else "Invitado" }}',
+        avatar: '{{ current_user.foto if current_user and current_user.foto else "" }}',
+    };
+
+    // Inicializar Chat
+    document.addEventListener('DOMContentLoaded', async () => {
+        try {
+            const chat = new ChatApp({
+                container: '#chat-app',
+                userId: userData.id,
+                userName: userData.name,
+                userAvatar: userData.avatar,
+                debug: {{ 'true' if config.DEBUG else 'false' }},
+
+                onReady: () => {
+                    console.log('Chat listo!');
+                },
+
+                onError: (error) => {
+                    console.error('Error en chat:', error);
+                    // Mostrar notificacion de error
+                    if (typeof showError === 'function') {
+                        showError('Error de conexion con el chat');
+                    }
+                },
+
+                onConversationChange: (conv) => {
+                    // Actualizar titulo de la pagina
+                    document.title = `${conv.nombre || 'Chat'} - Sistema FARO`;
+                },
+            });
+
+            await chat.init();
+
+            // Exponer globalmente para debug
+            window.chatApp = chat;
+
+            // Abrir conversacion desde parametro URL si existe
+            const urlParams = new URLSearchParams(window.location.search);
+            const convId = urlParams.get('conversation');
+            if (convId) {
+                await chat.openConversation(convId);
+            }
+
+        } catch (error) {
+            console.error('Error inicializando chat:', error);
+            document.getElementById('chat-app').innerHTML = `
+                <div class="d-flex flex-column align-items-center justify-content-center w-100 text-danger">
+                    <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
+                    <h5>Error cargando el chat</h5>
+                    <p class="text-muted">${error.message}</p>
+                    <button class="btn btn-primary mt-2" onclick="location.reload()">
+                        <i class="fas fa-redo me-2"></i>Reintentar
+                    </button>
+                </div>
+            `;
+        }
+    });
+</script>
+
+<!-- Fallback para navegadores sin soporte ES6 Modules -->
+<script nomodule>
+    document.getElementById('chat-app').innerHTML = `
+        <div class="d-flex flex-column align-items-center justify-content-center w-100 text-warning">
+            <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
+            <h5>Navegador no compatible</h5>
+            <p class="text-muted">Tu navegador no soporta las funciones modernas de JavaScript.</p>
+            <p class="text-muted">Por favor actualiza a una version mas reciente.</p>
+        </div>
+    `;
+</script>
+{% endblock %}

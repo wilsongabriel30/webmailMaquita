@@ -1,0 +1,1645 @@
+{% extends "base.html" %}
+
+{% block title %}IA Maquita - Asistente Virtual{% endblock %}
+
+{% block page_icon %}<i class="fas fa-robot me-2"></i>{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ============================================
+       IA MAQUITA MESSENGER - ESTILOS INSTITUCIONALES
+       Colores: Azul #0061a1 | Naranja #eb6018
+       ============================================ */
+
+    :root {
+        --ia-primary: #0061a1;
+        --ia-primary-dark: #004d80;
+        --ia-secondary: #eb6018;
+        --ia-accent: #10b981;
+        --ia-bg: #f8fafc;
+        --ia-chat-bg: #ffffff;
+        --ia-user-msg: #0061a1;
+        --ia-assistant-msg: #f0f9ff;
+        --ia-border: #e2e8f0;
+    }
+
+    [data-theme="dark"] {
+        --ia-bg: #1a1a2e;
+        --ia-chat-bg: #16213e;
+        --ia-user-msg: #0061a1;
+        --ia-assistant-msg: #1e3a5f;
+        --ia-border: #2a4a6a;
+    }
+
+    .ia-messenger-container {
+        display: flex;
+        height: calc(100vh - 120px);
+        min-height: 600px;
+        background: var(--ia-bg);
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 8px 30px rgba(0, 97, 161, 0.15);
+    }
+
+    /* Panel lateral - Historial de conversaciones */
+    .ia-sidebar {
+        width: 300px;
+        background: var(--ia-chat-bg);
+        border-right: 1px solid var(--ia-border);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .ia-sidebar-header {
+        padding: 1rem;
+        background: linear-gradient(135deg, var(--ia-primary) 0%, #10b981 100%);
+        color: white;
+    }
+
+    .ia-sidebar-header h5 {
+        margin: 0;
+        font-weight: 600;
+        font-size: 1rem;
+    }
+
+    .btn-new-chat {
+        background: rgba(16, 185, 129, 0.2);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        transition: all 0.2s;
+    }
+
+    .btn-new-chat:hover {
+        background: rgba(16, 185, 129, 0.3);
+        color: white;
+        transform: scale(1.05);
+    }
+    
+    /* Tabs de navegación */
+    .ia-tabs {
+        display: flex;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        background: rgba(0,0,0,0.05);
+    }
+    
+    .ia-tab {
+        flex: 1;
+        background: none;
+        border: none;
+        color: rgba(255,255,255,0.7);
+        padding: 0.75rem;
+        font-size: 0.85rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        position: relative;
+    }
+    
+    .ia-tab:hover {
+        background: rgba(255,255,255,0.1);
+        color: white;
+    }
+    
+    .ia-tab.active {
+        color: white;
+        background: rgba(255,255,255,0.15);
+    }
+    
+    .ia-tab.active::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: #10b981;
+    }
+    
+    .ia-history-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 0.5rem;
+    }
+
+    .btn-new-chat {
+        background: rgba(255,255,255,0.2);
+        border: 1px solid rgba(255,255,255,0.3);
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        transition: all 0.2s;
+        background: rgba(16, 185, 129, 0.2);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .btn-new-chat:hover {
+        background: rgba(16, 185, 129, 0.3);
+        color: white;
+        transform: scale(1.05);
+    }
+
+    .ia-history-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 0.5rem;
+    }
+
+    .ia-history-item {
+        padding: 0.75rem;
+        border-radius: 8px;
+        cursor: pointer;
+        margin-bottom: 0.25rem;
+        transition: all 0.2s;
+    }
+
+    .ia-history-item:hover {
+        background: var(--ia-bg);
+    }
+
+    .ia-history-item.active {
+        background: rgba(0, 97, 161, 0.1);
+        border-left: 3px solid var(--ia-primary);
+    }
+
+    .ia-history-item {
+        position: relative;
+    }
+
+    .ia-history-item .ia-history-actions {
+        position: absolute;
+        right: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+        display: none;
+        gap: 4px;
+    }
+
+    .ia-history-item:hover .ia-history-actions {
+        display: flex;
+    }
+
+    .ia-history-actions .btn-delete-chat {
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        border: none;
+        background: rgba(220, 38, 38, 0.1);
+        color: #dc2626;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+        font-size: 0.75rem;
+    }
+
+    .ia-history-actions .btn-delete-chat:hover {
+        background: #dc2626;
+        color: white;
+    }
+
+    .ia-history-actions .btn-archive-chat {
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        border: none;
+        background: rgba(59, 130, 246, 0.1);
+        color: #3b82f6;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+        font-size: 0.75rem;
+    }
+
+    .ia-history-actions .btn-archive-chat:hover {
+        background: #3b82f6;
+        color: white;
+    }
+
+    .ia-history-actions .btn-restore-chat {
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        border: none;
+        background: rgba(16, 185, 129, 0.1);
+        color: #10b981;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+        font-size: 0.75rem;
+    }
+
+    .ia-history-actions .btn-restore-chat:hover {
+        background: #10b981;
+        color: white;
+    }
+
+    .ia-history-title {
+        font-weight: 500;
+        font-size: 0.9rem;
+        color: #1f2937;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .ia-history-date {
+        font-size: 0.75rem;
+        color: #9ca3af;
+    }
+
+    /* Panel principal - Chat */
+    .ia-chat-main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        background: var(--ia-chat-bg);
+    }
+
+    .ia-chat-header {
+        padding: 1rem 1.5rem;
+        background: var(--ia-chat-bg);
+        border-bottom: 1px solid var(--ia-border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .ia-avatar {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--ia-primary) 0%, #10b981 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.2rem;
+        margin-right: 1rem;
+    }
+
+    .ia-info h6 {
+        margin: 0;
+        color: var(--ia-primary);
+        font-weight: 600;
+    }
+
+    .ia-status {
+        font-size: 0.8rem;
+        color: var(--ia-accent);
+    }
+
+    .ia-status i {
+        font-size: 0.5rem;
+        margin-right: 0.25rem;
+    }
+
+    /* Area de mensajes */
+    .ia-messages-area {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .ia-message {
+        max-width: 80%;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: flex-start;
+        animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .ia-message.user {
+        margin-left: auto;
+        flex-direction: row-reverse;
+    }
+
+    .ia-message.assistant {
+        margin-right: auto;
+    }
+
+    .ia-message-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .ia-message.user .ia-message-avatar {
+        background: var(--ia-primary);
+        color: white;
+        margin-left: 0.75rem;
+    }
+
+    .ia-message.assistant .ia-message-avatar {
+        background: linear-gradient(135deg, var(--ia-primary) 0%, #10b981 100%);
+        color: white;
+        margin-right: 0.75rem;
+    }
+
+    .ia-message-content {
+        padding: 1rem 1.25rem;
+        border-radius: 16px;
+        line-height: 1.5;
+    }
+
+    .ia-message.user .ia-message-content {
+        background: var(--ia-user-msg);
+        color: white;
+        border-bottom-right-radius: 4px;
+    }
+
+    .ia-message.assistant .ia-message-content {
+        background: var(--ia-assistant-msg);
+        color: #1f2937;
+        border: 1px solid var(--ia-border);
+        border-bottom-left-radius: 4px;
+    }
+
+    .ia-message-time {
+        font-size: 0.7rem;
+        margin-top: 0.25rem;
+        opacity: 0.7;
+    }
+
+    .ia-message.user .ia-message-time {
+        text-align: right;
+        color: rgba(255,255,255,0.7);
+    }
+
+    /* Indicador de escritura */
+    .ia-typing-indicator {
+        display: flex;
+        align-items: center;
+        padding: 1rem;
+        max-width: 80%;
+    }
+
+    .ia-typing-dots {
+        display: flex;
+        gap: 4px;
+        margin-left: 0.5rem;
+    }
+
+    .ia-typing-dots span {
+        width: 8px;
+        height: 8px;
+        background: var(--ia-primary);
+        border-radius: 50%;
+        animation: typingBounce 1.4s infinite ease-in-out;
+    }
+
+    .ia-typing-dots span:nth-child(1) { animation-delay: 0s; }
+    .ia-typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .ia-typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes typingBounce {
+        0%, 80%, 100% { transform: translateY(0); }
+        40% { transform: translateY(-6px); }
+    }
+
+    /* Area de entrada */
+    .ia-input-area {
+        padding: 1rem 1.5rem 1.5rem;
+        background: var(--ia-chat-bg);
+        border-top: 1px solid var(--ia-border);
+    }
+
+    .ia-input-container {
+        display: flex;
+        align-items: flex-end;
+        gap: 0.75rem;
+        background: var(--ia-bg);
+        border: 2px solid var(--ia-border);
+        border-radius: 16px;
+        padding: 0.5rem;
+        transition: border-color 0.2s;
+    }
+
+    .ia-input-container:focus-within {
+        border-color: var(--ia-primary);
+        box-shadow: 0 0 0 3px rgba(0, 97, 161, 0.1);
+    }
+
+    .ia-input-container textarea {
+        flex: 1;
+        border: none;
+        background: transparent;
+        resize: none;
+        padding: 0.5rem;
+        font-size: 0.95rem;
+        max-height: 120px;
+        line-height: 1.4;
+    }
+
+    .ia-input-container textarea:focus {
+        outline: none;
+    }
+
+    .ia-btn-send {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, var(--ia-primary) 0%, #10b981 100%);
+        color: white;
+        border: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .ia-btn-send:hover:not(:disabled) {
+        transform: scale(1.05);
+        box-shadow: 0 4px 12px rgba(0, 97, 161, 0.3);
+    }
+
+    .ia-btn-send:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    /* Mensaje de bienvenida */
+    .ia-welcome {
+        text-align: center;
+        padding: 3rem 2rem;
+        max-width: 600px;
+        margin: auto;
+    }
+
+    .ia-welcome-avatar {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--ia-primary) 0%, #10b981 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1.5rem;
+        color: white;
+        font-size: 2.5rem;
+    }
+
+    .ia-welcome h4 {
+        color: var(--ia-primary);
+        margin-bottom: 0.5rem;
+    }
+
+    .ia-welcome p {
+        color: #6b7280;
+        margin-bottom: 2rem;
+    }
+
+    .ia-suggestions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        justify-content: center;
+    }
+
+    .ia-suggestion-btn {
+        background: var(--ia-bg);
+        border: 1px solid var(--ia-border);
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        color: #374151;
+    }
+
+    .ia-suggestion-btn:hover {
+        background: var(--ia-primary);
+        color: white;
+        border-color: var(--ia-primary);
+    }
+
+    /* Formato de respuestas IA */
+    .ia-message-content p {
+        margin: 0 0 0.5rem 0;
+    }
+
+    .ia-message-content p:last-child {
+        margin-bottom: 0;
+    }
+
+    .ia-message-content ul, .ia-message-content ol {
+        margin: 0.5rem 0;
+        padding-left: 1.25rem;
+    }
+
+    .ia-message-content li {
+        margin-bottom: 0.25rem;
+    }
+
+    .ia-message-content strong {
+        color: var(--ia-primary);
+    }
+
+    .ia-message-content code {
+        background: rgba(0, 97, 161, 0.1);
+        padding: 0.1rem 0.3rem;
+        border-radius: 4px;
+        font-size: 0.85em;
+    }
+
+    /* Botones de acciones en mensajes */
+    .ia-message-actions {
+        display: flex;
+        gap: 0.25rem;
+        opacity: 0;
+        transition: opacity 0.2s;
+        align-items: center;
+    }
+    
+    .ia-message:hover .ia-message-actions {
+        opacity: 1;
+    }
+    
+    .btn-delete-msg {
+        background: rgba(220, 38, 38, 0.1);
+        border: 1px solid rgba(220, 38, 38, 0.3);
+        color: #dc2626;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        transition: all 0.2s;
+    }
+    
+    .btn-delete-msg:hover {
+        background: rgba(220, 38, 38, 0.2);
+        color: #991b1b;
+    }
+    
+    .btn-delete-chat {
+        background: rgba(220, 38, 38, 0.1);
+        border: 1px solid rgba(220, 38, 38, 0.3);
+        color: #dc2626;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        transition: all 0.2s;
+    }
+    
+    .btn-delete-chat:hover {
+        background: rgba(220, 38, 38, 0.2);
+        color: #991b1b;
+    }
+    
+    /* Modal de confirmación */
+    .confirm-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+    }
+    
+    .confirm-modal-content {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 8px;
+        max-width: 400px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    }
+    
+    .confirm-modal-buttons {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: flex-end;
+        margin-top: 1rem;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .ia-sidebar {
+            display: none;
+        }
+
+        .ia-message {
+            max-width: 90%;
+        }
+        
+        .ia-message-actions {
+            opacity: 1; /* Siempre visible en móvil */
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ia-messenger-container">
+    <!-- Panel Lateral - Historial -->
+    <div class="ia-sidebar">
+        <div class="ia-sidebar-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5><i class="fas fa-robot me-2"></i>IA Maquita</h5>
+                <button class="btn-new-chat" onclick="nuevaConversacionIA()">
+                    <i class="fas fa-plus me-1"></i>Nueva
+                </button>
+            </div>
+        </div>
+
+        <!-- Tabs para navegación -->
+        <div class="ia-tabs">
+            <button class="ia-tab active" onclick="mostrarTab('activas')" id="tab-activas">
+                <i class="fas fa-comments me-1"></i>Activas
+            </button>
+            <button class="ia-tab" onclick="mostrarTab('archivadas')" id="tab-archivadas">
+                <i class="fas fa-archive me-1"></i>Archivadas
+            </button>
+        </div>
+
+        <div class="ia-history-list" id="iaHistoryList">
+            <div class="text-center py-4 text-muted small">
+                <div class="spinner-border spinner-border-sm" role="status"></div>
+                <p class="mb-0 mt-2">Cargando conversaciones activas...</p>
+            </div>
+        </div>
+        
+        <div class="ia-history-list" id="iaArchivedList" style="display: none;">
+            <div class="text-center py-4 text-muted small">
+                <div class="spinner-border spinner-border-sm" role="status"></div>
+                <p class="mb-0 mt-2">Cargando conversaciones archivadas...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel Principal - Chat -->
+    <div class="ia-chat-main">
+        <div class="ia-chat-header">
+            <div class="d-flex align-items-center">
+                <div class="ia-avatar">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <div class="ia-info">
+                    <h6>IA Maquita</h6>
+                    <span class="ia-status" id="iaStatus">
+                        <i class="fas fa-circle"></i>
+                        <span>Disponible</span>
+                    </span>
+                </div>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-secondary btn-sm" onclick="limpiarConversacion()" title="Nueva conversacion">
+                    <i class="fas fa-broom"></i>
+                </button>
+                <button class="btn btn-outline-danger btn-sm" onclick="eliminarConversacionActual()" title="Eliminar conversación actual">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+                <a href="/chat/" class="btn btn-outline-primary btn-sm" title="Volver al Chat">
+                    <i class="fas fa-comments"></i>
+                </a>
+            </div>
+        </div>
+
+        <div class="ia-messages-area" id="iaMessagesArea">
+            <!-- Mensaje de bienvenida -->
+            <div class="ia-welcome" id="iaWelcome">
+                <div class="ia-welcome-avatar">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <h4>Hola! Soy IA Maquita</h4>
+                <p>Tu asistente virtual de Fundacion Maquita Cushunchic.<br>
+                   Estoy aqui para ayudarte con consultas, informacion y tareas.</p>
+
+                <div class="ia-suggestions">
+                    <button class="ia-suggestion-btn" onclick="enviarSugerencia('Cuales son los valores de Maquita?')">
+                        <i class="fas fa-heart me-1"></i>Valores de Maquita
+                    </button>
+                    <button class="ia-suggestion-btn" onclick="enviarSugerencia('Ayudame a redactar un correo profesional')">
+                        <i class="fas fa-envelope me-1"></i>Redactar correo
+                    </button>
+                    <button class="ia-suggestion-btn" onclick="enviarSugerencia('Que es el comercio justo?')">
+                        <i class="fas fa-handshake me-1"></i>Comercio justo
+                    </button>
+                    <button class="ia-suggestion-btn" onclick="enviarSugerencia('Resume el siguiente texto:')">
+                        <i class="fas fa-file-alt me-1"></i>Resumir texto
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Indicador de escribiendo -->
+        <div class="ia-typing-indicator" id="iaTyping" style="display: none;">
+            <div class="ia-message-avatar" style="background: linear-gradient(135deg, #0061a1 0%, #10b981 100%); width: 32px; height: 32px;">
+                <i class="fas fa-robot" style="font-size: 0.8rem; color: white;"></i>
+            </div>
+            <span class="text-muted ms-2">IA Maquita esta escribiendo</span>
+            <div class="ia-typing-dots">
+                <span></span><span></span><span></span>
+            </div>
+        </div>
+
+        <!-- Area de entrada -->
+        <div class="ia-input-area">
+            <div class="ia-input-container">
+                <textarea
+                    id="iaInput"
+                    placeholder="Escribe tu mensaje a IA Maquita..."
+                    rows="1"
+                    onkeydown="manejarTecla(event)"
+                    oninput="autoResize(this); actualizarBotonEnviar();"
+                ></textarea>
+                <button class="ia-btn-send" id="iaBtnSend" onclick="enviarMensajeIA()">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+            <div class="text-center mt-2">
+                <small class="text-muted">
+                    <i class="fas fa-info-circle me-1"></i>
+                    IA Maquita puede cometer errores. Verifica la informacion importante.
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // ============================================
+    // IA MAQUITA MESSENGER - JAVASCRIPT
+    // ============================================
+
+    // Estado
+    let conversacionActual = null;
+    let mensajes = [];
+    let cargando = false;
+
+    // Inicializar
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log('🚀 DOM cargado, iniciando chat IA...');
+        
+        try {
+            verificarEstadoIA();
+            cargarHistorial('activas');
+            configurarInput();
+            console.log('✅ Chat IA inicializado correctamente');
+        } catch (error) {
+            console.error('❌ Error inicializando chat IA:', error);
+        }
+    });
+
+    // Verificar estado de IA
+    async function verificarEstadoIA() {
+        try {
+            const response = await fetch('/api/ia/estado');
+            const data = await response.json();
+
+            const statusEl = document.getElementById('iaStatus');
+            if (data.disponible) {
+                statusEl.innerHTML = '<i class="fas fa-circle"></i><span>Disponible</span>';
+                statusEl.style.color = '#10b981';
+            } else {
+                statusEl.innerHTML = '<i class="fas fa-circle"></i><span>Conectando...</span>';
+                statusEl.style.color = '#9ca3af';
+            }
+        } catch (error) {
+            console.error('Error verificando estado:', error);
+        }
+    }
+
+    // Mostrar tab específico
+    function mostrarTab(tab) {
+        // Actualizar botones
+        document.querySelectorAll('.ia-tab').forEach(btn => btn.classList.remove('active'));
+        document.getElementById(`tab-${tab}`).classList.add('active');
+        
+        // Mostrar/ocultar listas
+        const activasList = document.getElementById('iaHistoryList');
+        const archivadasList = document.getElementById('iaArchivedList');
+        
+        if (tab === 'activas') {
+            activasList.style.display = 'block';
+            archivadasList.style.display = 'none';
+            cargarHistorial('activas');
+        } else {
+            activasList.style.display = 'none';
+            archivadasList.style.display = 'block';
+            cargarHistorial('archivadas');
+        }
+    }
+    
+    // Cargar historial de conversaciones (versión simplificada para debug)
+    async function cargarHistorial(tipo = 'activas') {
+        console.log('🔍 Cargando historial:', tipo);
+        
+        try {
+            const containerId = tipo === 'archivadas' ? 'iaArchivedList' : 'iaHistoryList';
+            const container = document.getElementById(containerId);
+            
+            if (!container) {
+                console.error('❌ Container no encontrado:', containerId);
+                return;
+            }
+
+            // Agregar indicador de carga
+            container.innerHTML = `
+                <div class="text-center py-3 text-muted">
+                    <div class="spinner-border spinner-border-sm me-2"></div>
+                    <span>Cargando ${tipo}...</span>
+                </div>
+            `;
+
+            // Para archivadas, incluimos las eliminadas
+            const url = tipo === 'archivadas' 
+                ? '/api/ia/conversaciones?incluir_archivadas=true'
+                : '/api/ia/conversaciones';
+                
+            console.log('🌐 Haciendo fetch a:', url);
+            const response = await fetch(url);
+            const data = await response.json();
+            
+            console.log('📦 Datos recibidos:', data);
+
+            // Pequeña demora para que se vea el loading
+            await new Promise(resolve => setTimeout(resolve, 200));
+
+            // Filtrar según tipo
+            let conversaciones = data.conversaciones || [];
+            console.log('📋 Conversaciones originales:', conversaciones.length);
+            
+            if (tipo === 'activas') {
+                conversaciones = conversaciones.filter(conv => conv.estado !== 'eliminada' && conv.estado !== 'archivada');
+            } else {
+                conversaciones = conversaciones.filter(conv => conv.estado === 'eliminada' || conv.estado === 'archivada');
+            }
+            
+            console.log('✅ Conversaciones filtradas:', conversaciones.length);
+
+            if (conversaciones.length > 0) {
+                container.innerHTML = conversaciones.map(conv => {
+                    const isActiva = tipo === 'activas';
+                    return `
+                    <div class="ia-history-item ${conv.id === conversacionActual ? 'active' : ''}"
+                         onclick="abrirConversacion(${conv.id})" data-conv-id="${conv.id}">
+                        <div class="ia-history-title">${escapeHtml(conv.titulo || 'Conversacion')}</div>
+                        <div class="ia-history-date">${formatearFecha(conv.creada_en)}</div>
+                        <div class="ia-history-actions">
+                            ${isActiva ? `
+                                <button class="btn-archive-chat" onclick="event.stopPropagation(); archivarConversacion(${conv.id})" title="Archivar">
+                                    <i class="fas fa-archive"></i>
+                                </button>
+                                <button class="btn-delete-chat" onclick="event.stopPropagation(); eliminarConversacionPermanente(${conv.id})" title="Eliminar">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            ` : `
+                                <button class="btn-restore-chat" onclick="event.stopPropagation(); restaurarConversacion(${conv.id})" title="Restaurar">
+                                    <i class="fas fa-undo"></i>
+                                </button>
+                                <button class="btn-delete-chat" onclick="event.stopPropagation(); eliminarConversacionPermanente(${conv.id})" title="Eliminar permanente">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            `}
+                        </div>
+                    </div>
+                `}).join('');
+
+                console.log(`✅ ${tipo} cargadas: ${conversaciones.length} conversaciones`);
+            } else {
+                container.innerHTML = `
+                    <div class="text-center py-4 text-muted">
+                        <i class="fas fa-${tipo === 'activas' ? 'comments' : 'archive'} fa-2x mb-2 opacity-50"></i>
+                        <p class="small mb-0">No hay conversaciones ${tipo}</p>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error(`❌ Error cargando historial ${tipo}:`, error);
+            const containerId = tipo === 'archivadas' ? 'iaArchivedList' : 'iaHistoryList';
+            const container = document.getElementById(containerId);
+            if (container) {
+                container.innerHTML = `
+                    <div class="text-center py-4 text-danger">
+                        <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                        <p class="small mb-0">Error: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+    }
+
+    // Abrir conversacion existente
+    async function abrirConversacion(id) {
+        conversacionActual = id;
+
+        // Marcar como activa
+        document.querySelectorAll('.ia-history-item').forEach(item => {
+            item.classList.remove('active');
+        });
+        event.target.closest('.ia-history-item')?.classList.add('active');
+
+        // Cargar mensajes
+        try {
+            const response = await fetch(`/api/ia/conversaciones/${id}/mensajes`);
+            const data = await response.json();
+
+            if (data.exito) {
+                mensajes = data.mensajes || [];
+                renderizarMensajes();
+            }
+        } catch (error) {
+            console.error('Error cargando mensajes:', error);
+        }
+    }
+
+    // Nueva conversacion
+    async function nuevaConversacionIA() {
+        conversacionActual = null;
+        mensajes = [];
+
+        // Mostrar bienvenida - Generar HTML dinámicamente
+        const area = document.getElementById('iaMessagesArea');
+        area.innerHTML = `
+            <div class="ia-welcome" id="iaWelcome">
+                <div class="ia-welcome-avatar">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <h4>Hola! Soy IA Maquita</h4>
+                <p>Tu asistente virtual de Fundacion Maquita Cushunchic.<br>
+                   Estoy aqui para ayudarte con consultas, informacion y tareas.</p>
+
+                <div class="ia-suggestions">
+                    <button class="ia-suggestion-btn" onclick="enviarSugerencia('Cuales son los valores de Maquita?')">
+                        <i class="fas fa-heart me-1"></i>Valores de Maquita
+                    </button>
+                    <button class="ia-suggestion-btn" onclick="enviarSugerencia('Ayudame a redactar un correo profesional')">
+                        <i class="fas fa-envelope me-1"></i>Redactar correo
+                    </button>
+                    <button class="ia-suggestion-btn" onclick="enviarSugerencia('Que es el comercio justo?')">
+                        <i class="fas fa-handshake me-1"></i>Comercio justo
+                    </button>
+                    <button class="ia-suggestion-btn" onclick="enviarSugerencia('Resume el siguiente texto:')">
+                        <i class="fas fa-file-alt me-1"></i>Resumir texto
+                    </button>
+                </div>
+            </div>
+        `;
+
+        // Deseleccionar historial
+        document.querySelectorAll('.ia-history-item').forEach(item => {
+            item.classList.remove('active');
+        });
+
+        console.log('✅ Nueva conversación iniciada');
+    }
+
+    // Eliminar conversacion
+    async function eliminarConversacion(convId) {
+        if (!confirm('¿Estas seguro de eliminar esta conversacion?\n\nEsta accion no se puede deshacer.')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/ia/conversaciones/${convId}`, {
+                method: 'DELETE'
+            });
+
+            const data = await response.json();
+
+            if (data.exito) {
+                // Si era la conversacion actual, limpiar inmediatamente
+                if (conversacionActual === convId) {
+                    nuevaConversacionIA();
+                }
+
+                // Animación y eliminación inmediata del DOM
+                const item = document.querySelector(`.ia-history-item[data-conv-id="${convId}"]`);
+                if (item) {
+                    item.style.transition = 'all 0.2s ease';
+                    item.style.opacity = '0';
+                    item.style.transform = 'translateX(-100%)';
+                    
+                    setTimeout(() => {
+                        item.remove();
+                    }, 200);
+                }
+                
+                // Recargar historial actual
+                setTimeout(() => {
+                    cargarHistorial('activas');
+                    
+                    if (window.toastr) {
+                        toastr.info('Conversación archivada');
+                    }
+                }, 250);
+            } else {
+                if (window.toastr) {
+                    toastr.error('Error: ' + (data.mensaje || 'No se pudo archivar'));
+                }
+            }
+        } catch (error) {
+            console.error('Error archivando conversacion:', error);
+            if (window.toastr) {
+                toastr.error('Error de conexión');
+            }
+        }
+    }
+    
+    // Archivar conversación (mover a archivados)
+    async function archivarConversacion(convId) {
+        console.log('📁 Archivando conversación:', convId);
+        try {
+            const response = await fetch(`/api/ia/conversaciones/${convId}/archivar`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({archivar: true})
+            });
+
+            console.log('📁 Response status:', response.status);
+            const data = await response.json();
+            console.log('📁 Response data:', data);
+
+            if (data.exito) {
+                const item = document.querySelector(`.ia-history-item[data-conv-id="${convId}"]`);
+                if (item) {
+                    item.style.transition = 'all 0.2s ease';
+                    item.style.opacity = '0';
+                    item.style.transform = 'translateX(100%)';
+                    
+                    setTimeout(() => {
+                        item.remove();
+                    }, 200);
+                }
+                
+                setTimeout(() => {
+                    cargarHistorial('activas');
+                    if (window.toastr) {
+                        toastr.success('Conversación archivada');
+                    }
+                }, 250);
+            } else {
+                if (window.toastr) {
+                    toastr.error('Error: ' + (data.mensaje || 'No se pudo archivar'));
+                }
+            }
+        } catch (error) {
+            console.error('Error archivando conversacion:', error);
+            if (window.toastr) {
+                toastr.error('Error de conexión');
+            }
+        }
+    }
+    
+    // Eliminar permanentemente
+    async function eliminarConversacionReal(convId) {
+        confirmarEliminacion('⚠️ ¿Estás seguro de ELIMINAR PERMANENTEMENTE esta conversación?\n\nEsta acción no se puede deshacer y perderá todo el contenido.', async () => {
+            try {
+                const response = await fetch(`/api/ia/conversaciones/${convId}/eliminar-permanente`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+
+                if (data.exito) {
+                    const item = document.querySelector(`.ia-history-item[data-conv-id="${convId}"]`);
+                    if (item) {
+                        item.style.transition = 'all 0.2s ease';
+                        item.style.opacity = '0';
+                        item.style.transform = 'scale(0.8)';
+                        
+                        setTimeout(() => {
+                            item.remove();
+                        }, 200);
+                    }
+                    
+                    setTimeout(() => {
+                        cargarHistorial('activas');
+                        if (window.toastr) {
+                            toastr.error('Conversación eliminada permanentemente');
+                        }
+                    }, 250);
+                } else {
+                    if (window.toastr) {
+                        toastr.error('Error: ' + (data.mensaje || 'No se pudo eliminar'));
+                    }
+                }
+            } catch (error) {
+                console.error('Error eliminando permanentemente:', error);
+                if (window.toastr) {
+                    toastr.error('Error de conexión');
+                }
+            }
+        });
+    }
+    
+    // Restaurar conversación
+    async function restaurarConversacion(convId) {
+        try {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content ||
+                              document.querySelector('input[name="csrf_token"]')?.value || '';
+
+            const response = await fetch(`/api/ia/conversaciones/${convId}/archivar`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({archivar: false})
+            });
+
+            const data = await response.json();
+
+            if (data.exito) {
+                const item = document.querySelector(`.ia-history-item[data-conv-id="${convId}"]`);
+                if (item) {
+                    item.style.transition = 'all 0.2s ease';
+                    item.style.opacity = '0';
+                    
+                    setTimeout(() => {
+                        item.remove();
+                    }, 200);
+                }
+                
+                setTimeout(() => {
+                    cargarHistorial('activas');
+                    cargarHistorial('archivadas');
+                    if (window.toastr) {
+                        toastr.success('Conversación restaurada');
+                    }
+                }, 250);
+            } else {
+                if (window.toastr) {
+                    toastr.error('Error: ' + (data.mensaje || 'No se pudo restaurar'));
+                }
+            }
+        } catch (error) {
+            console.error('Error restaurando conversacion:', error);
+            if (window.toastr) {
+                toastr.error('Error de conexión');
+            }
+        }
+    }
+
+    // Enviar mensaje
+    async function enviarMensajeIA() {
+        const input = document.getElementById('iaInput');
+        const contenido = input.value.trim();
+
+        if (!contenido || cargando) return;
+
+        // Ocultar bienvenida
+        const welcome = document.getElementById('iaWelcome');
+        if (welcome) welcome.style.display = 'none';
+
+        // Agregar mensaje del usuario
+        agregarMensaje(contenido, true);
+        input.value = '';
+        input.style.height = 'auto';
+        actualizarBotonEnviar();
+
+        // Mostrar indicador de escritura
+        mostrarEscribiendo(true);
+        cargando = true;
+
+        try {
+            let response;
+
+            if (conversacionActual) {
+                // Enviar a conversacion existente
+                response = await fetch(`/api/ia/conversaciones/${conversacionActual}/mensajes`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contenido })
+                });
+            } else {
+                // Chat rapido - crea conversacion automaticamente
+                response = await fetch('/api/ia/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contenido })
+                });
+            }
+
+            const data = await response.json();
+
+            mostrarEscribiendo(false);
+            cargando = false;
+
+            if (data.exito) {
+                // Actualizar conversacion actual si es nueva
+                if (data.conversacion_id) {
+                    conversacionActual = data.conversacion_id;
+                }
+
+                // Agregar respuesta de IA
+                agregarMensaje(data.respuesta_ia.contenido, false, data.respuesta_ia);
+
+                // Actualizar historial
+                cargarHistorial('activas');
+            } else {
+                agregarMensajeError(data.mensaje || 'Error al procesar mensaje');
+            }
+        } catch (error) {
+            mostrarEscribiendo(false);
+            cargando = false;
+            agregarMensajeError('Error de conexion. Por favor intenta de nuevo.');
+            console.error('Error:', error);
+        }
+    }
+
+    // Agregar mensaje al area de chat
+    function agregarMensaje(contenido, esUsuario, metadata = null) {
+        const area = document.getElementById('iaMessagesArea');
+        const msgId = Date.now(); // ID único para el mensaje
+
+        const msgHtml = `
+            <div class="ia-message ${esUsuario ? 'user' : 'assistant'}" data-msg-id="${msgId}">
+                <div class="ia-message-avatar">
+                    ${esUsuario ? '<i class="fas fa-user"></i>' : '<i class="fas fa-robot"></i>'}
+                </div>
+                <div class="flex-grow-1">
+                    <div class="ia-message-content">
+                        ${esUsuario ? escapeHtml(contenido) : formatearRespuestaIA(contenido)}
+                    </div>
+                    <div class="ia-message-time">
+                        ${new Date().toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' })}
+                        ${metadata?.ia_metadata?.tiempo_respuesta_ms ?
+                            `<span class="ms-1">(${Math.round(metadata.ia_metadata.tiempo_respuesta_ms / 1000)}s)</span>` : ''}
+                    </div>
+                </div>
+                <div class="ia-message-actions">
+                    ${esUsuario ? `
+                        <button class="btn-delete-msg" onclick="eliminarMensaje(${msgId})" title="Eliminar mensaje">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    ` : ''}
+                    ${metadata?.ia_metadata?.entrenamiento?.guardado ? `
+                        <span class="badge bg-success ms-2" title="Entrenamiento guardado">
+                            <i class="fas fa-graduation-cap"></i>
+                        </span>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+
+        area.insertAdjacentHTML('beforeend', msgHtml);
+        area.scrollTop = area.scrollHeight;
+        
+        // Guardar mensaje en memoria
+        if (esUsuario) {
+            mensajes.push({
+                id: msgId,
+                contenido: contenido,
+                esUsuario: true,
+                timestamp: new Date().toISOString()
+            });
+        }
+    }
+
+    // Agregar mensaje de error
+    function agregarMensajeError(mensaje) {
+        const area = document.getElementById('iaMessagesArea');
+
+        const errorHtml = `
+            <div class="ia-message assistant">
+                <div class="ia-message-avatar" style="background: #dc2626;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <div class="ia-message-content" style="background: #fef2f2; border-color: #dc2626; color: #991b1b;">
+                    <i class="fas fa-exclamation-circle me-1"></i>
+                    ${escapeHtml(mensaje)}
+                </div>
+            </div>
+        `;
+
+        area.insertAdjacentHTML('beforeend', errorHtml);
+        area.scrollTop = area.scrollHeight;
+    }
+
+    // Renderizar todos los mensajes
+    function renderizarMensajes() {
+        const area = document.getElementById('iaMessagesArea');
+
+        if (mensajes.length === 0) {
+            // Generar HTML de bienvenida dinámicamente
+            nuevaConversacionIA();
+            return;
+        }
+
+        area.innerHTML = mensajes.map(msg => `
+            <div class="ia-message ${msg.es_usuario ? 'user' : 'assistant'}">
+                <div class="ia-message-avatar">
+                    ${msg.es_usuario ? '<i class="fas fa-user"></i>' : '<i class="fas fa-robot"></i>'}
+                </div>
+                <div>
+                    <div class="ia-message-content">
+                        ${msg.es_usuario ? escapeHtml(msg.contenido) : formatearRespuestaIA(msg.contenido)}
+                    </div>
+                    <div class="ia-message-time">${formatearHora(msg.creado_en)}</div>
+                </div>
+            </div>
+        `).join('');
+
+        area.scrollTop = area.scrollHeight;
+    }
+
+    // Formatear respuesta de IA
+    function formatearRespuestaIA(texto) {
+        if (!texto) return '';
+
+        let formatted = escapeHtml(texto);
+
+        // Negrita
+        formatted = formatted.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+        // Italica
+        formatted = formatted.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+        // Saltos de linea
+        formatted = formatted.replace(/\n/g, '<br>');
+
+        // Listas
+        formatted = formatted.replace(/^- (.+)$/gm, '<li>$1</li>');
+        formatted = formatted.replace(/(<li>.*<\/li>)+/g, '<ul>$&</ul>');
+
+        return formatted;
+    }
+
+    // Mostrar/ocultar indicador de escritura
+    function mostrarEscribiendo(mostrar) {
+        const indicator = document.getElementById('iaTyping');
+        indicator.style.display = mostrar ? 'flex' : 'none';
+
+        if (mostrar) {
+            const area = document.getElementById('iaMessagesArea');
+            area.scrollTop = area.scrollHeight;
+        }
+    }
+
+    // Enviar sugerencia
+    function enviarSugerencia(texto) {
+        const input = document.getElementById('iaInput');
+        input.value = texto;
+        input.focus();
+        actualizarBotonEnviar();
+    }
+
+    // Limpiar conversacion actual
+    function limpiarConversacion() {
+        if (confirm('Iniciar una nueva conversacion?')) {
+            nuevaConversacionIA();
+        }
+    }
+
+    // Configurar input
+    function configurarInput() {
+        const input = document.getElementById('iaInput');
+
+        input.addEventListener('input', () => {
+            actualizarBotonEnviar();
+        });
+    }
+
+    // Actualizar estado del boton enviar
+    function actualizarBotonEnviar() {
+        const input = document.getElementById('iaInput');
+        const btn = document.getElementById('iaBtnSend');
+        btn.disabled = !input.value.trim() || cargando;
+    }
+
+    // Manejar tecla Enter
+    function manejarTecla(event) {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            enviarMensajeIA();
+        }
+    }
+
+    // Auto-resize del textarea
+    function autoResize(textarea) {
+        textarea.style.height = 'auto';
+        textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+    }
+
+    // Utilidades
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function formatearFecha(dateStr) {
+        if (!dateStr) return '';
+        const date = new Date(dateStr);
+        const hoy = new Date();
+
+        if (date.toDateString() === hoy.toDateString()) {
+            return 'Hoy';
+        }
+
+        const ayer = new Date(hoy);
+        ayer.setDate(ayer.getDate() - 1);
+        if (date.toDateString() === ayer.toDateString()) {
+            return 'Ayer';
+        }
+
+        return date.toLocaleDateString('es-EC', { day: '2-digit', month: 'short' });
+    }
+
+    function formatearHora(dateStr) {
+        if (!dateStr) return '';
+        return new Date(dateStr).toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    // Función para eliminar conversación permanentemente
+    async function eliminarConversacionPermanente(convId) {
+        if (!confirm('⚠️ ¿Eliminar PERMANENTEMENTE esta conversación?\n\nEsta acción NO se puede deshacer.')) {
+            return;
+        }
+
+        console.log('🗑️ Eliminando permanentemente conversación:', convId);
+        try {
+            const response = await fetch(`/api/ia/conversaciones/${convId}/eliminar-permanente`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            console.log('🗑️ Response status:', response.status);
+            const data = await response.json();
+            console.log('🗑️ Response data:', data);
+
+            if (data.exito) {
+                // Si era la conversación actual, limpiar
+                if (conversacionActual === convId) {
+                    nuevaConversacionIA();
+                }
+
+                // Animación de eliminación
+                const item = document.querySelector(`.ia-history-item[data-conv-id="${convId}"]`);
+                if (item) {
+                    item.style.transition = 'all 0.3s ease';
+                    item.style.opacity = '0';
+                    item.style.transform = 'scale(0.8)';
+                    setTimeout(() => item.remove(), 300);
+                }
+
+                // Recargar historial
+                setTimeout(() => {
+                    cargarHistorial('activas');
+                    cargarHistorial('archivadas');
+                    if (window.toastr) {
+                        toastr.error('Conversación eliminada permanentemente');
+                    }
+                }, 350);
+            } else {
+                if (window.toastr) {
+                    toastr.error('Error: ' + (data.mensaje || 'No se pudo eliminar'));
+                } else {
+                    alert('Error: ' + (data.mensaje || 'No se pudo eliminar'));
+                }
+            }
+        } catch (error) {
+            console.error('Error eliminando permanentemente:', error);
+            if (window.toastr) {
+                toastr.error('Error de conexión');
+            } else {
+                alert('Error de conexión');
+            }
+        }
+    }
+
+    // Exportar funciones al scope global para que funcionen los onclick
+    window.enviarMensajeIA = enviarMensajeIA;
+    window.enviarSugerencia = enviarSugerencia;
+    window.manejarTecla = manejarTecla;
+    window.abrirConversacion = abrirConversacion;
+    window.nuevaConversacionIA = nuevaConversacionIA;
+    window.eliminarConversacion = eliminarConversacion;
+    window.limpiarConversacion = limpiarConversacion;
+    window.autoResize = autoResize;
+    window.actualizarBotonEnviar = actualizarBotonEnviar;
+    window.eliminarMensaje = eliminarMensaje;
+    window.confirmarEliminacion = confirmarEliminacion;
+    window.eliminarConversacionActual = eliminarConversacionActual;
+    window.mostrarTab = mostrarTab;
+    window.cargarHistorial = cargarHistorial;
+    window.archivarConversacion = archivarConversacion;
+    window.restaurarConversacion = restaurarConversacion;
+    window.eliminarConversacionPermanente = eliminarConversacionPermanente;
+    
+    // Función para eliminar mensaje
+    function eliminarMensaje(msgId) {
+        confirmarEliminacion('¿Estás seguro de eliminar este mensaje?', () => {
+            const msgElement = document.querySelector(`[data-msg-id="${msgId}"]`);
+            if (msgElement) {
+                msgElement.style.animation = 'fadeOut 0.3s';
+                setTimeout(() => msgElement.remove(), 300);
+                
+                // Eliminar del array de mensajes
+                mensajes = mensajes.filter(msg => msg.id !== msgId);
+                
+                // Mostrar toast de éxito
+                if (window.toastr) {
+                    toastr.success('Mensaje eliminado');
+                }
+            }
+        });
+    }
+    
+    // Función limpiar conversación (crea nueva)
+    async function limpiarConversacion() {
+        await nuevaConversacionIA();
+    }
+    
+    // Función para eliminar conversación actual
+    async function eliminarConversacionActual() {
+        if (!conversacionActual) {
+            if (window.toastr) {
+                toastr.warning('No hay conversación activa');
+            }
+            return;
+        }
+        
+        confirmarEliminacion('¿Estás seguro de eliminar esta conversación?\n\nSe perderán todos los mensajes.', async () => {
+            try {
+                const response = await fetch(`/api/ia/conversaciones/${conversacionActual}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (data.exito) {
+                    // Limpiar interfaz
+                    nuevaConversacionIA();
+                    cargarHistorial();
+                    
+                    if (window.toastr) {
+                        toastr.success('Conversación eliminada permanentemente');
+                    }
+                } else {
+                    if (window.toastr) {
+                        toastr.error('Error al eliminar conversación: ' + (data.mensaje || 'Desconocido'));
+                    }
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                if (window.toastr) {
+                    toastr.error('Error de conexión');
+                }
+            }
+        });
+    }
+    
+    // Modal de confirmación
+    function confirmarEliminacion(mensaje, onConfirmar) {
+        const modal = document.createElement('div');
+        modal.className = 'confirm-modal';
+        modal.innerHTML = `
+            <div class="confirm-modal-content">
+                <h5><i class="fas fa-exclamation-triangle text-warning me-2"></i>Confirmar Eliminación</h5>
+                <p>${mensaje}</p>
+                <div class="confirm-modal-buttons">
+                    <button class="btn btn-secondary" onclick="this.closest('.confirm-modal').remove()">
+                        Cancelar
+                    </button>
+                    <button class="btn btn-danger" onclick="confirmarYCerrar(this, '${onConfirmar.toString()}')">
+                        <i class="fas fa-trash me-1"></i>Eliminar
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        modal.onclick = (e) => {
+            if (e.target === modal) {
+                modal.remove();
+            }
+        };
+    }
+    
+    function confirmarYCerrar(button, funcString) {
+        // Evaluar la función de confirmación
+        const func = new Function('return ' + funcString)();
+        func();
+        button.closest('.confirm-modal').remove();
+    }
+</script>
+{% endblock %}

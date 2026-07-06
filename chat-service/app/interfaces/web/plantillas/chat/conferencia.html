@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conferencia — FARO Maquita</title>
+    <link rel="stylesheet" href="/static/vendor/font-awesome/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { height: 100%; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f1115;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .vc-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 18px;
+            background: rgba(0,0,0,.35);
+            flex-shrink: 0;
+        }
+        .vc-title {
+            font-weight: 600;
+            font-size: 1rem;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .vc-timer { font-variant-numeric: tabular-nums; opacity: .8; }
+        .vc-grid {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 10px;
+            padding: 12px;
+            align-content: start;
+        }
+        .tile {
+            position: relative;
+            background: #1c1e21;
+            border-radius: 12px;
+            overflow: hidden;
+            aspect-ratio: 4 / 3;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .tile video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: none;
+        }
+        .tile.con-video video { display: block; }
+        .tile.con-video .tile-avatar { display: none; }
+        .tile-avatar {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #0061a1, #28a745);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.7rem;
+            font-weight: 700;
+        }
+        .tile-nombre {
+            position: absolute;
+            left: 10px;
+            bottom: 8px;
+            background: rgba(0,0,0,.55);
+            padding: 3px 10px;
+            border-radius: 8px;
+            font-size: .82rem;
+            max-width: calc(100% - 20px);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        /* Pantalla compartida: ocupa todo el ancho y crece */
+        .tile.pantalla {
+            grid-column: 1 / -1;
+            aspect-ratio: auto;
+            min-height: 55vh;
+            background: #000;
+        }
+        .tile.pantalla video { object-fit: contain; }
+        .vc-controls {
+            display: flex;
+            justify-content: center;
+            gap: 14px;
+            padding: 14px;
+            background: rgba(0,0,0,.35);
+            flex-shrink: 0;
+        }
+        .vc-controls button {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            border: none;
+            color: #fff;
+            font-size: 1.05rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #374151;
+            transition: background .15s, transform .1s;
+        }
+        .vc-controls button:hover { transform: scale(1.06); }
+        .vc-controls button.active { background: #ef4444; }
+        .vc-controls .btn-salir { background: #ef4444; width: 64px; }
+        .vc-controls .btn-share.sharing { background: #22c55e; }
+        .vc-controls .btn-rec.grabando { background: #ef4444; animation: recpulse 1.4s infinite; }
+        @keyframes recpulse { 0%,100%{opacity:1;} 50%{opacity:.5;} }
+        .vc-estado {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(15,17,21,.92);
+            font-size: 1.05rem;
+            z-index: 10;
+            text-align: center;
+            padding: 20px;
+        }
+            .media-unlock {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100090;
+            background: #f59e0b; color: #1c1300; text-align: center;
+            padding: 10px 14px; font-weight: 600; cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0,0,0,.4); display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="media-unlock" id="mediaUnlock" onclick="desbloquearMedia()">
+        🔊 Toca aquí para activar el audio y el video de la llamada
+    </div>
+
+    <div class="vc-header">
+        <div class="vc-title">
+            <i class="fas fa-users"></i>
+            <span id="tituloSala"></span>
+            <span class="vc-timer" id="vcTimer">00:00</span>
+        </div>
+        <div style="opacity:.6;font-size:.8rem;" id="contadorParticipantes"></div>
+    </div>
+    <div style="position:relative;flex:1;display:flex;flex-direction:column;min-height:0;">
+        <div class="vc-grid" id="grid"></div>
+        <div class="vc-estado" id="vcEstado">Conectando a la conferencia…</div>
+    </div>
+    <div class="vc-controls">
+        <button id="btnMute" onclick="toggleMute()" title="Silenciar"><i class="fas fa-microphone"></i></button>
+        <button id="btnCam" class="active" onclick="toggleCam()" title="Encender cámara"><i class="fas fa-video-slash"></i></button>
+        <button id="btnShare" class="btn-share" onclick="toggleShare()" title="Compartir pantalla"><i class="fas fa-desktop"></i></button>
+        <button id="btnRec" class="btn-rec" onclick="toggleGrabacion()" title="Grabar conferencia" style="display:none;"><i class="fas fa-circle"></i></button>
+        <button class="btn-salir" onclick="salir()" title="Salir de la conferencia"><i class="fas fa-phone-slash"></i></button>
+    </div>
+
+    <script src="/static/js/lib/socket.io.min.js"></script>
+    <script src="/static/js/lib/livekit-client.umd.min.js?v=2.15.7"></script>
+    <script>
+        // Cierra la vista de llamada: window.close() si es popup; si corre en un
+        // iframe (fallback por bloqueo de popups en Firefox/Safari), avisa al padre.
+        function cerrarVistaLlamada() {
+            try {
+                if (window.self !== window.top) {
+                    window.parent.postMessage({ faroCall: 'close' }, '*');
+                    return;
+                }
+            } catch (e) {}
+            window.close();
+        }
+
+        // Desbloqueo de autoplay (Firefox/Safari): reproduce todos los medios tras un gesto
+        function desbloquearMedia() {
+            document.querySelectorAll('audio, video').forEach(function(el) {
+                try { el.play().catch(function(){}); } catch (e) {}
+            });
+            try { if (est && est.ringCtx && est.ringCtx.resume) est.ringCtx.resume(); } catch (e) {}
+            var b = document.getElementById('mediaUnlock');
+            if (b) b.style.display = 'none';
+        }
+        function pedirDesbloqueoMedia() {
+            var b = document.getElementById('mediaUnlock');
+            if (b) b.style.display = 'block';
+        }
+        // Cualquier clic en la ventana tambien desbloquea (gesto del usuario)
+        document.addEventListener('click', function() {
+            var b = document.getElementById('mediaUnlock');
+            if (b && b.style.display === 'block') desbloquearMedia();
+        });
+
+        const Q = new URLSearchParams(location.search);
+        const ROOM = Q.get('room') || '';
+        const NOMBRE_SALA = Q.get('name') || 'Conferencia';
+        const CONV_ID = Q.get('conv') || '';
+        const ROLE = Q.get('role') === 'host' ? 'host' : 'guest';
+        const MY_ID = {{ session.get('usuario_id', 0) }};
+        const MY_NAME = {{ session.get('usuario_nombre', 'Usuario') | tojson }};
+
+        document.getElementById('tituloSala').textContent = NOMBRE_SALA;
+        document.title = NOMBRE_SALA + ' — FARO';
+
+        const est = {
+            socket: null, room: null, localStream: null,
+            muted: false, camOn: false, finalizada: false,
+            timerSeconds: 0, timerInterval: null,
+            camPub: null
+        };
+
+        function setEstado(t) {
+            const e = document.getElementById('vcEstado');
+            if (!t) { e.style.display = 'none'; return; }
+            e.style.display = '';
+            e.textContent = t;
+        }
+
+        function iniciarTimer() {
+            if (est.timerInterval) return;
+            est.timerInterval = setInterval(() => {
+                est.timerSeconds++;
+                const m = String(Math.floor(est.timerSeconds / 60)).padStart(2, '0');
+                const s = String(est.timerSeconds % 60).padStart(2, '0');
+                document.getElementById('vcTimer').textContent = m + ':' + s;
+            }, 1000);
+        }
+
+        // ===== Tiles de participantes =====
+        // id de tile: yo -> tile_local / tile_local_screen ; remotos -> tile_<identity>[_screen]
+        function crearTile(id, nombre, esPantalla) {
+            let tile = document.getElementById(id);
+            if (tile) return tile;
+            tile = document.createElement('div');
+            tile.className = 'tile' + (esPantalla ? ' pantalla' : '');
+            tile.id = id;
+            tile.innerHTML = `
+                <div class="tile-avatar">${(nombre[0] || '?').toUpperCase()}</div>
+                <video autoplay playsinline ${id.startsWith('tile_local') ? 'muted' : ''}></video>
+                <div class="tile-nombre">${esPantalla ? '🖥️ ' : ''}${nombre}</div>
+            `;
+            const grid = document.getElementById('grid');
+            // Las pantallas compartidas van primero
+            if (esPantalla && grid.firstChild) grid.insertBefore(tile, grid.firstChild);
+            else grid.appendChild(tile);
+            actualizarContador();
+            return tile;
+        }
+        function quitarTile(id) {
+            const t = document.getElementById(id);
+            if (t) t.remove();
+            actualizarContador();
+        }
+        function actualizarContador() {
+            const n = document.querySelectorAll('.tile:not(.pantalla)').length;
+            document.getElementById('contadorParticipantes').textContent = n + ' participante' + (n === 1 ? '' : 's');
+        }
+
+        // ===== Conexión =====
+        async function conectar() {
+            try {
+                est.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            } catch (e) {
+                setEstado('No se pudo acceder al micrófono. Revisa los permisos y recarga.');
+                return;
+            }
+
+            // Mi tile (sin video hasta encender cámara)
+            crearTile('tile_local', MY_NAME + ' (tú)', false);
+
+            try {
+                const resp = await fetch('/api/chat/llamada/token?room=' + encodeURIComponent(ROOM), { credentials: 'same-origin' });
+                const data = await resp.json();
+                if (!resp.ok || !data.exito) throw new Error(data.error || 'token');
+
+                const room = new LivekitClient.Room({ adaptiveStream: true, dynacast: true });
+                est.room = room;
+
+                room.on(LivekitClient.RoomEvent.ParticipantConnected, (p) => {
+                    crearTile('tile_' + p.identity, p.name || ('Usuario ' + p.identity), false);
+                    iniciarTimer();
+                });
+                room.on(LivekitClient.RoomEvent.ParticipantDisconnected, (p) => {
+                    quitarTile('tile_' + p.identity);
+                    quitarTile('tile_' + p.identity + '_screen');
+                });
+                room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, pub, p) => {
+                    const nombre = p.name || ('Usuario ' + p.identity);
+                    if (track.kind === 'audio') {
+                        const el = track.attach();
+                        el.id = 'audio_' + p.identity + '_' + (pub ? pub.trackSid : Math.floor(est.timerSeconds));
+                        document.body.appendChild(el);
+                        el.play().catch(() => { pedirDesbloqueoMedia(); });
+                    } else {
+                        const esPantalla = pub && pub.source === LivekitClient.Track.Source.ScreenShare;
+                        const tileId = 'tile_' + p.identity + (esPantalla ? '_screen' : '');
+                        const tile = crearTile(tileId, nombre, esPantalla);
+                        track.attach(tile.querySelector('video'));
+                        tile.classList.add('con-video');
+                    }
+                    iniciarTimer();
+                });
+                room.on(LivekitClient.RoomEvent.TrackUnsubscribed, (track, pub, p) => {
+                    if (track.kind !== 'video') return;
+                    const esPantalla = pub && pub.source === LivekitClient.Track.Source.ScreenShare;
+                    if (esPantalla) {
+                        quitarTile('tile_' + p.identity + '_screen');
+                    } else {
+                        const tile = document.getElementById('tile_' + p.identity);
+                        if (tile) tile.classList.remove('con-video');
+                    }
+                });
+                // Mi pantalla compartida tambien se ve en mi grilla
+                room.on(LivekitClient.RoomEvent.LocalTrackPublished, (pub) => {
+                    if (pub.source === LivekitClient.Track.Source.ScreenShare && pub.track) {
+                        const tile = crearTile('tile_local_screen', MY_NAME + ' (tu pantalla)', true);
+                        pub.track.attach(tile.querySelector('video'));
+                        tile.classList.add('con-video');
+                    }
+                });
+                room.on(LivekitClient.RoomEvent.LocalTrackUnpublished, (pub) => {
+                    if (pub.source === LivekitClient.Track.Source.ScreenShare) {
+                        quitarTile('tile_local_screen');
+                        const b = document.getElementById('btnShare');
+                        b.classList.remove('sharing');
+                        b.title = 'Compartir pantalla';
+                    }
+                });
+                room.on(LivekitClient.RoomEvent.Disconnected, () => {
+                    if (!est.finalizada) salir(true);
+                });
+
+                await room.connect(data.url, data.token);
+
+                // Publicar microfono
+                for (const t of est.localStream.getAudioTracks()) {
+                    await room.localParticipant.publishTrack(t);
+                }
+
+                // Participantes que ya estaban en la sala
+                room.remoteParticipants.forEach((p) => {
+                    crearTile('tile_' + p.identity, p.name || ('Usuario ' + p.identity), false);
+                });
+
+                setEstado(null);
+                iniciarTimer();
+                actualizarContador();
+                if (ROLE === 'host') document.getElementById('btnRec').style.display = '';
+
+                // Avisar por socket (roster legacy / notificaciones)
+                if (est.socket && est.socket.connected) {
+                    if (ROLE === 'guest') est.socket.emit('conference_join', { room_id: ROOM });
+                }
+            } catch (e) {
+                console.error('Error conectando:', e);
+                setEstado('Error conectando a la conferencia. Cierra e intenta de nuevo.');
+            }
+        }
+
+        // ===== Controles =====
+        function toggleMute() {
+            if (!est.localStream) return;
+            est.muted = !est.muted;
+            est.localStream.getAudioTracks().forEach(t => t.enabled = !est.muted);
+            const b = document.getElementById('btnMute');
+            b.classList.toggle('active', est.muted);
+            b.innerHTML = est.muted ? '<i class="fas fa-microphone-slash"></i>' : '<i class="fas fa-microphone"></i>';
+        }
+        async function toggleCam() {
+            if (!est.room) return;
+            const b = document.getElementById('btnCam');
+            try {
+                if (!est.camOn) {
+                    await est.room.localParticipant.setCameraEnabled(true);
+                    est.camOn = true;
+                    const pub = est.room.localParticipant.getTrackPublication(LivekitClient.Track.Source.Camera);
+                    const tile = document.getElementById('tile_local');
+                    if (pub && pub.track && tile) {
+                        pub.track.attach(tile.querySelector('video'));
+                        tile.classList.add('con-video');
+                    }
+                    b.classList.remove('active');
+                    b.innerHTML = '<i class="fas fa-video"></i>';
+                    b.title = 'Apagar cámara';
+                } else {
+                    await est.room.localParticipant.setCameraEnabled(false);
+                    est.camOn = false;
+                    const tile = document.getElementById('tile_local');
+                    if (tile) tile.classList.remove('con-video');
+                    b.classList.add('active');
+                    b.innerHTML = '<i class="fas fa-video-slash"></i>';
+                    b.title = 'Encender cámara';
+                }
+            } catch (e) {
+                if (e && e.name === 'NotAllowedError') setEstadoTemporal('Permiso de cámara denegado');
+                else console.error('Error con la cámara:', e);
+            }
+        }
+        async function toggleShare() {
+            if (!est.room) return;
+            const b = document.getElementById('btnShare');
+            try {
+                const activo = est.room.localParticipant.isScreenShareEnabled;
+                await est.room.localParticipant.setScreenShareEnabled(!activo);
+                const ahora = est.room.localParticipant.isScreenShareEnabled;
+                b.classList.toggle('sharing', ahora);
+                b.title = ahora ? 'Dejar de compartir' : 'Compartir pantalla';
+            } catch (e) {
+                if (e && (e.name === 'NotAllowedError' || /Permission|cancel/i.test(String(e)))) return;
+                console.error('Error compartiendo pantalla:', e);
+            }
+        }
+        function setEstadoTemporal(t) {
+            setEstado(t);
+            setTimeout(() => setEstado(null), 2500);
+        }
+
+        // ===== Grabacion (solo host) =====
+        let _egressId = null;
+        async function toggleGrabacion() {
+            const b = document.getElementById('btnRec');
+            if (!est.room) return;
+            if (!_egressId) {
+                try {
+                    const r = await fetch('/api/chat/grabacion/iniciar', {
+                        method: 'POST', headers: {'Content-Type':'application/json'},
+                        credentials: 'same-origin', body: JSON.stringify({ room: ROOM })
+                    });
+                    const d = await r.json();
+                    if (!r.ok || !d.exito) throw new Error(d.error || 'no');
+                    _egressId = d.egress_id;
+                    b.classList.add('grabando'); b.title = 'Detener grabacion';
+                    setEstadoTemporal('● Grabando la conferencia');
+                } catch (e) { setEstadoTemporal('No se pudo iniciar la grabacion'); }
+            } else {
+                try {
+                    await fetch('/api/chat/grabacion/detener', {
+                        method: 'POST', headers: {'Content-Type':'application/json'},
+                        credentials: 'same-origin', body: JSON.stringify({ egress_id: _egressId })
+                    });
+                } catch (e) {}
+                _egressId = null;
+                b.classList.remove('grabando'); b.title = 'Grabar conferencia';
+                setEstadoTemporal('Grabacion guardada');
+            }
+        }
+
+        // ===== Salir =====
+        async function registrarEnChat() {
+            if (ROLE !== 'host' || !CONV_ID || est.timerSeconds <= 0) return;
+            const m = String(Math.floor(est.timerSeconds / 60)).padStart(2, '0');
+            const s = String(est.timerSeconds % 60).padStart(2, '0');
+            const hora = new Date().toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' });
+            try {
+                await fetch('/api/chat/conversations/' + CONV_ID + '/messages', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ contenido: '🎤 Conferencia "' + NOMBRE_SALA + '" - ' + m + ':' + s + ' (' + hora + ')' })
+                });
+            } catch (e) {}
+        }
+        async function salir(porDesconexion) {
+            if (est.finalizada) return;
+            est.finalizada = true;
+            if (est.timerInterval) clearInterval(est.timerInterval);
+            setEstado(porDesconexion ? 'Conexión perdida' : 'Saliste de la conferencia');
+            if (est.socket && est.socket.connected) {
+                est.socket.emit('conference_leave', { room_id: ROOM });
+            }
+            await registrarEnChat();
+            if (ROLE === 'host' && est.timerSeconds > 0) {
+                try {
+                    await fetch('/api/chat/llamadas/registrar', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({
+                            room: ROOM, tipo: 'conferencia',
+                            conversation_id: CONV_ID || null,
+                            estado: 'completada', duracion: est.timerSeconds
+                        })
+                    });
+                } catch (e) {}
+            }
+            if (_egressId) { try { await fetch('/api/chat/grabacion/detener', {method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({egress_id:_egressId})}); } catch(e){} _egressId = null; }
+            try { if (est.room) est.room.disconnect(); } catch (e) {}
+            if (est.localStream) est.localStream.getTracks().forEach(t => t.stop());
+            setTimeout(() => cerrarVistaLlamada(), 1200);
+        }
+        window.addEventListener('beforeunload', () => {
+            if (!est.finalizada) {
+                if (est.socket && est.socket.connected) est.socket.emit('conference_leave', { room_id: ROOM });
+                try { if (est.room) est.room.disconnect(); } catch (e) {}
+            }
+        });
+
+        // ===== Arranque =====
+        if (!ROOM || ROOM.indexOf('conf_') !== 0) {
+            setEstado('Sala de conferencia inválida');
+        } else {
+            est.socket = io({ transports: ['websocket', 'polling'] });
+            conectar();
+        }
+    </script>
+</body>
+</html>
