@@ -1,0 +1,46 @@
+# Servicio de Chat Maquita — stack dockerizado (chat + postgres + redis).
+# LiveKit (video) es un servicio aparte; se apunta por variables de entorno.
+services:
+  chat-db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: ${CHAT_DB_NAME:-chat}
+      POSTGRES_USER: ${CHAT_DB_USER:-chat}
+      POSTGRES_PASSWORD: ${CHAT_DB_PASSWORD:?define CHAT_DB_PASSWORD en .env}
+    volumes:
+      - chat_pgdata:/var/lib/postgresql/data
+    networks: [chatnet]
+
+  chat-redis:
+    image: redis:7-alpine
+    restart: always
+    command: ["redis-server", "--save", "60", "1"]
+    volumes:
+      - chat_redisdata:/data
+    networks: [chatnet]
+
+  chat:
+    build: .
+    restart: always
+    depends_on: [chat-db, chat-redis]
+    environment:
+      CHAT_DB_HOST: chat-db
+      CHAT_DB_NAME: ${CHAT_DB_NAME:-chat}
+      CHAT_DB_USER: ${CHAT_DB_USER:-chat}
+      CHAT_DB_PASSWORD: ${CHAT_DB_PASSWORD}
+      CHAT_REDIS_URL: redis://chat-redis:6379/0
+      CHAT_JWT_SECRET: ${CHAT_JWT_SECRET:?define CHAT_JWT_SECRET en .env}
+      LIVEKIT_WS_URL: ${LIVEKIT_WS_URL:-}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-}
+    ports:
+      - "127.0.0.1:${CHAT_PORT:-8790}:8790"
+    networks: [chatnet]
+
+volumes:
+  chat_pgdata:
+  chat_redisdata:
+
+networks:
+  chatnet:
