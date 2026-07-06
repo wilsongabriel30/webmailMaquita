@@ -1,5 +1,6 @@
 // @ts-nocheck  Ribbon callbacks temporarily unused (rendered in main Toolbar)
 import { addToOutbox } from "../../lib/offlineStore";
+import { SelectorArchivosNube } from './SelectorArchivosNube';
 import { sanitizeHtml, sanitizeSignatureHtml } from '../../lib/sanitize';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import React from 'react';
@@ -53,6 +54,7 @@ export function ComposePanel({ win }: Props) {
   const [error, setError] = useState('');
   const [importance, setImportance] = useState<'normal' | 'high' | 'low'>('normal');
   const [attachments, setAttachments] = useState<AttachmentFile[]>([]);
+  const [mostrarNube, setMostrarNube] = useState(false);
 
   // Adjuntos provenientes de la sección Archivos (Almacén): se descargan con
   // la misma sesión y entran como adjuntos normales del mensaje.
@@ -267,6 +269,7 @@ export function ComposePanel({ win }: Props) {
       useMailStore.getState().setComposeRibbonTab('message');
     }
     const attachHandler = () => fileInputRef.current?.click();
+    const attachCloudHandler = () => setMostrarNube(true);
     const draftHandler = () => saveDraft();
     const ccHandler = () => setShowCc(true);
     const bccHandler = () => setShowBcc(true);
@@ -274,6 +277,7 @@ export function ComposePanel({ win }: Props) {
     // reemplazando la actual. No se inserta en el editor (evita duplicados).
     const sigHandler = (e: Event) => { setSignatureHtml((e as CustomEvent<string>).detail ?? ''); };
     window.addEventListener('compose-attach', attachHandler);
+    window.addEventListener('compose-attach-cloud', attachCloudHandler);
     window.addEventListener('compose-save-draft', draftHandler);
     window.addEventListener('compose-show-cc', ccHandler);
     window.addEventListener('compose-show-bcc', bccHandler);
@@ -281,6 +285,7 @@ export function ComposePanel({ win }: Props) {
     return () => {
       useMailStore.getState().setActiveEditor(null);
       window.removeEventListener('compose-attach', attachHandler);
+      window.removeEventListener('compose-attach-cloud', attachCloudHandler);
       window.removeEventListener('compose-save-draft', draftHandler);
       window.removeEventListener('compose-show-cc', ccHandler);
       window.removeEventListener('compose-show-bcc', bccHandler);
@@ -470,6 +475,10 @@ export function ComposePanel({ win }: Props) {
     }));
     setAttachments(prev => [...prev, ...newFiles]);
     e.target.value = '';
+  };
+
+  const adjuntarDesdeNube = (archivos: File[]) => {
+    setAttachments(prev => [...prev, ...archivos.map(f => ({ name: f.name, size: f.size, type: f.type, file: f }))]);
   };
 
   const removeAttachment = (idx: number) => {
@@ -846,6 +855,7 @@ export function ComposePanel({ win }: Props) {
 
       {/* Hidden file input */}
       <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileSelect} />
+      {mostrarNube && <SelectorArchivosNube onCerrar={() => setMostrarNube(false)} onElegir={adjuntarDesdeNube} />}
 
       {/* Send row (below ribbon, above recipients) - matches OWA layout exactly */}
       <div className="h-[44px] flex items-center px-4 bg-white border-b border-[#edebe9] shrink-0">
