@@ -1223,7 +1223,7 @@ window.ALMACEN_OVERRIDE = { api: '/api/almacen', url: '/archivos-almacen' };
       var abierto = panel.style.display !== 'none';
       if (!abierto && !iframe) {
         iframe = document.createElement('iframe');
-        iframe.src = '/chat/';
+        iframe.src = '/chat/?embed=1';
         iframe.style.cssText = 'width:100%;height:100%;border:0;';
         panel.appendChild(iframe);
       }
