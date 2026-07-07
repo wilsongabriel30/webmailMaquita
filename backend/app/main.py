@@ -69,6 +69,7 @@ from app.tasks.router import router as tasks_router
 from app.presence.router import router as presence_router
 from app.nextcloud.router import router as nextcloud_router
 from app.branding.router import router as branding_router
+from app.chatcfg.router import router as chatcfg_router
 from app.compliance.router import router as compliance_router
 from app.admin.firewall_router import router as firewall_router
 from app.admin.mailguard_router import router as mailguard_router
@@ -537,6 +538,7 @@ app.include_router(tasks_router, prefix="/api/tasks", tags=["tasks"])
 app.include_router(presence_router)
 app.include_router(nextcloud_router)
 app.include_router(branding_router)
+app.include_router(chatcfg_router)
 app.include_router(calendar_invite_router)
 app.include_router(compliance_router)
 app.include_router(firewall_router)
