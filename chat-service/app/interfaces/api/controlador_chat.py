@@ -407,6 +407,18 @@ def crear_conversacion_directa():
                 'mensaje': 'No puedes chatear contigo mismo'
             }), 400
 
+        # Aislamiento por dominio (multi-empresa)
+        try:
+            import tenant_chat as _tc
+            if _tc.aislamiento_activo():
+                _db = g.get('db_session_chat')
+                if not _db:
+                    from infraestructura.base_datos.base import obtener_gestor as _og
+                    _db = _og().session(); g.db_session_chat = _db
+                if _tc.primer_bloqueado(_db, usuario_actual, [otro_usuario_id]) is not None:
+                    return jsonify({'exito': False, 'success': False, 'mensaje': 'No puedes chatear con usuarios de otra organizacion'}), 403
+        except Exception:
+            pass
         servicio = obtener_servicio_chat()
         resultado = servicio.crear_conversacion_directa(
             usuario_actual,
@@ -479,6 +491,19 @@ def crear_grupo():
             miembros = []
         descripcion = datos.get('descripcion') or datos.get('description')
 
+        # Aislamiento por dominio (multi-empresa)
+        try:
+            import tenant_chat as _tc
+            if _tc.aislamiento_activo() and miembros:
+                _db = g.get('db_session_chat')
+                if not _db:
+                    from infraestructura.base_datos.base import obtener_gestor as _og
+                    _db = _og().session(); g.db_session_chat = _db
+                _mids = [int(m) for m in miembros if str(m).isdigit()]
+                if _tc.primer_bloqueado(_db, obtener_usuario_id(), _mids) is not None:
+                    return jsonify({'exito': False, 'success': False, 'mensaje': 'No puedes agregar usuarios de otra organizacion al grupo'}), 403
+        except Exception:
+            pass
         servicio = obtener_servicio_chat()
         resultado = servicio.crear_grupo(
             creador_id=obtener_usuario_id(),
@@ -1805,6 +1830,18 @@ def agregar_participante(conversacion_id: int):
                 'mensaje': 'usuario_id es requerido'
             }), 400
 
+        # Aislamiento por dominio (multi-empresa)
+        try:
+            import tenant_chat as _tc
+            if _tc.aislamiento_activo():
+                _db = g.get('db_session_chat')
+                if not _db:
+                    from infraestructura.base_datos.base import obtener_gestor as _og
+                    _db = _og().session(); g.db_session_chat = _db
+                if _tc.primer_bloqueado(_db, obtener_usuario_id(), [int(datos['usuario_id'])]) is not None:
+                    return jsonify({'exito': False, 'mensaje': 'No puedes agregar usuarios de otra organizacion'}), 403
+        except Exception:
+            pass
         servicio = obtener_servicio_chat()
         resultado = servicio.agregar_participante(
             conversacion_id=conversacion_id,
@@ -2161,6 +2198,15 @@ def buscar_usuarios():
                         'username': u.username,
                         'is_institutional': False
                     })
+
+            # Aislamiento por dominio (multi-empresa): solo gente del mismo tenant
+            try:
+                import tenant_chat as _tc
+                _perm = _tc.dominios_permitidos(_tc.emails_por_ids(db_session, [usuario_actual]).get(usuario_actual))
+                if _perm is not None:
+                    usuarios_lista = [u for u in usuarios_lista if _tc.dominio(u.get('email')) in _perm]
+            except Exception:
+                pass
 
             return jsonify({
                 'success': True,
