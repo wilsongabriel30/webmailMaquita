@@ -21,6 +21,17 @@
   .chat-embed #faroOffcanvas { display: none !important; }
   .chat-embed .main-content { margin: 0 !important; padding: 0 !important; height: 100vh !important; }
   .chat-embed, .chat-embed body { overflow: hidden !important; }
+  /* Embed angosto (iframe ~400px): UNA sola columna. La lista de conversaciones
+     debe usar TODO el ancho (sin franja blanca). Se usa @media max-width para
+     ganarle por ORDEN (va despues de chat-page.css) a la regla de 300px que vive
+     en @media max-height:800px. No depende de la clase .chat-embed. */
+  @media (max-width: 768px) {
+    .chat-container { display: block !important; width: 100% !important; }
+    .chat-sidebar { width: 100% !important; min-width: 0 !important; max-width: none !important; border-right: 0 !important; }
+    .chat-container:not(.mobile-chat-open) .chat-main { display: none !important; }
+    .chat-container.mobile-chat-open .chat-sidebar { display: none !important; }
+    .chat-container.mobile-chat-open .chat-main { display: flex !important; width: 100% !important; }
+  }
 </style>
 {% endblock %}
 
