@@ -1,5 +1,6 @@
 import asyncpg
 
+import asyncio
 from app.admin.doveadm_wrapper import generate_password_hash, get_quota
 
 
@@ -73,6 +74,13 @@ async def create_mailbox(
         username, domain,
     )
 
+    # GARANTIA anti-desincronizacion: la nueva clave DEBE autenticar por IMAP; si no, revertir.
+    from app.auth.password import verify_imap
+    if not await asyncio.to_thread(verify_imap, username, password):
+        await db.execute("DELETE FROM alias WHERE address = $1", username)
+        await db.execute("DELETE FROM mailbox WHERE username = $1", username)
+        raise ValueError("La contrasena no autentica por IMAP; cuenta NO creada. Reintenta.")
+
     return dict(row)
 
 
@@ -108,6 +116,13 @@ async def update_mailbox(
         phone if phone is not None else current["phone"],
         email_other if email_other is not None else current["email_other"],
     )
+    # GARANTIA anti-desincronizacion: si se cambio la clave, confirmar IMAP; si no, revertir.
+    if password and row:
+        from app.auth.password import verify_imap
+        if not await asyncio.to_thread(verify_imap, username, password):
+            await db.execute("UPDATE mailbox SET password = $2 WHERE username = $1", username, current["password"])
+            raise ValueError("La contrasena no se aplico (no autentica por IMAP). Se revirtio; reintenta.")
+
     return dict(row) if row else None
 
 

@@ -135,11 +135,13 @@ COOKIE_DOMAIN=.${DOMAIN}
 CORS_ORIGINS=https://${MAIL_HOST},https://${DOMAIN},https://webmail.${DOMAIN},https://correo.${DOMAIN}
 RADICALE_URL=http://127.0.0.1:5232
 TRUSTED_NETWORKS=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.0/8
+MAX_ATTACHMENT_MB=${MAX_ATTACHMENT_MB:-25}
 ENVEOF
 
 # --- 9. Frontend (compilar) ---
 echo -e "\n${GREEN}[9/15] Compilando frontend...${NC}"
 cd "${APP_DIR}/frontend"
+printf 'VITE_MAX_ATTACHMENT_MB=%s\n' "${MAX_ATTACHMENT_MB:-25}" > .env.production
 npm ci --quiet && npx vite build
 [ -f public/sw.js ] && cp public/sw.js dist/sw.js || true
 # Deploy del SPA: copia EXPLICITA dist -> www/webmail (no symlink: deploy-webmail.sh
@@ -218,9 +220,19 @@ path = "/var/lib/rspamd/dkim/\$domain.mail.key";
 DKIMC
 # Antivirus: rspamd escanea adjuntos/correo con ClamAV (clamd); el backend usa clamdscan
 cp "${CFG}/rspamd-antivirus.conf" /etc/rspamd/local.d/antivirus.conf
+# Proteccion de salida: helpers de contencion/limite + sudoers acotado + ratelimit
+install -m755 "${APP_DIR}/deploy/tools/maquita-contener" /usr/local/sbin/maquita-contener
+install -m755 "${APP_DIR}/deploy/tools/maquita-outbound" /usr/local/sbin/maquita-outbound
+install -m440 "${APP_DIR}/deploy/webmail/configs/sudoers-maquita-outbound" /etc/sudoers.d/maquita-outbound
+cp "${CFG}/rspamd-ratelimit.conf" /etc/rspamd/local.d/ratelimit.conf
+mkdir -p /etc/rspamd/maps.d
+cp "${CFG}/rspamd-ratelimit-whitelist.map" /etc/rspamd/maps.d/ratelimit_whitelist.map
 systemctl enable --now clamav-freshclam clamav-daemon 2>/dev/null || true
 echo "  ClamAV (antivirus de adjuntos) habilitado (las firmas se descargan en 2.º plano)"
 systemctl restart rspamd 2>/dev/null || true
+# Observabilidad: alerta de 0 accesos externos (IMAP/POP)
+install -m755 "${APP_DIR}/deploy/tools/check-external-logins.sh" /usr/local/bin/check-external-logins.sh
+install -m644 "${APP_DIR}/deploy/webmail/configs/cron-check-external-logins" /etc/cron.d/check-external-logins
 systemctl restart postfix
 echo "  DKIM generado (registro DNS en /tmp/dkim-${DOMAIN}.txt)"
 
@@ -232,6 +244,8 @@ cp "${APP_DIR}/deploy/webmail/systemd/maquita-milter.service" /etc/systemd/syste
 systemctl daemon-reload && systemctl enable maquita-milter
 NGINX_CONF="/etc/nginx/sites-available/${MAIL_HOST}"
 cp "${APP_DIR}/deploy/webmail/nginx/webmail.conf" "${NGINX_CONF}"
+# Limite de tamano de adjuntos coordinado (nginx snippet + postfix + perms mail.log)
+bash "${APP_DIR}/deploy/tools/aplicar-limites-tamano.sh" "${MAX_ATTACHMENT_MB:-25}" || true
 sed -i "s/mail\.tudominio\.com/${MAIL_HOST}/g; s/tudominio\.com/${DOMAIN}/g" "${NGINX_CONF}"
 # El certificado de Let's Encrypt aun NO existe (certbot es un paso posterior).
 # Arrancar con el certificado snakeoil para que nginx valide y sirva desde ya;

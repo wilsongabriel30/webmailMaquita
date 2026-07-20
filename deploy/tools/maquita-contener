@@ -1,0 +1,65 @@
+#!/bin/bash
+# maquita-contener — Contencion rapida de cuenta comprometida (leccion incidente Zimbra)
+# Uso: maquita-contener lock|unlock|status <email>
+#   lock   : desactiva cuenta (active=false) + limpia sesion Redis + vacia su cola de salida
+#   unlock : reactiva la cuenta
+#   status : estado, correos en cola y volumen de envio reciente
+set -uo pipefail   # NO -e: los 3 pasos del lock deben correr siempre
+ENV=/opt/maquita-webmail/backend/.env
+MAILADM=/usr/local/sbin/maquita-mailadm
+LOG=/var/log/maquita-contener.log
+ts(){ date '+%Y-%m-%d %H:%M:%S'; }
+audit(){ echo "$(ts) $*" >> "$LOG" 2>/dev/null || true; }
+
+ACTION="${1:-}"; EMAIL="${2:-}"
+if [ -z "$ACTION" ] || [ -z "$EMAIL" ]; then
+  echo "uso: maquita-contener lock|unlock|status <email>"; exit 1
+fi
+
+redis_del(){  # borra claves de sesion del usuario en Redis; imprime salida de redis-cli
+  local url; url="$(grep -E '^REDIS_URL=' "$ENV" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"'"'"' "'"'"'')"
+  [ -z "$url" ] && { echo "NOURL"; return; }
+  python3 -c "
+import urllib.parse,sys,subprocess
+u=urllib.parse.urlparse(sys.argv[1]); em=sys.argv[2]
+a=['redis-cli','-h',u.hostname or 'localhost','-p',str(u.port or 6379),'-n',(u.path or '/0').lstrip('/') or '0','--no-auth-warning']
+if u.password: a+=['-a',urllib.parse.unquote(u.password)]
+a+=['DEL','imap_pass:'+em,'imap_master:'+em]
+r=subprocess.run(a,capture_output=True,text=True); print((r.stdout or r.stderr).strip())
+" "$url" "$EMAIL" 2>/dev/null
+}
+queue_ids_from(){
+  postqueue -j 2>/dev/null | python3 -c "
+import sys,json
+tgt=sys.argv[1].lower()
+for line in sys.stdin:
+    try: o=json.loads(line)
+    except Exception: continue
+    if str(o.get('sender','')).lower()==tgt: print(o.get('queue_id',''))
+" "$EMAIL" 2>/dev/null
+}
+
+case "$ACTION" in
+  lock)
+    echo "== Conteniendo $EMAIL =="
+    if $MAILADM mailbox disable "$EMAIL" >/dev/null 2>&1; then echo " [1/3] cuenta desactivada (active=false)"
+    else echo " [1/3] ERROR al desactivar (¿existe la cuenta?)"; fi
+    DELN="$(redis_del)"; echo " [2/3] sesion Redis limpiada (claves borradas: ${DELN:-?})"
+    IDS="$(queue_ids_from)"
+    if [ -n "${IDS// /}" ]; then N=$(echo "$IDS"|wc -w); postsuper -d $IDS >/dev/null 2>&1 && echo " [3/3] $N mensajes en cola eliminados"
+    else echo " [3/3] sin mensajes en cola de ese remitente"; fi
+    audit "LOCK target=$EMAIL by=$(whoami)"
+    echo "OK: $EMAIL contenido. Revertir: maquita-contener unlock $EMAIL"
+    ;;
+  unlock)
+    if $MAILADM mailbox enable "$EMAIL" >/dev/null 2>&1; then echo "OK: $EMAIL reactivado (active=true)"; audit "UNLOCK target=$EMAIL by=$(whoami)"
+    else echo "ERROR al reactivar $EMAIL"; exit 1; fi
+    ;;
+  status)
+    echo "== Estado $EMAIL =="
+    $MAILADM mailbox info "$EMAIL" 2>/dev/null | grep -iE "usuario|activo" || echo "(cuenta no encontrada)"
+    Q=$(queue_ids_from | grep -c . 2>/dev/null || true); echo "en_cola(salientes): ${Q:-0}"
+    V=$(grep -c "sasl_username=$EMAIL" /var/log/mail.log 2>/dev/null || true); echo "envios_en_log_actual: ${V:-0}"
+    ;;
+  *) echo "accion invalida: $ACTION"; exit 1;;
+esac

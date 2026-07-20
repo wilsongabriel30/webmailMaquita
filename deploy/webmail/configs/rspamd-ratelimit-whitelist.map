@@ -1,0 +1,3 @@
+# Usuarios autenticados EXENTOS del limite de salida (uno por linea, email completo).
+# Ej: ventas@maquita.org
+# Gestionable desde el panel admin :8443 (Proteccion de salida).

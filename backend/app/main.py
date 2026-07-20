@@ -25,6 +25,7 @@ from app.rag.router import router as rag_router
 from app.copiloto.router import router as copiloto_router
 from app.auth.password import router as password_router
 from app.admin.router import router as admin_router
+from app.onboarding.router import router as onboarding_router
 from app.mail.routers.folders import router as folders_router
 from app.mail.routers.messages import router as messages_router
 from app.mail.routers.compose import router as compose_router
@@ -44,6 +45,7 @@ from app.mail.routers.transcribe import router as transcribe_router
 from app.mail.routers.spam_guard import router as spam_router
 from app.mail.routers.onlyoffice import router as onlyoffice_router
 from app.settings.routers.preferences import router as settings_router
+from app.autodiscover_router import router as autodiscover_router
 from app.contacts.routers import router as contacts_router
 from app.sieve.router import router as sieve_router
 from app.identities.router import router as identities_router
@@ -493,6 +495,7 @@ app.include_router(rag_router)
 app.include_router(copiloto_router)
 app.include_router(password_router)
 app.include_router(admin_router)
+app.include_router(onboarding_router)
 app.include_router(folders_router)
 app.include_router(messages_router)
 app.include_router(compose_router)
@@ -513,6 +516,7 @@ app.include_router(priority_router)
 app.include_router(transcribe_router)
 app.include_router(spam_router)
 app.include_router(settings_router)
+app.include_router(autodiscover_router)
 app.include_router(contacts_router)
 app.include_router(sieve_router)
 app.include_router(identities_router)

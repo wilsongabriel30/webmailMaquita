@@ -1,0 +1,99 @@
+#!/bin/bash
+# maquita-outbound — control privilegiado de la Proteccion de salida (panel admin :8443).
+# Lo invoca el backend (www-data) via:  sudo /usr/local/sbin/maquita-outbound <cmd> [args]
+# Es la UNICA superficie sudo para esto: valida estrictamente sus argumentos.
+#   get-limits                     -> JSON {burst, rate_per_min, whitelist[]}
+#   set-limits <burst> <rate_min>  -> reescribe el bucket per_user_out (rspamd) + reload
+#   set-whitelist <a@b,c@d,...>    -> reescribe el map de exentos (rspamd lee en caliente)
+#   activity [hours]               -> JSON {top:[{user,count}]} desde mail.log
+#   lock|unlock|status <email>     -> envuelve maquita-contener
+set -uo pipefail
+RL=/etc/rspamd/local.d/ratelimit.conf
+MAP=/etc/rspamd/maps.d/ratelimit_whitelist.map
+CONTENER=/usr/local/sbin/maquita-contener
+LOG=/var/log/mail.log
+
+cmd="${1:-}"
+case "$cmd" in
+  get-limits)
+    python3 - "$RL" "$MAP" <<'PY'
+import re,sys,json,os
+rl=open(sys.argv[1]).read() if os.path.exists(sys.argv[1]) else ""
+m=re.search(r'per_user_out\s*\{.*?burst\s*=\s*(\d+);.*?rate\s*=\s*"(\d+)\s*/\s*1min"', rl, re.S)
+wl=[]
+mp=sys.argv[2]
+if os.path.exists(mp):
+    for line in open(mp):
+        line=line.strip()
+        if line and not line.startswith('#'): wl.append(line)
+print(json.dumps({"burst": int(m.group(1)) if m else None,
+                  "rate_per_min": int(m.group(2)) if m else None,
+                  "whitelist": wl}))
+PY
+    ;;
+  set-limits)
+    burst="${2:-}"; rate="${3:-}"
+    [[ "$burst" =~ ^[0-9]+$ ]] || { echo '{"error":"burst invalido"}'; exit 1; }
+    [[ "$rate"  =~ ^[0-9]+$ ]] || { echo '{"error":"rate invalido"}'; exit 1; }
+    if (( burst < 1 || burst > 100000 || rate < 1 || rate > 100000 )); then echo '{"error":"fuera de rango (1..100000)"}'; exit 1; fi
+    cp "$RL" "$RL.bak.$(date +%Y%m%d%H%M%S)" 2>/dev/null || true
+    python3 - "$RL" "$burst" "$rate" <<'PY'
+import re,sys
+p,b,r=sys.argv[1],sys.argv[2],sys.argv[3]
+s=open(p).read()
+def repl(m):
+    blk=m.group(0)
+    blk=re.sub(r'burst\s*=\s*\d+;', f'burst = {b};', blk, count=1)
+    blk=re.sub(r'rate\s*=\s*"\d+\s*/\s*1min"', f'rate = "{r} / 1min"', blk, count=1)
+    return blk
+s2=re.sub(r'per_user_out\s*\{.*?\}\s*\}', repl, s, count=1, flags=re.S)
+assert s2!=s, "no se encontro el bucket per_user_out"
+open(p,'w').write(s2)
+PY
+    [ $? -ne 0 ] && { echo '{"error":"no se pudo editar ratelimit.conf"}'; exit 1; }
+    if ! rspamadm configtest >/dev/null 2>&1; then echo '{"error":"configtest fallo (cambio no aplicado, revisar backup)"}'; exit 1; fi
+    systemctl reload rspamd >/dev/null 2>&1
+    echo '{"ok":true}'
+    ;;
+  set-whitelist)
+    list="${2:-}"
+    mkdir -p "$(dirname "$MAP")"
+    python3 - "$MAP" "$list" <<'PY'
+import sys,re
+mp,raw=sys.argv[1],sys.argv[2]
+out=["# Usuarios exentos del limite de salida (gestionado desde el panel admin)."]
+seen=set()
+for e in re.split(r'[,\s]+', raw.strip()):
+    e=e.strip().lower()
+    if not e: continue
+    if not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', e):
+        print('{"error":"email invalido: %s"}' % e); sys.exit(2)
+    if e not in seen: seen.add(e); out.append(e)
+open(mp,'w').write("\n".join(out)+"\n")
+PY
+    rc=$?; [ $rc -eq 2 ] && exit 1; [ $rc -ne 0 ] && { echo '{"error":"no se pudo escribir whitelist"}'; exit 1; }
+    echo '{"ok":true}'
+    ;;
+  activity)
+    hours="${2:-1}"; [[ "$hours" =~ ^[0-9]+$ ]] || hours=1
+    python3 - "$LOG" "$hours" <<'PY'
+import sys,re,collections,json
+log,hours=sys.argv[1],int(sys.argv[2])
+cnt=collections.Counter()
+try:
+    for line in open(log, errors='ignore'):
+        m=re.search(r'sasl_username=([^,\s]+)', line)
+        if m: cnt[m.group(1).lower()]+=1
+except FileNotFoundError: pass
+print(json.dumps({"hours":hours,"note":"conteo del log actual (hoy)",
+                  "top":[{"user":u,"count":c} for u,c in cnt.most_common(50)]}))
+PY
+    ;;
+  lock|unlock|status)
+    email="${2:-}"
+    [[ "$email" =~ ^[^@[:space:]]+@[^@[:space:]]+$ ]] || { echo '{"error":"email invalido"}'; exit 1; }
+    OUT="$("$CONTENER" "$cmd" "$email" 2>&1)"; RC=$?
+    python3 -c 'import json,sys; print(json.dumps({"ok": sys.argv[2]=="0", "output": sys.argv[1]}))' "$OUT" "$RC"
+    ;;
+  *) echo '{"error":"comando invalido"}'; exit 1;;
+esac
