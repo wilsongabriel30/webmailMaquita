@@ -118,7 +118,7 @@ async def analyze(db, redis, username: str, ip: str, user_agent: str = "") -> No
 
         try:
             from app.conditional_access.service import evaluate_and_apply
-            await evaluate_and_apply(db, username, risk, country, reasons, cfg.get("trusted_countries"))
+            await evaluate_and_apply(db, username, risk, country, reasons, (cfg.get("trusted_countries") or []) + (cfg.get("occasional_countries") or []))
         except Exception:
             pass
 

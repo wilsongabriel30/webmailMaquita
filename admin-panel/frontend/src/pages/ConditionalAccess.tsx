@@ -3,6 +3,7 @@ import { api } from "../api/client";
 import { SectionHelp } from "../components/SectionHelp";
 
 interface Policy { id: number; name: string; condition: string; action: string; enabled: boolean; }
+interface Country { code: string; name: string; enabled: boolean; }
 
 const CONDS: Record<string, string> = {
   riesgo_alto: "Login de riesgo alto",
@@ -20,9 +21,23 @@ export function ConditionalAccess() {
   const [name, setName] = useState("");
   const [cond, setCond] = useState("riesgo_alto");
   const [act, setAct] = useState("alertar");
+  const [countries, setCountries] = useState<Country[]>([]);
+  const [newCc, setNewCc] = useState("");
 
   const load = () => api.get<{ policies: Policy[] }>("/conditional-access/policies").then((r) => setPolicies(r?.policies || [])).catch(() => {});
-  useEffect(load, []);
+  const loadCountries = () => api.get<{ countries: Country[] }>("/geo-access/countries").then((r) => setCountries(r?.countries || [])).catch(() => {});
+  useEffect(() => { load(); loadCountries(); }, []);
+
+  const toggleCountry = async (c: Country) => {
+    if (c.code === "ec") return;
+    if (!c.enabled && !confirm(`Abrir el acceso al webmail desde ${c.name}? Cualquiera en ese pa\u00eds podr\u00e1 intentar iniciar sesi\u00f3n (con usuario y contrase\u00f1a). C\u00e9rralo cuando la persona regrese.`)) return;
+    await api.post("/geo-access/toggle", { code: c.code, enabled: !c.enabled }); loadCountries();
+  };
+  const addCountry = async () => {
+    const cc = newCc.trim().toLowerCase();
+    if (!/^[a-z]{2}$/.test(cc)) { alert("Usa el c\u00f3digo de 2 letras del pa\u00eds (ej. es, us, it)"); return; }
+    await api.post("/geo-access/toggle", { code: cc, enabled: true }); setNewCc(""); loadCountries();
+  };
 
   const toggle = async (p: Policy) => {
     if (!p.enabled && p.action === "bloquear" && !confirm(`Activar "${p.name}": BLOQUEARÁ cuentas automáticamente al cumplirse la condición. ¿Continuar?`)) return;
@@ -52,6 +67,31 @@ export function ConditionalAccess() {
       <div>
         <h1 className="text-xl font-semibold text-ms-gray-160">Acceso Condicional</h1>
         <p className="text-sm text-ms-gray-110">Políticas que actúan sobre los inicios de sesión según el riesgo. Todas vienen desactivadas; actívalas con cuidado.</p>
+      </div>
+
+      <div className="bg-white border border-ms-gray-30 rounded-lg p-4 space-y-3">
+        <div>
+          <h2 className="text-sm font-semibold text-ms-gray-160">Acceso al webmail por pa\u00eds</h2>
+          <p className="text-xs text-ms-gray-110">El webmail solo se abre desde <b>Ecuador</b>. La oficina y la VPN siempre tienen acceso. Abre otro pa\u00eds solo cuando alguien viaje, y ci\u00e9rralo al regresar.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {countries.map((c) => (
+            <button key={c.code} onClick={() => toggleCountry(c)} disabled={c.code === "ec"}
+              title={c.code === "ec" ? "Ecuador es el acceso base y no se puede cerrar." : (c.enabled ? `Cerrar el acceso desde ${c.name}` : `Abrir el acceso desde ${c.name}`)}
+              className="text-xs px-3 py-2 rounded border flex items-center gap-2"
+              style={{ background: c.enabled ? "#dff6dd" : "#f3f2f1", color: c.enabled ? "#107c10" : "#605e5c", borderColor: c.enabled ? "#107c10" : "#d2d0ce", cursor: c.code === "ec" ? "default" : "pointer" }}>
+              <span className="font-medium">{c.name}</span>
+              <span>{c.enabled ? "Abierto" : "Cerrado"}</span>
+            </button>
+          ))}
+          {!countries.length && <span className="text-xs text-ms-gray-110">Cargando pa\u00edses\u2026</span>}
+        </div>
+        <div className="flex gap-2 items-center pt-1">
+          <input value={newCc} onChange={(e) => setNewCc(e.target.value)} placeholder="C\u00f3digo pa\u00eds (ej. it)" maxLength={2}
+            title="A\u00f1ade y abre un pa\u00eds que no est\u00e9 en la lista usando su c\u00f3digo ISO de 2 letras (ej. it = Italia, us = Estados Unidos)."
+            className="px-2 py-1 border border-ms-gray-30 rounded text-sm" style={{ width: "9rem" }} />
+          <button onClick={addCountry} className="text-white text-xs px-3 py-1.5 rounded" style={{ backgroundColor: "#0078d4" }}>Abrir otro pa\u00eds</button>
+        </div>
       </div>
 
       <div className="bg-white border border-ms-gray-30 rounded-lg overflow-hidden">

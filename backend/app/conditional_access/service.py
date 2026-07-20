@@ -25,7 +25,7 @@ def _matches(cond, risk, country, reasons, trusted):
     if cond == "pais_no_confiable":
         return bool(country) and country not in (trusted or [])
     if cond == "viaje_imposible":
-        return any(w in rsn for w in ("imposible", "viaje", "distancia"))
+        return "imposible" in rsn
     return False
 
 
