@@ -85,7 +85,11 @@ async def _fetch_text(user: str, guid: str, uid: str) -> str:
 
 
 async def _active_users(db) -> list[str]:
-    rows = await db.fetch("SELECT username FROM mailbox WHERE active = true ORDER BY username")
+    # Excluir buzones bajo legal hold activo (no se puede tocar su correo)
+    rows = await db.fetch(
+        "SELECT username FROM mailbox WHERE active = true "
+        "AND username NOT IN (SELECT mailbox FROM legal_holds WHERE is_active = true) "
+        "ORDER BY username")
     return [r["username"] for r in rows]
 
 

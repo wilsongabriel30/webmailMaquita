@@ -478,3 +478,47 @@ async def fail2ban_config(request: Request, admin: str = Depends(require_admin))
         configs[jail] = jail_config
 
     return {"jails": configs}
+
+
+# ── Geo-acceso webmail por país (default: solo Ecuador) ──────────────
+# El acceso a webmail/IMAP/submission (443/143/993/465/587) está restringido
+# a Ecuador. El admin abre/cierra países aquí (p. ej. cuando alguien viaja).
+# La red interna y el VPN SIEMPRE tienen acceso (no dependen de esta lista).
+
+GEO_COUNTRY_SCRIPT = "/usr/local/sbin/geoip-country.sh"
+_CC_RE = re.compile(r"^[a-z]{2}$")
+
+
+@router.get("/countries")
+async def list_geo_countries(request: Request, admin: str = Depends(require_admin)):
+    """Lista los países y si tienen acceso a webmail habilitado."""
+    db = request.app.state.db_pool
+    rows = await db.fetch(
+        "SELECT code, name, enabled, updated_by, updated_at "
+        "FROM geo_webmail_countries ORDER BY name")
+    return {"countries": [dict(r) for r in rows]}
+
+
+@router.post("/countries/{code}/{action}")
+async def toggle_geo_country(
+    code: str,
+    action: str,
+    request: Request,
+    admin: str = Depends(require_admin),
+):
+    """Abre (enable) o cierra (disable) el acceso webmail de un país y aplica en caliente."""
+    code = code.lower()
+    if not _CC_RE.match(code):
+        raise HTTPException(400, "Código de país inválido (usar ISO-2, ej. 'es')")
+    if action not in ("enable", "disable"):
+        raise HTTPException(400, "Acción inválida (enable|disable)")
+    if code == "ec" and action == "disable":
+        raise HTTPException(400, "Ecuador no se puede cerrar (acceso base)")
+
+    stdout, stderr, rc = await _run_cmd(GEO_COUNTRY_SCRIPT, action, code, timeout=90)
+    if rc != 0:
+        raise HTTPException(500, f"Error aplicando cambio: {stderr or stdout}")
+
+    await _audit(request, admin, f"geo_country_{action}", target=code,
+                 details={"stdout": stdout.strip()[-300:]})
+    return {"status": "ok", "code": code, "action": action, "detail": stdout.strip()[-300:]}
