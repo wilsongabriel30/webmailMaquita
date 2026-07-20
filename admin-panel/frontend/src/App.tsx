@@ -14,6 +14,7 @@ import { Tracking } from "./pages/Tracking";
 import { Queue } from "./pages/Queue";
 import { Quarantine } from "./pages/Quarantine";
 import { Recovery } from "./pages/Recovery";
+import { PasswordAudit } from "./pages/PasswordAudit";
 import { Health } from "./pages/Health";
 import { Audit } from "./pages/Audit";
 import { Admins } from "./pages/Admins";
@@ -46,7 +47,9 @@ import { InsiderRisk } from "./pages/InsiderRisk";
 import { EDiscoveryPremium } from "./pages/EDiscoveryPremium";
 import { AdvancedAudit } from "./pages/AdvancedAudit";
 import { RiskyLogins } from "./pages/RiskyLogins";
+import { LoginHealth } from "./pages/LoginHealth";
 import { AntispamAvanzado } from "./pages/AntispamAvanzado";
+import { OutboundProtection } from "./pages/OutboundProtection";
 import { SharedMailboxes } from "./pages/SharedMailboxes";
 import { EDiscovery } from "./pages/EDiscovery";
 import { Branding } from "./pages/Branding";
@@ -120,6 +123,7 @@ function App() {
             <Route path="autoresponder" element={<AutoResponder />} />
             <Route path="dnscheck" element={<DnsCheck />} />
             <Route path="recovery" element={<Recovery />} />
+            <Route path="/password-audit" element={<PasswordAudit />} />
             <Route path="services" element={<Services />} />
             <Route path="health" element={<Health />} />
             <Route path="audit" element={<Audit />} />
@@ -130,6 +134,7 @@ function App() {
             <Route path="office" element={<OfficeConfig />} />
             <Route path="voice" element={<VoiceConfig />} />
             <Route path="antispam" element={<AntispamAvanzado />} />
+            <Route path="/outbound" element={<OutboundProtection />} />
             <Route path="compliance" element={<Compliance />} />
             <Route path="dlp" element={<DlpConfig />} />
             <Route path="secure" element={<SecureConfig />} />
@@ -151,6 +156,7 @@ function App() {
             <Route path="ediscovery-premium" element={<EDiscoveryPremium />} />
             <Route path="advanced-audit" element={<AdvancedAudit />} />
             <Route path="risky-logins" element={<RiskyLogins />} />
+            <Route path="/login-health" element={<LoginHealth />} />
           </Route>
         </Routes>
       </BrowserRouter>

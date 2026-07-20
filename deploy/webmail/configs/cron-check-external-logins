@@ -1,0 +1,2 @@
+# Alerta si 0 accesos externos IMAP/POP en 24h (dias habiles, mediodia y tarde)
+0 12,17 * * 1-5 root /usr/local/bin/check-external-logins.sh 24

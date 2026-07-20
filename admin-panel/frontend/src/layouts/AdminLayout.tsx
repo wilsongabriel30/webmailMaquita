@@ -65,6 +65,9 @@ const navSections = [
       { to: "/anti-suplantacion", label: "Anti-suplantación y políticas", help: "Políticas anti-suplantación de dominios y de personas (spoofing e impersonación).", icon: "M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0M12 14a2 2 0 100-4 2 2 0 000 4zm0 0c1.3 0 2.4.8 2.8 2M9 16a3 3 0 012.8-2" },
       { to: "/phishsim", label: "Simulación de phishing", help: "Campañas simuladas de phishing para entrenar y medir a los usuarios.", icon: "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" },
       { to: "__rspamd__", label: "Rspamd Antispam", help: "Abre la consola nativa del antispam Rspamd en una pestaña nueva.", icon: "M20.618 5.984A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z", external: "/rspamd/" },
+      { to: "/password-audit", label: "Cuentas sin clave válida", help: "Cuentas cuya contraseña no es válida en Dovecot: detección y corrección.", icon: "M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" },
+      { to: "/login-health", label: "Accesos externos", help: "Monitoreo de accesos IMAP/POP externos; alerta si hay 0 accesos en 24 h.", icon: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" },
+      { to: "/outbound", label: "Protección de salida", help: "Límite de envío por usuario (anti cuenta comprometida) y contención de cuentas.", icon: "M12 2l7 4v6c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6l7-4z M9 12l3 3M12 8v4" },
     ],
   },
   {
