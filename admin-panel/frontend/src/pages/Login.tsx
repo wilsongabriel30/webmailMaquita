@@ -1,6 +1,7 @@
 import React from "react";
 import { useState } from "react";
 import { useAuth } from "../api/auth";
+import { api } from "../api/client";
 
 export function Login() {
   const { login } = useAuth();
@@ -10,6 +11,12 @@ export function Login() {
   const [needTotp, setNeedTotp] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [recover, setRecover] = useState(false);
+  const [recStep, setRecStep] = useState(1);
+  const [recUser, setRecUser] = useState("");
+  const [recToken, setRecToken] = useState("");
+  const [recPass, setRecPass] = useState("");
+  const [recMsg, setRecMsg] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,6 +32,25 @@ export function Login() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const doRequest = async (e: React.FormEvent) => {
+    e.preventDefault(); setError(""); setRecMsg(""); setLoading(true);
+    try {
+      const r = await api.post<{ message?: string }>("/admin-recovery/request", { username: recUser });
+      setRecMsg(r?.message || "Si la cuenta tiene recuperacion configurada, se envio un enlace al correo alternativo.");
+      setRecStep(2);
+    } catch (err: any) { setError(err.message || "Error"); }
+    finally { setLoading(false); }
+  };
+  const doReset = async (e: React.FormEvent) => {
+    e.preventDefault(); setError(""); setRecMsg(""); setLoading(true);
+    try {
+      const r = await api.post<{ message?: string }>("/admin-recovery/reset", { username: recUser, token: recToken.trim(), new_password: recPass });
+      setRecMsg(r?.message || "Contrasena actualizada. Ya puedes iniciar sesion.");
+      setTimeout(() => { setRecover(false); setRecStep(1); setRecToken(""); setRecPass(""); setRecMsg(""); }, 2500);
+    } catch (err: any) { setError(err.message || "Error"); }
+    finally { setLoading(false); }
   };
 
   return (
@@ -57,6 +83,39 @@ export function Login() {
               </div>
             )}
 
+            {recover ? (
+              <div>
+                <h2 className="text-sm font-semibold text-ms-gray-130 mb-1">Recuperar acceso</h2>
+                <p className="text-xs text-ms-gray-60 mb-3">Se enviara un token al correo alternativo registrado de esta cuenta. Solo para el panel administrativo.</p>
+                {recMsg && <div className="mb-3 p-2 bg-green-50 border border-green-300 rounded text-green-700 text-xs">{recMsg}</div>}
+                {recStep === 1 ? (
+                  <form onSubmit={doRequest}>
+                    <label className="block text-sm font-medium text-ms-gray-130 mb-1.5">Usuario</label>
+                    <input value={recUser} onChange={(e) => setRecUser(e.target.value)} placeholder="admin" required
+                      title="Usuario del panel cuyo acceso quieres recuperar. Se enviara un token al correo alternativo que registro."
+                      className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm mb-4" autoFocus />
+                    <button type="submit" disabled={loading} className="w-full py-2.5 bg-ms-blue hover:bg-ms-blue-dark disabled:opacity-50 text-white font-medium rounded text-sm">
+                      {loading ? "Enviando..." : "Enviar token al correo alternativo"}
+                    </button>
+                  </form>
+                ) : (
+                  <form onSubmit={doReset}>
+                    <label className="block text-sm font-medium text-ms-gray-130 mb-1.5">Token recibido</label>
+                    <input value={recToken} onChange={(e) => setRecToken(e.target.value)} placeholder="Pega el token del correo" required
+                      title="Token que llego a tu correo alternativo (valido 30 minutos, un solo uso)."
+                      className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm mb-3" autoFocus />
+                    <label className="block text-sm font-medium text-ms-gray-130 mb-1.5">Nueva contrasena</label>
+                    <input type="password" value={recPass} onChange={(e) => setRecPass(e.target.value)} placeholder="Minimo 10 caracteres" minLength={10} required
+                      title="Nueva contrasena del panel (minimo 10 caracteres)."
+                      className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm mb-4" />
+                    <button type="submit" disabled={loading || recPass.length < 10} className="w-full py-2.5 bg-ms-blue hover:bg-ms-blue-dark disabled:opacity-50 text-white font-medium rounded text-sm">
+                      {loading ? "Guardando..." : "Definir nueva contrasena"}
+                    </button>
+                  </form>
+                )}
+                <button type="button" onClick={() => { setRecover(false); setRecStep(1); setError(""); setRecMsg(""); }} className="w-full mt-3 text-xs text-ms-blue hover:underline">Volver a iniciar sesion</button>
+              </div>
+            ) : (
             <form onSubmit={handleSubmit}>
               <div className="mb-4">
                 <label className="block text-sm font-medium text-ms-gray-130 mb-1.5">Usuario</label>
@@ -97,6 +156,13 @@ export function Login() {
                 {loading ? "Ingresando..." : needTotp ? "Verificar código" : "Iniciar sesión"}
               </button>
             </form>
+            )}
+            {!recover && !needTotp && (
+              <button type="button" onClick={() => { setRecover(true); setError(""); }} className="w-full mt-3 text-xs text-ms-blue hover:underline"
+                title="Si perdiste el acceso al panel, recupera con el correo alternativo que registraste.">
+                Perdi el acceso — Recuperar con correo alternativo
+              </button>
+            )}
           </div>
           <p className="text-center text-ms-gray-60 text-xs mt-4">Maquita Cushunchic MCCH &middot; v2.0</p>
         </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { api } from "../api/client";
 import { SectionHelp } from "../components/SectionHelp";
+import { AdminRecoveryCard } from "../components/AdminRecoveryCard";
 
 interface Cfg { enabled: boolean; expire_days: number; max_views: number; intro_text: string; }
 interface Msg {
@@ -53,6 +54,7 @@ export function SecureConfig() {
 
   return (
     <div className="max-w-3xl">
+      <AdminRecoveryCard />
       <div className="flex justify-end">
         <SectionHelp
           titulo="Correo cifrado (mensaje seguro)"

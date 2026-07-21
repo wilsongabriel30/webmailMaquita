@@ -18,6 +18,8 @@ export function OutboundProtection() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [manualEmail, setManualEmail] = useState("");
+  const [anom, setAnom] = useState<any>(null);
+  const [anomEvents, setAnomEvents] = useState<any[]>([]);
 
   const wl = (txt: string) =>
     txt.split(/[,\s]+/).map((s) => s.trim().toLowerCase()).filter(Boolean);
@@ -34,10 +36,26 @@ export function OutboundProtection() {
   }
 
   useEffect(() => {
-    Promise.all([loadLimits(), loadActivity()])
+    Promise.all([loadLimits(), loadActivity(), loadAnomaly()])
       .catch((e) => setMsg({ ok: false, text: e.message }))
       .finally(() => setLoading(false));
   }, []);
+
+  async function loadAnomaly() {
+    const c = await api.get<any>("/outbound-anomaly/config").catch(() => null);
+    if (c) setAnom(c);
+    const e = await api.get<{ events: any[] }>("/outbound-anomaly/events?limit=20").catch(() => null);
+    if (e) setAnomEvents(e.events || []);
+  }
+  async function saveAnomaly() {
+    setSaving(true); setMsg(null);
+    try {
+      await api.put("/outbound-anomaly/config", anom);
+      setMsg({ ok: true, text: "Deteccion de envio masivo guardada." });
+      await loadAnomaly();
+    } catch (e: any) { setMsg({ ok: false, text: e.message }); }
+    finally { setSaving(false); }
+  }
 
   async function save() {
     setSaving(true); setMsg(null);
@@ -157,6 +175,68 @@ export function OutboundProtection() {
           </table>
         )}
       </div>
+
+      {anom && (
+      <div className="bg-white border border-ms-gray-30 rounded-lg p-4 space-y-3 mt-4">
+        <div>
+          <h2 className="text-sm font-semibold text-ms-gray-160">Deteccion automatica de envio masivo (cuenta comprometida)</h2>
+          <p className="text-xs text-ms-gray-110">Si una cuenta envia a mas destinatarios de lo normal en pocos minutos, se bloquea el envio automaticamente y se avisa. El correo institucional envia pocos al dia; un envio masivo repentino es senal de cuenta robada. Asi evitamos que la IP caiga en listas negras.</p>
+        </div>
+        <div className="flex flex-wrap gap-4 items-end">
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={!!anom.enabled} onChange={(e) => setAnom({ ...anom, enabled: e.target.checked })} />
+            Activo
+          </label>
+          <div>
+            <label className="block text-xs text-ms-gray-110">Destinatarios (umbral)</label>
+            <input type="number" min={3} value={anom.threshold_recipients} onChange={(e) => setAnom({ ...anom, threshold_recipients: Number(e.target.value) })}
+              title="Si una cuenta supera esta cantidad de destinatarios dentro de la ventana, se considera anomalia. Normal institucional: 10-20 al dia." className="border border-ms-gray-30 rounded px-2 py-1 text-sm w-24" />
+          </div>
+          <div>
+            <label className="block text-xs text-ms-gray-110">Ventana (minutos)</label>
+            <input type="number" min={1} value={anom.window_minutes} onChange={(e) => setAnom({ ...anom, window_minutes: Number(e.target.value) })}
+              title="Periodo en el que se cuentan los envios (ej. 10 minutos)." className="border border-ms-gray-30 rounded px-2 py-1 text-sm w-20" />
+          </div>
+          <div>
+            <label className="block text-xs text-ms-gray-110">Accion</label>
+            <select value={anom.action} onChange={(e) => setAnom({ ...anom, action: e.target.value })}
+              title="Bloquear: contiene la cuenta y avisa. Solo alertar: unicamente avisa sin bloquear." className="border border-ms-gray-30 rounded px-2 py-1 text-sm">
+              <option value="lock">Bloquear cuenta</option>
+              <option value="alert">Solo alertar</option>
+            </select>
+          </div>
+          <div className="flex-1" style={{ minWidth: "14rem" }}>
+            <label className="block text-xs text-ms-gray-110">Avisar a (correo del administrador)</label>
+            <input value={anom.notify_admin} onChange={(e) => setAnom({ ...anom, notify_admin: e.target.value })}
+              title="Direccion que recibe el aviso de seguridad cuando se detecta un envio masivo." className="border border-ms-gray-30 rounded px-2 py-1 text-sm w-full" />
+          </div>
+          <button onClick={saveAnomaly} disabled={saving} className="text-white text-sm px-4 py-2 rounded" style={{ backgroundColor: "#0078d4" }}>Guardar</button>
+        </div>
+
+        <div>
+          <h3 className="text-xs font-semibold text-ms-gray-160 mt-2 mb-1">Detecciones recientes</h3>
+          {anomEvents.length === 0 ? (
+            <p className="text-xs text-ms-gray-110">Sin detecciones. (Si aparece alguna, revisa la cuenta: cambia contrasena y activa 2FA.)</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="text-ms-gray-110 text-left"><tr>
+                <th className="py-1">Cuenta</th><th className="py-1">Volumen</th><th className="py-1">Accion</th><th className="py-1">Cuando</th>
+              </tr></thead>
+              <tbody>
+                {anomEvents.map((ev) => (
+                  <tr key={ev.id} className="border-t border-ms-gray-30">
+                    <td className="py-1">{ev.username}</td>
+                    <td className="py-1 font-mono">{ev.recipients} dest / {ev.messages} msj</td>
+                    <td className="py-1">{ev.action === "locked" ? "Bloqueada" : "Alertada"}</td>
+                    <td className="py-1 text-ms-gray-110">{ev.created_at ? new Date(ev.created_at).toLocaleString() : ""}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+      )}
     </div>
   );
 }
