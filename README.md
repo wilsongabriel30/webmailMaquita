@@ -154,6 +154,8 @@ Maquita Webmail resuelve las cuatro.
 - Validación y reportes de SPF, DKIM, DMARC
 - Soporte de MTA-STS y DANE/TLSA
 - Integración con Rspamd para puntaje y filtrado de spam
+- Protección anti cuenta comprometida: detección automática de envío masivo con contención y aviso (ver `deploy/OUTBOUND-PROTECTION.md`)
+- Recuperación del panel administrativo por correo alternativo con OTP, y comando de consola `maquita-admin-recovery` (ver `deploy/RECUPERACION-PANEL-ADMIN.md`)
 
 ### Funciones de IA (opcionales)
 - Sugerencias de respuesta inteligente (Ollama, inferencia local)
