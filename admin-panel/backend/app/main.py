@@ -47,6 +47,9 @@ from app.agents.router import router as agents_router
 from app.copiloto.router import router as copiloto_router
 from app.conditional_access.router import router as condaccess_router
 from app.geo_access.router import router as geoaccess_router
+from app.outbound_anomaly.router import router as anomaly_router
+from app.outbound.router import router as outbound_router
+from app.admin_recovery.router import router as adminrec_router
 from app.rag.router import router as rag_router
 from app.retention.router import router as retention_router
 from app.comm_compliance.router import router as comm_router
@@ -157,6 +160,9 @@ app.include_router(nextcloud_router)
 app.include_router(ediscovery_router)
 app.include_router(branding_router)
 app.include_router(geoaccess_router)
+app.include_router(anomaly_router)
+app.include_router(outbound_router)
+app.include_router(adminrec_router)
 
 
 @app.get("/api/health-check")

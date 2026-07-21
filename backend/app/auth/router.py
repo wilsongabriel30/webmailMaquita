@@ -95,6 +95,23 @@ async def login(body: LoginRequest, request: Request, response: Response):
         await asyncio.sleep(2.0 - elapsed)
 
     if not ok:
+        # Si la cuenta fue CONTENIDA por seguridad (deteccion de envio masivo),
+        # explicar el motivo en vez del generico "Credenciales incorrectas".
+        try:
+            _db = request.app.state.db_pool
+            contenida = await _db.fetchrow(
+                "SELECT 1 FROM mailbox m WHERE m.username=$1 AND m.active=false "
+                "AND EXISTS (SELECT 1 FROM outbound_anomaly_events e "
+                "WHERE e.username=$1 AND e.action='locked' "
+                "AND e.created_at > now() - interval '30 days')", username)
+        except Exception:
+            contenida = None
+        if contenida:
+            raise HTTPException(
+                status_code=403,
+                detail="Tu cuenta fue bloqueada por seguridad: se detecto un envio masivo inusual "
+                       "(posible acceso no autorizado). Por favor cambia tu contrasena y activa la "
+                       "verificacion en dos pasos (2FA). Contacta a soporte de Tecnologia para reactivarla.")
         raise HTTPException(status_code=401, detail="Credenciales incorrectas")
 
     # 2FA check
