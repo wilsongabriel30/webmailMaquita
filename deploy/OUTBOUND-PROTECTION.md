@@ -21,3 +21,33 @@ amplio ni escritura directa a `/etc/rspamd`.
 ## Endpoints
 `/api/admin/outbound/limits` (GET/PUT), `/api/admin/outbound/activity` (GET),
 `/api/admin/outbound/lock` y `/unlock` (POST). Todos `require_admin`.
+
+---
+
+## 4. Detección automática de envío masivo (cuenta comprometida)
+
+Un detector corre por cron cada 2 minutos (`maquita-anomalia-salida.py`) y analiza el log
+de correo: cuenta los destinatarios por cuenta autenticada dentro de una ventana. Si una
+cuenta supera el umbral (el correo institucional envía pocos al día; un envío masivo en
+minutos es señal de cuenta robada):
+
+- **Notifica** al administrador y al usuario (aviso: cambiar contraseña + activar 2FA).
+- **Contiene** la cuenta (`maquita-contener lock`) antes de que la IP caiga en listas negras.
+- Registra el evento en `outbound_anomaly_events` y en `fraud_alerts` (dashboard de amenazas).
+- Respeta *legal holds* y no re-bloquea si ya hay un evento reciente.
+
+Administrable desde el panel (**Protección de salida**): activar/desactivar, umbral,
+ventana, acción (bloquear o solo alertar) y correo de aviso, más la tabla de detecciones.
+
+Config en la tabla `outbound_anomaly_config` (por defecto: 30 destinatarios / 10 min / lock).
+
+**Mensaje en el login:** si una cuenta fue contenida, al intentar entrar al webmail el
+usuario ve el motivo e instrucciones (cambiar clave, activar 2FA) en vez del genérico.
+
+### Comandos de consola relacionados
+```
+maquita-contener lock|unlock|status <email>   # contener / recuperar una cuenta de USUARIO
+```
+El detector (`/usr/local/sbin/maquita-anomalia-salida.py`) y el helper del panel
+(`/usr/local/sbin/maquita-outbound`) se instalan en el servidor; leen su configuración de
+la base de datos y del `.env` del backend (no llevan credenciales embebidas en el repo).
