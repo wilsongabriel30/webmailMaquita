@@ -12,6 +12,7 @@ import { Aliases } from "./pages/Aliases";
 import { Forwarding } from "./pages/Forwarding";
 import { Tracking } from "./pages/Tracking";
 import { Queue } from "./pages/Queue";
+import { Rebotados } from "./pages/Rebotados";  // reenvio de correos devueltos
 import { Quarantine } from "./pages/Quarantine";
 import { Recovery } from "./pages/Recovery";
 import { PasswordAudit } from "./pages/PasswordAudit";
@@ -117,6 +118,7 @@ function App() {
             <Route path="shared" element={<SharedMailboxes />} />
             <Route path="tracking" element={<Tracking />} />
             <Route path="queue" element={<Queue />} />
+            <Route path="rebotados" element={<Rebotados />} />
             <Route path="quarantine" element={<Quarantine />} />
             <Route path="mailviewer" element={<MailViewer />} />
             <Route path="signatures" element={<Signatures />} />

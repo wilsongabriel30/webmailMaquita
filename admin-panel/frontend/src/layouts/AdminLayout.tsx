@@ -15,6 +15,7 @@ const navSections = [
     items: [
       { to: "/tracking", label: "Rastreo de mensajes", help: "Busca y rastrea mensajes en los registros del servidor: quién envió, a quién, cuándo y si fue entregado, rebotado o rechazado.", icon: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" },
       { to: "/queue", label: "Colas de correo", help: "Correos pendientes de entrega en la cola del servidor; permite reintentar o eliminar mensajes atascados.", icon: "M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" },
+      { to: "/rebotados", label: "Correos rebotados", help: "Correos que el servidor devolvio al remitente por no poder entregarlos. Permite recuperar el original y reenviarlo solo a quienes no les llego.", icon: "M3 10h11M9 21V3m0 0l-6 6m6-6l6 6M21 14l-4 4-4-4" },
       { to: "/quarantine", label: "Cuarentena", help: "Correos retenidos como spam por usuario: revisarlos, aprobarlos (entregar al buzón) o confirmarlos como spam.", icon: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" },
     ],
   },
