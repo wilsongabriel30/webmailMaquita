@@ -1,0 +1,6 @@
+[Unit]
+Description=Guardian de entregas de correo (detecta correos atascados antes de que reboten)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/guardian-entregas.sh
