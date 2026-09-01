@@ -5,7 +5,7 @@ Fuente: `modulos/nextcloud/interfaces/api/nextcloud_api.py` del sistema de orige
 Prefijo: `/api/nextcloud`. Autenticación: sesión del sistema de origen (login_required).
 
 > **Nota de nomenclatura.** «nextcloud» en este documento es un **nombre técnico heredado**:
-> el prefijo del contrato de API () y el módulo del sistema de origen. **No** se
+> el prefijo del contrato de API (`/api/nextcloud`) y el módulo del sistema de origen. **No** se
 > refiere al producto Nextcloud (esa integración está descontinuada, ver el README). Estos
 > identificadores se conservan porque el explorador del Drive los consume tal cual; renombrarlos
 > rompería el frontend. El producto es el **Almacén (Drive Maquita)**.
