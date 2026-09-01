@@ -1,0 +1,21 @@
+# Servicio de Tableros/BI (Aplicación del Drive Maquita)
+# Instalar:  cp deploy/maquita-bi.service /etc/systemd/system/
+#            systemctl daemon-reload && systemctl enable --now maquita-bi
+[Unit]
+Description=Tableros/BI Maquita (Aplicacion del Drive)
+After=network.target maquita-almacen.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/maquita-webmail/almacen/aplicaciones/bi
+EnvironmentFile=/opt/maquita-webmail/almacen/aplicaciones/bi/.env
+ExecStart=/opt/maquita-webmail/almacen/aplicaciones/bi/venv/bin/gunicorn \
+    --workers 2 --threads 4 --bind 127.0.0.1:8791 --timeout 120 \
+    --access-logfile - --error-logfile - \
+    app_bi:app
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

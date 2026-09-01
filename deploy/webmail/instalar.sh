@@ -14,7 +14,7 @@ APP_DIR=/opt/maquita-webmail
 CFG="${APP_DIR}/deploy/webmail/configs"
 
 # Si algo falla, indica el paso en vez de abortar en silencio
-trap 'echo -e "\n${RED}✗ La instalación se detuvo (línea ${LINENO}). Revisa el último paso [N/16] mostrado arriba y el error inmediatamente anterior.${NC}"' ERR
+trap 'echo -e "\n${RED}✗ La instalación se detuvo (línea ${LINENO}). Revisa el último paso [N/17] mostrado arriba y el error inmediatamente anterior.${NC}"' ERR
 
 echo -e "${GREEN}"
 echo "╔══════════════════════════════════════════════════╗"
@@ -38,7 +38,7 @@ if [ -z "$ASSUME_YES" ]; then
 fi
 
 # --- 1. Paquetes base ---
-echo -e "\n${GREEN}[1/16] Instalando paquetes base...${NC}"
+echo -e "\n${GREEN}[1/17] Instalando paquetes base...${NC}"
 apt update && apt install -y \
     curl wget git sudo ufw openssl \
     python3 python3-venv python3-pip \
@@ -52,7 +52,7 @@ apt update && apt install -y \
     clamav clamav-daemon clamav-freshclam
 
 # --- 2. Node.js 20 ---
-echo -e "\n${GREEN}[2/16] Instalando Node.js 20...${NC}"
+echo -e "\n${GREEN}[2/17] Instalando Node.js 20...${NC}"
 if ! command -v node &>/dev/null; then
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
     apt install -y nodejs
@@ -60,7 +60,7 @@ fi
 echo "Node $(node -v), NPM $(npm -v)"
 
 # --- 3. PostgreSQL: usuario + base de datos ---
-echo -e "\n${GREEN}[3/16] Configurando PostgreSQL...${NC}"
+echo -e "\n${GREEN}[3/17] Configurando PostgreSQL...${NC}"
 # Asegurar PostgreSQL arrancado (en algunos entornos no se auto-arranca tras apt)
 systemctl enable --now postgresql 2>/dev/null || service postgresql start 2>/dev/null || true
 for _i in $(seq 1 15); do pg_isready -q 2>/dev/null && break; sleep 1; done
@@ -73,7 +73,7 @@ sudo -u postgres psql -d maildb -c "GRANT ALL ON SCHEMA public TO mailserver;" 2
 # --- 4. Redis / Valkey ---
 # En Debian 13 (trixie), redis-server arrastra Valkey (fork de Redis) que toma el
 # puerto 6379 y usa /etc/valkey/valkey.conf. Detectamos cuál está presente.
-echo -e "\n${GREEN}[4/16] Configurando Redis/Valkey...${NC}"
+echo -e "\n${GREEN}[4/17] Configurando Redis/Valkey...${NC}"
 REDIS_PASS=$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | head -c 20)
 if systemctl list-unit-files | grep -q '^valkey-server'; then
     RCONF=/etc/valkey/valkey.conf; RSVC=valkey-server
@@ -85,20 +85,20 @@ systemctl restart "$RSVC"
 echo "  Servicio de caché activo: ${RSVC}"
 
 # --- 5. Usuario vmail (uid/gid 5000, igual que Dovecot) ---
-echo -e "\n${GREEN}[5/16] Creando usuario vmail (uid 5000)...${NC}"
+echo -e "\n${GREEN}[5/17] Creando usuario vmail (uid 5000)...${NC}"
 groupadd -g 5000 vmail 2>/dev/null || true
 useradd -u 5000 -g vmail -d /var/vmail -s /usr/sbin/nologin -m vmail 2>/dev/null || true
 mkdir -p /var/vmail && chown -R vmail:vmail /var/vmail
 
 # --- 6. Código de la aplicación ---
-echo -e "\n${GREEN}[6/16] Obteniendo Maquita Webmail...${NC}"
+echo -e "\n${GREEN}[6/17] Obteniendo Maquita Webmail...${NC}"
 if [ ! -d "${APP_DIR}/backend" ]; then
     git clone https://github.com/wilsongabriel30/webmailMaquita.git "${APP_DIR}"
 fi
 CFG="${APP_DIR}/deploy/webmail/configs"
 
 # --- 7. Esquema de la base de datos (todas las tablas de la app) ---
-echo -e "\n${GREEN}[7/16] Aplicando esquema de la base de datos...${NC}"
+echo -e "\n${GREEN}[7/17] Aplicando esquema de la base de datos...${NC}"
 for f in "${APP_DIR}"/migrations/*.sql; do
     echo "  → $(basename "$f")"
     # ON_ERROR_STOP=0: el esquema usa IF NOT EXISTS; tolera re-ejecución sin abortar
@@ -113,7 +113,7 @@ for f in "${APP_DIR}"/deploy/seeds/*.sql; do
 done
 
 # --- 8. Backend (.env + entorno virtual) ---
-echo -e "\n${GREEN}[8/16] Configurando backend...${NC}"
+echo -e "\n${GREEN}[8/17] Configurando backend...${NC}"
 cd "${APP_DIR}/backend"
 python3 -m venv venv
 source venv/bin/activate
@@ -142,7 +142,7 @@ MAX_ATTACHMENT_MB=${MAX_ATTACHMENT_MB:-25}
 ENVEOF
 
 # --- 9. Frontend (compilar) ---
-echo -e "\n${GREEN}[9/16] Compilando frontend...${NC}"
+echo -e "\n${GREEN}[9/17] Compilando frontend...${NC}"
 cd "${APP_DIR}/frontend"
 printf 'VITE_MAX_ATTACHMENT_MB=%s\n' "${MAX_ATTACHMENT_MB:-25}" > .env.production
 npm ci --quiet && npx vite build
@@ -154,7 +154,7 @@ cp -r "${APP_DIR}/frontend/dist/." "${APP_DIR}/www/webmail/"
 mkdir -p "${APP_DIR}/downloads"; ln -sfn "${APP_DIR}/downloads" "${APP_DIR}/www/webmail/downloads"
 
 # --- 10. Dovecot (buzones virtuales SQL + usuario maestro 'admin') ---
-echo -e "\n${GREEN}[10/16] Configurando Dovecot...${NC}"
+echo -e "\n${GREEN}[10/17] Configurando Dovecot...${NC}"
 [ -f /etc/dovecot/dovecot.conf ] && cp /etc/dovecot/dovecot.conf "/etc/dovecot/dovecot.conf.bak.$(date +%Y%m%d%H%M%S)"
 sed "s|__DB_PASS__|${DB_PASS}|g" "${CFG}/dovecot.conf" > /etc/dovecot/dovecot.conf
 # Asegurar certificado snakeoil para que Dovecot arranque con TLS
@@ -173,7 +173,7 @@ systemctl start postfix 2>/dev/null || service postfix start 2>/dev/null || true
 systemctl restart dovecot
 
 # --- 11. Postfix (SMTP + entrega LMTP a Dovecot) ---
-echo -e "\n${GREEN}[11/16] Configurando Postfix...${NC}"
+echo -e "\n${GREEN}[11/17] Configurando Postfix...${NC}"
 mkdir -p /etc/postfix/pgsql
 for m in "${CFG}"/postfix-pgsql/*.cf; do
     sed "s|__DB_PASS__|${DB_PASS}|g" "$m" > "/etc/postfix/pgsql/$(basename "$m")"
@@ -242,7 +242,7 @@ systemctl restart postfix
 echo "  DKIM generado (registro DNS en /tmp/dkim-${DOMAIN}.txt)"
 
 # --- 12. Servicios (systemd + nginx) ---
-echo -e "\n${GREEN}[12/16] Configurando servicios web...${NC}"
+echo -e "\n${GREEN}[12/17] Configurando servicios web...${NC}"
 cp "${APP_DIR}/deploy/webmail/systemd/maquita-webmail.service" /etc/systemd/system/
 systemctl daemon-reload && systemctl enable maquita-webmail
 cp "${APP_DIR}/deploy/webmail/systemd/maquita-milter.service" /etc/systemd/system/
@@ -299,7 +299,7 @@ systemctl daemon-reload && systemctl enable --now radicale 2>/dev/null
 echo "  Radicale (calendario/contactos) configurado en :5232"
 
 # --- 13. Buzón de demostración (dominio FALSO + clave genérica para el 1er ingreso) ---
-echo -e "\n${GREEN}[13/16] Creando buzón de demostración...${NC}"
+echo -e "\n${GREEN}[13/17] Creando buzón de demostración...${NC}"
 # Clave genérica y conocida SOLO para el primer ingreso. El instalador avisa cambiarla.
 CLAVE_GENERICA="Cambiar2026"
 DEMO_DOM="ejemplo.local"
@@ -320,7 +320,7 @@ INSERT INTO admin(username,superadmin,active) VALUES('demo@${DEMO_DOM}',true,tru
 SQL
 
 # --- 14. Panel de administración avanzado (adminMaquita, puerto 8443) ---
-echo -e "\n${GREEN}[14/16] Instalando panel de administración avanzado...${NC}"
+echo -e "\n${GREEN}[14/17] Instalando panel de administración avanzado...${NC}"
 # Backend del panel (puerto 8001)
 cd "${APP_DIR}/admin-panel/backend"
 python3 -m venv venv
@@ -362,7 +362,7 @@ echo "  Panel de administración: https://${MAIL_HOST}:8443"
 
 # --- 15. Iniciar + verificar ---
 # --- 15. Almacen (Drive): servicio de archivos + BD + nginx ---
-echo -e "\n${GREEN}[15/16] Instalando el Almacen (Drive)...${NC}"
+echo -e "\n${GREEN}[15/17] Instalando el Almacen (Drive)...${NC}"
 sudo -u postgres psql -c "CREATE DATABASE almacen OWNER mailserver;" 2>/dev/null || true
 python3 -m venv "${APP_DIR}/almacen/venv"
 "${APP_DIR}/almacen/venv/bin/pip" install -q --upgrade pip >/dev/null 2>&1 || true
@@ -385,7 +385,24 @@ cp "${APP_DIR}/almacen/deploy/maquita-almacen.service" /etc/systemd/system/
 systemctl daemon-reload && systemctl enable --now maquita-almacen
 echo "  Almacen (Drive): https://${MAIL_HOST}/archivos-almacen"
 
-echo -e "\n${GREEN}[16/16] Iniciando y verificando...${NC}"
+# --- 16. Tableros/BI (Aplicacion del Drive) ---
+echo -e "\n${GREEN}[16/17] Instalando Tableros/BI...${NC}"
+BI_DIR="${APP_DIR}/almacen/aplicaciones/bi"
+python3 -m venv "${BI_DIR}/venv"
+"${BI_DIR}/venv/bin/pip" install -q --upgrade pip >/dev/null 2>&1 || true
+"${BI_DIR}/venv/bin/pip" install -q -r "${BI_DIR}/requirements.txt"
+cat > "${BI_DIR}/.env" <<BIENV
+WEBMAIL_SECRET_KEY=${SECRET}
+REDIS_URL=redis://127.0.0.1:6379/0
+ALMACEN_INTERNAL_URL=http://127.0.0.1:8788
+BIENV
+mkdir -p /etc/nginx/snippets
+cp "${BI_DIR}/deploy/nginx-bi.conf" /etc/nginx/snippets/maquita-bi.conf
+cp "${BI_DIR}/deploy/maquita-bi.service" /etc/systemd/system/
+systemctl daemon-reload && systemctl enable --now maquita-bi
+echo "  Tableros/BI: https://${MAIL_HOST}/tableros/"
+
+echo -e "\n${GREEN}[17/17] Iniciando y verificando...${NC}"
 systemctl restart maquita-webmail
 nginx -t && { systemctl reload nginx 2>/dev/null || systemctl enable --now nginx; }
 sleep 3
