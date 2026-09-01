@@ -13,6 +13,7 @@ import type { MessagesResponse, MessageFull, MessageSummary } from '../../types'
 import { usePriority } from '../../hooks/usePriority';
 import { sanitizeHtml } from '../../lib/sanitize';
 import { getFolderDisplayName } from '../../folders';
+import { AVISO_ELIMINAR_CORREO } from '../../lib/deepLinkCorreo';
 
 // Agrupa acciones rápidas consecutivas (eliminar/archivar fila por fila) en UNA
 // petición bulk: N clics seguidos generaban N POSTs y disparaban el rate limit (429).
@@ -39,7 +40,11 @@ function flushQuickAction(key: string, folder: string, action: string, dest: str
       }
       window.dispatchEvent(new CustomEvent('refresh-messages'));
     })
-    .catch(() => {});
+    .catch(() => {
+      // Fallo del servidor: re-sincroniza para restaurar lo que se quito optimistamente
+      showToast('No se pudo completar la accion, reintenta');
+      window.dispatchEvent(new CustomEvent('refresh-messages'));
+    });
 }
 
 function enqueueQuickAction(folder: string, uid: number, action: string, dest = '') {
@@ -176,6 +181,7 @@ export function MessageList() {
   const messages = useMailStore(s => s.messages);
   const totalMessages = useMailStore(s => s.totalMessages);
   const currentPage = useMailStore(s => s.currentPage);
+  const pageSize = useMailStore(s => s.pageSize);
   const searchQuery = useMailStore(s => s.searchQuery);
   const filter = useMailStore(s => s.filter);
   const debouncedSearchQuery = useMailStore(s => s.debouncedSearchQuery);
@@ -251,7 +257,7 @@ export function MessageList() {
     // Show loading skeleton on first load or when messages are empty (folder change)
     const state = useMailStore.getState();
     if (state.messages.length === 0 && !state.loadingMessages) setLoadingMessages(true);
-    const p = new URLSearchParams({ page: '1', per_page: String(50 * currentPage) });
+    const p = new URLSearchParams({ page: '1', per_page: String(pageSize * currentPage) });
     if (debouncedSearchQuery) p.set('search', debouncedSearchQuery);
     // Send filter to backend so IMAP does server-side SEARCH UNSEEN/FLAGGED
     if (filter === 'unread') p.set('is_unread', 'true');
@@ -276,8 +282,8 @@ export function MessageList() {
       setMessages(r.messages, r.total, r.page);
     }).catch(async (err) => {
       console.error(err);
-      // Offline fallback: load from IndexedDB cache
-      if (!navigator.onLine) {
+      // Offline fallback: load from IndexedDB cache (T-35: también si el servidor no responde: 503/red)
+      if (!navigator.onLine || /503|502|504|Sin conexion|Failed to fetch|NetworkError/i.test(String(err?.message || err))) {
         try {
           const cached = await loadOfflineMessages(currentFolder);
           if (cached.length > 0) {
@@ -288,7 +294,7 @@ export function MessageList() {
       }
       useMailStore.getState().setMessages(useMailStore.getState().messages, useMailStore.getState().totalMessages, useMailStore.getState().currentPage);
     });
-  }, [currentFolder, currentPage, debouncedSearchQuery, filter]);
+  }, [currentFolder, currentPage, pageSize, debouncedSearchQuery, filter]);
 
   // Limpiar selección al cambiar de carpeta
   useEffect(() => {
@@ -571,6 +577,19 @@ export function MessageList() {
   };
 
   const quickAction = (uid: number, action: string, dest?: string) => {
+    // UI optimista: para acciones que sacan el correo de la vista actual, lo
+    // quitamos de la lista de inmediato (se siente instantaneo). El servidor
+    // trabaja por detras; si falla, el .catch de flushQuickAction re-sincroniza.
+    if (action === 'delete' || action === 'move' || action === 'archive') {
+      const st = useMailStore.getState();
+      const restantes = st.messages.filter(m => m.uid !== uid);
+      if (restantes.length !== st.messages.length) {
+        st.setMessages(restantes, Math.max(0, st.totalMessages - 1), st.currentPage);
+      }
+      if (st.selectedMessage && st.selectedMessage.uid === uid) {
+        st.setSelectedMessage(null);
+      }
+    }
     enqueueQuickAction(currentFolder, uid, action, dest || '');
   };
 
@@ -944,7 +963,7 @@ export function MessageList() {
           <span className="text-[11px] text-[#0078d4] font-semibold mr-1 whitespace-nowrap shrink-0">
             {selectedUids.size}
           </span>
-          <button onClick={() => { const uids = Array.from(selectedUids); api.post(`/mail/bulk-action/${encodeURIComponent(currentFolder)}`, { uids, action: currentFolder === 'Trash' ? 'delete' : 'move', dest_folder: 'Trash' }).then(() => { showToast(`${uids.length} eliminado${uids.length > 1 ? 's' : ''}`); useMailStore.getState().clearSelection(); useMailStore.getState().setSelectedMessage(null); window.dispatchEvent(new CustomEvent('refresh-messages')); }); }}
+          <button onClick={() => { const uids = Array.from(selectedUids); if (currentFolder === 'Trash' && !window.confirm(AVISO_ELIMINAR_CORREO)) return; api.post(`/mail/bulk-action/${encodeURIComponent(currentFolder)}`, { uids, action: currentFolder === 'Trash' ? 'delete' : 'move', dest_folder: 'Trash' }).then(() => { showToast(`${uids.length} eliminado${uids.length > 1 ? 's' : ''}`); useMailStore.getState().clearSelection(); useMailStore.getState().setSelectedMessage(null); window.dispatchEvent(new CustomEvent('refresh-messages')); }); }}
             className="px-1.5 py-1 text-[11px] text-[#d13438] hover:bg-[#fde7e9] rounded flex items-center gap-1 shrink-0" title="Eliminar">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={deleteIcon} /></svg>
             <span>Eliminar</span>

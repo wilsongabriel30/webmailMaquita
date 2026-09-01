@@ -1,9 +1,11 @@
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
+import "./lib/modoApp"
 import "./index.css"
 import "./dark-theme.css"
 import App from "./App"
 import "./lib/syncQueue"
+import "./lib/descargaOffline"   // T-35: descarga proactiva del correo reciente para uso sin conexión
 
 // Auto-recuperación de chunks tras un deploy: si falla la carga dinámica de un
 // módulo (hash viejo en una pestaña abierta), recargar UNA vez para tomar la
@@ -47,19 +49,28 @@ if ("serviceWorker" in navigator) {
             newSW.addEventListener("statechange", () => {
               // Solo notificar si ya hay un SW activo (no es primera instalación)
               if (newSW.state === "installed" && navigator.serviceWorker.controller) {
-                // Mostrar banner discreto en vez de recargar automáticamente
-                const banner = document.createElement("div");
-                banner.id = "sw-update-banner";
-                banner.style.cssText = "position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:9999;background:#0078d4;color:#fff;padding:8px 20px;border-radius:6px;font:13px/1.4 Calibri,sans-serif;display:flex;align-items:center;gap:12px;box-shadow:0 4px 12px rgba(0,0,0,.2)";
-                banner.textContent = 'Nueva versión disponible ';
-                const btn = document.createElement('button');
-                btn.textContent = 'Actualizar';
-                btn.style.cssText = 'margin-left:12px;padding:4px 16px;border:none;background:#fff;color:#0078d4;border-radius:4px;cursor:pointer;font-weight:600';
-                btn.addEventListener('click', () => window.location.reload());
-                banner.appendChild(btn);
+                // Nueva version: actualizar SOLA (2026-09-01). Aviso sin boton +
+                // recarga automatica; si el usuario esta escribiendo, se espera.
+                if ((window as any).__swReloadScheduled) return;
+                (window as any).__swReloadScheduled = true;
                 if (!document.getElementById("sw-update-banner")) {
-                  document.body.appendChild(banner);
+                  const aviso = document.createElement("div");
+                  aviso.id = "sw-update-banner";
+                  aviso.style.cssText = "position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:9999;background:#0078d4;color:#fff;padding:8px 20px;border-radius:6px;font:13px/1.4 Calibri,sans-serif;box-shadow:0 4px 12px rgba(0,0,0,.2)";
+                  aviso.textContent = "Actualizando a la nueva versión…";
+                  document.body.appendChild(aviso);
                 }
+                const _editing = () => {
+                  const el = document.activeElement as HTMLElement | null;
+                  if (!el) return false;
+                  const tag = (el.tagName || "").toLowerCase();
+                  return tag === "input" || tag === "textarea" || el.isContentEditable === true;
+                };
+                const _tryReload = () => {
+                  if (_editing()) { setTimeout(_tryReload, 4000); return; }
+                  try { window.location.reload(); } catch { /* noop */ }
+                };
+                setTimeout(_tryReload, 2500);
               }
             });
           }

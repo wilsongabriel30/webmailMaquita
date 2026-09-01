@@ -32,7 +32,7 @@ interface SignatureSettings {
 interface Feedback { type: 'success' | 'error'; message: string; }
 
 const DEFAULT_SIG_SETTINGS: SignatureSettings = {
-  position: 'bottom',
+  position: 'before_quote',
   include_in_reply: true,
   include_in_forward: true,
 };

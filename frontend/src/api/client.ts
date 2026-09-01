@@ -1,4 +1,5 @@
 const BASE = "/api";
+import { reportarFallo, reportarExito } from "../lib/conexion";   // T-35: estado real de conexión
 
 // Error logger for traceability
 function logError(context: string, details: Record<string, unknown>) {
@@ -49,14 +50,22 @@ async function request<T>(path: string, options: RequestInit & { skipAuth?: bool
   // Never intercept 401 on auth endpoints (login, refresh, logout)
   const isAuthEndpoint = path.startsWith("/auth/");
 
-  let res = await fetch(`${BASE}${path}`, {
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...fetchOptions.headers,
-    },
-    ...fetchOptions,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        ...fetchOptions.headers,
+      },
+      ...fetchOptions,
+    });
+  } catch (e) {
+    reportarFallo();   // T-35: sin red o servidor inalcanzable
+    throw e;
+  }
+  // Respuesta servida por el service worker desde su caché (X-Offline-Cache) = el servidor NO fue alcanzado
+  if (res.status === 502 || res.status === 503 || res.status === 504 || res.headers.get("X-Offline-Cache") === "true") reportarFallo(); else reportarExito();
 
   // 429: respetar Retry-After y reintentar (hasta 2 veces) si la espera es corta
   for (let attempt = 0; res.status === 429 && attempt < 2 && !isAuthEndpoint; attempt++) {
@@ -102,13 +111,61 @@ async function request<T>(path: string, options: RequestInit & { skipAuth?: bool
   try { return JSON.parse(text) as T; } catch { return undefined as T; }
 }
 
+// ---------------------------------------------------------------------------
+// Cache de lectura (2026-08-27): estos endpoints devuelven datos que casi no
+// cambian, pero el frontend los pedia decenas de veces por sesion, lo que hacia
+// sentir lenta la interfaz. Se cachean por unos segundos y se invalidan solos.
+// ---------------------------------------------------------------------------
+const CACHE_TTL: Record<string, number> = {
+  "/auth/me": 60000,        // el usuario no cambia durante la sesion
+  "/branding": 300000,      // el branding practicamente nunca cambia
+  "/mail/folders": 15000,   // las carpetas cambian muy poco
+  "/mail/stats": 10000,     // los contadores toleran unos segundos
+};
+
+const _cache = new Map<string, { t: number; data: unknown }>();
+
+function _ttlDe(path: string): number {
+  const limpio = path.split("?")[0];
+  return CACHE_TTL[limpio] ?? 0;
+}
+
+/** Invalida el cache (todo, o solo las rutas que contengan el texto dado). */
+export function invalidarCache(contiene?: string) {
+  if (!contiene) { _cache.clear(); return; }
+  for (const k of Array.from(_cache.keys())) {
+    if (k.includes(contiene)) _cache.delete(k);
+  }
+}
+
+async function getCacheado<T>(path: string, opts?: { skipAuth?: boolean }): Promise<T> {
+  const ttl = _ttlDe(path);
+  if (!ttl) return request<T>(path, opts);
+  const hit = _cache.get(path);
+  if (hit && Date.now() - hit.t < ttl) return hit.data as T;
+  const data = await request<T>(path, opts);
+  _cache.set(path, { t: Date.now(), data });
+  return data as T;
+}
+
 export const api = {
-  get: <T>(path: string, opts?: { skipAuth?: boolean }) => request<T>(path, opts),
-  post: <T>(path: string, data?: unknown) =>
-    request<T>(path, { method: "POST", body: data ? JSON.stringify(data) : undefined }),
-  put: <T>(path: string, data?: unknown) =>
-    request<T>(path, { method: "PUT", body: data ? JSON.stringify(data) : undefined }),
-  patch: <T>(path: string, data?: unknown) =>
-    request<T>(path, { method: "PATCH", body: data ? JSON.stringify(data) : undefined }),
-  del: <T>(path: string) => request<T>(path, { method: "DELETE" }),
+  get: <T>(path: string, opts?: { skipAuth?: boolean }) => getCacheado<T>(path, opts),
+  // Las escrituras invalidan el cache de correo para no mostrar datos viejos
+  // tras mover / eliminar / marcar mensajes.
+  post: <T>(path: string, data?: unknown): Promise<T> => {
+    invalidarCache("/mail/");
+    return request<T>(path, { method: "POST", body: data ? JSON.stringify(data) : undefined });
+  },
+  put: <T>(path: string, data?: unknown): Promise<T> => {
+    invalidarCache("/mail/");
+    return request<T>(path, { method: "PUT", body: data ? JSON.stringify(data) : undefined });
+  },
+  patch: <T>(path: string, data?: unknown): Promise<T> => {
+    invalidarCache("/mail/");
+    return request<T>(path, { method: "PATCH", body: data ? JSON.stringify(data) : undefined });
+  },
+  del: <T>(path: string): Promise<T> => {
+    invalidarCache("/mail/");
+    return request<T>(path, { method: "DELETE" });
+  },
 };

@@ -20,6 +20,8 @@ interface Props {
 export function ContextMenu({ x, y, items, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [openSubmenu, setOpenSubmenu] = useState<number | null>(null);
+  // Timer para cerrar el submenu con retraso (permite mover el mouse hacia el)
+  const cerrarSubmenuRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const handle = (e: MouseEvent) => {
@@ -44,8 +46,17 @@ export function ContextMenu({ x, y, items, onClose }: Props) {
           <div
             key={i}
             className="relative"
-            onMouseEnter={() => setOpenSubmenu(hasChildren ? i : null)}
-            onMouseLeave={() => setOpenSubmenu((current) => (current === i ? null : current))}
+            onMouseEnter={() => {
+              if (cerrarSubmenuRef.current) { clearTimeout(cerrarSubmenuRef.current); cerrarSubmenuRef.current = null; }
+              setOpenSubmenu(hasChildren ? i : null);
+            }}
+            onMouseLeave={() => {
+              // Retraso: da tiempo a llegar al submenu sin que se cierre
+              if (cerrarSubmenuRef.current) clearTimeout(cerrarSubmenuRef.current);
+              cerrarSubmenuRef.current = setTimeout(() => {
+                setOpenSubmenu((current) => (current === i ? null : current));
+              }, 300);
+            }}
           >
             <button
               onClick={() => {
@@ -76,7 +87,7 @@ export function ContextMenu({ x, y, items, onClose }: Props) {
               )}
             </button>
             {hasChildren && openSubmenu === i && (
-              <div className="absolute left-full top-[-4px] ml-1 min-w-[220px] bg-white rounded-md shadow-xl border border-[#e1dfdd] py-1 z-[10000]">
+              <div className="absolute left-full top-[-4px] ml-0 min-w-[220px] bg-white rounded-md shadow-xl border border-[#e1dfdd] py-1 z-[10000]">
                 {item.children!.map((child, childIndex) => {
                   if (child.divider) return <div key={childIndex} className="h-px bg-[#edebe9] my-1" />;
                   return (

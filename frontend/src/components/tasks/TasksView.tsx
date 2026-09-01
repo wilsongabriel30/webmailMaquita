@@ -8,9 +8,15 @@ import { TaskItem } from './components/TaskItem';
 import { TaskDetailPanel } from './components/TaskDetailPanel';
 import { EmptyState } from './components/EmptyState';
 import { api } from '../../api/client';
+import { SeguimientoVista } from '../tareas/SeguimientoVista';
+
+const _params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+const VISTA_INICIAL: ActiveView | null = _params?.get('vista') === 'seguimiento' || _params?.get('tarea') ? 'seguimiento' : null;
+const TAREA_INICIAL = _params?.get('tarea') || null;
 
 export function TasksView() {
-  const [activeView, setActiveView] = useState<ActiveView>('my-day');
+  const [activeView, setActiveView] = useState<ActiveView>(VISTA_INICIAL || 'my-day');
+  const [yo] = useState<string>(() => { try { return localStorage.getItem('user_email') || (JSON.parse(localStorage.getItem('user') || '{}').email) || ''; } catch { return ''; } });
   const [sidebarVisible, setSidebarVisible] = useState(() => typeof window === 'undefined' || window.innerWidth >= 768);
   useEffect(() => {
     const h = () => setSidebarVisible(v => !v);
@@ -260,7 +266,8 @@ export function TasksView() {
         smartCounts={smartCounts}
       />}
 
-      {/* Main content */}
+      {/* Seguimiento de tareas asignadas (T-34) */}
+      {activeView === 'seguimiento' ? <SeguimientoVista yo={yo} tareaInicial={TAREA_INICIAL} /> : (
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#faf9f8', overflow: 'hidden' }}>
         <TaskListHeader
           activeView={activeView}
@@ -322,10 +329,10 @@ export function TasksView() {
             ))
           )}
         </div>
-      </div>
+      </div>)}
 
       {/* Detail panel */}
-      {selectedTask && (
+      {selectedTask && activeView !== 'seguimiento' && (
         <TaskDetailPanel
           task={selectedTask}
           onUpdate={updateTask}

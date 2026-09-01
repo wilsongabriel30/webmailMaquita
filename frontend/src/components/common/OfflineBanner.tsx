@@ -1,81 +1,71 @@
+// Franja de estado de conexión y cola de envío (T-35). Sin red: causa clara y acceso a la bandeja de salida;
+// con red pero con correos en cola o fallidos: también se muestra para que nada quede olvidado.
 import { useState, useEffect } from "react";
-import { getPendingActions, getOutboxCount } from "../../lib/offlineStore";
+import { getPendingActions, getOutboxEmails } from "../../lib/offlineStore";
+import { BandejaSalida } from "./BandejaSalida";
+import { estadoConexion, textoCausa } from "../../lib/conexion";
 
 export function OfflineBanner() {
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [isOnline, setIsOnline] = useState(estadoConexion().hayConexion);
+  const [causa, setCausa] = useState(textoCausa());
   const [pendingActions, setPendingActions] = useState(0);
-  const [outboxCount, setOutboxCount] = useState(0);
-
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-    return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
-    };
-  }, []);
-
-  useEffect(() => {
-    const updateCounts = () => {
-      getPendingActions().then((actions) => setPendingActions(actions.length));
-      getOutboxCount().then((count) => setOutboxCount(count));
-    };
-    updateCounts();
-    // Refresh counts periodically when offline
-    if (!isOnline) {
-      const interval = setInterval(updateCounts, 5000);
-      return () => clearInterval(interval);
-    }
-  }, [isOnline]);
-
-  // Show sync success notification briefly
+  const [cola, setCola] = useState({ pendientes: 0, fallidos: 0 });
+  const [abierta, setAbierta] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
+
+  useEffect(() => {
+    const act = () => { setIsOnline(estadoConexion().hayConexion); setCausa(textoCausa()); };
+    window.addEventListener("online", act); window.addEventListener("offline", act); window.addEventListener("conexion-cambio", act);
+    return () => { window.removeEventListener("online", act); window.removeEventListener("offline", act); window.removeEventListener("conexion-cambio", act); };
+  }, []);
+  useEffect(() => {
+    const actualizar = () => {
+      getPendingActions().then(a => setPendingActions(a.length)).catch(() => {});
+      getOutboxEmails().then(e => setCola({ pendientes: e.filter(x => x.status !== 'failed').length, fallidos: e.filter(x => x.status === 'failed').length })).catch(() => {});
+    };
+    actualizar();
+    window.addEventListener('outbox-cambio', actualizar); window.addEventListener('offline-sync-complete', actualizar);
+    const iv = setInterval(actualizar, 5000);
+    return () => { clearInterval(iv); window.removeEventListener('outbox-cambio', actualizar); window.removeEventListener('offline-sync-complete', actualizar); };
+  }, [isOnline]);
   useEffect(() => {
     const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      const parts: string[] = [];
-      if (detail.sent > 0) parts.push(`${detail.sent} correo(s) enviado(s)`);
-      if (detail.actions > 0) parts.push(`${detail.actions} accion(es) sincronizada(s)`);
-      if (parts.length > 0) {
-        setSyncResult(parts.join(', '));
-        setTimeout(() => setSyncResult(null), 5000);
-      }
+      const d = (e as CustomEvent).detail; const partes: string[] = [];
+      if (d.sent > 0) partes.push(`${d.sent} correo(s) enviado(s) desde la bandeja de salida`);
+      if (d.actions > 0) partes.push(`${d.actions} acción(es) sincronizada(s)`);
+      if (partes.length) { setSyncResult(partes.join(', ')); setTimeout(() => setSyncResult(null), 6000); }
     };
     window.addEventListener('offline-sync-complete', handler);
     return () => window.removeEventListener('offline-sync-complete', handler);
   }, []);
+  useEffect(() => {
+    const h = () => setAbierta(v => !v);
+    window.addEventListener('abrir-bandeja-salida', h);
+    return () => window.removeEventListener('abrir-bandeja-salida', h);
+  }, []);
 
-  // Show sync success banner
+  const panel = abierta ? <BandejaSalida onCerrar={() => setAbierta(false)} /> : null;
+  const enlace = <button data-ver-bandeja onClick={() => setAbierta(v => !v)} style={{ background: 'rgba(255,255,255,.25)', border: '1px solid rgba(255,255,255,.6)', color: '#fff', borderRadius: 4, padding: '1px 8px', cursor: 'pointer', fontSize: 12, marginLeft: 8 }}>Ver bandeja de salida</button>;
+
   if (syncResult && isOnline) {
-    return (
-      <div className="bg-green-600 text-white text-center py-2 px-4 text-sm font-medium shrink-0 flex items-center justify-center gap-2">
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-        </svg>
-        Sincronizado: {syncResult}
-      </div>
-    );
+    return (<>
+      <div className="bg-green-600 text-white text-center py-2 px-4 text-sm font-medium shrink-0 flex items-center justify-center gap-2">Sincronizado: {syncResult}</div>{panel}
+    </>);
   }
-
-  if (isOnline) return null;
-
-  const details: string[] = [];
-  if (pendingActions > 0) details.push(`${pendingActions} accion(es) pendiente(s)`);
-  if (outboxCount > 0) details.push(`${outboxCount} correo(s) en bandeja de salida`);
-
-  return (
-    <div className="bg-amber-500 text-white text-center py-2 px-4 text-sm font-medium shrink-0 flex items-center justify-center gap-2">
-      <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-          d="M18.364 5.636a9 9 0 010 12.728M15.536 8.464a5 5 0 010 7.072M12 12h.01" />
-      </svg>
-      <span>
-        Sin conexion — Mostrando correos en cache.
-        {details.length > 0 && ` (${details.join(', ')})`}
-        {' '}Se sincronizara al reconectar.
-      </span>
-    </div>
-  );
+  if (isOnline) {
+    if (cola.pendientes === 0 && cola.fallidos === 0) return panel;
+    return (<>
+      <div className="text-white text-center py-2 px-4 text-sm font-medium shrink-0 flex items-center justify-center gap-2" style={{ background: cola.fallidos ? '#a4262c' : '#8a6d00' }}>
+        {cola.fallidos ? `${cola.fallidos} correo(s) no se pudieron entregar` : `${cola.pendientes} correo(s) en cola: se enviarán en cuanto el servidor responda`}{enlace}
+      </div>{panel}
+    </>);
+  }
+  const detalles: string[] = [];
+  if (pendingActions > 0) detalles.push(`${pendingActions} acción(es) pendiente(s)`);
+  if (cola.pendientes > 0) detalles.push(`${cola.pendientes} correo(s) en cola`);
+  return (<>
+    <div data-sin-conexion className="bg-amber-500 text-white text-center py-2 px-4 text-sm font-medium shrink-0 flex items-center justify-center gap-2">
+      <span>{causa === 'sin internet en este equipo' ? 'Sin internet en este equipo' : 'El servidor de correo no responde'}: viendo el correo descargado; lo nuevo llegará al reconectar.{detalles.length ? ` (${detalles.join(', ')})` : ''}</span>{enlace}
+    </div>{panel}
+  </>);
 }

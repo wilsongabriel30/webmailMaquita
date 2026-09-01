@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { api } from '../../api/client';
 import { showToast } from '../common/Toast';
+import { esModoApp } from '../../lib/modoApp';
 
 /* Outlook-style nav rail — filled icons, blue active indicator */
 
@@ -135,8 +136,18 @@ export function NavRail() {
           <button
             key={item.path}
             onClick={() => {
-              // Archivos vive FUERA de la SPA (explorador clasico del equipo)
-              if (item.path.startsWith('/archivos-almacen')) { window.location.href = item.path; return; }
+              // «Archivos» = Drive Maquita (Raíces). En la app: ir a la sección Drive del cliente
+              // (aviso al host + navegación que el cliente intercepta); en la web: abrir Drive Maquita.
+              if (item.path.startsWith('/archivos-almacen')) {
+                const drive = 'https://datos.maquita.com.ec/archivos-almacen';
+                if (esModoApp()) {
+                  try { (window as any).chrome?.webview?.postMessage({ source: 'maquita-mail', type: 'abrir-modulo', modulo: 'drive', url: drive }); } catch {}
+                  window.location.href = drive + '?app=1';
+                } else {
+                  window.open(drive, '_blank', 'noopener');
+                }
+                return;
+              }
               navigate(item.path);
             }}
             title={item.label}

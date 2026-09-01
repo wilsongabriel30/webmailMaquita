@@ -359,6 +359,13 @@ export function Toolbar() {
   const [, setMyDayOpen] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [addinsOpen, setAddinsOpen] = useState(false);
+  // 2026-08-31: preferencia "Confirmar al eliminar" (Configuracion > General).
+  const [confirmDeletePref, setConfirmDeletePref] = useState(false);
+  useEffect(() => {
+    api.get<{ confirm_delete?: boolean }>('/settings')
+      .then(s => setConfirmDeletePref(Boolean(s?.confirm_delete)))
+      .catch(() => {});
+  }, []);
 
   // Ribbon scroll indicator
   const ribbonRef = useRef<HTMLDivElement>(null);
@@ -552,6 +559,11 @@ export function Toolbar() {
 
   const doDelete = async () => {
     if (!uids.length) { showToast('Selecciona un mensaje'); return; }
+    if (confirmDeletePref) {
+      const _n = uids.length;
+      const _msg = _n > 1 ? `Eliminar ${_n} mensajes seleccionados?` : 'Eliminar el mensaje seleccionado?';
+      if (!window.confirm(_msg)) return;
+    }
     if (currentFolder === 'Trash') {
       try {
         await api.post(`/mail/bulk-action/${encodeURIComponent(currentFolder)}`, { uids, action: 'delete', dest_folder: '' });
@@ -881,6 +893,19 @@ export function Toolbar() {
 
                   {/* Group: Informar */}
                   <Group label="Informar">
+                    {/* Solo en la carpeta de No deseado: devolver a la bandeja y ensenar al filtro */}
+                    {(currentFolder === 'Junk' || currentFolder === 'Spam') && (
+                      <ToolbarButton icon={ICONS.report} label="No es spam" disabled={noSel}
+                        onClick={() => {
+                          if (!uids.length) { showToast('Selecciona un mensaje'); return; }
+                          api.post('/mail/spam/not-spam', { folder: currentFolder, uids }).then(() => {
+                            showToast('Movido a la bandeja de entrada — el filtro aprendio que no es spam');
+                            useMailStore.getState().clearSelection();
+                            useMailStore.getState().setSelectedMessage(null);
+                            window.dispatchEvent(new CustomEvent('refresh-messages'));
+                          }).catch(() => showToast('No se pudo marcar como no spam'));
+                        }} />
+                    )}
                     <ToolbarButton icon={ICONS.report} label="Informar" disabled={noSel}
                       onClick={() => {
                         if (!uids.length) { showToast('Selecciona un mensaje'); return; }

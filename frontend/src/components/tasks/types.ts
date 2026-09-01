@@ -26,7 +26,7 @@ export interface Task {
   completed_at?: string;
 }
 
-export type SmartView = 'my-day' | 'important' | 'planned' | 'assigned' | 'flagged' | 'tasks';
+export type SmartView = 'my-day' | 'important' | 'planned' | 'assigned' | 'flagged' | 'tasks' | 'seguimiento';
 export type ActiveView = SmartView | string; // string = list UUID
 
 export interface SmartListDef {
@@ -43,6 +43,7 @@ export const SMART_LISTS: SmartListDef[] = [
   { id: 'assigned', name: 'Asignado a mí', icon: 'person' },
   { id: 'flagged', name: 'Correo electrónico marcado', icon: 'flag' },
   { id: 'tasks', name: 'Tareas', icon: 'home' },
+  { id: 'seguimiento', name: 'Seguimiento de tareas asignadas', icon: 'flag', color: '#d13438' },
 ];
 
 export const COLORS = {

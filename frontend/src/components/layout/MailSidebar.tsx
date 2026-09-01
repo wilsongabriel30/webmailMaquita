@@ -95,7 +95,11 @@ export function MailSidebar() {
 
   const fetchFolders = () => {
     setLoadingFolders(true);
-    api.get<{ folders: Folder[] }>('/mail/folders').then(r => setFolders(r.folders)).catch(console.error);
+    api.get<{ folders: Folder[] }>('/mail/folders').then(r => setFolders(r.folders)).catch(async (e) => {
+      // T-35: sin red o servidor caído → carpetas guardadas localmente
+      try { const { loadOfflineFolders } = await import('../../hooks/useOfflineSync'); const f = await loadOfflineFolders(); if (f.length) { setFolders(f); return; } } catch { /* sin copia local */ }
+      console.error(e);
+    });
   };
 
   useEffect(() => { fetchFolders(); }, []);

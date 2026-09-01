@@ -7,6 +7,7 @@ import { ComposePanel } from '../compose/ComposePanel';
 import { ToastContainer } from '../common/Toast';
 import { useSearchParams } from "react-router-dom";
 import { useMailStore } from '../../store/mailStore';
+import { api } from '../../api/client';
 
 function MyDayPanel({ onClose }: { onClose: () => void }) {
   const now = new Date();
@@ -283,6 +284,26 @@ export function MailView() {
       searchParams.delete('compose');
       setSearchParams(searchParams, { replace: true });
     }
+  }, []);
+
+  // Abrir un correo concreto: /webmail/?folder=INBOX&uid=123 (clic en la notificación).
+  useEffect(() => {
+    const uid = Number(searchParams.get('uid') || 0);
+    if (!uid) return;
+    const folder = searchParams.get('folder') || 'INBOX';
+    (async () => {
+      try {
+        const st = useMailStore.getState();
+        if (folder !== st.currentFolder) st.setCurrentFolder(folder);
+        const msg = await api.get<any>(`/mail/message/${encodeURIComponent(folder)}/${uid}`);
+        if (msg) useMailStore.getState().setSelectedMessage(msg);
+      } catch {
+        /* el correo ya no está: se queda la bandeja, sin error en pantalla */
+      }
+      searchParams.delete('uid');
+      searchParams.delete('folder');
+      setSearchParams(searchParams, { replace: true });
+    })();
   }, []);
 
   const activeCompose = composeWindows.find(w => !w.minimized);

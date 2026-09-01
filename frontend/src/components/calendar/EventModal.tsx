@@ -815,7 +815,7 @@ export function EventModal({
                     </svg>
                   </div>
                   <div className="olkm-virtual-row">
-                    <span className="olkm-virtual-label">Reunión virtual</span>
+                    <span className="olkm-virtual-label">Videollamada Maquita Meet</span>
                     <label className="olkm-toggle-container">
                       <input
                         type="checkbox"
