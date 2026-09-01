@@ -138,7 +138,9 @@ Maquita Webmail resuelve las cuatro.
 - Calendario (CalDAV vía SOGo)
 - Contactos (CardDAV vía SOGo)
 - Tableros de tareas estilo Kanban
-- Autenticación de dos factores (TOTP)
+- Autenticación de dos factores (TOTP), con opción de obligatoriedad por fecha
+- Actualización automática de la app (service worker): los usuarios reciben las mejoras sin recargar
+- Bandeja de salida con reintento de envío
 - Cifrado del correo en reposo (Dovecot mail_crypt)
 
 ### Cumplimiento y eDiscovery
@@ -154,6 +156,10 @@ Maquita Webmail resuelve las cuatro.
 - Validación y reportes de SPF, DKIM, DMARC
 - Soporte de MTA-STS y DANE/TLSA
 - Integración con Rspamd para puntaje y filtrado de spam
+- **Anti-impersonation dirigido**: bloquea correos externos que suplantan marcas institucionales o roles internos (contabilidad, talento humano, TI, gerencia) en el nombre visible; administrable desde el panel
+- **DLP de salida** (cédula, RUC, IBAN, tarjeta): revisa correo y adjuntos salientes, con refuerzo vía milter para que aplique también a Outlook y móvil
+- **Etiquetas de sensibilidad** (Pública/Interna/Confidencial/Restringida): marcan el mensaje y bloquean la salida a externos de las dos más altas
+- **Acceso administrativo a buzones auditado**: soporte abre un buzón bajo solicitud, con registro de quién, qué, cuándo y desde qué IP
 - Protección anti cuenta comprometida: detección automática de envío masivo con contención y aviso (ver `deploy/OUTBOUND-PROTECTION.md`)
 - Recuperación del panel administrativo por correo alternativo con OTP, y comando de consola `maquita-admin-recovery` (ver `deploy/RECUPERACION-PANEL-ADMIN.md`)
 
@@ -371,16 +377,16 @@ cat README.md      # instrucciones de configuración
 bash instalar.sh
 ```
 
-## Nube de archivos y ofimática en línea (Nextcloud + OnlyOffice) — opcional
+## Nube de archivos y ofimática en línea (Almacén) — integrado
 
-Opcionalmente puedes integrar **Nextcloud** (almacenamiento en la nube, archivos,
-compartir, adjuntos grandes) y, dentro de él, **OnlyOffice** (editar documentos
-Word/Excel/PowerPoint en el navegador). El webmail ya trae la integración vía las
-variables `NC_*` y `ONLYOFFICE_*` del `.env`.
+El sistema incluye **Almacén**, un Drive propio (no requiere Nextcloud) con
+carpetas, compartir por enlace, papelera, versiones, búsqueda de contenido,
+auditoría y **formularios** propios (estilo Google Forms). Trae **OnlyOffice**
+integrado para editar documentos Word/Excel/PowerPoint en el navegador.
 
-> Es una **recomendación opcional**; la guía de configuración paso a paso se
-> añadirá más adelante. Resumen en [`docs/INSTALL-NATIVE.md`](docs/INSTALL-NATIVE.md)
-> (sección "Componentes opcionales").
+> Ver la sección «📁 Archivos — nube integrada con edición Office en línea
+> (Almacén Maquita)» más abajo. La antigua integración con Nextcloud quedó
+> descontinuada.
 
 ## Actualizar a una nueva versión
 
