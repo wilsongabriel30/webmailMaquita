@@ -1,0 +1,9 @@
+# Tableros / BI — Aplicación del Drive Maquita
+Flask
+Flask-Login
+PyJWT
+redis
+httpx
+numpy
+pandas
+openpyxl
