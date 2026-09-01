@@ -53,8 +53,8 @@ Maquita Webmail solves all four.
 ## What it is NOT
 
 - **It is not a hosted email service.** You must run your own mail infrastructure or be willing to set it up.
-- **It is not a drop-in replacement for Microsoft 365 or Google Workspace.** No spreadsheets, video conferencing or full office suite. It is a webmail and compliance tool.
-- **It is not battle-tested at massive scale.** It runs in production at Fundación Maquita with 200+ mailboxes and 100,000+ emails. It has not been tested with thousands of concurrent users.
+- **On its own, it is not a full office suite.** The webmail is email + compliance. Online office editing (OnlyOffice), video calls, chat and the Drive live in the **Maquita ecosystem** (see [The Maquita suite](docs/SUITE-MAQUITA.md)) as self-hosted services that integrate with mail.
+- **It is not battle-tested at massive scale.** It runs in production at Fundación Maquita with nearly 300 mailboxes and 100,000+ emails. It has not been tested with thousands of concurrent users.
 - **It is not a mail server.** It requires Postfix and Dovecot to be installed and configured (the native installer sets them up for you).
 - **It is not feature-frozen.** The project evolves actively. APIs and database schemas may change between versions.
 
@@ -62,10 +62,11 @@ Maquita Webmail solves all four.
 
 **Production, early-stage open source.** Maquita Webmail has been in production at Fundación Maquita since 2024. The code is being prepared for broader community adoption. Expect rough edges, ongoing refactoring and breaking changes until a 1.0 release.
 
-- 380 tracked files
-- 150+ API endpoints
-- 77 PostgreSQL tables
+- 1000+ tracked files
+- 850+ API endpoints
+- 170+ PostgreSQL tables
 - 39 auditable event types
+- Nearly 300 mailboxes and 100,000+ emails in production
 
 ## Screenshots
 

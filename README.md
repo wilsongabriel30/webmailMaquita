@@ -53,8 +53,8 @@ Maquita Webmail resuelve las cuatro.
 ## Qué NO es
 
 - **No es un servicio de correo alojado.** Debes operar tu propia infraestructura de correo o estar dispuesto a montarla.
-- **No es un reemplazo directo de Microsoft 365 o Google Workspace.** No incluye hojas de cálculo, videoconferencia ni una suite ofimática completa. Es una herramienta de webmail y cumplimiento.
-- **No está probado a escala masiva.** Está en producción en Fundación Maquita con más de 200 buzones y más de 100 000 correos. No se ha probado con miles de usuarios concurrentes.
+- **Por sí solo, no es una suite ofimática completa.** El webmail es correo + cumplimiento. La ofimática en línea (OnlyOffice), las videollamadas, el chat y el Drive existen en el **ecosistema Maquita** (ver [La suite Maquita](docs/SUITE-MAQUITA.md)) como servicios propios que se integran con el correo.
+- **No está probado a escala masiva.** Está en producción en Fundación Maquita con casi 300 buzones y más de 100 000 correos. No se ha probado con miles de usuarios concurrentes.
 - **No es un servidor de correo.** Requiere Postfix y Dovecot instalados y configurados (el instalador nativo los deja listos).
 - **No está congelado en funciones.** El proyecto evoluciona activamente. Las APIs y los esquemas de base de datos pueden cambiar entre versiones.
 
@@ -62,10 +62,11 @@ Maquita Webmail resuelve las cuatro.
 
 **Producción, código abierto en etapa temprana.** Maquita Webmail está en producción en Fundación Maquita desde 2024. El código se está preparando para una adopción comunitaria más amplia. Espera detalles ásperos, refactorización continua y cambios incompatibles hasta una versión 1.0.
 
-- 380 archivos versionados
-- Más de 150 endpoints de API
-- 77 tablas en PostgreSQL
+- Más de 1000 archivos versionados
+- Más de 850 endpoints de API
+- Más de 170 tablas en PostgreSQL
 - 39 tipos de evento auditables
+- Casi 300 buzones y más de 100 000 correos en producción
 
 ## Capturas de pantalla
 
