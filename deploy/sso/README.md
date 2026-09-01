@@ -1,6 +1,6 @@
 # SSO / OIDC — Maquita (identidad unificada del ecosistema)
 
-Login único para correo, Nextcloud, Jitsi y Matrix sobre el **Keycloak existente**.
+Login único para correo, Almacén (Drive), Jitsi y Matrix sobre el **Keycloak existente**.
 
 ## Arquitectura
 ```
@@ -9,7 +9,7 @@ maildb (tabla mailbox, ~488 usuarios, hashes Dovecot)
         · {SHA512-CRYPT} → {CRYPT}  · {SSHA512} (módulo pw-sha2)  · {SSHA}
         · valida las contraseñas EXISTENTES sin migrar nada
         └─► Keycloak (VM181, realm 'maquita') — User Federation LDAP (READ_ONLY)
-              └─► clientes OIDC: Webmail · Nextcloud · Jitsi · Matrix · Wazuh · Centinela
+              └─► clientes OIDC: Webmail · Almacén (Drive) · Jitsi · Matrix · Wazuh · Centinela
 ```
 
 ## Componentes
@@ -37,5 +37,5 @@ debe re-sincronizarse a LDAP (re-correr el sync o añadir el hook).
 - [x] LDAP desde maildb (488 usuarios) — gap LDAP cerrado
 - [x] Federación LDAP en Keycloak (realm maquita)
 - [x] Webmail como cliente OIDC (flujo add-on, login local = break-glass) — client `webmail-maquita`, `app/auth/oidc.py`
-- [ ] Nextcloud / Jitsi / Matrix como clientes OIDC
+- [ ] Almacén (Drive) / Jitsi / Matrix como clientes OIDC
 - [ ] XOAUTH2 en Dovecot/Postfix (clientes de escritorio con token)
