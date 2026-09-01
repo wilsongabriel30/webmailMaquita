@@ -150,6 +150,19 @@ def crear_app_webmail() -> Flask:
         ruta = request.path
         if ruta.startswith(_EXENTAS):
             return None
+        # Canal INTERNO (servicio de chat, T-18): secreto compartido + IP de la LAN autorizada +
+        # usuario en cuyo nombre se actua. Nunca disponible desde Internet (nginx no reenvia estas cabeceras).
+        _sec = os.getenv('ALMACEN_SECRETO_INTERNO', '')
+        _ips = {i.strip() for i in os.getenv('ALMACEN_INTERNO_IPS', '').split(',') if i.strip()}
+        _hdr = request.headers.get('X-Almacen-Interno', '')
+        if _sec and _hdr and request.remote_addr in _ips:
+            import hmac as _hmac
+            if _hmac.compare_digest(_sec, _hdr) and str(request.headers.get('X-Almacen-Interno-Usuario', '')).isdigit():
+                request.environ['HTTP_X_ALMACEN_USUARIO_ID'] = request.headers.get('X-Almacen-Interno-Usuario')
+                return None
+            app.logger.warning('Canal interno rechazado: ip=%s secreto_ok=%s uid=%r',
+                               request.remote_addr, _hmac.compare_digest(_sec, _hdr), request.headers.get('X-Almacen-Interno-Usuario'))
+            return jsonify({'success': False, 'error': 'Canal interno no autorizado'}), 403
         from auth_webmail import sesion_actual
         uid, rol, correo, motivo = sesion_actual()
         if not uid:
@@ -393,3 +406,12 @@ def crear_app_webmail() -> Flask:
         return jsonify({'success': False, 'error': 'Archivo demasiado grande'}), 413
 
     return app
+
+
+# Propietario uniforme en el NFS (sistemas:www-data) para que el Drive de FARO pueda mover/retener lo creado aquí
+try:
+    import nucleo_archivos as _nucleo_prop
+    import propietario_nfs as _prop
+    _prop.instalar(_nucleo_prop)
+except Exception as _e:
+    print("[almacen] propietario_nfs no instalado:", _e)

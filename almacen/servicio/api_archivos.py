@@ -25,6 +25,46 @@ bp_archivos = Blueprint('almacen_archivos', __name__)
 
 
 # ── autenticación ────────────────────────────────────────────────────────
+CARPETA_CHAT = '/Archivos del chat'
+
+
+def _es_carpeta_chat(ruta) -> bool:
+    """La carpeta raiz 'Archivos del chat' es del sistema: no se borra, mueve ni renombra (su contenido si)."""
+    r = '/' + str(ruta or '').strip().strip('/')
+    return r.lower() in (CARPETA_CHAT.lower(), '/grabaciones de reuniones')   # carpetas raíz del sistema
+
+
+from almacen_bd import consultar as _consultar_bd
+CARPETA_CORREO = '/Archivos del correo'
+
+
+def _es_de_correo(ruta) -> bool:
+    r = '/' + str(ruta or '').strip().strip('/')
+    return r.lower() == CARPETA_CORREO.lower() or r.lower().startswith(CARPETA_CORREO.lower() + '/')
+
+
+def _error_pertenece_al_correo(usuario, ruta):
+    """403 con los datos del correo dueño: el cliente/web lleva al correo para eliminarlo desde allí."""
+    r = '/' + str(ruta or '').strip().strip('/')
+    info = None
+    try:
+        filas = _consultar_bd("""SELECT buzon, carpeta_correo, uid, asunto, remitente, fecha_correo FROM correo_adjuntos
+                              WHERE usuario_id = %s AND ruta_drive = %s AND estado = 'activo' ORDER BY id DESC LIMIT 1""", (int(usuario), r))
+        if filas:
+            f = filas[0]
+            info = {'buzon': f['buzon'], 'carpeta': f['carpeta_correo'], 'uid': f['uid'], 'asunto': f['asunto'],
+                    'remitente': f['remitente'], 'fecha': str(f['fecha_correo'] or ''),
+                    'url': f"https://mail.maquita.org/webmail/?folder={f['carpeta_correo']}&uid={f['uid']}"}
+    except Exception as _e:
+        print(f'[correo-drive] sin datos del correo: {_e!r}')
+        info = None
+    resp = jsonify({'success': False, 'error': 'pertenece_al_correo',
+                    'mensaje': 'Este archivo pertenece a un correo. Para eliminarlo, abre el correo y elimínalo desde allí '
+                               '(esa acción no es reversible: el correo y sus adjuntos se eliminarán permanentemente).',
+                    'correo': info})
+    return resp, 403
+
+
 def usuario_actual() -> int:
     """ID del usuario autenticado.
     - Montado dentro del sistema central: usa la sesión del sistema central (`usuario_id`) o flask_login.
@@ -354,6 +394,10 @@ def recientes():
 
 @bp_archivos.route('/archivos', methods=['DELETE'])
 def eliminar():
+    if _es_carpeta_chat(request.args.get('ruta')):
+        return error('La carpeta "Archivos del chat" es del sistema y no se puede eliminar (su contenido si)', 403)
+    if _es_de_correo(request.args.get('ruta')):
+        return _error_pertenece_al_correo(usuario_actual(), request.args.get('ruta'))
     """DELETE /archivos?ruta= — mueve a la papelera (recuperable)."""
     usuario = usuario_actual()
     ruta = request.args.get('ruta')
@@ -368,12 +412,26 @@ def eliminar():
     except FileNotFoundError:
         return error('No existe el elemento', 404)
     registrar_actividad(usuario, 'elimino', ruta)
+    # T-18: si es un archivo del chat, avisar al chat (se oculta para este usuario hasta que lo restaure)
+    try:
+        from hook_chat import avisar_chat, es_de_chat
+        avisar_chat(usuario, ruta, 'papelera')
+        if es_de_chat(ruta):
+            return jsonify({'success': True, 'message': 'Enviado a la papelera',
+                            'aviso': 'Este archivo también dejará de verse en tu chat. Si lo restauras desde la papelera, vuelve a aparecer.'})
+    except Exception:
+        pass
     return jsonify({'success': True, 'message': 'Enviado a la papelera'})
 
 
 # ── mover / copiar / renombrar ──────────────────────────────────────────
 @bp_archivos.route('/archivos/mover', methods=['POST'])
 def mover():
+    _d = request.get_json(silent=True) or {}
+    if _es_carpeta_chat(_d.get('origen')):
+        return error('La carpeta "Archivos del chat" es del sistema y no se puede mover', 403)
+    if _es_de_correo(_d.get('origen')) or _es_de_correo(_d.get('destino')):
+        return error('«Archivos del correo» la administra el correo: no se puede mover nada hacia o desde esa carpeta', 403)
     """POST /archivos/mover — {origen, destino}."""
     usuario = usuario_actual()
     datos = request.get_json() or {}
@@ -408,6 +466,11 @@ def copiar():
 
 @bp_archivos.route('/archivos/renombrar', methods=['POST'])
 def renombrar():
+    _d = request.get_json(silent=True) or {}
+    if _es_carpeta_chat(_d.get('ruta') or _d.get('origen')):
+        return error('La carpeta "Archivos del chat" es del sistema y no se puede renombrar', 403)
+    if _es_de_correo(_d.get('ruta') or _d.get('origen')):
+        return error('«Archivos del correo» la administra el correo: no se puede renombrar', 403)
     """POST /archivos/renombrar — {ruta, nuevo_nombre}."""
     usuario = usuario_actual()
     datos = request.get_json() or {}
