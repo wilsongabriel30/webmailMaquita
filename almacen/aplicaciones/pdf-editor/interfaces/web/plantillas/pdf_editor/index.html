@@ -1,0 +1,1321 @@
+{% extends "base.html" %}
+
+{% block title %}Editor PDF - Raíces Maquita{% endblock %}
+
+{% block extra_css %}
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<!-- Bootstrap Icons (local) -->
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap-icons/font/bootstrap-icons.min.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pdf_editor/editor.css') }}?v=20260731e">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pdf_editor/alto_ventana.css') }}?v=20260728">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pdf_editor/tablas_medidas.css') }}?v=20260729">
+<style>
+    /* El editor ocupa todo el ancho de la ventana: fuera el padding lateral
+       del container de base.html y el footer (solo en esta página) */
+    .main-content .container-fluid { padding-left: 0 !important; padding-right: 0 !important; }
+    footer.footer { display: none !important; }
+    .page-header { display: none !important; }
+    /* Y fuera tambien el respiro vertical de .main-content (32 px arriba y abajo,
+       de base.html): dejaba una franja gris SOBRE la barra de pestañas y, al sumar
+       32 px + 100vh, obligaba a la ventana entera a tener barra de desplazamiento.
+       El alto exacto de .pdf-editor-app lo fija el JS (_ajustarAltoEditor). */
+    .main-content { padding-top: 0 !important; padding-bottom: 0 !important; }
+    /* Modo pantalla completa del editor: se oculta la barra de navegación Raíces
+       y la app toma el alto total de la ventana */
+    body.editor-maximo .faro-navbar { display: none !important; }
+    body.editor-maximo .pdf-editor-app { height: 100vh; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pdf-editor-app">
+    <!-- Velo de carga: tapa la pantalla mientras se trabaja -->
+    <div class="loading-overlay hidden" id="loadingOverlay">
+        <div class="spinner"></div>
+        <p style="margin-top: 16px; color: var(--acrobat-text-muted);">Cargando...</p>
+    </div>
+
+    <!-- Barra de arriba, con sus pestañas -->
+    <div class="editor-top-bar">
+        <div class="top-tabs">
+            <button class="top-tab active" data-panel="todas" title="Ver todas las herramientas disponibles">Todas las herramientas</button>
+            <button class="top-tab" data-panel="editar" title="Herramientas para modificar el contenido del PDF">Editar</button>
+            <button class="top-tab" data-panel="convertir" title="Exportar PDF a Word, Excel, PowerPoint u otros formatos">Convertir</button>
+            <button class="top-tab" data-panel="firma" title="Firmar documentos">Firma electrónica</button>
+        </div>
+        <div class="top-spacer"></div>
+        <div class="top-search" title="Busca texto dentro del documento o herramientas">
+            <i class="bi bi-search"></i>
+            <input type="text" placeholder="Buscar texto o herramientas" id="searchInput" title="Busca texto dentro del documento o el nombre de una herramienta">
+        </div>
+        <div class="top-actions">
+            <!-- Abrir otro PDF sin tener que volver al inicio. Avisa si hay cambios
+                 sin descargar: el editor trabaja sobre una copia y lo no descargado
+                 se pierde al cambiar de documento. (31-jul-2026, pedido del usuario.) -->
+            <button class="top-btn top-btn-nuevo" id="btnNuevoPDF" title="Nuevo - Abre otro PDF en el editor"><i class="bi bi-file-earmark-plus"></i> <span>Nuevo</span></button>
+            <!-- Un solo boton "Exportar" con la lista de formatos: sustituye a las
+                 entradas sueltas "Exportar a Word / Excel / PowerPoint" del panel -->
+            <div class="menu-exportar-wrap">
+                <button class="top-btn top-btn-exportar" id="btnExportarMenu" title="Exportar - Descarga el PDF o conviertelo a Word, Excel, PowerPoint, imagen o RTF">
+                    <i class="bi bi-box-arrow-up"></i> <span>Exportar</span> <i class="bi bi-chevron-down chevron-menu"></i>
+                </button>
+                <div class="menu-exportar hidden" id="menuExportar">
+                    <div class="menu-exportar-item" data-destino="toolExportar" title="Descarga el PDF con todos tus cambios"><i class="bi bi-file-earmark-pdf"></i> Descargar PDF <span class="badge">PDF</span></div>
+                    <div class="menu-exportar-sep"></div>
+                    <div class="menu-exportar-item" data-destino="toolExportWord" title="Convierte el PDF a documento de Word editable"><i class="bi bi-file-earmark-word"></i> Microsoft Word <span class="badge">DOCX</span></div>
+                    <div class="menu-exportar-item" data-destino="toolExportExcel" title="Extrae tablas del PDF a hojas de calculo Excel"><i class="bi bi-file-earmark-excel"></i> Microsoft Excel <span class="badge">XLSX</span></div>
+                    <div class="menu-exportar-item" data-destino="toolExportPPT" title="Convierte el PDF a presentacion de PowerPoint"><i class="bi bi-file-earmark-ppt"></i> Microsoft PowerPoint <span class="badge">PPTX</span></div>
+                    <div class="menu-exportar-item" data-destino="toolExportImage" title="Exporta cada pagina como imagen"><i class="bi bi-image"></i> Formato de imagen <span class="badge">JPEG</span></div>
+                    <div class="menu-exportar-item" data-destino="toolExportRTF" title="Convierte a formato de texto enriquecido"><i class="bi bi-file-text"></i> Otro formato <span class="badge">RTF</span></div>
+                </div>
+            </div>
+            <button class="top-btn" id="btnShare" title="Compartir - Envia el documento por correo o genera un enlace"><i class="bi bi-share"></i></button>
+            <button class="top-btn" id="btnHome" title="Inicio - Volver a la pantalla principal de PDF Editor"><i class="bi bi-house"></i></button>
+            <button class="top-btn" id="btnPrint" title="Imprimir - Imprime el documento actual"><i class="bi bi-printer"></i></button>
+            <button class="top-btn" id="btnMaximizar" title="Pantalla completa - Oculta los menús para aprovechar toda la pantalla"><i class="bi bi-arrows-fullscreen"></i></button>
+            <button class="top-btn" id="btnAI" title="Asistente de IA - Haz preguntas sobre el contenido del documento"><i class="bi bi-stars" style="color:#fa0f00;"></i></button>
+        </div>
+    </div>
+
+    <!-- Estructura principal de la pantalla -->
+    <div class="editor-main">
+        <!-- Panel izquierdo: las herramientas -->
+        <div class="left-panel" id="leftPanel">
+            <div class="left-panel-header">
+                <span id="leftPanelTitle">Todas las herramientas</span>
+                <button class="left-panel-close" id="btnClosePanel" title="Oculta el panel de herramientas para ganar espacio"><i class="bi bi-x-lg"></i></button>
+            </div>
+
+            <!-- Propiedades del texto: SOLO visible con un cuadro de texto seleccionado -->
+            <div id="panelTexto" class="panel-texto hidden">
+                <div class="panel-texto-titulo"><i class="bi bi-fonts"></i> Propiedades del texto</div>
+                <label>Fuente</label>
+                <select class="form-input" id="selFuenteTexto" title="Fuente del cuadro de texto seleccionado">
+                    <option value="helvetica" selected>Helvética / Arial</option>
+                    <option value="times">Times New Roman</option>
+                    <option value="courier">Courier</option>
+                </select>
+                <div class="panel-texto-fila">
+                    <div style="flex:1;">
+                        <label>Tamaño</label>
+                        <select class="form-input" id="selTamanoTexto" title="Tamaño de letra del cuadro de texto seleccionado">
+                            <option>8</option><option>10</option><option>12</option><option selected>14</option>
+                            <option>16</option><option>18</option><option>20</option><option>24</option>
+                            <option>28</option><option>32</option><option>36</option><option>48</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Color</label>
+                        <input type="color" id="colorTextoSel" value="#000000" title="Color del cuadro de texto seleccionado">
+                    </div>
+                </div>
+                <div class="panel-texto-fila" style="margin-top:8px;">
+                    <button type="button" id="btnNegritaTexto" title="Negrita"><b>N</b></button>
+                    <button type="button" id="btnCursivaTexto" title="Cursiva"><i>K</i></button>
+                    <button type="button" id="btnEliminarTextoSel" title="Eliminar este cuadro de texto" style="margin-left:auto;color:#dc2626;"><i class="bi bi-trash"></i></button>
+                </div>
+                <p class="panel-texto-ayuda">Los cambios se aplican al cuadro de texto seleccionado.</p>
+            </div>
+
+            <!-- Panel de la herramienta activa: color, grosor y opciones (lapiz, resaltar, formas) -->
+            <div id="panelAnotacion" class="panel-texto hidden">
+                <div class="panel-texto-titulo"><i class="bi bi-palette" id="iconoPanelAnot"></i> <span id="tituloPanelAnot">Color</span></div>
+                <label>Color</label>
+                <div id="gamaColores" class="gama-colores"></div>
+                <div class="panel-texto-fila" id="filaColorLibre">
+                    <div style="flex:1;">
+                        <label>Otro color</label>
+                        <input type="color" id="colorLibreAnot" value="#000000" title="Elige cualquier otro color">
+                    </div>
+                    <div style="flex:1;" id="filaGrosorAnot">
+                        <label>Grosor</label>
+                        <select class="form-input" id="drawWidthSelect" title="Grosor del trazo">
+                            <option value="1">Fino (1)</option>
+                            <option value="2" selected>Normal (2)</option>
+                            <option value="4">Medio (4)</option>
+                            <option value="6">Grueso (6)</option>
+                            <option value="10">Muy grueso (10)</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="filaFormas" class="panel-texto-fila" style="margin-top:8px;display:none;">
+                    <button type="button" class="mini-btn" id="btnFormaRect" title="Rectángulo - Arrastra sobre la página para dibujarlo"><i class="bi bi-square"></i></button>
+                    <button type="button" class="mini-btn" id="btnFormaElipse" title="Elipse - Arrastra sobre la página para dibujarla"><i class="bi bi-circle"></i></button>
+                    <button type="button" class="mini-btn" id="btnFormaFlecha" title="Flecha - Arrastra desde el inicio hasta la punta"><i class="bi bi-arrow-up-right"></i></button>
+                    <button type="button" class="mini-btn" id="btnFormaLinea" title="Línea - Arrastra de un punto a otro"><i class="bi bi-slash-lg"></i></button>
+                </div>
+                <div id="filaQuitarResaltado" style="margin-top:8px;display:none;">
+                    <button type="button" class="btn-modal secondary" id="btnQuitarResaltado" style="width:100%;" title="Actívalo y haz clic sobre un resaltado para quitarlo"><i class="bi bi-eraser"></i> Quitar resaltado</button>
+                </div>
+                <p class="panel-texto-ayuda" id="ayudaPanelAnot">El color se aplica a lo próximo que dibujes.</p>
+                <input type="hidden" id="annotColor" value="#000000">
+            </div>
+
+            <div class="left-panel-content" id="leftPanelContent">
+                <!-- Panel: Todas las herramientas -->
+                <div class="panel-content" id="panelTodas">
+                    <div class="tool-item" id="toolExportar" title="Guarda el PDF en tu dispositivo o exporta a otros formatos"><i class="bi bi-file-earmark-arrow-down"></i> Exportar un PDF</div>
+                    <div class="tool-item" id="toolEditar" title="Modifica texto, imagenes y contenido del documento"><i class="bi bi-pencil"></i> Editar un PDF</div>
+                    <div class="tool-item" id="toolCrear" title="Crea un nuevo PDF desde cero o desde otros archivos"><i class="bi bi-file-earmark-plus"></i> Crear un PDF</div>
+                    <div class="tool-item" id="toolCombinar" title="Une varios archivos PDF en un solo documento"><i class="bi bi-layers"></i> Combinar archivos</div>
+                    <div class="tool-item" id="toolComparar" title="Compara dos versiones de un PDF y genera un reporte de diferencias"><i class="bi bi-file-diff"></i> Comparar PDFs <span style="margin-left:auto;font-size:10px;background:#28a745;color:white;padding:1px 6px;border-radius:10px;">Nuevo</span></div>
+                    <div class="tool-item" id="toolOrganizar" title="Reordena, elimina o extrae paginas del documento"><i class="bi bi-grid-3x3-gap"></i> Organizar paginas</div>
+                    <div class="tool-item" id="toolExtraer" title="Saca las páginas que elijas a un PDF aparte"><i class="bi bi-box-arrow-up-right"></i> Extraer páginas</div>
+                    <div class="tool-item" id="toolAI" title="Usa inteligencia artificial para analizar y resumir el documento"><i class="bi bi-robot"></i> Asistente de IA <span class="badge pro">PRO</span></div>
+                    <div class="tool-item" id="toolResumen" title="Genera un resumen automatico del contenido del PDF"><i class="bi bi-card-text"></i> Resumen generativo</div>
+                    <div class="tool-item" id="toolDigitalizar" title="Edita el texto del documento con doble clic. Si la página es un escaneo, reconoce su texto y lo deja editable"><i class="bi bi-camera"></i> Digitalizar y OCR</div>
+                    <div class="tool-item" id="toolExtraerTexto" title="Reconoce el texto de la página y lo muestra para copiarlo o descargarlo"><i class="bi bi-body-text"></i> Extraer texto (OCR)</div>
+                    <div class="tool-item" id="toolProteger" title="Agrega contrasena y permisos de seguridad al PDF"><i class="bi bi-shield-lock"></i> Proteger un PDF</div>
+                    <div class="tool-item" id="toolDesbloquear" title="Quita la contrasena de un PDF protegido (hay que conocerla)"><i class="bi bi-unlock"></i> Desbloquear PDF <span style="margin-left:auto;font-size:10px;background:#28a745;color:white;padding:1px 6px;border-radius:10px;">Nuevo</span></div>
+                    <div class="tool-item" id="toolCensurar" title="Oculta informacion sensible de forma permanente"><i class="bi bi-eraser"></i> Censurar un PDF</div>
+                    <div class="tool-item" id="toolComprimir" title="Reduce el tamano del archivo manteniendo la calidad"><i class="bi bi-file-zip"></i> Comprimir un PDF</div>
+                    <div class="tool-item" id="toolFormulario" title="Crea campos de formulario interactivos en el PDF"><i class="bi bi-ui-checks"></i> Preparar formulario</div>
+                    <div id="panelTodasExtra" style="display:none;">
+                        <div class="tool-item" data-proxy="toolRotar" title="Rota la pagina actual 90 grados"><i class="bi bi-arrow-repeat"></i> Rotar</div>
+                        <div class="tool-item" data-proxy="toolRecortar" title="Recorta el area visible de la pagina"><i class="bi bi-crop"></i> Recortar</div>
+                        <div class="tool-item" data-proxy="toolEliminar" title="Elige que paginas eliminar: la actual, varias sueltas o un rango (5-40, 55, 90-120)"><i class="bi bi-trash"></i> Eliminar paginas</div>
+                        <div class="tool-item" data-proxy="toolNumerar" title="Estampa numeros de pagina"><i class="bi bi-123"></i> Numerar paginas</div>
+                        <div class="tool-item" data-proxy="toolDividir" title="Divide el PDF por rangos de paginas"><i class="bi bi-scissors"></i> Dividir PDF</div>
+                        <div class="tool-item" data-proxy="toolTexto" title="Agrega un cuadro de texto"><i class="bi bi-fonts"></i> Agregar texto</div>
+                        <div class="tool-item" data-proxy="toolImagen" title="Inserta una imagen en el documento"><i class="bi bi-image"></i> Insertar imagen</div>
+                        <div class="tool-item" data-proxy="toolEnlace" title="Agrega un enlace en el documento"><i class="bi bi-link-45deg"></i> Agregar enlace</div>
+                        <div class="tool-item" data-proxy="toolEncabezado" title="Agrega encabezado y pie de pagina"><i class="bi bi-card-heading"></i> Encabezado y pie</div>
+                        <div class="tool-item" data-proxy="toolMarca" title="Agrega una marca de agua"><i class="bi bi-droplet"></i> Marca de agua</div>
+                        <!-- Las tres entradas "Exportar a Word / Excel / PowerPoint" se
+                             retiraron el 21-jul-2026: ahora viven en el boton "Exportar"
+                             de la barra superior (menuExportar), a pedido del usuario. -->
+                        <div class="tool-item" data-proxy="toolConvertirAPDF" title="Convierte imagenes u Office a PDF"><i class="bi bi-file-earmark-plus"></i> Convertir a PDF</div>
+                        <div class="tool-item" data-proxy="toolAgregarFirma" title="Dibuja e inserta tu firma"><i class="bi bi-pen"></i> Agregar firma</div>
+                        <div class="tool-item" data-proxy="toolAgregarIniciales" title="Agrega tus iniciales"><i class="bi bi-type"></i> Agregar iniciales</div>
+                        <div class="tool-item" data-proxy="toolFirmaDigitalP12" title="Firma con certificado digital .p12/.pfx"><i class="bi bi-shield-check"></i> Firmar con certificado .p12</div>
+                    </div>
+                    <a class="link-more" id="linkVerMas" title="Ver todas las herramientas disponibles">Ver mas</a>
+                </div>
+
+                <!-- Panel: Editar -->
+                <div class="panel-content hidden" id="panelEditar">
+                    <div class="left-panel-section">
+                        <div class="left-panel-section-title"><i class="bi bi-file-earmark"></i> Modificar pagina</div>
+                        <div class="tool-item" id="toolRotar" title="Gira la pagina 90 grados a la izquierda o derecha"><i class="bi bi-arrow-repeat"></i> Rotar</div>
+                        <div class="tool-item" id="toolRecortar" title="Recorta los margenes o selecciona un area especifica"><i class="bi bi-crop"></i> Recortar</div>
+                        <div class="tool-item" id="toolEliminar" title="Elige que paginas eliminar: la actual, varias sueltas o un rango (5-40, 55, 90-120)"><i class="bi bi-trash"></i> Eliminar paginas</div>
+                        <div class="tool-item" id="toolOrganizarPag" title="Reordena las paginas arrastrando las miniaturas"><i class="bi bi-grid-3x3-gap"></i> Organizar paginas</div>
+                        <div class="tool-item" id="toolInsertarPag" title="Añade una hoja en blanco donde quieras del documento"><i class="bi bi-plus-circle"></i> Insertar página en blanco</div>
+                        <div class="tool-item" id="toolNumerar" title="Estampa numeros de pagina en todo el documento"><i class="bi bi-123"></i> Numerar paginas <span style="margin-left:auto;font-size:10px;background:#28a745;color:white;padding:1px 6px;border-radius:10px;">Nuevo</span></div>
+                        <div class="tool-item" id="toolDividir" title="Divide el documento en varios PDFs por rangos de paginas"><i class="bi bi-scissors"></i> Dividir PDF <span style="margin-left:auto;font-size:10px;background:#28a745;color:white;padding:1px 6px;border-radius:10px;">Nuevo</span></div>
+                    </div>
+                    <div class="left-panel-section">
+                        <div class="left-panel-section-title"><i class="bi bi-plus-circle"></i> Agregar contenido</div>
+                        <div class="tool-item" id="toolTexto" title="Inserta un cuadro de texto en el documento"><i class="bi bi-fonts"></i> Texto</div>
+                        <div class="tool-item" id="toolImagen" title="Inserta una imagen desde tu dispositivo"><i class="bi bi-image"></i> Imagen</div>
+                        <div class="tool-item" id="toolEnlace" title="Agrega un enlace clickeable a una URL o pagina"><i class="bi bi-link-45deg"></i> Enlace</div>
+                        <div class="tool-item" id="toolEncabezado" title="Agrega encabezado y pie de pagina a todas las paginas"><i class="bi bi-card-heading"></i> Encabezado y pie</div>
+                        <div class="tool-item" id="toolMarca" title="Agrega una marca de agua de texto o imagen"><i class="bi bi-droplet"></i> Marca de agua</div>
+                    </div>
+                    <div class="left-panel-section">
+                        <div class="left-panel-section-title"><i class="bi bi-gear"></i> Otras opciones</div>
+                        <div class="tool-item" id="toolCombinarEdit" title="Une varios archivos PDF en un solo documento"><i class="bi bi-layers"></i> Combinar archivos</div>
+                        <div class="tool-item" id="toolCensurarEdit" title="Oculta informacion sensible de forma permanente"><i class="bi bi-eraser"></i> Censurar un PDF</div>
+                        <div class="tool-item" id="toolFormularioEdit" title="Crea campos de formulario interactivos"><i class="bi bi-ui-checks"></i> Preparar un formulario</div>
+                    </div>
+                </div>
+
+                <!-- Panel: Convertir -->
+                <div class="panel-content hidden" id="panelConvertir">
+                    <div class="left-panel-section">
+                        <div class="left-panel-section-title"><i class="bi bi-arrow-right-circle"></i> Exportar PDF a</div>
+                        <div class="tool-item" id="toolExportWord" title="Convierte el PDF a documento de Word editable"><i class="bi bi-file-earmark-word"></i> Microsoft Word <span class="badge">DOCX</span></div>
+                        <div class="tool-item" id="toolExportPPT" title="Convierte el PDF a presentacion de PowerPoint"><i class="bi bi-file-earmark-ppt"></i> Microsoft PowerPoint <span class="badge">PPTX</span></div>
+                        <div class="tool-item" id="toolExportExcel" title="Extrae tablas del PDF a hojas de calculo Excel"><i class="bi bi-file-earmark-excel"></i> Microsoft Excel <span class="badge">XLSX</span></div>
+                        <div class="tool-item" id="toolExportImage" title="Guarda la página que estás viendo como imagen"><i class="bi bi-image"></i> Página actual como imagen <span class="badge">PNG</span></div>
+                        <div class="tool-item" id="toolExportRTF" title="Extrae el texto del PDF y lo descarga como Word o como archivo de texto"><i class="bi bi-file-text"></i> Solo el texto <span class="badge">DOCX / TXT</span></div>
+                    </div>
+                    <div class="left-panel-section">
+                        <div class="left-panel-section-title"><i class="bi bi-translate"></i> Idioma de texto reconocido</div>
+                        <select class="form-input" id="selectIdioma" style="margin: 8px 0;" title="El idioma del documento: acertar aquí mejora mucho el reconocimiento">
+                            <option value="spa">Español</option>
+                            <option value="eng">Inglés</option>
+                            <option value="por">Portugués</option>
+                        </select>
+                        <button class="btn-modal primary" id="btnConvertir" style="width: 100%;" title="Inicia la conversion del documento"><i class="bi bi-arrow-repeat"></i> Convertir</button>
+                    </div>
+                    <div class="left-panel-section">
+                        <div class="left-panel-section-title"><i class="bi bi-gear"></i> Otras opciones</div>
+                        <div class="tool-item" id="toolConvertirAPDF" title="Convierte otros archivos (Word, Excel, imagenes) a PDF"><i class="bi bi-file-earmark-plus"></i> Convertir a PDF</div>
+                        <div class="tool-item" id="toolComprimirConv" title="Reduce el tamano del archivo PDF"><i class="bi bi-file-zip"></i> Comprimir un PDF</div>
+                        <!-- «Editar como Word (avanzado)» se retiró el 17-08-2026 a
+                             petición del usuario: se quedaba en «cargando el
+                             documento» y no llegaba a abrir. La causa estaba en el
+                             Document Server —sesiones que se quedaban colgadas en la
+                             sala del documento, sin poder echarlas abajo ni con el
+                             comando `drop`— y el arreglo de estrenar sala en cada
+                             apertura no bastó. Todo lo demás sigue en su sitio (el
+                             backend `pdf_word_api.py`, la ventana `modalWord` y
+                             `word_editor.js`), así que devolver este botón es volver a
+                             poner esta línea. NO confundir con «Digitalizar y OCR»,
+                             que es otra herramienta y sigue funcionando. -->
+                        <div class="tool-item" id="toolOCRConv" title="Edita el texto del documento con doble clic. Si la página es un escaneo, reconoce su texto y lo deja editable"><i class="bi bi-camera"></i> Digitalizar y OCR</div>
+                    </div>
+                </div>
+
+                <!-- Panel: Firma electrónica -->
+                <div class="panel-content hidden" id="panelFirma">
+                    <div class="left-panel-section">
+                        <div class="left-panel-section-title"><i class="bi bi-gear"></i> Otras opciones</div>
+                        <div class="tool-item" id="toolConvertirFirma" title="Convierte otros archivos a PDF antes de firmar"><i class="bi bi-file-earmark-pdf"></i> Convertir a PDF</div>
+                        <div class="tool-item" id="toolComprimirFirma" title="Reduce el tamano del PDF firmado"><i class="bi bi-file-zip"></i> Comprimir un PDF</div>
+                        <div class="tool-item" id="toolOCRFirma" title="Edita el texto del documento con doble clic. Si la página es un escaneo, reconoce su texto y lo deja editable"><i class="bi bi-camera"></i> Digitalizar y OCR</div>
+                    </div>
+                    <div class="left-panel-section">
+                        <div class="left-panel-section-title"><i class="bi bi-pen"></i> Rellena y firma</div>
+                        <div style="display: flex; gap: 8px; padding: 8px 16px; flex-wrap: wrap;">
+                            <button class="mini-btn active" id="btnFirmaSelect" title="Herramienta de seleccion - Mueve y redimensiona elementos"><i class="bi bi-cursor"></i></button>
+                            <button class="mini-btn" id="btnFirmaCheck" title="Insertar marca de verificacion (✓)"><i class="bi bi-check-lg"></i></button>
+                            <button class="mini-btn" id="btnFirmaX" title="Insertar marca X para indicar rechazo"><i class="bi bi-x-lg"></i></button>
+                            <button class="mini-btn" id="btnFirmaPunto" title="Insertar un punto o viñeta"><i class="bi bi-circle-fill" style="font-size: 8px;"></i></button>
+                            <button class="mini-btn" id="btnFirmaCuadro" title="Dibujar un rectangulo o cuadro"><i class="bi bi-square"></i></button>
+                            <button class="mini-btn" id="btnFirmaLinea" title="Dibujar una linea horizontal"><i class="bi bi-dash-lg"></i></button>
+                        </div>
+                        <div class="tool-item" id="toolAgregarFirma" title="Dibuja o carga tu firma personal"><i class="bi bi-pen"></i> Agregar firma <span style="margin-left: auto;"><i class="bi bi-plus-lg"></i></span></div>
+                        <div class="tool-item" id="toolAgregarIniciales" title="Agrega tus iniciales al documento"><i class="bi bi-type"></i> Agregar iniciales <span style="margin-left: auto;"><i class="bi bi-plus-lg"></i></span></div>
+                        <p style="font-size: 11px; color: var(--acrobat-text-muted); padding: 8px 16px; line-height: 1.4;">
+                            <i class="bi bi-shield-check" style="color: #28a745;"></i> Despues de firmar, puedes crear una copia certificada de solo lectura con seguimiento de auditoria
+                        </p>
+                        <button class="btn-modal secondary" id="btnCopiaCartificada" style="margin: 8px 16px;" title="Genera una version protegida del documento firmado"><i class="bi bi-file-earmark-lock"></i> Guardar una copia certificada</button>
+                        <div style="border-top:1px solid var(--acrobat-border);margin:8px 16px 0;padding-top:10px;">
+                            <div class="left-panel-section-title"><i class="bi bi-shield-lock"></i> Firma digital con certificado</div>
+                            <div class="tool-item" id="toolFirmaDigitalP12" title="Firma el documento con tu certificado digital .p12 o .pfx"><i class="bi bi-shield-check" style="color:#28a745;"></i> Firmar con certificado .p12 <span style="margin-left:auto;font-size:10px;background:#28a745;color:white;padding:1px 6px;border-radius:10px;">Nuevo</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Separador arrastrable: cambia el ancho del panel de herramientas -->
+        <div class="panel-resizer" id="panelResizer" title="Arrastra para hacer mas ancho o mas angosto el panel de herramientas (doble clic para ocultarlo)"></div>
+
+        <!-- Barra de herramientas estrecha, en vertical -->
+        <div class="mini-toolbar">
+            <button class="mini-btn" id="btnDeshacer" title="Deshacer (Ctrl+Z)" disabled><i class="bi bi-arrow-counterclockwise"></i></button>
+            <button class="mini-btn" id="btnRehacer" title="Rehacer (Ctrl+Y)" disabled><i class="bi bi-arrow-clockwise"></i></button>
+            <div class="mini-sep"></div>
+            <button class="mini-btn active" id="btnSelect" title="Seleccionar - Haz clic para seleccionar y mover elementos"><i class="bi bi-cursor"></i></button>
+            <button class="mini-btn" id="btnHand" title="Mano - Arrastra para desplazarte por el documento"><i class="bi bi-hand-index"></i></button>
+            <div class="mini-divider"></div>
+            <button class="mini-btn" id="btnHighlight" title="Resaltar - Selecciona texto para resaltarlo (amarillo)"><i class="bi bi-highlighter"></i></button>
+            <div class="mini-divider"></div>
+            <button class="mini-btn" id="btnAddText" title="Texto - Haz clic en el documento para agregar texto"><i class="bi bi-fonts"></i></button>
+            <button class="mini-btn" id="btnComment" title="Comentario - Haz clic para agregar una nota adhesiva"><i class="bi bi-chat-square-text"></i></button>
+            <button class="mini-btn" id="btnDraw" title="Dibujar - Dibuja a mano alzada (pluma libre)"><i class="bi bi-pencil"></i></button>
+            <button class="mini-btn" id="btnErase" title="Borrador - Arrastra la goma sobre el trazo del lapiz para borrar solo esa parte"><i class="bi bi-eraser"></i></button>
+            <button class="mini-btn" id="btnShapes" title="Formas - Rectangulo, elipse, flecha o linea: se dibujan arrastrando sobre la pagina"><i class="bi bi-bounding-box"></i></button>
+            <button class="mini-btn" id="btnAddImage" title="Agregar imagen - Inserta una imagen desde tu dispositivo"><i class="bi bi-image"></i></button>
+            <button class="mini-btn" id="btnAddLink" title="Agregar enlace - Inserta un enlace a una direccion web"><i class="bi bi-link-45deg"></i></button>
+        </div>
+
+        <!-- Zona donde se ve el documento -->
+        <div class="viewer-container">
+            <!-- Opciones del comentario: marca y color. Salen aquí arriba, sobre el
+                 documento, al activar la herramienta (la rellena editor_comentarios.js). -->
+            <div class="barra-comentarios hidden" id="barraComentarios"></div>
+            <!-- Aviso de que la edicion de texto esta encendida (solo tras pulsar la herramienta) -->
+            <div class="aviso-modo-edicion hidden" id="avisoModoEdicion">
+                <i class="bi bi-cursor-text"></i> Edición de texto activada — doble clic sobre una palabra para cambiarla, las veces que necesite · <b>Esc</b> para salir
+            </div>
+            <div class="viewer-scroll" id="viewerScroll">
+                <!-- Las páginas se generan dinámicamente -->
+                <!-- Lo que se ve cuando NO hay documento: invita a subir un PDF (clic o arrastrar) -->
+                <div id="viewerVacio" class="viewer-vacio">
+                    <i class="bi bi-file-earmark-arrow-up"></i>
+                    <h3>Sube un PDF para empezar</h3>
+                    <p>Arrastra el archivo aquí o haz clic para seleccionarlo.<br>
+                       También puedes crear uno nuevo con «Crear un PDF» o convertir Word, Excel e imágenes.</p>
+                    <button type="button" id="btnAbrirVacio" title="Selecciona un PDF de tu equipo para empezar a editarlo"><i class="bi bi-folder2-open"></i> Abrir archivo</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tirador para ocultar o mostrar la barra de iconos de la derecha -->
+        <button class="panel-tirador" id="btnTiradorDerecho" title="Ocultar la barra de iconos de la derecha para ganar espacio"><i class="bi bi-chevron-right"></i></button>
+
+        <!-- Panel derecho: los iconos de acceso rápido -->
+        <div class="right-panel">
+            <button class="right-btn" id="btnRightComment" title="Comentarios - Ver y gestionar todos los comentarios del documento"><i class="bi bi-chat-square"></i></button>
+            <button class="right-btn" id="btnRightExport" title="Exportar - Guarda o descarga el PDF con los cambios"><i class="bi bi-box-arrow-up"></i></button>
+            <button class="right-btn" id="btnRightProtect" title="Proteger - Agrega contrasena o permisos de seguridad"><i class="bi bi-shield"></i></button>
+            <button class="right-btn" id="btnRightFill" title="Rellenar - Completa campos de formulario en el PDF"><i class="bi bi-pencil-square"></i></button>
+            <div style="flex: 1;"></div>
+            <button class="right-btn" id="btnRightPages" title="Paginas - Ver miniaturas de todas las paginas"><i class="bi bi-file-earmark"></i></button>
+            <button class="right-btn" id="btnRightZoomIn" title="Acercar - Aumenta el zoom del documento (tambien con dos dedos sobre el touchpad, o Ctrl y la rueda del raton)"><i class="bi bi-zoom-in"></i></button>
+            <button class="right-btn" id="btnRightZoomOut" title="Alejar - Reduce el zoom del documento (tambien con dos dedos sobre el touchpad, o Ctrl y la rueda del raton; al alejar, las paginas se acomodan en varias columnas)"><i class="bi bi-zoom-out"></i></button>
+            <div class="zoom-indicador" id="zoomIndicador" title="Zoom actual - Para acercar o alejar: dos dedos sobre el touchpad, o Ctrl y la rueda. Para moverte por el documento: la rueda o las flechas del teclado">100%</div>
+            <button class="right-btn" id="btnVistaColumnas" title="Ver varias paginas a la vez - Cambia entre 1, 2, 3 y 4 paginas por fila"><i class="bi bi-grid-3x3-gap"></i></button>
+        </div>
+
+        <!-- Barra de abajo: para pasar de página -->
+        <div class="bottom-nav">
+            <div class="page-num">
+                <span id="currentPage" title="Número de página actual">1</span><br>
+                <span id="totalPages">10</span>
+            </div>
+            <button class="page-nav-btn" id="btnPrevPage" title="Ir a la página anterior"><i class="bi bi-chevron-up"></i></button>
+            <button class="page-nav-btn" id="btnNextPage" title="Ir a la página siguiente"><i class="bi bi-chevron-down"></i></button>
+            <div style="flex: 1;"></div>
+            <button class="right-btn" id="btnRotate" title="Rotar"><i class="bi bi-arrow-repeat"></i></button>
+            <button class="right-btn" id="btnThumbnails" title="Miniaturas"><i class="bi bi-grid-3x2"></i></button>
+        </div>
+    </div>
+</div>
+
+<!-- Selector de archivos, oculto: lo abren los botones -->
+<input type="file" id="fileInput" accept=".pdf">
+
+<!-- Modal Firma -->
+<div class="modal-overlay hidden" id="modalSignature">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="bi bi-pen"></i> Crear Firma</h3>
+            <button class="modal-close" id="btnCloseSignature" title="Cierra esta ventana">&times;</button>
+        </div>
+        <div class="modal-body">
+            <canvas id="signatureCanvas" class="signature-canvas" width="400" height="150"></canvas>
+            <div class="color-options">
+                <div class="color-option active" data-color="#000000" style="background:#000"></div>
+                <div class="color-option" data-color="#1473e6" style="background:#1473e6"></div>
+                <div class="color-option" data-color="#2e7d32" style="background:#2e7d32"></div>
+                <div class="color-option" data-color="#c62828" style="background:#c62828"></div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-modal secondary" id="btnClearSignature" title="Borra el trazo para dibujar la firma de nuevo">Limpiar</button>
+            <button class="btn-modal primary" id="btnApplySignature" title="Inserta la firma dibujada en el documento">Aplicar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Texto -->
+<div class="modal-overlay hidden" id="modalText">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="bi bi-fonts"></i> Agregar Texto</h3>
+            <button class="modal-close" id="btnCloseText" title="Cierra esta ventana">&times;</button>
+        </div>
+        <div class="modal-body">
+            <label class="form-label">Texto</label>
+            <input type="text" class="form-input" id="textInput" placeholder="Escribe aqui..." title="Escribe el texto que se agregará al documento">
+            <div class="form-row">
+                <div>
+                    <label class="form-label">Tamano</label>
+                    <select class="form-input" id="textSize" title="Tamaño de letra del texto nuevo">
+                        <option value="12">12px</option>
+                        <option value="14">14px</option>
+                        <option value="16" selected>16px</option>
+                        <option value="20">20px</option>
+                        <option value="24">24px</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Color</label>
+                    <input type="color" class="form-input" id="textColor" value="#000000" style="height: 38px;" title="Color del texto nuevo">
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-modal secondary" id="btnCancelText" title="Cancela y cierra la ventana sin hacer cambios">Cancelar</button>
+            <button class="btn-modal primary" id="btnApplyText" title="Agrega el texto al documento">Agregar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Combinar PDFs -->
+<div class="modal-overlay hidden" id="modalCombinar">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h3><i class="bi bi-layers" style="color: var(--acrobat-accent); margin-right: 8px;"></i> Combinar archivos PDF</h3>
+            <button class="modal-close" id="btnCerrarCombinar" title="Cierra esta ventana">&times;</button>
+        </div>
+        <div class="modal-body">
+            <!-- Zona de arrastre -->
+            <div id="dropZonaCombinar" style="border: 2px dashed var(--acrobat-border); border-radius: 8px; padding: 28px 20px; text-align: center; cursor: pointer; transition: all 0.2s; margin-bottom: 16px; background: var(--acrobat-panel-bg);">
+                <i class="bi bi-file-earmark-plus" style="font-size: 36px; color: var(--acrobat-text-muted); display: block; margin-bottom: 10px;"></i>
+                <p style="margin: 0 0 4px; color: var(--acrobat-text); font-size: 14px; font-weight: 500;">Arrastra archivos PDF aquí</p>
+                <p style="margin: 0; color: var(--acrobat-text-muted); font-size: 12px;">o <strong style="color: var(--acrobat-accent); cursor: pointer;">haz clic para seleccionar</strong></p>
+                <p style="margin: 6px 0 0; color: var(--acrobat-text-muted); font-size: 11px;">El documento que tienes abierto ya está en la lista, con los cambios que le hayas hecho. Quítalo con la × si no lo quieres.</p>
+            </div>
+            <input type="file" id="inputCombinar" accept=".pdf" multiple style="display: none;">
+
+            <!-- Lista de archivos -->
+            <div id="listaCombinar" style="display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="font-size: 12px; font-weight: 600; color: var(--acrobat-text-muted);" id="contadorCombinar">0 archivos</span>
+                    <button id="btnAgregarMasCombinar" style="font-size: 12px; color: var(--acrobat-accent); background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; gap: 4px;" title="Agrega más archivos a la lista para combinar">
+                        <i class="bi bi-plus-circle"></i> Agregar más archivos
+                    </button>
+                </div>
+                <ul id="ulArchivosCombinar" style="list-style: none; padding: 0; margin: 0; max-height: 260px; overflow-y: auto; border: 1px solid var(--acrobat-border); border-radius: 6px;"></ul>
+                <p style="margin: 8px 0 0; font-size: 11px; color: var(--acrobat-text-muted);">Usa las flechas ↑ ↓ para cambiar el orden de los archivos en el PDF final. Hacen falta al menos dos.</p>
+            </div>
+
+            <!-- Barra de progreso -->
+            <div id="progresoCombinar" style="display: none; margin-top: 16px;">
+                <div style="background: var(--acrobat-border); border-radius: 4px; height: 4px; overflow: hidden;">
+                    <div style="background: var(--acrobat-accent); height: 100%; width: 0%; transition: width 0.3s;" id="barraProgresoCombinar"></div>
+                </div>
+                <p style="margin: 8px 0 0; font-size: 12px; color: var(--acrobat-text-muted); text-align: center;" id="textoProgresoCombinar">Procesando...</p>
+            </div>
+
+            <!-- Mensaje de error -->
+            <div id="errorCombinar" style="display: none; margin-top: 12px; padding: 10px 14px; background: #fff5f5; border: 1px solid #fca5a5; border-radius: 6px; color: #dc2626; font-size: 13px;"></div>
+
+            <!-- Resultado: confirmar si descargar o editar -->
+            <div id="resultadoCombinar" style="display: none; margin-top: 16px; padding: 16px; background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; text-align: center;">
+                <p style="margin: 0 0 14px; font-size: 13px; color: #166534;"><i class="bi bi-check-circle-fill"></i> <span id="textoResultadoCombinar">PDF combinado listo.</span></p>
+                <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                    <button class="btn-modal secondary" id="btnDescargarCombinado" title="Descarga el PDF combinado a tu equipo"><i class="bi bi-download"></i> Descargar</button>
+                    <button class="btn-modal primary" id="btnEditarCombinado" title="Abre el PDF combinado en el editor para seguir trabajando"><i class="bi bi-pencil-square"></i> Editar en el editor</button>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-modal secondary" id="btnCancelarCombinar" title="Cancela y cierra la ventana sin hacer cambios">Cancelar</button>
+            <button class="btn-modal primary" id="btnEjecutarCombinar" disabled title="Une todos los archivos de la lista en un solo PDF">
+                <i class="bi bi-layers"></i> Combinar y descargar
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== MODAL COMPRIMIR ===== -->
+<div class="modal-overlay hidden" id="modalComprimir">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="bi bi-file-zip" style="color:var(--acrobat-accent);margin-right:8px;"></i> Comprimir PDF</h3>
+            <button class="modal-close" id="btnCerrarComprimir" title="Cierra esta ventana">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="font-size:13px;color:var(--acrobat-text-muted);margin-bottom:16px;">Reduce el tamaño del archivo sin perder calidad visual.</p>
+            <div style="margin-bottom:16px;">
+                <label style="font-size:12px;font-weight:600;display:block;margin-bottom:8px;">Nivel de compresión</label>
+                <label style="display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--acrobat-border);border-radius:6px;cursor:pointer;margin-bottom:6px;">
+                    <input type="radio" name="calidadComprimir" value="alta" checked> <div><strong style="font-size:13px;">Alta</strong><span style="font-size:11px;color:var(--acrobat-text-muted);display:block;">Máxima compresión, archivo más pequeño</span></div>
+                </label>
+                <label style="display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--acrobat-border);border-radius:6px;cursor:pointer;margin-bottom:6px;">
+                    <input type="radio" name="calidadComprimir" value="media"> <div><strong style="font-size:13px;">Media</strong><span style="font-size:11px;color:var(--acrobat-text-muted);display:block;">Balance entre tamaño y calidad</span></div>
+                </label>
+                <label style="display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--acrobat-border);border-radius:6px;cursor:pointer;">
+                    <input type="radio" name="calidadComprimir" value="baja"> <div><strong style="font-size:13px;">Baja</strong><span style="font-size:11px;color:var(--acrobat-text-muted);display:block;">Menor compresión, mantiene más calidad</span></div>
+                </label>
+            </div>
+            <div id="infoTamanoComprimir" style="background:var(--acrobat-panel-bg);border-radius:6px;padding:10px;font-size:12px;color:var(--acrobat-text-muted);"></div>
+            <div id="errorComprimir" style="display:none;margin-top:12px;padding:10px;background:#fff5f5;border:1px solid #fca5a5;border-radius:6px;color:#dc2626;font-size:13px;"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-modal secondary" id="btnCancelarComprimir" title="Cancela y cierra la ventana sin hacer cambios">Cancelar</button>
+            <button class="btn-modal primary" id="btnEjecutarComprimir" title="Reduce el tamaño del archivo y lo aplica al documento abierto"><i class="bi bi-file-zip"></i> Comprimir y aplicar</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== MODAL PROTEGER ===== -->
+<div class="modal-overlay hidden" id="modalProteger">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="bi bi-shield-lock" style="color:var(--acrobat-accent);margin-right:8px;"></i> Proteger PDF con contraseña</h3>
+            <button class="modal-close" id="btnCerrarProteger" title="Cierra esta ventana">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div style="margin-bottom:14px;">
+                <label style="font-size:12px;font-weight:600;display:block;margin-bottom:5px;">Contraseña</label>
+                <input type="password" id="inputPasswordProteger" class="form-input" placeholder="Introduce la contraseña" style="width:100%;font-size:13px;">
+            </div>
+            <div style="margin-bottom:14px;">
+                <label style="font-size:12px;font-weight:600;display:block;margin-bottom:5px;">Confirmar contraseña</label>
+                <input type="password" id="inputPasswordConfirmar" class="form-input" placeholder="Repite la contraseña" style="width:100%;font-size:13px;">
+            </div>
+            <div style="margin-bottom:12px;">
+                <label style="font-size:12px;font-weight:600;display:block;margin-bottom:8px;">Permisos del usuario</label>
+                <label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:6px;cursor:pointer;">
+                    <input type="checkbox" id="permImpresion" checked> Permitir impresión
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;">
+                    <input type="checkbox" id="permCopia"> Permitir copiar texto
+                </label>
+            </div>
+            <p style="font-size:11px;color:var(--acrobat-text-muted);margin-top:8px;">⚠ Guarda la contraseña en un lugar seguro. No se puede recuperar si se olvida.</p>
+            <div id="errorProteger" style="display:none;margin-top:12px;padding:10px;background:#fff5f5;border:1px solid #fca5a5;border-radius:6px;color:#dc2626;font-size:13px;"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-modal secondary" id="btnCancelarProteger" title="Cancela y cierra la ventana sin hacer cambios">Cancelar</button>
+            <button class="btn-modal primary" id="btnEjecutarProteger"><i class="bi bi-shield-lock"></i> Proteger y descargar</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== MODAL MARCA DE AGUA ===== -->
+<div class="modal-overlay hidden" id="modalMarcaAgua">
+    <div class="modal-content" style="max-width:520px;">
+        <div class="modal-header">
+            <h3><i class="bi bi-droplet" style="color:var(--acrobat-accent);margin-right:8px;"></i> Agregar marca de agua</h3>
+            <button class="modal-close" id="btnCerrarMarcaAgua" title="Cierra esta ventana">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div style="margin-bottom:14px;">
+                <label style="font-size:12px;font-weight:600;display:block;margin-bottom:5px;">Texto de la marca de agua</label>
+                <input type="text" id="inputTextoMarcaAgua" class="form-input" value="CONFIDENCIAL" placeholder="Ej: BORRADOR, COPIA, MAQUITA" style="width:100%;font-size:13px;">
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+                <div>
+                    <label style="font-size:12px;font-weight:600;display:block;margin-bottom:5px;">Tamaño de fuente</label>
+                    <input type="range" id="sliderTamanoMA" min="20" max="120" value="60" style="width:100%;">
+                    <span style="font-size:11px;color:var(--acrobat-text-muted);">Tamaño: <strong id="lblTamanoMA">60</strong>pt</span>
+                </div>
+                <div>
+                    <label style="font-size:12px;font-weight:600;display:block;margin-bottom:5px;">Opacidad</label>
+                    <input type="range" id="sliderOpacidadMA" min="5" max="80" value="25" style="width:100%;">
+                    <span style="font-size:11px;color:var(--acrobat-text-muted);">Opacidad: <strong id="lblOpacidadMA">25</strong>%</span>
+                </div>
+            </div>
+            <div style="margin-bottom:14px;">
+                <label style="font-size:12px;font-weight:600;display:block;margin-bottom:5px;">Ángulo de rotación</label>
+                <select id="selectRotacionMA" class="form-input" style="font-size:13px;">
+                    <option value="45">Diagonal (45°)</option>
+                    <option value="0">Horizontal (0°)</option>
+                    <option value="315">Diagonal inversa (-45°)</option>
+                    <option value="90">Vertical (90°)</option>
+                </select>
+            </div>
+            <div id="errorMarcaAgua" style="display:none;margin-top:12px;padding:10px;background:#fff5f5;border:1px solid #fca5a5;border-radius:6px;color:#dc2626;font-size:13px;"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-modal secondary" id="btnCancelarMarcaAgua" title="Cancela y cierra la ventana sin hacer cambios">Cancelar</button>
+            <button class="btn-modal primary" id="btnEjecutarMarcaAgua"><i class="bi bi-droplet"></i> Aplicar al documento</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== MODAL CAMPOS DE FORMULARIO ===== -->
+<div class="modal-overlay hidden" id="modalFormulario">
+    <div class="modal-content" style="max-width:460px;">
+        <div class="modal-header">
+            <h3><i class="bi bi-ui-checks" style="color:var(--acrobat-accent);margin-right:8px;"></i> Campos de formulario</h3>
+            <button class="modal-close" id="btnCerrarFormulario" title="Cierra esta ventana">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="font-size:13px;margin-bottom:10px;">Define el campo y luego haz clic en la página donde quieras colocarlo. Al descargar, el PDF queda con campos <strong>rellenables</strong> en cualquier lector.</p>
+            <label style="font-size:12px;font-weight:600;">Tipo de campo</label>
+            <select class="form-input" id="selectTipoCampo" style="margin:6px 0 12px;">
+                <option value="texto" selected>Cuadro de texto</option>
+                <option value="checkbox">Casilla de verificación</option>
+                <option value="lista">Lista desplegable</option>
+            </select>
+            <label style="font-size:12px;font-weight:600;">Nombre del campo (opcional)</label>
+            <input class="form-input" id="inputNombreCampo" placeholder="ej.: nombre_completo" style="margin:6px 0 12px;">
+            <div id="filaOpcionesCampo" style="display:none;">
+                <label style="font-size:12px;font-weight:600;">Opciones (separadas por coma)</label>
+                <input class="form-input" id="inputOpcionesCampo" placeholder="Sí, No, Tal vez" style="margin:6px 0 12px;">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-modal secondary" id="btnCancelarFormulario" title="Cancela y cierra la ventana sin hacer cambios">Cancelar</button>
+            <button class="btn-modal primary" id="btnColocarCampo"><i class="bi bi-plus-square"></i> Colocar en la página</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== MODAL COMPARAR PDFs ===== -->
+<div class="modal-overlay hidden" id="modalComparar">
+    <div class="modal-content" style="max-width:480px;">
+        <div class="modal-header">
+            <h3><i class="bi bi-file-diff" style="color:var(--acrobat-accent);margin-right:8px;"></i> Comparar dos PDFs</h3>
+            <button class="modal-close" id="btnCerrarComparar" title="Cierra esta ventana">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="font-size:13px;margin-bottom:12px;">Genera un reporte PDF con las diferencias: zonas cambiadas recuadradas en rojo, páginas agregadas o eliminadas, y el detalle de los cambios de texto.</p>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:12px;">
+                <input type="checkbox" id="chkCompararUsarActual"> Usar el documento abierto como ORIGINAL
+            </label>
+            <div id="filaCompararOriginal">
+                <label style="font-size:12px;font-weight:600;">PDF original</label>
+                <input type="file" class="form-input" id="inputCompararOriginal" accept=".pdf" style="margin:6px 0 12px;">
+            </div>
+            <label style="font-size:12px;font-weight:600;">PDF modificado</label>
+            <input type="file" class="form-input" id="inputCompararModificado" accept=".pdf" style="margin:6px 0 12px;">
+        </div>
+        <div class="modal-footer">
+            <button class="btn-modal secondary" id="btnCancelarComparar" title="Cancela y cierra la ventana sin hacer cambios">Cancelar</button>
+            <button class="btn-modal primary" id="btnEjecutarComparar"><i class="bi bi-file-diff"></i> Comparar y descargar</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== MODAL NUMERAR PAGINAS ===== -->
+<div class="modal-overlay hidden" id="modalNumerar">
+    <div class="modal-content" style="max-width:460px;">
+        <div class="modal-header">
+            <h3><i class="bi bi-123" style="color:var(--acrobat-accent);margin-right:8px;"></i> Numerar páginas</h3>
+            <button class="modal-close" id="btnCerrarNumerar" title="Cierra esta ventana">&times;</button>
+        </div>
+        <div class="modal-body">
+            <label style="font-size:12px;font-weight:600;">Posición</label>
+            <select class="form-input" id="selectPosNumerar" style="margin:6px 0 12px;">
+                <option value="abajo-centro" selected>Abajo — centro</option>
+                <option value="abajo-derecha">Abajo — derecha</option>
+                <option value="abajo-izquierda">Abajo — izquierda</option>
+                <option value="arriba-centro">Arriba — centro</option>
+                <option value="arriba-derecha">Arriba — derecha</option>
+                <option value="arriba-izquierda">Arriba — izquierda</option>
+            </select>
+            <label style="font-size:12px;font-weight:600;">Formato</label>
+            <select class="form-input" id="inputFormatoNumerar" style="margin:6px 0 12px;">
+                <option value="{n}">1</option>
+                <option value="{n} de {total}" selected>1 de 150</option>
+                <option value="Página {n}">Página 1</option>
+                <option value="Página {n} de {total}">Página 1 de 150</option>
+                <option value="- {n} -">- 1 -</option>
+                <option value="{n}/{total}">1/150</option>
+            </select>
+            <label style="font-size:12px;font-weight:600;">Tamaño</label>
+            <select class="form-input" id="selectTamNumerar" style="margin:6px 0 12px;">
+                <option value="9">Pequeño</option>
+                <option value="10" selected>Normal</option>
+                <option value="12">Grande</option>
+            </select>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-top:4px;">
+                <input type="checkbox" id="chkNumerarAplicar" checked> Aplicar al documento abierto (desmarca para solo descargar)
+            </label>
+            <div id="errorNumerar" style="display:none;margin-top:12px;padding:10px;background:#fff5f5;border:1px solid #fca5a5;border-radius:6px;color:#dc2626;font-size:13px;"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-modal secondary" id="btnCancelarNumerar" title="Cancela y cierra la ventana sin hacer cambios">Cancelar</button>
+            <button class="btn-modal primary" id="btnEjecutarNumerar"><i class="bi bi-123"></i> Numerar y descargar</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== MODAL DIVIDIR PDF ===== -->
+<div class="modal-overlay hidden" id="modalDividir">
+    <div class="modal-content" style="max-width:460px;">
+        <div class="modal-header">
+            <h3><i class="bi bi-scissors" style="color:var(--acrobat-accent);margin-right:8px;"></i> Dividir PDF</h3>
+            <button class="modal-close" id="btnCerrarDividir" title="Cierra esta ventana">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="font-size:13px;margin-bottom:10px;">Indica los rangos de páginas. Cada rango genera un PDF; si hay varios se descarga un ZIP.</p>
+            <label style="font-size:12px;font-weight:600;">Rangos (ej.: 1-3, 5, 8-10)</label>
+            <input class="form-input" id="inputRangosDividir" placeholder="1-3, 5, 8-10" style="margin:6px 0 4px;">
+            <p style="font-size:11px;color:var(--acrobat-text-muted);" id="infoTotalDividir"></p>
+            <div id="errorDividir" style="display:none;margin-top:12px;padding:10px;background:#fff5f5;border:1px solid #fca5a5;border-radius:6px;color:#dc2626;font-size:13px;"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-modal secondary" id="btnCancelarDividir" title="Cancela y cierra la ventana sin hacer cambios">Cancelar</button>
+            <button class="btn-modal primary" id="btnEjecutarDividir"><i class="bi bi-scissors"></i> Dividir y descargar</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== MODAL ENCABEZADO Y PIE ===== -->
+<div class="modal-overlay hidden" id="modalEncabezado">
+    <div class="modal-content" style="max-width:640px;">
+        <div class="modal-header">
+            <h3><i class="bi bi-card-heading" style="color:var(--acrobat-accent);margin-right:8px;"></i> Encabezado y pie de página</h3>
+            <button class="modal-close" id="btnCerrarEncabezado" title="Cierra esta ventana">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="font-size:12px;color:var(--acrobat-text-muted);margin-bottom:14px;">
+                Tres sitios arriba y tres abajo, como en Word: rellena solo los que quieras usar.
+                Para numerar las páginas de un clic tienes <strong>Numerar páginas</strong>.
+            </p>
+
+            <div style="margin-bottom:16px;">
+                <label style="font-size:12px;font-weight:700;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px;color:var(--acrobat-text-muted);">Encabezado</label>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+                    <input type="text" id="inputEncIzquierda" class="form-input encpie-campo" placeholder="Izquierda" title="Texto pegado al margen izquierdo del encabezado" style="width:100%;font-size:13px;">
+                    <input type="text" id="inputEncCentro" class="form-input encpie-campo" placeholder="Centro" title="Texto centrado en el encabezado" style="width:100%;font-size:13px;">
+                    <input type="text" id="inputEncDerecha" class="form-input encpie-campo" placeholder="Derecha" title="Texto pegado al margen derecho del encabezado" style="width:100%;font-size:13px;">
+                </div>
+            </div>
+
+            <div style="margin-bottom:16px;">
+                <label style="font-size:12px;font-weight:700;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px;color:var(--acrobat-text-muted);">Pie de página</label>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+                    <input type="text" id="inputPieIzquierda" class="form-input encpie-campo" placeholder="Izquierda" title="Texto pegado al margen izquierdo del pie" style="width:100%;font-size:13px;">
+                    <input type="text" id="inputPieCentro" class="form-input encpie-campo" placeholder="Centro" title="Texto centrado en el pie" style="width:100%;font-size:13px;">
+                    <input type="text" id="inputPieDerecha" class="form-input encpie-campo" placeholder="Derecha" title="Texto pegado al margen derecho del pie" style="width:100%;font-size:13px;">
+                </div>
+            </div>
+
+            <div style="margin-bottom:14px;padding:10px 12px;background:#f8f9fb;border:1px solid #e6e8ee;border-radius:6px;">
+                <div style="font-size:12px;font-weight:600;margin-bottom:6px;">Comodines — pulsa uno para ponerlo donde tengas el cursor</div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                    <button type="button" class="btn-comodin" data-comodin="{pagina}" title="El número de esta página">{pagina}</button>
+                    <button type="button" class="btn-comodin" data-comodin="{total}" title="Cuántas páginas tiene el documento">{total}</button>
+                    <button type="button" class="btn-comodin" data-comodin="{fecha}" title="La fecha de hoy">{fecha}</button>
+                    <button type="button" class="btn-comodin" data-comodin="{archivo}" title="El nombre del documento">{archivo}</button>
+                </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+                <div>
+                    <label style="font-size:12px;font-weight:600;display:block;margin-bottom:5px;">Tamaño de letra</label>
+                    <select id="selectTamanoEnc" class="form-input" style="font-size:13px;width:100%;">
+                        <option value="8">8pt - Muy pequeño</option>
+                        <option value="9">9pt - Pequeño</option>
+                        <option value="10" selected>10pt - Normal</option>
+                        <option value="11">11pt - Mediano</option>
+                        <option value="12">12pt - Grande</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size:12px;font-weight:600;display:block;margin-bottom:5px;">Separación del borde</label>
+                    <select id="selectMargenEnc" class="form-input" style="font-size:13px;width:100%;">
+                        <option value="estrecho">Estrecha - pegado al borde</option>
+                        <option value="normal" selected>Normal</option>
+                        <option value="ancho">Ancha - más adentro</option>
+                    </select>
+                </div>
+            </div>
+
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-top:4px;">
+                <input type="checkbox" id="chkEncabezadoAplicar" checked> Aplicar al documento abierto (desmarca para solo descargar)
+            </label>
+
+            <div id="errorEncabezado" style="display:none;margin-top:12px;padding:10px;background:#fff5f5;border:1px solid #fca5a5;border-radius:6px;color:#dc2626;font-size:13px;"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-modal secondary" id="btnCancelarEncabezado" title="Cancela y cierra la ventana sin hacer cambios">Cancelar</button>
+            <button class="btn-modal primary" id="btnEjecutarEncabezado"><i class="bi bi-card-heading"></i> Aplicar al documento</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== MODAL CENSURAR ===== -->
+<div class="modal-overlay hidden" id="modalCensurar">
+    <div class="modal-content" style="max-width:520px;">
+        <div class="modal-header">
+            <h3><i class="bi bi-eraser" style="color:#dc2626;margin-right:8px;"></i> Censurar información sensible</h3>
+            <button class="modal-close" id="btnCerrarCensurar" title="Cierra esta ventana">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div style="background:#fff5f5;border:1px solid #fca5a5;border-radius:6px;padding:10px 14px;margin-bottom:14px;">
+                <strong style="font-size:12px;color:#dc2626;">⚠ Esta operación es permanente e irreversible.</strong>
+                <p style="font-size:12px;color:#444;margin:4px 0 0;">El texto censurado será reemplazado por bloques negros y no podrá recuperarse.</p>
+            </div>
+            <div style="margin-bottom:14px;">
+                <label style="font-size:12px;font-weight:600;display:block;margin-bottom:5px;">Términos a censurar <span style="color:var(--acrobat-text-muted);font-weight:400;">(uno por línea)</span></label>
+                <textarea id="textareaCensurar" class="form-input" rows="6" placeholder="Nombre Apellido&#10;12345678A&#10;confidencial@email.com&#10;Dirección exacta" style="width:100%;font-size:13px;resize:vertical;font-family:monospace;"></textarea>
+            </div>
+            <p style="font-size:11px;color:var(--acrobat-text-muted);">Se buscará cada término en todo el documento y se censurará cada ocurrencia encontrada.</p>
+            <div id="errorCensurar" style="display:none;margin-top:12px;padding:10px;background:#fff5f5;border:1px solid #fca5a5;border-radius:6px;color:#dc2626;font-size:13px;"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-modal secondary" id="btnCancelarCensurar" title="Cancela y cierra la ventana sin hacer cambios">Cancelar</button>
+            <button class="btn-modal" style="background:#dc2626;color:white;border:none;border-radius:20px;padding:8px 20px;cursor:pointer;font-size:13px;" id="btnEjecutarCensurar"><i class="bi bi-eraser"></i> Censurar y aplicar</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== MODAL EXTRAER PÁGINAS ===== -->
+<div class="modal-overlay hidden" id="modalExtraer">
+    <div class="modal-content" style="max-width:480px;">
+        <div class="modal-header">
+            <h3><i class="bi bi-file-earmark-break" style="color:var(--acrobat-accent);margin-right:8px;"></i> Extraer páginas</h3>
+            <button class="modal-close" id="btnCerrarExtraer" title="Cierra esta ventana">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="font-size:13px;color:var(--acrobat-text-muted);margin-bottom:14px;">Crea un nuevo PDF con las páginas seleccionadas del documento original.</p>
+            <div style="margin-bottom:14px;">
+                <label style="font-size:12px;font-weight:600;display:block;margin-bottom:5px;">Páginas a extraer</label>
+                <input type="text" id="inputPaginasExtraer" class="form-input" placeholder="Ej: 1,3,5-8,10" style="width:100%;font-size:13px;">
+                <p style="font-size:11px;color:var(--acrobat-text-muted);margin-top:5px;">Usa comas para páginas individuales y guiones para rangos. El documento tiene <strong id="lblTotalPaginasExtraer">?</strong> páginas.</p>
+            </div>
+            <div id="errorExtraer" style="display:none;margin-top:12px;padding:10px;background:#fff5f5;border:1px solid #fca5a5;border-radius:6px;color:#dc2626;font-size:13px;"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-modal secondary" id="btnCancelarExtraer" title="Cancela y cierra la ventana sin hacer cambios">Cancelar</button>
+            <button class="btn-modal primary" id="btnEjecutarExtraer"><i class="bi bi-file-earmark-break"></i> Extraer y descargar</button>
+        </div>
+    </div>
+</div>
+
+
+<!-- ===== EDICIÓN TIPO WORD (OnlyOffice) — "Digitalizar y OCR" ===== -->
+<div class="modal-overlay hidden" id="modalWord" style="z-index:4000;padding:0;">
+    <div style="position:fixed;inset:0;background:#fff;display:flex;flex-direction:column;">
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--acrobat-border);background:var(--acrobat-panel-bg);flex-shrink:0;">
+            <i class="bi bi-file-earmark-word" style="color:#2b579a;font-size:20px;"></i>
+            <strong id="tituloWord" style="font-size:14px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Documento</strong>
+            <button class="btn-modal primary" id="btnWordAPdf" title="Guarda lo editado y lo devuelve al editor como PDF"><i class="bi bi-arrow-left-right"></i> Volver al PDF</button>
+            <button class="btn-modal secondary" id="btnWordDocx" title="Descarga el documento de Word a tu equipo"><i class="bi bi-download"></i> Descargar Word</button>
+            <button class="btn-modal secondary" id="btnWordCerrar" title="Cierra sin llevar los cambios al PDF">Cerrar</button>
+        </div>
+        <div id="avisoWord" style="display:none;padding:8px 16px;background:#fffbeb;border-bottom:1px solid #fde68a;color:#92400e;font-size:12px;flex-shrink:0;"></div>
+        <div id="contenedorWord" style="flex:1;position:relative;overflow:hidden;">
+            <div id="editorWord"></div>
+        </div>
+        <div id="cargandoWord" class="hidden" style="position:absolute;inset:0;background:rgba(255,255,255,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;z-index:10;">
+            <div class="spinner" style="width:36px;height:36px;border:3px solid #e5e5e5;border-top-color:var(--acrobat-accent);border-radius:50%;animation:girar 1s linear infinite;"></div>
+            <span id="textoCargandoWord" style="font-size:13px;color:var(--acrobat-text-muted);">Un momento…</span>
+        </div>
+    </div>
+</div>
+<style>
+@keyframes girar { to { transform: rotate(360deg); } }
+/* Los comodines del encabezado y el pie: se pulsan y se escriben solos */
+.btn-comodin { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px; padding: 3px 8px; border: 1px solid #d7dae2; border-radius: 4px;
+    background: #fff; color: #334; cursor: pointer; }
+.btn-comodin:hover { border-color: var(--acrobat-accent); color: var(--acrobat-accent); }
+.encpie-campo:focus { border-color: var(--acrobat-accent); outline: none; }
+#modalWord #editorWord { width: 100%; height: 100%; }
+/* Editar un PÁRRAFO entero, encima del propio párrafo */
+.parrafo-marco { position:absolute; z-index:12; background:#fff;
+    border:2px solid var(--acrobat-accent); border-radius:4px;
+    box-shadow:0 4px 16px rgba(0,0,0,.22); }
+.parrafo-caja { width:100%; border:none; outline:none; resize:none; padding:4px 6px;
+    font-family:inherit; line-height:1.25; color:#111; background:transparent;
+    overflow:hidden;
+    /* Que el renglon se corte entre PALABRAS. Sin esto, una regla general de
+       la plantilla partia numeros por la mitad ("0998111888" en dos lineas) y
+       el parrafo se leia roto. (Reporte del usuario, 28-jul-2026.) */
+    word-break: normal !important; overflow-wrap: break-word; hyphens: none; }
+.parrafo-barra { display:flex; align-items:center; gap:8px; padding:3px 6px;
+    border-top:1px solid var(--acrobat-border); background:var(--acrobat-panel-bg);
+    font-size:11px; color:var(--acrobat-text-muted); }
+.parrafo-barra span { flex:1; }
+.parrafo-ok { border:none; background:var(--acrobat-accent); color:#fff;
+    border-radius:3px; padding:2px 10px; font-size:11px; cursor:pointer; }
+.parrafo-ok:hover { filter:brightness(1.1); }
+
+/* Deshacer / rehacer: apagados cuando no hay nada que deshacer */
+.mini-btn:disabled { opacity:.35; cursor:default; }
+.mini-btn:disabled:hover { background:none; }
+.mini-sep { height:1px; background:var(--acrobat-border); margin:4px 6px; }
+
+
+/* Edición de COLUMNAS de tabla, sobre la propia página del PDF */
+.capa-tablas { position:absolute; inset:0; pointer-events:none; z-index:6; }
+.capa-tablas .tabla-marco { position:absolute; border:1.5px dashed var(--acrobat-accent);
+    background:rgba(20,115,230,.05); border-radius:2px; }
+.capa-tablas .tabla-btn { position:absolute; pointer-events:auto; cursor:pointer;
+    width:20px; height:20px; line-height:1; padding:0; border-radius:50%;
+    border:1px solid #fff; color:#fff; font-size:14px; font-weight:700;
+    box-shadow:0 1px 4px rgba(0,0,0,.35); transform:translateX(-50%); }
+.capa-tablas .tabla-mas { background:var(--acrobat-accent); }
+.capa-tablas .tabla-quitar { background:var(--acrobat-red); font-size:15px; }
+/* Mover de sitio una fila o una columna: mas discretos que el resto */
+.capa-tablas .tabla-mover { background:#6d6d6d; width:17px; height:17px; font-size:12px; }
+.capa-tablas .tabla-fila-mover { transform:none; }
+.capa-tablas .tabla-fila-mover:hover { transform:scale(1.15); }
+.capa-tablas .tabla-btn:hover { filter:brightness(1.15); transform:translateX(-50%) scale(1.15); }
+/* Los botones de FILA van a los lados, no arriba: no se centran en su x */
+.capa-tablas .tabla-fila-mas, .capa-tablas .tabla-fila-quitar { transform:none; }
+.capa-tablas .tabla-fila-mas:hover, .capa-tablas .tabla-fila-quitar:hover { transform:scale(1.15); }
+/* Cada celda es pulsable para escribir en ella */
+.capa-tablas .tabla-celda { position:absolute; pointer-events:auto; cursor:text; }
+.capa-tablas .tabla-celda:hover { background:rgba(20,115,230,.13);
+    outline:1px solid var(--acrobat-accent); }
+/* El campo para escribir DENTRO de la celda: se apoya justo encima de ella,
+   con su misma letra y alineacion, para que se vea lo que se esta corrigiendo */
+/* Se escribe DENTRO de la celda: ni recuadro, ni sombra, ni cuadro flotante.
+   El fondo blanco es solo para tapar el texto que el PDF ya tiene pintado
+   debajo; lo unico que delata la edicion es una linea fina y el cursor. */
+.capa-tablas .tabla-campo { position:absolute; resize:none; overflow:hidden; pointer-events:auto; z-index:9;
+    /* !important: el textarea hereda un borde gris de la hoja general y
+       volvia a verse como un cuadro encima de la celda */
+    margin:0; padding:0 2px; border:none !important;
+    outline:1px solid rgba(20,115,230,.45);
+    background:#fff; color:#111; font-family:inherit;
+    word-break:normal; overflow-wrap:break-word; }
+.capa-tablas .tabla-campo:focus { outline:1px solid var(--acrobat-accent); }
+
+/* Herramienta MANO: el puntero tiene que decir que se puede arrastrar */
+#viewerScroll.cursor-mano { cursor: grab; }
+#viewerScroll.cursor-mano-cerrada { cursor: grabbing; }
+#viewerScroll.cursor-mano-cerrada * { cursor: grabbing !important; }
+</style>
+
+<!-- ===== MODAL OCR / TEXTO ===== -->
+<div class="modal-overlay hidden" id="modalOCR">
+    <div class="modal-content" style="max-width:600px;">
+        <div class="modal-header">
+            <h3><i class="bi bi-type" style="color:var(--acrobat-accent);margin-right:8px;"></i> Extraer texto del PDF</h3>
+            <button class="modal-close" id="btnCerrarOCR" title="Cierra esta ventana">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div style="display:flex;gap:12px;margin-bottom:14px;align-items:flex-end;">
+                <div style="flex:1;">
+                    <label style="font-size:12px;font-weight:600;display:block;margin-bottom:5px;">Página</label>
+                    <select id="selectPaginaOCR" class="form-input" style="font-size:13px;">
+                        <option value="">Todas las páginas</option>
+                    </select>
+                </div>
+                <button class="btn-modal primary" id="btnEjecutarOCR" style="flex-shrink:0;"><i class="bi bi-type"></i> Extraer texto</button>
+                <button class="btn-modal secondary" id="btnAreaOCR" style="flex-shrink:0;" title="Marca con el ratón un trozo de la hoja y lee solo eso, respetando cómo está escrito"><i class="bi bi-bounding-box"></i> Elegir área</button>
+            </div>
+            <p style="font-size:11px;color:#6d6d6d;margin:-6px 0 12px;">Si la página es un escaneado, el texto se reconoce con OCR y puede tardar unos segundos. En documentos largos conviene extraer <strong>página por página</strong> en vez de todas a la vez.<br><strong>Elegir área</strong> cierra esta ventana para que marques con el ratón la zona que quieras (una tabla, un párrafo, una firma): se lee solo eso y sale <strong>tal cual está escrito</strong>, con sus renglones y columnas.</p>
+            <div id="resultadoOCR" style="display:none;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                    <span style="font-size:12px;font-weight:600;" id="infoOCR"></span>
+                    <div style="display:flex;gap:6px;">
+                        <button id="btnCopiarOCR" style="font-size:12px;color:var(--acrobat-accent);background:none;border:1px solid var(--acrobat-border);border-radius:4px;padding:3px 10px;cursor:pointer;"><i class="bi bi-clipboard"></i> Copiar</button>
+                        <button id="btnDescargarTextoOCR" title="Descarga el texto reconocido como documento Word editable" style="font-size:12px;color:var(--acrobat-accent);background:none;border:1px solid var(--acrobat-border);border-radius:4px;padding:3px 10px;cursor:pointer;"><i class="bi bi-file-earmark-word"></i> Descargar Word</button>
+                    </div>
+                </div>
+                <textarea id="textareaOCR" readonly style="width:100%;height:240px;font-size:11px;font-family:monospace;border:1px solid var(--acrobat-border);border-radius:6px;padding:10px;resize:vertical;background:#fafafa;"></textarea>
+            </div>
+            <div id="errorOCR" style="display:none;margin-top:12px;padding:10px;background:#fff5f5;border:1px solid #fca5a5;border-radius:6px;color:#dc2626;font-size:13px;"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-modal secondary" id="btnCerrarOCRFooter">Cerrar</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== MODAL ORGANIZAR PÁGINAS ===== -->
+<!-- ===== MODAL ELIMINAR PÁGINAS (rango) ===== -->
+<div class="modal-overlay hidden" id="modalElimPag">
+    <div class="modal-content" style="max-width:520px;">
+        <div class="modal-header">
+            <h3><i class="bi bi-trash" style="color:#dc2626;margin-right:8px;"></i> Eliminar páginas</h3>
+            <button class="modal-close" id="btnCerrarElimPag" title="Cierra esta ventana">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="font-size:13px;margin-bottom:12px;">Indica qué páginas quieres eliminar del documento
+                (tiene <strong><span id="lblTotalElimPag">0</span></strong> páginas).</p>
+            <label for="inpElimPag" style="display:block;font-size:12px;font-weight:600;margin-bottom:5px;">Páginas o rango</label>
+            <input type="text" id="inpElimPag" autocomplete="off" placeholder="Ej.: 5-40, 55, 90-120"
+                   style="width:100%;padding:9px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;">
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:10px;">
+                <button class="btn-modal secondary" id="btnElimPagActual" style="font-size:12px;padding:5px 12px;"
+                        title="Rellena la casilla con la página que estás viendo">Página actual</button>
+                <label style="font-size:12.5px;display:flex;align-items:center;gap:6px;cursor:pointer;"
+                       title="Deja solo las páginas indicadas y elimina todas las demás">
+                    <input type="checkbox" id="chkElimConservar" style="width:15px;height:15px;accent-color:#1473e6;cursor:pointer;">
+                    Al contrario: <strong>conservar solo estas</strong>
+                </label>
+            </div>
+            <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;padding:9px 12px;margin-top:12px;font-size:11.5px;color:#475569;">
+                Se puede escribir una página (<strong>7</strong>), varias separadas por comas
+                (<strong>3, 8, 15</strong>), un rango (<strong>5-40</strong>) o hasta el final
+                (<strong>150-fin</strong>). Todo junto también vale: <strong>5-40, 55, 90-120</strong>.
+            </div>
+            <div id="infoElimPag" style="font-size:12.5px;color:var(--acrobat-text-muted);margin-top:10px;min-height:17px;"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-modal secondary" id="btnCancelarElimPag" title="Cancela y cierra la ventana sin hacer cambios">Cancelar</button>
+            <button class="btn-modal" id="btnEjecutarElimPag" disabled
+                    style="background:#dc2626;color:white;border:none;border-radius:20px;padding:8px 20px;cursor:pointer;font-size:13px;">
+                <i class="bi bi-trash"></i> Eliminar
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay hidden" id="modalOrganizar">
+    <div class="modal-content" style="max-width:700px;max-height:85vh;overflow:hidden;display:flex;flex-direction:column;">
+        <div class="modal-header" style="flex-shrink:0;">
+            <h3><i class="bi bi-grid-3x3-gap" style="color:var(--acrobat-accent);margin-right:8px;"></i> Organizar páginas</h3>
+            <button class="modal-close" id="btnCerrarOrganizar" title="Cierra esta ventana">&times;</button>
+        </div>
+        <div class="modal-body" style="overflow-y:auto;flex:1;">
+            <p style="font-size:12px;color:var(--acrobat-text-muted);margin-bottom:14px;">Arrastra las páginas para reordenarlas, o haz clic en una para seleccionarla y muévela con ↑ ↓. Para eliminar: el botón ✕ de la página, doble clic sobre ella, o marca varias y usa "Eliminar seleccionadas". En documentos largos escribe el rango (por ejemplo <strong>5-40, 55, 90-120</strong>) en la casilla de abajo y elimínalas de una vez.</p>
+            <!-- Eliminar por RANGO: en documentos de cientos de hojas, marcar una por una no es viable -->
+            <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;margin-bottom:14px;">
+                <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;">
+                    <label for="inpRangoOrganizar" style="font-size:12px;font-weight:600;color:var(--acrobat-text);white-space:nowrap;">
+                        <i class="bi bi-list-ol" style="color:var(--acrobat-accent);"></i> Por rango de páginas
+                    </label>
+                    <input type="text" id="inpRangoOrganizar" autocomplete="off" placeholder="Ej.: 5-40, 55, 90-120"
+                           title="Escribe las páginas separadas por comas. Los rangos van con guión (5-40) y puedes usar &quot;fin&quot; para llegar a la última (200-fin)."
+                           style="flex:1;min-width:170px;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;">
+                    <button class="btn-modal secondary" id="btnRangoMarcar" style="font-size:12px;padding:6px 12px;"
+                            title="Marca esas páginas en la cuadrícula para revisarlas antes de borrar">Marcar</button>
+                    <button class="btn-modal secondary" id="btnRangoConservar" style="font-size:12px;padding:6px 12px;"
+                            title="Deja solo esas páginas y quita todas las demás">Conservar solo estas</button>
+                    <button class="btn-modal" id="btnRangoEliminar" style="background:#dc2626;color:white;border:none;border-radius:20px;padding:6px 14px;cursor:pointer;font-size:12px;"
+                            title="Quita esas páginas del documento (se confirma antes)"><i class="bi bi-trash"></i> Eliminar rango</button>
+                </div>
+                <div id="infoRangoOrganizar" style="font-size:11.5px;color:var(--acrobat-text-muted);margin-top:7px;min-height:15px;"></div>
+            </div>
+            <div id="gridOrganizar" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:12px;"></div>
+            <div id="errorOrganizar" style="display:none;margin-top:12px;padding:10px;background:#fff5f5;border:1px solid #fca5a5;border-radius:6px;color:#dc2626;font-size:13px;"></div>
+        </div>
+        <div class="modal-footer" style="flex-shrink:0;gap:8px;">
+            <button class="btn-modal secondary" id="btnCancelarOrganizar" title="Cancela y cierra la ventana sin hacer cambios">Cancelar</button>
+            <button class="btn-modal secondary" id="btnExtraerDesdeOrganizar" style="font-size:12px;"><i class="bi bi-file-earmark-break"></i> Extraer páginas</button>
+            <button class="btn-modal" style="background:#dc2626;color:white;border:none;border-radius:20px;padding:8px 20px;cursor:pointer;font-size:13px;display:none;" id="btnEliminarSeleccionadas"><i class="bi bi-trash"></i> Eliminar seleccionadas (<span id="contadorSeleccionadas">0</span>)</button>
+            <button class="btn-modal" style="background:#dc2626;color:white;border:none;border-radius:20px;padding:8px 20px;cursor:pointer;font-size:13px;" id="btnAplicarOrganizar" disabled><i class="bi bi-check-lg"></i> Aplicar cambios</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== MODAL EXPORT TEXTO ===== -->
+<div class="modal-overlay hidden" id="modalExportTexto">
+    <div class="modal-content" style="max-width:480px;">
+        <div class="modal-header">
+            <h3><i class="bi bi-file-earmark-text" style="color:var(--acrobat-accent);margin-right:8px;"></i> Exportar contenido de texto</h3>
+            <button class="modal-close" id="btnCerrarExportTexto" title="Cierra esta ventana">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="font-size:13px;margin-bottom:12px;">Extrae todo el texto del documento y lo descarga como documento <strong>Word (.docx)</strong> listo para editar.</p>
+            <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#78350f;">
+                <strong>Nota:</strong> Esta función extrae texto incrustado digitalmente. Para PDFs escaneados (imágenes), el texto puede estar vacío. El formato Word/Excel/PowerPoint requiere LibreOffice instalado en el servidor.
+            </div>
+            <div id="errorExportTexto" style="display:none;margin-top:12px;padding:10px;background:#fff5f5;border:1px solid #fca5a5;border-radius:6px;color:#dc2626;font-size:13px;"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-modal secondary" id="btnCancelarExportTexto" title="Cancela y cierra la ventana sin hacer cambios">Cancelar</button>
+            <button class="btn-modal secondary" id="btnExportTextoTxt" title="Descarga el texto plano en un archivo .txt">Solo texto (.txt)</button>
+            <button class="btn-modal primary" id="btnEjecutarExportTexto" title="Descarga el texto como documento Word editable"><i class="bi bi-file-earmark-word"></i> Descargar como Word</button>
+        </div>
+    </div>
+</div>
+
+
+<!-- ===== MODAL FIRMA DIGITAL .P12 ===== -->
+<div class="modal-overlay hidden" id="modalFirmaDigital">
+    <div class="modal-content" style="max-width:560px;">
+        <div class="modal-header">
+            <h3><i class="bi bi-shield-lock" style="color:#28a745;margin-right:8px;"></i> Firma Digital con Certificado</h3>
+            <button class="modal-close" id="btnCerrarFirmaDigital" title="Cierra esta ventana">&times;</button>
+        </div>
+        <div class="modal-body" style="padding:20px;">
+            <!-- Paso 1: Cargar certificado -->
+            <div id="pasoCargarP12">
+                <div style="margin-bottom:16px;">
+                    <label style="font-size:12px;font-weight:600;display:block;margin-bottom:5px;"><i class="bi bi-file-earmark-lock"></i> Certificado .p12 / .pfx</label>
+                    <div id="dropZonaP12" style="border:2px dashed var(--acrobat-border);border-radius:8px;padding:20px;text-align:center;cursor:pointer;background:var(--acrobat-panel-bg);transition:all 0.2s;">
+                        <i class="bi bi-shield-plus" style="font-size:28px;color:#28a745;"></i>
+                        <p style="margin:6px 0 0;font-size:13px;color:#666;">Arrastra tu certificado .p12 o haz clic para seleccionar</p>
+                        <input type="file" id="inputP12" accept=".p12,.pfx" style="display:none;">
+                    </div>
+                    <div id="infoP12Cargado" style="display:none;margin-top:8px;padding:10px;background:#f0fdf4;border:1px solid #86efac;border-radius:6px;">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <i class="bi bi-patch-check-fill" style="color:#28a745;font-size:18px;"></i>
+                            <div>
+                                <div style="font-size:13px;font-weight:600;" id="p12NombreArchivo"></div>
+                                <div style="font-size:11px;color:#666;" id="p12InfoCert"></div>
+                            </div>
+                            <button id="btnQuitarP12" style="margin-left:auto;background:none;border:none;color:#dc2626;cursor:pointer;font-size:16px;" title="Quitar">&times;</button>
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-bottom:16px;">
+                    <label style="font-size:12px;font-weight:600;display:block;margin-bottom:5px;"><i class="bi bi-key"></i> Contraseña del certificado</label>
+                    <input type="password" id="inputPasswordP12" class="form-input" placeholder="Ingresa la contraseña de tu .p12" style="width:100%;font-size:13px;">
+                </div>
+                <button id="btnVerificarP12" class="btn-modal primary" style="width:100%;margin-bottom:12px;" disabled>
+                    <i class="bi bi-shield-check"></i> Verificar certificado
+                </button>
+            </div>
+
+            <!-- Paso 2: Info del certificado verificado -->
+            <div id="pasoInfoCert" style="display:none;">
+                <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:14px;margin-bottom:16px;">
+                    <div style="font-size:14px;font-weight:600;color:#166534;margin-bottom:8px;"><i class="bi bi-person-badge"></i> <span id="certNombreComun"></span></div>
+                    <table style="width:100%;font-size:12px;color:#444;">
+                        <tr><td style="padding:2px 8px 2px 0;color:#888;width:100px;">Organización:</td><td id="certOrganizacion"></td></tr>
+                        <tr><td style="padding:2px 8px 2px 0;color:#888;">Email:</td><td id="certEmail"></td></tr>
+                        <tr><td style="padding:2px 8px 2px 0;color:#888;">Válido hasta:</td><td id="certValidoHasta"></td></tr>
+                        <tr><td style="padding:2px 8px 2px 0;color:#888;">Estado:</td><td id="certEstado"></td></tr>
+                    </table>
+                </div>
+
+                <!-- Opciones de firma -->
+                <div style="margin-bottom:12px;">
+                    <label style="font-size:12px;font-weight:600;display:block;margin-bottom:5px;">Razón de la firma</label>
+                    <input type="text" id="inputRazonFirma" class="form-input" value="Documento firmado digitalmente" style="width:100%;font-size:13px;">
+                </div>
+                <div style="margin-bottom:12px;">
+                    <label style="font-size:12px;font-weight:600;display:block;margin-bottom:5px;">Ubicación</label>
+                    <input type="text" id="inputUbicacionFirma" class="form-input" value="Ecuador" style="width:100%;font-size:13px;">
+                </div>
+                <div style="margin-bottom:12px;">
+                    <label style="font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;margin-bottom:5px;">
+                        <input type="checkbox" id="chkFirmaVisible" checked style="accent-color:#1473e6;">
+                        Firma visible en el documento
+                    </label>
+                    <p style="font-size:11px;color:#888;margin:2px 0 0;">Si se activa, la firma aparece en la página actual del PDF</p>
+                </div>
+            </div>
+
+            <!-- Errores -->
+            <div id="errorFirmaDigital" style="display:none;margin-top:8px;padding:10px;background:#fff5f5;border:1px solid #fca5a5;border-radius:6px;color:#dc2626;font-size:13px;"></div>
+            <div id="exitoFirmaDigital" style="display:none;margin-top:8px;padding:10px;background:#f0fdf4;border:1px solid #86efac;border-radius:6px;color:#166534;font-size:13px;"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-modal secondary" id="btnCancelarFirmaDigital" title="Cancela y cierra la ventana sin hacer cambios">Cancelar</button>
+            <button class="btn-modal primary" id="btnEjecutarFirmaDigital" style="display:none;" disabled>
+                <i class="bi bi-shield-lock"></i> Firmar documento
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== MODAL INSERTAR PÁGINA ===== -->
+<div class="modal-overlay hidden" id="modalInsertarPag">
+    <div class="modal-content" style="max-width:420px;">
+        <div class="modal-header">
+            <h3><i class="bi bi-plus-circle" style="color:var(--acrobat-accent);margin-right:8px;"></i> Insertar página en blanco</h3>
+            <button class="modal-close" id="btnCerrarInsertarPag" title="Cierra esta ventana">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div style="margin-bottom:14px;">
+                <label style="font-size:12px;font-weight:600;display:block;margin-bottom:5px;">Posición</label>
+                <select id="selectPosInsertarPag" class="form-input" style="font-size:13px;">
+                    <option value="antes">Antes de la página actual</option>
+                    <option value="despues">Después de la página actual</option>
+                    <option value="inicio">Al inicio del documento</option>
+                    <option value="fin">Al final del documento</option>
+                </select>
+            </div>
+            <div style="margin-bottom:14px;">
+                <label style="font-size:12px;font-weight:600;display:block;margin-bottom:5px;">Tamaño de página</label>
+                <select id="selectTamInsertarPag" class="form-input" style="font-size:13px;">
+                    <option value="letter">Letter (216×279 mm)</option>
+                    <option value="a4">A4 (210×297 mm)</option>
+                    <option value="legal">Legal (216×356 mm)</option>
+                </select>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-modal secondary" id="btnCancelarInsertarPag" title="Cancela y cierra la ventana sin hacer cambios">Cancelar</button>
+            <button class="btn-modal primary" id="btnEjecutarInsertarPag"><i class="bi bi-plus-circle"></i> Insertar página</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== PANEL BÚSQUEDA (slide-in derecho) ===== -->
+<div id="panelBusqueda" style="position:fixed;top:0;right:-360px;width:360px;height:100vh;background:white;box-shadow:-4px 0 20px rgba(0,0,0,0.15);z-index:8000;display:flex;flex-direction:column;transition:right 0.3s ease;">
+    <div style="padding:16px 20px;border-bottom:1px solid #e5e5e5;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
+        <h3 style="margin:0;font-size:15px;font-weight:600;">Buscar en el documento</h3>
+        <button id="btnCerrarBusqueda" style="background:none;border:none;font-size:22px;color:#6d6d6d;cursor:pointer;">&times;</button>
+    </div>
+    <div style="padding:14px 20px;border-bottom:1px solid #e5e5e5;flex-shrink:0;">
+        <div style="display:flex;gap:8px;">
+            <input type="text" id="inputBusquedaPanel" class="form-input" placeholder="Buscar texto..." style="flex:1;font-size:13px;">
+            <button id="btnBuscarPanel" class="btn-modal primary" style="flex-shrink:0;padding:8px 14px;"><i class="bi bi-search"></i></button>
+        </div>
+        <p style="font-size:11px;color:#6d6d6d;margin:6px 0 0;" id="infoBusqueda"></p>
+    </div>
+    <div id="resultadosBusqueda" style="flex:1;overflow-y:auto;padding:10px 20px;"></div>
+</div>
+<div id="overlaySemiTransp" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:7999;" onclick="cerrarPanelBusqueda()"></div>
+
+
+<!-- ===== MODAL COMPARTIR ===== -->
+<div class="modal-overlay hidden" id="modalCompartir">
+    <div class="modal-content" style="max-width:460px;">
+        <div class="modal-header">
+            <h3><i class="bi bi-share-fill" style="color:var(--acrobat-accent);margin-right:8px;"></i> Compartir documento</h3>
+            <button class="modal-close" id="btnCerrarCompartir" title="Cierra esta ventana">&times;</button>
+        </div>
+        <div class="modal-body">
+            <label style="font-size:12px;font-weight:600;display:block;margin-bottom:5px;">Nombre del archivo</label>
+            <input type="text" id="inputNombreCompartir" class="form-input" value="documento.pdf" style="width:100%;font-size:13px;margin-bottom:14px;" title="Nombre con el que se guardará o enviará el documento">
+            <!-- Guardar en la Nube: DESACTIVADO a la espera de definir el flujo (20-jul-2026).
+                 El boton se deja visible y deshabilitado para anunciar la funcion; al estar
+                 deshabilitado, el handler de editor_nucleo.js no llega a ejecutarse. -->
+            <button class="btn-modal secondary" id="btnCompartirNube" style="width:100%;margin-bottom:8px;opacity:.65;cursor:not-allowed;" disabled title="Esta opción aún no está disponible"><i class="bi bi-cloud-arrow-up"></i> Guardar en mi Nube y copiar enlace <span style="display:inline-block;background:#6d6d6d;color:#fff;border-radius:10px;padding:1px 8px;font-size:10px;font-weight:700;margin-left:6px;vertical-align:middle;">PRÓXIMAMENTE</span></button>
+            <button class="btn-modal secondary" id="btnCompartirApps" style="width:100%;margin-bottom:8px;" title="Comparte por WhatsApp, correo u otras apps de tu dispositivo"><i class="bi bi-phone"></i> Compartir con apps del dispositivo</button>
+            <button class="btn-modal secondary" id="btnCompartirDescargar" style="width:100%;" title="Descarga el documento para adjuntarlo donde necesites"><i class="bi bi-download"></i> Descargar para adjuntar</button>
+            <p style="font-size:11px;color:#6d6d6d;margin:10px 0 0;">El documento se comparte con todas tus anotaciones y cambios incluidos.</p>
+            <div id="resultadoCompartir" style="display:none;margin-top:12px;padding:10px;border:1px solid #d5d5d5;border-radius:6px;font-size:13px;"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== MODAL ASISTENTE DE IA ===== -->
+<div class="modal-overlay hidden" id="modalAsistenteIA">
+    <div class="modal-content" style="max-width:560px;">
+        <div class="modal-header">
+            <h3><i class="bi bi-stars" style="color:#fa0f00;margin-right:8px;"></i> Pregunta al Asistente de IA</h3>
+            <button class="modal-close" id="btnCerrarIA" title="Cierra esta ventana">&times;</button>
+        </div>
+        <div class="modal-body">
+            <textarea id="inputPreguntaIA" class="form-input" rows="2" placeholder="Ej.: ¿De qué trata este documento? ¿Qué montos se mencionan?" style="width:100%;font-size:13px;resize:none;" title="Escribe tu pregunta sobre el contenido del documento"></textarea>
+            <button class="btn-modal primary" id="btnPreguntarIA" style="width:100%;margin-top:8px;" title="Envía la pregunta al asistente de IA institucional"><i class="bi bi-send"></i> Preguntar</button>
+            <div id="respuestaIA" style="margin-top:12px;padding:12px;background:#f7f7f7;border-radius:8px;font-size:13px;line-height:1.6;max-height:45vh;overflow-y:auto;"></div>
+            <p style="font-size:11px;color:#6d6d6d;margin:8px 0 0;"><i class="bi bi-info-circle"></i> El asistente lee el texto del documento abierto (IA institucional de Maquita, tus datos no salen de la organización).</p>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='vendor/pdfjs-3.11.174/pdf.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/pdf_lib_bajo_demanda.js') }}?v=20260818"
+        data-pdflib="{{ url_for('static', filename='vendor/pdf-lib-1.17.1/pdf-lib.min.js') }}"></script>
+<script>
+// Configuracion inyectada por el servidor (Jinja) para los modulos JS estaticos del editor
+window.PDF_EDITOR_CFG = {
+    modo: '{{ modo|default("nuevo") }}',
+    urlHome: '{{ url_for("pdf_editor_web.index") }}',
+    workerSrc: '{{ url_for("static", filename="vendor/pdfjs-3.11.174/pdf.worker.min.js") }}',
+    documentoId: {{ documento.id if documento else 'null' }},
+    // Ruta del archivo en el Drive cuando el editor se abrio desde el
+    // Almacen (/herramientas/editor-pdf/editor/drive?ruta=...). Vacia en
+    // el editor normal. |tojson escapa comillas y acentos: los nombres de
+    // archivo reales los traen.
+    driveRuta: {{ (drive_ruta or '')|tojson }}
+};
+</script>
+<script src="{{ url_for('static', filename='js/pdf_editor/firma_certificados.js') }}?v=20260723g"></script>
+<!-- El documento vive en el servidor mientras se edita: cada cambio manda solo
+     su identificador y recibe solo lo añadido. Va ANTES del núcleo porque este lo
+     usa en cuanto carga un documento. -->
+<script src="{{ url_for('static', filename='js/pdf_editor/sesion_documento.js') }}?v=20260818b"></script>
+<!-- Editor PDF: el núcleo está repartido en partes (antes era un solo archivo de
+     más de 6.000 líneas). Cada parte se registra y el núcleo las arranca. -->
+<script src="{{ url_for('static', filename='js/pdf_editor/editor_render_vista.js') }}?v=20260730"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/editor_anotaciones_dom.js') }}?v=20260730m"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/editor_texto_pdf.js') }}?v=20260730b"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/editor_ventana.js') }}?v=20260730"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/editor_herramientas.js') }}?v=20260730k"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/editor_anotar_formas.js') }}?v=20260730k"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/editor_resaltador.js') }}?v=20260730c"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/editor_anotar_borrador.js') }}?v=20260730d"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/editor_comentarios.js') }}?v=20260730m"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/editor_organizar.js') }}?v=20260818a"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/editor_operaciones.js') }}?v=20260817a"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/editor_tablas_ocr.js') }}?v=20260731a"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/editor_ocr_area.js') }}?v=20260731d"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/editor_nuevo_documento.js') }}?v=20260731e"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/editor_buscar_exportar.js') }}?v=20260818a"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/editor_asistente.js') }}?v=20260730p"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/editor_firma_p12.js') }}?v=20260730"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/editor_imagen_recorte.js') }}?v=20260818a"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/editor_compartir.js') }}?v=20260818a"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/editor_convertir.js') }}?v=20260818a"></script>
+<!-- El documento es un archivo del Drive: se abre desde su ruta y se guarda
+     sobre ella (boton "Guardar en el Drive" / Ctrl+S). Inerte si no hay ?ruta=. -->
+<script src="{{ url_for('static', filename='js/pdf_editor/editor_drive.js') }}?v=20260828a"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/editor_nucleo.js') }}?v=20260828a"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/zoom_pellizco.js') }}?v=20260818c"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/teclas_desplazar.js') }}?v=20260818c"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/rango_paginas.js') }}?v=20260729d"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/organizar_rango.js') }}?v=20260727m"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/eliminar_paginas.js') }}?v=20260727m"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/edicion_palabra.js') }}?v=20260727m"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/edicion_parrafo.js') }}?v=20260729d"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/historial_almacen.js') }}?v=20260730n"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/historial.js') }}?v=20260730n"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/tablas_medidas.js') }}?v=20260729c"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/barra_derecha.js') }}?v=20260728"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/tablas_arrastrar.js') }}?v=20260729"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/tablas_columnas.js') }}?v=20260729c"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/tablas_adelanto.js') }}?v=20260818b"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/word_editor.js') }}?v=20260817a"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/mano_desplazar.js') }}?v=20260727m"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/tooltips.js') }}?v=20260716b"></script>
+
+<!-- ============================================================
+     COMBINAR PDFs - Lógica completa (scope global)
+     ============================================================ -->
+<script src="{{ url_for('static', filename='js/pdf_editor/combinar.js') }}?v=20260818a"></script>
+{% endblock %}

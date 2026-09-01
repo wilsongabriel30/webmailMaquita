@@ -1,0 +1,295 @@
+{% extends "base.html" %}
+
+{% block title %}PDF - Raíces Maquita{% endblock %}
+
+{% block extra_css %}
+<!-- Bootstrap Icons (local) -->
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap-icons/font/bootstrap-icons.min.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pdf_editor/home.css') }}?v=20260716">
+{% endblock %}
+
+{% block content %}
+<div class="pdf-home">
+    <!-- Sidebar Izquierdo -->
+    <div class="home-sidebar">
+        <div class="sidebar-section">
+            <a href="#" class="sidebar-item active" title="Muestra los documentos PDF que abriste recientemente">
+                <i class="bi bi-clock-history"></i>
+                <span>Recientes</span>
+            </a>
+            <a href="#" class="sidebar-item" title="Documentos que marcaste como favoritos para encontrarlos rápido">
+                <i class="bi bi-star"></i>
+                <span>Destacados</span>
+            </a>
+        </div>
+
+        <div class="sidebar-divider"></div>
+
+        <div class="sidebar-section">
+            <div class="sidebar-title">Archivos</div>
+            <a href="#" class="sidebar-item" title="Tus archivos guardados en la Nube de Raíces">
+                <i class="bi bi-folder"></i>
+                <span>Mis documentos</span>
+            </a>
+            <a href="#" class="sidebar-item" title="Documentos escaneados y digitalizados con OCR">
+                <i class="bi bi-cloud"></i>
+                <span>Digitalizaciones</span>
+            </a>
+            <a href="#" class="sidebar-item" title="Archivos que compartiste con otras personas">
+                <i class="bi bi-people"></i>
+                <span>Mis compartidos</span>
+            </a>
+            <a href="#" class="sidebar-item" title="Archivos que otras personas compartieron contigo">
+                <i class="bi bi-share"></i>
+                <span>Compartidos conmigo</span>
+            </a>
+        </div>
+
+        <div class="sidebar-divider"></div>
+
+        <div class="sidebar-section">
+            <div class="sidebar-title">Otro almacenamiento</div>
+            <a href="#" class="sidebar-item" title="Explora los archivos guardados en este computador">
+                <i class="bi bi-pc-display"></i>
+                <span>Mi equipo</span>
+            </a>
+            <a href="#" class="sidebar-item" title="Conecta otra cuenta o servicio de almacenamiento">
+                <i class="bi bi-plus-circle"></i>
+                <span>Agregar almacenamiento</span>
+            </a>
+        </div>
+
+        <div class="sidebar-divider"></div>
+
+        <div class="sidebar-section">
+            <div class="sidebar-title">Acuerdos</div>
+            <a href="#" class="sidebar-item" title="Documentos enviados o recibidos para firma">
+                <i class="bi bi-file-earmark-check"></i>
+                <span>Todos los acuerdos</span>
+            </a>
+        </div>
+
+    </div>
+
+    <!-- Contenido Principal -->
+    <div class="home-main">
+        <!-- Herramientas Recomendadas -->
+        <div class="tools-header">
+            <span class="tools-title">Herramientas recomendadas</span>
+            <a href="{{ url_for('pdf_editor_web.editor_nuevo') }}" class="tools-link" title="Abre el editor con el panel completo de herramientas">Ver todas las herramientas</a>
+        </div>
+
+        <div class="tools-grid">
+            <div class="tool-card" onclick="abrirConAccion('comentarios')" title="Abre un PDF para agregar notas, resaltados y comentarios de revision">
+                                <div class="tool-icon blue"><i class="bi bi-chat-square-text"></i></div>
+                <div class="tool-name">Agregar comentarios</div>
+                <div class="tool-desc">Agregue notas rapidas, resalte texto y comente documentos</div>
+                <a class="tool-action">Utilizar ahora</a>
+            </div>
+
+            <div class="tool-card" onclick="abrirConAccion('firma')" title="Completa campos de formulario y agrega tu firma manuscrita o electronica">
+                <div class="tool-icon green"><i class="bi bi-pencil-square"></i></div>
+                <div class="tool-name">Rellenar y firmar</div>
+                <div class="tool-desc">Rellena formularios, agrega tu firma electronica</div>
+                <a class="tool-action">Utilizar ahora</a>
+            </div>
+
+            <div class="tool-card" onclick="abrirConAccion('editar')" title="Modifica el contenido del PDF: edita texto, inserta imagenes, reorganiza paginas">
+                <div class="tool-icon blue"><i class="bi bi-pencil"></i></div>
+                <div class="tool-name">Editar un PDF</div>
+                <div class="tool-desc">Modifique o agregue texto, imagenes y paginas</div>
+                <a class="tool-action">Utilizar ahora</a>
+            </div>
+
+            <div class="tool-card" onclick="abrirConAccion('compartir')" title="Comparte el documento con otros usuarios por correo o genera un enlace">
+                <div class="tool-icon teal"><i class="bi bi-share"></i></div>
+                <div class="tool-name">Compartir</div>
+                <div class="tool-desc">Envie archivos a otras personas para que los vean</div>
+                <a class="tool-action">Utilizar ahora</a>
+            </div>
+
+            <div class="tool-card" onclick="abrirConAccion('convertir')" title="Convierte el PDF a Word, Excel, PowerPoint, imagenes u otros formatos">
+                <div class="tool-icon orange"><i class="bi bi-file-earmark-arrow-down"></i></div>
+                <div class="tool-name">Exportar un PDF</div>
+                <div class="tool-desc">Convierta PDF en archivos de Microsoft Office, Image...</div>
+                <a class="tool-action">Utilizar ahora</a>
+            </div>
+
+            <div class="tool-card" onclick="document.getElementById('fileInputCrear').click()" title="Crea un nuevo PDF desde imagenes (JPG, PNG, GIF, BMP, WEBP) o archivos de texto TXT">
+                <div class="tool-icon red"><i class="bi bi-file-earmark-plus"></i></div>
+                <div class="tool-name">Crear un PDF</div>
+                <div class="tool-desc">Cree documentos PDF a partir de imagenes, archivos...</div>
+                <a class="tool-action">Utilizar ahora</a>
+            </div>
+
+            <div class="tool-card" id="btnCombinar" title="Une varios archivos PDF en un solo documento organizado">
+                <div class="tool-icon purple"><i class="bi bi-layers"></i></div>
+                <div class="tool-name">Combinar archivos</div>
+                <div class="tool-desc">Combine varios archivos en un solo PDF</div>
+                <a class="tool-action">Utilizar ahora</a>
+            </div>
+        </div>
+
+        <!-- Segunda fila -->
+        <div class="tools-grid" style="margin-top: -24px;">
+            <div class="tool-card" onclick="abrirConAccion('sello')" title="Inserta sellos predefinidos como Aprobado, Rechazado, Borrador, Confidencial">
+                <div class="tool-icon orange"><i class="bi bi-stamp"></i></div>
+                <div class="tool-name">Agregar un sello</div>
+                <div class="tool-desc">Agregue o elimine sellos, como Aprobado o Borrador</div>
+                <a class="tool-action">Utilizar ahora</a>
+            </div>
+
+            <div class="tool-card" onclick="abrirConAccion('medir')" title="Mide distancias, areas y perimetros de objetos en planos o diagramas">
+                <div class="tool-icon blue"><i class="bi bi-rulers"></i></div>
+                <div class="tool-name">Medir objetos</div>
+                <div class="tool-desc">Mida la distancia, el area y el perimetro de los objetos</div>
+                <a class="tool-action">Utilizar ahora</a>
+            </div>
+
+            <div class="tool-card" onclick="abrirConAccion('certificado')" title="Firma documentos con certificado digital para validez legal">
+                <div class="tool-icon green"><i class="bi bi-patch-check"></i></div>
+                <div class="tool-name">Utilizar un certificado</div>
+                <div class="tool-desc">Firme o certifique documentos digitalmente</div>
+                <a class="tool-action">Utilizar ahora</a>
+            </div>
+        </div>
+
+        <!-- Recientes -->
+        <div class="recents-section">
+            <div class="recents-header">
+                <span class="recents-title">Recientes</span>
+                <div class="recents-actions">
+                    <button class="btn-view active" title="Vista lista"><i class="bi bi-list"></i></button>
+                    <button class="btn-view" title="Vista cuadricula"><i class="bi bi-grid-3x3-gap"></i></button>
+                </div>
+            </div>
+
+            <div class="recents-table">
+                <div class="recents-table-header">
+                    <span></span>
+                    <span>Nombre</span>
+                    <span>Acceso</span>
+                    <span>Abierto</span>
+                    <span>Tamano</span>
+                </div>
+
+                {% if recientes and recientes|length > 0 %}
+                    {% for doc in recientes %}
+                    <div class="recents-row" onclick="window.location.href='{{ url_for('pdf_editor_web.editor', id=doc.id) }}'">
+                        <input type="checkbox" class="recents-checkbox" onclick="event.stopPropagation()">
+                        <div class="recents-file">
+                            <div class="file-icon"><i class="bi bi-file-earmark-pdf"></i></div>
+                            <div class="file-info">
+                                <span class="file-name">{{ doc.nombre }}</span>
+                                <span class="file-type">PDF</span>
+                            </div>
+                        </div>
+                        <span class="recents-access">Personal</span>
+                        <span class="recents-date">{{ doc.fecha }}</span>
+                        <span class="recents-size">{{ doc.tamano }}</span>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="recents-row" onclick="document.getElementById('fileInputHome').click()" style="cursor: pointer;">
+                        <input type="checkbox" class="recents-checkbox" onclick="event.stopPropagation()">
+                        <div class="recents-file">
+                            <div class="file-icon"><i class="bi bi-file-earmark-pdf"></i></div>
+                            <div class="file-info">
+                                <span class="file-name">Abrir PDF...</span>
+                                <span class="file-type">PDF</span>
+                            </div>
+                        </div>
+                        <span class="recents-access">Personal</span>
+                        <span class="recents-date">Ahora mismo</span>
+                        <span class="recents-size">-</span>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div style="text-align: right; margin-top: 12px;">
+            <a href="#" style="font-size: 12px; color: #1967d2;" title="Limpia la lista de documentos recientes">Borrar recientes</a>
+        </div>
+    </div>
+
+    <!-- Sidebar Derecho -->
+    <div class="home-sidebar-right">
+        <div class="sidebar-right-section">
+            <div class="sidebar-right-title"><i class="bi bi-file-earmark-pdf"></i> Trabajar con PDF</div>
+            <div class="quick-action">
+                <div class="quick-action-icon"><i class="bi bi-folder2-open"></i></div>
+                <div class="quick-action-text">Abre un documento PDF para editarlo</div>
+                <button class="btn-quick" title="Selecciona un PDF de tu equipo para abrirlo en el editor" onclick="document.getElementById('fileInputHome').click()"><i class="bi bi-upload"></i> Abrir archivo</button>
+            </div>
+        </div>
+
+        <div class="sidebar-right-section">
+            <div class="config-box">
+                <div class="config-icon"><i class="bi bi-lightbulb"></i></div>
+                <div class="config-title">Ayuda rapida</div>
+                <div class="config-text">
+                    <ul style="padding-left: 16px; margin: 8px 0; font-size: 11px; color: #5f6368;">
+                        <li>Arrastra un PDF aqui para abrirlo</li>
+                        <li>Usa <b>Ctrl+O</b> para abrir archivo</li>
+                        <li>Pasa el mouse sobre <i class="bi bi-info-circle"></i> para ver ayuda</li>
+                    </ul>
+                </div>
+                <a href="{{ url_for('pdf_editor_web.editor_nuevo') }}" class="btn-config" style="text-decoration: none; display: inline-block; text-align: center;" title="Abre el editor con un documento PDF en blanco"><i class="bi bi-plus-lg"></i> Nuevo documento</a>
+            </div>
+        </div>
+
+        <div class="sidebar-right-section">
+            <div class="config-box" style="background: #e8f5e9;">
+                <div class="config-icon" style="color: #2e7d32;"><i class="bi bi-shield-check"></i></div>
+                <div class="config-title">Seguridad</div>
+                <div class="config-text" style="font-size: 11px;">Tus documentos se procesan localmente en tu navegador. No se suben a ningun servidor externo.</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Input file oculto -->
+<input type="file" id="fileInputHome" accept=".pdf" onchange="handleFileSelect(event)">
+<!-- Input para Crear PDF (imagenes y TXT) -->
+<input type="file" id="fileInputCrear" accept="image/*,.txt" multiple onchange="handleCrearPDF(event)" style="display:none;">
+
+<!-- Modal Combinar (reutilizado) -->
+<div class="modal-overlay hidden" id="modalCombinar" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;">
+    <div style="background:white;border-radius:12px;padding:24px;max-width:500px;width:90%;">
+        <h3 style="margin-bottom:16px;font-size:18px;">Combinar PDFs</h3>
+        <p style="color:#666;margin-bottom:16px;">Selecciona multiples archivos PDF para combinarlos en uno solo.</p>
+        <input type="file" id="combineInput" accept=".pdf" multiple style="margin-bottom:16px;">
+        <div style="display:flex;gap:12px;justify-content:flex-end;">
+            <button onclick="cerrarModalCombinar()" title="Cierra sin combinar los archivos" style="padding:8px 20px;border:1px solid #ddd;background:white;border-radius:20px;cursor:pointer;">Cancelar</button>
+            <button onclick="combinarPDFs()" title="Une los archivos seleccionados en un solo PDF" style="padding:8px 20px;background:#fa0f00;color:white;border:none;border-radius:20px;cursor:pointer;">Combinar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: PDF combinado listo — ¿descargar o editar? -->
+<div class="modal-overlay hidden" id="modalCombinadoListo" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;">
+    <div style="background:white;border-radius:12px;padding:28px 24px;max-width:440px;width:90%;text-align:center;">
+        <div style="font-size:38px;color:#16a34a;margin-bottom:8px;"><i class="bi bi-check-circle-fill"></i></div>
+        <h3 style="margin-bottom:10px;font-size:18px;">PDF combinado listo</h3>
+        <p id="textoCombinadoListo" style="color:#666;margin-bottom:20px;font-size:14px;"></p>
+        <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+            <button onclick="descargarCombinado()" style="padding:9px 22px;border:1px solid #ddd;background:white;border-radius:20px;cursor:pointer;font-size:14px;"><i class="bi bi-download"></i> Descargar</button>
+            <button onclick="editarCombinado()" style="padding:9px 22px;background:#fa0f00;color:white;border:none;border-radius:20px;cursor:pointer;font-size:14px;"><i class="bi bi-pencil-square"></i> Editar en el editor</button>
+        </div>
+        <button onclick="cerrarModalCombinadoListo()" style="margin-top:14px;background:none;border:none;color:#999;cursor:pointer;font-size:13px;text-decoration:underline;">Cancelar</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/pdf_editor/pdf_lib_bajo_demanda.js') }}?v=20260818"
+        data-pdflib="{{ url_for('static', filename='vendor/pdf-lib-1.17.1/pdf-lib.min.js') }}"></script>
+<script>
+// Configuracion inyectada por el servidor (Jinja) para el modulo JS estatico del home
+window.PDF_HOME_CFG = {
+    urlEditorNuevo: '{{ url_for("pdf_editor_web.editor_nuevo") }}'
+};
+</script>
+<script src="{{ url_for('static', filename='js/pdf_editor/tooltips.js') }}?v=20260716"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/home.js') }}?v=20260818a"></script>
+{% endblock %}

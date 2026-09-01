@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block titulo %}{{ documento.nombre_original }} - Visor PDF{% endblock %}
+
+{% block estilos %}
+<style>
+    .visor-container {
+        height: calc(100vh - 120px);
+        display: flex;
+        flex-direction: column;
+    }
+    .visor-toolbar {
+        background: #343a40;
+        color: white;
+        padding: 10px 15px;
+        display: flex;
+        gap: 15px;
+        align-items: center;
+    }
+    .visor-toolbar .btn {
+        color: white;
+    }
+    .visor-main {
+        flex: 1;
+        background: #525659;
+        overflow: auto;
+        display: flex;
+        justify-content: center;
+        padding: 20px;
+    }
+    .pdf-page {
+        background: white;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        max-width: 100%;
+    }
+    .page-nav {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .page-nav input {
+        width: 50px;
+        text-align: center;
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.2);
+        color: white;
+        border-radius: 4px;
+        padding: 5px;
+    }
+    .zoom-control {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+</style>
+{% endblock %}
+
+{% block contenido %}
+<div class="visor-container">
+    <!-- Barra de herramientas -->
+    <div class="visor-toolbar">
+        <a href="{{ url_for('pdf_editor_web.index') }}" class="btn btn-link text-white">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+
+        <span class="text-truncate flex-grow-1" style="max-width: 300px;">
+            {{ documento.nombre_original }}
+        </span>
+
+        <div class="page-nav">
+            <button class="btn btn-sm btn-outline-light" id="btnPrevPage">
+                <i class="bi bi-chevron-left"></i>
+            </button>
+            <input type="number" id="inputPagina" value="1" min="1" max="{{ documento.num_paginas }}">
+            <span>/ {{ documento.num_paginas }}</span>
+            <button class="btn btn-sm btn-outline-light" id="btnNextPage">
+                <i class="bi bi-chevron-right"></i>
+            </button>
+        </div>
+
+        <div class="zoom-control">
+            <button class="btn btn-sm btn-outline-light" id="btnZoomOut">
+                <i class="bi bi-zoom-out"></i>
+            </button>
+            <span id="zoomLevel">100%</span>
+            <button class="btn btn-sm btn-outline-light" id="btnZoomIn">
+                <i class="bi bi-zoom-in"></i>
+            </button>
+        </div>
+
+        <div class="ms-auto">
+            <a href="{{ url_for('pdf_editor_web.editor', id=documento.id) }}"
+               class="btn btn-sm btn-danger">
+                <i class="bi bi-pencil"></i> Editar
+            </a>
+            <a href="/api/pdf/documentos/{{ documento.id }}/descargar"
+               class="btn btn-sm btn-outline-light">
+                <i class="bi bi-download"></i>
+            </a>
+        </div>
+    </div>
+
+    <!-- Visor -->
+    <div class="visor-main" id="visorMain">
+        <img class="pdf-page" id="pdfPage"
+             src="/api/pdf/documentos/{{ documento.id }}/render/1?zoom=1.0"
+             alt="Pagina del documento">
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const documentoId = {{ documento.id }};
+    const totalPaginas = {{ documento.num_paginas }};
+    let paginaActual = 1;
+    let zoomActual = 1.0;
+
+    const pdfPage = document.getElementById('pdfPage');
+    const inputPagina = document.getElementById('inputPagina');
+    const zoomLevel = document.getElementById('zoomLevel');
+
+    function irAPagina(pagina) {
+        if (pagina < 1 || pagina > totalPaginas) return;
+        paginaActual = pagina;
+        inputPagina.value = pagina;
+        pdfPage.src = `/api/pdf/documentos/${documentoId}/render/${pagina}?zoom=${zoomActual}`;
+    }
+
+    function setZoom(nuevoZoom) {
+        zoomActual = Math.max(0.25, Math.min(4, nuevoZoom));
+        zoomLevel.textContent = Math.round(zoomActual * 100) + '%';
+        pdfPage.src = `/api/pdf/documentos/${documentoId}/render/${paginaActual}?zoom=${zoomActual}`;
+    }
+
+    document.getElementById('btnPrevPage').addEventListener('click', () => irAPagina(paginaActual - 1));
+    document.getElementById('btnNextPage').addEventListener('click', () => irAPagina(paginaActual + 1));
+    inputPagina.addEventListener('change', () => irAPagina(parseInt(inputPagina.value) || 1));
+
+    document.getElementById('btnZoomIn').addEventListener('click', () => setZoom(zoomActual + 0.25));
+    document.getElementById('btnZoomOut').addEventListener('click', () => setZoom(zoomActual - 0.25));
+
+    // Scroll para cambiar página
+    document.getElementById('visorMain').addEventListener('wheel', (e) => {
+        if (e.ctrlKey) {
+            e.preventDefault();
+            setZoom(zoomActual + (e.deltaY < 0 ? 0.1 : -0.1));
+        }
+    });
+
+    // Teclado
+    document.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT') return;
+        switch(e.key) {
+            case 'ArrowLeft':
+            case 'PageUp':
+                irAPagina(paginaActual - 1);
+                break;
+            case 'ArrowRight':
+            case 'PageDown':
+            case ' ':
+                e.preventDefault();
+                irAPagina(paginaActual + 1);
+                break;
+        }
+    });
+});
+</script>
+{% endblock %}
