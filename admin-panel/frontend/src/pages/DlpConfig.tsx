@@ -9,10 +9,49 @@ interface DlpCfg {
   default_action: Action;
   rules: Record<string, Rule>;
   keywords: string[];
+  milter_enforce: boolean;
+  scan_attachments: boolean;
+  trusted_domains: string[];
 }
 interface Violation {
   username: string; recipients: string[]; subject: string;
   data_types: string[]; action: string; overridden: boolean; created_at: string | null;
+  reason?: string | null; external?: boolean;
+}
+
+/* Niveles de seguridad: presets que rellenan toda la configuración de una vez. */
+type Level = "off" | "audit" | "warn" | "block" | "custom";
+const LEVELS: { key: Level; label: string; desc: string; color: string }[] = [
+  { key: "off",   label: "Desactivado",        desc: "No se revisa nada. Los correos salen sin control.", color: "border-ms-gray-30" },
+  { key: "audit", label: "Solo observar",      desc: "Todo sale normal, pero queda registrado aquí lo que contenía datos sensibles.", color: "border-ms-gray-60" },
+  { key: "warn",  label: "Avisar",             desc: "El usuario ve un aviso y decide si envía. Desde Outlook/móvil solo se registra.", color: "border-amber-400" },
+  { key: "block", label: "Bloquear a externos", desc: "Cédulas, tarjetas, IBAN y cuentas NO salen a dominios externos (webmail y Outlook/móvil). Solo un administrador puede forzar el envío con motivo. Recomendado.", color: "border-red-500" },
+];
+const BLOCK_TYPES = ["cedula", "tarjeta", "iban", "cuenta"];
+function detectLevel(c: DlpCfg): Level {
+  if (!c.enabled) return "off";
+  const acts = Object.keys(c.rules).map((k) => c.rules[k]?.enabled === false ? "off" : (c.rules[k]?.action || c.default_action));
+  const all = (a: string) => acts.length > 0 && acts.every((x) => x === a);
+  if (c.default_action === "audit" && all("audit")) return "audit";
+  if (c.default_action === "warn" && all("warn")) return "warn";
+  const isBlock = BLOCK_TYPES.every((k) => (c.rules[k]?.action || c.default_action) === "block" && c.rules[k]?.enabled !== false)
+    && ["ruc", "keyword"].every((k) => (c.rules[k]?.action || c.default_action) !== "block");
+  if (isBlock && c.milter_enforce) return "block";
+  return "custom";
+}
+function applyLevel(c: DlpCfg, lv: Level): DlpCfg {
+  const keys = ["cedula", "ruc", "tarjeta", "iban", "cuenta", "keyword"];
+  const rules: Record<string, Rule> = {};
+  if (lv === "off") return { ...c, enabled: false };
+  if (lv === "audit" || lv === "warn") {
+    keys.forEach((k) => (rules[k] = { enabled: true, action: lv }));
+    return { ...c, enabled: true, default_action: lv, rules, milter_enforce: false };
+  }
+  if (lv === "block") {
+    keys.forEach((k) => (rules[k] = { enabled: true, action: BLOCK_TYPES.includes(k) ? "block" : "warn" }));
+    return { ...c, enabled: true, default_action: "warn", rules, milter_enforce: true, scan_attachments: true };
+  }
+  return c;
 }
 
 const DATA_TYPES: { key: string; label: string; desc: string; icon: string }[] = [
@@ -26,11 +65,21 @@ const DATA_TYPES: { key: string; label: string; desc: string; icon: string }[] =
 
 const ACTION_LABEL: Record<string, string> = {
   warn: "Advertir y dejar decidir", block: "Bloquear el envío", audit: "Solo registrar",
+  milter_log: "Outlook/móvil · registrado", milter_warn: "Outlook/móvil · registrado", milter_audit: "Outlook/móvil · registrado",
+  milter_block: "Outlook/móvil · registrado (sin rechazo)", milter_reject: "Outlook/móvil · rechazado",
 };
 const inputCls = "w-full px-3 py-2 border border-ms-gray-30 rounded text-sm";
 
 export function DlpConfig() {
-  const [cfg, setCfg] = useState<DlpCfg>({ enabled: true, default_action: "warn", rules: {}, keywords: [] });
+  const [cfg, setCfg] = useState<DlpCfg>({ enabled: true, default_action: "warn", rules: {}, keywords: [], milter_enforce: false, scan_attachments: true, trusted_domains: [] });
+  const [newDom, setNewDom] = useState("");
+  const level = detectLevel(cfg);
+  const addDom = () => {
+    const v = newDom.trim().toLowerCase().replace(/^@/, "");
+    if (v && !cfg.trusted_domains.includes(v)) setCfg({ ...cfg, trusted_domains: [...cfg.trusted_domains, v] });
+    setNewDom("");
+  };
+  const removeDom = (d: string) => setCfg({ ...cfg, trusted_domains: cfg.trusted_domains.filter((x) => x !== d) });
   const [violations, setViolations] = useState<Violation[]>([]);
   const [newKw, setNewKw] = useState("");
   const [loading, setLoading] = useState(true);
@@ -99,6 +148,27 @@ export function DlpConfig() {
         <p className="mt-2">Todo se revisa <b>dentro de tus servidores</b>; nada se manda a terceros.</p>
       </div>
 
+      {/* Nivel de seguridad (presets) */}
+      <div className="bg-white border border-ms-gray-30 rounded-lg p-5 mb-5">
+        <div className="text-sm font-medium text-ms-gray-160 mb-1">Nivel de seguridad</div>
+        <p className="text-xs text-ms-gray-110 mb-3">Elige un nivel y pulsa <b>Guardar cambios</b>. Aplica al webmail y a Outlook/móvil. Abajo puedes afinar cada detalle.</p>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+          {LEVELS.map((l) => (
+            <button key={l.key} type="button" onClick={() => setCfg(applyLevel(cfg, l.key))}
+              title={l.desc}
+              className={`text-left border-2 rounded-lg p-3 ${l.color} ${level === l.key ? "bg-blue-50 ring-2 ring-ms-blue" : "bg-white hover:bg-ms-gray-10"}`}>
+              <div className="text-sm font-semibold text-ms-gray-160">{l.label}{l.key === "block" ? " ★" : ""}</div>
+              <div className="text-xs text-ms-gray-110 mt-1">{l.desc}</div>
+            </button>
+          ))}
+        </div>
+        {level === "custom" && <div className="text-xs text-amber-700 mt-2">Configuración personalizada (no coincide con ningún nivel predefinido).</div>}
+        <div className="mt-3 text-sm">
+          Estado actual: {cfg.enabled ? <span className="text-green-700 font-medium">ACTIVADA</span> : <span className="text-red-600 font-medium">DESACTIVADA</span>}
+          {cfg.enabled && <span className="text-ms-gray-110"> · Outlook/móvil: {cfg.milter_enforce ? "rechaza en servidor" : "solo registra"} · Adjuntos: {cfg.scan_attachments ? "se revisan" : "no se revisan"}</span>}
+        </div>
+      </div>
+
       <div className="bg-white border border-ms-gray-30 rounded-lg p-5 space-y-5">
         {/* Interruptor maestro */}
         <label className="flex items-center gap-3 text-sm font-medium text-ms-gray-160">
@@ -147,6 +217,44 @@ export function DlpConfig() {
                   <option value="audit">Solo registrar</option>
                 </select>
               </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Alcance: Outlook/móvil y adjuntos */}
+        <div className={cfg.enabled ? "space-y-2" : "opacity-50 pointer-events-none space-y-2"}>
+          <div className="text-sm font-medium text-ms-gray-130">Alcance</div>
+          <label className="flex items-center gap-3 text-sm text-ms-gray-160">
+            <input type="checkbox" className="w-4 h-4" checked={cfg.milter_enforce}
+              title="Activado: los correos enviados desde Outlook, celular u otro programa que contengan datos con acción «Bloquear» hacia externos son rechazados por el servidor (el usuario recibe un rebote explicando el motivo). Desactivado: solo se registran."
+              onChange={(e) => setCfg({ ...cfg, milter_enforce: e.target.checked })} />
+            <span>Rechazar también en <b>Outlook / móvil</b> (bloqueo en el servidor de correo)</span>
+          </label>
+          <label className="flex items-center gap-3 text-sm text-ms-gray-160">
+            <input type="checkbox" className="w-4 h-4" checked={cfg.scan_attachments}
+              title="Activado: se revisa el contenido de los adjuntos (Word, Excel, PDF, ZIP, texto) buscando los mismos datos sensibles. Imágenes y ZIP con contraseña se marcan como «no inspeccionable»."
+              onChange={(e) => setCfg({ ...cfg, scan_attachments: e.target.checked })} />
+            <span>Revisar el contenido de los <b>adjuntos</b> (Word, Excel, PDF, ZIP)</span>
+          </label>
+          <p className="text-xs text-ms-gray-110">El bloqueo solo aplica a destinatarios <b>externos</b>; entre cuentas de Maquita únicamente se avisa.</p>
+        </div>
+
+        {/* Dominios de confianza */}
+        <div className={cfg.enabled ? "" : "opacity-50 pointer-events-none"}>
+          <label className="block text-sm font-medium text-ms-gray-130 mb-1">Dominios externos de confianza</label>
+          <p className="text-xs text-ms-gray-110 mb-2">Se tratan como internos: no se bloquea el envío hacia ellos (ej. cooperantes, universidades aliadas).</p>
+          <div className="flex gap-2 mb-2">
+            <input className={inputCls} placeholder="ej. uide.edu.ec" value={newDom} onChange={(e) => setNewDom(e.target.value)}
+              title="Escribe el dominio (sin @) y pulsa Enter o Agregar."
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addDom(); } }} />
+            <button onClick={addDom} className="px-3 py-2 bg-ms-gray-20 text-ms-gray-160 rounded text-sm whitespace-nowrap">Agregar</button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {cfg.trusted_domains.length === 0 && <span className="text-xs text-ms-gray-110">Sin dominios de confianza.</span>}
+            {cfg.trusted_domains.map((d) => (
+              <span key={d} className="inline-flex items-center gap-1 bg-green-50 border border-green-200 text-ms-gray-160 text-xs rounded-full pl-3 pr-1 py-1">
+                {d}<button onClick={() => removeDom(d)} className="w-4 h-4 rounded-full hover:bg-green-200 text-ms-gray-110">×</button>
+              </span>
             ))}
           </div>
         </div>
@@ -217,6 +325,8 @@ export function DlpConfig() {
                       v.action === "warn" ? "bg-amber-100 text-amber-700" : "bg-ms-gray-20 text-ms-gray-130"}`}>
                       {ACTION_LABEL[v.action] || v.action}{v.overridden ? " · envió igual" : ""}
                     </span>
+                    {v.external && <span className="ml-1 text-xs rounded px-2 py-0.5 bg-purple-100 text-purple-700">externo</span>}
+                    {v.reason && <div className="text-xs text-ms-gray-110 mt-1">Motivo: {v.reason}</div>}
                   </td>
                 </tr>
               ))}
