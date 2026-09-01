@@ -26,6 +26,7 @@ router = APIRouter(prefix="/api/mail", tags=["mail"])
 class ComposeRequest(BaseModel):
     to: list[str]
     subject: str
+    sensitivity: str = ""
     html_body: str = ""
     text_body: str = ""
     cc: list[str] | None = None

@@ -6,6 +6,7 @@ use como redirector abierto: enlaces sin firma válida SIEMPRE muestran aviso.
 import base64
 import hashlib
 import hmac
+import html as html_lib
 import re
 
 from app.config import get_settings
@@ -33,7 +34,11 @@ def verify(u_b64: str, sig: str) -> bool:
 
 
 def gateway_link(url: str) -> str:
-    ub = encode_url(url)
+    # El href viene del HTML del correo, donde "&" se escribe "&amp;". Hay que
+    # deshacer las entidades ANTES de codificar: si no, el destino recibe
+    # "&amp;token=..." y lee un parametro "amp;token" en vez de "token"
+    # (rompia activaciones y restablecimientos de clave con varios parametros).
+    ub = encode_url(html_lib.unescape(url))
     base = (get_settings().public_base_url or "https://mail.maquita.org").rstrip("/")
     return f"{base}/api/safelink?u={ub}&s={sign(ub)}"
 

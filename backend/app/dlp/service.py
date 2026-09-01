@@ -32,7 +32,9 @@ def _strip_html(html: str) -> str:
 
 async def get_config(db) -> dict:
     try:
-        row = await db.fetchrow("SELECT enabled, default_action, rules FROM dlp_config WHERE id = 1")
+        row = await db.fetchrow("SELECT enabled, default_action, rules, "
+                                "COALESCE(milter_enforce,false) AS milter_enforce, "
+                                "COALESCE(scan_attachments,true) AS scan_attachments FROM dlp_config WHERE id = 1")
     except Exception:
         return {"enabled": False, "default_action": "warn", "rules": dict(DEFAULT_RULES)}
     if not row:
@@ -48,7 +50,9 @@ async def get_config(db) -> dict:
         merged[k] = {**DEFAULT_RULES.get(k, {"enabled": True, "action": None}), **(v or {})}
     return {"enabled": bool(row["enabled"]),
             "default_action": row["default_action"] or "warn",
-            "rules": merged}
+            "rules": merged,
+            "milter_enforce": bool(row["milter_enforce"]),
+            "scan_attachments": bool(row["scan_attachments"])}
 
 
 async def get_keywords(db) -> list[str]:
@@ -88,16 +92,17 @@ async def scan(db, subject: str = "", text_body: str = "", html_body: str = "") 
 
 
 async def log_violation(db, username: str, recipients, subject: str,
-                        findings: list[dict], action: str, overridden: bool) -> None:
+                        findings: list[dict], action: str, overridden: bool,
+                        reason: str | None = None, external: bool = False) -> None:
     try:
         await db.execute(
-            "INSERT INTO dlp_violations (username, recipients, subject, data_types, action, overridden) "
-            "VALUES ($1, $2, $3, $4, $5, $6)",
+            "INSERT INTO dlp_violations (username, recipients, subject, data_types, action, overridden, reason, external) "
+            "VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
             username,
             json.dumps(recipients if isinstance(recipients, list) else [recipients]),
             (subject or "")[:500],
             json.dumps(sorted({f["type"] for f in findings})),
-            action, overridden,
+            action, overridden, (reason or None), bool(external),
         )
     except Exception:
         pass  # auditoria nunca debe romper el envio

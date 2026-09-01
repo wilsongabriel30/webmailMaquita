@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import PlainTextResponse
 
 from app.auth.dependencies import get_current_user
+from app.calendar import puente_meet
 from app.calendar.schemas import (
     CalendarCreate,
     CalendarOut,
@@ -118,7 +119,8 @@ async def create_event(
 ):
     db = _db(request)
     try:
-        return await calendar_service.create_event(db, user, data)
+        ev = await calendar_service.create_event(db, user, data)
+        return await puente_meet.tras_crear(db, user, ev, data, request)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -132,7 +134,9 @@ async def update_event(
 ):
     db = _db(request)
     try:
-        return await calendar_service.update_event(db, user, event_id, data)
+        ev = await calendar_service.update_event(db, user, event_id, data)
+        await puente_meet.tras_actualizar(ev, request)
+        return await calendar_service.get_event(db, user, event_id)   # con reunion_id / meet_url
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -159,7 +163,9 @@ async def delete_event(
 ):
     db = _db(request)
     try:
+        previo = await puente_meet.antes_de_eliminar(db, user, event_id)
         await calendar_service.delete_event(db, user, event_id)
+        await puente_meet.tras_eliminar(previo, request)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 

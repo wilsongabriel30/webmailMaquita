@@ -52,6 +52,7 @@ from app.identities.router import router as identities_router
 from app.websocket.router import router as ws_router, start_redis_subscriber
 from app.mail.routers.export import router as export_router
 from app.auth.totp import router as totp_router
+from app.auth.totp_policy import router as totp_policy_router
 from app.calendar.router import router as calendar_router
 from app.mail.routers.shared import router as shared_mail_router
 from app.webhooks.router import router as webhooks_router
@@ -68,6 +69,9 @@ from app.retention.router import router as retention_router
 from app.gal.router import router as gal_router
 from app.rooms.router import router as rooms_router
 from app.tasks.router import router as tasks_router
+from app.tareas.router import router as tareas_router
+from app.telemetria.router import router as telemetria_router, asegurar_tabla as asegurar_tabla_telemetria
+from app.tareas.modelos import asegurar_tablas as asegurar_tablas_tareas
 from app.presence.router import router as presence_router
 from app.nextcloud.router import router as nextcloud_router
 from app.branding.router import router as branding_router
@@ -263,6 +267,8 @@ async def lifespan(app: FastAPI):
         await _ddl_conn.execute("SELECT pg_advisory_lock(815000)")
         try:
             await ensure_task_tables(app.state.db_pool)
+            await asegurar_tablas_tareas(app.state.db_pool)   # T-34
+            await asegurar_tabla_telemetria(app.state.db_pool)   # telemetría de la app
         finally:
             await _ddl_conn.execute("SELECT pg_advisory_unlock(815000)")
     # ── Validación MIME al arranque (protección anti-spam) ──
@@ -471,10 +477,18 @@ app.add_middleware(
 async def global_exception_handler(request, exc):
     """Return JSON for unhandled exceptions instead of plain text."""
     import traceback
-    security_logger.error(f"Unhandled exception: {exc}\n{traceback.format_exc()}")
+    security_logger.error(f"Unhandled exception en {request.method} {request.url.path}: {exc}\n{traceback.format_exc()}")
+    # T-39 (28/08/2026): el login y el resto de /api/auth JAMÁS responden 500: excepción interna capturada y anotada,
+    # respuesta 503 con mensaje claro y marca «reintentar» para que el cliente lo trate como transitorio.
+    if request.url.path.startswith("/api/auth/"):
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "El servidor de correo tuvo un problema momentáneo; vuelve a intentarlo en unos segundos.", "reintentar": True},
+            headers={"Retry-After": "5"},
+        )
     return JSONResponse(
         status_code=500,
-        content={"detail": "Error interno del servidor"}
+        content={"detail": "Error interno del servidor", "reintentar": True}
     )
 
 
@@ -523,6 +537,7 @@ app.include_router(identities_router)
 app.include_router(ws_router)
 app.include_router(export_router)
 app.include_router(totp_router)
+app.include_router(totp_policy_router)
 app.include_router(calendar_router)
 app.include_router(shared_mail_router)
 app.include_router(webhooks_router)
@@ -539,6 +554,8 @@ app.include_router(smime_router)
 app.include_router(sso_router)
 app.include_router(meetings_router)
 app.include_router(tasks_router, prefix="/api/tasks", tags=["tasks"])
+app.include_router(tareas_router, prefix="/api/tareas", tags=["tareas"])  # T-34
+app.include_router(telemetria_router, prefix="/api/telemetria", tags=["telemetria"])  # cliente Windows
 app.include_router(presence_router)
 app.include_router(nextcloud_router)
 app.include_router(branding_router)

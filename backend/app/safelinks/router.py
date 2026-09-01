@@ -23,7 +23,9 @@ async def safelink(request: Request, u: str = "", s: str = "", go: int = 0):
     db = request.app.state.db_pool
     ip = _ip(request)
     try:
-        url = rewriter.decode_url(u)
+        # unescape defensivo: los enlaces firmados antes de 2026-08-05 llevan
+        # las entidades HTML sin deshacer (&amp;) y se abrian sin sus parametros.
+        url = html_lib.unescape(rewriter.decode_url(u))
     except Exception:
         return HTMLResponse(_warn_page("", "Enlace inválido", "blocked", None), status_code=400)
 

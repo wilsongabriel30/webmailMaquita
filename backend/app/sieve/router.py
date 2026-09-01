@@ -840,7 +840,7 @@ async def preview_filter(
             # contains / matches — use HEADER search (substring match)
             search_cmd = f'HEADER {imap_header} "{value}"'
 
-        search_resp = await imap.uid("search", search_cmd)
+        search_resp = await imap.uid_search(search_cmd)
         matching_uids = []
         if search_resp.result == "OK":
             for line in search_resp.lines:
