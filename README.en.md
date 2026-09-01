@@ -138,7 +138,9 @@ Maquita Webmail solves all four.
 - Calendar (CalDAV via SOGo)
 - Contacts (CardDAV via SOGo)
 - Kanban-style task boards
-- Two-factor authentication (TOTP)
+- Two-factor authentication (TOTP), with optional enforcement by date
+- Automatic app updates (service worker): users get improvements without a manual reload
+- Outbox with send retry
 - Encryption of mail at rest (Dovecot mail_crypt)
 
 ### Compliance and eDiscovery
@@ -154,6 +156,11 @@ Maquita Webmail solves all four.
 - SPF, DKIM, DMARC validation and reporting
 - MTA-STS and DANE/TLSA support
 - Rspamd integration for spam scoring and filtering
+- **Targeted anti-impersonation**: blocks external mail spoofing institutional brands or internal roles (accounting, HR, IT, management) in the display name; managed from the panel
+- **Outbound DLP** (national ID, tax ID, IBAN, card): scans outgoing mail and attachments, reinforced via milter so it also applies to Outlook and mobile
+- **Sensitivity labels** (Public/Internal/Confidential/Restricted): mark the message and block external delivery for the two highest
+- **Audited administrative mailbox access**: support opens a mailbox on request, logging who, what, when and from which IP
+- Compromised-account protection: automatic bulk-send detection with containment and alerting
 
 ### AI features (optional)
 - Smart reply suggestions (Ollama, local inference)
@@ -284,16 +291,15 @@ cat README.md      # configuration instructions
 bash instalar.sh
 ```
 
-## Cloud files and online office (Nextcloud + OnlyOffice) — optional
+## Cloud files and online office (Almacén / Maquita Drive) — built in
 
-Optionally you can integrate **Nextcloud** (cloud storage, files, sharing, large
-attachments) and, inside it, **OnlyOffice** (edit Word/Excel/PowerPoint documents in
-the browser). The webmail already ships the integration via the `NC_*` and
-`ONLYOFFICE_*` variables in `.env`.
+The system ships **Almacén** ("Maquita Drive"), a self-hosted Drive (no Nextcloud
+required) with folders, link sharing, trash, versions, content search, auditing and
+built-in **forms** (Google Forms style). It bundles **OnlyOffice** to edit
+Word/Excel/PowerPoint documents in the browser. See the `almacen/` folder and its
+own README/docs.
 
-> This is an **optional recommendation**; the step-by-step configuration guide will be
-> added later. Summary in [`docs/INSTALL-NATIVE.md`](docs/INSTALL-NATIVE.md)
-> ("Optional components" section).
+> The former Nextcloud integration is discontinued.
 
 ## Upgrading to a new version
 
