@@ -24,6 +24,8 @@ Maquita Webmail is two things in a single repository:
 
 It does not replace your MTA or IMAP server. It runs **alongside them**, connecting to Postfix, Dovecot, Rspamd and PostgreSQL to offer a unified interface for users and compliance officers.
 
+> **The ecosystem.** The webmail is one piece of a broader **free, self-hosted** corporate platform (collaboration, management, data and local AI), all on your own servers. See **[The Maquita suite](docs/SUITE-MAQUITA.md)** — what each part is, what it does and what it is for. *(In Spanish.)*
+
 ## Philosophy: native, robust, reproducible
 
 The whole system runs **natively, directly on the operating system** (Debian 13 or similar): webmail, Postfix, Dovecot, PostgreSQL, Redis and SOGo. **It does not rely on Docker.** It is designed to be **reproducible and installable by anyone** on their own Debian server — even by students — with a single script.
@@ -380,6 +382,7 @@ To report a security vulnerability, email security@maquita.org. Do not open a pu
 
 Detailed documentation in the `docs/` directory (currently in Spanish):
 
+- [`docs/SUITE-MAQUITA.md`](docs/SUITE-MAQUITA.md) — **the full Maquita suite**: what each component is (mail, collaboration, management, data and AI) and what it is for *(in Spanish)*
 - `docs/INSTALL-NATIVE.md` — native install guide (recommended)
 - `docs/CONFIGURAR-DNS.md` — DNS/domain step by step (A, MX, SPF, DKIM, DMARC, PTR) for beginners
 - `docs/ENTREGABILIDAD.md` — how to reach 10/10 deliverability and avoid spam (MTA-STS, TLS-RPT, DANE, BIMI, blocklists)
