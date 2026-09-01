@@ -40,6 +40,8 @@ echo "Fecha: $(date '+%Y-%m-%d %H:%M:%S')"
 # --- Paso 1: Build ---
 echo -e "\n${YELLOW}[1/5] Building frontend...${NC}"
 cd "${FRONTEND_DIR}"
+# T-35: cada publicación renueva la caché del service worker (arranque sin red con la portada vigente)
+sed -i "s/maquita-mail-v[0-9A-Za-z-]*/maquita-mail-v$(date +%Y%m%d%H%M)/" public/sw.js
 npm run build 2>&1 | tail -5
 
 # --- Paso 2: Verificar que el build generó archivos ---
@@ -140,6 +142,19 @@ else
     echo "Backup disponible en: ${BACKUP_DIR}/webmail-${TIMESTAMP}.tar.gz"
     echo "Para restaurar: tar xzf ${BACKUP_DIR}/webmail-${TIMESTAMP}.tar.gz -C ${WWW_DIR}"
     exit 1
+fi
+
+# --- Paso 7: EL CANDADO (T-29) — pruebas de humo obligatorias tras desplegar ---
+if [ "${SIN_CANDADO:-0}" != "1" ] && [ -x /usr/local/bin/candado ]; then
+    echo -e "\n${YELLOW}[candado] pruebas de humo en modo app...${NC}"
+    if /usr/local/bin/candado ${CANDADO_ALCANCE:-todo}; then
+        echo -e "${GREEN}Candado en verde: el despliegue queda confirmado.${NC}"
+    else
+        echo -e "${RED}CANDADO EN ROJO tras el despliegue.${NC}"
+        echo "Regla T-29: se arregla o se revierte; no se deja pasar."
+        echo "Respaldo para revertir: ${BACKUP_DIR}/webmail-${TIMESTAMP}.tar.gz"
+        exit 1
+    fi
 fi
 
 echo -e "\n${GREEN}=== Deploy completado exitosamente ===${NC}"
