@@ -262,19 +262,16 @@ sudo nginx -t && sudo systemctl reload nginx
   Deja `IA_API_KEY` en blanco salvo que pongas un gateway de autenticación delante de Ollama.
 - **Filtrado de spam:** agrega rspamd e intégralo en Postfix como milter.
 - **Sincronización con móviles (ActiveSync):** ver `deploy/z-push/` (único componente en Docker).
-- **Nube de archivos + ofimática en línea (Nextcloud + OnlyOffice) — sugerido:**
-  Para almacenamiento en la nube (archivos, adjuntos grandes, compartir) puedes
-  instalar **[Nextcloud](https://nextcloud.com)**, y dentro de él
-  **[OnlyOffice](https://www.onlyoffice.com)** para editar documentos de oficina
-  (Word/Excel/PowerPoint) en línea desde el navegador. El webmail ya trae la
-  integración (variables `NC_BASE_URL`, `NC_ADMIN_USER`, `NC_ADMIN_PASS`,
-  `NC_PUBLIC_URL`, `ONLYOFFICE_URL`, `ONLYOFFICE_SECRET`,
-  `ONLYOFFICE_DOWNLOAD_SECRET` en `.env`).
+- **Nube de archivos + ofimática en línea — integrado (Almacén):**
+  El sistema incluye **Almacén** («Drive Maquita»): almacenamiento propio con
+  carpetas, compartir, papelera, versiones, búsqueda, auditoría y **OnlyOffice**
+  integrado para editar documentos (Word/Excel/PowerPoint) en el navegador. **No
+  requiere Nextcloud.** Ver la carpeta `almacen/` y su `README`.
 
-  > Es **opcional** y aún no documentamos la configuración paso a paso (lo
-  > añadiremos cuando lo tengamos afinado). Por ahora queda como recomendación:
-  > Nextcloud para la nube y OnlyOffice (instalado como app/conector dentro de
-  > Nextcloud) para la ofimática en línea.
+  > **Integración heredada (en retiro):** el webmail todavía puede apoyarse en un
+  > Nextcloud externo **solo para adjuntos grandes** (variables `NC_*` /
+  > `ONLYOFFICE_*` en `.env`); esa vía está **en migración al Almacén** y no
+  > se recomienda para instalaciones nuevas.
 
 ## 8. Verificar
 
