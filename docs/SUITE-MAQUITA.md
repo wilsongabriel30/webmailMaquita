@@ -133,3 +133,22 @@ que una organización necesita para trabajar: comunicarse, colaborar, gestionars
 analizar sus datos y apoyarse en IA — **con el dato siempre en casa** y **sin pagar
 una licencia por cada persona**. Está hecha por y para una fundación, y se comparte
 para que otras comunidades y organizaciones puedan hacer lo mismo.
+
+## Con honestidad
+
+Hoy cubre el **puesto de trabajo colaborativo completo** —correo, ofimática en línea,
+archivos en la nube, chat, videollamadas, calendario, formularios e IA— y además
+**suma la gestión (ERP): nómina, finanzas, RR.HH. y más**, algo que las suites
+comerciales de oficina no traen. Para una organización, **el día a día ya se puede
+vivir enteramente aquí**.
+
+Lo que todavía falta para cubrirlo *todo* —y lo decimos sin adornos—:
+
+- **Gestión centralizada de equipos y dispositivos** (portátiles y móviles: políticas,
+  inventario, borrado remoto).
+- **Telefonía** (llamadas a números de teléfono convencionales).
+- **Escala muy grande**: está probada con cientos de usuarios, no con decenas de miles
+  concurrentes.
+
+En resumen: para el trabajo colaborativo, **ya es una alternativa completa y soberana**;
+para el puesto de trabajo *entero* (incluidos los dispositivos), **está muy cerca**.
