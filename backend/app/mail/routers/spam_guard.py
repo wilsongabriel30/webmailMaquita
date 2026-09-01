@@ -416,6 +416,23 @@ async def report_spam(
                 await _phsvc.mark_reports_from_imap(imap, folder, uids, db)
             except Exception:
                 pass
+            # ANTES de mover: descargar el mensaje y ENSENARSELO al filtro,
+            # para que aprenda y los correos parecidos ya no lleguen.
+            # (Agregado 2026-08-25: sin esto solo se movia a Junk y el filtro
+            #  no aprendia nada; ver services/spam_learning.py)
+            try:
+                from app.mail.clients.imap_client import fetch_raw_message
+                from app.mail.services.spam_learning import aprender_spam
+                for _uid in uids:
+                    _crudo = await fetch_raw_message(imap, folder, _uid)
+                    if _crudo:
+                        if isinstance(_crudo, str):
+                            _crudo = _crudo.encode("utf-8", errors="ignore")
+                        await aprender_spam(_crudo)
+            except Exception:
+                # El aprendizaje es secundario: si falla, se sigue moviendo a Junk.
+                pass
+
             ok = await uid_bulk_action(imap, folder, uids, "move", "Junk")
             if ok:
                 moved = len(uids)

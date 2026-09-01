@@ -1,4 +1,5 @@
 """Compose router — send, drafts, upload attachments, schedule."""
+import asyncio
 import base64
 import re
 import nh3
@@ -109,13 +110,25 @@ async def send(
 
     # -- DLP: prevencion de fuga de datos sensibles (salientes) --
     from app.dlp import service as dlp_service
+    from app.dlp import policy as dlp_policy
     _dlp_db = request.app.state.db_pool
     _dlp = await dlp_service.scan(_dlp_db, body.subject, body.text_body, body.html_body)
     if _dlp["findings"]:
-        if _dlp["action"] == "block" and not getattr(body, "dlp_override", False):
-            await dlp_service.log_violation(_dlp_db, username, all_rcpts, body.subject, _dlp["findings"], "block", False)
-            raise HTTPException(status_code=422, detail={"dlp_blocked": True, "findings": _dlp["findings"]})
-        await dlp_service.log_violation(_dlp_db, username, all_rcpts, body.subject, _dlp["findings"], _dlp["action"], bool(getattr(body, "dlp_override", False)))
+        _dlp = await dlp_policy.decide(_dlp_db, _dlp, all_rcpts, await dlp_policy.is_admin(_dlp_db, username))
+        _ext = bool(_dlp.get("external"))
+        _ovr = bool(getattr(body, "dlp_override", False))
+        _reason = (getattr(body, "dlp_reason", None) or "").strip()[:300]
+        if _dlp["action"] == "block":
+            # Solo un administrador puede forzar el envio a externos, y con motivo.
+            if not (_ovr and _dlp.get("can_override") and _reason):
+                await dlp_service.log_violation(_dlp_db, username, all_rcpts, body.subject,
+                                                _dlp["findings"], "block", False, None, _ext)
+                raise HTTPException(status_code=422, detail={
+                    "dlp_blocked": True, "findings": _dlp["findings"],
+                    "external": _dlp.get("external", []),
+                    "can_override": bool(_dlp.get("can_override"))})
+        await dlp_service.log_violation(_dlp_db, username, all_rcpts, body.subject,
+                                        _dlp["findings"], _dlp["action"], _ovr, _reason or None, _ext)
 
     # -- Communication Compliance: monitoreo segun politicas (no bloquea) --
     try:
@@ -124,6 +137,22 @@ async def send(
                               body.subject, body.text_body, body.html_body)
     except Exception:
         pass
+
+    # -- Etiqueta de sensibilidad: control de salida (B) + marca visible (A) --
+    from app.mail import sensitivity as _sens
+    _label = _sens.normalize(getattr(body, "sensitivity", ""))
+    if _label and _sens.blocks_external(_label):
+        _sx = await dlp_policy.external_recipients(_dlp_db, all_rcpts)
+        if _sx:
+            _sovr = bool(getattr(body, "dlp_override", False))
+            _sreason = (getattr(body, "dlp_reason", None) or "").strip()
+            _scan_ovr = await dlp_policy.is_admin(_dlp_db, username)
+            if not (_sovr and _scan_ovr and _sreason):
+                raise HTTPException(status_code=422, detail={
+                    "sensitivity_blocked": True, "label": _label,
+                    "external": _sx, "can_override": _scan_ovr})
+    if _label:
+        body.html_body = _sens.banner_html(_label) + (body.html_body or "")
 
     login_user = await get_imap_login_user(request, username)
     imap = await get_imap_connection(login_user, password)
@@ -163,6 +192,37 @@ async def send(
         if large_links_html:
             links_block = "<br>".join(large_links_html)
             body.html_body = (body.html_body or "") + "<br>" + links_block
+
+        # -- DLP Nivel 2: datos sensibles DENTRO de los adjuntos (fail-open) --
+        if attachments and (await dlp_service.get_config(_dlp_db)).get("scan_attachments", True):
+            try:
+                from app.dlp import attachments as dlp_att
+                _txt, _unins = await asyncio.to_thread(dlp_att.extract_all, attachments)
+                _d2 = await dlp_service.scan(_dlp_db, "", _txt, "") if _txt else {"findings": [], "action": "allow"}
+                for _f in _d2["findings"]:
+                    _f["label"] = _f["label"] + " (en adjunto)"
+                if _unins:
+                    _d2["findings"].append({"type": "adjunto", "label": "Adjunto no inspeccionable: " + "; ".join(_unins[:5]),
+                                            "sample": "", "count": len(_unins), "action": "warn"})
+                if _d2["findings"]:
+                    _d2["action"] = max((f["action"] for f in _d2["findings"]),
+                                        key=lambda a: {"allow": 0, "audit": 1, "warn": 2, "block": 3}.get(a, 0))
+                    _d2 = await dlp_policy.decide(_dlp_db, _d2, all_rcpts, await dlp_policy.is_admin(_dlp_db, username))
+                    _ext2 = bool(_d2.get("external"))
+                    _ovr2 = bool(getattr(body, "dlp_override", False))
+                    _reason2 = (getattr(body, "dlp_reason", None) or "").strip()[:300]
+                    if _d2["action"] == "block" and not (_ovr2 and _d2.get("can_override") and _reason2):
+                        await dlp_service.log_violation(_dlp_db, username, all_rcpts, body.subject,
+                                                        _d2["findings"], "block", False, None, _ext2)
+                        raise HTTPException(status_code=422, detail={
+                            "dlp_blocked": True, "findings": _d2["findings"],
+                            "external": _d2.get("external", []), "can_override": bool(_d2.get("can_override"))})
+                    await dlp_service.log_violation(_dlp_db, username, all_rcpts, body.subject,
+                                                    _d2["findings"], _d2["action"], _ovr2, _reason2 or None, _ext2)
+            except HTTPException:
+                raise
+            except Exception:
+                pass
 
         # Anti-malware de adjuntos salientes (safeattach: ClamAV + oletools + file-type).
         # Escanea y registra; bloquea solo si es malicioso Y enforce. Fail-open.

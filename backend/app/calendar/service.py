@@ -1,6 +1,8 @@
 """CalendarService — dual-write to Radicale + PostgreSQL."""
 from __future__ import annotations
 
+import re
+
 from app.core.sanitize import strip_html, sanitize_html
 
 import json
@@ -64,6 +66,19 @@ def _row_to_calendar(row: asyncpg.Record) -> CalendarOut:
     )
 
 
+def _reunion_id_de(descripcion) -> Optional[int]:
+    """T-30: número de la marca X-MAQUITA-REUNION: <id> en la descripción (o None)."""
+    m = re.search(r"X-MAQUITA-REUNION:\s*(\d+)", descripcion or "")
+    return int(m.group(1)) if m else None
+
+
+def _meet_url_de(descripcion, location) -> str:
+    m = re.search(r"Meet Maquita:\s*(\S+)", descripcion or "")
+    if m:
+        return m.group(1)
+    return location if re.match(r"https?://meet\.", location or "") else ""
+
+
 def _row_to_event(row: asyncpg.Record) -> EventOut:
     reminders = row["reminders"]
     if isinstance(reminders, str):
@@ -88,6 +103,8 @@ def _row_to_event(row: asyncpg.Record) -> EventOut:
         timezone=row["timezone"] or "America/Guayaquil",
         reminders=reminders if reminders else [],
         attendees=attendees if attendees else [],
+        reunion_id=_reunion_id_de(row["description"]),
+        meet_url=_meet_url_de(row["description"], row["location"]),
     )
 
 

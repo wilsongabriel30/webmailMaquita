@@ -43,6 +43,50 @@ def _authenticate_ws(websocket: WebSocket) -> str | None:
     return payload.get("sub")
 
 
+
+
+async def _ultimo_sin_leer(imap) -> int | None:
+    """UID del correo sin leer más reciente de INBOX. Si algo falla, None: el aviso
+    sale igual, apuntando a la bandeja."""
+    try:
+        await imap.select("INBOX")
+        r = await imap.uid_search("UNSEEN")
+        if getattr(r, "result", "") != "OK":
+            return None
+        for linea in (r.lines or []):
+            texto = linea.decode("utf-8", "replace") if isinstance(linea, bytes) else str(linea)
+            uids = [u for u in texto.split() if u.isdigit()]
+            if uids:
+                return int(uids[-1])
+        return None
+    except Exception:
+        return None
+
+
+async def aviso_correo_al_canal(username: str, nuevos: int, sin_leer: int, uid: int | None = None) -> None:
+    """Avisa al canal de notificaciones (lo que ve la app de escritorio) que llegó
+    correo. tipo='correo' y url del webmail; nunca interrumpe la operación."""
+    import os
+    try:
+        secreto = os.getenv('NOTIF_SECRET', '')
+        if not secreto or not username:
+            return
+        texto = ('Tienes 1 correo nuevo' if nuevos == 1 else 'Tienes %d correos nuevos' % nuevos)
+        if sin_leer and sin_leer != nuevos:
+            texto += ' (%d sin leer)' % sin_leer
+        import httpx
+        async with httpx.AsyncClient(timeout=4) as c:
+            await c.post('https://mail.maquita.org/api/chat/notificaciones',
+                         headers={'X-Notif-Secret': secreto},
+                         json={'correos': [username], 'tipo': 'correo',
+                               'titulo': 'Correo nuevo', 'texto': texto,
+                               'url': ('https://mail.maquita.org/webmail/?folder=INBOX&uid=%d' % uid
+                                       if uid else 'https://mail.maquita.org/webmail/'),
+                               'origen': 'correo'})
+    except Exception:
+        pass
+
+
 async def _send_safe(ws: WebSocket, data: dict) -> bool:
     """Send JSON to a WebSocket, return False if connection is dead."""
     try:
@@ -157,6 +201,9 @@ async def _poll_user_inbox(username: str, app_state):
                         "total": total,
                         "delta": unseen - prev,
                     }))
+                    # Aviso al canal del cliente Windows (tipo «correo»)
+                    _uid_nuevo = await _ultimo_sin_leer(imap)
+                    await aviso_correo_al_canal(username, unseen - prev, unseen, _uid_nuevo)
                 elif unseen != prev:
                     # Unseen count changed (read/deleted externally)
                     await redis.publish(f"ws:user:{username}", json.dumps({

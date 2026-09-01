@@ -1,6 +1,14 @@
 """Rendering policy for email HTML — image blocking, CID replacement, link safety."""
 import re
 
+# Desenvoltura de enlaces de rastreo de terceros (ver link_unwrap.py).
+# Agregado 2026-08-24: sustituye los enlaces envueltos por su destino real
+# SOLO al mostrar el mensaje; el correo original queda intacto en el buzon.
+from app.mail.rendering.link_unwrap import desenvolver_enlaces_html
+# Deteccion de los rastreadores que NO se pudieron desenvolver, para avisar
+# al usuario y, si es publicidad, ofrecerle marcarlo como spam.
+from app.mail.rendering.tracker_info import detectar_rastreadores, resumen_para_usuario
+
 
 def apply_render_policy(
     html: str,
@@ -46,4 +54,14 @@ def apply_render_policy(
     html = re.sub(r"<object[^>]*>.*?</object>", "", html, flags=re.DOTALL | re.IGNORECASE)
     html = re.sub(r"<embed[^>]*>", "", html, flags=re.IGNORECASE)
 
-    return {"html": html, "has_remote_images": has_remote_images, "blocked_image_count": blocked_count}
+    # Enlaces de rastreo -> destino real. Si algo falla o no hay ninguno,
+    # devuelve el HTML sin cambios (el modulo nunca lanza excepciones).
+    html, enlaces_desenvueltos = desenvolver_enlaces_html(html)
+
+    # Lo que quede aqui es rastreo que NO se pudo limpiar: se informa.
+    aviso_rastreo = resumen_para_usuario(detectar_rastreadores(html))
+
+    return {"html": html, "has_remote_images": has_remote_images,
+            "blocked_image_count": blocked_count,
+            "unwrapped_link_count": enlaces_desenvueltos,
+            "tracking_notice": aviso_rastreo}

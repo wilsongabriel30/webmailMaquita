@@ -62,6 +62,7 @@ class ComposeRequest(BaseModel):
     identity_id: int | None = None
     reply_to: str | None = None
     dlp_override: bool = False
+    dlp_reason: str | None = None
 
     @field_validator('to', mode='before')
     @classmethod
