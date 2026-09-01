@@ -51,6 +51,7 @@ export function ComposePanel({ win }: Props) {
   const [cc, setCc] = useState('');
   const [bcc, setBcc] = useState('');
   const [subject, setSubject] = useState('');
+  const [sensitivity, setSensitivity] = useState('');
   const [showCc, setShowCc] = useState(false);
   const [showBcc, setShowBcc] = useState(false);
   const [sending, setSending] = useState(false);
@@ -156,14 +157,23 @@ export function ComposePanel({ win }: Props) {
 
   const getFullHtml = useCallback(() => {
     const body = styleTablesForEmail(editor?.getHTML() || '');
-    let html = body;
     // No duplicar: si el cuerpo ya trae la firma (p.ej. un borrador antiguo
     // guardado con la firma incrustada), no la reagregamos.
-    if (signatureHtml && !body.includes('email-signature')) {
-      html += '<div class="email-signature" style="margin-top:12px;color:#605e5c">' + signatureHtml + '</div>';
-    }
-    if (quotedHtml) {
-      html += quotedHtml;
+    const sigBlock = (signatureHtml && !body.includes('email-signature'))
+      ? '<div class="email-signature" style="margin-top:12px;color:#605e5c">' + signatureHtml + '</div>'
+      : '';
+    // 2026-08-31: respetar la posicion de firma elegida (SignatureManager ->
+    // localStorage). 'bottom' = al pie (tras el texto citado); 'before_quote'
+    // (por defecto) = antes del texto citado, comportamiento historico.
+    let posBottom = false;
+    try { posBottom = JSON.parse(localStorage.getItem('maquita_sig_settings') || '{}').position === 'bottom'; } catch { /* sin config */ }
+    let html = body;
+    if (posBottom) {
+      if (quotedHtml) html += quotedHtml;
+      html += sigBlock;
+    } else {
+      html += sigBlock;
+      if (quotedHtml) html += quotedHtml;
     }
     return html;
   }, [editor, signatureHtml, quotedHtml]);
@@ -239,7 +249,16 @@ export function ComposePanel({ win }: Props) {
         } else if (win.data.text_body) {
           setQuotedHtml(`<div style="border-top:1px solid #edebe9;padding-top:10px;margin-top:20px;color:#605e5c"><p>${win.data.text_body.replace(/\n/g, "<br>")}</p></div>`);
         }
-        if (sig) setSignatureHtml(sig);
+        // 2026-08-31 (#2): respetar la preferencia de firma en respuestas/reenvios
+        // que SignatureManager guarda en localStorage. Fallback seguro: incluir.
+        let _incluirFirma = true;
+        try {
+          const _cfg = JSON.parse(localStorage.getItem('maquita_sig_settings') || '{}');
+          _incluirFirma = win.mode === 'forward'
+            ? _cfg.include_in_forward !== false
+            : _cfg.include_in_reply !== false;
+        } catch { /* sin config -> incluir como antes */ }
+        if (sig && _incluirFirma) setSignatureHtml(sig);
         // Smart Reply: prefill_body contiene el texto IA pre-generado
         content = win.data.prefill_body || '<p><br></p>';
 
@@ -373,13 +392,24 @@ export function ComposePanel({ win }: Props) {
     }
     // -- DLP: prevención de fuga de datos sensibles --
     let dlpOverride = false;
+    let dlpReason = '';
     try {
-      const dlp: any = await api.post('/mail/dlp/check', { subject, html_body: getFullHtml(), text_body: '' });
+      const dlpCc = cc ? cc.split(',').map(s => s.trim()).filter(Boolean) : [];
+      const dlpBcc = bcc ? bcc.split(',').map(s => s.trim()).filter(Boolean) : [];
+      const dlp: any = await api.post('/mail/dlp/check', { subject, html_body: getFullHtml(), text_body: '', to: recipients, cc: dlpCc, bcc: dlpBcc });
       if (dlp && Array.isArray(dlp.findings) && dlp.findings.length) {
         const tipos = dlp.findings.map((x: any) => '\u2022 ' + x.label).join('\n');
         if (dlp.action === 'block') {
-          window.alert('\uD83D\uDD12 Env\u00edo bloqueado por Protecci\u00f3n de datos.\n\nEste correo contiene:\n' + tipos + '\n\nQuita esos datos para poder enviarlo.');
-          return;
+          const externos = Array.isArray(dlp.external) && dlp.external.length ? '\n\nDestinatarios externos:\n' + dlp.external.join(', ') : '';
+          if (dlp.can_override) {
+            const motivo = window.prompt('\uD83D\uDD12 Protecci\u00f3n de datos: este correo a destinatarios EXTERNOS contiene:\n' + tipos + externos + '\n\nComo administrador puedes forzar el env\u00edo. Escribe el motivo (queda registrado) o cancela:');
+            if (!motivo || !motivo.trim()) return;
+            dlpOverride = true;
+            dlpReason = motivo.trim();
+          } else {
+            window.alert('\uD83D\uDD12 Env\u00edo bloqueado por Protecci\u00f3n de datos.\n\nEste correo a destinatarios EXTERNOS contiene:\n' + tipos + externos + '\n\nQuita esos datos para poder enviarlo o solicita autorizaci\u00f3n a Tecnolog\u00eda.');
+            return;
+          }
         }
         if (dlp.action === 'warn') {
           const ok = window.confirm('\u26A0\uFE0F Atenci\u00f3n: este correo contiene datos sensibles:\n\n' + tipos + '\n\n\u00bfEnviar de todas formas?');
@@ -393,6 +423,7 @@ export function ComposePanel({ win }: Props) {
       cc: cc ? cc.split(',').map(s => s.trim()).filter(Boolean) : undefined,
       bcc: bcc ? bcc.split(',').map(s => s.trim()).filter(Boolean) : undefined,
       subject, html_body: getFullHtml(), text_body: '',
+      sensitivity: sensitivity || undefined,
       in_reply_to: win.data.in_reply_to || '', references: win.data.references || '',
       attachments: await Promise.all(
         attachments.filter(a => a.file).map(async (a) => ({
@@ -403,6 +434,7 @@ export function ComposePanel({ win }: Props) {
       ),
       draft_uid: win.draftUid,
       dlp_override: dlpOverride,
+      dlp_reason: dlpReason || undefined,
       request_read_receipt: trackingState.read,
       request_delivery_receipt: trackingState.delivery,
     };
@@ -428,7 +460,8 @@ export function ComposePanel({ win }: Props) {
             request_read_receipt: sendPayload.request_read_receipt,
             request_delivery_receipt: sendPayload.request_delivery_receipt,
           });
-          showToast('Sin conexion: correo guardado en bandeja de salida. Se enviara al reconectar.');
+          window.dispatchEvent(new CustomEvent('outbox-cambio'));
+          showToast('Sin internet: el correo quedó en cola y se enviará solo al volver la conexión (aunque cierres la app).');
         } catch { showToast('Error al guardar correo offline'); }
         return;
       }
@@ -436,10 +469,27 @@ export function ComposePanel({ win }: Props) {
       try { await api.post('/mail/send', sendPayload); showToast('Mensaje enviado'); window.dispatchEvent(new CustomEvent('refresh-messages'));
       } catch (err: unknown) {
         const errMsg = err instanceof Error ? err.message : 'Error al enviar';
-        if (errMsg.includes('413')) {
+        if (errMsg.includes('dlp_blocked')) {
+          let tipos = '';
+          try { const d = JSON.parse(errMsg); tipos = (d.findings || []).map((x: any) => '\u2022 ' + x.label).join('\n'); } catch {}
+          window.alert('\uD83D\uDD12 Env\u00edo bloqueado por Protecci\u00f3n de datos (revisi\u00f3n de adjuntos).\n\n' + tipos + '\n\nQuita esos datos de los adjuntos o solicita autorizaci\u00f3n a Tecnolog\u00eda.');
+        } else if (errMsg.includes('413')) {
           showToast(`El correo supera el tamaño máximo (${MAX_ATTACH_MB} MB). Reduce los adjuntos.`);
         } else if (errMsg.includes('Session expired') || errMsg.includes('SMTP expirada') || errMsg.includes('401')) {
           showToast('Sesión expirada. Cierra sesión y vuelve a iniciar.');
+        } else if (!navigator.onLine || /Failed to fetch|NetworkError|Sin conexion|offline|50[234]|timeout|abort/i.test(errMsg)) {
+          // T-35: el servidor no responde o se fue la red a mitad del envío: a la cola persistente, nunca se pierde
+          try {
+            await addToOutbox({
+              to: sendPayload.to, cc: sendPayload.cc, bcc: sendPayload.bcc, subject: sendPayload.subject, html_body: sendPayload.html_body,
+              text_body: sendPayload.text_body, in_reply_to: sendPayload.in_reply_to, references: sendPayload.references,
+              attachments: sendPayload.attachments, request_read_receipt: sendPayload.request_read_receipt, request_delivery_receipt: sendPayload.request_delivery_receipt,
+            });
+            window.dispatchEvent(new CustomEvent('outbox-cambio'));
+            showToast(navigator.onLine ? 'El servidor no responde: el correo quedó en cola y se enviará solo al restablecerse.' : 'Sin internet: el correo quedó en cola y se enviará solo al volver la conexión.');
+            return;
+          } catch { /* si no se pudo encolar, se reabre el borrador abajo */ }
+          showToast('No se pudo enviar ni guardar en cola: ' + errMsg);
         } else {
           showToast('Error al enviar: ' + errMsg);
         }
@@ -959,6 +1009,15 @@ export function ComposePanel({ win }: Props) {
             placeholder="Agregar un asunto"
             className="flex-1 text-[15px] px-4 py-2.5 outline-none text-[#323130] placeholder-[#a19f9d]"
             style={{ fontFamily: 'Segoe UI, Calibri, sans-serif' }} />
+          <select value={sensitivity} onChange={e => setSensitivity(e.target.value)}
+            title="Etiqueta de sensibilidad"
+            className="mr-2 text-[11px] px-1.5 py-1 rounded border border-[#edebe9] text-[#605e5c] bg-white outline-none">
+            <option value="">Sensibilidad\u2026</option>
+            <option value="Publica">P\u00fablica</option>
+            <option value="Interna">Interna</option>
+            <option value="Confidencial">Confidencial</option>
+            <option value="Restringida">Restringida</option>
+          </select>
           <button onClick={handleSuggestSubject} disabled={suggestingSubject}
             title="Sugerir asunto con IA"
             className="mr-2 px-2 py-1 text-[11px] text-[#0078d4] hover:bg-[#f3f2f1] rounded flex items-center gap-1 disabled:opacity-50 whitespace-nowrap">

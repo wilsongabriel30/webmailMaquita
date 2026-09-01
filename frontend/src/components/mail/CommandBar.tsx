@@ -1,5 +1,6 @@
 import { useMailStore } from '../../store/mailStore';
 import { api } from '../../api/client';
+import { AVISO_ELIMINAR_CORREO } from '../../lib/deepLinkCorreo';
 
 export function CommandBar() {
   const currentFolder = useMailStore(s => s.currentFolder);
@@ -16,6 +17,7 @@ export function CommandBar() {
   const allSelected = messages.length > 0 && selectedUids.size === messages.length;
 
   const handleBulkAction = async (action: string, destFolder?: string) => {
+    if (action === 'delete' && !window.confirm(AVISO_ELIMINAR_CORREO)) return;
     if (selectedUids.size === 0) return;
     try {
       await api.post(`/mail/bulk-action/${encodeURIComponent(currentFolder)}`, {

@@ -106,7 +106,8 @@ export function IntegrationsSettings() {
       <div className="rounded-lg p-4 space-y-3" style={cardStyle}>
         <h3 className="text-sm font-semibold" style={{ color: '#323130' }}>Importar contactos</h3>
         <p className="text-xs" style={{ color: '#605e5c' }}>Sube un archivo .csv o .vcf con tus contactos.</p>
-        <input type="file" accept=".csv,.vcf,.vcard" onChange={importContacts} className="text-sm" />
+        <input type="file" accept=".csv,.vcf,.vcard" onChange={importContacts}
+          className="text-sm text-[#605e5c] cursor-pointer file:mr-3 file:cursor-pointer file:rounded file:border-0 file:bg-[#0078d4] file:px-3 file:py-1.5 file:text-[13px] file:font-semibold file:text-white hover:file:bg-[#106ebe]" />
         {importMsg && <div className="text-xs" style={{ color: '#605e5c' }}>{importMsg}</div>}
       </div>
     </div>

@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate , useLocation } from 'react-rout
 import { useAuthStore } from './store/authStore';
 import { LoginPage } from './components/auth/LoginPage';
 import { AppLayout } from './components/layout/AppLayout';
+import { TwoFactorGate } from './components/auth/TwoFactorGate';
 import { MailView } from './components/mail/MailView';
 const SettingsView = React.lazy(() => import('./components/settings/SettingsView').then(m => ({ default: m.SettingsView })));
 const AdminLayout = React.lazy(() => import('./components/admin/AdminLayout').then(m => ({ default: m.AdminLayout })));
@@ -111,16 +112,14 @@ export default function App() {
       if (document.visibilityState === 'visible') {
         fetch('/api/auth/me', { credentials: 'include' })
           .then((res) => {
-            if (!res.ok) {
-              setUser(null);
-              return;
-            }
+            if (res.status === 401 || res.status === 403) { setUser(null); return; }
+            if (!res.ok) return;   // T-35 (d): sin red o servidor caído no se cierra la sesión local
             return res.json();
           })
           .then((data) => {
             if (data) setUser(data.user || null);
           })
-          .catch(() => setUser(null));
+          .catch(() => { /* T-35 (d): sin red, se conserva la sesión conocida */ });
       }
     };
     document.addEventListener('visibilitychange', handleVisibility);
@@ -155,10 +154,20 @@ export default function App() {
       return;
     }
 
+    // T-35 (d): sin red, o si el servidor no responde, se abre con la última sesión conocida (guardada al validar).
+    const ultimaSesionConocida = () => { try { return JSON.parse(localStorage.getItem('ultima_sesion') || 'null'); } catch { return null; } };
     fetch('/api/auth/me', { credentials: 'include' })
-      .then((res) => res.json())
-      .then((data) => setUser(data.user || null))
-      .catch(() => setUser(null));
+      .then((res) => {
+        if (res.status === 401 || res.status === 403) return { user: null };
+        if (!res.ok) throw new Error('servidor ' + res.status);   // 5xx / 503 del service worker: no expulsar
+        return res.json();
+      })
+      .then((data) => {
+        const u = data.user || null;
+        if (u) { try { localStorage.setItem('ultima_sesion', JSON.stringify(u)); } catch { /* sin almacenamiento */ } }
+        setUser(u);
+      })
+      .catch(() => setUser(ultimaSesionConocida()));
 
     // Global error handler for unhandled promise rejections
     const handler = (e: PromiseRejectionEvent) => {
@@ -195,7 +204,7 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/compose" element={<ProtectedRoute><ComposePopup /></ProtectedRoute>} />
         <Route path="/drive" element={<RedirigirAlmacen />} />
-        <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+        <Route path="/" element={<ProtectedRoute><TwoFactorGate /><AppLayout /></ProtectedRoute>}>
           <Route index element={<MailView />} />
           <Route path="contacts" element={<React.Suspense fallback={<Spinner />}><ContactsView /></React.Suspense>} />
           <Route path="calendar" element={<React.Suspense fallback={<Spinner />}><CalendarView /></React.Suspense>} />

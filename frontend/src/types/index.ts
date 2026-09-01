@@ -39,6 +39,15 @@ export interface MessageFull extends MessageSummary {
   attachments: AttachmentInfo[];
   has_remote_images: boolean;
   blocked_image_count: number;
+  /** Enlaces desenvueltos por el backend (rastreadores retirados). */
+  unwrapped_link_count?: number;
+  /** Aviso de rastreadores que NO se pudieron retirar. Ver TrackingNotice.tsx */
+  tracking_notice?: {
+    hay_rastreo: boolean;
+    es_publicidad: boolean;
+    servicios: string[];
+    mensaje: string;
+  } | null;
   references: string;
   in_reply_to: string;
 }

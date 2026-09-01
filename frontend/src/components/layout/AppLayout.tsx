@@ -9,14 +9,18 @@ import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts";
 import { useWebSocket } from "../../hooks/useWebSocket";
 import { useThemeStore } from "../../store/themeStore";
 import { useMailStore } from "../../store/mailStore";
+import { api } from "../../api/client";
 import { CommandPalette } from "../common/CommandPalette";
 import { useResponsive } from "../../hooks/useResponsive";
 import { OfflineBanner } from "../common/OfflineBanner";
 import { useOfflineSync } from "../../hooks/useOfflineSync";
 import { InstallPrompt } from "../common/InstallPrompt";
 import { ReminderPopup } from "../common/ReminderPopup";
+import { esModoApp } from "../../lib/modoApp"
+import { useDeepLinkCorreo } from "../../lib/deepLinkCorreo";
 
 export function AppLayout() {
+  useDeepLinkCorreo();
   useKeyboardShortcuts();
   useWebSocket();
   useOfflineSync();
@@ -56,6 +60,25 @@ export function AppLayout() {
     document.documentElement.classList.toggle("dark", dark);
   }, [dark]);
 
+  // 2026-08-31: restaurar el Panel de lectura guardado en preferencias al iniciar.
+  useEffect(() => {
+    api.get<{ reading_pane?: string; messages_per_page?: number; block_remote_images?: boolean }>("/settings")
+      .then(s => {
+        const rp = s?.reading_pane;
+        if (rp === "right" || rp === "bottom" || rp === "off") {
+          useMailStore.getState().setReadingPane(rp);
+        }
+        const mpp = Number(s?.messages_per_page);
+        if (mpp === 25 || mpp === 50 || mpp === 100) {
+          useMailStore.getState().setPageSize(mpp);
+        }
+        if (typeof s?.block_remote_images === "boolean") {
+          useMailStore.getState().setBlockRemoteImages(s.block_remote_images);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     const handler = () => toggleDrawer();
     window.addEventListener("toggle-mobile-drawer", handler);
@@ -75,7 +98,7 @@ export function AppLayout() {
       </a>
       <OfflineBanner />
       <Topbar />
-      <ChatFlotante />
+      {!esModoApp() && <ChatFlotante />}
       <div className="flex-1 flex overflow-hidden">
         {/* Desktop: show NavRail always, Sidebar only for mail */}
         {!isMobile && <nav role="navigation" aria-label="Navegación principal"><NavRail /></nav>}

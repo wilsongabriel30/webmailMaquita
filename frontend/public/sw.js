@@ -1,8 +1,10 @@
-const CACHE_NAME = "maquita-mail-v37";
+const CACHE_NAME = "maquita-mail-v202609011023";  // T-35: adjuntos y vistas previas también en caché
 const API_CACHE = CACHE_NAME + "-api";
 const BASE = "/webmail/";
 
-// NO cachear index.html para evitar bundles stale.
+// T-35 (d): la portada SÍ se precachea (clave fija INDEX_KEY) para poder ARRANCAR SIN RED; el deploy cambia
+// CACHE_NAME en cada publicación, así nunca se sirve un index viejo con bundles que ya no existen.
+const INDEX_KEY = BASE + "index.html";
 const STATIC_ASSETS = [
   BASE + "manifest.json"
 ];
@@ -12,6 +14,8 @@ const CACHEABLE_API = [
   "/api/mail/messages/",
   "/api/mail/message/",
   "/api/mail/folders",
+  "/api/mail/attachment/",   // T-35: adjuntos ya bajados se abren sin red
+  "/api/mail/preview/",
   "/api/contacts/avatars",
   "/api/settings/signature",
   "/api/branding",
@@ -25,7 +29,13 @@ function shouldCacheApi(url) {
 // Install
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
+    caches.open(CACHE_NAME).then(async (cache) => {
+      await cache.addAll(STATIC_ASSETS);
+      try {
+        const r = await fetch(BASE, { credentials: "include", cache: "no-store" });
+        if (r.ok) await cache.put(INDEX_KEY, r.clone());
+      } catch (e) { /* sin red al instalar: se guardará en la primera navegación con red */ }
+    })
   );
   self.skipWaiting();
 });
@@ -97,7 +107,7 @@ self.addEventListener("fetch", (event) => {
           return response;
         })
         .catch(() => {
-          return caches.match(event.request).then((cached) => {
+          return caches.match(event.request).then((c) => c || caches.match(event.request, { ignoreSearch: true })).then((cached) => {
             if (cached) {
               // Add header to indicate this is from cache
               const headers = new Headers(cached.headers);
@@ -136,16 +146,16 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
-          // Cache the navigation response for offline
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, clone);
-          });
+          // Cache the navigation response for offline (clave fija: cualquier ruta del SPA arranca sin red)
+          if (response.ok && url.pathname.startsWith(BASE)) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => { cache.put(INDEX_KEY, clone); });
+          }
           return response;
         })
-        .catch(() => caches.match(event.request)
-          .then((r) => r || caches.match(BASE + "index.html"))
-          .then((r) => r || new Response("Offline", { status: 503 })))
+        .catch(() => caches.match(INDEX_KEY)
+          .then((r) => r || caches.match(event.request, { ignoreSearch: true }))
+          .then((r) => r || new Response("<h2 style='font-family:sans-serif;padding:2em'>Sin conexión y sin copia local todavía. Abre el correo una vez con internet.</h2>", { status: 503, headers: { "Content-Type": "text/html; charset=utf-8" } })))
     );
     return;
   }

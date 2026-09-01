@@ -36,11 +36,35 @@ export function ChatFlotante() {
   }, []);
 
   // 2) Autodeteccion de disponibilidad del backend de chat.
+  //    Se re-chequea cada 60 s y al volver el foco. Si el token de sesion expiro
+  //    (cookie de 1 h), se intenta refrescar y se reintenta, para que la burbuja
+  //    NO desaparezca "sin explicacion" tras una hora de uso.
   useEffect(() => {
     if (enabled === false) return;
-    fetch("/api/chat/conversations?limit=1", { credentials: "include" })
-      .then((r) => setDisponible(r.ok))
-      .catch(() => setDisponible(false));
+    let vivo = true;
+    const comprobar = async () => {
+      try {
+        let r = await fetch("/api/chat/conversations?limit=1", { credentials: "include" });
+        if (r.status === 401) {
+          await fetch("/api/auth/refresh", { method: "POST", credentials: "include" }).catch(() => {});
+          r = await fetch("/api/chat/conversations?limit=1", { credentials: "include" });
+        }
+        if (vivo) setDisponible(r.ok);
+      } catch {
+        if (vivo) setDisponible(false);
+      }
+    };
+    comprobar();
+    const t = setInterval(comprobar, 60000);
+    const onFocus = () => comprobar();
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      vivo = false;
+      clearInterval(t);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
   }, [enabled]);
 
   // Helper: recalcular no leidos desde el servidor.
@@ -110,7 +134,7 @@ export function ChatFlotante() {
 
       {/* Panel (el iframe se monta SIEMPRE y oculto, para estar conectado). */}
       <div style={{
-        position: "fixed", bottom: 84, right: 20, width: 400, height: 560,
+        position: "fixed", bottom: 84, right: 20, width: 440, height: 640,
         maxWidth: "calc(100vw - 40px)", maxHeight: "calc(100vh - 120px)",
         borderRadius: 12, boxShadow: "0 8px 32px rgba(0,0,0,.28)",
         overflow: "hidden", zIndex: 9998, background: "#fff",

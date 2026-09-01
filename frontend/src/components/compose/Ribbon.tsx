@@ -947,20 +947,37 @@ function CBtn({ icon, label, onClick, active }: { icon: ReactNode; label: string
 }
 
 function ColorPicker({ editor, onClose }: { editor: Editor; onClose: () => void }) {
+  // 2026-08-31: portal + posicion fixed (igual que TableGridSelector). Antes usaba
+  // position:absolute y la cinta (overflow horizontal) recortaba la paleta -> no se veia.
+  const anchorRef = React.useRef<HTMLSpanElement | null>(null);
+  const [pos, setPos] = React.useState<{ left: number; top: number } | null>(null);
+  React.useLayoutEffect(() => {
+    const btn = anchorRef.current?.parentElement?.querySelector('button');
+    const r = (btn ?? anchorRef.current?.parentElement)?.getBoundingClientRect();
+    if (r) setPos({ left: r.left, top: r.bottom + 4 });
+  }, []);
   return (
     <>
-      <div className="fixed inset-0 z-[190]" onClick={onClose} />
-      <div className="absolute left-0 top-full mt-1 grid grid-cols-5 gap-[3px] p-2 bg-white rounded shadow-lg border border-[#edebe9] z-[200]">
-        {['#000000','#323130','#605e5c','#a19f9d','#d2d0ce',
-          '#d13438','#ca5010','#986f0b','#498205','#038387',
-          '#0078d4','#004e8c','#8764b8','#881798','#c239b3',
-          '#a4262c','#8a3707','#6d5c09','#0b6a0b','#005b70',
-        ].map(c => (
-          <button key={c} onClick={() => { editor.chain().focus().setColor(c).run(); onClose(); }}
-            className="w-[22px] h-[22px] rounded-[2px] border border-[#e1dfdd] hover:scale-110 hover:shadow transition-all"
-            style={{ backgroundColor: c }} />
-        ))}
-      </div>
+      <span ref={anchorRef} style={{ display: 'none' }} />
+      {pos && createPortal(
+        <>
+          <div className="fixed inset-0" style={{ zIndex: 9998 }} onClick={onClose} />
+          <div style={{ position: 'fixed', left: pos.left, top: pos.top, zIndex: 9999 }}
+            className="grid grid-cols-5 gap-[3px] p-2 bg-white rounded shadow-lg border border-[#edebe9]"
+            onClick={e => e.stopPropagation()}>
+            {['#000000','#323130','#605e5c','#a19f9d','#d2d0ce',
+              '#d13438','#ca5010','#986f0b','#498205','#038387',
+              '#0078d4','#004e8c','#8764b8','#881798','#c239b3',
+              '#a4262c','#8a3707','#6d5c09','#0b6a0b','#005b70',
+            ].map(c => (
+              <button key={c} onClick={() => { editor.chain().focus().setColor(c).run(); onClose(); }}
+                className="w-[22px] h-[22px] rounded-[2px] border border-[#e1dfdd] hover:scale-110 hover:shadow transition-all"
+                style={{ backgroundColor: c }} />
+            ))}
+          </div>
+        </>,
+        document.body
+      )}
     </>
   );
 }

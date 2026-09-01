@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { BotonAsignarCorreo } from '../tareas/BotonAsignarCorreo';
 import SafeEmailViewer from './SafeEmailViewer';
 import { sanitizeHtml } from '../../lib/sanitize';
 import React, { useState, useCallback } from 'react';
@@ -8,6 +9,9 @@ import { api } from '../../api/client';
 import { useMailStore } from '../../store/mailStore';
 import { AttachmentPreview } from './AttachmentPreview';
 import { BotonGuardarEnAlmacen } from '../files/GuardarEnAlmacen';
+// Aviso de enlaces con rastreo de terceros (componente aparte:
+// MessageView ya supera las 1500 lineas y no debe crecer mas).
+import TrackingNotice from './TrackingNotice';
 
 // Badge de tipo de archivo por extensión (color + etiqueta). Los ejecutables y
 // comprimidos se resaltan para que el usuario note extensiones peligrosas/raras.
@@ -731,6 +735,7 @@ const ThreadMessageCard: React.FC<ThreadMessageCardProps> = ({
 
 const MessageView: React.FC = () => {
   const msg = useMailStore(s => s.selectedMessage);
+  const blockRemoteImages = useMailStore(s => s.blockRemoteImages);
   const loadingMessage = useMailStore(s => s.loadingMessage);
   const currentFolder = useMailStore(s => s.currentFolder);
   const openCompose = useMailStore(s => s.openCompose);
@@ -769,6 +774,26 @@ const MessageView: React.FC = () => {
 
   /* ---- Actions ---- */
 
+  // Marca el correo como spam usando el endpoint que ya existe
+  // (/spam/report): lo mueve a Junk y alimenta la deteccion automatica.
+  const [markingSpam, setMarkingSpam] = useState(false);
+  const [spamMarcado, setSpamMarcado] = useState(false);
+  const handleMarkSpam = useCallback(async () => {
+    if (!msg) return;
+    setMarkingSpam(true);
+    try {
+      await api.post('/spam/report', { folder: currentFolder, uid: msg.uid });
+      // El backend ya lo movio a Junk y alimento la deteccion automatica.
+      // La lista se refresca sola al navegar; no se fuerza cierre aqui porque
+      // MessageView no recibe props (es un React.FC sin argumentos).
+      setSpamMarcado(true);
+    } catch (err) {
+      console.error('Error al marcar como spam:', err);
+    } finally {
+      setMarkingSpam(false);
+    }
+  }, [msg, currentFolder]);
+
   const handleLoadImages = useCallback(async () => {
     if (!msg) return;
     setLoadingImages(true);
@@ -783,6 +808,16 @@ const MessageView: React.FC = () => {
       setLoadingImages(false);
     }
   }, [msg, currentFolder]);
+
+  // 2026-08-31: si el usuario DESACTIVO el bloqueo de imagenes remotas,
+  // cargarlas automaticamente (mismo mecanismo que el boton manual).
+  React.useEffect(() => {
+    if (blockRemoteImages) return;
+    if (!msg) return;
+    const bloqueadas = !!(msg.has_remote_images && msg.blocked_image_count > 0);
+    const yaCargadas = imageMsg?.uid === msg.uid;
+    if (bloqueadas && !yaCargadas && !loadingImages) handleLoadImages();
+  }, [msg, blockRemoteImages, imageMsg, loadingImages, handleLoadImages]);
 
   const handleDownloadEml = useCallback(async () => {
     if (!msg) return;
@@ -1170,6 +1205,7 @@ const MessageView: React.FC = () => {
               </svg>
               Reenviar
             </button>
+            <BotonAsignarCorreo estilo={actionBtnStyle} correo={{ folder: currentFolder, uid: msg.uid, subject: msg.subject, from: (msg as any).from || (msg as any).from_addr || '' }} />
             <button style={{ ...actionBtnStyle, marginLeft: 'auto', color: '#8764b8' }} onClick={handleSmartReply} disabled={loadingReplies}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
               {loadingReplies ? 'Generando...' : 'Respuesta IA'}
@@ -1344,6 +1380,12 @@ const MessageView: React.FC = () => {
             </button>
           </div>
         )}
+
+        <TrackingNotice
+          notice={spamMarcado ? null : displayMsg?.tracking_notice}
+          onMarkSpam={handleMarkSpam}
+          markingSpam={markingSpam}
+        />
 
         <div style={{ borderBottom: '1px solid #edebe9', marginTop: 16 }} />
       </div>

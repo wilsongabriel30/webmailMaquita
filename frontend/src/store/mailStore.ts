@@ -37,6 +37,8 @@ interface MailState {
   // View
   viewMode: ViewMode;
   readingPane: 'right' | 'bottom' | 'off' | 'fullscreen' | 'popout';
+  pageSize: number;
+  blockRemoteImages: boolean;
   density: 'compact' | 'medium' | 'full';
   showMyDay: boolean;
   setShowMyDay: (v: boolean) => void;
@@ -45,6 +47,8 @@ interface MailState {
   setDensity: (d: 'compact' | 'medium' | 'full') => void;
   setPreviewLines: (lines: 1 | 2 | 3) => void;
   setReadingPane: (p: 'right' | 'bottom' | 'off') => void;
+  setPageSize: (n: number) => void;
+  setBlockRemoteImages: (v: boolean) => void;
   setMessageListWidth: (w: number) => void;
   // Compose — multiple drafts
   composeWindows: DraftWindow[];
@@ -112,6 +116,8 @@ export const useMailStore = create<MailState>((set, get) => ({
   filterChanging: false,
   viewMode: "messages",
   readingPane: 'right',
+  pageSize: 50,
+  blockRemoteImages: true,
   density: 'compact' as const,
   showMyDay: false,
   previewLines: 1,
@@ -120,6 +126,8 @@ export const useMailStore = create<MailState>((set, get) => ({
   setShowMyDay: (v) => set({ showMyDay: v }),
   setPreviewLines: (lines: any) => set({ previewLines: lines }),
   setReadingPane: (p: any) => set({ readingPane: p }),
+  setPageSize: (n) => set({ pageSize: n }),
+  setBlockRemoteImages: (v) => set({ blockRemoteImages: v }),
   setMessageListWidth: (w: number) => {
     const clamped = Math.max(260, Math.min(720, Math.round(w)));
     try { localStorage.setItem('maquita_list_width', String(clamped)); } catch { /* ignore */ }

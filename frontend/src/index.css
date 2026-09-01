@@ -257,3 +257,6 @@
 .animate-slideUp {
   animation: slideUp 0.3s ease-out;
 }
+
+/* Modo app (cliente de escritorio): sin cabecera ni burbuja de chat; el cliente trae las suyas. */
+.modo-app header[role="banner"] { display: none !important; }
