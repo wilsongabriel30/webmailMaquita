@@ -1,5 +1,6 @@
 # Tableros / BI — Aplicación del Drive Maquita
 Flask
+gunicorn
 Flask-Login
 PyJWT
 redis
