@@ -66,7 +66,7 @@ del Drive.
   las exporta a una hoja de cálculo en la misma carpeta.
 - **Tableros / BI** — *en preparación* (motor ya en `almacen/aplicaciones/bi/`). Convierte
   datos en tableros y gráficos, abriéndolos desde el Drive.
-- **Editor de PDF** — *en preparación* (código base en `almacen/aplicaciones/pdf-editor/`).
+- **Editor de PDF** — *en preparación* (código base en `almacen/aplicaciones/pdf_editor/`).
   Anota, firma, rellena formularios y genera o lee códigos QR, sobre PDF del Drive.
 
 > Las aplicaciones marcadas *en preparación* ya funcionan dentro de Maquita; se están

@@ -22,19 +22,29 @@ Archivos de la app (sin credenciales en el código; todo por entorno — ver `.e
   propio. Mismo contrato que el resto del Almacén.
 - **`requirements.txt`** — dependencias (Flask, cryptography, PyMuPDF, OpenCV, etc.).
 
+## Instalación
+
+```bash
+python -m venv venv
+venv/bin/pip install -r requirements.txt
+cp .env.example .env      # y complétalo (BD, WEBMAIL_SECRET_KEY, REDIS_URL...)
+venv/bin/gunicorn 'app_pdf:app' --bind 0.0.0.0:8790     # o: python app_pdf.py
+```
+
+`app_pdf.py` crea la app Flask, carga `config.py`, conecta el puente de auth
+(`auth_drive.init_auth`) y monta el editor (`registrar_modulo`). Detrás de un proxy,
+enruta `/api/pdf/*` y `/herramientas/editor-pdf/*` a este servicio.
+
 ## Estado
 
-- **Fase 1 — hecha:** código base traído y auditado (sin secretos, sin IPs internas).
-- **Fase 2a — hecha:** andamiaje de app autónoma (`config.py`, `auth_drive.py`,
-  `requirements.txt`, `.env.example`). El **puente de auth al token del Drive está
-  verificado** (token válido → usuario; token inválido o sesión caída → rechazado).
-- **Fase 2b — pendiente (despliegue):**
-  1. Crear el `venv` con `requirements.txt` e instalar dependencias.
-  2. Punto de entrada `app_pdf.py` que cree la app Flask, cargue `config.py`, llame a
-     `auth_drive.init_auth(app)` y a `registrar_modulo(app)`; servicio + nginx.
-  3. Cablear la lectura/escritura del PDF **contra la API del Drive** (`/api/almacen`):
-     abrir un PDF por su ruta y **guardarlo de vuelta** en la misma ruta.
-  4. Probar end-to-end: abrir desde el Drive, anotar, firmar y guardar.
-
-Hasta completar la Fase 2b, este directorio es el **código fuente + andamiaje**, no un
-servicio en marcha.
+- **Fase 1 — hecha:** código base auditado (sin secretos, sin IPs internas).
+- **Fase 2 — hecha:** app autónoma (`app_pdf.py`, `config.py`, `auth_drive.py`,
+  `requirements.txt`, `.env.example`).
+  - Puente de auth al token del Drive **verificado** (token válido → usuario; token
+    inválido o sesión caída → rechazado).
+  - **Arranque autónomo validado**: la app levanta por sí sola y registra sus 73 rutas,
+    incluidas `/api/pdf`, `/herramientas/editor-pdf` y `/editor/drive`.
+- El editor **ya funciona en producción dentro de Maquita** (integrado, usado desde el
+  Drive); esta carpeta es esa misma funcionalidad empaquetada para instalarla aparte.
+- **Opcional pendiente:** prueba end-to-end del servicio autónomo sirviendo tráfico real
+  con `auth_drive` y BD conectadas (el patrón ya está probado en el Almacén).
