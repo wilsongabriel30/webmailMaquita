@@ -52,11 +52,12 @@ archivo compartido de la organización, sin límite por casilla.
 - Papelera, **versiones**, búsqueda por contenido y **auditoría** de accesos.
 - Aplicación de escritorio para sincronizar como una carpeta más del equipo.
 
-## 3. Las aplicaciones del Drive
+## 3. Las Aplicaciones del Drive Maquita
 
-Herramientas que **se abren desde el Drive Maquita** y trabajan sus archivos —igual
-que un documento se abre desde el Drive. Cada archivo hereda gratis los permisos,
-el compartir, la papelera, las versiones y la búsqueda del Drive.
+Las **Aplicaciones del Drive Maquita** son herramientas que **se abren desde el Drive**
+y trabajan sus archivos —igual que un documento se abre desde el Drive. Cada archivo
+hereda gratis los permisos, el compartir, la papelera, las versiones y la búsqueda
+del Drive.
 
 - **Documentos (OnlyOffice)** — *disponible.* Edita Word/Excel/PowerPoint en el
   navegador, en línea y en colaboración, sobre los archivos del Drive.
