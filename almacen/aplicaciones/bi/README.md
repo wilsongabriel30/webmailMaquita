@@ -1,45 +1,41 @@
 # Tableros / BI — Aplicación del Drive Maquita
 
-Motor de **inteligencia de negocios**: toma datos y produce consultas, tableros y
-gráficos, para abrirse desde el [Drive Maquita (Almacén)](../../README.md).
+App de **inteligencia de negocios** sobre el [Drive Maquita (Almacén)](../../README.md):
+elige un archivo de datos del Drive (`.xlsx`/`.csv`) y genera un **tablero automático**
+—KPIs y gráficos— sin salir de la organización.
 
-Módulos del motor (solo `numpy` y `pandas` — sin acople a otros sistemas):
+## Cómo funciona
 
-- `motor_datos.py` — conectores de datos (interfaz `IConectorDatos`) y esquema.
-- `motor_consultas.py` — construye y ejecuta consultas sobre los datos.
-- `motor_visualizacion.py` — genera las visualizaciones (series, barras, etc.).
-- `motor_semantico.py` — capa semántica (métricas y dimensiones con nombre).
-- `motor_compartido.py` — utilidades comunes.
-- **`conector_drive.py`** — fuente de datos del **Drive**: lee un archivo tabular
-  (`.xlsx`/`.xls`/`.csv`) del Drive y lo entrega como `DataFrame`.
+1. `cliente_drive.py` **descarga** el archivo del Drive (`/api/almacen`) con el token
+   del usuario, y **lista** los archivos de datos de una carpeta.
+2. `conector_drive.py` (`ConectorDrive`) lo convierte en un `DataFrame`.
+3. `tableros.py` (`generar_tableros`) detecta columnas categóricas y numéricas y arma
+   KPIs + rankings, produciendo configuraciones **Chart.js** con el motor de BI.
+4. `app_bi.py` sirve el selector, la página del tablero (Chart.js) y `/api/tablero`.
 
-## El conector del Drive
+Motor (solo `numpy`/`pandas`): `motor_datos`, `motor_consultas`, `motor_visualizacion`,
+`motor_semantico`, `motor_compartido`.
 
-Desacoplado: recibe una función `leer_bytes(ruta) -> bytes`, así el motor no depende
-de ningún cliente concreto del Drive. En producción se le pasa un lector que llama a
-la API del Drive (`/api/almacen/archivos/descargar`) con el token del usuario.
+## Instalación
 
-```python
-from bi import ConectorDrive
-
-conector = ConectorDrive(leer_bytes=mi_lector_del_drive)   # bytes de la ruta dada
-df       = conector.obtener_datos({"ruta": "/Datos/ventas.xlsx"})
-esquema  = conector.obtener_esquema({"ruta": "/Datos/ventas.xlsx"})   # tipos inferidos
+```bash
+python -m venv venv
+venv/bin/pip install -r requirements.txt
+cp .env.example .env      # completa WEBMAIL_SECRET_KEY, REDIS_URL, ALMACEN_INTERNAL_URL
+venv/bin/gunicorn 'app_bi:app' --bind 0.0.0.0:8791
 ```
 
 ## Estado
 
 - **Fase 1 — hecha:** motor auditado y portable.
-- **Fase 2 — hecha:** **conector de datos del Drive** (`ConectorDrive`) — lee
-  `.xlsx`/`.csv` del Drive → `DataFrame`. Probado (datos, esquema con tipos inferidos,
-  `test_conexion`). Incluye el arreglo de un `import logging` faltante en el paquete.
-- **Fase 3 — pendiente (app de tableros):**
-  1. Un lector real del Drive (`leer_bytes` que llama a `/api/almacen` con el token del
-     usuario, como el resto del Almacén).
-  2. Interfaz web de tableros (elegir un archivo del Drive → ver/editar el tablero).
-  3. Punto de entrada `app_bi.py` + auth por el token del Drive (`auth_drive`, igual que
-     el editor de PDF) + servicio.
-
-A diferencia del editor de PDF (que ya venía completo), el BI de Maquita es un **motor
-transversal** del sistema de gestión; esta app de tableros sobre archivos del Drive es
-un desarrollo nuevo construido sobre ese motor.
+- **Fase 2 — hecha:** `ConectorDrive` (lee `.xlsx`/`.csv` del Drive → `DataFrame`,
+  probado) + arreglo de un `import logging` faltante en el paquete.
+- **Fase 3 — hecha:** app de tableros (`app_bi.py`, `cliente_drive.py`, `tableros.py`,
+  `config.py`, `auth_drive.py`). Auth por el **token del Drive** (igual que el editor).
+  **Verificado:** generación de tableros (KPIs + gráficos Chart.js de un archivo real) y
+  **arranque de la app** (rutas `/`, `/tablero`, `/api/tablero`).
+- **Opcional pendiente:** prueba end-to-end sirviendo tráfico real (listar/descargar del
+  Drive con un usuario) y desplegar el servicio; y **corregir un bug del motor de
+  consultas** (`ejecutar_consulta` lanza *"truth value of a Series is ambiguous"* en
+  rankings) — por eso `tableros.py` agrega con `pandas` y usa el motor solo para la
+  visualización.

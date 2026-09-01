@@ -64,8 +64,8 @@ del Drive.
 - **Formularios** — *disponible.* Crea formularios y encuestas (estilo Google Forms);
   el formulario es un archivo más del Drive. Publica un enlace, recoge respuestas y
   las exporta a una hoja de cálculo en la misma carpeta.
-- **Tableros / BI** — *en preparación* (motor ya en `almacen/aplicaciones/bi/`). Convierte
-  datos en tableros y gráficos, abriéndolos desde el Drive.
+- **Tableros / BI** — *instalable* (app de tableros en `almacen/aplicaciones/bi/`). Elige un
+  archivo de datos del Drive y genera KPIs y gráficos automáticos.
 - **Editor de PDF** — *instalable* (app autónoma en `almacen/aplicaciones/pdf_editor/`).
   Anota, firma, rellena formularios y genera o lee códigos QR, sobre PDF del Drive.
 
