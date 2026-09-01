@@ -69,7 +69,7 @@ class ServicioPDF:
         self.repositorio_version = repositorio_version
         self.cliente_pdf = cliente_pdf
         self.almacenamiento = almacenamiento
-        self.ruta_uploads = ruta_uploads or '/home/sistemas/Maquita/uploads/pdf_editor'
+        self.ruta_uploads = ruta_uploads or os.getenv('PDF_UPLOADS_DIR', '/var/lib/maquita-pdf-editor/uploads')
 
     # =========================================================================
     # OPERACIONES DE DOCUMENTO
