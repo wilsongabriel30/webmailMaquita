@@ -1128,7 +1128,11 @@ def _registrar_eventos():
         contenido = (data.get('m') or data.get('content', '')).strip()
         client_id = data.get('t') or data.get('temp_id') or data.get('client_id')
         tipo = data.get('type', 'text')
-        respuesta_a = data.get('reply_to')
+        respuesta_a = data.get('reply_to') or data.get('r')
+        try:
+            respuesta_a = int(respuesta_a) if respuesta_a else None
+        except (TypeError, ValueError):
+            respuesta_a = None
 
         # Un GIF/media puede ir sin texto: basta con gif_url/url
         _tiene_media = bool(data.get('gif_url') or data.get('url'))
@@ -1264,7 +1268,8 @@ def _registrar_eventos():
                     'from': usuario_id,
                     'nombre': session.get('usuario_nombre', 'Usuario'),
                     'ts': datetime.now().timestamp() * 1000,
-                    'type': tipo
+                    'type': tipo,
+                    'r': respuesta_a
                 }
 
                 # Si es un GIF, incluir la URL

@@ -1130,3 +1130,23 @@
     text-align: center;
     color: #666;
 }
+
+/* ============================================================================
+   2026-08-27 — Optimización de la caja de escribir (era muy pequeña)
+   ============================================================================ */
+.chat-app__footer {
+    padding: 10px 12px;
+}
+.message-input__textarea {
+    min-height: 42px;      /* antes se veía como una linea apretada */
+    max-height: 140px;     /* crece al escribir varias lineas */
+    line-height: 1.35;
+    font-size: 1rem;
+}
+.message-input__textarea-wrapper {
+    padding: 8px 14px;
+    border-radius: 20px;   /* estilo mensajeria (WhatsApp) */
+}
+.message-input__main {
+    gap: 6px;
+}

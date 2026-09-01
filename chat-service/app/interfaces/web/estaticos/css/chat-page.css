@@ -1523,3 +1523,37 @@
     /* ===== Sin scroll de pagina en el chat (evita doble barra) — 2026-06-12 ===== */
     html, body { overflow: hidden !important; height: 100% !important; }
     .main-content { overflow: hidden !important; }
+
+
+/* 2026-08-27: el boton de reaccionar solo aparecia con :hover; en iframe (webmail) y en tactil no hay hover */
+@media (hover: none) { .message .btn-add-reaction { display: inline-flex; opacity: .55; } }
+.chat-embed .message .btn-add-reaction { display: inline-flex; opacity: .55; }
+.message .btn-add-reaction:hover { opacity: 1; }
+
+/* 2026-08-27: biblioteca local de GIF */
+.gif-item .gif-borrar { position:absolute; top:4px; right:4px; width:22px; height:22px; border:0; border-radius:50%; background:rgba(0,0,0,.55); color:#fff; font-size:.7rem; display:none; align-items:center; justify-content:center; }
+.gif-item:hover .gif-borrar { display:inline-flex; }
+.gif-item-subir { display:flex; align-items:center; justify-content:center; min-height:150px; border:2px dashed #cbd5e1; color:#64748b; text-align:center; }
+.gif-item-subir:hover { border-color:#3b82f6; color:#3b82f6; }
+
+/* 2026-08-27: Responder / citar */
+.msg-cita { border-left: 3px solid #25d366; background: rgba(0,0,0,.06); border-radius: 6px; padding: 4px 8px; margin: 2px 0 6px; cursor: pointer; max-width: 100%; }
+.message.sent .msg-cita { background: rgba(255,255,255,.35); border-left-color: #128c7e; }
+.msg-cita-nombre { font-size: .72rem; font-weight: 600; color: #128c7e; }
+.msg-cita-texto { font-size: .78rem; color: #444; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+#barraRespuesta { display: flex; align-items: center; gap: 8px; padding: 6px 10px; margin: 0 0 4px; background: #f0f2f5; border-left: 3px solid #25d366; border-radius: 8px; }
+.barra-respuesta-cuerpo { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; color: #128c7e; }
+.barra-respuesta-cuerpo .msg-cita-texto { max-width: 100%; }
+.barra-respuesta-cerrar { border: 0; background: transparent; color: #666; cursor: pointer; width: 28px; height: 28px; border-radius: 50%; }
+.barra-respuesta-cerrar:hover { background: rgba(0,0,0,.08); }
+.message.msg-resaltado .message-content { animation: msgResaltar 1.6s ease; }
+@keyframes msgResaltar { 0%,60% { box-shadow: 0 0 0 3px rgba(37,211,102,.55); } 100% { box-shadow: none; } }
+[data-theme="dark"] .msg-cita { background: rgba(255,255,255,.08); } [data-theme="dark"] .msg-cita-texto { color: #ccc; }
+[data-theme="dark"] #barraRespuesta { background: #2a2f32; }
+
+/* 2026-08-27: vistos (hora + check) en una sola línea compacta; sin tooltip flotante */
+.message-meta { display: flex !important; justify-content: flex-end; align-items: center; gap: 3px; line-height: 1; margin-top: 3px; white-space: nowrap; }
+.message-meta .message-status { margin-left: 0 !important; font-size: .7rem; }
+.message-meta .edited-badge { margin-right: 3px; font-style: italic; }
+.message-status[title]:hover::after { content: none !important; display: none !important; }
+.message-status.read { color: #34b7f1 !important; }
