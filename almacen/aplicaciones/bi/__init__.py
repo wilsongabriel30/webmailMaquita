@@ -3,6 +3,8 @@ BI Engine - Motor de Inteligencia de Negocios Hexagonal
 Implementación modular y extensible con arquitectura limpia
 """
 
+import logging
+
 from .motor_datos import (
     MotorDatos,
     TipoOrigen,
@@ -79,3 +81,5 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 logger.info(f"BI Engine v{__version__} cargado - Arquitectura Hexagonal implementada")
+
+from .conector_drive import ConectorDrive  # noqa: E402
