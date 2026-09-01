@@ -1,0 +1,447 @@
+{% extends "base.html" %}
+
+{% block titulo %}{{ documento.nombre_original }} - Editor PDF{% endblock %}
+
+{% block estilos %}
+<style>
+    .editor-container {
+        height: calc(100vh - 120px);
+        display: flex;
+        flex-direction: column;
+    }
+    .editor-toolbar {
+        background: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+        padding: 10px 15px;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    .toolbar-group {
+        display: flex;
+        gap: 5px;
+        padding: 0 10px;
+        border-right: 1px solid #dee2e6;
+    }
+    .toolbar-group:last-child {
+        border-right: none;
+    }
+    .editor-main {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+    }
+    .sidebar-thumbnails {
+        width: 200px;
+        background: #f8f9fa;
+        border-right: 1px solid #dee2e6;
+        overflow-y: auto;
+        padding: 10px;
+    }
+    .thumbnail-item {
+        cursor: pointer;
+        margin-bottom: 10px;
+        border: 2px solid transparent;
+        border-radius: 4px;
+        padding: 5px;
+        text-align: center;
+        transition: all 0.2s;
+    }
+    .thumbnail-item:hover {
+        background: #e9ecef;
+    }
+    .thumbnail-item.active {
+        border-color: #dc3545;
+        background: #fff5f5;
+    }
+    .thumbnail-item img {
+        max-width: 100%;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .thumbnail-number {
+        font-size: 12px;
+        color: #6c757d;
+        margin-top: 5px;
+    }
+    .viewer-container {
+        flex: 1;
+        overflow: auto;
+        background: #525659;
+        display: flex;
+        justify-content: center;
+        padding: 20px;
+    }
+    .pdf-page {
+        background: white;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        max-width: 100%;
+    }
+    .sidebar-tools {
+        width: 280px;
+        background: #f8f9fa;
+        border-left: 1px solid #dee2e6;
+        overflow-y: auto;
+    }
+    .tool-panel {
+        padding: 15px;
+        border-bottom: 1px solid #dee2e6;
+    }
+    .tool-panel h6 {
+        font-weight: 600;
+        margin-bottom: 15px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .zoom-control {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .zoom-control input[type="range"] {
+        flex: 1;
+    }
+    .page-nav {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .page-nav input {
+        width: 60px;
+        text-align: center;
+    }
+    .btn-tool {
+        padding: 8px 12px;
+    }
+    .btn-tool.active {
+        background: #dc3545 !important;
+        color: white !important;
+        border-color: #dc3545 !important;
+    }
+</style>
+{% endblock %}
+
+{% block contenido %}
+<div class="editor-container">
+    <!-- Barra de herramientas -->
+    <div class="editor-toolbar">
+        <div class="toolbar-group">
+            <a href="{{ url_for('pdf_editor_web.index') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i>
+            </a>
+            <span class="text-truncate" style="max-width: 200px;" title="{{ documento.nombre_original }}">
+                {{ documento.nombre_original }}
+            </span>
+        </div>
+
+        <div class="toolbar-group">
+            <button class="btn btn-outline-secondary btn-sm btn-tool" id="btnMano" title="Mover">
+                <i class="bi bi-hand-index"></i>
+            </button>
+            <button class="btn btn-outline-secondary btn-sm btn-tool" id="btnSeleccionar" title="Seleccionar">
+                <i class="bi bi-cursor"></i>
+            </button>
+        </div>
+
+        <div class="toolbar-group">
+            <button class="btn btn-outline-secondary btn-sm" id="btnZoomOut" title="Alejar">
+                <i class="bi bi-zoom-out"></i>
+            </button>
+            <span id="zoomLevel" class="px-2">100%</span>
+            <button class="btn btn-outline-secondary btn-sm" id="btnZoomIn" title="Acercar">
+                <i class="bi bi-zoom-in"></i>
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" id="btnFitWidth" title="Ajustar ancho">
+                <i class="bi bi-arrows-expand"></i>
+            </button>
+        </div>
+
+        <div class="toolbar-group">
+            <button class="btn btn-outline-secondary btn-sm" id="btnRotateLeft" title="Rotar izquierda">
+                <i class="bi bi-arrow-counterclockwise"></i>
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" id="btnRotateRight" title="Rotar derecha">
+                <i class="bi bi-arrow-clockwise"></i>
+            </button>
+        </div>
+
+        <div class="toolbar-group page-nav">
+            <button class="btn btn-outline-secondary btn-sm" id="btnPrevPage">
+                <i class="bi bi-chevron-left"></i>
+            </button>
+            <input type="number" class="form-control form-control-sm" id="inputPagina"
+                   value="1" min="1" max="{{ documento.num_paginas }}">
+            <span>/ {{ documento.num_paginas }}</span>
+            <button class="btn btn-outline-secondary btn-sm" id="btnNextPage">
+                <i class="bi bi-chevron-right"></i>
+            </button>
+        </div>
+
+        <div class="toolbar-group ms-auto">
+            <button class="btn btn-outline-primary btn-sm" id="btnDescargar">
+                <i class="bi bi-download"></i> Descargar
+            </button>
+            <button class="btn btn-danger btn-sm" id="btnGuardar">
+                <i class="bi bi-save"></i> Guardar
+            </button>
+        </div>
+    </div>
+
+    <!-- Área principal -->
+    <div class="editor-main">
+        <!-- Sidebar miniaturas -->
+        <div class="sidebar-thumbnails" id="sidebarThumbnails">
+            {% for i in range(1, documento.num_paginas + 1) %}
+            <div class="thumbnail-item {% if i == 1 %}active{% endif %}" data-page="{{ i }}">
+                <img src="/api/pdf/documentos/{{ documento.id }}/thumbnail/{{ i }}"
+                     alt="Pagina {{ i }}"
+                     onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22150%22 height=%22200%22><rect fill=%22%23f0f0f0%22 width=%22100%%22 height=%22100%%22/></svg>'">
+                <div class="thumbnail-number">{{ i }}</div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Visor de página -->
+        <div class="viewer-container" id="viewerContainer">
+            <img class="pdf-page" id="pdfPage"
+                 src="/api/pdf/documentos/{{ documento.id }}/render/1?zoom=1.0"
+                 alt="Pagina del documento">
+        </div>
+
+        <!-- Sidebar herramientas -->
+        <div class="sidebar-tools">
+            <div class="tool-panel">
+                <h6><i class="bi bi-pencil"></i> Anotaciones</h6>
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-secondary btn-sm text-start">
+                        <i class="bi bi-highlighter text-warning"></i> Resaltar
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm text-start">
+                        <i class="bi bi-sticky"></i> Nota adhesiva
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm text-start">
+                        <i class="bi bi-brush"></i> Dibujo libre
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm text-start">
+                        <i class="bi bi-square"></i> Formas
+                    </button>
+                </div>
+            </div>
+
+            <div class="tool-panel">
+                <h6><i class="bi bi-files"></i> Paginas</h6>
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-secondary btn-sm text-start" id="btnInsertPage">
+                        <i class="bi bi-plus-circle"></i> Insertar pagina
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm text-start" id="btnDeletePage">
+                        <i class="bi bi-trash"></i> Eliminar pagina
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm text-start" id="btnExtractPages">
+                        <i class="bi bi-file-earmark-break"></i> Extraer paginas
+                    </button>
+                </div>
+            </div>
+
+            <div class="tool-panel">
+                <h6><i class="bi bi-pen"></i> Firma</h6>
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-secondary btn-sm text-start">
+                        <i class="bi bi-pencil-square"></i> Dibujar firma
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm text-start">
+                        <i class="bi bi-image"></i> Imagen de firma
+                    </button>
+                </div>
+            </div>
+
+            <div class="tool-panel">
+                <h6><i class="bi bi-search"></i> OCR</h6>
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-secondary btn-sm text-start" id="btnApplyOCR">
+                        <i class="bi bi-type"></i> Aplicar OCR
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm text-start">
+                        <i class="bi bi-search"></i> Buscar texto
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const documentoId = {{ documento.id }};
+    const totalPaginas = {{ documento.num_paginas }};
+    let paginaActual = 1;
+    let zoomActual = 1.0;
+
+    const pdfPage = document.getElementById('pdfPage');
+    const inputPagina = document.getElementById('inputPagina');
+    const zoomLevel = document.getElementById('zoomLevel');
+
+    // Navegación de páginas
+    function irAPagina(pagina) {
+        if (pagina < 1 || pagina > totalPaginas) return;
+
+        paginaActual = pagina;
+        inputPagina.value = pagina;
+
+        // Actualizar imagen
+        pdfPage.src = `/api/pdf/documentos/${documentoId}/render/${pagina}?zoom=${zoomActual}`;
+
+        // Actualizar miniaturas
+        document.querySelectorAll('.thumbnail-item').forEach(el => {
+            el.classList.toggle('active', parseInt(el.dataset.page) === pagina);
+        });
+
+        // Scroll a la miniatura
+        const thumb = document.querySelector(`.thumbnail-item[data-page="${pagina}"]`);
+        if (thumb) {
+            thumb.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+
+    // Click en miniaturas
+    document.querySelectorAll('.thumbnail-item').forEach(el => {
+        el.addEventListener('click', () => {
+            irAPagina(parseInt(el.dataset.page));
+        });
+    });
+
+    // Botones de navegación
+    document.getElementById('btnPrevPage').addEventListener('click', () => {
+        irAPagina(paginaActual - 1);
+    });
+
+    document.getElementById('btnNextPage').addEventListener('click', () => {
+        irAPagina(paginaActual + 1);
+    });
+
+    inputPagina.addEventListener('change', () => {
+        irAPagina(parseInt(inputPagina.value) || 1);
+    });
+
+    // Zoom
+    function setZoom(nuevoZoom) {
+        zoomActual = Math.max(0.25, Math.min(4, nuevoZoom));
+        zoomLevel.textContent = Math.round(zoomActual * 100) + '%';
+        pdfPage.src = `/api/pdf/documentos/${documentoId}/render/${paginaActual}?zoom=${zoomActual}`;
+    }
+
+    document.getElementById('btnZoomIn').addEventListener('click', () => {
+        setZoom(zoomActual + 0.25);
+    });
+
+    document.getElementById('btnZoomOut').addEventListener('click', () => {
+        setZoom(zoomActual - 0.25);
+    });
+
+    // Rotación
+    document.getElementById('btnRotateRight').addEventListener('click', async () => {
+        try {
+            const response = await fetch(`/api/pdf/documentos/${documentoId}/paginas/${paginaActual}/rotar`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ grados: 90 })
+            });
+            const data = await response.json();
+            if (data.exito) {
+                // Recargar página y miniatura
+                pdfPage.src = pdfPage.src + '&t=' + Date.now();
+                const thumb = document.querySelector(`.thumbnail-item[data-page="${paginaActual}"] img`);
+                if (thumb) {
+                    thumb.src = thumb.src.split('?')[0] + '?t=' + Date.now();
+                }
+            } else {
+                alert('Error: ' + data.mensaje);
+            }
+        } catch (error) {
+            alert('Error rotando pagina');
+        }
+    });
+
+    document.getElementById('btnRotateLeft').addEventListener('click', async () => {
+        try {
+            const response = await fetch(`/api/pdf/documentos/${documentoId}/paginas/${paginaActual}/rotar`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ grados: 270 })
+            });
+            const data = await response.json();
+            if (data.exito) {
+                pdfPage.src = pdfPage.src + '&t=' + Date.now();
+                const thumb = document.querySelector(`.thumbnail-item[data-page="${paginaActual}"] img`);
+                if (thumb) {
+                    thumb.src = thumb.src.split('?')[0] + '?t=' + Date.now();
+                }
+            }
+        } catch (error) {
+            alert('Error rotando pagina');
+        }
+    });
+
+    // Eliminar página
+    document.getElementById('btnDeletePage').addEventListener('click', async () => {
+        if (totalPaginas <= 1) {
+            alert('No se puede eliminar la unica pagina');
+            return;
+        }
+
+        if (!confirm(`¿Eliminar la pagina ${paginaActual}?`)) return;
+
+        try {
+            const response = await fetch(`/api/pdf/documentos/${documentoId}/paginas/${paginaActual}`, {
+                method: 'DELETE'
+            });
+            const data = await response.json();
+            if (data.exito) {
+                window.location.reload();
+            } else {
+                alert('Error: ' + data.mensaje);
+            }
+        } catch (error) {
+            alert('Error eliminando pagina');
+        }
+    });
+
+    // Descargar
+    document.getElementById('btnDescargar').addEventListener('click', () => {
+        window.location.href = `/api/pdf/documentos/${documentoId}/descargar`;
+    });
+
+    // Teclado
+    document.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT') return;
+
+        switch(e.key) {
+            case 'ArrowLeft':
+            case 'PageUp':
+                irAPagina(paginaActual - 1);
+                break;
+            case 'ArrowRight':
+            case 'PageDown':
+                irAPagina(paginaActual + 1);
+                break;
+            case '+':
+            case '=':
+                if (e.ctrlKey) {
+                    e.preventDefault();
+                    setZoom(zoomActual + 0.25);
+                }
+                break;
+            case '-':
+                if (e.ctrlKey) {
+                    e.preventDefault();
+                    setZoom(zoomActual - 0.25);
+                }
+                break;
+        }
+    });
+});
+</script>
+{% endblock %}
