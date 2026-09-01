@@ -268,10 +268,9 @@ sudo nginx -t && sudo systemctl reload nginx
   integrado para editar documentos (Word/Excel/PowerPoint) en el navegador. **No
   requiere Nextcloud.** Ver la carpeta `almacen/` y su `README`.
 
-  > **Integración heredada (en retiro):** el webmail todavía puede apoyarse en un
-  > Nextcloud externo **solo para adjuntos grandes** (variables `NC_*` /
-  > `ONLYOFFICE_*` en `.env`); esa vía está **en migración al Almacén** y no
-  > se recomienda para instalaciones nuevas.
+  > **Adjuntos grandes:** también van al Almacén — los archivos que superan el
+  > límite se suben al Drive y se envían como enlace de descarga. Las variables
+  > `NC_*` / `ONLYOFFICE_*` del `.env` quedaron **obsoletas**; el correo ya no las usa.
 
 ## 8. Verificar
 
