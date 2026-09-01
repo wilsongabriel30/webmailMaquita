@@ -33,12 +33,17 @@ class DlpConfigIn(BaseModel):
     default_action: str = "warn"          # warn | block | audit
     rules: dict[str, RuleIn] = {}
     keywords: list[str] = []
+    milter_enforce: bool = False        # rechazar en servidor (Outlook/movil)
+    scan_attachments: bool = True       # revisar contenido de adjuntos
+    trusted_domains: list[str] = []     # dominios externos de confianza
 
 
 @router.get("")
 async def get_config(request: Request, admin: dict = Depends(get_current_admin)):
     row = await _db(request).fetchrow(
-        "SELECT enabled, default_action, rules FROM dlp_config WHERE id = 1")
+        "SELECT enabled, default_action, rules, COALESCE(milter_enforce,false) AS milter_enforce, "
+        "COALESCE(scan_attachments,true) AS scan_attachments, COALESCE(trusted_domains,'[]'::jsonb) AS trusted_domains "
+        "FROM dlp_config WHERE id = 1")
     rules = dict(DEFAULT_RULES)
     enabled, default_action = True, "warn"
     if row:
@@ -53,11 +58,18 @@ async def get_config(request: Request, admin: dict = Depends(get_current_admin))
         for k, v in (r or {}).items():
             rules[k] = {**DEFAULT_RULES.get(k, {"enabled": True, "action": None}), **(v or {})}
     kw_rows = await _db(request).fetch("SELECT term FROM dlp_keywords ORDER BY term")
+    td = row["trusted_domains"] if row else []
+    if isinstance(td, str):
+        try: td = json.loads(td or "[]")
+        except ValueError: td = []
     return {
         "enabled": enabled,
         "default_action": default_action,
         "rules": rules,
         "keywords": [r["term"] for r in kw_rows],
+        "milter_enforce": bool(row["milter_enforce"]) if row else False,
+        "scan_attachments": bool(row["scan_attachments"]) if row else True,
+        "trusted_domains": list(td or []),
     }
 
 
@@ -77,13 +89,17 @@ async def save_config(body: DlpConfigIn, request: Request,
 
     await _db(request).execute(
         """
-        INSERT INTO dlp_config (id, enabled, default_action, rules, updated_at)
-        VALUES (1, $1, $2, $3, now())
+        INSERT INTO dlp_config (id, enabled, default_action, rules, milter_enforce, scan_attachments, trusted_domains, updated_at)
+        VALUES (1, $1, $2, $3, $4, $5, $6::jsonb, now())
         ON CONFLICT (id) DO UPDATE SET
           enabled = EXCLUDED.enabled, default_action = EXCLUDED.default_action,
-          rules = EXCLUDED.rules, updated_at = now()
+          rules = EXCLUDED.rules, milter_enforce = EXCLUDED.milter_enforce,
+          scan_attachments = EXCLUDED.scan_attachments, trusted_domains = EXCLUDED.trusted_domains,
+          updated_at = now()
         """,
-        body.enabled, body.default_action, json.dumps(rules))
+        body.enabled, body.default_action, json.dumps(rules), bool(body.milter_enforce),
+        bool(body.scan_attachments),
+        json.dumps(sorted({(d or "").strip().lower().lstrip("@") for d in body.trusted_domains if (d or "").strip()})))
 
     # Reemplazar palabras clave (set completo)
     terms = sorted({(k or "").strip() for k in body.keywords if (k or "").strip()})
@@ -96,7 +112,7 @@ async def save_config(body: DlpConfigIn, request: Request,
         "INSERT INTO admin_audit (admin_id, admin_username, action, target, ip_address) "
         "VALUES ($1,$2,$3,$4,$5)",
         admin["id"], admin["username"], "dlp_config_update",
-        f"enabled={body.enabled} action={body.default_action}",
+        f"enabled={body.enabled} action={body.default_action} smtp_reject={body.milter_enforce} adjuntos={body.scan_attachments}",
         request.headers.get("X-Real-IP", request.client.host if request.client else ""))
     return {"ok": True}
 
@@ -106,7 +122,7 @@ async def list_violations(request: Request, admin: dict = Depends(get_current_ad
                           limit: int = 50):
     limit = max(1, min(limit, 200))
     rows = await _db(request).fetch(
-        "SELECT username, recipients, subject, data_types, action, overridden, created_at "
+        "SELECT username, recipients, subject, data_types, action, overridden, created_at, reason, external "
         "FROM dlp_violations ORDER BY created_at DESC LIMIT $1", limit)
     out = []
     for r in rows:
@@ -125,6 +141,8 @@ async def list_violations(request: Request, admin: dict = Depends(get_current_ad
             "data_types": dt,
             "action": r["action"],
             "overridden": r["overridden"],
+            "reason": r["reason"],
+            "external": bool(r["external"]),
             "created_at": r["created_at"].isoformat() if r["created_at"] else None,
         })
     return {"violations": out}

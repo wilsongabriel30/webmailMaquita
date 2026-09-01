@@ -7,6 +7,8 @@ interface Cfg {
   impersonation_enabled: boolean;
   impersonation_terms: string[];
   dlp_block_cards_external: boolean;
+  totp_required: boolean;
+  totp_deadline: string | null;
   status: Status;
 }
 
@@ -37,6 +39,8 @@ export function SecurityPolicies() {
         impersonation_enabled: cfg.impersonation_enabled,
         impersonation_terms: cfg.impersonation_terms,
         dlp_block_cards_external: cfg.dlp_block_cards_external,
+        totp_required: cfg.totp_required,
+        totp_deadline: cfg.totp_deadline || null,
       });
       setMsg({ ok: true, text: "Cambios guardados. El filtro los aplica en ~20 segundos." });
     } catch {
@@ -80,6 +84,24 @@ export function SecurityPolicies() {
           </div>
           <p className="mt-2 italic">Incluye subdominios. Gestionado por reglas Rspamd.</p>
         </div>
+      </div>
+
+      <div className="border border-ms-gray-30 rounded-lg p-4 mb-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="font-semibold text-ms-gray-130">Verificación en dos pasos (2FA) obligatoria</h2>
+            <p className="text-sm text-ms-gray-110">Activado: todo usuario del webmail sin 2FA ve un aviso al entrar y, desde la fecha límite, no puede usar el correo hasta activarla. Sin fecha = obligatorio de inmediato.</p>
+          </div>
+          <Toggle on={cfg.totp_required} onClick={() => setCfg({ ...cfg, totp_required: !cfg.totp_required })}
+            title="Exige la verificación en dos pasos a todos los usuarios del webmail. Se aplica al pulsar Guardar cambios." />
+        </div>
+        {cfg.totp_required && (
+          <div className="mt-3 flex items-center gap-2">
+            <label className="text-xs text-ms-gray-110">Fecha límite (hasta entonces solo se avisa):</label>
+            <input type="date" className="px-2 py-1 border border-ms-gray-30 rounded text-sm" value={cfg.totp_deadline || ""}
+              onChange={(e) => setCfg({ ...cfg, totp_deadline: e.target.value || null })} />
+          </div>
+        )}
       </div>
 
       <div className="border border-ms-gray-30 rounded-lg p-4 mb-4">
