@@ -163,6 +163,23 @@ def _buscar_en_nomina(correo: str) -> tuple:
         ORDER BY id LIMIT 1
     """, (correo,), nomina=True)
     if not filas:
+        # Dominios institucionales equivalentes: el buzon puede ser usuario@maquita.org y el
+        # directorio tener usuario@maquita.com.ec (misma persona). Igual criterio que el chat.
+        local, _, dominio = correo.partition('@')
+        equivalentes = ('maquita.org', 'maquita.com.ec', 'fundacionmaquita.org')
+        if dominio in equivalentes:
+            for otro in equivalentes:
+                if otro == dominio:
+                    continue
+                filas = consultar("""
+                    SELECT id, role FROM usuarios
+                    WHERE LOWER(email) = %s AND active = TRUE
+                    ORDER BY id LIMIT 1
+                """, (f"{local}@{otro}",), nomina=True)
+                if filas:
+                    log.info('Buzon %s enlazado por dominio equivalente a %s@%s', correo, local, otro)
+                    break
+    if not filas:
         log.info('Buzón %s sin usuario en el directorio central: acceso denegado', correo)
         return None, None
     uid = filas[0]['id']

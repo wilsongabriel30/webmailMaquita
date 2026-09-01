@@ -67,6 +67,12 @@ def restaurar_de_papelera():
         restaurada = nucleo.restaurar_de_papelera(usuario, datos['ruta'])
     except FileNotFoundError:
         return error('No está en la papelera', 404)
+    # T-18: si vuelve un archivo del chat, el chat lo muestra de nuevo
+    try:
+        from hook_chat import avisar_chat
+        avisar_chat(usuario, restaurada, 'restaurado')
+    except Exception:
+        pass
     return jsonify({'success': True, 'ruta_restaurada': restaurada})
 
 
