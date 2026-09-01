@@ -8,7 +8,7 @@ hereda los permisos, el compartir, la papelera, las versiones y la búsqueda del
 |---|---|---|
 | **Documentos** (OnlyOffice) | Editar Word/Excel/PowerPoint en el navegador | Disponible (integrado en el Almacén) |
 | **Formularios** (`.forma`) | Crear formularios y encuestas, estilo Google Forms | Disponible (integrado en el Almacén) |
-| [**Editor de PDF**](pdf-editor/) | Anotar, firmar y rellenar PDF | Fase 1 — código base auditado; Fase 2 pendiente |
+| [**Editor de PDF**](pdf_editor/) | Anotar, firmar y rellenar PDF | **Instalable** — app autónoma, arranque validado |
 | [**Tableros / BI**](bi/) | Convertir datos en tableros y gráficos | Fase 1 — motor auditado; Fase 2 pendiente |
 
 **Fase 2** (común a las dos últimas): configuración propia, autenticación por el
