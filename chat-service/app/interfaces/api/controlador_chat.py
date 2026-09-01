@@ -756,6 +756,25 @@ def obtener_mensajes(conversacion_id: int):
             # No cerrar aquí - se cierra en teardown_request
             pass
 
+        # Citas de los mensajes que responden a otro (Responder)
+        try:
+            from interfaces.api.citas_respuesta import enriquecer_citas
+            enriquecer_citas(mensajes, servicio)
+        except Exception:
+            pass
+
+        # Vistos: lo listado queda ENTREGADO al lector; los propios se anotan con delivered_at
+        try:
+            from interfaces.api.estado_entrega import registrar_entrega_al_listar, anotar_entregados
+            _nuevos = registrar_entrega_al_listar(db_session, conversacion_id, usuario_actual,
+                                                  [m['id'] for m in mensajes if m.get('id')])
+            anotar_entregados(mensajes, db_session, conversacion_id, usuario_actual)
+            if _nuevos:
+                emitir_a_conversacion(conversacion_id, 'msg_status',
+                                      {'ids': _nuevos, 'c': conversacion_id, 'status': 'delivered', 'by': usuario_actual})
+        except Exception:
+            pass
+
         return jsonify({
             'success': True,
             'exito': True,

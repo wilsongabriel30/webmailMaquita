@@ -237,7 +237,8 @@
             sender_id: data.senderId,
             created_at: new Date(data.timestamp).toISOString(),
             is_own_message: false,
-            status: data.status
+            status: data.status,
+            reply_to_id: data.reply_to_id || null
         };
 
         // Reproducir sonido
@@ -271,6 +272,8 @@
 
     // Indicador de latencia en UI
     function updateLatencyIndicator(latency) {
+        // Indicador tecnico: oculto al usuario final. Solo se muestra con ?debug=1
+        if (new URLSearchParams(location.search).get('debug') !== '1') return;
         let indicator = document.getElementById('latency-indicator');
         if (!indicator) {
             indicator = document.createElement('div');
@@ -1466,11 +1469,11 @@
                 return '';
             }
             // Convertir objeto a array de reacciones
-            reactions = Object.entries(reactions).map(([emoji, data]) => ({
-                emoji: emoji,
-                count: data.count || 1,
-                user_ids: data.user_ids || []
-            }));
+            // El listado devuelve {emoji: [ids]}; el endpoint /reactions devuelve {emoji, count, user_ids}
+            reactions = Object.entries(reactions).map(([emoji, data]) => {
+                const ids = Array.isArray(data) ? data : (data && data.user_ids) || [];
+                return { emoji: emoji, count: ids.length || (data && data.count) || 1, user_ids: ids };
+            });
         }
 
         // Si el array está vacío, retornar vacío
@@ -1479,7 +1482,7 @@
         }
 
         const reactionsHtml = reactions.map(reaction => {
-            const isMyReaction = reaction.user_ids && reaction.user_ids.includes(currentUserId);
+            const isMyReaction = reaction.user_ids && reaction.user_ids.map(Number).includes(Number(currentUserId));
             const activeClass = isMyReaction ? 'my-reaction' : '';
             return `
                 <div class="message-reaction ${activeClass}"
@@ -1618,7 +1621,7 @@
                 // Si hay reacciones, crear/actualizar el contenedor
                 if (data.reactions.length > 0) {
                     const reactionsHtml = data.reactions.map(reaction => {
-                        const isMyReaction = reaction.user_ids && reaction.user_ids.includes(currentUserId);
+                        const isMyReaction = reaction.user_ids && reaction.user_ids.map(Number).includes(Number(currentUserId));
                         const activeClass = isMyReaction ? 'my-reaction' : '';
                         return `
                             <div class="message-reaction ${activeClass}"

@@ -80,6 +80,7 @@ def _resolver_usuario():
 
 
 _cache_uid = {}
+_cache_nombre = {}
 
 
 def _uid_por_correo(correo):
@@ -90,10 +91,12 @@ def _uid_por_correo(correo):
         dsn = os.getenv("USERS_DB_URL") or os.getenv("DATABASE_URL")
         con = psycopg2.connect(dsn)
         cur = con.cursor()
-        cur.execute("SELECT id FROM usuarios WHERE lower(email)=%s AND active=true LIMIT 1", (correo,))
+        cur.execute("SELECT id, COALESCE(NULLIF(TRIM(full_name), ''), username, email) FROM usuarios WHERE lower(email)=%s AND active=true LIMIT 1", (correo,))
         row = cur.fetchone()
         con.close()
         uid = int(row[0]) if row else None
+        if row:
+            _cache_nombre[uid] = row[1]
     except Exception:
         uid = None
     _cache_uid[correo] = uid
@@ -114,6 +117,11 @@ def crear_app():
         static_url_path="/static",
     )
     app.secret_key = os.getenv("CHAT_SESSION_KEY", os.urandom(24).hex())
+    # Cookie de sesión PROPIA: el servicio se consume desde dominios donde ya existe
+    # una cookie "session" ajena (FARO). Sin esto se pisarían mutuamente.
+    app.config["SESSION_COOKIE_NAME"] = "chat_session"
+    app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+    app.config["SESSION_COOKIE_SECURE"] = True
 
     class _UsuarioSesion:
         """Shim para las plantillas: expone .id / .is_authenticated desde la sesión
@@ -145,6 +153,13 @@ def crear_app():
         from interfaces.api.controlador_chat import bp_chat
         app.register_blueprint(bp_chat)
         app.config["CHAT_MONTADO"] = True
+        # Biblioteca LOCAL de GIF (sin proveedores externos)
+        from interfaces.api.controlador_gifs import bp_gifs, asegurar_tabla
+        asegurar_tabla()
+        app.register_blueprint(bp_gifs)
+        # Responder / citar mensajes
+        from interfaces.api.citas_respuesta import bp_citas
+        app.register_blueprint(bp_citas)
     except Exception as e:
         app.config["CHAT_MONTADO"] = False
         app.config["CHAT_ERROR"] = str(e)
@@ -160,6 +175,7 @@ def crear_app():
                 return jsonify({"success": False, "error": "No autenticado"}), 401
             session["usuario_id"] = uid
             session["usuario_correo"] = correo
+            session["usuario_nombre"] = _cache_nombre.get(uid, correo)
         return None
 
     return app

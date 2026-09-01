@@ -263,7 +263,8 @@
                     timestamp: data.ts,
                     type: data.type || 'text',
                     status: data.s,
-                    gif_url: data.gif_url
+                    gif_url: data.gif_url,
+                    reply_to_id: data.r || null
                 });
             });
 
@@ -357,6 +358,8 @@
                 if (type === 'gif' && options.gif_url) {
                     payload.gif_url = options.gif_url;
                 }
+                // Responder / citar
+                if (options.reply_to) payload.reply_to = options.reply_to;
 
                 this.socket.emit('send', payload);
                 message.status = 'sending';

@@ -5,7 +5,7 @@
 {% block page_icon %}<i class="fas fa-comments me-2"></i>{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/chat-page.css') }}?v=20260612p">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/chat-page.css') }}?v=20260827d">
 <!-- Modo EMBED: cuando el chat va dentro del panel flotante del correo/Drive
      (/chat/?embed=1) se oculta la barra de FARO (app launcher, correo, perfil)
      para que no rediriga (bucle) ni se solape el menu de perfil. -->
@@ -201,10 +201,10 @@
                 <!-- GIF Picker -->
                 <div id="gifPicker" class="gif-picker" style="display: none;">
                     <div class="gif-picker-header">
-                        <h6><i class="fas fa-gift me-2"></i>Buscar GIFs</h6>
+                        <h6><i class="fas fa-gift me-2"></i>GIF de la biblioteca Maquita <button type="button" class="btn btn-sm btn-light float-end" onclick="abrirSubirGif()" title="Subir GIF"><i class="fas fa-upload"></i></button></h6>
                     </div>
                     <div class="gif-picker-search">
-                        <input type="text" placeholder="Buscar GIFs (ej: feliz, gracias, celebrar...)" id="gifSearch" oninput="searchGifs(this.value)">
+                        <input type="text" placeholder="Buscar en la biblioteca (feliz, gracias, celebrar...)" id="gifSearch" oninput="searchGifs(this.value)">
                     </div>
                     <div class="gif-picker-content" id="gifPickerContent">
                         <div class="gif-placeholder">
@@ -367,5 +367,8 @@
 
 <!-- Chat JS - Version 3.0 - 2026-01-01 - Envío via WebSocket -->
 <script>window.CHAT_USER_ID = {{ current_user.id if current_user and current_user.is_authenticated else 'null' }};</script>
-<script src="{{ url_for('static', filename='js/chat-page.js') }}?v=20260612p"></script>
+<script src="{{ url_for('static', filename='js/chat-page.js') }}?v=20260827d"></script>
+<script src="{{ url_for('static', filename='js/chat-gifs-local.js') }}?v=20260827d"></script>
+<script src="{{ url_for('static', filename='js/chat-responder.js') }}?v=20260827d"></script>
+<script src="{{ url_for('static', filename='js/chat-vistos.js') }}?v=20260827d"></script>
 {% endblock %}
