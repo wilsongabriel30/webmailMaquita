@@ -61,6 +61,9 @@ echo "Node $(node -v), NPM $(npm -v)"
 
 # --- 3. PostgreSQL: usuario + base de datos ---
 echo -e "\n${GREEN}[3/15] Configurando PostgreSQL...${NC}"
+# Asegurar PostgreSQL arrancado (en algunos entornos no se auto-arranca tras apt)
+systemctl enable --now postgresql 2>/dev/null || service postgresql start 2>/dev/null || true
+for _i in $(seq 1 15); do pg_isready -q 2>/dev/null && break; sleep 1; done
 DB_PASS=$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | head -c 20)
 sudo -u postgres psql -c "CREATE USER mailserver WITH PASSWORD '${DB_PASS}';" 2>/dev/null \
     || sudo -u postgres psql -c "ALTER USER mailserver WITH PASSWORD '${DB_PASS}';"
@@ -165,6 +168,8 @@ echo "admin:${MASTER_HASH}" > /etc/dovecot/master-users
 chown root:dovecot /etc/dovecot/master-users
 chmod 640 /etc/dovecot/master-users
 doveconf -n >/dev/null && echo "  Dovecot: sintaxis OK"
+# Postfix crea /var/spool/postfix/private (sockets auth/lmtp) que Dovecot necesita
+systemctl start postfix 2>/dev/null || service postfix start 2>/dev/null || true
 systemctl restart dovecot
 
 # --- 11. Postfix (SMTP + entrega LMTP a Dovecot) ---
@@ -358,7 +363,7 @@ echo "  Panel de administración: https://${MAIL_HOST}:8443"
 # --- 15. Iniciar + verificar ---
 echo -e "\n${GREEN}[15/15] Iniciando y verificando...${NC}"
 systemctl restart maquita-webmail
-nginx -t && systemctl reload nginx
+nginx -t && { systemctl reload nginx 2>/dev/null || systemctl enable --now nginx; }
 sleep 3
 HEALTH=$(curl -s http://127.0.0.1:8000/api/health 2>/dev/null || echo "sin respuesta")
 AUTH_DEMO=$(doveadm auth test "demo@${DEMO_DOM}" "${CLAVE_GENERICA}" 2>&1 | grep -c "auth succeeded" || true)
