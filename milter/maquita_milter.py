@@ -23,6 +23,7 @@ import time
 from email import message_from_bytes
 
 sys.path.insert(0, "/opt/maquita-webmail/backend")
+sys.path.insert(0, "/opt/maquita-webmail/milter")
 
 import asyncpg  # noqa: E402
 from purepythonmilter import (  # noqa: E402
@@ -270,37 +271,18 @@ def _extract_text(headers, body: bytes) -> str:
 
 
 async def _outbound_dlp(st, sender) -> Continue:
+    """SALIENTE: delega en milter/dlp_outbound.py (misma politica que el webmail)."""
     pool = await _get_pool()
     manips = await _inbound_safeattach(st, pool)   # Safe Attachments tambien en interno/saliente
-    try:
-        kws = [r["term"] for r in await pool.fetch("SELECT term FROM dlp_keywords")]
-    except Exception:
-        kws = []
     text = _extract_text(st["headers"], bytes(st["body"]))
-    findings = detectors.detect_all(text, kws)
-    if findings:
-        types = sorted({f.data_type for f in findings})
-        subj = next((t for n, t in st["headers"] if n.lower() == "subject"), "")
-        # Bloquear SOLO tarjetas de credito (Luhn) que salen a destinatarios EXTERNOS
-        has_card = any(f.data_type == "tarjeta" for f in findings)
-        locals_ = await _local_domains(pool)
-        has_external = any((r.split("@")[-1].lower() not in locals_) for r in st["rcpts"] if "@" in r)
-        block = has_card and has_external and (await _security_config(pool))["block_cards"]
-        try:
-            await pool.execute(
-                "INSERT INTO dlp_violations (username, recipients, subject, data_types, action, overridden) "
-                "VALUES ($1,$2,$3,$4,$5,$6)",
-                sender, json.dumps(st["rcpts"]), (subj or "")[:500], json.dumps(types),
-                "milter_reject" if block else "milter_log", (not block))
-        except Exception:
-            pass
-        if block:
-            return RejectWithCode(
-                primary_code=(5, 5, 4), enhanced_code=(5, 7, 1),
-                text="Bloqueado por politica DLP: no se permite enviar numeros de tarjeta de credito a destinatarios externos.")
-        manips.append(AppendHeader(headername="X-DLP-Alert",
-                                   headertext="posibles datos sensibles: " + ", ".join(types)))
-    return Continue(manipulations=manips) if manips else Continue()
+    try:
+        import dlp_outbound
+        return await dlp_outbound.run(st, sender, pool, text, manips,
+                                      legacy_block_cards=(await _security_config(pool))["block_cards"])
+    except Exception as e:
+        import logging as _lg
+        _lg.warning("dlp_outbound: %r", e)
+        return Continue(manipulations=manips) if manips else Continue()
 
 
 _EXE_EXT = {".exe", ".scr", ".bat", ".cmd", ".com", ".pif", ".msi", ".js", ".jse",
