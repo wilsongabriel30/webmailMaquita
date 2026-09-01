@@ -64,10 +64,10 @@ del Drive.
 - **Formularios** — *disponible.* Crea formularios y encuestas (estilo Google Forms);
   el formulario es un archivo más del Drive. Publica un enlace, recoge respuestas y
   las exporta a una hoja de cálculo en la misma carpeta.
-- **Tableros / BI** — *en preparación.* Convierte datos en tableros y gráficos para
-  decidir con información al día, abriéndolos desde el Drive.
-- **Editor de PDF** — *en preparación.* Anota, firma, rellena formularios y genera o
-  lee códigos QR, sobre PDF guardados en el Drive.
+- **Tableros / BI** — *en preparación* (motor ya en ). Convierte
+  datos en tableros y gráficos, abriéndolos desde el Drive.
+- **Editor de PDF** — *en preparación* (código base en ).
+  Anota, firma, rellena formularios y genera o lee códigos QR, sobre PDF del Drive.
 
 > Las aplicaciones marcadas *en preparación* ya funcionan dentro de Maquita; se están
 > empaquetando para que cualquiera pueda instalarlas y abrirlas desde su propio Drive.
