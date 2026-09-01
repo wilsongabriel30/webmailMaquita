@@ -1,0 +1,24 @@
+# Editor de PDF — Aplicación del Drive Maquita
+# Web / auth
+Flask
+Flask-Login
+Flask-WTF
+PyJWT
+redis
+# Firma digital y criptografía
+cryptography
+# PDF: render, extracción, conversión
+PyMuPDF
+pdfplumber
+pdf2docx
+python-docx
+openpyxl
+# OCR / imagen / datos
+opencv-python-headless
+Pillow
+numpy
+pandas
+# Servidor / BD
+eventlet
+SQLAlchemy
+psycopg2-binary
