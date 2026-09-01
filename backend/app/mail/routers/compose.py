@@ -166,9 +166,10 @@ async def send(
         if row and row["display_name"]:
             display_name = row["display_name"]
 
-        # Decode base64 attachments — large files go to Nextcloud
+        # Decodificar adjuntos base64 — los grandes van al Almacén (Drive)
         attachments = []
         large_links_html = []
+        _alm_token = request.cookies.get("access_token")
         if body.attachments:
             for att in body.attachments:
                 try:
@@ -176,8 +177,8 @@ async def send(
                 except Exception:
                     content = b""
                 if len(content) >= SIZE_THRESHOLD and not (att.is_inline or False):
-                    # Upload to Nextcloud and get share link
-                    share_url = await upload_and_share(username, password, att.filename, content)
+                    # Subir al Almacén y obtener el enlace de descarga
+                    share_url = await upload_and_share(_alm_token, att.filename, content)
                     if share_url:
                         large_links_html.append(format_link_html(att.filename, len(content), share_url))
                         continue  # skip inline attachment
@@ -188,7 +189,7 @@ async def send(
                     "is_inline": att.is_inline or False,
                     "cid": att.cid or "",
                 })
-        # Append Nextcloud links to HTML body
+        # Adjuntar los enlaces del Almacén al cuerpo HTML
         if large_links_html:
             links_block = "<br>".join(large_links_html)
             body.html_body = (body.html_body or "") + "<br>" + links_block
