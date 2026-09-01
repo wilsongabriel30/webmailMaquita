@@ -198,7 +198,7 @@ class CasoUsoGestionarPaginas:
             # El cliente PDF debe implementar extract_pages
             # que retorna bytes del nuevo PDF
             nuevo_pdf_bytes = self.servicio_pdf.cliente_pdf.extraer_paginas(
-                ruta_pdf=f"/home/sistemas/Maquita/uploads/pdf_editor/documentos/{usuario_id}/{documento_original.nombre_archivo}",
+                ruta_pdf=f"{self.servicio_pdf.ruta_uploads}/documentos/{usuario_id}/{documento_original.nombre_archivo}",
                 paginas=dto.paginas
             )
 
@@ -255,7 +255,7 @@ class CasoUsoGestionarPaginas:
             rutas = []
             for doc_id in documento_ids:
                 doc = self.servicio_pdf.obtener_documento(doc_id, usuario_id)
-                ruta = f"/home/sistemas/Maquita/uploads/pdf_editor/documentos/{usuario_id}/{doc.nombre_archivo}"
+                ruta = f"{self.servicio_pdf.ruta_uploads}/documentos/{usuario_id}/{doc.nombre_archivo}"
                 rutas.append(ruta)
 
             # Combinar usando el cliente PDF

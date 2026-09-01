@@ -44,7 +44,26 @@ def crear_app():
     def _inicio():
         return redirect("/herramientas/editor-pdf/")
 
+    _crear_tablas()
     return app
+
+
+
+def _crear_tablas():
+    """Crea las tablas del editor en la BD 'herramientas' si no existen."""
+    try:
+        from config import Config
+        if not Config.HERRAMIENTAS_DATABASE_URI:
+            return
+        from sqlalchemy import create_engine
+        eng = create_engine(Config.HERRAMIENTAS_DATABASE_URI)
+        from pdf_editor.infraestructura.persistencia.modelos import (
+            modelo_documento, modelo_anotacion, modelo_version)
+        for _m in (modelo_documento, modelo_anotacion, modelo_version):
+            _m.Base.metadata.create_all(eng)
+    except Exception as _e:
+        import logging
+        logging.getLogger(__name__).warning("Tablas del editor no creadas: %s", _e)
 
 
 app = crear_app()

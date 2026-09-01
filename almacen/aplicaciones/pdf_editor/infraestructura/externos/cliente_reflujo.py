@@ -515,7 +515,7 @@ class MezclaReflujo(object):
             # letra en el documento de un usuario concreto.
             try:
                 import datetime
-                with open('/home/sistemas/Maquita/logs/pdf_reemplazos.log', 'a') as f:
+                with open(os.getenv('PDF_LOGS_DIR', '/var/lib/maquita-pdf-editor/logs') + '/pdf_reemplazos.log', 'a') as f:
                     f.write('%s | %d fragmento(s) | original=%d | %s\n' % (
                         datetime.datetime.now().isoformat(timespec='seconds'),
                         aplicadas, con_fuente_original, usadas))

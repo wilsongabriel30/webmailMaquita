@@ -45,7 +45,7 @@ def obtener_servicio_pdf():
         g.servicio_pdf = ServicioPDF(
             repositorio_documento=repositorio,
             cliente_pdf=cliente_pdf,
-            ruta_uploads='/home/sistemas/Maquita/uploads/pdf_editor'
+            ruta_uploads=os.getenv('PDF_UPLOADS_DIR', '/var/lib/maquita-pdf-editor/uploads')
         )
         g.db_session = db_session
 
