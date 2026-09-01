@@ -24,7 +24,7 @@ Maquita Webmail is two things in a single repository:
 
 It does not replace your MTA or IMAP server. It runs **alongside them**, connecting to Postfix, Dovecot, Rspamd and PostgreSQL to offer a unified interface for users and compliance officers.
 
-> **The ecosystem.** The webmail is one piece of a broader **free, self-hosted** corporate platform (collaboration, management, data and local AI), all on your own servers. See **[The Maquita suite](docs/SUITE-MAQUITA.md)** — what each part is, what it does and what it is for. *(In Spanish.)*
+> **The platform.** The webmail ships with a **self-hosted Drive (Almacén) and its apps** —documents, forms and more— plus everyday collaboration (chat, calendar, tasks), all on your own servers. See **[The Maquita suite](docs/SUITE-MAQUITA.md)** — what each part is, what it does and what it is for. *(In Spanish.)*
 
 ## Philosophy: native, robust, reproducible
 

@@ -24,7 +24,7 @@ Maquita Webmail son dos cosas en un mismo repositorio:
 
 No reemplaza tu MTA ni tu servidor IMAP. Funciona **junto a ellos**, conectándose a Postfix, Dovecot, Rspamd y PostgreSQL para ofrecer una interfaz unificada a usuarios y oficiales de cumplimiento.
 
-> **El ecosistema.** El webmail es una pieza de una plataforma corporativa **libre y soberana** más amplia (colaboración, gestión, datos e IA local), toda en servidores propios. Ver **[La suite Maquita](docs/SUITE-MAQUITA.md)** — qué es cada parte, qué hace y para qué sirve.
+> **La plataforma.** El webmail viene con un **Drive propio (Almacén) y sus aplicaciones** —documentos, formularios y más— y la colaboración del día a día (chat, calendario, tareas), todo en servidores propios. Ver **[La suite Maquita](docs/SUITE-MAQUITA.md)** — qué es cada parte, qué hace y para qué sirve.
 
 ## Filosofía: nativo, robusto, reproducible
 
