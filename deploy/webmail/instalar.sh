@@ -379,8 +379,8 @@ ALMACEN_RAIZ_DATOS=/var/lib/maquita-almacen
 ALMACEN_URL_PUBLICA=https://${MAIL_HOST}
 REDIS_URL=redis://127.0.0.1:6379/0
 AENV
-mkdir -p /etc/nginx/snippets
-cp "${APP_DIR}/almacen/deploy/nginx-almacen.conf" /etc/nginx/snippets/maquita-almacen.conf
+mkdir -p /etc/nginx/snippets/maquita-apps
+cp "${APP_DIR}/almacen/deploy/nginx-almacen.conf" /etc/nginx/snippets/maquita-apps/almacen.conf
 cp "${APP_DIR}/almacen/deploy/maquita-almacen.service" /etc/systemd/system/
 systemctl daemon-reload && systemctl enable --now maquita-almacen
 echo "  Almacen (Drive): https://${MAIL_HOST}/archivos-almacen"
@@ -396,8 +396,8 @@ WEBMAIL_SECRET_KEY=${SECRET}
 REDIS_URL=redis://127.0.0.1:6379/0
 ALMACEN_INTERNAL_URL=http://127.0.0.1:8788
 BIENV
-mkdir -p /etc/nginx/snippets
-cp "${BI_DIR}/deploy/nginx-bi.conf" /etc/nginx/snippets/maquita-bi.conf
+mkdir -p /etc/nginx/snippets/maquita-apps
+cp "${BI_DIR}/deploy/nginx-bi.conf" /etc/nginx/snippets/maquita-apps/bi.conf
 cp "${BI_DIR}/deploy/maquita-bi.service" /etc/systemd/system/
 systemctl daemon-reload && systemctl enable --now maquita-bi
 echo "  Tableros/BI: https://${MAIL_HOST}/tableros/"
