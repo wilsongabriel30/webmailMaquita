@@ -7,7 +7,28 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
-Nada aún.
+Pendiente: #3 del reporte externo — parametrizar la marca de la UI del Drive (~40 strings)
+con `branding_settings` (queda como tarea aparte por su tamaño).
+
+## [1.1.2] - 2026-09-02
+
+Segundo lote de portabilidad reportado por el equipo externo (Drive frente a usuarios reales).
+
+### Corregido
+
+- **Drive — dominio propio quemado (crítico):** el botón «Archivos» abría un dominio fijo, así
+  que en una réplica los usuarios aterrizaban en el login de otra organización. Ahora la URL
+  del Drive sale de `branding_settings.drive_url` con **default mismo host** (`/archivos-almacen/`).
+- **Drive — nginx del Almacén incompleto (grave):** no proxeaba `/almacen-static/` (CSS), `/drive`
+  ni `/webmail-inicio` → Drive deforme/404 en réplicas. Se completa el snippet y se agrega la
+  plantilla `nginx-almacen-dominio-dedicado.conf` (patrón recomendado: dominio dedicado).
+- **Compartir:** clasificaba interno/externo con `dominio.includes('maquita')` → en réplicas todos
+  salían «Externos». Ahora usa el dominio real (`USUARIO_DOMINIO` / `DOMINIOS_INTERNOS`).
+- **`cookie_domain`:** estaba sobrecargado (cookie y construcción de URLs). Las URLs públicas usan
+  ahora `public_base_url`; `cookie_domain` queda solo para la cookie, habilitando SSO entre
+  subdominios (p. ej. `.suorg.tld`).
+- **Explorador del Drive:** cargaba Google Fonts y sweetalert2 desde CDN; ahora van empaquetados
+  en local (`/almacen-static/vendor`), acorde a la filosofía offline.
 
 ## [1.1.1] - 2026-09-02
 
