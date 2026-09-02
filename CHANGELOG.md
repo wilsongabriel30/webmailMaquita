@@ -10,6 +10,16 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 Pendiente: #3 del reporte externo — parametrizar la marca de la UI del Drive (~40 strings)
 con `branding_settings` (queda como tarea aparte por su tamaño).
 
+## [1.1.5] - 2026-09-02
+
+### Corregido
+
+- **OnlyOffice (#9):** si el Document Server se proxeaba bajo un prefijo `/onlyoffice/`, tapaba
+  el diagnóstico `/onlyoffice/estado` del Drive (la UI no sabía si la ofimática estaba
+  configurada). Salvaguarda `location = /onlyoffice/estado` (match exacto → Almacén) en ambos
+  snippets nginx + la guía recomienda `/office/` para el DS. El endpoint ya usaba el prefijo a
+  prueba de futuro `/api/almacen/onlyoffice/estado`.
+
 ## [1.1.4] - 2026-09-02
 
 ### Cambiado
