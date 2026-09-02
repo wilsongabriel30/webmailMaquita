@@ -29,6 +29,7 @@ for _var in ('HOST', 'NAME', 'USER', 'PASSWORD', 'PORT'):
 from flask import Flask, jsonify, request
 
 from almacen_bd import asegurar_esquema
+import config_almacen
 from auth_webmail import asegurar_tablas_webmail, asegurar_tablas_externas, usuario_webmail
 from config_almacen import CLAVE_SESION, TAMANO_MAX_SUBIDA
 
@@ -336,6 +337,7 @@ def crear_app_webmail() -> Flask:
             almacen_modo=True,
             current_user=_UsuarioPlantilla(correo, rol),
             usuario=_UsuarioPlantilla(correo, rol),
+            drive_name=config_almacen.drive_name(),
         )
 
     @app.get('/almacen-s/<token>/editar')

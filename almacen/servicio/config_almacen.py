@@ -99,3 +99,15 @@ CLAVE_SESION = os.getenv('ALMACEN_CLAVE_SESION', 'cambiar-en-produccion-almacen'
 
 # URL pública del servicio (para armar enlaces compartidos)
 URL_PUBLICA = os.getenv('ALMACEN_URL_PUBLICA', 'http://localhost')
+
+
+def drive_name() -> str:
+    """Nombre visible del Drive (config_kv['drive_name']); default 'Nube Maquita'.
+    Una sola perilla para que cada replica ponga su marca sin editar plantillas."""
+    try:
+        filas = consultar("SELECT valor FROM config_kv WHERE clave = 'drive_name'")
+        if filas and (filas[0]['valor'] or '').strip():
+            return filas[0]['valor'].strip()
+    except Exception:
+        pass
+    return 'Nube Maquita'

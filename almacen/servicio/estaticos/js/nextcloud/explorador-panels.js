@@ -547,7 +547,7 @@ function iaEnviarMensaje() {
 
     // Simular respuesta (en desarrollo)
     setTimeout(() => {
-        agregarMensajeChat('bot', 'Esta función está en desarrollo. Pronto podré ayudarte con tus consultas sobre Nube Maquita.');
+        agregarMensajeChat('bot', 'Esta función está en desarrollo. Pronto podré ayudarte con tus consultas sobre ' + (window.DRIVE_NAME||'Nube Maquita') + '.');
     }, 500);
 }
 
