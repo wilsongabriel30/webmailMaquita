@@ -10,6 +10,15 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 Pendiente: #3 del reporte externo — parametrizar la marca de la UI del Drive (~40 strings)
 con `branding_settings` (queda como tarea aparte por su tamaño).
 
+## [1.1.7] - 2026-09-02
+
+### Corregido
+
+- **Drive (#11):** el botón «Instalar app de escritorio» abría `nextcloud.com/install` — enlace a
+  un producto ajeno y callejón sin salida (el Almacén no habla WebDAV). Ahora muestra
+  «Próximamente: la aplicación de escritorio del Drive está en preparación». Cuando se publique el
+  cliente propio, irá con la URL del servidor parametrizable (mismo espíritu que `drive_url`).
+
 ## [1.1.6] - 2026-09-02
 
 ### Corregido
