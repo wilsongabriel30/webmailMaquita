@@ -18,6 +18,9 @@ router = APIRouter(tags=["phishsim"])
 _PIXEL = base64.b64decode("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7")
 
 
+from app.branding.service import get_org_name
+
+
 def _db(r: Request):
     return r.app.state.db_pool
 
@@ -31,26 +34,29 @@ async def pixel(token: str, request: Request):
 @router.get("/api/phishtest/{token}", response_class=HTMLResponse)
 async def landing(token: str, request: Request):
     db = _db(request)
+    org = await get_org_name(db)
     t = await service.get_target(db, token)
     if not t:
-        return HTMLResponse(_training_html())
+        return HTMLResponse(_training_html(org))
     await service.mark(db, token, "opened")
     await service.mark(db, token, "clicked")
-    return HTMLResponse(_login_html(token, t["email"]))
+    return HTMLResponse(_login_html(token, t["email"], org))
 
 
 @router.post("/api/phishtest/{token}/submit", response_class=HTMLResponse)
 async def submit(token: str, request: Request):
     # No leemos ni guardamos lo que escribió; solo registramos el evento.
+    _org = await get_org_name(_db(request))
     await service.mark(_db(request), token, "submitted")
-    return HTMLResponse(_training_html())
+    return HTMLResponse(_training_html(_org))
 
 
-def _login_html(token: str, email: str) -> str:
+def _login_html(token: str, email: str, org: str = "Tu organización") -> str:
     safe_email = html_lib.escape(email or "")
+    org_e = html_lib.escape(org)
     return f"""<!doctype html><html lang="es"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Iniciar sesión — Maquita</title>
+<title>Iniciar sesión — {org_e}</title>
 <style>
  body{{font-family:Segoe UI,Arial,sans-serif;background:#f3f2f1;margin:0;display:flex;min-height:100vh;align-items:center;justify-content:center}}
  .box{{background:#fff;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.1);padding:34px;width:340px}}
@@ -61,7 +67,7 @@ def _login_html(token: str, email: str) -> str:
  button{{width:100%;background:#0078d4;color:#fff;border:0;padding:12px;border-radius:5px;font-size:15px;font-weight:600;cursor:pointer}}
 </style></head><body>
 <form class="box" method="post" action="/api/phishtest/{html_lib.escape(token)}/submit">
-  <div class="logo">Maquita Mail</div>
+  <div class="logo">{org_e}</div>
   <div class="sub">Inicia sesión para continuar</div>
   <label>Correo</label>
   <input type="email" name="email" value="{safe_email}" />
@@ -72,8 +78,9 @@ def _login_html(token: str, email: str) -> str:
 </body></html>"""
 
 
-def _training_html() -> str:
-    return """<!doctype html><html lang="es"><head>
+def _training_html(org: str = "Tu organización") -> str:
+    o = html_lib.escape(org)
+    return ("""<!doctype html><html lang="es"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Simulación de phishing — Maquita</title>
 <style>
@@ -108,3 +115,6 @@ def _training_html() -> str:
   <div class="foot">Programa de concientización · Fundación Maquita</div>
 </div>
 </body></html>"""
+        .replace("— Maquita<", "— " + o + "<")
+        .replace("<b>Tecnología de Maquita</b>", "<b>Tecnología de " + o + "</b>")
+        .replace("Programa de concientización · Fundación Maquita", "Programa de concientización · " + o))

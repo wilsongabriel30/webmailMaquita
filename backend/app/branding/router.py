@@ -16,6 +16,9 @@ async def get_branding(request: Request):
         return {}
     result = {r["key"]: r["value"] for r in rows}
 
+    # Nombre de organizacion para el frontend (TwoFactorGate, etc.), con fallback neutro
+    result.setdefault("org_name", "Tu organización")
+
     for ftype in ("favicon", "logo"):
         path = os.path.join(UPLOAD_DIR, ftype)
         if os.path.isdir(path):
