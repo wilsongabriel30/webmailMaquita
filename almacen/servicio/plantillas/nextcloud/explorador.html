@@ -165,26 +165,26 @@
                 <li><hr class="dropdown-divider"></li>
                 <li>
                     <a class="dropdown-item" href="{{ url_for('auth.profile') }}">
-                        <i class="fas fa-user me-2"></i> Mi Perfil
+                        <span class="material-icons me-2" style="font-size:18px;vertical-align:middle">person</span> Mi Perfil
                     </a>
                 </li>
                 <li>
                     <a class="dropdown-item" href="{{ url_for('autenticacion.configuracion_usuario') }}">
-                        <i class="fas fa-cog me-2"></i> Configuración
+                        <span class="material-icons me-2" style="font-size:18px;vertical-align:middle">settings</span> Configuración
                     </a>
                 </li>
                 {% if current_user and (current_user.role == 'master' or current_user.role == 'master_admin') %}
                 <li><hr class="dropdown-divider"></li>
                 <li>
                     <a class="dropdown-item text-primary fw-bold" href="{{ url_for('admin.dashboard') }}">
-                        <i class="fas fa-shield-alt me-2"></i> Panel de Administración
+                        <span class="material-icons me-2" style="font-size:18px;vertical-align:middle">shield</span> Panel de Administración
                     </a>
                 </li>
                 {% endif %}
                 <li><hr class="dropdown-divider"></li>
                 <li>
                     <a class="dropdown-item text-danger" href="#" onclick="confirmLogout()">
-                        <i class="fas fa-sign-out-alt me-2"></i> Cerrar Sesión
+                        <span class="material-icons me-2" style="font-size:18px;vertical-align:middle">logout</span> Cerrar Sesión
                     </a>
                 </li>
             </ul>

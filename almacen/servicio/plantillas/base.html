@@ -13,10 +13,13 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Google Sans', 'Segoe UI', Roboto, sans-serif; }
   </style>
+  <!-- Bootstrap framework (dropdown de usuario, modales, menu contextual). #10 -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap-5.3.2/css/bootstrap.min.css') }}">
   {% block extra_css %}{% endblock %}
 </head>
 <body>
   {% block content %}{% endblock %}
+  <script src="{{ url_for('static', filename='vendor/bootstrap-5.3.2/js/bootstrap.bundle.min.js') }}"></script>
   {% block extra_js %}{% endblock %}
 </body>
 </html>
