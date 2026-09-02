@@ -202,6 +202,11 @@ cd webmailMaquita
 sudo bash deploy/webmail/instalar.sh
 ```
 
+> **Agregar una Aplicación del Drive a un despliegue ya montado:** si instalaste solo el
+> correo/Drive y luego quieres sumar **Tableros/BI** o el **Editor de PDF**, ejecuta
+> `sudo bash deploy/webmail/instalar-app.sh <bi|pdf>` (idempotente; reutiliza los pasos
+> 16–17 del instalador y la configuración ya existente, sin regenerar secretos).
+
 El instalador (como root, en Debian 12/13 o Ubuntu 22.04+):
 
 1. Instala los paquetes base (PostgreSQL, Redis, Postfix, Dovecot, nginx, rspamd, Python, Node 20).
