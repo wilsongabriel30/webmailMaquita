@@ -29,7 +29,7 @@ for _var in ('HOST', 'NAME', 'USER', 'PASSWORD', 'PORT'):
 from flask import Flask, jsonify, request
 
 from almacen_bd import asegurar_esquema
-from auth_webmail import asegurar_tablas_webmail, usuario_webmail
+from auth_webmail import asegurar_tablas_webmail, asegurar_tablas_externas, usuario_webmail
 from config_almacen import CLAVE_SESION, TAMANO_MAX_SUBIDA
 
 # Rutas que NO exigen la cookie del webmail (autenticación propia por token
@@ -108,6 +108,7 @@ def crear_app_webmail() -> Flask:
 
     asegurar_esquema()          # esquema del motor (idempotente)
     asegurar_tablas_webmail()   # directorio local de usuarios
+    asegurar_tablas_externas()  # directorio de cuentas Drive externas (pasantes/aliados)
     from alias_correo import asegurar_tabla_alias
     asegurar_tabla_alias()      # alias: varios buzones -> una identidad
 

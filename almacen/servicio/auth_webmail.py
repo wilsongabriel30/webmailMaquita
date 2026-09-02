@@ -45,6 +45,8 @@ _PILOTO = {u.strip().lower() for u in os.getenv('ALMACEN_PILOTO', '').split(',')
 _REDIS_URL = os.getenv('ALMACEN_REDIS_URL', '')  # opcional: valida sesión viva (logout)
 
 _cache_usuarios: dict = {}   # username -> (id, role)
+_OFFSET_EXTERNOS = 1_000_000_000  # los ids de cuentas externas viven en este rango
+                                  # reservado para no colisionar con los ids de nomina
 _redis_cliente = None
 
 
@@ -154,6 +156,44 @@ def usuario_webmail() -> tuple:
     return resultado
 
 
+def asegurar_tablas_externas() -> None:
+    """Directorio de CUENTAS EXTERNAS del Drive (pasantes, aliados): personas con un
+    correo que NO es buzon de este servidor ni esta en nomina, pero a las que se les da
+    Drive Maquita. Aditivo: no altera el flujo de nomina. Keycloak-ready via 'proveedor'."""
+    ejecutar("""
+        CREATE TABLE IF NOT EXISTS usuarios_externos (
+            id                SERIAL PRIMARY KEY,
+            email             TEXT UNIQUE NOT NULL,
+            full_name         TEXT,
+            password_hash     TEXT,                              -- NULL hasta activar / si usa Keycloak
+            proveedor         TEXT NOT NULL DEFAULT 'local',     -- 'local' | 'keycloak'
+            active            BOOLEAN NOT NULL DEFAULT TRUE,
+            cuota_mb          INTEGER,                           -- NULL = cuota por defecto
+            invitacion_token  TEXT,
+            invitacion_expira TIMESTAMPTZ,
+            activado          BOOLEAN NOT NULL DEFAULT FALSE,    -- ya fijo su clave / provisionado
+            creado_por        TEXT,
+            creado_en         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+    """)
+
+
+def _buscar_en_externos(correo: str) -> tuple:
+    """Respaldo del directorio: si el correo no esta en nomina, puede ser una cuenta
+    externa del Drive. Devuelve (id_offset, 'user') o (None, None). El id va en el rango
+    reservado _OFFSET_EXTERNOS para que su almacen no se cruce con el de un empleado."""
+    try:
+        filas = consultar(
+            'SELECT id, active FROM usuarios_externos WHERE LOWER(email) = %s LIMIT 1',
+            (correo,))
+    except Exception as excepcion:
+        log.warning('No se pudo consultar usuarios_externos (%s)', excepcion)
+        return None, None
+    if not filas or not filas[0]['active']:
+        return None, None
+    return _OFFSET_EXTERNOS + filas[0]['id'], 'user'
+
+
 def _buscar_en_nomina(correo: str) -> tuple:
     """Modo nomina: el correo del buzón debe existir en el directorio central.
     Devuelve el MISMO id que usa el resto del sistema (un almacén por persona)."""
@@ -180,7 +220,10 @@ def _buscar_en_nomina(correo: str) -> tuple:
                     log.info('Buzon %s enlazado por dominio equivalente a %s@%s', correo, local, otro)
                     break
     if not filas:
-        log.info('Buzón %s sin usuario en el directorio central: acceso denegado', correo)
+        externo = _buscar_en_externos(correo)
+        if externo[0]:
+            return externo
+        log.info('Buzón %s sin usuario en el directorio central ni externo: acceso denegado', correo)
         return None, None
     uid = filas[0]['id']
     rol = filas[0]['role'] or 'user'
