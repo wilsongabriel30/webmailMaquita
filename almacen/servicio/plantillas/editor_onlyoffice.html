@@ -34,7 +34,7 @@
 <script>
 (async function () {
   const parametros = new URLSearchParams(location.search);
-  const ruta = parametros.get('ruta') || '';
+  let ruta = parametros.get('ruta') || '';
   const nombre = ruta.split('/').pop() || 'Documento';
   document.title = nombre + ' — Almacén Maquita';
   document.getElementById('nombre-archivo').textContent = nombre;
@@ -53,6 +53,23 @@
     data = await r.json();
   } catch (e) { return fallo('Sin conexión con el Almacén.'); }
   if (!data.success) { return fallo(data.error || 'Error obteniendo la configuración.'); }
+  // Formato antiguo (.doc/.xls/.ppt) convertido al moderno: se trabaja sobre el
+  // archivo nuevo (el antiguo fue a la papelera). Se actualiza nombre y URL.
+  if (data.ruta_abierta && data.ruta_abierta !== ruta) {
+    ruta = data.ruta_abierta;
+    const nombreNuevo = ruta.split('/').pop();
+    document.title = nombreNuevo + ' — Almacén Maquita';
+    const etiqueta = document.getElementById('nombre-archivo');
+    if (etiqueta) { etiqueta.textContent = nombreNuevo; }
+    try { history.replaceState(null, '', '?ruta=' + encodeURIComponent(ruta)); } catch (e) {}
+    if (data.convertido_ahora) {
+      const aviso = document.createElement('div');
+      aviso.textContent = '«' + nombreNuevo + '» ya está listo para editar en línea (formato moderno). El archivo antiguo quedó en la papelera por si lo necesitas.';
+      aviso.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1f2937;color:#fff;padding:10px 18px;border-radius:8px;font:14px system-ui,sans-serif;z-index:99999;box-shadow:0 4px 16px rgba(0,0,0,.3)';
+      document.body.appendChild(aviso);
+      setTimeout(function () { aviso.remove(); }, 9000);
+    }
+  }
 
   // 2. Cargar api.js del Document Server dedicado
   try {
