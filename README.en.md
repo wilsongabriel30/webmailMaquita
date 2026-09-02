@@ -53,7 +53,7 @@ Maquita Webmail solves all four.
 ## What it is NOT
 
 - **It is not a hosted email service.** You must run your own mail infrastructure or be willing to set it up.
-- **On its own, it is not a full office suite.** The webmail is email + compliance. Online office editing (OnlyOffice), video calls, chat and the Drive live in the **Maquita ecosystem** (see [The Maquita suite](docs/SUITE-MAQUITA.md)) as self-hosted services that integrate with mail.
+- **It is not a device-management or telephony platform.** This repository covers email, **Drive**, **online office (OnlyOffice)**, **dashboards/BI** and **PDF editing** —all installable with a single script—; what it does not include is endpoint/mobile management (EDR/MDM) or telephony. There, the big enterprise suites are still broader.
 - **It is not battle-tested at massive scale.** It runs in production at Fundación Maquita with nearly 300 mailboxes and 100,000+ emails. It has not been tested with thousands of concurrent users.
 - **It is not a mail server.** It requires Postfix and Dovecot to be installed and configured (the native installer sets them up for you).
 - **It is not feature-frozen.** The project evolves actively. APIs and database schemas may change between versions.
@@ -67,6 +67,20 @@ Maquita Webmail solves all four.
 - 170+ PostgreSQL tables
 - 39 auditable event types
 - Nearly 300 mailboxes and 100,000+ emails in production
+
+## How it compares
+
+On **free software and your own servers**, this repository delivers the **email security and compliance** capabilities that commercial suites reserve for their **top plan** (equivalent to Microsoft 365 **E5**): Safe Attachments/Links, ZAP, DLP, anti-impersonation, eDiscovery with custodians and legal hold, insider risk, communication compliance, MFA and conditional access.
+
+**Where it goes beyond that plan:**
+
+- **Full data sovereignty** — data never leaves your servers; the AI assistant runs locally.
+- **No per-user license** — cost does not grow with each mailbox.
+- **Open source, installable with a single script** by anyone.
+- **DLP with national ID and tax ID** — local data types, not generic ones.
+- **Suite in the same repo** — email + Drive + online office (OnlyOffice) + dashboards/BI + PDF editor, integrated.
+
+**Where the big suites are still ahead (honestly):** endpoint/device management (EDR/MDM), telephony, tens-of-thousands-of-users scale, and the depth of their detection engines trained on global telemetry.
 
 ## Screenshots
 
