@@ -13,6 +13,7 @@ from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import RedirectResponse
 
 from app.config import get_settings
+from app.auth.cookies import dominio_cookie
 from app.core.session import encrypt_password
 from app.auth.dovecot_auth_service import authenticate
 from app.auth.jwt import create_access_token, create_refresh_token
@@ -112,8 +113,8 @@ async def oidc_callback(request: Request, code: str = "", state: str = ""):
     )
     resp = RedirectResponse("/webmail/", status_code=302)
     resp.set_cookie("access_token", access, httponly=True, secure=True,
-                    samesite="strict", domain=s.cookie_domain, max_age=3600, path="/")
+                    samesite="strict", domain=dominio_cookie(request), max_age=3600, path="/")
     resp.set_cookie("refresh_token", refresh_raw, httponly=True, secure=True,
-                    samesite="strict", domain=s.cookie_domain, max_age=3600,
+                    samesite="strict", domain=dominio_cookie(request), max_age=3600,
                     path="/api/auth/refresh")
     return resp
