@@ -10,6 +10,18 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 Pendiente: #3 del reporte externo — parametrizar la marca de la UI del Drive (~40 strings)
 con `branding_settings` (queda como tarea aparte por su tamaño).
 
+## [1.2.1] - 2026-09-02
+
+### Cambiado
+
+- **Branding del Drive para adoptantes (#3, #12):** la UI del Drive ya no fija «Maquita». El
+  nombre visible sale de  (una sola perilla; default «Nube Maquita») en
+  título, bienvenida, menú, avisos y hints; el **favicon y color** del Drive se toman de
+   (misma fuente del panel de Personalización). Nueva guía ****
+  (qué cubre el panel hoy y los ajustes manuales con comandos: nombre del Drive, color primario
+  por SQL, íconos PWA desde el logo). Pendientes «ideales» documentados (campo de color en el
+  panel; generación server-side de íconos PWA).
+
 ## [1.2.0] - 2026-09-02
 
 ### Añadido
