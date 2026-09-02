@@ -20,7 +20,15 @@ function _abrirEditorNube(ruta, tipo) {
             mostrarNotificacion('El editor de diagramas aún no está disponible en el motor propio', 'info');
             return;
         }
-        window.open(`/archivos-almacen/editar?ruta=${encodeURIComponent(ruta)}`, '_blank');
+        // Pre-chequeo: si la ofimatica (OnlyOffice) no esta configurada, avisar en vez
+        // de abrir una pestana que falla en silencio.
+        fetch(`${API_BASE}/onlyoffice/estado`).then(r => r.json()).then(d => {
+            if (d && d.configurado) {
+                window.open(`/archivos-almacen/editar?ruta=${encodeURIComponent(ruta)}`, '_blank');
+            } else {
+                mostrarNotificacion('Ofimatica (OnlyOffice) no configurada en este servidor. Ver docs/ONLYOFFICE-DOCUMENT-SERVER.md', 'error');
+            }
+        }).catch(() => window.open(`/archivos-almacen/editar?ruta=${encodeURIComponent(ruta)}`, '_blank'));
         return;
     }
     const destino = (tipo === 'diagrama') ? '/archivos/editar-diagrama' : '/archivos/editar';

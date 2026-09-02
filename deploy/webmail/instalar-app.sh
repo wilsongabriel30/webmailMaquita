@@ -3,12 +3,12 @@
 # YA montado, reutilizando los bloques 16-17 de instalar.sh. Idempotente: reusa la config
 # existente (SECRET_KEY y credenciales de BD del backend); no regenera secretos.
 #
-# Uso:  sudo bash deploy/webmail/instalar-app.sh <bi|pdf>
+# Uso:  sudo bash deploy/webmail/instalar-app.sh <bi|pdf|onlyoffice>
 set -e
 GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[1;33m'; NC='\033[0m'
 
 APP="${1:-}"
-case "$APP" in bi|pdf) ;; *) echo "uso: $0 <bi|pdf>"; exit 2 ;; esac
+case "$APP" in bi|pdf|onlyoffice) ;; *) echo "uso: $0 <bi|pdf|onlyoffice>"; exit 2 ;; esac
 
 # Raiz del repo (este script vive en deploy/webmail/)
 SELF="$(cd "$(dirname "$0")" && pwd)"
@@ -25,6 +25,30 @@ MAIL_HOST="$(grep -E '^MAIL_HOST=' "${BACKEND_ENV}" | head -1 | cut -d= -f2-)"
 [ -n "${SECRET}" ] || { echo -e "${RED}No pude leer SECRET_KEY de ${BACKEND_ENV}.${NC}"; exit 1; }
 
 mkdir -p /etc/nginx/snippets/maquita-apps
+
+if [ "${APP}" = "onlyoffice" ]; then
+  echo -e "${GREEN}Instalando OnlyOffice Document Server (ofimatica del Drive)...${NC}"
+  command -v docker >/dev/null 2>&1 || { echo -e "${RED}Docker no esta instalado. Instalalo y reintenta.${NC}"; exit 1; }
+  ALM_ENV="${APP_DIR}/almacen/.env"
+  OO_SECRET="$(grep -E '^ALMACEN_ONLYOFFICE_SECRET=' "${ALM_ENV}" 2>/dev/null | head -1 | cut -d= -f2-)"
+  [ -n "${OO_SECRET}" ] || OO_SECRET="$(openssl rand -hex 32)"
+  if ! docker ps --format '{{.Names}}' | grep -qx onlyoffice-ds; then
+    docker rm -f onlyoffice-ds >/dev/null 2>&1 || true
+    docker run -d --restart unless-stopped --name onlyoffice-ds \
+      -p 127.0.0.1:8080:80 -e JWT_ENABLED=true -e JWT_SECRET="${OO_SECRET}" \
+      onlyoffice/documentserver >/dev/null
+    echo "  Document Server arrancando (el primer arranque tarda 1-2 min)..."
+  fi
+  grep -q '^ONLYOFFICE_URL=' "${BACKEND_ENV}" || printf 'ONLYOFFICE_URL=https://%s/office\nONLYOFFICE_SECRET=%s\n' "${MAIL_HOST}" "${OO_SECRET}" >> "${BACKEND_ENV}"
+  if [ -f "${ALM_ENV}" ]; then
+    grep -q '^ALMACEN_ONLYOFFICE_SECRET=' "${ALM_ENV}" || printf 'ALMACEN_ONLYOFFICE_URL_PUBLICA=https://%s/office\nALMACEN_ONLYOFFICE_URL_INTERNA=http://127.0.0.1:8080\nALMACEN_ONLYOFFICE_SECRET=%s\n' "${MAIL_HOST}" "${OO_SECRET}" >> "${ALM_ENV}"
+  fi
+  grep -rq '/office/' /etc/nginx/ 2>/dev/null || echo -e "  ${YELLOW}Incluye el bloque /office/ de almacen/deploy/nginx-almacen.conf en tu server{}.${NC}"
+  nginx -t && systemctl reload nginx || true
+  systemctl restart maquita-webmail maquita-almacen 2>/dev/null || true
+  echo -e "${GREEN}Listo.${NC} Healthcheck: curl -s http://127.0.0.1:8080/healthcheck  (-> true). Guia: docs/ONLYOFFICE-DOCUMENT-SERVER.md"
+  exit 0
+fi
 
 if [ "${APP}" = "bi" ]; then
   echo -e "${GREEN}Instalando/actualizando Tableros/BI...${NC}"
