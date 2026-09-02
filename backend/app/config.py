@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     sieve_host: str = "127.0.0.1"
     sieve_port: int = 4190
     mail_domain: str = "example.com"
+    # cookie_domain: dominio de la cookie de sesion. Para SSO entre subdominios
+    # (webmail y drive), poner el dominio PADRE con punto inicial, p.ej. ".suorg.tld".
+    # Para construir URLs publicas se usa public_base_url, NO este valor.
     cookie_domain: str = "mail.example.com"
     cors_origins: str = "https://mail.example.com"
     access_token_expire_minutes: int = 480

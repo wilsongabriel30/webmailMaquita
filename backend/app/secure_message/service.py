@@ -31,8 +31,8 @@ def _hash_code(token: str, email: str, code: str) -> str:
 
 
 def portal_url(token: str) -> str:
-    dom = (get_settings().cookie_domain or "mail.maquita.org").lstrip(".")
-    return f"https://{dom}/secure/{token}"
+    base = get_settings().public_base_url.rstrip("/")
+    return f"{base}/secure/{token}"
 
 
 async def get_config(db) -> dict:

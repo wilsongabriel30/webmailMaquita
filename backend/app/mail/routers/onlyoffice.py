@@ -109,7 +109,7 @@ async def office_preview(
         algorithm="HS256",
     )
 
-    download_url = f"https://{settings.cookie_domain.lstrip('.')}/api/mail/oo-download?token={dl_token}"
+    download_url = f"{settings.public_base_url.rstrip('/')}/api/mail/oo-download?token={dl_token}"
     # Key must be alphanumeric — OnlyOffice rejects keys with @ or special chars
     key_hash = hashlib.md5(f"{username}_{body.folder}_{body.uid}_{body.part_number}".encode()).hexdigest()[:16]
     doc_key = f"pv_{key_hash}_{int(time.time())}"
@@ -172,7 +172,7 @@ async def office_editor_config(
         algorithm="HS256",
     )
 
-    download_url = f"https://{settings.cookie_domain.lstrip('.')}/api/mail/oo-download?token={dl_token}"
+    download_url = f"{settings.public_base_url.rstrip('/')}/api/mail/oo-download?token={dl_token}"
     key_hash = hashlib.md5(f"{username}_{body.folder}_{body.uid}_{body.part_number}".encode()).hexdigest()[:16]
     doc_key = f"view_{key_hash}_{int(time.time())}"
 
@@ -201,7 +201,7 @@ async def office_editor_config(
         "editorConfig": {
             "mode": "view",
             "lang": "es",
-            "callbackUrl": f"https://{settings.cookie_domain.lstrip('.')}/api/mail/oo-callback",
+            "callbackUrl": f"{settings.public_base_url.rstrip('/')}/api/mail/oo-callback",
             "customization": {
                 "compactToolbar": True,
                 "hideRightMenu": True,
