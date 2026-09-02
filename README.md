@@ -53,7 +53,7 @@ Maquita Webmail resuelve las cuatro.
 ## Qué NO es
 
 - **No es un servicio de correo alojado.** Debes operar tu propia infraestructura de correo o estar dispuesto a montarla.
-- **Por sí solo, no es una suite ofimática completa.** El webmail es correo + cumplimiento. La ofimática en línea (OnlyOffice), las videollamadas, el chat y el Drive existen en el **ecosistema Maquita** (ver [La suite Maquita](docs/SUITE-MAQUITA.md)) como servicios propios que se integran con el correo.
+- **No es una plataforma de gestión de dispositivos ni de telefonía.** Este repositorio cubre correo, **Drive**, **ofimática en línea (OnlyOffice)**, **tableros/BI** y **edición de PDF** —todo instalable con un solo script—; lo que no incluye es la gestión de equipos y móviles (EDR/MDM) ni la telefonía. En eso, las suites empresariales grandes siguen siendo más amplias.
 - **No está probado a escala masiva.** Está en producción en Fundación Maquita con casi 300 buzones y más de 100 000 correos. No se ha probado con miles de usuarios concurrentes.
 - **No es un servidor de correo.** Requiere Postfix y Dovecot instalados y configurados (el instalador nativo los deja listos).
 - **No está congelado en funciones.** El proyecto evoluciona activamente. Las APIs y los esquemas de base de datos pueden cambiar entre versiones.
@@ -67,6 +67,20 @@ Maquita Webmail resuelve las cuatro.
 - Más de 170 tablas en PostgreSQL
 - 39 tipos de evento auditables
 - Casi 300 buzones y más de 100 000 correos en producción
+
+## Cómo se compara
+
+En **software libre y sobre tus propios servidores**, este repositorio ofrece las capacidades de **seguridad y cumplimiento de correo** que las suites comerciales reservan para su **plan más alto** (equivalente a Microsoft 365 **E5**): Safe Attachments/Links, ZAP, DLP, anti-impersonation, eDiscovery con custodios y retención legal, riesgo interno, cumplimiento de comunicaciones, MFA y acceso condicional.
+
+**Donde va más allá de ese plan:**
+
+- **Soberanía total** — el dato nunca sale de tus servidores; la IA asistente corre en local.
+- **Sin licencia por usuario** — el costo no crece con cada buzón.
+- **Código abierto, instalable con un solo script** por cualquiera.
+- **DLP con cédula y RUC** — tipos de dato locales, no genéricos.
+- **Suite en el mismo repo** — correo + Drive + ofimática (OnlyOffice) + tableros/BI + editor de PDF, integrados.
+
+**Donde las suites grandes siguen por delante (con honestidad):** gestión de equipos y dispositivos (EDR/MDM), telefonía, escala de decenas de miles de usuarios concurrentes, y la profundidad de sus motores de detección entrenados con telemetría global.
 
 ## Capturas de pantalla
 
