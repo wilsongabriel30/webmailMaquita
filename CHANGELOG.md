@@ -15,9 +15,9 @@ con `branding_settings` (queda como tarea aparte por su tamaño).
 ### Cambiado
 
 - **Branding del Drive para adoptantes (#3, #12):** la UI del Drive ya no fija «Maquita». El
-  nombre visible sale de  (una sola perilla; default «Nube Maquita») en
+  nombre visible sale de `config_kv.drive_name` (una sola perilla; default «Nube Maquita») en
   título, bienvenida, menú, avisos y hints; el **favicon y color** del Drive se toman de
-   (misma fuente del panel de Personalización). Nueva guía ****
+  `/api/branding` (misma fuente del panel de Personalización). Nueva guía `docs/PON-TU-MARCA.md`
   (qué cubre el panel hoy y los ajustes manuales con comandos: nombre del Drive, color primario
   por SQL, íconos PWA desde el logo). Pendientes «ideales» documentados (campo de color en el
   panel; generación server-side de íconos PWA).
