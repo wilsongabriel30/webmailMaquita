@@ -228,6 +228,7 @@ cp "${CFG}/rspamd-antivirus.conf" /etc/rspamd/local.d/antivirus.conf
 # Proteccion de salida: helpers de contencion/limite + sudoers acotado + ratelimit
 install -m755 "${APP_DIR}/deploy/tools/maquita-contener" /usr/local/sbin/maquita-contener
 install -m755 "${APP_DIR}/deploy/tools/maquita-outbound" /usr/local/sbin/maquita-outbound
+install -m755 "${APP_DIR}/deploy/tools/maquita-mailadm" /usr/local/sbin/maquita-mailadm
 install -m440 "${APP_DIR}/deploy/webmail/configs/sudoers-maquita-outbound" /etc/sudoers.d/maquita-outbound
 cp "${CFG}/rspamd-ratelimit.conf" /etc/rspamd/local.d/ratelimit.conf
 mkdir -p /etc/rspamd/maps.d
@@ -387,6 +388,12 @@ echo "  Almacen (Drive): https://${MAIL_HOST}/archivos-almacen"
 
 # --- 16. Tableros/BI (Aplicacion del Drive) ---
 echo -e "\n${GREEN}[16/18] Instalando Tableros/BI...${NC}"
+# NumPy 2.x (Python 3.13 en Debian 13) exige CPU x86-64-v2. En Proxmox/KVM con CPU
+# por defecto (kvm64), maquita-bi entra en bucle de arranque. Aviso temprano:
+if ! grep -q sse4_2 /proc/cpuinfo; then
+  echo -e "  ${YELLOW}AVISO: esta CPU no expone x86-64-v2 (sse4_2). Tableros/BI usa NumPy 2.x"
+  echo -e "  y NO arrancara. En Proxmox: qm set <vmid> --cpu host (o x86-64-v2-AES) y reinicia la VM.${NC}"
+fi
 BI_DIR="${APP_DIR}/almacen/aplicaciones/bi"
 python3 -m venv "${BI_DIR}/venv"
 "${BI_DIR}/venv/bin/pip" install -q --upgrade pip >/dev/null 2>&1 || true

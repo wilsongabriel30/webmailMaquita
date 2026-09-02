@@ -41,7 +41,7 @@ echo "Fecha: $(date '+%Y-%m-%d %H:%M:%S')"
 echo -e "\n${YELLOW}[1/5] Building frontend...${NC}"
 cd "${FRONTEND_DIR}"
 # T-35: cada publicación renueva la caché del service worker (arranque sin red con la portada vigente)
-sed -i "s/maquita-mail-v[0-9A-Za-z-]*/maquita-mail-v$(date +%Y%m%d%H%M)/" public/sw.js
+sed -i -E "s/(const CACHE_NAME = \"[^\"]*-v)[0-9A-Za-z-]*(\")/\1$(date +%Y%m%d%H%M)\2/" public/sw.js
 npm run build 2>&1 | tail -5
 
 # --- Paso 2: Verificar que el build generó archivos ---
