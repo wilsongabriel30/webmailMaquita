@@ -13,6 +13,15 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
   estáticos referenciados por las plantillas/CSS del Drive existan de verdad (caza la familia
   #1/#6/#10). El instalador lo ejecuta en el paso del Almacén y **aborta** si falta alguno.
 
+## [1.2.2] - 2026-09-02
+
+### Corregido
+
+- **Drive (#13):** la perilla del nombre del Drive no funcionaba. drive_name() usaba consultar()
+  sin importarlo, el NameError lo tragaba un except silencioso y siempre devolvia el default.
+  Se agrega el import y el except ahora LOGUEA la excepcion (no mas fallos escondidos).
+  Verificado con la perilla seteada.
+
 ## [1.2.1] - 2026-09-02
 
 ### Cambiado
