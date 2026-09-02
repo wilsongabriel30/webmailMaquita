@@ -12,6 +12,9 @@ from fastapi.responses import HTMLResponse
 router = APIRouter(tags=["hold-ack"])
 
 
+from app.branding.service import get_org_name
+
+
 def _db(r: Request):
     return r.app.state.db_pool
 
@@ -37,9 +40,11 @@ async def ack(token: str, request: Request):
 
 @router.get("/api/hold-ack/{token}", response_class=HTMLResponse)
 async def page(token: str, request: Request):
+    org = await get_org_name(_db(request))
+    org_e = html_lib.escape(org)
     row = await _load(_db(request), token)
     if not row:
-        return HTMLResponse(_wrap('<div class="card"><div class="ico">⚖️</div><h2>Aviso no válido</h2><p>Este enlace no es válido o expiró.</p></div>'))
+        return HTMLResponse(_wrap('<div class="card"><div class="ico">⚖️</div><h2>Aviso no válido</h2><p>Este enlace no es válido o expiró.</p></div>', org))
     already = row["acknowledged_at"] is not None
     title = html_lib.escape(row["title"] or "")
     reason = html_lib.escape(row["reason"] or "")
@@ -54,20 +59,20 @@ async def page(token: str, request: Request):
       <div class="ico">⚖️</div>
       <h2>Aviso de retención legal</h2>
       <p>Estimado/a <b>{email}</b>,</p>
-      <p>Has sido designado/a <b>custodio</b> en el marco de un proceso de la Fundación Maquita.
+      <p>Has sido designado/a <b>custodio</b> en el marco de un proceso de {org_e}.
       A partir de este aviso, <b>debes conservar toda la información de tu correo</b> relacionada
       con el asunto y <b>no eliminar</b> mensajes, hasta nuevo aviso.</p>
       <div class="box"><b>Caso:</b> {title or '(sin título)'}<br><b>Motivo:</b> {reason or '(no especificado)'}</div>
       <p style="color:#666;font-size:13px">Tu buzón ya está bajo retención automática: aunque intentes borrar, el sistema preserva los correos.</p>
       {ack_block}
     </div>"""
-    return HTMLResponse(_wrap(inner))
+    return HTMLResponse(_wrap(inner, org))
 
 
-def _wrap(inner: str) -> str:
+def _wrap(inner: str, org: str = "Tu organización") -> str:
     return f"""<!doctype html><html lang="es"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Aviso de retención legal — Maquita</title>
+<title>Aviso de retención legal — {html_lib.escape(org)}</title>
 <style>
  body{{font-family:Segoe UI,Arial,sans-serif;background:#f3f2f1;margin:0;padding:24px;color:#323130}}
  .card{{max-width:560px;margin:30px auto;background:#fff;border:1px solid #e1dfdd;border-top:5px solid #5b5fc7;border-radius:10px;padding:30px;box-shadow:0 2px 10px rgba(0,0,0,.07)}}
@@ -78,7 +83,7 @@ def _wrap(inner: str) -> str:
  .ok{{background:#f1faf1;border:1px solid #c3e6c3;color:#0b6a0b;border-radius:6px;padding:12px;text-align:center;margin-top:12px}}
  .foot{{text-align:center;color:#aaa;font-size:12px;margin-top:16px}}
 </style></head><body>{inner}
-<div class="foot">Fundación Maquita · Cumplimiento legal</div>
+<div class="foot">{html_lib.escape(org)} · Cumplimiento legal</div>
 <script>
  var b=document.getElementById('ackbtn');
  if(b){{b.onclick=async function(){{

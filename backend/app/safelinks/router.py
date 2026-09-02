@@ -14,6 +14,9 @@ from . import service, rewriter
 router = APIRouter(tags=["safelinks"])
 
 
+from app.branding.service import get_org_name
+
+
 def _ip(request: Request) -> str:
     return request.headers.get("X-Real-IP", request.client.host if request.client else "")
 
@@ -21,18 +24,19 @@ def _ip(request: Request) -> str:
 @router.get("/api/safelink")
 async def safelink(request: Request, u: str = "", s: str = "", go: int = 0):
     db = request.app.state.db_pool
+    org = await get_org_name(db)
     ip = _ip(request)
     try:
         # unescape defensivo: los enlaces firmados antes de 2026-08-05 llevan
         # las entidades HTML sin deshacer (&amp;) y se abrian sin sus parametros.
         url = html_lib.unescape(rewriter.decode_url(u))
     except Exception:
-        return HTMLResponse(_warn_page("", "Enlace inválido", "blocked", None), status_code=400)
+        return HTMLResponse(_warn_page("", "Enlace inválido", "blocked", None, org), status_code=400)
 
     trusted = rewriter.verify(u, s)
     if not trusted:
         await service.log_click(db, "", url, "", "untrusted", False, ip)
-        return HTMLResponse(_warn_page(url, "No pudimos verificar este enlace. Procede con cuidado.", "suspicious", u + ":" + s))
+        return HTMLResponse(_warn_page(url, "No pudimos verificar este enlace. Procede con cuidado.", "suspicious", u + ":" + s, org))
 
     res = await service.check_url(db, url, request.app.state.redis)
     verdict = res["verdict"]
@@ -46,11 +50,12 @@ async def safelink(request: Request, u: str = "", s: str = "", go: int = 0):
 
     await service.log_click(db, "", url, res["host"], verdict, False, ip)
     token = (u + ":" + s) if verdict != "blocked" else None
-    return HTMLResponse(_warn_page(url, res["reason"], verdict, token))
+    return HTMLResponse(_warn_page(url, res["reason"], verdict, token, org))
 
 
-def _warn_page(url: str, reason: str, verdict: str, proceed_token: str | None) -> str:
+def _warn_page(url: str, reason: str, verdict: str, proceed_token: str | None, org: str = "Tu organización") -> str:
     safe_url = html_lib.escape(url)
+    org_e = html_lib.escape(org)
     short = html_lib.escape(url[:80] + ("…" if len(url) > 80 else ""))
     reason_h = html_lib.escape(reason or "")
     blocked = verdict == "blocked"
@@ -63,7 +68,7 @@ def _warn_page(url: str, reason: str, verdict: str, proceed_token: str | None) -
         proceed = f"""<a class="go" href="/api/safelink?u={html_lib.escape(u)}&s={html_lib.escape(s)}&go=1">Entiendo el riesgo, continuar de todos modos</a>"""
     return f"""<!doctype html><html lang="es"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Verificación de enlace — Maquita</title>
+<title>Verificación de enlace — {org_e}</title>
 <style>
  body{{font-family:Segoe UI,Arial,sans-serif;background:#f3f2f1;margin:0;padding:24px;color:#323130}}
  .card{{max-width:540px;margin:40px auto;background:#fff;border:1px solid #e1dfdd;border-top:5px solid {color};border-radius:10px;padding:30px;box-shadow:0 2px 10px rgba(0,0,0,.07)}}
@@ -79,7 +84,7 @@ def _warn_page(url: str, reason: str, verdict: str, proceed_token: str | None) -
 <div class="card">
   <div class="ico">{icon}</div>
   <h1>{title}</h1>
-  <p style="text-align:center;color:#605e5c">Maquita revisó este enlace antes de abrirlo.</p>
+  <p style="text-align:center;color:#605e5c">{org_e} revisó este enlace antes de abrirlo.</p>
   <div class="reason"><b>Motivo:</b> {reason_h or 'Posible riesgo'}</div>
   <p style="font-size:13px;color:#888;margin-bottom:4px">El enlace apunta a:</p>
   <div class="url">{short}</div>

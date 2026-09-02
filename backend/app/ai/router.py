@@ -34,14 +34,18 @@ def _get_allowed_ia_hosts():
     return hosts
 IA_TIMEOUT = 45.0
 
-# Contexto institucional de Maquita: hace que los correos reflejen la identidad de la fundacion
+import os as _os
+
+# Contexto institucional PARAMETRIZABLE (el repo NO fija ninguna organizacion):
+#  - AI_ORG_CONTEXT: identidad/mision de tu organizacion (frase libre); si no se define,
+#    se usa una identidad neutra con ORG_NAME, para no atribuir los correos a otra org.
+_AI_ORG_CONTEXT = _os.getenv("AI_ORG_CONTEXT", "").strip()
+_AI_ORG_NAME = _os.getenv("ORG_NAME", "tu organizacion").strip()
 MAQUITA_CONTEXT = (
-    "Contexto: Eres el asistente de redaccion de correos de Fundacion Maquita "
-    "(Maquita Cushunchic Comercializando como Hermanos - MCCH), organizacion ecuatoriana "
-    "sin fines de lucro de economia social y solidaria y comercio justo, que acompana a "
-    "pequenos productores, agricultores familiares, emprendimientos y comunidades del Ecuador. "
+    "Contexto: "
+    + (_AI_ORG_CONTEXT or ("Eres el asistente de redaccion de correos de " + _AI_ORG_NAME + ".")) + " "
     "Trata SIEMPRE al destinatario de USTED (formal, nunca tutees). "
-    "Tono profesional, cercano, solidario, respetuoso e inclusivo. "
+    "Tono profesional, cercano, respetuoso e inclusivo. "
     "NUNCA agregues firma, nombre, cargo, logotipos ni datos de contacto: cada persona ya tiene su firma personalizada. "
     "Si el correo se despide, cierra unicamente con un saludo cordial y variado "
     "(por ejemplo: Saludos cordiales, Un cordial saludo, Reciba un cordial saludo, Quedamos atentos), sin nombre ni firma. "

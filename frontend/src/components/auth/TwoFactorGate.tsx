@@ -12,10 +12,12 @@ interface Policy { required: boolean; deadline: string | null; enrolled: boolean
 export function TwoFactorGate() {
   const [pol, setPol] = useState<Policy | null>(null);
   const [hidden, setHidden] = useState(false);
+  const [org, setOrg] = useState('Tu organización');
 
   const load = () => api.get<Policy>('/auth/2fa-policy/status').then(setPol).catch(() => {});
   useEffect(() => {
     load();
+    fetch('/api/branding').then(r => r.json()).then(b => { if (b && b.org_name) setOrg(b.org_name); }).catch(() => {});
     try { if (sessionStorage.getItem('twofa_gate_dismissed') === '1') setHidden(true); } catch { /* sin storage */ }
   }, []);
 
@@ -31,8 +33,8 @@ export function TwoFactorGate() {
         <h2 className="text-lg font-semibold mb-2">🔐 Verificación en dos pasos obligatoria</h2>
         <p className="text-sm text-gray-700 mb-3">
           {pol.blocked
-            ? 'Para proteger tu cuenta, Fundación Maquita exige la verificación en dos pasos. Debes activarla ahora para seguir usando el correo.'
-            : `Fundación Maquita exige la verificación en dos pasos para todas las cuentas. Actívala ahora; a partir del ${fecha ?? 'plazo indicado'} será obligatoria para entrar.`}
+            ? `Para proteger tu cuenta, ${org} exige la verificación en dos pasos. Debes activarla ahora para seguir usando el correo.`
+            : `${org} exige la verificación en dos pasos para todas las cuentas. Actívala ahora; a partir del ${fecha ?? 'plazo indicado'} será obligatoria para entrar.`}
         </p>
         <p className="text-xs text-gray-500 mb-4">Necesitas una app como Google Authenticator o Microsoft Authenticator en tu celular. Guarda los códigos de respaldo en un lugar seguro.</p>
         <TwoFactorSetup />
