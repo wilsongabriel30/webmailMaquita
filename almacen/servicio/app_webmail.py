@@ -44,6 +44,7 @@ _EXENTAS = (
     '/archivos-almacen',        # páginas del explorador (redirigen a login solas)
     '/drive',                   # acceso corto del producto
     '/almacen-static/',         # css/js del explorador
+    '/acceso-externo',          # login de cuentas Drive externas (publico)
     '/healthz',
 )
 
@@ -128,6 +129,8 @@ def crear_app_webmail() -> Flask:
                bp_alias):
         app.register_blueprint(bp, url_prefix='/api/almacen')
     app.register_blueprint(bp_onlyoffice_web)   # /archivos-almacen/editar
+    from acceso_externo import bp_acceso_externo
+    app.register_blueprint(bp_acceso_externo)   # /acceso-externo (login de cuentas externas)
 
     # El template del explorador viene del sistema mayor y enlaza a modulos
     # que aqui no existen (helpdesk, etc.): esos enlaces van al correo en vez
