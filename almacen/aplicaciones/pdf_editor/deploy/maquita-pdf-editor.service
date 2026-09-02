@@ -1,0 +1,19 @@
+# Servicio del Editor de PDF (Aplicación del Drive Maquita)
+[Unit]
+Description=Editor de PDF Maquita (Aplicacion del Drive)
+After=network.target postgresql.service maquita-almacen.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/maquita-webmail/almacen/aplicaciones/pdf_editor
+EnvironmentFile=/opt/maquita-webmail/almacen/aplicaciones/pdf_editor/.env
+ExecStart=/opt/maquita-webmail/almacen/aplicaciones/pdf_editor/venv/bin/gunicorn \
+    --workers 2 --threads 2 --bind 127.0.0.1:8792 --timeout 300 \
+    --access-logfile - --error-logfile - \
+    app_pdf:app
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

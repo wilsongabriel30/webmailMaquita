@@ -1,6 +1,7 @@
 # Editor de PDF — Aplicación del Drive Maquita
 # Web / auth
 Flask
+gunicorn
 Flask-Login
 Flask-WTF
 PyJWT
