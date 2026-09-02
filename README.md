@@ -410,6 +410,16 @@ integrado para editar documentos Word/Excel/PowerPoint en el navegador.
 > (Almacén Maquita)» más abajo. La antigua integración con Nextcloud quedó
 > descontinuada.
 
+### Cuentas Drive externas (colaboradores/aliados)
+
+Se puede dar acceso al Drive a personas con un **correo externo** (que NO es buzón del
+servidor) —pasantes, aliados— **sin tocar** el flujo de empleados (que sigue saliendo de
+nómina). Un administrador las invita desde el panel `/api/almacen/externos/panel`; la persona
+**activa su cuenta** por un enlace de correo (fija su contraseña con la misma política) y entra
+directo al Drive por `/acceso-externo`, con acceso a las **Aplicaciones** (Tableros/BI, Editor
+PDF). Se les asigna **cuota** y se **eliminan** al terminar la colaboración. Preparado para
+conectar **Keycloak** (SSO/OIDC) sin reescribir la autenticación.
+
 ## Actualizar a una nueva versión
 
 Cuando publiquemos mejoras, actualiza así (en el servidor, en `/opt/maquita-webmail`):

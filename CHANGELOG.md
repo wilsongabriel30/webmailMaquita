@@ -10,6 +10,20 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 Pendiente: #3 del reporte externo — parametrizar la marca de la UI del Drive (~40 strings)
 con `branding_settings` (queda como tarea aparte por su tamaño).
 
+## [1.2.0] - 2026-09-02
+
+### Añadido
+
+- **Cuentas Drive externas (colaboradores/aliados):** acceso al Drive para personas con un
+  correo que NO es buzón del servidor (pasantes, aliados), **sin tocar** el flujo de empleados
+  (nómina). Incluye: directorio híbrido (nómina + tabla `usuarios_externos`, ids en rango
+  reservado para no colisionar), **login propio** (`/acceso-externo`) que emite el mismo JWT que
+  el webmail y lleva al Drive, **invitación por correo** con enlace de un solo uso + activación
+  con política de contraseña, **panel de administración** (crear/listar/activar/desactivar/
+  reinvitar/cuota/eliminar, solo master), **cuota real** por la tabla `cuotas`, y acceso a las
+  **Aplicaciones** (BI/PDF). Preparado para **Keycloak** (columna `proveedor`, `emitir_sesion`
+  reutilizable por un callback OIDC). Enlace «¿Colaborador externo?» en el login del correo.
+
 ## [1.1.7] - 2026-09-02
 
 ### Corregido
