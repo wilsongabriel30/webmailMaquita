@@ -10,6 +10,16 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 Pendiente: #3 del reporte externo — parametrizar la marca de la UI del Drive (~40 strings)
 con `branding_settings` (queda como tarea aparte por su tamaño).
 
+## [1.1.6] - 2026-09-02
+
+### Corregido
+
+- **Drive — menú de usuario abierto/sin estilo (#10):** el explorador extiende un `base.html`
+  mínimo que no cargaba Bootstrap, así que el dropdown del usuario (arriba a la derecha) nacía
+  expandido y en crudo en toda réplica. Se empaqueta **Bootstrap 5.3.2 local** y `base.html`
+  carga su CSS (antes de `extra_css`) y `bootstrap.bundle.min.js`. Los 4 iconos Font Awesome del
+  menú se migran a **material-icons** (ya empaquetado).
+
 ## [1.1.5] - 2026-09-02
 
 ### Corregido
