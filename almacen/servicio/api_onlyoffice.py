@@ -54,6 +54,7 @@ from almacen_bd import consultar, ejecutar
 from api_archivos import _permiso_unidad, error, usuario_actual
 from config_almacen import URL_PUBLICA
 from registro import registrar_actividad
+import conversion_edicion
 from seguridad_rutas import (RutaInvalida, normalizar_ruta_virtual,
                              ruta_fisica, unidad_de_ruta)
 
@@ -276,6 +277,20 @@ def onlyoffice_config():
     # Nivel efectivo: editar solo si la extensión lo permite y (en unidades
     # compartidas) el usuario tiene rol de escritura. Espacio personal: dueño.
     escritura = _permiso_unidad(usuario, ruta, escritura=True)
+
+    # Formatos antiguos (.doc/.xls/.ppt…): con permiso de escritura se convierten
+    # al formato moderno en la misma carpeta y se abre ESE archivo para poder
+    # editarlo; el antiguo va a la papelera (ver conversion_edicion.py).
+    ruta_original = ruta
+    convertido_ahora = False
+    if escritura and conversion_edicion.es_convertible(extension):
+        ruta, convertido_ahora = conversion_edicion.preparar_para_editar(usuario, ruta, fisica)
+        if ruta != ruta_original:
+            nombre = ruta.rsplit('/', 1)[-1]
+            extension = nombre.rsplit('.', 1)[-1].lower()
+            tipo_documento = TIPOS_DOCUMENTO.get(extension, tipo_documento)
+            fisica = ruta_fisica(usuario, ruta)
+
     modo = 'edit' if (escritura and extension in EXTENSIONES_EDITABLES) else 'view'
 
     # Key ESTABLE de la sala de co-edición (ver nota en el encabezado)
@@ -341,6 +356,11 @@ def onlyoffice_config():
         'config': config,
         'api_js_url': f'{url_publica_ds()}/web-apps/apps/api/documents/api.js',
         'puede_editar': puede_editar,
+        # Si se abrió la copia moderna de un formato antiguo, la página lo
+        # refleja (título, URL) y avisa si se acaba de crear.
+        'ruta_abierta': ruta,
+        'convertido_desde': ruta_original if ruta != ruta_original else None,
+        'convertido_ahora': convertido_ahora,
     })
 
 
