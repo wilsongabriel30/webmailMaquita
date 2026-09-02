@@ -7,8 +7,11 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
-Pendiente: #3 del reporte externo — parametrizar la marca de la UI del Drive (~40 strings)
-con `branding_settings` (queda como tarea aparte por su tamaño).
+### Añadido
+
+- **QA de assets del Drive:** `almacen/deploy/verificar_assets.py` comprueba que los assets
+  estáticos referenciados por las plantillas/CSS del Drive existan de verdad (caza la familia
+  #1/#6/#10). El instalador lo ejecuta en el paso del Almacén y **aborta** si falta alguno.
 
 ## [1.2.1] - 2026-09-02
 
