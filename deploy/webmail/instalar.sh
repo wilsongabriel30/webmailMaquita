@@ -406,7 +406,7 @@ echo "  Tableros/BI: https://${MAIL_HOST}/tableros/"
 echo -e "\n${GREEN}[17/18] Instalando el Editor de PDF (puede tardar: dependencias pesadas)...${NC}"
 PDFED_DIR="${APP_DIR}/almacen/aplicaciones/pdf_editor"
 # libs de sistema para OpenCV/PyMuPDF
-apt-get install -y --no-install-recommends libglib2.0-0 libgl1 >/dev/null 2>&1 || true
+apt-get install -y --no-install-recommends libglib2.0-0 libgl1 tesseract-ocr >/dev/null 2>&1 || true
 sudo -u postgres psql -c "CREATE DATABASE herramientas OWNER mailserver;" 2>/dev/null || true
 python3 -m venv "${PDFED_DIR}/venv"
 "${PDFED_DIR}/venv/bin/pip" install -q --upgrade pip >/dev/null 2>&1 || true
@@ -420,6 +420,8 @@ ALMACEN_INTERNAL_URL=http://127.0.0.1:8788
 PDF_UPLOADS_DIR=/var/lib/maquita-pdf-editor/uploads
 PDF_LOGS_DIR=/var/lib/maquita-pdf-editor/logs
 PDFENV
+# crear las tablas del editor una vez (evita la race de varios workers)
+"${PDFED_DIR}/venv/bin/python" "${PDFED_DIR}/crear_tablas.py" 2>/dev/null || true
 mkdir -p /etc/nginx/snippets/maquita-apps
 cp "${PDFED_DIR}/deploy/nginx-pdf-editor.conf" /etc/nginx/snippets/maquita-apps/pdf-editor.conf
 cp "${PDFED_DIR}/deploy/maquita-pdf-editor.service" /etc/systemd/system/

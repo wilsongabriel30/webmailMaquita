@@ -23,3 +23,8 @@ pandas
 eventlet
 SQLAlchemy
 psycopg2-binary
+requests
+python-pptx
+pyHanko
+pytesseract
+qrcode

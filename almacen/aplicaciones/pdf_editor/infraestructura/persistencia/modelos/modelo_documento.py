@@ -11,7 +11,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from ....dominio.entidades.documento_pdf import DocumentoPDF
 from ....dominio.value_objects.tipos_pdf import EstadoDocumento
 
-Base = declarative_base()
+from .base_orm import Base
 
 
 class ModeloDocumentoPDF(Base):

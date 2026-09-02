@@ -11,7 +11,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from ....dominio.entidades.anotacion import Anotacion
 from ....dominio.value_objects.tipos_pdf import TipoAnotacion, EstadoAnotacion
 
-Base = declarative_base()
+from .base_orm import Base
 
 
 class ModeloAnotacionPDF(Base):
@@ -23,7 +23,7 @@ class ModeloAnotacionPDF(Base):
     __table_args__ = {'schema': 'public'}
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    documento_id = Column(Integer, ForeignKey('documentos_pdf.id', ondelete='CASCADE'), nullable=False, index=True)
+    documento_id = Column(Integer, ForeignKey('public.documentos_pdf.id', ondelete='CASCADE'), nullable=False, index=True)
     usuario_id = Column(Integer, nullable=False, index=True)
     pagina = Column(Integer, nullable=False)
     tipo = Column(String(50), nullable=False)
