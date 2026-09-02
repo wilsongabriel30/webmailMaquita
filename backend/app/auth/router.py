@@ -55,6 +55,8 @@ async def _clear_login_rate_limit(request: Request, username: str, redis):
     await redis.delete(f"login_rl:user:{username}")
 
 
+from app.auth.cookies import dominio_cookie
+
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
@@ -164,7 +166,7 @@ async def login(body: LoginRequest, request: Request, response: Response):
         httponly=True,
         secure=True,
         samesite="strict",
-        domain=settings.cookie_domain,
+        domain=dominio_cookie(request),
         max_age=settings.access_token_expire_minutes * 60,
         path="/",
     )
@@ -174,7 +176,7 @@ async def login(body: LoginRequest, request: Request, response: Response):
         httponly=True,
         secure=True,
         samesite="strict",
-        domain=settings.cookie_domain,
+        domain=dominio_cookie(request),
         max_age=settings.refresh_token_expire_days * 86400,
         path="/api/auth/refresh",
     )
@@ -203,8 +205,8 @@ async def refresh(request: Request, response: Response):
         token_hash,
     )
     if row is None:
-        response.delete_cookie("access_token", domain=settings.cookie_domain, path="/")
-        response.delete_cookie("refresh_token", domain=settings.cookie_domain, path="/api/auth/refresh")
+        response.delete_cookie("access_token", domain=dominio_cookie(request), path="/")
+        response.delete_cookie("refresh_token", domain=dominio_cookie(request), path="/api/auth/refresh")
         return {"refreshed": False, "reason": "expired"}
 
     # Revoke old token (rotation)
@@ -236,7 +238,7 @@ async def refresh(request: Request, response: Response):
         httponly=True,
         secure=True,
         samesite="strict",
-        domain=settings.cookie_domain,
+        domain=dominio_cookie(request),
         max_age=settings.access_token_expire_minutes * 60,
         path="/",
     )
@@ -246,7 +248,7 @@ async def refresh(request: Request, response: Response):
         httponly=True,
         secure=True,
         samesite="strict",
-        domain=settings.cookie_domain,
+        domain=dominio_cookie(request),
         max_age=settings.refresh_token_expire_days * 86400,
         path="/api/auth/refresh",
     )
@@ -271,8 +273,8 @@ async def logout(request: Request, response: Response, username: str = Depends(g
             token_hash,
         )
 
-    response.delete_cookie("access_token", domain=settings.cookie_domain, path="/")
-    response.delete_cookie("refresh_token", domain=settings.cookie_domain, path="/api/auth/refresh")
+    response.delete_cookie("access_token", domain=dominio_cookie(request), path="/")
+    response.delete_cookie("refresh_token", domain=dominio_cookie(request), path="/api/auth/refresh")
     return {"message": "Logged out"}
 
 
@@ -382,12 +384,12 @@ async def impersonate(body: ImpersonateRequest, request: Request, response: Resp
     response.set_cookie(
         key="access_token", value=access,
         httponly=True, secure=True, samesite="strict",
-        domain=settings.cookie_domain, max_age=3600, path="/",
+        domain=dominio_cookie(request), max_age=3600, path="/",
     )
     response.set_cookie(
         key="refresh_token", value=refresh_raw,
         httponly=True, secure=True, samesite="strict",
-        domain=settings.cookie_domain, max_age=3600, path="/api/auth/refresh",
+        domain=dominio_cookie(request), max_age=3600, path="/api/auth/refresh",
     )
 
     return {"message": "Impersonation successful", "username": username}
