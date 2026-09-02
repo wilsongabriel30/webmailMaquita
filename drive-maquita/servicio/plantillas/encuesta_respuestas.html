@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Respuestas — Almacén Maquita</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+<link rel="stylesheet" href="/static/css/almacen/encuesta-base.css?v=20260827-salto1">
+<link rel="stylesheet" href="/static/css/almacen/encuesta-editor.css?v=20260827-salto1">
+<link rel="stylesheet" href="/static/css/almacen/encuesta-respuestas.css?v=20260827-salto1">
+</head>
+<body class="fm">
+
+<div class="fm-barra">
+  <img src="/static/uploads/logos/logo_20251215_113025_maquita_logo.png"
+       alt="Maquita" onerror="this.style.display='none'">
+  <span class="fm-nombre" id="nombreArchivo">Respuestas</span>
+  <button class="fm-icono-barra" id="btnFavorito" title="Marcar como destacado"
+          aria-label="Marcar como destacado"><span class="material-icons">star_border</span></button>
+  <span class="fm-estado" id="estadoGuardado"></span>
+  <span class="fm-espacio"></span>
+
+  <button class="fm-icono-barra" id="btnTema" title="Personalizar tema"
+          aria-label="Personalizar tema"><span class="material-icons">palette</span></button>
+  <button class="fm-icono-barra" id="btnVistaPrevia" title="Vista previa"
+          aria-label="Vista previa"><span class="material-icons">visibility</span></button>
+  <button class="fm-icono-barra" id="btnDeshacer" title="Deshacer (Ctrl+Z)"
+          aria-label="Deshacer" disabled><span class="material-icons">undo</span></button>
+  <button class="fm-icono-barra" id="btnRehacer" title="Rehacer (Ctrl+Y)"
+          aria-label="Rehacer" disabled><span class="material-icons">redo</span></button>
+  <button class="fm-icono-barra" id="btnEnlace" title="Copiar enlace para responder"
+          aria-label="Copiar enlace para responder"><span class="material-icons">link</span></button>
+  <button class="fm-icono-barra" id="btnEditar" title="Editar el formulario"
+          aria-label="Editar el formulario"><span class="material-icons">edit_note</span></button>
+  <button class="fm-icono-barra peligro" id="btnBorrar" title="Eliminar todas las respuestas"
+          aria-label="Eliminar todas las respuestas"><span class="material-icons">delete_sweep</span></button>
+  <button class="fm-btn primario" id="btnPublicarBarra">Publicar</button>
+</div>
+
+<aside class="fm-panel-tema" id="panelTema" aria-label="Tema">
+  <div class="fm-panel-tema-barra">
+    <span class="material-icons" style="color:var(--fm-tenue)">palette</span>
+    <h2>Tema</h2>
+    <span class="fm-espacio"></span>
+    <button class="fm-icono-barra" id="panelTemaCerrar" title="Cerrar"
+            aria-label="Cerrar"><span class="material-icons">close</span></button>
+  </div>
+  <div class="fm-panel-tema-cuerpo" id="panelTemaCuerpo"></div>
+</aside>
+
+<div class="fm-pestanas-barra" role="tablist">
+  <button class="fm-pestana" data-pestana="preguntas" role="tab"
+          aria-selected="false" title="Las preguntas del formulario">
+    <span class="material-icons">edit_note</span>
+    <span class="fm-pestana-texto">Preguntas</span></button>
+  <button class="fm-pestana activa" data-pestana="respuestas" role="tab"
+          aria-selected="true" title="Las respuestas recibidas">
+    <span class="material-icons">bar_chart</span>
+    <span class="fm-pestana-texto">Respuestas</span>
+    <span class="fm-contador oculto" id="contadorRespuestas"></span></button>
+  <button class="fm-pestana" data-pestana="configuracion" role="tab"
+          aria-selected="false" title="Cómo se responde y cómo se ve">
+    <span class="material-icons">settings</span>
+    <span class="fm-pestana-texto">Configuración</span></button>
+</div>
+
+<div class="fm-capa" id="capa">
+  <div class="fm-capa-caja">
+    <div class="fm-capa-barra">
+      <h2 id="capaTitulo"></h2>
+      <span class="fm-espacio"></span>
+      <button class="fm-btn" id="capaCerrar">Cerrar</button>
+    </div>
+    <div class="fm-capa-cuerpo" id="capaCuerpo"></div>
+  </div>
+</div>
+
+<div class="fm-lienzo" id="lienzo">
+  <div class="fm-vacio">Cargando las respuestas&hellip;</div>
+</div>
+
+<script src="/static/js/almacen/encuesta-texto.js?v=20260827-salto1"></script>
+<script src="/static/js/almacen/encuesta-render.js?v=20260827-salto1"></script>
+<script src="/static/js/almacen/encuesta-grafico-svg.js?v=20260827-salto1"></script>
+<script src="/static/js/almacen/encuesta-resp-grafico.js?v=20260827-salto1"></script>
+<script src="/static/js/almacen/encuesta-resp-resumen.js?v=20260827-salto1"></script>
+<script src="/static/js/almacen/encuesta-desplegable.js?v=20260827-salto1"></script>
+<script src="/static/js/almacen/encuesta-resp-pregunta.js?v=20260827-salto1"></script>
+<script src="/static/js/almacen/encuesta-resp-notas.js?v=20260827-salto1"></script>
+<script src="/static/js/almacen/encuesta-resp-individual.js?v=20260827-salto1"></script>
+<script src="/static/js/almacen/encuesta-historial.js?v=20260827-salto1"></script>
+<script src="/static/js/almacen/encuesta-tema.js?v=20260827-salto1"></script>
+<script src="/static/js/almacen/encuesta-imagenes.js?v=20260827-salto1"></script>
+<script src="/static/js/almacen/encuesta-encabezado.js?v=20260827-salto1"></script>
+<script src="/static/js/almacen/encuesta-qr.js?v=20260827-salto1"></script>
+<script src="/static/js/almacen/encuesta-resp-barra.js?v=20260827-salto1"></script>
+<script src="/static/js/almacen/encuesta-publicar.js?v=20260827-salto1"></script>
+<script src="/static/js/almacen/encuesta-aviso.js?v=20260827-salto1"></script>
+<script src="/static/js/almacen/encuesta-respuestas.js?v=20260827-salto1"></script>
+</body>
+</html>

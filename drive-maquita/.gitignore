@@ -1,0 +1,19 @@
+# Almacén Maquita — lo que NO se versiona
+venv/
+__pycache__/
+*.py[cod]
+# respaldos de despliegue (el guardián los bloquea)
+*.bak
+*.bak.*
+*.bak-*
+backups/
+# estado en ejecución
+cache/
+datos/
+registros/
+*.log
+*.pid
+.env
+
+# cualquier respaldo, esté donde esté
+*bak*
