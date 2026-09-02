@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Necesitas acceso · Drive Maquita</title>
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: flex; align-items: center;
+         justify-content: center; background: #f8f9fa; color: #202124;
+         font: 14px/1.6 Arial, Helvetica, sans-serif; padding: 24px; }
+  .tarjeta { background: #fff; border: 1px solid #dadce0; border-radius: 10px;
+             max-width: 460px; width: 100%; padding: 40px 40px 32px;
+             box-shadow: 0 1px 4px rgba(60,64,67,.15); text-align: center; }
+  .candado { width: 72px; height: 72px; margin: 0 auto 20px; border-radius: 50%;
+             background: #e8f0fe; color: #1a73e8; display: flex;
+             align-items: center; justify-content: center; }
+  h1 { font-size: 22px; font-weight: 400; margin: 0 0 12px; }
+  p { margin: 0 0 8px; color: #5f6368; }
+  .que { color: #202124; font-weight: bold; word-break: break-word; }
+  .cuenta { margin: 20px 0 0; padding-top: 16px; border-top: 1px solid #e8eaed;
+            font-size: 13px; color: #5f6368; }
+  .nota { display: block; width: 100%; margin: 20px 0 0; padding: 10px 12px;
+          border: 1px solid #dadce0; border-radius: 6px; font: inherit;
+          resize: vertical; min-height: 68px; background: #fff; color: inherit; }
+  .acciones { display: flex; gap: 10px; justify-content: center; margin-top: 20px; }
+  button, .volver { font: inherit; border-radius: 6px; padding: 10px 22px;
+                    cursor: pointer; border: 1px solid transparent; }
+  .pedir { background: #1a73e8; color: #fff; }
+  .pedir:hover { background: #1765cc; }
+  .pedir[disabled] { background: #9bb9e8; cursor: default; }
+  .volver { background: transparent; color: #1a73e8; border-color: #dadce0;
+            text-decoration: none; display: inline-block; }
+  .volver:hover { background: #f1f3f4; }
+  .resultado { margin-top: 18px; padding: 12px; border-radius: 6px; display: none; }
+  .bien { background: #e6f4ea; color: #137333; }
+  .mal { background: #fce8e6; color: #c5221f; }
+  @media (prefers-color-scheme: dark) {
+    body { background: #202124; color: #e8eaed; }
+    .tarjeta { background: #2d2d2d; border-color: #4a4a4a; }
+    .candado { background: #3c4043; color: #8ab4f8; }
+    .que { color: #e8eaed; }
+    .cuenta { border-color: #3c4043; }
+    .nota { background: #3a3a3a; border-color: #5a5a5a; }
+    .volver { color: #8ab4f8; border-color: #5a5a5a; }
+    .volver:hover { background: #3c3c3c; }
+    .bien { background: #1e3a26; color: #81c995; }
+    .mal { background: #3a1f1e; color: #f28b82; }
+  }
+</style>
+</head>
+<body>
+  <main class="tarjeta">
+    <div class="candado" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="36" height="36" fill="currentColor">
+        <path d="M18 8h-1V6a5 5 0 10-10 0v2H6a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V10a2 2 0 00-2-2zM9 6a3 3 0 016 0v2H9V6zm3 13a2 2 0 110-4 2 2 0 010 4z"/>
+      </svg>
+    </div>
+
+    <h1>Necesitas acceso</h1>
+    <p>Pide a <b>{{ propietario }}</b> que te dé acceso a</p>
+    <p class="que">{{ nombre }}</p>
+
+    <textarea class="nota" id="mensaje"
+              placeholder="Cuéntale para qué lo necesitas (opcional)"></textarea>
+
+    <div class="acciones">
+      <a class="volver" href="/archivos-almacen">Ir a mi Drive</a>
+      <button class="pedir" id="pedir" type="button">Solicitar acceso</button>
+    </div>
+
+    <div class="resultado" id="resultado" role="status"></div>
+
+    <p class="cuenta">Has entrado como <b>{{ correo }}</b></p>
+  </main>
+
+<script>
+(function () {
+  'use strict';
+  var boton = document.getElementById('pedir');
+  var caja = document.getElementById('resultado');
+
+  function contar(texto, bien) {
+    caja.textContent = texto;
+    caja.className = 'resultado ' + (bien ? 'bien' : 'mal');
+    caja.style.display = 'block';
+  }
+
+  boton.addEventListener('click', function () {
+    boton.disabled = true;
+    boton.textContent = 'Enviando…';
+    fetch('/archivos-almacen/solicitar-acceso-interno', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        ruta: {{ ruta_json|safe }},
+        mensaje: document.getElementById('mensaje').value
+      })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      contar(d.mensaje || 'Solicitud enviada.', !!d.success);
+      if (d.success) {
+        boton.textContent = 'Solicitud enviada';
+      } else {
+        boton.disabled = false;
+        boton.textContent = 'Solicitar acceso';
+      }
+    }).catch(function () {
+      contar('No pudimos enviar la solicitud. Inténtalo más tarde.', false);
+      boton.disabled = false;
+      boton.textContent = 'Solicitar acceso';
+    });
+  });
+})();
+</script>
+</body>
+</html>
