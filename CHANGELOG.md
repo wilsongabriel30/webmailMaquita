@@ -10,6 +10,17 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 Pendiente: #3 del reporte externo — parametrizar la marca de la UI del Drive (~40 strings)
 con `branding_settings` (queda como tarea aparte por su tamaño).
 
+## [1.1.3] - 2026-09-02
+
+### Corregido
+
+- **Cookies multi-dominio (SSO):** un `domain=cookie_domain` fijo rompía instancias que sirven
+  varios dominios padre — el navegador rechazaba la cookie cuando el `Domain` no correspondía al
+  host, dejando sin acceso a los usuarios del otro dominio. Ahora el `Domain` se deriva del host
+  de la petición contra `COOKIE_PARENT_DOMAINS` (nuevo `app/auth/cookies.py`), en los 12
+  `set_cookie`/`delete_cookie` de auth y OIDC. Sin la variable → host-only (retro-compatible).
+  Habilita SSO webmail↔drive por subdominios en cada dominio, sin que uno pise al otro.
+
 ## [1.1.2] - 2026-09-02
 
 Segundo lote de portabilidad reportado por el equipo externo (Drive frente a usuarios reales).
