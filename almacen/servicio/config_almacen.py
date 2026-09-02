@@ -29,8 +29,9 @@ def raiz_datos() -> str:
         filas = consultar("SELECT valor FROM config_kv WHERE clave = 'raiz_datos'")
         if filas and filas[0]['valor']:
             valor = filas[0]['valor']
-    except Exception:
-        pass
+    except Exception as exc:
+        import logging
+        logging.getLogger('almacen.config').warning('config_kv: %s', exc)
     _raiz_cache['valor'] = valor
     return valor
 
@@ -84,8 +85,9 @@ def cuota_defecto_bytes() -> int:
         filas = consultar("SELECT valor FROM config_kv WHERE clave = 'cuota_defecto_bytes'")
         if filas and filas[0]['valor']:
             return int(filas[0]['valor'])
-    except Exception:
-        pass
+    except Exception as exc:
+        import logging
+        logging.getLogger('almacen.config').warning('config_kv: %s', exc)
     return CUOTA_DEFECTO_BYTES
 TAMANO_MAX_SUBIDA = int(os.getenv('ALMACEN_MAX_SUBIDA', 16 * 1024 ** 3))      # 16 GB (igual que nginx)
 
