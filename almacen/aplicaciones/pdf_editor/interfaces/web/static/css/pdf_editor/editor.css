@@ -1,0 +1,1077 @@
+/* ============================================================
+   FARO Maquita - Editor PDF: estilos del editor
+   Extraido del template pdf_editor/index.html para modularizar el frontend.
+   IMPORTANTE: nginx sirve /static con cache de 1 anio; cualquier
+   cambio aqui exige subir la version ?v= en el template.
+   ============================================================ */
+/* ============================================
+   EDITOR PDF - Estilo Adobe Acrobat 1:1
+   ============================================ */
+
+:root {
+    --acrobat-bg: #f5f5f5;
+    --acrobat-sidebar-bg: #ffffff;
+    --acrobat-panel-bg: #fafafa;
+    --acrobat-text: #2c2c2c;
+    --acrobat-text-muted: #6d6d6d;
+    --acrobat-accent: #1473e6;
+    --acrobat-accent-hover: #0d66d0;
+    --acrobat-red: #fa0f00;
+    --acrobat-border: #e5e5e5;
+    --acrobat-hover-bg: #f0f0f0;
+    --acrobat-selected: #e8f0fe;
+}
+
+/* Reset para el editor */
+.pdf-editor-app {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 60px);
+    background: var(--acrobat-bg);
+    font-family: 'Adobe Clean', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 13px;
+}
+
+/* ========== TOP TOOLBAR (tabs) ========== */
+.editor-top-bar {
+    display: flex;
+    align-items: center;
+    background: white;
+    border-bottom: 1px solid var(--acrobat-border);
+    padding: 0 12px;
+    height: 40px;
+    gap: 8px;
+}
+
+.top-tabs {
+    display: flex;
+    gap: 0;
+    height: 100%;
+}
+
+.top-tab {
+    padding: 0 16px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    background: none;
+    border: none;
+    color: var(--acrobat-text);
+    font-size: 13px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+}
+
+.top-tab:hover {
+    background: var(--acrobat-hover-bg);
+}
+
+.top-tab.active {
+    color: var(--acrobat-accent);
+    border-bottom-color: var(--acrobat-accent);
+}
+
+.top-spacer {
+    flex: 1;
+}
+
+.top-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--acrobat-hover-bg);
+    border-radius: 20px;
+    padding: 6px 12px;
+    color: var(--acrobat-text-muted);
+    font-size: 12px;
+}
+
+.top-search input {
+    border: none;
+    background: none;
+    outline: none;
+    width: 150px;
+    font-size: 12px;
+}
+
+.top-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* ---- Boton "Exportar" de la barra superior con su lista de formatos ---- */
+.menu-exportar-wrap { position: relative; }
+
+.top-btn-exportar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+    color: var(--acrobat-accent);
+}
+
+.top-btn-exportar .chevron-menu { font-size: 10px; }
+
+.menu-exportar {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 1200;
+    min-width: 260px;
+    background: #fff;
+    border: 1px solid var(--acrobat-border);
+    border-radius: 6px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.18);
+    padding: 6px;
+}
+
+/* En este editor no hay una clase .hidden global: cada componente define la suya */
+.menu-exportar.hidden { display: none; }
+
+.menu-exportar-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.menu-exportar-item:hover { background: var(--acrobat-hover-bg); }
+.menu-exportar-item .badge {
+    margin-left: auto;
+    background: var(--acrobat-hover-bg);
+    color: var(--acrobat-text-muted);
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+.menu-exportar-sep {
+    height: 1px;
+    background: var(--acrobat-border);
+    margin: 4px 6px;
+}
+
+.top-btn {
+    padding: 6px 12px;
+    border: none;
+    background: none;
+    color: var(--acrobat-text);
+    cursor: pointer;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+}
+
+.top-btn:hover {
+    background: var(--acrobat-hover-bg);
+}
+
+.top-btn.primary {
+    background: var(--acrobat-accent);
+    color: white;
+}
+
+.top-btn.primary:hover {
+    background: var(--acrobat-accent-hover);
+}
+
+.top-btn.red {
+    background: var(--acrobat-red);
+    color: white;
+}
+
+/* ========== MAIN LAYOUT ========== */
+.editor-main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* ---- Separador arrastrable del panel de herramientas ---- */
+.panel-resizer {
+    width: 5px;
+    flex-shrink: 0;
+    cursor: col-resize;
+    /* Se deja un rayado tenue en el centro para que se VEA que se puede arrastrar:
+       un separador invisible no lo encuentra nadie */
+    background: repeating-linear-gradient(
+        to bottom,
+        var(--acrobat-border) 0 6px,
+        transparent 6px 12px
+    );
+    transition: background 0.15s;
+}
+.panel-resizer:hover,
+.panel-resizer.arrastrando { background: var(--acrobat-accent); }
+/* Con el panel oculto no hay nada que redimensionar */
+.left-panel.collapsed + .panel-resizer { display: none; }
+
+/* ---- Tirador que oculta o muestra la barra de iconos de la derecha ---- */
+.panel-tirador {
+    width: 14px;
+    flex-shrink: 0;
+    border: none;
+    border-left: 1px solid var(--acrobat-border);
+    background: var(--acrobat-panel-bg);
+    color: var(--acrobat-text-muted);
+    cursor: pointer;
+    font-size: 10px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.panel-tirador:hover { background: var(--acrobat-hover-bg); color: var(--acrobat-text); }
+body.sin-panel-derecho .right-panel { display: none; }
+
+/* ========== LEFT PANEL (herramientas) ========== */
+.left-panel {
+    width: 220px;
+    min-width: 220px;
+    background: var(--acrobat-sidebar-bg);
+    border-right: 1px solid var(--acrobat-border);
+    display: flex;
+    flex-direction: column;
+    transition: width 0.3s, min-width 0.3s;
+}
+
+/* !important: al arrastrar el separador el ancho queda como estilo en linea,
+   que ganaria a esta regla y dejaria el panel visible al intentar ocultarlo */
+.left-panel.collapsed {
+    width: 0 !important;
+    min-width: 0 !important;
+    overflow: hidden;
+}
+
+.left-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--acrobat-border);
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.left-panel-close {
+    background: none;
+    border: none;
+    color: var(--acrobat-text-muted);
+    cursor: pointer;
+    font-size: 18px;
+    padding: 4px;
+}
+
+.left-panel-close:hover {
+    color: var(--acrobat-text);
+}
+
+.left-panel-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 0;
+}
+
+.left-panel-section {
+    padding: 8px 16px;
+}
+
+.left-panel-section-title {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--acrobat-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+}
+
+.tool-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    color: var(--acrobat-text);
+    cursor: pointer;
+    transition: background 0.15s;
+    border-radius: 4px;
+    margin: 2px 8px;
+}
+
+.tool-item:hover {
+    background: var(--acrobat-hover-bg);
+}
+
+.tool-item.active {
+    background: var(--acrobat-selected);
+    color: var(--acrobat-accent);
+}
+
+.tool-item i {
+    font-size: 16px;
+    width: 20px;
+    text-align: center;
+}
+
+.tool-item .badge {
+    margin-left: auto;
+    font-size: 9px;
+    padding: 2px 5px;
+    border-radius: 3px;
+    background: var(--acrobat-hover-bg);
+    color: var(--acrobat-text-muted);
+}
+
+.tool-item .badge.pro {
+    background: var(--acrobat-accent);
+    color: white;
+}
+
+/* Panel content visibility */
+.panel-content {
+    display: block;
+}
+
+.panel-content.hidden {
+    display: none !important;
+}
+
+/* Tooltip mejorado */
+.tool-item[title] {
+    position: relative;
+}
+
+/* Link "Ver mas" */
+.link-more {
+    display: block;
+    color: var(--acrobat-accent);
+    font-size: 12px;
+    padding: 8px 16px;
+    cursor: pointer;
+}
+
+.link-more:hover {
+    text-decoration: underline;
+}
+
+/* ========== MINI TOOLBAR (vertical izquierda del viewer) ========== */
+.mini-toolbar {
+    display: flex;
+    flex-direction: column;
+    background: var(--acrobat-panel-bg);
+    border-right: 1px solid var(--acrobat-border);
+    padding: 8px 4px;
+    gap: 4px;
+    width: 44px;
+}
+
+.mini-btn {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: var(--acrobat-text);
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.mini-btn:hover {
+    background: var(--acrobat-hover-bg);
+    border-color: var(--acrobat-border);
+}
+
+.mini-btn.active {
+    background: var(--acrobat-selected);
+    border-color: var(--acrobat-accent);
+    color: var(--acrobat-accent);
+}
+
+.mini-divider {
+    height: 1px;
+    background: var(--acrobat-border);
+    margin: 4px 6px;
+}
+
+/* ========== VIEWER (centro) ========== */
+.viewer-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: #525659;
+}
+
+.viewer-scroll {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px;
+    gap: 12px;
+}
+
+/* Vista de varias páginas por fila (como Word al alejar el zoom).
+   La clase la pone/quita el JS segun cuantas paginas quepan a lo ancho.
+   El row-gap es mayor que el column-gap porque bajo cada pagina va el rotulo
+   "Pagina X de N" en position:absolute; bottom:-20px. */
+.viewer-scroll.multi-col {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: flex-start;
+    align-content: flex-start;
+    column-gap: 24px;
+    row-gap: 34px;
+}
+
+.page-wrapper {
+    background: white;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    position: relative;
+}
+
+/* Indicador de zoom bajo los botones +/- del panel derecho */
+.zoom-indicador {
+    font-size: 10px;
+    color: #b9bcc0;
+    text-align: center;
+    padding: 2px 0 4px;
+    user-select: none;
+}
+
+.page-wrapper canvas {
+    display: block;
+}
+
+/* Capa de anotaciones */
+.annotation-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+}
+
+.annotation-layer.active {
+    pointer-events: auto;
+}
+
+.annotation {
+    position: absolute;
+    pointer-events: auto !important;
+    cursor: move;
+}
+
+.annotation:hover {
+    outline: 2px solid var(--acrobat-accent);
+}
+
+.annotation-highlight {
+    background: rgba(255, 235, 59, 0.5);
+}
+
+.annotation-text {
+    background: rgba(255,255,255,0.95);
+    border: 1px solid #ccc;
+    padding: 4px 8px;
+    font-size: 12px;
+    cursor: move;
+}
+
+.annotation-note {
+    /* SIN fondo: se ve solo la forma del icono, del color que el usuario haya elegido.
+       Antes había un cuadro amarillo fijo detrás que no cambiaba de color: se elegía
+       una marca roja y en la hoja salía metida en una caja amarilla. */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+.annotation-note i {
+    /* Un poco más grandes y con el trazo más grueso: los iconos de línea (el visto, la
+       equis, la flecha, la interrogación) se veían finos encima del documento y no
+       resaltaban. `currentColor` es el color que se le pone a la marca. */
+    font-size: 26px;
+    -webkit-text-stroke: 0.7px currentColor;
+    paint-order: stroke fill;
+}
+
+/* ===== CAPA DE TEXTO SELECCIONABLE (pdf.js textLayer) ===== */
+.textLayer {
+    position: absolute; top: 0; left: 0;
+    overflow: hidden; line-height: 1;
+    z-index: 2; pointer-events: auto; user-select: text;
+}
+.textLayer span, .textLayer br {
+    color: transparent; position: absolute;
+    white-space: pre; cursor: text; transform-origin: 0% 0%;
+}
+.textLayer.no-select { pointer-events: none; user-select: none; }
+.annotation-layer { z-index: 3; }
+
+/* Aviso visual de "aquí puedes editar con doble clic" */
+.textLayer.texto-editable-aviso span {
+    background: rgba(20, 115, 230, 0.18);
+    transition: background 0.3s;
+}
+
+/* Parche todavia no aplicado por el servidor: se ve provisional a proposito */
+.annotation-edicion.provisional {
+    outline: 1px dashed var(--acrobat-accent);
+    opacity: 0.75;
+}
+
+/* Aviso fijo mientras la edicion de texto esta encendida */
+.aviso-modo-edicion {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 30;
+    background: var(--acrobat-accent);
+    color: #fff;
+    font-size: 12px;
+    padding: 6px 14px;
+    border-radius: 14px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+    pointer-events: none;
+}
+.aviso-modo-edicion.hidden { display: none; }
+.viewer-container { position: relative; }
+/* Con la edicion encendida, el texto invita a hacer doble clic */
+body.modo-editar-texto .textLayer span { cursor: text; }
+
+/* Caja para reescribir una palabra del PDF (doble clic sobre el texto) */
+.edicion-texto-pdf {
+    position: absolute;
+    z-index: 20;
+    padding: 0;
+    margin: 0;
+    border: 1px solid var(--acrobat-accent);
+    outline: 2px solid rgba(20, 115, 230, 0.25);
+    border-radius: 2px;
+    line-height: 1;
+    pointer-events: auto;
+}
+
+/* ===== SVG DIBUJO ===== */
+.draw-svg {
+    position: absolute; top: 0; left: 0;
+    z-index: 1; pointer-events: none; overflow: visible;
+}
+.cursor-draw { cursor: crosshair !important; }
+.cursor-draw * { cursor: crosshair !important; }
+
+/* Borrador: circulo blanco (goma) centrado en el puntero; si el navegador no
+   admite el cursor SVG usa "cell" como respaldo */
+.cursor-erase,
+.cursor-erase * {
+    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><circle cx="10" cy="10" r="9" fill="rgba(255,255,255,.85)" stroke="%23444" stroke-width="1"/></svg>') 10 10, cell !important;
+}
+
+/* ===== NUEVOS TIPOS DE ANOTACIÓN ===== */
+.annotation-underline {
+    border-bottom: 2px solid;
+    background: transparent !important;
+    pointer-events: auto;
+    min-height: 4px;
+}
+.annotation-strikeout {
+    background: transparent !important;
+    pointer-events: auto;
+    position: relative;
+}
+.annotation-strikeout::after {
+    content: ''; position: absolute;
+    top: 50%; left: 0; right: 0;
+    height: 2px; background: currentColor; pointer-events: none;
+}
+
+/* ===== EDITOR DE TEXTO EN LÍNEA ===== */
+.inline-text-editor {
+    position: absolute; min-width: 80px;
+    background: rgba(255,255,255,0.93);
+    border: 2px dashed #1473e6; border-radius: 3px;
+    padding: 2px 6px; outline: none; z-index: 600;
+    white-space: pre; font-family: Arial, sans-serif;
+    cursor: text; box-shadow: 0 2px 8px rgba(20,115,230,.25);
+}
+
+/* ===== CONTROLES DE ANOTACIÓN (mini toolbar) ===== */
+.annot-controls {
+    display: flex; flex-direction: column; gap: 3px;
+    padding: 6px 4px; align-items: center;
+    border-top: 1px solid var(--acrobat-border);
+}
+.annot-controls label { font-size: 9px; color: #888; text-align: center; line-height: 1; }
+.annot-controls input[type=color] {
+    width: 28px; height: 22px; border: 1px solid #ccc;
+    padding: 0; cursor: pointer; border-radius: 3px;
+}
+.annot-controls select {
+    width: 38px; font-size: 10px; padding: 1px;
+    border: 1px solid #ccc; border-radius: 3px;
+}
+
+/* ========== RIGHT PANEL (iconos) ========== */
+.right-panel {
+    display: flex;
+    flex-direction: column;
+    background: var(--acrobat-panel-bg);
+    border-left: 1px solid var(--acrobat-border);
+    padding: 8px 4px;
+    gap: 4px;
+    width: 44px;
+}
+
+.right-btn {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    border-radius: 4px;
+    color: var(--acrobat-text-muted);
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.right-btn:hover {
+    background: var(--acrobat-hover-bg);
+    color: var(--acrobat-text);
+}
+
+.right-btn.active {
+    color: var(--acrobat-accent);
+}
+
+/* ========== BOTTOM NAV (paginacion) ========== */
+.bottom-nav {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px;
+    gap: 8px;
+    background: var(--acrobat-panel-bg);
+    border-left: 1px solid var(--acrobat-border);
+    width: 44px;
+}
+
+.page-num {
+    font-size: 11px;
+    color: var(--acrobat-text);
+    text-align: center;
+    line-height: 1.2;
+}
+
+.page-nav-btn {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: 1px solid var(--acrobat-border);
+    border-radius: 4px;
+    color: var(--acrobat-text);
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.page-nav-btn:hover {
+    background: var(--acrobat-hover-bg);
+}
+
+.page-nav-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+/* ========== MODALES ========== */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.modal-overlay.hidden {
+    display: none;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 8px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    overflow: auto;
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--acrobat-border);
+}
+
+.modal-header h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: var(--acrobat-text-muted);
+    cursor: pointer;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 16px 20px;
+    border-top: 1px solid var(--acrobat-border);
+}
+
+/* Loading overlay */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255,255,255,0.9);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 99999;
+}
+
+.loading-overlay.hidden {
+    display: none;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--acrobat-border);
+    border-top-color: var(--acrobat-accent);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Signature canvas */
+.signature-canvas {
+    border: 1px solid var(--acrobat-border);
+    border-radius: 4px;
+    background: white;
+    cursor: crosshair;
+}
+
+/* Form inputs */
+.form-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--acrobat-border);
+    border-radius: 4px;
+    font-size: 13px;
+    margin-bottom: 12px;
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: var(--acrobat-accent);
+}
+
+.form-label {
+    display: block;
+    font-size: 12px;
+    color: var(--acrobat-text-muted);
+    margin-bottom: 4px;
+}
+
+.form-row {
+    display: flex;
+    gap: 12px;
+}
+
+.form-row > * {
+    flex: 1;
+}
+
+/* Botones de modal */
+.btn-modal {
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-size: 13px;
+    cursor: pointer;
+    border: none;
+}
+
+.btn-modal.secondary {
+    background: white;
+    border: 1px solid var(--acrobat-border);
+    color: var(--acrobat-text);
+}
+
+.btn-modal.primary {
+    background: var(--acrobat-accent);
+    color: white;
+}
+
+.btn-modal:hover {
+    opacity: 0.9;
+}
+
+/* Color picker */
+.color-options {
+    display: flex;
+    gap: 8px;
+    margin: 12px 0;
+}
+
+.color-option {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+}
+
+.color-option:hover {
+    transform: scale(1.1);
+}
+
+.color-option.active {
+    border-color: var(--acrobat-text);
+}
+
+/* Hidden file input */
+#fileInput {
+    display: none;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+    .left-panel {
+        width: 0;
+        min-width: 0;
+    }
+}
+
+/* ===== PLACEHOLDER DE VISOR VACIO (sin documento cargado) ===== */
+/* Sustituye el espacio gris vacio por una invitacion clara a subir un PDF */
+.viewer-vacio {
+    margin: 60px auto;
+    max-width: 460px;
+    padding: 48px 36px;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.06);
+    border: 2px dashed rgba(255, 255, 255, 0.35);
+    border-radius: 14px;
+    color: #e8e8e8;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+}
+.viewer-vacio:hover, .viewer-vacio.arrastrando {
+    border-color: #1473e6;
+    background: rgba(20, 115, 230, 0.12);
+}
+.viewer-vacio i.bi-file-earmark-arrow-up { font-size: 54px; color: #9ec5f5; }
+.viewer-vacio h3 { margin: 14px 0 8px; font-size: 20px; font-weight: 600; }
+.viewer-vacio p { font-size: 13px; color: #c9c9c9; line-height: 1.5; margin: 0 0 18px; }
+.viewer-vacio button {
+    padding: 10px 26px;
+    border: none;
+    border-radius: 22px;
+    background: #1473e6;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+}
+.viewer-vacio button:hover { background: #0d5fc4; }
+.viewer-vacio.hidden { display: none; }
+
+/* ===== PANEL PROPIEDADES DE TEXTO (banner izquierdo) ===== */
+/* Aparece SOLO cuando hay un cuadro de texto seleccionado en el documento */
+.panel-texto {
+    padding: 12px 14px;
+    border-bottom: 2px solid var(--acrobat-border);
+    background: #f2f7ff;
+}
+.panel-texto.hidden { display: none; }
+.panel-texto-titulo { font-weight: 600; font-size: 13px; color: #1473e6; margin-bottom: 10px; }
+.panel-texto label { font-size: 11px; font-weight: 600; color: #555; display: block; margin: 6px 0 3px; }
+.panel-texto-fila { display: flex; gap: 8px; align-items: flex-end; }
+.panel-texto-fila button {
+    width: 34px; height: 30px;
+    border: 1px solid #ccc; background: #fff; border-radius: 5px;
+    cursor: pointer; font-size: 14px;
+}
+.panel-texto-fila button.activo { background: #1473e6; color: #fff; border-color: #1473e6; }
+.panel-texto-ayuda { font-size: 10px; color: #888; margin: 8px 0 0; }
+#colorTextoSel { width: 42px; height: 30px; padding: 2px; border: 1px solid #ccc; border-radius: 5px; background: #fff; cursor: pointer; }
+
+/* Cuadro de texto seleccionado en el documento */
+.annotation-text.seleccionado { outline: 2px dashed #1473e6; outline-offset: 2px; border-radius: 2px; }
+
+/* ========== MENSAJES EMERGENTES (tooltips instantaneos, ver tooltips.js) ========== */
+.faro-tooltip {
+    position: fixed;
+    z-index: 99999;
+    max-width: 280px;
+    background: #1f2937;
+    color: #f9fafb;
+    font-size: 12px;
+    line-height: 1.45;
+    padding: 7px 11px;
+    border-radius: 8px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(-3px);
+    transition: opacity 0.12s ease, transform 0.12s ease;
+}
+.faro-tooltip.visible { opacity: 1; transform: translateY(0); }
+
+
+
+/* ===== Gama de colores del panel de herramienta (lapiz / resaltar / formas) ===== */
+.gama-colores {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 4px 0 8px;
+}
+.gama-colores button {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid #d0d0d0;
+    cursor: pointer;
+    padding: 0;
+    transition: transform .1s, border-color .1s;
+}
+.gama-colores button:hover { transform: scale(1.15); }
+.gama-colores button.sel {
+    border-color: var(--acrobat-accent);
+    box-shadow: 0 0 0 2px rgba(20,115,230,.3);
+}
+/* Modo "quitar resaltado": el puntero avisa de que se va a borrar */
+.cursor-unhighlight,
+.cursor-unhighlight * { cursor: not-allowed !important; }
+.mini-btn.active { background: var(--acrobat-selected); }
+
+
+/* ============================================================
+   BARRA DE OPCIONES DEL COMENTARIO
+   Sale ARRIBA del documento al activar la herramienta de comentario, no en el panel
+   de la izquierda: es como lo pidió el usuario el 30-jul-2026, enseñando un vídeo de
+   otro editor donde las opciones se despliegan en una fila horizontal.
+   ============================================================ */
+.barra-comentarios {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 6px 10px;
+    background: var(--acrobat-panel-bg);
+    border-bottom: 1px solid var(--acrobat-border);
+}
+
+.barra-comentarios.hidden { display: none; }
+
+/* Los colores, como círculos. El elegido lleva un aro alrededor. */
+.barra-comentarios .color-comentario {
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: 2px solid transparent;
+    border-radius: 50%;
+    cursor: pointer;
+    outline: 1px solid rgba(0, 0, 0, .18);
+    outline-offset: -1px;
+}
+
+.barra-comentarios .color-comentario.activo {
+    border-color: var(--acrobat-text);
+    box-shadow: 0 0 0 1px #fff inset;
+}
+
+.barra-comentarios .sep-comentarios {
+    width: 1px;
+    height: 22px;
+    margin: 0 4px;
+    background: var(--acrobat-border);
+}
+
+/* La marca elegida se ve hundida, igual que la herramienta activa */
+.barra-comentarios .mini-btn.activo {
+    background: var(--acrobat-hover-bg);
+    border-color: var(--acrobat-border);
+}
+
+.barra-comentarios .ayuda-comentarios {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--acrobat-text-muted, #6d6d6d);
+}
+
+/* ===== Elegir un área para leer su texto (31-jul-2026) ===== */
+/* El recuadro se dibuja dentro del contenedor de la página, así que se mueve y se
+   escala con ella sin más cuentas. `pointer-events:none` para que no se coma el
+   arrastre que lo está creando. */
+body.ocr-area-eligiendo #viewerScroll,
+body.ocr-area-eligiendo .page-wrapper { cursor: crosshair; }
+body.ocr-area-eligiendo .textLayer { pointer-events: none; }   /* no seleccionar texto al arrastrar */
+.ocr-area-previa {
+    position: absolute;
+    border: 2px dashed var(--acrobat-accent, #1473e6);
+    background: rgba(20, 115, 230, .10);
+    pointer-events: none;
+    z-index: 30;
+}
+
+/* «Nuevo» (abrir otro PDF): como los demás botones de arriba, pero con texto al lado
+   del icono, que es lo que lo hace encontrable (31-jul-2026). */
+.top-btn-nuevo {
+    display: inline-flex; align-items: center; gap: 6px;
+    width: auto; padding: 0 12px; font-size: 13px; font-weight: 600;
+}

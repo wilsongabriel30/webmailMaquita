@@ -30,7 +30,11 @@ import pdf_editor  # el paquete de este directorio (registrar_modulo en __init__
 
 
 def crear_app():
-    app = Flask(__name__)
+    # static propios del editor (base.html + assets) servidos BAJO el mismo prefijo
+    # que enruta nginx al editor, para que url_for('static', ...) resuelva sin Raíces.
+    _static = os.path.join(_HERE, 'interfaces', 'web', 'static')
+    app = Flask(__name__, static_folder=_static,
+                static_url_path='/herramientas/editor-pdf/static')
     app.config.from_object(Config)
     app.secret_key = Config.SECRET_KEY or "cambia-esto-en-produccion"
 
