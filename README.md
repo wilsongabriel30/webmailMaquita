@@ -547,3 +547,10 @@ PowerPoint vía OnlyOffice, autenticada con la misma sesión del correo.
 
 Es un servicio opcional e independiente incluido en `almacen/`.
 Instalación completa (5 pasos) y arquitectura: **[almacen/README.md](almacen/README.md)**.
+
+## Drive Maquita (`drive-maquita/`)
+
+Servicio completo del **Drive Maquita** (Almacén) que corre en la plataforma Raíces
+(`datos.maquita.com.ec/archivos-almacen`). Se publica aquí con `git subtree` desde el
+servidor que lo ejecuta (`herramientas/publicar-en-github.sh`). No confundir con
+`almacen/`, que es el almacén interno del correo.
