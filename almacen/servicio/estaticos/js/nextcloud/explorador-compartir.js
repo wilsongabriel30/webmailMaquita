@@ -500,12 +500,16 @@ async function buscarUsuarios(query) {
                 if (esEmail) {
                     // Detectar si es dominio Maquita
                     const dominio = query.split('@')[1].toLowerCase();
-                    const esMaquita = dominio.includes('maquita');
-                    const badge = esMaquita ? 'Maquita' : 'Externo';
-                    const badgeClass = esMaquita ? 'bg-secondary' : 'bg-warning text-dark';
-                    const tipoUser = esMaquita ? 'interno_sin_nc' : 'externo';
-                    const descripcion = esMaquita
-                        ? 'Usuario de Maquita sin cuenta en Nube - se enviará invitación por email'
+                    // Interno = mismo dominio que el usuario actual, o en la lista configurada
+                    // (window.DOMINIOS_INTERNOS). Ya NO se compara contra 'maquita' fijo.
+                    const _internos = (window.DOMINIOS_INTERNOS || []).map(d => (d || '').toLowerCase());
+                    const _miDom = (window.USUARIO_DOMINIO || '').toLowerCase();
+                    const esInterno = (!!_miDom && dominio === _miDom) || _internos.includes(dominio);
+                    const badge = esInterno ? 'Interno' : 'Externo';
+                    const badgeClass = esInterno ? 'bg-secondary' : 'bg-warning text-dark';
+                    const tipoUser = esInterno ? 'interno_sin_nc' : 'externo';
+                    const descripcion = esInterno
+                        ? 'Usuario interno sin cuenta en el Drive - se enviará invitación por email'
                         : 'Usuario externo - se enviará invitación por email';
 
                     resultsContainer.innerHTML = `
