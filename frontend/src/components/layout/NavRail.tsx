@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { api } from '../../api/client';
@@ -124,6 +124,12 @@ export function NavRail() {
   const location = useLocation();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
+  // URL del Drive: configurable por branding (drive_url). Por defecto MISMO HOST
+  // (/archivos-almacen/), para que una replica NO mande a sus usuarios a otro dominio.
+  const [driveUrl, setDriveUrl] = useState('/archivos-almacen/');
+  useEffect(() => {
+    fetch('/api/branding').then((r) => r.json()).then((b) => { if (b && b.drive_url) setDriveUrl(b.drive_url); }).catch(() => {});
+  }, []);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
 
   return (
@@ -139,7 +145,7 @@ export function NavRail() {
               // «Archivos» = Drive Maquita (Raíces). En la app: ir a la sección Drive del cliente
               // (aviso al host + navegación que el cliente intercepta); en la web: abrir Drive Maquita.
               if (item.path.startsWith('/archivos-almacen')) {
-                const drive = 'https://datos.maquita.com.ec/archivos-almacen';
+                const drive = driveUrl;
                 if (esModoApp()) {
                   try { (window as any).chrome?.webview?.postMessage({ source: 'maquita-mail', type: 'abrir-modulo', modulo: 'drive', url: drive }); } catch {}
                   window.location.href = drive + '?app=1';
