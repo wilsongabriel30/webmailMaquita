@@ -9,6 +9,35 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 Nada aún.
 
+## [1.1.1] - 2026-09-02
+
+Correcciones de portabilidad reportadas por un equipo externo que corre una réplica del repo.
+
+### Corregido
+
+- **Editor de PDF autónomo**: daba `500 TemplateNotFound: base.html` en instalación limpia.
+  Se publica la interfaz completa (`interfaces/web/static/` con los estáticos del editor +
+  Bootstrap) y un `base.html` autónomo; el instalador valida el render (no solo el arranque).
+- El instalador ahora copia `maquita-mailadm` a `/usr/local/sbin` (el README lo documentaba).
+- Aviso temprano si la CPU no expone x86-64-v2 (`sse4_2`): NumPy 2.x (Tableros/BI) no arranca
+  en Proxmox con CPU `kvm64`; se indica `qm set <vmid> --cpu host`.
+- Editor de PDF: puerto documentado 8790 → 8792 (coincide con el servicio y nginx);
+  `AUTH_DATABASE_URI` marcado como OPCIONAL.
+- Service worker: el `sed` de despliegue actualiza la versión de caché de cualquier marca,
+  para que una réplica no pierda la autoactualización de la PWA.
+
+### Cambiado
+
+- Las pantallas de seguridad (2FA, verificación de enlace, simulacro de phishing, retención
+  legal) y el prompt de IA usan el nombre de la organización desde el branding
+  (`branding_settings.org_name`, `ORG_NAME`, `AI_ORG_CONTEXT`) con fallback neutro, para que
+  una réplica no muestre la marca de otra organización.
+
+### Añadido
+
+- `instalar-app.sh <bi|pdf>`: agrega una Aplicación del Drive a un despliegue ya montado
+  (idempotente; reutiliza los pasos 16-17 y la configuración existente).
+
 ## [1.1.0] - 2026-09-02
 
 Tag: `v1.1.0`. Incorpora el **Drive Maquita (Almacén)** y sus **Aplicaciones**, el
