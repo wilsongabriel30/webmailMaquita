@@ -10,6 +10,18 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 Pendiente: #3 del reporte externo — parametrizar la marca de la UI del Drive (~40 strings)
 con `branding_settings` (queda como tarea aparte por su tamaño).
 
+## [1.1.4] - 2026-09-02
+
+### Cambiado
+
+- **OnlyOffice (ofimática):** el README lo prometía dentro del instalador de un solo script,
+  pero `instalar.sh` no montaba el Document Server ni avisaba (el adoptante abría un `.docx` y
+  no pasaba nada). Ahora: README honesto (la ofimática se monta aparte), guía dedicada
+  **`docs/ONLYOFFICE-DOCUMENT-SERVER.md`** (docker + JWT + rutas nginx + healthcheck),
+  **`instalar-app.sh onlyoffice`** (levanta el DS y cablea la config con el patrón de BI/PDF), y
+  el Drive avisa **«Ofimática no configurada»** (consulta `/onlyoffice/estado`) en vez de fallar
+  en silencio.
+
 ## [1.1.3] - 2026-09-02
 
 ### Corregido
