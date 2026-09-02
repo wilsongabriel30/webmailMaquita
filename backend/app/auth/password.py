@@ -64,7 +64,11 @@ router = APIRouter(prefix="/api/auth", tags=["auth-password"])
 
 class ChangePasswordRequest(BaseModel):
     current_password: str = Field(..., min_length=1)
-    new_password: str = Field(..., min_length=10, max_length=256)
+    # min_length=1: la fortaleza real (>=10, especial, etc.) la valida
+    # validate_password_strength, que devuelve un mensaje claro en espanol.
+    # Si aqui pusieramos min_length=10, Pydantic rechazaria antes con un 422
+    # generico ("Solicitud invalida") en vez del mensaje especifico.
+    new_password: str = Field(..., min_length=1, max_length=1024)
 
 
 def hash_password_doveadm(password: str) -> str:
