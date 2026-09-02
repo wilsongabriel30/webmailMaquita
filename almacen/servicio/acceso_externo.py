@@ -326,3 +326,154 @@ def invitar_endpoint():
     if err:
         return {'error': err}, 400
     return {'ok': True, 'link': link}
+
+
+# ======================= FASE 4: panel de administracion =====================
+from flask import jsonify as _jsonify
+
+
+def _master_o_403():
+    """Devuelve (uid, rol) si es master; si no, None (el caller responde 403)."""
+    from auth_webmail import usuario_webmail
+    uid, rol = usuario_webmail()
+    return (uid, rol) if rol in ('master', 'master_admin') else None
+
+
+@bp_acceso_externo.route('/api/almacen/externos', methods=['GET'])
+def externos_listar():
+    if not _master_o_403():
+        return _jsonify({'error': 'no autorizado'}), 403
+    filas = consultar(
+        'SELECT id, email, full_name, active, activado, cuota_mb, proveedor, '
+        "creado_por, to_char(creado_en,'YYYY-MM-DD') AS creado FROM usuarios_externos "
+        'ORDER BY creado_en DESC')
+    return _jsonify({'cuentas': [dict(f) for f in filas]})
+
+
+@bp_acceso_externo.route('/api/almacen/externos/<int:eid>/activar', methods=['POST'])
+def externos_activar(eid):
+    if not _master_o_403():
+        return _jsonify({'error': 'no autorizado'}), 403
+    ejecutar('UPDATE usuarios_externos SET active=TRUE WHERE id=%s', (eid,))
+    return _jsonify({'ok': True})
+
+
+@bp_acceso_externo.route('/api/almacen/externos/<int:eid>/desactivar', methods=['POST'])
+def externos_desactivar(eid):
+    if not _master_o_403():
+        return _jsonify({'error': 'no autorizado'}), 403
+    ejecutar('UPDATE usuarios_externos SET active=FALSE WHERE id=%s', (eid,))
+    # corta la sesion viva del externo (si Redis esta configurado)
+    r = _r()
+    if r is not None:
+        fila = consultar('SELECT email FROM usuarios_externos WHERE id=%s', (eid,))
+        if fila:
+            try:
+                r.delete('imap_pass:%s' % fila[0]['email'].lower())
+            except Exception:
+                pass
+    return _jsonify({'ok': True})
+
+
+@bp_acceso_externo.route('/api/almacen/externos/<int:eid>/reinvitar', methods=['POST'])
+def externos_reinvitar(eid):
+    if not _master_o_403():
+        return _jsonify({'error': 'no autorizado'}), 403
+    fila = consultar('SELECT email, full_name FROM usuarios_externos WHERE id=%s', (eid,))
+    if not fila:
+        return _jsonify({'error': 'no existe'}), 404
+    link, err = crear_e_invitar(fila[0]['email'], fila[0]['full_name'] or '', creado_por='admin')
+    if err:
+        return _jsonify({'error': err}), 400
+    return _jsonify({'ok': True, 'link': link})
+
+
+@bp_acceso_externo.route('/api/almacen/externos/<int:eid>/cuota', methods=['POST'])
+def externos_cuota(eid):
+    if not _master_o_403():
+        return _jsonify({'error': 'no autorizado'}), 403
+    data = request.get_json(silent=True) or request.form
+    try:
+        cuota = int(data.get('cuota_mb'))
+    except (TypeError, ValueError):
+        return _jsonify({'error': 'cuota_mb invalida'}), 400
+    ejecutar('UPDATE usuarios_externos SET cuota_mb=%s WHERE id=%s', (cuota if cuota > 0 else None, eid))
+    return _jsonify({'ok': True})
+
+
+@bp_acceso_externo.route('/api/almacen/externos/<int:eid>', methods=['DELETE'])
+def externos_eliminar(eid):
+    if not _master_o_403():
+        return _jsonify({'error': 'no autorizado'}), 403
+    fila = consultar('SELECT email FROM usuarios_externos WHERE id=%s', (eid,))
+    ejecutar('DELETE FROM usuarios_externos WHERE id=%s', (eid,))
+    r = _r()
+    if r is not None and fila:
+        try:
+            r.delete('imap_pass:%s' % fila[0]['email'].lower())
+        except Exception:
+            pass
+    # Nota: el espacio del Drive del externo (archivos por owner id) se limpia en Fase 5.
+    return _jsonify({'ok': True})
+
+
+_PANEL = """<!doctype html><html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Cuentas externas del Drive</title>
+<style>
+ body{font-family:Segoe UI,Arial,sans-serif;background:#faf9f8;margin:0;padding:24px;color:#323130}
+ h1{font-size:20px} .crear{background:#fff;border:1px solid #e1dfdd;border-radius:8px;padding:16px;margin:14px 0;max-width:720px}
+ input{padding:8px;border:1px solid #c8c6c4;border-radius:5px;font-size:14px;margin:0 6px 6px 0}
+ button{background:#5b5fc7;color:#fff;border:0;border-radius:5px;padding:8px 12px;font-size:13px;cursor:pointer}
+ button.sec{background:#edebe9;color:#323130} button.dng{background:#d13438}
+ table{border-collapse:collapse;width:100%;max-width:1000px;background:#fff;font-size:13px}
+ th,td{border:1px solid #edebe9;padding:8px 10px;text-align:left} th{background:#f3f2f1}
+ .pill{font-size:11px;padding:2px 7px;border-radius:10px} .on{background:#dff6dd;color:#0b6a0b} .off{background:#fde7e9;color:#d13438}
+ .msg{margin:8px 0;font-size:13px}
+</style></head><body>
+<h1>Cuentas externas del Drive</h1>
+<p style="font-size:13px;color:#605e5c">Colaboradores/aliados con acceso al Drive sin buz&oacute;n de correo. Solo administradores.</p>
+<div class="crear">
+  <input id="email" type="email" placeholder="correo@externo.com" size="26">
+  <input id="nombre" type="text" placeholder="Nombre (opcional)" size="20">
+  <button onclick="invitar()">Crear e invitar</button>
+  <div id="msg" class="msg"></div>
+</div>
+<table id="tabla"><thead><tr><th>Correo</th><th>Nombre</th><th>Estado</th><th>Cuota</th><th>Creada</th><th>Acciones</th></tr></thead><tbody></tbody></table>
+<script>
+const API='/api/almacen/externos';
+function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+async function cargar(){
+  const r=await fetch(API); if(!r.ok){document.getElementById('msg').textContent='No autorizado.';return;}
+  const d=await r.json(); const tb=document.querySelector('#tabla tbody'); tb.innerHTML='';
+  (d.cuentas||[]).forEach(c=>{
+    const estado = c.active ? (c.activado?'<span class="pill on">activa</span>':'<span class="pill off">sin activar</span>') : '<span class="pill off">inactiva</span>';
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${esc(c.email)}</td><td>${esc(c.full_name)}</td><td>${estado}</td>`+
+      `<td>${c.cuota_mb?c.cuota_mb+' MB':'—'}</td><td>${esc(c.creado)}</td>`+
+      `<td>`+
+      (c.active?`<button class="sec" onclick="acc(${c.id},'desactivar')">Desactivar</button>`:`<button class="sec" onclick="acc(${c.id},'activar')">Activar</button>`)+
+      ` <button class="sec" onclick="acc(${c.id},'reinvitar')">Reinvitar</button>`+
+      ` <button class="sec" onclick="cuota(${c.id})">Cuota</button>`+
+      ` <button class="dng" onclick="elim(${c.id},'${esc(c.email)}')">Eliminar</button>`+
+      `</td>`;
+    tb.appendChild(tr);
+  });
+}
+async function invitar(){
+  const email=document.getElementById('email').value, nombre=document.getElementById('nombre').value;
+  const r=await fetch(API+'/invitar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,nombre})});
+  const d=await r.json(); document.getElementById('msg').textContent = r.ok ? ('Invitada. Enlace: '+d.link) : ('Error: '+(d.error||''));
+  if(r.ok){document.getElementById('email').value='';document.getElementById('nombre').value='';cargar();}
+}
+async function acc(id,a){await fetch(`${API}/${id}/${a}`,{method:'POST'});cargar();}
+async function cuota(id){const v=prompt('Cuota en MB (0 = sin limite):');if(v===null)return;await fetch(`${API}/${id}/cuota`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cuota_mb:parseInt(v||'0',10)})});cargar();}
+async function elim(id,em){if(!confirm('Eliminar la cuenta '+em+'? No borra sus archivos (eso es aparte).'))return;await fetch(`${API}/${id}`,{method:'DELETE'});cargar();}
+cargar();
+</script></body></html>"""
+
+
+@bp_acceso_externo.route('/api/almacen/externos/panel', methods=['GET'])
+def externos_panel():
+    if not _master_o_403():
+        return 'No autorizado', 403
+    return _PANEL
