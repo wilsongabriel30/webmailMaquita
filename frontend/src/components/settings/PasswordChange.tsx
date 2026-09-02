@@ -2,8 +2,9 @@
  * PasswordChange.tsx
  *
  * Settings section for changing the user's mail password.
- * Validates strength requirements (8+ chars, uppercase, lowercase, digit),
- * shows a visual strength indicator, and calls POST /api/auth/change-password.
+ * Valida los MISMOS requisitos que el backend (10+ caracteres, mayúscula,
+ * minúscula, número y carácter especial), muestra un indicador de fuerza
+ * y llama a POST /api/auth/change-password.
  */
 
 import { useState, useCallback, useMemo } from 'react';
@@ -33,11 +34,15 @@ interface StrengthResult {
 
 //  Password rules
 
+// NOTA: estas reglas deben COINCIDIR con validate_password_strength del
+// backend (app/auth/password.py). Si cambia una, cambiar la otra: de lo
+// contrario el boton habilita contrasenas que el backend rechaza (400).
 const RULES = [
-  { id: 'length', label: 'Al menos 8 caracteres', test: (p: string) => p.length >= 8 },
-  { id: 'upper', label: 'One uppercase letter', test: (p: string) => /[A-Z]/.test(p) },
-  { id: 'lower', label: 'One lowercase letter', test: (p: string) => /[a-z]/.test(p) },
-  { id: 'digit', label: 'One number', test: (p: string) => /[0-9]/.test(p) },
+  { id: 'length', label: 'Al menos 10 caracteres', test: (p: string) => p.length >= 10 },
+  { id: 'upper', label: 'Una letra mayúscula', test: (p: string) => /[A-Z]/.test(p) },
+  { id: 'lower', label: 'Una letra minúscula', test: (p: string) => /[a-z]/.test(p) },
+  { id: 'digit', label: 'Un número', test: (p: string) => /[0-9]/.test(p) },
+  { id: 'special', label: 'Un carácter especial (!@#$%&*.)', test: (p: string) => /[!@#$%^&*(),.?:{}|<>_+\-]/.test(p) },
 ] as const;
 
 function evaluateStrength(password: string): StrengthResult {
@@ -56,7 +61,7 @@ function evaluateStrength(password: string): StrengthResult {
     0: { level: 'weak', label: 'Débil', color: '#d13438' },
     1: { level: 'weak', label: 'Débil', color: '#d13438' },
     2: { level: 'fair', label: 'Aceptable', color: '#ca5010' },
-    3: { level: 'good', label: 'Good', color: '#498205' },
+    3: { level: 'good', label: 'Bueno', color: '#498205' },
     4: { level: 'strong', label: 'Fuerte', color: '#0b6a0b' },
   };
 

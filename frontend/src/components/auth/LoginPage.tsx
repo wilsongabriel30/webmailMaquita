@@ -109,8 +109,8 @@ export function LoginPage() {
     e.preventDefault();
     setError('');
     if (newPass !== confirmPass) { setError('Las contrasenas no coinciden'); return; }
-    if (newPass.length < 8 || !/[A-Z]/.test(newPass) || !/[a-z]/.test(newPass) || !/[0-9]/.test(newPass)) {
-      setError('Minimo 8 caracteres, con mayuscula, minuscula y numero'); return;
+    if (newPass.length < 10 || !/[A-Z]/.test(newPass) || !/[a-z]/.test(newPass) || !/[0-9]/.test(newPass) || !/[!@#$%^&*(),.?:{}|<>_+\-]/.test(newPass)) {
+      setError('Mínimo 10 caracteres, con mayúscula, minúscula, número y carácter especial'); return;
     }
     setLoading(true);
     try {
