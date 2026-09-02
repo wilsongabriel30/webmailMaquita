@@ -9,6 +9,44 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 Nada aún.
 
+## [1.1.0] - 2026-09-02
+
+Tag: `v1.1.0`. Incorpora el **Drive Maquita (Almacén)** y sus **Aplicaciones**, el
+instalador ampliado que las despliega, y correcciones de seguridad del webmail.
+
+### Añadido
+
+- **Almacén (Drive Maquita)**: gestor de archivos propio estilo Drive, integrado al
+  webmail (unidades, compartir por enlace/carpeta, papelera, versiones, búsqueda,
+  auditoría, OnlyOffice y formularios `.forma`). Sustituye a Nextcloud.
+- **Aplicaciones del Drive Maquita**:
+  - **Tableros/BI**: lee `.xlsx`/`.csv` del Drive y genera KPIs y gráficos (Chart.js).
+  - **Editor de PDF**: app instalable (editar, OCR, firmar) integrada con el token del Drive.
+- **Instalador completo ampliado** (`deploy/webmail/instalar.sh`): despliega también el
+  Almacén y las Aplicaciones (pasos 15–17); validado en Debian 13 limpio.
+- **`actualizar-apps.sh`**: actualiza las Aplicaciones del Drive (git pull + dependencias + reinicio).
+- **Adjuntos grandes al Almacén**: los adjuntos superiores a 25 MB se suben al Drive propio
+  y generan un enlace público, en lugar de un servicio externo.
+- **Documentación de la suite** (`docs/SUITE-MAQUITA.md`) y sección «Cómo se compara» en el README.
+
+### Cambiado
+
+- README con métricas reales del proyecto y alcance público acotado (correo + Drive Maquita
+  + Aplicaciones; el ERP/Raíces no forma parte del repositorio).
+- Snippets de nginx de las Aplicaciones movidos al subdirectorio `maquita-apps/`.
+
+### Corregido
+
+- **Cambio de contraseña**: la política del frontend se alinea con la del backend
+  (≥10 caracteres + carácter especial) y los mensajes de error son específicos
+  (se evita un 422 genérico del esquema).
+- Portabilidad del Editor de PDF (rutas por variables de entorno, creación de tablas al arranque).
+- Instalador: arranque de PostgreSQL, Postfix y nginx en entornos sin auto-arranque de servicios.
+
+### Seguridad
+
+- Los adjuntos grandes dejan de depender de un servicio de archivos externo (soberanía de datos).
+
 ## [1.0.1] - 2026-05-13
 
 Tag: `v1.0.1-compliance-audit`
