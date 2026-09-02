@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Documento compartido — Maquita</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  html, body { margin:0; padding:0; height:100%; background:#f1f3f4;
+               font-family: Arial, Helvetica, sans-serif; }
+  #cabecera { height:44px; display:flex; align-items:center; gap:10px;
+              padding:0 14px; background:#fff; border-bottom:1px solid #dadce0; }
+  #cabecera img { height:26px; }
+  #nombre-archivo { font-size:15px; color:#202124; font-weight:600;
+                    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #marca { margin-left:auto; font-size:12px; color:#5f6368; }
+  #contenedor { position:absolute; top:44px; bottom:0; left:0; right:0; }
+  #editor { width:100%; height:100%; }
+  #estado { position:absolute; top:35%; left:0; right:0; text-align:center;
+            color:#5f6368; font-size:15px; line-height:1.7; padding:0 24px; }
+  #clave-box { max-width:340px; margin:12vh auto 0; background:#fff; padding:26px;
+               border-radius:12px; box-shadow:0 1px 4px rgba(0,0,0,.15); text-align:center; }
+  #clave-box h2 { font-size:17px; color:#202124; margin:0 0 6px; }
+  #clave-box p { font-size:13px; color:#5f6368; margin:0 0 16px; }
+  #clave-box input { width:100%; box-sizing:border-box; padding:10px 12px; font-size:15px;
+                     border:1px solid #dadce0; border-radius:8px; margin-bottom:12px; }
+  #clave-box button { width:100%; padding:10px; font-size:14px; border:none; cursor:pointer;
+                      background:#1a73e8; color:#fff; border-radius:8px; }
+  #clave-box button:hover { background:#1765cc; }
+  #clave-error { color:#d93025; font-size:13px; min-height:18px; margin-top:8px; }
+</style>
+</head>
+<body>
+<div id="cabecera">
+  <img src="/static/uploads/logos/logo_20251215_113025_maquita_logo.png" alt="Maquita" onerror="this.style.display='none'">
+  <span id="nombre-archivo">Documento compartido</span>
+  <span id="marca">Compartido con Maquita</span>
+</div>
+<div id="contenedor">
+  <div id="estado">Cargando el documento&hellip;</div>
+  <div id="editor"></div>
+</div>
+<script>
+(function () {
+  const parametros = new URLSearchParams(location.search);
+  const token = parametros.get('t') || '';
+  // P-13b: si el enlace es de una CARPETA, «sub» dice qué archivo de dentro se
+  // está abriendo. Vacío cuando el enlace apunta directo a un archivo.
+  const sub = parametros.get('sub') || '';
+  let clave = parametros.get('clave') || '';
+  const estado = document.getElementById('estado');
+  const contenedor = document.getElementById('contenedor');
+
+  function fallo(mensaje) {
+    estado.style.display = '';
+    estado.innerHTML = '<b>No se pudo abrir el documento</b><br>' + mensaje;
+  }
+
+  function pedirOtp() {
+    contenedor.innerHTML =
+      '<div id="clave-box">' +
+      '<h2>Verificación por correo</h2>' +
+      '<p>Te enviaremos un código de 6 dígitos al correo con el que te compartieron este documento.</p>' +
+      '<button id="otp-enviar" style="width:100%;padding:10px;font-size:14px;border:none;cursor:pointer;background:#1a73e8;color:#fff;border-radius:8px;">Enviarme el código</button>' +
+      '<div id="otp-zona" style="display:none;margin-top:12px;">' +
+      '<input id="otp-codigo" maxlength="6" inputmode="numeric" placeholder="Código de 6 dígitos" style="text-align:center;font-size:20px;letter-spacing:6px;">' +
+      '<button id="otp-validar" style="width:100%;padding:10px;font-size:14px;border:none;cursor:pointer;background:#188038;color:#fff;border-radius:8px;">Verificar</button>' +
+      '</div>' +
+      '<div id="clave-error"></div>' +
+      '</div>';
+    var msj = function (t, err) {
+      var m = document.getElementById('clave-error');
+      m.textContent = t; m.style.color = err ? '#d93025' : '#188038';
+    };
+    document.getElementById('otp-enviar').onclick = async function () {
+      msj('Enviando código…');
+      try {
+        var r = await fetch('/api/almacen/publico-otp/enviar', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: token })
+        });
+        var d = await r.json();
+        if (d.success) {
+          document.getElementById('otp-zona').style.display = 'block';
+          msj('Código enviado a ' + (d.email_mascara || 'tu correo'));
+        } else { msj(d.error || 'No se pudo enviar el código', true); }
+      } catch (e) { msj('Sin conexión', true); }
+    };
+    document.getElementById('otp-validar').onclick = async function () {
+      var c = (document.getElementById('otp-codigo').value || '').trim();
+      if (c.length !== 6) { msj('Escribe los 6 dígitos', true); return; }
+      try {
+        var r = await fetch('/api/almacen/publico-otp/validar', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: token, codigo: c })
+        });
+        var d = await r.json();
+        if (d.success) { msj('Verificado. Abriendo…'); cargar(); }
+        else { msj(d.error || 'Código incorrecto', true); }
+      } catch (e) { msj('Sin conexión', true); }
+    };
+  }
+
+  function pedirClave(mensajeError) {
+    contenedor.innerHTML =
+      '<div id="clave-box">' +
+      '<h2>Documento protegido</h2>' +
+      '<p>Ingresa la clave que te compartieron para abrir este documento.</p>' +
+      '<input id="clave-input" type="password" placeholder="Clave" autofocus>' +
+      '<button id="clave-ok">Abrir</button>' +
+      '<div id="clave-error">' + (mensajeError || '') + '</div>' +
+      '</div>';
+    const input = document.getElementById('clave-input');
+    const abrir = function () { clave = input.value || ''; cargar(); };
+    document.getElementById('clave-ok').onclick = abrir;
+    input.addEventListener('keydown', function (e) { if (e.key === 'Enter') abrir(); });
+    input.focus();
+  }
+
+  async function cargar() {
+    contenedor.innerHTML = '<div id="estado">Cargando el documento&hellip;</div><div id="editor"></div>';
+    const est = document.getElementById('estado');
+    // 1. Configuración firmada por el token del enlace (sin sesión FARO)
+    let data;
+    try {
+      const url = '/api/almacen/onlyoffice/config-public?token=' + encodeURIComponent(token) +
+                  (sub ? '&sub=' + encodeURIComponent(sub) : '') +
+                  (clave ? '&clave=' + encodeURIComponent(clave) : '');
+      const r = await fetch(url);
+      data = await r.json();
+      if (r.status === 401) { return pedirClave('Clave incorrecta. Inténtalo de nuevo.'); }
+      if (r.status === 428) { return pedirOtp(); }   // el enlace exige código por correo
+    } catch (e) { est.innerHTML = '<b>Sin conexión</b>'; return; }
+    if (!data.success) { est.innerHTML = '<b>No se pudo abrir el documento</b><br>' + (data.error || ''); return; }
+
+    document.getElementById('nombre-archivo').textContent = data.nombre || 'Documento';
+    document.title = (data.nombre || 'Documento') + ' — Maquita';
+
+    // 2. api.js del Document Server dedicado
+    try {
+      await new Promise((listo, err) => {
+        const s = document.createElement('script');
+        s.src = (data.api_js_url || '').replace(/^https?:\/\/[^\/]+/, location.origin); s.onload = listo; s.onerror = err;
+        document.head.appendChild(s);
+      });
+    } catch (e) { est.innerHTML = '<b>No responde el servidor de documentos.</b>'; return; }
+
+    // 3. Editor embebido
+    const config = data.config;
+    config.events = {
+      onAppReady: function () { const e = document.getElementById('estado'); if (e) e.style.display = 'none'; },
+      onError: function (e) { est.innerHTML = '<b>Error del editor:</b> ' + JSON.stringify(e && e.data); }
+    };
+    new DocsAPI.DocEditor('editor', config);
+  }
+
+  if (!token) { return fallo('Enlace inválido (falta el identificador).'); }
+  cargar();
+})();
+</script>
+<!-- Los enlaces de las hojas no te sacan del documento (31/08/2026). -->
+</body>
+</html>
