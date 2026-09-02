@@ -387,6 +387,10 @@ cp "${APP_DIR}/almacen/deploy/maquita-almacen.service" /etc/systemd/system/
 python3 "${APP_DIR}/almacen/deploy/verificar_assets.py" \
   || { echo -e "  ${RED}ERROR: faltan assets estaticos del Drive (ver detalle arriba).${NC}"; exit 1; }
 systemctl daemon-reload && systemctl enable --now maquita-almacen
+# QA: valida que las PERILLAS de config del Drive lean de verdad config_kv (caza el #13).
+for _i in $(seq 1 15); do curl -sf http://127.0.0.1:8788/healthz >/dev/null 2>&1 && break; sleep 1; done
+"${APP_DIR}/almacen/venv/bin/python" "${APP_DIR}/almacen/deploy/verificar_perillas.py" \
+  || { echo -e "  ${RED}ERROR: una perilla de configuracion del Drive no lee config_kv (ver arriba).${NC}"; exit 1; }
 echo "  Almacen (Drive): https://${MAIL_HOST}/archivos-almacen"
 
 # --- 16. Tableros/BI (Aplicacion del Drive) ---

@@ -9,6 +9,10 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Añadido
 
+- **QA «perilla -> UI» del Drive:** `almacen/deploy/verificar_perillas.py` valida que las
+  funciones de configuracion (p. ej. `drive_name`) REALMENTE lean `config_kv` y no devuelvan
+  siempre el default por un fallo silencioso (caza el #13). Setea un valor de prueba, comprueba
+  que la funcion lo refleja y restaura. El instalador lo ejecuta en el paso del Almacen.
 - **QA de assets del Drive:** `almacen/deploy/verificar_assets.py` comprueba que los assets
   estáticos referenciados por las plantillas/CSS del Drive existan de verdad (caza la familia
   #1/#6/#10). El instalador lo ejecuta en el paso del Almacén y **aborta** si falta alguno.
