@@ -57,10 +57,11 @@ def _crear_tablas():
             return
         from sqlalchemy import create_engine
         eng = create_engine(Config.HERRAMIENTAS_DATABASE_URI)
+        # importar los modelos registra sus tablas en el Base comun
         from pdf_editor.infraestructura.persistencia.modelos import (
-            modelo_documento, modelo_anotacion, modelo_version)
-        for _m in (modelo_documento, modelo_anotacion, modelo_version):
-            _m.Base.metadata.create_all(eng)
+            modelo_documento, modelo_anotacion, modelo_version)  # noqa: F401
+        from pdf_editor.infraestructura.persistencia.modelos.base_orm import Base
+        Base.metadata.create_all(eng)
     except Exception as _e:
         import logging
         logging.getLogger(__name__).warning("Tablas del editor no creadas: %s", _e)
