@@ -28,7 +28,7 @@ Archivos de la app (sin credenciales en el código; todo por entorno — ver `.e
 python -m venv venv
 venv/bin/pip install -r requirements.txt
 cp .env.example .env      # y complétalo (BD, WEBMAIL_SECRET_KEY, REDIS_URL...)
-venv/bin/gunicorn 'app_pdf:app' --bind 0.0.0.0:8790     # o: python app_pdf.py
+venv/bin/gunicorn 'app_pdf:app' --bind 0.0.0.0:8792     # o: python app_pdf.py
 ```
 
 `app_pdf.py` crea la app Flask, carga `config.py`, conecta el puente de auth

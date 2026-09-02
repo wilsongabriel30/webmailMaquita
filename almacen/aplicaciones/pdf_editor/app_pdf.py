@@ -7,7 +7,7 @@ editor (`registrar_modulo`, en `__init__.py`). No necesita Raíces.
 Arranque:
     export $(grep -v '^#' .env | xargs)      # o usa un EnvironmentFile del servicio
     python app_pdf.py                          # dev
-    gunicorn 'app_pdf:app' --bind 0.0.0.0:8790 # producción
+    gunicorn 'app_pdf:app' --bind 0.0.0.0:8792 # producción
 """
 import os
 import sys
@@ -75,4 +75,4 @@ app = crear_app()
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "8790")))
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "8792")))
