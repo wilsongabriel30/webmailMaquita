@@ -1556,7 +1556,7 @@ function liberarEspacio() {
         title: '<i class="fas fa-broom me-2"></i>Liberar espacio',
         html: `
             <div class="text-start">
-                <p class="text-muted mb-3">Sugerencias para liberar espacio en tu Nube Maquita:</p>
+                <p class="text-muted mb-3">Sugerencias para liberar espacio en tu ${window.DRIVE_NAME||'Nube Maquita'}:</p>
                 <div class="list-group list-group-flush">
                     <a href="#" class="list-group-item list-group-item-action d-flex align-items-center" onclick="navegarA('/papelera')">
                         <span class="material-icons me-3 text-muted">delete</span>
@@ -1641,7 +1641,7 @@ async function mostrarDetallesAlmacenamiento() {
                         <hr>
                         <p class="text-muted small mb-0">
                             <i class="fas fa-info-circle me-1"></i>
-                            Tu almacenamiento en Nube Maquita incluye todos tus archivos, carpetas y documentos compartidos.
+                            Tu almacenamiento en ${window.DRIVE_NAME||'Nube Maquita'} incluye todos tus archivos, carpetas y documentos compartidos.
                         </p>
                     </div>
                 `,
@@ -1874,7 +1874,7 @@ function mostrarFiltroModificado() {
 function mostrarFiltroFuente() {
     const opciones = [
         { valor: 'todos', label: 'Cualquier fuente', icono: 'source' },
-        { valor: 'nube', label: 'Nube Maquita', icono: 'cloud' },
+        { valor: 'nube', label: (window.DRIVE_NAME||'Nube Maquita'), icono: 'cloud' },
         { valor: 'subido', label: 'Subido por mí', icono: 'upload' },
         { valor: 'compartido', label: 'Compartido conmigo', icono: 'share' },
         { valor: 'sincronizado', label: 'Sincronizado desde ordenador', icono: 'computer' }

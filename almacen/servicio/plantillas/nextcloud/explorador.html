@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% set nube_subperms = nube_subperms | default({}) %}
 
-{% block title %}Mi unidad - Nube Maquita{% endblock %}
+{% block title %}Mi unidad - {{ drive_name }}{% endblock %}
 
 {% block extra_css %}
 <link href="/almacen-static/vendor/fonts/google-sans-roboto.css" rel="stylesheet">
@@ -15,15 +15,15 @@
 <!-- Drop Zone -->
 <div class="gd-drop-zone" id="dropZone">
     <span class="material-icons">cloud_upload</span>
-    <p>Suelta los archivos para subirlos a Nube Maquita</p>
+    <p>Suelta los archivos para subirlos a {{ drive_name }}</p>
 </div>
 
 <!-- Header Optimizado -->
 <header class="gd-header">
-    <!-- Logo Nube Maquita -->
+    <!-- Logo {{ drive_name }} -->
     <div class="gd-header-logo" onclick="navegarA('/')">
         <div class="drive-icon">
-            <img src="{{ url_for('static', filename='favicon.ico') }}" alt="Maquita" style="width: 36px; height: 36px;">
+            <img src="{{ url_for('static', filename='favicon.ico') }}" alt="{{ drive_name }}" style="width: 36px; height: 36px;">
         </div>
         <span>Nube</span>
     </div>
@@ -337,7 +337,7 @@
             <div class="gd-storage-legend">
                 <div class="gd-storage-legend-item">
                     <span class="legend-dot drive"></span>
-                    <span>Nube Maquita</span>
+                    <span>{{ drive_name }}</span>
                 </div>
                 <div class="gd-storage-legend-item">
                     <span class="legend-dot email"></span>
@@ -421,7 +421,7 @@
             <div id="paginaPrincipal" style="display: none;">
                 <div class="dashboard-welcome">
                     <div class="welcome-header">
-                        <h1>Bienvenido a Nube Maquita</h1>
+                        <h1>Bienvenido a {{ drive_name }}</h1>
                         <p>Tu espacio de trabajo en la nube</p>
                     </div>
 
@@ -539,7 +539,7 @@
             <!-- Empty state -->
             <div class="gd-empty" id="emptyState" style="display: none;">
                 <img src="https://ssl.gstatic.com/docs/doclist/images/empty_state_my_drive_v2.svg" alt="">
-                <h2>Bienvenido a Nube Maquita</h2>
+                <h2>Bienvenido a {{ drive_name }}</h2>
                 <p>Arrastra archivos y carpetas aquí, o usa el botón "Nuevo"</p>
             </div>
         </div>
@@ -549,20 +549,20 @@
     <aside class="gd-right-panel" id="rightPanel">
         <!-- Panel colapsado (iconos) -->
         <div class="gd-right-panel-collapsed" id="rightPanelCollapsed">
-            <button class="gd-right-panel-btn" onclick="abrirCalendario()" title="Maquita Calendario">
+            <button class="gd-right-panel-btn" onclick="abrirCalendario()" title="Calendario">
                 <span class="material-icons">calendar_today</span>
             </button>
-            <button class="gd-right-panel-btn" onclick="abrirNotas()" title="Maquita Notas">
+            <button class="gd-right-panel-btn" onclick="abrirNotas()" title="Notas">
                 <span class="material-icons">lightbulb</span>
             </button>
-            <button class="gd-right-panel-btn" onclick="abrirTareas()" title="Maquita Tareas">
+            <button class="gd-right-panel-btn" onclick="abrirTareas()" title="Tareas">
                 <span class="material-icons">check_circle</span>
             </button>
             <button class="gd-right-panel-btn" onclick="abrirContactos()" title="Contactos">
                 <span class="material-icons">contacts</span>
             </button>
             <div class="gd-right-panel-divider"></div>
-            <button class="gd-right-panel-btn gd-ia-chat-btn" onclick="abrirIAChat()" title="Maquita IA - Asistente de ayuda">
+            <button class="gd-right-panel-btn gd-ia-chat-btn" onclick="abrirIAChat()" title="Asistente IA - ayuda">
                 <span class="material-icons">smart_toy</span>
             </button>
             <div class="gd-right-panel-divider"></div>
@@ -674,7 +674,7 @@
     </div>
 </div>
 
-<!-- Menú contextual - Estilo Nube Maquita con submenús -->
+<!-- Menú contextual - Estilo {{ drive_name }} con submenús -->
 <div class="gd-context-menu" id="contextMenu">
     <!-- 1. Descargar -->
     <div class="gd-context-item" onclick="descargarSeleccionado()">
@@ -971,7 +971,7 @@
                     <span class="material-icons">person_add</span>
                     Añadir personas o grupos
                 </h3>
-                <p class="share-section-hint">Busca colaboradores de Maquita o ingresa un correo externo (Gmail, Outlook, etc.) para compartir.</p>
+                <p class="share-section-hint">Busca colaboradores internos o ingresa un correo externo (Gmail, Outlook, etc.) para compartir.</p>
                 <div class="share-input-wrapper">
                     <span class="material-icons">search</span>
                     <input type="text"
@@ -1181,6 +1181,14 @@ const USUARIO_NC = {{ (usuario_nextcloud or '') | tojson }};
 // MODO PRUEBAS: conectar el explorador al motor propio (Almacén Maquita).
 // Solo master llega aquí. No afecta la Nube en producción.
 window.ALMACEN_OVERRIDE = { api: '/api/almacen', url: '/archivos-almacen' };
+        window.DRIVE_NAME = "{{ drive_name }}";
+        // Branding del panel (favicon y color primario) — misma fuente que el webmail.
+        fetch('/api/branding').then(function(r){return r.json();}).then(function(b){
+          try {
+            if (b && b.favicon_url) { var l=document.querySelector("link[rel='icon']")||document.createElement('link'); l.rel='icon'; l.href=b.favicon_url; document.head.appendChild(l); }
+            if (b && b.primary_color) document.documentElement.style.setProperty('--brand-primary', b.primary_color);
+          } catch(e){}
+        }).catch(function(){});
         // Clasificacion interno/externo al compartir: SIN dominio quemado.
         // Interno = mismo dominio que el usuario actual (o en DOMINIOS_INTERNOS si se define).
         window.USUARIO_DOMINIO = '{{ (current_user.email.rsplit("@",1)[1] | lower) if current_user and current_user.email and "@" in current_user.email else "" }}';
