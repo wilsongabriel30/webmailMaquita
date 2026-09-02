@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Diagrama — Almacén Maquita</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  html, body { margin:0; padding:0; height:100%; background:#f1f3f4;
+               font-family: Arial, Helvetica, sans-serif; overflow:hidden; }
+  #cabecera { height:44px; display:flex; align-items:center; gap:10px;
+              padding:0 14px; background:#fff; border-bottom:1px solid #dadce0;
+              box-sizing:border-box; position:relative; z-index:5; }
+  #cabecera img { height:26px; }
+  #nombre { font-size:15px; color:#202124; font-weight:600;
+            overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #estado-guardado { font-size:12px; margin-left:8px; }
+  #cerrar { margin-left:auto; border:none; background:#f1f3f4; color:#3c4043;
+            padding:7px 14px; border-radius:6px; cursor:pointer; font-size:13px; }
+  #cerrar:hover { background:#e8eaed; }
+  #marco { position:absolute; top:44px; bottom:0; left:0; right:0; }
+  #dio { width:100%; height:100%; border:0; display:block; }
+  #overlay { position:absolute; top:44px; bottom:0; left:0; right:0; z-index:4;
+             display:flex; align-items:center; justify-content:center; text-align:center;
+             color:#5f6368; font-size:15px; background:#f1f3f4; padding:0 24px; }
+</style>
+</head>
+<body>
+<div id="cabecera">
+  <img src="/static/uploads/logos/logo_20251215_113025_maquita_logo.png" alt="Maquita" onerror="this.style.display='none'">
+  <span id="nombre">Diagrama</span>
+  <span id="estado-guardado"></span>
+  <button id="cerrar" onclick="window.close()">Cerrar</button>
+</div>
+<div id="marco">
+  <iframe id="dio" title="Editor de diagramas"></iframe>
+  <div id="overlay">Cargando el editor de diagramas&hellip;</div>
+</div>
+<script>
+(function () {
+  var params = new URLSearchParams(location.search);
+  var ruta = params.get('ruta') || '';
+  var nombre = ruta.split('/').pop() || 'Diagrama';
+  document.getElementById('nombre').textContent = nombre;
+  document.title = nombre + ' — Almacén Maquita';
+  var overlay = document.getElementById('overlay');
+  var iframe = document.getElementById('dio');
+  var estado = document.getElementById('estado-guardado');
+  var xmlInicial = '';      // '' = lienzo nuevo en blanco (drawio muestra toda la UI)
+  var cargado = false;
+
+  // El motor drawio se sirve en el MISMO dominio, bajo /drawio/
+  var DRAWIO_SRC = '/drawio/?embed=1&proto=json&spin=1&libraries=1&local=1&ui=kennedy&saveAndExit=0&noSaveBtn=0&noExitBtn=1&lang=es';
+
+  function estadoTxt(txt, color) { estado.textContent = txt || ''; estado.style.color = color || '#188038'; }
+  function ocultarOverlay() { overlay.style.display = 'none'; }
+  function overlayError(msg) { overlay.style.display = 'flex'; overlay.innerHTML = '<div><b>No se pudo abrir el diagrama</b><br>' + msg + '</div>'; }
+
+  function enviar(msg) {
+    try { iframe.contentWindow.postMessage(JSON.stringify(msg), '*'); } catch (e) {}
+  }
+
+  async function guardar(xml) {
+    if (xml == null) return;
+    estadoTxt('Guardando…', '#5f6368');
+    try {
+      var r = await fetch('/api/almacen/drawio/guardar?ruta=' + encodeURIComponent(ruta), {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ xml: xml })
+      });
+      var d = await r.json();
+      if (d.success) { estadoTxt('Guardado ✓', '#188038'); enviar({ action: 'status', modified: false, message: 'Guardado en Maquita' }); }
+      else { estadoTxt('Error al guardar', '#d93025'); }
+    } catch (e) { estadoTxt('Sin conexión', '#d93025'); }
+  }
+
+  // Protocolo embed de drawio (proto=json)
+  window.addEventListener('message', function (evt) {
+    if (typeof evt.data !== 'string' || !evt.data.length) return;
+    var msg;
+    try { msg = JSON.parse(evt.data); } catch (e) { return; }
+    if (!msg || !msg.event) return;
+    switch (msg.event) {
+      case 'init':
+        cargado = true;
+        enviar({ action: 'load', autosave: 1, xml: xmlInicial });
+        ocultarOverlay();
+        break;
+      case 'load':
+        ocultarOverlay();
+        break;
+      case 'save':
+        // Si el save trae el xml, guardamos directo; si no, lo pedimos por export.
+        if (typeof msg.xml === 'string') guardar(msg.xml);
+        else enviar({ action: 'export', format: 'xmlsvg', spinKey: 'saving' });
+        break;
+      case 'autosave':
+        if (typeof msg.xml === 'string') guardar(msg.xml);
+        break;
+      case 'export':
+        // Respuesta a un export solicitado: el xml viene en msg.xml o dentro de data
+        if (typeof msg.xml === 'string') guardar(msg.xml);
+        break;
+      case 'exit':
+        window.close();
+        break;
+      case 'configure':
+        enviar({ action: 'configure', config: {} });
+        break;
+    }
+  });
+
+  // 1. Cargar el contenido del .drawio desde el Almacén
+  (async function () {
+    if (!ruta) { return overlayError('Falta la ruta del diagrama.'); }
+    try {
+      var r = await fetch('/api/almacen/drawio/cargar?ruta=' + encodeURIComponent(ruta));
+      var d = await r.json();
+      if (!d.success) { return overlayError(d.error || 'No se pudo cargar el diagrama.'); }
+      // Si el archivo está esencialmente vacío, dejamos xml='' (lienzo nuevo)
+      var xml = (d.xml || '').trim();
+      xmlInicial = (xml && xml.indexOf('mxGraphModel') !== -1 && xml.indexOf('</root>') === -1) ? '' : (d.xml || '');
+      // Si es el lienzo-vacío por defecto (sin celdas de usuario), abrir en blanco.
+      if (xml.indexOf('<mxCell id="0"/><mxCell id="1" parent="0"/></root>') !== -1) xmlInicial = '';
+    } catch (e) { return overlayError('Sin conexión con el Almacén.'); }
+    // 2. Cargar el editor (dispara 'init' → le pasamos el XML)
+    iframe.src = DRAWIO_SRC;
+    // Respaldo: si en 8s no llegó 'init', avisamos (motor caído / bloqueo de iframe)
+    setTimeout(function () {
+      if (!cargado) overlayError('El editor no respondió. Reintenta (Ctrl+F5) o avisa a Tecnología.');
+    }, 8000);
+  })();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,183 @@
+/* La definición de cada lista —qué valores y QUÉ COLOR tiene cada uno— se
+   guarda como propiedad personalizada del documento. Aquí se comprueba que se
+   guarda, que se vuelve a encontrar desde una celda cualquiera del intervalo, y
+   —lo que más importa— que cuando el editor NO deja guardarla se DICE, en vez
+   de callarse y dejar que los colores cambien solos.
+
+   Se ejecuta con:  node prueba-lista-memoria.js  */
+
+const B = process.env.MAQ_JS
+    || '/home/sistemas/Maquita/interfaces/web/estaticos/js/almacen/';
+
+global.window = global;
+global.console = console;
+
+// ── El documento del editor, con sus propiedades personalizadas ──────────
+let propiedades = [];          // [{ name, value }]
+let admiteTipo = 0;            // el único tipo que este editor acepta
+const llamadas = { add: 0, modify: 0, remove: 0 };
+
+const api = {
+    asc_getAllCustomProperties: () => propiedades.map(p => ({
+        asc_getName: () => p.name,
+        asc_getValue: () => p.value
+    })),
+    asc_addCustomProperty: (nombre, tipo, valor) => {
+        llamadas.add++;
+        if (tipo !== admiteTipo) throw new Error('tipo no admitido');
+        propiedades.push({ name: nombre, value: valor });
+    },
+    asc_modifyCustomProperty: (i, nombre, tipo, valor) => {
+        llamadas.modify++;
+        if (tipo !== admiteTipo) throw new Error('tipo no admitido');
+        propiedades[i] = { name: nombre, value: valor };
+    },
+    asc_removeCustomProperty: (i) => { llamadas.remove++; propiedades.splice(i, 1); }
+};
+const ventana = { Asc: { editor: api } };
+
+const avisos = [];
+global.window.MaquitaDiagnostico = { contar: (q, d) => avisos.push(q + ': ' + JSON.stringify(d)) };
+
+require(B + 'editor-rango-a1.js');
+require(B + 'editor-lista-memoria.js');
+
+const A1 = window.MaquitaRangoA1;
+const MEM = window.MaquitaListaMemoria;
+let bien = 0, mal = 0;
+const comprueba = (r, q) => { r ? bien++ : mal++; console.log((r ? 'OK  ' : 'MAL ') + q); };
+console.log();
+
+// ── Entender los rangos ──────────────────────────────────────────────────
+comprueba(A1.partir("'Ejec. Tec. 2026'!B2:D20").hoja === 'Ejec. Tec. 2026',
+          'la hoja entre comillas se lee sin ellas');
+comprueba(A1.partir("Hoja1!$B$2").celdas === 'B2',
+          'los $ del rango absoluto no estorban');
+comprueba(A1.numeroDeColumna('A') === 1 && A1.numeroDeColumna('Z') === 26
+          && A1.numeroDeColumna('AA') === 27, 'las columnas cuentan como en Excel');
+comprueba(A1.contiene("'Hoja'!B2:D20", "'Hoja'!C5"),
+          'una celda de dentro del intervalo cae dentro');
+comprueba(!A1.contiene("'Hoja'!B2:D20", "'Hoja'!E5"),
+          'una celda de fuera, no');
+comprueba(!A1.contiene("'Hoja'!B2:D20", "'Otra'!C5"),
+          'la misma celda en OTRA hoja no cuenta');
+comprueba(A1.contiene("'Hoja'!B2:B9,'Hoja'!D2:D9", "'Hoja'!D5"),
+          'con varios intervalos basta con que uno la contenga');
+comprueba(A1.mismo("'Hoja'!$B$2:$B$9", "'Hoja'!B2:B9"),
+          'el mismo rango escrito de dos maneras es el mismo');
+
+// ── Guardar y volver a leer ──────────────────────────────────────────────
+const ELEMENTOS = [
+    { valor: 'ENERO', color: '#fce8b2' },
+    { valor: 'FEBRERO', color: '#b7e1cd' }
+];
+comprueba(MEM.guardar(ventana, "'Hoja'!B2:B9", ELEMENTOS) === true,
+          'la definición se guarda en el documento');
+comprueba(propiedades.length === 1 && propiedades[0].name === 'Maquita listas',
+          'queda como UNA propiedad del documento, con su nombre');
+
+const vuelta = MEM.leer(ventana, "'Hoja'!B2:B9");
+comprueba(vuelta.length === 2 && vuelta[0].valor === 'ENERO'
+          && vuelta[0].color === '#fce8b2',
+          'vuelve con el color que se le puso a cada valor');
+comprueba(MEM.leer(ventana, "'Hoja'!B5").length === 2,
+          'se encuentra pulsando en UNA celda del intervalo');
+comprueba(MEM.leer(ventana, "'Hoja'!Z1").length === 0,
+          'en una celda de fuera no hay nada que editar');
+comprueba(MEM.hayLista(ventana, "'Hoja'!B5") === true
+          && MEM.hayLista(ventana, "'Hoja'!Z1") === false,
+          'saber si hay lista es lo que decide «Crear» o «Editar»');
+
+// ── Editar la misma lista no duplica la propiedad ────────────────────────
+MEM.guardar(ventana, "'Hoja'!B2:B9",
+            [{ valor: 'ENERO', color: '#c6dafc' }]);
+comprueba(propiedades.length === 1, 'al reeditar NO se añade otra propiedad');
+comprueba(MEM.leer(ventana, "'Hoja'!B2:B9")[0].color === '#c6dafc',
+          'y el color nuevo sustituye al viejo');
+
+// ── Dos intervalos distintos conviven ────────────────────────────────────
+MEM.guardar(ventana, "'Hoja'!D2:D9", [{ valor: 'SÍ', color: '#b7e1cd' }]);
+comprueba(MEM.leer(ventana, "'Hoja'!B3")[0].valor === 'ENERO'
+          && MEM.leer(ventana, "'Hoja'!D3")[0].valor === 'SÍ',
+          'cada intervalo recuerda lo suyo');
+
+// ── Quitar la lista se lleva su definición ───────────────────────────────
+MEM.olvidar(ventana, "'Hoja'!B2:B9");
+comprueba(MEM.leer(ventana, "'Hoja'!B3").length === 0, 'al quitar, se olvida');
+comprueba(MEM.leer(ventana, "'Hoja'!D3").length === 1,
+          'y no se lleva por delante la del intervalo de al lado');
+
+// ── Un editor que solo admite OTRO tipo de propiedad ─────────────────────
+propiedades = [];
+admiteTipo = 'lpwstr';
+comprueba(MEM.guardar(ventana, "'Hoja'!B2:B9", ELEMENTOS) === true,
+          'si el editor pide otro tipo de propiedad, se prueba y se guarda igual');
+
+// ── Un editor que NO deja guardar: se DICE ───────────────────────────────
+propiedades = [];
+admiteTipo = 'ninguno';                       // ningún tipo le vale
+avisos.length = 0;
+comprueba(MEM.guardar(ventana, "'Hoja'!B2:B9", ELEMENTOS) === false,
+          'si no se puede guardar, se devuelve false — no un «sí» falso');
+comprueba(avisos.some(a => a.indexOf('memoria de listas') !== -1),
+          'y se avisa al diagnóstico: nada de fallar en silencio');
+
+// ── Metadato roto: se ignora sin romper la lista ─────────────────────────
+propiedades = [{ name: 'Maquita listas', value: 'esto no es json' }];
+admiteTipo = 0;
+avisos.length = 0;
+comprueba(MEM.leer(ventana, "'Hoja'!B2:B9").length === 0,
+          'una definición ilegible no revienta: se lee como «no hay nada»');
+comprueba(avisos.length > 0, 'pero también se avisa de que estaba ilegible');
+
+// ── Sin editor no se inventa nada ────────────────────────────────────────
+comprueba(MEM.leer({}, "'Hoja'!B2:B9").length === 0,
+          'sin editor, ni se lee ni se rompe');
+comprueba(MEM.guardar(ventana, '', ELEMENTOS) === false,
+          'sin intervalo no se guarda nada');
+
+// ── La escritura NO es inmediata ────────────────────────────────────────
+/* Por dentro pasa por el bloqueo colaborativo del editor: releerla en la línea
+   siguiente devuelve todavía lo de antes. Comprobándolo al instante salía «no se
+   pudo guardar» SIEMPRE, y sin definición guardada no hay ni colores ni
+   pastillas (diagnóstico de Wilson, 12:34 y 12:42 del 02/09/2026). */
+let aplazado = null;
+global.setTimeout = (fn) => { aplazado = fn; return 1; };
+
+propiedades = [];
+admiteTipo = 0;
+avisos.length = 0;
+const apiLenta = Object.assign({}, api, {
+    // Como el editor de verdad: guarda MÁS TARDE, no en la misma línea.
+    asc_addCustomProperty: (nombre, tipo, valor) => {
+        if (tipo !== admiteTipo) throw new Error('tipo no admitido');
+        pendiente = { name: nombre, value: valor };
+    }
+});
+let pendiente = null;
+const ventanaLenta = { Asc: { editor: apiLenta } };
+
+comprueba(MEM.guardar(ventanaLenta, "'Hoja'!B2:B9", ELEMENTOS) === true,
+          'se da por guardada aunque el editor tarde: no es un fallo');
+comprueba(!avisos.some(a => a.indexOf('no se pudo guardar') !== -1),
+          'y NO se avisa de un fallo que no ha pasado');
+comprueba(propiedades.length === 0 && !!pendiente,
+          'se escribe UNA vez, sin reintentar con los otros tipos');
+
+// Al rato, el editor ya la tiene: la comprobación de después la encuentra.
+propiedades.push(pendiente);
+avisos.length = 0;
+aplazado();
+comprueba(avisos.some(a => a.indexOf('guardada') !== -1),
+          'y la comprobación de después confirma que quedó guardada');
+
+// Pero si de verdad no quedó, se avisa entonces.
+propiedades = [];
+avisos.length = 0;
+MEM.guardar(ventanaLenta, "'Hoja'!B2:B9", ELEMENTOS);
+aplazado();
+comprueba(avisos.some(a => a.indexOf('no quedó guardada') !== -1),
+          'si al rato sigue sin estar, AHÍ sí se avisa');
+
+console.log('\n' + bien + ' bien, ' + mal + ' mal\n');
+process.exit(mal ? 1 : 0);
