@@ -694,7 +694,7 @@ function restaurarVersiones() {
 
 function instalarAppEscritorio() {
     document.getElementById('configMenu').classList.remove('show');
-    // La app de escritorio del Drive esta EN PREPARACION. No se manda a nextcloud.com:
+    // La app de escritorio del Drive esta EN PREPARACION. No se manda a un sitio externo:
     // es un producto ajeno y ademas el Almacen no habla WebDAV, seria un callejon sin salida.
     Swal.fire('Próximamente', 'La aplicación de escritorio del Drive está en preparación.', 'info');
 }
