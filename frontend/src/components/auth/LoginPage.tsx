@@ -312,6 +312,14 @@ export function LoginPage() {
             </form>
             )}
 
+            {!needs2FA && !forceChange && (
+              <div className="mt-3 text-center">
+                <a href="/acceso-externo" className="text-sm" style={{ color: '#605e5c' }}>
+                  ¿Colaborador externo? Ingresa al Drive
+                </a>
+              </div>
+            )}
+
             {ssoEnabled && !needs2FA && !forceChange && (
               <>
                 <div className="flex items-center gap-3 my-4">
