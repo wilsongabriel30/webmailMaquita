@@ -105,9 +105,11 @@ def drive_name() -> str:
     """Nombre visible del Drive (config_kv['drive_name']); default 'Nube Maquita'.
     Una sola perilla para que cada replica ponga su marca sin editar plantillas."""
     try:
+        from almacen_bd import consultar
         filas = consultar("SELECT valor FROM config_kv WHERE clave = 'drive_name'")
         if filas and (filas[0]['valor'] or '').strip():
             return filas[0]['valor'].strip()
-    except Exception:
-        pass
+    except Exception as exc:
+        import logging
+        logging.getLogger('almacen.config').warning('drive_name(): %s', exc)
     return 'Nube Maquita'
