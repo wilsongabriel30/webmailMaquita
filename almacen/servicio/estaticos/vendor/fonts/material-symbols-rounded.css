@@ -1,0 +1,32 @@
+/* Material Symbols Rounded — la variante que usa Google Drive.
+   Variable SOLO en el eje FILL (opsz 24, wght 400, GRAD 0), para poder
+   pintar las carpetas rellenas como Drive sin cargar los 5,3 MB de la
+   fuente con todos los ejes.
+   font-display: block evita que el navegador dibuje la ligadura como
+   texto suelto ('folder', 'search') mientras la fuente carga.
+   Local: cero dependencia de fonts.googleapis.com. Apache 2.0. */
+
+/* fallback */
+@font-face {
+  font-display: block;
+  font-family: 'Material Symbols Rounded';
+  font-style: normal;
+  font-weight: 400;
+  src: url(/static/vendor/fonts/files/material-symbols-rounded-fill.woff2) format('woff2');
+}
+
+.material-symbols-rounded {
+  font-family: 'Material Symbols Rounded';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+}
