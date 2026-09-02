@@ -398,6 +398,16 @@ def externos_cuota(eid):
     except (TypeError, ValueError):
         return _jsonify({'error': 'cuota_mb invalida'}), 400
     ejecutar('UPDATE usuarios_externos SET cuota_mb=%s WHERE id=%s', (cuota if cuota > 0 else None, eid))
+    # Enforcement REAL: la cuota vive en la tabla `cuotas` por usuario_id (offset de externos),
+    # el mismo mecanismo que los empleados. cuota=0 -> vuelve al default de la organizacion.
+    from auth_webmail import _OFFSET_EXTERNOS
+    uid = _OFFSET_EXTERNOS + eid
+    if cuota > 0:
+        ejecutar('INSERT INTO cuotas (usuario_id, limite_bytes) VALUES (%s,%s) '
+                 'ON CONFLICT (usuario_id) DO UPDATE SET limite_bytes=EXCLUDED.limite_bytes',
+                 (uid, cuota * 1024 * 1024))
+    else:
+        ejecutar('DELETE FROM cuotas WHERE usuario_id=%s', (uid,))
     return _jsonify({'ok': True})
 
 
@@ -406,14 +416,20 @@ def externos_eliminar(eid):
     if not _master_o_403():
         return _jsonify({'error': 'no autorizado'}), 403
     fila = consultar('SELECT email FROM usuarios_externos WHERE id=%s', (eid,))
+    from auth_webmail import _OFFSET_EXTERNOS
+    uid = _OFFSET_EXTERNOS + eid
     ejecutar('DELETE FROM usuarios_externos WHERE id=%s', (eid,))
+    ejecutar('DELETE FROM cuotas WHERE usuario_id=%s', (uid,))
+    ejecutar('DELETE FROM cuotas_uso WHERE usuario_id=%s', (uid,))
     r = _r()
     if r is not None and fila:
         try:
             r.delete('imap_pass:%s' % fila[0]['email'].lower())
         except Exception:
             pass
-    # Nota: el espacio del Drive del externo (archivos por owner id) se limpia en Fase 5.
+    # Los ARCHIVOS del externo NO se borran en automatico (para evitar perdida de datos):
+    # quedan con su owner id y un master puede recuperarlos o limpiarlos. Revocar el acceso
+    # (borrar la cuenta + cortar la sesion) basta para el cierre de la pasantia/alianza.
     return _jsonify({'ok': True})
 
 
