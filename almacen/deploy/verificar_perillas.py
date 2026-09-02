@@ -24,18 +24,30 @@ sys.path.insert(0, os.path.join(BASE, 'servicio'))
 import almacen_bd as db          # noqa: E402
 import config_almacen as cfg     # noqa: E402
 
-# (clave en config_kv, funcion que la lee, valor de prueba, normalizador del resultado)
+def _reset_raiz():
+    # raiz_datos() cachea; invalidar la cache del proceso de prueba para forzar la lectura.
+    try:
+        cfg._raiz_cache['valor'] = ''
+    except Exception:
+        pass
+
+
+# (clave, funcion que la lee, valor de prueba, normalizador del resultado, reset de cache|None)
 PERILLAS = [
-    ('drive_name', cfg.drive_name, 'QA-PERILLA-DRIVE', lambda x: x),
+    ('drive_name',          cfg.drive_name,          'QA-PERILLA-DRIVE',          lambda x: x,      None),
+    ('raiz_datos',          cfg.raiz_datos,          '/tmp/qa-raiz-datos-prueba', lambda x: x,      _reset_raiz),
+    ('cuota_defecto_bytes', cfg.cuota_defecto_bytes, '99999999',                  lambda x: str(x), None),
 ]
 
 fallos = []
-for clave, fn, prueba, norm in PERILLAS:
+for clave, fn, prueba, norm, reset in PERILLAS:
     prev = db.consultar("SELECT valor FROM config_kv WHERE clave = %s", (clave,))
     prev_val = prev[0]['valor'] if prev else None
     try:
         db.ejecutar("INSERT INTO config_kv (clave, valor) VALUES (%s, %s) "
                     "ON CONFLICT (clave) DO UPDATE SET valor = EXCLUDED.valor", (clave, prueba))
+        if reset:
+            reset()
         got = norm(fn())
         if got != prueba:
             fallos.append("%s: se seteo '%s' pero la funcion devolvio '%s' "
