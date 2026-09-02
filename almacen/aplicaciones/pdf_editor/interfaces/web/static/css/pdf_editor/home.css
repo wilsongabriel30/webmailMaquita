@@ -1,0 +1,540 @@
+/* ============================================================
+   FARO Maquita - Editor PDF: estilos del home (estilo Acrobat)
+   Extraido del template pdf_editor/home.html para modularizar el frontend.
+   IMPORTANTE: nginx sirve /static con cache de 1 anio; cualquier
+   cambio aqui exige subir la version ?v= en el template.
+   ============================================================ */
+/* ============================================
+   HOME PDF - Estilo Acrobat Reader 1:1
+   ============================================ */
+
+:root {
+    --acrobat-bg: #eef3fb;
+    --acrobat-sidebar-bg: #ffffff;
+    --acrobat-text: #2c2c2c;
+    --acrobat-text-muted: #6d6d6d;
+    --acrobat-accent: #fa0f00;
+    --acrobat-accent-hover: #cc0000;
+    --acrobat-border: #e5e5e5;
+    --acrobat-card-bg: #ffffff;
+    --acrobat-hover-bg: #f0f0f0;
+}
+
+.pdf-home {
+    display: flex;
+    height: calc(100vh - 60px);
+    background: var(--acrobat-bg);
+    font-family: 'Adobe Clean', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* ========== SIDEBAR IZQUIERDO (prominente, colores Maquita) ========== */
+.home-sidebar {
+    width: 240px;
+    /* Tono celeste suave a pedido del usuario (2da aclarada) */
+    background: linear-gradient(180deg, #e9f2fe 0%, #dcebfd 55%, #d0e4fc 130%);
+    border-right: 1px solid #c7dcf7;
+    box-shadow: 3px 0 12px rgba(47, 106, 217, 0.10);
+    display: flex;
+    flex-direction: column;
+    padding: 20px 12px;
+    /* Con muchas secciones (Archivos, Almacenamiento, Acuerdos) el contenido se
+       salia del banner y quedaba ilegible sobre blanco: ahora se desplaza dentro */
+    overflow-y: auto;
+}
+
+.sidebar-section {
+    margin-bottom: 22px;
+}
+
+.sidebar-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: #5b7cb8;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 0 12px;
+    margin-bottom: 8px;
+}
+
+.sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    color: #1e4fa3;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.15s;
+    text-decoration: none;
+    border-radius: 10px;
+    margin: 2px 0;
+}
+
+.sidebar-item:hover {
+    background: rgba(20, 115, 230, 0.12);
+    color: #0a2a63;
+    transform: translateX(4px);
+}
+
+.sidebar-item.active {
+    background: #ffffff;
+    color: #0a2a63;
+    font-weight: 700;
+    box-shadow: 0 2px 8px rgba(10, 42, 99, 0.15);
+    border: 1px solid #c7dcf7;
+    border-left: 4px solid #ff9800;
+}
+
+.sidebar-item i {
+    font-size: 17px;
+    width: 22px;
+    text-align: center;
+}
+
+/* Iconos de colores rotativos para dar vida al menú */
+.sidebar-section .sidebar-item:nth-of-type(4n+1) i { color: #e59f00; }
+.sidebar-section .sidebar-item:nth-of-type(4n+2) i { color: #0ea56f; }
+.sidebar-section .sidebar-item:nth-of-type(4n+3) i { color: #e0507a; }
+.sidebar-section .sidebar-item:nth-of-type(4n)   i { color: #7c5cf0; }
+
+.sidebar-item.active i,
+.sidebar-section .sidebar-item.active:nth-of-type(4n+1) i,
+.sidebar-section .sidebar-item.active:nth-of-type(4n+2) i,
+.sidebar-section .sidebar-item.active:nth-of-type(4n+3) i,
+.sidebar-section .sidebar-item.active:nth-of-type(4n) i {
+    color: #1473e6;
+}
+
+.sidebar-divider {
+    height: 1px;
+    background: rgba(20, 80, 180, 0.15);
+    margin: 10px 12px;
+}
+
+/* ========== CONTENIDO PRINCIPAL ========== */
+.home-main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 32px 48px;
+}
+
+/* Header con "Ver todas las herramientas" */
+.tools-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.tools-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--acrobat-text);
+    border-left: 4px solid #1473e6;
+    padding-left: 10px;
+}
+
+.tools-link {
+    font-size: 13px;
+    color: #1967d2;
+    text-decoration: none;
+}
+
+.tools-link:hover {
+    text-decoration: underline;
+}
+
+/* Grid de herramientas recomendadas */
+.tools-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 16px;
+    margin-bottom: 40px;
+}
+
+.tool-card {
+    background: var(--acrobat-card-bg);
+    border: 1px solid var(--acrobat-border);
+    border-top: 4px solid transparent;
+    border-radius: 10px;
+    padding: 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+}
+
+/* Franja superior del color de cada herramienta */
+.tool-card:has(.tool-icon.red)    { border-top-color: #e53935; }
+.tool-card:has(.tool-icon.blue)   { border-top-color: #1e88e5; }
+.tool-card:has(.tool-icon.green)  { border-top-color: #43a047; }
+.tool-card:has(.tool-icon.orange) { border-top-color: #fb8c00; }
+.tool-card:has(.tool-icon.purple) { border-top-color: #8e24aa; }
+.tool-card:has(.tool-icon.teal)   { border-top-color: #00897b; }
+
+.tool-card:hover {
+    box-shadow: 0 8px 20px rgba(20, 115, 230, 0.18);
+    transform: translateY(-3px);
+}
+
+.tool-icon {
+    width: 52px;
+    height: 52px;
+    margin: 0 auto 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    font-size: 26px;
+}
+
+.tool-icon.red    { background: linear-gradient(135deg, #ffcdd2, #ffebee); color: #c62828; }
+.tool-icon.blue   { background: linear-gradient(135deg, #bbdefb, #e3f2fd); color: #1565c0; }
+.tool-icon.green  { background: linear-gradient(135deg, #c8e6c9, #e8f5e9); color: #2e7d32; }
+.tool-icon.orange { background: linear-gradient(135deg, #ffe0b2, #fff3e0); color: #ef6c00; }
+.tool-icon.purple { background: linear-gradient(135deg, #e1bee7, #f3e5f5); color: #7b1fa2; }
+.tool-icon.teal   { background: linear-gradient(135deg, #b2dfdb, #e0f2f1); color: #00796b; }
+
+.tool-name {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--acrobat-text);
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
+.tool-name .badge-pro {
+    background: #1967d2;
+    color: white;
+    font-size: 9px;
+    padding: 2px 4px;
+    border-radius: 3px;
+}
+
+.tool-desc {
+    font-size: 11px;
+    color: var(--acrobat-text-muted);
+    line-height: 1.4;
+    margin-bottom: 8px;
+}
+
+.tool-action {
+    font-size: 11px;
+    font-weight: 600;
+    color: #1473e6;
+    text-decoration: none;
+}
+
+.tool-action:hover {
+    text-decoration: underline;
+}
+
+/* Seccion Recientes */
+.recents-section {
+    margin-top: 32px;
+}
+
+.recents-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.recents-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--acrobat-text);
+    border-left: 4px solid #43a047;
+    padding-left: 10px;
+}
+
+.recents-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.btn-view {
+    background: none;
+    border: 1px solid var(--acrobat-border);
+    padding: 6px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--acrobat-text-muted);
+}
+
+.btn-view.active {
+    background: var(--acrobat-hover-bg);
+    color: var(--acrobat-text);
+}
+
+/* Tabla de recientes */
+.recents-table {
+    width: 100%;
+    background: var(--acrobat-card-bg);
+    border: 1px solid var(--acrobat-border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.recents-table-header {
+    display: grid;
+    grid-template-columns: 40px 1fr 120px 150px 100px;
+    padding: 12px 16px;
+    background: var(--acrobat-hover-bg);
+    border-bottom: 1px solid var(--acrobat-border);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--acrobat-text-muted);
+    text-transform: uppercase;
+}
+
+.recents-row {
+    display: grid;
+    grid-template-columns: 40px 1fr 120px 150px 100px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--acrobat-border);
+    align-items: center;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.recents-row:last-child {
+    border-bottom: none;
+}
+
+.recents-row:hover {
+    background: var(--acrobat-hover-bg);
+}
+
+.recents-checkbox {
+    width: 16px;
+    height: 16px;
+}
+
+.recents-file {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.file-icon {
+    width: 32px;
+    height: 40px;
+    background: #ffebee;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #c62828;
+    font-size: 14px;
+}
+
+.file-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.file-name {
+    font-size: 13px;
+    color: var(--acrobat-text);
+    font-weight: 500;
+}
+
+.file-type {
+    font-size: 11px;
+    color: var(--acrobat-text-muted);
+}
+
+.recents-access, .recents-date, .recents-size {
+    font-size: 12px;
+    color: var(--acrobat-text-muted);
+}
+
+/* Estado vacio */
+.empty-recents {
+    padding: 60px 40px;
+    text-align: center;
+    color: var(--acrobat-text-muted);
+}
+
+.empty-recents i {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.empty-recents h4 {
+    font-size: 16px;
+    color: var(--acrobat-text);
+    margin-bottom: 8px;
+}
+
+.empty-recents p {
+    font-size: 13px;
+}
+
+/* ========== SIDEBAR DERECHO ========== */
+.home-sidebar-right {
+    width: 280px;
+    background: var(--acrobat-sidebar-bg);
+    border-left: 1px solid var(--acrobat-border);
+    padding: 24px;
+    overflow-y: auto;   /* sin esto la tarjeta Seguridad quedaba fuera de alcance */
+}
+
+.sidebar-right-section {
+    margin-bottom: 32px;
+}
+
+.sidebar-right-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--acrobat-text);
+    margin-bottom: 16px;
+    border-left: 4px solid #ff9800;
+    padding-left: 10px;
+}
+
+.quick-action {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 20px;
+    background: linear-gradient(160deg, #e8f0fe, #f2f8ff);
+    border: 1px solid #cfe3fb;
+    border-radius: 12px;
+    margin-bottom: 12px;
+}
+
+.quick-action-icon {
+    font-size: 32px;
+    color: #1473e6;
+    margin-bottom: 12px;
+}
+
+.quick-action-text {
+    font-size: 12px;
+    color: #35507a;
+    margin-bottom: 4px;
+}
+
+.btn-quick {
+    display: inline-block;
+    border: none;
+    background: #1473e6;
+    color: #ffffff;
+    font-weight: 600;
+    padding: 8px 20px;
+    border-radius: 20px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 8px;
+    box-shadow: 0 2px 8px rgba(20, 115, 230, 0.35);
+}
+
+.btn-quick:hover {
+    background: #0d66d0;
+    transform: translateY(-1px);
+}
+
+.config-box {
+    background: linear-gradient(160deg, #fff8e1, #fffdf5);
+    border: 1px solid #ffe6a6;
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+}
+
+.config-box .quick-action-icon,
+.config-box i {
+    color: #f9a825;
+}
+
+.config-icon {
+    font-size: 40px;
+    color: var(--acrobat-text-muted);
+    margin-bottom: 12px;
+}
+
+.config-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--acrobat-text);
+    margin-bottom: 8px;
+}
+
+.config-text {
+    font-size: 11px;
+    color: var(--acrobat-text-muted);
+    margin-bottom: 12px;
+    line-height: 1.4;
+}
+
+.btn-config {
+    display: inline-block;
+    border: 1px solid var(--acrobat-accent);
+    background: var(--acrobat-accent);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-config:hover {
+    background: var(--acrobat-accent-hover);
+    border-color: var(--acrobat-accent-hover);
+}
+
+/* Input file oculto */
+#fileInputHome {
+    display: none;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+    .home-sidebar-right {
+        display: none;
+    }
+}
+
+@media (max-width: 900px) {
+    .home-sidebar {
+        width: 60px;
+    }
+    .sidebar-title, .sidebar-item span, .sidebar-promo {
+        display: none;
+    }
+    .sidebar-item {
+        justify-content: center;
+        padding: 12px;
+    }
+}
+
+/* ========== MENSAJES EMERGENTES (tooltips instantaneos, ver tooltips.js) ========== */
+.faro-tooltip {
+    position: fixed;
+    z-index: 99999;
+    max-width: 280px;
+    background: #1f2937;
+    color: #f9fafb;
+    font-size: 12px;
+    line-height: 1.45;
+    padding: 7px 11px;
+    border-radius: 8px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(-3px);
+    transition: opacity 0.12s ease, transform 0.12s ease;
+}
+.faro-tooltip.visible { opacity: 1; transform: translateY(0); }
+

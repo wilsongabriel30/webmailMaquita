@@ -422,6 +422,9 @@ PDF_LOGS_DIR=/var/lib/maquita-pdf-editor/logs
 PDFENV
 # crear las tablas del editor una vez (evita la race de varios workers)
 "${PDFED_DIR}/venv/bin/python" "${PDFED_DIR}/crear_tablas.py" 2>/dev/null || true
+# Validar que el editor RENDERIZA (base.html autonomo + estaticos), no solo que arranca:
+"${PDFED_DIR}/venv/bin/python" "${PDFED_DIR}/interfaces/web/verificar_render.py" \
+  || { echo -e "  ${RED}ERROR: el Editor de PDF no renderiza (falta base.html o estaticos)${NC}"; exit 1; }
 mkdir -p /etc/nginx/snippets/maquita-apps
 cp "${PDFED_DIR}/deploy/nginx-pdf-editor.conf" /etc/nginx/snippets/maquita-apps/pdf-editor.conf
 cp "${PDFED_DIR}/deploy/maquita-pdf-editor.service" /etc/systemd/system/
