@@ -1181,6 +1181,10 @@ const USUARIO_NC = {{ (usuario_nextcloud or '') | tojson }};
 // MODO PRUEBAS: conectar el explorador al motor propio (Almacén Maquita).
 // Solo master llega aquí. No afecta la Nube en producción.
 window.ALMACEN_OVERRIDE = { api: '/api/almacen', url: '/archivos-almacen' };
+        // Clasificacion interno/externo al compartir: SIN dominio quemado.
+        // Interno = mismo dominio que el usuario actual (o en DOMINIOS_INTERNOS si se define).
+        window.USUARIO_DOMINIO = '{{ (current_user.email.rsplit("@",1)[1] | lower) if current_user and current_user.email and "@" in current_user.email else "" }}';
+        window.DOMINIOS_INTERNOS = window.DOMINIOS_INTERNOS || [];
 {% endif %}
 </script>
 <script src="{{ url_for('static', filename='js/nextcloud/explorador-config.js') }}?v=20260703d"></script>
