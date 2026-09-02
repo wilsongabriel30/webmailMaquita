@@ -26,6 +26,11 @@ sirviendo el DS bajo `/office/` con `X-Forwarded-Host $host/office`). Asegúrate
 snippet en tu `server{}` y recarga nginx. **Patrón recomendado**: dominio dedicado del Drive
 (`drive.suorg.tld`), donde `/office/` también aplica.
 
+> **Ojo con el prefijo del DS (#9):** sirve el Document Server bajo `/office/`, **no** bajo
+> `/onlyoffice/`. La app expone rutas `/onlyoffice/*` (bajo `/api/almacen/`); si el DS toma
+> el prefijo `/onlyoffice/`, se traga el diagnóstico `/onlyoffice/estado`. Los snippets ya
+> incluyen un `location = /onlyoffice/estado` (match exacto → Almacén) como salvaguarda.
+
 ## 3) Configurar la app (MISMO secreto JWT en todo)
 En `backend/.env` (webmail):
 ```
