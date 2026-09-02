@@ -383,6 +383,9 @@ AENV
 mkdir -p /etc/nginx/snippets/maquita-apps
 cp "${APP_DIR}/almacen/deploy/nginx-almacen.conf" /etc/nginx/snippets/maquita-apps/almacen.conf
 cp "${APP_DIR}/almacen/deploy/maquita-almacen.service" /etc/systemd/system/
+# QA: assets estaticos del Drive referenciados vs. servidos (caza fallos tipo #1/#6/#10)
+python3 "${APP_DIR}/almacen/deploy/verificar_assets.py" \
+  || { echo -e "  ${RED}ERROR: faltan assets estaticos del Drive (ver detalle arriba).${NC}"; exit 1; }
 systemctl daemon-reload && systemctl enable --now maquita-almacen
 echo "  Almacen (Drive): https://${MAIL_HOST}/archivos-almacen"
 
