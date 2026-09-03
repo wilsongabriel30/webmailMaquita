@@ -7,6 +7,32 @@ from app.auth.dependencies import get_current_admin, require_role
 
 router = APIRouter(prefix="/api/autoresponder", tags=["autoresponder"])
 
+import re as _re
+
+_USER_RE = _re.compile(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9.-]+$")
+_FECHA_RE = _re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def _partes_usuario(username: str):
+    """Valida el buzón y devuelve (local, domain) seguros para construir rutas.
+    Rechaza cualquier cosa que permita traversal o inyección de shell/Sieve."""
+    u = (username or "").strip()
+    if not _USER_RE.match(u):
+        raise HTTPException(400, "buzón inválido")
+    local, domain = u.split("@", 1)
+    for parte in (local, domain):
+        if parte in (".", "..") or "/" in parte or ".." in parte:
+            raise HTTPException(400, "buzón inválido")
+    return local, domain
+
+
+def _sieve_str(valor: str, una_linea: bool = False) -> str:
+    """Escapa un valor para insertarlo en una cadena Sieve entre comillas dobles."""
+    v = str(valor or "")
+    if una_linea:
+        v = v.replace("\r", " ").replace("\n", " ")
+    return v.replace("\\", "\\\\").replace('"', '\\"')
+
 
 def _db(r: Request):
     return r.app.state.db
@@ -43,17 +69,20 @@ async def _run(*cmd) -> tuple[str, str, int]:
 
 
 def _generate_sieve(ar: dict) -> str:
-    """Generar script Sieve para vacation."""
-    subject = ar.get("subject", "Fuera de oficina")
-    body = ar.get("body", "")
+    """Generar script Sieve para vacation, con valores escapados (evita inyección)."""
+    subject = _sieve_str(ar.get("subject", "Fuera de oficina"), una_linea=True)
+    body = _sieve_str(ar.get("body", ""))
     days = "1" if ar.get("reply_once_per_day", True) else "0"
 
     lines = ['require ["vacation"];', ""]
 
-    if ar.get("start_date") and ar.get("end_date"):
+    inicio, fin = ar.get("start_date"), ar.get("end_date")
+    if inicio and fin:
+        if not (_FECHA_RE.match(str(inicio)) and _FECHA_RE.match(str(fin))):
+            raise HTTPException(400, "fechas inválidas (AAAA-MM-DD)")
         lines.append('require ["date", "relational"];')
-        lines.append(f'if allof(currentdate :value "ge" "date" "{ar["start_date"]}",')
-        lines.append(f'         currentdate :value "le" "date" "{ar["end_date"]}") {{')
+        lines.append(f'if allof(currentdate :value "ge" "date" "{inicio}",')
+        lines.append(f'         currentdate :value "le" "date" "{fin}") {{')
         lines.append(f'  vacation :days {days} :subject "{subject}"')
         lines.append(f'    "{body}";')
         lines.append("}")
@@ -112,36 +141,33 @@ async def set_autoresponder(request: Request, admin: dict = Depends(require_role
         data.get("reply_once_per_day", True))
 
     # Deploy sieve script if active
+    local, domain = _partes_usuario(username)
+    base = f"/var/vmail/{domain}/{local}"
     if data.get("active"):
         sieve = _generate_sieve(data)
-        domain = username.split("@")[1]
-        local = username.split("@")[0]
-        sieve_dir = f"/var/vmail/{domain}/{local}/sieve"
+        sieve_dir = f"{base}/sieve"
 
         await _run("mkdir", "-p", sieve_dir)
         sieve_path = f"{sieve_dir}/vacation.sieve"
 
-        # Write sieve file
-        proc = await asyncio.create_subprocess_exec(
-            "bash", "-c", f"cat > {sieve_path} << 'SIEVEOF'\n{sieve}\nSIEVEOF",
-            stdout=PIPE, stderr=PIPE)
-        await proc.communicate()
+        # Escribir el script Sieve desde Python (sin shell ni heredoc)
+        import os as _os
+        with open(sieve_path, "w", encoding="utf-8") as fh:
+            fh.write(sieve)
 
         # Compile
         await _run("sievec", sieve_path)
 
         # Activate: symlink .dovecot.sieve
-        active_link = f"/var/vmail/{domain}/{local}/.dovecot.sieve"
+        active_link = f"{base}/.dovecot.sieve"
         await _run("ln", "-sf", sieve_path, active_link)
 
         # Fix permissions
-        await _run("chown", "-R", "vmail:vmail", f"/var/vmail/{domain}/{local}/sieve")
+        await _run("chown", "-R", "vmail:vmail", sieve_dir)
         await _run("chown", "vmail:vmail", active_link)
     else:
         # Deactivate
-        domain = username.split("@")[1]
-        local = username.split("@")[0]
-        active_link = f"/var/vmail/{domain}/{local}/.dovecot.sieve"
+        active_link = f"{base}/.dovecot.sieve"
         await _run("rm", "-f", active_link)
 
     await _audit(request, admin, "autoresponder_set", username, {"active": data.get("active")})
@@ -150,14 +176,14 @@ async def set_autoresponder(request: Request, admin: dict = Depends(require_role
 
 @router.delete("/{username:path}")
 async def delete_autoresponder(username: str, request: Request, admin: dict = Depends(require_role("superadmin", "admin"))):
+    local, domain = _partes_usuario(username)
     db = _db(request)
     await db.execute("DELETE FROM mail_autoresponders WHERE username = $1", username)
 
     # Remove sieve
-    domain = username.split("@")[1]
-    local = username.split("@")[0]
-    await _run("rm", "-f", f"/var/vmail/{domain}/{local}/.dovecot.sieve")
-    await _run("rm", "-rf", f"/var/vmail/{domain}/{local}/sieve")
+    base = f"/var/vmail/{domain}/{local}"
+    await _run("rm", "-f", f"{base}/.dovecot.sieve")
+    await _run("rm", "-rf", f"{base}/sieve")
 
     await _audit(request, admin, "autoresponder_delete", username)
     return {"ok": True}
