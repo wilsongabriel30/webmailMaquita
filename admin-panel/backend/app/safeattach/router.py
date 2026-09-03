@@ -123,6 +123,26 @@ async def cola_cuarentena(r: Request, a=Depends(get_current_admin)):
 
 # ── Motor AVANZADO (multi-motor + detonación) del webmail ──
 WEBMAIL = "/opt/maquita-webmail/backend"
+import re as _re
+_NOMBRE_ADJUNTO_RE = _re.compile(r"^[\w.\- ]{1,120}$")
+
+
+def _env_webmail() -> dict:
+    """Entorno para ejecutar el motor del webmail: copia del entorno actual + su .env,
+    leído en Python (sin pasar por un shell). Evita `bash -c ... . .env`."""
+    import os
+    env = dict(os.environ)
+    try:
+        with open(os.path.join(WEBMAIL, ".env"), encoding="utf-8") as fh:
+            for linea in fh:
+                linea = linea.strip()
+                if not linea or linea.startswith("#") or "=" not in linea:
+                    continue
+                k, v = linea.split("=", 1)
+                env[k.strip()] = v.strip().strip('"').strip("'")
+    except OSError:
+        pass
+    return env
 
 
 class AnalyzeReq(BaseModel):
@@ -131,7 +151,7 @@ class AnalyzeReq(BaseModel):
 
 
 @router.post("/analyze")
-async def analyze(r: Request, body: AnalyzeReq, a=Depends(get_current_admin)):
+async def analyze(r: Request, body: AnalyzeReq, a=Depends(require_role("superadmin", "admin"))):
     """Analiza un archivo con el motor avanzado (clamav+filetype+oletools+archive+yara+detonación)."""
     import base64, os, subprocess, tempfile
     try:
@@ -145,10 +165,12 @@ async def analyze(r: Request, body: AnalyzeReq, a=Depends(get_current_admin)):
         with os.fdopen(fd, "wb") as fh:
             fh.write(content)
         name = os.path.basename(body.filename) or "muestra"
+        if not _NOMBRE_ADJUNTO_RE.match(name):
+            return {"error": "nombre de archivo inválido"}
         p = subprocess.run(
-            ["bash", "-c",
-             f"cd {WEBMAIL} && set -a && . .env && set +a && "
-             f"venv/bin/python -m app.safeattach.scan_file {path} {json.dumps(name)}"],
+            [os.path.join(WEBMAIL, "venv/bin/python"),
+             "-m", "app.safeattach.scan_file", path, name],
+            cwd=WEBMAIL, env=_env_webmail(),
             capture_output=True, text=True, timeout=150)
         out = (p.stdout or "").strip()
         try:
@@ -176,7 +198,8 @@ async def engine_status(r: Request, a=Depends(get_current_admin)):
           "'detonation':os.getenv('SAFEATTACH_DETONATE','0')=='1'}))")
     try:
         p = subprocess.run(
-            ["bash", "-c", f"cd {WEBMAIL} && set -a && . .env && set +a && venv/bin/python -c {json.dumps(py)}"],
+            [os.path.join(WEBMAIL, "venv/bin/python"), "-c", py],
+            cwd=WEBMAIL, env=_env_webmail(),
             capture_output=True, text=True, timeout=30)
         return json.loads((p.stdout or "{}").strip().splitlines()[-1])
     except Exception as e:
