@@ -22,6 +22,7 @@ const FirewallPanel = React.lazy(() => import("./components/admin/FirewallPanel"
 const MailGuardPanel = React.lazy(() => import("./components/admin/MailGuardPanel").then(m => ({ default: m.MailGuardPanel })));
 const ChatSettingsPanel = React.lazy(() => import("./components/admin/ChatSettingsPanel").then(m => ({ default: m.ChatSettingsPanel })));
 const DriveExternos = React.lazy(() => import("./components/admin/DriveExternos").then(m => ({ default: m.DriveExternos })));
+const AirIncidentes = React.lazy(() => import("./components/admin/AirIncidentes").then(m => ({ default: m.AirIncidentes })));
 const ContactsView = React.lazy(() => import('./components/contacts/ContactsView').then(m => ({ default: m.ContactsView })));
 const RagAssistant = React.lazy(() => import('./components/rag/RagAssistant').then(m => ({ default: m.RagAssistant })));
 const TasksView = React.lazy(() => import('./components/tasks/TasksView').then(m => ({ default: m.TasksView })));
@@ -233,6 +234,7 @@ export default function App() {
             <Route path="bloqueos" element={<React.Suspense fallback={<Spinner />}><MailGuardPanel /></React.Suspense>} />
             <Route path="chat" element={<React.Suspense fallback={<Spinner />}><ChatSettingsPanel /></React.Suspense>} />
             <Route path="drive-externos" element={<React.Suspense fallback={<Spinner />}><DriveExternos /></React.Suspense>} />
+            <Route path="air" element={<React.Suspense fallback={<Spinner />}><AirIncidentes /></React.Suspense>} />
           </Route>
         </Route>
       </Routes>
