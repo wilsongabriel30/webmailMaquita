@@ -1360,7 +1360,7 @@
         if (msg.message_type === 'text') {
             contentHtml = `<div class="message-text">${escapeHtml(msg.content)}</div>`;
         } else if (msg.message_type === 'gif') {
-            // GIF desde Tenor - buscar URL en media o directamente en gif_url
+            // GIF (biblioteca local): la URL viene en media o directamente en gif_url
             let gifUrl = null;
             if (msg.media && msg.media.length > 0) {
                 gifUrl = msg.media[0].file_path;
@@ -1788,11 +1788,9 @@
     }
 
     // ============================================
-    // GIF PICKER - SELECTOR DE GIFS (TENOR API)
+    // GIF PICKER - SELECTOR DE GIFS (biblioteca LOCAL: chat-gifs-local.js)
     // ============================================
 
-    const TENOR_API_KEY = 'AIzaSyAyimkuYQYF_FXVALexPuGQctUWRURdCYQ'; // API Key pública de Google
-    const TENOR_CLIENT_KEY = 'faro_maquita_chat';
 
     function toggleGifPicker() {
         const picker = document.getElementById('gifPicker');
@@ -1839,68 +1837,8 @@
         }, 500); // Debounce de 500ms
     }
 
-    async function loadTrendingGifs() {
-        const content = document.getElementById('gifPickerContent');
-        if (!content) return;
-
-        content.innerHTML = '<div class="gif-loading"><i class="fas fa-spinner fa-spin fa-2x"></i></div>';
-
-        try {
-            const response = await fetch(
-                `https://tenor.googleapis.com/v2/featured?key=${TENOR_API_KEY}&client_key=${TENOR_CLIENT_KEY}&limit=20`
-            );
-
-            if (!response.ok) throw new Error('Error al cargar GIFs');
-
-            const data = await response.json();
-            displayGifs(data.results);
-        } catch (error) {
-            console.error('Error cargando GIFs trending:', error);
-            content.innerHTML = '<div class="gif-placeholder"><p class="text-muted">Error al cargar GIFs</p></div>';
-        }
-    }
-
-    async function performGifSearch(query) {
-        const content = document.getElementById('gifPickerContent');
-        if (!content) return;
-
-        content.innerHTML = '<div class="gif-loading"><i class="fas fa-spinner fa-spin fa-2x"></i></div>';
-
-        try {
-            const response = await fetch(
-                `https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(query)}&key=${TENOR_API_KEY}&client_key=${TENOR_CLIENT_KEY}&limit=20&locale=es_ES`
-            );
-
-            if (!response.ok) throw new Error('Error en búsqueda de GIFs');
-
-            const data = await response.json();
-
-            if (data.results.length === 0) {
-                content.innerHTML = '<div class="gif-placeholder"><i class="fas fa-sad-tear fa-2x mb-2 text-muted"></i><p class="text-muted">No se encontraron GIFs</p></div>';
-            } else {
-                displayGifs(data.results);
-            }
-        } catch (error) {
-            console.error('Error buscando GIFs:', error);
-            content.innerHTML = '<div class="gif-placeholder"><p class="text-muted">Error en búsqueda</p></div>';
-        }
-    }
-
-    function displayGifs(gifs) {
-        const content = document.getElementById('gifPickerContent');
-        if (!content) return;
-
-        content.innerHTML = gifs.map((gif, index) => {
-            const gifUrl = gif.media_formats.tinygif.url; // Versión pequeña para preview
-            const fullUrl = gif.media_formats.gif.url; // URL completa para enviar
-            const description = (gif.content_description || 'GIF').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
-            return `
-                <div class="gif-item" data-gif-url="${fullUrl}" data-description="${description}" onclick="sendGifFromElement(this)">
-                    <img src="${gifUrl}" alt="${description}" loading="lazy">
-                </div>
-            `;
-        }).join('');
-    }
+    // loadTrendingGifs / performGifSearch / displayGifs las define chat-gifs-local.js
+    // (biblioteca LOCAL de GIFs, consultan /api/chat/gifs/*). Cero dependencia de terceros.
 
     function sendGifFromElement(element) {
         const gifUrl = element.dataset.gifUrl;
