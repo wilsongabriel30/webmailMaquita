@@ -34,6 +34,22 @@ _JWT_SECRET = os.getenv("CHAT_JWT_SECRET", "")
 _REDIS_URL = os.getenv("CHAT_REDIS_URL", "")
 _RUTAS_PROTEGIDAS = ("/api/chat", "/chat", "/socket.io")
 
+# [B1] El chat no puede verificar tokens sin su secreto: aborta el arranque si falta
+# o tiene valor de ejemplo. Solo nombra la variable, nunca el valor.
+def _validar_secreto_chat():
+    _v = (_JWT_SECRET or "").strip()
+    _PLACEHOLDER = ("change", "example", "placeholder", "tu-secreto", "your-secret", "changeme")
+    if not _v or any(p in _v.lower() for p in _PLACEHOLDER):
+        raise RuntimeError(
+            "Falta CHAT_JWT_SECRET (o tiene un valor de ejemplo) — el chat no puede "
+            "verificar tokens. Definelo en el entorno con un valor real."
+        )
+
+
+_validar_secreto_chat()
+
+
+
 
 def _sembrar_redis():
     """Crea el cliente Redis singleton con las credenciales del .env ANTES de que
