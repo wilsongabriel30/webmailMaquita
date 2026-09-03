@@ -1220,17 +1220,24 @@ def limpiar_conversacion(conversacion_id: int):
     try:
         usuario_id = obtener_usuario_id()
 
-        # Verificar que el usuario es participante
-        servicio = obtener_servicio_chat()
         from datetime import timezone as _tz
+        from sqlalchemy import text as _t
 
-        # Obtener sesion y eliminar mensajes directamente
+        # Obtener sesion
         db_session = g.get('db_session_chat')
         if not db_session:
             from infraestructura.base_datos.base import obtener_gestor
             gestor = obtener_gestor()
             db_session = gestor.session()
             g.db_session_chat = db_session
+
+        # C-9: quien llama debe ser participante de la conversacion antes de operar
+        es_miembro = db_session.execute(_t(
+            "SELECT 1 FROM chat_participants WHERE conversation_id = :c AND user_id = :u LIMIT 1"
+        ), {"c": conversacion_id, "u": usuario_id}).fetchone()
+        if not es_miembro:
+            return jsonify({'success': False, 'exito': False,
+                            'mensaje': 'No autorizado'}), 403
 
         from modulos.chat.infraestructura.persistencia.modelos.modelo_mensaje import ModeloMensaje
         mensajes = db_session.query(ModeloMensaje).filter_by(
