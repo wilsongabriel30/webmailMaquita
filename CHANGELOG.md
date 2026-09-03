@@ -7,6 +7,8 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.3.0] - 2026-09-03
+
 ### Corregido
 
 - **Botón «Descargar APK» falso (#16):** ofrecía `/webmail/downloads/MaquitaMail.apk`, que no
@@ -15,6 +17,18 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Añadido
 
+- **Notificaciones Web Push del correo (#17):** avisos nativos del navegador al llegar
+  correo, incluso con la PWA/pestaña cerrada. Módulo backend `app/push` (VAPID, `/api/push`),
+  disparo desde el vigilante IMAP IDLE, Service Worker (`push`/`notificationclick`) y suscripción
+  del frontend al iniciar sesión. El instalador genera claves VAPID únicas por instalación; la
+  clave privada VAPID queda fuera del repo.
+- **Certificado con dominio pelado + autoconfig (#15):** `deploy/webmail/tls/emitir-certificado.sh`
+  emite el cert con el apex y los subdominios de cliente que realmente apuntan al servidor
+  (resolver público por el split-horizon), fija el linaje con `--cert-name` y publica el XML de
+  autoconfiguración (Thunderbird/Evolution); evita el «certificado equivocado» cuando el cliente
+  autoconfigura probando el dominio pelado. Plantillas de autoconfig + guía
+  `docs/CERTIFICADO-Y-AUTOCONFIG.md`. El instalador recomienda el helper en vez del certbot que
+  solo cubría `mail.`.
 - **Chequeo TLS/SNI del correo en `validar-despliegue.sh` (#14, #15):** por cada nombre
   (dominio pelado + mail./imap./smtp.) prueba `openssl s_client -servername -verify_hostname` en
   465 y avisa si el cert no valida (config automática móvil); y busca en `mail.log` los errores
