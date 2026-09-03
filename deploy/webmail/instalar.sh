@@ -123,13 +123,16 @@ ADMIN_SECRET=$(python3 -c "import secrets; print(secrets.token_hex(32))")
 MASTER_PASS=$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | head -c 20)
 # VAPID para Web Push del correo (#17): claves UNICAS por instalacion.
 VAPID_PUB=$(python - <<'PYVAPID'
-from py_vapid import Vapid01
 import base64
 from cryptography.hazmat.primitives import serialization
-v = Vapid01(); v.generate_keys()
-pub = v.public_key.public_bytes(serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint)
-priv = v.private_key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption())
-open('vapid_private.pem', 'wb').write(priv)
+from cryptography.hazmat.primitives.asymmetric import ec
+# INSTANCIA de la curva (ec.SECP256R1()), no la clase: evita el TypeError de #18
+# con py-vapid 1.9.1 + cryptography 46. py_vapid solo se usa para FIRMAR (from_file),
+# que si funciona; aqui generamos la clave sin depender de su generate_keys().
+priv = ec.generate_private_key(ec.SECP256R1())
+pub = priv.public_key().public_bytes(serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint)
+pem = priv.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption())
+open('vapid_private.pem', 'wb').write(pem)
 print(base64.urlsafe_b64encode(pub).rstrip(b'=').decode())
 PYVAPID
 )

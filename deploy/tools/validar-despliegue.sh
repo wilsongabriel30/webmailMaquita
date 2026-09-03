@@ -116,6 +116,15 @@ if [ -n "$DOM" ]; then
   dig +short TXT "_dmarc.$DOM" 2>/dev/null | grep -q 'v=DMARC1' && ok "DMARC presente" || warn "sin DMARC en $DOM"
 else warn "MAIL_DOMAIN no definido — omito DNS"; fi
 
+# --- Web Push (#17/#18): la clave VAPID debe existir y NO estar vacia ---
+# Si el paso VAPID del instalador falla en silencio, el push queda muerto sin pista.
+VP=$(curl -s "$WEBMAIL/api/push/vapid-public-key" 2>/dev/null)
+if printf '%s' "$VP" | grep -q '"enabled":true' && printf '%s' "$VP" | grep -qE '"key":"[A-Za-z0-9_-]{40,}"'; then
+  ok "Web Push: VAPID activo (clave publica no vacia)"
+else
+  bad "Web Push: /api/push/vapid-public-key sin enabled:true o clave vacia (revisar paso VAPID del instalador, #18)"
+fi
+
 printf '\n\033[1mRESUMEN:\033[0m %d OK · %d advertencias · %d fallos\n' "$PASS" "$WARN" "$FAIL"
 [ "$FAIL" -eq 0 ] && printf '\033[32mVALIDACIÓN OK\033[0m — el despliegue responde en todo lo crítico\n' \
                   || printf '\033[31mVALIDACIÓN CON FALLOS\033[0m — revisar los [FALLO] de arriba\n'
