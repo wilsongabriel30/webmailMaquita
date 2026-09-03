@@ -7,7 +7,19 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Corregido
+
+- **Botón «Descargar APK» falso (#16):** ofrecía `/webmail/downloads/MaquitaMail.apk`, que no
+  existe en el repo, y `try_files` servía el `index.html` renombrado (el usuario instalaba "algo"
+  que no es nada). Se retira el botón (queda «Instalar aplicación» = PWA real).
+
 ### Añadido
+
+- **Chequeo TLS/SNI del correo en `validar-despliegue.sh` (#14, #15):** por cada nombre
+  (dominio pelado + mail./imap./smtp.) prueba `openssl s_client -servername -verify_hostname` en
+  465 y avisa si el cert no valida (config automática móvil); y busca en `mail.log` los errores
+  fantasma de un mapa SNI mal construido (`malformed BASE64`/`lookup problem`) recordando que
+  `vmail_sni` se reconstruye con `postmap -F` + **restart** postfix (reload NO basta).
 
 - **QA «perilla -> UI» del Drive:** `almacen/deploy/verificar_perillas.py` valida que las
   funciones de configuracion (p. ej. `drive_name`) REALMENTE lean `config_kv` y no devuelvan

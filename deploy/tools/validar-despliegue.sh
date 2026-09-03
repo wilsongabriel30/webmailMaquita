@@ -27,6 +27,30 @@ for p in 25 465 587 143 993; do
 done
 ss -ltn 2>/dev/null | grep -q ":443 " && ok "puerto 443" || warn "puerto 443 no escucha local (¿HTTPS/proxy en otro host? OK si aplica)"
 
+hdr "TLS/SNI del correo — cert correcto por cada nombre (config automatica movil)"
+# La config automatica de Gmail/Outlook prueba el dominio PELADO y los subdominios; cada uno
+# debe recibir un cert VALIDO para ese nombre (SNI). Un cert equivocado = "certificado no valido"
+# en el primer contacto del usuario. (#15)
+DOM="$(postconf -h mydomain 2>/dev/null)"
+if [ -n "$DOM" ]; then
+  for name in "$DOM" "mail.$DOM" "imap.$DOM" "smtp.$DOM"; do
+    out="$(printf 'QUIT\r\n' | timeout 8 openssl s_client -connect 127.0.0.1:465 -servername "$name" -verify_hostname "$name" 2>&1)"
+    if echo "$out" | grep -q "Verify return code: 0"; then
+      ok "TLS/SNI 465 valido para $name"
+    else
+      warn "TLS/SNI 465: el cert NO valida para $name (la config automatica de moviles fallara; incluye $name en los SAN + SNI/local_name) [#15]"
+    fi
+  done
+else
+  warn "no pude leer 'postconf -h mydomain' para probar TLS/SNI"
+fi
+# Error-fantasma del mapa SNI mal construido (postmap sin -F) — solo vive en mail.log. (#14)
+if tail -400 /var/log/mail.log 2>/dev/null | grep -qiE 'malformed BASE64|map lookup problem|SSL_accept error'; then
+  bad "mail.log con errores de TLS/SNI (malformed BASE64 / lookup problem). Si usas tls_server_sni_maps: reconstruye vmail_sni con 'postmap -F' y REINICIA postfix (reload NO basta). [#14]"
+else
+  ok "mail.log sin errores de TLS/SNI (malformed BASE64/lookup)"
+fi
+
 hdr "Postfix — AUTH deshabilitado en el 25 (anti fuerza bruta SASL)"
 if timeout 6 bash -c "printf 'EHLO t\r\nQUIT\r\n' | openssl s_client -connect 127.0.0.1:25 -starttls smtp -quiet 2>/dev/null | grep -qi '250.*AUTH'"; then
   bad "el puerto 25 ANUNCIA AUTH (poner smtpd_sasl_auth_enable=no global)"

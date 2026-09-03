@@ -337,14 +337,6 @@ export function Topbar() {
                 </svg>
                 Instalar aplicación
               </button>
-              <a href="/webmail/downloads/MaquitaMail.apk" download="MaquitaMail.apk"
-                className="w-full text-left px-4 py-2 text-[13px] text-[#323130] hover:bg-[#f3f2f1] flex items-center gap-2"
-                onClick={() => setShowProfile(false)}>
-                <svg className="w-4 h-4 text-[#3ddc84]" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M6 18c0 .55.45 1 1 1h1v3.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5V19h2v3.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5V19h1c.55 0 1-.45 1-1V7H6v11zM3.5 7C2.67 7 2 7.67 2 8.5v7c0 .83.67 1.5 1.5 1.5S5 16.33 5 15.5v-7C5 7.67 4.33 7 3.5 7zm17 0c-.83 0-1.5.67-1.5 1.5v7c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5v-7c0-.83-.67-1.5-1.5-1.5zm-4.97-5.84l1.3-1.3c.2-.2.2-.51 0-.71-.2-.2-.51-.2-.71 0l-1.48 1.48C13.85.55 12.95.25 12 .25s-1.85.3-2.64.83L7.88.59c-.2-.2-.51-.2-.71 0-.2.2-.2.51 0 .71l1.31 1.31C7.6 3.6 7 4.97 7 6h10c0-1.03-.6-2.4-1.47-3.84zM10 5H9V4h1v1zm5 0h-1V4h1v1z" />
-                </svg>
-                Descargar APK Android
-              </a>
               <div className="h-px bg-[#edebe9] my-1" />
               <button onClick={handleLogout}
                 className="w-full text-left px-4 py-2 text-[13px] text-[#a4262c] hover:bg-[#f3f2f1]">
