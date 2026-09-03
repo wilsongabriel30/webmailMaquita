@@ -9,6 +9,8 @@ import { TwoFactorSetup } from './TwoFactorSetup';
 import { MailSetup } from './MailSetup';
 import { useMailStore } from '../../store/mailStore';
 import { getFolderDisplayName } from '../../folders';
+import EspacioLocal from './EspacioLocal';   // T-49: cuánto ocupa el caché cifrado en el equipo
+import SmimeSettings from './SmimeSettings';   // Certificados S/MIME (por usuario)
 
 interface Settings {
   display_name: string;
@@ -37,7 +39,7 @@ interface FilterRule {
   action: { type: string; value: string | null };
 }
 
-type Tab = 'general' | 'signature' | 'identities' | 'autoreply' | 'filters' | 'password' | 'security' | 'integrations' | 'mailsetup';
+type Tab = 'general' | 'signature' | 'identities' | 'autoreply' | 'filters' | 'password' | 'security' | 'smime' | 'integrations' | 'mailsetup' | 'espacio';
 
 const FIELD_LABELS: Record<string, string> = { from: 'De', to: 'Para', subject: 'Asunto' };
 const OP_LABELS: Record<string, string> = { contains: 'contiene', is: 'es exactamente', matches: 'coincide con' };
@@ -197,8 +199,10 @@ export function SettingsView() {
     { id: 'filters', label: 'Reglas de correo' },
     { id: 'password', label: 'Contraseña' },
     { id: 'security', label: 'Seguridad' },
+    { id: 'smime', label: 'Certificados S/MIME' },
     { id: 'integrations', label: 'Integraciones' },
     { id: 'mailsetup', label: 'Configurar mi correo' },
+    { id: 'espacio', label: 'Espacio en el equipo' },
   ];
 
   const folderOptions = folders.map(f => f.name);
@@ -528,11 +532,15 @@ export function SettingsView() {
           </div>
         )}
 
+        {tab === 'espacio' && <EspacioLocal />}
+
         {tab === 'security' && (
           <TwoFactorSetup />
         )}
 
         {tab === 'integrations' && <IntegrationsSettings />}
+
+        {tab === 'smime' && <SmimeSettings />}
 
         {tab === 'password' && (
           <PasswordChange />
