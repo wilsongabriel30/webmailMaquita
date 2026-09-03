@@ -137,5 +137,18 @@ def descargar_zip():
 
     log.info('descargar-zip: usuario %s, %d elementos, %d bytes → %s',
              usuario, len(resueltas), total, nombre)
-    return send_file(temporal.name, mimetype='application/zip',
-                     as_attachment=True, download_name=nombre)
+    respuesta = send_file(temporal.name, mimetype='application/zip',
+                          as_attachment=True, download_name=nombre)
+    # Aviso «preparando la descarga» del explorador: el navegador no avisa
+    # cuando una navegación empieza a descargar, así que el cliente manda un
+    # token y vigila esta cookie para saber que el ZIP ya está saliendo.
+    token = _token_seguro(request.args.get('token', ''))
+    if token:
+        respuesta.set_cookie('almacen_descarga_' + token, '1', max_age=120,
+                             path='/', samesite='Lax', secure=True)
+    return respuesta
+
+
+def _token_seguro(token):
+    token = (token or '')[:40]
+    return token if token.isalnum() else ''
