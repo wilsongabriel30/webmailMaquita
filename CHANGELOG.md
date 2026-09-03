@@ -7,6 +7,26 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.4.0] - 2026-09-03
+
+### Corregido
+
+- **BLOQUEANTE de instalación limpia — claves VAPID (#18):** `py-vapid` 1.9.1 pasa la **clase**
+  de la curva a `ec.generate_private_key`, y `cryptography` >=42 exige la **instancia** →
+  `TypeError` en `generate_keys()`; con `set -e`, el instalador **abortaba** dejando la
+  instalación a medias. Ahora las claves se generan con `cryptography` directo
+  (`ec.SECP256R1()` + X962/PKCS8), sin depender de `py_vapid` (la firma de envíos sí lo usa,
+  vía `from_file`). `validar-despliegue.sh` ahora verifica que `/api/push/vapid-public-key`
+  devuelva `enabled:true` con clave no vacía, para que un fallo del paso VAPID no pase en silencio.
+
+### Añadido
+
+- **Aviso de «remitente externo»:** banner discreto (informativo, **no de alarma**) en el correo
+  abierto cuando el remitente es de fuera de la organización. Si es una contraparte frecuente, el
+  usuario lo **marca como conocido**: se agrega a sus contactos (`user_contacts`) y el aviso deja
+  de salir para esa dirección. Backend: `GET /api/mail/remitente-estado`,
+  `POST /api/mail/remitente-conocido`.
+
 ## [1.3.0] - 2026-09-03
 
 ### Corregido
