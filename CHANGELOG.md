@@ -7,6 +7,17 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.5.0] - 2026-09-03
+
+### Añadido
+
+- **UI de S/MIME (Ajustes del webmail):** nueva sección «Certificados S/MIME» donde cada usuario
+  sube su `.p12/.pfx` (firmar/descifrar) o el `.pem/.crt` público de un contacto (cifrarle),
+  lista y elimina sus certificados. El backend `/api/smime/*` ya existía; solo faltaba pantalla.
+- **UI de AIR — respuesta a incidentes (admin):** nueva página «Incidentes (AIR)» que investiga
+  señales de riesgo por ventana de tiempo, muestra los incidentes (severidad, motivos, resumen de
+  IA) y permite **contener** (bloquear) una cuenta comprometida. Backend `/api/air/*` ya existía.
+
 ## [1.4.0] - 2026-09-03
 
 ### Corregido
