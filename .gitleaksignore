@@ -1,1 +1,11 @@
-a02474c08bb2b2e27ce5d336d7c83b8ba6c6bcf9:docs/CONFIGURATION.md:generic-api-key:196
+# Allowlist de gitleaks — falsos positivos y placeholders (T1, ver REMEDIACION-2026-09.md).
+# NO agregar aqui secretos REALES: los reales se rotan y se quitan del arbol.
+
+# dovecot.conf:38 = "default_password_scheme = SHA512-CRYPT" -> es el NOMBRE del esquema de
+# hash, no un secreto. El usuario maestro usa passwd_file_path (/etc/dovecot/master-users),
+# sin ninguna contrasena literal en el repo.
+0f1f5ecc822652a562df9866e38d3214cb3e93b3:deploy/webmail/configs/dovecot.conf:generic-api-key:38
+
+# docs/CONFIGURATION.md:196 = placeholder de documentacion "COMPLIANCE_GPG_KEY_ID=your-key-id-here".
+8f32d583d4da41b319c8d28057e2ded5ec660ff6:docs/CONFIGURATION.md:generic-api-key:196
+3263f2978ad3079e1c46bceda2597723a6eeb102:docs/CONFIGURATION.md:generic-api-key:196
