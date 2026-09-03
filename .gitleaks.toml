@@ -8,5 +8,4 @@ useDefault = true
 description = "Archivos meta de remediacion: contienen fingerprints y descripciones de hallazgos, NO secretos reales."
 paths = [
     '''^\.gitleaksignore$''',
-    '''^REMEDIACION-2026-09\.md$''',
 ]
