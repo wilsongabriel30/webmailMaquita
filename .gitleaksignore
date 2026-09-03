@@ -2,8 +2,7 @@
 # NO agregar aqui secretos REALES: los reales se rotan y se quitan del arbol.
 
 # dovecot.conf:38 = "default_password_scheme = SHA512-CRYPT" -> es el NOMBRE del esquema de
-# hash, no un secreto. El usuario maestro usa passwd_file_path (/etc/dovecot/master-users),
-# sin ninguna contrasena literal en el repo.
+# hash, no un secreto (el usuario maestro usa un passwd-file, sin contrasena literal en el repo).
 0f1f5ecc822652a562df9866e38d3214cb3e93b3:deploy/webmail/configs/dovecot.conf:generic-api-key:38
 
 # docs/CONFIGURATION.md:196 = placeholder de documentacion "COMPLIANCE_GPG_KEY_ID=your-key-id-here".

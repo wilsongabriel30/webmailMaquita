@@ -47,3 +47,6 @@ venv/
 
 # clave privada VAPID (push) — nunca versionar
 backend/vapid_private.pem
+
+# Informe de remediacion: privado (coordinated disclosure); se publica cuando todo este CERRADO.
+REMEDIACION-2026-09.md
