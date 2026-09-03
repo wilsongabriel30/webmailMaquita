@@ -77,6 +77,28 @@ class Settings(BaseSettings):
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 
+def _validar_secretos_obligatorios(s: Settings) -> None:
+    """Aborta el arranque si falta un secreto obligatorio o tiene valor de ejemplo.
+    NUNCA muestra el valor del secreto: el error solo nombra las variables."""
+    _PLACEHOLDER = ("change", "example", "placeholder", "tu-secreto", "your-secret", "changeme")
+    obligatorios = {
+        "SECRET_KEY": s.secret_key,
+        "ADMIN_JWT_SECRET": s.admin_jwt_secret,
+        "MASTER_PASSWORD": s.master_password,
+    }
+    malos = [
+        n for n, v in obligatorios.items()
+        if not (v or "").strip() or any(p in (v or "").lower() for p in _PLACEHOLDER)
+    ]
+    if malos:
+        raise RuntimeError(
+            "Secretos obligatorios faltantes o con valor de ejemplo: " + ", ".join(malos)
+            + ". Definelos en .env con valores reales (no los del .env.example)."
+        )
+
+
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    s = Settings()
+    _validar_secretos_obligatorios(s)
+    return s
