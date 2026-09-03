@@ -68,3 +68,5 @@ uvloop==0.21.0
 vobject==0.9.9
 watchfiles==1.1.1
 websockets==16.0
+pywebpush==2.0.0
+py-vapid==1.9.1

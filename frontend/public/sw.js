@@ -1,4 +1,4 @@
-const CACHE_NAME = "maquita-mail-v202609011023";  // T-35: adjuntos y vistas previas también en caché
+const CACHE_NAME = "maquita-mail-v202609021621";  // T-49: nombre nuevo para descartar el cache anterior, que tenia correo en claro
 const API_CACHE = CACHE_NAME + "-api";
 const BASE = "/webmail/";
 
@@ -9,13 +9,18 @@ const STATIC_ASSETS = [
   BASE + "manifest.json"
 ];
 
-// API endpoints to cache for offline access
+// Lo que el service worker puede guardar.
+//
+// T-49 (02/09/2026): AQUI NO PUEDE HABER CONTENIDO DE CORREO. Se quitaron
+// /api/mail/messages/, /api/mail/message/, /api/mail/attachment/ y /api/mail/preview/
+// porque guardaban cuerpos y adjuntos EN CLARO en el almacen del service worker, al lado
+// del cache que si va cifrado. Lo encontro el candado del cifrado abriendo los archivos
+// del disco. El correo sin conexion no se resiente: sus datos viven en IndexedDB (T-35),
+// que ahora esta cifrado.
+//
+// Se queda solo lo que no dice nada de nadie y hace falta para ARRANCAR sin red.
 const CACHEABLE_API = [
-  "/api/mail/messages/",
-  "/api/mail/message/",
-  "/api/mail/folders",
-  "/api/mail/attachment/",   // T-35: adjuntos ya bajados se abren sin red
-  "/api/mail/preview/",
+  "/api/mail/folders",       // nombres de carpetas y cuantos sin leer
   "/api/contacts/avatars",
   "/api/settings/signature",
   "/api/branding",
@@ -198,4 +203,37 @@ self.addEventListener("message", (event) => {
   if (event.data === "skipWaiting") {
     self.skipWaiting();
   }
+});
+
+// ── Web push (#17): notifica correo nuevo aunque la PWA esté cerrada ──────────
+self.addEventListener("push", (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch (e) { /* payload no JSON */ }
+  const title = data.title || "Maquita Mail";
+  const options = {
+    body: data.body || "",
+    icon: "/webmail/icons/icon-192.png",
+    badge: "/webmail/icons/icon-192.png",
+    tag: "correo-nuevo",
+    renotify: true,
+    data: { url: data.url || "/webmail/" },
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || "/webmail/";
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+      for (const c of list) {
+        if (c.url.includes("/webmail") && "focus" in c) {
+          c.focus();
+          if ("navigate" in c) { try { c.navigate(url); } catch (e) { /* cross-origin */ } }
+          return;
+        }
+      }
+      if (clients.openWindow) return clients.openWindow(url);
+    })
+  );
 });

@@ -204,6 +204,18 @@ async def _poll_user_inbox(username: str, app_state):
                     # Aviso al canal del cliente Windows (tipo «correo»)
                     _uid_nuevo = await _ultimo_sin_leer(imap)
                     await aviso_correo_al_canal(username, unseen - prev, unseen, _uid_nuevo)
+                    # Web push (#17): notifica al navegador aunque la PWA este cerrada.
+                    try:
+                        from app.push import service as _push
+                        _n = unseen - prev
+                        _txt = ('Tienes 1 correo nuevo' if _n == 1
+                                else 'Tienes %d correos nuevos' % _n)
+                        _url = (('/webmail/?folder=INBOX&uid=%d' % _uid_nuevo)
+                                if _uid_nuevo else '/webmail/')
+                        await _push.enviar_a_usuario(app_state.db_pool, username,
+                                                     'Correo nuevo', _txt, _url)
+                    except Exception:
+                        pass
                 elif unseen != prev:
                     # Unseen count changed (read/deleted externally)
                     await redis.publish(f"ws:user:{username}", json.dumps({

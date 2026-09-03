@@ -121,6 +121,19 @@ pip install --quiet -r requirements.txt
 SECRET=$(python3 -c "import secrets; print(secrets.token_hex(32))")
 ADMIN_SECRET=$(python3 -c "import secrets; print(secrets.token_hex(32))")
 MASTER_PASS=$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | head -c 20)
+# VAPID para Web Push del correo (#17): claves UNICAS por instalacion.
+VAPID_PUB=$(python - <<'PYVAPID'
+from py_vapid import Vapid01
+import base64
+from cryptography.hazmat.primitives import serialization
+v = Vapid01(); v.generate_keys()
+pub = v.public_key.public_bytes(serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint)
+priv = v.private_key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption())
+open('vapid_private.pem', 'wb').write(priv)
+print(base64.urlsafe_b64encode(pub).rstrip(b'=').decode())
+PYVAPID
+)
+chmod 600 vapid_private.pem
 cat > .env << ENVEOF
 DATABASE_URL=postgresql://mailserver:${DB_PASS}@localhost:5432/maildb
 REDIS_URL=redis://:${REDIS_PASS}@localhost:6379/0
@@ -134,6 +147,9 @@ SMTP_PORT=587
 SIEVE_HOST=127.0.0.1
 SIEVE_PORT=4190
 MAIL_DOMAIN=${DOMAIN}
+VAPID_PUBLIC_KEY=${VAPID_PUB}
+VAPID_PRIVATE_KEY_PATH=${APP_DIR}/backend/vapid_private.pem
+VAPID_SUB=mailto:admin@${DOMAIN}
 COOKIE_DOMAIN=.${DOMAIN}
 CORS_ORIGINS=https://${MAIL_HOST},https://${DOMAIN},https://webmail.${DOMAIN},https://correo.${DOMAIN}
 RADICALE_URL=http://127.0.0.1:5232

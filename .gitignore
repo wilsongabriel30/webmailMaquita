@@ -44,3 +44,6 @@ chat-service/backups/
 venv/
 **/venv/
 **/__pycache__/
+
+# clave privada VAPID (push) — nunca versionar
+backend/vapid_private.pem

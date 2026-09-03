@@ -94,6 +94,10 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 
 export default function App() {
   const { setUser, user } = useAuthStore();
+  // Notificaciones web push del correo (#17): se activan cuando hay usuario.
+  useEffect(() => {
+    if (user) { import('./lib/webpush').then((m) => m.activarPush()).catch(() => {}); }
+  }, [user]);
   const prevUserRef = React.useRef<string | null>(null);
 
   // BUG 6: Reset mail state when user account changes
