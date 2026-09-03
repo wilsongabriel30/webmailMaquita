@@ -87,13 +87,13 @@ findtime = 300
 # -----------------------------------------------------------------------------
 # Usa filtro personalizado para detectar intentos fallidos de login
 # en la API del webmail (endpoint /api/auth/login). Los logs provienen
-# de uvicorn/journalctl del servicio maquita-webmail.
+# del log de seguridad del backend (security.log, ver backend/app/config.py: security_log_path).
 [maquita-webmail]
 enabled  = true
 port     = http,https
 filter   = maquita-webmail
 # journalctl como fuente (el backend corre como servicio systemd)
-logpath  = /var/log/maquita-webmail/access.log
+logpath  = /var/log/webmail/security.log
 # Alternativa si se usa journalctl directamente:
 # backend  = systemd
 # journalmatch = _SYSTEMD_UNIT=maquita-webmail.service
