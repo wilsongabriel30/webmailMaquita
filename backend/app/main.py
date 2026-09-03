@@ -71,6 +71,8 @@ from app.rooms.router import router as rooms_router
 from app.tasks.router import router as tasks_router
 from app.tareas.router import router as tareas_router
 from app.telemetria.router import router as telemetria_router, asegurar_tabla as asegurar_tabla_telemetria
+from app.push.router import router as push_router
+from app.push.service import asegurar_tabla as asegurar_tabla_push
 from app.tareas.modelos import asegurar_tablas as asegurar_tablas_tareas
 from app.presence.router import router as presence_router
 from app.nextcloud.router import router as nextcloud_router
@@ -269,6 +271,7 @@ async def lifespan(app: FastAPI):
             await ensure_task_tables(app.state.db_pool)
             await asegurar_tablas_tareas(app.state.db_pool)   # T-34
             await asegurar_tabla_telemetria(app.state.db_pool)   # telemetría de la app
+            await asegurar_tabla_push(app.state.db_pool)   # suscripciones web push (#17)
         finally:
             await _ddl_conn.execute("SELECT pg_advisory_unlock(815000)")
     # ── Validación MIME al arranque (protección anti-spam) ──
@@ -502,6 +505,7 @@ async def validation_exception_handler(request, exc):
     )
 
 app.include_router(auth_router)
+app.include_router(push_router)
 app.include_router(oidc_router)
 app.include_router(air_router)
 app.include_router(agents_router)
