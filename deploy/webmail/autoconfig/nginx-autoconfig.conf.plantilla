@@ -1,0 +1,24 @@
+# Autoconfig (Thunderbird, Evolution) — plantilla. El instalador sustituye
+# __DOMINIO__ y __MAIL_HOST__ y coloca este archivo en sites-enabled.
+# Sirve el XML de autoconfiguracion sobre el certificado del correo, para que
+# los clientes NO adivinen el dominio pelado (reporte externo #15).
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name autoconfig.__DOMINIO__;
+
+    ssl_certificate     /etc/letsencrypt/live/__MAIL_HOST__/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/__MAIL_HOST__/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    location = /mail/config-v1.1.xml {
+        alias /var/www/autoconfig/mail/config-v1.1.xml;
+        default_type application/xml;
+    }
+    location = /.well-known/autoconfig/mail/config-v1.1.xml {
+        alias /var/www/autoconfig/mail/config-v1.1.xml;
+        default_type application/xml;
+    }
+    location /.well-known/acme-challenge/ { root /var/www/certbot; }
+    location / { return 301 https://__MAIL_HOST__/webmail/; }
+}
