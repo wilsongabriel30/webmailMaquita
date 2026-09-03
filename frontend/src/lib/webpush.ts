@@ -5,7 +5,8 @@ function base64UrlToUint8Array(base64: string): Uint8Array {
   const padding = '='.repeat((4 - (base64.length % 4)) % 4);
   const b64 = (base64 + padding).replace(/-/g, '+').replace(/_/g, '/');
   const raw = atob(b64);
-  const arr = new Uint8Array(raw.length);
+  const buf = new ArrayBuffer(raw.length);
+  const arr = new Uint8Array(buf);
   for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
   return arr;
 }
@@ -33,7 +34,7 @@ export async function activarPush(): Promise<void> {
       if (Notification.permission !== 'granted') return;
       sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: base64UrlToUint8Array(info.key),
+        applicationServerKey: base64UrlToUint8Array(info.key) as BufferSource,
       });
     }
     const j = sub.toJSON() as { endpoint?: string; keys?: { p256dh?: string; auth?: string } };
