@@ -21,3 +21,6 @@ MAIL_LOG_PATH = "/var/log/mail.log"
 POSTFIX_LOG_PATH = "/var/log/mail.log"
 
 VMAIL_PATH = "/var/vmail"
+
+# Entorno: "development"/"dev"/"local" habilita /docs; por defecto produccion (docs off).
+ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
