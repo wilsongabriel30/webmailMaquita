@@ -93,6 +93,34 @@ async def stats(r: Request, a=Depends(get_current_admin)):
     return dict(row) if row else {}
 
 
+@router.get("/cola-cuarentena")
+async def cola_cuarentena(r: Request, a=Depends(get_current_admin)):
+    """Cola de evidencia diferida (B2): marcadores que el milter dejo cuando el INSERT
+    en la BD fallo (BD caida), + las cuarentenas recientes ya registradas. Asi los
+    marcadores NO quedan mudos: el panel los muestra."""
+    import os, glob
+    cola_dir = os.getenv("MILTER_COLA_CUARENTENA", "/var/lib/maquita-admin/cola-cuarentena")
+    pendientes = []
+    try:
+        for f in sorted(glob.glob(os.path.join(cola_dir, "*.json")))[:200]:
+            try:
+                pendientes.append(json.load(open(f, encoding="utf-8")))
+            except Exception:
+                pendientes.append({"archivo": os.path.basename(f), "error": "ilegible"})
+    except Exception:
+        pass
+    recientes = []
+    try:
+        rows = await _db(r).fetch(
+            "SELECT message_id, filename, content_type, size, scan_result, scanned_by, scanned_at "
+            "FROM attachment_scans WHERE scan_result = 'quarantined' "
+            "ORDER BY scanned_at DESC LIMIT 100")
+        recientes = [dict(x) for x in rows]
+    except Exception:
+        pass
+    return {"pendientes": pendientes, "pendientes_total": len(pendientes), "recientes": recientes}
+
+
 # ── Motor AVANZADO (multi-motor + detonación) del webmail ──
 WEBMAIL = "/opt/maquita-webmail/backend"
 

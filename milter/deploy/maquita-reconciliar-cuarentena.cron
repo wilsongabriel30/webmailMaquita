@@ -1,0 +1,3 @@
+# Reconciliador de la cola de cuarentena diferida (B2). Copiar a /etc/cron.d/.
+# Reinserta en la BD los marcadores que el milter dejo cuando el INSERT fallo.
+*/7 * * * * root /opt/maquita-webmail/backend/venv/bin/python /opt/maquita-webmail/milter/reconciliar_cuarentena.py >/dev/null 2>&1
