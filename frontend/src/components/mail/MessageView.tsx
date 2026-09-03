@@ -12,6 +12,7 @@ import { BotonGuardarEnAlmacen } from '../files/GuardarEnAlmacen';
 // Aviso de enlaces con rastreo de terceros (componente aparte:
 // MessageView ya supera las 1500 lineas y no debe crecer mas).
 import TrackingNotice from './TrackingNotice';
+import RemitenteExternoAviso from './RemitenteExternoAviso';
 
 // Badge de tipo de archivo por extensión (color + etiqueta). Los ejecutables y
 // comprimidos se resaltan para que el usuario note extensiones peligrosas/raras.
@@ -1380,6 +1381,8 @@ const MessageView: React.FC = () => {
             </button>
           </div>
         )}
+
+        <RemitenteExternoAviso email={senderEmail} nombre={senderName} />
 
         <TrackingNotice
           notice={spamMarcado ? null : displayMsg?.tracking_notice}

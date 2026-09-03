@@ -51,6 +51,7 @@ from app.sieve.router import router as sieve_router
 from app.identities.router import router as identities_router
 from app.websocket.router import router as ws_router, start_redis_subscriber
 from app.mail.routers.export import router as export_router
+from app.mail.routers.remitente import router as remitente_router
 from app.auth.totp import router as totp_router
 from app.auth.totp_policy import router as totp_policy_router
 from app.calendar.router import router as calendar_router
@@ -540,6 +541,7 @@ app.include_router(sieve_router)
 app.include_router(identities_router)
 app.include_router(ws_router)
 app.include_router(export_router)
+app.include_router(remitente_router)  # banner remitente externo
 app.include_router(totp_router)
 app.include_router(totp_policy_router)
 app.include_router(calendar_router)
