@@ -33,6 +33,7 @@ from app.shared.router import router as shared_router
 from app.nextcloud.router import router as nextcloud_router
 from app.ediscovery.router import router as ediscovery_router
 from app.branding.router import router as branding_router
+from app import config
 from app.ai_config.router import router as ai_config_router
 from app.office_config.router import router as office_config_router
 from app.voice_config.router import router as voice_config_router
@@ -99,10 +100,10 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[o.strip() for o in config.CORS_ORIGINS.split(",") if o.strip()],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
 )
 
 
