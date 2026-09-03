@@ -39,6 +39,20 @@ from almacen_bd import consultar, ejecutar
 log = logging.getLogger('almacen.auth_webmail')
 
 _SECRETO = os.getenv('WEBMAIL_SECRET_KEY', '')
+
+# [B1] Sin WEBMAIL_SECRET_KEY nadie puede autenticarse; abortar el arranque en vez de
+# arrancar roto. Solo se nombra la variable, nunca el valor.
+def _validar_secreto_almacen():
+    _v = (_SECRETO or '').strip()
+    _PLACEHOLDER = ('change', 'example', 'placeholder', 'tu-secreto', 'your-secret', 'changeme')
+    if not _v or any(p in _v.lower() for p in _PLACEHOLDER):
+        raise RuntimeError(
+            'Falta WEBMAIL_SECRET_KEY (o tiene un valor de ejemplo) — el Almacen no puede '
+            'verificar la sesion del webmail. Definelo en el entorno con un valor real.'
+        )
+
+
+_validar_secreto_almacen()
 _MODO = os.getenv('ALMACEN_MODO_DIRECTORIO', 'local').strip().lower()
 _ADMINS = {u.strip().lower() for u in os.getenv('ALMACEN_ADMINS', '').split(',') if u.strip()}
 _PILOTO = {u.strip().lower() for u in os.getenv('ALMACEN_PILOTO', '').split(',') if u.strip()}
