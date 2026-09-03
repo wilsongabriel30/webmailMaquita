@@ -24,3 +24,17 @@ VMAIL_PATH = "/var/vmail"
 
 # Entorno: "development"/"dev"/"local" habilita /docs; por defecto produccion (docs off).
 ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
+
+def _validar_secretos_obligatorios():
+    """Aborta el arranque del panel si falta JWT_SECRET o tiene valor de ejemplo.
+    No muestra el valor, solo el nombre de la variable."""
+    _PLACEHOLDER = ("change", "example", "placeholder", "tu-secreto", "your-secret", "changeme")
+    v = (JWT_SECRET or "").strip()
+    if not v or any(p in v.lower() for p in _PLACEHOLDER):
+        raise RuntimeError(
+            "Falta JWT_SECRET (o tiene un valor de ejemplo) — el panel no puede firmar tokens. "
+            "Defínelo en el entorno con un valor real."
+        )
+
+
+_validar_secretos_obligatorios()
