@@ -91,7 +91,7 @@ jobs:
           done
 
       - name: Run tests
-        run: pytest --tb=short -q || true
+        run: pytest --tb=short -q
 
   frontend-build:
     name: Frontend Build
@@ -117,12 +117,13 @@ jobs:
   frontend-lint:
     name: Frontend Lint
     runs-on: ubuntu-latest
-    continue-on-error: true
     defaults:
       run:
         working-directory: frontend
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -133,8 +134,18 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: ESLint
-        run: npx eslint . || true
+      # eslint bloquea SOLO en archivos del frontend cambiados vs main (merge-base),
+      # coherente con el pre-commit sobre staged. La deuda preexistente (393+50, 0 de
+      # seguridad) se limpia por lotes aparte; no rompe CI.
+      - name: ESLint (solo archivos cambiados)
+        working-directory: ${{ github.workspace }}
+        run: |
+          BASE=$(git merge-base origin/main HEAD 2>/dev/null || git rev-parse HEAD~1)
+          echo "Base de comparacion: $BASE"
+          FILES=$(git diff --name-only --diff-filter=ACMR "$BASE" HEAD -- 'frontend/**/*.ts' 'frontend/**/*.tsx' 'frontend/**/*.js' 'frontend/**/*.jsx' | sed 's|^frontend/||')
+          if [ -z "$FILES" ]; then echo "Sin archivos de frontend cambiados; nada que lintear."; exit 0; fi
+          echo "Archivos a lintear:"; echo "$FILES"
+          cd frontend && npx eslint $FILES
 
   migration-test:
     name: Migration Test
