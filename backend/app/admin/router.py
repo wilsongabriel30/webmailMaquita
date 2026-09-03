@@ -304,9 +304,13 @@ async def outbound_set_limits(request: Request, admin: str = Depends(require_adm
         await outbound_service.set_limits(burst, rate)
         if isinstance(data.get("whitelist"), list):
             await outbound_service.set_whitelist([str(x).strip().lower() for x in data["whitelist"] if str(x).strip()])
+        if isinstance(data.get("dlp_exempt"), list):
+            await outbound_service.set_dlp_exempt([str(x).strip().lower() for x in data["dlp_exempt"] if str(x).strip()])
     except ValueError as e:
         raise HTTPException(400, str(e))
-    await _audit(request, admin, "outbound_set_limits", None, {"burst": burst, "rate_per_min": rate})
+    await _audit(request, admin, "outbound_set_limits", None,
+                 {"burst": burst, "rate_per_min": rate, "whitelist": data.get("whitelist"),
+                  "dlp_exempt": data.get("dlp_exempt")})
     return await outbound_service.get_limits()
 
 

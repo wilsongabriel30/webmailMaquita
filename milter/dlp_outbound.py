@@ -43,11 +43,33 @@ def _attachments_from_mime(headers, body: bytes) -> list[dict]:
     return out
 
 
+EXEMPT_SENDERS_FILE = "/etc/maquita-mail/dlp-exempt-senders.txt"
+
+
+def _exempt_senders() -> set:
+    """Remitentes de SISTEMA exentos del DLP (uno por linea). Caso de uso: noreply@ de
+    Raices Nomina, que envia a cada trabajador SU rol de pagos (con cedula) a su correo
+    personal. Se lee en cada mensaje para poder cambiarlo sin reiniciar."""
+    out = set()
+    try:
+        with open(EXEMPT_SENDERS_FILE) as fh:
+            for ln in fh:
+                ln = ln.strip().lower()
+                if ln and not ln.startswith("#"):
+                    out.add(ln)
+    except Exception:
+        pass
+    return out
+
+
 async def run(st: dict, sender: str, pool, text: str, manips: list,
               legacy_block_cards: bool = False) -> Continue:
     cfg = await dlp_service.get_config(pool)
     if not cfg.get("enabled"):
         return Continue(manipulations=manips) if manips else Continue()
+    if (sender or "").lower().strip("<>") in _exempt_senders():
+        manips.append(AppendHeader(headername="X-DLP-Exempt", headertext="remitente de sistema autorizado"))
+        return Continue(manipulations=manips)
 
     scan = await dlp_service.scan(pool, "", text, "")
     findings = list(scan.get("findings", []))
