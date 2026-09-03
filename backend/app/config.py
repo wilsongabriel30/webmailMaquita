@@ -72,6 +72,8 @@ class Settings(BaseSettings):
     rate_limit_write_per_min: int = 60
     rate_limit_send_per_min: int = 10
 
+    environment: str = "production"   # "development"/"dev"/"local" habilita /docs
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 
