@@ -1557,3 +1557,41 @@
 .message-meta .edited-badge { margin-right: 3px; font-style: italic; }
 .message-status[title]:hover::after { content: none !important; display: none !important; }
 .message-status.read { color: #34b7f1 !important; }
+
+/* 2026-08-27: modal de llamada / llamada grupal entrante (servicio) */
+.chat-incoming-modal { position: fixed; inset: 0; z-index: 100300; background: rgba(0,0,0,.65); display: flex; align-items: center; justify-content: center; }
+.chat-incoming-card { background: #fff; color: #222; border-radius: 16px; padding: 26px 30px; width: 320px; text-align: center; box-shadow: 0 12px 40px rgba(0,0,0,.35); animation: chatIncomingIn .25s ease; }
+@keyframes chatIncomingIn { from { transform: scale(.9); opacity: 0; } to { transform: none; opacity: 1; } }
+.chat-incoming-avatar { width: 84px; height: 84px; border-radius: 50%; margin: 0 auto 12px; background: #0060a0; color: #fff; font-size: 2rem; font-weight: 700; display: flex; align-items: center; justify-content: center; overflow: hidden; animation: chatIncomingPulse 1.5s infinite; }
+.chat-incoming-avatar img { width: 100%; height: 100%; object-fit: cover; }
+@keyframes chatIncomingPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(0,96,160,.45); } 50% { box-shadow: 0 0 0 14px rgba(0,96,160,0); } }
+.chat-incoming-title { font-weight: 700; font-size: 1.1rem; }
+.chat-incoming-sub { color: #666; font-size: .9rem; margin: 4px 0 18px; }
+.chat-incoming-actions { display: flex; gap: 12px; justify-content: center; }
+.chat-incoming-actions button { border: 0; border-radius: 24px; padding: 10px 18px; font-weight: 600; color: #fff; cursor: pointer; }
+.chat-incoming-accept { background: #25d366; } .chat-incoming-reject { background: #e0443a; }
+[data-theme="dark"] .chat-incoming-card { background: #1f2428; color: #eee; } [data-theme="dark"] .chat-incoming-sub { color: #bbb; }
+
+/* 2026-08-27: Mis notas + edición de grupos */
+.conversation-item.conversation-notas { background: linear-gradient(90deg, rgba(37,211,102,.10), transparent); border-left: 3px solid #25d366; }
+.conversation-item.conversation-notas .conversation-avatar { background: #25d366 !important; color: #fff; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; }
+.badge-tu { display: inline-block; font-size: .62rem; font-weight: 700; background: #25d366; color: #fff; border-radius: 8px; padding: 1px 6px; vertical-align: middle; }
+.grupo-avatar { width: 64px; height: 64px; border-radius: 50%; background: #0060a0; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; overflow: hidden; flex-shrink: 0; }
+.grupo-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.grupo-miembros { max-height: 260px; overflow-y: auto; }
+.grupo-miembro { display: flex; align-items: center; gap: 10px; padding: 6px 4px; border-bottom: 1px solid rgba(0,0,0,.06); }
+.grupo-miembro-avatar { width: 34px; height: 34px; border-radius: 50%; background: #0060a0; color: #fff; display: flex; align-items: center; justify-content: center; overflow: hidden; font-weight: 600; flex-shrink: 0; }
+.grupo-miembro-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.grupo-resultado { padding: 6px 8px; cursor: pointer; border-radius: 6px; } .grupo-resultado:hover { background: #f0f2f5; }
+[data-theme="dark"] .grupo-resultado:hover { background: #2a2f32; }
+/* 2026-08-27: cabecera de grupo estilo Teams: videollamada / llamada (arrancan la llamada grupal) + sin botón extra */
+body.conv-grupo #btnLlamadaAudio, body.conv-grupo #btnLlamadaVideo { display: inline-flex !important; }
+body.conv-grupo #btnConferenciaGrupal { display: none !important; }
+body.conv-notas #btnLlamadaAudio, body.conv-notas #btnLlamadaVideo, body.conv-notas #btnConferenciaGrupal, body.conv-notas #btnChatGrupoDesde { display: none !important; }
+
+/* GIF: fuentes externas como segunda opción (28/08/2026) */
+.gif-externos-pie { grid-column: 1 / -1; text-align: center; padding: 8px 0 4px; }
+.gif-externos-aviso { grid-column: 1 / -1; font-size: 12px; color: #6c757d; padding: 4px 6px; }
+.gif-item-externo { position: relative; }
+.gif-item-externo .gif-fuente { position: absolute; left: 4px; bottom: 4px; font-size: 10px; background: rgba(0,0,0,.6); color: #fff; padding: 1px 5px; border-radius: 8px; }
+.gif-item.gif-importando { opacity: .5; pointer-events: none; }

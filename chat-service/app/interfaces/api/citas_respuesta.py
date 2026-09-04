@@ -11,7 +11,7 @@ El backend ya guardaba `respuesta_a_id`; este módulo lo hace visible:
 import os
 
 import psycopg2
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, session
 
 bp_citas = Blueprint('citas_chat', __name__, url_prefix='/api/chat')
 
@@ -20,6 +20,20 @@ _ETIQUETA_TIPO = {
     'audio': 'Audio', 'document': 'Archivo', 'documento': 'Archivo', 'file': 'Archivo',
 }
 _cache_nombres = {}
+
+
+def _es_participante_de(usuario_id, conversacion_id) -> bool:
+    """True solo si el usuario participa en esa conversacion. Falla CERRADO."""
+    try:
+        dsn = os.getenv('DATABASE_URL')
+        with psycopg2.connect(dsn) as con, con.cursor() as cur:
+            cur.execute(
+                'SELECT 1 FROM chat_participants '
+                'WHERE conversation_id = %s AND user_id = %s LIMIT 1',
+                (int(conversacion_id), int(usuario_id)))
+            return cur.fetchone() is not None
+    except Exception:
+        return False
 
 
 def _nombre_usuario(uid):
@@ -83,11 +97,24 @@ def enriquecer_citas(mensajes, servicio):
 
 @bp_citas.route('/messages/<int:mensaje_id>/cita', methods=['GET'])
 def obtener_cita(mensaje_id):
+    """Cita de un mensaje suelto.
+
+    [A-4] Antes devolvia el contenido y el remitente de CUALQUIER mensaje por su
+    id, sin mirar quien preguntaba: recorriendo ids se leia el chat de toda la
+    organizacion. Ahora hay que ser participante de su conversacion.
+    """
     from interfaces.api.controlador_chat import obtener_servicio_chat
+    usuario_id = session.get('usuario_id')
+    if not usuario_id:
+        return jsonify({'success': False, 'mensaje': 'No autenticado'}), 401
     try:
         ent = obtener_servicio_chat()._repo_mensaje.buscar_por_id(mensaje_id)
     except Exception:
         ent = None
     if not ent:
+        return jsonify({'success': False, 'mensaje': 'Mensaje no encontrado'}), 404
+    conv_id = getattr(ent, 'conversacion_id', None) or getattr(ent, 'conversation_id', None)
+    if not conv_id or not _es_participante_de(usuario_id, conv_id):
+        # Misma respuesta que si no existiera: no se confirma la existencia del id.
         return jsonify({'success': False, 'mensaje': 'Mensaje no encontrado'}), 404
     return jsonify({'success': True, 'cita': _cita_desde_mensaje(ent)})

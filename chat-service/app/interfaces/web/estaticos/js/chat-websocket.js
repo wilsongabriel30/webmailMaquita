@@ -1,6 +1,6 @@
 /**
  * Cliente WebSocket para Chat en Tiempo Real
- * Sistema FARO - Maquita Cushunchic
+ * Raíces - Maquita Cushunchic
  *
  * Maneja la conexion WebSocket con el servidor para:
  * - Mensajes en tiempo real
