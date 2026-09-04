@@ -218,14 +218,42 @@ def _nombre_usuario(usuario_id: int) -> str:
     return f'Usuario {usuario_id}'
 
 
-def _reescribir_url_interna(url: str) -> str:
-    """El Document Server publica URLs con su dominio público; desde el motor
-    conviene descargar por la URL interna (el dominio público puede no
-    resolver, o dar la vuelta por el gateway)."""
+def _url_descarga_ds(url: str):
+    """URL con la que descargar el documento editado, o None si NO la publicó
+    nuestro Document Server.
+
+    [C-8] Devolver None es la defensa contra SSRF. El callback trae la URL en el
+    cuerpo; sin esta comprobación, quien tuviera un token de callback podía hacer
+    que el motor descargara de donde quisiera (incluido el metadata interno de la
+    red) y lo guardara COMO CONTENIDO del archivo. Solo se acepta la dirección
+    pública o la interna del Document Server; si hay interna, se descarga por ella.
+    """
+    url = (url or '').strip()
     publica, interna = url_publica_ds(), url_interna_ds()
-    if publica and interna and url.startswith(publica + '/'):
-        return interna + url[len(publica):]
-    return url
+    if not url:
+        return None
+    if publica and (url == publica or url.startswith(publica + '/')):
+        return (interna + url[len(publica):]) if interna else url
+    if interna and (url == interna or url.startswith(interna + '/')):
+        return url
+    return None
+
+
+def _firma_ds_valida() -> bool:
+    """[C-8] La firma del Document Server es OBLIGATORIA en el callback.
+
+    Antes se verificaba «solo si venía», así que el único requisito duro era el
+    token `t=` del query, que viaja en el JSON de configuración de CUALQUIER
+    lector del documento. Ahora, con secreto configurado, sin firma válida del DS
+    (cabecera Authorization: Bearer o campo `token` del cuerpo) no se guarda nada.
+    """
+    autorizacion = request.headers.get('Authorization', '')
+    if autorizacion.startswith('Bearer '):
+        return verificar_jwt(autorizacion[7:]) is not None
+    cuerpo = request.get_json(silent=True) or {}
+    if cuerpo.get('token'):
+        return verificar_jwt(cuerpo['token']) is not None
+    return False
 
 
 def _validar_peticion_ds(uso: str):
@@ -302,8 +330,11 @@ def onlyoffice_config():
     # Document Server descargue y devuelva el archivo sin sesión web
     exp = int(time.time()) + DIAS_TOKEN * 86400
     token_descarga = firmar_jwt({'u': usuario, 'r': ruta, 'uso': 'descarga', 'exp': exp})
+    # [C-8] 'w': el vale de callback solo autoriza a GUARDAR si quien abrió tenía
+    # permiso de escritura. Un lector recibe el mismo tipo de vale para abrir el
+    # editor, pero con w=False no puede sobrescribir el documento.
     token_callback = firmar_jwt({'u': usuario, 'r': ruta, 'uso': 'callback',
-                                 'b': doc_base, 'exp': exp})
+                                 'b': doc_base, 'w': bool(modo == 'edit'), 'exp': exp})
     url_descarga = f'{URL_PUBLICA}/api/almacen/onlyoffice/download?t={token_descarga}'
     url_callback = f'{URL_PUBLICA}/api/almacen/onlyoffice/callback?t={token_callback}'
 
@@ -395,9 +426,9 @@ def onlyoffice_callback():
         return datos
 
     cuerpo = request.get_json(silent=True) or {}
-    # El Document Server también firma el CUERPO (campo 'token'): verificarla
-    if cuerpo.get('token') and verificar_jwt(cuerpo['token']) is None:
-        log.error('OnlyOffice callback: firma del cuerpo inválida')
+    # [C-8] Firma del Document Server OBLIGATORIA (cabecera o cuerpo).
+    if not _firma_ds_valida():
+        log.error('OnlyOffice callback rechazado: sin firma valida del Document Server')
         return jsonify({'error': 1})
 
     try:
@@ -413,14 +444,18 @@ def onlyoffice_callback():
         # CRÍTICO: responder antes del timeout del proxy; si el DS recibe 504
         # reintenta y luego DESCARTA el documento (incidente Nube 2026-07-01).
         # Se cronometra todo para diagnosticar lentitud.
+        # [C-8] Solo se guarda si el vale autorizaba escritura.
+        if datos.get('w') is not True:
+            log.error('OnlyOffice callback rechazado: vale sin permiso de escritura (%s)', ruta)
+            return jsonify({'error': 1})
         inicio = time.monotonic()
-        url = cuerpo.get('url')
+        url = _url_descarga_ds(cuerpo.get('url'))
         if not url:
-            log.error('OnlyOffice callback sin URL del documento editado')
+            log.error('OnlyOffice callback rechazado: la URL del documento no es del Document Server')
             return jsonify({'error': 1})
 
         try:
-            respuesta = requests.get(_reescribir_url_interna(url), timeout=120)
+            respuesta = requests.get(url, timeout=120)
         except Exception as excepcion:
             log.error('OnlyOffice: no se pudo descargar el documento editado: %s', excepcion)
             return jsonify({'error': 1})
@@ -529,7 +564,7 @@ def onlyoffice_config_public():
     exp = int(time.time()) + DIAS_TOKEN * 86400
     token_descarga = firmar_jwt({'u': propietario, 'r': ruta, 'uso': 'descarga', 'exp': exp})
     token_callback = firmar_jwt({'u': propietario, 'r': ruta, 'uso': 'callback',
-                                 'b': doc_base, 'exp': exp})
+                                 'b': doc_base, 'w': bool(puede_editar), 'exp': exp})
 
     invitado = comp.get('email') or 'Invitado'
     config = {
