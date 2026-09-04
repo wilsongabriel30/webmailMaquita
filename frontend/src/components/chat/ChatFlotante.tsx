@@ -20,6 +20,8 @@ export function ChatFlotante() {
   const [disponible, setDisponible] = useState(false);
   const [abierto, setAbierto] = useState(false);
   const [noLeidos, setNoLeidos] = useState(0);
+  // Origen del chat cuando vive aparte; vacio = mismo origen que el correo.
+  const [origenChat, setOrigenChat] = useState("");
   const abiertoRef = useRef(false);
 
   // 1) Config del panel de control (activado + URL).
@@ -34,6 +36,26 @@ export function ChatFlotante() {
       })
       .catch(() => setEnabled(true));
   }, []);
+
+  // 1b) Entrada al chat. Desde que el chat vive en su propio origen, su cookie ya
+  //     no viaja con la del correo: hay que pedir un vale de un solo uso y cargar
+  //     el iframe con el. Si el chat sigue en el origen del correo, esto devuelve
+  //     la misma URL relativa y no cambia nada.
+  useEffect(() => {
+    if (enabled === false) return;
+    let vivo = true;
+    fetch("/api/chat-sso", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!vivo || !d || !d.url) return;
+        setEmbedUrl(d.url);
+        if (d.origen) setOrigenChat(d.origen);
+      })
+      .catch(() => {});
+    return () => {
+      vivo = false;
+    };
+  }, [enabled]);
 
   // 2) Autodeteccion de disponibilidad del backend de chat.
   //    Se re-chequea cada 60 s y al volver el foco. Si el token de sesion expiro
@@ -95,7 +117,10 @@ export function ChatFlotante() {
   // 4) Aviso INSTANTANEO desde el iframe del chat (postMessage) al llegar mensaje.
   useEffect(() => {
     function onMsg(e: MessageEvent) {
-      if (e.origin !== window.location.origin) return;
+      // El iframe del chat puede estar en OTRO origen. Se acepta solo el suyo
+      // (o el propio, mientras siga sirviendose bajo el correo). Nunca cualquiera.
+      const permitido = origenChat || window.location.origin;
+      if (e.origin !== permitido) return;
       const d: any = e.data;
       if (d && d.source === "maquita-chat" && d.type === "nuevo-mensaje") {
         if (!abiertoRef.current) {
@@ -107,7 +132,7 @@ export function ChatFlotante() {
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [origenChat]);
 
   const toggle = () => {
     setAbierto((v) => {

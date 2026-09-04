@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Conferencia — FARO Maquita</title>
+    <title>Conferencia — Raíces Maquita</title>
     <link rel="stylesheet" href="/static/vendor/font-awesome/css/all.min.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -170,7 +170,21 @@
     </div>
 
     <script src="/static/js/lib/socket.io.min.js"></script>
+    <!-- T-52: donde estan los modulos que necesita el procesador de fondos. Todo en
+         nuestro servidor: ni un archivo sale a internet. -->
+    <script type="importmap">
+    {
+      "imports": {
+        "livekit-client": "/static/js/lib/livekit-client-puente.mjs",
+        "@mediapipe/tasks-vision": "/static/js/lib/mediapipe/vision_bundle.mjs"
+      }
+    }
+    </script>
     <script src="/static/js/lib/livekit-client.umd.min.js?v=2.15.7"></script>
+    <!-- T-52: desenfoque, fondos de Maquita y espejo de la vista propia.
+         La libreria y el modelo se sirven desde AQUI, no de un CDN de fuera. -->
+    <link rel="stylesheet" href="/static/css/chat-llamada-fondos.css?v=20260902-t52">
+    <script src="/static/js/llamada-fondos.js?v=20260902-t52"></script>
     <script>
         // Cierra la vista de llamada: window.close() si es popup; si corre en un
         // iframe (fallback por bloqueo de popups en Firefox/Safari), avisa al padre.
@@ -212,9 +226,10 @@
         const MY_NAME = {{ session.get('usuario_nombre', 'Usuario') | tojson }};
 
         document.getElementById('tituloSala').textContent = NOMBRE_SALA;
-        document.title = NOMBRE_SALA + ' — FARO';
+        document.title = NOMBRE_SALA + ' — Raíces';
 
         const est = {
+            temporizadorVacia: null,   // T-26: cierre cuando la sala queda vacía
             socket: null, room: null, localStream: null,
             muted: false, camOn: false, finalizada: false,
             timerSeconds: 0, timerInterval: null,
@@ -288,13 +303,31 @@
                 const room = new LivekitClient.Room({ adaptiveStream: true, dynacast: true });
                 est.room = room;
 
+                // T-26: si te quedas solo en la llamada, la ventana se cierra sola.
+                // Si alguien vuelve antes de los 5 s, se cancela el cierre.
+                function cierreSiVacia() {
+                    const quedan = est.room ? est.room.remoteParticipants.size : 0;
+                    if (quedan > 0) {
+                        if (est.temporizadorVacia) { clearTimeout(est.temporizadorVacia); est.temporizadorVacia = null; }
+                        return;
+                    }
+                    if (est.temporizadorVacia || est.finalizada) return;
+                    setEstado('Se quedaron todos fuera de la llamada');
+                    est.temporizadorVacia = setTimeout(function () {
+                        if (est.room && est.room.remoteParticipants.size > 0) { est.temporizadorVacia = null; return; }
+                        salir(false);
+                    }, 5000);
+                }
+
                 room.on(LivekitClient.RoomEvent.ParticipantConnected, (p) => {
                     crearTile('tile_' + p.identity, p.name || ('Usuario ' + p.identity), false);
                     iniciarTimer();
+                    if (est.temporizadorVacia) { clearTimeout(est.temporizadorVacia); est.temporizadorVacia = null; }
                 });
                 room.on(LivekitClient.RoomEvent.ParticipantDisconnected, (p) => {
                     quitarTile('tile_' + p.identity);
                     quitarTile('tile_' + p.identity + '_screen');
+                    cierreSiVacia();
                 });
                 room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, pub, p) => {
                     const nombre = p.name || ('Usuario ' + p.identity);
@@ -343,6 +376,10 @@
                 });
 
                 await room.connect(data.url, data.token);
+                // T-15: entrar con camara cuando la llamada grupal se inicio como videollamada
+                if (Q.get('video') === '1') {
+                    setTimeout(function () { try { toggleCam(); } catch (e) {} }, 400);
+                }
 
                 // Publicar microfono
                 for (const t of est.localStream.getAudioTracks()) {
@@ -436,7 +473,7 @@
                 try {
                     const r = await fetch('/api/chat/grabacion/iniciar', {
                         method: 'POST', headers: {'Content-Type':'application/json'},
-                        credentials: 'same-origin', body: JSON.stringify({ room: ROOM })
+                        credentials: 'same-origin', body: JSON.stringify({ room: ROOM, conv: (typeof CONV_ID !== 'undefined' ? CONV_ID : '') })
                     });
                     const d = await r.json();
                     if (!r.ok || !d.exito) throw new Error(d.error || 'no');

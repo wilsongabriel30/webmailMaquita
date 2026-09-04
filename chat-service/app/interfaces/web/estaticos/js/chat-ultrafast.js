@@ -1,6 +1,6 @@
 /**
  * ╔══════════════════════════════════════════════════════════════════════════════╗
- * ║                     SISTEMA FARO - CHAT ULTRA-RÁPIDO v3.0                   ║
+ * ║                     SISTEMA Raíces - CHAT ULTRA-RÁPIDO v3.0                   ║
  * ║                    Fundación Maquita Cushunchic (MCCH)                       ║
  * ║                                                                              ║
  * ║  PROTOCOLO: WebSocket puro (sin HTTP para mensajes)                         ║
