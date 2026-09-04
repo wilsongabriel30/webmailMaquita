@@ -127,6 +127,17 @@ class MensajeDTO:
 # SERVICIO CHAT
 # =============================================================================
 
+import re as _re_gif
+
+_RE_GIF_LOCAL = _re_gif.compile(r'^/static/gifs/[A-Za-z0-9._-]{1,120}$')
+
+
+def _url_gif_local(url) -> bool:
+    """[A-1] True solo si la URL apunta a la galeria local de GIF del propio chat."""
+    u = (url or '').strip()
+    return bool(_RE_GIF_LOCAL.match(u)) and '..' not in u
+
+
 class ServicioChat:
     """
     Servicio principal del chat institucional.
@@ -792,6 +803,14 @@ class ServicioChat:
 
         if not url_gif:
             return RespuestaChat(exito=False, mensaje="URL del GIF es requerida")
+
+        # [A-1] La URL se acepta tal cual y luego el cliente la mete en el HTML del
+        # mensaje. Una URL con comillas rompia el atributo y ejecutaba codigo en el
+        # navegador de TODOS los participantes, en el mismo dominio del correo.
+        # Solo se admite la galeria LOCAL: desde que se quito Tenor, no hay motivo
+        # para aceptar direcciones externas.
+        if not _url_gif_local(url_gif):
+            return RespuestaChat(exito=False, mensaje="Origen del GIF no permitido")
 
         # Crear mensaje
         mensaje = Mensaje.crear_gif(

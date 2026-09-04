@@ -34,15 +34,23 @@
             return '';
         }
 
+        const esc = (t) => String(t == null ? '' : t).replace(/[&<>"']/g,
+            c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
         const reactionsHtml = reactions.map(reaction => {
             const isMyReaction = reaction.user_ids && reaction.user_ids.map(Number).includes(Number(currentUserId));
             const activeClass = isMyReaction ? 'my-reaction' : '';
+            // [A-1] `emoji` viene del mensaje y se metia crudo en el HTML y dentro
+            // de una cadena de onclick. Ahora se escapa al pintar y el clic lo lee
+            // del atributo, sin interpolarlo en codigo.
+            const emojiSeguro = esc(reaction.emoji);
             return `
                 <div class="message-reaction ${activeClass}"
-                     onclick="handleReactionClick(${msg.id}, '${reaction.emoji}')"
-                     title="${reaction.count} ${reaction.count === 1 ? 'persona' : 'personas'}">
-                    <span class="reaction-emoji">${reaction.emoji}</span>
-                    <span class="reaction-count">${reaction.count}</span>
+                     data-emoji="${emojiSeguro}"
+                     onclick="handleReactionClick(${Number(msg.id)}, this.dataset.emoji)"
+                     title="${Number(reaction.count)} ${reaction.count === 1 ? 'persona' : 'personas'}">
+                    <span class="reaction-emoji">${emojiSeguro}</span>
+                    <span class="reaction-count">${Number(reaction.count)}</span>
                 </div>
             `;
         }).join('');
