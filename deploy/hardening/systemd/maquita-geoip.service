@@ -1,0 +1,8 @@
+[Unit]
+Description=Actualiza la base GeoIP local (DB-IP City Lite)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/actualizar-geoip

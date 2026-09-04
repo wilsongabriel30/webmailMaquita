@@ -73,3 +73,4 @@ watchfiles==1.1.1
 websockets==16.0
 pywebpush==2.5.0
 py-vapid==1.9.4
+maxminddb==3.1.1
