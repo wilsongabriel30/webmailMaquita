@@ -1,4 +1,5 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 
 import bcrypt
@@ -75,16 +76,22 @@ async def lifespan(app: FastAPI):
 
     await init_admin_tables(pool)
 
-    # Create default superadmin if none exists
+    # Primer superadmin SOLO desde el entorno (A-9): sin clave literal en el código y
+    # sin escribirla al log. ADMIN_BOOTSTRAP_PASSWORD se usa una vez y se retira del .env.
     count = await pool.fetchval("SELECT count(*) FROM admin_users")
     if count == 0:
-        default_hash = bcrypt.hashpw(b"MaquitaAdmin2026.", bcrypt.gensalt()).decode()
-        await pool.execute(
-            """INSERT INTO admin_users (username, password_hash, display_name, role)
-               VALUES ($1, $2, $3, $4)""",
-            "admin", default_hash, "Administrador", "superadmin",
-        )
-        logger.info("Default superadmin created: admin / MaquitaAdmin2026.")
+        clave = os.getenv("ADMIN_BOOTSTRAP_PASSWORD", "")
+        if len(clave) >= 12:
+            await pool.execute(
+                """INSERT INTO admin_users (username, password_hash, display_name, role)
+                   VALUES ($1, $2, $3, $4)""",
+                os.getenv("ADMIN_BOOTSTRAP_USER", "admin"),
+                bcrypt.hashpw(clave.encode(), bcrypt.gensalt()).decode(), "Administrador", "superadmin",
+            )
+            logger.warning("Superadmin inicial creado desde ADMIN_BOOTSTRAP_PASSWORD; retire esa variable del .env")
+        else:
+            logger.error("No hay administradores: defina ADMIN_BOOTSTRAP_PASSWORD (>= 12 caracteres) "
+                         "en el .env y reinicie para crear el primer superadmin")
 
     logger.info("Maquita Admin Panel ready on port 8001")
     yield

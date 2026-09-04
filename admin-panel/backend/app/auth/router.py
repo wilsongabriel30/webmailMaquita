@@ -85,7 +85,8 @@ async def login(request: Request):
         user["id"],
     )
 
-    token, expires = create_token(user["id"], user["username"], user["role"])
+    con_totp = bool("totp_enabled" in user.keys() and user["totp_enabled"])
+    token, expires = create_token(user["id"], user["username"], user["role"], totp=con_totp)
 
     # Log session
     await db.execute(
@@ -116,6 +117,43 @@ async def login(request: Request):
     }
 
 
+async def _revocar_sesiones(db, user_id: int, salvo: int | None = None) -> int:
+    """Marca revocadas las sesiones vivas del usuario (todas, o todas menos `salvo`)."""
+    res = await db.execute(
+        "UPDATE admin_sessions SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL "
+        "AND ($2::int IS NULL OR id <> $2)", user_id, salvo)
+    return int(res.split()[-1]) if res else 0
+
+
+@router.post("/logout")
+async def logout(request: Request, admin: dict = Depends(get_current_admin)):
+    """Cierra ESTA sesión: el token deja de valer aunque no haya vencido (A-9)."""
+    db = _db(request)
+    await db.execute("UPDATE admin_sessions SET revoked_at = NOW() WHERE id = $1", admin["session_id"])
+    await db.execute(
+        "INSERT INTO admin_audit (admin_id, admin_username, action, ip_address) VALUES ($1, $2, $3, $4)",
+        admin["id"], admin["username"], "logout", _ip(request),
+    )
+    return {"ok": True}
+
+
+@router.post("/logout-all")
+async def logout_all(request: Request, admin: dict = Depends(get_current_admin)):
+    """Cierra todas las sesiones de la cuenta, incluida esta."""
+    n = await _revocar_sesiones(_db(request), admin["id"])
+    return {"ok": True, "revocadas": n}
+
+
+@router.get("/sessions")
+async def list_sessions(request: Request, admin: dict = Depends(get_current_admin)):
+    """Sesiones vivas de la propia cuenta."""
+    filas = await _db(request).fetch(
+        "SELECT id, ip_address, user_agent, created_at, expires_at FROM admin_sessions "
+        "WHERE user_id = $1 AND revoked_at IS NULL AND expires_at > NOW() ORDER BY created_at DESC",
+        admin["id"])
+    return [{**dict(f), "actual": f["id"] == admin["session_id"]} for f in filas]
+
+
 @router.get("/me")
 async def get_me(admin: dict = Depends(get_current_admin)):
     return admin
@@ -140,6 +178,8 @@ async def change_password(request: Request, admin: dict = Depends(get_current_ad
         "UPDATE admin_users SET password_hash = $1 WHERE id = $2",
         _hash_pw(new_pw), admin["id"],
     )
+    # Las demás sesiones caen con la clave vieja (A-9); esta sigue.
+    await _revocar_sesiones(db, admin["id"], salvo=admin["session_id"])
     return {"ok": True}
 
 
@@ -209,6 +249,10 @@ async def update_admin(user_id: int, request: Request, admin: dict = Depends(req
         data.get("active", current["active"]),
         new_hash,
     )
+    # Desactivar, cambiar el rol o la clave invalida sus sesiones al instante.
+    if (data.get("password") or data.get("active", current["active"]) is False
+            or data.get("role", current["role"]) != current["role"]):
+        await _revocar_sesiones(db, user_id)
 
     await db.execute(
         "INSERT INTO admin_audit (admin_id, admin_username, action, target, ip_address) VALUES ($1, $2, $3, $4, $5)",
