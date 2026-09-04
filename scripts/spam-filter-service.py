@@ -25,6 +25,7 @@ import smtplib
 import signal
 import resource
 import subprocess
+import time
 import tempfile
 
 # Neurona de spam (advisory, patron INFINITO) — carga aislada, nunca rompe el filtro
@@ -328,6 +329,13 @@ def check_blacklist_ip(ip, blacklist_ips):
 
 
 BONO_WHITELIST_DOMINIO = 3   # puntos que resta un dominio de confianza
+
+# --- Antivirus ---
+CLAMAV_TIMEOUT_SECS = 25          # margen dentro de PROCESS_TIMEOUT_SECS (60)
+PENALIZACION_NO_ESCANEADO = 2     # puntos si el antivirus no pudo analizar.
+# Deliberadamente POR DEBAJO del umbral (3): que el antivirus caiga no puede,
+# por si solo, mandar a Junk todo el correo entrante. Solo acerca al umbral a
+# un correo que ya tenia indicios.
 
 
 def evaluar_whitelist(sender, sender_domain, whitelist):
@@ -647,21 +655,54 @@ def check_heuristics(msg, subject, body, full_text):
 
 
 def _clamav_verdict(msg):
-    """Escanea el correo con clamd. Devuelve el nombre del virus o None. Fail-open."""
+    """Escanea el correo con clamd.
+
+    Devuelve una tupla (estado, detalle) con estado en:
+      "limpio"       -> clamd analizo el correo y no encontro nada
+      "virus"        -> clamd encontro una firma; detalle es su nombre
+      "no_escaneado" -> clamd NO pudo analizarlo; detalle es el motivo
+
+    Sigue siendo fail-open a proposito: si el antivirus no responde NO se
+    rechaza el correo, porque cortar la entrega de toda la organizacion es
+    peor que entregar sin analizar. Lo que cambia es que un fallo ya no se
+    confunde con un escaneo limpio: se registra como error (no como aviso),
+    suma puntuacion y queda anotado en las razones del correo.
+    """
     try:
         raw = msg.as_bytes()
-    except Exception:
-        return None
-    try:
-        r = subprocess.run(["clamdscan", "--fdpass", "--no-summary", "-"],
-                           input=raw, capture_output=True, timeout=20)
-        out = (r.stdout or b"").decode("utf-8", "replace")
-        for line in out.splitlines():
-            if line.strip().endswith("FOUND"):
-                return line.split(":")[-1].replace("FOUND", "").strip() or "virus"
     except Exception as e:
-        logging.warning("ClamAV scan fallo (fail-open): %s", str(e))
-    return None
+        return "no_escaneado", "serializacion:" + type(e).__name__
+
+    motivo = None
+    # Un solo reintento, y solo para fallos rapidos (error o caida del socket).
+    # Si fue agotamiento de tiempo no se reintenta: gastaria otro turno completo
+    # y el proceso tiene un limite global de PROCESS_TIMEOUT_SECS.
+    for intento in (1, 2):
+        try:
+            r = subprocess.run(["clamdscan", "--fdpass", "--no-summary", "-"],
+                               input=raw, capture_output=True,
+                               timeout=CLAMAV_TIMEOUT_SECS)
+            salida = ((r.stdout or b"") + (r.stderr or b"")).decode("utf-8", "replace")
+            if r.returncode == 1:
+                for line in salida.splitlines():
+                    if line.strip().endswith("FOUND"):
+                        return "virus", (line.split(":")[-1]
+                                         .replace("FOUND", "").strip() or "virus")
+                return "virus", "virus"
+            if r.returncode == 0:
+                return "limpio", None
+            primera = (salida.strip().splitlines() or [""])[0][:120]
+            motivo = "codigo_%d:%s" % (r.returncode, primera)
+        except subprocess.TimeoutExpired:
+            motivo = "tiempo_agotado_%ds" % CLAMAV_TIMEOUT_SECS
+            break
+        except Exception as e:
+            motivo = type(e).__name__ + ":" + str(e)[:100]
+        if intento == 1:
+            time.sleep(0.5)
+
+    logging.error("ANTIVIRUS NO ANALIZO EL CORREO (entregado sin escanear): %s", motivo)
+    return "no_escaneado", motivo
 
 
 def check_spam(msg, keywords, whitelist, blacklist_domains, blacklist_ips, greylist_domains):
@@ -670,9 +711,13 @@ def check_spam(msg, keywords, whitelist, blacklist_domains, blacklist_ips, greyl
     sender_ip = get_sender_ip(msg)
 
     # === ANTIVIRUS (ClamAV): un virus SIEMPRE va a Junk, ignora whitelist ===
-    _virus = _clamav_verdict(msg)
-    if _virus:
-        return True, 100, ["virus:" + _virus], sender_ip
+    _av_estado, _av_detalle = _clamav_verdict(msg)
+    if _av_estado == "virus":
+        return True, 100, ["virus:" + _av_detalle], sender_ip
+    # Un correo que no se pudo escanear no es lo mismo que uno limpio: se
+    # entrega igual, pero deja rastro y pesa en la puntuacion.
+    _av_aviso = ("antivirus:no_escaneado(+%d)" % PENALIZACION_NO_ESCANEADO
+                 if _av_estado == "no_escaneado" else None)
 
     # === LISTA BLANCA ===
     # Antes esto era `if wl in sender` (SUBCADENA) y devolvia HAM con score 0,
@@ -685,7 +730,10 @@ def check_spam(msg, keywords, whitelist, blacklist_domains, blacklist_ips, greyl
     # marcada con "!") exime del analisis; un dominio solo resta puntos.
     _wl_tipo, _wl_entrada = evaluar_whitelist(sender, sender_domain, whitelist)
     if _wl_tipo == "exime":
-        return False, 0, ["whitelist:" + _wl_entrada], sender_ip
+        _r = ["whitelist:" + _wl_entrada]
+        if _av_aviso:
+            _r.append(_av_aviso)
+        return False, 0, _r, sender_ip
 
     subject = decode_subject(msg).lower()
     body = get_body_text(msg).lower()
@@ -693,6 +741,10 @@ def check_spam(msg, keywords, whitelist, blacklist_domains, blacklist_ips, greyl
 
     score = 0
     razones = []
+
+    if _av_aviso:
+        score += PENALIZACION_NO_ESCANEADO
+        razones.append(_av_aviso)
 
     # === LISTA NEGRA DE IPs ===
     is_bl_ip, bl_ip_match = check_blacklist_ip(sender_ip, blacklist_ips)
