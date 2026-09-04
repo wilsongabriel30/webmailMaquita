@@ -92,9 +92,13 @@ def asegurar_tablas_webmail() -> None:
     """)
 
 
-def _sesion_viva(username: str) -> bool:
-    """Si hay Redis configurado, exige que la sesión del webmail siga activa
-    (el logout borra `imap_pass:<usuario>`). Sin Redis, basta el JWT."""
+_AUDIENCIA_EXTERNA = 'drive-externo'   # `aud` que emite acceso_externo.emitir_sesion
+
+
+def _sesion_viva(username: str, clave: str = 'imap_pass:%s') -> bool:
+    """Si hay Redis configurado, exige que la sesión siga activa: `imap_pass:<usuario>`
+    para sesiones del webmail (el logout la borra) y `sesion_externa:<correo>` para
+    cuentas externas del Drive. Sin Redis, basta el JWT."""
     global _redis_cliente
     if not _REDIS_URL:
         return True
@@ -102,31 +106,55 @@ def _sesion_viva(username: str) -> bool:
         if _redis_cliente is None:
             import redis
             _redis_cliente = redis.Redis.from_url(_REDIS_URL, socket_timeout=2)
-        return bool(_redis_cliente.exists(f'imap_pass:{username}'))
+        return bool(_redis_cliente.exists(clave % username))
     except Exception as excepcion:
         log.warning('Redis no disponible para validar sesión (%s); se rechaza', excepcion)
         return False
 
 
-def sesion_actual() -> tuple:
-    """(usuario_id, rol, correo, motivo) de la cookie.
-    motivo: None (ok) | 'sin_sesion' (no logueado) | 'sin_enlace' (buzón válido
-    pero sin identidad en el directorio — mostrar mensaje de ayuda) |
-    'piloto' (fase de pruebas restringida)."""
+def _resolver_cookie() -> tuple:
+    """Valida la cookie `access_token` y resuelve la identidad.
+    Devuelve (usuario_id, rol, correo, motivo); motivo None = ok.
+
+    Dos ámbitos, que NUNCA se cruzan:
+      - Sesión del webmail (sin `aud`): marca `imap_pass:` y directorio de nómina/local.
+      - Cuenta externa del Drive (`aud = drive-externo`): marca `sesion_externa:` y
+        SOLO la tabla `usuarios_externos`. Aunque el correo coincidiera con un buzón
+        interno, jamás recibe la identidad de nómina.
+    """
     if not _SECRETO:
         return None, None, None, 'sin_sesion'
     token = request.cookies.get('access_token')
     if not token:
         return None, None, None, 'sin_sesion'
     try:
-        payload = jwt.decode(token, _SECRETO, algorithms=['HS256'])
+        # verify_aud=False: el `aud` se decide abajo según el ámbito; PyJWT lo
+        # rechazaría de plano y no podríamos distinguir los dos tipos de sesión.
+        payload = jwt.decode(token, _SECRETO, algorithms=['HS256'],
+                             options={'verify_aud': False})
     except jwt.PyJWTError:
         return None, None, None, 'sin_sesion'
     if payload.get('type') != 'access':
         return None, None, None, 'sin_sesion'
     username = (payload.get('sub') or '').strip().lower()
-    if not username or not _sesion_viva(username):
+    if not username:
         return None, None, None, 'sin_sesion'
+
+    audiencia = payload.get('aud')
+    if audiencia or payload.get('ambito'):
+        if audiencia != _AUDIENCIA_EXTERNA or payload.get('ambito') != 'externo':
+            return None, None, None, 'sin_sesion'
+        if not _sesion_viva(username, 'sesion_externa:%s'):
+            return None, None, None, 'sin_sesion'
+        uid, rol = _buscar_en_externos(username)
+        if not uid:
+            return None, None, username, 'sin_enlace'
+        return uid, rol, username, None
+
+    if not _sesion_viva(username):
+        return None, None, None, 'sin_sesion'
+    # Alias: varios buzones de la misma persona -> un solo correo canónico
+    # (la sesión Redis se valida con el buzón REAL; todo lo demás usa el canónico)
     from alias_correo import resolver_alias
     username = resolver_alias(username)
     if _PILOTO and username not in _PILOTO and username not in _ADMINS:
@@ -138,36 +166,26 @@ def sesion_actual() -> tuple:
     return uid, rol, username, None
 
 
+def sesion_actual() -> tuple:
+    """(usuario_id, rol, correo, motivo) de la cookie.
+    motivo: None (ok) | 'sin_sesion' (no logueado) | 'sin_enlace' (buzón válido
+    pero sin identidad en el directorio — mostrar mensaje de ayuda) |
+    'piloto' (fase de pruebas restringida)."""
+    return _resolver_cookie()
+
+
 def usuario_webmail() -> tuple:
     """Valida la cookie del webmail. Devuelve (usuario_id, role) o (None, None)."""
     if not _SECRETO:
         log.error('WEBMAIL_SECRET_KEY no configurado: nadie puede autenticarse')
         return None, None
-    token = request.cookies.get('access_token')
-    if not token:
-        return None, None
-    try:
-        payload = jwt.decode(token, _SECRETO, algorithms=['HS256'])
-    except jwt.PyJWTError:
-        return None, None
-    if payload.get('type') != 'access':
-        return None, None
-    username = (payload.get('sub') or '').strip().lower()
-    if not username or not _sesion_viva(username):
-        return None, None
-    # Alias: varios buzones de la misma persona -> un solo correo canónico
-    # (la sesión Redis se valida con el buzón REAL; todo lo demás usa el canónico)
-    from alias_correo import resolver_alias
-    username = resolver_alias(username)
-    if _PILOTO and username not in _PILOTO and username not in _ADMINS:
+    uid, rol, username, motivo = _resolver_cookie()
+    if motivo or not uid:
         return None, None
     if username in _cache_usuarios:
         return _cache_usuarios[username]
-    resultado = (_buscar_en_nomina(username) if _MODO == 'nomina'
-                 else _obtener_o_crear_local(username))
-    if resultado[0]:
-        _cache_usuarios[username] = resultado
-    return resultado
+    _cache_usuarios[username] = (uid, rol)
+    return uid, rol
 
 
 def asegurar_tablas_externas() -> None:
@@ -234,10 +252,9 @@ def _buscar_en_nomina(correo: str) -> tuple:
                     log.info('Buzon %s enlazado por dominio equivalente a %s@%s', correo, local, otro)
                     break
     if not filas:
-        externo = _buscar_en_externos(correo)
-        if externo[0]:
-            return externo
-        log.info('Buzón %s sin usuario en el directorio central ni externo: acceso denegado', correo)
+        # Una sesión de BUZÓN nunca se resuelve como cuenta externa: los externos
+        # entran con su propio ámbito (aud=drive-externo) y se resuelven aparte.
+        log.info('Buzón %s sin usuario en el directorio central: acceso denegado', correo)
         return None, None
     uid = filas[0]['id']
     rol = filas[0]['role'] or 'user'
