@@ -880,8 +880,10 @@ class ServicioChat:
             return RespuestaChat(exito=False, mensaje="Grupo no encontrado")
 
         # Verificar permisos del admin
+        # [A-5] `activo`: un participante EXPULSADO seguia pasando esta comprobacion,
+        # porque la busqueda no miraba si continuaba en el grupo.
         admin = self._repo_participante.buscar_en_conversacion(conversacion_id, admin_id)
-        if not admin or not admin.puede_agregar_miembros():
+        if not admin or not admin.activo or not admin.puede_agregar_miembros():
             return RespuestaChat(exito=False, mensaje="No tienes permisos")
 
         # Verificar bloqueos
@@ -929,8 +931,9 @@ class ServicioChat:
         usuario_id: int
     ) -> RespuestaChat:
         """Elimina un participante de un grupo."""
+        # [A-5] Igual que al agregar: quien ya no esta en el grupo no expulsa a nadie.
         admin = self._repo_participante.buscar_en_conversacion(conversacion_id, admin_id)
-        if not admin or not admin.puede_expulsar_miembros():
+        if not admin or not admin.activo or not admin.puede_expulsar_miembros():
             return RespuestaChat(exito=False, mensaje="No tienes permisos")
 
         # No puede expulsarse a si mismo
