@@ -87,6 +87,9 @@ jobs:
         env:
           PGPASSWORD: test
         run: |
+          # Las migraciones conceden permisos al rol de la aplicacion; en una base recien
+          # creada no existe y el GRANT abortaria todo. Se crea vacio, como en la instalacion.
+          psql -h localhost -U test -d testdb -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='mailserver') THEN CREATE ROLE mailserver NOLOGIN; END IF; END \$\$;"
           for f in $(ls ../migrations/*.sql 2>/dev/null | sort); do
             echo "-> $f"
             psql -h localhost -U test -d testdb -v ON_ERROR_STOP=1 -f "$f"
