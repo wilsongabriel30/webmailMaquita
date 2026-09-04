@@ -29,7 +29,16 @@ def registrar(socketio):
             logger.warning(f"[WebSocket] join_conversation sin conversation_id, data={data}")
             return
 
-        # Unir al room (verificacion permisiva para debugging)
+        # [A-3] Exigir ser participante. Antes la comprobacion era "permisiva para
+        # debugging": cualquiera con sesion podia unirse a la sala de cualquier
+        # conversacion y recibir en vivo TODO lo que se hablara dentro.
+        if not _es_participante(usuario_id, conversacion_id):
+            logger.warning(
+                f"[WebSocket] join_conversation denegado: usuario {usuario_id} "
+                f"no es participante de {conversacion_id}")
+            emit('error', {'mensaje': 'No autorizado'})
+            return
+
         room = f"conversation_{conversacion_id}"
         join_room(room)
         print(f"[WebSocket] ✅ Usuario {usuario_id} (SID: {request.sid}) unido a sala {room}")
