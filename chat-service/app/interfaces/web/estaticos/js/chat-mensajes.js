@@ -343,15 +343,22 @@
                 gifUrl = msg.gif_url;
             }
 
-            if (gifUrl) {
+            // [A-1] La URL venia del mensaje y se metia cruda en el atributo src y
+            // DENTRO de una cadena de onclick: una comilla la rompia y ejecutaba
+            // codigo en el navegador de todos los participantes. Ahora se admite
+            // solo la galeria local, se escapa al pintar y el clic ya no interpola
+            // la URL: la lee del propio elemento.
+            if (gifUrl && /^\/static\/gifs\/[A-Za-z0-9._-]{1,120}$/.test(gifUrl)) {
                 contentHtml = `
                     <div class="message-media message-gif">
-                        <img src="${gifUrl}" alt="GIF"
+                        <img src="${escapeHtml(gifUrl)}" alt="GIF"
                              style="max-width: 250px; max-height: 200px; border-radius: 8px; cursor: pointer; display: block;"
-                             onclick="viewImage('${gifUrl}')"
+                             onclick="viewImage(this.getAttribute('src'))"
                              onerror="this.alt='Error al cargar GIF'; this.style.padding='20px';">
                     </div>
                 `;
+            } else if (gifUrl) {
+                contentHtml = '<div class="message-text text-muted">GIF no disponible</div>';
             } else {
                 // Sin URL: no mostrar la descripcion como texto
                 contentHtml = '';
