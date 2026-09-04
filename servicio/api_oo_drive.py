@@ -62,7 +62,7 @@ def oo_historial():
     try:
         ruta = normalizar_ruta_virtual(request.args.get('ruta', ''))
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     fid = _file_id(usuario, ruta)
     antiguas = list(reversed(nucleo.listar_versiones(usuario, fid)))  # vieja→nueva
     historia = []
@@ -93,7 +93,7 @@ def oo_historial_datos():
     try:
         ruta = normalizar_ruta_virtual(request.args.get('ruta', ''))
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     nombre = ruta.rsplit('/', 1)[-1]
     extension = nombre.rsplit('.', 1)[-1].lower() if '.' in nombre else ''
     version = int(request.args.get('version', 1))
@@ -150,7 +150,7 @@ def oo_restaurar():
     try:
         ruta = normalizar_ruta_virtual(request.args.get('ruta', ''))
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     datos = request.get_json(silent=True) or {}
     version_id = datos.get('version_id')
     if not version_id:
@@ -214,7 +214,7 @@ def oo_referencia():
     try:
         ruta = normalizar_ruta_virtual(ruta)
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
 
     # El `fileKey` lo envia el CLIENTE, asi que `dueno` es un dato no confiable.
     # Sin esta comprobacion, cualquier usuario autenticado podia pedir un enlace
@@ -232,7 +232,7 @@ def oo_referencia():
     try:
         fisica = ruta_fisica(dueno, ruta)
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     if not os.path.isfile(fisica):
         return error('El libro referenciado no existe', 404)
     nombre = ruta.rsplit('/', 1)[-1]

@@ -65,7 +65,7 @@ def mencion():
     try:
         ruta = normalizar_ruta_virtual(datos.get('ruta', ''))
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
 
     correos = [c.strip().lower() for c in (datos.get('emails') or [])
                if isinstance(c, str) and c.strip()]

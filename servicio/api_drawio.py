@@ -50,7 +50,7 @@ def drawio_cargar():
         ruta = normalizar_ruta_virtual(request.args.get('ruta', ''))
         fisica = ruta_fisica(usuario, ruta)
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     if not os.path.isfile(fisica):
         return error('Archivo no encontrado', 404)
     try:
@@ -73,7 +73,7 @@ def drawio_guardar():
     try:
         ruta = normalizar_ruta_virtual(request.args.get('ruta', ''))
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     datos = request.get_json(silent=True) or {}
     xml = datos.get('xml')
     if xml is None:

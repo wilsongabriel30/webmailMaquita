@@ -147,7 +147,7 @@ def _abrir(escritura=False):
     try:
         ruta = _ruta_pedida()
     except RutaInvalida as excepcion:
-        return None, error(str(excepcion), 400)
+        return None, error(str(excepcion), excepcion.codigo)
     if not _permiso_unidad(usuario, ruta.rsplit('/', 1)[0] or '/',
                            escritura=escritura):
         return None, error(
