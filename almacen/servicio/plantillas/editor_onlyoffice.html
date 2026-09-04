@@ -41,7 +41,15 @@
   const estado = document.getElementById('estado');
 
   function fallo(mensaje) {
-    estado.innerHTML = '<b>No se pudo abrir el editor</b><br>' + mensaje;
+    // [A-14] Antes era innerHTML con un mensaje que el servidor construye a partir
+    // de la ruta pedida: ?ruta=/x.<img src=x onerror=...> se reflejaba y ejecutaba
+    // en el dominio del correo. Ahora el mensaje se pinta como TEXTO.
+    estado.textContent = '';
+    const titulo = document.createElement('b');
+    titulo.textContent = 'No se pudo abrir el editor';
+    estado.appendChild(titulo);
+    estado.appendChild(document.createElement('br'));
+    estado.appendChild(document.createTextNode(String(mensaje == null ? '' : mensaje)));
   }
 
   if (!ruta) { return fallo('Falta la ruta del archivo.'); }

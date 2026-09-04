@@ -862,10 +862,21 @@ const MessageView: React.FC = () => {
     if (!printWindow) return;
     const formattedDate = displayMsg.date ? format(new Date(displayMsg.date), "d 'de' MMMM 'de' yyyy, HH:mm", { locale: es }) : '';
     const body = displayMsg.html_body ? sanitizeHtml(displayMsg.html_body) : `<pre style="white-space:pre-wrap">${escapeHtml(displayMsg.text_body || '')}</pre>`;
+    // [A-12] Asunto, remitente y destinatarios vienen del correo recibido y se
+    // metian crudos en la ventana de impresion, que es del mismo origen y no pasa
+    // por la CSP de nginx. Un asunto con <img src=x onerror=...> ejecutaba codigo
+    // con la sesion del buzon al pulsar Imprimir. La vista Lector de este mismo
+    // archivo ya escapaba: se replica aqui, y se anade la CSP en la propia ventana.
+    const asunto = escapeHtml(displayMsg.subject || '');
+    const de = escapeHtml(displayMsg.from || '');
+    const para = escapeHtml(displayMsg.to || '');
+    const cc = escapeHtml(displayMsg.cc || '');
     printWindow.document.write(`<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>${displayMsg.subject}</title>
+<html><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: https:; style-src 'unsafe-inline'; font-src data:">
+<title>${asunto}</title>
 <style>body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;max-width:800px;margin:24px auto;color:#323130;font-size:14px}.header{border-bottom:1px solid #edebe9;padding-bottom:16px;margin-bottom:16px}.subject{font-size:20px;font-weight:600;margin:0 0 12px}.meta{font-size:12px;color:#605e5c;line-height:1.6}.body-content img{max-width:100%}@media print{body{margin:0}}</style>
-</head><body><div class="header"><h1 class="subject">${displayMsg.subject}</h1><div class="meta"><b>De:</b> ${displayMsg.from}<br><b>Para:</b> ${displayMsg.to}<br>${displayMsg.cc ? `<b>CC:</b> ${displayMsg.cc}<br>` : ''}<b>Fecha:</b> ${formattedDate}<br></div></div><div class="body-content">${body}</div></body></html>`);
+</head><body><div class="header"><h1 class="subject">${asunto}</h1><div class="meta"><b>De:</b> ${de}<br><b>Para:</b> ${para}<br>${cc ? `<b>CC:</b> ${cc}<br>` : ''}<b>Fecha:</b> ${escapeHtml(formattedDate)}<br></div></div><div class="body-content">${body}</div></body></html>`);
     printWindow.document.close();
     printWindow.print();
   }, [displayMsg]);

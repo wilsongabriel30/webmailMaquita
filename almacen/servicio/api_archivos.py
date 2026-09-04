@@ -207,11 +207,35 @@ def ver():
         return error(str(excepcion), excepcion.codigo)
     if not os.path.isfile(fisica):
         return error('Archivo no encontrado', 404)
-    return send_file(fisica, as_attachment=False,
-                     download_name=os.path.basename(fisica))
+    return _entrega_segura(fisica)
 
 
 _EXT_IMAGEN = {'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'}
+
+# [A-13] Lo unico que se muestra DENTRO del navegador. Todo lo demas se descarga.
+# El vector era subir `nota.html` (o un .svg, que es XML y admite script) y pasar
+# el enlace de «ver»: el archivo se renderizaba como pagina en el dominio del
+# correo, con la sesion de quien lo abriera. El SVG queda fuera a proposito.
+_EXT_INCRUSTABLES = {
+    'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png',
+    'gif': 'image/gif', 'webp': 'image/webp', 'bmp': 'image/bmp',
+    'pdf': 'application/pdf', 'mp3': 'audio/mpeg', 'ogg': 'audio/ogg',
+    'wav': 'audio/wav', 'mp4': 'video/mp4', 'webm': 'video/webm',
+    'txt': 'text/plain', 'csv': 'text/csv',
+}
+
+
+def _entrega_segura(fisica):
+    """[A-13] Entrega un archivo: incrustado solo si su tipo no se ejecuta en el
+    navegador; el resto, como descarga. Siempre con nosniff."""
+    extension = os.path.splitext(fisica)[1].lstrip('.').lower()
+    tipo = _EXT_INCRUSTABLES.get(extension)
+    respuesta = send_file(fisica, mimetype=tipo, as_attachment=tipo is None,
+                          download_name=os.path.basename(fisica))
+    respuesta.headers['X-Content-Type-Options'] = 'nosniff'
+    if tipo is None:
+        respuesta.headers['Content-Security-Policy'] = 'sandbox'
+    return respuesta
 
 
 def _miniatura_pdf(fisica: str) -> str:
@@ -353,11 +377,12 @@ def preview():
     ext = os.path.splitext(fisica)[1].lstrip('.').lower()
     if ext in _EXT_IMAGEN:
         if ext == 'svg':
-            return _respuesta_preview(fisica, 'image/svg+xml')
+            # [A-13] El SVG es XML y puede llevar script: no se sirve incrustado.
+            return _entrega_segura(fisica)
         png = _miniatura_imagen(fisica)
         if png:
             return _respuesta_preview(png, 'image/jpeg')
-        return send_file(fisica, as_attachment=False)
+        return _entrega_segura(fisica)   # [A-13] con nosniff, nunca como pagina
     if ext == 'pdf':
         png = _miniatura_pdf(fisica)
         if png:

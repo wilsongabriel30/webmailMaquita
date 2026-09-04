@@ -293,7 +293,8 @@ def onlyoffice_config():
     extension = nombre.rsplit('.', 1)[-1].lower() if '.' in nombre else ''
     tipo_documento = TIPOS_DOCUMENTO.get(extension)
     if not tipo_documento:
-        return error(f'Tipo de archivo no soportado: {extension}', 400)
+        # [A-14] No se devuelve la extension pedida: se reflejaba tal cual.
+        return error('Tipo de archivo no soportado', 400)
 
     try:
         fisica = ruta_fisica(usuario, ruta)
@@ -546,7 +547,7 @@ def onlyoffice_config_public():
     extension = nombre.rsplit('.', 1)[-1].lower() if '.' in nombre else ''
     tipo_documento = TIPOS_DOCUMENTO.get(extension)
     if not tipo_documento:
-        return error(f'Este tipo de archivo no se abre en línea: {extension}', 400)
+        return error('Este tipo de archivo no se abre en linea', 400)
     try:
         fisica = ruta_fisica(propietario, ruta)
     except RutaInvalida as excepcion:
