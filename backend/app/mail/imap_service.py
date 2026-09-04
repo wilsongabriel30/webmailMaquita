@@ -1,3 +1,4 @@
+from app.mail.errors import CredencialIMAPInvalida
 import aioimaplib
 import asyncio
 import email
@@ -28,7 +29,7 @@ async def get_imap_connection(username: str, password: str) -> aioimaplib.IMAP4:
     await imap.wait_hello_from_server()
     resp = await imap.login(username, password)
     if resp.result != "OK":
-        raise ConnectionError("IMAP login failed")
+        raise CredencialIMAPInvalida("IMAP login failed")
     return imap
 
 

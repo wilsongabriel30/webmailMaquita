@@ -3,6 +3,7 @@
 All operations use IMAP UID commands for stable message identification.
 No business logic: the service layer orchestrates with parsers.
 """
+from app.mail.errors import CredencialIMAPInvalida
 import aioimaplib
 import re
 import json
@@ -114,7 +115,7 @@ async def get_imap_connection(username: str, password: str) -> aioimaplib.IMAP4:
             resp = await imap.login(base_user, password)
             if resp.result == "OK":
                 return imap
-        raise ConnectionError("IMAP login failed")
+        raise CredencialIMAPInvalida("IMAP login failed")
     return imap
 
 
