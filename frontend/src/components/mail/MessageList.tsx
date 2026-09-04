@@ -14,6 +14,7 @@ import { usePriority } from '../../hooks/usePriority';
 import { sanitizeHtml } from '../../lib/sanitize';
 import { getFolderDisplayName } from '../../folders';
 import { AVISO_ELIMINAR_CORREO } from '../../lib/deepLinkCorreo';
+import { avisar } from '../../lib/avisosNavegador';   // T-53
 
 // Agrupa acciones rápidas consecutivas (eliminar/archivar fila por fila) en UNA
 // petición bulk: N clics seguidos generaban N POSTs y disparaban el rate limit (429).
@@ -268,7 +269,10 @@ export function MessageList() {
         const newCount = r.total - prevTotalRef.current;
         try { (window as any).__maquitaBeep?.(); } catch {}
         if (Notification.permission === 'granted') {
-          new Notification('Maquita Mail', { body: `${newCount} correo${newCount > 1 ? 's' : ''} nuevo${newCount > 1 ? 's' : ''}`, icon: '/webmail/favicon.svg' });
+          avisar('Maquita Mail', {
+            cuerpo: `${newCount} correo${newCount > 1 ? 's' : ''} nuevo${newCount > 1 ? 's' : ''}`,
+            tipo: 'correo', etiqueta: 'new-mail',
+          });
         } else if (Notification.permission !== 'denied') {
           Notification.requestPermission();
         }

@@ -2,6 +2,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useMailStore } from '../store/mailStore';
 import { showToast } from '../components/common/Toast';
+import { avisar } from '../lib/avisosNavegador';   // T-53: icono propio y clic que lleva a la bandeja
 
 /**
  * WebSocket hook for real-time mail notifications.
@@ -94,10 +95,12 @@ export function useWebSocket(enabled: boolean = true) {
               // Browser notification (if permitted)
               if (Notification.permission === 'granted') {
                 try {
-                  new Notification('Maquita Mail', {
-                    body: delta === 1 ? 'Nuevo correo recibido' : `${delta} correos nuevos`,
-                    icon: '/webmail/favicon.svg',
-                    tag: 'new-mail',
+                  avisar('Maquita Mail', {
+                    cuerpo: delta === 1 ? 'Nuevo correo recibido' : `${delta} correos nuevos`,
+                    tipo: 'correo',
+                    etiqueta: 'new-mail',
+                    carpeta: data.folder || 'INBOX',
+                    uid: data.uid,
                   });
                 } catch {}
               }
@@ -128,10 +131,11 @@ export function useWebSocket(enabled: boolean = true) {
               playNotificationSound();
               if (Notification.permission === 'granted') {
                 try {
-                  new Notification('Maquita - Tareas', {
-                    body: taskMsg,
-                    icon: '/webmail/favicon.svg',
-                    tag: 'task-' + (data.task_id || ''),
+                  avisar('Maquita · Tareas', {
+                    cuerpo: taskMsg,
+                    tipo: 'tarea',
+                    etiqueta: 'task-' + (data.task_id || ''),
+                    destino: '/webmail/tasks',
                   });
                 } catch {}
               }
@@ -145,10 +149,11 @@ export function useWebSocket(enabled: boolean = true) {
               playNotificationSound();
               if (Notification.permission === 'granted') {
                 try {
-                  new Notification('Maquita — Recordatorio', {
-                    body: remMsg,
-                    icon: '/webmail/favicon.svg',
-                    tag: data.tag || 'reminder',
+                  avisar('Maquita · Recordatorio', {
+                    cuerpo: remMsg,
+                    tipo: 'recordatorio',
+                    etiqueta: data.tag || 'reminder',
+                    destino: '/webmail/calendar',
                   });
                 } catch {}
               }

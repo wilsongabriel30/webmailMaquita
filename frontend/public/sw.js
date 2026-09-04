@@ -1,4 +1,4 @@
-const CACHE_NAME = "maquita-mail-v202609021621";  // T-49: nombre nuevo para descartar el cache anterior, que tenia correo en claro
+const CACHE_NAME = "maquita-mail-v202609041254";  // T-49: nombre nuevo para descartar el cache anterior, que tenia correo en claro
 const API_CACHE = CACHE_NAME + "-api";
 const BASE = "/webmail/";
 
