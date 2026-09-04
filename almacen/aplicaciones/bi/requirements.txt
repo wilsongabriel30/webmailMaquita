@@ -1,10 +1,13 @@
+# Versiones fijadas el 2026-09-04 a partir de lo que realmente corre en produccion
+# (Tableros/BI, corre en la VM 101). Fijar no actualiza nada: deja por escrito lo que ya estaba instalado,
+# para que una instalacion nueva no traiga versiones distintas sin querer. [C2]
 # Tableros / BI — Aplicación del Drive Maquita
-Flask
-gunicorn
-Flask-Login
-PyJWT
-redis
-httpx
-numpy
-pandas
-openpyxl
+Flask==3.1.2
+gunicorn==23.0.0
+Flask-Login==0.6.3
+PyJWT==2.10.1
+redis==7.1.0
+httpx==0.28.1
+numpy==2.4.6
+pandas==2.3.3
+openpyxl==3.1.5
