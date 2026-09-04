@@ -214,11 +214,21 @@ def crear_socketio(app, redis_url: Optional[str] = None) -> SocketIO:
     sio_logger = not es_produccion
     eio_logger = not es_produccion
 
+    # [A-6] Origenes permitidos para Socket.IO. Antes era "*" CON credenciales: desde
+    # cualquier web se podia abrir un socket con la sesion de quien la visitara y leer
+    # su chat en tiempo real. Ahora es una lista blanca explicita.
+    # Se configura con CHAT_CORS_ORIGENES (separados por coma). Sin variable se usan
+    # los origenes conocidos del despliegue; nunca se vuelve a "*".
+    _origenes = [o.strip() for o in os.environ.get('CHAT_CORS_ORIGENES', '').split(',') if o.strip()]
+    if not _origenes:
+        _origenes = ['https://mensajeria.maquita.org', 'https://mail.maquita.org']
+    logger.info(f"[WebSocket] Origenes permitidos: {_origenes}")
+
     if redis_url:
         # Usar Redis para escalar a multiples workers
         socketio = SocketIO(
             app,
-            cors_allowed_origins="*",
+            cors_allowed_origins=_origenes,
             async_mode='eventlet',
             message_queue=redis_url,
             logger=sio_logger,
@@ -229,7 +239,7 @@ def crear_socketio(app, redis_url: Optional[str] = None) -> SocketIO:
         # Modo desarrollo sin Redis
         socketio = SocketIO(
             app,
-            cors_allowed_origins="*",
+            cors_allowed_origins=_origenes,
             async_mode='eventlet',
             logger=sio_logger,
             engineio_logger=eio_logger
