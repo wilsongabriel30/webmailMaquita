@@ -338,20 +338,39 @@ async def impersonate(body: ImpersonateRequest, request: Request, response: Resp
     if imp_count > 5:
         raise HTTPException(429, "Demasiados intentos de impersonacion")
 
-    # Verify the admin token is valid (from admin panel)
+    # Vale de impersonación con ámbito (A-17): lo emite el panel para UN buzón, dura 5 min,
+    # solo superadmin con sesión abierta con TOTP, y se consume una sola vez.
     try:
         payload = pyjwt.decode(body.admin_token, settings.admin_jwt_secret, algorithms=["HS256"])
-        admin_role = payload.get("role", "")
-        if admin_role not in ("superadmin", "admin"):
-            raise HTTPException(403, "Se requiere rol de administrador")
-        admin_user = payload.get("username", "unknown")
     except Exception:
         raise HTTPException(403, "Token de administrador inválido")
+    if payload.get("purpose") != "impersonate":
+        raise HTTPException(403, "El token no es un vale de impersonación")
+    if payload.get("role") != "superadmin":
+        raise HTTPException(403, "Solo un superadmin puede impersonar")
+    if payload.get("totp") is not True:
+        raise HTTPException(403, "Impersonar exige sesión con segundo factor (TOTP)")
+    admin_user = payload.get("username", "unknown")
 
     # Normalize target username
     username = body.username.strip().lower()
     if "@" not in username:
         username = f"{username}@{settings.mail_domain}"
+    objetivo = str(payload.get("target", "")).strip().lower()
+    if "@" not in objetivo:
+        objetivo = f"{objetivo}@{settings.mail_domain}"
+    if objetivo != username:
+        raise HTTPException(403, "El vale no corresponde a este buzón")
+
+    # Nunca contra un superadministrador del correo.
+    db_chk = request.app.state.db_pool
+    if await db_chk.fetchval("SELECT 1 FROM admin WHERE username = $1 AND superadmin = true", username):
+        raise HTTPException(403, "No se puede impersonar a un superadministrador")
+
+    # Un solo uso: el jti queda quemado hasta que el vale venza.
+    jti = str(payload.get("jti") or "")
+    if not jti or not await redis_imp.set(f"imp_usado:{jti}", admin_user, ex=600, nx=True):
+        raise HTTPException(403, "Vale de impersonación ya usado o inválido")
 
     # Authenticate via Dovecot master user
     master_password = settings.master_password  # Securizado Fase 3

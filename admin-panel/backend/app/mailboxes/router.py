@@ -347,10 +347,13 @@ async def get_all_quotas(request: Request, admin: dict = Depends(get_current_adm
     return quotas
 
 @router.post("/{username:path}/impersonate")
-async def impersonate_mailbox(username: str, request: Request, admin: dict = Depends(require_role("superadmin", "admin"))):
-    """Generate impersonation URL to open user mailbox in webmail."""
-    from app.auth.jwt import create_token
+async def impersonate_mailbox(username: str, request: Request, admin: dict = Depends(require_role("superadmin"))):
+    """Vale de impersonación con ámbito (A-17): solo superadmin con sesión abierta con TOTP,
+    para ESTE buzón, 5 minutos y un solo uso (lo consume el backend del correo)."""
+    from app.auth.jwt import create_impersonation_token
     db = _db(request)
+    if not admin.get("totp"):
+        raise HTTPException(403, "Impersonar exige haber iniciado sesión con segundo factor (TOTP)")
     
     # Verify mailbox exists
     row = await db.fetchrow("SELECT username, active FROM mailbox WHERE username = $1", username)
@@ -358,7 +361,7 @@ async def impersonate_mailbox(username: str, request: Request, admin: dict = Dep
         raise HTTPException(404, "Buzón no encontrado")
     
     # Create admin token - the webmail /impersonate endpoint will verify it
-    token, _ = create_token(admin["id"], admin["username"], admin["role"])
+    token = create_impersonation_token(admin["id"], admin["username"], admin["role"], admin["totp"], username)
     
     await _audit(request, admin, "mailbox_impersonate", username)
     return {"token": token, "username": username}

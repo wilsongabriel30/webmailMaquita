@@ -19,8 +19,9 @@ async def get_current_user(request: Request) -> str:
     # Check if session is still active (logout deletes imap_pass from Redis)
     redis = request.app.state.redis
     session_active = await redis.exists(f"imap_pass:{username}")
-    # Extend password TTL on every authenticated request (keep-alive)
-    if session_active:
+    # Extend password TTL on every authenticated request (keep-alive), salvo en sesiones
+    # de impersonación (imap_master): esas vencen a la hora sin prórroga (A-17).
+    if session_active and not await redis.exists(f"imap_master:{username}"):
         from app.config import get_settings
         _s = get_settings()
         await redis.expire(f"imap_pass:{username}", _s.access_token_expire_minutes * 60)
