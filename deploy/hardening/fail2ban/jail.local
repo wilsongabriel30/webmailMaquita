@@ -88,8 +88,12 @@ findtime = 300
 # Usa filtro personalizado para detectar intentos fallidos de login
 # en la API del webmail (endpoint /api/auth/login). Los logs provienen
 # del log de seguridad del backend (security.log, ver backend/app/config.py: security_log_path).
+# En el servidor este jail se llama [webmail-login] (filtro webmail.conf). El DEFAULT
+# global es backend = systemd (journal): un jail que lee un ARCHIVO debe decir backend = auto,
+# si no fail2ban ignora logpath y nunca detecta nada.
 [maquita-webmail]
 enabled  = true
+backend  = auto
 port     = http,https
 filter   = maquita-webmail
 # journalctl como fuente (el backend corre como servicio systemd)
