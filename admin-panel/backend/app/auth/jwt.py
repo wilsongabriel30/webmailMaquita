@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 
 import jwt as pyjwt
 
-from app.config import JWT_SECRET, JWT_ALGORITHM, JWT_EXPIRE_MINUTES
+from app.config import ADMIN_JWT_SECRET, JWT_SECRET, JWT_ALGORITHM, JWT_EXPIRE_MINUTES
 
 IMPERSONACION_MINUTOS = 5
 
@@ -45,7 +45,9 @@ def create_impersonation_token(user_id: int, username: str, role: str, totp: boo
         "exp": ahora + timedelta(minutes=IMPERSONACION_MINUTOS),
         "iat": ahora,
     }
-    return pyjwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    # El vale cruza al backend del correo: se firma con el secreto COMPARTIDO,
+    # no con el de sesion del panel (si no, el backend no puede verificarlo).
+    return pyjwt.encode(payload, ADMIN_JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
 def decode_token(token: str) -> dict | None:
