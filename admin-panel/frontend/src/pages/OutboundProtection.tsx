@@ -5,6 +5,7 @@ interface Limits {
   burst: number | null;
   rate_per_min: number | null;
   whitelist: string[];
+  dlp_exempt?: string[];
 }
 interface ActivityRow { user: string; count: number; }
 interface Activity { hours: number; note?: string; top: ActivityRow[]; }
@@ -13,6 +14,7 @@ export function OutboundProtection() {
   const [burst, setBurst] = useState<number>(200);
   const [rate, setRate] = useState<number>(3);
   const [wlText, setWlText] = useState("");
+  const [dlpText, setDlpText] = useState("");
   const [act, setAct] = useState<ActivityRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -29,6 +31,7 @@ export function OutboundProtection() {
     if (l.burst != null) setBurst(l.burst);
     if (l.rate_per_min != null) setRate(l.rate_per_min);
     setWlText((l.whitelist || []).join(", "));
+    setDlpText((l.dlp_exempt || []).join(", "));
   }
   async function loadActivity() {
     const a = await api.get<Activity>("/admin/outbound/activity?hours=1");
@@ -60,7 +63,7 @@ export function OutboundProtection() {
   async function save() {
     setSaving(true); setMsg(null);
     try {
-      await api.put("/admin/outbound/limits", { burst, rate_per_min: rate, whitelist: wl(wlText) });
+      await api.put("/admin/outbound/limits", { burst, rate_per_min: rate, whitelist: wl(wlText), dlp_exempt: wl(dlpText) });
       await loadLimits();
       setMsg({ ok: true, text: "Límite aplicado y rspamd recargado." });
     } catch (e: any) {
@@ -123,10 +126,18 @@ export function OutboundProtection() {
           Equivale a ~{rate * 60} correos/hora sostenidos tras una ráfaga de {burst}. Sugerido: burst 200, {`${rate}/min`}.
         </p>
         <label className="flex flex-col text-sm">
-          <span className="text-gray-600 mb-1">Cuentas exentas (bulk legítimo) — separadas por coma</span>
+          <span className="text-gray-600 mb-1">Cuentas exentas del límite y del detector de envío masivo (bulk legítimo) — separadas por coma</span>
           <textarea value={wlText} onChange={(e) => setWlText(e.target.value)} rows={2}
-            placeholder="ventas@maquita.org, notificaciones@maquita.org"
+            placeholder="noreply@maquita.org, comunicacion@maquita.org"
             className="border rounded px-3 py-2 w-full" />
+          <span className="text-xs text-gray-400 mt-1">Úsala también, de forma temporal, cuando alguien deba enviar un correo a todo el personal: así no se le bloquea la cuenta.</span>
+        </label>
+        <label className="flex flex-col text-sm">
+          <span className="text-gray-600 mb-1">Cuentas de sistema exentas de la Protección de datos (DLP) hacia externos — separadas por coma</span>
+          <textarea value={dlpText} onChange={(e) => setDlpText(e.target.value)} rows={2}
+            placeholder="noreply@maquita.org"
+            className="border rounded px-3 py-2 w-full" />
+          <span className="text-xs text-gray-400 mt-1">Solo para remitentes automáticos que por diseño envían datos personales a su propio dueño (p. ej. Raíces Nómina envía a cada trabajador su rol con cédula a su correo personal). No agregar cuentas de personas.</span>
         </label>
         <button onClick={save} disabled={saving}
           className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50">

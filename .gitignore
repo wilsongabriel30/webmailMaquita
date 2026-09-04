@@ -50,3 +50,17 @@ backend/vapid_private.pem
 
 # Informe de remediacion: privado (coordinated disclosure); se publica cuando todo este CERRADO.
 REMEDIACION-2026-09.md
+
+# Informes de auditoria: contienen mapa de explotacion. NUNCA al repositorio
+# publico mientras haya hallazgos abiertos.
+docs/auditoria/
+
+# Copias de seguridad y paquetes sueltos dentro del arbol de trabajo
+*.bak
+*.bak.*
+backup-*/
+*.tar.gz
+
+# Guiones de prueba de humo con sesiones reales (no son parte del producto)
+backend/humo_*.py
+backend/sesion_prueba.py

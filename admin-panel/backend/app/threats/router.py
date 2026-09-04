@@ -13,6 +13,7 @@ from fastapi import APIRouter, Request, Depends, HTTPException
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_admin, require_role
+from app.wrappers.privilegios import con_sudo
 
 router = APIRouter(prefix="/api/threats", tags=["threats"])
 RSPAMD_MAP = "/etc/rspamd/local.d/maps/blacklist_domains.map"
@@ -125,7 +126,7 @@ class BlockSenderIn(BaseModel):
 def _rspamd_block(pattern: str, who: str):
     with open(RSPAMD_MAP, "a") as f:
         f.write(f"{pattern}  # bloqueado por {who}\n")
-    subprocess.run(["systemctl", "reload", "rspamd"], timeout=15, capture_output=True)
+    subprocess.run(list(con_sudo("systemctl", "reload", "rspamd")), timeout=15, capture_output=True)
 
 
 @router.post("/block-sender")

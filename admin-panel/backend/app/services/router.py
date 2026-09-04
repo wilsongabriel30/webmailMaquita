@@ -4,6 +4,7 @@ import re
 from asyncio.subprocess import PIPE
 from fastapi import APIRouter, Request, HTTPException, Depends, Query
 from app.auth.dependencies import get_current_admin, require_role
+from app.wrappers.privilegios import con_sudo
 
 router = APIRouter(prefix="/api/services", tags=["services"])
 
@@ -49,7 +50,7 @@ async def _audit(r, a, action, target=None, details=None):
 
 
 async def _run(*cmd) -> tuple[str, str, int]:
-    proc = await asyncio.create_subprocess_exec(*cmd, stdout=PIPE, stderr=PIPE)
+    proc = await asyncio.create_subprocess_exec(*con_sudo(*cmd), stdout=PIPE, stderr=PIPE)
     out, err = await proc.communicate()
     return out.decode(errors="replace"), err.decode(errors="replace"), proc.returncode
 
@@ -352,8 +353,16 @@ async def _update_postfix(data: dict, request, admin):
         if k not in POSTFIX_EDITABLE:
             results[k] = {"ok": False, "error": "Parametro no editable"}
             continue
-        # Validate: no shell injection
+        # La clave ya viene de una lista cerrada (POSTFIX_EDITABLE). El valor no:
+        # llega del cuerpo de la peticion. No hay interprete de comandos de por
+        # medio, pero un salto de linea dentro del valor se escribe tal cual en
+        # main.cf y Postfix lo lee como continuacion de la directiva, asi que se
+        # podria colar una segunda directiva. Se rechaza en vez de recortarse,
+        # para que el administrador vea que su valor no era valido.
         safe_val = str(v).replace("'", "")
+        if "\n" in safe_val or "\r" in safe_val:
+            results[k] = {"ok": False, "error": "El valor no puede contener saltos de linea"}
+            continue
         out, err, rc = await _run("postconf", "-e", f"{k}={safe_val}")
         results[k] = {"ok": rc == 0, "error": err if rc != 0 else None}
         if rc == 0:
