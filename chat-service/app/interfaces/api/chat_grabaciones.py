@@ -49,12 +49,20 @@ def _egress_twirp(metodo: str, cuerpo: dict):
 
 
 def _usuario_en_sala(room: str, usuario_id: int) -> bool:
-    """True si el usuario puede operar/ver una sala (participante de la llamada 1-1
-    o cualquier autenticado en conferencias)."""
+    """True si el usuario puede operar/ver la grabacion de una sala.
+
+    [A-5] Antes bastaba con que la sala empezara por `conf_`: cualquier usuario
+    autenticado que conociera o adivinara el identificador podia iniciar, detener
+    y descargar la grabacion de una reunion ajena. Ahora la conferencia se
+    comprueba contra la pertenencia registrada (ver conferencia_miembros).
+    """
     if room.startswith('llamada_'):
         partes = room.split('_')[1:]
         return str(usuario_id) in partes
-    return room.startswith('conf_')  # conferencias: cualquier participante autenticado
+    if room.startswith('conf_'):
+        from interfaces.api.conferencia_miembros import estuvo_en
+        return estuvo_en(room, usuario_id)
+    return False
 
 
 @bp_chat.route('/grabacion/iniciar', methods=['POST'])
