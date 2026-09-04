@@ -41,7 +41,7 @@ def crear_documento():
     try:
         ruta = normalizar_ruta_virtual(datos.get('ruta', ''))
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     if ruta == '/' or ruta.endswith('/'):
         return error('Ruta inválida', 400)
 

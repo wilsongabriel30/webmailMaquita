@@ -48,7 +48,15 @@ def unidad_de_ruta(ruta_virtual: str):
 
 
 class RutaInvalida(Exception):
-    """La ruta pedida es peligrosa o está fuera del espacio del usuario."""
+    """La ruta pedida es peligrosa o está fuera del espacio del usuario.
+    `codigo` es el HTTP que debe devolver la API: 400 (ruta mal formada) o
+    403 (ruta válida pero sin permiso: unidad compartida, contenido ajeno)."""
+    codigo = 400
+
+    def __init__(self, mensaje='Ruta inválida', codigo=None):
+        super().__init__(mensaje)
+        if codigo is not None:
+            self.codigo = codigo
 
 
 def normalizar_ruta_virtual(ruta: str) -> str:
@@ -134,7 +142,7 @@ def ruta_fisica(usuario_id: int, ruta_virtual: str, zona: str = 'archivos',
         # datos, planos CAD…), y bastaría un solo sitio que no preguntara para
         # que alguien leyera lo ajeno escribiendo la ruta a mano. Falla cerrado.
         if not puede_entrar_al_espacio(usuario_id, propietario, sub_compartida):
-            raise RutaInvalida('No tienes acceso a este contenido compartido')
+            raise RutaInvalida('No tienes acceso a este contenido compartido', codigo=403)
         base = raiz_usuario(propietario, zona)
         limpia = sub_compartida
         destino = os.path.join(base, limpia.lstrip('/'))
@@ -155,7 +163,7 @@ def ruta_fisica(usuario_id: int, ruta_virtual: str, zona: str = 'archivos',
         try:
             exigir_permiso_unidad(usuario_id, unidad_id, sub, escritura)
         except SinPermisoUnidad as excepcion:
-            raise RutaInvalida(str(excepcion)) from excepcion
+            raise RutaInvalida(str(excepcion), codigo=403) from excepcion
         base = os.path.join(raiz_datos(), '_unidades', str(unidad_id), zona)
         os.makedirs(base, exist_ok=True)
         limpia = sub

@@ -24,6 +24,7 @@ log = logging.getLogger('almacen.permisos_unidad')
 
 class SinPermisoUnidad(RutaInvalida):
     """El usuario no es miembro de la unidad, o su rol no permite escribir."""
+    codigo = 403
 
 
 def rol_en_unidad(usuario_id, unidad_id):

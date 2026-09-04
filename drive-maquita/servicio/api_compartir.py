@@ -48,7 +48,7 @@ def crear_compartido(usuario, datos):
     try:
         ruta = normalizar_ruta_virtual(datos.get('ruta', ''))
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     if ruta == '/':
         return error('No se puede compartir la raíz', 400)
 
@@ -88,7 +88,7 @@ def crear_compartido(usuario, datos):
                 'Eso ya no está en tu Drive, así que no se puede compartir. '
                 'Actualizá la vista (F5) y comprobá que siga ahí.', 404)
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
 
     # ── POLÍTICA DE MACROS ──────────────────────────────────────────────────
     # Un archivo con macros es de uso interno de los trabajadores de Maquita.
@@ -471,7 +471,7 @@ def ajustes_de_elemento():
     try:
         ruta = normalizar_ruta_virtual(crudo or '')
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     if ruta == '/':
         return error('La raíz no admite ajustes de compartición', 400)
 

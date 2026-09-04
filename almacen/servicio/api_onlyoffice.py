@@ -259,7 +259,7 @@ def onlyoffice_config():
     try:
         ruta = normalizar_ruta_virtual(request.args.get('ruta', ''))
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
 
     nombre = ruta.rsplit('/', 1)[-1]
     extension = nombre.rsplit('.', 1)[-1].lower() if '.' in nombre else ''
@@ -270,7 +270,7 @@ def onlyoffice_config():
     try:
         fisica = ruta_fisica(usuario, ruta)
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     if not os.path.isfile(fisica):
         return error('Archivo no encontrado', 404)
 
@@ -515,7 +515,7 @@ def onlyoffice_config_public():
     try:
         fisica = ruta_fisica(propietario, ruta)
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     if not os.path.isfile(fisica):
         return error('El archivo ya no existe', 404)
 

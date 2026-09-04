@@ -127,7 +127,7 @@ def listar():
             return error('No tienes acceso a esta unidad compartida', 403)
         carpetas, archivos = nucleo.listar(usuario, ruta)
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     except FileNotFoundError:
         return error('Carpeta no encontrada', 404)
 
@@ -167,7 +167,7 @@ def subir():
             subidos.append(r)
             registrar_actividad(usuario, 'subio', r['ruta'], r.get('tamano_humano', ''))
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     return jsonify({'success': True, 'archivos': subidos,
                     'total': len(subidos)}), 201
 
@@ -182,7 +182,7 @@ def descargar():
     try:
         fisica = ruta_fisica(usuario, request.args.get('ruta', ''))
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     if not os.path.isfile(fisica):
         return error('Archivo no encontrado', 404)
 
@@ -204,7 +204,7 @@ def ver():
     try:
         fisica = ruta_fisica(usuario, request.args.get('ruta', ''))
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     if not os.path.isfile(fisica):
         return error('Archivo no encontrado', 404)
     return send_file(fisica, as_attachment=False,
@@ -346,8 +346,8 @@ def preview():
     ruta = request.args.get('file') or request.args.get('ruta') or ''
     try:
         fisica = ruta_fisica(usuario, ruta)
-    except RutaInvalida:
-        return error('Ruta inválida', 400)
+    except RutaInvalida as excepcion:
+        return error(str(excepcion), excepcion.codigo)
     if not os.path.isfile(fisica):
         return error('Sin vista previa', 404)
     ext = os.path.splitext(fisica)[1].lstrip('.').lower()
@@ -379,7 +379,7 @@ def crear_acceso_directo():
         r = nucleo.crear_acceso_directo(usuario, datos.get('carpeta', '/'),
                                         datos['destino'], datos.get('nombre'))
     except RutaInvalida as e:
-        return error(str(e), 400)
+        return error(str(e), e.codigo)
     except FileNotFoundError as e:
         return error(str(e), 404)
     return jsonify({'success': True, **r}), 201
@@ -410,7 +410,7 @@ def eliminar():
     try:
         nucleo.enviar_a_papelera(usuario, ruta)
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     except FileNotFoundError:
         return error('No existe el elemento', 404)
     registrar_actividad(usuario, 'elimino', ruta)
@@ -442,7 +442,7 @@ def mover():
     try:
         nucleo.mover(usuario, datos['origen'], datos['destino'])
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     except FileNotFoundError:
         return error('El origen no existe', 404)
     registrar_actividad(usuario, 'movio', datos['destino'], datos['origen'])
@@ -459,7 +459,7 @@ def copiar():
     try:
         nucleo.copiar(usuario, datos['origen'], datos['destino'])
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     except FileNotFoundError:
         return error('El origen no existe', 404)
     registrar_actividad(usuario, 'copio', datos['destino'], datos['origen'])
@@ -481,7 +481,7 @@ def renombrar():
     try:
         ruta_nueva = nucleo.renombrar(usuario, datos['ruta'], datos['nuevo_nombre'])
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     except FileNotFoundError:
         return error('No existe el elemento', 404)
     registrar_actividad(usuario, 'renombro', ruta_nueva, datos['ruta'])
@@ -501,7 +501,7 @@ def crear_carpeta():
     try:
         carpeta = nucleo.crear_carpeta(usuario, datos.get('ruta', '/'), datos['nombre'])
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     registrar_actividad(usuario, 'creo_carpeta', carpeta['ruta'])
     return jsonify({'success': True, 'carpeta': carpeta}), 201
 
