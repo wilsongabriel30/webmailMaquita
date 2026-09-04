@@ -1,0 +1,413 @@
+# Términos de precarga de GIF (uno por línea). Español primero, luego inglés. Se pueden agregar más y relanzar.
+hola
+buenos días
+buenas tardes
+buenas noches
+adiós
+chao
+gracias
+muchas gracias
+de nada
+por favor
+perdón
+disculpa
+felicidades
+feliz cumpleaños
+feliz
+alegría
+celebrar
+fiesta
+aplausos
+bravo
+genial
+excelente
+increíble
+perfecto
+ok
+sí
+no
+tal vez
+de acuerdo
+entendido
+listo
+vamos
+ánimo
+tú puedes
+fuerza
+éxito
+buena suerte
+bienvenido
+bienvenida
+bien hecho
+buen trabajo
+equipo
+trabajo en equipo
+reunión
+oficina
+trabajando
+ocupado
+cansado
+sueño
+dormir
+café
+almuerzo
+comida
+hambre
+viernes
+lunes
+fin de semana
+vacaciones
+lluvia
+sol
+frío
+calor
+risa
+jaja
+lol
+sonrisa
+guiño
+abrazo
+beso
+corazón
+amor
+amistad
+triste
+llorar
+enojado
+molesto
+sorpresa
+wow
+miedo
+nervioso
+pensando
+confundido
+duda
+pregunta
+espera
+esperando
+paciencia
+apúrate
+rápido
+tarde
+puntual
+tiempo
+dinero
+pagar
+firma
+documento
+correo
+teléfono
+llamada
+computadora
+internet
+error
+bug
+arreglado
+funciona
+no funciona
+reiniciar
+cargando
+gato
+perro
+mascota
+bebé
+niños
+familia
+mamá
+papá
+abuela
+saludo
+chocar los cinco
+pulgar arriba
+pulgar abajo
+ok boomer
+bailar
+baile
+cantar
+música
+guitarra
+fútbol
+gol
+deporte
+correr
+ejercicio
+gimnasio
+yoga
+meditar
+relax
+descanso
+playa
+montaña
+viaje
+avión
+carro
+bus
+bicicleta
+Ecuador
+Quito
+Guayaquil
+comercio justo
+solidaridad
+comunidad
+agricultura
+cosecha
+cacao
+chocolate
+café ecuatoriano
+artesanía
+tejido
+cooperativa
+voluntario
+donación
+ayuda
+apoyo
+juntos
+unidos
+paz
+esperanza
+fe
+oración
+bendiciones
+navidad
+año nuevo
+carnaval
+día de la madre
+día del padre
+halloween
+pascua
+día de la mujer
+día del trabajo
+graduación
+jubilación
+salud
+médico
+enfermera
+vacuna
+mascarilla
+lavarse las manos
+limpieza
+cocina
+cocinar
+pizza
+helado
+pastel
+cerveza
+brindis
+tequila
+agua
+fruta
+plátano
+verde
+rojo
+azul
+amarillo
+mucho texto
+no leí
+respondeme
+te escucho
+hablamos luego
+en camino
+ya llego
+llegando tarde
+me voy
+nos vemos
+hasta mañana
+buen viaje
+que te mejores
+feliz viernes
+feliz lunes
+feliz martes
+feliz miércoles
+feliz jueves
+feliz sábado
+feliz domingo
+buen día
+buena noche
+descansa
+cuídate
+hello
+hi
+bye
+thank you
+thanks
+please
+sorry
+congratulations
+happy birthday
+happy
+excited
+party
+applause
+clap
+awesome
+great
+amazing
+perfect
+okay
+yes
+no
+agree
+deal
+done
+lets go
+cheer up
+you can do it
+good luck
+welcome
+well done
+good job
+team
+teamwork
+meeting
+office
+working
+busy
+tired
+sleepy
+coffee
+lunch
+food
+hungry
+friday
+monday
+weekend
+vacation
+rain
+sunny
+cold
+hot
+laugh
+lol
+smile
+wink
+hug
+kiss
+heart
+love
+friends
+sad
+cry
+angry
+annoyed
+surprised
+wow
+scared
+nervous
+thinking
+confused
+question
+wait
+waiting
+patience
+hurry
+fast
+late
+money
+sign
+email
+phone
+call
+computer
+internet
+error
+fixed
+it works
+loading
+cat
+dog
+baby
+kids
+family
+high five
+thumbs up
+thumbs down
+dance
+dancing
+sing
+music
+soccer
+goal
+run
+workout
+relax
+beach
+travel
+christmas
+new year
+halloween
+easter
+graduation
+doctor
+pizza
+ice cream
+cake
+cheers
+water
+mind blown
+facepalm
+eye roll
+shrug
+nod
+no way
+deal with it
+mic drop
+slow clap
+excited dance
+happy dance
+sad face
+crying laughing
+side eye
+oh no
+oops
+yay
+hooray
+nailed it
+boom
+fire
+cool
+nice
+sure
+whatever
+bored
+sleeping
+good morning
+good night
+see you
+take care
+get well soon
+monday mood
+friday mood
+weekend mood
+work from home
+zoom
+video call
+mute
+unmute
+typing
+brb
+omw
+idk
+tbh
+thinking face
+celebrate
+winner
+champion
+trophy
+medal
+star
+rainbow
+unicorn
+minion
+spongebob
+the office
+friends tv
+baby yoda
+star wars
+harry potter
+marvel
+disney
+pixar
+anime
+kpop
+messi
+ronaldo

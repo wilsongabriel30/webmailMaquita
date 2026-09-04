@@ -1,0 +1,44 @@
+/* T-45 punto 10 - Vistos inmediatos y claros (01/09/2026)
+ * Regla de soporte: un visto = salio; dos vistos = entregado; leido = los dos
+ * vistos ENCENDIDOS en azul institucional + la palabra «Leido» junto a la hora. */
+
+/* apagados: gris discreto sobre la burbuja azul propia */
+.chat-messages .message.sent .message-status {
+    color: rgba(255, 255, 255, .62) !important;
+    transition: color .18s ease, transform .18s ease;
+}
+.chat-messages .message.received .message-status { color: #8a8886 !important; }
+
+/* encendidos: azul institucional, y sobre la burbuja azul un celeste que si se
+   ve (el #0060A0 sobre #0060A0 seria invisible) */
+.chat-messages .message .message-status.read {
+    color: var(--mq-azul, #0060A0) !important;
+    transform: scale(1.06);
+}
+.chat-messages .message.sent .message-status.read {
+    color: #9fdcff !important;
+    text-shadow: 0 0 6px rgba(159, 220, 255, .55);
+}
+
+/* la palabra «Leido» (o «Leido por N») junto a la hora */
+.mq-leido {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .01em;
+    margin-left: 4px;
+    white-space: nowrap;
+    color: var(--mq-azul, #0060A0);
+    animation: mqLeidoEntra .22s ease;
+}
+.chat-messages .message.sent .mq-leido { color: #9fdcff; }
+
+@keyframes mqLeidoEntra {
+    from { opacity: 0; transform: translateY(2px); }
+    to   { opacity: 1; transform: none; }
+}
+
+/* sin destellos para quien pidio menos animacion */
+@media (prefers-reduced-motion: reduce) {
+    .mq-leido { animation: none; }
+    .chat-messages .message .message-status.read { transform: none; }
+}
