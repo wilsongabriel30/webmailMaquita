@@ -3,6 +3,7 @@
 Eliminates the ~100ms overhead of connect+login on every request.
 Keeps up to MAX_PER_USER connections per user, with TTL expiration.
 """
+from app.mail.errors import CredencialIMAPInvalida
 import asyncio
 import time
 import logging
@@ -43,7 +44,7 @@ async def _create_connection(username: str, password: str) -> aioimaplib.IMAP4:
             resp = await imap.login(base_user, password)
             if resp.result == "OK":
                 return imap
-        raise ConnectionError(f"IMAP login failed for {username}")
+        raise CredencialIMAPInvalida(f"IMAP login failed for {username}")
     return imap
 
 

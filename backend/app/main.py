@@ -12,6 +12,8 @@ from fastapi.exceptions import RequestValidationError
 from starlette.middleware.base import BaseHTTPMiddleware
 import logging
 
+from aiosmtplib import SMTPAuthenticationError
+from app.mail.errors import CredencialIMAPInvalida
 from app.config import get_settings
 from app.database import create_db_pool
 from app.redis_client import create_redis
@@ -477,6 +479,27 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
 )
 
+
+
+@app.exception_handler(SMTPAuthenticationError)
+async def credencial_smtp_handler(request, exc):
+    """Mismo caso que IMAP, pero al enviar: la credencial guardada ya no vale."""
+    security_logger.info("Credencial de sesión rechazada por SMTP en %s %s", request.method, request.url.path)
+    return JSONResponse(
+        status_code=401,
+        content={"detail": "Tu sesión de correo caducó. Vuelve a iniciar sesión.", "reautenticar": True},
+    )
+
+
+@app.exception_handler(CredencialIMAPInvalida)
+async def credencial_caducada_handler(request, exc):
+    """La credencial guardada ya no vale: 401 para que la interfaz mande a iniciar
+    sesión, en vez de un 500 que parece caída del servidor."""
+    security_logger.info("Credencial de sesión rechazada por IMAP en %s %s", request.method, request.url.path)
+    return JSONResponse(
+        status_code=401,
+        content={"detail": "Tu sesión de correo caducó. Vuelve a iniciar sesión.", "reautenticar": True},
+    )
 
 
 @app.exception_handler(Exception)
