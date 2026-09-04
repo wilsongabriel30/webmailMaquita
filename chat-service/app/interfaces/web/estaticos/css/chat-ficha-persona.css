@@ -1,0 +1,20 @@
+/* T-43: tarjeta con la ficha del compañero (clic en su foto). */
+.fp-fondo { position: fixed; inset: 0; background: rgba(15,23,42,.45); display: flex;
+            align-items: center; justify-content: center; z-index: 20000; padding: 16px; }
+.fp-tarjeta { background: #fff; border-radius: 16px; padding: 26px 24px 20px; width: 100%; max-width: 380px;
+              box-shadow: 0 18px 48px rgba(0,0,0,.28); text-align: center; position: relative; }
+.fp-cerrar { position: absolute; top: 8px; right: 12px; border: 0; background: transparent;
+             font-size: 26px; line-height: 1; color: #6b7280; cursor: pointer; }
+.fp-foto { width: 132px; height: 132px; border-radius: 50%; margin: 0 auto 14px; overflow: hidden;
+           background: #e8f0fe; color: #1a56c4; display: flex; align-items: center; justify-content: center;
+           font-size: 2.6rem; font-weight: 700; }
+.fp-foto img { width: 100%; height: 100%; object-fit: cover; }
+.fp-tarjeta h3 { margin: 0 0 2px; font-size: 1.15rem; }
+.fp-cargo { color: #0060a0; font-weight: 600; margin-bottom: 14px; }
+.fp-datos { text-align: left; display: grid; gap: 10px; }
+.fp-fila { display: flex; gap: 10px; align-items: flex-start; font-size: .93rem; }
+.fp-fila i { width: 18px; text-align: center; color: #0060a0; margin-top: 3px; }
+.fp-fila small { display: block; color: #6b7280; font-size: .72rem; text-transform: uppercase; letter-spacing: .03em; }
+.fp-nota { margin: 14px 0 0; font-size: .78rem; color: #6b7280; text-align: left; }
+[data-theme="dark"] .fp-tarjeta { background: #1f2428; color: #eee; }
+[data-theme="dark"] .fp-fila small, [data-theme="dark"] .fp-nota { color: #9aa4ae; }

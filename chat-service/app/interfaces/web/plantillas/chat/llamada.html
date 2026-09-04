@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Llamada — FARO Maquita</title>
+    <title>Llamada — Raíces Maquita</title>
     <link rel="stylesheet" href="/static/vendor/font-awesome/css/all.min.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -127,7 +127,7 @@
             <span id="tituloNombre"></span>
             <span class="vc-timer" id="vcTimer">00:00</span>
         </div>
-        <div style="opacity:.6;font-size:.8rem;">FARO — esta ventana mantiene tu llamada aunque navegues en FARO</div>
+        <div style="opacity:.6;font-size:.8rem;">Raíces — esta ventana mantiene tu llamada aunque navegues en Raíces</div>
     </div>
     <div class="vc-stage">
         <video id="remoteVideo" autoplay playsinline style="display:none;"></video>
@@ -148,7 +148,21 @@
     </div>
 
     <script src="/static/js/lib/socket.io.min.js"></script>
+    <!-- T-52: donde estan los modulos que necesita el procesador de fondos. Todo en
+         nuestro servidor: ni un archivo sale a internet. -->
+    <script type="importmap">
+    {
+      "imports": {
+        "livekit-client": "/static/js/lib/livekit-client-puente.mjs",
+        "@mediapipe/tasks-vision": "/static/js/lib/mediapipe/vision_bundle.mjs"
+      }
+    }
+    </script>
     <script src="/static/js/lib/livekit-client.umd.min.js?v=2.15.7"></script>
+    <!-- T-52: desenfoque, fondos de Maquita y espejo de la vista propia.
+         La libreria y el modelo se sirven desde AQUI, no de un CDN de fuera. -->
+    <link rel="stylesheet" href="/static/css/chat-llamada-fondos.css?v=20260902-t52">
+    <script src="/static/js/llamada-fondos.js?v=20260902-t52"></script>
     <script>
         // Cierra la vista de llamada: window.close() si es popup; si corre en un
         // iframe (fallback por bloqueo de popups en Firefox/Safari), avisa al padre.
@@ -208,7 +222,7 @@
         document.getElementById('iconoTipo').className = TIPO === 'video' ? 'fas fa-video' : 'fas fa-phone';
         document.getElementById('vcDetalle').textContent = ROLE === 'caller' ? 'Llamando…' : 'Conectando…';
         if (TIPO === 'video') document.getElementById('btnCam').style.display = '';
-        document.title = (TIPO === 'video' ? 'Videollamada' : 'Llamada') + ' con ' + PEER_NAME + ' — FARO';
+        document.title = (TIPO === 'video' ? 'Videollamada' : 'Llamada') + ' con ' + PEER_NAME + ' — Raíces';
 
         function setDetalle(t) { const d = document.getElementById('vcDetalle'); if (d) d.textContent = t; }
 
@@ -426,7 +440,7 @@
                 try {
                     const r = await fetch('/api/chat/grabacion/iniciar', {
                         method: 'POST', headers: {'Content-Type':'application/json'},
-                        credentials: 'same-origin', body: JSON.stringify({ room: ROOM })
+                        credentials: 'same-origin', body: JSON.stringify({ room: ROOM, conv: (typeof CONV_ID !== 'undefined' ? CONV_ID : '') })
                     });
                     const d = await r.json();
                     if (!r.ok || !d.exito) throw new Error(d.error || 'no');
@@ -532,5 +546,6 @@
             }
         });
     </script>
+    <script src="/static/js/llamada-p2p.js?v=20260901-t25"></script>
 </body>
 </html>

@@ -1,0 +1,49 @@
+/* T-50 tanda 3 · La barra de redacción y el historial, con el aire de Teams */
+
+/* --- punto 24: la caja de escribir, abajo y con marco propio --- */
+.chat-input-area { padding: 8px 16px 14px; background: #fff; }
+.chat-input-container.wa-input {
+    display: flex; align-items: flex-end; gap: 4px;
+    border: 1px solid #d1d1d1; border-radius: 8px;
+    padding: 6px 8px; background: #fff;
+    transition: border-color .12s ease, box-shadow .12s ease;
+}
+.chat-input-container.wa-input:focus-within {
+    border-color: var(--mq-azul, #0060A0);
+    box-shadow: 0 0 0 1px var(--mq-azul, #0060A0);
+}
+.chat-input-container .chat-input-wrapper { flex: 1 1 auto; min-width: 0; }
+.chat-input-container textarea#messageInput {
+    width: 100%; border: 0; outline: 0; resize: none;
+    font-size: 14px; line-height: 1.45; padding: 6px 4px;
+    max-height: 140px; background: transparent;
+}
+
+/* --- botones de la barra: iguales entre sí y con reacción al pasar el ratón --- */
+.chat-input-container .ci-btn {
+    width: 32px; height: 32px; border: 0; background: transparent;
+    border-radius: 4px; color: #424242; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    flex: 0 0 auto;
+}
+.chat-input-container .ci-btn:hover { background: #f3f2f1; }
+
+/* --- punto 29: ENVIAR, al extremo derecho y SIEMPRE visible --- */
+.chat-input-container .btn-send {
+    display: inline-flex !important;      /* la plantilla lo trae oculto: aquí manda esto */
+    order: 99;                            /* pase lo que pase, el último de la fila */
+    width: 32px; height: 32px; flex: 0 0 auto;
+    align-items: center; justify-content: center;
+    border: 0; border-radius: 4px; cursor: pointer;
+    background: transparent; color: #a19f9d;
+    transition: background .12s ease, color .12s ease;
+}
+.chat-input-container .btn-send.mq-listo {
+    background: var(--mq-azul, #0060A0); color: #fff;
+}
+.chat-input-container .btn-send.mq-listo:hover { filter: brightness(1.08); }
+.chat-input-container .ci-mic { order: 98; }
+
+/* --- punto 18: recibidos a la izquierda, enviados a la derecha ---
+   La alineación vive en chat-burbujas.css, que es su sitio; aquí solo se deja
+   constancia para quien busque el punto 18 en este archivo. */
