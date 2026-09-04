@@ -41,6 +41,11 @@ async def set_whitelist(emails: list[str]) -> dict:
     return await _run("set-whitelist", ",".join(emails))
 
 
+async def set_dlp_exempt(emails: list[str]) -> dict:
+    """Remitentes de sistema exentos de la Protección de datos (DLP) hacia externos."""
+    return await _run("set-dlp-exempt", ",".join(emails))
+
+
 async def activity(hours: int = 1) -> dict:
     return await _run("activity", str(hours))
 
