@@ -3,12 +3,13 @@ import os
 from asyncio.subprocess import PIPE
 from fastapi import APIRouter, Depends
 from app.auth.dependencies import get_current_admin
+from app.wrappers.privilegios import con_sudo
 
 router = APIRouter(prefix="/api/health", tags=["health"])
 
 
 async def _run_cmd(*cmd) -> str:
-    proc = await asyncio.create_subprocess_exec(*cmd, stdout=PIPE, stderr=PIPE)
+    proc = await asyncio.create_subprocess_exec(*con_sudo(*cmd), stdout=PIPE, stderr=PIPE)
     out, _ = await proc.communicate()
     return out.decode().strip()
 

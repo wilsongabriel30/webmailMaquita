@@ -1,7 +1,9 @@
 """Shared mailbox management — ACL-based delegation."""
 from fastapi import APIRouter, Request, Depends, HTTPException
 from app.auth.dependencies import require_role
+from app.wrappers import doveadm as _dov
 import subprocess, json, asyncio
+from app.wrappers.privilegios import con_sudo
 
 router = APIRouter(prefix="/api/shared", tags=["shared-mailboxes"])
 
@@ -30,15 +32,21 @@ def _doveadm_acl_get(username: str, folder: str = "INBOX") -> list:
 
 def _doveadm_acl_set(username: str, folder: str, target_id: str, rights: list):
     """Set ACL for a folder."""
+    # `folder` llega del cuerpo de la peticion. Sin validar, un nombre que empiece
+    # por guion deja de ser un dato y pasa a ser una opcion de doveadm.
+    _dov._validate_user(username)
+    folder = _dov._validate_folder(folder)
     cmd = ["doveadm", "acl", "set", "-u", username, folder, target_id] + rights
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+    result = subprocess.run(list(con_sudo(*cmd)), capture_output=True, text=True, timeout=10)
     if result.returncode != 0:
         raise HTTPException(500, f"Error configurando ACL: {result.stderr}")
 
 def _doveadm_acl_delete(username: str, folder: str, target_id: str):
     """Remove ACL entry."""
+    _dov._validate_user(username)
+    folder = _dov._validate_folder(folder)
     cmd = ["doveadm", "acl", "delete", "-u", username, folder, target_id]
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+    result = subprocess.run(list(con_sudo(*cmd)), capture_output=True, text=True, timeout=10)
     if result.returncode != 0:
         raise HTTPException(500, f"Error eliminando ACL: {result.stderr}")
 

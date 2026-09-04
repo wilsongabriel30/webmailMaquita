@@ -1,6 +1,7 @@
 import asyncio
 import re
 from asyncio.subprocess import PIPE
+from app.wrappers.privilegios import con_sudo
 
 _USER_RE = re.compile(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$")
 
@@ -10,8 +11,44 @@ def _validate_user(u: str):
         raise ValueError(f"Username invalido: {u}")
 
 
+# --- Blindaje de argumentos (fase 2 del panel, 2026-09-04) --------------------
+#
+# Estas llamadas NO pasan por un intérprete de comandos, así que no hay inyección
+# de shell. El riesgo es otro y es real: varios argumentos llegan desde la
+# petición HTTP (la carpeta y la consulta de búsqueda) y se colocan tal cual en
+# la línea de órdenes. Un valor que empiece por guion deja de ser un dato y pasa
+# a ser una OPCIÓN de doveadm. La peligrosa es `-o ajuste=valor`, que sobrescribe
+# la configuración de Dovecot en esa invocación.
+#
+# Hoy el panel corre como root, así que esto ya importa. Cuando pase a correr con
+# usuario propio y sudo acotado, importaría MÁS: el sudoers sería impecable sobre
+# una orden que interpola datos del usuario, que es el mismo fallo de C-4 y C-5
+# con otra ropa. Por eso se cierra ANTES de conceder el sudo, no después.
+#
+# Regla: ningún argumento de origen externo puede empezar por guion, y los
+# nombres de carpeta se limitan al juego de caracteres que Dovecot usa de verdad.
+
+_FOLDER_RE = re.compile(r"^[A-Za-z0-9 _.\-/&+()\[\]]{1,255}$")
+
+
+def _validate_folder(f: str) -> str:
+    """Valida un nombre de buzón que viene de la petición."""
+    if not f or not _FOLDER_RE.match(f) or f.startswith("-") or ".." in f:
+        raise ValueError(f"Nombre de carpeta invalido: {f!r}")
+    return f
+
+
+def _validate_query_tokens(tokens: list[str]) -> list[str]:
+    """Rechaza tokens de búsqueda que doveadm interpretaría como opciones."""
+    for t in tokens:
+        if t.startswith("-"):
+            raise ValueError(
+                f"Termino de busqueda invalido: {t!r} (no se admiten opciones)")
+    return tokens
+
+
 async def _run(*cmd: str) -> tuple[str, str, int]:
-    proc = await asyncio.create_subprocess_exec(*cmd, stdout=PIPE, stderr=PIPE)
+    proc = await asyncio.create_subprocess_exec(*con_sudo(*cmd), stdout=PIPE, stderr=PIPE)
     out, err = await proc.communicate()
     return out.decode(), err.decode(), proc.returncode
 
@@ -94,7 +131,8 @@ async def get_who() -> list[dict]:
 
 async def search_messages(username: str, query: str) -> list[dict]:
     _validate_user(username)
-    out, _, rc = await _run("doveadm", "search", "-u", username, *query.split())
+    tokens = _validate_query_tokens(query.split())
+    out, _, rc = await _run("doveadm", "search", "-u", username, *tokens)
     results = []
     for line in out.strip().split("\n"):
         parts = line.strip().split()

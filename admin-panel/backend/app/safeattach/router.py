@@ -127,24 +127,19 @@ import re as _re
 _NOMBRE_ADJUNTO_RE = _re.compile(r"^[\w.\- ]{1,120}$")
 
 
+from app.wrappers.entorno_webmail import DIRECTORIO_EJECUCION as _DIR_EJECUCION
+
+
 def _env_webmail() -> dict:
-    """Entorno para ejecutar el motor del webmail: copia del entorno actual + su .env,
-    leído en Python (sin pasar por un shell). Evita `bash -c ... . .env`."""
-    import os
-    env = dict(os.environ)
-    try:
-        with open(os.path.join(WEBMAIL, ".env"), encoding="utf-8") as fh:
-            for linea in fh:
-                linea = linea.strip()
-                if not linea or linea.startswith("#") or "=" not in linea:
-                    continue
-                k, v = linea.split("=", 1)
-                env[k.strip()] = v.strip().strip('"').strip("'")
-    except OSError:
-        pass
-    return env
+    """Entorno para los subprocesos del correo.
 
-
+    Antes abria entero el .env del correo (46 variables, con todos sus secretos).
+    Desde la fase 2 el panel no corre como root y no puede leer ese archivo: los
+    valores que hacen falta, y solo esos, se copian a la configuracion del panel
+    con prefijo WEBMAIL_. Ver wrappers/entorno_webmail.py.
+    """
+    from app.wrappers.entorno_webmail import entorno_webmail
+    return entorno_webmail()
 class AnalyzeReq(BaseModel):
     filename: str
     content_b64: str
@@ -170,7 +165,7 @@ async def analyze(r: Request, body: AnalyzeReq, a=Depends(require_role("superadm
         p = subprocess.run(
             [os.path.join(WEBMAIL, "venv/bin/python"),
              "-m", "app.safeattach.scan_file", path, name],
-            cwd=WEBMAIL, env=_env_webmail(),
+            cwd=_DIR_EJECUCION, env=_env_webmail(),
             capture_output=True, text=True, timeout=150)
         out = (p.stdout or "").strip()
         try:
@@ -199,7 +194,7 @@ async def engine_status(r: Request, a=Depends(get_current_admin)):
     try:
         p = subprocess.run(
             [os.path.join(WEBMAIL, "venv/bin/python"), "-c", py],
-            cwd=WEBMAIL, env=_env_webmail(),
+            cwd=_DIR_EJECUCION, env=_env_webmail(),
             capture_output=True, text=True, timeout=30)
         return json.loads((p.stdout or "{}").strip().splitlines()[-1])
     except Exception as e:

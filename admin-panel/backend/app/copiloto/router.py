@@ -23,31 +23,19 @@ class AskReq(BaseModel):
     days: int = 7
 
 
+from app.wrappers.entorno_webmail import DIRECTORIO_EJECUCION as _DIR_EJECUCION
+
+
 def _env_webmail() -> dict:
-    """Entorno para ejecutar el motor del webmail: copia del entorno actual mas su
-    .env, leido EN PYTHON.
+    """Entorno para los subprocesos del correo.
 
-    Antes esto se hacia con `bash -c "... set -a && . .env && set +a && ..."`, y
-    se rompio en cuanto el .env gano valores con espacios y parentesis sin
-    comillas: bash intentaba ejecutarlos y devolvia «command not found» y «syntax
-    error near unexpected token», dejando el comando sin configuracion. Leerlo
-    aqui evita el shell y el problema. Mismo patron que ya usa safeattach.
+    Antes abria entero el .env del correo (46 variables, con todos sus secretos).
+    Desde la fase 2 el panel no corre como root y no puede leer ese archivo: los
+    valores que hacen falta, y solo esos, se copian a la configuracion del panel
+    con prefijo WEBMAIL_. Ver wrappers/entorno_webmail.py.
     """
-    import os
-    env = dict(os.environ)
-    try:
-        with open(os.path.join(WEBMAIL, ".env"), encoding="utf-8") as fh:
-            for linea in fh:
-                linea = linea.strip()
-                if not linea or linea.startswith("#") or "=" not in linea:
-                    continue
-                k, v = linea.split("=", 1)
-                env[k.strip()] = v.strip().strip('"').strip("'")
-    except OSError:
-        pass
-    return env
-
-
+    from app.wrappers.entorno_webmail import entorno_webmail
+    return entorno_webmail()
 @router.post("/ask")
 async def ask(r: Request, body: AskReq, a=Depends(get_current_admin)):
     q = (body.question or "").strip()[:500]
@@ -56,7 +44,7 @@ async def ask(r: Request, body: AskReq, a=Depends(get_current_admin)):
     days = max(1, min(body.days, 90))
     orden = [f"{WEBMAIL}/venv/bin/python", "-m", "app.copiloto.run", q, str(days)]
     try:
-        p = await asyncio.to_thread(subprocess.run, orden, cwd=WEBMAIL, env=_env_webmail(),
+        p = await asyncio.to_thread(subprocess.run, orden, cwd=_DIR_EJECUCION, env=_env_webmail(),
                                     capture_output=True, text=True, timeout=120)
     except Exception as e:
         raise HTTPException(500, str(e))

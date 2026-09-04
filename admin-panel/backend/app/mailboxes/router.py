@@ -4,6 +4,7 @@ from fastapi import APIRouter, Request, HTTPException, Depends, Query
 from app.auth.dependencies import get_current_admin, require_role
 from app.wrappers.doveadm import generate_password_hash, verify_password, get_quota, get_mailbox_status
 import json
+from app.wrappers.privilegios import con_sudo
 
 router = APIRouter(prefix="/api/mailboxes", tags=["mailboxes"])
 
@@ -22,7 +23,7 @@ async def _audit(r, a, action, target=None, details=None):
 
 
 async def _run(*cmd) -> tuple[str, str, int]:
-    proc = await asyncio.create_subprocess_exec(*cmd, stdout=PIPE, stderr=PIPE)
+    proc = await asyncio.create_subprocess_exec(*con_sudo(*cmd), stdout=PIPE, stderr=PIPE)
     out, err = await proc.communicate()
     return out.decode(errors="replace"), err.decode(errors="replace"), proc.returncode
 

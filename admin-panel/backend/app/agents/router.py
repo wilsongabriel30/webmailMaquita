@@ -18,36 +18,24 @@ router = APIRouter(prefix="/api/agents", tags=["agents"])
 WEBMAIL = "/opt/maquita-webmail/backend"
 
 
+from app.wrappers.entorno_webmail import DIRECTORIO_EJECUCION as _DIR_EJECUCION
+
+
 def _env_webmail() -> dict:
-    """Entorno para ejecutar el motor del webmail: copia del entorno actual mas su
-    .env, leido EN PYTHON.
+    """Entorno para los subprocesos del correo.
 
-    Antes esto se hacia con `bash -c "... set -a && . .env && set +a && ..."`, y
-    se rompio en cuanto el .env gano valores con espacios y parentesis sin
-    comillas: bash intentaba ejecutarlos y devolvia «command not found» y «syntax
-    error near unexpected token», dejando el comando sin configuracion. Leerlo
-    aqui evita el shell y el problema. Mismo patron que ya usa safeattach.
+    Antes abria entero el .env del correo (46 variables, con todos sus secretos).
+    Desde la fase 2 el panel no corre como root y no puede leer ese archivo: los
+    valores que hacen falta, y solo esos, se copian a la configuracion del panel
+    con prefijo WEBMAIL_. Ver wrappers/entorno_webmail.py.
     """
-    import os
-    env = dict(os.environ)
-    try:
-        with open(os.path.join(WEBMAIL, ".env"), encoding="utf-8") as fh:
-            for linea in fh:
-                linea = linea.strip()
-                if not linea or linea.startswith("#") or "=" not in linea:
-                    continue
-                k, v = linea.split("=", 1)
-                env[k.strip()] = v.strip().strip('"').strip("'")
-    except OSError:
-        pass
-    return env
-
-
+    from app.wrappers.entorno_webmail import entorno_webmail
+    return entorno_webmail()
 async def _ejecutar(orden: list, timeout: int = 160):
     """Ejecuta el motor del webmail SIN shell: lista de argumentos y entorno propio."""
     try:
         return await asyncio.to_thread(
-            subprocess.run, orden, cwd=WEBMAIL, env=_env_webmail(),
+            subprocess.run, orden, cwd=_DIR_EJECUCION, env=_env_webmail(),
             capture_output=True, text=True, timeout=timeout)
     except Exception:
         return None

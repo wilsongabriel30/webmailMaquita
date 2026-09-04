@@ -8,6 +8,7 @@ from app.auth.dependencies import get_current_admin, require_role
 router = APIRouter(prefix="/api/autoresponder", tags=["autoresponder"])
 
 import re as _re
+from app.wrappers.privilegios import con_sudo
 
 _USER_RE = _re.compile(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9.-]+$")
 _FECHA_RE = _re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -63,7 +64,7 @@ async def _ensure_tables(db):
 
 
 async def _run(*cmd) -> tuple[str, str, int]:
-    proc = await asyncio.create_subprocess_exec(*cmd, stdout=PIPE, stderr=PIPE)
+    proc = await asyncio.create_subprocess_exec(*con_sudo(*cmd), stdout=PIPE, stderr=PIPE)
     out, err = await proc.communicate()
     return out.decode(errors="replace"), err.decode(errors="replace"), proc.returncode
 
