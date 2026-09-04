@@ -50,6 +50,35 @@ def _validar_secreto_chat():
 _validar_secreto_chat()
 
 
+# --- Entrada desde el correo cuando el chat vive en su propio origen -----------
+# Secreto DEDICADO al vale de entrada: ni el del correo (CHAT_JWT_SECRET) ni el de
+# la sesión propia (CHAT_SESSION_KEY). Que sean tres evita que comprometer uno
+# arrastre a los demás, que es el motivo de separar el origen.
+_SSO_SECRET = os.getenv("CHAT_SSO_SECRET", "")
+_SSO_AUDIENCIA = "chat-sso"
+_SSO_VENTANA_SEG = 120   # margen para el viaje y un reloj algo desfasado
+
+
+def _consumir_vale(jti: str) -> bool:
+    """Marca el vale como usado. Devuelve True solo la PRIMERA vez.
+
+    Falla CERRADO: sin Redis no se puede garantizar el uso único, y un vale
+    reutilizable es un pase de sesión que se puede repetir desde un historial.
+    """
+    if not _REDIS_URL:
+        print("[chat] /sso/entrar rechazado: sin CHAT_REDIS_URL no hay uso unico",
+              file=sys.stderr)
+        return False
+    try:
+        import redis as _redis
+        cli = _redis.Redis.from_url(_REDIS_URL, socket_timeout=2)
+        # NX: si ya existía, alguien lo usó antes.
+        return bool(cli.set("chat:sso:%s" % jti, "1", ex=_SSO_VENTANA_SEG, nx=True))
+    except Exception as e:
+        print("[chat] /sso/entrar rechazado: Redis no disponible (%s)" % e, file=sys.stderr)
+        return False
+
+
 def _sembrar_redis():
     """Crea el cliente Redis singleton con las credenciales del .env ANTES de que
     los módulos del chat lo instancien con valores por defecto (localhost sin clave)."""
@@ -257,6 +286,51 @@ def crear_app():
     @app.context_processor
     def _inyectar_usuario():
         return {"current_user": _UsuarioSesion(session.get("usuario_id"))}
+
+    @app.route("/sso/entrar")
+    def sso_entrar():
+        """Entrada del chat cuando se sirve en SU PROPIO ORIGEN.
+
+        En mail.maquita.org el chat recibía la cookie del correo porque compartían
+        origen. En mensajeria.maquita.org esa cookie ya no viaja (es host-only), y
+        eso es justamente lo que se buscaba: un XSS en el chat deja de poder leer el
+        buzón. A cambio hace falta esta puerta.
+
+        El correo emite un vale de un solo uso, corto y firmado con un secreto
+        DEDICADO (CHAT_SSO_SECRET), que no es el del correo ni el de esta sesión.
+        Aquí se canjea por la sesión propia del chat (cookie `chat_session`, firmada
+        con CHAT_SESSION_KEY, en este origen). El vale no sirve dos veces ni pasado
+        el minuto, así que quedar en un historial o en un registro no da acceso.
+        """
+        vale = request.args.get("t", "")
+        destino = request.args.get("r", "") or "/chat/?embed=1"
+        # Solo rutas locales: nunca se redirige a un sitio externo con la sesión puesta.
+        if not destino.startswith("/") or destino.startswith("//"):
+            destino = "/chat/?embed=1"
+        if not _SSO_SECRET:
+            print("[chat] /sso/entrar sin CHAT_SSO_SECRET configurado", file=sys.stderr)
+            return _respuesta_no_auth()
+        if not vale:
+            return _respuesta_no_auth()
+        try:
+            import jwt as _jwt
+            datos = _jwt.decode(vale, _SSO_SECRET, algorithms=["HS256"],
+                                audience=_SSO_AUDIENCIA)
+        except Exception as e:
+            print("[chat] /sso/entrar vale invalido: %s" % type(e).__name__, file=sys.stderr)
+            return _respuesta_no_auth()
+        correo = (datos.get("sub") or "").strip().lower()
+        jti = (datos.get("jti") or "").strip()
+        if not correo or not jti or not _consumir_vale(jti):
+            return _respuesta_no_auth()
+        uid = _uid_por_correo(correo)
+        if not uid:
+            return _respuesta_no_auth()
+        session["usuario_id"] = uid
+        session["usuario_correo"] = correo
+        session["usuario_nombre"] = _cache_nombre.get(uid, correo)
+        from flask import redirect as _redirect
+        return _redirect(destino)
 
     @app.get("/healthz")
     def healthz():
