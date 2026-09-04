@@ -7,6 +7,35 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Seguridad (remediación de la auditoría 2026-09-03 — rama `remediacion-seguridad-2026-09`)
+
+Entorno en pre-producción sin usuarios reales; el lanzamiento ocurre tras el pentest externo y su
+re-test. Cada hallazgo lleva su código del informe y un commit propio, con prueba antes/después.
+
+- **[C-7] Unidades compartidas del Almacén sin control de membresía:** `ruta_fisica()` exige ser
+  miembro en toda ruta `/unidades/<id>/…` y rol de escritura en las operaciones que escriben; falla
+  cerrado si la base de datos no responde. Compartir por enlace exige rol de escritura. Sin permiso
+  responde 403 en todos los endpoints. Aplicado también al espejo `drive-maquita/`.
+- **[C-6] Cuentas externas del Drive podían tomar el buzón interno:** la sesión externa lleva
+  `aud`/ámbito propios que el backend del correo rechaza; `change-password` verifica siempre contra
+  IMAP; `crear_e_invitar` rechaza buzones y dominios internos.
+- **[C-9] Chat: borrado global de cualquier conversación:** `clear` exige ser participante activo.
+- **[C-4] y [C-5] Ejecución de comandos como root desde el panel admin:** análisis de adjuntos y
+  autorespondedor sin `bash -c` ni heredoc; argumentos como lista, nombres y buzones validados, script
+  Sieve escapado.
+- **[C-3] Integraciones de IA y transcripción publicadas sin sesión:** plantilla nginx con
+  `auth_request` al backend (`deploy/hardening/nginx/integraciones-sesion.conf`); claves fuera del
+  archivo de configuración.
+- **[A-16] fail2ban y logrotate del webmail** alineados con el log de seguridad real
+  (`deploy/hardening/fail2ban/*`, `deploy/hardening/logrotate/webmail`).
+- **[B1] Secretos obligatorios validados al arranque** en backend, panel, chat y almacén (aborta
+  nombrando la variable, sin imprimir valores).
+- **[B2] Milter sin errores silenciosos** y cola de evidencia diferida con reconciliación por cron.
+
+En el servidor, además (sin código): rotación de `SECRET_KEY`, `ADMIN_JWT_SECRET` y `CHAT_JWT_SECRET`
+con invalidación de sesiones; `/dav/` restringido a LAN/VPN (temporal); log de cookies de nginx
+eliminado; permisos de logs 640. Detalle en `REMEDIACION-2026-09.md` (servidor).
+
 ## [1.5.0] - 2026-09-03
 
 ### Añadido
