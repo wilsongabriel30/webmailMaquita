@@ -33,7 +33,7 @@ li{margin:.4rem 0}h1{font-size:1.4rem}</style>
 {% else %}<li><em>No se encontraron archivos de datos en la carpeta.</em></li>{% endfor %}</ul>"""
 
 _TABLERO = """<!doctype html><meta charset=utf-8><title>Tablero — {{ nombre }}</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="/static/vendor/cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
 <style>body{font:15px system-ui;margin:1.5rem;color:#1b2330;background:#f6f8fb}
 .kpis{display:flex;gap:1rem;flex-wrap:wrap;margin:1rem 0}
 .kpi{background:#fff;border:1px solid #dce2ea;border-radius:10px;padding:1rem 1.4rem;min-width:130px}
