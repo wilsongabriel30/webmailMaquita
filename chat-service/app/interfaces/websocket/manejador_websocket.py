@@ -221,7 +221,16 @@ def crear_socketio(app, redis_url: Optional[str] = None) -> SocketIO:
     # los origenes conocidos del despliegue; nunca se vuelve a "*".
     _origenes = [o.strip() for o in os.environ.get('CHAT_CORS_ORIGENES', '').split(',') if o.strip()]
     if not _origenes:
-        _origenes = ['https://mensajeria.maquita.org', 'https://mail.maquita.org']
+        # TODOS los sitios que embeben el chat. Omitir uno lo rompe para esos
+        # usuarios: al aplicar la lista blanca faltaba Raices (datos.maquita.com.ec)
+        # y sus conexiones quedaron rechazadas hasta que se anadio.
+        _origenes = [
+            'https://mensajeria.maquita.org',   # origen propio del chat
+            'https://mail.maquita.org',         # correo (hasta la fase D)
+            'https://datos.maquita.com.ec',     # Raices
+            'https://faro.maquita.org',         # Raices (nombre alterno)
+            'https://drive.maquita.com.ec',     # Drive de Raices
+        ]
     logger.info(f"[WebSocket] Origenes permitidos: {_origenes}")
 
     if redis_url:
