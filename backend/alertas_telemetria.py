@@ -239,6 +239,55 @@ def regla_webview_reconstruido(cur, dry):
     return enviados
 
 
+def regla_socket_chat(cur, dry):
+    """(g) el socket de notificaciones se cae: si pasa 3 o más veces en una hora, esa
+    persona se está quedando sin avisos de chat aunque la app parezca normal."""
+    cur.execute("""
+        SELECT equipo, max(usuario) AS usuario, count(*) AS veces, max(left(detalle, 90)) AS motivo
+        FROM app_telemetria
+        WHERE recibido > NOW() - INTERVAL '60 minutes'
+          AND evento IN ('socket_chat_perdido', 'socket_chat_error')
+        GROUP BY equipo HAVING count(*) >= 3
+    """)
+    enviados = 0
+    for equipo, usuario, veces, motivo in cur.fetchall():
+        clave = 'socket-chat:%s' % equipo
+        if ya_avisado(cur, clave, 2):
+            continue
+        texto = ('%s (%s): el canal de notificaciones del chat se cayo %d veces en una hora. '
+                 'Esa persona puede estar sin avisos. Motivo: %s' % (
+                     equipo, usuario or 'sin usuario', veces, motivo or 'sin detalle'))
+        if avisar('Se cae el canal de notificaciones', texto, dry=dry):
+            marcar(cur, clave, texto); enviados += 1
+    return enviados
+
+
+def regla_sin_sesion(cur, dry):
+    """(h) el socket salio sin la cookie chat_session: esa persona queda FUERA de su sala
+    de notificaciones, o sea sin avisos de chat, hasta que la app recargue. Basta una vez
+    para avisar: es la causa raiz de T-47."""
+    cur.execute("""
+        SELECT equipo, max(usuario) AS usuario, count(*) AS veces, max(version) AS version
+        FROM app_telemetria
+        WHERE recibido > NOW() - INTERVAL '60 minutes'
+          AND evento = 'socket_sin_chat_session'
+        GROUP BY equipo
+    """)
+    enviados = 0
+    for equipo, usuario, veces, version in cur.fetchall():
+        clave = 'sin-sesion:%s' % equipo
+        if ya_avisado(cur, clave, 2):
+            continue
+        texto = ('%s (%s, version %s): el canal de notificaciones abrio SIN la cookie de '
+                 'sesion %d vez/veces en una hora. Mientras dura, esa persona no recibe '
+                 'avisos de chat. La app deberia recargar sola; si se repite, revisar el '
+                 'inicio de sesion en ese equipo.' % (equipo, usuario or 'sin usuario',
+                                                      version or 'desconocida', veces))
+        if avisar('Canal de notificaciones sin sesion', texto, dry=dry):
+            marcar(cur, clave, texto); enviados += 1
+    return enviados
+
+
 def main():
     dry = '--dry-run' in sys.argv
     vigente = version_vigente()
@@ -251,7 +300,9 @@ def main():
                  + regla_oleada_sesion(cur, dry)
                  + regla_oleada_sin_red(cur, dry)
                  + regla_ui_congelada(cur, dry)
-                 + regla_webview_reconstruido(cur, dry))
+                 + regla_webview_reconstruido(cur, dry)
+                 + regla_socket_chat(cur, dry)
+                 + regla_sin_sesion(cur, dry))
     con.close()
     print('alertas enviadas: %d (version vigente: %s)%s' % (total, vigente or '?', ' [simulacion]' if dry else ''))
 

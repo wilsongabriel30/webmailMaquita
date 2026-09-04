@@ -183,6 +183,14 @@ async def resumen_interno(request: Request, horas: int = Query(24, ge=1, le=720)
         errores = await db.fetch("SELECT usuario, equipo, version, evento, modulo, left(detalle, 200) detalle, max(recibido) ultimo, count(*) veces FROM app_telemetria WHERE recibido >= $1 AND nivel IN ('error','critico') GROUP BY 1,2,3,4,5,6 ORDER BY ultimo DESC LIMIT 100", desde)
         logins = await db.fetch("SELECT evento, count(*) FROM app_telemetria WHERE recibido >= $1 AND evento IN ('login_ok','login_fallo','sesion_sembrada','sesion_fallo') GROUP BY 1", desde)
         equipos = await db.fetch("SELECT equipo, usuario, max(version) version, max(recibido) ultimo FROM app_telemetria WHERE recibido >= $1 GROUP BY 1,2 ORDER BY ultimo DESC LIMIT 300", desde)
+        socket_chat = await db.fetch("""
+            SELECT equipo, max(usuario) usuario, count(*) veces,
+                   max(left(detalle, 120)) motivo, max(recibido) ultimo
+            FROM app_telemetria
+            WHERE recibido >= $1 AND evento IN ('socket_chat_perdido', 'socket_chat_error',
+                                     'socket_sin_chat_session')
+            GROUP BY equipo ORDER BY veces DESC LIMIT 50
+        """, desde)
         reconstrucciones = await db.fetch("""
             SELECT equipo, max(usuario) usuario, count(*) veces,
                    max(COALESCE(NULLIF(modulo, ''), 'la app')) modulo,
@@ -210,4 +218,5 @@ async def resumen_interno(request: Request, horas: int = Query(24, ge=1, le=720)
             'logins': {r['evento']: r['count'] for r in logins},
             'equipos': [_fila(r) for r in equipos],
             'callados': [_fila(r) for r in callados],
-            'reconstrucciones': [_fila(r) for r in reconstrucciones]}
+            'reconstrucciones': [_fila(r) for r in reconstrucciones],
+            'socket_chat': [_fila(r) for r in socket_chat]}
