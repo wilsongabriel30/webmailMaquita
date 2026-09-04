@@ -29,6 +29,11 @@ def decode_access_token(token: str) -> dict | None:
         payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
         if payload.get("type") != "access":
             return None
+        # Las cuentas EXTERNAS del Drive comparten cookie y secreto pero llevan
+        # `aud`/`ambito` propios: no son sesiones de buzón y aquí no valen.
+        # (PyJWT ya rechaza un `aud` no solicitado; esto lo hace explícito.)
+        if payload.get("aud") or payload.get("ambito"):
+            return None
         return payload
     except jwt.PyJWTError:
         return None

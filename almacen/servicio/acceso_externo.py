@@ -1,10 +1,17 @@
 # -*- coding: utf-8 -*-
 """Login de CUENTAS EXTERNAS del Drive (pasantes, aliados) — Fase 2.
 
-Verifica contra `usuarios_externos`, emite el MISMO JWT `access_token` que el webmail
-(firmado con WEBMAIL_SECRET_KEY, HS256, payload sub/exp/type=access) y marca la sesion
-viva en Redis. NO toca el login del correo. Lleva al Drive directamente (los externos no
-tienen buzon). Keycloak-ready: el callback OIDC podra reutilizar `emitir_sesion()`.
+Verifica contra `usuarios_externos` y emite un JWT en la MISMA cookie `access_token`
+que el webmail (firmado con WEBMAIL_SECRET_KEY, HS256) pero con ÁMBITO PROPIO:
+`aud = drive-externo`, `ambito = externo`. El backend del correo, el chat y el
+propio Almacén distinguen esa sesión de la de un buzón:
+  - el correo y el chat la RECHAZAN (PyJWT no acepta un `aud` que no se pidió, y el
+    backend además lo comprueba de forma explícita);
+  - el Almacén la resuelve SOLO contra `usuarios_externos`, nunca contra nómina.
+La sesión viva se marca en Redis como `sesion_externa:<correo>` (NO `imap_pass:`, que
+es la marca de sesión del correo). Antes se usaba la misma marca y el mismo JWT, y una
+cuenta externa creada con el correo de un buzón interno se convertía en ese buzón.
+Keycloak-ready: el callback OIDC podra reutilizar `emitir_sesion()`.
 """
 import datetime as _dt
 import hashlib
@@ -26,6 +33,8 @@ _COOKIE_DOMAIN = os.getenv('COOKIE_DOMAIN', '').strip()      # vacio = cookie ho
 _TTL_MIN = int(os.getenv('ACCESS_TOKEN_EXPIRE_MINUTES', '480'))   # 8 h por defecto
 _MAX_INTENTOS = 8            # por IP+correo antes de frenar
 _VENTANA_SEG = 900          # 15 min
+AUDIENCIA_EXTERNA = 'drive-externo'   # `aud` del JWT de cuentas externas
+CLAVE_SESION_EXTERNA = 'sesion_externa:%s'   # marca de sesión viva en Redis
 
 bp_acceso_externo = Blueprint('acceso_externo', __name__)
 _redis = None
@@ -81,14 +90,16 @@ def verificar_externo(email: str, pw: str) -> bool:
 
 
 def emitir_sesion(resp, email: str):
-    """Setea la cookie access_token (JWT igual al del webmail) y marca sesion viva."""
+    """Setea la cookie access_token (JWT con ámbito de cuenta externa) y marca sesion viva."""
     email = (email or '').strip().lower()
     exp = _dt.datetime.now(_dt.timezone.utc) + _dt.timedelta(minutes=_TTL_MIN)
-    token = jwt.encode({'sub': email, 'exp': exp, 'type': 'access'}, _SECRETO, algorithm='HS256')
+    token = jwt.encode({'sub': email, 'exp': exp, 'type': 'access',
+                        'aud': AUDIENCIA_EXTERNA, 'ambito': 'externo'},
+                       _SECRETO, algorithm='HS256')
     r = _r()
     if r is not None:
         try:
-            r.set('imap_pass:%s' % email, 'externo', ex=_TTL_MIN * 60)
+            r.set(CLAVE_SESION_EXTERNA % email, '1', ex=_TTL_MIN * 60)
         except Exception as e:
             log.warning('No se pudo marcar sesion en Redis: %s', e)
     ck = dict(httponly=True, secure=True, samesite='Strict', max_age=_TTL_MIN * 60, path='/')
@@ -227,11 +238,51 @@ def _enviar_invitacion(email: str, nombre: str, link: str):
         smtp.send_message(msg)
 
 
+_DOMINIOS_INTERNOS = {d.strip().lower() for d in os.getenv(
+    'ALMACEN_DOMINIOS_INTERNOS', 'maquita.org,maquita.com.ec,fundacionmaquita.org').split(',')
+    if d.strip()}
+_MAILDB_DSN = os.getenv('MAILDB_DSN', '').strip()
+
+
+def es_correo_interno(email: str) -> bool:
+    """True si el correo NO puede ser una cuenta externa: dominio institucional, buzon
+    existente en el servidor de correo (MAILDB_DSN) o persona del directorio de nomina.
+    Falla CERRADO: si una comprobacion configurada no responde, se considera interno."""
+    email = (email or '').strip().lower()
+    dominio = email.rsplit('@', 1)[-1]
+    if dominio in _DOMINIOS_INTERNOS:
+        return True
+    if _MAILDB_DSN:
+        try:
+            import psycopg2
+            with psycopg2.connect(_MAILDB_DSN, connect_timeout=5) as con:
+                with con.cursor() as cur:
+                    cur.execute('SELECT 1 FROM mailbox WHERE LOWER(username) = %s LIMIT 1', (email,))
+                    if cur.fetchone():
+                        return True
+        except Exception as e:
+            log.warning('No se pudo comprobar el buzon %s en el servidor de correo: %s', email, e)
+            return True
+    if os.getenv('ALMACEN_MODO_DIRECTORIO', 'local').strip().lower() == 'nomina':
+        try:
+            filas = consultar('SELECT 1 FROM usuarios WHERE LOWER(email) = %s LIMIT 1',
+                              (email,), nomina=True)
+            if filas:
+                return True
+        except Exception as e:
+            log.warning('No se pudo comprobar %s en el directorio de nomina: %s', email, e)
+            return True
+    return False
+
+
 def crear_e_invitar(email: str, nombre: str = '', creado_por: str = ''):
     """Crea la cuenta externa (si no existe) y le envia una invitacion. Devuelve (link, error)."""
     email = (email or '').strip().lower()
     if '@' not in email:
         return None, 'Correo inv\u00e1lido.'
+    if es_correo_interno(email):
+        return None, ('Ese correo pertenece a un buz\u00f3n o persona interna: entra con su '
+                      'cuenta del correo, no como cuenta externa.')
     filas = consultar('SELECT id FROM usuarios_externos WHERE LOWER(email)=%s', (email,))
     if not filas:
         ejecutar('INSERT INTO usuarios_externos (email, full_name, active, activado, creado_por) '
@@ -369,7 +420,7 @@ def externos_desactivar(eid):
         fila = consultar('SELECT email FROM usuarios_externos WHERE id=%s', (eid,))
         if fila:
             try:
-                r.delete('imap_pass:%s' % fila[0]['email'].lower())
+                r.delete(CLAVE_SESION_EXTERNA % fila[0]['email'].lower())
             except Exception:
                 pass
     return _jsonify({'ok': True})
@@ -424,7 +475,7 @@ def externos_eliminar(eid):
     r = _r()
     if r is not None and fila:
         try:
-            r.delete('imap_pass:%s' % fila[0]['email'].lower())
+            r.delete(CLAVE_SESION_EXTERNA % fila[0]['email'].lower())
         except Exception:
             pass
     # Los ARCHIVOS del externo NO se borran en automatico (para evitar perdida de datos):

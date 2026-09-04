@@ -101,11 +101,14 @@ async def change_password(
     username: str = Depends(get_current_user),
 ):
     """Change password: verify current → hash new → update DB → update Redis."""
-    # 1. Verify current password
-    stored = await get_user_password(request, username)
-    if body.current_password != stored:
-        if not verify_imap(username, body.current_password):
-            raise HTTPException(status_code=401, detail="Contraseña actual incorrecta")
+    # 1. Verify current password SIEMPRE contra IMAP (la fuente de verdad).
+    #    Antes se aceptaba si coincidia con el valor cacheado en Redis; ese valor
+    #    lo puede escribir otro servicio que comparta el Redis (p. ej. una marca
+    #    de sesion que no es una contrasena), y bastaba conocerlo para cambiar la
+    #    clave real del buzon.
+    await get_user_password(request, username)   # exige sesion viva (401 si expiro)
+    if not verify_imap(username, body.current_password):
+        raise HTTPException(status_code=401, detail="Contraseña actual incorrecta")
 
     if body.current_password == body.new_password:
         raise HTTPException(status_code=400, detail="La nueva contraseña debe ser diferente")
