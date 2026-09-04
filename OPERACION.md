@@ -135,18 +135,20 @@ desactivarle el 2FA.
 - **Camino normal (preferido):** otro superadministrador entra al panel, va a «Administradores»,
   edita esa cuenta y le cambia la contraseña. Eso cierra sus sesiones. El 2FA se desactiva desde la
   base (abajo), porque la pantalla de desactivar solo actúa sobre la propia cuenta.
-- **Camino de rescate (con acceso a la base, VM 130):**
+- **Camino de rescate (como root en la VM 130):**
 
-  ```sql
-  -- Desactiva el segundo factor de UNA cuenta y borra su secreto
-  UPDATE admin_users SET totp_enabled = FALSE, totp_secret = NULL WHERE username = '<cuenta>';
-  -- Cierra todas sus sesiones abiertas
-  UPDATE admin_sessions SET revoked_at = NOW()
-   WHERE user_id = (SELECT id FROM admin_users WHERE username = '<cuenta>') AND revoked_at IS NULL;
+  ```bash
+  maquita-admin-2fa estado              # quien tiene 2FA y cuantas sesiones abiertas
+  maquita-admin-2fa rescatar <cuenta>   # quita el 2FA y cierra sus sesiones (pide confirmacion)
   ```
 
   La persona vuelve a entrar solo con contraseña y **debe activar el 2FA de nuevo el mismo día**.
-  Todo queda registrado en `admin_audit`.
+  Queda registrado en `admin_audit` como `totp_rescate`. La herramienta vive en el repositorio
+  (`deploy/tools/maquita-admin-2fa`) y lee la contraseña de la base del `.env` del panel.
+
+- **Ojo con la recuperación por correo alternativo** (`/api/admin-recovery`): solo restablece la
+  **contraseña**, no toca el segundo factor. Si se perdió el teléfono, ese camino NO alcanza para
+  entrar; hay que usar el rescate de arriba.
 
 ### Reglas de continuidad
 - Debe haber **al menos dos** cuentas de superadministrador con 2FA activo, de personas distintas.

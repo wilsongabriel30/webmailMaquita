@@ -1,0 +1,113 @@
+#!/usr/bin/env python3
+"""maquita-admin-2fa — segundo factor del panel de administracion, desde consola.
+
+Para cuando alguien pierde el telefono y no puede entrar al panel. Solo desde la
+VM 130 y como root: quien puede ejecutarlo ya tiene acceso total a la base.
+
+Uso:
+  maquita-admin-2fa estado                 lista las cuentas y si tienen 2FA
+  maquita-admin-2fa rescatar <cuenta>      quita el 2FA y cierra sus sesiones
+  maquita-admin-2fa rescatar <cuenta> --si  sin preguntar (para guiones)
+
+Despues de un rescate, la persona entra solo con contrasena y DEBE volver a
+activar su 2FA el mismo dia. Todo queda anotado en admin_audit.
+
+La contrasena de la base se lee del .env del panel; no se escribe aqui.
+Maquita — 2026-09-04.
+"""
+import os
+import subprocess
+import sys
+
+ENV = "/opt/maquita-webmail/admin-panel/backend/.env"
+
+
+def credenciales():
+    if not os.path.exists(ENV):
+        sys.exit(f"No encuentro {ENV}: ejecuta esto en la VM 130.")
+    env = {}
+    with open(ENV, encoding="utf-8") as f:
+        for linea in f:
+            if "=" in linea and not linea.startswith("#"):
+                k, v = linea.strip().split("=", 1)
+                env[k] = v.strip('"')
+    return env
+
+
+def consulta(sql):
+    env = credenciales()
+    orden = ["psql", "-h", env.get("DB_HOST", "localhost"), "-U", env.get("DB_USER", "mailserver"),
+             "-d", env.get("DB_NAME", "maildb"), "-tAc", sql]
+    r = subprocess.run(orden, capture_output=True, text=True, timeout=20,
+                       env={**os.environ, "PGPASSWORD": env.get("DB_PASS", "")})
+    if r.returncode != 0:
+        sys.exit("Error de base de datos: " + (r.stderr or "").strip())
+    return r.stdout.strip()
+
+
+def estado():
+    # Los booleanos se convierten en SQL: concatenarlos con || da 'true'/'false',
+    # no 't'/'f', y comparar mal aqui haria que el estado se muestre al reves.
+    filas = consulta(
+        "SELECT username || '|' || role || '|' || CASE WHEN active THEN 'si' ELSE 'no' END || '|' || "
+        "CASE WHEN coalesce(totp_enabled,false) THEN 'si' ELSE 'no' END || '|' || "
+        "(SELECT count(*) FROM admin_sessions s WHERE s.user_id = u.id AND s.revoked_at IS NULL "
+        "AND s.expires_at > NOW()) FROM admin_users u ORDER BY u.id")
+    print(f"{'CUENTA':<22} {'ROL':<12} {'ACTIVA':<7} {'2FA':<5} SESIONES")
+    con_2fa = 0
+    for linea in filter(None, filas.split("\n")):
+        u, rol, act, totp, ses = linea.split("|")
+        si = totp == "si"
+        con_2fa += si and rol == "superadmin" and act == "si"
+        print(f"{u:<22} {rol:<12} {act:<7} {'si' if si else 'NO':<5} {ses}")
+    print()
+    if con_2fa < 2:
+        print(f"AVISO: solo {con_2fa} superadministrador(es) activo(s) con 2FA. "
+              "Deben ser al menos 2, de personas distintas: con uno solo, impersonar "
+              "buzones depende de un unico telefono (ver OPERACION.md).")
+
+
+def rescatar(cuenta, sin_preguntar=False):
+    fila = consulta("SELECT role || '|' || CASE WHEN active THEN 'si' ELSE 'no' END || '|' || "
+                    "CASE WHEN coalesce(totp_enabled,false) THEN 'si' ELSE 'no' END "
+                    f"FROM admin_users WHERE username = '{cuenta}'")
+    if not fila:
+        sys.exit(f"No existe la cuenta '{cuenta}'.")
+    rol, activa, totp = fila.split("|")
+    if totp != "si":
+        print(f"'{cuenta}' no tiene 2FA activo: no hay nada que rescatar.")
+        return
+    print(f"Cuenta '{cuenta}' (rol {rol}, activa={activa}).")
+    print("Se le quitara el segundo factor y se cerraran sus sesiones abiertas.")
+    print("Entrara solo con contrasena, asi que debe volver a activarlo el mismo dia.")
+    if not sin_preguntar:
+        if input("Escriba SI para continuar: ").strip() != "SI":
+            sys.exit("Cancelado; no se toco nada.")
+    consulta(
+        f"UPDATE admin_users SET totp_enabled = FALSE, totp_secret = NULL WHERE username = '{cuenta}';"
+        f"UPDATE admin_sessions SET revoked_at = NOW() WHERE revoked_at IS NULL AND user_id = "
+        f"(SELECT id FROM admin_users WHERE username = '{cuenta}');"
+        "INSERT INTO admin_audit (admin_id, admin_username, action, target, ip_address) VALUES "
+        f"(NULL, 'consola', 'totp_rescate', '{cuenta}', '127.0.0.1');")
+    print(f"Listo: '{cuenta}' ya puede entrar solo con su contrasena. Queda anotado en la auditoria.")
+
+
+def main():
+    if os.geteuid() != 0:
+        sys.exit("Ejecutar como root en la VM 130.")
+    args = sys.argv[1:]
+    if not args or args[0] in ("-h", "--help", "ayuda"):
+        print(__doc__)
+        return
+    if args[0] == "estado":
+        estado()
+    elif args[0] == "rescatar" and len(args) >= 2:
+        if not args[1].replace("@", "").replace(".", "").replace("-", "").replace("_", "").isalnum():
+            sys.exit("Nombre de cuenta no valido.")
+        rescatar(args[1], "--si" in args)
+    else:
+        sys.exit("Orden no reconocida. Use: estado | rescatar <cuenta>")
+
+
+if __name__ == "__main__":
+    main()
