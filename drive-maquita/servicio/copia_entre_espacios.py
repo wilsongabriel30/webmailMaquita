@@ -28,7 +28,7 @@ def copiar_entre_espacios(usuario_origen: int, ruta_origen: str,
     origen_virtual = normalizar_ruta_virtual(ruta_origen)
     destino_virtual = normalizar_ruta_virtual(ruta_destino)
     origen = ruta_fisica(usuario_origen, origen_virtual)
-    destino = ruta_fisica(usuario_destino, destino_virtual)
+    destino = ruta_fisica(usuario_destino, destino_virtual, escritura=True)
     if not os.path.exists(origen):
         raise FileNotFoundError(ruta_origen)
     os.makedirs(os.path.dirname(destino), exist_ok=True)
