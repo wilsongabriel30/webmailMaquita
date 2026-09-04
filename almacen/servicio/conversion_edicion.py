@@ -129,7 +129,7 @@ def preparar_para_editar(usuario_id: int, ruta_virtual: str, fisica_original: st
 
         from nucleo_archivos import subir
         from seguridad_rutas import ruta_fisica
-        fisica_nueva = ruta_fisica(usuario_id, ruta_nueva)
+        fisica_nueva = ruta_fisica(usuario_id, ruta_nueva, escritura=True)
         if (os.path.isfile(fisica_nueva)
                 and os.path.getmtime(fisica_nueva) >= os.path.getmtime(fisica_original)):
             _retirar_original(usuario_id, ruta_virtual)

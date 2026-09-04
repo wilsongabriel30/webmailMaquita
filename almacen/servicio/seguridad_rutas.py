@@ -73,7 +73,8 @@ def raiz_usuario(usuario_id: int, zona: str = 'archivos') -> str:
     return base
 
 
-def ruta_fisica(usuario_id: int, ruta_virtual: str, zona: str = 'archivos') -> str:
+def ruta_fisica(usuario_id: int, ruta_virtual: str, zona: str = 'archivos',
+                escritura: bool = False) -> str:
     """
     Convierte la ruta virtual del usuario en la ruta física en disco,
     GARANTIZANDO que queda contenida dentro de su carpeta.
@@ -82,13 +83,21 @@ def ruta_fisica(usuario_id: int, ruta_virtual: str, zona: str = 'archivos') -> s
       1. normalizar_ruta_virtual ya eliminó '..' y rarezas.
       2. realpath + verificación de prefijo: aunque existiera un enlace
          simbólico malicioso dentro del árbol, no se puede escapar.
+      3. En unidades compartidas, membresía (y rol de escritura si
+         `escritura=True`); si no, lanza SinPermisoUnidad (subclase de RutaInvalida).
     """
     if zona not in ('archivos', 'papelera', 'retencion', 'versiones'):
         raise RutaInvalida(f'Zona desconocida: {zona}')
 
     unidad_id, sub = unidad_de_ruta(ruta_virtual)
     if unidad_id is not None:
-        # Espacio de una unidad compartida (propiedad de la organización, no del usuario)
+        # Espacio de una unidad compartida (propiedad de la organización, no del usuario).
+        # El permiso se comprueba AQUÍ, no solo en la API: por esta función pasa todo
+        # acceso a disco (descargar, ver, copiar, OnlyOffice, compartir…) y bastaba un
+        # endpoint que no preguntara para leer lo ajeno. Falla cerrado (C-7, 2026-09).
+        # Import interno: permisos_unidad importa este módulo (evita el ciclo).
+        from permisos_unidad import exigir_permiso_unidad
+        exigir_permiso_unidad(usuario_id, unidad_id, escritura)
         base = os.path.join(raiz_datos(), '_unidades', str(unidad_id), zona)
         os.makedirs(base, exist_ok=True)
         limpia = sub
