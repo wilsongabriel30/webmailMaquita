@@ -1,0 +1,35 @@
+/* T-52 · El botón de fondo, su menú y el espejo de la vista propia */
+
+.mq-boton-fondo {
+    width: 44px; height: 44px; border-radius: 50%;
+    border: 0; cursor: pointer; font-size: 18px;
+    background: rgba(255, 255, 255, .14); color: #fff;
+    display: inline-flex; align-items: center; justify-content: center;
+}
+.mq-boton-fondo:hover { background: rgba(255, 255, 255, .24); }
+
+.mq-menu-fondos {
+    position: fixed; z-index: 9999;
+    background: #2b2b2b; border-radius: 10px; padding: 6px;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, .45);
+    min-width: 190px;
+}
+.mq-opcion-fondo {
+    display: flex; align-items: center; gap: 10px;
+    width: 100%; padding: 9px 12px; border: 0; border-radius: 6px;
+    background: transparent; color: #fff; font-size: 14px;
+    cursor: pointer; text-align: left;
+}
+.mq-opcion-fondo:hover { background: rgba(255, 255, 255, .12); }
+.mq-opcion-fondo.activo { background: var(--mq-azul, #0060A0); font-weight: 600; }
+
+/* El espejo va SOLO en la vista propia: lo que se envía a los demás no se toca.
+   Verse al revés desconcierta —uno levanta la derecha y en pantalla sube la izquierda—,
+   por eso todas las aplicaciones de videollamada lo hacen así. */
+video.mq-espejo { transform: scaleX(-1); }
+
+.mq-aviso-fondo {
+    position: fixed; bottom: 96px; left: 50%; transform: translateX(-50%);
+    background: #c4314b; color: #fff; padding: 10px 18px; border-radius: 8px;
+    font-size: 14px; z-index: 10000;
+}

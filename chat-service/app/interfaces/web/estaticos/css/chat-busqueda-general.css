@@ -1,0 +1,20 @@
+/* T-45 punto 9 - Resultados de contenido en el buscador de la izquierda */
+#mensajesBusqueda .conversation-preview mark {
+    background: #fff3bf;
+    color: inherit;
+    padding: 0 1px;
+    border-radius: 2px;
+}
+#mensajesBusqueda .conversation-preview {
+    white-space: normal;
+    line-height: 1.35;
+    font-size: 12px;
+}
+.mq-fecha-resultado {
+    float: right;
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--mq-gris-suave, #616161);
+}
+/* la lupa de la cabecera busca solo aqui: se avisa en el marcador de posicion */
+#buscarMsgInput::placeholder { font-style: italic; }

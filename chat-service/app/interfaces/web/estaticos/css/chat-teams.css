@@ -1,0 +1,161 @@
+/* ============================================================================
+ * T-45 · La conversación, con el look de Microsoft Teams y nuestra paleta.
+ * Copiado de la captura que dejó soporte (01/09/2026):
+ *   · mis mensajes: burbuja AZUL institucional sólida (#0060A0) con texto blanco,
+ *     a la derecha y sin repetir mi foto;
+ *   · los del otro: burbuja gris (#F3F2F1) a la izquierda, con avatar y su nombre
+ *     en gris pequeño encima del grupo;
+ *   · mensajes seguidos de la misma persona se apilan sin repetir avatar ni nombre;
+ *   · un mensaje que es solo emojis se pinta GIGANTE y sin burbuja;
+ *   · reacciones al pasar el mouse y caja de escribir redondeada.
+ * Es solo estilo: el mismo HTML sirve para la web y para el modo app.
+ * ========================================================================== */
+
+:root {
+    --mq-azul: #0060A0;              /* burbuja propia (institucional) */
+    --mq-gris-burbuja: #F3F2F1;      /* burbuja del otro (igual que Teams) */
+    --mq-texto: #242424;
+    --mq-gris-suave: #616161;
+    --mq-verde-presencia: #13A10E;
+}
+
+/* ---- lienzo ---- */
+/* T-54a: SIN `scroll-behavior: smooth` aqui. Lo llevaba desde T-45 y hacia que el
+   navegador animara hasta los saltos directos del codigo: al abrir una conversacion
+   larga se veia un barrido por toda la historia antes de llegar. Quien quiera
+   animacion la pide a mano con behavior: "smooth" (ir al final, saltar a un
+   resultado de busqueda), y esos siguen funcionando igual. */
+.chat-messages { background: #fff; padding: 12px 18px 6px; }
+
+/* ---- burbujas ---- */
+.chat-messages .message { display: flex; gap: 10px; margin: 2px 0 6px; align-items: flex-end; }
+.chat-messages .message.sent { flex-direction: row-reverse; }
+.chat-messages .message .message-content {
+    max-width: 65%; border-radius: 8px; padding: 8px 12px; position: relative;
+    background: var(--mq-gris-burbuja) !important; color: var(--mq-texto) !important;
+    font-size: 14px; line-height: 1.45; box-shadow: none;
+}
+.chat-messages .message.sent .message-content { background: var(--mq-azul) !important; color: #fff !important; }
+.chat-messages .message.sent .message-content a { color: #cfe6ff; }
+.chat-messages .message.sent .message-meta,
+.chat-messages .message.sent .message-status { color: rgba(255,255,255,.82) !important; }
+
+/* nombre del remitente: gris pequeñito, solo en la primera del grupo */
+.chat-messages .message .message-sender { font-size: 12px; color: var(--mq-gris-suave); margin-bottom: 2px; font-weight: 600; }
+.chat-messages .message.sent .message-sender { display: none; }
+
+/* avatar redondo con puntito de presencia (como Teams) */
+.chat-messages .message .message-avatar {
+    width: 32px; height: 32px; border-radius: 50%; flex: 0 0 32px; overflow: hidden;
+    display: flex; align-items: center; justify-content: center; font-size: 12px; position: relative;
+}
+.chat-messages .message.sent .message-avatar { display: none; }
+.chat-messages .message .message-avatar::after {
+    content: ''; position: absolute; right: -1px; bottom: -1px; width: 10px; height: 10px;
+    border-radius: 50%; background: var(--mq-verde-presencia); border: 2px solid #fff;
+}
+
+/* ---- agrupación: mensajes seguidos de la misma persona ---- */
+.chat-messages .message.mq-agrupado { margin-top: 1px; }
+.chat-messages .message.mq-agrupado .message-avatar { visibility: hidden; }
+.chat-messages .message.mq-agrupado .message-sender { display: none; }
+.chat-messages .message.mq-agrupado .message-content { border-top-left-radius: 4px; }
+.chat-messages .message.sent.mq-agrupado .message-content { border-top-right-radius: 4px; border-top-left-radius: 8px; }
+
+/* ---- hora y estado, discretos ---- */
+.chat-messages .message-meta { font-size: 11px; color: #8a8886; margin-top: 3px; display: flex; gap: 6px; align-items: center; }
+.chat-messages .message.sent .message-meta { justify-content: flex-end; }
+.chat-messages .message-status { font-size: 11px; }
+
+/* ---- un mensaje que es SOLO emojis: grande y sin burbuja ---- */
+.chat-messages .message.mq-solo-emoji .message-content { background: transparent !important; padding: 2px 4px; box-shadow: none; }
+.chat-messages .message.mq-solo-emoji .message-text { font-size: 40px; line-height: 1.1; }
+.chat-messages .message.mq-solo-emoji .message-meta { color: #8a8886 !important; }
+
+/* ---- separador de día y «leído por última vez» ---- */
+.mq-separador { display: flex; align-items: center; gap: 12px; margin: 14px 4px 10px; color: var(--mq-gris-suave); font-size: 12px; }
+.mq-separador::before, .mq-separador::after { content: ''; flex: 1; height: 1px; background: #e1dfdd; }
+.mq-leido { display: flex; align-items: center; gap: 12px; margin: 12px 4px; color: var(--mq-azul); font-size: 12px; font-weight: 600; }
+.mq-leido::before, .mq-leido::after { content: ''; flex: 1; height: 1px; background: var(--mq-azul); opacity: .5; }
+
+/* ---- reacciones al pasar el mouse ---- */
+.chat-messages .message { position: relative; }
+.mq-barra-reacciones {
+    position: absolute; top: -16px; display: none; gap: 2px; background: #fff; border: 1px solid #e1dfdd;
+    border-radius: 20px; padding: 3px 6px; box-shadow: 0 4px 14px rgba(0,0,0,.12); z-index: 5;
+}
+.chat-messages .message:hover .mq-barra-reacciones { display: flex; }
+.chat-messages .message.received .mq-barra-reacciones { left: 44px; }
+.chat-messages .message.sent .mq-barra-reacciones { right: 8px; }
+.mq-barra-reacciones button { border: 0; background: transparent; font-size: 16px; line-height: 1; padding: 2px 4px; cursor: pointer; border-radius: 50%; }
+.mq-barra-reacciones button:hover { background: #f3f2f1; transform: scale(1.15); }
+
+/* ---- caja de escribir ---- */
+.chat-input-container, .chat-input-area { background: #fff; padding: 10px 16px 14px; }
+.chat-input-container .chat-input-wrapper, .chat-input-area .chat-input-wrapper {
+    border: 1px solid #d1d1d1; border-radius: 12px; padding: 6px 10px; background: #fff;
+    display: flex; align-items: flex-end; gap: 6px; transition: border-color .15s;
+}
+.chat-input-container .chat-input-wrapper:focus-within { border-color: var(--mq-azul); box-shadow: 0 0 0 1px var(--mq-azul); }
+#messageInput { border: 0 !important; box-shadow: none !important; resize: none; font-size: 14px; padding: 6px 4px; max-height: 140px; }
+#messageInput:focus { outline: none; }
+
+/* ---- «está escribiendo» ---- */
+.typing-indicator { color: var(--mq-gris-suave); font-size: 12px; padding: 2px 18px 6px; }
+
+@media (max-width: 700px) {
+    .chat-messages .message .message-content { max-width: 82%; }
+}
+
+/* ---- archivos e imágenes dentro de la burbuja ---- */
+.chat-messages .message .message-file,
+.chat-messages .message .message-media { max-width: 100%; overflow: hidden; }
+.chat-messages .message .message-text { word-break: break-word; overflow-wrap: break-word; }
+
+/* archivo dentro de la burbuja propia: el azul sobre azul no se leía */
+.chat-messages .message.sent .message-file {
+    background: rgba(255,255,255,.14) !important; border-radius: 8px;
+}
+.chat-messages .message.sent .message-file,
+.chat-messages .message.sent .message-file .fw-bold,
+.chat-messages .message.sent .message-file .small { color: #fff !important; }
+.chat-messages .message.sent .message-file i { color: #cfe6ff !important; }
+.chat-messages .message.sent .message-file a { color: #fff !important; text-decoration: underline; }
+
+/* y en la burbuja del otro, que el icono no se pierda sobre el gris */
+.chat-messages .message.received .message-file { background: rgba(0,0,0,.04) !important; border-radius: 8px; }
+
+/* ancho cómodo de la tarjeta de archivo: el nombre en una línea, con puntos suspensivos */
+.chat-messages .message .message-file { min-width: 230px; max-width: 100%; align-items: center; }
+.chat-messages .message .message-file > div { min-width: 0; flex: 1; }
+.chat-messages .message .message-file .fw-bold {
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; max-width: 100%;
+}
+.chat-messages .message .message-file a { white-space: nowrap; }
+.chat-messages .message.sent .message-content:has(.message-file) { min-width: 260px; }
+
+/* ---- T-45 (piezas finales): mensajes nuevos, ir al final y adjunto en la caja ---- */
+.mq-nuevos { display: flex; align-items: center; gap: 12px; margin: 14px 4px; color: #c4314b; font-size: 12px; font-weight: 600; }
+.mq-nuevos::before, .mq-nuevos::after { content: ''; flex: 1; height: 1px; background: #c4314b; opacity: .45; }
+
+.mq-ir-final {
+    position: absolute; right: 26px; bottom: 96px; width: 40px; height: 40px; border-radius: 50%;
+    border: 1px solid #e1dfdd; background: #fff; color: #0060A0; box-shadow: 0 4px 14px rgba(0,0,0,.16);
+    display: none; align-items: center; justify-content: center; cursor: pointer; z-index: 20;
+}
+.mq-ir-final.visible { display: flex; }
+.mq-ir-final .mq-ir-final-num {
+    position: absolute; top: -6px; right: -6px; background: #c4314b; color: #fff; border-radius: 10px;
+    font-size: 11px; min-width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; padding: 0 4px;
+}
+
+.mq-adjunto {
+    display: flex; align-items: center; gap: 10px; margin: 0 16px 8px; padding: 8px 12px;
+    background: #f3f2f1; border: 1px solid #e1dfdd; border-radius: 10px; font-size: 13px;
+}
+.mq-adjunto i { color: #0060A0; }
+.mq-adjunto-datos { flex: 1; min-width: 0; }
+.mq-adjunto-datos b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mq-adjunto-datos small { color: #616161; }
+.mq-adjunto-enviar { border: 0; background: #0060A0; color: #fff; border-radius: 16px; padding: 5px 14px; cursor: pointer; }
+.mq-adjunto-quitar { border: 0; background: transparent; font-size: 20px; color: #616161; cursor: pointer; line-height: 1; }

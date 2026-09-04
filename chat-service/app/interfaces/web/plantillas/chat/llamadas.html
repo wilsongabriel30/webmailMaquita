@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{# T-46 · Sección «Llamadas»: discador, historial y favoritos, al estilo de Teams. #}
+{% block title %}Llamadas - Maquita{% endblock %}
+{% block extra_css %}
+<style>
+  .llam { max-width: 980px; margin: 0 auto; padding: 18px 16px 40px; }
+  .llam h4 { font-weight: 600; margin: 0 0 14px; }
+  .llam .tarjeta { background: #fff; border: 1px solid #e1dfdd; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  .llam .buscador { display: flex; align-items: center; gap: 10px; border: 1px solid #d1d1d1; border-radius: 24px; padding: 8px 16px; }
+  .llam .buscador input { border: 0; outline: none; flex: 1; font-size: 15px; }
+  .llam .persona { display: flex; align-items: center; gap: 12px; padding: 10px 6px; border-bottom: 1px solid #f3f2f1; }
+  .llam .persona:last-child { border-bottom: 0; }
+  .llam .foto { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: #e8f0fe; color: #0060A0;
+                display: flex; align-items: center; justify-content: center; font-weight: 600; flex: 0 0 40px; }
+  .llam .datos { flex: 1; min-width: 0; }
+  .llam .datos b { display: block; font-size: 14px; }
+  .llam .datos small { color: #616161; }
+  .llam .acciones { display: flex; gap: 6px; }
+  .llam .btn-llamar { border: 0; width: 38px; height: 38px; border-radius: 50%; color: #fff; cursor: pointer; }
+  .llam .btn-voz { background: #13A10E; } .llam .btn-video { background: #0060A0; }
+  .llam .btn-fav { border: 0; background: transparent; color: #c8c6c4; font-size: 18px; cursor: pointer; }
+  .llam .btn-fav.activo { color: #f2c744; }
+  .llam .perdida b { color: #c4314b; }
+  .llam .rapidos { display: flex; gap: 14px; flex-wrap: wrap; }
+  .llam .rapido { text-align: center; width: 84px; cursor: pointer; }
+  .llam .rapido .foto { width: 54px; height: 54px; margin: 0 auto 6px; flex: none; }
+  .llam .rapido small { display: block; font-size: 12px; line-height: 1.2; word-break: break-word; }
+  .llam .vacio { color: #616161; font-size: 14px; padding: 8px 4px; }
+  [data-theme="dark"] .llam .tarjeta { background: #1f2428; border-color: #333; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="llam">
+  <h4><i class="fas fa-phone me-2" style="color:#0060A0"></i>Llamadas</h4>
+
+  <div class="tarjeta">
+    <div class="buscador">
+      <i class="fas fa-search text-muted"></i>
+      <input id="buscarPersona" type="text" placeholder="Escribe un nombre para llamar…" autocomplete="off">
+    </div>
+    <div id="resultados"></div>
+  </div>
+
+  <div class="tarjeta" id="cajaRapidos">
+    <h6 class="mb-3"><i class="fas fa-star me-2" style="color:#f2c744"></i>Favoritos y frecuentes</h6>
+    <div class="rapidos" id="rapidos"><div class="vacio">Marca con la estrella a quien llames seguido.</div></div>
+  </div>
+
+  <div class="tarjeta">
+    <h6 class="mb-3"><i class="fas fa-clock-rotate-left me-2"></i>Historial</h6>
+    <div id="historial"><div class="vacio">Cargando…</div></div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+(function () {
+    var favoritos = new Set();
+
+    function iniciales(n) { return (n || '?').trim().slice(0, 2).toUpperCase(); }
+    function foto(p) {
+        return p.foto ? '<img class="foto" src="' + p.foto + '" alt="" onerror="this.outerHTML=\'<div class=\\\'foto\\\'>' + iniciales(p.nombre) + '</div>\'">'
+                      : '<div class="foto">' + iniciales(p.nombre) + '</div>';
+    }
+    // La llamada se abre en la ventana de siempre: el cliente Windows la canaliza a su ventana propia.
+    window.llamarA = function (id, nombre, tipo) {
+        var url = '/chat/llamada?role=caller&tipo=' + tipo + '&peer=' + encodeURIComponent(id) +
+                  '&name=' + encodeURIComponent(nombre || 'Usuario');
+        window.open(url, 'maquita_llamada', 'width=980,height=700,menubar=no,toolbar=no,location=no,status=no');
+    };
+    function botones(p) {
+        var esFav = favoritos.has(p.id);
+        return '<div class="acciones">' +
+            '<button class="btn-fav ' + (esFav ? 'activo' : '') + '" title="Favorito" onclick="alternarFavorito(' + p.id + ', this)">' +
+            (esFav ? '★' : '☆') + '</button>' +
+            '<button class="btn-llamar btn-voz" title="Llamar" onclick="llamarA(' + p.id + ', ' + JSON.stringify(p.nombre) + ', \'audio\')"><i class="fas fa-phone"></i></button>' +
+            '<button class="btn-llamar btn-video" title="Videollamada" onclick="llamarA(' + p.id + ', ' + JSON.stringify(p.nombre) + ', \'video\')"><i class="fas fa-video"></i></button>' +
+            '</div>';
+    }
+    window.alternarFavorito = async function (id, boton) {
+        var esFav = favoritos.has(id);
+        try {
+            if (esFav) { await fetch('/api/chat/llamadas/favoritos/' + id, { method: 'DELETE', credentials: 'same-origin' }); favoritos.delete(id); }
+            else { await fetch('/api/chat/llamadas/favoritos', { method: 'POST', credentials: 'same-origin',
+                     headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ usuario_id: id }) }); favoritos.add(id); }
+            boton.classList.toggle('activo', !esFav);
+            boton.textContent = !esFav ? '★' : '☆';
+            cargarRapidos();
+        } catch (e) {}
+    };
+
+    var temporizador = null;
+    document.getElementById('buscarPersona').addEventListener('input', function (e) {
+        var q = e.target.value.trim();
+        clearTimeout(temporizador);
+        if (q.length < 2) { document.getElementById('resultados').innerHTML = ''; return; }
+        temporizador = setTimeout(async function () {
+            try {
+                var r = await fetch('/api/chat/users/search?q=' + encodeURIComponent(q) + '&limit=12', { credentials: 'same-origin' });
+                var d = await r.json();
+                var lista = (d.users || d.usuarios || []).map(function (u) {
+                    return { id: u.id, nombre: u.name || u.nombre || 'Usuario', foto: u.photo || u.foto || '', cargo: u.cargo || u.email || '' };
+                });
+                document.getElementById('resultados').innerHTML = lista.length ? lista.map(function (p) {
+                    return '<div class="persona">' + foto(p) + '<div class="datos"><b>' + p.nombre + '</b><small>' + (p.cargo || '') + '</small></div>' + botones(p) + '</div>';
+                }).join('') : '<div class="vacio">Nadie con ese nombre.</div>';
+            } catch (e) { document.getElementById('resultados').innerHTML = '<div class="vacio">No se pudo buscar ahora.</div>'; }
+        }, 250);
+    });
+
+    async function cargarRapidos() {
+        try {
+            var f = await (await fetch('/api/chat/llamadas/favoritos', { credentials: 'same-origin' })).json();
+            favoritos = new Set((f.personas || []).map(function (p) { return p.id; }));
+            var fr = await (await fetch('/api/chat/llamadas/frecuentes', { credentials: 'same-origin' })).json();
+            var vistos = new Set(), lista = [];
+            (f.personas || []).concat(fr.personas || []).forEach(function (p) {
+                if (!vistos.has(p.id)) { vistos.add(p.id); lista.push(p); }
+            });
+            document.getElementById('rapidos').innerHTML = lista.length ? lista.slice(0, 10).map(function (p) {
+                return '<div class="rapido" onclick="llamarA(' + p.id + ', ' + JSON.stringify(p.nombre) + ', \'audio\')" title="Llamar a ' + p.nombre + '">' +
+                       foto(p) + '<small>' + p.nombre.split(' ').slice(0, 2).join(' ') + '</small></div>';
+            }).join('') : '<div class="vacio">Marca con la estrella a quien llames seguido.</div>';
+        } catch (e) {}
+    }
+
+    function cuando(t) {
+        try {
+            var d = new Date(t), hoy = new Date();
+            var mismo = d.toDateString() === hoy.toDateString();
+            return (mismo ? 'Hoy' : d.toLocaleDateString('es-EC', { day: 'numeric', month: 'short' })) +
+                   ' ' + d.toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' });
+        } catch (e) { return ''; }
+    }
+    function duracion(s) {
+        if (!s) return '';
+        var m = Math.floor(s / 60), r = s % 60;
+        return ' · ' + (m ? m + ' min ' : '') + r + ' s';
+    }
+    async function cargarHistorial() {
+        try {
+            var d = await (await fetch('/api/chat/llamadas/historial?limit=40', { credentials: 'same-origin' })).json();
+            var lista = d.llamadas || d.historial || [];
+            document.getElementById('historial').innerHTML = lista.length ? lista.map(function (l) {
+                var p = l.otro || {}; p.foto = p.foto || ''; p.nombre = p.nombre || 'Usuario';
+                var icono = l.perdida ? '<i class="fas fa-phone-slash" style="color:#c4314b"></i>'
+                          : (l.direccion === 'saliente' ? '<i class="fas fa-arrow-up-right-from-square" style="color:#13A10E"></i>'
+                                                        : '<i class="fas fa-arrow-down" style="color:#0060A0"></i>');
+                return '<div class="persona ' + (l.perdida ? 'perdida' : '') + '">' + foto(p) +
+                    '<div class="datos"><b>' + p.nombre + '</b><small>' + icono + ' ' +
+                    (l.perdida ? 'Perdida' : (l.direccion === 'saliente' ? 'Saliente' : 'Entrante')) +
+                    ' · ' + cuando(l.creado_en) + duracion(l.duracion_segundos) + '</small></div>' +
+                    '<div class="acciones"><button class="btn-llamar btn-voz" title="Volver a llamar" onclick="llamarA(' +
+                    (p.id || 0) + ', ' + JSON.stringify(p.nombre) + ', \'audio\')"><i class="fas fa-phone"></i></button></div></div>';
+            }).join('') : '<div class="vacio">Todavía no hay llamadas registradas.</div>';
+        } catch (e) { document.getElementById('historial').innerHTML = '<div class="vacio">No se pudo cargar el historial.</div>'; }
+    }
+
+    cargarRapidos(); cargarHistorial();
+    setInterval(cargarHistorial, 60000);
+})();
+</script>
+{% endblock %}

@@ -49,8 +49,10 @@
         cargando();
         try {
             const d = await pedir(API + '/search?q=' + encodeURIComponent(query) + '&limit=40');
-            if (!d.results.length) { contenedor().innerHTML = vacio('Sin resultados para «' + escapar(query) + '»'); return; }
+            ultimaBusqueda = query;
+            if (!d.results.length) { contenedor().innerHTML = vacio('Sin resultados en la biblioteca para «' + escapar(query) + '»') + botonExternos(query); return; }
             window.displayGifs(d.results);
+            contenedor().insertAdjacentHTML('beforeend', botonExternos(query));
         } catch (e) {
             console.error('GIF local:', e);
             contenedor().innerHTML = vacio('Error en la búsqueda');
@@ -131,5 +133,108 @@
             if (d.success) { toastr.success('GIF eliminado'); window.loadTrendingGifs(); }
             else toastr.error(d.mensaje || 'No se pudo eliminar');
         } catch (e) { toastr.error('Error de conexión'); }
+    };
+
+    // Abrir/cerrar el selector y buscar con retardo (traído del selector antiguo al retirar Tenor, 28/08/2026)
+    let gifSearchTimeout = null;
+    window.toggleGifPicker = function () {
+        const picker = document.getElementById('gifPicker');
+        const emojiPicker = document.getElementById('emojiPicker');
+        const btn = document.querySelector('.chat-input-actions .gif-btn');
+        const emojiBtn = document.querySelector('.chat-input-actions .emoji-btn');
+
+        if (!picker) {
+            console.error('GIF picker no encontrado');
+            return;
+        }
+
+        // Cerrar emoji picker si está abierto
+        if (emojiPicker.style.display === 'block') {
+            emojiPicker.style.display = 'none';
+            emojiBtn.classList.remove('active');
+        }
+
+        // Toggle GIF picker
+        if (picker.style.display === 'none' || !picker.style.display) {
+            picker.style.display = 'block';
+            btn.classList.add('active');
+            // Cargar GIFs trending por defecto
+            if (!picker.dataset.loaded) {
+                loadTrendingGifs();
+                picker.dataset.loaded = 'true';
+            }
+        } else {
+            picker.style.display = 'none';
+            btn.classList.remove('active');
+        }
+    };
+    window.searchGifs = function (query) {
+        clearTimeout(gifSearchTimeout);
+
+        if (!query.trim()) {
+            loadTrendingGifs();
+            return;
+        }
+
+        gifSearchTimeout = setTimeout(() => {
+            performGifSearch(query);
+        }, 500); // Debounce de 500ms
+    };
+
+    // ---- Segunda opción: fuentes externas (GIPHY / Wikimedia Commons). Lo elegido se DESCARGA a la biblioteca
+    //      propia (una sola vez) y el mensaje sale con la copia local. (28/08/2026)
+    let ultimaBusqueda = '';
+    function botonExternos(query) {
+        return '<div class="gif-externos-pie"><button type="button" class="btn btn-sm btn-outline-secondary" ' +
+               'onclick="buscarGifsExternos(' + JSON.stringify(query).replace(/"/g, '&quot;') + ')">' +
+               '<i class="fas fa-globe me-1"></i>¿No está? Buscar en fuentes externas</button></div>';
+    }
+    window.buscarGifsExternos = async function (query) {
+        const c = contenedor();
+        if (!c) return;
+        cargando();
+        try {
+            const d = await pedir(API + '/externos?q=' + encodeURIComponent(query) + '&limit=24');
+            if (!d.results.length) { c.innerHTML = vacio('Nada en las fuentes externas para «' + escapar(query) + '»'); return; }
+            c.innerHTML = '<div class="gif-externos-aviso"><i class="fas fa-globe me-1"></i>Resultados externos para «' + escapar(query) +
+                '»: al elegir uno se guarda en la biblioteca Maquita. <a href="#" onclick="performGifSearch(' +
+                JSON.stringify(query).replace(/"/g, '&quot;') + ');return false;">Volver a la biblioteca</a></div>' +
+                d.results.map(function (g, i) {
+                    const t = escapar(g.titulo);
+                    return '<div class="gif-item gif-item-externo" title="' + t + ' (' + g.fuente + ')" data-idx="' + i + '" ' +
+                           'onclick="importarGifExterno(this)"><img src="' + escapar(g.url_vista) + '" alt="' + t + '" loading="lazy">' +
+                           '<span class="gif-fuente">' + (g.local ? 'ya en biblioteca' : g.fuente) + '</span></div>';
+                }).join('');
+            c._externos = d.results;
+        } catch (e) {
+            console.error('GIF externos:', e);
+            c.innerHTML = vacio('No se pudo consultar las fuentes externas');
+        }
+    };
+    window.importarGifExterno = async function (el) {
+        const c = contenedor();
+        const g = c && c._externos && c._externos[parseInt(el.dataset.idx, 10)];
+        if (!g) return;
+        function enviarLocal(local) {
+            el.dataset.gifId = local.id;
+            el.dataset.gifUrl = local.url;
+            el.dataset.description = local.titulo || '';
+            window.sendGifFromElement(el);
+        }
+        if (g.local) { enviarLocal(g.local); return; }
+        el.classList.add('gif-importando');
+        try {
+            const r = await fetch(API + '/externos/importar', { method: 'POST', credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fuente: g.fuente, id: g.id, url: g.url, titulo: g.titulo, etiquetas: ultimaBusqueda }) });
+            const d = await r.json();
+            if (!d.success) { toastr.error(d.mensaje || 'No se pudo traer el GIF'); return; }
+            g.local = d.gif;
+            enviarLocal(d.gif);
+        } catch (e) {
+            toastr.error('Error de conexión al traer el GIF');
+        } finally {
+            el.classList.remove('gif-importando');
+        }
     };
 })();
