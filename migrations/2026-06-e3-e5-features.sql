@@ -1181,7 +1181,14 @@ ALTER TABLE ediscovery_exports
   ADD COLUMN IF NOT EXISTS signed_at TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS gpg_fingerprint VARCHAR(80),
   ADD COLUMN IF NOT EXISTS verified BOOLEAN;
-GRANT SELECT, INSERT, UPDATE, DELETE ON ediscovery_exports TO mailserver;
+-- El rol de la aplicacion no existe en una base recien creada (por ejemplo en CI),
+-- y un GRANT a un rol ausente aborta toda la migracion. Se concede solo si esta. [C4]
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'mailserver') THEN
+    GRANT SELECT, INSERT, UPDATE, DELETE ON ediscovery_exports TO mailserver;
+  END IF;
+END $$;
 
 -- 4) Auditoria avanzada: tabla de configuracion de retencion
 CREATE TABLE IF NOT EXISTS audit_retention_config (
