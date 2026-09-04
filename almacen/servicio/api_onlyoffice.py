@@ -289,7 +289,7 @@ def onlyoffice_config():
             nombre = ruta.rsplit('/', 1)[-1]
             extension = nombre.rsplit('.', 1)[-1].lower()
             tipo_documento = TIPOS_DOCUMENTO.get(extension, tipo_documento)
-            fisica = ruta_fisica(usuario, ruta)
+            fisica = ruta_fisica(usuario, ruta, escritura=True)
 
     modo = 'edit' if (escritura and extension in EXTENSIONES_EDITABLES) else 'view'
 

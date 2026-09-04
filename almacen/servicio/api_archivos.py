@@ -88,12 +88,14 @@ def usuario_actual() -> int:
 
 def _permiso_unidad(usuario, ruta, escritura=False) -> bool:
     """Si la ruta es de una unidad compartida, verifica que el usuario tenga acceso
-    (lectura, o escritura según su rol). Rutas personales: siempre True."""
+    (lectura, o escritura según su rol). Rutas personales: siempre True.
+    Falla CERRADO: ante cualquier error, sin acceso (antes abría)."""
     try:
-        from api_unidades import permiso_unidad
+        from permisos_unidad import permiso_unidad
         return permiso_unidad(usuario, ruta, escritura)
-    except Exception:
-        return True
+    except Exception as excepcion:
+        log.error('No se pudo comprobar el permiso de unidad (%s): %s', ruta, excepcion)
+        return False
 
 
 def error(mensaje: str, codigo: int = 500):
