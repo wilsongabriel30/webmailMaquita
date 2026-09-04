@@ -120,7 +120,7 @@ def listar():
             reprefijar(carpetas, _prefijo_comp)
             reprefijar(archivos, _prefijo_comp)
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     except FileNotFoundError:
         return error('Carpeta no encontrada', 404)
 
@@ -297,7 +297,7 @@ def descargar():
         _usuario_ef, _ruta_ef = _efectivo(usuario, _ruta_pedida)
         fisica = ruta_fisica(_usuario_ef, _ruta_ef)
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     if not os.path.isfile(fisica):
         return error('Archivo no encontrado', 404)
 
@@ -345,7 +345,7 @@ def ver():
         _usuario_ef, _ruta_ef = _efectivo(usuario, _ruta_pedida)
         fisica = ruta_fisica(_usuario_ef, _ruta_ef)
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     if not os.path.isfile(fisica):
         return error('Archivo no encontrado', 404)
     return _entrega_inline_segura(fisica)
@@ -524,8 +524,8 @@ def preview():
     ruta = request.args.get('file') or request.args.get('ruta') or ''
     try:
         fisica = ruta_fisica(usuario, ruta)
-    except RutaInvalida:
-        return error('Ruta inválida', 400)
+    except RutaInvalida as excepcion:
+        return error(str(excepcion), excepcion.codigo)
     # (2026-08-13) stat sobre NFS fuera del event loop (un NFS con hipo aquí
     # congelaba el worker entero; mismo patrón que nucleo_archivos.listar)
     if not _en_hilo_nativo(os.path.isfile, fisica):
@@ -583,7 +583,7 @@ def crear_acceso_directo():
         r = nucleo.crear_acceso_directo(usuario, datos.get('carpeta', '/'),
                                         datos['destino'], datos.get('nombre'))
     except RutaInvalida as e:
-        return error(str(e), 400)
+        return error(str(e), e.codigo)
     except FileNotFoundError as e:
         return error(str(e), 404)
     return jsonify({'success': True, **r}), 201
@@ -650,7 +650,7 @@ def eliminar():
         _usuario_ef, _ruta_ef = _efectivo(usuario, ruta)
         papelera_id = nucleo.enviar_a_papelera(_usuario_ef, _ruta_ef)
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     except FileNotFoundError:
         return error('No existe el elemento', 404)
     registrar_actividad(usuario, 'elimino', ruta)
@@ -710,7 +710,7 @@ def mover():
         return jsonify({'success': False, 'conflicto': True,
                         'error': str(choque), 'ruta': choque.ruta}), 409
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     except FileNotFoundError:
         try:  # LOG TEMPORAL para diagnosticar el error al mover
             from seguridad_rutas import unidad_de_ruta as _udr, ruta_fisica as _rf
@@ -751,7 +751,7 @@ def copiar():
             copiar_entre_espacios(_usuario_org, _origen_ef,
                                   _usuario_dst, _destino_ef)
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     except FileNotFoundError:
         return error('El origen no existe', 404)
     registrar_actividad(usuario, 'copio', datos['destino'], datos['origen'])
@@ -786,7 +786,7 @@ def renombrar():
         return jsonify({'success': False, 'conflicto': True,
                         'error': str(choque), 'ruta': choque.ruta}), 409
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     except FileNotFoundError:
         return error('No existe el elemento', 404)
     registrar_actividad(usuario, 'renombro', ruta_nueva, datos['ruta'])
@@ -811,7 +811,7 @@ def crear_carpeta():
             from vista_compartidos import reprefijar_item
             reprefijar_item(carpeta, _pref)
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     registrar_actividad(usuario, 'creo_carpeta', carpeta['ruta'])
     return jsonify({'success': True, 'carpeta': carpeta}), 201
 

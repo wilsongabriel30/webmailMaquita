@@ -96,7 +96,7 @@ def deshacer_actividad(actividad_id):
                 return error('Ya existe algo en la ruta original. No se puede deshacer sin sobrescribir.', 409)
             nucleo.mover(usuario, origen_actual, ruta_original)
         except RutaInvalida as e:
-            return error(str(e), 400)
+            return error(str(e), e.codigo)
         except FileNotFoundError:
             return error('El elemento ya no está disponible', 404)
         registrar_actividad(usuario, 'movio', ruta_original, origen_actual)
@@ -178,7 +178,7 @@ def crear_comentario():
     try:
         ruta = normalizar_ruta_virtual(datos.get('ruta', ''))
     except RutaInvalida as e:
-        return error(str(e), 400)
+        return error(str(e), e.codigo)
     texto = (datos.get('texto') or '').strip()
     if not texto:
         return error('El comentario está vacío', 400)
