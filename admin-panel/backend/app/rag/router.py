@@ -16,14 +16,40 @@ router = APIRouter(prefix="/api/rag", tags=["rag"])
 WEBMAIL = "/opt/maquita-webmail/backend"
 
 
+def _env_webmail() -> dict:
+    """Entorno para ejecutar el motor del webmail: copia del entorno actual mas su
+    .env, leido EN PYTHON.
+
+    Antes esto se hacia con `bash -c "... set -a && . .env && set +a && ..."`, y
+    se rompio en cuanto el .env gano valores con espacios y parentesis sin
+    comillas: bash intentaba ejecutarlos y devolvia «command not found» y «syntax
+    error near unexpected token», dejando el comando sin configuracion. Leerlo
+    aqui evita el shell y el problema. Mismo patron que ya usa safeattach.
+    """
+    import os
+    env = dict(os.environ)
+    try:
+        with open(os.path.join(WEBMAIL, ".env"), encoding="utf-8") as fh:
+            for linea in fh:
+                linea = linea.strip()
+                if not linea or linea.startswith("#") or "=" not in linea:
+                    continue
+                k, v = linea.split("=", 1)
+                env[k.strip()] = v.strip().strip('"').strip("'")
+    except OSError:
+        pass
+    return env
+
+
 def _db(r: Request):
     return r.app.state.db
 
 
 async def _run(args, timeout=185):
-    cmd = f"cd {WEBMAIL} && set -a && . .env && set +a && venv/bin/python -m app.rag.run {args}"
+    orden = [f"{WEBMAIL}/venv/bin/python", "-m", "app.rag.run"] + shlex.split(args)
     try:
-        p = await asyncio.to_thread(subprocess.run, ["bash", "-c", cmd], capture_output=True, text=True, timeout=timeout)
+        p = await asyncio.to_thread(subprocess.run, orden, cwd=WEBMAIL, env=_env_webmail(),
+                                    capture_output=True, text=True, timeout=timeout)
     except Exception as e:
         return {"error": str(e)}
     out = (p.stdout or "").strip()

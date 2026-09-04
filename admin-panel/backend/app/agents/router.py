@@ -18,9 +18,37 @@ router = APIRouter(prefix="/api/agents", tags=["agents"])
 WEBMAIL = "/opt/maquita-webmail/backend"
 
 
-async def _sh(cmd: str, timeout: int = 160):
+def _env_webmail() -> dict:
+    """Entorno para ejecutar el motor del webmail: copia del entorno actual mas su
+    .env, leido EN PYTHON.
+
+    Antes esto se hacia con `bash -c "... set -a && . .env && set +a && ..."`, y
+    se rompio en cuanto el .env gano valores con espacios y parentesis sin
+    comillas: bash intentaba ejecutarlos y devolvia «command not found» y «syntax
+    error near unexpected token», dejando el comando sin configuracion. Leerlo
+    aqui evita el shell y el problema. Mismo patron que ya usa safeattach.
+    """
+    import os
+    env = dict(os.environ)
     try:
-        return await asyncio.to_thread(subprocess.run, ["bash", "-c", cmd], capture_output=True, text=True, timeout=timeout)
+        with open(os.path.join(WEBMAIL, ".env"), encoding="utf-8") as fh:
+            for linea in fh:
+                linea = linea.strip()
+                if not linea or linea.startswith("#") or "=" not in linea:
+                    continue
+                k, v = linea.split("=", 1)
+                env[k.strip()] = v.strip().strip('"').strip("'")
+    except OSError:
+        pass
+    return env
+
+
+async def _ejecutar(orden: list, timeout: int = 160):
+    """Ejecuta el motor del webmail SIN shell: lista de argumentos y entorno propio."""
+    try:
+        return await asyncio.to_thread(
+            subprocess.run, orden, cwd=WEBMAIL, env=_env_webmail(),
+            capture_output=True, text=True, timeout=timeout)
     except Exception:
         return None
 
@@ -37,9 +65,10 @@ def _slice(out: str, op: str, cl: str):
 
 @router.get("/list")
 async def list_agents(r: Request, a=Depends(get_current_admin)):
-    p = await _sh(f'cd {WEBMAIL} && set -a && . .env && set +a && venv/bin/python -c '
-            f'"import json; from app.agents.runner import list_agents; print(json.dumps(list_agents()))"',
-            timeout=30)
+    p = await _ejecutar(
+        [f"{WEBMAIL}/venv/bin/python", "-c",
+         "import json; from app.agents.runner import list_agents; print(json.dumps(list_agents()))"],
+        timeout=30)
     data = _slice((p.stdout or "") if p else "", "[", "]")
     return {"agents": data or []}
 
@@ -58,8 +87,12 @@ async def run(r: Request, body: RunReq, a=Depends(get_current_admin)):
     flag = "--apply" if body.apply else ""
     u = "".join(c for c in (body.user or "") if c.isalnum() or c in "@._-")
     uflag = f"--user {u}" if u else ""
-    p = await _sh(f'cd {WEBMAIL} && set -a && . .env && set +a && '
-            f'venv/bin/python -m app.agents.run {name} {flag} {uflag}')
+    orden = [f"{WEBMAIL}/venv/bin/python", "-m", "app.agents.run", name]
+    if flag:
+        orden.append(flag)
+    if u:
+        orden += ["--user", u]
+    p = await _ejecutar(orden)
     if not p:
         raise HTTPException(500, "No se pudo ejecutar el agente")
     res = _slice(p.stdout or "", "{", "}") or {"error": (p.stderr or p.stdout or "")[-600:]}

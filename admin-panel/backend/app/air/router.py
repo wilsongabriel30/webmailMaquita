@@ -44,14 +44,39 @@ async def incidents(request: Request, hours: int = 168,
     return {"count": len(inc), "incidents": inc}
 
 
+def _env_webmail() -> dict:
+    """Entorno para ejecutar el motor del webmail: copia del entorno actual mas su
+    .env, leido EN PYTHON.
+
+    Antes esto se hacia con `bash -c "... set -a && . .env && set +a && ..."`, y
+    se rompio en cuanto el .env gano valores con espacios y parentesis sin
+    comillas: bash intentaba ejecutarlos y devolvia «command not found» y «syntax
+    error near unexpected token» en la pantalla de AIR, dejando la investigacion
+    sin configuracion. Leerlo aqui evita el shell y el problema.
+    """
+    import os
+    env = dict(os.environ)
+    try:
+        with open(os.path.join(WEBMAIL, ".env"), encoding="utf-8") as fh:
+            for linea in fh:
+                linea = linea.strip()
+                if not linea or linea.startswith("#") or "=" not in linea:
+                    continue
+                k, v = linea.split("=", 1)
+                env[k.strip()] = v.strip().strip('"').strip("'")
+    except OSError:
+        pass
+    return env
+
+
 @router.post("/investigate")
 async def investigate(request: Request, hours: int = 24,
                       admin: dict = Depends(get_current_admin)):
     try:
-        p = await asyncio.to_thread(subprocess.run, 
-            ["bash", "-c",
-             f"cd {WEBMAIL} && set -a && . .env && set +a && "
-             f"venv/bin/python -m app.air.run {int(hours)}"],
+        p = await asyncio.to_thread(
+            subprocess.run,
+            [f"{WEBMAIL}/venv/bin/python", "-m", "app.air.run", str(int(hours))],
+            cwd=WEBMAIL, env=_env_webmail(),
             capture_output=True, text=True, timeout=150)
         return {"ok": p.returncode == 0, "output": (p.stdout or p.stderr or "")[-4000:]}
     except Exception as e:

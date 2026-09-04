@@ -23,16 +23,41 @@ class AskReq(BaseModel):
     days: int = 7
 
 
+def _env_webmail() -> dict:
+    """Entorno para ejecutar el motor del webmail: copia del entorno actual mas su
+    .env, leido EN PYTHON.
+
+    Antes esto se hacia con `bash -c "... set -a && . .env && set +a && ..."`, y
+    se rompio en cuanto el .env gano valores con espacios y parentesis sin
+    comillas: bash intentaba ejecutarlos y devolvia «command not found» y «syntax
+    error near unexpected token», dejando el comando sin configuracion. Leerlo
+    aqui evita el shell y el problema. Mismo patron que ya usa safeattach.
+    """
+    import os
+    env = dict(os.environ)
+    try:
+        with open(os.path.join(WEBMAIL, ".env"), encoding="utf-8") as fh:
+            for linea in fh:
+                linea = linea.strip()
+                if not linea or linea.startswith("#") or "=" not in linea:
+                    continue
+                k, v = linea.split("=", 1)
+                env[k.strip()] = v.strip().strip('"').strip("'")
+    except OSError:
+        pass
+    return env
+
+
 @router.post("/ask")
 async def ask(r: Request, body: AskReq, a=Depends(get_current_admin)):
     q = (body.question or "").strip()[:500]
     if not q:
         raise HTTPException(400, "pregunta vacía")
     days = max(1, min(body.days, 90))
-    cmd = (f"cd {WEBMAIL} && set -a && . .env && set +a && "
-           f"venv/bin/python -m app.copiloto.run {shlex.quote(q)} {days}")
+    orden = [f"{WEBMAIL}/venv/bin/python", "-m", "app.copiloto.run", q, str(days)]
     try:
-        p = await asyncio.to_thread(subprocess.run, ["bash", "-c", cmd], capture_output=True, text=True, timeout=120)
+        p = await asyncio.to_thread(subprocess.run, orden, cwd=WEBMAIL, env=_env_webmail(),
+                                    capture_output=True, text=True, timeout=120)
     except Exception as e:
         raise HTTPException(500, str(e))
     out = (p.stdout or "").strip()
