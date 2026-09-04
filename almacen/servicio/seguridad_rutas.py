@@ -32,7 +32,15 @@ def unidad_de_ruta(ruta_virtual: str):
 
 
 class RutaInvalida(Exception):
-    """La ruta pedida es peligrosa o está fuera del espacio del usuario."""
+    """La ruta pedida es peligrosa o está fuera del espacio del usuario.
+    `codigo` es el HTTP que debe devolver la API: 400 (ruta mal formada) o
+    403 (ruta válida pero sin permiso: unidad compartida, contenido ajeno)."""
+    codigo = 400
+
+    def __init__(self, mensaje='Ruta inválida', codigo=None):
+        super().__init__(mensaje)
+        if codigo is not None:
+            self.codigo = codigo
 
 
 def normalizar_ruta_virtual(ruta: str) -> str:

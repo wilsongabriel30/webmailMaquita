@@ -36,7 +36,7 @@ def compartir():
     try:
         ruta = normalizar_ruta_virtual(datos.get('ruta', ''))
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     if ruta == '/':
         return error('No se puede compartir la raíz', 400)
     # Solo se comparte lo que existe y sobre lo que se tiene mano: en una unidad

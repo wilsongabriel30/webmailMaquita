@@ -146,7 +146,7 @@ def orto_info():
     try:
         ruta = normalizar_ruta_virtual(request.args.get('ruta', ''))
     except RutaInvalida as exc:
-        return error(str(exc), 400)
+        return error(str(exc), exc.codigo)
     tif = _buscar_en_carpeta(usuario, ruta, EXT_TIF)
     if not tif:
         return jsonify({'success': False, 'error': 'No hay ortomosaico (GeoTIFF) en la carpeta'}), 404
@@ -174,7 +174,7 @@ def orto_img():
         ruta = normalizar_ruta_virtual(request.args.get('ruta', ''))
         fisica = ruta_fisica(usuario, ruta)
     except RutaInvalida as exc:
-        return error(str(exc), 400)
+        return error(str(exc), exc.codigo)
     if not os.path.isfile(fisica):
         return error('Imagen no encontrada', 404)
     if not fisica.lower().endswith(EXT_IMG):

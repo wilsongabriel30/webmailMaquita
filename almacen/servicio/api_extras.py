@@ -33,7 +33,7 @@ def toggle_favorito():
     try:
         es_favorito = nucleo.toggle_favorito(usuario, datos['ruta'])
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     return jsonify({'success': True, 'es_favorito': es_favorito})
 
 
