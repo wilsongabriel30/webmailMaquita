@@ -81,7 +81,9 @@ def crear_compartido(usuario, datos):
     # Se comprueba aquí, en el núcleo, para que valga también desde la app de
     # Windows y desde cualquier llamada directa.
     try:
-        if not os.path.exists(ruta_fisica(usuario, ruta)):
+        # escritura=True: en una unidad compartida publican manager/editor; un
+        # viewer o un no miembro no puede sacar por enlace lo que solo mira (C-7).
+        if not os.path.exists(ruta_fisica(usuario, ruta, escritura=True)):
             return error(
                 'Eso ya no está en tu Drive, así que no se puede compartir. '
                 'Actualizá la vista (F5) y comprobá que siga ahí.', 404)
