@@ -21,6 +21,16 @@ router = APIRouter(prefix="/api/mail", tags=["mail-attachments"])
 _PREVIEWABLE_IMAGE = {"image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml", "image/bmp"}
 _PREVIEWABLE_TEXT = {"text/plain", "text/csv", "text/html", "text/xml", "text/css", "text/javascript", "application/json"}
 
+# [A-11] Tipos que el navegador EJECUTA si los abre en nuestro dominio. Se siguen
+# pudiendo previsualizar, pero nunca como pagina: van como descarga y ademas con
+# `sandbox`, que corta scripts, formularios y navegacion aunque alguien los abra.
+# El vector era un correo con `factura.html` y un enlace a la URL de preview: el
+# HTML se renderizaba en el origen del webmail y leia el buzon de quien lo abriera.
+_EJECUTABLES_EN_NAVEGADOR = {
+    "text/html", "text/xml", "application/xhtml+xml", "image/svg+xml",
+    "text/css", "text/javascript", "application/javascript", "application/xml",
+}
+
 
 @router.get("/attachment/{folder}/{uid}/{part_number}/{filename}")
 async def download_attachment(
@@ -103,14 +113,22 @@ async def preview_attachment(
         if data is None:
             raise HTTPException(status_code=404, detail="Attachment not found")
 
+        peligroso = content_type in _EJECUTABLES_EN_NAVEGADOR
+        # [A-11] El nombre va entre comillas en la cabecera: si trae comillas o
+        # saltos de linea, se sanea para no partir la cabecera.
+        nombre_seguro = _re.sub(r'["\r\n\\]', "_", filename)
+        cabeceras = {
+            "Content-Disposition": '%s; filename="%s"' % (
+                "attachment" if peligroso else "inline", nombre_seguro),
+            "Cache-Control": "private, max-age=300",
+            "X-Content-Type-Options": "nosniff",
+        }
+        if peligroso:
+            cabeceras["Content-Security-Policy"] = "sandbox"
         return Response(
             content=data,
             media_type=content_type,
-            headers={
-                "Content-Disposition": f'inline; filename="{filename}"',
-                "Cache-Control": "private, max-age=300",
-                "X-Content-Type-Options": "nosniff",
-            },
+            headers=cabeceras,
         )
     finally:
         try:
