@@ -1,12 +1,13 @@
 import asyncio
 from asyncio.subprocess import PIPE
 from fastapi import APIRouter, Request, Depends, Query, HTTPException
-from app.auth.dependencies import get_current_admin, require_role
+from app.auth.dependencies import get_current_admin, require_role, require_operador
 from app.wrappers import doveadm
 import json
 import re as _re
 
-router = APIRouter(prefix="/api/mailviewer", tags=["mailviewer"])
+router = APIRouter(prefix="/api/mailviewer", tags=["mailviewer"],
+                   dependencies=[Depends(require_operador)])   # correo ajeno: nunca un viewer (A-18)
 
 
 def _db(r: Request):

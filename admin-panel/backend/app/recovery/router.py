@@ -1,9 +1,10 @@
 import json
 from fastapi import APIRouter, Request, HTTPException, Depends
-from app.auth.dependencies import get_current_admin, require_role
+from app.auth.dependencies import get_current_admin, require_role, require_operador
 from app.wrappers import doveadm
 
-router = APIRouter(prefix="/api/recovery", tags=["recovery"])
+router = APIRouter(prefix="/api/recovery", tags=["recovery"],
+                   dependencies=[Depends(require_operador)])   # correo ajeno: nunca un viewer (A-18)
 
 def _db(r: Request): return r.app.state.db
 async def _audit(r, a, action, target=None, details=None):

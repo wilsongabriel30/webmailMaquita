@@ -50,6 +50,18 @@ async def init_admin_tables(pool: asyncpg.Pool):
         CREATE INDEX IF NOT EXISTS idx_admin_audit_created ON admin_audit(created_at DESC);
         CREATE INDEX IF NOT EXISTS idx_admin_audit_action ON admin_audit(action);
 
+        -- Revocación de sesiones (A-9): logout, cambio de clave, desactivación.
+        ALTER TABLE admin_sessions ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMP WITH TIME ZONE;
+        CREATE INDEX IF NOT EXISTS idx_admin_sessions_token ON admin_sessions(token_hash);
+
+        -- Revocación de sesiones (A-9): logout, cambio de clave, desactivación.
+        ALTER TABLE admin_sessions ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMP WITH TIME ZONE;
+        CREATE INDEX IF NOT EXISTS idx_admin_sessions_token ON admin_sessions(token_hash);
+
+        -- Revocación de sesiones (A-9): logout, cambio de clave, desactivación.
+        ALTER TABLE admin_sessions ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMP WITH TIME ZONE;
+        CREATE INDEX IF NOT EXISTS idx_admin_sessions_token ON admin_sessions(token_hash);
+
         CREATE TABLE IF NOT EXISTS ai_config (
             id INT PRIMARY KEY DEFAULT 1,
             provider VARCHAR(50) NOT NULL DEFAULT 'ollama',
