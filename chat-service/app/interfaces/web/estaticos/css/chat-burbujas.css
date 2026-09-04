@@ -1,0 +1,70 @@
+/* T-45 punto 11 - Burbujas que ocupan el ancho disponible (01/09/2026)
+ *
+ * El defecto: la burbuja se partia en columnas de dos o cuatro letras.
+ * La causa: `.message-content` llevaba `max-width: 65%`, pero su padre
+ * `.message` se dimensiona al contenido (max-width: 70% + align-self en una
+ * columna flex). Un porcentaje contra un padre que mide segun su contenido es
+ * circular, y el navegador lo resuelve con el ancho MINIMO: una palabra por
+ * linea.
+ *
+ * El arreglo (como Teams): la FILA ocupa el 100 % del panel y la alineacion se
+ * hace con justify-content; el 65 % pasa a medirse contra un ancho real, asi que
+ * la burbuja crece con el texto hasta ese tope y los parrafos largos fluyen
+ * anchos. Va despues de chat-teams.css para ganar por orden. */
+
+.chat-messages .message {
+    width: 100%;
+    max-width: 100%;
+    align-self: stretch;
+    justify-content: flex-start;
+}
+/* OJO con la dirección: `.message.sent` viene con `flex-direction: row-reverse`
+   (para poner el avatar del otro lado), y en row-reverse `flex-end` apunta a la
+   IZQUIERDA. Al añadir aquí la alineación, los mensajes propios se fueron al lado
+   equivocado sin que saltara ninguna prueba, porque se medía el ancho de la burbuja
+   pero no de qué lado quedaba. Se fija la dirección normal y ya `flex-end` significa
+   lo que uno espera: a la derecha. El avatar propio está oculto, así que invertir la
+   fila no aportaba nada. */
+.chat-messages .message.sent { flex-direction: row; justify-content: flex-end; }
+
+/* la burbuja: crece con el texto, nunca por debajo de lo comodo ni por encima
+   de dos tercios del panel */
+.chat-messages .message .message-content {
+    width: auto;
+    max-width: min(65%, 620px);
+    min-width: 0;
+    flex: 0 1 auto;
+}
+
+/* el texto fluye como parrafo; solo se parte una palabra si es kilometrica.
+   `break-word` (y no `anywhere`) es intencional: `anywhere` reduce el ancho
+   minimo del bloque y reaparece el colapso en columna. */
+.chat-messages .message .message-text {
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    word-break: normal;
+    hyphens: none;
+}
+
+/* que ningun hijo de la burbuja imponga un ancho minimo que la desborde */
+.chat-messages .message .message-content > * { min-width: 0; max-width: 100%; }
+
+/* pantallas angostas: la burbuja puede llegar mas lejos, pero sigue midiendo
+   contra la fila completa */
+@media (max-width: 700px) {
+    .chat-messages .message .message-content { max-width: 86%; }
+}
+@media (max-width: 420px) {
+    .chat-messages .message .message-content { max-width: 92%; }
+}
+
+/* la tarjeta de archivo pedia 230-260 px de ancho minimo: en pantallas muy
+   angostas eso desbordaba la burbuja, asi que se cede */
+@media (max-width: 480px) {
+    .chat-messages .message .message-file { min-width: 0; }
+    .chat-messages .message.sent .message-content:has(.message-file) { min-width: 0; }
+}
+
+/* el emoji gigante y la cita no deben heredar el tope de ancho del texto */
+.chat-messages .message.mq-solo-emoji .message-content { max-width: 100%; }
+.chat-messages .message .msg-cita { max-width: 100%; overflow-wrap: break-word; }

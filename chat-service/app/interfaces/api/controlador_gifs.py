@@ -153,3 +153,7 @@ def eliminar(gif_id):
     if not ok:
         return jsonify({'success': False, 'mensaje': 'Solo puedes eliminar los GIF que subiste'}), 403
     return jsonify({'success': True})
+
+
+# Segunda opción: fuentes externas (28/08/2026). Registra /externos y /externos/importar en bp_gifs.
+import interfaces.api.gifs_externos  # noqa: F401,E402
