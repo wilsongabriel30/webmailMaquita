@@ -22,7 +22,7 @@ from almacen_bd import consultar, ejecutar, es_master
 from api_archivos import error, usuario_actual
 from config_almacen import raiz_datos
 from registro import registrar_actividad
-from seguridad_rutas import unidad_de_ruta
+from seguridad_rutas import RutaInvalida, unidad_de_ruta
 import nucleo_archivos as nucleo
 
 log = logging.getLogger('almacen.unidades')
@@ -476,9 +476,11 @@ def restaurar_papelera_unidad(unidad_id):
     if not nombre_fisico:
         return error('Falta el elemento a restaurar', 400)
     try:
-        ruta = nucleo.restaurar_papelera_unidad(unidad_id, nombre_fisico)
+        ruta = nucleo.restaurar_papelera_unidad(usuario, unidad_id, nombre_fisico)
     except FileNotFoundError as e:
         return error(str(e), 404)
+    except RutaInvalida as e:
+        return error(str(e), e.codigo)
     return jsonify({'success': True, 'ruta': ruta, 'message': 'Restaurado'})
 
 

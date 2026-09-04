@@ -882,9 +882,10 @@ def listar_papelera_unidad(unidad_id: int) -> tuple:
     return carpetas, archivos
 
 
-def restaurar_papelera_unidad(unidad_id: int, nombre_fisico: str) -> str:
+def restaurar_papelera_unidad(usuario_id: int, unidad_id: int, nombre_fisico: str) -> str:
     """Devuelve un elemento a la unidad desde su papelera. Cualquier
-    administrador de la unidad puede hacerlo (el permiso se valida arriba)."""
+    administrador de la unidad puede hacerlo (el endpoint exige manager y
+    ruta_fisica vuelve a comprobar membresía y escritura con ese usuario)."""
     filas = consultar(
         "SELECT ruta_original FROM papelera WHERE unidad_id = %s AND nombre_fisico = %s",
         (unidad_id, nombre_fisico))
@@ -892,7 +893,7 @@ def restaurar_papelera_unidad(unidad_id: int, nombre_fisico: str) -> str:
         raise FileNotFoundError('No esta en la papelera de la unidad')
     ruta_original = filas[0]['ruta_original']
     origen = os.path.join(raiz_datos(), '_unidades', str(unidad_id), 'papelera', nombre_fisico)
-    destino = ruta_fisica(0, ruta_original)   # ruta_fisica ignora el usuario en rutas de unidad
+    destino = ruta_fisica(usuario_id, ruta_original, escritura=True)
     os.makedirs(os.path.dirname(destino), exist_ok=True)
     if os.path.exists(destino):
         raiz, ext = os.path.splitext(destino)
@@ -927,7 +928,7 @@ def restaurar_de_papelera(usuario_id: int, nombre_fisico: str) -> str:
     # en la papelera de la unidad, no en la del usuario). Asi el "Deshacer" tras
     # borrar tambien funciona para las unidades.
     if filas[0].get('unidad_id') is not None:
-        return restaurar_papelera_unidad(filas[0]['unidad_id'], nombre_fisico)
+        return restaurar_papelera_unidad(usuario_id, filas[0]['unidad_id'], nombre_fisico)
     ruta_original = filas[0]['ruta_original']
     origen = os.path.join(raiz_usuario(usuario_id, 'papelera'), nombre_fisico)
     destino = ruta_fisica(usuario_id, ruta_original, escritura=True)
