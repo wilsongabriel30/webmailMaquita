@@ -32,7 +32,10 @@ _ESTATICOS = os.path.join(_BASE, "app", "interfaces", "web", "estaticos")
 
 _JWT_SECRET = os.getenv("CHAT_JWT_SECRET", "")
 _REDIS_URL = os.getenv("CHAT_REDIS_URL", "")
-_RUTAS_PROTEGIDAS = ("/api/chat", "/chat", "/socket.io")
+# [A-2] Los adjuntos entran aqui: sin esto el before_request no los miraba y
+# la carpeta de subidas era publica para quien acertara la ruta.
+_RUTAS_PROTEGIDAS = ("/api/chat", "/chat", "/socket.io",
+                     "/uploads/chat", "/static/uploads/chat")
 
 
 # [B1] El chat no puede verificar tokens sin su secreto: aborta el arranque si falta
