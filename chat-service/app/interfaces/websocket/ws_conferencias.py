@@ -53,6 +53,14 @@ def registrar(socketio):
             'room_name': room_name
         }
 
+        # [A-5] Dejar constancia de quien estuvo: es lo que despues decide quien
+        # puede tocar la grabacion de esta conferencia.
+        try:
+            from interfaces.api.conferencia_miembros import registrar as _registrar_conf
+            _registrar_conf(room_id, usuario_id)
+        except Exception as _e:
+            logger.warning(f"[Conference] no se pudo registrar al creador: {_e}")
+
         # El creador se une a la sala Socket.IO
         join_room(f"conference_{room_id}")
         # T-48: en una llamada o reunion, el puntito pasa a OCUPADO solo
@@ -113,6 +121,13 @@ def registrar(socketio):
             return
 
         conf = active_conferences[room_id]
+
+        # [A-5] Igual que el creador: queda registrado que estuvo en la sala.
+        try:
+            from interfaces.api.conferencia_miembros import registrar as _registrar_conf
+            _registrar_conf(room_id, usuario_id)
+        except Exception as _e:
+            logger.warning(f"[Conference] no se pudo registrar al participante: {_e}")
 
         # Lista de participantes existentes ANTES de agregar al nuevo
         existing_participants = [
