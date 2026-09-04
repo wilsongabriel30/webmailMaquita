@@ -66,6 +66,7 @@ jobs:
       REDIS_URL: redis://localhost:6379/0
       SECRET_KEY: test-secret-key-for-ci-only
       ADMIN_JWT_SECRET: test-admin-jwt-secret-for-ci-only
+      MASTER_PASSWORD: test-master-password-for-ci-only
       MAIL_DOMAIN: example.com
       IMAP_HOST: 127.0.0.1
       SMTP_HOST: 127.0.0.1
