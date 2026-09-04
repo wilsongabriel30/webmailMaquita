@@ -112,3 +112,46 @@ Escrito para que no se olvide:
 El filtro en tubería es el cuello de botella del sistema. Subir el número de
 procesos en `master.cf` es barato porque cada uno pasa la mayor parte del tiempo
 esperando al descompresor y al antivirus, no consumiendo procesador.
+
+## Segundo factor (2FA) del panel de administración
+
+Desde 2026-09-04 la impersonación de buzones exige que quien la use sea **superadministrador** y
+haya **iniciado sesión con segundo factor**. El vale que emite el panel dura 5 minutos, nombra un
+solo buzón y no se puede reutilizar.
+
+### Activar el 2FA de la propia cuenta
+1. Entrar al panel desde la red interna o la VPN (fuera de ahí nginx no deja pasar).
+2. Arriba a la derecha, el icono de la persona («Mi cuenta»).
+3. En «Verificación en dos pasos», escribir la contraseña actual y pulsar **Activar 2FA**.
+4. Escanear el código QR con la aplicación de autenticación (o copiar la clave que aparece debajo).
+5. Escribir el código de 6 dígitos y pulsar **Verificar y activar**.
+6. **Cerrar sesión y volver a entrar con el código.** La marca de segundo factor se pone al iniciar
+   sesión: sin este paso la sesión abierta sigue sin ella y la impersonación responderá 403.
+
+### Si alguien pierde su segundo factor
+No hay códigos de respaldo. La cuenta no puede entrar sola: otra persona con acceso tiene que
+desactivarle el 2FA.
+
+- **Camino normal (preferido):** otro superadministrador entra al panel, va a «Administradores»,
+  edita esa cuenta y le cambia la contraseña. Eso cierra sus sesiones. El 2FA se desactiva desde la
+  base (abajo), porque la pantalla de desactivar solo actúa sobre la propia cuenta.
+- **Camino de rescate (con acceso a la base, VM 130):**
+
+  ```sql
+  -- Desactiva el segundo factor de UNA cuenta y borra su secreto
+  UPDATE admin_users SET totp_enabled = FALSE, totp_secret = NULL WHERE username = '<cuenta>';
+  -- Cierra todas sus sesiones abiertas
+  UPDATE admin_sessions SET revoked_at = NOW()
+   WHERE user_id = (SELECT id FROM admin_users WHERE username = '<cuenta>') AND revoked_at IS NULL;
+  ```
+
+  La persona vuelve a entrar solo con contraseña y **debe activar el 2FA de nuevo el mismo día**.
+  Todo queda registrado en `admin_audit`.
+
+### Reglas de continuidad
+- Debe haber **al menos dos** cuentas de superadministrador con 2FA activo, de personas distintas.
+  Con una sola, la impersonación (y con ella el soporte a los buzones) depende de un solo teléfono.
+- El secreto del 2FA se genera en el panel y vive en la aplicación del teléfono de cada persona.
+  No se comparte, no se guarda en documentos ni se envía por correo o chat.
+- Al dar de baja a una persona: desactivar su cuenta en «Administradores» (eso revoca sus sesiones
+  al instante) y borrar su secreto con la sentencia de arriba.
