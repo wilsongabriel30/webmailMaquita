@@ -1169,6 +1169,10 @@ SELECT pg_catalog.setval('public.phish_templates_id_seq', 3, true);
 \unrestrict ggALrjgBXAiScojZCERGNF36fXrobE3Dm3R5oAPqY9IzSgYaiTIeVweb0mbdhnb
 
 
+-- El volcado de arriba deja search_path vacio (linea 1071), asi que todo lo que sigue
+-- se ejecutaba sin esquema y fallaba en una instalacion nueva. Se restablece aqui. [C4]
+SET search_path TO public;
+
 -- 3) ALTER de tabla existente (firma GPG de exports) — correr como superusuario/postgres
 ALTER TABLE ediscovery_exports
   ADD COLUMN IF NOT EXISTS gpg_signature_path TEXT,

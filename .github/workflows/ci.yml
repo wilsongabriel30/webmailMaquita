@@ -88,7 +88,8 @@ jobs:
           PGPASSWORD: test
         run: |
           for f in $(ls ../migrations/*.sql 2>/dev/null | sort); do
-            psql -h localhost -U test -d testdb -f "$f" || true
+            echo "-> $f"
+            psql -h localhost -U test -d testdb -v ON_ERROR_STOP=1 -f "$f"
           done
 
       - name: Run tests
@@ -188,7 +189,7 @@ jobs:
           TABLES=$(psql -h localhost -U test -d migration_test -t -c \
             "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public';" | tr -d " ")
           echo "Tables created: $TABLES"
-          [ "$TABLES" -ge 1 ] || echo "::warning::No tables created"
+          [ "$TABLES" -ge 20 ] || { echo "::error::Solo $TABLES tablas: las migraciones no crearon el esquema"; exit 1; }
 
   install-smoke:
     name: Install Smoke Test
@@ -229,12 +230,24 @@ jobs:
           for fsql in migrations/*.sql deploy/seeds/*.sql; do
             [ -e "$fsql" ] || continue
             echo "-> $fsql"
-            psql -h localhost -U mailserver -d maildb -v ON_ERROR_STOP=0 -f "$fsql" >/dev/null 2>&1 || true
+            psql -h localhost -U mailserver -d maildb -v ON_ERROR_STOP=1 -f "$fsql" >/dev/null
           done
           echo "Tablas clave creadas:"
           psql -h localhost -U mailserver -d maildb -tAc "SELECT count(*) FROM information_schema.tables WHERE table_name IN ('mailbox','rag_domains','rag_chunks','conditional_access_policies')"
 
-      - name: Compilar (py_compile) backend y panel
+      - name: Compilar (py_compile) backend, panel y servicios satelite
         run: |
-          python -m py_compile $(find backend/app admin-panel/backend/app -name '*.py')
+          python -m py_compile $(find backend/app admin-panel/backend/app chat-service/app almacen/servicio milter -name '*.py' -not -name '*.bak.*')
           echo "py_compile OK"
+
+      - name: Dependencias fijadas en todos los requirements
+        run: |
+          fallo=0
+          for f in $(find . -name 'requirements*.txt' -not -path '*/node_modules/*' -not -path '*/venv/*' -not -path './backup-*' -not -name '*.bak*'); do
+            sueltas=$(grep -vE '^\s*#|^\s*$' "$f" | grep -vc '==' || true)
+            if [ "$sueltas" -gt 0 ]; then
+              echo "::error file=$f::$sueltas dependencia(s) sin version fija"; fallo=1
+            fi
+          done
+          [ "$fallo" = 0 ] && echo "Todas las dependencias estan fijadas"
+          exit $fallo
