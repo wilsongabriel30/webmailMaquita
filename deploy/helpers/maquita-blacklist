@@ -1,0 +1,183 @@
+#!/usr/bin/env python3
+"""maquita-blacklist — lista negra de IPs del correo, para el panel del webmail.
+
+Subacciones:  add <ip> [motivo]  |  remove <ip>  |  list  |  sync
+Salida SIEMPRE en JSON por stdout. Maquita — 2026-09-05.
+
+POR QUE EXISTE
+El backend del correo corre como www-data y no puede escribir en /etc ni tocar
+nftables, asi que los cuatro pasos del bloqueo fallaban en silencio: el endpoint
+respondia bien y no bloqueaba nada. La alternativa era dar a www-data permiso de
+escritura en tres rutas de /etc mas sudo para nft; eso amplia mucho lo que puede
+hacer el proceso que atiende peticiones de Internet. Aqui la superficie es una
+sola orden con dos argumentos y validacion propia.
+
+QUE NO HACE
+No se fia de quien llama. La IP se valida AQUI con ipaddress, y el motivo se
+reduce a una lista blanca de caracteres, aunque el llamador ya lo haga: este
+script corre como root y es el ultimo sitio donde se puede comprobar.
+"""
+import ipaddress
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+from datetime import datetime
+
+MAESTRO = "/etc/maquita-mail/blacklist-ips.txt"
+MAPA_RSPAMD = "/etc/rspamd/local.d/maps/blacklist_ips.map"
+TABLA_NFT = ("inet", "filter", "blacklist_ips")
+LARGO_MOTIVO = 120
+_RE_MOTIVO = re.compile(r"[^0-9A-Za-zÁÉÍÓÚÜÑáéíóúüñ ._,:()/#@+=—-]")
+
+
+def salir(ok, **datos):
+    print(json.dumps({"ok": ok, **datos}, ensure_ascii=False))
+    sys.exit(0 if ok else 1)
+
+
+def validar_ip(texto):
+    texto = (texto or "").strip()
+    try:
+        if "/" in texto:
+            return str(ipaddress.ip_network(texto, strict=False))
+        return str(ipaddress.ip_address(texto))
+    except ValueError:
+        salir(False, error=f"IP o rango invalido: {texto[:40]}")
+
+
+def limpiar_motivo(texto):
+    texto = (texto or "").strip().replace("\n", " ").replace("\r", " ")
+    texto = _RE_MOTIVO.sub("", texto)
+    texto = re.sub(r"\s+", " ", texto).strip()[:LARGO_MOTIVO]
+    return texto or "Bloqueado desde el panel"
+
+
+def leer_entradas():
+    """Devuelve [(ip, comentario_previo)] del fichero maestro."""
+    if not os.path.exists(MAESTRO):
+        return []
+    entradas, comentario = [], ""
+    for linea in open(MAESTRO, encoding="utf-8", errors="replace"):
+        s = linea.strip()
+        if not s:
+            continue
+        if s.startswith("#"):
+            comentario = s
+            continue
+        entradas.append((s, comentario))
+        comentario = ""
+    return entradas
+
+
+def escribir_maestro(lineas_texto):
+    """Reescritura atomica conservando dueño y modo."""
+    st = os.stat(MAESTRO)
+    tmp = MAESTRO + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        fh.write(lineas_texto)
+    os.chown(tmp, st.st_uid, st.st_gid)
+    os.chmod(tmp, st.st_mode & 0o777)
+    os.replace(tmp, MAESTRO)
+
+
+def sincronizar_rspamd(ips):
+    """El mapa que rspamd lee de verdad es blacklist_ips.map. Se regenera con las
+    IPs del maestro; llevaba vacio desde mayo mientras el maestro tenia 93."""
+    if not os.path.isdir(os.path.dirname(MAPA_RSPAMD)):
+        return "sin directorio de mapas"
+    cabecera = ("# Generado por maquita-blacklist. No editar a mano:\n"
+                "# la fuente es " + MAESTRO + "\n")
+    st = os.stat(MAPA_RSPAMD) if os.path.exists(MAPA_RSPAMD) else None
+    tmp = MAPA_RSPAMD + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        fh.write(cabecera + "\n".join(ips) + ("\n" if ips else ""))
+    if st:
+        os.chown(tmp, st.st_uid, st.st_gid)
+        os.chmod(tmp, st.st_mode & 0o777)
+    os.replace(tmp, MAPA_RSPAMD)
+    return "ok"
+
+
+def nft(accion, ip):
+    fam, tabla, conjunto = TABLA_NFT
+    orden = ["nft", accion, "element", fam, tabla, conjunto, "{ %s }" % ip]
+    r = subprocess.run(orden, capture_output=True, text=True, timeout=15)
+    return r.returncode == 0, (r.stderr or "").strip()[:120]
+
+
+def estado_rspamd_tras_cambio():
+    """No se fuerza recarga a proposito.
+
+    El codigo anterior llamaba a `rspamc reload`, que no es una subaccion valida
+    (rspamc interpreta "reload" como un fichero a escanear y responde "cannot
+    stat file reload"): nunca recargo nada. Y no hace falta: rspamd revisa sus
+    mapas cada map_watch_interval, 5 minutos en esta instalacion. Reiniciar el
+    filtro de correo entero por anadir una IP seria desproporcionado.
+    """
+    return "el mapa se releera en <=5 min (map_watch_interval)"
+
+
+def main():
+    if os.geteuid() != 0:
+        salir(False, error="Debe ejecutarse con privilegio")
+    args = sys.argv[1:]
+    if not args:
+        salir(False, error="uso: add <ip> [motivo] | remove <ip> | list | sync")
+    accion = args[0]
+
+    if accion == "list":
+        salir(True, entradas=[{"ip": i, "comentario": c} for i, c in leer_entradas()])
+
+    if accion == "sync":
+        ips = [i for i, _ in leer_entradas()]
+        salir(True, rspamd=sincronizar_rspamd(ips), recarga=estado_rspamd_tras_cambio(), total=len(ips))
+
+    if accion == "add":
+        if len(args) < 2:
+            salir(False, error="falta la IP")
+        ip = validar_ip(args[1])
+        motivo = limpiar_motivo(" ".join(args[2:]))
+        entradas = leer_entradas()
+        if any(i == ip for i, _ in entradas):
+            salir(True, ya_estaba=True, ip=ip)
+        fecha = datetime.now().strftime("%Y-%m-%d %H:%M")
+        with open(MAESTRO, "a", encoding="utf-8") as fh:
+            fh.write(f"\n# {motivo} - {fecha}\n{ip}\n")
+        ips = [i for i, _ in leer_entradas()]
+        estado_rspamd = sincronizar_rspamd(ips)
+        ok_nft, err_nft = nft("add", ip.split("/")[0] if "/" not in ip else ip)
+        salir(True, ip=ip, motivo=motivo, rspamd=estado_rspamd,
+              nftables="ok" if ok_nft else f"aviso: {err_nft}",
+              recarga=estado_rspamd_tras_cambio(), total=len(ips))
+
+    if accion == "remove":
+        if len(args) < 2:
+            salir(False, error="falta la IP")
+        ip = validar_ip(args[1])
+        entradas = leer_entradas()
+        if not any(i == ip for i, _ in entradas):
+            salir(False, error=f"{ip} no esta en la lista")
+        salida, saltar = [], False
+        lineas = open(MAESTRO, encoding="utf-8", errors="replace").read().split("\n")
+        for idx, linea in enumerate(lineas):
+            if linea.strip() == ip:
+                if salida and salida[-1].strip().startswith("#"):
+                    salida.pop()
+                continue
+            salida.append(linea)
+        escribir_maestro("\n".join(salida).rstrip("\n") + "\n")
+        ips = [i for i, _ in leer_entradas()]
+        estado_rspamd = sincronizar_rspamd(ips)
+        ok_nft, err_nft = nft("delete", ip.split("/")[0] if "/" not in ip else ip)
+        salir(True, ip=ip, rspamd=estado_rspamd,
+              nftables="ok" if ok_nft else f"aviso: {err_nft}",
+              recarga=estado_rspamd_tras_cambio(), total=len(ips))
+
+    salir(False, error=f"accion desconocida: {accion[:20]}")
+
+
+if __name__ == "__main__":
+    main()
