@@ -42,6 +42,44 @@ async def _audit(request: Request, admin: str, action: str, target: str = None, 
     await audit_service.log_action(db, admin, action, target, details, _get_ip(request))
 
 
+# Caracteres admitidos en el motivo de un bloqueo. Lista BLANCA a proposito: el
+# motivo lo escribe quien administra y acaba en una linea de comentario del
+# fichero de listas. Antes iba a `bash -c` citado con repr(), que es citado de
+# Python y NO de shell: al aparecer una comilla simple, repr() cambia a comillas
+# dobles y bash expande $( ), ` ` y $VAR. Eso era ejecucion de ordenes.
+_RE_MOTIVO_PROHIBIDO = re.compile(r"[^0-9A-Za-zÁÉÍÓÚÜÑáéíóúüñ ._,:()/#@+=—-]")
+_LARGO_MAXIMO_MOTIVO = 120
+
+
+def _sanear_motivo(texto: str) -> str:
+    """Motivo apto para una linea de comentario: sin saltos de linea ni metacaracteres."""
+    texto = (texto or "").strip()
+    texto = texto.replace("\n", " ").replace("\r", " ")
+    texto = _RE_MOTIVO_PROHIBIDO.sub("", texto).strip()
+    texto = re.sub(r"\s+", " ", texto)[:_LARGO_MAXIMO_MOTIVO].strip()
+    return texto or "Bloqueado manualmente"
+
+
+def _anadir_a_fichero(ruta: str, texto: str) -> None:
+    with open(ruta, "a", encoding="utf-8") as fh:
+        fh.write(texto)
+
+
+def _reescribir_fichero(ruta: str, contenido: str) -> None:
+    """Reescritura atomica: se escribe al lado y se reemplaza de un golpe.
+
+    Sustituye al documento incrustado que se usaba antes con `cat >`. Aquel se
+    podia cerrar desde el propio contenido: bastaba una linea con la palabra
+    delimitadora dentro del fichero de listas -que guarda motivos escritos por
+    personas- para que lo siguiente se interpretara como ordenes.
+    """
+    import os
+    temporal = ruta + ".tmp"
+    with open(temporal, "w", encoding="utf-8") as fh:
+        fh.write(contenido)
+    os.replace(temporal, ruta)
+
+
 async def _run_cmd(*args: str, timeout: int = 30) -> tuple[str, str, int]:
     """Run a subprocess and return (stdout, stderr, returncode)."""
     proc = await asyncio.create_subprocess_exec(
@@ -316,7 +354,7 @@ async def add_to_blacklist(
 ):
     """Agregar IP/CIDR a la blacklist permanente."""
     ip = body.ip.strip()
-    reason = body.reason.strip() or "Bloqueado manualmente"
+    reason = _sanear_motivo(body.reason)
 
     if not _validate_ip_or_cidr(ip):
         raise HTTPException(400, f"IP/CIDR inválido: {ip}")
@@ -333,7 +371,12 @@ async def add_to_blacklist(
 
     # 1. Add to main blacklist file
     append_text = f"\n{comment_line}\n{ip_line}\n"
-    await _run_cmd("bash", "-c", f'echo -n {repr(append_text)} >> {BLACKLIST_FILE}')
+    try:
+        await asyncio.to_thread(_anadir_a_fichero, BLACKLIST_FILE, append_text)
+    except OSError as excepcion:
+        # Antes esto se hacia con `bash -c` y nadie miraba el resultado: si la
+        # escritura fallaba, el endpoint respondia OK sin haber bloqueado nada.
+        raise HTTPException(500, f"No se pudo escribir la lista de bloqueos: {excepcion}")
 
     # 2. Copy to rspamd maps
     await _run_cmd("cp", BLACKLIST_FILE, RSPAMD_BLACKLIST)
@@ -382,7 +425,10 @@ async def remove_from_blacklist(
         raise HTTPException(404, f"IP {ip} no encontrada en la blacklist")
 
     new_content = "\n".join(new_lines) + "\n"
-    await _run_cmd("bash", "-c", f"cat > {BLACKLIST_FILE} << 'ENDOFFILE'\n{new_content}ENDOFFILE")
+    try:
+        await asyncio.to_thread(_reescribir_fichero, BLACKLIST_FILE, new_content)
+    except OSError as excepcion:
+        raise HTTPException(500, f"No se pudo reescribir la lista de bloqueos: {excepcion}")
 
     # 2. Update rspamd maps
     await _run_cmd("cp", BLACKLIST_FILE, RSPAMD_BLACKLIST)
@@ -423,7 +469,10 @@ async def ban_to_permanent(
 
     # Add to blacklist
     append_text = f"\n{comment_line}\n{ip}\n"
-    await _run_cmd("bash", "-c", f'echo -n {repr(append_text)} >> {BLACKLIST_FILE}')
+    try:
+        await asyncio.to_thread(_anadir_a_fichero, BLACKLIST_FILE, append_text)
+    except OSError as excepcion:
+        raise HTTPException(500, f"No se pudo escribir la lista de bloqueos: {excepcion}")
     await _run_cmd("cp", BLACKLIST_FILE, RSPAMD_BLACKLIST)
     await _run_cmd("nft", "add", "element", "inet", "filter", "blacklist_ips", f"{{ {ip} }}")
     await _run_cmd("rspamc", "reload")
