@@ -85,10 +85,17 @@ export function PasswordChange() {
   const [loading, setLoading] = useState(false);
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNext, setShowNext] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const strength = useMemo(() => evaluateStrength(form.next), [form.next]);
 
   const mismatch = form.confirm.length > 0 && form.next !== form.confirm;
+  // Caso frecuente y desconcertante: los dos campos se ven iguales pero difieren
+  // en espacios invisibles al principio o al final (teclado del móvil, pegado
+  // desde otra aplicación). Sin decirlo, no hay forma de saber por qué no deja
+  // continuar. No se recortan solos a propósito: una contraseña puede llevar
+  // espacios a posta, y cambiarla por detrás sería peor.
+  const soloEspacios = mismatch && form.next.trim() === form.confirm.trim();
   const canSubmit =
     form.current.length > 0 &&
     allRulesPass(form.next) &&
@@ -229,20 +236,32 @@ export function PasswordChange() {
 
         {/* Confirm password */}
         <FieldGroup label="Confirmar nueva contraseña" htmlFor="pw-confirm">
-          <input
-            id="pw-confirm"
-            type="password"
-            value={form.confirm}
-            onChange={updateField('confirm')}
-            autoComplete="new-password"
-            className={[
-              inputClass,
-              mismatch ? 'border-[#d13438] focus:border-[#d13438] focus:ring-[#d13438]' : '',
-            ].join(' ')}
-          />
+          {/* autoComplete "off" y no "new-password": con "new-password" el
+              gestor del navegador rellenaba este campo con un valor distinto
+              del recién escrito arriba, y la confirmación no coincidía nunca
+              sin que se viera por qué. El ojito permite comprobarlo. */}
+          <div className="relative">
+            <input
+              id="pw-confirm"
+              type={showConfirm ? 'text' : 'password'}
+              value={form.confirm}
+              onChange={updateField('confirm')}
+              autoComplete="off"
+              className={[
+                inputClass,
+                mismatch ? 'border-[#d13438] focus:border-[#d13438] focus:ring-[#d13438]' : '',
+              ].join(' ')}
+            />
+            <ToggleEye
+              show={showConfirm}
+              onToggle={() => setShowConfirm((v) => !v)}
+            />
+          </div>
           {mismatch && (
             <p className="mt-1 text-[11px] text-[#d13438]">
-              Las contraseñas no coinciden.
+              {soloEspacios
+                ? 'Coinciden salvo por espacios al principio o al final. Míralas con el ojito y bórralos.'
+                : 'Las contraseñas no coinciden.'}
             </p>
           )}
         </FieldGroup>

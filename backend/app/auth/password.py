@@ -2,6 +2,9 @@
 import re
 import subprocess
 import imaplib
+import logging
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
@@ -82,16 +85,53 @@ def hash_password_doveadm(password: str) -> str:
     return result.stdout.strip()
 
 
+_HOSTS_LOCALES = {"127.0.0.1", "::1", "localhost"}
+
+
 def verify_imap(username: str, password: str) -> bool:
-    """Verify credentials via IMAP login."""
+    """Comprueba las credenciales entrando por IMAP.
+
+    Cifra con STARTTLS siempre que el servidor lo ofrezca. Antes se abria
+    `IMAP4` a secas y se enviaba la contrasena tal cual: aqui no se nota porque
+    el IMAP es 127.0.0.1 y Dovecot admite acceso en claro desde localhost
+    (`login_trusted_networks`), pero en un despliegue con el IMAP en otra
+    maquina la contrasena viajaria por la red sin cifrar, y si ese servidor
+    exigiera TLS este paso fallaria y el cambio se reportaria como no aplicado
+    aunque si se hubiera guardado.
+
+    Si el servidor es remoto y no ofrece STARTTLS, NO se envia la contrasena:
+    se devuelve False y queda anotado. En local se sigue adelante, para no
+    romper una instalacion que hoy funciona.
+    """
     settings = get_settings()
+    host = (settings.imap_host or "").strip()
+    es_local = host in _HOSTS_LOCALES
+    conn = None
     try:
-        conn = imaplib.IMAP4(settings.imap_host, settings.imap_port)
+        conn = imaplib.IMAP4(host, settings.imap_port)
+        capacidades = {c.decode() if isinstance(c, bytes) else c for c in conn.capabilities}
+        if "STARTTLS" in capacidades:
+            try:
+                conn.starttls()
+            except Exception as excepcion:
+                if not es_local:
+                    logger.error("IMAP %s: STARTTLS fallo (%s); no se envia la contrasena",
+                                 host, excepcion)
+                    return False
+                logger.warning("IMAP local: STARTTLS fallo (%s); se continua sin cifrar", excepcion)
+        elif not es_local:
+            logger.error("IMAP %s no ofrece STARTTLS; no se envia la contrasena en claro", host)
+            return False
         conn.login(username, password)
-        conn.logout()
         return True
     except Exception:
         return False
+    finally:
+        if conn is not None:
+            try:
+                conn.logout()
+            except Exception:
+                pass
 
 
 @router.post("/change-password")
