@@ -9,6 +9,19 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Corregido
 
+- **El botón «Cambiar contraseña» quedaba gris sin explicar por qué.** La barra de fuerza contaba
+  cuántas reglas se cumplían, sin mirar cuáles: una contraseña de 9 caracteres con mayúscula,
+  minúscula, número y símbolo sumaba 4 de 5 y se anunciaba como **«Fuerte» en verde**, mientras el
+  botón seguía deshabilitado porque el mínimo de 10 caracteres no se cumplía. La pantalla decía una
+  cosa y el botón hacía otra, sin salida posible.
+
+  Ahora la barra no muestra ninguna etiqueta positiva mientras falte un requisito obligatorio:
+  dice «Faltan requisitos» en naranja. Y bajo el botón aparece el motivo concreto —qué regla falta,
+  que hay que repetir la contraseña, que la confirmación no coincide o que falta la actual—.
+  Reproducido con el caso real reportado (`860829Al@`) y con otras cinco contraseñas. Detectado por
+  el equipo de Correo Andes.
+
+
 - **No se podía cambiar la contraseña desde el webmail.** En Ajustes → Contraseña, el campo
   «Confirmar» marcaba «Las contraseñas no coinciden» aunque se escribiera lo mismo en los dos
   campos, y el botón quedaba deshabilitado sin salida. La comparación era correcta: los valores
