@@ -31,6 +31,7 @@ from email.utils import formatdate, make_msgid, parseaddr
 from dataclasses import dataclass, field
 
 from app.config import get_settings
+from app.branding.service import app_name_cacheado, org_name_cacheado
 import re as _re
 
 # ─── Headers que NUNCA deben estar en un correo saliente ───
@@ -129,8 +130,11 @@ def build_mime_message(email_data: OutgoingEmail) -> MIMEMultipart:
     msg["Subject"] = email_data.subject
     msg["Date"] = formatdate(localtime=True)
     msg["Message-ID"] = make_msgid(domain=settings.mail_domain)
-    msg["X-Mailer"] = "Maquita Webmail/1.0"
-    msg["Organization"] = "Maquita"
+    # Marca: este punto no tiene la base a mano, asi que se lee de la cache de
+    # proceso. Si aun no esta rellena se usan los valores por defecto: un correo
+    # nunca debe dejar de salir por consultar el nombre de la organizacion.
+    msg["X-Mailer"] = f"{app_name_cacheado()}/1.0"
+    msg["Organization"] = org_name_cacheado()
 
     if email_data.cc:
         msg["Cc"] = ", ".join(email_data.cc)

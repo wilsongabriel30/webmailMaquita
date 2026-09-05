@@ -7,6 +7,49 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Cambiado
+
+- **La marca visible deja de estar escrita a mano en el código.** Los textos de marca vivían
+  repartidos en literales (`"Maquita Mail"`, `"Maquita"`, `"Maquita Webmail"`), lo que obligaba a
+  reparchear en cada versión a quien usa el proyecto como base. Ahora salen de `branding_settings`,
+  a través de `app/branding/service.py`, y se pueden cambiar sin tocar código. Sugerido por el
+  equipo de Correo Andes.
+
+  Se distinguen **dos** valores, porque no son lo mismo:
+  - `org_name` — la organización (aquí, «Fundación Maquita Cushunchic MCCH»). Su valor por defecto
+    es neutro a propósito: una réplica no debe mostrar la marca de otra organización, porque un
+    aviso de seguridad a nombre ajeno parece phishing.
+  - `app_name` — el producto de correo (aquí, «Maquita Mail»). Es lo que ve quien usa el sistema.
+    Valor por defecto: `Maquita Mail`.
+
+  Puntos parametrizados: emisor del segundo factor (`auth/totp.py`), cabeceras `X-Mailer` y
+  `Organization` del correo saliente (`mail/clients/smtp_client.py`), pie de los recordatorios
+  automáticos (`reminders_scheduler.py`), identificador de producto iCal, texto de invitación y pie
+  de las invitaciones de calendario (`calendar/service.py`), y el título de los avisos del navegador
+  y el prefijo del nombre de caché en `frontend/public/sw.js`, que el despliegue inyecta.
+
+  **Cuatro textos cambian de contenido**, porque los literales anteriores eran inconsistentes entre
+  sí y ahora se unifican:
+
+  | Texto | Antes | Ahora |
+  |---|---|---|
+  | Cabecera `X-Mailer` | `Maquita Webmail/1.0` | `Maquita Mail/1.0` |
+  | Cabecera `Organization` | `Maquita` | nombre completo de la organización |
+  | Identificador iCal | `-//Maquita Webmail//Calendar//ES` | `-//Maquita Mail//Calendar//ES` |
+  | Pie de invitación | `… · Fundación Maquita` | `… ·` nombre completo de la organización |
+
+  El resto (emisor del segundo factor, pie de recordatorios, texto de invitación y título de los
+  avisos) queda **exactamente igual** en la instalación de Maquita.
+
+  Para los puntos que no tienen la base de datos a mano —el cliente SMTP, sobre todo— hay una caché
+  de proceso que se rellena al arrancar. Si no se ha rellenado, se usan los valores por defecto: un
+  correo nunca deja de salir por consultar la marca.
+
+  **No se han renombrado los identificadores internos de almacenamiento**: las bases del navegador
+  `maquita-mail-offline` y `maquita-cache`, y el global `MaquitaAlmacen`, siguen igual. Renombrarlos
+  dejaría sin datos a quien ya los tenga guardados. Queda advertido en el propio `sw.js`.
+
+
 ### Seguridad (remediación de la auditoría 2026-09-03 — rama `remediacion-seguridad-2026-09`)
 
 Entorno en pre-producción sin usuarios reales; el lanzamiento ocurre tras el pentest externo y su

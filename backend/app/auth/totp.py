@@ -17,12 +17,15 @@ from fastapi import APIRouter, Request, Depends, HTTPException
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
+from app.branding.service import get_app_name
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/auth/totp", tags=["2fa"])
 
 BACKUP_CODES_COUNT = 8
-ISSUER = "Maquita Mail"
+# Emisor que se ve en la aplicacion de autenticacion. Sale de la marca
+# (branding_settings["app_name"]); esto solo actua si no esta configurada.
+ISSUER_POR_DEFECTO = "Maquita Mail"
 
 
 async def ensure_tables(db):
@@ -83,7 +86,8 @@ async def setup_totp(
     """, user, secret, backup_codes)
 
     totp = pyotp.TOTP(secret)
-    uri = totp.provisioning_uri(name=user, issuer_name=ISSUER)
+    emisor = await get_app_name(request.app.state.db_pool)
+    uri = totp.provisioning_uri(name=user, issuer_name=emisor)
 
     img = qrcode.make(uri)
     buf = io.BytesIO()

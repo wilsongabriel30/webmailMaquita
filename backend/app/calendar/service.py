@@ -4,6 +4,7 @@ from __future__ import annotations
 import re
 
 from app.core.sanitize import strip_html, sanitize_html
+from app.branding.service import app_name_cacheado, org_name_cacheado
 
 import json
 
@@ -603,7 +604,7 @@ class CalendarService:
         from icalendar import Calendar as ICal
 
         ical = ICal()
-        ical.add("prodid", "-//Maquita Webmail//Calendar//ES")
+        ical.add("prodid", f"-//{app_name_cacheado()}//Calendar//ES")
         ical.add("version", "2.0")
         ical.add("calscale", "GREGORIAN")
         ical.add("x-wr-calname", cal["name"])
@@ -985,11 +986,11 @@ class CalendarService:
                 "<p style='font-size:12px;color:#605e5c;border-top:1px solid #edebe9;"
                 "padding-top:12px;margin-top:16px;'>Puedes responder con los botones "
                 "<b>Aceptar / Rechazar / Provisional</b> de tu cliente de correo "
-                "(Maquita Mail, Outlook, Thunderbird…). El evento se añadió "
+                f"({app_name_cacheado()}, Outlook, Thunderbird…). El evento se añadió "
                 "automáticamente a tu calendario.</p>"
                 "</div>"
                 "<div style='background:#faf9f8;padding:10px 24px;font-size:11px;color:#a19f9d;'>"
-                "Maquita Mail · Fundación Maquita</div>"
+                f"{app_name_cacheado()} · {org_name_cacheado()}</div>"
                 "</div>"
             )
 

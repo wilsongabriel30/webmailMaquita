@@ -41,6 +41,19 @@ echo "Fecha: $(date '+%Y-%m-%d %H:%M:%S')"
 echo -e "\n${YELLOW}[1/5] Building frontend...${NC}"
 cd "${FRONTEND_DIR}"
 # T-35: cada publicación renueva la caché del service worker (arranque sin red con la portada vigente)
+# Marca del producto: se inyecta en el service worker desde branding_settings.
+# Si no se puede consultar la base, se deja lo que trae el fichero (Maquita Mail),
+# de modo que un despliegue nunca falla por esto.
+NOMBRE_APP="$(sudo -u postgres psql -d maildb -tAc \
+  "SELECT value FROM branding_settings WHERE key='app_name'" 2>/dev/null | xargs || true)"
+if [ -n "$NOMBRE_APP" ]; then
+  # Prefijo del nombre de cache: minusculas y guiones. NO afecta a los
+  # identificadores de IndexedDB del correo ni del chat, que son fijos.
+  PREFIJO_CACHE="$(printf '%s' "$NOMBRE_APP" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-|-$//g')"
+  sed -i -E "s/^const NOMBRE_APP = \"[^\"]*\";/const NOMBRE_APP = \"${NOMBRE_APP}\";/" public/sw.js
+  sed -i -E "s/(const CACHE_NAME = \")[^\"]*(-v)/\1${PREFIJO_CACHE}\2/" public/sw.js
+  echo "   Marca inyectada en el service worker: ${NOMBRE_APP} (cache: ${PREFIJO_CACHE}-v…)"
+fi
 sed -i -E "s/(const CACHE_NAME = \"[^\"]*-v)[0-9A-Za-z-]*(\")/\1$(date +%Y%m%d%H%M)\2/" public/sw.js
 npm run build 2>&1 | tail -5
 
