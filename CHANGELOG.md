@@ -7,6 +7,33 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Corregido
+
+- **No se podía cambiar la contraseña desde el webmail.** En Ajustes → Contraseña, el campo
+  «Confirmar» marcaba «Las contraseñas no coinciden» aunque se escribiera lo mismo en los dos
+  campos, y el botón quedaba deshabilitado sin salida. La comparación era correcta: los valores
+  de verdad diferían. Dos causas, y ninguna se veía:
+  - el gestor de contraseñas del navegador rellenaba «Confirmar» con otro valor, porque los dos
+    campos declaraban `autoComplete="new-password"`;
+  - un espacio invisible al principio o al final, típico del teclado del móvil o de pegar desde
+    otra aplicación.
+
+  «Confirmar» pasa a `autoComplete="off"`, gana el mismo botón de mostrar/ocultar que ya tenía
+  «Nueva» —sin él no había forma de ver la diferencia— y, cuando lo único que separa a las dos
+  contraseñas son espacios, el mensaje lo dice en lugar del genérico. **Los espacios no se
+  recortan solos a propósito:** una contraseña puede llevarlos a posta y cambiarla por detrás
+  sería peor. Detectado por el equipo de Correo Andes.
+
+### Seguridad
+
+- **La reverificación por IMAP del cambio de contraseña ahora va cifrada.** `verify_imap` abría
+  `IMAP4` sin cifrar y enviaba la contraseña recién puesta tal cual. En esta instalación no se
+  notaba, porque el IMAP es `127.0.0.1` y Dovecot admite acceso en claro desde localhost, pero en
+  un despliegue con el IMAP en otra máquina la contraseña viajaría por la red sin cifrar; y si ese
+  servidor exigiera TLS, el paso fallaría y el cambio se reportaría como no aplicado aunque sí se
+  hubiera guardado. Ahora se usa STARTTLS siempre que el servidor lo ofrezca, y si el servidor es
+  remoto y no lo ofrece **no se envía la contraseña**. Aviso del equipo de Correo Andes.
+
 ### Cambiado
 
 - **La marca visible deja de estar escrita a mano en el código.** Los textos de marca vivían
