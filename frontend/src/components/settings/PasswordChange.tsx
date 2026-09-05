@@ -66,6 +66,16 @@ function evaluateStrength(password: string): StrengthResult {
   };
 
   const info = map[total] ?? map[0];
+
+  // Ninguna etiqueta positiva mientras falte un requisito OBLIGATORIO. Antes se
+  // contaban las reglas cumplidas sin mirar cuales: una clave de 9 caracteres con
+  // mayuscula, minuscula, numero y simbolo sumaba 4 de 5 y se anunciaba como
+  // «Fuerte» en verde, mientras el boton seguia gris porque el minimo de 10 no se
+  // cumplia. La pantalla decia una cosa y el boton hacia otra.
+  if (!allRulesPass(password)) {
+    return { level: 'fair', score: Math.min(total, 2), label: 'Faltan requisitos', color: '#ca5010' };
+  }
+
   return { ...info, score: total };
 }
 
@@ -96,6 +106,18 @@ export function PasswordChange() {
   // continuar. No se recortan solos a propósito: una contraseña puede llevar
   // espacios a posta, y cambiarla por detrás sería peor.
   const soloEspacios = mismatch && form.next.trim() === form.confirm.trim();
+
+  // Que le falta exactamente para poder guardar.
+  const reglasQueFaltan = RULES.filter((r) => !r.test(form.next)).map((r) => r.label);
+  const motivoBloqueo = !form.current
+    ? 'Escribe tu contraseña actual para continuar.'
+    : reglasQueFaltan.length > 0
+      ? `Falta por cumplir: ${reglasQueFaltan.join(', ').toLowerCase()}.`
+      : form.confirm.length === 0
+        ? 'Repite la nueva contraseña en «Confirmar».'
+        : mismatch
+          ? 'La confirmación no coincide con la nueva contraseña.'
+          : '';
   const canSubmit =
     form.current.length > 0 &&
     allRulesPass(form.next) &&
@@ -278,6 +300,14 @@ export function PasswordChange() {
           >
             {feedback.message}
           </div>
+        )}
+
+        {/* Motivo de que el boton este deshabilitado. Sin esto, la persona ve el
+            boton gris y no tiene forma de saber que le falta. */}
+        {!canSubmit && !loading && (form.current || form.next || form.confirm) && (
+          <p className="mb-2 text-[11px] text-[#605e5c]">
+            {motivoBloqueo}
+          </p>
         )}
 
         {/* Submit */}
