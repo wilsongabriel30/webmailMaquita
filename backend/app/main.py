@@ -16,6 +16,7 @@ from aiosmtplib import SMTPAuthenticationError
 from app.mail.errors import CredencialIMAPInvalida
 from app.config import get_settings
 from app.database import create_db_pool
+from app.branding.service import precargar as precargar_marca
 from app.redis_client import create_redis
 from app.core.logging import setup_logging, RequestIdMiddleware
 
@@ -267,6 +268,10 @@ async def lifespan(app: FastAPI):
     setup_logging()
     app.state.db_pool = await create_db_pool()
     app.state.redis = await create_redis()
+    # Marca: se rellena la cache de proceso una sola vez, para los puntos que no
+    # tienen la base a mano (cliente SMTP, recordatorios, calendario). Si falla,
+    # se sigue con los valores por defecto: la marca nunca impide arrancar.
+    await precargar_marca(app.state.db_pool)
     # DDL serializado entre workers (evita deadlocks de arranque)
     async with app.state.db_pool.acquire() as _ddl_conn:
         await _ddl_conn.execute("SELECT pg_advisory_lock(815000)")

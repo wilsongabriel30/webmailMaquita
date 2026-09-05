@@ -57,6 +57,7 @@ async def _send_fallback_email(username: str, message: str):
     """Si el usuario no tiene el webmail abierto, el recordatorio llega por correo."""
     try:
         from app.config import get_settings
+        from app.branding.service import app_name_cacheado
         st = get_settings()
         msg = EmailMessage()
         msg["From"] = f"no-reply@{st.mail_domain}"
@@ -65,7 +66,7 @@ async def _send_fallback_email(username: str, message: str):
         msg.set_content(message)
         msg.add_alternative(
             f"<p style=\"font-size:14px\">{message}</p>"
-            f"<p style=\"color:#605e5c;font-size:12px\">Recordatorio automático de Maquita Mail "
+            f"<p style=\"color:#605e5c;font-size:12px\">Recordatorio automático de {app_name_cacheado()} "
             f"(recibiste este correo porque no tenías el webmail abierto).</p>",
             subtype="html",
         )
