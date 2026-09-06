@@ -11,14 +11,19 @@ Uso:
 
 Score actual verificado: 10/10 en mail-tester.com (14-Abril-2026)
 """
+
 import sys
 import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app.mail.clients.smtp_client import (
-    build_mime_message, OutgoingEmail, _html_to_text, _wrap_html,
-    _FORBIDDEN_HEADERS, _assert_no_forbidden_headers,
+    build_mime_message,
+    OutgoingEmail,
+    _html_to_text,
+    _wrap_html,
+    _FORBIDDEN_HEADERS,
+    _assert_no_forbidden_headers,
 )
 
 passed = 0
@@ -38,8 +43,11 @@ def check(name, condition, detail=""):
 
 
 def get_parts(msg):
-    return [p.get_content_type() for p in msg.walk()
-            if not p.get_content_type().startswith("multipart")]
+    return [
+        p.get_content_type()
+        for p in msg.walk()
+        if not p.get_content_type().startswith("multipart")
+    ]
 
 
 def get_part_content(msg, content_type):
@@ -55,21 +63,33 @@ def get_part_content(msg, content_type):
 # ═══════════════════════════════════════════════════════════════
 print("\n\033[1m=== REGLA 1: text/plain siempre real ===\033[0m")
 
-msg = build_mime_message(OutgoingEmail(
-    from_addr="test@maquita.org", to=["x@x.com"], subject="T",
-    html_body="<p>Hola <b>mundo</b></p>"
-))
+msg = build_mime_message(
+    OutgoingEmail(
+        from_addr="test@maquita.org",
+        to=["x@x.com"],
+        subject="T",
+        html_body="<p>Hola <b>mundo</b></p>",
+    )
+)
 parts = get_parts(msg)
 check("HTML-only genera text/plain", "text/plain" in parts, str(parts))
 
 txt = get_part_content(msg, "text/plain")
 check("text/plain no está vacío", txt and len(txt.strip()) > 0, f"len={len(txt or '')}")
-check("text/plain tiene contenido real del HTML", txt and "Hola" in txt, repr(txt[:50] if txt else ""))
+check(
+    "text/plain tiene contenido real del HTML",
+    txt and "Hola" in txt,
+    repr(txt[:50] if txt else ""),
+)
 
-msg2 = build_mime_message(OutgoingEmail(
-    from_addr="test@maquita.org", to=["x@x.com"], subject="T",
-    html_body="<ul><li>A</li><li>B</li><li>C</li></ul>"
-))
+msg2 = build_mime_message(
+    OutgoingEmail(
+        from_addr="test@maquita.org",
+        to=["x@x.com"],
+        subject="T",
+        html_body="<ul><li>A</li><li>B</li><li>C</li></ul>",
+    )
+)
 txt2 = get_part_content(msg2, "text/plain")
 check("Listas HTML se convierten a texto", txt2 and "A" in txt2 and "B" in txt2)
 
@@ -79,20 +99,28 @@ check("Listas HTML se convierten a texto", txt2 and "A" in txt2 and "B" in txt2)
 # ═══════════════════════════════════════════════════════════════
 print("\n\033[1m=== REGLA 2: HTML con estructura completa ===\033[0m")
 
-msg3 = build_mime_message(OutgoingEmail(
-    from_addr="test@maquita.org", to=["x@x.com"], subject="T",
-    html_body="<p>Fragmento simple</p>"
-))
+msg3 = build_mime_message(
+    OutgoingEmail(
+        from_addr="test@maquita.org",
+        to=["x@x.com"],
+        subject="T",
+        html_body="<p>Fragmento simple</p>",
+    )
+)
 html = get_part_content(msg3, "text/html")
 check("Fragmento tiene DOCTYPE", html and "<!DOCTYPE" in html)
 check("Fragmento tiene <html>", html and "<html" in html)
 check("Fragmento tiene <body>", html and "<body" in html)
 check("Fragmento tiene </html>", html and "</html>" in html)
 
-msg4 = build_mime_message(OutgoingEmail(
-    from_addr="test@maquita.org", to=["x@x.com"], subject="T",
-    html_body="<!DOCTYPE html><html><body><p>Ya completo</p></body></html>"
-))
+msg4 = build_mime_message(
+    OutgoingEmail(
+        from_addr="test@maquita.org",
+        to=["x@x.com"],
+        subject="T",
+        html_body="<!DOCTYPE html><html><body><p>Ya completo</p></body></html>",
+    )
+)
 html4 = get_part_content(msg4, "text/html")
 check("HTML completo no duplica DOCTYPE", html4 and html4.count("<!DOCTYPE") == 1)
 
@@ -102,10 +130,14 @@ check("HTML completo no duplica DOCTYPE", html4 and html4.count("<!DOCTYPE") == 
 # ═══════════════════════════════════════════════════════════════
 print("\n\033[1m=== REGLA 3: Sin headers spam ===\033[0m")
 
-msg5 = build_mime_message(OutgoingEmail(
-    from_addr="test@maquita.org", to=["x@x.com"], subject="T",
-    html_body="<p>Test</p>"
-))
+msg5 = build_mime_message(
+    OutgoingEmail(
+        from_addr="test@maquita.org",
+        to=["x@x.com"],
+        subject="T",
+        html_body="<p>Test</p>",
+    )
+)
 raw = msg5.as_string()
 check("Sin X-Priority", "X-Priority" not in raw)
 check("Sin X-MSMail-Priority", "X-MSMail-Priority" not in raw)
@@ -116,6 +148,7 @@ check("Tiene Organization", "Organization: Maquita" in raw)
 
 # Validar que _assert_no_forbidden_headers funciona
 from email.mime.multipart import MIMEMultipart
+
 bad_msg = MIMEMultipart()
 bad_msg["X-Priority"] = "1"
 try:
@@ -129,22 +162,41 @@ except ValueError as e:
 # ═══════════════════════════════════════════════════════════════
 print("\n\033[1m=== REGLA 4: Content-Type correcto ===\033[0m")
 
-check("HTML -> multipart/alternative", msg5.get_content_type() == "multipart/alternative")
+check(
+    "HTML -> multipart/alternative", msg5.get_content_type() == "multipart/alternative"
+)
 
-msg_text = build_mime_message(OutgoingEmail(
-    from_addr="test@maquita.org", to=["x@x.com"], subject="T",
-    text_body="Solo texto"
-))
-check("Text-only -> multipart/alternative", msg_text.get_content_type() == "multipart/alternative")
+msg_text = build_mime_message(
+    OutgoingEmail(
+        from_addr="test@maquita.org",
+        to=["x@x.com"],
+        subject="T",
+        text_body="Solo texto",
+    )
+)
+check(
+    "Text-only -> multipart/alternative",
+    msg_text.get_content_type() == "multipart/alternative",
+)
 
-msg_att = build_mime_message(OutgoingEmail(
-    from_addr="test@maquita.org", to=["x@x.com"], subject="T",
-    html_body="<p>Con adjunto</p>",
-    attachments=[__import__("app.mail.clients.smtp_client", fromlist=["EmailAttachment"]).EmailAttachment(
-        filename="test.txt", content=b"hello", content_type="text/plain"
-    )]
-))
-check("Con adjuntos -> multipart/mixed", msg_att.get_content_type() == "multipart/mixed")
+msg_att = build_mime_message(
+    OutgoingEmail(
+        from_addr="test@maquita.org",
+        to=["x@x.com"],
+        subject="T",
+        html_body="<p>Con adjunto</p>",
+        attachments=[
+            __import__(
+                "app.mail.clients.smtp_client", fromlist=["EmailAttachment"]
+            ).EmailAttachment(
+                filename="test.txt", content=b"hello", content_type="text/plain"
+            )
+        ],
+    )
+)
+check(
+    "Con adjuntos -> multipart/mixed", msg_att.get_content_type() == "multipart/mixed"
+)
 att_parts = get_parts(msg_att)
 check("Con adjuntos tiene text/plain", "text/plain" in att_parts)
 
@@ -153,10 +205,14 @@ check("Con adjuntos tiene text/plain", "text/plain" in att_parts)
 # ═══════════════════════════════════════════════════════════════
 print("\n\033[1m=== REGLA 5: Charset UTF-8 ===\033[0m")
 
-msg6 = build_mime_message(OutgoingEmail(
-    from_addr="test@maquita.org", to=["x@x.com"], subject="T",
-    html_body="<p>Año señor García niño José</p>"
-))
+msg6 = build_mime_message(
+    OutgoingEmail(
+        from_addr="test@maquita.org",
+        to=["x@x.com"],
+        subject="T",
+        html_body="<p>Año señor García niño José</p>",
+    )
+)
 txt6 = get_part_content(msg6, "text/plain")
 check("UTF-8 en text/plain (ñ)", txt6 and "ñ" in txt6)
 check("UTF-8 en text/plain (é)", txt6 and "é" in txt6)
@@ -181,7 +237,10 @@ check("_html_to_text decode &gt;", ">" in _html_to_text("<p>&gt;</p>"))
 check("_html_to_text strips tags", "<" not in _html_to_text("<b>bold</b>"))
 
 check("_wrap_html agrega DOCTYPE", "<!DOCTYPE" in _wrap_html("<p>x</p>"))
-check("_wrap_html no duplica DOCTYPE", _wrap_html("<!DOCTYPE html><html>x</html>").count("<!DOCTYPE") == 1)
+check(
+    "_wrap_html no duplica DOCTYPE",
+    _wrap_html("<!DOCTYPE html><html>x</html>").count("<!DOCTYPE") == 1,
+)
 check("_FORBIDDEN_HEADERS tiene X-Priority", "X-Priority" in _FORBIDDEN_HEADERS)
 
 # ═══════════════════════════════════════════════════════════════

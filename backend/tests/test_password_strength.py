@@ -1,4 +1,5 @@
 """Tests del validador de fortaleza de contraseña (app.auth.password)."""
+
 from app.auth.password import validate_password_strength as v
 
 
@@ -15,9 +16,9 @@ def test_acepta_buena():
 
 
 def test_reglas_basicas():
-    assert v("corta1!") is not None            # < 10
-    assert v("holamundo2026!") is not None     # sin mayuscula
-    assert v("HOLAMUNDO2026!") is not None     # sin minuscula
-    assert v("Holamundoxxx!") is not None      # sin numero
-    assert v("Holamundo2026") is not None      # sin simbolo
+    assert v("corta1!") is not None  # < 10
+    assert v("holamundo2026!") is not None  # sin mayuscula
+    assert v("HOLAMUNDO2026!") is not None  # sin minuscula
+    assert v("Holamundoxxx!") is not None  # sin numero
+    assert v("Holamundo2026") is not None  # sin simbolo
     assert v("Holamundo2026!", username="holamundo") is not None  # contiene usuario

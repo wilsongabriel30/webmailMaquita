@@ -9,6 +9,7 @@ PROTECTED_ENDPOINTS = [
     ("GET", "/api/identities/"),
 ]
 
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("method,path", PROTECTED_ENDPOINTS)
 async def test_protected_endpoint_rejects_unauth(client, method, path):
