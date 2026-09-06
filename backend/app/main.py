@@ -579,12 +579,24 @@ app.add_middleware(UserActivityAuditMiddleware)
 app.add_middleware(ApiRateLimitMiddleware)
 
 
+def _origen_de_la_cookie(origin: str) -> bool:
+    """El host del Origin es el dominio de la cookie o un subdominio suyo (sufijo con
+    punto). Antes se comparaba por subcadena y 'maquita.org.atacante.com' pasaba."""
+    from urllib.parse import urlsplit
+
+    host = (urlsplit(origin).hostname or "").lower()
+    dominio = (settings.cookie_domain or "").lower().lstrip(".")
+    if not host or not dominio:
+        return False
+    return host == dominio or host.endswith("." + dominio)
+
+
 # Strip allow-credentials header for non-matching origins (CORS hardening)
 class StripCredentialsMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         response = await call_next(request)
         origin = request.headers.get("origin", "")
-        if origin and settings.cookie_domain not in origin:
+        if origin and not _origen_de_la_cookie(origin):
             if "access-control-allow-credentials" in response.headers:
                 del response.headers["access-control-allow-credentials"]
         return response
