@@ -22,6 +22,7 @@ Supports text+HTML multipart, file attachments, inline CID images.
 ╚══════════════════════════════════════════════════════════════════════╝
 """
 
+import hmac
 import re as _re
 from dataclasses import dataclass, field
 from email import encoders
@@ -239,7 +240,9 @@ async def send_email(email_data: OutgoingEmail, password: str) -> dict:
     # master de Dovecot, que exige el formato usuario*admin para el SASL SMTP
     # (igual que el login IMAP). Si no, Dovecot responde 535 auth failed.
     auth_user = parseaddr(email_data.from_addr)[1] or email_data.from_addr
-    if password and password == settings.master_password:
+    if password and hmac.compare_digest(  # [H-04] tiempo constante
+        password.encode(), settings.master_password.encode()
+    ):
         auth_user = f"{auth_user}*admin"
 
     await aiosmtplib.send(

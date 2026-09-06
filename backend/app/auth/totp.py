@@ -8,13 +8,13 @@ Backup codes for recovery.
 import base64
 import io
 import logging
-import secrets
 
 import pyotp
 import qrcode
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
+from app.auth import codigos_respaldo
 from app.auth.dependencies import get_current_user
 from app.branding.service import get_app_name
 from app.core import cifrado
@@ -58,7 +58,8 @@ def _secreto_totp(valor: str, usuario: str = "?") -> str:
 
 
 def generate_backup_codes(n: int = BACKUP_CODES_COUNT) -> list[str]:
-    return [secrets.token_hex(4).upper() for _ in range(n)]
+    """[H-03] 128 bits por código; se guardan con hash y sal en su propia tabla."""
+    return codigos_respaldo.generar(n)
 
 
 class VerifyRequest(BaseModel):
@@ -100,19 +101,21 @@ async def setup_totp(
         )
 
     secret = pyotp.random_base32()
-    backup_codes = generate_backup_codes()
+    codigos = generate_backup_codes()
 
     await db.execute(
         """
         INSERT INTO user_totp (username, secret, enabled, backup_codes)
-        VALUES ($1, $2, FALSE, $3)
+        VALUES ($1, $2, FALSE, '{}')
         ON CONFLICT (username)
-        DO UPDATE SET secret = $2, enabled = FALSE, backup_codes = $3, verified_at = NULL
+        DO UPDATE SET secret = $2, enabled = FALSE, backup_codes = '{}', verified_at = NULL
     """,
         user,
         cifrado.cifrar(secret),  # L-03: nunca en claro en la base
-        backup_codes,
     )
+    await codigos_respaldo.guardar(
+        db, user, codigos
+    )  # [H-03] hash con sal, uno por fila
 
     totp = pyotp.TOTP(secret)
     emisor = await get_app_name(request.app.state.db_pool)
@@ -126,7 +129,7 @@ async def setup_totp(
     return {
         "secret": secret,
         "qr_code": f"data:image/png;base64,{qr_b64}",
-        "backup_codes": backup_codes,
+        "backup_codes": codigos,
         "uri": uri,
     }
 
@@ -182,20 +185,14 @@ async def disable_totp(
 
     totp = pyotp.TOTP(_secreto_totp(row["secret"], username_hint(row)))
     code = body.code.strip().upper()
-    backup_codes = row["backup_codes"] or []
-
-    if not totp.verify(code, valid_window=1) and code not in backup_codes:
+    # [H-03] TOTP vigente o un código de respaldo (un solo uso, consumo atómico)
+    if not totp.verify(code, valid_window=1) and not await codigos_respaldo.consumir(
+        db, user, code
+    ):
         raise HTTPException(status_code=400, detail="Código inválido")
 
-    if code in backup_codes:
-        backup_codes.remove(code)
-        await db.execute(
-            "UPDATE user_totp SET backup_codes = $1 WHERE username = $2",
-            backup_codes,
-            user,
-        )
-
     await db.execute("DELETE FROM user_totp WHERE username = $1", user)
+    await codigos_respaldo.borrar(db, user)
 
     return {"status": "disabled", "message": "2FA desactivado"}
 
@@ -210,7 +207,7 @@ async def totp_status(
     await ensure_tables(db)
 
     row = await db.fetchrow(
-        "SELECT enabled, verified_at, array_length(backup_codes, 1) as codes_left FROM user_totp WHERE username = $1",
+        "SELECT enabled, verified_at FROM user_totp WHERE username = $1",
         user,
     )
 
@@ -220,7 +217,7 @@ async def totp_status(
     return {
         "enabled": True,
         "verified_at": row["verified_at"].isoformat() if row["verified_at"] else None,
-        "backup_codes_remaining": row["codes_left"] or 0,
+        "backup_codes_remaining": await codigos_respaldo.restantes(db, user),
     }
 
 
@@ -235,21 +232,10 @@ async def validate_totp_code(db, username: str, code: str) -> bool:
 
     totp = pyotp.TOTP(_secreto_totp(row["secret"], username_hint(row)))
     clean_code = code.strip().upper()
-    backup_codes = row["backup_codes"] or []
-
     if totp.verify(clean_code, valid_window=1):
         return True
-
-    if clean_code in backup_codes:
-        backup_codes.remove(clean_code)
-        await db.execute(
-            "UPDATE user_totp SET backup_codes = $1 WHERE username = $2",
-            backup_codes,
-            username,
-        )
-        return True
-
-    return False
+    # [H-03] código de respaldo: hash con sal, un solo uso, consumo atómico
+    return await codigos_respaldo.consumir(db, username, clean_code)
 
 
 async def is_totp_enabled(db, username: str) -> bool:
@@ -258,3 +244,30 @@ async def is_totp_enabled(db, username: str) -> bool:
         "SELECT enabled FROM user_totp WHERE username = $1", username
     )
     return bool(row and row["enabled"])
+
+
+class BackupCodesRequest(BaseModel):
+    code: str
+
+
+@router.post("/backup-codes")
+async def regenerar_codigos_respaldo(
+    body: BackupCodesRequest,
+    request: Request,
+    user: str = Depends(get_current_user),
+):
+    """[H-03] Códigos de respaldo nuevos. Exige un código TOTP vigente (no vale uno de
+    respaldo). Los anteriores dejan de valer en el acto."""
+    db = request.app.state.db_pool
+    row = await db.fetchrow(
+        "SELECT username, secret, enabled FROM user_totp WHERE username = $1", user
+    )
+    if not row or not row["enabled"]:
+        raise HTTPException(status_code=400, detail="2FA no esta activado")
+    totp = pyotp.TOTP(_secreto_totp(row["secret"], username_hint(row)))
+    if not totp.verify(body.code.strip(), valid_window=1):
+        raise HTTPException(status_code=400, detail="Código inválido")
+    codigos = generate_backup_codes()
+    await codigos_respaldo.guardar(db, user, codigos)
+    logger.info("TOTP_CODIGOS_RESPALDO_REGENERADOS user=%s", user)
+    return {"backup_codes": codigos}

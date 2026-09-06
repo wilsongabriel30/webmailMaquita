@@ -14,6 +14,7 @@ from app.auth.sesiones import (
     av_actual,
     cerrar_sid,
     crear_sesion,
+    listar_sesiones,
     prorrogar,
     revocar_todo,
     sesion_valida,
@@ -372,6 +373,39 @@ async def logout_all(
     )
     quitar_cookies_sesion(response, request)
     return {"message": "Todas las sesiones cerradas"}
+
+
+@router.get("/sesiones")
+async def sesiones_propias(request: Request, username: str = Depends(get_current_user)):
+    """[L-01] Sesiones abiertas de la cuenta (webmail, app, chat): dispositivo, IP, fecha,
+    tipo; la actual marcada."""
+    return {
+        "sesiones": await listar_sesiones(
+            request.app.state.redis, username, getattr(request.state, "sid", None)
+        )
+    }
+
+
+@router.delete("/sesiones/{sid}")
+async def cerrar_sesion_propia(
+    sid: str,
+    request: Request,
+    response: Response,
+    username: str = Depends(get_current_user),
+):
+    """[L-01] Cierra UNA sesión propia por su sid (otro dispositivo, o esta misma)."""
+    redis = request.app.state.redis
+    if not re.fullmatch(r"[A-Za-z0-9_-]{8,64}", sid) or not await redis.sismember(
+        f"sids:{username}", sid
+    ):
+        raise HTTPException(status_code=404, detail="Sesión no encontrada")
+    await cerrar_sid(
+        request.app.state.db_pool, redis, username, sid, "cerrada_por_usuario"
+    )
+    actual = sid == getattr(request.state, "sid", None)
+    if actual:
+        quitar_cookies_sesion(response, request)
+    return {"message": "Sesión cerrada", "actual": actual}
 
 
 @router.get("/me")

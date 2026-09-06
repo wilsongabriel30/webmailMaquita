@@ -7,6 +7,24 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Añadido
+
+- **[L-01] Sesiones abiertas por dispositivo, con cierre individual.** `GET /api/auth/sesiones`
+  lista las sesiones vivas de la cuenta (dispositivo, IP, fecha, tipo, la actual marcada) y
+  `DELETE /api/auth/sesiones/{sid}` cierra una; Ajustes las muestra junto a «Cerrar todas».
+
+### Seguridad
+
+- **[L-04] El atajo CSS `font` sale de la lista de propiedades permitidas en `style`** (las sueltas
+  `font-family`, `font-size`, `font-weight`, `font-style`, `font-variant` siguen). La etiqueta
+  `<font>` con `color/size/face` se mantiene: es inerte y la usan muchos correos antiguos.
+- **[H-04] Comparaciones con la contraseña maestra en tiempo constante** (`hmac.compare_digest`) en
+  la sesión IMAP impersonada y en el SASL de SMTP.
+- **[H-03 / F-09] Códigos de respaldo de 2FA: 128 bits, hash con sal, un solo uso atómico.** Un
+  código por fila en `user_totp_backup_codes` (migración `2026-09-06-codigos-respaldo.sql`);
+  los anteriores (32 bits, en claro, consumo no atómico) dejan de valer y cada persona con
+  2FA genera unos nuevos desde Ajustes (`POST /api/auth/totp/backup-codes`, exige TOTP vigente).
+
 ### Corregido
 
 - **El instalador genera `ALMACEN_CLAVE_SESION`** en `almacen/.env` (obligatoria desde 1.7.0 por

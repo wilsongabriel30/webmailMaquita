@@ -270,7 +270,7 @@ export function LoginPage() {
                   <input
                     type="text"
                     value={totpCode}
-                    onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                    onChange={(e) => setTotpCode(e.target.value.replace(/[^0-9A-Za-z-]/g, '').slice(0, 39))}
                     placeholder="000000"
                     className="w-full px-3 py-2 rounded text-sm text-center font-mono text-lg tracking-[0.3em] outline-none transition-colors"
                     style={{ borderColor: '#d2d0ce', borderWidth: '1px', color: '#323130' }}
@@ -278,11 +278,11 @@ export function LoginPage() {
                     onBlur={(e) => { e.target.style.borderColor = '#d2d0ce'; e.target.style.boxShadow = 'none'; }}
                     required
                     autoFocus
-                    maxLength={8}
+                    maxLength={39}
                     autoComplete="one-time-code"
                   />
                   <p className="text-xs mt-1" style={{ color: '#605e5c' }}>
-                    También puedes usar un código de respaldo
+                    También puedes usar uno de tus códigos de respaldo
                   </p>
                 </div>
               )}
