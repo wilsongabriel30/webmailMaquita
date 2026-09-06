@@ -9,6 +9,13 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Seguridad
 
+- **[F-02] SAML: aserción validada de verdad.** Toda lectura (Status, Assertion, NameID) sale del XML
+  que devolvió el verificador de firma, nunca del árbol original (XML Signature Wrapping); se exige
+  exactamente una Assertion; `InResponseTo` se consume de un solo uso (GETDEL); se validan `Destination`,
+  `Recipient`, `AudienceRestriction`, `NotBefore`/`NotOnOrAfter` con tolerancia de reloj y el `ID` de la
+  Assertion es de un solo uso (SET NX). `signxml` y `lxml` fijados (R-11). Pruebas negativas con un IdP
+  de laboratorio para cada condición, incluido el wrapping. SAML sigue inactivo hasta probarlo con el IdP
+  real. Cierra A-10.
 - **[R-03] Importación de contactos y correos con límite en la aplicación y sin cargar el archivo en
   memoria.** `import_contacts_max_mb` (10) e `import_emails_max_mb` (200); el upload va a disco en
   trozos y MBOX se analiza desde el archivo. nginx (`client_max_body_size`) queda como segunda capa.
