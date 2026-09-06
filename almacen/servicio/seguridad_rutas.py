@@ -120,3 +120,19 @@ def ruta_fisica(usuario_id: int, ruta_virtual: str, zona: str = 'archivos',
         raise RutaInvalida('La ruta escapa del espacio permitido')
 
     return destino
+
+
+# [A-13] Un nombre de archivo o carpeta no puede llevar marcas de HTML ni caracteres de
+# control: el explorador lo pinta y un nombre como <img onerror=...> era XSS almacenado.
+_RE_NOMBRE_PROHIBIDO = re.compile(r'[<>"\'\\\x00-\x1f\x7f]')
+
+
+def nombre_valido(nombre) -> bool:
+    """Nombre de archivo o carpeta aceptable: sin '/', sin '.' ni '..', sin < > " ' \\ ni
+    caracteres de control, hasta 255 caracteres."""
+    if not nombre or not isinstance(nombre, str):
+        return False
+    n = nombre.strip()
+    if not n or n in ('.', '..') or '/' in n or len(n) > 255:
+        return False
+    return not _RE_NOMBRE_PROHIBIDO.search(n)

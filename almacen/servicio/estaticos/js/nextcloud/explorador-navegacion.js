@@ -210,10 +210,11 @@ function actualizarBreadcrumb(breadcrumb) {
             html += '<span class="separator"><span class="material-icons">chevron_right</span></span>';
         }
 
+        // [A-13] el nombre se escapa y la ruta va en un atributo, no dentro del código del onclick
         if (index === breadcrumb.length - 1) {
-            html += `<span>${item.nombre}</span>`;
+            html += `<span>${escHtml(item.nombre)}</span>`;
         } else {
-            html += `<a href="#" onclick="navegarA('${item.ruta}')">${item.nombre}</a>`;
+            html += `<a href="#" data-ruta="${escHtml(item.ruta)}" onclick="navegarA(this.dataset.ruta);return false;">${escHtml(item.nombre)}</a>`;
         }
     });
 
