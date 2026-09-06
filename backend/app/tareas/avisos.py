@@ -9,6 +9,11 @@ import httpx
 
 import os
 
+# Cache del directorio de la organizacion (correo -> nombre). Son datos
+# personales: vive en el directorio de datos del servicio, NUNCA en el arbol
+# de codigo, que se publica.
+RUTA_NOMBRES = '/var/lib/maquita-webmail/nombres.json'
+
 log = logging.getLogger(__name__)
 CHAT = 'https://mail.maquita.org'
 URL_TAREAS = 'https://mail.maquita.org/webmail/tasks?app=1&vista=seguimiento'
@@ -26,7 +31,7 @@ def nombre(correo: str) -> str:
     import json, time
     if time.time() - _nombres['t'] > 600:
         try:
-            _nombres['d'] = json.load(open('/opt/maquita-webmail/backend/app/tareas/nombres.json', encoding='utf-8'))
+            _nombres['d'] = json.load(open(RUTA_NOMBRES, encoding='utf-8'))
         except Exception:
             pass
         _nombres['t'] = time.time()

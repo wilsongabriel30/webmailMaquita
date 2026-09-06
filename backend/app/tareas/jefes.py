@@ -15,6 +15,11 @@ import asyncpg  # noqa: E402
 from app.core.database import create_db_pool  # noqa: E402
 from app.tareas import avisos  # noqa: E402
 
+# Cache del directorio de la organizacion (correo -> nombre). Son datos
+# personales: vive en el directorio de datos del servicio, NUNCA en el arbol
+# de codigo, que se publica.
+RUTA_NOMBRES = '/var/lib/maquita-webmail/nombres.json'
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 log = logging.getLogger('tareas.jefes')
 DDL = """CREATE TABLE IF NOT EXISTS task_jefes (
@@ -150,7 +155,7 @@ async def main():
                 nd += 1
     await pool.close()
     import json
-    json.dump({**{u['email']: u['full_name'].strip().title() for u in usuarios_raices}, **{t['email']: (t['nombre'] or '').strip().title() for t in trab}}, open('/opt/maquita-webmail/backend/app/tareas/nombres.json', 'w', encoding='utf-8'), ensure_ascii=False)
+    json.dump({**{u['email']: u['full_name'].strip().title() for u in usuarios_raices}, **{t['email']: (t['nombre'] or '').strip().title() for t in trab}}, open(RUTA_NOMBRES, 'w', encoding='utf-8'), ensure_ascii=False)
     log.info('nómina: %s personas en el directorio, %s con jefe, %s sin resolver, %s departamentos, %s fotos replicadas', len(trab), n, sin, nd, nf)
 
 
