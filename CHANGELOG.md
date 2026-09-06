@@ -7,6 +7,43 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.6.0] - 2026-09-06
+
+Cierra la remediación de seguridad de la auditoría del 2026-09-03: fusiona
+`remediacion-seguridad-2026-09` en `main` con el CI en verde **sin bypasses**, tras la validación
+externa sobre la rama y la instalación desde cero hecha por el equipo de Correo Andes en su propio
+centro de datos (sus 7 hallazgos entran como correcciones sobre `main`). Incluye lo publicado en
+las candidatas rc4 y rc5.
+
+### Seguridad
+
+- **TLS de nginx con el perfil intermedio de Mozilla.** La configuración versionada del webmail
+  traía `HIGH:!aNULL:!MD5` (admitía CBC y suites sin secreto hacia adelante) y la plantilla de
+  autoconfig no fijaba cifrados; el panel usaba una tercera lista. Ahora las tres comparten la misma
+  lista (solo AEAD con PFS, TLS 1.2/1.3, orden a elección del cliente). Verificado con testssl.sh.
+  Era el único de los ocho hallazgos de la auditoría original que faltaba por tocar.
+- **`transcribe.py` deja de desactivar la verificación TLS** al hablar con el servidor de dictado.
+- **Dependencias del almacén al día**: las aplicaciones BI y editor de PDF fijaban Flask, PyJWT,
+  cryptography, Pillow y requests con avisos abiertos (20 High). Subidas a las versiones que los
+  corrigen; el conjunto resuelve sin conflictos.
+- Los MD5 de ETags de CardDAV, clave de documento de OnlyOffice e id de hilo por asunto se marcan
+  como no criptográficos (`usedforsecurity=False`): son identificadores, no protegen nada.
+
+### Cambiado
+
+- **El CI vuelve a decir la verdad.** Al quitar las escapatorias afloró deuda vieja: `black` nunca
+  había pasado (208 de 285 ficheros; ahora todo `app/` está formateado y las versiones de black e
+  isort van fijadas), `isort` marcaba 151 ficheros, y los 9 ficheros del frontend que tocó la rama
+  arrastraban 54 errores de eslint (`any`, bloques vacíos, código muerto, `@ts-nocheck`). Bandit
+  bloquea por High; los 64 Medium (casi todos B608 de baja confianza sobre listas blancas) se
+  muestran como informe con triage agendado. `trivy-action` sube a una versión sin el aviso crítico
+  de cadena de suministro.
+
+### Documentación
+
+- `DECISIONES.md` D-3: `pickle.loads` en el canal interno del editor de PDF, registrado como deuda
+  con fecha; se migra a JSON al tocar ese módulo.
+
 ### Documentación
 
 - **Una sola guía de instalación.** `INSTALL-DESDE-CERO.md` es la canónica, al día con esta semana:
