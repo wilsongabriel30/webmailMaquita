@@ -41,12 +41,20 @@ def registrar(socketio):
             'presence_info' con el estado de cada usuario
         """
         usuario_ids = data.get('user_ids', [])
-        if not usuario_ids:
+        usuario_id = session.get('usuario_id')
+        if not usuario_ids or not usuario_id:
             return
 
         servicio = None
         try:
             servicio = _obtener_servicio_chat()
+            # [M-03] solo la presencia de quienes comparten conversación con quien pregunta
+            from interfaces import relacion_chat
+            usuario_ids = relacion_chat.filtrar_visibles(
+                servicio._db_session, usuario_id, usuario_ids, _ws_redis)
+            if not usuario_ids:
+                emit('presence_info', {})
+                return
             presencias = servicio.obtener_presencia(usuario_ids)
 
             resultado = {}
