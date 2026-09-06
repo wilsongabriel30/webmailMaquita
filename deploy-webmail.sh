@@ -43,6 +43,13 @@ cd "${FRONTEND_DIR}"
 # T-35: cada publicación renueva la caché del service worker (arranque sin red con la portada vigente)
 npm run build 2>&1 | tail -5
 
+# Marca local NO versionada (iconos propios, PON-TU-MARCA §4): branding/local/ replica la
+# estructura de dist/ y se copia encima tras construir. Así el árbol de git queda limpio.
+OVERLAY_MARCA="${WEBMAIL_DIR}/branding/local"
+if [ -d "$OVERLAY_MARCA" ] && [ -n "$(ls -A "$OVERLAY_MARCA" 2>/dev/null)" ]; then
+  cp -r "$OVERLAY_MARCA"/. "$DIST_DIR"/ && echo "   Marca local aplicada sobre dist/ desde branding/local/"
+fi
+
 # Marca y version de cache del service worker.
 #
 # Se aplican sobre dist/ DESPUES de construir, nunca sobre public/sw.js. Antes se
@@ -62,6 +69,17 @@ if [ -f "$SW_DIST" ]; then
     sed -i -E "s/^const NOMBRE_APP = \"[^\"]*\";/const NOMBRE_APP = \"${NOMBRE_APP}\";/" "$SW_DIST"
     sed -i -E "s/(const CACHE_NAME = \")[^\"]*(-v)/\1${PREFIJO_CACHE}\2/" "$SW_DIST"
     echo "   Marca inyectada en el service worker: ${NOMBRE_APP} (cache: ${PREFIJO_CACHE}-v…)"
+    # El manifest de la PWA decide con qué nombre se instala la app en el celular.
+    if [ -f "${DIST_DIR}/manifest.json" ]; then
+      NOMBRE_APP="$NOMBRE_APP" python3 - "${DIST_DIR}/manifest.json" <<'PYM'
+import json, os, sys
+p = sys.argv[1]; m = json.load(open(p, encoding="utf-8"))
+m["name"] = m["short_name"] = os.environ["NOMBRE_APP"]
+m["description"] = os.environ["NOMBRE_APP"]
+json.dump(m, open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+PYM
+      echo "   Marca inyectada en manifest.json (nombre de la app instalada)"
+    fi
   fi
   sed -i -E "s/(const CACHE_NAME = \"[^\"]*-v)[0-9A-Za-z-]*(\")/\1$(date +%Y%m%d%H%M)\2/" "$SW_DIST"
   echo "   Version de cache renovada en dist/sw.js (el fuente no se toca)"
@@ -157,7 +175,11 @@ fi
 
 # --- Paso 6: Verificación final ---
 echo -e "\n${YELLOW}[5/5] Verificación...${NC}"
-HTTP_CODE=$(curl -sk -L -o /dev/null -w '%{http_code}' https://mail.maquita.org/webmail/)
+# El servidor sale de la configuración, no del código: MAIL_HOST, o mail.<MAIL_DOMAIN>, o el propio equipo
+MAIL_HOST="$(grep -E '^MAIL_HOST=' "${WEBMAIL_DIR}/backend/.env" 2>/dev/null | cut -d= -f2- | tr -d '"')"
+[ -n "$MAIL_HOST" ] || MAIL_HOST="mail.$(grep -E '^MAIL_DOMAIN=' "${WEBMAIL_DIR}/backend/.env" 2>/dev/null | cut -d= -f2- | tr -d '"')"
+[ "$MAIL_HOST" != "mail." ] || MAIL_HOST="$(hostname -f)"
+HTTP_CODE=$(curl -sk -L -o /dev/null -w '%{http_code}' "https://${MAIL_HOST}/webmail/")
 if [ "$HTTP_CODE" = "200" ]; then
     echo -e "${GREEN}Webmail respondiendo: HTTP ${HTTP_CODE}${NC}"
 else
@@ -181,4 +203,4 @@ if [ "${SIN_CANDADO:-0}" != "1" ] && [ -x /usr/local/bin/candado ]; then
 fi
 
 echo -e "\n${GREEN}=== Deploy completado exitosamente ===${NC}"
-echo "URL: https://mail.maquita.org/webmail/"
+echo "URL: https://${MAIL_HOST}/webmail/"

@@ -7,6 +7,33 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Corregido
+
+Los siete hallazgos de la instalación desde cero hecha por Correo Andes sobre `v1.6.0-rc5`:
+
+- **Instalador desatendido de verdad.** Con `DOMAIN` por variable o sin terminal ya no se queda
+  esperando un «¿Correcto?» que nadie va a contestar; y si se detiene antes del primer paso, el
+  mensaje dice que no se instaló nada, en vez de mandar a buscar un error que no existe.
+- **El panel nacía en bucle de reinicio.** Su `.env` recibía `JWT_SECRET` pero no
+  `ADMIN_JWT_SECRET` (el secreto compartido con el correo) ni los valores prestados que necesitan
+  los subprocesos que lanza. Ahora se escriben los dos y los `WEBMAIL_*` imprescindibles.
+- **Instalador y validador se contradecían**: el validador exigía fail2ban, el puerto 465 y el
+  milter activo, y el instalador no montaba ninguno de los tres. Ahora instala fail2ban con una
+  configuración versionada (backend systemd, obligatorio en Debian 13), añade `smtps` (465) a
+  Postfix y arranca el milter. Una instalación limpia termina con 0 fallos sin retoques.
+- **El despliegue no ensucia el árbol**: `frontend/.env.production` va en `.gitignore`, y los
+  iconos propios de la PWA se dejan en `branding/local/` (no versionado), que el despliegue copia
+  sobre `dist/`.
+- **La marca llega a todo**: el título de la pestaña sale de `app_name` (antes componía
+  `org_name + " Mail"` y al cambiar de cuenta volvía al nombre por defecto escrito en código), y el
+  despliegue inyecta `name`/`short_name`/`description` en `manifest.json`, que es con lo que el
+  celular instala la app. Las guías dicen que tras cambiar la marca hay que reiniciar el backend y
+  reconstruir el frontend.
+- El resumen final del instalador daba un usuario demo que no existía (`demo@<tu-dominio>`); el
+  buzón es `demo@ejemplo.local`, de un dominio de prueba que no recibe correo de fuera, y así lo
+  dice ahora. `deploy-webmail.sh` toma la URL final de la configuración, no de un dominio escrito
+  en el código. `PON-TU-MARCA.md` explica cómo instalar Pillow en Debian 13 (PEP 668).
+
 ## [1.6.0] - 2026-09-06
 
 Cierra la remediación de seguridad de la auditoría del 2026-09-03: fusiona

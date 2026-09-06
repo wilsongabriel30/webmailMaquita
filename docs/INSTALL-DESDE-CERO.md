@@ -19,7 +19,7 @@ si no pueden comprobar, deniegan. No confundir los dos.
 | Dominio / DNS | No hace falta (`DOMAIN=example.test`) | Dominio propio + **MX/SPF/DKIM/DMARC** (ver `CONFIGURAR-DNS.md`) |
 | IP / PTR | No importa | IP fija con **PTR** (reverso), si no el correo cae en spam |
 | TLS | Opcional (autofirmado) | **Obligatorio** (certbot, paso 4) |
-| Cómo | `DOMAIN=example.test bash deploy/webmail/instalar.sh` → imprime URL + credenciales demo | Pasos 1→5 completos |
+| Cómo | `DOMAIN=example.test bash deploy/webmail/instalar.sh` → imprime URL + credenciales demo. Con `DOMAIN` dado no pide confirmación (vale sin TTY); `ASSUME_YES=1` la salta también en modo interactivo | Pasos 1→5 completos |
 
 > **No hay modo "sin servidor"**: un servidor de correo necesita PostgreSQL + Dovecot + Postfix corriendo. Lo más liviano para evaluar es una VM Debian desechable; el instalador hace el resto (auto-genera secretos y una cuenta demo).
 
@@ -87,6 +87,15 @@ la tabla `branding_settings`: `org_name` (la organización) y `app_name` (el pro
 defecto «Maquita Mail»). Iconos de la PWA y detalles en `PON-TU-MARCA.md`. **No renombres** los
 identificadores de almacenamiento del navegador (`maquita-mail-offline`, `maquita-cache`,
 `MaquitaAlmacen`): dejarían sin datos a quien ya los tenga.
+
+**Después de cambiar la marca** hay que reiniciar el backend (guarda `app_name`/`org_name` en
+memoria al arrancar: hasta entonces los correos salen con la marca anterior) y reconstruir el
+frontend (inyecta el nombre en `sw.js` y `manifest.json`):
+```bash
+systemctl restart maquita-webmail && bash deploy-webmail.sh --solo-frontend
+```
+El buzón `demo@ejemplo.local` es de un dominio de prueba que no recibe correo de fuera; los
+buzones reales de tu dominio se crean en el panel.
 
 ## Si algo falla: qué reportar
 Para que podamos corregirlo en el repositorio sin adivinar, envía **todo esto**:

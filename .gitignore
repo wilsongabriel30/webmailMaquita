@@ -1,6 +1,9 @@
 backend/venv/
 frontend/node_modules/
 frontend/dist/
+frontend/.env.production
+# Marca local (iconos propios) que el despliegue copia sobre dist/; nunca se versiona
+branding/local/
 www/
 __pycache__/
 *.pyc

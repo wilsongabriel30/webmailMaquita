@@ -1,0 +1,37 @@
+# fail2ban para el servidor de correo. Instalado por deploy/webmail/instalar.sh
+# en /etc/fail2ban/jail.local. En Debian 13 el backend debe ser systemd:
+# sin esa línea la configuración no valida y no se lee ningún registro.
+[DEFAULT]
+ignoreip = 127.0.0.1/8 ::1
+backend = systemd
+banaction = iptables-multiport
+banaction_allports = iptables-allports
+findtime = 600
+
+[sshd]
+enabled = true
+
+[postfix-sasl]
+enabled  = true
+port     = smtp,465,587,submission
+filter   = postfix[mode=auth]
+logpath  = /var/log/mail.log
+maxretry = 10
+bantime  = 3600
+
+[dovecot]
+enabled  = true
+port     = pop3,pop3s,imap,imaps,submission,465,sieve
+filter   = dovecot
+logpath  = /var/log/mail.log
+maxretry = 10
+bantime  = 3600
+
+[nginx-http-auth]
+enabled  = true
+port     = http,https
+filter   = nginx-http-auth
+logpath  = /var/log/nginx/error.log
+maxretry = 10
+bantime  = 600
+findtime = 300
