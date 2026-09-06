@@ -1,4 +1,7 @@
-# Guía de Instalación Completa
+# Guía de Instalación Completa — SUSTITUIDA
+
+> **Esta guía ya no se mantiene** (última revisión 2026-06-03). Usa **`INSTALL-DESDE-CERO.md`**
+> (canónica) y, para el detalle por componente, `INSTALL-NATIVE.md`. Se conserva solo por referencia.
 
 Guía paso a paso para instalar Maquita Webmail desde cero. Escrita para personas con poca experiencia técnica.
 
