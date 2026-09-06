@@ -46,6 +46,10 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Corregido
 
+- **El almacén ya no muere al arrancar por deadlocks del esquema.** Los 6 workers ejecutaban a la vez el
+  DDL de arranque (`CREATE/ALTER ... IF NOT EXISTS`) y PostgreSQL detectaba deadlocks (31 en 30 días;
+  systemd relanzaba el servicio). Ahora todo el DDL de arranque va bajo un bloqueo consultivo de
+  sesión (`almacen/servicio/ddl_arranque.py`) y `asegurar_esquema` toma además uno de transacción.
 - **El instalador genera `ALMACEN_CLAVE_SESION`** en `almacen/.env` (obligatoria desde 1.7.0 por
   R-01; sin ella el almacén no arranca al primer reinicio). Reportado por Andes al actualizar
   1.7.0 → 1.7.2. `UPGRADING.md` la documenta como variable nueva de 1.7.0.
