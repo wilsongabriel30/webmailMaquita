@@ -415,14 +415,25 @@ def _emitir_presencia(usuario_id: int, en_linea: bool):
             'timestamp': datetime.now().isoformat()
         }
 
-        # Emitir a todos los usuarios conectados (broadcast)
-        # En produccion con Redis, esto escala automaticamente
-        socketio.emit('user_presence', presencia_data)
+        # [L-01] Antes era broadcast a todos los conectados: cualquiera veía cuándo se conectaba
+        # o desconectaba cualquiera. Ahora solo lo reciben quienes comparten conversación.
+        for destino in _relacionados_de(usuario_id):
+            socketio.emit('user_presence', presencia_data, room=f"user_{destino}")
 
-        # Tambien emitir al canal especifico del usuario (para actualizaciones dirigidas)
-        socketio.emit('user_presence', presencia_data,
-                      room=f"user_{usuario_id}",
-                      skip_sid=request.sid if hasattr(request, 'sid') else None)
+
+def _relacionados_de(usuario_id):
+    """Ids que pueden ver la presencia de `usuario_id` (él incluido). Fallo cerrado."""
+    servicio = None
+    try:
+        from interfaces import relacion_chat
+        servicio = _obtener_servicio_chat(auto_commit=False)
+        return relacion_chat.relacionados(servicio._db_session, usuario_id, _ws_redis)
+    except Exception as exc:
+        logger.error("RELACION_NO_CONSULTABLE usuario=%s error=%s", usuario_id, str(exc)[:120])
+        return {int(usuario_id)}
+    finally:
+        if servicio:
+            _cerrar_servicio(servicio)
 
 
 def _limpiar_indicador(conversacion_id: int, usuario_id: int):

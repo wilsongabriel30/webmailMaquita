@@ -15,6 +15,10 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Seguridad
 
+- **[M-03/L-01 chat] La presencia solo la ve quien comparte conversación.** `get_presence`,
+  `/estado/<id>`, `/estado/varios` y `/presence/<id>` filtran por relación; conectar, desconectar
+  y cambiar de estado ya no se emiten a todos los conectados, solo a los relacionados
+  (`interfaces/relacion_chat.py`, con caché de un minuto).
 - **[L-04] El atajo CSS `font` sale de la lista de propiedades permitidas en `style`** (las sueltas
   `font-family`, `font-size`, `font-weight`, `font-style`, `font-variant` siguen). La etiqueta
   `<font>` con `color/size/face` se mantiene: es inerte y la usan muchos correos antiguos.
