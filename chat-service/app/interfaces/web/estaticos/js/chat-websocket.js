@@ -9,7 +9,8 @@
  * - Notificaciones
  *
  * Dependencia: Socket.IO Client (incluir antes de este script)
- * <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+ * <script src="/static/vendor/cdn.socket.io/4.5.4/socket.io.min.js"></script>
+ *   (copia LOCAL; nada se carga de un servidor ajeno. T4)
  *
  * Autor: Wilson Arguello
  * Fecha: 2026-01-02

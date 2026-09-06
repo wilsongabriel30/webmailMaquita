@@ -32,9 +32,12 @@ export function ChatFlotante() {
         if (d && typeof d.enabled === "boolean") {
           setEnabled(d.enabled);
           if (d.embed_url) setEmbedUrl(d.embed_url);
-        } else setEnabled(true);
+        } else setEnabled(false);
       })
-      .catch(() => setEnabled(true));
+      // Ante error, el chat NO se da por habilitado. Antes se asumia que si, y
+      // justo en las instalaciones sin chat eso arrancaba un sondeo infinito
+      // con 404 (reportado por una replica externa).
+      .catch(() => setEnabled(false));
   }, []);
 
   // 1b) Entrada al chat. Desde que el chat vive en su propio origen, su cookie ya
@@ -64,6 +67,17 @@ export function ChatFlotante() {
   useEffect(() => {
     if (enabled === false) return;
     let vivo = true;
+    // Un 404 en esta ruta significa que el chat no esta instalado: no se arregla
+    // solo, a diferencia de un 503 temporal. Tras tres seguidos se deja de
+    // sondear hasta recargar la pagina. Sin esto, una instalacion sin chat
+    // generaba una peticion fallida por minuto y por persona, mas una en cada
+    // cambio de foco, y una consola llena de errores.
+    let noInstalado = 0;
+    const detener = () => {
+      clearInterval(t);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
     const comprobar = async () => {
       try {
         let r = await fetch("/api/chat/conversations?limit=1", { credentials: "include" });
@@ -71,21 +85,27 @@ export function ChatFlotante() {
           await fetch("/api/auth/refresh", { method: "POST", credentials: "include" }).catch(() => {});
           r = await fetch("/api/chat/conversations?limit=1", { credentials: "include" });
         }
-        if (vivo) setDisponible(r.ok);
+        if (!vivo) return;
+        if (r.status === 404) {
+          noInstalado += 1;
+          setDisponible(false);
+          if (noInstalado >= 3) detener();
+          return;
+        }
+        noInstalado = 0;
+        setDisponible(r.ok);
       } catch {
         if (vivo) setDisponible(false);
       }
     };
-    comprobar();
-    const t = setInterval(comprobar, 60000);
     const onFocus = () => comprobar();
+    const t = setInterval(comprobar, 60000);
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onFocus);
+    comprobar();
     return () => {
       vivo = false;
-      clearInterval(t);
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onFocus);
+      detener();
     };
   }, [enabled]);
 

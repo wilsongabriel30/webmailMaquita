@@ -35,7 +35,14 @@ from interfaces.api.controlador_gifs import (bp_gifs, DIR_GIFS, MAGIC, TAM_MAX, 
                                              _normalizar_etiquetas, _usuario_id)
 
 logger = logging.getLogger(__name__)
-GIPHY_KEY = os.getenv('GIPHY_API_KEY') or 'GlVGYHkr3WSBnllca54iNt0yFbjz7L65'  # clave pública de pruebas de GIPHY
+# Sin clave propia NO se consulta a GIPHY. Antes, si faltaba, se usaba una clave
+# "publica de pruebas" escrita aqui mismo: eso hacia que cada busqueda de la
+# gente saliera a un tercero sin que nadie lo hubiera decidido, y dejaba una
+# clave de API literal en un repositorio publico. Ahora es opt-in (T4).
+GIPHY_KEY = (os.getenv('GIPHY_API_KEY') or '').strip()
+# Wikimedia Commons no pide clave, pero tambien es una salida a un tercero con
+# el texto que escribe la persona: se activa a proposito, no por defecto.
+COMMONS_ACTIVO = (os.getenv('GIFS_EXTERNOS_COMMONS') or '').strip().lower() in ('1', 'true', 'si')
 UA = {'User-Agent': 'RaicesMaquitaChat/1.0 (https://maquita.com.ec)'}
 TIEMPO = 12
 
@@ -74,7 +81,13 @@ def buscar_commons(q, limite=24):
     return res
 
 
-FUENTES = {'giphy': buscar_giphy, 'commons': buscar_commons}
+FUENTES = {}
+if GIPHY_KEY:
+    FUENTES['giphy'] = buscar_giphy
+if COMMONS_ACTIVO:
+    FUENTES['commons'] = buscar_commons
+if not FUENTES:
+    logger.info('GIF: fuentes externas desactivadas (sin GIPHY_API_KEY ni GIFS_EXTERNOS_COMMONS). Solo biblioteca local.')
 
 
 @bp_gifs.route('/externos', methods=['GET'])
@@ -86,6 +99,11 @@ def externos():
         limite = max(1, min(int(request.args.get('limit', 24)), 50))
     except ValueError:
         limite = 24
+    if not FUENTES:
+        # Respuesta explicita, no una lista vacia que parezca "no hay resultados":
+        # la interfaz debe decir que la busqueda externa esta desactivada.
+        return jsonify({'success': False, 'results': [], 'desactivado': True,
+                        'mensaje': 'La búsqueda en fuentes externas está desactivada en esta instalación.'}), 200
     resultados, errores = [], []
     for nombre, fn in FUENTES.items():
         try:
