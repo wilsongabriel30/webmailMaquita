@@ -67,7 +67,8 @@ def compartir():
     except (TypeError, ValueError):
         expira_en = None
     clave = (datos.get('clave') or '').strip()
-    clave_hash = hashlib.sha256(clave.encode()).hexdigest() if clave else None
+    from clave_enlace import hash_clave
+    clave_hash = hash_clave(clave) if clave else None   # [F-08] Argon2id con sal
     # ¿Se permite descargar/copiar? (control tipo Drive; por defecto sí)
     permite_descarga = datos.get('permite_descarga', True) is not False
 

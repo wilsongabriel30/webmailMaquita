@@ -211,7 +211,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install dependencies
-        run: pip install psycopg2-binary pytest
+        run: pip install -r requirements.txt pytest
       - name: Run tests
         run: pytest tests --tb=short -q
 
