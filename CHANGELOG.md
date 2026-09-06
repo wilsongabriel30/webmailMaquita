@@ -14,6 +14,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Seguridad
 
+- **[M-04 chat] Solo los invitados entran a una conferencia.** `conference_invite` guarda la lista de
+  invitados (y exige que quien invita sea participante de la conversación, si la hay);
+  `conference_join` la comprueba. Conecta con A-5 (grabaciones).
 - **[M-05] El atributo `style` de los correos pasa por una lista blanca de CSS.** `background-image:
   url(...)` y similares (balizas de lectura, fuga de IP), `expression()`, `@import`, `behavior` y
   `position: fixed` se descartan declaración a declaración; el resto del estilo se conserva para no
