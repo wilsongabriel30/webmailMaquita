@@ -9,6 +9,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Seguridad
 
+- **[F-07] Las capacidades de OnlyOffice nacidas de un enlace público mueren con el enlace.** Llevan el id
+  y la versión del share y se revalidan en cada descarga y callback (existe, no venció, misma versión,
+  y para guardar sigue permitiendo editar); la de descarga pública dura 30 minutos, no 7 días.
 - **[F-08] Clave de los enlaces compartidos: nunca en la URL, Argon2id y límite de intentos.** La clave
   viaja en la cabecera `X-Clave-Enlace` (o el cuerpo), se guarda con Argon2id con sal (los hashes
   SHA-256 anteriores se migran al primer acierto), hay límite de 10 fallos cada 10 minutos por enlace

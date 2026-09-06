@@ -55,6 +55,7 @@ from api_archivos import _permiso_unidad, error, usuario_actual
 from config_almacen import URL_PUBLICA
 from registro import registrar_actividad
 import conversion_edicion
+import capacidad_enlace
 from seguridad_rutas import (RutaInvalida, normalizar_ruta_virtual,
                              ruta_fisica, unidad_de_ruta)
 
@@ -256,11 +257,20 @@ def _firma_ds_valida() -> bool:
     return False
 
 
+def _share_vigente(datos: dict, uso: str) -> bool:
+    """[F-07] Una capacidad emitida desde un enlace público solo vale mientras el share exista,
+    no haya vencido, conserve su versión y (para guardar) siga permitiendo editar."""
+    filas = consultar("SELECT id, puede_editar, expira_en, version FROM compartidos WHERE id = %s",
+                      (int(datos['s']),))
+    return capacidad_enlace.vigente(dict(filas[0]) if filas else None, datos, uso)
+
+
 def _validar_peticion_ds(uso: str):
     """Valida una petición que viene del Document Server (SIN sesión web):
       1) token propio en el query `t=` con el uso correcto (descarga/callback);
       2) si el Document Server además envía su firma (Authorization: Bearer),
-         también debe ser válida.
+         también debe ser válida;
+      3) [F-07] si la capacidad nació de un enlace público, el share sigue vigente.
     Devuelve el payload (dict) si todo bien; si no, una respuesta de error."""
     if not secreto_ds():
         return error('OnlyOffice no está configurado', 503)
@@ -272,6 +282,15 @@ def _validar_peticion_ds(uso: str):
     if autorizacion.startswith('Bearer '):
         if verificar_jwt(autorizacion[7:]) is None:
             return error('Firma del Document Server inválida', 403)
+    if capacidad_enlace.nace_de_enlace(datos):
+        try:
+            vigente = _share_vigente(datos, uso)
+        except Exception as excepcion:
+            log.error('No se pudo comprobar el enlace de la capacidad: %s', excepcion)
+            vigente = False
+        if not vigente:
+            log.warning('Capacidad de enlace público rechazada: share %s no vigente (%s)', datos.get('s'), uso)
+            return error('El enlace compartido ya no está vigente', 403)
     return datos
 
 
@@ -507,7 +526,7 @@ def _share_por_token(token: str):
     quien llama (viaja en el query `clave=`)."""
     filas = consultar("""
         SELECT id, propietario_id, ruta, token, puede_editar, permite_descarga,
-               clave_hash, expira_en, email
+               clave_hash, expira_en, email, version
         FROM compartidos WHERE token = %s
     """, (token,))
     if not filas:
@@ -565,10 +584,15 @@ def onlyoffice_config_public():
     version = _version_sesion(doc_base)
     doc_key = hashlib.sha1(f'{doc_base}:v{version}'.encode()).hexdigest()[:20]
 
+    # [F-07] Las capacidades de un enlace público van ligadas al share (id + versión) y se
+    # revalidan en cada descarga/callback: borrar el enlace o cambiar sus permisos las mata.
+    # La de descarga dura minutos; la de callback sigue holgada pero se revalida igual.
+    exp_descarga = int(time.time()) + capacidad_enlace.MINUTOS_DESCARGA_PUBLICA * 60
     exp = int(time.time()) + DIAS_TOKEN * 86400
-    token_descarga = firmar_jwt({'u': propietario, 'r': ruta, 'uso': 'descarga', 'exp': exp})
+    ligado = capacidad_enlace.ligadura(comp)
+    token_descarga = firmar_jwt({'u': propietario, 'r': ruta, 'uso': 'descarga', 'exp': exp_descarga, **ligado})
     token_callback = firmar_jwt({'u': propietario, 'r': ruta, 'uso': 'callback',
-                                 'b': doc_base, 'w': bool(puede_editar), 'exp': exp})
+                                 'b': doc_base, 'w': bool(puede_editar), 'exp': exp, **ligado})
 
     invitado = comp.get('email') or 'Invitado'
     config = {
