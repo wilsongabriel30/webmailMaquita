@@ -97,10 +97,9 @@ from app.websocket.router import start_redis_subscriber
 
 # Handler global de excepciones — evita que nginx devuelva HTML en errores 500
 async def _global_exception_handler(request: Request, exc: Exception):
-    import traceback
-
+    # Registro técnico: traceback completo, sin datos de la petición.
     logging.getLogger("uvicorn.error").error(
-        "Unhandled exception: %s\n%s", str(exc), traceback.format_exc()
+        "Excepcion no controlada (%s)", type(exc).__name__, exc_info=exc
     )
     return JSONResponse(
         status_code=500,
@@ -658,10 +657,17 @@ async def credencial_caducada_handler(request, exc):
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
     """Return JSON for unhandled exceptions instead of plain text."""
-    import traceback
-
+    # Al registro de seguridad solo lo justo para correlacionar (método, ruta, mensaje
+    # acotado). El traceback completo va al registro técnico, sin datos de la petición:
+    # puede arrastrar cabeceras, cuerpos o credenciales.
     security_logger.error(
-        f"Unhandled exception en {request.method} {request.url.path}: {exc}\n{traceback.format_exc()}"
+        "Excepcion no controlada en %s %s: %s",
+        request.method,
+        request.url.path,
+        str(exc)[:200].replace("\n", " "),
+    )
+    logging.getLogger("uvicorn.error").error(
+        "Excepcion no controlada (%s)", type(exc).__name__, exc_info=exc
     )
     # T-39 (28/08/2026): el login y el resto de /api/auth JAMÁS responden 500: excepción interna capturada y anotada,
     # respuesta 503 con mensaje claro y marca «reintentar» para que el cliente lo trate como transitorio.
