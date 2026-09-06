@@ -208,6 +208,7 @@ jobs:
       CHAT_SESSION_KEY: clave-de-sesion-de-pruebas-2026
       NOTIF_SECRET: secreto-de-servicios-de-pruebas-2026
       CHAT_SOCKETIO_ASYNC_MODE: threading
+      DATABASE_URL: postgresql://prueba:prueba@127.0.0.1:1/prueba
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
