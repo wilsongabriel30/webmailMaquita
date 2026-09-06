@@ -95,7 +95,7 @@ export function SettingsView() {
     api.get<FilterRule[]>('/sieve/filters')
       .then(data => {
         // API returns array directly
-        const arr = Array.isArray(data) ? data : (data as any).filters || [];
+        const arr = Array.isArray(data) ? data : (data as { filters?: FilterRule[] }).filters || [];
         setFilters(arr);
       })
       .catch(() => setFilters([]))
@@ -544,8 +544,10 @@ export function SettingsView() {
         {tab === 'smime' && <SmimeSettings />}
 
         {tab === 'password' && (
-          <PasswordChange />
-              <CerrarSesiones />
+          <>
+            <PasswordChange />
+            <CerrarSesiones />
+          </>
         )}
         {tab === 'mailsetup' && (
           <MailSetup />
