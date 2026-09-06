@@ -199,6 +199,22 @@ jobs:
           echo "Tables created: $TABLES"
           [ "$TABLES" -ge 20 ] || { echo "::error::Solo $TABLES tablas: las migraciones no crearon el esquema"; exit 1; }
 
+  almacen-test:
+    name: Almacen Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: almacen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install psycopg2-binary pytest
+      - name: Run tests
+        run: pytest tests --tb=short -q
+
   chat-test:
     name: Chat Tests
     runs-on: ubuntu-latest
