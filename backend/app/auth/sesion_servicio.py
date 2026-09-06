@@ -28,7 +28,9 @@ async def sesion_servicio(request: Request, user: str, sid: str):
         raise HTTPException(403, "No autorizado")
 
     redis = request.app.state.redis
-    ip = request.headers.get("x-real-ip") or (request.client.host if request.client else "?")
+    ip = request.headers.get("x-real-ip") or (
+        request.client.host if request.client else "?"
+    )
     try:
         clave = f"rl:sesion-servicio:{ip}"
         n = await redis.incr(clave)
@@ -39,7 +41,9 @@ async def sesion_servicio(request: Request, user: str, sid: str):
     except HTTPException:
         raise
     except Exception as exc:
-        security_log.error("RATE_LIMIT_SIN_REDIS tier=sesion-servicio error=%s", str(exc)[:120])
+        security_log.error(
+            "RATE_LIMIT_SIN_REDIS tier=sesion-servicio error=%s", str(exc)[:120]
+        )
         raise HTTPException(503, "No disponible")
 
     user = (user or "").strip().lower()[:255]

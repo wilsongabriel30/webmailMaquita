@@ -141,7 +141,9 @@ async def get_chat_sso_url(request: Request, username: str = Depends(get_current
         {
             "sub": username,
             "sid": getattr(request.state, "sid", None),
-            "av": await av_actual(request.app.state.db_pool, request.app.state.redis, username),
+            "av": await av_actual(
+                request.app.state.db_pool, request.app.state.redis, username
+            ),
             "aud": _SSO_AUDIENCIA,
             "jti": uuid.uuid4().hex,
             "iat": ahora,
