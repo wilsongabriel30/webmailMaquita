@@ -7,6 +7,11 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Añadido
+
+- **«Cerrar todas las sesiones»** en Ajustes → Contraseña (L-01, versión mínima): cierra webmail, app
+  y chat en todos los dispositivos. El listado por dispositivo queda para después.
+
 ### Seguridad
 
 - **[R-01] El almacén ya no arranca con una clave de sesión por defecto.** `ALMACEN_CLAVE_SESION`
