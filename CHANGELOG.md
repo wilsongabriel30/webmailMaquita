@@ -7,6 +7,11 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.6.0-rc3] - 2026-09-05
+
+Candidata para la verificación externa. Incluye la remediación de seguridad de la auditoría del
+2026-09-03 y los hallazgos reportados por el equipo de Correo Andes.
+
 ### Corregido
 
 - **El botón «Cambiar contraseña» quedaba gris sin explicar por qué.** La barra de fuerza contaba
