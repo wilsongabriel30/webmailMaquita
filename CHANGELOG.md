@@ -14,6 +14,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Seguridad
 
+- **[M-05 chat] Fuera el secreto de Keycloak escrito en el código.** `KEYCLOAK_CLIENT_SECRET` sin valor
+  por defecto; `KEYCLOAK_ENABLED` pasa a `false` salvo que se pida, y habilitarlo sin secreto aborta el
+  arranque. **El valor anterior está publicado: hay que rotarlo en Keycloak.**
 - **[M-04 chat] Solo los invitados entran a una conferencia.** `conference_invite` guarda la lista de
   invitados (y exige que quien invita sea participante de la conversación, si la hay);
   `conference_join` la comprueba. Conecta con A-5 (grabaciones).

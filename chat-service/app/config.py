@@ -288,11 +288,18 @@ class Config:
     # =========================================================================
     # KEYCLOAK SSO - Integración dual (FARO local + Keycloak)
     # =========================================================================
-    KEYCLOAK_ENABLED = os.getenv("KEYCLOAK_ENABLED", "true").lower() == "true"
+    # [M-05] Sin valor por defecto para el secreto: el que traia el codigo quedo publicado.
+    # Deshabilitado salvo que se pida; si se habilita sin secreto, el servicio no arranca.
+    KEYCLOAK_ENABLED = os.getenv("KEYCLOAK_ENABLED", "false").lower() == "true"
     KEYCLOAK_SERVER_URL = os.getenv("KEYCLOAK_SERVER_URL", "https://auth.maquita.org")
     KEYCLOAK_REALM = os.getenv("KEYCLOAK_REALM", "maquita")
     KEYCLOAK_CLIENT_ID = os.getenv("KEYCLOAK_CLIENT_ID", "faro-backend")
-    KEYCLOAK_CLIENT_SECRET = os.getenv("KEYCLOAK_CLIENT_SECRET", "faro-kc-secret-2026-maquita")
+    KEYCLOAK_CLIENT_SECRET = os.getenv("KEYCLOAK_CLIENT_SECRET", "")
+    if KEYCLOAK_ENABLED and len(KEYCLOAK_CLIENT_SECRET.strip()) < 16:
+        raise RuntimeError(
+            "KEYCLOAK_ENABLED=true pero falta KEYCLOAK_CLIENT_SECRET (o es demasiado corto). "
+            "Definelo en el entorno con el secreto real del cliente en Keycloak."
+        )
 
     # Tipos de gráficos disponibles
     CHART_TYPES = {
