@@ -8,6 +8,9 @@ pero conviene manejar errores y registrarlos en `report.engines`.
 
 class Analyzer:
     name = "base"
+    # Un motor OBLIGATORIO que no responde es fallo CERRADO (R-04): el adjunto queda
+    # como sospechoso y va a cuarentena; nunca «clean» por accidente.
+    obligatorio = False
 
     def applies(self, filename: str, mime: str) -> bool:
         """¿Aplica este analizador a este archivo? Por defecto, sí."""

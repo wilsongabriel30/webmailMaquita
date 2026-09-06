@@ -366,9 +366,13 @@ async def _inbound_safeattach(st, pool) -> list:
                     from app.safeattach import scan_attachment
                     rep = await _aio.wait_for(_aio.to_thread(scan_attachment, payload, fn, ct), timeout=15)
                     res = (rep or {}).get("result")
-                    if res in ("malicious", "suspicious"):
+                    errs = [str(e) for e in ((rep or {}).get("errors") or [])]
+                    if res in ("malicious", "suspicious") or errs:
                         thr = "; ".join(str(t.get("threat", "")) for t in (rep.get("threats") or [])[:2])
-                        reason = res + ": " + thr
+                        reason = (res or "suspicious") + ": " + thr
+                        if errs:
+                            # R-04: un motor obligatorio caido es fallo CERRADO, no un adjunto limpio
+                            reason += "; motor obligatorio caido: " + ",".join(errs)
                 except Exception:
                     reason = ""
             if reason:
