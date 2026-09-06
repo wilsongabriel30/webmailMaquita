@@ -37,6 +37,9 @@ def crear_app_almacen() -> Flask:
     # Esquema de metadatos (idempotente)
     asegurar_esquema()
 
+    from cuota_admision import asegurar_tabla as _tabla_reservas
+    from almacen_bd import conexion as _conexion_reservas
+    _tabla_reservas(_conexion_reservas)  # [F-06]
     # API bajo el prefijo del contrato actual
     from api_archivos import bp_archivos
     from api_compartir import bp_compartir
