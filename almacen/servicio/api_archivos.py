@@ -163,10 +163,14 @@ def subir():
     subidos = []
     try:
         for almacenado in archivos:
-            r = nucleo.subir(usuario, carpeta, almacenado.filename, almacenado.stream)
+            # [F-06] Tamaño declarado (si viene) para reservar cuota antes de escribir.
+            _esperado = int(request.content_length or 0) if len(archivos) == 1 else 0
+            r = nucleo.subir(usuario, carpeta, almacenado.filename, almacenado.stream, tamano_esperado=_esperado)
             subidos.append(r)
             registrar_actividad(usuario, 'subio', r['ruta'], r.get('tamano_humano', ''))
     except RutaInvalida as excepcion:
+        return error(str(excepcion), excepcion.codigo)
+    except (nucleo.CuotaExcedida, nucleo.SinEspacio) as excepcion:
         return error(str(excepcion), excepcion.codigo)
     return jsonify({'success': True, 'archivos': subidos,
                     'total': len(subidos)}), 201
