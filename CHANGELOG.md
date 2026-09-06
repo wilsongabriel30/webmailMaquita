@@ -9,6 +9,7 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Seguridad
 
+- **[L-03 panel] `DB_PASS` entra en la validación de arranque** (fail-fast si falta).
 - **[L-02 panel] La auditoría de SafeAttach y SSO ya no falla en silencio**: si no se puede registrar,
   ERROR con marca `AUDITORIA_NO_REGISTRADA` (misma regla que el milter).
 - **[M-03/L-01 panel] Último rastro de `bash -c` y `create_subprocess_shell`** (estado SSO, sincronización
