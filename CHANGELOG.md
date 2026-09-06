@@ -7,6 +7,12 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.7.2] - 2026-09-06
+
+Correcciones de la sexta revisión (panel) y del lote P2 de la tercera revisión (almacén).
+Sin corte de sesiones. Pasos del almacén (dependencia `argon2-cffi`, reinicio, `Referrer-Policy`
+por mapa en nginx) en `UPGRADING.md`, sección «De 1.7.1 a la siguiente».
+
 ### Seguridad
 
 - **[F-11] Una unidad compartida no puede quedarse sin manager.** Degradar o quitar al último manager
@@ -33,6 +39,14 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 - **[H-02 panel] `GET /api/branding` (público, lo usa la pantalla de entrada) devuelve solo nombre, lema,
   contacto, colores y ficheros de marca**; el resto de claves de `branding_settings` ya no sale. Mismo
   recorte en el `/api/branding` del correo.
+
+### Corregido
+
+- **[F-06] La tabla `cuotas_reservas` también se crea desde `app_webmail`** (la aplicación que corre en
+  producción) y bajo `pg_advisory_xact_lock`, para que el DDL concurrente de varios workers no
+  provoque deadlocks en el arranque del almacén.
+- Documentación: `docs/PANEL-RUTAS-ROLES.md` (246 rutas → rol), `DECISIONES.md` D-6 (matriz
+  admin/superadmin), ejemplo de nginx del almacén con `Referrer-Policy` por mapa.
 
 ## [1.7.1] - 2026-09-06
 
