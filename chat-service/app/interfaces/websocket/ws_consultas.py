@@ -2,6 +2,7 @@
 """Consultas por socket: conversaciones, mensajes, directo, búsqueda. Extraído de manejador_websocket._registrar_eventos (líneas 890-1098) el 28/08/2026 sin cambios.
 Los manejadores se registran al llamar registrar(socketio) desde manejador_websocket._registrar_eventos()."""
 from interfaces.websocket.manejador_websocket import *  # noqa: F401,F403
+from interfaces.websocket.manejador_websocket import _ws_redis  # noqa: F401
 from interfaces.websocket.manejador_websocket import _autorizado_en_conversacion, _cerrar_servicio, _commit_servicio, _conversacion_de_mensaje, _es_participante, _obtener_servicio_chat  # noqa: F401
 
 
@@ -136,6 +137,13 @@ def registrar(socketio):
         servicio = None
         try:
             servicio = _obtener_servicio_chat()
+            # [L-03] misma regla que la ruta REST: misma organización (tenant) y sin bloqueo
+            from interfaces import relacion_chat
+            ok, motivo = relacion_chat.puede_contactar(servicio._db_session, usuario_id, otro_usuario_id)
+            if not ok:
+                logger.warning("DIRECTO_RECHAZADO de=%s a=%s motivo=%s", usuario_id, otro_usuario_id, motivo)
+                emit('error', {'message': 'No puedes chatear con esta persona'})
+                return
             resultado = servicio.crear_conversacion_directa(
                 usuario1_id=usuario_id,
                 usuario2_id=otro_usuario_id
@@ -145,6 +153,8 @@ def registrar(socketio):
                 _commit_servicio(servicio)
                 conversacion = resultado.datos.get('conversacion', {})
                 fue_creada = 'creada' in resultado.mensaje.lower() and 'existente' not in resultado.mensaje.lower()
+                if fue_creada:
+                    relacion_chat.olvidar(_ws_redis, usuario_id, otro_usuario_id)  # relación nueva
 
                 evento = 'conversation_created' if fue_creada else 'conversation_data'
                 emit(evento, {
