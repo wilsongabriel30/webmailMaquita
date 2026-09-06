@@ -10,9 +10,15 @@ servicio, reiniciar lo que cambió y correr `deploy/tools/validar-despliegue.sh`
 
 ---
 
-## De 1.7.1 a la siguiente (sin publicar) — almacén
+## De 1.7.1 a 1.7.2 — almacén y panel
 
-Sin corte de sesiones. Cambia solo el servicio del almacén y un detalle de nginx.
+Sin corte de sesiones. Cambia el servicio del almacén, el panel y un detalle de nginx.
+Si vienes de **1.7.0** (saltándote 1.7.1) instala también `backend/requirements.txt`
+(`signxml`, `lxml`) y reinicia el backend del correo.
+
+0. **Antes de reiniciar el almacén**, comprueba que `almacen/.env` tiene `ALMACEN_CLAVE_SESION`
+   con un valor real (≥ 16 caracteres). Es obligatoria desde 1.7.0 y las instalaciones
+   anteriores no la traían; sin ella el almacén no arranca (ver «Variables nuevas» de 1.7.0).
 
 1. Dependencia nueva del almacén (Argon2id para la clave de los enlaces compartidos):
    `almacen/venv/bin/pip install -r almacen/requirements.txt` (trae `argon2-cffi`).
@@ -45,6 +51,12 @@ fuera de horario y avísalo antes.
 | `CREDENTIAL_ENCRYPTION_KEY_ANTERIOR` | Solo al rotar la anterior. | — |
 | `CHAT_INTERNAL_URL` | URL del chat a la que el correo empuja las revocaciones (F-03). | El origen de `embed_url` de la configuración del chat; si es relativa (mismo origen), no se empuja nada. |
 | `NOTIF_SECRET` | Ya existía: secreto compartido con el chat. Ahora también autentica `GET /api/auth/sesion-servicio` y el empuje de revocaciones. **Mismo valor en el correo y en el chat.** | — |
+
+**Almacén (`almacen/.env`)**
+
+| Variable | Qué es | Valor si falta |
+|---|---|---|
+| `ALMACEN_CLAVE_SESION` | **Obligatoria desde 1.7.0 (R-01).** Clave propia de la sesión Flask del almacén; no es la del SSO (`WEBMAIL_SECRET_KEY`). Genérala: `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`. En 1.6.x tenía un valor por defecto y el instalador anterior a 1.7.2 no la escribía, así que **el fallo queda latente hasta el primer reinicio del almacén**. | arranque del almacén abortado (`RuntimeError: Falta ALMACEN_CLAVE_SESION`) |
 
 **Chat (`chat-service/.env`)**
 
