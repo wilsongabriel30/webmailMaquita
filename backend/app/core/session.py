@@ -43,7 +43,19 @@ async def get_user_password(request: Request, username: str) -> str:
     try:
         return decrypt_password(raw)
     except Exception:
-        return raw  # fallback for unencrypted legacy values
+        # No descifra: no se devuelve jamás el valor crudo. Se cierra la sesión
+        # y el usuario vuelve a entrar.
+        import logging
+
+        logging.getLogger(__name__).error(
+            "Credencial cacheada de %s no descifra; sesión invalidada [CREDENCIAL_NO_DESCIFRA]",
+            username,
+        )
+        await redis.delete(f"imap_pass:{username}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session expired",
+        )
 
 
 async def get_imap_login_user(request: Request, username: str) -> str:
@@ -75,6 +87,9 @@ async def get_imap_login_user(request: Request, username: str) -> str:
                     await redis.delete(f"imap_master:{username}")
                     return username
             except Exception:
-                pass  # si no se puede descifrar, dejar pasar
+                # No descifra: la sesión no vale. Se limpia y se obliga a reautenticar.
+                await redis.delete(f"imap_pass:{username}")
+                await redis.delete(f"imap_master:{username}")
+                return username
         return f"{username}*{master_user}"
     return username

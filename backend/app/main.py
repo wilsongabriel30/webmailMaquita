@@ -164,7 +164,21 @@ async def _process_scheduled_emails(db_pool, redis):
                     try:
                         password = decrypt_password(raw_pass)
                     except Exception:
-                        password = raw_pass  # fallback legacy sin cifrar
+                        # Una credencial que no descifra (formato viejo o clave rotada)
+                        # NUNCA se usa tal cual: se invalida la sesión y el envío espera
+                        # a que el usuario vuelva a entrar.
+                        logger.error(
+                            "Scheduled email %s: la credencial cacheada de %s no descifra; "
+                            "sesión invalidada y envío devuelto a 'pending' [CREDENCIAL_NO_DESCIFRA]",
+                            row["id"],
+                            username,
+                        )
+                        await redis.delete(f"imap_pass:{username}")
+                        await db_pool.execute(
+                            "UPDATE scheduled_emails SET status = 'pending' WHERE id = $1",
+                            row["id"],
+                        )
+                        continue
 
                     from app.mail.clients.imap_client import get_imap_connection
                     from app.mail.services.send_service import send_and_save

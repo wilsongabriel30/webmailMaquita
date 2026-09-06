@@ -194,7 +194,17 @@ async def _poll_user_inbox(username: str, app_state):
             try:
                 password = decrypt_password(raw_pass)
             except Exception:
-                password = raw_pass  # fallback for unencrypted legacy values
+                # No descifra: nunca se usa el valor crudo. Sesión fuera.
+                logging.getLogger(__name__).error(
+                    "Credencial cacheada de %s no descifra; sesión invalidada [CREDENCIAL_NO_DESCIFRA]",
+                    username,
+                )
+                await redis.delete(f"imap_pass:{username}")
+                await redis.publish(
+                    f"ws:user:{username}",
+                    json.dumps({"type": "session_expired"}),
+                )
+                break
 
             # Quick IMAP check: just get INBOX unseen count
             from app.mail.clients.imap_client import get_imap_connection
