@@ -21,7 +21,7 @@ from app.agents.router import router as agents_router
 from app.ai.router import router as ai_router
 from app.air.router import router as air_router
 from app.apikeys.router import router as apikeys_router
-from app.auth.dependencies import get_current_user
+from app.auth.dependencies import get_current_user, require_admin
 from app.auth.oidc import router as oidc_router
 from app.auth.password import router as password_router
 from app.auth.router import router as auth_router
@@ -807,45 +807,44 @@ import socket
 
 
 @app.get("/api/health/detailed")
-async def health_detailed(request: Request, admin: str = Depends(get_current_user)):
-    """Extended health check: PostgreSQL, Redis, Dovecot IMAP, Postfix SMTP. Requires auth."""
+async def health_detailed(request: Request, admin: str = Depends(require_admin)):
+    """Estado por componente (PostgreSQL, Redis, Dovecot, Postfix). Solo administradores,
+    y solo 'ok'/'error': sin versiones, banners ni mensajes de error internos."""
     results = {}
 
     # PostgreSQL
     try:
         row = await request.app.state.db_pool.fetchval("SELECT 1")
         results["postgresql"] = {"status": "ok"}
-    except Exception as e:
-        results["postgresql"] = {"status": "error", "detail": str(e)}
+    except Exception:
+        results["postgresql"] = {"status": "error"}
 
     # Redis
     try:
         pong = await request.app.state.redis.ping()
         results["redis"] = {"status": "ok" if pong else "error"}
-    except Exception as e:
-        results["redis"] = {"status": "error", "detail": str(e)}
+    except Exception:
+        results["redis"] = {"status": "error"}
 
     # Dovecot IMAP (port 143)
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.settimeout(3)
         s.connect(("127.0.0.1", 143))
-        banner = s.recv(256).decode("utf-8", errors="replace")
         s.close()
-        results["dovecot_imap"] = {"status": "ok", "banner": banner.strip()[:80]}
-    except Exception as e:
-        results["dovecot_imap"] = {"status": "error", "detail": str(e)}
+        results["dovecot_imap"] = {"status": "ok"}
+    except Exception:
+        results["dovecot_imap"] = {"status": "error"}
 
     # Postfix SMTP (port 25)
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.settimeout(3)
         s.connect(("127.0.0.1", 25))
-        banner = s.recv(256).decode("utf-8", errors="replace")
         s.close()
-        results["postfix_smtp"] = {"status": "ok", "banner": banner.strip()[:80]}
-    except Exception as e:
-        results["postfix_smtp"] = {"status": "error", "detail": str(e)}
+        results["postfix_smtp"] = {"status": "ok"}
+    except Exception:
+        results["postfix_smtp"] = {"status": "error"}
 
     all_ok = all(v["status"] == "ok" for v in results.values())
     return {"status": "ok" if all_ok else "degraded", "services": results}
