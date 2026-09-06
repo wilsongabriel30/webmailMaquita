@@ -42,7 +42,7 @@ EXPLÍCITA** no lleva ninguna dependencia de autenticación en la ruta: hay que 
 | GET | `/api/antispam-avanzado` | `get_current_admin` | rol efectivo (viewer: solo GET) | `app/antispam_avanzado/router.py` |
 | PUT | `/api/antispam-avanzado` | `require_role` | require_role(…) — rol explícito | `app/antispam_avanzado/router.py` |
 | POST | `/api/antispam-avanzado/depurar` | `require_role` | require_role(…) — rol explícito | `app/antispam_avanzado/router.py` |
-| GET | `/api/audit` | `-` | **SIN PROTECCIÓN EXPLÍCITA** | `app/audit/router.py` |
+| GET | `/api/audit` | `get_current_admin` (línea 15; el extractor no lo vio) | rol efectivo — falso positivo del extractor | `app/audit/router.py` |
 | GET | `/api/auth/admins` | `require_superadmin` | superadmin | `app/auth/router.py` |
 | POST | `/api/auth/admins` | `require_superadmin` | superadmin | `app/auth/router.py` |
 | DELETE | `/api/auth/admins/{user_id}` | `require_superadmin` | superadmin | `app/auth/router.py` |
@@ -100,7 +100,7 @@ EXPLÍCITA** no lleva ninguna dependencia de autenticación en la ruta: hay que 
 | POST | `/api/ediscovery-premium/custodians/{cust_id}/notify` | `require_role` | require_role(…) — rol explícito | `app/ediscovery_premium/router.py` |
 | GET | `/api/ediscovery/export/{mailbox}` | `-` | **SIN PROTECCIÓN EXPLÍCITA** | `app/ediscovery/router.py` |
 | GET | `/api/ediscovery/mailboxes` | `get_current_admin` | rol efectivo (viewer: solo GET) | `app/ediscovery/router.py` |
-| GET | `/api/ediscovery/search` | `-` | **SIN PROTECCIÓN EXPLÍCITA** | `app/ediscovery/router.py` |
+| GET | `/api/ediscovery/search` | `get_current_admin` (dentro de la firma; el extractor no lo vio) | rol efectivo — **H-01 6ª revisión: falso positivo** | `app/ediscovery/router.py` |
 | GET | `/api/forwarding` | `get_current_admin` | rol efectivo (viewer: solo GET) | `app/forwarding/router.py` |
 | POST | `/api/forwarding` | `require_role` | require_role(…) — rol explícito | `app/forwarding/router.py` |
 | DELETE | `/api/forwarding/{address:path}` | `require_role` | require_role(…) — rol explícito | `app/forwarding/router.py` |
