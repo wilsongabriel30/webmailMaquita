@@ -9,6 +9,8 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Seguridad
 
+- **[M-03/L-01 panel] Último rastro de `bash -c` y `create_subprocess_shell`** (estado SSO, sincronización
+  LDAP, lectura de rebotes): listas de argumentos y lectura de ficheros en Python, sin shell.
 - **[M-02 panel] `fail2ban/unban` y `unban-all` validan `jail` e `ip`** (lista cerrada de caracteres y
   `ipaddress`) antes de pasarlos a `fail2ban-client`.
 - **[M-01 panel] Matriz `admin` / `superadmin` aplicada.** Retención, acceso condicional, límites y
