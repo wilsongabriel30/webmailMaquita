@@ -22,6 +22,7 @@ from typing import Optional, Dict, Any, Set
 from datetime import datetime, timedelta
 from collections import defaultdict
 import logging
+import os
 import time
 import threading
 
@@ -119,6 +120,7 @@ except Exception:
 # Fallback in-memory (siempre disponible para el worker local)
 usuarios_conectados: Dict[int, Set[str]] = {}  # {usuario_id: {sid1, sid2, ...}}
 sid_a_usuario: Dict[str, int] = {}  # {sid: usuario_id}
+sesion_de_socket: Dict[str, str] = {}  # {sid de Socket.IO: sid de la sesión del correo} (F-03)
 
 # Cache de client_ids procesados recientemente (para idempotencia)
 _client_ids_recientes: Dict[str, Dict] = {}  # {client_id: {message_id, timestamp}}
@@ -238,7 +240,7 @@ def crear_socketio(app, redis_url: Optional[str] = None) -> SocketIO:
         socketio = SocketIO(
             app,
             cors_allowed_origins=_origenes,
-            async_mode='eventlet',
+            async_mode=os.getenv('CHAT_SOCKETIO_ASYNC_MODE', 'eventlet'),
             message_queue=redis_url,
             logger=sio_logger,
             engineio_logger=eio_logger
@@ -249,7 +251,7 @@ def crear_socketio(app, redis_url: Optional[str] = None) -> SocketIO:
         socketio = SocketIO(
             app,
             cors_allowed_origins=_origenes,
-            async_mode='eventlet',
+            async_mode=os.getenv('CHAT_SOCKETIO_ASYNC_MODE', 'eventlet'),
             logger=sio_logger,
             engineio_logger=eio_logger
         )

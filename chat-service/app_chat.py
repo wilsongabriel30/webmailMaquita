@@ -36,6 +36,11 @@ _REDIS_URL = os.getenv("CHAT_REDIS_URL", "")
 # la carpeta de subidas era publica para quien acertara la ruta.
 _RUTAS_PROTEGIDAS = ("/api/chat", "/chat", "/socket.io",
                      "/uploads/chat", "/static/uploads/chat")
+# Rutas de servicio a servicio (secreto compartido, sin sesión de usuario)
+_RUTAS_SERVICIO = ("/api/chat/notificaciones", "/api/chat/drive/evento", "/api/chat/sesion/revocar")
+# F-03: comprobar la sesión CENTRAL del correo (sid/av) en cada petición y conexión.
+# CHAT_SESION_CENTRAL=0 la deja pasiva durante la actualización (ver UPGRADING.md).
+_SESION_CENTRAL = os.getenv("CHAT_SESION_CENTRAL", "1") != "0"
 
 
 # [B1] El chat no puede verificar tokens sin su secreto: aborta el arranque si falta
@@ -174,7 +179,19 @@ def sembrar_desde_token(token):
     correo = (datos.get("sub") or "").strip().lower()
     if not correo:
         return None, None
-    return _uid_por_correo(correo), correo
+    uid = _uid_por_correo(correo)
+    if uid:
+        _sembrar_sesion_central(datos)
+    return uid, correo
+
+
+def _sembrar_sesion_central(datos):
+    """Guarda en la sesión del chat el sid y la generación (av) de la sesión del correo
+    (F-03). Sin ellos la sesión no vale: son los que permiten revocarla desde el correo."""
+    import time as _t
+    session["sid"] = datos.get("sid")
+    session["av"] = datos.get("av")
+    session["validado_hasta"] = _t.time() + 300
 
 
 def _resolver_usuario():
@@ -200,6 +217,8 @@ def _resolver_usuario():
     if not correo:
         return None, None
     uid = _uid_por_correo(correo)
+    if uid:
+        _sembrar_sesion_central(datos)
     return uid, correo
 
 
@@ -290,6 +309,12 @@ def crear_app():
     def _inyectar_usuario():
         return {"current_user": _UsuarioSesion(session.get("usuario_id"))}
 
+    # F-03: revocación empujada por el correo y comprobación de la sesión central.
+    # Fuera del bloque del controlador: tiene que existir aunque el chat no monte.
+    from interfaces.api import sesion_central as _sesion_central
+    _sesion_central.resolver_uid = _uid_por_correo
+    app.register_blueprint(_sesion_central.bp_sesion)
+
     @app.route("/sso/entrar")
     def sso_entrar():
         """Entrada del chat cuando se sirve en SU PROPIO ORIGEN.
@@ -332,6 +357,7 @@ def crear_app():
         session["usuario_id"] = uid
         session["usuario_correo"] = correo
         session["usuario_nombre"] = _cache_nombre.get(uid, correo)
+        _sembrar_sesion_central(datos)
         from flask import redirect as _redirect
         return _redirect(destino)
 
@@ -439,7 +465,7 @@ def crear_app():
     @app.before_request
     def _auth():
         # Push de notificaciones desde otros sistemas: se autentica con X-Notif-Secret (sin sesión)
-        if request.path in ("/api/chat/notificaciones", "/api/chat/drive/evento") and request.headers.get("X-Notif-Secret"):
+        if request.path in _RUTAS_SERVICIO and request.headers.get("X-Notif-Secret"):
             return None
         if request.path.startswith(_RUTAS_PROTEGIDAS):
             # T-44: enlace de notificación con token (la ventana puede no traer cookie)
@@ -460,6 +486,11 @@ def crear_app():
                     resp.set_cookie("access_token", _tok_url, secure=True, samesite="Lax", path="/")
                     return resp
             if session.get("usuario_id"):
+                if _SESION_CENTRAL:
+                    from interfaces.api.sesion_central import sesion_central_valida
+                    if not sesion_central_valida():
+                        session.clear()
+                        return _respuesta_no_auth()
                 return None
             uid, correo = _resolver_usuario()
             if not uid:

@@ -683,6 +683,11 @@ async def validation_exception_handler(request, exc):
 
 
 app.include_router(auth_router)
+from app.auth.sesion_servicio import router as sesion_servicio_router  # noqa: E402
+from app.chatcfg.revocacion import registrar as registrar_revocacion_chat  # noqa: E402
+
+app.include_router(sesion_servicio_router)
+registrar_revocacion_chat(app)
 app.include_router(push_router)
 app.include_router(oidc_router)
 app.include_router(air_router)

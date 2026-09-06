@@ -9,6 +9,17 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Seguridad
 
+- **[F-03] El chat obedece a la revocación central.** El vale de entrada lleva `sid` y `av`
+  del correo; el correo empuja cada revocación a `POST /api/chat/sesion/revocar` (secreto de
+  servicios, límite de peticiones) y el chat anota la generación en su Redis, desconecta los
+  Socket.IO afectados y rechaza la sesión en el `before_request` y al conectar. Cada sesión
+  revalida contra el correo (`GET /api/auth/sesion-servicio`) como máximo cada 5 minutos, con
+  fallo cerrado. Riesgo residual y marca `REVOCACION_CHAT_FALLIDA` en `DECISIONES.md` D-4.
+  Nuevas variables del chat: `CHAT_SESION_CENTRAL` (0 = pasivo durante la actualización),
+  `CORREO_URL_API` (opcional; si falta usa `CORREO_URL_CALENDARIO`), y del correo:
+  `CHAT_INTERNAL_URL` (opcional; si falta, el origen de `embed_url`). Pruebas en
+  `chat-service/tests/test_revocacion.py`, con su propio job de CI.
+
 - **[F-01] Ciclo de vida de sesión con `sid` y `auth_version`.** La sesión ya no «vive» en una
   clave por usuario: cada navegador tiene su `sid`, la credencial IMAP se cifra por sesión y el
   access JWT lleva `sid`, `av`, `kind` y `abs_exp`. Cerrar sesión cierra solo la propia; «cerrar
