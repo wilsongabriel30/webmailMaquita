@@ -7,6 +7,12 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Seguridad
+
+- **[H-02 panel] `GET /api/branding` (público, lo usa la pantalla de entrada) devuelve solo nombre, lema,
+  contacto, colores y ficheros de marca**; el resto de claves de `branding_settings` ya no sale. Mismo
+  recorte en el `/api/branding` del correo.
+
 ## [1.7.1] - 2026-09-06
 
 Lote tras la pasada fría sobre 1.7.0 y el informe de actualización de Correo Andes. Sin corte de sesiones.
