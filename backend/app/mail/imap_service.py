@@ -1,5 +1,3 @@
-from app.mail.errors import CredencialIMAPInvalida
-import aioimaplib
 import asyncio
 import email
 import email.policy
@@ -8,7 +6,10 @@ import re
 from datetime import datetime, timezone
 from typing import Any
 
+import aioimaplib
+
 from app.config import get_settings
+from app.mail.errors import CredencialIMAPInvalida
 
 
 def _decode_lines(lines) -> list[str]:

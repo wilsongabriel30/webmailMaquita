@@ -26,28 +26,29 @@ Archivos:
   multi_import.py   → Importación multi-servicio (vCard, LinkedIn, etc.)
 """
 from fastapi import APIRouter
+
 from .avatars import router as avatars_router
-from .search import router as search_router
-from .crud import router as crud_router
-from .favorites import router as favorites_router
-from .categories import router as categories_router
-from .lists import router as lists_router
 from .bulk import router as bulk_router
-from .import_export import router as import_export_router
-from .from_email import router as from_email_router
-from .interactions import router as interactions_router
-from .score import router as score_router
-from .gravatar import router as gravatar_router
-from .duplicates import router as duplicates_router
-from .reminders import router as reminders_router
-from .custom_fields import router as custom_fields_router
-from .relationships import router as relationships_router
-from .directory import router as directory_router
-from .shared_notes import router as shared_notes_router
 from .carddav import router as carddav_router
-from .signature import router as signature_router
-from .multi_import import router as multi_import_router
+from .categories import router as categories_router
+from .crud import router as crud_router
+from .custom_fields import router as custom_fields_router
+from .directory import router as directory_router
+from .duplicates import router as duplicates_router
+from .favorites import router as favorites_router
+from .from_email import router as from_email_router
+from .gravatar import router as gravatar_router
+from .import_export import router as import_export_router
 from .import_history import router as import_history_router
+from .interactions import router as interactions_router
+from .lists import router as lists_router
+from .multi_import import router as multi_import_router
+from .relationships import router as relationships_router
+from .reminders import router as reminders_router
+from .score import router as score_router
+from .search import router as search_router
+from .shared_notes import router as shared_notes_router
+from .signature import router as signature_router
 
 # Router combinado para registrar en main.py
 router = APIRouter()

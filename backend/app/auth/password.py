@@ -1,8 +1,8 @@
 """Password change router — uses doveadm for SHA512-CRYPT hashing."""
-import re
-import subprocess
 import imaplib
 import logging
+import re
+import subprocess
 
 logger = logging.getLogger(__name__)
 
@@ -10,9 +10,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 from app.auth.dependencies import get_current_user
-from app.core.session import get_user_password, encrypt_password
 from app.config import get_settings
-
+from app.core.session import encrypt_password, get_user_password
 
 # Contraseñas comunes prohibidas (top 50)
 _COMMON_PASSWORDS = frozenset({

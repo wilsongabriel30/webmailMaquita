@@ -60,7 +60,7 @@ async function migrarOutbox(db: IDBDatabase): Promise<{ cifrados: number; intact
 
   for (const correo of todos || []) {
     // lo que ya está cifrado se deja en paz
-    if (esPaquete((correo as any).sobre)) continue;
+    if (esPaquete((correo as { sobre?: unknown }).sobre)) continue;
     try {
       // se guarda cifrado TODO lo que es contenido; fuera quedan solo los datos
       // que hacen falta para manejar la cola sin abrir el correo
@@ -74,7 +74,7 @@ async function migrarOutbox(db: IDBDatabase): Promise<{ cifrados: number; intact
       });
 
       // COMPROBACIÓN antes de tocar el original: si no se puede volver a leer, no se toca
-      const prueba: any = await descifrar(sobre);
+      const prueba = await descifrar<{ subject?: string; html_body?: string }>(sobre);
       if (!prueba || prueba.subject !== correo.subject || prueba.html_body !== correo.html_body) {
         intactos++;
         console.warn('T-49: un correo pendiente no supero la comprobacion; se deja como estaba');
@@ -89,7 +89,7 @@ async function migrarOutbox(db: IDBDatabase): Promise<{ cifrados: number; intact
         error: correo.error,
         sobre,                       // aquí va todo el contenido, cifrado
       };
-      await pedir(db.transaction('outbox', 'readwrite').objectStore('outbox').put(nuevo) as any);
+      await pedir(db.transaction('outbox', 'readwrite').objectStore('outbox').put(nuevo));
       cifrados++;
     } catch (e) {
       // Un correo sin enviar que se pierde es peor que un correo sin cifrar.

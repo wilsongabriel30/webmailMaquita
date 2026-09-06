@@ -1,9 +1,12 @@
 """CRUD — listar, crear, actualizar, eliminar (soft delete) contactos."""
 from datetime import datetime
-from fastapi import APIRouter, Request, Depends, HTTPException
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+
 from app.auth.dependencies import get_current_user
 from app.core.sanitize import strip_html
-from .helpers import ALL_FIELDS, compute_display_name, audit, enrich_contact
+
+from .helpers import ALL_FIELDS, audit, compute_display_name, enrich_contact
 
 # Campos de texto que deben sanitizarse antes de guardar
 _TEXT_FIELDS = (

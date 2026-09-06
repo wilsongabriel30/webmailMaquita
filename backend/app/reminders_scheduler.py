@@ -11,7 +11,7 @@ toast + sonido + Notification del navegador.
 import asyncio
 import json
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 
 import aiosmtplib
@@ -56,8 +56,8 @@ RETURNING e.id, e.summary, e.dtstart, c.owner_email
 async def _send_fallback_email(username: str, message: str):
     """Si el usuario no tiene el webmail abierto, el recordatorio llega por correo."""
     try:
-        from app.config import get_settings
         from app.branding.service import app_name_cacheado
+        from app.config import get_settings
         st = get_settings()
         msg = EmailMessage()
         msg["From"] = f"no-reply@{st.mail_domain}"

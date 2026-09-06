@@ -3,13 +3,14 @@
 Eliminates the ~100ms overhead of connect+login on every request.
 Keeps up to MAX_PER_USER connections per user, with TTL expiration.
 """
-from app.mail.errors import CredencialIMAPInvalida
 import asyncio
-import time
 import logging
+import time
+
 import aioimaplib
 
 from app.config import get_settings
+from app.mail.errors import CredencialIMAPInvalida
 
 logger = logging.getLogger("imap_pool")
 

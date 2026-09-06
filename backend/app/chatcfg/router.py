@@ -12,13 +12,13 @@ import json
 import os
 import uuid
 from datetime import datetime, timedelta, timezone
-
-import jwt
-from fastapi import APIRouter, HTTPException, Request, Depends
-from pydantic import BaseModel
 from typing import List, Optional
 
-from app.auth.dependencies import require_admin, get_current_user
+import jwt
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel
+
+from app.auth.dependencies import get_current_user, require_admin
 
 router = APIRouter(tags=["chat-config"])
 

@@ -10,6 +10,7 @@ Cada detector valida de verdad (no solo regex) para minimizar falsas alarmas:
 Uso: detect_all(text, keywords) -> list[Finding]
 """
 from __future__ import annotations
+
 import re
 from dataclasses import dataclass
 

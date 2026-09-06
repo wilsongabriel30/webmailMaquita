@@ -1,26 +1,40 @@
 """FastAPI router for Tasks — Microsoft To Do style + backward-compat Kanban."""
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import datetime
-from pydantic import BaseModel
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
 from app.tasks.schemas import (
     ActivityOut,
-    BoardCreate, BoardFull, BoardOut, BoardUpdate,
-    CardCreate, CardMove, CardOut, CardUpdate,
-    LabelCreate, LabelOut,
-    ListCreate, ListOut,
-    MemberAdd, MemberOut,
-    TaskListCreate, TaskListUpdate,
+    BoardCreate,
+    BoardFull,
+    BoardOut,
+    BoardUpdate,
+    CardCreate,
+    CardMove,
+    CardOut,
+    CardUpdate,
+    LabelCreate,
+    LabelOut,
+    ListCreate,
+    ListOut,
+    MemberAdd,
+    MemberOut,
+    TaskListCreate,
+    TaskListUpdate,
 )
 from app.tasks.service import task_service
-from app.tasks.task_calendar_sync import sync_task_to_calendar, remove_task_from_calendar, notify_task_assignment
+from app.tasks.task_calendar_sync import (
+    notify_task_assignment,
+    remove_task_from_calendar,
+    sync_task_to_calendar,
+)
 
-import logging
 _sync_logger = logging.getLogger("task_sync")
 
 router = APIRouter()
@@ -122,7 +136,7 @@ async def todo_view_assigned(request: Request, user: str = Depends(get_current_u
 async def todo_view_flagged(request: Request, user: str = Depends(get_current_user)):
     """Correo electrónico marcado — obtiene emails con bandera desde IMAP."""
     try:
-        from app.core.session import get_user_password, get_imap_login_user
+        from app.core.session import get_imap_login_user, get_user_password
         from app.mail.clients.imap_client import get_imap_connection
         from app.mail.services.message_service import list_messages
         password = await get_user_password(request, user)

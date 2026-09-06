@@ -6,15 +6,15 @@ Prefix: /api/admin/firewall
 import asyncio
 import ipaddress
 import re
-from datetime import datetime, timedelta
 from collections import Counter
+from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Request, HTTPException, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
-from app.auth.dependencies import require_admin
 from app.admin import audit_service
+from app.auth.dependencies import require_admin
 
 router = APIRouter(prefix="/api/admin/firewall", tags=["admin-firewall"])
 

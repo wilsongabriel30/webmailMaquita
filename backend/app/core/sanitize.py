@@ -1,6 +1,7 @@
 """Server-side HTML sanitization using nh3 (already a dependency)."""
-import nh3
 import html
+
+import nh3
 
 
 def sanitize_html(dirty: str) -> str:

@@ -1,12 +1,15 @@
 """Message service — list and read messages with parsing."""
 import re
-from app.mail.clients.imap_client import (
-    list_message_uids, fetch_message_headers, fetch_full_message,
-)
-from app.mail.parsers.mime_parser import parse_headers, parse_full_message
-from app.mail.parsers.html_sanitizer import sanitize_html
-from app.mail.rendering.policy import apply_render_policy
+
 from app.config import get_settings
+from app.mail.clients.imap_client import (
+    fetch_full_message,
+    fetch_message_headers,
+    list_message_uids,
+)
+from app.mail.parsers.html_sanitizer import sanitize_html
+from app.mail.parsers.mime_parser import parse_full_message, parse_headers
+from app.mail.rendering.policy import apply_render_policy
 
 
 async def list_messages(
@@ -173,7 +176,7 @@ def _compute_thread_id(n) -> str:
     subj = re.sub(r"^(Re|Fwd|Fw)\s*:\s*", "", n.subject, flags=re.IGNORECASE).strip()
     if subj:
         import hashlib
-        return hashlib.md5(subj.lower().encode()).hexdigest()[:12]
+        return hashlib.md5(subj.lower().encode(), usedforsecurity=False).hexdigest()[:12]
     return ""
 
 

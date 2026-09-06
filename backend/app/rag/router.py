@@ -3,7 +3,8 @@ from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
-from app.rag import config as rag_config, store
+from app.rag import config as rag_config
+from app.rag import store
 from app.rag.ask import ask as rag_ask
 from app.rag.ingest import ingest_user
 

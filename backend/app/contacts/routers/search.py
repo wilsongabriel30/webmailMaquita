@@ -2,7 +2,8 @@
 
 Actualizado 2026-04-12: incluye org_contacts y meeting_rooms como fuentes.
 """
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Depends, Request
+
 from app.auth.dependencies import get_current_user
 
 router = APIRouter(prefix="/api/contacts", tags=["contacts"])

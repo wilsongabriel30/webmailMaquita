@@ -7,13 +7,13 @@ import logging
 import os
 import tempfile
 
-from app.safeattach.verdict import ScanReport
+from app.safeattach.analyzers.archive import Archive
 from app.safeattach.analyzers.clamav import ClamAV
 from app.safeattach.analyzers.filetype import FileType
 from app.safeattach.analyzers.oletools import OleTools
-from app.safeattach.analyzers.archive import Archive
 from app.safeattach.analyzers.yara_rules import Yara
 from app.safeattach.detonation.docker_sandbox import DockerSandbox
+from app.safeattach.verdict import ScanReport
 
 logger = logging.getLogger("safeattach")
 

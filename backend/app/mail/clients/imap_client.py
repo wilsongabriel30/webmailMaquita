@@ -3,14 +3,14 @@
 All operations use IMAP UID commands for stable message identification.
 No business logic: the service layer orchestrates with parsers.
 """
-from app.mail.errors import CredencialIMAPInvalida
-import aioimaplib
-import re
+import base64 as _b64
 import json
+import re
+
+import aioimaplib
 
 from app.config import get_settings
-
-import base64 as _b64
+from app.mail.errors import CredencialIMAPInvalida
 
 
 def _imap_utf7_decode(s: str) -> str:

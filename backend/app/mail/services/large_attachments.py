@@ -5,8 +5,8 @@ Cuando un adjunto supera SIZE_THRESHOLD, en vez de adjuntarlo en línea se sube 
 Almacén del usuario y se genera un enlace público de solo lectura. Reemplaza la
 antigua integración con Nextcloud (en retiro).
 """
-import os
 import logging
+import os
 
 import httpx
 

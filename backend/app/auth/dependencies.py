@@ -1,4 +1,5 @@
-from fastapi import Request, HTTPException, status
+from fastapi import HTTPException, Request, status
+
 from app.auth.jwt import decode_access_token
 
 

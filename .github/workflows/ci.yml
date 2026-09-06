@@ -24,7 +24,9 @@ jobs:
           python-version: "3.12"
 
       - name: Install lint tools
-        run: pip install black isort
+        # Versiones fijadas: black cambia de estilo entre versiones y rompía el CI sin que
+        # cambiara el código. Subirlas a propósito, reformateando en el mismo commit.
+        run: pip install "black==26.3.1" "isort==6.1.0"
 
       - name: Check formatting with black
         run: black --check app/

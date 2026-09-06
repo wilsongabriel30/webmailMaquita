@@ -1,9 +1,9 @@
 """API de agentes (solo administradores)."""
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
+from app.agents.runner import list_agents, run_agent
 from app.auth.dependencies import get_current_user
 from app.config import get_settings
-from app.agents.runner import run_agent, list_agents
 
 router = APIRouter(prefix="/api/agents", tags=["agents"])
 

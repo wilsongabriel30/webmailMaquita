@@ -4,8 +4,10 @@ la accion (allow / audit / warn / block) por tipo de dato. Tambien registra
 violaciones para auditoria del admin.
 """
 from __future__ import annotations
+
 import json
 import re
+
 from .detectors import detect_all
 
 # Reglas por defecto (si la BD no las tiene). action=None => usa default_action.

@@ -2,9 +2,10 @@
 import logging
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Depends, Request
 
 from app.auth.dependencies import get_current_user
+
 from .helpers import audit
 
 logger = logging.getLogger(__name__)

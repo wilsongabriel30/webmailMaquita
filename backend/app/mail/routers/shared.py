@@ -2,11 +2,11 @@
 import asyncio
 from typing import Optional
 
-from fastapi import APIRouter, Request, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 from app.auth.dependencies import get_current_user
-from app.core.session import get_user_password, get_imap_login_user
+from app.core.session import get_imap_login_user, get_user_password
 from app.mail.clients.imap_client import get_imap_connection
 
 router = APIRouter(prefix="/api/mail", tags=["shared-mailboxes"])

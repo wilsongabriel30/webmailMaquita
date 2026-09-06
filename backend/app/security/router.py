@@ -1,12 +1,12 @@
 """Security sandbox — attachment scanning endpoints."""
-import subprocess
 import json
-import tempfile
-import os
 import logging
+import os
+import subprocess
+import tempfile
 from datetime import datetime
 
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from app.auth.dependencies import get_current_user
 from app.core.session import get_user_password
@@ -27,6 +27,7 @@ async def deep_scan_attachment(content: bytes, filename: str, content_type: str)
     Devuelve {"result", "threats", "details"} — formato estable para compose.py.
     """
     import asyncio
+
     from app.safeattach import scan_attachment as _scan
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(None, _scan, content, filename, content_type)

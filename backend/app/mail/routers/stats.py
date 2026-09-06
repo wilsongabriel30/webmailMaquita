@@ -1,14 +1,15 @@
 import json
+
 """Stats router — mailbox statistics for the sidebar widget."""
-import re
 import logging
+import re
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Depends, Request
 
 from app.auth.dependencies import get_current_user
-from app.core.session import get_user_password, get_imap_login_user
-from app.mail.clients.imap_client import get_imap_connection, _quote_folder
+from app.core.session import get_imap_login_user, get_user_password
+from app.mail.clients.imap_client import _quote_folder, get_imap_connection
 from app.mail.clients.imap_pool import get_pooled_imap
 
 logger = logging.getLogger(__name__)

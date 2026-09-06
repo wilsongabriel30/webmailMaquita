@@ -4,9 +4,10 @@ razón. Pensado para atrapar phishing común (homógrafos, marcas suplantadas,
 IP literales, credenciales en URL, acortadores, etc.).
 """
 from __future__ import annotations
+
 import ipaddress
 import re
-from urllib.parse import urlparse, unquote
+from urllib.parse import unquote, urlparse
 
 # Marcas frecuentemente suplantadas (si aparecen en el host pero el dominio
 # registrable NO es el oficial -> sospechoso).

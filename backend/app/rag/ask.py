@@ -1,5 +1,6 @@
 """Pregúntale a tu correo (RAG grounded)."""
-from app.rag import store, config as rag_config
+from app.rag import config as rag_config
+from app.rag import store
 from app.rag.embeddings import embed
 
 

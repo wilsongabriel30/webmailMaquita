@@ -14,8 +14,7 @@ from pydantic import BaseModel, Field
 
 from app.auth.dependencies import get_current_user
 from app.core.session import get_user_password
-from app.security.account_protection import check_forward_policy, audit_sieve_change
-
+from app.security.account_protection import audit_sieve_change, check_forward_policy
 
 # ---------------------------------------------------------------------------
 # Input sanitization — prevent sieve code injection

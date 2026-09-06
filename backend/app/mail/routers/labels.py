@@ -1,7 +1,8 @@
 """Labels router — user label/tag system for messages."""
 import logging
 from typing import Optional
-from fastapi import APIRouter, Request, Depends, HTTPException, Query
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user

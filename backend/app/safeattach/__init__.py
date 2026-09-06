@@ -6,7 +6,7 @@ Entrada estable para el resto del backend:
     # -> {"result": "clean|suspicious|malicious", "threats": [...], "details": {...}}
 """
 from app.safeattach.pipeline import scan
-from app.safeattach.verdict import CLEAN, SUSPICIOUS, MALICIOUS  # noqa: F401
+from app.safeattach.verdict import CLEAN, MALICIOUS, SUSPICIOUS  # noqa: F401
 
 
 def scan_attachment(content: bytes, filename: str, content_type: str = "") -> dict:

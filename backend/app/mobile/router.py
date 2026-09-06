@@ -2,10 +2,10 @@
 import json
 import logging
 from datetime import datetime
-
-from fastapi import APIRouter, Request, HTTPException
-from pydantic import BaseModel
 from typing import Optional
+
+from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
 from app.config import get_settings

@@ -1,93 +1,97 @@
 """Maquita Webmail API — main entrypoint v0.5.0."""
 import asyncio
 import json
+import logging
 import os
-import logging
 from contextlib import asynccontextmanager
-from app.auth.dependencies import get_current_user
-from fastapi import FastAPI, Request, Depends
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from fastapi.exceptions import RequestValidationError
-from starlette.middleware.base import BaseHTTPMiddleware
-import logging
 
 from aiosmtplib import SMTPAuthenticationError
-from app.mail.errors import CredencialIMAPInvalida
-from app.config import get_settings
-from app.database import create_db_pool
-from app.branding.service import precargar as precargar_marca
-from app.redis_client import create_redis
-from app.core.logging import setup_logging, RequestIdMiddleware
+from fastapi import Depends, FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 
-from app.auth.router import router as auth_router
-from app.auth.oidc import router as oidc_router
-from app.air.router import router as air_router
-from app.agents.router import router as agents_router
-from app.rag.router import router as rag_router
-from app.copiloto.router import router as copiloto_router
-from app.auth.password import router as password_router
-from app.admin.router import router as admin_router
-from app.onboarding.router import router as onboarding_router
-from app.mail.routers.folders import router as folders_router
-from app.mail.routers.messages import router as messages_router
-from app.mail.routers.compose import router as compose_router
-from app.dlp.router import router as dlp_router
-from app.secure_message.router import auth_router as secure_auth_router, public_router as secure_public_router
-from app.safelinks.router import router as safelinks_router
-from app.phishsim.router import router as phishsim_router
-from app.hold_ack.router import router as hold_ack_router
-from app.mail.routers.attachments import router as attachments_router
-from app.mail.routers.threads import router as threads_router
-from app.mail.routers.recall import router as recall_router
-from app.mail.routers.stats import router as stats_router
-from app.mail.routers.labels import router as labels_router
-from app.mail.routers.snooze import router as snooze_router, check_snoozed
-from app.mail.routers.priority import router as priority_router
-from app.mail.routers.transcribe import router as transcribe_router
-from app.mail.routers.spam_guard import router as spam_router
-from app.mail.routers.onlyoffice import router as onlyoffice_router
-from app.settings.routers.preferences import router as settings_router
-from app.autodiscover_router import router as autodiscover_router
-from app.contacts.routers import router as contacts_router
-from app.sieve.router import router as sieve_router
-from app.identities.router import router as identities_router
-from app.websocket.router import router as ws_router, start_redis_subscriber
-from app.mail.routers.export import router as export_router
-from app.mail.routers.remitente import router as remitente_router
-from app.auth.totp import router as totp_router
-from app.auth.totp_policy import router as totp_policy_router
-from app.calendar.router import router as calendar_router
-from app.mail.routers.shared import router as shared_mail_router
-from app.webhooks.router import router as webhooks_router
-from app.apikeys.router import router as apikeys_router
-from app.import_export.router import router as import_router
-from app.smime.router import router as smime_router
-from app.sso.router import router as sso_router
-from app.meetings.router import router as meetings_router
-from app.mail.routers.calendar_invite import router as calendar_invite_router
-from app.security.router import router as security_router
-from app.mobile.router import router as mobile_router
-from app.ai.router import router as ai_router
-from app.retention.router import router as retention_router
-from app.gal.router import router as gal_router
-from app.rooms.router import router as rooms_router
-from app.tasks.router import router as tasks_router
-from app.tareas.router import router as tareas_router
-from app.telemetria.router import router as telemetria_router, asegurar_tabla as asegurar_tabla_telemetria
-from app.push.router import router as push_router
-from app.push.service import asegurar_tabla as asegurar_tabla_push
-from app.tareas.modelos import asegurar_tablas as asegurar_tablas_tareas
-from app.presence.router import router as presence_router
-from app.nextcloud.router import router as nextcloud_router
-from app.branding.router import router as branding_router
-from app.chatcfg.router import router as chatcfg_router
-from app.compliance.router import router as compliance_router
 from app.admin.firewall_router import router as firewall_router
 from app.admin.mailguard_router import router as mailguard_router
+from app.admin.router import router as admin_router
+from app.agents.router import router as agents_router
+from app.ai.router import router as ai_router
+from app.air.router import router as air_router
+from app.apikeys.router import router as apikeys_router
+from app.auth.dependencies import get_current_user
+from app.auth.oidc import router as oidc_router
+from app.auth.password import router as password_router
+from app.auth.router import router as auth_router
+from app.auth.totp import router as totp_router
+from app.auth.totp_policy import router as totp_policy_router
+from app.autodiscover_router import router as autodiscover_router
+from app.branding.router import router as branding_router
+from app.branding.service import precargar as precargar_marca
+from app.calendar.router import router as calendar_router
+from app.chatcfg.router import router as chatcfg_router
 from app.compliance.audit_middleware import UserActivityAuditMiddleware
-from app.log_ingestor.mail_log_ingestor import start_log_ingestor
 from app.compliance.fraud_detector import start_fraud_detector
+from app.compliance.router import router as compliance_router
+from app.config import get_settings
+from app.contacts.routers import router as contacts_router
+from app.copiloto.router import router as copiloto_router
+from app.core.logging import RequestIdMiddleware, setup_logging
+from app.database import create_db_pool
+from app.dlp.router import router as dlp_router
+from app.gal.router import router as gal_router
+from app.hold_ack.router import router as hold_ack_router
+from app.identities.router import router as identities_router
+from app.import_export.router import router as import_router
+from app.log_ingestor.mail_log_ingestor import start_log_ingestor
+from app.mail.errors import CredencialIMAPInvalida
+from app.mail.routers.attachments import router as attachments_router
+from app.mail.routers.calendar_invite import router as calendar_invite_router
+from app.mail.routers.compose import router as compose_router
+from app.mail.routers.export import router as export_router
+from app.mail.routers.folders import router as folders_router
+from app.mail.routers.labels import router as labels_router
+from app.mail.routers.messages import router as messages_router
+from app.mail.routers.onlyoffice import router as onlyoffice_router
+from app.mail.routers.priority import router as priority_router
+from app.mail.routers.recall import router as recall_router
+from app.mail.routers.remitente import router as remitente_router
+from app.mail.routers.shared import router as shared_mail_router
+from app.mail.routers.snooze import check_snoozed
+from app.mail.routers.snooze import router as snooze_router
+from app.mail.routers.spam_guard import router as spam_router
+from app.mail.routers.stats import router as stats_router
+from app.mail.routers.threads import router as threads_router
+from app.mail.routers.transcribe import router as transcribe_router
+from app.meetings.router import router as meetings_router
+from app.mobile.router import router as mobile_router
+from app.nextcloud.router import router as nextcloud_router
+from app.onboarding.router import router as onboarding_router
+from app.phishsim.router import router as phishsim_router
+from app.presence.router import router as presence_router
+from app.push.router import router as push_router
+from app.push.service import asegurar_tabla as asegurar_tabla_push
+from app.rag.router import router as rag_router
+from app.redis_client import create_redis
+from app.retention.router import router as retention_router
+from app.rooms.router import router as rooms_router
+from app.safelinks.router import router as safelinks_router
+from app.secure_message.router import auth_router as secure_auth_router
+from app.secure_message.router import public_router as secure_public_router
+from app.security.router import router as security_router
+from app.settings.routers.preferences import router as settings_router
+from app.sieve.router import router as sieve_router
+from app.smime.router import router as smime_router
+from app.sso.router import router as sso_router
+from app.tareas.modelos import asegurar_tablas as asegurar_tablas_tareas
+from app.tareas.router import router as tareas_router
+from app.tasks.router import router as tasks_router
+from app.telemetria.router import asegurar_tabla as asegurar_tabla_telemetria
+from app.telemetria.router import router as telemetria_router
+from app.webhooks.router import router as webhooks_router
+from app.websocket.router import router as ws_router
+from app.websocket.router import start_redis_subscriber
+
 
 # Handler global de excepciones — evita que nginx devuelva HTML en errores 500
 async def _global_exception_handler(request: Request, exc: Exception):
@@ -104,7 +108,6 @@ from app.tasks.models import ensure_tables as ensure_task_tables
 # Registrar handler global (se ejecuta después de crear app)
 _REGISTER_EXCEPTION_HANDLER = True  # Flag para registrar en lifespan
 from app.calendar.attachments import router as cal_attachments_router
-
 
 logger = logging.getLogger("scheduler")
 
@@ -224,7 +227,7 @@ def _validate_mime_on_startup():
     Si falla, el backend NO arranca — protege contra cambios accidentales
     que enviarían correos a spam. Ver: 09-AUDITORIA-ENTREGABILIDAD-20260414.md
     """
-    from app.mail.clients.smtp_client import build_mime_message, OutgoingEmail
+    from app.mail.clients.smtp_client import OutgoingEmail, build_mime_message
     msg = build_mime_message(OutgoingEmail(
         from_addr="test@ejemplo.com", to=["x@x.com"], subject="startup-check",
         html_body="<p>test</p>"

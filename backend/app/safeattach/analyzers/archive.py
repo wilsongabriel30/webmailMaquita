@@ -1,7 +1,8 @@
 """Motor: inspecciona ZIP en busca de ejecutables ocultos."""
 import zipfile
+
 from app.safeattach.analyzers.base import Analyzer
-from app.safeattach.verdict import Finding, SUSPICIOUS
+from app.safeattach.verdict import SUSPICIOUS, Finding
 
 BAD_EXT = (".exe", ".scr", ".js", ".vbs", ".jar", ".bat", ".cmd",
            ".ps1", ".lnk", ".hta", ".com", ".pif")

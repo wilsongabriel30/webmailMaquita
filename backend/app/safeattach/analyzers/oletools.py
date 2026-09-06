@@ -1,8 +1,9 @@
 """Motor: macros en documentos Office (olevba)."""
 import json
 import subprocess
+
 from app.safeattach.analyzers.base import Analyzer
-from app.safeattach.verdict import Finding, SUSPICIOUS, MALICIOUS
+from app.safeattach.verdict import MALICIOUS, SUSPICIOUS, Finding
 
 OFFICE = (".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".rtf",
           ".docm", ".xlsm", ".pptm")

@@ -4,16 +4,16 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Request, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
-from app.core.session import get_user_password, get_imap_login_user
+from app.core.session import get_imap_login_user, get_user_password
 from app.mail.clients.imap_client import (
-    get_imap_connection,
-    uid_move_message,
-    uid_bulk_action,
     fetch_message_headers,
+    get_imap_connection,
+    uid_bulk_action,
+    uid_move_message,
 )
 
 logger = logging.getLogger(__name__)
@@ -251,6 +251,7 @@ async def _get_password_from_redis(username: str) -> Optional[str]:
     """Try to get cached password from Redis."""
     try:
         import redis.asyncio as aioredis
+
         from app.config import get_settings
         settings = get_settings()
         r = aioredis.from_url(f"redis://{settings.redis_host}:{settings.redis_port}")

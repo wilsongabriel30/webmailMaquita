@@ -1,7 +1,9 @@
 """Session management — credential handling for IMAP/SMTP/CalDAV/CardDAV."""
-from fastapi import Request, HTTPException, status
+import base64
+import hashlib
+
 from cryptography.fernet import Fernet
-import base64, hashlib
+from fastapi import HTTPException, Request, status
 
 
 def _get_fernet():

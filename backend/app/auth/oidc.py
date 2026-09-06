@@ -9,14 +9,14 @@ import urllib.parse
 from datetime import datetime, timedelta, timezone
 
 import httpx
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
-from app.config import get_settings
 from app.auth.cookies import dominio_cookie
-from app.core.session import encrypt_password
 from app.auth.dovecot_auth_service import authenticate
 from app.auth.jwt import create_access_token, create_refresh_token
+from app.config import get_settings
+from app.core.session import encrypt_password
 
 router = APIRouter(prefix="/api/auth", tags=["oidc"])
 

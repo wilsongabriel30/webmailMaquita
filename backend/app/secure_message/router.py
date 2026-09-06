@@ -4,14 +4,15 @@
 - Público (destinatario externo): portal HTML, pedir código, verificar y leer.
 """
 import base64
-import json
 import html as html_lib
+import json
 
-from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
+
 from . import service
 
 # ── Router autenticado ──────────────────────────────────────────────────────

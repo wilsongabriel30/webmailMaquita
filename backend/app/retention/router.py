@@ -1,8 +1,10 @@
 """Data Retention Policies — Maquita Webmail."""
 import asyncio
-import subprocess
 import logging
-from fastapi import APIRouter, Request, HTTPException, Depends, Query
+import subprocess
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+
 from app.auth.dependencies import require_admin
 
 logger = logging.getLogger("retention")

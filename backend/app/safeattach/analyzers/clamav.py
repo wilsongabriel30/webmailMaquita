@@ -1,7 +1,8 @@
 """Motor: ClamAV (firmas)."""
 import subprocess
+
 from app.safeattach.analyzers.base import Analyzer
-from app.safeattach.verdict import Finding, MALICIOUS
+from app.safeattach.verdict import MALICIOUS, Finding
 
 
 class ClamAV(Analyzer):

@@ -7,8 +7,9 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
-from . import service as dlp_service
+
 from . import policy as dlp_policy
+from . import service as dlp_service
 
 router = APIRouter(prefix="/api/mail/dlp", tags=["dlp"])
 

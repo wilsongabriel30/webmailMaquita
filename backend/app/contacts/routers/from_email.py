@@ -1,5 +1,6 @@
 """Crear contacto desde un correo recibido."""
-from fastapi import APIRouter, Request, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+
 from app.auth.dependencies import get_current_user
 
 router = APIRouter(prefix="/api/contacts", tags=["contacts"])

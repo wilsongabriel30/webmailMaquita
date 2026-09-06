@@ -1,20 +1,20 @@
 """Webhooks management router."""
 import hashlib
 import hmac
+import ipaddress
 import json
 import logging
 import secrets
+import socket
 from datetime import datetime, timezone
 from typing import Optional
+from urllib.parse import urlparse
 
 import httpx
-from fastapi import APIRouter, Request, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field, HttpUrl
 
 from app.auth.dependencies import get_current_user
-import ipaddress
-import socket
-from urllib.parse import urlparse
 
 # Anti-SSRF: bloquear URLs a redes internas
 _BLOCKED_NETS = [

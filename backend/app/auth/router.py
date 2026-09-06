@@ -1,15 +1,16 @@
-import re
 import asyncio
-from fastapi import APIRouter, Request, Response, HTTPException, status, Depends
-from pydantic import BaseModel
+import re
 from datetime import datetime, timedelta, timezone
 
-from app.config import get_settings
-from app.core.session import encrypt_password
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from pydantic import BaseModel
+
+from app.auth.dependencies import get_current_user
 from app.auth.dovecot_auth_service import authenticate
 from app.auth.jwt import create_access_token, create_refresh_token, hash_refresh_token
-from app.auth.dependencies import get_current_user
 from app.auth.totp import is_totp_enabled, validate_totp_code
+from app.config import get_settings
+from app.core.session import encrypt_password
 
 
 def _sanitize_username(username: str) -> str:
@@ -129,6 +130,7 @@ async def login(body: LoginRequest, request: Request, response: Response):
     # Detección de login riesgoso (en segundo plano, no bloquea la respuesta)
     try:
         import asyncio as _asyncio
+
         from app.risky_login import detection as _rl
         _rip = request.headers.get("x-real-ip") or (request.headers.get("x-forwarded-for","").split(",")[0].strip()) or (request.client.host if request.client else "")
         _rua = request.headers.get("user-agent", "")

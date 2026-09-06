@@ -17,7 +17,7 @@ import re
 from typing import Optional
 
 import httpx
-from fastapi import APIRouter, Request, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.auth.dependencies import get_current_user
 from app.config import get_settings
@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/mail", tags=["spam"])
 
 from app.config import get_settings as _gs
+
 IA_URL = f"{_gs().ollama_url}/api/v1/email-assistant/classify/batch"
 IA_TIMEOUT = 60.0
 IA_HEADERS = {"X-API-Key": get_settings().ia_api_key}  # Securizado Fase 3
@@ -166,7 +167,7 @@ async def scan_for_spam(
     await ensure_spam_table(db)
 
     # 1) Obtener mensajes
-    from app.mail.clients.imap_client import get_imap_connection, fetch_message_headers
+    from app.mail.clients.imap_client import fetch_message_headers, get_imap_connection
     from app.mail.services.message_service import list_messages
 
     password = await get_user_password(request, user)

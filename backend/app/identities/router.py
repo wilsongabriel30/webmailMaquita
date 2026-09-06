@@ -1,8 +1,11 @@
 from app.core.sanitize import sanitize_html
+
 """Email identities router — multiple From addresses."""
 from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
+
 from app.auth.dependencies import get_current_user
 
 router = APIRouter(prefix="/api/identities", tags=["identities"])

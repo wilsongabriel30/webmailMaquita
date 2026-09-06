@@ -1,6 +1,7 @@
-import aioimaplib
 import asyncio
 import logging
+
+import aioimaplib
 
 logger = logging.getLogger("auth")
 

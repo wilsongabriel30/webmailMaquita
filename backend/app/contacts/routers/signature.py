@@ -3,9 +3,11 @@ Enriquecimiento desde firma de correo — parsea firmas de emails recibidos
 para extraer cargo, empresa, teléfono, dirección, sitio web.
 """
 import re
-from fastapi import APIRouter, Request, HTTPException, Depends
-from pydantic import BaseModel
 from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel
+
 from app.auth.dependencies import get_current_user
 
 router = APIRouter(prefix="/api/contacts", tags=["contacts"])

@@ -10,8 +10,9 @@ import os
 import shutil
 import subprocess
 import tempfile
+
 from app.safeattach.analyzers.base import Analyzer
-from app.safeattach.verdict import Finding, SUSPICIOUS, MALICIOUS
+from app.safeattach.verdict import MALICIOUS, SUSPICIOUS, Finding
 
 IMAGE = os.getenv("SAFEATTACH_SANDBOX_IMAGE", "maquita-safeattach-sandbox")
 ENABLED = os.getenv("SAFEATTACH_DETONATE", "0") == "1"

@@ -1,19 +1,24 @@
 """Messages router — list, read, move, flag, bulk, download .eml, view source."""
-from fastapi import APIRouter, Request, Depends
+import re as _re
+from typing import Optional
+
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import Response
 
 from app.auth.dependencies import get_current_user
-from app.core.session import get_user_password, get_imap_login_user
+from app.core.session import get_imap_login_user, get_user_password
 from app.mail.clients.imap_client import (
-    get_imap_connection, uid_move_message, uid_set_flags,
-    uid_delete_message, uid_bulk_action, fetch_raw_message,
+    fetch_raw_message,
+    get_imap_connection,
+    uid_bulk_action,
+    uid_delete_message,
+    uid_move_message,
+    uid_set_flags,
 )
-from app.mail.services.message_service import list_messages, get_message
 from app.mail.clients.imap_pool import get_pooled_imap
-from app.mail.schemas.messages import MoveRequest, FlagRequest, BulkActionRequest
+from app.mail.schemas.messages import BulkActionRequest, FlagRequest, MoveRequest
+from app.mail.services.message_service import get_message, list_messages
 
-from typing import Optional
-import re as _re
 
 def _validate_folder(folder: str) -> str:
     """Validate IMAP folder name: allow letters, digits, spaces, dots, hyphens, underscores, slashes."""
@@ -130,7 +135,8 @@ async def read_message(
         await redis.delete(f"stats:{username}")
         # Safe Links: reescribir enlaces para protección al hacer clic
         try:
-            from app.safelinks import service as sl_service, rewriter as sl_rewriter
+            from app.safelinks import rewriter as sl_rewriter
+            from app.safelinks import service as sl_service
             _sl = await sl_service.get_config(request.app.state.db_pool)
             if _sl["enabled"] and _sl["rewrite_enabled"] and msg.get("html_body"):
                 msg["html_body"] = sl_rewriter.rewrite(msg["html_body"])

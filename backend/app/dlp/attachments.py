@@ -8,6 +8,7 @@ grandes) se reporta como "no inspeccionable" para que la política avise.
 Diseño fail-open: cualquier error -> texto vacío, nunca rompe el envío.
 """
 from __future__ import annotations
+
 import io
 import re
 import zipfile

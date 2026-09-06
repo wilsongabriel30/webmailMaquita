@@ -1,6 +1,7 @@
-import asyncpg
 import json
 from datetime import datetime
+
+import asyncpg
 
 
 async def log_action(

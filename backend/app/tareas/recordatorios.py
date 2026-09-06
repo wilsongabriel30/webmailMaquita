@@ -19,7 +19,7 @@ log = logging.getLogger('tareas')
 
 from app.core.database import create_db_pool  # noqa: E402
 from app.tareas import avisos  # noqa: E402
-from app.tareas.servicio import SELECT, EC  # noqa: E402
+from app.tareas.servicio import EC, SELECT  # noqa: E402
 
 
 async def main():

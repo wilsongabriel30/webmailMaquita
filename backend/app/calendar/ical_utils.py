@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime, timezone
 
 from icalendar import Calendar, Event, vDatetime
+
 from app.config import get_settings
 
 
@@ -80,8 +81,9 @@ def build_vcalendar(event_data: dict) -> str:
 
     # Reminders / VALARM
     for rem in event_data.get("reminders", []):
-        from icalendar import Alarm
         from datetime import timedelta
+
+        from icalendar import Alarm
         alarm = Alarm()
         alarm.add("action", "DISPLAY")
         alarm.add("description", event_data.get("summary", "Recordatorio"))

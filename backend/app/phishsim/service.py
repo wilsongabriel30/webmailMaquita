@@ -1,6 +1,6 @@
 """Simulación de phishing — registro de eventos del objetivo (público)."""
-import re as _re
 import quopri as _quopri
+import re as _re
 
 _FIELDS = {"opened", "clicked", "submitted", "reported"}
 _TOKEN_RE = _re.compile(rb"phishtest[/=]?(?:2[fF])?([A-Za-z0-9_\-]{12,})")

@@ -9,7 +9,9 @@ a los contactos del usuario (tabla user_contacts) y el banner deja de salir para
 - conocido = el remitente ya es un contacto del usuario (o fue marcado como conocido).
 """
 import logging
-from fastapi import APIRouter, Request, Depends, HTTPException
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+
 from app.auth.dependencies import get_current_user
 
 logger = logging.getLogger(__name__)

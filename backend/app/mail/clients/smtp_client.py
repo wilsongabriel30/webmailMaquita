@@ -21,18 +21,19 @@ Supports text+HTML multipart, file attachments, inline CID images.
 ║                                                                      ║
 ╚══════════════════════════════════════════════════════════════════════╝
 """
-import aiosmtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+import re as _re
+from dataclasses import dataclass, field
+from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.image import MIMEImage
-from email import encoders
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from email.utils import formatdate, make_msgid, parseaddr
-from dataclasses import dataclass, field
 
-from app.config import get_settings
+import aiosmtplib
+
 from app.branding.service import app_name_cacheado, org_name_cacheado
-import re as _re
+from app.config import get_settings
 
 # ─── Headers que NUNCA deben estar en un correo saliente ───
 # Agregar cualquiera de estos sube el score de SpamAssassin y envía a spam.

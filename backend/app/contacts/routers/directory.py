@@ -3,9 +3,11 @@ Directorio institucional — contactos compartidos por dominio.
 Solo admins del dominio pueden crear/editar/eliminar.
 Todos los usuarios del dominio pueden leer.
 """
-from fastapi import APIRouter, Request, HTTPException, Depends
-from pydantic import BaseModel
 from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel
+
 from app.auth.dependencies import get_current_user
 
 router = APIRouter(prefix="/api/contacts", tags=["contacts"])

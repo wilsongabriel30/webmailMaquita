@@ -1,7 +1,9 @@
 """Duplicados — detección y merge de contactos duplicados."""
-from fastapi import APIRouter, Request, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+
 from app.auth.dependencies import get_current_user
-from .helpers import row_to_dict, audit, ALL_FIELDS, enrich_contact
+
+from .helpers import ALL_FIELDS, audit, enrich_contact, row_to_dict
 
 router = APIRouter(prefix="/api/contacts", tags=["contacts"])
 

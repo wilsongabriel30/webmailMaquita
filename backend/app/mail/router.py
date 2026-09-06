@@ -1,16 +1,23 @@
 import re
-from fastapi import APIRouter, Request, HTTPException, Depends, UploadFile, File, Form
-from pydantic import BaseModel
 from typing import Optional
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
 from app.core.session import get_user_password
 from app.mail.imap_service import (
-    get_imap_connection, list_folders, list_messages,
-    get_message, move_message, set_flags, delete_message,
+    delete_message,
+    get_imap_connection,
+    get_message,
+    list_folders,
+    list_messages,
+    move_message,
+    set_flags,
 )
 from app.mail.smtp_service import send_email
 from app.mail.utils import sanitize_html
+
 
 def _validate_folder(folder: str) -> str:
     """Reject folder names with control characters (CRLF injection prevention)."""

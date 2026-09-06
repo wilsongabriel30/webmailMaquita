@@ -1,13 +1,14 @@
 """Calendar invitation RSVP router — accept/decline/tentative from email."""
-from fastapi import APIRouter, Request, Depends, HTTPException
+import logging
+
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
-from app.core.session import get_user_password, get_imap_login_user
-from app.mail.clients.imap_client import get_imap_connection, fetch_full_message
+from app.core.session import get_imap_login_user, get_user_password
+from app.mail.clients.imap_client import fetch_full_message, get_imap_connection
 from app.mail.parsers.mime_parser import parse_full_message
 
-import logging
 logger = logging.getLogger("calendar.invite")
 
 router = APIRouter(prefix="/api/mail", tags=["calendar-invite"])
@@ -70,8 +71,8 @@ async def rsvp_calendar_invite(
 async def _save_event_to_calendar(request, username: str, invite, response: str) -> bool:
     """Save the invitation event to the user's PostgreSQL calendar."""
     try:
+        from app.calendar.schemas import CalendarCreate, EventCreate
         from app.calendar.service import CalendarService
-        from app.calendar.schemas import EventCreate, CalendarCreate
         
 
         pool = request.app.state.db_pool
@@ -143,14 +144,16 @@ async def _save_event_to_calendar(request, username: str, invite, response: str)
 async def _send_rsvp_reply(request, username: str, invite, response: str) -> bool:
     """Send iCalendar REPLY email to organizer via SMTP."""
     try:
-        import vobject
-        import aiosmtplib
         from datetime import datetime
         from email.mime.multipart import MIMEMultipart
         from email.mime.text import MIMEText
         from email.utils import formatdate, make_msgid
-        from app.core.session import get_user_password
+
+        import aiosmtplib
+        import vobject
+
         from app.config import get_settings
+        from app.core.session import get_user_password
 
         settings = get_settings()
         password = await get_user_password(request, username)

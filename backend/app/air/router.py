@@ -1,9 +1,9 @@
 """Endpoints AIR (solo administradores)."""
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
-from app.auth.dependencies import get_current_user
-from app.air.engine import run_cycle
 from app.air import responder
+from app.air.engine import run_cycle
+from app.auth.dependencies import get_current_user
 
 router = APIRouter(prefix="/api/air", tags=["air"])
 

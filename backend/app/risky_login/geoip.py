@@ -14,6 +14,7 @@ La base se actualiza con `actualizar-geoip.sh` (temporizador mensual). Si falta 
 archivo, la geolocalización devuelve vacío y el resto del análisis de riesgo sigue.
 """
 from __future__ import annotations
+
 import asyncio
 import ipaddress
 import json

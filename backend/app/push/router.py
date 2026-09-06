@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """Endpoints de Web Push: clave pública VAPID + alta/baja de suscripción."""
-from fastapi import APIRouter, Request, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.auth.dependencies import get_current_user
 from app.push import service

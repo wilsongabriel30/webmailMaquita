@@ -7,13 +7,19 @@ Autor: Wilson Argüello — Equipo de Tecnología, Fundación Maquita
 """
 import logging
 import urllib.parse
+
 import httpx
-from fastapi import APIRouter, Request, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
-from app.core.session import get_user_password, get_imap_login_user, encrypt_password, decrypt_password
-from app.mail.clients.imap_client import get_imap_connection, fetch_attachment
+from app.core.session import (
+    decrypt_password,
+    encrypt_password,
+    get_imap_login_user,
+    get_user_password,
+)
+from app.mail.clients.imap_client import fetch_attachment, get_imap_connection
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +27,7 @@ router = APIRouter(prefix="/api/nextcloud", tags=["nextcloud"])
 
 # Configuracion Nextcloud desde settings (securizado)
 from app.config import get_settings as _nc_settings
+
 
 def _nc_config():
     s = _nc_settings()

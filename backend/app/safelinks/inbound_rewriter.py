@@ -16,6 +16,7 @@ pasarela de Safe Links, en CUALQUIER cliente. Diseño ULTRA-seguro:
 rewrite_inbound(raw_bytes) -> nuevo_cuerpo_bytes | None  (None = no tocar)
 """
 from __future__ import annotations
+
 import base64
 import quopri
 import re

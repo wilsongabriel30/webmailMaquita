@@ -117,7 +117,8 @@ export function ChatFlotante() {
         if (!d) return;
         const lista = d.conversaciones || d.conversations || [];
         const total = lista.reduce(
-          (acc: number, c: any) => acc + (c.mensajes_no_leidos || c.unread_count || 0),
+          (acc: number, c: { mensajes_no_leidos?: number; unread_count?: number }) =>
+            acc + (c.mensajes_no_leidos || c.unread_count || 0),
           0
         );
         setNoLeidos(abiertoRef.current ? 0 : total);
@@ -141,7 +142,7 @@ export function ChatFlotante() {
       // (o el propio, mientras siga sirviendose bajo el correo). Nunca cualquiera.
       const permitido = origenChat || window.location.origin;
       if (e.origin !== permitido) return;
-      const d: any = e.data;
+      const d = e.data as { source?: string; type?: string } | null;
       if (d && d.source === "maquita-chat" && d.type === "nuevo-mensaje") {
         if (!abiertoRef.current) {
           setNoLeidos((n) => (n > 0 ? n : 1)); // brillo inmediato

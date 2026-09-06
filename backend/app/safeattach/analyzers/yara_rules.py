@@ -1,8 +1,9 @@
 """Motor: reglas YARA estáticas (best-effort)."""
 import os
 import subprocess
+
 from app.safeattach.analyzers.base import Analyzer
-from app.safeattach.verdict import Finding, MALICIOUS
+from app.safeattach.verdict import MALICIOUS, Finding
 
 RULES_DIR = os.getenv("SAFEATTACH_YARA_DIR",
                       "/opt/maquita-webmail/deploy/safeattach/yara")

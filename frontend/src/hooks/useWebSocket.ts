@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useEffect, useRef, useCallback } from 'react';
 import { useMailStore } from '../store/mailStore';
 import { showToast } from '../components/common/Toast';
@@ -28,7 +27,7 @@ export function useWebSocket(enabled: boolean = true) {
 
   const playNotificationSound = useCallback(() => {
     try {
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext)();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain);
@@ -39,7 +38,7 @@ export function useWebSocket(enabled: boolean = true) {
       osc.start();
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
       osc.stop(ctx.currentTime + 0.3);
-    } catch {}
+    } catch { /* no es crítico: se sigue sin aviso */ }
   }, []);
 
   const updateTabBadge = useCallback((unseen: number) => {
@@ -102,7 +101,7 @@ export function useWebSocket(enabled: boolean = true) {
                     carpeta: data.folder || 'INBOX',
                     uid: data.uid,
                   });
-                } catch {}
+                } catch { /* no es crítico: se sigue sin aviso */ }
               }
 
               // Trigger message list refresh if user is viewing the affected folder
@@ -137,7 +136,7 @@ export function useWebSocket(enabled: boolean = true) {
                     etiqueta: 'task-' + (data.task_id || ''),
                     destino: '/webmail/tasks',
                   });
-                } catch {}
+                } catch { /* no es crítico: se sigue sin aviso */ }
               }
               window.dispatchEvent(new CustomEvent('refresh-tasks'));
               break;
@@ -155,7 +154,7 @@ export function useWebSocket(enabled: boolean = true) {
                     etiqueta: data.tag || 'reminder',
                     destino: '/webmail/calendar',
                   });
-                } catch {}
+                } catch { /* no es crítico: se sigue sin aviso */ }
               }
               break;
             }
@@ -170,7 +169,7 @@ export function useWebSocket(enabled: boolean = true) {
               // Connection confirmed
               break;
           }
-        } catch {}
+        } catch { /* no es crítico: se sigue sin aviso */ }
       };
 
       ws.onclose = (event) => {
@@ -192,7 +191,7 @@ export function useWebSocket(enabled: boolean = true) {
       ws.onerror = () => {
         // onclose will fire after this — reconnect is handled there
       };
-    } catch {}
+    } catch { /* no es crítico: se sigue sin aviso */ }
   }, [playNotificationSound, updateTabBadge]);
 
   useEffect(() => {

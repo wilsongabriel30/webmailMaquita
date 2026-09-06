@@ -7,9 +7,9 @@ Enlace sin firma válida -> siempre aviso (evita redirector abierto).
 import html as html_lib
 
 from fastapi import APIRouter, Request
-from fastapi.responses import RedirectResponse, HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 
-from . import service, rewriter
+from . import rewriter, service
 
 router = APIRouter(tags=["safelinks"])
 
@@ -103,7 +103,9 @@ def _warn_page(url: str, reason: str, verdict: str, proceed_token: str | None, o
 from fastapi import Depends, HTTPException  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 from starlette.concurrency import run_in_threadpool  # noqa: E402
+
 from app.auth.dependencies import get_current_user  # noqa: E402
+
 from . import classifier  # noqa: E402
 
 
