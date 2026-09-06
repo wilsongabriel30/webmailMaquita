@@ -45,7 +45,9 @@ else
   warn "no pude leer 'postconf -h mydomain' para probar TLS/SNI"
 fi
 # Error-fantasma del mapa SNI mal construido (postmap sin -F) — solo vive en mail.log. (#14)
-if tail -400 /var/log/mail.log 2>/dev/null | grep -qiE 'malformed BASE64|map lookup problem|SSL_accept error'; then
+# Se excluye 'SSL_accept error ... lost connection': lo producen escáneres de internet
+# que cierran a mitad del saludo TLS y no dicen nada del servidor.
+if tail -400 /var/log/mail.log 2>/dev/null | grep -iE 'malformed BASE64|map lookup problem|SSL_accept error' | grep -qv 'lost connection'; then
   bad "mail.log con errores de TLS/SNI (malformed BASE64 / lookup problem). Si usas tls_server_sni_maps: reconstruye vmail_sni con 'postmap -F' y REINICIA postfix (reload NO basta). [#14]"
 else
   ok "mail.log sin errores de TLS/SNI (malformed BASE64/lookup)"
