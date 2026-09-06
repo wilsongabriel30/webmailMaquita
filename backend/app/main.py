@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import os
+import time
 from contextlib import asynccontextmanager
 
 from aiosmtplib import SMTPAuthenticationError
@@ -390,6 +391,26 @@ _SECURITY_EVENTS = {
 }
 
 
+# Contador de respaldo por proceso para cuando Redis no responde (R-2). Clave -> (n, inicio).
+_contadores_locales: dict = {}
+
+
+def _contar_sin_redis(clave: str, ventana: int) -> int:
+    """Cuenta peticiones por proceso en ventanas fijas. Se poda para no crecer sin fin."""
+    ahora = time.monotonic()
+    n, inicio = _contadores_locales.get(clave, (0, ahora))
+    if ahora - inicio >= ventana:
+        n, inicio = 0, ahora
+    n += 1
+    _contadores_locales[clave] = (n, inicio)
+    if len(_contadores_locales) > 5000:
+        for k in [
+            k for k, (_, t) in _contadores_locales.items() if ahora - t >= ventana
+        ]:
+            del _contadores_locales[k]
+    return n
+
+
 class ApiRateLimitMiddleware(BaseHTTPMiddleware):
     """Per-user rate limiting for authenticated API requests using Redis.
 
@@ -455,6 +476,7 @@ class ApiRateLimitMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         # Check Redis counter
+        count = None
         try:
             redis = request.app.state.redis
             key = f"rl:{tier}:{user}"
@@ -480,14 +502,41 @@ class ApiRateLimitMiddleware(BaseHTTPMiddleware):
                         "X-RateLimit-Remaining": "0",
                     },
                 )
-        except Exception:
-            pass  # Redis failure should not block requests
+        except Exception as exc:
+            # FALLO CERRADO: sin Redis se sigue limitando, con un contador en memoria de
+            # este proceso y un límite conservador (la cuarta parte del normal, mínimo 1).
+            # Antes se dejaba pasar todo: quien tumbara Redis conseguía envío ilimitado.
+            limite_local = max(1, limit // 4)
+            count = _contar_sin_redis(f"{tier}:{user}", window)
+            security_logger.error(
+                "RATE_LIMIT_SIN_REDIS tier=%s user=%s limite_local=%s/%ss error=%s",
+                tier,
+                user,
+                limite_local,
+                window,
+                str(exc)[:120].replace("\n", " "),
+            )
+            if count > limite_local:
+                from starlette.responses import JSONResponse
+
+                return JSONResponse(
+                    status_code=429,
+                    content={
+                        "detail": f"Demasiadas solicitudes. Limite temporal: {limite_local}/{window}s."
+                    },
+                    headers={
+                        "Retry-After": str(window),
+                        "X-RateLimit-Limit": str(limite_local),
+                        "X-RateLimit-Remaining": "0",
+                    },
+                )
+            limit = limite_local
 
         response = await call_next(request)
 
         # Add rate limit headers on success
         try:
-            remaining = max(0, limit - count)
+            remaining = max(0, limit - (count or 0))
             response.headers["X-RateLimit-Limit"] = str(limit)
             response.headers["X-RateLimit-Remaining"] = str(remaining)
         except Exception:
