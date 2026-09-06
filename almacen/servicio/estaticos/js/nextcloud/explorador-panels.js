@@ -107,12 +107,12 @@ function generarContenidoDetalles(item) {
     let previewHtml = '';
     if (esImagen && item.preview_url) {
         previewHtml = `
-            <div class="gd-detail-preview" style="background-image: url('${item.preview_url}'); background-size: cover; background-position: center; border-radius: 8px; height: 150px;">
+            <div class="gd-detail-preview" style="background-image: url('${escHtml(item.preview_url)}'); background-size: cover; background-position: center; border-radius: 8px; height: 150px;">
             </div>`;
     } else {
         previewHtml = `
             <div class="gd-detail-preview">
-                <span class="material-icons" style="color: ${item.color_personalizado || item.color || '#5f6368'}; font-size: 80px;">${icono}</span>
+                <span class="material-icons" style="color: ${escHtml(item.color_personalizado || item.color || '#5f6368')}; font-size: 80px;">${icono}</span>
             </div>`;
     }
 
@@ -133,7 +133,7 @@ function generarContenidoDetalles(item) {
 
     return `
         ${previewHtml}
-        <div class="gd-detail-filename" style="word-break: break-word;">${item.nombre}</div>
+        <div class="gd-detail-filename" style="word-break: break-word;">${escHtml(item.nombre)}</div>
 
         <div class="gd-detail-section">
             <div class="gd-detail-section-title">

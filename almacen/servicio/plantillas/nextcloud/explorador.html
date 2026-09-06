@@ -1195,15 +1195,16 @@ window.ALMACEN_OVERRIDE = { api: '/api/almacen', url: '/archivos-almacen' };
         window.DOMINIOS_INTERNOS = window.DOMINIOS_INTERNOS || [];
 {% endif %}
 </script>
+<script src="{{ url_for('static', filename='js/nextcloud/explorador-escape.js') }}?v=20260906"></script>
 <script src="{{ url_for('static', filename='js/nextcloud/explorador-config.js') }}?v=20260703d"></script>
 <script src="{{ url_for('static', filename='js/nextcloud/explorador-core.js') }}?v=20260703"></script>
-<script src="{{ url_for('static', filename='js/nextcloud/explorador-interactions.js') }}?v=20260703d"></script>
-<script src="{{ url_for('static', filename='js/nextcloud/explorador-arbol.js') }}?v=20260703c"></script>
-<script src="{{ url_for('static', filename='js/nextcloud/explorador-render.js') }}?v=20260703d"></script>
-<script src="{{ url_for('static', filename='js/nextcloud/explorador-compartidos.js') }}?v=20260610k"></script>
+<script src="{{ url_for('static', filename='js/nextcloud/explorador-interactions.js') }}?v=20260906"></script>
+<script src="{{ url_for('static', filename='js/nextcloud/explorador-arbol.js') }}?v=20260906"></script>
+<script src="{{ url_for('static', filename='js/nextcloud/explorador-render.js') }}?v=20260906"></script>
+<script src="{{ url_for('static', filename='js/nextcloud/explorador-compartidos.js') }}?v=20260906"></script>
 <script src="{{ url_for('static', filename='js/nextcloud/explorador-perfil.js') }}?v=20260610k"></script>
-<script src="{{ url_for('static', filename='js/nextcloud/explorador-navegacion.js') }}?v=20260610k"></script>
-<script src="{{ url_for('static', filename='js/nextcloud/explorador-panels.js') }}?v=20260703c"></script>
+<script src="{{ url_for('static', filename='js/nextcloud/explorador-navegacion.js') }}?v=20260906"></script>
+<script src="{{ url_for('static', filename='js/nextcloud/explorador-panels.js') }}?v=20260906"></script>
 <script src="{{ url_for('static', filename='js/nextcloud/explorador-notify-push.js') }}?v=20260704"></script>
 <script src="{{ url_for('static', filename='js/nextcloud/explorador-compartir.js') }}?v=20260703"></script>
 {% if almacen_modo %}

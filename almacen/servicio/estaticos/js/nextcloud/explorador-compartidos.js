@@ -50,7 +50,7 @@ function _renderFiltrosComp() {
     }
     const tipos = [...new Set(_compItems.map(_tipoLabelComp))].sort();
     const personas = [...new Set(_compItems.map(i => i.propietario_nombre).filter(Boolean))].sort();
-    const opt = (v, sel) => '<option value="' + String(v).replace(/"/g, '&quot;') + '"' + (sel === v ? ' selected' : '') + '>' + v + '</option>';
+    const opt = (v, sel) => '<option value="' + escHtml(v) + '"' + (sel === v ? ' selected' : '') + '>' + escHtml(v) + '</option>';   // [A-13]
     bar.innerHTML =
         '<select class="gd-comp-select" onchange="_compFiltroTipo=this.value;_pintarComp()"><option value="">Tipo</option>'
         + tipos.map(t => opt(t, _compFiltroTipo)).join('') + '</select>'
