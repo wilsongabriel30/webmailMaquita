@@ -102,7 +102,7 @@ async function request<T>(path: string, options: RequestInit & { skipAuth?: bool
     const body = await res.json().catch(() => ({}));
     logError("api_error", { path, status: res.status, detail: body.detail, method: fetchOptions.method || "GET" });
     const detail = Array.isArray(body.detail)
-      ? body.detail.map((e: any) => e.msg || JSON.stringify(e)).join('; ')
+      ? body.detail.map((e: { msg?: string }) => e.msg || JSON.stringify(e)).join('; ')
       : (typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail));
     throw new Error(detail || `HTTP ${res.status}`);
   }
