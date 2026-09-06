@@ -3,7 +3,7 @@
 Extraído de ws_mensajeria.py (líneas 64-297) el 28/08/2026 sin cambios. registrar(socketio) registra los eventos y devuelve
 los manejadores para que ws_canal_rapido los reutilice."""
 from interfaces.websocket.manejador_websocket import *  # noqa: F401,F403
-from interfaces.websocket.manejador_websocket import _cerrar_servicio, _commit_servicio, _es_participante, _limpiar_indicador, _obtener_mensaje_por_client_id, _obtener_servicio_chat, _registrar_client_id, _typing_timers  # noqa: F401
+from interfaces.websocket.manejador_websocket import _autorizado_en_conversacion, _cerrar_servicio, _commit_servicio, _conversacion_de_mensaje, _es_participante, _limpiar_indicador, _obtener_mensaje_por_client_id, _obtener_servicio_chat, _registrar_client_id, _typing_timers  # noqa: F401
 
 
 def registrar(socketio):
@@ -37,6 +37,8 @@ def registrar(socketio):
             emit('error', {'message': 'Datos incompletos'})
             return
 
+        if not _autorizado_en_conversacion(usuario_id, conversacion_id, 'send_message'):
+            return
         servicio = None
         try:
             # Enviar mensaje usando el servicio
@@ -103,6 +105,9 @@ def registrar(socketio):
             emit('error', {'message': 'Datos incompletos'})
             return
 
+        conversacion_id = _conversacion_de_mensaje(mensaje_id)
+        if not _autorizado_en_conversacion(usuario_id, conversacion_id, 'edit_message'):
+            return
         servicio = None
         try:
             servicio = _obtener_servicio_chat()
@@ -158,6 +163,9 @@ def registrar(socketio):
             emit('error', {'message': 'message_id requerido'})
             return
 
+        conversacion_id = _conversacion_de_mensaje(mensaje_id)
+        if not _autorizado_en_conversacion(usuario_id, conversacion_id, 'delete_message'):
+            return
         servicio = None
         try:
             servicio = _obtener_servicio_chat()
@@ -210,6 +218,8 @@ def registrar(socketio):
         hasta_mensaje_id = data.get('until_message_id')
 
         if not conversacion_id:
+            return
+        if not _autorizado_en_conversacion(usuario_id, conversacion_id, 'mark_read'):
             return
 
         servicio = None

@@ -9,6 +9,12 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Seguridad
 
+- **[H-01/M-01 chat] Todo evento con `conversation_id` o `message_id` exige ser participante.**
+  `send_message` (legado, aún lo usa el cliente), `edit_message`, `delete_message`, `mark_read`,
+  `mark_read_batch`, `delivered`, `add_reaction`, `remove_reaction`, `typing_start` y
+  `get_messages` no lo comprobaban (solo `send`, `join_conversation` y `sync_chat`). En
+  reacciones, borrado y entrega la sala de emisión sale del mensaje en la base, no del payload.
+  Hallazgo de la quinta revisión externa.
 - **[F-03] El chat obedece a la revocación central.** El vale de entrada lleva `sid` y `av`
   del correo; el correo empuja cada revocación a `POST /api/chat/sesion/revocar` (secreto de
   servicios, límite de peticiones) y el chat anota la generación en su Redis, desconecta los
