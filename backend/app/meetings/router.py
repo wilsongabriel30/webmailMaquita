@@ -199,8 +199,16 @@ async def _send_invitations(
 ):
     """Send meeting invitation emails to attendees via SMTP."""
     redis = request.app.state.redis
-    password = await redis.get(f"imap_pass:{creator}")
-    if not password:
+    raw_pass = await redis.get(f"imap_pass:{creator}")
+    if not raw_pass:
+        return
+    # La credencial en Redis va cifrada; leerla cruda no sirve como contraseña.
+    from app.core.session import decrypt_password
+
+    try:
+        password = decrypt_password(raw_pass)
+    except Exception:
+        await redis.delete(f"imap_pass:{creator}")
         return
 
     from app.config import get_settings
