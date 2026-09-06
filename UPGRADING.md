@@ -3,7 +3,8 @@
 Guía para pasar de una versión publicada a la siguiente **sin reinstalar**. Para una
 instalación nueva, `docs/INSTALL-DESDE-CERO.md`.
 
-Regla general: `git fetch && git checkout vX.Y.Z`, aplicar las migraciones nuevas
+Regla general: `git fetch --tags --force && git checkout vX.Y.Z` (el `--force` hace falta en clones
+anteriores a la reconstrucción del historial de 2026-09-05), aplicar las migraciones nuevas
 (`migrations/*.sql`, idempotentes, en orden), revisar las variables nuevas del `.env` de cada
 servicio, reiniciar lo que cambió y correr `deploy/tools/validar-despliegue.sh`.
 
@@ -38,9 +39,12 @@ fuera de horario y avísalo antes.
 
 ### 2. Migración de base de datos
 
+**Las dos** migraciones de 1.7.0, en orden alfabético (todas son idempotentes):
 ```bash
-sudo -u postgres psql -d maildb -v ON_ERROR_STOP=1 -f migrations/2026-09-06-sesiones-sid-av.sql
+for f in migrations/2026-09-06-*.sql; do sudo -u postgres psql -d maildb -v ON_ERROR_STOP=1 -f "$f"; done
 ```
+Sin `2026-09-06-cambio-obligatorio.sql` el login responde 503 (falta la columna
+`must_change_password`): fue el fallo que encontró Correo Andes al actualizar su VM de pruebas.
 Idempotente. Crea `auth_estado`, añade `sid`, `session_kind`, `absolute_expires_at` y
 `auth_version` a `refresh_tokens`, concede permisos a `mailserver` y marca revocados los
 refresh anteriores al modelo (ya no se podrían renovar).
