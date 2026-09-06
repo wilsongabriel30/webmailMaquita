@@ -9,6 +9,17 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Seguridad
 
+- **[F-11] Una unidad compartida no puede quedarse sin manager.** Degradar o quitar al último manager
+  (incluido uno mismo) responde 409 dentro de una transacción con las membresías bloqueadas; el
+  override del master en la gestión de miembros queda explícito.
+- **[F-07] Las capacidades de OnlyOffice nacidas de un enlace público mueren con el enlace.** Llevan el id
+  y la versión del share y se revalidan en cada descarga y callback (existe, no venció, misma versión,
+  y para guardar sigue permitiendo editar); la de descarga pública dura 30 minutos, no 7 días.
+- **[F-08] Clave de los enlaces compartidos: nunca en la URL, Argon2id y límite de intentos.** La clave
+  viaja en la cabecera `X-Clave-Enlace` (o el cuerpo), se guarda con Argon2id con sal (los hashes
+  SHA-256 anteriores se migran al primer acierto), hay límite de 10 fallos cada 10 minutos por enlace
+  e IP, y la página del enlace y las respuestas públicas llevan `Referrer-Policy: no-referrer` y
+  `Cache-Control: no-store`. Nueva dependencia del almacén: `argon2-cffi`.
 - **[L-03 panel] `DB_PASS` entra en la validación de arranque** (fail-fast si falta).
 - **[L-02 panel] La auditoría de SafeAttach y SSO ya no falla en silencio**: si no se puede registrar,
   ERROR con marca `AUDITORIA_NO_REGISTRADA` (misma regla que el milter).

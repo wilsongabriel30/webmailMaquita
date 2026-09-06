@@ -148,6 +148,12 @@ def asegurar_esquema():
                 -- Compartir con una PERSONA por correo (interno o externo) y su permiso
                 ALTER TABLE compartidos ADD COLUMN IF NOT EXISTS email VARCHAR(255);
                 ALTER TABLE compartidos ADD COLUMN IF NOT EXISTS puede_editar BOOLEAN NOT NULL DEFAULT FALSE;
+                -- [F-07] version del compartido: las capacidades emitidas la llevan y caducan al cambiar
+                ALTER TABLE compartidos ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1;
+                -- [F-08] intentos fallidos de clave por enlace + IP
+                CREATE TABLE IF NOT EXISTS compartidos_intentos (
+                    token TEXT NOT NULL, ip TEXT NOT NULL, ventana BIGINT NOT NULL,
+                    n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (token, ip, ventana));
                 ALTER TABLE compartidos ADD COLUMN IF NOT EXISTS accesos INTEGER NOT NULL DEFAULT 0;
 
                 CREATE TABLE IF NOT EXISTS papelera (
