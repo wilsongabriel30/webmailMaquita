@@ -7,6 +7,14 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.7.3] - 2026-09-06
+
+Lote P2 de la cuarta revisión (correo), lote P2 de la quinta (chat), verificación de los «por
+verificar» de la auditoría del 03/09 (A-13 corregido) y el deadlock de arranque del almacén.
+Migración nueva (`2026-09-06-codigos-respaldo.sql`) y reinicio del backend, el almacén y el chat;
+sin corte de sesiones. Quien tenga 2FA activo debe generar códigos de respaldo nuevos.
+Pasos en `UPGRADING.md`, sección «De 1.7.2 a 1.7.3».
+
 ### Añadido
 
 - **[L-01] Sesiones abiertas por dispositivo, con cierre individual.** `GET /api/auth/sesiones`
