@@ -19,6 +19,7 @@ export function LoginPage() {
   const [totpCode, setTotpCode] = useState('');
   const [needs2FA, setNeeds2FA] = useState(false);
   const [savedUsername, setSavedUsername] = useState('');
+  const [ticket, setTicket] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [forceChange, setForceChange] = useState(false);
@@ -64,12 +65,11 @@ export function LoginPage() {
     setLoading(true);
 
     try {
-      const payload: any = { username, password };
-      if (needs2FA) {
-        payload.totp_code = totpCode;
-      }
-
-      const res = await api.post<{ success?: boolean; error?: string; username?: string; is_admin?: boolean; requires_2fa?: boolean; must_change_password?: boolean }>('/auth/login', payload);
+      type RespuestaLogin = { success?: boolean; error?: string; username?: string; is_admin?: boolean; requires_2fa?: boolean; ticket?: string; must_change_password?: boolean };
+      // M-01: el segundo paso canjea el vale (ticket) + código; la contraseña no vuelve a viajar.
+      const res = needs2FA
+        ? await api.post<RespuestaLogin>('/auth/login/2fa', { ticket, totp_code: totpCode })
+        : await api.post<RespuestaLogin>('/auth/login', { username, password });
 
       if (res.success === false) {
         setError(res.error || 'Credenciales incorrectas');
@@ -79,6 +79,7 @@ export function LoginPage() {
 
       if (res.requires_2fa) {
         setNeeds2FA(true);
+        setTicket(res.ticket || '');
         setSavedUsername(res.username || username);
         setLoading(false);
         return;
@@ -300,7 +301,7 @@ export function LoginPage() {
               {needs2FA && (
                 <button
                   type="button"
-                  onClick={() => { setNeeds2FA(false); setTotpCode(''); setError(''); }}
+                  onClick={() => { setNeeds2FA(false); setTicket(''); setTotpCode(''); setError(''); }}
                   className="w-full py-2 text-sm mt-2 transition-colors"
                   style={{ color: '#605e5c' }}
                   onMouseEnter={(e) => { (e.currentTarget).style.color = '#323130'; }}

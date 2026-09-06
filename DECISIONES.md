@@ -119,3 +119,17 @@ viva en el chat **hasta 5 minutos**. A cambio, el chat no consulta a PostgreSQL 
 El fallo del empuje **nunca es silencioso**: el correo reintenta tres veces y, si no llega,
 registra ERROR con la marca `REVOCACION_CHAT_FALLIDA` (monitoreo). `X-Notif-Secret` entra en
 el inventario de secretos a rotar: comprometido permite cerrar sesiones ajenas.
+
+## D-5. El segundo factor no cubre IMAP/SMTP directo
+
+**Fecha:** 2026-09-06 · **Estado:** decisión pendiente **antes de salir a usuarios**
+
+El 2FA (TOTP) protege el webmail y la app. IMAP y SMTP directos (Thunderbird, Outlook, un
+celular configurado a mano) autentican solo con la contraseña, así que **quien tenga la
+contraseña entra por ahí aunque el 2FA esté activo**. M-01 cerró la fuga de la respuesta de
+login (ya no confirma la contraseña de una cuenta con 2FA), pero no cambia este hecho.
+
+Las dos mitigaciones reales, a decidir: **contraseñas de aplicación** (una por cliente,
+revocables, la contraseña principal deja de valer en IMAP/SMTP) o **exigir 2FA también ahí**
+(no es viable con los clientes actuales). Hasta decidirlo, se documenta al usuario que el 2FA
+no protege los clientes de escritorio. Hallazgo de la cuarta revisión externa (M-01).
