@@ -10,6 +10,24 @@ servicio, reiniciar lo que cambió y correr `deploy/tools/validar-despliegue.sh`
 
 ---
 
+## De 1.7.1 a la siguiente (sin publicar) — almacén
+
+Sin corte de sesiones. Cambia solo el servicio del almacén y un detalle de nginx.
+
+1. Dependencia nueva del almacén (Argon2id para la clave de los enlaces compartidos):
+   `almacen/venv/bin/pip install -r almacen/requirements.txt` (trae `argon2-cffi`).
+2. Reiniciar `maquita-almacen`. Al arrancar crea la columna `compartidos.version` y la tabla
+   `compartidos_intentos`; los hashes SHA-256 de claves anteriores siguen valiendo y se
+   migran a Argon2id en el primer acierto.
+3. nginx: la clave de un enlace ya no viaja en la URL y las páginas públicas responden
+   `Referrer-Policy: no-referrer`. Si tu `server{}` añade su propia `Referrer-Policy`, la del
+   servicio queda anulada: define el valor por `map` como muestra
+   `almacen/deploy/nginx-almacen.conf` y recarga nginx.
+4. Comprobar: `curl -sD - -o /dev/null https://TU_HOST/almacen-s/<token>` debe traer
+   `referrer-policy: no-referrer` y `cache-control: no-store` (y no otra `Referrer-Policy`).
+
+---
+
 ## De 1.6.1 a 1.7.0 — ciclo de vida de sesión (sid / auth_version)
 
 **Lo que cambia para la gente: un corte único.** Al reiniciar el correo con 1.7.0, **todas las
