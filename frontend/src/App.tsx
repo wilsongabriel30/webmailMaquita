@@ -93,6 +93,8 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
   }
 }
 
+let tituloMarca = 'Maquita Mail';
+
 export default function App() {
   const { setUser, user } = useAuthStore();
   // Notificaciones web push del correo (#17): se activan cuando hay usuario.
@@ -107,7 +109,7 @@ export default function App() {
     if (prevUserRef.current !== null && prevUserRef.current !== currentEmail) {
       // User changed — reset all mail state
       useMailStore.getState().reset();
-      document.title = 'Maquita Mail';
+      document.title = tituloMarca;
     }
     prevUserRef.current = currentEmail;
   }, [user?.username]);
@@ -187,8 +189,8 @@ export default function App() {
   // Load branding (favicon, title) from admin config
   useEffect(() => {
     fetch("/api/branding")
-      .then(r => r.ok ? r.json() : ({} as any))
-      .then((b: any) => {
+      .then(r => r.ok ? r.json() : ({}))
+      .then((b: { favicon_url?: string; app_name?: string; org_name?: string }) => {
         if (b.favicon_url) {
           const link = document.querySelector("link[rel=\"icon\"]") as HTMLLinkElement;
           if (link) {
@@ -196,8 +198,10 @@ export default function App() {
             link.type = "";
           }
         }
-        if (b.org_name) {
-          document.title = b.org_name + " Mail";
+        // El título es el nombre del PRODUCTO (app_name), no el de la organización.
+        if (b.app_name) {
+          tituloMarca = b.app_name;
+          document.title = tituloMarca;
         }
       })
       .catch(() => {});

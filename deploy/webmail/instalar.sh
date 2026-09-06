@@ -14,7 +14,7 @@ APP_DIR=/opt/maquita-webmail
 CFG="${APP_DIR}/deploy/webmail/configs"
 
 # Si algo falla, indica el paso en vez de abortar en silencio
-trap 'echo -e "\n${RED}✗ La instalación se detuvo (línea ${LINENO}). Revisa el último paso [N/18] mostrado arriba y el error inmediatamente anterior.${NC}"' ERR
+trap 'echo -e "\n${RED}✗ La instalación se detuvo (línea ${LINENO}). Revisa el último paso [N/18] mostrado arriba y el error inmediatamente anterior. Si no se mostró ningún paso, se detuvo antes de empezar (dominio o confirmación): no se ha instalado nada.${NC}"' ERR
 
 echo -e "${GREEN}"
 echo "╔══════════════════════════════════════════════════╗"
@@ -27,14 +27,18 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 # --- Dominio (interactivo o por variable de entorno) ---
+DOMINIO_DADO="${DOMAIN:+1}"
 if [ -z "$DOMAIN" ]; then
+    [ -t 0 ] || { echo -e "${RED}Sin terminal y sin DOMAIN. Ejecuta: DOMAIN=tu-dominio bash deploy/webmail/instalar.sh${NC}"; exit 1; }
     read -p "Tu dominio de correo (ej: miempresa.com): " DOMAIN
 fi
 MAIL_HOST=${MAIL_HOST:-mail.${DOMAIN}}
 echo -e "${YELLOW}Dominio: ${DOMAIN}  ·  Servidor: ${MAIL_HOST}${NC}"
-if [ -z "$ASSUME_YES" ]; then
+# Se confirma solo cuando el dominio se tecleó aquí y hay terminal. Si vino por
+# variable (DOMAIN=…) o no hay TTY (ssh sin -t, CI), no hay nada que confirmar.
+if [ -z "$ASSUME_YES" ] && [ -z "$DOMINIO_DADO" ] && [ -t 0 ]; then
     read -p "¿Correcto? (s/n): " CONFIRM
-    [ "$CONFIRM" != "s" ] && { echo "Cancelado."; exit 0; }
+    [ "$CONFIRM" != "s" ] && { echo "Cancelado antes de empezar: no se ha instalado nada."; exit 0; }
 fi
 
 # --- 1. Paquetes base ---
@@ -45,6 +49,7 @@ apt update && apt install -y \
     postgresql postgresql-contrib \
     redis-server \
     nginx certbot python3-certbot-nginx \
+    fail2ban \
     postfix postfix-pgsql \
     dovecot-core dovecot-imapd dovecot-pop3d dovecot-lmtpd dovecot-pgsql \
     dovecot-sieve dovecot-managesieved \
@@ -233,6 +238,17 @@ submission inet n       -       y       -       -       smtpd
   -o smtpd_recipient_restrictions=permit_sasl_authenticated,reject
 EOF
 fi
+# Servicio smtps (465, TLS implícito): lo esperan los móviles y la autoconfiguración
+if ! grep -qE "^smtps[[:space:]]+inet" /etc/postfix/master.cf; then
+cat >> /etc/postfix/master.cf <<'EOF'
+smtps     inet n       -       y       -       -       smtpd
+  -o syslog_name=postfix/smtps
+  -o smtpd_tls_wrappermode=yes
+  -o smtpd_sasl_auth_enable=yes
+  -o smtpd_client_restrictions=permit_sasl_authenticated,reject
+  -o smtpd_recipient_restrictions=permit_sasl_authenticated,reject
+EOF
+fi
 postfix check && echo "  Postfix: configuración OK"
 # rspamd como milter (procesa y FIRMA el correo) + generación de la clave DKIM
 postconf -e \
@@ -274,7 +290,10 @@ echo -e "\n${GREEN}[12/18] Configurando servicios web...${NC}"
 cp "${APP_DIR}/deploy/webmail/systemd/maquita-webmail.service" /etc/systemd/system/
 systemctl daemon-reload && systemctl enable maquita-webmail
 cp "${APP_DIR}/deploy/webmail/systemd/maquita-milter.service" /etc/systemd/system/
-systemctl daemon-reload && systemctl enable maquita-milter
+systemctl daemon-reload && systemctl enable --now maquita-milter
+# fail2ban con la configuración versionada (backend systemd: obligatorio en Debian 13)
+install -m644 "${APP_DIR}/deploy/webmail/configs/fail2ban-jail.local" /etc/fail2ban/jail.local
+systemctl enable --now fail2ban 2>/dev/null || true
 NGINX_CONF="/etc/nginx/sites-available/${MAIL_HOST}"
 cp "${APP_DIR}/deploy/webmail/nginx/webmail.conf" "${NGINX_CONF}"
 # Limite de tamano de adjuntos coordinado (nginx snippet + postfix + perms mail.log)
@@ -361,9 +380,20 @@ DB_NAME=maildb
 DB_USER=mailserver
 DB_PASS=${DB_PASS}
 JWT_SECRET=${ADMIN_SECRET}
+ADMIN_JWT_SECRET=${ADMIN_SECRET}
 RSPAMD_URL=http://localhost:11334
 MASTER_PASSWORD=${MASTER_PASS}
+# Valores PRESTADOS del correo para los subprocesos que lanza el panel (AIR, agentes,
+# copiloto). Solo los necesarios; si cambian en backend/.env hay que cambiarlos aquí.
+WEBMAIL_SECRET_KEY=${SECRET}
+WEBMAIL_ADMIN_JWT_SECRET=${ADMIN_SECRET}
+WEBMAIL_MASTER_PASSWORD=${MASTER_PASS}
+WEBMAIL_DATABASE_URL=postgresql://mailserver:${DB_PASS}@localhost:5432/maildb
+WEBMAIL_REDIS_URL=redis://:${REDIS_PASS}@localhost:6379/0
+WEBMAIL_IMAP_HOST=127.0.0.1
+WEBMAIL_IMAP_PORT=143
 ENVADMIN
+chmod 600 .env
 # Frontend del panel
 cd "${APP_DIR}/admin-panel/frontend"
 npm ci --quiet && npx vite build
@@ -547,7 +577,7 @@ echo -e "${YELLOW}DESPUÉS DEL DNS:${NC}"
 echo "  • Certificado TLS + autoconfig:  bash deploy/webmail/tls/emitir-certificado.sh ${DOMAIN}"
 echo "       (cubre el dominio pelado, mail/imap/smtp/pop3 y autoconfig/autodiscover que apunten aqui;"
 echo "        evita el cert equivocado al autoconfigurar. Ver docs/CERTIFICADO-Y-AUTOCONFIG.md)"
-echo "  • Webmail:                   https://${MAIL_HOST}/webmail/   (usuario demo@${DOMAIN})"
+echo "  • Webmail:                   https://${MAIL_HOST}/webmail/   (usuario demo@${DEMO_DOM}; es un dominio de prueba que no recibe correo de fuera: los buzones reales de ${DOMAIN} se crean en el panel)"
 echo "  • Panel de administración:   https://${MAIL_HOST}:8443"
   echo "  • Respaldos cifrados:        configura deploy/webmail/backup/ (ver docs/BACKUP-RESTAURACION.md)"
 echo ""

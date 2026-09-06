@@ -34,27 +34,35 @@ ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
 El Drive lo aplica como variable CSS `--brand-primary` (vía `/api/branding`).
 
 ## 4) Íconos de la PWA (celular)
-`frontend/public/icons/icon-192.png`, `icon-512.png` y `apple-touch-icon.png` son **estáticos**
-(muestran el logo por defecto hasta reemplazarlos). Genéralos desde tu logo:
+`frontend/public/icons/icon-192.png`, `icon-512.png` y `apple-touch-icon.png` son los del logo por
+defecto. **No los sustituyas en `frontend/public/`** (ensuciarías el árbol de git y chocarían en
+cada `git pull`): déjalos en `branding/local/`, un directorio **no versionado** que replica la
+estructura de `dist/` y que `deploy-webmail.sh` copia encima tras construir.
 ```bash
-# requiere Pillow: pip install pillow
-python3 - <<'PY'
+# Pillow hace falta. En Debian 13 pip está protegido (PEP 668): usa un entorno propio.
+python3 -m venv /tmp/iconos && /tmp/iconos/bin/pip install -q pillow
+mkdir -p branding/local/icons
+/tmp/iconos/bin/python - <<'PY'
 from PIL import Image
 logo = Image.open('mi-logo.png').convert('RGBA')
 for size, name in [(192,'icon-192.png'),(512,'icon-512.png'),(180,'apple-touch-icon.png')]:
-    logo.resize((size,size)).save(f'frontend/public/icons/{name}')
-print('iconos PWA generados')
+    logo.resize((size,size)).save(f'branding/local/icons/{name}')
+print('iconos PWA generados en branding/local/icons/')
 PY
+bash deploy-webmail.sh --solo-frontend
 ```
-Luego reconstruye el frontend (`deploy-webmail.sh --solo-frontend`).
 
-- **`manifest.json` no hay que tocarlo**: referencia los iconos por su nombre fijo, así que basta
-  con sustituir los tres ficheros.
+- **`manifest.json` no hay que tocarlo**: el despliegue inyecta `name`, `short_name` y
+  `description` desde `app_name`, que es el nombre con el que el celular instala la app; los
+  iconos se referencian por su nombre fijo, así que basta con la carpeta de arriba.
 - **La caché del navegador se refresca sola**: el despliegue renueva la versión de caché del
   service worker (`CACHE_NAME`) en cada publicación, sobre `dist/`, sin tocar el fuente. No hay
   que editar `sw.js` a mano.
-- El nombre visible del producto (emisor del segundo factor, avisos, pie de correos) sale de
-  `app_name` en `branding_settings`; el de la organización, de `org_name`. Ninguno vive en código.
+- El nombre visible del producto (título de la pestaña, emisor del segundo factor, avisos, pie de
+  correos, manifest) sale de `app_name` en `branding_settings`; el de la organización, de
+  `org_name`. Ninguno vive en código.
+- **Tras cambiar `app_name`/`org_name`**: `systemctl restart maquita-webmail` (el backend los
+  guarda en memoria al arrancar) y `bash deploy-webmail.sh --solo-frontend`.
 
 ## 5) Favicon del Drive (fallback estático)
 El Drive usa el favicon de `/api/branding` si lo subiste al panel. Como respaldo estático puedes
