@@ -521,10 +521,13 @@ def _share_por_token(token: str):
 
 
 def _clave_ok(comp) -> bool:
+    """[F-08] Clave en cabecera X-Clave-Enlace o cuerpo JSON; Argon2id (o SHA-256 heredado)."""
     if not comp.get('clave_hash'):
         return True
-    clave = request.args.get('clave', '')
-    return hashlib.sha256(clave.encode()).hexdigest() == comp['clave_hash']
+    from clave_enlace import comprobar_clave
+    from almacen_bd import conexion, ejecutar
+    ok, _codigo = comprobar_clave(conexion, comp, ejecutar)
+    return ok
 
 
 @bp_onlyoffice.route('/onlyoffice/config-public', methods=['GET'])

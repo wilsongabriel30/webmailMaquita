@@ -87,13 +87,14 @@ def vaciar_papelera():
 
 
 # ── enlaces públicos (sin login) ────────────────────────────────────────
-@bp_extras.route('/publico-info/<token>', methods=['GET'])
+@bp_extras.route('/publico-info/<token>', methods=['GET', 'POST'])
 def info_publico(token):
-    """GET /publico-info/<token>?clave= — datos del enlace para la página
-    pública (sin sesión). Si el enlace tiene clave, los detalles del archivo
-    solo se entregan con la clave correcta."""
+    """GET/POST /publico-info/<token> — datos del enlace para la página pública (sin sesión).
+    [F-08] La clave va en la cabecera X-Clave-Enlace o en el cuerpo JSON, nunca en la URL."""
+    from clave_enlace import CABECERAS_PUBLICAS, comprobar_clave
+    from almacen_bd import conexion, ejecutar
     filas = consultar("""
-        SELECT propietario_id, ruta, expira_en, clave_hash, permite_descarga, puede_editar
+        SELECT token, propietario_id, ruta, expira_en, clave_hash, permite_descarga, puede_editar
         FROM compartidos WHERE token = %s
     """, (token,))
     if not filas:
@@ -105,11 +106,12 @@ def info_publico(token):
             return error('El enlace expiró', 410)
     requiere_clave = bool(comp['clave_hash'])
     if requiere_clave:
-        from hashlib import sha256
-        clave = request.args.get('clave', '')
-        if sha256(clave.encode()).hexdigest() != comp['clave_hash']:
+        ok, codigo = comprobar_clave(conexion, comp, ejecutar)
+        if codigo == 429:
+            return error('Demasiados intentos; espera unos minutos', 429)
+        if not ok:
             return jsonify({'success': True, 'requiere_clave': True,
-                            'clave_valida': False}), 200
+                            'clave_valida': False}), 200, CABECERAS_PUBLICAS
     nombre = comp['ruta'].rsplit('/', 1)[-1]
     extension = nombre.rsplit('.', 1)[-1].lower() if '.' in nombre else ''
     from api_onlyoffice import EXTENSIONES_EDITABLES, TIPOS_DOCUMENTO
@@ -128,42 +130,45 @@ def info_publico(token):
         'permite_descarga': bool(comp['permite_descarga']),
         'puede_editar': bool(comp['puede_editar']) and extension in EXTENSIONES_EDITABLES,
         'abre_en_linea': abre_en_linea,
-    })
+    }), 200, CABECERAS_PUBLICAS
 
 
-@bp_extras.route('/publico/<token>', methods=['GET'])
+@bp_extras.route('/publico/<token>', methods=['GET', 'POST'])
 def descargar_publico(token):
     """
-    GET /api/nextcloud/publico/<token> — descarga por enlace público, SIN login.
-    La página web /archivos/s/<token> (que sirve el frontend) apunta aquí.
-    Valida token, expiración y (si tiene) clave.
+    GET/POST /api/nextcloud/publico/<token> — descarga por enlace público, SIN login.
+    Valida token, expiración y (si tiene) clave; [F-08] la clave va en cabecera o cuerpo.
     """
+    from clave_enlace import CABECERAS_PUBLICAS, comprobar_clave
+    from almacen_bd import conexion, ejecutar
     filas = consultar("""
-        SELECT propietario_id, ruta, expira_en, clave_hash, permite_descarga
+        SELECT token, propietario_id, ruta, expira_en, clave_hash, permite_descarga
         FROM compartidos WHERE token = %s AND tipo = 3
     """, (token,))
     if not filas:
         abort(404)
     comp = filas[0]
-
     if not comp.get('permite_descarga', True):
         return error('Este enlace es de solo lectura (descarga no permitida)', 403)
-
     if comp['expira_en'] is not None:
         from datetime import datetime, timezone
         if comp['expira_en'] < datetime.now(timezone.utc):
             return error('El enlace expiró', 410)
-
     if comp['clave_hash']:
-        clave = request.args.get('clave', '')
-        from hashlib import sha256
-        if sha256(clave.encode()).hexdigest() != comp['clave_hash']:
+        ok, codigo = comprobar_clave(conexion, comp, ejecutar)
+        if codigo == 429:
+            return error('Demasiados intentos; espera unos minutos', 429)
+        if not ok:
             return error('Clave incorrecta', 401)
-
     try:
         fisica = ruta_fisica(comp['propietario_id'], comp['ruta'])
     except RutaInvalida:
         abort(404)
     if not os.path.isfile(fisica):
         abort(404)
-    return send_file(fisica, as_attachment=True, download_name=os.path.basename(fisica))
+    respuesta = send_file(fisica, as_attachment=True, download_name=os.path.basename(fisica))
+    for k, v in CABECERAS_PUBLICAS.items():
+        respuesta.headers[k] = v
+    return respuesta
+
+
