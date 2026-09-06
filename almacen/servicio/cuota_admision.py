@@ -40,7 +40,10 @@ class SinEspacio(Exception):
 
 
 def asegurar_tabla(conexion):
+    """Idempotente y serializada con un bloqueo consultivo: seis workers de gunicorn
+    arrancan a la vez y el DDL concurrente provoca deadlocks (visto en producción)."""
     with conexion() as con, con.cursor() as cur:
+        cur.execute("SELECT pg_advisory_xact_lock(815006)")
         cur.execute(
             """CREATE TABLE IF NOT EXISTS cuotas_reservas (
                    id uuid PRIMARY KEY, usuario_id integer NOT NULL, bytes bigint NOT NULL,
