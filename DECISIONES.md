@@ -122,14 +122,19 @@ el inventario de secretos a rotar: comprometido permite cerrar sesiones ajenas.
 
 ## D-5. El segundo factor no cubre IMAP/SMTP directo
 
-**Fecha:** 2026-09-06 · **Estado:** decisión pendiente **antes de salir a usuarios**
+**Fecha:** 2026-09-06 · **Estado:** **DECIDIDO (2026-09-06): contraseñas de aplicación.** Pendiente de implementar antes de salir a usuarios.
 
 El 2FA (TOTP) protege el webmail y la app. IMAP y SMTP directos (Thunderbird, Outlook, un
 celular configurado a mano) autentican solo con la contraseña, así que **quien tenga la
 contraseña entra por ahí aunque el 2FA esté activo**. M-01 cerró la fuga de la respuesta de
 login (ya no confirma la contraseña de una cuenta con 2FA), pero no cambia este hecho.
 
-Las dos mitigaciones reales, a decidir: **contraseñas de aplicación** (una por cliente,
+Decisión de la dirección (2026-09-06): **contraseñas de aplicación** — una por cliente (Thunderbird, Outlook,
+celular), generada por el webmail, revocable desde Ajustes; la contraseña principal deja de valer en
+IMAP/SMTP directo. Se implementa como tarea propia (Dovecot: passdb adicional o tabla de claves de
+aplicación) antes de salir a usuarios.
+
+Las dos mitigaciones que se valoraron: **contraseñas de aplicación** (una por cliente,
 revocables, la contraseña principal deja de valer en IMAP/SMTP) o **exigir 2FA también ahí**
 (no es viable con los clientes actuales). Hasta decidirlo, se documenta al usuario que el 2FA
 no protege los clientes de escritorio. Hallazgo de la cuarta revisión externa (M-01).

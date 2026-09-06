@@ -31,7 +31,7 @@ def clave_inicial_aleatoria() -> str:
         secrets.choice("ABCDEFGHJKLMNPQRSTUVWXYZ"),
         secrets.choice("abcdefghijkmnpqrstuvwxyz"),
         secrets.choice("23456789"),
-        secrets.choice("!#$%&*+-="),
+        secrets.choice("!@#$%&*"),  # los que acepta validate_password_strength
     ]
     caracteres = list(cuerpo + "".join(partes))
     secrets.SystemRandom().shuffle(caracteres)
