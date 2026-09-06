@@ -9,6 +9,11 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Seguridad
 
+- **[R-04] SafeAttach falla cerrado si un motor obligatorio no responde.** Con ClamAV caído el
+  adjunto salía `clean` (confirmado con EICAR). Ahora un motor obligatorio (`clamav`; más por
+  `SAFEATTACH_MOTORES_OBLIGATORIOS`) que lanza error, no está o agota el tiempo deja el adjunto
+  como `suspicious`, lo anota en `errors` y el milter lo manda a cuarentena mirando también
+  `errors`, no solo `result`. Pruebas en `backend/tests/test_safeattach_fallo_cerrado.py`.
 - **[M-01] Login en dos pasos sin fuga.** La respuesta `requires_2fa` confirmaba que la contraseña era
   válida. Ahora, para una cuenta con 2FA, el primer paso devuelve siempre la misma forma (un vale
   opaco de un solo uso, 60 s) acierte o no la contraseña; el segundo paso `POST /api/auth/login/2fa`

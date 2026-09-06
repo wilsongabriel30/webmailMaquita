@@ -8,6 +8,7 @@ from app.safeattach.verdict import MALICIOUS, Finding
 
 class ClamAV(Analyzer):
     name = "clamav"
+    obligatorio = True
 
     def analyze(self, path, content, report):
         try:
