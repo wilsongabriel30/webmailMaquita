@@ -246,6 +246,9 @@ async def change_password(
     db = request.app.state.db_pool
     redis = request.app.state.redis
     await revocar_todo(db, redis, username, "cambio_de_contrasena")
+    from app.auth.bootstrap import marcar_cambio_obligatorio
+
+    await marcar_cambio_obligatorio(db, redis, username, False)  # H-01
     sesion = await crear_sesion(db, redis, request, username, body.new_password)
     poner_cookies_sesion(response, request, sesion)
 

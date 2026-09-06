@@ -14,6 +14,11 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Seguridad
 
+- **[H-01] Sin contraseña «bootstrap» conocida.** Desaparece la constante del código. Cada buzón nuevo
+  (o reset del admin) recibe una contraseña aleatoria de un solo uso y queda con
+  `must_change_password` en `auth_estado`; mientras esté activa, el servidor solo permite cambiar la
+  contraseña o cerrar sesión (403 en lo demás). El instalador genera la clave inicial del buzón demo.
+  Absorbe R-02. Migración `2026-09-06-cambio-obligatorio.sql`.
 - **[H-02] Llave de cifrado de credenciales dedicada y versionada.** Antes se derivaba de `SECRET_KEY`.
   Ahora `CREDENTIAL_ENCRYPTION_KEY` (obligatoria, Fernet) cifra la credencial IMAP cacheada, las cuentas
   de Nextcloud y **el secreto TOTP, que estaba en claro** (L-03); `CREDENTIAL_ENCRYPTION_KEY_ANTERIOR`

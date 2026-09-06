@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel
 
+from app.auth.bootstrap import debe_cambiar_clave
 from app.auth.cookies import dominio_cookie, poner_cookies_sesion, quitar_cookies_sesion
 from app.auth.dependencies import get_current_user
 from app.auth.dovecot_auth_service import authenticate
@@ -66,9 +67,6 @@ async def _clear_login_rate_limit(request: Request, username: str, redis):
 
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
-
-
-DEFAULT_BOOTSTRAP_PASSWORD = "Cambiar2026"
 
 
 class LoginRequest(BaseModel):
@@ -168,7 +166,7 @@ async def login(body: LoginRequest, request: Request, response: Response):
     return {
         "message": "Login successful",
         "username": username,
-        "must_change_password": body.password == DEFAULT_BOOTSTRAP_PASSWORD,
+        "must_change_password": await debe_cambiar_clave(db, redis, username),
     }
 
 
@@ -246,7 +244,11 @@ async def login_2fa(body: Login2FARequest, request: Request, response: Response)
         db, redis, request, username, decrypt_password(datos["p"])
     )
     poner_cookies_sesion(response, request, sesion)
-    return {"message": "Login successful", "username": username}
+    return {
+        "message": "Login successful",
+        "username": username,
+        "must_change_password": await debe_cambiar_clave(db, redis, username),
+    }
 
 
 @router.post("/refresh")
@@ -396,7 +398,15 @@ async def me(request: Request):
     row = await db.fetchrow(
         "SELECT superadmin FROM admin WHERE username = $1 AND active = true", username
     )
-    return {"user": {"username": username, "is_admin": row is not None}}
+    return {
+        "user": {
+            "username": username,
+            "is_admin": row is not None,
+            "must_change_password": await debe_cambiar_clave(
+                db, request.app.state.redis, username
+            ),
+        }
+    }
 
 
 @router.get("/verify")
