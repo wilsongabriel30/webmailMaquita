@@ -219,7 +219,8 @@ class Config:
     UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', 'uploads')
     EXPORT_FOLDER = os.getenv('EXPORT_FOLDER', 'exports')
     REPORTS_FOLDER = os.getenv('REPORTS_FOLDER', 'reports')
-    MAX_CONTENT_LENGTH = 16 * 1024 * 1024 * 1024  # 16GB
+    # [M-06] 100 MB por peticion (configurable). 16 GB era una invitacion a agotar disco y memoria.
+    MAX_CONTENT_LENGTH = int(os.getenv('CHAT_MAX_CONTENT_MB', '100')) * 1024 * 1024
 
     # Configuración de cache
     CACHE_TYPE = 'simple'
