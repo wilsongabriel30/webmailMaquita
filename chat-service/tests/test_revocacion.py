@@ -7,10 +7,10 @@ import time
 
 import pytest
 
-os.environ.setdefault("CHAT_JWT_SECRET", "secreto-de-pruebas-del-chat-2026")
-os.environ.setdefault("CHAT_SSO_SECRET", "secreto-sso-de-pruebas-2026")
-os.environ.setdefault("CHAT_SESSION_KEY", "clave-de-sesion-de-pruebas-2026")
-os.environ.setdefault("NOTIF_SECRET", "secreto-de-servicios-de-pruebas-2026")
+os.environ.setdefault("CHAT_JWT_SECRET", "secreto-de-pruebas-del-chat-2026")  # gitleaks:allow
+os.environ.setdefault("CHAT_SSO_SECRET", "secreto-sso-de-pruebas-2026")  # gitleaks:allow
+os.environ.setdefault("CHAT_SESSION_KEY", "clave-de-sesion-de-pruebas-2026")  # gitleaks:allow
+os.environ.setdefault("NOTIF_SECRET", "secreto-de-servicios-de-pruebas-2026")  # gitleaks:allow
 os.environ.setdefault("CHAT_SOCKETIO_ASYNC_MODE", "threading")
 # Sin base: el módulo la exige al importar; las consultas están envueltas y aquí se sustituyen.
 os.environ.setdefault("DATABASE_URL", "postgresql://prueba:prueba@127.0.0.1:1/prueba")
