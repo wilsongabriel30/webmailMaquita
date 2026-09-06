@@ -187,42 +187,30 @@ async def saml_acs(request: Request):
             403, f"Email {email} no pertenece al dominio {settings.mail_domain}"
         )
 
-    # Create JWT session
-    access_token = create_access_token(email)
-    refresh_raw, refresh_hash = create_refresh_token()
-    await db.execute(
-        "INSERT INTO refresh_tokens (username, token_hash, expires_at) "
-        "VALUES ($1, $2, NOW() + interval '7 days')",
-        email,
-        refresh_hash,
-    )
+    # Sesión federada (kind=saml): mismo modelo sid/av que el resto (F-01/F-04).
+    from datetime import datetime, timedelta, timezone
 
+    from app.auth.cookies import poner_cookies_sesion
+    from app.auth.sesiones import crear_sesion
+
+    sesion = await crear_sesion(
+        db,
+        redis,
+        request,
+        email,
+        settings.master_password,
+        kind="saml",
+        abs_exp=datetime.now(timezone.utc) + timedelta(hours=1),
+        master="admin",
+        user_agent="SSO-SAML",
+    )
     # Set flag so frontend knows this is SSO session
     await redis.setex(f"sso_session:{email}", 86400, "saml")
 
-    # Redirect to frontend with cookies
     response = RedirectResponse(
         url=f"https://{settings.cookie_domain}/", status_code=302
     )
-    response.set_cookie(
-        "access_token",
-        access_token,
-        httponly=True,
-        secure=True,
-        samesite="lax",
-        domain=settings.cookie_domain,
-        max_age=settings.access_token_expire_minutes * 60,
-    )
-    response.set_cookie(
-        "refresh_token",
-        refresh_raw,
-        httponly=True,
-        secure=True,
-        samesite="lax",
-        domain=settings.cookie_domain,
-        path="/api/auth/refresh",
-        max_age=settings.refresh_token_expire_days * 86400,
-    )
+    poner_cookies_sesion(response, request, sesion)
     return response
 
 

@@ -17,6 +17,7 @@ from app.admin import (
     stats_service,
 )
 from app.auth.dependencies import require_admin
+from app.auth.sesiones import revocar_todo
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -86,12 +87,10 @@ async def password_audit_reset(request: Request, admin: str = Depends(require_ad
         raise HTTPException(400, str(e))
     if not result:
         raise HTTPException(404, "Mailbox not found")
-    try:
-        await request.app.state.redis.delete(
-            f"imap_pass:{username}", f"imap_master:{username}"
-        )
-    except Exception:
-        pass
+    # F-01: la clave temporal invalida todas las sesiones del usuario.
+    await revocar_todo(
+        _get_db(request), request.app.state.redis, username, "reset_admin"
+    )
     await _audit(request, admin, "password_reset_temp", username)
     return {"username": username, "temp_password": temp}
 
@@ -258,12 +257,16 @@ async def update_mailbox(
     # (imap_pass/imap_master) para que el webmail re-autentique con la clave NUEVA. Sin esto,
     # la sesion activa seguiria usando la clave vieja cacheada (desync admin vs Dovecot).
     if data.get("password"):
-        try:
-            await request.app.state.redis.delete(
-                f"imap_pass:{username}", f"imap_master:{username}"
-            )
-        except Exception:
-            pass
+        await revocar_todo(
+            _get_db(request),
+            request.app.state.redis,
+            username,
+            "clave_cambiada_por_admin",
+        )
+    if data.get("active") is False:
+        await revocar_todo(
+            _get_db(request), request.app.state.redis, username, "cuenta_desactivada"
+        )
     return result
 
 
@@ -275,6 +278,9 @@ async def delete_mailbox(
     if not ok:
         raise HTTPException(404, "Mailbox not found")
 
+    await revocar_todo(
+        _get_db(request), request.app.state.redis, username, "buzon_eliminado"
+    )
     await _audit(request, admin, "mailbox_delete", username)
     return {"ok": True}
 
@@ -287,6 +293,10 @@ async def toggle_mailbox_active(
     if not result:
         raise HTTPException(404, "Mailbox not found")
 
+    if not result.get("active"):
+        await revocar_todo(
+            _get_db(request), request.app.state.redis, username, "cuenta_desactivada"
+        )
     await _audit(
         request, admin, "mailbox_toggle_active", username, {"active": result["active"]}
     )

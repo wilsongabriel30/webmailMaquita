@@ -109,40 +109,22 @@ async def oidc_callback(request: Request, code: str = "", state: str = ""):
     if not ok:
         return RedirectResponse("/webmail/?sso_error=imap", status_code=302)
 
-    await redis.set(f"imap_pass:{email}", encrypt_password(s.master_password), ex=3600)
-    await redis.set(f"imap_master:{email}", "admin", ex=3600)
+    # Sesión federada (kind=oidc) con la contraseña maestra cifrada por sid y vencimiento
+    # absoluto de una hora, sin prórroga (F-01/F-04).
+    from app.auth.cookies import poner_cookies_sesion
+    from app.auth.sesiones import crear_sesion
 
-    access = create_access_token(email)
-    refresh_raw, refresh_hash = create_refresh_token()
-    expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
-    await db.execute(
-        """INSERT INTO refresh_tokens (username, token_hash, expires_at, user_agent, ip_address)
-           VALUES ($1, $2, $3, $4, $5::inet)""",
+    sesion = await crear_sesion(
+        db,
+        redis,
+        request,
         email,
-        refresh_hash,
-        expires_at,
-        "SSO-OIDC",
-        request.client.host if request.client else "0.0.0.0",
+        s.master_password,
+        kind="oidc",
+        abs_exp=datetime.now(timezone.utc) + timedelta(hours=1),
+        master="admin",
+        user_agent="SSO-OIDC",
     )
     resp = RedirectResponse("/webmail/", status_code=302)
-    resp.set_cookie(
-        "access_token",
-        access,
-        httponly=True,
-        secure=True,
-        samesite="strict",
-        domain=dominio_cookie(request),
-        max_age=3600,
-        path="/",
-    )
-    resp.set_cookie(
-        "refresh_token",
-        refresh_raw,
-        httponly=True,
-        secure=True,
-        samesite="strict",
-        domain=dominio_cookie(request),
-        max_age=3600,
-        path="/api/auth/refresh",
-    )
+    poner_cookies_sesion(resp, request, sesion)
     return resp
