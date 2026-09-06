@@ -34,7 +34,8 @@ async def get_user_password(request: Request, username: str) -> str:
     Lanza HTTP 401 si la sesión expiró (no hay key en Redis).
     """
     redis = request.app.state.redis
-    raw = await redis.get(f"imap_pass:{username}")
+    sid = _sid(request)
+    raw = await redis.get(f"imap_pass:{username}:{sid}")
     if not raw:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -51,11 +52,22 @@ async def get_user_password(request: Request, username: str) -> str:
             "Credencial cacheada de %s no descifra; sesión invalidada [CREDENCIAL_NO_DESCIFRA]",
             username,
         )
-        await redis.delete(f"imap_pass:{username}")
+        await redis.delete(f"imap_pass:{username}:{sid}", f"sess:{username}:{sid}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Session expired",
         )
+
+
+def _sid(request: Request) -> str:
+    """sid de la sesión de la petición (lo deja get_current_user). Sin él no hay
+    credencial que leer: la petición no pasó por la dependencia central."""
+    sid = getattr(request.state, "sid", None)
+    if not sid:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired"
+        )
+    return sid
 
 
 async def get_imap_login_user(request: Request, username: str) -> str:
@@ -67,13 +79,14 @@ async def get_imap_login_user(request: Request, username: str) -> str:
     para evitar que IMAP intente user*admin con la contraseña personal (→ 500).
     """
     redis = request.app.state.redis
-    master_user = await redis.get(f"imap_master:{username}")
+    sid = _sid(request)
+    master_user = await redis.get(f"imap_master:{username}:{sid}")
     if master_user:
         # Verificar que la contraseña almacenada sea realmente la master password
         from app.config import get_settings
 
         settings = get_settings()
-        raw_pass = await redis.get(f"imap_pass:{username}")
+        raw_pass = await redis.get(f"imap_pass:{username}:{sid}")
         if raw_pass:
             try:
                 stored_pass = decrypt_password(raw_pass)
@@ -84,12 +97,15 @@ async def get_imap_login_user(request: Request, username: str) -> str:
                     logging.getLogger(__name__).warning(
                         f"imap_master stale para {username}: password no es master. Limpiando."
                     )
-                    await redis.delete(f"imap_master:{username}")
+                    await redis.delete(f"imap_master:{username}:{sid}")
                     return username
             except Exception:
                 # No descifra: la sesión no vale. Se limpia y se obliga a reautenticar.
-                await redis.delete(f"imap_pass:{username}")
-                await redis.delete(f"imap_master:{username}")
+                await redis.delete(
+                    f"imap_pass:{username}:{sid}",
+                    f"imap_master:{username}:{sid}",
+                    f"sess:{username}:{sid}",
+                )
                 return username
         return f"{username}*{master_user}"
     return username

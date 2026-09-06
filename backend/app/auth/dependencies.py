@@ -1,10 +1,17 @@
+from datetime import datetime, timezone
+
 from fastapi import HTTPException, Request, status
 
 from app.auth.jwt import decode_access_token
 
 
 async def get_current_user(request: Request) -> str:
-    """Extract and validate the current user from the access_token cookie."""
+    """Usuario de la sesión actual (regla única de F-01, ver app/auth/sesiones.py).
+
+    Un token vale si está firmado y no vencido, su `sid` existe, su `av` es la
+    generación vigente del usuario y no ha pasado `abs_exp`. Deja `request.state.sid`
+    y `request.state.session_kind` para el resto de la petición.
+    """
     token = request.cookies.get("access_token")
     if not token:
         raise HTTPException(
@@ -17,27 +24,28 @@ async def get_current_user(request: Request) -> str:
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token"
         )
 
-    username = payload.get("sub")
-    if not username:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload"
-        )
+    from app.auth.sesiones import prorrogar, sesion_valida
 
-    # Check if session is still active (logout deletes imap_pass from Redis)
-    redis = request.app.state.redis
-    session_active = await redis.exists(f"imap_pass:{username}")
-    # Extend password TTL on every authenticated request (keep-alive), salvo en sesiones
-    # de impersonación (imap_master): esas vencen a la hora sin prórroga (A-17).
-    if session_active and not await redis.exists(f"imap_master:{username}"):
-        from app.config import get_settings
-
-        _s = get_settings()
-        await redis.expire(f"imap_pass:{username}", _s.access_token_expire_minutes * 60)
-    if not session_active:
+    valida = await sesion_valida(
+        request.app.state.db_pool, request.app.state.redis, payload
+    )
+    if valida is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired"
         )
+    username, sid = valida
+    request.state.sid = sid
+    request.state.session_kind = payload.get("kind", "normal")
 
+    # Keep-alive solo en sesiones normales: la impersonación (y las federadas) vencen
+    # a su hora sin prórroga (A-17 / F-04).
+    if request.state.session_kind == "normal":
+        await prorrogar(
+            request.app.state.redis,
+            username,
+            sid,
+            datetime.fromtimestamp(int(payload["abs_exp"]), tz=timezone.utc),
+        )
     return username
 
 
@@ -50,9 +58,8 @@ async def require_admin(request: Request) -> str:
         "SELECT superadmin FROM admin WHERE username = $1 AND active = true",
         username,
     )
-    if row is None:
+    if not row:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required"
         )
-
     return username

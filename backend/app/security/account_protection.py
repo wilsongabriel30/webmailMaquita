@@ -88,8 +88,11 @@ async def check_send_anomaly(redis, username: str, recipients: list[str]) -> dic
         # BLOQUEAR CUENTA
         await redis.setex(f"account_blocked:{username}", AUTO_BLOCK_DURATION, anomaly)
 
-        # Limpiar sesión para forzar re-login
-        await redis.delete(f"imap_pass:{username}")
+        # Limpiar TODAS las sesiones para forzar re-login (F-01). Aquí no hay base:
+        # se cierran en Redis; el refresh también cae porque exige la sesión viva.
+        from app.auth.sesiones import cerrar_todas_en_redis
+
+        await cerrar_todas_en_redis(redis, username)
 
         logger.critical(f"ACCOUNT BLOCKED: {username} — {anomaly}")
 
