@@ -7,6 +7,10 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.7.1] - 2026-09-06
+
+Lote tras la pasada fría sobre 1.7.0 y el informe de actualización de Correo Andes. Sin corte de sesiones.
+
 ### Seguridad
 
 - **[F-02] SAML: aserción validada de verdad.** Toda lectura (Status, Assertion, NameID) sale del XML
