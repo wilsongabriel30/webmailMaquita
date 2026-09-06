@@ -15,6 +15,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Seguridad
 
+- **[L-04 chat] Limitador del socket sin Redis: tope conservador y marca.** Si Redis no está o falla,
+  el límite por proceso se divide por 4 y se registra `RATE_LIMIT_SIN_REDIS` (como R-2 en el
+  correo); antes el fallo era silencioso y el tope real se multiplicaba por el número de workers.
 - **[L-03 chat] `get_or_create_direct` por socket pasa por la misma regla que la ruta REST**:
   misma organización (`tenant_chat.primer_bloqueado`) y sin bloqueo entre las dos personas.
 - **[L-02 chat] `call_invite` y el resto de la señalización de llamadas verifican relación y

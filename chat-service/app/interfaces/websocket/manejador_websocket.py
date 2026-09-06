@@ -29,59 +29,27 @@ import threading
 # Configurar logging
 logger = logging.getLogger(__name__)
 
+from interfaces.websocket.limitador import Limitador  # noqa: E402
+
 # ============================================================================
 # RATE LIMITING
 # ============================================================================
 
-class RateLimiter:
-    """Rate limiter distribuido con Redis, fallback in-memory."""
+class RateLimiter(Limitador):
+    """Limitador del socket: Redis compartido si está; si no, tope conservador con marca
+    `RATE_LIMIT_SIN_REDIS` (L-04). La lógica vive en interfaces/websocket/limitador.py."""
 
     def __init__(self):
-        self._requests: Dict[str, list] = defaultdict(list)
-        self._lock = threading.Lock()
-        self._redis = None
+        redis = None
         try:
             from modulos.chat.infraestructura.cache.cliente_redis import obtener_cliente_redis
             r = obtener_cliente_redis()
             if r.disponible:
-                self._redis = r
+                redis = r
                 logger.info("[RateLimiter] Usando Redis distribuido")
         except Exception:
             pass
-
-    def is_allowed(self, key: str, max_requests: int, window_seconds: int) -> bool:
-        """Verifica si la accion esta permitida."""
-        # Redis distribuido
-        if self._redis:
-            try:
-                redis_key = f"chat:rate:{key}"
-                count = self._redis.incr(redis_key)
-                if count == 1:
-                    self._redis.expire(redis_key, window_seconds)
-                return count <= max_requests
-            except Exception:
-                pass
-
-        # Fallback in-memory
-        now = time.time()
-        with self._lock:
-            self._requests[key] = [t for t in self._requests[key] if now - t < window_seconds]
-            if len(self._requests[key]) >= max_requests:
-                return False
-            self._requests[key].append(now)
-            return True
-
-    def cleanup(self):
-        """Limpia entradas antiguas (solo para fallback in-memory)."""
-        now = time.time()
-        with self._lock:
-            keys_to_delete = []
-            for key, times in self._requests.items():
-                self._requests[key] = [t for t in times if now - t < 60]
-                if not self._requests[key]:
-                    keys_to_delete.append(key)
-            for key in keys_to_delete:
-                del self._requests[key]
+        super().__init__(redis)
 
 
 rate_limiter = RateLimiter()
