@@ -7,6 +7,29 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.6.1] - 2026-09-06
+
+Correcciones tras la instalación desde cero de Correo Andes y la segunda revisión ASVS externa
+(cinco hallazgos reales; uno ya cubierto, uno rebajado).
+
+### Seguridad
+
+- **[R-1] La credencial IMAP cacheada que no descifra ya no se usa en claro.** Cuatro sitios
+  aceptaban el valor de `imap_pass:*` tal cual si el descifrado fallaba (correo programado,
+  `get_user_password`, sondeo del websocket) y las invitaciones de reuniones ni siquiera
+  descifraban. Ahora se registra ERROR con marca `CREDENCIAL_NO_DESCIFRA`, se invalida la sesión
+  y el usuario vuelve a entrar; el correo programado vuelve a `pending`. Nuevo
+  `deploy/tools/purgar-imap-pass-legacy.py` (purga de una vez, con conteo antes y después).
+- **[R-2] El límite de peticiones falla cerrado sin Redis.** Antes un fallo de Redis dejaba pasar
+  todo. Ahora se limita con un contador en memoria por proceso a la cuarta parte del límite
+  normal y se registra ERROR con marca `RATE_LIMIT_SIN_REDIS`.
+- **[R-3]** El origen se compara con el dominio de la cookie por host exacto o sufijo con punto,
+  no por subcadena.
+- **[R-4]** `/api/health/detailed` solo para administradores y sin banners ni mensajes internos.
+- **[R-5]** El registro de seguridad recibe método, ruta y mensaje acotado; el traceback completo
+  va al registro técnico sin datos de la petición.
+- Documentado en código que `X-Real-IP` solo es fiable detrás del proxy del proyecto.
+
 ### Corregido
 
 Los siete hallazgos de la instalación desde cero hecha por Correo Andes sobre `v1.6.0-rc5`:
