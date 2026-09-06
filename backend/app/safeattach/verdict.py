@@ -1,4 +1,5 @@
 """Veredicto agregado del análisis de un adjunto."""
+
 from dataclasses import dataclass, field
 
 CLEAN, SUSPICIOUS, MALICIOUS = "clean", "suspicious", "malicious"
@@ -8,7 +9,7 @@ _ORDER = {CLEAN: 0, SUSPICIOUS: 1, MALICIOUS: 2}
 @dataclass
 class Finding:
     engine: str
-    severity: str            # clean | suspicious | malicious
+    severity: str  # clean | suspicious | malicious
     detail: str = ""
 
 
@@ -16,7 +17,7 @@ class Finding:
 class ScanReport:
     filename: str
     findings: list = field(default_factory=list)
-    engines: dict = field(default_factory=dict)   # motor -> detalle crudo
+    engines: dict = field(default_factory=dict)  # motor -> detalle crudo
 
     @property
     def result(self) -> str:
@@ -26,9 +27,16 @@ class ScanReport:
 
     @property
     def threats(self) -> list:
-        return [{"engine": f.engine, "threat": f.detail}
-                for f in self.findings if f.severity != CLEAN]
+        return [
+            {"engine": f.engine, "threat": f.detail}
+            for f in self.findings
+            if f.severity != CLEAN
+        ]
 
     def to_dict(self) -> dict:
-        return {"result": self.result, "threats": self.threats,
-                "details": self.engines, "filename": self.filename}
+        return {
+            "result": self.result,
+            "threats": self.threats,
+            "details": self.engines,
+            "filename": self.filename,
+        }

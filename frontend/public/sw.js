@@ -1,4 +1,13 @@
-const CACHE_NAME = "maquita-mail-v202609021621";  // T-49: nombre nuevo para descartar el cache anterior, que tenia correo en claro
+// Marca del producto. El despliegue sustituye este valor y el prefijo del
+// nombre de cache con lo configurado en branding_settings.app_name; lo que hay
+// escrito aqui es el valor por defecto, de modo que el fichero funciona tal cual
+// aunque se copie a mano.
+// OJO: NOMBRE_APP es solo texto visible. Los identificadores de almacenamiento
+// del correo y del chat ("maquita-mail-offline", "maquita-cache") y el global
+// MaquitaAlmacen NO se derivan de aqui y no deben renombrarse: hacerlo dejaria
+// sin datos a quien ya los tenga guardados.
+const NOMBRE_APP = "Maquita Mail";
+const CACHE_NAME = "maquita-mail-v202609041254";  // T-49: nombre nuevo para descartar el cache anterior, que tenia correo en claro
 const API_CACHE = CACHE_NAME + "-api";
 const BASE = "/webmail/";
 
@@ -209,7 +218,7 @@ self.addEventListener("message", (event) => {
 self.addEventListener("push", (event) => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; } catch (e) { /* payload no JSON */ }
-  const title = data.title || "Maquita Mail";
+  const title = data.title || NOMBRE_APP;
   const options = {
     body: data.body || "",
     icon: "/webmail/icons/icon-192.png",

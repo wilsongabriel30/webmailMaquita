@@ -5,16 +5,16 @@ Exportar correos (.mbox), contactos (.vcf), configuración.
 """
 
 import io
-import re
 import logging
+import re
 from datetime import datetime
 
-from fastapi import APIRouter, Request, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from app.auth.dependencies import get_current_user
-from app.mail.clients.imap_client import get_imap_connection, fetch_raw_message
 from app.core.session import get_imap_login_user, get_user_password
+from app.mail.clients.imap_client import fetch_raw_message, get_imap_connection
 
 logger = logging.getLogger(__name__)
 MAX_EXPORT_LIMIT = 200  # Max messages per export to prevent abuse
@@ -28,8 +28,6 @@ def _validate_export_folder(folder: str) -> str:
     return folder
 
 
-
-
 async def _check_export_rate(request, username: str):
     """Rate limit exports: 3 per 5 minutes per user."""
     redis = request.app.state.redis
@@ -38,7 +36,10 @@ async def _check_export_rate(request, username: str):
     if count == 1:
         await redis.expire(key, 300)
     if count > 3:
-        raise HTTPException(status_code=429, detail="Límite de exportación: máximo 3 por cada 5 minutos")
+        raise HTTPException(
+            status_code=429, detail="Límite de exportación: máximo 3 por cada 5 minutos"
+        )
+
 
 router = APIRouter(prefix="/api/mail/export", tags=["export"])
 
@@ -81,7 +82,9 @@ async def export_mbox(
                     part = from_line + escaped + "\n"
                     total_size += len(part)
                     if total_size > MAX_EXPORT_SIZE:
-                        logger.warning(f"Export size limit reached for {user} in {folder}")
+                        logger.warning(
+                            f"Export size limit reached for {user} in {folder}"
+                        )
                         break
                     mbox_parts.append(part)
             except Exception as e:
@@ -115,7 +118,7 @@ async def export_contacts_vcf(
 
     contacts = await db.fetch(
         "SELECT name, email, phone, organization, notes FROM user_contacts WHERE owner = $1 ORDER BY name",
-        user
+        user,
     )
 
     vcards = []
@@ -157,11 +160,15 @@ async def export_eml_batch(
     import zipfile
 
     if not uids:
-        raise HTTPException(status_code=400, detail="Proporciona UIDs separados por coma")
+        raise HTTPException(
+            status_code=400, detail="Proporciona UIDs separados por coma"
+        )
 
     uid_list = [int(u.strip()) for u in uids.split(",") if u.strip().isdigit()]
     if len(uid_list) > 50:
-        raise HTTPException(status_code=400, detail="Máximo 50 mensajes por exportación EML")
+        raise HTTPException(
+            status_code=400, detail="Máximo 50 mensajes por exportación EML"
+        )
 
     password = await get_user_password(request, user)
 

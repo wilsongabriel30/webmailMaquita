@@ -3,8 +3,10 @@
 La clave vive solo en el .env (SECURE_MSG_KEY). El contenido se guarda cifrado
 en la BD; sin la clave del servidor no se puede leer aunque se filtre la BD.
 """
+
 import base64
 import os
+
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from app.config import get_settings

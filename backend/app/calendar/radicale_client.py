@@ -1,4 +1,5 @@
 """Async HTTP client for Radicale CalDAV server."""
+
 from __future__ import annotations
 
 import logging

@@ -1,12 +1,14 @@
 import asyncio
 from asyncio.subprocess import PIPE
 from fastapi import APIRouter, Request, Depends, Query, HTTPException
-from app.auth.dependencies import get_current_admin, require_role
+from app.auth.dependencies import get_current_admin, require_role, require_operador
 from app.wrappers import doveadm
 import json
 import re as _re
+from app.wrappers.privilegios import con_sudo
 
-router = APIRouter(prefix="/api/mailviewer", tags=["mailviewer"])
+router = APIRouter(prefix="/api/mailviewer", tags=["mailviewer"],
+                   dependencies=[Depends(require_operador)])   # correo ajeno: nunca un viewer (A-18)
 
 
 def _db(r: Request):
@@ -21,7 +23,7 @@ async def _audit(r, a, action, target=None, details=None):
 
 
 async def _run(*cmd) -> tuple[str, str, int]:
-    proc = await asyncio.create_subprocess_exec(*cmd, stdout=PIPE, stderr=PIPE)
+    proc = await asyncio.create_subprocess_exec(*con_sudo(*cmd), stdout=PIPE, stderr=PIPE)
     out, err = await proc.communicate()
     return out.decode(errors="replace"), err.decode(errors="replace"), proc.returncode
 
@@ -78,6 +80,10 @@ async def list_messages(
     admin: dict = Depends(get_current_admin),
 ):
     """Listar mensajes con paginacion para scroll infinito."""
+    # El buzon y la carpeta vienen de la peticion: se validan antes de que lleguen
+    # a la linea de ordenes de doveadm (ver wrappers/doveadm.py).
+    doveadm._validate_user(username)
+    folder = doveadm._validate_folder(folder)
     out, err, rc = await _run(
         "doveadm", "fetch", "-u", username,
         "guid uid hdr.subject hdr.from hdr.to hdr.date flags",
@@ -122,6 +128,11 @@ async def read_message(
     admin: dict = Depends(require_role("superadmin", "admin")),
 ):
     """Leer el contenido completo de un mensaje."""
+    doveadm._validate_user(username)
+    if not _re.match(r"^[0-9a-fA-F]{1,64}$", mailbox_guid or ""):
+        raise HTTPException(400, "Identificador de buzon invalido")
+    if not _re.match(r"^[0-9]{1,19}$", uid or ""):
+        raise HTTPException(400, "Identificador de mensaje invalido")
     out, err, rc = await _run(
         "doveadm", "fetch", "-u", username,
         "hdr.subject hdr.from hdr.to hdr.cc hdr.date hdr.message-id flags mailbox body",
@@ -203,7 +214,7 @@ async def search_mail(
     """Buscar mensajes en el buzon de un usuario."""
     query_parts = []
     if folder:
-        query_parts.extend(["mailbox", folder])
+        query_parts.extend(["mailbox", doveadm._validate_folder(folder)])
 
     if q:
         query_parts.extend(["HEADER", "subject", q])

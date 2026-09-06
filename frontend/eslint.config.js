@@ -19,5 +19,11 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+    rules: {
+      // Llegó con eslint-plugin-react-hooks 7: es una pista de optimización del
+      // compilador de React, no un defecto. Aviso hasta revisar la memoización
+      // manual de MessageList por lotes (2026-09-06).
+      'react-hooks/preserve-manual-memoization': 'warn',
+    },
   },
 ])

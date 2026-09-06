@@ -1,21 +1,28 @@
 """Compose router — send, drafts, upload attachments, schedule."""
+
 import asyncio
 import base64
-import re
-import nh3
-from fastapi import APIRouter, Request, Depends, UploadFile, File, Form, HTTPException
-from typing import Optional
 import json
+import re
+from typing import Optional
+
+import nh3
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 
 from app.auth.dependencies import get_current_user
-from app.core.session import get_user_password, get_imap_login_user
+from app.core.session import get_imap_login_user, get_user_password
 from app.mail.clients.imap_client import get_imap_connection
-from app.mail.services.send_service import send_and_save
-from app.mail.services.draft_service import save_draft, delete_draft
 from app.mail.clients.smtp_client import OutgoingEmail
 from app.mail.schemas.messages import ComposeRequest, DraftRequest, ScheduleRequest
+from app.mail.services.draft_service import delete_draft, save_draft
+from app.mail.services.large_attachments import (
+    SIZE_THRESHOLD,
+    format_link_html,
+    upload_and_share,
+)
+from app.mail.services.send_service import send_and_save
 from app.security.account_protection import check_send_anomaly
-from app.mail.services.large_attachments import SIZE_THRESHOLD, upload_and_share, format_link_html
+
 
 async def _save_sent_recipients(db, sender: str, recipients: list[str]):
     """Auto-save recipients to sent_recipients for future autocomplete."""
@@ -27,22 +34,26 @@ async def _save_sent_recipients(db, sender: str, recipients: list[str]):
         name = ""
         if "<" in email:
             import re
+
             m = re.match(r'^"?([^"<]+)"?\s*<([^>]+)>', email)
             if m:
                 name = m.group(1).strip()
                 email = m.group(2).strip()
         try:
-            await db.execute("""
+            await db.execute(
+                """
                 INSERT INTO sent_recipients (sender, recipient_email, recipient_name, last_sent_at)
                 VALUES ($1, $2, $3, NOW())
                 ON CONFLICT (sender, recipient_email)
                 DO UPDATE SET last_sent_at = NOW(),
                     recipient_name = CASE WHEN $3 != '' THEN $3 ELSE sent_recipients.recipient_name END
-            """, sender, email, name)
+            """,
+                sender,
+                email,
+                name,
+            )
         except Exception:
             pass
-
-
 
 
 async def _check_send_rate(request, username: str):
@@ -54,7 +65,9 @@ async def _check_send_rate(request, username: str):
     if min_count == 1:
         await redis.expire(min_key, 60)
     if min_count > 5:
-        raise HTTPException(status_code=429, detail="Límite de envío: máximo 5 correos por minuto")
+        raise HTTPException(
+            status_code=429, detail="Límite de envío: máximo 5 correos por minuto"
+        )
 
     # Per-hour
     hour_key = f"send_rl:hour:{username}"
@@ -62,7 +75,9 @@ async def _check_send_rate(request, username: str):
     if hour_count == 1:
         await redis.expire(hour_key, 3600)
     if hour_count > 30:
-        raise HTTPException(status_code=429, detail="Límite de envío: máximo 30 correos por hora")
+        raise HTTPException(
+            status_code=429, detail="Límite de envío: máximo 30 correos por hora"
+        )
 
     # Per-day
     day_key = f"send_rl:day:{username}"
@@ -70,7 +85,10 @@ async def _check_send_rate(request, username: str):
     if day_count == 1:
         await redis.expire(day_key, 86400)
     if day_count > 200:
-        raise HTTPException(status_code=429, detail="Límite de envío: máximo 200 correos por día")
+        raise HTTPException(
+            status_code=429, detail="Límite de envío: máximo 200 correos por día"
+        )
+
 
 router = APIRouter(prefix="/api/mail", tags=["mail-compose"])
 
@@ -95,51 +113,95 @@ async def send(
             await _adb.execute(
                 "INSERT INTO fraud_alerts (alert_type, severity, username, description, details, status) "
                 "VALUES ('mass_send','high',$1,$2,$3::jsonb,'open')",
-                username, anomaly.get("reason", "Envio masivo anomalo"),
-                json.dumps({"recipients": len(all_rcpts)}))
-            _tc = await _adb.fetchrow("SELECT auto_disable_on_compromise FROM threat_config WHERE id = 1")
+                username,
+                anomaly.get("reason", "Envio masivo anomalo"),
+                json.dumps({"recipients": len(all_rcpts)}),
+            )
+            _tc = await _adb.fetchrow(
+                "SELECT auto_disable_on_compromise FROM threat_config WHERE id = 1"
+            )
             if _tc and _tc["auto_disable_on_compromise"]:
-                await _adb.execute("UPDATE mailbox SET active = false, modified = now() WHERE username = $1", username)
+                await _adb.execute(
+                    "UPDATE mailbox SET active = false, modified = now() WHERE username = $1",
+                    username,
+                )
                 await _adb.execute(
                     "INSERT INTO threat_actions (action, target, detail, actor, auto) "
                     "VALUES ('disable_mailbox',$1,$2,'sistema',true)",
-                    username, "Auto-deshabilitado por envio masivo anomalo")
+                    username,
+                    "Auto-deshabilitado por envio masivo anomalo",
+                )
         except Exception:
             pass
         raise HTTPException(status_code=429, detail=anomaly["reason"])
 
     # -- DLP: prevencion de fuga de datos sensibles (salientes) --
-    from app.dlp import service as dlp_service
     from app.dlp import policy as dlp_policy
+    from app.dlp import service as dlp_service
+
     _dlp_db = request.app.state.db_pool
     _dlp = await dlp_service.scan(_dlp_db, body.subject, body.text_body, body.html_body)
     if _dlp["findings"]:
-        _dlp = await dlp_policy.decide(_dlp_db, _dlp, all_rcpts, await dlp_policy.is_admin(_dlp_db, username))
+        _dlp = await dlp_policy.decide(
+            _dlp_db, _dlp, all_rcpts, await dlp_policy.is_admin(_dlp_db, username)
+        )
         _ext = bool(_dlp.get("external"))
         _ovr = bool(getattr(body, "dlp_override", False))
         _reason = (getattr(body, "dlp_reason", None) or "").strip()[:300]
         if _dlp["action"] == "block":
             # Solo un administrador puede forzar el envio a externos, y con motivo.
             if not (_ovr and _dlp.get("can_override") and _reason):
-                await dlp_service.log_violation(_dlp_db, username, all_rcpts, body.subject,
-                                                _dlp["findings"], "block", False, None, _ext)
-                raise HTTPException(status_code=422, detail={
-                    "dlp_blocked": True, "findings": _dlp["findings"],
-                    "external": _dlp.get("external", []),
-                    "can_override": bool(_dlp.get("can_override"))})
-        await dlp_service.log_violation(_dlp_db, username, all_rcpts, body.subject,
-                                        _dlp["findings"], _dlp["action"], _ovr, _reason or None, _ext)
+                await dlp_service.log_violation(
+                    _dlp_db,
+                    username,
+                    all_rcpts,
+                    body.subject,
+                    _dlp["findings"],
+                    "block",
+                    False,
+                    None,
+                    _ext,
+                )
+                raise HTTPException(
+                    status_code=422,
+                    detail={
+                        "dlp_blocked": True,
+                        "findings": _dlp["findings"],
+                        "external": _dlp.get("external", []),
+                        "can_override": bool(_dlp.get("can_override")),
+                    },
+                )
+        await dlp_service.log_violation(
+            _dlp_db,
+            username,
+            all_rcpts,
+            body.subject,
+            _dlp["findings"],
+            _dlp["action"],
+            _ovr,
+            _reason or None,
+            _ext,
+        )
 
     # -- Communication Compliance: monitoreo segun politicas (no bloquea) --
     try:
         from app.comm_compliance import service as cc_service
-        await cc_service.scan(request.app.state.db_pool, username, "outbound", all_rcpts,
-                              body.subject, body.text_body, body.html_body)
+
+        await cc_service.scan(
+            request.app.state.db_pool,
+            username,
+            "outbound",
+            all_rcpts,
+            body.subject,
+            body.text_body,
+            body.html_body,
+        )
     except Exception:
         pass
 
     # -- Etiqueta de sensibilidad: control de salida (B) + marca visible (A) --
     from app.mail import sensitivity as _sens
+
     _label = _sens.normalize(getattr(body, "sensitivity", ""))
     if _label and _sens.blocks_external(_label):
         _sx = await dlp_policy.external_recipients(_dlp_db, all_rcpts)
@@ -148,9 +210,15 @@ async def send(
             _sreason = (getattr(body, "dlp_reason", None) or "").strip()
             _scan_ovr = await dlp_policy.is_admin(_dlp_db, username)
             if not (_sovr and _scan_ovr and _sreason):
-                raise HTTPException(status_code=422, detail={
-                    "sensitivity_blocked": True, "label": _label,
-                    "external": _sx, "can_override": _scan_ovr})
+                raise HTTPException(
+                    status_code=422,
+                    detail={
+                        "sensitivity_blocked": True,
+                        "label": _label,
+                        "external": _sx,
+                        "can_override": _scan_ovr,
+                    },
+                )
     if _label:
         body.html_body = _sens.banner_html(_label) + (body.html_body or "")
 
@@ -178,48 +246,107 @@ async def send(
                     content = b""
                 if len(content) >= SIZE_THRESHOLD and not (att.is_inline or False):
                     # Subir al Almacén y obtener el enlace de descarga
-                    share_url = await upload_and_share(_alm_token, att.filename, content)
+                    share_url = await upload_and_share(
+                        _alm_token, att.filename, content
+                    )
                     if share_url:
-                        large_links_html.append(format_link_html(att.filename, len(content), share_url))
+                        large_links_html.append(
+                            format_link_html(att.filename, len(content), share_url)
+                        )
                         continue  # skip inline attachment
-                attachments.append({
-                    "filename": att.filename,
-                    "content": content,
-                    "content_type": att.content_type or "application/octet-stream",
-                    "is_inline": att.is_inline or False,
-                    "cid": att.cid or "",
-                })
+                attachments.append(
+                    {
+                        "filename": att.filename,
+                        "content": content,
+                        "content_type": att.content_type or "application/octet-stream",
+                        "is_inline": att.is_inline or False,
+                        "cid": att.cid or "",
+                    }
+                )
         # Adjuntar los enlaces del Almacén al cuerpo HTML
         if large_links_html:
             links_block = "<br>".join(large_links_html)
             body.html_body = (body.html_body or "") + "<br>" + links_block
 
         # -- DLP Nivel 2: datos sensibles DENTRO de los adjuntos (fail-open) --
-        if attachments and (await dlp_service.get_config(_dlp_db)).get("scan_attachments", True):
+        if attachments and (await dlp_service.get_config(_dlp_db)).get(
+            "scan_attachments", True
+        ):
             try:
                 from app.dlp import attachments as dlp_att
+
                 _txt, _unins = await asyncio.to_thread(dlp_att.extract_all, attachments)
-                _d2 = await dlp_service.scan(_dlp_db, "", _txt, "") if _txt else {"findings": [], "action": "allow"}
+                _d2 = (
+                    await dlp_service.scan(_dlp_db, "", _txt, "")
+                    if _txt
+                    else {"findings": [], "action": "allow"}
+                )
                 for _f in _d2["findings"]:
                     _f["label"] = _f["label"] + " (en adjunto)"
                 if _unins:
-                    _d2["findings"].append({"type": "adjunto", "label": "Adjunto no inspeccionable: " + "; ".join(_unins[:5]),
-                                            "sample": "", "count": len(_unins), "action": "warn"})
+                    _d2["findings"].append(
+                        {
+                            "type": "adjunto",
+                            "label": "Adjunto no inspeccionable: "
+                            + "; ".join(_unins[:5]),
+                            "sample": "",
+                            "count": len(_unins),
+                            "action": "warn",
+                        }
+                    )
                 if _d2["findings"]:
-                    _d2["action"] = max((f["action"] for f in _d2["findings"]),
-                                        key=lambda a: {"allow": 0, "audit": 1, "warn": 2, "block": 3}.get(a, 0))
-                    _d2 = await dlp_policy.decide(_dlp_db, _d2, all_rcpts, await dlp_policy.is_admin(_dlp_db, username))
+                    _d2["action"] = max(
+                        (f["action"] for f in _d2["findings"]),
+                        key=lambda a: {
+                            "allow": 0,
+                            "audit": 1,
+                            "warn": 2,
+                            "block": 3,
+                        }.get(a, 0),
+                    )
+                    _d2 = await dlp_policy.decide(
+                        _dlp_db,
+                        _d2,
+                        all_rcpts,
+                        await dlp_policy.is_admin(_dlp_db, username),
+                    )
                     _ext2 = bool(_d2.get("external"))
                     _ovr2 = bool(getattr(body, "dlp_override", False))
                     _reason2 = (getattr(body, "dlp_reason", None) or "").strip()[:300]
-                    if _d2["action"] == "block" and not (_ovr2 and _d2.get("can_override") and _reason2):
-                        await dlp_service.log_violation(_dlp_db, username, all_rcpts, body.subject,
-                                                        _d2["findings"], "block", False, None, _ext2)
-                        raise HTTPException(status_code=422, detail={
-                            "dlp_blocked": True, "findings": _d2["findings"],
-                            "external": _d2.get("external", []), "can_override": bool(_d2.get("can_override"))})
-                    await dlp_service.log_violation(_dlp_db, username, all_rcpts, body.subject,
-                                                    _d2["findings"], _d2["action"], _ovr2, _reason2 or None, _ext2)
+                    if _d2["action"] == "block" and not (
+                        _ovr2 and _d2.get("can_override") and _reason2
+                    ):
+                        await dlp_service.log_violation(
+                            _dlp_db,
+                            username,
+                            all_rcpts,
+                            body.subject,
+                            _d2["findings"],
+                            "block",
+                            False,
+                            None,
+                            _ext2,
+                        )
+                        raise HTTPException(
+                            status_code=422,
+                            detail={
+                                "dlp_blocked": True,
+                                "findings": _d2["findings"],
+                                "external": _d2.get("external", []),
+                                "can_override": bool(_d2.get("can_override")),
+                            },
+                        )
+                    await dlp_service.log_violation(
+                        _dlp_db,
+                        username,
+                        all_rcpts,
+                        body.subject,
+                        _d2["findings"],
+                        _d2["action"],
+                        _ovr2,
+                        _reason2 or None,
+                        _ext2,
+                    )
             except HTTPException:
                 raise
             except Exception:
@@ -229,27 +356,47 @@ async def send(
         # Escanea y registra; bloquea solo si es malicioso Y enforce. Fail-open.
         if attachments:
             try:
-                _sa = await db.fetchrow("SELECT enabled, enforce FROM safeattach_config WHERE id=1")
+                _sa = await db.fetchrow(
+                    "SELECT enabled, enforce FROM safeattach_config WHERE id=1"
+                )
                 if _sa and _sa["enabled"]:
                     import json as _json
+
                     from app.security.router import deep_scan_attachment
+
                     for _a in attachments:
-                        _scan = await deep_scan_attachment(_a["content"], _a["filename"], _a["content_type"])
+                        _scan = await deep_scan_attachment(
+                            _a["content"], _a["filename"], _a["content_type"]
+                        )
                         if _scan["result"] in ("malicious", "suspicious"):
                             try:
                                 await db.execute(
                                     """INSERT INTO attachment_scans
                                        (message_id, filename, content_type, size, scan_result, threats_found, scan_details)
                                        VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb)""",
-                                    f"outbound:{username}", _a["filename"], _a["content_type"],
-                                    len(_a["content"]), _scan["result"],
-                                    _json.dumps(_scan["threats"]), _json.dumps(_scan["details"]))
+                                    f"outbound:{username}",
+                                    _a["filename"],
+                                    _a["content_type"],
+                                    len(_a["content"]),
+                                    _scan["result"],
+                                    _json.dumps(_scan["threats"]),
+                                    _json.dumps(_scan["details"]),
+                                )
                             except Exception:
                                 pass
-                        if _scan["result"] == "malicious" and _sa["enforce"] and not getattr(body, "dlp_override", False):
-                            raise HTTPException(status_code=422, detail={
-                                "attachment_blocked": True, "filename": _a["filename"],
-                                "threats": _scan["threats"]})
+                        if (
+                            _scan["result"] == "malicious"
+                            and _sa["enforce"]
+                            and not getattr(body, "dlp_override", False)
+                        ):
+                            raise HTTPException(
+                                status_code=422,
+                                detail={
+                                    "attachment_blocked": True,
+                                    "filename": _a["filename"],
+                                    "threats": _scan["threats"],
+                                },
+                            )
             except HTTPException:
                 raise
             except Exception:
@@ -276,10 +423,18 @@ async def send(
             )
         except Exception as smtp_err:
             import logging
-            logging.getLogger("compose").error(f"Send failed for {username}: {smtp_err}")
+
+            logging.getLogger("compose").error(
+                f"Send failed for {username}: {smtp_err}"
+            )
             if "authentication" in str(smtp_err).lower():
-                raise HTTPException(status_code=401, detail="Sesión SMTP expirada. Cierra sesión y vuelve a iniciar.")
-            raise HTTPException(status_code=500, detail=f"Error al enviar: {str(smtp_err)[:200]}")
+                raise HTTPException(
+                    status_code=401,
+                    detail="Sesión SMTP expirada. Cierra sesión y vuelve a iniciar.",
+                )
+            raise HTTPException(
+                status_code=500, detail=f"Error al enviar: {str(smtp_err)[:200]}"
+            )
 
         # Auto-save all recipients for future autocomplete
         all_recipients = list(body.to or [])
@@ -341,13 +496,15 @@ async def send_multipart(
         attachments = []
         for f in files:
             content = await f.read()
-            attachments.append({
-                "filename": f.filename or "attachment",
-                "content": content,
-                "content_type": f.content_type or "application/octet-stream",
-                "is_inline": False,
-                "cid": "",
-            })
+            attachments.append(
+                {
+                    "filename": f.filename or "attachment",
+                    "content": content,
+                    "content_type": f.content_type or "application/octet-stream",
+                    "is_inline": False,
+                    "cid": "",
+                }
+            )
 
         result = await send_and_save(
             imap=imap,
@@ -423,6 +580,7 @@ async def remove_draft(
         ok = await delete_draft(imap, uid)
         if not ok:
             from fastapi import HTTPException
+
             raise HTTPException(status_code=400, detail="Failed to delete draft")
         return {"status": "deleted"}
     finally:
@@ -433,6 +591,7 @@ async def remove_draft(
 
 
 # -- Scheduled emails ----------------------------------------------------------
+
 
 async def _ensure_scheduled_table(db):
     # Tabla creada por migrations/init_tables.sql (Fase 3)
@@ -451,12 +610,16 @@ async def schedule_send(
     await _ensure_scheduled_table(db)
 
     from datetime import datetime as _dt
+
     try:
         sched_dt = _dt.fromisoformat(body.scheduled_at.replace("Z", "+00:00"))
     except ValueError:
-        raise HTTPException(status_code=400, detail="Fecha de envío programado inválida (use ISO 8601)")
+        raise HTTPException(
+            status_code=400, detail="Fecha de envío programado inválida (use ISO 8601)"
+        )
 
-    row = await db.fetchrow("""
+    row = await db.fetchrow(
+        """
         INSERT INTO scheduled_emails
             (username, to_list, cc_list, bcc_list, subject, html_body, text_body,
              in_reply_to, "references", scheduled_at, status,
@@ -494,19 +657,34 @@ async def list_scheduled(
     db = request.app.state.db_pool
     await _ensure_scheduled_table(db)
 
-    rows = await db.fetch("""
+    rows = await db.fetch(
+        """
         SELECT id, to_list, cc_list, bcc_list, subject, scheduled_at, status, created_at
         FROM scheduled_emails
         WHERE username = $1 AND status = 'pending'
         ORDER BY scheduled_at ASC
-    """, username)
+    """,
+        username,
+    )
 
     return [
         {
             "id": r["id"],
-            "to": json.loads(r["to_list"]) if isinstance(r["to_list"], str) else r["to_list"],
-            "cc": json.loads(r["cc_list"]) if isinstance(r["cc_list"], str) else r["cc_list"],
-            "bcc": json.loads(r["bcc_list"]) if isinstance(r["bcc_list"], str) else r["bcc_list"],
+            "to": (
+                json.loads(r["to_list"])
+                if isinstance(r["to_list"], str)
+                else r["to_list"]
+            ),
+            "cc": (
+                json.loads(r["cc_list"])
+                if isinstance(r["cc_list"], str)
+                else r["cc_list"]
+            ),
+            "bcc": (
+                json.loads(r["bcc_list"])
+                if isinstance(r["bcc_list"], str)
+                else r["bcc_list"]
+            ),
             "subject": r["subject"],
             "scheduled_at": str(r["scheduled_at"]),
             "status": r["status"],
@@ -526,13 +704,19 @@ async def cancel_scheduled(
     db = request.app.state.db_pool
     await _ensure_scheduled_table(db)
 
-    result = await db.execute("""
+    result = await db.execute(
+        """
         UPDATE scheduled_emails SET status = 'cancelled'
         WHERE id = $1 AND username = $2 AND status = 'pending'
-    """, email_id, username)
+    """,
+        email_id,
+        username,
+    )
 
     if result == "UPDATE 0":
-        raise HTTPException(status_code=404, detail="Scheduled email not found or already sent")
+        raise HTTPException(
+            status_code=404, detail="Scheduled email not found or already sent"
+        )
 
     return {"status": "cancelled", "id": email_id}
 
@@ -540,6 +724,7 @@ async def cancel_scheduled(
 # -- Email Templates -----------------------------------------------------------
 
 from pydantic import BaseModel, field_validator
+
 
 class TemplateCreate(BaseModel):
     name: str
@@ -560,22 +745,49 @@ class TemplateCreate(BaseModel):
             return ""
         return nh3.clean(
             v,
-            tags={"p","br","strong","em","u","s","a","ul","ol","li",
-                  "h1","h2","h3","h4","blockquote","img","table","tr",
-                  "td","th","thead","tbody","span","div","sub","sup","hr"},
-            attributes={
-                "a": {"href","title","target"},
-                "img": {"src","alt","width","height"},
-                "td": {"colspan","rowspan"},
-                "th": {"colspan","rowspan"},
+            tags={
+                "p",
+                "br",
+                "strong",
+                "em",
+                "u",
+                "s",
+                "a",
+                "ul",
+                "ol",
+                "li",
+                "h1",
+                "h2",
+                "h3",
+                "h4",
+                "blockquote",
+                "img",
+                "table",
+                "tr",
+                "td",
+                "th",
+                "thead",
+                "tbody",
+                "span",
+                "div",
+                "sub",
+                "sup",
+                "hr",
             },
-            url_schemes={"http","https","mailto"},
+            attributes={
+                "a": {"href", "title", "target"},
+                "img": {"src", "alt", "width", "height"},
+                "td": {"colspan", "rowspan"},
+                "th": {"colspan", "rowspan"},
+            },
+            url_schemes={"http", "https", "mailto"},
         )
 
     @field_validator("name", "category", mode="before")
     @classmethod
     def strip_html_text(cls, v):
         return re.sub(r"<[^>]+>", "", v).strip() if v else ""
+
 
 async def _ensure_templates_table(db):
     # Tabla creada por migrations/init_tables.sql (Fase 3)
@@ -632,7 +844,10 @@ async def _ensure_templates_table(db):
             await db.execute(
                 """INSERT INTO email_templates (owner, name, subject, html_body, category)
                    VALUES ('__default__', $1, $2, $3, $4)""",
-                name, subject, html_body, category,
+                name,
+                subject,
+                html_body,
+                category,
             )
 
 
@@ -645,14 +860,17 @@ async def list_templates(
     db = request.app.state.db_pool
     await _ensure_templates_table(db)
 
-    rows = await db.fetch("""
+    rows = await db.fetch(
+        """
         SELECT id, owner, name, category, subject, html_body, created_at
         FROM email_templates
         WHERE owner = $1 OR owner = '__default__'
         ORDER BY
             CASE WHEN owner = '__default__' THEN 1 ELSE 0 END,
             created_at DESC
-    """, username)
+    """,
+        username,
+    )
 
     return [
         {
@@ -678,11 +896,18 @@ async def create_template(
     db = request.app.state.db_pool
     await _ensure_templates_table(db)
 
-    row = await db.fetchrow("""
+    row = await db.fetchrow(
+        """
         INSERT INTO email_templates (owner, name, subject, html_body, category)
         VALUES ($1, $2, $3, $4, $5)
         RETURNING id, created_at
-    """, username, body.name, body.subject, body.html_body, body.category)
+    """,
+        username,
+        body.name,
+        body.subject,
+        body.html_body,
+        body.category,
+    )
 
     return {
         "status": "created",
@@ -701,12 +926,18 @@ async def delete_template(
     db = request.app.state.db_pool
     await _ensure_templates_table(db)
 
-    result = await db.execute("""
+    result = await db.execute(
+        """
         DELETE FROM email_templates
         WHERE id = $1 AND owner = $2
-    """, template_id, username)
+    """,
+        template_id,
+        username,
+    )
 
     if result == "DELETE 0":
-        raise HTTPException(status_code=404, detail="Plantilla no encontrada o es predeterminada")
+        raise HTTPException(
+            status_code=404, detail="Plantilla no encontrada o es predeterminada"
+        )
 
     return {"status": "deleted", "id": template_id}

@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}Chat Institucional - Faro Gestión Estratégica{% endblock %}
+{% block title %}Chat Institucional - Raíces{% endblock %}
 
 {% block page_icon %}<i class="fas fa-comments me-2"></i>{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/chat-page.css') }}?v=20260827d">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/chat-page.css') }}?v=20260827h">
 <!-- Modo EMBED: cuando el chat va dentro del panel flotante del correo/Drive
-     (/chat/?embed=1) se oculta la barra de FARO (app launcher, correo, perfil)
+     (/chat/?embed=1) se oculta la barra de Raíces (app launcher, correo, perfil)
      para que no rediriga (bucle) ni se solape el menu de perfil. -->
 <script>
   if (new URLSearchParams(location.search).get('embed') === '1') {
@@ -41,7 +41,7 @@
     <div class="chat-sidebar">
         <div class="chat-sidebar-header">
             <div class="d-flex justify-content-between align-items-center">
-                <h5><i class="fas fa-comments me-2"></i>Mensajes</h5>
+                <h5><i class="fas fa-comments me-2"></i>Chat</h5>
                 <div class="d-flex gap-1">
                     <button class="btn btn-sm btn-light" onclick="abrirHistorialLlamadas()" title="Historial de llamadas">
                         <i class="fas fa-phone"></i>
@@ -113,10 +113,10 @@
                 </div>
                 <div class="chat-actions">
                     <!-- Botones de Maquita Meet -->
-                    <button id="btnLlamadaAudio" onclick="iniciarLlamadaDesdeChat('audio')" title="Llamada de voz" class="meet-btn" style="color: #28a745;">
+                    <button id="btnLlamadaAudio" onclick="iniciarLlamadaDesdeChat('audio')" title="Llamada de voz (en un grupo, llama a todos)" class="meet-btn" style="color: #28a745;">
                         <i class="fas fa-phone"></i>
                     </button>
-                    <button id="btnLlamadaVideo" onclick="iniciarLlamadaDesdeChat('video')" title="Videollamada" class="meet-btn" style="color: #0061a1;">
+                    <button id="btnLlamadaVideo" onclick="iniciarLlamadaDesdeChat('video')" title="Videollamada (en un grupo, videollamada grupal)" class="meet-btn" style="color: #0061a1;">
                         <i class="fas fa-video"></i>
                     </button>
                     <button id="btnConferenciaGrupal" onclick="iniciarConferenciaDesdeChat()" title="Conferencia de audio grupal" class="meet-btn" style="color: #10b981; display: none;">
@@ -209,7 +209,7 @@
                     <div class="gif-picker-content" id="gifPickerContent">
                         <div class="gif-placeholder">
                             <i class="fas fa-search fa-3x mb-3 text-muted"></i>
-                            <p class="text-muted">Busca GIFs para enviar</p>
+                            <p class="text-muted">Busca en la biblioteca Maquita; si no está, búscalo en fuentes externas</p>
                         </div>
                     </div>
                 </div>
@@ -367,8 +367,83 @@
 
 <!-- Chat JS - Version 3.0 - 2026-01-01 - Envío via WebSocket -->
 <script>window.CHAT_USER_ID = {{ current_user.id if current_user and current_user.is_authenticated else 'null' }};</script>
-<script src="{{ url_for('static', filename='js/chat-page.js') }}?v=20260827d"></script>
-<script src="{{ url_for('static', filename='js/chat-gifs-local.js') }}?v=20260827d"></script>
-<script src="{{ url_for('static', filename='js/chat-responder.js') }}?v=20260827d"></script>
-<script src="{{ url_for('static', filename='js/chat-vistos.js') }}?v=20260827d"></script>
+<!-- chat-page.js partido en módulos (28/08/2026); mismo orden que el archivo original -->
+<script src="{{ url_for('static', filename='js/chat-meet.js') }}?v=20260831-t15"></script>
+<script src="{{ url_for('static', filename='js/chat-socket.js') }}?v=20260828-chat2"></script>
+<script src="{{ url_for('static', filename='js/chat-historial-llamadas.js') }}?v=20260828-chat1"></script>
+<script src="{{ url_for('static', filename='js/chat-tiempo-real.js') }}?v=20260828-chat1"></script>
+<script src="{{ url_for('static', filename='js/chat-estado.js') }}?v=20260828-chat1"></script>
+<script src="{{ url_for('static', filename='js/chat-notificaciones-sonido.js') }}?v=20260828-chat1"></script>
+<script src="{{ url_for('static', filename='js/chat-inicio.js') }}?v=20260828-chat1"></script>
+<script src="{{ url_for('static', filename='js/chat-conversaciones.js') }}?v=20260828-chat1"></script>
+<script src="{{ url_for('static', filename='js/chat-mensajes.js') }}?v=20260828-chat1"></script>
+<script src="{{ url_for('static', filename='js/chat-reacciones.js') }}?v=20260828-chat1"></script>
+<script src="{{ url_for('static', filename='js/chat-emojis.js') }}?v=20260828-chat1"></script>
+<script src="{{ url_for('static', filename='js/chat-envio.js') }}?v=20260828-chat1"></script>
+<script src="{{ url_for('static', filename='js/chat-nuevo-chat.js') }}?v=20260828-chat1"></script>
+<script src="{{ url_for('static', filename='js/chat-grupos-crear.js') }}?v=20260828-chat1"></script>
+<script src="{{ url_for('static', filename='js/chat-lista.js') }}?v=20260828-chat1"></script>
+<script src="{{ url_for('static', filename='js/chat-presencia.js') }}?v=20260828-chat1"></script>
+<script src="{{ url_for('static', filename='js/chat-utilidades-archivos.js') }}?v=20260828-chat1"></script>
+<script src="{{ url_for('static', filename='js/chat-opciones-mensaje.js') }}?v=20260902-t54b"></script>
+<script src="{{ url_for('static', filename='js/chat-menus-contextuales.js') }}?v=20260828-chat1"></script>
+<script src="{{ url_for('static', filename='js/chat-gifs-local.js') }}?v=20260828-externos"></script>
+<script src="{{ url_for('static', filename='js/chat-responder.js') }}?v=20260827h"></script>
+<script src="{{ url_for('static', filename='js/chat-vistos.js') }}?v=20260827h"></script>
+<script src="{{ url_for('static', filename='js/chat-llamadas.js') }}?v=20260831-t15"></script>
+<script src="{{ url_for('static', filename='js/chat-pegar-imagen.js') }}?v=20260828a"></script>
+<script src="{{ url_for('static', filename='js/chat-arrastrar.js') }}?v=20260828a"></script>
+<script src="{{ url_for('static', filename='js/chat-adjuntos-dedup.js') }}?v=20260828a"></script>
+<script src="{{ url_for('static', filename='js/chat-grupos.js') }}?v=20260831-t15"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/chat-ficha-persona.css') }}?v=20260901-t43">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/chat-teams.css') }}?v=20260902-t54b">
+<script src="{{ url_for('static', filename='js/chat-teams.js') }}?v=20260902-t54b"></script>
+<script src="{{ url_for('static', filename='js/chat-teams-extras.js') }}?v=20260902-t54b"></script>
+<!-- T-45 punto 11: burbujas que ocupan el ancho disponible -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/chat-burbujas.css') }}?v=20260902-t54b">
+<!-- T-45 punto 10: vistos inmediatos y claros -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/chat-vistos-claros.css') }}?v=20260902-t54b">
+<script src="{{ url_for('static', filename='js/chat-vistos-claros.js') }}?v=20260902-t54b"></script>
+<!-- T-45 punto 9: lo transversal vive en el buscador de la izquierda -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/chat-busqueda-general.css') }}?v=20260902-t54b">
+<script src="{{ url_for('static', filename='js/chat-busqueda-general.js') }}?v=20260902-t54b"></script>
+<!-- T-48: el puntito de estado (conectado, ausente, ocupado) -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/chat-estados.css') }}?v=20260902-t54b">
+<script src="{{ url_for('static', filename='js/chat-estados.js') }}?v=20260902-t54b"></script>
+<!-- T-50 tanda 1: el panel de la izquierda como Teams -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/chat-lista-teams.css') }}?v=20260902-t54b">
+<script src="{{ url_for('static', filename='js/chat-lista-teams.js') }}?v=20260902-t54b"></script>
+<!-- T-50 tanda 2: el encabezado del chat activo como Teams -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/chat-encabezado-teams.css') }}?v=20260902-t54b">
+<script src="{{ url_for('static', filename='js/chat-encabezado-teams.js') }}?v=20260902-t54b"></script>
+<!-- T-50 tanda 3: la barra de redaccion como Teams -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/chat-redaccion-teams.css') }}?v=20260902-t54b">
+<script src="{{ url_for('static', filename='js/chat-redaccion-teams.js') }}?v=20260902-t54b"></script>
+<!-- T-49: el cache local cifrado. El orden es el que importa: la llave,
+     el cifrado, el almacen y quien los usa. -->
+<script src="{{ url_for('static', filename='js/chat-cache-llave.js') }}?v=20260902-t54b"></script>
+<script src="{{ url_for('static', filename='js/chat-cache-cifrado.js') }}?v=20260902-t54b"></script>
+<script src="{{ url_for('static', filename='js/chat-cache-almacen.js') }}?v=20260902-t54b"></script>
+<script src="{{ url_for('static', filename='js/chat-cache-chat.js') }}?v=20260902-t54b"></script>
+<script src="{{ url_for('static', filename='js/chat-cache-pintado.js') }}?v=20260902-t54b"></script>
+<!-- T-54a: llegar al mensaje sin paseo -->
+<script src="{{ url_for('static', filename='js/chat-ancla.js') }}?v=20260902-t54b"></script>
+<script src="{{ url_for('static', filename='js/chat-ficha-persona.js') }}?v=20260901-t43"></script>
+<script>
+  // Abre sola la conversacion pedida por la URL (/chat/conversation/<id> o ?conv=<id>).
+  (function () {
+    var id = parseInt('{{ conv_inicial or "" }}' || new URLSearchParams(location.search).get('conv') || '', 10);
+    if (!id) return;
+    var intentos = 0;
+    var t = setInterval(function () {
+      if (typeof window.openConversation === 'function') {
+        clearInterval(t);
+        try { window.openConversation(id, 'direct'); } catch (e) {}
+      } else if (++intentos > 40) {
+        clearInterval(t);   // 20 s: la pagina queda usable igual, con la lista
+      }
+    }, 500);
+  })();
+</script>
 {% endblock %}
+

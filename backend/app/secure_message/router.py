@@ -3,15 +3,17 @@
 - Autenticado (usuario webmail): crear/enviar, listar enviados, revocar, estado.
 - Público (destinatario externo): portal HTML, pedir código, verificar y leer.
 """
-import base64
-import json
-import html as html_lib
 
-from fastapi import APIRouter, Depends, Request, HTTPException
+import base64
+import html as html_lib
+import json
+
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
+
 from . import service
 
 # ── Router autenticado ──────────────────────────────────────────────────────
@@ -38,60 +40,88 @@ async def secure_config(request: Request, username: str = Depends(get_current_us
 
 
 @auth_router.post("/send")
-async def secure_send(body: SecureSendRequest, request: Request,
-                      username: str = Depends(get_current_user)):
+async def secure_send(
+    body: SecureSendRequest, request: Request, username: str = Depends(get_current_user)
+):
     db = request.app.state.db_pool
     cfg = await service.get_config(db)
     if not cfg["enabled"]:
-        raise HTTPException(status_code=403, detail="El correo cifrado está desactivado")
+        raise HTTPException(
+            status_code=403, detail="El correo cifrado está desactivado"
+        )
     recipients = [r.strip() for r in (body.to or []) if r.strip()]
     if not recipients:
         raise HTTPException(status_code=400, detail="Indica al menos un destinatario")
 
     display_name = ""
-    row = await db.fetchrow("SELECT display_name FROM user_preferences WHERE username = $1", username)
+    row = await db.fetchrow(
+        "SELECT display_name FROM user_preferences WHERE username = $1", username
+    )
     if row and row["display_name"]:
         display_name = row["display_name"]
 
     files = []
-    for a in (body.attachments or []):
+    for a in body.attachments or []:
         try:
-            files.append({"filename": a.filename,
-                          "content_type": a.content_type or "application/octet-stream",
-                          "content": base64.b64decode(a.content_b64)})
+            files.append(
+                {
+                    "filename": a.filename,
+                    "content_type": a.content_type or "application/octet-stream",
+                    "content": base64.b64decode(a.content_b64),
+                }
+            )
         except Exception:
             continue
 
-    res = await service.create_and_notify(db, username, display_name, body.subject,
-                                          recipients, body.html_body, files)
+    res = await service.create_and_notify(
+        db, username, display_name, body.subject, recipients, body.html_body, files
+    )
     return {"ok": True, **res}
 
 
 @auth_router.get("/sent")
-async def secure_sent(request: Request, username: str = Depends(get_current_user), limit: int = 50):
+async def secure_sent(
+    request: Request, username: str = Depends(get_current_user), limit: int = 50
+):
     db = request.app.state.db_pool
     rows = await db.fetch(
         "SELECT token, subject, recipients, created_at, expires_at, revoked, view_count "
         "FROM secure_messages WHERE sender = $1 ORDER BY created_at DESC LIMIT $2",
-        username, max(1, min(limit, 200)))
+        username,
+        max(1, min(limit, 200)),
+    )
     out = []
     for r in rows:
         rec = r["recipients"]
         if isinstance(rec, str):
-            try: rec = json.loads(rec)
-            except ValueError: rec = []
-        out.append({"token": r["token"], "subject": r["subject"], "recipients": rec,
-                    "created_at": r["created_at"].isoformat() if r["created_at"] else None,
-                    "expires_at": r["expires_at"].isoformat() if r["expires_at"] else None,
-                    "revoked": r["revoked"], "view_count": r["view_count"]})
+            try:
+                rec = json.loads(rec)
+            except ValueError:
+                rec = []
+        out.append(
+            {
+                "token": r["token"],
+                "subject": r["subject"],
+                "recipients": rec,
+                "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+                "expires_at": r["expires_at"].isoformat() if r["expires_at"] else None,
+                "revoked": r["revoked"],
+                "view_count": r["view_count"],
+            }
+        )
     return {"messages": out}
 
 
 @auth_router.post("/{token}/revoke")
-async def secure_revoke(token: str, request: Request, username: str = Depends(get_current_user)):
+async def secure_revoke(
+    token: str, request: Request, username: str = Depends(get_current_user)
+):
     db = request.app.state.db_pool
-    res = await db.execute("UPDATE secure_messages SET revoked = true WHERE token = $1 AND sender = $2",
-                           token, username)
+    res = await db.execute(
+        "UPDATE secure_messages SET revoked = true WHERE token = $1 AND sender = $2",
+        token,
+        username,
+    )
     if res.endswith("0"):
         raise HTTPException(status_code=404, detail="Mensaje no encontrado")
     return {"ok": True}
@@ -111,17 +141,23 @@ class VerifyRequest(BaseModel):
 
 
 def _ip(request: Request) -> str:
-    return request.headers.get("X-Real-IP", request.client.host if request.client else "")
+    return request.headers.get(
+        "X-Real-IP", request.client.host if request.client else ""
+    )
 
 
 @public_router.post("/api/secure/{token}/request-otp")
 async def request_otp(token: str, body: OtpRequest, request: Request):
-    return await service.send_otp(request.app.state.db_pool, token, body.email, _ip(request))
+    return await service.send_otp(
+        request.app.state.db_pool, token, body.email, _ip(request)
+    )
 
 
 @public_router.post("/api/secure/{token}/verify")
 async def verify(token: str, body: VerifyRequest, request: Request):
-    return await service.verify_and_read(request.app.state.db_pool, token, body.email, body.code, _ip(request))
+    return await service.verify_and_read(
+        request.app.state.db_pool, token, body.email, body.code, _ip(request)
+    )
 
 
 @public_router.get("/secure/{token}", response_class=HTMLResponse)

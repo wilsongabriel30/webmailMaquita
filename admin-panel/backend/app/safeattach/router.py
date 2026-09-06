@@ -93,17 +93,60 @@ async def stats(r: Request, a=Depends(get_current_admin)):
     return dict(row) if row else {}
 
 
+@router.get("/cola-cuarentena")
+async def cola_cuarentena(r: Request, a=Depends(get_current_admin)):
+    """Cola de evidencia diferida (B2): marcadores que el milter dejo cuando el INSERT
+    en la BD fallo (BD caida), + las cuarentenas recientes ya registradas. Asi los
+    marcadores NO quedan mudos: el panel los muestra."""
+    import os, glob
+    cola_dir = os.getenv("MILTER_COLA_CUARENTENA", "/var/lib/maquita-admin/cola-cuarentena")
+    pendientes = []
+    try:
+        for f in sorted(glob.glob(os.path.join(cola_dir, "*.json")))[:200]:
+            try:
+                pendientes.append(json.load(open(f, encoding="utf-8")))
+            except Exception:
+                pendientes.append({"archivo": os.path.basename(f), "error": "ilegible"})
+    except Exception:
+        pass
+    recientes = []
+    try:
+        rows = await _db(r).fetch(
+            "SELECT message_id, filename, content_type, size, scan_result, scanned_by, scanned_at "
+            "FROM attachment_scans WHERE scan_result = 'quarantined' "
+            "ORDER BY scanned_at DESC LIMIT 100")
+        recientes = [dict(x) for x in rows]
+    except Exception:
+        pass
+    return {"pendientes": pendientes, "pendientes_total": len(pendientes), "recientes": recientes}
+
+
 # ── Motor AVANZADO (multi-motor + detonación) del webmail ──
 WEBMAIL = "/opt/maquita-webmail/backend"
+import re as _re
+_NOMBRE_ADJUNTO_RE = _re.compile(r"^[\w.\- ]{1,120}$")
 
 
+from app.wrappers.entorno_webmail import DIRECTORIO_EJECUCION as _DIR_EJECUCION
+
+
+def _env_webmail() -> dict:
+    """Entorno para los subprocesos del correo.
+
+    Antes abria entero el .env del correo (46 variables, con todos sus secretos).
+    Desde la fase 2 el panel no corre como root y no puede leer ese archivo: los
+    valores que hacen falta, y solo esos, se copian a la configuracion del panel
+    con prefijo WEBMAIL_. Ver wrappers/entorno_webmail.py.
+    """
+    from app.wrappers.entorno_webmail import entorno_webmail
+    return entorno_webmail()
 class AnalyzeReq(BaseModel):
     filename: str
     content_b64: str
 
 
 @router.post("/analyze")
-async def analyze(r: Request, body: AnalyzeReq, a=Depends(get_current_admin)):
+async def analyze(r: Request, body: AnalyzeReq, a=Depends(require_role("superadmin", "admin"))):
     """Analiza un archivo con el motor avanzado (clamav+filetype+oletools+archive+yara+detonación)."""
     import base64, os, subprocess, tempfile
     try:
@@ -117,10 +160,12 @@ async def analyze(r: Request, body: AnalyzeReq, a=Depends(get_current_admin)):
         with os.fdopen(fd, "wb") as fh:
             fh.write(content)
         name = os.path.basename(body.filename) or "muestra"
+        if not _NOMBRE_ADJUNTO_RE.match(name):
+            return {"error": "nombre de archivo inválido"}
         p = subprocess.run(
-            ["bash", "-c",
-             f"cd {WEBMAIL} && set -a && . .env && set +a && "
-             f"venv/bin/python -m app.safeattach.scan_file {path} {json.dumps(name)}"],
+            [os.path.join(WEBMAIL, "venv/bin/python"),
+             "-m", "app.safeattach.scan_file", path, name],
+            cwd=_DIR_EJECUCION, env=_env_webmail(),
             capture_output=True, text=True, timeout=150)
         out = (p.stdout or "").strip()
         try:
@@ -148,7 +193,8 @@ async def engine_status(r: Request, a=Depends(get_current_admin)):
           "'detonation':os.getenv('SAFEATTACH_DETONATE','0')=='1'}))")
     try:
         p = subprocess.run(
-            ["bash", "-c", f"cd {WEBMAIL} && set -a && . .env && set +a && venv/bin/python -c {json.dumps(py)}"],
+            [os.path.join(WEBMAIL, "venv/bin/python"), "-c", py],
+            cwd=_DIR_EJECUCION, env=_env_webmail(),
             capture_output=True, text=True, timeout=30)
         return json.loads((p.stdout or "{}").strip().splitlines()[-1])
     except Exception as e:

@@ -1,6 +1,9 @@
 """Campos personalizados — definiciones y valores por contacto."""
-from fastapi import APIRouter, Request, Depends, HTTPException
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+
 from app.auth.dependencies import get_current_user
+
 from .helpers import audit
 
 router = APIRouter(prefix="/api/contacts", tags=["contacts"])
@@ -14,18 +17,22 @@ def field_to_dict(row) -> dict:
 
 
 @router.get("/custom-fields")
-async def list_custom_fields(request: Request, username: str = Depends(get_current_user)):
+async def list_custom_fields(
+    request: Request, username: str = Depends(get_current_user)
+):
     """Lista definiciones de campos personalizados del usuario."""
     db = request.app.state.db_pool
     rows = await db.fetch(
         "SELECT * FROM contact_custom_fields WHERE owner=$1 ORDER BY field_name",
-        username
+        username,
     )
     return [field_to_dict(r) for r in rows]
 
 
 @router.post("/custom-fields")
-async def create_custom_field(request: Request, username: str = Depends(get_current_user)):
+async def create_custom_field(
+    request: Request, username: str = Depends(get_current_user)
+):
     """Crea un campo personalizado."""
     body = await request.json()
     db = request.app.state.db_pool
@@ -43,7 +50,9 @@ async def create_custom_field(request: Request, username: str = Depends(get_curr
         row = await db.fetchrow(
             "INSERT INTO contact_custom_fields (owner, field_name, field_type) "
             "VALUES ($1,$2,$3) RETURNING *",
-            username, field_name, field_type
+            username,
+            field_name,
+            field_type,
         )
     except Exception:
         raise HTTPException(409, "Ya existe un campo con ese nombre")
@@ -52,11 +61,15 @@ async def create_custom_field(request: Request, username: str = Depends(get_curr
 
 
 @router.delete("/custom-fields/{field_id}")
-async def delete_custom_field(field_id: int, request: Request, username: str = Depends(get_current_user)):
+async def delete_custom_field(
+    field_id: int, request: Request, username: str = Depends(get_current_user)
+):
     """Elimina un campo personalizado y todos sus valores."""
     db = request.app.state.db_pool
     existing = await db.fetchval(
-        "SELECT id FROM contact_custom_fields WHERE id=$1 AND owner=$2", field_id, username
+        "SELECT id FROM contact_custom_fields WHERE id=$1 AND owner=$2",
+        field_id,
+        username,
     )
     if not existing:
         raise HTTPException(404, "Campo no encontrado")
@@ -67,7 +80,9 @@ async def delete_custom_field(field_id: int, request: Request, username: str = D
 
 
 @router.get("/{contact_id}/custom-values")
-async def get_custom_values(contact_id: int, request: Request, username: str = Depends(get_current_user)):
+async def get_custom_values(
+    contact_id: int, request: Request, username: str = Depends(get_current_user)
+):
     """Obtiene valores de campos personalizados para un contacto."""
     db = request.app.state.db_pool
     exists = await db.fetchval(
@@ -82,14 +97,25 @@ async def get_custom_values(contact_id: int, request: Request, username: str = D
         "JOIN contact_custom_fields cf ON cf.id = cv.field_id "
         "WHERE cv.contact_id=$1 AND cf.owner=$2 "
         "ORDER BY cf.field_name",
-        contact_id, username
+        contact_id,
+        username,
     )
-    return [{"id": r["id"], "field_id": r["field_id"], "field_name": r["field_name"],
-             "field_type": r["field_type"], "value": r["value"]} for r in rows]
+    return [
+        {
+            "id": r["id"],
+            "field_id": r["field_id"],
+            "field_name": r["field_name"],
+            "field_type": r["field_type"],
+            "value": r["value"],
+        }
+        for r in rows
+    ]
 
 
 @router.put("/{contact_id}/custom-values")
-async def set_custom_values(contact_id: int, request: Request, username: str = Depends(get_current_user)):
+async def set_custom_values(
+    contact_id: int, request: Request, username: str = Depends(get_current_user)
+):
     """Establece valores de campos personalizados. Body: {field_id: value, ...}"""
     body = await request.json()
     db = request.app.state.db_pool
@@ -108,7 +134,9 @@ async def set_custom_values(contact_id: int, request: Request, username: str = D
 
         # Verificar que el campo pertenece al usuario
         field_exists = await db.fetchval(
-            "SELECT id FROM contact_custom_fields WHERE id=$1 AND owner=$2", field_id, username
+            "SELECT id FROM contact_custom_fields WHERE id=$1 AND owner=$2",
+            field_id,
+            username,
         )
         if not field_exists:
             continue
@@ -117,16 +145,21 @@ async def set_custom_values(contact_id: int, request: Request, username: str = D
             # Borrar valor vacío
             await db.execute(
                 "DELETE FROM contact_custom_values WHERE contact_id=$1 AND field_id=$2",
-                contact_id, field_id
+                contact_id,
+                field_id,
             )
         else:
             await db.execute(
                 "INSERT INTO contact_custom_values (contact_id, field_id, value) "
                 "VALUES ($1,$2,$3) ON CONFLICT (contact_id, field_id) DO UPDATE SET value=$3",
-                contact_id, field_id, str(value)
+                contact_id,
+                field_id,
+                str(value),
             )
 
-    await audit(db, username, contact_id, "custom_values_updated", {"fields": list(body.keys())})
+    await audit(
+        db, username, contact_id, "custom_values_updated", {"fields": list(body.keys())}
+    )
 
     # Retornar valores actualizados
     rows = await db.fetch(
@@ -135,7 +168,16 @@ async def set_custom_values(contact_id: int, request: Request, username: str = D
         "JOIN contact_custom_fields cf ON cf.id = cv.field_id "
         "WHERE cv.contact_id=$1 AND cf.owner=$2 "
         "ORDER BY cf.field_name",
-        contact_id, username
+        contact_id,
+        username,
     )
-    return [{"id": r["id"], "field_id": r["field_id"], "field_name": r["field_name"],
-             "field_type": r["field_type"], "value": r["value"]} for r in rows]
+    return [
+        {
+            "id": r["id"],
+            "field_id": r["field_id"],
+            "field_name": r["field_name"],
+            "field_type": r["field_type"],
+            "value": r["value"],
+        }
+        for r in rows
+    ]

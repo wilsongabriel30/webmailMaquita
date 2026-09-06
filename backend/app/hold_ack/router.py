@@ -3,6 +3,7 @@
 El custodio recibe un correo con un enlace; abre esta página, lee el aviso y
 confirma el acuse. Queda registrado quién y cuándo lo reconoció.
 """
+
 import html as html_lib
 from datetime import datetime, timezone
 
@@ -24,7 +25,9 @@ async def _load(db, token: str):
         """SELECT c.id, c.email, c.acknowledged_at, c.role,
                   cc.title, cc.reason
            FROM case_custodians c JOIN compliance_cases cc ON cc.id = c.case_id
-           WHERE c.ack_token = $1""", token)
+           WHERE c.ack_token = $1""",
+        token,
+    )
 
 
 @router.post("/api/hold-ack/{token}")
@@ -34,7 +37,10 @@ async def ack(token: str, request: Request):
     if not row:
         return {"ok": False, "status": "not_found"}
     if not row["acknowledged_at"]:
-        await db.execute("UPDATE case_custodians SET acknowledged_at = now() WHERE ack_token = $1", token)
+        await db.execute(
+            "UPDATE case_custodians SET acknowledged_at = now() WHERE ack_token = $1",
+            token,
+        )
     return {"ok": True}
 
 
@@ -44,15 +50,20 @@ async def page(token: str, request: Request):
     org_e = html_lib.escape(org)
     row = await _load(_db(request), token)
     if not row:
-        return HTMLResponse(_wrap('<div class="card"><div class="ico">⚖️</div><h2>Aviso no válido</h2><p>Este enlace no es válido o expiró.</p></div>', org))
+        return HTMLResponse(
+            _wrap(
+                '<div class="card"><div class="ico">⚖️</div><h2>Aviso no válido</h2><p>Este enlace no es válido o expiró.</p></div>',
+                org,
+            )
+        )
     already = row["acknowledged_at"] is not None
     title = html_lib.escape(row["title"] or "")
     reason = html_lib.escape(row["reason"] or "")
     email = html_lib.escape(row["email"] or "")
     ack_block = (
         f'<div class="ok">✅ Acuse registrado. Gracias.</div>'
-        if already else
-        '<button id="ackbtn">Confirmo que recibí y entendí este aviso</button><div id="m" class="ok" style="display:none">✅ Acuse registrado. Gracias.</div>'
+        if already
+        else '<button id="ackbtn">Confirmo que recibí y entendí este aviso</button><div id="m" class="ok" style="display:none">✅ Acuse registrado. Gracias.</div>'
     )
     inner = f"""
     <div class="card" data-token="{html_lib.escape(token)}">

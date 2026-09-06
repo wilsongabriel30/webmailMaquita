@@ -47,3 +47,33 @@ venv/
 
 # clave privada VAPID (push) — nunca versionar
 backend/vapid_private.pem
+
+# Informe de remediacion: privado (coordinated disclosure); se publica cuando todo este CERRADO.
+REMEDIACION-2026-09.md
+
+# Informes de auditoria: contienen mapa de explotacion. NUNCA al repositorio
+# publico mientras haya hallazgos abiertos.
+docs/auditoria/
+
+# Copias de seguridad y paquetes sueltos dentro del arbol de trabajo
+*.bak
+*.bak.*
+backup-*/
+*.tar.gz
+
+# Guiones de prueba de humo con sesiones reales (no son parte del producto)
+backend/humo_*.py
+backend/sesion_prueba.py
+
+# Directorio de la organizacion (correo -> nombre): datos personales.
+# Lo regenera backend/app/tareas/jefes.py cada 10 minutos en
+# /var/lib/maquita-webmail/. Nunca debe volver al arbol de codigo.
+backend/app/tareas/nombres.json
+
+# Volcados de base de datos y respaldos, en cualquier subdirectorio: contienen
+# datos personales (usuarios, mensajes, nomina). Nunca al repositorio.
+**/backups/
+**/backup/
+*.sql.gz
+*.dump
+restore*.log

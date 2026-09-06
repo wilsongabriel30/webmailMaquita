@@ -11,12 +11,10 @@ async def list_aliases(db: asyncpg.Pool, domain: str | None = None) -> list[dict
             domain,
         )
     else:
-        rows = await db.fetch(
-            """SELECT address, goto, domain, active, created, modified
+        rows = await db.fetch("""SELECT address, goto, domain, active, created, modified
                FROM alias
                WHERE address != goto
-               ORDER BY domain, address"""
-        )
+               ORDER BY domain, address""")
     return [dict(r) for r in rows]
 
 
@@ -42,7 +40,10 @@ async def create_alias(
         """INSERT INTO alias (address, goto, domain, active)
            VALUES ($1, $2, $3, $4)
            RETURNING address, goto, domain, active, created, modified""",
-        address, goto, domain, active,
+        address,
+        goto,
+        domain,
+        active,
     )
     return dict(row)
 

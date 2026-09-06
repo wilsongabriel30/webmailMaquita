@@ -1,4 +1,8 @@
-# Guía de instalación nativa (producción)
+# Guía de instalación nativa (producción) — detalle manual
+
+> **La guía canónica es `INSTALL-DESDE-CERO.md`** (versión de referencia y pasos mínimos con el
+> instalador). Esta es el **detalle manual por componente**, para quien necesite entender o ajustar
+> cada pieza. Si hay contradicción entre las dos, manda `INSTALL-DESDE-CERO.md`.
 
 Esta guía instala Maquita Webmail de forma **nativa** (sin Docker) en un único
 servidor Debian, junto a una plataforma de correo real Postfix + Dovecot.
@@ -6,7 +10,7 @@ Reproduce el despliegue de producción de referencia.
 
 > El correo y el webmail corren **nativos, directo sobre el sistema operativo**.
 > Docker se usa únicamente para Z-Push (ActiveSync) — ver `deploy/z-push/`.
-> Esta guía es la vía recomendada y soportada para producción.
+> Es el detalle de la vía soportada para producción; la vía recomendada para instalar es el instalador de `INSTALL-DESDE-CERO.md`.
 
 ## Stack de referencia (probado)
 

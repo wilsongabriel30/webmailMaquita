@@ -1,7 +1,8 @@
 """Room Booking router."""
+
 from __future__ import annotations
 
-from datetime import datetime, date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -14,6 +15,7 @@ router = APIRouter(prefix="/api/rooms", tags=["rooms"])
 
 # ── Schemas ───────────────────────────────────────────────
 
+
 class RoomOut(BaseModel):
     id: int
     name: str
@@ -23,12 +25,14 @@ class RoomOut(BaseModel):
     amenities: list[str] = []
     is_active: bool = True
 
+
 class RoomCreate(BaseModel):
     name: str
     email: str | None = None
     capacity: int = 10
     location: str | None = None
     amenities: list[str] = Field(default_factory=list)
+
 
 class RoomUpdate(BaseModel):
     name: str | None = None
@@ -37,6 +41,7 @@ class RoomUpdate(BaseModel):
     location: str | None = None
     amenities: list[str] | None = None
     is_active: bool | None = None
+
 
 class BookingOut(BaseModel):
     id: int
@@ -49,17 +54,20 @@ class BookingOut(BaseModel):
     end_time: datetime
     status: str
 
+
 class BookingCreate(BaseModel):
     title: str
     start_time: datetime
     end_time: datetime
     event_id: int | None = None
 
+
 class SlotInfo(BaseModel):
     start: str
     end: str
     available: bool
     booking: BookingOut | None = None
+
 
 class AvailabilityResponse(BaseModel):
     room_id: int
@@ -72,6 +80,7 @@ def _db(request: Request):
 
 
 # ── Room CRUD ─────────────────────────────────────────────
+
 
 @router.get("", response_model=list[RoomOut])
 async def list_rooms(
@@ -108,7 +117,11 @@ async def create_room(
     row = await db.fetchrow(
         """INSERT INTO meeting_rooms (name, email, capacity, location, amenities)
            VALUES ($1, $2, $3, $4, $5) RETURNING *""",
-        data.name, data.email, data.capacity, data.location, data.amenities,
+        data.name,
+        data.email,
+        data.capacity,
+        data.location,
+        data.amenities,
     )
     return RoomOut(**dict(row))
 
@@ -158,6 +171,7 @@ async def delete_room(
 
 # ── Availability ──────────────────────────────────────────
 
+
 @router.get("/{room_id}/availability", response_model=AvailabilityResponse)
 async def room_availability(
     room_id: int,
@@ -173,7 +187,9 @@ async def room_availability(
     try:
         target_date = date.fromisoformat(date_str)
     except ValueError:
-        raise HTTPException(status_code=400, detail="Formato de fecha inválido. Use YYYY-MM-DD")
+        raise HTTPException(
+            status_code=400, detail="Formato de fecha inválido. Use YYYY-MM-DD"
+        )
 
     day_start = datetime.combine(target_date, datetime.min.time().replace(hour=8))
     day_end = datetime.combine(target_date, datetime.min.time().replace(hour=18))
@@ -187,7 +203,9 @@ async def room_availability(
              AND rb.end_time > $2
              AND rb.status = 'confirmed'
            ORDER BY rb.start_time""",
-        room_id, day_start, day_end,
+        room_id,
+        day_start,
+        day_end,
     )
 
     slots = []
@@ -209,18 +227,21 @@ async def room_availability(
                     status=b["status"],
                 )
                 break
-        slots.append(SlotInfo(
-            start=current.strftime("%H:%M"),
-            end=slot_end.strftime("%H:%M"),
-            available=booking_match is None,
-            booking=booking_match,
-        ))
+        slots.append(
+            SlotInfo(
+                start=current.strftime("%H:%M"),
+                end=slot_end.strftime("%H:%M"),
+                available=booking_match is None,
+                booking=booking_match,
+            )
+        )
         current = slot_end
 
     return AvailabilityResponse(room_id=room_id, date=date_str, slots=slots)
 
 
 # ── Bookings ──────────────────────────────────────────────
+
 
 @router.post("/{room_id}/book", response_model=BookingOut, status_code=201)
 async def book_room(
@@ -230,12 +251,16 @@ async def book_room(
     user: str = Depends(get_current_user),
 ):
     db = _db(request)
-    room = await db.fetchrow("SELECT * FROM meeting_rooms WHERE id = $1 AND is_active = true", room_id)
+    room = await db.fetchrow(
+        "SELECT * FROM meeting_rooms WHERE id = $1 AND is_active = true", room_id
+    )
     if not room:
         raise HTTPException(status_code=404, detail="Sala no encontrada o inactiva")
 
     if data.end_time <= data.start_time:
-        raise HTTPException(status_code=400, detail="La hora de fin debe ser posterior a la de inicio")
+        raise HTTPException(
+            status_code=400, detail="La hora de fin debe ser posterior a la de inicio"
+        )
 
     # Verificar conflictos
     conflict = await db.fetchval(
@@ -244,15 +269,24 @@ async def book_room(
              AND status = 'confirmed'
              AND start_time < $2
              AND end_time > $3""",
-        room_id, data.start_time, data.end_time,
+        room_id,
+        data.start_time,
+        data.end_time,
     )
     if conflict > 0:
-        raise HTTPException(status_code=409, detail="La sala ya esta reservada en ese horario")
+        raise HTTPException(
+            status_code=409, detail="La sala ya esta reservada en ese horario"
+        )
 
     row = await db.fetchrow(
         """INSERT INTO room_bookings (room_id, event_id, user_email, title, start_time, end_time)
            VALUES ($1, $2, $3, $4, $5, $6) RETURNING *""",
-        room_id, data.event_id, user, data.title, data.start_time, data.end_time,
+        room_id,
+        data.event_id,
+        user,
+        data.title,
+        data.start_time,
+        data.end_time,
     )
     return BookingOut(
         id=row["id"],
@@ -274,9 +308,7 @@ async def cancel_booking(
     user: str = Depends(get_current_user),
 ):
     db = _db(request)
-    row = await db.fetchrow(
-        "SELECT * FROM room_bookings WHERE id = $1", booking_id
-    )
+    row = await db.fetchrow("SELECT * FROM room_bookings WHERE id = $1", booking_id)
     if not row:
         raise HTTPException(status_code=404, detail="Reserva no encontrada")
     if row["user_email"] != user:
@@ -285,7 +317,9 @@ async def cancel_booking(
             "SELECT 1 FROM admin WHERE username = $1 AND active = true", user
         )
         if not admin_row:
-            raise HTTPException(status_code=403, detail="Solo el creador o un admin puede cancelar")
+            raise HTTPException(
+                status_code=403, detail="Solo el creador o un admin puede cancelar"
+            )
 
     await db.execute(
         "UPDATE room_bookings SET status = 'cancelled' WHERE id = $1", booking_id

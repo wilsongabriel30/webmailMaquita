@@ -1,4 +1,5 @@
 """Pydantic schemas for Tasks module (Microsoft To Do style)."""
+
 from __future__ import annotations
 
 import uuid
@@ -13,10 +14,12 @@ class BoardCreate(BaseModel):
     name: str
     color: str = "#0078d4"
 
+
 class BoardUpdate(BaseModel):
     name: Optional[str] = None
     color: Optional[str] = None
     position: Optional[int] = None
+
 
 class BoardOut(BaseModel):
     id: uuid.UUID
@@ -26,10 +29,12 @@ class BoardOut(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+
 # Board Members
 class MemberAdd(BaseModel):
     user_email: str
     role: str = "member"
+
 
 class MemberOut(BaseModel):
     id: uuid.UUID
@@ -39,15 +44,18 @@ class MemberOut(BaseModel):
     invited_by: str
     joined_at: datetime
 
+
 # List (legacy)
 class ListCreate(BaseModel):
     name: str
     color: str = "#e0e0e0"
 
+
 class ListUpdate(BaseModel):
     name: Optional[str] = None
     color: Optional[str] = None
     position: Optional[int] = None
+
 
 class ListOut(BaseModel):
     id: uuid.UUID
@@ -59,14 +67,17 @@ class ListOut(BaseModel):
     icon: str = ""
     task_count: int = 0
 
+
 # New: TaskList for To Do style
 class TaskListCreate(BaseModel):
     name: str
     icon: str = ""
 
+
 class TaskListUpdate(BaseModel):
     name: Optional[str] = None
     icon: Optional[str] = None
+
 
 # Card
 class CardCreate(BaseModel):
@@ -81,6 +92,7 @@ class CardCreate(BaseModel):
     reminder: Optional[datetime] = None
     note: str = ""
     recurrence: Optional[str] = None  # daily, weekdays, weekly, monthly, yearly
+
 
 class CardUpdate(BaseModel):
     title: Optional[str] = None
@@ -97,9 +109,11 @@ class CardUpdate(BaseModel):
     note: Optional[str] = None
     recurrence: Optional[str] = None
 
+
 class CardMove(BaseModel):
     list_id: uuid.UUID
     position: int
+
 
 class CardOut(BaseModel):
     id: uuid.UUID
@@ -123,16 +137,19 @@ class CardOut(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+
 # Label
 class LabelCreate(BaseModel):
     name: str
     color: str = "#0078d4"
+
 
 class LabelOut(BaseModel):
     id: uuid.UUID
     board_id: uuid.UUID
     name: str
     color: str
+
 
 # Activity
 class ActivityOut(BaseModel):
@@ -144,9 +161,11 @@ class ActivityOut(BaseModel):
     details: str
     created_at: datetime
 
+
 # Full board (kanban view - kept for backward compat)
 class ListFull(ListOut):
     cards: list[CardOut] = Field(default_factory=list)
+
 
 class BoardFull(BoardOut):
     lists: list[ListFull] = Field(default_factory=list)

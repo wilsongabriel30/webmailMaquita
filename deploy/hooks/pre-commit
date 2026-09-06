@@ -1,0 +1,88 @@
+#!/bin/bash
+# ============================================================
+# Guardián pre-commit — Maquita Webmail
+# Bloquea el commit si detecta: patrones prohibidos (secretos del equipo,
+# proveedores externos, términos vetados), .bak, coautoría automática,
+# DATOS PERSONALES, volcados de base de datos y directorios de respaldo.
+#
+# Versionado en deploy/hooks/pre-commit. Instalar con deploy/hooks/instalar.sh.
+# Una instalación limpia SIN este hook no está protegida.
+#
+# POR QUÉ LOS PATRONES SENSIBLES NO ESTÁN AQUÍ
+# Este fichero se publica. Si contuviera los secretos que busca, los estaría
+# publicando. Los patrones viven en .git/guardian-patrones-locales, una
+# expresión regular por línea, fuera del repositorio. El instalador crea ese
+# fichero a partir de una plantilla vacía; el operador la rellena.
+# ============================================================
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
+fallo=0
+RAIZ=$(git rev-parse --show-toplevel)
+DIFF=$(git diff --cached)
+STAGED=$(git diff --cached --name-only --diff-filter=ACMR)
+
+# 1. Patrones prohibidos definidos localmente (secretos del equipo, proveedores
+#    externos que la dirección no quiere mencionados, términos vetados).
+LISTA="$RAIZ/.git/guardian-patrones-locales"
+if [ -s "$LISTA" ]; then
+    while IFS= read -r patron; do
+        case "$patron" in ''|'#'*) continue;; esac
+        if echo "$DIFF" | grep -qiE -- "$patron"; then
+            echo -e "${RED}✗ BLOQUEADO: los cambios contienen un patrón prohibido (definido en .git/guardian-patrones-locales).${NC}"
+            fallo=1
+            break
+        fi
+    done < "$LISTA"
+else
+    echo -e "${YELLOW}⚠ No hay .git/guardian-patrones-locales: no se comprueban secretos ni términos vetados. Ejecuta deploy/hooks/instalar.sh.${NC}"
+fi
+
+# 2. Coautoría automática (no debe aparecer). El corchete evita que este propio
+#    fichero dispare la regla al versionarse.
+if echo "$DIFF" | grep -qiE "co-author[e]d-by"; then
+    echo -e "${RED}✗ BLOQUEADO: hay una línea de coautoría automática en los cambios.${NC}"
+    fallo=1
+fi
+
+# 3. Archivos de respaldo .bak
+BAKS=$(echo "$STAGED" | grep -iE "\.bak")
+if [ -n "$BAKS" ]; then
+    echo -e "${RED}✗ BLOQUEADO: estás subiendo archivos de respaldo (.bak):${NC}"
+    echo "$BAKS"
+    fallo=1
+fi
+
+# 4. zimbra-sync.sh (tiene credenciales, nunca debe subir)
+if echo "$STAGED" | grep -qxF "zimbra-sync.sh"; then
+    echo -e "${RED}✗ BLOQUEADO: zimbra-sync.sh contiene credenciales — no se sube.${NC}"
+    fallo=1
+fi
+
+# 5. DATOS PERSONALES (directorios de personas, cédulas, teléfonos en volumen).
+#    El 2026-09-01 entró al repositorio público un fichero con 193 correos y
+#    nombres reales; el barrido de secretos no lo vio porque no busca personas.
+if [ -f "$RAIZ/deploy/tools/barrido-datos-personales.py" ]; then
+    if ! python3 "$RAIZ/deploy/tools/barrido-datos-personales.py" --staged; then
+        fallo=1
+    fi
+else
+    echo -e "${YELLOW}⚠ Falta deploy/tools/barrido-datos-personales.py: no se comprueban datos personales.${NC}"
+fi
+
+# 6. Volcados de base de datos (pg_dump) y directorios de respaldo.
+#    Un volcado lleva usuarios, mensajes o nómina: nunca al repositorio.
+VOLCADOS=$(echo "$STAGED" | grep -iE "(^|/)backups?/|\.dump$|\.sql\.gz$")
+for f in $STAGED; do
+    case "$f" in *.sql) git show ":$f" 2>/dev/null | grep -qE "^COPY [a-z_.]+ .* FROM stdin" && VOLCADOS="$VOLCADOS $f";; esac
+done
+if [ -n "$(echo $VOLCADOS)" ]; then
+    echo -e "${RED}✗ BLOQUEADO: volcado de base de datos o directorio de respaldo:${NC}"
+    echo "$VOLCADOS" | tr ' ' '\n' | grep . | head -5
+    fallo=1
+fi
+
+if [ "$fallo" -eq 1 ]; then
+    echo -e "${YELLOW}Corrige lo anterior y vuelve a intentar. (Para forzar, no recomendado: git commit --no-verify)${NC}"
+    exit 1
+fi
+echo -e "${GREEN}✓ Guardián OK: sin patrones prohibidos, sin .bak, sin datos personales, sin volcados.${NC}"
+exit 0

@@ -1,4 +1,5 @@
 """DDL de T-34 (idempotente). Se ejecuta en el arranque, bajo el mismo candado que las tablas de tareas."""
+
 import asyncpg
 
 DDL = """

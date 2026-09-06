@@ -20,6 +20,8 @@ import os
 import re
 import sys
 import time
+import logging
+import uuid
 from email import message_from_bytes
 
 sys.path.insert(0, "/opt/maquita-webmail/backend")
@@ -35,6 +37,32 @@ from app.safelinks import inbound_rewriter  # noqa: E402
 
 LOCAL_DOMAINS = {"maquita.org", "maquita.com.ec"}
 MAX_BODY = 12_000_000   # cuerpos mayores no se reescriben (se entregan intactos)
+
+log = logging.getLogger("maquita_milter")
+
+# Cola de evidencia diferida de cuarentena: si el INSERT en la BD falla, se guarda
+# un marcador JSON (atomico) con TODO lo necesario para reinsertarlo luego. Ruta
+# configurable por env para replicas.
+COLA_CUARENTENA = os.getenv("MILTER_COLA_CUARENTENA", "/var/lib/maquita-admin/cola-cuarentena")
+
+
+def _encolar_cuarentena(mid, filename, content_type, size, reason):
+    """Escribe atomicamente (temp+rename) un marcador JSON de evidencia diferida.
+    No usa la BD (que es justo la que fallo). Best-effort: si el disco tambien falla,
+    al menos queda el log ERROR."""
+    try:
+        os.makedirs(COLA_CUARENTENA, exist_ok=True)
+        registro = {
+            "message_id": mid, "filename": filename, "content_type": content_type,
+            "size": size, "reason": reason, "scan_result": "quarantined", "ts": time.time(),
+        }
+        final = os.path.join(COLA_CUARENTENA, "%d-%s.json" % (int(time.time()), uuid.uuid4().hex))
+        tmp = final + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(registro, fh, ensure_ascii=False)
+        os.replace(tmp, final)
+    except Exception as _e:
+        log.error("MAQ_QUARANTINE_QUEUE_FAIL no se pudo encolar el marcador: %r", _e)
 
 # Caché del interruptor del panel (evita consultar la BD en cada correo)
 _toggle = {"val": False, "ts": 0.0}
@@ -52,8 +80,12 @@ async def _local_domains(pool) -> set:
         vals = {(r["domain"] or "").lower() for r in rows if r["domain"]}
         if vals:
             _domains_cache["val"] = vals
-    except Exception:
-        pass
+    except Exception as _e:
+        if _domains_cache["val"] is None:
+            log.error("Dominios locales: fallo la PRIMERA carga desde la BD; uso el set fijo. "
+                      "Sin lista real, interno/externo puede clasificarse mal: %r", _e)
+        else:
+            log.warning("Dominios locales: no se pudo refrescar; conservo la ultima lista: %r", _e)
     if _domains_cache["val"] is None:
         _domains_cache["val"] = set(LOCAL_DOMAINS)
     _domains_cache["ts"] = now
@@ -117,8 +149,8 @@ def _load_env_keys() -> None:
             k, v = line.split("=", 1)
             if k in keys and k not in os.environ:
                 os.environ[k] = v
-    except Exception:
-        pass
+    except Exception as _e:
+        log.warning("No se pudo sembrar variables desde el .env: %r", _e)
 
 _state: dict = {}
 _pool = None
@@ -130,8 +162,8 @@ def _dsn() -> str:
         for line in open("/opt/maquita-webmail/backend/.env"):
             if line.startswith("DATABASE_URL="):
                 return line.split("=", 1)[1].strip()
-    except Exception:
-        pass
+    except Exception as _e:
+        log.warning("No se pudo leer DATABASE_URL del .env, uso el entorno: %r", _e)
     return os.getenv("DATABASE_URL", "")
 
 
@@ -201,7 +233,7 @@ async def _inbound_phishing(st, pool) -> list:
         from app.safelinks import classifier
         sender = next((t for n, t in st["headers"] if n.lower() == "from"), "")
         subject = next((t for n, t in st["headers"] if n.lower() == "subject"), "")
-        text = _extract_text(st["headers"], bytes(st["body"]))[:20000]
+        text = _extract_text(st["headers"], bytes(st["body"]), st)[:20000]
         res = await asyncio.to_thread(classifier.score_message, sender=sender,
                                       subject=subject, body=text, use_external=False)
         if ext and 30 <= res["score"] < 70:
@@ -245,9 +277,10 @@ async def on_body_chunk(cmd) -> Continue:
     return Continue()
 
 
-def _extract_text(headers, body: bytes) -> str:
+def _extract_text(headers, body: bytes, st=None) -> str:
     subj = next((t for n, t in headers if n.lower() == "subject"), "")
     parts = [subj]
+    _fallidas = 0
     try:
         raw = b"\r\n".join(f"{n}: {t}".encode("utf-8", "replace") for n, t in headers) + b"\r\n\r\n" + body
         msg = message_from_bytes(raw)
@@ -260,13 +293,20 @@ def _extract_text(headers, body: bytes) -> str:
                     if ct == "text/html":
                         s = re.sub(r"<[^>]+>", " ", s)
                     parts.append(s)
-                except Exception:
-                    pass
+                except Exception as _e:
+                    _fallidas += 1
+                    log.debug("No se pudo decodificar una parte %s: %r", ct, _e)
     except Exception:
         try:
             parts.append(body.decode("utf-8", "replace"))
-        except Exception:
-            pass
+        except Exception as _e2:
+            _fallidas += 1
+            log.debug("No se pudo decodificar el cuerpo completo: %r", _e2)
+    if _fallidas and st is not None:
+        # Contenido indecodificable = tecnica clasica de evasion de filtros. No se
+        # bloquea, pero queda constancia (resumen + header X-Maquita-Scan: partial).
+        st["scan_partial"] = True
+        log.warning("Correo con %d parte(s) no inspeccionable(s) (posible evasion de filtros)", _fallidas)
     return " ".join(parts)
 
 
@@ -274,7 +314,7 @@ async def _outbound_dlp(st, sender) -> Continue:
     """SALIENTE: delega en milter/dlp_outbound.py (misma politica que el webmail)."""
     pool = await _get_pool()
     manips = await _inbound_safeattach(st, pool)   # Safe Attachments tambien en interno/saliente
-    text = _extract_text(st["headers"], bytes(st["body"]))
+    text = _extract_text(st["headers"], bytes(st["body"]), st)
     try:
         import dlp_outbound
         return await dlp_outbound.run(st, sender, pool, text, manips,
@@ -339,8 +379,9 @@ async def _inbound_safeattach(st, pool) -> list:
                         "scan_result, threats_found, scanned_by, scanned_at) "
                         "VALUES ($1,$2,$3,$4,$5,$6::jsonb,'milter',now())",
                         mid, fn, ct, psize, "quarantined", json.dumps([reason[:300]]))
-                except Exception:
-                    pass
+                except Exception as _e:
+                    log.error("MAQ_QUARANTINE_INSERT_FAIL mid=%s file=%s: %r", mid, fn, _e)
+                    _encolar_cuarentena(mid, fn, ct, psize, reason[:300])
         if flagged:
             txt = "; ".join(fn + " [" + r + "]" for fn, r in flagged[:5])
             return [AppendHeader(headername="X-Maquita-Quarantine", headertext=txt[:400])]
@@ -365,8 +406,10 @@ async def _security_config(pool):
             _secfg["imp_on"] = bool(row["impersonation_enabled"])
             _secfg["imp_terms"] = list(row["impersonation_terms"] or [])
             _secfg["block_cards"] = bool(row["dlp_block_cards_external"])
-    except Exception:
-        pass
+    except Exception as _e:
+        # Nunca fail-open: se conserva la ultima config valida en memoria (el default
+        # arranca con DLP/impersonacion ENCENDIDOS). Config vacia jamas apaga el DLP.
+        log.error("security_config: no se pudo recargar; conservo la ultima config valida: %r", _e)
     _secfg["ts"] = now
     return _secfg
 
@@ -388,8 +431,8 @@ async def _inbound_impersonation(st, pool, locals_) -> list:
         name, addr = parseaddr(from_hdr)
         try:
             name = str(make_header(decode_header(name))) if name else ""
-        except Exception:
-            pass
+        except Exception as _e:
+            log.warning("No se pudo decodificar el nombre del remitente: %r", _e)
         if not name:
             return []
         addr_dom = addr.split("@")[-1].lower() if "@" in addr else ""
@@ -437,8 +480,14 @@ async def on_end_of_message(cmd) -> Continue:
         sender = st["from"]
         dom = sender.split("@")[-1] if "@" in sender else ""
         if dom in locals_:
-            return await _outbound_dlp(st, sender)        # SALIENTE: DLP
-        return await _inbound_safelinks(st, pool, locals_)  # ENTRANTE
+            res = await _outbound_dlp(st, sender)        # SALIENTE: DLP
+        else:
+            res = await _inbound_safelinks(st, pool, locals_)  # ENTRANTE
+        if st.get("scan_partial"):
+            manips = list(getattr(res, "manipulations", None) or [])
+            manips.append(AppendHeader(headername="X-Maquita-Scan", headertext="partial"))
+            return Continue(manipulations=manips)
+        return res
     except Exception:
         return Continue()   # FAIL-OPEN: nunca afecta la entrega
 
@@ -464,4 +513,9 @@ if __name__ == "__main__":
     import logging
     logging.basicConfig(level=logging.WARNING)
     _load_env_keys()
+    if not _dsn():
+        raise RuntimeError(
+            "Falta DATABASE_URL — el milter no puede registrar cuarentena ni leer la "
+            "configuracion de seguridad; aceptaria correo sin poder protegerlo. Abortando."
+        )
     milter.run_server(host="127.0.0.1", port=11335)

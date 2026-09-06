@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { loadOfflineMessages } from "../../hooks/useOfflineSync";
 import React, { useEffect, useCallback, useRef, useState, useMemo, memo } from 'react';
 import { useMailStore } from '../../store/mailStore';
@@ -14,6 +13,7 @@ import { usePriority } from '../../hooks/usePriority';
 import { sanitizeHtml } from '../../lib/sanitize';
 import { getFolderDisplayName } from '../../folders';
 import { AVISO_ELIMINAR_CORREO } from '../../lib/deepLinkCorreo';
+import { avisar } from '../../lib/avisosNavegador';   // T-53
 
 // Agrupa acciones rápidas consecutivas (eliminar/archivar fila por fila) en UNA
 // petición bulk: N clics seguidos generaban N POSTs y disparaban el rate limit (429).
@@ -223,12 +223,12 @@ export function MessageList() {
   const prevTotalRef = useRef<number>(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
-  const { priorityMap, loading: priorityLoading, fetchPriority, reclassify } = usePriority();
+  const { priorityMap, fetchPriority } = usePriority();
 
   // Initialize notification sound
   useEffect(() => {
     try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       if (!AudioCtx) return;
       const audioCtx = new AudioCtx();
       const createBeep = () => {
@@ -245,7 +245,7 @@ export function MessageList() {
           osc.stop(audioCtx.currentTime + 0.3);
         } catch { /* audio not available */ }
       };
-      (window as any).__maquitaBeep = createBeep;
+      (window as unknown as { __maquitaBeep?: () => void }).__maquitaBeep = createBeep;
       return () => { audioCtx.close(); };
     } catch {
       // AudioContext not supported
@@ -266,9 +266,12 @@ export function MessageList() {
       .then(r => {
       if (filter === 'all' && prevTotalRef.current > 0 && r.total > prevTotalRef.current && currentFolder === 'INBOX') {
         const newCount = r.total - prevTotalRef.current;
-        try { (window as any).__maquitaBeep?.(); } catch {}
+        try { (window as unknown as { __maquitaBeep?: () => void }).__maquitaBeep?.(); } catch { /* sin sonido */ }
         if (Notification.permission === 'granted') {
-          new Notification('Maquita Mail', { body: `${newCount} correo${newCount > 1 ? 's' : ''} nuevo${newCount > 1 ? 's' : ''}`, icon: '/webmail/favicon.svg' });
+          avisar('Maquita Mail', {
+            cuerpo: `${newCount} correo${newCount > 1 ? 's' : ''} nuevo${newCount > 1 ? 's' : ''}`,
+            tipo: 'correo', etiqueta: 'new-mail',
+          });
         } else if (Notification.permission !== 'denied') {
           Notification.requestPermission();
         }
@@ -290,7 +293,7 @@ export function MessageList() {
             setMessages(cached, cached.length, 1);
             return;
           }
-        } catch {}
+        } catch { /* se ignora: no es crítico */ }
       }
       useMailStore.getState().setMessages(useMailStore.getState().messages, useMailStore.getState().totalMessages, useMailStore.getState().currentPage);
     });
@@ -351,7 +354,7 @@ export function MessageList() {
         // Escaneo de toda la carpeta
         url += `&limit=50&auto_move=${autoMove}`;
       }
-      const res = await api.get<{ scanned: number; spam_found: number; moved: number; details: any[] }>(url);
+      const res = await api.get<{ scanned: number; spam_found: number; moved: number; details: { uid: number; score: number; reasons: string[]; is_spam?: boolean }[] }>(url);
       setSpamResults(res.details || []);
       if (sel?.uid) {
         // Resultado individual
@@ -384,35 +387,20 @@ export function MessageList() {
     setSpamScanning(false);
   }, [currentFolder]);
 
-  const reportSpam = useCallback(async (uids: number[]) => {
-    try {
-      await api.post("/mail/spam/report", { folder: currentFolder, uids });
-      showToast(`${uids.length} reportado${uids.length > 1 ? "s" : ""} como spam`);
-      window.dispatchEvent(new CustomEvent("refresh-messages"));
-    } catch {}
-  }, [currentFolder]);
-
-  const markNotSpam = useCallback(async (uids: number[]) => {
-    try {
-      await api.post("/mail/spam/not-spam", { folder: currentFolder, uids });
-      showToast("Movido a Bandeja de entrada");
-      window.dispatchEvent(new CustomEvent("refresh-messages"));
-    } catch {}
-  }, [currentFolder]);
-
   // Fetch avatar data — use stable messageIds to avoid re-fetching on every render
   const messageIds = useMemo(() => messages.map(m => m.uid).join(','), [messages]);
 
   // Categorias/etiquetas por mensaje — INLINE (sin hook externo) para que el
   // empaquetador no pueda eliminar la definicion y romper el correo.
-  const [msgLabelsMap, setMsgLabelsMap] = useState({});
+  type EtiquetaMsg = { id: number | string; name: string; color?: string };
+  const [msgLabelsMap, setMsgLabelsMap] = useState<Record<string, EtiquetaMsg[]>>({});
   useEffect(() => {
     const uids = messages.map((m) => m.uid);
-    if (!currentFolder || uids.length === 0) { setMsgLabelsMap({}); return; }
     let cancelled = false;
     const load = async () => {
+      if (!currentFolder || uids.length === 0) { if (!cancelled) setMsgLabelsMap({}); return; }
       try {
-        const res = await api.get(`/mail/labels/messages/${encodeURIComponent(currentFolder)}?uids=${encodeURIComponent(uids.join(','))}`);
+        const res = await api.get<{ message_labels?: Record<string, EtiquetaMsg[]> }>(`/mail/labels/messages/${encodeURIComponent(currentFolder)}?uids=${encodeURIComponent(uids.join(','))}`);
         if (!cancelled) setMsgLabelsMap((res && res.message_labels) || {});
       } catch { if (!cancelled) setMsgLabelsMap({}); }
     };
@@ -437,7 +425,7 @@ export function MessageList() {
       await api.post(`/mail/flags/${encodeURIComponent(currentFolder)}/${uid}`, { flags: '\\Flagged', add: !flagged });
       const updated = useMailStore.getState().messages.map(m => m.uid === uid ? { ...m, flagged: !flagged } : m);
       useMailStore.getState().setMessages(updated, totalMessages, currentPage);
-    } catch {}
+    } catch { /* se ignora: no es crítico */ }
   };
 
   const handleRowClick = (uid: number, idx: number, e: React.MouseEvent) => {
@@ -598,11 +586,8 @@ export function MessageList() {
   // Check if there are any high-priority messages before filtering
   const classifiedUids = Object.keys(priorityMap).map(Number);
   const hasAnyClassification = classifiedUids.length > 0;
-  const hasHighPriority = hasAnyClassification && Object.values(priorityMap).some(p => p.priority === 'high');
 
   const filtered = messages.filter(m => {
-    return true;
-  }).filter(m => {
     // Apply priority filter only in INBOX
     if (currentFolder !== 'INBOX') return true;
     // If no classification data at all, show everything
@@ -638,7 +623,6 @@ export function MessageList() {
   const isConversationMode = viewMode === 'conversations';
   const threadGroups = isConversationMode ? groupByThread(filtered) : null;
 
-  const totalPages = Math.ceil(totalMessages / 50);
   const folderLabel = getFolderDisplayName(currentFolder);
 
   const getCtxItems = (msg: MessageSummary): MenuItem[] => [

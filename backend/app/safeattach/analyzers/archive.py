@@ -1,10 +1,24 @@
 """Motor: inspecciona ZIP en busca de ejecutables ocultos."""
-import zipfile
-from app.safeattach.analyzers.base import Analyzer
-from app.safeattach.verdict import Finding, SUSPICIOUS
 
-BAD_EXT = (".exe", ".scr", ".js", ".vbs", ".jar", ".bat", ".cmd",
-           ".ps1", ".lnk", ".hta", ".com", ".pif")
+import zipfile
+
+from app.safeattach.analyzers.base import Analyzer
+from app.safeattach.verdict import SUSPICIOUS, Finding
+
+BAD_EXT = (
+    ".exe",
+    ".scr",
+    ".js",
+    ".vbs",
+    ".jar",
+    ".bat",
+    ".cmd",
+    ".ps1",
+    ".lnk",
+    ".hta",
+    ".com",
+    ".pif",
+)
 
 
 class Archive(Analyzer):
@@ -21,6 +35,7 @@ class Archive(Analyzer):
                 for n in names:
                     if n.lower().endswith(BAD_EXT):
                         report.findings.append(
-                            Finding("archive", SUSPICIOUS, f"ejecutable en zip: {n}"))
+                            Finding("archive", SUSPICIOUS, f"ejecutable en zip: {n}")
+                        )
         except Exception:
             report.engines["archive"] = "no es zip válido / cifrado"

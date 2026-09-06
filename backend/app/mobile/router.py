@@ -1,11 +1,12 @@
 """Mobile API — device registration and configuration endpoints."""
+
 import json
 import logging
 from datetime import datetime
-
-from fastapi import APIRouter, Request, HTTPException
-from pydantic import BaseModel
 from typing import Optional
+
+from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
 from app.config import get_settings
@@ -35,8 +36,12 @@ async def mobile_config(request: Request):
         "webmail": {"url": f"https://{s.cookie_domain}"},
         "api_version": "1.0",
         "features": [
-            "smart-reply", "priority-inbox", "calendar",
-            "contacts", "delegation", "attachment-scan",
+            "smart-reply",
+            "priority-inbox",
+            "calendar",
+            "contacts",
+            "delegation",
+            "attachment-scan",
         ],
     }
 
@@ -57,7 +62,11 @@ async def register_device(request: Request, body: DeviceRegister):
                push_token = EXCLUDED.push_token,
                last_sync = NOW(),
                is_active = true""",
-        user, body.device_id, body.device_name, body.platform, body.push_token,
+        user,
+        body.device_id,
+        body.device_name,
+        body.platform,
+        body.push_token,
     )
 
     return {"status": "registered", "device_id": body.device_id}
@@ -71,7 +80,8 @@ async def unregister_device(request: Request, device_id: str):
 
     result = await db.execute(
         "UPDATE mobile_devices SET is_active = false WHERE device_id = $1 AND user_email = $2",
-        device_id, user,
+        device_id,
+        user,
     )
 
     return {"status": "unregistered", "device_id": device_id}

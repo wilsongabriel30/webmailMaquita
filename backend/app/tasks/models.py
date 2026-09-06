@@ -1,8 +1,8 @@
 """Task board tables — PostgreSQL DDL (Microsoft To Do style)."""
+
 from __future__ import annotations
 
 import asyncpg
-
 
 CREATE_TABLES_SQL = """
 CREATE TABLE IF NOT EXISTS task_boards (
@@ -85,7 +85,7 @@ CREATE INDEX IF NOT EXISTS idx_task_cards_list ON task_cards(list_id);
 CREATE INDEX IF NOT EXISTS idx_task_labels_board ON task_labels(board_id);
 CREATE INDEX IF NOT EXISTS idx_task_activity_board ON task_activity(board_id);
 CREATE INDEX IF NOT EXISTS idx_task_activity_card ON task_activity(card_id);
-""";
+"""
 
 MIGRATE_SQL = """
 DO $$ BEGIN
@@ -156,7 +156,7 @@ CREATE TABLE IF NOT EXISTS task_activity (
     details     TEXT NOT NULL DEFAULT '',
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-""";
+"""
 
 POST_MIGRATE_INDEXES_SQL = """
 CREATE INDEX IF NOT EXISTS idx_task_cards_assigned ON task_cards(assigned_to);
@@ -167,7 +167,7 @@ CREATE INDEX IF NOT EXISTS idx_task_board_members_board ON task_board_members(bo
 CREATE INDEX IF NOT EXISTS idx_task_board_members_user ON task_board_members(user_email);
 CREATE INDEX IF NOT EXISTS idx_task_activity_board ON task_activity(board_id);
 CREATE INDEX IF NOT EXISTS idx_task_activity_card ON task_activity(card_id);
-""";
+"""
 
 
 async def ensure_tables(pool: asyncpg.Pool) -> None:
@@ -175,6 +175,7 @@ async def ensure_tables(pool: asyncpg.Pool) -> None:
     await pool.execute(CREATE_TABLES_SQL)
     await pool.execute(MIGRATE_SQL)
     await pool.execute(POST_MIGRATE_INDEXES_SQL)
+
 
 # Subtasks / checklist steps
 CREATE_SUBTASKS_SQL = """

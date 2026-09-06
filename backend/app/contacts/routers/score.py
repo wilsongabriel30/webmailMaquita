@@ -1,10 +1,12 @@
 """Score — cálculo y actualización de score de importancia de contactos."""
+
 import logging
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Depends, Request
 
 from app.auth.dependencies import get_current_user
+
 from .helpers import audit
 
 logger = logging.getLogger(__name__)
@@ -52,7 +54,8 @@ async def recalculate_scores(
             "FROM sent_recipients WHERE LOWER(sender) = LOWER($1) "
             "AND LOWER(recipient_email) = ANY($2::text[]) "
             "GROUP BY LOWER(recipient_email)",
-            username, emails,
+            username,
+            emails,
         )
         for r in rows:
             sent_counts[r["email"]] = r["cnt"]
@@ -81,11 +84,15 @@ async def recalculate_scores(
         # +5 por email recibido (max 50) — usamos sent_recipients inverso
         recv_n = 0
         if email:
-            recv_n = await db.fetchval(
-                "SELECT COUNT(*) FROM sent_recipients "
-                "WHERE LOWER(sender) = $1 AND LOWER(recipient_email) = LOWER($2)",
-                email, username,
-            ) or 0
+            recv_n = (
+                await db.fetchval(
+                    "SELECT COUNT(*) FROM sent_recipients "
+                    "WHERE LOWER(sender) = $1 AND LOWER(recipient_email) = LOWER($2)",
+                    email,
+                    username,
+                )
+                or 0
+            )
         score += min(recv_n * 5, 50)
 
         # +20 si favorito
@@ -97,6 +104,7 @@ async def recalculate_scores(
         if lca:
             if lca.tzinfo is None:
                 from datetime import timezone
+
                 lca = lca.replace(tzinfo=timezone.utc)
             if lca >= seven_days_ago:
                 score += 15
@@ -109,7 +117,8 @@ async def recalculate_scores(
 
         await db.execute(
             "UPDATE user_contacts SET contact_score = $1 WHERE id = $2",
-            score, contact["id"],
+            score,
+            contact["id"],
         )
         updated += 1
 

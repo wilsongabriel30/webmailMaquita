@@ -1,11 +1,22 @@
 """Relaciones entre contactos."""
-from fastapi import APIRouter, Request, Depends, HTTPException
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+
 from app.auth.dependencies import get_current_user
+
 from .helpers import audit
 
 router = APIRouter(prefix="/api/contacts", tags=["contacts"])
 
-VALID_RELATION_TYPES = ["assistant", "manager", "spouse", "referral", "partner", "provider", "client"]
+VALID_RELATION_TYPES = [
+    "assistant",
+    "manager",
+    "spouse",
+    "referral",
+    "partner",
+    "provider",
+    "client",
+]
 
 # Relaciones inversas para mostrar desde el otro lado
 INVERSE_RELATIONS = {
@@ -30,7 +41,9 @@ RELATION_LABELS = {
 
 
 @router.get("/{contact_id}/relationships")
-async def get_relationships(contact_id: int, request: Request, username: str = Depends(get_current_user)):
+async def get_relationships(
+    contact_id: int, request: Request, username: str = Depends(get_current_user)
+):
     """Obtiene relaciones de un contacto (desde ambos lados)."""
     db = request.app.state.db_pool
     exists = await db.fetchval(
@@ -46,7 +59,8 @@ async def get_relationships(contact_id: int, request: Request, username: str = D
         "FROM contact_relationships cr "
         "JOIN user_contacts uc ON uc.id = cr.to_contact_id "
         "WHERE cr.from_contact_id=$1 AND cr.owner=$2",
-        contact_id, username
+        contact_id,
+        username,
     )
 
     # Relaciones donde este contacto es to (invertir tipo)
@@ -56,38 +70,47 @@ async def get_relationships(contact_id: int, request: Request, username: str = D
         "FROM contact_relationships cr "
         "JOIN user_contacts uc ON uc.id = cr.from_contact_id "
         "WHERE cr.to_contact_id=$1 AND cr.owner=$2",
-        contact_id, username
+        contact_id,
+        username,
     )
 
     result = []
     for r in outgoing:
-        result.append({
-            "id": r["id"],
-            "relation_type": r["relation_type"],
-            "relation_label": RELATION_LABELS.get(r["relation_type"], r["relation_type"]),
-            "related_id": r["related_id"],
-            "display_name": r["display_name"],
-            "email": r["email"],
-            "photo_url": r["photo_url"],
-            "direction": "outgoing"
-        })
+        result.append(
+            {
+                "id": r["id"],
+                "relation_type": r["relation_type"],
+                "relation_label": RELATION_LABELS.get(
+                    r["relation_type"], r["relation_type"]
+                ),
+                "related_id": r["related_id"],
+                "display_name": r["display_name"],
+                "email": r["email"],
+                "photo_url": r["photo_url"],
+                "direction": "outgoing",
+            }
+        )
     for r in incoming:
         inv_type = INVERSE_RELATIONS.get(r["relation_type"], r["relation_type"])
-        result.append({
-            "id": r["id"],
-            "relation_type": inv_type,
-            "relation_label": RELATION_LABELS.get(inv_type, inv_type),
-            "related_id": r["related_id"],
-            "display_name": r["display_name"],
-            "email": r["email"],
-            "photo_url": r["photo_url"],
-            "direction": "incoming"
-        })
+        result.append(
+            {
+                "id": r["id"],
+                "relation_type": inv_type,
+                "relation_label": RELATION_LABELS.get(inv_type, inv_type),
+                "related_id": r["related_id"],
+                "display_name": r["display_name"],
+                "email": r["email"],
+                "photo_url": r["photo_url"],
+                "direction": "incoming",
+            }
+        )
     return result
 
 
 @router.post("/{contact_id}/relationships")
-async def add_relationship(contact_id: int, request: Request, username: str = Depends(get_current_user)):
+async def add_relationship(
+    contact_id: int, request: Request, username: str = Depends(get_current_user)
+):
     """Agrega una relación entre dos contactos."""
     body = await request.json()
     db = request.app.state.db_pool
@@ -99,7 +122,9 @@ async def add_relationship(contact_id: int, request: Request, username: str = De
     if contact_id == to_contact_id:
         raise HTTPException(400, "No se puede relacionar un contacto consigo mismo")
     if relation_type not in VALID_RELATION_TYPES:
-        raise HTTPException(400, f"Tipo inválido. Opciones: {', '.join(VALID_RELATION_TYPES)}")
+        raise HTTPException(
+            400, f"Tipo inválido. Opciones: {', '.join(VALID_RELATION_TYPES)}"
+        )
 
     # Verificar ambos contactos
     for cid in (contact_id, to_contact_id):
@@ -113,19 +138,28 @@ async def add_relationship(contact_id: int, request: Request, username: str = De
         row = await db.fetchrow(
             "INSERT INTO contact_relationships (owner, from_contact_id, to_contact_id, relation_type) "
             "VALUES ($1,$2,$3,$4) RETURNING id",
-            username, contact_id, to_contact_id, relation_type
+            username,
+            contact_id,
+            to_contact_id,
+            relation_type,
         )
     except Exception:
         raise HTTPException(409, "Esta relación ya existe")
 
-    await audit(db, username, contact_id, "relationship_added", {
-        "to_contact_id": to_contact_id, "type": relation_type
-    })
+    await audit(
+        db,
+        username,
+        contact_id,
+        "relationship_added",
+        {"to_contact_id": to_contact_id, "type": relation_type},
+    )
     return {"status": "created", "id": row["id"]}
 
 
 @router.delete("/relationships/{rel_id}")
-async def delete_relationship(rel_id: int, request: Request, username: str = Depends(get_current_user)):
+async def delete_relationship(
+    rel_id: int, request: Request, username: str = Depends(get_current_user)
+):
     """Elimina una relación."""
     db = request.app.state.db_pool
     existing = await db.fetchrow(
@@ -135,7 +169,11 @@ async def delete_relationship(rel_id: int, request: Request, username: str = Dep
         raise HTTPException(404, "Relación no encontrada")
 
     await db.execute("DELETE FROM contact_relationships WHERE id=$1", rel_id)
-    await audit(db, username, existing["from_contact_id"], "relationship_deleted", {
-        "to_contact_id": existing["to_contact_id"], "type": existing["relation_type"]
-    })
+    await audit(
+        db,
+        username,
+        existing["from_contact_id"],
+        "relationship_deleted",
+        {"to_contact_id": existing["to_contact_id"], "type": existing["relation_type"]},
+    )
     return {"status": "deleted"}

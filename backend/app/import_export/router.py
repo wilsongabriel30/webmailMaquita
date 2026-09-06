@@ -1,4 +1,5 @@
 """Import masivo: contacts (CSV/vCard) and emails (MBOX/EML)."""
+
 import asyncio
 import csv
 import email
@@ -11,7 +12,15 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Request, Depends, HTTPException, UploadFile, File, BackgroundTasks
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    HTTPException,
+    Request,
+    UploadFile,
+)
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
@@ -25,14 +34,18 @@ router = APIRouter(prefix="/api/import", tags=["import"])
 
 # _get_user_id removed in Fase 2 cleanup - using user_email directly
 
+
 async def _create_job(db, user_email: str, job_type: str) -> str:
     job_id = str(uuid.uuid4())
     await db.execute(
         """INSERT INTO import_jobs (id, user_email, type, status, started_at)
            VALUES ($1, $2, $3, 'processing', NOW())""",
-        job_id, user_email, job_type,
+        job_id,
+        user_email,
+        job_type,
     )
     return job_id
+
 
 async def _update_job(db, job_id: str, **kwargs):
     set_parts = []
@@ -46,7 +59,9 @@ async def _update_job(db, job_id: str, **kwargs):
         *values,
     )
 
+
 # ---------- Contact import ----------
+
 
 def _parse_vcard(text: str) -> list[dict]:
     """Simple vCard parser — extracts FN, EMAIL, TEL, ORG."""
@@ -73,6 +88,7 @@ def _parse_vcard(text: str) -> list[dict]:
                 current["company"] = value
     return contacts
 
+
 async def _import_contacts_task(db, user_email: str, job_id: str, contacts: list[dict]):
     """Background task to bulk-insert contacts."""
     total = len(contacts)
@@ -98,15 +114,22 @@ async def _import_contacts_task(db, user_email: str, job_id: str, contacts: list
             processed += 1
         except Exception as e:
             errors += 1
-            error_details.append({"contact": c.get("email", "unknown"), "error": str(e)[:200]})
+            error_details.append(
+                {"contact": c.get("email", "unknown"), "error": str(e)[:200]}
+            )
             logger.warning("Import contact error: %s", e)
     import json
+
     await _update_job(
-        db, job_id,
-        processed=processed, errors=errors, status="completed",
+        db,
+        job_id,
+        processed=processed,
+        errors=errors,
+        status="completed",
         error_details=json.dumps(error_details) if error_details else None,
         completed_at=datetime.now(timezone.utc),
     )
+
 
 @router.post("/contacts")
 async def import_contacts(
@@ -116,7 +139,7 @@ async def import_contacts(
     username: str = Depends(get_current_user),
 ):
     db = request.app.state.db_pool
-    
+
     content = (await file.read()).decode("utf-8", errors="replace")
     filename = (file.filename or "").lower()
 
@@ -136,9 +159,13 @@ async def import_contacts(
     bg.add_task(_import_contacts_task, db, username, job_id, contacts)
     return {"job_id": job_id, "total": len(contacts), "status": "processing"}
 
+
 # ---------- Email import ----------
 
-async def _import_emails_task(db, user_email: str, job_id: str, username: str, messages: list[bytes]):
+
+async def _import_emails_task(
+    db, user_email: str, job_id: str, username: str, messages: list[bytes]
+):
     """Background task to inject emails via LMTP."""
     total = len(messages)
     await _update_job(db, job_id, total=total, status="processing")
@@ -191,12 +218,17 @@ async def _import_emails_task(db, user_email: str, job_id: str, username: str, m
             logger.warning("Import email error: %s", e)
 
     import json
+
     await _update_job(
-        db, job_id,
-        processed=processed, errors=errors, status="completed",
+        db,
+        job_id,
+        processed=processed,
+        errors=errors,
+        status="completed",
         error_details=json.dumps(error_details) if error_details else None,
         completed_at=datetime.now(timezone.utc),
     )
+
 
 @router.post("/emails")
 async def import_emails(
@@ -206,7 +238,7 @@ async def import_emails(
     username: str = Depends(get_current_user),
 ):
     db = request.app.state.db_pool
-    
+
     raw = await file.read()
     filename = (file.filename or "").lower()
 
@@ -236,14 +268,20 @@ async def import_emails(
     bg.add_task(_import_emails_task, db, username, job_id, username, messages)
     return {"job_id": job_id, "total": len(messages), "status": "processing"}
 
+
 # ---------- Import status ----------
 
+
 @router.get("/status/{job_id}")
-async def import_status(job_id: str, request: Request, username: str = Depends(get_current_user)):
+async def import_status(
+    job_id: str, request: Request, username: str = Depends(get_current_user)
+):
     db = request.app.state.db_pool
-    
+
     row = await db.fetchrow(
-        "SELECT * FROM import_jobs WHERE id = $1 AND user_email = $2", job_id, username,
+        "SELECT * FROM import_jobs WHERE id = $1 AND user_email = $2",
+        job_id,
+        username,
     )
     if not row:
         raise HTTPException(404, "Import job not found")
@@ -255,5 +293,6 @@ async def import_status(job_id: str, request: Request, username: str = Depends(g
             d[k] = None
     if d.get("error_details") and isinstance(d["error_details"], str):
         import json
+
         d["error_details"] = json.loads(d["error_details"])
     return d

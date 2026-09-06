@@ -24,6 +24,16 @@ import logging
 import smtplib
 import signal
 import resource
+import subprocess
+import time
+import tempfile
+
+# Neurona de spam (advisory, patron INFINITO) — carga aislada, nunca rompe el filtro
+try:
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import neurona_spam as _neurona
+except Exception as _e:
+    _neurona = None
 from datetime import datetime
 from email.header import decode_header
 
@@ -34,7 +44,7 @@ BLACKLIST_DOMAINS_FILE = "/etc/maquita-mail/blacklist-domains.txt"
 BLACKLIST_IPS_FILE = "/etc/maquita-mail/blacklist-ips.txt"
 GREYLIST_DOMAINS_FILE = "/etc/maquita-mail/greylist-domains.txt"
 LOG_FILE = "/var/log/maquita-spam-filter.log"
-SCORE_THRESHOLD = 3
+SCORE_THRESHOLD = 3  # (se sobreescribe con FILTRO_CFG['umbral'] mas abajo)
 REINJECT_HOST = "127.0.0.1"
 REINJECT_PORT = 10025
 
@@ -44,6 +54,25 @@ MAX_BODY_TEXT = 1 * 1024 * 1024     # HARDENING #4: 1MB máximo de texto extraí
 REGEX_TIMEOUT_SECS = 5              # HARDENING #2: timeout para operaciones regex
 PROCESS_TIMEOUT_SECS = 60           # HARDENING #6: timeout global del proceso
 MEMORY_LIMIT_MB = 512               # HARDENING #7: limite de memoria en MB
+
+# --- Config afinable desde el panel (/etc/maquita-mail/filtro-avanzado.json) ---
+FILTRO_CFG_PATH = "/etc/maquita-mail/filtro-avanzado.json"
+
+
+def _cargar_filtro_cfg():
+    import json
+    base = {"umbral": 3, "macro_score": 2, "neurona_peso": 0,
+            "extensiones_extra": [], "depuracion_dias": 35}
+    try:
+        with open(FILTRO_CFG_PATH, encoding="utf-8") as fh:
+            base.update({k: v for k, v in json.load(fh).items() if k in base})
+    except Exception:
+        pass
+    return base
+
+
+FILTRO_CFG = _cargar_filtro_cfg()
+SCORE_THRESHOLD = int(FILTRO_CFG.get("umbral", 3) or 3)
 
 logging.basicConfig(
     filename=LOG_FILE,
@@ -299,12 +328,147 @@ def check_blacklist_ip(ip, blacklist_ips):
     return False, ""
 
 
+BONO_WHITELIST_DOMINIO = 3   # puntos que resta un dominio de confianza
+
+# --- Antivirus ---
+CLAMAV_TIMEOUT_SECS = 25          # margen dentro de PROCESS_TIMEOUT_SECS (60)
+PENALIZACION_NO_ESCANEADO = 2     # puntos si el antivirus no pudo analizar.
+# Deliberadamente POR DEBAJO del umbral (3): que el antivirus caiga no puede,
+# por si solo, mandar a Junk todo el correo entrante. Solo acerca al umbral a
+# un correo que ya tenia indicios.
+
+
+def evaluar_whitelist(sender, sender_domain, whitelist):
+    """Decide que hace la lista blanca con este remitente.
+
+    Devuelve ("exime", entrada) | ("bono", entrada) | (None, "").
+
+      - Direccion completa (tiene "@"): coincidencia EXACTA -> exime del analisis.
+        Es una decision deliberada sobre una persona concreta.
+      - Dominio: coincide el dominio exacto o un subdominio suyo -> NO exime,
+        resta BONO_WHITELIST_DOMINIO puntos y el correo se sigue analizando.
+        Asi un proveedor generico deja de ser una puerta abierta.
+      - Entrada que empieza por "!": exime aunque sea un dominio. Escotilla
+        explicita para casos concretos; usese poco y a conciencia.
+
+    La comparacion es exacta a proposito, igual que en check_blacklist_domain:
+    con subcadenas, "gob.ec" casaba con cualquier dominio que la contuviera.
+    """
+    bono = None
+    for wl in whitelist:
+        entrada = (wl or "").strip().lower()
+        if not entrada:
+            continue
+        forzado = entrada.startswith("!")
+        if forzado:
+            entrada = entrada[1:].strip()
+            if not entrada:
+                continue
+        if "@" in entrada:
+            if sender == entrada:
+                return "exime", entrada
+            continue
+        if sender_domain == entrada or sender_domain.endswith("." + entrada):
+            if forzado:
+                return "exime", entrada
+            if bono is None:
+                bono = entrada
+    if bono:
+        return "bono", bono
+    return None, ""
+
+
 def check_blacklist_domain(sender_domain, blacklist_domains):
     """Verifica si el dominio esta en la lista negra."""
     for bl_domain in blacklist_domains:
         if bl_domain == sender_domain or sender_domain.endswith("." + bl_domain):
             return True, bl_domain
     return False, ""
+
+
+# ============================================================================
+# Inspeccion DENTRO de comprimidos (zip/rar/7z/tar...) con 7z: solo LISTA, no
+# extrae -> sin riesgo de zip-bomb. Marca 'peligroso' si hay ejecutables dentro
+# y 'no-inspeccionable' si 7z no puede abrirlo (cifrado/corrupto/RAR ilegible),
+# que es la tecnica usada por el malware .vbs-en-.rar (incidente 2026-06-08).
+# ============================================================================
+# --- Conjuntos de extensiones peligrosas (incidente 2026-06-08 ampliado) ---
+EXEC_SCRIPT_EXTS = {
+    ".exe", ".scr", ".bat", ".cmd", ".com", ".pif", ".vbs", ".vbe", ".js",
+    ".jse", ".wsf", ".wsh", ".wsc", ".hta", ".jar", ".lnk", ".ps1", ".ps2",
+    ".psc1", ".psc2", ".psm1", ".psd1", ".msi", ".msp", ".mst", ".msc",
+    ".reg", ".cpl", ".scf", ".sct", ".shb", ".shs", ".inf", ".ins", ".isp",
+    ".job", ".ws", ".vb", ".vbscript", ".gadget", ".application",
+    ".appref-ms", ".url", ".chm", ".jnlp", ".xll", ".wll", ".one", ".dll",
+}
+DISK_IMAGE_EXTS = {".iso", ".img", ".vhd", ".vhdx", ".udf", ".vmdk", ".wim"}
+MACRO_OFFICE_EXTS = {
+    ".docm", ".xlsm", ".pptm", ".dotm", ".xltm", ".potm", ".xlsb",
+    ".ppam", ".xlam",
+}
+ARCHIVE_EXTS = {
+    ".zip", ".rar", ".7z", ".tar", ".gz", ".tgz", ".cab", ".ace", ".lzh",
+    ".arj", ".z", ".lzma", ".xz", ".bz2", ".zipx", ".deb", ".rpm", ".cpio",
+}
+EXEC_SCRIPT_EXTS |= {
+    ("." + str(e).lstrip(".").lower()) for e in FILTRO_CFG.get("extensiones_extra", []) if e
+}
+
+SEVENZIP_BIN = "/usr/bin/7z"
+ARCHIVE_INSPECT_MAX = 15 * 1024 * 1024
+ARCHIVE_INSPECT_TIMEOUT = 12
+DANGEROUS_IN_ARCHIVE = EXEC_SCRIPT_EXTS | DISK_IMAGE_EXTS
+
+
+def inspect_archive(part, ext, safe_name):
+    """Lista (sin extraer) el contenido de un comprimido con 7z.
+    Retorna 'peligroso', 'no-inspeccionable' o None. Aislado: nunca propaga."""
+    tmp_path = None
+    hallazgo_macro = False
+    try:
+        if not os.path.exists(SEVENZIP_BIN):
+            return None
+        payload = part.get_payload(decode=True)
+        if not payload:
+            return None
+        if len(payload) > ARCHIVE_INSPECT_MAX:
+            logging.info("Comprimido %s >%dB, no inspeccionado", safe_name, ARCHIVE_INSPECT_MAX)
+            return None
+        with tempfile.NamedTemporaryFile(prefix="maqarch_", suffix=ext, delete=False) as tf:
+            tf.write(payload)
+            tmp_path = tf.name
+        proc = subprocess.run(
+            [SEVENZIP_BIN, "l", "-y", tmp_path],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            timeout=ARCHIVE_INSPECT_TIMEOUT, text=True, errors="replace",
+        )
+        if proc.returncode != 0:
+            logging.info("7z no abrio %s (rc=%d) -> no-inspeccionable", safe_name, proc.returncode)
+            return "no-inspeccionable"
+        for line in (proc.stdout or "").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            inner = os.path.splitext(line.split()[-1].lower())[1]
+            if inner in DANGEROUS_IN_ARCHIVE:
+                logging.warning("Ejecutable dentro de %s: %s", safe_name, line.split()[-1])
+                return "peligroso"
+            if inner in MACRO_OFFICE_EXTS:
+                hallazgo_macro = True
+        return "macro" if hallazgo_macro else None
+    except subprocess.TimeoutExpired:
+        logging.info("7z timeout en %s -> no-inspeccionable", safe_name)
+        return "no-inspeccionable"
+    except Exception as e:
+        logging.warning("inspect_archive fallo (%s): %s", safe_name, str(e))
+        return None
+    finally:
+        if tmp_path:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
 
 
 def check_heuristics(msg, subject, body, full_text):
@@ -388,22 +552,38 @@ def check_heuristics(msg, subject, body, full_text):
     except Exception as e:
         logging.warning("Heurística 'short-urls' falló: %s", str(e))
 
-    # --- 6. Adjuntos sospechosos ---
+    # --- 6. Adjuntos sospechosos (incl. inspeccion dentro de comprimidos) ---
     try:
-        suspicious_exts = {".exe", ".scr", ".bat", ".cmd", ".vbs", ".js", ".wsf", ".hta", ".pif", ".com"}
         if msg.is_multipart():
             for part in msg.walk():
                 filename = part.get_filename("")
-                if filename:
-                    ext = os.path.splitext(filename.lower())[1]
-                    if ext in suspicious_exts:
-                        score += 5
-                        razones.append(f"adjunto-peligroso({sanitize_header_value(filename[:50])})(+5)")
-                    elif ext in (".zip", ".rar"):
-                        score += 1
-                        razones.append(f"adjunto-comprimido({sanitize_header_value(filename[:50])})(+1)")
+                if not filename:
+                    continue
+                ext = os.path.splitext(filename.lower())[1]
+                safe_name = sanitize_header_value(filename[:50])
+                if ext in EXEC_SCRIPT_EXTS or ext in DISK_IMAGE_EXTS:
+                    score += 5
+                    razones.append(f"adjunto-peligroso({safe_name})(+5)")
+                elif ext in MACRO_OFFICE_EXTS:
+                    # Suave/configurable (panel). Marca pero NO manda a Junk solo.
+                    _ms = int(FILTRO_CFG.get("macro_score", 2) or 0)
+                    score += _ms
+                    razones.append(f"office-con-macros({safe_name})(+{_ms})")
+                elif ext in ARCHIVE_EXTS:
+                    score += 1
+                    razones.append(f"adjunto-comprimido({safe_name})(+1)")
+                    verdict = inspect_archive(part, ext, safe_name)
+                    if verdict == "peligroso":
+                        score += 6
+                        razones.append(f"ejecutable-en-comprimido({safe_name})(+6)")
+                    elif verdict == "macro":
+                        score += 3
+                        razones.append(f"office-macros-en-comprimido({safe_name})(+3)")
+                    elif verdict == "no-inspeccionable":
+                        score += 4
+                        razones.append(f"comprimido-no-inspeccionable({safe_name})(+4)")
     except Exception as e:
-        logging.warning("Heurística 'adjuntos' falló: %s", str(e))
+        logging.warning("Heuristica 'adjuntos' fallo: %s", str(e))
 
     # --- 7. Reply-To diferente de From ---
     try:
@@ -458,7 +638,71 @@ def check_heuristics(msg, subject, body, full_text):
     except Exception as e:
         logging.warning("Heurística 'precedence' falló: %s", str(e))
 
+    # --- 11. Neurona de spam (advisory): registra/aprende, suma segun NEURONA_PESO ---
+    try:
+        if _neurona is not None:
+            v = _neurona.decidir(razones, subject or "", body or "", permitir_llm=False)
+            extra = _neurona.ajuste_score(v)
+            if extra:
+                score += extra
+            razones.append(f"neurona({v['etiqueta']},{v['confianza']},{v['fuente']})(+{extra})")
+            logging.info("Neurona: %s conf=%s fuente=%s +%d",
+                         v["etiqueta"], v["confianza"], v["fuente"], extra)
+    except Exception as e:
+        logging.warning("Heuristica 'neurona' fallo: %s", str(e))
+
     return score, razones
+
+
+def _clamav_verdict(msg):
+    """Escanea el correo con clamd.
+
+    Devuelve una tupla (estado, detalle) con estado en:
+      "limpio"       -> clamd analizo el correo y no encontro nada
+      "virus"        -> clamd encontro una firma; detalle es su nombre
+      "no_escaneado" -> clamd NO pudo analizarlo; detalle es el motivo
+
+    Sigue siendo fail-open a proposito: si el antivirus no responde NO se
+    rechaza el correo, porque cortar la entrega de toda la organizacion es
+    peor que entregar sin analizar. Lo que cambia es que un fallo ya no se
+    confunde con un escaneo limpio: se registra como error (no como aviso),
+    suma puntuacion y queda anotado en las razones del correo.
+    """
+    try:
+        raw = msg.as_bytes()
+    except Exception as e:
+        return "no_escaneado", "serializacion:" + type(e).__name__
+
+    motivo = None
+    # Un solo reintento, y solo para fallos rapidos (error o caida del socket).
+    # Si fue agotamiento de tiempo no se reintenta: gastaria otro turno completo
+    # y el proceso tiene un limite global de PROCESS_TIMEOUT_SECS.
+    for intento in (1, 2):
+        try:
+            r = subprocess.run(["clamdscan", "--fdpass", "--no-summary", "-"],
+                               input=raw, capture_output=True,
+                               timeout=CLAMAV_TIMEOUT_SECS)
+            salida = ((r.stdout or b"") + (r.stderr or b"")).decode("utf-8", "replace")
+            if r.returncode == 1:
+                for line in salida.splitlines():
+                    if line.strip().endswith("FOUND"):
+                        return "virus", (line.split(":")[-1]
+                                         .replace("FOUND", "").strip() or "virus")
+                return "virus", "virus"
+            if r.returncode == 0:
+                return "limpio", None
+            primera = (salida.strip().splitlines() or [""])[0][:120]
+            motivo = "codigo_%d:%s" % (r.returncode, primera)
+        except subprocess.TimeoutExpired:
+            motivo = "tiempo_agotado_%ds" % CLAMAV_TIMEOUT_SECS
+            break
+        except Exception as e:
+            motivo = type(e).__name__ + ":" + str(e)[:100]
+        if intento == 1:
+            time.sleep(0.5)
+
+    logging.error("ANTIVIRUS NO ANALIZO EL CORREO (entregado sin escanear): %s", motivo)
+    return "no_escaneado", motivo
 
 
 def check_spam(msg, keywords, whitelist, blacklist_domains, blacklist_ips, greylist_domains):
@@ -466,10 +710,30 @@ def check_spam(msg, keywords, whitelist, blacklist_domains, blacklist_ips, greyl
     sender_domain = sender.split("@")[-1] if "@" in sender else ""
     sender_ip = get_sender_ip(msg)
 
-    # === WHITELIST: siempre HAM ===
-    for wl in whitelist:
-        if wl in sender or wl in sender_domain:
-            return False, 0, ["whitelist:" + wl], sender_ip
+    # === ANTIVIRUS (ClamAV): un virus SIEMPRE va a Junk, ignora whitelist ===
+    _av_estado, _av_detalle = _clamav_verdict(msg)
+    if _av_estado == "virus":
+        return True, 100, ["virus:" + _av_detalle], sender_ip
+    # Un correo que no se pudo escanear no es lo mismo que uno limpio: se
+    # entrega igual, pero deja rastro y pesa en la puntuacion.
+    _av_aviso = ("antivirus:no_escaneado(+%d)" % PENALIZACION_NO_ESCANEADO
+                 if _av_estado == "no_escaneado" else None)
+
+    # === LISTA BLANCA ===
+    # Antes esto era `if wl in sender` (SUBCADENA) y devolvia HAM con score 0,
+    # saltandose keywords, listas negras y todas las heuristicas. Dos agujeros:
+    #   1. Subcadena: "gob.ec" casaba con "aviso.gob.ec.dominio-falso.com".
+    #   2. La lista trae proveedores genericos (gmail, outlook, yahoo...), y la
+    #      cabecera From no esta autenticada aqui, asi que bastaba escribir
+    #      From: quien-sea@gmail.com para desactivar el filtro por completo.
+    # Ahora: coincidencia exacta, y solo una direccion COMPLETA (o una entrada
+    # marcada con "!") exime del analisis; un dominio solo resta puntos.
+    _wl_tipo, _wl_entrada = evaluar_whitelist(sender, sender_domain, whitelist)
+    if _wl_tipo == "exime":
+        _r = ["whitelist:" + _wl_entrada]
+        if _av_aviso:
+            _r.append(_av_aviso)
+        return False, 0, _r, sender_ip
 
     subject = decode_subject(msg).lower()
     body = get_body_text(msg).lower()
@@ -477,6 +741,10 @@ def check_spam(msg, keywords, whitelist, blacklist_domains, blacklist_ips, greyl
 
     score = 0
     razones = []
+
+    if _av_aviso:
+        score += PENALIZACION_NO_ESCANEADO
+        razones.append(_av_aviso)
 
     # === LISTA NEGRA DE IPs ===
     is_bl_ip, bl_ip_match = check_blacklist_ip(sender_ip, blacklist_ips)
@@ -514,6 +782,11 @@ def check_spam(msg, keywords, whitelist, blacklist_domains, blacklist_ips, greyl
         razones.extend(h_razones)
     except Exception as e:
         logging.error("check_heuristics falló completamente: %s", str(e))
+
+    # Descuento por dominio de confianza: baja la puntuacion, no anula el analisis.
+    if _wl_tipo == "bono":
+        score = max(0, score - BONO_WHITELIST_DOMINIO)
+        razones.append("whitelist-dominio:" + _wl_entrada)
 
     return score >= SCORE_THRESHOLD, score, razones, sender_ip
 

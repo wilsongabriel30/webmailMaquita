@@ -163,10 +163,14 @@ class FraudDetector:
         confiables (LAN/VPN, configurables en TRUSTED_NETWORKS) y no repite la
         misma alerta (ip+usuario) en 7 días."""
         from app.config import get_settings
-        nets = [n.strip() for n in get_settings().trusted_networks.split(",") if n.strip()]
+
+        nets = [
+            n.strip() for n in get_settings().trusted_networks.split(",") if n.strip()
+        ]
         # Buscar logins desde una IP nueva (no vista en 30 días), que NO esté en una
         # red confiable y que no tenga ya una alerta reciente.
-        rows = await self.db.fetch("""SELECT a.username, a.ip_address, a.created_at
+        rows = await self.db.fetch(
+            """SELECT a.username, a.ip_address, a.created_at
                FROM user_activity_log a
                WHERE a.action = 'login_success'
                AND a.created_at >= NOW() - INTERVAL '5 minutes'
@@ -186,7 +190,9 @@ class FraudDetector:
                    AND fa.source_ip::text = a.ip_address::text
                    AND fa.username = a.username
                    AND fa.created_at >= NOW() - INTERVAL '7 days'
-               )""", nets)
+               )""",
+            nets,
+        )
         for r in rows:
             await self._create_alert(
                 "unusual_login",

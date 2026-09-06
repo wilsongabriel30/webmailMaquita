@@ -49,7 +49,7 @@ def estado():
     try:
         _usuario, ruta, fisica = _archivo_pedido()
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
 
     nombre = ruta.rsplit('/', 1)[-1]
     con_macros = macros.tiene_macros(fisica, nombre)
@@ -72,7 +72,7 @@ def copia_limpia():
     try:
         usuario, ruta, fisica = _archivo_pedido()
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
 
     nombre = ruta.rsplit('/', 1)[-1]
 

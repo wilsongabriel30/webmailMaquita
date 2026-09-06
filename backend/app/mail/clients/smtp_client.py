@@ -21,27 +21,32 @@ Supports text+HTML multipart, file attachments, inline CID images.
 ║                                                                      ║
 ╚══════════════════════════════════════════════════════════════════════╝
 """
-import aiosmtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+
+import re as _re
+from dataclasses import dataclass, field
+from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.image import MIMEImage
-from email import encoders
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from email.utils import formatdate, make_msgid, parseaddr
-from dataclasses import dataclass, field
 
+import aiosmtplib
+
+from app.branding.service import app_name_cacheado, org_name_cacheado
 from app.config import get_settings
-import re as _re
 
 # ─── Headers que NUNCA deben estar en un correo saliente ───
 # Agregar cualquiera de estos sube el score de SpamAssassin y envía a spam.
-_FORBIDDEN_HEADERS = frozenset({
-    "X-Priority",
-    "X-MSMail-Priority",
-    "Importance",
-    "X-MimeOLE",
-    "X-Mailer-Version",
-})
+_FORBIDDEN_HEADERS = frozenset(
+    {
+        "X-Priority",
+        "X-MSMail-Priority",
+        "Importance",
+        "X-MimeOLE",
+        "X-Mailer-Version",
+    }
+)
 
 
 def _html_to_text(html: str) -> str:
@@ -51,14 +56,14 @@ def _html_to_text(html: str) -> str:
     cuando se le pasa HTML con contenido. Si retorna vacío, SpamAssassin
     penaliza con MPART_ALT_DIFF y MIME_HTML_ONLY (+0.1 a +1.1 puntos).
     """
-    text = _re.sub(r'<br\s*/?>|</p>|</div>|</li>', '\n', html)
-    text = _re.sub(r'<[^>]+>', '', text)
-    text = _re.sub(r'&nbsp;', ' ', text)
-    text = _re.sub(r'&amp;', '&', text)
-    text = _re.sub(r'&lt;', '<', text)
-    text = _re.sub(r'&gt;', '>', text)
-    text = _re.sub(r'&quot;', '"', text)
-    text = _re.sub(r'\n{3,}', '\n\n', text)
+    text = _re.sub(r"<br\s*/?>|</p>|</div>|</li>", "\n", html)
+    text = _re.sub(r"<[^>]+>", "", text)
+    text = _re.sub(r"&nbsp;", " ", text)
+    text = _re.sub(r"&amp;", "&", text)
+    text = _re.sub(r"&lt;", "<", text)
+    text = _re.sub(r"&gt;", ">", text)
+    text = _re.sub(r"&quot;", '"', text)
+    text = _re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
 
 
@@ -70,16 +75,16 @@ def _wrap_html(html: str) -> str:
     pueden renderizar mal el correo.
     """
     stripped = html.strip()
-    if stripped.lower().startswith('<!doctype') or stripped.lower().startswith('<html'):
+    if stripped.lower().startswith("<!doctype") or stripped.lower().startswith("<html"):
         return stripped
     return (
-        '<!DOCTYPE html>\n'
+        "<!DOCTYPE html>\n"
         '<html lang="es">\n'
         '<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>\n'
         '<body style="font-family: Calibri, Arial, sans-serif; font-size: 14px; color: #333;">\n'
-        f'{stripped}\n'
-        '</body>\n'
-        '</html>'
+        f"{stripped}\n"
+        "</body>\n"
+        "</html>"
     )
 
 
@@ -129,8 +134,11 @@ def build_mime_message(email_data: OutgoingEmail) -> MIMEMultipart:
     msg["Subject"] = email_data.subject
     msg["Date"] = formatdate(localtime=True)
     msg["Message-ID"] = make_msgid(domain=settings.mail_domain)
-    msg["X-Mailer"] = "Maquita Webmail/1.0"
-    msg["Organization"] = "Maquita"
+    # Marca: este punto no tiene la base a mano, asi que se lee de la cache de
+    # proceso. Si aun no esta rellena se usan los valores por defecto: un correo
+    # nunca debe dejar de salir por consultar el nombre de la organizacion.
+    msg["X-Mailer"] = f"{app_name_cacheado()}/1.0"
+    msg["Organization"] = org_name_cacheado()
 
     if email_data.cc:
         msg["Cc"] = ", ".join(email_data.cc)
@@ -201,7 +209,11 @@ def _assert_no_forbidden_headers(msg: MIMEMultipart) -> None:
 
 
 def _build_attachment_part(att: EmailAttachment) -> MIMEBase:
-    maintype, subtype = att.content_type.split("/", 1) if "/" in att.content_type else ("application", "octet-stream")
+    maintype, subtype = (
+        att.content_type.split("/", 1)
+        if "/" in att.content_type
+        else ("application", "octet-stream")
+    )
     if maintype == "image":
         part = MIMEImage(att.content, _subtype=subtype)
     else:
@@ -217,6 +229,7 @@ async def send_email(email_data: OutgoingEmail, password: str) -> dict:
     all_recipients = list(email_data.to) + email_data.cc + email_data.bcc
 
     import ssl
+
     tls_context = ssl.create_default_context()
     if settings.smtp_host in ("127.0.0.1", "localhost"):
         tls_context.check_hostname = False
@@ -240,7 +253,11 @@ async def send_email(email_data: OutgoingEmail, password: str) -> dict:
         recipients=all_recipients,
     )
 
-    return {"message_id": msg["Message-ID"], "status": "sent", "raw_message": msg.as_string()}
+    return {
+        "message_id": msg["Message-ID"],
+        "status": "sent",
+        "raw_message": msg.as_string(),
+    }
 
 
 def build_draft_message(email_data: OutgoingEmail) -> str:

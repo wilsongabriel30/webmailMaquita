@@ -1,14 +1,16 @@
 from app.core.sanitize import strip_html
+
 """Message recall/retract router — recover sent messages within the same server.
 
 Only works for recipients on local domains (ejemplo.com).
 Uses doveadm to search and delete/replace messages in recipient mailboxes.
 """
-import subprocess
 import re
-from fastapi import APIRouter, Request, Depends, HTTPException
-from pydantic import BaseModel
+import subprocess
 from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
 from app.config import get_settings
@@ -37,7 +39,10 @@ def _validate_email(email: str) -> bool:
 
 def _validate_message_id(msg_id: str) -> bool:
     """Validate Message-ID format."""
-    return bool(re.match(r"^<[^>\s]{1,500}>$", msg_id)) or bool(re.match(r"^[^\s<>]{1,500}$", msg_id))
+    return bool(re.match(r"^<[^>\s]{1,500}>$", msg_id)) or bool(
+        re.match(r"^[^\s<>]{1,500}$", msg_id)
+    )
+
 
 def _is_local_domain(email: str, local_domains: list[str]) -> bool:
     """Check if email belongs to a local domain."""
@@ -49,8 +54,19 @@ def _doveadm_search(recipient: str, message_id: str) -> list[tuple[str, str]]:
     """Search for a message in recipient's mailbox by Message-ID. Returns [(mailbox_guid, uid)]."""
     try:
         result = subprocess.run(
-            ["sudo", "doveadm", "search", "-u", recipient, "header", "message-id", message_id],
-            capture_output=True, text=True, timeout=10,
+            [
+                "sudo",
+                "doveadm",
+                "search",
+                "-u",
+                recipient,
+                "header",
+                "message-id",
+                message_id,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         if result.returncode != 0:
             return []
@@ -70,8 +86,21 @@ def _doveadm_expunge(recipient: str, message_id: str) -> bool:
         # doveadm expunge requires MAILBOX in search — try INBOX first, then all common folders
         for folder in ["INBOX", "Sent", "Drafts", "Junk", "Trash", "Archive"]:
             result = subprocess.run(
-                ["sudo", "doveadm", "expunge", "-u", recipient, "mailbox", folder, "header", "message-id", message_id],
-                capture_output=True, text=True, timeout=10,
+                [
+                    "sudo",
+                    "doveadm",
+                    "expunge",
+                    "-u",
+                    recipient,
+                    "mailbox",
+                    folder,
+                    "header",
+                    "message-id",
+                    message_id,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
             if result.returncode == 0:
                 return True
@@ -84,8 +113,20 @@ def _doveadm_fetch_info(recipient: str, message_id: str) -> dict:
     """Fetch message info (subject, date, flags) to confirm before recall."""
     try:
         result = subprocess.run(
-            ["sudo", "doveadm", "fetch", "-u", recipient, "uid hdr.subject flags", "header", "message-id", message_id],
-            capture_output=True, text=True, timeout=10,
+            [
+                "sudo",
+                "doveadm",
+                "fetch",
+                "-u",
+                recipient,
+                "uid hdr.subject flags",
+                "header",
+                "message-id",
+                message_id,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         if result.returncode != 0:
             return {}
@@ -113,8 +154,9 @@ async def _send_external_recall_request(
     2. A polite email explaining the recall request
     """
     try:
-        from app.mail.clients.smtp_client import send_email, OutgoingEmail
         from app.core.session import get_user_password
+        from app.mail.clients.smtp_client import OutgoingEmail, send_email
+
         password = await get_user_password(request, sender)
 
         sender_name = sender.split("@")[0].replace(".", " ").title()
@@ -185,7 +227,7 @@ async def recall_message(
     db = request.app.state.db_pool
     domain_rows = await db.fetch("SELECT domain FROM domain WHERE active = true")
     local_domains = [r["domain"] for r in domain_rows if r["domain"] != "ALL"]
-    
+
     # Validar inputs
     if not _validate_message_id(body.message_id):
         raise HTTPException(status_code=422, detail="Message-ID inválido")
@@ -195,11 +237,26 @@ async def recall_message(
 
     # Verificar que el mensaje existe en la carpeta Sent del usuario (ownership)
     sender_search = subprocess.run(
-        ["sudo", "doveadm", "search", "-u", username, "mailbox", "Sent", "header", "message-id", msg_id],
-        capture_output=True, text=True, timeout=10,
+        [
+            "sudo",
+            "doveadm",
+            "search",
+            "-u",
+            username,
+            "mailbox",
+            "Sent",
+            "header",
+            "message-id",
+            msg_id,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=10,
     )
     if sender_search.returncode != 0 or not sender_search.stdout.strip():
-        raise HTTPException(status_code=403, detail="Solo puede recuperar mensajes que usted envió")
+        raise HTTPException(
+            status_code=403, detail="Solo puede recuperar mensajes que usted envió"
+        )
 
     results = []
 
@@ -213,21 +270,27 @@ async def recall_message(
                 recall_sent = await _send_external_recall_request(
                     request, username, recipient, msg_id, body.message_id
                 )
-                results.append(RecallResult(
-                    recipient=recipient,
-                    status="external_request_sent" if recall_sent else "external",
-                    detail="Solicitud de recuperacion enviada al destinatario externo. "
-                           "NOTA: El servidor destino puede aceptar o rechazar esta solicitud. "
-                           "No se garantiza la eliminacion del mensaje."
-                           if recall_sent else
-                           "Destinatario externo — no se pudo enviar solicitud de recuperacion"
-                ))
+                results.append(
+                    RecallResult(
+                        recipient=recipient,
+                        status="external_request_sent" if recall_sent else "external",
+                        detail=(
+                            "Solicitud de recuperacion enviada al destinatario externo. "
+                            "NOTA: El servidor destino puede aceptar o rechazar esta solicitud. "
+                            "No se garantiza la eliminacion del mensaje."
+                            if recall_sent
+                            else "Destinatario externo — no se pudo enviar solicitud de recuperacion"
+                        ),
+                    )
+                )
             else:
-                results.append(RecallResult(
-                    recipient=recipient,
-                    status="external",
-                    detail="Destinatario externo — solo se puede enviar solicitud de recuperacion"
-                ))
+                results.append(
+                    RecallResult(
+                        recipient=recipient,
+                        status="external",
+                        detail="Destinatario externo — solo se puede enviar solicitud de recuperacion",
+                    )
+                )
             continue
 
         # NOTE: We DO allow recalling from own mailbox
@@ -237,11 +300,13 @@ async def recall_message(
         matches = _doveadm_search(recipient, msg_id)
 
         if not matches:
-            results.append(RecallResult(
-                recipient=recipient,
-                status="not_found",
-                detail="Mensaje no encontrado en el buzon del destinatario (puede haber sido eliminado)"
-            ))
+            results.append(
+                RecallResult(
+                    recipient=recipient,
+                    status="not_found",
+                    detail="Mensaje no encontrado en el buzon del destinatario (puede haber sido eliminado)",
+                )
+            )
             continue
 
         # Get message info before deleting
@@ -255,14 +320,16 @@ async def recall_message(
             if success:
                 # If replace: send corrected version
                 if body.action == "replace" and body.replacement_html:
-                    from app.mail.clients.smtp_client import send_email, OutgoingEmail
                     from app.core.session import get_user_password
+                    from app.mail.clients.smtp_client import OutgoingEmail, send_email
+
                     password = await get_user_password(request, username)
 
                     corrected = OutgoingEmail(
                         from_addr=username,
                         to=[recipient],
-                        subject=body.replacement_subject or info.get("subject", "(Sin asunto)"),
+                        subject=body.replacement_subject
+                        or info.get("subject", "(Sin asunto)"),
                         html_body=body.replacement_html,
                         text_body="",
                     )
@@ -275,17 +342,17 @@ async def recall_message(
                 if was_read:
                     detail += " (NOTA: el destinatario ya lo habia leido)"
 
-                results.append(RecallResult(
-                    recipient=recipient,
-                    status="recalled",
-                    detail=detail
-                ))
+                results.append(
+                    RecallResult(recipient=recipient, status="recalled", detail=detail)
+                )
             else:
-                results.append(RecallResult(
-                    recipient=recipient,
-                    status="error",
-                    detail="Error al eliminar el mensaje del buzon"
-                ))
+                results.append(
+                    RecallResult(
+                        recipient=recipient,
+                        status="error",
+                        detail="Error al eliminar el mensaje del buzon",
+                    )
+                )
 
     # Log the recall action
     try:
@@ -293,7 +360,7 @@ async def recall_message(
             "INSERT INTO audit_log (username, action, details, created_at) VALUES ($1, $2, $3, NOW())",
             username,
             "message_recall",
-            f"Recalled message {body.message_id} from {len(body.recipients)} recipients. Results: {[r.status for r in results]}"
+            f"Recalled message {body.message_id} from {len(body.recipients)} recipients. Results: {[r.status for r in results]}",
         )
     except Exception:
         pass  # Non-critical
@@ -311,8 +378,8 @@ async def recall_message(
             "not_found": sum(1 for r in results if r.status == "not_found"),
             "errors": sum(1 for r in results if r.status == "error"),
         },
-        "message": f"Recuperados: {recalled_count}/{len(results)}" +
-                   (f" ({external_count} externos no recuperables)" if external_count else "")
+        "message": f"Recuperados: {recalled_count}/{len(results)}"
+        + (f" ({external_count} externos no recuperables)" if external_count else ""),
     }
 
 
@@ -340,32 +407,38 @@ async def check_recallable(
         recipient = recipient.strip().lower()
 
         if not _is_local_domain(recipient, local_domains):
-            checks.append({
-                "recipient": recipient,
-                "can_recall": False,
-                "can_request": True,
-                "reason": "Dominio externo — se puede enviar solicitud de recuperacion (no garantizada)",
-                "was_read": None,
-            })
+            checks.append(
+                {
+                    "recipient": recipient,
+                    "can_recall": False,
+                    "can_request": True,
+                    "reason": "Dominio externo — se puede enviar solicitud de recuperacion (no garantizada)",
+                    "was_read": None,
+                }
+            )
             continue
 
         matches = _doveadm_search(recipient, msg_id)
         if not matches:
-            checks.append({
-                "recipient": recipient,
-                "can_recall": False,
-                "reason": "Mensaje no encontrado",
-                "was_read": None,
-            })
+            checks.append(
+                {
+                    "recipient": recipient,
+                    "can_recall": False,
+                    "reason": "Mensaje no encontrado",
+                    "was_read": None,
+                }
+            )
             continue
 
         info = _doveadm_fetch_info(recipient, msg_id)
-        checks.append({
-            "recipient": recipient,
-            "can_recall": True,
-            "reason": "Recuperable",
-            "was_read": info.get("was_read", None),
-            "subject": info.get("subject", ""),
-        })
+        checks.append(
+            {
+                "recipient": recipient,
+                "can_recall": True,
+                "reason": "Recuperable",
+                "was_read": info.get("was_read", None),
+                "subject": info.get("subject", ""),
+            }
+        )
 
     return {"checks": checks}

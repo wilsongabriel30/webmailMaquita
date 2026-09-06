@@ -1,3 +1,33 @@
+import { cifrar, descifrar, esPaquete } from "./cifradoLocal";
+
+// T-49: lo que se guarda en el equipo va cifrado. Estas dos ayudas envuelven y
+// desenvuelven el contenido; el resto del archivo sigue trabajando igual que antes.
+async function meterEnSobre<T extends object>(
+  registro: T, campos: string[]): Promise<Record<string, unknown>> {
+  const contenido: Record<string, unknown> = {};
+  const fuera: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(registro)) {
+    if (campos.includes(k)) contenido[k] = v; else fuera[k] = v;
+  }
+  return { ...fuera, sobre: await cifrar(contenido) };
+}
+
+async function abrirSobre<T = unknown>(crudo: object | null | undefined): Promise<T | null> {
+  if (!crudo) return null;
+  const registro = crudo as Record<string, unknown>;
+  if (!esPaquete(registro.sobre)) return registro as T;   // guardado antes de cifrar
+  const dentro = await descifrar<Record<string, unknown>>(registro.sobre);
+  if (!dentro) return null;      // no se pudo abrir: como si no estuviera
+  const fuera = { ...registro };
+  delete fuera.sobre;
+  return { ...fuera, ...dentro } as T;
+}
+
+// El contenido de un correo: todo lo que no hace falta para ordenarlo o contarlo.
+const CAMPOS_CORREO = ["from", "to", "cc", "bcc", "subject", "html_body",
+                       "text_body", "attachments", "references", "in_reply_to",
+                       "preview", "snippet"];
+
 const DB_NAME = "maquita-mail-offline";
 const DB_VERSION = 2;
 
@@ -93,8 +123,11 @@ function openDB(): Promise<IDBDatabase> {
 
 export async function cacheMessageList(folder: string, messages: OfflineMessage[]) {
   const db = await openDB();
-  const tx = db.transaction("messages", "readwrite");
-  const store = tx.objectStore("messages");
+  // Se prepara TODO antes de abrir la transaccion de escritura: cifrar exige esperar, y
+  // una transaccion de IndexedDB no sobrevive a una espera (ver la nota de addToOutbox).
+  const preparados: Record<string, unknown>[] = [];
+  const lectura = db.transaction("messages", "readonly");
+  const store = lectura.objectStore("messages");
   for (const msg of messages) {
     const id = `${folder}:${msg.uid}`;
     // Preserve existing full body if we already have it
@@ -110,21 +143,35 @@ export async function cacheMessageList(folder: string, messages: OfflineMessage[
       cachedAt: Date.now(),
     };
     // Keep full body from previous cache
-    if (existing?.html_body && !msg.html_body) {
-      record.html_body = existing.html_body;
-      record.text_body = existing.text_body;
-      record.attachments = existing.attachments;
-      record.cc = existing.cc;
-      record.references = existing.references;
-      record.in_reply_to = existing.in_reply_to;
+    const anterior = await abrirSobre<OfflineMessage>(existing);
+    if (anterior?.html_body && !msg.html_body) {
+      record.html_body = anterior.html_body;
+      record.text_body = anterior.text_body;
+      record.attachments = anterior.attachments;
+      record.cc = anterior.cc;
+      record.references = anterior.references;
+      record.in_reply_to = anterior.in_reply_to;
     }
-    store.put(record);
+    preparados.push(await meterEnSobre(record, CAMPOS_CORREO));
   }
+
+  // ahora si: una sola transaccion de escritura, sin esperas por medio
+  const escritura = db.transaction("messages", "readwrite");
+  const destino = escritura.objectStore("messages");
+  for (const p of preparados) destino.put(p);
+  await new Promise<void>((ok) => {
+    escritura.oncomplete = () => ok();
+    escritura.onerror = () => ok();
+    escritura.onabort = () => ok();
+  });
+
+  const limpieza = db.transaction("messages", "readwrite");
+  const store2 = limpieza.objectStore("messages");
   // Limit total cache to 1000 messages
-  const countReq = store.count();
+  const countReq = store2.count();
   countReq.onsuccess = () => {
     if (countReq.result > 1000) {
-      const idx = store.index("cachedAt");
+      const idx = store2.index("cachedAt");
       const cursor = idx.openCursor();
       let toDelete = countReq.result - 1000;
       cursor.onsuccess = (e) => {
@@ -144,7 +191,10 @@ export async function cacheFullMessage(folder: string, msg: OfflineMessage) {
   const tx = db.transaction("messages", "readwrite");
   const store = tx.objectStore("messages");
   const id = `${folder}:${msg.uid}`;
-  store.put({ ...msg, id, folder, cachedAt: Date.now() });
+  // cifrar primero, guardar despues (ver la nota de addToOutbox)
+  const guardable = await meterEnSobre({ ...msg, id, folder, cachedAt: Date.now() },
+                                       CAMPOS_CORREO);
+  store.put(guardable);
 }
 
 export async function getCachedMessages(folder: string): Promise<OfflineMessage[]> {
@@ -153,9 +203,11 @@ export async function getCachedMessages(folder: string): Promise<OfflineMessage[
   const idx = tx.objectStore("messages").index("folder");
   return new Promise((resolve) => {
     const req = idx.getAll(IDBKeyRange.only(folder));
-    req.onsuccess = () => {
+    req.onsuccess = async () => {
       // Sort by date descending
-      const msgs = req.result || [];
+      const crudos = req.result || [];
+      const msgs = (await Promise.all(crudos.map((c: Record<string, unknown>) => abrirSobre<OfflineMessage>(c))))
+        .filter(Boolean) as OfflineMessage[];
       msgs.sort((a: OfflineMessage, b: OfflineMessage) => {
         const da = a.date ? new Date(a.date).getTime() : 0;
         const db = b.date ? new Date(b.date).getTime() : 0;
@@ -173,7 +225,8 @@ export async function getCachedMessage(folder: string, uid: number): Promise<Off
   const store = tx.objectStore("messages");
   return new Promise((resolve) => {
     const req = store.get(`${folder}:${uid}`);
-    req.onsuccess = () => resolve(req.result || null);
+    // T-49: se abre el sobre antes de devolverlo
+    req.onsuccess = async () => resolve(await abrirSobre<OfflineMessage>(req.result));
     req.onerror = () => resolve(null);
   });
 }
@@ -244,7 +297,6 @@ export async function removeActions(ids: string[]) {
 
 export async function addToOutbox(email: Omit<OutboxEmail, "id" | "createdAt" | "status" | "retries">): Promise<string> {
   const db = await openDB();
-  const tx = db.transaction("outbox", "readwrite");
   const id = crypto.randomUUID();
   const record: OutboxEmail = {
     ...email,
@@ -253,7 +305,21 @@ export async function addToOutbox(email: Omit<OutboxEmail, "id" | "createdAt" | 
     status: 'pending',
     retries: 0,
   };
-  tx.objectStore("outbox").put(record);
+  // T-49: el contenido del correo va cifrado; fuera quedan solo los datos que hacen
+  // falta para manejar la cola (id, fecha, estado, reintentos) sin abrirlo.
+  //
+  // OJO: el cifrado se hace ANTES de abrir la transacción. Una transacción de IndexedDB
+  // se cierra sola en cuanto el hilo queda libre, así que un `await` dentro la invalida y
+  // el guardado se pierde EN SILENCIO. Aquí eso significaría perder un correo que la
+  // persona acaba de escribir sin conexión.
+  const guardable = await meterEnSobre(record, CAMPOS_CORREO);
+  await new Promise<void>((ok) => {
+    const tx = db.transaction("outbox", "readwrite");
+    tx.objectStore("outbox").put(guardable);
+    tx.oncomplete = () => ok();
+    tx.onerror = () => ok();
+    tx.onabort = () => ok();
+  });
   return id;
 }
 
@@ -262,8 +328,16 @@ export async function getOutboxEmails(): Promise<OutboxEmail[]> {
   const tx = db.transaction("outbox", "readonly");
   return new Promise((resolve) => {
     const req = tx.objectStore("outbox").getAll();
-    req.onsuccess = () => {
-      const emails = req.result || [];
+    req.onsuccess = async () => {
+      // T-49: se abre el sobre de cada uno. Si alguno no se pudiera descifrar NO se
+      // descarta en silencio: se deja pasar tal cual, porque un correo pendiente vale
+      // mas que la pulcritud del formato, y asi al menos se puede reintentar o rescatar.
+      const crudos = req.result || [];
+      const emails: OutboxEmail[] = [];
+      for (const c of crudos) {
+        const abierto = await abrirSobre<OutboxEmail>(c);
+        emails.push(abierto || c);
+      }
       emails.sort((a: OutboxEmail, b: OutboxEmail) => a.createdAt - b.createdAt);
       resolve(emails);
     };
@@ -279,7 +353,9 @@ export async function updateOutboxStatus(id: string, status: OutboxEmail['status
     const req = store.get(id);
     req.onsuccess = () => {
       if (req.result) {
-        const updated = { ...req.result, status, error, retries: req.result.retries + (status === 'failed' ? 1 : 0) };
+        // se cambian solo los datos de fuera del sobre: el contenido cifrado no se toca
+        const updated = { ...req.result, status, error,
+                          retries: (req.result.retries || 0) + (status === 'failed' ? 1 : 0) };
         store.put(updated);
       }
       resolve();

@@ -6,6 +6,7 @@ forwards, impersonation, eDiscovery, legal hold, exports.
 
 import logging
 import time
+
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
@@ -139,8 +140,9 @@ class UserActivityAuditMiddleware(BaseHTTPMiddleware):
             if not username:
                 auth_header = request.headers.get("authorization", "")
                 if auth_header.startswith("Bearer "):
-                    import jwt as pyjwt
                     import os
+
+                    import jwt as pyjwt
 
                     secret = os.getenv("ADMIN_JWT_SECRET", "")
                     if secret:

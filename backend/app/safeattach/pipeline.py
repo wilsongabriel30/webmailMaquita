@@ -3,17 +3,18 @@
 Para agregar un motor nuevo: crear un archivo en analyzers/ que herede de
 Analyzer y añadirlo a la lista ANALYZERS. Nada más.
 """
+
 import logging
 import os
 import tempfile
 
-from app.safeattach.verdict import ScanReport
+from app.safeattach.analyzers.archive import Archive
 from app.safeattach.analyzers.clamav import ClamAV
 from app.safeattach.analyzers.filetype import FileType
 from app.safeattach.analyzers.oletools import OleTools
-from app.safeattach.analyzers.archive import Archive
 from app.safeattach.analyzers.yara_rules import Yara
 from app.safeattach.detonation.docker_sandbox import DockerSandbox
+from app.safeattach.verdict import ScanReport
 
 logger = logging.getLogger("safeattach")
 
@@ -32,7 +33,7 @@ def scan(content: bytes, filename: str, content_type: str = "") -> ScanReport:
             try:
                 if a.applies(filename, content_type):
                     a.analyze(path, content, report)
-            except Exception as e:                       # un motor no debe tumbar el resto
+            except Exception as e:  # un motor no debe tumbar el resto
                 logger.warning("analizador %s falló: %s", a.name, e)
                 report.engines[a.name] = f"error: {e}"
     finally:

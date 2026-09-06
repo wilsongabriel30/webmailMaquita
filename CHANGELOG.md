@@ -7,6 +7,162 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Documentación
+
+- **Una sola guía de instalación.** `INSTALL-DESDE-CERO.md` es la canónica, al día con esta semana:
+  el Guardián pre-commit como paso obligatorio, el `.env` del chat con las fuentes externas
+  desactivadas por defecto, la marca desde `branding_settings`, la distinción entre lo que falla
+  abierto (motores de análisis) y lo que falla cerrado (controles de acceso), y una sección de
+  **qué reportar cuando algo falla**, pensada para las réplicas. `INSTALL-NATIVE.md` queda como
+  detalle manual por componente e `INSTALL.md` como sustituida.
+- El instalador instala el Guardián (paso 7c). El validador (`validar-despliegue.sh`) comprueba
+  además los guardianes, el árbol limpio, la ausencia de datos personales y la marca; y **la
+  comprobación de IA por fin se ejecuta**: estaba después del `exit` y nunca corría.
+
+
+### Cambiado
+
+- **[T4] Las fuentes externas de GIF del chat pasan a ser opt-in.** Si no había clave propia
+  de GIPHY, el módulo usaba una clave «pública de pruebas» escrita en el código: cada búsqueda de
+  la gente salía a un tercero sin que nadie lo hubiera decidido, y quedaba una clave de API literal
+  en un repositorio público. Ahora sin `GIPHY_API_KEY` no se consulta a GIPHY, Wikimedia Commons
+  exige `GIFS_EXTERNOS_COMMONS=1`, y sin fuentes el endpoint responde que la búsqueda externa está
+  desactivada en vez de una lista vacía engañosa. La biblioteca de GIF propia no cambia. Con esto
+  el inventario T4 (sin dependencias externas de runtime) queda completo: socket.io ya se servía
+  en local y gravatar ya se resolvía en casa.
+
+### Corregido
+
+- **La burbuja de chat sondeaba sin parar con 404 en instalaciones sin chat.** La autodetección
+  consultaba `/api/chat/conversations` cada 60 s y en cada cambio de foco, y un 404 —ruta
+  inexistente, que no se arregla solo— nunca la detenía: consola llena de errores y una petición
+  inútil por minuto y por persona. Además, si la configuración del chat fallaba, se asumía que el
+  chat sí estaba habilitado. Ahora tres 404 seguidos detienen el sondeo hasta recargar, y ante
+  error de configuración el chat se da por deshabilitado. Detectado por el equipo de Correo Andes.
+
+### Documentación
+
+- `PON-TU-MARCA.md`: se aclara que `manifest.json` no se toca, que la caché del service worker se
+  renueva sola en cada despliegue, y de dónde salen `app_name` y `org_name`.
+
+
+## [1.6.0-rc3] - 2026-09-05
+
+Candidata para la verificación externa. Incluye la remediación de seguridad de la auditoría del
+2026-09-03 y los hallazgos reportados por el equipo de Correo Andes.
+
+### Corregido
+
+- **El botón «Cambiar contraseña» quedaba gris sin explicar por qué.** La barra de fuerza contaba
+  cuántas reglas se cumplían, sin mirar cuáles: una contraseña de 9 caracteres con mayúscula,
+  minúscula, número y símbolo sumaba 4 de 5 y se anunciaba como **«Fuerte» en verde**, mientras el
+  botón seguía deshabilitado porque el mínimo de 10 caracteres no se cumplía. La pantalla decía una
+  cosa y el botón hacía otra, sin salida posible.
+
+  Ahora la barra no muestra ninguna etiqueta positiva mientras falte un requisito obligatorio:
+  dice «Faltan requisitos» en naranja. Y bajo el botón aparece el motivo concreto —qué regla falta,
+  que hay que repetir la contraseña, que la confirmación no coincide o que falta la actual—.
+  Reproducido con el caso real reportado (`860829Al@`) y con otras cinco contraseñas. Detectado por
+  el equipo de Correo Andes.
+
+
+- **No se podía cambiar la contraseña desde el webmail.** En Ajustes → Contraseña, el campo
+  «Confirmar» marcaba «Las contraseñas no coinciden» aunque se escribiera lo mismo en los dos
+  campos, y el botón quedaba deshabilitado sin salida. La comparación era correcta: los valores
+  de verdad diferían. Dos causas, y ninguna se veía:
+  - el gestor de contraseñas del navegador rellenaba «Confirmar» con otro valor, porque los dos
+    campos declaraban `autoComplete="new-password"`;
+  - un espacio invisible al principio o al final, típico del teclado del móvil o de pegar desde
+    otra aplicación.
+
+  «Confirmar» pasa a `autoComplete="off"`, gana el mismo botón de mostrar/ocultar que ya tenía
+  «Nueva» —sin él no había forma de ver la diferencia— y, cuando lo único que separa a las dos
+  contraseñas son espacios, el mensaje lo dice en lugar del genérico. **Los espacios no se
+  recortan solos a propósito:** una contraseña puede llevarlos a posta y cambiarla por detrás
+  sería peor. Detectado por el equipo de Correo Andes.
+
+### Seguridad
+
+- **La reverificación por IMAP del cambio de contraseña ahora va cifrada.** `verify_imap` abría
+  `IMAP4` sin cifrar y enviaba la contraseña recién puesta tal cual. En esta instalación no se
+  notaba, porque el IMAP es `127.0.0.1` y Dovecot admite acceso en claro desde localhost, pero en
+  un despliegue con el IMAP en otra máquina la contraseña viajaría por la red sin cifrar; y si ese
+  servidor exigiera TLS, el paso fallaría y el cambio se reportaría como no aplicado aunque sí se
+  hubiera guardado. Ahora se usa STARTTLS siempre que el servidor lo ofrezca, y si el servidor es
+  remoto y no lo ofrece **no se envía la contraseña**. Aviso del equipo de Correo Andes.
+
+### Cambiado
+
+- **La marca visible deja de estar escrita a mano en el código.** Los textos de marca vivían
+  repartidos en literales (`"Maquita Mail"`, `"Maquita"`, `"Maquita Webmail"`), lo que obligaba a
+  reparchear en cada versión a quien usa el proyecto como base. Ahora salen de `branding_settings`,
+  a través de `app/branding/service.py`, y se pueden cambiar sin tocar código. Sugerido por el
+  equipo de Correo Andes.
+
+  Se distinguen **dos** valores, porque no son lo mismo:
+  - `org_name` — la organización (aquí, «Fundación Maquita Cushunchic MCCH»). Su valor por defecto
+    es neutro a propósito: una réplica no debe mostrar la marca de otra organización, porque un
+    aviso de seguridad a nombre ajeno parece phishing.
+  - `app_name` — el producto de correo (aquí, «Maquita Mail»). Es lo que ve quien usa el sistema.
+    Valor por defecto: `Maquita Mail`.
+
+  Puntos parametrizados: emisor del segundo factor (`auth/totp.py`), cabeceras `X-Mailer` y
+  `Organization` del correo saliente (`mail/clients/smtp_client.py`), pie de los recordatorios
+  automáticos (`reminders_scheduler.py`), identificador de producto iCal, texto de invitación y pie
+  de las invitaciones de calendario (`calendar/service.py`), y el título de los avisos del navegador
+  y el prefijo del nombre de caché en `frontend/public/sw.js`, que el despliegue inyecta.
+
+  **Cuatro textos cambian de contenido**, porque los literales anteriores eran inconsistentes entre
+  sí y ahora se unifican:
+
+  | Texto | Antes | Ahora |
+  |---|---|---|
+  | Cabecera `X-Mailer` | `Maquita Webmail/1.0` | `Maquita Mail/1.0` |
+  | Cabecera `Organization` | `Maquita` | nombre completo de la organización |
+  | Identificador iCal | `-//Maquita Webmail//Calendar//ES` | `-//Maquita Mail//Calendar//ES` |
+  | Pie de invitación | `… · Fundación Maquita` | `… ·` nombre completo de la organización |
+
+  El resto (emisor del segundo factor, pie de recordatorios, texto de invitación y título de los
+  avisos) queda **exactamente igual** en la instalación de Maquita.
+
+  Para los puntos que no tienen la base de datos a mano —el cliente SMTP, sobre todo— hay una caché
+  de proceso que se rellena al arrancar. Si no se ha rellenado, se usan los valores por defecto: un
+  correo nunca deja de salir por consultar la marca.
+
+  **No se han renombrado los identificadores internos de almacenamiento**: las bases del navegador
+  `maquita-mail-offline` y `maquita-cache`, y el global `MaquitaAlmacen`, siguen igual. Renombrarlos
+  dejaría sin datos a quien ya los tenga guardados. Queda advertido en el propio `sw.js`.
+
+
+### Seguridad (remediación de la auditoría 2026-09-03 — rama `remediacion-seguridad-2026-09`)
+
+Entorno en pre-producción sin usuarios reales; el lanzamiento ocurre tras el pentest externo y su
+re-test. Cada hallazgo lleva su código del informe y un commit propio, con prueba antes/después.
+
+- **[C-7] Unidades compartidas del Almacén sin control de membresía:** `ruta_fisica()` exige ser
+  miembro en toda ruta `/unidades/<id>/…` y rol de escritura en las operaciones que escriben; falla
+  cerrado si la base de datos no responde. Compartir por enlace exige rol de escritura. Sin permiso
+  responde 403 en todos los endpoints. Aplicado también al espejo `drive-maquita/`.
+- **[C-6] Cuentas externas del Drive podían tomar el buzón interno:** la sesión externa lleva
+  `aud`/ámbito propios que el backend del correo rechaza; `change-password` verifica siempre contra
+  IMAP; `crear_e_invitar` rechaza buzones y dominios internos.
+- **[C-9] Chat: borrado global de cualquier conversación:** `clear` exige ser participante activo.
+- **[C-4] y [C-5] Ejecución de comandos como root desde el panel admin:** análisis de adjuntos y
+  autorespondedor sin `bash -c` ni heredoc; argumentos como lista, nombres y buzones validados, script
+  Sieve escapado.
+- **[C-3] Integraciones de IA y transcripción publicadas sin sesión:** plantilla nginx con
+  `auth_request` al backend (`deploy/hardening/nginx/integraciones-sesion.conf`); claves fuera del
+  archivo de configuración.
+- **[A-16] fail2ban y logrotate del webmail** alineados con el log de seguridad real
+  (`deploy/hardening/fail2ban/*`, `deploy/hardening/logrotate/webmail`).
+- **[B1] Secretos obligatorios validados al arranque** en backend, panel, chat y almacén (aborta
+  nombrando la variable, sin imprimir valores).
+- **[B2] Milter sin errores silenciosos** y cola de evidencia diferida con reconciliación por cron.
+
+En el servidor, además (sin código): rotación de `SECRET_KEY`, `ADMIN_JWT_SECRET` y `CHAT_JWT_SECRET`
+con invalidación de sesiones; `/dav/` restringido a LAN/VPN (temporal); log de cookies de nginx
+eliminado; permisos de logs 640. Detalle en `REMEDIACION-2026-09.md` (servidor).
+
 ## [1.5.0] - 2026-09-03
 
 ### Añadido

@@ -1,12 +1,13 @@
 """Security sandbox — attachment scanning endpoints."""
-import subprocess
+
 import json
-import tempfile
-import os
 import logging
+import os
+import subprocess
+import tempfile
 from datetime import datetime
 
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from app.auth.dependencies import get_current_user
 from app.core.session import get_user_password
@@ -18,7 +19,9 @@ router = APIRouter(prefix="/api/security", tags=["security"])
 _KW = "keyword"
 
 
-async def deep_scan_attachment(content: bytes, filename: str, content_type: str) -> dict:
+async def deep_scan_attachment(
+    content: bytes, filename: str, content_type: str
+) -> dict:
     """Análisis de adjuntos (Safe Attachments).
 
     Delega en el paquete modular ``app.safeattach`` (clamav + filetype +
@@ -27,7 +30,9 @@ async def deep_scan_attachment(content: bytes, filename: str, content_type: str)
     Devuelve {"result", "threats", "details"} — formato estable para compose.py.
     """
     import asyncio
+
     from app.safeattach import scan_attachment as _scan
+
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(None, _scan, content, filename, content_type)
 
@@ -40,6 +45,7 @@ async def scan_attachment(request: Request, message_id: str, filename: str):
 
     # Fetch attachment via IMAP
     from app.mail.clients.imap_client import get_imap_connection
+
     password = await get_user_password(request, user)
 
     imap = await get_imap_connection(user, password)
@@ -60,6 +66,7 @@ async def scan_attachment(request: Request, message_id: str, filename: str):
                     )
                     if status == "OK":
                         import email
+
                         raw = msg_data[1] if len(msg_data) > 1 else msg_data[0]
                         if isinstance(raw, tuple):
                             raw = raw[1]
@@ -94,8 +101,12 @@ async def scan_attachment(request: Request, message_id: str, filename: str):
         """INSERT INTO attachment_scans
            (message_id, filename, content_type, size, scan_result, threats_found, scan_details)
            VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb)""",
-        message_id, filename, content_type, len(content),
-        scan_data["result"], json.dumps(scan_data["threats"]),
+        message_id,
+        filename,
+        content_type,
+        len(content),
+        scan_data["result"],
+        json.dumps(scan_data["threats"]),
         json.dumps(scan_data["details"]),
     )
 
@@ -129,8 +140,16 @@ async def get_scan_results(request: Request, message_id: str):
                 "content_type": r["content_type"],
                 "size": r["size"],
                 "scan_result": r["scan_result"],
-                "threats": json.loads(r["threats_found"]) if isinstance(r["threats_found"], str) else r["threats_found"],
-                "details": json.loads(r["scan_details"]) if isinstance(r["scan_details"], str) else r["scan_details"],
+                "threats": (
+                    json.loads(r["threats_found"])
+                    if isinstance(r["threats_found"], str)
+                    else r["threats_found"]
+                ),
+                "details": (
+                    json.loads(r["scan_details"])
+                    if isinstance(r["scan_details"], str)
+                    else r["scan_details"]
+                ),
                 "scanned_at": r["scanned_at"].isoformat() if r["scanned_at"] else None,
                 "scanned_by": r["scanned_by"],
             }
@@ -146,9 +165,15 @@ async def scan_stats(request: Request):
     db = request.app.state.db_pool
 
     total = await db.fetchval("SELECT COUNT(*) FROM attachment_scans")
-    clean = await db.fetchval("SELECT COUNT(*) FROM attachment_scans WHERE scan_result = 'clean'")
-    suspicious = await db.fetchval("SELECT COUNT(*) FROM attachment_scans WHERE scan_result = 'suspicious'")
-    malicious = await db.fetchval("SELECT COUNT(*) FROM attachment_scans WHERE scan_result = 'malicious'")
+    clean = await db.fetchval(
+        "SELECT COUNT(*) FROM attachment_scans WHERE scan_result = 'clean'"
+    )
+    suspicious = await db.fetchval(
+        "SELECT COUNT(*) FROM attachment_scans WHERE scan_result = 'suspicious'"
+    )
+    malicious = await db.fetchval(
+        "SELECT COUNT(*) FROM attachment_scans WHERE scan_result = 'malicious'"
+    )
 
     recent = await db.fetch(
         "SELECT filename, scan_result, scanned_at FROM attachment_scans ORDER BY scanned_at DESC LIMIT 10"

@@ -2,9 +2,9 @@ import pytest
 
 @pytest.mark.asyncio
 async def test_login_missing_fields(client):
-    """Login rejects missing credentials"""
+    """Login rejects missing credentials (el manejador de validación responde 400 genérico)"""
     r = await client.post("/api/auth/login", json={})
-    assert r.status_code == 422
+    assert r.status_code == 400
 
 @pytest.mark.asyncio
 async def test_login_invalid_credentials(client):

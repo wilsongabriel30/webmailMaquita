@@ -1,0 +1,72 @@
+/* T-50 tanda 1 · El panel de la izquierda con el aire de Teams */
+
+/* --- secciones Favoritos y Chats (puntos 8 y 9) --- */
+.mq-seccion-lista {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px 6px;
+    font-size: 12px; font-weight: 600; letter-spacing: .02em;
+    color: var(--mq-gris-suave, #616161);
+    text-transform: none;
+}
+.mq-seccion-cuenta { font-weight: 400; opacity: .7; }
+
+/* --- la fila: alturas y aire como Teams (punto 5) --- */
+.conversations-list .conversation-item {
+    position: relative;
+    padding: 8px 12px;
+    min-height: 56px;
+    border-radius: 6px;
+    margin: 1px 6px;
+    align-items: center;
+    /* borde transparente YA en reposo: si apareciera solo al pasar el ratón, la fila
+       crecería 1px y el cursor podría quedar dentro y fuera alternativamente */
+    border: 1px solid transparent;
+    box-sizing: border-box;
+}
+/* el hover no puede cambiar NADA que ocupe espacio: ni alto, ni borde, ni margen.
+   Solo color, fondo y sombra. */
+.conversations-list .conversation-item:hover { background: #f5f5f5; }
+.conversations-list .conversation-item.active { background: #e8ebfa; }
+
+/* el botón de fijar va flotando sobre la fila: al aparecer no empuja nada */
+.conversations-list .conversation-item .mq-fijar { pointer-events: auto; }
+/* el !important es necesario: chat-page.css fija estos tamanos en rem con mas
+   peso, y sin el la fila no queda con la tipografia de Teams (medido: 13.6px
+   en vez de 14px) */
+.conversations-list .conversation-item .conversation-name {
+    font-size: 14px !important; font-weight: 400; color: var(--mq-texto, #242424);
+}
+.conversations-list .conversation-item .conversation-preview {
+    font-size: 12.5px !important; color: var(--mq-gris-suave, #616161);
+}
+
+/* --- sin leer: negrita y punto (punto 35) --- */
+.conversation-item.mq-no-leida .conversation-name,
+.conversation-item.mq-no-leida .conversation-preview { font-weight: 700; color: #242424; }
+.conversation-item.mq-no-leida::before {
+    content: '';
+    position: absolute; left: 3px; top: 50%; transform: translateY(-50%);
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #6264a7;
+}
+
+/* --- fijar en Favoritos: aparece al pasar el ratón --- */
+.mq-fijar {
+    position: absolute; right: 8px; top: 8px;
+    border: 0; background: transparent; cursor: pointer;
+    font-size: 15px; line-height: 1; color: #8a8886;
+    opacity: 0; transition: opacity .12s ease;
+}
+.conversation-item:hover .mq-fijar,
+.conversation-item.mq-favorita .mq-fijar { opacity: 1; }
+.conversation-item.mq-favorita .mq-fijar { color: #c8a415; }
+
+/* --- filtros nuevos --- */
+.chat-tabs .mq-filtro {
+    font-size: 13px; padding: 6px 12px; border-radius: 14px;
+    border: 1px solid transparent; background: transparent;
+    color: var(--mq-gris-suave, #616161);
+}
+.chat-tabs .mq-filtro.active {
+    background: #e8ebfa; color: var(--mq-azul, #0060A0); font-weight: 600;
+}

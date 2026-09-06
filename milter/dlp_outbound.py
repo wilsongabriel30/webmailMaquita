@@ -92,7 +92,8 @@ async def run(st: dict, sender: str, pool, text: str, manips: list,
 
     worst = max((f["action"] for f in findings), key=lambda a: _SEV.get(a, 0))
     dec = await dlp_policy.decide(pool, {"findings": findings, "action": worst},
-                                  st["rcpts"], await dlp_policy.is_admin(pool, sender))
+                                  st["rcpts"], await dlp_policy.is_admin(pool, sender),
+                                  sender=sender)
     ext = bool(dec.get("external"))
     types = sorted({f["type"] for f in findings})
     has_card = "tarjeta" in types
@@ -106,6 +107,12 @@ async def run(st: dict, sender: str, pool, text: str, manips: list,
             "VALUES ($1,$2,$3,$4,$5,$6,$7)",
             sender, json.dumps(st["rcpts"]), (subj or "")[:500], json.dumps(types),
             "milter_reject" if block else f"milter_{dec['action']}", (not block), ext)
+        if dec.get("exento"):
+            # Queda constancia de que salio por excepcion, no por no detectarse.
+            await pool.execute(
+                "UPDATE dlp_violations SET reason = $1 WHERE id = "
+                "(SELECT max(id) FROM dlp_violations)",
+                "Remitente exento: se permitio el envio y se registro para revision")
     except Exception:
         pass
 

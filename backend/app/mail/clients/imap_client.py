@@ -3,13 +3,15 @@
 All operations use IMAP UID commands for stable message identification.
 No business logic: the service layer orchestrates with parsers.
 """
-import aioimaplib
-import re
-import json
-
-from app.config import get_settings
 
 import base64 as _b64
+import json
+import re
+
+import aioimaplib
+
+from app.config import get_settings
+from app.mail.errors import CredencialIMAPInvalida
 
 
 def _imap_utf7_decode(s: str) -> str:
@@ -26,13 +28,17 @@ def _imap_utf7_decode(s: str) -> str:
             if end == i + 1:
                 result.append("&")
             else:
-                encoded = s[i + 1:end].replace(",", "/")
-                padded = encoded + "=" * (4 - len(encoded) % 4) if len(encoded) % 4 else encoded
+                encoded = s[i + 1 : end].replace(",", "/")
+                padded = (
+                    encoded + "=" * (4 - len(encoded) % 4)
+                    if len(encoded) % 4
+                    else encoded
+                )
                 try:
                     decoded = _b64.b64decode(padded).decode("utf-16-be")
                     result.append(decoded)
                 except Exception:
-                    result.append(s[i:end + 1])
+                    result.append(s[i : end + 1])
             i = end + 1
         else:
             result.append(s[i])
@@ -45,11 +51,16 @@ def _imap_utf7_encode(s: str) -> str:
     result = []
     buf = ""
     for ch in s:
-        if ord(ch) < 0x20 or ord(ch) > 0x7e:
+        if ord(ch) < 0x20 or ord(ch) > 0x7E:
             buf += ch
         else:
             if buf:
-                encoded = _b64.b64encode(buf.encode("utf-16-be")).decode("ascii").rstrip("=").replace("/", ",")
+                encoded = (
+                    _b64.b64encode(buf.encode("utf-16-be"))
+                    .decode("ascii")
+                    .rstrip("=")
+                    .replace("/", ",")
+                )
                 result.append("&" + encoded + "-")
                 buf = ""
             if ch == "&":
@@ -57,10 +68,14 @@ def _imap_utf7_encode(s: str) -> str:
             else:
                 result.append(ch)
     if buf:
-        encoded = _b64.b64encode(buf.encode("utf-16-be")).decode("ascii").rstrip("=").replace("/", ",")
+        encoded = (
+            _b64.b64encode(buf.encode("utf-16-be"))
+            .decode("ascii")
+            .rstrip("=")
+            .replace("/", ",")
+        )
         result.append("&" + encoded + "-")
     return "".join(result)
-
 
 
 # CRÍTICO: _imap_utf7_encode() convierte nombres UTF-8 (ej: "Planificación")
@@ -69,8 +84,8 @@ def _imap_utf7_encode(s: str) -> str:
 def _quote_folder(name: str) -> str:
     """Encode to IMAP Modified UTF-7 and quote if needed."""
     name = _imap_utf7_encode(name)
-    if ' ' in name or '"' in name or '(' in name or ')' in name:
-        return '"' + name.replace('\\', '\\\\').replace('"', '\\"') + '"'
+    if " " in name or '"' in name or "(" in name or ")" in name:
+        return '"' + name.replace("\\", "\\\\").replace('"', '\\"') + '"'
     return name
 
 
@@ -94,13 +109,16 @@ async def get_imap_connection(username: str, password: str) -> aioimaplib.IMAP4:
     Sin este fallback, el usuario ve pantalla en blanco con 500 en consola.
     """
     settings = get_settings()
-    imap = aioimaplib.IMAP4(host=settings.imap_host, port=settings.imap_port, timeout=30)
+    imap = aioimaplib.IMAP4(
+        host=settings.imap_host, port=settings.imap_port, timeout=30
+    )
     await imap.wait_hello_from_server()
     resp = await imap.login(username, password)
     if resp.result != "OK":
         # FALLBACK: si es master user y falló, reintentar como usuario normal
         if "*" in username:
             import logging
+
             logging.getLogger(__name__).warning(
                 f"IMAP master login failed for {username}, retrying without master suffix"
             )
@@ -109,12 +127,14 @@ async def get_imap_connection(username: str, password: str) -> aioimaplib.IMAP4:
             except Exception:
                 pass
             base_user = username.split("*")[0]
-            imap = aioimaplib.IMAP4(host=settings.imap_host, port=settings.imap_port, timeout=30)
+            imap = aioimaplib.IMAP4(
+                host=settings.imap_host, port=settings.imap_port, timeout=30
+            )
             await imap.wait_hello_from_server()
             resp = await imap.login(base_user, password)
             if resp.result == "OK":
                 return imap
-        raise ConnectionError("IMAP login failed")
+        raise CredencialIMAPInvalida("IMAP login failed")
     return imap
 
 
@@ -142,13 +162,15 @@ async def list_folders(imap: aioimaplib.IMAP4) -> list[dict]:
                 continue
             flags = [f.strip() for f in flags_str.split("\\") if f.strip()]
             display = _imap_utf7_decode(name)
-            parsed.append({
-                "name": display,
-                "imap_name": name,
-                "delimiter": delimiter,
-                "flags": flags,
-                "unseen": 0,
-            })
+            parsed.append(
+                {
+                    "name": display,
+                    "imap_name": name,
+                    "delimiter": delimiter,
+                    "flags": flags,
+                    "unseen": 0,
+                }
+            )
 
     # Phase 2: batch STATUS calls — still serial (single IMAP conn)
     # but skip non-selectable folders (\\Noselect flag)
@@ -156,7 +178,9 @@ async def list_folders(imap: aioimaplib.IMAP4) -> list[dict]:
         if "Noselect" in folder["flags"]:
             continue
         try:
-            status_resp = await imap.status(_quote_folder(folder["imap_name"]), "(UNSEEN MESSAGES)")
+            status_resp = await imap.status(
+                _quote_folder(folder["imap_name"]), "(UNSEEN MESSAGES)"
+            )
             if status_resp.result == "OK":
                 for sline in _decode_lines(status_resp.lines):
                     m = re.search(r"UNSEEN\s+(\d+)", sline)
@@ -178,13 +202,19 @@ async def list_message_uids(
     username: str = "",
 ) -> dict:
     """List message UIDs with pagination (newest first).
-    
+
     FQA-002: Redis caching for sorted UIDs (60s TTL) to avoid
     repeated IMAP SORT on large folders like Sent (7k+ messages).
     """
     resp = await imap.select(_quote_folder(folder))
     if resp.result != "OK":
-        return {"uids": [], "total": 0, "page": page, "per_page": per_page, "folder_error": True}
+        return {
+            "uids": [],
+            "total": 0,
+            "page": page,
+            "per_page": per_page,
+            "folder_error": True,
+        }
 
     # Try SORT for server-side ordering (faster than SEARCH + client sort)
     use_sort = True
@@ -233,7 +263,9 @@ async def list_message_uids(
         # FQA-002: Cache sorted UIDs in Redis for 60s
         if redis and username and cache_key and all_uids:
             try:
-                await redis.set(cache_key, json.dumps(all_uids), ex=300)  # 5min TTL (era 60s)
+                await redis.set(
+                    cache_key, json.dumps(all_uids), ex=300
+                )  # 5min TTL (era 60s)
             except Exception:
                 pass
 
@@ -247,7 +279,9 @@ async def list_message_uids(
 
 def _build_search_criteria(query: str) -> list[str]:
     from app.mail.search_advanced import parse_search_query
+
     return parse_search_query(query)
+
 
 async def fetch_message_headers(
     imap: aioimaplib.IMAP4,
@@ -273,11 +307,16 @@ def _clean_snippet(raw: str) -> str:
     if not raw:
         return ""
     # Remove IMAP fetch prefixes like "BODY[TEXT] {242}"
-    text = re.sub(r"^BODY\[TEXT\](?:\s*<\d+>)?\s*\{\d+\}\s*", "", raw, flags=re.IGNORECASE)
+    text = re.sub(
+        r"^BODY\[TEXT\](?:\s*<\d+>)?\s*\{\d+\}\s*", "", raw, flags=re.IGNORECASE
+    )
     # Decode quoted-printable encoding (=C3=B3 -> ó, =20 -> space, etc.)
     import quopri
+
     try:
-        text = quopri.decodestring(text.encode("utf-8", errors="replace")).decode("utf-8", errors="replace")
+        text = quopri.decodestring(text.encode("utf-8", errors="replace")).decode(
+            "utf-8", errors="replace"
+        )
     except Exception:
         pass
     # Remove MIME boundaries and headers
@@ -386,14 +425,16 @@ def _parse_uid_fetch_response(raw_lines) -> list[dict]:
 
             if uid > 0 and header_data:
                 snippet = _clean_snippet(body_text) if body_text else ""
-                messages.append({
-                    "uid": uid,
-                    "flags": flags,
-                    "size": size,
-                    "raw_headers": header_data,
-                    "snippet": snippet,
-                    "has_attachments": has_attach,
-                })
+                messages.append(
+                    {
+                        "uid": uid,
+                        "flags": flags,
+                        "size": size,
+                        "raw_headers": header_data,
+                        "snippet": snippet,
+                        "has_attachments": has_attach,
+                    }
+                )
             i = j
             continue
         i += 1
@@ -499,13 +540,16 @@ async def fetch_attachment(
     # IMAP returns attachment data as base64-encoded.
     # Try to decode; if it fails, return raw bytes.
     import base64
+
     try:
         return base64.b64decode(largest)
     except Exception:
         return bytes(largest)
 
 
-async def uid_move_message(imap: aioimaplib.IMAP4, folder: str, uid: int, dest_folder: str) -> bool:
+async def uid_move_message(
+    imap: aioimaplib.IMAP4, folder: str, uid: int, dest_folder: str
+) -> bool:
     resp = await imap.select(_quote_folder(folder))
     if resp.result != "OK":
         return False
@@ -517,7 +561,9 @@ async def uid_move_message(imap: aioimaplib.IMAP4, folder: str, uid: int, dest_f
     return True
 
 
-async def uid_set_flags(imap: aioimaplib.IMAP4, folder: str, uid: int, flags: str, add: bool = True) -> bool:
+async def uid_set_flags(
+    imap: aioimaplib.IMAP4, folder: str, uid: int, flags: str, add: bool = True
+) -> bool:
     resp = await imap.select(_quote_folder(folder))
     if resp.result != "OK":
         return False
@@ -535,7 +581,11 @@ async def uid_delete_message(imap: aioimaplib.IMAP4, folder: str, uid: int) -> b
     if check.result != "OK":
         return False
     lines = _decode_lines(check.lines)
-    uid_found = any(f"UID {uid}" in line or f"UID  {uid}" in line for line in lines if "FETCH" in line)
+    uid_found = any(
+        f"UID {uid}" in line or f"UID  {uid}" in line
+        for line in lines
+        if "FETCH" in line
+    )
     if not uid_found:
         return False
     await imap.uid("store", str(uid), "+FLAGS", "(\\Deleted)")
@@ -600,7 +650,9 @@ async def append_message(
 ) -> int | None:
     """Append a message to a folder (for drafts). Returns UID if available."""
     flag_str = f"({flags})" if flags else None
-    resp = await imap.append(raw_message.encode("utf-8"), mailbox=_quote_folder(folder), flags=flag_str)
+    resp = await imap.append(
+        raw_message.encode("utf-8"), mailbox=_quote_folder(folder), flags=flag_str
+    )
     if resp.result != "OK":
         return None
     for line in _decode_lines(resp.lines):

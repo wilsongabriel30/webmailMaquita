@@ -14,6 +14,7 @@ Host canónico: env `AUTODISCOVER_MAIL_HOST`, si no `mail.<mail_domain>` del .en
 Anónimo (solo entrega ajustes; el email viene en el POST). Montado sin prefijo; nginx enruta
 /autodiscover/autodiscover.xml al backend para CADA dominio (ver doc: DNS SRV/CNAME por dominio).
 """
+
 import html
 import os
 import re
@@ -24,7 +25,9 @@ from app.config import get_settings
 
 router = APIRouter()
 
-_EMAIL_RE = re.compile(r"<EMailAddress>\s*([^<>\s]+@[^<>\s]+)\s*</EMailAddress>", re.IGNORECASE)
+_EMAIL_RE = re.compile(
+    r"<EMailAddress>\s*([^<>\s]+@[^<>\s]+)\s*</EMailAddress>", re.IGNORECASE
+)
 _VALID = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 

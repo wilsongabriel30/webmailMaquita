@@ -2,6 +2,7 @@ import asyncio
 import json
 import re
 from asyncio.subprocess import PIPE
+from app.wrappers.privilegios import con_sudo
 
 _QID_RE = re.compile(r"^[A-Fa-f0-9]{6,16}$")
 
@@ -12,7 +13,7 @@ def _validate_qid(qid: str):
 
 
 async def _run(*cmd: str) -> str:
-    proc = await asyncio.create_subprocess_exec(*cmd, stdout=PIPE, stderr=PIPE)
+    proc = await asyncio.create_subprocess_exec(*con_sudo(*cmd), stdout=PIPE, stderr=PIPE)
     out, err = await proc.communicate()
     if proc.returncode != 0 and err:
         raise RuntimeError(err.decode().strip())

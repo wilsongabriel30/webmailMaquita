@@ -45,7 +45,9 @@ else
   warn "no pude leer 'postconf -h mydomain' para probar TLS/SNI"
 fi
 # Error-fantasma del mapa SNI mal construido (postmap sin -F) — solo vive en mail.log. (#14)
-if tail -400 /var/log/mail.log 2>/dev/null | grep -qiE 'malformed BASE64|map lookup problem|SSL_accept error'; then
+# Se excluye 'SSL_accept error ... lost connection': lo producen escáneres de internet
+# que cierran a mitad del saludo TLS y no dicen nada del servidor.
+if tail -400 /var/log/mail.log 2>/dev/null | grep -iE 'malformed BASE64|map lookup problem|SSL_accept error' | grep -qv 'lost connection'; then
   bad "mail.log con errores de TLS/SNI (malformed BASE64 / lookup problem). Si usas tls_server_sni_maps: reconstruye vmail_sni con 'postmap -F' y REINICIA postfix (reload NO basta). [#14]"
 else
   ok "mail.log sin errores de TLS/SNI (malformed BASE64/lookup)"
@@ -125,10 +127,21 @@ else
   bad "Web Push: /api/push/vapid-public-key sin enabled:true o clave vacia (revisar paso VAPID del instalador, #18)"
 fi
 
-printf '\n\033[1mRESUMEN:\033[0m %d OK · %d advertencias · %d fallos\n' "$PASS" "$WARN" "$FAIL"
-[ "$FAIL" -eq 0 ] && printf '\033[32mVALIDACIÓN OK\033[0m — el despliegue responde en todo lo crítico\n' \
-                  || printf '\033[31mVALIDACIÓN CON FALLOS\033[0m — revisar los [FALLO] de arriba\n'
-exit "$FAIL"
+hdr "Guardianes del repositorio"
+H=/opt/maquita-webmail/.git/hooks/pre-commit
+[ -x "$H" ] && grep -q "barrido-datos-personales" "$H" && ok "Guardián pre-commit instalado (bloquea secretos, datos personales y volcados)" \
+  || bad "Guardián pre-commit ausente o antiguo: bash deploy/hooks/instalar.sh"
+[ -s /opt/maquita-webmail/.git/guardian-patrones-locales ] && ok "patrones locales del Guardián definidos" \
+  || warn "sin .git/guardian-patrones-locales: el Guardián no bloquea secretos del equipo ni términos vetados"
+SUCIO=$(git -C /opt/maquita-webmail status --porcelain 2>/dev/null | wc -l)
+[ "$SUCIO" -eq 0 ] && ok "árbol de trabajo limpio (un despliegue no debe ensuciarlo)" || warn "$SUCIO cambios sin versionar en /opt/maquita-webmail"
+if python3 /opt/maquita-webmail/deploy/tools/barrido-datos-personales.py --arbol /opt/maquita-webmail >/dev/null 2>&1; then
+  ok "sin datos personales en el árbol (directorios de personas, cédulas, volcados)"
+else
+  bad "DATOS PERSONALES en el árbol: python3 deploy/tools/barrido-datos-personales.py --arbol /opt/maquita-webmail"
+fi
+APPN=$($PSQL "SELECT value FROM branding_settings WHERE key='app_name'" 2>/dev/null)
+[ -n "$APPN" ] && ok "marca: app_name='$APPN'" || warn "app_name sin configurar: se usa el valor por defecto del código (Maquita Mail)"
 
 # --- IA enchufable (WARN, no falla la validacion) ---
 echo ""
@@ -136,3 +149,8 @@ echo "[IA] Probando IA configurada (opcional)..."
 if bash /opt/maquita-webmail/deploy/webmail/probar-ia.sh 2>&1 | sed 's/^/    /'; then :; else
   echo "    WARN: la IA no respondio (no critico: las funciones de IA se degradan, el correo sigue)."
 fi
+
+printf '\n\033[1mRESUMEN:\033[0m %d OK · %d advertencias · %d fallos\n' "$PASS" "$WARN" "$FAIL"
+[ "$FAIL" -eq 0 ] && printf '\033[32mVALIDACIÓN OK\033[0m — el despliegue responde en todo lo crítico\n' \
+                  || printf '\033[31mVALIDACIÓN CON FALLOS\033[0m — revisar los [FALLO] de arriba\n'
+exit "$FAIL"

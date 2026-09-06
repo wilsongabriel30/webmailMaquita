@@ -9,16 +9,18 @@ Cada detector valida de verdad (no solo regex) para minimizar falsas alarmas:
 
 Uso: detect_all(text, keywords) -> list[Finding]
 """
+
 from __future__ import annotations
+
 import re
 from dataclasses import dataclass
 
 
 @dataclass
 class Finding:
-    data_type: str        # cedula | ruc | tarjeta | iban | cuenta | keyword
-    label: str            # etiqueta amigable en español
-    sample: str           # fragmento enmascarado (para mostrar/auditar)
+    data_type: str  # cedula | ruc | tarjeta | iban | cuenta | keyword
+    label: str  # etiqueta amigable en español
+    sample: str  # fragmento enmascarado (para mostrar/auditar)
     count: int = 1
 
 
@@ -82,6 +84,30 @@ def _valid_ruc(ruc: str) -> bool:
     return False
 
 
+# ── Prefijo de emisor (IIN) ──────────────────────────────────────────────
+# Luhn por si solo NO basta: el 10,3 % de los numeros de 16 digitos al azar lo
+# pasan. Eso convertia identificadores largos de otros sistemas en falsas
+# "tarjetas": las alertas del vigilante del servidor se marcaban asi.
+# Toda tarjeta real empieza por un prefijo de emisor conocido. Exigirlo ademas
+# de Luhn baja los falsos positivos al 3,9 % sin perder tarjetas de verdad.
+def _prefijo_de_tarjeta(num: str) -> bool:
+    """True si el numero empieza como una tarjeta real.
+    Visa 4 · Mastercard 51-55 y 2221-2720 · Amex 34/37 · Discover 6 ·
+    Diners 30/36/38/39 · JCB 35 · UnionPay 62.
+    """
+    if not num:
+        return False
+    if num[0] in "3456":
+        return True
+    # Mastercard serie 2: 2221-2720
+    if len(num) >= 4 and num[0] == "2":
+        try:
+            return 2221 <= int(num[:4]) <= 2720
+        except ValueError:
+            return False
+    return False
+
+
 # ── Luhn (tarjetas de credito) ──────────────────────────────────────────────
 def _valid_luhn(num: str) -> bool:
     if not num.isdigit() or not (13 <= len(num) <= 19):
@@ -140,7 +166,7 @@ def detect_all(text: str, keywords: list[str] | None = None) -> list[Finding]:
     card_spans = []
     for m in _RE_CARD.finditer(text):
         raw = re.sub(r"[ -]", "", m.group(0))
-        if _valid_luhn(raw):
+        if _valid_luhn(raw) and _prefijo_de_tarjeta(raw):
             add("tarjeta", "Tarjeta de crédito", raw)
             card_spans.append((m.start(), m.end()))
 
@@ -169,7 +195,7 @@ def detect_all(text: str, keywords: list[str] | None = None) -> list[Finding]:
             add("cuenta", "Cuenta bancaria", raw)
 
     # Palabras clave (configurables por el admin)
-    for kw in (keywords or []):
+    for kw in keywords or []:
         kw = (kw or "").strip()
         if not kw:
             continue

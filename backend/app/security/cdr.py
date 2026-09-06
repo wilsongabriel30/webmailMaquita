@@ -9,12 +9,22 @@ Limitaciones (documentar en el README):
   reconstruyen aquí: deben bloquearse o pasar por sandbox.
 - No sustituye a un sandbox dinámico (CAPE/Cuckoo) para amenazas no basadas en macros.
 """
+
 import io
 import zipfile
 
 _OOXML_EXT = (
-    ".docx", ".docm", ".dotm", ".xlsx", ".xlsm", ".xltm",
-    ".pptx", ".pptm", ".potm", ".ppam", ".xlam",
+    ".docx",
+    ".docm",
+    ".dotm",
+    ".xlsx",
+    ".xlsm",
+    ".xltm",
+    ".pptx",
+    ".pptm",
+    ".potm",
+    ".ppam",
+    ".xlam",
 )
 _VBA_MARKERS = ("vbaproject.bin", "vbadata.xml", "vbaprojectsignature.bin")
 
@@ -43,8 +53,8 @@ def disarm(content: bytes, filename: str) -> tuple[bytes, list[str]]:
                 # quitar la declaración del vbaProject del Content_Types
                 if low.endswith("[content_types].xml") and b"vbaProject" in data:
                     import re
-                    data = re.sub(
-                        rb"<Override[^>]*vbaProject[^>]*/>", b"", data)
+
+                    data = re.sub(rb"<Override[^>]*vbaProject[^>]*/>", b"", data)
                     actions.append("limpiado: [Content_Types].xml")
                 zout.writestr(item, data)
         if removed:

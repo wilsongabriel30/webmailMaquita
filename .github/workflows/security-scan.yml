@@ -2,7 +2,7 @@ name: Security Scan
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, 'remediacion-*']
   pull_request:
     branches: [main]
   schedule:
@@ -24,6 +24,17 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  datos-personales:
+    name: Datos personales en el repositorio
+    # El 2026-09-01 entro al repositorio publico un fichero con 193 correos y
+    # nombres reales. gitleaks busca secretos, no personas: este barrido busca
+    # directorios de personas, cedulas, telefonos y volcados. Es BLOQUEANTE.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Barrido de datos personales (todo el arbol)
+        run: python3 deploy/tools/barrido-datos-personales.py --arbol .
+
   bandit:
     name: Bandit (Python SAST)
     runs-on: ubuntu-latest
@@ -37,7 +48,13 @@ jobs:
       - name: Install bandit
         run: pip install bandit
 
-      - name: Run bandit (medium+ severity)
+      # Bloquea por severidad High. Los hallazgos Medium (64 el 2026-09-06, casi todos
+      # B608 de baja confianza sobre listas blancas) se muestran como informe hasta el
+      # triage agendado tras la fusión de la remediación 2026-09.
+      - name: Run bandit (High bloqueante)
+        run: bandit -r backend/app/ -lll -x backend/app/compliance/content_extractor.py
+      - name: Bandit informe Medium (no bloquea; triage agendado 2026-09-06)
+        continue-on-error: true
         run: bandit -r backend/app/ -ll -x backend/app/compliance/content_extractor.py
 
   pip-audit:
@@ -56,7 +73,7 @@ jobs:
       - name: Run pip-audit
         run: |
           pip install pip-audit
-          pip-audit -r backend/requirements.txt || echo "::warning::pip-audit found vulnerabilities — review required"
+          pip-audit -r backend/requirements.txt
 
   npm-audit:
     name: npm audit
@@ -77,7 +94,7 @@ jobs:
         run: npm ci
 
       - name: npm audit (critical only)
-        run: npm audit --audit-level=critical --omit=dev || echo "::warning::npm audit found issues — review required"
+        run: npm audit --audit-level=high --omit=dev
 
   trivy:
     name: Trivy Filesystem Scan
@@ -86,13 +103,13 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Run Trivy filesystem scan
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: .
           format: table
           severity: CRITICAL,HIGH
-          exit-code: 0
+          exit-code: 1
 
   dependency-review:
     name: Dependency Review
@@ -103,7 +120,7 @@ jobs:
 
       - uses: actions/dependency-review-action@v4
         with:
-          fail-on-severity: critical
+          fail-on-severity: high
 
   scorecard:
     name: OpenSSF Scorecard

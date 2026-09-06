@@ -21,3 +21,14 @@ Test 25:    openssl s_client -connect 127.0.0.1:25 -starttls smtp -quiet
   NUNCA bloquear USA/paises por país en el 25 -> se perdería correo legítimo.
   Defensa del 25 por capas: AUTH off + postscreen+DNSBL + blacklist de subredes
   de hosting malicioso + fail2ban (journald).
+
+## TLS endurecido (B3)
+
+`tls-endurecido.cf` guarda los valores de TLS que hasta 2026-09-04 vivian solo en el servidor.
+`aplicar-tls.sh` los aplica con `postconf -e`; con `--simular` solo dice que cambiaria, sin tocar nada.
+
+Comprobar despues:
+
+    postconf -n | grep -E '^smtpd?_tls|^tls_'
+    openssl s_client -connect mail.maquita.org:25 -starttls smtp -tls1_1   # debe fallar
+    openssl s_client -connect mail.maquita.org:25 -starttls smtp -tls1_2   # debe conectar

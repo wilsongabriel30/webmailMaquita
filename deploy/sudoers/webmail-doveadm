@@ -1,0 +1,28 @@
+# doveadm para el backend del webmail (www-data) — ACOTADO
+#
+# ANTES: www-data ALL=(root) NOPASSWD: /usr/bin/doveadm
+# Es decir, el binario ENTERO sin restringir argumentos. Como doveadm gestiona
+# todos los buzones, eso equivalia a leer, exportar o borrar el correo de
+# cualquier persona: `doveadm fetch -u quien-sea`, `doveadm mailbox delete`,
+# `doveadm backup`... Cualquier ejecucion de codigo en el backend, que atiende
+# peticiones de Internet, se convertia en acceso total al correo.
+#
+# AHORA: solo las tres subordenes que el codigo usa de verdad, y obligando a que
+# la siguiente palabra sea -u. Las cuatro invocaciones privilegiadas del backend
+# estan en la retirada de mensajes (mail/routers/recall.py) y tienen esta forma:
+#     doveadm search  -u <buzon> ...
+#     doveadm fetch   -u <buzon> ...
+#     doveadm expunge -u <buzon> ...
+#
+# Con esto dejan de estar permitidas mailbox, backup, import, exec, instance,
+# sync, altmove, dump, deduplicate, kick, director, penalty y el resto.
+#
+# LIMITE CONOCIDO, dicho sin adornos: sudo compara patrones, no entiende de
+# doveadm. Exigir `-u` justo despues de la suborden impide colar opciones de
+# configuracion ahi mismo, pero el comodin final admite argumentos posteriores.
+# Cerrarlo del todo exigiria un ayudante que valide, como maquita-blacklist.
+# Aun asi, la superficie baja de "todo doveadm" a tres subordenes de lectura y
+# borrado sobre un buzon indicado con -u.
+www-data ALL=(root) NOPASSWD: /usr/bin/doveadm search -u *
+www-data ALL=(root) NOPASSWD: /usr/bin/doveadm fetch -u *
+www-data ALL=(root) NOPASSWD: /usr/bin/doveadm expunge -u *

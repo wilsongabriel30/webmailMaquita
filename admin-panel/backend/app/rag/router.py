@@ -16,14 +16,28 @@ router = APIRouter(prefix="/api/rag", tags=["rag"])
 WEBMAIL = "/opt/maquita-webmail/backend"
 
 
+from app.wrappers.entorno_webmail import DIRECTORIO_EJECUCION as _DIR_EJECUCION
+
+
+def _env_webmail() -> dict:
+    """Entorno para los subprocesos del correo.
+
+    Antes abria entero el .env del correo (46 variables, con todos sus secretos).
+    Desde la fase 2 el panel no corre como root y no puede leer ese archivo: los
+    valores que hacen falta, y solo esos, se copian a la configuracion del panel
+    con prefijo WEBMAIL_. Ver wrappers/entorno_webmail.py.
+    """
+    from app.wrappers.entorno_webmail import entorno_webmail
+    return entorno_webmail()
 def _db(r: Request):
     return r.app.state.db
 
 
 async def _run(args, timeout=185):
-    cmd = f"cd {WEBMAIL} && set -a && . .env && set +a && venv/bin/python -m app.rag.run {args}"
+    orden = [f"{WEBMAIL}/venv/bin/python", "-m", "app.rag.run"] + shlex.split(args)
     try:
-        p = await asyncio.to_thread(subprocess.run, ["bash", "-c", cmd], capture_output=True, text=True, timeout=timeout)
+        p = await asyncio.to_thread(subprocess.run, orden, cwd=_DIR_EJECUCION, env=_env_webmail(),
+                                    capture_output=True, text=True, timeout=timeout)
     except Exception as e:
         return {"error": str(e)}
     out = (p.stdout or "").strip()

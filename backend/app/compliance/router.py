@@ -19,20 +19,20 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
-from app.compliance.auth import (
-    require_compliance_admin as require_admin,
-    require_compliance_read,
-    require_compliance_write,
-    require_compliance_export,
-    require_compliance_security,
-)
-from app.compliance.content_extractor import search_maildir
-from app.compliance.evidence_signer import sign_export, ensure_gpg_key
 from app.compliance.activity_logger import (
     get_activity_stats,
     get_user_activities,
     log_user_activity,
 )
+from app.compliance.auth import require_compliance_admin as require_admin
+from app.compliance.auth import (
+    require_compliance_export,
+    require_compliance_read,
+    require_compliance_security,
+    require_compliance_write,
+)
+from app.compliance.content_extractor import search_maildir
+from app.compliance.evidence_signer import ensure_gpg_key, sign_export
 
 logger = logging.getLogger("compliance")
 

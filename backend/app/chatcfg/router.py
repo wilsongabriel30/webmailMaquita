@@ -8,14 +8,29 @@ el correo (email) entre dominios NO se toca.
 La lectura publica (GET /api/chat-config) expone datos NO sensibles; el servicio
 de chat la lee para aplicar el aislamiento.
 """
+
 import json
-from fastapi import APIRouter, Request, Depends
-from pydantic import BaseModel
+import os
+import uuid
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
-from app.auth.dependencies import require_admin
+import jwt
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel
+
+from app.auth.dependencies import get_current_user, require_admin
 
 router = APIRouter(tags=["chat-config"])
+
+# --- Vale de entrada al chat en su propio origen -------------------------------
+# El chat dejo de compartir origen con el correo, asi que su cookie ya no viaja.
+# El correo emite un vale corto y de un solo uso, firmado con un secreto DEDICADO
+# (ni el del correo ni el de la sesion del chat), y el chat lo canjea por su propia
+# sesion. Vida corta porque viaja en una URL: si queda en un historial, ya no sirve.
+_SSO_SECRET = os.getenv("CHAT_SSO_SECRET", "")
+_SSO_AUDIENCIA = "chat-sso"
+_SSO_VIDA_SEG = 60
 
 _DEFAULTS = {
     "enabled": "1",
@@ -63,7 +78,8 @@ def _to_public(data: dict) -> dict:
     return {
         "enabled": data.get("enabled", "1") not in ("0", "false", "False", ""),
         "embed_url": data.get("embed_url") or _DEFAULTS["embed_url"],
-        "domain_isolation": data.get("domain_isolation", "0") not in ("0", "false", "False", ""),
+        "domain_isolation": data.get("domain_isolation", "0")
+        not in ("0", "false", "False", ""),
         "domain_groups": _parse_groups(data.get("domain_groups", "[]")),
     }
 
@@ -84,13 +100,68 @@ async def get_chat_config_public(request: Request):
     return _to_public(data)
 
 
+@router.get("/api/chat-sso")
+async def get_chat_sso_url(request: Request, username: str = Depends(get_current_user)):
+    """URL de entrada al chat para el usuario de la sesion actual.
+
+    La pide el iframe del chat. Devuelve el origen del chat con un vale de un solo
+    uso; el chat lo canjea por su propia sesion. Si el chat sigue sirviendose en el
+    origen del correo (embed_url relativa), no hace falta vale y se devuelve tal cual.
+    """
+    try:
+        data = await _read(request.app.state.db_pool)
+    except Exception:
+        data = dict(_DEFAULTS)
+    destino = (data.get("embed_url") or _DEFAULTS["embed_url"]).strip()
+
+    # Mismo origen: el navegador ya manda la cookie del correo, no hay nada que canjear.
+    if not destino.lower().startswith(("http://", "https://")):
+        return {"url": destino, "origen": None, "vale": False}
+
+    if not _SSO_SECRET:
+        raise HTTPException(
+            status_code=503,
+            detail="El chat esta configurado en otro origen pero falta CHAT_SSO_SECRET",
+        )
+
+    from urllib.parse import urlsplit
+
+    partes = urlsplit(destino)
+    origen = f"{partes.scheme}://{partes.netloc}"
+    ruta = partes.path or "/chat/"
+    if partes.query:
+        ruta += "?" + partes.query
+
+    ahora = datetime.now(timezone.utc)
+    vale = jwt.encode(
+        {
+            "sub": username,
+            "aud": _SSO_AUDIENCIA,
+            "jti": uuid.uuid4().hex,
+            "iat": ahora,
+            "exp": ahora + timedelta(seconds=_SSO_VIDA_SEG),
+        },
+        _SSO_SECRET,
+        algorithm="HS256",
+    )
+    from urllib.parse import quote
+
+    return {
+        "url": f"{origen}/sso/entrar?t={vale}&r={quote(ruta, safe='/?=&')}",
+        "origen": origen,
+        "vale": True,
+    }
+
+
 @router.get("/api/admin/chat-config")
 async def get_chat_config_admin(request: Request, admin: str = Depends(require_admin)):
     return _to_public(await _read(request.app.state.db_pool))
 
 
 @router.put("/api/admin/chat-config")
-async def put_chat_config(body: ChatConfigIn, request: Request, admin: str = Depends(require_admin)):
+async def put_chat_config(
+    body: ChatConfigIn, request: Request, admin: str = Depends(require_admin)
+):
     db = request.app.state.db_pool
     await _ensure(db)
     url = (body.embed_url or "").strip() or _DEFAULTS["embed_url"]
@@ -105,6 +176,7 @@ async def put_chat_config(body: ChatConfigIn, request: Request, admin: str = Dep
         await db.execute(
             "INSERT INTO chat_settings(key,value) VALUES($1,$2) "
             "ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value",
-            k, v,
+            k,
+            v,
         )
     return _to_public(await _read(db))

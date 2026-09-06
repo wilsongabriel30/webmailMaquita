@@ -19,12 +19,12 @@ SEV = {"clean": 0, "suspicious": 1, "malicious": 2}
 
 
 def _redis_url() -> str:
-    try:
-        for line in open("/opt/maquita-webmail/backend/.env"):
-            if line.startswith("REDIS_URL="):
-                return line.split("=", 1)[1].strip()
-    except Exception:
-        pass
+    # El panel ya no corre como root y no puede leer la configuracion del correo.
+    # El valor se copia a la del panel con prefijo WEBMAIL_ (fase 2, 2026-09-04).
+    import os
+    v = os.environ.get("WEBMAIL_REDIS_URL")
+    if v:
+        return v.strip()
     return "redis://localhost:6379/0"
 
 

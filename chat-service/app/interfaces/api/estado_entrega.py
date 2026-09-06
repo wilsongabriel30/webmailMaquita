@@ -70,3 +70,24 @@ def anotar_entregados(mensajes, db_session, conversacion_id, usuario_id):
     except Exception:
         pass
     return mensajes
+
+
+def marcar_entregado_directo(mensaje_id, usuario_id):
+    """Marca un mensaje como ENTREGADO a `usuario_id` (evento Socket.IO `delivered`).
+    Devuelve el id del remitente del mensaje (para avisarle) o None si no aplica."""
+    import os
+    import psycopg2
+    try:
+        with psycopg2.connect(os.environ['DATABASE_URL']) as con, con.cursor() as cur:
+            cur.execute("SELECT sender_id, conversation_id FROM chat_messages WHERE id = %s", (mensaje_id,))
+            fila = cur.fetchone()
+            if not fila or fila[0] == usuario_id:
+                return None
+            cur.execute("""UPDATE chat_message_status SET is_delivered = TRUE, delivered_at = COALESCE(delivered_at, NOW())
+                           WHERE message_id = %s AND user_id = %s""", (mensaje_id, usuario_id))
+            if cur.rowcount == 0:
+                cur.execute("""INSERT INTO chat_message_status (message_id, user_id, is_delivered, delivered_at, is_read)
+                               VALUES (%s, %s, TRUE, NOW(), FALSE)""", (mensaje_id, usuario_id))
+            return fila[0]
+    except Exception:
+        return None

@@ -5,15 +5,22 @@ en su cuenta de Nextcloud para editarlos online con OnlyOffice.
 
 Autor: Wilson Argüello — Equipo de Tecnología, Fundación Maquita
 """
+
 import logging
 import urllib.parse
+
 import httpx
-from fastapi import APIRouter, Request, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
-from app.core.session import get_user_password, get_imap_login_user, encrypt_password, decrypt_password
-from app.mail.clients.imap_client import get_imap_connection, fetch_attachment
+from app.core.session import (
+    decrypt_password,
+    encrypt_password,
+    get_imap_login_user,
+    get_user_password,
+)
+from app.mail.clients.imap_client import fetch_attachment, get_imap_connection
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +28,7 @@ router = APIRouter(prefix="/api/nextcloud", tags=["nextcloud"])
 
 # Configuracion Nextcloud desde settings (securizado)
 from app.config import get_settings as _nc_settings
+
 
 def _nc_config():
     s = _nc_settings()
@@ -83,10 +91,14 @@ async def _find_nc_userid_by_email(email: str) -> str | None:
     return None
 
 
-async def _nc_webdav_upload(userid: str, password: str, remote_path: str, data: bytes, filename: str) -> bool:
+async def _nc_webdav_upload(
+    userid: str, password: str, remote_path: str, data: bytes, filename: str
+) -> bool:
     """Subir archivo a Nextcloud via WebDAV."""
     nc_base, _, _, _ = _nc_config()
-    folder_url = nc_base + "/remote.php/dav/files/" + urllib.parse.quote(userid) + remote_path
+    folder_url = (
+        nc_base + "/remote.php/dav/files/" + urllib.parse.quote(userid) + remote_path
+    )
     file_url = folder_url + urllib.parse.quote(filename)
 
     async with httpx.AsyncClient(timeout=30) as client:
@@ -168,14 +180,14 @@ async def save_attachment_to_nextcloud(
             raise HTTPException(
                 404,
                 "No se encontró cuenta Nextcloud vinculada a este correo. "
-                "Contacte al administrador para que le asigne acceso a la nube."
+                "Contacte al administrador para que le asigne acceso a la nube.",
             )
         # Verificar credenciales
         if not await _nc_webdav_test(nc_userid, nc_password):
             raise HTTPException(
                 401,
                 "Las credenciales del correo no coinciden con Nextcloud. "
-                "Contacte al administrador para vincular su cuenta."
+                "Contacte al administrador para vincular su cuenta.",
             )
 
     # Descargar adjunto via IMAP
@@ -205,9 +217,16 @@ async def save_attachment_to_nextcloud(
         raise HTTPException(502, "Error al subir archivo a Nextcloud")
 
     _, _, _, nc_pub = _nc_config()
-    nc_file_url = nc_pub + "/apps/files/?dir=" + urllib.parse.quote(nc_path) + "&openfile=true"
+    nc_file_url = (
+        nc_pub + "/apps/files/?dir=" + urllib.parse.quote(nc_path) + "&openfile=true"
+    )
 
-    logger.info("Adjunto guardado en NC: %s -> %s%s", username, nc_userid, nc_path + body.filename)
+    logger.info(
+        "Adjunto guardado en NC: %s -> %s%s",
+        username,
+        nc_userid,
+        nc_path + body.filename,
+    )
 
     return {
         "ok": True,
@@ -240,7 +259,13 @@ async def link_nextcloud_account(
         "INSERT INTO nextcloud_accounts (mail_username, nc_userid, nc_password, active) "
         "VALUES ($1, $2, $3, true) "
         "ON CONFLICT (mail_username) DO UPDATE SET nc_userid=$2, nc_password=$3, active=true",
-        username, nc_userid, encrypted_nc_pass,
+        username,
+        nc_userid,
+        encrypted_nc_pass,
     )
 
-    return {"ok": True, "nc_userid": nc_userid, "message": "Cuenta Nextcloud vinculada correctamente"}
+    return {
+        "ok": True,
+        "nc_userid": nc_userid,
+        "message": "Cuenta Nextcloud vinculada correctamente",
+    }

@@ -48,6 +48,14 @@ PY
 ```
 Luego reconstruye el frontend (`deploy-webmail.sh --solo-frontend`).
 
+- **`manifest.json` no hay que tocarlo**: referencia los iconos por su nombre fijo, así que basta
+  con sustituir los tres ficheros.
+- **La caché del navegador se refresca sola**: el despliegue renueva la versión de caché del
+  service worker (`CACHE_NAME`) en cada publicación, sobre `dist/`, sin tocar el fuente. No hay
+  que editar `sw.js` a mano.
+- El nombre visible del producto (emisor del segundo factor, avisos, pie de correos) sale de
+  `app_name` en `branding_settings`; el de la organización, de `org_name`. Ninguno vive en código.
+
 ## 5) Favicon del Drive (fallback estático)
 El Drive usa el favicon de `/api/branding` si lo subiste al panel. Como respaldo estático puedes
 reemplazar `almacen/servicio/estaticos/favicon.ico`.

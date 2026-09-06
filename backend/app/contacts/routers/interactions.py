@@ -1,9 +1,10 @@
 """Interacciones — historial de emails enviados/recibidos con un contacto + stats."""
-import re
+
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Request, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.auth.dependencies import get_current_user
 from app.core.session import get_user_password
@@ -28,14 +29,17 @@ async def _get_contact_email(db, contact_id: int, username: str) -> str:
     """Obtiene el email de un contacto verificando ownership."""
     row = await db.fetchrow(
         "SELECT email FROM user_contacts WHERE id = $1 AND owner = $2 AND deleted_at IS NULL",
-        contact_id, username,
+        contact_id,
+        username,
     )
     if not row:
         raise HTTPException(404, "Contacto no encontrado")
     return row["email"].strip().lower()
 
 
-async def _search_folder(imap, folder: str, search_criteria: str, direction: str, limit: int = 50) -> list[dict]:
+async def _search_folder(
+    imap, folder: str, search_criteria: str, direction: str, limit: int = 50
+) -> list[dict]:
     """Busca emails en una carpeta IMAP y retorna lista de interacciones."""
     results = []
     try:
@@ -62,7 +66,8 @@ async def _search_folder(imap, folder: str, search_criteria: str, direction: str
         uid_set = ",".join(str(u) for u in uids)
 
         fetch_resp = await imap.uid(
-            "fetch", uid_set,
+            "fetch",
+            uid_set,
             "(BODY.PEEK[HEADER.FIELDS (SUBJECT DATE)])",
         )
         if fetch_resp.result != "OK":
@@ -75,13 +80,15 @@ async def _search_folder(imap, folder: str, search_criteria: str, direction: str
             uid_m = re.search(r"UID\s+(\d+)", line)
             if uid_m:
                 if current_uid and (subject or date_str):
-                    results.append({
-                        "uid": current_uid,
-                        "subject": subject,
-                        "date": date_str,
-                        "direction": direction,
-                        "folder": folder,
-                    })
+                    results.append(
+                        {
+                            "uid": current_uid,
+                            "subject": subject,
+                            "date": date_str,
+                            "direction": direction,
+                            "folder": folder,
+                        }
+                    )
                 current_uid = int(uid_m.group(1))
                 subject = ""
                 date_str = ""
@@ -94,13 +101,15 @@ async def _search_folder(imap, folder: str, search_criteria: str, direction: str
 
         # Último pendiente
         if current_uid and (subject or date_str):
-            results.append({
-                "uid": current_uid,
-                "subject": subject,
-                "date": date_str,
-                "direction": direction,
-                "folder": folder,
-            })
+            results.append(
+                {
+                    "uid": current_uid,
+                    "subject": subject,
+                    "date": date_str,
+                    "direction": direction,
+                    "folder": folder,
+                }
+            )
     except Exception as e:
         logger.warning(f"Error buscando en {folder}: {e}")
     return results
@@ -139,11 +148,15 @@ async def get_interactions(
         # Emails enviados a este contacto
         sent = await _search_folder(imap, "Sent", f"TO {contact_email}", "sent", 50)
         # Emails recibidos de este contacto
-        received = await _search_folder(imap, "INBOX", f"FROM {contact_email}", "received", 50)
+        received = await _search_folder(
+            imap, "INBOX", f"FROM {contact_email}", "received", 50
+        )
 
         # Combinar y ordenar por fecha DESC
         all_interactions = sent + received
-        all_interactions.sort(key=lambda x: _parse_date_for_sort(x["date"]), reverse=True)
+        all_interactions.sort(
+            key=lambda x: _parse_date_for_sort(x["date"]), reverse=True
+        )
 
         return {"interactions": all_interactions, "total": len(all_interactions)}
     finally:
@@ -167,7 +180,9 @@ async def get_contact_stats(
     imap = await get_imap_connection(username, password)
     try:
         sent = await _search_folder(imap, "Sent", f"TO {contact_email}", "sent", 200)
-        received = await _search_folder(imap, "INBOX", f"FROM {contact_email}", "received", 200)
+        received = await _search_folder(
+            imap, "INBOX", f"FROM {contact_email}", "received", 200
+        )
 
         total_sent = len(sent)
         total_received = len(received)
@@ -175,10 +190,24 @@ async def get_contact_stats(
         sent_dates = [_parse_date_for_sort(s["date"]) for s in sent if s["date"]]
         recv_dates = [_parse_date_for_sort(r["date"]) for r in received if r["date"]]
 
-        all_dates = [d for d in sent_dates + recv_dates if d != datetime.min.replace(tzinfo=timezone.utc)]
+        all_dates = [
+            d
+            for d in sent_dates + recv_dates
+            if d != datetime.min.replace(tzinfo=timezone.utc)
+        ]
 
-        last_sent = max(sent_dates).isoformat() if sent_dates and max(sent_dates) != datetime.min.replace(tzinfo=timezone.utc) else None
-        last_received = max(recv_dates).isoformat() if recv_dates and max(recv_dates) != datetime.min.replace(tzinfo=timezone.utc) else None
+        last_sent = (
+            max(sent_dates).isoformat()
+            if sent_dates
+            and max(sent_dates) != datetime.min.replace(tzinfo=timezone.utc)
+            else None
+        )
+        last_received = (
+            max(recv_dates).isoformat()
+            if recv_dates
+            and max(recv_dates) != datetime.min.replace(tzinfo=timezone.utc)
+            else None
+        )
         first_interaction = min(all_dates).isoformat() if all_dates else None
 
         return {

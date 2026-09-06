@@ -72,6 +72,11 @@ function App() {
   };
 
   const logout = () => {
+    // Revocar la sesión en el servidor (el token deja de valer aunque no haya vencido).
+    const t = localStorage.getItem("admin_token");
+    if (t) {
+      fetch("/api/auth/logout", { method: "POST", headers: { Authorization: "Bearer " + t }, keepalive: true }).catch(() => {});
+    }
     localStorage.removeItem("admin_token");
     localStorage.removeItem("admin_user");
     setUser(null);

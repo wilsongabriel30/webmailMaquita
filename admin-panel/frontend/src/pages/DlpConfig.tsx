@@ -12,6 +12,7 @@ interface DlpCfg {
   milter_enforce: boolean;
   scan_attachments: boolean;
   trusted_domains: string[];
+  remitentes_exentos: string[];
 }
 interface Violation {
   username: string; recipients: string[]; subject: string;
@@ -71,7 +72,7 @@ const ACTION_LABEL: Record<string, string> = {
 const inputCls = "w-full px-3 py-2 border border-ms-gray-30 rounded text-sm";
 
 export function DlpConfig() {
-  const [cfg, setCfg] = useState<DlpCfg>({ enabled: true, default_action: "warn", rules: {}, keywords: [], milter_enforce: false, scan_attachments: true, trusted_domains: [] });
+  const [cfg, setCfg] = useState<DlpCfg>({ enabled: true, default_action: "warn", rules: {}, keywords: [], milter_enforce: false, scan_attachments: true, trusted_domains: [], remitentes_exentos: [] });
   const [newDom, setNewDom] = useState("");
   const level = detectLevel(cfg);
   const addDom = () => {
@@ -80,6 +81,16 @@ export function DlpConfig() {
     setNewDom("");
   };
   const removeDom = (d: string) => setCfg({ ...cfg, trusted_domains: cfg.trusted_domains.filter((x) => x !== d) });
+  const [newExento, setNewExento] = useState("");
+  const addExento = () => {
+    const v = newExento.trim().toLowerCase();
+    if (v && v.includes("@") && !cfg.remitentes_exentos.includes(v)) {
+      setCfg({ ...cfg, remitentes_exentos: [...cfg.remitentes_exentos, v] });
+      setNewExento("");
+    }
+  };
+  const removeExento = (d: string) =>
+    setCfg({ ...cfg, remitentes_exentos: cfg.remitentes_exentos.filter((x) => x !== d) });
   const [violations, setViolations] = useState<Violation[]>([]);
   const [newKw, setNewKw] = useState("");
   const [loading, setLoading] = useState(true);
@@ -254,6 +265,29 @@ export function DlpConfig() {
             {cfg.trusted_domains.map((d) => (
               <span key={d} className="inline-flex items-center gap-1 bg-green-50 border border-green-200 text-ms-gray-160 text-xs rounded-full pl-3 pr-1 py-1">
                 {d}<button onClick={() => removeDom(d)} className="w-4 h-4 rounded-full hover:bg-green-200 text-ms-gray-110">×</button>
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Remitentes exentos */}
+        <div className={cfg.enabled ? "" : "opacity-50 pointer-events-none"}>
+          <label className="block text-sm font-medium text-ms-gray-130 mb-1">Remitentes autorizados a enviar datos sensibles</label>
+          <p className="text-xs text-ms-gray-110 mb-2">
+            Buzones de sistemas que <strong>deben</strong> enviar datos personales fuera, como los roles de pago de nómina, que llevan cédula y van a correos personales.
+            Estos remitentes <strong>no se bloquean</strong>, pero <strong>se siguen registrando</strong>: aparecen igual en Incidentes, para poder revisar si alguno empieza a enviar algo fuera de lo normal.
+          </p>
+          <div className="flex gap-2 mb-2">
+            <input className={inputCls} placeholder="ej. noreply@maquita.org" value={newExento} onChange={(e) => setNewExento(e.target.value)}
+              title="Escribe la dirección completa del buzón y pulsa Enter o Agregar."
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addExento(); } }} />
+            <button onClick={addExento} className="px-3 py-2 bg-ms-gray-20 text-ms-gray-160 rounded text-sm whitespace-nowrap">Agregar</button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {cfg.remitentes_exentos.length === 0 && <span className="text-xs text-ms-gray-110">Sin remitentes exentos: a todos se les aplica el bloqueo.</span>}
+            {cfg.remitentes_exentos.map((d) => (
+              <span key={d} className="inline-flex items-center gap-1 bg-amber-50 border border-amber-200 text-ms-gray-160 text-xs rounded-full pl-3 pr-1 py-1">
+                {d}<button onClick={() => removeExento(d)} className="w-4 h-4 rounded-full hover:bg-amber-200 text-ms-gray-110">×</button>
               </span>
             ))}
           </div>

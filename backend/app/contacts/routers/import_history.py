@@ -4,21 +4,39 @@ Recorre INBOX (remitentes) y Enviados (destinatarios), extrae las direcciones
 únicas con su nombre, descarta las que ya son contactos y crea el resto.
 Es lo que hace que la agenda deje de estar vacía tras años de correos.
 """
+
 import os
 import re as _re
 
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Depends, Request
+
 from app.auth.dependencies import get_current_user
 from app.core.session import get_user_password
 
 router = APIRouter(prefix="/api/contacts", tags=["contacts"])
 
 # "Nombre Apellido <correo@dominio>" | "correo@dominio"
-_RE_DIR = _re.compile(r'^\s*(?:"?([^"<]*?)"?\s*)?<?([^<>@\s]+@[^<>@\s]+\.[^<>@\s]+)>?\s*$')
+_RE_DIR = _re.compile(
+    r'^\s*(?:"?([^"<]*?)"?\s*)?<?([^<>@\s]+@[^<>@\s]+\.[^<>@\s]+)>?\s*$'
+)
 # Remitentes automáticos que no son personas (no ensucian la agenda)
-_IGNORAR = ('no-reply', 'noreply', 'no_reply', 'mailer-daemon', 'postmaster',
-            'notifications@', 'notification@', 'bounce', 'donotreply', 'do-not-reply',
-            'automated', 'newsletter', 'noreply@', 'alertas@', 'notificaciones@')
+_IGNORAR = (
+    "no-reply",
+    "noreply",
+    "no_reply",
+    "mailer-daemon",
+    "postmaster",
+    "notifications@",
+    "notification@",
+    "bounce",
+    "donotreply",
+    "do-not-reply",
+    "automated",
+    "newsletter",
+    "noreply@",
+    "alertas@",
+    "notificaciones@",
+)
 
 
 def _parse(cadena: str):
@@ -26,11 +44,11 @@ def _parse(cadena: str):
     if not cadena:
         return None
     # tomar solo la primera direccion si vienen varias
-    primera = cadena.split(',')[0]
+    primera = cadena.split(",")[0]
     m = _RE_DIR.match(primera.strip())
     if not m:
         return None
-    nombre = (m.group(1) or '').strip()
+    nombre = (m.group(1) or "").strip()
     correo = m.group(2).strip().lower()
     if any(x in correo for x in _IGNORAR):
         return None
@@ -38,7 +56,9 @@ def _parse(cadena: str):
 
 
 @router.post("/import/from-history")
-async def import_from_history(request: Request, username: str = Depends(get_current_user)):
+async def import_from_history(
+    request: Request, username: str = Depends(get_current_user)
+):
     """Crea contactos a partir de los correos. Devuelve {importados, revisados, total}."""
     limite = int(os.getenv("CONTACTS_HISTORY_LIMIT", "1500"))
     db = request.app.state.db_pool
@@ -75,13 +95,18 @@ async def import_from_history(request: Request, username: str = Depends(get_curr
             pass
 
     if not candidatos:
-        return {"importados": 0, "revisados": revisados, "total": 0,
-                "mensaje": "No se encontraron direcciones nuevas en el historial."}
+        return {
+            "importados": 0,
+            "revisados": revisados,
+            "total": 0,
+            "mensaje": "No se encontraron direcciones nuevas en el historial.",
+        }
 
     # ya existentes (por correo) para no duplicar
     filas = await db.fetch(
         "SELECT LOWER(email) AS e FROM user_contacts WHERE owner=$1 AND deleted_at IS NULL",
-        username)
+        username,
+    )
     existentes = {r["e"] for r in filas}
 
     importados = 0
@@ -96,11 +121,18 @@ async def import_from_history(request: Request, username: str = Depends(get_curr
             await db.execute(
                 "INSERT INTO user_contacts (owner, display_name, email, first_name, last_name, source) "
                 "VALUES ($1,$2,$3,$4,$5,'historial')",
-                username, n, correo, first, last)
+                username,
+                n,
+                correo,
+                first,
+                last,
+            )
             importados += 1
         except Exception:
             pass
 
     total = await db.fetchval(
-        "SELECT COUNT(*) FROM user_contacts WHERE owner=$1 AND deleted_at IS NULL", username)
+        "SELECT COUNT(*) FROM user_contacts WHERE owner=$1 AND deleted_at IS NULL",
+        username,
+    )
     return {"importados": importados, "revisados": revisados, "total": total}

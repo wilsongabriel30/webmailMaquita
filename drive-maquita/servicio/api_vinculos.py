@@ -200,7 +200,7 @@ def crear():
         o_ruta = normalizar_ruta_virtual(d.get('origen_ruta', ''))
         de_ruta = normalizar_ruta_virtual(d.get('destino_ruta', ''))
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     o_hoja = (d.get('origen_hoja') or '').strip()
     o_rango = (d.get('origen_rango') or '').strip().upper()
     de_hoja = (d.get('destino_hoja') or '').strip()
@@ -253,7 +253,7 @@ def listar():
     try:
         ruta = normalizar_ruta_virtual(request.args.get('ruta', ''))
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     filas = bd.consultar(
         'SELECT id, origen_ruta, origen_hoja, origen_rango, destino_hoja, '
         'destino_celda, actualizado_en FROM vinculos_datos WHERE activo AND '
@@ -269,7 +269,7 @@ def actualizar():
     try:
         ruta = normalizar_ruta_virtual(request.args.get('ruta', ''))
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     filas = bd.consultar(
         'SELECT * FROM vinculos_datos WHERE activo AND destino_usuario = %s AND '
         'destino_ruta = %s', (usuario, ruta))
@@ -340,7 +340,7 @@ def hojas():
             return error('Sin permiso sobre ese archivo', 403)
         fis = ruta_fisica(dueno, ruta)
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     if not _es_excel(ruta):
         return error('No es una hoja de cálculo', 400)
     try:

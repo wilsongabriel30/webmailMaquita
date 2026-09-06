@@ -32,12 +32,36 @@ export interface AttachmentInfo {
   is_inline: boolean;
 }
 
+/** Invitación de calendario que el backend detecta dentro de un correo. */
+export interface CalendarInvite {
+  summary?: string;
+  organizer?: string;
+  location?: string;
+  starts_at?: string;
+  ends_at?: string;
+  attendees?: { name?: string; email?: string; status?: string; role?: string }[];
+  description?: string;
+  method?: string;
+  /**
+   * El backend envía la invitación tal como viene del calendario del remitente,
+   * con campos que varían según quién la genere (dtstart, organizer_name, y los
+   * que traiga cada cliente). Se declaran arriba los que esta vista usa siempre
+   * y se deja el resto abierto: enumerarlos todos sería perseguir un contrato
+   * que no controlamos.
+   */
+  [clave: string]: unknown;
+}
+
 export interface MessageFull extends MessageSummary {
   cc: string;
   text_body: string;
   html_body: string;
   attachments: AttachmentInfo[];
   has_remote_images: boolean;
+  /** Dirección del remitente cuando el backend la separa del nombre visible. */
+  from_addr?: string;
+  /** Invitación de calendario, si el correo la lleva. */
+  calendar_invite?: CalendarInvite;
   blocked_image_count: number;
   /** Enlaces desenvueltos por el backend (rastreadores retirados). */
   unwrapped_link_count?: number;
@@ -76,4 +100,6 @@ export interface ComposeData {
   draft_uid?: number | null;
   // Archivos del Almacén a adjuntar al abrir el redactor (accion "Enviar por correo")
   adjuntos_almacen?: { nombre: string; ruta: string }[];
+  /** Cuerpo sugerido por el asistente de respuesta rápida. */
+  prefill_body?: string;
 }

@@ -1,8 +1,12 @@
 """Draft service — autosave via IMAP APPEND with controlled replacement."""
+
 from app.mail.clients.imap_client import (
-    append_message, uid_delete_message, list_message_uids, fetch_message_headers,
+    append_message,
+    fetch_message_headers,
+    list_message_uids,
+    uid_delete_message,
 )
-from app.mail.clients.smtp_client import build_draft_message, OutgoingEmail
+from app.mail.clients.smtp_client import OutgoingEmail, build_draft_message
 
 
 async def save_draft(
