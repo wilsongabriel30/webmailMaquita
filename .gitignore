@@ -69,3 +69,11 @@ backend/sesion_prueba.py
 # Lo regenera backend/app/tareas/jefes.py cada 10 minutos en
 # /var/lib/maquita-webmail/. Nunca debe volver al arbol de codigo.
 backend/app/tareas/nombres.json
+
+# Volcados de base de datos y respaldos, en cualquier subdirectorio: contienen
+# datos personales (usuarios, mensajes, nomina). Nunca al repositorio.
+**/backups/
+**/backup/
+*.sql.gz
+*.dump
+restore*.log

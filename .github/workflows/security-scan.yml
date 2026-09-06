@@ -2,7 +2,7 @@ name: Security Scan
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, 'remediacion-*']
   pull_request:
     branches: [main]
   schedule:
@@ -23,6 +23,17 @@ jobs:
       - uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  datos-personales:
+    name: Datos personales en el repositorio
+    # El 2026-09-01 entro al repositorio publico un fichero con 193 correos y
+    # nombres reales. gitleaks busca secretos, no personas: este barrido busca
+    # directorios de personas, cedulas, telefonos y volcados. Es BLOQUEANTE.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Barrido de datos personales (todo el arbol)
+        run: python3 deploy/tools/barrido-datos-personales.py --arbol .
 
   bandit:
     name: Bandit (Python SAST)
@@ -56,7 +67,7 @@ jobs:
       - name: Run pip-audit
         run: |
           pip install pip-audit
-          pip-audit -r backend/requirements.txt || echo "::warning::pip-audit found vulnerabilities — review required"
+          pip-audit -r backend/requirements.txt
 
   npm-audit:
     name: npm audit
@@ -77,7 +88,7 @@ jobs:
         run: npm ci
 
       - name: npm audit (critical only)
-        run: npm audit --audit-level=critical --omit=dev || echo "::warning::npm audit found issues — review required"
+        run: npm audit --audit-level=high --omit=dev
 
   trivy:
     name: Trivy Filesystem Scan
@@ -92,7 +103,7 @@ jobs:
           scan-ref: .
           format: table
           severity: CRITICAL,HIGH
-          exit-code: 0
+          exit-code: 1
 
   dependency-review:
     name: Dependency Review
@@ -103,7 +114,7 @@ jobs:
 
       - uses: actions/dependency-review-action@v4
         with:
-          fail-on-severity: critical
+          fail-on-severity: high
 
   scorecard:
     name: OpenSSF Scorecard
