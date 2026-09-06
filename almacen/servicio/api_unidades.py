@@ -14,7 +14,8 @@ import logging
 
 from flask import Blueprint, jsonify, request
 
-from almacen_bd import consultar, ejecutar, es_master
+from almacen_bd import consultar, ejecutar, es_master, conexion
+import gobierno_unidad
 from api_archivos import error, usuario_actual
 from registro import registrar_actividad
 from seguridad_rutas import unidad_de_ruta
@@ -103,30 +104,34 @@ def listar_miembros(unidad_id):
 
 @bp_unidades.route('/unidades/<int:unidad_id>/miembros', methods=['POST'])
 def agregar_miembro(unidad_id):
-    """POST — {usuario_id, rol} : agrega/actualiza un miembro (solo manager/master)."""
+    """POST — {usuario_id, rol} : agrega/actualiza un miembro. Puede un manager de la unidad
+    o, como override explícito, un master. [F-11] Degradar al ÚLTIMO manager se rechaza (409)."""
     usuario = usuario_actual()
-    if rol_en_unidad(usuario, unidad_id) != 'manager':
-        return error('Solo un manager puede gestionar miembros', 403)
+    if not (es_master(usuario) or rol_en_unidad(usuario, unidad_id) == 'manager'):
+        return error('Solo un manager (o un master) puede gestionar miembros', 403)
     datos = request.get_json() or {}
     nuevo = datos.get('usuario_id')
     rol = (datos.get('rol') or 'editor').strip()
     if not nuevo or rol not in ROLES:
         return error('usuario_id y rol válido requeridos', 400)
-    ejecutar("""
-        INSERT INTO unidad_miembros (unidad_id, usuario_id, rol) VALUES (%s, %s, %s)
-        ON CONFLICT (unidad_id, usuario_id) DO UPDATE SET rol = EXCLUDED.rol
-    """, (unidad_id, int(nuevo), rol))
+    try:
+        gobierno_unidad.asignar_rol(conexion, unidad_id, int(nuevo), rol)
+    except gobierno_unidad.UltimoManager:
+        return error('No puedes degradar al último manager de la unidad: nombra otro primero', 409)
     return jsonify({'success': True, 'message': 'Miembro agregado'})
 
 
 @bp_unidades.route('/unidades/<int:unidad_id>/miembros/<int:miembro_id>', methods=['DELETE'])
 def quitar_miembro(unidad_id, miembro_id):
-    """DELETE — quita un miembro (solo manager/master)."""
+    """DELETE — quita un miembro (manager de la unidad o, como override explícito, un master).
+    [F-11] Quitar al ÚLTIMO manager (incluido uno mismo) se rechaza (409)."""
     usuario = usuario_actual()
-    if rol_en_unidad(usuario, unidad_id) != 'manager':
-        return error('Solo un manager puede gestionar miembros', 403)
-    ejecutar("DELETE FROM unidad_miembros WHERE unidad_id = %s AND usuario_id = %s",
-             (unidad_id, miembro_id))
+    if not (es_master(usuario) or rol_en_unidad(usuario, unidad_id) == 'manager'):
+        return error('Solo un manager (o un master) puede gestionar miembros', 403)
+    try:
+        gobierno_unidad.quitar(conexion, unidad_id, int(miembro_id))
+    except gobierno_unidad.UltimoManager:
+        return error('No puedes quitar al último manager de la unidad: nombra otro primero', 409)
     return jsonify({'success': True, 'message': 'Miembro removido'})
 
 
