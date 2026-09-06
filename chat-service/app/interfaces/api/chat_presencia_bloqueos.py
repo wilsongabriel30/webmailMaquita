@@ -84,6 +84,11 @@ def obtener_presencia_usuario(usuario_id: int):
     """
     try:
         servicio = obtener_servicio_chat()
+        # [M-03] solo de quien comparte conversación conmigo
+        from interfaces import relacion_chat
+        from interfaces.websocket import manejador_websocket as mw
+        if not relacion_chat.puede_ver(servicio._db_session, obtener_usuario_id(), usuario_id, mw._ws_redis):
+            return jsonify({'exito': False, 'success': False, 'mensaje': 'Usuario no encontrado'}), 404
         presencias = servicio.obtener_presencia([usuario_id])
         presencia = presencias.get(usuario_id, {'online': False, 'last_seen': None})
 

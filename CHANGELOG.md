@@ -15,6 +15,18 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Seguridad
 
+- **[L-04 chat] Limitador del socket sin Redis: tope conservador y marca.** Si Redis no está o falla,
+  el límite por proceso se divide por 4 y se registra `RATE_LIMIT_SIN_REDIS` (como R-2 en el
+  correo); antes el fallo era silencioso y el tope real se multiplicaba por el número de workers.
+- **[L-03 chat] `get_or_create_direct` por socket pasa por la misma regla que la ruta REST**:
+  misma organización (`tenant_chat.primer_bloqueado`) y sin bloqueo entre las dos personas.
+- **[L-02 chat] `call_invite` y el resto de la señalización de llamadas verifican relación y
+  bloqueo**: el destino tiene que compartir conversación (la indicada o alguna), ser de la misma
+  organización y no haber bloqueo en ningún sentido; si no, `LLAMADA_RECHAZADA` en el registro.
+- **[M-03/L-01 chat] La presencia solo la ve quien comparte conversación.** `get_presence`,
+  `/estado/<id>`, `/estado/varios` y `/presence/<id>` filtran por relación; conectar, desconectar
+  y cambiar de estado ya no se emiten a todos los conectados, solo a los relacionados
+  (`interfaces/relacion_chat.py`, con caché de un minuto).
 - **[L-04] El atajo CSS `font` sale de la lista de propiedades permitidas en `style`** (las sueltas
   `font-family`, `font-size`, `font-weight`, `font-style`, `font-variant` siguen). La etiqueta
   `<font>` con `color/size/face` se mantiene: es inerte y la usan muchos correos antiguos.
