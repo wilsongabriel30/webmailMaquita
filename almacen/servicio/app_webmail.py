@@ -228,10 +228,10 @@ def crear_app_webmail() -> Flask:
 <script>
  const TOKEN = location.pathname.split('/').filter(Boolean).pop();
  const $ = id => document.getElementById(id);
- function claveQS(){ const c = $('clave').value; return c ? '&clave=' + encodeURIComponent(c) : ''; }
+ function cabeceraClave(){ const c = $('clave').value; return c ? {'X-Clave-Enlace': c} : {}; }
 
  async function cargarInfo(){
-   const r = await fetch('/api/almacen/publico-info/' + encodeURIComponent(TOKEN) + '?x=1' + claveQS());
+   const r = await fetch('/api/almacen/publico-info/' + encodeURIComponent(TOKEN), {headers: cabeceraClave()});
    if (!r.ok){
      const d = await r.json().catch(() => ({}));
      $('detalle').textContent = d.error || 'El enlace no existe o fue retirado';
@@ -254,13 +254,14 @@ def crear_app_webmail() -> Flask:
  }
 
  function abrir(){
-   location.href = '/almacen-s/' + encodeURIComponent(TOKEN) + '/editar' + ($('clave').value ? '?clave=' + encodeURIComponent($('clave').value) : '');
+   try { sessionStorage.setItem('clave-' + TOKEN, $('clave').value || ''); } catch (e) {}
+   location.href = '/almacen-s/' + encodeURIComponent(TOKEN) + '/editar';
  }
 
  async function descargar(){
    const m = $('mensaje');
    m.textContent = 'Verificando…'; m.style.color = '#605e5c';
-   const r = await fetch('/api/almacen/publico/' + encodeURIComponent(TOKEN) + '?x=1' + claveQS());
+   const r = await fetch('/api/almacen/publico/' + encodeURIComponent(TOKEN), {headers: cabeceraClave()});
    if (r.ok){
      m.textContent = '';
      const blob = await r.blob();
@@ -279,7 +280,7 @@ def crear_app_webmail() -> Flask:
  }
  cargarInfo();
 </script></body></html>"""
-        return html, 200, {'Content-Type': 'text/html; charset=utf-8'}
+        return html, 200, {'Content-Type': 'text/html; charset=utf-8', 'Referrer-Policy': 'no-referrer', 'Cache-Control': 'no-store'}
 
     # ── Explorador web (el template estilo Drive del equipo) ─────────────
     # El menú lateral del template enlaza a /archivos-almacen/<vista>; /drive
@@ -365,13 +366,12 @@ def crear_app_webmail() -> Flask:
 <script>
  const partes = location.pathname.split('/').filter(Boolean);   // almacen-s, <token>, editar
  const TOKEN = partes[1];
- const CLAVE = new URLSearchParams(location.search).get('clave') || '';
+ let CLAVE = ''; try { CLAVE = sessionStorage.getItem('clave-' + TOKEN) || ''; } catch (e) {}  // [F-08] nunca en la URL
  const estado = document.getElementById('estado');
  function fallo(m){ estado.innerHTML = '<b>No se pudo abrir el editor</b><br>' + m; }
 
  (async () => {
-   const r = await fetch('/api/almacen/onlyoffice/config-public?token=' + encodeURIComponent(TOKEN)
-                       + (CLAVE ? '&clave=' + encodeURIComponent(CLAVE) : ''));
+   const r = await fetch('/api/almacen/onlyoffice/config-public?token=' + encodeURIComponent(TOKEN), {headers: CLAVE ? {'X-Clave-Enlace': CLAVE} : {}});
    const d = await r.json().catch(() => ({}));
    if (!r.ok || !d.success){ fallo(d.error || 'Enlace inválido'); return; }
    document.title = d.nombre + ' — compartido';
@@ -385,7 +385,7 @@ def crear_app_webmail() -> Flask:
    document.head.appendChild(s);
  })();
 </script></body></html>"""
-        return html, 200, {'Content-Type': 'text/html; charset=utf-8'}
+        return html, 200, {'Content-Type': 'text/html; charset=utf-8', 'Referrer-Policy': 'no-referrer', 'Cache-Control': 'no-store'}
 
     @app.get('/healthz')
     def healthz():
