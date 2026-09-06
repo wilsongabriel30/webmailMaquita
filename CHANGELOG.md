@@ -7,6 +7,32 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Cambiado
+
+- **[T4] Las fuentes externas de GIF del chat pasan a ser opt-in.** Si no había clave propia
+  de GIPHY, el módulo usaba una clave «pública de pruebas» escrita en el código: cada búsqueda de
+  la gente salía a un tercero sin que nadie lo hubiera decidido, y quedaba una clave de API literal
+  en un repositorio público. Ahora sin `GIPHY_API_KEY` no se consulta a GIPHY, Wikimedia Commons
+  exige `GIFS_EXTERNOS_COMMONS=1`, y sin fuentes el endpoint responde que la búsqueda externa está
+  desactivada en vez de una lista vacía engañosa. La biblioteca de GIF propia no cambia. Con esto
+  el inventario T4 (sin dependencias externas de runtime) queda completo: socket.io ya se servía
+  en local y gravatar ya se resolvía en casa.
+
+### Corregido
+
+- **La burbuja de chat sondeaba sin parar con 404 en instalaciones sin chat.** La autodetección
+  consultaba `/api/chat/conversations` cada 60 s y en cada cambio de foco, y un 404 —ruta
+  inexistente, que no se arregla solo— nunca la detenía: consola llena de errores y una petición
+  inútil por minuto y por persona. Además, si la configuración del chat fallaba, se asumía que el
+  chat sí estaba habilitado. Ahora tres 404 seguidos detienen el sondeo hasta recargar, y ante
+  error de configuración el chat se da por deshabilitado. Detectado por el equipo de Correo Andes.
+
+### Documentación
+
+- `PON-TU-MARCA.md`: se aclara que `manifest.json` no se toca, que la caché del service worker se
+  renueva sola en cada despliegue, y de dónde salen `app_name` y `org_name`.
+
+
 ## [1.6.0-rc3] - 2026-09-05
 
 Candidata para la verificación externa. Incluye la remediación de seguridad de la auditoría del
