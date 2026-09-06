@@ -138,3 +138,24 @@ Las dos mitigaciones que se valoraron: **contraseñas de aplicación** (una por 
 revocables, la contraseña principal deja de valer en IMAP/SMTP) o **exigir 2FA también ahí**
 (no es viable con los clientes actuales). Hasta decidirlo, se documenta al usuario que el 2FA
 no protege los clientes de escritorio. Hallazgo de la cuarta revisión externa (M-01).
+
+## D-6. Qué puede escribir `admin` y qué exige `superadmin` en el panel
+
+**Fecha:** 2026-09-06 · **Estado:** decidido y aplicado (sexta revisión externa, M-01)
+
+Regla: `admin` opera el día a día (buzones, alias, cuarentena, cortafuegos, marca, integraciones,
+investigación AIR, pruebas de configuración). **`superadmin`** es el único que puede cambiar lo que
+altera la retención de datos, el perímetro o la salida de correo de toda la organización:
+
+| Exige `superadmin` | Motivo |
+|---|---|
+| Retención (`/api/retention/*` crear, activar, borrar) | destruye o conserva datos de todos |
+| Acceso condicional (`/api/conditional-access/*`) | perímetro de acceso de todos |
+| Límites y bloqueo de envío (`/api/admin/outbound/*`, `/api/outbound-anomaly/config`) | reputación del dominio |
+| Geo-bloqueo (`/api/geo-access/toggle`) | perímetro |
+| Sincronización LDAP (`/api/sso/sync`) | identidad de todas las cuentas |
+| Ingestión RAG y dominios del RAG (`/api/rag/ingest`, `/api/rag/domains*`) | qué correo lee la IA |
+| Políticas de seguridad (`POST /api/security-policies`) | contraseñas y bloqueo de todos |
+
+Se aplica con `Depends(require_superadmin)` en la ruta (no con la política genérica de rol efectivo).
+Cualquier ruta nueva de estas familias hereda la regla; `docs/PANEL-RUTAS-ROLES.md` es la tabla viva.

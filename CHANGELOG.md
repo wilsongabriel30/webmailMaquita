@@ -7,6 +7,22 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Seguridad
+
+- **[L-03 panel] `DB_PASS` entra en la validación de arranque** (fail-fast si falta).
+- **[L-02 panel] La auditoría de SafeAttach y SSO ya no falla en silencio**: si no se puede registrar,
+  ERROR con marca `AUDITORIA_NO_REGISTRADA` (misma regla que el milter).
+- **[M-03/L-01 panel] Último rastro de `bash -c` y `create_subprocess_shell`** (estado SSO, sincronización
+  LDAP, lectura de rebotes): listas de argumentos y lectura de ficheros en Python, sin shell.
+- **[M-02 panel] `fail2ban/unban` y `unban-all` validan `jail` e `ip`** (lista cerrada de caracteres y
+  `ipaddress`) antes de pasarlos a `fail2ban-client`.
+- **[M-01 panel] Matriz `admin` / `superadmin` aplicada.** Retención, acceso condicional, límites y
+  bloqueo de envío, geo-bloqueo, sincronización LDAP, ingestión y dominios del RAG y políticas de
+  seguridad exigen `superadmin` (`require_superadmin` en la ruta). Antes bastaba `admin`. `DECISIONES.md` D-6.
+- **[H-02 panel] `GET /api/branding` (público, lo usa la pantalla de entrada) devuelve solo nombre, lema,
+  contacto, colores y ficheros de marca**; el resto de claves de `branding_settings` ya no sale. Mismo
+  recorte en el `/api/branding` del correo.
+
 ## [1.7.1] - 2026-09-06
 
 Lote tras la pasada fría sobre 1.7.0 y el informe de actualización de Correo Andes. Sin corte de sesiones.

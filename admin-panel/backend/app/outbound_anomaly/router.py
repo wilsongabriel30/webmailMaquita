@@ -5,7 +5,7 @@ Autor: Wilson Arguello — Equipo de Tecnologia, Fundacion Maquita.
 """
 from fastapi import APIRouter, Request, Depends, HTTPException
 from pydantic import BaseModel
-from app.auth.dependencies import get_current_admin
+from app.auth.dependencies import get_current_admin, require_superadmin
 
 router = APIRouter(prefix="/api/outbound-anomaly", tags=["outbound-anomaly"])
 
@@ -31,7 +31,7 @@ class Cfg(BaseModel):
 
 
 @router.put("/config")
-async def put_config(r: Request, body: Cfg, a=Depends(get_current_admin)):
+async def put_config(r: Request, body: Cfg, a=Depends(require_superadmin)):
     if body.action not in ("lock", "alert"):
         raise HTTPException(400, "accion invalida (lock|alert)")
     win = max(1, min(120, body.window_minutes))

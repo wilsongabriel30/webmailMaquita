@@ -143,6 +143,24 @@ async def fail2ban_search_ip(ip: str, admin: dict = Depends(get_current_admin)):
     return {"ip": ip, "banned_in": found_in, "is_banned": len(found_in) > 0}
 
 
+_JAIL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
+_IP_RE = re.compile(r"^[\d.:a-fA-F]+$")  # el mismo que usa /fail2ban/search
+
+
+def _validar_jail_ip(jail: str, ip: str) -> None:
+    """[M-02] jail e ip van a la linea de ordenes de fail2ban-client: solo formatos validos."""
+    import ipaddress
+
+    if jail and not _JAIL_RE.match(jail):
+        raise HTTPException(400, "jail invalido")
+    if not ip or not _IP_RE.match(ip):
+        raise HTTPException(400, "ip invalida")
+    try:
+        ipaddress.ip_address(ip)
+    except ValueError:
+        raise HTTPException(400, "ip invalida")
+
+
 @router.post("/fail2ban/unban")
 async def fail2ban_unban(request: Request, admin: dict = Depends(require_role("superadmin", "admin"))):
     data = await request.json()
@@ -150,6 +168,7 @@ async def fail2ban_unban(request: Request, admin: dict = Depends(require_role("s
     ip = data.get("ip", "")
     if not jail or not ip:
         raise HTTPException(400, "jail e ip requeridos")
+    _validar_jail_ip(jail, ip)
     out, err, rc = await _run("sudo", "fail2ban-client", "set", jail, "unbanip", ip)
     await _audit(request, admin, "fail2ban_unban", ip, {"jail": jail})
     if rc != 0:
@@ -162,6 +181,7 @@ async def fail2ban_unban_all(request: Request, admin: dict = Depends(require_rol
     """Desbanear IP de TODOS los jails donde este baneada."""
     data = await request.json()
     ip = data.get("ip", "")
+    _validar_jail_ip("", ip)
     if not ip:
         raise HTTPException(400, "ip requerida")
     # Find all jails
@@ -191,6 +211,7 @@ async def fail2ban_ban(request: Request, admin: dict = Depends(require_role("sup
     ip = data.get("ip", "")
     if not jail or not ip:
         raise HTTPException(400, "jail e ip requeridos")
+    _validar_jail_ip(jail, ip)
     out, err, rc = await _run("sudo", "fail2ban-client", "set", jail, "banip", ip)
     await _audit(request, admin, "fail2ban_ban", ip, {"jail": jail})
     if rc != 0:
