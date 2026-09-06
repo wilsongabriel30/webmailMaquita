@@ -4,6 +4,8 @@ import html
 
 import nh3
 
+from app.core.css import limpiar_estilo
+
 
 def sanitize_html(dirty: str) -> str:
     """Sanitize HTML — allow safe tags for email/signature content."""
@@ -60,7 +62,16 @@ def sanitize_html(dirty: str) -> str:
             "font": {"color", "size", "face"},
         },
         url_schemes={"http", "https", "mailto", "cid"},
+        # M-05: el `style` pasa por una lista blanca de propiedades y sin url()/expression()
+        # ni @import: un correo con background-image: url(...) no hace ninguna petición.
+        attribute_filter=_filtrar_atributo,
     )
+
+
+def _filtrar_atributo(elemento: str, atributo: str, valor: str):
+    if atributo == "style":
+        return limpiar_estilo(valor)
+    return valor
 
 
 def strip_html(dirty: str) -> str:

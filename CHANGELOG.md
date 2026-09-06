@@ -14,6 +14,10 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Seguridad
 
+- **[M-05] El atributo `style` de los correos pasa por una lista blanca de CSS.** `background-image:
+  url(...)` y similares (balizas de lectura, fuga de IP), `expression()`, `@import`, `behavior` y
+  `position: fixed` se descartan declaración a declaración; el resto del estilo se conserva para no
+  romper los correos HTML. Pruebas en `backend/tests/test_sanitize_style.py`.
 - **[H-01] Sin contraseña «bootstrap» conocida.** Desaparece la constante del código. Cada buzón nuevo
   (o reset del admin) recibe una contraseña aleatoria de un solo uso y queda con
   `must_change_password` en `auth_estado`; mientras esté activa, el servidor solo permite cambiar la
