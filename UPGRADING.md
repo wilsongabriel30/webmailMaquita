@@ -10,9 +10,9 @@ servicio, reiniciar lo que cambió y correr `deploy/tools/validar-despliegue.sh`
 
 ---
 
-## De 1.7.2 a la siguiente (sin publicar) — correo
+## De 1.7.2 a 1.7.3 — correo, almacén y chat
 
-Sin corte de sesiones. Migración nueva + reinicio del backend del correo.
+Sin corte de sesiones. Migración nueva, reinicio del backend del correo, del almacén y del chat.
 
 1. Migración `migrations/2026-09-06-codigos-respaldo.sql` (idempotente) **antes** de reiniciar:
    crea `user_totp_backup_codes` y **vacía los códigos de respaldo antiguos** de 2FA (32 bits,
@@ -23,6 +23,13 @@ Sin corte de sesiones. Migración nueva + reinicio del backend del correo.
    respaldo nuevos» (pide un código TOTP vigente). El estado muestra «0 códigos de respaldo».
 4. Comprobar: `GET /api/auth/sesiones` con sesión devuelve la lista de sesiones abiertas;
    `GET /api/auth/totp/status` de una cuenta con 2FA devuelve `backup_codes_remaining`.
+5. Almacén: `systemctl restart maquita-almacen` (nombres sin marcas de HTML, explorador escapado,
+   DDL de arranque serializado: ya no debe haber `DeadlockDetected` al arrancar).
+6. Chat (VM propia, sin git): copiar `chat-service/app/` completo salvo `.env`, `venv/` y las
+   subidas, y reiniciar `maquita-chat`. Cambia la presencia (solo entre quienes comparten
+   conversación), la señalización de llamadas, la conversación directa por socket, el limitador y
+   la validación del emoji de las reacciones. Comprobar en el registro que no aparezcan
+   `LLAMADA_RECHAZADA` ni `DIRECTO_RECHAZADO` para usos legítimos, ni `RATE_LIMIT_SIN_REDIS`.
 
 ---
 
