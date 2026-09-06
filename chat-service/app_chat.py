@@ -483,7 +483,7 @@ def crear_app():
                         from urllib.parse import urlencode
                         _limpia += "?" + urlencode(_otros)
                     resp = _redirect(_limpia)
-                    resp.set_cookie("access_token", _tok_url, secure=True, samesite="Lax", path="/")
+                    resp.set_cookie("access_token", _tok_url, secure=True, httponly=True, samesite="Lax", path="/")
                     return resp
             if session.get("usuario_id"):
                 if _SESION_CENTRAL:
