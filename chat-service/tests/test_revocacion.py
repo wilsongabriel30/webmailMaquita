@@ -12,6 +12,8 @@ os.environ.setdefault("CHAT_SSO_SECRET", "secreto-sso-de-pruebas-2026")
 os.environ.setdefault("CHAT_SESSION_KEY", "clave-de-sesion-de-pruebas-2026")
 os.environ.setdefault("NOTIF_SECRET", "secreto-de-servicios-de-pruebas-2026")
 os.environ.setdefault("CHAT_SOCKETIO_ASYNC_MODE", "threading")
+# Sin base: el módulo la exige al importar; las consultas están envueltas y aquí se sustituyen.
+os.environ.setdefault("DATABASE_URL", "postgresql://prueba:prueba@127.0.0.1:1/prueba")
 os.environ.pop("CHAT_REDIS_URL", None)
 
 import app_chat  # noqa: E402  (arranca la app con los secretos de arriba)
@@ -126,7 +128,8 @@ def test_revalidacion_con_correo_que_confirma(app, monkeypatch):
 def test_revocar_exige_secreto_y_tiene_limite(app):
     c = app.test_client()
     assert _revocar(c, secreto="otro").status_code == 403
-    assert c.post("/api/chat/sesion/revocar", json={"user": CORREO}).status_code == 403
+    # sin cabecera de servicio la ruta cae en el guard de sesión: 401 (o 403), nunca 200
+    assert c.post("/api/chat/sesion/revocar", json={"user": CORREO}).status_code in (401, 403)
     ok = 0
     for _ in range(sesion_central.LIMITE_REVOCAR_POR_MIN + 5):
         if _revocar(c).status_code == 200:
