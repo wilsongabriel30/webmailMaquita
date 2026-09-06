@@ -1,5 +1,7 @@
 """Session management — credential handling for IMAP/SMTP/CalDAV/CardDAV."""
 
+import hmac
+
 from fastapi import HTTPException, Request, status
 
 from app.core import cifrado
@@ -80,7 +82,10 @@ async def get_imap_login_user(request: Request, username: str) -> str:
         if raw_pass:
             try:
                 stored_pass = decrypt_password(raw_pass)
-                if stored_pass != settings.master_password:
+                # [H-04] comparación en tiempo constante con el secreto maestro
+                if not hmac.compare_digest(
+                    stored_pass.encode(), settings.master_password.encode()
+                ):
                     # KEY STALE: la contraseña no es la master → limpiar y usar login normal
                     import logging
 
