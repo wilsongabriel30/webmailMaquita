@@ -21,3 +21,6 @@ CREATE INDEX IF NOT EXISTS refresh_tokens_sid
 -- Los refresh emitidos antes del modelo no tienen sid: no se pueden renovar (el código
 -- los rechaza), así que se marcan revocados para no dejar filas «vivas» engañosas.
 UPDATE refresh_tokens SET is_revoked = true WHERE sid IS NULL AND is_revoked = false;
+
+-- La aplicación se conecta como mailserver: sin esto la tabla nueva no se puede leer.
+GRANT SELECT, INSERT, UPDATE ON auth_estado TO mailserver;

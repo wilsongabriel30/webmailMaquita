@@ -7,6 +7,21 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Seguridad
+
+- **[F-01] Ciclo de vida de sesión con `sid` y `auth_version`.** La sesión ya no «vive» en una
+  clave por usuario: cada navegador tiene su `sid`, la credencial IMAP se cifra por sesión y el
+  access JWT lleva `sid`, `av`, `kind` y `abs_exp`. Cerrar sesión cierra solo la propia; «cerrar
+  todas» (nuevo `POST /api/auth/logout-all`), cambiar la contraseña, el reset o la clave puesta
+  por el admin, desactivar o eliminar el buzón y la contención AIR suben la generación y revocan
+  todos los refresh: un re-login no revive nada, y el WebSocket cierra con 4401 lo revocado.
+  **Corte único al desplegar**: todo el mundo vuelve a iniciar sesión una vez. Diseño en
+  `docs/DISENO-SESIONES.md`; migración `migrations/2026-09-06-sesiones-sid-av.sql`.
+- **[F-04] La impersonación muere a la hora, se renueve lo que se renueve.** El refresh conserva
+  `session_kind` y `absolute_expires_at` y nunca emite más allá de ese límite; sin prórroga por
+  actividad. Comparte código con F-01 (mismo `refresh`); sus pruebas están en
+  `backend/tests/test_lifecycle_sesion.py`.
+
 ## [1.6.1] - 2026-09-06
 
 Correcciones tras la instalación desde cero de Correo Andes y la segunda revisión ASVS externa
