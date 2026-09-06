@@ -14,6 +14,11 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Seguridad
 
+- **[H-02] Llave de cifrado de credenciales dedicada y versionada.** Antes se derivaba de `SECRET_KEY`.
+  Ahora `CREDENTIAL_ENCRYPTION_KEY` (obligatoria, Fernet) cifra la credencial IMAP cacheada, las cuentas
+  de Nextcloud y **el secreto TOTP, que estaba en claro** (L-03); `CREDENTIAL_ENCRYPTION_KEY_ANTERIOR`
+  permite rotar. `deploy/tools/recifrar-credenciales.py` migra lo guardado; un secreto TOTP sin cifrar
+  ya no valida (fallo cerrado). Entra con el corte de sesiones de 1.7.0 (`UPGRADING.md`).
 - **[R-01] El almacén ya no arranca con una clave de sesión por defecto.** `ALMACEN_CLAVE_SESION`
   es obligatoria (≥ 16 caracteres, sin valor de ejemplo), como los secretos del backend. La unidad
   de systemd documenta cuándo hace falta un segundo `--bind` en la IP de red y que ese puerto va

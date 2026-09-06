@@ -134,6 +134,8 @@ pip install --quiet -r requirements.txt
 SECRET=$(python3 -c "import secrets; print(secrets.token_hex(32))")
 ADMIN_SECRET=$(python3 -c "import secrets; print(secrets.token_hex(32))")
 MASTER_PASS=$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | head -c 20)
+# Llave DEDICADA de cifrado de credenciales (H-02): formato Fernet, distinta de SECRET_KEY
+CRED_KEY=$(python3 -c "import base64,secrets; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode())")
 # VAPID para Web Push del correo (#17): claves UNICAS por instalacion.
 VAPID_PUB=$(python - <<'PYVAPID'
 import base64
@@ -155,6 +157,7 @@ DATABASE_URL=postgresql://mailserver:${DB_PASS}@localhost:5432/maildb
 REDIS_URL=redis://:${REDIS_PASS}@localhost:6379/0
 SECRET_KEY=${SECRET}
 ADMIN_JWT_SECRET=${ADMIN_SECRET}
+CREDENTIAL_ENCRYPTION_KEY=${CRED_KEY}
 MASTER_PASSWORD=${MASTER_PASS}
 IMAP_HOST=127.0.0.1
 IMAP_PORT=143
@@ -388,6 +391,7 @@ MASTER_PASSWORD=${MASTER_PASS}
 WEBMAIL_SECRET_KEY=${SECRET}
 WEBMAIL_ADMIN_JWT_SECRET=${ADMIN_SECRET}
 WEBMAIL_MASTER_PASSWORD=${MASTER_PASS}
+WEBMAIL_CREDENTIAL_ENCRYPTION_KEY=${CRED_KEY}
 WEBMAIL_DATABASE_URL=postgresql://mailserver:${DB_PASS}@localhost:5432/maildb
 WEBMAIL_REDIS_URL=redis://:${REDIS_PASS}@localhost:6379/0
 WEBMAIL_IMAP_HOST=127.0.0.1

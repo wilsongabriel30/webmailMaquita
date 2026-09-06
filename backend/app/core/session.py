@@ -1,27 +1,17 @@
 """Session management — credential handling for IMAP/SMTP/CalDAV/CardDAV."""
 
-import base64
-import hashlib
-
-from cryptography.fernet import Fernet
 from fastapi import HTTPException, Request, status
 
-
-def _get_fernet():
-    from app.config import get_settings
-
-    settings = get_settings()
-    # Derive a 32-byte key from the secret_key
-    key = hashlib.sha256(settings.secret_key.encode()).digest()
-    return Fernet(base64.urlsafe_b64encode(key))
+from app.core import cifrado
 
 
 def encrypt_password(password: str) -> str:
-    return _get_fernet().encrypt(password.encode()).decode()
+    """Cifra con la llave DEDICADA (H-02): ya no se deriva de SECRET_KEY."""
+    return cifrado.cifrar(password)
 
 
 def decrypt_password(token: str) -> str:
-    return _get_fernet().decrypt(token.encode()).decode()
+    return cifrado.descifrar(token)
 
 
 async def get_user_password(request: Request, username: str) -> str:

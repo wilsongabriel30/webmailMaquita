@@ -18,10 +18,12 @@ fuera de horario y avísalo antes.
 
 ### 1. Variables nuevas
 
-**Correo (`backend/.env`)** — ninguna obligatoria.
+**Correo (`backend/.env`)**
 
 | Variable | Qué es | Valor si falta |
 |---|---|---|
+| `CREDENTIAL_ENCRYPTION_KEY` | **Obligatoria (H-02).** Llave Fernet dedicada que cifra la credencial IMAP cacheada, las cuentas de Nextcloud y el secreto TOTP. Genérala: `python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`. Cópiala también al panel como `WEBMAIL_CREDENTIAL_ENCRYPTION_KEY`. | arranque abortado |
+| `CREDENTIAL_ENCRYPTION_KEY_ANTERIOR` | Solo al rotar la anterior. | — |
 | `CHAT_INTERNAL_URL` | URL del chat a la que el correo empuja las revocaciones (F-03). | El origen de `embed_url` de la configuración del chat; si es relativa (mismo origen), no se empuja nada. |
 | `NOTIF_SECRET` | Ya existía: secreto compartido con el chat. Ahora también autentica `GET /api/auth/sesion-servicio` y el empuje de revocaciones. **Mismo valor en el correo y en el chat.** | — |
 
@@ -42,6 +44,16 @@ sudo -u postgres psql -d maildb -v ON_ERROR_STOP=1 -f migrations/2026-09-06-sesi
 Idempotente. Crea `auth_estado`, añade `sid`, `session_kind`, `absolute_expires_at` y
 `auth_version` a `refresh_tokens`, concede permisos a `mailserver` y marca revocados los
 refresh anteriores al modelo (ya no se podrían renovar).
+
+### 2b. Recifrar lo guardado con la llave nueva
+
+Tras definir `CREDENTIAL_ENCRYPTION_KEY` y **antes** de reiniciar el correo:
+```bash
+cd backend && venv/bin/python ../deploy/tools/recifrar-credenciales.py          # cuenta
+cd backend && venv/bin/python ../deploy/tools/recifrar-credenciales.py --aplicar # aplica
+```
+Recifra los secretos TOTP (antes en claro) y las cuentas de Nextcloud. Las credenciales IMAP
+cacheadas no se migran: caen con el corte de sesiones.
 
 ### 3. Orden de despliegue (importa)
 

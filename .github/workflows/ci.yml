@@ -97,6 +97,9 @@ jobs:
             psql -h localhost -U test -d testdb -v ON_ERROR_STOP=1 -f "$f"
           done
 
+      - name: Llave de cifrado de prueba (H-02; se genera aquí, nunca va escrita)
+        run: echo "CREDENTIAL_ENCRYPTION_KEY=$(python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')" >> "$GITHUB_ENV"
+
       - name: Run tests
         run: pytest --tb=short -q
 

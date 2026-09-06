@@ -17,6 +17,7 @@ from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
 from app.branding.service import get_app_name
+from app.core import cifrado
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/auth/totp", tags=["2fa"])
@@ -31,6 +32,29 @@ async def ensure_tables(db):
     # Tabla creada por migrations/init_tables.sql (Fase 3)
     # user_totp
     pass
+
+
+def username_hint(row) -> str:
+    try:
+        return str(row["username"])
+    except Exception:
+        return "?"
+
+
+def _secreto_totp(valor: str, usuario: str = "?") -> str:
+    """Secreto TOTP descifrado. Uno sin cifrar (anterior a H-02) NO se acepta: hay que
+    correr deploy/tools/recifrar-credenciales.py. Fallo cerrado: se devuelve un secreto
+    aleatorio que no valida ningún código."""
+    if cifrado.esta_cifrado(valor):
+        try:
+            return cifrado.descifrar(valor)
+        except Exception:
+            logger.error("TOTP_SECRETO_NO_DESCIFRA user=%s", usuario)
+            return pyotp.random_base32()
+    logger.error(
+        "TOTP_SECRETO_SIN_CIFRAR user=%s (correr recifrar-credenciales.py)", usuario
+    )
+    return pyotp.random_base32()
 
 
 def generate_backup_codes(n: int = BACKUP_CODES_COUNT) -> list[str]:
@@ -86,7 +110,7 @@ async def setup_totp(
         DO UPDATE SET secret = $2, enabled = FALSE, backup_codes = $3, verified_at = NULL
     """,
         user,
-        secret,
+        cifrado.cifrar(secret),  # L-03: nunca en claro en la base
         backup_codes,
     )
 
@@ -118,14 +142,14 @@ async def verify_totp(
     await ensure_tables(db)
 
     row = await db.fetchrow(
-        "SELECT secret, enabled FROM user_totp WHERE username = $1", user
+        "SELECT username, secret, enabled FROM user_totp WHERE username = $1", user
     )
     if not row:
         raise HTTPException(status_code=404, detail="Configura 2FA primero")
     if row["enabled"]:
         raise HTTPException(status_code=400, detail="2FA ya esta verificado")
 
-    totp = pyotp.TOTP(row["secret"])
+    totp = pyotp.TOTP(_secreto_totp(row["secret"], username_hint(row)))
     if not totp.verify(body.code, valid_window=1):
         raise HTTPException(
             status_code=400, detail="Código inválido. Intenta de nuevo."
@@ -150,12 +174,13 @@ async def disable_totp(
     await ensure_tables(db)
 
     row = await db.fetchrow(
-        "SELECT secret, enabled, backup_codes FROM user_totp WHERE username = $1", user
+        "SELECT username, secret, enabled, backup_codes FROM user_totp WHERE username = $1",
+        user,
     )
     if not row or not row["enabled"]:
         raise HTTPException(status_code=400, detail="2FA no esta activado")
 
-    totp = pyotp.TOTP(row["secret"])
+    totp = pyotp.TOTP(_secreto_totp(row["secret"], username_hint(row)))
     code = body.code.strip().upper()
     backup_codes = row["backup_codes"] or []
 
@@ -202,13 +227,13 @@ async def totp_status(
 async def validate_totp_code(db, username: str, code: str) -> bool:
     """Validate TOTP code during login. Returns True if valid or 2FA not enabled."""
     row = await db.fetchrow(
-        "SELECT secret, enabled, backup_codes FROM user_totp WHERE username = $1",
+        "SELECT username, secret, enabled, backup_codes FROM user_totp WHERE username = $1",
         username,
     )
     if not row or not row["enabled"]:
         return True
 
-    totp = pyotp.TOTP(row["secret"])
+    totp = pyotp.TOTP(_secreto_totp(row["secret"], username_hint(row)))
     clean_code = code.strip().upper()
     backup_codes = row["backup_codes"] or []
 
