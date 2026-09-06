@@ -102,3 +102,11 @@ Matriz **{logout, logout-all, password-change, admin-reset, disable} × {REST, W
 
 - **F-02 SAML** (P0, aparte): SAML está **inactivo hoy** (`sso_config` vacía; `/api/sso/saml/login` → «SSO no está configurado o inactivo»). El ACS nuevo emitirá sesiones `kind=saml` con este mismo modelo. `signxml==4.4.0` y `lxml==6.1.0` (las instaladas) se fijan en `requirements.txt` con ese commit (R-11).
 - El registro interno decía A-10 «abierto (latente)» en `REAUDITORIA-2026-09-04.md`; no consta como cerrado en los documentos versionados. Si en algún resumen se dio por cerrado, se corrige a **abierto** (queda anotado en `ESTADO-REMEDIACION`).
+
+## 10. Implementación (2026-09-06)
+
+F-01/F-04 en `backend/app/auth/sesiones.py`, `jwt.py`, `dependencies.py`, `router.py`; F-03 en
+`chat-service/app/interfaces/api/sesion_central.py`, `backend/app/chatcfg/revocacion.py` y
+`backend/app/auth/sesion_servicio.py`. Variables y orden de despliegue en `UPGRADING.md`
+(`CHAT_SESION_CENTRAL`, `CHAT_INTERNAL_URL`, `CORREO_URL_API`). Matriz: `backend/tests/
+test_lifecycle_sesion.py` y `chat-service/tests/test_revocacion.py`.
