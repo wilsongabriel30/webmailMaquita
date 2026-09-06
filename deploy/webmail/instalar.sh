@@ -132,6 +132,8 @@ python3 -m venv venv
 source venv/bin/activate
 pip install --quiet -r requirements.txt
 SECRET=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+# Clave propia de la sesión Flask del almacén (R-01: obligatoria, sin valor por defecto).
+ALMACEN_CLAVE_SESION=$(python3 -c "import secrets; print(secrets.token_urlsafe(32))")
 ADMIN_SECRET=$(python3 -c "import secrets; print(secrets.token_hex(32))")
 MASTER_PASS=$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | head -c 20)
 # Llave DEDICADA de cifrado de credenciales (H-02): formato Fernet, distinta de SECRET_KEY
@@ -436,6 +438,7 @@ python3 -m venv "${APP_DIR}/almacen/venv"
 mkdir -p /var/lib/maquita-almacen
 cat > "${APP_DIR}/almacen/.env" <<AENV
 WEBMAIL_SECRET_KEY=${SECRET}
+ALMACEN_CLAVE_SESION=${ALMACEN_CLAVE_SESION}
 ALMACEN_DB_HOST=127.0.0.1
 ALMACEN_DB_NAME=almacen
 ALMACEN_DB_USER=mailserver

@@ -7,6 +7,12 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Corregido
+
+- **El instalador genera `ALMACEN_CLAVE_SESION`** en `almacen/.env` (obligatoria desde 1.7.0 por
+  R-01; sin ella el almacén no arranca al primer reinicio). Reportado por Andes al actualizar
+  1.7.0 → 1.7.2. `UPGRADING.md` la documenta como variable nueva de 1.7.0.
+
 ## [1.7.2] - 2026-09-06
 
 Correcciones de la sexta revisión (panel) y del lote P2 de la tercera revisión (almacén).
