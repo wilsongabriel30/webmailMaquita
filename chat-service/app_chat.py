@@ -58,6 +58,20 @@ def _validar_secreto_chat():
 _validar_secreto_chat()
 
 
+# [H-02] Las rutas de servicio a servicio se autentican con NOTIF_SECRET en el guard
+# central, comparado en tiempo constante; sin secreto el servicio no arranca.
+def _validar_secreto_notif():
+    _v = (os.getenv("NOTIF_SECRET") or "").strip()
+    if not _v or len(_v) < 16:
+        raise RuntimeError(
+            "Falta NOTIF_SECRET (o es demasiado corto) — es el secreto compartido con el "
+            "correo para notificaciones y revocacion de sesiones. Definelo en el entorno."
+        )
+
+
+_validar_secreto_notif()
+
+
 # --- Entrada desde el correo cuando el chat vive en su propio origen -----------
 # Secreto DEDICADO al vale de entrada: ni el del correo (CHAT_JWT_SECRET) ni el de
 # la sesión propia (CHAT_SESSION_KEY). Que sean tres evita que comprometer uno
@@ -466,7 +480,12 @@ def crear_app():
     def _auth():
         # Push de notificaciones desde otros sistemas: se autentica con X-Notif-Secret (sin sesión)
         if request.path in _RUTAS_SERVICIO and request.headers.get("X-Notif-Secret"):
-            return None
+            # [H-02] Se COMPARA el secreto aquí, no solo su presencia: la protección no
+            # puede depender de que cada endpoint nuevo se acuerde de validarlo.
+            import hmac as _hmac
+            if _hmac.compare_digest(os.getenv("NOTIF_SECRET", ""), request.headers.get("X-Notif-Secret", "")):
+                return None
+            return jsonify({"success": False, "error": "No autorizado"}), 403
         if request.path.startswith(_RUTAS_PROTEGIDAS):
             # T-44: enlace de notificación con token (la ventana puede no traer cookie)
             _tok_url = request.args.get("token", "")
