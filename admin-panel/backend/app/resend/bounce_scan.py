@@ -18,11 +18,18 @@ LOGS = "/var/log/mail.log /var/log/mail.log.1"
 
 async def _leer_logs() -> str:
     """Devuelve el contenido de los logs de correo recientes (sin comprimir)."""
-    proc = await asyncio.create_subprocess_shell(
-        f"cat {LOGS} 2>/dev/null", stdout=PIPE, stderr=PIPE
-    )
-    out, _ = await proc.communicate()
-    return out.decode("utf-8", "ignore")
+    # [L-01] Sin shell: se leen los ficheros directamente.
+    def _leer():
+        partes = []
+        for ruta in LOGS.split():
+            try:
+                with open(ruta, "rb") as f:
+                    partes.append(f.read())
+            except OSError:
+                continue
+        return b"".join(partes).decode("utf-8", "ignore")
+
+    return await asyncio.to_thread(_leer)
 
 
 async def cuentas_con_rebotes() -> list[dict]:

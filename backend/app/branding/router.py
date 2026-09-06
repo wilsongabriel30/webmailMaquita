@@ -15,7 +15,22 @@ async def get_branding(request: Request):
         rows = await db.fetch("SELECT key, value FROM branding_settings")
     except Exception:
         return {}
-    result = {r["key"]: r["value"] for r in rows}
+    # [H-02] Endpoint PUBLICO (lo usa la pantalla de entrada): solo nombre, lema, contacto,
+    # colores y ficheros de marca. Nada de configuracion interna.
+    _PUBLICAS = (
+        "org_name",
+        "app_name",
+        "org_slogan",
+        "org_phone",
+        "org_email",
+        "org_website",
+        "primary_color",
+        "secondary_color",
+        "footer_text",
+        "logo_url",
+        "favicon_url",
+    )
+    result = {r["key"]: r["value"] for r in rows if r["key"] in _PUBLICAS}
 
     # Nombre de organizacion para el frontend (TwoFactorGate, etc.), con fallback neutro
     result.setdefault("org_name", "Tu organización")

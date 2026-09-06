@@ -5,7 +5,7 @@ Autor: Wilson Argüello — Equipo de Tecnología, Fundación Maquita
 from fastapi import APIRouter, Request, Depends, HTTPException
 from pydantic import BaseModel
 
-from app.auth.dependencies import get_current_admin
+from app.auth.dependencies import get_current_admin, require_superadmin
 
 router = APIRouter(prefix="/api/retention", tags=["retention"])
 
@@ -33,7 +33,7 @@ class PolReq(BaseModel):
 
 
 @router.post("/policies")
-async def create(r: Request, body: PolReq, a=Depends(get_current_admin)):
+async def create(r: Request, body: PolReq, a=Depends(require_superadmin)):
     if body.action not in ("delete", "move"):
         raise HTTPException(400, "acción inválida (delete|move)")
     pid = await _db(r).fetchval(
@@ -50,7 +50,7 @@ class ToggleReq(BaseModel):
 
 
 @router.post("/toggle")
-async def toggle(r: Request, body: ToggleReq, a=Depends(get_current_admin)):
+async def toggle(r: Request, body: ToggleReq, a=Depends(require_superadmin)):
     await _db(r).execute("UPDATE retention_policies SET is_active=$1 WHERE id=$2", body.is_active, body.id)
     return {"ok": True}
 
@@ -60,6 +60,6 @@ class IdReq(BaseModel):
 
 
 @router.post("/delete")
-async def delete(r: Request, body: IdReq, a=Depends(get_current_admin)):
+async def delete(r: Request, body: IdReq, a=Depends(require_superadmin)):
     await _db(r).execute("DELETE FROM retention_policies WHERE id=$1", body.id)
     return {"ok": True}

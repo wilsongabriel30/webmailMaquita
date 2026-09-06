@@ -22,8 +22,11 @@ async def _audit(r, a, action, target=None, details=None):
             "VALUES ($1,$2,$3,$4,$5::jsonb,$6)",
             a["id"], a["username"], action, target, json.dumps(details) if details else None,
             r.headers.get("X-Real-IP", r.client.host if r.client else ""))
-    except Exception:
-        pass
+    except Exception as exc:
+        # [L-02] La auditoria nunca falla en silencio: error con marca para monitoreo.
+        import logging
+
+        logging.getLogger("security").error("AUDITORIA_NO_REGISTRADA accion=%s error=%s", action, str(exc)[:120])
 
 
 class SaCfg(BaseModel):
