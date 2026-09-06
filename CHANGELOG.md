@@ -15,6 +15,8 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Seguridad
 
+- **[L-03 chat] `get_or_create_direct` por socket pasa por la misma regla que la ruta REST**:
+  misma organización (`tenant_chat.primer_bloqueado`) y sin bloqueo entre las dos personas.
 - **[L-02 chat] `call_invite` y el resto de la señalización de llamadas verifican relación y
   bloqueo**: el destino tiene que compartir conversación (la indicada o alguna), ser de la misma
   organización y no haber bloqueo en ningún sentido; si no, `LLAMADA_RECHAZADA` en el registro.
