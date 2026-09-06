@@ -25,6 +25,8 @@ export function TwoFactorSetup() {
   const [step, setStep] = useState<'idle' | 'setup' | 'backup'>('idle');
   const [askPassword, setAskPassword] = useState(false);
   const [setupPassword, setSetupPassword] = useState('');
+  const [regenCode, setRegenCode] = useState('');
+  const [showRegen, setShowRegen] = useState(false);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -47,8 +49,8 @@ export function TwoFactorSetup() {
       setStep('setup');
       setAskPassword(false);
       setSetupPassword('');
-    } catch (e: any) {
-      showToast(e.message || 'Error al configurar 2FA');
+    } catch (e) {
+      showToast(e instanceof Error && e.message ? e.message : 'Error al configurar 2FA');
     } finally {
       setLoading(false);
     }
@@ -62,8 +64,8 @@ export function TwoFactorSetup() {
       showToast('2FA activado correctamente');
       setStep('backup');
       fetchStatus();
-    } catch (e: any) {
-      showToast(e.message || 'Código inválido');
+    } catch (e) {
+      showToast(e instanceof Error && e.message ? e.message : 'Código inválido');
     } finally {
       setLoading(false);
     }
@@ -80,12 +82,30 @@ export function TwoFactorSetup() {
       setShowDisable(false);
       setDisableCode('');
       fetchStatus();
-    } catch (e: any) {
-      showToast(e.message || 'Código inválido');
+    } catch (e) {
+      showToast(e instanceof Error && e.message ? e.message : 'Código inválido');
     } finally {
       setLoading(false);
     }
   }, [disableCode, fetchStatus]);
+
+  // [H-03] Códigos de respaldo nuevos (los anteriores dejan de valer); exige un TOTP vigente.
+  const handleRegenerar = useCallback(async () => {
+    if (regenCode.length !== 6) return;
+    setLoading(true);
+    try {
+      const res = (await api.post('/auth/totp/backup-codes', { code: regenCode })) as { backup_codes: string[] };
+      setSetupData({ secret: '', qr_code: '', uri: '', backup_codes: res.backup_codes });
+      setStep('backup');
+      setShowRegen(false);
+      setRegenCode('');
+      fetchStatus();
+    } catch (e) {
+      showToast(e instanceof Error && e.message ? e.message : 'Código inválido');
+    } finally {
+      setLoading(false);
+    }
+  }, [regenCode, fetchStatus]);
 
   if (!status) {
     return <div className="p-4 text-[13px] text-[#605e5c]">Cargando estado 2FA...</div>;
@@ -243,6 +263,51 @@ export function TwoFactorSetup() {
         </div>
       )}
 
+      {/* [H-03] Códigos de respaldo nuevos */}
+      {status.enabled && step === 'idle' && (
+        <div className="mt-4 pt-4 border-t border-[#edebe9] dark:border-[#444]">
+          {!showRegen ? (
+            <button
+              onClick={() => setShowRegen(true)}
+              className="text-[13px] text-[#0078d4] hover:underline"
+            >
+              Generar códigos de respaldo nuevos
+            </button>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-[12px] text-[#323130] dark:text-[#e0e0e0]">
+                Los códigos anteriores dejarán de valer. Ingresa el código de 6 dígitos de tu app:
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={regenCode}
+                  onChange={e => setRegenCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  onKeyDown={e => e.key === 'Enter' && handleRegenerar()}
+                  placeholder="000000"
+                  maxLength={6}
+                  autoFocus
+                  className="w-[140px] px-3 py-1.5 text-[14px] font-mono text-center border border-[#e1dfdd] dark:border-[#555] rounded bg-white dark:bg-[#1e1e1e] text-[#323130] dark:text-[#e0e0e0] outline-none focus:border-[#0078d4] tracking-[0.3em]"
+                />
+                <button
+                  onClick={handleRegenerar}
+                  disabled={loading || regenCode.length !== 6}
+                  className="px-4 py-1.5 bg-[#0078d4] text-white text-[13px] rounded hover:bg-[#106ebe] disabled:opacity-50 transition-colors"
+                >
+                  {loading ? 'Generando...' : 'Generar'}
+                </button>
+                <button
+                  onClick={() => { setShowRegen(false); setRegenCode(''); }}
+                  className="px-3 py-1.5 text-[13px] text-[#605e5c] hover:bg-[#f3f2f1] rounded transition-colors"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Disable section */}
       {status.enabled && step === 'idle' && (
         <div className="mt-4 pt-4 border-t border-[#edebe9] dark:border-[#444]">
@@ -264,8 +329,8 @@ export function TwoFactorSetup() {
                   value={disableCode}
                   onChange={e => setDisableCode(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleDisable()}
-                  placeholder="Codigo"
-                  className="w-[160px] px-3 py-1.5 text-[13px] font-mono border border-[#e1dfdd] dark:border-[#555] rounded bg-white dark:bg-[#1e1e1e] text-[#323130] dark:text-[#e0e0e0] outline-none focus:border-[#d13438]"
+                  placeholder="Código TOTP o de respaldo"
+                  className="w-[300px] px-3 py-1.5 text-[13px] font-mono border border-[#e1dfdd] dark:border-[#555] rounded bg-white dark:bg-[#1e1e1e] text-[#323130] dark:text-[#e0e0e0] outline-none focus:border-[#d13438]"
                   autoFocus
                 />
                 <button

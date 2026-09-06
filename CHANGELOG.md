@@ -7,6 +7,13 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Seguridad
+
+- **[H-03 / F-09] Códigos de respaldo de 2FA: 128 bits, hash con sal, un solo uso atómico.** Un
+  código por fila en `user_totp_backup_codes` (migración `2026-09-06-codigos-respaldo.sql`);
+  los anteriores (32 bits, en claro, consumo no atómico) dejan de valer y cada persona con
+  2FA genera unos nuevos desde Ajustes (`POST /api/auth/totp/backup-codes`, exige TOTP vigente).
+
 ### Corregido
 
 - **El instalador genera `ALMACEN_CLAVE_SESION`** en `almacen/.env` (obligatoria desde 1.7.0 por
