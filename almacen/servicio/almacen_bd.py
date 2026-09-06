@@ -123,9 +123,13 @@ def es_master(usuario_id: int) -> bool:
 
 
 def asegurar_esquema():
-    """Crea las tablas si no existen. Idempotente; se llama al arrancar."""
+    """Crea las tablas si no existen. Idempotente; se llama al arrancar.
+    Con 6 workers haciendo este DDL a la vez había deadlocks: el arranque entero va bajo
+    `ddl_arranque.serializado()` y, por si alguien llama esto suelto, la propia transacción
+    toma un bloqueo consultivo."""
     with conexion() as con:
         with con.cursor() as cur:
+            cur.execute("SELECT pg_advisory_xact_lock(815001)")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS compartidos (
                     id SERIAL PRIMARY KEY,

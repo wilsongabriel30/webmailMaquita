@@ -34,12 +34,14 @@ def crear_app_almacen() -> Flask:
     app.secret_key = CLAVE_SESION
     app.config['MAX_CONTENT_LENGTH'] = TAMANO_MAX_SUBIDA
 
-    # Esquema de metadatos (idempotente)
-    asegurar_esquema()
-
-    from cuota_admision import asegurar_tabla as _tabla_reservas
-    from almacen_bd import conexion as _conexion_reservas
-    _tabla_reservas(_conexion_reservas)  # [F-06]
+    # Esquema de metadatos (idempotente), serializado entre workers (ver ddl_arranque.py)
+    from ddl_arranque import serializado as _ddl_serializado
+    from almacen_bd import _obtener_pool as _pool_ddl
+    with _ddl_serializado(_pool_ddl):
+        asegurar_esquema()
+        from cuota_admision import asegurar_tabla as _tabla_reservas
+        from almacen_bd import conexion as _conexion_reservas
+        _tabla_reservas(_conexion_reservas)  # [F-06]
     # API bajo el prefijo del contrato actual
     from api_archivos import bp_archivos
     from api_compartir import bp_compartir
