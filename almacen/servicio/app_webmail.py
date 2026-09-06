@@ -108,14 +108,19 @@ def crear_app_webmail() -> Flask:
     app.secret_key = CLAVE_SESION
     app.config['MAX_CONTENT_LENGTH'] = TAMANO_MAX_SUBIDA
 
-    asegurar_esquema()          # esquema del motor (idempotente)
-    from cuota_admision import asegurar_tabla as _tabla_reservas
-    from almacen_bd import conexion as _conexion_reservas
-    _tabla_reservas(_conexion_reservas)  # [F-06] reservas de cuota (también en app_almacen)
-    asegurar_tablas_webmail()   # directorio local de usuarios
-    asegurar_tablas_externas()  # directorio de cuentas Drive externas (pasantes/aliados)
-    from alias_correo import asegurar_tabla_alias
-    asegurar_tabla_alias()      # alias: varios buzones -> una identidad
+    # Todo el DDL de arranque bajo un solo bloqueo consultivo: con 6 workers a la vez
+    # había deadlocks y systemd relanzaba el servicio (ver ddl_arranque.py).
+    from ddl_arranque import serializado as _ddl_serializado
+    from almacen_bd import _obtener_pool as _pool_ddl
+    with _ddl_serializado(_pool_ddl):
+        asegurar_esquema()          # esquema del motor (idempotente)
+        from cuota_admision import asegurar_tabla as _tabla_reservas
+        from almacen_bd import conexion as _conexion_reservas
+        _tabla_reservas(_conexion_reservas)  # [F-06] reservas de cuota (también en app_almacen)
+        asegurar_tablas_webmail()   # directorio local de usuarios
+        asegurar_tablas_externas()  # directorio de cuentas Drive externas (pasantes/aliados)
+        from alias_correo import asegurar_tabla_alias
+        asegurar_tabla_alias()      # alias: varios buzones -> una identidad
 
     from api_archivos import bp_archivos
     from api_compartir import bp_compartir
