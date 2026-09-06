@@ -30,15 +30,14 @@ async def lock_account(
 ) -> dict:
     """Contención: desactiva el buzón + limpia su sesión Redis."""
     await db.execute("UPDATE mailbox SET active=false WHERE username=$1", username)
-    for k in (
-        f"imap_pass:{username}",
-        f"imap_master:{username}",
-        f"account_blocked:{username}",
-    ):
-        try:
-            await redis.delete(k)
-        except Exception:
-            pass
+    # F-01: contención = revocar TODAS las sesiones (sube la generación).
+    from app.auth.sesiones import revocar_todo
+
+    await revocar_todo(db, redis, username, f"AIR: {reason}"[:120])
+    try:
+        await redis.delete(f"account_blocked:{username}")
+    except Exception:
+        pass
     await redis.set(f"account_blocked:{username}", f"AIR: {reason}"[:200], ex=86400)
     await _log(db, "account_locked", username, reason, actor, auto)
     logger.warning("AIR contuvo la cuenta %s: %s", username, reason)

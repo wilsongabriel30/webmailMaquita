@@ -147,8 +147,11 @@ async def _process_scheduled_emails(db_pool, redis):
                     if not claimed:
                         continue
                     username = row["username"]
-                    raw_pass = await redis.get(f"imap_pass:{username}")
-                    if not raw_pass:
+                    # F-01: la credencial está cifrada POR SESIÓN; vale cualquiera viva.
+                    from app.auth.sesiones import credencial_de_alguna_sesion
+
+                    cred = await credencial_de_alguna_sesion(redis, username)
+                    if not cred:
                         logger.warning(
                             f"Scheduled email {row['id']}: no session for {username}"
                         )
@@ -157,33 +160,12 @@ async def _process_scheduled_emails(db_pool, redis):
                             row["id"],
                         )
                         continue
-
-                    # Descifrar contraseña Fernet (las passwords en Redis están cifradas)
-                    from app.core.session import decrypt_password
-
-                    try:
-                        password = decrypt_password(raw_pass)
-                    except Exception:
-                        # Una credencial que no descifra (formato viejo o clave rotada)
-                        # NUNCA se usa tal cual: se invalida la sesión y el envío espera
-                        # a que el usuario vuelva a entrar.
-                        logger.error(
-                            "Scheduled email %s: la credencial cacheada de %s no descifra; "
-                            "sesión invalidada y envío devuelto a 'pending' [CREDENCIAL_NO_DESCIFRA]",
-                            row["id"],
-                            username,
-                        )
-                        await redis.delete(f"imap_pass:{username}")
-                        await db_pool.execute(
-                            "UPDATE scheduled_emails SET status = 'pending' WHERE id = $1",
-                            row["id"],
-                        )
-                        continue
+                    _sid, password, login_user = cred
 
                     from app.mail.clients.imap_client import get_imap_connection
                     from app.mail.services.send_service import send_and_save
 
-                    imap = await get_imap_connection(username, password)
+                    imap = await get_imap_connection(login_user, password)
                     try:
                         # Get display name
                         display_name = ""
@@ -701,6 +683,11 @@ async def validation_exception_handler(request, exc):
 
 
 app.include_router(auth_router)
+from app.auth.sesion_servicio import router as sesion_servicio_router  # noqa: E402
+from app.chatcfg.revocacion import registrar as registrar_revocacion_chat  # noqa: E402
+
+app.include_router(sesion_servicio_router)
+registrar_revocacion_chat(app)
 app.include_router(push_router)
 app.include_router(oidc_router)
 app.include_router(air_router)

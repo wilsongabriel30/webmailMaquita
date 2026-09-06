@@ -26,7 +26,7 @@ def registrar(socketio):
 
         conversacion_id = data.get('conversation_id')
         if not conversacion_id:
-            logger.warning(f"[WebSocket] join_conversation sin conversation_id, data={data}")
+            logger.warning("[WebSocket] join_conversation sin conversation_id")
             return
 
         # [A-3] Exigir ser participante. Antes la comprobacion era "permisiva para

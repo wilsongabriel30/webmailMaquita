@@ -3,6 +3,7 @@ import { IntegrationsSettings } from './IntegrationsSettings';
 import { useLocation } from 'react-router-dom';
 import { api } from '../../api/client';
 import { PasswordChange } from './PasswordChange';
+import { CerrarSesiones } from './CerrarSesiones';
 import { IdentityManager } from './IdentityManager';
 import { SignatureManager } from './SignatureManager';
 import { TwoFactorSetup } from './TwoFactorSetup';
@@ -94,7 +95,7 @@ export function SettingsView() {
     api.get<FilterRule[]>('/sieve/filters')
       .then(data => {
         // API returns array directly
-        const arr = Array.isArray(data) ? data : (data as any).filters || [];
+        const arr = Array.isArray(data) ? data : (data as { filters?: FilterRule[] }).filters || [];
         setFilters(arr);
       })
       .catch(() => setFilters([]))
@@ -543,7 +544,10 @@ export function SettingsView() {
         {tab === 'smime' && <SmimeSettings />}
 
         {tab === 'password' && (
-          <PasswordChange />
+          <>
+            <PasswordChange />
+            <CerrarSesiones />
+          </>
         )}
         {tab === 'mailsetup' && (
           <MailSetup />

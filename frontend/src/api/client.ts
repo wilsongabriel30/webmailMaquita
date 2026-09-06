@@ -79,6 +79,9 @@ async function request<T>(path: string, options: RequestInit & { skipAuth?: bool
     });
   }
 
+  if (res.status === 403 && !isAuthEndpoint) {
+    res.clone().json().then((b) => redirigirSiDebeCambiarClave(403, b)).catch(() => {});
+  }
   if (res.status === 401 && !skipAuth && !isAuthEndpoint) {
     const refreshed = await tryRefresh();
     if (refreshed) {
@@ -99,7 +102,7 @@ async function request<T>(path: string, options: RequestInit & { skipAuth?: bool
     const body = await res.json().catch(() => ({}));
     logError("api_error", { path, status: res.status, detail: body.detail, method: fetchOptions.method || "GET" });
     const detail = Array.isArray(body.detail)
-      ? body.detail.map((e: any) => e.msg || JSON.stringify(e)).join('; ')
+      ? body.detail.map((e: { msg?: string }) => e.msg || JSON.stringify(e)).join('; ')
       : (typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail));
     throw new Error(detail || `HTTP ${res.status}`);
   }
@@ -146,6 +149,15 @@ async function getCacheado<T>(path: string, opts?: { skipAuth?: boolean }): Prom
   const data = await request<T>(path, opts);
   _cache.set(path, { t: Date.now(), data });
   return data as T;
+}
+
+// H-01: con cambio de contraseña pendiente el servidor responde 403 a todo salvo cambiarla o
+// salir. Se vuelve a la pantalla de entrada, que fuerza el cambio tras iniciar sesión.
+function redirigirSiDebeCambiarClave(status: number, body: unknown): void {
+  const d = body as { must_change_password?: boolean; detail?: { must_change_password?: boolean } } | null;
+  if (status === 403 && (d?.must_change_password || d?.detail?.must_change_password)) {
+    if (!window.location.pathname.endsWith('/login')) window.location.assign('/webmail/login');
+  }
 }
 
 export const api = {

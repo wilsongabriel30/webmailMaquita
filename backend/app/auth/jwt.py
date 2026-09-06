@@ -7,13 +7,30 @@ import jwt
 from app.config import get_settings
 
 
-def create_access_token(username: str) -> str:
+def create_access_token(
+    username: str,
+    *,
+    sid: str,
+    av: int,
+    kind: str = "normal",
+    abs_exp: datetime | None = None,
+) -> str:
+    """Access JWT de una sesión concreta (F-01): lleva `sid`, `av`, `kind` y `abs_exp`.
+    El vencimiento nunca supera `abs_exp` (F-04)."""
     settings = get_settings()
     expire = datetime.now(timezone.utc) + timedelta(
         minutes=settings.access_token_expire_minutes
     )
+    if abs_exp is not None and abs_exp < expire:
+        expire = abs_exp
     payload = {
         "sub": username,
+        "sid": sid,
+        "av": int(av),
+        "kind": kind,
+        "abs_exp": (
+            int(abs_exp.timestamp()) if abs_exp is not None else int(expire.timestamp())
+        ),
         "exp": expire,
         "type": "access",
     }

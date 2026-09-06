@@ -44,7 +44,13 @@ _log = logging.getLogger(__name__)
 
 # Sin estas, los procesos del correo abortan al arrancar: su comprobación de
 # secretos obligatorios los rechaza y la conexión a la base queda vacía.
-OBLIGATORIAS = ("SECRET_KEY", "ADMIN_JWT_SECRET", "MASTER_PASSWORD", "DATABASE_URL")
+OBLIGATORIAS = (
+    "SECRET_KEY",
+    "ADMIN_JWT_SECRET",
+    "MASTER_PASSWORD",
+    "DATABASE_URL",
+    "CREDENTIAL_ENCRYPTION_KEY",  # H-02: llave dedicada de credenciales
+)
 
 # Con valor por defecto en el correo. Si faltan, degrada pero no rompe.
 OPCIONALES = (

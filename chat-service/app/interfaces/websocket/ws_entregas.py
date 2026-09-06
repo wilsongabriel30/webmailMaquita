@@ -2,7 +2,7 @@
 """Confirmaciones de entrega y lectura por lote. Extraído de manejador_websocket._registrar_eventos (líneas 1809-1913) el 28/08/2026 sin cambios.
 Los manejadores se registran al llamar registrar(socketio) desde manejador_websocket._registrar_eventos()."""
 from interfaces.websocket.manejador_websocket import *  # noqa: F401,F403
-from interfaces.websocket.manejador_websocket import _cerrar_servicio, _commit_servicio, _obtener_servicio_chat  # noqa: F401
+from interfaces.websocket.manejador_websocket import _autorizado_en_conversacion, _cerrar_servicio, _commit_servicio, _conversacion_de_mensaje, _es_participante, _obtener_servicio_chat  # noqa: F401
 
 
 def registrar(socketio):
@@ -34,6 +34,9 @@ def registrar(socketio):
         conversacion_id = data.get('conversation_id') or data.get('c')
 
         if not mensaje_id:
+            return
+        conversacion_id = _conversacion_de_mensaje(mensaje_id)
+        if not _autorizado_en_conversacion(usuario_id, conversacion_id, 'delivered'):
             return
 
         servicio = None
@@ -84,6 +87,8 @@ def registrar(socketio):
         if not conversacion_id or not hasta_id:
             return
 
+        if not _autorizado_en_conversacion(usuario_id, conversacion_id, 'mark_read_batch'):
+            return
         servicio = None
         try:
             servicio = _obtener_servicio_chat()

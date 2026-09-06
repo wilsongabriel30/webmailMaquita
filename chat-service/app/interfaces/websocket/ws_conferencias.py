@@ -2,6 +2,7 @@
 """Conferencias grupales (invite/join/offer/answer/ice/leave/reject). Extraído de manejador_websocket._registrar_eventos (líneas 1504-1735) el 28/08/2026 sin cambios.
 Los manejadores se registran al llamar registrar(socketio) desde manejador_websocket._registrar_eventos()."""
 from interfaces.websocket.manejador_websocket import *  # noqa: F401,F403
+from interfaces.websocket.manejador_websocket import _es_participante  # noqa: F401
 
 
 def _marcar_llamada(usuario_id, en_llamada):
@@ -43,11 +44,19 @@ def registrar(socketio):
         if not room_id or not participants:
             emit('error', {'message': 'room_id y participants requeridos'})
             return
+        # [M-04] Si la conferencia nace de una conversacion, quien invita tiene que estar en ella.
+        if conversation_id and not _es_participante(usuario_id, conversation_id):
+            emit('error', {'message': 'No autorizado'})
+            return
+        if room_id in active_conferences and active_conferences[room_id].get('creator') != usuario_id:
+            emit('error', {'message': 'Esa sala ya existe'})
+            return
 
-        # Crear sala de conferencia
+        # Crear sala de conferencia. [M-04] Se guardan los invitados: solo ellos pueden unirse.
         active_conferences[room_id] = {
             'creator': usuario_id,
             'participants': {str(usuario_id): usuario_nombre},
+            'invitados': {str(p.get('id', '')) for p in participants if str(p.get('id', ''))} | {str(usuario_id)},
             'conversation_id': conversation_id,
             'created_at': time.time(),
             'room_name': room_name
@@ -121,7 +130,11 @@ def registrar(socketio):
             return
 
         conf = active_conferences[room_id]
-
+        # [M-04] Solo quien fue invitado (o el creador) puede unirse a la sala.
+        if str(usuario_id) not in conf.get('invitados', set()):
+            logger.warning(f"[Conference] join denegado: usuario {usuario_id} no fue invitado a {room_id}")
+            emit('error', {'message': 'No estas invitado a esta conferencia'})
+            return
         # [A-5] Igual que el creador: queda registrado que estuvo en la sala.
         try:
             from interfaces.api.conferencia_miembros import registrar as _registrar_conf

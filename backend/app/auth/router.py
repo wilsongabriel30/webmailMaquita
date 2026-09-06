@@ -5,9 +5,19 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel
 
+from app.auth.bootstrap import debe_cambiar_clave
+from app.auth.cookies import dominio_cookie, poner_cookies_sesion, quitar_cookies_sesion
 from app.auth.dependencies import get_current_user
 from app.auth.dovecot_auth_service import authenticate
 from app.auth.jwt import create_access_token, create_refresh_token, hash_refresh_token
+from app.auth.sesiones import (
+    av_actual,
+    cerrar_sid,
+    crear_sesion,
+    prorrogar,
+    revocar_todo,
+    sesion_valida,
+)
 from app.auth.totp import is_totp_enabled, validate_totp_code
 from app.config import get_settings
 from app.core.session import encrypt_password
@@ -15,12 +25,10 @@ from app.core.session import encrypt_password
 
 def _sanitize_username(username: str) -> str:
     """Sanitize username: strip control chars, validate email format."""
-    username = re.sub(
-        r"[\r\n\x00-\x08\x0b\x0c\x0e-\x1f\x7f\x85\u2028\u2029]", "", username
-    )
+    username = re.sub(r"[\r\n\x00-\x08\x0b\x0c\x0e-\x1f\x7f\x85  ]", "", username)
     username = username.strip().lower()
     if not re.match(r"^[a-zA-Z0-9._%+-]+(@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})?$", username):
-        raise HTTPException(status_code=422, detail="Nombre de usuario inv\u00e1lido")
+        raise HTTPException(status_code=422, detail="Nombre de usuario inválido")
     return username
 
 
@@ -58,18 +66,13 @@ async def _clear_login_rate_limit(request: Request, username: str, redis):
     await redis.delete(f"login_rl:user:{username}")
 
 
-from app.auth.cookies import dominio_cookie
-
 router = APIRouter(prefix="/api/auth", tags=["auth"])
-
-
-DEFAULT_BOOTSTRAP_PASSWORD = "Cambiar2026"
 
 
 class LoginRequest(BaseModel):
     username: str
     password: str
-    totp_code: str | None = None
+    totp_code: str | None = None  # ignorado desde M-01: el código va a /login/2fa
 
 
 class UserInfo(BaseModel):
@@ -101,6 +104,11 @@ async def login(body: LoginRequest, request: Request, response: Response):
     if elapsed < 2.0:
         await asyncio.sleep(2.0 - elapsed)
 
+    if not ok and await is_totp_enabled(request.app.state.db_pool, username):
+        # Contraseña incorrecta en una cuenta con 2FA: misma respuesta que si fuera
+        # correcta (vale ficticio, no canjeable). Ver M-01 más abajo.
+        return await _emitir_vale_2fa(redis, username, None)
+
     if not ok:
         # Si la cuenta fue CONTENIDA por seguridad (deteccion de envio masivo),
         # explicar el motivo en vez del generico "Credenciales incorrectas".
@@ -124,13 +132,13 @@ async def login(body: LoginRequest, request: Request, response: Response):
             )
         raise HTTPException(status_code=401, detail="Credenciales incorrectas")
 
-    # 2FA check
+    # Segundo factor (M-01): la respuesta del primer paso tiene SIEMPRE la misma forma
+    # para una cuenta con 2FA, acierte o no la contraseña: un vale opaco de un solo uso
+    # (60 s). Solo el vale real, canjeado en /login/2fa con el código, abre sesión. Sin
+    # él no hay forma de saber si la contraseña era correcta.
     db = request.app.state.db_pool
     if await is_totp_enabled(db, username):
-        if not body.totp_code:
-            return {"requires_2fa": True, "username": username}
-        if not await validate_totp_code(db, username, body.totp_code):
-            raise HTTPException(status_code=401, detail="Código 2FA inválido")
+        return await _emitir_vale_2fa(redis, username, body.password if ok else None)
 
     # Clear rate limit on success
     await _clear_login_rate_limit(request, username, redis)
@@ -150,66 +158,96 @@ async def login(body: LoginRequest, request: Request, response: Response):
     except Exception:
         pass
 
-    # Cache Fernet-encrypted password in Redis for IMAP/SMTP operations (TTL matches session)
-    await redis.set(
-        f"imap_pass:{username}",
-        encrypt_password(body.password),
-        ex=settings.access_token_expire_minutes * 60,
-    )
-    # CRÍTICO: Limpiar imap_master si existía de una sesión de impersonación previa.
-    # Sin esto, el backend intenta login como user*admin con la contraseña personal → IMAP falla.
-    await redis.delete(f"imap_master:{username}")
-
-    # Create tokens
-    access = create_access_token(username)
-    refresh_raw, refresh_hash = create_refresh_token()
-
-    # Store refresh token in DB
-    db = request.app.state.db_pool
-    expires_at = datetime.now(timezone.utc) + timedelta(
-        days=settings.refresh_token_expire_days
-    )
-    await db.execute(
-        """INSERT INTO refresh_tokens (username, token_hash, expires_at, user_agent, ip_address)
-           VALUES ($1, $2, $3, $4, $5::inet)""",
-        username,
-        refresh_hash,
-        expires_at,
-        request.headers.get("user-agent", "")[:500],
-        request.client.host if request.client else "0.0.0.0",
-    )
-
-    # Set cookies
-    response.set_cookie(
-        key="access_token",
-        value=access,
-        httponly=True,
-        secure=True,
-        samesite="strict",
-        domain=dominio_cookie(request),
-        max_age=settings.access_token_expire_minutes * 60,
-        path="/",
-    )
-    response.set_cookie(
-        key="refresh_token",
-        value=refresh_raw,
-        httponly=True,
-        secure=True,
-        samesite="strict",
-        domain=dominio_cookie(request),
-        max_age=settings.refresh_token_expire_days * 86400,
-        path="/api/auth/refresh",
-    )
-
-    # Check admin status
-    row = await db.fetchrow(
-        "SELECT superadmin FROM admin WHERE username = $1 AND active = true", username
-    )
+    # Sesión propia (sid) con la generación vigente (av). La contraseña IMAP queda
+    # cifrada en Redis, por sesión: cerrar esta no toca las demás. (F-01)
+    sesion = await crear_sesion(db, redis, request, username, body.password)
+    poner_cookies_sesion(response, request, sesion)
 
     return {
         "message": "Login successful",
         "username": username,
-        "must_change_password": body.password == DEFAULT_BOOTSTRAP_PASSWORD,
+        "must_change_password": await debe_cambiar_clave(db, redis, username),
+    }
+
+
+VALE_2FA_SEG = 60
+
+
+async def _emitir_vale_2fa(redis, username: str, password: str | None) -> dict:
+    """Vale del segundo paso. Con contraseña válida se guarda (cifrada) 60 s en Redis;
+    sin ella se devuelve uno ficticio con la misma forma."""
+    import json
+    import secrets
+
+    vale = secrets.token_urlsafe(32)
+    if password is not None:
+        await redis.set(
+            f"login_ticket:{vale}",
+            json.dumps({"u": username, "p": encrypt_password(password)}),
+            ex=VALE_2FA_SEG,
+        )
+    return {
+        "requires_2fa": True,
+        "segundo_paso": True,
+        "ticket": vale,
+        "username": username,
+    }
+
+
+class Login2FARequest(BaseModel):
+    ticket: str
+    totp_code: str
+
+
+@router.post("/login/2fa")
+async def login_2fa(body: Login2FARequest, request: Request, response: Response):
+    """Segundo paso del login (M-01): canjea el vale + código TOTP por una sesión.
+    Vale inexistente, ya usado, vencido o código incorrecto: la MISMA respuesta."""
+    import json
+
+    start_time = asyncio.get_event_loop().time()
+    redis = request.app.state.redis
+    db = request.app.state.db_pool
+    generico = HTTPException(
+        status_code=401, detail="Credenciales o código incorrectos"
+    )
+    vale = (body.ticket or "").strip()[:128]
+    datos = None
+    if vale:
+        try:
+            crudo = await redis.getdel(f"login_ticket:{vale}")
+        except Exception:
+            crudo = await redis.get(f"login_ticket:{vale}")
+            await redis.delete(f"login_ticket:{vale}")
+        if crudo:
+            try:
+                datos = json.loads(crudo)
+            except Exception:
+                datos = None
+    username = (datos or {}).get("u", "")
+    if username:
+        await _check_login_rate_limit(request, username, redis)
+    ok = bool(datos) and await validate_totp_code(
+        db, username, (body.totp_code or "").strip()
+    )
+
+    elapsed = asyncio.get_event_loop().time() - start_time
+    if elapsed < 1.5:
+        await asyncio.sleep(1.5 - elapsed)
+    if not ok:
+        raise generico
+
+    from app.core.session import decrypt_password
+
+    await _clear_login_rate_limit(request, username, redis)
+    sesion = await crear_sesion(
+        db, redis, request, username, decrypt_password(datos["p"])
+    )
+    poner_cookies_sesion(response, request, sesion)
+    return {
+        "message": "Login successful",
+        "username": username,
+        "must_change_password": await debe_cambiar_clave(db, redis, username),
     }
 
 
@@ -222,17 +260,37 @@ async def refresh(request: Request, response: Response):
 
     token_hash = hash_refresh_token(raw_token)
     db = request.app.state.db_pool
+    redis = request.app.state.redis
+    ahora = datetime.now(timezone.utc)
 
     row = await db.fetchrow(
-        """SELECT id, username, expires_at FROM refresh_tokens
+        """SELECT id, username, expires_at, sid, session_kind, absolute_expires_at, auth_version
+           FROM refresh_tokens
            WHERE token_hash = $1 AND is_revoked = false AND expires_at > NOW()""",
         token_hash,
     )
+    # F-01/F-04: además del vencimiento propio, el refresh exige la generación vigente,
+    # su sesión viva y que no haya pasado el vencimiento ABSOLUTO de la sesión.
+    if row is not None:
+        username = row["username"]
+        sid = row["sid"]
+        abs_exp = row["absolute_expires_at"]
+        motivo = None
+        if not sid or abs_exp is None:
+            motivo = "sesion_anterior"
+        elif abs_exp <= ahora:
+            motivo = "vencimiento_absoluto"
+        elif int(row["auth_version"]) != await av_actual(db, redis, username):
+            motivo = "revocada"
+        elif not await redis.exists(f"sess:{username}:{sid}"):
+            motivo = "cerrada"
+        if motivo:
+            await db.execute(
+                "UPDATE refresh_tokens SET is_revoked = true WHERE id = $1", row["id"]
+            )
+            row = None
     if row is None:
-        response.delete_cookie("access_token", domain=dominio_cookie(request), path="/")
-        response.delete_cookie(
-            "refresh_token", domain=dominio_cookie(request), path="/api/auth/refresh"
-        )
+        quitar_cookies_sesion(response, request)
         return {"refreshed": False, "reason": "expired"}
 
     # Revoke old token (rotation)
@@ -240,49 +298,45 @@ async def refresh(request: Request, response: Response):
         "UPDATE refresh_tokens SET is_revoked = true WHERE id = $1", row["id"]
     )
 
-    # Issue new tokens
-    username = row["username"]
+    kind = row["session_kind"] or "normal"
+    av = int(row["auth_version"])
 
-    # Extend password cache TTL
-    redis = request.app.state.redis
-    await redis.expire(
-        f"imap_pass:{username}", settings.access_token_expire_minutes * 60
-    )
-    access = create_access_token(username)
+    # La sesión (sid) es la misma; solo se renuevan el access y el refresh.
+    if kind == "normal":
+        await prorrogar(redis, username, sid, abs_exp)
+    access = create_access_token(username, sid=sid, av=av, kind=kind, abs_exp=abs_exp)
     new_refresh_raw, new_refresh_hash = create_refresh_token()
-    expires_at = datetime.now(timezone.utc) + timedelta(
-        days=settings.refresh_token_expire_days
+    # Nunca más allá del vencimiento absoluto: una impersonación de una hora muere a la
+    # hora, se renueve lo que se renueve (F-04).
+    expires_at = min(
+        ahora + timedelta(days=settings.refresh_token_expire_days), abs_exp
     )
 
     await db.execute(
-        """INSERT INTO refresh_tokens (username, token_hash, expires_at, user_agent, ip_address)
-           VALUES ($1, $2, $3, $4, $5::inet)""",
+        """INSERT INTO refresh_tokens
+             (username, token_hash, expires_at, user_agent, ip_address,
+              sid, session_kind, absolute_expires_at, auth_version)
+           VALUES ($1, $2, $3, $4, $5::inet, $6, $7, $8, $9)""",
         username,
         new_refresh_hash,
         expires_at,
         request.headers.get("user-agent", "")[:500],
         request.client.host if request.client else "0.0.0.0",
+        sid,
+        kind,
+        abs_exp,
+        av,
     )
 
-    response.set_cookie(
-        key="access_token",
-        value=access,
-        httponly=True,
-        secure=True,
-        samesite="strict",
-        domain=dominio_cookie(request),
-        max_age=settings.access_token_expire_minutes * 60,
-        path="/",
-    )
-    response.set_cookie(
-        key="refresh_token",
-        value=new_refresh_raw,
-        httponly=True,
-        secure=True,
-        samesite="strict",
-        domain=dominio_cookie(request),
-        max_age=settings.refresh_token_expire_days * 86400,
-        path="/api/auth/refresh",
+    poner_cookies_sesion(
+        response,
+        request,
+        {
+            "access": access,
+            "refresh_raw": new_refresh_raw,
+            "refresh_expires_at": expires_at,
+            "abs_exp": abs_exp,
+        },
     )
 
     return {"message": "Token refreshed", "username": username}
@@ -292,26 +346,32 @@ async def refresh(request: Request, response: Response):
 async def logout(
     request: Request, response: Response, username: str = Depends(get_current_user)
 ):
-    settings = get_settings()
-    # Clean password cache
-    redis = request.app.state.redis
-    await redis.delete(f"imap_pass:{username}")
-
-    # Revoke refresh token if present
-    raw_token = request.cookies.get("refresh_token")
-    if raw_token:
-        db = request.app.state.db_pool
-        token_hash = hash_refresh_token(raw_token)
-        await db.execute(
-            "UPDATE refresh_tokens SET is_revoked = true WHERE token_hash = $1",
-            token_hash,
-        )
-
-    response.delete_cookie("access_token", domain=dominio_cookie(request), path="/")
-    response.delete_cookie(
-        "refresh_token", domain=dominio_cookie(request), path="/api/auth/refresh"
+    """Cierra ESTA sesión (su sid): las demás del usuario siguen."""
+    await cerrar_sid(
+        request.app.state.db_pool,
+        request.app.state.redis,
+        username,
+        request.state.sid,
+        "logout",
     )
+    quitar_cookies_sesion(response, request)
     return {"message": "Logged out"}
+
+
+@router.post("/logout-all")
+async def logout_all(
+    request: Request, response: Response, username: str = Depends(get_current_user)
+):
+    """Cierra TODAS las sesiones del usuario (sube la generación): ningún token viejo
+    vuelve a valer, ni por refresh ni por re-login."""
+    await revocar_todo(
+        request.app.state.db_pool,
+        request.app.state.redis,
+        username,
+        "cerrar_todas",
+    )
+    quitar_cookies_sesion(response, request)
+    return {"message": "Todas las sesiones cerradas"}
 
 
 @router.get("/me")
@@ -327,20 +387,26 @@ async def me(request: Request):
     if payload is None:
         return {"user": None}
 
-    username = payload.get("sub")
-    if not username:
+    valida = await sesion_valida(
+        request.app.state.db_pool, request.app.state.redis, payload
+    )
+    if valida is None:
         return {"user": None}
-
-    # Check if session is still active (logout deletes imap_pass)
-    redis = request.app.state.redis
-    if not await redis.exists(f"imap_pass:{username}"):
-        return {"user": None}
+    username, _sid = valida
 
     db = request.app.state.db_pool
     row = await db.fetchrow(
         "SELECT superadmin FROM admin WHERE username = $1 AND active = true", username
     )
-    return {"user": {"username": username, "is_admin": row is not None}}
+    return {
+        "user": {
+            "username": username,
+            "is_admin": row is not None,
+            "must_change_password": await debe_cambiar_clave(
+                db, request.app.state.redis, username
+            ),
+        }
+    }
 
 
 @router.get("/verify")
@@ -426,49 +492,19 @@ async def impersonate(body: ImpersonateRequest, request: Request, response: Resp
     if not ok:
         raise HTTPException(400, f"No se pudo acceder al buzon de {username}")
 
-    redis = request.app.state.redis
-
-    # Cache the master password for IMAP operations (webmail needs it)
-    # Store as user*admin format so IMAP works
-    await redis.set(f"imap_pass:{username}", encrypt_password(master_password), ex=3600)
-    await redis.set(f"imap_master:{username}", "admin", ex=3600)
-
-    # Create tokens
-    access = create_access_token(username)
-    refresh_raw, refresh_hash = create_refresh_token()
-
-    db = request.app.state.db_pool
-    expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
-    await db.execute(
-        """INSERT INTO refresh_tokens (username, token_hash, expires_at, user_agent, ip_address)
-           VALUES ($1, $2, $3, $4, $5::inet)""",
+    # Sesión de impersonación: vence de forma ABSOLUTA a la hora (F-04), sin keep-alive,
+    # y con la contraseña maestra cifrada solo para este sid.
+    sesion = await crear_sesion(
+        request.app.state.db_pool,
+        request.app.state.redis,
+        request,
         username,
-        refresh_hash,
-        expires_at,
-        f"Admin-Impersonate:{admin_user}",
-        request.client.host if request.client else "0.0.0.0",
+        master_password,
+        kind="impersonation",
+        abs_exp=datetime.now(timezone.utc) + timedelta(hours=1),
+        master="admin",
+        user_agent=f"Admin-Impersonate:{admin_user}",
     )
-
-    # Set cookies
-    response.set_cookie(
-        key="access_token",
-        value=access,
-        httponly=True,
-        secure=True,
-        samesite="strict",
-        domain=dominio_cookie(request),
-        max_age=3600,
-        path="/",
-    )
-    response.set_cookie(
-        key="refresh_token",
-        value=refresh_raw,
-        httponly=True,
-        secure=True,
-        samesite="strict",
-        domain=dominio_cookie(request),
-        max_age=3600,
-        path="/api/auth/refresh",
-    )
+    poner_cookies_sesion(response, request, sesion)
 
     return {"message": "Impersonation successful", "username": username}

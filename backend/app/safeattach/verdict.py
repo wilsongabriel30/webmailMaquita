@@ -18,6 +18,9 @@ class ScanReport:
     filename: str
     findings: list = field(default_factory=list)
     engines: dict = field(default_factory=dict)  # motor -> detalle crudo
+    errores: list = field(
+        default_factory=list
+    )  # motores OBLIGATORIOS que no respondieron
 
     @property
     def result(self) -> str:
@@ -38,5 +41,6 @@ class ScanReport:
             "result": self.result,
             "threats": self.threats,
             "details": self.engines,
+            "errors": list(self.errores),
             "filename": self.filename,
         }
