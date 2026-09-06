@@ -366,6 +366,32 @@ def _es_participante(usuario_id: int, conversacion_id: int) -> bool:
             _cerrar_servicio(servicio)
 
 
+def _conversacion_de_mensaje(mensaje_id) -> Optional[int]:
+    """Conversación a la que pertenece un mensaje, leída de la BASE. Nunca del payload:
+    el cliente podía mandar cualquier conversation_id y emitir a esa sala (M-01)."""
+    servicio = None
+    try:
+        servicio = _obtener_servicio_chat()
+        from modulos.chat.infraestructura.persistencia.modelos.modelo_mensaje import ModeloMensaje
+        return servicio._db_session.query(ModeloMensaje.conversation_id).filter(
+            ModeloMensaje.id == int(mensaje_id)).scalar()
+    except Exception:
+        return None
+    finally:
+        if servicio:
+            _cerrar_servicio(servicio)
+
+
+def _autorizado_en_conversacion(usuario_id, conversacion_id, evento: str) -> bool:
+    """Regla (H-01): TODO evento que reciba conversation_id o message_id verifica que el
+    usuario es participante antes de operar. Sin excepción."""
+    if not conversacion_id or not _es_participante(usuario_id, conversacion_id):
+        logger.warning(f"[WebSocket] {evento} denegado: usuario {usuario_id} no es participante de {conversacion_id}")
+        emit('error', {'message': 'No autorizado'})
+        return False
+    return True
+
+
 def _actualizar_presencia_bd(usuario_id: int, en_linea: bool):
     """Actualiza la presencia del usuario en la base de datos."""
     servicio = None

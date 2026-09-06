@@ -2,7 +2,7 @@
 """Consultas por socket: conversaciones, mensajes, directo, búsqueda. Extraído de manejador_websocket._registrar_eventos (líneas 890-1098) el 28/08/2026 sin cambios.
 Los manejadores se registran al llamar registrar(socketio) desde manejador_websocket._registrar_eventos()."""
 from interfaces.websocket.manejador_websocket import *  # noqa: F401,F403
-from interfaces.websocket.manejador_websocket import _cerrar_servicio, _commit_servicio, _obtener_servicio_chat  # noqa: F401
+from interfaces.websocket.manejador_websocket import _autorizado_en_conversacion, _cerrar_servicio, _commit_servicio, _conversacion_de_mensaje, _es_participante, _obtener_servicio_chat  # noqa: F401
 
 
 def registrar(socketio):
@@ -79,6 +79,8 @@ def registrar(socketio):
             emit('error', {'message': 'conversation_id requerido'})
             return
 
+        if not _autorizado_en_conversacion(usuario_id, conversacion_id, 'get_messages'):
+            return
         servicio = None
         try:
             servicio = _obtener_servicio_chat()

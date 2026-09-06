@@ -3,7 +3,7 @@
 Extraído de ws_mensajeria.py (líneas 298-365) el 28/08/2026 sin cambios. registrar(socketio) registra los eventos y devuelve
 los manejadores para que ws_canal_rapido los reutilice."""
 from interfaces.websocket.manejador_websocket import *  # noqa: F401,F403
-from interfaces.websocket.manejador_websocket import _cerrar_servicio, _commit_servicio, _es_participante, _limpiar_indicador, _obtener_mensaje_por_client_id, _obtener_servicio_chat, _registrar_client_id, _typing_timers  # noqa: F401
+from interfaces.websocket.manejador_websocket import _autorizado_en_conversacion, _cerrar_servicio, _commit_servicio, _conversacion_de_mensaje, _es_participante, _limpiar_indicador, _obtener_mensaje_por_client_id, _obtener_servicio_chat, _registrar_client_id, _typing_timers  # noqa: F401
 
 
 def registrar(socketio):
@@ -29,6 +29,8 @@ def registrar(socketio):
         accion = data.get('action', 'typing')
 
         if not conversacion_id:
+            return
+        if not _autorizado_en_conversacion(usuario_id, conversacion_id, 'typing_start'):
             return
 
         # Actualizar en BD
