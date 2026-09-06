@@ -23,8 +23,8 @@ function _nodoPorRuta(ruta) {
 function _renderNodoSidebar(h, nivel) {
     const ruta = h.ruta, nombre = h.nombre;
     const indent = 6 + nivel * 14;
-    const r = String(ruta).replace(/"/g, '&quot;');
-    const fid = String(h.folder_id || '').replace(/"/g, '&quot;');
+    const r = escHtml(ruta);   // [A-13]
+    const fid = escHtml(h.folder_id || '');
     const col = (h.color && h.color !== '#5f6368') ? h.color : '';
     const colStyle = col ? (' style="color:' + col + ';"') : '';
     return '<div class="gd-tree-node" data-ruta="' + r + '" data-nivel="' + nivel + '" data-folder-id="' + fid + '">'
@@ -32,7 +32,7 @@ function _renderNodoSidebar(h, nivel) {
         +   '<span class="gd-tree-toggle material-icons" onclick="event.preventDefault();event.stopPropagation();_toggleArbolLateral(this)">chevron_right</span>'
         +   '<a class="gd-tree-link" href="' + _sidebarHref(ruta) + '" onclick="return _irACarpetaArbol(event, this)">'
         +     '<span class="gd-tree-folder material-icons"' + colStyle + '>folder</span>'
-        +     '<span class="gd-tree-name">' + nombre + '</span>'
+        +     '<span class="gd-tree-name">' + escHtml(nombre) + '</span>'
         +   '</a>'
         + '</div>'
         + '<div class="gd-tree-children" data-loaded="0" style="display:none;"></div>'

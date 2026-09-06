@@ -13,11 +13,7 @@
  * rompia el atributo y ejecutaba codigo en el dominio del correo, para cualquiera
  * que abriera esa carpeta (tambien en una unidad compartida).
  */
-function escHtml(t) {
-    return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
-        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
-    });
-}
+// escHtml vive en explorador-escape.js (se carga antes) [A-13]
 
 function _avatarOnError(img, inicial) {
     try {

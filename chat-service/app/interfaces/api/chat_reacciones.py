@@ -70,6 +70,11 @@ def agregar_reaccion(mensaje_id: int):
     """
     try:
         datos = request.get_json()
+        if datos and 'emoji' in datos:
+            from interfaces.emoji_reaccion import normalizar_emoji
+            datos['emoji'] = normalizar_emoji(datos['emoji'])   # [A-1] solo algo que parezca un emoji
+            if datos['emoji'] is None:
+                return jsonify({'exito': False, 'success': False, 'mensaje': 'emoji no válido'}), 400
         if not datos or 'emoji' not in datos:
             return jsonify({
                 'exito': False,

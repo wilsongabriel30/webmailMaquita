@@ -23,7 +23,7 @@ from datetime import datetime, timezone
 from almacen_bd import consultar, ejecutar
 from config_almacen import CUOTA_DEFECTO_BYTES
 from cuota_admision import CuotaExcedida, SinEspacio  # noqa: F401  (los reexporta para la API)
-from seguridad_rutas import RutaInvalida, normalizar_ruta_virtual, raiz_usuario, ruta_fisica
+from seguridad_rutas import RutaInvalida, normalizar_ruta_virtual, raiz_usuario, ruta_fisica, nombre_valido
 
 log = logging.getLogger('almacen.nucleo')
 
@@ -203,7 +203,7 @@ def listar(usuario_id: int, ruta_virtual: str) -> tuple:
 
 def crear_carpeta(usuario_id: int, ruta_padre: str, nombre: str) -> dict:
     """Crea una carpeta (mkdir -p del padre incluido) y devuelve su item."""
-    if not nombre or '/' in nombre or nombre in ('.', '..'):
+    if not nombre_valido(nombre):
         raise RutaInvalida('Nombre de carpeta inválido')
     ruta_padre = normalizar_ruta_virtual(ruta_padre)
     ruta_nueva = ('' if ruta_padre == '/' else ruta_padre) + '/' + nombre
@@ -256,7 +256,7 @@ def subir(usuario_id: int, ruta_carpeta: str, nombre: str, flujo, tamano_esperad
     afecta al de otro. Los archivos nunca se editan en sitio (una versión nueva
     es otra subida = otro inodo), así que compartir inodo es seguro.
     """
-    if not nombre or '/' in nombre:
+    if not nombre_valido(nombre):
         raise RutaInvalida('Nombre de archivo inválido')
     ruta_carpeta = normalizar_ruta_virtual(ruta_carpeta)
     ruta_final = ('' if ruta_carpeta == '/' else ruta_carpeta) + '/' + nombre
@@ -445,7 +445,7 @@ def set_estilo_carpeta(usuario_id: int, folder_id: str, color, icono) -> None:
 
 def renombrar(usuario_id: int, ruta_virtual: str, nuevo_nombre: str) -> str:
     """Renombra un archivo o carpeta dentro de su misma ubicación."""
-    if not nuevo_nombre or '/' in nuevo_nombre:
+    if not nombre_valido(nuevo_nombre):
         raise RutaInvalida('Nombre nuevo inválido')
     ruta_virtual = normalizar_ruta_virtual(ruta_virtual)
     origen = ruta_fisica(usuario_id, ruta_virtual, escritura=True)
