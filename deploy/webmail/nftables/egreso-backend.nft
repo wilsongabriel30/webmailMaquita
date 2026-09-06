@@ -1,0 +1,25 @@
+#!/usr/sbin/nft -f
+# Política de EGRESO del proceso del correo (F-05, defensa en profundidad).
+#
+# El backend (usuario www-data) sale a Internet para webhooks y proveedores externos, pero
+# NO tiene por qué llegar a la red interna salvo a lo que usa de verdad. Aunque la validación
+# anti-SSRF de la aplicación fallara, esta tabla lo para: desde www-data solo se permite
+# loopback, la lista blanca de hosts internos y todo lo público; el resto de RFC1918 /
+# enlace local se registra y se descarta.
+#
+# Instalación: copiar a /etc/nftables.d/ (o incluir desde /etc/nftables.conf) y `nft -f`.
+# Ajusta ALLOWLIST a los hosts internos que el correo usa (base de datos externa, chat,
+# Document Server, motores de IA…). Cambios: primero con `log` un día, después `drop`.
+
+define ALLOWLIST_INTERNA = { 193.16.0.21, 193.16.0.132, 193.16.0.136, 193.16.0.153, 193.16.0.155, 193.16.0.170, 193.16.0.211 }
+
+table inet egreso_backend {
+    chain salida {
+        type filter hook output priority filter + 5; policy accept;
+        meta skuid != "www-data" accept
+        oif "lo" accept
+        ip daddr $ALLOWLIST_INTERNA accept
+        ip daddr { 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16, 193.16.0.0/24 } log prefix "EGRESO_BACKEND_DENEGADO " counter drop
+        ip6 daddr { fc00::/7, fe80::/10 } log prefix "EGRESO_BACKEND_DENEGADO " counter drop
+    }
+}

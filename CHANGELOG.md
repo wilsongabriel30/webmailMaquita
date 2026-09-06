@@ -7,6 +7,14 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Seguridad
+
+- **[F-05] Webhooks sin SSRF por DNS.** La validación resolvía el nombre una vez y la entrega volvía a
+  resolverlo (rebinding hacia 127.0.0.1 o la red interna). Ahora se resuelven TODAS las A/AAAA con
+  `getaddrinfo`, se rechaza si cualquiera es privada/loopback/enlace local, y la entrega conecta a la
+  IP validada con `Host` y SNI del nombre, sin seguir redirecciones; en producción solo `https://`.
+  Política de egreso del sistema para el proceso en `deploy/webmail/nftables/egreso-backend.nft`.
+
 ## [1.7.0] - 2026-09-06
 
 Cierra la P0 y la P1 de la tercera, cuarta y quinta revisión externa (ASVS). **Corte único al
