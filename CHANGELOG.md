@@ -9,6 +9,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Seguridad
 
+- **[R-03] Importación de contactos y correos con límite en la aplicación y sin cargar el archivo en
+  memoria.** `import_contacts_max_mb` (10) e `import_emails_max_mb` (200); el upload va a disco en
+  trozos y MBOX se analiza desde el archivo. nginx (`client_max_body_size`) queda como segunda capa.
 - **[F-06] La cuota del Drive se aplica al admitir archivos.** Antes solo se calculaba y se mostraba: se
   podía superar subiendo varios archivos. Ahora, antes de escribir, se reserva atómicamente el tamaño
   declarado (bloqueo de la fila de uso), hay un umbral global de espacio libre (`ALMACEN_MINIMO_LIBRE_BYTES`,

@@ -25,6 +25,7 @@ from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
 from app.config import get_settings
+from app.config import get_settings as _cfg
 
 logger = logging.getLogger("import_export")
 
@@ -131,6 +132,31 @@ async def _import_contacts_task(db, user_email: str, job_id: str, contacts: list
     )
 
 
+# [R-03] Límite en aplicación por endpoint (nginx es la segunda capa) y lectura a disco en
+# trozos: nunca el upload completo en memoria.
+async def _guardar_upload(file, max_mb: int):
+    import tempfile as _tf
+
+    limite = max_mb * 1024 * 1024
+    tmp = _tf.NamedTemporaryFile(delete=False)
+    total = 0
+    try:
+        while True:
+            trozo = await file.read(1024 * 1024)
+            if not trozo:
+                break
+            total += len(trozo)
+            if total > limite:
+                raise HTTPException(413, f"El archivo supera el máximo de {max_mb} MB")
+            tmp.write(trozo)
+        tmp.close()
+        return tmp.name, total
+    except Exception:
+        tmp.close()
+        os.unlink(tmp.name)
+        raise
+
+
 @router.post("/contacts")
 async def import_contacts(
     request: Request,
@@ -139,8 +165,12 @@ async def import_contacts(
     username: str = Depends(get_current_user),
 ):
     db = request.app.state.db_pool
-
-    content = (await file.read()).decode("utf-8", errors="replace")
+    ruta_tmp, _n = await _guardar_upload(file, _cfg().import_contacts_max_mb)
+    try:
+        with open(ruta_tmp, "rb") as _f:
+            content = _f.read().decode("utf-8", errors="replace")
+    finally:
+        os.unlink(ruta_tmp)
     filename = (file.filename or "").lower()
 
     if filename.endswith(".vcf") or filename.endswith(".vcard"):
@@ -238,18 +268,17 @@ async def import_emails(
     username: str = Depends(get_current_user),
 ):
     db = request.app.state.db_pool
-
-    raw = await file.read()
     filename = (file.filename or "").lower()
-
+    if not (filename.endswith(".eml") or filename.endswith(".mbox")):
+        raise HTTPException(400, "Unsupported file format. Use .eml or .mbox")
+    tmp_path, _n = await _guardar_upload(file, _cfg().import_emails_max_mb)
     messages = []
     if filename.endswith(".eml"):
-        messages.append(raw)
+        with open(tmp_path, "rb") as _f:
+            messages.append(_f.read())
+        os.unlink(tmp_path)
     elif filename.endswith(".mbox"):
-        # Write to temp file for mailbox.mbox to parse
-        with tempfile.NamedTemporaryFile(suffix=".mbox", delete=False) as tmp:
-            tmp.write(raw)
-            tmp_path = tmp.name
+        # [R-03] mailbox.mbox lee del disco: el archivo nunca entra completo en memoria
         try:
             mbox = mailbox.mbox(tmp_path)
             for msg in mbox:
