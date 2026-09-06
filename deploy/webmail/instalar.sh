@@ -350,8 +350,9 @@ echo "  Radicale (calendario/contactos) configurado en :5232"
 
 # --- 13. Buzón de demostración (dominio FALSO + clave genérica para el 1er ingreso) ---
 echo -e "\n${GREEN}[13/18] Creando buzón de demostración...${NC}"
-# Clave genérica y conocida SOLO para el primer ingreso. El instalador avisa cambiarla.
-CLAVE_GENERICA="Cambiar2026"
+# Clave inicial ALEATORIA de un solo uso (H-01): se imprime una vez al final y el webmail
+# obliga a cambiarla en el primer ingreso. Ya no existe una clave conocida en el código.
+CLAVE_GENERICA="Mq-$(openssl rand -base64 18 | tr -dc 'A-Za-z0-9' | head -c 10)-7!"
 DEMO_DOM="ejemplo.local"
 DEMO_HASH=$(doveadm pw -s SHA512-CRYPT -p "${CLAVE_GENERICA}")
 sudo -u postgres psql -d maildb >/dev/null <<SQL
@@ -367,6 +368,9 @@ INSERT INTO mailbox(username,password,name,maildir,local_part,domain,active)
 -- El buzón demo queda como administrador para poder entrar al panel /admin del webmail
 INSERT INTO admin(username,superadmin,active) VALUES('demo@${DEMO_DOM}',true,true)
   ON CONFLICT (username) DO UPDATE SET superadmin=true, active=true;
+-- H-01: cambio de contraseña obligatorio en el primer ingreso
+INSERT INTO auth_estado(username, must_change_password) VALUES('demo@${DEMO_DOM}', true)
+  ON CONFLICT (username) DO UPDATE SET must_change_password=true;
 SQL
 
 # --- 14. Panel de administración avanzado (adminMaquita, puerto 8443) ---

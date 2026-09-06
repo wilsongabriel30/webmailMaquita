@@ -34,6 +34,19 @@ async def get_current_user(request: Request) -> str:
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired"
         )
     username, sid = valida
+    # H-01: con cambio de contraseña pendiente solo se puede cambiarla o salir.
+    from app.auth.bootstrap import RUTAS_PERMITIDAS, debe_cambiar_clave
+
+    if request.url.path not in RUTAS_PERMITIDAS and await debe_cambiar_clave(
+        request.app.state.db_pool, request.app.state.redis, username
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "detail": "Debes cambiar tu contraseña inicial",
+                "must_change_password": True,
+            },
+        )
     request.state.sid = sid
     request.state.session_kind = payload.get("kind", "normal")
 
