@@ -1,23 +1,23 @@
 """OnlyOffice integration — convert Office files to PDF for preview."""
-import logging
-import jwt
-import time
-import json
-import mimetypes
 import asyncio
 import hashlib
-import urllib.request
+import json
+import logging
+import mimetypes
+import time
 import urllib.error
+import urllib.request
 import xml.etree.ElementTree as ET
 
-from fastapi import APIRouter, Request, Depends, HTTPException, Query
+import jwt
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
-from app.core.session import get_user_password, get_imap_login_user
-from app.mail.clients.imap_client import get_imap_connection, fetch_attachment
 from app.config import get_settings
+from app.core.session import get_imap_login_user, get_user_password
+from app.mail.clients.imap_client import fetch_attachment, get_imap_connection
 
 settings = get_settings()
 
@@ -111,7 +111,7 @@ async def office_preview(
 
     download_url = f"{settings.public_base_url.rstrip('/')}/api/mail/oo-download?token={dl_token}"
     # Key must be alphanumeric — OnlyOffice rejects keys with @ or special chars
-    key_hash = hashlib.md5(f"{username}_{body.folder}_{body.uid}_{body.part_number}".encode()).hexdigest()[:16]
+    key_hash = hashlib.md5(f"{username}_{body.folder}_{body.uid}_{body.part_number}".encode(), usedforsecurity=False).hexdigest()[:16]
     doc_key = f"pv_{key_hash}_{int(time.time())}"
 
     convert_payload = {
@@ -173,7 +173,7 @@ async def office_editor_config(
     )
 
     download_url = f"{settings.public_base_url.rstrip('/')}/api/mail/oo-download?token={dl_token}"
-    key_hash = hashlib.md5(f"{username}_{body.folder}_{body.uid}_{body.part_number}".encode()).hexdigest()[:16]
+    key_hash = hashlib.md5(f"{username}_{body.folder}_{body.uid}_{body.part_number}".encode(), usedforsecurity=False).hexdigest()[:16]
     doc_key = f"view_{key_hash}_{int(time.time())}"
 
     doc_type_map = {

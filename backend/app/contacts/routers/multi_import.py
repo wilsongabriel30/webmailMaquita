@@ -2,9 +2,11 @@
 Importación multi-servicio — estructura para importar desde Google, Microsoft, LinkedIn.
 Incluye importación vCard mejorada y placeholder para OAuth flows.
 """
-from fastapi import APIRouter, Request, HTTPException, Depends, UploadFile, File
-from pydantic import BaseModel
 from typing import Optional
+
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from pydantic import BaseModel
+
 from app.auth.dependencies import get_current_user
 
 router = APIRouter(prefix="/api/contacts", tags=["contacts"])

@@ -1,7 +1,10 @@
 """Avatars — lookup batch de nombres/iniciales por email."""
 import json
-from fastapi import APIRouter, Request, Depends
+
+from fastapi import APIRouter, Depends, Request
+
 from app.auth.dependencies import get_current_user
+
 from .helpers import compute_initials
 
 router = APIRouter(prefix="/api/contacts", tags=["contacts"])

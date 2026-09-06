@@ -48,7 +48,7 @@ function abrirBD(): Promise<IDBDatabase> {
   });
 }
 
-function leer(clave: string): Promise<any> {
+function leer<T = unknown>(clave: string): Promise<T | undefined> {
   return abrirBD().then(db => new Promise((ok, mal) => {
     const p = db.transaction(ALMACEN_LLAVE, 'readonly').objectStore(ALMACEN_LLAVE).get(clave);
     p.onsuccess = () => ok(p.result);
@@ -56,7 +56,7 @@ function leer(clave: string): Promise<any> {
   }));
 }
 
-function escribir(clave: string, valor: any): Promise<void> {
+function escribir(clave: string, valor: unknown): Promise<void> {
   return abrirBD().then(db => new Promise((ok, mal) => {
     const p = db.transaction(ALMACEN_LLAVE, 'readwrite').objectStore(ALMACEN_LLAVE).put(valor, clave);
     p.onsuccess = () => ok();
@@ -69,7 +69,7 @@ const deBase64 = (t: string) => Uint8Array.from(atob(t), c => c.charCodeAt(0));
 
 /** Opción C: la aplicación protege la llave con DPAPI, atada a esa cuenta de Windows. */
 async function conApp(): Promise<CryptoKey> {
-  const envuelta = await leer('dpapi');
+  const envuelta = await leer<string>('dpapi');
   if (envuelta) {
     try {
       const bytes = deBase64(await window.maquitaApp!.recuperarLlave(envuelta));
@@ -120,7 +120,7 @@ export async function cifrar(valor: unknown): Promise<Paquete> {
   return { v: 1, iv, ct: new Uint8Array(ct) };
 }
 
-export async function descifrar<T = any>(p: Paquete | null | undefined): Promise<T | null> {
+export async function descifrar<T = unknown>(p: Paquete | null | undefined): Promise<T | null> {
   if (!p || !p.ct) return null;
   try {
     const llave = await obtenerLlave();
@@ -134,8 +134,9 @@ export async function descifrar<T = any>(p: Paquete | null | undefined): Promise
   }
 }
 
-export function esPaquete(x: any): x is Paquete {
-  return !!(x && typeof x === 'object' && x.ct && x.iv && typeof x.v === 'number');
+export function esPaquete(x: unknown): x is Paquete {
+  const o = x as Partial<Paquete> | null;
+  return !!(o && typeof o === 'object' && o.ct && o.iv && typeof o.v === 'number');
 }
 
 export async function olvidarLlave(): Promise<void> {

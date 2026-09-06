@@ -3,9 +3,9 @@ Servicio de cuarentena de spam para el panel de administración.
 Permite listar correos en Junk de todos los usuarios, aprobarlos (mover a Inbox)
 o confirmarlos como spam (dejar en Junk o eliminar).
 """
-import subprocess
 import asyncio
 import re
+import subprocess
 from datetime import datetime
 
 

@@ -11,7 +11,7 @@ import re
 from typing import Optional
 
 import httpx
-from fastapi import APIRouter, Request, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
@@ -218,9 +218,9 @@ def _extract_json_array(text: str) -> list[str]:
 # --- Utilidad: obtener mensaje por UID ---
 async def _fetch_message(request: Request, user: str, folder: str, uid: int) -> dict:
     """Obtiene un mensaje completo via IMAP."""
+    from app.core.session import get_user_password
     from app.mail.clients.imap_client import get_imap_connection
     from app.mail.services.message_service import get_message
-    from app.core.session import get_user_password
 
     # IMPORTANTE: usar get_user_password() que descifra la contraseña Fernet.
     # NO leer directo de Redis — devuelve el token cifrado, no la contraseña real.

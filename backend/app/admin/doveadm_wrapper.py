@@ -2,7 +2,6 @@ import asyncio
 import re
 from asyncio.subprocess import PIPE
 
-
 ALLOWED_COMMANDS = {
     "quota_get": ["doveadm", "quota", "get", "-u"],
     "who": ["doveadm", "who"],

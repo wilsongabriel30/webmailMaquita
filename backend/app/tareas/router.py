@@ -6,9 +6,18 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from app.auth.dependencies import get_current_user, require_admin
-from app.tareas.esquemas import (CambioEstado, ComentarioNuevo, ComentarioOut, EscalamientoConfig, Rechazo,
-                                 TareaAsignar, TareaEditar, TareaOut)
-from app.tareas.servicio import servicio_tareas as svc, a_salida
+from app.tareas.esquemas import (
+    CambioEstado,
+    ComentarioNuevo,
+    ComentarioOut,
+    EscalamientoConfig,
+    Rechazo,
+    TareaAsignar,
+    TareaEditar,
+    TareaOut,
+)
+from app.tareas.servicio import a_salida
+from app.tareas.servicio import servicio_tareas as svc
 
 router = APIRouter()
 

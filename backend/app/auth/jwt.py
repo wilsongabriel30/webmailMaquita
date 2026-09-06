@@ -1,7 +1,9 @@
-import jwt
 import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
+
+import jwt
+
 from app.config import get_settings
 
 

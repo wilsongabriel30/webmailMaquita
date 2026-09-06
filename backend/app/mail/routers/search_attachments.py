@@ -1,9 +1,11 @@
 """Attachment search router — search inside attachment content using Apache Tika."""
 import logging
+
 import httpx
-from fastapi import APIRouter, Request, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+
 from app.auth.dependencies import get_current_user
-from app.core.session import get_user_password, get_imap_login_user
+from app.core.session import get_imap_login_user, get_user_password
 from app.mail.clients.imap_client import get_imap_connection
 
 logger = logging.getLogger("search_attachments")

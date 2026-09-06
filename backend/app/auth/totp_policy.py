@@ -10,8 +10,10 @@ Nota: el 2FA protege el webmail. Los clientes IMAP/SMTP (Outlook, móvil) siguen
 usando solo la contraseña, protegidos por geobloqueo + Fail2ban.
 """
 from __future__ import annotations
+
 from datetime import date
-from fastapi import APIRouter, Request, Depends
+
+from fastapi import APIRouter, Depends, Request
 
 from app.auth.dependencies import get_current_user
 

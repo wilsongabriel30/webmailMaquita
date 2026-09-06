@@ -5,6 +5,7 @@ import re
 # Agregado 2026-08-24: sustituye los enlaces envueltos por su destino real
 # SOLO al mostrar el mensaje; el correo original queda intacto en el buzon.
 from app.mail.rendering.link_unwrap import desenvolver_enlaces_html
+
 # Deteccion de los rastreadores que NO se pudieron desenvolver, para avisar
 # al usuario y, si es publicidad, ofrecerle marcarlo como spam.
 from app.mail.rendering.tracker_info import detectar_rastreadores, resumen_para_usuario

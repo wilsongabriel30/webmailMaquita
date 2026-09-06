@@ -1,6 +1,8 @@
 """Campos personalizados — definiciones y valores por contacto."""
-from fastapi import APIRouter, Request, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+
 from app.auth.dependencies import get_current_user
+
 from .helpers import audit
 
 router = APIRouter(prefix="/api/contacts", tags=["contacts"])

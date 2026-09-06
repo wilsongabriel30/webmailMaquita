@@ -10,7 +10,7 @@ import json
 import logging
 import os
 
-from pywebpush import webpush, WebPushException
+from pywebpush import WebPushException, webpush
 
 log = logging.getLogger("push")
 

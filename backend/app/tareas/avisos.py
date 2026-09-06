@@ -4,10 +4,9 @@ X-Notif-Secret = NOTIF_SECRET (mismo valor en el .env del backend y del chat). N
 Además de la app (T-03), cada aviso llega por CORREO (desde Raíces Tareas <tareas@maquita.org>, SMTP local) y a la
 campanita de Raíces (tabla `notifications` de la BD nomina, usuario por correo institucional). 28/08/2026."""
 import logging
+import os
 
 import httpx
-
-import os
 
 # Cache del directorio de la organizacion (correo -> nombre). Son datos
 # personales: vive en el directorio de datos del servicio, NUNCA en el arbol
@@ -28,7 +27,8 @@ _nombres = {'t': 0, 'd': {}}
 
 def nombre(correo: str) -> str:
     """Nombre real según nómina (nombres.json, lo escribe jefes.py cada hora); si no está, se deriva del correo."""
-    import json, time
+    import json
+    import time
     if time.time() - _nombres['t'] > 600:
         try:
             _nombres['d'] = json.load(open(RUTA_NOMBRES, encoding='utf-8'))
@@ -85,11 +85,12 @@ PIE = ('Este aviso también llega a la app Raíces para Windows, con notificacio
 async def _correo(correos, titulo, texto, url):
     """Correo por cada aviso (SMTP local, sin TLS ni clave: el servidor de correo es esta misma máquina)."""
     try:
-        import aiosmtplib
         from email.mime.multipart import MIMEMultipart
         from email.mime.text import MIMEText
         from email.utils import formatdate, make_msgid
         from html import escape
+
+        import aiosmtplib
         msg = MIMEMultipart('alternative')
         msg['From'] = REMITENTE; msg['To'] = ', '.join(correos); msg['Subject'] = f'[Tareas] {titulo}'
         msg['Date'] = formatdate(localtime=True); msg['Message-ID'] = make_msgid(domain='maquita.org')
@@ -107,6 +108,7 @@ async def _campanita(correos, titulo, texto, url):
     """Notificación en la campanita de Raíces (misma tabla que usa el sistema: notifications de la BD nomina)."""
     try:
         import asyncpg
+
         from app.tareas.servicio import _nomina_dsn
         con = await asyncpg.connect(_nomina_dsn(), timeout=5)
         try:

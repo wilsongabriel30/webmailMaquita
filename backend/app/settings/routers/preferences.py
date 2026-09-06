@@ -1,6 +1,7 @@
 """User settings router — signature, display name, preferences."""
 from typing import Optional
-from fastapi import APIRouter, Request, Depends, HTTPException
+
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user

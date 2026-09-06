@@ -1,6 +1,5 @@
 """TaskService — all DB operations with Microsoft To Do style + backward compat."""
 from __future__ import annotations
-from app.core.sanitize import strip_html, sanitize_html
 
 import json
 import uuid
@@ -9,15 +8,27 @@ from typing import Optional
 
 import asyncpg
 
+from app.core.sanitize import sanitize_html, strip_html
 from app.tasks.schemas import (
     ActivityOut,
-    BoardCreate, BoardOut, BoardUpdate,
-    CardCreate, CardMove, CardOut, CardUpdate,
-    LabelCreate, LabelOut,
-    ListCreate, ListFull, ListOut, ListUpdate,
-    MemberAdd, MemberOut,
+    BoardCreate,
     BoardFull,
-    TaskListCreate, TaskListUpdate,
+    BoardOut,
+    BoardUpdate,
+    CardCreate,
+    CardMove,
+    CardOut,
+    CardUpdate,
+    LabelCreate,
+    LabelOut,
+    ListCreate,
+    ListFull,
+    ListOut,
+    ListUpdate,
+    MemberAdd,
+    MemberOut,
+    TaskListCreate,
+    TaskListUpdate,
 )
 
 

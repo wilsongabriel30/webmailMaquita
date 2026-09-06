@@ -5,10 +5,9 @@ ocurre únicamente si auto_respond=True Y threat_config.auto_disable_on_compromi
 """
 import logging
 
+from app.air import playbooks, responder
 from app.air import signals as sig_mod
-from app.air import playbooks
 from app.air import triage as triage_mod
-from app.air import responder
 
 logger = logging.getLogger("air.engine")
 

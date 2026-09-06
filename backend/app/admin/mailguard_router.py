@@ -8,11 +8,11 @@ Prefix: /api/admin/mailguard
 import re
 from datetime import datetime
 
-from fastapi import APIRouter, Request, HTTPException, Depends
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from app.auth.dependencies import require_admin
 from app.admin import audit_service
+from app.auth.dependencies import require_admin
 
 router = APIRouter(prefix="/api/admin/mailguard", tags=["admin-mailguard"])
 

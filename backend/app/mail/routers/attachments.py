@@ -1,13 +1,14 @@
 """Attachments router — download and preview attachments by UID and part number."""
-from fastapi import APIRouter, Request, Depends, HTTPException
-from fastapi.responses import Response
 import mimetypes
+import re as _re
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import Response
 
 from app.auth.dependencies import get_current_user
-from app.core.session import get_user_password, get_imap_login_user
-from app.mail.clients.imap_client import get_imap_connection, fetch_attachment
+from app.core.session import get_imap_login_user, get_user_password
+from app.mail.clients.imap_client import fetch_attachment, get_imap_connection
 
-import re as _re
 
 def _validate_folder(folder: str) -> str:
     if not _re.match(r'^[\w\s.\-/&+,()]+$', folder, _re.UNICODE) or len(folder) > 200:
@@ -147,6 +148,7 @@ async def download_all_attachments_zip(
     """Download all non-inline attachments of a message as a single ZIP file."""
     import io
     import zipfile
+
     from app.mail.services.message_service import get_message
 
     _validate_folder(folder)

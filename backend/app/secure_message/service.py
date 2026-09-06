@@ -3,6 +3,7 @@ verificar y descifrar. La identidad del externo se prueba con un código de un
 solo uso enviado a su propio correo.
 """
 from __future__ import annotations
+
 import base64
 import hashlib
 import hmac
@@ -15,6 +16,7 @@ from email.message import EmailMessage
 import aiosmtplib
 
 from app.config import get_settings
+
 from . import crypto
 
 

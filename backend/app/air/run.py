@@ -9,8 +9,8 @@ import sys
 
 import asyncpg
 
-from app.config import get_settings
 from app.air.engine import run_cycle
+from app.config import get_settings
 
 
 class _NoRedis:                     # detect-only no toca Redis

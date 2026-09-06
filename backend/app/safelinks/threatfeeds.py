@@ -10,6 +10,7 @@ Fuentes (sin API key):
 Se refresca al arrancar y cada 12 h (tarea en segundo plano).
 """
 from __future__ import annotations
+
 import asyncio
 import json
 import urllib.request

@@ -42,7 +42,7 @@ const RULES = [
   { id: 'upper', label: 'Una letra mayúscula', test: (p: string) => /[A-Z]/.test(p) },
   { id: 'lower', label: 'Una letra minúscula', test: (p: string) => /[a-z]/.test(p) },
   { id: 'digit', label: 'Un número', test: (p: string) => /[0-9]/.test(p) },
-  { id: 'special', label: 'Un carácter especial (!@#$%&*.)', test: (p: string) => /[!@#$%^&*(),.?:{}|<>_+\-]/.test(p) },
+  { id: 'special', label: 'Un carácter especial (!@#$%&*.)', test: (p: string) => /[!@#$%^&*(),.?:{}|<>_+-]/.test(p) },
 ] as const;
 
 function evaluateStrength(password: string): StrengthResult {

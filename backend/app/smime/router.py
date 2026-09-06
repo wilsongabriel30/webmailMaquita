@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import base64
 import hashlib
-import os
 import hmac
+import os
 import subprocess
 import tempfile
 from datetime import datetime, timezone

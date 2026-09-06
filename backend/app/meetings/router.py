@@ -14,6 +14,7 @@ router = APIRouter(prefix="/api/meetings", tags=["meetings"])
 
 # Use public Jitsi instance (no private Jitsi detected in infra)
 import os
+
 # Jitsi PROPIO de Maquita (soberano). Configurable vía .env si algún día cambia.
 JITSI_BASE_URL = os.environ.get("JITSI_BASE_URL", "https://meet.maquita.com.ec").rstrip("/")
 
@@ -76,13 +77,15 @@ async def create_meeting(
     if data.start_time:
         try:
             from app.calendar.service import calendar_service
+
             # Get or create default calendar
             await calendar_service.ensure_default_calendar(db, user)
             cals = await calendar_service.list_calendars(db, user)
             if cals:
                 cal_id = cals[0]["id"] if isinstance(cals[0], dict) else cals[0].id
-                from app.calendar.schemas import EventCreate
                 from datetime import timedelta
+
+                from app.calendar.schemas import EventCreate
                 event = EventCreate(
                     title=f"Reunion: {data.title}",
                     start=data.start_time,

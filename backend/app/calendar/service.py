@@ -1,12 +1,11 @@
 """CalendarService — dual-write to Radicale + PostgreSQL."""
 from __future__ import annotations
 
+import json
 import re
 
-from app.core.sanitize import strip_html, sanitize_html
 from app.branding.service import app_name_cacheado, org_name_cacheado
-
-import json
+from app.core.sanitize import sanitize_html, strip_html
 
 
 def _merge_attendees(data):
@@ -32,9 +31,8 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Optional
 
-from dateutil.rrule import rrulestr
-
 import asyncpg
+from dateutil.rrule import rrulestr
 
 from app.calendar.ical_utils import build_vcalendar, generate_uid
 from app.calendar.radicale_client import radicale_client
@@ -756,10 +754,10 @@ class CalendarService:
         if not attendees:
             return
         import smtplib
-        from email.mime.text import MIMEText
-        from email.mime.multipart import MIMEMultipart
-        from email.mime.base import MIMEBase
         from email import encoders
+        from email.mime.base import MIMEBase
+        from email.mime.multipart import MIMEMultipart
+        from email.mime.text import MIMEText
         from email.utils import formatdate
 
         for att in attendees:
@@ -903,12 +901,12 @@ class CalendarService:
             attendees_raw = _json.loads(attendees_raw)
         if not attendees_raw:
             return 0
-        import smtplib
-        from email.mime.text import MIMEText
-        from email.mime.multipart import MIMEMultipart
-        from email.utils import formatdate
         import html as _html
         import re as _re
+        import smtplib
+        from email.mime.multipart import MIMEMultipart
+        from email.mime.text import MIMEText
+        from email.utils import formatdate
         sent = 0
 
         from zoneinfo import ZoneInfo
@@ -1019,8 +1017,9 @@ class CalendarService:
                 try:
                     if not _con_ics:
                         raise StopIteration()
-                    from app.calendar.ical_utils import build_vcalendar
                     from email.mime.base import MIMEBase
+
+                    from app.calendar.ical_utils import build_vcalendar
                     _att_list = attendees_raw if isinstance(attendees_raw, list) else []
                     ics = build_vcalendar({
                         "uid": row.get("uid") or str(row["id"]),

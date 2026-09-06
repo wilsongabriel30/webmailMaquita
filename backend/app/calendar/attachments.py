@@ -1,12 +1,12 @@
 """Calendar event attachments router."""
 from __future__ import annotations
 
+import logging
 import os
 import uuid
-import logging
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 

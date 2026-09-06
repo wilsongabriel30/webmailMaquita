@@ -143,8 +143,8 @@ async def saml_acs(request: Request):
         raise HTTPException(500, "SSO: No hay certificado IdP configurado para verificar firma")
 
     try:
-        from signxml import XMLVerifier
         from lxml import etree as lxml_etree
+        from signxml import XMLVerifier
 
         idp_cert_pem = cfg["certificate"]
         lxml_root = lxml_etree.fromstring(saml_xml)

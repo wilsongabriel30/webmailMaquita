@@ -1,7 +1,9 @@
 """Ingesta incremental de la bandeja de un usuario al índice RAG."""
 import os
+
 from app.config import get_settings
-from app.rag import store, config as rag_config
+from app.rag import config as rag_config
+from app.rag import store
 from app.rag.embeddings import embed
 
 

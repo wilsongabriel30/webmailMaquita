@@ -3,12 +3,12 @@ Compliance Auth Module — Fail-fast + RBAC
 Soporta JWT via cookie (webmail) y Bearer token (admin panel).
 """
 
-import os
 import logging
+import os
 from functools import wraps
 
 import jwt
-from fastapi import Request, HTTPException
+from fastapi import HTTPException, Request
 
 logger = logging.getLogger("compliance.auth")
 

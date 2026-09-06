@@ -1,7 +1,9 @@
 """Send service — orchestrates sending email with attachments."""
 import re
-from app.mail.clients.smtp_client import send_email as smtp_send, OutgoingEmail, EmailAttachment
+
 from app.mail.clients.imap_client import append_message
+from app.mail.clients.smtp_client import EmailAttachment, OutgoingEmail
+from app.mail.clients.smtp_client import send_email as smtp_send
 
 
 def _html_to_text(html: str) -> str:

@@ -8,6 +8,7 @@ Tras cada login exitoso (en segundo plano), geolocaliza la IP y la clasifica:
 Si es riesgoso crea alerta y (opcional) deshabilita el buzón automáticamente.
 """
 from __future__ import annotations
+
 import json
 import math
 from datetime import datetime, timezone

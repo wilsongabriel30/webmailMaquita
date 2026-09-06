@@ -34,10 +34,10 @@ def _norm(s: str) -> str:
     return "".join(c for c in s if not unicodedata.combining(c)).lower()
 
 try:
-    from . import lookalike, checker
+    from . import checker, lookalike
 except Exception:  # uso fuera del paquete (tests sueltos)
-    import lookalike
     import checker
+    import lookalike
 
 # --- léxico de cosecha de credenciales / urgencia (ES + EN) ---
 # Patrones en ASCII sin tildes: el texto se normaliza con _norm() antes de matchear.

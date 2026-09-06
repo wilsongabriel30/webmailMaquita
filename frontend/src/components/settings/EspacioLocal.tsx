@@ -39,7 +39,10 @@ function abrir(nombre: string): Promise<IDBDatabase | null> {
   });
 }
 
-function contar(db: IDBDatabase | null, almacen: string): Promise<any[]> {
+/** Registro guardado en IndexedDB: cifrado (sobre) o antiguo (ct suelto), más lo del chat. */
+type Fila = { sobre?: { ct?: ArrayBuffer }; ct?: ArrayBuffer; fijo?: boolean; bytes?: number };
+
+function contar(db: IDBDatabase | null, almacen: string): Promise<Fila[]> {
   return new Promise((ok) => {
     if (!db || !db.objectStoreNames.contains(almacen)) return ok([]);
     try {
@@ -53,7 +56,7 @@ function contar(db: IDBDatabase | null, almacen: string): Promise<any[]> {
 }
 
 /** Lo que ocupa un registro: lo cifrado más un margen por los datos de fuera del sobre. */
-const pesar = (fila: any): number =>
+const pesar = (fila: Fila | null): number =>
   (fila?.sobre?.ct?.byteLength ?? fila?.ct?.byteLength ?? JSON.stringify(fila || {}).length) + 64;
 
 async function medir(): Promise<Uso> {
@@ -92,7 +95,7 @@ export default function EspacioLocal() {
     try {
       const antes = uso?.totalBytes ?? 0;
       // el propio almacén del chat sabe purgar sin tocar lo pendiente
-      const almacen = (window as any).MaquitaAlmacen;
+      const almacen = (window as unknown as { MaquitaAlmacen?: { hacerSitio?: (n: number) => Promise<void> } }).MaquitaAlmacen;
       if (almacen?.hacerSitio) await almacen.hacerSitio(0);
       // y del correo se vacía lo que el servidor puede volver a dar
       const db = await abrir('maquita-mail-offline');

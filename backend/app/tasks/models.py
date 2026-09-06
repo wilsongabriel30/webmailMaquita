@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import asyncpg
 
-
 CREATE_TABLES_SQL = """
 CREATE TABLE IF NOT EXISTS task_boards (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),

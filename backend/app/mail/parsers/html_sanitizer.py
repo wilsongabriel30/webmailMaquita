@@ -1,6 +1,7 @@
 """HTML sanitizer for email content — uses nh3 (Rust-based)."""
-import nh3
 import re
+
+import nh3
 
 ALLOWED_TAGS = {
     "a", "abbr", "b", "blockquote", "br", "caption", "center", "cite",

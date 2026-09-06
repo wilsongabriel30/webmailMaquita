@@ -1,8 +1,9 @@
 """Motor: tipo MIME real vs extensión (detección de disfraz)."""
 import os
 import subprocess
+
 from app.safeattach.analyzers.base import Analyzer
-from app.safeattach.verdict import Finding, MALICIOUS
+from app.safeattach.verdict import MALICIOUS, Finding
 
 DANGEROUS = {"application/x-executable", "application/x-dosexec",
              "application/x-msdos-program", "application/x-sharedlib",

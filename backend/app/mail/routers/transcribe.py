@@ -9,8 +9,9 @@ valores del .env como fallback.
 Autor: Wilson Argüello — Equipo de Tecnología, Fundación Maquita
 """
 import os
+
 import httpx
-from fastapi import APIRouter, Request, Depends, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
 
 from app.auth.dependencies import get_current_user
@@ -51,7 +52,7 @@ async def transcribe_health(request: Request, username: str = Depends(get_curren
     if not url:
         return {"enabled": False, "available": False, "mode": mode}
     try:
-        async with httpx.AsyncClient(timeout=5, verify=False) as c:
+        async with httpx.AsyncClient(timeout=5) as c:
             r = await c.get(f"{url}/health")
             return {"enabled": True, "available": r.status_code == 200, "mode": mode}
     except Exception:
@@ -72,7 +73,7 @@ async def transcribe(request: Request, audio: UploadFile = File(...),
     form = {"language": language or lang}
     headers = {"X-API-Key": key} if key else {}
     try:
-        async with httpx.AsyncClient(timeout=120, verify=False) as c:
+        async with httpx.AsyncClient(timeout=120) as c:
             r = await c.post(f"{url}/api/transcribe", files=files, data=form, headers=headers)
     except Exception as e:
         raise HTTPException(502, f"No se pudo contactar el servidor de transcripción: {str(e)[:120]}")

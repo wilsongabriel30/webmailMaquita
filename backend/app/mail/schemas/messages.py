@@ -1,8 +1,9 @@
 """Mail schemas — request/response models with security validations."""
 import re
 from datetime import datetime, timezone
-from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 from typing import Optional, Union
+
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 MAX_RECIPIENTS = 50  # Máximo total de destinatarios (to + cc + bcc)
 

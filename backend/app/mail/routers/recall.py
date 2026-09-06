@@ -1,14 +1,16 @@
 from app.core.sanitize import strip_html
+
 """Message recall/retract router — recover sent messages within the same server.
 
 Only works for recipients on local domains (ejemplo.com).
 Uses doveadm to search and delete/replace messages in recipient mailboxes.
 """
-import subprocess
 import re
-from fastapi import APIRouter, Request, Depends, HTTPException
-from pydantic import BaseModel
+import subprocess
 from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
 from app.config import get_settings
@@ -113,8 +115,8 @@ async def _send_external_recall_request(
     2. A polite email explaining the recall request
     """
     try:
-        from app.mail.clients.smtp_client import send_email, OutgoingEmail
         from app.core.session import get_user_password
+        from app.mail.clients.smtp_client import OutgoingEmail, send_email
         password = await get_user_password(request, sender)
 
         sender_name = sender.split("@")[0].replace(".", " ").title()
@@ -255,8 +257,8 @@ async def recall_message(
             if success:
                 # If replace: send corrected version
                 if body.action == "replace" and body.replacement_html:
-                    from app.mail.clients.smtp_client import send_email, OutgoingEmail
                     from app.core.session import get_user_password
+                    from app.mail.clients.smtp_client import OutgoingEmail, send_email
                     password = await get_user_password(request, username)
 
                     corrected = OutgoingEmail(

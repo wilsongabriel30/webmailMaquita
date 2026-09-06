@@ -3,7 +3,6 @@ import json
 import re
 from asyncio.subprocess import PIPE
 
-
 # Queue ID: hex characters, 6-16 chars (Postfix format)
 _QUEUE_ID_RE = re.compile(r"^[A-Fa-f0-9]{6,16}$")
 

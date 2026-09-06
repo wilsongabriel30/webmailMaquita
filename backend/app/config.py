@@ -1,6 +1,7 @@
-from pydantic_settings import BaseSettings
-from pydantic import Field, AliasChoices
 from functools import lru_cache
+
+from pydantic import AliasChoices, Field
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):

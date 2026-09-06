@@ -2,22 +2,24 @@ import { cifrar, descifrar, esPaquete } from "./cifradoLocal";
 
 // T-49: lo que se guarda en el equipo va cifrado. Estas dos ayudas envuelven y
 // desenvuelven el contenido; el resto del archivo sigue trabajando igual que antes.
-async function meterEnSobre<T extends Record<string, any>>(
-  registro: T, campos: string[]): Promise<any> {
-  const contenido: Record<string, any> = {};
-  const fuera: Record<string, any> = {};
+async function meterEnSobre<T extends object>(
+  registro: T, campos: string[]): Promise<Record<string, unknown>> {
+  const contenido: Record<string, unknown> = {};
+  const fuera: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(registro)) {
     if (campos.includes(k)) contenido[k] = v; else fuera[k] = v;
   }
   return { ...fuera, sobre: await cifrar(contenido) };
 }
 
-async function abrirSobre<T = any>(registro: any): Promise<T | null> {
-  if (!registro) return null;
+async function abrirSobre<T = unknown>(crudo: object | null | undefined): Promise<T | null> {
+  if (!crudo) return null;
+  const registro = crudo as Record<string, unknown>;
   if (!esPaquete(registro.sobre)) return registro as T;   // guardado antes de cifrar
-  const dentro = await descifrar<Record<string, any>>(registro.sobre);
+  const dentro = await descifrar<Record<string, unknown>>(registro.sobre);
   if (!dentro) return null;      // no se pudo abrir: como si no estuviera
-  const { sobre, ...fuera } = registro;
+  const fuera = { ...registro };
+  delete fuera.sobre;
   return { ...fuera, ...dentro } as T;
 }
 
@@ -123,7 +125,7 @@ export async function cacheMessageList(folder: string, messages: OfflineMessage[
   const db = await openDB();
   // Se prepara TODO antes de abrir la transaccion de escritura: cifrar exige esperar, y
   // una transaccion de IndexedDB no sobrevive a una espera (ver la nota de addToOutbox).
-  const preparados: any[] = [];
+  const preparados: Record<string, unknown>[] = [];
   const lectura = db.transaction("messages", "readonly");
   const store = lectura.objectStore("messages");
   for (const msg of messages) {
@@ -204,7 +206,7 @@ export async function getCachedMessages(folder: string): Promise<OfflineMessage[
     req.onsuccess = async () => {
       // Sort by date descending
       const crudos = req.result || [];
-      const msgs = (await Promise.all(crudos.map((c: any) => abrirSobre<OfflineMessage>(c))))
+      const msgs = (await Promise.all(crudos.map((c: Record<string, unknown>) => abrirSobre<OfflineMessage>(c))))
         .filter(Boolean) as OfflineMessage[];
       msgs.sort((a: OfflineMessage, b: OfflineMessage) => {
         const da = a.date ? new Date(a.date).getTime() : 0;

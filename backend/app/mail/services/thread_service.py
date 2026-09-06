@@ -1,6 +1,6 @@
 """Thread service — group messages by conversation."""
-import re
 import hashlib
+import re
 
 
 def compute_thread_id(message_id: str = "", references: str = "", in_reply_to: str = "", subject: str = "") -> str:
@@ -21,7 +21,7 @@ def compute_thread_id(message_id: str = "", references: str = "", in_reply_to: s
     # Fallback: normalized subject
     subj = re.sub(r"^(Re|Fwd|Fw)\s*:\s*", "", subject, flags=re.IGNORECASE).strip()
     if subj:
-        return hashlib.md5(subj.lower().encode()).hexdigest()[:12]
+        return hashlib.md5(subj.lower().encode(), usedforsecurity=False).hexdigest()[:12]
     return ""
 
 

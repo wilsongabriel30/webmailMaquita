@@ -27,7 +27,7 @@ Ver: 07-INCIDENTES/20260824-zimbra-comprometido-cryptominer-devshm.md y
      03-INFRAESTRUCTURA/RED-MIKROTIK/fix-dns-bloqueaba-awstrack-enlaces-correo-20260824.md
 """
 
-from typing import List, Dict
+from typing import Dict, List
 
 # dominio_marca -> (nombre visible, tipo, se_puede_desenvolver)
 # Para añadir un servicio: una línea aquí. Si además se puede desenvolver,

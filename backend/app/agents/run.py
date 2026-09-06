@@ -5,8 +5,8 @@ import sys
 
 import asyncpg
 
+from app.agents.runner import list_agents, run_agent
 from app.config import get_settings
-from app.agents.runner import run_agent, list_agents
 
 
 class _NoRedis:

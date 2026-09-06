@@ -1,5 +1,5 @@
 """API de Copiloto de Seguridad (solo administradores)."""
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user

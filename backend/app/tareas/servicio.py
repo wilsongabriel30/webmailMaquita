@@ -8,12 +8,22 @@ import re
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from app.core.sanitize import strip_html, sanitize_html
+from app.core.sanitize import sanitize_html, strip_html
+from app.tareas import avisos
+from app.tareas.esquemas import (
+    ESTADOS,
+    PRIORIDADES,
+    RECURRENCIAS,
+    TareaAsignar,
+    TareaEditar,
+    TareaOut,
+)
 from app.tasks.schemas import CardCreate
 from app.tasks.service import task_service
-from app.tasks.task_calendar_sync import sync_task_to_calendar, remove_task_from_calendar
-from app.tareas import avisos
-from app.tareas.esquemas import (ESTADOS, PRIORIDADES, RECURRENCIAS, TareaAsignar, TareaEditar, TareaOut)
+from app.tasks.task_calendar_sync import (
+    remove_task_from_calendar,
+    sync_task_to_calendar,
+)
 
 MENCION = re.compile(r'@([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})')
 EC = timezone(timedelta(hours=-5))
@@ -313,6 +323,7 @@ class ServicioTareas:
         institucional; quien ingresa a nómina aparece al instante. Caché de 60 s por proceso; si nómina no responde, se usa
         la copia sincronizada (task_personas). Busca por nombre, correo, cargo o departamento, sin importar tildes."""
         import time
+
         import asyncpg
         ahora = time.time()
         if not hasattr(self, '_nom_cache') or ahora - self._nom_cache[0] > 60:

@@ -395,7 +395,8 @@ async def scheduling_assistant(
     if not emails:
         raise HTTPException(400, "Se requiere al menos un asistente")
     
-    from datetime import datetime as dt, timedelta
+    from datetime import datetime as dt
+    from datetime import timedelta
     target = dt.strptime(date, "%Y-%m-%d").date()
     start_str = f"{date}T00:00:00"
     end_str = f"{date}T23:59:59"

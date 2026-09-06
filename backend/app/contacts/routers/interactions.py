@@ -1,9 +1,9 @@
 """Interacciones — historial de emails enviados/recibidos con un contacto + stats."""
-import re
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Request, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.auth.dependencies import get_current_user
 from app.core.session import get_user_password

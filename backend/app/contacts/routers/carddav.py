@@ -3,12 +3,14 @@ CardDAV — exportar/importar contactos en formato vCard para sincronización.
 Provee endpoints para que clientes CardDAV puedan sincronizar.
 Implementa un subset simplificado de CardDAV via REST.
 """
-from fastapi import APIRouter, Request, HTTPException, Depends
+import hashlib
+from datetime import datetime
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
-from typing import Optional
-from datetime import datetime
-import hashlib
+
 from app.auth.dependencies import get_current_user
 
 router = APIRouter(prefix="/api/contacts", tags=["contacts"])
@@ -224,7 +226,7 @@ async def get_sync_state(request: Request, username: str = Depends(get_current_u
     result = []
 
     for r in rows:
-        etag = hashlib.md5(str(r["updated_at"]).encode()).hexdigest()
+        etag = hashlib.md5(str(r["updated_at"]).encode(), usedforsecurity=False).hexdigest()
         result.append({
             "contact_id": r["contact_id"],
             "etag": etag,
@@ -234,7 +236,7 @@ async def get_sync_state(request: Request, username: str = Depends(get_current_u
 
     for c in all_contacts:
         if c["id"] not in synced_ids:
-            etag = hashlib.md5(str(c["updated_at"]).encode()).hexdigest()
+            etag = hashlib.md5(str(c["updated_at"]).encode(), usedforsecurity=False).hexdigest()
             result.append({
                 "contact_id": c["id"],
                 "etag": etag,

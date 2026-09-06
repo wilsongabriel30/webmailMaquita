@@ -1,21 +1,27 @@
 """Compose router — send, drafts, upload attachments, schedule."""
 import asyncio
 import base64
-import re
-import nh3
-from fastapi import APIRouter, Request, Depends, UploadFile, File, Form, HTTPException
-from typing import Optional
 import json
+import re
+from typing import Optional
+
+import nh3
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 
 from app.auth.dependencies import get_current_user
-from app.core.session import get_user_password, get_imap_login_user
+from app.core.session import get_imap_login_user, get_user_password
 from app.mail.clients.imap_client import get_imap_connection
-from app.mail.services.send_service import send_and_save
-from app.mail.services.draft_service import save_draft, delete_draft
 from app.mail.clients.smtp_client import OutgoingEmail
 from app.mail.schemas.messages import ComposeRequest, DraftRequest, ScheduleRequest
+from app.mail.services.draft_service import delete_draft, save_draft
+from app.mail.services.large_attachments import (
+    SIZE_THRESHOLD,
+    format_link_html,
+    upload_and_share,
+)
+from app.mail.services.send_service import send_and_save
 from app.security.account_protection import check_send_anomaly
-from app.mail.services.large_attachments import SIZE_THRESHOLD, upload_and_share, format_link_html
+
 
 async def _save_sent_recipients(db, sender: str, recipients: list[str]):
     """Auto-save recipients to sent_recipients for future autocomplete."""
@@ -109,8 +115,8 @@ async def send(
         raise HTTPException(status_code=429, detail=anomaly["reason"])
 
     # -- DLP: prevencion de fuga de datos sensibles (salientes) --
-    from app.dlp import service as dlp_service
     from app.dlp import policy as dlp_policy
+    from app.dlp import service as dlp_service
     _dlp_db = request.app.state.db_pool
     _dlp = await dlp_service.scan(_dlp_db, body.subject, body.text_body, body.html_body)
     if _dlp["findings"]:
@@ -232,6 +238,7 @@ async def send(
                 _sa = await db.fetchrow("SELECT enabled, enforce FROM safeattach_config WHERE id=1")
                 if _sa and _sa["enabled"]:
                     import json as _json
+
                     from app.security.router import deep_scan_attachment
                     for _a in attachments:
                         _scan = await deep_scan_attachment(_a["content"], _a["filename"], _a["content_type"])
@@ -540,6 +547,7 @@ async def cancel_scheduled(
 # -- Email Templates -----------------------------------------------------------
 
 from pydantic import BaseModel, field_validator
+
 
 class TemplateCreate(BaseModel):
     name: str

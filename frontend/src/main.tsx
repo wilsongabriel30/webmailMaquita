@@ -73,8 +73,9 @@ if ("serviceWorker" in navigator) {
               if (newSW.state === "installed" && navigator.serviceWorker.controller) {
                 // Nueva version: actualizar SOLA (2026-09-01). Aviso sin boton +
                 // recarga automatica; si el usuario esta escribiendo, se espera.
-                if ((window as any).__swReloadScheduled) return;
-                (window as any).__swReloadScheduled = true;
+                const marca = window as unknown as { __swReloadScheduled?: boolean };
+                if (marca.__swReloadScheduled) return;
+                marca.__swReloadScheduled = true;
                 if (!document.getElementById("sw-update-banner")) {
                   const aviso = document.createElement("div");
                   aviso.id = "sw-update-banner";

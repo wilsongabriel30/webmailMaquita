@@ -5,16 +5,16 @@ Exportar correos (.mbox), contactos (.vcf), configuración.
 """
 
 import io
-import re
 import logging
+import re
 from datetime import datetime
 
-from fastapi import APIRouter, Request, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from app.auth.dependencies import get_current_user
-from app.mail.clients.imap_client import get_imap_connection, fetch_raw_message
 from app.core.session import get_imap_login_user, get_user_password
+from app.mail.clients.imap_client import fetch_raw_message, get_imap_connection
 
 logger = logging.getLogger(__name__)
 MAX_EXPORT_LIMIT = 200  # Max messages per export to prevent abuse
