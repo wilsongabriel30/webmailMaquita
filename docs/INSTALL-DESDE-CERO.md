@@ -1,8 +1,14 @@
 # Instalación desde cero — Maquita Webmail
 
-Guía **canónica** y mínima. Para detalle por componente ver `docs/` y `deploy/`.
-Filosofía: todo extra es **opt-in** y **fail-open** (si un componente externo no
-está, el correo sigue funcionando; el login local es el respaldo "break-glass").
+**Guía canónica.** Versión de referencia: **`v1.6.0-rc5`** (2026-09-05). Es la única guía que se
+mantiene; `INSTALL-NATIVE.md` es el detalle manual por componente para quien no use el
+instalador, e `INSTALL.md` queda sustituida y se conserva solo por referencia.
+
+Filosofía: todo lo extra es **opt-in** (apagado por defecto). Los *motores de análisis* (ClamAV,
+YARA, IA) son **fail-open**: si fallan, el correo se entrega igual y queda registrado, porque
+cortar la entrega de toda la organización es peor. Los *controles de acceso* (permisos de
+unidades compartidas, certificados, callbacks del editor, vales de sesión) son **fail-closed**:
+si no pueden comprobar, deniegan. No confundir los dos.
 
 ## Antes de empezar: ¿Evaluar o Producción?
 
@@ -32,12 +38,22 @@ apt update && apt install -y \
 
 ## 2. Clonar y configurar
 ```bash
-git clone https://github.com/wilsongabriel30/webmailMaquita.git /opt/maquita-webmail
-cd /opt/maquita-webmail/backend
+git clone --branch v1.6.0-rc5 https://github.com/wilsongabriel30/webmailMaquita.git /opt/maquita-webmail
+cd /opt/maquita-webmail
+bash deploy/hooks/instalar.sh        # Guardián pre-commit: bloquea secretos, datos personales y volcados
+# → rellena .git/guardian-patrones-locales (una expresión por línea): contraseñas del equipo,
+#   términos que no deban publicarse. Vive fuera del repositorio a propósito.
+cd backend
 # crear backend/.env con (mínimo):
 #   DATABASE_URL, SECRET_KEY, ADMIN_JWT_SECRET, MASTER_PASSWORD,
-#   MAIL_DOMAIN, COOKIE_DOMAIN, OLLAMA_URL (IA)
+#   MAIL_DOMAIN, COOKIE_DOMAIN                 (OLLAMA_URL solo si vas a usar IA)
 ```
+El instalador (paso 3) genera los secretos que falten. **Nunca** copies un `.env` de otra
+instalación: los secretos firman sesiones y cifran claves privadas.
+
+Chat (opcional): `chat-service/.env` a partir de `chat-service/.env.example`. Las fuentes
+externas de GIF (GIPHY, Wikimedia) están **desactivadas** salvo que pongas `GIPHY_API_KEY` o
+`GIFS_EXTERNOS_COMMONS=1`: con ellas, lo que la gente escribe en el buscador sale a ese tercero.
 
 ## 3. Instalar
 ```bash
@@ -57,9 +73,30 @@ Para evaluar en una VM desechable puedes omitir esto (Dovecot/nginx usan certifi
 
 ## 5. Validar
 ```bash
-bash deploy/tools/validar-despliegue.sh          # chequeos (incluye IA como WARN)
+bash deploy/tools/validar-despliegue.sh          # chequeos; la IA sale como WARN, no falla
 curl -sk https://TU-DOMINIO/api/health           # debe responder 200
+git -C /opt/maquita-webmail status --porcelain   # debe estar VACÍO: un despliegue no ensucia el árbol
+python3 deploy/tools/barrido-datos-personales.py --arbol /opt/maquita-webmail   # 0 hallazgos
 ```
+Y a mano, con una sesión real: entrar, enviar un correo interno, cambiar la contraseña, abrir
+Ajustes → Contraseña y comprobar que el botón explica por qué está deshabilitado.
+
+## 6. Pon tu marca
+El nombre y el logo **no viven en el código**. Desde el panel de administración (Branding) o en
+la tabla `branding_settings`: `org_name` (la organización) y `app_name` (el producto; por
+defecto «Maquita Mail»). Iconos de la PWA y detalles en `PON-TU-MARCA.md`. **No renombres** los
+identificadores de almacenamiento del navegador (`maquita-mail-offline`, `maquita-cache`,
+`MaquitaAlmacen`): dejarían sin datos a quien ya los tenga.
+
+## Si algo falla: qué reportar
+Para que podamos corregirlo en el repositorio sin adivinar, envía **todo esto**:
+1. Etiqueta instalada (`git -C /opt/maquita-webmail describe --tags`) y sistema (`cat /etc/os-release | head -2`).
+2. **Paso exacto** de esta guía donde falló y el **comando literal** que ejecutaste.
+3. La **salida completa** del comando (no un resumen), y `journalctl -u <servicio> --since "-10 min"` del servicio implicado.
+4. La salida completa de `bash deploy/tools/validar-despliegue.sh`.
+5. Si es de interfaz: navegador, captura, y los errores de la consola del navegador (F12).
+6. Si lo arreglaste por tu cuenta: el cambio exacto, para integrarlo.
+Sin valores de secretos ni datos de personas reales en el informe.
 > El **frontend lo compila `instalar.sh`** (paso 3). Para recompilarlo tras cambios usa `bash deploy-webmail.sh` (build + deploy seguro a `www/webmail`). **No** corras `npm build` suelto: el deploy retiene los assets viejos para no romper pestañas abiertas.
 
 ---

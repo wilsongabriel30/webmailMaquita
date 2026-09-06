@@ -7,6 +7,19 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Documentación
+
+- **Una sola guía de instalación.** `INSTALL-DESDE-CERO.md` es la canónica, al día con esta semana:
+  el Guardián pre-commit como paso obligatorio, el `.env` del chat con las fuentes externas
+  desactivadas por defecto, la marca desde `branding_settings`, la distinción entre lo que falla
+  abierto (motores de análisis) y lo que falla cerrado (controles de acceso), y una sección de
+  **qué reportar cuando algo falla**, pensada para las réplicas. `INSTALL-NATIVE.md` queda como
+  detalle manual por componente e `INSTALL.md` como sustituida.
+- El instalador instala el Guardián (paso 7c). El validador (`validar-despliegue.sh`) comprueba
+  además los guardianes, el árbol limpio, la ausencia de datos personales y la marca; y **la
+  comprobación de IA por fin se ejecuta**: estaba después del `exit` y nunca corría.
+
+
 ### Cambiado
 
 - **[T4] Las fuentes externas de GIF del chat pasan a ser opt-in.** Si no había clave propia

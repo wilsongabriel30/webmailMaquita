@@ -112,6 +112,14 @@ for f in "${APP_DIR}"/deploy/seeds/*.sql; do
     PGPASSWORD="${DB_PASS}" psql -v ON_ERROR_STOP=0 -h localhost -U mailserver -d maildb -f "$f" >/dev/null 2>&1
 done
 
+# --- 7c. Guardián pre-commit (secretos, datos personales, volcados) ---
+# Una instalación sin el hook nace desprotegida: cualquier commit posterior podría
+# publicar un .env, un volcado o un directorio de personas. No es opcional.
+if [ -f "${APP_DIR}/deploy/hooks/instalar.sh" ]; then
+    echo -e "\n${GREEN}[7c] Instalando el Guardián pre-commit...${NC}"
+    (cd "${APP_DIR}" && bash deploy/hooks/instalar.sh) || echo "  AVISO: no se pudo instalar el Guardián; instálalo a mano (deploy/hooks/instalar.sh)"
+fi
+
 # --- 8. Backend (.env + entorno virtual) ---
 echo -e "\n${GREEN}[8/18] Configurando backend...${NC}"
 cd "${APP_DIR}/backend"
