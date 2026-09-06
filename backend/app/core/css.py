@@ -11,12 +11,13 @@ nada que cargue recursos ni ejecute. Lo demás se descarta declaración a declar
 
 import re
 
+# [L-04] El atajo `font` se quitó de la lista: las propiedades sueltas bastan y el atajo
+# admite sintaxis de sistema (`caption`, `menu`...) que el filtro no interpreta.
 PROPIEDADES_PERMITIDAS = frozenset(
     {
         "color",
         "background-color",
         "background",
-        "font",
         "font-family",
         "font-size",
         "font-weight",

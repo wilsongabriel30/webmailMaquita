@@ -332,6 +332,46 @@ async def credencial_de_alguna_sesion(
     return None
 
 
+async def listar_sesiones(
+    redis, username: str, sid_actual: str | None = None
+) -> list[dict]:
+    """[L-01] Sesiones vivas de la persona: sid, tipo, dispositivo, IP, creada, vence, actual.
+    Viva = con estado `sess:{u}:{sid}` en Redis (sin él ni el access ni el refresh valen);
+    un sid del índice sin estado se retira. La actual va primero; el resto, por fecha.
+    """
+    try:
+        sids = await redis.smembers(f"sids:{username}")
+    except Exception as exc:
+        log.error("SESIONES_NO_LISTABLES user=%s error=%s", username, str(exc)[:120])
+        return []
+    salida = []
+    for sid in sids:
+        sid = sid.decode() if isinstance(sid, bytes) else sid
+        datos = await redis.hgetall(f"sess:{username}:{sid}")
+        if not datos:
+            await redis.srem(f"sids:{username}", sid)
+            continue
+        d = {
+            (k.decode() if isinstance(k, bytes) else k): (
+                v.decode() if isinstance(v, bytes) else v
+            )
+            for k, v in datos.items()
+        }
+        salida.append(
+            {
+                "sid": sid,
+                "tipo": d.get("kind") or "normal",
+                "dispositivo": d.get("ua") or "",
+                "ip": d.get("ip") or "",
+                "creada": int(d.get("creada") or 0),
+                "vence": int(d.get("abs_exp") or 0),
+                "actual": sid == sid_actual,
+            }
+        )
+    salida.sort(key=lambda x: (not x["actual"], -x["creada"]))
+    return salida
+
+
 async def cerrar_todas_en_redis(redis, username: str) -> None:
     """Cierra todas las sesiones SOLO en Redis (para código sin acceso a la base). Los
     tokens dejan de valer porque su sesión ya no existe; el refresh también, porque

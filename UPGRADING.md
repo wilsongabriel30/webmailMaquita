@@ -10,6 +10,22 @@ servicio, reiniciar lo que cambió y correr `deploy/tools/validar-despliegue.sh`
 
 ---
 
+## De 1.7.2 a la siguiente (sin publicar) — correo
+
+Sin corte de sesiones. Migración nueva + reinicio del backend del correo.
+
+1. Migración `migrations/2026-09-06-codigos-respaldo.sql` (idempotente) **antes** de reiniciar:
+   crea `user_totp_backup_codes` y **vacía los códigos de respaldo antiguos** de 2FA (32 bits,
+   en claro). El backend también crea la tabla si falta, pero no vacía nada.
+2. `git checkout <etiqueta>` y `bash deploy-webmail.sh` (construye el frontend y reinicia el backend).
+3. **Avisar a quien tenga 2FA activo**: sus códigos de respaldo anteriores ya no valen; debe
+   generar unos nuevos en Ajustes → Autenticación de dos factores → «Generar códigos de
+   respaldo nuevos» (pide un código TOTP vigente). El estado muestra «0 códigos de respaldo».
+4. Comprobar: `GET /api/auth/sesiones` con sesión devuelve la lista de sesiones abiertas;
+   `GET /api/auth/totp/status` de una cuenta con 2FA devuelve `backup_codes_remaining`.
+
+---
+
 ## De 1.7.1 a 1.7.2 — almacén y panel
 
 Sin corte de sesiones. Cambia el servicio del almacén, el panel y un detalle de nginx.
