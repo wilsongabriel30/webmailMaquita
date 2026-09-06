@@ -74,7 +74,7 @@ DEFAULT_BOOTSTRAP_PASSWORD = "Cambiar2026"
 class LoginRequest(BaseModel):
     username: str
     password: str
-    totp_code: str | None = None
+    totp_code: str | None = None  # ignorado desde M-01: el código va a /login/2fa
 
 
 class UserInfo(BaseModel):
@@ -106,6 +106,11 @@ async def login(body: LoginRequest, request: Request, response: Response):
     if elapsed < 2.0:
         await asyncio.sleep(2.0 - elapsed)
 
+    if not ok and await is_totp_enabled(request.app.state.db_pool, username):
+        # Contraseña incorrecta en una cuenta con 2FA: misma respuesta que si fuera
+        # correcta (vale ficticio, no canjeable). Ver M-01 más abajo.
+        return await _emitir_vale_2fa(redis, username, None)
+
     if not ok:
         # Si la cuenta fue CONTENIDA por seguridad (deteccion de envio masivo),
         # explicar el motivo en vez del generico "Credenciales incorrectas".
@@ -129,13 +134,13 @@ async def login(body: LoginRequest, request: Request, response: Response):
             )
         raise HTTPException(status_code=401, detail="Credenciales incorrectas")
 
-    # 2FA check
+    # Segundo factor (M-01): la respuesta del primer paso tiene SIEMPRE la misma forma
+    # para una cuenta con 2FA, acierte o no la contraseña: un vale opaco de un solo uso
+    # (60 s). Solo el vale real, canjeado en /login/2fa con el código, abre sesión. Sin
+    # él no hay forma de saber si la contraseña era correcta.
     db = request.app.state.db_pool
     if await is_totp_enabled(db, username):
-        if not body.totp_code:
-            return {"requires_2fa": True, "username": username}
-        if not await validate_totp_code(db, username, body.totp_code):
-            raise HTTPException(status_code=401, detail="Código 2FA inválido")
+        return await _emitir_vale_2fa(redis, username, body.password if ok else None)
 
     # Clear rate limit on success
     await _clear_login_rate_limit(request, username, redis)
@@ -165,6 +170,83 @@ async def login(body: LoginRequest, request: Request, response: Response):
         "username": username,
         "must_change_password": body.password == DEFAULT_BOOTSTRAP_PASSWORD,
     }
+
+
+VALE_2FA_SEG = 60
+
+
+async def _emitir_vale_2fa(redis, username: str, password: str | None) -> dict:
+    """Vale del segundo paso. Con contraseña válida se guarda (cifrada) 60 s en Redis;
+    sin ella se devuelve uno ficticio con la misma forma."""
+    import json
+    import secrets
+
+    vale = secrets.token_urlsafe(32)
+    if password is not None:
+        await redis.set(
+            f"login_ticket:{vale}",
+            json.dumps({"u": username, "p": encrypt_password(password)}),
+            ex=VALE_2FA_SEG,
+        )
+    return {
+        "requires_2fa": True,
+        "segundo_paso": True,
+        "ticket": vale,
+        "username": username,
+    }
+
+
+class Login2FARequest(BaseModel):
+    ticket: str
+    totp_code: str
+
+
+@router.post("/login/2fa")
+async def login_2fa(body: Login2FARequest, request: Request, response: Response):
+    """Segundo paso del login (M-01): canjea el vale + código TOTP por una sesión.
+    Vale inexistente, ya usado, vencido o código incorrecto: la MISMA respuesta."""
+    import json
+
+    start_time = asyncio.get_event_loop().time()
+    redis = request.app.state.redis
+    db = request.app.state.db_pool
+    generico = HTTPException(
+        status_code=401, detail="Credenciales o código incorrectos"
+    )
+    vale = (body.ticket or "").strip()[:128]
+    datos = None
+    if vale:
+        try:
+            crudo = await redis.getdel(f"login_ticket:{vale}")
+        except Exception:
+            crudo = await redis.get(f"login_ticket:{vale}")
+            await redis.delete(f"login_ticket:{vale}")
+        if crudo:
+            try:
+                datos = json.loads(crudo)
+            except Exception:
+                datos = None
+    username = (datos or {}).get("u", "")
+    if username:
+        await _check_login_rate_limit(request, username, redis)
+    ok = bool(datos) and await validate_totp_code(
+        db, username, (body.totp_code or "").strip()
+    )
+
+    elapsed = asyncio.get_event_loop().time() - start_time
+    if elapsed < 1.5:
+        await asyncio.sleep(1.5 - elapsed)
+    if not ok:
+        raise generico
+
+    from app.core.session import decrypt_password
+
+    await _clear_login_rate_limit(request, username, redis)
+    sesion = await crear_sesion(
+        db, redis, request, username, decrypt_password(datos["p"])
+    )
+    poner_cookies_sesion(response, request, sesion)
+    return {"message": "Login successful", "username": username}
 
 
 @router.post("/refresh")

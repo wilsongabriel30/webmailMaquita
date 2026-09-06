@@ -9,6 +9,12 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Seguridad
 
+- **[M-01] Login en dos pasos sin fuga.** La respuesta `requires_2fa` confirmaba que la contraseña era
+  válida. Ahora, para una cuenta con 2FA, el primer paso devuelve siempre la misma forma (un vale
+  opaco de un solo uso, 60 s) acierte o no la contraseña; el segundo paso `POST /api/auth/login/2fa`
+  canjea vale + código y responde igual ante vale inválido o código incorrecto. La decisión de fondo
+  (el 2FA no cubre IMAP/SMTP directo) queda en `DECISIONES.md` D-5.
+
 - **[H-01/M-01 chat] Todo evento con `conversation_id` o `message_id` exige ser participante.**
   `send_message` (legado, aún lo usa el cliente), `edit_message`, `delete_message`, `mark_read`,
   `mark_read_batch`, `delivered`, `add_reaction`, `remove_reaction`, `typing_start` y
