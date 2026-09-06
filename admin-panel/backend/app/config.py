@@ -36,6 +36,8 @@ def _validar_secretos_obligatorios():
             "Falta ADMIN_JWT_SECRET — es el secreto compartido con el backend del correo; "
             "sin el no se puede emitir el vale de impersonacion."
         )
+    if not (DB_PASS or "").strip():
+        raise RuntimeError("Falta DB_PASS — el panel no puede conectar a la base de datos.")
     v = (JWT_SECRET or "").strip()
     if not v or any(p in v.lower() for p in _PLACEHOLDER):
         raise RuntimeError(
