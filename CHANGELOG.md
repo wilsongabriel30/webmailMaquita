@@ -14,6 +14,10 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Seguridad
 
+- **[M-07 chat] Ningún registro lleva el contenido de los mensajes.** Los `print()` con el payload
+  completo (mensajes, eventos de llamada, `join`) pasan a `logger.debug` con id, remitente, sala y
+  tamaño. Prueba de regresión que falla si vuelve a aparecer un campo de contenido en un registro.
+  Amplía F-10.
 - **[M-06 chat] `MAX_CONTENT_LENGTH` de 16 GB a 100 MB**, configurable con `CHAT_MAX_CONTENT_MB`.
 - **[M-05 chat] Fuera el secreto de Keycloak escrito en el código.** `KEYCLOAK_CLIENT_SECRET` sin valor
   por defecto; `KEYCLOAK_ENABLED` pasa a `false` salvo que se pida, y habilitarlo sin secreto aborta el

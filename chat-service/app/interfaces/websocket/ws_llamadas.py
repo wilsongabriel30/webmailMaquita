@@ -12,7 +12,7 @@ def registrar(socketio):
     @socketio.on('call_invite')
     def manejar_call_invite(data):
         """Reenvia invitacion de llamada al usuario destino."""
-        print(f"[WebRTC] ========== call_invite recibido: {data}")
+        logger.debug("[WebRTC] call_invite destino=%s", data.get('target_user_id'))
         usuario_id = session.get('usuario_id')
         if not usuario_id:
             print(f"[WebRTC] call_invite rechazado: no autenticado")
@@ -51,7 +51,7 @@ def registrar(socketio):
     def manejar_call_accepted(data):
         """Notifica al llamante que la llamada fue aceptada."""
         usuario_id = session.get('usuario_id')
-        print(f"[WebRTC] call_accepted de user {usuario_id}, data: {data}")
+        logger.debug("[WebRTC] call_accepted user=%s destino=%s", usuario_id, data.get('target_user_id'))
         if not usuario_id:
             return
         target_user_id = data.get('target_user_id')
