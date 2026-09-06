@@ -12,18 +12,18 @@ Uso:
 Score actual verificado: 10/10 en mail-tester.com (14-Abril-2026)
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app.mail.clients.smtp_client import (
-    build_mime_message,
+    _FORBIDDEN_HEADERS,
     OutgoingEmail,
+    _assert_no_forbidden_headers,
     _html_to_text,
     _wrap_html,
-    _FORBIDDEN_HEADERS,
-    _assert_no_forbidden_headers,
+    build_mime_message,
 )
 
 passed = 0
