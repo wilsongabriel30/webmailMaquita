@@ -7,6 +7,88 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.7.0] - 2026-09-06
+
+Cierra la P0 y la P1 de la tercera, cuarta y quinta revisión externa (ASVS). **Corte único al
+desplegar**: todo el mundo vuelve a iniciar sesión una vez. Cómo actualizar desde 1.6.1: `UPGRADING.md`.
+
+### Añadido
+
+- **«Cerrar todas las sesiones»** en Ajustes → Contraseña (L-01, versión mínima): cierra webmail, app
+  y chat en todos los dispositivos. El listado por dispositivo queda para después.
+
+### Seguridad
+
+- **[M-07 chat] Ningún registro lleva el contenido de los mensajes.** Los `print()` con el payload
+  completo (mensajes, eventos de llamada, `join`) pasan a `logger.debug` con id, remitente, sala y
+  tamaño. Prueba de regresión que falla si vuelve a aparecer un campo de contenido en un registro.
+  Amplía F-10.
+- **[M-06 chat] `MAX_CONTENT_LENGTH` de 16 GB a 100 MB**, configurable con `CHAT_MAX_CONTENT_MB`.
+- **[M-05 chat] Fuera el secreto de Keycloak escrito en el código.** `KEYCLOAK_CLIENT_SECRET` sin valor
+  por defecto; `KEYCLOAK_ENABLED` pasa a `false` salvo que se pida, y habilitarlo sin secreto aborta el
+  arranque. **El valor anterior está publicado: hay que rotarlo en Keycloak.**
+- **[M-04 chat] Solo los invitados entran a una conferencia.** `conference_invite` guarda la lista de
+  invitados (y exige que quien invita sea participante de la conversación, si la hay);
+  `conference_join` la comprueba. Conecta con A-5 (grabaciones).
+- **[M-05] El atributo `style` de los correos pasa por una lista blanca de CSS.** `background-image:
+  url(...)` y similares (balizas de lectura, fuga de IP), `expression()`, `@import`, `behavior` y
+  `position: fixed` se descartan declaración a declaración; el resto del estilo se conserva para no
+  romper los correos HTML. Pruebas en `backend/tests/test_sanitize_style.py`.
+- **[H-01] Sin contraseña «bootstrap» conocida.** Desaparece la constante del código. Cada buzón nuevo
+  (o reset del admin) recibe una contraseña aleatoria de un solo uso y queda con
+  `must_change_password` en `auth_estado`; mientras esté activa, el servidor solo permite cambiar la
+  contraseña o cerrar sesión (403 en lo demás). El instalador genera la clave inicial del buzón demo.
+  Absorbe R-02. Migración `2026-09-06-cambio-obligatorio.sql`.
+- **[H-02] Llave de cifrado de credenciales dedicada y versionada.** Antes se derivaba de `SECRET_KEY`.
+  Ahora `CREDENTIAL_ENCRYPTION_KEY` (obligatoria, Fernet) cifra la credencial IMAP cacheada, las cuentas
+  de Nextcloud y **el secreto TOTP, que estaba en claro** (L-03); `CREDENTIAL_ENCRYPTION_KEY_ANTERIOR`
+  permite rotar. `deploy/tools/recifrar-credenciales.py` migra lo guardado; un secreto TOTP sin cifrar
+  ya no valida (fallo cerrado). Entra con el corte de sesiones de 1.7.0 (`UPGRADING.md`).
+- **[R-01] El almacén ya no arranca con una clave de sesión por defecto.** `ALMACEN_CLAVE_SESION`
+  es obligatoria (≥ 16 caracteres, sin valor de ejemplo), como los secretos del backend. La unidad
+  de systemd documenta cuándo hace falta un segundo `--bind` en la IP de red y que ese puerto va
+  limitado por cortafuegos a la VM que lo usa.
+- **[R-04] SafeAttach falla cerrado si un motor obligatorio no responde.** Con ClamAV caído el
+  adjunto salía `clean` (confirmado con EICAR). Ahora un motor obligatorio (`clamav`; más por
+  `SAFEATTACH_MOTORES_OBLIGATORIOS`) que lanza error, no está o agota el tiempo deja el adjunto
+  como `suspicious`, lo anota en `errors` y el milter lo manda a cuarentena mirando también
+  `errors`, no solo `result`. Pruebas en `backend/tests/test_safeattach_fallo_cerrado.py`.
+- **[M-01] Login en dos pasos sin fuga.** La respuesta `requires_2fa` confirmaba que la contraseña era
+  válida. Ahora, para una cuenta con 2FA, el primer paso devuelve siempre la misma forma (un vale
+  opaco de un solo uso, 60 s) acierte o no la contraseña; el segundo paso `POST /api/auth/login/2fa`
+  canjea vale + código y responde igual ante vale inválido o código incorrecto. La decisión de fondo
+  (el 2FA no cubre IMAP/SMTP directo) queda en `DECISIONES.md` D-5.
+
+- **[H-01/M-01 chat] Todo evento con `conversation_id` o `message_id` exige ser participante.**
+  `send_message` (legado, aún lo usa el cliente), `edit_message`, `delete_message`, `mark_read`,
+  `mark_read_batch`, `delivered`, `add_reaction`, `remove_reaction`, `typing_start` y
+  `get_messages` no lo comprobaban (solo `send`, `join_conversation` y `sync_chat`). En
+  reacciones, borrado y entrega la sala de emisión sale del mensaje en la base, no del payload.
+  Hallazgo de la quinta revisión externa.
+- **[F-03] El chat obedece a la revocación central.** El vale de entrada lleva `sid` y `av`
+  del correo; el correo empuja cada revocación a `POST /api/chat/sesion/revocar` (secreto de
+  servicios, límite de peticiones) y el chat anota la generación en su Redis, desconecta los
+  Socket.IO afectados y rechaza la sesión en el `before_request` y al conectar. Cada sesión
+  revalida contra el correo (`GET /api/auth/sesion-servicio`) como máximo cada 5 minutos, con
+  fallo cerrado. Riesgo residual y marca `REVOCACION_CHAT_FALLIDA` en `DECISIONES.md` D-4.
+  Nuevas variables del chat: `CHAT_SESION_CENTRAL` (0 = pasivo durante la actualización),
+  `CORREO_URL_API` (opcional; si falta usa `CORREO_URL_CALENDARIO`), y del correo:
+  `CHAT_INTERNAL_URL` (opcional; si falta, el origen de `embed_url`). Pruebas en
+  `chat-service/tests/test_revocacion.py`, con su propio job de CI.
+
+- **[F-01] Ciclo de vida de sesión con `sid` y `auth_version`.** La sesión ya no «vive» en una
+  clave por usuario: cada navegador tiene su `sid`, la credencial IMAP se cifra por sesión y el
+  access JWT lleva `sid`, `av`, `kind` y `abs_exp`. Cerrar sesión cierra solo la propia; «cerrar
+  todas» (nuevo `POST /api/auth/logout-all`), cambiar la contraseña, el reset o la clave puesta
+  por el admin, desactivar o eliminar el buzón y la contención AIR suben la generación y revocan
+  todos los refresh: un re-login no revive nada, y el WebSocket cierra con 4401 lo revocado.
+  **Corte único al desplegar**: todo el mundo vuelve a iniciar sesión una vez. Diseño en
+  `docs/DISENO-SESIONES.md`; migración `migrations/2026-09-06-sesiones-sid-av.sql`.
+- **[F-04] La impersonación muere a la hora, se renueve lo que se renueve.** El refresh conserva
+  `session_kind` y `absolute_expires_at` y nunca emite más allá de ese límite; sin prórroga por
+  actividad. Comparte código con F-01 (mismo `refresh`); sus pruebas están en
+  `backend/tests/test_lifecycle_sesion.py`.
+
 ## [1.6.1] - 2026-09-06
 
 Correcciones tras la instalación desde cero de Correo Andes y la segunda revisión ASVS externa

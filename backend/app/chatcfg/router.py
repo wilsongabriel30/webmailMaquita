@@ -132,10 +132,18 @@ async def get_chat_sso_url(request: Request, username: str = Depends(get_current
     if partes.query:
         ruta += "?" + partes.query
 
+    # F-03: el vale lleva la sesión del correo (sid) y su generación (av) para que el
+    # chat pueda comprobarlas y recibir su revocación.
+    from app.auth.sesiones import av_actual
+
     ahora = datetime.now(timezone.utc)
     vale = jwt.encode(
         {
             "sub": username,
+            "sid": getattr(request.state, "sid", None),
+            "av": await av_actual(
+                request.app.state.db_pool, request.app.state.redis, username
+            ),
             "aud": _SSO_AUDIENCIA,
             "jti": uuid.uuid4().hex,
             "iat": ahora,

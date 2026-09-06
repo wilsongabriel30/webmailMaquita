@@ -96,8 +96,14 @@ TAMANO_MAX_SUBIDA = int(os.getenv('ALMACEN_MAX_SUBIDA', 16 * 1024 ** 3))      # 
 # Es la "recuperación en minutos" que ofrecemos frente al soporte externo.
 RETENCION_DIAS = int(os.getenv('ALMACEN_RETENCION_DIAS', 90))
 
-# Clave de sesión del servicio (en producción se comparte con el sistema central para SSO)
-CLAVE_SESION = os.getenv('ALMACEN_CLAVE_SESION', 'cambiar-en-produccion-almacen')
+# Clave de sesión del servicio (en producción se comparte con el sistema central para SSO).
+# [R-01] Sin valor por defecto: con una clave conocida cualquiera podría firmar una cookie de
+# sesión. Falla al arrancar, como el backend del correo (B1).
+CLAVE_SESION = (os.getenv('ALMACEN_CLAVE_SESION') or '').strip()
+if len(CLAVE_SESION) < 16 or 'cambiar' in CLAVE_SESION.lower():
+    raise RuntimeError(
+        'Falta ALMACEN_CLAVE_SESION (o tiene un valor de ejemplo) — es la clave que firma la '
+        'sesión del almacén. Definela en almacen/.env con un valor real (>= 16 caracteres).')
 
 # URL pública del servicio (para armar enlaces compartidos)
 URL_PUBLICA = os.getenv('ALMACEN_URL_PUBLICA', 'http://localhost')

@@ -7,7 +7,7 @@ import subprocess
 
 logger = logging.getLogger(__name__)
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field
 
 from app.auth.dependencies import get_current_user
@@ -188,6 +188,7 @@ def verify_imap(username: str, password: str) -> bool:
 @router.post("/change-password")
 async def change_password(
     request: Request,
+    response: Response,
     body: ChangePasswordRequest,
     username: str = Depends(get_current_user),
 ):
@@ -235,16 +236,20 @@ async def change_password(
             detail="La contraseña no se aplicó correctamente. Intenta nuevamente.",
         )
 
-    # 4. Update Redis cache
-    try:
-        redis = request.app.state.redis
-        settings = get_settings()
-        await redis.set(
-            f"imap_pass:{username}",
-            encrypt_password(body.new_password),
-            ex=settings.access_token_expire_minutes * 60,
-        )
-    except Exception:
-        pass  # Non-fatal
+    # 4. F-01: la contraseña nueva invalida TODAS las sesiones (sube la generación y
+    #    revoca los refresh) y el llamante recibe una sesión nueva en la misma respuesta:
+    #    quien cambia la clave no se cae; cualquier otro (incluido un atacante con una
+    #    cookie robada) sí.
+    from app.auth.cookies import poner_cookies_sesion
+    from app.auth.sesiones import crear_sesion, revocar_todo
 
-    return {"status": "changed"}
+    db = request.app.state.db_pool
+    redis = request.app.state.redis
+    await revocar_todo(db, redis, username, "cambio_de_contrasena")
+    from app.auth.bootstrap import marcar_cambio_obligatorio
+
+    await marcar_cambio_obligatorio(db, redis, username, False)  # H-01
+    sesion = await crear_sesion(db, redis, request, username, body.new_password)
+    poner_cookies_sesion(response, request, sesion)
+
+    return {"status": "changed", "sesion_renovada": True}

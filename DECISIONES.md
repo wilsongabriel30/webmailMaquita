@@ -103,3 +103,38 @@ Compromiso: **la próxima intervención en `pdf_editor` sustituye `pickle` por J
 (las tareas son nombre + argumentos serializables; el contenido binario viaja por
 ficheros, no por el canal). Hasta entonces, el módulo no se conecta a ninguna cola
 ni socket. Hallazgo de la validación externa del 2026-09-06.
+
+## D-4. El chat depende del empuje del correo entre una revocación y la siguiente revalidación
+
+**Fecha:** 2026-09-06 · **Estado:** riesgo residual aceptado (F-03, tercera revisión ASVS)
+
+El chat tiene su propia cookie y su propio Redis; no ve el estado de sesión del correo. La
+revocación llega por dos vías: el correo la **empuja** en el acto a
+`POST /api/chat/sesion/revocar` (secreto compartido `X-Notif-Secret`, con límite de
+peticiones), y cada sesión del chat **revalida** contra el correo como máximo cada 5 minutos
+(`CHAT_REVALIDAR_SESION_SEG`), con fallo cerrado si el correo no responde.
+
+Riesgo que se acepta: si el empuje falla (chat caído, red), una sesión revocada puede seguir
+viva en el chat **hasta 5 minutos**. A cambio, el chat no consulta a PostgreSQL por mensaje.
+El fallo del empuje **nunca es silencioso**: el correo reintenta tres veces y, si no llega,
+registra ERROR con la marca `REVOCACION_CHAT_FALLIDA` (monitoreo). `X-Notif-Secret` entra en
+el inventario de secretos a rotar: comprometido permite cerrar sesiones ajenas.
+
+## D-5. El segundo factor no cubre IMAP/SMTP directo
+
+**Fecha:** 2026-09-06 · **Estado:** **DECIDIDO (2026-09-06): contraseñas de aplicación.** Pendiente de implementar antes de salir a usuarios.
+
+El 2FA (TOTP) protege el webmail y la app. IMAP y SMTP directos (Thunderbird, Outlook, un
+celular configurado a mano) autentican solo con la contraseña, así que **quien tenga la
+contraseña entra por ahí aunque el 2FA esté activo**. M-01 cerró la fuga de la respuesta de
+login (ya no confirma la contraseña de una cuenta con 2FA), pero no cambia este hecho.
+
+Decisión de la dirección (2026-09-06): **contraseñas de aplicación** — una por cliente (Thunderbird, Outlook,
+celular), generada por el webmail, revocable desde Ajustes; la contraseña principal deja de valer en
+IMAP/SMTP directo. Se implementa como tarea propia (Dovecot: passdb adicional o tabla de claves de
+aplicación) antes de salir a usuarios.
+
+Las dos mitigaciones que se valoraron: **contraseñas de aplicación** (una por cliente,
+revocables, la contraseña principal deja de valer en IMAP/SMTP) o **exigir 2FA también ahí**
+(no es viable con los clientes actuales). Hasta decidirlo, se documenta al usuario que el 2FA
+no protege los clientes de escritorio. Hallazgo de la cuarta revisión externa (M-01).

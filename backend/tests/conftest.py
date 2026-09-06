@@ -6,6 +6,7 @@ collect_ignore = ["test_mime_deliverability.py"]
 from httpx import AsyncClient, ASGITransport
 from app.main import app
 
+
 @pytest.fixture
 async def client():
     transport = ASGITransport(app=app)

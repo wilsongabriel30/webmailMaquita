@@ -18,7 +18,11 @@ from typing import Dict, Set
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
 
 from app.auth.jwt import decode_access_token
-from app.core.session import decrypt_password
+from app.auth.sesiones import (
+    CANAL_REVOCACION,
+    credencial_de_alguna_sesion,
+    sesion_valida,
+)
 
 logger = logging.getLogger("websocket")
 
@@ -34,16 +38,33 @@ _poll_tasks: Dict[str, asyncio.Task] = {}
 _last_unseen: Dict[str, int] = {}
 
 
-def _authenticate_ws(websocket: WebSocket) -> str | None:
-    """Extract and validate username from access_token cookie.
-    Returns username or None if invalid."""
+# WebSocket -> sid de su sesión, para cerrarlo cuando esa sesión se revoque.
+_sid_de: Dict[WebSocket, str] = {}
+
+
+async def _authenticate_ws(websocket: WebSocket) -> tuple[str, str] | None:
+    """Misma regla que REST (F-01): firma, sid vivo, av vigente, abs_exp.
+    Devuelve (username, sid) o None."""
     token = websocket.cookies.get("access_token")
     if not token:
         return None
     payload = decode_access_token(token)
     if payload is None:
         return None
-    return payload.get("sub")
+    st = websocket.app.state
+    return await sesion_valida(st.db_pool, st.redis, payload)
+
+
+async def _cerrar_revocadas(username: str, sid: str) -> None:
+    """Cierra (4401) las conexiones del usuario cuya sesión fue revocada (sid o todas)."""
+    for ws in list(_connections.get(username, set())):
+        if sid != "*" and _sid_de.get(ws) != sid:
+            continue
+        await _send_safe(ws, {"type": "session_revoked"})
+        try:
+            await ws.close(code=4401)
+        except Exception:
+            pass
 
 
 async def _ultimo_sin_leer(imap) -> int | None:
@@ -138,9 +159,22 @@ async def _redis_subscriber(app_state):
             redis = app_state.redis
             pubsub = redis.pubsub()
             await pubsub.psubscribe("ws:user:*")
+            await pubsub.subscribe(CANAL_REVOCACION)
             logger.info("Redis subscriber started")
 
             async for message in pubsub.listen():
+                if (
+                    message["type"] == "message"
+                    and message["channel"] == CANAL_REVOCACION
+                ):
+                    try:
+                        rev = json.loads(message["data"])
+                        await _cerrar_revocadas(
+                            rev.get("user", ""), rev.get("sid", "*")
+                        )
+                    except Exception as exc:
+                        logger.warning(f"revocacion ilegible: {exc}")
+                    continue
                 if message["type"] not in ("pmessage",):
                     continue
                 try:
@@ -178,33 +212,15 @@ async def _poll_user_inbox(username: str, app_state):
 
             # Get cached password from Redis and decrypt
             redis = app_state.redis
-            raw_pass = await redis.get(f"imap_pass:{username}")
-            if not raw_pass:
-                # Session expired — notify client
-                await redis.publish(
-                    f"ws:user:{username}",
-                    json.dumps(
-                        {
-                            "type": "session_expired",
-                        }
-                    ),
-                )
-                break
-
-            try:
-                password = decrypt_password(raw_pass)
-            except Exception:
-                # No descifra: nunca se usa el valor crudo. Sesión fuera.
-                logging.getLogger(__name__).error(
-                    "Credencial cacheada de %s no descifra; sesión invalidada [CREDENCIAL_NO_DESCIFRA]",
-                    username,
-                )
-                await redis.delete(f"imap_pass:{username}")
+            # F-01: credencial de alguna sesión viva del usuario (cifrada por sid).
+            cred = await credencial_de_alguna_sesion(redis, username)
+            if not cred:
                 await redis.publish(
                     f"ws:user:{username}",
                     json.dumps({"type": "session_expired"}),
                 )
                 break
+            _sid, password, login_user = cred
 
             # Quick IMAP check: just get INBOX unseen count
             from app.mail.clients.imap_client import get_imap_connection
@@ -212,7 +228,7 @@ async def _poll_user_inbox(username: str, app_state):
             imap = None
             try:
                 imap = await asyncio.wait_for(
-                    get_imap_connection(username, password),
+                    get_imap_connection(login_user, password),
                     timeout=10,
                 )
                 resp = await asyncio.wait_for(
@@ -333,10 +349,11 @@ async def websocket_endpoint(websocket: WebSocket):
     - Client can send {"type": "pong"} in response to pings
     """
     # Authenticate before accepting
-    username = _authenticate_ws(websocket)
-    if not username:
+    auth = await _authenticate_ws(websocket)
+    if not auth:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
+    username, sid = auth
 
     await websocket.accept()
 
@@ -344,6 +361,7 @@ async def websocket_endpoint(websocket: WebSocket):
     if username not in _connections:
         _connections[username] = set()
     _connections[username].add(websocket)
+    _sid_de[websocket] = sid
 
     # Start IMAP poll task for this user if needed
     _start_poll_task(username, websocket.app.state)
@@ -393,6 +411,7 @@ async def websocket_endpoint(websocket: WebSocket):
         # Unregister connection
         conns = _connections.get(username, set())
         conns.discard(websocket)
+        _sid_de.pop(websocket, None)
         if not conns:
             _connections.pop(username, None)
             # Cancel poll task if no more connections

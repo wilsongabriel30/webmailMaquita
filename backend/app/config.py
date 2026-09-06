@@ -40,6 +40,11 @@ class Settings(BaseSettings):
     master_password: str = ""
     secure_msg_key: str = ""
     admin_jwt_secret: str = ""
+    # Llave DEDICADA de cifrado de credenciales (H-02): formato de llave Fernet. Cifra la
+    # credencial IMAP cacheada, las cuentas de Nextcloud y el secreto TOTP. La «anterior»
+    # solo sirve para rotar (se descifra con ambas, se cifra con la actual).
+    credential_encryption_key: str = ""
+    credential_encryption_key_anterior: str = ""
     ia_api_key: str = ""
     # --- IA enchufable (config central; todas las features la leen) ---
     ia_provider: str = "gateway"  # openai | ollama | anthropic | gateway
@@ -106,6 +111,16 @@ def _validar_secretos_obligatorios(s: Settings) -> None:
             "Secretos obligatorios faltantes o con valor de ejemplo: "
             + ", ".join(malos)
             + ". Definelos en .env con valores reales (no los del .env.example)."
+        )
+    # H-02: la llave de credenciales es obligatoria y tiene que ser una llave Fernet válida.
+    try:
+        from cryptography.fernet import Fernet
+
+        Fernet((s.credential_encryption_key or "").strip().encode())
+    except Exception:
+        raise RuntimeError(
+            "Falta CREDENTIAL_ENCRYPTION_KEY o no es una llave Fernet valida. Generala con: "
+            "python3 -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'"
         )
 
 

@@ -22,6 +22,7 @@ from typing import Optional, Dict, Any, Set
 from datetime import datetime, timedelta
 from collections import defaultdict
 import logging
+import os
 import time
 import threading
 
@@ -119,6 +120,7 @@ except Exception:
 # Fallback in-memory (siempre disponible para el worker local)
 usuarios_conectados: Dict[int, Set[str]] = {}  # {usuario_id: {sid1, sid2, ...}}
 sid_a_usuario: Dict[str, int] = {}  # {sid: usuario_id}
+sesion_de_socket: Dict[str, str] = {}  # {sid de Socket.IO: sid de la sesión del correo} (F-03)
 
 # Cache de client_ids procesados recientemente (para idempotencia)
 _client_ids_recientes: Dict[str, Dict] = {}  # {client_id: {message_id, timestamp}}
@@ -238,7 +240,7 @@ def crear_socketio(app, redis_url: Optional[str] = None) -> SocketIO:
         socketio = SocketIO(
             app,
             cors_allowed_origins=_origenes,
-            async_mode='eventlet',
+            async_mode=os.getenv('CHAT_SOCKETIO_ASYNC_MODE', 'eventlet'),
             message_queue=redis_url,
             logger=sio_logger,
             engineio_logger=eio_logger
@@ -249,7 +251,7 @@ def crear_socketio(app, redis_url: Optional[str] = None) -> SocketIO:
         socketio = SocketIO(
             app,
             cors_allowed_origins=_origenes,
-            async_mode='eventlet',
+            async_mode=os.getenv('CHAT_SOCKETIO_ASYNC_MODE', 'eventlet'),
             logger=sio_logger,
             engineio_logger=eio_logger
         )
@@ -364,6 +366,32 @@ def _es_participante(usuario_id: int, conversacion_id: int) -> bool:
             _cerrar_servicio(servicio)
 
 
+def _conversacion_de_mensaje(mensaje_id) -> Optional[int]:
+    """Conversación a la que pertenece un mensaje, leída de la BASE. Nunca del payload:
+    el cliente podía mandar cualquier conversation_id y emitir a esa sala (M-01)."""
+    servicio = None
+    try:
+        servicio = _obtener_servicio_chat()
+        from modulos.chat.infraestructura.persistencia.modelos.modelo_mensaje import ModeloMensaje
+        return servicio._db_session.query(ModeloMensaje.conversation_id).filter(
+            ModeloMensaje.id == int(mensaje_id)).scalar()
+    except Exception:
+        return None
+    finally:
+        if servicio:
+            _cerrar_servicio(servicio)
+
+
+def _autorizado_en_conversacion(usuario_id, conversacion_id, evento: str) -> bool:
+    """Regla (H-01): TODO evento que reciba conversation_id o message_id verifica que el
+    usuario es participante antes de operar. Sin excepción."""
+    if not conversacion_id or not _es_participante(usuario_id, conversacion_id):
+        logger.warning(f"[WebSocket] {evento} denegado: usuario {usuario_id} no es participante de {conversacion_id}")
+        emit('error', {'message': 'No autorizado'})
+        return False
+    return True
+
+
 def _actualizar_presencia_bd(usuario_id: int, en_linea: bool):
     """Actualiza la presencia del usuario en la base de datos."""
     servicio = None
@@ -433,9 +461,8 @@ def emitir_mensaje_nuevo(conversacion_id: int, mensaje_data: Dict[str, Any]):
     if socketio:
         room = f"conversation_{conversacion_id}"
 
-        print(f"[WebSocket] 📤 emitir_mensaje_nuevo llamado")
-        print(f"[WebSocket] 📤 mensaje_data keys: {list(mensaje_data.keys())}")
-        print(f"[WebSocket] 📤 tipo: {mensaje_data.get('tipo')}, gif_url: {mensaje_data.get('gif_url')}")
+        logger.debug("[WebSocket] emitir_mensaje_nuevo id=%s conv=%s tipo=%s",
+                     mensaje_data.get('id'), conversacion_id, mensaje_data.get('tipo'))
 
         # Emitir en formato legacy para compatibilidad
         socketio.emit('new_message', mensaje_data, room=room)
@@ -461,7 +488,10 @@ def emitir_mensaje_nuevo(conversacion_id: int, mensaje_data: Dict[str, Any]):
             'gif_url': mensaje_data.get('gif_url'),
             'nombre': nombre_remitente
         }
-        print(f"[WebSocket] 📤 Emitiendo 'msg' v3.0 a sala {room}: {msg_compact}")
+        # [M-07] Nunca el contenido del mensaje en los registros: solo id, remitente, sala y tamano.
+        logger.debug("[WebSocket] msg id=%s remitente=%s sala=%s bytes=%s",
+                     msg_compact.get('id'), msg_compact.get('u') or msg_compact.get('from'), room,
+                     len(str(msg_compact.get('m') or msg_compact.get('content') or '').encode('utf-8')))
         socketio.emit('msg', msg_compact, room=room)
 
         # Canal único de notificaciones (evento 'notificacion' a user_<id>)

@@ -2,7 +2,7 @@
 """Reacciones. Extraído de manejador_websocket._registrar_eventos (líneas 713-818) el 28/08/2026 sin cambios.
 Los manejadores se registran al llamar registrar(socketio) desde manejador_websocket._registrar_eventos()."""
 from interfaces.websocket.manejador_websocket import *  # noqa: F401,F403
-from interfaces.websocket.manejador_websocket import _cerrar_servicio, _commit_servicio, _obtener_servicio_chat  # noqa: F401
+from interfaces.websocket.manejador_websocket import _autorizado_en_conversacion, _cerrar_servicio, _commit_servicio, _conversacion_de_mensaje, _es_participante, _obtener_servicio_chat  # noqa: F401
 
 
 def registrar(socketio):
@@ -37,6 +37,10 @@ def registrar(socketio):
             emit('error', {'message': 'Datos incompletos'})
             return
 
+        # La sala sale del mensaje en la base, no de lo que mande el cliente (M-01)
+        conversacion_id = _conversacion_de_mensaje(mensaje_id)
+        if not _autorizado_en_conversacion(usuario_id, conversacion_id, 'add_reaction'):
+            return
         servicio = None
         try:
             servicio = _obtener_servicio_chat()
@@ -89,6 +93,9 @@ def registrar(socketio):
         if not mensaje_id:
             return
 
+        conversacion_id = _conversacion_de_mensaje(mensaje_id)
+        if not _autorizado_en_conversacion(usuario_id, conversacion_id, 'remove_reaction'):
+            return
         servicio = None
         try:
             servicio = _obtener_servicio_chat()

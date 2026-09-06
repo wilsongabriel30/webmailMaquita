@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 """Conexión y desconexión. Extraído de manejador_websocket._registrar_eventos (líneas 248-354) el 28/08/2026 sin cambios.
 Los manejadores se registran al llamar registrar(socketio) desde manejador_websocket._registrar_eventos()."""
+import os
+
 from interfaces.websocket.manejador_websocket import *  # noqa: F401,F403
-from interfaces.websocket.manejador_websocket import _actualizar_presencia_bd, _emitir_presencia, _ws_redis  # noqa: F401
+from interfaces.websocket.manejador_websocket import _actualizar_presencia_bd, _emitir_presencia, _ws_redis, sesion_de_socket  # noqa: F401
 
 
 def registrar(socketio):
@@ -25,7 +27,16 @@ def registrar(socketio):
             disconnect()
             return False
 
+        # F-03: misma regla que las peticiones REST: la sesión central tiene que valer.
+        if os.getenv('CHAT_SESION_CENTRAL', '1') != '0':
+            from interfaces.api.sesion_central import sesion_central_valida
+            if not sesion_central_valida():
+                logger.warning(f"[WebSocket] Conexion rechazada: sesion central no valida (usuario={usuario_id})")
+                disconnect()
+                return False
+
         sid = request.sid
+        sesion_de_socket[sid] = session.get('sid')
 
         # Registrar conexion (local)
         if usuario_id not in usuarios_conectados:
@@ -76,6 +87,7 @@ def registrar(socketio):
             # Remover esta conexion (local)
             if usuario_id in usuarios_conectados:
                 usuarios_conectados[usuario_id].discard(sid)
+                sesion_de_socket.pop(sid, None)
 
                 # Si no tiene mas conexiones en este worker, marcar como offline
                 if not usuarios_conectados[usuario_id]:

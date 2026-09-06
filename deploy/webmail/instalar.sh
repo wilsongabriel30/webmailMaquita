@@ -134,6 +134,8 @@ pip install --quiet -r requirements.txt
 SECRET=$(python3 -c "import secrets; print(secrets.token_hex(32))")
 ADMIN_SECRET=$(python3 -c "import secrets; print(secrets.token_hex(32))")
 MASTER_PASS=$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | head -c 20)
+# Llave DEDICADA de cifrado de credenciales (H-02): formato Fernet, distinta de SECRET_KEY
+CRED_KEY=$(python3 -c "import base64,secrets; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode())")
 # VAPID para Web Push del correo (#17): claves UNICAS por instalacion.
 VAPID_PUB=$(python - <<'PYVAPID'
 import base64
@@ -155,6 +157,7 @@ DATABASE_URL=postgresql://mailserver:${DB_PASS}@localhost:5432/maildb
 REDIS_URL=redis://:${REDIS_PASS}@localhost:6379/0
 SECRET_KEY=${SECRET}
 ADMIN_JWT_SECRET=${ADMIN_SECRET}
+CREDENTIAL_ENCRYPTION_KEY=${CRED_KEY}
 MASTER_PASSWORD=${MASTER_PASS}
 IMAP_HOST=127.0.0.1
 IMAP_PORT=143
@@ -347,8 +350,9 @@ echo "  Radicale (calendario/contactos) configurado en :5232"
 
 # --- 13. Buzón de demostración (dominio FALSO + clave genérica para el 1er ingreso) ---
 echo -e "\n${GREEN}[13/18] Creando buzón de demostración...${NC}"
-# Clave genérica y conocida SOLO para el primer ingreso. El instalador avisa cambiarla.
-CLAVE_GENERICA="Cambiar2026"
+# Clave inicial ALEATORIA de un solo uso (H-01): se imprime una vez al final y el webmail
+# obliga a cambiarla en el primer ingreso. Ya no existe una clave conocida en el código.
+CLAVE_GENERICA="Mq-$(openssl rand -base64 18 | tr -dc 'A-Za-z0-9' | head -c 10)-7!"
 DEMO_DOM="ejemplo.local"
 DEMO_HASH=$(doveadm pw -s SHA512-CRYPT -p "${CLAVE_GENERICA}")
 sudo -u postgres psql -d maildb >/dev/null <<SQL
@@ -364,6 +368,9 @@ INSERT INTO mailbox(username,password,name,maildir,local_part,domain,active)
 -- El buzón demo queda como administrador para poder entrar al panel /admin del webmail
 INSERT INTO admin(username,superadmin,active) VALUES('demo@${DEMO_DOM}',true,true)
   ON CONFLICT (username) DO UPDATE SET superadmin=true, active=true;
+-- H-01: cambio de contraseña obligatorio en el primer ingreso
+INSERT INTO auth_estado(username, must_change_password) VALUES('demo@${DEMO_DOM}', true)
+  ON CONFLICT (username) DO UPDATE SET must_change_password=true;
 SQL
 
 # --- 14. Panel de administración avanzado (adminMaquita, puerto 8443) ---
@@ -388,6 +395,7 @@ MASTER_PASSWORD=${MASTER_PASS}
 WEBMAIL_SECRET_KEY=${SECRET}
 WEBMAIL_ADMIN_JWT_SECRET=${ADMIN_SECRET}
 WEBMAIL_MASTER_PASSWORD=${MASTER_PASS}
+WEBMAIL_CREDENTIAL_ENCRYPTION_KEY=${CRED_KEY}
 WEBMAIL_DATABASE_URL=postgresql://mailserver:${DB_PASS}@localhost:5432/maildb
 WEBMAIL_REDIS_URL=redis://:${REDIS_PASS}@localhost:6379/0
 WEBMAIL_IMAP_HOST=127.0.0.1

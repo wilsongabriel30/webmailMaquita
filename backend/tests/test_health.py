@@ -1,10 +1,12 @@
 import pytest
 
+
 @pytest.mark.asyncio
 async def test_api_docs(client):
     """API docs deshabilitados fuera de desarrollo [A2]"""
     r = await client.get("/docs")
     assert r.status_code == 404
+
 
 @pytest.mark.asyncio
 async def test_openapi_schema(client):
@@ -12,4 +14,5 @@ async def test_openapi_schema(client):
     r = await client.get("/openapi.json")
     assert r.status_code == 404
     from app.main import app
+
     assert "/api/auth/login" in app.openapi()["paths"]

@@ -15,7 +15,7 @@ def registrar(socketio, base):
     @socketio.on('join')
     def join_rapido(data):
         """Alias compacto para join_conversation."""
-        print(f"[WebSocket] 📥 'join' event recibido: {data}, SID: {request.sid}")
+        logger.debug("[WebSocket] join conv=%s sid=%s", data.get('c') or data.get('conversation_id'), request.sid)
         data['conversation_id'] = data.get('c') or data.get('conversation_id')
         unirse_a_conversacion(data)
 
