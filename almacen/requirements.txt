@@ -1,8 +1,11 @@
+# Versiones fijadas el 2026-09-04 a partir de lo que realmente corre en produccion
+# (Almacen del webmail (VM 130)). Fijar no actualiza nada: deja por escrito lo que ya estaba instalado,
+# para que una instalacion nueva no traiga versiones distintas sin querer. [C2]
 # Almacén Maquita — servicio de archivos del webmail (superficie mínima)
-flask>=3.0
-gunicorn>=21.0
-psycopg2-binary>=2.9
-PyJWT>=2.8
-redis>=5.0
-requests>=2.31
-pillow>=10.0
+flask==3.1.3
+gunicorn==26.0.0
+psycopg2-binary==2.9.12
+PyJWT==2.13.0
+redis==8.0.1
+requests==2.34.2
+pillow==12.3.0

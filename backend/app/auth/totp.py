@@ -5,24 +5,26 @@ Setup, verify, disable TOTP (Google Authenticator compatible).
 Backup codes for recovery.
 """
 
-import io
 import base64
-import secrets
+import io
 import logging
+import secrets
 
 import pyotp
 import qrcode
-
-from fastapi import APIRouter, Request, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
+from app.branding.service import get_app_name
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/auth/totp", tags=["2fa"])
 
 BACKUP_CODES_COUNT = 8
-ISSUER = "Maquita Mail"
+# Emisor que se ve en la aplicacion de autenticacion. Sale de la marca
+# (branding_settings["app_name"]); esto solo actua si no esta configurada.
+ISSUER_POR_DEFECTO = "Maquita Mail"
 
 
 async def ensure_tables(db):
@@ -58,6 +60,7 @@ async def setup_totp(
     # Re-authenticate with password to prevent JWT-only attacks
     from app.auth.dovecot_auth_service import authenticate
     from app.config import get_settings
+
     settings = get_settings()
     ok = await authenticate(user, body.password, settings.imap_host, settings.imap_port)
     if not ok:
@@ -66,24 +69,30 @@ async def setup_totp(
     db = request.app.state.db_pool
     await ensure_tables(db)
 
-    row = await db.fetchrow(
-        "SELECT enabled FROM user_totp WHERE username = $1", user
-    )
+    row = await db.fetchrow("SELECT enabled FROM user_totp WHERE username = $1", user)
     if row and row["enabled"]:
-        raise HTTPException(status_code=400, detail="2FA ya está activado. Desactívalo primero.")
+        raise HTTPException(
+            status_code=400, detail="2FA ya está activado. Desactívalo primero."
+        )
 
     secret = pyotp.random_base32()
     backup_codes = generate_backup_codes()
 
-    await db.execute("""
+    await db.execute(
+        """
         INSERT INTO user_totp (username, secret, enabled, backup_codes)
         VALUES ($1, $2, FALSE, $3)
         ON CONFLICT (username)
         DO UPDATE SET secret = $2, enabled = FALSE, backup_codes = $3, verified_at = NULL
-    """, user, secret, backup_codes)
+    """,
+        user,
+        secret,
+        backup_codes,
+    )
 
     totp = pyotp.TOTP(secret)
-    uri = totp.provisioning_uri(name=user, issuer_name=ISSUER)
+    emisor = await get_app_name(request.app.state.db_pool)
+    uri = totp.provisioning_uri(name=user, issuer_name=emisor)
 
     img = qrcode.make(uri)
     buf = io.BytesIO()
@@ -118,7 +127,9 @@ async def verify_totp(
 
     totp = pyotp.TOTP(row["secret"])
     if not totp.verify(body.code, valid_window=1):
-        raise HTTPException(status_code=400, detail="Código inválido. Intenta de nuevo.")
+        raise HTTPException(
+            status_code=400, detail="Código inválido. Intenta de nuevo."
+        )
 
     await db.execute(
         "UPDATE user_totp SET enabled = TRUE, verified_at = NOW() WHERE username = $1",
@@ -155,7 +166,8 @@ async def disable_totp(
         backup_codes.remove(code)
         await db.execute(
             "UPDATE user_totp SET backup_codes = $1 WHERE username = $2",
-            backup_codes, user,
+            backup_codes,
+            user,
         )
 
     await db.execute("DELETE FROM user_totp WHERE username = $1", user)
@@ -190,7 +202,8 @@ async def totp_status(
 async def validate_totp_code(db, username: str, code: str) -> bool:
     """Validate TOTP code during login. Returns True if valid or 2FA not enabled."""
     row = await db.fetchrow(
-        "SELECT secret, enabled, backup_codes FROM user_totp WHERE username = $1", username
+        "SELECT secret, enabled, backup_codes FROM user_totp WHERE username = $1",
+        username,
     )
     if not row or not row["enabled"]:
         return True
@@ -206,7 +219,8 @@ async def validate_totp_code(db, username: str, code: str) -> bool:
         backup_codes.remove(clean_code)
         await db.execute(
             "UPDATE user_totp SET backup_codes = $1 WHERE username = $2",
-            backup_codes, username,
+            backup_codes,
+            username,
         )
         return True
 

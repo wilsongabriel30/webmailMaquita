@@ -2,6 +2,7 @@
 
 Chain: raw email string -> NormalizedMessage (dataclass)
 """
+
 import email
 import email.policy
 import email.utils
@@ -22,7 +23,8 @@ class AttachmentInfo:
 @dataclass
 class CalendarInviteInfo:
     """Parsed calendar invitation from text/calendar MIME part."""
-    method: str = ""           # REQUEST, REPLY, CANCEL
+
+    method: str = ""  # REQUEST, REPLY, CANCEL
     event_uid: str = ""
     summary: str = ""
     dtstart: str = ""
@@ -34,9 +36,11 @@ class CalendarInviteInfo:
     raw_ics: str = ""
     attendees: list = field(default_factory=list)  # [{email, name, role, partstat}]
 
+
 @dataclass
 class NormalizedMessage:
     """Intermediate representation between raw IMAP and API response."""
+
     uid: int = 0
     message_id: str = ""
     from_addr: str = ""
@@ -61,7 +65,9 @@ class NormalizedMessage:
     importance: str = "normal"
 
 
-def parse_headers(raw_headers: str, uid: int = 0, flags: list[str] | None = None, size: int = 0) -> NormalizedMessage:
+def parse_headers(
+    raw_headers: str, uid: int = 0, flags: list[str] | None = None, size: int = 0
+) -> NormalizedMessage:
     """Parse raw headers into a NormalizedMessage (without body)."""
     msg = email.message_from_string(raw_headers, policy=email.policy.default)
     flags = flags or []
@@ -93,7 +99,9 @@ def parse_headers(raw_headers: str, uid: int = 0, flags: list[str] | None = None
     )
 
 
-def parse_full_message(raw_email: str, uid: int = 0, flags: list[str] | None = None) -> NormalizedMessage:
+def parse_full_message(
+    raw_email: str, uid: int = 0, flags: list[str] | None = None
+) -> NormalizedMessage:
     """Parse a complete raw email into NormalizedMessage with body and attachments."""
     msg = email.message_from_string(raw_email, policy=email.policy.default)
     flags = flags or []
@@ -135,7 +143,9 @@ def parse_full_message(raw_email: str, uid: int = 0, flags: list[str] | None = N
     )
 
 
-def _extract_parts(msg, part_prefix: str = "") -> tuple[str, str, list[AttachmentInfo], dict[str, str]]:
+def _extract_parts(
+    msg, part_prefix: str = ""
+) -> tuple[str, str, list[AttachmentInfo], dict[str, str]]:
     text_body = ""
     html_body = ""
     attachments = []
@@ -159,14 +169,16 @@ def _extract_parts(msg, part_prefix: str = "") -> tuple[str, str, list[Attachmen
                     except Exception:
                         pass
                 payload = part.get_payload(decode=True)
-                attachments.append(AttachmentInfo(
-                    filename=part.get_filename() or "unnamed",
-                    content_type=content_type,
-                    size=len(payload) if payload else 0,
-                    part_number=part_num,
-                    is_inline=False,
-                    cid=cid,
-                ))
+                attachments.append(
+                    AttachmentInfo(
+                        filename=part.get_filename() or "unnamed",
+                        content_type=content_type,
+                        size=len(payload) if payload else 0,
+                        part_number=part_num,
+                        is_inline=False,
+                        cid=cid,
+                    )
+                )
             elif part.is_multipart():
                 t, h, a, cm, ci = _extract_parts(part, part_num + ".")
                 if not text_body:
@@ -188,26 +200,31 @@ def _extract_parts(msg, part_prefix: str = "") -> tuple[str, str, list[Attachmen
                 html_body = _decode_payload(part)
             elif cid or "inline" in disposition:
                 payload = part.get_payload(decode=True)
-                attachments.append(AttachmentInfo(
-                    filename=part.get_filename() or f"inline_{part_num}",
-                    content_type=content_type,
-                    size=len(payload) if payload else 0,
-                    part_number=part_num,
-                    is_inline=True,
-                    cid=cid,
-                ))
+                attachments.append(
+                    AttachmentInfo(
+                        filename=part.get_filename() or f"inline_{part_num}",
+                        content_type=content_type,
+                        size=len(payload) if payload else 0,
+                        part_number=part_num,
+                        is_inline=True,
+                        cid=cid,
+                    )
+                )
                 if cid and payload:
                     import base64
+
                     b64 = base64.b64encode(payload).decode("ascii")
                     cid_map[cid] = f"data:{content_type};base64,{b64}"
             elif content_type.startswith(("image/", "application/")):
                 payload = part.get_payload(decode=True)
-                attachments.append(AttachmentInfo(
-                    filename=part.get_filename() or f"attachment_{part_num}",
-                    content_type=content_type,
-                    size=len(payload) if payload else 0,
-                    part_number=part_num,
-                ))
+                attachments.append(
+                    AttachmentInfo(
+                        filename=part.get_filename() or f"attachment_{part_num}",
+                        content_type=content_type,
+                        size=len(payload) if payload else 0,
+                        part_number=part_num,
+                    )
+                )
     else:
         content_type = msg.get_content_type()
         if content_type == "text/calendar":
@@ -269,6 +286,7 @@ def _detect_importance(msg) -> str:
 def _parse_ics_part(part) -> CalendarInviteInfo | None:
     """Parse a text/calendar MIME part into CalendarInviteInfo."""
     import vobject
+
     raw_ics = _decode_payload(part)
     if not raw_ics:
         return None
@@ -309,22 +327,40 @@ def _parse_ics_part(part) -> CalendarInviteInfo | None:
     if hasattr(vevent, "organizer"):
         org = vevent.organizer
         organizer = str(org.value).replace("mailto:", "").replace("MAILTO:", "")
-        organizer_name = org.params.get("CN", [""])[0] if hasattr(org, "params") and org.params else ""
+        organizer_name = (
+            org.params.get("CN", [""])[0]
+            if hasattr(org, "params") and org.params
+            else ""
+        )
 
     # Attendees
     attendees = []
     if hasattr(vevent, "attendee_list"):
         for att in vevent.attendee_list:
             email = str(att.value).replace("mailto:", "").replace("MAILTO:", "")
-            name = att.params.get("CN", [""])[0] if hasattr(att, "params") and att.params else ""
-            role = att.params.get("ROLE", ["REQ-PARTICIPANT"])[0] if hasattr(att, "params") and att.params else "REQ-PARTICIPANT"
-            partstat = att.params.get("PARTSTAT", ["NEEDS-ACTION"])[0] if hasattr(att, "params") and att.params else "NEEDS-ACTION"
-            attendees.append({
-                "email": email,
-                "name": name,
-                "role": role,
-                "partstat": partstat,
-            })
+            name = (
+                att.params.get("CN", [""])[0]
+                if hasattr(att, "params") and att.params
+                else ""
+            )
+            role = (
+                att.params.get("ROLE", ["REQ-PARTICIPANT"])[0]
+                if hasattr(att, "params") and att.params
+                else "REQ-PARTICIPANT"
+            )
+            partstat = (
+                att.params.get("PARTSTAT", ["NEEDS-ACTION"])[0]
+                if hasattr(att, "params") and att.params
+                else "NEEDS-ACTION"
+            )
+            attendees.append(
+                {
+                    "email": email,
+                    "name": name,
+                    "role": role,
+                    "partstat": partstat,
+                }
+            )
 
     return CalendarInviteInfo(
         method=method,

@@ -1,12 +1,13 @@
 """Runner CLI/cron de agentes. Uso: python -m app.agents.run <agente> [--apply]"""
+
 import asyncio
 import json
 import sys
 
 import asyncpg
 
+from app.agents.runner import list_agents, run_agent
 from app.config import get_settings
-from app.agents.runner import run_agent, list_agents
 
 
 class _NoRedis:

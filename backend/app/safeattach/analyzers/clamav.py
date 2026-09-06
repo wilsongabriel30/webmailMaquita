@@ -1,7 +1,9 @@
 """Motor: ClamAV (firmas)."""
+
 import subprocess
+
 from app.safeattach.analyzers.base import Analyzer
-from app.safeattach.verdict import Finding, MALICIOUS
+from app.safeattach.verdict import MALICIOUS, Finding
 
 
 class ClamAV(Analyzer):
@@ -9,8 +11,12 @@ class ClamAV(Analyzer):
 
     def analyze(self, path, content, report):
         try:
-            r = subprocess.run(["clamdscan", "--no-summary", "--fdpass", path],
-                               capture_output=True, text=True, timeout=60)
+            r = subprocess.run(
+                ["clamdscan", "--no-summary", "--fdpass", path],
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
             out = r.stdout.strip()
             report.engines["clamav"] = out or "ok"
             if "FOUND" in out:

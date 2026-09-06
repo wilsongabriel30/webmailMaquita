@@ -1,6 +1,7 @@
-from pydantic_settings import BaseSettings
-from pydantic import Field, AliasChoices
 from functools import lru_cache
+
+from pydantic import AliasChoices, Field
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -41,12 +42,12 @@ class Settings(BaseSettings):
     admin_jwt_secret: str = ""
     ia_api_key: str = ""
     # --- IA enchufable (config central; todas las features la leen) ---
-    ia_provider: str = "gateway"          # openai | ollama | anthropic | gateway
-    ia_base_url: str = ""                 # vacio -> usa ollama_url
-    ia_model: str = ""                    # sin hardcode; definir en .env o panel
+    ia_provider: str = "gateway"  # openai | ollama | anthropic | gateway
+    ia_base_url: str = ""  # vacio -> usa ollama_url
+    ia_model: str = ""  # sin hardcode; definir en .env o panel
     ia_timeout: int = 60
     ia_embed_model: str = "nomic-embed-text"
-    ia_embed_url: str = ""   # endpoint de embeddings; vacio -> usa ia_base_url
+    ia_embed_url: str = ""  # endpoint de embeddings; vacio -> usa ia_base_url
     ollama_url: str = "http://127.0.0.1:11434"
     nc_base_url: str = "http://nextcloud-server"
     nc_admin_user: str = ""
@@ -59,7 +60,9 @@ class Settings(BaseSettings):
     kc_realm: str = "maquita"
     kc_client_id: str = "webmail-maquita"
     kc_client_secret: str = ""
-    onlyoffice_url: str = "http://nextcloud-server:8080"  # URL de OnlyOffice (configurar en .env)
+    onlyoffice_url: str = (
+        "http://nextcloud-server:8080"  # URL de OnlyOffice (configurar en .env)
+    )
     onlyoffice_secret: str = ""
     onlyoffice_download_secret: str = ""
     # Security logging
@@ -72,9 +75,42 @@ class Settings(BaseSettings):
     rate_limit_write_per_min: int = 60
     rate_limit_send_per_min: int = 10
 
+    environment: str = "production"  # "development"/"dev"/"local" habilita /docs
+
     model_config = {"env_file": ".env", "extra": "ignore"}
+
+
+def _validar_secretos_obligatorios(s: Settings) -> None:
+    """Aborta el arranque si falta un secreto obligatorio o tiene valor de ejemplo.
+    NUNCA muestra el valor del secreto: el error solo nombra las variables."""
+    _PLACEHOLDER = (
+        "change",
+        "example",
+        "placeholder",
+        "tu-secreto",
+        "your-secret",
+        "changeme",
+    )
+    obligatorios = {
+        "SECRET_KEY": s.secret_key,
+        "ADMIN_JWT_SECRET": s.admin_jwt_secret,
+        "MASTER_PASSWORD": s.master_password,
+    }
+    malos = [
+        n
+        for n, v in obligatorios.items()
+        if not (v or "").strip() or any(p in (v or "").lower() for p in _PLACEHOLDER)
+    ]
+    if malos:
+        raise RuntimeError(
+            "Secretos obligatorios faltantes o con valor de ejemplo: "
+            + ", ".join(malos)
+            + ". Definelos en .env con valores reales (no los del .env.example)."
+        )
 
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    s = Settings()
+    _validar_secretos_obligatorios(s)
+    return s

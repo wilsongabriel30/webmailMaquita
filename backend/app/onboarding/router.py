@@ -4,6 +4,7 @@ El usuario SIEMPRE es el correo completo con @ (la causa del bloqueo real fue te
 user.dominio.com en vez de user@dominio.com). El perfil de Apple precarga todo menos la
 contraseña, así no hay tecleo del servidor ni del usuario.
 """
+
 import html
 import uuid
 
@@ -88,5 +89,7 @@ async def apple_profile(username: str = Depends(get_current_user)):
     return Response(
         content=plist,
         media_type="application/x-apple-aspen-config",
-        headers={"Content-Disposition": 'attachment; filename="correo-maquita.mobileconfig"'},
+        headers={
+            "Content-Disposition": 'attachment; filename="correo-maquita.mobileconfig"'
+        },
     )

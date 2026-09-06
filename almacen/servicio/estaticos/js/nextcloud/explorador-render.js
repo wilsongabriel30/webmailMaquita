@@ -6,6 +6,19 @@
  * Cargar DESPUES de config, core e interactions.
  */
 
+/**
+ * [A-13] Escape para atributos y texto. Los nombres de archivo y carpeta los pone
+ * el usuario y aqui se interpolaban crudos: un archivo llamado
+ *   x" onmouseover=alert(1) y="
+ * rompia el atributo y ejecutaba codigo en el dominio del correo, para cualquiera
+ * que abriera esa carpeta (tambien en una unidad compartida).
+ */
+function escHtml(t) {
+    return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+}
+
 function _avatarOnError(img, inicial) {
     try {
         const div = document.createElement('div');
@@ -28,11 +41,11 @@ function crearCard(item) {
 
         return `
             <div class="gd-folder-card"
-                 data-ruta="${item.ruta_completa || item.ruta}"
+                 data-ruta="${escHtml(item.ruta_completa || item.ruta)}"
                  data-acceso="${item.es_acceso_directo ? 'true' : ''}" data-destino="${item.destino || ''}"
                  data-folder-id="${item.folder_id || ''}"
                  data-carpeta="true"
-                 data-nombre="${item.nombre}"
+                 data-nombre="${escHtml(item.nombre)}"
                  data-tipo="carpeta"
                  data-tamano="${item.tamano_humano || ''}"
                  data-modificado="${item.modificado_at || ''}"
@@ -51,7 +64,7 @@ function crearCard(item) {
                 <div class="folder-icon">
                     <span class="material-icons" style="color: ${colorPersonalizado}">folder</span>
                 </div>
-                <span class="folder-name" title="${item.nombre}">${item.nombre}</span>
+                <span class="folder-name" title="${escHtml(item.nombre)}">${escHtml(item.nombre)}</span>
                 <button class="folder-menu" onclick="event.stopPropagation(); mostrarContextMenu(event, this.closest('.gd-folder-card'))" title="Más opciones">
                     <span class="material-icons">more_vert</span>
                 </button>
@@ -130,10 +143,10 @@ function crearCard(item) {
 
     return `
         <div class="gd-card"
-             data-ruta="${item.ruta_completa || item.ruta}"
+             data-ruta="${escHtml(item.ruta_completa || item.ruta)}"
                  data-acceso="${item.es_acceso_directo ? 'true' : ''}" data-destino="${item.destino || ''}"
              data-carpeta="false"
-             data-nombre="${item.nombre}"
+             data-nombre="${escHtml(item.nombre)}"
              data-tipo="${item.tipo || 'archivo'}"
              data-extension="${item.extension || ''}"
              data-tamano="${item.tamano_humano || ''}"
@@ -159,7 +172,7 @@ function crearCard(item) {
                 <div class="type-icon ${typeClass}">
                     <span class="material-icons">${typeIcon}</span>
                 </div>
-                <span class="file-name" title="${item.nombre}">${item.nombre}</span>
+                <span class="file-name" title="${escHtml(item.nombre)}">${escHtml(item.nombre)}</span>
             </div>
             <!-- CUERPO: Preview -->
             ${previewHtml}
@@ -179,19 +192,19 @@ function crearCardSugerido(item) {
     if (item.es_carpeta) {
         return `
             <div class="gd-folder-card"
-                 data-ruta="${item.ruta_completa || item.ruta}"
+                 data-ruta="${escHtml(item.ruta_completa || item.ruta)}"
                  data-acceso="${item.es_acceso_directo ? 'true' : ''}" data-destino="${item.destino || ''}"
                  data-folder-id="${item.file_id || item.folder_id || ''}"
                  data-file-id="${item.file_id || ''}"
                  data-carpeta="true"
-                 data-nombre="${item.nombre}"
+                 data-nombre="${escHtml(item.nombre)}"
                  ondblclick="abrirItem(this)"
                  onclick="seleccionarItem(event, this); registrarActividad(this, 'apertura')"
                  oncontextmenu="mostrarContextMenu(event, this)">
                 <div class="folder-icon">
                     <span class="material-icons" style="color: ${colorPersonalizado}">folder</span>
                 </div>
-                <div class="folder-name" title="${item.nombre}">${item.nombre}</div>
+                <div class="folder-name" title="${escHtml(item.nombre)}">${escHtml(item.nombre)}</div>
                 <div class="folder-motivo" title="${motivo}">${motivo}</div>
             </div>
         `;
@@ -199,11 +212,11 @@ function crearCardSugerido(item) {
         const icono = ICONOS[item.tipo] || 'insert_drive_file';
         return `
             <div class="gd-card"
-                 data-ruta="${item.ruta_completa || item.ruta}"
+                 data-ruta="${escHtml(item.ruta_completa || item.ruta)}"
                  data-acceso="${item.es_acceso_directo ? 'true' : ''}" data-destino="${item.destino || ''}"
                  data-file-id="${item.file_id || ''}"
                  data-carpeta="false"
-                 data-nombre="${item.nombre}"
+                 data-nombre="${escHtml(item.nombre)}"
                  ondblclick="abrirItem(this)"
                  onclick="seleccionarItem(event, this); registrarActividad(this, 'apertura')"
                  oncontextmenu="mostrarContextMenu(event, this)">
@@ -211,7 +224,7 @@ function crearCardSugerido(item) {
                     <span class="material-icons">${icono}</span>
                 </div>
                 <div class="gd-card-info">
-                    <div class="gd-card-name" title="${item.nombre}">${item.nombre}</div>
+                    <div class="gd-card-name" title="${escHtml(item.nombre)}">${escHtml(item.nombre)}</div>
                     <div class="gd-card-motivo">${motivo}</div>
                 </div>
             </div>
@@ -227,18 +240,18 @@ function crearFilaSugerido(item) {
 
     return `
         <tr class="gd-list-item"
-            data-ruta="${item.ruta_completa || item.ruta}"
+            data-ruta="${escHtml(item.ruta_completa || item.ruta)}"
                  data-acceso="${item.es_acceso_directo ? 'true' : ''}" data-destino="${item.destino || ''}"
             data-file-id="${item.file_id || ''}"
             data-carpeta="${item.es_carpeta}"
-            data-nombre="${item.nombre}"
+            data-nombre="${escHtml(item.nombre)}"
             ondblclick="abrirItem(this)"
             onclick="seleccionarItem(event, this); registrarActividad(this, 'apertura')"
             oncontextmenu="mostrarContextMenu(event, this)">
             <td>
                 <div class="gd-list-name">
                     <span class="material-icons" style="color: ${colorIcono}">${icono}</span>
-                    <span>${item.nombre}</span>
+                    <span>${escHtml(item.nombre)}</span>
                 </div>
             </td>
             <td class="gd-list-motivo">${motivo}</td>
@@ -277,12 +290,12 @@ function crearFila(item) {
     }
 
     return `
-        <tr data-ruta="${item.ruta_completa || item.ruta}"
+        <tr data-ruta="${escHtml(item.ruta_completa || item.ruta)}"
                  data-acceso="${item.es_acceso_directo ? 'true' : ''}" data-destino="${item.destino || ''}"
             data-file-id="${item.file_id || ''}"
             data-folder-id="${item.es_carpeta ? (item.file_id || item.folder_id || '') : ''}"
             data-carpeta="${item.es_carpeta}"
-            data-nombre="${item.nombre}"
+            data-nombre="${escHtml(item.nombre)}"
             data-tipo="${item.tipo || (item.es_carpeta ? 'carpeta' : 'archivo')}"
             data-extension="${item.extension || ''}"
             data-tamano="${item.tamano_humano || ''}"
@@ -300,7 +313,7 @@ function crearFila(item) {
                     <div class="file-icon">
                         <span class="material-icons" style="color: ${item.color || '#5f6368'}">${icono}</span>
                     </div>
-                    <span class="file-name">${item.nombre}</span>
+                    <span class="file-name">${escHtml(item.nombre)}</span>
                 </div>
             </td>
             <td>

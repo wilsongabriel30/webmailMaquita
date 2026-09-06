@@ -1,4 +1,5 @@
 """Funciones compartidas para el módulo de contactos."""
+
 import json
 
 # Todos los campos de user_contacts para SELECT
@@ -46,13 +47,19 @@ def compute_display_name(body: dict) -> str:
     return fn or ln or body.get("name", "").strip() or ""
 
 
-async def audit(db, owner: str, contact_id, action: str, details: dict = None, ip: str = ""):
+async def audit(
+    db, owner: str, contact_id, action: str, details: dict = None, ip: str = ""
+):
     """Registra acción en contact_audit_log. No lanza excepciones."""
     try:
         await db.execute(
             "INSERT INTO contact_audit_log (owner, contact_id, action, details, ip_address) "
             "VALUES ($1,$2,$3,$4,$5)",
-            owner, contact_id, action, json.dumps(details or {}), ip
+            owner,
+            contact_id,
+            action,
+            json.dumps(details or {}),
+            ip,
         )
     except Exception:
         pass
@@ -63,7 +70,8 @@ async def get_categories_for_contact(db, contact_id: int) -> list:
     rows = await db.fetch(
         "SELECT cc.id, cc.name, cc.color FROM contact_category_assignments cca "
         "JOIN contact_categories cc ON cc.id = cca.category_id "
-        "WHERE cca.contact_id = $1 ORDER BY cc.name", contact_id
+        "WHERE cca.contact_id = $1 ORDER BY cc.name",
+        contact_id,
     )
     return [{"id": r["id"], "name": r["name"], "color": r["color"]} for r in rows]
 

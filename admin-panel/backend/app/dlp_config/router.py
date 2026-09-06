@@ -36,13 +36,15 @@ class DlpConfigIn(BaseModel):
     milter_enforce: bool = False        # rechazar en servidor (Outlook/movil)
     scan_attachments: bool = True       # revisar contenido de adjuntos
     trusted_domains: list[str] = []     # dominios externos de confianza
+    remitentes_exentos: list[str] = []  # remitentes que pueden enviar datos sensibles fuera
 
 
 @router.get("")
 async def get_config(request: Request, admin: dict = Depends(get_current_admin)):
     row = await _db(request).fetchrow(
         "SELECT enabled, default_action, rules, COALESCE(milter_enforce,false) AS milter_enforce, "
-        "COALESCE(scan_attachments,true) AS scan_attachments, COALESCE(trusted_domains,'[]'::jsonb) AS trusted_domains "
+        "COALESCE(scan_attachments,true) AS scan_attachments, COALESCE(trusted_domains,'[]'::jsonb) AS trusted_domains, "
+        "COALESCE(remitentes_exentos,'[]'::jsonb) AS remitentes_exentos "
         "FROM dlp_config WHERE id = 1")
     rules = dict(DEFAULT_RULES)
     enabled, default_action = True, "warn"
@@ -62,6 +64,10 @@ async def get_config(request: Request, admin: dict = Depends(get_current_admin))
     if isinstance(td, str):
         try: td = json.loads(td or "[]")
         except ValueError: td = []
+    ex = row["remitentes_exentos"] if row else []
+    if isinstance(ex, str):
+        try: ex = json.loads(ex or "[]")
+        except ValueError: ex = []
     return {
         "enabled": enabled,
         "default_action": default_action,
@@ -70,6 +76,9 @@ async def get_config(request: Request, admin: dict = Depends(get_current_admin))
         "milter_enforce": bool(row["milter_enforce"]) if row else False,
         "scan_attachments": bool(row["scan_attachments"]) if row else True,
         "trusted_domains": list(td or []),
+        # Remitentes que pueden enviar datos sensibles fuera. La violación se
+        # SIGUE registrando: solo cambia que el correo sale. Caso real: nómina.
+        "remitentes_exentos": list(ex or []),
     }
 
 
@@ -89,17 +98,19 @@ async def save_config(body: DlpConfigIn, request: Request,
 
     await _db(request).execute(
         """
-        INSERT INTO dlp_config (id, enabled, default_action, rules, milter_enforce, scan_attachments, trusted_domains, updated_at)
-        VALUES (1, $1, $2, $3, $4, $5, $6::jsonb, now())
+        INSERT INTO dlp_config (id, enabled, default_action, rules, milter_enforce, scan_attachments, trusted_domains, remitentes_exentos, updated_at)
+        VALUES (1, $1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, now())
         ON CONFLICT (id) DO UPDATE SET
           enabled = EXCLUDED.enabled, default_action = EXCLUDED.default_action,
           rules = EXCLUDED.rules, milter_enforce = EXCLUDED.milter_enforce,
           scan_attachments = EXCLUDED.scan_attachments, trusted_domains = EXCLUDED.trusted_domains,
+          remitentes_exentos = EXCLUDED.remitentes_exentos,
           updated_at = now()
         """,
         body.enabled, body.default_action, json.dumps(rules), bool(body.milter_enforce),
         bool(body.scan_attachments),
-        json.dumps(sorted({(d or "").strip().lower().lstrip("@") for d in body.trusted_domains if (d or "").strip()})))
+        json.dumps(sorted({(d or "").strip().lower().lstrip("@") for d in body.trusted_domains if (d or "").strip()})),
+        json.dumps(sorted({(x or "").strip().lower() for x in body.remitentes_exentos if (x or "").strip() and "@" in x})))
 
     # Reemplazar palabras clave (set completo)
     terms = sorted({(k or "").strip() for k in body.keywords if (k or "").strip()})

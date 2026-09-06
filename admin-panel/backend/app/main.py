@@ -1,4 +1,5 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 
 import bcrypt
@@ -33,6 +34,7 @@ from app.shared.router import router as shared_router
 from app.nextcloud.router import router as nextcloud_router
 from app.ediscovery.router import router as ediscovery_router
 from app.branding.router import router as branding_router
+from app import config
 from app.ai_config.router import router as ai_config_router
 from app.office_config.router import router as office_config_router
 from app.voice_config.router import router as voice_config_router
@@ -74,35 +76,44 @@ async def lifespan(app: FastAPI):
 
     await init_admin_tables(pool)
 
-    # Create default superadmin if none exists
+    # Primer superadmin SOLO desde el entorno (A-9): sin clave literal en el código y
+    # sin escribirla al log. ADMIN_BOOTSTRAP_PASSWORD se usa una vez y se retira del .env.
     count = await pool.fetchval("SELECT count(*) FROM admin_users")
     if count == 0:
-        default_hash = bcrypt.hashpw(b"MaquitaAdmin2026.", bcrypt.gensalt()).decode()
-        await pool.execute(
-            """INSERT INTO admin_users (username, password_hash, display_name, role)
-               VALUES ($1, $2, $3, $4)""",
-            "admin", default_hash, "Administrador", "superadmin",
-        )
-        logger.info("Default superadmin created: admin / MaquitaAdmin2026.")
+        clave = os.getenv("ADMIN_BOOTSTRAP_PASSWORD", "")
+        if len(clave) >= 12:
+            await pool.execute(
+                """INSERT INTO admin_users (username, password_hash, display_name, role)
+                   VALUES ($1, $2, $3, $4)""",
+                os.getenv("ADMIN_BOOTSTRAP_USER", "admin"),
+                bcrypt.hashpw(clave.encode(), bcrypt.gensalt()).decode(), "Administrador", "superadmin",
+            )
+            logger.warning("Superadmin inicial creado desde ADMIN_BOOTSTRAP_PASSWORD; retire esa variable del .env")
+        else:
+            logger.error("No hay administradores: defina ADMIN_BOOTSTRAP_PASSWORD (>= 12 caracteres) "
+                         "en el .env y reinicie para crear el primer superadmin")
 
     logger.info("Maquita Admin Panel ready on port 8001")
     yield
     await pool.close()
 
 
+_es_dev = config.ENVIRONMENT.lower() in ("development", "dev", "local")
+_docs = {} if _es_dev else {"docs_url": None, "redoc_url": None, "openapi_url": None}
 app = FastAPI(
     title="Maquita Mail Admin",
     description="Panel de administracion de correo - Maquita",
     version="1.0.0",
     lifespan=lifespan,
+    **_docs,
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[o.strip() for o in config.CORS_ORIGINS.split(",") if o.strip()],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
 )
 
 

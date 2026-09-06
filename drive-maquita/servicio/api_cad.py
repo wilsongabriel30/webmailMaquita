@@ -84,7 +84,7 @@ def cad_svg():
         ruta = normalizar_ruta_virtual(request.args.get('ruta', ''))
         fisica = ruta_fisica(usuario, ruta)
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     if not os.path.isfile(fisica):
         return error('Archivo no encontrado', 404)
     ext = ruta.rsplit('.', 1)[-1].lower() if '.' in ruta else ''

@@ -10,6 +10,7 @@ a Gmail + envío masivo de spam → blacklist de IP del servidor.
 
 Este módulo previene que eso ocurra desde el webmail de Maquita.
 """
+
 import asyncio
 import logging
 import time
@@ -18,16 +19,18 @@ from datetime import datetime
 logger = logging.getLogger("account_protection")
 
 # ─── Dominios del organización (forwarding permitido sin restricción) ───
-INTERNAL_DOMAINS = frozenset({
-    "ejemplo.com",
-    "ejemplo.com",
-})
+INTERNAL_DOMAINS = frozenset(
+    {
+        "ejemplo.com",
+        "ejemplo.com",
+    }
+)
 
 # ─── Umbrales de detección ───
 # Si un usuario envía más de esto en ventana corta → cuenta bloqueada
-SPIKE_THRESHOLD_5MIN = 15     # >15 correos en 5 min = anómalo
-SPIKE_THRESHOLD_15MIN = 40    # >40 correos en 15 min = anómalo
-UNIQUE_RECIPIENTS_1H = 50     # >50 destinatarios únicos en 1 hora = anómalo
+SPIKE_THRESHOLD_5MIN = 15  # >15 correos en 5 min = anómalo
+SPIKE_THRESHOLD_15MIN = 40  # >40 correos en 15 min = anómalo
+UNIQUE_RECIPIENTS_1H = 50  # >50 destinatarios únicos en 1 hora = anómalo
 
 # Tiempo de bloqueo automático (segundos)
 AUTO_BLOCK_DURATION = 7200  # 2 horas
@@ -46,7 +49,7 @@ async def check_send_anomaly(redis, username: str, recipients: list[str]) -> dic
         ttl = await redis.ttl(f"account_blocked:{username}")
         return {
             "allowed": False,
-            "reason": f"Cuenta bloqueada por actividad sospechosa. Se desbloquea en {ttl // 60} minutos. Contacte al administrador."
+            "reason": f"Cuenta bloqueada por actividad sospechosa. Se desbloquea en {ttl // 60} minutos. Contacte al administrador.",
         }
 
     now = time.time()
@@ -73,7 +76,9 @@ async def check_send_anomaly(redis, username: str, recipients: list[str]) -> dic
     # 5. Evaluar anomalías
     anomaly = None
     if count_5min > SPIKE_THRESHOLD_5MIN:
-        anomaly = f"Spike: {count_5min} correos en 5 minutos (límite: {SPIKE_THRESHOLD_5MIN})"
+        anomaly = (
+            f"Spike: {count_5min} correos en 5 minutos (límite: {SPIKE_THRESHOLD_5MIN})"
+        )
     elif count_15min > SPIKE_THRESHOLD_15MIN:
         anomaly = f"Spike: {count_15min} correos en 15 minutos (límite: {SPIKE_THRESHOLD_15MIN})"
     elif unique_rcpts > UNIQUE_RECIPIENTS_1H:
@@ -86,22 +91,22 @@ async def check_send_anomaly(redis, username: str, recipients: list[str]) -> dic
         # Limpiar sesión para forzar re-login
         await redis.delete(f"imap_pass:{username}")
 
-        logger.critical(
-            f"ACCOUNT BLOCKED: {username} — {anomaly}"
-        )
+        logger.critical(f"ACCOUNT BLOCKED: {username} — {anomaly}")
 
         # Registrar incidente para admin
         await _log_security_incident(redis, username, "mass_send_blocked", anomaly)
 
         return {
             "allowed": False,
-            "reason": f"Actividad anómala detectada: {anomaly}. Cuenta bloqueada por {AUTO_BLOCK_DURATION // 60} minutos."
+            "reason": f"Actividad anómala detectada: {anomaly}. Cuenta bloqueada por {AUTO_BLOCK_DURATION // 60} minutos.",
         }
 
     return {"allowed": True}
 
 
-async def check_forward_policy(redis, username: str, forward_address: str, db=None) -> dict:
+async def check_forward_policy(
+    redis, username: str, forward_address: str, db=None
+) -> dict:
     """Verificar si un forwarding externo está permitido.
 
     Política:
@@ -125,13 +130,16 @@ async def check_forward_policy(redis, username: str, forward_address: str, db=No
     if db:
         approved = await db.fetchval(
             "SELECT 1 FROM approved_forwards WHERE username = $1 AND forward_address = $2 AND is_active = TRUE",
-            username, forward_address.lower()
+            username,
+            forward_address.lower(),
         )
         if approved:
             return {"allowed": True}
 
     # También verificar en Redis (cache de aprobaciones)
-    approved_cache = await redis.sismember(f"approved_forwards:{username}", forward_address.lower())
+    approved_cache = await redis.sismember(
+        f"approved_forwards:{username}", forward_address.lower()
+    )
     if approved_cache:
         return {"allowed": True}
 
@@ -140,14 +148,16 @@ async def check_forward_policy(redis, username: str, forward_address: str, db=No
         f"FORWARD BLOCKED: {username} → {forward_address} (dominio externo no aprobado)"
     )
     await _log_security_incident(
-        redis, username, "external_forward_blocked",
-        f"Intento de forwarding a {forward_address} (dominio: {domain})"
+        redis,
+        username,
+        "external_forward_blocked",
+        f"Intento de forwarding a {forward_address} (dominio: {domain})",
     )
 
     return {
         "allowed": False,
         "reason": f"El reenvío a dominios externos ({domain}) requiere aprobación del administrador. "
-                  f"Contacte a soporte técnico para habilitar el reenvío a {forward_address}."
+        f"Contacte a soporte técnico para habilitar el reenvío a {forward_address}.",
     }
 
 
@@ -168,6 +178,7 @@ async def _log_security_incident(redis, username: str, event_type: str, details:
         "details": details,
     }
     import json
+
     await redis.lpush("security_incidents", json.dumps(incident))
     await redis.ltrim("security_incidents", 0, 999)  # mantener últimos 1000
 
@@ -208,14 +219,21 @@ async def admin_unblock_account(redis, username: str):
     logger.info(f"ACCOUNT UNBLOCKED by admin: {username}")
 
 
-async def admin_approve_forward(redis, db, username: str, forward_address: str, approved_by: str):
+async def admin_approve_forward(
+    redis, db, username: str, forward_address: str, approved_by: str
+):
     """Admin aprueba un forwarding externo."""
     # Guardar en DB
-    await db.execute("""
+    await db.execute(
+        """
         INSERT INTO approved_forwards (username, forward_address, approved_by, is_active)
         VALUES ($1, $2, $3, TRUE)
         ON CONFLICT (username, forward_address) DO UPDATE SET is_active = TRUE, approved_by = $3
-    """, username, forward_address.lower(), approved_by)
+    """,
+        username,
+        forward_address.lower(),
+        approved_by,
+    )
 
     # Cache en Redis
     await redis.sadd(f"approved_forwards:{username}", forward_address.lower())

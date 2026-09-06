@@ -20,6 +20,8 @@ export function ChatFlotante() {
   const [disponible, setDisponible] = useState(false);
   const [abierto, setAbierto] = useState(false);
   const [noLeidos, setNoLeidos] = useState(0);
+  // Origen del chat cuando vive aparte; vacio = mismo origen que el correo.
+  const [origenChat, setOrigenChat] = useState("");
   const abiertoRef = useRef(false);
 
   // 1) Config del panel de control (activado + URL).
@@ -30,10 +32,33 @@ export function ChatFlotante() {
         if (d && typeof d.enabled === "boolean") {
           setEnabled(d.enabled);
           if (d.embed_url) setEmbedUrl(d.embed_url);
-        } else setEnabled(true);
+        } else setEnabled(false);
       })
-      .catch(() => setEnabled(true));
+      // Ante error, el chat NO se da por habilitado. Antes se asumia que si, y
+      // justo en las instalaciones sin chat eso arrancaba un sondeo infinito
+      // con 404 (reportado por una replica externa).
+      .catch(() => setEnabled(false));
   }, []);
+
+  // 1b) Entrada al chat. Desde que el chat vive en su propio origen, su cookie ya
+  //     no viaja con la del correo: hay que pedir un vale de un solo uso y cargar
+  //     el iframe con el. Si el chat sigue en el origen del correo, esto devuelve
+  //     la misma URL relativa y no cambia nada.
+  useEffect(() => {
+    if (enabled === false) return;
+    let vivo = true;
+    fetch("/api/chat-sso", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!vivo || !d || !d.url) return;
+        setEmbedUrl(d.url);
+        if (d.origen) setOrigenChat(d.origen);
+      })
+      .catch(() => {});
+    return () => {
+      vivo = false;
+    };
+  }, [enabled]);
 
   // 2) Autodeteccion de disponibilidad del backend de chat.
   //    Se re-chequea cada 60 s y al volver el foco. Si el token de sesion expiro
@@ -42,6 +67,17 @@ export function ChatFlotante() {
   useEffect(() => {
     if (enabled === false) return;
     let vivo = true;
+    // Un 404 en esta ruta significa que el chat no esta instalado: no se arregla
+    // solo, a diferencia de un 503 temporal. Tras tres seguidos se deja de
+    // sondear hasta recargar la pagina. Sin esto, una instalacion sin chat
+    // generaba una peticion fallida por minuto y por persona, mas una en cada
+    // cambio de foco, y una consola llena de errores.
+    let noInstalado = 0;
+    const detener = () => {
+      clearInterval(t);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
     const comprobar = async () => {
       try {
         let r = await fetch("/api/chat/conversations?limit=1", { credentials: "include" });
@@ -49,21 +85,27 @@ export function ChatFlotante() {
           await fetch("/api/auth/refresh", { method: "POST", credentials: "include" }).catch(() => {});
           r = await fetch("/api/chat/conversations?limit=1", { credentials: "include" });
         }
-        if (vivo) setDisponible(r.ok);
+        if (!vivo) return;
+        if (r.status === 404) {
+          noInstalado += 1;
+          setDisponible(false);
+          if (noInstalado >= 3) detener();
+          return;
+        }
+        noInstalado = 0;
+        setDisponible(r.ok);
       } catch {
         if (vivo) setDisponible(false);
       }
     };
-    comprobar();
-    const t = setInterval(comprobar, 60000);
     const onFocus = () => comprobar();
+    const t = setInterval(comprobar, 60000);
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onFocus);
+    comprobar();
     return () => {
       vivo = false;
-      clearInterval(t);
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onFocus);
+      detener();
     };
   }, [enabled]);
 
@@ -75,7 +117,8 @@ export function ChatFlotante() {
         if (!d) return;
         const lista = d.conversaciones || d.conversations || [];
         const total = lista.reduce(
-          (acc: number, c: any) => acc + (c.mensajes_no_leidos || c.unread_count || 0),
+          (acc: number, c: { mensajes_no_leidos?: number; unread_count?: number }) =>
+            acc + (c.mensajes_no_leidos || c.unread_count || 0),
           0
         );
         setNoLeidos(abiertoRef.current ? 0 : total);
@@ -95,8 +138,11 @@ export function ChatFlotante() {
   // 4) Aviso INSTANTANEO desde el iframe del chat (postMessage) al llegar mensaje.
   useEffect(() => {
     function onMsg(e: MessageEvent) {
-      if (e.origin !== window.location.origin) return;
-      const d: any = e.data;
+      // El iframe del chat puede estar en OTRO origen. Se acepta solo el suyo
+      // (o el propio, mientras siga sirviendose bajo el correo). Nunca cualquiera.
+      const permitido = origenChat || window.location.origin;
+      if (e.origin !== permitido) return;
+      const d = e.data as { source?: string; type?: string } | null;
       if (d && d.source === "maquita-chat" && d.type === "nuevo-mensaje") {
         if (!abiertoRef.current) {
           setNoLeidos((n) => (n > 0 ? n : 1)); // brillo inmediato
@@ -107,7 +153,7 @@ export function ChatFlotante() {
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [origenChat]);
 
   const toggle = () => {
     setAbierto((v) => {

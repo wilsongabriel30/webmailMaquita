@@ -4,13 +4,14 @@ Combina: mailbox + user_profiles + org_contacts + meeting_rooms + mail_groups
 Reescrito: 2026-04-12
 Actualizado: 2026-04-13 — Agregadas listas de distribucion (mail_groups) al directorio
 """
+
 from __future__ import annotations
 
 import csv
 import io
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile, File
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -20,6 +21,7 @@ router = APIRouter(prefix="/api/gal", tags=["gal"])
 
 
 # --- Modelos ---
+
 
 class GALEntry(BaseModel):
     email: str
@@ -78,6 +80,7 @@ class OrgChartDepartment(BaseModel):
 
 # --- Helpers ---
 
+
 def _db(request: Request):
     return request.app.state.db_pool
 
@@ -92,7 +95,8 @@ async def _is_admin(db, user: str) -> bool:
     try:
         row = await db.fetchval(
             "SELECT 1 FROM domain_admins WHERE domain=$1 AND username=$2 AND is_active=true",
-            _get_domain(user), user
+            _get_domain(user),
+            user,
         )
         if row:
             return True
@@ -120,13 +124,17 @@ def _row_to_entry(r, source: str = "mailbox") -> GALEntry:
 
 # --- Busqueda unificada ---
 
-async def unified_search(db, query: str, domain: str, limit: int = 15, include_rooms: bool = True):
+
+async def unified_search(
+    db, query: str, domain: str, limit: int = 15, include_rooms: bool = True
+):
     results = []
     q = f"%{query}%"
     seen_emails: set[str] = set()
 
     # 1. Mailbox users (prioridad alta)
-    mailbox_rows = await db.fetch("""
+    mailbox_rows = await db.fetch(
+        """
         SELECT m.username AS email, m.name, m.active,
                COALESCE(p.display_name, m.name) AS display_name,
                COALESCE(p.title, '') AS title,
@@ -146,7 +154,10 @@ async def unified_search(db, query: str, domain: str, limit: int = 15, include_r
         )
         ORDER BY m.name
         LIMIT $2
-    """, q, limit)
+    """,
+        q,
+        limit,
+    )
     for r in mailbox_rows:
         if r["email"] not in seen_emails:
             results.append(_row_to_entry(r, "mailbox"))
@@ -155,7 +166,8 @@ async def unified_search(db, query: str, domain: str, limit: int = 15, include_r
     # 2. Org contacts (directorio institucional)
     remaining = limit - len(results)
     if remaining > 0:
-        org_rows = await db.fetch("""
+        org_rows = await db.fetch(
+            """
             SELECT email, display_name, first_name, last_name,
                    job_title AS title, department,
                    COALESCE(phone, phone_mobile) AS phone,
@@ -171,7 +183,11 @@ async def unified_search(db, query: str, domain: str, limit: int = 15, include_r
                 department ILIKE $1 OR job_title ILIKE $1
             )
             LIMIT $2
-        """, q, remaining, domain)
+        """,
+            q,
+            remaining,
+            domain,
+        )
         for r in org_rows:
             if r["email"] not in seen_emails:
                 results.append(_row_to_entry(r, "directory"))
@@ -181,7 +197,8 @@ async def unified_search(db, query: str, domain: str, limit: int = 15, include_r
     if include_rooms:
         remaining = limit - len(results)
         if remaining > 0:
-            room_rows = await db.fetch("""
+            room_rows = await db.fetch(
+                """
                 SELECT email, name AS display_name, name,
                        'Sala de reuniones' AS title,
                        COALESCE(location, '') AS department,
@@ -194,7 +211,10 @@ async def unified_search(db, query: str, domain: str, limit: int = 15, include_r
                     name ILIKE $1 OR email ILIKE $1 OR COALESCE(location, '') ILIKE $1
                 )
                 LIMIT $2
-            """, q, remaining)
+            """,
+                q,
+                remaining,
+            )
             for r in room_rows:
                 if r["email"] and r["email"] not in seen_emails:
                     results.append(_row_to_entry(r, "room"))
@@ -203,7 +223,8 @@ async def unified_search(db, query: str, domain: str, limit: int = 15, include_r
     # 4. Listas de distribucion (mail_groups)
     remaining = limit - len(results)
     if remaining > 0:
-        group_rows = await db.fetch("""
+        group_rows = await db.fetch(
+            """
             SELECT g.address AS email, g.name AS display_name, g.name,
                    'Lista de distribucion' AS title,
                    COALESCE(g.description, '') AS department,
@@ -217,7 +238,10 @@ async def unified_search(db, query: str, domain: str, limit: int = 15, include_r
                 COALESCE(g.description, '') ILIKE $1
             )
             LIMIT $2
-        """, q, remaining)
+        """,
+            q,
+            remaining,
+        )
         for r in group_rows:
             if r["email"] not in seen_emails:
                 results.append(_row_to_entry(r, "group"))
@@ -227,6 +251,7 @@ async def unified_search(db, query: str, domain: str, limit: int = 15, include_r
 
 
 # --- GET /api/gal --- Directorio completo paginado ---
+
 
 @router.get("", response_model=GALListResponse)
 async def list_gal(
@@ -277,7 +302,8 @@ async def list_gal(
 
     where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
 
-    mb_rows = await db.fetch(f"""
+    mb_rows = await db.fetch(
+        f"""
         SELECT m.username AS email, m.name, m.active,
                COALESCE(p.display_name, m.name) AS display_name,
                COALESCE(p.title, '') AS title,
@@ -291,7 +317,9 @@ async def list_gal(
         LEFT JOIN user_profiles p ON p.user_email = m.username
         WHERE {where_sql}
         ORDER BY COALESCE(p.display_name, m.name)
-    """, *params)
+    """,
+        *params,
+    )
     for r in mb_rows:
         all_items.append(_row_to_entry(r, "mailbox"))
 
@@ -316,7 +344,8 @@ async def list_gal(
 
     oc_where = " AND ".join(oc_clauses)
 
-    oc_rows = await db.fetch(f"""
+    oc_rows = await db.fetch(
+        f"""
         SELECT email, display_name,
                COALESCE(display_name, first_name || ' ' || last_name) AS name,
                job_title AS title, department,
@@ -327,7 +356,9 @@ async def list_gal(
         FROM org_contacts
         WHERE {oc_where}
         ORDER BY display_name
-    """, *oc_params)
+    """,
+        *oc_params,
+    )
 
     seen = {item.email for item in all_items}
     for r in oc_rows:
@@ -350,7 +381,8 @@ async def list_gal(
 
     gr_where = " AND ".join(gr_clauses)
 
-    gr_rows = await db.fetch(f"""
+    gr_rows = await db.fetch(
+        f"""
         SELECT g.address AS email, g.name AS display_name, g.name,
                'Lista de distribucion' AS title,
                COALESCE(g.description, '') AS department,
@@ -360,7 +392,9 @@ async def list_gal(
         FROM mail_groups g
         WHERE {gr_where}
         ORDER BY g.name
-    """, *gr_params)
+    """,
+        *gr_params,
+    )
 
     for r in gr_rows:
         if r["email"] not in seen:
@@ -368,16 +402,19 @@ async def list_gal(
             seen.add(r["email"])
 
     total = len(all_items)
-    page_items = all_items[offset:offset + per_page]
+    page_items = all_items[offset : offset + per_page]
     return GALListResponse(items=page_items, total=total, page=page, page_size=per_page)
 
 
 # --- GET /api/gal/search --- Busqueda rapida unificada ---
 
+
 @router.get("/search")
 async def search_gal(
     request: Request,
-    q: str = Query(..., min_length=2, description="Texto de busqueda (min 2 caracteres)"),
+    q: str = Query(
+        ..., min_length=2, description="Texto de busqueda (min 2 caracteres)"
+    ),
     limit: int = Query(15, ge=1, le=50),
     include_rooms: bool = Query(True),
     user: str = Depends(get_current_user),
@@ -390,6 +427,7 @@ async def search_gal(
 
 
 # --- GET /api/gal/departments --- Lista departamentos ---
+
 
 @router.get("/departments")
 async def list_departments(
@@ -411,7 +449,7 @@ async def list_departments(
     # De org_contacts
     rows = await db.fetch(
         "SELECT DISTINCT department FROM org_contacts WHERE domain = $1 AND department != ''",
-        domain
+        domain,
     )
     for r in rows:
         departments.add(r["department"])
@@ -420,6 +458,7 @@ async def list_departments(
 
 
 # --- GET /api/gal/org-chart --- Arbol organizacional ---
+
 
 @router.get("/org-chart")
 async def org_chart(
@@ -443,25 +482,38 @@ async def org_chart(
     """)
     for r in rows:
         dept = r["department"] or "Sin departamento"
-        dept_map.setdefault(dept, []).append({
-            "email": r["email"], "name": r["name"], "title": r["title"], "source": "mailbox"
-        })
+        dept_map.setdefault(dept, []).append(
+            {
+                "email": r["email"],
+                "name": r["name"],
+                "title": r["title"],
+                "source": "mailbox",
+            }
+        )
 
     # Org contacts
-    rows = await db.fetch("""
+    rows = await db.fetch(
+        """
         SELECT email, COALESCE(display_name, first_name || ' ' || last_name) AS name,
                job_title AS title,
                COALESCE(department, 'Sin departamento') AS department
         FROM org_contacts WHERE domain = $1
         ORDER BY department, display_name
-    """, domain)
+    """,
+        domain,
+    )
     seen: set[str] = set()
     for r in rows:
         if r["email"] not in seen:
             dept = r["department"] or "Sin departamento"
-            dept_map.setdefault(dept, []).append({
-                "email": r["email"], "name": r["name"], "title": r["title"], "source": "directory"
-            })
+            dept_map.setdefault(dept, []).append(
+                {
+                    "email": r["email"],
+                    "name": r["name"],
+                    "title": r["title"],
+                    "source": "directory",
+                }
+            )
             seen.add(r["email"])
 
     result = [
@@ -472,6 +524,7 @@ async def org_chart(
 
 
 # --- GET /api/gal/stats --- Estadisticas ---
+
 
 @router.get("/stats", response_model=StatsResponse)
 async def gal_stats(
@@ -484,9 +537,15 @@ async def gal_stats(
 
     total_mb = await db.fetchval("SELECT COUNT(*) FROM mailbox")
     active_mb = await db.fetchval("SELECT COUNT(*) FROM mailbox WHERE active = true")
-    total_dir = await db.fetchval("SELECT COUNT(*) FROM org_contacts WHERE domain = $1", domain)
-    total_rooms = await db.fetchval("SELECT COUNT(*) FROM meeting_rooms WHERE is_active = true")
-    total_groups = await db.fetchval("SELECT COUNT(*) FROM mail_groups WHERE active = true")
+    total_dir = await db.fetchval(
+        "SELECT COUNT(*) FROM org_contacts WHERE domain = $1", domain
+    )
+    total_rooms = await db.fetchval(
+        "SELECT COUNT(*) FROM meeting_rooms WHERE is_active = true"
+    )
+    total_groups = await db.fetchval(
+        "SELECT COUNT(*) FROM mail_groups WHERE active = true"
+    )
 
     # Por departamento
     dept_rows = await db.fetch("""
@@ -511,6 +570,7 @@ async def gal_stats(
 
 # --- GET /api/gal/export --- Exportar directorio ---
 
+
 @router.get("/export")
 async def export_gal(
     request: Request,
@@ -529,12 +589,15 @@ async def export_gal(
         FROM mailbox m LEFT JOIN user_profiles p ON p.user_email = m.username
         WHERE m.active = true ORDER BY display_name
     """)
-    oc_rows = await db.fetch("""
+    oc_rows = await db.fetch(
+        """
         SELECT email, display_name, job_title AS title, department,
                COALESCE(phone, '') AS phone, COALESCE(phone_mobile, '') AS mobile,
                '' AS office_location, 'directory' AS source
         FROM org_contacts WHERE domain = $1 ORDER BY display_name
-    """, domain)
+    """,
+        domain,
+    )
 
     gr_rows = await db.fetch("""
         SELECT address AS email, name AS display_name,
@@ -566,24 +629,46 @@ async def export_gal(
         return StreamingResponse(
             io.BytesIO(content.encode("utf-8")),
             media_type="text/vcard",
-            headers={"Content-Disposition": "attachment; filename=directorio.vcf"}
+            headers={"Content-Disposition": "attachment; filename=directorio.vcf"},
         )
     else:
         output = io.StringIO()
         writer = csv.writer(output)
-        writer.writerow(["Email", "Nombre", "Cargo", "Departamento", "Telefono", "Movil", "Ubicacion", "Fuente"])
+        writer.writerow(
+            [
+                "Email",
+                "Nombre",
+                "Cargo",
+                "Departamento",
+                "Telefono",
+                "Movil",
+                "Ubicacion",
+                "Fuente",
+            ]
+        )
         for r in all_rows:
-            writer.writerow([r["email"], r["display_name"], r["title"], r["department"],
-                             r["phone"], r["mobile"], r.get("office_location", ""), r["source"]])
+            writer.writerow(
+                [
+                    r["email"],
+                    r["display_name"],
+                    r["title"],
+                    r["department"],
+                    r["phone"],
+                    r["mobile"],
+                    r.get("office_location", ""),
+                    r["source"],
+                ]
+            )
         content = output.getvalue()
         return StreamingResponse(
             io.BytesIO(content.encode("utf-8")),
             media_type="text/csv",
-            headers={"Content-Disposition": "attachment; filename=directorio.csv"}
+            headers={"Content-Disposition": "attachment; filename=directorio.csv"},
         )
 
 
 # --- GET /api/gal/{email} --- Perfil detallado ---
+
 
 @router.get("/{email}")
 async def get_user_detail(
@@ -596,7 +681,8 @@ async def get_user_detail(
     domain = _get_domain(user)
 
     # Try mailbox first
-    row = await db.fetchrow("""
+    row = await db.fetchrow(
+        """
         SELECT m.username AS email, m.name, m.active, m.phone,
                m.quota, m.modified AS last_login,
                p.display_name, p.title, p.department, p.mobile,
@@ -604,7 +690,9 @@ async def get_user_detail(
         FROM mailbox m
         LEFT JOIN user_profiles p ON p.user_email = m.username
         WHERE m.username = $1
-    """, email)
+    """,
+        email,
+    )
     if row:
         return GALDetailEntry(
             email=row["email"],
@@ -624,8 +712,7 @@ async def get_user_detail(
 
     # Try org_contacts
     row = await db.fetchrow(
-        "SELECT * FROM org_contacts WHERE email = $1 AND domain = $2",
-        email, domain
+        "SELECT * FROM org_contacts WHERE email = $1 AND domain = $2", email, domain
     )
     if row:
         return GALDetailEntry(
@@ -657,11 +744,14 @@ async def get_user_detail(
         )
 
     # Try mail_groups (listas de distribucion)
-    row = await db.fetchrow("""
+    row = await db.fetchrow(
+        """
         SELECT g.address AS email, g.name, g.description, g.active, g.domain,
                (SELECT count(*) FROM mail_group_members gm WHERE gm.group_id = g.id) AS member_count
         FROM mail_groups g WHERE g.address = $1
-    """, email)
+    """,
+        email,
+    )
     if row:
         return GALDetailEntry(
             email=row["email"],
@@ -674,10 +764,13 @@ async def get_user_detail(
             active=row["active"],
         )
 
-    raise HTTPException(status_code=404, detail="Entrada no encontrada en el directorio")
+    raise HTTPException(
+        status_code=404, detail="Entrada no encontrada en el directorio"
+    )
 
 
 # --- PUT /api/gal/{email}/profile --- Actualizar perfil ---
+
 
 @router.put("/{email}/profile")
 async def update_profile(
@@ -696,7 +789,8 @@ async def update_profile(
     if not exists:
         raise HTTPException(404, "Usuario no encontrado")
 
-    row = await db.fetchrow("""
+    row = await db.fetchrow(
+        """
         INSERT INTO user_profiles (user_email, display_name, title, department, phone, mobile, office_location, photo_url)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         ON CONFLICT (user_email) DO UPDATE SET
@@ -709,7 +803,8 @@ async def update_profile(
             photo_url = COALESCE(NULLIF($8, ''), user_profiles.photo_url),
             updated_at = NOW()
         RETURNING *
-    """, email,
+    """,
+        email,
         body.display_name or "",
         body.title or "",
         body.department or "",
@@ -723,6 +818,7 @@ async def update_profile(
 
 # --- POST /api/gal/bulk-update --- Actualizacion masiva (admin) ---
 
+
 @router.post("/bulk-update")
 async def bulk_update(
     request: Request,
@@ -731,7 +827,9 @@ async def bulk_update(
     """Actualizacion masiva de perfiles (admin). Acepta JSON array."""
     db = _db(request)
     if not await _is_admin(db, user):
-        raise HTTPException(403, "Solo administradores pueden hacer actualizaciones masivas")
+        raise HTTPException(
+            403, "Solo administradores pueden hacer actualizaciones masivas"
+        )
 
     body = await request.json()
     if not isinstance(body, list):
@@ -745,7 +843,8 @@ async def bulk_update(
             errors.append({"error": "Falta campo email", "entry": entry})
             continue
         try:
-            await db.execute("""
+            await db.execute(
+                """
                 INSERT INTO user_profiles (user_email, display_name, title, department, phone, mobile, office_location)
                 VALUES ($1, $2, $3, $4, $5, $6, $7)
                 ON CONFLICT (user_email) DO UPDATE SET
@@ -756,7 +855,8 @@ async def bulk_update(
                     mobile = COALESCE(NULLIF($6, ''), user_profiles.mobile),
                     office_location = COALESCE(NULLIF($7, ''), user_profiles.office_location),
                     updated_at = NOW()
-            """, email,
+            """,
+                email,
                 entry.get("display_name", ""),
                 entry.get("title", ""),
                 entry.get("department", ""),

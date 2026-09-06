@@ -1,4 +1,5 @@
 """Ingesta RAG incremental. Uso: python -m app.rag.run [--user correo]"""
+
 import asyncio
 import json
 import sys
@@ -17,15 +18,27 @@ async def _main():
             u = sys.argv[sys.argv.index("--user") + 1]
             q = sys.argv[sys.argv.index("--ask") + 1]
             from app.rag.ask import ask
-            print(json.dumps(await ask(db, u, q), ensure_ascii=False)); return
+
+            print(json.dumps(await ask(db, u, q), ensure_ascii=False))
+            return
         if "--user" in sys.argv and sys.argv.index("--user") + 1 < len(sys.argv):
             u = sys.argv[sys.argv.index("--user") + 1]
-            print(json.dumps(await ingest_user(db, u), ensure_ascii=False)); return
-        doms = [r["domain"] for r in await db.fetch("SELECT domain FROM rag_domains WHERE enabled=true")]
+            print(json.dumps(await ingest_user(db, u), ensure_ascii=False))
+            return
+        doms = [
+            r["domain"]
+            for r in await db.fetch("SELECT domain FROM rag_domains WHERE enabled=true")
+        ]
         if not doms:
-            print("sin dominios RAG habilitados"); return
-        users = [r["username"] for r in await db.fetch(
-            "SELECT username FROM mailbox WHERE active=true AND split_part(username,'@',2)=ANY($1::text[])", doms)]
+            print("sin dominios RAG habilitados")
+            return
+        users = [
+            r["username"]
+            for r in await db.fetch(
+                "SELECT username FROM mailbox WHERE active=true AND split_part(username,'@',2)=ANY($1::text[])",
+                doms,
+            )
+        ]
         tot = 0
         for u in users:
             r = await ingest_user(db, u)

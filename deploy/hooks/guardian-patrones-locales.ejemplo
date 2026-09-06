@@ -1,0 +1,15 @@
+# Patrones que el Guardián pre-commit debe BLOQUEAR. Una expresión regular
+# (grep -iE) por línea. Las líneas vacías y las que empiezan por # se ignoran.
+#
+# Este fichero se copia a .git/guardian-patrones-locales y NO se versiona:
+# lo que hay que impedir que se publique no puede vivir en lo publicado.
+#
+# Qué poner aquí, sin escribir los valores en este ejemplo:
+#   - Fragmentos de contraseñas o claves reales del equipo.
+#   - Nombres de proveedores o herramientas que la dirección no quiere
+#     mencionados en el repositorio público.
+#   - Cualquier término vetado por decisión de la dirección.
+#
+# Ejemplo de formato (patrones ficticios):
+# ContrasenaDelEquipo2026
+# proveedor-que-no-se-nombra|otro-termino-vetado

@@ -1,4 +1,5 @@
 """SSO / SAML 2.0 basic integration."""
+
 from __future__ import annotations
 
 import base64
@@ -34,6 +35,7 @@ def _redis(request: Request):
 
 
 # ── Schemas ───────────────────────────────────────────────
+
 
 class SsoConfigOut(BaseModel):
     id: int
@@ -83,6 +85,7 @@ async def saml_metadata():
 
 # ── SAML Login (redirect to IdP) ─────────────────────────
 
+
 @router.get("/saml/login")
 async def saml_login(request: Request):
     db = _db(request)
@@ -120,6 +123,7 @@ async def saml_login(request: Request):
 
 # ── SAML ACS (Assertion Consumer Service) ─────────────────
 
+
 @router.post("/saml/acs")
 async def saml_acs(request: Request):
     db = _db(request)
@@ -140,11 +144,13 @@ async def saml_acs(request: Request):
         "SELECT certificate FROM sso_config WHERE is_active = true LIMIT 1"
     )
     if not cfg or not cfg["certificate"]:
-        raise HTTPException(500, "SSO: No hay certificado IdP configurado para verificar firma")
+        raise HTTPException(
+            500, "SSO: No hay certificado IdP configurado para verificar firma"
+        )
 
     try:
-        from signxml import XMLVerifier
         from lxml import etree as lxml_etree
+        from signxml import XMLVerifier
 
         idp_cert_pem = cfg["certificate"]
         lxml_root = lxml_etree.fromstring(saml_xml)
@@ -174,9 +180,12 @@ async def saml_acs(request: Request):
 
     # Verify domain
     from app.config import get_settings
+
     settings = get_settings()
     if not email.endswith(f"@{settings.mail_domain}"):
-        raise HTTPException(403, f"Email {email} no pertenece al dominio {settings.mail_domain}")
+        raise HTTPException(
+            403, f"Email {email} no pertenece al dominio {settings.mail_domain}"
+        )
 
     # Create JWT session
     access_token = create_access_token(email)
@@ -184,29 +193,41 @@ async def saml_acs(request: Request):
     await db.execute(
         "INSERT INTO refresh_tokens (username, token_hash, expires_at) "
         "VALUES ($1, $2, NOW() + interval '7 days')",
-        email, refresh_hash,
+        email,
+        refresh_hash,
     )
 
     # Set flag so frontend knows this is SSO session
     await redis.setex(f"sso_session:{email}", 86400, "saml")
 
     # Redirect to frontend with cookies
-    response = RedirectResponse(url=f"https://{settings.cookie_domain}/", status_code=302)
-    response.set_cookie(
-        "access_token", access_token,
-        httponly=True, secure=True, samesite="lax",
-        domain=settings.cookie_domain, max_age=settings.access_token_expire_minutes * 60,
+    response = RedirectResponse(
+        url=f"https://{settings.cookie_domain}/", status_code=302
     )
     response.set_cookie(
-        "refresh_token", refresh_raw,
-        httponly=True, secure=True, samesite="lax",
-        domain=settings.cookie_domain, path="/api/auth/refresh",
+        "access_token",
+        access_token,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        domain=settings.cookie_domain,
+        max_age=settings.access_token_expire_minutes * 60,
+    )
+    response.set_cookie(
+        "refresh_token",
+        refresh_raw,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        domain=settings.cookie_domain,
+        path="/api/auth/refresh",
         max_age=settings.refresh_token_expire_days * 86400,
     )
     return response
 
 
 # ── SAML Logout ───────────────────────────────────────────
+
 
 @router.get("/saml/logout")
 async def saml_logout(request: Request, user: str = Depends(get_current_user)):
@@ -225,14 +246,13 @@ async def saml_logout(request: Request, user: str = Depends(get_current_user)):
 
 # ── Admin: get/update SSO config ──────────────────────────
 
+
 @router.get("/config", response_model=SsoConfigOut)
 async def get_sso_config(request: Request, user: str = Depends(require_admin)):
     db = _db(request)
     row = await db.fetchrow("SELECT * FROM sso_config ORDER BY id LIMIT 1")
     if not row:
-        await db.execute(
-            "INSERT INTO sso_config (provider) VALUES ($1)", "saml"
-        )
+        await db.execute("INSERT INTO sso_config (provider) VALUES ($1)", "saml")
         row = await db.fetchrow("SELECT * FROM sso_config ORDER BY id LIMIT 1")
     return dict(row)
 

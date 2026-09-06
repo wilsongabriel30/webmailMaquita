@@ -1,94 +1,103 @@
 """Maquita Webmail API — main entrypoint v0.5.0."""
+
 import asyncio
 import json
-import os
 import logging
+import os
 from contextlib import asynccontextmanager
-from app.auth.dependencies import get_current_user
-from fastapi import FastAPI, Request, Depends
+
+from aiosmtplib import SMTPAuthenticationError
+from fastapi import Depends, FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.exceptions import RequestValidationError
 from starlette.middleware.base import BaseHTTPMiddleware
-import logging
 
-from app.config import get_settings
-from app.database import create_db_pool
-from app.redis_client import create_redis
-from app.core.logging import setup_logging, RequestIdMiddleware
-
-from app.auth.router import router as auth_router
-from app.auth.oidc import router as oidc_router
-from app.air.router import router as air_router
-from app.agents.router import router as agents_router
-from app.rag.router import router as rag_router
-from app.copiloto.router import router as copiloto_router
-from app.auth.password import router as password_router
-from app.admin.router import router as admin_router
-from app.onboarding.router import router as onboarding_router
-from app.mail.routers.folders import router as folders_router
-from app.mail.routers.messages import router as messages_router
-from app.mail.routers.compose import router as compose_router
-from app.dlp.router import router as dlp_router
-from app.secure_message.router import auth_router as secure_auth_router, public_router as secure_public_router
-from app.safelinks.router import router as safelinks_router
-from app.phishsim.router import router as phishsim_router
-from app.hold_ack.router import router as hold_ack_router
-from app.mail.routers.attachments import router as attachments_router
-from app.mail.routers.threads import router as threads_router
-from app.mail.routers.recall import router as recall_router
-from app.mail.routers.stats import router as stats_router
-from app.mail.routers.labels import router as labels_router
-from app.mail.routers.snooze import router as snooze_router, check_snoozed
-from app.mail.routers.priority import router as priority_router
-from app.mail.routers.transcribe import router as transcribe_router
-from app.mail.routers.spam_guard import router as spam_router
-from app.mail.routers.onlyoffice import router as onlyoffice_router
-from app.settings.routers.preferences import router as settings_router
-from app.autodiscover_router import router as autodiscover_router
-from app.contacts.routers import router as contacts_router
-from app.sieve.router import router as sieve_router
-from app.identities.router import router as identities_router
-from app.websocket.router import router as ws_router, start_redis_subscriber
-from app.mail.routers.export import router as export_router
-from app.mail.routers.remitente import router as remitente_router
-from app.auth.totp import router as totp_router
-from app.auth.totp_policy import router as totp_policy_router
-from app.calendar.router import router as calendar_router
-from app.mail.routers.shared import router as shared_mail_router
-from app.webhooks.router import router as webhooks_router
-from app.apikeys.router import router as apikeys_router
-from app.import_export.router import router as import_router
-from app.smime.router import router as smime_router
-from app.sso.router import router as sso_router
-from app.meetings.router import router as meetings_router
-from app.mail.routers.calendar_invite import router as calendar_invite_router
-from app.security.router import router as security_router
-from app.mobile.router import router as mobile_router
-from app.ai.router import router as ai_router
-from app.retention.router import router as retention_router
-from app.gal.router import router as gal_router
-from app.rooms.router import router as rooms_router
-from app.tasks.router import router as tasks_router
-from app.tareas.router import router as tareas_router
-from app.telemetria.router import router as telemetria_router, asegurar_tabla as asegurar_tabla_telemetria
-from app.push.router import router as push_router
-from app.push.service import asegurar_tabla as asegurar_tabla_push
-from app.tareas.modelos import asegurar_tablas as asegurar_tablas_tareas
-from app.presence.router import router as presence_router
-from app.nextcloud.router import router as nextcloud_router
-from app.branding.router import router as branding_router
-from app.chatcfg.router import router as chatcfg_router
-from app.compliance.router import router as compliance_router
 from app.admin.firewall_router import router as firewall_router
 from app.admin.mailguard_router import router as mailguard_router
+from app.admin.router import router as admin_router
+from app.agents.router import router as agents_router
+from app.ai.router import router as ai_router
+from app.air.router import router as air_router
+from app.apikeys.router import router as apikeys_router
+from app.auth.dependencies import get_current_user
+from app.auth.oidc import router as oidc_router
+from app.auth.password import router as password_router
+from app.auth.router import router as auth_router
+from app.auth.totp import router as totp_router
+from app.auth.totp_policy import router as totp_policy_router
+from app.autodiscover_router import router as autodiscover_router
+from app.branding.router import router as branding_router
+from app.branding.service import precargar as precargar_marca
+from app.calendar.router import router as calendar_router
+from app.chatcfg.router import router as chatcfg_router
 from app.compliance.audit_middleware import UserActivityAuditMiddleware
-from app.log_ingestor.mail_log_ingestor import start_log_ingestor
 from app.compliance.fraud_detector import start_fraud_detector
+from app.compliance.router import router as compliance_router
+from app.config import get_settings
+from app.contacts.routers import router as contacts_router
+from app.copiloto.router import router as copiloto_router
+from app.core.logging import RequestIdMiddleware, setup_logging
+from app.database import create_db_pool
+from app.dlp.router import router as dlp_router
+from app.gal.router import router as gal_router
+from app.hold_ack.router import router as hold_ack_router
+from app.identities.router import router as identities_router
+from app.import_export.router import router as import_router
+from app.log_ingestor.mail_log_ingestor import start_log_ingestor
+from app.mail.errors import CredencialIMAPInvalida
+from app.mail.routers.attachments import router as attachments_router
+from app.mail.routers.calendar_invite import router as calendar_invite_router
+from app.mail.routers.compose import router as compose_router
+from app.mail.routers.export import router as export_router
+from app.mail.routers.folders import router as folders_router
+from app.mail.routers.labels import router as labels_router
+from app.mail.routers.messages import router as messages_router
+from app.mail.routers.onlyoffice import router as onlyoffice_router
+from app.mail.routers.priority import router as priority_router
+from app.mail.routers.recall import router as recall_router
+from app.mail.routers.remitente import router as remitente_router
+from app.mail.routers.shared import router as shared_mail_router
+from app.mail.routers.snooze import check_snoozed
+from app.mail.routers.snooze import router as snooze_router
+from app.mail.routers.spam_guard import router as spam_router
+from app.mail.routers.stats import router as stats_router
+from app.mail.routers.threads import router as threads_router
+from app.mail.routers.transcribe import router as transcribe_router
+from app.meetings.router import router as meetings_router
+from app.mobile.router import router as mobile_router
+from app.nextcloud.router import router as nextcloud_router
+from app.onboarding.router import router as onboarding_router
+from app.phishsim.router import router as phishsim_router
+from app.presence.router import router as presence_router
+from app.push.router import router as push_router
+from app.push.service import asegurar_tabla as asegurar_tabla_push
+from app.rag.router import router as rag_router
+from app.redis_client import create_redis
+from app.retention.router import router as retention_router
+from app.rooms.router import router as rooms_router
+from app.safelinks.router import router as safelinks_router
+from app.secure_message.router import auth_router as secure_auth_router
+from app.secure_message.router import public_router as secure_public_router
+from app.security.router import router as security_router
+from app.settings.routers.preferences import router as settings_router
+from app.sieve.router import router as sieve_router
+from app.smime.router import router as smime_router
+from app.sso.router import router as sso_router
+from app.tareas.modelos import asegurar_tablas as asegurar_tablas_tareas
+from app.tareas.router import router as tareas_router
+from app.tasks.router import router as tasks_router
+from app.telemetria.router import asegurar_tabla as asegurar_tabla_telemetria
+from app.telemetria.router import router as telemetria_router
+from app.webhooks.router import router as webhooks_router
+from app.websocket.router import router as ws_router
+from app.websocket.router import start_redis_subscriber
+
 
 # Handler global de excepciones — evita que nginx devuelva HTML en errores 500
 async def _global_exception_handler(request: Request, exc: Exception):
     import traceback
+
     logging.getLogger("uvicorn.error").error(
         "Unhandled exception: %s\n%s", str(exc), traceback.format_exc()
     )
@@ -96,12 +105,13 @@ async def _global_exception_handler(request: Request, exc: Exception):
         status_code=500,
         content={"detail": "Error interno del servidor"},
     )
+
+
 from app.tasks.models import ensure_tables as ensure_task_tables
 
 # Registrar handler global (se ejecuta después de crear app)
 _REGISTER_EXCEPTION_HANDLER = True  # Flag para registrar en lifespan
 from app.calendar.attachments import router as cal_attachments_router
-
 
 logger = logging.getLogger("scheduler")
 
@@ -139,7 +149,9 @@ async def _process_scheduled_emails(db_pool, redis):
                     username = row["username"]
                     raw_pass = await redis.get(f"imap_pass:{username}")
                     if not raw_pass:
-                        logger.warning(f"Scheduled email {row['id']}: no session for {username}")
+                        logger.warning(
+                            f"Scheduled email {row['id']}: no session for {username}"
+                        )
                         await db_pool.execute(
                             "UPDATE scheduled_emails SET status = 'pending' WHERE id = $1",
                             row["id"],
@@ -148,6 +160,7 @@ async def _process_scheduled_emails(db_pool, redis):
 
                     # Descifrar contraseña Fernet (las passwords en Redis están cifradas)
                     from app.core.session import decrypt_password
+
                     try:
                         password = decrypt_password(raw_pass)
                     except Exception:
@@ -167,9 +180,21 @@ async def _process_scheduled_emails(db_pool, redis):
                         if pref and pref["display_name"]:
                             display_name = pref["display_name"]
 
-                        to_list = json.loads(row["to_list"]) if isinstance(row["to_list"], str) else row["to_list"]
-                        cc_list = json.loads(row["cc_list"]) if isinstance(row["cc_list"], str) else row["cc_list"]
-                        bcc_list = json.loads(row["bcc_list"]) if isinstance(row["bcc_list"], str) else row["bcc_list"]
+                        to_list = (
+                            json.loads(row["to_list"])
+                            if isinstance(row["to_list"], str)
+                            else row["to_list"]
+                        )
+                        cc_list = (
+                            json.loads(row["cc_list"])
+                            if isinstance(row["cc_list"], str)
+                            else row["cc_list"]
+                        )
+                        bcc_list = (
+                            json.loads(row["bcc_list"])
+                            if isinstance(row["bcc_list"], str)
+                            else row["bcc_list"]
+                        )
 
                         await send_and_save(
                             imap=imap,
@@ -213,29 +238,35 @@ async def _process_scheduled_emails(db_pool, redis):
             await asyncio.sleep(30)
 
 
-
-
 def _validate_mime_on_startup():
     """Verifica que smtp_client.py construye MIME correcto al arrancar.
-    
+
     Si falla, el backend NO arranca — protege contra cambios accidentales
     que enviarían correos a spam. Ver: 09-AUDITORIA-ENTREGABILIDAD-20260414.md
     """
-    from app.mail.clients.smtp_client import build_mime_message, OutgoingEmail
-    msg = build_mime_message(OutgoingEmail(
-        from_addr="test@ejemplo.com", to=["x@x.com"], subject="startup-check",
-        html_body="<p>test</p>"
-    ))
-    parts = [p.get_content_type() for p in msg.walk()
-             if not p.get_content_type().startswith("multipart")]
+    from app.mail.clients.smtp_client import OutgoingEmail, build_mime_message
+
+    msg = build_mime_message(
+        OutgoingEmail(
+            from_addr="test@ejemplo.com",
+            to=["x@x.com"],
+            subject="startup-check",
+            html_body="<p>test</p>",
+        )
+    )
+    parts = [
+        p.get_content_type()
+        for p in msg.walk()
+        if not p.get_content_type().startswith("multipart")
+    ]
     raw = msg.as_string()
-    
+
     errors = []
     if "text/plain" not in parts:
         errors.append("FALTA text/plain — causa MIME_HTML_ONLY en spam")
     if "text/html" not in parts:
         errors.append("FALTA text/html")
-    
+
     for p in msg.walk():
         if p.get_content_type() == "text/plain":
             txt = p.get_payload(decode=True).decode()
@@ -245,11 +276,11 @@ def _validate_mime_on_startup():
             html = p.get_payload(decode=True).decode()
             if "<!DOCTYPE" not in html:
                 errors.append("HTML sin DOCTYPE — causa HTML_MIME_NO_HTML_TAG en spam")
-    
+
     for bad_h in ("X-Priority", "X-MSMail-Priority", "Importance"):
         if bad_h in raw:
             errors.append(f"Header {bad_h} presente — spam trigger")
-    
+
     if errors:
         raise RuntimeError(
             "MIME VALIDATION FAILED — backend NO arranca para proteger entregabilidad:\n"
@@ -265,14 +296,18 @@ async def lifespan(app: FastAPI):
     setup_logging()
     app.state.db_pool = await create_db_pool()
     app.state.redis = await create_redis()
+    # Marca: se rellena la cache de proceso una sola vez, para los puntos que no
+    # tienen la base a mano (cliente SMTP, recordatorios, calendario). Si falla,
+    # se sigue con los valores por defecto: la marca nunca impide arrancar.
+    await precargar_marca(app.state.db_pool)
     # DDL serializado entre workers (evita deadlocks de arranque)
     async with app.state.db_pool.acquire() as _ddl_conn:
         await _ddl_conn.execute("SELECT pg_advisory_lock(815000)")
         try:
             await ensure_task_tables(app.state.db_pool)
-            await asegurar_tablas_tareas(app.state.db_pool)   # T-34
-            await asegurar_tabla_telemetria(app.state.db_pool)   # telemetría de la app
-            await asegurar_tabla_push(app.state.db_pool)   # suscripciones web push (#17)
+            await asegurar_tablas_tareas(app.state.db_pool)  # T-34
+            await asegurar_tabla_telemetria(app.state.db_pool)  # telemetría de la app
+            await asegurar_tabla_push(app.state.db_pool)  # suscripciones web push (#17)
         finally:
             await _ddl_conn.execute("SELECT pg_advisory_unlock(815000)")
     # ── Validación MIME al arranque (protección anti-spam) ──
@@ -285,20 +320,24 @@ async def lifespan(app: FastAPI):
     ws_subscriber_task = await start_redis_subscriber(app.state)
     snooze_task = asyncio.create_task(check_snoozed(app))
     from app.reminders_scheduler import check_reminders
+
     reminders_task = asyncio.create_task(check_reminders(app))
     # Start compliance services
     app.state.log_ingestor = await start_log_ingestor(app.state.db_pool)
     from app.safelinks import threatfeeds as _tfeeds
+
     app.state.tintel_task = asyncio.create_task(_tfeeds.loop(app))
     app.state.fraud_detector = await start_fraud_detector(app.state.db_pool)
     # Start IMAP pool cleanup
     from app.mail.clients.imap_pool import start_cleanup_task
+
     start_cleanup_task()
 
     yield
 
     # Shutdown IMAP pool
     from app.mail.clients.imap_pool import close_all_pools
+
     await close_all_pools()
     # Stop compliance services
     app.state.log_ingestor.stop()
@@ -312,7 +351,6 @@ async def lifespan(app: FastAPI):
         pass
     await app.state.db_pool.close()
     await app.state.redis.close()
-
 
 
 # Security audit logging
@@ -338,8 +376,6 @@ _SECURITY_EVENTS = {
 }
 
 
-
-
 class ApiRateLimitMiddleware(BaseHTTPMiddleware):
     """Per-user rate limiting for authenticated API requests using Redis.
 
@@ -351,8 +387,20 @@ class ApiRateLimitMiddleware(BaseHTTPMiddleware):
     Skips: login, health, static assets, WebSocket upgrades.
     """
 
-    SKIP_PATHS = frozenset({"/api/auth/login", "/api/auth/refresh", "/api/health", "/api/health/detailed"})
-    SEND_PATHS = frozenset({"/api/mail/send", "/api/mail/send-multipart", "/api/mail/compose", "/api/auth/change-password", "/api/auth/totp/setup", "/api/auth/totp/verify", "/api/auth/totp/disable"})
+    SKIP_PATHS = frozenset(
+        {"/api/auth/login", "/api/auth/refresh", "/api/health", "/api/health/detailed"}
+    )
+    SEND_PATHS = frozenset(
+        {
+            "/api/mail/send",
+            "/api/mail/send-multipart",
+            "/api/mail/compose",
+            "/api/auth/change-password",
+            "/api/auth/totp/setup",
+            "/api/auth/totp/verify",
+            "/api/auth/totp/disable",
+        }
+    )
 
     async def dispatch(self, request, call_next):
         path = request.url.path
@@ -370,6 +418,7 @@ class ApiRateLimitMiddleware(BaseHTTPMiddleware):
 
         try:
             from app.auth.jwt import decode_access_token
+
             payload = decode_access_token(token)
             user = payload.get("sub", "")
         except Exception:
@@ -401,14 +450,21 @@ class ApiRateLimitMiddleware(BaseHTTPMiddleware):
 
             if count > limit:
                 from starlette.responses import JSONResponse
+
                 ttl = await redis.ttl(key)
                 if ttl < 0:
                     await redis.expire(key, window)
                     ttl = window
                 return JSONResponse(
                     status_code=429,
-                    content={"detail": f"Demasiadas solicitudes. Limite: {limit}/{window}s. Reintente en {ttl}s."},
-                    headers={"Retry-After": str(ttl), "X-RateLimit-Limit": str(limit), "X-RateLimit-Remaining": "0"},
+                    content={
+                        "detail": f"Demasiadas solicitudes. Limite: {limit}/{window}s. Reintente en {ttl}s."
+                    },
+                    headers={
+                        "Retry-After": str(ttl),
+                        "X-RateLimit-Limit": str(limit),
+                        "X-RateLimit-Remaining": "0",
+                    },
                 )
         except Exception:
             pass  # Redis failure should not block requests
@@ -432,13 +488,17 @@ class SecurityAuditMiddleware(BaseHTTPMiddleware):
         key = (request.url.path, response.status_code)
         event = _SECURITY_EVENTS.get(key)
         if event:
-            ip = request.headers.get("x-real-ip", request.client.host if request.client else "?")
+            ip = request.headers.get(
+                "x-real-ip", request.client.host if request.client else "?"
+            )
             security_logger.warning(
                 f"SECURITY_EVENT={event} ip={ip} path={request.url.path}"
             )
         # Log all 401/403/429 responses
         if response.status_code in (401, 403, 429):
-            ip = request.headers.get("x-real-ip", request.client.host if request.client else "?")
+            ip = request.headers.get(
+                "x-real-ip", request.client.host if request.client else "?"
+            )
             security_logger.warning(
                 f"SECURITY_BLOCK status={response.status_code} ip={ip} "
                 f"method={request.method} path={request.url.path}"
@@ -446,12 +506,15 @@ class SecurityAuditMiddleware(BaseHTTPMiddleware):
         return response
 
 
-app = FastAPI(title="Maquita Webmail API", version="0.5.0", lifespan=lifespan)
+_es_dev = get_settings().environment.lower() in ("development", "dev", "local")
+_docs = {} if _es_dev else {"docs_url": None, "redoc_url": None, "openapi_url": None}
+app = FastAPI(title="Maquita Webmail API", version="0.5.0", lifespan=lifespan, **_docs)
 
 settings = get_settings()
 app.add_middleware(SecurityAuditMiddleware)
 app.add_middleware(UserActivityAuditMiddleware)
 app.add_middleware(ApiRateLimitMiddleware)
+
 
 # Strip allow-credentials header for non-matching origins (CORS hardening)
 class StripCredentialsMiddleware(BaseHTTPMiddleware):
@@ -472,29 +535,74 @@ app.add_middleware(
     allow_origins=settings.cors_origins.split(","),
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
+    allow_headers=[
+        "Content-Type",
+        "Authorization",
+        "X-Requested-With",
+        "Accept",
+        "Origin",
+    ],
 )
 
+
+@app.exception_handler(SMTPAuthenticationError)
+async def credencial_smtp_handler(request, exc):
+    """Mismo caso que IMAP, pero al enviar: la credencial guardada ya no vale."""
+    security_logger.info(
+        "Credencial de sesión rechazada por SMTP en %s %s",
+        request.method,
+        request.url.path,
+    )
+    return JSONResponse(
+        status_code=401,
+        content={
+            "detail": "Tu sesión de correo caducó. Vuelve a iniciar sesión.",
+            "reautenticar": True,
+        },
+    )
+
+
+@app.exception_handler(CredencialIMAPInvalida)
+async def credencial_caducada_handler(request, exc):
+    """La credencial guardada ya no vale: 401 para que la interfaz mande a iniciar
+    sesión, en vez de un 500 que parece caída del servidor."""
+    security_logger.info(
+        "Credencial de sesión rechazada por IMAP en %s %s",
+        request.method,
+        request.url.path,
+    )
+    return JSONResponse(
+        status_code=401,
+        content={
+            "detail": "Tu sesión de correo caducó. Vuelve a iniciar sesión.",
+            "reautenticar": True,
+        },
+    )
 
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
     """Return JSON for unhandled exceptions instead of plain text."""
     import traceback
-    security_logger.error(f"Unhandled exception en {request.method} {request.url.path}: {exc}\n{traceback.format_exc()}")
+
+    security_logger.error(
+        f"Unhandled exception en {request.method} {request.url.path}: {exc}\n{traceback.format_exc()}"
+    )
     # T-39 (28/08/2026): el login y el resto de /api/auth JAMÁS responden 500: excepción interna capturada y anotada,
     # respuesta 503 con mensaje claro y marca «reintentar» para que el cliente lo trate como transitorio.
     if request.url.path.startswith("/api/auth/"):
         return JSONResponse(
             status_code=503,
-            content={"detail": "El servidor de correo tuvo un problema momentáneo; vuelve a intentarlo en unos segundos.", "reintentar": True},
+            content={
+                "detail": "El servidor de correo tuvo un problema momentáneo; vuelve a intentarlo en unos segundos.",
+                "reintentar": True,
+            },
             headers={"Retry-After": "5"},
         )
     return JSONResponse(
         status_code=500,
-        content={"detail": "Error interno del servidor", "reintentar": True}
+        content={"detail": "Error interno del servidor", "reintentar": True},
     )
-
 
 
 @app.exception_handler(RequestValidationError)
@@ -502,8 +610,11 @@ async def validation_exception_handler(request, exc):
     """Return 400 with generic message instead of 422 with detailed validation errors."""
     return JSONResponse(
         status_code=400,
-        content={"detail": "Solicitud inválida. Verifique el formato de los datos enviados."}
+        content={
+            "detail": "Solicitud inválida. Verifique el formato de los datos enviados."
+        },
     )
+
 
 app.include_router(auth_router)
 app.include_router(push_router)
@@ -561,7 +672,9 @@ app.include_router(sso_router)
 app.include_router(meetings_router)
 app.include_router(tasks_router, prefix="/api/tasks", tags=["tasks"])
 app.include_router(tareas_router, prefix="/api/tareas", tags=["tareas"])  # T-34
-app.include_router(telemetria_router, prefix="/api/telemetria", tags=["telemetria"])  # cliente Windows
+app.include_router(
+    telemetria_router, prefix="/api/telemetria", tags=["telemetria"]
+)  # cliente Windows
 app.include_router(presence_router)
 app.include_router(nextcloud_router)
 app.include_router(branding_router)
@@ -577,10 +690,14 @@ async def csp_report(request: Request):
     content_type = request.headers.get("content-type", "")
     if "csp-report" not in content_type and "json" not in content_type:
         from fastapi.responses import Response
+
         return Response(status_code=400)
     body = await request.body()
     import logging
-    logging.getLogger("security.csp").warning(f"CSP violation: {body.decode('utf-8', errors='replace')[:2000]}")
+
+    logging.getLogger("security.csp").warning(
+        f"CSP violation: {body.decode('utf-8', errors='replace')[:2000]}"
+    )
     return {"status": "ok"}
 
 
@@ -609,6 +726,8 @@ async def health_check(request: Request):
 
     # Public endpoint: only return status without component names
     return JSONResponse(content={"status": "ok"}, status_code=status_code)
+
+
 import socket
 
 

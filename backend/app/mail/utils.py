@@ -1,4 +1,5 @@
 """Backward compatibility — imports from new locations."""
+
 from app.mail.parsers.html_sanitizer import sanitize_html, strip_html
 
 

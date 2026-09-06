@@ -1,0 +1,4 @@
+# El backend del correo (www-data) no puede escribir en /etc ni tocar nftables.
+# En vez de concederle escritura en tres rutas de /etc mas sudo para nft, se le
+# concede UNA orden con validacion propia de la IP y del motivo.
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/maquita-blacklist

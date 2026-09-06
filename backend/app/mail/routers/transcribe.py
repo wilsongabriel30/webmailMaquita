@@ -8,9 +8,11 @@ valores del .env como fallback.
 
 Autor: Wilson Argüello — Equipo de Tecnología, Fundación Maquita
 """
+
 import os
+
 import httpx
-from fastapi import APIRouter, Request, Depends, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
 
 from app.auth.dependencies import get_current_user
@@ -28,7 +30,8 @@ async def _voice_config(request: Request):
     try:
         pool = request.app.state.db_pool
         row = await pool.fetchrow(
-            "SELECT whisper_url, whisper_key, language, mode, enabled FROM voice_config WHERE id = 1")
+            "SELECT whisper_url, whisper_key, language, mode, enabled FROM voice_config WHERE id = 1"
+        )
         if row:
             url = row["whisper_url"] or url
             key = row["whisper_key"] or key
@@ -41,7 +44,9 @@ async def _voice_config(request: Request):
 
 
 @router.get("/transcribe/health")
-async def transcribe_health(request: Request, username: str = Depends(get_current_user)):
+async def transcribe_health(
+    request: Request, username: str = Depends(get_current_user)
+):
     """¿Está habilitado y disponible el dictado por voz?"""
     url, key, _lang, mode, enabled = await _voice_config(request)
     if not enabled:
@@ -51,7 +56,7 @@ async def transcribe_health(request: Request, username: str = Depends(get_curren
     if not url:
         return {"enabled": False, "available": False, "mode": mode}
     try:
-        async with httpx.AsyncClient(timeout=5, verify=False) as c:
+        async with httpx.AsyncClient(timeout=5) as c:
             r = await c.get(f"{url}/health")
             return {"enabled": True, "available": r.status_code == 200, "mode": mode}
     except Exception:
@@ -59,29 +64,53 @@ async def transcribe_health(request: Request, username: str = Depends(get_curren
 
 
 @router.post("/transcribe")
-async def transcribe(request: Request, audio: UploadFile = File(...),
-                     language: str = Form(default=""),
-                     username: str = Depends(get_current_user)):
+async def transcribe(
+    request: Request,
+    audio: UploadFile = File(...),
+    language: str = Form(default=""),
+    username: str = Depends(get_current_user),
+):
     """Recibe el audio del compositor y lo transcribe en el servidor Whisper
     configurado. Devuelve {success, text}."""
     url, key, lang, mode, enabled = await _voice_config(request)
     if not enabled or not url:
-        raise HTTPException(503, "El dictado por voz no está configurado. Actívalo en el panel de administración.")
+        raise HTTPException(
+            503,
+            "El dictado por voz no está configurado. Actívalo en el panel de administración.",
+        )
     data = await audio.read()
-    files = {"audio": (audio.filename or "recording.webm", data, audio.content_type or "application/octet-stream")}
+    files = {
+        "audio": (
+            audio.filename or "recording.webm",
+            data,
+            audio.content_type or "application/octet-stream",
+        )
+    }
     form = {"language": language or lang}
     headers = {"X-API-Key": key} if key else {}
     try:
-        async with httpx.AsyncClient(timeout=120, verify=False) as c:
-            r = await c.post(f"{url}/api/transcribe", files=files, data=form, headers=headers)
+        async with httpx.AsyncClient(timeout=120) as c:
+            r = await c.post(
+                f"{url}/api/transcribe", files=files, data=form, headers=headers
+            )
     except Exception as e:
-        raise HTTPException(502, f"No se pudo contactar el servidor de transcripción: {str(e)[:120]}")
+        raise HTTPException(
+            502, f"No se pudo contactar el servidor de transcripción: {str(e)[:120]}"
+        )
     if r.status_code != 200:
-        return JSONResponse(status_code=r.status_code,
-                            content={"success": False, "error": (r.text or "")[:200]})
+        return JSONResponse(
+            status_code=r.status_code,
+            content={"success": False, "error": (r.text or "")[:200]},
+        )
     try:
         j = r.json()
     except Exception:
         return {"success": True, "text": (r.text or "").strip()}
-    text = j.get("full_text") or j.get("text") or j.get("transcription") or j.get("texto") or ""
+    text = (
+        j.get("full_text")
+        or j.get("text")
+        or j.get("transcription")
+        or j.get("texto")
+        or ""
+    )
     return {"success": True, "text": text.strip()}

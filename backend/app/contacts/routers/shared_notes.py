@@ -1,9 +1,12 @@
 """
 Notas colaborativas — notas compartidas sobre contactos visibles para todo el dominio.
 """
-from fastapi import APIRouter, Request, HTTPException, Depends
-from pydantic import BaseModel
+
 from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel
+
 from app.auth.dependencies import get_current_user
 
 router = APIRouter(prefix="/api/contacts", tags=["contacts"])
@@ -28,7 +31,9 @@ def _get_domain(user: str) -> str:
 
 
 @router.get("/{contact_id}/shared-notes")
-async def get_shared_notes(request: Request, contact_id: int, username: str = Depends(get_current_user)):
+async def get_shared_notes(
+    request: Request, contact_id: int, username: str = Depends(get_current_user)
+):
     """Obtener notas compartidas de un contacto personal."""
     db = request.app.state.db_pool
     user = username
@@ -51,7 +56,9 @@ async def get_shared_notes(request: Request, contact_id: int, username: str = De
 
 
 @router.get("/directory/{org_contact_id}/shared-notes")
-async def get_org_shared_notes(request: Request, org_contact_id: int, username: str = Depends(get_current_user)):
+async def get_org_shared_notes(
+    request: Request, org_contact_id: int, username: str = Depends(get_current_user)
+):
     """Obtener notas compartidas de un contacto del directorio."""
     db = request.app.state.db_pool
     user = username
@@ -74,7 +81,9 @@ async def get_org_shared_notes(request: Request, org_contact_id: int, username: 
 
 
 @router.post("/shared-notes")
-async def create_shared_note(request: Request, body: NoteCreate, username: str = Depends(get_current_user)):
+async def create_shared_note(
+    request: Request, body: NoteCreate, username: str = Depends(get_current_user)
+):
     """Crear nota compartida."""
     db = request.app.state.db_pool
     user = username
@@ -89,7 +98,8 @@ async def create_shared_note(request: Request, body: NoteCreate, username: str =
     if body.contact_id:
         owns = await db.fetchval(
             "SELECT 1 FROM user_contacts WHERE id = $1 AND owner = $2",
-            body.contact_id, user
+            body.contact_id,
+            user,
         )
         if not owns:
             raise HTTPException(403, "No tiene acceso a este contacto")
@@ -97,7 +107,8 @@ async def create_shared_note(request: Request, body: NoteCreate, username: str =
         domain = _get_domain(user)
         owns = await db.fetchval(
             "SELECT 1 FROM org_contacts WHERE id = $1 AND domain = $2",
-            body.org_contact_id, domain
+            body.org_contact_id,
+            domain,
         )
         if not owns:
             raise HTTPException(403, "Contacto de directorio no encontrado")
@@ -106,13 +117,22 @@ async def create_shared_note(request: Request, body: NoteCreate, username: str =
         """INSERT INTO contact_shared_notes (contact_id, org_contact_id, author, content, tags)
            VALUES ($1, $2, $3, $4, $5)
            RETURNING *""",
-        body.contact_id, body.org_contact_id, user, body.content.strip(), body.tags,
+        body.contact_id,
+        body.org_contact_id,
+        user,
+        body.content.strip(),
+        body.tags,
     )
     return dict(row)
 
 
 @router.put("/shared-notes/{note_id}")
-async def update_shared_note(request: Request, note_id: int, body: NoteUpdate, username: str = Depends(get_current_user)):
+async def update_shared_note(
+    request: Request,
+    note_id: int,
+    body: NoteUpdate,
+    username: str = Depends(get_current_user),
+):
     """Editar nota — solo el autor puede editar."""
     db = request.app.state.db_pool
     user = username
@@ -122,7 +142,10 @@ async def update_shared_note(request: Request, note_id: int, body: NoteUpdate, u
            SET content=$3, tags=$4, updated_at=NOW()
            WHERE id=$1 AND author=$2
            RETURNING *""",
-        note_id, user, body.content.strip(), body.tags,
+        note_id,
+        user,
+        body.content.strip(),
+        body.tags,
     )
     if not row:
         raise HTTPException(404, "Nota no encontrada o no tiene permisos")
@@ -130,14 +153,17 @@ async def update_shared_note(request: Request, note_id: int, body: NoteUpdate, u
 
 
 @router.delete("/shared-notes/{note_id}")
-async def delete_shared_note(request: Request, note_id: int, username: str = Depends(get_current_user)):
+async def delete_shared_note(
+    request: Request, note_id: int, username: str = Depends(get_current_user)
+):
     """Eliminar nota — solo el autor."""
     db = request.app.state.db_pool
     user = username
 
     result = await db.execute(
         "DELETE FROM contact_shared_notes WHERE id=$1 AND author=$2",
-        note_id, user,
+        note_id,
+        user,
     )
     if result == "DELETE 0":
         raise HTTPException(404, "Nota no encontrada o no tiene permisos")

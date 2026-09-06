@@ -1,11 +1,11 @@
 from app.admin.postfix_wrapper import (
-    list_queue,
-    flush_one,
-    flush_all,
-    delete_one,
-    hold_one,
-    release_one,
     delete_all,
+    delete_one,
+    flush_all,
+    flush_one,
+    hold_one,
+    list_queue,
+    release_one,
 )
 
 

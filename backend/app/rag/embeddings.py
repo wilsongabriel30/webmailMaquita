@@ -1,4 +1,5 @@
 """Embeddings para RAG (IA_EMBED_URL/IA_EMBED_MODEL). Fail-open: [] si falla."""
+
 import httpx
 
 from app.config import get_settings
@@ -13,11 +14,16 @@ async def embed(text: str) -> list:
     try:
         async with httpx.AsyncClient(timeout=30) as c:
             if "/v1" in url:
-                r = await c.post(f"{url}/embeddings", json={"model": model, "input": text[:4000]},
-                                 headers={"Authorization": f"Bearer {s.ia_api_key}"})
+                r = await c.post(
+                    f"{url}/embeddings",
+                    json={"model": model, "input": text[:4000]},
+                    headers={"Authorization": f"Bearer {s.ia_api_key}"},
+                )
                 r.raise_for_status()
                 return r.json()["data"][0]["embedding"]
-            r = await c.post(f"{url}/api/embeddings", json={"model": model, "prompt": text[:4000]})
+            r = await c.post(
+                f"{url}/api/embeddings", json={"model": model, "prompt": text[:4000]}
+            )
             r.raise_for_status()
             return r.json().get("embedding", [])
     except Exception:

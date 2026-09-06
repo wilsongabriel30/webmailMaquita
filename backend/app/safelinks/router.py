@@ -4,12 +4,13 @@
 - bloqueado -> página de bloqueo (sin continuar)
 Enlace sin firma válida -> siempre aviso (evita redirector abierto).
 """
+
 import html as html_lib
 
 from fastapi import APIRouter, Request
-from fastapi.responses import RedirectResponse, HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 
-from . import service, rewriter
+from . import rewriter, service
 
 router = APIRouter(tags=["safelinks"])
 
@@ -18,7 +19,9 @@ from app.branding.service import get_org_name
 
 
 def _ip(request: Request) -> str:
-    return request.headers.get("X-Real-IP", request.client.host if request.client else "")
+    return request.headers.get(
+        "X-Real-IP", request.client.host if request.client else ""
+    )
 
 
 @router.get("/api/safelink")
@@ -31,12 +34,22 @@ async def safelink(request: Request, u: str = "", s: str = "", go: int = 0):
         # las entidades HTML sin deshacer (&amp;) y se abrian sin sus parametros.
         url = html_lib.unescape(rewriter.decode_url(u))
     except Exception:
-        return HTMLResponse(_warn_page("", "Enlace inválido", "blocked", None, org), status_code=400)
+        return HTMLResponse(
+            _warn_page("", "Enlace inválido", "blocked", None, org), status_code=400
+        )
 
     trusted = rewriter.verify(u, s)
     if not trusted:
         await service.log_click(db, "", url, "", "untrusted", False, ip)
-        return HTMLResponse(_warn_page(url, "No pudimos verificar este enlace. Procede con cuidado.", "suspicious", u + ":" + s, org))
+        return HTMLResponse(
+            _warn_page(
+                url,
+                "No pudimos verificar este enlace. Procede con cuidado.",
+                "suspicious",
+                u + ":" + s,
+                org,
+            )
+        )
 
     res = await service.check_url(db, url, request.app.state.redis)
     verdict = res["verdict"]
@@ -53,7 +66,13 @@ async def safelink(request: Request, u: str = "", s: str = "", go: int = 0):
     return HTMLResponse(_warn_page(url, res["reason"], verdict, token, org))
 
 
-def _warn_page(url: str, reason: str, verdict: str, proceed_token: str | None, org: str = "Tu organización") -> str:
+def _warn_page(
+    url: str,
+    reason: str,
+    verdict: str,
+    proceed_token: str | None,
+    org: str = "Tu organización",
+) -> str:
     safe_url = html_lib.escape(url)
     org_e = html_lib.escape(org)
     short = html_lib.escape(url[:80] + ("…" if len(url) > 80 else ""))
@@ -103,7 +122,9 @@ def _warn_page(url: str, reason: str, verdict: str, proceed_token: str | None, o
 from fastapi import Depends, HTTPException  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 from starlette.concurrency import run_in_threadpool  # noqa: E402
+
 from app.auth.dependencies import get_current_user  # noqa: E402
+
 from . import classifier  # noqa: E402
 
 
@@ -116,24 +137,33 @@ class ClassifyRequest(BaseModel):
 
 
 @router.post("/api/safelinks/classify")
-async def classify_phishing(payload: ClassifyRequest, request: Request,
-                            user: str = Depends(get_current_user)):
+async def classify_phishing(
+    payload: ClassifyRequest, request: Request, user: str = Depends(get_current_user)
+):
     """Clasifica un correo como phishing/suspicious/clean (heuristica + capa externa).
-    Acepta {message_id, folder} (lo trae por IMAP) o {sender, subject, body} directos."""
+    Acepta {message_id, folder} (lo trae por IMAP) o {sender, subject, body} directos.
+    """
     sender, subject, body = payload.sender, payload.subject, payload.body
     if payload.message_id:
         from app.ai.router import _fetch_message
+
         try:
-            msg = await _fetch_message(request, user, payload.folder, int(payload.message_id))
+            msg = await _fetch_message(
+                request, user, payload.folder, int(payload.message_id)
+            )
         except HTTPException:
             raise
         except Exception:
             raise HTTPException(status_code=502, detail="No se pudo obtener el mensaje")
         sender = msg.get("from", "") or sender
         subject = msg.get("subject", "") or subject
-        body = (msg.get("html_body") or msg.get("text_body")
-                or msg.get("snippet") or body)
+        body = (
+            msg.get("html_body") or msg.get("text_body") or msg.get("snippet") or body
+        )
     if not (sender or subject or body):
-        raise HTTPException(status_code=400, detail="Falta message_id o sender/subject/body")
-    return await run_in_threadpool(classifier.score_message,
-                                   sender=sender, subject=subject, body=body)
+        raise HTTPException(
+            status_code=400, detail="Falta message_id o sender/subject/body"
+        )
+    return await run_in_threadpool(
+        classifier.score_message, sender=sender, subject=subject, body=body
+    )

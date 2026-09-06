@@ -4,8 +4,30 @@ import "./lib/modoApp"
 import "./index.css"
 import "./dark-theme.css"
 import App from "./App"
-import "./lib/syncQueue"
-import "./lib/descargaOffline"   // T-35: descarga proactiva del correo reciente para uso sin conexión
+// T-49: PRIMERO se deja el caché del equipo cifrado y sin restos, y SOLO DESPUÉS se
+// arrancan la cola de envío y la descarga sin conexión.
+//
+// El orden importa: borrar y recrear la base para que no queden restos de lo que antes se
+// guardaba en claro es imposible mientras alguien la tenga abierta, y esos dos módulos la
+// abren en cuanto se cargan. Por eso van con importación dinámica, después.
+//
+// Pase lo que pase con el cifrado, los dos se cargan: la cola de envío no puede quedarse
+// sin arrancar por un asunto de higiene del disco.
+import { migrarCacheACifrado, limpiarRestos } from "./lib/migracionCifrado"
+
+async function prepararCacheLocal() {
+  try {
+    await migrarCacheACifrado()
+    await limpiarRestos()
+  } catch {
+    /* se reintenta en el próximo arranque */
+  }
+}
+
+prepararCacheLocal().finally(() => {
+  import("./lib/syncQueue")
+  import("./lib/descargaOffline")   // T-35: descarga proactiva del correo reciente
+})
 
 // Auto-recuperación de chunks tras un deploy: si falla la carga dinámica de un
 // módulo (hash viejo en una pestaña abierta), recargar UNA vez para tomar la
@@ -51,8 +73,9 @@ if ("serviceWorker" in navigator) {
               if (newSW.state === "installed" && navigator.serviceWorker.controller) {
                 // Nueva version: actualizar SOLA (2026-09-01). Aviso sin boton +
                 // recarga automatica; si el usuario esta escribiendo, se espera.
-                if ((window as any).__swReloadScheduled) return;
-                (window as any).__swReloadScheduled = true;
+                const marca = window as unknown as { __swReloadScheduled?: boolean };
+                if (marca.__swReloadScheduled) return;
+                marca.__swReloadScheduled = true;
                 if (!document.getElementById("sw-update-banner")) {
                   const aviso = document.createElement("div");
                   aviso.id = "sw-update-banner";

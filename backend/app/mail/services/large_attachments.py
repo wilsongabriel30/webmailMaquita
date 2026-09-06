@@ -5,8 +5,9 @@ Cuando un adjunto supera SIZE_THRESHOLD, en vez de adjuntarlo en línea se sube 
 Almacén del usuario y se genera un enlace público de solo lectura. Reemplaza la
 antigua integración con Nextcloud (en retiro).
 """
-import os
+
 import logging
+import os
 
 import httpx
 
@@ -21,7 +22,9 @@ API = ALMACEN_BASE + "/api/almacen"
 CARPETA_ADJUNTOS = "/Adjuntos-Correo"
 
 
-async def upload_and_share(access_token: str, filename: str, content: bytes) -> str | None:
+async def upload_and_share(
+    access_token: str, filename: str, content: bytes
+) -> str | None:
     """Sube el archivo al Almacén del usuario y devuelve la URL pública de descarga.
 
     Se reenvía el ``access_token`` del usuario (la misma cookie del webmail, que el
@@ -47,9 +50,13 @@ async def upload_and_share(access_token: str, filename: str, content: bytes) -> 
             # 2) Subir el archivo (multipart: campo `archivo` + `carpeta`).
             files = {"archivo": (filename, content, "application/octet-stream")}
             data = {"carpeta": CARPETA_ADJUNTOS}
-            resp = await client.post(f"{API}/archivos", files=files, data=data, cookies=cookies)
+            resp = await client.post(
+                f"{API}/archivos", files=files, data=data, cookies=cookies
+            )
             if resp.status_code != 201:
-                logger.error("Almacén subida falló: %s %s", resp.status_code, resp.text[:200])
+                logger.error(
+                    "Almacén subida falló: %s %s", resp.status_code, resp.text[:200]
+                )
                 return None
             subidos = (resp.json() or {}).get("archivos") or []
             ruta = subidos[0].get("ruta") if subidos else None
@@ -64,7 +71,9 @@ async def upload_and_share(access_token: str, filename: str, content: bytes) -> 
                 cookies=cookies,
             )
             if sh.status_code != 201:
-                logger.error("Almacén compartir falló: %s %s", sh.status_code, sh.text[:200])
+                logger.error(
+                    "Almacén compartir falló: %s %s", sh.status_code, sh.text[:200]
+                )
                 return None
             url = ((sh.json() or {}).get("compartido") or {}).get("url")
             return url or None
@@ -82,9 +91,9 @@ def format_link_html(filename: str, size_bytes: int, share_url: str) -> str:
         f'background:#f0f6ff;font-family:Segoe UI,sans-serif;">'
         f'<div style="display:flex;align-items:center;gap:8px;">'
         f'<span style="font-size:20px;">📎</span>'
-        f'<div>'
+        f"<div>"
         f'<a href="{share_url}" style="color:#0078d4;text-decoration:none;font-weight:600;font-size:14px;"'
         f' target="_blank">{filename}</a>'
         f'<div style="color:#605e5c;font-size:12px;">{size_mb:.1f} MB — Almacenado en Almacén Maquita</div>'
-        f'</div></div></div>'
+        f"</div></div></div>"
     )

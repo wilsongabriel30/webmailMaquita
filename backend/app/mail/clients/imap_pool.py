@@ -3,12 +3,15 @@
 Eliminates the ~100ms overhead of connect+login on every request.
 Keeps up to MAX_PER_USER connections per user, with TTL expiration.
 """
+
 import asyncio
-import time
 import logging
+import time
+
 import aioimaplib
 
 from app.config import get_settings
+from app.mail.errors import CredencialIMAPInvalida
 
 logger = logging.getLogger("imap_pool")
 
@@ -17,17 +20,19 @@ _locks: dict[str, asyncio.Lock] = {}
 _semaforos: dict[str, asyncio.Semaphore] = {}
 _global_lock = asyncio.Lock()
 
-MAX_PER_USER = 2            # conexiones OCIOSAS guardadas por usuario (por worker)
-MAX_EN_VUELO = 5            # peticiones simultaneas por usuario (por worker):
-                            # el resto espera su turno en vez de abrir conexiones
-                            # nuevas y chocar con mail_max_userip_connections
+MAX_PER_USER = 2  # conexiones OCIOSAS guardadas por usuario (por worker)
+MAX_EN_VUELO = 5  # peticiones simultaneas por usuario (por worker):
+# el resto espera su turno en vez de abrir conexiones
+# nuevas y chocar con mail_max_userip_connections
 TTL_SECONDS = 300
 CLEANUP_INTERVAL = 60
 
 
 async def _create_connection(username: str, password: str) -> aioimaplib.IMAP4:
     settings = get_settings()
-    imap = aioimaplib.IMAP4(host=settings.imap_host, port=settings.imap_port, timeout=30)
+    imap = aioimaplib.IMAP4(
+        host=settings.imap_host, port=settings.imap_port, timeout=30
+    )
     await imap.wait_hello_from_server()
     resp = await imap.login(username, password)
     if resp.result != "OK":
@@ -38,12 +43,14 @@ async def _create_connection(username: str, password: str) -> aioimaplib.IMAP4:
             except Exception:
                 pass
             base_user = username.split("*")[0]
-            imap = aioimaplib.IMAP4(host=settings.imap_host, port=settings.imap_port, timeout=30)
+            imap = aioimaplib.IMAP4(
+                host=settings.imap_host, port=settings.imap_port, timeout=30
+            )
             await imap.wait_hello_from_server()
             resp = await imap.login(base_user, password)
             if resp.result == "OK":
                 return imap
-        raise ConnectionError(f"IMAP login failed for {username}")
+        raise CredencialIMAPInvalida(f"IMAP login failed for {username}")
     return imap
 
 
@@ -204,4 +211,8 @@ def start_cleanup_task():
     """Start background cleanup. Call once at app startup."""
     global _cleanup_task
     _cleanup_task = asyncio.ensure_future(_cleanup_loop())
-    logger.info("IMAP pool cleanup task started (interval=%ds, ttl=%ds)", CLEANUP_INTERVAL, TTL_SECONDS)
+    logger.info(
+        "IMAP pool cleanup task started (interval=%ds, ttl=%ds)",
+        CLEANUP_INTERVAL,
+        TTL_SECONDS,
+    )

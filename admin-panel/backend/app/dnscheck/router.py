@@ -8,6 +8,7 @@ import asyncio
 from asyncio.subprocess import PIPE
 from fastapi import APIRouter, Depends, Query, Request
 from app.auth.dependencies import get_current_admin
+from app.wrappers.privilegios import con_sudo
 
 router = APIRouter(prefix="/api/dnscheck", tags=["dnscheck"])
 
@@ -18,7 +19,7 @@ DIG_TIMEOUT = "5"  # segundos
 
 async def _run(*cmd, timeout: int = 10) -> str:
     try:
-        proc = await asyncio.create_subprocess_exec(*cmd, stdout=PIPE, stderr=PIPE)
+        proc = await asyncio.create_subprocess_exec(*con_sudo(*cmd), stdout=PIPE, stderr=PIPE)
         out, err = await asyncio.wait_for(proc.communicate(), timeout=timeout)
         return out.decode(errors="replace").strip()
     except asyncio.TimeoutError:

@@ -1,4 +1,5 @@
 """FastAPI router for Calendar API."""
+
 from __future__ import annotations
 
 import json
@@ -37,9 +38,7 @@ def _db(request: Request):
 
 
 @router.get("/calendars", response_model=list[CalendarOut])
-async def list_calendars(
-    request: Request, user: str = Depends(get_current_user)
-):
+async def list_calendars(request: Request, user: str = Depends(get_current_user)):
     db = _db(request)
     # Ensure at least a default calendar exists
     await calendar_service.ensure_default_calendar(db, user)
@@ -136,7 +135,9 @@ async def update_event(
     try:
         ev = await calendar_service.update_event(db, user, event_id, data)
         await puente_meet.tras_actualizar(ev, request)
-        return await calendar_service.get_event(db, user, event_id)   # con reunion_id / meet_url
+        return await calendar_service.get_event(
+            db, user, event_id
+        )  # con reunion_id / meet_url
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -194,7 +195,9 @@ async def export_calendar(
 @router.get("/freebusy", response_model=FreeBusyResponse)
 async def freebusy(
     request: Request,
-    user_email: str = Query(..., alias="user", description="Email del usuario a consultar"),
+    user_email: str = Query(
+        ..., alias="user", description="Email del usuario a consultar"
+    ),
     start: datetime = Query(..., description="Inicio del rango (ISO 8601)"),
     end: datetime = Query(..., description="Fin del rango (ISO 8601)"),
     _current_user: str = Depends(get_current_user),
@@ -234,12 +237,17 @@ async def places_autocomplete(
             pass
 
     params = {
-        "q": query, "limit": "6", "lang": "default",
-        "lat": "-0.1807", "lon": "-78.4678",  # Quito (location bias)
+        "q": query,
+        "limit": "6",
+        "lang": "default",
+        "lat": "-0.1807",
+        "lon": "-78.4678",  # Quito (location bias)
     }
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(6.0)) as client:
-            resp = await client.get(_PHOTON_URL, params=params, headers={"User-Agent": _PLACES_UA})
+            resp = await client.get(
+                _PHOTON_URL, params=params, headers={"User-Agent": _PLACES_UA}
+            )
             resp.raise_for_status()
             data = resp.json()
     except Exception:
@@ -257,10 +265,12 @@ async def places_autocomplete(
         if label:
             suggestions.append({"label": label, "cc": p.get("countrycode")})
     suggestions.sort(key=lambda x: 0 if x.get("cc") == "EC" else 1)
-    _seen = set(); _dedup = []
+    _seen = set()
+    _dedup = []
     for x in suggestions:
         if x["label"] not in _seen:
-            _seen.add(x["label"]); _dedup.append({"label": x["label"]})
+            _seen.add(x["label"])
+            _dedup.append({"label": x["label"]})
     suggestions = _dedup[:6]
 
     if redis is not None and suggestions:
@@ -273,6 +283,7 @@ async def places_autocomplete(
 
 # ── Calendar Sharing ──────────────────────────────────────
 
+
 @router.post("/calendars/{calendar_id}/share", status_code=201)
 async def share_calendar(
     calendar_id: uuid.UUID,
@@ -283,7 +294,9 @@ async def share_calendar(
     """Compartir un calendario con otro usuario."""
     db = _db(request)
     try:
-        result = await calendar_service.share_calendar(db, user, calendar_id, data.shared_with, data.permission)
+        result = await calendar_service.share_calendar(
+            db, user, calendar_id, data.shared_with, data.permission
+        )
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -342,6 +355,7 @@ async def list_shared_events(
 
 # ── Event Invitations ─────────────────────────────────────
 
+
 @router.post("/events/{event_id}/invite", status_code=200)
 async def send_event_invitations(
     event_id: uuid.UUID,
@@ -352,6 +366,7 @@ async def send_event_invitations(
     db = _db(request)
     from app.config import get_settings
     from app.core.session import get_user_password
+
     _s = get_settings()
     smtp_config = {
         "host": getattr(_s, "smtp_host", "127.0.0.1"),
@@ -375,7 +390,9 @@ async def respond_event_invitation(
     """Aceptar, rechazar o marcar como tentativa una invitación a evento."""
     db = _db(request)
     try:
-        return await calendar_service.respond_invitation(db, user, event_id, data.status)
+        return await calendar_service.respond_invitation(
+            db, user, event_id, data.status
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -394,12 +411,14 @@ async def scheduling_assistant(
     emails = [e.strip() for e in attendees.split(",") if e.strip()]
     if not emails:
         raise HTTPException(400, "Se requiere al menos un asistente")
-    
-    from datetime import datetime as dt, timedelta
+
+    from datetime import datetime as dt
+    from datetime import timedelta
+
     target = dt.strptime(date, "%Y-%m-%d").date()
     start_str = f"{date}T00:00:00"
     end_str = f"{date}T23:59:59"
-    
+
     # Collect busy times per attendee
     all_busy: list[tuple[dt, dt]] = []
     for email in emails:
@@ -412,19 +431,29 @@ async def scheduling_assistant(
                  AND ce.status <> 'CANCELLED'
                  AND COALESCE(ce.transparency, 'OPAQUE') != 'TRANSPARENT'
                ORDER BY ce.dtstart""",
-            email, target
+            email,
+            target,
         )
         from zoneinfo import ZoneInfo
+
         _tz_local = ZoneInfo("America/Guayaquil")
         for row in rows:
-            s = row["start_time"] if isinstance(row["start_time"], dt) else dt.fromisoformat(str(row["start_time"]))
-            e = row["end_time"] if isinstance(row["end_time"], dt) else dt.fromisoformat(str(row["end_time"]))
+            s = (
+                row["start_time"]
+                if isinstance(row["start_time"], dt)
+                else dt.fromisoformat(str(row["start_time"]))
+            )
+            e = (
+                row["end_time"]
+                if isinstance(row["end_time"], dt)
+                else dt.fromisoformat(str(row["end_time"]))
+            )
             if s.tzinfo is not None:
                 s = s.astimezone(_tz_local).replace(tzinfo=None)
             if e.tzinfo is not None:
                 e = e.astimezone(_tz_local).replace(tzinfo=None)
             all_busy.append((s, e))
-    
+
     # Merge overlapping busy intervals
     all_busy.sort(key=lambda x: x[0])
     merged: list[tuple[dt, dt]] = []
@@ -433,17 +462,19 @@ async def scheduling_assistant(
             merged[-1] = (merged[-1][0], max(merged[-1][1], e))
         else:
             merged.append((s, e))
-    
+
     # Find free slots in work hours (8:00-18:00)
     work_start = dt.combine(target, dt.min.time().replace(hour=8))
     work_end = dt.combine(target, dt.min.time().replace(hour=18))
     dur = timedelta(minutes=duration)
-    
+
     free_slots = []
     cursor = work_start
     for bs, be in merged:
         while cursor + dur <= bs and cursor + dur <= work_end:
-            free_slots.append({"start": cursor.isoformat(), "end": (cursor + dur).isoformat()})
+            free_slots.append(
+                {"start": cursor.isoformat(), "end": (cursor + dur).isoformat()}
+            )
             cursor += timedelta(minutes=15)
             if len(free_slots) >= 20:
                 break
@@ -452,13 +483,17 @@ async def scheduling_assistant(
             break
     # After last busy period
     while cursor + dur <= work_end and len(free_slots) < 20:
-        free_slots.append({"start": cursor.isoformat(), "end": (cursor + dur).isoformat()})
+        free_slots.append(
+            {"start": cursor.isoformat(), "end": (cursor + dur).isoformat()}
+        )
         cursor += timedelta(minutes=15)
-    
+
     return {
         "date": date,
         "attendees": emails,
         "duration_minutes": duration,
-        "busy_periods": [{"start": s.isoformat(), "end": e.isoformat()} for s, e in merged],
+        "busy_periods": [
+            {"start": s.isoformat(), "end": e.isoformat()} for s, e in merged
+        ],
         "free_slots": free_slots,
     }

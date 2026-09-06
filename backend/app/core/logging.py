@@ -2,6 +2,7 @@
 
 Levels: info, warning, error, security.
 """
+
 import logging
 import time
 import uuid
@@ -18,10 +19,12 @@ logger = logging.getLogger("maquita.webmail")
 
 def setup_logging() -> None:
     handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter(
-        "%(asctime)s [%(levelname)s] %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    ))
+    handler.setFormatter(
+        logging.Formatter(
+            "%(asctime)s [%(levelname)s] %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        )
+    )
     logger.addHandler(handler)
     logger.setLevel(logging.INFO)
 
@@ -73,6 +76,7 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
         user = ""
         try:
             from app.auth.jwt import decode_access_token
+
             token = request.cookies.get("access_token")
             if token:
                 payload = decode_access_token(token)
@@ -81,7 +85,15 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
         except Exception:
             pass
 
-        log_event("info", "http_request", "core", user=user, latency_ms=latency,
-                  status=str(response.status_code), method=request.method, path=request.url.path)
+        log_event(
+            "info",
+            "http_request",
+            "core",
+            user=user,
+            latency_ms=latency,
+            status=str(response.status_code),
+            method=request.method,
+            path=request.url.path,
+        )
         response.headers["X-Request-ID"] = rid
         return response

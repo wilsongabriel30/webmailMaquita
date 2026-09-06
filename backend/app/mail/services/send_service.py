@@ -1,7 +1,10 @@
 """Send service — orchestrates sending email with attachments."""
+
 import re
-from app.mail.clients.smtp_client import send_email as smtp_send, OutgoingEmail, EmailAttachment
+
 from app.mail.clients.imap_client import append_message
+from app.mail.clients.smtp_client import EmailAttachment, OutgoingEmail
+from app.mail.clients.smtp_client import send_email as smtp_send
 
 
 def _html_to_text(html: str) -> str:
@@ -31,7 +34,7 @@ async def _get_disclaimer(db, domain: str) -> tuple[str, str] | None:
     try:
         row = await db.fetchrow(
             "SELECT html_footer, text_footer FROM corporate_disclaimer WHERE domain = $1 AND is_active = TRUE",
-            domain
+            domain,
         )
         if row and (row["html_footer"] or row["text_footer"]):
             return row["html_footer"], row["text_footer"]
@@ -56,7 +59,7 @@ async def send_and_save(
     sent_folder: str = "Sent",
     draft_uid: int | None = None,
     display_name: str = "",
-    db = None,
+    db=None,
     request_read_receipt: bool = False,
     request_delivery_receipt: bool = False,
 ) -> dict:
@@ -71,13 +74,15 @@ async def send_and_save(
     email_attachments = []
     if attachments:
         for att in attachments:
-            email_attachments.append(EmailAttachment(
-                filename=att["filename"],
-                content=att["content"],
-                content_type=att.get("content_type", "application/octet-stream"),
-                is_inline=att.get("is_inline", False),
-                cid=att.get("cid", ""),
-            ))
+            email_attachments.append(
+                EmailAttachment(
+                    filename=att["filename"],
+                    content=att["content"],
+                    content_type=att.get("content_type", "application/octet-stream"),
+                    is_inline=att.get("is_inline", False),
+                    cid=att.get("cid", ""),
+                )
+            )
 
     # Auto-generate text_body from html_body if empty
     if not text_body and html_body:
@@ -85,14 +90,19 @@ async def send_and_save(
 
     # Inject corporate disclaimer if configured
     if db:
-        _domain = from_addr.split('@')[1] if '@' in from_addr else ''
+        _domain = from_addr.split("@")[1] if "@" in from_addr else ""
         _disc = await _get_disclaimer(db, _domain)
         if _disc:
             _dh, _dt = _disc
             if _dh and html_body:
-                html_body = html_body + '<div style="margin-top:16px;padding-top:12px;border-top:1px solid #edebe9;font-size:11px;color:#605e5c;">' + _dh + '</div>'
+                html_body = (
+                    html_body
+                    + '<div style="margin-top:16px;padding-top:12px;border-top:1px solid #edebe9;font-size:11px;color:#605e5c;">'
+                    + _dh
+                    + "</div>"
+                )
             if _dt and text_body:
-                text_body = text_body + chr(10) + chr(10) + '---' + chr(10) + _dt
+                text_body = text_body + chr(10) + chr(10) + "---" + chr(10) + _dt
 
     email_data = OutgoingEmail(
         from_addr=from_formatted,
@@ -119,6 +129,7 @@ async def send_and_save(
     # Delete draft if applicable
     if draft_uid:
         from app.mail.clients.imap_client import uid_delete_message
+
         await uid_delete_message(imap, "Drafts", draft_uid)
 
     return {"message_id": result["message_id"], "status": "sent"}

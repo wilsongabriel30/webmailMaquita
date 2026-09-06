@@ -1,6 +1,7 @@
-import asyncpg
 import json
 from datetime import datetime
+
+import asyncpg
 
 
 async def log_action(
@@ -60,9 +61,7 @@ async def get_audit_log(
     where = " AND ".join(conditions)
     where_clause = f"WHERE {where}" if where else ""
 
-    total = await db.fetchval(
-        f"SELECT count(*) FROM audit_log {where_clause}", *params
-    )
+    total = await db.fetchval(f"SELECT count(*) FROM audit_log {where_clause}", *params)
 
     offset = (page - 1) * per_page
     rows = await db.fetch(
@@ -70,7 +69,9 @@ async def get_audit_log(
             FROM audit_log {where_clause}
             ORDER BY created_at DESC
             LIMIT ${idx} OFFSET ${idx + 1}""",
-        *params, per_page, offset,
+        *params,
+        per_page,
+        offset,
     )
 
     return {

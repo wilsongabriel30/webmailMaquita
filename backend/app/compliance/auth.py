@@ -3,12 +3,12 @@ Compliance Auth Module — Fail-fast + RBAC
 Soporta JWT via cookie (webmail) y Bearer token (admin panel).
 """
 
-import os
 import logging
+import os
 from functools import wraps
 
 import jwt
-from fastapi import Request, HTTPException
+from fastapi import HTTPException, Request
 
 logger = logging.getLogger("compliance.auth")
 
@@ -115,12 +115,13 @@ async def _get_user_and_role(request: Request) -> tuple[str, str]:
             role = payload.get("role", "admin")
             # Validar que el rol exista en nuestra tabla
             if role not in COMPLIANCE_ROLES:
+                # Mínimo privilegio (A-18): un rol desconocido solo lee.
                 logger.warning(
-                    "Rol desconocido '%s' para usuario '%s', asignando admin",
+                    "Rol desconocido '%s' para usuario '%s', asignando compliance_read",
                     role,
                     username,
                 )
-                role = "admin"
+                role = "compliance_read"
             logger.info("Auth Bearer: usuario=%s rol=%s", username, role)
             return (str(username), role)
 

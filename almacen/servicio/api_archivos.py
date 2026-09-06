@@ -88,12 +88,14 @@ def usuario_actual() -> int:
 
 def _permiso_unidad(usuario, ruta, escritura=False) -> bool:
     """Si la ruta es de una unidad compartida, verifica que el usuario tenga acceso
-    (lectura, o escritura según su rol). Rutas personales: siempre True."""
+    (lectura, o escritura según su rol). Rutas personales: siempre True.
+    Falla CERRADO: ante cualquier error, sin acceso (antes abría)."""
     try:
-        from api_unidades import permiso_unidad
+        from permisos_unidad import permiso_unidad
         return permiso_unidad(usuario, ruta, escritura)
-    except Exception:
-        return True
+    except Exception as excepcion:
+        log.error('No se pudo comprobar el permiso de unidad (%s): %s', ruta, excepcion)
+        return False
 
 
 def error(mensaje: str, codigo: int = 500):
@@ -125,7 +127,7 @@ def listar():
             return error('No tienes acceso a esta unidad compartida', 403)
         carpetas, archivos = nucleo.listar(usuario, ruta)
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     except FileNotFoundError:
         return error('Carpeta no encontrada', 404)
 
@@ -165,7 +167,7 @@ def subir():
             subidos.append(r)
             registrar_actividad(usuario, 'subio', r['ruta'], r.get('tamano_humano', ''))
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     return jsonify({'success': True, 'archivos': subidos,
                     'total': len(subidos)}), 201
 
@@ -180,7 +182,7 @@ def descargar():
     try:
         fisica = ruta_fisica(usuario, request.args.get('ruta', ''))
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     if not os.path.isfile(fisica):
         return error('Archivo no encontrado', 404)
 
@@ -202,14 +204,38 @@ def ver():
     try:
         fisica = ruta_fisica(usuario, request.args.get('ruta', ''))
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     if not os.path.isfile(fisica):
         return error('Archivo no encontrado', 404)
-    return send_file(fisica, as_attachment=False,
-                     download_name=os.path.basename(fisica))
+    return _entrega_segura(fisica)
 
 
 _EXT_IMAGEN = {'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'}
+
+# [A-13] Lo unico que se muestra DENTRO del navegador. Todo lo demas se descarga.
+# El vector era subir `nota.html` (o un .svg, que es XML y admite script) y pasar
+# el enlace de «ver»: el archivo se renderizaba como pagina en el dominio del
+# correo, con la sesion de quien lo abriera. El SVG queda fuera a proposito.
+_EXT_INCRUSTABLES = {
+    'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png',
+    'gif': 'image/gif', 'webp': 'image/webp', 'bmp': 'image/bmp',
+    'pdf': 'application/pdf', 'mp3': 'audio/mpeg', 'ogg': 'audio/ogg',
+    'wav': 'audio/wav', 'mp4': 'video/mp4', 'webm': 'video/webm',
+    'txt': 'text/plain', 'csv': 'text/csv',
+}
+
+
+def _entrega_segura(fisica):
+    """[A-13] Entrega un archivo: incrustado solo si su tipo no se ejecuta en el
+    navegador; el resto, como descarga. Siempre con nosniff."""
+    extension = os.path.splitext(fisica)[1].lstrip('.').lower()
+    tipo = _EXT_INCRUSTABLES.get(extension)
+    respuesta = send_file(fisica, mimetype=tipo, as_attachment=tipo is None,
+                          download_name=os.path.basename(fisica))
+    respuesta.headers['X-Content-Type-Options'] = 'nosniff'
+    if tipo is None:
+        respuesta.headers['Content-Security-Policy'] = 'sandbox'
+    return respuesta
 
 
 def _miniatura_pdf(fisica: str) -> str:
@@ -344,18 +370,19 @@ def preview():
     ruta = request.args.get('file') or request.args.get('ruta') or ''
     try:
         fisica = ruta_fisica(usuario, ruta)
-    except RutaInvalida:
-        return error('Ruta inválida', 400)
+    except RutaInvalida as excepcion:
+        return error(str(excepcion), excepcion.codigo)
     if not os.path.isfile(fisica):
         return error('Sin vista previa', 404)
     ext = os.path.splitext(fisica)[1].lstrip('.').lower()
     if ext in _EXT_IMAGEN:
         if ext == 'svg':
-            return _respuesta_preview(fisica, 'image/svg+xml')
+            # [A-13] El SVG es XML y puede llevar script: no se sirve incrustado.
+            return _entrega_segura(fisica)
         png = _miniatura_imagen(fisica)
         if png:
             return _respuesta_preview(png, 'image/jpeg')
-        return send_file(fisica, as_attachment=False)
+        return _entrega_segura(fisica)   # [A-13] con nosniff, nunca como pagina
     if ext == 'pdf':
         png = _miniatura_pdf(fisica)
         if png:
@@ -377,7 +404,7 @@ def crear_acceso_directo():
         r = nucleo.crear_acceso_directo(usuario, datos.get('carpeta', '/'),
                                         datos['destino'], datos.get('nombre'))
     except RutaInvalida as e:
-        return error(str(e), 400)
+        return error(str(e), e.codigo)
     except FileNotFoundError as e:
         return error(str(e), 404)
     return jsonify({'success': True, **r}), 201
@@ -408,7 +435,7 @@ def eliminar():
     try:
         nucleo.enviar_a_papelera(usuario, ruta)
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     except FileNotFoundError:
         return error('No existe el elemento', 404)
     registrar_actividad(usuario, 'elimino', ruta)
@@ -440,7 +467,7 @@ def mover():
     try:
         nucleo.mover(usuario, datos['origen'], datos['destino'])
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     except FileNotFoundError:
         return error('El origen no existe', 404)
     registrar_actividad(usuario, 'movio', datos['destino'], datos['origen'])
@@ -457,7 +484,7 @@ def copiar():
     try:
         nucleo.copiar(usuario, datos['origen'], datos['destino'])
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     except FileNotFoundError:
         return error('El origen no existe', 404)
     registrar_actividad(usuario, 'copio', datos['destino'], datos['origen'])
@@ -479,7 +506,7 @@ def renombrar():
     try:
         ruta_nueva = nucleo.renombrar(usuario, datos['ruta'], datos['nuevo_nombre'])
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     except FileNotFoundError:
         return error('No existe el elemento', 404)
     registrar_actividad(usuario, 'renombro', ruta_nueva, datos['ruta'])
@@ -499,7 +526,7 @@ def crear_carpeta():
     try:
         carpeta = nucleo.crear_carpeta(usuario, datos.get('ruta', '/'), datos['nombre'])
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     registrar_actividad(usuario, 'creo_carpeta', carpeta['ruta'])
     return jsonify({'success': True, 'carpeta': carpeta}), 201
 

@@ -20,6 +20,7 @@ La URL y la clave viven en el .env (gitignored), nunca en el código.
 
 Salida: {"label": str, "score": int, "reasons": [str], "source": str}
 """
+
 import json
 import os
 import re
@@ -33,11 +34,12 @@ def _norm(s: str) -> str:
     s = unicodedata.normalize("NFKD", s or "")
     return "".join(c for c in s if not unicodedata.combining(c)).lower()
 
+
 try:
-    from . import lookalike, checker
+    from . import checker, lookalike
 except Exception:  # uso fuera del paquete (tests sueltos)
-    import lookalike
     import checker
+    import lookalike
 
 # --- léxico de cosecha de credenciales / urgencia (ES + EN) ---
 # Patrones en ASCII sin tildes: el texto se normaliza con _norm() antes de matchear.
@@ -45,22 +47,28 @@ _URGENCIA = re.compile(
     r"\b(urgente|inmediat\w+|de inmediato|antes de|expira|caduc\w+|suspendid\w+|"
     r"bloquead\w+|desactiv\w+|verifi\w+|confirm\w+|actualice|valide|ultim\w+ aviso|"
     r"accion requerida|urgent|immediately|verify|suspended|expired|act now|final notice)\b",
-    re.I)
+    re.I,
+)
 _CREDENCIALES = re.compile(
     r"\b(contrasen\w+|clave|usuari\w+ y contrasen\w+|datos bancari\w+|tarjeta de credito|"
     r"numero de cuenta|cedula|inicie sesion|inicia sesion|reactivar|reactive su cuenta|"
     r"password|log ?in|sign ?in|credentials|account details|banking)\b",
-    re.I)
+    re.I,
+)
 _DINERO = re.compile(
     r"\b(transferen\w+|pago pendiente|factura adjunta|"
     r"gift card|tarjeta de regalo|bitcoin|criptomoned\w+|wire transfer|invoice|payment)\b",
-    re.I)
+    re.I,
+)
 # estafa de adelanto de pago: premio/herencia/loteria (señal fuerte por sí sola)
 _PREMIO = re.compile(
     r"\b(premio|herenci\w+|loteria|ganaste|has ganado|ganador|"
-    r"reclam\w+ tu premio|millones|prize|winner|you won|inheritance)\b", re.I)
+    r"reclam\w+ tu premio|millones|prize|winner|you won|inheritance)\b",
+    re.I,
+)
 _SALUDO_GENERICO = re.compile(
-    r"\b(estimad\w+ (cliente|usuari\w+)|dear (customer|user)|querido usuario)\b", re.I)
+    r"\b(estimad\w+ (cliente|usuari\w+)|dear (customer|user)|querido usuario)\b", re.I
+)
 
 # texto de un enlace HTML: <a href="X">TEXTO</a>
 _ANCHOR = re.compile(r'<a\s[^>]*href=["\']([^"\']+)["\'][^>]*>(.*?)</a>', re.I | re.S)
@@ -82,9 +90,15 @@ def _extract_urls(body: str) -> list[str]:
     return list(dict.fromkeys(urls))[:50]
 
 
-def score_message(sender: str = "", subject: str = "", body: str = "",
-                  urls: list[str] | None = None, signals: dict | None = None,
-                  protected: set | None = None, use_external: bool = True) -> dict:
+def score_message(
+    sender: str = "",
+    subject: str = "",
+    body: str = "",
+    urls: list[str] | None = None,
+    signals: dict | None = None,
+    protected: set | None = None,
+    use_external: bool = True,
+) -> dict:
     """Veredicto de phishing para un mensaje. No bloquea: solo puntúa.
     use_external=False fuerza heurística pura (sin llamadas de red); útil en el
     path de entrega para escalar al modelo solo en la banda incierta."""
@@ -96,15 +110,29 @@ def score_message(sender: str = "", subject: str = "", body: str = "",
 
     # 1) Display-name suplanta una marca pero el dominio no corresponde
     if name and from_dom:
-        la_name = lookalike.check(_domain(name)) if "." in name else {"lookalike": False}
-        brand_in_name = re.search(r"(banco|paypal|microsoft|google|sri|iess|gobierno|soporte|"
-                                  r"seguridad|it|admin|cuenta)", name, re.I)
-        if brand_in_name and from_dom and not any(
-                from_dom == p or from_dom.endswith("." + p) for p in (protected or lookalike.PROTECTED_DOMAINS)):
+        la_name = (
+            lookalike.check(_domain(name)) if "." in name else {"lookalike": False}
+        )
+        brand_in_name = re.search(
+            r"(banco|paypal|microsoft|google|sri|iess|gobierno|soporte|"
+            r"seguridad|it|admin|cuenta)",
+            name,
+            re.I,
+        )
+        if (
+            brand_in_name
+            and from_dom
+            and not any(
+                from_dom == p or from_dom.endswith("." + p)
+                for p in (protected or lookalike.PROTECTED_DOMAINS)
+            )
+        ):
             # marca en el nombre + dominio remitente genérico/gratuito
             if re.search(r"(gmail|outlook|hotmail|yahoo|proton|mail)\.", from_dom):
                 score += 30
-                reasons.append(f"El remitente dice ser «{name.strip()}» pero escribe desde {from_dom}")
+                reasons.append(
+                    f"El remitente dice ser «{name.strip()}» pero escribe desde {from_dom}"
+                )
 
     # 2) Dominio remitente es lookalike de uno protegido
     if from_dom:
@@ -163,19 +191,31 @@ def score_message(sender: str = "", subject: str = "", body: str = "",
 
     score = min(score, 100)
     label = "phishing" if score >= 70 else "suspicious" if score >= 40 else "clean"
-    result = {"label": label, "score": score, "reasons": reasons, "source": "heuristica"}
+    result = {
+        "label": label,
+        "score": score,
+        "reasons": reasons,
+        "source": "heuristica",
+    }
 
     # 6) Capa externa opcional (agnóstica) — fusiona si está configurada.
     # El 'score' externo se interpreta como RIESGO de phishing: si el veredicto
     # externo es 'clean', su riesgo es 0 (su número suele ser confianza-en-limpio,
     # no riesgo). Se toma el mayor riesgo y se recalcula el label final.
-    ext = _external_classify(sender, subject, body, all_urls, signals) if use_external else None
+    ext = (
+        _external_classify(sender, subject, body, all_urls, signals)
+        if use_external
+        else None
+    )
     if ext:
         elabel = (ext.get("label") or "").lower()
         erisk = 0 if elabel == "clean" else int(ext.get("score") or 0)
         result["score"] = max(result["score"], min(erisk, 100))
-        result["label"] = ("phishing" if result["score"] >= 70
-                           else "suspicious" if result["score"] >= 40 else "clean")
+        result["label"] = (
+            "phishing"
+            if result["score"] >= 70
+            else "suspicious" if result["score"] >= 40 else "clean"
+        )
         result["reasons"] = result["reasons"] + ext.get("reasons", [])
         result["source"] = "heuristica+externo"
     return result
@@ -192,27 +232,37 @@ def _external_classify(sender, subject, body, urls, signals) -> dict | None:
     if not url:
         return None
     try:
-        payload = json.dumps({
-            "sender": sender, "subject": subject,
-            "body": (body or "")[:20000], "urls": urls[:50],
-            "signals": signals or {},
-        }).encode()
-        req = urllib.request.Request(url, data=payload,
-                                     headers={"Content-Type": "application/json"})
+        payload = json.dumps(
+            {
+                "sender": sender,
+                "subject": subject,
+                "body": (body or "")[:20000],
+                "urls": urls[:50],
+                "signals": signals or {},
+            }
+        ).encode()
+        req = urllib.request.Request(
+            url, data=payload, headers={"Content-Type": "application/json"}
+        )
         key = os.getenv("PHISH_CLASSIFIER_KEY", "").strip()
         if key:
             req.add_header("Authorization", f"Bearer {key}")
         timeout = float(os.getenv("PHISH_CLASSIFIER_TIMEOUT", "4"))
         with urllib.request.urlopen(req, timeout=timeout) as r:
             data = json.loads(r.read().decode())
-        return {"label": data.get("label"), "score": int(data.get("score", 0)),
-                "reasons": list(data.get("reasons", []))}
+        return {
+            "label": data.get("label"),
+            "score": int(data.get("score", 0)),
+            "reasons": list(data.get("reasons", [])),
+        }
     except Exception:
         return None
 
 
-_GW_SYSTEM = ("Eres un analista de seguridad de correo. Determinas si un mensaje es "
-              "phishing. Respondes SOLO con JSON válido, sin texto adicional.")
+_GW_SYSTEM = (
+    "Eres un analista de seguridad de correo. Determinas si un mensaje es "
+    "phishing. Respondes SOLO con JSON válido, sin texto adicional."
+)
 
 
 def _gateway_classify(sender, subject, body, urls) -> dict | None:
@@ -229,25 +279,38 @@ def _gateway_classify(sender, subject, body, urls) -> dict | None:
         f"Cuerpo (recortado):\n{(body or '')[:4000]}\n"
         f"Enlaces: {', '.join((urls or [])[:20])}\n\n"
         'Responde SOLO con este JSON: {"label":"phishing|suspicious|clean",'
-        '"score":0-100,"reasons":["motivo breve"]}')
+        '"score":0-100,"reasons":["motivo breve"]}'
+    )
     try:
-        payload = json.dumps({
-            "prompt": prompt, "system": _GW_SYSTEM, "temperature": 0.1,
-            "max_tokens": 300, "usar_rag": False, "model": model,
-            "preferir_gpu": "remota",
-        }).encode()
+        payload = json.dumps(
+            {
+                "prompt": prompt,
+                "system": _GW_SYSTEM,
+                "temperature": 0.1,
+                "max_tokens": 300,
+                "usar_rag": False,
+                "model": model,
+                "preferir_gpu": "remota",
+            }
+        ).encode()
         headers = {"Content-Type": "application/json"}
         if key:
             headers["X-API-Key"] = key
-        req = urllib.request.Request(f"{base}/api/v1/ia/generate",
-                                     data=payload, headers=headers)
+        req = urllib.request.Request(
+            f"{base}/api/v1/ia/generate", data=payload, headers=headers
+        )
         timeout = float(os.getenv("PHISH_CLASSIFIER_TIMEOUT", "8"))
         with urllib.request.urlopen(req, timeout=timeout) as r:
             data = json.loads(r.read().decode())
         if "error" in data:
             return None
-        raw = (data.get("respuesta") or data.get("response") or
-               data.get("text") or data.get("output") or "")
+        raw = (
+            data.get("respuesta")
+            or data.get("response")
+            or data.get("text")
+            or data.get("output")
+            or ""
+        )
         m = re.search(r"\{.*\}", raw, re.S)
         if not m:
             return None
@@ -255,7 +318,10 @@ def _gateway_classify(sender, subject, body, urls) -> dict | None:
         label = str(obj.get("label", "")).lower()
         if label not in ("phishing", "suspicious", "clean"):
             label = None
-        return {"label": label, "score": int(obj.get("score", 0)),
-                "reasons": [f"modelo: {x}" for x in list(obj.get("reasons", []))[:5]]}
+        return {
+            "label": label,
+            "score": int(obj.get("score", 0)),
+            "reasons": [f"modelo: {x}" for x in list(obj.get("reasons", []))[:5]],
+        }
     except Exception:
         return None

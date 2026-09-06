@@ -1,0 +1,105 @@
+# DECISIONES — Maquita Mail
+
+Decisiones de arquitectura y seguridad tomadas **a conciencia**, con su motivo y su
+fecha de revisión. Lo que está aquí no es una configuración heredada que nadie
+recuerda haber elegido: es una postura, y se puede discutir.
+
+Formato: qué se decidió, por qué, qué se acepta a cambio, y cuándo hay que
+volver a mirarlo.
+
+---
+
+## D-1. El milter DLP falla ABIERTO: si no responde, el correo pasa sin inspección
+
+**Fecha:** 2026-09-04 · **Estado:** vigente en preproducción · **Revisar antes de:** salida a usuarios
+
+### Qué está configurado
+
+En Postfix:
+
+```
+milter_default_action = accept
+smtpd_milters = inet:localhost:11332, inet:localhost:11335
+```
+
+`11332` es rspamd. `11335` es `maquita-milter`, la inspección de fugas de datos.
+
+Con `accept`, si un milter no responde, Postfix **entrega el correo igualmente**,
+sin inspeccionar. La alternativa sería `tempfail`, que retiene el mensaje en cola
+hasta que el milter vuelva.
+
+### Por qué se mantiene así hoy
+
+Prioriza que el correo circule sobre que se inspeccione. En preproducción es lo
+correcto: un fallo del milter no debe detener el trabajo del equipo, y el coste
+de un mensaje sin inspeccionar es bajo mientras no haya tráfico sensible real.
+
+Esta decisión se registró tras confinar el milter (A-15, fase 1), al comprobar
+que un reinicio del servicio **no corta la entrega**. Eso rebajó el riesgo de la
+intervención, y conviene que quede escrito por qué.
+
+### Qué se acepta a cambio
+
+Que la protección contra fugas de datos se pueda saltar **en silencio**. Hoy, si
+el milter muere, nadie se entera: el correo sigue saliendo y el registro de
+Postfix no grita. Un atacante con acceso al servidor podría parar el milter y
+exfiltrar por correo sin dejar una alerta.
+
+### Qué falta antes de salir a usuarios
+
+1. **Decidir a conciencia si sigue siendo `accept`.** Con datos sensibles reales,
+   puede compensar que el correo espere en cola a que el milter vuelva. No es
+   obvio: `tempfail` mal calibrado convierte una caída del milter en una parada
+   de correo. La decisión es del responsable, no técnica.
+2. **Alerta obligatoria, se quede como se quede.** Si Postfix empieza a aceptar
+   sin inspección, tiene que notarse en minutos, no en la siguiente auditoría.
+   Mínimo: vigilar que `maquita-milter` esté activo y que el puerto 11335
+   responda, y avisar si deja de hacerlo. Si se pasa a `tempfail`, hace falta
+   además vigilar el tamaño de la cola.
+3. Anotar el resultado aquí, sustituyendo esta sección.
+
+### Relación con otros hallazgos
+
+- B2 (errores silenciosos del milter) ya dejó anotado que la elección
+  `tempfail`/`accept` se reevalúa en la puerta de lanzamiento. Esto lo concreta.
+- A-15 fase 1: el milter quedó confinado el 2026-09-04. Su superficie es mínima
+  y medida, pero sigue corriendo como root.
+
+---
+
+## D-2. El panel administrativo no comparte el archivo de configuración del correo
+
+**Fecha:** 2026-09-04 · **Estado:** decidido, pendiente de ejecutar con la fase 2 de A-15
+
+Se copian a su propia configuración solo los valores que necesita, en vez de darle
+lectura del archivo del correo. Si el panel pudiera leerlo entero, quien lo
+comprometa se lleva el secreto de sesión del webmail, el de administración y las
+credenciales de la base, y el confinamiento pierde sentido.
+
+Se acepta a cambio el riesgo de que los valores duplicados se desalineen al rotar
+un secreto. Mitigación obligatoria: validación al arranque que **aborte** si un
+valor compartido no coincide, nombrando la variable y nunca el valor. Detalle en
+`docs/auditoria/PLAN-PANEL-FASE2-SIN-ROOT.md`.
+
+Precedente que lo justifica: el 2026-09-03 se rotaron secretos y el chat quedó 17
+horas rechazando sesiones sin que nadie lo notara.
+
+## D-3. `pickle` en el canal interno del editor de PDF del almacén
+
+**Fecha:** 2026-09-06 · **Estado:** deuda aceptada con fecha; se migra a JSON al tocar el módulo
+
+`almacen/aplicaciones/pdf_editor/infraestructura/externos/worker_pdf.py:117` y
+`pool_pdf.py:265` deserializan con `pickle.loads` lo que llega por el canal entre
+el proceso del almacén y sus trabajadores de PDF. Hoy ese canal es interno (tuberías
+entre procesos del mismo servicio, mismo usuario, sin exposición de red), así que
+no hay vía de ataque desde fuera.
+
+Se anota igualmente porque es el patrón que se convierte en ejecución remota de
+código el día que ese canal se exponga (cola compartida, red, otro usuario): con
+`pickle`, quien controle los bytes controla el proceso. La regla es que ningún
+dato que cruce una frontera de confianza se deserialice con `pickle`.
+
+Compromiso: **la próxima intervención en `pdf_editor` sustituye `pickle` por JSON**
+(las tareas son nombre + argumentos serializables; el contenido binario viaja por
+ficheros, no por el canal). Hasta entonces, el módulo no se conecta a ninguna cola
+ni socket. Hallazgo de la validación externa del 2026-09-06.

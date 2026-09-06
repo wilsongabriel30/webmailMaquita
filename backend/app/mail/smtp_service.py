@@ -1,10 +1,11 @@
-import aiosmtplib
+from email import encoders
+from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from email.mime.base import MIMEBase
-from email import encoders
 from email.utils import formataddr, formatdate, make_msgid, parseaddr
 from typing import Optional
+
+import aiosmtplib
 
 from app.config import get_settings
 
@@ -55,11 +56,15 @@ async def send_email(
     # Attachments
     if attachments:
         for att in attachments:
-            part = MIMEBase(att.get("content_type", "application/octet-stream").split("/")[0],
-                           att.get("content_type", "application/octet-stream").split("/")[-1])
+            part = MIMEBase(
+                att.get("content_type", "application/octet-stream").split("/")[0],
+                att.get("content_type", "application/octet-stream").split("/")[-1],
+            )
             part.set_payload(att["data"])
             encoders.encode_base64(part)
-            part.add_header("Content-Disposition", "attachment", filename=att["filename"])
+            part.add_header(
+                "Content-Disposition", "attachment", filename=att["filename"]
+            )
             msg.attach(part)
 
     all_recipients = list(to)

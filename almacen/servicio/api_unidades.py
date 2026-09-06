@@ -26,27 +26,9 @@ bp_unidades = Blueprint('almacen_unidades', __name__)
 ROLES = ('manager', 'editor', 'viewer')
 
 
-def rol_en_unidad(usuario_id, unidad_id):
-    """Rol del usuario en la unidad, o None si no es miembro. master ve todo como manager."""
-    filas = consultar("SELECT rol FROM unidad_miembros WHERE unidad_id = %s AND usuario_id = %s",
-                      (unidad_id, usuario_id))
-    if filas:
-        return filas[0]['rol']
-    return 'manager' if es_master(usuario_id) else None
-
-
-def permiso_unidad(usuario_id, ruta, escritura=False):
-    """¿Puede el usuario leer (o escribir) esta ruta si es de una unidad compartida?
-    Devuelve True/False. Para rutas personales devuelve True (no aplica)."""
-    unidad_id, _sub = unidad_de_ruta(ruta)
-    if unidad_id is None:
-        return True   # ruta personal: la seguridad personal ya aplica
-    rol = rol_en_unidad(usuario_id, unidad_id)
-    if rol is None:
-        return False
-    if escritura and rol == 'viewer':
-        return False
-    return True
+# La regla vive en `permisos_unidad` (sin Flask): la usa también seguridad_rutas.
+# Se reexporta para que todo lo que ya la llamaba siga igual.
+from permisos_unidad import permiso_unidad, rol_en_unidad   # noqa: F401,E402
 
 
 @bp_unidades.route('/unidades', methods=['GET'])

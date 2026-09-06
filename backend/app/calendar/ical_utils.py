@@ -1,10 +1,12 @@
 """iCalendar utilities: build, parse, uid generation."""
+
 from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
 
 from icalendar import Calendar, Event, vDatetime
+
 from app.config import get_settings
 
 
@@ -31,6 +33,7 @@ def build_vcalendar(event_data: dict) -> str:
     _organizer = event_data.get("organizer")
     if _organizer:
         from icalendar import vCalAddress
+
         org = vCalAddress(f"mailto:{_organizer}")
         if event_data.get("organizer_name"):
             org.params["CN"] = event_data["organizer_name"]
@@ -70,6 +73,7 @@ def build_vcalendar(event_data: dict) -> str:
     for att in event_data.get("attendees", []):
         if isinstance(att, dict) and att.get("email"):
             from icalendar import vCalAddress, vText
+
             attendee = vCalAddress(f"mailto:{att['email']}")
             role = att.get("role", "REQ-PARTICIPANT")
             attendee.params["ROLE"] = role
@@ -80,8 +84,10 @@ def build_vcalendar(event_data: dict) -> str:
 
     # Reminders / VALARM
     for rem in event_data.get("reminders", []):
-        from icalendar import Alarm
         from datetime import timedelta
+
+        from icalendar import Alarm
+
         alarm = Alarm()
         alarm.add("action", "DISPLAY")
         alarm.add("description", event_data.get("summary", "Recordatorio"))

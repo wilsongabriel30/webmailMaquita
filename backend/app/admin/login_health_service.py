@@ -4,6 +4,7 @@ Externo = login Dovecot con rip distinto de localhost (el webmail entra desde 12
 0 accesos externos durante horas hábiles indica que los clientes (celular/Outlook) no pueden
 conectar — el patrón del incidente de migración. Lectura del log (www-data está en grupo adm).
 """
+
 import datetime
 import re
 
@@ -47,7 +48,11 @@ def login_health(hours: int = 24) -> dict:
                     by_protocol[proto] = by_protocol.get(proto, 0) + 1
                     if last_ts is None or ts > last_ts:
                         last_ts = ts
-                        last_external = {"user": user, "ip": rip, "time": ts.isoformat()}
+                        last_external = {
+                            "user": user,
+                            "ip": rip,
+                            "time": ts.isoformat(),
+                        }
 
     return {
         "window_hours": hours,

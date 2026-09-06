@@ -36,9 +36,17 @@ def compartir():
     try:
         ruta = normalizar_ruta_virtual(datos.get('ruta', ''))
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     if ruta == '/':
         return error('No se puede compartir la raíz', 400)
+    # Solo se comparte lo que existe y sobre lo que se tiene mano: en una unidad
+    # compartida publican manager/editor (un viewer no puede sacar por enlace lo
+    # que solo puede mirar; un no miembro, nada). Falla cerrado (C-7, 2026-09).
+    try:
+        if not os.path.exists(ruta_fisica(usuario, ruta, escritura=True)):
+            return error('El archivo o carpeta no existe', 404)
+    except RutaInvalida as excepcion:
+        return error(str(excepcion), 403)
 
     tipo = int(datos.get('tipo', TIPO_ENLACE))
     permisos = int(datos.get('permisos', 1))

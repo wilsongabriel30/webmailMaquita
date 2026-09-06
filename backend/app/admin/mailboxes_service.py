@@ -1,6 +1,7 @@
+import asyncio
+
 import asyncpg
 
-import asyncio
 from app.admin.doveadm_wrapper import generate_password_hash, get_quota
 
 
@@ -63,7 +64,14 @@ async def create_mailbox(
         """INSERT INTO mailbox (username, password, name, maildir, quota, domain, local_part, active)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
            RETURNING username, name, domain, quota, active, local_part, created, modified""",
-        username, password_hash, name, maildir, quota, domain, local_part, active,
+        username,
+        password_hash,
+        name,
+        maildir,
+        quota,
+        domain,
+        local_part,
+        active,
     )
 
     # Also create self-alias (PostfixAdmin convention)
@@ -71,15 +79,19 @@ async def create_mailbox(
         """INSERT INTO alias (address, goto, domain, active)
            VALUES ($1, $1, $2, true)
            ON CONFLICT (address) DO NOTHING""",
-        username, domain,
+        username,
+        domain,
     )
 
     # GARANTIA anti-desincronizacion: la nueva clave DEBE autenticar por IMAP; si no, revertir.
     from app.auth.password import verify_imap
+
     if not await asyncio.to_thread(verify_imap, username, password):
         await db.execute("DELETE FROM alias WHERE address = $1", username)
         await db.execute("DELETE FROM mailbox WHERE username = $1", username)
-        raise ValueError("La contrasena no autentica por IMAP; cuenta NO creada. Reintenta.")
+        raise ValueError(
+            "La contrasena no autentica por IMAP; cuenta NO creada. Reintenta."
+        )
 
     return dict(row)
 
@@ -119,9 +131,16 @@ async def update_mailbox(
     # GARANTIA anti-desincronizacion: si se cambio la clave, confirmar IMAP; si no, revertir.
     if password and row:
         from app.auth.password import verify_imap
+
         if not await asyncio.to_thread(verify_imap, username, password):
-            await db.execute("UPDATE mailbox SET password = $2 WHERE username = $1", username, current["password"])
-            raise ValueError("La contrasena no se aplico (no autentica por IMAP). Se revirtio; reintenta.")
+            await db.execute(
+                "UPDATE mailbox SET password = $2 WHERE username = $1",
+                username,
+                current["password"],
+            )
+            raise ValueError(
+                "La contrasena no se aplico (no autentica por IMAP). Se revirtio; reintenta."
+            )
 
     return dict(row) if row else None
 

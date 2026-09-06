@@ -14,14 +14,15 @@ from pydantic import BaseModel, Field
 
 from app.auth.dependencies import get_current_user
 from app.core.session import get_user_password
-from app.security.account_protection import check_forward_policy, audit_sieve_change
-
+from app.security.account_protection import audit_sieve_change, check_forward_policy
 
 # ---------------------------------------------------------------------------
 # Input sanitization — prevent sieve code injection
 # ---------------------------------------------------------------------------
 
-_SIEVE_DANGEROUS_RE = re.compile(r"[\r\n\x00-\x08\x0b\x0c\x0e-\x1f\x7f\x85\u2028\u2029]")
+_SIEVE_DANGEROUS_RE = re.compile(
+    r"[\r\n\x00-\x08\x0b\x0c\x0e-\x1f\x7f\x85\u2028\u2029]"
+)
 
 
 def _sanitize_sieve_value(v: str) -> str:
@@ -50,6 +51,7 @@ SCRIPT_NAME = "webmail"
 # ---------------------------------------------------------------------------
 # Pydantic models
 # ---------------------------------------------------------------------------
+
 
 class VacationSettings(BaseModel):
     enabled: bool = False
@@ -83,6 +85,7 @@ class FilterRuleOut(FilterRule):
 # ---------------------------------------------------------------------------
 # ManageSieve low-level protocol helpers
 # ---------------------------------------------------------------------------
+
 
 async def _read_response(reader: asyncio.StreamReader) -> str:
     """Read lines until we get an OK or NO terminal response."""
@@ -264,7 +267,10 @@ async def sieve_deletescript(
 # Sieve script generation / parsing
 # ---------------------------------------------------------------------------
 
-def _build_requires(vacation: Optional[VacationSettings], filters: list[FilterRule]) -> list[str]:
+
+def _build_requires(
+    vacation: Optional[VacationSettings], filters: list[FilterRule]
+) -> list[str]:
     """Compute the list of require strings needed."""
     reqs: set[str] = set()
     if vacation and vacation.enabled:
@@ -324,7 +330,9 @@ def generate_sieve_script(
                 f'currentdate :value "le" "date" "{vacation.end_date}"'
             )
 
-        vacation_cmd = f'vacation :days 7 :subject "{subject_escaped}" "{body_escaped}";'
+        vacation_cmd = (
+            f'vacation :days 7 :subject "{subject_escaped}" "{body_escaped}";'
+        )
 
         if date_conditions:
             cond_str = ", ".join(date_conditions)
@@ -345,26 +353,30 @@ def generate_sieve_script(
         value_escaped = _sanitize_sieve_value(f.condition.value).replace('"', '\\"')
         name_escaped = _sanitize_sieve_value(f.name).replace('"', '\\"')
 
-        parts.append(f'# filter[{idx}]: {name_escaped}')
+        parts.append(f"# filter[{idx}]: {name_escaped}")
         condition_line = f'if header {match} "{header}" "{value_escaped}"'
 
         if f.action.type == "move":
-            folder = _sanitize_sieve_value(f.action.value or "INBOX").replace('"', '\\"')
-            parts.append(f'{condition_line} {{')
+            folder = _sanitize_sieve_value(f.action.value or "INBOX").replace(
+                '"', '\\"'
+            )
+            parts.append(f"{condition_line} {{")
             parts.append(f'    fileinto "{folder}";')
             parts.append("}")
         elif f.action.type == "flag":
-            flag_val = _sanitize_sieve_value(f.action.value or "\\\\Flagged").replace('"', '\\"')
-            parts.append(f'{condition_line} {{')
+            flag_val = _sanitize_sieve_value(f.action.value or "\\\\Flagged").replace(
+                '"', '\\"'
+            )
+            parts.append(f"{condition_line} {{")
             parts.append(f'    setflag "{flag_val}";')
             parts.append("}")
         elif f.action.type == "delete":
-            parts.append(f'{condition_line} {{')
+            parts.append(f"{condition_line} {{")
             parts.append("    discard;")
             parts.append("}")
         elif f.action.type == "forward":
             addr = _validate_forward_email(f.action.value or "")
-            parts.append(f'{condition_line} {{')
+            parts.append(f"{condition_line} {{")
             parts.append(f'    redirect "{addr}";')
             parts.append("}")
 
@@ -425,10 +437,10 @@ def parse_filters_from_script(script: str) -> list[FilterRule]:
     # Pattern for: # filter[N]: name
     # followed by: if header :op "Header" "value" { action; }
     block_pattern = re.compile(
-        r'#\s*filter\[\d+\]:\s*(.+?)\n'
+        r"#\s*filter\[\d+\]:\s*(.+?)\n"
         r'if\s+header\s+(:contains|:is|:matches)\s+"(From|To|Subject)"\s+"([^"]*?)"\s*\{\s*\n'
-        r'\s+(.+?);\s*\n'
-        r'\}',
+        r"\s+(.+?);\s*\n"
+        r"\}",
         re.MULTILINE,
     )
 
@@ -483,6 +495,7 @@ def parse_filters_from_script(script: str) -> list[FilterRule]:
 # Helper: get / save the combined webmail script
 # ---------------------------------------------------------------------------
 
+
 async def _get_current_script(username: str, password: str) -> str:
     """Fetch the current 'webmail' sieve script, or empty string."""
     reader, writer = await sieve_connect(username, password)
@@ -506,6 +519,7 @@ async def _save_script(username: str, password: str, script: str) -> None:
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
 
 @router.get("/vacation")
 async def get_vacation(
@@ -553,9 +567,7 @@ async def list_filters(
 
     script = await _get_current_script(username, password)
     filters = parse_filters_from_script(script)
-    return [
-        FilterRuleOut(index=idx, **f.model_dump()) for idx, f in enumerate(filters)
-    ]
+    return [FilterRuleOut(index=idx, **f.model_dump()) for idx, f in enumerate(filters)]
 
 
 @router.post("/filters", status_code=status.HTTP_201_CREATED)
@@ -571,13 +583,18 @@ async def create_filter(
     # ── Protección: forwarding externo requiere aprobación admin ──
     if rule.action.type == "forward" and rule.action.value:
         fwd_check = await check_forward_policy(
-            request.app.state.redis, username, rule.action.value, request.app.state.db_pool
+            request.app.state.redis,
+            username,
+            rule.action.value,
+            request.app.state.db_pool,
         )
         if not fwd_check["allowed"]:
             raise HTTPException(status_code=403, detail=fwd_check["reason"])
         await audit_sieve_change(
-            request.app.state.redis, username, "forward_created",
-            f"Forward to {rule.action.value}"
+            request.app.state.redis,
+            username,
+            "forward_created",
+            f"Forward to {rule.action.value}",
         )
 
     current_script = await _get_current_script(username, password)
@@ -585,7 +602,9 @@ async def create_filter(
     filters = parse_filters_from_script(current_script)
 
     if len(filters) >= MAX_FILTERS:
-        raise HTTPException(status_code=400, detail=f"Máximo {MAX_FILTERS} filtros por usuario")
+        raise HTTPException(
+            status_code=400, detail=f"Máximo {MAX_FILTERS} filtros por usuario"
+        )
 
     filters.append(rule)
 
@@ -609,7 +628,10 @@ async def update_filter(
     # ── Protección: forwarding externo requiere aprobación admin ──
     if rule.action.type == "forward" and rule.action.value:
         fwd_check = await check_forward_policy(
-            request.app.state.redis, username, rule.action.value, request.app.state.db_pool
+            request.app.state.redis,
+            username,
+            rule.action.value,
+            request.app.state.db_pool,
         )
         if not fwd_check["allowed"]:
             raise HTTPException(status_code=403, detail=fwd_check["reason"])
@@ -707,7 +729,11 @@ _FILTER_TEMPLATES = [
         "id": "spam_recurrent",
         "name": "Eliminar spam recurrente",
         "description": "Elimina correos con asuntos sospechosos de spam",
-        "condition": {"field": "subject", "operator": "matches", "value": "*viagra*|*casino*|*lottery*"},
+        "condition": {
+            "field": "subject",
+            "operator": "matches",
+            "value": "*viagra*|*casino*|*lottery*",
+        },
         "action": {"type": "delete", "value": None},
     },
 ]
@@ -735,7 +761,9 @@ async def create_filter_from_message(
             )
 
         # Fetch From and Subject headers
-        fetch_resp = await imap.uid("fetch", str(body.uid), "(BODY.PEEK[HEADER.FIELDS (FROM SUBJECT)])")
+        fetch_resp = await imap.uid(
+            "fetch", str(body.uid), "(BODY.PEEK[HEADER.FIELDS (FROM SUBJECT)])"
+        )
         if fetch_resp.result != "OK":
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -810,14 +838,16 @@ async def preview_filter(
     username: str = Depends(get_current_user),
 ):
     """Preview how many INBOX messages would match a filter rule.
-    
+
     Uses IMAP SEARCH to count matching messages and returns sample subjects.
     """
     # Validate params
     if field not in ("from", "to", "subject"):
         raise HTTPException(status_code=422, detail="field debe ser from, to o subject")
     if operator not in ("contains", "is", "matches"):
-        raise HTTPException(status_code=422, detail="operator debe ser contains, is o matches")
+        raise HTTPException(
+            status_code=422, detail="operator debe ser contains, is o matches"
+        )
 
     password: str = await get_user_password(request, username)
     login_user = await get_imap_login_user(request, username)

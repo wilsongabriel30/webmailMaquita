@@ -1,0 +1,11 @@
+# Configuracion de gitleaks para Maquita Mail.
+title = "gitleaks-maquita"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Archivos meta de remediacion: contienen fingerprints y descripciones de hallazgos, NO secretos reales."
+paths = [
+    '''^\.gitleaksignore$''',
+]

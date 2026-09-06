@@ -1,30 +1,35 @@
+# Versiones fijadas el 2026-09-04 a partir de lo que realmente corre en produccion
+# (Editor de PDF, corre en la VM 101). Fijar no actualiza nada: deja por escrito lo que ya estaba instalado,
+# para que una instalacion nueva no traiga versiones distintas sin querer. [C2]
+# 2026-09-06: Flask, PyJWT, cryptography y Pillow subidos a las versiones que corrigen
+# los avisos de seguridad abiertos (Trivy/pip-audit). Resuelven sin conflictos.
 # Editor de PDF — Aplicación del Drive Maquita
 # Web / auth
-Flask
-gunicorn
-Flask-Login
-Flask-WTF
-PyJWT
-redis
+Flask==3.1.3
+gunicorn==23.0.0
+Flask-Login==0.6.3
+Flask-WTF==1.2.2
+PyJWT==2.13.0
+redis==7.1.0
 # Firma digital y criptografía
-cryptography
+cryptography==50.0.0
 # PDF: render, extracción, conversión
-PyMuPDF
-pdfplumber
-pdf2docx
-python-docx
-openpyxl
+PyMuPDF==1.26.7
+pdfplumber==0.11.9
+pdf2docx==0.5.13
+python-docx==1.2.0
+openpyxl==3.1.5
 # OCR / imagen / datos
-opencv-python-headless
-Pillow
-numpy
-pandas
+opencv-python-headless==5.0.0.93
+Pillow==12.3.0
+numpy==2.4.6
+pandas==2.3.3
 # Servidor / BD
-eventlet
-SQLAlchemy
-psycopg2-binary
-requests
-python-pptx
-pyHanko
-pytesseract
-qrcode
+eventlet==0.40.4
+SQLAlchemy==2.0.45
+psycopg2-binary==2.9.11
+requests==2.33.0
+python-pptx==1.0.2
+pyHanko==0.35.1
+pytesseract==0.3.13
+qrcode==8.2

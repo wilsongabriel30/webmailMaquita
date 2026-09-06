@@ -1,10 +1,11 @@
 """Threads router — get messages grouped by thread."""
-from fastapi import APIRouter, Request, Depends
+
+from fastapi import APIRouter, Depends, Request
 
 from app.auth.dependencies import get_current_user
-from app.core.session import get_user_password, get_imap_login_user
+from app.core.session import get_imap_login_user, get_user_password
 from app.mail.clients.imap_client import get_imap_connection
-from app.mail.services.message_service import list_messages, get_message
+from app.mail.services.message_service import get_message, list_messages
 from app.mail.services.thread_service import group_by_thread
 
 router = APIRouter(prefix="/api/mail", tags=["mail-threads"])
@@ -60,10 +61,7 @@ async def get_thread_messages(
 
         # 1. Buscar en la carpeta actual
         result = await list_messages(imap, folder, 1, 500)
-        thread_msgs = [
-            m for m in result["messages"]
-            if m.get("thread_id") == thread_id
-        ]
+        thread_msgs = [m for m in result["messages"] if m.get("thread_id") == thread_id]
 
         # 2. Buscar tambien en carpetas de enviados (si no estamos ya ahi)
         seen_uids_by_folder: dict[str, set] = {folder: {m["uid"] for m in thread_msgs}}
@@ -73,7 +71,8 @@ async def get_thread_messages(
             try:
                 sent_result = await list_messages(imap, sent_folder, 1, 200)
                 sent_thread = [
-                    m for m in sent_result["messages"]
+                    m
+                    for m in sent_result["messages"]
                     if m.get("thread_id") == thread_id
                 ]
                 for m in sent_thread:

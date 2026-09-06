@@ -8,8 +8,11 @@ a los contactos del usuario (tabla user_contacts) y el banner deja de salir para
 - externo  = el dominio del remitente NO está en la tabla `domain` (dominios hospedados).
 - conocido = el remitente ya es un contacto del usuario (o fue marcado como conocido).
 """
+
 import logging
-from fastapi import APIRouter, Request, Depends, HTTPException
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+
 from app.auth.dependencies import get_current_user
 
 logger = logging.getLogger(__name__)
@@ -38,13 +41,16 @@ async def _es_conocido(db, username: str, email: str) -> bool:
     row = await db.fetchval(
         "SELECT 1 FROM user_contacts "
         "WHERE owner = $1 AND LOWER(email) = $2 AND deleted_at IS NULL",
-        username, email,
+        username,
+        email,
     )
     return bool(row)
 
 
 @router.get("/remitente-estado")
-async def remitente_estado(request: Request, email: str, username: str = Depends(get_current_user)):
+async def remitente_estado(
+    request: Request, email: str, username: str = Depends(get_current_user)
+):
     """Dice si el remitente es externo y si ya es un contacto conocido del usuario."""
     db = request.app.state.db_pool
     externo = await _es_externo(db, email)
@@ -53,7 +59,9 @@ async def remitente_estado(request: Request, email: str, username: str = Depends
 
 
 @router.post("/remitente-conocido")
-async def remitente_conocido(request: Request, username: str = Depends(get_current_user)):
+async def remitente_conocido(
+    request: Request, username: str = Depends(get_current_user)
+):
     """Marca un remitente externo como conocido -> lo agrega a los contactos del usuario.
     Idempotente: si ya es contacto, no duplica."""
     body = await request.json()
@@ -65,13 +73,16 @@ async def remitente_conocido(request: Request, username: str = Depends(get_curre
     ya = await db.fetchval(
         "SELECT id FROM user_contacts "
         "WHERE owner = $1 AND LOWER(email) = LOWER($2) AND deleted_at IS NULL",
-        username, email,
+        username,
+        email,
     )
     if not ya:
         await db.execute(
             "INSERT INTO user_contacts (owner, display_name, email, source) "
             "VALUES ($1, $2, $3, 'remitente_conocido')",
-            username, nombre, email,
+            username,
+            nombre,
+            email,
         )
         logger.info("Remitente marcado como conocido: %s -> %s", username, email)
     return {"ok": True, "conocido": True}

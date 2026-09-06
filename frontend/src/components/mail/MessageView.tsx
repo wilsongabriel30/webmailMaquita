@@ -1,7 +1,20 @@
-// @ts-nocheck
 import { BotonAsignarCorreo } from '../tareas/BotonAsignarCorreo';
 import SafeEmailViewer from './SafeEmailViewer';
 import { sanitizeHtml } from '../../lib/sanitize';
+import type { MessageFull, AttachmentInfo, CalendarInvite } from '../../types';
+
+/** Abre el panel de redacción, con la firma exacta que expone el store. */
+type AbrirRedaccion = ReturnType<typeof useMailStore.getState>['openCompose'];
+
+/** Resultado de comprobar o ejecutar la retirada de un correo enviado. */
+interface EstadoRetirada {
+  can_recall: boolean;
+  was_read: boolean | null;
+  recipient: string;
+  detail?: string;
+  reason?: string;
+  status?: string;
+}
 import React, { useState, useCallback } from 'react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -185,7 +198,7 @@ const EmailsWithContacts: React.FC<{ raw: string }> = ({ raw }) => {
 /* ------------------------------------------------------------------ */
 
 const CalendarInviteBanner: React.FC<{
-  invite: any;
+  invite: CalendarInvite;
   folder: string;
   uid: number;
 }> = ({ invite, folder, uid }) => {
@@ -221,7 +234,7 @@ const CalendarInviteBanner: React.FC<{
     CANCEL: { text: 'Reunion cancelada', color: '#a80000', bg: '#fde7e9', icon: 'X' },
     REPLY: { text: 'Respuesta a reunion', color: '#498205', bg: '#dff6dd', icon: 'R' },
   };
-  const methodInfo = methodLabels[invite.method] || methodLabels.REQUEST;
+  const methodInfo = (invite.method ? methodLabels[invite.method] : undefined) || methodLabels.REQUEST;
 
   const roleLabels: Record<string, string> = {
     'REQ-PARTICIPANT': 'Requerido',
@@ -265,7 +278,7 @@ const CalendarInviteBanner: React.FC<{
             </svg>
             Cuando
           </div>
-          <div>{formatInviteDate(invite.dtstart, invite.dtend)}</div>
+          <div>{formatInviteDate(String(invite.dtstart ?? ''), String(invite.dtend ?? ''))}</div>
 
           {/* Ubicacion */}
           {invite.location && (<>
@@ -297,7 +310,7 @@ const CalendarInviteBanner: React.FC<{
               Asistentes
             </div>
             <div>
-              {invite.attendees.map((att: any, i: number) => (
+              {invite.attendees?.map((att, i: number) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
                   <span>{att.name || att.email}</span>
                   {att.name && att.name !== att.email && (
@@ -308,7 +321,7 @@ const CalendarInviteBanner: React.FC<{
                     background: att.role === 'OPT-PARTICIPANT' ? '#f3f2f1' : '#deecf9',
                     color: att.role === 'OPT-PARTICIPANT' ? '#605e5c' : '#0078d4',
                   }}>
-                    {roleLabels[att.role] || att.role}
+                    {(att.role ? roleLabels[att.role] : undefined) || att.role}
                   </span>
                 </div>
               ))}
@@ -324,7 +337,7 @@ const CalendarInviteBanner: React.FC<{
               </svg>
               Nota
             </div>
-            <div style={{ whiteSpace: 'pre-wrap' }}>{invite.description}</div>
+            <div style={{ whiteSpace: 'pre-wrap' }}>{String(invite.description ?? '')}</div>
           </>)}
         </div>
       </div>
@@ -545,17 +558,17 @@ const SourceModal: React.FC<SourceModalProps> = ({ source, onClose }) => {
 /* ------------------------------------------------------------------ */
 
 interface ThreadMessageCardProps {
-  msg: any;
+  msg: MessageFull;
   isExpanded: boolean;
   onToggle: () => void;
   isLast: boolean;
   currentFolder: string;
-  openCompose: any;
-  onAttachmentClick?: (folder: string, uid: number, attachments: any[], index: number) => void;
+  openCompose: AbrirRedaccion;
+  onAttachmentClick?: (folder: string, uid: number, attachments: AttachmentInfo[], index: number) => void;
 }
 
 const ThreadMessageCard: React.FC<ThreadMessageCardProps> = ({
-  msg, isExpanded, onToggle, isLast, currentFolder, openCompose, onAttachmentClick,
+  msg, isExpanded, onToggle, currentFolder, onAttachmentClick,
 }) => {
   const senderName = extractName(msg.from);
   const senderEmail = extractEmail(msg.from);
@@ -660,7 +673,7 @@ const ThreadMessageCard: React.FC<ThreadMessageCardProps> = ({
       {/* Attachments */}
       {msg.has_attachments && msg.attachments && msg.attachments.length > 0 && (
         <div style={{ padding: '4px 16px 8px', display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-          {msg.attachments.filter((a: any) => !a.is_inline).length > 1 && (
+          {msg.attachments.filter((a) => !a.is_inline).length > 1 && (
             <a
               href={`/api/mail/attachments-zip/${encodeURIComponent(msg.folder || currentFolder)}/${msg.uid}`}
               download
@@ -678,7 +691,7 @@ const ThreadMessageCard: React.FC<ThreadMessageCardProps> = ({
               Descargar todo (.zip)
             </a>
           )}
-          {msg.attachments.map((att: any, i: number) => (
+          {msg.attachments.map((att, i: number) => (
             <span key={i} style={{ display: 'inline-flex', gap: 2, alignItems: 'stretch' }}>
             <button
               onClick={() => onAttachmentClick?.(msg.folder || currentFolder, msg.uid, msg.attachments, i)}
@@ -752,7 +765,7 @@ const MessageView: React.FC = () => {
   const [sourceText, setSourceText] = useState<string | null>(null);
   const [loadingSource, setLoadingSource] = useState(false);
   const [recallStatus, setRecallStatus] = React.useState<'idle'|'checking'|'recalling'|'done'|'error'>('idle');
-  const [recallInfo, setRecallInfo] = React.useState<{can_recall:boolean,was_read:boolean|null,recipient:string}[]>([]);
+  const [recallInfo, setRecallInfo] = React.useState<EstadoRetirada[]>([]);
   // IA: Smart Reply + Summarize
   const [smartReplies, setSmartReplies] = useState<string[]>([]);
   const [loadingReplies, setLoadingReplies] = useState(false);
@@ -761,9 +774,9 @@ const MessageView: React.FC = () => {
 
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewAttIdx, setPreviewAttIdx] = useState(0);
-  const [previewContext, setPreviewContext] = useState<{ folder: string; uid: number; attachments: any[] }>({ folder: '', uid: 0, attachments: [] });
+  const [previewContext, setPreviewContext] = useState<{ folder: string; uid: number; attachments: AttachmentInfo[] }>({ folder: '', uid: 0, attachments: [] });
 
-  const openAttachmentPreview = useCallback((folder: string, uid: number, attachments: any[], index: number) => {
+  const openAttachmentPreview = useCallback((folder: string, uid: number, attachments: AttachmentInfo[], index: number) => {
     setPreviewContext({ folder, uid, attachments });
     setPreviewAttIdx(index);
     setPreviewOpen(true);
@@ -862,10 +875,21 @@ const MessageView: React.FC = () => {
     if (!printWindow) return;
     const formattedDate = displayMsg.date ? format(new Date(displayMsg.date), "d 'de' MMMM 'de' yyyy, HH:mm", { locale: es }) : '';
     const body = displayMsg.html_body ? sanitizeHtml(displayMsg.html_body) : `<pre style="white-space:pre-wrap">${escapeHtml(displayMsg.text_body || '')}</pre>`;
+    // [A-12] Asunto, remitente y destinatarios vienen del correo recibido y se
+    // metian crudos en la ventana de impresion, que es del mismo origen y no pasa
+    // por la CSP de nginx. Un asunto con <img src=x onerror=...> ejecutaba codigo
+    // con la sesion del buzon al pulsar Imprimir. La vista Lector de este mismo
+    // archivo ya escapaba: se replica aqui, y se anade la CSP en la propia ventana.
+    const asunto = escapeHtml(displayMsg.subject || '');
+    const de = escapeHtml(displayMsg.from || '');
+    const para = escapeHtml(displayMsg.to || '');
+    const cc = escapeHtml(displayMsg.cc || '');
     printWindow.document.write(`<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>${displayMsg.subject}</title>
+<html><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: https:; style-src 'unsafe-inline'; font-src data:">
+<title>${asunto}</title>
 <style>body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;max-width:800px;margin:24px auto;color:#323130;font-size:14px}.header{border-bottom:1px solid #edebe9;padding-bottom:16px;margin-bottom:16px}.subject{font-size:20px;font-weight:600;margin:0 0 12px}.meta{font-size:12px;color:#605e5c;line-height:1.6}.body-content img{max-width:100%}@media print{body{margin:0}}</style>
-</head><body><div class="header"><h1 class="subject">${displayMsg.subject}</h1><div class="meta"><b>De:</b> ${displayMsg.from}<br><b>Para:</b> ${displayMsg.to}<br>${displayMsg.cc ? `<b>CC:</b> ${displayMsg.cc}<br>` : ''}<b>Fecha:</b> ${formattedDate}<br></div></div><div class="body-content">${body}</div></body></html>`);
+</head><body><div class="header"><h1 class="subject">${asunto}</h1><div class="meta"><b>De:</b> ${de}<br><b>Para:</b> ${para}<br>${cc ? `<b>CC:</b> ${cc}<br>` : ''}<b>Fecha:</b> ${escapeHtml(formattedDate)}<br></div></div><div class="body-content">${body}</div></body></html>`);
     printWindow.document.close();
     printWindow.print();
   }, [displayMsg]);
@@ -959,7 +983,7 @@ const MessageView: React.FC = () => {
     try {
       const recipients = msg.to.split(',').map((s: string) => s.trim()).filter(Boolean);
       if (msg.cc) recipients.push(...msg.cc.split(',').map((s: string) => s.trim()).filter(Boolean));
-      const res = await api.post<{checks: any[]}>('/mail/recall/check', {
+      const res = await api.post<{checks: EstadoRetirada[]}>('/mail/recall/check', {
         message_id: msg.message_id, recipients, action: 'delete',
       });
       setRecallInfo(res.checks || []);
@@ -973,11 +997,11 @@ const MessageView: React.FC = () => {
     try {
       const recipients = msg.to.split(',').map((s: string) => s.trim()).filter(Boolean);
       if (msg.cc) recipients.push(...msg.cc.split(',').map((s: string) => s.trim()).filter(Boolean));
-      const res = await api.post<{results: any[], message: string}>('/mail/recall', {
+      const res = await api.post<{results: EstadoRetirada[], message: string}>('/mail/recall', {
         message_id: msg.message_id, recipients, action: 'delete',
       });
       setRecallStatus('done');
-      setRecallInfo(res.results?.map((r: any) => ({can_recall: r.status === 'recalled', was_read: null, recipient: r.recipient, detail: r.detail, status: r.status})) || []);
+      setRecallInfo(res.results?.map((r) => ({can_recall: r.status === 'recalled', was_read: null, recipient: r.recipient, detail: r.detail, status: r.status})) || []);
     } catch { setRecallStatus('error'); }
   }, [msg]);
 
@@ -1206,7 +1230,7 @@ const MessageView: React.FC = () => {
               </svg>
               Reenviar
             </button>
-            <BotonAsignarCorreo estilo={actionBtnStyle} correo={{ folder: currentFolder, uid: msg.uid, subject: msg.subject, from: (msg as any).from || (msg as any).from_addr || '' }} />
+            <BotonAsignarCorreo estilo={actionBtnStyle} correo={{ folder: currentFolder, uid: msg.uid, subject: msg.subject, from: msg.from || (msg as MessageFull).from_addr || '' }} />
             <button style={{ ...actionBtnStyle, marginLeft: 'auto', color: '#8764b8' }} onClick={handleSmartReply} disabled={loadingReplies}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
               {loadingReplies ? 'Generando...' : 'Respuesta IA'}
@@ -1550,13 +1574,13 @@ const MessageView: React.FC = () => {
             ) : recallInfo.length > 0 ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{ fontSize: 11, color: '#605e5c' }}>
-                  {recallInfo.map((r: any, i: number) => (
+                  {recallInfo.map((r, i: number) => (
                     <div key={i}>
                       {r.recipient}: {r.can_recall ? (r.was_read ? 'Ya leído' : 'Recuperable') : (r.reason || 'No disponible')}
                     </div>
                   ))}
                 </div>
-                {recallInfo.some((r: any) => r.can_recall) && (
+                {recallInfo.some((r) => r.can_recall) && (
                   <button onClick={handleRecall} disabled={recallStatus === 'recalling'}
                     style={{ padding: '5px 14px', background: '#d13438', color: 'white', border: 'none', borderRadius: 4, fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
                     {recallStatus === 'recalling' ? 'Recuperando...' : 'Confirmar recuperacion'}

@@ -301,7 +301,7 @@ def crear_carpeta(usuario_id: int, ruta_padre: str, nombre: str) -> dict:
         raise RutaInvalida('Nombre de carpeta inválido')
     ruta_padre = normalizar_ruta_virtual(ruta_padre)
     ruta_nueva = ('' if ruta_padre == '/' else ruta_padre) + '/' + nombre
-    fisica = ruta_fisica(usuario_id, ruta_nueva)
+    fisica = ruta_fisica(usuario_id, ruta_nueva, escritura=True)
     os.makedirs(fisica, exist_ok=True)
     indice.agregar(usuario_id, ruta_nueva)
     identificador = _id_estable(usuario_id, ruta_nueva)
@@ -355,7 +355,7 @@ def subir(usuario_id: int, ruta_carpeta: str, nombre: str, flujo) -> dict:
         raise RutaInvalida('Nombre de archivo inválido')
     ruta_carpeta = normalizar_ruta_virtual(ruta_carpeta)
     ruta_final = ('' if ruta_carpeta == '/' else ruta_carpeta) + '/' + nombre
-    fisica = ruta_fisica(usuario_id, ruta_final)
+    fisica = ruta_fisica(usuario_id, ruta_final, escritura=True)
     os.makedirs(os.path.dirname(fisica), exist_ok=True)
 
     # Si ya existe un archivo en esa ruta, su contenido actual pasa a ser una
@@ -531,7 +531,7 @@ def restaurar_version(usuario_id: int, file_id: str, version_id: int) -> None:
     ruta_virtual = filas[0]['ruta']
     version_fisico = filas[0]['version_fisico']
 
-    fisica = ruta_fisica(usuario_id, ruta_virtual)
+    fisica = ruta_fisica(usuario_id, ruta_virtual, escritura=True)
     if os.path.isfile(fisica):
         _guardar_version(usuario_id, ruta_virtual, fisica)   # preserva el actual
 
@@ -573,7 +573,7 @@ def renombrar(usuario_id: int, ruta_virtual: str, nuevo_nombre: str,
         raise RutaInvalida(
             'Este archivo protege la sincronización de tu Drive y no se '
             'puede eliminar.')
-    origen = ruta_fisica(usuario_id, ruta_virtual)
+    origen = ruta_fisica(usuario_id, ruta_virtual, escritura=True)
     if not os.path.exists(origen):
         raise FileNotFoundError(ruta_virtual)
     # La extension NO se pierde al cambiar el nombre: es lo que decide con que
@@ -583,7 +583,7 @@ def renombrar(usuario_id: int, ruta_virtual: str, nuevo_nombre: str,
         nuevo_nombre = nombres.conservar_extension(
             ruta_virtual.rsplit('/', 1)[-1], nuevo_nombre, os.path.isdir(origen))
     ruta_nueva = ruta_virtual.rsplit('/', 1)[0] + '/' + nuevo_nombre
-    destino = ruta_fisica(usuario_id, ruta_nueva)
+    destino = ruta_fisica(usuario_id, ruta_nueva, escritura=True)
     if destino != origen and os.path.exists(destino) and not sobrescribir:
         if not conservar_ambos:
             raise DestinoOcupado(ruta_nueva)
@@ -592,7 +592,7 @@ def renombrar(usuario_id: int, ruta_virtual: str, nuevo_nombre: str,
         nuevo_nombre = nombres.nombre_libre(
             lambda n: os.path.exists(os.path.join(carpeta_fisica, n)), nuevo_nombre)
         ruta_nueva = ruta_virtual.rsplit('/', 1)[0] + '/' + nuevo_nombre
-        destino = ruta_fisica(usuario_id, ruta_nueva)
+        destino = ruta_fisica(usuario_id, ruta_nueva, escritura=True)
     os.replace(origen, destino)
     indice.renombrar(usuario_id, ruta_virtual, ruta_nueva)
     contenido.olvidar(usuario_id, ruta_virtual)
@@ -603,8 +603,8 @@ def renombrar(usuario_id: int, ruta_virtual: str, nuevo_nombre: str,
 def mover(usuario_id: int, ruta_origen: str, ruta_destino: str,
           sobrescribir: bool = False, conservar_ambos: bool = False) -> str:
     """Mueve archivo/carpeta a otra ruta virtual (renombrar entre carpetas)."""
-    origen = ruta_fisica(usuario_id, normalizar_ruta_virtual(ruta_origen))
-    destino = ruta_fisica(usuario_id, normalizar_ruta_virtual(ruta_destino))
+    origen = ruta_fisica(usuario_id, normalizar_ruta_virtual(ruta_origen), escritura=True)
+    destino = ruta_fisica(usuario_id, normalizar_ruta_virtual(ruta_destino), escritura=True)
     if not os.path.exists(origen):
         raise FileNotFoundError(ruta_origen)
     ruta_final = normalizar_ruta_virtual(ruta_destino)
@@ -616,7 +616,7 @@ def mover(usuario_id: int, ruta_origen: str, ruta_destino: str,
             lambda n: os.path.exists(os.path.join(carpeta_fisica, n)),
             ruta_final.rsplit('/', 1)[-1])
         ruta_final = ruta_final.rsplit('/', 1)[0] + '/' + libre
-        destino = ruta_fisica(usuario_id, ruta_final)
+        destino = ruta_fisica(usuario_id, ruta_final, escritura=True)
     os.makedirs(os.path.dirname(destino), exist_ok=True)
     os.replace(origen, destino)
     indice.renombrar(usuario_id, normalizar_ruta_virtual(ruta_origen), ruta_final)
@@ -628,7 +628,7 @@ def mover(usuario_id: int, ruta_origen: str, ruta_destino: str,
 def copiar(usuario_id: int, ruta_origen: str, ruta_destino: str) -> None:
     """Copia archivo (o carpeta completa) a otra ruta virtual."""
     origen = ruta_fisica(usuario_id, normalizar_ruta_virtual(ruta_origen))
-    destino = ruta_fisica(usuario_id, normalizar_ruta_virtual(ruta_destino))
+    destino = ruta_fisica(usuario_id, normalizar_ruta_virtual(ruta_destino), escritura=True)
     if not os.path.exists(origen):
         raise FileNotFoundError(ruta_origen)
     os.makedirs(os.path.dirname(destino), exist_ok=True)
@@ -672,7 +672,7 @@ def enviar_a_papelera(usuario_id: int, ruta_virtual: str) -> str:
             'Este archivo protege la sincronización de tu Drive y no se '
             'puede eliminar.')
     ruta_virtual = normalizar_ruta_virtual(ruta_virtual)
-    origen = ruta_fisica(usuario_id, ruta_virtual)
+    origen = ruta_fisica(usuario_id, ruta_virtual, escritura=True)
     if not os.path.exists(origen):
         raise FileNotFoundError(ruta_virtual)
     nombre = os.path.basename(origen)
@@ -882,9 +882,10 @@ def listar_papelera_unidad(unidad_id: int) -> tuple:
     return carpetas, archivos
 
 
-def restaurar_papelera_unidad(unidad_id: int, nombre_fisico: str) -> str:
+def restaurar_papelera_unidad(usuario_id: int, unidad_id: int, nombre_fisico: str) -> str:
     """Devuelve un elemento a la unidad desde su papelera. Cualquier
-    administrador de la unidad puede hacerlo (el permiso se valida arriba)."""
+    administrador de la unidad puede hacerlo (el endpoint exige manager y
+    ruta_fisica vuelve a comprobar membresía y escritura con ese usuario)."""
     filas = consultar(
         "SELECT ruta_original FROM papelera WHERE unidad_id = %s AND nombre_fisico = %s",
         (unidad_id, nombre_fisico))
@@ -892,7 +893,7 @@ def restaurar_papelera_unidad(unidad_id: int, nombre_fisico: str) -> str:
         raise FileNotFoundError('No esta en la papelera de la unidad')
     ruta_original = filas[0]['ruta_original']
     origen = os.path.join(raiz_datos(), '_unidades', str(unidad_id), 'papelera', nombre_fisico)
-    destino = ruta_fisica(0, ruta_original)   # ruta_fisica ignora el usuario en rutas de unidad
+    destino = ruta_fisica(usuario_id, ruta_original, escritura=True)
     os.makedirs(os.path.dirname(destino), exist_ok=True)
     if os.path.exists(destino):
         raiz, ext = os.path.splitext(destino)
@@ -927,10 +928,10 @@ def restaurar_de_papelera(usuario_id: int, nombre_fisico: str) -> str:
     # en la papelera de la unidad, no en la del usuario). Asi el "Deshacer" tras
     # borrar tambien funciona para las unidades.
     if filas[0].get('unidad_id') is not None:
-        return restaurar_papelera_unidad(filas[0]['unidad_id'], nombre_fisico)
+        return restaurar_papelera_unidad(usuario_id, filas[0]['unidad_id'], nombre_fisico)
     ruta_original = filas[0]['ruta_original']
     origen = os.path.join(raiz_usuario(usuario_id, 'papelera'), nombre_fisico)
-    destino = ruta_fisica(usuario_id, ruta_original)
+    destino = ruta_fisica(usuario_id, ruta_original, escritura=True)
     os.makedirs(os.path.dirname(destino), exist_ok=True)
     # Si ya existe algo con ese nombre, restaurar con sufijo (no pisar)
     if os.path.exists(destino):
@@ -1056,7 +1057,7 @@ def restaurar_de_retencion(usuario_id: int, nombre_fisico: str) -> str:
         raise FileNotFoundError('No está en retención')
     ruta_original = filas[0]['ruta_original']
     origen = os.path.join(raiz_usuario(usuario_id, 'retencion'), nombre_fisico)
-    destino = ruta_fisica(usuario_id, ruta_original)
+    destino = ruta_fisica(usuario_id, ruta_original, escritura=True)
     os.makedirs(os.path.dirname(destino), exist_ok=True)
     if os.path.exists(destino):
         raiz, ext = os.path.splitext(destino)
@@ -1174,7 +1175,7 @@ def crear_acceso_directo(usuario_id: int, carpeta: str, destino: str, nombre: st
     if not nombre:
         nombre = os.path.basename(destino.rstrip('/')) or 'acceso'
     marcador = ('' if carpeta == '/' else carpeta) + '/' + nombre + SUFIJO_ACCESO
-    fisica = ruta_fisica(usuario_id, marcador)
+    fisica = ruta_fisica(usuario_id, marcador, escritura=True)
     os.makedirs(os.path.dirname(fisica), exist_ok=True)
     with open(fisica, 'w', encoding='utf-8') as f:
         _json.dump({'destino': destino, 'es_carpeta': es_carpeta, 'nombre': nombre}, f)

@@ -525,10 +525,19 @@ def word_callback():
         logger.error('word/callback sin URL del documento editado')
         return jsonify({'error': 1})
 
-    # El DS publica la URL con su dominio público; se descarga por la interna
+    # [C-8] Lista blanca: solo se descarga si la URL la publico NUESTRO Document
+    # Server. Sin esto, quien tuviera un vale de callback podia hacer que el motor
+    # descargara de donde quisiera y lo guardara como contenido del documento.
     publica, interna = _url_publica_ds(), _url_interna_ds()
-    if publica and interna and url.startswith(publica + '/'):
-        url = interna + url[len(publica):]
+    _permitida = None
+    if publica and (url == publica or url.startswith(publica + '/')):
+        _permitida = (interna + url[len(publica):]) if interna else url
+    elif interna and (url == interna or url.startswith(interna + '/')):
+        _permitida = url
+    if not _permitida:
+        logger.error('word/callback rechazado: la URL del documento no es del Document Server')
+        return jsonify({'error': 1})
+    url = _permitida
 
     inicio = time.monotonic()
     try:

@@ -27,29 +27,27 @@ Ver: 07-INCIDENTES/20260824-zimbra-comprometido-cryptominer-devshm.md y
      03-INFRAESTRUCTURA/RED-MIKROTIK/fix-dns-bloqueaba-awstrack-enlaces-correo-20260824.md
 """
 
-from typing import List, Dict
+from typing import Dict, List
 
 # dominio_marca -> (nombre visible, tipo, se_puede_desenvolver)
 # Para añadir un servicio: una línea aquí. Si además se puede desenvolver,
 # hay que sumar su función en link_unwrap.py y poner True.
 CATALOGO = {
     # --- Transaccionales (SÍ se desenvuelven) ---
-    "awstrack.me":      ("Amazon SES",       "transaccional", True),
-    "pstmrk.it":        ("Postmark",         "transaccional", True),
-
+    "awstrack.me": ("Amazon SES", "transaccional", True),
+    "pstmrk.it": ("Postmark", "transaccional", True),
     # --- Transaccionales (NO se pueden desenvolver: identificador opaco) ---
-    "sendgrid.net":     ("SendGrid",         "transaccional", False),
-    "mailgun.org":      ("Mailgun",          "transaccional", False),
-    "sparkpostmail.com":("SparkPost",        "transaccional", False),
-
+    "sendgrid.net": ("SendGrid", "transaccional", False),
+    "mailgun.org": ("Mailgun", "transaccional", False),
+    "sparkpostmail.com": ("SparkPost", "transaccional", False),
     # --- Publicidad / marketing (NO se pueden desenvolver) ---
-    "list-manage.com":  ("Mailchimp",        "publicidad",    False),
-    "mailchi.mp":       ("Mailchimp",        "publicidad",    False),
-    "hubspotlinks.com": ("HubSpot",          "publicidad",    False),
-    "rs6.net":          ("Constant Contact", "publicidad",    False),
-    "klclick.com":      ("Klaviyo",          "publicidad",    False),
-    "sendibm1.com":     ("Brevo",            "publicidad",    False),
-    "activehosted.com": ("ActiveCampaign",   "publicidad",    False),
+    "list-manage.com": ("Mailchimp", "publicidad", False),
+    "mailchi.mp": ("Mailchimp", "publicidad", False),
+    "hubspotlinks.com": ("HubSpot", "publicidad", False),
+    "rs6.net": ("Constant Contact", "publicidad", False),
+    "klclick.com": ("Klaviyo", "publicidad", False),
+    "sendibm1.com": ("Brevo", "publicidad", False),
+    "activehosted.com": ("ActiveCampaign", "publicidad", False),
 }
 
 
@@ -96,8 +94,12 @@ def resumen_para_usuario(rastreadores: List[Dict]) -> Dict:
       }
     """
     if not rastreadores:
-        return {"hay_rastreo": False, "es_publicidad": False,
-                "servicios": [], "mensaje": ""}
+        return {
+            "hay_rastreo": False,
+            "es_publicidad": False,
+            "servicios": [],
+            "mensaje": "",
+        }
 
     servicios = sorted({r["servicio"] for r in rastreadores})
     es_publicidad = any(r["tipo"] == "publicidad" for r in rastreadores)
@@ -117,5 +119,9 @@ def resumen_para_usuario(rastreadores: List[Dict]) -> Dict:
             "sobre todo si te pide contraseñas o datos bancarios."
         )
 
-    return {"hay_rastreo": True, "es_publicidad": es_publicidad,
-            "servicios": servicios, "mensaje": mensaje}
+    return {
+        "hay_rastreo": True,
+        "es_publicidad": es_publicidad,
+        "servicios": servicios,
+        "mensaje": mensaje,
+    }

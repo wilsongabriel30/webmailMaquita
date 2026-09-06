@@ -1,14 +1,60 @@
 """HTML sanitizer for email content — uses nh3 (Rust-based)."""
-import nh3
+
 import re
 
+import nh3
+
 ALLOWED_TAGS = {
-    "a", "abbr", "b", "blockquote", "br", "caption", "center", "cite",
-    "code", "col", "colgroup", "dd", "div", "dl", "dt", "em", "font",
-    "h1", "h2", "h3", "h4", "h5", "h6", "hr", "i", "img", "li", "ol",
-    "p", "pre", "q", "s", "small", "span", "strong", "sub", "sup",
-    "table", "tbody", "td", "tfoot", "th", "thead", "tr", "u", "ul",
-    "big", "del", "ins", "mark",
+    "a",
+    "abbr",
+    "b",
+    "blockquote",
+    "br",
+    "caption",
+    "center",
+    "cite",
+    "code",
+    "col",
+    "colgroup",
+    "dd",
+    "div",
+    "dl",
+    "dt",
+    "em",
+    "font",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "hr",
+    "i",
+    "img",
+    "li",
+    "ol",
+    "p",
+    "pre",
+    "q",
+    "s",
+    "small",
+    "span",
+    "strong",
+    "sub",
+    "sup",
+    "table",
+    "tbody",
+    "td",
+    "tfoot",
+    "th",
+    "thead",
+    "tr",
+    "u",
+    "ul",
+    "big",
+    "del",
+    "ins",
+    "mark",
 }
 
 ALLOWED_ATTRIBUTES = {
@@ -31,10 +77,12 @@ def sanitize_html(html: str) -> str:
     """Sanitize HTML email content. Removes scripts, events, dangerous elements."""
     if not html:
         return ""
-    html = re.sub(r"<script[^>]*>.*?</script>", "", html, flags=re.DOTALL | re.IGNORECASE)
+    html = re.sub(
+        r"<script[^>]*>.*?</script>", "", html, flags=re.DOTALL | re.IGNORECASE
+    )
     html = re.sub(r"<style[^>]*>.*?</style>", "", html, flags=re.DOTALL | re.IGNORECASE)
     html = re.sub(r'\s+on\w+\s*=\s*["\'][^"\']*["\']', "", html, flags=re.IGNORECASE)
-    html = re.sub(r'\s+on\w+\s*=\s*\S+', "", html, flags=re.IGNORECASE)
+    html = re.sub(r"\s+on\w+\s*=\s*\S+", "", html, flags=re.IGNORECASE)
     return nh3.clean(
         html,
         tags=ALLOWED_TAGS,

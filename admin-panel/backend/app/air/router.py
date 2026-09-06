@@ -44,14 +44,27 @@ async def incidents(request: Request, hours: int = 168,
     return {"count": len(inc), "incidents": inc}
 
 
+from app.wrappers.entorno_webmail import DIRECTORIO_EJECUCION as _DIR_EJECUCION
+
+
+def _env_webmail() -> dict:
+    """Entorno para los subprocesos del correo.
+
+    Antes abria entero el .env del correo (46 variables, con todos sus secretos).
+    Desde la fase 2 el panel no corre como root y no puede leer ese archivo: los
+    valores que hacen falta, y solo esos, se copian a la configuracion del panel
+    con prefijo WEBMAIL_. Ver wrappers/entorno_webmail.py.
+    """
+    from app.wrappers.entorno_webmail import entorno_webmail
+    return entorno_webmail()
 @router.post("/investigate")
 async def investigate(request: Request, hours: int = 24,
                       admin: dict = Depends(get_current_admin)):
     try:
-        p = await asyncio.to_thread(subprocess.run, 
-            ["bash", "-c",
-             f"cd {WEBMAIL} && set -a && . .env && set +a && "
-             f"venv/bin/python -m app.air.run {int(hours)}"],
+        p = await asyncio.to_thread(
+            subprocess.run,
+            [f"{WEBMAIL}/venv/bin/python", "-m", "app.air.run", str(int(hours))],
+            cwd=_DIR_EJECUCION, env=_env_webmail(),
             capture_output=True, text=True, timeout=150)
         return {"ok": p.returncode == 0, "output": (p.stdout or p.stderr or "")[-4000:]}
     except Exception as e:

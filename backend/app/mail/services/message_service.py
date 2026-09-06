@@ -1,12 +1,16 @@
 """Message service — list and read messages with parsing."""
+
 import re
-from app.mail.clients.imap_client import (
-    list_message_uids, fetch_message_headers, fetch_full_message,
-)
-from app.mail.parsers.mime_parser import parse_headers, parse_full_message
-from app.mail.parsers.html_sanitizer import sanitize_html
-from app.mail.rendering.policy import apply_render_policy
+
 from app.config import get_settings
+from app.mail.clients.imap_client import (
+    fetch_full_message,
+    fetch_message_headers,
+    list_message_uids,
+)
+from app.mail.parsers.html_sanitizer import sanitize_html
+from app.mail.parsers.mime_parser import parse_full_message, parse_headers
+from app.mail.rendering.policy import apply_render_policy
 
 
 async def list_messages(
@@ -19,7 +23,9 @@ async def list_messages(
     username: str = "",
 ) -> dict:
     """List messages with snippets, newest first."""
-    uid_result = await list_message_uids(imap, folder, page, per_page, search_query, redis=redis, username=username)
+    uid_result = await list_message_uids(
+        imap, folder, page, per_page, search_query, redis=redis, username=username
+    )
 
     # If folder select failed, uid_result will have folder_error flag
     if uid_result.get("folder_error"):
@@ -94,7 +100,11 @@ async def get_message(
     render_info = {"has_remote_images": False, "blocked_image_count": 0}
     if normalized.html_body:
         sanitized = sanitize_html(normalized.html_body)
-        render_result = apply_render_policy(sanitized, block_remote_images=block_remote_images, cid_map=normalized.cid_map)
+        render_result = apply_render_policy(
+            sanitized,
+            block_remote_images=block_remote_images,
+            cid_map=normalized.cid_map,
+        )
         safe_html = render_result["html"]
         render_info = render_result
 
@@ -170,10 +180,14 @@ def _compute_thread_id(n) -> str:
         return n.message_id.strip("<>")
     # Fallback: normalized subject
     import re
+
     subj = re.sub(r"^(Re|Fwd|Fw)\s*:\s*", "", n.subject, flags=re.IGNORECASE).strip()
     if subj:
         import hashlib
-        return hashlib.md5(subj.lower().encode()).hexdigest()[:12]
+
+        return hashlib.md5(subj.lower().encode(), usedforsecurity=False).hexdigest()[
+            :12
+        ]
     return ""
 
 

@@ -1,0 +1,14 @@
+# Rotación del log de seguridad del backend del webmail.
+# Archivo destino: /etc/logrotate.d/webmail
+# El backend escribe con FileHandler (descriptor abierto) -> copytruncate.
+# Permisos 640: el log contiene IPs y rutas; no debe ser legible por todos los usuarios.
+/var/log/webmail/*.log {
+    daily
+    rotate 30
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+    create 0640 www-data adm
+}

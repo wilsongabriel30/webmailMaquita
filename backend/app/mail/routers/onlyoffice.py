@@ -1,23 +1,24 @@
 """OnlyOffice integration — convert Office files to PDF for preview."""
-import logging
-import jwt
-import time
-import json
-import mimetypes
+
 import asyncio
 import hashlib
-import urllib.request
+import json
+import logging
+import mimetypes
+import time
 import urllib.error
+import urllib.request
 import xml.etree.ElementTree as ET
 
-from fastapi import APIRouter, Request, Depends, HTTPException, Query
+import jwt
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
-from app.core.session import get_user_password, get_imap_login_user
-from app.mail.clients.imap_client import get_imap_connection, fetch_attachment
 from app.config import get_settings
+from app.core.session import get_imap_login_user, get_user_password
+from app.mail.clients.imap_client import fetch_attachment, get_imap_connection
 
 settings = get_settings()
 
@@ -36,7 +37,8 @@ async def _oo_cfg(request):
     url, secret = _OO_URL, _OO_SECRET
     try:
         row = await request.app.state.db_pool.fetchrow(
-            "SELECT onlyoffice_url, onlyoffice_secret, enabled FROM office_config WHERE id = 1")
+            "SELECT onlyoffice_url, onlyoffice_secret, enabled FROM office_config WHERE id = 1"
+        )
         if row and row["enabled"]:
             url = row["onlyoffice_url"] or url
             secret = row["onlyoffice_secret"] or secret
@@ -44,10 +46,20 @@ async def _oo_cfg(request):
         pass
     return url, secret
 
+
 _OFFICE_EXT = {
-    "docx", "doc", "odt", "rtf", "txt",
-    "xlsx", "xls", "ods", "csv",
-    "pptx", "ppt", "odp",
+    "docx",
+    "doc",
+    "odt",
+    "rtf",
+    "txt",
+    "xlsx",
+    "xls",
+    "ods",
+    "csv",
+    "pptx",
+    "ppt",
+    "odp",
 }
 
 
@@ -109,9 +121,14 @@ async def office_preview(
         algorithm="HS256",
     )
 
-    download_url = f"{settings.public_base_url.rstrip('/')}/api/mail/oo-download?token={dl_token}"
+    download_url = (
+        f"{settings.public_base_url.rstrip('/')}/api/mail/oo-download?token={dl_token}"
+    )
     # Key must be alphanumeric — OnlyOffice rejects keys with @ or special chars
-    key_hash = hashlib.md5(f"{username}_{body.folder}_{body.uid}_{body.part_number}".encode()).hexdigest()[:16]
+    key_hash = hashlib.md5(
+        f"{username}_{body.folder}_{body.uid}_{body.part_number}".encode(),
+        usedforsecurity=False,
+    ).hexdigest()[:16]
     doc_key = f"pv_{key_hash}_{int(time.time())}"
 
     convert_payload = {
@@ -139,7 +156,6 @@ async def office_preview(
             "Cache-Control": "private, max-age=300",
         },
     )
-
 
 
 class OfficeEditorRequest(BaseModel):
@@ -172,14 +188,28 @@ async def office_editor_config(
         algorithm="HS256",
     )
 
-    download_url = f"{settings.public_base_url.rstrip('/')}/api/mail/oo-download?token={dl_token}"
-    key_hash = hashlib.md5(f"{username}_{body.folder}_{body.uid}_{body.part_number}".encode()).hexdigest()[:16]
+    download_url = (
+        f"{settings.public_base_url.rstrip('/')}/api/mail/oo-download?token={dl_token}"
+    )
+    key_hash = hashlib.md5(
+        f"{username}_{body.folder}_{body.uid}_{body.part_number}".encode(),
+        usedforsecurity=False,
+    ).hexdigest()[:16]
     doc_key = f"view_{key_hash}_{int(time.time())}"
 
     doc_type_map = {
-        "docx": "word", "doc": "word", "odt": "word", "rtf": "word", "txt": "word",
-        "xlsx": "cell", "xls": "cell", "ods": "cell", "csv": "cell",
-        "pptx": "slide", "ppt": "slide", "odp": "slide",
+        "docx": "word",
+        "doc": "word",
+        "odt": "word",
+        "rtf": "word",
+        "txt": "word",
+        "xlsx": "cell",
+        "xls": "cell",
+        "ods": "cell",
+        "csv": "cell",
+        "pptx": "slide",
+        "ppt": "slide",
+        "odp": "slide",
     }
     doc_type = doc_type_map.get(ext, "word")
 

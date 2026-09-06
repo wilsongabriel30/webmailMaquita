@@ -21,6 +21,7 @@ MAIL_LOG = "/var/log/mail.log"
 
 # --- Regex patterns ---
 
+
 # Generic syslog prefix: "May 13 10:30:01 mail-maquita service[pid]:"
 def _safe_int(v):
     try:
@@ -357,6 +358,7 @@ class MailLogIngestor:
         try:
             ts = self._parse_syslog_timestamp(timestamp_str)
             import ipaddress
+
             try:
                 src_ip = str(ipaddress.ip_address(client_ip)) if client_ip else None
             except (ValueError, TypeError):
