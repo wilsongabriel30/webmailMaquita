@@ -9,6 +9,8 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Seguridad
 
+- **[H-04] Comparaciones con la contraseña maestra en tiempo constante** (`hmac.compare_digest`) en
+  la sesión IMAP impersonada y en el SASL de SMTP.
 - **[H-03 / F-09] Códigos de respaldo de 2FA: 128 bits, hash con sal, un solo uso atómico.** Un
   código por fila en `user_totp_backup_codes` (migración `2026-09-06-codigos-respaldo.sql`);
   los anteriores (32 bits, en claro, consumo no atómico) dejan de valer y cada persona con
