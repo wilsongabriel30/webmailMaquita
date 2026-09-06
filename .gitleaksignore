@@ -8,3 +8,12 @@
 # docs/CONFIGURATION.md:196 = placeholder de documentacion "COMPLIANCE_GPG_KEY_ID=your-key-id-here".
 8f32d583d4da41b319c8d28057e2ded5ec660ff6:docs/CONFIGURATION.md:generic-api-key:196
 3263f2978ad3079e1c46bceda2597723a6eeb102:docs/CONFIGURATION.md:generic-api-key:196
+
+# Valores de PRUEBA del CI y de las pruebas del chat (2026-09-06): no son secretos.
+# Las lineas actuales llevan gitleaks:allow; estas huellas cubren los commits anteriores.
+7a0f986b5ab8ed9e02687c50154ccd8c06e9558c:.github/workflows/ci.yml:generic-api-key:207
+7a0f986b5ab8ed9e02687c50154ccd8c06e9558c:.github/workflows/ci.yml:generic-api-key:208
+7a0f986b5ab8ed9e02687c50154ccd8c06e9558c:.github/workflows/ci.yml:generic-api-key:209
+7a0f986b5ab8ed9e02687c50154ccd8c06e9558c:chat-service/tests/test_revocacion.py:generic-api-key:11
+7a0f986b5ab8ed9e02687c50154ccd8c06e9558c:chat-service/tests/test_revocacion.py:generic-api-key:12
+7a0f986b5ab8ed9e02687c50154ccd8c06e9558c:chat-service/tests/test_revocacion.py:generic-api-key:13
