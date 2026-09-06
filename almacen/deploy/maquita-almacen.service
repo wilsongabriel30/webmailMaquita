@@ -13,6 +13,9 @@ EnvironmentFile=/opt/maquita-webmail/almacen/.env
 ExecStart=/opt/maquita-webmail/almacen/venv/bin/gunicorn \
     --workers 6 --threads 4 \
     --bind 127.0.0.1:8788 \
+    # Si otro servidor debe llegar al almacén directamente (p. ej. el chat en su propia VM
+    # para adjuntos y eventos del Drive), añade un segundo --bind con la IP de red y limita
+    # ese puerto en el cortafuegos a esa IP (nftables: tcp dport 8788 ip saddr <VM> accept).
     --timeout 600 \
     --access-logfile - --error-logfile - \
     "app_webmail:crear_app_webmail()"

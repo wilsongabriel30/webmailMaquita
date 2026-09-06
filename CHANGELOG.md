@@ -9,6 +9,10 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Seguridad
 
+- **[R-01] El almacén ya no arranca con una clave de sesión por defecto.** `ALMACEN_CLAVE_SESION`
+  es obligatoria (≥ 16 caracteres, sin valor de ejemplo), como los secretos del backend. La unidad
+  de systemd documenta cuándo hace falta un segundo `--bind` en la IP de red y que ese puerto va
+  limitado por cortafuegos a la VM que lo usa.
 - **[R-04] SafeAttach falla cerrado si un motor obligatorio no responde.** Con ClamAV caído el
   adjunto salía `clean` (confirmado con EICAR). Ahora un motor obligatorio (`clamav`; más por
   `SAFEATTACH_MOTORES_OBLIGATORIOS`) que lanza error, no está o agota el tiempo deja el adjunto
