@@ -23,3 +23,12 @@ def test_propiedades_normales_se_conservan():
     assert limpiar_estilo("font-family: Arial; font-size: 12px; margin: 0 auto") == (
         "font-family: Arial; font-size: 12px; margin: 0 auto"
     )
+
+
+def test_l04_atajo_font_fuera_pero_propiedades_sueltas_dentro():
+    """L-04 (cuarta revisión): el atajo `font` no pasa; font-family/size/weight sí."""
+    assert limpiar_estilo("font: 12px Arial; color: red") == "color: red"
+    assert limpiar_estilo("font: caption") is None
+    assert limpiar_estilo("font-family: Arial; font-weight: bold") == (
+        "font-family: Arial; font-weight: bold"
+    )

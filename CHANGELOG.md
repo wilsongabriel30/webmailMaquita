@@ -9,6 +9,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Seguridad
 
+- **[L-04] El atajo CSS `font` sale de la lista de propiedades permitidas en `style`** (las sueltas
+  `font-family`, `font-size`, `font-weight`, `font-style`, `font-variant` siguen). La etiqueta
+  `<font>` con `color/size/face` se mantiene: es inerte y la usan muchos correos antiguos.
 - **[H-04] Comparaciones con la contraseña maestra en tiempo constante** (`hmac.compare_digest`) en
   la sesión IMAP impersonada y en el SASL de SMTP.
 - **[H-03 / F-09] Códigos de respaldo de 2FA: 128 bits, hash con sal, un solo uso atómico.** Un
