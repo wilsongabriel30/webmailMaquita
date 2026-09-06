@@ -1040,7 +1040,7 @@ async function _cargarHijosCarpeta(ruta) {
 function _renderNodoCarpeta(ruta, nombre, nivel) {
     const indent = 8 + nivel * 16;
     const iconColor = nivel === 0 ? '#0061a1' : '#f6a623';
-    const r = String(ruta).replace(/"/g, '&quot;');
+    const r = escHtml(ruta);   // [A-13]
     return '<div class="tree-node" data-ruta="' + r + '" data-nivel="' + nivel + '">'
         + '<div class="move-folder-item" data-ruta="' + r + '" onclick="_seleccionarCarpetaMover(this)" '
         +   'style="padding:6px 10px;padding-left:' + indent + 'px;cursor:pointer;display:flex;align-items:center;gap:4px;border-radius:4px;" '
@@ -1049,7 +1049,7 @@ function _renderNodoCarpeta(ruta, nombre, nivel) {
         +   '<span class="tree-toggle material-icons" onclick="event.stopPropagation();_toggleCarpetaArbol(this)" '
         +     'style="font-size:18px;color:#888;cursor:pointer;width:18px;text-align:center;">chevron_right</span>'
         +   '<span class="material-icons" style="font-size:18px;color:' + iconColor + ';">folder</span>'
-        +   '<span style="font-size:13px;">' + nombre + '</span>'
+        +   '<span style="font-size:13px;">' + escHtml(nombre) + '</span>'
         + '</div>'
         + '<div class="tree-children" data-loaded="0" style="display:none;"></div>'
         + '</div>';
@@ -1398,7 +1398,7 @@ async function subirArchivos(files) {
         items.innerHTML += `
             <div class="gd-upload-item" id="${itemId}">
                 <span class="material-icons">hourglass_empty</span>
-                <span class="gd-upload-item-name">${file.name}</span>
+                <span class="gd-upload-item-name">${escHtml(file.name)}</span>
                 <div class="gd-upload-item-progress">
                     <div class="bar"><div class="fill" style="width: 0%"></div></div>
                 </div>
@@ -1908,9 +1908,9 @@ function mostrarDropdownFiltro(titulo, opciones, valorActual, onSelect) {
     opciones.forEach(op => {
         const activo = op.valor === valorActual ? 'active' : '';
         html += `
-            <div class="gd-dropdown-item ${activo}" data-valor="${op.valor}">
-                <span class="material-icons">${op.icono}</span>
-                <span>${op.label}</span>
+            <div class="gd-dropdown-item ${activo}" data-valor="${escHtml(op.valor)}">
+                <span class="material-icons">${escHtml(op.icono)}</span>
+                <span>${escHtml(op.label)}</span>
                 ${activo ? '<span class="material-icons check">check</span>' : ''}
             </div>
         `;

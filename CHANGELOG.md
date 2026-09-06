@@ -15,6 +15,11 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Seguridad
 
+- **[A-13] Nombres del Almacén sin marcas de HTML y explorador escapado.** El servicio rechaza `< > " ' \\`
+  y caracteres de control al crear, subir o renombrar; el explorador escapa nombres, rutas y etiquetas
+  también en el árbol lateral, la miga de pan, el diálogo de mover, los filtros de compartidos y el panel
+  de detalles (`explorador-escape.js`, cargado antes que el resto). La entrega segura de HTML/SVG
+  (descarga con `nosniff` y `sandbox`) ya estaba.
 - **[L-04 chat] Limitador del socket sin Redis: tope conservador y marca.** Si Redis no está o falla,
   el límite por proceso se divide por 4 y se registra `RATE_LIMIT_SIN_REDIS` (como R-2 en el
   correo); antes el fallo era silencioso y el tope real se multiplicaba por el número de workers.
