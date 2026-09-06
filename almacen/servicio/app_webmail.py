@@ -109,6 +109,9 @@ def crear_app_webmail() -> Flask:
     app.config['MAX_CONTENT_LENGTH'] = TAMANO_MAX_SUBIDA
 
     asegurar_esquema()          # esquema del motor (idempotente)
+    from cuota_admision import asegurar_tabla as _tabla_reservas
+    from almacen_bd import conexion as _conexion_reservas
+    _tabla_reservas(_conexion_reservas)  # [F-06] reservas de cuota (también en app_almacen)
     asegurar_tablas_webmail()   # directorio local de usuarios
     asegurar_tablas_externas()  # directorio de cuentas Drive externas (pasantes/aliados)
     from alias_correo import asegurar_tabla_alias
