@@ -9,6 +9,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Seguridad
 
+- **[M-01 panel] Matriz `admin` / `superadmin` aplicada.** Retención, acceso condicional, límites y
+  bloqueo de envío, geo-bloqueo, sincronización LDAP, ingestión y dominios del RAG y políticas de
+  seguridad exigen `superadmin` (`require_superadmin` en la ruta). Antes bastaba `admin`. `DECISIONES.md` D-6.
 - **[H-02 panel] `GET /api/branding` (público, lo usa la pantalla de entrada) devuelve solo nombre, lema,
   contacto, colores y ficheros de marca**; el resto de claves de `branding_settings` ya no sale. Mismo
   recorte en el `/api/branding` del correo.

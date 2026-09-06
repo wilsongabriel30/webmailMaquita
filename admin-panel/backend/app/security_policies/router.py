@@ -1,7 +1,7 @@
 """Politicas de seguridad — anti-suplantacion, impersonation, DLP tarjetas (panel :8443)."""
 from fastapi import APIRouter, Request, Depends
 from pydantic import BaseModel
-from app.auth.dependencies import get_current_admin
+from app.auth.dependencies import get_current_admin, require_superadmin
 
 router = APIRouter(prefix="/api/security-policies", tags=["security-policies"])
 
@@ -43,7 +43,7 @@ async def get_config(request: Request, admin: dict = Depends(get_current_admin))
 
 
 @router.post("")
-async def save_config(body: CfgIn, request: Request, admin: dict = Depends(get_current_admin)):
+async def save_config(body: CfgIn, request: Request, admin: dict = Depends(require_superadmin)):
     db = _db(request)
     terms = [t.strip().lower() for t in body.impersonation_terms if t and t.strip()]
     from datetime import date as _date

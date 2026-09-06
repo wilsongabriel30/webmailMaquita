@@ -5,7 +5,7 @@ Autor: Wilson Argüello — Equipo de Tecnología, Fundación Maquita
 from fastapi import APIRouter, Request, Depends, HTTPException
 from pydantic import BaseModel
 
-from app.auth.dependencies import get_current_admin
+from app.auth.dependencies import get_current_admin, require_superadmin
 
 router = APIRouter(prefix="/api/conditional-access", tags=["conditional-access"])
 CONDS = {"riesgo_alto", "pais_no_confiable", "viaje_imposible"}
@@ -30,7 +30,7 @@ class PolicyReq(BaseModel):
 
 
 @router.post("/policies")
-async def create(r: Request, body: PolicyReq, a=Depends(get_current_admin)):
+async def create(r: Request, body: PolicyReq, a=Depends(require_superadmin)):
     if body.condition not in CONDS or body.action not in ACTS:
         raise HTTPException(400, "condición o acción inválida")
     pid = await _db(r).fetchval(
@@ -45,7 +45,7 @@ class ToggleReq(BaseModel):
 
 
 @router.post("/toggle")
-async def toggle(r: Request, body: ToggleReq, a=Depends(get_current_admin)):
+async def toggle(r: Request, body: ToggleReq, a=Depends(require_superadmin)):
     await _db(r).execute("UPDATE conditional_access_policies SET enabled=$1 WHERE id=$2",
                          body.enabled, body.id)
     return {"ok": True}
@@ -56,6 +56,6 @@ class IdReq(BaseModel):
 
 
 @router.post("/delete")
-async def delete(r: Request, body: IdReq, a=Depends(get_current_admin)):
+async def delete(r: Request, body: IdReq, a=Depends(require_superadmin)):
     await _db(r).execute("DELETE FROM conditional_access_policies WHERE id=$1", body.id)
     return {"ok": True}

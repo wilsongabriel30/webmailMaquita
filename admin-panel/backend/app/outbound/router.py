@@ -7,7 +7,7 @@ Autor: Wilson Arguello — Equipo de Tecnologia, Fundacion Maquita.
 import asyncio, json
 from fastapi import APIRouter, Request, Depends, HTTPException
 from pydantic import BaseModel
-from app.auth.dependencies import get_current_admin
+from app.auth.dependencies import get_current_admin, require_superadmin
 
 router = APIRouter(prefix="/api/admin/outbound", tags=["outbound"])
 HELPER = "/usr/local/sbin/maquita-outbound"
@@ -40,7 +40,7 @@ class LimitsReq(BaseModel):
 
 
 @router.put("/limits")
-async def set_limits(body: LimitsReq, r: Request, a=Depends(get_current_admin)):
+async def set_limits(body: LimitsReq, r: Request, a=Depends(require_superadmin)):
     res = await _run("set-limits", str(body.burst), str(body.rate_per_min))
     if body.whitelist is not None:
         await _run("set-whitelist", ",".join(body.whitelist))
@@ -57,12 +57,12 @@ class EmailReq(BaseModel):
 
 
 @router.post("/lock")
-async def lock(body: EmailReq, r: Request, a=Depends(get_current_admin)):
+async def lock(body: EmailReq, r: Request, a=Depends(require_superadmin)):
     return await _run("lock", body.email)
 
 
 @router.post("/unlock")
-async def unlock(body: EmailReq, r: Request, a=Depends(get_current_admin)):
+async def unlock(body: EmailReq, r: Request, a=Depends(require_superadmin)):
     return await _run("unlock", body.email)
 
 

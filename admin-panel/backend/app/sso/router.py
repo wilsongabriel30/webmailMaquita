@@ -10,7 +10,7 @@ import subprocess
 
 from fastapi import APIRouter, Request, Depends, HTTPException
 
-from app.auth.dependencies import get_current_admin
+from app.auth.dependencies import get_current_admin, require_superadmin
 
 router = APIRouter(prefix="/api/sso", tags=["sso"])
 
@@ -59,7 +59,7 @@ async def status(r: Request, a=Depends(get_current_admin)):
 
 
 @router.post("/sync")
-async def sync(r: Request, a=Depends(get_current_admin)):
+async def sync(r: Request, a=Depends(require_superadmin)):
     p = await _sh(f"bash {SYNC}", timeout=120)
     if not p:
         raise HTTPException(500, "No se pudo ejecutar la sincronización")

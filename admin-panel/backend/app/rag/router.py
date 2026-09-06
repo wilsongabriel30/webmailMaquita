@@ -10,7 +10,7 @@ import subprocess
 from fastapi import APIRouter, Request, Depends, HTTPException
 from pydantic import BaseModel
 
-from app.auth.dependencies import get_current_admin
+from app.auth.dependencies import get_current_admin, require_superadmin
 
 router = APIRouter(prefix="/api/rag", tags=["rag"])
 WEBMAIL = "/opt/maquita-webmail/backend"
@@ -61,7 +61,7 @@ class DomReq(BaseModel):
 
 
 @router.post("/domains")
-async def add_domain(r: Request, body: DomReq, a=Depends(get_current_admin)):
+async def add_domain(r: Request, body: DomReq, a=Depends(require_superadmin)):
     dom = (body.domain or "").strip().lower()
     if not dom or "." not in dom:
         raise HTTPException(400, "dominio inválido")
@@ -75,7 +75,7 @@ class ToggleReq(BaseModel):
 
 
 @router.post("/domains/toggle")
-async def toggle(r: Request, body: ToggleReq, a=Depends(get_current_admin)):
+async def toggle(r: Request, body: ToggleReq, a=Depends(require_superadmin)):
     await _db(r).execute("UPDATE rag_domains SET enabled=$1 WHERE domain=$2", body.enabled, body.domain)
     return {"ok": True}
 
@@ -85,7 +85,7 @@ class UserReq(BaseModel):
 
 
 @router.post("/ingest")
-async def ingest(r: Request, body: UserReq, a=Depends(get_current_admin)):
+async def ingest(r: Request, body: UserReq, a=Depends(require_superadmin)):
     u = "".join(c for c in (body.user or "") if c.isalnum() or c in "@._-")
     if not u:
         raise HTTPException(400, "usuario inválido")

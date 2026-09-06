@@ -8,7 +8,7 @@ import asyncio
 import re
 from fastapi import APIRouter, Request, Depends, HTTPException
 from pydantic import BaseModel
-from app.auth.dependencies import get_current_admin
+from app.auth.dependencies import get_current_admin, require_superadmin
 
 router = APIRouter(prefix="/api/geo-access", tags=["geo-access"])
 SCRIPT = "/usr/local/sbin/geoip-country.sh"
@@ -33,7 +33,7 @@ class ToggleReq(BaseModel):
 
 
 @router.post("/toggle")
-async def toggle(r: Request, body: ToggleReq, a=Depends(get_current_admin)):
+async def toggle(r: Request, body: ToggleReq, a=Depends(require_superadmin)):
     code = (body.code or "").lower().strip()
     if not _CC_RE.match(code):
         raise HTTPException(400, "Código de país inválido (ISO-2, ej. 'es')")
