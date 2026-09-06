@@ -3,6 +3,7 @@ Servicio de cuarentena de spam para el panel de administración.
 Permite listar correos en Junk de todos los usuarios, aprobarlos (mover a Inbox)
 o confirmarlos como spam (dejar en Junk o eliminar).
 """
+
 import asyncio
 import re
 import subprocess
@@ -28,9 +29,12 @@ async def list_all_users() -> list[str]:
 async def get_junk_messages(username: str, limit: int = 50) -> list[dict]:
     """Lista mensajes en carpeta Junk de un usuario."""
     output = await run_doveadm(
-        "fetch", "-u", username,
+        "fetch",
+        "-u",
+        username,
         "uid date.received from subject flags",
-        "mailbox", "Junk"
+        "mailbox",
+        "Junk",
     )
     messages = []
     current = {}
@@ -67,8 +71,7 @@ async def approve_message(username: str, uid: str) -> bool:
     """Mueve un mensaje de Junk a INBOX (falso positivo)."""
     try:
         await run_doveadm(
-            "move", "-u", username,
-            "INBOX", "mailbox", "Junk", "uid", uid
+            "move", "-u", username, "INBOX", "mailbox", "Junk", "uid", uid
         )
         return True
     except Exception:
@@ -79,8 +82,7 @@ async def confirm_spam(username: str, uid: str) -> bool:
     """Confirma que es spam y lo marca como leido en Junk."""
     try:
         await run_doveadm(
-            "flags", "-u", username,
-            "add", "\\Seen", "mailbox", "Junk", "uid", uid
+            "flags", "-u", username, "add", "\\Seen", "mailbox", "Junk", "uid", uid
         )
         return True
     except Exception:
@@ -90,10 +92,7 @@ async def confirm_spam(username: str, uid: str) -> bool:
 async def delete_spam(username: str, uid: str) -> bool:
     """Elimina un mensaje de Junk permanentemente."""
     try:
-        await run_doveadm(
-            "expunge", "-u", username,
-            "mailbox", "Junk", "uid", uid
-        )
+        await run_doveadm("expunge", "-u", username, "mailbox", "Junk", "uid", uid)
         return True
     except Exception:
         return False
@@ -103,8 +102,11 @@ async def get_spam_filter_log(lines: int = 50) -> list[dict]:
     """Lee el log del filtro spam Python."""
     try:
         proc = await asyncio.create_subprocess_exec(
-            "tail", "-n", str(lines), "/var/log/maquita-spam-filter.log",
-            stdout=asyncio.subprocess.PIPE
+            "tail",
+            "-n",
+            str(lines),
+            "/var/log/maquita-spam-filter.log",
+            stdout=asyncio.subprocess.PIPE,
         )
         stdout, _ = await proc.communicate()
         entries = []
@@ -113,12 +115,14 @@ async def get_spam_filter_log(lines: int = 50) -> list[dict]:
                 continue
             parts = line.split(" | ")
             if len(parts) >= 2:
-                entries.append({
-                    "timestamp": parts[0].strip(),
-                    "level": parts[1].strip() if len(parts) > 1 else "",
-                    "verdict": parts[2].strip() if len(parts) > 2 else "",
-                    "details": " | ".join(parts[3:]) if len(parts) > 3 else ""
-                })
+                entries.append(
+                    {
+                        "timestamp": parts[0].strip(),
+                        "level": parts[1].strip() if len(parts) > 1 else "",
+                        "verdict": parts[2].strip() if len(parts) > 2 else "",
+                        "details": " | ".join(parts[3:]) if len(parts) > 3 else "",
+                    }
+                )
         return entries
     except Exception:
         return []

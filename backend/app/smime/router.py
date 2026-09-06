@@ -1,4 +1,5 @@
 """S/MIME certificate management and message signing/encryption."""
+
 from __future__ import annotations
 
 import base64
@@ -35,7 +36,11 @@ def _clave_cifrado() -> bytes:
     dejan de poder descifrarse y hay que volver a subirlas.
     """
     semilla = (get_settings().secret_key or "").encode()
-    return hmac.new(semilla, b"smime:cifrado-de-claves-privadas", hashlib.sha256).hexdigest().encode()
+    return (
+        hmac.new(semilla, b"smime:cifrado-de-claves-privadas", hashlib.sha256)
+        .hexdigest()
+        .encode()
+    )
 
 
 def _sin_zona(momento):
@@ -61,6 +66,7 @@ def _redis(request: Request):
 
 # ── Schemas ───────────────────────────────────────────────
 
+
 class CertificateOut(BaseModel):
     id: int
     user_email: str
@@ -82,6 +88,7 @@ class SmimeStatusOut(BaseModel):
 
 
 # ── Upload certificate ────────────────────────────────────
+
 
 @router.post("/keys/upload", response_model=CertificateOut, status_code=201)
 async def upload_certificate(
@@ -153,9 +160,16 @@ async def upload_certificate(
                valid_to = EXCLUDED.valid_to
            WHERE smime_certificates.user_email = EXCLUDED.user_email
            RETURNING *""",
-        user, cert_pem, key_pem, issuer, subject, serial,
-        _sin_zona(cert_obj.not_valid_before_utc), _sin_zona(cert_obj.not_valid_after_utc),
-        fp, key_pem is not None,
+        user,
+        cert_pem,
+        key_pem,
+        issuer,
+        subject,
+        serial,
+        _sin_zona(cert_obj.not_valid_before_utc),
+        _sin_zona(cert_obj.not_valid_after_utc),
+        fp,
+        key_pem is not None,
     )
     if row is None:
         raise HTTPException(
@@ -168,10 +182,9 @@ async def upload_certificate(
 
 # ── List certificates ─────────────────────────────────────
 
+
 @router.get("/keys", response_model=list[CertificateOut])
-async def list_certificates(
-    request: Request, user: str = Depends(get_current_user)
-):
+async def list_certificates(request: Request, user: str = Depends(get_current_user)):
     db = _db(request)
     rows = await db.fetch(
         "SELECT id, user_email, issuer, subject, serial_number, valid_from, "
@@ -184,6 +197,7 @@ async def list_certificates(
 
 # ── Delete certificate ────────────────────────────────────
 
+
 @router.delete("/keys/{cert_id}", status_code=204)
 async def delete_certificate(
     cert_id: int, request: Request, user: str = Depends(get_current_user)
@@ -191,7 +205,8 @@ async def delete_certificate(
     db = _db(request)
     result = await db.execute(
         "DELETE FROM smime_certificates WHERE id = $1 AND user_email = $2",
-        cert_id, user,
+        cert_id,
+        user,
     )
     if result == "DELETE 0":
         raise HTTPException(404, "Certificado no encontrado")
@@ -199,8 +214,11 @@ async def delete_certificate(
 
 # ── Public key lookup ─────────────────────────────────────
 
+
 @router.get("/keys/public/{email}")
-async def get_public_key(email: str, request: Request, user: str = Depends(get_current_user)):
+async def get_public_key(
+    email: str, request: Request, user: str = Depends(get_current_user)
+):
     db = _db(request)
     row = await db.fetchrow(
         "SELECT certificate_pem, issuer, subject, valid_to FROM smime_certificates "
@@ -209,11 +227,17 @@ async def get_public_key(email: str, request: Request, user: str = Depends(get_c
     )
     if not row:
         raise HTTPException(404, "No se encontró certificado público para este email")
-    return {"email": email, "certificate_pem": row["certificate_pem"],
-            "issuer": row["issuer"], "subject": row["subject"], "valid_to": row["valid_to"]}
+    return {
+        "email": email,
+        "certificate_pem": row["certificate_pem"],
+        "issuer": row["issuer"],
+        "subject": row["subject"],
+        "valid_to": row["valid_to"],
+    }
 
 
 # ── Sign message ──────────────────────────────────────────
+
 
 class SignRequest(BaseModel):
     message: str  # raw RFC822 or body text
@@ -247,23 +271,39 @@ async def sign_message(
         # La contraseña va por el entorno, no en argv: la línea de órdenes de un
         # proceso la puede leer cualquiera con `ps`, el entorno solo su dueño.
         result = subprocess.run(
-            ["openssl", "smime", "-sign", "-in", msg_path,
-             "-signer", cert_path, "-inkey", key_path,
-             "-passin", "env:SMIME_PASS"],
-            capture_output=True, text=True, timeout=10,
-            env={"SMIME_PASS": _clave_cifrado().decode(),
-                 "PATH": os.environ.get("PATH", "/usr/bin:/bin")},
+            [
+                "openssl",
+                "smime",
+                "-sign",
+                "-in",
+                msg_path,
+                "-signer",
+                cert_path,
+                "-inkey",
+                key_path,
+                "-passin",
+                "env:SMIME_PASS",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            env={
+                "SMIME_PASS": _clave_cifrado().decode(),
+                "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+            },
         )
         if result.returncode != 0:
             raise HTTPException(500, f"Error al firmar: {result.stderr[:200]}")
         return {"signed_message": result.stdout}
     finally:
         import os
+
         for p in (cert_path, key_path, msg_path):
             os.unlink(p)
 
 
 # ── Encrypt message ───────────────────────────────────────
+
 
 class EncryptRequest(BaseModel):
     message: str
@@ -281,7 +321,9 @@ async def encrypt_message(
         body.recipient_email,
     )
     if not row:
-        raise HTTPException(404, f"No hay certificado público para {body.recipient_email}")
+        raise HTTPException(
+            404, f"No hay certificado público para {body.recipient_email}"
+        )
 
     with tempfile.NamedTemporaryFile(suffix=".pem", mode="w", delete=False) as cf:
         cf.write(row["certificate_pem"])
@@ -292,20 +334,23 @@ async def encrypt_message(
 
     try:
         result = subprocess.run(
-            ["openssl", "smime", "-encrypt", "-aes256",
-             "-in", msg_path, cert_path],
-            capture_output=True, text=True, timeout=10,
+            ["openssl", "smime", "-encrypt", "-aes256", "-in", msg_path, cert_path],
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         if result.returncode != 0:
             raise HTTPException(500, f"Error al encriptar: {result.stderr[:200]}")
         return {"encrypted_message": result.stdout}
     finally:
         import os
+
         for p in (cert_path, msg_path):
             os.unlink(p)
 
 
 # ── Verify signature ─────────────────────────────────────
+
 
 class VerifyRequest(BaseModel):
     message: str
@@ -320,9 +365,18 @@ async def verify_signature(
         msg_path = mf.name
     try:
         result = subprocess.run(
-            ["openssl", "smime", "-verify", "-in", msg_path,
-             "-CAfile", "/etc/ssl/certs/ca-certificates.crt"],
-            capture_output=True, text=True, timeout=10,
+            [
+                "openssl",
+                "smime",
+                "-verify",
+                "-in",
+                msg_path,
+                "-CAfile",
+                "/etc/ssl/certs/ca-certificates.crt",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         valid = result.returncode == 0
         signer = None
@@ -333,10 +387,12 @@ async def verify_signature(
         return {"valid": valid, "signer": signer, "detail": result.stderr[:300]}
     finally:
         import os
+
         os.unlink(msg_path)
 
 
 # ── Message S/MIME status ─────────────────────────────────
+
 
 @router.get("/status/{message_id}", response_model=SmimeStatusOut)
 async def message_smime_status(
@@ -347,6 +403,7 @@ async def message_smime_status(
     password = await get_user_password(request, user)
 
     from app.mail.clients.imap_client import get_imap_connection
+
     imap = await get_imap_connection(user, password)
     try:
         await imap.select("INBOX")
@@ -378,14 +435,25 @@ async def message_smime_status(
             signed = True
 
         if signed:
-            with tempfile.NamedTemporaryFile(suffix=".eml", mode="w", delete=False) as f:
+            with tempfile.NamedTemporaryFile(
+                suffix=".eml", mode="w", delete=False
+            ) as f:
                 f.write(raw)
                 tmp = f.name
             try:
                 r = subprocess.run(
-                    ["openssl", "smime", "-verify", "-in", tmp,
-                     "-CAfile", "/etc/ssl/certs/ca-certificates.crt"],
-                    capture_output=True, text=True, timeout=10,
+                    [
+                        "openssl",
+                        "smime",
+                        "-verify",
+                        "-in",
+                        tmp,
+                        "-CAfile",
+                        "/etc/ssl/certs/ca-certificates.crt",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
                 )
                 valid = r.returncode == 0
                 for line in r.stderr.split("\n"):
@@ -394,9 +462,12 @@ async def message_smime_status(
                         break
             finally:
                 import os
+
                 os.unlink(tmp)
 
-        return SmimeStatusOut(signed=signed, encrypted=encrypted, signer=signer_info, valid=valid)
+        return SmimeStatusOut(
+            signed=signed, encrypted=encrypted, signer=signer_info, valid=valid
+        )
     finally:
         try:
             await imap.logout()

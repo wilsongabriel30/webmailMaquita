@@ -4,6 +4,7 @@ A diferencia de DLP (que avisa/bloquea al remitente sobre SUS datos), esto
 MONITOREA el contenido según políticas (conducta, términos confidenciales, etc.)
 y crea entradas en una cola de revisión para el área de cumplimiento. No bloquea.
 """
+
 from __future__ import annotations
 
 import json
@@ -24,13 +25,22 @@ async def get_policies(db, direction: str):
     try:
         return await db.fetch(
             "SELECT id, name, terms, scope, severity FROM comm_policies "
-            "WHERE enabled AND (scope = 'all' OR scope = $1)", direction)
+            "WHERE enabled AND (scope = 'all' OR scope = $1)",
+            direction,
+        )
     except Exception:
         return []
 
 
-async def scan(db, username: str, direction: str, recipients,
-               subject: str = "", text_body: str = "", html_body: str = "") -> int:
+async def scan(
+    db,
+    username: str,
+    direction: str,
+    recipients,
+    subject: str = "",
+    text_body: str = "",
+    html_body: str = "",
+) -> int:
     policies = await get_policies(db, direction)
     if not policies:
         return 0
@@ -45,7 +55,7 @@ async def scan(db, username: str, direction: str, recipients,
             except ValueError:
                 terms = []
         matched = []
-        for t in (terms or []):
+        for t in terms or []:
             t = (t or "").strip().lower()
             if t and re.search(r"\b" + re.escape(t) + r"\b", low):
                 matched.append(t)
@@ -56,9 +66,18 @@ async def scan(db, username: str, direction: str, recipients,
             await db.execute(
                 "INSERT INTO comm_flags (policy_id, policy_name, username, direction, recipients, "
                 "subject, snippet, matched_terms, severity) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)",
-                p["id"], p["name"], username, direction,
-                json.dumps(recipients if isinstance(recipients, list) else [recipients]),
-                (subject or "")[:500], snippet, json.dumps(sorted(set(matched))), p["severity"])
+                p["id"],
+                p["name"],
+                username,
+                direction,
+                json.dumps(
+                    recipients if isinstance(recipients, list) else [recipients]
+                ),
+                (subject or "")[:500],
+                snippet,
+                json.dumps(sorted(set(matched))),
+                p["severity"],
+            )
             flagged += 1
         except Exception:
             pass

@@ -39,7 +39,13 @@ async def create_domain(
         """INSERT INTO domain (domain, description, aliases, mailboxes, maxquota, quota, active)
            VALUES ($1, $2, $3, $4, $5, $6, $7)
            RETURNING *""",
-        domain, description, aliases, mailboxes, maxquota, quota, active,
+        domain,
+        description,
+        aliases,
+        mailboxes,
+        maxquota,
+        quota,
+        active,
     )
     return dict(row)
 
@@ -77,9 +83,7 @@ async def update_domain(
 
 async def delete_domain(db: asyncpg.Pool, domain: str) -> bool:
     # Check no mailboxes remain
-    count = await db.fetchval(
-        "SELECT count(*) FROM mailbox WHERE domain = $1", domain
-    )
+    count = await db.fetchval("SELECT count(*) FROM mailbox WHERE domain = $1", domain)
     if count > 0:
         raise ValueError(f"Cannot delete domain with {count} active mailbox(es)")
 

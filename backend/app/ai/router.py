@@ -21,17 +21,21 @@ from app.core.session import get_imap_login_user
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
+
 # --- Configuracion del servidor IA ---
 # URLs permitidas para el proxy IA (whitelist anti-SSRF)
 # Hosts permitidos se construyen dinamicamente desde la config
 def _get_allowed_ia_hosts():
     from urllib.parse import urlparse
+
     s = get_settings()
     hosts = {"127.0.0.1", "localhost"}
     parsed = urlparse(s.ollama_url)
     if parsed.hostname:
         hosts.add(parsed.hostname)
     return hosts
+
+
 IA_TIMEOUT = 45.0
 
 import os as _os
@@ -43,7 +47,11 @@ _AI_ORG_CONTEXT = _os.getenv("AI_ORG_CONTEXT", "").strip()
 _AI_ORG_NAME = _os.getenv("ORG_NAME", "tu organizacion").strip()
 MAQUITA_CONTEXT = (
     "Contexto: "
-    + (_AI_ORG_CONTEXT or ("Eres el asistente de redaccion de correos de " + _AI_ORG_NAME + ".")) + " "
+    + (
+        _AI_ORG_CONTEXT
+        or ("Eres el asistente de redaccion de correos de " + _AI_ORG_NAME + ".")
+    )
+    + " "
     "Trata SIEMPRE al destinatario de USTED (formal, nunca tutees). "
     "Tono profesional, cercano, respetuoso e inclusivo. "
     "NUNCA agregues firma, nombre, cargo, logotipos ni datos de contacto: cada persona ya tiene su firma personalizada. "
@@ -51,7 +59,6 @@ MAQUITA_CONTEXT = (
     "(por ejemplo: Saludos cordiales, Un cordial saludo, Reciba un cordial saludo, Quedamos atentos), sin nombre ni firma. "
     "No inventes datos, cifras, fechas, precios ni compromisos que no aparezcan en el texto del usuario. "
 )
-
 
 
 async def _get_ia_config():
@@ -66,10 +73,12 @@ async def _get_ia_config():
     timeout = s.ia_timeout or 60
     try:
         import asyncpg
+
         conn = await asyncpg.connect(s.database_url)
         try:
             row = await conn.fetchrow(
-                "SELECT provider, base_url, api_key, model FROM ai_config WHERE id = 1 AND enabled = true")
+                "SELECT provider, base_url, api_key, model FROM ai_config WHERE id = 1 AND enabled = true"
+            )
         finally:
             await conn.close()
         if row and (row["base_url"] or row["provider"]):
@@ -80,21 +89,37 @@ async def _get_ia_config():
     except Exception:
         pass  # tabla inexistente / sin conexion -> usar el .env (fail-open)
     if not model:
-        logger.warning("IA_MODEL no configurado: define IA_MODEL en .env o activa el panel de IA")
+        logger.warning(
+            "IA_MODEL no configurado: define IA_MODEL en .env o activa el panel de IA"
+        )
     if provider == "ollama":
         generate_url = f"{base}/api/generate"
         headers = {"Content-Type": "application/json"}
     elif provider == "anthropic":
         generate_url = f"{base or 'https://api.anthropic.com'}/v1/messages"
-        headers = {"x-api-key": api_key, "anthropic-version": "2023-06-01", "Content-Type": "application/json"}
+        headers = {
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+        }
     elif provider in ("gateway", "custom"):
         generate_url = f"{base}/api/v1/ia/generate"
         headers = {"X-API-Key": api_key, "Content-Type": "application/json"}
     else:  # openai-compatible (vLLM, LM Studio, OpenRouter, LocalAI, ...)
         generate_url = f"{base or 'https://api.openai.com'}/v1/chat/completions"
-        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-    return {"provider": provider, "base_url": base, "api_key": api_key,
-            "model": model, "generate_url": generate_url, "headers": headers, "timeout": timeout}
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        }
+    return {
+        "provider": provider,
+        "base_url": base,
+        "api_key": api_key,
+        "model": model,
+        "generate_url": generate_url,
+        "headers": headers,
+        "timeout": timeout,
+    }
 
 
 # --- Schemas de request/response ---
@@ -102,80 +127,140 @@ class SmartReplyRequest(BaseModel):
     message_id: str
     folder: str = "INBOX"
 
+
 class SmartReplyResponse(BaseModel):
     suggestions: list[str]
+
 
 class SmartComposeRequest(BaseModel):
     context: str
     subject: Optional[str] = ""
     to: Optional[str] = ""
 
+
 class SmartComposeResponse(BaseModel):
     suggestion: str
+
 
 class SummarizeRequest(BaseModel):
     message_ids: list[str]
     folder: str = "INBOX"
 
+
 class SummarizeResponse(BaseModel):
     summary: str
 
+
 class SuggestSubjectRequest(BaseModel):
     body: str
+
 
 class SuggestSubjectResponse(BaseModel):
     suggestions: list[str]
 
 
 # --- Utilidad: llamar al LLM ---
-async def _call_llm(prompt: str, system: str = "", temperature: float = 0.7, max_tokens: int = 800) -> str:
+async def _call_llm(
+    prompt: str, system: str = "", temperature: float = 0.7, max_tokens: int = 800
+) -> str:
     """Llama al endpoint /api/v1/ia/generate del servidor IA con retry automático."""
     ia = await _get_ia_config()
     prov = ia["provider"]
     if prov == "ollama":
-        payload = {"model": ia["model"], "prompt": prompt, "system": system,
-                   "stream": False, "options": {"temperature": temperature, "num_predict": max_tokens}}
+        payload = {
+            "model": ia["model"],
+            "prompt": prompt,
+            "system": system,
+            "stream": False,
+            "options": {"temperature": temperature, "num_predict": max_tokens},
+        }
     elif prov == "openai":
-        payload = {"model": ia["model"],
-                   "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}],
-                   "temperature": temperature, "max_tokens": max_tokens}
+        payload = {
+            "model": ia["model"],
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": prompt},
+            ],
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
     elif prov == "anthropic":
-        payload = {"model": ia["model"], "system": system, "max_tokens": max_tokens,
-                   "temperature": temperature, "messages": [{"role": "user", "content": prompt}]}
+        payload = {
+            "model": ia["model"],
+            "system": system,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "messages": [{"role": "user", "content": prompt}],
+        }
     else:  # gateway / custom
-        payload = {"prompt": prompt, "system": system, "temperature": temperature,
-                   "max_tokens": max_tokens, "usar_rag": False, "model": ia["model"], "preferir_gpu": "remota"}
+        payload = {
+            "prompt": prompt,
+            "system": system,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "usar_rag": False,
+            "model": ia["model"],
+            "preferir_gpu": "remota",
+        }
     last_error = None
 
     for intento in range(2):  # max 2 intentos
         try:
-            async with httpx.AsyncClient(timeout=ia.get("timeout") or IA_TIMEOUT) as client:
-                resp = await client.post(ia["generate_url"], json=payload, headers=ia["headers"])
+            async with httpx.AsyncClient(
+                timeout=ia.get("timeout") or IA_TIMEOUT
+            ) as client:
+                resp = await client.post(
+                    ia["generate_url"], json=payload, headers=ia["headers"]
+                )
                 resp.raise_for_status()
                 data = resp.json()
 
                 # Error explícito del gateway (ambas GPUs fallaron)
                 if "error" in data:
-                    logger.warning(f"LLM gateway error (intento {intento+1}): {data['error']}")
+                    logger.warning(
+                        f"LLM gateway error (intento {intento+1}): {data['error']}"
+                    )
                     last_error = data["error"]
                     continue
 
                 # gateway/ollama: respuesta/response/text/output ; OpenAI: choices[].message.content
-                raw_resp = data.get("respuesta") or data.get("response") or data.get("text") or data.get("output") or ""
-                if not raw_resp and isinstance(data.get("choices"), list) and data["choices"]:
+                raw_resp = (
+                    data.get("respuesta")
+                    or data.get("response")
+                    or data.get("text")
+                    or data.get("output")
+                    or ""
+                )
+                if (
+                    not raw_resp
+                    and isinstance(data.get("choices"), list)
+                    and data["choices"]
+                ):
                     raw_resp = data["choices"][0].get("message", {}).get("content", "")
-                if not raw_resp and isinstance(data.get("content"), list) and data["content"]:
+                if (
+                    not raw_resp
+                    and isinstance(data.get("content"), list)
+                    and data["content"]
+                ):
                     raw_resp = data["content"][0].get("text", "")
 
                 # Validar respuesta vacía
                 if not raw_resp or not raw_resp.strip():
-                    logger.warning(f"LLM respuesta vacia (intento {intento+1}, modelo={data.get('modelo', '?')})")
+                    logger.warning(
+                        f"LLM respuesta vacia (intento {intento+1}, modelo={data.get('modelo', '?')})"
+                    )
                     last_error = "Respuesta vacia del modelo"
                     continue
 
                 # Sanitizar: truncar y eliminar scripts
                 import re as _re
-                raw_resp = _re.sub(r'<script[^>]*>.*?</script>', '', raw_resp, flags=_re.DOTALL | _re.IGNORECASE)
+
+                raw_resp = _re.sub(
+                    r"<script[^>]*>.*?</script>",
+                    "",
+                    raw_resp,
+                    flags=_re.DOTALL | _re.IGNORECASE,
+                )
                 raw_resp = raw_resp[:5000]
                 return raw_resp
 
@@ -190,8 +275,12 @@ async def _call_llm(prompt: str, system: str = "", temperature: float = 0.7, max
 
     # Ambos intentos fallaron
     if last_error == "timeout":
-        raise HTTPException(status_code=504, detail="El servicio de IA no respondio a tiempo")
-    raise HTTPException(status_code=502, detail="El servicio de IA no pudo generar una respuesta")
+        raise HTTPException(
+            status_code=504, detail="El servicio de IA no respondio a tiempo"
+        )
+    raise HTTPException(
+        status_code=502, detail="El servicio de IA no pudo generar una respuesta"
+    )
 
 
 def _extract_json_array(text: str) -> list[str]:
@@ -209,7 +298,7 @@ def _extract_json_array(text: str) -> list[str]:
     lines = [l.strip() for l in text.strip().split("\n") if l.strip()]
     results = []
     for line in lines:
-        cleaned = re.sub(r"^\d+[.\)\-]\s*", "", line).strip().strip('"\'')
+        cleaned = re.sub(r"^\d+[.\)\-]\s*", "", line).strip().strip("\"'")
         if cleaned and len(cleaned) > 5:
             results.append(cleaned)
     return results[:3] if results else [text.strip()[:200]]
@@ -256,10 +345,15 @@ async def smart_reply(
         raise
     except Exception as e:
         logger.error(f"smart-reply: error obteniendo mensaje {body.message_id}: {e}")
-        raise HTTPException(status_code=502, detail="No se pudo obtener el mensaje para generar respuesta")
+        raise HTTPException(
+            status_code=502,
+            detail="No se pudo obtener el mensaje para generar respuesta",
+        )
 
     subject = msg.get("subject", "(sin asunto)")
-    text = msg.get("text_body", "") or msg.get("snippet", "") or msg.get("html_body", "")
+    text = (
+        msg.get("text_body", "") or msg.get("snippet", "") or msg.get("html_body", "")
+    )
     # Si es una invitación de calendario, el text_body puede ser iCal puro
     if not text or text.strip().startswith("BEGIN:VCALENDAR"):
         # Extraer info útil del mensaje de invitación
@@ -279,13 +373,13 @@ async def smart_reply(
         f"De: {sender}\n"
         f"Asunto: {subject}\n"
         f"Mensaje:\n{text}\n\n"
-        'Responde UNICAMENTE con un JSON array de 3 strings. Sin explicaciones, sin markdown.\n'
+        "Responde UNICAMENTE con un JSON array de 3 strings. Sin explicaciones, sin markdown.\n"
         'Formato: ["respuesta1", "respuesta2", "respuesta3"]'
     )
 
     system = (
-        MAQUITA_CONTEXT +
-        "Generas respuestas de correo contextualizadas basadas en el contenido real del mensaje. "
+        MAQUITA_CONTEXT
+        + "Generas respuestas de correo contextualizadas basadas en el contenido real del mensaje. "
         "NUNCA generas respuestas genericas como 'Gracias por tu mensaje'. "
         "Respondes SOLO con JSON valido, sin texto adicional."
     )
@@ -296,8 +390,8 @@ async def smart_reply(
     # Asegurar que siempre haya 3 sugerencias
     # Fallbacks contextualizados si el LLM no genero suficientes
     fallbacks = [
-        f"Gracias por tu correo sobre \"{subject}\". Lo revisare y te respondo a la brevedad.",
-        f"Recibi tu mensaje sobre \"{subject}\". Podrias ampliar los detalles?",
+        f'Gracias por tu correo sobre "{subject}". Lo revisare y te respondo a la brevedad.',
+        f'Recibi tu mensaje sobre "{subject}". Podrias ampliar los detalles?',
         f"Agradezco la informacion. Coordinaremos internamente y te confirmo pronto.",
     ]
     fb_idx = 0
@@ -319,7 +413,9 @@ async def smart_compose(
 ):
     """Genera una continuacion sugerida del texto que el usuario esta escribiendo."""
     if not body.context or len(body.context.strip()) < 3:
-        raise HTTPException(status_code=400, detail="Se requiere al menos 3 caracteres de contexto")
+        raise HTTPException(
+            status_code=400, detail="Se requiere al menos 3 caracteres de contexto"
+        )
 
     to_field = body.to or "(destinatario)"
     subject_field = body.subject or "(sin asunto)"
@@ -333,7 +429,10 @@ async def smart_compose(
         "Continuacion:"
     )
 
-    system = MAQUITA_CONTEXT + "Tu tarea: continuar el correo. Solo devuelves la continuacion del texto, sin repetir lo ya escrito."
+    system = (
+        MAQUITA_CONTEXT
+        + "Tu tarea: continuar el correo. Solo devuelves la continuacion del texto, sin repetir lo ya escrito."
+    )
 
     raw = await _call_llm(prompt, system=system, temperature=0.6, max_tokens=64)
     suggestion = raw.strip()
@@ -341,7 +440,7 @@ async def smart_compose(
     # Limpiar si el LLM repitio el contexto
     ctx_prefix = body.context.strip().lower()[:30]
     if suggestion.lower().startswith(ctx_prefix):
-        suggestion = suggestion[len(body.context):].strip()
+        suggestion = suggestion[len(body.context) :].strip()
 
     return SmartComposeResponse(suggestion=suggestion)
 
@@ -357,7 +456,9 @@ async def summarize_thread(
 ):
     """Resume un hilo de correos en 2-3 oraciones."""
     if not body.message_ids:
-        raise HTTPException(status_code=400, detail="Se requiere al menos un message_id")
+        raise HTTPException(
+            status_code=400, detail="Se requiere al menos un message_id"
+        )
 
     # Obtener mensajes (max 10 para no sobrecargar)
     messages_text = []
@@ -366,7 +467,11 @@ async def summarize_thread(
             msg = await _fetch_message(request, user, body.folder, int(mid))
             sender = msg.get("from", "Desconocido")
             subject = msg.get("subject", "")
-            text = (msg.get("text_body", "") or msg.get("snippet", "") or msg.get("html_body", ""))[:300]
+            text = (
+                msg.get("text_body", "")
+                or msg.get("snippet", "")
+                or msg.get("html_body", "")
+            )[:300]
             # Si es iCal puro, usar asunto como texto
             if not text or text.strip().startswith("BEGIN:VCALENDAR"):
                 text = f"Invitación de calendario: {subject}"
@@ -376,7 +481,9 @@ async def summarize_thread(
             continue
 
     if not messages_text:
-        raise HTTPException(status_code=404, detail="No se pudieron obtener los mensajes")
+        raise HTTPException(
+            status_code=404, detail="No se pudieron obtener los mensajes"
+        )
 
     thread_content = "\n\n---\n\n".join(messages_text)
 
@@ -387,7 +494,10 @@ async def summarize_thread(
         "Resumen:"
     )
 
-    system = MAQUITA_CONTEXT + "Tu tarea ahora: resumir el hilo de correo de forma concisa en espanol."
+    system = (
+        MAQUITA_CONTEXT
+        + "Tu tarea ahora: resumir el hilo de correo de forma concisa en espanol."
+    )
 
     raw = await _call_llm(prompt, system=system, temperature=0.3, max_tokens=800)
     logger.info(f"Summarize LLM response: {repr(raw[:200])}")
@@ -405,17 +515,22 @@ async def suggest_subject(
 ):
     """Sugiere 2-3 asuntos apropiados para el cuerpo del correo."""
     if not body.body or len(body.body.strip()) < 10:
-        raise HTTPException(status_code=400, detail="Se requiere al menos 10 caracteres de texto")
+        raise HTTPException(
+            status_code=400, detail="Se requiere al menos 10 caracteres de texto"
+        )
 
     prompt = (
         "Genera exactamente 3 asuntos breves y profesionales en espanol para este correo. "
         "Cada asunto debe tener maximo 60 caracteres.\n\n"
         f"Contenido del correo:\n{body.body[:500]}\n\n"
-        'Responde SOLO con un JSON array de 3 strings. Ejemplo:\n'
+        "Responde SOLO con un JSON array de 3 strings. Ejemplo:\n"
         '["Asunto 1", "Asunto 2", "Asunto 3"]'
     )
 
-    system = MAQUITA_CONTEXT + "Tu tarea ahora: sugerir asuntos de correo profesionales en espanol. Solo respondes con JSON."
+    system = (
+        MAQUITA_CONTEXT
+        + "Tu tarea ahora: sugerir asuntos de correo profesionales en espanol. Solo respondes con JSON."
+    )
 
     raw = await _call_llm(prompt, system=system, temperature=0.7, max_tokens=200)
     suggestions = _extract_json_array(raw)
@@ -446,8 +561,14 @@ async def ai_health():
             # 2. Test funcional: generar una respuesta real
             test_resp = await client.post(
                 ia["generate_url"],
-                json={"prompt": "Responde OK", "system": "", "temperature": 0.1,
-                      "max_tokens": 5, "usar_rag": False, "preferir_gpu": "auto"},
+                json={
+                    "prompt": "Responde OK",
+                    "system": "",
+                    "temperature": 0.1,
+                    "max_tokens": 5,
+                    "usar_rag": False,
+                    "preferir_gpu": "auto",
+                },
                 headers=ia["headers"],
             )
             test_data = test_resp.json()
@@ -467,7 +588,8 @@ async def ai_health():
 
 async def embed_text(text: str) -> list:
     """Hook opcional de embeddings para RAG/grounding (futuro). Fail-open: [] si falla.
-    Usa IA_EMBED_MODEL contra el backend (ollama /api/embeddings u OpenAI /v1/embeddings)."""
+    Usa IA_EMBED_MODEL contra el backend (ollama /api/embeddings u OpenAI /v1/embeddings).
+    """
     s = get_settings()
     base = (s.ia_base_url or s.ollama_url or "").rstrip("/")
     model = s.ia_embed_model
@@ -476,12 +598,17 @@ async def embed_text(text: str) -> list:
     try:
         async with httpx.AsyncClient(timeout=30) as client:
             if (s.ia_provider or "").lower() == "ollama":
-                rr = await client.post(f"{base}/api/embeddings", json={"model": model, "prompt": text[:4000]})
+                rr = await client.post(
+                    f"{base}/api/embeddings",
+                    json={"model": model, "prompt": text[:4000]},
+                )
                 rr.raise_for_status()
                 return rr.json().get("embedding", [])
-            rr = await client.post(f"{base}/v1/embeddings",
-                                   json={"model": model, "input": text[:4000]},
-                                   headers={"Authorization": f"Bearer {s.ia_api_key}"})
+            rr = await client.post(
+                f"{base}/v1/embeddings",
+                json={"model": model, "input": text[:4000]},
+                headers={"Authorization": f"Bearer {s.ia_api_key}"},
+            )
             rr.raise_for_status()
             return (rr.json().get("data") or [{}])[0].get("embedding", [])
     except Exception as e:

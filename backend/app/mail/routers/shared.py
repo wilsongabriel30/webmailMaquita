@@ -1,4 +1,5 @@
 """Shared mailbox access and Send-As delegation for webmail users."""
+
 import asyncio
 from typing import Optional
 
@@ -15,6 +16,7 @@ router = APIRouter(prefix="/api/mail", tags=["shared-mailboxes"])
 # ---------------------------------------------------------------------------
 # Pydantic models
 # ---------------------------------------------------------------------------
+
 
 class DelegationGrant(BaseModel):
     delegate: str = Field(..., min_length=3, max_length=255)
@@ -40,10 +42,12 @@ class SendAsIdentity(BaseModel):
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 async def _run_doveadm(cmd_args: list[str]) -> tuple[int, str, str]:
     """Run a doveadm command and return (returncode, stdout, stderr)."""
     proc = await asyncio.create_subprocess_exec(
-        "doveadm", *cmd_args,
+        "doveadm",
+        *cmd_args,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
@@ -64,8 +68,11 @@ def _row_to_delegation(row) -> dict:
 # Original shared folders endpoint
 # ---------------------------------------------------------------------------
 
+
 @router.get("/shared/folders")
-async def list_shared_folders(request: Request, username: str = Depends(get_current_user)):
+async def list_shared_folders(
+    request: Request, username: str = Depends(get_current_user)
+):
     """List folders shared with the current user."""
     password = await get_user_password(request, username)
     login_user = await get_imap_login_user(request, username)
@@ -75,7 +82,7 @@ async def list_shared_folders(request: Request, username: str = Depends(get_curr
         resp = await imap.namespace()
 
         # List folders including shared namespace
-        list_resp = await imap.list('', '*')
+        list_resp = await imap.list("", "*")
 
         shared_folders = []
         if list_resp.result == "OK":
@@ -99,6 +106,7 @@ async def list_shared_folders(request: Request, username: str = Depends(get_curr
 # BRECHA 5 — Delegation / Send-As endpoints
 # ---------------------------------------------------------------------------
 
+
 @router.get("/delegation/grants")
 async def list_delegation_grants(
     request: Request,
@@ -120,7 +128,7 @@ async def grant_delegation(
     username: str = Depends(get_current_user),
 ):
     """Grant delegation from current user's mailbox to another user.
-    
+
     The authenticated user is the OWNER granting access.
     body.delegate is the user who will receive access.
     body.permissions can include 'read' and/or 'send_as'.
@@ -160,10 +168,20 @@ async def grant_delegation(
 
     # Set Dovecot ACL if read permission requested
     if has_read:
-        rc, out, err = await _run_doveadm([
-            "acl", "set", "-u", username,
-            "INBOX", delegate, "lookup", "read", "write", "insert",
-        ])
+        rc, out, err = await _run_doveadm(
+            [
+                "acl",
+                "set",
+                "-u",
+                username,
+                "INBOX",
+                delegate,
+                "lookup",
+                "read",
+                "write",
+                "insert",
+            ]
+        )
         if rc != 0:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -177,7 +195,9 @@ async def grant_delegation(
            ON CONFLICT (mailbox, delegate)
            DO UPDATE SET can_send_as = $3
            RETURNING *""",
-        username, delegate, can_send_as,
+        username,
+        delegate,
+        can_send_as,
     )
 
     return _row_to_delegation(row)
@@ -196,7 +216,8 @@ async def revoke_delegation(
     # Check it exists
     existing = await db.fetchrow(
         "SELECT * FROM mail_delegation WHERE mailbox = $1 AND delegate = $2",
-        username, delegate,
+        username,
+        delegate,
     )
     if not existing:
         raise HTTPException(
@@ -205,10 +226,16 @@ async def revoke_delegation(
         )
 
     # Remove Dovecot ACL
-    rc, out, err = await _run_doveadm([
-        "acl", "delete", "-u", username,
-        "INBOX", delegate,
-    ])
+    rc, out, err = await _run_doveadm(
+        [
+            "acl",
+            "delete",
+            "-u",
+            username,
+            "INBOX",
+            delegate,
+        ]
+    )
     # We don't fail if doveadm errors — the ACL may already be gone
     if rc != 0:
         # Log but continue
@@ -217,7 +244,8 @@ async def revoke_delegation(
     # Delete from database
     await db.execute(
         "DELETE FROM mail_delegation WHERE mailbox = $1 AND delegate = $2",
-        username, delegate,
+        username,
+        delegate,
     )
 
     return {"status": "revoked", "delegate": delegate}
@@ -238,19 +266,23 @@ async def send_as_identities(
     )
     identities: list[dict] = []
     for r in own_rows:
-        identities.append({
-            "email": r["email"],
-            "display_name": r["display_name"],
-            "type": "own",
-        })
+        identities.append(
+            {
+                "email": r["email"],
+                "display_name": r["display_name"],
+                "type": "own",
+            }
+        )
 
     # If no own identities, add default
     if not identities:
-        identities.append({
-            "email": username,
-            "display_name": username.split("@")[0].replace(".", " ").title(),
-            "type": "own",
-        })
+        identities.append(
+            {
+                "email": username,
+                "display_name": username.split("@")[0].replace(".", " ").title(),
+                "type": "own",
+            }
+        )
 
     # Delegated send-as identities
     delegated_rows = await db.fetch(
@@ -262,10 +294,12 @@ async def send_as_identities(
         username,
     )
     for r in delegated_rows:
-        identities.append({
-            "email": r["mailbox"],
-            "display_name": r["display_name"],
-            "type": "delegated",
-        })
+        identities.append(
+            {
+                "email": r["mailbox"],
+                "display_name": r["display_name"],
+                "type": "delegated",
+            }
+        )
 
     return identities

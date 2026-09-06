@@ -12,9 +12,7 @@ async def get_dashboard_stats(db: asyncpg.Pool) -> dict:
     active_mailbox_count = await db.fetchval(
         "SELECT count(*) FROM mailbox WHERE active = true"
     )
-    alias_count = await db.fetchval(
-        "SELECT count(*) FROM alias WHERE address != goto"
-    )
+    alias_count = await db.fetchval("SELECT count(*) FROM alias WHERE address != goto")
 
     return {
         "domains": domain_count,
@@ -31,8 +29,11 @@ async def get_service_status() -> dict:
     for service in services:
         try:
             proc = await asyncio.create_subprocess_exec(
-                "systemctl", "is-active", service,
-                stdout=PIPE, stderr=PIPE,
+                "systemctl",
+                "is-active",
+                service,
+                stdout=PIPE,
+                stderr=PIPE,
             )
             stdout, _ = await proc.communicate()
             statuses[service] = stdout.decode().strip()

@@ -15,6 +15,7 @@ pasarela de Safe Links, en CUALQUIER cliente. Diseño ULTRA-seguro:
 
 rewrite_inbound(raw_bytes) -> nuevo_cuerpo_bytes | None  (None = no tocar)
 """
+
 from __future__ import annotations
 
 import base64
@@ -43,7 +44,7 @@ def _split(raw: bytes):
     for sep in (b"\r\n\r\n", b"\n\n"):
         i = raw.find(sep)
         if i != -1:
-            return raw[:i], sep, raw[i + len(sep):]
+            return raw[:i], sep, raw[i + len(sep) :]
     return None, None, None
 
 
@@ -67,11 +68,13 @@ def rewrite_inbound(raw: bytes) -> bytes | None:
             return None
 
         # Snapshot del original (decodificado) por índice de parte.
-        orig_parts = [(p.get_content_type(), p.get_payload(decode=True))
-                      for p in _nonmultipart_parts(message_from_bytes(raw))]
+        orig_parts = [
+            (p.get_content_type(), p.get_payload(decode=True))
+            for p in _nonmultipart_parts(message_from_bytes(raw))
+        ]
 
         msg = message_from_bytes(raw)
-        expected: dict[int, str] = {}   # índice -> html reescrito esperado
+        expected: dict[int, str] = {}  # índice -> html reescrito esperado
         changed = 0
         for idx, part in enumerate(_nonmultipart_parts(msg)):
             if part.get_content_type() != "text/html":

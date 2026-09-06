@@ -2,6 +2,7 @@
 Importación multi-servicio — estructura para importar desde Google, Microsoft, LinkedIn.
 Incluye importación vCard mejorada y placeholder para OAuth flows.
 """
+
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
@@ -21,22 +22,26 @@ class MicrosoftImportRequest(BaseModel):
 
 
 @router.post("/import/vcard")
-async def import_vcard_file(request: Request, file: UploadFile = File(...), username: str = Depends(get_current_user)):
+async def import_vcard_file(
+    request: Request,
+    file: UploadFile = File(...),
+    username: str = Depends(get_current_user),
+):
     """Importa contactos desde archivo vCard (.vcf)."""
     db = request.app.state.db_pool
     user = username
 
-    if not file.filename or not file.filename.lower().endswith('.vcf'):
+    if not file.filename or not file.filename.lower().endswith(".vcf"):
         raise HTTPException(422, "El archivo debe ser .vcf (vCard)")
 
     content = await file.read()
     if len(content) > 10_000_000:  # 10MB max
         raise HTTPException(413, "Archivo demasiado grande (max 10MB)")
     try:
-        text = content.decode('utf-8')
+        text = content.decode("utf-8")
     except UnicodeDecodeError:
         try:
-            text = content.decode('latin-1')
+            text = content.decode("latin-1")
         except Exception:
             raise HTTPException(422, "No se pudo leer el archivo")
 
@@ -45,10 +50,10 @@ async def import_vcard_file(request: Request, file: UploadFile = File(...), user
 
     vcards = []
     current_lines = []
-    for line in text.replace('\r\n', '\n').replace('\r', '\n').split('\n'):
+    for line in text.replace("\r\n", "\n").replace("\r", "\n").split("\n"):
         current_lines.append(line)
-        if line.strip().upper() == 'END:VCARD':
-            vcards.append('\r\n'.join(current_lines))
+        if line.strip().upper() == "END:VCARD":
+            vcards.append("\r\n".join(current_lines))
             current_lines = []
 
     imported = 0
@@ -59,26 +64,38 @@ async def import_vcard_file(request: Request, file: UploadFile = File(...), user
     for i, vcard in enumerate(vcards, 1):
         try:
             data = _parse_vcard(vcard)
-            if not data.get('email'):
+            if not data.get("email"):
                 skipped += 1
                 continue
 
             existing = await db.fetchrow(
                 "SELECT id FROM user_contacts WHERE owner=$1 AND email=$2 AND deleted_at IS NULL",
-                user, data['email'],
+                user,
+                data["email"],
             )
 
             if existing:
                 # Merge — actualizar solo campos vacíos
                 contact = await db.fetchrow(
-                    "SELECT * FROM user_contacts WHERE id=$1", existing['id']
+                    "SELECT * FROM user_contacts WHERE id=$1", existing["id"]
                 )
                 updates = []
-                params = [existing['id'], user]
+                params = [existing["id"], user]
                 idx = 3
-                for field in ['display_name', 'first_name', 'last_name', 'phone',
-                              'phone_mobile', 'phone_work', 'phone_home', 'company',
-                              'job_title', 'department', 'website', 'notes']:
+                for field in [
+                    "display_name",
+                    "first_name",
+                    "last_name",
+                    "phone",
+                    "phone_mobile",
+                    "phone_work",
+                    "phone_home",
+                    "company",
+                    "job_title",
+                    "department",
+                    "website",
+                    "notes",
+                ]:
                     if data.get(field) and not contact.get(field):
                         updates.append(f"{field}=${idx}")
                         params.append(data[field])
@@ -93,9 +110,11 @@ async def import_vcard_file(request: Request, file: UploadFile = File(...), user
                 else:
                     skipped += 1
             else:
-                dn = data.get('display_name') or \
-                     f"{data.get('first_name', '')} {data.get('last_name', '')}".strip() or \
-                     data['email']
+                dn = (
+                    data.get("display_name")
+                    or f"{data.get('first_name', '')} {data.get('last_name', '')}".strip()
+                    or data["email"]
+                )
 
                 await db.execute(
                     """INSERT INTO user_contacts
@@ -104,12 +123,20 @@ async def import_vcard_file(request: Request, file: UploadFile = File(...), user
                          company, organization, job_title, department,
                          website, notes, source)
                        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$10,$11,$12,$13,$14,'import')""",
-                    user, dn, data.get('first_name', ''), data.get('last_name', ''),
-                    data['email'], data.get('phone', ''), data.get('phone_mobile', ''),
-                    data.get('phone_work', ''), data.get('phone_home', ''),
-                    data.get('company', ''), data.get('job_title', ''),
-                    data.get('department', ''), data.get('website', ''),
-                    data.get('notes', ''),
+                    user,
+                    dn,
+                    data.get("first_name", ""),
+                    data.get("last_name", ""),
+                    data["email"],
+                    data.get("phone", ""),
+                    data.get("phone_mobile", ""),
+                    data.get("phone_work", ""),
+                    data.get("phone_home", ""),
+                    data.get("company", ""),
+                    data.get("job_title", ""),
+                    data.get("department", ""),
+                    data.get("website", ""),
+                    data.get("notes", ""),
                 )
                 imported += 1
 
@@ -126,7 +153,9 @@ async def import_vcard_file(request: Request, file: UploadFile = File(...), user
 
 
 @router.get("/import/services")
-async def list_import_services(request: Request, username: str = Depends(get_current_user)):
+async def list_import_services(
+    request: Request, username: str = Depends(get_current_user)
+):
     """Lista los servicios de importación disponibles."""
     return [
         {
@@ -173,7 +202,11 @@ async def list_import_services(request: Request, username: str = Depends(get_cur
 
 
 @router.post("/import/linkedin")
-async def import_linkedin(request: Request, file: UploadFile = File(...), username: str = Depends(get_current_user)):
+async def import_linkedin(
+    request: Request,
+    file: UploadFile = File(...),
+    username: str = Depends(get_current_user),
+):
     """Importa contactos desde exportación CSV de LinkedIn."""
     db = request.app.state.db_pool
     user = username
@@ -185,9 +218,9 @@ async def import_linkedin(request: Request, file: UploadFile = File(...), userna
     if len(content) > 10_000_000:  # 10MB max
         raise HTTPException(413, "Archivo demasiado grande (max 10MB)")
     try:
-        text = content.decode('utf-8-sig')
+        text = content.decode("utf-8-sig")
     except UnicodeDecodeError:
-        text = content.decode('latin-1')
+        text = content.decode("latin-1")
 
     reader = csv.DictReader(io.StringIO(text))
 
@@ -198,22 +231,23 @@ async def import_linkedin(request: Request, file: UploadFile = File(...), userna
 
     for i, row in enumerate(reader, 1):
         try:
-            email = row.get('Email Address', '') or row.get('Email', '') or ''
+            email = row.get("Email Address", "") or row.get("Email", "") or ""
             email = email.strip()
             if not email:
                 skipped += 1
                 continue
 
-            first = row.get('First Name', '') or ''
-            last = row.get('Last Name', '') or ''
-            company = row.get('Company', '') or ''
-            title = row.get('Position', '') or row.get('Title', '') or ''
+            first = row.get("First Name", "") or ""
+            last = row.get("Last Name", "") or ""
+            company = row.get("Company", "") or ""
+            title = row.get("Position", "") or row.get("Title", "") or ""
 
             display_name = f"{first} {last}".strip() or email
 
             existing = await db.fetchrow(
                 "SELECT id FROM user_contacts WHERE owner=$1 AND email=$2 AND deleted_at IS NULL",
-                user, email,
+                user,
+                email,
             )
 
             if existing:
@@ -224,8 +258,13 @@ async def import_linkedin(request: Request, file: UploadFile = File(...), userna
                         (owner, display_name, first_name, last_name, email,
                          company, organization, job_title, source)
                        VALUES ($1,$2,$3,$4,$5,$6,$6,$7,'import')""",
-                    user, display_name, first.strip(), last.strip(),
-                    email, company.strip(), title.strip(),
+                    user,
+                    display_name,
+                    first.strip(),
+                    last.strip(),
+                    email,
+                    company.strip(),
+                    title.strip(),
                 )
                 imported += 1
 

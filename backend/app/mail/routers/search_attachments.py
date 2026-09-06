@@ -1,4 +1,5 @@
 """Attachment search router — search inside attachment content using Apache Tika."""
+
 import logging
 
 import httpx
@@ -21,7 +22,9 @@ async def _get_imap(request: Request, username: str):
     return await get_imap_connection(login_user, password)
 
 
-async def _extract_text_tika(content: bytes, content_type: str = "application/octet-stream") -> str:
+async def _extract_text_tika(
+    content: bytes, content_type: str = "application/octet-stream"
+) -> str:
     """Send binary content to Tika and get extracted text."""
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -59,7 +62,7 @@ async def search_attachments(
 
         uids = data[0].split()
         # Limit scan to most recent messages
-        uids = uids[-min(len(uids), 500):]
+        uids = uids[-min(len(uids), 500) :]
 
         results = []
         query_lower = q.lower()
@@ -87,6 +90,7 @@ async def search_attachments(
                     continue
 
                 import email
+
                 msg = email.message_from_bytes(raw_msg)
 
                 subject = msg.get("Subject", "")
@@ -117,16 +121,18 @@ async def search_attachments(
                         end = min(len(extracted), idx + len(q) + 80)
                         snippet = extracted[start:end].strip()
 
-                        results.append({
-                            "uid": uid.decode(),
-                            "folder": folder,
-                            "subject": subject,
-                            "from": from_addr,
-                            "date": date_str,
-                            "attachment_name": filename,
-                            "content_type": content_type,
-                            "snippet": f"...{snippet}...",
-                        })
+                        results.append(
+                            {
+                                "uid": uid.decode(),
+                                "folder": folder,
+                                "subject": subject,
+                                "from": from_addr,
+                                "date": date_str,
+                                "attachment_name": filename,
+                                "content_type": content_type,
+                                "snippet": f"...{snippet}...",
+                            }
+                        )
                         break  # One match per message is enough
 
             except Exception as e:
@@ -146,7 +152,9 @@ async def search_attachments(
 async def search_advanced(
     request: Request,
     q: str = Query(..., min_length=1, description="Texto a buscar"),
-    in_fields: str = Query("body,subject", alias="in", description="Campos: body,subject,attachments"),
+    in_fields: str = Query(
+        "body,subject", alias="in", description="Campos: body,subject,attachments"
+    ),
     folder: str = Query("INBOX", description="Carpeta IMAP"),
     username: str = Depends(get_current_user),
 ):
@@ -189,12 +197,15 @@ async def search_advanced(
                 _, msg_data = await imap.fetch(uid.decode(), "(ENVELOPE)")
                 if msg_data and msg_data[0]:
                     import email.header
+
                     raw = msg_data[0]
-                    msg_results.append({
-                        "uid": uid.decode(),
-                        "folder": folder,
-                        "source": "imap",
-                    })
+                    msg_results.append(
+                        {
+                            "uid": uid.decode(),
+                            "folder": folder,
+                            "source": "imap",
+                        }
+                    )
             except Exception:
                 continue
 
@@ -203,7 +214,9 @@ async def search_advanced(
 
         # Attachment search if requested
         if "attachments" in fields:
-            results["attachment_search"] = "Use /api/mail/search/attachments?q= for full attachment content search"
+            results["attachment_search"] = (
+                "Use /api/mail/search/attachments?q= for full attachment content search"
+            )
 
         return results
 

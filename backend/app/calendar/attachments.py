@@ -1,4 +1,5 @@
 """Calendar event attachments router."""
+
 from __future__ import annotations
 
 import logging
@@ -49,7 +50,8 @@ async def upload_attachment(
         """SELECT e.id FROM events e
            JOIN calendars c ON c.id = e.calendar_id
            WHERE e.id = $1 AND c.owner_email = $2""",
-        event_id, user,
+        event_id,
+        user,
     )
     if not ev:
         raise HTTPException(status_code=404, detail="Evento no encontrado")
@@ -57,7 +59,9 @@ async def upload_attachment(
     # Leer contenido y validar tamanio
     content = await file.read()
     if len(content) > MAX_SIZE:
-        raise HTTPException(status_code=413, detail="El archivo excede el limite de 25 MB")
+        raise HTTPException(
+            status_code=413, detail="El archivo excede el limite de 25 MB"
+        )
 
     # Guardar archivo
     safe_name = f"{uuid.uuid4().hex}_{file.filename}"
@@ -71,8 +75,12 @@ async def upload_attachment(
         """INSERT INTO calendar_event_attachments
            (event_id, filename, content_type, size, storage_path, uploaded_by)
            VALUES ($1, $2, $3, $4, $5, $6) RETURNING *""",
-        event_id, file.filename, file.content_type, len(content),
-        str(file_path), user,
+        event_id,
+        file.filename,
+        file.content_type,
+        len(content),
+        str(file_path),
+        user,
     )
 
     return AttachmentOut(
@@ -123,7 +131,8 @@ async def download_attachment(
     db = _db(request)
     row = await db.fetchrow(
         "SELECT * FROM calendar_event_attachments WHERE id = $1 AND event_id = $2",
-        att_id, event_id,
+        att_id,
+        event_id,
     )
     if not row:
         raise HTTPException(status_code=404, detail="Adjunto no encontrado")
@@ -154,10 +163,14 @@ async def delete_attachment(
            JOIN calendars c ON c.id = e.calendar_id
            WHERE a.id = $1 AND a.event_id = $2
              AND (a.uploaded_by = $3 OR c.owner_email = $3)""",
-        att_id, event_id, user,
+        att_id,
+        event_id,
+        user,
     )
     if not row:
-        raise HTTPException(status_code=404, detail="Adjunto no encontrado o sin permisos")
+        raise HTTPException(
+            status_code=404, detail="Adjunto no encontrado o sin permisos"
+        )
 
     # Eliminar archivo fisico
     file_path = Path(row["storage_path"])

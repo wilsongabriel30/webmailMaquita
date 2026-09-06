@@ -8,6 +8,7 @@ Entre cuentas internas la acción máxima es 'warn'.
 El "enviar de todas formas" (override) sobre un bloqueo solo lo puede usar un
 administrador y debe indicar un motivo, que queda en dlp_violations.reason.
 """
+
 from __future__ import annotations
 
 import json
@@ -21,7 +22,7 @@ _TTL = 60.0
 def _domain(addr: str) -> str:
     a = (addr or "").strip().lower()
     if "<" in a and ">" in a:
-        a = a[a.rfind("<") + 1:a.rfind(">")]
+        a = a[a.rfind("<") + 1 : a.rfind(">")]
     return a.rsplit("@", 1)[1] if "@" in a else ""
 
 
@@ -69,7 +70,9 @@ async def remitentes_exentos(db) -> set:
     Así se puede revisar si un remitente autorizado empieza a enviar algo raro.
     """
     try:
-        fila = await db.fetchrow("SELECT remitentes_exentos FROM dlp_config WHERE id = 1")
+        fila = await db.fetchrow(
+            "SELECT remitentes_exentos FROM dlp_config WHERE id = 1"
+        )
     except Exception:
         return set()
     if not fila or not fila["remitentes_exentos"]:
@@ -77,6 +80,7 @@ async def remitentes_exentos(db) -> set:
     valor = fila["remitentes_exentos"]
     if isinstance(valor, str):
         import json as _json
+
         try:
             valor = _json.loads(valor)
         except Exception:
@@ -84,8 +88,9 @@ async def remitentes_exentos(db) -> set:
     return {str(x).strip().lower() for x in (valor or []) if str(x).strip()}
 
 
-async def decide(db, scan: dict, recipients, is_admin: bool = False,
-                 sender: str = "") -> dict:
+async def decide(
+    db, scan: dict, recipients, is_admin: bool = False, sender: str = ""
+) -> dict:
     """Aplica la política al resultado de service.scan().
 
     Devuelve el mismo dict más: external (lista), can_override (bool) y
@@ -108,14 +113,20 @@ async def decide(db, scan: dict, recipients, is_admin: bool = False,
             for f in scan.get("findings", []):
                 if f.get("action") == "block":
                     f["action"] = "warn"
-    return {**scan, "action": action, "external": ext, "exento": exento,
-            "can_override": bool(is_admin) if action == "block" else True}
+    return {
+        **scan,
+        "action": action,
+        "external": ext,
+        "exento": exento,
+        "can_override": bool(is_admin) if action == "block" else True,
+    }
 
 
 async def is_admin(db, username: str) -> bool:
     try:
         row = await db.fetchrow(
-            "SELECT 1 FROM admin WHERE username = $1 AND active = true", username)
+            "SELECT 1 FROM admin WHERE username = $1 AND active = true", username
+        )
         return row is not None
     except Exception:
         return False

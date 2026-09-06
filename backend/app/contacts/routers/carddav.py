@@ -3,6 +3,7 @@ CardDAV — exportar/importar contactos en formato vCard para sincronización.
 Provee endpoints para que clientes CardDAV puedan sincronizar.
 Implementa un subset simplificado de CardDAV via REST.
 """
+
 import hashlib
 from datetime import datetime
 from typing import Optional
@@ -101,7 +102,10 @@ def _contact_to_vcard(c: dict) -> str:
         if isinstance(updated, datetime):
             rev = updated.strftime("%Y%m%dT%H%M%SZ")
         else:
-            rev = str(updated).replace("-", "").replace(":", "").replace(" ", "T")[:15] + "Z"
+            rev = (
+                str(updated).replace("-", "").replace(":", "").replace(" ", "T")[:15]
+                + "Z"
+            )
         lines.append(f"REV:{rev}")
 
     lines.append("END:VCARD")
@@ -112,7 +116,12 @@ def _parse_vcard(vcard_text: str) -> dict:
     """Parsea un vCard 3.0 a diccionario de campos."""
     data = {}
     for line in vcard_text.replace("\r\n ", "").replace("\r\n\t", "").split("\r\n"):
-        if not line or line.startswith("BEGIN:") or line.startswith("END:") or line.startswith("VERSION:"):
+        if (
+            not line
+            or line.startswith("BEGIN:")
+            or line.startswith("END:")
+            or line.startswith("VERSION:")
+        ):
             continue
 
         # Separar tipo y valor
@@ -173,7 +182,9 @@ def _parse_vcard(vcard_text: str) -> dict:
 
 
 @router.get("/carddav/addressbook.vcf")
-async def export_all_vcards(request: Request, username: str = Depends(get_current_user)):
+async def export_all_vcards(
+    request: Request, username: str = Depends(get_current_user)
+):
     """Exporta todos los contactos como un archivo multi-vCard."""
     db = request.app.state.db_pool
     user = username
@@ -226,23 +237,31 @@ async def get_sync_state(request: Request, username: str = Depends(get_current_u
     result = []
 
     for r in rows:
-        etag = hashlib.md5(str(r["updated_at"]).encode(), usedforsecurity=False).hexdigest()
-        result.append({
-            "contact_id": r["contact_id"],
-            "etag": etag,
-            "vcard_uid": r["vcard_uid"],
-            "needs_sync": etag != r["etag"],
-        })
+        etag = hashlib.md5(
+            str(r["updated_at"]).encode(), usedforsecurity=False
+        ).hexdigest()
+        result.append(
+            {
+                "contact_id": r["contact_id"],
+                "etag": etag,
+                "vcard_uid": r["vcard_uid"],
+                "needs_sync": etag != r["etag"],
+            }
+        )
 
     for c in all_contacts:
         if c["id"] not in synced_ids:
-            etag = hashlib.md5(str(c["updated_at"]).encode(), usedforsecurity=False).hexdigest()
-            result.append({
-                "contact_id": c["id"],
-                "etag": etag,
-                "vcard_uid": None,
-                "needs_sync": True,
-            })
+            etag = hashlib.md5(
+                str(c["updated_at"]).encode(), usedforsecurity=False
+            ).hexdigest()
+            result.append(
+                {
+                    "contact_id": c["id"],
+                    "etag": etag,
+                    "vcard_uid": None,
+                    "needs_sync": True,
+                }
+            )
 
     return result
 
@@ -279,7 +298,8 @@ async def import_vcard(request: Request, username: str = Depends(get_current_use
             # Check if exists
             existing = await db.fetchrow(
                 "SELECT id FROM user_contacts WHERE owner=$1 AND email=$2 AND deleted_at IS NULL",
-                user, data["email"],
+                user,
+                data["email"],
             )
 
             if existing:
@@ -287,10 +307,26 @@ async def import_vcard(request: Request, username: str = Depends(get_current_use
                 sets = []
                 params = [existing["id"], user]
                 idx = 3
-                for field in ["display_name", "first_name", "last_name", "phone", "phone_mobile",
-                              "phone_work", "phone_home", "company", "job_title", "department",
-                              "address_street", "address_city", "address_state", "address_zip",
-                              "address_country", "website", "notes", "photo_url"]:
+                for field in [
+                    "display_name",
+                    "first_name",
+                    "last_name",
+                    "phone",
+                    "phone_mobile",
+                    "phone_work",
+                    "phone_home",
+                    "company",
+                    "job_title",
+                    "department",
+                    "address_street",
+                    "address_city",
+                    "address_state",
+                    "address_zip",
+                    "address_country",
+                    "website",
+                    "notes",
+                    "photo_url",
+                ]:
                     if data.get(field):
                         sets.append(f"{field}=${idx}")
                         params.append(data[field])
@@ -303,7 +339,11 @@ async def import_vcard(request: Request, username: str = Depends(get_current_use
                     )
                 updated += 1
             else:
-                display_name = data.get("display_name") or f"{data.get('first_name', '')} {data.get('last_name', '')}".strip() or data["email"]
+                display_name = (
+                    data.get("display_name")
+                    or f"{data.get('first_name', '')} {data.get('last_name', '')}".strip()
+                    or data["email"]
+                )
                 await db.execute(
                     """INSERT INTO user_contacts
                         (owner, display_name, first_name, last_name, email, phone, phone_mobile,
@@ -311,14 +351,26 @@ async def import_vcard(request: Request, username: str = Depends(get_current_use
                          address_street, address_city, address_state, address_zip, address_country,
                          website, notes, photo_url, source)
                        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,'import')""",
-                    user, display_name, data.get("first_name", ""), data.get("last_name", ""),
-                    data["email"], data.get("phone", ""), data.get("phone_mobile", ""),
-                    data.get("phone_work", ""), data.get("phone_home", ""),
-                    data.get("company", ""), data.get("job_title", ""), data.get("department", ""),
-                    data.get("address_street", ""), data.get("address_city", ""),
-                    data.get("address_state", ""), data.get("address_zip", ""),
-                    data.get("address_country", ""), data.get("website", ""),
-                    data.get("notes", ""), data.get("photo_url", ""),
+                    user,
+                    display_name,
+                    data.get("first_name", ""),
+                    data.get("last_name", ""),
+                    data["email"],
+                    data.get("phone", ""),
+                    data.get("phone_mobile", ""),
+                    data.get("phone_work", ""),
+                    data.get("phone_home", ""),
+                    data.get("company", ""),
+                    data.get("job_title", ""),
+                    data.get("department", ""),
+                    data.get("address_street", ""),
+                    data.get("address_city", ""),
+                    data.get("address_state", ""),
+                    data.get("address_zip", ""),
+                    data.get("address_country", ""),
+                    data.get("website", ""),
+                    data.get("notes", ""),
+                    data.get("photo_url", ""),
                 )
                 imported += 1
 

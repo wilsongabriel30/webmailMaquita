@@ -1,4 +1,5 @@
 """Runner CLI/cron de agentes. Uso: python -m app.agents.run <agente> [--apply]"""
+
 import asyncio
 import json
 import sys

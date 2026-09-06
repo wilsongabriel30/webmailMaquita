@@ -26,16 +26,21 @@ def _get_db(request: Request):
 
 
 def _get_ip(request: Request) -> str:
-    return request.headers.get("X-Real-IP", request.client.host if request.client else "unknown")
+    return request.headers.get(
+        "X-Real-IP", request.client.host if request.client else "unknown"
+    )
 
 
-async def _audit(request: Request, admin: str, action: str, target: str = None, details: dict = None):
+async def _audit(
+    request: Request, admin: str, action: str, target: str = None, details: dict = None
+):
     await audit_service.log_action(
         _get_db(request), admin, action, target, details, _get_ip(request)
     )
 
 
 # -- Dashboard --
+
 
 @router.get("/dashboard")
 async def dashboard(request: Request, admin: str = Depends(require_admin)):
@@ -46,36 +51,45 @@ async def dashboard(request: Request, admin: str = Depends(require_admin)):
 
 
 @router.get("/dashboard/mail-stats")
-async def mail_stats(request: Request, hours: int = 24, admin: str = Depends(require_admin)):
+async def mail_stats(
+    request: Request, hours: int = 24, admin: str = Depends(require_admin)
+):
     db = _get_db(request)
     return await stats_service.get_mail_log_stats(db, hours)
 
 
 # -- Domains --
 
+
 # ---- Auditoria de claves (seguridad de migracion) ----
 @router.get("/password-audit")
 async def password_audit(request: Request, admin: str = Depends(require_admin)):
     from app.admin import password_audit_service
+
     return await password_audit_service.audit(_get_db(request))
 
 
 @router.post("/password-audit/reset")
 async def password_audit_reset(request: Request, admin: str = Depends(require_admin)):
     import secrets
+
     data = await request.json()
     username = (data.get("username") or "").strip().lower()
     if "@" not in username:
         raise HTTPException(400, "username requerido")
     temp = "Mq-" + secrets.token_urlsafe(9)
     try:
-        result = await mailboxes_service.update_mailbox(_get_db(request), username=username, password=temp, active=True)
+        result = await mailboxes_service.update_mailbox(
+            _get_db(request), username=username, password=temp, active=True
+        )
     except ValueError as e:
         raise HTTPException(400, str(e))
     if not result:
         raise HTTPException(404, "Mailbox not found")
     try:
-        await request.app.state.redis.delete(f"imap_pass:{username}", f"imap_master:{username}")
+        await request.app.state.redis.delete(
+            f"imap_pass:{username}", f"imap_master:{username}"
+        )
     except Exception:
         pass
     await _audit(request, admin, "password_reset_temp", username)
@@ -88,7 +102,9 @@ async def list_domains(request: Request, admin: str = Depends(require_admin)):
 
 
 @router.get("/domains/{domain}")
-async def get_domain(domain: str, request: Request, admin: str = Depends(require_admin)):
+async def get_domain(
+    domain: str, request: Request, admin: str = Depends(require_admin)
+):
     result = await domains_service.get_domain(_get_db(request), domain)
     if not result:
         raise HTTPException(404, "Domain not found")
@@ -121,7 +137,9 @@ async def create_domain(request: Request, admin: str = Depends(require_admin)):
 
 
 @router.put("/domains/{domain}")
-async def update_domain(domain: str, request: Request, admin: str = Depends(require_admin)):
+async def update_domain(
+    domain: str, request: Request, admin: str = Depends(require_admin)
+):
     data = await request.json()
     result = await domains_service.update_domain(
         _get_db(request),
@@ -141,7 +159,9 @@ async def update_domain(domain: str, request: Request, admin: str = Depends(requ
 
 
 @router.delete("/domains/{domain}")
-async def delete_domain(domain: str, request: Request, admin: str = Depends(require_admin)):
+async def delete_domain(
+    domain: str, request: Request, admin: str = Depends(require_admin)
+):
     try:
         ok = await domains_service.delete_domain(_get_db(request), domain)
     except ValueError as e:
@@ -155,18 +175,25 @@ async def delete_domain(domain: str, request: Request, admin: str = Depends(requ
 
 # -- Mailboxes --
 
+
 @router.get("/login-health")
-async def login_health(request: Request, hours: int = 24, admin: str = Depends(require_admin)):
+async def login_health(
+    request: Request, hours: int = 24, admin: str = Depends(require_admin)
+):
     return await asyncio.to_thread(login_health_service.login_health, hours)
 
 
 @router.get("/mailboxes")
-async def list_mailboxes(request: Request, domain: str = None, admin: str = Depends(require_admin)):
+async def list_mailboxes(
+    request: Request, domain: str = None, admin: str = Depends(require_admin)
+):
     return await mailboxes_service.list_mailboxes(_get_db(request), domain)
 
 
 @router.get("/mailboxes/{username:path}")
-async def get_mailbox(username: str, request: Request, admin: str = Depends(require_admin)):
+async def get_mailbox(
+    username: str, request: Request, admin: str = Depends(require_admin)
+):
     result = await mailboxes_service.get_mailbox(_get_db(request), username)
     if not result:
         raise HTTPException(404, "Mailbox not found")
@@ -200,7 +227,9 @@ async def create_mailbox(request: Request, admin: str = Depends(require_admin)):
 
 
 @router.put("/mailboxes/{username:path}")
-async def update_mailbox(username: str, request: Request, admin: str = Depends(require_admin)):
+async def update_mailbox(
+    username: str, request: Request, admin: str = Depends(require_admin)
+):
     data = await request.json()
     try:
         result = await mailboxes_service.update_mailbox(
@@ -218,20 +247,30 @@ async def update_mailbox(username: str, request: Request, admin: str = Depends(r
     if not result:
         raise HTTPException(404, "Mailbox not found")
 
-    await _audit(request, admin, "mailbox_update", username, {k: v for k, v in data.items() if k != "password"})
+    await _audit(
+        request,
+        admin,
+        "mailbox_update",
+        username,
+        {k: v for k, v in data.items() if k != "password"},
+    )
     # CONSISTENCIA: si el admin cambio la clave, invalidar la sesion cacheada del usuario
     # (imap_pass/imap_master) para que el webmail re-autentique con la clave NUEVA. Sin esto,
     # la sesion activa seguiria usando la clave vieja cacheada (desync admin vs Dovecot).
     if data.get("password"):
         try:
-            await request.app.state.redis.delete(f"imap_pass:{username}", f"imap_master:{username}")
+            await request.app.state.redis.delete(
+                f"imap_pass:{username}", f"imap_master:{username}"
+            )
         except Exception:
             pass
     return result
 
 
 @router.delete("/mailboxes/{username:path}")
-async def delete_mailbox(username: str, request: Request, admin: str = Depends(require_admin)):
+async def delete_mailbox(
+    username: str, request: Request, admin: str = Depends(require_admin)
+):
     ok = await mailboxes_service.delete_mailbox(_get_db(request), username)
     if not ok:
         raise HTTPException(404, "Mailbox not found")
@@ -241,19 +280,23 @@ async def delete_mailbox(username: str, request: Request, admin: str = Depends(r
 
 
 @router.post("/mailboxes/{username:path}/toggle-active")
-async def toggle_mailbox_active(username: str, request: Request, admin: str = Depends(require_admin)):
+async def toggle_mailbox_active(
+    username: str, request: Request, admin: str = Depends(require_admin)
+):
     result = await mailboxes_service.toggle_active(_get_db(request), username)
     if not result:
         raise HTTPException(404, "Mailbox not found")
 
-    await _audit(request, admin, "mailbox_toggle_active", username, {"active": result["active"]})
+    await _audit(
+        request, admin, "mailbox_toggle_active", username, {"active": result["active"]}
+    )
     return result
 
 
-
-
 @router.post("/mailboxes/{username:path}/unlock")
-async def unlock_mailbox(username: str, request: Request, admin: str = Depends(require_admin)):
+async def unlock_mailbox(
+    username: str, request: Request, admin: str = Depends(require_admin)
+):
     """Desbloquea una cuenta: limpia rate limits de login y bloqueos de seguridad."""
     redis = request.app.state.redis
     cleared = []
@@ -273,7 +316,9 @@ async def unlock_mailbox(username: str, request: Request, admin: str = Depends(r
 
 
 @router.get("/mailboxes/{username:path}/lock-status")
-async def mailbox_lock_status(username: str, request: Request, admin: str = Depends(require_admin)):
+async def mailbox_lock_status(
+    username: str, request: Request, admin: str = Depends(require_admin)
+):
     """Verifica si una cuenta está bloqueada por rate limit o seguridad."""
     redis = request.app.state.redis
     login_rl = await redis.get(f"login_rl:user:{username}")
@@ -290,6 +335,7 @@ async def mailbox_lock_status(username: str, request: Request, admin: str = Depe
 
 # -- Aliases --
 
+
 # ---- Proteccion de salida (anti cuenta comprometida) ----
 @router.get("/outbound/limits")
 async def outbound_limits(request: Request, admin: str = Depends(require_admin)):
@@ -303,25 +349,41 @@ async def outbound_limits(request: Request, admin: str = Depends(require_admin))
 async def outbound_set_limits(request: Request, admin: str = Depends(require_admin)):
     data = await request.json()
     try:
-        burst = int(data["burst"]); rate = int(data["rate_per_min"])
+        burst = int(data["burst"])
+        rate = int(data["rate_per_min"])
     except (KeyError, TypeError, ValueError):
         raise HTTPException(400, "burst y rate_per_min deben ser enteros")
     try:
         await outbound_service.set_limits(burst, rate)
         if isinstance(data.get("whitelist"), list):
-            await outbound_service.set_whitelist([str(x).strip().lower() for x in data["whitelist"] if str(x).strip()])
+            await outbound_service.set_whitelist(
+                [str(x).strip().lower() for x in data["whitelist"] if str(x).strip()]
+            )
         if isinstance(data.get("dlp_exempt"), list):
-            await outbound_service.set_dlp_exempt([str(x).strip().lower() for x in data["dlp_exempt"] if str(x).strip()])
+            await outbound_service.set_dlp_exempt(
+                [str(x).strip().lower() for x in data["dlp_exempt"] if str(x).strip()]
+            )
     except ValueError as e:
         raise HTTPException(400, str(e))
-    await _audit(request, admin, "outbound_set_limits", None,
-                 {"burst": burst, "rate_per_min": rate, "whitelist": data.get("whitelist"),
-                  "dlp_exempt": data.get("dlp_exempt")})
+    await _audit(
+        request,
+        admin,
+        "outbound_set_limits",
+        None,
+        {
+            "burst": burst,
+            "rate_per_min": rate,
+            "whitelist": data.get("whitelist"),
+            "dlp_exempt": data.get("dlp_exempt"),
+        },
+    )
     return await outbound_service.get_limits()
 
 
 @router.get("/outbound/activity")
-async def outbound_activity(request: Request, hours: int = 1, admin: str = Depends(require_admin)):
+async def outbound_activity(
+    request: Request, hours: int = 1, admin: str = Depends(require_admin)
+):
     try:
         return await outbound_service.activity(hours)
     except ValueError as e:
@@ -355,7 +417,9 @@ async def outbound_unlock(request: Request, admin: str = Depends(require_admin))
 
 
 @router.get("/aliases")
-async def list_aliases(request: Request, domain: str = None, admin: str = Depends(require_admin)):
+async def list_aliases(
+    request: Request, domain: str = None, admin: str = Depends(require_admin)
+):
     return await aliases_service.list_aliases(_get_db(request), domain)
 
 
@@ -369,7 +433,10 @@ async def create_alias(request: Request, admin: str = Depends(require_admin)):
 
     try:
         result = await aliases_service.create_alias(
-            _get_db(request), address=address, goto=goto, active=data.get("active", True)
+            _get_db(request),
+            address=address,
+            goto=goto,
+            active=data.get("active", True),
         )
     except Exception as e:
         raise HTTPException(400, str(e))
@@ -379,10 +446,15 @@ async def create_alias(request: Request, admin: str = Depends(require_admin)):
 
 
 @router.put("/aliases/{address:path}")
-async def update_alias(address: str, request: Request, admin: str = Depends(require_admin)):
+async def update_alias(
+    address: str, request: Request, admin: str = Depends(require_admin)
+):
     data = await request.json()
     result = await aliases_service.update_alias(
-        _get_db(request), address=address, goto=data.get("goto"), active=data.get("active")
+        _get_db(request),
+        address=address,
+        goto=data.get("goto"),
+        active=data.get("active"),
     )
     if not result:
         raise HTTPException(404, "Alias not found")
@@ -392,7 +464,9 @@ async def update_alias(address: str, request: Request, admin: str = Depends(requ
 
 
 @router.delete("/aliases/{address:path}")
-async def delete_alias(address: str, request: Request, admin: str = Depends(require_admin)):
+async def delete_alias(
+    address: str, request: Request, admin: str = Depends(require_admin)
+):
     ok = await aliases_service.delete_alias(_get_db(request), address)
     if not ok:
         raise HTTPException(404, "Alias not found")
@@ -401,11 +475,16 @@ async def delete_alias(address: str, request: Request, admin: str = Depends(requ
     return {"ok": True}
 
 
-
 # -- Distribution Groups --
 
+
 @router.get("/groups")
-async def list_groups(request: Request, domain: str = None, search: str = None, admin: str = Depends(require_admin)):
+async def list_groups(
+    request: Request,
+    domain: str = None,
+    search: str = None,
+    admin: str = Depends(require_admin),
+):
     db = _get_db(request)
     clauses = []
     params = []
@@ -415,15 +494,20 @@ async def list_groups(request: Request, domain: str = None, search: str = None, 
         params.append(domain)
         idx += 1
     if search:
-        clauses.append(f"(g.address ILIKE ${idx} OR g.name ILIKE ${idx} OR g.description ILIKE ${idx})")
+        clauses.append(
+            f"(g.address ILIKE ${idx} OR g.name ILIKE ${idx} OR g.description ILIKE ${idx})"
+        )
         params.append(f"%{search}%")
         idx += 1
     where = "WHERE " + " AND ".join(clauses) if clauses else ""
-    rows = await db.fetch(f"""
+    rows = await db.fetch(
+        f"""
         SELECT g.*, (SELECT count(*) FROM mail_group_members gm WHERE gm.group_id = g.id) AS member_count
         FROM mail_groups g {where}
         ORDER BY g.name
-    """, *params)
+    """,
+        *params,
+    )
     return [dict(r) for r in rows]
 
 
@@ -440,12 +524,19 @@ async def create_group(request: Request, admin: str = Depends(require_admin)):
         domain = address.split("@")[1]
     db = _get_db(request)
     try:
-        row = await db.fetchrow("""
+        row = await db.fetchrow(
+            """
             INSERT INTO mail_groups (address, name, description, domain, active, allow_external, created_at, modified_at)
             VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
             RETURNING *
-        """, address, name or address.split("@")[0], description, domain,
-            data.get("active", True), data.get("allow_external", False))
+        """,
+            address,
+            name or address.split("@")[0],
+            description,
+            domain,
+            data.get("active", True),
+            data.get("allow_external", False),
+        )
     except Exception as e:
         if "duplicate" in str(e).lower():
             raise HTTPException(400, f"Group {address} already exists")
@@ -457,7 +548,9 @@ async def create_group(request: Request, admin: str = Depends(require_admin)):
 
 
 @router.put("/groups/{group_id}")
-async def update_group(group_id: int, request: Request, admin: str = Depends(require_admin)):
+async def update_group(
+    group_id: int, request: Request, admin: str = Depends(require_admin)
+):
     data = await request.json()
     db = _get_db(request)
     sets = []
@@ -472,22 +565,30 @@ async def update_group(group_id: int, request: Request, admin: str = Depends(req
         raise HTTPException(400, "Nothing to update")
     sets.append(f"modified_at = NOW()")
     params.append(group_id)
-    row = await db.fetchrow(f"""
+    row = await db.fetchrow(
+        f"""
         UPDATE mail_groups SET {', '.join(sets)} WHERE id = ${idx} RETURNING *
-    """, *params)
+    """,
+        *params,
+    )
     if not row:
         raise HTTPException(404, "Group not found")
     await _audit(request, admin, "group_update", row["address"], data)
     result = dict(row)
     result["member_count"] = await db.fetchval(
-        "SELECT count(*) FROM mail_group_members WHERE group_id = $1", group_id)
+        "SELECT count(*) FROM mail_group_members WHERE group_id = $1", group_id
+    )
     return result
 
 
 @router.delete("/groups/{group_id}")
-async def delete_group(group_id: int, request: Request, admin: str = Depends(require_admin)):
+async def delete_group(
+    group_id: int, request: Request, admin: str = Depends(require_admin)
+):
     db = _get_db(request)
-    row = await db.fetchrow("DELETE FROM mail_groups WHERE id = $1 RETURNING address", group_id)
+    row = await db.fetchrow(
+        "DELETE FROM mail_groups WHERE id = $1 RETURNING address", group_id
+    )
     if not row:
         raise HTTPException(404, "Group not found")
     await _audit(request, admin, "group_delete", row["address"])
@@ -495,16 +596,23 @@ async def delete_group(group_id: int, request: Request, admin: str = Depends(req
 
 
 @router.get("/groups/{group_id}/members")
-async def list_group_members(group_id: int, request: Request, admin: str = Depends(require_admin)):
+async def list_group_members(
+    group_id: int, request: Request, admin: str = Depends(require_admin)
+):
     db = _get_db(request)
-    rows = await db.fetch("""
+    rows = await db.fetch(
+        """
         SELECT * FROM mail_group_members WHERE group_id = $1 ORDER BY member_email
-    """, group_id)
+    """,
+        group_id,
+    )
     return [dict(r) for r in rows]
 
 
 @router.post("/groups/{group_id}/members", status_code=201)
-async def add_group_member(group_id: int, request: Request, admin: str = Depends(require_admin)):
+async def add_group_member(
+    group_id: int, request: Request, admin: str = Depends(require_admin)
+):
     data = await request.json()
     member_email = data.get("member_email", "").strip().lower()
     if not member_email:
@@ -514,33 +622,53 @@ async def add_group_member(group_id: int, request: Request, admin: str = Depends
     if not group:
         raise HTTPException(404, "Group not found")
     try:
-        row = await db.fetchrow("""
+        row = await db.fetchrow(
+            """
             INSERT INTO mail_group_members (group_id, member_email, member_name, can_send, receive, added_at)
             VALUES ($1, $2, $3, true, true, NOW())
             RETURNING *
-        """, group_id, member_email, data.get("member_name", member_email.split("@")[0]))
+        """,
+            group_id,
+            member_email,
+            data.get("member_name", member_email.split("@")[0]),
+        )
     except Exception as e:
         if "duplicate" in str(e).lower():
             raise HTTPException(400, f"{member_email} already in group")
         raise HTTPException(400, str(e))
-    await _audit(request, admin, "group_member_add", group["address"], {"member": member_email})
+    await _audit(
+        request, admin, "group_member_add", group["address"], {"member": member_email}
+    )
     return dict(row)
 
 
 @router.delete("/groups/{group_id}/members/{member_id}")
-async def remove_group_member(group_id: int, member_id: int, request: Request, admin: str = Depends(require_admin)):
+async def remove_group_member(
+    group_id: int, member_id: int, request: Request, admin: str = Depends(require_admin)
+):
     db = _get_db(request)
-    row = await db.fetchrow("""
+    row = await db.fetchrow(
+        """
         DELETE FROM mail_group_members WHERE id = $1 AND group_id = $2 RETURNING member_email
-    """, member_id, group_id)
+    """,
+        member_id,
+        group_id,
+    )
     if not row:
         raise HTTPException(404, "Member not found")
     group = await db.fetchrow("SELECT address FROM mail_groups WHERE id = $1", group_id)
-    await _audit(request, admin, "group_member_remove", group["address"] if group else str(group_id), {"member": row["member_email"]})
+    await _audit(
+        request,
+        admin,
+        "group_member_remove",
+        group["address"] if group else str(group_id),
+        {"member": row["member_email"]},
+    )
     return {"ok": True}
 
 
 # -- Queue --
+
 
 @router.get("/queue")
 async def get_queue(request: Request, admin: str = Depends(require_admin)):
@@ -565,6 +693,7 @@ async def queue_action(request: Request, admin: str = Depends(require_admin)):
 
 
 # -- Audit Log --
+
 
 @router.get("/audit-log")
 async def get_audit_log(
@@ -599,20 +728,37 @@ async def export_audit_log(
 
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["id", "admin_user", "action", "target", "details", "ip_address", "created_at"])
+    writer.writerow(
+        ["id", "admin_user", "action", "target", "details", "ip_address", "created_at"]
+    )
     for row in rows:
-        writer.writerow([
-            row["id"],
-            row["admin_user"],
-            row["action"],
-            row["target"],
-            json.dumps(row["details"]) if row["details"] else "",
-            str(row["ip_address"]) if row["ip_address"] else "",
-            row["created_at"].isoformat() if row["created_at"] else "",
-        ])
+        writer.writerow(
+            [
+                row["id"],
+                row["admin_user"],
+                row["action"],
+                row["target"],
+                json.dumps(row["details"]) if row["details"] else "",
+                str(row["ip_address"]) if row["ip_address"] else "",
+                row["created_at"].isoformat() if row["created_at"] else "",
+            ]
+        )
 
     output.seek(0)
-    await _audit(request, admin, "audit_export", None, {"filters": {"admin_user": admin_user, "action": action, "date_from": date_from, "date_to": date_to}})
+    await _audit(
+        request,
+        admin,
+        "audit_export",
+        None,
+        {
+            "filters": {
+                "admin_user": admin_user,
+                "action": action,
+                "date_from": date_from,
+                "date_to": date_to,
+            }
+        },
+    )
 
     return StreamingResponse(
         iter([output.getvalue()]),
@@ -632,6 +778,7 @@ async def audit_stats(
 
 
 # ── Corporate Disclaimer / Footer ─────────────────────────
+
 
 @router.get("/disclaimer")
 async def get_disclaimer(request: Request, admin: str = Depends(require_admin)):
@@ -672,7 +819,8 @@ async def upsert_disclaimer(request: Request, admin: str = Depends(require_admin
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
     """)
-    row = await db.fetchrow("""
+    row = await db.fetchrow(
+        """
         INSERT INTO corporate_disclaimer (domain, html_footer, text_footer, is_active)
         VALUES (, , , )
         ON CONFLICT (domain) DO UPDATE SET
@@ -681,21 +829,28 @@ async def upsert_disclaimer(request: Request, admin: str = Depends(require_admin
             is_active = EXCLUDED.is_active,
             updated_at = NOW()
         RETURNING *
-    """, domain, html_footer, text_footer, is_active)
+    """,
+        domain,
+        html_footer,
+        text_footer,
+        is_active,
+    )
     await _audit(request, admin, "disclaimer_update", domain)
     return dict(row)
 
 
 @router.delete("/disclaimer/{domain}")
-async def delete_disclaimer(domain: str, request: Request, admin: str = Depends(require_admin)):
+async def delete_disclaimer(
+    domain: str, request: Request, admin: str = Depends(require_admin)
+):
     """Delete disclaimer for a domain."""
     db = request.app.state.db_pool
     await db.execute("DELETE FROM corporate_disclaimer WHERE domain = ", domain)
     return {"ok": True}
 
 
-
 # ── Message Tracking / Mail Trace ─────────────────────────
+
 
 @router.get("/message-tracking")
 async def track_message(
@@ -719,7 +874,9 @@ async def track_message(
     try:
         result = subprocess.run(
             ["grep", "-i", q_safe, "/var/log/mail.log"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         lines = result.stdout.strip().split("\n") if result.stdout.strip() else []
 
@@ -765,7 +922,6 @@ async def track_message(
         raise HTTPException(500, f"Error buscando en logs: {str(e)}")
 
 
-
 # ═══════════════════════════════════════════════════════════════
 # Seguridad de cuentas — protección anti-compromiso
 # ═══════════════════════════════════════════════════════════════
@@ -784,6 +940,7 @@ async def get_security_incidents(
 ):
     """Ver incidentes de seguridad recientes."""
     import json
+
     redis = request.app.state.redis
     raw = await redis.lrange("security_incidents", 0, limit - 1)
     incidents = [json.loads(r) for r in raw]
@@ -826,10 +983,16 @@ async def approve_forward(
         raise HTTPException(400, "username y forward_address requeridos")
 
     await admin_approve_forward(
-        request.app.state.redis, request.app.state.db_pool,
-        username, forward_address, admin
+        request.app.state.redis,
+        request.app.state.db_pool,
+        username,
+        forward_address,
+        admin,
     )
-    return {"status": "ok", "message": f"Forward aprobado: {username} → {forward_address}"}
+    return {
+        "status": "ok",
+        "message": f"Forward aprobado: {username} → {forward_address}",
+    }
 
 
 @router.get("/security/approved-forwards")
@@ -856,11 +1019,15 @@ async def revoke_forward(
     db = request.app.state.db_pool
     await db.execute(
         "UPDATE approved_forwards SET is_active = FALSE WHERE username = $1 AND forward_address = $2",
-        username, forward_address
+        username,
+        forward_address,
     )
     redis = request.app.state.redis
     await redis.srem(f"approved_forwards:{username}", forward_address.lower())
-    return {"status": "ok", "message": f"Forward revocado: {username} → {forward_address}"}
+    return {
+        "status": "ok",
+        "message": f"Forward revocado: {username} → {forward_address}",
+    }
 
 
 @router.get("/security/blocked-accounts")
@@ -876,14 +1043,20 @@ async def list_blocked_accounts(
     while True:
         cursor, keys = await redis.scan(cursor, match="account_blocked:*", count=100)
         for key in keys:
-            username = key.split(":", 1)[1] if isinstance(key, str) else key.decode().split(":", 1)[1]
+            username = (
+                key.split(":", 1)[1]
+                if isinstance(key, str)
+                else key.decode().split(":", 1)[1]
+            )
             reason = await redis.get(key)
             ttl = await redis.ttl(key)
-            blocked.append({
-                "username": username,
-                "reason": reason.decode() if isinstance(reason, bytes) else reason,
-                "ttl_seconds": max(0, ttl),
-            })
+            blocked.append(
+                {
+                    "username": username,
+                    "reason": reason.decode() if isinstance(reason, bytes) else reason,
+                    "ttl_seconds": max(0, ttl),
+                }
+            )
         if cursor == 0:
             break
     return {"blocked_accounts": blocked}
@@ -987,7 +1160,9 @@ async def update_spam_keywords(
     content = body.get("keywords", "")
     ok = await quarantine_service.save_keywords(content)
     if ok:
-        await _audit(request, admin, "spam_keywords_update", details={"length": len(content)})
+        await _audit(
+            request, admin, "spam_keywords_update", details={"length": len(content)}
+        )
     return {"status": "ok" if ok else "error"}
 
 
@@ -1011,13 +1186,16 @@ async def update_spam_whitelist(
     content = body.get("whitelist", "")
     ok = await quarantine_service.save_whitelist(content)
     if ok:
-        await _audit(request, admin, "spam_whitelist_update", details={"length": len(content)})
+        await _audit(
+            request, admin, "spam_whitelist_update", details={"length": len(content)}
+        )
     return {"status": "ok" if ok else "error"}
 
 
 # =====================================================
 # LISTAS NEGRAS PROPIAS
 # =====================================================
+
 
 @router.get("/spam/blacklist-domains")
 async def get_blacklist_domains(
@@ -1037,7 +1215,9 @@ async def update_blacklist_domains(
     content = body.get("content", "")
     ok = await quarantine_service.save_blacklist_domains(content)
     if ok:
-        await _audit(request, admin, "blacklist_domains_update", details={"length": len(content)})
+        await _audit(
+            request, admin, "blacklist_domains_update", details={"length": len(content)}
+        )
     return {"status": "ok" if ok else "error"}
 
 
@@ -1059,7 +1239,9 @@ async def update_blacklist_ips(
     content = body.get("content", "")
     ok = await quarantine_service.save_blacklist_ips(content)
     if ok:
-        await _audit(request, admin, "blacklist_ips_update", details={"length": len(content)})
+        await _audit(
+            request, admin, "blacklist_ips_update", details={"length": len(content)}
+        )
     return {"status": "ok" if ok else "error"}
 
 
@@ -1081,5 +1263,7 @@ async def update_greylist_domains(
     content = body.get("content", "")
     ok = await quarantine_service.save_greylist_domains(content)
     if ok:
-        await _audit(request, admin, "greylist_domains_update", details={"length": len(content)})
+        await _audit(
+            request, admin, "greylist_domains_update", details={"length": len(content)}
+        )
     return {"status": "ok" if ok else "error"}

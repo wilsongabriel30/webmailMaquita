@@ -3,6 +3,7 @@
 Solo se reescriben enlaces http/https. La firma HMAC evita que la pasarela se
 use como redirector abierto: enlaces sin firma válida SIEMPRE muestran aviso.
 """
+
 import base64
 import hashlib
 import hmac

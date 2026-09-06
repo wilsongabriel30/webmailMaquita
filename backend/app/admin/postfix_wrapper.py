@@ -23,9 +23,7 @@ def _validate_queue_id(queue_id: str) -> None:
 
 
 async def _run(cmd: list[str]) -> str:
-    proc = await asyncio.create_subprocess_exec(
-        *cmd, stdout=PIPE, stderr=PIPE
-    )
+    proc = await asyncio.create_subprocess_exec(*cmd, stdout=PIPE, stderr=PIPE)
     stdout, stderr = await proc.communicate()
     if proc.returncode != 0 and stderr:
         err = stderr.decode().strip()
@@ -48,20 +46,22 @@ async def list_queue() -> list[dict]:
             continue
         try:
             entry = json.loads(line)
-            messages.append({
-                "queue_id": entry.get("queue_id", ""),
-                "queue_name": entry.get("queue_name", ""),
-                "arrival_time": entry.get("arrival_time", 0),
-                "message_size": entry.get("message_size", 0),
-                "sender": entry.get("sender", ""),
-                "recipients": [
-                    {
-                        "address": r.get("address", ""),
-                        "delay_reason": r.get("delay_reason", ""),
-                    }
-                    for r in entry.get("recipients", [])
-                ],
-            })
+            messages.append(
+                {
+                    "queue_id": entry.get("queue_id", ""),
+                    "queue_name": entry.get("queue_name", ""),
+                    "arrival_time": entry.get("arrival_time", 0),
+                    "message_size": entry.get("message_size", 0),
+                    "sender": entry.get("sender", ""),
+                    "recipients": [
+                        {
+                            "address": r.get("address", ""),
+                            "delay_reason": r.get("delay_reason", ""),
+                        }
+                        for r in entry.get("recipients", [])
+                    ],
+                }
+            )
         except json.JSONDecodeError:
             continue
 

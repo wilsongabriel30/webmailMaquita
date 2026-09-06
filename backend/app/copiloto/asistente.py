@@ -1,4 +1,5 @@
 """Copiloto de Seguridad — Q&A de seguridad en lenguaje natural, grounded en datos reales."""
+
 import json
 
 from app.copiloto.context import gather
@@ -17,9 +18,11 @@ async def ask(db, question: str, days: int = 7) -> dict:
         from app.ai.router import _call_llm
     except Exception:
         return {"answer": "IA no disponible.", "context": ctx}
-    prompt = (f"DATOS DE SEGURIDAD (últimos {days} días):\n"
-              f"{json.dumps(ctx, ensure_ascii=False, default=str)}\n\n"
-              f"PREGUNTA DEL ADMINISTRADOR: {question}\n\n"
-              "Responde con base en esos datos.")
+    prompt = (
+        f"DATOS DE SEGURIDAD (últimos {days} días):\n"
+        f"{json.dumps(ctx, ensure_ascii=False, default=str)}\n\n"
+        f"PREGUNTA DEL ADMINISTRADOR: {question}\n\n"
+        "Responde con base en esos datos."
+    )
     answer = await _call_llm(prompt, system=_SYSTEM, temperature=0.1, max_tokens=600)
     return {"answer": answer or "(sin respuesta)", "context": ctx}

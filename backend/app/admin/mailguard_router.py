@@ -20,17 +20,23 @@ MAP_DOMAINS = "/etc/rspamd/local.d/maps/banned_sender_domains.map"
 MAP_SENDERS = "/etc/rspamd/local.d/maps/banned_senders.map"
 MAP_EXTENSIONS = "/etc/rspamd/local.d/maps/banned_extensions.map"
 
-DOMAIN_RE = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$")
+DOMAIN_RE = re.compile(
+    r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$"
+)
 EMAIL_RE = re.compile(r"^[a-z0-9._%+=-]+@[a-z0-9.-]+\.[a-z]{2,}$")
 EXT_RE = re.compile(r"^[a-z0-9]{1,10}$")
 EXT_LINE_RE = re.compile(r"^/\\\.([a-z0-9]{1,10})\$/i$")
 
 
 def _get_ip(request: Request) -> str:
-    return request.headers.get("X-Real-IP", request.client.host if request.client else "unknown")
+    return request.headers.get(
+        "X-Real-IP", request.client.host if request.client else "unknown"
+    )
 
 
-async def _audit(request: Request, admin: str, action: str, target: str = None, details: dict = None):
+async def _audit(
+    request: Request, admin: str, action: str, target: str = None, details: dict = None
+):
     db = request.app.state.db_pool
     await audit_service.log_action(db, admin, action, target, details, _get_ip(request))
 
@@ -68,11 +74,13 @@ def _parse_entries(content: str, value_transform=None) -> list[dict]:
             pending = ""
             continue
         parts = pending.rsplit(" - ", 1) if pending else ["", ""]
-        entries.append({
-            "value": value,
-            "reason": parts[0] if parts else "",
-            "date": parts[1] if len(parts) >= 2 else "",
-        })
+        entries.append(
+            {
+                "value": value,
+                "reason": parts[0] if parts else "",
+                "date": parts[1] if len(parts) >= 2 else "",
+            }
+        )
         pending = ""
     return entries
 
@@ -100,7 +108,11 @@ def _remove_entry(path: str, match_fn) -> bool:
         s = line.strip()
         if s and not s.startswith("#") and match_fn(s):
             found = True
-            if new_lines and new_lines[-1].strip().startswith("#") and " - " in new_lines[-1]:
+            if (
+                new_lines
+                and new_lines[-1].strip().startswith("#")
+                and " - " in new_lines[-1]
+            ):
                 new_lines.pop()
             continue
         new_lines.append(line)
@@ -140,7 +152,9 @@ async def list_senders(request: Request, admin: str = Depends(require_admin)):
 
 
 @router.post("/senders")
-async def add_sender(body: SenderAddRequest, request: Request, admin: str = Depends(require_admin)):
+async def add_sender(
+    body: SenderAddRequest, request: Request, admin: str = Depends(require_admin)
+):
     value = body.value.strip().lower()
     reason = body.reason.strip() or "Bloqueado desde el panel"
     if "@" in value:
@@ -157,12 +171,19 @@ async def add_sender(body: SenderAddRequest, request: Request, admin: str = Depe
     if value in existing:
         raise HTTPException(409, f"{value} ya esta bloqueado")
     _append_entry(path, value, reason)
-    await _audit(request, admin, "mailguard_sender_add", value, {"reason": reason, "tipo": kind})
-    return {"ok": True, "message": f"Bloqueado {kind}: {value}. Los proximos correos se rechazaran."}
+    await _audit(
+        request, admin, "mailguard_sender_add", value, {"reason": reason, "tipo": kind}
+    )
+    return {
+        "ok": True,
+        "message": f"Bloqueado {kind}: {value}. Los proximos correos se rechazaran.",
+    }
 
 
 @router.delete("/senders/{value:path}")
-async def remove_sender(value: str, request: Request, admin: str = Depends(require_admin)):
+async def remove_sender(
+    value: str, request: Request, admin: str = Depends(require_admin)
+):
     value = value.strip().lower()
     path = MAP_SENDERS if "@" in value else MAP_DOMAINS
     if not _remove_entry(path, lambda s: s.lower() == value):
@@ -177,23 +198,50 @@ async def list_extensions(request: Request, admin: str = Depends(require_admin))
 
 
 @router.post("/extensions")
-async def add_extension(body: ExtensionAddRequest, request: Request, admin: str = Depends(require_admin)):
+async def add_extension(
+    body: ExtensionAddRequest, request: Request, admin: str = Depends(require_admin)
+):
     ext = body.ext.strip().lower().lstrip(".")
     reason = body.reason.strip() or "Bloqueada desde el panel"
     if not EXT_RE.match(ext):
-        raise HTTPException(400, f"Extension invalida: {ext} (solo letras/numeros, max 10)")
-    if ext in {"pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "jpg", "jpeg", "png", "txt", "csv", "zip"}:
-        raise HTTPException(400, f"No se permite bloquear .{ext} (extension de uso comun)")
-    existing = {e["value"] for e in _parse_entries(_read(MAP_EXTENSIONS), _ext_from_line)}
+        raise HTTPException(
+            400, f"Extension invalida: {ext} (solo letras/numeros, max 10)"
+        )
+    if ext in {
+        "pdf",
+        "doc",
+        "docx",
+        "xls",
+        "xlsx",
+        "ppt",
+        "pptx",
+        "jpg",
+        "jpeg",
+        "png",
+        "txt",
+        "csv",
+        "zip",
+    }:
+        raise HTTPException(
+            400, f"No se permite bloquear .{ext} (extension de uso comun)"
+        )
+    existing = {
+        e["value"] for e in _parse_entries(_read(MAP_EXTENSIONS), _ext_from_line)
+    }
     if ext in existing:
         raise HTTPException(409, f".{ext} ya esta bloqueada")
     _append_entry(MAP_EXTENSIONS, f"/\\.{ext}$/i", reason)
     await _audit(request, admin, "mailguard_extension_add", ext, {"reason": reason})
-    return {"ok": True, "message": f"Extension .{ext} bloqueada. Adjuntos .{ext} se rechazaran."}
+    return {
+        "ok": True,
+        "message": f"Extension .{ext} bloqueada. Adjuntos .{ext} se rechazaran.",
+    }
 
 
 @router.delete("/extensions/{ext}")
-async def remove_extension(ext: str, request: Request, admin: str = Depends(require_admin)):
+async def remove_extension(
+    ext: str, request: Request, admin: str = Depends(require_admin)
+):
     ext = ext.strip().lower().lstrip(".")
     if not _remove_entry(MAP_EXTENSIONS, lambda s: _ext_from_line(s) == ext):
         raise HTTPException(404, f".{ext} no esta en la lista")

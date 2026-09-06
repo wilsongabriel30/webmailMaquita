@@ -161,7 +161,7 @@ def desenvolver_enlaces_html(html: str) -> Tuple[str, int]:
         prefijo, url, sufijo = match.group(1), match.group(2), match.group(3)
         destino = desenvolver_url(url)
         if not destino:
-            return match.group(0)          # no se toca
+            return match.group(0)  # no se toca
         contador += 1
         # Se escapan las comillas del destino para no romper el atributo.
         destino_seguro = destino.replace('"', "%22").replace("'", "%27")

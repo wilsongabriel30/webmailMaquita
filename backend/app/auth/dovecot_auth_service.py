@@ -9,7 +9,9 @@ logger = logging.getLogger("auth")
 _auth_semaphore = asyncio.Semaphore(10)
 
 
-async def authenticate(username: str, password: str, host: str = "127.0.0.1", port: int = 143) -> bool:
+async def authenticate(
+    username: str, password: str, host: str = "127.0.0.1", port: int = 143
+) -> bool:
     """Authenticate user via Dovecot IMAP LOGIN."""
     async with _auth_semaphore:
         try:
@@ -31,5 +33,10 @@ async def authenticate(username: str, password: str, host: str = "127.0.0.1", po
             logger.error("auth_os_error | user=%s | error=%s", username, e)
             return False
         except Exception as e:
-            logger.error("auth_exception | user=%s | error=%s | type=%s", username, e, type(e).__name__)
+            logger.error(
+                "auth_exception | user=%s | error=%s | type=%s",
+                username,
+                e,
+                type(e).__name__,
+            )
             return False

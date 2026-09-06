@@ -4,6 +4,7 @@ Invoca el helper privilegiado /usr/local/sbin/maquita-outbound vía sudo (acotad
 /etc/sudoers.d/maquita-outbound). El helper valida sus argumentos y es la única
 superficie con privilegios; aquí solo orquestamos y devolvemos JSON.
 """
+
 import asyncio
 import json
 
@@ -12,7 +13,9 @@ HELPER = "/usr/local/sbin/maquita-outbound"
 
 async def _run(*args: str) -> dict:
     proc = await asyncio.create_subprocess_exec(
-        "sudo", HELPER, *args,
+        "sudo",
+        HELPER,
+        *args,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )

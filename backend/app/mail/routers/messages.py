@@ -1,4 +1,5 @@
 """Messages router — list, read, move, flag, bulk, download .eml, view source."""
+
 import re as _re
 from typing import Optional
 
@@ -22,8 +23,9 @@ from app.mail.services.message_service import get_message, list_messages
 
 def _validate_folder(folder: str) -> str:
     """Validate IMAP folder name: allow letters, digits, spaces, dots, hyphens, underscores, slashes."""
-    if not _re.match(r'^[\w\s.\-/&+,()]+$', folder, _re.UNICODE) or len(folder) > 200:
+    if not _re.match(r"^[\w\s.\-/&+,()]+$", folder, _re.UNICODE) or len(folder) > 200:
         from fastapi import HTTPException
+
         raise HTTPException(status_code=400, detail="Nombre de carpeta inválido")
     return folder
 
@@ -72,10 +74,12 @@ async def _get_imap(request: Request, username: str):
 def _get_pooled(request: Request, username: str):
     """Get pooled IMAP context manager (for read-only operations)."""
     import asyncio
+
     async def _inner():
         password = await get_user_password(request, username)
         login_user = await get_imap_login_user(request, username)
         return get_pooled_imap(login_user, password)
+
     return _inner
 
 
@@ -100,8 +104,15 @@ async def get_messages(
     if per_page > 300:
         per_page = 300
     search_query = _build_unified_search(
-        search, q_from, q_to, q_subject, has_attachment,
-        date_from, date_to, is_unread, is_flagged,
+        search,
+        q_from,
+        q_to,
+        q_subject,
+        has_attachment,
+        date_from,
+        date_to,
+        is_unread,
+        is_flagged,
     )
     password = await get_user_password(request, username)
     login_user = await get_imap_login_user(request, username)
@@ -109,6 +120,7 @@ async def get_messages(
         result = await list_messages(imap, folder, page, per_page, search_query)
         if result is None:
             from fastapi import HTTPException
+
             raise HTTPException(status_code=404, detail=f"Folder '{folder}' not found")
         return result
 
@@ -129,6 +141,7 @@ async def read_message(
         msg = await get_message(imap, folder, uid, block_remote_images=not load_images)
         if msg is None:
             from fastapi import HTTPException
+
             raise HTTPException(status_code=404, detail="Message not found")
         # FQA-003/004: Invalidate folder/stats cache — fetch_full_message sets \Seen flag
         await redis.delete(f"folders:{username}")
@@ -137,6 +150,7 @@ async def read_message(
         try:
             from app.safelinks import rewriter as sl_rewriter
             from app.safelinks import service as sl_service
+
             _sl = await sl_service.get_config(request.app.state.db_pool)
             if _sl["enabled"] and _sl["rewrite_enabled"] and msg.get("html_body"):
                 msg["html_body"] = sl_rewriter.rewrite(msg["html_body"])
@@ -159,6 +173,7 @@ async def message_source(
         raw = await fetch_raw_message(imap, folder, uid)
         if raw is None:
             from fastapi import HTTPException
+
             raise HTTPException(status_code=404, detail="Message not found")
         return {"source": raw}
 
@@ -176,11 +191,14 @@ async def download_eml(
         raw = await fetch_raw_message(imap, folder, uid)
         if raw is None:
             from fastapi import HTTPException
+
             raise HTTPException(status_code=404, detail="Message not found")
         return Response(
             content=raw.encode("utf-8"),
             media_type="message/rfc822",
-            headers={"Content-Disposition": f'attachment; filename="message-{uid}.eml"'},
+            headers={
+                "Content-Disposition": f'attachment; filename="message-{uid}.eml"'
+            },
         )
     finally:
         try:
@@ -204,7 +222,11 @@ async def move(
         ok = await uid_move_message(imap, folder, uid, body.dest_folder)
         if not ok:
             from fastapi import HTTPException
-            raise HTTPException(status_code=404, detail="Message not found or destination folder invalid")
+
+            raise HTTPException(
+                status_code=404,
+                detail="Message not found or destination folder invalid",
+            )
         # FQA-002/003: Invalidate caches after move
         try:
             redis = request.app.state.redis
@@ -212,7 +234,10 @@ async def move(
             await redis.delete(f"stats:{username}")
             # Invalidate UID cache for both source and dest folders
             # Invalidar cache UIDs para source y dest (SCAN en vez de KEYS — O(1) amortizado)
-            for pattern in [f"uids:{username}:{folder}:*", f"uids:{username}:{body.dest_folder}:*"]:
+            for pattern in [
+                f"uids:{username}:{folder}:*",
+                f"uids:{username}:{body.dest_folder}:*",
+            ]:
                 async for k in redis.scan_iter(match=pattern, count=100):
                     await redis.delete(k)
         except Exception:
@@ -238,6 +263,7 @@ async def update_flags(
         ok = await uid_set_flags(imap, folder, uid, body.flags, body.add)
         if not ok:
             from fastapi import HTTPException
+
             raise HTTPException(status_code=400, detail="Failed to update flags")
         # FQA-003/004: Invalidate folder/stats cache when flags change (Seen, Flagged, etc.)
         try:
@@ -267,14 +293,19 @@ async def remove_message(
         ok = await uid_delete_message(imap, folder, uid)
         if not ok:
             from fastapi import HTTPException
-            raise HTTPException(status_code=404, detail="Message not found or could not be deleted")
+
+            raise HTTPException(
+                status_code=404, detail="Message not found or could not be deleted"
+            )
         # FQA-002/003: Invalidate caches after delete
         try:
             redis = request.app.state.redis
             await redis.delete(f"folders:{username}")
             await redis.delete(f"stats:{username}")
             # Invalidar cache UIDs (SCAN en vez de KEYS — O(1) amortizado)
-            async for k in redis.scan_iter(match=f"uids:{username}:{folder}:*", count=100):
+            async for k in redis.scan_iter(
+                match=f"uids:{username}:{folder}:*", count=100
+            ):
                 await redis.delete(k)
         except Exception:
             pass
@@ -296,9 +327,12 @@ async def bulk_action(
     _validate_folder(folder)
     imap = await _get_imap(request, username)
     try:
-        ok = await uid_bulk_action(imap, folder, body.uids, body.action, body.dest_folder)
+        ok = await uid_bulk_action(
+            imap, folder, body.uids, body.action, body.dest_folder
+        )
         if not ok:
             from fastapi import HTTPException
+
             raise HTTPException(status_code=400, detail="Failed to perform bulk action")
         # FQA-003/004: Invalidate folder/stats/uid cache after bulk actions
         try:
@@ -307,10 +341,14 @@ async def bulk_action(
             await redis.delete(f"stats:{username}")
             # Invalidar el cache de UIDs de la carpeta: sin esto, tras vaciar/borrar
             # la lista sigue mostrando los mensajes ya eliminados (parecia que no se vaciaba).
-            async for k in redis.scan_iter(match=f"uids:{username}:{folder}:*", count=100):
+            async for k in redis.scan_iter(
+                match=f"uids:{username}:{folder}:*", count=100
+            ):
                 await redis.delete(k)
             if body.dest_folder:
-                async for k in redis.scan_iter(match=f"uids:{username}:{body.dest_folder}:*", count=100):
+                async for k in redis.scan_iter(
+                    match=f"uids:{username}:{body.dest_folder}:*", count=100
+                ):
                     await redis.delete(k)
         except Exception:
             pass

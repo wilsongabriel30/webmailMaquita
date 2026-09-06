@@ -8,6 +8,7 @@ el correo (email) entre dominios NO se toca.
 La lectura publica (GET /api/chat-config) expone datos NO sensibles; el servicio
 de chat la lee para aplicar el aislamiento.
 """
+
 import json
 import os
 import uuid
@@ -77,7 +78,8 @@ def _to_public(data: dict) -> dict:
     return {
         "enabled": data.get("enabled", "1") not in ("0", "false", "False", ""),
         "embed_url": data.get("embed_url") or _DEFAULTS["embed_url"],
-        "domain_isolation": data.get("domain_isolation", "0") not in ("0", "false", "False", ""),
+        "domain_isolation": data.get("domain_isolation", "0")
+        not in ("0", "false", "False", ""),
         "domain_groups": _parse_groups(data.get("domain_groups", "[]")),
     }
 
@@ -123,6 +125,7 @@ async def get_chat_sso_url(request: Request, username: str = Depends(get_current
         )
 
     from urllib.parse import urlsplit
+
     partes = urlsplit(destino)
     origen = f"{partes.scheme}://{partes.netloc}"
     ruta = partes.path or "/chat/"
@@ -142,6 +145,7 @@ async def get_chat_sso_url(request: Request, username: str = Depends(get_current
         algorithm="HS256",
     )
     from urllib.parse import quote
+
     return {
         "url": f"{origen}/sso/entrar?t={vale}&r={quote(ruta, safe='/?=&')}",
         "origen": origen,
@@ -155,7 +159,9 @@ async def get_chat_config_admin(request: Request, admin: str = Depends(require_a
 
 
 @router.put("/api/admin/chat-config")
-async def put_chat_config(body: ChatConfigIn, request: Request, admin: str = Depends(require_admin)):
+async def put_chat_config(
+    body: ChatConfigIn, request: Request, admin: str = Depends(require_admin)
+):
     db = request.app.state.db_pool
     await _ensure(db)
     url = (body.embed_url or "").strip() or _DEFAULTS["embed_url"]
@@ -170,6 +176,7 @@ async def put_chat_config(body: ChatConfigIn, request: Request, admin: str = Dep
         await db.execute(
             "INSERT INTO chat_settings(key,value) VALUES($1,$2) "
             "ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value",
-            k, v,
+            k,
+            v,
         )
     return _to_public(await _read(db))

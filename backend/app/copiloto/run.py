@@ -1,4 +1,5 @@
 """Runner CLI del Copiloto de Seguridad. Uso: python -m app.copiloto.run "<pregunta>" [dias]"""
+
 import asyncio
 import json
 import sys
@@ -11,7 +12,8 @@ from app.copiloto.asistente import ask
 
 async def _main():
     if len(sys.argv) < 2:
-        print(json.dumps({"error": "falta la pregunta"})); return
+        print(json.dumps({"error": "falta la pregunta"}))
+        return
     q = sys.argv[1]
     days = int(sys.argv[2]) if len(sys.argv) > 2 and sys.argv[2].isdigit() else 7
     s = get_settings()

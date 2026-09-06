@@ -11,6 +11,7 @@ externa y la interfaz dibuja el avatar de iniciales que ya tenia (componente
 `Avatar`). Se mantiene la ruta y la forma de la respuesta para no romper a los
 clientes que ya la llaman. [T4]
 """
+
 import logging
 
 from fastapi import APIRouter, Depends, Query, Request

@@ -1,4 +1,5 @@
 """Draft service — autosave via IMAP APPEND with controlled replacement."""
+
 from app.mail.clients.imap_client import (
     append_message,
     fetch_message_headers,

@@ -1,4 +1,5 @@
 """Folder service — list folders, detect special folders, unread counts."""
+
 from app.mail.clients.imap_client import list_folders as imap_list_folders
 
 SPECIAL_FOLDERS = {
@@ -34,6 +35,14 @@ async def get_folders(imap) -> list[dict]:
         f["type"] = detect_folder_type(f["name"], f["flags"])
         result.append(f)
     # Sort: special folders first in standard order, then alphabetical
-    order = {"inbox": 0, "drafts": 1, "sent": 2, "junk": 3, "trash": 4, "archive": 5, "folder": 6}
+    order = {
+        "inbox": 0,
+        "drafts": 1,
+        "sent": 2,
+        "junk": 3,
+        "trash": 4,
+        "archive": 5,
+        "folder": 6,
+    }
     result.sort(key=lambda x: (order.get(x["type"], 6), x["name"]))
     return result

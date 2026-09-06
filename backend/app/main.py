@@ -1,4 +1,5 @@
 """Maquita Webmail API — main entrypoint v0.5.0."""
+
 import asyncio
 import json
 import logging
@@ -96,6 +97,7 @@ from app.websocket.router import start_redis_subscriber
 # Handler global de excepciones — evita que nginx devuelva HTML en errores 500
 async def _global_exception_handler(request: Request, exc: Exception):
     import traceback
+
     logging.getLogger("uvicorn.error").error(
         "Unhandled exception: %s\n%s", str(exc), traceback.format_exc()
     )
@@ -103,6 +105,8 @@ async def _global_exception_handler(request: Request, exc: Exception):
         status_code=500,
         content={"detail": "Error interno del servidor"},
     )
+
+
 from app.tasks.models import ensure_tables as ensure_task_tables
 
 # Registrar handler global (se ejecuta después de crear app)
@@ -145,7 +149,9 @@ async def _process_scheduled_emails(db_pool, redis):
                     username = row["username"]
                     raw_pass = await redis.get(f"imap_pass:{username}")
                     if not raw_pass:
-                        logger.warning(f"Scheduled email {row['id']}: no session for {username}")
+                        logger.warning(
+                            f"Scheduled email {row['id']}: no session for {username}"
+                        )
                         await db_pool.execute(
                             "UPDATE scheduled_emails SET status = 'pending' WHERE id = $1",
                             row["id"],
@@ -154,6 +160,7 @@ async def _process_scheduled_emails(db_pool, redis):
 
                     # Descifrar contraseña Fernet (las passwords en Redis están cifradas)
                     from app.core.session import decrypt_password
+
                     try:
                         password = decrypt_password(raw_pass)
                     except Exception:
@@ -173,9 +180,21 @@ async def _process_scheduled_emails(db_pool, redis):
                         if pref and pref["display_name"]:
                             display_name = pref["display_name"]
 
-                        to_list = json.loads(row["to_list"]) if isinstance(row["to_list"], str) else row["to_list"]
-                        cc_list = json.loads(row["cc_list"]) if isinstance(row["cc_list"], str) else row["cc_list"]
-                        bcc_list = json.loads(row["bcc_list"]) if isinstance(row["bcc_list"], str) else row["bcc_list"]
+                        to_list = (
+                            json.loads(row["to_list"])
+                            if isinstance(row["to_list"], str)
+                            else row["to_list"]
+                        )
+                        cc_list = (
+                            json.loads(row["cc_list"])
+                            if isinstance(row["cc_list"], str)
+                            else row["cc_list"]
+                        )
+                        bcc_list = (
+                            json.loads(row["bcc_list"])
+                            if isinstance(row["bcc_list"], str)
+                            else row["bcc_list"]
+                        )
 
                         await send_and_save(
                             imap=imap,
@@ -219,29 +238,35 @@ async def _process_scheduled_emails(db_pool, redis):
             await asyncio.sleep(30)
 
 
-
-
 def _validate_mime_on_startup():
     """Verifica que smtp_client.py construye MIME correcto al arrancar.
-    
+
     Si falla, el backend NO arranca — protege contra cambios accidentales
     que enviarían correos a spam. Ver: 09-AUDITORIA-ENTREGABILIDAD-20260414.md
     """
     from app.mail.clients.smtp_client import OutgoingEmail, build_mime_message
-    msg = build_mime_message(OutgoingEmail(
-        from_addr="test@ejemplo.com", to=["x@x.com"], subject="startup-check",
-        html_body="<p>test</p>"
-    ))
-    parts = [p.get_content_type() for p in msg.walk()
-             if not p.get_content_type().startswith("multipart")]
+
+    msg = build_mime_message(
+        OutgoingEmail(
+            from_addr="test@ejemplo.com",
+            to=["x@x.com"],
+            subject="startup-check",
+            html_body="<p>test</p>",
+        )
+    )
+    parts = [
+        p.get_content_type()
+        for p in msg.walk()
+        if not p.get_content_type().startswith("multipart")
+    ]
     raw = msg.as_string()
-    
+
     errors = []
     if "text/plain" not in parts:
         errors.append("FALTA text/plain — causa MIME_HTML_ONLY en spam")
     if "text/html" not in parts:
         errors.append("FALTA text/html")
-    
+
     for p in msg.walk():
         if p.get_content_type() == "text/plain":
             txt = p.get_payload(decode=True).decode()
@@ -251,11 +276,11 @@ def _validate_mime_on_startup():
             html = p.get_payload(decode=True).decode()
             if "<!DOCTYPE" not in html:
                 errors.append("HTML sin DOCTYPE — causa HTML_MIME_NO_HTML_TAG en spam")
-    
+
     for bad_h in ("X-Priority", "X-MSMail-Priority", "Importance"):
         if bad_h in raw:
             errors.append(f"Header {bad_h} presente — spam trigger")
-    
+
     if errors:
         raise RuntimeError(
             "MIME VALIDATION FAILED — backend NO arranca para proteger entregabilidad:\n"
@@ -280,9 +305,9 @@ async def lifespan(app: FastAPI):
         await _ddl_conn.execute("SELECT pg_advisory_lock(815000)")
         try:
             await ensure_task_tables(app.state.db_pool)
-            await asegurar_tablas_tareas(app.state.db_pool)   # T-34
-            await asegurar_tabla_telemetria(app.state.db_pool)   # telemetría de la app
-            await asegurar_tabla_push(app.state.db_pool)   # suscripciones web push (#17)
+            await asegurar_tablas_tareas(app.state.db_pool)  # T-34
+            await asegurar_tabla_telemetria(app.state.db_pool)  # telemetría de la app
+            await asegurar_tabla_push(app.state.db_pool)  # suscripciones web push (#17)
         finally:
             await _ddl_conn.execute("SELECT pg_advisory_unlock(815000)")
     # ── Validación MIME al arranque (protección anti-spam) ──
@@ -295,20 +320,24 @@ async def lifespan(app: FastAPI):
     ws_subscriber_task = await start_redis_subscriber(app.state)
     snooze_task = asyncio.create_task(check_snoozed(app))
     from app.reminders_scheduler import check_reminders
+
     reminders_task = asyncio.create_task(check_reminders(app))
     # Start compliance services
     app.state.log_ingestor = await start_log_ingestor(app.state.db_pool)
     from app.safelinks import threatfeeds as _tfeeds
+
     app.state.tintel_task = asyncio.create_task(_tfeeds.loop(app))
     app.state.fraud_detector = await start_fraud_detector(app.state.db_pool)
     # Start IMAP pool cleanup
     from app.mail.clients.imap_pool import start_cleanup_task
+
     start_cleanup_task()
 
     yield
 
     # Shutdown IMAP pool
     from app.mail.clients.imap_pool import close_all_pools
+
     await close_all_pools()
     # Stop compliance services
     app.state.log_ingestor.stop()
@@ -322,7 +351,6 @@ async def lifespan(app: FastAPI):
         pass
     await app.state.db_pool.close()
     await app.state.redis.close()
-
 
 
 # Security audit logging
@@ -348,8 +376,6 @@ _SECURITY_EVENTS = {
 }
 
 
-
-
 class ApiRateLimitMiddleware(BaseHTTPMiddleware):
     """Per-user rate limiting for authenticated API requests using Redis.
 
@@ -361,8 +387,20 @@ class ApiRateLimitMiddleware(BaseHTTPMiddleware):
     Skips: login, health, static assets, WebSocket upgrades.
     """
 
-    SKIP_PATHS = frozenset({"/api/auth/login", "/api/auth/refresh", "/api/health", "/api/health/detailed"})
-    SEND_PATHS = frozenset({"/api/mail/send", "/api/mail/send-multipart", "/api/mail/compose", "/api/auth/change-password", "/api/auth/totp/setup", "/api/auth/totp/verify", "/api/auth/totp/disable"})
+    SKIP_PATHS = frozenset(
+        {"/api/auth/login", "/api/auth/refresh", "/api/health", "/api/health/detailed"}
+    )
+    SEND_PATHS = frozenset(
+        {
+            "/api/mail/send",
+            "/api/mail/send-multipart",
+            "/api/mail/compose",
+            "/api/auth/change-password",
+            "/api/auth/totp/setup",
+            "/api/auth/totp/verify",
+            "/api/auth/totp/disable",
+        }
+    )
 
     async def dispatch(self, request, call_next):
         path = request.url.path
@@ -380,6 +418,7 @@ class ApiRateLimitMiddleware(BaseHTTPMiddleware):
 
         try:
             from app.auth.jwt import decode_access_token
+
             payload = decode_access_token(token)
             user = payload.get("sub", "")
         except Exception:
@@ -411,14 +450,21 @@ class ApiRateLimitMiddleware(BaseHTTPMiddleware):
 
             if count > limit:
                 from starlette.responses import JSONResponse
+
                 ttl = await redis.ttl(key)
                 if ttl < 0:
                     await redis.expire(key, window)
                     ttl = window
                 return JSONResponse(
                     status_code=429,
-                    content={"detail": f"Demasiadas solicitudes. Limite: {limit}/{window}s. Reintente en {ttl}s."},
-                    headers={"Retry-After": str(ttl), "X-RateLimit-Limit": str(limit), "X-RateLimit-Remaining": "0"},
+                    content={
+                        "detail": f"Demasiadas solicitudes. Limite: {limit}/{window}s. Reintente en {ttl}s."
+                    },
+                    headers={
+                        "Retry-After": str(ttl),
+                        "X-RateLimit-Limit": str(limit),
+                        "X-RateLimit-Remaining": "0",
+                    },
                 )
         except Exception:
             pass  # Redis failure should not block requests
@@ -442,13 +488,17 @@ class SecurityAuditMiddleware(BaseHTTPMiddleware):
         key = (request.url.path, response.status_code)
         event = _SECURITY_EVENTS.get(key)
         if event:
-            ip = request.headers.get("x-real-ip", request.client.host if request.client else "?")
+            ip = request.headers.get(
+                "x-real-ip", request.client.host if request.client else "?"
+            )
             security_logger.warning(
                 f"SECURITY_EVENT={event} ip={ip} path={request.url.path}"
             )
         # Log all 401/403/429 responses
         if response.status_code in (401, 403, 429):
-            ip = request.headers.get("x-real-ip", request.client.host if request.client else "?")
+            ip = request.headers.get(
+                "x-real-ip", request.client.host if request.client else "?"
+            )
             security_logger.warning(
                 f"SECURITY_BLOCK status={response.status_code} ip={ip} "
                 f"method={request.method} path={request.url.path}"
@@ -464,6 +514,7 @@ settings = get_settings()
 app.add_middleware(SecurityAuditMiddleware)
 app.add_middleware(UserActivityAuditMiddleware)
 app.add_middleware(ApiRateLimitMiddleware)
+
 
 # Strip allow-credentials header for non-matching origins (CORS hardening)
 class StripCredentialsMiddleware(BaseHTTPMiddleware):
@@ -484,18 +535,30 @@ app.add_middleware(
     allow_origins=settings.cors_origins.split(","),
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
+    allow_headers=[
+        "Content-Type",
+        "Authorization",
+        "X-Requested-With",
+        "Accept",
+        "Origin",
+    ],
 )
-
 
 
 @app.exception_handler(SMTPAuthenticationError)
 async def credencial_smtp_handler(request, exc):
     """Mismo caso que IMAP, pero al enviar: la credencial guardada ya no vale."""
-    security_logger.info("Credencial de sesión rechazada por SMTP en %s %s", request.method, request.url.path)
+    security_logger.info(
+        "Credencial de sesión rechazada por SMTP en %s %s",
+        request.method,
+        request.url.path,
+    )
     return JSONResponse(
         status_code=401,
-        content={"detail": "Tu sesión de correo caducó. Vuelve a iniciar sesión.", "reautenticar": True},
+        content={
+            "detail": "Tu sesión de correo caducó. Vuelve a iniciar sesión.",
+            "reautenticar": True,
+        },
     )
 
 
@@ -503,10 +566,17 @@ async def credencial_smtp_handler(request, exc):
 async def credencial_caducada_handler(request, exc):
     """La credencial guardada ya no vale: 401 para que la interfaz mande a iniciar
     sesión, en vez de un 500 que parece caída del servidor."""
-    security_logger.info("Credencial de sesión rechazada por IMAP en %s %s", request.method, request.url.path)
+    security_logger.info(
+        "Credencial de sesión rechazada por IMAP en %s %s",
+        request.method,
+        request.url.path,
+    )
     return JSONResponse(
         status_code=401,
-        content={"detail": "Tu sesión de correo caducó. Vuelve a iniciar sesión.", "reautenticar": True},
+        content={
+            "detail": "Tu sesión de correo caducó. Vuelve a iniciar sesión.",
+            "reautenticar": True,
+        },
     )
 
 
@@ -514,20 +584,25 @@ async def credencial_caducada_handler(request, exc):
 async def global_exception_handler(request, exc):
     """Return JSON for unhandled exceptions instead of plain text."""
     import traceback
-    security_logger.error(f"Unhandled exception en {request.method} {request.url.path}: {exc}\n{traceback.format_exc()}")
+
+    security_logger.error(
+        f"Unhandled exception en {request.method} {request.url.path}: {exc}\n{traceback.format_exc()}"
+    )
     # T-39 (28/08/2026): el login y el resto de /api/auth JAMÁS responden 500: excepción interna capturada y anotada,
     # respuesta 503 con mensaje claro y marca «reintentar» para que el cliente lo trate como transitorio.
     if request.url.path.startswith("/api/auth/"):
         return JSONResponse(
             status_code=503,
-            content={"detail": "El servidor de correo tuvo un problema momentáneo; vuelve a intentarlo en unos segundos.", "reintentar": True},
+            content={
+                "detail": "El servidor de correo tuvo un problema momentáneo; vuelve a intentarlo en unos segundos.",
+                "reintentar": True,
+            },
             headers={"Retry-After": "5"},
         )
     return JSONResponse(
         status_code=500,
-        content={"detail": "Error interno del servidor", "reintentar": True}
+        content={"detail": "Error interno del servidor", "reintentar": True},
     )
-
 
 
 @app.exception_handler(RequestValidationError)
@@ -535,8 +610,11 @@ async def validation_exception_handler(request, exc):
     """Return 400 with generic message instead of 422 with detailed validation errors."""
     return JSONResponse(
         status_code=400,
-        content={"detail": "Solicitud inválida. Verifique el formato de los datos enviados."}
+        content={
+            "detail": "Solicitud inválida. Verifique el formato de los datos enviados."
+        },
     )
+
 
 app.include_router(auth_router)
 app.include_router(push_router)
@@ -594,7 +672,9 @@ app.include_router(sso_router)
 app.include_router(meetings_router)
 app.include_router(tasks_router, prefix="/api/tasks", tags=["tasks"])
 app.include_router(tareas_router, prefix="/api/tareas", tags=["tareas"])  # T-34
-app.include_router(telemetria_router, prefix="/api/telemetria", tags=["telemetria"])  # cliente Windows
+app.include_router(
+    telemetria_router, prefix="/api/telemetria", tags=["telemetria"]
+)  # cliente Windows
 app.include_router(presence_router)
 app.include_router(nextcloud_router)
 app.include_router(branding_router)
@@ -610,10 +690,14 @@ async def csp_report(request: Request):
     content_type = request.headers.get("content-type", "")
     if "csp-report" not in content_type and "json" not in content_type:
         from fastapi.responses import Response
+
         return Response(status_code=400)
     body = await request.body()
     import logging
-    logging.getLogger("security.csp").warning(f"CSP violation: {body.decode('utf-8', errors='replace')[:2000]}")
+
+    logging.getLogger("security.csp").warning(
+        f"CSP violation: {body.decode('utf-8', errors='replace')[:2000]}"
+    )
     return {"status": "ok"}
 
 
@@ -642,6 +726,8 @@ async def health_check(request: Request):
 
     # Public endpoint: only return status without component names
     return JSONResponse(content={"status": "ok"}, status_code=status_code)
+
+
 import socket
 
 

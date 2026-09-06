@@ -13,6 +13,7 @@ es justo lo que este módulo debe detectar. Ahora no sale ninguna petición. [T4
 La base se actualiza con `actualizar-geoip.sh` (temporizador mensual). Si falta el
 archivo, la geolocalización devuelve vacío y el resto del análisis de riesgo sigue.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -24,9 +25,15 @@ import threading
 
 # Redes propias/confiables (su LAN usa el bloque público 193.16.0.0/24)
 _TRUSTED = [
-    ipaddress.ip_network(n) for n in (
-        "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.0/8",
-        "169.254.0.0/16", "100.64.0.0/10", "193.16.0.0/24",
+    ipaddress.ip_network(n)
+    for n in (
+        "10.0.0.0/8",
+        "172.16.0.0/12",
+        "192.168.0.0/16",
+        "127.0.0.0/8",
+        "169.254.0.0/16",
+        "100.64.0.0/10",
+        "193.16.0.0/24",
     )
 ]
 
@@ -57,9 +64,12 @@ def _abrir_base():
         if _lector is None:
             try:
                 import maxminddb
+
                 _lector = maxminddb.open_database(BASE_GEOIP)
             except FileNotFoundError:
-                _log.warning("Sin base GeoIP en %s: la geolocalización queda vacía", BASE_GEOIP)
+                _log.warning(
+                    "Sin base GeoIP en %s: la geolocalización queda vacía", BASE_GEOIP
+                )
                 return None
             except Exception as e:
                 _log.warning("No se pudo abrir la base GeoIP (%s): %s", BASE_GEOIP, e)
@@ -89,8 +99,12 @@ def _fetch(ip: str) -> dict:
     ciudad = _nombre(d.get("city"))
     if not pais and not ciudad and ubic.get("latitude") is None:
         return {}
-    return {"country": pais, "city": ciudad,
-            "lat": ubic.get("latitude"), "lon": ubic.get("longitude")}
+    return {
+        "country": pais,
+        "city": ciudad,
+        "lat": ubic.get("latitude"),
+        "lon": ubic.get("longitude"),
+    }
 
 
 async def geolocate(redis, ip: str) -> dict:

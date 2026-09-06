@@ -1,4 +1,5 @@
 """Jitsi Meet integration for video meetings."""
+
 from __future__ import annotations
 
 import uuid
@@ -16,7 +17,9 @@ router = APIRouter(prefix="/api/meetings", tags=["meetings"])
 import os
 
 # Jitsi PROPIO de Maquita (soberano). Configurable vía .env si algún día cambia.
-JITSI_BASE_URL = os.environ.get("JITSI_BASE_URL", "https://meet.maquita.com.ec").rstrip("/")
+JITSI_BASE_URL = os.environ.get("JITSI_BASE_URL", "https://meet.maquita.com.ec").rstrip(
+    "/"
+)
 
 
 def _db(request: Request):
@@ -28,6 +31,7 @@ def _redis(request: Request):
 
 
 # ── Schemas ───────────────────────────────────────────────
+
 
 class MeetingCreate(BaseModel):
     title: str
@@ -54,6 +58,7 @@ class MeetingInvite(BaseModel):
 
 # ── Create meeting ────────────────────────────────────────
 
+
 @router.post("/create", response_model=MeetingOut, status_code=201)
 async def create_meeting(
     data: MeetingCreate,
@@ -70,7 +75,12 @@ async def create_meeting(
         """INSERT INTO meetings (room_id, title, creator_email, meeting_url, start_time, attendees)
            VALUES ($1, $2, $3, $4, $5, $6)
            RETURNING *""",
-        room_id, data.title, user, meeting_url, data.start_time, data.attendees,
+        room_id,
+        data.title,
+        user,
+        meeting_url,
+        data.start_time,
+        data.attendees,
     )
 
     # If start_time provided, create calendar event automatically
@@ -86,6 +96,7 @@ async def create_meeting(
                 from datetime import timedelta
 
                 from app.calendar.schemas import EventCreate
+
                 event = EventCreate(
                     title=f"Reunion: {data.title}",
                     start=data.start_time,
@@ -100,7 +111,9 @@ async def create_meeting(
     # Send invitations if attendees specified
     if data.attendees:
         try:
-            await _send_invitations(request, user, data.title, meeting_url, data.start_time, data.attendees)
+            await _send_invitations(
+                request, user, data.title, meeting_url, data.start_time, data.attendees
+            )
         except Exception:
             pass  # Invitations are best-effort
 
@@ -109,10 +122,9 @@ async def create_meeting(
 
 # ── List meetings ─────────────────────────────────────────
 
+
 @router.get("", response_model=list[MeetingOut])
-async def list_meetings(
-    request: Request, user: str = Depends(get_current_user)
-):
+async def list_meetings(request: Request, user: str = Depends(get_current_user)):
     db = _db(request)
     rows = await db.fetch(
         "SELECT * FROM meetings WHERE creator_email = $1 ORDER BY created_at DESC LIMIT 50",
@@ -123,6 +135,7 @@ async def list_meetings(
 
 # ── Send invitations ──────────────────────────────────────
 
+
 @router.post("/invite")
 async def invite_to_meeting(
     data: MeetingInvite,
@@ -132,13 +145,19 @@ async def invite_to_meeting(
     db = _db(request)
     row = await db.fetchrow(
         "SELECT * FROM meetings WHERE id = $1 AND creator_email = $2",
-        data.meeting_id, user,
+        data.meeting_id,
+        user,
     )
     if not row:
         raise HTTPException(404, "Reunion no encontrada")
 
     await _send_invitations(
-        request, user, row["title"], row["meeting_url"], row["start_time"], data.attendees
+        request,
+        user,
+        row["title"],
+        row["meeting_url"],
+        row["start_time"],
+        data.attendees,
     )
 
     # Update attendees list
@@ -148,13 +167,15 @@ async def invite_to_meeting(
             existing.append(a)
     await db.execute(
         "UPDATE meetings SET attendees = $1 WHERE id = $2",
-        existing, data.meeting_id,
+        existing,
+        data.meeting_id,
     )
 
     return {"status": "invitaciones_enviadas", "attendees": data.attendees}
 
 
 # ── Deactivate meeting ───────────────────────────────────
+
 
 @router.delete("/{meeting_id}", status_code=204)
 async def deactivate_meeting(
@@ -163,7 +184,8 @@ async def deactivate_meeting(
     db = _db(request)
     result = await db.execute(
         "UPDATE meetings SET is_active = false WHERE id = $1 AND creator_email = $2",
-        meeting_id, user,
+        meeting_id,
+        user,
     )
     if result == "UPDATE 0":
         raise HTTPException(404, "Reunion no encontrada")
@@ -171,7 +193,10 @@ async def deactivate_meeting(
 
 # ── Helper: send email invitations ───────────────────────
 
-async def _send_invitations(request, creator, title, meeting_url, start_time, attendees):
+
+async def _send_invitations(
+    request, creator, title, meeting_url, start_time, attendees
+):
     """Send meeting invitation emails to attendees via SMTP."""
     redis = request.app.state.redis
     password = await redis.get(f"imap_pass:{creator}")
@@ -179,9 +204,12 @@ async def _send_invitations(request, creator, title, meeting_url, start_time, at
         return
 
     from app.config import get_settings
+
     settings = get_settings()
 
-    time_str = start_time.strftime("%d/%m/%Y %H:%M") if start_time else "Sin fecha definida"
+    time_str = (
+        start_time.strftime("%d/%m/%Y %H:%M") if start_time else "Sin fecha definida"
+    )
 
     subject = f"Invitacion a reunion: {title}"
     html_body = f"""<div style="font-family:Arial,sans-serif;max-width:600px">
@@ -205,7 +233,11 @@ async def _send_invitations(request, creator, title, meeting_url, start_time, at
         msg["From"] = creator
         msg["Subject"] = subject
         msg["To"] = ", ".join(attendees)
-        msg.attach(MIMEText(f"Reunion: {title}\nFecha: {time_str}\nURL: {meeting_url}", "plain"))
+        msg.attach(
+            MIMEText(
+                f"Reunion: {title}\nFecha: {time_str}\nURL: {meeting_url}", "plain"
+            )
+        )
         msg.attach(MIMEText(html_body, "html"))
 
         with smtplib.SMTP(settings.smtp_host, settings.smtp_port) as smtp:

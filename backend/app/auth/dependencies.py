@@ -7,15 +7,21 @@ async def get_current_user(request: Request) -> str:
     """Extract and validate the current user from the access_token cookie."""
     token = request.cookies.get("access_token")
     if not token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated"
+        )
 
     payload = decode_access_token(token)
     if payload is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token"
+        )
 
     username = payload.get("sub")
     if not username:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload"
+        )
 
     # Check if session is still active (logout deletes imap_pass from Redis)
     redis = request.app.state.redis
@@ -24,10 +30,13 @@ async def get_current_user(request: Request) -> str:
     # de impersonación (imap_master): esas vencen a la hora sin prórroga (A-17).
     if session_active and not await redis.exists(f"imap_master:{username}"):
         from app.config import get_settings
+
         _s = get_settings()
         await redis.expire(f"imap_pass:{username}", _s.access_token_expire_minutes * 60)
     if not session_active:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired"
+        )
 
     return username
 
@@ -42,6 +51,8 @@ async def require_admin(request: Request) -> str:
         username,
     )
     if row is None:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required"
+        )
 
     return username

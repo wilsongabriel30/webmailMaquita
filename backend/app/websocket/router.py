@@ -9,6 +9,7 @@ Architecture:
 
 This module is purely additive — it does NOT modify any existing endpoint or service.
 """
+
 import asyncio
 import json
 import logging
@@ -45,8 +46,6 @@ def _authenticate_ws(websocket: WebSocket) -> str | None:
     return payload.get("sub")
 
 
-
-
 async def _ultimo_sin_leer(imap) -> int | None:
     """UID del correo sin leer más reciente de INBOX. Si algo falla, None: el aviso
     sale igual, apuntando a la bandeja."""
@@ -55,8 +54,12 @@ async def _ultimo_sin_leer(imap) -> int | None:
         r = await imap.uid_search("UNSEEN")
         if getattr(r, "result", "") != "OK":
             return None
-        for linea in (r.lines or []):
-            texto = linea.decode("utf-8", "replace") if isinstance(linea, bytes) else str(linea)
+        for linea in r.lines or []:
+            texto = (
+                linea.decode("utf-8", "replace")
+                if isinstance(linea, bytes)
+                else str(linea)
+            )
             uids = [u for u in texto.split() if u.isdigit()]
             if uids:
                 return int(uids[-1])
@@ -65,26 +68,43 @@ async def _ultimo_sin_leer(imap) -> int | None:
         return None
 
 
-async def aviso_correo_al_canal(username: str, nuevos: int, sin_leer: int, uid: int | None = None) -> None:
+async def aviso_correo_al_canal(
+    username: str, nuevos: int, sin_leer: int, uid: int | None = None
+) -> None:
     """Avisa al canal de notificaciones (lo que ve la app de escritorio) que llegó
     correo. tipo='correo' y url del webmail; nunca interrumpe la operación."""
     import os
+
     try:
-        secreto = os.getenv('NOTIF_SECRET', '')
+        secreto = os.getenv("NOTIF_SECRET", "")
         if not secreto or not username:
             return
-        texto = ('Tienes 1 correo nuevo' if nuevos == 1 else 'Tienes %d correos nuevos' % nuevos)
+        texto = (
+            "Tienes 1 correo nuevo"
+            if nuevos == 1
+            else "Tienes %d correos nuevos" % nuevos
+        )
         if sin_leer and sin_leer != nuevos:
-            texto += ' (%d sin leer)' % sin_leer
+            texto += " (%d sin leer)" % sin_leer
         import httpx
+
         async with httpx.AsyncClient(timeout=4) as c:
-            await c.post('https://mail.maquita.org/api/chat/notificaciones',
-                         headers={'X-Notif-Secret': secreto},
-                         json={'correos': [username], 'tipo': 'correo',
-                               'titulo': 'Correo nuevo', 'texto': texto,
-                               'url': ('https://mail.maquita.org/webmail/?folder=INBOX&uid=%d' % uid
-                                       if uid else 'https://mail.maquita.org/webmail/'),
-                               'origen': 'correo'})
+            await c.post(
+                "https://mail.maquita.org/api/chat/notificaciones",
+                headers={"X-Notif-Secret": secreto},
+                json={
+                    "correos": [username],
+                    "tipo": "correo",
+                    "titulo": "Correo nuevo",
+                    "texto": texto,
+                    "url": (
+                        "https://mail.maquita.org/webmail/?folder=INBOX&uid=%d" % uid
+                        if uid
+                        else "https://mail.maquita.org/webmail/"
+                    ),
+                    "origen": "correo",
+                },
+            )
     except Exception:
         pass
 
@@ -126,7 +146,11 @@ async def _redis_subscriber(app_state):
                 try:
                     channel = message["channel"]
                     # channel = "ws:user:username@domain.com"
-                    username = channel.split("ws:user:", 1)[1] if "ws:user:" in channel else None
+                    username = (
+                        channel.split("ws:user:", 1)[1]
+                        if "ws:user:" in channel
+                        else None
+                    )
                     if not username or username not in _connections:
                         continue
                     data = json.loads(message["data"])
@@ -157,9 +181,14 @@ async def _poll_user_inbox(username: str, app_state):
             raw_pass = await redis.get(f"imap_pass:{username}")
             if not raw_pass:
                 # Session expired — notify client
-                await redis.publish(f"ws:user:{username}", json.dumps({
-                    "type": "session_expired",
-                }))
+                await redis.publish(
+                    f"ws:user:{username}",
+                    json.dumps(
+                        {
+                            "type": "session_expired",
+                        }
+                    ),
+                )
                 break
 
             try:
@@ -169,6 +198,7 @@ async def _poll_user_inbox(username: str, app_state):
 
             # Quick IMAP check: just get INBOX unseen count
             from app.mail.clients.imap_client import get_imap_connection
+
             imap = None
             try:
                 imap = await asyncio.wait_for(
@@ -184,8 +214,13 @@ async def _poll_user_inbox(username: str, app_state):
                 total = 0
                 if resp.result == "OK":
                     for line in resp.lines:
-                        text = line.decode("utf-8", "replace") if isinstance(line, bytes) else str(line)
+                        text = (
+                            line.decode("utf-8", "replace")
+                            if isinstance(line, bytes)
+                            else str(line)
+                        )
                         import re
+
                         m_unseen = re.search(r"UNSEEN\s+(\d+)", text)
                         m_total = re.search(r"MESSAGES\s+(\d+)", text)
                         if m_unseen:
@@ -196,36 +231,56 @@ async def _poll_user_inbox(username: str, app_state):
                 prev = _last_unseen.get(username, -1)
                 if prev != -1 and unseen > prev:
                     # New mail arrived
-                    await redis.publish(f"ws:user:{username}", json.dumps({
-                        "type": "new_mail",
-                        "folder": "INBOX",
-                        "unseen": unseen,
-                        "total": total,
-                        "delta": unseen - prev,
-                    }))
+                    await redis.publish(
+                        f"ws:user:{username}",
+                        json.dumps(
+                            {
+                                "type": "new_mail",
+                                "folder": "INBOX",
+                                "unseen": unseen,
+                                "total": total,
+                                "delta": unseen - prev,
+                            }
+                        ),
+                    )
                     # Aviso al canal del cliente Windows (tipo «correo»)
                     _uid_nuevo = await _ultimo_sin_leer(imap)
-                    await aviso_correo_al_canal(username, unseen - prev, unseen, _uid_nuevo)
+                    await aviso_correo_al_canal(
+                        username, unseen - prev, unseen, _uid_nuevo
+                    )
                     # Web push (#17): notifica al navegador aunque la PWA este cerrada.
                     try:
                         from app.push import service as _push
+
                         _n = unseen - prev
-                        _txt = ('Tienes 1 correo nuevo' if _n == 1
-                                else 'Tienes %d correos nuevos' % _n)
-                        _url = (('/webmail/?folder=INBOX&uid=%d' % _uid_nuevo)
-                                if _uid_nuevo else '/webmail/')
-                        await _push.enviar_a_usuario(app_state.db_pool, username,
-                                                     'Correo nuevo', _txt, _url)
+                        _txt = (
+                            "Tienes 1 correo nuevo"
+                            if _n == 1
+                            else "Tienes %d correos nuevos" % _n
+                        )
+                        _url = (
+                            ("/webmail/?folder=INBOX&uid=%d" % _uid_nuevo)
+                            if _uid_nuevo
+                            else "/webmail/"
+                        )
+                        await _push.enviar_a_usuario(
+                            app_state.db_pool, username, "Correo nuevo", _txt, _url
+                        )
                     except Exception:
                         pass
                 elif unseen != prev:
                     # Unseen count changed (read/deleted externally)
-                    await redis.publish(f"ws:user:{username}", json.dumps({
-                        "type": "folder_update",
-                        "folder": "INBOX",
-                        "unseen": unseen,
-                        "total": total,
-                    }))
+                    await redis.publish(
+                        f"ws:user:{username}",
+                        json.dumps(
+                            {
+                                "type": "folder_update",
+                                "folder": "INBOX",
+                                "unseen": unseen,
+                                "total": total,
+                            }
+                        ),
+                    )
 
                 _last_unseen[username] = unseen
 
@@ -285,7 +340,9 @@ async def websocket_endpoint(websocket: WebSocket):
 
     # Send connected confirmation
     await _send_safe(websocket, {"type": "connected", "username": username})
-    logger.info(f"WS connected: {username} (total: {len(_connections.get(username, set()))})")
+    logger.info(
+        f"WS connected: {username} (total: {len(_connections.get(username, set()))})"
+    )
 
     # Heartbeat + receive loop
     try:

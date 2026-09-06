@@ -9,7 +9,9 @@ from app.config import get_settings
 
 def create_access_token(username: str) -> str:
     settings = get_settings()
-    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)
+    expire = datetime.now(timezone.utc) + timedelta(
+        minutes=settings.access_token_expire_minutes
+    )
     payload = {
         "sub": username,
         "exp": expire,

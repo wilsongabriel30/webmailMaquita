@@ -6,6 +6,7 @@ Best-effort: si docker o la imagen no están, se omite sin romper el envío.
 Se habilita con SAFEATTACH_DETONATE=1 una vez construida la imagen
 (ver deploy/safeattach/README.md).
 """
+
 import os
 import shutil
 import subprocess
@@ -38,25 +39,55 @@ class DockerSandbox(Analyzer):
             sample = os.path.join(work, base)
             with open(sample, "wb") as f:
                 f.write(content)
-            cmd = ["docker", "run", "--rm", "--network", "none", "--read-only",
-                   "--tmpfs", "/tmp:size=256m,exec", "-e", "HOME=/tmp",
-                   "--memory", "512m", "--cpus", "1", "--pids-limit", "128",
-                   "--user", "nobody", "--security-opt", "no-new-privileges",
-                   "-v", f"{work}:/sample:ro", IMAGE, "/sample/" + base]
+            cmd = [
+                "docker",
+                "run",
+                "--rm",
+                "--network",
+                "none",
+                "--read-only",
+                "--tmpfs",
+                "/tmp:size=256m,exec",
+                "-e",
+                "HOME=/tmp",
+                "--memory",
+                "512m",
+                "--cpus",
+                "1",
+                "--pids-limit",
+                "128",
+                "--user",
+                "nobody",
+                "--security-opt",
+                "no-new-privileges",
+                "-v",
+                f"{work}:/sample:ro",
+                IMAGE,
+                "/sample/" + base,
+            ]
             r = subprocess.run(cmd, capture_output=True, text=True, timeout=TIMEOUT)
             out = (r.stdout or "").strip()
             report.engines["detonation"] = out[:1000] or "sin observaciones"
             low = out.lower()
             if "malicious" in low or "malware" in low:
-                report.findings.append(Finding("detonation", MALICIOUS,
-                                               "comportamiento malicioso en sandbox"))
+                report.findings.append(
+                    Finding(
+                        "detonation", MALICIOUS, "comportamiento malicioso en sandbox"
+                    )
+                )
             elif "suspicious" in low:
-                report.findings.append(Finding("detonation", SUSPICIOUS,
-                                               "comportamiento sospechoso en sandbox"))
+                report.findings.append(
+                    Finding(
+                        "detonation", SUSPICIOUS, "comportamiento sospechoso en sandbox"
+                    )
+                )
         except subprocess.TimeoutExpired:
             report.engines["detonation"] = "timeout"
-            report.findings.append(Finding("detonation", SUSPICIOUS,
-                                           "el análisis dinámico excedió el tiempo"))
+            report.findings.append(
+                Finding(
+                    "detonation", SUSPICIOUS, "el análisis dinámico excedió el tiempo"
+                )
+            )
         except FileNotFoundError:
             report.engines["detonation"] = "docker no disponible"
         finally:

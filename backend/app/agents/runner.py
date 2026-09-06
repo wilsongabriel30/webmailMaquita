@@ -1,9 +1,12 @@
 """Orquestador: ejecuta un agente con su contexto."""
+
 from app.agents.context import AgentContext
 from app.agents.registry import AGENTS
 
 
-async def run_agent(name: str, db, redis, settings, dry_run: bool = True, params: dict = None) -> dict:
+async def run_agent(
+    name: str, db, redis, settings, dry_run: bool = True, params: dict = None
+) -> dict:
     agent = AGENTS.get(name)
     if not agent:
         raise ValueError(f"agente desconocido: {name}")
