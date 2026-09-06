@@ -15,6 +15,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Seguridad
 
+- **[L-02 chat] `call_invite` y el resto de la señalización de llamadas verifican relación y
+  bloqueo**: el destino tiene que compartir conversación (la indicada o alguna), ser de la misma
+  organización y no haber bloqueo en ningún sentido; si no, `LLAMADA_RECHAZADA` en el registro.
 - **[M-03/L-01 chat] La presencia solo la ve quien comparte conversación.** `get_presence`,
   `/estado/<id>`, `/estado/varios` y `/presence/<id>` filtran por relación; conectar, desconectar
   y cambiar de estado ya no se emiten a todos los conectados, solo a los relacionados

@@ -2,6 +2,26 @@
 """Señalización de llamadas 1a1 (invite/accept/offer/answer/ice/hangup/reject). Extraído de manejador_websocket._registrar_eventos (líneas 1374-1503) el 28/08/2026 sin cambios.
 Los manejadores se registran al llamar registrar(socketio) desde manejador_websocket._registrar_eventos()."""
 from interfaces.websocket.manejador_websocket import *  # noqa: F401,F403
+from interfaces.websocket.manejador_websocket import _cerrar_servicio, _obtener_servicio_chat, _ws_redis  # noqa: F401
+
+
+def _destino_permitido(usuario_id, target_user_id, chat_id, evento):
+    """[L-02] Relación (conversación compartida), misma organización y sin bloqueo. Fallo cerrado."""
+    servicio = None
+    try:
+        from interfaces import relacion_chat
+        servicio = _obtener_servicio_chat(auto_commit=False)
+        ok, motivo = relacion_chat.puede_llamar(
+            servicio._db_session, usuario_id, target_user_id, chat_id, _ws_redis)
+    except Exception as exc:
+        ok, motivo = False, f"error:{str(exc)[:60]}"
+    finally:
+        if servicio:
+            _cerrar_servicio(servicio)
+    if not ok:
+        logger.warning("LLAMADA_RECHAZADA evento=%s de=%s a=%s motivo=%s",
+                       evento, usuario_id, target_user_id, motivo)
+    return ok
 
 
 def registrar(socketio):
@@ -20,6 +40,10 @@ def registrar(socketio):
         target_user_id = data.get('target_user_id')
         if not target_user_id:
             print(f"[WebRTC] call_invite rechazado: sin target_user_id")
+            return
+        # [L-02] solo se llama a quien comparte conversación, de la misma organización y sin bloqueo
+        if not _destino_permitido(usuario_id, target_user_id, data.get('chat_id'), 'call_invite'):
+            emit('call_error', {'motivo': 'destino_no_permitido'})
             return
         print(f"[WebRTC] Emitiendo call_incoming de {usuario_id} a user_{target_user_id}")
         try:
@@ -57,6 +81,8 @@ def registrar(socketio):
         target_user_id = data.get('target_user_id')
         if not target_user_id:
             return
+        if not _destino_permitido(usuario_id, target_user_id, data.get('chat_id'), 'senalizacion'):
+            return
         print(f"[WebRTC] Emitiendo call_accepted a user_{target_user_id}")
         socketio.emit('call_accepted', {
             'accepted_by': usuario_id
@@ -71,6 +97,8 @@ def registrar(socketio):
             return
         target_user_id = data.get('target_user_id')
         if not target_user_id:
+            return
+        if not _destino_permitido(usuario_id, target_user_id, data.get('chat_id'), 'senalizacion'):
             return
         socketio.emit('call_offer', {
             'from': usuario_id,
@@ -87,6 +115,8 @@ def registrar(socketio):
         target_user_id = data.get('target_user_id')
         if not target_user_id:
             return
+        if not _destino_permitido(usuario_id, target_user_id, data.get('chat_id'), 'senalizacion'):
+            return
         socketio.emit('call_answer', {
             'from': usuario_id,
             'sdp': data.get('sdp')
@@ -100,6 +130,8 @@ def registrar(socketio):
             return
         target_user_id = data.get('target_user_id')
         if not target_user_id:
+            return
+        if not _destino_permitido(usuario_id, target_user_id, data.get('chat_id'), 'senalizacion'):
             return
         print(f"[WebRTC] ice_candidate de user {usuario_id} a user_{target_user_id}")
         socketio.emit('ice_candidate', {
@@ -116,6 +148,8 @@ def registrar(socketio):
         target_user_id = data.get('target_user_id')
         if not target_user_id:
             return
+        if not _destino_permitido(usuario_id, target_user_id, data.get('chat_id'), 'senalizacion'):
+            return
         socketio.emit('call_hangup', {
             'from': usuario_id
         }, room=f"user_{target_user_id}")
@@ -129,6 +163,8 @@ def registrar(socketio):
             return
         target_user_id = data.get('target_user_id')
         if not target_user_id:
+            return
+        if not _destino_permitido(usuario_id, target_user_id, data.get('chat_id'), 'senalizacion'):
             return
         socketio.emit('call_rejected', {
             'rejected_by': usuario_id
