@@ -545,6 +545,9 @@ class ApiRateLimitMiddleware(BaseHTTPMiddleware):
 
 
 class SecurityAuditMiddleware(BaseHTTPMiddleware):
+    # La IP se toma de X-Real-IP. SOLO es fiable detrás del nginx del proyecto, que
+    # la sobrescribe siempre con la dirección real del cliente (proxy_set_header).
+    # Si el backend se expusiera sin ese proxy, cualquiera podría fijarla a voluntad.
     async def dispatch(self, request, call_next):
         response = await call_next(request)
         key = (request.url.path, response.status_code)
