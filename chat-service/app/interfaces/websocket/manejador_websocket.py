@@ -461,9 +461,8 @@ def emitir_mensaje_nuevo(conversacion_id: int, mensaje_data: Dict[str, Any]):
     if socketio:
         room = f"conversation_{conversacion_id}"
 
-        print(f"[WebSocket] 📤 emitir_mensaje_nuevo llamado")
-        print(f"[WebSocket] 📤 mensaje_data keys: {list(mensaje_data.keys())}")
-        print(f"[WebSocket] 📤 tipo: {mensaje_data.get('tipo')}, gif_url: {mensaje_data.get('gif_url')}")
+        logger.debug("[WebSocket] emitir_mensaje_nuevo id=%s conv=%s tipo=%s",
+                     mensaje_data.get('id'), conversacion_id, mensaje_data.get('tipo'))
 
         # Emitir en formato legacy para compatibilidad
         socketio.emit('new_message', mensaje_data, room=room)
@@ -489,7 +488,10 @@ def emitir_mensaje_nuevo(conversacion_id: int, mensaje_data: Dict[str, Any]):
             'gif_url': mensaje_data.get('gif_url'),
             'nombre': nombre_remitente
         }
-        print(f"[WebSocket] 📤 Emitiendo 'msg' v3.0 a sala {room}: {msg_compact}")
+        # [M-07] Nunca el contenido del mensaje en los registros: solo id, remitente, sala y tamano.
+        logger.debug("[WebSocket] msg id=%s remitente=%s sala=%s bytes=%s",
+                     msg_compact.get('id'), msg_compact.get('u') or msg_compact.get('from'), room,
+                     len(str(msg_compact.get('m') or msg_compact.get('content') or '').encode('utf-8')))
         socketio.emit('msg', msg_compact, room=room)
 
         # Canal único de notificaciones (evento 'notificacion' a user_<id>)

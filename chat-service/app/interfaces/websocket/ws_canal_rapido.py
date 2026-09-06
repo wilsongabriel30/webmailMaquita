@@ -99,7 +99,7 @@ def registrar(socketio, base):
 
         try:
             # 2. Guardar en BD con client_id para idempotencia
-            print(f"[WS-DEBUG] Enviando mensaje: conv={conversacion_id}, user={usuario_id}, client_id={client_id}, tipo={tipo}")
+            logger.debug("[WebSocket] send conv=%s user=%s client_id=%s tipo=%s", conversacion_id, usuario_id, client_id, tipo)
             servicio = _obtener_servicio_chat()
 
             # Si es un GIF, usar el servicio de GIF
@@ -119,7 +119,7 @@ def registrar(socketio, base):
                     respuesta_a_id=respuesta_a,
                     client_id=client_id  # Para constraint UNIQUE en BD
                 )
-            print(f"[WS-DEBUG] Resultado enviar_mensaje: exito={resultado.exito}, mensaje={resultado.mensaje}")
+            logger.debug("[WebSocket] send resultado exito=%s", resultado.exito)
 
             if resultado.exito:
                 # IMPORTANTE: Commit para persistir el mensaje
@@ -142,8 +142,7 @@ def registrar(socketio, base):
 
                 # 4. Emitir a otros en la conversacion (formato compacto)
                 room = f"conversation_{conversacion_id}"
-                print(f"[WebSocket] ⚡⚡⚡ Emitiendo 'msg' a sala {room} (mensaje {mensaje_id} de usuario {usuario_id})")
-                print(f"[WebSocket] Usuarios conectados: {list(usuarios_conectados.keys())}")
+                logger.debug("[WebSocket] msg id=%s remitente=%s sala=%s", mensaje_id, usuario_id, room)
                 print(f"[WebSocket] SID actual (skip): {request.sid}")
 
                 # Debug: Listar SIDs y ver clientes en la sala destino
@@ -186,7 +185,8 @@ def registrar(socketio, base):
                         'media_type': 'gif'
                     }]
 
-                print(f"[WebSocket] 📤 Emitiendo msg_data: {msg_data}")
+                logger.debug("[WebSocket] msg id=%s sala=%s bytes=%s", mensaje_id, room,
+                             len(str(msg_data.get('m') or '').encode('utf-8')))  # [M-07] sin contenido
                 socketio.emit('msg', msg_data, room=room, skip_sid=request.sid)
                 print(f"[WebSocket] ✅ emit() ejecutado a sala {room}")
 
@@ -213,7 +213,6 @@ def registrar(socketio, base):
                 # Limpiar indicador de escritura
                 _limpiar_indicador(conversacion_id, usuario_id)
 
-                print(f"[WebSocket] Mensaje {mensaje_id} emitido exitosamente a {room}")
                 logger.info(f"[WebSocket] Mensaje {mensaje_id} enviado por {usuario_id} a {room}")
             else:
                 # Error al guardar - emitir msg_failed
