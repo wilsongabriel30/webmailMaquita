@@ -83,3 +83,23 @@ valor compartido no coincide, nombrando la variable y nunca el valor. Detalle en
 
 Precedente que lo justifica: el 2026-09-03 se rotaron secretos y el chat quedó 17
 horas rechazando sesiones sin que nadie lo notara.
+
+## D-3. `pickle` en el canal interno del editor de PDF del almacén
+
+**Fecha:** 2026-09-06 · **Estado:** deuda aceptada con fecha; se migra a JSON al tocar el módulo
+
+`almacen/aplicaciones/pdf_editor/infraestructura/externos/worker_pdf.py:117` y
+`pool_pdf.py:265` deserializan con `pickle.loads` lo que llega por el canal entre
+el proceso del almacén y sus trabajadores de PDF. Hoy ese canal es interno (tuberías
+entre procesos del mismo servicio, mismo usuario, sin exposición de red), así que
+no hay vía de ataque desde fuera.
+
+Se anota igualmente porque es el patrón que se convierte en ejecución remota de
+código el día que ese canal se exponga (cola compartida, red, otro usuario): con
+`pickle`, quien controle los bytes controla el proceso. La regla es que ningún
+dato que cruce una frontera de confianza se deserialice con `pickle`.
+
+Compromiso: **la próxima intervención en `pdf_editor` sustituye `pickle` por JSON**
+(las tareas son nombre + argumentos serializables; el contenido binario viaja por
+ficheros, no por el canal). Hasta entonces, el módulo no se conecta a ninguna cola
+ni socket. Hallazgo de la validación externa del 2026-09-06.
