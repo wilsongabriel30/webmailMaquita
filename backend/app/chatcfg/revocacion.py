@@ -54,7 +54,9 @@ async def _empujar(username: str, sid: str, av: int, motivo: str) -> None:
     secreto = _secreto_servicios()
     if not secreto:
         security_log.error(
-            "REVOCACION_CHAT_FALLIDA user=%s sid=%s error=sin NOTIF_SECRET", username, sid
+            "REVOCACION_CHAT_FALLIDA user=%s sid=%s error=sin NOTIF_SECRET",
+            username,
+            sid,
         )
         return
     ultimo = ""
@@ -65,7 +67,12 @@ async def _empujar(username: str, sid: str, av: int, motivo: str) -> None:
             async with httpx.AsyncClient(timeout=6) as c:
                 r = await c.post(
                     f"{url}/api/chat/sesion/revocar",
-                    json={"user": username, "sid": sid, "av": av, "motivo": motivo[:60]},
+                    json={
+                        "user": username,
+                        "sid": sid,
+                        "av": av,
+                        "motivo": motivo[:60],
+                    },
                     headers={"X-Notif-Secret": secreto},
                 )
             if r.status_code == 200:
