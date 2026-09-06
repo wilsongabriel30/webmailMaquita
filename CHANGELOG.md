@@ -7,6 +7,29 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Seguridad
+
+- **[F-02] SAML: aserción validada de verdad.** Toda lectura (Status, Assertion, NameID) sale del XML
+  que devolvió el verificador de firma, nunca del árbol original (XML Signature Wrapping); se exige
+  exactamente una Assertion; `InResponseTo` se consume de un solo uso (GETDEL); se validan `Destination`,
+  `Recipient`, `AudienceRestriction`, `NotBefore`/`NotOnOrAfter` con tolerancia de reloj y el `ID` de la
+  Assertion es de un solo uso (SET NX). `signxml` y `lxml` fijados (R-11). Pruebas negativas con un IdP
+  de laboratorio para cada condición, incluido el wrapping. SAML sigue inactivo hasta probarlo con el IdP
+  real. Cierra A-10.
+- **[R-03] Importación de contactos y correos con límite en la aplicación y sin cargar el archivo en
+  memoria.** `import_contacts_max_mb` (10) e `import_emails_max_mb` (200); el upload va a disco en
+  trozos y MBOX se analiza desde el archivo. nginx (`client_max_body_size`) queda como segunda capa.
+- **[F-06] La cuota del Drive se aplica al admitir archivos.** Antes solo se calculaba y se mostraba: se
+  podía superar subiendo varios archivos. Ahora, antes de escribir, se reserva atómicamente el tamaño
+  declarado (bloqueo de la fila de uso), hay un umbral global de espacio libre (`ALMACEN_MINIMO_LIBRE_BYTES`,
+  5 GB) y, sin `Content-Length` fiable, se contabiliza durante el streaming y se aborta al superar la cuota
+  (413) o el espacio (507). Pruebas en `almacen/tests/test_cuota_admision.py`.
+- **[F-05] Webhooks sin SSRF por DNS.** La validación resolvía el nombre una vez y la entrega volvía a
+  resolverlo (rebinding hacia 127.0.0.1 o la red interna). Ahora se resuelven TODAS las A/AAAA con
+  `getaddrinfo`, se rechaza si cualquiera es privada/loopback/enlace local, y la entrega conecta a la
+  IP validada con `Host` y SNI del nombre, sin seguir redirecciones; en producción solo `https://`.
+  Política de egreso del sistema para el proceso en `deploy/webmail/nftables/egreso-backend.nft`.
+
 ## [1.7.0] - 2026-09-06
 
 Cierra la P0 y la P1 de la tercera, cuarta y quinta revisión externa (ASVS). **Corte único al

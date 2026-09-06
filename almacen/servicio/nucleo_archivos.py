@@ -22,6 +22,7 @@ from datetime import datetime, timezone
 
 from almacen_bd import consultar, ejecutar
 from config_almacen import CUOTA_DEFECTO_BYTES
+from cuota_admision import CuotaExcedida, SinEspacio  # noqa: F401  (los reexporta para la API)
 from seguridad_rutas import RutaInvalida, normalizar_ruta_virtual, raiz_usuario, ruta_fisica
 
 log = logging.getLogger('almacen.nucleo')
@@ -239,7 +240,7 @@ def _purgar_versiones(usuario_id: int, ruta_virtual: str, incluir_hijos: bool = 
         ejecutar('DELETE FROM versiones WHERE id = %s', (fila['id'],))
 
 
-def subir(usuario_id: int, ruta_carpeta: str, nombre: str, flujo) -> dict:
+def subir(usuario_id: int, ruta_carpeta: str, nombre: str, flujo, tamano_esperado: int = 0) -> dict:
     """
     Guarda un archivo por STREAMING (nunca se carga completo a memoria),
     calculando su hash SHA-256 al vuelo para DEDUPLICAR.
@@ -272,25 +273,37 @@ def subir(usuario_id: int, ruta_carpeta: str, nombre: str, flujo) -> dict:
         # purgan — el archivo nuevo no debe heredar historial ajeno.
         _purgar_versiones(usuario_id, ruta_final)
 
+    # [F-06] Admisión por cuota ANTES de escribir: reserva atómica de lo declarado, umbral
+    # global de espacio libre, y contabilidad durante el streaming si no hay tamaño fiable.
+    from almacen_bd import conexion as _conexion
+    from config_almacen import raiz_datos as _raiz
+    import cuota_admision as _ca
+    _ca.comprobar_espacio_global(_raiz())
+    _q = cuota(usuario_id)
+    _limite, _usado = int(_q['total'] or 0), int(_q['usado'] or 0)
+    _reserva = _ca.reservar(_conexion, usuario_id, int(tamano_esperado or 0), _limite, _usado)
     temporal = fisica + f'.subiendo-{os.getpid()}-{int(time.time()*1000)}'
     hasher = hashlib.sha256()
     escrito = 0
+    publicado = False
     try:
         with open(temporal, 'wb') as destino:
             while True:
                 trozo = flujo.read(1024 * 1024)   # 1 MB por vuelta
                 if not trozo:
                     break
+                escrito += len(trozo)
+                _ca.comprobar_durante(_usado, escrito, _limite, int(tamano_esperado or 0))
                 destino.write(trozo)
                 hasher.update(trozo)
-                escrito += len(trozo)
-
         digest = hasher.hexdigest()
         if _publicar_con_dedup(temporal, fisica, digest, escrito):
             temporal = None   # el temporal ya fue consumido (movido o borrado)
+        publicado = True
     finally:
         if temporal and os.path.exists(temporal):
             os.remove(temporal)
+        _ca.liberar(_conexion, _reserva, usuario_id, escrito if publicado else 0)
 
     log.info('Subido %s (%d bytes) usuario %s', ruta_final, escrito, usuario_id)
     return {'nombre': nombre, 'ruta': ruta_final, 'tamano_bytes': escrito,

@@ -81,6 +81,9 @@ class Settings(BaseSettings):
     rate_limit_send_per_min: int = 10
 
     environment: str = "production"  # "development"/"dev"/"local" habilita /docs
+    # [R-03] Límites de importación en la aplicación (nginx client_max_body_size es la 2ª capa)
+    import_contacts_max_mb: int = 10
+    import_emails_max_mb: int = 200
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 

@@ -11,39 +11,19 @@ from datetime import datetime, timezone
 from typing import Optional
 from urllib.parse import urlparse
 
-import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field, HttpUrl
 
 from app.auth.dependencies import get_current_user
-
-# Anti-SSRF: bloquear URLs a redes internas
-_BLOCKED_NETS = [
-    ipaddress.ip_network("10.0.0.0/8"),
-    ipaddress.ip_network("172.16.0.0/12"),
-    ipaddress.ip_network("192.168.0.0/16"),
-    ipaddress.ip_network("127.0.0.0/8"),
-    ipaddress.ip_network("169.254.0.0/16"),
-    ipaddress.ip_network("::1/128"),
-    ipaddress.ip_network("fc00::/7"),
-]
+from app.webhooks import salida_segura
 
 
 def _validate_webhook_url(url: str) -> None:
-    """Validate webhook URL is not pointing to internal services."""
-    parsed = urlparse(url)
-    if parsed.scheme not in ("https", "http"):
-        raise ValueError("Solo se permiten URLs HTTP/HTTPS")
-    if not parsed.hostname:
-        raise ValueError("URL sin hostname")
+    """Anti-SSRF (F-05): todas las direcciones del nombre, sin privadas, solo https en producción."""
     try:
-        resolved = socket.gethostbyname(parsed.hostname)
-        ip = ipaddress.ip_address(resolved)
-        for net in _BLOCKED_NETS:
-            if ip in net:
-                raise ValueError(f"URL apunta a red interna/privada")
-    except socket.gaierror:
-        raise ValueError("Hostname no resolvible")
+        salida_segura.destino_validado(url)
+    except salida_segura.DestinoNoPermitido as exc:
+        raise ValueError(str(exc))
 
 
 logger = logging.getLogger("webhooks")
@@ -281,18 +261,18 @@ async def _fire_webhook(db, webhook: dict, event: str, payload: dict):
     resp_status = None
     resp_body = None
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.post(
-                webhook["url"],
-                content=body_bytes,
-                headers={
-                    "Content-Type": "application/json",
-                    "X-Webhook-Signature": signature,
-                    "X-Webhook-Event": event,
-                },
-            )
-            resp_status = resp.status_code
-            resp_body = resp.text[:2000]
+        # F-05: se resuelve y valida TODO el nombre y se conecta a la IP validada (sin rebinding)
+        resp = await salida_segura.enviar(
+            salida_segura.destino_validado(webhook["url"]),
+            body_bytes,
+            {
+                "Content-Type": "application/json",
+                "X-Webhook-Signature": signature,
+                "X-Webhook-Event": event,
+            },
+        )
+        resp_status = resp.status_code
+        resp_body = resp.text[:2000]
     except Exception as e:
         resp_status = 0
         resp_body = str(e)[:2000]

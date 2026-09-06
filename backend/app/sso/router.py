@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import base64
+import logging
 import uuid
 import zlib
 from datetime import datetime, timezone
 from typing import Optional
 from urllib.parse import urlencode
-from xml.etree import ElementTree as ET
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -17,6 +17,8 @@ from pydantic import BaseModel
 from app.auth.dependencies import get_current_user, require_admin
 from app.auth.jwt import create_access_token, create_refresh_token
 from app.config import get_settings
+
+security_logger = logging.getLogger("security")
 
 router = APIRouter(prefix="/api/sso", tags=["sso"])
 
@@ -126,20 +128,22 @@ async def saml_login(request: Request):
 
 @router.post("/saml/acs")
 async def saml_acs(request: Request):
+    """ACS (F-02): firma verificada y TODO lo demás leído del XML verificado, con correlación
+    de un solo uso, Destination/Recipient/Audience/tiempos y Assertion ID de un solo uso.
+    Ver app/sso/saml_seguridad.py."""
     db = _db(request)
     redis = _redis(request)
     form = await request.form()
     saml_response_b64 = form.get("SAMLResponse")
     if not saml_response_b64:
         raise HTTPException(400, "No SAMLResponse recibido")
-
     try:
         saml_xml = base64.b64decode(saml_response_b64)
-        root = ET.fromstring(saml_xml)
-    except Exception as exc:
-        raise HTTPException(400, f"SAMLResponse inválido: {exc}")
+        if len(saml_xml) > 256 * 1024:
+            raise ValueError("demasiado grande")
+    except Exception:
+        raise HTTPException(400, "SAMLResponse inválido")
 
-    # ── Verify SAML XML signature (critical: prevents auth bypass) ──
     cfg = await db.fetchrow(
         "SELECT certificate FROM sso_config WHERE is_active = true LIMIT 1"
     )
@@ -148,44 +152,52 @@ async def saml_acs(request: Request):
             500, "SSO: No hay certificado IdP configurado para verificar firma"
         )
 
+    from lxml import etree as lxml_etree
+    from signxml import XMLVerifier
+
+    from app.sso import saml_seguridad as ss
+
     try:
-        from lxml import etree as lxml_etree
-        from signxml import XMLVerifier
+        parser = lxml_etree.XMLParser(
+            resolve_entities=False, no_network=True, huge_tree=False
+        )
+        lxml_root = lxml_etree.fromstring(saml_xml, parser=parser)
+        verified = XMLVerifier().verify(lxml_root, x509_cert=cfg["certificate"])
+    except Exception:
+        security_logger.warning(
+            "SAML_FIRMA_INVALIDA ip=%s", request.client.host if request.client else "?"
+        )
+        raise HTTPException(403, "Firma SAML inválida")
 
-        idp_cert_pem = cfg["certificate"]
-        lxml_root = lxml_etree.fromstring(saml_xml)
-        XMLVerifier().verify(lxml_root, x509_cert=idp_cert_pem)
-    except Exception as sig_exc:
-        raise HTTPException(403, f"Firma SAML inválida: {sig_exc}")
+    try:
+        response, assertion = ss.extraer_verificado(verified)
+        datos = ss.validar(
+            response,
+            assertion,
+            acs_url=SP_ACS_URL,
+            entity_id=SP_ENTITY_ID,
+            response_sin_firmar=lxml_root,
+        )
+        await ss.consumir_una_vez(
+            redis,
+            datos["in_response_to"],
+            datos["assertion_id"],
+            datos["not_on_or_after"],
+        )
+    except ss.SAMLRechazada as exc:
+        security_logger.warning("SAML_RECHAZADA motivo=%s", str(exc)[:120])
+        raise HTTPException(403, "Respuesta SAML rechazada")
 
-    # Extract NameID (email)
-    ns = {
-        "saml": "urn:oasis:names:tc:SAML:2.0:assertion",
-        "samlp": "urn:oasis:names:tc:SAML:2.0:protocol",
-    }
-
-    status_el = root.find(".//samlp:Status/samlp:StatusCode", ns)
-    if status_el is not None:
-        status_value = status_el.get("Value", "")
-        if "Success" not in status_value:
-            raise HTTPException(403, f"SAML auth fallida: {status_value}")
-
-    name_id_el = root.find(".//saml:Assertion/saml:Subject/saml:NameID", ns)
-    if name_id_el is None:
-        name_id_el = root.find(".//saml:NameID", ns)
-    if name_id_el is None or not name_id_el.text:
-        raise HTTPException(400, "No se encontró NameID en la respuesta SAML")
-
-    email = name_id_el.text.strip().lower()
-
-    # Verify domain
+    email = datos["name_id"]
     from app.config import get_settings
 
     settings = get_settings()
     if not email.endswith(f"@{settings.mail_domain}"):
-        raise HTTPException(
-            403, f"Email {email} no pertenece al dominio {settings.mail_domain}"
-        )
+        raise HTTPException(403, "La cuenta no pertenece al dominio del correo")
+    if not await db.fetchval(
+        "SELECT 1 FROM mailbox WHERE username = $1 AND active = true", email
+    ):
+        raise HTTPException(403, "La cuenta no tiene un buzón activo")
 
     # Sesión federada (kind=saml): mismo modelo sid/av que el resto (F-01/F-04).
     from datetime import datetime, timedelta, timezone
@@ -204,14 +216,12 @@ async def saml_acs(request: Request):
         master="admin",
         user_agent="SSO-SAML",
     )
-    # Set flag so frontend knows this is SSO session
     await redis.setex(f"sso_session:{email}", 86400, "saml")
-
-    response = RedirectResponse(
+    response_http = RedirectResponse(
         url=f"https://{settings.cookie_domain}/", status_code=302
     )
-    poner_cookies_sesion(response, request, sesion)
-    return response
+    poner_cookies_sesion(response_http, request, sesion)
+    return response_http
 
 
 # ── SAML Logout ───────────────────────────────────────────
@@ -225,7 +235,9 @@ async def saml_logout(request: Request, user: str = Depends(get_current_user)):
         "SELECT slo_url FROM sso_config WHERE is_active = true LIMIT 1"
     )
     await redis.delete(f"sso_session:{user}")
-    await redis.delete(f"imap_pass:{user}")
+    from app.auth.sesiones import cerrar_sid
+
+    await cerrar_sid(db, redis, user, request.state.sid, "saml_logout")
 
     if cfg and cfg["slo_url"]:
         return RedirectResponse(url=cfg["slo_url"], status_code=302)
