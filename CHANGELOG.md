@@ -7,6 +7,11 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.7.0] - 2026-09-06
+
+Cierra la P0 y la P1 de la tercera, cuarta y quinta revisión externa (ASVS). **Corte único al
+desplegar**: todo el mundo vuelve a iniciar sesión una vez. Cómo actualizar desde 1.6.1: `UPGRADING.md`.
+
 ### Añadido
 
 - **«Cerrar todas las sesiones»** en Ajustes → Contraseña (L-01, versión mínima): cierra webmail, app
