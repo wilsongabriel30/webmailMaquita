@@ -15,6 +15,8 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Seguridad
 
+- **[A-1, refuerzo chat] El servidor valida el emoji de las reacciones** (corto, sin marcas de HTML ni
+  control) por socket y por REST; el cliente ya lo escapaba al pintar.
 - **[A-13] Nombres del Almacén sin marcas de HTML y explorador escapado.** El servicio rechaza `< > " ' \\`
   y caracteres de control al crear, subir o renombrar; el explorador escapa nombres, rutas y etiquetas
   también en el árbol lateral, la miga de pan, el diálogo de mover, los filtros de compartidos y el panel

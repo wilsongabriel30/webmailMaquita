@@ -31,7 +31,8 @@ def registrar(socketio):
 
         mensaje_id = data.get('message_id')
         conversacion_id = data.get('conversation_id')
-        emoji = data.get('emoji')
+        from interfaces.emoji_reaccion import normalizar_emoji
+        emoji = normalizar_emoji(data.get('emoji'))   # [A-1] solo algo que parezca un emoji
 
         if not mensaje_id or not emoji:
             emit('error', {'message': 'Datos incompletos'})
