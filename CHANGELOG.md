@@ -7,6 +7,12 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Añadido
+
+- **[L-01] Sesiones abiertas por dispositivo, con cierre individual.** `GET /api/auth/sesiones`
+  lista las sesiones vivas de la cuenta (dispositivo, IP, fecha, tipo, la actual marcada) y
+  `DELETE /api/auth/sesiones/{sid}` cierra una; Ajustes las muestra junto a «Cerrar todas».
+
 ### Seguridad
 
 - **[L-04] El atajo CSS `font` sale de la lista de propiedades permitidas en `style`** (las sueltas

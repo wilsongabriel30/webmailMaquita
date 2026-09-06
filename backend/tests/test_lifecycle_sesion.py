@@ -15,9 +15,8 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 import pytest_asyncio
-from httpx import ASGITransport, AsyncClient
-
 from app.main import app
+from httpx import ASGITransport, AsyncClient
 
 USUARIO = "matriz@example.com"
 ADMIN = "admin-matriz@example.com"
@@ -113,7 +112,7 @@ async def _limpiar(pool, redis):
         for patron in (f"sess:{u}:*", f"imap_pass:{u}:*", f"imap_master:{u}:*"):
             async for k in redis.scan_iter(patron):
                 claves.append(k)
-        claves += [f"sids:{u}", f"av:{u}", f"login_rl:user:{u}"]
+        claves += [f"sids:{u}", f"av:{u}", f"login_rl:user:{u}", f"mcp:{u}"]
         await redis.delete(*claves)
 
 
@@ -293,7 +292,6 @@ async def test_relogin_no_revive_tokens_viejos(estado):
 
 async def test_token_sin_sid_no_vale(estado):
     import jwt as pyjwt
-
     from app.config import get_settings
 
     viejo = pyjwt.encode(
@@ -370,3 +368,18 @@ async def test_sesion_normal_no_hereda_impersonacion(estado):
     assert fila["session_kind"] == "normal"
     yo = (await a.get("/api/auth/me")).json()
     assert yo["user"]["username"] == USUARIO
+
+
+async def test_l01_listar_y_cerrar_una_sesion_por_sid(estado):
+    """L-01 (cuarta revisión): la persona ve sus sesiones y cierra la de otro dispositivo."""
+    a, b = await entrar(), await entrar()
+    r = await a.get("/api/auth/sesiones")
+    assert r.status_code == 200, r.text
+    sesiones = r.json()["sesiones"]
+    assert len(sesiones) == 2 and sesiones[0]["actual"] is True
+    otra = [s for s in sesiones if not s["actual"]][0]
+    assert (await a.delete("/api/auth/sesiones/no-existe-000")).status_code == 404
+    assert (await a.delete(f"/api/auth/sesiones/{otra['sid']}")).status_code == 200
+    assert await rest(b) == 401 and await refresh(b) is False
+    assert await rest(a) == 200  # la propia sigue
+    assert len((await a.get("/api/auth/sesiones")).json()["sesiones"]) == 1
