@@ -9,6 +9,8 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Seguridad
 
+- **[M-02 panel] `fail2ban/unban` y `unban-all` validan `jail` e `ip`** (lista cerrada de caracteres y
+  `ipaddress`) antes de pasarlos a `fail2ban-client`.
 - **[M-01 panel] Matriz `admin` / `superadmin` aplicada.** Retención, acceso condicional, límites y
   bloqueo de envío, geo-bloqueo, sincronización LDAP, ingestión y dominios del RAG y políticas de
   seguridad exigen `superadmin` (`require_superadmin` en la ruta). Antes bastaba `admin`. `DECISIONES.md` D-6.
