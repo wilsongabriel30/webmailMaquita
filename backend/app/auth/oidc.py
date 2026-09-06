@@ -4,6 +4,7 @@ Tras autenticar en Keycloak, se monta la sesión del buzón vía impersonación
 Dovecot master (no se requiere la contraseña del usuario). Solo entran buzones
 activos existentes (match por email).
 """
+
 import secrets
 import urllib.parse
 from datetime import datetime, timedelta, timezone
@@ -43,13 +44,15 @@ async def oidc_login(request: Request):
     authz, _, _ = _endpoints(s)
     state = secrets.token_urlsafe(24)
     await request.app.state.redis.set(f"oidc_state:{state}", "1", ex=600)
-    q = urllib.parse.urlencode({
-        "client_id": s.kc_client_id,
-        "response_type": "code",
-        "scope": "openid email profile",
-        "redirect_uri": _redirect_uri(s),
-        "state": state,
-    })
+    q = urllib.parse.urlencode(
+        {
+            "client_id": s.kc_client_id,
+            "response_type": "code",
+            "scope": "openid email profile",
+            "redirect_uri": _redirect_uri(s),
+            "state": state,
+        }
+    )
     return RedirectResponse(f"{authz}?{q}", status_code=302)
 
 
@@ -66,17 +69,21 @@ async def oidc_callback(request: Request, code: str = "", state: str = ""):
     _, token_url, userinfo_url = _endpoints(s)
     try:
         async with httpx.AsyncClient(timeout=15) as client:
-            tok = await client.post(token_url, data={
-                "grant_type": "authorization_code",
-                "code": code,
-                "redirect_uri": _redirect_uri(s),
-                "client_id": s.kc_client_id,
-                "client_secret": s.kc_client_secret,
-            })
+            tok = await client.post(
+                token_url,
+                data={
+                    "grant_type": "authorization_code",
+                    "code": code,
+                    "redirect_uri": _redirect_uri(s),
+                    "client_id": s.kc_client_id,
+                    "client_secret": s.kc_client_secret,
+                },
+            )
             tok.raise_for_status()
             access_token = tok.json().get("access_token", "")
-            ui = await client.get(userinfo_url,
-                                  headers={"Authorization": f"Bearer {access_token}"})
+            ui = await client.get(
+                userinfo_url, headers={"Authorization": f"Bearer {access_token}"}
+            )
             ui.raise_for_status()
             info = ui.json()
     except Exception:
@@ -90,12 +97,15 @@ async def oidc_callback(request: Request, code: str = "", state: str = ""):
 
     db = request.app.state.db_pool
     row = await db.fetchrow(
-        "SELECT 1 FROM mailbox WHERE username=$1 AND active=true", email)
+        "SELECT 1 FROM mailbox WHERE username=$1 AND active=true", email
+    )
     if not row:
         return RedirectResponse("/webmail/?sso_error=nomailbox", status_code=302)
 
     # Sesión vía impersonación master (mismo mecanismo que /impersonate)
-    ok = await authenticate(f"{email}*admin", s.master_password, s.imap_host, s.imap_port)
+    ok = await authenticate(
+        f"{email}*admin", s.master_password, s.imap_host, s.imap_port
+    )
     if not ok:
         return RedirectResponse("/webmail/?sso_error=imap", status_code=302)
 
@@ -108,13 +118,31 @@ async def oidc_callback(request: Request, code: str = "", state: str = ""):
     await db.execute(
         """INSERT INTO refresh_tokens (username, token_hash, expires_at, user_agent, ip_address)
            VALUES ($1, $2, $3, $4, $5::inet)""",
-        email, refresh_hash, expires_at, "SSO-OIDC",
+        email,
+        refresh_hash,
+        expires_at,
+        "SSO-OIDC",
         request.client.host if request.client else "0.0.0.0",
     )
     resp = RedirectResponse("/webmail/", status_code=302)
-    resp.set_cookie("access_token", access, httponly=True, secure=True,
-                    samesite="strict", domain=dominio_cookie(request), max_age=3600, path="/")
-    resp.set_cookie("refresh_token", refresh_raw, httponly=True, secure=True,
-                    samesite="strict", domain=dominio_cookie(request), max_age=3600,
-                    path="/api/auth/refresh")
+    resp.set_cookie(
+        "access_token",
+        access,
+        httponly=True,
+        secure=True,
+        samesite="strict",
+        domain=dominio_cookie(request),
+        max_age=3600,
+        path="/",
+    )
+    resp.set_cookie(
+        "refresh_token",
+        refresh_raw,
+        httponly=True,
+        secure=True,
+        samesite="strict",
+        domain=dominio_cookie(request),
+        max_age=3600,
+        path="/api/auth/refresh",
+    )
     return resp

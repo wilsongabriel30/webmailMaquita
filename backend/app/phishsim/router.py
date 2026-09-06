@@ -5,6 +5,7 @@
 - GET  /api/phishtest/{token}/pixel.gif  -> registra apertura (pixel)
 NUNCA se guarda la contraseña escrita; solo se registra el evento.
 """
+
 import base64
 import html as html_lib
 
@@ -80,7 +81,8 @@ def _login_html(token: str, email: str, org: str = "Tu organización") -> str:
 
 def _training_html(org: str = "Tu organización") -> str:
     o = html_lib.escape(org)
-    return ("""<!doctype html><html lang="es"><head>
+    return (
+        """<!doctype html><html lang="es"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Simulación de phishing — Maquita</title>
 <style>
@@ -114,7 +116,10 @@ def _training_html(org: str = "Tu organización") -> str:
   Reportar es la mejor acción — ¡así nos proteges a todos!</div>
   <div class="foot">Programa de concientización · Fundación Maquita</div>
 </div>
-</body></html>"""
-        .replace("— Maquita<", "— " + o + "<")
+</body></html>""".replace("— Maquita<", "— " + o + "<")
         .replace("<b>Tecnología de Maquita</b>", "<b>Tecnología de " + o + "</b>")
-        .replace("Programa de concientización · Fundación Maquita", "Programa de concientización · " + o))
+        .replace(
+            "Programa de concientización · Fundación Maquita",
+            "Programa de concientización · " + o,
+        )
+    )

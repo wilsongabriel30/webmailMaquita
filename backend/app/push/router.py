@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Endpoints de Web Push: clave pública VAPID + alta/baja de suscripción."""
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.auth.dependencies import get_current_user
@@ -20,7 +21,9 @@ async def subscribe(request: Request, username: str = Depends(get_current_user))
     keys = (body or {}).get("keys") or {}
     if not endpoint or not keys.get("p256dh") or not keys.get("auth"):
         raise HTTPException(status_code=400, detail="Suscripción inválida")
-    await service.guardar(request.app.state.db_pool, username, endpoint, keys["p256dh"], keys["auth"])
+    await service.guardar(
+        request.app.state.db_pool, username, endpoint, keys["p256dh"], keys["auth"]
+    )
     return {"ok": True}
 
 

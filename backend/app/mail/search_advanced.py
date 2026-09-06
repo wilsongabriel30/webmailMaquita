@@ -38,6 +38,7 @@ def parse_search_query(query: str) -> list[str]:
 
     # Extract quoted strings first, replace with placeholders
     quotes = {}
+
     def replace_quote(m):
         key = f"__Q{len(quotes)}__"
         quotes[key] = m.group(1)
@@ -47,24 +48,35 @@ def parse_search_query(query: str) -> list[str]:
 
     # Alias en español → operadores canónicos
     _ES = {
-        "de:": "from:", "para:": "to:", "copia:": "cc:", "asunto:": "subject:",
-        "cuerpo:": "body:", "antes:": "before:", "despues:": "after:",
-        "después:": "after:", "etiqueta:": "label:", "mayor:": "larger:",
+        "de:": "from:",
+        "para:": "to:",
+        "copia:": "cc:",
+        "asunto:": "subject:",
+        "cuerpo:": "body:",
+        "antes:": "before:",
+        "despues:": "after:",
+        "después:": "after:",
+        "etiqueta:": "label:",
+        "mayor:": "larger:",
         "menor:": "smaller:",
     }
     _ES_EXACT = {
-        "tiene:adjunto": "has:attachment", "con:adjunto": "has:attachment",
-        "adjunto:si": "has:attachment", "adjunto:sí": "has:attachment",
-        "es:noleido": "is:unread", "es:noleído": "is:unread",
+        "tiene:adjunto": "has:attachment",
+        "con:adjunto": "has:attachment",
+        "adjunto:si": "has:attachment",
+        "adjunto:sí": "has:attachment",
+        "es:noleido": "is:unread",
+        "es:noleído": "is:unread",
         "es:marcado": "is:flagged",
     }
+
     def _traducir(t: str) -> str:
         low = t.lower()
         if low in _ES_EXACT:
             return _ES_EXACT[low]
         for es, en in _ES.items():
             if low.startswith(es):
-                return en + t[len(es):]
+                return en + t[len(es) :]
         return t
 
     tokens = [_traducir(t) for t in q.split()]
@@ -142,9 +154,17 @@ def parse_search_query(query: str) -> list[str]:
 
         if criteria:
             # Add OR search for free text on top of existing criteria
-            criteria.extend(["OR", "OR", f'FROM "{text}"', f'SUBJECT "{text}"', f'BODY "{text}"'])
+            criteria.extend(
+                ["OR", "OR", f'FROM "{text}"', f'SUBJECT "{text}"', f'BODY "{text}"']
+            )
         else:
-            criteria = ["OR", "OR", f'FROM "{text}"', f'SUBJECT "{text}"', f'BODY "{text}"']
+            criteria = [
+                "OR",
+                "OR",
+                f'FROM "{text}"',
+                f'SUBJECT "{text}"',
+                f'BODY "{text}"',
+            ]
 
     return criteria if criteria else ["ALL"]
 
@@ -179,14 +199,50 @@ def _parse_size(size_str: str) -> int | None:
 def get_search_suggestions() -> list[dict]:
     """Return available search operators for the UI."""
     return [
-        {"operator": "from:", "description": "Buscar por remitente", "example": "from:juan"},
-        {"operator": "to:", "description": "Buscar por destinatario", "example": "to:maria"},
-        {"operator": "subject:", "description": "Buscar en asunto", "example": "subject:factura"},
-        {"operator": "has:attachment", "description": "Con adjuntos", "example": "has:attachment"},
-        {"operator": "before:", "description": "Antes de fecha", "example": "before:2026-03-01"},
-        {"operator": "after:", "description": "Después de fecha", "example": "after:2026-01-01"},
+        {
+            "operator": "from:",
+            "description": "Buscar por remitente",
+            "example": "from:juan",
+        },
+        {
+            "operator": "to:",
+            "description": "Buscar por destinatario",
+            "example": "to:maria",
+        },
+        {
+            "operator": "subject:",
+            "description": "Buscar en asunto",
+            "example": "subject:factura",
+        },
+        {
+            "operator": "has:attachment",
+            "description": "Con adjuntos",
+            "example": "has:attachment",
+        },
+        {
+            "operator": "before:",
+            "description": "Antes de fecha",
+            "example": "before:2026-03-01",
+        },
+        {
+            "operator": "after:",
+            "description": "Después de fecha",
+            "example": "after:2026-01-01",
+        },
         {"operator": "is:unread", "description": "No leídos", "example": "is:unread"},
-        {"operator": "is:flagged", "description": "Con bandera", "example": "is:flagged"},
-        {"operator": "larger:", "description": "Más grande que", "example": "larger:5M"},
-        {"operator": "smaller:", "description": "Más pequeño que", "example": "smaller:1M"},
+        {
+            "operator": "is:flagged",
+            "description": "Con bandera",
+            "example": "is:flagged",
+        },
+        {
+            "operator": "larger:",
+            "description": "Más grande que",
+            "example": "larger:5M",
+        },
+        {
+            "operator": "smaller:",
+            "description": "Más pequeño que",
+            "example": "smaller:1M",
+        },
     ]

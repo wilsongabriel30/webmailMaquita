@@ -21,8 +21,9 @@ from app.mail.utils import sanitize_html
 
 def _validate_folder(folder: str) -> str:
     """Reject folder names with control characters (CRLF injection prevention)."""
-    if re.search(r'[-]', folder):
+    if re.search(r"[-]", folder):
         from fastapi import HTTPException
+
         raise HTTPException(status_code=400, detail="Nombre de carpeta inválido")
     return folder
 

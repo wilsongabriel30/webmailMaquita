@@ -33,10 +33,14 @@ FAIL2BAN_JAILS = [
 
 
 def _get_ip(request: Request) -> str:
-    return request.headers.get("X-Real-IP", request.client.host if request.client else "unknown")
+    return request.headers.get(
+        "X-Real-IP", request.client.host if request.client else "unknown"
+    )
 
 
-async def _audit(request: Request, admin: str, action: str, target: str = None, details: dict = None):
+async def _audit(
+    request: Request, admin: str, action: str, target: str = None, details: dict = None
+):
     db = request.app.state.db_pool
     await audit_service.log_action(db, admin, action, target, details, _get_ip(request))
 
@@ -63,13 +67,21 @@ async def _lista_negra(*args: str) -> dict:
     puede comprobar- y ademas sincroniza el mapa que rspamd lee de verdad.
     """
     import json as _json
-    stdout, stderr, codigo = await _run_cmd("sudo", "-n", AYUDANTE_LISTA, *args, timeout=40)
+
+    stdout, stderr, codigo = await _run_cmd(
+        "sudo", "-n", AYUDANTE_LISTA, *args, timeout=40
+    )
     try:
         respuesta = _json.loads(stdout or "{}")
     except ValueError:
-        raise HTTPException(500, f"Respuesta ilegible del ayudante de listas: {(stderr or stdout)[:120]}")
+        raise HTTPException(
+            500,
+            f"Respuesta ilegible del ayudante de listas: {(stderr or stdout)[:120]}",
+        )
     if not respuesta.get("ok"):
-        raise HTTPException(400, respuesta.get("error") or "No se pudo actualizar la lista")
+        raise HTTPException(
+            400, respuesta.get("error") or "No se pudo actualizar la lista"
+        )
     return respuesta
 
 
@@ -118,11 +130,13 @@ def _parse_blacklist(content: str) -> list[dict]:
         parts = pending_comment.rsplit(" - ", 1) if pending_comment else ["", ""]
         reason = parts[0] if len(parts) >= 1 else ""
         date_str = parts[1] if len(parts) >= 2 else ""
-        entries.append({
-            "ip": stripped,
-            "reason": reason,
-            "date": date_str,
-        })
+        entries.append(
+            {
+                "ip": stripped,
+                "reason": reason,
+                "date": date_str,
+            }
+        )
         pending_comment = ""
     return entries
 
@@ -198,28 +212,41 @@ async def firewall_dashboard(request: Request, admin: str = Depends(require_admi
             }
             total_banned += banned
         else:
-            jail_stats[jail] = {"currently_banned": 0, "total_banned": 0, "error": "jail no activo"}
+            jail_stats[jail] = {
+                "currently_banned": 0,
+                "total_banned": 0,
+                "error": "jail no activo",
+            }
 
     # 3. Ataques últimas 24h
     since = (datetime.now() - timedelta(hours=24)).strftime("%b %d")
     stdout, _, _ = await _run_cmd(
-        "grep", "-c", "-i", "authentication fail", MAIL_LOG,
+        "grep",
+        "-c",
+        "-i",
+        "authentication fail",
+        MAIL_LOG,
     )
     attacks_24h = int(stdout.strip()) if stdout.strip().isdigit() else 0
 
     # Also count SASL failures
     stdout2, _, _ = await _run_cmd(
-        "grep", "-c", "-i", "SASL.*authentication failed", MAIL_LOG,
+        "grep",
+        "-c",
+        "-i",
+        "SASL.*authentication failed",
+        MAIL_LOG,
     )
     sasl_fails = int(stdout2.strip()) if stdout2.strip().isdigit() else 0
     attacks_24h = max(attacks_24h, sasl_fails)
 
     # 4. Top 10 IPs atacantes
     stdout, _, _ = await _run_cmd(
-        "bash", "-c",
+        "bash",
+        "-c",
         f'grep -i -E "(authentication fail|SASL.*authentication failed)" {MAIL_LOG} '
         f'| grep -oP "\\b(?:[0-9]{{1,3}}\\.?){{4}}\\b" '
-        f'| sort | uniq -c | sort -rn | head -10',
+        f"| sort | uniq -c | sort -rn | head -10",
     )
     top_ips = []
     for line in stdout.strip().splitlines():
@@ -251,9 +278,10 @@ async def list_attacks(
 ):
     """Listar ataques recientes agrupados por IP."""
     stdout, _, _ = await _run_cmd(
-        "bash", "-c",
+        "bash",
+        "-c",
         f'grep -i -E "(authentication fail|SASL.*authentication failed|unknown\\[)" {MAIL_LOG} '
-        f'| tail -{limit * 5}',
+        f"| tail -{limit * 5}",
         timeout=60,
     )
 
@@ -280,7 +308,9 @@ async def list_attacks(
         user_match = re.search(r"user=<?([^>,\s]+)", line)
         username = user_match.group(1) if user_match else ""
         if not username:
-            user_match2 = re.search(r"SASL\s+\w+\s+authentication failed:?\s*(.*)", line, re.IGNORECASE)
+            user_match2 = re.search(
+                r"SASL\s+\w+\s+authentication failed:?\s*(.*)", line, re.IGNORECASE
+            )
             username = user_match2.group(1).strip() if user_match2 else ""
 
         # Extract timestamp
@@ -298,11 +328,13 @@ async def list_attacks(
             }
         ip_data[ip]["count"] += 1
         if len(ip_data[ip]["events"]) < 5:
-            ip_data[ip]["events"].append({
-                "timestamp": timestamp,
-                "type": attack_type,
-                "username_attempted": username,
-            })
+            ip_data[ip]["events"].append(
+                {
+                    "timestamp": timestamp,
+                    "type": attack_type,
+                    "username_attempted": username,
+                }
+            )
 
     # Sort by count descending
     sorted_attacks = sorted(ip_data.values(), key=lambda x: x["count"], reverse=True)
@@ -332,11 +364,13 @@ async def list_banned(request: Request, admin: str = Depends(require_admin)):
             ip = ip.strip()
             if not ip:
                 continue
-            banned_list.append({
-                "ip": ip,
-                "jail": jail,
-                "status": "banned",
-            })
+            banned_list.append(
+                {
+                    "ip": ip,
+                    "jail": jail,
+                    "status": "banned",
+                }
+            )
 
     return {"banned": banned_list, "total": len(banned_list)}
 
@@ -376,13 +410,16 @@ async def add_to_blacklist(
     # rspamd, conjunto de nftables y aviso de recarga.
     resultado = await _lista_negra("add", ip, reason)
 
-
     # 5. Audit log
     await _audit(request, admin, "firewall_blacklist_add", ip, {"reason": reason})
 
-    return {"ok": True, "message": f"IP {ip} agregada a la blacklist permanente",
-            "total": resultado.get("total"), "nftables": resultado.get("nftables"),
-            "rspamd": resultado.get("recarga")}
+    return {
+        "ok": True,
+        "message": f"IP {ip} agregada a la blacklist permanente",
+        "total": resultado.get("total"),
+        "nftables": resultado.get("nftables"),
+        "rspamd": resultado.get("recarga"),
+    }
 
 
 @router.delete("/blacklist/{ip:path}")
@@ -417,13 +454,16 @@ async def remove_from_blacklist(
 
     resultado = await _lista_negra("remove", ip)
 
-
     # 5. Audit log
     await _audit(request, admin, "firewall_blacklist_remove", ip)
 
-    return {"ok": True, "message": f"IP {ip} eliminada de la blacklist",
-            "total": resultado.get("total"), "nftables": resultado.get("nftables"),
-            "rspamd": resultado.get("recarga")}
+    return {
+        "ok": True,
+        "message": f"IP {ip} eliminada de la blacklist",
+        "total": resultado.get("total"),
+        "nftables": resultado.get("nftables"),
+        "rspamd": resultado.get("recarga"),
+    }
 
 
 @router.post("/ban-to-permanent")
@@ -445,7 +485,10 @@ async def ban_to_permanent(
     existing = await _get_blacklist_ips()
     for entry in existing:
         if entry["ip"] == ip:
-            return {"ok": True, "message": f"IP {ip} ya estaba en la blacklist permanente"}
+            return {
+                "ok": True,
+                "message": f"IP {ip} ya estaba en la blacklist permanente",
+            }
 
     # Add to blacklist
     await _lista_negra("add", ip, reason)
@@ -517,7 +560,8 @@ async def list_geo_countries(request: Request, admin: str = Depends(require_admi
     db = request.app.state.db_pool
     rows = await db.fetch(
         "SELECT code, name, enabled, updated_by, updated_at "
-        "FROM geo_webmail_countries ORDER BY name")
+        "FROM geo_webmail_countries ORDER BY name"
+    )
     return {"countries": [dict(r) for r in rows]}
 
 
@@ -541,6 +585,16 @@ async def toggle_geo_country(
     if rc != 0:
         raise HTTPException(500, f"Error aplicando cambio: {stderr or stdout}")
 
-    await _audit(request, admin, f"geo_country_{action}", target=code,
-                 details={"stdout": stdout.strip()[-300:]})
-    return {"status": "ok", "code": code, "action": action, "detail": stdout.strip()[-300:]}
+    await _audit(
+        request,
+        admin,
+        f"geo_country_{action}",
+        target=code,
+        details={"stdout": stdout.strip()[-300:]},
+    )
+    return {
+        "status": "ok",
+        "code": code,
+        "action": action,
+        "detail": stdout.strip()[-300:],
+    }

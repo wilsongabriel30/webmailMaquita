@@ -1,4 +1,5 @@
 """Calendar invitation RSVP router — accept/decline/tentative from email."""
+
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -34,7 +35,9 @@ async def rsvp_calendar_invite(
 ):
     """Accept, decline or tentatively accept a calendar invitation."""
     if body.response not in ("ACCEPTED", "DECLINED", "TENTATIVE"):
-        raise HTTPException(status_code=400, detail="response must be ACCEPTED, DECLINED or TENTATIVE")
+        raise HTTPException(
+            status_code=400, detail="response must be ACCEPTED, DECLINED or TENTATIVE"
+        )
 
     imap = await _get_imap(request, username)
     try:
@@ -42,14 +45,21 @@ async def rsvp_calendar_invite(
         if not raw:
             raise HTTPException(status_code=404, detail="Message not found")
 
-        normalized = parse_full_message(raw["raw_email"], uid=raw["uid"], flags=raw["flags"])
+        normalized = parse_full_message(
+            raw["raw_email"], uid=raw["uid"], flags=raw["flags"]
+        )
         if not normalized.calendar_invite:
-            raise HTTPException(status_code=400, detail="This message does not contain a calendar invitation")
+            raise HTTPException(
+                status_code=400,
+                detail="This message does not contain a calendar invitation",
+            )
 
         invite = normalized.calendar_invite
 
         # 1. Save event to user's calendar
-        event_saved = await _save_event_to_calendar(request, username, invite, body.response)
+        event_saved = await _save_event_to_calendar(
+            request, username, invite, body.response
+        )
 
         # 2. Send RSVP reply email to organizer
         reply_sent = await _send_rsvp_reply(request, username, invite, body.response)
@@ -68,12 +78,13 @@ async def rsvp_calendar_invite(
             pass
 
 
-async def _save_event_to_calendar(request, username: str, invite, response: str) -> bool:
+async def _save_event_to_calendar(
+    request, username: str, invite, response: str
+) -> bool:
     """Save the invitation event to the user's PostgreSQL calendar."""
     try:
         from app.calendar.schemas import CalendarCreate, EventCreate
         from app.calendar.service import CalendarService
-        
 
         pool = request.app.state.db_pool
         svc = CalendarService()
@@ -84,21 +95,31 @@ async def _save_event_to_calendar(request, username: str, invite, response: str)
                 """SELECT e.id FROM events e
                    JOIN calendars c ON e.calendar_id = c.id
                    WHERE c.owner_email = $1 AND e.external_uid = $2""",
-                username, invite.event_uid,
+                username,
+                invite.event_uid,
             )
             if existing:
-                status_map = {"ACCEPTED": "CONFIRMED", "TENTATIVE": "TENTATIVE", "DECLINED": "CANCELLED"}
+                status_map = {
+                    "ACCEPTED": "CONFIRMED",
+                    "TENTATIVE": "TENTATIVE",
+                    "DECLINED": "CANCELLED",
+                }
                 await conn.execute(
                     "UPDATE events SET status = $1 WHERE id = $2",
-                    status_map.get(response, "CONFIRMED"), existing["id"],
+                    status_map.get(response, "CONFIRMED"),
+                    existing["id"],
                 )
-                logger.info(f"Event updated: {invite.summary} for {username} ({response})")
+                logger.info(
+                    f"Event updated: {invite.summary} for {username} ({response})"
+                )
                 return True
 
         # Get or create default calendar
         calendars = await svc.list_calendars(pool, username)
         if not calendars:
-            cal = await svc.create_calendar(pool, username, CalendarCreate(name="Mi Calendario", color="#0078d4"))
+            cal = await svc.create_calendar(
+                pool, username, CalendarCreate(name="Mi Calendario", color="#0078d4")
+            )
             calendar_id = cal.id
         else:
             calendar_id = calendars[0].id
@@ -119,9 +140,12 @@ async def _save_event_to_calendar(request, username: str, invite, response: str)
             calendar_id=calendar_id,
             summary=invite.summary,
             dtstart=_parse_dt(invite.dtstart),
-            dtend=_parse_dt(invite.dtend) if invite.dtend else _parse_dt(invite.dtstart),
+            dtend=(
+                _parse_dt(invite.dtend) if invite.dtend else _parse_dt(invite.dtstart)
+            ),
             location=invite.location,
-            description=invite.description or f"Organizado por: {invite.organizer_name or invite.organizer}",
+            description=invite.description
+            or f"Organizado por: {invite.organizer_name or invite.organizer}",
             attendees=attendees_list,
         )
 
@@ -131,7 +155,8 @@ async def _save_event_to_calendar(request, username: str, invite, response: str)
         async with pool.acquire() as conn:
             await conn.execute(
                 "UPDATE events SET external_uid = $1 WHERE id = $2",
-                invite.event_uid, event.id,
+                invite.event_uid,
+                event.id,
             )
 
         logger.info(f"Event saved: {invite.summary} for {username} ({response})")
@@ -195,7 +220,11 @@ async def _send_rsvp_reply(request, username: str, invite, response: str) -> boo
         ics_reply = cal.serialize()
 
         # Build email
-        response_labels = {"ACCEPTED": "Aceptada", "DECLINED": "Rechazada", "TENTATIVE": "Tentativa"}
+        response_labels = {
+            "ACCEPTED": "Aceptada",
+            "DECLINED": "Rechazada",
+            "TENTATIVE": "Tentativa",
+        }
         label = response_labels.get(response, response)
 
         msg = MIMEMultipart("mixed")
@@ -205,7 +234,9 @@ async def _send_rsvp_reply(request, username: str, invite, response: str) -> boo
         msg["Date"] = formatdate(localtime=True)
         msg["Message-ID"] = make_msgid(domain=settings.mail_domain)
 
-        text_body = f"La invitacion '{invite.summary}' ha sido {label.lower()} por {username}."
+        text_body = (
+            f"La invitacion '{invite.summary}' ha sido {label.lower()} por {username}."
+        )
         msg.attach(MIMEText(text_body, "plain", "utf-8"))
 
         ics_part = MIMEText(ics_reply, "calendar", "utf-8")
@@ -221,7 +252,9 @@ async def _send_rsvp_reply(request, username: str, invite, response: str) -> boo
             start_tls=True,
             recipients=[invite.organizer],
         )
-        logger.info(f"RSVP sent to {invite.organizer} for '{invite.summary}' ({response})")
+        logger.info(
+            f"RSVP sent to {invite.organizer} for '{invite.summary}' ({response})"
+        )
         return True
     except Exception as e:
         logger.error(f"Failed to send RSVP: {e}")

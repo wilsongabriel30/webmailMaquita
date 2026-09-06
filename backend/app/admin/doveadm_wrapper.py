@@ -30,9 +30,7 @@ async def run_doveadm(command: str, *args: str) -> str:
             _validate_username(arg)
 
     cmd = ALLOWED_COMMANDS[command] + list(args)
-    proc = await asyncio.create_subprocess_exec(
-        *cmd, stdout=PIPE, stderr=PIPE
-    )
+    proc = await asyncio.create_subprocess_exec(*cmd, stdout=PIPE, stderr=PIPE)
     stdout, stderr = await proc.communicate()
 
     if proc.returncode != 0:

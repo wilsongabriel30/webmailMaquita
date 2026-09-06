@@ -9,6 +9,7 @@ Fuentes (sin API key):
 
 Se refresca al arrancar y cada 12 h (tarea en segundo plano).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -52,7 +53,9 @@ def _hosts_domainlist(text: str) -> set:
             continue
         if "/" in line or "://" in line:
             try:
-                line = urlparse(line if "://" in line else "http://" + line).hostname or ""
+                line = (
+                    urlparse(line if "://" in line else "http://" + line).hostname or ""
+                )
             except Exception:
                 continue
         if line and "." in line and " " not in line:
@@ -65,7 +68,7 @@ async def _store(redis, key: str, hosts: set):
         await redis.delete(key)
         hl = list(hosts)
         for i in range(0, len(hl), 5000):
-            await redis.sadd(key, *hl[i:i + 5000])
+            await redis.sadd(key, *hl[i : i + 5000])
     except Exception:
         pass
 
@@ -96,10 +99,19 @@ async def refresh(redis, db=None) -> dict:
                 "VALUES (1,$1,$2,$3,$4) ON CONFLICT (id) DO UPDATE SET "
                 "malware_count=EXCLUDED.malware_count, phish_count=EXCLUDED.phish_count, "
                 "sources=EXCLUDED.sources, updated_at=EXCLUDED.updated_at",
-                len(malware), len(phish), json.dumps(sources), datetime.now(timezone.utc))
+                len(malware),
+                len(phish),
+                json.dumps(sources),
+                datetime.now(timezone.utc),
+            )
         except Exception:
             pass
-    return {"ok": bool(malware or phish), "malware": len(malware), "phish": len(phish), "sources": sources}
+    return {
+        "ok": bool(malware or phish),
+        "malware": len(malware),
+        "phish": len(phish),
+        "sources": sources,
+    }
 
 
 async def classify(redis, host: str, registrable: str = ""):
@@ -112,10 +124,16 @@ async def classify(redis, host: str, registrable: str = ""):
     try:
         for h in cands:
             if await redis.sismember(KEY_MALWARE, h):
-                return ("suspicious", "Dominio reportado con malware (URLhaus) — verifica antes de continuar")
+                return (
+                    "suspicious",
+                    "Dominio reportado con malware (URLhaus) — verifica antes de continuar",
+                )
         for h in cands:
             if await redis.sismember(KEY_PHISH, h):
-                return ("suspicious", "Dominio reportado como phishing (base de datos de amenazas)")
+                return (
+                    "suspicious",
+                    "Dominio reportado como phishing (base de datos de amenazas)",
+                )
     except Exception:
         pass
     return None

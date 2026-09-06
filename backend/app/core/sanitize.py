@@ -1,4 +1,5 @@
 """Server-side HTML sanitization using nh3 (already a dependency)."""
+
 import html
 
 import nh3
@@ -11,10 +12,42 @@ def sanitize_html(dirty: str) -> str:
     return nh3.clean(
         dirty,
         tags={
-            "a", "b", "blockquote", "br", "code", "div", "em", "h1", "h2",
-            "h3", "h4", "h5", "h6", "hr", "i", "img", "li", "ol", "p",
-            "pre", "s", "small", "span", "strong", "table", "tbody", "td",
-            "tfoot", "th", "thead", "tr", "u", "ul", "sub", "sup", "center",
+            "a",
+            "b",
+            "blockquote",
+            "br",
+            "code",
+            "div",
+            "em",
+            "h1",
+            "h2",
+            "h3",
+            "h4",
+            "h5",
+            "h6",
+            "hr",
+            "i",
+            "img",
+            "li",
+            "ol",
+            "p",
+            "pre",
+            "s",
+            "small",
+            "span",
+            "strong",
+            "table",
+            "tbody",
+            "td",
+            "tfoot",
+            "th",
+            "thead",
+            "tr",
+            "u",
+            "ul",
+            "sub",
+            "sup",
+            "center",
             "font",
         },
         attributes={

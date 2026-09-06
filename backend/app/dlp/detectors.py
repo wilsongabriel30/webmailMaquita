@@ -9,6 +9,7 @@ Cada detector valida de verdad (no solo regex) para minimizar falsas alarmas:
 
 Uso: detect_all(text, keywords) -> list[Finding]
 """
+
 from __future__ import annotations
 
 import re
@@ -17,9 +18,9 @@ from dataclasses import dataclass
 
 @dataclass
 class Finding:
-    data_type: str        # cedula | ruc | tarjeta | iban | cuenta | keyword
-    label: str            # etiqueta amigable en español
-    sample: str           # fragmento enmascarado (para mostrar/auditar)
+    data_type: str  # cedula | ruc | tarjeta | iban | cuenta | keyword
+    label: str  # etiqueta amigable en español
+    sample: str  # fragmento enmascarado (para mostrar/auditar)
     count: int = 1
 
 
@@ -194,7 +195,7 @@ def detect_all(text: str, keywords: list[str] | None = None) -> list[Finding]:
             add("cuenta", "Cuenta bancaria", raw)
 
     # Palabras clave (configurables por el admin)
-    for kw in (keywords or []):
+    for kw in keywords or []:
         kw = (kw or "").strip()
         if not kw:
             continue

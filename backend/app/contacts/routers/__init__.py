@@ -25,6 +25,7 @@ Archivos:
   signature.py      → Enriquecimiento desde firma de correo
   multi_import.py   → Importación multi-servicio (vCard, LinkedIn, etc.)
 """
+
 from fastapi import APIRouter
 
 from .avatars import router as avatars_router
@@ -56,23 +57,27 @@ router = APIRouter()
 # Orden importa: rutas específicas antes de rutas con parámetros
 router.include_router(avatars_router)
 router.include_router(search_router)
-router.include_router(bulk_router)          # /bulk/* antes de /{contact_id}
-router.include_router(categories_router)    # /categories antes de /{contact_id}
-router.include_router(lists_router)         # /lists/* antes de /{contact_id}
-router.include_router(import_export_router) # /import, /export antes de /{contact_id}
-router.include_router(from_email_router)    # /from-email antes de /{contact_id}
-router.include_router(score_router)         # /recalculate-scores antes de /{contact_id}
-router.include_router(gravatar_router)      # /gravatar antes de /{contact_id}
-router.include_router(duplicates_router)    # /duplicates, /merge antes de /{contact_id}
-router.include_router(reminders_router)     # /reminders antes de /{contact_id}
-router.include_router(custom_fields_router) # /custom-fields antes de /{contact_id}
-router.include_router(relationships_router) # /relationships antes de /{contact_id}
-router.include_router(directory_router)     # /directory/* antes de /{contact_id}
+router.include_router(bulk_router)  # /bulk/* antes de /{contact_id}
+router.include_router(categories_router)  # /categories antes de /{contact_id}
+router.include_router(lists_router)  # /lists/* antes de /{contact_id}
+router.include_router(import_export_router)  # /import, /export antes de /{contact_id}
+router.include_router(from_email_router)  # /from-email antes de /{contact_id}
+router.include_router(score_router)  # /recalculate-scores antes de /{contact_id}
+router.include_router(gravatar_router)  # /gravatar antes de /{contact_id}
+router.include_router(duplicates_router)  # /duplicates, /merge antes de /{contact_id}
+router.include_router(reminders_router)  # /reminders antes de /{contact_id}
+router.include_router(custom_fields_router)  # /custom-fields antes de /{contact_id}
+router.include_router(relationships_router)  # /relationships antes de /{contact_id}
+router.include_router(directory_router)  # /directory/* antes de /{contact_id}
 router.include_router(shared_notes_router)  # /shared-notes antes de /{contact_id}
-router.include_router(carddav_router)       # /carddav/* antes de /{contact_id}
-router.include_router(signature_router)     # /signature/* antes de /{contact_id}
+router.include_router(carddav_router)  # /carddav/* antes de /{contact_id}
+router.include_router(signature_router)  # /signature/* antes de /{contact_id}
 router.include_router(multi_import_router)  # /import/* antes de /{contact_id}
-router.include_router(import_history_router) # /import/from-history antes de /{contact_id}
-router.include_router(interactions_router)  # /{contact_id}/interactions, /{contact_id}/stats
-router.include_router(favorites_router)     # /{contact_id}/favorite, etc.
-router.include_router(crud_router)          # /{contact_id} al final (catch-all)
+router.include_router(
+    import_history_router
+)  # /import/from-history antes de /{contact_id}
+router.include_router(
+    interactions_router
+)  # /{contact_id}/interactions, /{contact_id}/stats
+router.include_router(favorites_router)  # /{contact_id}/favorite, etc.
+router.include_router(crud_router)  # /{contact_id} al final (catch-all)

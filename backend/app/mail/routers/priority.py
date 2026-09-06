@@ -35,6 +35,7 @@ async def ensure_tables(db):
 def _is_maquita_domain(from_addr: str) -> bool:
     """Verifica si el remitente es de un dominio *maquita*."""
     import re
+
     email_match = re.search(r"<([^>]+)>", from_addr)
     email = email_match.group(1).lower() if email_match else from_addr.strip().lower()
     domain = email.split("@")[-1] if "@" in email else ""
@@ -63,6 +64,7 @@ async def get_priority_inbox(
     from app.core.session import get_user_password as _get_pass
     from app.mail.clients.imap_client import get_imap_connection
     from app.mail.services.message_service import list_messages
+
     password = await _get_pass(request, user)
 
     login_user = await get_imap_login_user(request, user)
@@ -85,7 +87,9 @@ async def get_priority_inbox(
     cached = await db.fetch(
         f"SELECT message_uid, priority, category, confidence, reason FROM priority_cache "
         f"WHERE owner = $1 AND folder = $2 AND message_uid IN ({placeholders})",
-        user, folder, *uids
+        user,
+        folder,
+        *uids,
     )
     cache_map = {r["message_uid"]: dict(r) for r in cached}
 
@@ -100,7 +104,13 @@ async def get_priority_inbox(
                     """INSERT INTO priority_cache (owner, folder, message_uid, priority, category, confidence, reason)
                        VALUES ($1, $2, $3, $4, $5, $6, $7)
                        ON CONFLICT (owner, folder, message_uid) DO NOTHING""",
-                    user, folder, m["uid"], "high", "domain_rule", 1.0, "Dominio Maquita - clasificado automaticamente"
+                    user,
+                    folder,
+                    m["uid"],
+                    "high",
+                    "domain_rule",
+                    1.0,
+                    "Dominio Maquita - clasificado automaticamente",
                 )
                 # Solo insertar si no fue manual (DO NOTHING respeta manual)
                 if m["uid"] not in cache_map:
@@ -118,15 +128,19 @@ async def get_priority_inbox(
         try:
             batch_emails = []
             for m in uncached[:10]:  # Max 10 por batch
-                batch_emails.append({
-                    "subject": m.get("subject", ""),
-                    "from_addr": m.get("from", ""),
-                    "snippet": m.get("snippet", m.get("text_body", ""))[:200],
-                    "to_addr": user,
-                })
+                batch_emails.append(
+                    {
+                        "subject": m.get("subject", ""),
+                        "from_addr": m.get("from", ""),
+                        "snippet": m.get("snippet", m.get("text_body", ""))[:200],
+                        "to_addr": user,
+                    }
+                )
 
             async with httpx.AsyncClient(timeout=IA_TIMEOUT) as client:
-                resp = await client.post(IA_CLASSIFY_URL, json={"emails": batch_emails}, headers=IA_HEADERS)
+                resp = await client.post(
+                    IA_CLASSIFY_URL, json={"emails": batch_emails}, headers=IA_HEADERS
+                )
                 resp.raise_for_status()
                 classify_data = resp.json()
 
@@ -147,7 +161,13 @@ async def get_priority_inbox(
                        VALUES ($1, $2, $3, $4, $5, $6, $7)
                        ON CONFLICT (owner, folder, message_uid) DO UPDATE
                        SET priority = $4, category = $5, confidence = $6, reason = $7, classified_at = now()""",
-                    user, folder, m["uid"], priority, category, confidence, reason
+                    user,
+                    folder,
+                    m["uid"],
+                    priority,
+                    category,
+                    confidence,
+                    reason,
                 )
                 cache_map[m["uid"]] = {
                     "message_uid": m["uid"],
@@ -202,7 +222,9 @@ async def reclassify_message(
     if not uid:
         raise HTTPException(status_code=400, detail="uid requerido")
     if new_priority not in ("high", "normal", "low"):
-        raise HTTPException(status_code=400, detail="priority debe ser high, normal o low")
+        raise HTTPException(
+            status_code=400, detail="priority debe ser high, normal o low"
+        )
 
     db = request.app.state.db_pool
     await ensure_tables(db)
@@ -213,7 +235,10 @@ async def reclassify_message(
            ON CONFLICT (owner, folder, message_uid) DO UPDATE
            SET priority = $4, category = 'manual', confidence = 1.0,
                reason = 'Clasificado manualmente por el usuario', classified_at = now()""",
-        user, folder, uid, new_priority
+        user,
+        folder,
+        uid,
+        new_priority,
     )
 
     return {"ok": True, "uid": uid, "priority": new_priority}
@@ -229,7 +254,6 @@ async def clear_priority_cache(
     db = request.app.state.db_pool
     await ensure_tables(db)
     result = await db.execute(
-        "DELETE FROM priority_cache WHERE owner = $1 AND folder = $2",
-        user, folder
+        "DELETE FROM priority_cache WHERE owner = $1 AND folder = $2", user, folder
     )
     return {"ok": True, "deleted": result.split()[-1] if result else "0"}

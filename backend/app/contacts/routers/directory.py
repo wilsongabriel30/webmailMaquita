@@ -3,6 +3,7 @@ Directorio institucional — contactos compartidos por dominio.
 Solo admins del dominio pueden crear/editar/eliminar.
 Todos los usuarios del dominio pueden leer.
 """
+
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -52,8 +53,7 @@ async def _is_admin(db, user: str) -> bool:
     # 1. Verificar superadmin en tabla admin (PostfixAdmin)
     try:
         is_super = await db.fetchval(
-            "SELECT 1 FROM admin WHERE username=$1 AND active=true",
-            user
+            "SELECT 1 FROM admin WHERE username=$1 AND active=true", user
         )
         if is_super:
             return True
@@ -63,7 +63,8 @@ async def _is_admin(db, user: str) -> bool:
     try:
         row = await db.fetchval(
             "SELECT 1 FROM domain_admins WHERE domain=$1 AND username=$2 AND is_active=true",
-            domain, user
+            domain,
+            user,
         )
         if row:
             return True
@@ -76,7 +77,12 @@ async def _is_admin(db, user: str) -> bool:
 
 
 @router.get("/directory")
-async def list_directory(request: Request, search: str = "", department: str = "", username: str = Depends(get_current_user)):
+async def list_directory(
+    request: Request,
+    search: str = "",
+    department: str = "",
+    username: str = Depends(get_current_user),
+):
     db = request.app.state.db_pool
     user = username
     domain = _get_domain(user)
@@ -122,14 +128,17 @@ async def list_departments(request: Request, username: str = Depends(get_current
 
 
 @router.get("/directory/{contact_id}")
-async def get_directory_contact(request: Request, contact_id: int, username: str = Depends(get_current_user)):
+async def get_directory_contact(
+    request: Request, contact_id: int, username: str = Depends(get_current_user)
+):
     db = request.app.state.db_pool
     user = username
     domain = _get_domain(user)
 
     row = await db.fetchrow(
         "SELECT * FROM org_contacts WHERE id = $1 AND domain = $2",
-        contact_id, domain,
+        contact_id,
+        domain,
     )
     if not row:
         raise HTTPException(404, "Contacto no encontrado en directorio")
@@ -137,7 +146,9 @@ async def get_directory_contact(request: Request, contact_id: int, username: str
 
 
 @router.post("/directory")
-async def create_directory_contact(request: Request, body: OrgContactCreate, username: str = Depends(get_current_user)):
+async def create_directory_contact(
+    request: Request, body: OrgContactCreate, username: str = Depends(get_current_user)
+):
     db = request.app.state.db_pool
     user = username
     domain = _get_domain(user)
@@ -148,7 +159,9 @@ async def create_directory_contact(request: Request, body: OrgContactCreate, use
     if not body.email:
         raise HTTPException(422, "Email es requerido")
 
-    display_name = body.display_name or f"{body.first_name} {body.last_name}".strip() or body.email
+    display_name = (
+        body.display_name or f"{body.first_name} {body.last_name}".strip() or body.email
+    )
 
     try:
         row = await db.fetchrow(
@@ -158,20 +171,41 @@ async def create_directory_contact(request: Request, body: OrgContactCreate, use
                  address_state, address_zip, address_country, photo_url, notes, created_by)
                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
                RETURNING *""",
-            domain, display_name, body.first_name, body.last_name, body.email,
-            body.phone, body.phone_mobile, body.job_title, body.department, body.company,
-            body.address_street, body.address_city, body.address_state, body.address_zip,
-            body.address_country, body.photo_url, body.notes, user,
+            domain,
+            display_name,
+            body.first_name,
+            body.last_name,
+            body.email,
+            body.phone,
+            body.phone_mobile,
+            body.job_title,
+            body.department,
+            body.company,
+            body.address_street,
+            body.address_city,
+            body.address_state,
+            body.address_zip,
+            body.address_country,
+            body.photo_url,
+            body.notes,
+            user,
         )
         return dict(row)
     except Exception as e:
         if "unique" in str(e).lower() or "duplicate" in str(e).lower():
-            raise HTTPException(409, f"Ya existe un contacto con email {body.email} en el directorio")
+            raise HTTPException(
+                409, f"Ya existe un contacto con email {body.email} en el directorio"
+            )
         raise
 
 
 @router.put("/directory/{contact_id}")
-async def update_directory_contact(request: Request, contact_id: int, body: OrgContactUpdate, username: str = Depends(get_current_user)):
+async def update_directory_contact(
+    request: Request,
+    contact_id: int,
+    body: OrgContactUpdate,
+    username: str = Depends(get_current_user),
+):
     db = request.app.state.db_pool
     user = username
     domain = _get_domain(user)
@@ -179,7 +213,9 @@ async def update_directory_contact(request: Request, contact_id: int, body: OrgC
     if not await _is_admin(db, user):
         raise HTTPException(403, "Solo administradores pueden gestionar el directorio")
 
-    display_name = body.display_name or f"{body.first_name} {body.last_name}".strip() or body.email
+    display_name = (
+        body.display_name or f"{body.first_name} {body.last_name}".strip() or body.email
+    )
 
     row = await db.fetchrow(
         """UPDATE org_contacts SET
@@ -189,10 +225,24 @@ async def update_directory_contact(request: Request, contact_id: int, body: OrgC
             address_zip=$15, address_country=$16, photo_url=$17, notes=$18,
             updated_at=NOW()
            WHERE id=$1 AND domain=$2 RETURNING *""",
-        contact_id, domain, display_name, body.first_name, body.last_name, body.email,
-        body.phone, body.phone_mobile, body.job_title, body.department, body.company,
-        body.address_street, body.address_city, body.address_state, body.address_zip,
-        body.address_country, body.photo_url, body.notes,
+        contact_id,
+        domain,
+        display_name,
+        body.first_name,
+        body.last_name,
+        body.email,
+        body.phone,
+        body.phone_mobile,
+        body.job_title,
+        body.department,
+        body.company,
+        body.address_street,
+        body.address_city,
+        body.address_state,
+        body.address_zip,
+        body.address_country,
+        body.photo_url,
+        body.notes,
     )
     if not row:
         raise HTTPException(404, "Contacto no encontrado")
@@ -200,7 +250,9 @@ async def update_directory_contact(request: Request, contact_id: int, body: OrgC
 
 
 @router.delete("/directory/{contact_id}")
-async def delete_directory_contact(request: Request, contact_id: int, username: str = Depends(get_current_user)):
+async def delete_directory_contact(
+    request: Request, contact_id: int, username: str = Depends(get_current_user)
+):
     db = request.app.state.db_pool
     user = username
     domain = _get_domain(user)
@@ -210,7 +262,8 @@ async def delete_directory_contact(request: Request, contact_id: int, username: 
 
     result = await db.execute(
         "DELETE FROM org_contacts WHERE id = $1 AND domain = $2",
-        contact_id, domain,
+        contact_id,
+        domain,
     )
     if result == "DELETE 0":
         raise HTTPException(404, "Contacto no encontrado")
@@ -218,7 +271,9 @@ async def delete_directory_contact(request: Request, contact_id: int, username: 
 
 
 @router.post("/directory/{contact_id}/copy-to-personal")
-async def copy_to_personal(request: Request, contact_id: int, username: str = Depends(get_current_user)):
+async def copy_to_personal(
+    request: Request, contact_id: int, username: str = Depends(get_current_user)
+):
     """Copia un contacto del directorio a la libreta personal del usuario."""
     db = request.app.state.db_pool
     user = username
@@ -226,7 +281,8 @@ async def copy_to_personal(request: Request, contact_id: int, username: str = De
 
     org = await db.fetchrow(
         "SELECT * FROM org_contacts WHERE id = $1 AND domain = $2",
-        contact_id, domain,
+        contact_id,
+        domain,
     )
     if not org:
         raise HTTPException(404, "Contacto no encontrado en directorio")
@@ -234,7 +290,8 @@ async def copy_to_personal(request: Request, contact_id: int, username: str = De
     # Verificar si ya existe en personales
     existing = await db.fetchrow(
         "SELECT id FROM user_contacts WHERE owner=$1 AND email=$2 AND deleted_at IS NULL",
-        user, org["email"],
+        user,
+        org["email"],
     )
     if existing:
         return {"status": "exists", "id": existing["id"]}
@@ -246,10 +303,22 @@ async def copy_to_personal(request: Request, contact_id: int, username: str = De
              address_state, address_zip, address_country, photo_url, notes, source)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$10,$11,$12,$13,$14,$15,$16,$17,'directory')
            RETURNING id""",
-        user, org["display_name"], org["first_name"], org["last_name"], org["email"],
-        org["phone"], org["phone_mobile"], org["job_title"], org["department"],
-        org["company"], org["address_street"], org["address_city"],
-        org["address_state"], org["address_zip"], org["address_country"],
-        org["photo_url"], org["notes"],
+        user,
+        org["display_name"],
+        org["first_name"],
+        org["last_name"],
+        org["email"],
+        org["phone"],
+        org["phone_mobile"],
+        org["job_title"],
+        org["department"],
+        org["company"],
+        org["address_street"],
+        org["address_city"],
+        org["address_state"],
+        org["address_zip"],
+        org["address_country"],
+        org["photo_url"],
+        org["notes"],
     )
     return {"status": "created", "id": row["id"]}

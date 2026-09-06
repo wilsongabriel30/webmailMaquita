@@ -26,7 +26,9 @@ def _decode_lines(lines) -> list[str]:
 async def get_imap_connection(username: str, password: str) -> aioimaplib.IMAP4:
     """Create an authenticated IMAP connection for a user."""
     settings = get_settings()
-    imap = aioimaplib.IMAP4(host=settings.imap_host, port=settings.imap_port, timeout=30)
+    imap = aioimaplib.IMAP4(
+        host=settings.imap_host, port=settings.imap_port, timeout=30
+    )
     await imap.wait_hello_from_server()
     resp = await imap.login(username, password)
     if resp.result != "OK":
@@ -69,13 +71,15 @@ async def list_folders(imap: aioimaplib.IMAP4) -> list[dict]:
             flags = [f.strip() for f in flags_str.split("\\") if f.strip()]
             folder_type = _detect_folder_type(name, flags)
 
-            folders.append({
-                "name": name,
-                "delimiter": delimiter,
-                "flags": flags,
-                "type": folder_type,
-                "unseen": unseen,
-            })
+            folders.append(
+                {
+                    "name": name,
+                    "delimiter": delimiter,
+                    "flags": flags,
+                    "type": folder_type,
+                    "unseen": unseen,
+                }
+            )
 
     return folders
 
@@ -126,7 +130,10 @@ async def list_messages(
 
     # Fetch headers
     seq_range = f"{start}:{end}"
-    fetch_resp = await imap.fetch(seq_range, "(FLAGS BODY.PEEK[HEADER.FIELDS (FROM TO SUBJECT DATE MESSAGE-ID)] RFC822.SIZE)")
+    fetch_resp = await imap.fetch(
+        seq_range,
+        "(FLAGS BODY.PEEK[HEADER.FIELDS (FROM TO SUBJECT DATE MESSAGE-ID)] RFC822.SIZE)",
+    )
     if fetch_resp.result != "OK":
         return {"messages": [], "total": total, "page": page, "per_page": per_page}
 
@@ -180,7 +187,9 @@ def _parse_fetch_response(lines: list[str]) -> list[dict]:
     return messages
 
 
-def _build_message_dict(seq: int, flags: list[str], size: int, raw_headers: str) -> dict:
+def _build_message_dict(
+    seq: int, flags: list[str], size: int, raw_headers: str
+) -> dict:
     msg = email.message_from_string(raw_headers, policy=email.policy.default)
     date_str = msg.get("Date", "")
     date_parsed = None
@@ -245,11 +254,13 @@ async def get_message(imap: aioimaplib.IMAP4, folder: str, seq: int) -> dict | N
             disposition = str(part.get("Content-Disposition", ""))
 
             if "attachment" in disposition:
-                attachments.append({
-                    "filename": part.get_filename() or "unnamed",
-                    "content_type": content_type,
-                    "size": len(part.get_payload(decode=True) or b""),
-                })
+                attachments.append(
+                    {
+                        "filename": part.get_filename() or "unnamed",
+                        "content_type": content_type,
+                        "size": len(part.get_payload(decode=True) or b""),
+                    }
+                )
             elif content_type == "text/plain" and not text_body:
                 payload = part.get_payload(decode=True)
                 if payload:
@@ -295,7 +306,9 @@ async def get_message(imap: aioimaplib.IMAP4, folder: str, seq: int) -> dict | N
     }
 
 
-async def move_message(imap: aioimaplib.IMAP4, folder: str, seq: int, dest_folder: str) -> bool:
+async def move_message(
+    imap: aioimaplib.IMAP4, folder: str, seq: int, dest_folder: str
+) -> bool:
     """Move a message to another folder."""
     resp = await imap.select(folder)
     if resp.result != "OK":
@@ -311,7 +324,9 @@ async def move_message(imap: aioimaplib.IMAP4, folder: str, seq: int, dest_folde
     return True
 
 
-async def set_flags(imap: aioimaplib.IMAP4, folder: str, seq: int, flags: str, add: bool = True) -> bool:
+async def set_flags(
+    imap: aioimaplib.IMAP4, folder: str, seq: int, flags: str, add: bool = True
+) -> bool:
     """Add or remove flags on a message."""
     resp = await imap.select(folder)
     if resp.result != "OK":

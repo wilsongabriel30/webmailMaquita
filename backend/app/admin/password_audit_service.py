@@ -7,6 +7,7 @@ importador nunca deja buzones rotos "en silencio".
 No detecta el caso "hash válido pero distinto al que el usuario conoce" (no hay forma sin la
 clave en claro); para eso están: verificación IMAP al setear (panel/usuario) y el reseteo.
 """
+
 import re
 
 _SCHEME = re.compile(r"^\{([A-Za-z0-9.\-]+)\}")
@@ -27,7 +28,9 @@ def _classify(pw: str | None) -> str:
 
 
 async def audit(db) -> dict:
-    rows = await db.fetch("SELECT username, password, active FROM mailbox ORDER BY username")
+    rows = await db.fetch(
+        "SELECT username, password, active FROM mailbox ORDER BY username"
+    )
     ok = 0
     empty: list[dict] = []
     plaintext: list[dict] = []

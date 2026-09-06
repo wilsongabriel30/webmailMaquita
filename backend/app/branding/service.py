@@ -24,20 +24,21 @@ rellenado todavía, se devuelven los valores por defecto: nunca se bloquea el
 envío de un correo por consultar la marca.
 """
 
-ORG_NAME_FALLBACK = 'Tu organización'
-APP_NAME_FALLBACK = 'Maquita Mail'
+ORG_NAME_FALLBACK = "Tu organización"
+APP_NAME_FALLBACK = "Maquita Mail"
 
 # Caché de proceso. La rellena `precargar()` al arrancar y la refrescan las
 # funciones asíncronas cada vez que consultan.
-_cache = {'org_name': None, 'app_name': None}
+_cache = {"org_name": None, "app_name": None}
 
 
 async def _leer(db, clave: str):
     try:
         row = await db.fetchrow(
-            "SELECT value FROM branding_settings WHERE key = $1", clave)
-        if row and (row['value'] or '').strip():
-            return row['value'].strip()
+            "SELECT value FROM branding_settings WHERE key = $1", clave
+        )
+        if row and (row["value"] or "").strip():
+            return row["value"].strip()
     except Exception:
         pass
     return None
@@ -45,37 +46,37 @@ async def _leer(db, clave: str):
 
 async def get_org_name(db) -> str:
     """Nombre de la organización, con fallback neutro."""
-    valor = await _leer(db, 'org_name')
+    valor = await _leer(db, "org_name")
     if valor:
-        _cache['org_name'] = valor
+        _cache["org_name"] = valor
         return valor
-    return _cache['org_name'] or ORG_NAME_FALLBACK
+    return _cache["org_name"] or ORG_NAME_FALLBACK
 
 
 async def get_app_name(db) -> str:
     """Nombre del producto de correo, con «Maquita Mail» por defecto."""
-    valor = await _leer(db, 'app_name')
+    valor = await _leer(db, "app_name")
     if valor:
-        _cache['app_name'] = valor
+        _cache["app_name"] = valor
         return valor
-    return _cache['app_name'] or APP_NAME_FALLBACK
+    return _cache["app_name"] or APP_NAME_FALLBACK
 
 
 def org_name_cacheado() -> str:
     """Versión sin base de datos, para puntos que no la tienen a mano."""
-    return _cache['org_name'] or ORG_NAME_FALLBACK
+    return _cache["org_name"] or ORG_NAME_FALLBACK
 
 
 def app_name_cacheado() -> str:
     """Versión sin base de datos, para puntos que no la tienen a mano."""
-    return _cache['app_name'] or APP_NAME_FALLBACK
+    return _cache["app_name"] or APP_NAME_FALLBACK
 
 
 async def precargar(db) -> None:
     """Rellena la caché al arrancar. Si falla, se sigue con los valores por
     defecto: la marca nunca debe impedir que el sistema levante."""
     try:
-        _cache['org_name'] = await _leer(db, 'org_name')
-        _cache['app_name'] = await _leer(db, 'app_name')
+        _cache["org_name"] = await _leer(db, "org_name")
+        _cache["app_name"] = await _leer(db, "app_name")
     except Exception:
         pass

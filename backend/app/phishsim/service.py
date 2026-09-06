@@ -1,4 +1,5 @@
 """Simulación de phishing — registro de eventos del objetivo (público)."""
+
 import quopri as _quopri
 import re as _re
 
@@ -7,7 +8,9 @@ _TOKEN_RE = _re.compile(rb"phishtest[/=]?(?:2[fF])?([A-Za-z0-9_\-]{12,})")
 
 
 async def get_target(db, token: str):
-    return await db.fetchrow("SELECT id, email, campaign_id FROM phish_targets WHERE token = $1", token)
+    return await db.fetchrow(
+        "SELECT id, email, campaign_id FROM phish_targets WHERE token = $1", token
+    )
 
 
 async def mark(db, token: str, field: str) -> None:
@@ -16,7 +19,9 @@ async def mark(db, token: str, field: str) -> None:
     try:
         await db.execute(
             f"UPDATE phish_targets SET {field} = true, {field}_at = COALESCE({field}_at, now()) "
-            f"WHERE token = $1", token)
+            f"WHERE token = $1",
+            token,
+        )
     except Exception:
         pass
 
@@ -33,8 +38,10 @@ async def mark_reports_from_imap(imap, folder, uids, db) -> None:
                 resp = await imap.uid("fetch", str(uid), "(BODY.PEEK[])")
                 if resp.result != "OK":
                     continue
-                blob = b"".join(x if isinstance(x, bytes) else str(x).encode()
-                                for x in (resp.lines or []))
+                blob = b"".join(
+                    x if isinstance(x, bytes) else str(x).encode()
+                    for x in (resp.lines or [])
+                )
                 try:
                     decoded = _quopri.decodestring(blob)
                 except Exception:
@@ -45,7 +52,9 @@ async def mark_reports_from_imap(imap, folder, uids, db) -> None:
                     if m:
                         cand = m.group(1).decode("ascii", "ignore")
                         # validar que exista como objetivo
-                        row = await db.fetchrow("SELECT 1 FROM phish_targets WHERE token = $1", cand)
+                        row = await db.fetchrow(
+                            "SELECT 1 FROM phish_targets WHERE token = $1", cand
+                        )
                         if row:
                             token = cand
                             break

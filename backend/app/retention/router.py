@@ -1,4 +1,5 @@
 """Data Retention Policies — Maquita Webmail."""
+
 import asyncio
 import logging
 import subprocess
@@ -17,6 +18,7 @@ def _get_db(request: Request):
 
 
 # ---------- CRUD ----------
+
 
 @router.get("")
 async def list_policies(request: Request, admin: str = Depends(require_admin)):
@@ -53,19 +55,32 @@ async def create_policy(request: Request, admin: str = Depends(require_admin)):
 
 
 @router.put("/{policy_id}")
-async def update_policy(policy_id: int, request: Request, admin: str = Depends(require_admin)):
+async def update_policy(
+    policy_id: int, request: Request, admin: str = Depends(require_admin)
+):
     """Editar politica de retencion."""
     data = await request.json()
     db = _get_db(request)
 
-    existing = await db.fetchrow("SELECT id FROM retention_policies WHERE id = $1", policy_id)
+    existing = await db.fetchrow(
+        "SELECT id FROM retention_policies WHERE id = $1", policy_id
+    )
     if not existing:
         raise HTTPException(404, "Politica no encontrada")
 
     fields = []
     values = []
     idx = 1
-    for key in ["name", "description", "target", "folder_pattern", "max_age_days", "action", "move_to", "is_active"]:
+    for key in [
+        "name",
+        "description",
+        "target",
+        "folder_pattern",
+        "max_age_days",
+        "action",
+        "move_to",
+        "is_active",
+    ]:
         if key in data:
             fields.append(f"{key} = ${idx}")
             val = data[key]
@@ -84,7 +99,9 @@ async def update_policy(policy_id: int, request: Request, admin: str = Depends(r
 
 
 @router.delete("/{policy_id}")
-async def delete_policy(policy_id: int, request: Request, admin: str = Depends(require_admin)):
+async def delete_policy(
+    policy_id: int, request: Request, admin: str = Depends(require_admin)
+):
     """Eliminar politica de retencion."""
     db = _get_db(request)
     result = await db.execute("DELETE FROM retention_policies WHERE id = $1", policy_id)
@@ -95,6 +112,7 @@ async def delete_policy(policy_id: int, request: Request, admin: str = Depends(r
 
 # ---------- Ejecucion ----------
 
+
 def _get_target_users(target: str):
     """Resolve target to user list. Returns None for 'all' (use -A flag)."""
     if target == "all":
@@ -103,7 +121,9 @@ def _get_target_users(target: str):
         domain = target.split(":", 1)[1]
         result = subprocess.run(
             ["doveadm", "user", f"*@{domain}"],
-            capture_output=True, text=True, timeout=30
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         return [u.strip() for u in result.stdout.strip().split("\n") if u.strip()]
     if target.startswith("user:"):
@@ -114,7 +134,11 @@ def _get_target_users(target: str):
 def _count_messages(user_flag, folder, days):
     """Count messages matching criteria using doveadm search."""
     try:
-        cmd = ["doveadm", "search"] + user_flag + ["mailbox", folder, "savedbefore", f"{days}d"]
+        cmd = (
+            ["doveadm", "search"]
+            + user_flag
+            + ["mailbox", folder, "savedbefore", f"{days}d"]
+        )
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
         if result.returncode != 0:
             return 0
@@ -127,13 +151,27 @@ def _count_messages(user_flag, folder, days):
 def _check_legal_hold(user):
     """Verifica si el usuario tiene legal hold activo via doveadm."""
     import subprocess
+
     try:
         # Check legal_holds via psql. :'mb' hace quoting seguro (sin inyeccion SQL).
         # SQL por stdin (psql interpola :'mb' de forma segura; con -c NO se interpola)
         result = subprocess.run(
-            ['sudo', '-u', 'postgres', 'psql', '-d', 'maildb', '-t', '-A', '-v', f'mb={user}'],
+            [
+                "sudo",
+                "-u",
+                "postgres",
+                "psql",
+                "-d",
+                "maildb",
+                "-t",
+                "-A",
+                "-v",
+                f"mb={user}",
+            ],
             input="SELECT count(*) FROM legal_holds WHERE mailbox = :'mb' AND is_active = TRUE;",
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         out = result.stdout.strip()
         if result.returncode != 0 or not out.isdigit():
@@ -146,7 +184,11 @@ def _check_legal_hold(user):
 def _expunge_messages(user_flag, folder, days):
     """Expunge messages matching criteria using doveadm expunge."""
     try:
-        cmd = ["doveadm", "expunge"] + user_flag + ["mailbox", folder, "savedbefore", f"{days}d"]
+        cmd = (
+            ["doveadm", "expunge"]
+            + user_flag
+            + ["mailbox", folder, "savedbefore", f"{days}d"]
+        )
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
         return result.returncode == 0
     except Exception:
@@ -154,10 +196,14 @@ def _expunge_messages(user_flag, folder, days):
 
 
 @router.get("/{policy_id}/preview")
-async def preview_policy(policy_id: int, request: Request, admin: str = Depends(require_admin)):
+async def preview_policy(
+    policy_id: int, request: Request, admin: str = Depends(require_admin)
+):
     """Preview: cuantos mensajes serian afectados."""
     db = _get_db(request)
-    policy = await db.fetchrow("SELECT * FROM retention_policies WHERE id = $1", policy_id)
+    policy = await db.fetchrow(
+        "SELECT * FROM retention_policies WHERE id = $1", policy_id
+    )
     if not policy:
         raise HTTPException(404, "Politica no encontrada")
 
@@ -190,7 +236,9 @@ async def run_policy(
 ):
     """Ejecutar politica manualmente. dry_run=true por defecto."""
     db = _get_db(request)
-    policy = await db.fetchrow("SELECT * FROM retention_policies WHERE id = $1", policy_id)
+    policy = await db.fetchrow(
+        "SELECT * FROM retention_policies WHERE id = $1", policy_id
+    )
     if not policy:
         raise HTTPException(404, "Politica no encontrada")
 
@@ -214,7 +262,9 @@ async def run_policy(
                 total += c
                 if not dry_run and action == "delete":
                     if _check_legal_hold(user):
-                        logger.warning(f"Retention BLOCKED for {user}: legal hold active")
+                        logger.warning(
+                            f"Retention BLOCKED for {user}: legal hold active"
+                        )
                     else:
                         _expunge_messages(uf, folder, days)
             return total
@@ -225,9 +275,12 @@ async def run_policy(
     if not dry_run:
         await db.execute(
             "UPDATE retention_policies SET last_run = NOW(), messages_affected = $1 WHERE id = $2",
-            count, policy_id
+            count,
+            policy_id,
         )
-        logger.info(f"Retention policy {policy_id} ejecutada: {count} mensajes afectados")
+        logger.info(
+            f"Retention policy {policy_id} ejecutada: {count} mensajes afectados"
+        )
 
     return {
         "policy_id": policy_id,

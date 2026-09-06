@@ -6,6 +6,7 @@ notificacion via WebSocket (Redis pub/sub).
 
 Autor: Wilson Argüello — Equipo de Tecnología, Fundación Maquita
 """
+
 import json
 import logging
 import uuid
@@ -43,6 +44,7 @@ async def sync_task_to_calendar(db, redis, task_row: dict, created_by: str):
         # Crear calendario default si no existe
         try:
             from app.calendar.service import calendar_service
+
             await calendar_service.ensure_default_calendar(db, assigned_to)
             cal_row = await db.fetchrow(
                 "SELECT id FROM calendars WHERE owner_email = $1 AND is_default = true",
@@ -61,7 +63,8 @@ async def sync_task_to_calendar(db, redis, task_row: dict, created_by: str):
     task_uid_prefix = "task-" + task_id
     existing = await db.fetchrow(
         "SELECT id, uid FROM events WHERE calendar_id = $1 AND uid LIKE $2",
-        calendar_id, task_uid_prefix + "%",
+        calendar_id,
+        task_uid_prefix + "%",
     )
 
     # Preparar datos del evento
@@ -100,10 +103,16 @@ async def sync_task_to_calendar(db, redis, task_row: dict, created_by: str):
         await db.execute(
             """UPDATE events SET summary=$2, description=$3, dtstart=$4, dtend=$5,
                all_day=$6, updated_at=NOW() WHERE id=$1""",
-            existing["id"], event_summary, event_description.strip(),
-            dtstart, dtend, all_day,
+            existing["id"],
+            event_summary,
+            event_description.strip(),
+            dtstart,
+            dtend,
+            all_day,
         )
-        logger.info("Evento calendario actualizado para tarea %s -> %s", task_id, assigned_to)
+        logger.info(
+            "Evento calendario actualizado para tarea %s -> %s", task_id, assigned_to
+        )
     else:
         # Crear nuevo evento
         event_uid = task_uid_prefix + "-" + uuid.uuid4().hex[:8]
@@ -113,10 +122,17 @@ async def sync_task_to_calendar(db, redis, task_row: dict, created_by: str):
                 all_day, rrule, status, transparency, timezone, reminders, attendees)
                VALUES ($1, $2, $3, $4, '', $5, $6, $7, '', 'CONFIRMED', 'OPAQUE',
                        'America/Guayaquil', '[]'::jsonb, '[]'::jsonb)""",
-            calendar_id, event_uid, event_summary, event_description.strip(),
-            dtstart, dtend, all_day,
+            calendar_id,
+            event_uid,
+            event_summary,
+            event_description.strip(),
+            dtstart,
+            dtend,
+            all_day,
         )
-        logger.info("Evento calendario creado para tarea %s -> %s", task_id, assigned_to)
+        logger.info(
+            "Evento calendario creado para tarea %s -> %s", task_id, assigned_to
+        )
 
 
 async def remove_task_from_calendar(db, task_row: dict, assigned_to: str):
@@ -135,12 +151,15 @@ async def remove_task_from_calendar(db, task_row: dict, assigned_to: str):
     task_uid_prefix = "task-" + task_id
     result = await db.execute(
         "DELETE FROM events WHERE calendar_id = $1 AND uid LIKE $2",
-        cal_row["id"], task_uid_prefix + "%",
+        cal_row["id"],
+        task_uid_prefix + "%",
     )
     logger.info("Evento calendario eliminado para tarea %s: %s", task_id, result)
 
 
-async def notify_task_assignment(redis, task_row: dict, assigned_to: str, action: str, by_user: str):
+async def notify_task_assignment(
+    redis, task_row: dict, assigned_to: str, action: str, by_user: str
+):
     """Enviar notificacion WebSocket al usuario asignado via Redis pub/sub."""
     if not assigned_to or assigned_to == by_user:
         return  # No notificar al propio creador

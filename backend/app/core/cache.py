@@ -1,4 +1,5 @@
 """Generic cache repository — encapsulates Redis get/set/invalidate with TTL."""
+
 import json
 from typing import Any
 

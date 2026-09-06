@@ -1,4 +1,5 @@
 """User settings router — signature, display name, preferences."""
+
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -40,16 +41,31 @@ def _sig_to_dict(row) -> dict:
     return d
 
 
-async def _audit_signature(db, username: str, action: str, sig_id: int = None,
-                           sig_name: str = "", old_html: str = "", new_html: str = "",
-                           ip_address: str = "", user_agent: str = ""):
+async def _audit_signature(
+    db,
+    username: str,
+    action: str,
+    sig_id: int = None,
+    sig_name: str = "",
+    old_html: str = "",
+    new_html: str = "",
+    ip_address: str = "",
+    user_agent: str = "",
+):
     """Log signature changes for audit/fraud detection."""
     try:
         await db.execute(
             """INSERT INTO signature_audit_log
                 (username, action, signature_id, signature_name, old_html, new_html, ip_address, user_agent)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)""",
-            username, action, sig_id, sig_name, old_html, new_html, ip_address, user_agent
+            username,
+            action,
+            sig_id,
+            sig_name,
+            old_html,
+            new_html,
+            ip_address,
+            user_agent,
         )
     except Exception:
         pass  # Don't let audit failure break the operation
@@ -68,13 +84,18 @@ async def get_settings(request: Request, username: str = Depends(get_current_use
             result["display_name"] = username.split("@")[0].replace(".", " ").title()
         return result
     # Return defaults
-    return UserSettings(display_name=username.split("@")[0].replace(".", " ").title()).model_dump()
+    return UserSettings(
+        display_name=username.split("@")[0].replace(".", " ").title()
+    ).model_dump()
 
 
 @router.put("")
-async def update_settings(body: UserSettings, request: Request, username: str = Depends(get_current_user)):
+async def update_settings(
+    body: UserSettings, request: Request, username: str = Depends(get_current_user)
+):
     db = request.app.state.db_pool
-    await db.execute("""
+    await db.execute(
+        """
         INSERT INTO user_preferences (username, display_name, signature_html, messages_per_page,
             reading_pane, block_remote_images, confirm_delete,
             auto_reply_enabled, auto_reply_subject, auto_reply_body, updated_at)
@@ -90,9 +111,18 @@ async def update_settings(body: UserSettings, request: Request, username: str = 
             auto_reply_subject = EXCLUDED.auto_reply_subject,
             auto_reply_body = EXCLUDED.auto_reply_body,
             updated_at = now()
-    """, username, body.display_name, body.signature_html, body.messages_per_page,
-        body.reading_pane, body.block_remote_images, body.confirm_delete,
-        body.auto_reply_enabled, body.auto_reply_subject, body.auto_reply_body)
+    """,
+        username,
+        body.display_name,
+        body.signature_html,
+        body.messages_per_page,
+        body.reading_pane,
+        body.block_remote_images,
+        body.confirm_delete,
+        body.auto_reply_enabled,
+        body.auto_reply_subject,
+        body.auto_reply_body,
+    )
     return {"status": "saved"}
 
 
@@ -102,33 +132,41 @@ async def get_signature(request: Request, username: str = Depends(get_current_us
     db = request.app.state.db_pool
     # First check user_signatures table for default
     sig_row = await db.fetchrow(
-        "SELECT * FROM user_signatures WHERE owner = $1 AND is_default = true LIMIT 1", username
+        "SELECT * FROM user_signatures WHERE owner = $1 AND is_default = true LIMIT 1",
+        username,
     )
     if sig_row:
         # Get real display_name from preferences
         pref_row = await db.fetchrow(
             "SELECT display_name FROM user_preferences WHERE username = $1", username
         )
-        dn = (pref_row["display_name"] if pref_row and pref_row["display_name"]
-              else username.split("@")[0].replace(".", " ").title())
+        dn = (
+            pref_row["display_name"]
+            if pref_row and pref_row["display_name"]
+            else username.split("@")[0].replace(".", " ").title()
+        )
         sig_html = sig_row["html_content"]
         # Clean any unreplaced template variables
         import re as _re
-        sig_html = _re.sub(r'\{\{[A-Z0-9_]+\}\}', '', sig_html)
+
+        sig_html = _re.sub(r"\{\{[A-Z0-9_]+\}\}", "", sig_html)
         return {"display_name": dn, "signature_html": sig_html}
     # Fallback to legacy user_preferences
     row = await db.fetchrow(
-        "SELECT display_name, signature_html FROM user_preferences WHERE username = $1", username
+        "SELECT display_name, signature_html FROM user_preferences WHERE username = $1",
+        username,
     )
     if row:
         sig_html = row["signature_html"] or ""
         import re as _re
-        sig_html = _re.sub(r'\{\{[A-Z0-9_]+\}\}', '', sig_html)
+
+        sig_html = _re.sub(r"\{\{[A-Z0-9_]+\}\}", "", sig_html)
         return {"display_name": row["display_name"], "signature_html": sig_html}
     return {"display_name": username.split("@")[0], "signature_html": ""}
 
 
 # -- Multiple Signatures CRUD --
+
 
 async def _migrate_legacy_signature(db, username: str):
     """If user has no entries in user_signatures, create one from domain template or legacy."""
@@ -147,7 +185,8 @@ async def _migrate_legacy_signature(db, username: str):
         domain = username.split("@")[1] if "@" in username else ""
         if domain:
             tpl_row = await db.fetchrow(
-                "SELECT name, html_template FROM default_signatures WHERE domain = $1 OR $1 LIKE domain_pattern", domain
+                "SELECT name, html_template FROM default_signatures WHERE domain = $1 OR $1 LIKE domain_pattern",
+                domain,
             )
             if tpl_row and tpl_row["html_template"]:
                 # Replace placeholders with user info
@@ -164,13 +203,17 @@ async def _migrate_legacy_signature(db, username: str):
                 sig_name = tpl_row["name"] or "Principal"
                 await db.execute(
                     "INSERT INTO user_signatures (owner, name, html_content, is_default) VALUES ($1, $2, $3, true)",
-                    username, sig_name, legacy_html
+                    username,
+                    sig_name,
+                    legacy_html,
                 )
                 return
     # Create default entry
     await db.execute(
         "INSERT INTO user_signatures (owner, name, html_content, is_default) VALUES ($1, $2, $3, true)",
-        username, "Principal", legacy_html
+        username,
+        "Principal",
+        legacy_html,
     )
 
 
@@ -178,15 +221,19 @@ async def _ensure_one_default(db, username: str, exclude_id: int = 0):
     """Ensure there is exactly one default signature."""
     has = await db.fetchval(
         "SELECT COUNT(*) FROM user_signatures WHERE owner = $1 AND is_default = true AND id != $2",
-        username, exclude_id
+        username,
+        exclude_id,
     )
     if has == 0:
         oldest = await db.fetchval(
             "SELECT id FROM user_signatures WHERE owner = $1 AND id != $2 ORDER BY created_at LIMIT 1",
-            username, exclude_id
+            username,
+            exclude_id,
         )
         if oldest:
-            await db.execute("UPDATE user_signatures SET is_default = true WHERE id = $1", oldest)
+            await db.execute(
+                "UPDATE user_signatures SET is_default = true WHERE id = $1", oldest
+            )
 
 
 @router.get("/signatures")
@@ -194,33 +241,54 @@ async def list_signatures(request: Request, username: str = Depends(get_current_
     db = request.app.state.db_pool
     await _migrate_legacy_signature(db, username)
     rows = await db.fetch(
-        "SELECT * FROM user_signatures WHERE owner = $1 ORDER BY is_default DESC, created_at", username
+        "SELECT * FROM user_signatures WHERE owner = $1 ORDER BY is_default DESC, created_at",
+        username,
     )
     return [_sig_to_dict(r) for r in rows]
 
 
 @router.post("/signatures", status_code=201)
-async def create_signature(body: SignatureCreate, request: Request, username: str = Depends(get_current_user)):
+async def create_signature(
+    body: SignatureCreate, request: Request, username: str = Depends(get_current_user)
+):
     db = request.app.state.db_pool
-    count = await db.fetchval("SELECT COUNT(*) FROM user_signatures WHERE owner = $1", username)
+    count = await db.fetchval(
+        "SELECT COUNT(*) FROM user_signatures WHERE owner = $1", username
+    )
     if count >= 20:
         raise HTTPException(status_code=400, detail="Maximo 20 firmas")
     if body.is_default:
-        await db.execute("UPDATE user_signatures SET is_default = false WHERE owner = $1", username)
+        await db.execute(
+            "UPDATE user_signatures SET is_default = false WHERE owner = $1", username
+        )
     row = await db.fetchrow(
         "INSERT INTO user_signatures (owner, name, html_content, is_default) VALUES ($1, $2, $3, $4) RETURNING *",
-        username, body.name, body.html_content, body.is_default
+        username,
+        body.name,
+        body.html_content,
+        body.is_default,
     )
     await _ensure_one_default(db, username)
-    await _audit_signature(db, username, "create", sig_id=row["id"], sig_name=body.name,
-                           new_html=body.html_content,
-                           ip_address=request.client.host if request.client else "",
-                           user_agent=request.headers.get("user-agent", ""))
+    await _audit_signature(
+        db,
+        username,
+        "create",
+        sig_id=row["id"],
+        sig_name=body.name,
+        new_html=body.html_content,
+        ip_address=request.client.host if request.client else "",
+        user_agent=request.headers.get("user-agent", ""),
+    )
     return _sig_to_dict(row)
 
 
 @router.put("/signatures/{sig_id}")
-async def update_signature(sig_id: int, body: SignatureUpdate, request: Request, username: str = Depends(get_current_user)):
+async def update_signature(
+    sig_id: int,
+    body: SignatureUpdate,
+    request: Request,
+    username: str = Depends(get_current_user),
+):
     db = request.app.state.db_pool
     existing = await db.fetchrow(
         "SELECT * FROM user_signatures WHERE id = $1 AND owner = $2", sig_id, username
@@ -234,50 +302,70 @@ async def update_signature(sig_id: int, body: SignatureUpdate, request: Request,
     if body.html_content is not None:
         updates["html_content"] = body.html_content
     if body.is_default is True:
-        await db.execute("UPDATE user_signatures SET is_default = false WHERE owner = $1", username)
+        await db.execute(
+            "UPDATE user_signatures SET is_default = false WHERE owner = $1", username
+        )
         updates["is_default"] = True
 
     if updates:
         set_parts = [f"{k}=${i+2}" for i, k in enumerate(updates.keys())]
-        query = f"UPDATE user_signatures SET {', '.join(set_parts)} WHERE id=$1 RETURNING *"
+        query = (
+            f"UPDATE user_signatures SET {', '.join(set_parts)} WHERE id=$1 RETURNING *"
+        )
         params = [sig_id] + list(updates.values())
         row = await db.fetchrow(query, *params)
     else:
         row = existing
 
     await _ensure_one_default(db, username)
-    await _audit_signature(db, username, "update", sig_id=sig_id,
-                           sig_name=body.name or existing["name"],
-                           old_html=existing["html_content"],
-                           new_html=body.html_content or existing["html_content"],
-                           ip_address=request.client.host if request.client else "",
-                           user_agent=request.headers.get("user-agent", ""))
+    await _audit_signature(
+        db,
+        username,
+        "update",
+        sig_id=sig_id,
+        sig_name=body.name or existing["name"],
+        old_html=existing["html_content"],
+        new_html=body.html_content or existing["html_content"],
+        ip_address=request.client.host if request.client else "",
+        user_agent=request.headers.get("user-agent", ""),
+    )
     return _sig_to_dict(row)
 
 
 @router.delete("/signatures/{sig_id}")
-async def delete_signature(sig_id: int, request: Request, username: str = Depends(get_current_user)):
+async def delete_signature(
+    sig_id: int, request: Request, username: str = Depends(get_current_user)
+):
     db = request.app.state.db_pool
     existing = await db.fetchrow(
         "SELECT * FROM user_signatures WHERE id = $1 AND owner = $2", sig_id, username
     )
     if not existing:
         raise HTTPException(status_code=404, detail="Firma no encontrada")
-    count = await db.fetchval("SELECT COUNT(*) FROM user_signatures WHERE owner = $1", username)
+    count = await db.fetchval(
+        "SELECT COUNT(*) FROM user_signatures WHERE owner = $1", username
+    )
     if count <= 1:
         raise HTTPException(status_code=400, detail="No puedes eliminar la unica firma")
-    await _audit_signature(db, username, "delete", sig_id=sig_id,
-                           sig_name=existing["name"],
-                           old_html=existing["html_content"],
-                           ip_address=request.client.host if request.client else "",
-                           user_agent=request.headers.get("user-agent", ""))
+    await _audit_signature(
+        db,
+        username,
+        "delete",
+        sig_id=sig_id,
+        sig_name=existing["name"],
+        old_html=existing["html_content"],
+        ip_address=request.client.host if request.client else "",
+        user_agent=request.headers.get("user-agent", ""),
+    )
     await db.execute("DELETE FROM user_signatures WHERE id = $1", sig_id)
     await _ensure_one_default(db, username, exclude_id=sig_id)
     return {"status": "deleted"}
 
 
 @router.get("/signatures/load-default")
-async def load_default_signature(request: Request, username: str = Depends(get_current_user)):
+async def load_default_signature(
+    request: Request, username: str = Depends(get_current_user)
+):
     """Return domain default signature template for the user to customize."""
     db = request.app.state.db_pool
     domain = username.split("@")[1] if "@" in username else ""
@@ -285,7 +373,7 @@ async def load_default_signature(request: Request, username: str = Depends(get_c
         return {"template": "", "name": ""}
     tpl_row = await db.fetchrow(
         "SELECT name, html_template FROM default_signatures WHERE domain = $1 OR $1 LIKE domain_pattern",
-        domain
+        domain,
     )
     if not tpl_row or not tpl_row["html_template"]:
         return {"template": "", "name": ""}
@@ -299,4 +387,9 @@ async def load_default_signature(request: Request, username: str = Depends(get_c
     filled = filled.replace("{{TELEFONO2}}", "")
     filled = filled.replace("{{EMAIL}}", username)
     filled = filled.replace("{{CIUDAD}}", "Quito - Ecuador")
-    return {"template": filled, "raw_template": raw, "name": tpl_row["name"], "email": username}
+    return {
+        "template": filled,
+        "raw_template": raw,
+        "name": tpl_row["name"],
+        "email": username,
+    }

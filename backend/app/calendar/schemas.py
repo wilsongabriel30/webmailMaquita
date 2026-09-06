@@ -1,4 +1,5 @@
 """Pydantic schemas for Calendar module."""
+
 from __future__ import annotations
 
 import uuid
@@ -46,7 +47,9 @@ class EventCreate(BaseModel):
     reminders: list = Field(default_factory=list)
     attendees: list = Field(default_factory=list)
     optional_attendees: list = Field(default_factory=list)
-    meet: bool = False   # T-30: crear la videollamada Maquita Meet (reunión del servicio) y vincularla
+    meet: bool = (
+        False  # T-30: crear la videollamada Maquita Meet (reunión del servicio) y vincularla
+    )
 
 
 class EventUpdate(BaseModel):
@@ -86,7 +89,9 @@ class EventOut(BaseModel):
     timezone: str
     reminders: list
     attendees: list
-    reunion_id: Optional[int] = None   # T-30: identidad única con Maquita Meet (marca X-MAQUITA-REUNION en la descripción)
+    reunion_id: Optional[int] = (
+        None  # T-30: identidad única con Maquita Meet (marca X-MAQUITA-REUNION en la descripción)
+    )
     meet_url: str = ""
 
 

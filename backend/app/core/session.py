@@ -1,4 +1,5 @@
 """Session management — credential handling for IMAP/SMTP/CalDAV/CardDAV."""
+
 import base64
 import hashlib
 
@@ -8,6 +9,7 @@ from fastapi import HTTPException, Request, status
 
 def _get_fernet():
     from app.config import get_settings
+
     settings = get_settings()
     # Derive a 32-byte key from the secret_key
     key = hashlib.sha256(settings.secret_key.encode()).digest()
@@ -24,11 +26,11 @@ def decrypt_password(token: str) -> str:
 
 async def get_user_password(request: Request, username: str) -> str:
     """Retrieve and DECRYPT cached password from Redis.
-    
+
     OBLIGATORIO usar esta función en todos los routers que necesiten la contraseña IMAP/SMTP.
     Las contraseñas en Redis (key imap_pass:{user}) están cifradas con Fernet.
     Leer directo con redis.get() devuelve el token cifrado, NO la contraseña real.
-    
+
     Lanza HTTP 401 si la sesión expiró (no hay key en Redis).
     """
     redis = request.app.state.redis
@@ -57,6 +59,7 @@ async def get_imap_login_user(request: Request, username: str) -> str:
     if master_user:
         # Verificar que la contraseña almacenada sea realmente la master password
         from app.config import get_settings
+
         settings = get_settings()
         raw_pass = await redis.get(f"imap_pass:{username}")
         if raw_pass:
@@ -65,6 +68,7 @@ async def get_imap_login_user(request: Request, username: str) -> str:
                 if stored_pass != settings.master_password:
                     # KEY STALE: la contraseña no es la master → limpiar y usar login normal
                     import logging
+
                     logging.getLogger(__name__).warning(
                         f"imap_master stale para {username}: password no es master. Limpiando."
                     )

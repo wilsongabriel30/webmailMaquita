@@ -9,23 +9,43 @@ marcas sensibles) y detecta intentos de suplantación:
 No bloquea por sí solo: produce un veredicto para que el motor anti-phishing /
 Safe Links lo use (subir score, avisar, cuarentena).
 """
+
 import unicodedata
 
 # Dominios propios + marcas sensibles (ampliar por instalación / .env).
 PROTECTED_DOMAINS = {
-    "maquita.org", "maquita.com.ec", "mcch.com.ec", "fundmcch.com.ec",
-    "maquitaturismo.com", "relacc-la.org", "alimentaelcambio.com.ec",
-    "invertiagro.com", "productoresdema.com",
+    "maquita.org",
+    "maquita.com.ec",
+    "mcch.com.ec",
+    "fundmcch.com.ec",
+    "maquitaturismo.com",
+    "relacc-la.org",
+    "alimentaelcambio.com.ec",
+    "invertiagro.com",
+    "productoresdema.com",
     # marcas frecuentemente suplantadas (Ecuador / globales)
-    "bancopichincha.com", "bancoguayaquil.com", "produbanco.com",
-    "bancodelpacifico.com", "google.com", "microsoft.com", "paypal.com",
-    "office365.com", "outlook.com",
+    "bancopichincha.com",
+    "bancoguayaquil.com",
+    "produbanco.com",
+    "bancodelpacifico.com",
+    "google.com",
+    "microsoft.com",
+    "paypal.com",
+    "office365.com",
+    "outlook.com",
 }
 
 # Homoglyphs comunes -> carácter ASCII canónico
 _CONFUSABLES = {
-    "0": "o", "1": "l", "3": "e", "4": "a", "5": "s", "7": "t", "$": "s",
-    "rn": "m", "vv": "w",
+    "0": "o",
+    "1": "l",
+    "3": "e",
+    "4": "a",
+    "5": "s",
+    "7": "t",
+    "$": "s",
+    "rn": "m",
+    "vv": "w",
 }
 
 
@@ -74,17 +94,26 @@ def check(domain: str, protected: set | None = None) -> dict:
             return {"lookalike": False, "target": None, "reason": "legítimo"}
         # 1) homoglyph: el esqueleto coincide con un protegido pero el dominio no
         if sk == _skeleton(p) and d != p:
-            return {"lookalike": True, "target": p,
-                    "reason": f"homoglyph/confundible de {p}"}
+            return {
+                "lookalike": True,
+                "target": p,
+                "reason": f"homoglyph/confundible de {p}",
+            }
         # 2) un protegido aparece como subdominio/sufijo engañoso
         core = p.split(".")[0]
         if core in d and not d.endswith(p) and len(core) >= 4:
-            return {"lookalike": True, "target": p,
-                    "reason": f"usa '{core}' fuera de {p} (subdominio engañoso)"}
+            return {
+                "lookalike": True,
+                "target": p,
+                "reason": f"usa '{core}' fuera de {p} (subdominio engañoso)",
+            }
         # 3) typosquatting: distancia de edición pequeña sobre el dominio completo
         if abs(len(d) - len(p)) <= 2:
             dist = _levenshtein(sk, _skeleton(p))
             if 0 < dist <= 2:
-                return {"lookalike": True, "target": p,
-                        "reason": f"typosquatting de {p} (distancia {dist})"}
+                return {
+                    "lookalike": True,
+                    "target": p,
+                    "reason": f"typosquatting de {p} (distancia {dist})",
+                }
     return {"lookalike": False, "target": None, "reason": ""}

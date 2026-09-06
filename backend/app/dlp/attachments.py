@@ -7,14 +7,15 @@ Lo que no se puede leer (zip cifrado, imágenes, formatos desconocidos, archivos
 grandes) se reporta como "no inspeccionable" para que la política avise.
 Diseño fail-open: cualquier error -> texto vacío, nunca rompe el envío.
 """
+
 from __future__ import annotations
 
 import io
 import re
 import zipfile
 
-MAX_BYTES = 25 * 1024 * 1024      # no leer adjuntos mayores a 25 MB
-MAX_TEXT = 2_000_000              # tope de caracteres extraídos por adjunto
+MAX_BYTES = 25 * 1024 * 1024  # no leer adjuntos mayores a 25 MB
+MAX_TEXT = 2_000_000  # tope de caracteres extraídos por adjunto
 _TEXT_EXT = {"txt", "csv", "tsv", "json", "xml", "html", "htm", "md", "log", "eml"}
 _IMG_EXT = {"png", "jpg", "jpeg", "gif", "bmp", "tif", "tiff", "webp", "heic"}
 _ZIP_XML = {"docx": "word/", "xlsx": "xl/", "pptx": "ppt/slides/"}
@@ -34,7 +35,11 @@ def _office(content: bytes, prefix: str) -> str:
     out = []
     with zipfile.ZipFile(io.BytesIO(content)) as z:
         for n in z.namelist():
-            if n.startswith(prefix) and n.endswith(".xml") or n == "xl/sharedStrings.xml":
+            if (
+                n.startswith(prefix)
+                and n.endswith(".xml")
+                or n == "xl/sharedStrings.xml"
+            ):
                 out.append(_strip_xml(z.read(n)))
                 if sum(len(o) for o in out) > MAX_TEXT:
                     break
@@ -43,6 +48,7 @@ def _office(content: bytes, prefix: str) -> str:
 
 def _pdf(content: bytes) -> str:
     from pdfminer.high_level import extract_text
+
     return extract_text(io.BytesIO(content), maxpages=200) or ""
 
 
@@ -66,7 +72,9 @@ def _zip(content: bytes, depth: int) -> tuple[str, list[str]]:
     return " ".join(texts), unins
 
 
-def extract_text(content: bytes, filename: str, content_type: str = "", depth: int = 0) -> tuple[str, list[str]]:
+def extract_text(
+    content: bytes, filename: str, content_type: str = "", depth: int = 0
+) -> tuple[str, list[str]]:
     """Devuelve (texto, [motivos de no inspeccionable])."""
     name = filename or "adjunto"
     ext = _ext(name)
@@ -83,7 +91,11 @@ def extract_text(content: bytes, filename: str, content_type: str = "", depth: i
             return _office(content, _ZIP_XML[ext])[:MAX_TEXT], []
         if ext == "pdf" or content_type == "application/pdf":
             t = _pdf(content)[:MAX_TEXT]
-            return (t, []) if t.strip() else ("", [f"{name} (PDF sin texto, posible imagen escaneada)"])
+            return (
+                (t, [])
+                if t.strip()
+                else ("", [f"{name} (PDF sin texto, posible imagen escaneada)"])
+            )
         if ext == "zip" and depth < 1:
             return _zip(content, depth)
         if ext in ("doc", "xls", "ppt", "rar", "7z"):
@@ -97,7 +109,11 @@ def extract_all(attachments: list[dict]) -> tuple[str, list[str]]:
     """attachments: [{filename, content(bytes), content_type}] -> (texto, no_inspeccionables)."""
     texts, unins = [], []
     for a in attachments or []:
-        t, u = extract_text(a.get("content") or b"", a.get("filename") or "", a.get("content_type") or "")
+        t, u = extract_text(
+            a.get("content") or b"",
+            a.get("filename") or "",
+            a.get("content_type") or "",
+        )
         if t:
             texts.append(f"\n[ADJUNTO {a.get('filename')}]\n{t}")
         unins.extend(u)

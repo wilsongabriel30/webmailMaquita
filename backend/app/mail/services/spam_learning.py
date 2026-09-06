@@ -47,7 +47,8 @@ async def _entrenar(mensaje_crudo: bytes, accion: str) -> bool:
         return False
     try:
         proc = await asyncio.create_subprocess_exec(
-            RSPAMC, accion,
+            RSPAMC,
+            accion,
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
@@ -68,7 +69,7 @@ async def _entrenar(mensaje_crudo: bytes, accion: str) -> bool:
     except asyncio.TimeoutError:
         log.warning("rspamc %s excedio el tiempo maximo", accion)
         return False
-    except Exception as e:                      # noqa: BLE001
+    except Exception as e:  # noqa: BLE001
         # Nunca debe romper la accion principal del usuario.
         log.warning("rspamc %s fallo: %s", accion, e)
         return False

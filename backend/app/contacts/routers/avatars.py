@@ -1,4 +1,5 @@
 """Avatars — lookup batch de nombres/iniciales por email."""
+
 import json
 
 from fastapi import APIRouter, Depends, Request
@@ -11,7 +12,9 @@ router = APIRouter(prefix="/api/contacts", tags=["contacts"])
 
 
 @router.get("/avatars")
-async def get_avatars(emails: str = "", request: Request = None, username: str = Depends(get_current_user)):
+async def get_avatars(
+    emails: str = "", request: Request = None, username: str = Depends(get_current_user)
+):
     """Dado un CSV de emails, retorna {email: {name, initials}} con cache Redis."""
     if not emails:
         return {}
@@ -39,11 +42,14 @@ async def get_avatars(emails: str = "", request: Request = None, username: str =
         return result
 
     # Fuente 1: user_preferences (display_name configurado)
-    rows = await db.fetch("""
+    rows = await db.fetch(
+        """
         SELECT LOWER(m.username) AS email, COALESCE(up.display_name, '') AS display_name
         FROM mailbox m LEFT JOIN user_preferences up ON up.username = m.username
         WHERE LOWER(m.username) = ANY($1::text[])
-    """, uncached)
+    """,
+        uncached,
+    )
     found = {}
     for row in rows:
         name = row["display_name"]
@@ -55,7 +61,7 @@ async def get_avatars(emails: str = "", request: Request = None, username: str =
     if still_missing:
         rows = await db.fetch(
             "SELECT LOWER(username) AS email, COALESCE(name, '') AS name FROM mailbox WHERE LOWER(username) = ANY($1::text[])",
-            still_missing
+            still_missing,
         )
         for row in rows:
             if row["name"] and row["name"].strip():
@@ -64,11 +70,14 @@ async def get_avatars(emails: str = "", request: Request = None, username: str =
     # Fuente 3: sent_recipients (historial de envío)
     still_missing = [e for e in uncached if e not in found]
     if still_missing:
-        rows = await db.fetch("""
+        rows = await db.fetch(
+            """
             SELECT LOWER(recipient_email) AS email, recipient_name AS name
             FROM sent_recipients WHERE LOWER(recipient_email) = ANY($1::text[])
             AND recipient_name IS NOT NULL AND recipient_name != '' LIMIT 500
-        """, still_missing)
+        """,
+            still_missing,
+        )
         for row in rows:
             if row["name"] and row["name"].strip() and row["email"] not in found:
                 found[row["email"]] = row["name"].strip()
@@ -76,10 +85,13 @@ async def get_avatars(emails: str = "", request: Request = None, username: str =
     # Fuente 4: user_contacts (contactos activos)
     still_missing = [e for e in uncached if e not in found]
     if still_missing:
-        rows = await db.fetch("""
+        rows = await db.fetch(
+            """
             SELECT LOWER(email) AS email, display_name AS name FROM user_contacts
             WHERE LOWER(email) = ANY($1::text[]) AND display_name != '' AND deleted_at IS NULL LIMIT 500
-        """, still_missing)
+        """,
+            still_missing,
+        )
         for row in rows:
             if row["name"] and row["name"].strip() and row["email"] not in found:
                 found[row["email"]] = row["name"].strip()

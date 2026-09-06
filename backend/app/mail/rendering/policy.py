@@ -1,4 +1,5 @@
 """Rendering policy for email HTML — image blocking, CID replacement, link safety."""
+
 import re
 
 # Desenvoltura de enlaces de rastreo de terceros (ver link_unwrap.py).
@@ -50,9 +51,18 @@ def apply_render_policy(
         return full_tag
 
     html = re.sub(r"<img\s[^>]*>", replace_img, html, flags=re.IGNORECASE)
-    html = re.sub(r'<a\s', '<a target="_blank" rel="noopener noreferrer nofollow" ', html, flags=re.IGNORECASE)
-    html = re.sub(r"<iframe[^>]*>.*?</iframe>", "", html, flags=re.DOTALL | re.IGNORECASE)
-    html = re.sub(r"<object[^>]*>.*?</object>", "", html, flags=re.DOTALL | re.IGNORECASE)
+    html = re.sub(
+        r"<a\s",
+        '<a target="_blank" rel="noopener noreferrer nofollow" ',
+        html,
+        flags=re.IGNORECASE,
+    )
+    html = re.sub(
+        r"<iframe[^>]*>.*?</iframe>", "", html, flags=re.DOTALL | re.IGNORECASE
+    )
+    html = re.sub(
+        r"<object[^>]*>.*?</object>", "", html, flags=re.DOTALL | re.IGNORECASE
+    )
     html = re.sub(r"<embed[^>]*>", "", html, flags=re.IGNORECASE)
 
     # Enlaces de rastreo -> destino real. Si algo falla o no hay ninguno,
@@ -62,7 +72,10 @@ def apply_render_policy(
     # Lo que quede aqui es rastreo que NO se pudo limpiar: se informa.
     aviso_rastreo = resumen_para_usuario(detectar_rastreadores(html))
 
-    return {"html": html, "has_remote_images": has_remote_images,
-            "blocked_image_count": blocked_count,
-            "unwrapped_link_count": enlaces_desenvueltos,
-            "tracking_notice": aviso_rastreo}
+    return {
+        "html": html,
+        "has_remote_images": has_remote_images,
+        "blocked_image_count": blocked_count,
+        "unwrapped_link_count": enlaces_desenvueltos,
+        "tracking_notice": aviso_rastreo,
+    }

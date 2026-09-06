@@ -1,4 +1,5 @@
 """User presence — online/busy/away/offline status via Redis + WebSocket."""
+
 import asyncio
 import json
 import logging
@@ -26,9 +27,13 @@ def _redis(request: Request):
 
 
 @router.put("/status")
-async def set_status(body: StatusUpdate, request: Request, user: str = Depends(get_current_user)):
+async def set_status(
+    body: StatusUpdate, request: Request, user: str = Depends(get_current_user)
+):
     r = _redis(request)
-    data = json.dumps({"user": user, "status": body.status, "ts": datetime.utcnow().isoformat()})
+    data = json.dumps(
+        {"user": user, "status": body.status, "ts": datetime.utcnow().isoformat()}
+    )
     await r.set(f"{PREFIX}{user}", data, ex=TTL)
     await r.publish(CHANNEL, data)
     return {"ok": True}
@@ -42,7 +47,9 @@ async def heartbeat(request: Request, user: str = Depends(get_current_user)):
     if existing:
         await r.expire(key, TTL)
     else:
-        data = json.dumps({"user": user, "status": "online", "ts": datetime.utcnow().isoformat()})
+        data = json.dumps(
+            {"user": user, "status": "online", "ts": datetime.utcnow().isoformat()}
+        )
         await r.set(key, data, ex=TTL)
         await r.publish(CHANNEL, data)
     return {"ok": True}
@@ -59,7 +66,9 @@ async def get_all_presence(request: Request, user: str = Depends(get_current_use
 
 
 @router.get("/user/{email}")
-async def get_user_presence(email: str, request: Request, user: str = Depends(get_current_user)):
+async def get_user_presence(
+    email: str, request: Request, user: str = Depends(get_current_user)
+):
     r = _redis(request)
     data = await r.get(f"{PREFIX}{email}")
     if data:
@@ -71,6 +80,7 @@ async def get_user_presence(email: str, request: Request, user: str = Depends(ge
 async def presence_ws(websocket: WebSocket):
     # Autenticar via cookie antes de aceptar la conexión
     from app.auth.jwt import decode_access_token
+
     token = websocket.cookies.get("access_token")
     if not token:
         await websocket.close(code=4001, reason="No autenticado")
@@ -93,7 +103,11 @@ async def presence_ws(websocket: WebSocket):
         while True:
             msg = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
             if msg and msg["type"] == "message":
-                await websocket.send_text(msg["data"] if isinstance(msg["data"], str) else msg["data"].decode())
+                await websocket.send_text(
+                    msg["data"]
+                    if isinstance(msg["data"], str)
+                    else msg["data"].decode()
+                )
             await asyncio.sleep(0.1)
     except (WebSocketDisconnect, Exception):
         pass

@@ -72,8 +72,11 @@ async def _get_quota(imap) -> dict:
     message_limit = 0
     try:
         import aioimaplib
+
         cmd = aioimaplib.Command(
-            "GETQUOTAROOT", imap.protocol.new_tag(), "INBOX",
+            "GETQUOTAROOT",
+            imap.protocol.new_tag(),
+            "INBOX",
             untagged_resp_name="QUOTA",
         )
         resp = await imap.protocol.execute(cmd)
@@ -132,8 +135,9 @@ async def _get_top_senders(imap, limit: int = 5) -> list[dict]:
         uids = uids[:200]
         uid_set = ",".join(str(u) for u in uids)
 
-        fetch_resp = await imap.uid("fetch", uid_set,
-            "(BODY.PEEK[HEADER.FIELDS (FROM)])")
+        fetch_resp = await imap.uid(
+            "fetch", uid_set, "(BODY.PEEK[HEADER.FIELDS (FROM)])"
+        )
         if fetch_resp.result != "OK":
             return []
 
@@ -145,7 +149,12 @@ async def _get_top_senders(imap, limit: int = 5) -> list[dict]:
                 addr_m = re.search(r"<([^>]+)>", raw_from)
                 if addr_m:
                     email = addr_m.group(1).lower()
-                    name = re.sub(r"\s*<[^>]+>\s*", "", raw_from).strip().strip('"').strip("'")
+                    name = (
+                        re.sub(r"\s*<[^>]+>\s*", "", raw_from)
+                        .strip()
+                        .strip('"')
+                        .strip("'")
+                    )
                 else:
                     email = raw_from.lower().strip()
                     name = ""
@@ -193,7 +202,11 @@ async def get_mail_stats(request: Request, username: str = Depends(get_current_u
         # Storage from IMAP GETQUOTAROOT
         quota = await _get_quota(imap)
         storage_used_mb = round(quota["storage_kb"] / 1024, 1)
-        storage_limit_mb = round(quota["storage_limit_kb"] / 1024, 1) if quota["storage_limit_kb"] else 0
+        storage_limit_mb = (
+            round(quota["storage_limit_kb"] / 1024, 1)
+            if quota["storage_limit_kb"]
+            else 0
+        )
 
         # Top senders
         top_senders = await _get_top_senders(imap, limit=5)
