@@ -70,6 +70,22 @@ def san_del_host(nombre, ip):
         return []
 
 
+def _curl(args):
+    """(código HTTP, cuerpo o cabeceras). Sin verificar el certificado: eso ya lo mira san_del_host."""
+    import subprocess
+
+    try:
+        r = subprocess.run(
+            ["curl", "-sk", "-m", "10", "-w", "\n%{http_code}"] + args,
+            capture_output=True,
+            text=True,
+        )
+        cuerpo, _, codigo = r.stdout.rpartition("\n")
+        return (codigo.strip() or "sin respuesta"), cuerpo
+    except Exception as e:
+        return type(e).__name__, ""
+
+
 def cubre(sans, nombre):
     dominio = nombre.split(".", 1)[1]
     return nombre in sans or f"*.{dominio}" in sans
@@ -98,35 +114,46 @@ def comprobar(dominio, ip_canonica):
         "http80": "—",
     }
     if ips:
-        sans = san_del_host(host, ips[0])
+        # Desde el propio servidor no se llega a la IP pública (NAT en horquilla): se habla con 127.0.0.1
+        # pidiendo el nombre, que es lo que hace un cliente de fuera.
+        destino = "127.0.0.1" if ips[0] == ip_canonica else ips[0]
+        sans = san_del_host(host, destino)
         fila["cert"] = (
             "cubre" if cubre(sans, host) else ("no cubre" if sans else "sin TLS")
         )
-        try:
-            r = httpx.post(
+        codigo, cuerpo = _curl(
+            [
+                "--resolve",
+                f"{host}:443:{destino}",
+                "-X",
+                "POST",
+                "-H",
+                "Content-Type: text/xml",
+                "--data-binary",
+                XML.format(correo=f"prueba@{dominio}"),
                 f"https://{host}/autodiscover/autodiscover.xml",
-                content=XML.format(correo=f"prueba@{dominio}"),
-                headers={"Content-Type": "text/xml"},
-                timeout=10,
-            )
-            fila["https"] = f"{r.status_code}" + (
-                " ActiveSync" if "MobileSync" in r.text else ""
-            )
-        except httpx.HTTPError as e:
-            fila["https"] = type(e).__name__.replace("Error", "").lower() or "error"
-        try:
-            r = httpx.get(
+            ]
+        )
+        fila["https"] = codigo + (" ActiveSync" if "MobileSync" in cuerpo else "")
+        codigo, cuerpo = _curl(
+            [
+                "--resolve",
+                f"{host}:80:{destino}",
+                "-I",
                 f"http://{host}/autodiscover/autodiscover.xml",
-                timeout=10,
-                follow_redirects=False,
-            )
-            fila["http80"] = (
-                f"{r.status_code} → {r.headers.get('location', '')[:60]}"
-                if r.status_code in (301, 302)
-                else str(r.status_code)
-            )
-        except httpx.HTTPError as e:
-            fila["http80"] = type(e).__name__.replace("Error", "").lower() or "error"
+            ]
+        )
+        destino_redir = next(
+            (
+                l.split(":", 1)[1].strip()
+                for l in cuerpo.splitlines()
+                if l.lower().startswith("location:")
+            ),
+            "",
+        )
+        fila["http80"] = (
+            f"{codigo} → {destino_redir[:60]}" if codigo in ("301", "302") else codigo
+        )
     fila["ok"] = (
         (not nuestro)
         or fila["https"].endswith("ActiveSync")
