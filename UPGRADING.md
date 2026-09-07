@@ -10,6 +10,21 @@ servicio, reiniciar lo que cambió y correr `deploy/tools/validar-despliegue.sh`
 
 ---
 
+## De 1.7.6 a 1.7.7 — segundo factor obligatorio para cuentas privilegiadas
+
+Sin migraciones ni corte. `git fetch --tags --force && git checkout v1.7.7 && bash deploy-webmail.sh`.
+
+- Desde esta versión los buzones `admin@` y `postmaster@` (de cualquier dominio) **no pueden usar
+  el webmail sin TOTP**: al entrar, la pantalla les pide activarlo (con sus códigos de respaldo)
+  y hasta entonces todo lo demás responde 403 `must_setup_2fa`. Avisa a quien use esos buzones.
+- Para cambiar la lista: `TOTP_OBLIGATORIO=admin,postmaster,soporte@tu-dominio` en `backend/.env`
+  (partes locales o direcciones completas, separadas por comas; vacía = nadie) y reinicia el
+  backend. `DECISIONES.md` D-10.
+- Comprobar: entrar con `admin@tu-dominio` debe llevar a la pantalla «Activa la verificación en
+  dos pasos»; una cuenta normal entra como siempre.
+
+---
+
 ## De 1.7.5 a 1.7.6 — Z-Push retirado e imágenes
 
 Sin migraciones ni corte. Solo afecta a quien tuviera Z-Push (ActiveSync) instalado.
