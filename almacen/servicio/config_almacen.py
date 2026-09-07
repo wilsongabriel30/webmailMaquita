@@ -74,12 +74,12 @@ BD_NOMINA = {
 }
 
 # ── Límites ──────────────────────────────────────────────────────────────
-CUOTA_DEFECTO_BYTES = int(os.getenv('ALMACEN_CUOTA_DEFECTO', 20 * 1024 ** 3))  # 20 GB por defecto
+CUOTA_DEFECTO_BYTES = int(os.getenv('ALMACEN_CUOTA_DEFECTO', 5 * 1024 ** 3))  # 5 GB por defecto (el master la cambia en Configuración)
 
 
 def cuota_defecto_bytes() -> int:
     """Cuota por defecto de un usuario nuevo. El master puede cambiarla desde Configuración
-    (se guarda en config_kv); si no, 20 GB."""
+    (se guarda en config_kv); si no, ALMACEN_CUOTA_DEFECTO o 5 GB."""
     try:
         from almacen_bd import consultar
         filas = consultar("SELECT valor FROM config_kv WHERE clave = 'cuota_defecto_bytes'")

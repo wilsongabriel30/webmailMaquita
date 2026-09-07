@@ -36,6 +36,7 @@ from config_almacen import CLAVE_SESION, TAMANO_MAX_SUBIDA
 # Rutas que NO exigen la cookie del webmail (autenticación propia por token
 # firmado del Document Server, o diagnóstico sin datos).
 _EXENTAS = (
+        '/api/almacen/panel/',   # canal del panel: su propio secreto (api_panel.py)
     '/api/almacen/onlyoffice/download',
     '/api/almacen/onlyoffice/callback',
     '/api/almacen/publico/',    # descarga por enlace compartido (token propio)
@@ -140,6 +141,8 @@ def crear_app_webmail() -> Flask:
     app.register_blueprint(bp_onlyoffice_web)   # /archivos-almacen/editar
     from acceso_externo import bp_acceso_externo
     app.register_blueprint(bp_acceso_externo)   # /acceso-externo (login de cuentas externas)
+    from api_panel import bp_panel
+    app.register_blueprint(bp_panel, url_prefix='/api/almacen/panel')   # canal del panel de administración
 
     # El template del explorador viene del sistema mayor y enlaza a modulos
     # que aqui no existen (helpdesk, etc.): esos enlaces van al correo en vez
