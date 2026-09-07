@@ -1,0 +1,9 @@
+# Panel de administración (usuario maquita-admin, A-15 fase 2). Séptima revisión (S7-1):
+# sin Cmnd_Alias con comodines. Todo pasa por /usr/local/sbin/maquita-sudo, que aplica la
+# política del panel: systemctl/journalctl solo sobre unidades de la lista, postconf solo
+# sobre parámetros editables, doveadm con buzón validado, fail2ban con jail e IP validados,
+# sievec solo bajo /var/vmail, nginx -t y sendmail con direcciones validadas.
+Defaults:maquita-admin !requiretty
+Defaults:maquita-admin log_output
+Defaults:maquita-admin logfile=/var/log/sudo-maquita-admin.log
+maquita-admin ALL=(root) NOPASSWD: /usr/local/sbin/maquita-sudo

@@ -174,3 +174,19 @@ sesión). Antes: `room='*'`, 8–72 horas, y el token de moderador persistido en
 **Residual:** el token queda en el historial del navegador y en los registros del servidor de
 Meet durante su vida (≤ 2 h) y solo sirve para esa sala. Revisar si Jitsi añade autenticación
 por cabecera para el iframe API.
+
+## D-8. Las funciones de IA sobre correo entrante procesan contenido hostil por definición
+
+**Decisión (07/09/2026, séptima revisión):** Smart Reply y el resumen de hilos trabajan sobre
+correo que cualquiera puede haber enviado, así que su entrada se trata SIEMPRE como hostil:
+el correo va entre delimitadores explícitos (`<<<CORREO_ENTRANTE>>>` … `<<<FIN_CORREO_ENTRANTE>>>`,
+retirados del contenido si los trae), la instrucción de sistema declara que lo delimitado son
+datos que no se obedecen, y la salida se valida antes de llegar al usuario: Smart Reply y
+asuntos solo aceptan un JSON array de tres cadenas (si no, respuestas de reserva; nunca texto
+libre del modelo), el resumen solo prosa acotada sin delimitadores. Toda función nueva de IA que
+lea correo recibido pasa por `app/ai/contenido_hostil.py`.
+
+**Residual:** un modelo puede seguir obedeciendo una instrucción inyectada dentro del formato
+válido (por ejemplo, tres respuestas que digan lo que pide el atacante). Se mitiga con la regla
+de sistema y con que la persona siempre ve y edita la sugerencia antes de enviar; no se
+automatiza ningún envío a partir de la salida de la IA.
