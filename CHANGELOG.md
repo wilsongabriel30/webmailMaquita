@@ -9,6 +9,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Seguridad
 
+- **[Q-2 chat] El JWT de Meet va atado a una sala concreta, dura 60 minutos (antes `room='*'`, 8–72 h) y
+  ya no se guarda en `reuniones_programadas`** (`purgar_tokens_reuniones.py` limpia los existentes).
+  Que viaje en la URL es exigencia de Jitsi: `DECISIONES.md` D-7.
 - **[N-4] `POST /api/csp-report` acotado.** Solo registra violaciones de CSP (los informes de red NEL que
   el navegador manda al mismo sitio se descartan), cuerpo de 16 KB, 30 informes/minuto por IP en Redis,
   cada violación distinta una vez cada 10 minutos y solo un resumen de campos conocidos; antes cualquiera
