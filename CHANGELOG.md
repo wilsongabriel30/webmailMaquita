@@ -9,6 +9,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Seguridad
 
+- **[S7-3] El milter ya no falla en silencio.** Si el análisis de un correo revienta sigue entregándose
+  (D-1, fail-open) pero con cabecera `X-Maquita-Scan: failed`, ERROR `MILTER_ANALISIS_FALLIDO` y un
+  contador que `vigilar-milter.sh` convierte en alerta a partir de 3 fallos por hora.
 - **[S7-2] Inyección de instrucciones en la IA del correo.** Smart Reply y el resumen envuelven el correo
   entre delimitadores explícitos, la instrucción de sistema lo declara dato, y la salida se valida (solo
   el JSON esperado o prosa acotada; lo demás se rechaza con `IA_SALIDA_RECHAZADA`). `DECISIONES.md` D-8.
