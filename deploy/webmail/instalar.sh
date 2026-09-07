@@ -283,6 +283,12 @@ install -m755 "${APP_DIR}/deploy/tools/maquita-contener" /usr/local/sbin/maquita
 install -m755 "${APP_DIR}/deploy/tools/maquita-outbound" /usr/local/sbin/maquita-outbound
 install -m755 "${APP_DIR}/deploy/tools/maquita-mailadm" /usr/local/sbin/maquita-mailadm
 install -m440 "${APP_DIR}/deploy/webmail/configs/sudoers-maquita-outbound" /etc/sudoers.d/maquita-outbound
+# [S7-1] Envoltorio único con validación propia; sudoers sin comodines (correo y panel)
+install -m755 "${APP_DIR}/deploy/sudoers/maquita-sudo" /usr/local/sbin/maquita-sudo
+install -m440 "${APP_DIR}/deploy/sudoers/maquita-webmail" /etc/sudoers.d/maquita-webmail
+install -m440 "${APP_DIR}/deploy/sudoers/maquita-admin" /etc/sudoers.d/maquita-admin
+rm -f /etc/sudoers.d/webmail-doveadm
+visudo -c >/dev/null || { echo -e "  ${RED}ERROR: sudoers invalido${NC}"; exit 1; }
 cp "${CFG}/rspamd-ratelimit.conf" /etc/rspamd/local.d/ratelimit.conf
 mkdir -p /etc/rspamd/maps.d
 cp "${CFG}/rspamd-ratelimit-whitelist.map" /etc/rspamd/maps.d/ratelimit_whitelist.map

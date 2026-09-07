@@ -69,6 +69,17 @@ if [ -d "$COLA_EVIDENCIA" ]; then
     fi
 fi
 
+# 5. ¿El análisis está fallando aunque el servicio responda? (S7-3: fail-open, pero nunca en silencio)
+FALLOS_ANALISIS="/var/lib/maquita-admin/milter-analisis-fallido.log"
+UMBRAL_FALLOS=3
+if [ -f "$FALLOS_ANALISIS" ]; then
+    desde=$(( $(date +%s) - 3600 ))
+    recientes=$(awk -v d="$desde" '$1 >= d' "$FALLOS_ANALISIS" 2>/dev/null | wc -l)
+    if [ "$recientes" -ge "$UMBRAL_FALLOS" ]; then
+        fallos+=("El milter entregó $recientes correos en la última hora SIN poder analizarlos (cabecera X-Maquita-Scan: failed; marca MILTER_ANALISIS_FALLIDO en el journal). Sigue fail-open por decisión (D-1), pero algo falla en el análisis.")
+    fi
+fi
+
 avisar() {
     local asunto="$1" cuerpo="$2"
     for destino in $DESTINOS; do

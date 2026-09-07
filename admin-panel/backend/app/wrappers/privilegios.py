@@ -41,7 +41,12 @@ _REQUIEREN_SUDO = {
     "postsuper",
     "fail2ban-client",
     "nginx",
+    "sendmail",
 }
+
+# [S7-1] Séptima revisión: sudoers ya no concede los binarios, concede SOLO este envoltorio,
+# que valida programa, subcomando y argumentos (deploy/sudoers/maquita-sudo).
+ENVOLTORIO = "/usr/local/sbin/maquita-sudo"
 
 _SUDO = shutil.which("sudo") or "/usr/bin/sudo"
 
@@ -58,9 +63,15 @@ def con_sudo(*cmd: str) -> tuple[str, ...]:
     """
     if not cmd:
         return cmd
+    if cmd[0] == "sudo":  # llamadas antiguas con «sudo» escrito a mano: se normalizan aquí
+        cmd = tuple(cmd[1:])
+        if cmd and cmd[0] == "-n":
+            cmd = cmd[1:]
+    if not cmd:
+        return cmd
     if _somos_root():
         return cmd
     binario = os.path.basename(cmd[0])
     if binario in _REQUIEREN_SUDO:
-        return (_SUDO, "-n") + cmd
+        return (_SUDO, "-n", ENVOLTORIO, binario) + tuple(cmd[1:])
     return cmd

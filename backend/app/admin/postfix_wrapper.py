@@ -6,14 +6,16 @@ from asyncio.subprocess import PIPE
 # Queue ID: hex characters, 6-16 chars (Postfix format)
 _QUEUE_ID_RE = re.compile(r"^[A-Fa-f0-9]{6,16}$")
 
+MAQUITA_SUDO = "/usr/local/sbin/maquita-sudo"  # [S7-1] envoltorio con validación propia
+
 ALLOWED_COMMANDS = {
-    "queue_list": ["sudo", "postqueue", "-j"],
-    "queue_flush_one": ["sudo", "postqueue", "-i"],
-    "queue_flush_all": ["sudo", "postqueue", "-f"],
-    "queue_delete": ["sudo", "postsuper", "-d"],
-    "queue_hold": ["sudo", "postsuper", "-h"],
-    "queue_release": ["sudo", "postsuper", "-H"],
-    "queue_delete_all": ["sudo", "postsuper", "-d", "ALL"],
+    "queue_list": ["sudo", "-n", MAQUITA_SUDO, "postqueue", "-j"],
+    "queue_flush_one": ["sudo", "-n", MAQUITA_SUDO, "postqueue", "-i"],
+    "queue_flush_all": ["sudo", "-n", MAQUITA_SUDO, "postqueue", "-f"],
+    "queue_delete": ["sudo", "-n", MAQUITA_SUDO, "postsuper", "-d"],
+    "queue_hold": ["sudo", "-n", MAQUITA_SUDO, "postsuper", "-h"],
+    "queue_release": ["sudo", "-n", MAQUITA_SUDO, "postsuper", "-H"],
+    "queue_delete_all": ["sudo", "-n", MAQUITA_SUDO, "postsuper", "-d", "ALL"],
 }
 
 

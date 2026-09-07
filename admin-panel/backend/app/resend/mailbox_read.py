@@ -4,6 +4,8 @@ Se apoya en doveadm (mismo binario que ya usan otros modulos del panel) para no 
 del formato en disco de los buzones.
 """
 import asyncio
+
+from app.wrappers.privilegios import con_sudo
 import re
 from asyncio.subprocess import PIPE
 
@@ -29,7 +31,7 @@ def _validar(cuenta: str):
 async def _doveadm(*args: str) -> str:
     """Ejecuta doveadm y devuelve su salida (cadena vacia si falla)."""
     proc = await asyncio.create_subprocess_exec(
-        "sudo", "doveadm", *args, stdout=PIPE, stderr=PIPE
+        *con_sudo("doveadm", *args), stdout=PIPE, stderr=PIPE
     )
     out, _ = await proc.communicate()
     return out.decode("utf-8", "ignore")

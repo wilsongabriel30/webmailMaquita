@@ -474,6 +474,18 @@ async def _inbound_safelinks(st, pool, locals_) -> Continue:
     return Continue(manipulations=manips) if manips else Continue()
 
 
+_FALLOS_ANALISIS = os.getenv("MAQ_FALLOS_ANALISIS", "/var/lib/maquita-admin/milter-analisis-fallido.log")
+
+
+def _anotar_fallo_analisis() -> None:
+    """Una línea (epoch) por análisis fallido; vigilar-milter.sh avisa si se acumulan."""
+    try:
+        with open(_FALLOS_ANALISIS, "a") as f:
+            f.write(f"{int(time.time())}\n")
+    except Exception as _e:
+        log.error("MILTER_ANALISIS_FALLIDO_SIN_CONTADOR no se pudo anotar: %r", _e)
+
+
 async def on_end_of_message(cmd) -> Continue:
     st = _state.pop(_cid(), None)
     if not st:
@@ -492,8 +504,12 @@ async def on_end_of_message(cmd) -> Continue:
             manips.append(AppendHeader(headername="X-Maquita-Scan", headertext="partial"))
             return Continue(manipulations=manips)
         return res
-    except Exception:
-        return Continue()   # FAIL-OPEN: nunca afecta la entrega
+    except Exception as exc:
+        # D-1: sigue FAIL-OPEN (nunca afecta la entrega), pero nunca en silencio (S7-3):
+        # cabecera para que se vea en el correo, ERROR con marca y contador para la alerta.
+        log.error("MILTER_ANALISIS_FALLIDO de=%s error=%r", (st.get("from") or "")[:120], exc)
+        _anotar_fallo_analisis()
+        return Continue(manipulations=[AppendHeader(headername="X-Maquita-Scan", headertext="failed")])
 
 
 async def on_abort(cmd) -> Continue:

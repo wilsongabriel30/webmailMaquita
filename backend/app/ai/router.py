@@ -14,6 +14,12 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
+from app.ai.contenido_hostil import (
+    INSTRUCCION_DATOS,
+    bloque_correo,
+    json_de_cadenas,
+    texto_valido,
+)
 from app.auth.dependencies import get_current_user
 from app.config import get_settings
 from app.core.session import get_imap_login_user
@@ -370,9 +376,8 @@ async def smart_reply(
         "- Respuesta 1: aceptar o confirmar lo que pide el remitente\n"
         "- Respuesta 2: pedir mas detalles o aclaracion\n"
         "- Respuesta 3: declinar cortesmente o proponer alternativa\n\n"
-        f"De: {sender}\n"
-        f"Asunto: {subject}\n"
-        f"Mensaje:\n{text}\n\n"
+        + bloque_correo(sender, subject, text)  # [S7-2] el correo es dato delimitado
+        + "\n\n"
         "Responde UNICAMENTE con un JSON array de 3 strings. Sin explicaciones, sin markdown.\n"
         'Formato: ["respuesta1", "respuesta2", "respuesta3"]'
     )
@@ -381,11 +386,15 @@ async def smart_reply(
         MAQUITA_CONTEXT
         + "Generas respuestas de correo contextualizadas basadas en el contenido real del mensaje. "
         "NUNCA generas respuestas genericas como 'Gracias por tu mensaje'. "
-        "Respondes SOLO con JSON valido, sin texto adicional."
+        "Respondes SOLO con JSON valido, sin texto adicional." + INSTRUCCION_DATOS
     )
 
     raw = await _call_llm(prompt, system=system, temperature=0.8, max_tokens=1200)
-    suggestions = _extract_json_array(raw)
+    # [S7-2] Solo se acepta el JSON esperado; cualquier otra cosa se rechaza (reserva contextual)
+    suggestions = json_de_cadenas(raw, 3)
+    if suggestions is None:
+        logger.warning("IA_SALIDA_RECHAZADA funcion=smart_reply user=%s", user)
+        suggestions = []
 
     # Asegurar que siempre haya 3 sugerencias
     # Fallbacks contextualizados si el LLM no genero suficientes
@@ -475,7 +484,7 @@ async def summarize_thread(
             # Si es iCal puro, usar asunto como texto
             if not text or text.strip().startswith("BEGIN:VCALENDAR"):
                 text = f"Invitación de calendario: {subject}"
-            messages_text.append(f"De: {sender}\nAsunto: {subject}\n{text}")
+            messages_text.append(bloque_correo(sender, subject, text, 300))  # [S7-2]
         except Exception as e:
             logger.warning(f"summarize: no se pudo obtener mensaje {mid}: {e}")
             continue
@@ -497,11 +506,17 @@ async def summarize_thread(
     system = (
         MAQUITA_CONTEXT
         + "Tu tarea ahora: resumir el hilo de correo de forma concisa en espanol."
+        + INSTRUCCION_DATOS
     )
 
     raw = await _call_llm(prompt, system=system, temperature=0.3, max_tokens=800)
-    logger.info(f"Summarize LLM response: {repr(raw[:200])}")
-    return SummarizeResponse(summary=raw.strip())
+    resumen = texto_valido(raw)  # [S7-2]
+    if resumen is None:
+        logger.warning("IA_SALIDA_RECHAZADA funcion=summarize user=%s", user)
+        raise HTTPException(
+            status_code=502, detail="La IA no devolvio un resumen valido"
+        )
+    return SummarizeResponse(summary=resumen)
 
 
 # =====================================================
@@ -533,7 +548,7 @@ async def suggest_subject(
     )
 
     raw = await _call_llm(prompt, system=system, temperature=0.7, max_tokens=200)
-    suggestions = _extract_json_array(raw)
+    suggestions = json_de_cadenas(raw, 3) or []  # [S7-2] solo el JSON esperado
 
     while len(suggestions) < 2:
         suggestions.append("Informacion importante")
