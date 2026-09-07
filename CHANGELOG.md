@@ -7,6 +7,14 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Corregido
+
+- **N-17 (regresión de F-01, 05/09)**: el Almacén/Drive validaba la sesión del webmail buscando
+  `imap_pass:<usuario>` en Redis, pero desde F-01 el correo guarda `imap_pass:<usuario>:<sid>`: toda
+  sesión del webmail recibía 302 al login en `/archivos-almacen`. Ahora comprueba la clave de la sesión
+  exacta con el `sid` del token (y respeta la revocación por sesión). Prueba de contrato con
+  `backend/app/auth/sesiones.py`.
+
 ### Añadido
 
 - **N-5**: la página del editor OnlyOffice (`/archivos-almacen/editar`) exige la sesión del webmail y sale
