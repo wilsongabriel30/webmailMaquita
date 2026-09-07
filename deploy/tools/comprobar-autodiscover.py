@@ -6,7 +6,7 @@ Para cada dominio de correo (los activos de maildb, o los que se pasen): DNS pú
 (¿cubre `autodiscover.<d>`?), respuesta real del autodiscover por HTTPS (XML de ActiveSync) y la
 redirección de respaldo por HTTP (puerto 80, lo que Outlook prueba si el TLS falla).
 
-Uso:  cd /opt/maquita-webmail/backend && venv/bin/python ../deploy/tools/comprobar-autodiscover.py [dominio ...]
+Uso:  backend/venv/bin/python deploy/tools/comprobar-autodiscover.py [dominio ...]   (desde cualquier directorio)
       variables: MAIL_HOST (canónico, por defecto mail.maquita.org)
 Sale con 1 si algún dominio cuyo correo ya entra aquí (MX) o cuyo autodiscover apunta aquí no autoconfigura.
 """
@@ -168,7 +168,16 @@ def dominios_maildb():
 
         import asyncpg
 
-        sys.path.insert(0, os.getcwd())
+        # El backend está junto a esta herramienta (deploy/tools → ../../backend): funciona desde cualquier
+        # directorio, no solo desde backend/ (informe de Andes, 07/09).
+        backend = os.path.join(
+            os.path.dirname(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            ),
+            "backend",
+        )
+        os.chdir(backend)
+        sys.path.insert(0, backend)
         from app.config import get_settings
 
         async def q():
