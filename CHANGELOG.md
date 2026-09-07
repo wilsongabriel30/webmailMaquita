@@ -7,6 +7,11 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Añadido
+
+- **CI: Trivy construye y escanea cada imagen** (`security-scan.yml`, job «Trivy Imágenes») y bloquea
+  solo por avisos con corrección disponible; `OPERACION.md` fija la reconstrucción mensual de imágenes.
+
 ### Seguridad
 
 - **`chat-service/Dockerfile`**: base `python:3.13-slim` actual y `apt-get upgrade` en el build (cierra los
