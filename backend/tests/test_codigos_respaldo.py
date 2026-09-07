@@ -79,7 +79,14 @@ async def test_guardar_consumir_una_sola_vez():
     assert await cr.restantes(bd, "ana@example.com") == 8
     assert await cr.consumir(bd, "ana@example.com", codigos[0].lower()) is True
     assert await cr.consumir(bd, "ana@example.com", codigos[0]) is False  # ya usado
-    assert await cr.consumir(bd, "ana@example.com", codigos[1][:-1] + ("0" if codigos[1][-1] != "0" else "1")  # siempre distinto del real) is False
+    assert (
+        await cr.consumir(
+            bd,
+            "ana@example.com",
+            codigos[1][:-1] + ("0" if codigos[1][-1] != "0" else "1"),
+        )
+        is False
+    )
     assert (
         await cr.consumir(bd, "otra@example.com", codigos[2]) is False
     )  # de otra persona
