@@ -1,0 +1,4 @@
+# Cada hora: todo buzón activo tiene sus colecciones base en Radicale (calendario con tareas y
+# libreta). Z-Push no las crea y un dispositivo que sincroniza antes del primer uso del webmail
+# recibía 404/500. Idempotente (PROPFIND primero). Ver deploy/tools/radicale-asegurar-colecciones.py.
+41 * * * * root /opt/maquita-webmail/almacen/venv/bin/python /opt/maquita-webmail/deploy/tools/radicale-asegurar-colecciones.py --todos >/dev/null 2>&1

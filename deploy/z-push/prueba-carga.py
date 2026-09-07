@@ -27,6 +27,16 @@ FOLDERSYNC_WBXML = bytes([0x03, 0x01, 0x6A, 0x00, 0x00, 0x07, 0x56, 0x52, 0x03, 
 UA = "MaquitaPruebaCarga/1.0"
 
 
+class _SinRedireccion(urllib.request.HTTPRedirectHandler):
+    """Un 301/302 aquí es un fallo de nginx (la location no aplica), no un éxito: no se sigue."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+_abridor = urllib.request.build_opener(_SinRedireccion)
+
+
 def peticion(url, metodo, auth, cuerpo=None, tiempo=120):
     req = urllib.request.Request(url, data=cuerpo, method=metodo)
     req.add_header("Authorization", "Basic " + auth)
@@ -36,7 +46,7 @@ def peticion(url, metodo, auth, cuerpo=None, tiempo=120):
         req.add_header("MS-ASProtocolVersion", "14.1")
     t0 = time.time()
     try:
-        with urllib.request.urlopen(req, timeout=tiempo) as r:
+        with _abridor.open(req, timeout=tiempo) as r:
             return r.status, time.time() - t0, dict(r.headers), r.read()[:64]
     except urllib.error.HTTPError as e:
         return e.code, time.time() - t0, dict(e.headers), b""
@@ -73,7 +83,7 @@ def main():
     fallos = [r for r in res if not r["ok"]]
     print(f"dispositivos: {a.dispositivos}  tiempo total: {total:.1f}s  fallos: {len(fallos)}")
     print(f"FolderSync p50 {statistics.median(tf):.2f}s  p95 {tf[int(len(tf) * 0.95) - 1]:.2f}s  max {tf[-1]:.2f}s")
-    print("versiones ActiveSync:", res[0]["versiones"])
+    print("versiones ActiveSync:", res[0]["versiones"], "(Z-Push 2.7: hasta 14.0; los dispositivos se ven con: docker exec zpush z-push-admin -a list, ids en minúsculas)")
     codigos = {}
     for r in res:
         codigos[(r["options"], r["foldersync"])] = codigos.get((r["options"], r["foldersync"]), 0) + 1
