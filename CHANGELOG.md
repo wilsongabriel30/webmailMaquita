@@ -9,6 +9,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Seguridad
 
+- **[S7-2] Inyección de instrucciones en la IA del correo.** Smart Reply y el resumen envuelven el correo
+  entre delimitadores explícitos, la instrucción de sistema lo declara dato, y la salida se valida (solo
+  el JSON esperado o prosa acotada; lo demás se rechaza con `IA_SALIDA_RECHAZADA`). `DECISIONES.md` D-8.
 - **[S7-1] sudoers sin comodines: un solo envoltorio con validación propia.** `www-data` y `maquita-admin`
   solo pueden ejecutar `/usr/local/sbin/maquita-sudo`, que valida programa, subcomando y cada
   argumento (buzón con formato estricto y existente en Dovecot, ids de cola, unidades y parámetros de
