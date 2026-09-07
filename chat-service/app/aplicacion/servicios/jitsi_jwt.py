@@ -24,8 +24,20 @@ def _secreto():
     return s
 
 
-def generar_jwt(usuario_id, nombre, email, sala='*', es_moderador=True, duracion_horas=8, avatar_url=None):
-    duracion_horas = min(max(int(duracion_horas or 8), 8), 72)
+# [Q-2] El token viaja en la URL de Meet (?jwt=, así lo exige Jitsi: no admite cabecera), así que
+# se acota lo que puede hacer y cuánto vive: SIEMPRE atado a una sala concreta (nunca '*'),
+# vida de minutos (Jitsi solo lo comprueba al entrar; quien se reconecta pide otro a
+# /reuniones/<id>/acceso) y nunca se guarda en la base. Ver DECISIONES.md D-7.
+MINUTOS_POR_DEFECTO = 60
+MIN_MINUTOS = 5
+MAX_MINUTOS = 120
+_RE_SALA = re.compile(r'^[a-zA-Z0-9\-_]{3,120}$')
+
+
+def generar_jwt(usuario_id, nombre, email, sala, es_moderador=True, duracion_min=MINUTOS_POR_DEFECTO, avatar_url=None):
+    if not sala or not _RE_SALA.match(str(sala)):
+        raise ValueError('El token de Meet exige una sala concreta')
+    duracion_min = min(max(int(duracion_min or MINUTOS_POR_DEFECTO), MIN_MINUTOS), MAX_MINUTOS)
     ahora = int(time.time())
     payload = {
         'context': {
@@ -35,7 +47,7 @@ def generar_jwt(usuario_id, nombre, email, sala='*', es_moderador=True, duracion
                          'transcription': False, 'outbound-call': False},
         },
         'aud': 'jitsi', 'iss': JITSI_APP_ID, 'sub': JITSI_DOMAIN, 'room': sala,
-        'exp': ahora + duracion_horas * 3600, 'iat': ahora, 'nbf': ahora, 'moderator': es_moderador,
+        'exp': ahora + duracion_min * 60, 'iat': ahora, 'nbf': ahora, 'moderator': es_moderador,
     }
     tok = jwt.encode(payload, _secreto(), algorithm='HS256')
     return tok.decode() if isinstance(tok, bytes) else tok

@@ -159,3 +159,18 @@ altera la retención de datos, el perímetro o la salida de correo de toda la or
 
 Se aplica con `Depends(require_superadmin)` en la ruta (no con la política genérica de rol efectivo).
 Cualquier ruta nueva de estas familias hereda la regla; `docs/PANEL-RUTAS-ROLES.md` es la tabla viva.
+
+## D-7. El JWT de Meet Maquita (Jitsi) viaja en la URL
+
+**Decisión (06/09/2026):** se acepta que el token de acceso a una sala de Meet vaya en `?jwt=`
+de la URL, porque Jitsi Meet no admite otra vía (ni cabecera ni cookie) para el cliente web y
+la app. Lo que se controla es **qué vale y cuánto dura**: siempre atado a UNA sala (nunca `*`),
+moderador solo para quien creó la reunión, vida de 60 minutos (5–120; Jitsi solo lo comprueba
+al entrar, y quien se reconecta pide otro a `/api/chat/reuniones/<id>/acceso`), y **nunca se
+guarda** en la base ni en enlaces de calendario (esos llevan `/acceso?redirigir=1`, que exige
+sesión). Antes: `room='*'`, 8–72 horas, y el token de moderador persistido en cada fila de
+`reuniones_programadas`.
+
+**Residual:** el token queda en el historial del navegador y en los registros del servidor de
+Meet durante su vida (≤ 2 h) y solo sirve para esa sala. Revisar si Jitsi añade autenticación
+por cabecera para el iframe API.
