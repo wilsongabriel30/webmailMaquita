@@ -191,7 +191,24 @@ válido (por ejemplo, tres respuestas que digan lo que pide el atacante). Se mit
 de sistema y con que la persona siempre ve y edita la sugerencia antes de enviar; no se
 automatiza ningún envío a partir de la salida de la IA.
 
-## D-9. Z-Push (ActiveSync) se retira; las imágenes de contenedor se reconstruyen cada mes
+## D-9. Z-Push (ActiveSync) se QUEDA como componente de primera clase; las imágenes se reconstruyen cada mes
+
+**Corrección (07/09/2026, misma tarde):** la retirada decidida más abajo se anula. Se decidió sin
+un dato que solo tenía la dirección de tecnología: **la mayoría del personal usará Outlook (nuevo y
+clásico) y celulares por ActiveSync**; la dirección ejecutiva y las gerencias ya trabajan así, y
+Outlook solo sincroniza calendario y contactos por ActiveSync. Sin Z-Push, el día del corte verían
+el calendario vacío. Z-Push se mantiene como componente **principal**, dimensionado para unos 300
+dispositivos: contenedor con base oficial actual y `apt-get upgrade`, versión fija (2.7.6, la
+última con soporte), Trivy en el CI, reconstrucción mensual, backends de calendario y contactos
+apuntando a **Radicale** (un solo origen de datos para webmail, teléfono y Outlook, incluidas
+tareas) y prueba real con los dos Outlook antes de cada etiqueta que lo toque. El autodiscover del
+backend devuelve ActiveSync (XML `mobilesync` y JSON v2), prerequisito del nuevo Outlook.
+
+**Lección (a `docs/LECCIONES.md`):** una decisión de retirar funcionalidad exige confirmar quién
+la usa hoy **y quién la va a usar tras el lanzamiento**. Los registros de una plataforma sin
+usuarios solo responden lo primero.
+
+### Texto original (anulado)
 
 **Decisión (07/09/2026, informe de Snyk sobre `deploy/z-push/Dockerfile`):** Z-Push se retira del
 repositorio y de producción. Evidencia: cero peticiones a `/Microsoft-Server-ActiveSync` en dos

@@ -179,6 +179,75 @@ desactivarle el 2FA.
 - Al dar de baja a una persona: desactivar su cuenta en «Administradores» (eso revoca sus sesiones
   al instante) y borrar su secreto con la sentencia de arriba.
 
+## Z-Push / ActiveSync: Outlook clásico y nuevo Outlook
+
+Z-Push (`deploy/z-push/`, contenedor `zpush`) sirve correo, calendario, contactos y tareas por
+ActiveSync desde Dovecot y Radicale: **un solo origen de datos**. Lo usan la dirección y las
+gerencias desde Outlook de escritorio (D-9). Prueba real obligatoria con **los dos Outlook** y la
+misma cuenta antes de etiquetar cualquier cambio que toque Z-Push, el autodiscover o Radicale.
+
+### Prerequisito: autodiscover con ActiveSync
+El nuevo Outlook **no permite configurar ActiveSync a mano**: depende por completo del
+autodiscover. El backend responde `https://autodiscover.<dominio>/autodiscover/autodiscover.xml`
+(esquema `mobilesync`) y `.../autodiscover.json?Protocol=ActiveSync` (v2). Comprobar:
+
+```bash
+curl -s -X POST -H 'Content-Type: text/xml' https://autodiscover.maquita.org/autodiscover/autodiscover.xml \
+  -d '<Autodiscover xmlns="http://schemas.microsoft.com/exchange/autodiscover/mobilesync/requestschema/2006"><Request><EMailAddress>usuario@maquita.org</EMailAddress><AcceptableResponseSchema>http://schemas.microsoft.com/exchange/autodiscover/mobilesync/responseschema/2006</AcceptableResponseSchema></Request></Autodiscover>'
+# → <Type>MobileSync</Type> <Url>https://mail.maquita.org/Microsoft-Server-ActiveSync</Url>
+curl -s 'https://autodiscover.maquita.org/autodiscover/autodiscover.json/v1.0/usuario@maquita.org?Protocol=ActiveSync'
+# → {"Protocol":"ActiveSync","Url":"https://mail.maquita.org/Microsoft-Server-ActiveSync"}
+curl -s -o /dev/null -w '%{http_code}\n' -X OPTIONS https://mail.maquita.org/Microsoft-Server-ActiveSync   # 401
+```
+DNS: `autodiscover.<cada dominio>` → este servidor, y el certificado debe cubrirlo.
+
+### Outlook clásico (Office 365 de escritorio)
+1. Archivo → Agregar cuenta → escribir el correo → **Opciones avanzadas → «Configurar mi cuenta
+   manualmente»** → Conectar.
+2. Elegir **Exchange (o «Exchange ActiveSync»)**. Servidor: `mail.maquita.org`; usuario: el
+   **correo completo**; contraseña: la del buzón. Si Outlook pregunta por dominio\usuario, dejar
+   el dominio vacío y poner el correo completo como usuario.
+3. Tras conectar: carpetas de correo, Calendario, Contactos y Tareas aparecen bajo la cuenta.
+   El primer ciclo puede tardar unos minutos; después Ping mantiene la conexión.
+4. También puede añadirse como cuenta **IMAP** (autodiscover IMAP/SMTP), pero entonces **no** hay
+   calendario ni contactos: para dirección, siempre ActiveSync.
+   _[captura pendiente: pantalla «Configuración avanzada» con Exchange elegido]_
+
+### Nuevo Outlook
+1. Configuración → Cuentas → Agregar cuenta → escribir el correo → Continuar.
+2. El nuevo Outlook consulta el autodiscover y ofrece la cuenta como **Exchange/ActiveSync** sin
+   más pasos: contraseña del buzón y listo. **No hay pantalla manual**: si no aparece la opción o
+   pide servidores IMAP, el autodiscover no está devolviendo ActiveSync (ver prerequisito).
+3. Calendario, contactos y tareas se sincronizan igual que en el clásico.
+   _[captura pendiente: pantalla de «Agregar cuenta» con la detección automática]_
+
+### Diferencia entre los dos
+| | Outlook clásico | Nuevo Outlook |
+|---|---|---|
+| Configuración manual de ActiveSync | Sí (Opciones avanzadas) | **No**, solo autodiscover |
+| Depende del autodiscover | Solo si no se configura a mano | Siempre (XML `mobilesync` y JSON v2) |
+| Cuenta IMAP como alternativa | Sí (sin calendario ni contactos) | Sí (sin calendario ni contactos) |
+
+### Prueba real (la misma cuenta en los dos)
+Correo (recibir y enviar); evento creado en el webmail visto en Outlook y viceversa; contacto
+creado en Outlook visto en el webmail; tarea creada en Outlook visible en el CalDAV del webmail.
+Registrar el resultado en `REGISTRO-HALLAZGOS.md` (documentación) antes de etiquetar.
+
+### Cuando no sincroniza
+1. `docker ps | grep zpush` (Up), `docker logs --tail 50 zpush`, `/var/log/z-push/z-push-error.log`.
+2. `docker exec zpush z-push-top` (sesiones en vivo) y `docker exec zpush z-push-admin -a list -u
+   correo@dominio` (dispositivos de la cuenta y su estado).
+3. `/var/log/nginx/activesync-error.log`: 502/504 = el contenedor no responde o el `fastcgi_pass`
+   no apunta a `127.0.0.1:9000`.
+4. Credenciales: `docker exec zpush php -r 'var_dump(imap_open("{host.docker.internal:993/imap/ssl/novalidate-cert}INBOX","correo","clave"));'`
+   distingue «clave mal» de «no llega a Dovecot».
+5. Calendario/contactos vacíos con correo bien: Radicale no escucha en la IP del puente
+   (`hosts = 127.0.0.1:5232, 172.17.0.1:5232` en `/etc/radicale/config`) o la ruta `/%u/` no
+   coincide con las colecciones del usuario (`ls /var/lib/radicale/collections/collection-root/`).
+6. Resincronizar un dispositivo: `docker exec zpush z-push-admin -a resync -u correo -d <deviceid>`;
+   como último recurso, quitar la cuenta del cliente y volver a añadirla.
+7. Tras cambiar un `.php` de `/opt/z-push-docker/`: `docker restart zpush`.
+
 ## Imágenes de contenedor (chat-service y las que se añadan)
 
 - **Una vez al mes** se reconstruyen todas las imágenes con la etiqueta actual de su base oficial
@@ -190,7 +259,7 @@ desactivarle el 2FA.
   revisa cuando haya corrección.
 - No se migra a Alpine ni a versiones «rc» para «limpiar» un informe: se cambia la base solo
   cuando la actual deje de recibir soporte.
-- Z-Push se retiró el 07/09/2026 (D-9); no hay imágenes en producción.
+- Imágenes en producción: `zpush` (Z-Push, `deploy/z-push/`). Se reconstruye con `bash deploy/z-push/instalar.sh`.
 
 ## Snyk (conectado al repositorio el 07/09/2026)
 
