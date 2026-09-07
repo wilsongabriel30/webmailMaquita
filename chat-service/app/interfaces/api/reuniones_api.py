@@ -20,7 +20,7 @@ import psycopg2
 import psycopg2.extras
 from flask import Blueprint, jsonify, request, session
 
-from aplicacion.servicios.jitsi_jwt import generar_jwt, nombre_sala_nuevo, limpiar_nombre_sala, url_sala, url_sala_app, JITSI_URL
+from aplicacion.servicios.jitsi_jwt import generar_jwt, nombre_sala_nuevo, limpiar_nombre_sala, url_sala, url_sala_app, JITSI_URL, MINUTOS_POR_DEFECTO
 
 bp_reuniones = Blueprint('reuniones_chat', __name__, url_prefix='/api/chat/reuniones')
 
@@ -147,14 +147,15 @@ def proximas():
 
 def _crear(yo, asunto, inicio, duracion, participantes, mensaje, config, sala):
     sala = limpiar_nombre_sala(sala) if sala else nombre_sala_nuevo()
-    tok_mod = generar_jwt(yo['id'], yo['nombre'], yo['email'], sala, True, max(duracion, 8))
-    tok_inv = generar_jwt(0, 'Invitado', 'invitado@maquita.com.ec', sala, False, max(duracion, 8))
+    # [Q-2] Ya no se guardan tokens en la tabla: cada persona pide el suyo (atado a la sala y de
+    # minutos) en /reuniones/<id>/acceso. Las columnas quedan NULL / sin ?jwt=.
+    tok_mod = tok_inv = None
     with _conexion() as con, con.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
         cur.execute("""INSERT INTO reuniones_programadas
             (asunto, nombre_sala, fecha_hora, duracion_horas, creador_id, enlace_moderador, enlace_invitado,
              token_moderador, token_invitado, participantes_emails, mensaje, config_sala, estado, created_at, updated_at)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'programada',NOW(),NOW()) RETURNING *""",
-            (asunto, sala, inicio, duracion, yo['id'], url_sala(sala, tok_mod), url_sala(sala),
+            (asunto, sala, inicio, duracion, yo['id'], url_sala(sala), url_sala(sala),
              tok_mod, tok_inv, ', '.join(participantes), mensaje, json.dumps(config or {})))
         fila = cur.fetchone()
     # Aviso inmediato a los participantes internos por el canal único (T-03)
@@ -210,13 +211,13 @@ def instantanea():
     fila = _crear(yo, asunto, inicio, 2, participantes, '', {'sin_lobby': True}, None)
     # También en el calendario del correo (igual que las agendadas), salvo "calendario": false
     evento = _evento_correo_crear(yo, fila, asunto, inicio, 2, participantes, '') if d.get('calendario', True) else None
-    tok = generar_jwt(yo['id'], yo['nombre'], yo['email'], fila['nombre_sala'], True, 8, yo['profile_picture'])
+    tok = generar_jwt(yo['id'], yo['nombre'], yo['email'], fila['nombre_sala'], True, avatar_url=yo['profile_picture'])
     r = _a_dict(fila, yo)
     r['evento_correo'] = evento
     url_web = url_sala(fila['nombre_sala'], tok, True)
     url_app = url_sala_app(fila['nombre_sala'], tok, True)
     r.update({'jwt': tok, 'url': url_app if _es_app() else url_web, 'url_web': url_web, 'url_app': url_app, 'moderador': True,
-              'expira': (datetime.now() + timedelta(hours=8)).isoformat(timespec='minutes')})
+              'expira': (datetime.now() + timedelta(minutes=MINUTOS_POR_DEFECTO)).isoformat(timespec='minutes')})
     return jsonify({'success': True, 'reunion': r}), 201
 
 
@@ -232,8 +233,7 @@ def acceso(rid):
     if r['estado'] == 'cancelada':
         return jsonify({'success': False, 'error': 'La reunión fue cancelada'}), 410
     es_creador = r['creador_id'] == yo['id']
-    horas = max(r['duracion_horas'] or 8, 8)
-    tok = generar_jwt(yo['id'], yo['nombre'], yo['email'], r['nombre_sala'], es_creador, horas, yo['profile_picture'])
+    tok = generar_jwt(yo['id'], yo['nombre'], yo['email'], r['nombre_sala'], es_creador, avatar_url=yo['profile_picture'])
     url_web = url_sala(r['nombre_sala'], tok, es_creador)
     url_app = url_sala_app(r['nombre_sala'], tok, es_creador, camara_al_entrar=request.args.get('camara', '1') != '0')
     url = url_app if _es_app() else url_web
@@ -241,7 +241,7 @@ def acceso(rid):
         from flask import redirect
         return redirect(url)
     return jsonify({'success': True, 'id': rid, 'sala': r['nombre_sala'], 'url': url, 'url_web': url_web, 'url_app': url_app, 'jwt': tok,
-                    'moderador': es_creador, 'expira': (datetime.now() + timedelta(hours=horas)).isoformat(timespec='minutes'),
+                    'moderador': es_creador, 'expira': (datetime.now() + timedelta(minutes=MINUTOS_POR_DEFECTO)).isoformat(timespec='minutes'),
                     'dominio': JITSI_URL})
 
 
