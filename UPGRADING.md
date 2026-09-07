@@ -10,7 +10,12 @@ servicio, reiniciar lo que cambió y correr `deploy/tools/validar-despliegue.sh`
 
 ---
 
-## Sin publicar (después de 1.7.8)
+## De 1.7.8 a 1.7.9 — correcciones de Andes, Drive desde el panel, Radicale con acceso por cabecera
+
+Si vienes de 1.7.7, haz primero «De 1.7.7 a 1.7.8» (ya corregida: incluye Radicale con
+`http_x_remote_user`, la migración de prefijos y el vhost de Z-Push). Desde 1.7.8:
+`git fetch --tags --force && git checkout v1.7.9 && bash deploy-webmail.sh`, `systemctl restart
+maquita-almacen maquita-admin`, y después:
 
 Drive desde el panel (vincular buzones y cuota): un secreto nuevo, el mismo en dos ficheros.
 1. `S=$(openssl rand -hex 24); echo "ALMACEN_SECRETO_PANEL=$S" >> almacen/.env; printf
@@ -22,6 +27,13 @@ ALMACEN_SECRETO_PANEL=%s
    el formulario lo dice.
 3. La cuota por defecto del Drive en instalaciones nuevas es 5 GB (`ALMACEN_CUOTA_DEFECTO` o Configuración
    del Almacén); las existentes conservan la suya.
+4. Si usas Z-Push y vienes de 1.7.8 con Radicale en `auth type = none`: aplica el paso 5 de «De 1.7.7 a
+   1.7.8» (config de referencia, migración de prefijos, vhost `radicale-zpush`) y el paso 4 (snippet
+   `tls-intermedio.conf`). Comprueba el caso negativo del paso 6: la principal por el puente con la
+   política activa → 401.
+5. Egreso del backend (`deploy/webmail/nftables/egreso-backend.nft`): si lo instalas, ajusta
+   `ALLOWLIST_INTERNA` y mira `journalctl -k | grep EGRESO_BACKEND_DENEGADO` unos días antes de dar la
+   lista por buena.
 
 ## De 1.7.7 a 1.7.8 — Z-Push vuelve, contraseñas de aplicación, firmas, autodiscover por dominio
 

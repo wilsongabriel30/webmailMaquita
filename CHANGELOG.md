@@ -7,6 +7,16 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.7.9] - 2026-09-07
+
+Versión de correcciones tras las pruebas de Andes sobre 1.7.8 y dos regresiones propias: el Drive
+volvía al login con toda sesión del webmail desde 1.7.1 (N-17) y Radicale tenía dos árboles de
+calendarios y acceso abierto (N-19). Trae además el editor OnlyOffice con sesión y CSP (N-5), el egreso
+del backend en modo `drop` (F-05), autodiscover para todos los dominios (N-16), el Drive gestionado
+desde el alta de buzón, el espacio del correo en el Drive y la guía 1.7.8 reescrita «a prueba de
+estudiantes». Actualización: `UPGRADING.md`, «De 1.7.8 a 1.7.9» (un secreto nuevo para el canal
+panel→Almacén; Radicale con `http_x_remote_user` y migración de prefijos si se usa Z-Push).
+
 ### Cambiado
 
 - **Egreso del backend (F-05) en modo `drop`**: la política solo juzga conexiones nuevas de
@@ -974,7 +984,8 @@ Tag: `v1.0.1-compliance-audit`
 - Autenticación basada en sesiones
 - Interfaz de administración básica
 
-[Sin publicar]: https://github.com/wilsongabriel30/webmailMaquita/compare/v1.7.8...HEAD
+[Sin publicar]: https://github.com/wilsongabriel30/webmailMaquita/compare/v1.7.9...HEAD
+[1.7.9]: https://github.com/wilsongabriel30/webmailMaquita/compare/v1.7.8...v1.7.9
 [1.7.8]: https://github.com/wilsongabriel30/webmailMaquita/compare/v1.7.7...v1.7.8
 [1.0.1]: https://github.com/wilsongabriel30/webmailMaquita/compare/v1.0.0...v1.0.1-compliance-audit
 [1.0.0]: https://github.com/wilsongabriel30/webmailMaquita/compare/v0.9.0...v1.0.0
