@@ -9,6 +9,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Añadido
 
+- **N-5**: la página del editor OnlyOffice (`/archivos-almacen/editar`) exige la sesión del webmail y sale
+  con una CSP cerrada con nonce (solo su script y el Document Server; `frame-ancestors 'self'`); el editor
+  público por enlace lleva la misma CSP. `almacen/servicio/editor_seguro.py`.
 - **N-16 (2)**: el vhost `autodiscover-dominios` también sirve los nombres por HTTPS con el certificado
   del correo (autodiscover al backend, autoconfig al canónico); OPERACION explica el SNI de Dovecot.
 

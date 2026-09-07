@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>Editor — Almacén Maquita</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<style>
+<style nonce="__NONCE__">
   html, body { margin:0; padding:0; height:100%; background:#f1f3f4;
                font-family: Arial, Helvetica, sans-serif; }
   #cabecera { height:44px; display:flex; align-items:center; gap:10px;
@@ -23,15 +23,18 @@
 </head>
 <body>
 <div id="cabecera">
-  <img src="/static/img/maquita.jpg" alt="Maquita" onerror="this.style.display='none'">
+  <img id="logo" src="/static/img/maquita.jpg" alt="Maquita">
   <span id="nombre-archivo">Documento</span>
-  <button id="cerrar" onclick="window.close()">Cerrar</button>
+  <button id="cerrar">Cerrar</button>
 </div>
 <div id="contenedor">
   <div id="estado">Cargando el editor&hellip;</div>
   <div id="editor"></div>
 </div>
-<script>
+<script nonce="__NONCE__">
+// Sin manejadores en línea: la CSP (N-5) solo admite este script, por su nonce.
+document.getElementById('cerrar').addEventListener('click', () => window.close());
+document.getElementById('logo').addEventListener('error', function () { this.style.display = 'none'; });
 (async function () {
   const parametros = new URLSearchParams(location.search);
   let ruta = parametros.get('ruta') || '';
