@@ -756,20 +756,10 @@ app.include_router(firewall_router)
 app.include_router(mailguard_router)
 
 
-@app.post("/api/csp-report")
-async def csp_report(request: Request):
-    content_type = request.headers.get("content-type", "")
-    if "csp-report" not in content_type and "json" not in content_type:
-        from fastapi.responses import Response
+# [N-4] Receptor de informes CSP acotado (solo violaciones, 16 KB, 30/min por IP, sin repetidos)
+from app.security.csp_informes import router as csp_router  # noqa: E402
 
-        return Response(status_code=400)
-    body = await request.body()
-    import logging
-
-    logging.getLogger("security.csp").warning(
-        f"CSP violation: {body.decode('utf-8', errors='replace')[:2000]}"
-    )
-    return {"status": "ok"}
+app.include_router(csp_router)
 
 
 @app.get("/api/health")
