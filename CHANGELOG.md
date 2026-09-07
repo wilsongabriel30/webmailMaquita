@@ -7,6 +7,13 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Seguridad
+
+- **[N-4] `POST /api/csp-report` acotado.** Solo registra violaciones de CSP (los informes de red NEL que
+  el navegador manda al mismo sitio se descartan), cuerpo de 16 KB, 30 informes/minuto por IP en Redis,
+  cada violación distinta una vez cada 10 minutos y solo un resumen de campos conocidos; antes cualquiera
+  podía inflar `security.log` sin sesión (2.400 líneas/día de puro NEL). nginx de ejemplo con zona `csp`.
+
 ### Corregido
 
 - **Guía `INSTALL-DESDE-CERO.md`** apunta a la última etiqueta (era `v1.6.0-rc5`), separa «evaluar»
