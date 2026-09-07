@@ -10,57 +10,76 @@ servicio, reiniciar lo que cambió y correr `deploy/tools/validar-despliegue.sh`
 
 ---
 
-## De 1.7.7 a 1.7.8 — Z-Push vuelve (ActiveSync para Outlook)
+## De 1.7.7 a 1.7.8 — Z-Push vuelve, contraseñas de aplicación, firmas, autodiscover por dominio
 
-Autodiscover para todos los dominios (N-16):
-1. `sed "s/tudominio.com/<dominio canónico>/g" deploy/webmail/nginx/autodiscover-dominios.conf >
-   /etc/nginx/sites-available/autodiscover-dominios`, enlazar en `sites-enabled`, `nginx -t`, recargar.
-2. Para cada dominio de correo que ya apunte aquí: `DOMINIOS_EXTRA="..." emitir-certificado.sh <canónico>`.
-3. `deploy/tools/comprobar-autodiscover.py` para ver el estado dominio por dominio.
+En orden de ejecución (cada paso usa ficheros que llegan con el paso anterior). Corte: **ninguno para
+los usuarios del webmail** salvo el `systemctl restart dovecot` del paso 2 (unos segundos de IMAP/SMTP)
+y el reinicio de Radicale del paso 5. Migración: una (`2026-09-07-contrasenas-aplicacion.sql`).
 
-Contraseñas de aplicación (D-5):
-1. `sudo -u postgres psql -d maildb -c "CREATE EXTENSION IF NOT EXISTS pgcrypto"` y la migración
-   `migrations/2026-09-07-contrasenas-aplicacion.sql` (como `mailserver`).
-2. Dovecot: las dos `passdb` de `deploy/webmail/configs/dovecot.conf` (la principal con la condición
-   de IP y política; `contrasenas_aplicacion` con la función) y `doveadm reload`. Probar con
-   `doveadm auth test -x rip=1.2.3.4 usuario clave-de-aplicacion`.
-3. Avisar al personal (guía `docs/CONTRASENAS-APLICACION.md`), dar tiempo a crear las suyas y
-   después `maquita-mailadm auth apppass-policy on`: la principal deja de valer fuera del webmail.
+0. **Código y backend**: `git fetch --tags --force && git checkout v1.7.8 && bash deploy-webmail.sh`.
+   El backend trae el autodiscover con ActiveSync, las contraseñas de aplicación y las firmas.
+   Reinicia también el panel: `systemctl restart maquita-admin`.
 
-Firmas (normalización automática):
-1. `install -d -o www-data -g maquita-admin -m 2775 /var/lib/maquita-webmail/firmas` (lo hace
-   el instalador; en instalaciones sin panel, grupo `www-data`).
-2. Reinstalar el backend y el panel (código nuevo; sin dependencias nuevas: nh3, Pillow, lxml ya estaban).
-3. Migrar las firmas existentes: `cd /opt/maquita-webmail/backend && venv/bin/python
-   ../deploy/tools/firmas-normalizar.py` (cuenta) y después con `--aplicar`.
+1. **Vigilancia horaria de integraciones** (la instala el instalador, no la actualización):
+   `install -m644 deploy/hardening/cron-vigilar-integraciones /etc/cron.d/maquita-integraciones` y
+   `install -m644 deploy/hardening/cron-radicale-colecciones /etc/cron.d/maquita-radicale`. Prueba a mano:
+   `backend/venv/bin/python deploy/hardening/vigilar-integraciones.py` (4 sondas en OK).
 
+2. **Contraseñas de aplicación (D-5)**:
+   - `sudo -u postgres psql -d maildb -c "CREATE EXTENSION IF NOT EXISTS pgcrypto"` y la migración como
+     `mailserver`: `psql "$(grep -m1 '^DATABASE_URL=' backend/.env | cut -d= -f2-)" -f
+     migrations/2026-09-07-contrasenas-aplicacion.sql`.
+   - Dovecot: las dos `passdb` de `deploy/webmail/configs/dovecot.conf` (la principal con la condición
+     de IP y política; `contrasenas_aplicacion` con la función) y **`systemctl restart dovecot`**, no
+     `doveadm reload`: con el reload, Dovecot 2.4 se queda en un estado intermedio que **acepta cualquier
+     login** (usuario inexistente, contraseña inventada) hasta el reinicio (informe de Andes, 07/09).
+   - Comprobar SIEMPRE con un caso positivo y uno negativo:
+     `doveadm auth test -x rip=1.2.3.4 usuario clave-de-aplicacion` → `auth succeeded`;
+     `doveadm auth test -x rip=1.2.3.4 usuario clave-mala` → `auth failed`;
+     `doveadm auth test -x rip=1.2.3.4 noexiste@dominio x` → `auth failed`.
+     Si el negativo no rechaza, no sigas: reinicia Dovecot y repite.
+   - Avisar al personal (guía `docs/CONTRASENAS-APLICACION.md`), dar tiempo a crear las suyas y después
+     `maquita-mailadm auth apppass-policy on`: la principal deja de valer fuera del webmail.
 
-Sin migraciones ni corte. `git fetch --tags --force && git checkout v1.7.8 && bash deploy-webmail.sh`
-(el backend trae el autodiscover con ActiveSync).
+3. **Firmas (normalización automática)**:
+   - `install -d -o www-data -g maquita-admin -m 2775 /var/lib/maquita-webmail/firmas`. Sin usuario
+     `maquita-admin` (panel como root): `-g www-data`; el panel escribe igual (comprobado).
+   - Migrar las firmas existentes: `cd backend && venv/bin/python ../deploy/tools/firmas-normalizar.py`
+     (cuenta) y después `--aplicar`. Sin dependencias nuevas.
 
-1. `bash deploy/z-push/instalar.sh <dominio>`: construye la imagen (base actual + upgrade), escribe
-   `/opt/z-push-docker/*.php`, arranca el contenedor `zpush` en `127.0.0.1:9000` y deja el snippet.
-   Si ya tenías Z-Push nativo (pool PHP-FPM `zpush.conf`, `/opt/z-push`), retíralos: todo va en el
-   contenedor.
-2. nginx: en el `server{}` HTTPS del correo, `include snippets/maquita-apps/activesync.conf;` y en
-   el `location` del autodiscover admite `.xml` **y** `.json` (ver `deploy/webmail/nginx/webmail.conf`).
-   `nginx -t && systemctl reload nginx`.
-3. Radicale: `/etc/radicale/config` como `deploy/webmail/configs/radicale.config` (`hosts =
-   127.0.0.1:5232` **solo**, `auth type = http_x_remote_user`; nunca `none`) y **`systemctl restart
-   radicale`**. Todo `/var/lib/radicale` debe ser del usuario con el que corre el servicio
-   (`systemctl show radicale -p User`); con otro dueño responde 500. Las colecciones pasan a llamarse por el correo completo: `cd backend &&
-   venv/bin/python ../deploy/tools/radicale-migrar-prefijo.py` (cuenta) y luego `--aplicar`, con
-   el backend recién desplegado. El contenedor de Z-Push llega a Radicale por nginx
-   (`deploy/z-push/nginx/radicale-zpush.conf`, lo instala `deploy/z-push/instalar.sh` en la IP del
-   puente; comprobar `curl -X PROPFIND http://<ip del puente>:5232/` → 401). Cortafuegos: antes de los
-   `drop` por país en la cadena `input`, `iifname "docker0" tcp dport { 465, 993, 5232 } accept`
-   (persistir en `/etc/nftables.conf`). Colecciones: `backend/venv/bin/python
-   deploy/tools/radicale-asegurar-colecciones.py --todos` (el instalador instala el cron horario). Si había Z-Push nativo, retira su `location`
-   (`php8.4-zpush.sock`), el pool y `/opt/z-push`; el `include` del snippet va en el `server{}` del correo.
-4. Comprobar (todo en `OPERACION.md`, «Z-Push / ActiveSync»): `OPTIONS /Microsoft-Server-ActiveSync`
+4. **Autodiscover para todos los dominios (N-16)**:
+   - `sed "s/tudominio.com/<dominio canónico>/g" deploy/webmail/nginx/autodiscover-dominios.conf >
+     /etc/nginx/sites-available/autodiscover-dominios`, enlazar en `sites-enabled`, `nginx -t`, recargar.
+   - Por cada dominio de correo que ya apunte aquí: `DOMINIOS_EXTRA="..." bash
+     deploy/webmail/tls/emitir-certificado.sh <canónico>` (tras esperar el TTL del DNS).
+   - `backend/venv/bin/python deploy/tools/comprobar-autodiscover.py`: estado dominio por dominio.
+
+5. **Z-Push (ActiveSync) y Radicale**:
+   - Radicale: `/etc/radicale/config` como `deploy/webmail/configs/radicale.config` (`hosts =
+     127.0.0.1:5232` **solo**, `auth type = http_x_remote_user`; **nunca `none`**, que deja el calendario
+     de todos abierto a cualquier proceso local) y `systemctl restart radicale`. Todo `/var/lib/radicale`
+     debe ser del usuario con el que corre el servicio (`systemctl show radicale -p User`); con otro
+     dueño responde 500.
+   - Las colecciones pasan a llamarse por el correo completo (el mismo árbol que usa Z-Push):
+     `cd backend && venv/bin/python ../deploy/tools/radicale-migrar-prefijo.py` (cuenta) y `--aplicar`.
+   - `bash deploy/z-push/instalar.sh <dominio>`: construye la imagen, escribe `/opt/z-push-docker/*.php`,
+     arranca el contenedor `zpush` en `127.0.0.1:9000`, instala el snippet de nginx, el vhost
+     `radicale-zpush` en la IP del puente (`auth_request` al backend) y crea las colecciones base
+     (`radicale-asegurar-colecciones.py --todos`, con el venv del backend). Si ya tenías Z-Push nativo
+     (pool PHP-FPM, `/opt/z-push`, `location` con `php8.4-zpush.sock`), retíralos.
+   - nginx: si el `server{}` HTTPS del correo ya tiene `include /etc/nginx/snippets/maquita-apps/*.conf;`
+     (lo escribe el instalador para el Drive), **no añadas nada**: el snippet entra por el glob y un
+     `include` explícito duplica la `location`. Solo si no está el glob: `include
+     snippets/maquita-apps/activesync.conf;`. El `location` del autodiscover debe admitir `.xml` **y**
+     `.json` (ver `deploy/webmail/nginx/webmail.conf`). `nginx -t && systemctl reload nginx`.
+   - Cortafuegos: antes de los `drop` por país en la cadena `input`, `iifname "docker0" tcp dport
+     { 465, 993, 5232 } accept` (persistir en `/etc/nftables.conf`).
+
+6. **Comprobar** (todo en `OPERACION.md`, «Z-Push / ActiveSync»): `OPTIONS /Microsoft-Server-ActiveSync`
    → 401; autodiscover `mobilesync` → `<Type>MobileSync</Type>`; JSON v2 → `"Protocol":"ActiveSync"`;
-   y la **prueba real con una cuenta en los dos Outlook** (correo, calendario en los dos sentidos,
-   contactos, tarea).
+   `curl -X PROPFIND http://<ip del puente>:5232/` → 401 y con `-u correo:clave-de-aplicacion` → 207;
+   y la **prueba real con una cuenta en los dos Outlook, iPhone y Android** con una contraseña de
+   aplicación (correo, calendario en los dos sentidos, contactos, tarea).
 
 ---
 

@@ -195,6 +195,8 @@ contraseña principal. No valen desde el propio servidor (webmail y app siguen c
   (aplica en el siguiente login, sin reinicio). En producción está en **on** desde el 07/09/2026.
 - Diagnóstico: `doveadm auth test -x rip=<ip-del-cliente> usuario contraseña` (con `rip` externa
   prueba la ruta real; sin `rip`, la de aplicación no vale a propósito). Último uso e IP en la tabla.
+  Tras tocar las `passdb`: **`systemctl restart dovecot`**, nunca `doveadm reload` (Dovecot 2.4 queda
+  aceptando cualquier login hasta el reinicio), y probar siempre un caso negativo además del positivo.
 - Requisitos: `CREATE EXTENSION pgcrypto` en `maildb` (superusuario; lo hace el instalador) y la
   migración `2026-09-07-contrasenas-aplicacion.sql`. Guía de usuario: `docs/CONTRASENAS-APLICACION.md`.
 

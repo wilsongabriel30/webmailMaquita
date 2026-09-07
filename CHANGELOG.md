@@ -16,6 +16,12 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Corregido
 
+- **Segundo informe de Andes sobre `main`** (guía de actualización 1.7.8 seguida paso a paso): la sección
+  se reescribe en orden de ejecución (checkout primero); Dovecot se **reinicia** (con `doveadm reload`
+  quedaba aceptando cualquier login) y se comprueba con caso negativo; la migración de D-5 dice cómo
+  correrla; las herramientas van con el venv del backend; la vigilancia horaria se instala al actualizar;
+  el instalador de Z-Push no pide un `include` que el glob de `maquita-apps` ya cubre; Radicale con
+  `http_x_remote_user` explicado (punto 2 → N-19).
 - **Panel, alta de buzón**: desaparece el interruptor «Crear cuenta Nextcloud» (activo por defecto y apuntando a
   `nube.ejemplo.com`): Nextcloud ya no se usa, el Drive es el Almacén y se activa con la sesión del correo.
 - **N-19 (Radicale)**: el webmail y Z-Push escribían en árboles distintos (parte local frente a correo

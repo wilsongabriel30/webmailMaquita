@@ -63,8 +63,10 @@ docker ps --format '{{.Names}} {{.Status}}' | grep -q '^zpush Up' || { echo -e "
 echo -e "${GREEN}[4/5] Snippet de nginx...${NC}"
 mkdir -p /etc/nginx/snippets/maquita-apps
 install -m644 "$AQUI/nginx/activesync.conf" /etc/nginx/snippets/maquita-apps/activesync.conf
-if grep -q "maquita-apps/activesync.conf" /etc/nginx/sites-enabled/* 2>/dev/null; then
-    nginx -t >/dev/null && systemctl reload nginx && echo "  nginx recargado"
+if grep -qE "maquita-apps/(activesync\.conf|\*\.conf)" /etc/nginx/sites-enabled/* 2>/dev/null; then
+    # El server{} del correo incluye el snippet (por nombre o por el glob maquita-apps/*.conf del Drive):
+    # un include explícito además del glob duplicaría la location (informe de Andes, 07/09).
+    nginx -t >/dev/null && systemctl reload nginx && echo "  nginx recargado (el snippet entra por el include existente)"
 else
     echo -e "  ${YELLOW}Añade dentro del server{} HTTPS del correo:  include snippets/maquita-apps/activesync.conf;${NC}"
     echo -e "  ${YELLOW}y recarga nginx. El autodiscover ya lo sirve el backend (XML y JSON).${NC}"
