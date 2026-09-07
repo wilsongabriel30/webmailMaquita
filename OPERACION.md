@@ -157,3 +157,26 @@ desactivarle el 2FA.
   No se comparte, no se guarda en documentos ni se envía por correo o chat.
 - Al dar de baja a una persona: desactivar su cuenta en «Administradores» (eso revoca sus sesiones
   al instante) y borrar su secreto con la sentencia de arriba.
+
+## Imágenes de contenedor (chat-service y las que se añadan)
+
+- **Una vez al mes** se reconstruyen todas las imágenes con la etiqueta actual de su base oficial
+  (`docker build --pull --no-cache`) y se despliegan si se usan. El `apt-get upgrade` del build
+  cierra lo que la base aún no trae.
+- El CI (`security-scan.yml`, job «Trivy Imágenes») construye cada imagen y la escanea con Trivy:
+  **bloquea solo por avisos altos o críticos con corrección disponible**. Lo que la distribución
+  no arregla (p. ej. `CVE-2023-45853`, zlib/minizip) se acepta con motivo en `DECISIONES.md` y se
+  revisa cuando haya corrección.
+- No se migra a Alpine ni a versiones «rc» para «limpiar» un informe: se cambia la base solo
+  cuando la actual deje de recibir soporte.
+- Z-Push se retiró el 07/09/2026 (D-9); no hay imágenes en producción.
+
+## Snyk (conectado al repositorio el 07/09/2026)
+
+- Snyk se usa **para mirar, no para actuar**: sin PRs automáticos ni «fix» automáticos. Cada cambio
+  de versión que sugiera pasa por el flujo normal (rama → PR → CI en verde → despliegue → etiqueta),
+  con la verificación de que aplica de verdad al intérprete y a la imagen reales.
+- `.snyk` en la raíz fija `language-settings.python: "3.13"`, que es el intérprete real de todos los
+  satélites; sin él la organización asumía 3.7 e inflaba avisos falsos.
+- Lo que Snyk marque sin corrección disponible se trata como Trivy: aceptado con motivo en
+  `DECISIONES.md`, no se «arregla» cambiando de base ni a versiones «rc».

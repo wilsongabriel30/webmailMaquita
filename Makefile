@@ -3,7 +3,8 @@
 # =============================================================================
 # El webmail, el correo (Postfix/Dovecot), PostgreSQL y Redis corren de forma
 # NATIVA directo sobre el sistema operativo (Debian 13 o similar).
-# Docker se usa ÚNICAMENTE para Z-Push (ActiveSync) — ver deploy/z-push/.
+# Docker NO se usa en producción (Z-Push se retiró el 07/09/2026, D-9); solo sirve para
+# construir y escanear la imagen del chat en el CI.
 # Forma más fácil de instalar todo:  sudo bash deploy/webmail/instalar.sh
 # =============================================================================
 
