@@ -184,7 +184,8 @@ desactivarle el 2FA.
 Desde 1.7.8 cada cliente externo (Outlook, Thunderbird, celular, ActiveSync) entra con una contraseña
 de aplicación propia (`Configuración → Seguridad`), generada por el webmail (16 símbolos, ~79 bits),
 guardada como bcrypt en `contrasenas_aplicacion` y verificada por Dovecot en cada login con
-`verificar_contrasena_aplicacion(user, password, remote_ip)` (segunda `passdb`, pgcrypto). Se
+`verificar_contrasena_aplicacion(user, password, remote_ip)` (segunda `passdb`, pgcrypto; la función compara
+sin guiones ni espacios y responde `nopassword`, por eso la clave se acepta tecleada de las dos formas). Se
 revocan desde Ajustes, con `maquita-mailadm mailbox apppass <email> revoke`, y todas al cambiar la
 contraseña principal. No valen desde el propio servidor (webmail y app siguen con la principal + 2FA).
 

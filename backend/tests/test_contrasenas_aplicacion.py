@@ -37,7 +37,9 @@ def test_limpiar_acepta_con_y_sin_guiones():
 def test_migracion_verifica_en_sql_y_excluye_el_propio_servidor():
     sql = open(MIGRACION, encoding="utf-8").read()
     assert "CREATE OR REPLACE FUNCTION verificar_contrasena_aplicacion" in sql
-    assert "crypt(limpia, c.hash)" in sql and "{BLF-CRYPT}" in sql
+    assert (
+        "crypt(limpia, c.hash)" in sql and "'y'::TEXT" in sql
+    )  # comparación en SQL, sin segunda comparación en Dovecot
     assert "('127.0.0.1', '::1')" in sql  # desde el webmail solo vale la principal
     assert (
         "'contrasenas_aplicacion_obligatorias', 'false'" in sql

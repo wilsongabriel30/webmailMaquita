@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS contrasenas_aplicacion (
     id SERIAL PRIMARY KEY,
     username VARCHAR(255) NOT NULL,
     nombre VARCHAR(80) NOT NULL,
-    hash TEXT NOT NULL,                 -- bcrypt (pgcrypto, bf); Dovecot lo reverifica como {BLF-CRYPT}
+    hash TEXT NOT NULL,                 -- bcrypt (pgcrypto, bf), comparado en verificar_contrasena_aplicacion()
     prefijo CHAR(4) NOT NULL,           -- primeros 4 caracteres, para que la persona la reconozca
     creada TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     ultimo_uso TIMESTAMPTZ,
@@ -32,8 +32,10 @@ INSERT INTO auth_politica (clave, valor) VALUES ('contrasenas_aplicacion_obligat
 
 -- Verificación para Dovecot: devuelve la fila cuya contraseña coincide (bcrypt) y anota el uso.
 -- Solo para clientes externos: desde el propio servidor (webmail) no vale; ahí se usa la principal.
+-- Devuelve `nopassword` porque la comparación ya se hizo aquí sobre la clave sin guiones ni espacios;
+-- si Dovecot volviera a comparar el hash, una clave tecleada con guiones fallaría.
 CREATE OR REPLACE FUNCTION verificar_contrasena_aplicacion(p_user TEXT, p_clave TEXT, p_ip TEXT)
-RETURNS TABLE ("user" TEXT, password TEXT) AS $$
+RETURNS TABLE ("user" TEXT, password TEXT, nopassword TEXT) AS $$
 DECLARE
     fila contrasenas_aplicacion%ROWTYPE;
     limpia TEXT := regexp_replace(coalesce(p_clave, ''), '[-\s]', '', 'g');
@@ -51,6 +53,6 @@ BEGIN
         RETURN;
     END IF;
     UPDATE contrasenas_aplicacion SET ultimo_uso = NOW(), ultimo_ip = left(coalesce(p_ip, ''), 64) WHERE id = fila.id;
-    RETURN QUERY SELECT fila.username::TEXT, ('{BLF-CRYPT}' || fila.hash)::TEXT;
+    RETURN QUERY SELECT fila.username::TEXT, NULL::TEXT, 'y'::TEXT;
 END
 $$ LANGUAGE plpgsql;
