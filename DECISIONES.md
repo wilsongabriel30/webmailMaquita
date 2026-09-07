@@ -190,3 +190,22 @@ lea correo recibido pasa por `app/ai/contenido_hostil.py`.
 válido (por ejemplo, tres respuestas que digan lo que pide el atacante). Se mitiga con la regla
 de sistema y con que la persona siempre ve y edita la sugerencia antes de enviar; no se
 automatiza ningún envío a partir de la salida de la IA.
+
+## D-9. Z-Push (ActiveSync) se retira; las imágenes de contenedor se reconstruyen cada mes
+
+**Decisión (07/09/2026, informe de Snyk sobre `deploy/z-push/Dockerfile`):** Z-Push se retira del
+repositorio y de producción. Evidencia: cero peticiones a `/Microsoft-Server-ActiveSync` en dos
+semanas de registros de nginx (el endpoint ni siquiera estaba enrutado), cero dispositivos en
+`/var/lib/z-push/users`, y el único uso residual (autodiscover de Outlook) lo sirve ya el backend.
+IMAP + CalDAV/CardDAV con autoconfiguración cubren los teléfonos. Quitarlo elimina una imagen
+PHP de 595 MB con vulnerabilidades altas (libssh2 ×6, util-linux ×3) y un pool PHP-FPM en el host.
+
+**Imágenes que quedan** (`chat-service/Dockerfile`, solo para el CI y despliegues en contenedor):
+se construyen con la etiqueta actual de la base oficial y `apt-get upgrade` en el build; no se
+migra a Alpine ni a versiones «rc». Regla en `OPERACION.md`: reconstruir todas las imágenes con
+base actualizada **una vez al mes** y escanearlas (Trivy) en cada cambio de Dockerfile, bloqueando
+**solo** por avisos con corrección disponible.
+
+**Aceptado con motivo:** `CVE-2023-45853` (zlib/minizip) en imágenes basadas en Debian: sin
+corrección en Debian, y minizip no se usa en estos contenedores. El CI lo ignora por
+`--ignore-unfixed`; se revisa si Debian publica arreglo.
