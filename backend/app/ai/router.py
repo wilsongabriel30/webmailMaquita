@@ -178,6 +178,10 @@ async def _call_llm(
             "prompt": prompt,
             "system": system,
             "stream": False,
+            # Modelos «pensantes» (Qwen3 y similares) devuelven el razonamiento en `thinking` y
+            # `response` vacío: sin esto, dos intentos vacíos y 502 (informe de Andes, 07/09).
+            # Los modelos que no piensan ignoran el campo.
+            "think": False,
             "options": {"temperature": temperature, "num_predict": max_tokens},
         }
     elif prov == "openai":
@@ -561,42 +565,36 @@ async def suggest_subject(
 # =====================================================
 @router.get("/health")
 async def ai_health():
-    """Verifica conectividad con el servidor IA y valida que genera texto."""
+    """Verifica que la IA configurada genera texto de verdad, con el adaptador de cada proveedor.
+
+    Antes consultaba `/api/v1/ia/status` y el formato de la pasarela con cualquier proveedor, así
+    que con Ollama u OpenAI siempre salía «degraded» aunque funcionaran (informe de Andes, 07/09).
+    """
     try:
         ia = await _get_ia_config()
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            # 1. Status del gateway (GPUs + servicios)
-            resp = await client.get(
-                f"{ia['base_url']}/api/v1/ia/status",
-                headers=ia["headers"],
+        detalle = {}
+        if ia["provider"] in ("gateway", "custom"):
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.get(
+                    f"{ia['base_url']}/api/v1/ia/status", headers=ia["headers"]
+                )
+                resp.raise_for_status()
+                detalle = resp.json()
+        try:
+            texto = await _call_llm(
+                "Responde solo: OK", system="", temperature=0.1, max_tokens=5
             )
-            resp.raise_for_status()
-            status_data = resp.json()
-
-            # 2. Test funcional: generar una respuesta real
-            test_resp = await client.post(
-                ia["generate_url"],
-                json={
-                    "prompt": "Responde OK",
-                    "system": "",
-                    "temperature": 0.1,
-                    "max_tokens": 5,
-                    "usar_rag": False,
-                    "preferir_gpu": "auto",
-                },
-                headers=ia["headers"],
-            )
-            test_data = test_resp.json()
-            genera_ok = bool(test_data.get("respuesta", "").strip())
-
-            return {
-                "status": "ok" if genera_ok else "degraded",
-                "ia_server": "connected",
-                "genera_texto": genera_ok,
-                "modelo": test_data.get("modelo", "?"),
-                "gpu": test_data.get("gpu", "?"),
-                "detail": status_data,
-            }
+            genera_ok = bool((texto or "").strip())
+        except HTTPException:
+            genera_ok = False
+        return {
+            "status": "ok" if genera_ok else "degraded",
+            "ia_server": "connected",
+            "genera_texto": genera_ok,
+            "provider": ia["provider"],
+            "modelo": ia.get("model", "?"),
+            "detail": detalle,
+        }
     except Exception as e:
         return {"status": "degraded", "ia_server": "unreachable", "detail": str(e)}
 

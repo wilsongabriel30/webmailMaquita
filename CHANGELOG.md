@@ -7,6 +7,17 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Corregido
+
+- **Informe de Andes (v1.7.4 → v1.7.7)**: `purgar_tokens_reuniones.py` dice «nada que purgar» si la tabla no
+  existe; la guía de instalación usa `emitir-certificado.sh` en el paso TLS (el `certbot -d apex` fallaba) y
+  ya no lleva número de versión; el adaptador de Ollama manda `think: false` (los modelos «pensantes» como
+  Qwen3 devolvían `response` vacío y 502); `probar-ia.sh` exige texto no vacío; `GET /api/ai/health` usa el
+  adaptador del proveedor configurado (con Ollama u OpenAI siempre salía `degraded`); UPGRADING menciona
+  `journalctl -t maquita-sudo` para sistemas sin `auth.log`.
+- **Guardián**: solo revisa las líneas añadidas del cambio (el contexto del diff bloqueaba commits por
+  texto que ya estaba en el fichero).
+
 ## [1.7.8] - 2026-09-07
 
 Z-Push vuelve como componente principal (D-9 corregida), contraseñas de aplicación (D-5), firmas

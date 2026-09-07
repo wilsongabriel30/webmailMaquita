@@ -17,7 +17,9 @@
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
 fallo=0
 RAIZ=$(git rev-parse --show-toplevel)
-DIFF=$(git diff --cached)
+# Solo las lineas ANADIDAS: el contexto del diff traia lineas antiguas (p. ej. el nombre de un
+# proveedor de IA que ya estaba en el fichero) y bloqueaba cambios ajenos a ellas.
+DIFF=$(git diff --cached -U0 | grep "^+" | grep -v "^+++ ")
 STAGED=$(git diff --cached --name-only --diff-filter=ACMR)
 
 # 1. Patrones prohibidos definidos localmente (secretos del equipo, proveedores
