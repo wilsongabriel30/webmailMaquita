@@ -8,8 +8,10 @@ el correo y reenvía a Radicale. Así cada dispositivo solo ve las colecciones d
 
 Se acepta la contraseña de aplicación (D-5, comparada en SQL) y, mientras la política
 `contrasenas_aplicacion_obligatorias` esté en `false`, también la principal (IMAP local).
-El resultado se recuerda 120 s en Redis por hash de usuario+clave: Z-Push hace decenas de
-peticiones DAV por sincronización y bcrypt no es gratis.
+El acierto de una contraseña de APLICACIÓN se recuerda 120 s en Redis por hash de usuario+clave
+(Z-Push hace decenas de peticiones DAV por sincronización y bcrypt no es gratis). El de la
+principal NO se recuerda: depende de la política, y activar la política tiene que cortar en el
+acto (informe de Andes, 07/09: una principal aceptada antes de activarla seguía valiendo 120 s).
 """
 
 import base64
@@ -47,14 +49,14 @@ def clave_cache(usuario: str, clave: str) -> str:
 
 
 async def verificar(db, redis, usuario: str, clave: str) -> bool:
-    """Contraseña de aplicación por SQL; principal por IMAP solo mientras no sea obligatoria la de aplicación."""
+    """Contraseña de aplicación por SQL (con caché); principal por IMAP solo mientras no sea
+    obligatoria la de aplicación, y nunca en caché."""
     k = clave_cache(usuario, clave)
     try:
         if redis is not None and await redis.get(k):
             return True
     except Exception:
         pass
-    ok = False
     try:
         fila = await db.fetchrow(
             'SELECT "user" FROM verificar_contrasena_aplicacion($1, $2, $3)',
@@ -62,26 +64,27 @@ async def verificar(db, redis, usuario: str, clave: str) -> bool:
             clave,
             MARCA_ORIGEN,
         )
-        ok = bool(fila)
     except Exception as exc:
         logger.error(
             "dav_auth: fallo al consultar contrasenas de aplicacion (%s)",
             type(exc).__name__,
         )
-    if not ok:
-        from app.auth.contrasenas_aplicacion import politica_obligatoria
-
-        if not await politica_obligatoria(db):
-            from app.auth.password import verify_imap
-
-            ok = verify_imap(usuario, clave)
-    if ok:
+        fila = None
+    if fila:
         try:
             if redis is not None:
                 await redis.set(k, "1", ex=TTL_CACHE)
         except Exception:
             pass
-    return ok
+        return True
+    # Contraseña principal: solo mientras no sea obligatoria la de aplicación, y sin caché.
+    from app.auth.contrasenas_aplicacion import politica_obligatoria
+
+    if await politica_obligatoria(db):
+        return False
+    from app.auth.password import verify_imap
+
+    return bool(verify_imap(usuario, clave))
 
 
 def _rechazo() -> Response:
