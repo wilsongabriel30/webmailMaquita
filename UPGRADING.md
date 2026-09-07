@@ -10,6 +10,32 @@ servicio, reiniciar lo que cambió y correr `deploy/tools/validar-despliegue.sh`
 
 ---
 
+## De 1.7.4 a 1.7.5 — sudoers, IA y milter
+
+Sin migraciones ni corte de sesiones. Cambia cómo el correo y el panel obtienen privilegios.
+
+1. `git fetch --tags --force && git checkout v1.7.5`.
+2. **sudoers** (antes de reiniciar nada):
+   ```bash
+   install -m755 deploy/sudoers/maquita-sudo /usr/local/sbin/maquita-sudo
+   install -m440 deploy/sudoers/maquita-webmail /etc/sudoers.d/maquita-webmail
+   install -m440 deploy/sudoers/maquita-admin  /etc/sudoers.d/maquita-admin
+   rm -f /etc/sudoers.d/webmail-doveadm
+   visudo -c
+   ```
+   Si tu sudoers del panel tenía unidades o parámetros propios fuera de la lista del envoltorio,
+   añádelos en `UNIDADES` / `POSTCONF_PARAMS` de `maquita-sudo` (y en el repo, por favor).
+   Comprobar como `www-data`:
+   `sudo -u www-data sudo -n /usr/local/sbin/maquita-sudo doveadm search -u <buzón> mailbox Sent header message-id x`
+   debe devolver 0 o 1 (no «password is required»), y con `-o mail_location=/etc` debe rechazarse.
+3. `bash deploy-webmail.sh` (backend), `systemctl restart maquita-admin maquita-milter`.
+4. Comprobar: `grep MAQUITA_SUDO /var/log/auth.log` muestra `ok` al usar el panel (fail2ban, cola);
+   Smart Reply responde (si devuelve 502, revisa que `IA_API_KEY` en `backend/.env` y en la tabla
+   `ai_config` sea la que espera tu pasarela de IA); `X-Maquita-Scan: failed` solo aparece si el
+   análisis del milter falla, y entonces `vigilar-milter.sh` avisa a partir de 3 por hora.
+
+---
+
 ## De 1.7.3 a 1.7.4 — correo, chat y nginx
 
 Sin migraciones ni corte de sesiones.
