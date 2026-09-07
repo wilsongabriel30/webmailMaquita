@@ -36,7 +36,8 @@ y el reinicio de Radicale del paso 5. Migración: una (`2026-09-07-contrasenas-a
 1. **Vigilancia horaria de integraciones** (la instala el instalador, no la actualización):
    `install -m644 deploy/hardening/cron-vigilar-integraciones /etc/cron.d/maquita-integraciones` y
    `install -m644 deploy/hardening/cron-radicale-colecciones /etc/cron.d/maquita-radicale`. Prueba a mano:
-   `backend/venv/bin/python deploy/hardening/vigilar-integraciones.py` (4 sondas en OK).
+   `backend/venv/bin/python deploy/hardening/vigilar-integraciones.py`: cada sonda en `OK` o, si esa
+   integración no existe en tu instalación (sin IA, sin OnlyOffice…), en `NO_CONFIGURADA`, que también es válido.
 
 2. **Contraseñas de aplicación (D-5)**:
    - `sudo -u postgres psql -d maildb -c "CREATE EXTENSION IF NOT EXISTS pgcrypto"` y la migración como
@@ -46,7 +47,8 @@ y el reinicio de Radicale del paso 5. Migración: una (`2026-09-07-contrasenas-a
      de IP y política; `contrasenas_aplicacion` con la función) y **`systemctl restart dovecot`**, no
      `doveadm reload`: con el reload, Dovecot 2.4 se queda en un estado intermedio que **acepta cualquier
      login** (usuario inexistente, contraseña inventada) hasta el reinicio (informe de Andes, 07/09).
-   - Comprobar SIEMPRE con un caso positivo y uno negativo:
+   - Comprobar SIEMPRE con un caso positivo y uno negativo. Para el positivo hace falta una contraseña de
+     aplicación: crea una de prueba en `Configuración → Seguridad` de tu propia cuenta y revócala después.
      `doveadm auth test -x rip=1.2.3.4 usuario clave-de-aplicacion` → `auth succeeded`;
      `doveadm auth test -x rip=1.2.3.4 usuario clave-mala` → `auth failed`;
      `doveadm auth test -x rip=1.2.3.4 noexiste@dominio x` → `auth failed`.
@@ -61,11 +63,17 @@ y el reinicio de Radicale del paso 5. Migración: una (`2026-09-07-contrasenas-a
      (cuenta) y después `--aplicar`. Sin dependencias nuevas.
 
 4. **Autodiscover para todos los dominios (N-16)**:
+   - `install -m644 deploy/webmail/nginx/tls-intermedio.conf /etc/nginx/snippets/tls-intermedio.conf`
+     (el vhost lo incluye; hasta ahora solo existía en nuestros servidores).
    - `sed "s/tudominio.com/<dominio canónico>/g" deploy/webmail/nginx/autodiscover-dominios.conf >
-     /etc/nginx/sites-available/autodiscover-dominios`, enlazar en `sites-enabled`, `nginx -t`, recargar.
+     /etc/nginx/sites-available/autodiscover-dominios`; **sin certificado de Let's Encrypt** (VM de
+     evaluación) cambia sus dos rutas `/etc/letsencrypt/live/mail.<dominio>/…` por
+     `/etc/ssl/certs/ssl-cert-snakeoil.pem` y `/etc/ssl/private/ssl-cert-snakeoil.key`, como hace el
+     instalador; enlazar en `sites-enabled`, `nginx -t`, recargar.
    - Por cada dominio de correo que ya apunte aquí: `DOMINIOS_EXTRA="..." bash
      deploy/webmail/tls/emitir-certificado.sh <canónico>` (tras esperar el TTL del DNS).
-   - `backend/venv/bin/python deploy/tools/comprobar-autodiscover.py`: estado dominio por dominio.
+   - `backend/venv/bin/python deploy/tools/comprobar-autodiscover.py` (desde cualquier directorio): estado
+     dominio por dominio.
 
 5. **Z-Push (ActiveSync) y Radicale**:
    - Radicale: `/etc/radicale/config` como `deploy/webmail/configs/radicale.config` (`hosts =
@@ -84,13 +92,16 @@ y el reinicio de Radicale del paso 5. Migración: una (`2026-09-07-contrasenas-a
      (lo escribe el instalador para el Drive), **no añadas nada**: el snippet entra por el glob y un
      `include` explícito duplica la `location`. Solo si no está el glob: `include
      snippets/maquita-apps/activesync.conf;`. El `location` del autodiscover debe admitir `.xml` **y**
-     `.json` (ver `deploy/webmail/nginx/webmail.conf`). `nginx -t && systemctl reload nginx`.
+     `.json`: `sed -i 's#\[Aa\]utodiscover\\.xml\$#[Aa]utodiscover\\.(xml|json)#' /etc/nginx/sites-available/<tu vhost>`
+     (queda como en `deploy/webmail/nginx/webmail.conf`). `nginx -t && systemctl reload nginx`.
    - Cortafuegos: antes de los `drop` por país en la cadena `input`, `iifname "docker0" tcp dport
      { 465, 993, 5232 } accept` (persistir en `/etc/nftables.conf`).
 
 6. **Comprobar** (todo en `OPERACION.md`, «Z-Push / ActiveSync»): `OPTIONS /Microsoft-Server-ActiveSync`
    → 401; autodiscover `mobilesync` → `<Type>MobileSync</Type>`; JSON v2 → `"Protocol":"ActiveSync"`;
-   `curl -X PROPFIND http://<ip del puente>:5232/` → 401 y con `-u correo:clave-de-aplicacion` → 207;
+   `curl -X PROPFIND http://<ip del puente>:5232/` → 401, con `-u correo:clave-de-aplicacion` → 207 y, con la
+   política de contraseñas de aplicación activa, con `-u correo:contraseña-principal` → **401** (si da 207,
+   el puente está aceptando la principal: revisa el backend);
    y la **prueba real con una cuenta en los dos Outlook, iPhone y Android** con una contraseña de
    aplicación (correo, calendario en los dos sentidos, contactos, tarea).
 

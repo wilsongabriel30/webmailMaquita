@@ -16,6 +16,12 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Corregido
 
+- **Tercer informe de Andes**: el puente de Radicale ya no recuerda en caché una contraseña principal
+  aceptada antes de activar la política (solo se recuerdan las de aplicación; activar la política corta en
+  el acto); `tls-intermedio.conf` publicado en el repo y el vhost de autodiscover arranca con snakeoil si
+  no hay certificado; `comprobar-autodiscover.py` funciona desde cualquier directorio; guía: contraseña
+  de prueba para la comprobación, `NO_CONFIGURADA` válido, `sed` literal del autodiscover, caso negativo
+  de la principal por el puente.
 - **Segundo informe de Andes sobre `main`** (guía de actualización 1.7.8 seguida paso a paso): la sección
   se reescribe en orden de ejecución (checkout primero); Dovecot se **reinicia** (con `doveadm reload`
   quedaba aceptando cualquier login) y se comprueba con caso negativo; la migración de D-5 dice cómo

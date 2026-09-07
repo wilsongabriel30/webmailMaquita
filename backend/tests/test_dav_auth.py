@@ -94,3 +94,19 @@ async def test_principal_solo_si_la_politica_no_es_obligatoria(monkeypatch):
 def test_prefijo_de_colecciones_es_el_correo_completo():
     """Z-Push usa /<correo>/ (CALDAV_PATH '/%u/'); el webmail tiene que escribir en el MISMO árbol."""
     assert _user_prefix("Ana@Ejemplo.org") == "ana@ejemplo.org"
+
+
+@pytest.mark.asyncio
+async def test_activar_la_politica_corta_la_principal_en_el_acto(monkeypatch):
+    """Informe de Andes (07/09): la principal aceptada ANTES de activar la política no puede seguir
+    valiendo por la caché. Solo se recuerdan los aciertos de contraseña de aplicación.
+    """
+    import app.auth.password as pw
+
+    monkeypatch.setattr(pw, "verify_imap", lambda u, c: c == "principal")
+    r = _Redis()
+    db = _DB(False, politica=False)
+    assert await dav_auth.verificar(db, r, "ana@ejemplo.org", "principal") is True
+    assert not r.d  # la principal no se recuerda
+    db.politica = True
+    assert await dav_auth.verificar(db, r, "ana@ejemplo.org", "principal") is False
