@@ -7,6 +7,14 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Corregido
+
+- **Instalación sin adivinar (2.ª relectura de Andes)**: el instalador preconfigura Postfix con `debconf`
+  (ya no aparece el asistente azul a mitad del `apt install`); la guía lo hace también en el paso 1,
+  deja claro que `backend/.env` lo escribe entero el instalador (lo opcional se añade después),
+  explica cómo abrir el webmail al evaluar con `example.test` (`/etc/hosts` + certificado autofirmado)
+  y marca el hook Guardián como opcional salvo para quien vaya a hacer commits.
+
 ## [1.7.4] - 2026-09-06
 
 Cierre de Q-2 (JWT de Meet) y N-4 (informes CSP), más las correcciones del informe de Andes sobre
