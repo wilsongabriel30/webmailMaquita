@@ -184,6 +184,14 @@ def asegurar_esquema():
                     limite_bytes BIGINT NOT NULL
                 );
 
+                -- Vinculo explicito buzon -> persona del directorio central (lo fija el panel de
+                -- administracion; manda sobre la coincidencia por correo). En todos los modos de directorio.
+                CREATE TABLE IF NOT EXISTS enlaces_correo (
+                    correo     TEXT PRIMARY KEY,
+                    usuario_id INTEGER NOT NULL,
+                    creado_en  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                );
+
                 -- Uso de disco cacheado (recalcular el arbol sobre NFS es caro)
                 CREATE TABLE IF NOT EXISTS cuotas_uso (
                     usuario_id INTEGER PRIMARY KEY,
