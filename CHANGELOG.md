@@ -7,6 +7,14 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.7.6] - 2026-09-07
+
+Informe de Snyk sobre los Dockerfiles: Z-Push (ActiveSync) retirado, imagen del chat con base actual,
+`apt-get upgrade` y sin pip en tiempo de ejecución (0 avisos en Trivy), Trivy de imágenes en el CI
+bloqueando solo por avisos con corrección, `.snyk` con Python 3.13 y reglas de operación (reconstrucción
+mensual; Snyk mira, no actúa). Sin migraciones ni reinicios del correo. Pasos en `UPGRADING.md`,
+sección «De 1.7.5 a 1.7.6».
+
 ### Añadido
 
 - **CI: Trivy construye y escanea cada imagen** (`security-scan.yml`, job «Trivy Imágenes») y bloquea
