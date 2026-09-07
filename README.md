@@ -30,7 +30,7 @@ No reemplaza tu MTA ni tu servidor IMAP. Funciona **junto a ellos**, conectándo
 
 Todo el sistema corre **de forma nativa, directo sobre el sistema operativo** (Debian 13 o similar): webmail, Postfix, Dovecot, PostgreSQL, Redis y SOGo. **No depende de Docker.** Está pensado para ser **reproducible e instalable por cualquiera** en su propio servidor Debian — incluso por estudiantes — con un solo script.
 
-> **El correo y el webmail nunca se ejecutan en contenedores.** Docker solo se usa para construir y escanear la imagen del chat en el CI. Z-Push (ActiveSync) se retiró en 1.7.6 (`DECISIONES.md` D-9): los teléfonos se conectan por IMAP, CalDAV y CardDAV con autoconfiguración.
+> **Docker se usa únicamente para Z-Push** (ActiveSync: sincronización de correo, calendario y contactos con teléfonos móviles). Es un componente **opcional** y aislado — ver [`deploy/z-push/`](deploy/z-push/). El correo y el webmail **nunca** se ejecutan en contenedores.
 
 ## Qué problema resuelve
 
@@ -142,6 +142,7 @@ En **software libre y sobre tus propios servidores**, este repositorio ofrece la
   Componentes opcionales:
   - SOGo: calendario y contactos (CalDAV/CardDAV)         -> nativo
   - Ollama: respuestas/redacción asistidas por IA local   -> nativo
+  - Z-Push: ActiveSync (sincronización con móviles)        -> Docker (deploy/z-push)
 ```
 
 ## Características principales
@@ -387,11 +388,16 @@ maquita-mailadm stats                           # resumen del sistema
 > Para recetas paso a paso (casos comunes) e instalación de la herramienta, ver
 > la guía extendida: [`deploy/tools/GUIA-COMANDOS.md`](deploy/tools/GUIA-COMANDOS.md).
 
-## Sincronización con móviles
+## Sincronización con móviles (Z-Push / ActiveSync) — opcional
 
-Sin ActiveSync: los teléfonos (Android/iOS) usan **IMAP** para el correo y **CalDAV/CardDAV**
-para calendario y contactos, con autoconfiguración (Thunderbird, Outlook, Apple) servida por el
-propio backend. Ver `docs/CERTIFICADO-Y-AUTOCONFIG.md`. Z-Push se retiró en 1.7.6 (D-9).
+El **único** componente que usa Docker. Permite sincronizar correo, calendario y
+contactos con teléfonos (Android/iOS) vía Exchange ActiveSync. Es opcional:
+
+```bash
+cd deploy/z-push
+cat README.md      # instrucciones de configuración
+bash instalar.sh
+```
 
 ## Nube de archivos y ofimática en línea (Almacén) — integrado
 

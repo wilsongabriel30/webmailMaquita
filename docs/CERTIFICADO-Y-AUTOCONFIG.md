@@ -41,10 +41,10 @@ nombres empiecen a apuntar aquí.
 
 ## Autodiscover de Outlook
 
-Lo sirve el **backend** (`/autodiscover/autodiscover.xml` → puerto 8000, ver
-`deploy/webmail/nginx/webmail.conf`), dinámico y multi-dominio: responde IMAP/SMTP con el
-correo completo como usuario. El helper ya incluye `autodiscover.` en el certificado si apunta a
-este servidor. (Hasta 1.7.5 lo servía z-push; se retiró, D-9.)
+Lo sirve el **backend** (`/autodiscover/autodiscover.xml` y `.json` → puerto 8000): IMAP/SMTP
+para Outlook clásico como cuenta IMAP, y **ActiveSync** (esquema `mobilesync` y JSON v2) para el
+nuevo Outlook, Outlook clásico como cuenta Exchange, Android e iOS, apuntando a Z-Push
+(`deploy/z-push/`). El helper ya incluye `autodiscover.` en el certificado si apunta a este servidor.
 
 ## Varios dominios de correo en el mismo servidor (SNI)
 
