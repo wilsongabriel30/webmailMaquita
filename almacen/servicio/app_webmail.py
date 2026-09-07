@@ -361,14 +361,14 @@ def crear_app_webmail() -> Flask:
 <html lang="es"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Editor — archivo compartido</title>
-<style>
+<style nonce="__NONCE__">
  html,body{height:100%;margin:0;background:#f3f2f1;font-family:'Segoe UI',system-ui,sans-serif}
  #contenedor{height:100%}
  #estado{position:absolute;top:40%;left:0;right:0;text-align:center;color:#605e5c;font-size:14px}
 </style></head><body>
 <div id="estado">Cargando el editor…</div>
 <div id="contenedor"><div id="editor"></div></div>
-<script>
+<script nonce="__NONCE__">
  const partes = location.pathname.split('/').filter(Boolean);   // almacen-s, <token>, editar
  const TOKEN = partes[1];
  let CLAVE = ''; try { CLAVE = sessionStorage.getItem('clave-' + TOKEN) || ''; } catch (e) {}  // [F-08] nunca en la URL
@@ -390,7 +390,10 @@ def crear_app_webmail() -> Flask:
    document.head.appendChild(s);
  })();
 </script></body></html>"""
-        return html, 200, {'Content-Type': 'text/html; charset=utf-8', 'Referrer-Policy': 'no-referrer', 'Cache-Control': 'no-store'}
+        from editor_seguro import cabeceras_editor, nonce
+        from api_onlyoffice import url_publica_ds
+        n = nonce()  # N-5: misma CSP que el editor con sesión
+        return html.replace('__NONCE__', n), 200, cabeceras_editor(url_publica_ds(), n)
 
     @app.get('/healthz')
     def healthz():
