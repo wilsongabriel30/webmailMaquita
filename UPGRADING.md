@@ -10,6 +10,24 @@ servicio, reiniciar lo que cambió y correr `deploy/tools/validar-despliegue.sh`
 
 ---
 
+## De 1.7.5 a 1.7.6 — Z-Push retirado e imágenes
+
+Sin migraciones ni corte. Solo afecta a quien tuviera Z-Push (ActiveSync) instalado.
+
+1. `git fetch --tags --force && git checkout v1.7.6`.
+2. Si tenías Z-Push (contenedor `zpush`, pool PHP-FPM `zpush.conf`, `/opt/z-push*`): comprueba antes
+   que nadie lo usa (`grep -c Microsoft-Server-ActiveSync /var/log/nginx/access.log*` y
+   `ls /var/lib/z-push/users`). Luego, con respaldo: `docker stop zpush && docker rm zpush &&
+   docker rmi zpush:latest`, retira el pool `zpush.conf` y recarga `php8.4-fpm`, y en nginx haz que
+   `/autodiscover/autodiscover.xml` vaya al backend (bloque «Autodiscover Outlook» de
+   `deploy/webmail/nginx/webmail.conf`). Comprobar: un `POST` a
+   `https://autodiscover.TU-DOMINIO/autodiscover/autodiscover.xml` responde 200 con `IMAP` y `SMTP`.
+   Los teléfonos siguen por IMAP + CalDAV/CardDAV con autoconfiguración.
+3. Si despliegas el chat en contenedor: reconstruye con `docker build --pull` (la imagen ya no trae
+   pip). Nada que hacer si el chat corre en venv.
+
+---
+
 ## De 1.7.4 a 1.7.5 — sudoers, IA y milter
 
 Sin migraciones ni corte de sesiones. Cambia cómo el correo y el panel obtienen privilegios.
