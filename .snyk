@@ -1,0 +1,5 @@
+# Snyk resuelve las dependencias de Python contra el intérprete real del proyecto.
+# Sin esto la organización asumía 3.7 por defecto e inflaba avisos que no aplican.
+version: v1.25.0
+language-settings:
+  python: "3.13"

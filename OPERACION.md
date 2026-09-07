@@ -170,3 +170,13 @@ desactivarle el 2FA.
 - No se migra a Alpine ni a versiones «rc» para «limpiar» un informe: se cambia la base solo
   cuando la actual deje de recibir soporte.
 - Z-Push se retiró el 07/09/2026 (D-9); no hay imágenes en producción.
+
+## Snyk (conectado al repositorio el 07/09/2026)
+
+- Snyk se usa **para mirar, no para actuar**: sin PRs automáticos ni «fix» automáticos. Cada cambio
+  de versión que sugiera pasa por el flujo normal (rama → PR → CI en verde → despliegue → etiqueta),
+  con la verificación de que aplica de verdad al intérprete y a la imagen reales.
+- `.snyk` en la raíz fija `language-settings.python: "3.13"`, que es el intérprete real de todos los
+  satélites; sin él la organización asumía 3.7 e inflaba avisos falsos.
+- Lo que Snyk marque sin corrección disponible se trata como Trivy: aceptado con motivo en
+  `DECISIONES.md`, no se «arregla» cambiando de base ni a versiones «rc».
