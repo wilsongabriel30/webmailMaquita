@@ -28,6 +28,10 @@ docker build --pull --network host -t zpush:latest "$AQUI"
 
 echo -e "${GREEN}[2/5] Configuraciones en ${CONF} (se conservan si ya existen)...${NC}"
 mkdir -p "$CONF" "$ESTADO" "$LOGS"
+# El fichero de usuarios/dispositivos debe existir con un array PHP serializado: vacío o ausente
+# hace fallar LinkUserDevice. Un estado de una instalación nativa antigua (users como carpeta) no vale.
+if [ -d "$ESTADO/users" ]; then mv "$ESTADO/users" "$ESTADO/users.nativo-$(date +%Y%m%d)"; fi
+[ -s "$ESTADO/users" ] || printf 'a:0:{}' > "$ESTADO/users"
 chown -R 33:33 "$ESTADO" "$LOGS"        # www-data dentro del contenedor
 for f in config.php backend-imap.php backend-caldav.php backend-carddav.php backend-combined.php autodiscover.php; do
     if [ ! -f "$CONF/$f" ]; then
@@ -69,7 +73,9 @@ fi
 echo -e "${GREEN}[5/5] Comprobación...${NC}"
 CODIGO=$(curl -sk -o /dev/null -w '%{http_code}' -X OPTIONS "https://${HOST_CORREO}/Microsoft-Server-ActiveSync" --resolve "${HOST_CORREO}:443:127.0.0.1" 2>/dev/null || echo 000)
 echo "  OPTIONS /Microsoft-Server-ActiveSync -> ${CODIGO} (401 = Z-Push responde y pide credenciales)"
-docker exec zpush php -r 'include "/opt/z-push/src/version.php"; echo "  Z-Push ", ZPUSH_VERSION, PHP_EOL;' 2>/dev/null || true
+echo "  Z-Push $(docker exec zpush cat /opt/z-push/VERSION 2>/dev/null)"
+echo "  Radicale desde el contenedor: $(docker exec zpush php -r '$f=@fsockopen("host.docker.internal",5232,$e,$m,3); echo $f?"ok":"NO (Radicale debe escuchar en 172.17.0.1:5232 y el cortafuegos aceptar docker0 -> 5232/993/465)";')"
+echo "  Colecciones de Radicale de todos los buzones:"; /opt/maquita-webmail/almacen/venv/bin/python /opt/maquita-webmail/deploy/tools/radicale-asegurar-colecciones.py --todos 2>/dev/null | tail -1 || true
 echo ""
 echo "Cuentas en Outlook (clásico y nuevo), Android e iOS: tipo Exchange/ActiveSync, servidor ${HOST_CORREO},"
 echo "usuario = correo completo. El nuevo Outlook se configura solo por autodiscover. Ver OPERACION.md."

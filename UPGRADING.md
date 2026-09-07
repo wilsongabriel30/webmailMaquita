@@ -23,7 +23,11 @@ Sin migraciones ni corte. `git fetch --tags --force && git checkout v1.7.8 && ba
    el `location` del autodiscover admite `.xml` **y** `.json` (ver `deploy/webmail/nginx/webmail.conf`).
    `nginx -t && systemctl reload nginx`.
 3. Radicale debe escuchar también en la IP del puente de Docker: `hosts = 127.0.0.1:5232,
-   172.17.0.1:5232` y reinicio.
+   172.17.0.1:5232` y **reinicio** (comprobar con `ss -ltn | grep 5232`). Cortafuegos: antes de los
+   `drop` por país en la cadena `input`, `iifname "docker0" tcp dport { 465, 993, 5232 } accept`
+   (persistir en `/etc/nftables.conf`). Colecciones: `deploy/tools/radicale-asegurar-colecciones.py
+   --todos` (el instalador instala el cron horario). Si había Z-Push nativo, retira su `location`
+   (`php8.4-zpush.sock`), el pool y `/opt/z-push`; el `include` del snippet va en el `server{}` del correo.
 4. Comprobar (todo en `OPERACION.md`, «Z-Push / ActiveSync»): `OPTIONS /Microsoft-Server-ActiveSync`
    → 401; autodiscover `mobilesync` → `<Type>MobileSync</Type>`; JSON v2 → `"Protocol":"ActiveSync"`;
    y la **prueba real con una cuenta en los dos Outlook** (correo, calendario en los dos sentidos,

@@ -199,7 +199,14 @@ curl -s 'https://autodiscover.maquita.org/autodiscover/autodiscover.json/v1.0/us
 # → {"Protocol":"ActiveSync","Url":"https://mail.maquita.org/Microsoft-Server-ActiveSync"}
 curl -s -o /dev/null -w '%{http_code}\n' -X OPTIONS https://mail.maquita.org/Microsoft-Server-ActiveSync   # 401
 ```
-DNS: `autodiscover.<cada dominio>` → este servidor, y el certificado debe cubrirlo.
+DNS: `autodiscover.<cada dominio>` → este servidor, y el certificado debe cubrirlo. Ojo: hoy
+`autodiscover.maquita.com.ec` apunta a otro servidor (190.110.197.118): las cuentas `@maquita.com.ec`
+no podrán configurarse en el nuevo Outlook hasta corregir DNS, `server_name` y SAN (pendiente).
+Z-Push 2.7.6 anuncia ActiveSync 12.0, 12.1 y 14.0 (suficiente para Outlook, iOS y Android).
+
+Prueba de carga de referencia (07/09/2026, 50 dispositivos a la vez con FolderSync real, cuenta
+`prueba.carga@maquita.org`): 0 fallos, p50 3,5 s, p95 4,2 s, 112 MB de memoria en el contenedor.
+`deploy/z-push/prueba-carga.py --usuario ... --dispositivos 50` (contraseña por `CLAVE=`).
 
 ### Outlook clásico (Office 365 de escritorio)
 1. Archivo → Agregar cuenta → escribir el correo → **Opciones avanzadas → «Configurar mi cuenta

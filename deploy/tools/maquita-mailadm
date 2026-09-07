@@ -67,6 +67,9 @@ case "${1:-help} ${2:-}" in
       "$EMAIL" "$HASH" "$LOCAL" "$DOMAIN" "$LOCAL" "$QBYTES" "$DOMAIN" "$LOCAL" | $SQL >/dev/null || die "fallo INSERT"
     $PSQL "INSERT INTO alias (address,goto,domain,active) VALUES ('$EMAIL','$EMAIL','$DOMAIN',true) ON CONFLICT DO NOTHING" >/dev/null
     log_audit "mailbox-create target=$EMAIL quota=${QGB}GB"
+    # Colecciones base en Radicale (calendario+tareas y libreta): Z-Push las necesita desde el primer sync.
+    COL="$(dirname "$0")/radicale-asegurar-colecciones.py"
+    [ -x "$COL" ] && /opt/maquita-webmail/almacen/venv/bin/python "$COL" "$EMAIL" 2>/dev/null | head -1
     echo "OK: buzón $EMAIL creado (quota ${QGB}GB). El maildir se crea solo al primer correo."
     ;;
 
