@@ -7,6 +7,12 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.7.7] - 2026-09-07
+
+Segundo factor obligatorio para las cuentas privilegiadas del correo (`admin@`, `postmaster@`).
+Sin migraciones ni corte de sesiones; `deploy-webmail.sh` (frontend + backend). Variable nueva
+opcional `TOTP_OBLIGATORIO`. Pasos en `UPGRADING.md`, sección «De 1.7.6 a 1.7.7».
+
 ### Seguridad
 
 - **[N-7] Segundo factor obligatorio para cuentas privilegiadas** (`admin@`, `postmaster@`; lista
