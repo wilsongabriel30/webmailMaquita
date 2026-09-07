@@ -1,0 +1,329 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""maquita-sudo — la ÚNICA orden que www-data y maquita-admin pueden ejecutar con sudo.
+
+Séptima revisión (Qwen, 2026-09-07): en sudoers, `doveadm search -u *` admite cualquier
+argumento después de `-u`, no solo el buzón (`-o`, `-c`, otro subcomando...), y el código que
+llamaba no validaba el buzón antes del sudo. Lo mismo valía para los comodines del panel.
+
+Aquí no hay comodines: sudoers concede SOLO este programa, y este programa decide, orden por
+orden y argumento por argumento, qué deja pasar. Corre como root y es el último sitio donde se
+puede comprobar, así que no se fía de quien llama aunque ya valide por su lado.
+
+Uso:  maquita-sudo <programa> [argumentos...]
+      programa ∈ doveadm, postqueue, postsuper, postconf, systemctl, journalctl, sievec,
+                 fail2ban-client, nginx, sendmail
+La política depende de quién llama (SUDO_USER): www-data solo puede lo que necesita el correo
+(recuperar mensajes y ver/gestionar la cola); maquita-admin, lo que necesita el panel.
+Todo se registra en syslog (auth) con la marca MAQUITA_SUDO; las contraseñas se enmascaran.
+"""
+import ipaddress
+import logging
+import logging.handlers
+import os
+import re
+import shutil
+import sys
+
+BINARIOS = {
+    "doveadm": "/usr/bin/doveadm",
+    "postqueue": "/usr/sbin/postqueue",
+    "postsuper": "/usr/sbin/postsuper",
+    "postconf": "/usr/sbin/postconf",
+    "systemctl": "/usr/bin/systemctl",
+    "journalctl": "/usr/bin/journalctl",
+    "sievec": "/usr/bin/sievec",
+    "fail2ban-client": "/usr/bin/fail2ban-client",
+    "nginx": "/usr/sbin/nginx",
+    "sendmail": "/usr/sbin/sendmail",
+}
+
+# Qué puede cada usuario llamante. True = todos los subcomandos que valida este programa.
+POLITICA = {
+    "www-data": {
+        "doveadm": {"search", "fetch", "expunge"},
+        "postqueue": True,
+        "postsuper": True,
+    },
+    "maquita-admin": {
+        "doveadm": {"pw", "auth", "quota", "search", "fetch", "acl", "mailbox", "flags",
+                    "move", "expunge", "force-resync", "who", "user"},
+        "postqueue": True, "postsuper": True, "postconf": True, "systemctl": True,
+        "journalctl": True, "sievec": True, "fail2ban-client": True, "nginx": True,
+        "sendmail": True,
+    },
+}
+
+UNIDADES = {"postfix", "dovecot", "rspamd", "redis-server", "postgresql@17-main", "postgresql",
+            "nginx", "clamav-daemon", "fail2ban", "maquita-webmail", "maquita-milter",
+            "maquita-almacen", "maquita-admin", "radicale"}
+ACCIONES_SYSTEMCTL = {"start", "stop", "restart", "reload", "is-active", "is-enabled", "status", "show"}
+POSTCONF_PARAMS = {
+    "bounce_queue_lifetime", "command_directory", "header_size_limit", "inet_interfaces",
+    "inet_protocols", "mail_version", "mailbox_size_limit", "maximal_queue_lifetime",
+    "message_size_limit", "mydestination", "mydomain", "myhostname", "myorigin",
+    "queue_directory", "smtp_tls_security_level", "smtpd_banner",
+    "smtpd_client_connection_rate_limit", "smtpd_client_message_rate_limit",
+    "smtpd_recipient_limit", "smtpd_sasl_auth_enable", "smtpd_sasl_type",
+    "smtpd_tls_security_level", "virtual_mailbox_domains", "virtual_mailbox_limit",
+    "virtual_transport", "smtpd_milters", "milter_default_action",
+}
+FLAGS_DOVEADM = {
+    "search": {"-u"}, "fetch": {"-u"}, "expunge": {"-u"}, "move": {"-u"}, "flags": {"-u"},
+    "quota": {"-u"}, "mailbox": {"-u"}, "acl": {"-u"}, "force-resync": {"-u"}, "user": {"-u"},
+    "pw": {"-s", "-p"}, "auth": set(), "who": set(),
+}
+
+_RE_BUZON = re.compile(r"^[a-z0-9][a-z0-9._+-]{0,63}@[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$")
+_RE_TOKEN = re.compile(r"^[^\x00-\x1f\x7f]{1,300}$")
+_RE_QID = re.compile(r"^[A-Za-z0-9]{6,20}$")
+_RE_JAIL = re.compile(r"^[a-z0-9_-]{1,40}$")
+_RE_PROP = re.compile(r"^[a-zA-Z]{1,30}$")
+_RE_VALOR = re.compile(r"^[A-Za-z0-9 .:/,_@$=-]{0,500}$")
+_RE_SIEVE = re.compile(r"^/var/vmail/[a-z0-9.-]+/[a-z0-9._+-]+/[A-Za-z0-9._-]+\.sieve$")
+_RE_SINCE = re.compile(r"^(-[0-9]{1,5}[smhd]|[0-9]{4}-[0-9]{2}-[0-9]{2}( [0-9]{2}:[0-9]{2}(:[0-9]{2})?)?)$")
+
+
+class Rechazo(Exception):
+    pass
+
+
+def es_buzon(v: str) -> bool:
+    return isinstance(v, str) and len(v) <= 254 and bool(_RE_BUZON.match(v.lower()))
+
+
+def _buzon_existe(buzon: str) -> bool:
+    """El dominio propio se comprueba contra Dovecot: si el buzón no existe, no hay orden."""
+    import subprocess
+
+    try:
+        r = subprocess.run([BINARIOS["doveadm"], "user", "-u", buzon], capture_output=True, timeout=10)
+        return r.returncode == 0
+    except Exception:
+        return False
+
+
+def _tokens_limpios(args):
+    for a in args:
+        if not isinstance(a, str) or not _RE_TOKEN.match(a):
+            raise Rechazo("argumento con caracteres de control o vacío")
+
+
+def validar_doveadm(args, comprobar_buzon=_buzon_existe):
+    if not args:
+        raise Rechazo("doveadm sin subcomando")
+    sub = args[0]
+    if sub not in FLAGS_DOVEADM:
+        raise Rechazo(f"doveadm {sub} no permitido")
+    resto = list(args[1:])
+    _tokens_limpios(resto)
+    permitidas = FLAGS_DOVEADM[sub]
+    i = 0
+    vio_u = False
+    while i < len(resto):
+        t = resto[i]
+        if t.startswith("-"):
+            if t not in permitidas:
+                raise Rechazo(f"opción {t} no permitida en doveadm {sub}")
+            if i + 1 >= len(resto):
+                raise Rechazo(f"{t} sin valor")
+            val = resto[i + 1]
+            if t == "-u":
+                if not es_buzon(val):
+                    raise Rechazo("buzón con formato inválido")
+                if not comprobar_buzon(val):
+                    raise Rechazo("buzón inexistente o de dominio ajeno")
+                vio_u = True
+            elif t == "-s" and val != "SHA512-CRYPT":
+                raise Rechazo("esquema de hash no permitido")
+            i += 2
+            continue
+        i += 1
+    if sub in ("search", "fetch", "expunge", "move", "flags", "quota", "mailbox", "acl", "force-resync", "user") and not vio_u:
+        raise Rechazo(f"doveadm {sub} exige -u <buzón>")
+    if sub == "auth":
+        if len(resto) != 3 or resto[0] != "test" or not es_buzon(resto[1]):
+            raise Rechazo("doveadm auth solo admite: test <buzón> <clave>")
+    return [sub] + resto
+
+
+def validar_postqueue(args):
+    if args in (["-p"], ["-j"], ["-f"]):
+        return args
+    if len(args) == 2 and args[0] == "-i" and _RE_QID.match(args[1]):
+        return args
+    raise Rechazo("postqueue: solo -p, -j, -f o -i <id de cola>")
+
+
+def validar_postsuper(args):
+    if len(args) == 2 and args[0] in ("-d", "-r", "-h", "-H") and (args[1] == "ALL" or _RE_QID.match(args[1])):
+        return args
+    raise Rechazo("postsuper: solo -d/-r/-h/-H <id de cola|ALL>")
+
+
+def validar_postconf(args):
+    if not args:
+        return args
+    if len(args) == 1 and args[0] in POSTCONF_PARAMS:
+        return args
+    if len(args) == 2 and args[0] == "-h" and args[1] in POSTCONF_PARAMS:
+        return args
+    if len(args) == 2 and args[0] == "-e" and "=" in args[1]:
+        k, v = args[1].split("=", 1)
+        if k in POSTCONF_PARAMS and _RE_VALOR.match(v):
+            return args
+    raise Rechazo("postconf: parámetro fuera de la lista o valor con caracteres no permitidos")
+
+
+def validar_systemctl(args):
+    if len(args) < 2 or args[0] not in ACCIONES_SYSTEMCTL or args[1] not in UNIDADES:
+        raise Rechazo("systemctl: acción o unidad fuera de la lista")
+    resto = args[2:]
+    i = 0
+    while i < len(resto):
+        if resto[i] in ("--no-pager", "-l", "--quiet"):
+            i += 1
+        elif resto[i] == "-p" and i + 1 < len(resto) and _RE_PROP.match(resto[i + 1]):
+            i += 2
+        else:
+            raise Rechazo(f"systemctl: opción {resto[i]} no permitida")
+    return args
+
+
+def validar_journalctl(args):
+    if len(args) < 2 or args[0] != "-u" or args[1] not in UNIDADES:
+        raise Rechazo("journalctl: exige -u <unidad de la lista>")
+    resto = args[2:]
+    i = 0
+    while i < len(resto):
+        t = resto[i]
+        if t in ("--no-pager", "--output=short-iso", "--output=short", "-r"):
+            i += 1
+        elif t == "-n" and i + 1 < len(resto) and resto[i + 1].isdigit() and int(resto[i + 1]) <= 2000:
+            i += 2
+        elif t == "--since" and i + 1 < len(resto) and _RE_SINCE.match(resto[i + 1]):
+            i += 2
+        else:
+            raise Rechazo(f"journalctl: opción {t} no permitida")
+    return args
+
+
+def validar_sievec(args):
+    if len(args) != 1 or not _RE_SIEVE.match(args[0]):
+        raise Rechazo("sievec: solo un .sieve bajo /var/vmail/<dominio>/<usuario>/")
+    real = os.path.realpath(args[0])
+    if real != args[0]:
+        raise Rechazo("sievec: la ruta no puede ser un enlace")
+    return args
+
+
+def validar_fail2ban(args):
+    if args == ["status"]:
+        return args
+    if len(args) == 2 and args[0] == "status" and _RE_JAIL.match(args[1]):
+        return args
+    if len(args) == 4 and args[0] == "set" and _RE_JAIL.match(args[1]) and args[2] in ("banip", "unbanip"):
+        try:
+            ipaddress.ip_address(args[3])
+        except ValueError:
+            raise Rechazo("fail2ban-client: IP inválida")
+        return args
+    if len(args) == 3 and args[0] == "get" and _RE_JAIL.match(args[1]) and _RE_PROP.match(args[2]):
+        return args
+    if len(args) == 4 and args[0] == "set" and _RE_JAIL.match(args[1]) and _RE_PROP.match(args[2]) and _RE_VALOR.match(args[3]):
+        return args
+    raise Rechazo("fail2ban-client: forma no permitida")
+
+
+def validar_nginx(args):
+    if args == ["-t"]:
+        return args
+    raise Rechazo("nginx: solo -t")
+
+
+def validar_sendmail(args):
+    # sendmail [-i] -f <remitente> -- <destinatarios...>
+    a = list(args)
+    if a and a[0] == "-i":
+        a = a[1:]
+    if len(a) < 4 or a[0] != "-f" or not es_buzon(a[1]) or a[2] != "--":
+        raise Rechazo("sendmail: solo [-i] -f <remitente> -- <destinatarios>")
+    if not all(es_buzon(d) for d in a[3:]) or len(a) > 103:
+        raise Rechazo("sendmail: destinatario inválido")
+    return list(args)
+
+
+VALIDADORES = {
+    "doveadm": validar_doveadm, "postqueue": validar_postqueue, "postsuper": validar_postsuper,
+    "postconf": validar_postconf, "systemctl": validar_systemctl, "journalctl": validar_journalctl,
+    "sievec": validar_sievec, "fail2ban-client": validar_fail2ban, "nginx": validar_nginx,
+    "sendmail": validar_sendmail,
+}
+
+
+def autorizar(usuario: str, programa: str, args, comprobar_buzon=_buzon_existe):
+    """Devuelve los argumentos validados o lanza Rechazo. Sin efectos."""
+    permisos = POLITICA.get(usuario)
+    if not permisos or programa not in permisos:
+        raise Rechazo(f"{usuario} no puede ejecutar {programa}")
+    _tokens_limpios(args)
+    if programa == "doveadm":
+        salida = validar_doveadm(list(args), comprobar_buzon)
+        if permisos["doveadm"] is not True and salida[0] not in permisos["doveadm"]:
+            raise Rechazo(f"{usuario} no puede ejecutar doveadm {salida[0]}")
+        return salida
+    return VALIDADORES[programa](list(args))
+
+
+def _enmascarar(programa, args):
+    out = []
+    ocultar = False
+    for i, a in enumerate(args):
+        if ocultar:
+            out.append("***")
+            ocultar = False
+            continue
+        out.append(a)
+        if programa == "doveadm" and a == "-p":
+            ocultar = True
+        if programa == "doveadm" and args[:2] == ["auth", "test"] and i == 3:
+            out[-1] = "***"
+    return " ".join(out)
+
+
+def main(argv):
+    log = logging.getLogger("maquita-sudo")
+    try:
+        h = logging.handlers.SysLogHandler(address="/dev/log", facility=logging.handlers.SysLogHandler.LOG_AUTH)
+        h.setFormatter(logging.Formatter("maquita-sudo: %(message)s"))
+        log.addHandler(h)
+    except Exception:
+        log.addHandler(logging.StreamHandler(sys.stderr))
+    log.setLevel(logging.INFO)
+    usuario = os.environ.get("SUDO_USER", "")
+    if len(argv) < 2:
+        print("uso: maquita-sudo <programa> [args]", file=sys.stderr)
+        return 2
+    programa, args = argv[1], argv[2:]
+    if programa not in BINARIOS:
+        log.warning("MAQUITA_SUDO rechazado usuario=%s programa=%s motivo=programa desconocido", usuario, programa)
+        return 3
+    try:
+        validados = autorizar(usuario, programa, args)
+    except Rechazo as r:
+        log.warning("MAQUITA_SUDO rechazado usuario=%s programa=%s motivo=%s args=%s",
+                    usuario, programa, r, _enmascarar(programa, args)[:500])
+        print(f"maquita-sudo: rechazado: {r}", file=sys.stderr)
+        return 3
+    binario = BINARIOS[programa]
+    if not os.path.isfile(binario):
+        binario = shutil.which(programa) or binario
+    log.info("MAQUITA_SUDO ok usuario=%s %s %s", usuario, programa, _enmascarar(programa, validados)[:500])
+    os.environ.clear()
+    os.environ["PATH"] = "/usr/sbin:/usr/bin:/sbin:/bin"
+    os.environ["LANG"] = "C.UTF-8"
+    os.execv(binario, [binario] + validados)
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

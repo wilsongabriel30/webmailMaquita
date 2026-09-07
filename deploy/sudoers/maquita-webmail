@@ -1,0 +1,6 @@
+# Backend del correo (www-data). Séptima revisión (S7-1): sin comodines. Todo pasa por
+# /usr/local/sbin/maquita-sudo, que valida programa, subcomando y cada argumento
+# (buzón con formato estricto y existente en Dovecot, ids de cola, sin opciones extra).
+# Sustituye a los antiguos webmail-doveadm (doveadm search/fetch/expunge -u *) y
+# maquita-webmail (postqueue, postsuper).
+www-data ALL=(root) NOPASSWD: /usr/local/sbin/maquita-sudo
