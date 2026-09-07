@@ -327,12 +327,15 @@
                 <span>Almacenamiento</span>
             </div>
             <!-- Barra segmentada por colores -->
-            <div class="gd-storage-bar">
+            <div class="gd-storage-bar" title="Archivos en el Drive">
                 <div class="segment drive" id="storageBarDrive" style="width: 0%"></div>
-                <div class="segment email" id="storageBarEmail" style="width: 0%"></div>
-                <div class="segment other" id="storageBarOther" style="width: 0%"></div>
             </div>
             <div class="gd-storage-text" id="storageText">Cargando...</div>
+            <!-- Correo: espacio aparte (lo mide el correo; aquí solo se muestra) -->
+            <div class="gd-storage-bar" title="Correo (buzón)" style="margin-top:6px">
+                <div class="segment email" id="storageBarEmail" style="width: 0%"></div>
+            </div>
+            <div class="gd-storage-text" id="storageTextEmail">Correo: midiendo…</div>
             <!-- Leyenda de colores -->
             <div class="gd-storage-legend">
                 <div class="gd-storage-legend-item">
@@ -343,14 +346,11 @@
                     <span class="legend-dot email"></span>
                     <a href="/webmail">Email</a>
                 </div>
-                <div class="gd-storage-legend-item">
-                    <span class="legend-dot other"></span>
-                    <span>Otro</span>
-                </div>
             </div>
             <div class="gd-storage-actions">
                 <a class="gd-storage-link" href="#" onclick="event.preventDefault(); mostrarDetallesAlmacenamiento()">Obtener más almacenamiento</a>
                 <a class="gd-storage-link" href="#" onclick="event.preventDefault(); liberarEspacio()">Liberar espacio</a>
+                <a class="gd-storage-link" href="/webmail/?vista=grandes" title="Abre el correo con tus mensajes más grandes para que decidas qué borrar">Liberar espacio del correo</a>
             </div>
         </div>
     </aside>

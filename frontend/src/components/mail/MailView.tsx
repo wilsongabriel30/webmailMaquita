@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useResponsive } from "../../hooks/useResponsive";
 import { Toolbar } from './Toolbar';
+import { CorreosGrandes } from './CorreosGrandes';
 import { MessageList } from './MessageList';
 import { MessageView } from './MessageView';
 import { ComposePanel } from '../compose/ComposePanel';
@@ -18,10 +19,12 @@ function MyDayPanel({ onClose }: { onClose: () => void }) {
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).getDay();
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- eventos del calendario tal como llegan de la API
   const [events, setEvents] = useState<any[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [creatingAt, setCreatingAt] = useState<number | null>(null);
   const [newEventTitle, setNewEventTitle] = useState('');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- evento del calendario tal como llega de la API
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
 
   // Build calendar grid
@@ -47,11 +50,14 @@ function MyDayPanel({ onClose }: { onClose: () => void }) {
         const data = await res.json();
         setEvents(Array.isArray(data) ? data : []);
       }
-    } catch {}
+    } catch { /* sin calendario: la vista queda vacía */ }
     setLoadingEvents(false);
   }, []);
 
-  useEffect(() => { loadEvents(); }, [loadEvents]);
+  useEffect(() => {
+    const t = setTimeout(() => { void loadEvents(); }, 0);
+    return () => clearTimeout(t);
+  }, [loadEvents]);
 
   // Work hours: 7:00 to 18:00
   const hours = Array.from({ length: 12 }, (_, i) => i + 7);
@@ -99,7 +105,7 @@ function MyDayPanel({ onClose }: { onClose: () => void }) {
         });
         await loadEvents();
       }
-    } catch {}
+    } catch { /* el error lo muestra el calendario al recargar */ }
     setNewEventTitle('');
     setCreatingAt(null);
   };
@@ -110,7 +116,7 @@ function MyDayPanel({ onClose }: { onClose: () => void }) {
       await fetch(`/api/calendar/events/${eventId}`, { method: 'DELETE', credentials: 'include' });
       setSelectedEvent(null);
       await loadEvents();
-    } catch {}
+    } catch { /* el evento sigue visible si no se pudo borrar */ }
   };
 
   // Format hour
@@ -278,6 +284,17 @@ export function MailView() {
 
   // Auto-open compose when navigated with ?compose=new (from calendar)
   const [searchParams, setSearchParams] = useSearchParams();
+  // «Liberar espacio» (desde el Drive: /webmail/?vista=grandes): los correos más grandes del buzón
+  const [vistaGrandes, setVistaGrandes] = useState(() => {
+    try { return new URLSearchParams(window.location.search).get('vista') === 'grandes'; } catch { return false; }
+  });
+  useEffect(() => {
+    if (searchParams.get('vista')) {
+      searchParams.delete('vista');
+      setSearchParams(searchParams, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useEffect(() => {
     if (searchParams.get('compose') === 'new') {
       openCompose('new');
@@ -295,6 +312,7 @@ export function MailView() {
       try {
         const st = useMailStore.getState();
         if (folder !== st.currentFolder) st.setCurrentFolder(folder);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mensaje completo tal como llega de la API
         const msg = await api.get<any>(`/mail/message/${encodeURIComponent(folder)}/${uid}`);
         if (msg) useMailStore.getState().setSelectedMessage(msg);
       } catch {
@@ -310,11 +328,16 @@ export function MailView() {
   const minimizedComposes = composeWindows.filter(w => w.minimized);
 
   return (
-    <div className="flex-1 flex flex-col min-h-0">
+    <div className="flex-1 flex flex-col min-h-0 relative">
       {/* Toolbar */}
       <div className="shrink-0 relative z-[50]">
         <Toolbar />
       </div>
+      {vistaGrandes && (
+        <div className="absolute inset-0 z-[60] bg-white">
+          <CorreosGrandes onCerrar={() => setVistaGrandes(false)} />
+        </div>
+      )}
 
       {/* Content area + optional Mi día sidebar */}
       <div className="flex-1 flex overflow-hidden min-h-0">
