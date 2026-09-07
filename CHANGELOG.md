@@ -7,6 +7,13 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.7.4] - 2026-09-06
+
+Cierre de Q-2 (JWT de Meet) y N-4 (informes CSP), más las correcciones del informe de Andes sobre
+1.7.3 (validador, instalador y guía de instalación). Sin migraciones ni corte de sesiones; reinicio
+del backend del correo y del chat, y un `location` nuevo en nginx. Pasos en `UPGRADING.md`, sección
+«De 1.7.3 a 1.7.4».
+
 ### Seguridad
 
 - **[Q-2 chat] El JWT de Meet va atado a una sala concreta, dura 60 minutos (antes `room='*'`, 8–72 h) y

@@ -10,6 +10,23 @@ servicio, reiniciar lo que cambió y correr `deploy/tools/validar-despliegue.sh`
 
 ---
 
+## De 1.7.3 a 1.7.4 — correo, chat y nginx
+
+Sin migraciones ni corte de sesiones.
+
+1. `git fetch --tags --force && git checkout v1.7.4` y `bash deploy-webmail.sh` (reinicia el backend).
+2. nginx: añade la zona `csp` y el `location = /api/csp-report` de `deploy/webmail/nginx/webmail.conf`
+   (cuerpo de 16 KB, 30 informes/minuto por IP) y recarga. Sin esto el backend igual filtra y
+   deduplica; la zona solo evita que el ruido llegue al backend.
+3. Chat: `git checkout v1.7.4` en su máquina y `systemctl restart maquita-chat`. Después, una vez:
+   `cd chat-service && venv/bin/python purgar_tokens_reuniones.py` (con `DATABASE_URL` en el entorno)
+   para quitar de `reuniones_programadas` los JWT de Meet que se guardaban.
+4. Comprobar: `POST /api/csp-report` con un informe NEL responde 200 y no deja línea en
+   `security.log`; `SELECT count(token_moderador) FROM reuniones_programadas` devuelve 0;
+   `deploy/tools/validar-despliegue.sh` no marca fallo por `SSL_accept error` de escáneres.
+
+---
+
 ## De 1.7.2 a 1.7.3 — correo, almacén y chat
 
 Sin corte de sesiones. Migración nueva, reinicio del backend del correo, del almacén y del chat.
