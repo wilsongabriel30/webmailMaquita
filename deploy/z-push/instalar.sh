@@ -70,11 +70,22 @@ else
     echo -e "  ${YELLOW}y recarga nginx. El autodiscover ya lo sirve el backend (XML y JSON).${NC}"
 fi
 
+# Radicale para el contenedor: vhost de nginx en la IP del puente con auth_request (N-19).
+PUENTE=$(ip -4 addr show docker0 2>/dev/null | grep -oP 'inet \K[0-9.]+' | head -1)
+if [ -n "$PUENTE" ]; then
+    sed "s/172\.17\.0\.1/${PUENTE}/" "$AQUI/nginx/radicale-zpush.conf" > /etc/nginx/sites-available/radicale-zpush
+    ln -sf /etc/nginx/sites-available/radicale-zpush /etc/nginx/sites-enabled/radicale-zpush
+    if nginx -t >/dev/null 2>&1; then systemctl reload nginx; echo "  Radicale para Z-Push: nginx en ${PUENTE}:5232 (auth_request al backend)"; else
+        rm -f /etc/nginx/sites-enabled/radicale-zpush; echo -e "  ${RED}nginx -t falló con radicale-zpush; revisa (¿Radicale sigue escuchando en ${PUENTE}:5232? debe escuchar solo en 127.0.0.1)${NC}"; fi
+else
+    echo -e "  ${YELLOW}Sin docker0: instala nginx/radicale-zpush.conf a mano en la IP del puente.${NC}"
+fi
+
 echo -e "${GREEN}[5/5] Comprobación...${NC}"
 CODIGO=$(curl -sk -o /dev/null -w '%{http_code}' -X OPTIONS "https://${HOST_CORREO}/Microsoft-Server-ActiveSync" --resolve "${HOST_CORREO}:443:127.0.0.1" 2>/dev/null || echo 000)
 echo "  OPTIONS /Microsoft-Server-ActiveSync -> ${CODIGO} (401 = Z-Push responde y pide credenciales)"
 echo "  Z-Push $(docker exec zpush cat /opt/z-push/VERSION 2>/dev/null)"
-echo "  Radicale desde el contenedor: $(docker exec zpush php -r '$f=@fsockopen("host.docker.internal",5232,$e,$m,3); echo $f?"ok":"NO (Radicale debe escuchar en 172.17.0.1:5232 y el cortafuegos aceptar docker0 -> 5232/993/465)";')"
+echo "  Radicale desde el contenedor: $(docker exec zpush php -r '$f=@fsockopen("host.docker.internal",5232,$e,$m,3); echo $f?"ok":"NO (nginx radicale-zpush debe escuchar en la IP del puente:5232 y el cortafuegos aceptar docker0 -> 5232/993/465)";')"
 echo "  Colecciones de Radicale de todos los buzones:"; /opt/maquita-webmail/almacen/venv/bin/python /opt/maquita-webmail/deploy/tools/radicale-asegurar-colecciones.py --todos 2>/dev/null | tail -1 || true
 echo ""
 echo "Cuentas en Outlook (clásico y nuevo), Android e iOS: tipo Exchange/ActiveSync, servidor ${HOST_CORREO},"

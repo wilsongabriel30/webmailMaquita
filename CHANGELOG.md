@@ -16,6 +16,13 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Corregido
 
+- **N-19 (Radicale)**: el webmail y Z-Push escribían en árboles distintos (parte local frente a correo
+  completo): ahora el prefijo es el correo completo, con migración de una vez
+  (`deploy/tools/radicale-migrar-prefijo.py`). Y `auth type = none` dejaba todas las colecciones
+  abiertas a cualquier proceso local: Radicale vuelve a `http_x_remote_user` solo en 127.0.0.1 y Z-Push
+  entra por un vhost de nginx con `auth_request` (`GET /api/auth/dav`: contraseña de aplicación o
+  principal). La config de referencia `radicale.config` y las herramientas ya no se contradicen
+  (informe de Andes, punto 2).
 - **N-17 (regresión de F-01, 05/09)**: el Almacén/Drive validaba la sesión del webmail buscando
   `imap_pass:<usuario>` en Redis, pero desde F-01 el correo guarda `imap_pass:<usuario>:<sid>`: toda
   sesión del webmail recibía 302 al login en `/archivos-almacen`. Ahora comprueba la clave de la sesión

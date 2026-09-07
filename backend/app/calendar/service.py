@@ -53,8 +53,12 @@ logger = logging.getLogger("calendar.service")
 
 
 def _user_prefix(user: str) -> str:
-    """Radicale collection path prefix for a user."""
-    return user.split("@")[0] if "@" in user else user
+    """Prefijo de las colecciones en Radicale: el CORREO COMPLETO, en minúsculas.
+
+    N-19 (07/09/2026): antes era la parte local, y Z-Push (CALDAV_PATH '/%u/') escribía en
+    /<correo>/: el webmail y el teléfono tenían dos calendarios distintos. La migración de las
+    colecciones antiguas: deploy/tools/radicale-migrar-prefijo.py."""
+    return user.strip().lower()
 
 
 def _row_to_calendar(row: asyncpg.Record) -> CalendarOut:
