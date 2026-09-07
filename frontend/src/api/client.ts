@@ -154,8 +154,9 @@ async function getCacheado<T>(path: string, opts?: { skipAuth?: boolean }): Prom
 // H-01: con cambio de contraseña pendiente el servidor responde 403 a todo salvo cambiarla o
 // salir. Se vuelve a la pantalla de entrada, que fuerza el cambio tras iniciar sesión.
 function redirigirSiDebeCambiarClave(status: number, body: unknown): void {
-  const d = body as { must_change_password?: boolean; detail?: { must_change_password?: boolean } } | null;
-  if (status === 403 && (d?.must_change_password || d?.detail?.must_change_password)) {
+  // N-7: lo mismo cuando una cuenta privilegiada aún no activó el segundo factor.
+  const d = body as { must_change_password?: boolean; must_setup_2fa?: boolean; detail?: { must_change_password?: boolean; must_setup_2fa?: boolean } } | null;
+  if (status === 403 && (d?.must_change_password || d?.detail?.must_change_password || d?.must_setup_2fa || d?.detail?.must_setup_2fa)) {
     if (!window.location.pathname.endsWith('/login')) window.location.assign('/webmail/login');
   }
 }

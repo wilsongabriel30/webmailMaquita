@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate , useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { api } from '../../api/client';
+import { TwoFactorSetup } from '../settings/TwoFactorSetup';
 
 interface Branding {
   org_name?: string;
@@ -23,6 +24,7 @@ export function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [forceChange, setForceChange] = useState(false);
+  const [forceSetup2fa, setForceSetup2fa] = useState(false); // N-7: cuenta privilegiada sin segundo factor
   const [newPass, setNewPass] = useState('');
   const [confirmPass, setConfirmPass] = useState('');
   const [brand, setBrand] = useState<Branding>({});
@@ -65,7 +67,7 @@ export function LoginPage() {
     setLoading(true);
 
     try {
-      type RespuestaLogin = { success?: boolean; error?: string; username?: string; is_admin?: boolean; requires_2fa?: boolean; ticket?: string; must_change_password?: boolean };
+      type RespuestaLogin = { success?: boolean; error?: string; username?: string; is_admin?: boolean; requires_2fa?: boolean; ticket?: string; must_change_password?: boolean; must_setup_2fa?: boolean };
       // M-01: el segundo paso canjea el vale (ticket) + código; la contraseña no vuelve a viajar.
       const res = needs2FA
         ? await api.post<RespuestaLogin>('/auth/login/2fa', { ticket, totp_code: totpCode })
@@ -87,6 +89,11 @@ export function LoginPage() {
 
       if (res.must_change_password) {
         setForceChange(true);
+        setLoading(false);
+        return;
+      }
+      if (res.must_setup_2fa) {
+        setForceSetup2fa(true);
         setLoading(false);
         return;
       }
@@ -161,7 +168,7 @@ export function LoginPage() {
                 </div>
               )}
               <h1 className="text-xl font-semibold" style={{ color: '#323130' }}>
-                {forceChange ? 'Cambia tu contraseña' : needs2FA ? 'Verificación en dos pasos' : 'Iniciar sesión'}
+                {forceChange ? 'Cambia tu contraseña' : forceSetup2fa ? 'Activa la verificación en dos pasos' : needs2FA ? 'Verificación en dos pasos' : 'Iniciar sesión'}
               </h1>
               <p className="text-sm mt-1" style={{ color: '#605e5c' }}>
                 {needs2FA
@@ -179,7 +186,18 @@ export function LoginPage() {
               </div>
             )}
 
-            {forceChange ? (
+            {forceSetup2fa ? (
+            <div>
+              <div className="mb-3 p-3 rounded text-sm" style={{ backgroundColor: '#fff4ce', borderColor: '#f0d98a', borderWidth: '1px', color: '#7a6400' }}>
+                Esta cuenta es privilegiada: para usar el correo debe tener activada la verificación en dos pasos. Actívala ahora y guarda los códigos de respaldo.
+              </div>
+              <TwoFactorSetup contrasenaInicial={password} alActivar={async () => {
+                const meRes = await fetch('/api/auth/me', { credentials: 'include' });
+                const meData = await meRes.json();
+                if (meData.user) { setUser(meData.user); navigate(destino); }
+              }} />
+            </div>
+            ) : forceChange ? (
             <form onSubmit={handleForceChange}>
               <div className="mb-3 p-3 rounded text-sm" style={{ backgroundColor: '#fff4ce', borderColor: '#f0d98a', borderWidth: '1px', color: '#7a6400' }}>
                 Por seguridad, debes cambiar la contraseña por defecto antes de continuar.
@@ -313,7 +331,7 @@ export function LoginPage() {
             </form>
             )}
 
-            {!needs2FA && !forceChange && (
+            {!needs2FA && !forceChange && !forceSetup2fa && (
               <div className="mt-3 text-center">
                 <a href="/acceso-externo" className="text-sm" style={{ color: '#605e5c' }}>
                   ¿Colaborador externo? Ingresa al Drive
@@ -321,7 +339,7 @@ export function LoginPage() {
               </div>
             )}
 
-            {ssoEnabled && !needs2FA && !forceChange && (
+            {ssoEnabled && !needs2FA && !forceChange && !forceSetup2fa && (
               <>
                 <div className="flex items-center gap-3 my-4">
                   <div className="flex-1 h-px" style={{ backgroundColor: '#edebe9' }} />
