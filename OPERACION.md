@@ -237,9 +237,18 @@ curl -s 'https://autodiscover.maquita.org/autodiscover/autodiscover.json/v1.0/us
 # → {"Protocol":"ActiveSync","Url":"https://mail.maquita.org/Microsoft-Server-ActiveSync"}
 curl -s -o /dev/null -w '%{http_code}\n' -X OPTIONS https://mail.maquita.org/Microsoft-Server-ActiveSync   # 401
 ```
-DNS: `autodiscover.<cada dominio>` → este servidor, y el certificado debe cubrirlo. Ojo: hoy
-`autodiscover.maquita.com.ec` apunta a otro servidor (190.110.197.118): las cuentas `@maquita.com.ec`
-no podrán configurarse en el nuevo Outlook hasta corregir DNS, `server_name` y SAN (pendiente).
+DNS: `autodiscover.<cada dominio>` → este servidor, y el certificado debe cubrirlo (N-16).
+
+### Autodiscover por dominio (N-16)
+Hoy solo `maquita.org` apunta aquí; `autodiscover.maquita.com.ec` (y los demás dominios) son un CNAME a
+`mail.<dominio>`, es decir, al servidor actual de esos dominios, que seguirá atendiendo a sus Outlook
+hasta el corte. **No se toca antes del corte** (rompería a quienes hoy usan ese servidor). El día del
+corte, por cada dominio que se traiga: CNAME `autodiscover`/`autoconfig` → `mail.maquita.org`, SRV
+`_autodiscover._tcp` → `mail.maquita.org:443`, y después `DOMINIOS_EXTRA="..." emitir-certificado.sh
+maquita.org`. Entre el cambio de DNS y el certificado, la redirección por HTTP
+(`sites-enabled/autodiscover-dominios`, instalada en producción el 07/09/2026) ya autoconfigura Outlook.
+Verificación: `venv/bin/python ../deploy/tools/comprobar-autodiscover.py` (todos los dominios de maildb).
+Detalle en `docs/CERTIFICADO-Y-AUTOCONFIG.md`.
 Z-Push 2.7.6 anuncia ActiveSync 12.0, 12.1 y 14.0 (suficiente para Outlook, iOS y Android).
 
 Prueba de carga de referencia (07/09/2026, 50 dispositivos a la vez con FolderSync real, cuenta

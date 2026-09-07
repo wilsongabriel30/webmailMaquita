@@ -9,6 +9,11 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Añadido
 
+- **Autodiscover para todos los dominios de correo (N-16)**: vhost `autodiscover.*`/`autoconfig.*` en el
+  puerto 80 que redirige al host canónico (el respaldo que Outlook usa cuando el TLS del dominio falla),
+  `emitir-certificado.sh` con `DOMINIOS_EXTRA` para meter los nombres de los demás dominios en el
+  certificado, y `deploy/tools/comprobar-autodiscover.py` (DNS por DoH, certificado, ActiveSync por
+  HTTPS y redirección por HTTP, dominio por dominio).
 - **Contraseñas de aplicación (D-5)**: una por cliente externo (Outlook, Thunderbird, celular, ActiveSync),
   creada en Configuración → Seguridad con la contraseña actual, mostrada una sola vez, revocable; bcrypt en
   `contrasenas_aplicacion` y verificación en Dovecot por SQL (`verificar_contrasena_aplicacion`, pgcrypto).

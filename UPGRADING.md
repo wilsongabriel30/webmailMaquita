@@ -12,6 +12,12 @@ servicio, reiniciar lo que cambió y correr `deploy/tools/validar-despliegue.sh`
 
 ## De 1.7.7 a 1.7.8 — Z-Push vuelve (ActiveSync para Outlook)
 
+Autodiscover para todos los dominios (N-16):
+1. `sed "s/tudominio.com/<dominio canónico>/g" deploy/webmail/nginx/autodiscover-dominios.conf >
+   /etc/nginx/sites-available/autodiscover-dominios`, enlazar en `sites-enabled`, `nginx -t`, recargar.
+2. Para cada dominio de correo que ya apunte aquí: `DOMINIOS_EXTRA="..." emitir-certificado.sh <canónico>`.
+3. `deploy/tools/comprobar-autodiscover.py` para ver el estado dominio por dominio.
+
 Contraseñas de aplicación (D-5):
 1. `sudo -u postgres psql -d maildb -c "CREATE EXTENSION IF NOT EXISTS pgcrypto"` y la migración
    `migrations/2026-09-07-contrasenas-aplicacion.sql` (como `mailserver`).
