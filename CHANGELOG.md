@@ -7,6 +7,13 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Cambiado
+
+- **Egreso del backend (F-05) en modo `drop`**: la política solo juzga conexiones nuevas de
+  `www-data` (`ct state established,related accept`; en modo registro, 50.000 «denegados» eran
+  respuestas HTTPS de nginx a clientes de la LAN) y descarta lo que no está en la lista blanca
+  interna. Sección nueva en OPERACION.
+
 ### Corregido
 
 - **N-17 (regresión de F-01, 05/09)**: el Almacén/Drive validaba la sesión del webmail buscando

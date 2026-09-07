@@ -206,6 +206,23 @@ contraseña principal. No valen desde el propio servidor (webmail y app siguen c
 Tras publicar un DNS nuevo, esperar el TTL (1 h) antes: los resolutores de Let's Encrypt cachean el
 valor viejo y el NXDOMAIN, y la validación falla aunque los esclavos ya respondan bien.
 
+## Egreso del proceso del correo (F-05): qué puede alcanzar `www-data` en la red interna
+
+`deploy/webmail/nftables/egreso-backend.nft` (en producción `/etc/nftables.d/egreso-backend.nft`,
+incluido desde `/etc/nftables.conf`): desde `www-data` solo salen conexiones NUEVAS a loopback, a la
+lista blanca interna y a Internet; el resto de la red interna se registra (`EGRESO_BACKEND_DENEGADO`)
+y se descarta. Las respuestas de conexiones establecidas pasan siempre (nginx también es `www-data`).
+Activa con `drop` desde el 07/09/2026 tras 8 días en modo registro.
+
+- Ver qué se corta: `nft list table inet egreso_backend` (contadores) y
+  `journalctl -k | grep EGRESO_BACKEND_DENEGADO` (DST y DPT). Un destino legítimo nuevo (otra base
+  de datos, otro motor de IA) se añade a `ALLOWLIST_INTERNA` y se recarga con
+  `nft -f /etc/nftables.d/egreso-backend.nft`.
+- En producción la lista incluye además `193.16.0.18` (Zimbra: la sincronización nocturna de las
+  02:00 entra por IMAP 993 como `www-data`) **hasta el corte**; después se quita.
+- Si algo interno deja de funcionar tras un cambio: quitar `drop` (queda solo el registro), recargar,
+  y buscar el destino en el registro.
+
 ## Firmas: normalización automática
 
 Desde 1.7.8 toda firma pasa por `backend/app/mail/firmas.py` al guardarse (webmail → Firmas,
