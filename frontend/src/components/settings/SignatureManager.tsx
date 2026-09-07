@@ -68,7 +68,7 @@ export function SignatureManager() {
 
   useEffect(() => {
     const saved = localStorage.getItem('maquita_sig_settings');
-    if (saved) try { setSigSettings({ ...DEFAULT_SIG_SETTINGS, ...JSON.parse(saved) }); } catch {}
+    if (saved) try { setSigSettings({ ...DEFAULT_SIG_SETTINGS, ...JSON.parse(saved) }); } catch { /* ajustes locales ilegibles: se usan los predeterminados */ }
   }, []);
 
   useEffect(() => { fetchSignatures(); }, [fetchSignatures]);
@@ -102,13 +102,18 @@ export function SignatureManager() {
     if (!draftName.trim()) { flash({ type: 'error', message: 'El nombre es obligatorio' }); return; }
     setSaving(true);
     try {
+      let avisos: string[] = [];
       if (isCreating) {
-        await api.post('/settings/signatures', { name: draftName.trim(), html_content: html, is_default: draftDefault });
+        const r = await api.post<{ avisos?: string[] }>('/settings/signatures', { name: draftName.trim(), html_content: html, is_default: draftDefault });
+        avisos = r?.avisos ?? [];
         flash({ type: 'success', message: 'Firma creada' });
       } else if (editingId) {
-        await api.put(`/settings/signatures/${editingId}`, { name: draftName.trim(), html_content: html, is_default: draftDefault || undefined });
+        const r = await api.put<{ avisos?: string[] }>(`/settings/signatures/${editingId}`, { name: draftName.trim(), html_content: html, is_default: draftDefault || undefined });
+        avisos = r?.avisos ?? [];
         flash({ type: 'success', message: 'Firma actualizada' });
       }
+      // El servidor revisa la firma al guardar (imágenes, tabla, mailto); lo que quitó o dudó, se dice aquí.
+      if (avisos.length) flash({ type: 'error', message: avisos.join(' ') });
       clearEdit();
       await fetchSignatures();
     } catch (err: unknown) {
@@ -369,7 +374,7 @@ function VisualSignatureEditor({
             setHtmlSrc(applyFields(res.raw_template, df));
           }
         }
-      } catch {}
+      } catch { /* sin plantilla de dominio: el editor arranca vacío */ }
       if (!cancelled) setLoadingTpl(false);
     })();
     return () => { cancelled = true; };

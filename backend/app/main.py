@@ -51,6 +51,7 @@ from app.mail.routers.attachments import router as attachments_router
 from app.mail.routers.calendar_invite import router as calendar_invite_router
 from app.mail.routers.compose import router as compose_router
 from app.mail.routers.export import router as export_router
+from app.mail.routers.firmas import router as firmas_router
 from app.mail.routers.folders import router as folders_router
 from app.mail.routers.labels import router as labels_router
 from app.mail.routers.messages import router as messages_router
@@ -192,6 +193,11 @@ async def _process_scheduled_emails(db_pool, redis):
                             else row["bcc_list"]
                         )
 
+                        from app.mail.firmas import preparar_envio
+
+                        html_body, inline_firma, _ = await asyncio.to_thread(
+                            preparar_envio, row["html_body"] or ""
+                        )
                         await send_and_save(
                             imap=imap,
                             password=password,
@@ -199,7 +205,8 @@ async def _process_scheduled_emails(db_pool, redis):
                             to=to_list,
                             subject=row["subject"],
                             text_body=row["text_body"],
-                            html_body=row["html_body"],
+                            html_body=html_body,
+                            attachments=inline_firma or None,
                             cc=cc_list,
                             bcc=bcc_list,
                             in_reply_to=row["in_reply_to"],
@@ -721,6 +728,7 @@ app.include_router(autodiscover_router)
 app.include_router(contacts_router)
 app.include_router(sieve_router)
 app.include_router(identities_router)
+app.include_router(firmas_router)
 app.include_router(ws_router)
 app.include_router(export_router)
 app.include_router(remitente_router)  # banner remitente externo

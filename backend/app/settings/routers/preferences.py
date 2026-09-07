@@ -1,11 +1,13 @@
 """User settings router — signature, display name, preferences."""
 
+import asyncio
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
+from app.mail.firmas import normalizar_firma
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
@@ -261,11 +263,12 @@ async def create_signature(
         await db.execute(
             "UPDATE user_signatures SET is_default = false WHERE owner = $1", username
         )
+    firma = await asyncio.to_thread(normalizar_firma, body.html_content, username)
     row = await db.fetchrow(
         "INSERT INTO user_signatures (owner, name, html_content, is_default) VALUES ($1, $2, $3, $4) RETURNING *",
         username,
         body.name,
-        body.html_content,
+        firma.html,
         body.is_default,
     )
     await _ensure_one_default(db, username)
@@ -275,11 +278,11 @@ async def create_signature(
         "create",
         sig_id=row["id"],
         sig_name=body.name,
-        new_html=body.html_content,
+        new_html=firma.html,
         ip_address=request.client.host if request.client else "",
         user_agent=request.headers.get("user-agent", ""),
     )
-    return _sig_to_dict(row)
+    return {**_sig_to_dict(row), "avisos": firma.avisos}
 
 
 @router.put("/signatures/{sig_id}")
@@ -297,10 +300,13 @@ async def update_signature(
         raise HTTPException(status_code=404, detail="Firma no encontrada")
 
     updates = {}
+    avisos: list[str] = []
     if body.name is not None:
         updates["name"] = body.name
     if body.html_content is not None:
-        updates["html_content"] = body.html_content
+        firma = await asyncio.to_thread(normalizar_firma, body.html_content, username)
+        updates["html_content"] = firma.html
+        avisos = firma.avisos
     if body.is_default is True:
         await db.execute(
             "UPDATE user_signatures SET is_default = false WHERE owner = $1", username
@@ -325,11 +331,11 @@ async def update_signature(
         sig_id=sig_id,
         sig_name=body.name or existing["name"],
         old_html=existing["html_content"],
-        new_html=body.html_content or existing["html_content"],
+        new_html=updates.get("html_content") or existing["html_content"],
         ip_address=request.client.host if request.client else "",
         user_agent=request.headers.get("user-agent", ""),
     )
-    return _sig_to_dict(row)
+    return {**_sig_to_dict(row), "avisos": avisos}
 
 
 @router.delete("/signatures/{sig_id}")
