@@ -46,6 +46,24 @@ para Outlook clásico como cuenta IMAP, y **ActiveSync** (esquema `mobilesync` y
 nuevo Outlook, Outlook clásico como cuenta Exchange, Android e iOS, apuntando a Z-Push
 (`deploy/z-push/`). El helper ya incluye `autodiscover.` en el certificado si apunta a este servidor.
 
+## Autodiscover para varios dominios (Outlook, iOS, Android)
+
+Outlook y los celulares buscan `https://autodiscover.<dominio del correo>/autodiscover/autodiscover.xml`
+para **cada dominio**, no para el host canónico. Un dominio que aún apunta a otro servidor (el caso
+de una migración) no autoconfigura en el nuevo Outlook, que no admite configuración manual. Para
+cada dominio de correo del servidor hacen falta, en este orden:
+
+1. **DNS**: `autodiscover.<d>` CNAME al host canónico (`mail.dominio.tld`), `autoconfig.<d>` igual, y
+   `_autodiscover._tcp.<d> SRV 0 0 443 mail.dominio.tld.` (Outlook clásico también usa el SRV).
+2. **Certificado**: `DOMINIOS_EXTRA="<d> <d2>" emitir-certificado.sh dominio.tld` añade
+   `mail./autoconfig./autodiscover.` de cada dominio que ya apunte aquí (un solo linaje, `--expand`).
+3. **Respaldo por HTTP** (`deploy/webmail/nginx/autodiscover-dominios.conf`, lo instala el instalador):
+   `autodiscover.*` y `autoconfig.*` en el puerto 80 responden **302** al host canónico. Es el método
+   que Outlook prueba cuando el TLS del dominio falla, así que un dominio recién apuntado autoconfigura
+   **antes** de reemitir el certificado (y el reto ACME de esos nombres sigue sirviéndose).
+4. **Comprobar**: `deploy/tools/comprobar-autodiscover.py` (DNS por DoH, certificado, respuesta
+   ActiveSync por HTTPS y redirección por HTTP, dominio por dominio, con código de salida).
+
 ## Varios dominios de correo en el mismo servidor (SNI)
 
 Si el servidor atiende **más de un dominio** de correo, Postfix/Dovecot deben presentar el

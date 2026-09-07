@@ -323,6 +323,10 @@ sed -i "s/mail\.tudominio\.com/${MAIL_HOST}/g; s/tudominio\.com/${DOMAIN}/g" "${
 sed -i "s|/etc/letsencrypt/live/${MAIL_HOST}/fullchain.pem|/etc/ssl/certs/ssl-cert-snakeoil.pem|; s|/etc/letsencrypt/live/${MAIL_HOST}/privkey.pem|/etc/ssl/private/ssl-cert-snakeoil.key|" "${NGINX_CONF}"
 ln -sf "${NGINX_CONF}" /etc/nginx/sites-enabled/
 rm -f /etc/nginx/sites-enabled/default   # evita conflicto con el server_name por defecto
+# Autodiscover/autoconfig de CUALQUIER dominio por HTTP (respaldo mientras el certificado no lo cubra)
+sed "s/tudominio.com/${DOMAIN}/g" "${APP_DIR}/deploy/webmail/nginx/autodiscover-dominios.conf" \
+    > /etc/nginx/sites-available/autodiscover-dominios
+ln -sf /etc/nginx/sites-available/autodiscover-dominios /etc/nginx/sites-enabled/
 mkdir -p /var/log/webmail /var/www/certbot
 chown www-data:www-data /var/log/webmail
 # MTA-STS: política de TLS obligatorio en tránsito (sube la nota de entregabilidad)
