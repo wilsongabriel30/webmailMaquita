@@ -16,6 +16,8 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Corregido
 
+- **Panel, alta de buzón**: desaparece el interruptor «Crear cuenta Nextcloud» (activo por defecto y apuntando a
+  `nube.ejemplo.com`): Nextcloud ya no se usa, el Drive es el Almacén y se activa con la sesión del correo.
 - **N-19 (Radicale)**: el webmail y Z-Push escribían en árboles distintos (parte local frente a correo
   completo): ahora el prefijo es el correo completo, con migración de una vez
   (`deploy/tools/radicale-migrar-prefijo.py`). Y `auth type = none` dejaba todas las colecciones
