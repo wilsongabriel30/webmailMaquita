@@ -362,6 +362,8 @@ echo "  MTA-STS preparado (política servida en mta-sts.${DOMAIN})"
 # Radicale: backend CalDAV/CardDAV del calendario y los contactos (puerto 5232)
 mkdir -p /etc/radicale /var/lib/radicale/collections
 cp "${CFG}/radicale.config" /etc/radicale/config
+# El dueño debe ser el usuario del servicio (radicale.service de referencia: www-data); si el
+# servicio corre con otro usuario, Radicale responde 500 al escribir su caché.
 chown -R www-data:www-data /var/lib/radicale
 cp "${APP_DIR}/deploy/webmail/configs/radicale.service" /etc/systemd/system/radicale.service
 systemctl daemon-reload && systemctl enable --now radicale 2>/dev/null
