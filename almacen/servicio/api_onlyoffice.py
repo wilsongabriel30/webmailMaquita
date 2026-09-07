@@ -646,8 +646,23 @@ def onlyoffice_config_public():
 def editor_almacen():
     """Página del editor embebido del Almacén. La ruta del archivo viaja en
     ?ruta= y el JavaScript de la página pide la configuración a
-    /api/almacen/onlyoffice/config. El candado maestro de /archivos-almacen*
-    del sistema de origen protege el acceso durante la fase de pruebas."""
+    /api/almacen/onlyoffice/config.
+
+    N-5 (auditoría del 03/09): exige la sesión del webmail como el resto de
+    /archivos-almacen (antes era una carcasa pública) y sale con una CSP cerrada
+    con nonce: solo su propio script y el Document Server."""
+    from flask import redirect
+    from auth_webmail import sesion_actual
+    from editor_seguro import cabeceras_editor, nonce
+
+    uid, _rol, _correo, motivo = sesion_actual()
+    if not uid:
+        if motivo == 'sin_sesion':
+            return redirect('/webmail/login', code=302)
+        return jsonify({'success': False, 'error': 'Cuenta sin acceso al Almacén'}), 403
     plantilla = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                              'plantillas', 'editor_onlyoffice.html')
-    return send_file(plantilla, mimetype='text/html')
+    n = nonce()
+    with open(plantilla, encoding='utf-8') as f:
+        html = f.read().replace('__NONCE__', n)
+    return html, 200, cabeceras_editor(url_publica_ds(), n)
