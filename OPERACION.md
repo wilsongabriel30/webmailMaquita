@@ -198,6 +198,14 @@ contraseña principal. No valen desde el propio servidor (webmail y app siguen c
 - Requisitos: `CREATE EXTENSION pgcrypto` en `maildb` (superusuario; lo hace el instalador) y la
   migración `2026-09-07-contrasenas-aplicacion.sql`. Guía de usuario: `docs/CONTRASENAS-APLICACION.md`.
 
+### Certificado en producción: webroot, no `--nginx`
+`emitir-certificado.sh` usa `certbot --nginx` (instalaciones nuevas). En producción el linaje
+`mail.maquita.org` renueva por **webroot** (`/etc/letsencrypt/renewal/mail.maquita.org.conf`, hook
+`renewal-hooks/deploy/reload-services.sh`). Para ampliar nombres allí: `certbot certonly --webroot -w
+/var/www/certbot --cert-name mail.maquita.org --expand -d <todos los nombres actuales> -d <nuevos>`.
+Tras publicar un DNS nuevo, esperar el TTL (1 h) antes: los resolutores de Let's Encrypt cachean el
+valor viejo y el NXDOMAIN, y la validación falla aunque los esclavos ya respondan bien.
+
 ## Firmas: normalización automática
 
 Desde 1.7.8 toda firma pasa por `backend/app/mail/firmas.py` al guardarse (webmail → Firmas,
