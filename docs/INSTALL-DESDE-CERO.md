@@ -1,7 +1,8 @@
 # Instalación desde cero — Maquita Webmail
 
-**Guía canónica.** Versión de referencia: **`v1.7.3`** (2026-09-06); usa siempre la **última etiqueta**
-de [Releases](https://github.com/wilsongabriel30/webmailMaquita/releases). Es la única guía que se
+**Guía canónica.** Vale para la **última etiqueta** de
+[Releases](https://github.com/wilsongabriel30/webmailMaquita/releases) (se prueba con cada una; no lleva
+número de versión a propósito, para no quedar vieja). Es la única guía que se
 mantiene; `INSTALL-NATIVE.md` es el detalle manual por componente para quien no use el
 instalador, e `INSTALL.md` queda sustituida y se conserva solo por referencia.
 
@@ -45,14 +46,15 @@ apt update && apt install -y \
 
 ## 2. Clonar
 ```bash
-git clone --branch v1.7.3 https://github.com/wilsongabriel30/webmailMaquita.git /opt/maquita-webmail
+git clone https://github.com/wilsongabriel30/webmailMaquita.git /opt/maquita-webmail
 cd /opt/maquita-webmail
+git checkout "$(git describe --tags "$(git rev-list --tags --max-count=1)")"   # la última etiqueta
 # Solo si vas a hacer commits en este repositorio (opcional para evaluar o para operar):
 bash deploy/hooks/instalar.sh        # Guardián pre-commit: bloquea secretos, datos personales y volcados
 # → rellena .git/guardian-patrones-locales (una expresión por línea): contraseñas del equipo,
 #   términos que no deban publicarse. Vive fuera del repositorio a propósito.
 ```
-Cambia `v1.7.3` por la última etiqueta de Releases si hay una más nueva.
+Para una versión concreta: `git checkout vX.Y.Z`.
 
 ### 2a. Si vas a EVALUAR: no crees ningún `.env`
 El instalador lo genera todo (secretos, `backend/.env`, `almacen/.env`, cuenta demo). Salta al
@@ -93,9 +95,14 @@ DLP, SafeAttach, milters), crea el buzón demo y levanta los servicios.
 El webmail debe ir por HTTPS. Con el dominio ya apuntando a tu IP:
 ```bash
 apt install -y certbot python3-certbot-nginx
-certbot --nginx -d TU-DOMINIO -d mail.TU-DOMINIO
-# certbot instala el timer systemd de renovación automática
+bash deploy/webmail/tls/emitir-certificado.sh TU-DOMINIO
+# pide el certificado SOLO con los nombres que de verdad apuntan a este servidor (mail., imap.,
+# smtp., autoconfig., autodiscover. y el apex si apunta aquí), fija --cert-name y activa la
+# autoconfiguración; certbot instala el timer systemd de renovación automática.
 ```
+Si prefieres certbot a mano: `certbot --nginx -d mail.TU-DOMINIO` (solo ese nombre: el instalador
+escribe `server_name mail.TU-DOMINIO` y en la instalación típica el apex apunta a la web de la
+organización, así que pedir `-d TU-DOMINIO` hace fallar el reto y aborta el comando entero).
 Para evaluar en una VM desechable puedes omitir esto (Dovecot/nginx usan certificado autofirmado).
 
 ## 5. Validar

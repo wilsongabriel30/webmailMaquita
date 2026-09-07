@@ -10,6 +10,11 @@ dsn = os.getenv("DATABASE_URL")
 if not dsn:
     raise SystemExit("Falta DATABASE_URL")
 with psycopg2.connect(dsn) as con, con.cursor() as cur:
+    # Instalaciones donde nunca se programó una reunión no tienen la tabla (informe de Andes, 07/09).
+    cur.execute("SELECT to_regclass('reuniones_programadas')")
+    if cur.fetchone()[0] is None:
+        print("nada que purgar: la tabla reuniones_programadas no existe (nunca se programó una reunión)")
+        raise SystemExit(0)
     cur.execute("""UPDATE reuniones_programadas
                       SET token_moderador = NULL, token_invitado = NULL,
                           enlace_moderador = regexp_replace(enlace_moderador, '\\?jwt=.*$', '')
