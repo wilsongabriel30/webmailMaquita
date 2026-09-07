@@ -7,6 +7,13 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Añadido
+
+- **Vigilancia horaria de las integraciones con clave compartida** (`deploy/hardening/vigilar-integraciones.py`,
+  cron `maquita-integraciones`): sondas reales sin efectos secundarios a la pasarela de IA, a la revocación
+  del chat en los dos sentidos, al Document Server de OnlyOffice y a las copias de secretos entre `.env`;
+  alerta por correo al fallar y al recuperarse. Lección de N-15: «activo» no es «sano».
+
 ## [1.7.7] - 2026-09-07
 
 Segundo factor obligatorio para las cuentas privilegiadas del correo (`admin@`, `postmaster@`).
