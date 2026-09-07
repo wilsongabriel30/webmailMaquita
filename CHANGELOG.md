@@ -7,6 +7,15 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Seguridad
+
+- **[S7-1] sudoers sin comodines: un solo envoltorio con validación propia.** `www-data` y `maquita-admin`
+  solo pueden ejecutar `/usr/local/sbin/maquita-sudo`, que valida programa, subcomando y cada
+  argumento (buzón con formato estricto y existente en Dovecot, ids de cola, unidades y parámetros de
+  lista cerrada, IPs, rutas `.sieve`, direcciones de `sendmail`) y registra todo en syslog con
+  contraseñas enmascaradas. Antes `doveadm search -u *` admitía cualquier argumento tras `-u` y el
+  panel tenía 32 comodines. Sustituye a `webmail-doveadm` y `maquita-webmail`.
+
 ### Corregido
 
 - **Instalación sin adivinar (2.ª relectura de Andes)**: el instalador preconfigura Postfix con `debconf`

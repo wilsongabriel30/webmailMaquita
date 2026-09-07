@@ -7,6 +7,9 @@ Uses doveadm to search and delete/replace messages in recipient mailboxes.
 """
 import re
 import subprocess
+
+# [S7-1] Envoltorio con validación propia; sudoers ya no tiene comodines.
+MAQUITA_SUDO = "/usr/local/sbin/maquita-sudo"
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -56,6 +59,8 @@ def _doveadm_search(recipient: str, message_id: str) -> list[tuple[str, str]]:
         result = subprocess.run(
             [
                 "sudo",
+                "-n",
+                MAQUITA_SUDO,
                 "doveadm",
                 "search",
                 "-u",
@@ -88,6 +93,8 @@ def _doveadm_expunge(recipient: str, message_id: str) -> bool:
             result = subprocess.run(
                 [
                     "sudo",
+                    "-n",
+                    MAQUITA_SUDO,
                     "doveadm",
                     "expunge",
                     "-u",
@@ -115,6 +122,8 @@ def _doveadm_fetch_info(recipient: str, message_id: str) -> dict:
         result = subprocess.run(
             [
                 "sudo",
+                "-n",
+                MAQUITA_SUDO,
                 "doveadm",
                 "fetch",
                 "-u",
@@ -239,6 +248,8 @@ async def recall_message(
     sender_search = subprocess.run(
         [
             "sudo",
+            "-n",
+            MAQUITA_SUDO,
             "doveadm",
             "search",
             "-u",

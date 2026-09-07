@@ -6,6 +6,8 @@ las cabeceras de hilo (In-Reply-To/References) intactas. No es un "FW:" del area
 sistemas, es el mensaje original volviendo a intentarse.
 """
 import asyncio
+
+from app.wrappers.privilegios import con_sudo
 import re
 from asyncio.subprocess import PIPE
 
@@ -36,7 +38,7 @@ async def reinyectar(remitente: str, destinatarios: list[str], mensaje: str) -> 
         raise ValueError("El mensaje original esta vacio")
 
     proc = await asyncio.create_subprocess_exec(
-        "sudo", SENDMAIL, "-f", remitente, "--", *destinatarios,
+        *con_sudo("sendmail", "-f", remitente, "--", *destinatarios),
         stdin=PIPE, stdout=PIPE, stderr=PIPE,
     )
     _, err = await proc.communicate(mensaje.encode("utf-8", "ignore"))
