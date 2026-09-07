@@ -7,6 +7,15 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.7.8] - 2026-09-07
+
+Z-Push vuelve como componente principal (D-9 corregida), contraseñas de aplicación (D-5), firmas
+normalizadas, autodiscover para todos los dominios (N-16) y vigilancia de integraciones. Requiere
+migración (`2026-09-07-contrasenas-aplicacion.sql`, pgcrypto), dos `passdb` nuevas en Dovecot,
+directorio de firmas y, si se usa Z-Push, contenedor, cortafuegos y Radicale: ver `UPGRADING.md`
+«De 1.7.7 a 1.7.8». Tras desplegar: migrar firmas (`firmas-normalizar.py`) y activar la política
+de contraseñas de aplicación cuando el personal tenga las suyas.
+
 ### Añadido
 
 - **Autodiscover para todos los dominios de correo (N-16)**: vhost `autodiscover.*`/`autoconfig.*` en el
@@ -900,7 +909,8 @@ Tag: `v1.0.1-compliance-audit`
 - Autenticación basada en sesiones
 - Interfaz de administración básica
 
-[Sin publicar]: https://github.com/wilsongabriel30/webmailMaquita/compare/v1.0.1-compliance-audit...HEAD
+[Sin publicar]: https://github.com/wilsongabriel30/webmailMaquita/compare/v1.7.8...HEAD
+[1.7.8]: https://github.com/wilsongabriel30/webmailMaquita/compare/v1.7.7...v1.7.8
 [1.0.1]: https://github.com/wilsongabriel30/webmailMaquita/compare/v1.0.0...v1.0.1-compliance-audit
 [1.0.0]: https://github.com/wilsongabriel30/webmailMaquita/compare/v0.9.0...v1.0.0
 [0.9.0]: https://github.com/wilsongabriel30/webmailMaquita/releases/tag/v0.9.0
