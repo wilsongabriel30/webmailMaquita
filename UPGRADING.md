@@ -10,6 +10,19 @@ servicio, reiniciar lo que cambió y correr `deploy/tools/validar-despliegue.sh`
 
 ---
 
+## Sin publicar (después de 1.7.8)
+
+Drive desde el panel (vincular buzones y cuota): un secreto nuevo, el mismo en dos ficheros.
+1. `S=$(openssl rand -hex 24); echo "ALMACEN_SECRETO_PANEL=$S" >> almacen/.env; printf
+   ALMACEN_URL=http://127.0.0.1:8788
+ALMACEN_SECRETO_PANEL=%s
+ "$S" >> admin-panel/backend/.env`.
+2. `systemctl restart maquita-almacen maquita-admin` y reconstruir el frontend del panel
+   (`cd admin-panel/frontend && npx vite build`). Sin el secreto, el alta de buzón sigue funcionando y
+   el formulario lo dice.
+3. La cuota por defecto del Drive en instalaciones nuevas es 5 GB (`ALMACEN_CUOTA_DEFECTO` o Configuración
+   del Almacén); las existentes conservan la suya.
+
 ## De 1.7.7 a 1.7.8 — Z-Push vuelve, contraseñas de aplicación, firmas, autodiscover por dominio
 
 En orden de ejecución (cada paso usa ficheros que llegan con el paso anterior). Corte: **ninguno para

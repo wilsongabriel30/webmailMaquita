@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { SectionHelp } from "../components/SectionHelp";
+import { DrivePanel, type DriveConfig } from "../components/DrivePanel";
 
 interface Mailbox { username: string; name: string; domain: string; quota: number; active: boolean; phone: string; email_other: string; created: string }
 
@@ -10,6 +11,13 @@ export function Mailboxes() {
   const [filter, setFilter] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ username: "", password: "", password2: "", name: "", quota_mb: 0 });
+  // Drive (Almacén): cuota y vínculo con una persona del directorio (modo nómina)
+  const [driveCfg, setDriveCfg] = useState<DriveConfig | null>(null);
+  const [driveGb, setDriveGb] = useState<string>("");
+  const [drivePersona, setDrivePersona] = useState<{ id: number; full_name: string; email: string } | null>(null);
+  const [driveAviso, setDriveAviso] = useState("");
+  const [driveUser, setDriveUser] = useState<string | null>(null);
+  useEffect(() => { api.get<DriveConfig>("/drive/config").then((c) => { setDriveCfg(c); setDriveGb(String(c.cuota_defecto_gb)); }).catch(() => setDriveCfg(null)); }, []);
   const [editPw, setEditPw] = useState<string | null>(null);
   const [newPw, setNewPw] = useState("");
   const [newPw2, setNewPw2] = useState("");
@@ -74,6 +82,18 @@ export function Mailboxes() {
     if (form.password !== form.password2) { setCreateError("Las contraseñas no coinciden"); return; }
     try {
       await api.post("/mailboxes", { username: form.username, password: form.password, name: form.name, quota: form.quota_mb * 1048576 });
+      // Drive: primero el vínculo (modo nómina), después la cuota. Si el Almacén no está, el buzón queda creado igual.
+      if (driveCfg) {
+        try {
+          if (drivePersona) await api.post("/drive/enlace", { correo: form.username, usuario_id: drivePersona.id });
+          const gb = parseFloat(driveGb || "0") || 0;
+          if (gb !== driveCfg.cuota_defecto_gb || drivePersona) await api.post("/drive/cuota", { correo: form.username, cuota_gb: gb });
+          setDriveAviso("");
+        } catch (e: any) {
+          setDriveAviso("Buzón creado; el Drive no quedó configurado: " + (e?.message || "error") + ". Usa el botón «Drive» del buzón.");
+        }
+      }
+      setDrivePersona(null); setDriveGb(driveCfg ? String(driveCfg.cuota_defecto_gb) : "");
       setShowForm(false); setForm({ username: "", password: "", password2: "", name: "", quota_mb: 0 }); load();
     } catch (e: any) {
       setCreateError(e.message || "Error al crear el buzón");
@@ -215,15 +235,34 @@ export function Mailboxes() {
                 className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
               <span className="text-[10px] text-ms-gray-60 mt-0.5 block">0 = sin límite. Ej: 2048 = 2 GB</span>
             </div>
-            <p className="text-[11px] text-ms-gray-60 pt-2">
-              El acceso al Drive (Almacén) no se crea aquí: se activa solo con la sesión del correo. En modo
-              directorio «nómina», la persona debe existir en el directorio para ver su Drive.
-            </p>
+            {driveCfg ? (
+              <DrivePanel cfg={driveCfg} gb={driveGb} setGb={setDriveGb} persona={drivePersona} setPersona={setDrivePersona} />
+            ) : (
+              <p className="text-[11px] text-ms-gray-60 pt-2">
+                El Drive (Almacén) no está conectado con el panel (falta ALMACEN_SECRETO_PANEL): el acceso se activa
+                con la sesión del correo y la cuota es la de la organización.
+              </p>
+            )}
+            {driveAviso && <p className="text-[11px] text-red-600">{driveAviso}</p>}
           </div>
           <div className="flex gap-2 pt-1">
             <button onClick={create} title="Crea el buzón con los datos ingresados. El usuario podrá enviar y recibir correos de inmediato. Se registra en auditoría." className="px-4 py-2 bg-ms-blue text-white rounded text-sm font-medium hover:bg-ms-blue-dark">Crear buzón</button>
             <button onClick={() => { setShowForm(false); setForm({ username: "", password: "", password2: "", name: "", quota_mb: 0 }); setCreateError(""); }} title="Cierra el formulario y descarta los datos ingresados. No se crea ningún buzón." className="px-4 py-2 border border-ms-gray-40 rounded text-sm text-ms-gray-90">Cancelar</button>
           </div>
+        </div>
+      )}
+
+      {/* Drive de un buzón existente */}
+      {driveUser && driveCfg && (
+        <div className="bg-white rounded border-2 border-teal-300 p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-bold text-teal-700">Drive (Almacén)</h2>
+              <p className="text-xs text-ms-gray-90 mt-0.5">Correo: <span className="font-semibold text-ms-gray-130">{driveUser}</span></p>
+            </div>
+            <button onClick={() => setDriveUser(null)} className="text-ms-gray-60 hover:text-ms-gray-130 text-lg">×</button>
+          </div>
+          <DrivePanel cfg={driveCfg} correo={driveUser} onCerrar={() => setDriveUser(null)} />
         </div>
       )}
 
@@ -436,6 +475,11 @@ export function Mailboxes() {
                   <button onClick={() => { setEditPw(editPw === m.username ? null : m.username); setNewPw(""); setNewPw2(""); }}
                     title="Abre el formulario para asignar una nueva contraseña a este buzón. La actual dejará de funcionar al confirmar."
                     className="text-ms-blue hover:underline text-xs">Contraseña</button>
+                  {driveCfg && (
+                    <button onClick={() => setDriveUser(driveUser === m.username ? null : m.username)}
+                      title="Cuota del Drive y vínculo con una persona del directorio para este buzón"
+                      className={`${driveUser === m.username ? "text-teal-700 font-semibold" : "text-teal-600"} hover:underline text-xs`}>Drive</button>
+                  )}
                   <button onClick={() => loadUserGroups(m.username)}
                     title="Ver en qué grupos de distribución está este correo"
                     className={`${groupsUser === m.username ? "text-purple-700 font-semibold" : "text-purple-600"} hover:underline text-xs`}>Grupos</button>

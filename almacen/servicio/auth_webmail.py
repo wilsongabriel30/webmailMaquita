@@ -83,6 +83,15 @@ def asegurar_tablas_webmail() -> None:
     """)
     # instalaciones previas a la columna email
     ejecutar('ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS email TEXT;')
+    # Vínculo explícito buzón -> persona del directorio central (lo fija el panel de administración):
+    # manda sobre la coincidencia por correo. Para personas cuyo correo del directorio no es el buzón.
+    ejecutar("""
+        CREATE TABLE IF NOT EXISTS enlaces_correo (
+            correo     TEXT PRIMARY KEY,
+            usuario_id INTEGER NOT NULL,
+            creado_en  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+    """)
     ejecutar("""
         CREATE TABLE IF NOT EXISTS trabajadores (
             id INTEGER PRIMARY KEY,
@@ -237,7 +246,22 @@ def _buscar_en_externos(correo: str) -> tuple:
 
 def _buscar_en_nomina(correo: str) -> tuple:
     """Modo nomina: el correo del buzón debe existir en el directorio central.
-    Devuelve el MISMO id que usa el resto del sistema (un almacén por persona)."""
+    Devuelve el MISMO id que usa el resto del sistema (un almacén por persona).
+    Primero el vínculo explícito fijado desde el panel (`enlaces_correo`); después la
+    coincidencia por correo (y por dominio institucional equivalente)."""
+    enlace = consultar('SELECT usuario_id FROM enlaces_correo WHERE correo = %s', (correo,))
+    if enlace:
+        filas = consultar("""
+            SELECT id, role FROM usuarios WHERE id = %s AND active = TRUE
+        """, (enlace[0]['usuario_id'],), nomina=True)
+        if not filas:
+            log.warning('Buzón %s vinculado a la persona %s, que no existe o está inactiva', correo, enlace[0]['usuario_id'])
+            return None, None
+        uid = filas[0]['id']
+        rol = filas[0]['role'] or 'user'
+        if correo in _ADMINS and rol not in ('master', 'master_admin'):
+            rol = 'master'
+        return uid, rol
     filas = consultar("""
         SELECT id, role FROM usuarios
         WHERE LOWER(email) = %s AND active = TRUE

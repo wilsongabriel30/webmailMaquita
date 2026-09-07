@@ -13,6 +13,7 @@ from app.database import create_pool, init_admin_tables
 from app.auth.router import router as auth_router
 from app.dashboard.router import router as dashboard_router
 from app.domains.router import router as domains_router
+from app.drive.router import router as drive_router
 from app.mailboxes.router import router as mailboxes_router
 from app.aliases.router import router as aliases_router
 from app.queue.router import router as queue_router
@@ -128,6 +129,7 @@ app.include_router(auth_router)
 app.include_router(dashboard_router)
 app.include_router(domains_router)
 app.include_router(mailboxes_router)
+app.include_router(drive_router)
 app.include_router(aliases_router)
 app.include_router(queue_router)
 app.include_router(resend_router)

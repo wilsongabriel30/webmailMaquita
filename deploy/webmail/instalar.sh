@@ -398,6 +398,10 @@ SQL
 echo -e "\n${GREEN}[14/18] Instalando panel de administración avanzado...${NC}"
 # Backend del panel (puerto 8001)
 cd "${APP_DIR}/admin-panel/backend"
+# Canal panel -> Almacén (loopback, secreto propio): vincular buzones a personas del directorio y
+# fijar la cuota del Drive al crear el buzón. El mismo valor va en almacen/.env y en el .env del panel.
+SECRETO_PANEL=$(openssl rand -hex 24)
+grep -q '^ALMACEN_SECRETO_PANEL=' "${APP_DIR}/almacen/.env" 2>/dev/null || echo "ALMACEN_SECRETO_PANEL=${SECRETO_PANEL}" >> "${APP_DIR}/almacen/.env"
 python3 -m venv venv
 ./venv/bin/pip install --quiet -r requirements.txt
 # JWT_SECRET del panel = ADMIN_JWT_SECRET del webmail (si difieren, impersonate da 403)
@@ -421,6 +425,8 @@ WEBMAIL_DATABASE_URL=postgresql://mailserver:${DB_PASS}@localhost:5432/maildb
 WEBMAIL_REDIS_URL=redis://:${REDIS_PASS}@localhost:6379/0
 WEBMAIL_IMAP_HOST=127.0.0.1
 WEBMAIL_IMAP_PORT=143
+ALMACEN_URL=http://127.0.0.1:8788
+ALMACEN_SECRETO_PANEL=${SECRETO_PANEL}
 ENVADMIN
 chmod 600 .env
 # Frontend del panel

@@ -39,6 +39,12 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Añadido
 
+- **Panel: el Drive al crear el buzón** (hallazgo de Wilson en `/mailboxes`): cuota del Drive en GB (campo libre;
+  0 = la de la organización, que pasa a 5 GB por defecto en instalaciones nuevas) y, en modo directorio
+  «nómina», vínculo del buzón con una persona del directorio central cuyo correo no coincide (tabla
+  `enlaces_correo`, que manda sobre la coincidencia por correo). Botón «Drive» por buzón para los ya
+  creados. El panel habla con el Almacén por loopback con `ALMACEN_SECRETO_PANEL` (`api_panel.py`,
+  `GET/POST /api/drive/*`); el instalador lo genera en los dos `.env`.
 - **N-5**: la página del editor OnlyOffice (`/archivos-almacen/editar`) exige la sesión del webmail y sale
   con una CSP cerrada con nonce (solo su script y el Document Server; `frame-ancestors 'self'`); el editor
   público por enlace lleva la misma CSP. `almacen/servicio/editor_seguro.py`.
