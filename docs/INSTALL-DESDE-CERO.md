@@ -1,6 +1,7 @@
 # Instalación desde cero — Maquita Webmail
 
-**Guía canónica.** Versión de referencia: **`v1.6.0-rc5`** (2026-09-05). Es la única guía que se
+**Guía canónica.** Versión de referencia: **`v1.7.3`** (2026-09-06); usa siempre la **última etiqueta**
+de [Releases](https://github.com/wilsongabriel30/webmailMaquita/releases). Es la única guía que se
 mantiene; `INSTALL-NATIVE.md` es el detalle manual por componente para quien no use el
 instalador, e `INSTALL.md` queda sustituida y se conserva solo por referencia.
 
@@ -36,29 +37,45 @@ apt update && apt install -y \
 - **ldap-utils** → solo si se usa SSO/LDAP (opt-in).
 - `oletools`/`olefile` ya están en `backend/requirements.txt` (los instala el venv).
 
-## 2. Clonar y configurar
+## 2. Clonar
 ```bash
-git clone --branch v1.6.0-rc5 https://github.com/wilsongabriel30/webmailMaquita.git /opt/maquita-webmail
+git clone --branch v1.7.3 https://github.com/wilsongabriel30/webmailMaquita.git /opt/maquita-webmail
 cd /opt/maquita-webmail
 bash deploy/hooks/instalar.sh        # Guardián pre-commit: bloquea secretos, datos personales y volcados
 # → rellena .git/guardian-patrones-locales (una expresión por línea): contraseñas del equipo,
 #   términos que no deban publicarse. Vive fuera del repositorio a propósito.
+```
+Cambia `v1.7.3` por la última etiqueta de Releases si hay una más nueva.
+
+### 2a. Si vas a EVALUAR: no crees ningún `.env`
+El instalador lo genera todo (secretos, `backend/.env`, `almacen/.env`, cuenta demo). Salta al
+paso 3 y ejecuta `DOMAIN=example.test bash deploy/webmail/instalar.sh`.
+
+### 2b. Si vas a PRODUCCIÓN: crea `backend/.env` a mano
+```bash
 cd backend
-# crear backend/.env con (mínimo):
+# backend/.env con (mínimo):
 #   DATABASE_URL, SECRET_KEY, ADMIN_JWT_SECRET, MASTER_PASSWORD,
 #   MAIL_DOMAIN, COOKIE_DOMAIN                 (OLLAMA_URL solo si vas a usar IA)
 ```
-El instalador (paso 3) genera los secretos que falten. **Nunca** copies un `.env` de otra
-instalación: los secretos firman sesiones y cifran claves privadas.
+Genera cada secreto con `python3 -c "import secrets; print(secrets.token_hex(32))"`. El instalador
+(paso 3) genera los que falten. **Nunca** copies un `.env` de otra instalación: los secretos
+firman sesiones y cifran claves privadas.
 
-Chat (opcional): `chat-service/.env` a partir de `chat-service/.env.example`. Las fuentes
-externas de GIF (GIPHY, Wikimedia) están **desactivadas** salvo que pongas `GIPHY_API_KEY` o
-`GIFS_EXTERNOS_COMMONS=1`: con ellas, lo que la gente escribe en el buscador sale a ese tercero.
+**Chat**: es **experimental y queda fuera del alcance de esta guía** (no arranca solo con
+`.env.example` y su esquema no se crea solo). Si lo quieres probar, sigue `chat-service/README.md`.
+Las fuentes externas de GIF (GIPHY, Wikimedia) están **desactivadas** salvo que pongas
+`GIPHY_API_KEY` o `GIFS_EXTERNOS_COMMONS=1`: con ellas, lo que la gente escribe en el buscador
+sale a ese tercero.
 
 ## 3. Instalar
 ```bash
-bash deploy/webmail/instalar.sh
+DOMAIN=example.test bash deploy/webmail/instalar.sh   # evaluar (sin DNS, sin .env, credenciales demo)
+bash deploy/webmail/instalar.sh                       # producción (pide el dominio; usa backend/.env del paso 2b)
 ```
+Tableros/BI (aplicación del Drive) necesita una CPU con `x86-64-v2`; en una VM con CPU genérica
+(`kvm64`) el instalador lo deja instalado pero **deshabilitado** y lo avisa. El correo no
+depende de él.
 Aplica el esquema (`migrations/*.sql`) **y los seeds** (`deploy/seeds/*.sql`:
 DLP, SafeAttach, milters), crea el buzón demo y levanta los servicios.
 
