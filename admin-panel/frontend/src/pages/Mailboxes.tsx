@@ -66,8 +66,6 @@ export function Mailboxes() {
   useEffect(() => { load(); }, []);
 
   const [createError, setCreateError] = useState("");
-  const [createNc, setCreateNc] = useState(true);
-  const [ncStatus, setNcStatus] = useState<string>("");
   const create = async () => {
     setCreateError("");
     if (!form.username || !form.username.includes("@")) { setCreateError("Ingrese una dirección valida: usuario@dominio.com"); return; }
@@ -76,23 +74,6 @@ export function Mailboxes() {
     if (form.password !== form.password2) { setCreateError("Las contraseñas no coinciden"); return; }
     try {
       await api.post("/mailboxes", { username: form.username, password: form.password, name: form.name, quota: form.quota_mb * 1048576 });
-      // Crear cuenta Nextcloud si el switch esta activo
-      if (createNc) {
-        try {
-          const local = form.username.split("@")[0];
-          const ncUserId = local.replace(/[^a-zA-Z0-9._-]/g, "").toLowerCase();
-          await api.post("/nextcloud/users", {
-            userid: ncUserId,
-            password: form.password,
-            displayName: form.name,
-            email: form.username,
-            quota: "5 GB",
-          });
-          setNcStatus("Cuenta Nextcloud creada: " + ncUserId);
-        } catch (ncErr: any) {
-          setNcStatus("Buzon creado, pero Nextcloud fallo: " + (ncErr?.message || "error"));
-        }
-      }
       setShowForm(false); setForm({ username: "", password: "", password2: "", name: "", quota_mb: 0 }); load();
     } catch (e: any) {
       setCreateError(e.message || "Error al crear el buzón");
@@ -234,34 +215,15 @@ export function Mailboxes() {
                 className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
               <span className="text-[10px] text-ms-gray-60 mt-0.5 block">0 = sin límite. Ej: 2048 = 2 GB</span>
             </div>
-            <div className="flex items-center gap-3 pt-2">
-              <label className="flex items-center gap-2 text-sm text-ms-gray-130 cursor-pointer">
-                <div className="relative">
-                  <input type="checkbox" checked={createNc} onChange={(e) => setCreateNc(e.target.checked)}
-                    title="Si está activo, al crear el buzón también se crea una cuenta Nextcloud (nube) con la misma contraseña y 5 GB de almacenamiento. Si falla Nextcloud, el buzón se crea igual y se muestra un aviso."
-                    className="sr-only" />
-                  <div className={`w-10 h-5 rounded-full transition-colors ${createNc ? "bg-ms-blue" : "bg-ms-gray-40"}`}>
-                    <div className={`w-4 h-4 bg-white rounded-full shadow transform transition-transform mt-0.5 ${createNc ? "translate-x-5 ml-0.5" : "translate-x-0.5"}`} />
-                  </div>
-                </div>
-                <div>
-                  <span className="text-xs font-medium">Crear cuenta Nextcloud</span>
-                  <span className="text-[10px] text-ms-gray-60 block">Acceso a nube.ejemplo.com con 5 GB de almacenamiento</span>
-                </div>
-              </label>
-            </div>
+            <p className="text-[11px] text-ms-gray-60 pt-2">
+              El acceso al Drive (Almacén) no se crea aquí: se activa solo con la sesión del correo. En modo
+              directorio «nómina», la persona debe existir en el directorio para ver su Drive.
+            </p>
           </div>
           <div className="flex gap-2 pt-1">
-            <button onClick={create} title="Crea el buzón con los datos ingresados. El usuario podrá enviar y recibir correos de inmediato. Si el interruptor Nextcloud está activo, también crea la cuenta de nube. Se registra en auditoría." className="px-4 py-2 bg-ms-blue text-white rounded text-sm font-medium hover:bg-ms-blue-dark">Crear buzón</button>
+            <button onClick={create} title="Crea el buzón con los datos ingresados. El usuario podrá enviar y recibir correos de inmediato. Se registra en auditoría." className="px-4 py-2 bg-ms-blue text-white rounded text-sm font-medium hover:bg-ms-blue-dark">Crear buzón</button>
             <button onClick={() => { setShowForm(false); setForm({ username: "", password: "", password2: "", name: "", quota_mb: 0 }); setCreateError(""); }} title="Cierra el formulario y descarta los datos ingresados. No se crea ningún buzón." className="px-4 py-2 border border-ms-gray-40 rounded text-sm text-ms-gray-90">Cancelar</button>
           </div>
-        </div>
-      )}
-
-      {ncStatus && (
-        <div className={`px-4 py-3 rounded text-sm flex items-center justify-between ${ncStatus.includes("fallo") ? "bg-yellow-50 border border-yellow-200 text-yellow-800" : "bg-green-50 border border-green-200 text-green-700"}`}>
-          <span>{ncStatus}</span>
-          <button onClick={() => setNcStatus("")} title="Oculta este aviso del resultado de Nextcloud. No afecta la cuenta creada." className="text-xs hover:underline ml-2">Cerrar</button>
         </div>
       )}
 
