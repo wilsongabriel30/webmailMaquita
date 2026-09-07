@@ -616,5 +616,7 @@ echo ""
 
 # --- Cron: cache de almacenamiento por dominio del dashboard (quota Dovecot, no camina disco) ---
 printf '17 * * * * root /opt/maquita-webmail/deploy/tools/calc-storage.sh >/dev/null 2>&1\n' > /etc/cron.d/maquita-storage
+# Sondas horarias de integraciones con clave compartida (lección de N-15)
+install -m644 "${APP_DIR}/deploy/hardening/cron-vigilar-integraciones" /etc/cron.d/maquita-integraciones
 chmod +x /opt/maquita-webmail/deploy/tools/calc-storage.sh 2>/dev/null || true
 bash /opt/maquita-webmail/deploy/tools/calc-storage.sh >/dev/null 2>&1 || true

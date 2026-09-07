@@ -1,0 +1,4 @@
+# Sondas horarias de las integraciones con clave compartida (IA, chat, OnlyOffice, copias de
+# secretos). «Activo» no es «sano»: una clave que deja de coincidir se nota en una hora.
+# Usa el venv del almacén (trae requests, PyJWT y psycopg2). Ver OPERACION.md.
+23 * * * * root /opt/maquita-webmail/almacen/venv/bin/python /opt/maquita-webmail/deploy/hardening/vigilar-integraciones.py >/dev/null 2>&1
