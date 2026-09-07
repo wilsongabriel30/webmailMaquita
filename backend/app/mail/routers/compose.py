@@ -13,6 +13,7 @@ from app.auth.dependencies import get_current_user
 from app.core.session import get_imap_login_user, get_user_password
 from app.mail.clients.imap_client import get_imap_connection
 from app.mail.clients.smtp_client import OutgoingEmail
+from app.mail.firmas import preparar_envio
 from app.mail.schemas.messages import ComposeRequest, DraftRequest, ScheduleRequest
 from app.mail.services.draft_service import delete_draft, save_draft
 from app.mail.services.large_attachments import (
@@ -268,6 +269,12 @@ async def send(
             links_block = "<br>".join(large_links_html)
             body.html_body = (body.html_body or "") + "<br>" + links_block
 
+        # Firma normalizada y con sus imágenes incrustadas (cid); citado con tamaño acotado
+        body.html_body, _inline_firma, _ = await asyncio.to_thread(
+            preparar_envio, body.html_body or ""
+        )
+        attachments.extend(_inline_firma)
+
         # -- DLP Nivel 2: datos sensibles DENTRO de los adjuntos (fail-open) --
         if attachments and (await dlp_service.get_config(_dlp_db)).get(
             "scan_attachments", True
@@ -494,6 +501,10 @@ async def send_multipart(
             display_name = row["display_name"]
 
         attachments = []
+        html_body, _inline_firma, _ = await asyncio.to_thread(
+            preparar_envio, html_body or ""
+        )
+        attachments.extend(_inline_firma)
         for f in files:
             content = await f.read()
             attachments.append(
