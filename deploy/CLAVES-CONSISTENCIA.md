@@ -3,7 +3,9 @@
 ## Fuente ÚNICA de autenticación
 Dovecot autentica SOLO contra la tabla `mailbox` (passdb SQL):
 `SELECT username, password FROM mailbox WHERE username=... AND active=true` (scheme SHA512-CRYPT).
-No hay segunda passdb por usuario (`auth-master` es solo para impersonación del webmail).
+Desde D-5 (07/09/2026) hay una segunda `passdb` **a propósito**: `contrasenas_aplicacion` (una por cliente
+externo, bcrypt, verificada por `verificar_contrasena_aplicacion()`); no sustituye a la principal, la
+complementa, y cambiar la principal las revoca todas. `auth-master` sigue siendo solo impersonación.
 
 ## Las dos rutas de cambio escriben en esa MISMA fuente + invalidan la sesión
 - Usuario (webmail) `auth/password.py change_password`: UPDATE mailbox + actualiza el caché Redis

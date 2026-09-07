@@ -246,6 +246,11 @@ async def change_password(
     db = request.app.state.db_pool
     redis = request.app.state.redis
     await revocar_todo(db, redis, username, "cambio_de_contrasena")
+    # D-5: la contraseña nueva también tumba todas las contraseñas de aplicación (Outlook,
+    # celular...): si se cambia por sospecha, ningún cliente antiguo sigue entrando.
+    from app.auth.contrasenas_aplicacion import revocar_todas
+
+    await revocar_todas(db, username, "cambio_de_contrasena")
     from app.auth.bootstrap import marcar_cambio_obligatorio
 
     await marcar_cambio_obligatorio(db, redis, username, False)  # H-01

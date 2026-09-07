@@ -122,7 +122,11 @@ el inventario de secretos a rotar: comprometido permite cerrar sesiones ajenas.
 
 ## D-5. El segundo factor no cubre IMAP/SMTP directo
 
-**Fecha:** 2026-09-06 · **Estado:** **DECIDIDO (2026-09-06): contraseñas de aplicación.** Pendiente de implementar antes de salir a usuarios.
+**Fecha:** 2026-09-06 · **Estado:** **IMPLEMENTADO (07/09/2026)**: contraseñas de aplicación en
+`Configuración → Seguridad`, una por cliente, revocables, verificadas por Dovecot en SQL (bcrypt) y
+válidas solo desde fuera del servidor; la principal queda para webmail y app (con 2FA) y, con la
+política `contrasenas_aplicacion_obligatorias`, deja de valer en IMAP/SMTP/ActiveSync directos. Al
+cambiar la principal caen todas. Ver `OPERACION.md` «Contraseñas de aplicación» y `docs/CONTRASENAS-APLICACION.md`.
 
 El 2FA (TOTP) protege el webmail y la app. IMAP y SMTP directos (Thunderbird, Outlook, un
 celular configurado a mano) autentican solo con la contraseña, así que **quien tenga la
