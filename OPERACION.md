@@ -179,6 +179,24 @@ desactivarle el 2FA.
 - Al dar de baja a una persona: desactivar su cuenta en «Administradores» (eso revoca sus sesiones
   al instante) y borrar su secreto con la sentencia de arriba.
 
+## Contraseñas de aplicación (D-5)
+
+Desde 1.7.8 cada cliente externo (Outlook, Thunderbird, celular, ActiveSync) entra con una contraseña
+de aplicación propia (`Configuración → Seguridad`), generada por el webmail (16 símbolos, ~79 bits),
+guardada como bcrypt en `contrasenas_aplicacion` y verificada por Dovecot en cada login con
+`verificar_contrasena_aplicacion(user, password, remote_ip)` (segunda `passdb`, pgcrypto). Se
+revocan desde Ajustes, con `maquita-mailadm mailbox apppass <email> revoke`, y todas al cambiar la
+contraseña principal. No valen desde el propio servidor (webmail y app siguen con la principal + 2FA).
+
+- **Política** `auth_politica.contrasenas_aplicacion_obligatorias`: con `true`, la contraseña
+  principal solo se acepta desde 127.0.0.1/::1 (webmail, app, envío del backend); Z-Push (docker0)
+  y cualquier cliente externo necesitan una de aplicación. `maquita-mailadm auth apppass-policy on|off`
+  (aplica en el siguiente login, sin reinicio). En producción está en **on** desde el 07/09/2026.
+- Diagnóstico: `doveadm auth test -x rip=<ip-del-cliente> usuario contraseña` (con `rip` externa
+  prueba la ruta real; sin `rip`, la de aplicación no vale a propósito). Último uso e IP en la tabla.
+- Requisitos: `CREATE EXTENSION pgcrypto` en `maildb` (superusuario; lo hace el instalador) y la
+  migración `2026-09-07-contrasenas-aplicacion.sql`. Guía de usuario: `docs/CONTRASENAS-APLICACION.md`.
+
 ## Firmas: normalización automática
 
 Desde 1.7.8 toda firma pasa por `backend/app/mail/firmas.py` al guardarse (webmail → Firmas,

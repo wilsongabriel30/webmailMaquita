@@ -1,7 +1,8 @@
 # Guía por cliente: correo, calendario, contactos y tareas por ActiveSync
 
-Para el personal. Todos los clientes usan la **misma cuenta** (correo completo + contraseña del
-buzón) y el **mismo servidor** `mail.maquita.org`; el calendario y los contactos son los mismos
+Para el personal. Todos los clientes usan la **misma cuenta** (correo completo + una **contraseña de
+aplicación** creada en Configuración → Seguridad, ver `CONTRASENAS-APLICACION.md`; la contraseña
+principal solo sirve para el webmail y la app) y el **mismo servidor** `mail.maquita.org`; el calendario y los contactos son los mismos
 que en el webmail (`https://mail.maquita.org/webmail/`), en cualquier orden que se editen.
 
 > Las capturas de cada pantalla se toman en la prueba real de cada versión (`OPERACION.md`,

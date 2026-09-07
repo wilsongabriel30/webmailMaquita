@@ -9,6 +9,12 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Añadido
 
+- **Contraseñas de aplicación (D-5)**: una por cliente externo (Outlook, Thunderbird, celular, ActiveSync),
+  creada en Configuración → Seguridad con la contraseña actual, mostrada una sola vez, revocable; bcrypt en
+  `contrasenas_aplicacion` y verificación en Dovecot por SQL (`verificar_contrasena_aplicacion`, pgcrypto).
+  Con la política `contrasenas_aplicacion_obligatorias` la principal solo vale desde el webmail y la app.
+  Cambiar la principal revoca todas. `maquita-mailadm mailbox apppass` y `auth apppass-policy`. Guía
+  `docs/CONTRASENAS-APLICACION.md`.
 - **Firmas: normalización automática** (`backend/app/mail/firmas.py`). Hallazgo de usuario: firmas traídas
   de Zimbra con logos que se veían gigantes. Al guardar (webmail, identidades, plantillas del panel)
   y al enviar, las imágenes se descargan o decodifican, se redimensionan al ancho declarado (máximo
