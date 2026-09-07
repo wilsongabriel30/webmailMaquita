@@ -9,6 +9,8 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Corregido
 
+- **Instalador: Tableros/BI no se habilita si la CPU no expone x86-64-v2** (VMs con `kvm64`): antes
+  quedaba habilitado en bucle de arranque. Se instala, se deja deshabilitado y se explica cómo activarlo.
 - **Validador: el ruido de escáneres de internet ya no cuenta como fallo de TLS/SNI** (#14): se excluyen
   los `SSL_accept error` cerrados por el cliente (`lost connection`, `Connection reset by peer`, código
   numérico). Reportado por Andes en 1.7.3. Tableros/BI se reporta como advertencia con la causa, no

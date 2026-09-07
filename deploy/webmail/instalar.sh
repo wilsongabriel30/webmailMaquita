@@ -465,9 +465,13 @@ echo "  Almacen (Drive): https://${MAIL_HOST}/archivos-almacen"
 echo -e "\n${GREEN}[16/18] Instalando Tableros/BI...${NC}"
 # NumPy 2.x (Python 3.13 en Debian 13) exige CPU x86-64-v2. En Proxmox/KVM con CPU
 # por defecto (kvm64), maquita-bi entra en bucle de arranque. Aviso temprano:
+BI_CPU_OK=1
 if ! grep -q sse4_2 /proc/cpuinfo; then
+  BI_CPU_OK=0
   echo -e "  ${YELLOW}AVISO: esta CPU no expone x86-64-v2 (sse4_2). Tableros/BI usa NumPy 2.x"
-  echo -e "  y NO arrancara. En Proxmox: qm set <vmid> --cpu host (o x86-64-v2-AES) y reinicia la VM.${NC}"
+  echo -e "  y NO arrancara: se instala pero queda DESHABILITADO (el correo no depende de el)."
+  echo -e "  En Proxmox: qm set <vmid> --cpu host (o x86-64-v2-AES), reinicia la VM y luego"
+  echo -e "  systemctl enable --now maquita-bi${NC}"
 fi
 BI_DIR="${APP_DIR}/almacen/aplicaciones/bi"
 python3 -m venv "${BI_DIR}/venv"
@@ -481,8 +485,14 @@ BIENV
 mkdir -p /etc/nginx/snippets/maquita-apps
 cp "${BI_DIR}/deploy/nginx-bi.conf" /etc/nginx/snippets/maquita-apps/bi.conf
 cp "${BI_DIR}/deploy/maquita-bi.service" /etc/systemd/system/
-systemctl daemon-reload && systemctl enable --now maquita-bi
-echo "  Tableros/BI: https://${MAIL_HOST}/tableros/"
+systemctl daemon-reload
+if [ "$BI_CPU_OK" = 1 ]; then
+  systemctl enable --now maquita-bi
+  echo "  Tableros/BI: https://${MAIL_HOST}/tableros/"
+else
+  systemctl disable --now maquita-bi >/dev/null 2>&1 || true
+  echo "  Tableros/BI: instalado pero deshabilitado (CPU sin x86-64-v2)."
+fi
 
 # --- 17. Editor de PDF (Aplicacion del Drive) ---
 echo -e "\n${GREEN}[17/18] Instalando el Editor de PDF (puede tardar: dependencias pesadas)...${NC}"
