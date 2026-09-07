@@ -10,6 +10,7 @@ from app.auth.cookies import dominio_cookie, poner_cookies_sesion, quitar_cookie
 from app.auth.dependencies import get_current_user
 from app.auth.dovecot_auth_service import authenticate
 from app.auth.jwt import create_access_token, create_refresh_token, hash_refresh_token
+from app.auth.segundo_factor import debe_activar_2fa
 from app.auth.sesiones import (
     av_actual,
     cerrar_sid,
@@ -168,6 +169,7 @@ async def login(body: LoginRequest, request: Request, response: Response):
         "message": "Login successful",
         "username": username,
         "must_change_password": await debe_cambiar_clave(db, redis, username),
+        "must_setup_2fa": await debe_activar_2fa(db, redis, username),
     }
 
 
@@ -249,6 +251,7 @@ async def login_2fa(body: Login2FARequest, request: Request, response: Response)
         "message": "Login successful",
         "username": username,
         "must_change_password": await debe_cambiar_clave(db, redis, username),
+        "must_setup_2fa": await debe_activar_2fa(db, redis, username),
     }
 
 

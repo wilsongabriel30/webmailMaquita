@@ -158,6 +158,9 @@ async def verify_totp(
             status_code=400, detail="Código inválido. Intenta de nuevo."
         )
 
+    from app.auth.segundo_factor import olvidar
+
+    await olvidar(request.app.state.redis, user)  # [N-7]
     await db.execute(
         "UPDATE user_totp SET enabled = TRUE, verified_at = NOW() WHERE username = $1",
         user,
@@ -193,6 +196,9 @@ async def disable_totp(
 
     await db.execute("DELETE FROM user_totp WHERE username = $1", user)
     await codigos_respaldo.borrar(db, user)
+    from app.auth.segundo_factor import olvidar
+
+    await olvidar(request.app.state.redis, user)  # [N-7]
 
     return {"status": "disabled", "message": "2FA desactivado"}
 
