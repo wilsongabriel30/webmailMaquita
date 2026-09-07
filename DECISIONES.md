@@ -209,3 +209,16 @@ base actualizada **una vez al mes** y escanearlas (Trivy) en cada cambio de Dock
 **Aceptado con motivo:** `CVE-2023-45853` (zlib/minizip) en imágenes basadas en Debian: sin
 corrección en Debian, y minizip no se usa en estos contenedores. El CI lo ignora por
 `--ignore-unfixed`; se revisa si Debian publica arreglo.
+
+## D-10. Segundo factor obligatorio para cuentas privilegiadas del correo
+
+**Decisión (07/09/2026, N-7):** los buzones `admin@` y `postmaster@` de cualquier dominio (lista
+`TOTP_OBLIGATORIO`, ampliable con partes locales o direcciones completas) no pueden usar el
+webmail sin TOTP activo. Nadie puede enrolar el segundo factor por otra persona, así que la regla
+se aplica en la sesión: hasta activarlo, solo se permite activarlo o salir (403 `must_setup_2fa`
+en lo demás), y la pantalla de entrada lleva a la activación. Mismo mecanismo que el cambio de
+contraseña obligatorio (H-01). El panel de administración ya exige TOTP a sus superadmins por su
+lado.
+
+**Residual:** la regla cubre el webmail; IMAP/SMTP directo con contraseña sigue sin segundo
+factor (D-5, contraseñas de aplicación pendientes).

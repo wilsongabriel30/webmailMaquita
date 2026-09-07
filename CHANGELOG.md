@@ -7,6 +7,12 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Seguridad
+
+- **[N-7] Segundo factor obligatorio para cuentas privilegiadas** (`admin@`, `postmaster@`; lista
+  `TOTP_OBLIGATORIO`): hasta activar TOTP la sesión solo permite activarlo o salir y la pantalla de
+  entrada lleva a la activación. `DECISIONES.md` D-10.
+
 ## [1.7.6] - 2026-09-07
 
 Informe de Snyk sobre los Dockerfiles: Z-Push (ActiveSync) retirado, imagen del chat con base actual,

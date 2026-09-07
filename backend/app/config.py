@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     sieve_host: str = "127.0.0.1"
     sieve_port: int = 4190
     mail_domain: str = "example.com"
+    # [N-7] Partes locales o direcciones que no pueden usar el webmail sin segundo factor.
+    totp_obligatorio: str = "admin,postmaster"
     # cookie_domain: dominio de la cookie de sesion. Para SSO entre subdominios
     # (webmail y drive), poner el dominio PADRE con punto inicial, p.ej. ".suorg.tld".
     # Para construir URLs publicas se usa public_base_url, NO este valor.
