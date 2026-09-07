@@ -109,6 +109,8 @@ CFG="${APP_DIR}/deploy/webmail/configs"
 
 # --- 7. Esquema de la base de datos (todas las tablas de la app) ---
 echo -e "\n${GREEN}[7/18] Aplicando esquema de la base de datos...${NC}"
+# D-5: contraseñas de aplicación verificadas con bcrypt en SQL (la extensión exige superusuario)
+sudo -u postgres psql -d maildb -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;" >/dev/null 2>&1 || true
 for f in "${APP_DIR}"/migrations/*.sql; do
     echo "  → $(basename "$f")"
     # ON_ERROR_STOP=0: el esquema usa IF NOT EXISTS; tolera re-ejecución sin abortar

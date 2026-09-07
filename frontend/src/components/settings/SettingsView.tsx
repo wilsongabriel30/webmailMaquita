@@ -7,6 +7,7 @@ import { CerrarSesiones } from './CerrarSesiones';
 import { IdentityManager } from './IdentityManager';
 import { SignatureManager } from './SignatureManager';
 import { TwoFactorSetup } from './TwoFactorSetup';
+import { ContrasenasAplicacion } from './ContrasenasAplicacion';
 import { MailSetup } from './MailSetup';
 import { useMailStore } from '../../store/mailStore';
 import { getFolderDisplayName } from '../../folders';
@@ -536,7 +537,10 @@ export function SettingsView() {
         {tab === 'espacio' && <EspacioLocal />}
 
         {tab === 'security' && (
-          <TwoFactorSetup />
+          <>
+            <TwoFactorSetup />
+            <ContrasenasAplicacion />
+          </>
         )}
 
         {tab === 'integrations' && <IntegrationsSettings />}

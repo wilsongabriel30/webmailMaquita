@@ -73,6 +73,28 @@ case "${1:-help} ${2:-}" in
     echo "OK: buzón $EMAIL creado (quota ${QGB}GB). El maildir se crea solo al primer correo."
     ;;
 
+  "mailbox apppass")
+    # D-5: contraseñas de aplicación de un buzón: list | revoke (todas)
+    EMAIL="${3:?uso: mailbox apppass <email> list|revoke}"
+    mailbox_exists "$EMAIL" || die "buzón no existe: $EMAIL"
+    case "${4:-list}" in
+      list) $SQL -c "SELECT id, nombre, prefijo, creada, ultimo_uso, ultimo_ip FROM contrasenas_aplicacion WHERE username='$EMAIL' AND revocada IS NULL ORDER BY creada" ;;
+      revoke) N=$($PSQL "WITH r AS (UPDATE contrasenas_aplicacion SET revocada=NOW(), motivo_revocacion='administrador' WHERE username='$EMAIL' AND revocada IS NULL RETURNING 1) SELECT count(*) FROM r")
+              log_audit "mailbox-apppass-revoke target=$EMAIL n=$N"; echo "OK: $N contraseñas de aplicación revocadas para $EMAIL" ;;
+      *) die "uso: mailbox apppass <email> list|revoke" ;;
+    esac
+    ;;
+
+  "auth apppass-policy")
+    # D-5: on = la contraseña principal solo vale desde el webmail; off = también en clientes externos
+    case "${3:-}" in
+      on|off) V=$([ "$3" = on ] && echo true || echo false)
+              $PSQL "INSERT INTO auth_politica (clave, valor) VALUES ('contrasenas_aplicacion_obligatorias','$V') ON CONFLICT (clave) DO UPDATE SET valor=EXCLUDED.valor, modificada=NOW()" >/dev/null
+              log_audit "auth-apppass-policy value=$V"; echo "OK: contraseñas de aplicación obligatorias = $V (aplica en el siguiente login)" ;;
+      *) echo "contraseñas de aplicación obligatorias: $($PSQL "SELECT valor FROM auth_politica WHERE clave='contrasenas_aplicacion_obligatorias'")"; echo "uso: auth apppass-policy on|off" ;;
+    esac
+    ;;
+
   "mailbox delete")
     EMAIL="${3:?uso: mailbox delete <email>}"
     mailbox_exists "$EMAIL" || die "buzón no existe: $EMAIL"
@@ -685,6 +707,8 @@ maquita-mailadm — administración del correo Maquita (estilo zmprov/zmcontrol)
 BUZONES (equiv. zmprov):
   mailbox create  <email> [quota_GB]   crear buzón (createAccount) — pide contraseña
   mailbox delete  <email>              borrar buzón (deleteAccount) — pide confirmación
+  mailbox apppass <email> list|revoke   contraseñas de aplicación (D-5)
+  auth apppass-policy [on|off]         la principal solo vale desde el webmail
   mailbox passwd  <email> [nueva]      resetear contraseña (setAccountPassword)
   mailbox quota   <email> <GB>         cambiar quota en GB (0=ilimitado)
   mailbox enable|disable <email>       activar/desactivar

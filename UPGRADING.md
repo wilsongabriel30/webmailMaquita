@@ -12,6 +12,15 @@ servicio, reiniciar lo que cambió y correr `deploy/tools/validar-despliegue.sh`
 
 ## De 1.7.7 a 1.7.8 — Z-Push vuelve (ActiveSync para Outlook)
 
+Contraseñas de aplicación (D-5):
+1. `sudo -u postgres psql -d maildb -c "CREATE EXTENSION IF NOT EXISTS pgcrypto"` y la migración
+   `migrations/2026-09-07-contrasenas-aplicacion.sql` (como `mailserver`).
+2. Dovecot: las dos `passdb` de `deploy/webmail/configs/dovecot.conf` (la principal con la condición
+   de IP y política; `contrasenas_aplicacion` con la función) y `doveadm reload`. Probar con
+   `doveadm auth test -x rip=1.2.3.4 usuario clave-de-aplicacion`.
+3. Avisar al personal (guía `docs/CONTRASENAS-APLICACION.md`), dar tiempo a crear las suyas y
+   después `maquita-mailadm auth apppass-policy on`: la principal deja de valer fuera del webmail.
+
 Firmas (normalización automática):
 1. `install -d -o www-data -g maquita-admin -m 2775 /var/lib/maquita-webmail/firmas` (lo hace
    el instalador; en instalaciones sin panel, grupo `www-data`).
