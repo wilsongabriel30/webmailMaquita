@@ -85,6 +85,27 @@ tres minutos después.
 
 ---
 
+## Vigilancia de las integraciones con clave compartida (cada hora)
+
+**Lección de N-15 (07/09/2026):** la clave del webmail hacia la pasarela de IA dejó de coincidir
+tras una rotación y Smart Reply devolvió 502 en silencio durante cuatro días. Ningún servicio
+estaba caído. **«Activo» no es «sano».**
+
+`deploy/hardening/vigilar-integraciones.py` (cron `/etc/cron.d/maquita-integraciones`, minuto 23
+de cada hora, con el venv del almacén) hace sondas **sin efectos secundarios** y avisa por el
+canal de alertas cuando algo pasa a fallar y cuando se recupera:
+
+| Sonda | Qué prueba | `desajuste` | `servicio` |
+|---|---|---|---|
+| `ia` | La misma llamada que hace el backend (`_call_llm` con su venv, su `.env` y el override del panel) con un prompt mínimo | 401/403 | 5xx, tiempo agotado |
+| `chat` | `POST /api/chat/sesion/revocar` con `X-Notif-Secret` y cuerpo vacío (400 «Falta user» = clave aceptada, no toca a nadie) y `GET /api/auth/sesion-servicio` del correo con el mismo secreto | 403 en cualquiera de los dos sentidos | otro código o sin respuesta |
+| `onlyoffice` | `CommandService.ashx` del Document Server con un JWT firmado con el secreto del almacén (`config_kv` manda sobre el `.env`) | `error 6` | otro error, sin respuesta |
+| `secretos` | Copias de `SECRET_KEY`, `ADMIN_JWT_SECRET` y `CREDENTIAL_ENCRYPTION_KEY` en backend, almacén, panel y apps del Drive | copias distintas (se muestra un hash corto, nunca el valor) | — |
+
+A mano: `almacen/venv/bin/python deploy/hardening/vigilar-integraciones.py --probar` imprime el
+estado sin enviar correo y sale con 1 si algo falla. Al rotar cualquier secreto compartido,
+correr esto **antes de dar la rotación por terminada**.
+
 ## Lo que NO está vigilado todavía
 
 Escrito para que no se olvide:
