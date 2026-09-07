@@ -68,7 +68,7 @@ export function SignatureManager() {
 
   useEffect(() => {
     const saved = localStorage.getItem('maquita_sig_settings');
-    if (saved) try { setSigSettings({ ...DEFAULT_SIG_SETTINGS, ...JSON.parse(saved) }); } catch {}
+    if (saved) try { setSigSettings({ ...DEFAULT_SIG_SETTINGS, ...JSON.parse(saved) }); } catch { /* ajustes locales ilegibles: se usan los predeterminados */ }
   }, []);
 
   useEffect(() => { fetchSignatures(); }, [fetchSignatures]);
@@ -374,7 +374,7 @@ function VisualSignatureEditor({
             setHtmlSrc(applyFields(res.raw_template, df));
           }
         }
-      } catch {}
+      } catch { /* sin plantilla de dominio: el editor arranca vacío */ }
       if (!cancelled) setLoadingTpl(false);
     })();
     return () => { cancelled = true; };
