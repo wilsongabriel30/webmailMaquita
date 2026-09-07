@@ -47,7 +47,8 @@ Sin migraciones ni corte. `git fetch --tags --force && git checkout v1.7.8 && ba
    `nginx -t && systemctl reload nginx`.
 3. Radicale: `/etc/radicale/config` como `deploy/webmail/configs/radicale.config` (`hosts =
    127.0.0.1:5232` **solo**, `auth type = http_x_remote_user`; nunca `none`) y **`systemctl restart
-   radicale`**. Las colecciones pasan a llamarse por el correo completo: `cd backend &&
+   radicale`**. Todo `/var/lib/radicale` debe ser del usuario con el que corre el servicio
+   (`systemctl show radicale -p User`); con otro dueño responde 500. Las colecciones pasan a llamarse por el correo completo: `cd backend &&
    venv/bin/python ../deploy/tools/radicale-migrar-prefijo.py` (cuenta) y luego `--aplicar`, con
    el backend recién desplegado. El contenedor de Z-Push llega a Radicale por nginx
    (`deploy/z-push/nginx/radicale-zpush.conf`, lo instala `deploy/z-push/instalar.sh` en la IP del

@@ -13,6 +13,7 @@ El árbol antiguo queda en el respaldo indicado. Sin `--aplicar` solo cuenta. Ej
 
     cd /opt/maquita-webmail/backend && venv/bin/python ../deploy/tools/radicale-migrar-prefijo.py [--aplicar]
 """
+
 import asyncio
 import os
 import shutil
@@ -24,7 +25,9 @@ import asyncpg
 sys.path.insert(0, os.getcwd())
 from app.config import get_settings  # noqa: E402
 
-RAIZ = os.getenv("RADICALE_COLECCIONES", "/var/lib/radicale/collections/collection-root")
+RAIZ = os.getenv(
+    "RADICALE_COLECCIONES", "/var/lib/radicale/collections/collection-root"
+)
 
 
 def mover(origen: str, destino: str) -> tuple[int, int]:
@@ -46,7 +49,9 @@ def mover(origen: str, destino: str) -> tuple[int, int]:
 
 async def main(aplicar: bool) -> int:
     con = await asyncpg.connect(get_settings().database_url)
-    filas = await con.fetch("SELECT id, owner_email, radicale_path FROM calendars WHERE position('@' in radicale_path) = 0 ORDER BY owner_email")
+    filas = await con.fetch(
+        "SELECT id, owner_email, radicale_path FROM calendars WHERE position('@' in radicale_path) = 0 ORDER BY owner_email"
+    )
     respaldo = f"/root/respaldos-radicale-prefijo-{time.strftime('%Y%m%d-%H%M')}"
     total_ics = 0
     arboles = set()
@@ -55,29 +60,55 @@ async def main(aplicar: bool) -> int:
         local, _, coleccion = f["radicale_path"].partition("/")
         origen = os.path.join(RAIZ, local, coleccion)
         destino = os.path.join(RAIZ, correo, coleccion)
-        n_ics = sum(1 for x in os.listdir(origen) if x.endswith(".ics")) if os.path.isdir(origen) else 0
+        n_ics = (
+            sum(1 for x in os.listdir(origen) if x.endswith(".ics"))
+            if os.path.isdir(origen)
+            else 0
+        )
         total_ics += n_ics
-        print(f"{correo}: {f['radicale_path']} → {correo}/{coleccion} ({n_ics} ics{'' if os.path.isdir(origen) else ', SIN carpeta'})")
+        print(
+            f"{correo}: {f['radicale_path']} → {correo}/{coleccion} ({n_ics} ics{'' if os.path.isdir(origen) else ', SIN carpeta'})"
+        )
         if not aplicar:
             continue
         if os.path.isdir(origen):
             movidos, repetidos = mover(origen, destino)
             print(f"   copiados {movidos}, ya estaban {repetidos}")
             arboles.add(local)
-        await con.execute("UPDATE calendars SET radicale_path = $1 WHERE id = $2", f"{correo}/{coleccion}", f["id"])
+        await con.execute(
+            "UPDATE calendars SET radicale_path = $1 WHERE id = $2",
+            f"{correo}/{coleccion}",
+            f["id"],
+        )
     await con.close()
     if aplicar:
         os.makedirs(respaldo, mode=0o700, exist_ok=True)
         for local in arboles:
             shutil.move(os.path.join(RAIZ, local), os.path.join(respaldo, local))
-        for raiz, dirs, ficheros in os.walk(RAIZ):
-            for x in dirs + ficheros:
+        # Dueño = el usuario con el que corre Radicale (en producción `radicale`, en instalaciones
+        # nuevas `www-data`): con otro dueño Radicale responde 500 al escribir su caché.
+        import subprocess
+
+        usuario = (
+            subprocess.run(
+                ["systemctl", "show", "radicale", "-p", "User", "--value"],
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+            or "www-data"
+        )
+        for raiz, dirs, ficheros in os.walk(os.path.dirname(RAIZ)):
+            for x in [raiz] + [os.path.join(raiz, y) for y in dirs + ficheros]:
                 try:
-                    shutil.chown(os.path.join(raiz, x), "www-data", "www-data")
+                    shutil.chown(x, usuario, usuario)
                 except Exception:
                     pass
+        print(f"dueño del árbol: {usuario}")
         print(f"árboles antiguos en {respaldo}: {sorted(arboles)}")
-    print(f"calendarios con prefijo antiguo: {len(filas)}, eventos: {total_ics}" + ("" if aplicar else "  (sin --aplicar no se toca nada)"))
+    print(
+        f"calendarios con prefijo antiguo: {len(filas)}, eventos: {total_ics}"
+        + ("" if aplicar else "  (sin --aplicar no se toca nada)")
+    )
     return 0
 
 
