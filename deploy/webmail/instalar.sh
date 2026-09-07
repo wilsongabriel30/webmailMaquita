@@ -43,6 +43,11 @@ fi
 
 # --- 1. Paquetes base ---
 echo -e "\n${GREEN}[1/18] Instalando paquetes base...${NC}"
+# Postfix abre un asistente de debconf (tipo de configuración y nombre del sistema) que para la
+# instalación en seco; lo que se elija da igual porque main.cf se reescribe más abajo. Preseed.
+export DEBIAN_FRONTEND=noninteractive
+echo "postfix postfix/main_mailer_type select Internet Site" | debconf-set-selections
+echo "postfix postfix/mailname string ${MAIL_HOST}" | debconf-set-selections
 apt update && apt install -y \
     curl wget git sudo ufw openssl \
     python3 python3-venv python3-pip \

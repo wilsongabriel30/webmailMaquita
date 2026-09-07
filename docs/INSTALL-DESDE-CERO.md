@@ -25,7 +25,13 @@ si no pueden comprobar, deniegan. No confundir los dos.
 > **No hay modo "sin servidor"**: un servidor de correo necesita PostgreSQL + Dovecot + Postfix corriendo. Lo más liviano para evaluar es una VM Debian desechable; el instalador hace el resto (auto-genera secretos y una cuenta demo).
 
 ## 1. Prerequisitos del sistema (Debian 13 recomendado)
+Postfix abre un asistente azul («General type of mail configuration») a mitad del `apt install`
+y parece que se colgó. Contéstalo antes de instalar; lo que elijas da igual porque el instalador
+reescribe su configuración después:
 ```bash
+echo "postfix postfix/main_mailer_type select Internet Site" | debconf-set-selections
+echo "postfix postfix/mailname string mail.example.test" | debconf-set-selections
+export DEBIAN_FRONTEND=noninteractive
 apt update && apt install -y \
   postgresql redis-server \
   dovecot-core dovecot-imapd dovecot-lmtpd dovecot-managesieved dovecot-sieve \
@@ -41,6 +47,7 @@ apt update && apt install -y \
 ```bash
 git clone --branch v1.7.3 https://github.com/wilsongabriel30/webmailMaquita.git /opt/maquita-webmail
 cd /opt/maquita-webmail
+# Solo si vas a hacer commits en este repositorio (opcional para evaluar o para operar):
 bash deploy/hooks/instalar.sh        # Guardián pre-commit: bloquea secretos, datos personales y volcados
 # → rellena .git/guardian-patrones-locales (una expresión por línea): contraseñas del equipo,
 #   términos que no deban publicarse. Vive fuera del repositorio a propósito.
@@ -51,16 +58,19 @@ Cambia `v1.7.3` por la última etiqueta de Releases si hay una más nueva.
 El instalador lo genera todo (secretos, `backend/.env`, `almacen/.env`, cuenta demo). Salta al
 paso 3 y ejecuta `DOMAIN=example.test bash deploy/webmail/instalar.sh`.
 
-### 2b. Si vas a PRODUCCIÓN: crea `backend/.env` a mano
-```bash
-cd backend
-# backend/.env con (mínimo):
-#   DATABASE_URL, SECRET_KEY, ADMIN_JWT_SECRET, MASTER_PASSWORD,
-#   MAIL_DOMAIN, COOKIE_DOMAIN                 (OLLAMA_URL solo si vas a usar IA)
-```
-Genera cada secreto con `python3 -c "import secrets; print(secrets.token_hex(32))"`. El instalador
-(paso 3) genera los que falten. **Nunca** copies un `.env` de otra instalación: los secretos
-firman sesiones y cifran claves privadas.
+### 2b. Si vas a PRODUCCIÓN: tampoco crees `backend/.env`
+El instalador **escribe `backend/.env` entero** (lo sobrescribe si existe): crea el usuario y la
+base de PostgreSQL con una contraseña que genera él, y genera `DATABASE_URL`, `SECRET_KEY`,
+`ADMIN_JWT_SECRET`, `CREDENTIAL_ENCRYPTION_KEY`, `MASTER_PASSWORD`, las claves VAPID,
+`MAIL_DOMAIN` y `COOKIE_DOMAIN` a partir del dominio que le des. Si escribes tú un `DATABASE_URL`
+con un usuario o clave inventados, el instalador lo pisa igual; y si lo escribieras después, el
+backend no conectaría (el rol `mailserver` tiene la clave que generó el instalador).
+
+Lo que **sí** pones tú, **después** de instalar, en `backend/.env` y con
+`systemctl restart maquita-webmail`: lo opcional (`OLLAMA_URL` o un preset de IA, SSO, Safe
+Attachments dinámico… ver «Features opt-in»). Al terminar, el instalador imprime la clave de primer
+ingreso y la master password: guárdalas en tu gestor de contraseñas. **Nunca** copies un `.env`
+de otra instalación: los secretos firman sesiones y cifran claves privadas.
 
 **Chat**: es **experimental y queda fuera del alcance de esta guía** (no arranca solo con
 `.env.example` y su esquema no se crea solo). Si lo quieres probar, sigue `chat-service/README.md`.
@@ -71,7 +81,7 @@ sale a ese tercero.
 ## 3. Instalar
 ```bash
 DOMAIN=example.test bash deploy/webmail/instalar.sh   # evaluar (sin DNS, sin .env, credenciales demo)
-bash deploy/webmail/instalar.sh                       # producción (pide el dominio; usa backend/.env del paso 2b)
+bash deploy/webmail/instalar.sh                       # producción (pide el dominio y escribe backend/.env)
 ```
 Tableros/BI (aplicación del Drive) necesita una CPU con `x86-64-v2`; en una VM con CPU genérica
 (`kvm64`) el instalador lo deja instalado pero **deshabilitado** y lo avisa. El correo no
@@ -91,12 +101,18 @@ Para evaluar en una VM desechable puedes omitir esto (Dovecot/nginx usan certifi
 ## 5. Validar
 ```bash
 bash deploy/tools/validar-despliegue.sh          # chequeos; la IA sale como WARN, no falla
-curl -sk https://TU-DOMINIO/api/health           # debe responder 200
+curl -sk https://localhost/api/health            # debe responder 200 (en producción, también con TU-DOMINIO)
 git -C /opt/maquita-webmail status --porcelain   # debe estar VACÍO: un despliegue no ensucia el árbol
 python3 deploy/tools/barrido-datos-personales.py --arbol /opt/maquita-webmail   # 0 hallazgos
 ```
 Y a mano, con una sesión real: entrar, enviar un correo interno, cambiar la contraseña, abrir
 Ajustes → Contraseña y comprobar que el botón explica por qué está deshabilitado.
+
+**Si evaluaste con `example.test`**, ese nombre no existe en DNS: para abrir el webmail desde tu
+navegador, en **tu máquina** (no en la VM) añade a `/etc/hosts` (en Windows,
+`C:\Windows\System32\drivers\etc\hosts`) la línea `IP-DE-LA-VM  mail.example.test` y entra en
+`https://mail.example.test/webmail/` aceptando el aviso del certificado autofirmado. Usuario y
+clave: los que imprimió el instalador al terminar.
 
 ## 6. Pon tu marca
 El nombre y el logo **no viven en el código**. Desde el panel de administración (Branding) o en
