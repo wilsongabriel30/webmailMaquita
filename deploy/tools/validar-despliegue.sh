@@ -18,6 +18,13 @@ hdr "Servicios"
 for s in postfix dovecot rspamd nginx clamav-daemon maquita-webmail maquita-admin maquita-milter fail2ban; do
   [ "$(systemctl is-active "$s" 2>/dev/null)" = active ] && ok "$s activo" || bad "$s NO activo"
 done
+# Tableros/BI es una aplicación del Drive, no del correo: si no arranca es ADVERTENCIA con la causa.
+if systemctl list-unit-files maquita-bi.service >/dev/null 2>&1 && systemctl list-unit-files maquita-bi.service 2>/dev/null | grep -q maquita-bi; then
+  if [ "$(systemctl is-active maquita-bi 2>/dev/null)" = active ]; then ok "maquita-bi (Tableros) activo"
+  elif ! grep -q sse4_2 /proc/cpuinfo; then warn "maquita-bi (Tableros) no arranca: la CPU no expone x86-64-v2 (NumPy 2.x). En Proxmox: qm set <vmid> --cpu host y reinicia la VM. El correo no depende de él."
+  elif [ "$(systemctl is-enabled maquita-bi 2>/dev/null)" = disabled ]; then warn "maquita-bi (Tableros) deshabilitado (opcional; systemctl enable --now maquita-bi para activarlo)"
+  else warn "maquita-bi (Tableros) NO activo (opcional; ver journalctl -u maquita-bi)"; fi
+fi
 # Redis o Valkey (cualquiera sirve)
 systemctl is-active redis-server valkey valkey-server 2>/dev/null | grep -q active && ok "redis/valkey activo" || bad "redis/valkey NO activo"
 
@@ -45,9 +52,12 @@ else
   warn "no pude leer 'postconf -h mydomain' para probar TLS/SNI"
 fi
 # Error-fantasma del mapa SNI mal construido (postmap sin -F) — solo vive en mail.log. (#14)
-# Se excluye 'SSL_accept error ... lost connection': lo producen escáneres de internet
-# que cierran a mitad del saludo TLS y no dicen nada del servidor.
-if tail -400 /var/log/mail.log 2>/dev/null | grep -iE 'malformed BASE64|map lookup problem|SSL_accept error' | grep -qv 'lost connection'; then
+# Los 'SSL_accept error' que terminan en 'lost connection', 'Connection reset by peer' o un
+# código numérico (': -1', ': 0') los producen escáneres de internet que cortan el saludo TLS
+# y no dicen nada del servidor: se excluyen (Andes, 1.7.3: daban FALLO en toda producción con
+# el 465 expuesto). Solo cuentan 'malformed BASE64' / 'map lookup problem' y otros SSL_accept.
+if tail -400 /var/log/mail.log 2>/dev/null | grep -iE 'malformed BASE64|map lookup problem|SSL_accept error' \
+     | grep -vE 'lost connection|Connection reset by peer|SSL_accept error from [^:]*: -?[0-9]+\s*$' | grep -q .; then
   bad "mail.log con errores de TLS/SNI (malformed BASE64 / lookup problem). Si usas tls_server_sni_maps: reconstruye vmail_sni con 'postmap -F' y REINICIA postfix (reload NO basta). [#14]"
 else
   ok "mail.log sin errores de TLS/SNI (malformed BASE64/lookup)"
