@@ -106,7 +106,9 @@ git -C /opt/maquita-webmail status --porcelain   # debe estar VACÍO: un desplie
 python3 deploy/tools/barrido-datos-personales.py --arbol /opt/maquita-webmail   # 0 hallazgos
 ```
 Y a mano, con una sesión real: entrar, enviar un correo interno, cambiar la contraseña, abrir
-Ajustes → Contraseña y comprobar que el botón explica por qué está deshabilitado.
+Ajustes → Contraseña y comprobar que el botón explica por qué está deshabilitado. Si instalaste
+Z-Push: **una cuenta en Outlook de escritorio (clásico y nuevo) con calendario y contactos**,
+con un evento creado en el webmail visto en Outlook y viceversa (`OPERACION.md`, «Z-Push»).
 
 **Si evaluaste con `example.test`**, ese nombre no existe en DNS: para abrir el webmail desde tu
 navegador, en **tu máquina** (no en la VM) añade a `/etc/hosts` (en Windows,

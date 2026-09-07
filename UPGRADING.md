@@ -10,6 +10,27 @@ servicio, reiniciar lo que cambió y correr `deploy/tools/validar-despliegue.sh`
 
 ---
 
+## De 1.7.7 a 1.7.8 — Z-Push vuelve (ActiveSync para Outlook)
+
+Sin migraciones ni corte. `git fetch --tags --force && git checkout v1.7.8 && bash deploy-webmail.sh`
+(el backend trae el autodiscover con ActiveSync).
+
+1. `bash deploy/z-push/instalar.sh <dominio>`: construye la imagen (base actual + upgrade), escribe
+   `/opt/z-push-docker/*.php`, arranca el contenedor `zpush` en `127.0.0.1:9000` y deja el snippet.
+   Si ya tenías Z-Push nativo (pool PHP-FPM `zpush.conf`, `/opt/z-push`), retíralos: todo va en el
+   contenedor.
+2. nginx: en el `server{}` HTTPS del correo, `include snippets/maquita-apps/activesync.conf;` y en
+   el `location` del autodiscover admite `.xml` **y** `.json` (ver `deploy/webmail/nginx/webmail.conf`).
+   `nginx -t && systemctl reload nginx`.
+3. Radicale debe escuchar también en la IP del puente de Docker: `hosts = 127.0.0.1:5232,
+   172.17.0.1:5232` y reinicio.
+4. Comprobar (todo en `OPERACION.md`, «Z-Push / ActiveSync»): `OPTIONS /Microsoft-Server-ActiveSync`
+   → 401; autodiscover `mobilesync` → `<Type>MobileSync</Type>`; JSON v2 → `"Protocol":"ActiveSync"`;
+   y la **prueba real con una cuenta en los dos Outlook** (correo, calendario en los dos sentidos,
+   contactos, tarea).
+
+---
+
 ## De 1.7.6 a 1.7.7 — segundo factor obligatorio para cuentas privilegiadas
 
 Sin migraciones ni corte. `git fetch --tags --force && git checkout v1.7.7 && bash deploy-webmail.sh`.
