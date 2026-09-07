@@ -9,6 +9,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Corregido
 
+- **Guía `INSTALL-DESDE-CERO.md`** apunta a la última etiqueta (era `v1.6.0-rc5`), separa «evaluar»
+  (sin `.env`) de «producción» (`backend/.env` a mano), marca el chat como experimental y explica
+  qué pasa con Tableros/BI en VMs sin `x86-64-v2`. Evaluación de instalabilidad de Andes.
 - **Instalador: Tableros/BI no se habilita si la CPU no expone x86-64-v2** (VMs con `kvm64`): antes
   quedaba habilitado en bucle de arranque. Se instala, se deja deshabilitado y se explica cómo activarlo.
 - **Validador: el ruido de escáneres de internet ya no cuenta como fallo de TLS/SNI** (#14): se excluyen
