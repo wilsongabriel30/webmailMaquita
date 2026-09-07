@@ -9,6 +9,8 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Seguridad
 
+- **`chat-service/Dockerfile`**: base `python:3.13-slim` actual y `apt-get upgrade` en el build (cierra los
+  avisos con corrección disponible del informe de Snyk).
 - **Z-Push (ActiveSync) retirado** (`deploy/z-push/` fuera del repositorio, del instalador nativo y de la
   documentación; `DECISIONES.md` D-9): cero uso en producción, y su imagen PHP traía libssh2 ×6 y
   util-linux ×3 altos. Los teléfonos usan IMAP + CalDAV/CardDAV con autoconfiguración; el
