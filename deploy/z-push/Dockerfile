@@ -22,7 +22,7 @@ RUN apt-get update && apt-get upgrade -y --no-install-recommends \
 # Z-Push en una VERSIÓN fija (la última con soporte al escribir esto), no en master.
 RUN apt-get update && apt-get install -y --no-install-recommends git \
     && git clone --depth 1 --branch "${ZPUSH_VERSION}" https://github.com/Z-Hub/Z-Push.git /opt/z-push \
-    && rm -rf /opt/z-push/.git \
+    && rm -rf /opt/z-push/.git && echo "${ZPUSH_VERSION}" > /opt/z-push/VERSION \
     && apt-get purge -y git && apt-get autoremove -y --purge \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 

@@ -48,9 +48,20 @@ bash deploy/z-push/instalar.sh midominio.org
 nginx -t && systemctl reload nginx
 ```
 
-Requisitos: Docker, Radicale escuchando también en la IP del puente de Docker
-(`hosts = 127.0.0.1:5232, 172.17.0.1:5232` en `/etc/radicale/config`), DNS
-`autodiscover.midominio.org` → el servidor (con certificado que lo cubra: `emitir-certificado.sh`).
+Requisitos (todos costaron algo el 07/09/2026 en producción):
+- Docker. En servidores con DNS interno, `docker build` necesita `--network host` (el instalador ya lo usa).
+- **Radicale** escuchando también en la IP del puente de Docker: `hosts = 127.0.0.1:5232, 172.17.0.1:5232`
+  en `/etc/radicale/config` y reinicio (la línea puede estar y el proceso seguir solo en 127.0.0.1).
+- **Cortafuegos**: el contenedor entra al anfitrión por `docker0`; con `policy drop` y geobloqueo en
+  `input`, hace falta **antes** de los `drop` por país: `iifname "docker0" tcp dport { 465, 993, 5232 } accept`
+  (persistir en `/etc/nftables.conf`).
+- **Colecciones de Radicale** para cada buzón (`default` con VEVENT+VTODO y `contacts`): Z-Push no las
+  crea y devuelve 500 si faltan. `deploy/tools/radicale-asegurar-colecciones.py --todos` (cron horario).
+- nginx: la `location` debe ser `^~ /Microsoft-Server-ActiveSync` (si no, la regex del webmail gana).
+- Si había Z-Push nativo: retirar su `location` (socket `php8.4-zpush.sock`), el pool PHP-FPM y `/opt/z-push`.
+- DNS `autodiscover.midominio.org` → el servidor, con certificado que lo cubra (`emitir-certificado.sh`).
+  Para cada dominio de correo distinto (p. ej. `maquita.com.ec`) hace falta su propio `autodiscover.`,
+  `server_name` en nginx y SAN en el certificado; si no, el nuevo Outlook no puede configurar esas cuentas.
 
 Las configuraciones viven en `/opt/z-push-docker/` y se montan en el contenedor: editarlas no
 exige reconstruir (`docker restart zpush`). Los archivos de `configs/` de este directorio son la
