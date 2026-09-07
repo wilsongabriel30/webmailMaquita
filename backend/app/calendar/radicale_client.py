@@ -19,9 +19,9 @@ class RadicaleClient:
         self._timeout = httpx.Timeout(10.0)
 
     def _headers(self, user: str) -> dict:
-        # Radicale owner_only needs local part matching URL prefix
-        local_part = user.split("@")[0] if "@" in user else user
-        return {"X-Remote-User": local_part}
+        # Radicale (auth http_x_remote_user, rights owner_only): el usuario es el correo completo,
+        # el mismo prefijo que usa Z-Push. Solo este backend y el vhost de Z-Push ponen la cabecera.
+        return {"X-Remote-User": user.strip().lower()}
 
     async def ensure_calendar(
         self, user: str, calendar_path: str, display_name: str, color: str

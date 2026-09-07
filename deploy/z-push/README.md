@@ -30,7 +30,7 @@ Outlook / Android / iOS
         ▼
   contenedor «zpush» (php:8.3-fpm-bookworm + Z-Push 2.7.6)
      ├── IMAP/SMTP → host.docker.internal (Dovecot 993, Postfix 465)
-     └── CalDAV/CardDAV → host.docker.internal:5232 (Radicale)
+     └── CalDAV/CardDAV → host.docker.internal:5232 (nginx radicale-zpush, auth_request) → 127.0.0.1:5232 (Radicale)
 ```
 
 El **autodiscover** (Outlook clásico, nuevo Outlook, Android, iOS) lo sirve el **backend del
@@ -50,8 +50,11 @@ nginx -t && systemctl reload nginx
 
 Requisitos (todos costaron algo el 07/09/2026 en producción):
 - Docker. En servidores con DNS interno, `docker build` necesita `--network host` (el instalador ya lo usa).
-- **Radicale** escuchando también en la IP del puente de Docker: `hosts = 127.0.0.1:5232, 172.17.0.1:5232`
-  en `/etc/radicale/config` y reinicio (la línea puede estar y el proceso seguir solo en 127.0.0.1).
+- **Radicale** solo en `127.0.0.1:5232` con `auth type = http_x_remote_user` (config de referencia
+  `deploy/webmail/configs/radicale.config`). El contenedor llega a Radicale por el vhost
+  `nginx/radicale-zpush.conf` en la IP del puente (`auth_request` al backend: contraseña de aplicación
+  o principal), que pone `X-Remote-User`. Nunca `auth type = none`: dejaría el calendario de todos
+  abierto a cualquier proceso local. Prefijo de las colecciones: el correo completo (`/%u/`).
 - **Cortafuegos**: el contenedor entra al anfitrión por `docker0`; con `policy drop` y geobloqueo en
   `input`, hace falta **antes** de los `drop` por país: `iifname "docker0" tcp dport { 465, 993, 5232 } accept`
   (persistir en `/etc/nftables.conf`).

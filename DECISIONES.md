@@ -204,7 +204,8 @@ Outlook solo sincroniza calendario y contactos por ActiveSync. Sin Z-Push, el d�
 el calendario vacío. Z-Push se mantiene como componente **principal**, dimensionado para unos 300
 dispositivos: contenedor con base oficial actual y `apt-get upgrade`, versión fija (2.7.6, la
 última con soporte), Trivy en el CI, reconstrucción mensual, backends de calendario y contactos
-apuntando a **Radicale** (un solo origen de datos para webmail, teléfono y Outlook, incluidas
+apuntando a **Radicale** (un solo origen de datos para webmail, teléfono y Outlook —cierto para el
+calendario desde N-19, 07/09; los contactos del webmail siguen en su base de datos, N-19c abierta—, incluidas
 tareas) y prueba real con los dos Outlook antes de cada etiqueta que lo toque. El autodiscover del
 backend devuelve ActiveSync (XML `mobilesync` y JSON v2), prerequisito del nuevo Outlook.
 

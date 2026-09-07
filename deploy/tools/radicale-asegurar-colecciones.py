@@ -10,9 +10,9 @@ activo tiene sus colecciones desde el principio, entre por donde entre.
 
 Uso:  radicale-asegurar-colecciones.py correo@dominio [...]   (buzones concretos)
       radicale-asegurar-colecciones.py --todos                (todos los buzones activos de maildb)
-Radicale corre con auth «none»: el usuario es el que va en Basic, sin contraseña (localhost).
+Radicale confía en la cabecera X-Remote-User (auth http_x_remote_user) y solo escucha en 127.0.0.1:
+esta herramienta corre en el propio servidor y pone la cabecera con el correo completo.
 """
-import base64
 import os
 import sys
 import urllib.error
@@ -38,7 +38,7 @@ MKCOL_LIBRETA = """<?xml version="1.0" encoding="UTF-8"?>
 
 def _pedir(metodo, ruta, usuario, cuerpo=None):
     req = urllib.request.Request(f"{RADICALE}{ruta}", data=cuerpo.encode() if cuerpo else None, method=metodo)
-    req.add_header("Authorization", "Basic " + base64.b64encode(f"{usuario}:".encode()).decode())
+    req.add_header("X-Remote-User", usuario.strip().lower())
     if cuerpo:
         req.add_header("Content-Type", "application/xml; charset=utf-8")
     try:

@@ -22,6 +22,7 @@ from app.ai.router import router as ai_router
 from app.air.router import router as air_router
 from app.apikeys.router import router as apikeys_router
 from app.auth.contrasenas_aplicacion import router as contrasenas_aplicacion_router
+from app.auth.dav_auth import router as dav_auth_router
 from app.auth.dependencies import get_current_user, require_admin
 from app.auth.oidc import router as oidc_router
 from app.auth.password import router as password_router
@@ -731,6 +732,7 @@ app.include_router(sieve_router)
 app.include_router(identities_router)
 app.include_router(firmas_router)
 app.include_router(contrasenas_aplicacion_router)
+app.include_router(dav_auth_router)
 app.include_router(ws_router)
 app.include_router(export_router)
 app.include_router(remitente_router)  # banner remitente externo

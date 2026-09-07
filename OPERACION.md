@@ -223,6 +223,23 @@ Activa con `drop` desde el 07/09/2026 tras 8 días en modo registro.
 - Si algo interno deja de funcionar tras un cambio: quitar `drop` (queda solo el registro), recargar,
   y buscar el destino en el registro.
 
+## Radicale: un árbol por correo y acceso por cabecera confiable (N-19)
+
+Radicale guarda calendario, tareas y contactos de los teléfonos/Outlook (Z-Push) y el calendario del
+webmail. Desde el 07/09/2026: prefijo de colección = **correo completo** (`/ana@dominio/default/`),
+el mismo para el webmail y para Z-Push (antes el webmail usaba la parte local y había dos calendarios).
+Acceso: Radicale escucha solo en 127.0.0.1 y confía en `X-Remote-User`; la ponen el backend (correo de
+la sesión) y el vhost `radicale-zpush` de nginx en la IP del puente de Docker, que antes valida las
+credenciales del dispositivo con `GET /api/auth/dav` (contraseña de aplicación por SQL; la principal
+solo mientras no sea obligatoria; resultado en caché 120 s). `auth type = none` queda prohibido: con él
+cualquier proceso local leía y escribía el calendario de cualquiera (comprobado: PROPFIND sin
+credenciales → 207).
+
+- Diagnóstico: `curl -X PROPFIND http://<puente>:5232/x/` → 401; con `-u correo:clave-de-aplicacion` → 207.
+  En 127.0.0.1: `curl -X PROPFIND -H "X-Remote-User: correo" http://127.0.0.1:5232/correo/` → 207.
+- Pendiente (N-19c): los **contactos del webmail** viven en su base de datos, no en Radicale; los
+  teléfonos ven la libreta de Radicale. Hace falta decidir sincronización o un solo origen.
+
 ## Firmas: normalización automática
 
 Desde 1.7.8 toda firma pasa por `backend/app/mail/firmas.py` al guardarse (webmail → Firmas,
@@ -326,8 +343,9 @@ Registrar el resultado en `REGISTRO-HALLAZGOS.md` (documentación) antes de etiq
    no apunta a `127.0.0.1:9000`.
 4. Credenciales: `docker exec zpush php -r 'var_dump(imap_open("{host.docker.internal:993/imap/ssl/novalidate-cert}INBOX","correo","clave"));'`
    distingue «clave mal» de «no llega a Dovecot».
-5. Calendario/contactos vacíos con correo bien: Radicale no escucha en la IP del puente
-   (`hosts = 127.0.0.1:5232, 172.17.0.1:5232` en `/etc/radicale/config`) o la ruta `/%u/` no
+5. Calendario/contactos vacíos con correo bien: el vhost `radicale-zpush` de nginx no escucha en la
+   IP del puente (`ss -ltn | grep 5232` debe mostrar 127.0.0.1 para Radicale y la IP del puente para
+   nginx), el backend rechaza las credenciales (`journalctl -u maquita-webmail | grep dav_auth`), o la ruta `/%u/` no
    coincide con las colecciones del usuario (`ls /var/lib/radicale/collections/collection-root/`).
 6. Resincronizar un dispositivo: `docker exec zpush z-push-admin -a resync -u correo -d <deviceid>`;
    como último recurso, quitar la cuenta del cliente y volver a añadirla.
