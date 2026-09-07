@@ -95,10 +95,15 @@ def asegurar_tablas_webmail() -> None:
 _AUDIENCIA_EXTERNA = 'drive-externo'   # `aud` que emite acceso_externo.emitir_sesion
 
 
-def _sesion_viva(username: str, clave: str = 'imap_pass:%s') -> bool:
-    """Si hay Redis configurado, exige que la sesión siga activa: `imap_pass:<usuario>`
-    para sesiones del webmail (el logout la borra) y `sesion_externa:<correo>` para
-    cuentas externas del Drive. Sin Redis, basta el JWT."""
+def _sesion_viva(username: str, clave: str = 'imap_pass:%s', sid: str = None) -> bool:
+    """Si hay Redis configurado, exige que la sesión siga activa. Sin Redis, basta el JWT.
+
+    - Sesión del webmail: desde F-01 (05/09/2026) el correo guarda una clave POR SESIÓN,
+      `imap_pass:<usuario>:<sid>` (`backend/app/auth/sesiones.py`), y la borra al cerrar o
+      revocar esa sesión. Se comprueba exactamente esa clave con el `sid` del token.
+      N-17 (07/09): aquí se seguía mirando `imap_pass:<usuario>`, que ya no existe, y el
+      Drive rechazaba TODAS las sesiones del webmail desde F-01.
+    - Cuenta externa del Drive: `sesion_externa:<correo>` (la emite acceso_externo)."""
     global _redis_cliente
     if not _REDIS_URL:
         return True
@@ -106,6 +111,8 @@ def _sesion_viva(username: str, clave: str = 'imap_pass:%s') -> bool:
         if _redis_cliente is None:
             import redis
             _redis_cliente = redis.Redis.from_url(_REDIS_URL, socket_timeout=2)
+        if sid:
+            return bool(_redis_cliente.exists('%s:%s' % (clave % username, sid)))
         return bool(_redis_cliente.exists(clave % username))
     except Exception as excepcion:
         log.warning('Redis no disponible para validar sesión (%s); se rechaza', excepcion)
@@ -151,7 +158,9 @@ def _resolver_cookie() -> tuple:
             return None, None, username, 'sin_enlace'
         return uid, rol, username, None
 
-    if not _sesion_viva(username):
+    # F-01: la sesión se identifica por `sid`; sin él el token es anterior a F-01 y no vale.
+    sid = (payload.get('sid') or '').strip()
+    if not sid or not _sesion_viva(username, sid=sid):
         return None, None, None, 'sin_sesion'
     # Alias: varios buzones de la misma persona -> un solo correo canónico
     # (la sesión Redis se valida con el buzón REAL; todo lo demás usa el canónico)
