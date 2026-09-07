@@ -30,7 +30,7 @@ It does not replace your MTA or IMAP server. It runs **alongside them**, connect
 
 The whole system runs **natively, directly on the operating system** (Debian 13 or similar): webmail, Postfix, Dovecot, PostgreSQL, Redis and SOGo. **It does not rely on Docker.** It is designed to be **reproducible and installable by anyone** on their own Debian server — even by students — with a single script.
 
-> **Mail and webmail are never run in containers.** Docker is only used to build and scan the chat image in CI. Z-Push (ActiveSync) was retired in 1.7.6 (`DECISIONES.md` D-9): phones use IMAP, CalDAV and CardDAV with autoconfiguration.
+> **Docker is used only for Z-Push** (ActiveSync: syncing mail, calendar and contacts with mobile phones). It is an **optional**, isolated component — see [`deploy/z-push/`](deploy/z-push/). Mail and webmail are **never** run in containers.
 
 ## What problem it solves
 
@@ -142,6 +142,7 @@ On **free software and your own servers**, this repository delivers the **email 
   Optional components:
   - SOGo: calendar and contacts (CalDAV/CardDAV)        -> native
   - Ollama: local AI-assisted replies/composition        -> native
+  - Z-Push: ActiveSync (mobile sync)                      -> Docker (deploy/z-push)
 ```
 
 ## Key features
@@ -296,11 +297,16 @@ enterprise-grade functions:
 It is protected with two credentials (nginx basic auth + the panel's own login); the
 installer generates both and shows them when it finishes.
 
-## Mobile sync
+## Mobile sync (Z-Push / ActiveSync) — optional
 
-No ActiveSync: phones (Android/iOS) use **IMAP** for mail and **CalDAV/CardDAV** for calendar
-and contacts, with autoconfiguration (Thunderbird, Outlook, Apple) served by the backend itself.
-See `docs/CERTIFICADO-Y-AUTOCONFIG.md`. Z-Push was retired in 1.7.6 (D-9).
+The **only** component that uses Docker. It lets you sync mail, calendar and contacts
+with phones (Android/iOS) via Exchange ActiveSync. It is optional:
+
+```bash
+cd deploy/z-push
+cat README.md      # configuration instructions
+bash instalar.sh
+```
 
 ## Cloud files and online office (Almacén / Maquita Drive) — built in
 

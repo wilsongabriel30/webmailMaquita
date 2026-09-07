@@ -9,7 +9,7 @@ servidor Debian, junto a una plataforma de correo real Postfix + Dovecot.
 Reproduce el despliegue de producción de referencia.
 
 > El correo y el webmail corren **nativos, directo sobre el sistema operativo**.
-> Docker no se usa en producción (Z-Push se retiró en 1.7.6, D-9).
+> Docker se usa únicamente para Z-Push (ActiveSync) — ver `deploy/z-push/`.
 > Es el detalle de la vía soportada para producción; la vía recomendada para instalar es el instalador de `INSTALL-DESDE-CERO.md`.
 
 ## Stack de referencia (probado)
@@ -265,7 +265,7 @@ sudo nginx -t && sudo systemctl reload nginx
 - **Asistente de IA:** instala Ollama, `ollama pull qwen2.5:7b`, define `OLLAMA_URL`.
   Deja `IA_API_KEY` en blanco salvo que pongas un gateway de autenticación delante de Ollama.
 - **Filtrado de spam:** agrega rspamd e intégralo en Postfix como milter.
-- **Sincronización con móviles:** IMAP + CalDAV/CardDAV con autoconfiguración (ver `docs/CERTIFICADO-Y-AUTOCONFIG.md`).
+- **Sincronización con móviles (ActiveSync):** ver `deploy/z-push/` (único componente en Docker).
 - **Nube de archivos + ofimática en línea — integrado (Almacén):**
   El sistema incluye **Almacén** («Drive Maquita»): almacenamiento propio con
   carpetas, compartir, papelera, versiones, búsqueda, auditoría y **OnlyOffice**
