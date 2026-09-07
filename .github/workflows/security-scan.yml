@@ -111,6 +111,36 @@ jobs:
           severity: CRITICAL,HIGH
           exit-code: 1
 
+  trivy-imagenes:
+    name: Trivy Imágenes (Dockerfiles)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Construir la imagen del chat
+        run: docker build -t chat-maquita:ci chat-service/
+
+      # Bloquea SOLO por avisos con corrección disponible (D-9): lo que Debian no arregla
+      # (p. ej. CVE-2023-45853, zlib/minizip) se acepta con motivo y no rompe el CI.
+      - name: Trivy sobre la imagen del chat (altos y críticos con fix)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: chat-maquita:ci
+          format: table
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: 1
+
+      - name: Trivy sobre los Dockerfiles (configuración; informa, no bloquea)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: config
+          scan-ref: .
+          format: table
+          severity: CRITICAL,HIGH
+          exit-code: 0
+
   dependency-review:
     name: Dependency Review
     runs-on: ubuntu-latest
