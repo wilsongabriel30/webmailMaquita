@@ -93,4 +93,4 @@ fi
 
 echo ""
 echo "Listo. Verifica:  certbot certificates"
-echo "Autodiscover de Outlook: lo sirve el backend en autodiscover.${DOMINIO} (ver docs/CERTIFICADO-Y-AUTOCONFIG.md)."
+echo "Autodiscover de Outlook: lo sirve el backend en autodiscover.${DOMINIO}; ActiveSync con deploy/z-push/."

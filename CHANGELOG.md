@@ -13,6 +13,19 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
   cron `maquita-integraciones`): sondas reales sin efectos secundarios a la pasarela de IA, a la revocación
   del chat en los dos sentidos, al Document Server de OnlyOffice y a las copias de secretos entre `.env`;
   alerta por correo al fallar y al recuperarse. Lección de N-15: «activo» no es «sano».
+- `docs/LECCIONES.md` (registro vivo de lecciones: N-15 y D-9), `OPERACION.md` con la configuración de
+  Outlook clásico y nuevo Outlook, la diferencia entre ambos y el diagnóstico de Z-Push; la prueba
+  «cuenta en Outlook con calendario y contactos» entra en la lista de validación.
+- **Autodiscover con ActiveSync**: además de IMAP/SMTP, el backend responde el esquema `mobilesync` (Outlook
+  clásico como cuenta Exchange, Android, iOS) y el **JSON v2** que usa el nuevo Outlook, que no admite
+  configuración manual. nginx enruta también `autodiscover.json` al backend.
+- **Z-Push (ActiveSync) vuelve, como componente principal** (`DECISIONES.md` D-9 corregida: la mayoría del
+  personal usará Outlook, nuevo y clásico, y celulares por ActiveSync; Outlook solo sincroniza calendario y
+  contactos por ese protocolo). Dimensionado para ~300 dispositivos (`PHP_MAX_CHILDREN`) con prueba de
+  carga (`deploy/z-push/prueba-carga.py`). Contenedor `php:8.3-fpm-bookworm` en etiqueta actual con `apt-get upgrade`, Z-Push
+  **2.7.6** (última con soporte) fijada, backends IMAP/CalDAV/CardDAV hacia Dovecot y Radicale del
+  anfitrión (un solo origen de datos: webmail, teléfono y Outlook ven lo mismo; incluye tareas), imagen
+  escaneada por Trivy en el CI y reconstrucción mensual. Instalador `deploy/z-push/instalar.sh`.
 
 ## [1.7.7] - 2026-09-07
 

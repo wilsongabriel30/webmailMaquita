@@ -113,6 +113,7 @@ jobs:
 
   trivy-imagenes:
     name: Trivy Imágenes (Dockerfiles)
+    timeout-minutes: 30
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -127,6 +128,19 @@ jobs:
         with:
           scan-type: image
           image-ref: chat-maquita:ci
+          format: table
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: 1
+
+      - name: Construir la imagen de Z-Push
+        run: docker build -t zpush:ci deploy/z-push/
+
+      - name: Trivy sobre la imagen de Z-Push (altos y críticos con fix)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: zpush:ci
           format: table
           severity: CRITICAL,HIGH
           ignore-unfixed: true
