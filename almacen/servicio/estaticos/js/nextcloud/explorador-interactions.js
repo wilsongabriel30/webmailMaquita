@@ -1525,22 +1525,11 @@ async function cargarCuota() {
             const usado = data.cuota.usado_humano || '0 B';
             const total = data.cuota.total_humano || 'Sin límite';
 
-            // Distribuir el porcentaje en segmentos (simulación)
-            // En una implementación real, estos datos vendrían del backend
-            const drivePercent = porcentaje * 0.7;  // 70% es Nube
-            const emailPercent = porcentaje * 0.2;  // 20% es Email
-            const otherPercent = porcentaje * 0.1;  // 10% es Otro
-
-            // Actualizar barras segmentadas
+            // Archivos del Drive: su propia barra (la cuota del Almacén)
             const driveBar = document.getElementById('storageBarDrive');
-            const emailBar = document.getElementById('storageBarEmail');
-            const otherBar = document.getElementById('storageBarOther');
-
-            if (driveBar) driveBar.style.width = Math.max(drivePercent, 0.5) + '%';
-            if (emailBar) emailBar.style.width = emailPercent + '%';
-            if (otherBar) otherBar.style.width = otherPercent + '%';
-
-            document.getElementById('storageText').textContent = `${usado} de ${total} usado`;
+            if (driveBar) driveBar.style.width = Math.min(Math.max(porcentaje, 0.5), 100) + '%';
+            document.getElementById('storageText').textContent = `Archivos: ${usado} de ${total} usado`;
+            cargarEspacioCorreo();
         } else {
             document.getElementById('storageText').textContent = 'No disponible';
             console.warn('Cuota no disponible:', data.error || 'Sin datos');
@@ -1548,6 +1537,25 @@ async function cargarCuota() {
     } catch (error) {
         document.getElementById('storageText').textContent = 'Error al cargar';
         console.error('Error cargando cuota:', error);
+    }
+}
+
+// El espacio del correo es aparte (cuota del buzón, la mide el correo): aquí solo se dibuja.
+// Para liberarlo, la persona va al webmail (/webmail/?vista=grandes) y decide qué borrar.
+async function cargarEspacioCorreo() {
+    const texto = document.getElementById('storageTextEmail');
+    const barra = document.getElementById('storageBarEmail');
+    if (!texto) return;
+    try {
+        const r = await fetch('/api/mail/stats', { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const s = await r.json();
+        const usadoMb = Number(s.storage_used_mb || 0), limiteMb = Number(s.storage_limit_mb || 0);
+        const fmt = (mb) => mb >= 1024 ? (mb / 1024).toFixed(2) + ' GB' : Math.round(mb) + ' MB';
+        if (barra) barra.style.width = limiteMb > 0 ? Math.min(Math.max(usadoMb / limiteMb * 100, 0.5), 100) + '%' : '0.5%';
+        texto.textContent = limiteMb > 0 ? `Correo: ${fmt(usadoMb)} de ${fmt(limiteMb)} usado` : `Correo: ${fmt(usadoMb)} usado (sin límite)`;
+    } catch (e) {
+        texto.textContent = 'Correo: no disponible';
     }
 }
 
@@ -1570,6 +1578,13 @@ function liberarEspacio() {
                         <div>
                             <strong>Archivos grandes</strong>
                             <small class="d-block text-muted">Revisar archivos que ocupan más espacio</small>
+                        </div>
+                    </a>
+                    <a href="/webmail/?vista=grandes" class="list-group-item list-group-item-action d-flex align-items-center">
+                        <span class="material-icons me-3 text-muted">mail</span>
+                        <div>
+                            <strong>Correos grandes</strong>
+                            <small class="d-block text-muted">El correo ocupa su propio espacio: revisa tus mensajes más pesados y borra los que no necesites</small>
                         </div>
                     </a>
                     <a href="#" class="list-group-item list-group-item-action d-flex align-items-center" onclick="buscarDuplicados()">

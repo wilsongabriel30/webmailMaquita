@@ -55,6 +55,7 @@ from app.mail.routers.compose import router as compose_router
 from app.mail.routers.export import router as export_router
 from app.mail.routers.firmas import router as firmas_router
 from app.mail.routers.folders import router as folders_router
+from app.mail.routers.grandes import router as grandes_router
 from app.mail.routers.labels import router as labels_router
 from app.mail.routers.messages import router as messages_router
 from app.mail.routers.onlyoffice import router as onlyoffice_router
@@ -731,6 +732,7 @@ app.include_router(contacts_router)
 app.include_router(sieve_router)
 app.include_router(identities_router)
 app.include_router(firmas_router)
+app.include_router(grandes_router)
 app.include_router(contrasenas_aplicacion_router)
 app.include_router(dav_auth_router)
 app.include_router(ws_router)

@@ -39,6 +39,10 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Añadido
 
+- **Espacio del correo en el Drive y «Liberar espacio» del correo** (petición de Wilson): el Drive muestra el
+  espacio del buzón aparte y solo lectura (lo mide el correo, `GET /api/mail/stats`) y, para liberarlo, lleva
+  al webmail (`/webmail/?vista=grandes`): `GET /api/mail/grandes` lista los mensajes más grandes de todas las
+  carpetas y la persona marca y elimina lo que no necesita. Las cuotas siguen siendo independientes.
 - **Panel: el Drive al crear el buzón** (hallazgo de Wilson en `/mailboxes`): cuota del Drive en GB (campo libre;
   0 = la de la organización, que pasa a 5 GB por defecto en instalaciones nuevas) y, en modo directorio
   «nómina», vínculo del buzón con una persona del directorio central cuyo correo no coincide (tabla
