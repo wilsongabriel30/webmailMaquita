@@ -6,6 +6,9 @@
 # cert solo cubria mail.dominio.tld, y no habia autoconfig que evitara el intento.
 #
 # Uso:  emitir-certificado.sh dominio.tld [correo-admin]
+#       DOMINIOS_EXTRA="otro.tld tercero.org" emitir-certificado.sh dominio.tld
+#       (otros dominios de correo del mismo servidor: se añaden mail./autoconfig./autodiscover.
+#        de cada uno si ya apuntan aquí; Outlook y los celulares los necesitan en el certificado)
 #
 # - Resuelve cada nombre candidato contra un resolver PUBLICO (no el local, que
 #   puede tener vista interna / split-horizon) y solo pide al cert los nombres
@@ -45,6 +48,9 @@ CANDIDATOS=(
   "autoconfig.${DOMINIO}"      # Thunderbird / Evolution
   "autodiscover.${DOMINIO}"    # Outlook / ActiveSync
 )
+for extra in ${DOMINIOS_EXTRA:-}; do
+  CANDIDATOS+=("mail.${extra}" "autoconfig.${extra}" "autodiscover.${extra}")
+done
 
 ARGS=()
 INCLUIDOS=()
@@ -66,7 +72,7 @@ fi
 echo ""
 echo "Emitiendo certificado (linaje: ${MAIL_HOST}) para: ${INCLUIDOS[*]}"
 certbot --nginx --non-interactive --agree-tos -m "${EMAIL}" \
-  --cert-name "${MAIL_HOST}" --keep-until-expiring "${ARGS[@]}"
+  --cert-name "${MAIL_HOST}" --keep-until-expiring --expand "${ARGS[@]}"
 
 # --- Autoconfiguracion (Thunderbird/Evolution) sobre el cert nuevo ---
 if [ -n "${BASE_AUTOCONFIG}" ] && [ -f "${BASE_AUTOCONFIG}/config-v1.1.xml.plantilla" ]; then
