@@ -15,7 +15,8 @@ interface SetupData {
   uri: string;
 }
 
-export function TwoFactorSetup() {
+// N-7: desde la pantalla de entrada se puede forzar la activación (contraseña ya tecleada y aviso al terminar).
+export function TwoFactorSetup({ contrasenaInicial, alActivar }: { contrasenaInicial?: string; alActivar?: () => void } = {}) {
   const [status, setStatus] = useState<TotpStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [setupData, setSetupData] = useState<SetupData | null>(null);
@@ -23,8 +24,8 @@ export function TwoFactorSetup() {
   const [disableCode, setDisableCode] = useState('');
   const [showDisable, setShowDisable] = useState(false);
   const [step, setStep] = useState<'idle' | 'setup' | 'backup'>('idle');
-  const [askPassword, setAskPassword] = useState(false);
-  const [setupPassword, setSetupPassword] = useState('');
+  const [askPassword, setAskPassword] = useState(!!contrasenaInicial);
+  const [setupPassword, setSetupPassword] = useState(contrasenaInicial || '');
   const [regenCode, setRegenCode] = useState('');
   const [showRegen, setShowRegen] = useState(false);
 
@@ -255,10 +256,10 @@ export function TwoFactorSetup() {
             </div>
           </div>
           <button
-            onClick={() => { setStep('idle'); setSetupData(null); }}
+            onClick={() => { setStep('idle'); setSetupData(null); if (alActivar) alActivar(); }}
             className="px-4 py-2 bg-[#0078d4] text-white text-[13px] rounded hover:bg-[#106ebe] transition-colors"
           >
-            Listo, los guarde
+            Listo, los guardé
           </button>
         </div>
       )}

@@ -47,6 +47,19 @@ async def get_current_user(request: Request) -> str:
                 "must_change_password": True,
             },
         )
+    # N-7: cuenta privilegiada sin segundo factor: solo puede activarlo o salir.
+    from app.auth.segundo_factor import RUTAS_PERMITIDAS_2FA, debe_activar_2fa
+
+    if request.url.path not in RUTAS_PERMITIDAS_2FA and await debe_activar_2fa(
+        request.app.state.db_pool, request.app.state.redis, username
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "detail": "Esta cuenta debe activar la verificación en dos pasos",
+                "must_setup_2fa": True,
+            },
+        )
     request.state.sid = sid
     request.state.session_kind = payload.get("kind", "normal")
 
