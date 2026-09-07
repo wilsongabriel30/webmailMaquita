@@ -83,15 +83,6 @@ def asegurar_tablas_webmail() -> None:
     """)
     # instalaciones previas a la columna email
     ejecutar('ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS email TEXT;')
-    # Vínculo explícito buzón -> persona del directorio central (lo fija el panel de administración):
-    # manda sobre la coincidencia por correo. Para personas cuyo correo del directorio no es el buzón.
-    ejecutar("""
-        CREATE TABLE IF NOT EXISTS enlaces_correo (
-            correo     TEXT PRIMARY KEY,
-            usuario_id INTEGER NOT NULL,
-            creado_en  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
-    """)
     ejecutar("""
         CREATE TABLE IF NOT EXISTS trabajadores (
             id INTEGER PRIMARY KEY,
