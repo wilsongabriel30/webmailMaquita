@@ -7,6 +7,13 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.7.5] - 2026-09-07
+
+Séptima revisión externa (ruta del correo entrante): sudoers sin comodines con envoltorio validado,
+correo entrante como dato delimitado en la IA con salida validada, y milter que ya no falla en
+silencio. Sin migraciones ni corte de sesiones; reinicio del backend, del panel y del milter, y
+cambio de sudoers. Pasos en `UPGRADING.md`, sección «De 1.7.4 a 1.7.5».
+
 ### Seguridad
 
 - **[S7-3] El milter ya no falla en silencio.** Si el análisis de un correo revienta sigue entregándose
