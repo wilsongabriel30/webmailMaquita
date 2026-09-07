@@ -256,6 +256,12 @@ corte, por cada dominio que se traiga: CNAME `autodiscover`/`autoconfig` → `ma
 maquita.org`. Entre el cambio de DNS y el certificado, la redirección por HTTP
 (`sites-enabled/autodiscover-dominios`, instalada en producción el 07/09/2026) ya autoconfigura Outlook.
 Verificación: `venv/bin/python ../deploy/tools/comprobar-autodiscover.py` (todos los dominios de maildb).
+Hecho el 07/09/2026 para `maquitaagro.com`, `maquitaagro.com.ec` y `relacc-la.org` (DNS por Centinela,
+certificado con 15 nombres). En producción nginx y Dovecot sirven el comodín `*.maquita.org` por
+defecto: los nombres de los otros dominios van por SNI, en nginx con el vhost `autodiscover-dominios`
+(bloque 443 con el certificado de Let's Encrypt) y en Dovecot con bloques `local_name` en
+`conf.d/10-ssl.conf` (uno por `mail.<dominio>`, el mismo certificado). Al traer un dominio nuevo:
+DNS → esperar el TTL → certificado (`--expand`) → `local_name` en Dovecot → `comprobar-autodiscover.py`.
 Detalle en `docs/CERTIFICADO-Y-AUTOCONFIG.md`.
 Z-Push 2.7.6 anuncia ActiveSync 12.0, 12.1 y 14.0 (suficiente para Outlook, iOS y Android).
 
