@@ -110,7 +110,8 @@ Sin migraciones ni corte de sesiones. Cambia cómo el correo y el panel obtienen
    `sudo -u www-data sudo -n /usr/local/sbin/maquita-sudo doveadm search -u <buzón> mailbox Sent header message-id x`
    debe devolver 0 o 1 (no «password is required»), y con `-o mail_location=/etc` debe rechazarse.
 3. `bash deploy-webmail.sh` (backend), `systemctl restart maquita-admin maquita-milter`.
-4. Comprobar: `grep MAQUITA_SUDO /var/log/auth.log` muestra `ok` al usar el panel (fail2ban, cola);
+4. Comprobar: `grep MAQUITA_SUDO /var/log/auth.log` (o, sin rsyslog, como en Debian 13 por defecto:
+   `journalctl -t maquita-sudo`) muestra `ok` al usar el panel (fail2ban, cola);
    Smart Reply responde (si devuelve 502, revisa que `IA_API_KEY` en `backend/.env` y en la tabla
    `ai_config` sea la que espera tu pasarela de IA); `X-Maquita-Scan: failed` solo aparece si el
    análisis del milter falla, y entonces `vigilar-milter.sh` avisa a partir de 3 por hora.
@@ -129,7 +130,8 @@ Sin migraciones ni corte de sesiones.
    `cd chat-service && venv/bin/python purgar_tokens_reuniones.py` (con `DATABASE_URL` en el entorno)
    para quitar de `reuniones_programadas` los JWT de Meet que se guardaban.
 4. Comprobar: `POST /api/csp-report` con un informe NEL responde 200 y no deja línea en
-   `security.log`; `SELECT count(token_moderador) FROM reuniones_programadas` devuelve 0;
+   `security.log`; `SELECT count(token_moderador) FROM reuniones_programadas` devuelve 0 (si la tabla
+   no existe, nunca se programó una reunión: el guion dice «nada que purgar» y no hay nada que comprobar);
    `deploy/tools/validar-despliegue.sh` no marca fallo por `SSL_accept error` de escáneres.
 
 ---
