@@ -7,6 +7,13 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Seguridad
+
+- **Z-Push (ActiveSync) retirado** (`deploy/z-push/` fuera del repositorio, del instalador nativo y de la
+  documentación; `DECISIONES.md` D-9): cero uso en producción, y su imagen PHP traía libssh2 ×6 y
+  util-linux ×3 altos. Los teléfonos usan IMAP + CalDAV/CardDAV con autoconfiguración; el
+  autodiscover de Outlook lo sirve el backend.
+
 ## [1.7.5] - 2026-09-07
 
 Séptima revisión externa (ruta del correo entrante): sudoers sin comodines con envoltorio validado,
