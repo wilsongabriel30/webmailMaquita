@@ -7,6 +7,11 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Añadido
+
+- **N-16 (2)**: el vhost `autodiscover-dominios` también sirve los nombres por HTTPS con el certificado
+  del correo (autodiscover al backend, autoconfig al canónico); OPERACION explica el SNI de Dovecot.
+
 ### Corregido
 
 - **Informe de Andes (v1.7.4 → v1.7.7)**: `purgar_tokens_reuniones.py` dice «nada que purgar» si la tabla no
