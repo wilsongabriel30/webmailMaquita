@@ -1,8 +1,34 @@
+import asyncio
 import json
+import os
+import subprocess
+
 from fastapi import APIRouter, Request, HTTPException, Depends, Query
 from app.auth.dependencies import get_current_admin, require_role
 
 router = APIRouter(prefix="/api/signatures", tags=["signatures"])
+
+WEBMAIL = "/opt/maquita-webmail/backend"
+
+
+def _normalizar_sync(html: str) -> dict:
+    """La plantilla pasa por el normalizador del correo (app.mail.firmas) en su propio entorno:
+    imágenes al tamaño declarado y guardadas en el servidor, tabla de ancho fijo, mailto revisado.
+    Si el normalizador no responde, no se guarda nada a medias (fallo cerrado)."""
+    entorno = {"PATH": "/usr/bin:/bin", "FIRMAS_DIR": os.getenv("FIRMAS_DIR", "/var/lib/maquita-webmail/firmas")}
+    p = subprocess.run(
+        [f"{WEBMAIL}/venv/bin/python", "-m", "app.mail.firmas_cli"],
+        cwd=WEBMAIL, env=entorno, input=json.dumps({"html": html}), capture_output=True, text=True, timeout=90,
+    )
+    if p.returncode != 0:
+        raise HTTPException(500, "No se pudo normalizar la firma; no se guardó")
+    return json.loads(p.stdout)
+
+
+async def _normalizar(html: str) -> dict:
+    if not (html or "").strip():
+        return {"html": "", "avisos": []}
+    return await asyncio.to_thread(_normalizar_sync, html)
 
 
 def _db(r: Request):
@@ -58,25 +84,27 @@ async def create_template(request: Request, admin: dict = Depends(require_role("
     data = await request.json()
     db = _db(request)
     await _ensure_tables(db)
+    firma = await _normalizar(data.get("html_content", ""))
 
     row = await db.fetchrow("""
         INSERT INTO mail_signatures (name, description, html_content, text_content, is_default, domain)
         VALUES ($1, $2, $3, $4, $5, $6) RETURNING *
     """, data.get("name", ""),
         data.get("description", ""),
-        data.get("html_content", ""),
+        firma["html"],
         data.get("text_content", ""),
         data.get("is_default", False),
         data.get("domain", ""))
 
     await _audit(request, admin, "signature_create", data.get("name"))
-    return dict(row)
+    return {**dict(row), "avisos": firma["avisos"]}
 
 
 @router.put("/templates/{sig_id}")
 async def update_template(sig_id: int, request: Request, admin: dict = Depends(require_role("superadmin", "admin"))):
     data = await request.json()
     db = _db(request)
+    firma = await _normalizar(data.get("html_content", ""))
 
     row = await db.fetchrow("""
         UPDATE mail_signatures SET name=$2, description=$3, html_content=$4, text_content=$5,
@@ -84,13 +112,13 @@ async def update_template(sig_id: int, request: Request, admin: dict = Depends(r
         WHERE id=$1 RETURNING *
     """, sig_id,
         data.get("name", ""), data.get("description", ""),
-        data.get("html_content", ""), data.get("text_content", ""),
+        firma["html"], data.get("text_content", ""),
         data.get("is_default", False), data.get("domain", ""))
 
     if not row:
         raise HTTPException(404)
     await _audit(request, admin, "signature_update", data.get("name"))
-    return dict(row)
+    return {**dict(row), "avisos": firma["avisos"]}
 
 
 @router.delete("/templates/{sig_id}")

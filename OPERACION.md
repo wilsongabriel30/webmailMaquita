@@ -179,6 +179,25 @@ desactivarle el 2FA.
 - Al dar de baja a una persona: desactivar su cuenta en «Administradores» (eso revoca sus sesiones
   al instante) y borrar su secreto con la sentencia de arriba.
 
+## Firmas: normalización automática
+
+Desde 1.7.8 toda firma pasa por `backend/app/mail/firmas.py` al guardarse (webmail → Firmas,
+Identidades, plantillas del panel) y al enviarse (bloque `email-signature`): imágenes remotas o
+incrustadas descargadas (5 s, 2 MB, `image/*`, sin redes internas) y guardadas al tamaño declarado
+(máximo 600 px) en `/var/lib/maquita-webmail/firmas/<hash>.png`; tabla exterior de ancho fijo con
+`role="presentation"`; `margin` de celdas a `padding`; `mailto:` revisado. En el correo que sale las
+imágenes viajan incrustadas (`cid:`), nunca como enlace. Motivo: hallazgo de usuario del 07/09/2026
+(firmas de Zimbra con logos de 1.200 px y `width="201"`, gigantes en Outlook y en el celular).
+
+- Lo que falla se quita y se avisa (fallo cerrado): la respuesta de guardar trae `avisos` y el
+  webmail los muestra. Nunca queda una URL externa ni un `data:` en una firma guardada.
+- Migración de una vez, con conteo y sin tocar nada hasta `--aplicar`:
+  `cd /opt/maquita-webmail/backend && venv/bin/python ../deploy/tools/firmas-normalizar.py [--aplicar]`.
+  Las firmas con una imagen no recuperable se dejan como están (código de salida 1; `--forzar`).
+- El panel no importa el código del correo: llama a `venv/bin/python -m app.mail.firmas_cli` del
+  correo con la firma por la entrada estándar. Directorio con grupo `maquita-admin` y `2775`.
+- Guía de usuario: `docs/GUIA-FIRMAS.md`. Pruebas: `backend/tests/test_firmas.py`.
+
 ## Z-Push / ActiveSync: Outlook clásico y nuevo Outlook
 
 Z-Push (`deploy/z-push/`, contenedor `zpush`) sirve correo, calendario, contactos y tareas por

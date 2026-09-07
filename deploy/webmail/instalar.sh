@@ -618,6 +618,8 @@ echo ""
 printf '17 * * * * root /opt/maquita-webmail/deploy/tools/calc-storage.sh >/dev/null 2>&1\n' > /etc/cron.d/maquita-storage
 # Sondas horarias de integraciones con clave compartida (lección de N-15)
 install -m644 "${APP_DIR}/deploy/hardening/cron-vigilar-integraciones" /etc/cron.d/maquita-integraciones
+# Imágenes de las firmas (app.mail.firmas): las escribe el correo (www-data) y el panel (maquita-admin)
+install -d -o www-data -g "$(getent group maquita-admin >/dev/null && echo maquita-admin || echo www-data)" -m 2775 /var/lib/maquita-webmail/firmas
 # Colecciones base de Radicale para cada buzón (Z-Push las necesita desde el primer sync)
 install -m644 "${APP_DIR}/deploy/hardening/cron-radicale-colecciones" /etc/cron.d/maquita-radicale
 chmod +x /opt/maquita-webmail/deploy/tools/calc-storage.sh 2>/dev/null || true

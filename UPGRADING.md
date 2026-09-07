@@ -12,6 +12,14 @@ servicio, reiniciar lo que cambió y correr `deploy/tools/validar-despliegue.sh`
 
 ## De 1.7.7 a 1.7.8 — Z-Push vuelve (ActiveSync para Outlook)
 
+Firmas (normalización automática):
+1. `install -d -o www-data -g maquita-admin -m 2775 /var/lib/maquita-webmail/firmas` (lo hace
+   el instalador; en instalaciones sin panel, grupo `www-data`).
+2. Reinstalar el backend y el panel (código nuevo; sin dependencias nuevas: nh3, Pillow, lxml ya estaban).
+3. Migrar las firmas existentes: `cd /opt/maquita-webmail/backend && venv/bin/python
+   ../deploy/tools/firmas-normalizar.py` (cuenta) y después con `--aplicar`.
+
+
 Sin migraciones ni corte. `git fetch --tags --force && git checkout v1.7.8 && bash deploy-webmail.sh`
 (el backend trae el autodiscover con ActiveSync).
 

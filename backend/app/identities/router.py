@@ -1,12 +1,13 @@
-from app.core.sanitize import sanitize_html
-
 """Email identities router — multiple From addresses."""
+
+import asyncio
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 from app.auth.dependencies import get_current_user
+from app.mail.firmas import normalizar_firma
 
 router = APIRouter(prefix="/api/identities", tags=["identities"])
 
@@ -121,17 +122,20 @@ async def create_identity(
         await db.execute(
             "UPDATE user_identities SET is_default=false WHERE username=$1", username
         )
+    firma = await asyncio.to_thread(
+        normalizar_firma, body.signature_html or "", body.email
+    )
     row = await db.fetchrow(
         "INSERT INTO user_identities (username, display_name, email, signature_html, is_default) "
         "VALUES ($1, $2, $3, $4, $5) RETURNING *",
         username,
         body.name,
         body.email,
-        body.signature_html or "",
+        firma.html,
         bool(body.is_default),
     )
     await _ensure_default(db, username)
-    return _row_to_dict(row)
+    return {**_row_to_dict(row), "avisos": firma.avisos}
 
 
 @router.put("/{identity_id}")
@@ -160,8 +164,13 @@ async def update_identity(
                 detail=f"No tienes permiso para usar {body.email} como identidad",
             )
         updates["email"] = body.email
+    avisos: list[str] = []
     if body.signature_html is not None:
-        updates["signature_html"] = body.signature_html
+        firma = await asyncio.to_thread(
+            normalizar_firma, body.signature_html, body.email or existing["email"]
+        )
+        updates["signature_html"] = firma.html
+        avisos = firma.avisos
     if body.is_default is True:
         await db.execute(
             "UPDATE user_identities SET is_default=false WHERE username=$1", username
@@ -179,7 +188,7 @@ async def update_identity(
         row = existing
 
     await _ensure_default(db, username)
-    return _row_to_dict(row)
+    return {**_row_to_dict(row), "avisos": avisos}
 
 
 @router.delete("/{identity_id}")

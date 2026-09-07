@@ -9,6 +9,13 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Añadido
 
+- **Firmas: normalización automática** (`backend/app/mail/firmas.py`). Hallazgo de usuario: firmas traídas
+  de Zimbra con logos que se veían gigantes. Al guardar (webmail, identidades, plantillas del panel)
+  y al enviar, las imágenes se descargan o decodifican, se redimensionan al ancho declarado (máximo
+  600 px) y se guardan en el servidor con nombre estable; salen incrustadas (`cid:`), nunca como URL
+  externa. Tabla exterior de ancho fijo con `role="presentation"`, `margin` de celdas a `padding`,
+  `mailto:` revisado con aviso. Migración de una vez (`deploy/tools/firmas-normalizar.py`), pruebas
+  con la firma real, guía de usuario `docs/GUIA-FIRMAS.md`.
 - **Z-Push, ajustes de la puesta en producción**: `location ^~` en nginx (la regex del webmail ganaba),
   `deploy/tools/radicale-asegurar-colecciones.py` con cron horario (Z-Push devolvía 500 a quien no
   había abierto nunca el calendario del webmail), estado inicial válido, versión visible, prueba de
