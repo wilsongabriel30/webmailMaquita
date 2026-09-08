@@ -849,3 +849,8 @@ def cuota():
     datos = nucleo.cuota(usuario)
     datos['success'] = True
     return jsonify(datos)
+
+
+# Rutas de descarga en ZIP (carpetas y selecciones): viven en su propio módulo
+# (api_descarga_zip.py) y se montan sobre bp_archivos al importarlo.
+import api_descarga_zip  # noqa: E402,F401
