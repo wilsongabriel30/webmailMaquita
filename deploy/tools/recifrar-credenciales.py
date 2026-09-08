@@ -36,6 +36,7 @@ async def _totp(pool) -> tuple[int, int]:
 
 
 async def _nextcloud(pool) -> tuple[int, int, int]:
+    # N-20: la integración con Nextcloud se retiró; la tabla puede no existir.
     try:
         filas = await pool.fetch(
             "SELECT mail_username, nc_password FROM nextcloud_accounts"

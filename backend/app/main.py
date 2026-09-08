@@ -71,7 +71,6 @@ from app.mail.routers.threads import router as threads_router
 from app.mail.routers.transcribe import router as transcribe_router
 from app.meetings.router import router as meetings_router
 from app.mobile.router import router as mobile_router
-from app.nextcloud.router import router as nextcloud_router
 from app.onboarding.router import router as onboarding_router
 from app.phishsim.router import router as phishsim_router
 from app.presence.router import router as presence_router
@@ -761,7 +760,6 @@ app.include_router(
     telemetria_router, prefix="/api/telemetria", tags=["telemetria"]
 )  # cliente Windows
 app.include_router(presence_router)
-app.include_router(nextcloud_router)
 app.include_router(branding_router)
 app.include_router(chatcfg_router)
 app.include_router(calendar_invite_router)

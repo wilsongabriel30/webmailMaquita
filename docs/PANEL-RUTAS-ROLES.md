@@ -140,12 +140,6 @@ EXPLÍCITA** no lleva ninguna dependencia de autenticación en la ruta: hay que 
 | POST | `/api/mailviewer/move` | `require_operador,require_role` | require_role(…) — rol explícito | `app/mailviewer/router.py` |
 | GET | `/api/mailviewer/quota/{username:path}` | `get_current_admin,require_operador` | operador+ | `app/mailviewer/router.py` |
 | GET | `/api/mailviewer/search/{username:path}` | `require_operador` | operador+ | `app/mailviewer/router.py` |
-| GET | `/api/nextcloud/check/{email}` | `get_current_admin` | rol efectivo (viewer: solo GET) | `app/nextcloud/router.py` |
-| GET | `/api/nextcloud/groups` | `get_current_admin` | rol efectivo (viewer: solo GET) | `app/nextcloud/router.py` |
-| GET | `/api/nextcloud/status` | `get_current_admin` | rol efectivo (viewer: solo GET) | `app/nextcloud/router.py` |
-| GET | `/api/nextcloud/users` | `get_current_admin` | rol efectivo (viewer: solo GET) | `app/nextcloud/router.py` |
-| POST | `/api/nextcloud/users` | `require_role` | require_role(…) — rol explícito | `app/nextcloud/router.py` |
-| GET | `/api/nextcloud/users/{userid}` | `get_current_admin` | rol efectivo (viewer: solo GET) | `app/nextcloud/router.py` |
 | GET | `/api/office-config` | `get_current_admin` | rol efectivo (viewer: solo GET) | `app/office_config/router.py` |
 | PUT | `/api/office-config` | `require_role` | require_role(…) — rol explícito | `app/office_config/router.py` |
 | POST | `/api/office-config/test` | `get_current_admin` | rol efectivo (viewer: solo GET) | `app/office_config/router.py` |

@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     secure_msg_key: str = ""
     admin_jwt_secret: str = ""
     # Llave DEDICADA de cifrado de credenciales (H-02): formato de llave Fernet. Cifra la
-    # credencial IMAP cacheada, las cuentas de Nextcloud y el secreto TOTP. La «anterior»
+    # credencial IMAP cacheada y el secreto TOTP. La «anterior»
     # solo sirve para rotar (se descifra con ambas, se cifra con la actual).
     credential_encryption_key: str = ""
     credential_encryption_key_anterior: str = ""
@@ -56,10 +56,6 @@ class Settings(BaseSettings):
     ia_embed_model: str = "nomic-embed-text"
     ia_embed_url: str = ""  # endpoint de embeddings; vacio -> usa ia_base_url
     ollama_url: str = "http://127.0.0.1:11434"
-    nc_base_url: str = "http://nextcloud-server"
-    nc_admin_user: str = ""
-    nc_admin_pass: str = ""
-    nc_public_url: str = "https://nube.ejemplo.com"
     public_base_url: str = "https://mail.maquita.org"
     # SSO / OIDC (Keycloak)
     kc_oidc_enabled: bool = False
