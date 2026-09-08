@@ -9,6 +9,15 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Corregido
 
+- **N-28, el aviso solo llegaba a quien ya tenia la conversacion abierta.** Un mensaje nuevo se
+  emitia unicamente a la sala de la conversacion, asi que sonaba entre dos ventanas con el chat
+  desplegado y no sonaba nada al escribir de una seccion a otra. Ahora se emite ademas
+  `aviso_chat` a la sala personal de cada participante, a la que toda ventana suya se une al
+  conectarse: suena estes donde estes. Respeta a quien silencio la conversacion y a quien ya
+  no participa, nunca avisa a quien escribe, y si la consulta falla el mensaje se entrega igual.
+
+### Corregido
+
 - **N-25, la lista de personas del chat devolvía el id equivocado y salía siempre vacía.**
   `GET /api/chat/trabajadores/activos` filtraba por `estado igual a ACTIVO` y en nómina el valor
   está escrito `Activo`: devolvía cero filas, así que en la sección de archivos no aparecía
