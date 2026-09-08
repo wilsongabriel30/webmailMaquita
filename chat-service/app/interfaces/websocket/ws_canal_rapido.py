@@ -2,7 +2,7 @@
 """Canal rápido: evento `send` (ACK instantáneo, idempotencia, emisión compacta). Extraído de ws_canal_rapido.py el 28/08/2026
 sin cambios; los alias (join/leave/typing/read/ping_chat) están en ws_canal_rapido_alias.py y typing_with_expire en ws_escribiendo_expira.py."""
 from interfaces.websocket.manejador_websocket import *  # noqa: F401,F403
-from interfaces.websocket.manejador_websocket import _cerrar_servicio, _commit_servicio, _es_participante, _limpiar_indicador, _obtener_mensaje_por_client_id, _obtener_servicio_chat, _registrar_client_id, _typing_timers  # noqa: F401
+from interfaces.websocket.manejador_websocket import _cerrar_servicio, _commit_servicio, _es_participante, _limpiar_indicador, _obtener_mensaje_por_client_id, _obtener_servicio_chat, _participantes_de, _registrar_client_id, _typing_timers  # noqa: F401
 
 
 def registrar(socketio, base):
@@ -188,6 +188,25 @@ def registrar(socketio, base):
                 logger.debug("[WebSocket] msg id=%s sala=%s bytes=%s", mensaje_id, room,
                              len(str(msg_data.get('m') or '').encode('utf-8')))  # [M-07] sin contenido
                 socketio.emit('msg', msg_data, room=room, skip_sid=request.sid)
+
+                # Aviso a la PERSONA (N-28). La línea de arriba solo llega a quien tiene esa
+                # conversación abierta; sin esto, escribir de una sección a otra no avisaba.
+                from interfaces.websocket.aviso_personal import emitir as _emitir_aviso
+                _emitir_aviso(
+                    socketio, conversacion_id,
+                    {
+                        'id': mensaje_id,
+                        'contenido': contenido,
+                        'tipo': tipo,
+                        'remitente_id': usuario_id,
+                        'remitente': {'id': usuario_id,
+                                      'nombre': session.get('usuario_nombre') or ''},
+                    },
+                    _participantes_de,
+                    registrar_error=lambda e: logger.warning(
+                        "[WebSocket] aviso personal no enviado conv=%s: %s",
+                        conversacion_id, e),
+                )
                 print(f"[WebSocket] ✅ emit() ejecutado a sala {room}")
 
                 # Canal único de notificaciones (evento 'notificacion' a user_<id>)
