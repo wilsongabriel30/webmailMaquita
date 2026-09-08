@@ -4,6 +4,24 @@ Cómo se vigila la plataforma y qué hacer cuando algo avisa. Documento vivo.
 
 ---
 
+## Panel: por qué su unidad no lleva NoNewPrivileges
+
+El panel corre como `maquita-admin` y pide lo poco que necesita con `sudo` sobre
+`/usr/local/sbin/maquita-sudo`, que valida programa, subcomando y argumentos. `sudo` es un
+binario con setuid, de modo que **`NoNewPrivileges=yes` lo rompe entero**: toda orden
+privilegiada falla con `sudo: the "no new privileges" flag is set` y el panel responde «Error
+interno del servidor» al crear un buzón, cambiar una cuota o reiniciar un servicio.
+
+Comprobación después de tocar la unidad:
+
+```
+systemctl show maquita-admin -p User -p NoNewPrivileges     # maquita-admin / no
+sudo -u maquita-admin sudo -n /usr/local/sbin/maquita-sudo doveadm pw -s SHA512-CRYPT -p prueba
+```
+
+La segunda orden debe devolver un hash `{SHA512-CRYPT}$6$…`. Si dice «no new privileges»,
+el panel no puede administrar nada.
+
 ## Puerta del chat: quién puede abrir sesión
 
 El servicio de chat abre sesión propia (`chat_session`) al canjear un vale en `/sso/entrar`.

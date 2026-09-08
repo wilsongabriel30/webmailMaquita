@@ -7,6 +7,16 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Corregido
+
+- **N-26, el panel no podía ejecutar nada con privilegio**. El confinamiento del panel llevaba
+  `NoNewPrivileges=yes` desde que corría como root, cuando era inocuo. Al pasar el panel a
+  usuario propio con `sudo` acotado (fase 2 de A-15), ese ajuste dejó fuera de servicio todo lo
+  privilegiado: crear un buzón, cambiar cuotas, reiniciar servicios o mirar la cola devolvían
+  «Error interno del servidor» con el mensaje `sudo: the "no new privileges" flag is set`.
+  Se retira ese ajuste del panel; el resto del confinamiento queda igual, y quien acota el
+  privilegio sigue siendo el envoltorio `maquita-sudo` más el sudoers.
+
 ## [1.7.10] - 2026-09-08
 
 ### Seguridad
