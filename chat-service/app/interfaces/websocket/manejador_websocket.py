@@ -429,6 +429,41 @@ def _limpiar_indicador(conversacion_id: int, usuario_id: int):
 # =============================================================================
 # FUNCIONES PUBLICAS PARA EMITIR DESDE OTROS MODULOS
 # =============================================================================
+_participantes_cache = {}
+_PARTICIPANTES_TTL = 60
+
+
+def _participantes_de(conversacion_id):
+    """Participantes de una conversación: id, si sigue dentro y si la tiene silenciada.
+
+    Se recuerda un minuto: por una conversación pasan muchos mensajes seguidos y la lista
+    cambia poco. Si algo falla, se devuelve vacío y el aviso simplemente no sale.
+    """
+    import time as _t
+    ahora = _t.time()
+    guardado = _participantes_cache.get(conversacion_id)
+    if guardado and ahora - guardado[0] < _PARTICIPANTES_TTL:
+        return guardado[1]
+    from infraestructura.base_datos.base import obtener_gestor
+    sesion = obtener_gestor().session()
+    try:
+        from modulos.chat.infraestructura.persistencia.modelos.modelo_conversacion import (
+            ModeloParticipante,
+        )
+        filas = (sesion.query(ModeloParticipante)
+                 .filter(ModeloParticipante.conversation_id == conversacion_id)
+                 .all())
+        gente = [{"user_id": f.user_id, "is_active": f.is_active, "is_muted": f.is_muted}
+                 for f in filas]
+    finally:
+        try:
+            sesion.close()
+        except Exception:
+            pass
+    _participantes_cache[conversacion_id] = (ahora, gente)
+    return gente
+
+
 
 def emitir_mensaje_nuevo(conversacion_id: int, mensaje_data: Dict[str, Any]):
     """
@@ -445,6 +480,15 @@ def emitir_mensaje_nuevo(conversacion_id: int, mensaje_data: Dict[str, Any]):
 
         # Emitir en formato legacy para compatibilidad
         socketio.emit('new_message', mensaje_data, room=room)
+
+        # Aviso a la PERSONA, esté donde esté (N-28). Lo de arriba solo llega a quien tiene
+        # la conversación abierta; esto llega a cualquier ventana suya (Raíces, Drive, correo).
+        from interfaces.websocket.aviso_personal import emitir as emitir_aviso_personal
+        emitir_aviso_personal(
+            socketio, conversacion_id, mensaje_data, _participantes_de,
+            registrar_error=lambda e: logger.warning(
+                "[WebSocket] aviso personal no enviado conv=%s: %s", conversacion_id, e),
+        )
 
         # Obtener nombre del remitente
         remitente = mensaje_data.get('remitente', {})
