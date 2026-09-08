@@ -110,11 +110,13 @@ export function AttachmentPreview({
           // then initialize OnlyOffice in the next tick.
           setLoading(false);
           setTimeout(() => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- DocsAPI lo inyecta el script de OnlyOffice
             if (ooEditorRef.current && (window as any).DocsAPI) {
               ooEditorRef.current.innerHTML = '';
               config.type = 'embedded';
               config.width = '100%';
               config.height = '100%';
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any -- DocsAPI lo inyecta el script de OnlyOffice
               new (window as any).DocsAPI.DocEditor("oo-editor-placeholder", config);
             } else {
               setError(true);
