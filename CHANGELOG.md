@@ -7,6 +7,15 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Añadido
+
+- **El chat se atiende desde el Drive**. La sección de archivos comparte dominio con el resto,
+  así que el botón flotante abre EL MISMO chat, con la misma sesión y las mismas conversaciones.
+  El botón que había solo aparecía si el chat respondía, y en el Drive nunca había sesión del
+  chat, de modo que no aparecía nunca: ahora el módulo `chat-flotante.js` consigue la sesión por
+  la puerta dedicada, muestra el contador de mensajes sin leer, suena al llegar uno y, con
+  permiso, saca el aviso del sistema. Si la instalación no tiene chat, no se dibuja nada.
+
 ### Corregido
 
 - **N-26, el panel no podía ejecutar nada con privilegio**. El confinamiento del panel llevaba
