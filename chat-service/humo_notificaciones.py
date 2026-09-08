@@ -29,7 +29,14 @@ def token(correo):
         if '=' in l and not l.strip().startswith('#'):
             k, v = l.strip().split('=', 1)
             env[k] = v.strip('"\'')
-    return jwt.encode({'sub': correo, 'type': 'access', 'exp': int(time.time()) + 900},
+    # `sid` y `av` NO son adorno: desde F-03 la sesion del chat los exige, porque son los que
+    # permiten revocarla desde el correo. El vale real del webmail los lleva; sin ellos el
+    # socket se rechaza con «sesion central no valida» y esta prueba daba rojo sin haber nada
+    # roto. Aqui se usa un `sid` propio de la prueba, que el correo nunca ha revocado.
+    return jwt.encode({'sub': correo, 'type': 'access',
+                       'sid': 'humo-t47-%d' % int(time.time()),
+                       'av': 0,
+                       'exp': int(time.time()) + 900},
                       env['CHAT_JWT_SECRET'], algorithm='HS256')
 
 
