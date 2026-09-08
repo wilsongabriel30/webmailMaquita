@@ -33,7 +33,7 @@ interface Props {
   // Callbacks preparados para backends externos
   onDictate?: () => void;             // → VM 170 (ia-maquita) Whisper STT
   onScheduleSend?: () => void;        // → Backend webmail: programar envío
-  onOpenApps?: () => void;            // → Futuro: abrir archivos con el editor de documentos
+  onOpenApps?: () => void;            // → Futuro: Nextcloud/LibreOffice Online para ver archivos
   onReviewEditor?: () => void;        // → VM 170 (ia-maquita) revisión IA del texto
   onCheckAccessibility?: () => void;  // → VM 170 (ia-maquita) análisis accesibilidad IA
   onFormatPaint?: (marks: string[]) => void; // → Copiar formato entre selecciones

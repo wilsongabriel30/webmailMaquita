@@ -809,7 +809,7 @@ export function ComposePanel({ win }: Props) {
 
   // handleScheduleSend defined above
 
-  //  Futuro: abrir con el editor de documentos
+  //  Futuro: Nextcloud/LibreOffice Online
   const handleOpenApps = useCallback(() => {
     const appList = [
       'Traductor de idiomas',
