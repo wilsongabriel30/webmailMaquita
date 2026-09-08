@@ -320,18 +320,57 @@ def _cerrar_servicio(servicio):
             logger.error(f"[WebSocket] Error cerrando sesion: {e}")
 
 
-def _es_participante(usuario_id: int, conversacion_id: int) -> bool:
-    """Verifica si el usuario es participante de una conversacion."""
+def _ver_conversacion(conversacion_id, usuario_id):
+    """La conversación tal como la ve el servicio (con su sesión y su caché)."""
     servicio = None
     try:
         servicio = _obtener_servicio_chat()
-        conv = servicio.obtener_conversacion(conversacion_id, usuario_id)
-        return conv is not None
-    except Exception:
-        return False
+        return servicio.obtener_conversacion(conversacion_id, usuario_id)
     finally:
         if servicio:
             _cerrar_servicio(servicio)
+
+
+def _participa_en_base(conversacion_id, usuario_id) -> bool:
+    """La autoridad: la tabla de participantes, con una sesión nueva y sin caché."""
+    from infraestructura.base_datos.base import obtener_gestor
+    sesion = obtener_gestor().session()
+    try:
+        from modulos.chat.infraestructura.persistencia.modelos.modelo_conversacion import (
+            ModeloParticipante,
+        )
+        fila = (sesion.query(ModeloParticipante.id)
+                .filter(ModeloParticipante.conversation_id == conversacion_id)
+                .filter(ModeloParticipante.user_id == usuario_id)
+                .filter(ModeloParticipante.is_active.is_(True))
+                .first())
+        return fila is not None
+    finally:
+        try:
+            sesion.close()
+        except Exception:
+            pass
+
+
+def _es_participante(usuario_id: int, conversacion_id: int) -> bool:
+    """Verifica si el usuario es participante de una conversacion (N-29).
+
+    Si el servicio no la ve, se confirma contra la base: una conversación recién creada podía
+    no estar todavía a la vista y el PRIMER mensaje se rechazaba y se perdía. La regla no se
+    relaja: solo pasa quien la base reconoce como participante activo.
+    """
+    from interfaces.websocket.participacion import es_participante
+
+    def _apuntar(que, error):
+        if que == "recien_creada":
+            logger.info("[WebSocket] participacion confirmada en base (conversacion nueva) "
+                        "usuario=%s conv=%s", usuario_id, conversacion_id)
+        else:
+            logger.warning("[WebSocket] comprobando participacion (%s) usuario=%s conv=%s: %s",
+                           que, usuario_id, conversacion_id, error)
+
+    return es_participante(conversacion_id, usuario_id, _ver_conversacion, _participa_en_base,
+                           registrar=_apuntar)
 
 
 def _conversacion_de_mensaje(mensaje_id) -> Optional[int]:
