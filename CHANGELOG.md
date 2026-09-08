@@ -7,6 +7,18 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Seguridad
+
+- **N-24, la puerta dedicada del chat admite a Raíces**. Raíces entraba al chat firmando su
+  cookie con la clave MAESTRA del correo: quien pudiera leer su configuración podía fabricar
+  sesiones del buzón, y cada rotación de esa clave dejaba el chat inservible desde Raíces
+  (ocurrió el 03/09/2026). Ahora `/sso/entrar` acepta vales de emisores declarados
+  (`correo` y `raices`) con el secreto DEDICADO. La sesión abierta por un emisor que no es el
+  correo no se revalida contra el correo (no existe tal sesión): se rige por su propio tope
+  absoluto (`CHAT_SESION_EXTERNA_MAX_SEG`, 12 h por omisión) y por la revocación empujada, y
+  exige que el vale traiga su propio `sid` para poder revocarla. Las sesiones del correo
+  mantienen la regla de F-03 sin cambios.
+
 ### Añadido
 
 - **Outlook nuevo (y Outlook para móvil)**: excepción del filtro por país para los rangos que Microsoft
