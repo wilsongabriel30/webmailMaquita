@@ -183,6 +183,9 @@
         s.onload = function () {
             try {
                 var socket = io({ path: '/socket.io', transports: ['websocket', 'polling'] });
+                // `aviso_chat` llega a la sala personal: suena aunque no se tenga
+                // abierta esa conversación. Los otros dos se mantienen por compatibilidad.
+                socket.on('aviso_chat', avisar);
                 socket.on('new_message', avisar);
                 socket.on('notification', avisar);
             } catch (e) { }
