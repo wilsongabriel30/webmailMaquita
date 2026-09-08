@@ -7,6 +7,8 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.7.14] - 2026-09-08
+
 ### Seguridad
 
 - **N-31: `/api/ai/health` publicaba el mapa interno de la IA.** Sin sesion devolvia los
