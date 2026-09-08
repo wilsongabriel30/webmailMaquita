@@ -7,6 +7,14 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Retirado
+
+- **Nextcloud (N-20)**: la integración completa. Webmail: ruta `/api/nextcloud/*` y botón «Guardar en Nube»
+  (los adjuntos van al Almacén); panel: ruta `/api/nextcloud/*` y la sección «Nube (Nextcloud)» de la
+  configuración de OnlyOffice; chat: variables `NEXTCLOUD_*`; `NC_*` fuera de la configuración del backend.
+  La tabla `nextcloud_accounts` y las columnas `nc_*` de `office_config` se conservan vacías (limpieza opcional
+  en UPGRADING).
+
 ### Cambiado
 
 - OPERACION: con un proxy TLS delante, las comprobaciones por 443 se lanzan desde fuera de la VM (apunte de Andes).

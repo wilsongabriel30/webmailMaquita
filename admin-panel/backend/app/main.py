@@ -32,7 +32,6 @@ from app.signatures.router import router as signatures_router
 from app.autoresponder.router import router as autoresponder_router
 from app.dnscheck.router import router as dnscheck_router
 from app.shared.router import router as shared_router
-from app.nextcloud.router import router as nextcloud_router
 from app.ediscovery.router import router as ediscovery_router
 from app.branding.router import router as branding_router
 from app import config
@@ -171,7 +170,6 @@ app.include_router(risky_login_router)
 app.include_router(antispam_avanzado_router)
 app.include_router(zap_router)
 app.include_router(safeattach_router)
-app.include_router(nextcloud_router)
 app.include_router(ediscovery_router)
 app.include_router(branding_router)
 app.include_router(geoaccess_router)

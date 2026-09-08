@@ -4,12 +4,8 @@ import { SectionHelp } from "../components/SectionHelp";
 
 interface OfficeCfg {
   onlyoffice_url: string;
-  nc_base_url: string;
-  nc_public_url: string;
-  nc_admin_user: string;
   enabled: boolean;
   has_secret?: boolean;
-  has_nc_pass?: boolean;
   from_env?: boolean;
 }
 
@@ -18,10 +14,9 @@ const labelCls = "block text-sm font-medium text-ms-gray-130 mb-1";
 
 export function OfficeConfig() {
   const [cfg, setCfg] = useState<OfficeCfg>({
-    onlyoffice_url: "", nc_base_url: "", nc_public_url: "", nc_admin_user: "", enabled: false,
+    onlyoffice_url: "", enabled: false,
   });
   const [secret, setSecret] = useState("");
-  const [ncPass, setNcPass] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -38,9 +33,9 @@ export function OfficeConfig() {
     setSaving(true); setMsg(null);
     try {
       await api.put("/office-config", {
-        ...cfg, onlyoffice_secret: secret, nc_admin_pass: ncPass,
+        ...cfg, onlyoffice_secret: secret,
       });
-      setSecret(""); setNcPass("");
+      setSecret("");
       setMsg({ ok: true, text: "Configuración guardada" });
     } catch (e: any) {
       setMsg({ ok: false, text: e?.message || "Error al guardar" });
@@ -51,11 +46,10 @@ export function OfficeConfig() {
     setTesting(true); setMsg(null);
     try {
       const r: any = await api.post("/office-config/test", {
-        ...cfg, onlyoffice_secret: secret, nc_admin_pass: ncPass,
+        ...cfg, onlyoffice_secret: secret,
       });
       const oo = r.onlyoffice?.ok ? "OnlyOffice OK" : `OnlyOffice falló (${r.onlyoffice?.status || r.onlyoffice?.error || "?"})`;
-      const nc = r.nextcloud?.ok ? "Nextcloud OK" : `Nextcloud falló (${r.nextcloud?.status || r.nextcloud?.error || "?"})`;
-      setMsg({ ok: !!(r.onlyoffice?.ok && r.nextcloud?.ok), text: `${oo} · ${nc}` });
+      setMsg({ ok: !!r.onlyoffice?.ok, text: oo });
     } catch (e: any) {
       setMsg({ ok: false, text: e?.message || "Error en la prueba" });
     } finally { setTesting(false); }
@@ -67,30 +61,29 @@ export function OfficeConfig() {
     <div className="max-w-2xl">
       <div className="flex justify-end">
         <SectionHelp
-          titulo="OnlyOffice / Nextcloud"
+          titulo="OnlyOffice"
           items={[
-            { titulo: "Qué hace esta sección", desc: "Conecta el webmail con OnlyOffice (para previsualizar adjuntos de Word, Excel y PowerPoint) y con Nextcloud (para el botón Guardar en Nube)." },
-            { titulo: "Habilitar integración", desc: "La casilla superior enciende o apaga ambas funciones para todos los usuarios del webmail." },
+            { titulo: "Qué hace esta sección", desc: "Conecta el webmail con OnlyOffice para previsualizar y editar adjuntos de Word, Excel y PowerPoint. Los archivos viven en el Almacén (Drive)." },
+            { titulo: "Habilitar integración", desc: "La casilla superior enciende o apaga la previsualización de documentos para todos los usuarios del webmail." },
             { titulo: "Document Server (OnlyOffice)", desc: "URL del servidor OnlyOffice y su secreto JWT (debe coincidir con el configurado en OnlyOffice). Sin JWT correcto, el visor de documentos no abre los adjuntos." },
-            { titulo: "Nube (Nextcloud)", desc: "URL interna: la usa el servidor de correo para hablar con Nextcloud (red interna). URL pública: la que abren los usuarios en su navegador. Usuario y contraseña de administrador se usan para crear las carpetas y compartir archivos." },
-            { titulo: "Credenciales guardadas", desc: "El secreto JWT y la contraseña se guardan cifrados; si ya existen y dejas los campos vacíos, se conservan los valores actuales." },
-            { titulo: "Guardar y probar", desc: "Guardar aplica los cambios de inmediato; Probar conexión verifica OnlyOffice y Nextcloud por separado sin guardar nada e indica cuál falla." },
+            { titulo: "Credenciales guardadas", desc: "El secreto JWT se guarda cifrado; si ya existe y dejas el campo vacío, se conserva el actual." },
+            { titulo: "Guardar y probar", desc: "Guardar aplica los cambios de inmediato; Probar conexión verifica OnlyOffice sin guardar nada." },
           ]}
         />
       </div>
-      <h1 className="text-xl font-semibold text-ms-gray-160 mb-1">OnlyOffice / Nextcloud</h1>
+      <h1 className="text-xl font-semibold text-ms-gray-160 mb-1">OnlyOffice</h1>
       <p className="text-sm text-ms-gray-110 mb-5">
-        Parametriza el visor de documentos Office (OnlyOffice) y la cuenta de la Nube
-        (Nextcloud) que usa el webmail para previsualizar adjuntos y para "Guardar en Nube".
+        Parametriza el visor de documentos Office (OnlyOffice) que usa el webmail para previsualizar
+        adjuntos; los archivos se guardan en el Almacén (Drive).
         {cfg.from_env && " (Mostrando lo configurado hoy en el servidor.)"}
       </p>
 
       <div className="bg-white border border-ms-gray-30 rounded-lg p-5 space-y-5">
         <label className="flex items-center gap-2 text-sm font-medium text-ms-gray-130">
           <input type="checkbox" checked={cfg.enabled}
-            title="Activa o desactiva para todos los usuarios la previsualización de documentos Office y el botón Guardar en Nube del webmail."
+            title="Activa o desactiva para todos los usuarios la previsualización de documentos Office en el webmail."
             onChange={(e) => setCfg({ ...cfg, enabled: e.target.checked })} />
-          Habilitar integración de documentos en la nube
+          Habilitar la previsualización de documentos Office
         </label>
 
         <div className="border-t border-ms-gray-20 pt-4">
@@ -113,38 +106,6 @@ export function OfficeConfig() {
           </div>
         </div>
 
-        <div className="border-t border-ms-gray-20 pt-4">
-          <h2 className="text-sm font-semibold text-ms-gray-150 mb-3">Nube (Nextcloud)</h2>
-          <div className="space-y-3">
-            <div>
-              <label className={labelCls}>URL interna (servidor a servidor)</label>
-              <input className={inputCls} placeholder="http://10.0.0.10"
-                title="URL de Nextcloud que usa el servidor de correo para comunicarse directamente (red interna, ej. http://10.0.0.10). No la ven los usuarios."
-                value={cfg.nc_base_url} onChange={(e) => setCfg({ ...cfg, nc_base_url: e.target.value })} />
-            </div>
-            <div>
-              <label className={labelCls}>URL pública (la que ven los usuarios)</label>
-              <input className={inputCls} placeholder="https://nube.example.com"
-                title="URL de Nextcloud que abren los usuarios en su navegador (ej. https://nube.example.com). Se usa para los enlaces de Guardar en Nube."
-                value={cfg.nc_public_url} onChange={(e) => setCfg({ ...cfg, nc_public_url: e.target.value })} />
-            </div>
-            <div>
-              <label className={labelCls}>Usuario administrador de Nextcloud</label>
-              <input className={inputCls} placeholder="gestiontecnologia@maquita.com.ec"
-                title="Cuenta administradora de Nextcloud con la que el webmail sube archivos y crea carpetas al usar Guardar en Nube."
-                value={cfg.nc_admin_user} onChange={(e) => setCfg({ ...cfg, nc_admin_user: e.target.value })} />
-            </div>
-            <div>
-              <label className={labelCls}>
-                Contraseña del administrador {cfg.has_nc_pass && <span className="text-ms-green font-normal">(configurada — deja vacío para conservarla)</span>}
-              </label>
-              <input type="password" className={inputCls} placeholder={cfg.has_nc_pass ? "••••••••" : "Contraseña"}
-                title="Contraseña (o contraseña de aplicación) del administrador de Nextcloud. Se guarda cifrada; si ya hay una y dejas el campo vacío, se conserva la actual."
-                value={ncPass} onChange={(e) => setNcPass(e.target.value)} />
-            </div>
-          </div>
-        </div>
-
         {msg && (
           <div className={`text-sm px-3 py-2 rounded ${msg.ok ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
             {msg.text}
@@ -153,12 +114,12 @@ export function OfficeConfig() {
 
         <div className="flex gap-3 pt-1">
           <button onClick={save} disabled={saving}
-            title="Guarda esta configuración en el servidor y la aplica de inmediato a la previsualización de documentos y a Guardar en Nube."
+            title="Guarda esta configuración en el servidor y la aplica de inmediato a la previsualización de documentos."
             className="px-4 py-2 bg-ms-blue text-white rounded text-sm font-medium hover:bg-ms-blue-dark disabled:opacity-50">
             {saving ? "Guardando…" : "Guardar"}
           </button>
           <button onClick={test} disabled={testing}
-            title="Verifica la conexión con OnlyOffice y con Nextcloud usando los datos del formulario, sin guardar nada. Indica por separado cuál responde y cuál falla."
+            title="Verifica la conexión con OnlyOffice usando los datos del formulario, sin guardar nada."
             className="px-4 py-2 border border-ms-gray-30 text-ms-gray-150 rounded text-sm font-medium hover:bg-ms-gray-10 disabled:opacity-50">
             {testing ? "Probando…" : "Probar conexión"}
           </button>
