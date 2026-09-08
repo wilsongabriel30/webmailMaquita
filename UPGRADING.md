@@ -10,7 +10,48 @@ servicio, reiniciar lo que cambió y correr `deploy/tools/validar-despliegue.sh`
 
 ---
 
-## Sin publicar (después de 1.7.9)
+## De 1.7.9 a 1.7.10
+
+Tres cambios, ninguno obligatorio para el correo en sí.
+
+1. **Panel, alta de buzón**: la dirección se compone con el nombre de la cuenta más un dominio
+   elegido de la lista del servidor. No hace falta nada: basta con reconstruir el panel.
+
+   ```
+   cd /opt/maquita-webmail/admin-panel/frontend && npx vite build
+   ```
+
+2. **Outlook nuevo**: si el acceso a 443/143/993/465/587 está limitado por país, el Outlook nuevo
+   no funciona, porque sincroniza desde la nube de Microsoft. Instala la excepción:
+
+   ```
+   install -m 750 deploy/tools/ms-outlook-rangos.sh /usr/local/sbin/ms-outlook-rangos.sh
+   /usr/local/sbin/ms-outlook-rangos.sh
+   nft insert rule inet filter input tcp dport '{ 143, 443, 465, 587, 993 }' \
+       ip saddr @nube_microsoft counter accept
+   nft list ruleset > /etc/nftables.conf
+   printf '#!/bin/sh\n/usr/local/sbin/ms-outlook-rangos.sh\n' > /etc/cron.weekly/ms-outlook-rangos
+   chmod 755 /etc/cron.weekly/ms-outlook-rangos
+   ```
+
+   Comprobación: `nft list set inet filter nube_microsoft | grep -c /` debe pasar de 8, y el contador
+   de la regla sube al añadir una cuenta desde el Outlook nuevo.
+
+3. **Puerta del chat (N-24)**: el servicio admite ahora vales de emisores declarados. Si otro sistema
+   propio (por ejemplo Raíces) va a entrar al chat, dale `CHAT_SSO_SECRET` (el secreto DEDICADO, nunca
+   el del correo) y que emita el vale con `iss` igual a `raices` y su propio `sid`. Opcional:
+   `CHAT_SESION_EXTERNA_MAX_SEG` (12 h por omisión) para el tope absoluto de esas sesiones.
+
+   Reinicia el servicio de chat (`systemctl restart maquita-chat`) y comprueba:
+
+   ```
+   journalctl -u maquita-chat | grep "sso/entrar"    # vales rechazados y su motivo
+   ```
+
+   Negativos que deben fallar: un vale con `iss` de un emisor no declarado, uno sin `sid` y uno
+   reutilizado devuelven 401.
+
+### Además, en esta versión: Nextcloud retirado del todo (N-20)
 
 Nextcloud retirado del todo (N-20): ya no hay «Guardar en Nube» en el webmail, ni sección de Nextcloud en el
 panel, ni rutas `/api/nextcloud/*`. Nada que hacer al actualizar salvo limpieza opcional:
