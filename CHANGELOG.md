@@ -9,6 +9,16 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Corregido
 
+- **N-29, se perdia el PRIMER mensaje de cada conversacion nueva.** Al escribir a alguien por
+  primera vez, la interfaz crea la conversacion y envia en el acto; la comprobacion de acceso
+  preguntaba al servicio, que todavia no veia esa conversacion, y el envio se rechazaba con
+  «No tienes acceso a esta conversacion». Quedaba una conversacion vacia y el mensaje no
+  llegaba a nadie. Ahora, si el servicio no la ve, se confirma contra la tabla de participantes,
+  que es la autoridad: la regla no se relaja (quien no participa sigue sin poder escribir) y el
+  primer mensaje sale.
+
+### Corregido
+
 - **N-28, el aviso solo llegaba a quien ya tenia la conversacion abierta.** Un mensaje nuevo se
   emitia unicamente a la sala de la conversacion, asi que sonaba entre dos ventanas con el chat
   desplegado y no sonaba nada al escribir de una seccion a otra. Ahora se emite ademas
