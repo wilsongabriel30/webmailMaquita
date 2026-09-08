@@ -1,0 +1,11 @@
+{
+  "name": "pruebas-navegador",
+  "private": true,
+  "description": "Pruebas de extremo a extremo con navegador real (Playwright)",
+  "scripts": {
+    "prueba": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0"
+  }
+}
