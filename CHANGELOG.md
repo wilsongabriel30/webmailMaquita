@@ -7,6 +7,17 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Cambiado
+
+- **Un solo canal de aviso: `notificacion` (contrato T-47).** En 1.7.11 se anadio `aviso_chat`
+  creyendo que el servidor solo avisaba dentro de la conversacion abierta. No era asi: el
+  servidor ya emitia `notificacion` a la sala personal de cada destinatario en los DOS caminos
+  de envio, con titulo, texto, enlace, avatar y la marca `silencioso` de «no molestar». Lo que
+  fallaba era el cliente, que escuchaba `notification`, en ingles, que no existe. Se retira
+  `aviso_chat` (no llego a tener clientes) y las piezas web escuchan el evento del contrato,
+  el mismo que usa la aplicacion de escritorio. Ademas, ahora respetan «no molestar»: el aviso
+  llega marcado y no suena.
+
 ## [1.7.11] - 2026-09-08
 
 ### Añadido

@@ -164,15 +164,16 @@
     }
 
     function avisar(datos) {
-        var conv = datos && (datos.conversation_id || datos.conversacion_id);
+        if (datos && datos.silencioso) { return; }   // «no molestar»: llega, pero no suena
+        var conv = datos && (datos.conversacion_id || datos.conversation_id);
         var clave = String(conv || 'general');
         var ahora = Date.now();
         if (ultimoAviso[clave] && ahora - ultimoAviso[clave] < ESPERA_MS) return;
         ultimoAviso[clave] = ahora;
         if (panel && panel.style.display === 'block') { return; }   // ya lo tiene abierto
         sonar();
-        var quien = (datos && (datos.sender_name || datos.remitente_nombre)) || 'Mensaje nuevo';
-        var texto = (datos && (datos.content || datos.contenido)) || 'Te han escrito por el chat';
+        var quien = (datos && (datos.titulo || datos.sender_name || datos.remitente_nombre)) || 'Mensaje nuevo';
+        var texto = (datos && (datos.texto || datos.content || datos.contenido)) || 'Te han escrito por el chat';
         avisoDelSistema(quien, String(texto).slice(0, 140));
         refrescarContador();
     }
@@ -183,11 +184,10 @@
         s.onload = function () {
             try {
                 var socket = io({ path: '/socket.io', transports: ['websocket', 'polling'] });
-                // `aviso_chat` llega a la sala personal: suena aunque no se tenga
-                // abierta esa conversación. Los otros dos se mantienen por compatibilidad.
-                socket.on('aviso_chat', avisar);
+                // `notificacion` es el canal del contrato (T-47): llega a la sala
+                // personal aunque no se tenga abierta esa conversación.
+                socket.on('notificacion', avisar);
                 socket.on('new_message', avisar);
-                socket.on('notification', avisar);
             } catch (e) { }
         };
         s.onerror = function () { };                 // sin tiempo real quedan el contador y el botón
