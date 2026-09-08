@@ -4,7 +4,7 @@ Antes la llave Fernet se derivaba de SECRET_KEY (la que firma los JWT): comprome
 comprometía la otra, y rotar SECRET_KEY rompía todo lo cifrado sin aviso. Ahora:
 
 - `CREDENTIAL_ENCRYPTION_KEY` (obligatoria, formato de llave Fernet) cifra la credencial IMAP
-  cacheada en Redis, las credenciales de Nextcloud guardadas en la base y el secreto TOTP.
+  cacheada en Redis y el secreto TOTP.
 - `CREDENTIAL_ENCRYPTION_KEY_ANTERIOR` (opcional) permite rotar: se descifra con cualquiera de
   las dos y se cifra siempre con la actual (`MultiFernet`). `deploy/tools/recifrar-credenciales.py`
   vuelve a cifrar lo guardado en la base con la llave actual.

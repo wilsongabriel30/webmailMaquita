@@ -27,7 +27,7 @@ def _db(r: Request):
 
 
 def _read_webmail_env():
-    """Lee las claves de OnlyOffice/Nextcloud del .env del webmail (hermano)."""
+    """Lee las claves de OnlyOffice del .env del webmail (hermano)."""
     path = os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "backend", ".env")
     vals = {}
     try:
