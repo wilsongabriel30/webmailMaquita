@@ -7,6 +7,11 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Cambiado
+
+- **Panel, alta de buzón**: la dirección se compone de nombre de cuenta + dominio elegido entre los del servidor
+  (lista con búsqueda al escribir); no se puede crear un buzón en un dominio que el servidor no administra.
+
 ### Retirado
 
 - **Nextcloud (N-20)**: la integración completa. Webmail: ruta `/api/nextcloud/*` y botón «Guardar en Nube»
