@@ -10,6 +10,60 @@ servicio, reiniciar lo que cambió y correr `deploy/tools/validar-despliegue.sh`
 
 ---
 
+## De 1.7.12 a 1.7.13 — el chat sin nomina, avisos honestos y menos ruido
+
+Actualizacion corta: no hay nada que configurar. Recoge los seis avisos del equipo que replica
+la instalacion y dos hallazgos de nuestras pruebas con navegador.
+
+### 1. Traer el codigo, reconstruir el correo y reiniciar el chat
+
+```
+git fetch --tags && git checkout v1.7.13
+cd frontend && npm run build && cd ..        # cambia el boton del chat
+systemctl restart maquita-chat
+```
+
+### 2. Comprobar que `/healthz` ahora dice la verdad
+
+```
+curl -s http://127.0.0.1:8790/healthz
+```
+
+Debe traer `"base": "ok"` y responder 200. Si faltan las tablas del chat responde **503** con
+`"base": "sin_tablas"` y te dice que ejecutes `migrar_chat.py`; si no llega a la base, 503 con
+`"base": "sin_conexion"`. **Si vigilais el servicio, vigilad ese 200**: antes un proceso vivo con
+la base a medias daba verde igual.
+
+### 3. Comprobaciones, con sus casos negativos
+
+**Positivo (sin nomina)**: en un esquema sin `trabajadores` ni `usuarios.trabajador_id`, abrir una
+conversacion y listar sus mensajes debe funcionar. Antes devolvia 500 por una foto de respaldo.
+
+**Positivo (motivo real)**: con la base parada, intentar empezar una conversacion nueva debe
+rechazar (sigue siendo fallo cerrado) pero diciendo que **no se pudo comprobar**, con
+`reintentable: true`, en vez de acusar de un bloqueo que no existe.
+
+**Negativo 1**: con un bloqueo de verdad entre dos personas, el mensaje sigue siendo «No puedes
+chatear con esta persona» y `reintentable` no aparece.
+
+**Negativo 2**: en una instalacion sin chat (o con la bandera en 0), cargar el correo no debe
+disparar ninguna peticion a `/api/chat/*`. Se mira en la consola del navegador.
+
+**Negativo 3**: con una cuenta que no esta en el directorio del chat, el sondeo debe pararse tras
+tres vueltas, no seguir cada minuto.
+
+### 4. El candado T-47 ya se puede correr fuera de nuestra casa
+
+```
+HUMO_BASE=https://chat.ejemplo.org \
+HUMO_DESTINO=quien.recibe@ejemplo.org \
+HUMO_REMITENTE=quien.escribe@ejemplo.org \
+HUMO_CONVERSACION=12 \
+python3 chat-service/humo_notificaciones.py
+```
+
+Si falta algo, lo explica en una linea. La direccion se toma de `CHAT_URL_PUBLICA` si no se indica.
+
 ## De 1.7.11 a 1.7.12 — un solo canal de aviso y el candado del contrato al día
 
 Actualización corta: no hay nada que configurar. Corrige un error nuestro de la versión anterior.
