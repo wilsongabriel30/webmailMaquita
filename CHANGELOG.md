@@ -7,6 +7,10 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Cambiado
+
+- OPERACION: con un proxy TLS delante, las comprobaciones por 443 se lanzan desde fuera de la VM (apunte de Andes).
+
 ## [1.7.9] - 2026-09-07
 
 Versión de correcciones tras las pruebas de Andes sobre 1.7.8 y dos regresiones propias: el Drive
