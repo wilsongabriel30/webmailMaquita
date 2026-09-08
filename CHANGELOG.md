@@ -7,6 +7,8 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.7.11] - 2026-09-08
+
 ### Añadido
 
 - **El servicio de chat ya se puede instalar desde el repositorio.** Hasta ahora estaba el
