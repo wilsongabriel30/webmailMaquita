@@ -13,6 +13,7 @@
 (function () {
     'use strict';
 
+    var CLIENTE_SOCKET = '/static/vendor/cdn.socket.io/4.5.4/socket.io.min.js';
     var SONIDO = '/static/sounds/notification.mp3';   // lo sirve Raíces, mismo dominio
     var ESPERA_MS = 5000;
     var ultimoAviso = {};
@@ -51,6 +52,24 @@
             audio.currentTime = 0;
             audio.play().catch(function () { });
         } catch (e) { }
+    }
+
+
+    /* Los navegadores solo dejan sonar tras un gesto de la persona: al primer clic se prepara
+       el audio en silencio y a partir de ahí el aviso suena sin pedir nada. */
+    function desbloquearSonido() {
+        document.addEventListener('click', function preparar() {
+            document.removeEventListener('click', preparar);
+            try {
+                if (!audio) { audio = new Audio(SONIDO); }
+                audio.volume = 0;
+                audio.play().then(function () {
+                    audio.pause();
+                    audio.currentTime = 0;
+                    audio.volume = 0.5;
+                }).catch(function () { });
+            } catch (e) { }
+        }, { once: true });
     }
 
     function pedirPermisoAlPrimerClic() {
@@ -160,7 +179,7 @@
 
     function conectarEnVivo() {
         var s = document.createElement('script');
-        s.src = '/socket.io/socket.io.js';           // lo sirve el propio servicio de chat
+        s.src = CLIENTE_SOCKET;                      // cliente servido por la propia plataforma
         s.onload = function () {
             try {
                 var socket = io({ path: '/socket.io', transports: ['websocket', 'polling'] });
@@ -179,6 +198,7 @@
                 if (!r.ok) return;
                 dibujar();
                 pedirPermisoAlPrimerClic();
+                desbloquearSonido();
                 refrescarContador();
                 setInterval(refrescarContador, 60000);
                 conectarEnVivo();

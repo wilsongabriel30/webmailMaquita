@@ -10,7 +10,7 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 ### Corregido
 
 - **N-25, la lista de personas del chat devolvía el id equivocado y salía siempre vacía.**
-  `GET /api/chat/trabajadores/activos` filtraba por `estado = \ACTIVO\` y en nómina el valor
+  `GET /api/chat/trabajadores/activos` filtraba por `estado igual a ACTIVO` y en nómina el valor
   está escrito `Activo`: devolvía cero filas, así que en la sección de archivos no aparecía
   ningún contacto. El fallo de fondo era peor y lo tapaba ese cero: devolvía el **id de nómina**
   como si fuera el de la cuenta del chat, y no coinciden (en la comprobación, 29 de 30 personas
