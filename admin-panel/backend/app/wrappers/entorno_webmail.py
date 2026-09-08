@@ -6,7 +6,7 @@ EL PROBLEMA
 El panel lanza cuatro procesos que son código del correo: AIR, los agentes, el
 copiloto y RAG. Hasta hoy les construía el entorno abriendo entero
 /opt/maquita-webmail/backend/.env, que tiene 46 variables: las claves de
-OnlyOffice, las de Nextcloud, la del chat, la cadena de conexión de nómina, las
+OnlyOffice, la del chat, la cadena de conexión de nómina, las
 de notificaciones push y la contraseña maestra del correo.
 
 Eso funcionaba porque el panel corría como root. Corriendo como root, dar el

@@ -3,7 +3,7 @@ enlace público de descarga.
 
 Cuando un adjunto supera SIZE_THRESHOLD, en vez de adjuntarlo en línea se sube al
 Almacén del usuario y se genera un enlace público de solo lectura. Reemplaza la
-antigua integración con Nextcloud (en retiro).
+antigua integración con la nube externa, ya retirada (N-20).
 """
 
 import logging

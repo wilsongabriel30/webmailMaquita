@@ -63,9 +63,9 @@ class Settings(BaseSettings):
     kc_realm: str = "maquita"
     kc_client_id: str = "webmail-maquita"
     kc_client_secret: str = ""
-    onlyoffice_url: str = (
-        "http://nextcloud-server:8080"  # URL de OnlyOffice (configurar en .env)
-    )
+    # Servidor de documentos de OnlyOffice. No tiene relación con Nextcloud: el valor de
+    # antes lo nombraba y despistaba. Se configura en el `.env` de cada instalación.
+    onlyoffice_url: str = "http://onlyoffice:8080"
     onlyoffice_secret: str = ""
     onlyoffice_download_secret: str = ""
     # Security logging

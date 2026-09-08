@@ -7,6 +7,17 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Cambiado
+
+- **Nombres muertos de Nextcloud, retirados** (aviso de Andes tras su barrido). El valor por
+  omision de `onlyoffice_url` nombraba a Nextcloud, cuando OnlyOffice no depende de el; se
+  cambia por uno neutro. Se limpian los comentarios y docstrings que aun lo nombraban en el
+  redactor, el panel, el cifrado y los adjuntos grandes. Y se retiran tres utilidades para
+  migrar DESDE Nextcloud (`drive-maquita/servicio/migrar_*.py`) que ya no tienen origen del que
+  migrar y a las que no llama nadie. NO se toca el explorador del Almacen, que vive bajo
+  `nextcloud/` por historia y es el producto, ni la tabla `nextcloud_accounts`, vacia y
+  conservada por compatibilidad.
+
 ## [1.7.12] - 2026-09-08
 
 ### Corregido
