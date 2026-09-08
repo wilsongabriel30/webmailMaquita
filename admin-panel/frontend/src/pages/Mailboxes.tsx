@@ -11,6 +11,19 @@ export function Mailboxes() {
   const [filter, setFilter] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ username: "", password: "", password2: "", name: "", quota_mb: 0 });
+  // La dirección se compone: parte local + dominio del servidor (elegido de la lista, con búsqueda)
+  const [dominios, setDominios] = useState<string[]>([]);
+  const [localParte, setLocalParte] = useState("");
+  const [dominio, setDominio] = useState("");
+  useEffect(() => {
+    api.get<{ domain: string; active?: boolean }[]>("/domains")
+      .then((ds) => { const lista = ds.filter((d) => d.active !== false).map((d) => d.domain).sort(); setDominios(lista); if (lista.length === 1) setDominio(lista[0]); })
+      .catch(() => setDominios([]));
+  }, []);
+  useEffect(() => {
+    const local = localParte.trim().toLowerCase().replace(/\s+/g, "");
+    setForm((f) => ({ ...f, username: local && dominio ? `${local}@${dominio}` : "" }));
+  }, [localParte, dominio]);
   // Drive (Almacén): cuota y vínculo con una persona del directorio (modo nómina)
   const [driveCfg, setDriveCfg] = useState<DriveConfig | null>(null);
   const [driveGb, setDriveGb] = useState<string>("");
@@ -76,6 +89,9 @@ export function Mailboxes() {
   const [createError, setCreateError] = useState("");
   const create = async () => {
     setCreateError("");
+    if (!localParte.trim()) { setCreateError("Escribe el nombre de la cuenta (lo que va antes de la arroba)"); return; }
+    if (!dominio || !dominios.includes(dominio)) { setCreateError("Elige un dominio de la lista: solo se pueden crear buzones en dominios de este servidor"); return; }
+    if (!/^[a-z0-9._+-]+$/.test(localParte.trim().toLowerCase())) { setCreateError("El nombre de la cuenta solo admite letras, números, punto, guion, guion bajo y más"); return; }
     if (!form.username || !form.username.includes("@")) { setCreateError("Ingrese una dirección valida: usuario@dominio.com"); return; }
     if (!form.name.trim()) { setCreateError("El nombre completo es obligatorio"); return; }
     if (form.password.length < 6) { setCreateError("La contraseña debe tener mínimo 6 caracteres"); return; }
@@ -94,6 +110,7 @@ export function Mailboxes() {
         }
       }
       setDrivePersona(null); setDriveGb(driveCfg ? String(driveCfg.cuota_defecto_gb) : "");
+      setLocalParte(""); if (dominios.length !== 1) setDominio("");
       setShowForm(false); setForm({ username: "", password: "", password2: "", name: "", quota_mb: 0 }); load();
     } catch (e: any) {
       setCreateError(e.message || "Error al crear el buzón");
@@ -201,10 +218,23 @@ export function Mailboxes() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-medium text-ms-gray-90 mb-1 block">Dirección de correo *</label>
-              <input placeholder="usuario@ejemplo.com" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value.toLowerCase() })}
-                title="Dirección de correo completa del nuevo buzón (usuario@dominio). Debe incluir la arroba y un dominio administrado por este servidor. Se convierte a minúsculas automáticamente."
-                className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
-              <span className="text-[10px] text-ms-gray-60 mt-0.5 block">Ejemplo: juan.perez@ejemplo.com</span>
+              <div className="flex items-stretch gap-1">
+                <input placeholder="juan.perez" value={localParte} onChange={(e) => setLocalParte(e.target.value.toLowerCase())}
+                  title="Nombre de la cuenta (lo que va antes de la arroba). Se convierte a minúsculas."
+                  className="flex-1 min-w-0 px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
+                <span className="px-1 py-2 text-sm text-ms-gray-90 select-none">@</span>
+                <input list="dominios-del-servidor" placeholder={dominios.length ? "dominio" : "sin dominios"} value={dominio}
+                  onChange={(e) => setDominio(e.target.value.toLowerCase().trim())}
+                  title="Dominio del buzón: solo los administrados por este servidor. Escribe para buscar en la lista."
+                  className={`flex-1 min-w-0 px-3 py-2 border rounded text-sm focus:outline-none focus:border-ms-blue ${dominio && !dominios.includes(dominio) ? "border-red-400" : "border-ms-gray-40"}`} />
+                <datalist id="dominios-del-servidor">
+                  {dominios.map((d) => <option key={d} value={d} />)}
+                </datalist>
+              </div>
+              <span className="text-[10px] text-ms-gray-60 mt-0.5 block">
+                {form.username ? `Se creará: ${form.username}` : `${dominios.length} dominio(s) en este servidor; escribe en el segundo campo para buscar.`}
+                {dominio && !dominios.includes(dominio) && <span className="text-red-500"> El dominio no está en este servidor.</span>}
+              </span>
             </div>
             <div>
               <label className="text-xs font-medium text-ms-gray-90 mb-1 block">Nombre completo *</label>
