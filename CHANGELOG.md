@@ -7,6 +7,8 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.7.13] - 2026-09-08
+
 ### Corregido
 
 - **El chat funciona sin nomina** (aviso de Andes). Mirar una conversacion daba 500 en un
