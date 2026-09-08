@@ -7,6 +7,14 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Corregido
+
+- **El candado de notificaciones (T-47) daba rojo sin haber nada roto.** Fabricaba vales sin
+  `sid` ni `av`, que la regla de sesion del chat exige desde F-03, asi que el socket se
+  rechazaba con «sesion central no valida» y parecia incumplido el contrato de la aplicacion de
+  escritorio. Ahora el vale de la prueba los lleva, como el real del correo. Ejecutado contra
+  produccion: las dos conexiones (navegador y aplicacion) reciben el aviso.
+
 ### Cambiado
 
 - **Un solo canal de aviso: `notificacion` (contrato T-47).** En 1.7.11 se anadio `aviso_chat`
