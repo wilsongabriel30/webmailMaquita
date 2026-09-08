@@ -135,13 +135,12 @@ def obtener_mensajes(conversacion_id: int):
             usuarios_info = {}
             if sender_ids:
                 from sqlalchemy import text
-                query_usuarios = text("""
-                    SELECT u.id, u.username, u.email, u.full_name, u.role,
-                           u.profile_picture, t.foto_perfil as foto_trabajador
-                    FROM usuarios u
-                    LEFT JOIN trabajadores t ON u.trabajador_id = t.id
-                    WHERE u.id = ANY(:user_ids)
-                """)
+                # Sin nómina (ni tabla ni columna) el cruce reventaba y mirar una conversación
+                # devolvía 500 por una foto de respaldo. Se elige la consulta que el esquema
+                # admite; sin nómina se pierde esa foto y nada más.
+                from interfaces.api.nomina_opcional import consulta_remitentes, hay_nomina
+                _con_nomina = hay_nomina(lambda sql: db_session.execute(text(sql)).scalar())
+                query_usuarios = text(consulta_remitentes(_con_nomina))
                 result = db_session.execute(query_usuarios, {'user_ids': list(sender_ids)})
                 usuarios_data = result.fetchall()
 
