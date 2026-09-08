@@ -7,6 +7,26 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Seguridad
+
+- **N-31: `/api/ai/health` publicaba el mapa interno de la IA.** Sin sesion devolvia los
+  servidores de IA con sus DIRECCIONES INTERNAS y puertos, el inventario de modelos de cada uno,
+  el modelo por omision, sus roles y cuales estaban caidos. Ahora sin sesion responde solo
+  `{"status": ...}`; con sesion, proveedor y modelo; el detalle completo queda para
+  administradores. Encontrado revisando la superficie con el navegador: se listaron las rutas
+  reales de cada servicio y se probo cada GET sin sesion.
+- **N-32: los nombres de autoconfiguracion no forzaban HTTPS.** `autodiscover.<dominio>` y
+  `autoconfig.<dominio>` servian sin `Strict-Transport-Security`, y por ahi viaja la direccion de
+  correo de quien configura su cliente. Se anaden esa cabecera, `X-Content-Type-Options` y
+  `Referrer-Policy` en los bloques que atienden esos nombres.
+
+Revision completa de superficie (08/09/2026), leyendo la tabla de rutas de cada servicio y
+probando cada GET sin sesion: correo 226 rutas GET, 143 cerradas, 12 publicas (todas de
+proposito publico salvo la corregida); panel 121 GET, 90 cerradas, 2 publicas; chat 61 GET,
+39 cerradas, 1 publica; Almacen 54 GET, 35 cerradas, 1 publica. Sin documentacion de API
+expuesta, sin listados de directorio, sin mapas de codigo fuente y con los puertos internos
+cerrados a la red.
+
 ## [1.7.13] - 2026-09-08
 
 ### Corregido
