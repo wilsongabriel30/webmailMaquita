@@ -405,11 +405,27 @@ def crear_app():
 
     @app.get("/healthz")
     def healthz():
-        return jsonify({
-            "success": True,
-            "servicio": "chat-maquita",
-            "chat_montado": app.config.get("CHAT_MONTADO", False),
-        })
+        """Vivo Y utilizable. Un healthz que solo dice que el proceso arrancó tapa una
+        instalación a medias: a un equipo le respondió 200 durante semanas con las tablas
+        del chat sin crear, y cada petición real devolvía «Error interno del servidor»."""
+        from interfaces.api.estado_salud import respuesta, revisar_base
+
+        def _consultar(sql):
+            from infraestructura.base_datos.base import obtener_gestor
+            from sqlalchemy import text
+            sesion = obtener_gestor().session()
+            try:
+                return sesion.execute(text(sql)).scalar()
+            finally:
+                try:
+                    sesion.close()
+                except Exception:
+                    pass
+
+        estado_base, detalle = revisar_base(_consultar)
+        cuerpo, codigo = respuesta("chat-maquita", app.config.get("CHAT_MONTADO", False),
+                                   estado_base, detalle)
+        return jsonify(cuerpo), codigo
 
     @app.route("/chat/llamada")
     def pagina_llamada():

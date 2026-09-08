@@ -30,11 +30,22 @@ Si solo quieres el chat, basta con una copia dispersa de `chat-service/`.
 
 **Comprobación**: `ls /opt/maquita-webmail/chat-service/app_chat.py` existe.
 
-## 2. Base de datos
+## 2. Base de datos: crear las tablas
 
 El chat usa las tablas `chat_*` (conversaciones, participantes, mensajes, estados) y **lee** la
 tabla `usuarios`. Si vienes de una instalación con el chat dentro de la plataforma, no hay que
 migrar nada: son las mismas tablas.
+
+En una instalación nueva **hay que crearlas**, y esto es más importante de lo que parece: sin
+ellas el servicio arranca igual y responde a `/healthz`, pero cualquier petición real devuelve
+«Error interno del servidor». Le pasó a un equipo durante semanas.
+
+```
+cd chat-service
+venv/bin/python3 migrar_chat.py        # idempotente: se puede repetir sin miedo
+```
+
+Después, comprobar:
 
 ```
 psql "$DATABASE_URL" -c "\dt chat_*"
@@ -43,6 +54,9 @@ psql "$USERS_DB_URL" -c "SELECT count(*) FROM usuarios WHERE active = true"
 
 **Comprobación**: la primera lista las tablas del chat; la segunda devuelve un número mayor que
 cero. Si devuelve cero, el chat no reconocerá a nadie.
+
+**El propio servicio lo delata**: `/healthz` responde **503** con `"base": "sin_tablas"` mientras
+falten, y 200 solo cuando la base está utilizable. Si vigiláis el servicio, vigilad ese 200.
 
 ## 3. Instalar el servicio
 
@@ -58,6 +72,20 @@ openssl rand -hex 32      # una vez por cada secreto, nunca el mismo valor dos v
 ```
 
 Los tres secretos del chat son distintos a propósito: comprometer uno no da los otros.
+
+**Ojo con el modo integrado.** Lo de arriba vale para el chat en su propia máquina. Cuando el
+chat va dentro de la plataforma del correo, la sesión funciona porque `CHAT_JWT_SECRET` es
+**la misma** clave con la que el correo firma (`SECRET_KEY`), y `CHAT_SSO_SECRET` puede no
+existir, porque nadie usa la puerta de entrada: la cookie del correo llega sola. Resumen:
+
+| | Integrado (mismo origen) | Separado (origen propio) |
+|---|---|---|
+| `CHAT_JWT_SECRET` | la `SECRET_KEY` del correo | la `SECRET_KEY` del correo |
+| `CHAT_SSO_SECRET` | opcional (no se usa la puerta) | **obligatorio** |
+| `CHAT_SESSION_KEY` | propio del chat | propio del chat |
+
+Si rotáis la `SECRET_KEY` del correo, **hay que actualizar y reiniciar el chat**: nos ha pasado
+dos veces que un servicio se quedaba con la clave anterior en memoria y rechazaba a todo el mundo.
 
 | Variable | Para qué |
 |---|---|
@@ -141,7 +169,19 @@ El chat emite por Socket.IO:
   cliente no debe sonar). Es lo que hace que suene el aviso fuera del chat.
 
 Quien tenga la conversación silenciada no recibe el evento: eso se resuelve en el servidor y el
-cliente no tiene que filtrarlo.
+cliente no tiene que filtrarlo. Silenciar se guarda en `chat_participants.is_muted`; hoy se
+cambia desde la interfaz del chat y **no hay endpoint REST propio**, así que para una prueba se
+pone por SQL:
+
+```
+UPDATE chat_participants SET is_muted = TRUE
+ WHERE conversation_id = <conv> AND user_id = <persona>;
+```
+
+**`silencioso` no viene siempre**: solo llega, y con valor `true`, cuando esa persona tiene
+puesto «no molestar» (nunca en menciones, llamadas ni reuniones, que se consideran urgentes).
+La regla para el cliente es: **si llega `silencioso: true`, contador sin sonido; si no viene,
+sonar**.
 
 Para engancharlo desde vuestra interfaz:
 

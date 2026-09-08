@@ -141,8 +141,18 @@ def registrar(socketio):
             from interfaces import relacion_chat
             ok, motivo = relacion_chat.puede_contactar(servicio._db_session, usuario_id, otro_usuario_id)
             if not ok:
-                logger.warning("DIRECTO_RECHAZADO de=%s a=%s motivo=%s", usuario_id, otro_usuario_id, motivo)
-                emit('error', {'message': 'No puedes chatear con esta persona'})
+                # El texto tiene que decir la verdad: con la base sin responder se rechazaba
+                # igualmente (fallo cerrado, correcto) pero se culpaba a un bloqueo que no
+                # existe, y soporte acababa buscando donde no había nada.
+                from interfaces.motivos_contacto import es_fallo_nuestro, mensaje
+                if es_fallo_nuestro(motivo):
+                    logger.error("DIRECTO_NO_COMPROBABLE de=%s a=%s motivo=%s",
+                                 usuario_id, otro_usuario_id, motivo)
+                else:
+                    logger.warning("DIRECTO_RECHAZADO de=%s a=%s motivo=%s",
+                                   usuario_id, otro_usuario_id, motivo)
+                emit('error', {'message': mensaje(motivo), 'motivo': motivo,
+                               'reintentable': es_fallo_nuestro(motivo)})
                 return
             resultado = servicio.crear_conversacion_directa(
                 usuario1_id=usuario_id,
