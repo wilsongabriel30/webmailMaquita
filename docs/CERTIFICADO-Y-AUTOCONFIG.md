@@ -4,6 +4,28 @@
 > **autoconfiguran probando el dominio pelado** (`dominio.tld:993`) recibían un
 > **certificado equivocado**, porque el cert solo cubría `mail.dominio.tld`.
 
+## Outlook nuevo (Windows 11) y Outlook para móvil
+
+Estos clientes delegan la conexión en la nube de Microsoft. Para que funcionen hacen falta tres cosas:
+
+1. **Autodescubrimiento accesible desde fuera**: `autodiscover.<dominio>` con certificado válido
+   (ya cubierto) y **el paso abierto en 443 para los rangos de Microsoft** (conjunto `nube_microsoft`,
+   ver OPERACION.md). Si el 443 se descarta por el filtro por país, Outlook adivina `smtp.<dominio>`
+   con puertos por omisión y da error.
+2. **IMAP y envío accesibles desde esos mismos rangos** (143/993 y 465/587).
+3. **Contraseña de aplicación** (política D-5): la contraseña del webmail no sirve para IMAP/SMTP.
+
+Comprobación rápida del descubrimiento, desde cualquier equipo:
+
+```
+curl -s https://autodiscover.<dominio>/autodiscover/autodiscover.json/v1.0/<correo>?Protocol=ActiveSync
+curl -s -X POST -H 'Content-Type: text/xml' --data @peticion.xml \
+  https://autodiscover.<dominio>/autodiscover/autodiscover.xml
+```
+
+Si el equipo de prueba está dentro de Ecuador responderá igual aunque el filtro esté cerrado para
+Microsoft: la prueba real es el contador de la regla `nube_microsoft` mientras se añade la cuenta.
+
 ## El problema
 
 Al agregar una cuenta, muchos clientes (Thunderbird, Outlook, iOS) **adivinan** el

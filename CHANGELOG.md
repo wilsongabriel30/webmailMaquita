@@ -7,6 +7,14 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Añadido
+
+- **Outlook nuevo (y Outlook para móvil)**: excepción del filtro por país para los rangos que Microsoft
+  publica para el tráfico de cliente POP3/IMAP4/SMTP. El Outlook nuevo no conecta desde el equipo del
+  usuario: sincroniza a través de la nube de Microsoft, cuyas direcciones quedaban descartadas por el
+  filtro (solo Ecuador), de modo que ni descubría la configuración ni podía sincronizar.
+  `deploy/tools/ms-outlook-rangos.sh` mantiene el conjunto `nube_microsoft` al día (semanal).
+
 ### Cambiado
 
 - **Panel, alta de buzón**: la dirección se compone de nombre de cuenta + dominio elegido entre los del servidor
