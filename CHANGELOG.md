@@ -7,6 +7,19 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Corregido
+
+- **N-25, la lista de personas del chat devolvía el id equivocado y salía siempre vacía.**
+  `GET /api/chat/trabajadores/activos` filtraba por `estado = \ACTIVO\` y en nómina el valor
+  está escrito `Activo`: devolvía cero filas, así que en la sección de archivos no aparecía
+  ningún contacto. El fallo de fondo era peor y lo tapaba ese cero: devolvía el **id de nómina**
+  como si fuera el de la cuenta del chat, y no coinciden (en la comprobación, 29 de 30 personas
+  tenían distinto). Con la lista llena se habría abierto la conversación de otra persona.
+  Ahora el estado se compara normalizado y cada ficha de nómina se traduce a su cuenta por el
+  correo (con los dominios institucionales equivalentes) en una sola consulta; quien no tiene
+  cuenta no aparece, uno mismo tampoco, y la presencia se consulta con los id de cuenta.
+  La parte razonable queda aislada en `interfaces/api/directorio_nomina.py`, con pruebas.
+
 ### Añadido
 
 - **El chat se atiende desde el Drive**. La sección de archivos comparte dominio con el resto,
