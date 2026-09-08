@@ -10,6 +10,103 @@ servicio, reiniciar lo que cambió y correr `deploy/tools/validar-despliegue.sh`
 
 ---
 
+## De 1.7.10 a 1.7.11 — el chat avisa de verdad y deja de perder el primer mensaje
+
+Cuatro pasos, en este orden. Los tres primeros se pueden hacer con gente conectada; el cuarto
+corta el chat unos segundos.
+
+### 1. Panel: quitar `NoNewPrivileges` de su confinamiento
+
+Si el panel corre con usuario propio (fase 2 de A-15) y su unidad lleva `NoNewPrivileges=yes`,
+**ninguna** operación privilegiada funciona: crear un buzón, cambiar cuotas, reiniciar servicios
+o mirar la cola devuelven «Error interno del servidor».
+
+```
+systemctl show maquita-admin -p User -p NoNewPrivileges
+```
+
+Si responde `User=maquita-admin` y `NoNewPrivileges=yes`, edita el confinamiento
+(`deploy/hardening/systemd/maquita-admin-confinamiento.conf` ya viene corregido en esta versión),
+recarga y reinicia:
+
+```
+systemctl daemon-reload && systemctl restart maquita-admin
+```
+
+Comprobación (debe devolver un hash `{SHA512-CRYPT}$6$…`):
+
+```
+sudo -u maquita-admin sudo -n /usr/local/sbin/maquita-sudo doveadm pw -s SHA512-CRYPT -p prueba
+```
+
+Si dice `the "no new privileges" flag is set`, el ajuste sigue puesto en algún otro fragmento
+de la unidad.
+
+### 2. Traer el código y reconstruir el panel
+
+```
+git fetch --tags && git checkout v1.7.11
+cd admin-panel/frontend && npx vite build && cd ../..
+```
+
+### 3. Servicio de chat: nada que configurar, pero conviene saber qué cambia
+
+- La lista de personas (`/api/chat/trabajadores/activos`) devolvía **cero** si en tu nómina el
+  estado está escrito distinto de `ACTIVO`, y además devolvía el id de NÓMINA como si fuera el
+  de la cuenta del chat. Si esa lista se usaba en alguna pantalla vuestra, revisad que ahora
+  llega el id de la cuenta (campo `id`) y el de nómina aparte (`trabajador_id`).
+- El aviso de mensaje nuevo se emite ahora también a la sala personal `user_<id>` con el evento
+  `aviso_chat`. Es un evento NUEVO: si vuestro cliente no lo escucha, no cambia nada; si queréis
+  el aviso fuera de la conversación abierta, engancharlo es una línea.
+
+### 3b. Si el chat corre en su propia máquina (o queréis moverlo)
+
+Esta versión publica lo que faltaba para instalarlo sin adivinar: unidad de systemd,
+configuración de ejemplo con todas las variables explicadas, las dos formas de publicarlo en
+nginx y un instalador guiado.
+
+```
+bash chat-service/deploy/instalar.sh
+```
+
+La guía completa, con comprobaciones y casos negativos, está en `docs/CHAT-INSTALACION.md`.
+Dos cosas que conviene mirar aunque ya lo tengáis montado: la puerta `/chat/entrar` debe estar
+publicada en el vhost de la aplicación que muestra el chat (sin ella, sus páginas no consiguen
+sesión y el chat sale vacío), y el cliente de Socket.IO no se sirve en `/socket.io/socket.io.js`.
+
+### 4. Reiniciar el chat (unos segundos de corte)
+
+```
+systemctl restart maquita-chat
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8790/healthz    # 200
+```
+
+### Comprobaciones, con sus casos negativos
+
+**Positivo, el que estaba roto**: con dos cuentas que NO tengan conversación previa, escribid la
+primera del tirón (crear conversación y enviar seguido, que es lo que hace la interfaz). El
+mensaje debe guardarse. Antes se rechazaba con «No tienes acceso a esta conversacion» y se perdía.
+
+```
+journalctl -u maquita-chat | grep "participacion confirmada en base"
+```
+
+**Negativo 1**: pedid `join_conversation` de una conversación en la que la cuenta no participa.
+Debe seguir respondiendo `No autorizado`; la comprobación se reforzó, no se relajó.
+
+**Negativo 2**: con la conversación silenciada por el destinatario, enviad un mensaje. No debe
+salir `aviso_chat` para esa persona.
+
+```
+journalctl -u maquita-chat | grep aviso_chat
+```
+
+**Negativo 3**: parad la base un instante y enviad a una conversación nueva. Debe rechazarse
+(fallo cerrado), nunca dejar pasar por no poder comprobar.
+
+Pruebas automáticas nuevas del bloque: 34 (`chat-service/tests/test_directorio_nomina.py`,
+`test_aviso_personal.py`, `test_participacion.py`).
+
 ## De 1.7.9 a 1.7.10
 
 Tres cambios, ninguno obligatorio para el correo en sí.
