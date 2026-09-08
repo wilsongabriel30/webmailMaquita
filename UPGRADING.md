@@ -10,6 +10,75 @@ servicio, reiniciar lo que cambió y correr `deploy/tools/validar-despliegue.sh`
 
 ---
 
+## De 1.7.14 a 1.7.15 — lo que enseño una instalacion desde cero
+
+Recoge los trece hallazgos de una instalacion limpia hecha por el equipo que replica el sistema.
+**Hay un paso que puede dejaros el chat sin proxy si no lo hacen antes**: leedlo entero.
+
+### 1. ANTES de actualizar: donde escucha el chat
+
+Desde esta version el chat escucha **solo en loopback** por omision. Estaba en 0.0.0.0 y la guia
+prometia lo contrario; en una instalacion limpia era el unico puerto expuesto.
+
+Si vuestro proxy vive en la MISMA maquina, no hay que hacer nada. Si vive en OTRA (nuestro caso),
+antes de reiniciar el chat:
+
+```
+echo 'CHAT_BIND=0.0.0.0' >> chat-service/.env     # o la interfaz concreta
+```
+
+Y acotad el puerto en el cortafuegos, que el servicio no lo hace:
+
+```
+nft add rule inet filter input tcp dport 8790 ip saddr <ip-del-proxy> accept
+```
+
+### 2. Traer el codigo, reconstruir el correo y reiniciar
+
+```
+git fetch --tags && git checkout v1.7.15
+cd frontend && npm run build && cd ..     # cambia la burbuja del chat
+systemctl restart maquita-chat
+systemctl restart maquita-webmail
+```
+
+Comprobacion: `ss -lntp | grep 8790` debe mostrar la interfaz que esperais, y el chat seguir
+respondiendo a traves de vuestro proxy.
+
+### 3. Comprobar que revocar «todas» revoca de verdad
+
+```
+curl -s -X POST https://<chat>/api/chat/sesion/revocar \
+  -H "X-Notif-Secret: $NOTIF_SECRET" -H 'Content-Type: application/json' \
+  -d '{"user":"persona@ejemplo.org","sid":"*"}'
+```
+
+Responde 200 y **la siguiente peticion de esa persona debe dar 401**. Antes respondia 200 y la
+sesion seguia viva: sin `av` se anotaba la generacion 0 y ninguna sesion es anterior a 0.
+
+**Negativo 1**: con `sid` concreto solo cae esa sesion, las demas siguen.
+**Negativo 2**: con el secreto equivocado, 403.
+
+### 4. Si el chat vive en otro origen
+
+La burbuja del correo ya no sondea su propio origen (daba 404 y se escondia con el chat vivo).
+Comprobad en la consola del navegador que al cargar el correo **no** aparecen 404 de
+`/api/chat/conversations`.
+
+### 5. Instalaciones nuevas
+
+- `chat-service/deploy/instalar.sh` **rechaza los valores de ejemplo** y comprueba que las dos
+  bases responden, que las tablas del chat existen y cuanta gente hay en el directorio.
+- `sincronizar_usuarios.py` funciona apuntando a la base del **correo**: detecta el esquema y usa
+  `usuarios` o `mailbox`.
+- `docs/CHAT-INSTALACION.md` incluye ahora crear la base, poblar el directorio, el cableado del
+  correo con el chat (`CHAT_SSO_SECRET`, `NOTIF_SECRET`, `embed_url`) y **la confianza TLS entre
+  ambos**: con certificado autofirmado, la revalidacion falla y todas las sesiones mueren a los
+  300 segundos; la alternativa es `CORREO_URL_API=http://127.0.0.1:8000` cuando comparten maquina.
+- `docs/INSTALL-DESDE-CERO.md`: aviso del preseed de Postfix, comprobacion del paso 5 con el
+  nombre del dominio (con `localhost` responde 301) y que en sistemas sin rsyslog no existe
+  `/var/log/mail.log`.
+
 ## De 1.7.13 a 1.7.14 — dos cosas que se veian desde fuera y no debian
 
 Actualizacion corta y de seguridad. **Conviene mirarla aunque no actualiceis hoy**: el primer

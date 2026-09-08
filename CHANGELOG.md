@@ -7,6 +7,8 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.7.15] - 2026-09-08
+
 ### Corregido
 
 - **Revocar «todas las sesiones» no revocaba nada** (instalacion limpia de Andes). El cuerpo que
