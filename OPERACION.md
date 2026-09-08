@@ -4,6 +4,39 @@ Cómo se vigila la plataforma y qué hacer cuando algo avisa. Documento vivo.
 
 ---
 
+## Outlook nuevo: excepción para la nube de Microsoft
+
+El acceso a 443/143/993/465/587 está limitado por país (conjunto `paises_permitidos`, solo Ecuador
+por omisión, administrado desde el panel). El **Outlook nuevo** para Windows, Outlook.com y Outlook
+para móvil **no conectan desde el equipo del usuario**: quien habla con nuestro servidor es la nube de
+Microsoft. Sus direcciones están fuera de Ecuador, así que el filtro las descartaba y el cliente
+terminaba «adivinando» `smtp.<dominio>` con puertos por omisión y fallando.
+
+La excepción está en el conjunto `nube_microsoft`, aceptado antes de los descartes por país:
+
+```
+tcp dport { 143, 443, 465, 587, 993 } ip saddr @nube_microsoft counter accept
+```
+
+Los rangos son los que Microsoft publica en `endpoints.office.com` para el tráfico de cliente
+POP3/IMAP4/SMTP (área Exchange, categoría «Allow»). Se refrescan solos cada semana
+(`/etc/cron.weekly/ms-outlook-rangos` → `/usr/local/sbin/ms-outlook-rangos.sh`, copia en
+`deploy/tools/ms-outlook-rangos.sh`); si la consulta falla o vuelve recortada, se conserva lo previo.
+
+Comprobaciones:
+
+```
+nft list set inet filter nube_microsoft | grep -c /        # rangos cargados
+nft list chain inet filter input | grep nube_microsoft     # contador de la regla: sube al conectar Outlook
+```
+
+Para retirar la excepción: `nft delete rule inet filter input handle <n>` y
+`nft list ruleset > /etc/nftables.conf`.
+
+**Importante**: abrir el paso no exime de la política de contraseñas de aplicación (D-5). En el
+Outlook nuevo hay que escribir una contraseña de aplicación, no la del webmail; con la principal el
+servidor responde «credenciales incorrectas».
+
 ## Canal de alertas
 
 **Destino:** `gestiontecnologia@maquita.org` y `gestiontecnologia@maquita.com.ec`
