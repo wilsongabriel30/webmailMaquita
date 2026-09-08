@@ -4,6 +4,57 @@ Cómo se vigila la plataforma y qué hacer cuando algo avisa. Documento vivo.
 
 ---
 
+## Superficie expuesta: cómo revisarla
+
+La forma fiable no es adivinar direcciones. Nginx devuelve la aplicación para todo lo que no
+existe, así que un barrido por nombres hace parecer que está abierto todo. Lo que sirve es
+**leer la tabla de rutas del propio servicio** y probar cada GET sin sesión.
+
+FastAPI (correo, panel), desde su entorno y con su `.env` cargado:
+
+```
+python3 - <<'PY'
+from app.main import app
+for r in app.routes:
+    print(sorted(getattr(r, "methods", []) or []), getattr(r, "path", ""))
+PY
+```
+
+Flask (chat, Almacén):
+
+```
+python3 -c 'from app_chat import application as a; [print(sorted(x.methods), x.rule) for x in a.url_map.iter_rules()]'
+```
+
+Después, cada ruta GET sin parámetros contra la dirección pública y sin credenciales. Lo que
+responda 200 tiene que ser público **a propósito**; lo demás, 401 o 403. Conviene descartar antes
+la página que nginx sirve para lo inexistente, comparando con una ruta inventada.
+
+Revisión del 08/09/2026:
+
+| Servicio | Rutas GET | Cerradas | Públicas |
+|---|---|---|---|
+| Correo | 226 | 143 | 12 |
+| Panel | 121 | 90 | 2 |
+| Chat | 61 | 39 | 1 |
+| Almacén | 54 | 35 | 1 |
+
+Las públicas legítimas son el estado del servicio, la identidad de la marca, la configuración de
+autoconfiguración móvil, la clave pública de notificaciones, los metadatos SAML y las páginas de
+entrada. No hay documentación de API expuesta, ni listados de directorio, ni mapas de código
+fuente, y los puertos internos están cerrados a la red.
+
+Comprobaciones que conviene repetir tras cualquier cambio de nginx:
+
+```
+curl -s https://<correo>/api/ai/health
+curl -s -D- -o /dev/null https://autodiscover.<dominio>/ | grep -i strict-transport
+curl -s -o /dev/null -w '%{http_code}\n' https://<correo>/openapi.json
+```
+
+La primera, sin sesión, solo debe traer el estado. La segunda debe encontrar la cabecera. La
+tercera nunca debe servir la documentación de la API.
+
 ## Panel: por qué su unidad no lleva NoNewPrivileges
 
 El panel corre como `maquita-admin` y pide lo poco que necesita con `sudo` sobre
