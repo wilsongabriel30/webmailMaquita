@@ -7,6 +7,8 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.7.12] - 2026-09-08
+
 ### Corregido
 
 - **El candado de notificaciones (T-47) daba rojo sin haber nada roto.** Fabricaba vales sin
