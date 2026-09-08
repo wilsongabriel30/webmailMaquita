@@ -131,8 +131,17 @@ def sesion_central_valida() -> bool:
     uid = session.get("usuario_id")
     sid = session.get("sid")
     av = session.get("av")
+    origen = (session.get("origen") or "correo").strip().lower()
     if not uid:
         return False
+    if origen != "correo":
+        # Sesión abierta por otro sistema de confianza (Raíces, N-24). No hay sesión del
+        # correo a la que preguntar: vale mientras no se revoque y no pase su tope absoluto.
+        if not sid:
+            return False
+        if time.time() > float(session.get("expira") or 0):
+            return False
+        return not sesion_revocada(uid, sid, int(av or 0))
     if not sid or av is None:
         # Sesión anterior al modelo sid/av: hay que volver a entrar por el correo.
         return False

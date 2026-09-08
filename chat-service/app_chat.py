@@ -80,6 +80,16 @@ _SSO_SECRET = os.getenv("CHAT_SSO_SECRET", "")
 _SSO_AUDIENCIA = "chat-sso"
 _SSO_VENTANA_SEG = 120   # margen para el viaje y un reloj algo desfasado
 
+# Quién puede emitir un vale. El correo es el emisor histórico (sin `iss` en el vale).
+# Raíces entra por la misma puerta desde el 08/09/2026 (N-24): antes firmaba la cookie del
+# chat con la clave MAESTRA del correo, de modo que quien leyera su configuración podía
+# fabricar sesiones del buzón. Ahora usa el secreto DEDICADO y no conoce la del correo.
+_SSO_EMISORES = ("correo", "raices")
+# La sesión que abre un emisor sin sesión del correo no se puede revalidar contra el correo,
+# así que se le pone un tope absoluto: al vencer, la persona vuelve a entrar por la puerta
+# (transparente: la página de Raíces emite un vale nuevo en cada visita).
+_SSO_SESION_MAX_SEG = int(os.getenv("CHAT_SESION_EXTERNA_MAX_SEG", str(12 * 3600)))
+
 
 def _consumir_vale(jti: str) -> bool:
     """Marca el vale como usado. Devuelve True solo la PRIMERA vez.
@@ -199,13 +209,21 @@ def sembrar_desde_token(token):
     return uid, correo
 
 
-def _sembrar_sesion_central(datos):
+def _sembrar_sesion_central(datos, origen="correo"):
     """Guarda en la sesión del chat el sid y la generación (av) de la sesión del correo
-    (F-03). Sin ellos la sesión no vale: son los que permiten revocarla desde el correo."""
+    (F-03). Sin ellos la sesión no vale: son los que permiten revocarla desde el correo.
+
+    `origen` dice qué sistema abrió la sesión. Para el correo, la regla es la de siempre.
+    Para otro sistema de confianza (Raíces), no hay sesión del correo a la que preguntar:
+    se guarda un tope absoluto y la revocación sigue llegando por empuje.
+    """
     import time as _t
     session["sid"] = datos.get("sid")
     session["av"] = datos.get("av")
+    session["origen"] = origen
     session["validado_hasta"] = _t.time() + 300
+    if origen != "correo":
+        session["expira"] = _t.time() + _SSO_SESION_MAX_SEG
 
 
 def _resolver_usuario():
@@ -361,9 +379,19 @@ def crear_app():
         except Exception as e:
             print("[chat] /sso/entrar vale invalido: %s" % type(e).__name__, file=sys.stderr)
             return _respuesta_no_auth()
+        # Emisor del vale: el correo (histórico, sin `iss`) o Raíces. Cualquier otro, fuera.
+        emisor = (datos.get("iss") or "correo").strip().lower()
+        if emisor not in _SSO_EMISORES:
+            print("[chat] /sso/entrar emisor no admitido: %s" % emisor[:20], file=sys.stderr)
+            return _respuesta_no_auth()
         correo = (datos.get("sub") or "").strip().lower()
         jti = (datos.get("jti") or "").strip()
         if not correo or not jti or not _consumir_vale(jti):
+            return _respuesta_no_auth()
+        # Un emisor que no es el correo tiene que traer su propio identificador de sesión:
+        # es lo que permite revocarla después.
+        if emisor != "correo" and not (datos.get("sid") or "").strip():
+            print("[chat] /sso/entrar vale de %s sin sid" % emisor, file=sys.stderr)
             return _respuesta_no_auth()
         uid = _uid_por_correo(correo)
         if not uid:
@@ -371,7 +399,7 @@ def crear_app():
         session["usuario_id"] = uid
         session["usuario_correo"] = correo
         session["usuario_nombre"] = _cache_nombre.get(uid, correo)
-        _sembrar_sesion_central(datos)
+        _sembrar_sesion_central(datos, origen=emisor)
         from flask import redirect as _redirect
         return _redirect(destino)
 
