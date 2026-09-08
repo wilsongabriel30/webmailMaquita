@@ -7,6 +7,17 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Anadido
+
+- **Pruebas con navegador de verdad** (`pruebas-navegador/`, Playwright + Chromium): recorridos
+  de persona sobre una instalacion real, con todo parametrizado por variables de entorno para
+  que cualquiera las corra contra la suya. Cinco pruebas: la pantalla de entrada carga limpia,
+  la bandeja trae sus carpetas, el redactor se abre y acepta un destinatario, usar el correo no
+  deja peticiones con error, y el Drive acepta la sesion del correo. Encontraron dos cosas el
+  primer dia: el Drive rechazando TODAS las sesiones del correo (el servicio llevaba en memoria
+  un secreto anterior a la rotacion del 03/09, corregido) y cuatro peticiones 401 al chat en
+  cada carga cuando el buzon no esta en el directorio del chat.
+
 ### Cambiado
 
 - **Nombres muertos de Nextcloud, retirados** (aviso de Andes tras su barrido). El valor por
