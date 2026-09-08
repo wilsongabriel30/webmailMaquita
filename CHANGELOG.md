@@ -7,6 +7,8 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.7.10] - 2026-09-08
+
 ### Seguridad
 
 - **N-24, la puerta dedicada del chat admite a Raíces**. Raíces entraba al chat firmando su
