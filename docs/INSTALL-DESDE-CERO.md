@@ -29,6 +29,11 @@ si no pueden comprobar, deniegan. No confundir los dos.
 Postfix abre un asistente azul («General type of mail configuration») a mitad del `apt install`
 y parece que se colgó. Contéstalo antes de instalar; lo que elijas da igual porque el instalador
 reescribe su configuración después:
+
+> **Cambia el dominio.** El bloque de abajo preconfigura Postfix con un nombre de
+> ejemplo. Sustituye ese valor por tu propio nombre de servidor de correo antes de
+> ejecutarlo, o Postfix se instalará con el del ejemplo.
+
 ```bash
 echo "postfix postfix/main_mailer_type select Internet Site" | debconf-set-selections
 echo "postfix postfix/mailname string mail.example.test" | debconf-set-selections
@@ -108,7 +113,10 @@ Para evaluar en una VM desechable puedes omitir esto (Dovecot/nginx usan certifi
 ## 5. Validar
 ```bash
 bash deploy/tools/validar-despliegue.sh          # chequeos; la IA sale como WARN, no falla
-curl -sk https://localhost/api/health            # debe responder 200 (en producción, también con TU-DOMINIO)
+curl -sk https://TU-DOMINIO/api/health           # debe responder 200
+# Con `localhost` responde 301: nginx redirige al nombre del servidor. Si todavía no tienes
+# DNS, añade el nombre a /etc/hosts o usa la cabecera:
+#   curl -sk -H Host: TU-DOMINIO https://127.0.0.1/api/health
 git -C /opt/maquita-webmail status --porcelain   # debe estar VACÍO: un despliegue no ensucia el árbol
 python3 deploy/tools/barrido-datos-personales.py --arbol /opt/maquita-webmail   # 0 hallazgos
 ```
@@ -189,6 +197,19 @@ UPDATE threat_config SET auto_disable_on_compromise=true WHERE id=1;  -- habilit
 - Todos los motores de seguridad son **fail-open**: si ClamAV/YARA/IA fallan, el correo se entrega igual (se registra, no se bloquea salvo configuración explícita).
 
 ---
+
+
+## Registro del correo (sistemas sin rsyslog)
+
+Las estadísticas de correo del panel leen `/var/log/mail.log`. Debian 13 no instala `rsyslog`, así
+que ese fichero no existe y el servicio avisa una vez de que no lo encuentra. Si quieres esas
+estadísticas:
+
+```
+apt install -y rsyslog && systemctl enable --now rsyslog
+```
+
+Sin él, el correo funciona igual: lo único que falta son los recuentos del panel.
 
 ## Conectar una IA (opcional)
 

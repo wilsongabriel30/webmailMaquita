@@ -85,10 +85,21 @@ def _leer(clave: str):
 
 
 # ----------------------------------------------------------------- revocación
-def registrar_revocacion(uid: int, sid: str, av: int) -> None:
-    """Anota lo que el correo revocó: un sid concreto, o todo el usuario hasta la generación av."""
+TODAS = "todas"
+
+
+def registrar_revocacion(uid: int, sid: str, av=None) -> None:
+    """Anota lo que el correo revocó: un sid concreto, o al usuario entero.
+
+    Con `sid = "*"` y sin `av` se revoca TODO lo que esa persona tenga abierto. Antes se anotaba
+    la generación 0 y no revocaba nada, porque ninguna sesión es anterior a 0: quien cerraba
+    sesiones «para todas» se quedaba creyendo que lo había hecho.
+    """
     if sid == "*":
-        _poner(f"chat:revocado:{uid}", int(av or 0), TTL_REVOCACION)
+        if av in (None, "", 0, "0"):
+            _poner(f"chat:revocado:{uid}", TODAS, TTL_REVOCACION)
+        else:
+            _poner(f"chat:revocado:{uid}", int(av), TTL_REVOCACION)
     else:
         _poner(f"chat:revocado_sid:{sid}", "1", TTL_REVOCACION)
 
@@ -99,6 +110,8 @@ def sesion_revocada(uid, sid, av) -> bool:
     v = _leer(f"chat:revocado:{uid}")
     if v is None:
         return False
+    if str(v) == TODAS:
+        return True
     try:
         return int(av or 0) < int(v)
     except (TypeError, ValueError):
@@ -206,10 +219,13 @@ def revocar():
     d = request.get_json(silent=True) or {}
     correo = (d.get("user") or "").strip().lower()
     sid = str(d.get("sid") or "*")
-    try:
-        av = int(d.get("av") or 0)
-    except (TypeError, ValueError):
-        av = 0
+    # `av` ausente no es lo mismo que `av = 0`: ausente con sid "*" significa «todas».
+    av = d.get("av")
+    if av not in (None, ""):
+        try:
+            av = int(av)
+        except (TypeError, ValueError):
+            av = None
     if not correo:
         return jsonify({"success": False, "error": "Falta user"}), 400
     uid = resolver_uid(correo) if resolver_uid else None

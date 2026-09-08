@@ -36,16 +36,42 @@ def sincronizar():
     origen_url = os.environ["USERS_DB_URL"]
     destino_url = os.environ["DATABASE_URL"]
 
-    # Fuente de identidad. Ajustar el SELECT al esquema propio si difiere.
-    consulta_origen = """
+    # De dónde salen las personas. Se mira el esquema en vez de darlo por hecho: apuntar a la
+    # base del CORREO es lo natural en una instalación nueva, y ahí la tabla es `mailbox`.
+    CONSULTA_DIRECTORIO = """
         SELECT id, username, email, COALESCE(full_name, username) AS full_name,
                COALESCE(active, true) AS active, profile_picture
         FROM usuarios
         WHERE email IS NOT NULL
     """
+    # En la base del correo, el buzón ES el correo y no hay id propio: se numera por orden
+    # estable (el correo) para que el mismo buzón conserve su id entre ejecuciones.
+    CONSULTA_BUZONES = """
+        SELECT row_number() OVER (ORDER BY username) AS id,
+               split_part(username, '@', 1) AS username,
+               username AS email,
+               COALESCE(NULLIF(TRIM(name), ''), split_part(username, '@', 1)) AS full_name,
+               COALESCE(active, true) AS active,
+               NULL::text AS profile_picture
+        FROM mailbox
+        WHERE username IS NOT NULL
+    """
+
+    def _existe(cur, tabla):
+        cur.execute("SELECT to_regclass(%s) IS NOT NULL", ("public." + tabla,))
+        return bool(cur.fetchone()[0])
 
     with _conn(origen_url) as co, co.cursor() as cur_o:
-        cur_o.execute(consulta_origen)
+        if _existe(cur_o, "usuarios"):
+            fuente, consulta = "usuarios", CONSULTA_DIRECTORIO
+        elif _existe(cur_o, "mailbox"):
+            fuente, consulta = "mailbox (base del correo)", CONSULTA_BUZONES
+        else:
+            print("La fuente no tiene ni `usuarios` ni `mailbox`: revisa USERS_DB_URL.\n"
+                  "Debe apuntar al directorio de personas o a la base del correo.")
+            return 1
+        print("Fuente de identidad:", fuente)
+        cur_o.execute(consulta)
         filas = cur_o.fetchall()
 
     if not filas:
