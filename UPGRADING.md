@@ -10,6 +10,68 @@ servicio, reiniciar lo que cambió y correr `deploy/tools/validar-despliegue.sh`
 
 ---
 
+## De 1.7.13 a 1.7.14 — dos cosas que se veian desde fuera y no debian
+
+Actualizacion corta y de seguridad. **Conviene mirarla aunque no actualiceis hoy**: el primer
+punto se ve en cualquier instalacion con la IA configurada.
+
+### 1. Traer el codigo y reiniciar el correo
+
+```
+git fetch --tags && git checkout v1.7.14
+systemctl restart maquita-webmail
+```
+
+### 2. Comprobar que el estado de la IA ya no cuenta de mas
+
+**Antes de actualizar**, para ver si os afecta:
+
+```
+curl -s https://<vuestro-correo>/api/ai/health
+```
+
+Si eso devuelve `detail` con vuestros servidores de IA, sus direcciones y sus modelos, lo estais
+publicando en internet sin pedir sesion. Despues de actualizar debe devolver solo:
+
+```
+{"status":"ok"}
+```
+
+Con sesion sale ademas el proveedor y el modelo; el detalle completo, solo para administradores.
+
+### 3. Cabeceras en los nombres de autoconfiguracion
+
+`autodiscover.<dominio>` y `autoconfig.<dominio>` deben mandar `Strict-Transport-Security`: por
+ahi viaja la direccion de correo de quien configura su cliente.
+
+```
+curl -s -D- -o /dev/null https://autodiscover.<dominio>/ | grep -i strict-transport
+curl -s -D- -o /dev/null https://autoconfig.<dominio>/ | grep -i strict-transport
+```
+
+Si no aparece, mirad **que bloque atiende ese nombre**: si teneis un vhost con el nombre exacto,
+gana sobre el comodin y las cabeceras hay que ponerlas ahi (a nosotros nos paso).
+
+Comprobad despues que el autodescubrimiento sigue respondiendo:
+
+```
+curl -s -o /dev/null -w '%{http_code}\n' -X POST -H 'Content-Type: text/xml' \
+  --data @peticion.xml https://autodiscover.<dominio>/autodiscover/autodiscover.xml
+```
+
+### Casos negativos
+
+1. `https://<correo>/openapi.json`, `/docs` y `/redoc` no deben servir la documentacion de la API.
+2. Un listado de directorio (`/static/`, `/uploads/`) debe dar 403, nunca la lista de ficheros.
+3. `https://<correo>/webmail/assets/<fichero>.js.map` debe dar 404: los mapas de codigo fuente no
+   se publican.
+
+### Como revisar vuestra propia superficie
+
+En `OPERACION.md` («Superficie expuesta: como revisarla») queda el metodo: leer la tabla de rutas
+del servicio y probar cada GET sin sesion. Adivinar direcciones no sirve, porque nginx devuelve la
+aplicacion para todo lo que no existe y parece que esta abierto.
+
 ## De 1.7.12 a 1.7.13 — el chat sin nomina, avisos honestos y menos ruido
 
 Actualizacion corta: no hay nada que configurar. Recoge los seis avisos del equipo que replica
