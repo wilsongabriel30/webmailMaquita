@@ -560,16 +560,41 @@ async def suggest_subject(
     return SuggestSubjectResponse(suggestions=suggestions[:3])
 
 
+async def _quien_pregunta(request: Request):
+    """(usuario, es_admin) sin exigir sesión: la ruta responde a todos, contando menos.
+
+    No se usa `Depends(get_current_user)` porque eso devolvería 401 a los vigilantes que solo
+    quieren saber si el servicio está vivo. Aquí se pregunta y, si no hay sesión, se sigue.
+    """
+    usuario = None
+    try:
+        usuario = await get_current_user(request)
+    except Exception:
+        return None, False
+    try:
+        from app.auth.dependencies import require_admin
+        await require_admin(request)
+        return usuario, True
+    except Exception:
+        return usuario, False
+
+
 # =====================================================
 # HEALTH CHECK
 # =====================================================
 @router.get("/health")
-async def ai_health():
+async def ai_health(request: Request):
     """Verifica que la IA configurada genera texto de verdad, con el adaptador de cada proveedor.
 
     Antes consultaba `/api/v1/ia/status` y el formato de la pasarela con cualquier proveedor, así
     que con Ollama u OpenAI siempre salía «degraded» aunque funcionaran (informe de Andes, 07/09).
+
+    [N-31] Lo que se cuenta depende de quién pregunta. Sin sesión solo el estado: antes esta
+    ruta publicaba en internet los servidores de IA con sus DIRECCIONES INTERNAS y puertos, el
+    inventario de modelos de cada uno y cuáles estaban caídos. Para saber si el servicio vive
+    basta con «ok» o «degradado»; el plano de la red es de los administradores.
     """
+    quien, es_admin = await _quien_pregunta(request)
     try:
         ia = await _get_ia_config()
         detalle = {}
@@ -587,16 +612,25 @@ async def ai_health():
             genera_ok = bool((texto or "").strip())
         except HTTPException:
             genera_ok = False
-        return {
-            "status": "ok" if genera_ok else "degraded",
+        estado = "ok" if genera_ok else "degraded"
+        if not quien:
+            return {"status": estado}
+        respuesta = {
+            "status": estado,
             "ia_server": "connected",
             "genera_texto": genera_ok,
             "provider": ia["provider"],
             "modelo": ia.get("model", "?"),
-            "detail": detalle,
         }
+        if es_admin:
+            respuesta["detail"] = detalle
+        return respuesta
     except Exception as e:
-        return {"status": "degraded", "ia_server": "unreachable", "detail": str(e)}
+        if not quien:
+            return {"status": "degraded"}
+        # El texto de la excepción puede llevar la dirección del servidor de IA: solo al admin.
+        return {"status": "degraded", "ia_server": "unreachable",
+                **({"detail": str(e)} if es_admin else {})}
 
 
 async def embed_text(text: str) -> list:
