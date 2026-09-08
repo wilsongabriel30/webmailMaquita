@@ -193,6 +193,10 @@ contraseña principal. No valen desde el propio servidor (webmail y app siguen c
   principal solo se acepta desde 127.0.0.1/::1 (webmail, app, envío del backend); Z-Push (docker0)
   y cualquier cliente externo necesitan una de aplicación. `maquita-mailadm auth apppass-policy on|off`
   (aplica en el siguiente login, sin reinicio). En producción está en **on** desde el 07/09/2026.
+- Si un proxy termina el TLS delante del servidor (instalaciones con `proxy-maquita` o similar), las
+  comprobaciones por 443 (`curl --resolve …:443:127.0.0.1`, `OPTIONS /Microsoft-Server-ActiveSync`) se hacen
+  **desde fuera** de la VM: desde dentro el 443 local no responde y `curl` devuelve 000, que parece un
+  fallo y no lo es (apunte de Andes, 07/09/2026).
 - Diagnóstico: `doveadm auth test -x rip=<ip-del-cliente> usuario contraseña` (con `rip` externa
   prueba la ruta real; sin `rip`, la de aplicación no vale a propósito). Último uso e IP en la tabla.
   Tras tocar las `passdb`: **`systemctl restart dovecot`**, nunca `doveadm reload` (Dovecot 2.4 queda
