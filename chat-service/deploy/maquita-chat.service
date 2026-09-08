@@ -1,0 +1,35 @@
+# Servicio de chat institucional (máquina propia).
+#
+# Corre en su propia máquina y habla con: PostgreSQL (su base y la de usuarios), Redis
+# (presencia, uso único de los vales y cola de Socket.IO) y, si se usa, la nómina.
+# Nginx lo publica; este servicio NO escucha en el exterior.
+[Unit]
+Description=Servicio de chat institucional
+After=network.target postgresql.service redis-server.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=maquita-chat
+Group=maquita-chat
+WorkingDirectory=/opt/maquita-webmail/chat-service
+EnvironmentFile=/opt/maquita-webmail/chat-service/.env
+ExecStart=/opt/maquita-webmail/chat-service/venv/bin/python3 app_chat.py
+Restart=always
+RestartSec=3
+
+# Confinamiento. NO se pone NoNewPrivileges por costumbre: si algún día este servicio
+# necesitara `sudo` acotado, ese ajuste lo rompería entero y el fallo es difícil de leer
+# (lección de N-26 en el panel). Hoy no lo necesita; si se añade, revisar esto a la vez.
+PrivateTmp=yes
+ProtectSystem=full
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+ReadWritePaths=/opt/maquita-webmail/chat-service
+
+[Install]
+WantedBy=multi-user.target

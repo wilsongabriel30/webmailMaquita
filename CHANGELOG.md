@@ -7,6 +7,16 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Añadido
+
+- **El servicio de chat ya se puede instalar desde el repositorio.** Hasta ahora estaba el
+  código, pero no lo necesario para levantarlo en su propia máquina: iba a mano. Se añaden la
+  unidad de systemd, el ejemplo de configuración con todas las variables explicadas, las dos
+  formas de publicarlo en nginx (origen propio para el cliente de escritorio, y bloques para
+  empotrarlo en otra aplicación, con la puerta `/chat/entrar`), un instalador guiado que se
+  planta si falta configuración, y `docs/CHAT-INSTALACION.md` paso a paso con sus casos
+  negativos.
+
 ### Corregido
 
 - **N-29, se perdia el PRIMER mensaje de cada conversacion nueva.** Al escribir a alguien por
