@@ -573,6 +573,7 @@ async def _quien_pregunta(request: Request):
         return None, False
     try:
         from app.auth.dependencies import require_admin
+
         await require_admin(request)
         return usuario, True
     except Exception:
@@ -629,8 +630,11 @@ async def ai_health(request: Request):
         if not quien:
             return {"status": "degraded"}
         # El texto de la excepción puede llevar la dirección del servidor de IA: solo al admin.
-        return {"status": "degraded", "ia_server": "unreachable",
-                **({"detail": str(e)} if es_admin else {})}
+        return {
+            "status": "degraded",
+            "ia_server": "unreachable",
+            **({"detail": str(e)} if es_admin else {}),
+        }
 
 
 async def embed_text(text: str) -> list:
