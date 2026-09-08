@@ -35,16 +35,63 @@ chmod 600 "$DESTINO/.env"
 
 echo "== 4/6 Comprobación de la configuración mínima =="
 faltan=""
+ejemplo=""
 for clave in DATABASE_URL USERS_DB_URL CHAT_JWT_SECRET CHAT_SSO_SECRET CHAT_SESSION_KEY NOTIF_SECRET CHAT_REDIS_URL; do
     valor="$(grep -E "^${clave}=" "$DESTINO/.env" | head -1 | cut -d= -f2-)"
-    [ -n "$valor" ] || faltan="$faltan $clave"
+    if [ -z "$valor" ]; then
+        faltan="$faltan $clave"
+    # Los marcadores del ejemplo NO son configuración: dejarlos pasar habilitaba el servicio
+    # contra una base inexistente y el fallo aparecía mucho después.
+    elif printf '%s' "$valor" | grep -qE "USUARIO|SERVIDOR|BASE_DEL_CHAT|BASE_DE_USUARIOS|ejemplo\.org|CAMBIAME|<.*>"; then
+        ejemplo="$ejemplo $clave"
+    fi
 done
-if [ -n "$faltan" ]; then
-    echo "   FALTAN por rellenar:$faltan"
+if [ -n "$faltan" ] || [ -n "$ejemplo" ]; then
+    [ -n "$faltan" ] && echo "   FALTAN por rellenar:$faltan"
+    [ -n "$ejemplo" ] && echo "   SIGUEN CON EL VALOR DE EJEMPLO:$ejemplo"
     echo "   Rellena el .env y vuelve a ejecutar este guion."
     exit 1
 fi
 echo "   completa"
+
+echo "== 4b/6 Las bases responden y las tablas existen =="
+_url() { grep -E "^${1}=" "$DESTINO/.env" | head -1 | cut -d= -f2-; }
+if ! "$DESTINO/venv/bin/python3" - "$(_url DATABASE_URL)" "$(_url USERS_DB_URL)" <<'PY'
+import sys
+import psycopg2
+
+chat, usuarios = sys.argv[1], sys.argv[2]
+try:
+    with psycopg2.connect(chat) as c, c.cursor() as cur:
+        cur.execute("SELECT to_regclass('public.chat_conversations') IS NOT NULL")
+        if not cur.fetchone()[0]:
+            print("   La base del chat responde pero NO tiene las tablas.")
+            print("   Ejecuta:  venv/bin/python3 migrar_chat.py")
+            sys.exit(1)
+except Exception as e:
+    print("   No se pudo conectar a la base del chat (DATABASE_URL): %s" % type(e).__name__)
+    sys.exit(1)
+try:
+    with psycopg2.connect(usuarios) as c, c.cursor() as cur:
+        cur.execute("SELECT to_regclass('public.usuarios') IS NOT NULL")
+        if not cur.fetchone()[0]:
+            print("   La base de personas responde pero no tiene `usuarios`.")
+            print("   Ejecuta:  venv/bin/python3 sincronizar_usuarios.py")
+            sys.exit(1)
+        cur.execute("SELECT count(*) FROM usuarios WHERE active = true")
+        n = cur.fetchone()[0]
+        print("   personas activas en el directorio: %d" % n)
+        if n == 0:
+            print("   AVISO: el chat no reconocerá a nadie hasta que haya personas.")
+except Exception as e:
+    print("   No se pudo conectar a la base de personas (USERS_DB_URL): %s" % type(e).__name__)
+    sys.exit(1)
+print("   bases correctas")
+PY
+then
+    echo "   Corrige lo anterior y vuelve a ejecutar este guion."
+    exit 1
+fi
 
 echo "== 5/6 Unidad de systemd =="
 install -m 644 "$DESTINO/deploy/maquita-chat.service" /etc/systemd/system/maquita-chat.service

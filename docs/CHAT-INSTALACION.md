@@ -23,7 +23,7 @@ Necesitas:
 
 ```
 git clone <repositorio> /opt/maquita-webmail
-cd /opt/maquita-webmail && git checkout v1.7.11
+cd /opt/maquita-webmail && git checkout "$(git tag --sort=-v:refname | head -1)"   # la última etiqueta
 ```
 
 Si solo quieres el chat, basta con una copia dispersa de `chat-service/`.
@@ -36,14 +36,26 @@ El chat usa las tablas `chat_*` (conversaciones, participantes, mensajes, estado
 tabla `usuarios`. Si vienes de una instalación con el chat dentro de la plataforma, no hay que
 migrar nada: son las mismas tablas.
 
-En una instalación nueva **hay que crearlas**, y esto es más importante de lo que parece: sin
-ellas el servicio arranca igual y responde a `/healthz`, pero cualquier petición real devuelve
-«Error interno del servidor». Le pasó a un equipo durante semanas.
+En una instalación nueva **hay que crear la base y las tablas**, y esto es más importante de lo
+que parece: sin ellas el servicio arranca igual y responde a `/healthz`, pero cualquier petición
+real devuelve «Error interno del servidor». Le pasó a un equipo durante semanas.
 
 ```
+# 1) La base, si no existe (como usuario postgres)
+sudo -u postgres createuser --pwprompt chat
+sudo -u postgres createdb -O chat chat_maquita
+
+# 2) Las tablas del chat
 cd chat-service
 venv/bin/python3 migrar_chat.py        # idempotente: se puede repetir sin miedo
+
+# 3) Las personas: el chat no tiene lista propia, la copia del directorio del correo
+DATABASE_URL=... USERS_DB_URL=... venv/bin/python3 sincronizar_usuarios.py
 ```
+
+`sincronizar_usuarios.py` mira qué hay al otro lado: si la fuente tiene `usuarios`, la usa; si
+apuntas a la base del **correo**, usa su tabla `mailbox` (el buzón es el correo y su nombre, el
+nombre). Sin este paso el chat no reconoce a nadie, aunque todo lo demás esté bien.
 
 Después, comprobar:
 
@@ -106,6 +118,18 @@ curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8790/healthz   # 200
 **Negativo**: `curl http://<ip-de-la-maquina>:8790/healthz` desde otra máquina **no** debe
 responder. El servicio se publica por nginx, no directamente.
 
+Desde esta versión el chat escucha **solo en loopback** salvo que se le diga otra cosa. Si tu
+proxy vive en OTRA máquina (nuestro caso), indícale la interfaz y **acota con el cortafuegos**,
+que el servicio por sí solo no lo hace:
+
+```
+# .env del chat
+CHAT_BIND=10.0.0.10          # la interfaz por la que lo alcanza el proxy
+
+# y en el cortafuegos, solo desde el proxy
+nft add rule inet filter input tcp dport 8790 ip saddr 10.0.0.5 accept
+```
+
 ## 4. Publicarlo en nginx
 
 Dos formas, y se pueden usar a la vez:
@@ -144,6 +168,26 @@ sin `sid` se rechaza.
 `/api/chat/unread/count` responde 200.
 **Negativo**: repite el mismo vale y debe dar 401.
 
+## 5b. Cablear el correo con el chat (imprescindible)
+
+Para que el correo emita el vale y muestre el chat, en el `.env` del **correo** hacen falta:
+
+| Variable | Valor |
+|---|---|
+| `CHAT_SSO_SECRET` | el mismo del chat |
+| `NOTIF_SECRET` | el mismo del chat |
+
+Y en la configuración del chat del panel (`chat_settings`), `embed_url` apuntando al origen del
+chat (`https://mensajeria.<dominio>/chat/?embed=1`) si vive aparte. Reinicia el correo después.
+
+**Confianza TLS entre los dos.** El chat revalida cada sesión contra el correo
+(`CORREO_URL_API` + `/api/auth/sesion-servicio`) y **falla cerrado**: si no puede comprobar,
+cierra la sesión. Con un certificado autofirmado, esa llamada falla por TLS y **todas las
+sesiones del chat mueren a los 300 segundos** con `SESION_NO_REVALIDABLE`. Dos salidas:
+
+- certificado de confianza en el correo (lo normal en producción), o
+- en evaluación, `CORREO_URL_API=http://127.0.0.1:8000` si comparten máquina.
+
 ## 6. Cerrar sesiones cuando la persona sale
 
 Cuando alguien cierra sesión en la plataforma (o se cambia de identidad), avisad al chat:
@@ -151,10 +195,14 @@ Cuando alguien cierra sesión en la plataforma (o se cambia de identidad), avisa
 ```
 POST /api/chat/sesion/revocar
 Cabecera: X-Notif-Secret: <NOTIF_SECRET>
-Cuerpo:   {"user": "<correo>", "sid": "<sid o *>"}
+Cuerpo:   {"user": "<correo>", "sid": "<sid>"}          # una sesión concreta
+Cuerpo:   {"user": "<correo>", "sid": "*"}              # todas las suyas
 ```
 
-**Comprobación**: responde 200 y esa sesión pasa a 401 en la siguiente petición.
+**Comprobación**: responde 200 y esa sesión pasa a 401 en la siguiente petición, también con
+`"*"`. (Hasta la 1.7.14, `"*"` sin el campo `av` respondía 200 y no revocaba nada: se anotaba la
+generación 0 y ninguna sesión es anterior a 0. Corregido; si mandas `av` numérico, sigue
+revocando solo lo anterior a esa generación.)
 **Negativo**: sin la cabecera correcta responde 403.
 
 ## 7. Avisos: que se enteren sin mirar la pantalla
@@ -182,6 +230,12 @@ UPDATE chat_participants SET is_muted = TRUE
 puesto «no molestar» (nunca en menciones, llamadas ni reuniones, que se consideran urgentes).
 La regla para el cliente es: **si llega `silencioso: true`, contador sin sonido; si no viene,
 sonar**.
+
+Si el chat vive en **otro origen**, el vhost del correo necesita además los bloques
+«consumidor» (`deploy/nginx-chat-consumidor.conf`) o la burbuja del correo no lo encontrará: hasta
+la 1.7.14 comprobaba la disponibilidad contra su propio origen, recibía 404 y se escondía con el
+chat perfectamente vivo. Desde esa versión, si el correo ya conoce el origen del chat, la burbuja
+no sondea nada.
 
 Para engancharlo desde vuestra interfaz:
 

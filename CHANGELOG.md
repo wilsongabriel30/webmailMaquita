@@ -7,6 +7,42 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Corregido
+
+- **Revocar «todas las sesiones» no revocaba nada** (instalacion limpia de Andes). El cuerpo que
+  documenta la guia, `{"user": ..., "sid": "*"}`, respondia 200 y dejaba la sesion viva: al no
+  venir `av` se anotaba la generacion 0 y ninguna sesion es anterior a 0. Creerse protegido sin
+  estarlo es lo peor que puede pasar en seguridad. Ahora `"*"` sin `av` revoca todo lo abierto;
+  con `av` numerico se conserva el corte fino.
+- **El chat escuchaba en todas las interfaces.** La guia prometia que el puerto no responde desde
+  otra maquina y si respondia: era el unico puerto expuesto de su instalacion limpia. Ahora
+  escucha solo en loopback salvo que se indique `CHAT_BIND`, y la guia explica como acotarlo
+  cuando el proxy vive en otra maquina.
+- **La burbuja del correo se escondia con el chat en otro origen.** Comprobaba la disponibilidad
+  contra su propio origen, recibia 404 y se ocultaba con el chat vivo, dejando dos 404 por carga
+  en la consola. Si el correo ya conoce el origen del chat, no sondea nada.
+- **`sincronizar_usuarios.py` no servia apuntando a la base del correo**: pedia columnas que esa
+  base no tiene, asi que nadie sabia como meter las cuentas en el chat. Ahora mira el esquema y
+  usa `usuarios` o `mailbox` segun lo que encuentre.
+- **El instalador del chat aceptaba la configuracion de ejemplo**: los marcadores pasaban el
+  filtro de «minimos» y el servicio quedaba habilitado contra una base inexistente. Ahora los
+  rechaza y comprueba que las dos bases responden, que las tablas del chat existen y cuanta
+  gente hay en el directorio.
+- **Instalador del correo**: el resumen decia «Backend /api/health: sin respuesta» cuando solo
+  tardaba mas que la espera del guion; ahora reintenta. Y el vigilante del registro del correo
+  deja de repetir cada cinco segundos que no encuentra `/var/log/mail.log` en sistemas sin
+  rsyslog: lo dice una vez, con la solucion.
+
+### Cambiado
+
+- **Guias de instalacion** (correo y chat), con lo que faltaba para que una maquina nueva llegue
+  a chat operativo: crear la base ademas de las tablas, poblar el directorio, el cableado del
+  correo con el chat (`CHAT_SSO_SECRET`, `NOTIF_SECRET`, `embed_url`), el requisito de confianza
+  TLS entre ambos (o la alternativa por loopback) y por que sin el todas las sesiones mueren a
+  los 300 segundos, el cuerpo correcto de la revocacion, el cortafuegos del puerto del chat, la
+  nota del preseed de Postfix, la comprobacion del paso 5 con el nombre del dominio y el registro
+  del correo en sistemas sin rsyslog. La guia del chat deja de fijar una etiqueta vieja a mano.
+
 ## [1.7.14] - 2026-09-08
 
 ### Seguridad

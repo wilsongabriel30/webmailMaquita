@@ -556,7 +556,14 @@ echo -e "\n${GREEN}[18/18] Iniciando y verificando...${NC}"
 systemctl restart maquita-webmail
 nginx -t && { systemctl reload nginx 2>/dev/null || systemctl enable --now nginx; }
 sleep 3
-HEALTH=$(curl -s http://127.0.0.1:8000/api/health 2>/dev/null || echo "sin respuesta")
+# El backend tarda en levantar más que un sleep corto: se reintenta en vez de mentir con
+# «sin respuesta», que hacía pensar en una instalación rota cuando estaba bien (aviso de Andes).
+HEALTH="sin respuesta"
+for _intento in $(seq 1 20); do
+    _r=$(curl -s -m 3 http://127.0.0.1:8000/api/health 2>/dev/null || true)
+    if [ -n "$_r" ]; then HEALTH="$_r"; break; fi
+    sleep 3
+done
 AUTH_DEMO=$(doveadm auth test "demo@${DEMO_DOM}" "${CLAVE_GENERICA}" 2>&1 | grep -c "auth succeeded" || true)
 AUTH_MASTER=$(doveadm auth test "demo@${DEMO_DOM}*admin" "${MASTER_PASS}" 2>&1 | grep -c "auth succeeded" || true)
 

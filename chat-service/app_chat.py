@@ -585,4 +585,11 @@ except Exception as _e:
     print(f"[recordatorios] no iniciado: {_e}", file=sys.stderr)
 
 if __name__ == "__main__":
-    socketio.run(application, host="0.0.0.0", port=int(os.getenv("CHAT_PORT", "8790")))
+    # Por omisión solo loopback: si el proxy vive en otra máquina, se indica su interfaz con
+    # CHAT_BIND y se acota con el cortafuegos. Escuchar en todas las interfaces «por si acaso»
+    # deja el chat en crudo a quien alcance la red.
+    socketio.run(
+        application,
+        host=os.getenv("CHAT_BIND", "127.0.0.1"),
+        port=int(os.getenv("CHAT_PORT", "8790")),
+    )

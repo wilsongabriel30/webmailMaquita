@@ -175,7 +175,17 @@ class MailLogIngestor:
         while self._running:
             try:
                 if not os.path.exists(MAIL_LOG):
-                    logger.warning("Mail log not found: %s — waiting...", MAIL_LOG)
+                    # Un sistema recién instalado puede no traer rsyslog (Debian 13 no lo
+                    # trae): el registro del correo está solo en el journal. Se avisa UNA vez
+                    # con la solución, en vez de repetirlo cada cinco segundos para siempre.
+                    if not getattr(self, "_aviso_sin_registro", False):
+                        self._aviso_sin_registro = True
+                        logger.warning(
+                            "No existe %s: sin él no hay estadísticas de correo. "
+                            "En sistemas sin rsyslog: apt install rsyslog, o exporta el journal "
+                            "a ese fichero. Se sigue reintentando en silencio.",
+                            MAIL_LOG,
+                        )
                     await asyncio.sleep(5)
                     continue
 

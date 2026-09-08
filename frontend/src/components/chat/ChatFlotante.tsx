@@ -66,6 +66,13 @@ export function ChatFlotante() {
   //    NO desaparezca "sin explicacion" tras una hora de uso.
   useEffect(() => {
     if (enabled !== true) return;   // hasta saber si hay chat, no se sondea
+    // Chat en su propio origen: el correo ya nos dio su direccion al emitir el vale, asi que
+    // existe. Sondear /api/chat relativo al correo daba 404 y escondia la burbuja con el chat
+    // vivo (visto por una replica externa en una instalacion separada).
+    if (origenChat) {
+      setDisponible(true);
+      return;
+    }
     let vivo = true;
     // Un 404 en esta ruta significa que el chat no esta instalado: no se arregla
     // solo, a diferencia de un 503 temporal. Tras tres seguidos se deja de
@@ -117,7 +124,7 @@ export function ChatFlotante() {
       vivo = false;
       detener();
     };
-  }, [enabled]);
+  }, [enabled, origenChat]);
 
   // Helper: recalcular no leidos desde el servidor.
   const refrescarNoLeidos = () => {
