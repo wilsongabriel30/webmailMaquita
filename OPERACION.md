@@ -4,6 +4,31 @@ Cómo se vigila la plataforma y qué hacer cuando algo avisa. Documento vivo.
 
 ---
 
+## Puerta del chat: quién puede abrir sesión
+
+El servicio de chat abre sesión propia (`chat_session`) al canjear un vale en `/sso/entrar`.
+El vale va firmado con `CHAT_SSO_SECRET`, que es un secreto **dedicado**: no es el del correo
+ni el de la sesión del chat, y solo sirve para entrar.
+
+Emisores admitidos, en el campo `iss` del vale:
+
+| Emisor | Quién lo emite | Regla de la sesión |
+|---|---|---|
+| `correo` (o sin `iss`) | El webmail, en `GET /api/chat-sso` | F-03: lleva `sid` y `av` del correo; se revalida contra el correo cada `CHAT_REVALIDAR_SESION_SEG` y **falla cerrado** si el correo no responde |
+| `raices` | Raíces, en su página del chat | Lleva su propio `sid`; no hay sesión del correo a la que preguntar, así que vale hasta su tope absoluto (`CHAT_SESION_EXTERNA_MAX_SEG`, 12 h) y hasta que llegue una revocación |
+
+Cualquier otro emisor se rechaza, y un vale sin `sid` de un emisor que no es el correo también:
+sin identificador no habría forma de cerrar esa sesión después.
+
+Revocación (la misma para los dos): `POST /api/chat/sesion/revocar` con `X-Notif-Secret`,
+cuerpo `{"user": "<correo>", "sid": "<sid o *>"}`. Raíces la empuja al cerrar sesión.
+
+Comprobación rápida en el servicio de chat:
+
+```
+journalctl -u maquita-chat | grep "sso/entrar"     # vales rechazados y su motivo
+```
+
 ## Outlook nuevo: excepción para la nube de Microsoft
 
 El acceso a 443/143/993/465/587 está limitado por país (conjunto `paises_permitidos`, solo Ecuador
