@@ -10,6 +10,56 @@ servicio, reiniciar lo que cambió y correr `deploy/tools/validar-despliegue.sh`
 
 ---
 
+## De 1.7.11 a 1.7.12 — un solo canal de aviso y el candado del contrato al día
+
+Actualización corta: no hay nada que configurar. Corrige un error nuestro de la versión anterior.
+
+### 1. Traer el código y reiniciar el chat
+
+```
+git fetch --tags && git checkout v1.7.12
+systemctl restart maquita-chat
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8790/healthz    # 200
+```
+
+### 2. Si engancharon `aviso_chat`, cámbienlo por `notificacion`
+
+En 1.7.11 anunciamos el evento `aviso_chat` creyendo que el servidor solo avisaba dentro de la
+conversación abierta. **No era así**: ya emitía `notificacion` a la sala personal de cada
+destinatario en los dos caminos de envío, y con más información (título, texto, enlace absoluto,
+avatar, `es_grupo` y `silencioso` cuando la persona tiene «no molestar»). El fallo estaba en
+nuestro cliente web, que escuchaba `notification`, en inglés, que no existe.
+
+`aviso_chat` se retira en esta versión. Si lo engancharon en estas horas:
+
+```
+socket.on('notificacion', function (d) { ... });   // en vez de 'aviso_chat'
+```
+
+Y conviene respetar la marca de «no molestar»: si llega `silencioso: true`, mostrar el contador
+pero no sonar.
+
+### 3. Comprobación del contrato de la aplicación de escritorio (T-47)
+
+El candado que lo protege fabricaba su vale sin `sid` ni `av`, que la regla de sesión exige desde
+F-03, así que daba rojo sin haber nada roto. Ya está al día:
+
+```
+humo-notificaciones            # o: python3 chat-service/humo_notificaciones.py <conversacion>
+```
+
+Debe terminar en «TODO OK - 0 fallas», con las dos conexiones simultáneas (navegador y
+aplicación) recibiendo el aviso.
+
+### Dos cosas para quien mantenga clientes propios
+
+- **El vale de sesión tiene que llevar `sid` y `av`.** Sin ellos el socket se rechaza en el
+  handshake con `sesion central no valida`. El vale que emite el correo al iniciar sesión ya los
+  trae: basta con usar el vigente y no uno guardado.
+- **Un vale firmado con una clave anterior a una rotación se rechaza** con firma inválida. Ante
+  ese motivo concreto, el cliente debe forzar entrada nueva en vez de reintentar: reintentando
+  deja miles de rechazos al día en el registro y no se recupera solo.
+
 ## De 1.7.10 a 1.7.11 — el chat avisa de verdad y deja de perder el primer mensaje
 
 Cuatro pasos, en este orden. Los tres primeros se pueden hacer con gente conectada; el cuarto
