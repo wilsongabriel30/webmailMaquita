@@ -132,23 +132,31 @@ def obtener_trabajadores_activos():
         from config_nomina import NominaDBConfig
         from sqlalchemy import create_engine, text
 
+        from interfaces.api.directorio_nomina import armar_lista, candidatos
+
         engine = create_engine(NominaDBConfig.NOMINA_DATABASE_URI)
 
+        # Se piden más filas de las que se van a devolver: parte de la gente de nómina no
+        # tiene cuenta de usuario y se cae por el camino al traducir el correo.
+        holgura = min(max(limite * 4, limite + 20), 300)
+
         with engine.connect() as conn:
-            # Query para obtener trabajadores activos
+            # `estado` se compara normalizado: nómina guarda «Activo», hubo épocas con
+            # «ACTIVO» y con espacios de más, y comparar literal dejaba la lista vacía.
             sql = """
                 SELECT
                     t.id,
                     t.nombres || ' ' || t.apellidos as nombre_completo,
                     t.foto_perfil,
                     t.email_institucional,
+                    t.estado,
                     c.nombre as cargo,
                     d.nombre as departamento
                 FROM trabajadores t
                 LEFT JOIN cargos c ON t.cargo_id = c.id
                 LEFT JOIN departamentos_empresa d ON t.departamento_id = d.id
-                WHERE t.estado = 'ACTIVO'
-                AND t.id != :usuario_id
+                WHERE UPPER(TRIM(t.estado)) = 'ACTIVO'
+                AND COALESCE(TRIM(t.email_institucional), '') <> ''
             """
 
             if query:
@@ -159,20 +167,12 @@ def obtener_trabajadores_activos():
 
             sql += " ORDER BY t.nombres, t.apellidos LIMIT :limit"
 
-            params = {
-                'usuario_id': usuario_actual,
-                'limit': limite
-            }
+            params = {'limit': holgura}
             if query:
                 params['query'] = f'%{query}%'
 
-            result = conn.execute(text(sql), params)
-
-            trabajadores = []
-            trabajador_ids = []
-            for row in result.mappings():
-                trabajador_ids.append(row['id'])
-
+            filas = []
+            for row in conn.execute(text(sql), params).mappings():
                 # Construir URL de foto correctamente
                 foto_url = None
                 if row['foto_perfil']:
@@ -186,27 +186,45 @@ def obtener_trabajadores_activos():
                     else:
                         # Asumir que es solo el nombre del archivo
                         foto_url = f'/static/uploads/nomina/fotos/{foto}'
-
-                trabajadores.append({
+                filas.append({
                     'id': row['id'],
-                    'name': row['nombre_completo'],
                     'nombre_completo': row['nombre_completo'],
-                    'photo': foto_url,
-                    'foto_perfil': foto_url,
-                    'email': row['email_institucional'],
-                    'role': row['cargo'],
-                    'department': row['departamento'],
-                    'departamento_nombre': row['departamento'],
-                    'online': False  # Default, se actualizará abajo
+                    'email_institucional': row['email_institucional'],
+                    'estado': row['estado'],
+                    'cargo': row['cargo'],
+                    'departamento': row['departamento'],
+                    'foto_url': foto_url,
                 })
 
-        # Obtener presencia de los trabajadores
-        if trabajador_ids:
+        # Del correo de nómina a la CUENTA del chat, en una sola consulta.
+        # Sin esto se devolvía el id de nómina como si fuera el del chat, y no coinciden:
+        # habría abierto la conversación de otra persona.
+        cuentas = {}
+        correos = candidatos(filas)
+        if correos:
+            db_session = g.get('db_session_chat')
+            if not db_session:
+                from infraestructura.base_datos.base import obtener_gestor
+                db_session = obtener_gestor().session()
+                g.db_session_chat = db_session
+            from infraestructura.persistencia.modelos.modelo_usuario import ModeloUsuario
+            for u in (db_session.query(ModeloUsuario)
+                      .filter(ModeloUsuario.active == True)  # noqa: E712 (SQLAlchemy)
+                      .filter(ModeloUsuario.email.in_(correos))
+                      .all()):
+                cuentas[(u.email or '').strip().lower()] = {
+                    'id': u.id,
+                    'nombre': (u.full_name or u.username or u.email or '').strip(),
+                }
+
+        trabajadores = armar_lista(filas, cuentas, usuario_actual, limite)
+
+        # Presencia, ya con los id de cuenta
+        if trabajadores:
             servicio = obtener_servicio_chat()
-            presencias = servicio.obtener_presencia(trabajador_ids)
+            presencias = servicio.obtener_presencia([t['id'] for t in trabajadores])
             for trab in trabajadores:
-                user_presencia = presencias.get(trab['id'], {'online': False})
-                trab['online'] = user_presencia.get('online', False)
+                trab['online'] = presencias.get(trab['id'], {'online': False}).get('online', False)
 
         return jsonify({
             'success': True,
