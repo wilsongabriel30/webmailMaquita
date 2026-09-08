@@ -49,7 +49,7 @@ class Config:
     SQLALCHEMY_DATABASE_URI = NOMINA_DATABASE_URI
     AUTH_DATABASE_URI = NOMINA_DATABASE_URI
 
-    # Configuración de base de datos Nube (Nextcloud/archivos)
+    # Configuración de base de datos Nube (archivos)
     NUBE_DB_CONFIG = {
         'host': os.getenv('NUBE_DB_HOST', 'localhost'),
         'port': int(os.getenv('NUBE_DB_PORT', 5432)),
@@ -267,15 +267,6 @@ class Config:
     MAIL_PASSWORD = os.getenv('MAIL_PASSWORD')
     MAIL_DEFAULT_SENDER = os.getenv('MAIL_DEFAULT_SENDER', 'noreply@maquita.com.ec')
 
-    # =========================================================================
-    # NEXTCLOUD - Integración Nube Maquita
-    # =========================================================================
-    NEXTCLOUD_URL = os.getenv('NEXTCLOUD_URL', 'http://localhost')
-    NEXTCLOUD_ADMIN_USER = os.getenv('NEXTCLOUD_ADMIN_USER', 'gestiontecnologia@maquita.com.ec')
-    NEXTCLOUD_ADMIN_PASSWORD = os.getenv('NEXTCLOUD_ADMIN_PASSWORD')
-    NEXTCLOUD_ONLYOFFICE_SECRET = os.getenv('NEXTCLOUD_ONLYOFFICE_SECRET')
-    # URL publica para el navegador (edicion OnlyOffice)
-    NEXTCLOUD_PUBLIC_URL = os.getenv("NEXTCLOUD_PUBLIC_URL", "https://nube.maquita.com.ec")
     ONLYOFFICE_PUBLIC_URL = os.getenv("ONLYOFFICE_PUBLIC_URL", "https://office.maquita.com.ec")
 
     # =========================================================================

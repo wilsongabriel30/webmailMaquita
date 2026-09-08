@@ -10,6 +10,14 @@ servicio, reiniciar lo que cambió y correr `deploy/tools/validar-despliegue.sh`
 
 ---
 
+## Sin publicar (después de 1.7.9)
+
+Nextcloud retirado del todo (N-20): ya no hay «Guardar en Nube» en el webmail, ni sección de Nextcloud en el
+panel, ni rutas `/api/nextcloud/*`. Nada que hacer al actualizar salvo limpieza opcional:
+`NC_BASE_URL`, `NC_ADMIN_USER`, `NC_ADMIN_PASS` y `NC_PUBLIC_URL` sobran en `backend/.env` y en el `.env` del
+panel; la tabla `nextcloud_accounts` de `maildb` puede borrarse (`DROP TABLE nextcloud_accounts`) y las columnas
+`nc_*` de `office_config` quedan vacías.
+
 ## De 1.7.8 a 1.7.9 — correcciones de Andes, Drive desde el panel, Radicale con acceso por cabecera
 
 Si vienes de 1.7.7, haz primero «De 1.7.7 a 1.7.8» (ya corregida: incluye Radicale con
