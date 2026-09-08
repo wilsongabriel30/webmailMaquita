@@ -45,7 +45,7 @@ export function ChatFlotante() {
   //     el iframe con el. Si el chat sigue en el origen del correo, esto devuelve
   //     la misma URL relativa y no cambia nada.
   useEffect(() => {
-    if (enabled === false) return;
+    if (enabled !== true) return;   // mientras no se sepa, no se pide nada
     let vivo = true;
     fetch("/api/chat-sso", { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
@@ -65,7 +65,7 @@ export function ChatFlotante() {
   //    (cookie de 1 h), se intenta refrescar y se reintenta, para que la burbuja
   //    NO desaparezca "sin explicacion" tras una hora de uso.
   useEffect(() => {
-    if (enabled === false) return;
+    if (enabled !== true) return;   // hasta saber si hay chat, no se sondea
     let vivo = true;
     // Un 404 en esta ruta significa que el chat no esta instalado: no se arregla
     // solo, a diferencia de un 503 temporal. Tras tres seguidos se deja de
@@ -73,6 +73,9 @@ export function ChatFlotante() {
     // generaba una peticion fallida por minuto y por persona, mas una en cada
     // cambio de foco, y una consola llena de errores.
     let noInstalado = 0;
+    // 401 seguidos: la cuenta no tiene identidad en el chat (no esta en su directorio).
+    // Insistir solo llena la consola de errores; se para igual que con un 404.
+    let sinCuenta = 0;
     const detener = () => {
       clearInterval(t);
       window.removeEventListener("focus", onFocus);
@@ -86,6 +89,13 @@ export function ChatFlotante() {
           r = await fetch("/api/chat/conversations?limit=1", { credentials: "include" });
         }
         if (!vivo) return;
+        if (r.status === 401) {
+          sinCuenta += 1;
+          setDisponible(false);
+          if (sinCuenta >= 3) detener();
+          return;
+        }
+        sinCuenta = 0;
         if (r.status === 404) {
           noInstalado += 1;
           setDisponible(false);

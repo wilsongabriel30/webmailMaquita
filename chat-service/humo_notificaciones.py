@@ -11,7 +11,32 @@ import urllib.request
 import jwt
 import socketio as sio_cli
 
-BASE = 'https://mail.maquita.org'
+# Nada atado a una instalación concreta: todo por entorno o por argumentos.
+#   HUMO_BASE         dirección donde se publica el chat (por omisión, CHAT_URL_PUBLICA)
+#   HUMO_DESTINO      correo que RECIBE el aviso (dos conexiones: navegador y aplicación)
+#   HUMO_REMITENTE    correo que escribe
+#   HUMO_CONVERSACION conversación entre ambos (también como primer argumento)
+#   HUMO_ENV          fichero de configuración del chat (por omisión, el de al lado)
+import os
+
+_AQUI = os.path.dirname(os.path.abspath(__file__))
+ENV = os.getenv('HUMO_ENV', os.path.join(_AQUI, '.env'))
+
+
+def _config(clave, defecto=''):
+    try:
+        for l in open(ENV):
+            if l.strip().startswith('#') or '=' not in l:
+                continue
+            k, v = l.strip().split('=', 1)
+            if k == clave:
+                return v.strip('"\'')
+    except OSError:
+        pass
+    return defecto
+
+
+BASE = (os.getenv('HUMO_BASE') or _config('CHAT_URL_PUBLICA')).rstrip('/')
 fallas = []
 recibidos = {'navegador': [], 'app': []}
 confirmacion = {}   # nombre -> (segundos hasta `connected`, usuario_id)
@@ -24,11 +49,7 @@ def check(n, ok, d=''):
 
 
 def token(correo):
-    env = {}
-    for l in open('/opt/maquita-webmail/chat-service/.env'):
-        if '=' in l and not l.strip().startswith('#'):
-            k, v = l.strip().split('=', 1)
-            env[k] = v.strip('"\'')
+    env = {'CHAT_JWT_SECRET': _config('CHAT_JWT_SECRET')}
     # `sid` y `av` NO son adorno: desde F-03 la sesion del chat los exige, porque son los que
     # permiten revocarla desde el correo. El vale real del webmail los lleva; sin ellos el
     # socket se rechaza con «sesion central no valida» y esta prueba daba rojo sin haber nada
@@ -72,8 +93,19 @@ def cliente(nombre, tok, ua):
     return c
 
 
-def main(conversacion=52):
-    destino, remitente = token('test@maquita.org'), token('gestiontecnologia@maquita.com.ec')
+def main(conversacion=None):
+    conversacion = conversacion or os.getenv('HUMO_CONVERSACION')
+    correo_destino = os.getenv('HUMO_DESTINO', '')
+    correo_remitente = os.getenv('HUMO_REMITENTE', '')
+    if not (BASE and conversacion and correo_destino and correo_remitente):
+        print('Faltan datos. Uso:\n'
+              '  HUMO_BASE=https://chat.ejemplo.org HUMO_DESTINO=quien.recibe@ejemplo.org \\\n'
+              '  HUMO_REMITENTE=quien.escribe@ejemplo.org HUMO_CONVERSACION=12 humo-notificaciones\n'
+              '(HUMO_BASE se toma de CHAT_URL_PUBLICA si no se indica; la conversación también\n'
+              ' puede ir como primer argumento). Las dos cuentas deben compartir esa conversación.')
+        return 2
+    conversacion = int(conversacion)
+    destino, remitente = token(correo_destino), token(correo_remitente)
     c1 = cliente('navegador', destino, 'Mozilla/5.0 Chrome/151')
     c2 = cliente('app', destino, 'Mozilla/5.0 Chrome/151 MaquitaTeams/0.4.49')
     time.sleep(3)
@@ -111,4 +143,4 @@ def main(conversacion=52):
 
 
 if __name__ == '__main__':
-    sys.exit(main(int(sys.argv[1]) if len(sys.argv) > 1 else 52))
+    sys.exit(main(sys.argv[1] if len(sys.argv) > 1 else None))

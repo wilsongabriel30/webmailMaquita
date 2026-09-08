@@ -59,15 +59,11 @@ def obtener_conversaciones():
             usuarios_info = {}
             presencias = {}
             if user_ids:
-                # Query con subquery para obtener foto del trabajador
                 from sqlalchemy import text
-                query_usuarios = text("""
-                    SELECT u.id, u.username, u.email, u.full_name, u.role,
-                           u.profile_picture, t.foto_perfil as foto_trabajador
-                    FROM usuarios u
-                    LEFT JOIN trabajadores t ON u.trabajador_id = t.id
-                    WHERE u.id = ANY(:user_ids)
-                """)
+                # Mismo caso que en la lista de mensajes: sin nómina el cruce no existe.
+                from interfaces.api.nomina_opcional import consulta_remitentes, hay_nomina
+                _con_nomina = hay_nomina(lambda sql: db_session.execute(text(sql)).scalar())
+                query_usuarios = text(consulta_remitentes(_con_nomina))
                 result = db_session.execute(query_usuarios, {'user_ids': list(user_ids)})
                 usuarios_data = result.fetchall()
 

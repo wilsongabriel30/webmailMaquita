@@ -7,6 +7,33 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Corregido
+
+- **El chat funciona sin nomina** (aviso de Andes). Mirar una conversacion daba 500 en un
+  esquema sin `trabajadores` ni `usuarios.trabajador_id`: las consultas cruzaban con nomina solo
+  para una foto de respaldo. Ahora se comprueba una vez si ese cruce existe y se elige la
+  consulta que el esquema admite; sin nomina se pierde esa foto y nada mas. Corregido en la
+  lista de mensajes (el reportado) y en la de conversaciones, que tenia el mismo cruce.
+- **El rechazo al empezar una conversacion cuenta el motivo real** (aviso de Andes). Con la base
+  sin responder se contestaba «No puedes chatear con esta persona»: rechazar es correcto (fallo
+  cerrado) pero el texto acusaba de un bloqueo inexistente. Ahora cada motivo tiene su mensaje,
+  el que no se pudo comprobar se registra como error nuestro y se marca `reintentable`.
+- **`/healthz` distingue «el proceso vive» de «puede tocar su base»** (aviso de Andes, les paso
+  de verdad). Responde 503 con `base: sin_tablas` mientras falten las tablas del chat, y con
+  `base: sin_conexion` si no llega a la base; 200 solo cuando esta utilizable.
+- **El boton del chat deja de pedir antes de saber si hay chat** y de insistir cuando la cuenta
+  no esta en el directorio del chat: tras tres vueltas con 401 se detiene, como ya hacia con el
+  404. Quita las cuatro peticiones fallidas por carga que veiamos en las pruebas con navegador.
+
+### Cambiado
+
+- **El candado T-47 se puede correr en cualquier instalacion** (aviso de Andes): direccion,
+  conversacion y cuentas salen de `HUMO_BASE`, `HUMO_DESTINO`, `HUMO_REMITENTE` y
+  `HUMO_CONVERSACION`, y si falta algo lo explica en una linea.
+- **Guia de instalacion del chat**: el paso 2 crea las tablas con `migrar_chat.py`, se explica
+  que aplica al modo integrado y que al separado (los secretos no son iguales en los dos), como
+  se silencia una conversacion y que `silencioso` solo llega cuando hay «no molestar».
+
 ### Anadido
 
 - **Pruebas con navegador de verdad** (`pruebas-navegador/`, Playwright + Chromium): recorridos
