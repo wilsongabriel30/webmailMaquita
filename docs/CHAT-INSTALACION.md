@@ -134,13 +134,19 @@ Cuerpo:   {"user": "<correo>", "sid": "<sid o *>"}
 El chat emite por Socket.IO:
 
 - `msg` y `new_message` a la sala de la conversación (quien la tiene abierta).
-- **`aviso_chat` a la sala personal de cada participante**: llega a cualquier ventana de esa
-  persona, esté en la sección que esté. Es lo que hace que suene el aviso fuera del chat.
+- **`notificacion` a la sala personal de cada participante** (contrato T-47): llega a cualquier
+  ventana de esa persona, esté en la sección que esté, y es el mismo evento que usa la
+  aplicación de escritorio. Trae `titulo`, `texto`, `url` lista para abrir, `conversacion_id`,
+  `avatar` y, si la persona tiene «no molestar», `silencioso: true` (el aviso llega, pero el
+  cliente no debe sonar). Es lo que hace que suene el aviso fuera del chat.
+
+Quien tenga la conversación silenciada no recibe el evento: eso se resuelve en el servidor y el
+cliente no tiene que filtrarlo.
 
 Para engancharlo desde vuestra interfaz:
 
 ```
-socket.on('aviso_chat', function (d) { /* sonido, contador, aviso del sistema */ });
+socket.on('notificacion', function (d) { /* sonido, contador, aviso del sistema */ });
 ```
 
 Dos detalles que cuestan una tarde si no se saben: el cliente de Socket.IO **no** se sirve en
