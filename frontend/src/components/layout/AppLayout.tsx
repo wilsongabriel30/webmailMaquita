@@ -8,6 +8,7 @@ import { Outlet } from "react-router-dom";
 import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts";
 import { useWebSocket } from "../../hooks/useWebSocket";
 import { useThemeStore } from "../../store/themeStore";
+import { useNombreApp } from "../../lib/marca";
 import { useMailStore } from "../../store/mailStore";
 import { api } from "../../api/client";
 import { CommandPalette } from "../common/CommandPalette";
@@ -20,6 +21,7 @@ import { esModoApp } from "../../lib/modoApp"
 import { useDeepLinkCorreo } from "../../lib/deepLinkCorreo";
 
 export function AppLayout() {
+  const nombreApp = useNombreApp();
   useDeepLinkCorreo();
   useKeyboardShortcuts();
   useWebSocket();
@@ -126,7 +128,7 @@ export function AppLayout() {
         )}
 
         <main id="main-content" role="main" className="flex-1 flex flex-col overflow-hidden">
-          <h1 className="sr-only">Maquita Mail</h1>
+          <h1 className="sr-only">{nombreApp}</h1>
           <Outlet />
         </main>
         {/* Region de anuncios para lectores de pantalla */}
