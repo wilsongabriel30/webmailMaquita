@@ -50,6 +50,10 @@ export function PanelBusquedaAvanzada({ onBuscar, onCerrar }: Props) {
     else if (desde) partes.push(`despues:${desde}`);
     else if (hasta) partes.push(`antes:${hasta}`);
     else if (atajo) partes.push(atajo);
+    // Entrar en el texto obliga a descifrar los mensajes uno a uno, asi que lo que decide la
+    // espera es cuantos hay. Sin fecha elegida: los ultimos tres meses (4,5 s medidos, frente a
+    // 17 s del buzon entero). Quien necesite mas, pone la fecha y lo sabe.
+    if (enContenido && !desde && !hasta && !atajo) partes.push('trimestre');
     if (conAdjunto) partes.push('tiene:adjunto');
     if (soloNoLeidos) partes.push('es:noleido');
     if (soloMarcados) partes.push('es:marcado');
@@ -152,9 +156,15 @@ export function PanelBusquedaAvanzada({ onBuscar, onCerrar }: Props) {
           <span>
             Buscar también dentro del texto de los mensajes
             <span className="block text-[11px] text-[#a19f9d]">
-              Tarda bastante más: hay que abrir uno a uno los mensajes del buzón, que están cifrados.
-              Prueba primero sin esto.
+              Más lento: hay que abrir uno a uno los mensajes, que están cifrados. Lo que marca la
+              espera es cuántos: acotar la fecha lo cambia todo.
             </span>
+            {enContenido && !desde && !hasta && !atajo && (
+              <span className="block mt-1 text-[11px] text-[#8a6d3b] bg-[#fff4ce] rounded px-2 py-1">
+                Se buscará en los últimos 3 meses (unos segundos). Para ir más atrás, elige una
+                fecha arriba: el buzón entero puede tardar medio minuto.
+              </span>
+            )}
           </span>
         </label>
       </div>
