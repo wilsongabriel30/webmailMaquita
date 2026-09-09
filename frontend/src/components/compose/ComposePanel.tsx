@@ -49,6 +49,20 @@ interface HallazgoDlp { label: string }
 const MAX_ATTACH_MB = Number(import.meta.env?.VITE_MAX_ATTACHMENT_MB) || 25;
 const totalAttachBytes = (atts: AttachmentFile[]) => atts.reduce((sum, a) => sum + (a.size || 0), 0);
 
+
+/** Una dirección utilizable: algo, una arroba, un dominio con punto. No aspira a validar todo
+ *  lo que el RFC permite —eso solo lo sabe el servidor de destino—, sino a parar lo que es
+ *  evidentemente inválido antes de dar el correo por enviado. Acepta la forma «Nombre <a@b.c>». */
+function esDireccionUsable(valor: string): boolean {
+  const limpio = valor.trim().replace(/^.*<([^>]+)>$/, '$1').trim();
+  return /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]{2,}$/.test(limpio);
+}
+
+/** Las direcciones que no valen, para poder decir CUÁLES en el aviso. */
+function direccionesInvalidas(lista: string[]): string[] {
+  return lista.filter((d) => !esDireccionUsable(d));
+}
+
 export function ComposePanel({ win }: Props) {
   const closeCompose = useMailStore(s => s.closeCompose);
   const minimizeCompose = useMailStore(s => s.minimizeCompose);
@@ -376,6 +390,13 @@ export function ComposePanel({ win }: Props) {
     if (encrypt) {
       const recipients = to.split(',').map(x => x.trim()).filter(Boolean);
       if (!recipients.length) { setError('Ingresa un destinatario'); return; }
+      const malas = direccionesInvalidas(recipients);
+      if (malas.length) {
+        setError(malas.length === 1
+          ? `«${malas[0]}» no es una dirección de correo válida`
+          : `Estas direcciones no son válidas: ${malas.join(', ')}`);
+        return;
+      }
       if (totalAttachBytes(attachments) / (1024 * 1024) > MAX_ATTACH_MB) { setError(`El correo supera el tamaño máximo (${MAX_ATTACH_MB} MB). Reduce los adjuntos.`); return; }
       setSending(true); setError('');
       try {
@@ -400,6 +421,15 @@ export function ComposePanel({ win }: Props) {
     }
     const recipients = to.split(',').map(s => s.trim()).filter(Boolean);
     if (!recipients.length) { setError('Ingresa un destinatario'); return; }
+    // Sin esto, una direccion mal escrita arrancaba la cuenta atras igualmente y el correo se
+    // daba por enviado hacia algo que no existe.
+    const invalidas = direccionesInvalidas([...recipients, ...dlpCc, ...dlpBcc]);
+    if (invalidas.length) {
+      setError(invalidas.length === 1
+        ? `«${invalidas[0]}» no es una dirección de correo válida`
+        : `Estas direcciones no son válidas: ${invalidas.join(', ')}`);
+      return;
+    }
     // Límite de tamaño de adjuntos (fuente: VITE_MAX_ATTACHMENT_MB)
     const totalAttachMB = totalAttachBytes(attachments) / (1024 * 1024);
     if (totalAttachMB > MAX_ATTACH_MB) {
@@ -928,6 +958,14 @@ export function ComposePanel({ win }: Props) {
     if (!scheduleDate) { showToast('Selecciona fecha y hora'); return; }
     const recipients = to.split(',').map(s => s.trim()).filter(Boolean);
     if (!recipients.length) { setError('Ingresa un destinatario'); return; }
+    // Programar un envio a una direccion invalida es peor: el fallo aparece horas despues.
+    const malasProgramado = direccionesInvalidas(recipients);
+    if (malasProgramado.length) {
+      setError(malasProgramado.length === 1
+        ? `«${malasProgramado[0]}» no es una dirección de correo válida`
+        : `Estas direcciones no son válidas: ${malasProgramado.join(', ')}`);
+      return;
+    }
     try {
       await api.post('/mail/schedule', {
         to: recipients, cc: cc ? cc.split(',').map(s => s.trim()).filter(Boolean) : [],
