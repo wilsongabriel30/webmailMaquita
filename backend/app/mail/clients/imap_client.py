@@ -200,6 +200,7 @@ async def list_message_uids(
     search_query: str = "",
     redis=None,
     username: str = "",
+    buscar_en_contenido: bool = False,
 ) -> dict:
     """List message UIDs with pagination (newest first).
 
@@ -219,7 +220,7 @@ async def list_message_uids(
     # Try SORT for server-side ordering (faster than SEARCH + client sort)
     use_sort = True
     if search_query:
-        criteria = _build_search_criteria(search_query)
+        criteria = _build_search_criteria(search_query, buscar_en_contenido)
     else:
         criteria = ["ALL"]
 
@@ -277,10 +278,10 @@ async def list_message_uids(
     return {"uids": page_uids, "total": total, "page": page, "per_page": per_page}
 
 
-def _build_search_criteria(query: str) -> list[str]:
+def _build_search_criteria(query: str, buscar_en_contenido: bool = False) -> list[str]:
     from app.mail.search_advanced import parse_search_query
 
-    return parse_search_query(query)
+    return parse_search_query(query, buscar_en_contenido=buscar_en_contenido)
 
 
 async def fetch_message_headers(
