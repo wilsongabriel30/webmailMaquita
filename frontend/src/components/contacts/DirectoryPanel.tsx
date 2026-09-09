@@ -88,44 +88,63 @@ export function DirectoryPanel({ isOpen, onClose, pickerMode, onPickContact, pic
 
   // ── Data loading ──
 
-  const loadContacts = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (search) params.set('search', search);
-      if (deptFilter) params.set('department', deptFilter);
-      if (locFilter) params.set('location', locFilter);
-      if (sourceFilter !== 'all') params.set('source', sourceFilter);
-      if (activeOnly) params.set('active_only', 'true');
-      const data = await api.get<OrgContact[]>(`/contacts/directory?${params}`);
-      setContacts(data);
-    } catch { /* ignore */ }
-    setLoading(false);
+  // Pedir los contactos. No toca el indicador de carga al empezar: si lo hiciera desde el
+  // efecto, la pantalla se pintaría dos veces seguidas. Quien quiera enseñar el indicador al
+  // recargar a mano usa `recargarContactos`, que sí lo enciende (y eso pasa en un manejador,
+  // no durante el render).
+  /** Pide los contactos que casan con los filtros. Devuelve la lista; no toca el estado,
+   *  para que quien la pida pueda descartarla si ya no interesa. */
+  const pedirContactos = useCallback(async (): Promise<OrgContact[]> => {
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    if (deptFilter) params.set('department', deptFilter);
+    if (locFilter) params.set('location', locFilter);
+    if (sourceFilter !== 'all') params.set('source', sourceFilter);
+    if (activeOnly) params.set('active_only', 'true');
+    return api.get<OrgContact[]>(`/contacts/directory?${params}`);
   }, [search, deptFilter, locFilter, sourceFilter, activeOnly]);
 
-  const loadFilters = async () => {
+  /** Recarga enseñando el indicador. Para cuando la recarga la pide la persona. */
+  const recargarContactos = useCallback(async () => {
+    setLoading(true);
     try {
-      const [depts, locs] = await Promise.all([
-        api.get<string[]>('/contacts/directory/departments'),
-        api.get<string[]>('/contacts/directory/locations').catch(() => [] as string[]),
-      ]);
-      setDepartments(depts);
-      setLocations(locs);
-    } catch { /* ignore */ }
+      setContacts(await pedirContactos());
+    } catch { /* la lista se queda como estaba; el panel no se rompe por un fallo de red */ }
+    setLoading(false);
+  }, [pedirContactos]);
+
+  /** Pide los departamentos y las sedes para los desplegables de filtro. Devuelve los dos,
+   *  sin tocar el estado, para que quien los pida pueda descartarlos si ya no interesan. */
+  const pedirFiltros = async (): Promise<{ departamentos: string[]; sedes: string[] }> => {
+    const [depts, locs] = await Promise.all([
+      api.get<string[]>('/contacts/directory/departments'),
+      api.get<string[]>('/contacts/directory/locations').catch(() => [] as string[]),
+    ]);
+    return { departamentos: depts, sedes: locs };
   };
 
   useEffect(() => {
-    if (isOpen) {
-      loadContacts();
-      loadFilters();
-      setTimeout(() => searchInputRef.current?.focus(), 100);
-    }
-  }, [isOpen, loadContacts]);
+    if (!isOpen) return;
+    let cancelado = false;
+    pedirContactos()
+      .then((lista) => { if (!cancelado) { setContacts(lista); setLoading(false); } })
+      .catch(() => { if (!cancelado) setLoading(false); });
+    pedirFiltros()
+      .then(({ departamentos, sedes }) => {
+        if (cancelado) return;
+        setDepartments(departamentos);
+        setLocations(sedes);
+      })
+      .catch(() => { /* sin filtros: los desplegables se quedan vacíos, el listado funciona */ });
+    const foco = setTimeout(() => searchInputRef.current?.focus(), 100);
+    // Si el panel se cierra antes de que conteste el servidor, la respuesta se descarta.
+    return () => { cancelado = true; clearTimeout(foco); };
+  }, [isOpen, pedirContactos]);
 
   const handleSearchChange = (val: string) => {
     setSearch(val);
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-    searchTimerRef.current = setTimeout(() => loadContacts(), 300);
+    searchTimerRef.current = setTimeout(() => recargarContactos(), 300);
   };
 
   // ── CRUD ──
@@ -144,8 +163,8 @@ export function DirectoryPanel({ isOpen, onClose, pickerMode, onPickContact, pic
       }
       setShowForm(false);
       setFormData({});
-    } catch (e: any) {
-      alert(e?.message || 'Error al guardar');
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Error al guardar');
     }
     setSaving(false);
   };
@@ -348,7 +367,7 @@ export function DirectoryPanel({ isOpen, onClose, pickerMode, onPickContact, pic
                     <div key={f.key}>
                       <label className="block text-[11px] text-[#605e5c] mb-1 uppercase font-medium">{f.label}</label>
                       <input placeholder={f.label}
-                        value={(formData as any)[f.key] || ''}
+                        value={String(formData[f.key as keyof OrgContact] ?? '')}
                         onChange={e => setFormData(p => ({ ...p, [f.key]: e.target.value }))}
                         className="w-full px-3 py-2 border border-[#c8c6c4] rounded-md text-[13px] focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4] outline-none" />
                     </div>
