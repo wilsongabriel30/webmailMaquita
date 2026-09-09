@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { COLORS, type ActiveView } from '../types';
 
 interface Props {
@@ -16,8 +16,15 @@ export function TaskInput({ onAdd, activeView }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [shake, setShake] = useState(false);
 
-  // Cerrar los selectores al cambiar de vista (evita que persistan en otra pestana)
-  useEffect(() => { setShowDatePicker(false); setShowReminderPicker(false); }, [activeView]);
+  // Cerrar los selectores al cambiar de vista (evita que persistan en otra pestaña).
+  // Se ajusta durante el render, comparando con la vista anterior, en lugar de con un efecto:
+  // así la pantalla se pinta una sola vez, ya con los selectores cerrados.
+  const [vistaAnterior, setVistaAnterior] = useState(activeView);
+  if (vistaAnterior !== activeView) {
+    setVistaAnterior(activeView);
+    setShowDatePicker(false);
+    setShowReminderPicker(false);
+  }
 
   const handleAdd = () => {
     if (title.trim()) {
@@ -67,7 +74,7 @@ export function TaskInput({ onAdd, activeView }: Props) {
           value={title}
           onChange={e => setTitle(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }}
-          placeholder="Escriba aqui y presione Enter o Agregar..."
+          placeholder="Escriba aquí y presione Enter o Agregar..."
           ref={inputRef}
           autoFocus
           className={shake ? 'task-input-shake' : ''}

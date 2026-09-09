@@ -184,7 +184,7 @@ export function GroupManager() {
             <div className="col-span-2">
               <label className="block text-sm font-medium text-slate-700 mb-1">Descripción</label>
               <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
-                placeholder="Descripcion del grupo"
+                placeholder="Descripción del grupo"
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
             </div>
             {!editGroup && (

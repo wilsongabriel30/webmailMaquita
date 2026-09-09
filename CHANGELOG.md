@@ -7,6 +7,30 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Corregido
+
+- **La migración del chat dice por qué falla cuando la tabla es de otro rol.** Si el directorio
+  se pobló por otra vía, `usuarios` puede pertenecer a un rol distinto del que migra y PostgreSQL
+  responde «must be owner of table usuarios», sin decir de quién es la tabla ni con quién se está
+  entrando. Ahora el mensaje nombra a la dueña, al rol de la migración y la sentencia exacta que
+  lo resuelve. Reproducido sobre una base desechable con dos roles: falla con el texto nuevo,
+  y tras aplicar el `ALTER TABLE … OWNER TO …` que indica, termina y es idempotente.
+
+### Pruebas
+
+- **El ruido conocido de las pruebas de navegador, en una sola lista y con frontera fija.** Con
+  el chat en otra máquina, dos peticiones de diseño hacían fallar dos de tres recorridos: el 404
+  único de arranque de `/api/chat/conversations` y el 401 de `/sso/entrar` de una cuenta fuera
+  del directorio del chat. Se apartan esas y nada más, cada una con su ruta y su motivo, y lo
+  apartado sale por pantalla. El 404 **solo se perdona una vez**: repetido vuelve a ser fallo.
+  El recorrido del Drive dejó de apartar *todo* `/api/chat` y `/archivos-almacen`, que escondía
+  cualquier fallo del propio Drive.
+- **`PRUEBAS_TLS_LAXA=1` cubre también el *service worker***, que nace fuera del contexto: su
+  fetch tumbaba el recorrido de entrada con certificado autofirmado pese a la variable.
+- Prueba nueva del separador de ruido (`pruebas/00-ruido.spec.js`), sin navegador.
+
+Los tres avisos son del equipo replica (Andes), 09/09/2026.
+
 ## [1.7.16] - 2026-09-08
 
 ### Seguridad

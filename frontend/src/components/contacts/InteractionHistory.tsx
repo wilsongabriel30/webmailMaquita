@@ -166,10 +166,18 @@ export function InteractionHistory({ contactId, contactEmail }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  // Al cambiar de contacto hay que volver a «cargando» y olvidar el error anterior. Se hace
+  // durante el render, comparando con el contacto anterior, en lugar de dentro del efecto: así
+  // no se pinta primero el historial del contacto de antes y se corrige después.
+  const [contactoAnterior, setContactoAnterior] = useState(contactId);
+  if (contactoAnterior !== contactId) {
+    setContactoAnterior(contactId);
     setLoading(true);
     setError(null);
+  }
+
+  useEffect(() => {
+    let cancelled = false;
 
     Promise.all([
       api.get<Stats>(`/contacts/${contactId}/stats`),
