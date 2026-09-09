@@ -10,7 +10,7 @@ import { ContactList as ContactListPanel } from './ContactList';
 import { ContactDetail } from './ContactDetail';
 import { ContactForm } from './ContactForm';
 import { contactToFormData, emptyFormData } from './contactFormData';
-import type { ContactFormData } from './ContactForm';
+import type { ContactFormData } from './contactFormData';
 import { DeleteDialog } from './DeleteDialog';
 import { NewListModal } from './NewListModal';
 import { ImportExportModal } from './ImportExportModal';
