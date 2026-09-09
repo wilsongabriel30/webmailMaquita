@@ -141,7 +141,7 @@ export function MultiImportModal({ isOpen, onClose, onImportComplete }: Props) {
                     <div style={styles.serviceName}>{svc.name}</div>
                     <div style={styles.serviceDesc}>{svc.description}</div>
                     {!svc.available && svc.setup_required && (
-                      <div style={styles.serviceNote}>Requiere configuracion</div>
+                      <div style={styles.serviceNote}>Requiere configuración</div>
                     )}
                     {svc.note && (
                       <div style={styles.serviceNote}>{svc.note}</div>

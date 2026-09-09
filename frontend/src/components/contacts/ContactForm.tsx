@@ -165,10 +165,10 @@ export function ContactForm({ initial, onSave, onCancel, saving, title }: Props)
           <Field label="Email principal *" value={form.email} onChange={v => set('email', v)} type="email" placeholder="correo@ejemplo.com" />
           <Field label="Email 2" value={form.email2} onChange={v => set('email2', v)} type="email" />
           <Field label="Email 3" value={form.email3} onChange={v => set('email3', v)} type="email" />
-          <Field label="Telefono" value={form.phone} onChange={v => set('phone', v)} placeholder="+593 ..." />
+          <Field label="Teléfono" value={form.phone} onChange={v => set('phone', v)} placeholder="+593 ..." />
           <Field label="Celular" value={form.phone_mobile} onChange={v => set('phone_mobile', v)} />
-          <Field label="Telefono trabajo" value={form.phone_work} onChange={v => set('phone_work', v)} />
-          <Field label="Telefono casa" value={form.phone_home} onChange={v => set('phone_home', v)} />
+          <Field label="Teléfono trabajo" value={form.phone_work} onChange={v => set('phone_work', v)} />
+          <Field label="Teléfono casa" value={form.phone_home} onChange={v => set('phone_home', v)} />
           <Field label="Fax" value={form.fax} onChange={v => set('fax', v)} />
         </div>
       )}
@@ -194,8 +194,8 @@ export function ContactForm({ initial, onSave, onCancel, saving, title }: Props)
             <div style={{ flex: 1 }}><Field label="Provincia/Estado" value={form.address_state} onChange={v => set('address_state', v)} /></div>
           </div>
           <div style={{ display: 'flex', gap: 12 }}>
-            <div style={{ flex: 1 }}><Field label="Codigo postal" value={form.address_zip} onChange={v => set('address_zip', v)} /></div>
-            <div style={{ flex: 1 }}><Field label="Pais" value={form.address_country} onChange={v => set('address_country', v)} /></div>
+            <div style={{ flex: 1 }}><Field label="Código postal" value={form.address_zip} onChange={v => set('address_zip', v)} /></div>
+            <div style={{ flex: 1 }}><Field label="País" value={form.address_country} onChange={v => set('address_country', v)} /></div>
           </div>
         </div>
       )}

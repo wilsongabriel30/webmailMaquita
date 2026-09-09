@@ -934,6 +934,9 @@ export function ComposePanel({ win }: Props) {
           </button>
             <button
               onClick={() => setShowSendDropdown(!showSendDropdown)}
+              title="Más opciones de envío"
+              aria-label="Más opciones de envío"
+              aria-expanded={showSendDropdown}
               className="h-[32px] px-[6px] bg-[#0078d4] text-white rounded-r-[4px] border-l border-[#ffffff40] hover:bg-[#106ebe] transition-colors"
             >
               <svg className="w-[10px] h-[10px]" fill="currentColor" viewBox="0 0 20 20">
@@ -1012,8 +1015,8 @@ export function ComposePanel({ win }: Props) {
           <select value={sensitivity} onChange={e => setSensitivity(e.target.value)}
             title="Etiqueta de sensibilidad"
             className="mr-2 text-[11px] px-1.5 py-1 rounded border border-[#edebe9] text-[#605e5c] bg-white outline-none">
-            <option value="">Sensibilidad\u2026</option>
-            <option value="Publica">P\u00fablica</option>
+            <option value="">Sensibilidad…</option>
+            <option value="Publica">Pública</option>
             <option value="Interna">Interna</option>
             <option value="Confidencial">Confidencial</option>
             <option value="Restringida">Restringida</option>
@@ -1110,7 +1113,7 @@ export function ComposePanel({ win }: Props) {
           </>
         ) : (
           <>
-            <span className="text-[12px] text-[#605e5c] flex-1">Asistente de redaccion IA</span>
+            <span className="text-[12px] text-[#605e5c] flex-1">Asistente de redacción IA</span>
             <button onClick={requestSmartCompose} className="text-[11px] font-semibold text-[#0078d4] hover:bg-[#deecf9] px-2 py-0.5 rounded">Autocompletar con IA</button>
           </>
         )}
@@ -1135,7 +1138,7 @@ export function ComposePanel({ win }: Props) {
               suppressContentEditableWarning
               onBlur={(e) => setSignatureHtml(e.currentTarget.innerHTML)}
               style={{ outline: 'none' }}
-              title="Puedes editar tu firma aqui"
+              title="Puedes editar tu firma aquí"
               dangerouslySetInnerHTML={{ __html: sanitizeSignatureHtml(signatureHtml) }}
             />
           </div>

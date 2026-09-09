@@ -106,6 +106,9 @@ export function FilesView() {
   const [modo, setModo] = useState<'cuadricula' | 'lista'>(
     () => (localStorage.getItem('almacen_modo_vista') as 'cuadricula' | 'lista') || 'cuadricula');
   const [items, setItems] = useState<Item[]>([]);
+  // Por qué falló la última carga: sin esto, un acceso denegado se veía igual que una
+  // carpeta vacía, y la pantalla invitaba a subir ficheros que iban a ser rechazados.
+  const [fallo, setFallo] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
   const [subiendo, setSubiendo] = useState(false);
   const [cuota, setCuota] = useState<Cuota | null>(null);
@@ -149,6 +152,7 @@ export function FilesView() {
       return;
     }
     setCargando(true);
+    setFallo(null);
     try {
       if (v === 'papelera') {
         const res = await api.get<{ carpetas: Item[]; archivos: Item[] }>('/almacen/papelera');
@@ -168,8 +172,9 @@ export function FilesView() {
         setItems(lista);
         try { sessionStorage.setItem(clave, JSON.stringify(lista)); } catch { /* llena: se ignora */ }
       }
-    } catch {
+    } catch (e) {
       showToast('No se pudieron cargar los archivos');
+      setFallo(String((e as Error)?.message || ''));
       setItems([]);
     } finally {
       setCargando(false);
@@ -680,7 +685,11 @@ export function FilesView() {
           <div className="p-8 text-center text-[#605e5c] dark:text-[#a19f9d]">Cargando…</div>
         ) : mostrados.length === 0 ? (
           <div className="p-12 text-center text-[#605e5c] dark:text-[#a19f9d]">
-            {resultados !== null ? 'Sin resultados' : vista === 'papelera' ? 'La papelera está vacía' : vista === 'favoritos' ? 'Aún no marcas favoritos — clic derecho → ⭐ Agregar a favoritos' : 'Esta carpeta está vacía — usa "Subir" para empezar'}
+            {fallo
+              ? (/403|permis|acceso/i.test(fallo)
+                  ? 'No tienes acceso a esta carpeta. Si crees que deberías tenerlo, escribe a Tecnología: tu buzón puede no estar vinculado a una persona del directorio.'
+                  : 'No se pudieron cargar los archivos. Vuelve a intentarlo con 🔄.')
+              : resultados !== null ? 'Sin resultados' : vista === 'papelera' ? 'La papelera está vacía' : vista === 'favoritos' ? 'Aún no marcas favoritos — clic derecho → ⭐ Agregar a favoritos' : 'Esta carpeta está vacía — usa "Subir" para empezar'}
           </div>
         ) : modo === 'cuadricula' ? (
           <div className="grid gap-3 p-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))' }}>

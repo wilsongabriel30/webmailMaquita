@@ -79,7 +79,7 @@ export function FirewallPanel() {
 
   return (
     <div className="p-8 max-w-7xl">
-      <h1 className="text-2xl font-bold text-slate-800 mb-2">Firewall y Proteccion</h1>
+      <h1 className="text-2xl font-bold text-slate-800 mb-2">Firewall y Protección</h1>
       <p className="text-sm text-slate-500 mb-6">
         Gestiona fail2ban, blacklist permanente y monitorea ataques al servidor de correo
       </p>
@@ -831,7 +831,7 @@ function ConfigTab() {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-slate-500">Configuracion actual de los jails de fail2ban (solo lectura)</p>
+      <p className="text-sm text-slate-500">Configuración actual de los jails de fail2ban (solo lectura)</p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {Object.values(jails).map((jail) => {
           const c = jailColors[jail.name] || defaultColor;
