@@ -59,6 +59,32 @@ const TABS = [
   { id: "alerts", label: "Alertas", icon: "M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" },
 ];
 
+/** Lo que devuelven los resúmenes del panel. Solo se declara lo que se pinta. */
+interface ResumenActividad {
+  total?: number;
+  by_risk?: Record<string, number>;
+  top_actions?: { action: string; total: number }[];
+}
+interface ResumenCorreos {
+  total?: number;
+  by_status?: Record<string, number>;
+}
+interface ResumenAlertas {
+  total?: number;
+  unacknowledged?: number;
+  by_type?: Record<string, number>;
+}
+
+/** Una búsqueda forense ya lanzada, tal como la lista el servidor. */
+interface BusquedaForense {
+  id: number;
+  case_id: number;
+  status?: string;
+  keywords?: string[] | string;
+  result_count?: number;
+  duration_ms?: number;
+}
+
 const riskColors: Record<string, string> = {
   low: "bg-slate-100 text-slate-600",
   medium: "bg-amber-100 text-amber-700",
@@ -108,7 +134,7 @@ export function CompliancePanel() {
           </svg>
           Compliance & eDiscovery
         </h1>
-        <p className="text-sm text-slate-500 mt-1">Auditoria, trazabilidad y busqueda forense — tipo Microsoft Purview</p>
+        <p className="text-sm text-slate-500 mt-1">Auditoría, trazabilidad y búsqueda forense — tipo Microsoft Purview</p>
       </div>
 
       {/* Tabs */}
@@ -141,16 +167,16 @@ export function CompliancePanel() {
 // DASHBOARD TAB
 // ═══════════════════════════════════════════
 function DashboardTab() {
-  const [actStats, setActStats] = useState<any>(null);
-  const [traceStats, setTraceStats] = useState<any>(null);
-  const [alertStats, setAlertStats] = useState<any>(null);
+  const [actStats, setActStats] = useState<ResumenActividad | null>(null);
+  const [traceStats, setTraceStats] = useState<ResumenCorreos | null>(null);
+  const [alertStats, setAlertStats] = useState<ResumenAlertas | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
-      api.get<any>("/compliance/activity/stats?days=30").catch(() => null),
-      api.get<any>("/compliance/mail-trace/stats?hours=24").catch(() => null),
-      api.get<any>("/compliance/alerts/stats?days=30").catch(() => null),
+      api.get<ResumenActividad>("/compliance/activity/stats?days=30").catch(() => null),
+      api.get<ResumenCorreos>("/compliance/mail-trace/stats?hours=24").catch(() => null),
+      api.get<ResumenAlertas>("/compliance/alerts/stats?days=30").catch(() => null),
     ]).then(([a, t, al]) => {
       setActStats(a); setTraceStats(t); setAlertStats(al); setLoading(false);
     });
@@ -182,7 +208,7 @@ function DashboardTab() {
 
         <div className="bg-white border border-slate-200 rounded-xl p-5">
           <h3 className="font-semibold text-slate-800 mb-4">Top acciones (30d)</h3>
-          {actStats?.top_actions?.slice(0, 8).map((a: any) => (
+          {actStats?.top_actions?.slice(0, 8).map((a) => (
             <div key={a.action} className="flex items-center justify-between py-2 border-b border-slate-50">
               <span className="text-sm text-slate-600 font-mono">{a.action}</span>
               <span className="font-mono text-sm font-bold text-slate-700">{a.total}</span>
@@ -253,21 +279,51 @@ function ActivityTab() {
   const [entries, setEntries] = useState<ActivityEntry[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({ username: "", action: "", category: "", risk_level: "", date_from: "", date_to: "" });
 
-  const load = useCallback(async (p = 1) => {
-    setLoading(true);
+  /** Pide una página a /compliance/activity?${params} con los filtros puestos. Devuelve lo que trae; no toca
+   *  el estado, para que quien la pida pueda descartarla si ya no interesa. */
+  const pedirActividad = useCallback(async (p: number) => {
     const params = new URLSearchParams({ page: String(p), per_page: "50" });
     Object.entries(filters).forEach(([k, v]) => { if (v) params.set(k, v); });
-    try {
-      const data = await api.get<Paginated<ActivityEntry>>(`/compliance/activity?${params}`);
-      setEntries(data.entries || []); setTotal(data.total); setPage(p);
-    } catch { }
-    setLoading(false);
+    return api.get<Paginated<ActivityEntry>>(`/compliance/activity?${params}`);
   }, [filters]);
 
-  useEffect(() => { load(); }, [load]);
+  /** Recarga porque la persona lo ha pedido (paginar, aplicar filtros). */
+  const load = useCallback(async (p = 1) => {
+    try {
+      const data = await pedirActividad(p);
+      setEntries(data.entries || []); setTotal(data.total); setPage(p);
+    } catch {
+      // Si no se puede cargar, la pantalla se queda con lo que hubiera: mejor una lista vieja
+      // que una pantalla rota.
+    }
+    setLoading(false);
+  }, [pedirActividad]);
+
+  // Al cambiar los filtros se vuelve a «cargando». Se ajusta durante el render, comparando con
+  // los filtros anteriores, en lugar de encenderlo dentro del efecto: así la pantalla se pinta
+  // una sola vez y no primero con los resultados de la búsqueda anterior.
+  const [filtrosAnteriores, setFiltrosAnteriores] = useState(filters);
+  if (filtrosAnteriores !== filters) {
+    setFiltrosAnteriores(filters);
+    setLoading(true);
+  }
+
+
+  useEffect(() => {
+    let cancelado = false;
+    pedirActividad(1)
+      .then((data) => {
+        if (cancelado) return;
+        setEntries(data.entries || []); setTotal(data.total); setPage(1);
+        setLoading(false);
+      })
+      .catch(() => { if (!cancelado) setLoading(false); });
+    // Si se cambia de pestaña o de filtros antes de que conteste, la respuesta se descarta.
+    return () => { cancelado = true; };
+  }, [pedirActividad]);
 
   return (
     <div>
@@ -293,7 +349,7 @@ function ActivityTab() {
           </select>
           <select value={filters.category} onChange={e => setFilters(f => ({ ...f, category: e.target.value }))}
             className="px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white">
-            <option value="">Todas categorias</option>
+            <option value="">Todas categorías</option>
             <option value="auth">Autenticacion</option>
             <option value="email">Correo</option>
             <option value="sieve">Filtros/Sieve</option>
@@ -329,8 +385,8 @@ function ActivityTab() {
             <thead><tr className="bg-slate-50 border-b border-slate-200">
               <th className="text-left px-3 py-2.5 font-semibold text-slate-600">Fecha</th>
               <th className="text-left px-3 py-2.5 font-semibold text-slate-600">Usuario</th>
-              <th className="text-left px-3 py-2.5 font-semibold text-slate-600">Accion</th>
-              <th className="text-left px-3 py-2.5 font-semibold text-slate-600">Categoria</th>
+              <th className="text-left px-3 py-2.5 font-semibold text-slate-600">Acción</th>
+              <th className="text-left px-3 py-2.5 font-semibold text-slate-600">Categoría</th>
               <th className="text-left px-3 py-2.5 font-semibold text-slate-600">Riesgo</th>
               <th className="text-left px-3 py-2.5 font-semibold text-slate-600">IP</th>
               <th className="text-left px-3 py-2.5 font-semibold text-slate-600">Target</th>
@@ -364,21 +420,51 @@ function MailTraceTab() {
   const [entries, setEntries] = useState<MailTraceEntry[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({ sender: "", recipient: "", status: "", direction: "", date_from: "", date_to: "" });
 
-  const load = useCallback(async (p = 1) => {
-    setLoading(true);
+  /** Pide una página a /compliance/mail-trace?${params} con los filtros puestos. Devuelve lo que trae; no toca
+   *  el estado, para que quien la pida pueda descartarla si ya no interesa. */
+  const pedirRastro = useCallback(async (p: number) => {
     const params = new URLSearchParams({ page: String(p), per_page: "50" });
     Object.entries(filters).forEach(([k, v]) => { if (v) params.set(k, v); });
-    try {
-      const data = await api.get<Paginated<MailTraceEntry>>(`/compliance/mail-trace?${params}`);
-      setEntries(data.entries || []); setTotal(data.total); setPage(p);
-    } catch { }
-    setLoading(false);
+    return api.get<Paginated<MailTraceEntry>>(`/compliance/mail-trace?${params}`);
   }, [filters]);
 
-  useEffect(() => { load(); }, [load]);
+  /** Recarga porque la persona lo ha pedido (paginar, aplicar filtros). */
+  const load = useCallback(async (p = 1) => {
+    try {
+      const data = await pedirRastro(p);
+      setEntries(data.entries || []); setTotal(data.total); setPage(p);
+    } catch {
+      // Si no se puede cargar, la pantalla se queda con lo que hubiera: mejor una lista vieja
+      // que una pantalla rota.
+    }
+    setLoading(false);
+  }, [pedirRastro]);
+
+  // Al cambiar los filtros se vuelve a «cargando». Se ajusta durante el render, comparando con
+  // los filtros anteriores, en lugar de encenderlo dentro del efecto: así la pantalla se pinta
+  // una sola vez y no primero con los resultados de la búsqueda anterior.
+  const [filtrosAnteriores, setFiltrosAnteriores] = useState(filters);
+  if (filtrosAnteriores !== filters) {
+    setFiltrosAnteriores(filters);
+    setLoading(true);
+  }
+
+
+  useEffect(() => {
+    let cancelado = false;
+    pedirRastro(1)
+      .then((data) => {
+        if (cancelado) return;
+        setEntries(data.entries || []); setTotal(data.total); setPage(1);
+        setLoading(false);
+      })
+      .catch(() => { if (!cancelado) setLoading(false); });
+    // Si se cambia de pestaña o de filtros antes de que conteste, la respuesta se descarta.
+    return () => { cancelado = true; };
+  }, [pedirRastro]);
 
   return (
     <div>
@@ -398,7 +484,7 @@ function MailTraceTab() {
           </select>
           <select value={filters.direction} onChange={e => setFilters(f => ({ ...f, direction: e.target.value }))}
             className="px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white">
-            <option value="">Toda direccion</option>
+            <option value="">Toda dirección</option>
             <option value="inbound">Entrante</option>
             <option value="outbound">Saliente</option>
             <option value="internal">Interno</option>
@@ -461,21 +547,36 @@ function MailTraceTab() {
 function CasesTab() {
   const [cases, setCases] = useState<ComplianceCase[]>([]);
   const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
   const [newCase, setNewCase] = useState({ title: "", description: "", reason: "", case_type: "investigation", priority: "normal" });
   const [selectedCase, setSelectedCase] = useState<ComplianceCase | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await api.get<{ cases: ComplianceCase[]; total: number }>("/compliance/cases?per_page=50");
-      setCases(data.cases || []); setTotal(data.total);
-    } catch { }
-    setLoading(false);
-  }, []);
+  /** Pide los casos. Devuelve lo que trae; no toca el estado. */
+  const pedirCasos = useCallback(
+    () => api.get<{ cases: ComplianceCase[]; total: number }>("/compliance/cases?per_page=50"), []);
 
-  useEffect(() => { load(); }, [load]);
+  /** Recarga porque la persona lo ha pedido (tras crear o cerrar un caso). */
+  const load = useCallback(async () => {
+    try {
+      const data = await pedirCasos();
+      setCases(data.cases || []); setTotal(data.total);
+    } catch {
+      // Si los casos no se pueden cargar, la pantalla se queda con lo que hubiera.
+    }
+    setLoading(false);
+  }, [pedirCasos]);
+
+  useEffect(() => {
+    let cancelado = false;
+    pedirCasos()
+      .then((data) => {
+        if (cancelado) return;
+        setCases(data.cases || []); setTotal(data.total); setLoading(false);
+      })
+      .catch(() => { if (!cancelado) setLoading(false); });
+    return () => { cancelado = true; };
+  }, [pedirCasos]);
 
   async function createCase() {
     if (!newCase.title || !newCase.reason) return;
@@ -483,21 +584,27 @@ function CasesTab() {
       await api.post("/compliance/cases", newCase);
       setShowNew(false); setNewCase({ title: "", description: "", reason: "", case_type: "investigation", priority: "normal" });
       load();
-    } catch { }
+    } catch {
+      /* el fallo no rompe la pantalla: se sigue con lo que hay */
+    }
   }
 
   async function updateStatus(id: number, status: string) {
     try {
       await api.put(`/compliance/cases/${id}`, { status });
       load(); setSelectedCase(null);
-    } catch { }
+    } catch {
+      /* el fallo no rompe la pantalla: se sigue con lo que hay */
+    }
   }
 
   async function viewCase(id: number) {
     try {
       const data = await api.get<ComplianceCase>(`/compliance/cases/${id}`);
       setSelectedCase(data);
-    } catch { }
+    } catch {
+      /* el fallo no rompe la pantalla: se sigue con lo que hay */
+    }
   }
 
   return (
@@ -515,7 +622,7 @@ function CasesTab() {
         <div className="bg-indigo-50 rounded-xl border border-indigo-200 p-5 mb-4">
           <h3 className="font-semibold text-slate-800 mb-3">Crear caso de compliance</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-            <input placeholder="Titulo del caso *" value={newCase.title} onChange={e => setNewCase(c => ({ ...c, title: e.target.value }))}
+            <input placeholder="Título del caso *" value={newCase.title} onChange={e => setNewCase(c => ({ ...c, title: e.target.value }))}
               className="px-3 py-2 border border-slate-300 rounded-lg text-sm" />
             <select value={newCase.case_type} onChange={e => setNewCase(c => ({ ...c, case_type: e.target.value }))}
               className="px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white">
@@ -529,7 +636,7 @@ function CasesTab() {
           </div>
           <textarea placeholder="Motivo / justificacion *" value={newCase.reason} onChange={e => setNewCase(c => ({ ...c, reason: e.target.value }))}
             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm mb-3" rows={2} />
-          <textarea placeholder="Descripcion adicional" value={newCase.description} onChange={e => setNewCase(c => ({ ...c, description: e.target.value }))}
+          <textarea placeholder="Descripción adicional" value={newCase.description} onChange={e => setNewCase(c => ({ ...c, description: e.target.value }))}
             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm mb-3" rows={2} />
           <div className="flex gap-2">
             <button onClick={createCase} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700">Crear caso</button>
@@ -556,7 +663,7 @@ function CasesTab() {
           </div>
           {selectedCase.searches_count != null && (
             <div className="grid grid-cols-4 gap-3 mb-4">
-              <div className="text-center p-2 bg-slate-50 rounded-lg"><div className="font-bold">{selectedCase.searches_count}</div><div className="text-xs text-slate-500">Busquedas</div></div>
+              <div className="text-center p-2 bg-slate-50 rounded-lg"><div className="font-bold">{selectedCase.searches_count}</div><div className="text-xs text-slate-500">Búsquedas</div></div>
               <div className="text-center p-2 bg-slate-50 rounded-lg"><div className="font-bold">{selectedCase.results_count}</div><div className="text-xs text-slate-500">Resultados</div></div>
               <div className="text-center p-2 bg-slate-50 rounded-lg"><div className="font-bold">{selectedCase.active_holds}</div><div className="text-xs text-slate-500">Holds activos</div></div>
               <div className="text-center p-2 bg-slate-50 rounded-lg"><div className="font-bold">{selectedCase.exports_count}</div><div className="text-xs text-slate-500">Exportaciones</div></div>
@@ -603,11 +710,11 @@ function CasesTab() {
 // ═══════════════════════════════════════════
 function EDiscoveryTab() {
   const [cases, setCases] = useState<ComplianceCase[]>([]);
-  const [searches, setSearches] = useState<any[]>([]);
+  const [searches, setSearches] = useState<BusquedaForense[]>([]);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [selectedSearchId, setSelectedSearchId] = useState<number | null>(null);
   const [resultsTotal, setResultsTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [searchLoading, setSearchLoading] = useState(false);
   const [form, setForm] = useState({
     case_id: "", mailboxes_scope: "", keywords: "", date_from: "", date_to: "",
@@ -616,7 +723,9 @@ function EDiscoveryTab() {
 
   useEffect(() => {
     api.get<{ cases: ComplianceCase[] }>("/compliance/cases?per_page=100").then(d => setCases(d.cases || [])).catch(() => {});
-    api.get<{ searches: any[]; total: number }>("/compliance/ediscovery/searches?per_page=50").then(d => setSearches(d.searches || [])).catch(() => {});
+    api.get<{ searches: BusquedaForense[]; total: number }>("/compliance/ediscovery/searches?per_page=50")
+      .then(d => setSearches(d.searches || []))
+      .catch(() => { /* sin búsquedas todavía: la lista se queda vacía y lo dice */ });
   }, []);
 
   async function runSearch() {
@@ -631,13 +740,13 @@ function EDiscoveryTab() {
         recipients_filter: form.recipients_filter ? form.recipients_filter.split(",").map(s => s.trim()) : [],
         date_from: form.date_from, date_to: form.date_to,
       };
-      const res = await api.post<any>("/compliance/ediscovery/search", body);
+      const res = await api.post<{ search_id?: number }>("/compliance/ediscovery/search", body);
       // Reload searches
-      const d = await api.get<{ searches: any[] }>("/compliance/ediscovery/searches?per_page=50");
+      const d = await api.get<{ searches: BusquedaForense[] }>("/compliance/ediscovery/searches?per_page=50");
       setSearches(d.searches || []);
       if (res.search_id) viewResults(res.search_id);
-    } catch (e: any) {
-      alert("Error: " + (e.message || ""));
+    } catch (e: unknown) {
+      alert("Error: " + (e instanceof Error ? e.message : ""));
     }
     setSearchLoading(false);
   }
@@ -648,18 +757,20 @@ function EDiscoveryTab() {
     try {
       const data = await api.get<{ results: SearchResult[]; total: number }>(`/compliance/ediscovery/results/${searchId}?per_page=100`);
       setResults(data.results || []); setResultsTotal(data.total);
-    } catch { }
+    } catch {
+      /* el fallo no rompe la pantalla: se sigue con lo que hay */
+    }
     setLoading(false);
   }
 
   async function exportSearch(searchId: number, caseId: number) {
     try {
-      const res = await api.post<any>("/compliance/ediscovery/export", {
+      const res = await api.post<{ exported: number; manifest_hash: string; export_path: string }>("/compliance/ediscovery/export", {
         case_id: caseId, search_id: searchId, reason: "Exportacion desde panel admin",
       });
       alert(`Exportados ${res.exported} mensajes.\nHash: ${res.manifest_hash}\nRuta: ${res.export_path}`);
-    } catch (e: any) {
-      alert("Error: " + (e.message || ""));
+    } catch (e: unknown) {
+      alert("Error: " + (e instanceof Error ? e.message : ""));
     }
   }
 
@@ -667,7 +778,7 @@ function EDiscoveryTab() {
     <div>
       {/* New Search */}
       <div className="bg-slate-50 rounded-xl border border-slate-200 p-5 mb-6">
-        <h3 className="font-semibold text-slate-800 mb-3">Nueva busqueda forense</h3>
+        <h3 className="font-semibold text-slate-800 mb-3">Nueva búsqueda forense</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
           <select value={form.case_id} onChange={e => setForm(f => ({ ...f, case_id: e.target.value }))}
             className="px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white">
@@ -702,7 +813,7 @@ function EDiscoveryTab() {
       </div>
 
       {/* Search history */}
-      <h3 className="font-semibold text-slate-800 mb-3">Busquedas anteriores</h3>
+      <h3 className="font-semibold text-slate-800 mb-3">Búsquedas anteriores</h3>
       <div className="space-y-2 mb-6">
         {searches.map(s => (
           <div key={s.id} className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${
@@ -726,7 +837,7 @@ function EDiscoveryTab() {
             </div>
           </div>
         ))}
-        {searches.length === 0 && <div className="text-center py-6 text-slate-400 text-sm">Sin busquedas. Crea un caso primero.</div>}
+        {searches.length === 0 && <div className="text-center py-6 text-slate-400 text-sm">Sin búsquedas. Crea un caso primero.</div>}
       </div>
 
       {/* Results */}
@@ -774,23 +885,39 @@ function EDiscoveryTab() {
 function HoldsTab() {
   const [holds, setHolds] = useState<LegalHold[]>([]);
   const [cases, setCases] = useState<ComplianceCase[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
   const [form, setForm] = useState({ case_id: "", mailbox: "", reason: "", scope: "all" });
 
+  /** Pide las retenciones. Devuelve lo que trae; no toca el estado. */
+  const pedirRetenciones = useCallback(
+    () => api.get<LegalHold[]>("/compliance/holds?active_only=false"), []);
+
+  /** Recarga porque la persona lo ha pedido (tras crear o levantar una retención). */
   const load = useCallback(async () => {
-    setLoading(true);
     try {
-      const data = await api.get<LegalHold[]>("/compliance/holds?active_only=false");
+      const data = await pedirRetenciones();
       setHolds(Array.isArray(data) ? data : []);
-    } catch { }
+    } catch {
+      // Si las retenciones no se pueden cargar, la pantalla se queda con lo que hubiera.
+    }
     setLoading(false);
-  }, []);
+  }, [pedirRetenciones]);
 
   useEffect(() => {
-    load();
-    api.get<{ cases: ComplianceCase[] }>("/compliance/cases?per_page=100").then(d => setCases(d.cases || [])).catch(() => {});
-  }, [load]);
+    let cancelado = false;
+    pedirRetenciones()
+      .then((data) => {
+        if (cancelado) return;
+        setHolds(Array.isArray(data) ? data : []);
+        setLoading(false);
+      })
+      .catch(() => { if (!cancelado) setLoading(false); });
+    api.get<{ cases: ComplianceCase[] }>("/compliance/cases?per_page=100")
+      .then((d) => { if (!cancelado) setCases(d.cases || []); })
+      .catch(() => { /* sin casos: el desplegable se queda vacío y la pantalla funciona */ });
+    return () => { cancelado = true; };
+  }, [pedirRetenciones]);
 
   async function createHold() {
     if (!form.case_id || !form.mailbox || !form.reason) return;
@@ -798,12 +925,17 @@ function HoldsTab() {
       await api.post("/compliance/holds", { ...form, case_id: Number(form.case_id) });
       setShowNew(false); setForm({ case_id: "", mailbox: "", reason: "", scope: "all" });
       load();
-    } catch (e: any) { alert("Error: " + (e.message || "")); }
+    } catch (e: unknown) { alert("Error: " + (e instanceof Error ? e.message : "")); }
   }
 
   async function releaseHold(id: number) {
     if (!confirm("Liberar esta retencion legal?")) return;
-    try { await api.del(`/compliance/holds/${id}`); load(); } catch { }
+    try {
+      await api.del(`/compliance/holds/${id}`);
+      load();
+    } catch {
+      /* la retención sigue ahí; la lista se recarga sola al volver a entrar */
+    }
   }
 
   return (
@@ -889,24 +1021,56 @@ function AlertsTab() {
   const [alerts, setAlerts] = useState<FraudAlert[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({ alert_type: "", severity: "", acknowledged: "" });
 
-  const load = useCallback(async (p = 1) => {
-    setLoading(true);
+  /** Pide una página de alertas con los filtros puestos. Devuelve lo que trae. */
+  const pedirAlertas = useCallback(async (p: number) => {
     const params = new URLSearchParams({ page: String(p), per_page: "50" });
     Object.entries(filters).forEach(([k, v]) => { if (v) params.set(k, v); });
-    try {
-      const data = await api.get<{ alerts: FraudAlert[]; total: number }>(`/compliance/alerts?${params}`);
-      setAlerts(data.alerts || []); setTotal(data.total); setPage(p);
-    } catch { }
-    setLoading(false);
+    return api.get<{ alerts: FraudAlert[]; total: number }>(`/compliance/alerts?${params}`);
   }, [filters]);
 
-  useEffect(() => { load(); }, [load]);
+  /** Recarga porque la persona lo ha pedido (paginar, revisar una alerta). */
+  const load = useCallback(async (p = 1) => {
+    try {
+      const data = await pedirAlertas(p);
+      setAlerts(data.alerts || []); setTotal(data.total); setPage(p);
+    } catch {
+      // Si las alertas no se pueden cargar, la pantalla se queda con lo que hubiera.
+    }
+    setLoading(false);
+  }, [pedirAlertas]);
+
+  // Al cambiar los filtros se vuelve a «cargando». Se ajusta durante el render, comparando con
+  // los filtros anteriores, en lugar de encenderlo dentro del efecto: así la pantalla se pinta
+  // una sola vez y no primero con los resultados de la búsqueda anterior.
+  const [filtrosAnteriores, setFiltrosAnteriores] = useState(filters);
+  if (filtrosAnteriores !== filters) {
+    setFiltrosAnteriores(filters);
+    setLoading(true);
+  }
+
+
+  useEffect(() => {
+    let cancelado = false;
+    pedirAlertas(1)
+      .then((data) => {
+        if (cancelado) return;
+        setAlerts(data.alerts || []); setTotal(data.total); setPage(1);
+        setLoading(false);
+      })
+      .catch(() => { if (!cancelado) setLoading(false); });
+    return () => { cancelado = true; };
+  }, [pedirAlertas]);
 
   async function acknowledge(id: number) {
-    try { await api.post(`/compliance/alerts/${id}/acknowledge`); load(page); } catch { }
+    try {
+      await api.post(`/compliance/alerts/${id}/acknowledge`);
+      load(page);
+    } catch {
+      /* la alerta sigue sin revisar; se puede reintentar */
+    }
   }
 
   const severityColors: Record<string, string> = {
@@ -920,7 +1084,7 @@ function AlertsTab() {
           <select value={filters.alert_type} onChange={e => setFilters(f => ({ ...f, alert_type: e.target.value }))}
             className="px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white">
             <option value="">Todos los tipos</option>
-            <option value="mass_send">Envio masivo</option>
+            <option value="mass_send">Envío masivo</option>
             <option value="evidence_destruction">Destruccion evidencia</option>
             <option value="external_forward">Reenvio externo</option>
             <option value="unusual_login">Login inusual</option>
