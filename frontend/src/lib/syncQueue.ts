@@ -2,7 +2,7 @@
 // Reglas (T-35, 28/08/2026): un correo redactado NUNCA se pierde. Sin red o con el servidor caído se queda
 // «pendiente» y se reintenta al reconectar, al abrir la app y cada 60 s; solo un rechazo definitivo del servidor
 // (4xx distinto de 401/408/429) lo marca «No se pudo entregar» (con la causa), y la persona puede reintentar o borrar.
-import { getPendingActions, removeActions, getOutboxEmails, updateOutboxStatus, removeFromOutbox } from "./offlineStore";
+import { getPendingActions, removeActions, getOutboxEmails, updateOutboxStatus, removeFromOutbox, rescatarRetenidos } from "./offlineStore";
 import type { OfflineAction } from "./offlineStore";
 
 let isSyncing = false;
@@ -20,6 +20,8 @@ export function hayConexion(): boolean {
   return estadoConexion().hayConexion;
 }
 export const TEXTO_ESTADO = {
+  // Solo dura los segundos de «Deshacer»; no debería llegar a verse.
+  retenido: 'A punto de enviarse',
   pending: 'En cola: se enviará al volver la conexión',
   sending: 'Enviando…',
   failed: 'No se pudo entregar',
@@ -62,6 +64,10 @@ export async function syncOutbox(soloId?: string): Promise<{ sent: number; faile
   let sent = 0, failed = 0;
   try {
     if (!navigator.onLine) return { sent, failed };
+    // Un correo que se quedó retenido (la pestaña se cerró durante la cuenta atrás de
+    // «Deshacer») pasa aquí a pendiente: se envía en cuanto se vuelve a abrir el correo, en
+    // vez de perderse en silencio.
+    await rescatarRetenidos();
     const emails = await getOutboxEmails();
     const pending = emails.filter(e => (soloId ? e.id === soloId : e.status === 'pending' || e.status === 'sending'));
     for (const email of pending) {
