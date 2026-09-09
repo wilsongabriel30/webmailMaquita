@@ -123,8 +123,18 @@ def test_puede_llamar_exige_conversacion_compartida(monkeypatch):
 
 
 def test_bloqueo_entre_fallo_cerrado():
+    """Sigue siendo fallo cerrado, pero ahora se sabe POR QUÉ.
+
+    Antes devolvía True y el rechazo se contaba como «bloqueo»: la persona leía que alguien la
+    había bloqueado cuando lo que pasaba es que la base no respondía (lo reprodujo una réplica
+    externa el 08/09/2026 con postgres parado). Ahora avisa con su propia excepción y quien
+    llama la traduce a un motivo honesto, sin dejar de rechazar.
+    """
+    import pytest
+
     class _DB:
         def query(self, *a):
             raise RuntimeError("sin base")
 
-    assert rc.bloqueo_entre(_DB(), 1, 2) is True
+    with pytest.raises(rc.NoConsultable):
+        rc.bloqueo_entre(_DB(), 1, 2)

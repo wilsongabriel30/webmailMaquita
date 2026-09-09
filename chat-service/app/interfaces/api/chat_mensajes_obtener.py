@@ -5,6 +5,10 @@ Extraído de chat_mensajes.py (líneas 11-281) el 28/08/2026 sin cambios en las 
 from interfaces.api.chat_base import *  # noqa: F401,F403
 from interfaces.api import hora_original
 
+import sys
+
+_AVISO_VACIADO = False
+
 
 def _horas_escritura(db_session, mensajes_raw):
     """Las horas de escritura (T-49) de toda la pagina, en UNA consulta.
@@ -107,8 +111,19 @@ def obtener_mensajes(conversacion_id: int):
                     except Exception:
                         return True
                 mensajes_raw = [m for m in mensajes_raw if _despues(m)]
-        except Exception:
-            pass
+        except Exception as _e:
+            # Tragarse el fallo NO basta: la transacción queda envenenada y la consulta
+            # siguiente, que está bien, responde 500. Se deshace y se avisa una vez.
+            try:
+                ses_cl.rollback()
+            except Exception:
+                pass
+            global _AVISO_VACIADO
+            if not _AVISO_VACIADO:
+                _AVISO_VACIADO = True
+                print("[chat] no se pudo aplicar «vaciar conversación» (%s). Si falta la columna "
+                      "chat_participants.cleared_at, ejecuta migrar_chat.py." % type(_e).__name__,
+                      file=sys.stderr)
 
         # DEBUG: Mostrar cantidad de mensajes cargados y los más recientes
         print(f"[DEBUG-MSG] Conversación {conversacion_id}: {len(mensajes_raw)} mensajes encontrados")

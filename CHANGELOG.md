@@ -7,6 +7,46 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Seguridad
+
+- **El directorio del chat se casa por CORREO, nunca por posicion.** El guion que lo puebla
+  numeraba con `row_number() ORDER BY username`: dar de alta un buzon que ordenaba primero
+  desplazaba todos los identificadores y, con el `ON CONFLICT (id)`, las conversaciones y los
+  mensajes de una persona quedaban atribuidos a OTRA. Lo reprodujo el equipo replica dando un
+  alta. Ahora quien ya esta conserva su identificador, quien es nuevo recibe el siguiente libre
+  y el guion se puede repetir sin cambiar nada (antes reventaba con un directorio ya poblado).
+- **El rechazo con la base caida deja de acusar de un bloqueo inexistente.** La comprobacion de
+  bloqueo devolvia «bloqueado» cuando no podia consultar; ahora avisa aparte y la persona lee
+  que no se pudo comprobar, con la marca de reintentable. Rechazar se sigue haciendo igual.
+- **El REST de crear conversacion ya no filtra el error de la base al cliente**: devolvia 500
+  con el mensaje de psycopg2 en el JSON (nombres de tablas y de conexion). Ahora 503 con un
+  texto para la persona; el detalle solo al registro.
+
+### Corregido
+
+- **Una instalacion desde cero nacia con el chat roto**: el codigo lee
+  `chat_participants.cleared_at` y esa columna no estaba en el modelo, asi que no la creaba
+  nadie; el fallo se tragaba con un `except` y dejaba la transaccion envenenada, de modo que la
+  consulta siguiente respondia 500. Tres arreglos: la columna en el modelo, la migracion que
+  ahora **anade columnas ademas de tablas** (solo anade; nunca borra ni cambia tipos) y el
+  `except` que deshace la transaccion y avisa una vez.
+- **Cerrar todas las sesiones dejaba a la persona 24 horas sin chat**, tambien las nuevas.
+  Ahora se cierra lo que esta abierto en ese momento y se puede volver a entrar en el acto.
+- **El contador del chat pedia cada 15 segundos a un sitio que no responde**: con el chat en su
+  propia maquina, `/api/chat/conversations` daba 404 en el origen del correo, para siempre. Con
+  el chat aparte, el contador se apaga y la cuenta la lleva su propia ventana.
+- **El candado del contrato necesitaba una dependencia no declarada** (`websocket-client`).
+- **Las pruebas de navegador escondian justo esos 404**: el filtro de «ruido conocido» apartaba
+  TODO lo del chat. Ahora solo aparta el 401 de una cuenta sin identidad en el chat.
+- **Las pruebas de navegador no se podian correr con certificado propio**: `PRUEBAS_TLS_LAXA=1`.
+
+### Cambiado
+
+- **La guia de actualizacion publicaba el frontend a medias**: mandaba construir pero no copiar,
+  y nginx sirve `www/`, no `frontend/dist`. Ahora usa `deploy-webmail.sh --solo-frontend`.
+- **Guia del chat**: que significa cerrar «todas» las sesiones, y como ejecutar el candado del
+  contrato (dependencia y `CHAT_CORS_ORIGENES`).
+
 ## [1.7.15] - 2026-09-08
 
 ### Corregido

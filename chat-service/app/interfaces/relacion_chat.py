@@ -127,8 +127,17 @@ def comparten_conversacion(db_session, usuario_id, otro_id, conversacion_id=None
     return int(otro_id) in relacionados(db_session, usuario_id, redis) and int(otro_id) != int(usuario_id)
 
 
+class NoConsultable(Exception):
+    """No se pudo preguntar a la base. No es un bloqueo: es que no lo sabemos."""
+
+
 def bloqueo_entre(db_session, a, b):
-    """True si a bloqueó a b o b bloqueó a a. Si no se puede saber, True (fallo cerrado)."""
+    """True si a bloqueó a b o b bloqueó a a.
+
+    Si no se puede saber, levanta `NoConsultable`: el rechazo sigue siendo obligatorio (fallo
+    cerrado), pero quien llama tiene que poder decir la verdad en vez de acusar de un bloqueo
+    inexistente, que era lo que leía la persona con la base parada.
+    """
     try:
         from sqlalchemy import and_, or_
 
@@ -146,7 +155,7 @@ def bloqueo_entre(db_session, a, b):
         )
     except Exception as exc:
         log.error("BLOQUEO_NO_CONSULTABLE usuarios=%s,%s error=%s", a, b, str(exc)[:120])
-        return True
+        raise NoConsultable(str(exc)[:120])
 
 
 def puede_contactar(db_session, usuario_id, otro_id):
@@ -166,8 +175,12 @@ def puede_contactar(db_session, usuario_id, otro_id):
     except Exception as exc:
         log.error("TENANT_NO_CONSULTABLE usuario=%s error=%s", uid, str(exc)[:120])
         return False, "tenant_no_consultable"
-    if bloqueo_entre(db_session, uid, oid):
-        return False, "bloqueo"
+    try:
+        if bloqueo_entre(db_session, uid, oid):
+            return False, "bloqueo"
+    except NoConsultable:
+        # Se rechaza igual, pero contando lo que pasa de verdad.
+        return False, "bloqueo_no_consultable"
     return True, ""
 
 

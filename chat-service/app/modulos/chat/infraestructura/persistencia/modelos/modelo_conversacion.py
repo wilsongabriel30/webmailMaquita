@@ -120,6 +120,10 @@ class ModeloParticipante(Base):
 
     # Lectura de mensajes
     last_read_message_id = Column(BigInteger, nullable=True)
+
+    # «Vaciar conversación»: desde cuándo ve esta persona los mensajes. Faltaba en el modelo,
+    # así que ninguna instalación la creaba y el código que la lee tumbaba la petición entera.
+    cleared_at = Column(DateTime(timezone=True), nullable=True)
     last_read_at = Column(DateTime(timezone=True), nullable=True)
     unread_count = Column(Integer, default=0)
 

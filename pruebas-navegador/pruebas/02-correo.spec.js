@@ -26,8 +26,11 @@ test('usar el correo no deja peticiones con error', async ({ sesion }) => {
   const ojo = vigilar(pagina);
   await abrirCorreo(pagina);
   await pagina.waitForTimeout(4000);
-  const delChat = ojo.fallidas.filter((f) => f.includes('/api/chat'));
-  const resto = ojo.fallidas.filter((f) => !f.includes('/api/chat'));
+  // Ojo con lo que se aparta: filtrar TODO lo del chat escondia los 404 que aparecen cuando
+  // el chat vive en otro origen, y por eso no los veiamos. Solo se aparta el 401 conocido de
+  // una cuenta que no esta en el directorio del chat.
+  const delChat = ojo.fallidas.filter((f) => f.startsWith('401') && f.includes('/api/chat'));
+  const resto = ojo.fallidas.filter((f) => !(f.startsWith('401') && f.includes('/api/chat')));
   if (delChat.length) console.log('   ruido conocido del chat:', delChat.length, 'peticiones 401');
   expect(resto, 'peticiones con error mientras se usa el correo').toEqual([]);
 });

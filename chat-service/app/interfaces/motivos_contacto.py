@@ -15,6 +15,8 @@ _MENSAJES = {
     "tenant_no_consultable": ("No se pudo comprobar si puedes escribirle; vuelve a intentarlo "
                               "en un momento."),
     "sin_conversacion": "No compartís ninguna conversación.",
+    "bloqueo_no_consultable": ("No se pudo comprobar si puedes escribirle; vuelve a intentarlo "
+                               "en un momento."),
 }
 
 _POR_DEFECTO = "No se pudo empezar la conversación."
@@ -30,4 +32,4 @@ def es_fallo_nuestro(motivo: str) -> bool:
 
     Sirve para registrar distinto y para que el cliente sepa que reintentar tiene sentido.
     """
-    return (motivo or "").strip() in ("tenant_no_consultable",)
+    return (motivo or "").strip() in ("tenant_no_consultable", "bloqueo_no_consultable")

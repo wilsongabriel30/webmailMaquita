@@ -221,6 +221,9 @@ def _sembrar_sesion_central(datos, origen="correo"):
     session["sid"] = datos.get("sid")
     session["av"] = datos.get("av")
     session["origen"] = origen
+    # Cuándo nació esta sesión: sin esto, «cerrar todas» tumbaba también las que se abrieran
+    # después y la persona no podía volver a entrar hasta 24 horas más tarde.
+    session["nacida"] = _t.time()
     session["validado_hasta"] = _t.time() + 300
     if origen != "correo":
         session["expira"] = _t.time() + _SSO_SESION_MAX_SEG
