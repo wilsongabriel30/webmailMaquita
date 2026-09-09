@@ -125,7 +125,16 @@ def test_revalidacion_con_correo_que_confirma(app, monkeypatch):
     assert c.get("/api/chat/_prueba").status_code == 200
 
 
-def test_revocar_exige_secreto_y_tiene_limite(app):
+def test_revocar_exige_secreto_y_tiene_limite(app, monkeypatch):
+    # El límite se cuenta por MINUTO DE RELOJ (`int(time.time() // 60)`). Sin congelar la hora,
+    # una tanda que cruce el cambio de minuto empieza a contar de cero y pasan más de las
+    # permitidas: la prueba fallaba de vez en cuando con «assert 62 == 60» sin que nada
+    # estuviera roto. Se congela en el instante actual —no en una fecha inventada, que
+    # invalidaría cualquier cosa que dependa del calendario— y se parte del contador vacío.
+    ahora = time.time()
+    monkeypatch.setattr(sesion_central.time, "time", lambda: ahora)
+    sesion_central._contador.clear()
+
     c = app.test_client()
     assert _revocar(c, secreto="otro").status_code == 403
     # sin cabecera de servicio la ruta cae en el guard de sesión: 401 (o 403), nunca 200
