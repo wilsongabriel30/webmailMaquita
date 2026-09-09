@@ -60,7 +60,9 @@ export function WeekView({
   const [selecting, setSelecting] = useState<{ dayIdx: number; y0: number; y1: number } | null>(null);
   const selectingRef = useRef<{ dayIdx: number; y0: number; y1: number; day: Date; colTop: number } | null>(null);
   const draggingRef = useRef(dragging);
-  draggingRef.current = dragging;
+  // Se pone al día DESPUÉS de pintar: los manejadores del ratón, que corren más tarde, leen
+  // siempre el último valor, y el render no toca la referencia.
+  useEffect(() => { draggingRef.current = dragging; }, [dragging]);
   const suppressClickRef = useRef(false);
 
   // Auto-scroll to current hour
@@ -258,7 +260,7 @@ export function WeekView({
       {allDayEvents.length > 0 && (
         <div style={{ display: "flex", borderBottom: "1px solid #e0e0e0", flexShrink: 0, minHeight: "32px" }}>
           <div style={{ width: GUTTER_WIDTH, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: "6px" }}>
-            <span style={{ fontSize: "10px", color: "#a19f9d" }}>todo el dia</span>
+            <span style={{ fontSize: "10px", color: "#a19f9d" }}>todo el día</span>
           </div>
           {weekDates.map((day, i) => {
             const dayAllDay = allDayByDay.get(day.toDateString()) || [];

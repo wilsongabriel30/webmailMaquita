@@ -22,6 +22,65 @@ function vigilar(page) {
   return { consola, fallidas };
 }
 
+// Ruido conocido de una instalación con el chat en OTRA máquina (aviso de Andes, 09/09/2026).
+//
+// Dos peticiones fallan por diseño y no son fallos del producto. Antes se apartaba «todo lo del
+// chat», y esa venda escondía los 404 de verdad; después se apartó solo el 401 con `/api/chat`
+// en la ruta, y entonces estos dos hacían fallar dos de tres recorridos. Aquí se apartan estos
+// casos y NADA más: cada uno con su ruta exacta y, cuando corresponde, un tope de veces.
+const RUIDO_CONOCIDO = [
+  {
+    patron: /^404 GET .*\/api\/chat\/conversations$/,
+    veces: 1, // Carrera única al arrancar: la segunda ya no es «la carrera», es un fallo.
+    porque: 'la carrera de arranque del contador de no leídos (una sola vez)',
+  },
+  {
+    patron: /^401 \w+ .*\/sso\/entrar$/,
+    porque: 'la cuenta de pruebas no está en el directorio del chat',
+  },
+  {
+    patron: /^401 \w+ .*\/api\/chat/,
+    porque: 'sesión de chat ausente para una cuenta fuera de su directorio',
+  },
+];
+
+/** Separa las peticiones fallidas en ruido conocido y fallos de verdad.
+ *  Devuelve `{ reales, ruido }`. Lo apartado se muestra: un filtro callado es una venda. */
+function separarRuido(fallidas) {
+  const reales = [];
+  const ruido = [];
+  const vistas = new Map();
+  for (const f of fallidas) {
+    const regla = RUIDO_CONOCIDO.find((r) => r.patron.test(f));
+    if (!regla) {
+      reales.push(f);
+      continue;
+    }
+    const cuenta = (vistas.get(regla) || 0) + 1;
+    vistas.set(regla, cuenta);
+    // Con tope: lo que pase de la cuenta prevista deja de ser ruido y vuelve a ser un fallo.
+    if (regla.veces && cuenta > regla.veces) reales.push(f);
+    else ruido.push(`${f}  (${regla.porque})`);
+  }
+  return { reales, ruido };
+}
+
+/** Comprueba que no quedan peticiones fallidas, apartando solo el ruido conocido y diciéndolo. */
+function sinPeticionesFallidas(fallidas, contexto) {
+  const { reales, ruido } = separarRuido(fallidas);
+  for (const r of ruido) console.log('   ruido conocido:', r);
+  expect(reales, contexto).toEqual([]);
+}
+
+// Con certificado propio, `ignoreHTTPSErrors` no alcanza al *service worker*: su fetch nace
+// fuera del contexto y tumbaba el recorrido de entrada. Bajo TLS laxo se bloquea el worker.
+const TLS_LAXA = process.env.PRUEBAS_TLS_LAXA === '1';
+const OPCIONES_CONTEXTO = {
+  locale: 'es-EC',
+  ignoreHTTPSErrors: TLS_LAXA,
+  serviceWorkers: TLS_LAXA ? 'block' : 'allow',
+};
+
 /** Entra al webmail rellenando el formulario, como una persona. Falla si no entra de verdad. */
 async function entrar(page) {
   expect(USUARIO, 'falta la variable PRUEBAS_USUARIO').not.toBe('');
@@ -99,4 +158,7 @@ async function asegurarUnMensaje(page) {
   return false;
 }
 
-module.exports = { USUARIO, CLAVE, vigilar, entrar, apartarAvisos, abrirCorreo, asegurarUnMensaje };
+module.exports = {
+  USUARIO, CLAVE, vigilar, entrar, apartarAvisos, abrirCorreo, asegurarUnMensaje,
+  separarRuido, sinPeticionesFallidas, TLS_LAXA, OPCIONES_CONTEXTO,
+};

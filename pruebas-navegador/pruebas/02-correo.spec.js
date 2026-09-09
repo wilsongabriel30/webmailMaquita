@@ -1,6 +1,6 @@
 // Lo que hace una persona con su correo: mirar carpetas, abrir el redactor, y que no haya ruido.
 const { test, expect } = require('./base');
-const { vigilar, abrirCorreo } = require('./apoyo');
+const { vigilar, abrirCorreo, sinPeticionesFallidas } = require('./apoyo');
 
 test('la bandeja trae las carpetas de siempre', async ({ sesion }) => {
   const { pagina } = sesion;
@@ -26,11 +26,8 @@ test('usar el correo no deja peticiones con error', async ({ sesion }) => {
   const ojo = vigilar(pagina);
   await abrirCorreo(pagina);
   await pagina.waitForTimeout(4000);
-  // Ojo con lo que se aparta: filtrar TODO lo del chat escondia los 404 que aparecen cuando
-  // el chat vive en otro origen, y por eso no los veiamos. Solo se aparta el 401 conocido de
-  // una cuenta que no esta en el directorio del chat.
-  const delChat = ojo.fallidas.filter((f) => f.startsWith('401') && f.includes('/api/chat'));
-  const resto = ojo.fallidas.filter((f) => !(f.startsWith('401') && f.includes('/api/chat')));
-  if (delChat.length) console.log('   ruido conocido del chat:', delChat.length, 'peticiones 401');
-  expect(resto, 'peticiones con error mientras se usa el correo').toEqual([]);
+  // Lo que se aparta está en `RUIDO_CONOCIDO` (apoyo.js), con su ruta exacta y su motivo:
+  // filtrar TODO lo del chat escondía los 404 de verdad, y filtrar de menos hacía fallar el
+  // recorrido en una instalación con el chat en otra máquina.
+  sinPeticionesFallidas(ojo.fallidas, 'peticiones con error mientras se usa el correo');
 });
