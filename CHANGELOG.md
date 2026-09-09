@@ -7,6 +7,8 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.7.16] - 2026-09-08
+
 ### Seguridad
 
 - **El directorio del chat se casa por CORREO, nunca por posicion.** El guion que lo puebla
