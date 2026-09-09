@@ -387,7 +387,7 @@ export function DirectoryPanel({ isOpen, onClose, pickerMode, onPickContact, pic
                     d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
                 <p className="text-[14px]">No se encontraron contactos</p>
-                <p className="text-[12px] mt-1">Intenta ajustar los filtros de busqueda</p>
+                <p className="text-[12px] mt-1">Intenta ajustar los filtros de búsqueda</p>
               </div>
             )}
 
@@ -551,7 +551,7 @@ export function DirectoryPanel({ isOpen, onClose, pickerMode, onPickContact, pic
                     <div className="flex items-center gap-3 group">
                       <span className="text-[16px] shrink-0 w-6 text-center">&#128222;</span>
                       <div className="flex-1 min-w-0">
-                        <div className="text-[11px] text-[#a19f9d] uppercase font-medium">Telefono</div>
+                        <div className="text-[11px] text-[#a19f9d] uppercase font-medium">Teléfono</div>
                         <div className="text-[13px] text-[#323130]">{selected.phone}</div>
                       </div>
                       <button onClick={() => handleCopyField(selected.phone, 'phone')}

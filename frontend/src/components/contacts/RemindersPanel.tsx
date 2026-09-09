@@ -146,7 +146,7 @@ export function RemindersPanel({ contactId }: Props) {
             <div style={styles.form}>
               <input
                 type="text"
-                placeholder="Titulo del recordatorio"
+                placeholder="Título del recordatorio"
                 value={title}
                 onChange={e => setTitle(e.target.value)}
                 style={styles.input}

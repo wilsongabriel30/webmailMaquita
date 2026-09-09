@@ -258,7 +258,7 @@ export function WeekView({
       {allDayEvents.length > 0 && (
         <div style={{ display: "flex", borderBottom: "1px solid #e0e0e0", flexShrink: 0, minHeight: "32px" }}>
           <div style={{ width: GUTTER_WIDTH, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: "6px" }}>
-            <span style={{ fontSize: "10px", color: "#a19f9d" }}>todo el dia</span>
+            <span style={{ fontSize: "10px", color: "#a19f9d" }}>todo el día</span>
           </div>
           {weekDates.map((day, i) => {
             const dayAllDay = allDayByDay.get(day.toDateString()) || [];

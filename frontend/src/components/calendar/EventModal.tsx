@@ -968,7 +968,7 @@ export function EventModal({
                         onChange={(e) => setCustomFreq(e.target.value as any)}
                         style={{ border: "1px solid #c8c6c4", borderRadius: "4px", padding: "4px 8px", fontSize: "13px" }}
                       >
-                        <option value="DAILY">dia(s)</option>
+                        <option value="DAILY">día(s)</option>
                         <option value="WEEKLY">semana(s)</option>
                         <option value="MONTHLY">mes(es)</option>
                         <option value="YEARLY">ano(s)</option>
@@ -1024,7 +1024,7 @@ export function EventModal({
                           const v = parseInt(e.target.value);
                           setCustomCount(v > 0 ? v : null);
                         }}
-                        placeholder="sin limite"
+                        placeholder="sin límite"
                         style={{ width: "80px", border: "1px solid #c8c6c4", borderRadius: "4px", padding: "4px 8px", fontSize: "13px", textAlign: "center" }}
                       />
                       <span style={{ fontSize: "13px", color: "#605e5c" }}>ocurrencia(s)</span>

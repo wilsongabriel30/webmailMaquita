@@ -108,7 +108,7 @@ export function CompliancePanel() {
           </svg>
           Compliance & eDiscovery
         </h1>
-        <p className="text-sm text-slate-500 mt-1">Auditoria, trazabilidad y busqueda forense — tipo Microsoft Purview</p>
+        <p className="text-sm text-slate-500 mt-1">Auditoría, trazabilidad y búsqueda forense — tipo Microsoft Purview</p>
       </div>
 
       {/* Tabs */}
@@ -293,7 +293,7 @@ function ActivityTab() {
           </select>
           <select value={filters.category} onChange={e => setFilters(f => ({ ...f, category: e.target.value }))}
             className="px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white">
-            <option value="">Todas categorias</option>
+            <option value="">Todas categorías</option>
             <option value="auth">Autenticacion</option>
             <option value="email">Correo</option>
             <option value="sieve">Filtros/Sieve</option>
@@ -329,8 +329,8 @@ function ActivityTab() {
             <thead><tr className="bg-slate-50 border-b border-slate-200">
               <th className="text-left px-3 py-2.5 font-semibold text-slate-600">Fecha</th>
               <th className="text-left px-3 py-2.5 font-semibold text-slate-600">Usuario</th>
-              <th className="text-left px-3 py-2.5 font-semibold text-slate-600">Accion</th>
-              <th className="text-left px-3 py-2.5 font-semibold text-slate-600">Categoria</th>
+              <th className="text-left px-3 py-2.5 font-semibold text-slate-600">Acción</th>
+              <th className="text-left px-3 py-2.5 font-semibold text-slate-600">Categoría</th>
               <th className="text-left px-3 py-2.5 font-semibold text-slate-600">Riesgo</th>
               <th className="text-left px-3 py-2.5 font-semibold text-slate-600">IP</th>
               <th className="text-left px-3 py-2.5 font-semibold text-slate-600">Target</th>
@@ -398,7 +398,7 @@ function MailTraceTab() {
           </select>
           <select value={filters.direction} onChange={e => setFilters(f => ({ ...f, direction: e.target.value }))}
             className="px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white">
-            <option value="">Toda direccion</option>
+            <option value="">Toda dirección</option>
             <option value="inbound">Entrante</option>
             <option value="outbound">Saliente</option>
             <option value="internal">Interno</option>
@@ -515,7 +515,7 @@ function CasesTab() {
         <div className="bg-indigo-50 rounded-xl border border-indigo-200 p-5 mb-4">
           <h3 className="font-semibold text-slate-800 mb-3">Crear caso de compliance</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-            <input placeholder="Titulo del caso *" value={newCase.title} onChange={e => setNewCase(c => ({ ...c, title: e.target.value }))}
+            <input placeholder="Título del caso *" value={newCase.title} onChange={e => setNewCase(c => ({ ...c, title: e.target.value }))}
               className="px-3 py-2 border border-slate-300 rounded-lg text-sm" />
             <select value={newCase.case_type} onChange={e => setNewCase(c => ({ ...c, case_type: e.target.value }))}
               className="px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white">
@@ -529,7 +529,7 @@ function CasesTab() {
           </div>
           <textarea placeholder="Motivo / justificacion *" value={newCase.reason} onChange={e => setNewCase(c => ({ ...c, reason: e.target.value }))}
             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm mb-3" rows={2} />
-          <textarea placeholder="Descripcion adicional" value={newCase.description} onChange={e => setNewCase(c => ({ ...c, description: e.target.value }))}
+          <textarea placeholder="Descripción adicional" value={newCase.description} onChange={e => setNewCase(c => ({ ...c, description: e.target.value }))}
             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm mb-3" rows={2} />
           <div className="flex gap-2">
             <button onClick={createCase} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700">Crear caso</button>
@@ -556,7 +556,7 @@ function CasesTab() {
           </div>
           {selectedCase.searches_count != null && (
             <div className="grid grid-cols-4 gap-3 mb-4">
-              <div className="text-center p-2 bg-slate-50 rounded-lg"><div className="font-bold">{selectedCase.searches_count}</div><div className="text-xs text-slate-500">Busquedas</div></div>
+              <div className="text-center p-2 bg-slate-50 rounded-lg"><div className="font-bold">{selectedCase.searches_count}</div><div className="text-xs text-slate-500">Búsquedas</div></div>
               <div className="text-center p-2 bg-slate-50 rounded-lg"><div className="font-bold">{selectedCase.results_count}</div><div className="text-xs text-slate-500">Resultados</div></div>
               <div className="text-center p-2 bg-slate-50 rounded-lg"><div className="font-bold">{selectedCase.active_holds}</div><div className="text-xs text-slate-500">Holds activos</div></div>
               <div className="text-center p-2 bg-slate-50 rounded-lg"><div className="font-bold">{selectedCase.exports_count}</div><div className="text-xs text-slate-500">Exportaciones</div></div>
@@ -667,7 +667,7 @@ function EDiscoveryTab() {
     <div>
       {/* New Search */}
       <div className="bg-slate-50 rounded-xl border border-slate-200 p-5 mb-6">
-        <h3 className="font-semibold text-slate-800 mb-3">Nueva busqueda forense</h3>
+        <h3 className="font-semibold text-slate-800 mb-3">Nueva búsqueda forense</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
           <select value={form.case_id} onChange={e => setForm(f => ({ ...f, case_id: e.target.value }))}
             className="px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white">
@@ -702,7 +702,7 @@ function EDiscoveryTab() {
       </div>
 
       {/* Search history */}
-      <h3 className="font-semibold text-slate-800 mb-3">Busquedas anteriores</h3>
+      <h3 className="font-semibold text-slate-800 mb-3">Búsquedas anteriores</h3>
       <div className="space-y-2 mb-6">
         {searches.map(s => (
           <div key={s.id} className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${
@@ -726,7 +726,7 @@ function EDiscoveryTab() {
             </div>
           </div>
         ))}
-        {searches.length === 0 && <div className="text-center py-6 text-slate-400 text-sm">Sin busquedas. Crea un caso primero.</div>}
+        {searches.length === 0 && <div className="text-center py-6 text-slate-400 text-sm">Sin búsquedas. Crea un caso primero.</div>}
       </div>
 
       {/* Results */}
@@ -920,7 +920,7 @@ function AlertsTab() {
           <select value={filters.alert_type} onChange={e => setFilters(f => ({ ...f, alert_type: e.target.value }))}
             className="px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white">
             <option value="">Todos los tipos</option>
-            <option value="mass_send">Envio masivo</option>
+            <option value="mass_send">Envío masivo</option>
             <option value="evidence_destruction">Destruccion evidencia</option>
             <option value="external_forward">Reenvio externo</option>
             <option value="unusual_login">Login inusual</option>

@@ -550,7 +550,7 @@ function VisualSignatureEditor({
           <div className="grid grid-cols-2 gap-x-4 gap-y-3">
             <FieldInput label="Nombre completo" value={fields.nombre} onChange={v => updateField('nombre', v)} placeholder="Ej: Wilson Arguello" />
             <FieldInput label="Cargo / Area" value={fields.cargo} onChange={v => updateField('cargo', v)} placeholder="Ej: Soporte Informatico" />
-            <FieldInput label="Telefono fijo" value={fields.telefono1} onChange={v => updateField('telefono1', v)} placeholder="Ej: (593 2) 3061624" />
+            <FieldInput label="Teléfono fijo" value={fields.telefono1} onChange={v => updateField('telefono1', v)} placeholder="Ej: (593 2) 3061624" />
             <FieldInput label="Celular" value={fields.telefono2} onChange={v => updateField('telefono2', v)} placeholder="Ej: (593 9) 95797062" />
             <FieldInput label="Correo electrónico" value={fields.email} onChange={v => updateField('email', v)} placeholder="usuario@ejemplo.com" />
             <FieldInput label="Ciudad" value={fields.ciudad} onChange={v => updateField('ciudad', v)} placeholder="Quito - Ecuador" />

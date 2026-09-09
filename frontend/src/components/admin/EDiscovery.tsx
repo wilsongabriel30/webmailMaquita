@@ -95,7 +95,7 @@ export function EDiscovery() {
           </svg>
           eDiscovery
         </h1>
-        <p className="text-sm text-slate-500 mt-1">Busqueda forense en todos los buzones del servidor</p>
+        <p className="text-sm text-slate-500 mt-1">Búsqueda forense en todos los buzones del servidor</p>
       </div>
 
       {/* Search Form */}

@@ -419,7 +419,7 @@ function SignatureMenu({ onSelect, size }: { onSelect?: (html?: string) => void;
           <div className="fixed w-[240px] bg-white rounded shadow-lg border border-[#edebe9] z-[9999] py-1 max-h-[320px] overflow-auto" style={{ top: pos.top, left: pos.left }}>
             <div className="px-3 py-1 text-[11px] font-semibold text-[#605e5c] uppercase tracking-wide">Mis firmas</div>
             {loaded && sigs.length === 0 && (
-              <div className="px-3 py-2 text-[12px] text-[#605e5c]">No tienes firmas. Crea una en Configuracion &rarr; Firmas.</div>
+              <div className="px-3 py-2 text-[12px] text-[#605e5c]">No tienes firmas. Crea una en Configuración &rarr; Firmas.</div>
             )}
             {sigs.map((sg) => (
               <button key={sg.id} onClick={() => { onSelect?.(sg.html_content); setOpen(false); }}

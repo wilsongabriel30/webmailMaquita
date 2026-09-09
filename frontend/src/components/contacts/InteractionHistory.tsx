@@ -233,13 +233,13 @@ export function InteractionHistory({ contactId, contactEmail }: Props) {
                   <div style={{ ...styles.statNumber, fontSize: 13, fontWeight: 600 }}>
                     {formatDate(stats.last_sent)}
                   </div>
-                  <div style={styles.statLabel}>Ultimo enviado</div>
+                  <div style={styles.statLabel}>Último enviado</div>
                 </div>
                 <div style={styles.statCard}>
                   <div style={{ ...styles.statNumber, fontSize: 13, fontWeight: 600 }}>
                     {formatDate(stats.last_received)}
                   </div>
-                  <div style={styles.statLabel}>Ultimo recibido</div>
+                  <div style={styles.statLabel}>Último recibido</div>
                 </div>
               </div>
 

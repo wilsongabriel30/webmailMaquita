@@ -150,7 +150,7 @@ export function CardDAVSync({ isOpen, onClose }: Props) {
           <div style={styles.divider} />
 
           <div style={styles.section}>
-            <h3 style={styles.sectionTitle}>Configuracion CardDAV</h3>
+            <h3 style={styles.sectionTitle}>Configuración CardDAV</h3>
             <p style={styles.desc}>
               Para sincronizar con clientes CardDAV externos, usa estos datos:
             </p>

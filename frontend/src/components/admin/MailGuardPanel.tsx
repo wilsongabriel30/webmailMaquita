@@ -149,7 +149,7 @@ export function MailGuardPanel() {
         <div className="px-5 py-3 flex flex-wrap gap-2 border-b border-slate-100 bg-slate-50">
           <input
             className="flex-1 min-w-48 border border-slate-300 rounded-lg px-3 py-1.5 text-sm"
-            placeholder="dominio.com o direccion@dominio.com"
+            placeholder="dominio.com o dirección@dominio.com"
             value={newSender}
             onChange={(e) => setNewSender(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && addSender()}
