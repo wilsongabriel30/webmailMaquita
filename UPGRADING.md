@@ -10,6 +10,86 @@ servicio, reiniciar lo que cambió y correr `deploy/tools/validar-despliegue.sh`
 
 ---
 
+## De 1.7.17 a 1.7.18 — buscar deja de tardar minuto y medio, y una contraseña no puede mentir
+
+Versión sin sobresaltos: una migración idempotente y ningún paso manual en el servidor de correo.
+Lo único que conviene contar a la gente es que **la búsqueda cambia de comportamiento**.
+
+### 1. Traer el código, migrar y publicar
+
+```
+git fetch --tags && git checkout v1.7.18
+psql "$DATABASE_URL" -f migrations/2026-09-09-mailbox-prefijo-coherente.sql
+SIN_CANDADO=1 bash deploy-webmail.sh          # backend + frontend: la busqueda toca los dos
+bash deploy/tools/validar-despliegue.sh
+```
+
+La migración se puede pasar dos veces sin problema. **No aborta** si la instalación arrastra
+contraseñas con el prefijo incoherente: en ese caso avisa con el número exacto y deja la
+restricción sin validar, protegiendo lo nuevo. Ver el punto 3.
+
+### 2. Avisar de que la búsqueda cambia
+
+**Escribir una palabra ya no busca dentro del texto de los mensajes.** Busca en remitente,
+destinatario y asunto, que es donde está casi siempre lo que uno recuerda de un correo, y por eso
+pasa de 92.800 ms a 86 ms en un buzón de 10.000 mensajes.
+
+Es el cambio con más posibilidades de extrañar a alguien: quien busque una palabra que estaba solo
+en el cuerpo no la encontrará hasta marcar la casilla «buscar también dentro del texto», en el
+panel de búsqueda avanzada (el icono del embudo, junto a la caja de búsqueda). La casilla avisa de
+lo que tarda y por qué, y si no se elige fecha acota la búsqueda a los últimos tres meses.
+
+Merece la pena decirlo antes de que lo descubran: es más fácil de aceptar como decisión explicada
+que como rareza encontrada.
+
+### 3. Comprobar que ninguna contraseña miente sobre su formato
+
+Esto es nuevo y conviene mirarlo **aunque todo parezca ir bien**:
+
+```
+python3 deploy/tools/verificar-hashes.py
+```
+
+Si sale alguna cuenta, **esa persona no puede entrar**, por bien que escriba su contraseña, y no
+se nota: en el panel su buzón se ve normal. Ocurre cuando el prefijo del hash no dice la verdad
+sobre su contenido —típico al migrar desde otro servidor, o en un reseteo hecho por fuera de las
+herramientas—. Dovecot cae entonces al esquema más viejo que encaja y lo rechaza por débil:
+
+```
+Weak password scheme 'DES-CRYPT' used and refused
+```
+
+Se arregla asignando una contraseña nueva por el camino normal, que reescribe el hash bien.
+Después, si la migración dejó la restricción sin validar:
+
+```
+psql "$DATABASE_URL" -c "ALTER TABLE mailbox VALIDATE CONSTRAINT mailbox_prefijo_coherente;"
+```
+
+El validador de despliegue pregunta esto en cada actualización, junto con los rechazos por esquema
+débil de los últimos siete días.
+
+### 4. Si se añaden operadores de búsqueda propios
+
+El rango de fechas usa **coma**: `entre:2026-01-01,2026-03-31`. Con dos puntos seguidos no
+funciona, y no por el correo: un proxy con la defensa habitual contra *path traversal* bloquea
+cualquier `..` en la URL y devuelve 403 antes de que la petición llegue a la aplicación. Tenerlo
+presente al elegir caracteres para operadores nuevos.
+
+### 5. Sobre el índice de texto completo de Dovecot
+
+Si al ver la mejora de búsqueda alguien propone activar el índice para que el cuerpo también sea
+instantáneo, leer antes esto: con buzones cifrados por usuario (`mail_crypt`) el indexador **no
+tiene la clave**, así que no puede indexar en segundo plano; con el indexado activo cada eliminar
+o mover un correo pasa a tardar **3-5 segundos**; y el índice deja el texto de los mensajes
+**legible en disco**, que es justo lo que el cifrado evita.
+
+Acotar por fecha antes de entrar en el cuerpo da el mismo resultado práctico sin ninguna de esas
+tres cosas: el buzón entero son 17-98 s, tres meses 4,5 s, un mes 1,4 s. Es lo que hace ahora el
+panel por omisión.
+
+---
+
 ## De 1.7.16 a 1.7.17 — el correo que se perdía y el asunto que rompía la firma
 
 **Versión importante para cualquiera que envíe correo hacia fuera.** Trae dos arreglos que no se
