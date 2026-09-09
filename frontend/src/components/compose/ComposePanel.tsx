@@ -3,7 +3,8 @@
 // declarados y sin conectar, la construccion (noUnusedLocals) los rechaza, de ahi la marca.
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck
-import { addToOutbox } from "../../lib/offlineStore";
+import { addToOutbox, removeFromOutbox, updateOutboxStatus } from "../../lib/offlineStore";
+import { syncOutbox } from "../../lib/syncQueue";
 import { SelectorArchivosNube } from './SelectorArchivosNube';
 import { sanitizeHtml, sanitizeSignatureHtml } from '../../lib/sanitize';
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -460,9 +461,39 @@ export function ComposePanel({ win }: Props) {
     const savedData = { mode: win.mode, data: { ...win.data, to: recipients, subject, html_body: getFullHtml(), text_body: '' } };
     const winId = win.id;
     closeCompose(winId);
-    let remaining = 5;
+    const SEGUNDOS_PARA_ARREPENTIRSE = 5;
+    let remaining = SEGUNDOS_PARA_ARREPENTIRSE;
+
+    // El correo se guarda en la cola de salida ANTES de empezar la cuenta atrás, retenido hasta
+    // que esta venza. Así deja de vivir solo en memoria: si la pestaña se cierra durante esos
+    // segundos, el correo sigue ahí y sale al volver a abrir, en lugar de perderse sin aviso.
+    const guardadoEnCola = addToOutbox({
+      to: sendPayload.to, cc: sendPayload.cc, bcc: sendPayload.bcc,
+      subject: sendPayload.subject, html_body: sendPayload.html_body, text_body: sendPayload.text_body,
+      in_reply_to: sendPayload.in_reply_to, references: sendPayload.references,
+      attachments: sendPayload.attachments,
+      request_read_receipt: sendPayload.request_read_receipt,
+      request_delivery_receipt: sendPayload.request_delivery_receipt,
+    }, { retenidoHasta: Date.now() + SEGUNDOS_PARA_ARREPENTIRSE * 1000 })
+      .catch(() => null); // Si no se pudo guardar, el envío sigue su curso como antes.
+
+    /** Saca el correo de la cola: se va a enviar ahora, o la persona se ha arrepentido.
+     *  Devuelve `false` solo si el correo sigue en la cola y hay que dejárselo a ella. */
+    const soltarDeLaCola = async (): Promise<boolean> => {
+      const id = await guardadoEnCola;
+      if (!id) return true; // Nunca llegó a guardarse: el envío va por el camino de siempre.
+      try {
+        await removeFromOutbox(id);
+        window.dispatchEvent(new CustomEvent('outbox-cambio'));
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
     const toastId = showToast(`Enviando en ${remaining}s...`, { label: 'Deshacer', onClick: () => {
       const p = pendingSendMap.get(winId); if (p) { clearTimeout(p.timerId); clearInterval(p.intervalId); pendingSendMap.delete(winId); }
+      void soltarDeLaCola();
       dismissToast(toastId); useMailStore.getState().openCompose(savedData.mode, savedData.data); showToast('Envío cancelado');
     }});
     // Repintar el aviso en cada segundo: sin esto el contador se queda clavado en 5s y la
@@ -473,6 +504,20 @@ export function ComposePanel({ win }: Props) {
       updateToast(toastId, `Enviando en ${remaining}s...`);
     }, 1000);
     const timerId = setTimeout(async () => {
+      // Vencida la cuenta atrás, el correo deja de estar retenido: o se envía ahora, o se
+      // vuelve a encolar como pendiente unas líneas más abajo (sin red o con el servidor caído).
+      //
+      // Si NO se ha podido sacar de la cola, no se envía por aquí: sigue guardado y lo entrega
+      // la cola, una sola vez. Enviarlo igualmente lo mandaría dos veces.
+      if (!(await soltarDeLaCola())) {
+        clearInterval(intervalId); pendingSendMap.delete(winId); dismissToast(toastId);
+        const id = await guardadoEnCola;
+        if (id) await updateOutboxStatus(id, 'pending').catch(() => {});
+        window.dispatchEvent(new CustomEvent('outbox-cambio'));
+        void syncOutbox();
+        showToast('El correo quedó en la cola de salida y se enviará en un momento.');
+        return;
+      }
       // OFFLINE: queue in outbox instead of sending
       if (!navigator.onLine) {
         clearInterval(intervalId); pendingSendMap.delete(winId); dismissToast(toastId);
@@ -525,7 +570,7 @@ export function ComposePanel({ win }: Props) {
         }
         useMailStore.getState().openCompose(savedData.mode, savedData.data);
       }
-    }, 5000);
+    }, SEGUNDOS_PARA_ARREPENTIRSE * 1000);
     pendingSendMap.set(winId, { timerId, toastId, intervalId });
   }, [to, cc, bcc, subject, editor, win, trackingState, closeCompose, attachments, encrypt]);
 

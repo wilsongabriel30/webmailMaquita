@@ -8,7 +8,11 @@ export function BandejaSalida({ onCerrar }: { onCerrar: () => void }) {
   const [cola, setCola] = useState<OutboxEmail[]>([]);
   const [desc, setDesc] = useState<EstadoDescarga>(estadoDescarga());
   const [enLinea, setEnLinea] = useState(hayConexion());
-  const cargar = () => getOutboxEmails().then(setCola).catch(() => setCola([]));
+  // Los retenidos (dentro de la cuenta atrás de «Deshacer») no se listan: están de paso
+  // y verlos aquí haría pensar que el correo se quedó atascado.
+  const cargar = () => getOutboxEmails()
+    .then((c) => setCola(c.filter((x) => x.status !== 'retenido')))
+    .catch(() => setCola([]));
   useEffect(() => {
     cargar();
     const h = () => cargar(); const d = (e: Event) => setDesc((e as CustomEvent).detail);
