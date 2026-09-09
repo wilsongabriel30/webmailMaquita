@@ -10,6 +10,83 @@ servicio, reiniciar lo que cambió y correr `deploy/tools/validar-despliegue.sh`
 
 ---
 
+## De 1.7.16 a 1.7.17 — el correo que se perdía y el asunto que rompía la firma
+
+**Versión importante para cualquiera que envíe correo hacia fuera.** Trae dos arreglos que no se
+notan hasta que hacen daño: uno perdía correos en silencio y el otro rompía la firma DKIM de los
+mensajes salientes.
+
+### 1. Traer el código, migrar y reiniciar
+
+```
+git fetch --tags && git checkout v1.7.17
+psql "$DATABASE_URL" -f migrations/2026-09-09-security-config.sql   # idempotente
+SIN_CANDADO=1 bash deploy-webmail.sh --solo-frontend                # construye Y publica
+systemctl restart maquita-chat
+bash deploy/tools/validar-despliegue.sh
+```
+
+### 2. Postfix: que la reinyección no vuelva a pasar por los milters
+
+**Esto hay que aplicarlo a mano**, porque toca la configuración del servidor de correo. En
+`master.cf`, en el bloque de reinyección (`127.0.0.1:10025`), añade `no_milters`:
+
+```
+127.0.0.1:10025 inet n - n - 10 smtpd
+  -o content_filter=
+  -o receive_override_options=no_unknown_recipient_checks,no_header_body_checks,no_milters
+```
+
+Después: `postfix check && systemctl reload postfix` (recarga, sin corte).
+
+**Por qué importa.** Sin esa opción el mensaje pasa dos veces por rspamd: en la primera se firma
+con DKIM y en la segunda —donde ya no consta como autenticado— se le puede reescribir el asunto.
+La firma queda rota **después** de emitirse. Si tu dominio publica DMARC `p=reject`, un receptor
+estricto puede rechazar tu correo. La versión trae el `master.cf` de referencia en
+`deploy/postfix/`.
+
+**Cómo comprobarlo**: manda un correo a una dirección de fuera y mira, en el mensaje recibido, si
+el asunto llegó intacto y si la firma verifica. Si tu asunto lleva un prefijo de spam que tú no
+pusiste, es esto.
+
+### 3. La tabla `security_config`
+
+La migración la crea si no existe y no toca nada si ya está. **Compruébalo aunque creas que la
+tienes**: hasta esta versión no la creaba ninguna migración, así que solo existe donde alguien la
+hizo a mano. Señal de que falta: el milter registrando `UndefinedTableError` en bucle en el
+journal, y la pantalla de políticas del panel sin funcionar.
+
+```
+psql "$DATABASE_URL" -tAc "select to_regclass('public.security_config')"
+```
+
+### 4. Si tienes llamadas del chat (LiveKit)
+
+Dos avisos que nos costaron una tarde:
+
+- **`LIVEKIT_WS_URL`** debe apuntar a donde esté tu proxy de LiveKit. El valor por omisión del
+  código apunta a un dominio nuestro, así que en otra instalación **hay que ponerlo**.
+- **`use_external_ip: true`** en LiveKit detecta la IP por la que *sale* el tráfico, que no tiene
+  por qué ser aquella donde están los NAT de entrada de 7881/7882. Si no coinciden, quien llame
+  **desde fuera** de tu red verá todos sus pares ICE en `failed` y la llamada se cerrará sola,
+  mientras que desde dentro funcionará. En ese caso, fija la IP buena:
+
+```yaml
+rtc:
+  use_external_ip: false
+  node_ip: <la IP donde están tus NAT de entrada>
+```
+
+Al arrancar, `journalctl -u livekit-server | grep "starting LiveKit server"` debe mostrar esa IP
+en `nodeIP`.
+
+### 5. Nada más que hacer
+
+El resto —interfaz, tildes, mensajes que engañaban, las tres tandas de recorridos— entra con el
+código y no pide ningún paso extra.
+
+---
+
 ## De 1.7.15 a 1.7.16 — lo que la re-verificacion dejo al descubierto
 
 **Version importante si teneis el chat**: trae un arreglo de integridad de datos y otro que hace
