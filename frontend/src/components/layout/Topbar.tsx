@@ -28,6 +28,7 @@ export function Topbar() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const searchQuery = useMailStore(s => s.searchQuery);
+  const setBuscarEnContenido = useMailStore(s => s.setBuscarEnContenido);
   const setSearchQuery = useMailStore(s => s.setSearchQuery);
   const folders = useMailStore(s => s.folders);
   const setCurrentFolder = useMailStore(s => s.setCurrentFolder);
@@ -161,6 +162,7 @@ export function Topbar() {
           value={searchQuery}
           onChange={setSearchQuery}
           onSearch={setSearchQuery}
+          onBuscarEnContenido={setBuscarEnContenido}
           placeholder="Buscar en el correo (/ para enfocar)"
         />
       </div>

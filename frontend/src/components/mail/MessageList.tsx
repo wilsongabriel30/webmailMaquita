@@ -185,6 +185,7 @@ export function MessageList() {
   const searchQuery = useMailStore(s => s.searchQuery);
   const filter = useMailStore(s => s.filter);
   const debouncedSearchQuery = useMailStore(s => s.debouncedSearchQuery);
+  const buscarEnContenido = useMailStore(s => s.buscarEnContenido);
   const loadingMessages = useMailStore(s => s.loadingMessages);
   const filterChanging = useMailStore(s => s.filterChanging);
   const setMessages = useMailStore(s => s.setMessages);
@@ -259,6 +260,8 @@ export function MessageList() {
     if (state.messages.length === 0 && !state.loadingMessages) setLoadingMessages(true);
     const p = new URLSearchParams({ page: '1', per_page: String(pageSize * currentPage) });
     if (debouncedSearchQuery) p.set('search', debouncedSearchQuery);
+    // Solo si se ha pedido: entrar en el texto de los mensajes cuesta minuto y medio.
+    if (debouncedSearchQuery && buscarEnContenido) p.set('buscar_en_contenido', 'true');
     // Send filter to backend so IMAP does server-side SEARCH UNSEEN/FLAGGED
     if (filter === 'unread') p.set('is_unread', 'true');
     if (filter === 'flagged') p.set('is_flagged', 'true');
@@ -297,7 +300,7 @@ export function MessageList() {
       }
       useMailStore.getState().setMessages(useMailStore.getState().messages, useMailStore.getState().totalMessages, useMailStore.getState().currentPage);
     });
-  }, [currentFolder, currentPage, pageSize, debouncedSearchQuery, filter]);
+  }, [currentFolder, currentPage, pageSize, debouncedSearchQuery, buscarEnContenido, filter]);
 
   // Limpiar selección al cambiar de carpeta
   useEffect(() => {
