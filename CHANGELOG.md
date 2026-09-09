@@ -7,29 +7,94 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.7.17] - 2026-09-09
+
+Día de recorrer el producto como lo usa una persona. De ahí salieron dos cosas que llevaban
+tiempo pasando desapercibidas: **un correo podía perderse sin que nadie se enterara** y **el
+asunto se reescribía después de firmar**, rompiendo la firma DKIM.
+
+### Seguridad
+
+- **El asunto dejaba de coincidir con lo firmado.** El mensaje pasaba DOS veces por rspamd: en la
+  primera, autenticado, se firmaba con DKIM y la regla de salida evitaba el reescrito; tras el
+  filtro propio se reinyectaba por `127.0.0.1:10025` y, en esa segunda pasada —donde ya no consta
+  como autenticado—, se le añadía `*** SPAM ***` al asunto. La firma quedaba rota **después** de
+  emitirse, y con DMARC `p=reject` en uno de los dominios eso puede acabar en rechazo. La
+  reinyección ya no vuelve a pasar por los milters (`no_milters`): cada mensaje se analiza una
+  vez y lo que se firma es lo que sale. Lo midió el equipo replica sobre el mensaje recibido:
+  tal cual la firma falla; quitando el prefijo, verifica.
+
 ### Corregido
 
-- **La migración del chat dice por qué falla cuando la tabla es de otro rol.** Si el directorio
-  se pobló por otra vía, `usuarios` puede pertenecer a un rol distinto del que migra y PostgreSQL
-  responde «must be owner of table usuarios», sin decir de quién es la tabla ni con quién se está
-  entrando. Ahora el mensaje nombra a la dueña, al rol de la migración y la sentencia exacta que
-  lo resuelve. Reproducido sobre una base desechable con dos roles: falla con el texto nuevo,
-  y tras aplicar el `ALTER TABLE … OWNER TO …` que indica, termina y es idempotente.
+- **Un correo podía perderse al cerrar la pestaña.** Durante los cinco segundos de «Deshacer», el
+  correo vivía solo en memoria del navegador: quien cerraba en ese rato lo perdía **sin aviso**,
+  y para esa persona estaba enviado. Ahora entra en la cola de salida como «retenido» y sale al
+  volver a abrir el correo. Si no se puede sacar de la cola, no se envía a mano: lo entrega la
+  cola una sola vez, porque mandar dos veces es peor que no mandar.
+- **La tabla `security_config` no la creaba ninguna migración.** Existía solo donde alguien la
+  había hecho a mano; en una instalación desde cero el milter caía al fail-safe en bucle y la
+  pantalla de políticas del panel no podía funcionar. Aviso del equipo replica, que lo vio en su
+  producción y en una instalación limpia.
+- **Archivos decía «esta carpeta está vacía» cuando el servidor negaba el acceso** (403):
+  invitaba a subir ficheros a una carpeta que esa persona no puede ni ver. Ahora dice que no hay
+  acceso y a quién escribir.
+- **El redactor enseñaba código**: se leía `Sensibilidad…` y `Pública` tal cual en el
+  desplegable de sensibilidad. En JSX un escape dentro de una cadena se interpreta; como texto
+  suelto entre etiquetas, no.
+- **El diálogo de evento del calendario mostraba un instante los datos del evento anterior**:
+  se reiniciaba con veintinueve `setState` en un efecto. Ahora se monta de cero.
+- **Peticiones que no se cancelaban** en Contactos y en Cumplimiento: al cerrar el panel o
+  cambiar de contacto, la respuesta llegaba igual y escribía en algo que ya nadie miraba.
+- **Once errores capturados como `any`** en administración: si lo que llegaba no era un `Error`,
+  la persona veía literalmente «Error: undefined».
+- **La cuenta atrás de «Enviando en 5s…» se quedaba clavada** en 5s los cinco segundos, así que
+  el correo salía sin previo aviso y no se sabía cuánto quedaba para arrepentirse.
+- **«Archivos» abría un error en crudo**: la ruta llevaba barra final y ninguna del Almacén la
+  atendía. Corregido en el enlace y en el servidor, que ahora atiende también la barra final para
+  que un marcador guardado no dé error.
+- **Un correo que ya no está lo dice**: al pulsar una fila cuyo mensaje se archivó o borró desde
+  otra pantalla, el clic no producía **nada**. Ahora se explica y se refresca la lista.
+- **La migración del chat dice por qué falla cuando la tabla es de otro rol**, en vez de cortar
+  con «must be owner of table usuarios» sin decir de quién es ni con qué rol se entra.
+- **Cuarenta textos sin tilde** a la vista, en Contactos, Calendario, Tareas, Cumplimiento,
+  Cortafuegos, Firmas y el redactor.
+- **Un botón sin nombre** —ni texto, ni título, ni etiqueta— pegado al de «Enviar».
+
+### Añadido
+
+- **En las llamadas del chat: elegir micrófono, altavoz y cámara**, con una barra que se mueve al
+  hablar para probar el micro *antes* de que alguien esté esperando al otro lado. Lo elegido se
+  recuerda; funciona mientras timbra y en mitad de la llamada. El altavoz solo se ofrece si el
+  navegador sabe cambiarlo.
+- **Aviso de cómo va la conexión**, con barras de señal por participante y un mensaje que
+  **nombra de quién es el problema**, más el aviso de reconexión —que evita que alguien cuelgue
+  creyendo que se cortó—. La calidad adaptativa ya funcionaba; lo que faltaba era contarla.
+- **«Agregar participante»**: suma a alguien pasando la llamada a conferencia. No se mete a un
+  tercero en la sala de dos, que es lo que impide colarse en una llamada ajena.
+- **La cámara se enciende al abrir la llamada**, no al aceptarla: uno se ve mientras timbra y se
+  entera antes si tiene los permisos bloqueados.
 
 ### Pruebas
 
+- **Tres tandas de recorridos** en `pruebas-navegador/` (`RECORRIDOS.md` las explica):
+  `exploracion/` para buscar fallos —con la frontera de lo que **no** se pulsa escrita aparte—,
+  `detallada/` para comprobar lo que usa una persona, y `ciclo-correo/`, que **envía correo de
+  verdad** y se comprueba contra el registro del servidor, no contra la pantalla.
+- **Una prueba fallaba según la hora**: `test_revocar_exige_secreto_y_tiene_limite` exigía
+  exactamente sesenta peticiones permitidas por minuto y, si la tanda cruzaba el cambio de
+  minuto, pasaban sesenta y dos. Ahora se congela el reloj; verificada lanzándola en el segundo 58.
 - **El ruido conocido de las pruebas de navegador, en una sola lista y con frontera fija.** Con
-  el chat en otra máquina, dos peticiones de diseño hacían fallar dos de tres recorridos: el 404
-  único de arranque de `/api/chat/conversations` y el 401 de `/sso/entrar` de una cuenta fuera
-  del directorio del chat. Se apartan esas y nada más, cada una con su ruta y su motivo, y lo
-  apartado sale por pantalla. El 404 **solo se perdona una vez**: repetido vuelve a ser fallo.
-  El recorrido del Drive dejó de apartar *todo* `/api/chat` y `/archivos-almacen`, que escondía
-  cualquier fallo del propio Drive.
-- **`PRUEBAS_TLS_LAXA=1` cubre también el *service worker***, que nace fuera del contexto: su
-  fetch tumbaba el recorrido de entrada con certificado autofirmado pese a la variable.
-- Prueba nueva del separador de ruido (`pruebas/00-ruido.spec.js`), sin navegador.
+  el chat en otra máquina, dos peticiones de diseño hacían fallar dos de tres recorridos. Se
+  apartan esas y nada más, cada una con su ruta y su motivo, y lo apartado sale por pantalla. El
+  404 de arranque **solo se perdona una vez**: repetido vuelve a ser fallo.
+- **`PRUEBAS_TLS_LAXA=1` cubre también el *service worker***, cuyo fetch tumbaba el recorrido de
+  entrada con certificado autofirmado pese a la variable.
 
-Los tres avisos son del equipo replica (Andes), 09/09/2026.
+### Interno
+
+- Limpieza de deuda en veinte ficheros del frontend, obligada por tocarlos: datos del formulario
+  de contactos a su propio módulo, cargas cancelables, una referencia que se escribía durante el
+  render, y once `catch {}` vacíos que ahora dicen qué se tragan.
 
 ## [1.7.16] - 2026-09-08
 
