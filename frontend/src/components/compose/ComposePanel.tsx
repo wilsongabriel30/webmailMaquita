@@ -1,4 +1,8 @@
-// @ts-nocheck  Ribbon callbacks temporarily unused (rendered in main Toolbar)
+// Los callbacks de la cinta viven hoy en la barra principal; se conservan aqui, marcados uno
+// a uno mas abajo, hasta que se extraigan a su propio modulo (deuda anotada). Mientras esten
+// declarados y sin conectar, la construccion (noUnusedLocals) los rechaza, de ahi la marca.
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-nocheck
 import { addToOutbox } from "../../lib/offlineStore";
 import { SelectorArchivosNube } from './SelectorArchivosNube';
 import { sanitizeHtml, sanitizeSignatureHtml } from '../../lib/sanitize';
@@ -33,13 +37,15 @@ import { DirectoryPanel } from '../contacts/DirectoryPanel';
 
 // Module-level pending send map (persists after compose unmounts)
 interface PendingSend { timerId: ReturnType<typeof setTimeout>; toastId: string; intervalId: ReturnType<typeof setInterval>; }
-let pendingSendMap: Map<string, PendingSend> = new Map();
+const pendingSendMap: Map<string, PendingSend> = new Map();
 
 interface Props { win: DraftWindow; }
 
 interface AttachmentFile { name: string; size: number; type: string; file?: File; }
+/** Un dato sensible detectado por Proteccion de datos, tal como lo devuelve el servidor. */
+interface HallazgoDlp { label: string }
 // Limite de adjuntos (fuente unica: MAX_ATTACHMENT_MB -> VITE en build)
-const MAX_ATTACH_MB = Number((import.meta as any).env?.VITE_MAX_ATTACHMENT_MB) || 25;
+const MAX_ATTACH_MB = Number(import.meta.env?.VITE_MAX_ATTACHMENT_MB) || 25;
 const totalAttachBytes = (atts: AttachmentFile[]) => atts.reduce((sum, a) => sum + (a.size || 0), 0);
 
 export function ComposePanel({ win }: Props) {
@@ -56,6 +62,8 @@ export function ComposePanel({ win }: Props) {
   const [showBcc, setShowBcc] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
+  // La importancia se reinicia al abrir; la cinta que la mostraba vive en la barra principal.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [importance, setImportance] = useState<'normal' | 'high' | 'low'>('normal');
   const [attachments, setAttachments] = useState<AttachmentFile[]>([]);
   const [mostrarNube, setMostrarNube] = useState(false);
@@ -95,7 +103,13 @@ export function ComposePanel({ win }: Props) {
   const [showSendDropdown, setShowSendDropdown] = useState(false);
   const [encrypt, setEncrypt] = useState(false);
   const [secureEnabled, setSecureEnabled] = useState(false);
-  useEffect(() => { api.get('/mail/secure/config').then((r: any) => setSecureEnabled(!!(r && r.enabled))).catch(() => {}); }, []);
+  useEffect(() => {
+    api.get('/mail/secure/config')
+      .then((r) => setSecureEnabled(!!(r as { enabled?: boolean } | null)?.enabled))
+      .catch(() => {
+        /* sin cifrado configurado: la casilla simplemente no se ofrece */
+      });
+  }, []);
   const sendDropdownRef = useRef<HTMLDivElement>(null);
   const [scheduleDate, setScheduleDate] = useState('');
   const autosaveTimer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -226,7 +240,9 @@ export function ComposePanel({ win }: Props) {
           sig = res.signature_html || '';
           if (sig) sessionStorage.setItem('maquita_sig_cache', sig);
         }
-      } catch {}
+      } catch {
+        /* ventana privada o almacenamiento lleno: la firma se vuelve a pedir al servidor */
+      }
 
       let content = '';
       if (win.mode === 'new' && win.data.html_body) {
@@ -279,7 +295,10 @@ export function ComposePanel({ win }: Props) {
         existing_draft_uid: win.draftUid,
       });
       if (res.draft_uid) updateDraftUid(win.id, res.draft_uid);
-    } catch {}
+    } catch {
+      /* el guardado automatico es de cortesia: si falla, el texto sigue en pantalla y se
+         reintenta en el siguiente cambio, sin interrumpir a quien escribe */
+    }
   }, [to, subject, win.draftUid, win.id, editor]);
 
   // Share editor with main Toolbar ribbon
@@ -370,9 +389,9 @@ export function ComposePanel({ win }: Props) {
         showToast('Mensaje seguro enviado \uD83D\uDD12');
         window.dispatchEvent(new CustomEvent('refresh-messages'));
         closeCompose(win.id);
-      } catch (err: any) {
+      } catch (err: unknown) {
         setSending(false);
-        const m = err?.message || '';
+        const m = err instanceof Error ? err.message : '';
         if (m.includes('413')) setError(`El correo supera el tamaño máximo (${MAX_ATTACH_MB} MB). Reduce los adjuntos.`);
         else setError('No se pudo enviar cifrado: ' + m);
       }
@@ -396,9 +415,9 @@ export function ComposePanel({ win }: Props) {
     try {
       const dlpCc = cc ? cc.split(',').map(s => s.trim()).filter(Boolean) : [];
       const dlpBcc = bcc ? bcc.split(',').map(s => s.trim()).filter(Boolean) : [];
-      const dlp: any = await api.post('/mail/dlp/check', { subject, html_body: getFullHtml(), text_body: '', to: recipients, cc: dlpCc, bcc: dlpBcc });
+      const dlp = await api.post('/mail/dlp/check', { subject, html_body: getFullHtml(), text_body: '', to: recipients, cc: dlpCc, bcc: dlpBcc });
       if (dlp && Array.isArray(dlp.findings) && dlp.findings.length) {
-        const tipos = dlp.findings.map((x: any) => '\u2022 ' + x.label).join('\n');
+        const tipos = dlp.findings.map((x: HallazgoDlp) => '\u2022 ' + x.label).join('\n');
         if (dlp.action === 'block') {
           const externos = Array.isArray(dlp.external) && dlp.external.length ? '\n\nDestinatarios externos:\n' + dlp.external.join(', ') : '';
           if (dlp.can_override) {
@@ -446,7 +465,13 @@ export function ComposePanel({ win }: Props) {
       const p = pendingSendMap.get(winId); if (p) { clearTimeout(p.timerId); clearInterval(p.intervalId); pendingSendMap.delete(winId); }
       dismissToast(toastId); useMailStore.getState().openCompose(savedData.mode, savedData.data); showToast('Envío cancelado');
     }});
-    const intervalId = setInterval(() => { remaining--; if (remaining <= 0) return; }, 1000);
+    // Repintar el aviso en cada segundo: sin esto el contador se queda clavado en 5s y la
+    // persona no sabe cuánto le queda para arrepentirse.
+    const intervalId = setInterval(() => {
+      remaining--;
+      if (remaining <= 0) return;
+      updateToast(toastId, `Enviando en ${remaining}s...`);
+    }, 1000);
     const timerId = setTimeout(async () => {
       // OFFLINE: queue in outbox instead of sending
       if (!navigator.onLine) {
@@ -471,7 +496,12 @@ export function ComposePanel({ win }: Props) {
         const errMsg = err instanceof Error ? err.message : 'Error al enviar';
         if (errMsg.includes('dlp_blocked')) {
           let tipos = '';
-          try { const d = JSON.parse(errMsg); tipos = (d.findings || []).map((x: any) => '\u2022 ' + x.label).join('\n'); } catch {}
+          try {
+            const d = JSON.parse(errMsg) as { findings?: HallazgoDlp[] };
+            tipos = (d.findings || []).map((x) => '\u2022 ' + x.label).join('\n');
+          } catch {
+            /* el servidor no mando el detalle: se avisa igual, sin la lista */
+          }
           window.alert('\uD83D\uDD12 Env\u00edo bloqueado por Protecci\u00f3n de datos (revisi\u00f3n de adjuntos).\n\n' + tipos + '\n\nQuita esos datos de los adjuntos o solicita autorizaci\u00f3n a Tecnolog\u00eda.');
         } else if (errMsg.includes('413')) {
           showToast(`El correo supera el tamaño máximo (${MAX_ATTACH_MB} MB). Reduce los adjuntos.`);
@@ -529,6 +559,8 @@ export function ComposePanel({ win }: Props) {
     return () => window.removeEventListener('keydown', handler);
   }, [handleSend, handleClose, showSendDropdown]);
 
+  // Se conserva para la cinta de redaccion; hoy esta accion la sirve la barra principal.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleAttach = () => { fileInputRef.current?.click(); };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -586,6 +618,8 @@ export function ComposePanel({ win }: Props) {
     setAttachments(prev => [...prev, ...newFiles]);
   }, []);
 
+  // Se conserva para la cinta de redaccion; hoy esta accion la sirve la barra principal.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const insertSignature = useCallback(async (html?: string) => {
     // Seleccion desde el menu de firmas: aplica ESA firma (reemplaza, no duplica).
     if (html !== undefined) {
@@ -614,6 +648,8 @@ export function ComposePanel({ win }: Props) {
     } catch { showToast('Error al cargar la firma'); }
   }, [signatureHtml]);
 
+  // Se conserva para la cinta de redaccion; hoy esta accion la sirve la barra principal.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const downloadDraft = useCallback(() => {
     const html = getFullHtml();
     const fullHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${subject || 'Borrador'}</title></head><body style="font-family:Calibri,sans-serif;font-size:14px">${html}</body></html>`;
@@ -768,7 +804,11 @@ export function ComposePanel({ win }: Props) {
   //  VM 170: Smart Compose — autocompletado IA
   const [composeSuggestion, setComposeSuggestion] = useState('');
   const [composingSuggestion, setComposingSuggestion] = useState(false);
+  // Se conserva para la cinta de redaccion; hoy esta accion la sirve la barra principal.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const composeDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Se conserva para la cinta de redaccion; hoy esta accion la sirve la barra principal.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const smartComposeAbort = useRef<AbortController | null>(null);
   const initializingRef = useRef(true);
 
@@ -821,6 +861,8 @@ export function ComposePanel({ win }: Props) {
   }, []);
 
   // Copiar formato
+  // Se conserva para la cinta de redaccion; hoy esta accion la sirve la barra principal.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleFormatPaint = useCallback((marks: string[]) => {
     showToast(marks.length ? `Formato copiado: ${marks.join(', ')}` : 'Seleccione texto con formato');
   }, []);
