@@ -57,6 +57,13 @@ def test_rango_de_fechas_de_una_vez():
     assert criterios == ["SINCE", "01-Jan-2026", "BEFORE", "31-Mar-2026"]
 
 
+def test_rango_con_coma_es_el_separador_bueno():
+    """nginx bloquea cualquier «..» en la URL (defensa contra path traversal), asi que un rango
+    escrito con puntos devolvia 403 y ni siquiera llegaba al correo. El separador es la coma."""
+    criterios = parse_search_query("entre:2026-01-01,2026-03-31")
+    assert criterios == ["SINCE", "01-Jan-2026", "BEFORE", "31-Mar-2026"]
+
+
 def test_rango_con_fecha_ilegible_no_revienta():
     """Media fecha mal escrita no debe tumbar la búsqueda entera."""
     criterios = parse_search_query("entre:vaya..2026-03-31")
