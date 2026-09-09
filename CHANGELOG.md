@@ -7,6 +7,42 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.7.19] - 2026-09-09
+
+Versión de un solo cambio, publicada horas después de la 1.7.18 porque el fallo salió al preparar
+el material para una auditoría externa y no tenía sentido esperar.
+
+### Seguridad
+
+- **Lo que se escribe en el buscador entraba sin escapar en la consulta IMAP.** Los valores se
+  metían entre comillas por concatenación (`f'FROM "{text}"'`), así que una comilla del usuario
+  cerraba la cadena antes de tiempo y lo que venía detrás lo leía el servidor de correo **como
+  criterio de búsqueda**:
+
+  ```
+  dominio:x" ALL "     ->     FROM "@x" ALL "
+  ```
+
+  Ese `ALL` hace que la búsqueda devuelva **el buzón entero** en vez de lo que se pidió.
+
+  **Alcance real, sin inflarlo**: no da acceso a nada ajeno. La sesión IMAP es de la propia
+  persona y solo ve su buzón. Lo que hace es devolver resultados que no son los pedidos y, según
+  la comilla, romper la consulta con un error de sintaxis. Un salto de línea no cuela, porque la
+  consulta se parte por espacios antes de llegar ahí — pero no conviene depender de ese accidente.
+
+  Es deuda **heredada**, no introducida en 1.7.18: el patrón ya estaba. Pero los operadores nuevos
+  de esa versión (`dominio:`, `de-dominio:`, `entre:`) lo repetían, así que se cierra ahora.
+
+  Se añade `_entrecomillar()`, que escapa la barra invertida y la comilla como manda el RFC 3501 y
+  quita los caracteres de control —que en una búsqueda no pintan nada y son justo los que separan
+  órdenes en el protocolo—. Aplicado en los nueve sitios donde un valor del usuario entra en la
+  consulta. Cinco pruebas nuevas, incluida la de que **las búsquedas normales no cambian**.
+
+### Nota
+
+Quien tenga la 1.7.18 puesta debería actualizar. No hace falta migración ni ningún paso manual:
+basta con traer el código y publicar.
+
 ## [1.7.18] - 2026-09-09
 
 Los seis hallazgos que mandó el equipo replica sobre el redactor, y **buscar un correo deja de
