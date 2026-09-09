@@ -67,7 +67,7 @@ export function TaskInput({ onAdd, activeView }: Props) {
           value={title}
           onChange={e => setTitle(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }}
-          placeholder="Escriba aqui y presione Enter o Agregar..."
+          placeholder="Escriba aquí y presione Enter o Agregar..."
           ref={inputRef}
           autoFocus
           className={shake ? 'task-input-shake' : ''}
