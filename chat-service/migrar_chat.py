@@ -43,7 +43,7 @@ def _tipo_sql(columna):
 
 
 anadidas = 0
-with gestor.motor.begin() as _con:
+with gestor._engine.begin() as _con:
     inspector = _inspect(_con)
     for tabla in Base.metadata.sorted_tables:
         if not inspector.has_table(tabla.name):
