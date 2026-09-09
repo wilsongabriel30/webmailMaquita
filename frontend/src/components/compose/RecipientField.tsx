@@ -318,8 +318,13 @@ export function RecipientField({ label, value, onChange, onToggleExtra, showExtr
   // con los clics que iban a él: quien pulsaba el Asunto acababa añadiendo un destinatario.
   useEffect(() => {
     if (!suggestions.length) { setAltoSugerencias(0); return; }
-    const alto = suggestionsRef.current?.offsetHeight || 0;
-    setAltoSugerencias(alto ? alto + 4 : 0);   // 4 px: el margen con el que se separa del campo
+    const lista = suggestionsRef.current;
+    if (!lista) { setAltoSugerencias(0); return; }
+    // La lista no empieza en el borde de la fila: cuelga del campo de escritura, que está dentro.
+    // Reservar solo su alto dejaba el Asunto medio tapado por debajo.
+    const altoCampo = (lista.parentElement as HTMLElement | null)?.offsetHeight || 0;
+    const alto = lista.offsetHeight;
+    setAltoSugerencias(alto ? altoCampo + 4 + alto : 0);   // 4 px: la separación con el campo
   }, [suggestions.length]);
 
   return (
