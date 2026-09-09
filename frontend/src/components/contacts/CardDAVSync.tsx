@@ -58,8 +58,8 @@ export function CardDAVSync({ isOpen, onClose }: Props) {
       });
       const data = await res.json();
       setImportResult(data);
-    } catch (e: any) {
-      setImportResult({ imported: 0, updated: 0, errors: [e?.message || 'Error'] });
+    } catch (e: unknown) {
+      setImportResult({ imported: 0, updated: 0, errors: [e instanceof Error ? e.message : 'Error'] });
     }
     setImporting(false);
   };
@@ -150,7 +150,7 @@ export function CardDAVSync({ isOpen, onClose }: Props) {
           <div style={styles.divider} />
 
           <div style={styles.section}>
-            <h3 style={styles.sectionTitle}>Configuracion CardDAV</h3>
+            <h3 style={styles.sectionTitle}>Configuración CardDAV</h3>
             <p style={styles.desc}>
               Para sincronizar con clientes CardDAV externos, usa estos datos:
             </p>

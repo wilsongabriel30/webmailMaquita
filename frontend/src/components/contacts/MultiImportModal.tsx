@@ -42,20 +42,29 @@ export function MultiImportModal({ isOpen, onClose, onImportComplete }: Props) {
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
+  // Al abrirse, el diálogo empieza de cero: sin servicio elegido y sin el resultado de la
+  // importación anterior. Se ajusta durante el render, comparando con el estado anterior de
+  // `isOpen`, para no pintar primero lo de la vez pasada y corregirlo después.
+  const [estabaAbierto, setEstabaAbierto] = useState(isOpen);
+  if (estabaAbierto !== isOpen) {
+    setEstabaAbierto(isOpen);
     if (isOpen) {
-      loadServices();
       setSelectedService(null);
       setResult(null);
     }
+  }
+
+  // Los servicios de importación se piden al abrir el diálogo. Si se cierra antes de que
+  // llegue la respuesta, se descarta: escribir en un diálogo que ya nadie mira no sirve de nada.
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelado = false;
+    api.get<ImportService[]>('/contacts/import/services')
+      .then((data) => { if (!cancelado) setServices(data); })
+      .catch(() => { /* sin servicios configurados: el diálogo lo dice por su cuenta */ });
+    return () => { cancelado = true; };
   }, [isOpen]);
 
-  const loadServices = async () => {
-    try {
-      const data = await api.get<ImportService[]>('/contacts/import/services');
-      setServices(data);
-    } catch { /* ignore */ }
-  };
 
   const handleFileUpload = async (file: File) => {
     if (!selectedService) return;
@@ -83,10 +92,10 @@ export function MultiImportModal({ isOpen, onClose, onImportComplete }: Props) {
       const data = await res.json();
       setResult(data as ImportResult);
       onImportComplete?.();
-    } catch (e: any) {
+    } catch (e: unknown) {
       setResult({
         imported: 0, updated: 0, skipped: 0,
-        errors: [e?.message || 'Error al importar'],
+        errors: [e instanceof Error ? e.message : 'Error al importar'],
       });
     }
     setLoading(false);
@@ -141,7 +150,7 @@ export function MultiImportModal({ isOpen, onClose, onImportComplete }: Props) {
                     <div style={styles.serviceName}>{svc.name}</div>
                     <div style={styles.serviceDesc}>{svc.description}</div>
                     {!svc.available && svc.setup_required && (
-                      <div style={styles.serviceNote}>Requiere configuracion</div>
+                      <div style={styles.serviceNote}>Requiere configuración</div>
                     )}
                     {svc.note && (
                       <div style={styles.serviceNote}>{svc.note}</div>

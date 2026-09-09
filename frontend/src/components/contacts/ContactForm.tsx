@@ -1,63 +1,10 @@
 import { useState, useCallback } from 'react';
 import { Avatar } from './Avatar';
-import type { Contact } from './types';
+import type { ContactFormData } from './contactFormData';
 
 /* Datos del formulario (todos los campos editables) */
-export interface ContactFormData {
-  first_name: string;
-  last_name: string;
-  display_name: string;
-  nickname: string;
-  email: string;
-  email2: string;
-  email3: string;
-  phone: string;
-  phone_mobile: string;
-  phone_work: string;
-  phone_home: string;
-  fax: string;
-  company: string;
-  organization: string;
-  job_title: string;
-  department: string;
-  address_street: string;
-  address_city: string;
-  address_state: string;
-  address_zip: string;
-  address_country: string;
-  birthday: string;
-  website: string;
-  im_address: string;
-  notes: string;
-}
 
-export function emptyFormData(): ContactFormData {
-  return {
-    first_name: '', last_name: '', display_name: '', nickname: '',
-    email: '', email2: '', email3: '',
-    phone: '', phone_mobile: '', phone_work: '', phone_home: '', fax: '',
-    company: '', organization: '', job_title: '', department: '',
-    address_street: '', address_city: '', address_state: '', address_zip: '', address_country: '',
-    birthday: '', website: '', im_address: '', notes: '',
-  };
-}
 
-export function contactToFormData(c: Contact): ContactFormData {
-  return {
-    first_name: c.first_name || '', last_name: c.last_name || '',
-    display_name: c.display_name || '', nickname: c.nickname || '',
-    email: c.email || '', email2: c.email2 || '', email3: c.email3 || '',
-    phone: c.phone || '', phone_mobile: c.phone_mobile || '',
-    phone_work: c.phone_work || '', phone_home: c.phone_home || '', fax: c.fax || '',
-    company: c.company || '', organization: c.organization || '',
-    job_title: c.job_title || '', department: c.department || '',
-    address_street: c.address_street || '', address_city: c.address_city || '',
-    address_state: c.address_state || '', address_zip: c.address_zip || '',
-    address_country: c.address_country || '',
-    birthday: c.birthday || '', website: c.website || '',
-    im_address: c.im_address || '', notes: c.notes || '',
-  };
-}
 
 /* ── Estilos compartidos ── */
 const inputStyle: React.CSSProperties = {
@@ -165,10 +112,10 @@ export function ContactForm({ initial, onSave, onCancel, saving, title }: Props)
           <Field label="Email principal *" value={form.email} onChange={v => set('email', v)} type="email" placeholder="correo@ejemplo.com" />
           <Field label="Email 2" value={form.email2} onChange={v => set('email2', v)} type="email" />
           <Field label="Email 3" value={form.email3} onChange={v => set('email3', v)} type="email" />
-          <Field label="Telefono" value={form.phone} onChange={v => set('phone', v)} placeholder="+593 ..." />
+          <Field label="Teléfono" value={form.phone} onChange={v => set('phone', v)} placeholder="+593 ..." />
           <Field label="Celular" value={form.phone_mobile} onChange={v => set('phone_mobile', v)} />
-          <Field label="Telefono trabajo" value={form.phone_work} onChange={v => set('phone_work', v)} />
-          <Field label="Telefono casa" value={form.phone_home} onChange={v => set('phone_home', v)} />
+          <Field label="Teléfono trabajo" value={form.phone_work} onChange={v => set('phone_work', v)} />
+          <Field label="Teléfono casa" value={form.phone_home} onChange={v => set('phone_home', v)} />
           <Field label="Fax" value={form.fax} onChange={v => set('fax', v)} />
         </div>
       )}
@@ -194,8 +141,8 @@ export function ContactForm({ initial, onSave, onCancel, saving, title }: Props)
             <div style={{ flex: 1 }}><Field label="Provincia/Estado" value={form.address_state} onChange={v => set('address_state', v)} /></div>
           </div>
           <div style={{ display: 'flex', gap: 12 }}>
-            <div style={{ flex: 1 }}><Field label="Codigo postal" value={form.address_zip} onChange={v => set('address_zip', v)} /></div>
-            <div style={{ flex: 1 }}><Field label="Pais" value={form.address_country} onChange={v => set('address_country', v)} /></div>
+            <div style={{ flex: 1 }}><Field label="Código postal" value={form.address_zip} onChange={v => set('address_zip', v)} /></div>
+            <div style={{ flex: 1 }}><Field label="País" value={form.address_country} onChange={v => set('address_country', v)} /></div>
           </div>
         </div>
       )}
