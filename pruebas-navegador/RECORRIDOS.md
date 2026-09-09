@@ -61,6 +61,17 @@ se miran y se cierran.
   **el resultado en el cuerpo del mensaje**, no que el botón responda.
 - `06-textos-y-color` — que no haya escapes sin interpretar a la vista (se encontraron dos) y que
   la paleta de color aplique el color elegido.
+- `07-destinatarios` — que no salga un correo hacia una dirección que no existe. Lo que importa no
+  es que aparezca el aviso, sino que **no arranque la cuenta atrás**: el fallo original avisaba de
+  nada y mandaba igual.
+- `08-busqueda` — el panel de búsqueda avanzada y el rango de fechas, con el tiempo que tarda. Dos
+  cosas que esta prueba aprendió a la fuerza y conviene no perder:
+  - El rango se compone **con coma** (`entre:2026-09-08,2026-09-10`). Con `..` el proxy devuelve
+    403 —bloquea cualquier `..` en la URL como defensa contra path traversal— y la búsqueda ni
+    siquiera llega al correo. La prueba comprueba que no se cuele un `..`.
+  - El rango de fechas **incluye hoy** a propósito. Con un rango de meses atrás, un buzón de
+    pruebas recién hecho devuelve «sin resultados» y la prueba pasa sin haber demostrado nada:
+    solo que no revienta. Hay que exigir que **devuelva** el correo.
 
 ## `ciclo-correo/` — **envía correo de verdad**
 
