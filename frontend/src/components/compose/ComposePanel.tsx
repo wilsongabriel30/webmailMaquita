@@ -267,7 +267,9 @@ export function ComposePanel({ win }: Props) {
         content = win.data.html_body.replace(/<div class="email-signature"[\s\S]*$/i, '');
         if (sig) setSignatureHtml(sig);
       } else if (win.mode === 'new') {
-        content = '<p><br></p>';
+        // Parrafo vacio, no '<p><br></p>': ese <br> es un nodo de verdad y el texto se escribia
+        // detras, de modo que el mensaje salia con un salto de linea sobrante al principio.
+        content = '<p></p>';
         if (sig) setSignatureHtml(sig);
       } else {
         // Reply / ReplyAll / Forward
@@ -291,7 +293,7 @@ export function ComposePanel({ win }: Props) {
         } catch { /* sin config -> incluir como antes */ }
         if (sig && _incluirFirma) setSignatureHtml(sig);
         // Smart Reply: prefill_body contiene el texto IA pre-generado
-        content = win.data.prefill_body || '<p><br></p>';
+        content = win.data.prefill_body || '<p></p>';
 
       }
       editor?.commands.setContent(content);
