@@ -135,6 +135,8 @@ export function RecipientField({ label, value, onChange, onToggleExtra, showExtr
   const [hoveredChip, setHoveredChip] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
+  // Alto real de la lista abierta: es el hueco que hay que reservar debajo para que no tape nada.
+  const [altoSugerencias, setAltoSugerencias] = useState(0);
   const tooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── External sync (same bug fix as before) ──
@@ -312,6 +314,14 @@ export function RecipientField({ label, value, onChange, onToggleExtra, showExtr
     }
   }, [selectedSuggestion, suggestions.length]);
 
+  // El hueco a reservar debajo del campo. Sin esto la lista se pinta ENCIMA del Asunto y se queda
+  // con los clics que iban a él: quien pulsaba el Asunto acababa añadiendo un destinatario.
+  useEffect(() => {
+    if (!suggestions.length) { setAltoSugerencias(0); return; }
+    const alto = suggestionsRef.current?.offsetHeight || 0;
+    setAltoSugerencias(alto ? alto + 4 : 0);   // 4 px: el margen con el que se separa del campo
+  }, [suggestions.length]);
+
   return (
     <div className="flex items-start border-b border-[#edebe9] min-h-[40px] relative">
       {/* Label button */}
@@ -389,7 +399,7 @@ export function RecipientField({ label, value, onChange, onToggleExtra, showExtr
           {/* Autocomplete dropdown — enterprise */}
           {suggestions.length > 0 && (
             <div ref={suggestionsRef}
-              className="absolute left-0 top-full mt-1 w-[380px] bg-white rounded-lg shadow-xl border border-[#e1dfdd] z-50 py-1 max-h-[360px] overflow-y-auto">
+              className="absolute left-0 top-full mt-1 w-[380px] bg-white rounded-lg shadow-xl border border-[#e1dfdd] z-50 py-1 max-h-[248px] overflow-y-auto">
               {suggestions.map((s, i) => (
                 <button key={s.source === 'list' ? `list-${s.list_id}` : s.email}
                   onMouseDown={(e) => { e.preventDefault(); selectSuggestion(s); }}
@@ -417,6 +427,11 @@ export function RecipientField({ label, value, onChange, onToggleExtra, showExtr
           )}
         </div>
       </div>
+
+      {/* Hueco reservado mientras la lista está abierta: baja el Asunto en vez de taparlo. */}
+      {altoSugerencias > 0 && (
+        <div aria-hidden="true" style={{ height: altoSugerencias }} className="shrink-0 w-0" />
+      )}
 
       {/* CC/BCC toggle */}
       {onToggleExtra && !showExtra && (
