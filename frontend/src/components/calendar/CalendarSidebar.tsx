@@ -10,7 +10,7 @@ import {
   getWeekDates,
 } from "./utils/dateHelpers";
 
-interface SharedCalendarInfo {
+export interface SharedCalendarInfo {
   id: string;
   calendar_id: string;
   calendar_name: string;
@@ -38,11 +38,11 @@ export function CalendarSidebar({
   currentDate,
   onDateSelect,
   onToggleCalendar,
-  onNewEvent: _onNewEvent,
   onAddCalendar,
   onDeleteCalendar,
   sharedCalendars = [],
-  onShareCalendar: _onShareCalendar,
+  // onNewEvent y onShareCalendar llegan en las props pero hoy los usa la barra
+  // principal, no este panel: no se sacan para no dejar variables muertas.
 }: Props) {
   const [miniDate, setMiniDate] = useState(new Date());
   const [menuFor, setMenuFor] = useState<string | null>(null);

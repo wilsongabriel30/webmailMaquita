@@ -6,6 +6,12 @@ import { useCalendarApi } from "./hooks/useCalendarApi";
 import { api } from "../../api/client";
 import { es } from "date-fns/locale";
 
+/** Un asistente, tal como puede venir del servidor: una dirección suelta o con su papel. */
+type AsistenteCrudo = string | { email?: string; role?: string };
+
+/** Lo que ofrece el buscador de contactos al escribir un destinatario. */
+interface ContactoSugerido { email: string; display_name?: string; name?: string }
+
 interface Props {
   isOpen: boolean;
   event: CalendarEvent | null;
@@ -104,8 +110,8 @@ export function EventModal({
   const [allDay, setAllDay] = useState(event?.all_day || false);
   const [rrule, setRrule] = useState(event?.rrule || "");
   const [reminders, setReminders] = useState<EventReminder[]>(event?.reminders || []);
-  const [attendees, setAttendees] = useState<string[]>(event?.attendees?.filter((a: any) => typeof a === "string" || (a.role && a.role !== "OPT-PARTICIPANT")).map((a: any) => typeof a === "string" ? a : a.email).filter(Boolean) as string[] || []);
-  const [optionalAttendees, setOptionalAttendees] = useState<string[]>(event?.attendees?.filter((a: any) => typeof a !== "string" && a.role === "OPT-PARTICIPANT").map((a: any) => typeof a === "string" ? a : a.email).filter(Boolean) as string[] || []);
+  const [attendees, setAttendees] = useState<string[]>(event?.attendees?.filter((a: AsistenteCrudo) => typeof a === "string" || (a.role && a.role !== "OPT-PARTICIPANT")).map((a: AsistenteCrudo) => typeof a === "string" ? a : a.email).filter(Boolean) as string[] || []);
+  const [optionalAttendees, setOptionalAttendees] = useState<string[]>(event?.attendees?.filter((a: AsistenteCrudo) => typeof a !== "string" && a.role === "OPT-PARTICIPANT").map((a: AsistenteCrudo) => typeof a === "string" ? a : a.email).filter(Boolean) as string[] || []);
   const [newAttendee, setNewAttendee] = useState("");
   const [newOptionalAttendee, setNewOptionalAttendee] = useState("");
   const [optionalSuggestions, setOptionalSuggestions] = useState<{email:string;display_name?:string}[]>([]);
@@ -142,44 +148,18 @@ export function EventModal({
   const [freeBusyData, setFreeBusyData] = useState<Map<string, FreeBusySlot[]>>(new Map());
   const [loadingFreeBusy, setLoadingFreeBusy] = useState(false);
 
-  // Reset on open
-  useEffect(() => {
-    if (isOpen) {
-      const start = getDefaultStart();
-      const end = getDefaultEnd();
-      setSummary(event?.summary || initialSummary || "");
-      setDescription(event?.description || initialDescription || "");
-      setLocation(event?.location || "");
-      setCalendarId(event?.calendar_id || calendars.find((c) => c.is_default)?.id || calendars[0]?.id || "");
-      setStartDate(toDateInputValue(start));
-      setStartTime(toTimeInputValue(start));
-      setEndDate(toDateInputValue(end));
-      setEndTime(toTimeInputValue(end));
-      setAllDay(event?.all_day || false);
-      setRrule(event?.rrule || "");
-      setReminders(event?.reminders || []);
-      setAttendees(event?.attendees?.filter((a: any) => typeof a === "string" || (a.role && a.role !== "OPT-PARTICIPANT")).map((a: any) => typeof a === "string" ? a : a.email).filter(Boolean) as string[] || []);
-      setOptionalAttendees(event?.attendees?.filter((a: any) => typeof a !== "string" && a.role === "OPT-PARTICIPANT").map((a: any) => typeof a === "string" ? a : a.email).filter(Boolean) as string[] || []);
-      setNewAttendee("");
-      setNewOptionalAttendee("");
-      setAttachments([]);
-      setConfirmDelete(false);
-      setStatus(event?.status || "busy");
-      setActiveTab("event");
-      setShowDatePickers(false);
-      setShowStatusDropdown(false);
-      setVirtualMeeting(false);
-      setIsExpanded(false);
-      setTimeout(() => summaryRef.current?.focus(), 100);
-    }
-  }, [isOpen, event, calendars, getDefaultStart, getDefaultEnd]);
+  // El formulario NO se reinicia aquí: el calendario le da una `key` que cambia con el
+  // evento que se edita, así que React monta el diálogo de cero y los estados toman sus
+  // valores iniciales del evento. Hacerlo con un efecto obligaba a pintar primero los
+  // datos del evento anterior y corregirlos después, y se alcanzaban a ver.
+
+  // Sin asistentes no hay disponibilidad que enseñar. El mapa se ignora al pintar (más abajo)
+  // en lugar de vaciarlo desde el efecto: vaciarlo ahí obligaba a un repintado de más.
+  const sinAsistentes = attendees.length === 0 && optionalAttendees.length === 0;
 
   // Fetch Free/Busy when attendees change
   useEffect(() => {
-    if (!isOpen || (attendees.length === 0 && optionalAttendees.length === 0)) {
-      setFreeBusyData(new Map());
-      return;
-    }
+    if (!isOpen || sinAsistentes) return;
     const abortController = new AbortController();
     const fetchAll = async () => {
       setLoadingFreeBusy(true);
@@ -364,8 +344,8 @@ export function EventModal({
     if (q.length < 2) { setOptionalSuggestions([]); setShowOptionalSuggestions(false); return; }
     try {
       const data = await api.get<{contacts:{email:string;display_name?:string}[]}>("/contacts/search?q=" + encodeURIComponent(q) + "&limit=8");
-      const list = Array.isArray(data) ? data : (data as any)?.contacts || [];
-      setOptionalSuggestions(list.filter((c: any) => c.email && !attendees.includes(c.email) && !optionalAttendees.includes(c.email)).map((c: any) => ({ email: c.email, display_name: c.display_name || c.name || "" })));
+      const list = Array.isArray(data) ? data : (data as { contacts?: ContactoSugerido[] })?.contacts || [];
+      setOptionalSuggestions(list.filter((c: ContactoSugerido) => c.email && !attendees.includes(c.email) && !optionalAttendees.includes(c.email)).map((c: ContactoSugerido) => ({ email: c.email, display_name: c.display_name || c.name || "" })));
       setShowOptionalSuggestions(true);
     } catch { setOptionalSuggestions([]); }
   }
@@ -377,8 +357,8 @@ export function EventModal({
     locDebounce.current = setTimeout(async () => {
       try {
         const data = await api.get<{suggestions:{label:string}[]}>("/calendar/places/autocomplete?q=" + encodeURIComponent(term));
-        const list = (data as any)?.suggestions || [];
-        setLocationSuggestions(list.map((x: any) => x.label));
+        const list = (data as { suggestions?: { label: string }[] })?.suggestions || [];
+        setLocationSuggestions(list.map((x: { label: string }) => x.label));
         setShowLocationSuggestions(list.length > 0);
       } catch { setLocationSuggestions([]); setShowLocationSuggestions(false); }
     }, 350);
@@ -388,8 +368,8 @@ export function EventModal({
     if (q.length < 2) { setAttendeeSuggestions([]); setShowSuggestions(false); return; }
     try {
       const data = await api.get<{contacts:{email:string;display_name?:string}[]}>("/contacts/search?q=" + encodeURIComponent(q) + "&limit=8");
-      const list = Array.isArray(data) ? data : (data as any)?.contacts || [];
-      setAttendeeSuggestions(list.filter((c: any) => c.email && !attendees.includes(c.email)).map((c: any) => ({ email: c.email, display_name: c.display_name || c.name || "" })));
+      const list = Array.isArray(data) ? data : (data as { contacts?: ContactoSugerido[] })?.contacts || [];
+      setAttendeeSuggestions(list.filter((c: ContactoSugerido) => c.email && !attendees.includes(c.email)).map((c: ContactoSugerido) => ({ email: c.email, display_name: c.display_name || c.name || "" })));
       setShowSuggestions(true);
     } catch { setAttendeeSuggestions([]); }
   }
@@ -965,10 +945,10 @@ export function EventModal({
                       />
                       <select
                         value={customFreq}
-                        onChange={(e) => setCustomFreq(e.target.value as any)}
+                        onChange={(e) => setCustomFreq(e.target.value as "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY")}
                         style={{ border: "1px solid #c8c6c4", borderRadius: "4px", padding: "4px 8px", fontSize: "13px" }}
                       >
-                        <option value="DAILY">dia(s)</option>
+                        <option value="DAILY">día(s)</option>
                         <option value="WEEKLY">semana(s)</option>
                         <option value="MONTHLY">mes(es)</option>
                         <option value="YEARLY">ano(s)</option>
@@ -1024,7 +1004,7 @@ export function EventModal({
                           const v = parseInt(e.target.value);
                           setCustomCount(v > 0 ? v : null);
                         }}
-                        placeholder="sin limite"
+                        placeholder="sin límite"
                         style={{ width: "80px", border: "1px solid #c8c6c4", borderRadius: "4px", padding: "4px 8px", fontSize: "13px", textAlign: "center" }}
                       />
                       <span style={{ fontSize: "13px", color: "#605e5c" }}>ocurrencia(s)</span>
@@ -1108,7 +1088,7 @@ export function EventModal({
 
                     {/* Per-attendee row */}
                     {attendees.map((email) => {
-                      const slots = freeBusyData.get(email) || [];
+                      const slots = (sinAsistentes ? [] : freeBusyData.get(email)) || [];
                       return (
                         <div key={email} style={{ display: "flex", alignItems: "center", marginBottom: "4px" }}>
                           <div style={{ width: "100px", flexShrink: 0, fontSize: "11px", color: "#605e5c", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: "4px" }} title={email}>
