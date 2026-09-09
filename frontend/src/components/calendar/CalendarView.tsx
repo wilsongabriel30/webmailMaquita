@@ -5,6 +5,7 @@ import type { ViewMode, CalendarInfo, CalendarEvent, EventFormData } from "./typ
 import { useCalendarApi } from "./hooks/useCalendarApi";
 import { CalendarHeader, type CalendarFilters } from "./CalendarHeader";
 import { CalendarSidebar } from "./CalendarSidebar";
+import type { SharedCalendarInfo } from "./CalendarSidebar";
 import { MonthView } from "./MonthView";
 import { WeekView } from "./WeekView";
 import { DayView } from "./DayView";
@@ -119,9 +120,9 @@ export default function CalendarView() {
 
   useEffect(() => {
     let raw: string | null = null;
-    try { raw = sessionStorage.getItem('pending-event-from-mail'); } catch {}
+    try { raw = sessionStorage.getItem('pending-event-from-mail'); } catch { /* ventana privada: no hay evento pendiente que recoger */ }
     if (!raw) return;
-    try { sessionStorage.removeItem('pending-event-from-mail'); } catch {}
+    try { sessionStorage.removeItem('pending-event-from-mail'); } catch { /* si no se puede borrar, se vuelve a abrir el mismo evento; inofensivo */ }
     try {
       const m = JSON.parse(raw);
       setEditEvent(null);
@@ -131,7 +132,7 @@ export default function CalendarView() {
       setModalInitialSummary(m.subject || 'Evento desde correo');
       setModalInitialDescription(`Creado desde el correo de ${m.from || 'remitente desconocido'}:\n"${m.subject || ''}"`);
       setModalOpen(true);
-    } catch {}
+    } catch { /* lo guardado no era un evento legible: se ignora en vez de romper el calendario */ }
   }, []);
 
   const calApi = useCalendarApi();
@@ -140,7 +141,10 @@ export default function CalendarView() {
           loading, error } = calApi;
 
   // Compartición de calendarios
-  const [sharedCalendars, setSharedCalendars] = useState<object[]>([]);
+  // Los calendarios que otras personas comparten con esta. Se guardan con su forma real:
+  // antes eran  y hacia falta un  para pasarlos al panel lateral, que
+  // es tanto como decir «confia en mi» sin que nadie lo comprobara.
+  const [sharedCalendars, setSharedCalendars] = useState<SharedCalendarInfo[]>([]);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [shareCalendarId, setShareCalendarId] = useState<string>('');
   const [shareWithEmail, setShareWithEmail] = useState('');
@@ -156,7 +160,7 @@ const [showScheduling, setShowScheduling] = useState(false);
       }
     });
     listSharedWithMe().then((shared) => {
-      if (shared) setSharedCalendars(shared as object[]);
+      if (shared) setSharedCalendars(shared as SharedCalendarInfo[]);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchCalendars]);
@@ -352,7 +356,7 @@ const [showScheduling, setShowScheduling] = useState(false);
     setShareModalOpen(false);
     // Recargar compartidos
     listSharedWithMe().then((shared) => {
-      if (shared) setSharedCalendars(shared as object[]);
+      if (shared) setSharedCalendars(shared as SharedCalendarInfo[]);
     });
   }
 
@@ -391,7 +395,7 @@ const [showScheduling, setShowScheduling] = useState(false);
           onNewEvent={() => openNewEvent()}
           onAddCalendar={handleAddCalendar}
           onDeleteCalendar={handleDeleteCalendar}
-          sharedCalendars={sharedCalendars as any[]}
+          sharedCalendars={sharedCalendars}
           onShareCalendar={handleOpenShareModal}
         />
       )}
@@ -535,6 +539,9 @@ const [showScheduling, setShowScheduling] = useState(false);
       {/* Event Modal */}
 {showScheduling && <SchedulingAssistant onClose={() => setShowScheduling(false)} onSelectSlot={(start) => { setModalInitialDate(new Date(start)); setModalOpen(true); setShowScheduling(false); }} />}
       <EventModal
+        // Al cambiar de evento (o al abrir uno nuevo) el diálogo se monta de cero: sus campos
+        // toman los valores del evento sin necesidad de reiniciarlos a mano uno a uno.
+        key={`${modalOpen ? "abierto" : "cerrado"}:${editEvent?.id ?? `nuevo-${modalInitialDate?.getTime() ?? 0}`}`}
         isOpen={modalOpen}
         event={editEvent}
         initialDate={modalInitialDate}
