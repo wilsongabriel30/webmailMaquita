@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { PanelBusquedaAvanzada } from './PanelBusquedaAvanzada';
 
 const OPERATORS = [
   { op: 'from:', desc: 'Remitente', icon: '👤' },
@@ -11,16 +12,27 @@ const OPERATORS = [
   { op: 'is:flagged', desc: 'Con bandera', icon: '🚩' },
   { op: 'larger:', desc: 'Mayor a tamaño', icon: '📦' },
   { op: 'smaller:', desc: 'Menor a tamaño', icon: '📦' },
+  { op: 'dominio:', desc: 'De o para un dominio', icon: '🌐' },
+  { op: 'de-dominio:', desc: 'Solo remitentes de un dominio', icon: '🌐' },
+  { op: 'entre:', desc: 'Rango de fechas (2026-01-01..2026-03-31)', icon: '📅' },
+  { op: 'semana', desc: 'De esta semana', icon: '⏱' },
+  { op: 'mes', desc: 'De este mes', icon: '⏱' },
+  // Este es el unico que no es instantaneo: entra en el texto de los mensajes, que hay que
+  // descifrar uno a uno. Se deja el ultimo y con el aviso a la vista.
+  { op: 'contenido:', desc: 'Dentro del texto (más lento)', icon: '🐢' },
 ];
 
 interface SearchAdvancedProps {
   value: string;
   onChange: (query: string) => void;
   onSearch: (query: string) => void;
+  /** Buscar tambien dentro del texto de los mensajes (lento: hay que descifrarlos uno a uno). */
+  onBuscarEnContenido?: (v: boolean) => void;
   placeholder?: string;
 }
 
-export function SearchAdvanced({ value, onChange, onSearch, placeholder = 'Buscar correos...' }: SearchAdvancedProps) {
+export function SearchAdvanced({ value, onChange, onSearch, onBuscarEnContenido, placeholder = 'Buscar correos...' }: SearchAdvancedProps) {
+  const [panelAbierto, setPanelAbierto] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filteredOps, setFilteredOps] = useState(OPERATORS);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -115,6 +127,19 @@ export function SearchAdvanced({ value, onChange, onSearch, placeholder = 'Busca
           className="flex-1 bg-transparent outline-none text-[13px] text-[#323130] dark:text-[#e0e0e0] placeholder-[#a19f9d] min-w-[100px]"
         />
 
+        <button
+          type="button"
+          onClick={() => setPanelAbierto(!panelAbierto)}
+          title="Búsqueda avanzada"
+          aria-label="Búsqueda avanzada"
+          aria-expanded={panelAbierto}
+          className="text-[#a19f9d] hover:text-[#0078d4] shrink-0"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L14 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 018 21v-7.586L3.293 6.707A1 1 0 013 6V4z" />
+          </svg>
+        </button>
+
         {value && (
           <button
             onClick={() => { onChange(''); onSearch(''); }}
@@ -126,6 +151,17 @@ export function SearchAdvanced({ value, onChange, onSearch, placeholder = 'Busca
           </button>
         )}
       </div>
+
+      {panelAbierto && (
+        <PanelBusquedaAvanzada
+          onCerrar={() => setPanelAbierto(false)}
+          onBuscar={(consulta, enContenido) => {
+            onBuscarEnContenido?.(enContenido);
+            onChange(consulta);
+            onSearch(consulta);
+          }}
+        />
+      )}
 
       {/* Suggestions dropdown */}
       {showSuggestions && filteredOps.length > 0 && (
