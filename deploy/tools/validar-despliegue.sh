@@ -113,6 +113,51 @@ code=$(curl -s -o /dev/null -w '%{http_code}' "$WEBMAIL/api/auth/totp/status" 2>
 [ "$code" = 401 ] || [ "$code" = 200 ] && ok "endpoint TOTP responde ($code)" || bad "endpoint TOTP no responde ($code)"
 TC=$($PSQL "SELECT count(*) FROM user_totp" 2>/dev/null); ok "usuarios con 2FA activo: ${TC:-0}"
 
+hdr "Contrasenas: que el prefijo no mienta sobre su contenido"
+# Una cuenta con etiqueta {SHA512-CRYPT} y un cuerpo que no es crypt NO PUEDE ENTRAR, por bien que
+# escriba su contrasena, y no se nota: en el panel el buzon se ve normal. Dovecot cae al esquema
+# mas viejo que encaja y lo rechaza por debil ("Weak password scheme 'DES-CRYPT' used and
+# refused"). Lo reporto el equipo replica, que lo encontro de casualidad mirando mail.log despues
+# de que una persona estuviera un mes sin poder entrar.
+INCOHERENTES=$($PSQL "SELECT count(*) FROM mailbox WHERE NOT (
+  password IS NULL OR (
+    (password NOT LIKE '{SHA512-CRYPT}%' OR password LIKE '{SHA512-CRYPT}\$6\$%') AND
+    (password NOT LIKE '{SHA256-CRYPT}%' OR password LIKE '{SHA256-CRYPT}\$5\$%') AND
+    (password NOT LIKE '{MD5-CRYPT}%'    OR password LIKE '{MD5-CRYPT}\$1\$%')    AND
+    (password NOT LIKE '{BLF-CRYPT}%'    OR password LIKE '{BLF-CRYPT}\$2%')     AND
+    (password NOT LIKE '{CRYPT}%'        OR password LIKE '{CRYPT}\$%')          AND
+    (password NOT LIKE '{SSHA512}%'      OR length(password) > 9)               AND
+    (password NOT LIKE '{SSHA256}%'      OR length(password) > 9)               AND
+    (password NOT LIKE '{SSHA}%'         OR length(password) > 6)
+  ))" 2>/dev/null)
+if [ -z "$INCOHERENTES" ]; then
+  warn "no se pudo consultar la tabla de buzones (¿sin acceso a $DB?)"
+elif [ "$INCOHERENTES" = "0" ]; then
+  TOTALBUZ=$($PSQL "SELECT count(*) FROM mailbox" 2>/dev/null)
+  ok "las ${TOTALBUZ:-?} contrasenas tienen prefijo coherente con su contenido"
+else
+  bad "$INCOHERENTES cuenta(s) con el prefijo incoherente: ESAS PERSONAS NO PUEDEN ENTRAR"
+  echo "         cuales:  python3 deploy/tools/verificar-hashes.py"
+  echo "         arreglo: asignarles contrasena nueva por el camino normal"
+fi
+
+# La restriccion que impide que vuelva a entrar uno malo (migracion 2026-09-09).
+RESTR=$($PSQL "SELECT CASE WHEN convalidated THEN 'validada' ELSE 'sin-validar' END
+               FROM pg_constraint WHERE conname = 'mailbox_prefijo_coherente'" 2>/dev/null)
+case "$RESTR" in
+  validada)    ok "restriccion mailbox_prefijo_coherente: activa y validada" ;;
+  sin-validar) warn "restriccion mailbox_prefijo_coherente activa pero SIN VALIDAR (hay deuda antigua sin arreglar)" ;;
+  *)           warn "sin la restriccion mailbox_prefijo_coherente: falta la migracion 2026-09-09-mailbox-prefijo-coherente.sql" ;;
+esac
+
+# Y el sintoma en el registro, por si alguien lo esta sufriendo ahora mismo.
+DEBILES=$(journalctl -u dovecot --since "-7 days" --no-pager 2>/dev/null | grep -ci "weak password scheme" || true)
+if [ "${DEBILES:-0}" -gt 0 ]; then
+  bad "$DEBILES rechazo(s) por 'Weak password scheme' en 7 dias: alguien no puede entrar por esto"
+else
+  ok "sin rechazos por esquema debil en los ultimos 7 dias"
+fi
+
 hdr "Redis / Valkey"
 RU=$(grep -oE '^REDIS_URL=.*' /opt/maquita-webmail/backend/.env 2>/dev/null | cut -d= -f2-)
 RPASS=$(printf '%s' "$RU" | sed -E 's#redis://[^:]*:([^@]*)@.*#\1#')
