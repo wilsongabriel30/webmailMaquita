@@ -114,6 +114,81 @@
             padding: 10px 14px; font-weight: 600; cursor: pointer;
             box-shadow: 0 2px 10px rgba(0,0,0,.4); display: none;
         }
+    
+        /* ── Elegir micrófono, altavoz y cámara ── */
+        .flecha-dispositivos {
+            width: 22px; height: 34px; margin-left: -6px; margin-right: 6px;
+            border: none; border-radius: 0 17px 17px 0; cursor: pointer;
+            background: rgba(255,255,255,.14); color: #fff; font-size: 10px;
+        }
+        .flecha-dispositivos:hover { background: rgba(255,255,255,.26); }
+        .menu-dispositivos {
+            position: fixed; z-index: 1000; min-width: 240px; max-width: 340px;
+            background: #201f1e; color: #fff; border: 1px solid #3b3a39;
+            border-radius: 8px; padding: 6px; box-shadow: 0 8px 24px rgba(0,0,0,.45);
+        }
+        .md-opcion {
+            display: block; width: 100%; text-align: left; padding: 8px 10px;
+            background: none; border: none; color: #fff; font-size: 13px;
+            border-radius: 6px; cursor: pointer;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .md-opcion:hover { background: rgba(255,255,255,.12); }
+        .md-elegida { background: rgba(16,124,16,.25); font-weight: 600; }
+        .md-elegida::before { content: '✓ '; }
+        .md-vacio { padding: 10px; font-size: 12px; color: #a19f9d; }
+        .md-prueba { border-top: 1px solid #3b3a39; margin-top: 6px; padding: 8px 10px; }
+        .md-prueba-texto { font-size: 11px; color: #a19f9d; margin-bottom: 6px; }
+        .md-barra { height: 6px; background: #3b3a39; border-radius: 3px; overflow: hidden; }
+        .md-barra-nivel { height: 100%; width: 0%; background: #107c10; transition: width .08s linear; }
+    
+        /* ── Cómo va la conexión ── */
+        #vcCalidad {
+            display: none; margin-top: 10px; gap: 14px;
+            justify-content: center; font-size: 11px; color: #d2d0ce;
+        }
+        #vcCalidad.visible { display: flex; }
+        .calidad-fila { display: flex; align-items: center; gap: 6px; }
+        .calidad-etq { opacity: .75; max-width: 130px; overflow: hidden;
+                       text-overflow: ellipsis; white-space: nowrap; }
+        .señal { display: inline-flex; align-items: flex-end; gap: 2px; height: 13px; }
+        .señal-barra { width: 3px; border-radius: 1px; }
+        #vcAvisoRed {
+            display: none; margin: 8px auto 0; max-width: 420px; padding: 7px 12px;
+            background: rgba(209,139,0,.16); border: 1px solid rgba(209,139,0,.5);
+            border-radius: 6px; font-size: 12px; color: #ffd98a; line-height: 1.35;
+        }
+        #vcAvisoRed.visible { display: block; }
+    
+        /* ── Agregar a alguien a la llamada ── */
+        .agregar-fondo {
+            position: fixed; inset: 0; z-index: 1100; background: rgba(0,0,0,.55);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .agregar-caja {
+            width: 340px; max-width: 92vw; background: #201f1e; color: #fff;
+            border: 1px solid #3b3a39; border-radius: 10px; padding: 16px;
+            box-shadow: 0 12px 32px rgba(0,0,0,.5);
+        }
+        .agregar-titulo { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+        .agregar-aviso { font-size: 12px; color: #a19f9d; margin-bottom: 12px; line-height: 1.4; }
+        .agregar-buscar {
+            width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #3b3a39;
+            background: #292827; color: #fff; font-size: 13px; margin-bottom: 8px;
+        }
+        .agregar-lista { max-height: 260px; overflow-y: auto; }
+        .agregar-persona {
+            display: block; width: 100%; text-align: left; padding: 9px 10px; border: none;
+            background: none; color: #fff; font-size: 13px; border-radius: 6px; cursor: pointer;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .agregar-persona:hover { background: rgba(255,255,255,.12); }
+        .agregar-cargando { padding: 12px 10px; font-size: 12px; color: #a19f9d; }
+        .agregar-cancelar {
+            width: 100%; margin-top: 10px; padding: 8px; border: none; border-radius: 6px;
+            background: rgba(255,255,255,.12); color: #fff; font-size: 13px; cursor: pointer;
+        }
+        .agregar-cancelar:hover { background: rgba(255,255,255,.2); }
     </style>
 </head>
 <body>
@@ -137,11 +212,14 @@
             <div class="vc-avatar pulsando" id="vcAvatar">?</div>
             <div class="nombre" id="vcNombre"></div>
             <div class="detalle" id="vcDetalle">Conectando…</div>
+            <div id="vcCalidad"></div>
+            <div id="vcAvisoRed"></div>
         </div>
     </div>
     <div class="vc-controls">
         <button id="btnMute" onclick="toggleMute()" title="Silenciar"><i class="fas fa-microphone"></i></button>
         <button id="btnCam" onclick="toggleCam()" title="Apagar cámara" style="display:none;"><i class="fas fa-video"></i></button>
+        <button id="btnAgregar" onclick="agregarParticipante()" title="Agregar participante"><i class="fas fa-user-plus"></i></button>
         <button id="btnShare" class="btn-share" onclick="toggleShare()" title="Compartir pantalla"><i class="fas fa-desktop"></i></button>
         <button id="btnRec" class="btn-rec" onclick="toggleGrabacion()" title="Grabar llamada"><i class="fas fa-circle"></i></button>
         <button class="btn-colgar" onclick="colgar()" title="Colgar"><i class="fas fa-phone-slash"></i></button>
@@ -159,6 +237,9 @@
     }
     </script>
     <script src="/static/js/lib/livekit-client.umd.min.js?v=2.15.7"></script>
+    <script src="/static/js/llamada-dispositivos.js?v=1"></script>
+    <script src="/static/js/llamada-calidad.js?v=1"></script>
+    <script src="/static/js/llamada-agregar.js?v=1"></script>
     <!-- T-52: desenfoque, fondos de Maquita y espejo de la vista propia.
          La libreria y el modelo se sirven desde AQUI, no de un CDN de fuera. -->
     <link rel="stylesheet" href="/static/css/chat-llamada-fondos.css?v=20260902-t52">
@@ -221,8 +302,112 @@
         document.getElementById('vcAvatar').textContent = (PEER_NAME[0] || '?').toUpperCase();
         document.getElementById('iconoTipo').className = TIPO === 'video' ? 'fas fa-video' : 'fas fa-phone';
         document.getElementById('vcDetalle').textContent = ROLE === 'caller' ? 'Llamando…' : 'Conectando…';
+
+        // ===== Verse a uno mismo desde el primer momento =====
+        // Antes la cámara se encendía al aceptar la llamada, así que quien llamaba miraba un
+        // avatar sin saber si su cámara funcionaba. Aquí se enciende ya, mientras timbra: se ve
+        // a sí mismo y, si los permisos están bloqueados, se entera antes y no en mitad.
+        async function mostrarVistaPrevia() {
+            if (est.localStream) return;
+            try {
+                est.localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: TIPO === 'video' });
+            } catch (e) {
+                setDetalle('No se pudo acceder al micrófono' + (TIPO === 'video' ? '/cámara' : '') +
+                           '. Revisa los permisos del navegador.');
+                return;
+            }
+            if (TIPO === 'video') {
+                const lv = document.getElementById('localVideo');
+                lv.srcObject = est.localStream;
+                lv.style.display = '';
+            }
+        }
+
+        // ===== Elegir micrófono, altavoz y cámara desde la propia llamada =====
+        // Las flechitas aparecen cuando ya hay permisos (antes el navegador no da los nombres
+        // de los dispositivos, y un menú con «Micrófono 1 / Micrófono 2» no ayuda a nadie).
+        function ponerSelectoresDeDispositivos() {
+            if (!window.LlamadaDispositivos) return;
+            const LD = window.LlamadaDispositivos;
+
+            LD.ponerFlecha('btnMute', 'audioinput', async (id) => {
+                if (est.room) {
+                    await est.room.switchActiveDevice('audioinput', id);
+                } else if (est.localStream) {
+                    // Aún timbrando: se cambia el flujo de la vista previa.
+                    const nuevo = await navigator.mediaDevices.getUserMedia({
+                        audio: { deviceId: { exact: id } }, video: false });
+                    est.localStream.getAudioTracks().forEach((t) => { t.stop(); est.localStream.removeTrack(t); });
+                    nuevo.getAudioTracks().forEach((t) => est.localStream.addTrack(t));
+                }
+            });
+
+            LD.ponerFlecha('btnMute', 'audiooutput', async (id) => {
+                // El altavoz se aplica a cada elemento que suena.
+                for (const el of document.querySelectorAll('audio, video')) {
+                    if (el.setSinkId) { try { await el.setSinkId(id); } catch { /* no soportado */ } }
+                }
+            });
+
+            if (TIPO === 'video') {
+                LD.ponerFlecha('btnCam', 'videoinput', async (id) => {
+                    if (est.room) {
+                        await est.room.switchActiveDevice('videoinput', id);
+                    } else if (est.localStream) {
+                        const nuevo = await navigator.mediaDevices.getUserMedia({
+                            video: { deviceId: { exact: id } }, audio: false });
+                        est.localStream.getVideoTracks().forEach((t) => { t.stop(); est.localStream.removeTrack(t); });
+                        nuevo.getVideoTracks().forEach((t) => est.localStream.addTrack(t));
+                        const lv = document.getElementById('localVideo');
+                        lv.srcObject = null; lv.srcObject = est.localStream;
+                    }
+                });
+            }
+        }
+
+        mostrarVistaPrevia();
+        // Tras pedir la cámara ya hay nombres de dispositivos que enseñar.
+        setTimeout(ponerSelectoresDeDispositivos, 800);
         if (TIPO === 'video') document.getElementById('btnCam').style.display = '';
         document.title = (TIPO === 'video' ? 'Videollamada' : 'Llamada') + ' con ' + PEER_NAME + ' — Raíces';
+
+
+        // ===== Agregar a alguien a la llamada =====
+        // La sala de dos no admite terceros (el servidor solo da token a quienes están en su
+        // nombre). Así que sumar a alguien es pasar a conferencia: sala nueva, invitación a los
+        // dos que ya hablaban y al que se suma, y esta ventana se muda allí.
+        function agregarParticipante() {
+            if (!window.LlamadaAgregar) return;
+            window.LlamadaAgregar.abrir({
+                otro: { id: PEER_ID, nombre: PEER_NAME },
+                conversationId: CONV_ID,
+                tipo: TIPO,
+                alInvitar: (roomId, invitados, persona) => {
+                    if (!socket || !socket.connected) {
+                        setDetalle('Sin conexión para invitar. Inténtalo de nuevo.');
+                        return;
+                    }
+                    socket.emit('conference_invite', {
+                        room_id: roomId,
+                        room_name: 'Llamada grupal',
+                        conversation_id: CONV_ID,
+                        participants: invitados,
+                        tipo: TIPO,
+                    });
+                    // Esta ventana se va a la conferencia; la llamada de dos queda cerrada por
+                    // el propio cambio de pantalla, y el registro se guarda como completada.
+                    est.finalizada = true;
+                    try { if (est.room) est.room.disconnect(); } catch (e) {}
+                    // Misma forma de URL que usa el chat para las conferencias, para no
+                    // inventar un formato paralelo que luego haya que mantener en dos sitios.
+                    const destino = '/chat/conferencia?role=host&room=' + encodeURIComponent(roomId) +
+                        '&name=' + encodeURIComponent('Llamada grupal') +
+                        '&conv=' + encodeURIComponent(CONV_ID || '') +
+                        (TIPO === 'video' ? '&video=1' : '');
+                    window.location.href = destino;
+                },
+            });
+        }
 
         function setDetalle(t) { const d = document.getElementById('vcDetalle'); if (d) d.textContent = t; }
 
@@ -332,11 +517,15 @@
             document.getElementById('vcAvatar').classList.remove('pulsando');
             setDetalle('Conectando audio y video…');
 
-            try {
-                est.localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: TIPO === 'video' });
-            } catch (e) {
-                setDetalle('No se pudo acceder al micrófono' + (TIPO === 'video' ? '/cámara' : '') + '. Revisa los permisos.');
-                return;
+            // La vista previa (arriba) ya suele tener la cámara encendida desde que empezó a
+            // timbrar; en ese caso se reutiliza y no se vuelve a pedir.
+            if (!est.localStream) {
+                try {
+                    est.localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: TIPO === 'video' });
+                } catch (e) {
+                    setDetalle('No se pudo acceder al micrófono' + (TIPO === 'video' ? '/cámara' : '') + '. Revisa los permisos.');
+                    return;
+                }
             }
             if (TIPO === 'video') {
                 const lv = document.getElementById('localVideo');
@@ -350,6 +539,25 @@
                 if (!resp.ok || !data.exito) throw new Error(data.error || 'token');
 
                 const room = new LivekitClient.Room({ adaptiveStream: true, dynacast: true });
+
+                // ===== Cómo va la conexión, dicho en pantalla =====
+                // Sin esto, LiveKit baja la calidad en silencio y la persona no sabe si el
+                // problema es suyo, del otro, o del sistema. Nombrar de quién es evita media
+                // discusión y una llamada a soporte.
+                if (window.LlamadaCalidad) {
+                    const cajaCalidad = document.getElementById('vcCalidad');
+                    const cajaAviso = document.getElementById('vcAvisoRed');
+                    cajaCalidad.classList.add('visible');
+                    window.LlamadaCalidad.vigilar(room, {
+                        contenedor: cajaCalidad,
+                        nombreDelOtro: (typeof PEER_NAME !== 'undefined' && PEER_NAME) ? PEER_NAME : 'la otra persona',
+                        avisar: (texto) => {
+                            if (texto) { cajaAviso.textContent = texto; cajaAviso.classList.add('visible'); }
+                            else { cajaAviso.classList.remove('visible'); }
+                        },
+                    });
+                }
+
                 est.room = room;
 
                 room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, pub) => {
