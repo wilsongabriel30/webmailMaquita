@@ -21,7 +21,7 @@ export function OfflineBanner() {
   useEffect(() => {
     const actualizar = () => {
       getPendingActions().then(a => setPendingActions(a.length)).catch(() => {});
-      getOutboxEmails().then(e => setCola({ pendientes: e.filter(x => x.status !== 'failed').length, fallidos: e.filter(x => x.status === 'failed').length })).catch(() => {});
+      getOutboxEmails().then(e => setCola({ pendientes: e.filter(x => x.status !== 'failed' && x.status !== 'retenido').length, fallidos: e.filter(x => x.status === 'failed').length })).catch(() => {});
     };
     actualizar();
     window.addEventListener('outbox-cambio', actualizar); window.addEventListener('offline-sync-complete', actualizar);
