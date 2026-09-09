@@ -46,7 +46,7 @@ export function PanelBusquedaAvanzada({ onBuscar, onCerrar }: Props) {
     if (asunto.trim()) partes.push(`asunto:${asunto.trim()}`);
     if (dominio.trim()) partes.push(`dominio:${dominio.trim().replace(/^@/, '')}`);
     // Un rango explícito manda sobre el atajo: si alguien escribió las fechas, es lo que quiere.
-    if (desde && hasta) partes.push(`entre:${desde}..${hasta}`);
+    if (desde && hasta) partes.push(`entre:${desde},${hasta}`);
     else if (desde) partes.push(`despues:${desde}`);
     else if (hasta) partes.push(`antes:${hasta}`);
     else if (atajo) partes.push(atajo);
