@@ -1,3 +1,4 @@
+import type { Editor } from '@tiptap/react';
 import { create } from 'zustand';
 import type { Folder, MessageSummary, MessageFull, ComposeData } from '../types';
 
@@ -31,6 +32,9 @@ interface MailState {
   activeIndex: number; // keyboard nav
   // Search & filter
   searchQuery: string;
+  /** Buscar tambien dentro del texto de los mensajes. Cuesta minuto y medio en un buzon grande
+   *  -hay que descifrarlos uno a uno-, asi que solo se activa si la persona lo pide. */
+  buscarEnContenido: boolean;
   debouncedSearchQuery: string;
   filter: Filter;
   filterChanging: boolean;
@@ -57,9 +61,11 @@ interface MailState {
   threadExpanded: Set<number>; // UIDs of expanded messages in thread
   loadingThread: boolean;
   // Compose ribbon sync (Toolbar tabs <-> ComposePanel Ribbon)
-  activeEditor: any;
+  /** El editor del redactor activo, para que la cinta de la barra actue sobre el. Es el Editor
+   *  de TipTap; se deja como unknown para no atar el store a la libreria. */
+  activeEditor: Editor | null;
   composeRibbonTab: 'message' | 'insert' | 'format' | 'options';
-  setActiveEditor: (editor: any) => void;
+  setActiveEditor: (editor: Editor | null) => void;
   setComposeRibbonTab: (tab: 'message' | 'insert' | 'format' | 'options') => void;
   // Actions
   setFolders: (folders: Folder[]) => void;
@@ -71,6 +77,7 @@ interface MailState {
   setLoadingMessages: (v: boolean) => void;
   setLoadingMessage: (v: boolean) => void;
   setSearchQuery: (q: string) => void;
+  setBuscarEnContenido: (v: boolean) => void;
   setDebouncedSearchQuery: (q: string) => void;
   setFilter: (f: Filter) => void;
   setViewMode: (m: ViewMode) => void;
@@ -111,6 +118,7 @@ export const useMailStore = create<MailState>((set, get) => ({
   selectedUids: new Set(),
   activeIndex: -1,
   searchQuery: '',
+  buscarEnContenido: false,
   debouncedSearchQuery: '',
   filter: 'all',
   filterChanging: false,
@@ -122,10 +130,10 @@ export const useMailStore = create<MailState>((set, get) => ({
   showMyDay: false,
   previewLines: 1,
   messageListWidth: (typeof window !== 'undefined' && Number(localStorage.getItem('maquita_list_width'))) || 360,
-  setDensity: (d: any) => set({ density: d }),
+  setDensity: (d) => set({ density: d }),
   setShowMyDay: (v) => set({ showMyDay: v }),
-  setPreviewLines: (lines: any) => set({ previewLines: lines }),
-  setReadingPane: (p: any) => set({ readingPane: p }),
+  setPreviewLines: (lines) => set({ previewLines: lines }),
+  setReadingPane: (p) => set({ readingPane: p }),
   setPageSize: (n) => set({ pageSize: n }),
   setBlockRemoteImages: (v) => set({ blockRemoteImages: v }),
   setMessageListWidth: (w: number) => {
@@ -139,8 +147,8 @@ export const useMailStore = create<MailState>((set, get) => ({
   loadingThread: false,
   activeEditor: null,
   composeRibbonTab: 'message' as const,
-  setActiveEditor: (editor: any) => set({ activeEditor: editor }),
-  setComposeRibbonTab: (tab: any) => set({ composeRibbonTab: tab }),
+  setActiveEditor: (editor) => set({ activeEditor: editor }),
+  setComposeRibbonTab: (tab) => set({ composeRibbonTab: tab }),
 
   setFolders: (folders) => set({ folders, loadingFolders: false }),
   setCurrentFolder: (folder) => {
@@ -158,6 +166,7 @@ export const useMailStore = create<MailState>((set, get) => ({
   setLoadingMessages: (v) => set({ loadingMessages: v }),
   setLoadingMessage: (v) => set({ loadingMessage: v }),
   setSearchQuery: (q) => set({ searchQuery: q, currentPage: 1 }),
+  setBuscarEnContenido: (v) => set({ buscarEnContenido: v, currentPage: 1 }),
   setDebouncedSearchQuery: (q: string) => set({ debouncedSearchQuery: q }),
   setFilter: (f) => { if (f === get().filter) return; set({ filter: f, currentPage: 1, filterChanging: true }); },
   setViewMode: (m) => set({ viewMode: m }),
