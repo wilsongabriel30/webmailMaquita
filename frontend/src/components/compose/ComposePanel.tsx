@@ -423,7 +423,8 @@ export function ComposePanel({ win }: Props) {
     if (!recipients.length) { setError('Ingresa un destinatario'); return; }
     // Sin esto, una direccion mal escrita arrancaba la cuenta atras igualmente y el correo se
     // daba por enviado hacia algo que no existe.
-    const invalidas = direccionesInvalidas([...recipients, ...dlpCc, ...dlpBcc]);
+    const otras = [cc, bcc].join(',').split(',').map(s => s.trim()).filter(Boolean);
+    const invalidas = direccionesInvalidas([...recipients, ...otras]);
     if (invalidas.length) {
       setError(invalidas.length === 1
         ? `«${invalidas[0]}» no es una dirección de correo válida`
