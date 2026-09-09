@@ -309,13 +309,15 @@ def crear_conversacion_directa():
     except Exception as e:
         import traceback
         traceback.print_exc()
-        error_detalle = str(e)
-        print(f"[ERROR] crear_conversacion_directa - {error_detalle}")
+        # El detalle va al REGISTRO, nunca al cliente: devolvía el error de la base tal cual,
+        # con nombres de tablas y de conexión. Y 503, no 500: esto se reintenta.
+        print(f"[ERROR] crear_conversacion_directa - {str(e)[:200]}")
         return jsonify({
             'exito': False,
             'success': False,
-            'mensaje': f'Error interno del servidor: {error_detalle}'
-        }), 500
+            'mensaje': 'No se pudo crear la conversación en este momento. Reinténtalo.',
+            'reintentable': True
+        }), 503
 
 
 @bp_chat.route('/conversations/group', methods=['POST'])

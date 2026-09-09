@@ -85,33 +85,45 @@ def _leer(clave: str):
 
 
 # ----------------------------------------------------------------- revocación
-TODAS = "todas"
+TODAS = "todas"          # marca antigua: se sigue entendiendo al leerla
+CORTE = "corte:"         # «todo lo abierto hasta este momento»
 
 
-def registrar_revocacion(uid: int, sid: str, av=None) -> None:
+def registrar_revocacion(uid: int, sid: str, av=None, ahora=None) -> None:
     """Anota lo que el correo revocó: un sid concreto, o al usuario entero.
 
-    Con `sid = "*"` y sin `av` se revoca TODO lo que esa persona tenga abierto. Antes se anotaba
-    la generación 0 y no revocaba nada, porque ninguna sesión es anterior a 0: quien cerraba
-    sesiones «para todas» se quedaba creyendo que lo había hecho.
+    Con `sid = "*"` y sin `av` se cierra TODO lo que esa persona tenga abierto **en este
+    momento**, y puede volver a entrar en el acto. Antes la marca duraba 24 horas y tumbaba
+    también las sesiones nuevas: cerrar sesión en todas partes dejaba a la persona fuera del
+    chat todo el día.
     """
     if sid == "*":
         if av in (None, "", 0, "0"):
-            _poner(f"chat:revocado:{uid}", TODAS, TTL_REVOCACION)
+            _poner(f"chat:revocado:{uid}", CORTE + str(int(ahora or time.time())), TTL_REVOCACION)
         else:
             _poner(f"chat:revocado:{uid}", int(av), TTL_REVOCACION)
     else:
         _poner(f"chat:revocado_sid:{sid}", "1", TTL_REVOCACION)
 
 
-def sesion_revocada(uid, sid, av) -> bool:
+def sesion_revocada(uid, sid, av, nacida=None) -> bool:
+    """`nacida`: momento en que se abrió esta sesión, para no tumbar las posteriores al corte."""
     if sid and _leer(f"chat:revocado_sid:{sid}"):
         return True
     v = _leer(f"chat:revocado:{uid}")
     if v is None:
         return False
-    if str(v) == TODAS:
+    v = str(v)
+    if v == TODAS:
         return True
+    if v.startswith(CORTE):
+        try:
+            corte = float(v[len(CORTE):])
+        except ValueError:
+            return True
+        if nacida is None:
+            return True                  # sin saber cuándo nació, se rechaza (fallo cerrado)
+        return float(nacida) <= corte    # nacida antes del corte: fuera; después: sigue
     try:
         return int(av or 0) < int(v)
     except (TypeError, ValueError):
@@ -154,11 +166,11 @@ def sesion_central_valida() -> bool:
             return False
         if time.time() > float(session.get("expira") or 0):
             return False
-        return not sesion_revocada(uid, sid, int(av or 0))
+        return not sesion_revocada(uid, sid, int(av or 0), session.get("nacida"))
     if not sid or av is None:
         # Sesión anterior al modelo sid/av: hay que volver a entrar por el correo.
         return False
-    if sesion_revocada(uid, sid, av):
+    if sesion_revocada(uid, sid, av, session.get("nacida")):
         return False
     if time.time() > float(session.get("validado_hasta") or 0):
         ok = _revalidar_con_correo(session.get("usuario_correo", ""), sid)

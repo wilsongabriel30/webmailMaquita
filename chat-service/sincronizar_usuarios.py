@@ -44,10 +44,11 @@ def sincronizar():
         FROM usuarios
         WHERE email IS NOT NULL
     """
-    # En la base del correo, el buzón ES el correo y no hay id propio: se numera por orden
-    # estable (el correo) para que el mismo buzón conserve su id entre ejecuciones.
+    # En la base del correo, el buzón ES el correo y no hay id propio. NO se numera por orden:
+    # numerar por posición hacía que un alta desplazara a todos y las conversaciones de alguien
+    # acabaran atribuidas a otra persona. El id se decide abajo, casando por correo.
     CONSULTA_BUZONES = """
-        SELECT row_number() OVER (ORDER BY username) AS id,
+        SELECT NULL::bigint AS id,
                split_part(username, '@', 1) AS username,
                username AS email,
                COALESCE(NULLIF(TRIM(name), ''), split_part(username, '@', 1)) AS full_name,
@@ -85,19 +86,32 @@ def sincronizar():
         for (uid, uname, email, full_name, active, avatar) in filas
     ]
 
+    # La identidad es el CORREO. Quien ya está conserva su id; quien es nuevo recibe uno libre.
+    # Así una alta o una baja no desplaza a nadie y el guion se puede repetir sin cambiar nada.
     upsert = """
         INSERT INTO usuarios
             (id, username, email, password_hash, full_name, active, profile_picture)
         VALUES %s
-        ON CONFLICT (id) DO UPDATE SET
+        ON CONFLICT (email) DO UPDATE SET
             username = EXCLUDED.username,
-            email = EXCLUDED.email,
             full_name = EXCLUDED.full_name,
             active = EXCLUDED.active,
             profile_picture = EXCLUDED.profile_picture
     """
 
     with _conn(destino_url) as cd, cd.cursor() as cur_d:
+        # Ids que ya existen para esos correos: se respetan.
+        correos = [r[2] for r in registros]
+        cur_d.execute("SELECT lower(email), id FROM usuarios WHERE lower(email) = ANY(%s)",
+                      ([c.lower() for c in correos],))
+        conocidos = {c: i for c, i in cur_d.fetchall()}
+        cur_d.execute("SELECT COALESCE(MAX(id), 0) FROM usuarios")
+        siguiente = int(cur_d.fetchone()[0]) + 1
+
+        from identidad_directorio import asignar_ids
+        registros, nuevos = asignar_ids(registros, conocidos, siguiente)
+        print("personas: %d (nuevas: %d)" % (len(registros), nuevos))
+
         execute_values(cur_d, upsert, registros)
         # Mantener el contador de la secuencia por delante del máximo id insertado.
         cur_d.execute("SELECT setval(pg_get_serial_sequence('usuarios','id'), "
