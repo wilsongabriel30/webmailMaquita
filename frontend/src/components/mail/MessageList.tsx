@@ -861,7 +861,7 @@ export function MessageList() {
             }}
             className="w-4 h-4 shrink-0 rounded border-[#c8c6c4] text-[#0078d4] cursor-pointer accent-[#0078d4]"
             title="Seleccionar todos" aria-label="Seleccionar todos" />
-          <h2 className="text-[14px] font-semibold text-[#323130] cursor-pointer hover:text-[#0078d4] transition-colors truncate max-w-[120px] sm:max-w-none sm:whitespace-nowrap" onClick={() => { const s = useMailStore.getState(); if (s.filter !== 'all') s.setFilter('all'); setActiveTab('focused'); }}>{folderLabel}</h2>
+          <h2 className="text-[14px] font-semibold text-[#323130] cursor-pointer hover:text-[#0078d4] transition-colors truncate max-w-[120px] sm:max-w-none sm:whitespace-nowrap" onClick={() => { const s = useMailStore.getState(); if (s.filter !== 'all') s.setFilter('all'); setActiveTab('focused'); }}>{searchQuery ? `Buscando «${searchQuery}»` : folderLabel}</h2>
           <div className="flex-1" />
           <div className="flex items-center bg-[#f3f2f1] rounded-md p-0.5">
             {(['all','unread','flagged'] as const).map(f => (
@@ -996,8 +996,23 @@ export function MessageList() {
             <svg className="w-10 h-10 mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
             </svg>
-            <p className="text-[13px]">{filter === 'flagged' ? 'No hay correos con bandera' : filter === 'unread' ? 'No hay correos sin leer' : 'No hay mensajes'}</p>
-            {filter === 'flagged' && <p className="text-[11px] mt-1 text-[#a19f9d]">Usa el icono de bandera en un correo para marcarlo</p>}
+            <p className="text-[13px]">
+              {searchQuery
+                ? `Sin resultados para «${searchQuery}»`
+                : filter === 'flagged' ? 'No hay correos con bandera'
+                  : filter === 'unread' ? 'No hay correos sin leer'
+                    : 'No hay mensajes'}
+            </p>
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => useMailStore.getState().setSearchQuery('')}
+                className="text-[11px] mt-1 text-[#0078d4] hover:underline"
+              >
+                Limpiar la búsqueda y volver a {folderLabel}
+              </button>
+            )}
+            {!searchQuery && filter === 'flagged' && <p className="text-[11px] mt-1 text-[#a19f9d]">Usa el icono de bandera en un correo para marcarlo</p>}
           </div>
         ) : isConversationMode && threadGroups ? (
           threadGroups.map((group, gIdx) => renderThreadGroup(group, gIdx))
