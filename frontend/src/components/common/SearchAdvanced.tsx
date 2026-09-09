@@ -14,7 +14,7 @@ const OPERATORS = [
   { op: 'smaller:', desc: 'Menor a tamaño', icon: '📦' },
   { op: 'dominio:', desc: 'De o para un dominio', icon: '🌐' },
   { op: 'de-dominio:', desc: 'Solo remitentes de un dominio', icon: '🌐' },
-  { op: 'entre:', desc: 'Rango de fechas (2026-01-01..2026-03-31)', icon: '📅' },
+  { op: 'entre:', desc: 'Rango de fechas (2026-01-01,2026-03-31)', icon: '📅' },
   { op: 'semana', desc: 'De esta semana', icon: '⏱' },
   { op: 'mes', desc: 'De este mes', icon: '⏱' },
   // Este es el unico que no es instantaneo: entra en el texto de los mensajes, que hay que

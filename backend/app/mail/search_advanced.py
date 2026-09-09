@@ -115,7 +115,11 @@ def parse_search_query(query: str, buscar_en_contenido: bool = False) -> list[st
                 criteria.extend(["FROM", f'"@{dom}"'])
         # Un rango de fechas de una vez, en vez de after: y before: por separado.
         elif token.lower().startswith("between:"):
-            trozos = token[8:].strip('"').split("..")
+            # La coma es el separador bueno: nginx bloquea cualquier «..» en la URL como
+            # defensa contra path traversal, asi que un rango con «..» no llega ni a entrar.
+            # Se admite igualmente por si alguien lo escribe de memoria.
+            crudo = token[8:].strip('"')
+            trozos = crudo.split(",") if "," in crudo else crudo.split("..")
             if len(trozos) == 2:
                 desde = _parse_date(trozos[0].strip())
                 hasta = _parse_date(trozos[1].strip())
