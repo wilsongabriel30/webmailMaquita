@@ -79,6 +79,16 @@ PRUEBAS_TLS_LAXA=1 WEBMAIL_URL=https://correo.interno npx playwright test
 | Usar el correo no deja peticiones con error | detecta ruido nuevo en cada carga |
 | El Drive acepta la sesión del correo | que no mande a la pantalla de entrada teniendo sesión válida |
 
+## Además de estas pruebas: los recorridos
+
+En `RECORRIDOS.md` hay tres tandas más, que se corren aparte:
+
+- **`exploracion/`** — recorre las secciones y pulsa lo que encuentra, para BUSCAR fallos.
+- **`detallada/`** — lo que hace una persona sobre un buzón con correo: leer, responder,
+  moverse por el calendario, mirar los ajustes. No cambia nada.
+- **`ciclo-correo/`** — el camino completo del correo. **Envía correo de verdad**: usar un buzón
+  dedicado, y comprobar el resultado en el registro del servidor, no en la pantalla.
+
 ## Reglas para lo que se añada aquí
 
 1. Nada de direcciones, cuentas ni identificadores de una instalación en el código.
