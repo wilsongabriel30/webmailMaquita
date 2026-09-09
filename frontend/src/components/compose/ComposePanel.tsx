@@ -1140,8 +1140,8 @@ export function ComposePanel({ win }: Props) {
           <select value={sensitivity} onChange={e => setSensitivity(e.target.value)}
             title="Etiqueta de sensibilidad"
             className="mr-2 text-[11px] px-1.5 py-1 rounded border border-[#edebe9] text-[#605e5c] bg-white outline-none">
-            <option value="">Sensibilidad\u2026</option>
-            <option value="Publica">P\u00fablica</option>
+            <option value="">Sensibilidad…</option>
+            <option value="Publica">Pública</option>
             <option value="Interna">Interna</option>
             <option value="Confidencial">Confidencial</option>
             <option value="Restringida">Restringida</option>
