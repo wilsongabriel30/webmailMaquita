@@ -8,8 +8,6 @@ Soporta: from:, to:, subject:, has:attachment, before:, after:, is:unread, is:fl
 import re
 from datetime import datetime, timedelta
 
-
-
 # Atajos de fecha: lo que uno recuerda de un correo suele ser «era de esta semana».
 _ATAJOS_FECHA = {
     "hoy": 0,
@@ -20,6 +18,7 @@ _ATAJOS_FECHA = {
     "ano": 365,
     "año": 365,
 }
+
 
 def parse_search_query(query: str, buscar_en_contenido: bool = False) -> list[str]:
     """
@@ -125,7 +124,9 @@ def parse_search_query(query: str, buscar_en_contenido: bool = False) -> list[st
                 if hasta:
                     criteria.extend(["BEFORE", hasta])
         elif token.lower() in _ATAJOS_FECHA:
-            desde = (datetime.now() - timedelta(days=_ATAJOS_FECHA[token.lower()])).strftime("%d-%b-%Y")
+            desde = (
+                datetime.now() - timedelta(days=_ATAJOS_FECHA[token.lower()])
+            ).strftime("%d-%b-%Y")
             criteria.extend(["SINCE", desde])
         elif token.lower().startswith("from:"):
             val = token[5:].strip('"')
