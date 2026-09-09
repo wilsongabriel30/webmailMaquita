@@ -319,6 +319,7 @@ def crear_app_webmail() -> Flask:
             self.is_authenticated = True
 
     @app.route('/archivos-almacen')
+    @app.route('/archivos-almacen/')          # con barra final: un marcador no puede dar error
     @app.route('/archivos-almacen/<path:ruta>')
     def explorador_web(ruta=''):
         from flask import render_template

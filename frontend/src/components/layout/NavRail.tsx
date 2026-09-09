@@ -125,8 +125,10 @@ export function NavRail() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   // URL del Drive: configurable por branding (drive_url). Por defecto MISMO HOST
-  // (/archivos-almacen/), para que una replica NO mande a sus usuarios a otro dominio.
-  const [driveUrl, setDriveUrl] = useState('/archivos-almacen/');
+  // (/archivos-almacen), para que una replica NO mande a sus usuarios a otro dominio.
+  // Sin barra final: `/archivos-almacen/` no la atiende ninguna ruta del Almacen y la persona
+  // veia un error en crudo al pulsar «Archivos».
+  const [driveUrl, setDriveUrl] = useState('/archivos-almacen');
   useEffect(() => {
     fetch('/api/branding').then((r) => r.json()).then((b) => { if (b && b.drive_url) setDriveUrl(b.drive_url); }).catch(() => {});
   }, []);
@@ -147,7 +149,16 @@ export function NavRail() {
               if (item.path.startsWith('/archivos-almacen')) {
                 const drive = driveUrl;
                 if (esModoApp()) {
-                  try { (window as any).chrome?.webview?.postMessage({ source: 'maquita-mail', type: 'abrir-modulo', modulo: 'drive', url: drive }); } catch {}
+                  // Dentro del cliente de escritorio se avisa al contenedor para que abra su
+                  // propia seccion; en un navegador normal ese puente no existe y no pasa nada.
+                  try {
+                    const puente = (window as unknown as {
+                      chrome?: { webview?: { postMessage: (m: unknown) => void } };
+                    }).chrome?.webview;
+                    puente?.postMessage({ source: 'maquita-mail', type: 'abrir-modulo', modulo: 'drive', url: drive });
+                  } catch {
+                    /* sin puente del cliente: se sigue con la navegacion normal */
+                  }
                   window.location.href = drive + '?app=1';
                 } else {
                   window.open(drive, '_blank', 'noopener');
@@ -172,7 +183,11 @@ export function NavRail() {
               e.preventDefault();
               setDropTarget(null);
               if (item.path === '/calendar') {
-                try { sessionStorage.setItem('pending-event-from-mail', meta); } catch {}
+                try {
+                  sessionStorage.setItem('pending-event-from-mail', meta);
+                } catch {
+                  /* ventana privada o almacenamiento lleno: el calendario abre igual, sin prellenar */
+                }
                 navigate('/calendar');
                 return;
               }
@@ -186,7 +201,9 @@ export function NavRail() {
                   showToast(`Tarea creada: ${(m.subject || '').slice(0, 60) || 'desde correo'}`);
                   window.dispatchEvent(new CustomEvent('refresh-tasks'));
                 }).catch(() => showToast('No se pudo crear la tarea'));
-              } catch {}
+              } catch {
+                /* soltar un correo sobre Tareas es un atajo: si algo falla, no se interrumpe nada */
+              }
             }}
             className={`relative w-full flex items-center justify-center h-[44px] transition-colors group ${
               dropTarget === item.path ? 'bg-[#deecf9] ring-2 ring-inset ring-[#0078d4] rounded' : ''

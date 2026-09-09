@@ -1338,7 +1338,7 @@ const MessageView: React.FC = () => {
                 fontSize: 12, color: '#0078d4', cursor: 'pointer',
               }}
             >
-              {showDetails ? 'Menos' : 'Mas'}
+              {showDetails ? 'Menos' : 'Más'}
             </button>
 
             {showDetails && (

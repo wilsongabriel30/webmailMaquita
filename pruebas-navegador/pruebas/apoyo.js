@@ -124,7 +124,41 @@ async function abrirCorreo(page, opciones = {}) {
   return page;
 }
 
+/** Deja la bandeja con al menos un mensaje, enviándose uno a sí misma si hace falta.
+ *
+ *  Las pruebas que archivan o eliminan vacían la bandeja, y la siguiente prueba se quedaba sin
+ *  nada que pulsar. En vez de depender del orden en que se ejecuten, cada una se abastece sola.
+ *  Ojo: el envío es diferido 5 segundos, y el correo tarda en volver por IMAP. */
+async function asegurarUnMensaje(page) {
+  const filas = () => page.locator('div[draggable="true"]');
+  if (await filas().count()) return true;
+
+  await page.getByRole('button', { name: /nuevo correo/i }).first().click();
+  await page.waitForTimeout(1500);
+  await page.getByPlaceholder(/destinatarios/i).first().fill(USUARIO);
+  await page.waitForTimeout(300);
+  await page.keyboard.press('Enter');
+  await page.getByPlaceholder(/asunto/i).first().fill(`Mensaje de apoyo ${Date.now()}`);
+  const cuerpo = page.locator('[contenteditable="true"]:visible').first();
+  await cuerpo.click();
+  await cuerpo.type('Este mensaje existe para que la prueba tenga algo sobre lo que actuar.');
+  await page.getByRole('button', { name: /^enviar$/i }).first().click();
+  await page.waitForResponse(
+    (r) => r.url().includes('/api/mail/send') && r.request().method() === 'POST',
+    { timeout: 20_000 },
+  ).catch(() => {});
+
+  for (let i = 0; i < 12; i++) {
+    await page.waitForTimeout(5000);
+    await page.reload();
+    await page.waitForTimeout(2500);
+    await apartarAvisos(page);
+    if (await filas().count()) return true;
+  }
+  return false;
+}
+
 module.exports = {
-  USUARIO, CLAVE, vigilar, entrar, apartarAvisos, abrirCorreo,
+  USUARIO, CLAVE, vigilar, entrar, apartarAvisos, abrirCorreo, asegurarUnMensaje,
   separarRuido, sinPeticionesFallidas, TLS_LAXA, OPCIONES_CONTEXTO,
 };
