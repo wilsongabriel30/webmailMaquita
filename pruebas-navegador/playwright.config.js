@@ -23,7 +23,12 @@ module.exports = defineConfig({
     headless: true,
     // Evaluaciones con certificado propio (la guia de instalacion las contempla):
     //   PRUEBAS_TLS_LAXA=1 npx playwright test
-    ignoreHTTPSErrors: process.env.PRUEBAS_TLS_LAXA === "1",
+    //
+    // `ignoreHTTPSErrors` no alcanza al *service worker*: su fetch nace fuera del contexto y
+    // el recorrido de entrada fallaba pese a la variable (aviso de Andes, 09/09/2026). Bajo
+    // TLS laxo se bloquea el worker, que no hace falta para lo que prueban estos recorridos.
+    ignoreHTTPSErrors: process.env.PRUEBAS_TLS_LAXA === '1',
+    serviceWorkers: process.env.PRUEBAS_TLS_LAXA === '1' ? 'block' : 'allow',
     screenshot: 'only-on-failure',
     video: 'off',
     actionTimeout: 15_000,

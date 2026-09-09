@@ -4,13 +4,13 @@
 // hacía bien en chocar: el límite de intentos de entrada (429 tras varios seguidos) y la
 // renovación del vale, que invalida el anterior y dejaba a las pruebas siguientes con uno viejo.
 const base = require('@playwright/test');
-const { entrar, apartarAvisos } = require('./apoyo');
+const { entrar, apartarAvisos, OPCIONES_CONTEXTO } = require('./apoyo');
 
 const test = base.test.extend({
   // Contexto y página compartidos por todo el proceso de pruebas.
   sesion: [
     async ({ browser }, usar) => {
-      const contexto = await browser.newContext({ locale: 'es-EC' });
+      const contexto = await browser.newContext(OPCIONES_CONTEXTO);
       const pagina = await contexto.newPage();
       await entrar(pagina);
       await apartarAvisos(pagina);
