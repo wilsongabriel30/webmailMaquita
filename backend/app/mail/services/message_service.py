@@ -21,10 +21,18 @@ async def list_messages(
     search_query: str = "",
     redis=None,
     username: str = "",
+    buscar_en_contenido: bool = False,
 ) -> dict:
     """List messages with snippets, newest first."""
     uid_result = await list_message_uids(
-        imap, folder, page, per_page, search_query, redis=redis, username=username
+        imap,
+        folder,
+        page,
+        per_page,
+        search_query,
+        redis=redis,
+        username=username,
+        buscar_en_contenido=buscar_en_contenido,
     )
 
     # If folder select failed, uid_result will have folder_error flag
