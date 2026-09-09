@@ -170,7 +170,7 @@ export function GroupManager() {
           <h3 className="font-semibold mb-4">{editGroup ? 'Editar' : 'Crear'} grupo</h3>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Direccion</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Dirección</label>
               <input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })}
                 disabled={!!editGroup} placeholder="grupo@dominio.com"
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm disabled:bg-slate-100" />
@@ -182,7 +182,7 @@ export function GroupManager() {
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
             </div>
             <div className="col-span-2">
-              <label className="block text-sm font-medium text-slate-700 mb-1">Descripcion</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Descripción</label>
               <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
                 placeholder="Descripcion del grupo"
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />

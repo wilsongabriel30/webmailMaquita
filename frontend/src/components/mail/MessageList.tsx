@@ -448,6 +448,24 @@ export function MessageList() {
     handleSelect(uid);
   };
 
+  /** Explica por que no se abrio el correo. Sin esto, el clic no producia NADA visible.
+   *  Si el mensaje ya no existe (lo archivo o borro otra pantalla, o este mismo dispositivo hace
+   *  un segundo), ademas se refresca la lista: dejar la fila fantasma invita a volver a pulsarla. */
+  const avisarMensajeNoAbierto = (err: unknown) => {
+    const texto = err instanceof Error ? err.message : String(err ?? '');
+    const yaNoEsta = /404|not found|no encontrado/i.test(texto);
+    if (yaNoEsta) {
+      showToast('Ese correo ya no está en esta carpeta. Se actualizó la lista.');
+      window.dispatchEvent(new CustomEvent('refresh-messages'));
+      return;
+    }
+    if (/401|session|sesi[oó]n/i.test(texto)) {
+      showToast('Tu sesión caducó. Cierra sesión y vuelve a entrar.');
+      return;
+    }
+    showToast('No se pudo abrir el correo. Inténtalo de nuevo.');
+  };
+
   const handleSelect = async (uid: number) => {
     // If in Drafts folder, open in compose for editing
     if (currentFolder === 'Drafts') {
@@ -471,6 +489,7 @@ export function MessageList() {
       } catch (err) {
         console.error('Error loading draft for edit:', err);
         setLoadingMessage(false);
+        avisarMensajeNoAbierto(err);
         return;
       }
     }
@@ -517,6 +536,7 @@ export function MessageList() {
     } catch (err) {
       console.error(err);
       useMailStore.getState().setLoadingMessage(false);
+      avisarMensajeNoAbierto(err);
     }
   };
 
