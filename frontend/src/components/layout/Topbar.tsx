@@ -7,6 +7,14 @@ import { useNavigate } from 'react-router-dom';
 import { getFolderDisplayName } from '../../folders';
 import { SearchAdvanced } from "../common/SearchAdvanced";
 import { useResponsive } from "../../hooks/useResponsive";
+import { useNombreApp } from "../../lib/marca";
+
+/** El instalador de la aplicación deja estos ganchos en `window`; se nombran para no usar `any`. */
+type VentanaConPWA = Window & {
+  __pwaInstallPrompt?: { prompt: () => void };
+  __pwaInstallFn?: () => void;
+};
+const ventanaPWA = () => window as VentanaConPWA;
 
 const appsIcon = 'M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z';
 const bellIcon = 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9';
@@ -16,6 +24,7 @@ const moonIcon = 'M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.
 const sunIcon = 'M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z';
 
 export function Topbar() {
+  const nombreApp = useNombreApp();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const searchQuery = useMailStore(s => s.searchQuery);
@@ -38,7 +47,8 @@ export function Topbar() {
   const profileRef = useRef<HTMLDivElement>(null);
 
   const handleLogout = async () => {
-    try { await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }); } catch {}
+    // Si el servidor no contesta, la sesión local se cierra igual: quedarse dentro sería peor.
+    try { await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }); } catch { /* se cierra igual */ }
     logout();
     navigate('/login');
   };
@@ -142,7 +152,7 @@ export function Topbar() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
             d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
         </svg>
-        <span className="topbar-logo-text text-white font-semibold text-[14px] max-md:hidden">Maquita Mail</span>
+        <span className="topbar-logo-text text-white font-semibold text-[14px] max-md:hidden">{nombreApp}</span>
       </div>
 
       {/* Search bar */}
@@ -314,12 +324,12 @@ export function Topbar() {
                   if (window.matchMedia('(display-mode: standalone)').matches) {
                     return;
                   }
-                  if ((window as any).__pwaInstallPrompt) {
-                    (window as any).__pwaInstallPrompt.prompt();
+                  if (ventanaPWA().__pwaInstallPrompt) {
+                    ventanaPWA().__pwaInstallPrompt?.prompt();
                   } else {
                     // iOS or no prompt available - dispatch event to show guide
-                    if ((window as any).__pwaInstallFn) {
-                      (window as any).__pwaInstallFn();
+                    if (ventanaPWA().__pwaInstallFn) {
+                      ventanaPWA().__pwaInstallFn?.();
                     } else {
                       // Fallback: show manual instructions
                       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);

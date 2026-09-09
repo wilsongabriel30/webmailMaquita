@@ -1,3 +1,4 @@
+import { cargarMarca } from './lib/marca';
 import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate , useLocation } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
@@ -199,10 +200,8 @@ export default function App() {
           }
         }
         // El título es el nombre del PRODUCTO (app_name), no el de la organización.
-        if (b.app_name) {
-          tituloMarca = b.app_name;
-          document.title = tituloMarca;
-        }
+        // La cabecera lee ese mismo nombre desde lib/marca; aquí solo se refleja en la pestaña.
+        cargarMarca().then((nombre) => { tituloMarca = nombre; document.title = nombre; });
       })
       .catch(() => {});
   }, []);
