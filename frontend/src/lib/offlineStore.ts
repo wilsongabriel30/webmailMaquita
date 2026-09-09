@@ -74,7 +74,12 @@ export interface OutboxEmail {
   request_read_receipt?: boolean;
   request_delivery_receipt?: boolean;
   createdAt: number;
-  status: 'pending' | 'sending' | 'failed';
+  // «retenido»: escrito y guardado, pero aún dentro de la cuenta atrás de «Deshacer».
+  // El sincronizador no lo toca hasta que vence; así el correo ya está a salvo en disco
+  // sin haberse enviado todavía.
+  status: 'retenido' | 'pending' | 'sending' | 'failed';
+  /** Instante (ms) a partir del cual un «retenido» puede enviarse. */
+  enviarDespuesDe?: number;
   error?: string;
   retries: number;
 }
@@ -295,14 +300,19 @@ export async function removeActions(ids: string[]) {
 
 // === OUTBOX ===
 
-export async function addToOutbox(email: Omit<OutboxEmail, "id" | "createdAt" | "status" | "retries">): Promise<string> {
+export async function addToOutbox(
+  email: Omit<OutboxEmail, "id" | "createdAt" | "status" | "retries">,
+  opciones?: { retenidoHasta?: number },
+): Promise<string> {
   const db = await openDB();
   const id = crypto.randomUUID();
   const record: OutboxEmail = {
     ...email,
     id,
     createdAt: Date.now(),
-    status: 'pending',
+    // Retenido mientras dura la cuenta atrás de «Deshacer»; pendiente si sale ya.
+    status: opciones?.retenidoHasta ? 'retenido' : 'pending',
+    enviarDespuesDe: opciones?.retenidoHasta,
     retries: 0,
   };
   // T-49: el contenido del correo va cifrado; fuera quedan solo los datos que hacen
@@ -378,4 +388,21 @@ export async function getOutboxCount(): Promise<number> {
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => resolve(0);
   });
+}
+
+/** Pasa a «pendiente» los correos retenidos cuya cuenta atrás ya venció.
+ *
+ *  Es la red de seguridad de quien cierra la pestaña mientras el aviso «Enviando en Ns…» sigue
+ *  en pantalla: al volver a abrir el correo, lo que quedó a medias se envía en lugar de
+ *  perderse. Devuelve cuántos ha rescatado.
+ */
+export async function rescatarRetenidos(): Promise<number> {
+  const correos = await getOutboxEmails();
+  const vencidos = correos.filter(
+    (c) => c.status === 'retenido' && (c.enviarDespuesDe || 0) <= Date.now(),
+  );
+  for (const correo of vencidos) {
+    await updateOutboxStatus(correo.id, 'pending');
+  }
+  return vencidos.length;
 }
