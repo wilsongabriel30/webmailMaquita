@@ -34,8 +34,8 @@ export function MailGuardPanel() {
       setSenders(s);
       setExtensions(e.extensions);
       setError("");
-    } catch (err: any) {
-      setError(err?.message || "Error cargando bloqueos");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error cargando bloqueos");
     } finally {
       setLoading(false);
     }
@@ -60,8 +60,8 @@ export function MailGuardPanel() {
       setNewSender("");
       setNewSenderReason("");
       await load();
-    } catch (err: any) {
-      setError(err?.message || "Error al bloquear");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error al bloquear");
     } finally {
       setBusy(false);
     }
@@ -73,8 +73,8 @@ export function MailGuardPanel() {
       await api.del(`/admin/mailguard/senders/${encodeURIComponent(value)}`);
       flash(`Desbloqueado: ${value}`);
       await load();
-    } catch (err: any) {
-      setError(err?.message || "Error al desbloquear");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error al desbloquear");
     }
   };
 
@@ -90,8 +90,8 @@ export function MailGuardPanel() {
       setNewExt("");
       setNewExtReason("");
       await load();
-    } catch (err: any) {
-      setError(err?.message || "Error al bloquear extensión");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error al bloquear extensión");
     } finally {
       setBusy(false);
     }
@@ -103,8 +103,8 @@ export function MailGuardPanel() {
       await api.del(`/admin/mailguard/extensions/${encodeURIComponent(ext)}`);
       flash(`Extensión .${ext} desbloqueada`);
       await load();
-    } catch (err: any) {
-      setError(err?.message || "Error al desbloquear extensión");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error al desbloquear extensión");
     }
   };
 
@@ -149,7 +149,7 @@ export function MailGuardPanel() {
         <div className="px-5 py-3 flex flex-wrap gap-2 border-b border-slate-100 bg-slate-50">
           <input
             className="flex-1 min-w-48 border border-slate-300 rounded-lg px-3 py-1.5 text-sm"
-            placeholder="dominio.com o direccion@dominio.com"
+            placeholder="dominio.com o dirección@dominio.com"
             value={newSender}
             onChange={(e) => setNewSender(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && addSender()}
