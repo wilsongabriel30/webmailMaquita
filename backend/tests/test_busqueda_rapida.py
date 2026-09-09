@@ -21,9 +21,9 @@ from app.mail.search_advanced import parse_search_query
 def test_una_palabra_no_entra_en_el_cuerpo():
     """El caso de siempre: alguien escribe una palabra y espera resultados YA."""
     criterios = parse_search_query("factura")
-    assert "BODY" not in " ".join(criterios), (
-        "el texto suelto no debe buscar en el cuerpo: son 93 segundos de espera"
-    )
+    assert "BODY" not in " ".join(
+        criterios
+    ), "el texto suelto no debe buscar en el cuerpo: son 93 segundos de espera"
     juntos = " ".join(criterios)
     assert "FROM" in juntos and "TO" in juntos and "SUBJECT" in juntos
 
@@ -45,7 +45,9 @@ def test_dominio_mira_remitente_y_destinatario():
 
 def test_dominio_admite_arroba_delante():
     """«@maquita.org» y «maquita.org» son lo mismo para quien busca."""
-    assert parse_search_query("dominio:@maquita.org") == parse_search_query("dominio:maquita.org")
+    assert parse_search_query("dominio:@maquita.org") == parse_search_query(
+        "dominio:maquita.org"
+    )
 
 
 def test_solo_remitentes_de_un_dominio():
@@ -59,7 +61,8 @@ def test_rango_de_fechas_de_una_vez():
 
 def test_rango_con_coma_es_el_separador_bueno():
     """nginx bloquea cualquier «..» en la URL (defensa contra path traversal), asi que un rango
-    escrito con puntos devolvia 403 y ni siquiera llegaba al correo. El separador es la coma."""
+    escrito con puntos devolvia 403 y ni siquiera llegaba al correo. El separador es la coma.
+    """
     criterios = parse_search_query("entre:2026-01-01,2026-03-31")
     assert criterios == ["SINCE", "01-Jan-2026", "BEFORE", "31-Mar-2026"]
 
@@ -94,3 +97,48 @@ def test_busqueda_vacia_devuelve_todo():
 def test_los_operadores_en_espanol_siguen_valiendo():
     assert parse_search_query("asunto:factura") == ["SUBJECT", '"factura"']
     assert parse_search_query("de:ana") == ["FROM", '"ana"']
+
+
+def test_una_comilla_no_rompe_la_consulta():
+    """Los valores se meten entre comillas en la consulta IMAP. Si una comilla del usuario cierra
+    la cadena antes de tiempo, lo que sigue lo lee IMAP como CRITERIO: «dominio:x" ALL "» acababa
+    en «FROM "@x" ALL "», y ese ALL devuelve el buzon entero en vez de lo que se pidio.
+    """
+    from app.mail.search_advanced import _entrecomillar
+
+    assert _entrecomillar('x" ALL "') == '"x\\" ALL \\""'
+    assert _entrecomillar("normal") == '"normal"'
+
+
+def test_la_barra_invertida_tambien_se_escapa():
+    from app.mail.search_advanced import _entrecomillar
+
+    assert _entrecomillar("c:\\ruta") == '"c:\\\\ruta"'
+
+
+def test_los_caracteres_de_control_se_quitan():
+    """Son los que separan ordenes en el protocolo. En una busqueda no pintan nada."""
+    from app.mail.search_advanced import _entrecomillar
+
+    assert _entrecomillar("hola\r\nA001 LOGOUT") == '"holaA001 LOGOUT"'
+    assert "\r" not in _entrecomillar("a\rb")
+    assert "\n" not in _entrecomillar("a\nb")
+
+
+def test_las_busquedas_normales_no_cambian():
+    """El escape no debe estorbar a lo de todos los dias."""
+    assert parse_search_query("factura") == [
+        "OR",
+        "OR",
+        'FROM "factura"',
+        'TO "factura"',
+        'SUBJECT "factura"',
+    ]
+    assert parse_search_query("de:ana") == ["FROM", '"ana"']
+    assert parse_search_query("dominio:andes.com.ec") == [
+        "OR",
+        "FROM",
+        '"@andes.com.ec"',
+        "TO",
+        '"@andes.com.ec"',
+    ]
