@@ -3,6 +3,7 @@ import { useMailStore } from '../store/mailStore';
 import { api } from '../api/client';
 import type { MessageFull } from '../types';
 import { sanitizeHtml } from '../lib/sanitize';
+import { showToast } from '../components/common/Toast';
 
 
 function escapeHtml(str: string): string {
@@ -39,9 +40,12 @@ export function useKeyboardShortcuts() {
 
       // Escape always works
       if (e.key === 'Escape') {
+        // Las ventanas de redaccion NO se cierran desde aqui. Cerrarlas con closeCompose se
+        // llevaba por delante lo escrito: el redactor tiene su propio Escape, que guarda el
+        // borrador antes de cerrar, y este atajo se le adelantaba. Las minimizadas tampoco: su
+        // redactor ni siquiera esta montado, asi que nadie podria guardar por ellas.
         if (state.composeWindows.length > 0) {
-          const last = state.composeWindows[state.composeWindows.length - 1];
-          state.closeCompose(last.id);
+          return;
         } else if (state.selectedUids.size > 0) {
           state.clearSelection();
         } else if (state.selectedMessage) {
@@ -187,7 +191,10 @@ async function selectMessage(uid: number, folder: string) {
     state.setSelectedMessage(msg);
     const updated = state.messages.map(m => m.uid === uid ? { ...m, seen: true, flags: m.flags.includes('\\Seen') ? m.flags : [...m.flags, '\\Seen'] } : m);
     state.setMessages(updated, state.totalMessages, state.currentPage);
-  } catch {}
+  } catch {
+    // Sin esto la persona pulsa, no se abre nada y no sabe por que.
+    showToast('No se pudo abrir el mensaje');
+  }
 }
 
 async function bulkAction(uids: number[], action: string, dest: string, folder: string) {
@@ -196,5 +203,9 @@ async function bulkAction(uids: number[], action: string, dest: string, folder: 
     useMailStore.getState().setSelectedMessage(null);
     useMailStore.getState().clearSelection();
     window.dispatchEvent(new CustomEvent('refresh-messages'));
-  } catch {}
+  } catch {
+    // Archivar, borrar o mover varios correos y que falle en silencio es peor que el fallo:
+    // se da por hecho lo que no ocurrio.
+    showToast('No se pudo completar la accion sobre los correos seleccionados');
+  }
 }
