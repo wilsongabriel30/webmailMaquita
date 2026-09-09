@@ -128,6 +128,10 @@ export function ChatFlotante() {
 
   // Helper: recalcular no leidos desde el servidor.
   const refrescarNoLeidos = () => {
+    // Chat en su propio origen: preguntar aqui daba 404 cada 15 segundos (su cookie es de otro
+    // sitio y el navegador no la manda). La cuenta la lleva la ventana del chat, que si tiene
+    // su sesion. Reportado por una replica externa con el chat en maquina propia.
+    if (origenChat) return;
     fetch("/api/chat/conversations", { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
@@ -146,11 +150,12 @@ export function ChatFlotante() {
   // 3) Sondeo de respaldo (corrige el conteo y limpia al leer en otro lado).
   useEffect(() => {
     if (enabled === false || !disponible) return;
+    if (origenChat) return;          // nada que sondear: el chat vive aparte
     refrescarNoLeidos();
     const t = setInterval(refrescarNoLeidos, POLL_MS);
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, disponible]);
+  }, [enabled, disponible, origenChat]);
 
   // 4) Aviso INSTANTANEO desde el iframe del chat (postMessage) al llegar mensaje.
   useEffect(() => {

@@ -21,6 +21,9 @@ module.exports = defineConfig({
   use: {
     baseURL: process.env.WEBMAIL_URL || 'https://localhost',
     headless: true,
+    // Evaluaciones con certificado propio (la guia de instalacion las contempla):
+    //   PRUEBAS_TLS_LAXA=1 npx playwright test
+    ignoreHTTPSErrors: process.env.PRUEBAS_TLS_LAXA === "1",
     screenshot: 'only-on-failure',
     video: 'off',
     actionTimeout: 15_000,

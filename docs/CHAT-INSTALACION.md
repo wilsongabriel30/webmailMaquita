@@ -199,6 +199,10 @@ Cuerpo:   {"user": "<correo>", "sid": "<sid>"}          # una sesión concreta
 Cuerpo:   {"user": "<correo>", "sid": "*"}              # todas las suyas
 ```
 
+**Qué significa «todas»**: se cierra lo que esa persona tenga abierto EN ESE MOMENTO. Puede
+volver a entrar en el acto; no queda bloqueada. (Hasta la 1.7.15 la marca duraba 24 horas y
+tumbaba también las sesiones nuevas.)
+
 **Comprobación**: responde 200 y esa sesión pasa a 401 en la siguiente petición, también con
 `"*"`. (Hasta la 1.7.14, `"*"` sin el campo `av` respondía 200 y no revocaba nada: se anotaba la
 generación 0 y ninguna sesión es anterior a 0. Corregido; si mandas `av` numérico, sigue
@@ -267,3 +271,19 @@ que «preparar» el audio en el primer clic de la persona.
   buscador funciona igual y sale de `usuarios`.
 - **Llamadas y GIF**: LiveKit, Jitsi y la biblioteca de GIF son opcionales; sin sus variables
   esas funciones no aparecen.
+
+## Ejecutar el candado del contrato de notificaciones
+
+`humo_notificaciones.py` comprueba que un mensaje llega a TODAS las ventanas de la persona
+(navegador y aplicación a la vez). Para correrlo hacen falta dos cosas:
+
+- la dependencia `websocket-client` (ya viene en `requirements.txt` desde la 1.7.16);
+- que el origen desde el que conectas esté en `CHAT_CORS_ORIGENES`.
+
+```
+HUMO_BASE=https://chat.ejemplo.org \
+HUMO_DESTINO=quien.recibe@ejemplo.org \
+HUMO_REMITENTE=quien.escribe@ejemplo.org \
+HUMO_CONVERSACION=12 \
+venv/bin/python3 humo_notificaciones.py
+```

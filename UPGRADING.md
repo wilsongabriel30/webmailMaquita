@@ -37,10 +37,14 @@ nft add rule inet filter input tcp dport 8790 ip saddr <ip-del-proxy> accept
 
 ```
 git fetch --tags && git checkout v1.7.15
-cd frontend && npm run build && cd ..     # cambia la burbuja del chat
+# El build NO se publica solo: nginx sirve www/, no frontend/dist.
+SIN_CANDADO=1 bash deploy-webmail.sh --solo-frontend    # construye Y publica
 systemctl restart maquita-chat
-systemctl restart maquita-webmail
 ```
+
+Si preferis hacerlo a mano: `cd frontend && npm run build` y despues copiar `dist/` a
+`www/webmail/`. Sin ese paso el navegador sigue cargando la version anterior, y una comprobacion
+puede dar un «sigue roto» falso.
 
 Comprobacion: `ss -lntp | grep 8790` debe mostrar la interfaz que esperais, y el chat seguir
 respondiendo a traves de vuestro proxy.
