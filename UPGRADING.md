@@ -10,6 +10,72 @@ servicio, reiniciar lo que cambió y correr `deploy/tools/validar-despliegue.sh`
 
 ---
 
+## De 1.7.15 a 1.7.16 — lo que la re-verificacion dejo al descubierto
+
+**Version importante si teneis el chat**: trae un arreglo de integridad de datos y otro que hace
+que una instalacion desde cero funcione de verdad.
+
+### 1. Traer el codigo, migrar y reiniciar
+
+```
+git fetch --tags && git checkout v1.7.16
+cd chat-service && venv/bin/pip install -r requirements.txt && cd ..
+DATABASE_URL=... venv/bin/python3 chat-service/migrar_chat.py     # ahora tambien anade columnas
+SIN_CANDADO=1 bash deploy-webmail.sh --solo-frontend              # construye Y publica
+systemctl restart maquita-chat
+```
+
+`migrar_chat.py` es idempotente y ahora **anade las columnas que falten**, no solo las tablas.
+Debe decir «Columnas anadidas: N»; si vuestra instalacion nacio despues de una version que
+declaraba menos columnas, ahi se ponen al dia.
+
+### 2. Si ya poblasteis el directorio del chat, LEED ESTO
+
+El guion que copia las personas numeraba por **posicion** (`ORDER BY username`). Un alta que
+ordenara primero desplazaba todos los identificadores y, con el `ON CONFLICT (id)`, las
+conversaciones de una persona quedaban atribuidas a **otra**. Ahora la identidad es el CORREO.
+
+Antes de volver a sincronizar, comprobad que lo que teneis es coherente:
+
+```
+SELECT id, email FROM usuarios ORDER BY id LIMIT 20;
+```
+
+Si sospechais que ya hubo un remapeo (dos personas con conversaciones cruzadas), **no**
+sincroniceis encima: contadnoslo y lo miramos juntos, porque rehacerlo mal empeora el enredo.
+Si nunca disteis de alta un buzon entre dos sincronizaciones, no os afecta.
+
+### 3. Comprobaciones
+
+**Positivo (instalacion desde cero)**: en un esquema recien creado, abrir una conversacion y
+listar sus mensajes debe funcionar. Antes daba 500 porque faltaba `chat_participants.cleared_at`
+y el error dejaba la transaccion envenenada.
+
+**Positivo (cerrar todas las sesiones)**: revocar con `sid: "*"` cierra lo abierto y la persona
+**puede volver a entrar en el acto**. Antes quedaba fuera del chat 24 horas, tambien con sesiones
+nuevas.
+
+**Positivo (base caida)**: con postgres parado, empezar una conversacion nueva por WebSocket debe
+decir que **no se pudo comprobar**, con `reintentable: true`, y por REST devolver **503** con un
+texto para la persona.
+
+### Casos negativos
+
+1. Con un bloqueo real entre dos personas, el mensaje sigue siendo «No puedes chatear con esta
+   persona» y **no** viene `reintentable`.
+2. Con la base caida, el JSON del REST **no** puede traer el error de la base (nombres de tablas,
+   cadena de conexion): eso va solo al registro.
+3. Repetir `sincronizar_usuarios.py` dos veces seguidas no debe cambiar ningun identificador ni
+   fallar por correo duplicado.
+4. Con el chat en otra maquina, cargar el correo **no** debe dejar 404 de `/api/chat/*` cada 15
+   segundos en la consola del navegador.
+
+### Y para vuestras pruebas
+
+- El candado del contrato necesita `websocket-client` (ya en `requirements.txt`) y que vuestro
+  origen este en `CHAT_CORS_ORIGENES`.
+- Las pruebas de navegador aceptan certificado propio con `PRUEBAS_TLS_LAXA=1`.
+
 ## De 1.7.14 a 1.7.15 — lo que enseño una instalacion desde cero
 
 Recoge los trece hallazgos de una instalacion limpia hecha por el equipo que replica el sistema.
