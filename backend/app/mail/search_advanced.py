@@ -20,6 +20,20 @@ _ATAJOS_FECHA = {
 }
 
 
+def _entrecomillar(valor: str) -> str:
+    """Una cadena para IMAP, con lo que hay que escapar escapado (RFC 3501).
+
+    Sin esto, una comilla en lo que escribe la persona cierra la cadena antes de tiempo y lo que
+    viene detrás lo lee IMAP como criterio: `dominio:x" ALL "` acababa en `FROM "@x" ALL "`, y ese
+    ALL devuelve el buzon entero en vez de lo que se pidio.
+
+    Se quitan tambien los caracteres de control: no aportan nada a una busqueda y son justo los
+    que separan ordenes en el protocolo.
+    """
+    limpio = "".join(c for c in valor if c >= " " and c != "\x7f")
+    return '"' + limpio.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
 def parse_search_query(query: str, buscar_en_contenido: bool = False) -> list[str]:
     """
     Parse a search query with operators into IMAP SEARCH criteria.
@@ -108,11 +122,19 @@ def parse_search_query(query: str, buscar_en_contenido: bool = False) -> list[st
         if token.lower().startswith("domain:"):
             dom = token[7:].strip('"').lstrip("@")
             if dom:
-                criteria.extend(["OR", "FROM", f'"@{dom}"', "TO", f'"@{dom}"'])
+                criteria.extend(
+                    [
+                        "OR",
+                        "FROM",
+                        _entrecomillar("@" + dom),
+                        "TO",
+                        _entrecomillar("@" + dom),
+                    ]
+                )
         elif token.lower().startswith("fromdomain:"):
             dom = token[11:].strip('"').lstrip("@")
             if dom:
-                criteria.extend(["FROM", f'"@{dom}"'])
+                criteria.extend(["FROM", _entrecomillar("@" + dom)])
         # Un rango de fechas de una vez, en vez de after: y before: por separado.
         elif token.lower().startswith("between:"):
             # La coma es el separador bueno: nginx bloquea cualquier «..» en la URL como
@@ -134,19 +156,19 @@ def parse_search_query(query: str, buscar_en_contenido: bool = False) -> list[st
             criteria.extend(["SINCE", desde])
         elif token.lower().startswith("from:"):
             val = token[5:].strip('"')
-            criteria.extend(["FROM", f'"{val}"'])
+            criteria.extend(["FROM", _entrecomillar(val)])
         elif token.lower().startswith("to:"):
             val = token[3:].strip('"')
-            criteria.extend(["TO", f'"{val}"'])
+            criteria.extend(["TO", _entrecomillar(val)])
         elif token.lower().startswith("cc:"):
             val = token[3:].strip('"')
-            criteria.extend(["CC", f'"{val}"'])
+            criteria.extend(["CC", _entrecomillar(val)])
         elif token.lower().startswith("subject:"):
             val = token[8:].strip('"')
-            criteria.extend(["SUBJECT", f'"{val}"'])
+            criteria.extend(["SUBJECT", _entrecomillar(val)])
         elif token.lower().startswith("body:"):
             val = token[5:].strip('"')
-            criteria.extend(["BODY", f'"{val}"'])
+            criteria.extend(["BODY", _entrecomillar(val)])
         elif token.lower() == "has:attachment":
             # IMAP doesn't have a direct "has attachment" filter
             # Use HEADER Content-Type multipart/mixed as approximation
@@ -200,9 +222,15 @@ def parse_search_query(query: str, buscar_en_contenido: bool = False) -> list[st
         # responde en menos de 0,1 s; anadir BODY lo llevaba a 93 s, porque hay que abrir y
         # descifrar los mensajes uno a uno. Quien quiera buscar dentro del texto lo pide con
         # `contenido:` o con el boton de la interfaz, y entonces sabe por que espera.
-        libre = ["OR", "OR", f'FROM "{text}"', f'TO "{text}"', f'SUBJECT "{text}"']
+        libre = [
+            "OR",
+            "OR",
+            "FROM " + _entrecomillar(text),
+            "TO " + _entrecomillar(text),
+            "SUBJECT " + _entrecomillar(text),
+        ]
         if buscar_en_contenido:
-            libre = ["OR"] + libre + [f'BODY "{text}"']
+            libre = ["OR"] + libre + ["BODY " + _entrecomillar(text)]
         if criteria:
             criteria.extend(libre)
         else:
