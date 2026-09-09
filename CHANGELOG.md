@@ -7,6 +7,114 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.7.18] - 2026-09-09
+
+Los seis hallazgos que mandó el equipo replica sobre el redactor, y **buscar un correo deja de
+tardar minuto y medio**. Los cinco primeros hallazgos resultaron peores de lo reportado al
+reproducirlos con navegador: no se dio ninguno por bueno leyendo el código.
+
+### Corregido
+
+- **Un correo mal escrito salía igualmente.** Con el campo «Para» vacío sí avisaba, pero al
+  escribir algo que no es una dirección no aparecía ningún aviso y **arrancaba la cuenta atrás de
+  envío**: el correo se daba por enviado hacia algo que no existe. Se comprobaba solo que la lista
+  de destinatarios no estuviera vacía, nunca el formato. Ahora se valida en los tres caminos de
+  salida —cifrado, normal (con Cc y Cco) y programado— y el aviso **nombra la dirección que
+  falla**. La comprobación es a propósito mínima —algo, arroba, dominio con punto, admitiendo
+  «Nombre &lt;a@b.c&gt;»—: validar direcciones a la perfección solo lo sabe hacer el servidor de
+  destino.
+- **Escape se llevaba por delante lo escrito.** La ventana se cerraba, no avisaba de nada y la
+  carpeta Borradores quedaba vacía **en el servidor**; en el registro no había ni una petición de
+  guardado. Había dos manejadores de Escape: el del redactor guarda el borrador y avisa, pero el
+  atajo global llamaba a `closeCompose` directamente y se le adelantaba. El atajo global ya no
+  toca las ventanas de redacción; las minimizadas tampoco, porque su redactor ni siquiera está
+  montado para poder guardar.
+- **La lista de sugerencias tapaba el Asunto y se quedaba con sus clics.** Con dos letras salían
+  diez sugerencias en un panel de 360 px sobre el Asunto y medio cuerpo: quien pulsaba donde veía
+  el Asunto **añadía un destinatario que nadie pidió**, y en un cliente de correo eso puede acabar
+  en un mensaje enviado a quien no era. Ahora la lista reserva su hueco en vez de flotar —el
+  Asunto baja y se sigue pudiendo pulsar— y muestra cinco filas.
+- **El cuerpo de todos los mensajes empezaba con un salto de línea sobrante.** El editor se
+  inicializaba con `<p><br></p>`; ese `<br>` no es el hueco que se dibuja cuando está vacío, es un
+  nodo de verdad, y el texto se escribía detrás. Confirmado leyendo del buzón un correo ya
+  enviado.
+- **La cabecera mostraba un nombre fijo** aunque la instalación tuviera otro configurado. El
+  servidor ya sirve `app_name` en `/api/branding` y el backend lo usa en los correos automáticos;
+  la barra superior lo llevaba escrito a mano. Se añade `lib/marca.ts`, que lo pide una vez y lo
+  reparte, con un valor de reserva para que la cabecera nunca aparezca vacía.
+- **El selector de sensibilidad mostraba códigos** (`Sensibilidad\u2026`, `P\u00fablica`) en vez
+  de texto: dentro de JSX esos escapes no son escapes. Se había corregido antes, pero **el arreglo
+  se quedó en una rama que nunca se fusionó** y en producción seguía viéndose.
+- Dos fallos que se tragaban en silencio en los atajos de teclado: al abrir un mensaje y al actuar
+  sobre varios correos a la vez. Ahora se dicen.
+
+### Rendimiento
+
+- **Buscar un correo pasa de 92.800 ms a 86 ms.** Medido en un buzón de 20 GB y 10.626 mensajes.
+  La causa no eran los índices: el buscador metía el **cuerpo** del mensaje en toda búsqueda
+  (`OR OR FROM SUBJECT BODY`), y el cuerpo obliga a abrir y descifrar los mensajes uno a uno,
+  porque los buzones van cifrados. Se estaba pidiendo lo más caro sin que nadie lo pidiera.
+  El texto suelto busca ahora en remitente, destinatario y asunto, que es donde está casi siempre
+  lo que uno recuerda de un correo.
+- **Buscar dentro del texto sigue disponible, pero se pide**, y si no se elige fecha se acota a los
+  últimos tres meses. Lo que cuesta no es el cuerpo, es cuántos mensajes hay que descifrar: el
+  buzón entero son 17-98 s, tres meses 4,5 s, un mes 1,4 s, una semana 0,4 s.
+
+### Añadido
+
+- **Búsqueda avanzada.** Operadores nuevos, todos de cabecera y por tanto instantáneos:
+  `dominio:` (de o para ese dominio, 60 ms), `de-dominio:` (solo remitentes, 58 ms),
+  `entre:2026-01-01,2026-03-31` (rango de una vez, 67 ms) y los atajos `hoy`, `ayer`, `semana`,
+  `mes`, `trimestre`, `año`. Y un panel con todo eso en campos, para quien no quiera aprenderse
+  los operadores: de, para, asunto, palabras, dominio, rango con calendario, con adjuntos, sin
+  leer, marcados y tamaño mínimo.
+- **Contraseñas cuyo prefijo miente sobre su contenido: detectadas, impedidas y vigiladas.** Nace
+  de un aviso del equipo replica: una cuenta suya tenía guardado `{SHA512-CRYPT}` seguido de 76
+  caracteres **sin un solo `$`** — la etiqueta decía crypt y el cuerpo no lo era. Dovecot, al no
+  encontrar el `$` que marca el esquema, cae al más viejo que encaja con esos caracteres
+  (DES-CRYPT) y lo rechaza por débil: `Weak password scheme 'DES-CRYPT' used and refused`. Login
+  imposible y, para quien administra, **silencioso**: en el panel el buzón se ve normal. Esa
+  persona **estuvo un mes sin poder entrar**, y el caso se encontró de casualidad mirando el
+  registro. Tres piezas, porque una sola no basta:
+  - `deploy/tools/verificar-hashes.py` **lo detecta**: comprueba que la forma de cada valor case
+    con lo que su prefijo promete. No descifra nada, no imprime hashes y no toca la base; sale con
+    código 1 si encuentra algo.
+  - La migración `2026-09-09-mailbox-prefijo-coherente.sql` **impide que vuelva a entrar** uno
+    malo. Es a propósito una lista negra, no blanca: solo prohíbe lo que sabemos imposible y deja
+    pasar los esquemas que no conoce, porque una lista cerrada impediría dar de alta un buzón el
+    día que se use un esquema nuevo. Entra como `NOT VALID` y solo valida lo ya guardado si está
+    limpio: en una instalación con deuda antigua **avisa con el número exacto y no aborta el
+    despliegue**.
+  - El validador de despliegue **lo pregunta en cada actualización**, junto con el estado de la
+    restricción y los rechazos por esquema débil de los últimos siete días. Lo pidió el equipo
+    replica con una frase que lo justifica sola: «un validador que lo hubiera cantado nos habría
+    ahorrado el mes que esa persona estuvo fuera».
+
+  Lo que ninguna de las tres ve: un hash **sin prefijo**, indistinguible del de un esquema
+  desconocido. Ahí solo ayuda el verificador, que sí conoce el `default_password_scheme` del
+  servidor.
+- Tres recorridos de navegador nuevos: destinatarios inválidos, la búsqueda con su rango de
+  fechas, y sus tiempos.
+- Veintisiete pruebas nuevas: trece del parser de búsqueda y catorce del verificador de
+  contraseñas, en dos sitios que no tenían ninguna. La primera del verificador reproduce el caso
+  reportado exactamente, porque uno que no puede fallar no vale nada.
+
+### Notas para quien actualice
+
+- **El rango de fechas se escribe con coma** (`entre:2026-01-01,2026-03-31`), no con dos puntos
+  seguidos. Un proxy con la defensa habitual contra *path traversal* bloquea cualquier `..` en la
+  URL y la búsqueda devuelve 403 sin llegar siquiera al correo. Si se añaden más operadores con
+  caracteres poco corrientes, tenerlo presente.
+- **El texto suelto ya no busca dentro del cuerpo.** Es el cambio con más posibilidades de
+  extrañar: alguien puede buscar una palabra que estaba solo en el cuerpo y no encontrarla. La
+  opción está en el panel, avisando de lo que tarda y por qué.
+- **Sobre activar el índice de texto completo de Dovecot**: no es tan buena idea como parece si
+  los buzones van cifrados por usuario. El indexador no tiene la clave, así que no puede indexar
+  en segundo plano; con el indexado activo cada eliminar o mover un correo pasa a tardar 3-5 s; y
+  el índice deja el texto de los mensajes legible en disco, que es justo lo que el cifrado evita.
+  Acotar por fecha antes de entrar en el cuerpo da el mismo resultado práctico sin ninguna de esas
+  tres cosas.
+
 ## [1.7.17] - 2026-09-09
 
 Día de recorrer el producto como lo usa una persona. De ahí salieron dos cosas que llevaban
