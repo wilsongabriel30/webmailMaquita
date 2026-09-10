@@ -77,6 +77,9 @@ class Settings(BaseSettings):
     rate_limit_read_per_min: int = 300
     rate_limit_write_per_min: int = 60
     rate_limit_send_per_min: int = 10
+    # Buscar dentro del cuerpo puede costar minuto y medio por peticion: no es una
+    # lectura mas y no puede compartir el contador con ellas.
+    rate_limit_busqueda_contenido_per_min: int = 6
 
     environment: str = "production"  # "development"/"dev"/"local" habilita /docs
     # [R-03] Límites de importación en la aplicación (nginx client_max_body_size es la 2ª capa)
