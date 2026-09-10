@@ -142,3 +142,27 @@ def test_las_busquedas_normales_no_cambian():
         "TO",
         '"@andes.com.ec"',
     ]
+
+
+def test_buscar_en_el_cuerpo_sin_fecha_se_acota_solo():
+    """Entrar en el cuerpo sin acotar es la operacion mas cara que existe aqui: hay que abrir y
+    descifrar los mensajes uno a uno. La interfaz lo limita a tres meses, pero la interfaz se
+    puede saltar llamando a la API directamente. Esta es la red de debajo."""
+    criterios = parse_search_query("factura", buscar_en_contenido=True)
+    assert criterios[0] == "SINCE", "sin fecha deberia acotarse solo"
+
+
+def test_si_ya_hay_fecha_no_se_toca():
+    """Quien acota por su cuenta manda: no se le cambia el rango."""
+    criterios = parse_search_query(
+        "entre:2026-01-01,2026-03-31 factura", buscar_en_contenido=True
+    )
+    assert criterios[:4] == ["SINCE", "01-Jan-2026", "BEFORE", "31-Mar-2026"]
+
+    conatajo = parse_search_query("mes factura", buscar_en_contenido=True)
+    assert conatajo.count("SINCE") == 1, "no deberia acotarse dos veces"
+
+
+def test_la_busqueda_normal_no_se_acota():
+    """Buscar por cabeceras es instantaneo: no hay razon para limitarle el alcance."""
+    assert "SINCE" not in parse_search_query("factura")

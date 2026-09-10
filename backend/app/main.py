@@ -408,6 +408,8 @@ class ApiRateLimitMiddleware(BaseHTTPMiddleware):
       - Read endpoints (GET):     RATE_LIMIT_READ_PER_MIN  (default 300)
       - Write endpoints (POST/PUT/DELETE/PATCH): RATE_LIMIT_WRITE_PER_MIN (default 60)
       - Send/compose:             RATE_LIMIT_SEND_PER_MIN  (default 10)
+      - Busqueda en el CUERPO:    RATE_LIMIT_BUSQUEDA_CONTENIDO_PER_MIN (default 6)
+        Cada una puede costar minuto y medio descifrando: no es una lectura mas.
 
     Skips: login, health, static assets, WebSocket upgrades.
     """
@@ -455,7 +457,17 @@ class ApiRateLimitMiddleware(BaseHTTPMiddleware):
         # Determine limit tier
         method = request.method.upper()
         rl = get_settings()
-        if path in self.SEND_PATHS:
+        # Buscar dentro del TEXTO de los mensajes no es una lectura mas: hay que abrir y
+        # descifrar los mensajes uno a uno, y puede costar minuto y medio por peticion. Con el
+        # tramo generico de lectura (300/min) una sola persona podria tumbar el servidor sin
+        # despeinarse. Tiene su propio contador, mucho mas bajo.
+        if "buscar_en_contenido=true" in request.url.query.lower():
+            limit, window, tier = (
+                rl.rate_limit_busqueda_contenido_per_min,
+                60,
+                "busqueda-contenido",
+            )
+        elif path in self.SEND_PATHS:
             limit, window, tier = rl.rate_limit_send_per_min, 60, "send"
         elif method == "GET":
             limit, window, tier = rl.rate_limit_read_per_min, 60, "read"
