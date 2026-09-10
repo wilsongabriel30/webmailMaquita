@@ -236,6 +236,17 @@ def parse_search_query(query: str, buscar_en_contenido: bool = False) -> list[st
         else:
             criteria = libre
 
+    # Red de debajo: entrar en el cuerpo sin acotar por fecha es la operacion mas cara que
+    # existe aqui -hay que abrir y descifrar los mensajes uno a uno- y la interfaz lo limita a
+    # tres meses, pero la interfaz se puede saltar. Si nadie acoto, se acota al ultimo ano.
+    if buscar_en_contenido and not any(
+        c in ("SINCE", "BEFORE", "ON")
+        or str(c).startswith(("SINCE ", "BEFORE ", "ON "))
+        for c in criteria
+    ):
+        desde = (datetime.now() - timedelta(days=365)).strftime("%d-%b-%Y")
+        criteria = ["SINCE", desde] + criteria
+
     return criteria if criteria else ["ALL"]
 
 
