@@ -7,6 +7,50 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.7.20] - 2026-09-10
+
+Los dos hallazgos que confirmamos de la primera auditoría externa sobre la 1.7.19. **Ninguno de
+los dos se arregló como proponía el informe**, y merece la pena contar por qué.
+
+### Seguridad
+
+- **La llave del caché local no se olvidaba al cerrar sesión.** `olvidarLlave()` existía y no se
+  llamaba desde ningún sitio, así que tras cerrar sesión la llave y los correos guardados para
+  leer sin conexión seguían en el navegador: en un equipo compartido, la persona siguiente los
+  hereda.
+
+  El arreglo propuesto —llamar a `olvidarLlave()` en el cierre de sesión, sin más— habría causado
+  un fallo peor que el que evita: **la cola de salida se cifra con esa misma llave**. Cerrar
+  sesión con correos pendientes los habría dejado ilegibles para siempre; es el fallo del correo
+  que se perdía, reintroducido por otra puerta. Ahora la llave se olvida **solo si no queda nada
+  pendiente**; si lo hay, se conserva y se explica por qué. Perder un correo ya escrito es peor
+  que dejar un caché cifrado en un equipo compartido.
+
+- **Buscar dentro del texto podía usarse para agotar el servidor.** Es la operación más cara que
+  existe aquí —hay que abrir y descifrar los mensajes uno a uno— y caía en el tramo genérico de
+  lectura del limitador: **300 peticiones por minuto**, un número pensado para peticiones de
+  milisegundos.
+
+  Además, y esto no lo vio la auditoría: **el acotado a tres meses lo ponía solo la interfaz**. El
+  servidor aceptaba la búsqueda en el cuerpo sobre el buzón entero, así que bastaba con no pasar
+  por el panel.
+
+  Dos cambios: las búsquedas en el contenido tienen ahora **su propio contador** en el limitador
+  que ya existía (`RATE_LIMIT_BUSQUEDA_CONTENIDO_PER_MIN`, por omisión 6 por minuto), y **el
+  servidor acota por su cuenta** al último año si nadie acotó. La interfaz sigue poniendo tres
+  meses; esto es la red de debajo.
+
+  Comprobado en la instalación viva: corta en la séptima petición del minuto, y **una búsqueda
+  normal sigue respondiendo** con el límite ya disparado — la protección no deja a nadie sin
+  buscar.
+
+### Nota sobre el informe de auditoría
+
+De los tres hallazgos entregados, dos eran correctos y uno tenía la premisa equivocada: afirmaba
+que no existía limitación de tasa cuando el limitador lleva tiempo en el código. Se anota porque
+explica una regla de trabajo: **un informe externo se verifica línea a línea antes de tocar
+nada**. En este caso, aplicar el parche recomendado tal cual habría hecho perder correos.
+
 ## [1.7.19] - 2026-09-09
 
 Versión de un solo cambio, publicada horas después de la 1.7.18 porque el fallo salió al preparar
