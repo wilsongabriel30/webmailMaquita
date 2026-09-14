@@ -23,6 +23,7 @@ from app.auth.sesiones import (
 from app.auth.totp import is_totp_enabled, validate_totp_code
 from app.config import get_settings
 from app.core.session import encrypt_password
+from app.portales.resolucion import dominio_del_portal
 
 
 def _sanitize_username(username: str) -> str:
@@ -32,6 +33,16 @@ def _sanitize_username(username: str) -> str:
     if not re.match(r"^[a-zA-Z0-9._%+-]+(@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})?$", username):
         raise HTTPException(status_code=422, detail="Nombre de usuario inválido")
     return username
+
+
+async def _relleno_antitiming(start_time: float) -> None:
+    """Iguala a 2 s la duración de toda respuesta de acceso, acierte o falle.
+
+    Sin esto, el tiempo de respuesta delataría qué cuentas existen.
+    """
+    elapsed = asyncio.get_event_loop().time() - start_time
+    if elapsed < 2.0:
+        await asyncio.sleep(2.0 - elapsed)
 
 
 async def _check_login_rate_limit(request: Request, username: str, redis):
@@ -89,22 +100,29 @@ async def login(body: LoginRequest, request: Request, response: Response):
 
     # Normalize and sanitize
     username = _sanitize_username(body.username)
+    # Portal de empresa: quien entra por mail.<empresa> escribe solo su nombre de
+    # usuario y se le completa con SU dominio, no con el de la casa.
+    dominio_portal = await dominio_del_portal(request.app.state.db_pool, request)
     if "@" not in username:
-        username = f"{username}@{settings.mail_domain}"
+        username = f"{username}@{dominio_portal or settings.mail_domain}"
 
     # Rate limiting
     redis = request.app.state.redis
     await _check_login_rate_limit(request, username, redis)
 
+    if dominio_portal and not username.endswith(f"@{dominio_portal}"):
+        # Cuenta de otra empresa: se responde exactamente igual que a una contraseña
+        # equivocada, y tardando lo mismo, para no revelar qué cuentas existen.
+        # Quien necesite entrar con una cuenta de otro dominio puede hacerlo por el
+        # portal padre.
+        await _relleno_antitiming(start_time)
+        raise HTTPException(status_code=401, detail="Credenciales incorrectas")
+
     ok = await authenticate(
         username, body.password, settings.imap_host, settings.imap_port
     )
 
-    # Anti-timing: pad ALL responses (success AND failure) to uniform 2s
-    # This prevents user enumeration via response time differences
-    elapsed = asyncio.get_event_loop().time() - start_time
-    if elapsed < 2.0:
-        await asyncio.sleep(2.0 - elapsed)
+    await _relleno_antitiming(start_time)
 
     if not ok and await is_totp_enabled(request.app.state.db_pool, username):
         # Contraseña incorrecta en una cuenta con 2FA: misma respuesta que si fuera
