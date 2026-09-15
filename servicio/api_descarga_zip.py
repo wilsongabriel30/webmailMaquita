@@ -75,6 +75,25 @@ def _inventario(resueltas):
     return entradas, total
 
 
+def _pares_virtuales(resueltas):
+    """[(ruta_virtual, fisica)] de los ARCHIVOS que entran al ZIP —también
+    los de dentro de las carpetas—, para poder pedirle al editor que guarde
+    los que alguien tenga abiertos antes de empaquetarlos."""
+    pares = []
+    for ruta, fisica in resueltas:
+        if os.path.isfile(fisica):
+            pares.append((ruta, fisica))
+            continue
+        for carpeta, _dirs, archivos in os.walk(fisica):
+            rel = os.path.relpath(carpeta, fisica)
+            for nombre in archivos:
+                completo = os.path.join(carpeta, nombre)
+                virtual = os.path.normpath(
+                    os.path.join(ruta, rel, nombre)).replace(os.sep, '/')
+                pares.append((virtual, completo))
+    return pares
+
+
 def _tamano(fisica):
     try:
         return os.path.getsize(fisica)
@@ -110,6 +129,14 @@ def descargar_zip():
         return jsonify({'success': True, 'nombre': nombre, 'total_bytes': total,
                         'archivos': sum(1 for _r, f in entradas if f)})
 
+    # (2026-09-04) Lo que esté abierto en el editor se guarda ANTES de
+    # empaquetar; si no, el ZIP se llevaría la versión anterior.
+    try:
+        import guardado_forzado
+        guardado_forzado.guardar_lote(usuario, _pares_virtuales(resueltas))
+    except Exception:
+        pass
+
     token = _token_seguro(request.args.get('token', ''))
     progreso = _Progreso(token, total)
     temporal = tempfile.NamedTemporaryFile(prefix='almacen_zip_', suffix='.zip', delete=False)
@@ -120,7 +147,19 @@ def descargar_zip():
                 if fisica is None:
                     z.writestr(ruta_zip, b'')
                 else:
-                    _agregar_por_bloques(z, fisica, ruta_zip, progreso)
+                    # Las hojas salen con las listas y los colores en forma
+                    # clásica, para que se vean fuera del Drive.
+                    try:
+                        import compatibilidad_xlsx
+                        _compat = compatibilidad_xlsx.copia_compatible(fisica)
+                    except Exception:
+                        _compat = None
+                    _agregar_por_bloques(z, _compat or fisica, ruta_zip, progreso)
+                    if _compat:
+                        try:
+                            os.unlink(_compat)
+                        except OSError:
+                            pass
         progreso.terminar()
     except Exception:
         log.exception('descargar-zip: fallo armando %s para usuario %s', nombre, usuario)

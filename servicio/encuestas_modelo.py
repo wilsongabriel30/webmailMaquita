@@ -27,6 +27,7 @@ Autoría: Equipo de Tecnología Maquita — 2026-08-24
 import re
 
 import encuestas_texto as texto_rico
+import encuestas_validacion as validacion_mod
 import uuid
 
 VERSION = 2
@@ -35,7 +36,41 @@ LIMITE_ELEMENTOS = 200
 LIMITE_OPCIONES = 60
 
 TIPOS_PREGUNTA = ('texto_corto', 'parrafo', 'opcion_unica', 'casillas',
-                  'desplegable', 'escala', 'fecha', 'hora')
+                  'desplegable', 'archivo', 'escala', 'calificacion',
+                  'cuadricula_opciones', 'cuadricula_casillas',
+                  'fecha', 'hora')
+
+# «Subir archivos» (08/09/2026). Su respuesta es una lista de FICHAS
+# —`[{id, nombre, tamano, ruta}]`—, no de textos: el archivo en sí acaba en el
+# Drive del dueño del formulario, y aquí solo queda constancia de cuál es.
+# Todo lo demás de este tipo (dónde se guarda, qué extensiones se admiten, cómo
+# se entrega) vive en `encuestas_archivos.py`.
+ARCHIVOS_MAXIMOS = 10
+ARCHIVO_MB_DEFECTO = 10
+ARCHIVO_MB_MAXIMO = 100
+# Solo los NOMBRES de los grupos; qué extensión cae en cada uno lo decide
+# `encuestas_archivos.GRUPOS`, que es quien tiene que saberlo para validar.
+GRUPOS_ARCHIVO = ('documento', 'hoja', 'presentacion', 'pdf', 'imagen',
+                  'video', 'audio', 'comprimido')
+
+# Las dos cuadrículas (08/09/2026): una tabla de FILAS por COLUMNAS en la que
+# cada fila elige una columna («…_opciones») o varias («…_casillas»).
+#
+# Su respuesta NO es un texto ni una lista como la de los demás tipos, sino un
+# mapa {fila: columna} —o {fila: [columnas]}—. Se guardan fila y columna por su
+# TEXTO y no por su posición, igual que las opciones del resto de tipos: si
+# alguien reordena las filas después de recibir respuestas, lo respondido sigue
+# significando lo mismo. `texto_de()` es quien sabe volcar eso a una línea para
+# la hoja de cálculo y el correo, que no pueden pintar una tabla.
+TIPOS_CUADRICULA = ('cuadricula_opciones', 'cuadricula_casillas')
+LIMITE_FILAS = 40
+LIMITE_COLUMNAS = 20
+
+# Calificación: de 1 a N iconos. El mínimo es 2 porque una calificación de un
+# solo nivel no distingue nada; el máximo, 10, es el de la escala lineal.
+CALIFICACION_MIN, CALIFICACION_MAX, CALIFICACION_DEFECTO = 2, 10, 5
+ICONOS_CALIFICACION = ('estrella', 'corazon', 'pulgar')
+ICONO_CALIFICACION_DEFECTO = 'estrella'
 
 # El 27/08/2026 existió un tipo 'correo' durante unas horas. Se retiró porque
 # duplicaba lo que ya hacía «Recopilar el correo» de la pestaña Configuración
@@ -52,6 +87,14 @@ TIPOS_CON_OPCIONES = ('opcion_unica', 'casillas', 'desplegable')
 TIPOS_CON_SALTO = ('opcion_unica', 'desplegable')
 SALTO_SIGUIENTE = 'siguiente'      # lo normal: continuar en orden
 SALTO_ENVIAR = 'enviar'            # terminar y mandar el formulario
+# Clave del salto de «Otro» (10/09/2026). Lo que se escribe en «Otro» es texto
+# libre y no puede ser la clave del salto: se guarda con esta. La misma
+# constante está en `encuesta-recorrido.js` y en el editor.
+SALTO_OTRO = '__otro__'
+# Dónde caben imágenes en las opciones. En un desplegable no: sus entradas
+# son texto del sistema y no pueden llevar imagen, igual que en Google.
+TIPOS_CON_IMAGEN_OPCION = ('opcion_unica', 'casillas')
+
 TIPOS_CON_OTRO = ('opcion_unica', 'casillas')      # como en Google Forms
 CLASES = ('pregunta', 'titulo', 'seccion', 'imagen', 'video')
 
@@ -220,9 +263,17 @@ def formulario_vacio(titulo='Formulario sin título'):
 # ---------------------------------------------------------------------------
 # Limpieza de cada elemento
 # ---------------------------------------------------------------------------
-# Tipos que el sistema puede calificar solo. Los demás (párrafo, escala, fecha,
-# hora) admiten puntos, pero los pone una persona al revisar: no hay forma
-# honesta de decidir por su cuenta si un texto largo o una fecha «acierta».
+# Tipos que el sistema puede calificar solo. Los demás (párrafo, escala,
+# calificación, cuadrículas, fecha, hora) admiten puntos, pero los pone una
+# persona al revisar: no hay forma honesta de decidir por su cuenta si un texto
+# largo o una fecha «acierta».
+#
+# Las cuadrículas se quedan fuera A PROPÓSITO aunque lo que se responde en ellas
+# sí sean opciones cerradas: su clave tendría que decir qué columna es la
+# correcta en CADA fila, y con eso viene la decisión de si acertar tres filas de
+# cinco vale puntos parciales, todos o ninguno. Mientras esa decisión no esté
+# tomada, se corrigen a mano —que es lo que el modo cuestionario ya hace con el
+# párrafo— en vez de inventarse un criterio.
 TIPOS_AUTOCALIFICABLES = ('opcion_unica', 'casillas', 'desplegable', 'texto_corto')
 
 PUNTOS_MAXIMOS = 1000
@@ -254,6 +305,20 @@ def _limpiar_clave(bruto, tipo):
     }
 
 
+def _lista_textos(bruto, defecto, limite):
+    """Una lista de textos cortos (las filas o las columnas de una cuadrícula).
+
+    Nunca vuelve vacía: una cuadrícula sin filas no pregunta nada y sin columnas
+    no se puede responder, así que se le pone la primera por defecto, igual que
+    una pregunta de opciones arranca con «Opción 1».
+    """
+    if not isinstance(bruto, list):
+        return [defecto]
+    entradas = [_texto(v, 300) for v in bruto]
+    entradas = [v for v in entradas if v][:limite]
+    return entradas or [defecto]
+
+
 def _limpiar_pregunta(bruto):
     tipo = bruto.get('tipo')
     # Un tipo retirado no se descarta: se traduce al que ocupó su sitio, para
@@ -276,6 +341,10 @@ def _limpiar_pregunta(bruto):
         # el formulario no sea cuestionario ahora mismo: si se apaga y se
         # vuelve a encender, la clave sigue ahí y no hay que rehacerla.
         'clave': _limpiar_clave(bruto.get('clave'), tipo),
+        # «Validación de respuestas» del menú ⋮ (09/09/2026): qué tiene que
+        # cumplir lo que se responde. None si la pregunta no la usa o si el
+        # tipo no la admite; las reglas viven en `encuestas_validacion.py`.
+        'validacion': validacion_mod.limpiar(bruto.get('validacion'), tipo),
     }
 
     if tipo in TIPOS_CON_OPCIONES:
@@ -284,11 +353,49 @@ def _limpiar_pregunta(bruto):
         if not pregunta['opciones']:
             pregunta['opciones'] = ['Opción 1']
         pregunta['barajar'] = bool(bruto.get('barajar'))
+        # Imagen por opción (09/09/2026), como en Google. Va en una lista
+        # PARALELA a `opciones` y no dentro de cada opción porque una opción
+        # es un texto: convertirla en objeto obligaría a migrar todos los
+        # `.forma` que existen y a tocar cada sitio que las lee (el resumen,
+        # el Excel, los saltos, la clave del cuestionario). La lista se recorta
+        # o se rellena para que tenga SIEMPRE tantas entradas como opciones:
+        # así el índice de una nunca señala la imagen de otra.
+        if tipo in TIPOS_CON_IMAGEN_OPCION:
+            brutas = bruto.get('opciones_imagenes')
+            brutas = brutas if isinstance(brutas, list) else []
+            imagenes = [_limpiar_imagen(x) for x in brutas]
+            imagenes = imagenes[:len(pregunta['opciones'])]
+            faltan = len(pregunta['opciones']) - len(imagenes)
+            pregunta['opciones_imagenes'] = imagenes + [None] * faltan
         if tipo in TIPOS_CON_OTRO:
             pregunta['otro'] = bool(bruto.get('otro'))
         if tipo in TIPOS_CON_SALTO:
             pregunta['saltos'] = _limpiar_saltos(bruto.get('saltos'),
-                                                 pregunta['opciones'])
+                                                 pregunta['opciones'],
+                                                 pregunta.get('otro'))
+            # «Ir a la sección según la respuesta», el interruptor del menú ⋮
+            # (08/09/2026). Los saltos se guardan esté encendido o apagado: si
+            # se apaga y se vuelve a encender, siguen ahí y no hay que rehacer
+            # el recorrido.
+            #
+            # Cuando la clave no viene —un `.forma` anterior a esa fecha— el
+            # interruptor se abre encendido SI ya había saltos guardados. Esos
+            # formularios ya estaban ramificando, y arrancarlos apagados los
+            # habría dejado en línea recta sin que nadie tocara nada.
+            pregunta['saltos_activos'] = bool(
+                bruto.get('saltos_activos', bool(pregunta['saltos'])))
+
+    elif tipo == 'fecha':
+        # Las dos opciones del menú ⋮ de Google. El año viene puesto salvo que
+        # se diga lo contrario, así que los `.forma` anteriores a hoy —que no
+        # traen la clave— siguen pidiéndolo como siempre.
+        pregunta['fecha_con_hora'] = bool(bruto.get('fecha_con_hora'))
+        pregunta['fecha_con_anio'] = bruto.get('fecha_con_anio') is not False
+
+    elif tipo == 'hora':
+        pregunta['hora_modo'] = ('duracion'
+                                 if bruto.get('hora_modo') == 'duracion'
+                                 else 'hora')
 
     elif tipo == 'escala':
         try:
@@ -299,10 +406,58 @@ def _limpiar_pregunta(bruto):
         pregunta['escala_min_etiqueta'] = _texto(bruto.get('escala_min_etiqueta'), 60)
         pregunta['escala_max_etiqueta'] = _texto(bruto.get('escala_max_etiqueta'), 60)
 
+    elif tipo == 'calificacion':
+        try:
+            maximo = int(bruto.get('calificacion_max') or CALIFICACION_DEFECTO)
+        except (TypeError, ValueError):
+            maximo = CALIFICACION_DEFECTO
+        pregunta['calificacion_max'] = min(max(maximo, CALIFICACION_MIN),
+                                           CALIFICACION_MAX)
+        # El icono se acota a la lista: es un nombre que acaba dentro del HTML,
+        # y un `.forma` puede llegar editado a mano.
+        icono = _texto(bruto.get('calificacion_icono'), 20)
+        pregunta['calificacion_icono'] = (icono if icono in ICONOS_CALIFICACION
+                                          else ICONO_CALIFICACION_DEFECTO)
+
+    elif tipo in TIPOS_CUADRICULA:
+        pregunta['filas'] = _lista_textos(bruto.get('filas'), 'Fila 1',
+                                          LIMITE_FILAS)
+        pregunta['columnas'] = _lista_textos(bruto.get('columnas'), 'Columna 1',
+                                             LIMITE_COLUMNAS)
+        # Opciones del menú ⋮, como en Google (09/09/2026). «Exigir una
+        # respuesta en cada fila» no es «Obligatorio»: obligatorio pide que la
+        # tabla no quede en blanco, esto pide que no falte NINGUNA fila.
+        pregunta['exigir_fila'] = bool(bruto.get('exigir_fila'))
+        # Aquí «barajar» son las FILAS, no las opciones: en una cuadrícula lo
+        # que se lista son las filas.
+        pregunta['barajar'] = bool(bruto.get('barajar'))
+        if tipo == 'cuadricula_opciones':
+            # Con casillas no cabe: una columna se puede marcar en varias
+            # filas por definición.
+            pregunta['una_por_columna'] = bool(bruto.get('una_por_columna'))
+
+    elif tipo == 'archivo':
+        try:
+            cuantos = int(bruto.get('archivo_max') or 1)
+        except (TypeError, ValueError):
+            cuantos = 1
+        pregunta['archivo_max'] = min(max(cuantos, 1), ARCHIVOS_MAXIMOS)
+        try:
+            megas = int(bruto.get('archivo_mb') or ARCHIVO_MB_DEFECTO)
+        except (TypeError, ValueError):
+            megas = ARCHIVO_MB_DEFECTO
+        pregunta['archivo_mb'] = min(max(megas, 1), ARCHIVO_MB_MAXIMO)
+        # Los límites se acotan aquí, no solo en la pantalla: son lo único que
+        # impide que un `.forma` editado a mano deje pasar archivos de 2 GB.
+        grupos = bruto.get('archivo_tipos')
+        grupos = grupos if isinstance(grupos, list) else []
+        pregunta['archivo_tipos'] = [g for g in [_texto(v, 20) for v in grupos]
+                                     if g in GRUPOS_ARCHIVO]
+
     return pregunta
 
 
-def _limpiar_saltos(bruto, opciones):
+def _limpiar_saltos(bruto, opciones, otro=False):
     """A qué sección lleva cada opción: {opción: destino}.
 
     El destino es `siguiente`, `enviar` o el **id de una sección**. Se guarda el
@@ -318,7 +473,9 @@ def _limpiar_saltos(bruto, opciones):
     if not isinstance(bruto, dict):
         return {}
     limpios = {}
-    for opcion in opciones:
+    # «Otro» también puede llevar a una sección, como en Google, pero solo
+    # mientras la pregunta tenga «Otro»: si se quita, su salto se va con él.
+    for opcion in list(opciones) + ([SALTO_OTRO] if otro else []):
         destino = bruto.get(opcion)
         if not isinstance(destino, str) or not destino.strip():
             continue
@@ -331,6 +488,24 @@ def _limpiar_saltos(bruto, opciones):
     return limpios
 
 
+def _destino_valido(bruto, elementos):
+    """Como `_destino()`, pero comprobando que la sección exista."""
+    destino = _destino(bruto)
+    if destino in (SALTO_SIGUIENTE, SALTO_ENVIAR):
+        return destino
+    hay = any(e.get('clase') == 'seccion' and e['id'] == destino
+              for e in elementos)
+    return destino if hay else SALTO_SIGUIENTE
+
+
+def _destino(bruto):
+    """Un destino de recorrido saneado. Lo normal (`siguiente`) es el valor
+    por defecto de todo lo que no se entienda: ante la duda, se sigue el orden
+    del formulario y nadie se queda sin a dónde ir."""
+    destino = _texto(bruto, 60)
+    return destino or SALTO_SIGUIENTE
+
+
 def _saltos_coherentes(elementos):
     """Descarta los saltos que apuntan a una sección que ya no existe.
 
@@ -340,6 +515,11 @@ def _saltos_coherentes(elementos):
     """
     secciones = {e['id'] for e in elementos if e.get('clase') == 'seccion'}
     for elemento in elementos:
+        # El destino de la sección se comprueba igual que los saltos: si
+        # apunta a una sección borrada, se vuelve al orden normal.
+        destino = elemento.get('destino')
+        if destino and destino != SALTO_ENVIAR and destino not in secciones:
+            elemento['destino'] = SALTO_SIGUIENTE
         saltos = elemento.get('saltos')
         if not saltos:
             continue
@@ -352,7 +532,7 @@ def _saltos_coherentes(elementos):
 def _limpiar_bloque(bruto, clase):
     """Bloque de texto: un título con descripción («titulo») o el comienzo de una
     página nueva del formulario («seccion»)."""
-    return {
+    bloque = {
         'clase': clase,
         'id': _id(bruto.get('id')),
         'titulo': _rico(bruto.get('titulo'),
@@ -361,6 +541,13 @@ def _limpiar_bloque(bruto, clase):
         'descripcion': _rico(bruto.get('descripcion'), 2000),
         'imagen': _limpiar_imagen(bruto.get('imagen')),
     }
+    if clase == 'seccion':
+        # «Después de la sección…» (09/09/2026): a dónde va quien la termina
+        # sin que ninguna opción diga otra cosa. `siguiente`, `enviar` o el id
+        # de otra sección; que ese id exista se mira en `_saltos_coherentes`,
+        # igual que con los saltos por opción.
+        bloque['destino'] = _destino(bruto.get('destino'))
+    return bloque
 
 
 def id_youtube(bruto):
@@ -501,6 +688,10 @@ def limpiar(bruto, id_previo=None):
                           '¡Gracias! Tu respuesta fue registrada.'),
         'tema': _limpiar_tema(bruto.get('tema')),
         'cabecera': _limpiar_imagen(bruto.get('cabecera')),
+        # «Después de la primera página»: su destino no puede vivir en una
+        # sección, porque lo que va antes de la primera sección no tiene
+        # ninguna que lo abra. Se comprueba aquí, con las secciones ya limpias.
+        'destino_inicio': _destino_valido(bruto.get('destino_inicio'), elementos),
         'elementos': elementos,
     }
 
@@ -508,6 +699,49 @@ def limpiar(bruto, id_previo=None):
 # ---------------------------------------------------------------------------
 # Vistas derivadas
 # ---------------------------------------------------------------------------
+def texto_de(pregunta, valor):
+    """Lo respondido, en una línea.
+
+    Lo usan la hoja de cálculo, el correo con la copia de la respuesta y la
+    tabla de la vista de respuestas: sitios que no pueden pintar una cuadrícula
+    y necesitan una celda. Vive aquí, al lado de la definición de los tipos,
+    para que no acabe habiendo tres versiones distintas de «cómo se lee esto»
+    diciendo cada una una cosa.
+    """
+    if valor is None or valor == '' or valor == [] or valor == {}:
+        return ''
+
+    if isinstance(valor, dict):
+        # Cuadrícula. Se recorre por el orden de las FILAS de la pregunta y no
+        # por el del mapa: así todas las respuestas se leen en el mismo orden,
+        # que es lo que permite compararlas de un vistazo en la hoja.
+        filas = pregunta.get('filas') or list(valor)
+        partes = []
+        for fila in filas:
+            elegido = valor.get(fila)
+            if elegido in (None, '', []):
+                continue
+            if isinstance(elegido, list):
+                elegido = ', '.join(str(v) for v in elegido)
+            partes.append('%s: %s' % (fila, elegido))
+        return ' · '.join(partes)
+
+    if isinstance(valor, list):
+        # «Subir archivos» responde con fichas, no con textos: interesa el
+        # nombre del archivo, que es lo que se busca luego en el Drive.
+        if valor and isinstance(valor[0], dict):
+            return ', '.join(str(v.get('nombre') or '') for v in valor
+                             if isinstance(v, dict))
+        return ', '.join(str(v) for v in valor)
+
+    if pregunta.get('tipo') == 'calificacion':
+        # «4» solo no dice nada: puede ser 4 sobre 5 o sobre 10.
+        return '%s de %s' % (valor, pregunta.get('calificacion_max')
+                             or CALIFICACION_DEFECTO)
+
+    return str(valor)
+
+
 def preguntas(definicion):
     """Solo las preguntas, en orden. Es lo que valida y tabula las respuestas."""
     return [e for e in definicion.get('elementos', []) if e['clase'] == 'pregunta']

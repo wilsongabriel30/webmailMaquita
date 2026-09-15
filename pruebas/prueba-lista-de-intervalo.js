@@ -105,10 +105,9 @@ global.window.MaquitaEditor = { alAparecer: () => { } };
 require(B + 'editor-desplegable-aspecto.js');
 const A = window.MaquitaDesplegableAspecto;
 
-window.MaquitaListaMemoria = {
-    leer: () => [{ valor: 'ENERO', color: '#fce8b2' },
-                 { valor: 'FEBRERO', color: '' }]
-};
+/* Los colores salen de las reglas del archivo (MaquitaColoresCF), no de una
+   memoria aparte: esa se retiró el 02/09/2026. */
+window.MaquitaColoresCF = { coloresPorValor: () => ({ ENERO: '#fce8b2' }) };
 const pintadas = A.pintarValores(ventanaEditor, menu);
 comprueba(pintadas === 1, 'solo se pinta el valor que TIENE color');
 comprueba(enlaces[0].style.background === '#fce8b2'
@@ -120,14 +119,14 @@ comprueba(!enlaces[2].style.background,
           'y un valor que ni siquiera es de nuestra lista, tampoco se pinta');
 
 // Sin colores guardados —lista sacada de una columna— no se pinta ninguno.
-window.MaquitaListaMemoria = { leer: () => [] };
+window.MaquitaColoresCF = { coloresPorValor: () => ({}) };
 comprueba(A.pintarValores(ventanaEditor, menu) === 0,
           'una lista sacada de una columna va entera en texto plano');
 comprueba(!enlaces[0].style.background,
           'y se limpia lo pintado antes: el menú se reutiliza para otras celdas');
 
 // Sin memoria cargada no revienta.
-delete window.MaquitaListaMemoria;
+delete window.MaquitaColoresCF;
 comprueba(A.pintarValores(ventanaEditor, menu) === 0,
           'sin el módulo de memoria, la lista se abre igual (sin colores)');
 comprueba(A.pintarValores(ventanaEditor, null) === 0,

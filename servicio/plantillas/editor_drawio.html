@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <title>Diagrama — Almacén Maquita</title>
+<!-- Favicon por tipo de archivo: módulo aparte (editor-favicon.js) -->
+<script src="/static/js/almacen/editor-favicon.js?v=20260910-favicon2"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   html, body { margin:0; padding:0; height:100%; background:#f1f3f4;
@@ -42,6 +44,7 @@
   var nombre = ruta.split('/').pop() || 'Diagrama';
   document.getElementById('nombre').textContent = nombre;
   document.title = nombre + ' — Almacén Maquita';
+  if (window.MaquitaFavicon) MaquitaFavicon.poner(nombre);
   var overlay = document.getElementById('overlay');
   var iframe = document.getElementById('dio');
   var estado = document.getElementById('estado-guardado');
