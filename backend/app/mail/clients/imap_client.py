@@ -12,6 +12,7 @@ import aioimaplib
 
 from app.config import get_settings
 from app.mail.errors import CredencialIMAPInvalida
+from app.mail.clients.imap_sort import uid_sort
 
 
 def _imap_utf7_decode(s: str) -> str:
@@ -239,17 +240,14 @@ async def list_message_uids(
 
     if not all_uids:
         if use_sort:
-            try:
-                sort_resp = await imap.uid("sort", "(REVERSE DATE)", "UTF-8", *criteria)
-                if sort_resp.result == "OK":
-                    for line in _decode_lines(sort_resp.lines):
-                        line = line.strip()
-                        if line and not line.endswith("completed."):
-                            all_uids.extend(int(x) for x in line.split() if x.isdigit())
-                else:
-                    use_sort = False
-            except Exception:
+            # Orden por fecha en el servidor. Va por imap_sort porque aioimaplib no
+            # admite `UID SORT` en su método uid(); antes fallaba en silencio y la lista
+            # salía por UID (en buzones migrados, con meses fuera de sitio).
+            ordenados = await uid_sort(imap, criteria)
+            if ordenados is None:
                 use_sort = False
+            else:
+                all_uids = ordenados
 
         if not use_sort:
             search_resp = await imap.uid_search(*criteria)
