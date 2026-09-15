@@ -7,6 +7,7 @@ import { HelpTip } from "./components/HelpTip";
 import { AdminLayout } from "./layouts/AdminLayout";
 import { Dashboard } from "./pages/Dashboard";
 import { Domains } from "./pages/Domains";
+import { Portales } from "./pages/Portales";
 import { Mailboxes } from "./pages/Mailboxes";
 import { Aliases } from "./pages/Aliases";
 import { Forwarding } from "./pages/Forwarding";
@@ -137,6 +138,7 @@ function App() {
             <Route path="admins" element={<Admins />} />
             <Route path="ediscovery" element={<EDiscovery />} />
             <Route path="branding" element={<Branding />} />
+            <Route path="portales" element={<Portales />} />
             <Route path="ai" element={<AiConfig />} />
             <Route path="office" element={<OfficeConfig />} />
             <Route path="voice" element={<VoiceConfig />} />
