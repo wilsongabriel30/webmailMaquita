@@ -324,7 +324,7 @@ async def refresh(request: Request, response: Response):
     av = int(row["auth_version"])
 
     # La sesión (sid) es la misma; solo se renuevan el access y el refresh.
-    if kind == "normal":
+    if kind in ("normal", "delegada"):
         await prorrogar(redis, username, sid, abs_exp)
     access = create_access_token(username, sid=sid, av=av, kind=kind, abs_exp=abs_exp)
     new_refresh_raw, new_refresh_hash = create_refresh_token()
