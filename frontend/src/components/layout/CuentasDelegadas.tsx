@@ -28,7 +28,8 @@ export function CuentasDelegadas() {
 
   const cargar = () => {
     api.get<{ cuentas: CuentaConCarpetas[] }>('/mail/cuentas')
-      .then(r => { setLista(r.cuentas.filter(c => !c.propia)); setCuentas(r.cuentas); })
+      // Las cuentas con envío se abren completas desde el selector de cuentas; aquí solo las de lectura.
+      .then(r => { setLista(r.cuentas.filter(c => !c.propia && !c.puede_enviar)); setCuentas(r.cuentas); })
       .catch(() => { /* sin cuentas delegadas o servidor caído: no se muestra nada */ });
   };
   useEffect(() => {

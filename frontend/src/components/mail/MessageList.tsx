@@ -13,6 +13,7 @@ import type { MessagesResponse, MessageFull, MessageSummary } from '../../types'
 import { usePriority } from '../../hooks/usePriority';
 import { sanitizeHtml } from '../../lib/sanitize';
 import { getFolderDisplayName } from '../../folders';
+import { cargarEtiquetasPorTandas } from '../../lib/etiquetasPorTandas';
 import { AVISO_ELIMINAR_CORREO } from '../../lib/deepLinkCorreo';
 import { avisar } from '../../lib/avisosNavegador';   // T-53
 
@@ -407,8 +408,9 @@ export function MessageList() {
     const load = async () => {
       if (!currentFolder || uids.length === 0) { if (!cancelled) setMsgLabelsMap({}); return; }
       try {
-        const res = await api.get<{ message_labels?: Record<string, EtiquetaMsg[]> }>(`/mail/labels/messages/${encodeURIComponent(currentFolder)}?uids=${encodeURIComponent(uids.join(','))}`);
-        if (!cancelled) setMsgLabelsMap((res && res.message_labels) || {});
+        // Por tandas: con miles de correos cargados una sola URL era rechazada (503).
+        const mapa = await cargarEtiquetasPorTandas<EtiquetaMsg>(currentFolder, uids);
+        if (!cancelled) setMsgLabelsMap(mapa);
       } catch { if (!cancelled) setMsgLabelsMap({}); }
     };
     load();

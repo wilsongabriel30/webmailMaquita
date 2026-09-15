@@ -65,7 +65,7 @@ async def get_current_user(request: Request) -> str:
 
     # Keep-alive solo en sesiones normales: la impersonación (y las federadas) vencen
     # a su hora sin prórroga (A-17 / F-04).
-    if request.state.session_kind == "normal":
+    if request.state.session_kind in ("normal", "delegada"):
         await prorrogar(
             request.app.state.redis,
             username,
