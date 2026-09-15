@@ -65,7 +65,7 @@ const T = window.MaquitaPastillasTodas;
    editor no llega a guardar.) */
 function reglaEn(donde) {
     return { asc_getLocation: () => donde,
-             asc_getValue1: () => '"ENERO"',
+             asc_getValue1: () => '="ENERO"',
              asc_getDxf: () => ({ asc_getFillColor: () => null }) };
 }
 window.MaquitaColoresCF = {

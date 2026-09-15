@@ -436,7 +436,7 @@ def onlyoffice_config():
     try:
         ruta = normalizar_ruta_virtual(request.args.get('ruta', ''))
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
 
     nombre = ruta.rsplit('/', 1)[-1]
     extension = nombre.rsplit('.', 1)[-1].lower() if '.' in nombre else ''
@@ -447,7 +447,7 @@ def onlyoffice_config():
     try:
         fisica = ruta_fisica(usuario, ruta)
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     if not os.path.isfile(fisica):
         return error('Archivo no encontrado', 404)
 
@@ -476,6 +476,13 @@ def onlyoffice_config():
     huella_documento.comprobar(doc_base, fisica)
     version = _version_sesion(doc_base)
     doc_key = hashlib.sha1(f'{doc_base}:v{version}'.encode()).hexdigest()[:20]
+    # La sala queda marcada como ABIERTA: así la descarga sabe que tiene que
+    # pedir un guardado forzado antes de entregar el archivo.
+    try:
+        import guardado_forzado
+        guardado_forzado.marcar_abierto(doc_base)
+    except Exception:
+        pass
 
     # Tokens de un solo uso lógico (usuario + ruta + propósito) para que el
     # Document Server descargue y devuelva el archivo sin sesión web
@@ -507,6 +514,20 @@ def onlyoffice_config():
         'documentType': tipo_documento,
         'editorConfig': {
             'callbackUrl': url_callback,
+            # Complemento propio «Crear formulario»: se sirve desde NUESTRO
+            # dominio, no se copia dentro del contenedor del servidor de
+            # documentos (alli se perderia en cada actualizacion de la imagen).
+            # Ver: PLAN-formularios-desde-excel-hoja-vinculada (punto 9.1).
+            'plugins': {
+                'pluginsData': [
+                    # La versión en la URL salta la caché del navegador
+                    # (los estáticos van con 1 año inmutable).
+                    URL_PUBLICA + '/static/onlyoffice-plugins/crear-formulario/config.json?v=20260910-hoja1',
+                    # Residente (isSystem): escribe en el libro abierto las
+                    # respuestas que llegan de sus formularios (11/09/2026).
+                    URL_PUBLICA + '/static/onlyoffice-plugins/respuestas-vivo/config.json?v=20260911-vivo4',
+                ],
+            },
             'coEditing': {'mode': 'fast', 'change': False},
             'lang': 'es',
             'mode': 'edit' if puede_editar else 'view',
@@ -524,6 +545,11 @@ def onlyoffice_config():
                 # aquí, sino de un logo de 2446x739 px que el editor escalaba por
                 # la fuerza (ver _logo_editor).
                 'compactHeader': False,
+                # El panel derecho (Relleno, Estilo de bordes, Sangría…) salía
+                # abierto nada más entrar y tapaba media hoja (vídeo de Wilson,
+                # 03/09/2026). Como en Google: escondido; quien lo quiera lo abre
+                # con el botón de la derecha o desde Vista.
+                'hideRightMenu': True,
                 'feedback': False,
                 'forcesave': True,
                 'help': False,
@@ -678,6 +704,14 @@ def onlyoffice_callback():
             refrescar_por_origen(usuario, ruta)
         except Exception as _exc_vinc:
             log.warning('vinculos refresco auto %s: %s', ruta, _exc_vinc)
+        # Consolidados de Planificacion ASC: si lo guardado es una matriz
+        # territorial, rehacer los consolidados que se alimentan de ella.
+        # Lanza un proceso aparte (nada pesado dentro de gunicorn).
+        try:
+            from consolidados.enganche import al_guardar as _consolidar
+            _consolidar(ruta)
+        except Exception as _exc_cons:
+            log.warning('consolidados enganche %s: %s', ruta, _exc_cons)
         total = time.monotonic() - inicio
         mensaje = ('OnlyOffice guardado ruta=%s bytes=%d status=%s en %.1fs'
                    % (ruta, len(contenido), status, total))
@@ -685,6 +719,35 @@ def onlyoffice_callback():
 
         if status == 2:
             _cerrar_sesion(datos.get('b') or _base_documento(usuario, ruta))
+            # Si este libro RECIBE datos de un vínculo (p. ej. la hoja de
+            # respuestas de un formulario), el guardado del editor acaba de
+            # pisar lo que llegó mientras estaba abierto: se reaplica ahora
+            # que ya nadie lo edita (10/09/2026). Best-effort.
+            try:
+                from api_vinculos import refrescar_por_destino
+                refrescar_por_destino(usuario, ruta)
+            except Exception as _exc_dest:
+                log.warning('vinculos refresco destino %s: %s', ruta, _exc_dest)
+
+    if status in (2, 4):
+        # Se fue el último editor: la sala deja de estar abierta y las
+        # descargas vuelven a entregar el archivo del disco sin rodeos.
+        try:
+            import guardado_forzado
+            guardado_forzado.marcar_cerrado(
+                datos.get('b') or _base_documento(usuario, ruta))
+        except Exception:
+            pass
+        if status == 4:
+            # Cerrado SIN cambios: no hay guardado, pero puede haber quedado
+            # pendiente un renombre de hoja o datos de un vínculo escritos
+            # mientras estaba abierto (11/09/2026). Con el libro ya cerrado se
+            # aplican; si no falta nada, no escribe.
+            try:
+                from api_vinculos import refrescar_por_destino
+                refrescar_por_destino(usuario, ruta)
+            except Exception as _exc_dest:
+                log.warning('vinculos refresco destino (cierre) %s: %s', ruta, _exc_dest)
 
     return jsonify({'error': 0})
 
@@ -780,8 +843,8 @@ def onlyoffice_config_public():
             return error('No encontramos ese archivo en el enlace', 404)
         try:
             ruta = normalizar_ruta_virtual(comp['ruta'] + '/' + sub)
-        except RutaInvalida:
-            return error('Ruta inválida', 400)
+        except RutaInvalida as excepcion:
+            return error(str(excepcion), excepcion.codigo)
 
     nombre = ruta.rsplit('/', 1)[-1]
     extension = nombre.rsplit('.', 1)[-1].lower() if '.' in nombre else ''
@@ -791,7 +854,7 @@ def onlyoffice_config_public():
     try:
         fisica = ruta_fisica(propietario, ruta)
     except RutaInvalida as excepcion:
-        return error(str(excepcion), 400)
+        return error(str(excepcion), excepcion.codigo)
     if not os.path.isfile(fisica):
         return error('El archivo ya no existe', 404)
 
@@ -812,6 +875,13 @@ def onlyoffice_config_public():
     huella_documento.comprobar(doc_base, fisica)
     version = _version_sesion(doc_base)
     doc_key = hashlib.sha1(f'{doc_base}:v{version}'.encode()).hexdigest()[:20]
+    # La sala queda marcada como ABIERTA: así la descarga sabe que tiene que
+    # pedir un guardado forzado antes de entregar el archivo.
+    try:
+        import guardado_forzado
+        guardado_forzado.marcar_abierto(doc_base)
+    except Exception:
+        pass
 
     exp = int(time.time()) + DIAS_TOKEN * 86400
     token_descarga = firmar_jwt({'u': propietario, 'r': ruta, 'uso': 'descarga', 'exp': exp})
@@ -847,6 +917,7 @@ def onlyoffice_config_public():
                 'autosave': True,
                 'comments': puede_editar,
                 'compactHeader': True,
+                'hideRightMenu': True,     # igual que en el editor normal
                 'feedback': False,
                 'forcesave': True,
                 'help': False,
@@ -890,6 +961,16 @@ def editor_almacen():
         from urllib.parse import quote as _q
         _ruta_raw = request.args.get('ruta', '')
         _ruta = normalizar_ruta_virtual(_ruta_raw)
+        # Enlace armado en el espacio del DUEÑO (?ruta=/Carpeta/x.docx): a quien
+        # se lo compartieron no le existe en el suyo y el editor no abría. Se le
+        # lleva por «Compartido conmigo», con el permiso que le dieron (14/09/2026).
+        try:
+            from resolver_enlace import resolver as _resolver_enlace
+            _destino = _resolver_enlace(int(usuario_actual()), _ruta)
+        except Exception:
+            _destino = None
+        if _destino and _destino.get('ir_a'):
+            return _redir('/archivos-almacen/editar?ruta=' + _q(_destino['ir_a']), 302)
         _fis = ruta_fisica(usuario_actual(), _ruta)
         if os.path.isdir(_fis):
             return _redir('/archivos-almacen' + _q(_ruta), 302)

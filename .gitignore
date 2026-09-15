@@ -17,3 +17,7 @@ registros/
 
 # cualquier respaldo, esté donde esté
 *bak*
+
+# Datos que no se publican (14/09/2026): volcados con tokens de encuestas e IDs de archivos de Google Drive
+backups-encuestas-*.json
+servicio/consolidados/equivalencias-google.tsv

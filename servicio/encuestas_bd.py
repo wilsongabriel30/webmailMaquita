@@ -121,8 +121,20 @@ def registrar(encuesta_id: str, propietario: int, ruta: str, titulo: str):
     nuevo y arranca con su propia hoja de respuestas.
     """
     actual = obtener(encuesta_id)
+    # En una UNIDAD COMPARTIDA la ruta es única para toda la fundación: el
+    # archivo de `/unidades/5/X.forma` es UNO, lo abra quien lo abra. Ahí el
+    # propietario NO puede entrar en la comparación (09/09/2026): con él,
+    # cada persona que abría un formulario compartido se llevaba una copia
+    # con id nuevo —el archivo se reescribía— y un enlace público distinto,
+    # y el enlace de quien lo publicó antes se quedaba huérfano apuntando a
+    # una ruta que ya tenía otro formulario. En el Drive personal sí cuenta:
+    # «/Nuevo Formulario.forma» es el nombre que el botón «+ Nuevo» le pone a
+    # todo el mundo, y sin el propietario dos personas distintas acabarían
+    # editando el mismo registro.
+    en_unidad = ruta.startswith('/unidades/')
     if actual and (actual['ruta'] != ruta
-                   or int(actual['propietario']) != int(propietario)):
+                   or (not en_unidad
+                       and int(actual['propietario']) != int(propietario))):
         return None
     if actual:
         bd.ejecutar(

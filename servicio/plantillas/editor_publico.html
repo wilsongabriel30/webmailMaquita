@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <title>Documento compartido — Maquita</title>
+<!-- Favicon por tipo de archivo: módulo aparte (editor-favicon.js) -->
+<script src="/static/js/almacen/editor-favicon.js?v=20260910-favicon2"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   html, body { margin:0; padding:0; height:100%; background:#f1f3f4;
@@ -134,6 +136,7 @@
 
     document.getElementById('nombre-archivo').textContent = data.nombre || 'Documento';
     document.title = (data.nombre || 'Documento') + ' — Maquita';
+    if (window.MaquitaFavicon) MaquitaFavicon.poner(data.nombre || '');
 
     // 2. api.js del Document Server dedicado
     try {

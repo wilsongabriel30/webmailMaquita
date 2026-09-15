@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <title>Editor — Almacén Maquita</title>
+<!-- Favicon por tipo de archivo (verde hoja, azul documento, rojo PDF…): módulo aparte -->
+<script src="/static/js/almacen/editor-favicon.js?v=20260910-favicon2"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   html, body { margin:0; padding:0; height:100%; background:#f1f3f4;
@@ -34,6 +36,7 @@
   let ruta = parametros.get('ruta') || '';
   const nombre = ruta.split('/').pop() || 'Documento';
   document.title = nombre + ' — Almacén Maquita';
+  if (window.MaquitaFavicon) MaquitaFavicon.poner(nombre);
   document.getElementById('nombre-archivo').textContent = nombre;
   const estado = document.getElementById('estado');
   let docEditor = null;
@@ -58,6 +61,7 @@
     ruta = data.ruta_abierta;
     const nombreNuevo = ruta.split('/').pop();
     document.title = nombreNuevo + ' — Almacén Maquita';
+    if (window.MaquitaFavicon) MaquitaFavicon.poner(nombreNuevo);
     document.getElementById('nombre-archivo').textContent = nombreNuevo;
     try { history.replaceState(null, '', '?ruta=' + encodeURIComponent(ruta)); } catch (e) {}
     if (data.convertido_ahora) {

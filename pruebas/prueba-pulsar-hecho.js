@@ -126,8 +126,14 @@ Validacion.prototype.asc_getFormula1 = function () { return this.Formula1; };
 function Regla() { }
 Regla.prototype.asc_setType = function () { };
 Regla.prototype.asc_setOperator = function () { };
-Regla.prototype.asc_setValue1 = function (v) { this.valor = v; };
-Regla.prototype.asc_getValue1 = function () { return this.valor; };
+/* Como el editor DE VERDAD (03/09/2026): envuelve el texto en comillas y,
+   si ya las traía, las dobla y lo vuelve a envolver. Por eso hay que dárselo
+   SIN comillas. */
+Regla.prototype.asc_setValue1 = function (v) {
+    v = String(v);
+    this.valor = v.charAt(0) === '"' ? '"' + v.replace(/"/g, '""') + '"' : '"' + v + '"';
+};
+Regla.prototype.asc_getValue1 = function () { return '=' + this.valor; };
 Regla.prototype.asc_setDxf = function (v) { this.formato = v; };
 Regla.prototype.asc_getDxf = function () { return this.formato; };
 Regla.prototype.asc_setLocation = function () { };
@@ -160,8 +166,11 @@ const ventanaEditor = {
                 const dado = String((v.Formula1 && v.Formula1.asc_getValue()) || '');
                 guardada = '"' + dado.replace(/"/g, '""') + '"';
             },
+            /* Como el editor de verdad (03/09/2026): UNA regla por llamada,
+               en un array de uno; el array por hoja es la forma vieja. */
             asc_setCF: (reglas) => {
-                if (reglas && reglas[HOJA]) puestas = puestas.concat(reglas[HOJA]);
+                if (reglas && reglas.length === 1 && !Array.isArray(reglas[0])) puestas.push(reglas[0]);
+                else if (reglas && reglas[HOJA]) puestas = puestas.concat(reglas[HOJA]);
             },
             asc_getCF: () => [puestas],
             asc_getCellInfo: () => ({
@@ -177,7 +186,6 @@ const ventanaEditor = {
 
 require(B + 'editor-lista-criterios.js');
 require(B + 'editor-lista-colores-cf.js');
-require(B + 'editor-lista-memoria.js');
 require(B + 'editor-rango-a1.js');
 require(B + 'editor-lista-aplicar.js');
 require(B + 'editor-lista-panel.js');

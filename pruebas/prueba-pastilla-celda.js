@@ -17,6 +17,8 @@ function Elemento() {
     this.parentNode = null;
     this.hijos = [];
     this.appendChild = function (h) { this.hijos.push(h); h.parentNode = this; };
+    // Como el DOM: quitar un hijo lo desengancha (la capa cuelga del contenedor).
+    this.removeChild = function (h) { this.hijos = this.hijos.filter(function (x) { return x !== h; }); h.parentNode = null; };
     creados.push(this);
 }
 
@@ -98,14 +100,18 @@ console.log('\n[Drive Maquita] la pastilla dentro de la celda\n');
 
 repasar();
 
-// La capa es la primera que se creó; la segunda es el triangulito.
-const capa = creados[0];
+// Desde el 03/09/2026 lo primero que se crea es el CONTENEDOR recortado al área
+// de celdas (maq-pastillas); la capa cuelga de él. Se busca por su clase.
+const contenedorPastillas = creados.find(e => e.className === 'maq-pastillas');
+const capa = creados.find(e => e.className === 'maq-pastilla-celda');
 const flecha = capa.hijos[0];
 
 // ── La forma, medida contra el video de Google ───────────────────────────
 bien(capa.className === 'maq-pastilla-celda', 'se pone la capa');
-bien(capa.parentNode === tableroEl,
-     'y cuelga de donde el editor cuelga lo suyo: mismas coordenadas');
+bien(!!contenedorPastillas && contenedorPastillas.parentNode === tableroEl,
+     'hay un contenedor de pastillas colgado de donde el editor cuelga lo suyo: mismas coordenadas');
+bien(capa.parentNode === contenedorPastillas,
+     'y la capa cuelga de ese contenedor (que se recorta al área de celdas)');
 bien(capa.style.background === '#e0e0e0', 'es plomo, para que se vea');
 bien(capa.style.mixBlendMode === 'multiply',
      'en multiply: el texto de la celda se sigue leyendo debajo');

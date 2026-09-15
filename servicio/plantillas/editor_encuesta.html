@@ -3,11 +3,18 @@
 <head>
 <meta charset="utf-8">
 <title>Formulario — Almacén Maquita</title>
+<!-- Favicon por tipo de archivo: módulo aparte (editor-favicon.js) -->
+<script src="/static/js/almacen/editor-favicon.js?v=20260910-favicon2"></script>
+<script>try { MaquitaFavicon.poner((new URLSearchParams(location.search).get('ruta') || '').split('/').pop() || 'x.forma'); } catch (e) {}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="/static/vendor/fonts/material-icons.css">
 <link rel="stylesheet" href="/static/vendor/fonts/google-sans-roboto.css">
-<link rel="stylesheet" href="/static/css/almacen/encuesta-base.css?v=20260827-salto1">
-<link rel="stylesheet" href="/static/css/almacen/encuesta-editor.css?v=20260827-salto1">
+<link rel="stylesheet" href="/static/css/almacen/encuesta-base.css?v=20260909-opciones2">
+<link rel="stylesheet" href="/static/css/almacen/encuesta-destino-seccion.css?v=20260909-opciones2">
+<link rel="stylesheet" href="/static/css/almacen/encuesta-validacion.css?v=20260909-opciones2">
+<link rel="stylesheet" href="/static/css/almacen/encuesta-fechahora.css?v=20260909-opciones2">
+<link rel="stylesheet" href="/static/css/almacen/encuesta-campos.css?v=20260909-opciones2">
+<link rel="stylesheet" href="/static/css/almacen/encuesta-editor.css?v=20260909-opciones2">
 <style>
   /* Capa de vista previa y de publicación (solo la usa el editor) */
   .fm-capa { display:none; position:fixed; inset:0; z-index:40;
@@ -89,22 +96,29 @@
   </div>
 </div>
 
-<script src="/static/js/almacen/encuesta-texto.js?v=20260827-salto1"></script>
-<script src="/static/js/almacen/encuesta-render.js?v=20260827-salto1"></script>
-<script src="/static/js/almacen/encuesta-imagenes.js?v=20260827-salto1"></script>
-<script src="/static/js/almacen/encuesta-historial.js?v=20260827-salto1"></script>
-<script src="/static/js/almacen/encuesta-formato.js?v=20260827-salto1"></script>
-<script src="/static/js/almacen/encuesta-clave.js?v=20260827-salto1"></script>
-<script src="/static/js/almacen/encuesta-tarjetas.js?v=20260827-salto1"></script>
-<script src="/static/js/almacen/encuesta-barra.js?v=20260827-salto1"></script>
-<script src="/static/js/almacen/encuesta-tema.js?v=20260827-salto1"></script>
-<script src="/static/js/almacen/encuesta-cfg-controles.js?v=20260827-salto1"></script>
-<script src="/static/js/almacen/encuesta-cfg-secciones.js?v=20260827-salto1"></script>
-<script src="/static/js/almacen/encuesta-config.js?v=20260827-salto1"></script>
-<script src="/static/js/almacen/encuesta-encabezado.js?v=20260827-salto1"></script>
-<script src="/static/js/almacen/encuesta-editor.js?v=20260827-salto1"></script>
-<script src="/static/js/almacen/encuesta-qr.js?v=20260827-salto1"></script>
-<script src="/static/js/almacen/encuesta-importar.js?v=20260827-salto1"></script>
-<script src="/static/js/almacen/encuesta-publicar.js?v=20260827-salto1"></script>
+<script src="/static/js/almacen/encuesta-texto.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-render.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-destino-seccion.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-validacion.js?v=20260910-cedula-ruc"></script>
+<script src="/static/js/almacen/encuesta-campos.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-archivos.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-tipos.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-fechahora.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-cuadricula.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-imagenes.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-historial.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-formato.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-clave.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-tarjetas.js?v=20260910-mejoras"></script>
+<script src="/static/js/almacen/encuesta-barra.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-tema.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-cfg-controles.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-cfg-secciones.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-config.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-encabezado.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-editor.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-qr.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-importar.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-publicar.js?v=20260910-mejoras"></script>
 </body>
 </html>

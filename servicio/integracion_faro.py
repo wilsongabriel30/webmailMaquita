@@ -320,6 +320,21 @@ def _entregar_sin_macros(comp, destino, subruta='', adjunto=True):
     if not ruta:
         return compartir_macros.mensaje_bloqueo(nombre), 403
 
+    # (2026-09-04) Lo que sale por un enlace también tiene que abrirse con
+    # sus listas y sus colores en cualquier programa (compatibilidad_xlsx).
+    try:
+        import compatibilidad_xlsx
+        _compatible = compatibilidad_xlsx.copia_compatible(ruta)
+    except Exception:
+        _compatible = None
+    if _compatible:
+        if temporal:
+            try:
+                os.unlink(temporal)
+            except OSError:
+                pass
+        ruta, temporal = _compatible, _compatible
+
     respuesta = send_file(ruta, as_attachment=adjunto, download_name=nombre_final)
     if temporal:
         # La copia limpia se genera al vuelo: ni se guarda ni se cachea.
@@ -817,6 +832,17 @@ def descargar_compartido(token, ruta):
     # Política de macros: lo que sale del enlace va sin macro (o no sale). Vale
     # también para /ver/, que si no sería la puerta de atrás para el original.
     adjunto = (modo == 'archivo') and bool(comp['permite_descarga'])
+    # (2026-09-04) Igual que la descarga interna: si el dueño lo tiene
+    # abierto en el editor, primero se le pide que guarde.
+    try:
+        import guardado_forzado
+        from seguridad_rutas import normalizar_ruta_virtual
+        _virtual = normalizar_ruta_virtual(
+            comp['ruta'] + '/' + ruta if ruta else comp['ruta'])
+        guardado_forzado.guardar_si_esta_abierto(
+            comp['propietario_id'], _virtual, destino)
+    except Exception:
+        pass
     return _entregar_sin_macros(comp, destino, ruta, adjunto)
 
 
@@ -974,16 +1000,25 @@ def registrar_almacen(app):
         from api_dav_equipo import bp_dav_equipo
         from api_drawio import bp_drawio, bp_drawio_web
         from api_crear import bp_crear
+        from api_descomprimir import bp_descomprimir
         from api_oo_drive import bp_oo_drive
         from api_acceso_externo import bp_acceso_externo
         from api_cad import bp_cad, bp_cad_web
         from api_orto import bp_orto
         from api_vinculos import bp_vinculos, asegurar_esquema_vinculos
+        from api_vinculos_vivo import bp_vinculos_vivo   # respuestas en vivo (11/09/2026)
+        from api_consolidados_latido import bp_consolidados_latido   # matrices ASC (11/09/2026)
         from api_monitor import bp_monitor
         from api_encuestas import bp_encuestas, bp_encuestas_web
         # Cuelga sus rutas del mismo bp_encuestas: basta con importarlo ANTES
         # de registrar el blueprint para que queden dentro.
         import api_encuestas_quiz          # noqa: F401
+        # Vista previa interactiva del editor (10/09/2026): también cuelga
+        # sus rutas de bp_encuestas y bp_encuestas_web.
+        import api_encuestas_previa        # noqa: F401
+        # «Crear formulario» desde una hoja de cálculo: sus respuestas van a
+        # una hoja de ese mismo libro.
+        from api_formulario_libro import bp_formulario_libro
         from api_encuestas_publico import bp_encuestas_publico
         from api_enlace_info import bp_enlace_info
         # Buzón de diagnóstico del editor (temporal, 02/09/2026).
@@ -1008,7 +1043,7 @@ def registrar_almacen(app):
                       'para no dejar la API sin rutas: %s', _exc_esquema)
 
         # API del motor bajo /api/almacen (NO choca con /api/nextcloud)
-        for bp in (bp_archivos, bp_compartir, bp_extras, bp_admin, bp_versiones, bp_almacenamiento, bp_actividad, bp_unidades, bp_onlyoffice, bp_drawio, bp_crear, bp_oo_drive, bp_acceso_externo, bp_cad, bp_orto, bp_vinculos, bp_monitor, bp_macros, bp_menciones, bp_dav, bp_dav_compartir, bp_dav_equipo, bp_encuestas, bp_busqueda_rapida, bp_enlace_info, bp_diag_editor):
+        for bp in (bp_archivos, bp_compartir, bp_extras, bp_admin, bp_versiones, bp_almacenamiento, bp_actividad, bp_unidades, bp_onlyoffice, bp_drawio, bp_crear, bp_oo_drive, bp_acceso_externo, bp_cad, bp_orto, bp_vinculos, bp_monitor, bp_macros, bp_menciones, bp_dav, bp_dav_compartir, bp_dav_equipo, bp_encuestas, bp_busqueda_rapida, bp_enlace_info, bp_diag_editor, bp_descomprimir, bp_formulario_libro, bp_vinculos_vivo, bp_consolidados_latido):
             app.register_blueprint(bp, url_prefix='/api/almacen')
         # Página del explorador en modo Almacén
         app.register_blueprint(bp_almacen_web)
@@ -1049,6 +1084,13 @@ def registrar_almacen(app):
                 # editor por fetch, sin token CSRF. Solo escribe estado
                 # tecnico en un registro (temporal, 02/09/2026).
                 _csrf.exempt(bp_diag_editor)
+                # El botón del editor llama sin token CSRF, como el resto de la
+                # API del Almacén.
+                _csrf.exempt(bp_formulario_libro)
+                # Los llama la página del editor (sin token CSRF), igual que
+                # el botón: respuestas en vivo y latido de matrices (11/09/2026).
+                _csrf.exempt(bp_vinculos_vivo)
+                _csrf.exempt(bp_consolidados_latido)
         except Exception as _exc_enc:
             log.warning('No se pudo eximir los formularios públicos de CSRF: %s',
                         _exc_enc)
