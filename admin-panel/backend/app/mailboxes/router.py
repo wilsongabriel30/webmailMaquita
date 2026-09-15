@@ -353,8 +353,8 @@ async def impersonate_mailbox(username: str, request: Request, admin: dict = Dep
     para ESTE buzón, 5 minutos y un solo uso (lo consume el backend del correo)."""
     from app.auth.jwt import create_impersonation_token
     db = _db(request)
-    from app import config as _cfg
-    if _cfg.IMPERSONAR_EXIGE_TOTP and not admin.get("totp"):
+    from app.auth.politica_impersonacion import exige_totp_para_impersonar
+    if await exige_totp_para_impersonar(db) and not admin.get("totp"):
         raise HTTPException(403, "Impersonar exige haber iniciado sesión con segundo factor (TOTP)")
     
     # Verify mailbox exists
