@@ -77,6 +77,7 @@ const navSections = [
       { to: "/audit", label: "Auditoría", help: "Registro de todas las acciones de los administradores del panel: quién hizo qué y cuándo.", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" },
       { to: "/admins", label: "Administradores", help: "Cuentas de administradores del panel: crear, editar rol y estado, cambiar contraseñas.", icon: "M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" },
       { to: "/branding", label: "Personalización", help: "Personaliza logo, colores y nombre de la organización en el webmail y el panel.", icon: "M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" },
+      { to: "/portales", label: "Portales por empresa", help: "Nombre de servidor, logo, nombre y colores propios de cada empresa (mail.<empresa>). Lo que no se defina se hereda de Personalización.", icon: "M3 21h18M5 21V7l8-4v18M19 21V11l-6-4M9 9v.01M9 12v.01M9 15v.01M9 18v.01" },
     ],
   },
   {

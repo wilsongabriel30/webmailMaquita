@@ -34,6 +34,7 @@ from app.dnscheck.router import router as dnscheck_router
 from app.shared.router import router as shared_router
 from app.ediscovery.router import router as ediscovery_router
 from app.branding.router import router as branding_router
+from app.portales.router import router as portales_router
 from app import config
 from app.ai_config.router import router as ai_config_router
 from app.office_config.router import router as office_config_router
@@ -172,6 +173,7 @@ app.include_router(zap_router)
 app.include_router(safeattach_router)
 app.include_router(ediscovery_router)
 app.include_router(branding_router)
+app.include_router(portales_router)
 app.include_router(geoaccess_router)
 app.include_router(anomaly_router)
 app.include_router(outbound_router)
