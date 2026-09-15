@@ -10,7 +10,13 @@ export interface EstadoDescarga {
 }
 
 const CARPETAS = ['INBOX', 'Sent'];
-const PAUSA_MS = 120;
+// Ritmo: pausado (15/09/2026). A 120 ms bajaba cuerpos y PDF a ~8 por segundo y, sumado al
+// scroll de la bandeja, agotaba el límite de peticiones de nginx (429) para TODO el webmail.
+// Con la pestaña a la vista se va más lento aún: la persona está trabajando.
+const PAUSA_MS = 400;
+const PAUSA_VISIBLE_MS = 1000;
+const ESPERA_429_MS = 90000;
+const pausa = () => dormir(typeof document !== 'undefined' && document.visibilityState === 'visible' ? PAUSA_VISIBLE_MS : PAUSA_MS);
 const est: EstadoDescarga = { activa: false, carpeta: '', hechos: 0, total: 0, adjuntos: 0, ultima: null, error: '', dias: 30, adjMB: 5 };
 
 function leerCfg() {
@@ -30,6 +36,7 @@ const dormir = (ms: number) => new Promise(r => setTimeout(r, ms));
 async function pedir<T>(url: string): Promise<T | null> {
   const r = await fetch(url, { credentials: 'include' });
   if (r.status === 401) throw new Error('sin sesión');
+  if (r.status === 429) { est.error = 'servidor ocupado, esperando'; emitir(); await dormir(ESPERA_429_MS); est.error = ''; return null; }
   if (!r.ok) return null;
   return r.json();
 }
@@ -42,8 +49,9 @@ async function descargarAdjuntos(folder: string, uid: number, adj: OfflineMessag
       // El service worker guarda la respuesta en su caché de API; solo hay que pedirla una vez.
       const r = await fetch(`/api/mail/attachment/${encodeURIComponent(folder)}/${uid}/${a.part_number}/${encodeURIComponent(a.filename)}`, { credentials: 'include' });
       if (r.ok) { await r.blob(); est.adjuntos++; }
+      else if (r.status === 429) { est.error = 'servidor ocupado, esperando'; emitir(); await dormir(ESPERA_429_MS); est.error = ''; return; }
     } catch { /* se reintenta en el próximo ciclo */ }
-    await dormir(PAUSA_MS);
+    await pausa();
   }
 }
 
@@ -85,7 +93,7 @@ export async function descargarAhora(): Promise<EstadoDescarga> {
           if (String((e as Error)?.message).includes('sin sesión')) { est.error = 'sin sesión'; est.activa = false; emitir(); return estadoDescarga(); }
         }
         est.hechos++; if (est.hechos % 5 === 0) emitir();
-        await dormir(PAUSA_MS);
+        await pausa();
       }
     }
     est.ultima = Date.now();
