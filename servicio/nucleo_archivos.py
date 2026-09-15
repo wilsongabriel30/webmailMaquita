@@ -246,10 +246,10 @@ def listar(usuario_id: int, ruta_virtual: str) -> tuple:
                 if item['es_carpeta'] and estilos_unidad:
                     _e = estilos_unidad.get(_ec.folder_id_compartido(item['ruta']))
                     if _e:
-                        if _e['color']:
-                            item['color'] = _e['color']
-                        if _e['icono']:
-                            item['icono'] = _e['icono']
+                        # Manda SIEMPRE, incluso vacío: si alguien quitó el
+                        # color, no debe reaparecer el personal viejo.
+                        item['color'] = _e['color'] or None
+                        item['icono'] = _e['icono'] or ICONOS_POR_TIPO['carpeta']
                 (carpetas if item['es_carpeta'] else archivos).append(item)
         return carpetas, archivos
 
