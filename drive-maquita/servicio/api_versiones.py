@@ -72,6 +72,10 @@ def cambiar_estilo_carpeta():
     usuario = usuario_actual()
     datos = request.get_json() or {}
     folder_id = datos.get('folder_id')
+    # (14/09/2026) Con la ruta se decide si el estilo es compartido (unidad).
+    if datos.get('ruta'):
+        from estilos_compartidos import clave
+        usuario, folder_id = clave(usuario, datos['ruta'])
     if not folder_id:
         return error('folder_id requerido', 400)
     color = datos.get('color')
