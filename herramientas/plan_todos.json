@@ -1,0 +1,570 @@
+[
+ {
+  "orden": 1,
+  "cod": "AAE"
+ },
+ {
+  "orden": 2,
+  "cod": "ADSICX"
+ },
+ {
+  "orden": 3,
+  "cod": "AYB23"
+ },
+ {
+  "orden": 4,
+  "cod": "B.7"
+ },
+ {
+  "orden": 5,
+  "cod": "BCH22"
+ },
+ {
+  "orden": 6,
+  "cod": "C.10"
+ },
+ {
+  "orden": 7,
+  "cod": "C.11"
+ },
+ {
+  "orden": 8,
+  "cod": "C.12"
+ },
+ {
+  "orden": 9,
+  "cod": "C.13"
+ },
+ {
+  "orden": 10,
+  "cod": "CANPI24"
+ },
+ {
+  "orden": 11,
+  "cod": "CAR10"
+ },
+ {
+  "orden": 12,
+  "cod": "CAR11"
+ },
+ {
+  "orden": 13,
+  "cod": "CARE9"
+ },
+ {
+  "orden": 14,
+  "cod": "CCH23"
+ },
+ {
+  "orden": 15,
+  "cod": "CCHB1"
+ },
+ {
+  "orden": 16,
+  "cod": "CCHB2"
+ },
+ {
+  "orden": 17,
+  "cod": "CCX22"
+ },
+ {
+  "orden": 18,
+  "cod": "CH.10"
+ },
+ {
+  "orden": 19,
+  "cod": "CH.11"
+ },
+ {
+  "orden": 20,
+  "cod": "CH.7"
+ },
+ {
+  "orden": 21,
+  "cod": "CH.8"
+ },
+ {
+  "orden": 22,
+  "cod": "CH.9"
+ },
+ {
+  "orden": 23,
+  "cod": "CRN19"
+ },
+ {
+  "orden": 24,
+  "cod": "CRN21"
+ },
+ {
+  "orden": 25,
+  "cod": "CRN24"
+ },
+ {
+  "orden": 26,
+  "cod": "CTM21"
+ },
+ {
+  "orden": 27,
+  "cod": "CTM22"
+ },
+ {
+  "orden": 28,
+  "cod": "CV21S"
+ },
+ {
+  "orden": 29,
+  "cod": "CV322"
+ },
+ {
+  "orden": 30,
+  "cod": "E.8"
+ },
+ {
+  "orden": 31,
+  "cod": "E.9"
+ },
+ {
+  "orden": 32,
+  "cod": "E10"
+ },
+ {
+  "orden": 33,
+  "cod": "E7"
+ },
+ {
+  "orden": 34,
+  "cod": "EAB22"
+ },
+ {
+  "orden": 35,
+  "cod": "EAM22"
+ },
+ {
+  "orden": 36,
+  "cod": "ECLR3"
+ },
+ {
+  "orden": 37,
+  "cod": "ECM22"
+ },
+ {
+  "orden": 38,
+  "cod": "ECM23"
+ },
+ {
+  "orden": 39,
+  "cod": "ECN19"
+ },
+ {
+  "orden": 40,
+  "cod": "ECON23"
+ },
+ {
+  "orden": 41,
+  "cod": "ECOP24"
+ },
+ {
+  "orden": 42,
+  "cod": "ECT20"
+ },
+ {
+  "orden": 43,
+  "cod": "ECT23"
+ },
+ {
+  "orden": 44,
+  "cod": "EDB22"
+ },
+ {
+  "orden": 45,
+  "cod": "EGC20"
+ },
+ {
+  "orden": 46,
+  "cod": "EGI20"
+ },
+ {
+  "orden": 47,
+  "cod": "EGI21"
+ },
+ {
+  "orden": 48,
+  "cod": "EGV22"
+ },
+ {
+  "orden": 49,
+  "cod": "EHM21"
+ },
+ {
+  "orden": 50,
+  "cod": "EHM22"
+ },
+ {
+  "orden": 51,
+  "cod": "EPA23"
+ },
+ {
+  "orden": 52,
+  "cod": "EPG21"
+ },
+ {
+  "orden": 53,
+  "cod": "EPM20"
+ },
+ {
+  "orden": 54,
+  "cod": "EPY24"
+ },
+ {
+  "orden": 55,
+  "cod": "ETC22"
+ },
+ {
+  "orden": 56,
+  "cod": "FCP01"
+ },
+ {
+  "orden": 57,
+  "cod": "FIED"
+ },
+ {
+  "orden": 58,
+  "cod": "GEB23"
+ },
+ {
+  "orden": 59,
+  "cod": "GIZ22"
+ },
+ {
+  "orden": 60,
+  "cod": "GIZ23"
+ },
+ {
+  "orden": 61,
+  "cod": "GIZ232"
+ },
+ {
+  "orden": 62,
+  "cod": "GIZ233"
+ },
+ {
+  "orden": 63,
+  "cod": "GIZ234"
+ },
+ {
+  "orden": 64,
+  "cod": "GIZ235"
+ },
+ {
+  "orden": 65,
+  "cod": "GIZ236"
+ },
+ {
+  "orden": 66,
+  "cod": "GIZ24"
+ },
+ {
+  "orden": 67,
+  "cod": "GIZ242"
+ },
+ {
+  "orden": 68,
+  "cod": "GIZ243"
+ },
+ {
+  "orden": 69,
+  "cod": "GIZ244"
+ },
+ {
+  "orden": 70,
+  "cod": "GIZM12"
+ },
+ {
+  "orden": 71,
+  "cod": "GIZM13"
+ },
+ {
+  "orden": 72,
+  "cod": "GO.13"
+ },
+ {
+  "orden": 73,
+  "cod": "GO.14"
+ },
+ {
+  "orden": 74,
+  "cod": "GO.15"
+ },
+ {
+  "orden": 75,
+  "cod": "GO16"
+ },
+ {
+  "orden": 76,
+  "cod": "HC22"
+ },
+ {
+  "orden": 77,
+  "cod": "IAI20"
+ },
+ {
+  "orden": 78,
+  "cod": "IAM20"
+ },
+ {
+  "orden": 79,
+  "cod": "IDPCH"
+ },
+ {
+  "orden": 80,
+  "cod": "LR.8"
+ },
+ {
+  "orden": 81,
+  "cod": "LR.9"
+ },
+ {
+  "orden": 82,
+  "cod": "LR7SH"
+ },
+ {
+  "orden": 83,
+  "cod": "LTD20"
+ },
+ {
+  "orden": 84,
+  "cod": "LTD21"
+ },
+ {
+  "orden": 85,
+  "cod": "M.11"
+ },
+ {
+  "orden": 86,
+  "cod": "M.14"
+ },
+ {
+  "orden": 87,
+  "cod": "M.15"
+ },
+ {
+  "orden": 88,
+  "cod": "M.16"
+ },
+ {
+  "orden": 89,
+  "cod": "M.17"
+ },
+ {
+  "orden": 90,
+  "cod": "M122"
+ },
+ {
+  "orden": 91,
+  "cod": "M123"
+ },
+ {
+  "orden": 92,
+  "cod": "M124"
+ },
+ {
+  "orden": 93,
+  "cod": "MUE20"
+ },
+ {
+  "orden": 94,
+  "cod": "MUN20"
+ },
+ {
+  "orden": 95,
+  "cod": "MUT20"
+ },
+ {
+  "orden": 96,
+  "cod": "MUT21"
+ },
+ {
+  "orden": 97,
+  "cod": "MUT22"
+ },
+ {
+  "orden": 98,
+  "cod": "MUT24"
+ },
+ {
+  "orden": 99,
+  "cod": "N.12"
+ },
+ {
+  "orden": 100,
+  "cod": "N.13"
+ },
+ {
+  "orden": 101,
+  "cod": "N.15"
+ },
+ {
+  "orden": 102,
+  "cod": "N.16"
+ },
+ {
+  "orden": 103,
+  "cod": "N14"
+ },
+ {
+  "orden": 104,
+  "cod": "NLR21"
+ },
+ {
+  "orden": 105,
+  "cod": "NLR22"
+ },
+ {
+  "orden": 106,
+  "cod": "P.8"
+ },
+ {
+  "orden": 107,
+  "cod": "P.9"
+ },
+ {
+  "orden": 108,
+  "cod": "P21S1"
+ },
+ {
+  "orden": 109,
+  "cod": "P21S2"
+ },
+ {
+  "orden": 110,
+  "cod": "P22S3"
+ },
+ {
+  "orden": 111,
+  "cod": "P22S4"
+ },
+ {
+  "orden": 112,
+  "cod": "P22S5"
+ },
+ {
+  "orden": 113,
+  "cod": "P23S5"
+ },
+ {
+  "orden": 114,
+  "cod": "PA7S6"
+ },
+ {
+  "orden": 115,
+  "cod": "PAE20"
+ },
+ {
+  "orden": 116,
+  "cod": "PE22"
+ },
+ {
+  "orden": 117,
+  "cod": "PNL23"
+ },
+ {
+  "orden": 118,
+  "cod": "PNL24"
+ },
+ {
+  "orden": 119,
+  "cod": "PNL25"
+ },
+ {
+  "orden": 120,
+  "cod": "PNM22"
+ },
+ {
+  "orden": 121,
+  "cod": "PNM23"
+ },
+ {
+  "orden": 122,
+  "cod": "PNM24"
+ },
+ {
+  "orden": 123,
+  "cod": "PPM3"
+ },
+ {
+  "orden": 124,
+  "cod": "R.11"
+ },
+ {
+  "orden": 125,
+  "cod": "R.115"
+ },
+ {
+  "orden": 126,
+  "cod": "R.13"
+ },
+ {
+  "orden": 127,
+  "cod": "R.14"
+ },
+ {
+  "orden": 128,
+  "cod": "SCO21"
+ },
+ {
+  "orden": 129,
+  "cod": "SCX02"
+ },
+ {
+  "orden": 130,
+  "cod": "SET20"
+ },
+ {
+  "orden": 131,
+  "cod": "SETCX"
+ },
+ {
+  "orden": 132,
+  "cod": "SVP21"
+ },
+ {
+  "orden": 133,
+  "cod": "SVP22"
+ },
+ {
+  "orden": 134,
+  "cod": "SVP23"
+ },
+ {
+  "orden": 135,
+  "cod": "UEB20"
+ },
+ {
+  "orden": 136,
+  "cod": "UEB21"
+ },
+ {
+  "orden": 137,
+  "cod": "WS120"
+ },
+ {
+  "orden": 138,
+  "cod": "WS220"
+ },
+ {
+  "orden": 139,
+  "cod": "XGA20"
+ },
+ {
+  "orden": 140,
+  "cod": "XGA21"
+ },
+ {
+  "orden": 141,
+  "cod": "N12"
+ },
+ {
+  "orden": 142,
+  "cod": "N15"
+ }
+]
