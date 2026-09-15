@@ -148,6 +148,10 @@ def listar():
             clave = lambda i: i.get('modificado_at') or ''
         elif orden == 'tamano':
             clave = lambda i: float(i.get('tamano_bytes') or i.get('tamano') or 0)
+        elif orden == 'color':
+            # 14/09/2026: carpetas agrupadas por el color pintado (orden_color.py).
+            from orden_color import clave_color
+            clave = clave_color
         if clave is not None:
             carpetas.sort(key=clave, reverse=inverso)
             archivos.sort(key=clave, reverse=inverso)
