@@ -184,7 +184,7 @@ export const useMailStore = create<MailState>((set, get) => ({
     const maxPages = Math.ceil(st.totalMessages / 50);
     if (st.loadingMore || st.loadingMessages) return;
     if (st.currentPage >= maxPages) return;        // ya se cargaron todas las tandas
-    if (st.currentPage >= 6) return;               // tope de 300 msgs por scroll (cap del backend)
+    // Sin tope de tandas: cada una pide la página siguiente (ver lib/paginacionBandeja.ts).
     if (st.messages.length >= st.totalMessages) return;
     set({ currentPage: st.currentPage + 1, loadingMore: true });
   },
