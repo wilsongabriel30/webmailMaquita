@@ -88,6 +88,14 @@ async def grant_access(username: str, request: Request, admin: dict = Depends(re
     for folder in folders:
         await asyncio.to_thread(_doveadm_acl_set, username, folder, target_id, rights)
 
+    # El webmail decide por mail_delegation quién ve qué cuenta en su barra lateral y
+    # quién puede enviar como ella (can_send_as: niveles full y send-as).
+    await request.app.state.db.execute(
+        "INSERT INTO mail_delegation (mailbox, delegate, can_send_as) VALUES ($1, $2, $3) "
+        "ON CONFLICT (mailbox, delegate) DO UPDATE SET can_send_as = EXCLUDED.can_send_as",
+        username, delegate, level in ("full", "send-as"),
+    )
+
     await _audit(request, admin, "shared_grant",
                  f"{delegate} -> {username} level={level} folders={','.join(folders)}")
 
@@ -109,6 +117,10 @@ async def revoke_access(username: str, request: Request, admin: dict = Depends(r
             await asyncio.to_thread(_doveadm_acl_delete, username, folder, target_id)
         except Exception:
             pass
+
+    await request.app.state.db.execute(
+        "DELETE FROM mail_delegation WHERE mailbox = $1 AND delegate = $2", username, delegate
+    )
 
     await _audit(request, admin, "shared_revoke",
                  f"Revoked {delegate} from {username}")

@@ -1,4 +1,5 @@
 import type { Editor } from '@tiptap/react';
+import type { Cuenta } from '../lib/cuentas';
 import { create } from 'zustand';
 import type { Folder, MessageSummary, MessageFull, ComposeData } from '../types';
 
@@ -15,6 +16,9 @@ export interface DraftWindow {
 }
 
 interface MailState {
+  // Cuentas que la persona puede usar (la suya + delegadas)
+  cuentas: Cuenta[];
+  setCuentas: (c: Cuenta[]) => void;
   // Folders
   folders: Folder[];
   currentFolder: string;
@@ -135,6 +139,8 @@ export const useMailStore = create<MailState>((set, get) => ({
   setPreviewLines: (lines) => set({ previewLines: lines }),
   setReadingPane: (p) => set({ readingPane: p }),
   setPageSize: (n) => set({ pageSize: n }),
+  cuentas: [],
+  setCuentas: (cuentas) => set({ cuentas }),
   setBlockRemoteImages: (v) => set({ blockRemoteImages: v }),
   setMessageListWidth: (w: number) => {
     const clamped = Math.max(260, Math.min(720, Math.round(w)));
