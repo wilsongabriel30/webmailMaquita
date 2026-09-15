@@ -832,9 +832,15 @@ def copiar():
     if (not _permiso_unidad(usuario, datos['origen'], escritura=False)
             or not _permiso_unidad(usuario, datos['destino'], escritura=True)):
         return error('No tienes permiso para copiar aquí', 403)
+    # Copiar dentro de sí misma no acaba nunca; y si el destino ya existe se
+    # busca un nombre libre («(copia)») en vez de sobrescribir (14/09/2026).
+    from copia_nombre_libre import dentro_de_si_misma, nombre_libre
+    if dentro_de_si_misma(datos['origen'], datos['destino']):
+        return error('No se puede copiar una carpeta dentro de sí misma', 400)
     try:
         _usuario_org, _origen_ef = _efectivo(usuario, datos['origen'])
         _usuario_dst, _destino_ef = _efectivo(usuario, datos['destino'])
+        _destino_ef = nombre_libre(_usuario_dst, _destino_ef)
         if _usuario_org == _usuario_dst:
             nucleo.copiar(_usuario_org, _origen_ef, _destino_ef)
         else:
