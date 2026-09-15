@@ -511,7 +511,7 @@ async def impersonate(body: ImpersonateRequest, request: Request, response: Resp
         raise HTTPException(403, "El token no es un vale de impersonación")
     if payload.get("role") != "superadmin":
         raise HTTPException(403, "Solo un superadmin puede impersonar")
-    if payload.get("totp") is not True:
+    if settings.impersonar_exige_totp and payload.get("totp") is not True:
         raise HTTPException(403, "Impersonar exige sesión con segundo factor (TOTP)")
     admin_user = payload.get("username", "unknown")
 

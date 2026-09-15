@@ -14,6 +14,10 @@ JWT_SECRET = os.getenv("JWT_SECRET", "")
 # Secreto COMPARTIDO con el backend del correo: solo firma el vale de impersonacion.
 ADMIN_JWT_SECRET = os.getenv("ADMIN_JWT_SECRET", "")
 JWT_ALGORITHM = "HS256"
+# Impersonar un buzón exige, por omisión, sesión abierta con segundo factor (A-17).
+# Una instalación puede desactivarlo bajo su responsabilidad con IMPERSONAR_EXIGE_TOTP=false;
+# el backend del correo tiene la misma opción y ambos deben coincidir.
+IMPERSONAR_EXIGE_TOTP = os.getenv("IMPERSONAR_EXIGE_TOTP", "true").strip().lower() not in ("0", "false", "no")
 JWT_EXPIRE_MINUTES = 480  # 8 horas
 
 RSPAMD_URL = os.getenv("RSPAMD_URL", "http://localhost:11334")

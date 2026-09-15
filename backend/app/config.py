@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     master_password: str = ""
     secure_msg_key: str = ""
     admin_jwt_secret: str = ""
+    # Si es False, el vale de impersonación se acepta aunque el administrador no haya
+    # entrado con TOTP. Debe coincidir con IMPERSONAR_EXIGE_TOTP del panel.
+    impersonar_exige_totp: bool = True
     # Llave DEDICADA de cifrado de credenciales (H-02): formato de llave Fernet. Cifra la
     # credencial IMAP cacheada y el secreto TOTP. La «anterior»
     # solo sirve para rotar (se descifra con ambas, se cifra con la actual).
