@@ -53,6 +53,7 @@ from app.mail.routers.attachments import router as attachments_router
 from app.mail.routers.calendar_invite import router as calendar_invite_router
 from app.mail.routers.compose import router as compose_router
 from app.mail.routers.cuentas import router as cuentas_router
+from app.auth.cambio_cuenta import router as cambio_cuenta_router
 from app.mail.routers.export import router as export_router
 from app.mail.routers.firmas import router as firmas_router
 from app.mail.routers.folders import router as folders_router
@@ -723,6 +724,7 @@ app.include_router(folders_router)
 app.include_router(messages_router)
 app.include_router(compose_router)
 app.include_router(cuentas_router)
+app.include_router(cambio_cuenta_router)
 app.include_router(dlp_router)
 app.include_router(secure_auth_router)
 app.include_router(secure_public_router)
