@@ -67,6 +67,8 @@ class ComposeRequest(BaseModel):
     request_delivery_receipt: bool = False
     identity_id: int | None = None
     reply_to: str | None = None
+    # Dirección desde la que sale (propia, alias, identidad o cuenta delegada con envío)
+    from_email: str | None = None
     dlp_override: bool = False
     dlp_reason: str | None = None
 
