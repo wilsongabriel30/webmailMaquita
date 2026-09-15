@@ -293,6 +293,11 @@ export function MessageList() {
       setMessages(fusionarTanda(previos, r.messages, tanda), r.total, r.page);
     }).catch(async (err) => {
       console.error(err);
+      if (/429|Too Many/i.test(String(err?.message || err)) && useMailStore.getState().loadingMore) {
+        // Límite de peticiones del servidor: se espera y se vuelve a pedir la misma tanda.
+        setTimeout(() => fetch_(), 5000);
+        return;
+      }
       // Offline fallback: load from IndexedDB cache (T-35: también si el servidor no responde: 503/red)
       if (!navigator.onLine || /503|502|504|Sin conexion|Failed to fetch|NetworkError/i.test(String(err?.message || err))) {
         try {
@@ -343,10 +348,10 @@ export function MessageList() {
 
   // Fetch priority classification for INBOX
   useEffect(() => {
-    if (currentFolder === 'INBOX' && messages.length > 0) {
+    if (currentFolder === 'INBOX' && messages.length > 0 && messages.length <= pageSize) {
       fetchPriority(currentFolder);
     }
-  }, [currentFolder, messages.length, fetchPriority]);
+  }, [currentFolder, messages.length, fetchPriority, pageSize]);
 
   // Spam scan function — context-aware: si hay mensaje seleccionado escanea solo ese, si no escanea la carpeta
   const scanSpam = useCallback(async (autoMove = false) => {
@@ -1015,7 +1020,7 @@ export function MessageList() {
       )}
 
       {/* List */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto relative">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto relative" style={{ overflowAnchor: 'none' }}>
         {loadingMessages && !filterChanging ? (
           Array.from({length:12}).map((_,i) => (
             <div key={i} className="animate-pulse flex gap-2.5 px-4 py-[6px] border-b border-[#f3f2f1]">
