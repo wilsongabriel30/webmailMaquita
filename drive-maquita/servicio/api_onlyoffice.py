@@ -56,6 +56,7 @@ from config_almacen import URL_PUBLICA
 from registro import registrar_actividad
 import onlyoffice_urls as oo_urls
 import conversion_edicion
+import huella_documento
 from seguridad_rutas import (RutaInvalida, normalizar_ruta_virtual,
                              ruta_fisica, unidad_de_ruta)
 
@@ -471,6 +472,8 @@ def onlyoffice_config():
 
     # Key ESTABLE de la sala de co-edición (ver nota en el encabezado)
     doc_base = _base_documento(usuario, ruta)
+    # Si el archivo cambió por fuera del editor, key nueva (huella_documento.py)
+    huella_documento.comprobar(doc_base, fisica)
     version = _version_sesion(doc_base)
     doc_key = hashlib.sha1(f'{doc_base}:v{version}'.encode()).hexdigest()[:20]
 
@@ -662,6 +665,12 @@ def onlyoffice_callback():
             return jsonify({'error': 1})
 
         registrar_actividad(usuario, 'edito', ruta, nucleo.tamano_humano(len(contenido)))
+        # Lo que hay en disco ahora es lo que conoce la sala: no es un cambio «por fuera»
+        try:
+            huella_documento.registrar(datos.get('b') or _base_documento(usuario, ruta),
+                                       ruta_fisica(usuario, ruta))
+        except Exception as _exc_huella:
+            log.warning('huella tras guardar %s: %s', ruta, _exc_huella)
         # Vinculos de datos: si este archivo es ORIGEN de algun vinculo,
         # refrescar los destinos (valores) automaticamente. Best-effort.
         try:
@@ -800,6 +809,7 @@ def onlyoffice_config_public():
 
     # MISMA sala que los internos: misma base de documento y versión de sesión
     doc_base = _base_documento(propietario, ruta)
+    huella_documento.comprobar(doc_base, fisica)
     version = _version_sesion(doc_base)
     doc_key = hashlib.sha1(f'{doc_base}:v{version}'.encode()).hexdigest()[:20]
 
