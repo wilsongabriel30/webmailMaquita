@@ -28,7 +28,8 @@ from app.core.session import decrypt_password, encrypt_password
 log = logging.getLogger("seguridad.sesiones")
 security_log = logging.getLogger("security")
 
-KINDS = ("normal", "impersonation", "oidc", "saml")
+# "delegada": cuenta asignada abierta desde el selector de cuentas; se prorroga como una normal.
+KINDS = ("normal", "impersonation", "oidc", "saml", "delegada")
 CANAL_REVOCACION = "revocacion"
 TTL_AV_CACHE = 86400
 

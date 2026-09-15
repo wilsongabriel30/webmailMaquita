@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { cargarEtiquetasPorTandas } from '../lib/etiquetasPorTandas';
 import { api } from '../api/client';
 
 export interface Label {
@@ -121,9 +122,7 @@ export function useMessageLabels(folder: string, uids: number[]) {
   const fetchMsgLabels = useCallback(async () => {
     if (!folder || !uids.length) { setMsgLabels({}); return; }
     try {
-      const uidStr = uids.join(',');
-      const res = await api.get<{ message_labels: Record<string, Label[]> }>(`/mail/labels/messages/${encodeURIComponent(folder)}?uids=${encodeURIComponent(uidStr)}`);
-      setMsgLabels(res.message_labels);
+      setMsgLabels(await cargarEtiquetasPorTandas<Label>(folder, uids));
     } catch { setMsgLabels({}); }
   }, [folder, uids.join(',')]);
 
