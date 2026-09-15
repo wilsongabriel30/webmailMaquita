@@ -26,6 +26,8 @@ import espacios_indice as espacios
 import indice_busqueda as indice
 import indice_contenido as contenido
 import nombres_archivo as nombres
+import estilos_compartidos as _ec
+import limite_nombre
 from seguridad_rutas import (RutaInvalida, normalizar_ruta_virtual, raiz_usuario,
                              ruta_fisica, unidad_de_ruta)
 from config_almacen import raiz_datos
@@ -215,6 +217,9 @@ def listar(usuario_id: int, ruta_virtual: str) -> tuple:
         'SELECT ruta FROM compartidos WHERE propietario_id = %s', (usuario_id,))}
     estilos = {e['folder_id']: e for e in consultar(
         'SELECT folder_id, color, icono FROM estilos_carpeta WHERE usuario_id = %s', (usuario_id,))}
+    # (14/09/2026) En una unidad compartida el color es de la carpeta, no de
+    # la persona: manda el estilo compartido (estilos_compartidos.py).
+    estilos_unidad = _ec.estilos_de_unidad() if _ec.es_de_unidad(ruta_virtual) else {}
 
     def _recorrer_disco():
         # (2026-08-13) TODO el trabajo de NFS (isdir + scandir + un stat por
@@ -238,6 +243,13 @@ def listar(usuario_id: int, ruta_virtual: str) -> tuple:
                         item['color'] = estilo['color']
                     if estilo['icono']:
                         item['icono'] = estilo['icono']
+                if item['es_carpeta'] and estilos_unidad:
+                    _e = estilos_unidad.get(_ec.folder_id_compartido(item['ruta']))
+                    if _e:
+                        if _e['color']:
+                            item['color'] = _e['color']
+                        if _e['icono']:
+                            item['icono'] = _e['icono']
                 (carpetas if item['es_carpeta'] else archivos).append(item)
         return carpetas, archivos
 
@@ -300,6 +312,7 @@ def crear_carpeta(usuario_id: int, ruta_padre: str, nombre: str) -> dict:
     nombre = (nombre or '').strip()
     if not nombre or '/' in nombre or nombre in ('.', '..'):
         raise RutaInvalida('Nombre de carpeta inválido')
+    limite_nombre.comprobar(nombre)
     ruta_padre = normalizar_ruta_virtual(ruta_padre)
     ruta_nueva = ('' if ruta_padre == '/' else ruta_padre) + '/' + nombre
     fisica = ruta_fisica(usuario_id, ruta_nueva, escritura=True)
@@ -569,6 +582,7 @@ def renombrar(usuario_id: int, ruta_virtual: str, nuevo_nombre: str,
     nuevo_nombre = (nuevo_nombre or '').strip()
     if not nuevo_nombre or '/' in nuevo_nombre:
         raise RutaInvalida('Nombre nuevo inválido')
+    limite_nombre.comprobar(nuevo_nombre)
     ruta_virtual = normalizar_ruta_virtual(ruta_virtual)
     if es_archivo_interno(ruta_virtual.rsplit('/', 1)[-1]):
         raise RutaInvalida(
@@ -596,6 +610,8 @@ def renombrar(usuario_id: int, ruta_virtual: str, nuevo_nombre: str,
         destino = ruta_fisica(usuario_id, ruta_nueva, escritura=True)
     os.replace(origen, destino)
     indice.renombrar(usuario_id, ruta_virtual, ruta_nueva)
+    if os.path.isdir(destino):
+        _ec.reubicar(usuario_id, ruta_virtual, ruta_nueva)   # el color sigue a la carpeta
     contenido.olvidar(usuario_id, ruta_virtual)
     contenido.encolar(usuario_id, ruta_nueva)
     return ruta_nueva
@@ -609,6 +625,7 @@ def mover(usuario_id: int, ruta_origen: str, ruta_destino: str,
     if not os.path.exists(origen):
         raise FileNotFoundError(ruta_origen)
     ruta_final = normalizar_ruta_virtual(ruta_destino)
+    limite_nombre.comprobar(ruta_final.rsplit('/', 1)[-1])
     if destino != origen and os.path.exists(destino) and not sobrescribir:
         if not conservar_ambos:
             raise DestinoOcupado(ruta_final)
@@ -621,6 +638,8 @@ def mover(usuario_id: int, ruta_origen: str, ruta_destino: str,
     os.makedirs(os.path.dirname(destino), exist_ok=True)
     os.replace(origen, destino)
     indice.renombrar(usuario_id, normalizar_ruta_virtual(ruta_origen), ruta_final)
+    if os.path.isdir(destino):
+        _ec.reubicar(usuario_id, normalizar_ruta_virtual(ruta_origen), ruta_final)
     contenido.olvidar(usuario_id, normalizar_ruta_virtual(ruta_origen))
     contenido.encolar(usuario_id, ruta_final)
     return ruta_final
