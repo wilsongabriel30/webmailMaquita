@@ -84,7 +84,9 @@ def _imap_utf7_encode(s: str) -> str:
 # tildes/ñ/caracteres especiales dan 404. NO QUITAR la llamada a _imap_utf7_encode.
 def _quote_folder(name: str) -> str:
     """Encode to IMAP Modified UTF-7 and quote if needed."""
-    name = _imap_utf7_encode(name)
+    from app.mail.services.cuentas_delegadas import carpeta_real
+
+    name = _imap_utf7_encode(carpeta_real(name))
     if " " in name or '"' in name or "(" in name or ")" in name:
         return '"' + name.replace("\\", "\\\\").replace('"', '\\"') + '"'
     return name

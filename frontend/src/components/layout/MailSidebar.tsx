@@ -11,6 +11,7 @@ import { showToast } from '../common/Toast';
 import { ContextMenu } from '../common/ContextMenu';
 import type { Folder } from '../../types';
 import { getFolderDisplayName } from '../../folders';
+import { CuentasDelegadas } from './CuentasDelegadas';
 
 interface MailStats {
   inbox_total: number;
@@ -474,6 +475,9 @@ export function MailSidebar() {
           </>
         )}
       </nav>
+
+      {/* Otras cuentas a cargo de la persona (delegadas) */}
+      <CuentasDelegadas />
 
       {/* Mi actividad */}
       <div className="border-t border-[#edebe9] px-1 pb-1 shrink-0">
