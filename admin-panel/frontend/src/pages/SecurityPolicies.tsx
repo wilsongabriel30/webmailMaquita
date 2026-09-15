@@ -9,6 +9,7 @@ interface Cfg {
   dlp_block_cards_external: boolean;
   totp_required: boolean;
   totp_deadline: string | null;
+  impersonar_admin_exige_totp: boolean;
   status: Status;
 }
 
@@ -41,6 +42,7 @@ export function SecurityPolicies() {
         dlp_block_cards_external: cfg.dlp_block_cards_external,
         totp_required: cfg.totp_required,
         totp_deadline: cfg.totp_deadline || null,
+        impersonar_admin_exige_totp: cfg.impersonar_admin_exige_totp,
       });
       setMsg({ ok: true, text: "Cambios guardados. El filtro los aplica en ~20 segundos." });
     } catch {
@@ -61,6 +63,7 @@ export function SecurityPolicies() {
             { titulo: "Qué es", desc: "Políticas de seguridad del servidor de correo (aplicadas por Rspamd) contra suplantación de identidad y fuga de datos. Los cambios guardados se aplican en unos 20 segundos." },
             { titulo: "Anti-spoofing", desc: "Siempre activo: rechaza correo que dice venir de tus propios dominios (incluidos subdominios) pero llega desde el exterior sin SPF/DKIM/DMARC válidos." },
             { titulo: "Anti-impersonation", desc: "Pone en cuarentena correos de dominios ajenos cuyo nombre visible imita tu marca (ej. «Dirección Maquita» desde un gmail). Los términos de marca definen qué nombres se consideran suplantación." },
+            { titulo: "Impersonar exige segundo factor", desc: "Si está activado, un superadministrador solo puede abrir el buzón de otra persona (firmas, envíos en su nombre) habiendo entrado al panel con TOTP. Desactivarlo es una decisión de la dirección; la auditoría registra cada impersonación igual." },
             { titulo: "Bloqueo de tarjetas", desc: "Rechaza correos a destinatarios externos que contengan números de tarjeta válidos (Luhn). El correo interno nunca se bloquea." },
             { titulo: "Umbral de rechazo", desc: "Solo informativo: el correo con puntaje de spam mayor o igual al umbral se rechaza en la conexión (basura evidente). Se gestiona en Rspamd, no desde aquí." },
           ]}
@@ -102,6 +105,17 @@ export function SecurityPolicies() {
               onChange={(e) => setCfg({ ...cfg, totp_deadline: e.target.value || null })} />
           </div>
         )}
+      </div>
+
+      <div className="border border-ms-gray-30 rounded-lg p-4 mb-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="font-semibold text-ms-gray-130">Impersonar buzones exige segundo factor</h2>
+            <p className="text-sm text-ms-gray-110">Activado (recomendado): un superadministrador solo puede abrir el buzón de otra persona si entró al panel con verificación en dos pasos. Desactivado: basta la contraseña del panel. La decisión debe estar autorizada por la dirección; cada impersonación queda en la auditoría en ambos casos.</p>
+          </div>
+          <Toggle on={cfg.impersonar_admin_exige_totp} onClick={() => setCfg({ ...cfg, impersonar_admin_exige_totp: !cfg.impersonar_admin_exige_totp })}
+            title="Activado: para impersonar hay que haber entrado al panel con código TOTP. Desactivado: se puede impersonar con solo la contraseña del panel (decisión de la dirección). Se aplica al pulsar Guardar cambios, sin reiniciar nada." />
+        </div>
       </div>
 
       <div className="border border-ms-gray-30 rounded-lg p-4 mb-4">
