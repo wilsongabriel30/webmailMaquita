@@ -402,19 +402,31 @@ export function MessageList() {
   // empaquetador no pueda eliminar la definicion y romper el correo.
   type EtiquetaMsg = { id: number | string; name: string; color?: string };
   const [msgLabelsMap, setMsgLabelsMap] = useState<Record<string, EtiquetaMsg[]>>({});
+  // Incremental: con el scroll infinito cada tanda añade correos; solo se piden las
+  // etiquetas de los NUEVOS (pedir las de todos otra vez disparaba decenas de peticiones
+  // por tanda y nginx respondía 429). Se recuerda qué UID ya se pidieron por carpeta.
+  const etiquetasPedidasRef = useRef<{ carpeta: string; uids: Set<number> }>({ carpeta: '', uids: new Set() });
   useEffect(() => {
-    const uids = messages.map((m) => m.uid);
     let cancelled = false;
-    const load = async () => {
-      if (!currentFolder || uids.length === 0) { if (!cancelled) setMsgLabelsMap({}); return; }
+    const load = async (todos: boolean) => {
+      if (!currentFolder) { if (!cancelled) setMsgLabelsMap({}); return; }
+      const ref = etiquetasPedidasRef.current;
+      if (ref.carpeta !== currentFolder || todos) {
+        etiquetasPedidasRef.current = { carpeta: currentFolder, uids: new Set() };
+        if (ref.carpeta !== currentFolder && !cancelled) setMsgLabelsMap({});
+      }
+      const pedidos = etiquetasPedidasRef.current.uids;
+      const nuevos = messages.map((m) => m.uid).filter((u) => !pedidos.has(u));
+      if (nuevos.length === 0) return;
+      nuevos.forEach((u) => pedidos.add(u));
       try {
         // Por tandas: con miles de correos cargados una sola URL era rechazada (503).
-        const mapa = await cargarEtiquetasPorTandas<EtiquetaMsg>(currentFolder, uids);
-        if (!cancelled) setMsgLabelsMap(mapa);
-      } catch { if (!cancelled) setMsgLabelsMap({}); }
+        const mapa = await cargarEtiquetasPorTandas<EtiquetaMsg>(currentFolder, nuevos);
+        if (!cancelled) setMsgLabelsMap((prev) => (todos ? mapa : { ...prev, ...mapa }));
+      } catch { /* sin etiquetas en esta tanda */ }
     };
-    load();
-    const handler = () => load();
+    load(false);
+    const handler = () => load(true);
     window.addEventListener('refresh-message-labels', handler);
     return () => { cancelled = true; window.removeEventListener('refresh-message-labels', handler); };
   }, [currentFolder, messageIds]);
