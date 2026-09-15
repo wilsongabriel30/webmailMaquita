@@ -6,6 +6,8 @@
 import { addToOutbox, removeFromOutbox, updateOutboxStatus } from "../../lib/offlineStore";
 import { syncOutbox } from "../../lib/syncQueue";
 import { SelectorArchivosNube } from './SelectorArchivosNube';
+import { SelectorRemitente } from './SelectorRemitente';
+import { cuentaDeCarpeta } from '../../lib/cuentas';
 import { sanitizeHtml, sanitizeSignatureHtml } from '../../lib/sanitize';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import React from 'react';
@@ -69,6 +71,8 @@ export function ComposePanel({ win }: Props) {
   const updateDraftUid = useMailStore(s => s.updateDraftUid);
   const updateComposeData = useMailStore(s => s.updateComposeData);
   const [to, setTo] = useState('');
+  // Cuenta desde la que sale: la de la carpeta que se estaba viendo al abrir el redactor
+  const [fromEmail, setFromEmail] = useState(() => cuentaDeCarpeta(useMailStore.getState().currentFolder) || '');
   const [cc, setCc] = useState('');
   const [bcc, setBcc] = useState('');
   const [subject, setSubject] = useState('');
@@ -472,6 +476,7 @@ export function ComposePanel({ win }: Props) {
       }
     } catch { /* si DLP no responde, no bloqueamos el env\u00edo */ }
     const sendPayload = {
+      from_email: fromEmail || undefined,
       to: recipients,
       cc: cc ? cc.split(',').map(s => s.trim()).filter(Boolean) : undefined,
       bcc: bcc ? bcc.split(',').map(s => s.trim()).filter(Boolean) : undefined,
@@ -1119,6 +1124,9 @@ export function ComposePanel({ win }: Props) {
           </button>
         </div>
       </div>
+
+      {/* Remitente (solo si hay más de una cuenta) */}
+      <SelectorRemitente valor={fromEmail} onChange={setFromEmail} />
 
       {/* Recipients */}
       <RecipientField label="Para" value={to} onChange={setTo} autoFocus primary

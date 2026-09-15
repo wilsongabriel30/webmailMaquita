@@ -235,6 +235,14 @@ async def send(
         if row and row["display_name"]:
             display_name = row["display_name"]
 
+        # Remitente elegido (cuenta delegada, alias o identidad): validado aquí igual que
+        # lo hará Postfix. Si es una cuenta delegada, la copia va a SU Enviados.
+        from app.mail.services.remitente_autorizado import resolver_remitente
+
+        from_addr, display_name, imap_remitente, password_envio = await resolver_remitente(
+            db, username, body.from_email, display_name
+        )
+
         # Decodificar adjuntos base64 — los grandes van al Almacén (Drive)
         attachments = []
         large_links_html = []
@@ -410,9 +418,9 @@ async def send(
                 pass  # fail-open: el escaner no debe romper el envio
         try:
             result = await send_and_save(
-                imap=imap,
-                password=password,
-                from_addr=username,
+                imap=imap_remitente or imap,
+                password=password_envio or password,
+                from_addr=from_addr,
                 to=body.to,
                 subject=body.subject,
                 text_body=body.text_body,
@@ -453,10 +461,12 @@ async def send(
 
         return result
     finally:
-        try:
-            await imap.logout()
-        except Exception:
-            pass
+        for _c in (imap, locals().get("imap_remitente")):
+            try:
+                if _c is not None:
+                    await _c.logout()
+            except Exception:
+                pass
 
 
 @router.post("/send-multipart")
