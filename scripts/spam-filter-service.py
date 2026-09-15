@@ -44,6 +44,12 @@ BLACKLIST_DOMAINS_FILE = "/etc/maquita-mail/blacklist-domains.txt"
 BLACKLIST_IPS_FILE = "/etc/maquita-mail/blacklist-ips.txt"
 GREYLIST_DOMAINS_FILE = "/etc/maquita-mail/greylist-domains.txt"
 LOG_FILE = "/var/log/maquita-spam-filter.log"
+
+try:
+    from remitentes_propios import es_correo_propio_verificado
+except Exception:  # sin el módulo, el filtro sigue igual que antes
+    def es_correo_propio_verificado(_d, _ip, _m):
+        return False, ""
 SCORE_THRESHOLD = 3  # (se sobreescribe con FILTRO_CFG['umbral'] mas abajo)
 REINJECT_HOST = "127.0.0.1"
 REINJECT_PORT = 10025
@@ -486,12 +492,15 @@ def check_heuristics(msg, subject, body, full_text):
     # HARDENING #3: Patrón simple sin backtracking — solo busca "https?://"
     try:
         links = safe_regex_findall(r"https?://", full_text)
+        # 15/09/2026: por debajo del umbral (3) a propósito, como el antivirus: muchos
+        # enlaces solos NO mandan a Junk (firmas largas, boletines, avisos de banco);
+        # solo acercan al umbral a un correo que ya tiene otros indicios.
         if len(links) > 15:
-            score += 3
-            razones.append(f"exceso-links({len(links)})(+3)")
-        elif len(links) > 10:
             score += 2
-            razones.append(f"muchos-links({len(links)})(+2)")
+            razones.append(f"exceso-links({len(links)})(+2)")
+        elif len(links) > 10:
+            score += 1
+            razones.append(f"muchos-links({len(links)})(+1)")
     except Exception as e:
         logging.warning("Heurística 'links' falló: %s", str(e))
 
@@ -787,6 +796,13 @@ def check_spam(msg, keywords, whitelist, blacklist_domains, blacklist_ips, greyl
     if _wl_tipo == "bono":
         score = max(0, score - BONO_WHITELIST_DOMINIO)
         razones.append("whitelist-dominio:" + _wl_entrada)
+    else:
+        # Correo de la casa llegado por relé interno (Zimbra) o sesión autenticada:
+        # mismo descuento que un dominio de confianza. Ver remitentes_propios.py.
+        _propio, _propio_razon = es_correo_propio_verificado(sender_domain, sender_ip, msg)
+        if _propio:
+            score = max(0, score - BONO_WHITELIST_DOMINIO)
+            razones.append(_propio_razon + "(-%d)" % BONO_WHITELIST_DOMINIO)
 
     return score >= SCORE_THRESHOLD, score, razones, sender_ip
 
