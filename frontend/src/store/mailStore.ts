@@ -108,6 +108,8 @@ interface MailState {
 
 let composeCounter = 0;
 
+let ultimaTanda = 0;
+
 export const useMailStore = create<MailState>((set, get) => ({
   folders: [],
   currentFolder: 'INBOX',
@@ -189,6 +191,10 @@ export const useMailStore = create<MailState>((set, get) => ({
     const st = get();
     const maxPages = Math.ceil(st.totalMessages / 50);
     if (st.loadingMore || st.loadingMessages) return;
+    // Respiro entre tandas: sin él, al llegar al fondo se encadenaban decenas de páginas seguidas.
+    const ahora = Date.now();
+    if (ahora - ultimaTanda < 600) return;
+    ultimaTanda = ahora;
     if (st.currentPage >= maxPages) return;        // ya se cargaron todas las tandas
     // Sin tope de tandas: cada una pide la página siguiente (ver lib/paginacionBandeja.ts).
     if (st.messages.length >= st.totalMessages) return;
