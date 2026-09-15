@@ -2,7 +2,7 @@
    desplegable — la validación de datos y las reglas de color— y que lo que no
    debe pasar, no pasa. */
 
-const recibido = { validacion: null, reglas: null, limpiado: false };
+const recibido = { validacion: null, reglas: [], llamadas: 0, limpiado: false };
 
 // ── Las piezas del editor que se usan ────────────────────────────────────
 function Formula() { }
@@ -33,9 +33,17 @@ Regla.prototype.asc_setOperator = function (v) { this.operador = v; };
    `asc_setValue2`, y NO tiene `asc_setValue`. El simulacro traía el que no
    existe, así que daba en verde un código que en el editor reventaba y dejaba
    la lista SIN colores (02/09/2026). */
-Regla.prototype.asc_setValue1 = function (v) { this.valor = v; };
+/* Como el editor DE VERDAD (03/09/2026): envuelve el texto en comillas y,
+   si ya las traía, las dobla y lo vuelve a envolver. Por eso hay que dárselo
+   SIN comillas. */
+Regla.prototype.asc_setValue1 = function (v) {
+    v = String(v);
+    this.valor = v.charAt(0) === '"' ? '"' + v.replace(/"/g, '""') + '"' : '"' + v + '"';
+};
 Regla.prototype.asc_setDxf = function (v) { this.formato = v; };
 Regla.prototype.asc_setLocation = function (v) { this.donde = v; };
+// Como en el SDK: nace SIN prioridad, y hay que ponersela.
+Regla.prototype.asc_setPriority = function (v) { this.prioridad = v; };
 
 function Formato() { }
 Formato.prototype.asc_setFillColor = function (c) { this.relleno = c; };
@@ -87,8 +95,16 @@ const ventanaEditor = {
                la lista pelada no encontraba ninguna y no aplicaba nada: por eso
                el .xlsx de Wilson no tenía ni un color (02/09/2026). */
             asc_getActiveWorksheetIndex: () => 0,
+            /* Como el editor de verdad: se le da UNA regla por llamada, que
+               es la unica forma en que remata la regla (le pone la prioridad,
+               que nace sin poner). Con dos o mas de golpe no las aplica: eso
+               es lo que dejaba el .xlsx con cero reglas de color (03/09/2026).
+               Aqui se van juntando, que es lo que acaba en el documento. */
             asc_setCF: (reglas) => {
-                recibido.reglas = (reglas && reglas[0]) || null;
+                (reglas || []).forEach(function (regla) {
+                    recibido.llamadas = (recibido.llamadas || 0) + 1;
+                    recibido.reglas.push(regla);
+                });
             },
             asc_clearCF: () => { recibido.limpiado = true; },
             asc_getCellInfo: () => ({
@@ -143,6 +159,11 @@ bien(recibido.validacion.flechita === true,
 bien(recibido.validacion.enBlanco === true, 'se puede dejar la celda vacia');
 
 bien(recibido.reglas.length === 3, 'sale una regla de color por valor');
+bien(recibido.llamadas === 3,
+     'y se entrega UNA POR LLAMADA, que es la forma que el editor aplica: '
+     + recibido.llamadas + ' llamadas');
+bien(recibido.reglas.every(function (g) { return g.prioridad > 0; }),
+     'cada una con su prioridad puesta: sin prioridad no se pinta ni se guarda');
 const primera = recibido.reglas[0];
 bien(primera.tipo === 'celda-es' && primera.operador === 'igual',
      'la regla es «si la celda es igual a…»');
@@ -303,7 +324,7 @@ let reglasEnLaHoja = [];
 ventanaEditor.Asc.editor.asc_getActiveWorksheetIndex = () => 0;
 ventanaEditor.Asc.editor.asc_getCF = () => [reglasEnLaHoja];
 const conColor = (valor, hex) => ({
-    asc_getValue1: () => '"' + valor + '"',
+    asc_getValue1: () => '="' + valor + '"',     // como el editor de verdad
     asc_getDxf: () => ({ asc_getFillColor: () => ({
         get_r: () => parseInt(hex.substr(1, 2), 16),
         get_g: () => parseInt(hex.substr(3, 2), 16),
@@ -311,6 +332,9 @@ const conColor = (valor, hex) => ({
 });
 
 validacionExistente = null;
+// Las reglas se van juntando durante toda la prueba: aqui se empieza de cero.
+recibido.reglas = [];
+recibido.llamadas = 0;
 r = L.aplicar(ventanaEditor, [
     { valor: 'ENERO', color: '#fce8b2' },
     { valor: 'FEBRERO', color: '#b7e1cd' }

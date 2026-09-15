@@ -108,6 +108,10 @@ def agregar(usuario_id: int, ruta_virtual: str) -> None:
     unidad, y lo que otra persona me compartió sigue siendo suyo.
     """
     try:
+        # Lo interno (`.formularios/…`) no sale en las búsquedas (10/09/2026).
+        from archivos_internos import en_carpeta_interna
+        if en_carpeta_interna(ruta_virtual):
+            return
         fisica = ruta_fisica(usuario_id, ruta_virtual)
         if not os.path.exists(fisica):
             return

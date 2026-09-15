@@ -3,11 +3,16 @@
 <head>
 <meta charset="utf-8">
 <title>Respuestas — Almacén Maquita</title>
+<!-- Favicon por tipo de archivo: módulo aparte (editor-favicon.js) -->
+<script src="/static/js/almacen/editor-favicon.js?v=20260910-favicon2"></script>
+<script>try { MaquitaFavicon.poner((new URLSearchParams(location.search).get('ruta') || '').split('/').pop() || 'x.forma'); } catch (e) {}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="/static/vendor/fonts/material-icons.css">
-<link rel="stylesheet" href="/static/css/almacen/encuesta-base.css?v=20260827-salto1">
-<link rel="stylesheet" href="/static/css/almacen/encuesta-editor.css?v=20260827-salto1">
-<link rel="stylesheet" href="/static/css/almacen/encuesta-respuestas.css?v=20260827-salto1">
+<link rel="stylesheet" href="/static/css/almacen/encuesta-base.css?v=20260909-opciones2">
+<link rel="stylesheet" href="/static/css/almacen/encuesta-fechahora.css?v=20260909-opciones2">
+<link rel="stylesheet" href="/static/css/almacen/encuesta-campos.css?v=20260909-opciones2">
+<link rel="stylesheet" href="/static/css/almacen/encuesta-editor.css?v=20260909-opciones2">
+<link rel="stylesheet" href="/static/css/almacen/encuesta-respuestas.css?v=20260909-opciones2">
 </head>
 <body class="fm">
 
@@ -79,23 +84,26 @@
   <div class="fm-vacio">Cargando las respuestas&hellip;</div>
 </div>
 
-<script src="/static/js/almacen/encuesta-texto.js?v=20260827-salto1"></script>
-<script src="/static/js/almacen/encuesta-render.js?v=20260827-salto1"></script>
-<script src="/static/js/almacen/encuesta-grafico-svg.js?v=20260827-salto1"></script>
-<script src="/static/js/almacen/encuesta-resp-grafico.js?v=20260827-salto1"></script>
-<script src="/static/js/almacen/encuesta-resp-resumen.js?v=20260827-salto1"></script>
-<script src="/static/js/almacen/encuesta-desplegable.js?v=20260827-salto1"></script>
-<script src="/static/js/almacen/encuesta-resp-pregunta.js?v=20260827-salto1"></script>
-<script src="/static/js/almacen/encuesta-resp-notas.js?v=20260827-salto1"></script>
-<script src="/static/js/almacen/encuesta-resp-individual.js?v=20260827-salto1"></script>
-<script src="/static/js/almacen/encuesta-historial.js?v=20260827-salto1"></script>
-<script src="/static/js/almacen/encuesta-tema.js?v=20260827-salto1"></script>
-<script src="/static/js/almacen/encuesta-imagenes.js?v=20260827-salto1"></script>
-<script src="/static/js/almacen/encuesta-encabezado.js?v=20260827-salto1"></script>
-<script src="/static/js/almacen/encuesta-qr.js?v=20260827-salto1"></script>
-<script src="/static/js/almacen/encuesta-resp-barra.js?v=20260827-salto1"></script>
-<script src="/static/js/almacen/encuesta-publicar.js?v=20260827-salto1"></script>
-<script src="/static/js/almacen/encuesta-aviso.js?v=20260827-salto1"></script>
-<script src="/static/js/almacen/encuesta-respuestas.js?v=20260827-salto1"></script>
+<script src="/static/js/almacen/encuesta-texto.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-render.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-campos.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-fechahora.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-archivos.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-grafico-svg.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-resp-grafico.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-resp-resumen.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-desplegable.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-resp-pregunta.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-resp-notas.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-resp-individual.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-historial.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-tema.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-imagenes.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-encabezado.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-qr.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-resp-barra.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-publicar.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-aviso.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-respuestas.js?v=20260909-opciones2"></script>
 </body>
 </html>

@@ -197,6 +197,12 @@ def ids_en_uso(definicion):
         imagen = elemento.get('imagen')
         if isinstance(imagen, dict) and imagen.get('id'):
             usados.add(str(imagen['id']))
+        # Las imágenes de las opciones cuentan igual (09/09/2026). Sin esta
+        # vuelta, `limpiar_huerfanas()` las borraría del disco en el primer
+        # guardado por no encontrarlas referenciadas.
+        for opcion in (elemento.get('opciones_imagenes') or []):
+            if isinstance(opcion, dict) and opcion.get('id'):
+                usados.add(str(opcion['id']))
     return usados
 
 

@@ -94,4 +94,38 @@ menuHecho.cmpEl = [otro];
 alAbrirse();
 bien(otro.classList.contains('maq-desplegable'),
      'si el editor lo rehace, al abrirlo se viste otra vez');
+
+// ── Cada opción con SU color, leído de las reglas del archivo ────────────
+function Opcion(texto) {
+    this.textContent = texto;
+    this.style = { background: '' };
+    this.classList = {
+        _c: [], contains(c) { return this._c.indexOf(c) !== -1; },
+        add(c) { if (!this.contains(c)) this._c.push(c); },
+        remove(c) { this._c = this._c.filter(x => x !== c); }
+    };
+}
+const opciones = [new Opcion('ENERO'), new Opcion('FEBRERO'), new Opcion('MARZO')];
+opciones[2].style.background = '#123456';          // quedó pintada de otra celda
+opciones[2].classList.add('maq-con-color');
+menuHecho.cmpEl = [{ querySelectorAll: () => opciones, classList: otro.classList }];
+window.MaquitaColoresCF = { coloresPorValor: () => ({ ENERO: '#fce8b2', FEBRERO: '#b7e1cd' }) };
+const pintadas = window.MaquitaDesplegableAspecto.pintarValores(ventanaEditor, menuHecho);
+bien(pintadas === 2, 'pinta las opciones que tienen color en el archivo: ' + pintadas);
+bien(opciones[0].style.background === '#fce8b2' && opciones[0].classList.contains('maq-con-color'),
+     'ENERO sale en su amarillo, como pastilla');
+bien(opciones[2].style.background === '' && !opciones[2].classList.contains('maq-con-color'),
+     'una opcion sin color se limpia si el menu venia pintado de otra celda');
+// Si hay colores de ESTA celda (MaquitaColoresCelda), mandan sobre los de toda la hoja (04/09/2026).
+window.MaquitaColoresCelda = { coloresDeLaCelda: () => ({ ENERO: '#ff0000' }) };
+window.MaquitaDesplegableAspecto.pintarValores(ventanaEditor, menuHecho);
+bien(opciones[0].style.background === '#ff0000' && opciones[1].style.background === '',
+     'con colores de la celda, cada opcion lleva el de SU celda y no el de otra lista de la hoja');
+window.MaquitaColoresCelda = { coloresDeLaCelda: () => ({}) };
+window.MaquitaDesplegableAspecto.pintarValores(ventanaEditor, menuHecho);
+bien(opciones[0].style.background === '#fce8b2', 'y si la celda no tiene reglas propias, se vuelve a los de la hoja');
+delete window.MaquitaColoresCelda;
+delete window.MaquitaColoresCF;
+bien(window.MaquitaDesplegableAspecto.pintarValores(ventanaEditor, menuHecho) === 0,
+     'sin el modulo de colores no pinta nada, y no revienta');
 console.log();

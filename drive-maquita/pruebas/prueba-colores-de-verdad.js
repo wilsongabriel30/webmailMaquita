@@ -1,12 +1,30 @@
 /* POR QUÉ LOS COLORES NO SALÍAN, y por qué ahora se respetan.
 
-   1. `asc_setCF(reglas, borradas, una)` NO recibe una lista de reglas: recibe un
-      array INDEXADO POR HOJA. Por dentro hace `reglas[indiceDeLaHoja]`. Al
-      pasarle la lista pelada miraba una posición vacía y no aplicaba ninguna:
-      por eso el .xlsx de Wilson no tenía ni una regla de color (02/09/2026).
+   Esto se ha equivocado DOS veces, y las dos por suponer cómo se llamaba a
+   `asc_setCF` en vez de leer lo que hace. Queda escrito para no repetirlo:
 
-   2. Para RESPETAR los colores al reeditar, se leen del propio archivo —de las
-      reglas puestas—, y no de un metadato que el editor no llega a guardar.
+   1. Primero se le pasaba la lista pelada de reglas. Mal.
+
+   2. Después, un array indexado por hoja. También mal, y más traicionero:
+      NO daba error —el diagnóstico cantaba «reglas puestas: 2»— pero el .xlsx
+      salía con CERO reglas de color (comprobado en el archivo de Wilson del
+      03/09/2026, guardado a las 08:23).
+
+      La razón está en la propia función del editor: quien REMATA cada regla
+      —le pone la `priority`, que nace en `null`— es una función interna que
+      solo corre si se le pasa UNA regla, o un preajuste. Con el array por hoja
+      no corre nunca, y una regla sin prioridad no se pinta ni se guarda.
+
+   3. Lo que sí funciona, porque es lo que hace la propia interfaz del editor
+      al crear una regla: `asc_setCF([unaRegla], [])`, UNA POR LLAMADA. Y además
+      se le pone la prioridad y las celdas a mano, para no depender de esa
+      función interna ni de lo que esté seleccionado.
+
+   Y para RESPETAR los colores al reeditar, se leen del propio archivo —de las
+   reglas puestas—, no de un metadato que el editor no llega a guardar.
+
+   El simulacro de aquí abajo imita al editor DE VERDAD, incluido lo que más
+   importa: que una regla sin prioridad NO llega al documento.
 
    Se ejecuta con:  node prueba-colores-de-verdad.js  */
 
@@ -29,11 +47,21 @@ function Validacion() { }
 Validacion.prototype.asc_getType = function () { return this.Type; };
 Validacion.prototype.asc_getFormula1 = function () { return this.Formula1; };
 
-function Regla() { }
+/* Como en el SDK: la regla NACE con la prioridad sin poner. Es el detalle del
+   que dependía todo, así que el simulacro lo copia igual. */
+function Regla() { this.prioridad = null; }
+Regla.prototype.asc_setPriority = function (v) { this.prioridad = v; };
 Regla.prototype.asc_setType = function (v) { this.tipo = v; };
 Regla.prototype.asc_setOperator = function (v) { this.operador = v; };
-Regla.prototype.asc_setValue1 = function (v) { this.valor = v; };
-Regla.prototype.asc_getValue1 = function () { return this.valor; };
+/* Como el editor DE VERDAD (03/09/2026): envuelve el texto en comillas y,
+   si ya las traía, las dobla y lo vuelve a envolver. Por eso hay que dárselo
+   SIN comillas. */
+Regla.prototype.asc_setValue1 = function (v) {
+    v = String(v);
+    this.valor = v.charAt(0) === '"' ? '"' + v.replace(/"/g, '""') + '"' : '"' + v + '"';
+};
+// Como el editor de verdad (03/09/2026): lo devuelve con «=» delante.
+Regla.prototype.asc_getValue1 = function () { return '=' + this.valor; };
 Regla.prototype.asc_setDxf = function (v) { this.formato = v; };
 Regla.prototype.asc_getDxf = function () { return this.formato; };
 Regla.prototype.asc_setLocation = function (v) { this.donde = v; };
@@ -44,6 +72,8 @@ Formato.prototype.asc_getFillColor = function () { return this.relleno; };
 let puestasEnLaHoja = [];              // lo que el editor acaba guardando
 let guardada = null;
 let soloLectura = false;
+let llamadas = [];                     // cuántas reglas llevó cada llamada
+let descartadas = 0;                   // las que se cayeron sin prioridad
 
 const editor = {
     asc_getActiveWorksheetIndex: () => HOJA,
@@ -61,16 +91,43 @@ const editor = {
             asc_getFormula1: () => ({ asc_getValue: () => guardada })
         })
     }),
-    /* Como el editor DE VERDAD: las reglas se buscan en la posición de la hoja.
-       Si llegan en una lista pelada, no encuentra nada y no guarda ninguna. */
-    asc_setCF: function (reglas, borradas, una) {
+    /* Como el editor DE VERDAD (función `GSj` del SDK 9.2.1):
+
+       — con UNA regla suelta, la remata: si viene sin prioridad, se la pone;
+       — con dos o más, las busca en la posición de la hoja y NO las remata;
+       — y una regla que se quede sin prioridad no llega al documento.
+
+       Ojo: NO devuelve nada. Por eso mirar lo que devuelve no sirve para saber
+       si funcionó, y hay que volver a leer las reglas. */
+    asc_setCF: function (reglas, borradas, preajuste) {
         if (soloLectura) return false;
-        if (reglas && reglas[HOJA] && reglas[HOJA].length) {
-            puestasEnLaHoja = puestasEnLaHoja.concat(reglas[HOJA]);
+        llamadas.push((reglas || []).length);
+
+        let entran = null;
+        if (reglas && reglas.length === 1 && !Array.isArray(reglas[0])) {
+            const sola = reglas[0];
+            if (sola.prioridad === null) sola.prioridad = 1;   // el remate
+            entran = [sola];
+        } else if (reglas && reglas[HOJA]) {
+            entran = reglas[HOJA];                             // sin rematar
         }
+
+        (entran || []).forEach(function (regla) {
+            if (regla.prioridad === null || regla.prioridad === undefined) {
+                descartadas++;         // el editor no la pinta ni la guarda
+                return;
+            }
+            puestasEnLaHoja.push(regla);
+        });
         return undefined;
     },
-    asc_getCF: function () { return [puestasEnLaHoja]; },
+    /* Como el de verdad: hay que decir el ÁMBITO (hoja entera, selección…).
+       Sin él devuelve null —y así salía siempre «reglas leídas: 0»—. Y lo que
+       devuelve es [reglas, "=celdas seleccionadas"], no las reglas a secas. */
+    asc_getCF: function (tipo) {
+        if (tipo === undefined || tipo === null) return null;
+        return [puestasEnLaHoja, '=B2:B20'];
+    },
     asc_getWorksheetsCount: () => 8
 };
 
@@ -84,6 +141,7 @@ const ventana = {
     Asc: {
         c_oAscEDataValidationType: TIPOS,
         c_oAscCFType: { cellIs: 'celda-es' },
+        c_oAscSelectionForCFType: { selection: 0, worksheet: 1, table: 2, pivot: 3 },
         c_oAscCFOperator: { equal: 'igual' },
         c_oAscEDataValidationErrorStyle: { Stop: 'rechaza', Warning: 'avisa' },
         c_oAscEDataValidationOperator: {},
@@ -122,12 +180,34 @@ comprueba(r.ok === true, 'la lista se aplica');
 comprueba(puestasEnLaHoja.length === 2,
           'y las DOS reglas de color llegan a la hoja: ' + puestasEnLaHoja.length);
 comprueba(puestasEnLaHoja[0].valor === '"ENERO"',
-          'la primera regla compara con ENERO');
+          'la primera regla compara con ENERO, con UN par de comillas (las pone el editor): '
+          + puestasEnLaHoja[0].valor);
 comprueba(!!puestasEnLaHoja[0].formato.relleno,
           'y lleva su color de fondo');
+
+// ── LO QUE FALLABA: el remate de cada regla ─────────────────────────────
+comprueba(descartadas === 0,
+          'NINGUNA regla se cae por venir sin prioridad: se descartaron '
+          + descartadas);
+comprueba(puestasEnLaHoja.every(r => r.prioridad > 0),
+          'todas llegan con su prioridad puesta: '
+          + puestasEnLaHoja.map(r => r.prioridad).join(','));
+comprueba(llamadas.length === 2 && llamadas.every(n => n === 1),
+          'se llama al editor UNA VEZ POR REGLA, que es la forma que funciona: '
+          + JSON.stringify(llamadas));
+
+// Las celdas van SIN el nombre de la hoja: con él, el editor puede quedarse
+// sin celdas, y una regla sin celdas no pinta nada.
+comprueba(puestasEnLaHoja[0].donde === 'B2:B20',
+          'y las celdas van sin el nombre de la hoja delante: '
+          + puestasEnLaHoja[0].donde);
+
 comprueba(avisos.some(a => a.q === 'colores de la lista'
-                        && a.d['reglas puestas'] === '2'),
+                        && a.d['aceptadas'] === '2'),
           'el diagnóstico deja escrito cuántas reglas se pusieron');
+comprueba(avisos.some(a => a.q === 'colores de la lista'
+                        && a.d['confirmadas en el documento'] === '2'),
+          'y CONFIRMA leyéndolas del documento, en vez de dar por bueno el envío');
 
 // ── 2. Si el editor NO las admite, se dice ──────────────────────────────
 soloLectura = true;
@@ -138,6 +218,12 @@ comprueba(r2.ok === true, 'la lista se pone igual: los colores son un extra');
 comprueba(avisos.some(a => a.d && /no admitió las reglas/.test(a.d.problema || '')),
           'pero se AVISA de que los colores no se aplicaron');
 soloLectura = false;
+
+// ── 2b. El valor de la regla viene con «=» delante y entre comillas ──────
+comprueba(CF._valorDe({ asc_getValue1: () => '="Hola"' }) === 'Hola',
+          'de ="Hola" sale Hola (el «=» lo pone el editor)');
+comprueba(CF._valorDe({ asc_getValue1: () => '"""Opción 1"""' }) === 'Opción 1',
+          'y de las comillas triples de las reglas viejas sale Opción 1');
 
 // ── 3. Los colores se leen del propio archivo ───────────────────────────
 puestasEnLaHoja = [];
@@ -164,7 +250,7 @@ comprueba(otraVez.ENERO === '#fce8b2' && otraVez.FEBRERO === '#b7e1cd',
 
 // ── 5. Lo que NO se sabe, no se inventa ─────────────────────────────────
 puestasEnLaHoja = [{
-    asc_getValue1: () => '"SIN COLOR"',
+    asc_getValue1: () => '="SIN COLOR"',
     asc_getDxf: () => ({ asc_getFillColor: () => null })
 }];
 comprueba(Object.keys(CF.coloresPorValor(ventana)).length === 0,

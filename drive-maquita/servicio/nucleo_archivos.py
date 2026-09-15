@@ -161,12 +161,13 @@ def _item_a_dict(usuario_id: int, ruta_carpeta: str, entrada: os.DirEntry,
 # cliente lo recree. Así que ni se muestra ni se deja borrar.
 # Solo se ocultan estos nombres EXACTOS, no todo lo que empieza por punto: hay
 # gente con archivos propios así (.gitkeep, .env) y esos deben seguir viéndose.
-ARCHIVOS_INTERNOS = {'.comprobacion-drive-maquita'}
-
-
-def es_archivo_interno(nombre: str) -> bool:
-    """¿Es un archivo del sistema que el usuario no debe ver ni borrar?"""
-    return (nombre or '') in ARCHIVOS_INTERNOS
+# (10/09/2026) Los nombres viven en `archivos_internos.py`, que también
+# leen los índices y el servidor WebDAV. Aquí se conservan los alias de
+# siempre. Se añade la CARPETA interna `.formularios` (respuestas de los
+# formularios creados desde un Excel): tampoco se lista ni se borra.
+from archivos_internos import (ARCHIVOS_INTERNOS, CARPETAS_INTERNAS,
+                               MOTIVO_CARPETA, es_archivo_interno,
+                               es_carpeta_interna, es_nombre_interno)
 
 
 def listar_unidades(usuario_id: int) -> list:
@@ -228,7 +229,7 @@ def listar(usuario_id: int, ruta_virtual: str) -> tuple:
         carpetas, archivos = [], []
         with os.scandir(fisica) as entradas:
             for entrada in entradas:
-                if es_archivo_interno(entrada.name):
+                if es_nombre_interno(entrada.name):
                     continue
                 item = _item_a_dict(usuario_id, ruta_virtual, entrada, favoritos, compartidas)
                 if item['es_carpeta'] and item['id'] in estilos:   # color/icono personalizado
@@ -671,6 +672,8 @@ def enviar_a_papelera(usuario_id: int, ruta_virtual: str) -> str:
         raise RutaInvalida(
             'Este archivo protege la sincronización de tu Drive y no se '
             'puede eliminar.')
+    if es_carpeta_interna(normalizar_ruta_virtual(ruta_virtual).rsplit('/', 1)[-1]):
+        raise RutaInvalida(MOTIVO_CARPETA)
     ruta_virtual = normalizar_ruta_virtual(ruta_virtual)
     origen = ruta_fisica(usuario_id, ruta_virtual, escritura=True)
     if not os.path.exists(origen):
