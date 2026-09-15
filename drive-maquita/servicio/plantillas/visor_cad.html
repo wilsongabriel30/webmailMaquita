@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Visor de planos · Drive Maquita</title>
+<!-- Favicon por tipo de archivo: módulo aparte (editor-favicon.js) -->
+<script src="/static/js/almacen/editor-favicon.js?v=20260910-favicon2"></script>
 <style>
   :root{ --verde:#2e7d32; --barra:#1b5e20; }
   *{ box-sizing:border-box; }
@@ -63,6 +65,7 @@
   document.getElementById('nombre').textContent = nombre;
   document.getElementById('ext').textContent = ext;
   document.title = nombre + ' · Drive Maquita';
+  if (window.MaquitaFavicon) MaquitaFavicon.poner(nombre);
 
   var escena = document.getElementById('escena');
   var lienzo = document.getElementById('lienzo');

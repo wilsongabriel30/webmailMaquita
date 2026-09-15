@@ -108,6 +108,9 @@ def encolar(usuario_id: int, ruta_virtual: str) -> None:
     try:
         if extension_de(ruta_virtual) not in EXTENSIONES:
             return
+        from archivos_internos import en_carpeta_interna
+        if en_carpeta_interna(ruta_virtual):     # `.formularios/…` (10/09/2026)
+            return
         fisica = ruta_fisica(usuario_id, ruta_virtual)
         if not os.path.isfile(fisica):
             return

@@ -61,6 +61,10 @@ def asegurar_esquema_vinculos():
                     ON vinculos_datos(origen_usuario, origen_ruta) WHERE activo;
                 CREATE INDEX IF NOT EXISTS ix_vinc_destino
                     ON vinculos_datos(destino_usuario, destino_ruta) WHERE activo;
+                -- (11/09/2026) nombre anterior de la hoja de destino, cuando el
+                -- libro estaba abierto al renombrarla: se aplica al cerrar.
+                ALTER TABLE vinculos_datos
+                    ADD COLUMN IF NOT EXISTS destino_hoja_previa TEXT;
             """)
 
 
@@ -106,14 +110,26 @@ def _leer_rango(usuario, ruta, hoja, rango):
     wb = openpyxl.load_workbook(fis, data_only=True, read_only=True)
     try:
         if hoja not in wb.sheetnames:
-            raise ValueError('La hoja "%s" no existe en el origen' % hoja)
+            # El archivo de respuestas de un formulario tiene UNA hoja y se
+            # llama como el formulario: si cambió el título, cambió el nombre.
+            # Con una sola hoja no hay ambigüedad (11/09/2026).
+            if len(wb.sheetnames) == 1:
+                hoja = wb.sheetnames[0]
+            else:
+                raise ValueError('La hoja "%s" no existe en el origen' % hoja)
         ws = wb[hoja]
         min_c, min_r, max_c, max_r = range_boundaries(rango)
+        # De una pasada, NO celda a celda: en modo `read_only` cada `ws.cell()`
+        # recorre la hoja entera, y con un rango grande eso cuelga al trabajador
+        # hasta que lo matan (09/09/2026).
+        ancho = max_c - min_c + 1
         matriz = []
-        for r in range(min_r, max_r + 1):
-            fila = []
-            for c in range(min_c, max_c + 1):
-                fila.append(ws.cell(row=r, column=c).value)
+        for valores in ws.iter_rows(min_row=min_r, max_row=max_r,
+                                    min_col=min_c, max_col=max_c,
+                                    values_only=True):
+            fila = list(valores)
+            if len(fila) < ancho:
+                fila += [None] * (ancho - len(fila))
             matriz.append(fila)
         return matriz
     finally:
@@ -130,15 +146,48 @@ def _escribir_matriz(usuario, ruta, hoja, celda, matriz):
     else:
         ws = wb[hoja]
     fila0, col0 = coordinate_to_tuple(celda)   # (row, col)
+    import datetime as _dt
     for i, fila in enumerate(matriz):
         for j, valor in enumerate(fila):
-            ws.cell(row=fila0 + i, column=col0 + j, value=valor)
-    buf = io.BytesIO()
-    wb.save(buf)
-    wb.close()
-    buf.seek(0)
+            # `.value` explícito: con `cell(value=None)` openpyxl NO borra la celda y
+            # una columna que desaparece del origen (p. ej. «Correo» al dejar de
+            # recogerlo) se quedaba con los datos viejos (11/09/2026).
+            celda = ws.cell(row=fila0 + i, column=col0 + j)
+            celda.value = valor
+            # Fecha legible (11/09/2026 09:13), no «yyyy-mm-dd h:mm:ss» (11/09/2026).
+            if isinstance(valor, _dt.datetime):
+                celda.number_format = 'dd/mm/yyyy hh:mm'
     carpeta, _, nombre = ruta.rpartition('/')
-    nucleo.subir(usuario, carpeta or '/', nombre, buf)
+    # Guardar con openpyxl deja SIN RESULTADO las fórmulas propias del libro que
+    # recibe los datos (sus totales se veían en blanco). Se completan antes de
+    # subirlo. Si no se puede calcular, se sube igual: el dato del vínculo no se
+    # pierde por eso.
+    import os as _os
+    import tempfile as _tempfile
+    _temporal = _os.path.join(_tempfile.gettempdir(),
+                              'vinculo-%d.xlsx' % _os.getpid())
+    try:
+        wb.save(_temporal)
+        wb.close()
+        try:
+            from consolidados.inyectar_valores import completar as _completar
+            _ok, _puestos, _motivo = _completar(_temporal)
+            if _ok:
+                log.info('vinculo %s: resultados de fórmulas rellenados (%d)',
+                         ruta, _puestos)
+            else:
+                log.warning('vinculo %s: no se pudieron rellenar los resultados '
+                            '(%s)', ruta, _motivo)
+        except Exception as _exc:
+            log.warning('vinculo %s: relleno de resultados no disponible (%s)',
+                        ruta, _exc)
+        with open(_temporal, 'rb') as _fichero:
+            buf = io.BytesIO(_fichero.read())
+        buf.seek(0)
+        nucleo.subir(usuario, carpeta or '/', nombre, buf)
+    finally:
+        if _os.path.exists(_temporal):
+            _os.unlink(_temporal)
 
 
 def _refrescar(v):
@@ -168,7 +217,7 @@ def refrescar_por_origen(usuario, ruta):
         ruta = normalizar_ruta_virtual(ruta)
         filas = bd.consultar(
             'SELECT * FROM vinculos_datos WHERE activo AND origen_usuario = %s '
-            'AND origen_ruta = %s', (int(usuario), ruta))
+            'AND origen_ruta = %s AND origen_ruta <> destino_ruta', (int(usuario), ruta))
         n = 0
         for v in filas:
             ok, _ = _refrescar(v)
@@ -179,6 +228,85 @@ def refrescar_por_origen(usuario, ruta):
     except Exception as excepcion:
         log.warning('refrescar_por_origen %s: %s', ruta, excepcion)
         return 0
+
+
+def refrescar_por_destino(usuario, ruta):
+    """Vuelve a aplicar los vínculos cuyo DESTINO es este libro (10/09/2026).
+
+    Lo llama el callback de OnlyOffice al CERRARSE la edición del libro.
+    Motivo: el editor guarda su propia copia y pisa lo que se escribió en
+    disco mientras estaba abierto (la hoja de respuestas de un formulario,
+    las filas que llegaron entre tanto). Al reaplicar aquí, el libro queda
+    con lo último. Solo se escribe si de verdad falta algo: comparar es
+    barato y evita una versión nueva por cada cierre. Nunca lanza.
+    """
+    try:
+        ruta = normalizar_ruta_virtual(ruta)
+        # En el espacio personal las rutas se repiten entre personas: hay
+        # que mirar el dueño. En una unidad la ruta es única para todos.
+        filas = bd.consultar(
+            'SELECT * FROM vinculos_datos WHERE activo AND destino_ruta = %s '
+            'AND (destino_usuario = %s OR destino_ruta LIKE %s) '
+            'AND origen_ruta <> destino_ruta',      # autovínculos: solo en vivo
+            (ruta, int(usuario), '/unidades/%'))
+        try:
+            import vinculos_hoja
+            vinculos_hoja.aplicar_renombres_pendientes([dict(v) for v in filas])
+        except Exception as _exc_ren:
+            log.warning('renombres pendientes en %s: %s', ruta, _exc_ren)
+        n = 0
+        for v in filas:
+            if _destino_al_dia(v):
+                continue
+            ok, _ = _refrescar(v)
+            n += 1 if ok else 0
+        if filas:
+            log.info('refresco por destino %s: %s/%s vínculos reaplicados',
+                     ruta, n, len(filas))
+        return n
+    except Exception as excepcion:
+        log.warning('refrescar_por_destino %s: %s', ruta, excepcion)
+        return 0
+
+
+def _sin_cola_vacia(matriz):
+    """La matriz sin las filas vacías del final (para comparar)."""
+    filas = [list(f) for f in matriz]
+    while filas and all(c in (None, '') for c in filas[-1]):
+        filas.pop()
+    return filas
+
+
+def _destino_al_dia(v):
+    """¿El destino ya tiene exactamente lo que dice el origen?"""
+    try:
+        origen = _sin_cola_vacia(_leer_rango(v['origen_usuario'], v['origen_ruta'],
+                                            v['origen_hoja'], v['origen_rango']))
+        from openpyxl.utils import get_column_letter, range_boundaries
+        fila0, col0 = coordinate_to_tuple(v['destino_celda'])
+        min_c, min_r, max_c, max_r = range_boundaries(v['origen_rango'])
+        alto, ancho = max_r - min_r + 1, max_c - min_c + 1
+        rango = '%s%d:%s%d' % (get_column_letter(col0), fila0,
+                               get_column_letter(col0 + ancho - 1), fila0 + alto - 1)
+        destino = _sin_cola_vacia(_leer_rango(v['destino_usuario'], v['destino_ruta'],
+                                             v['destino_hoja'], rango))
+        return _normalizar_valores(origen) == _normalizar_valores(destino)
+    except Exception:
+        return False        # ante la duda, se reaplica
+
+
+def _normalizar_valores(matriz):
+    """Fechas (al segundo) y números como texto, celdas vacías iguales entre sí."""
+    import datetime as _dt
+
+    def _celda(c):
+        if isinstance(c, _dt.datetime):
+            c = (c + _dt.timedelta(milliseconds=500)).replace(microsecond=0)
+            return c.strftime('%Y-%m-%d %H:%M:%S')
+        if isinstance(c, float) and c == int(c):
+            return str(int(c))
+        return '' if c is None else str(c)
+    return [[_celda(c) for c in fila] for fila in matriz]
 
 
 # ---------------------------------------------------------------------------
@@ -257,7 +385,8 @@ def listar():
     filas = bd.consultar(
         'SELECT id, origen_ruta, origen_hoja, origen_rango, destino_hoja, '
         'destino_celda, actualizado_en FROM vinculos_datos WHERE activo AND '
-        'destino_usuario = %s AND destino_ruta = %s ORDER BY id', (usuario, ruta))
+        'destino_usuario = %s AND destino_ruta = %s AND origen_ruta <> destino_ruta '
+        'ORDER BY id', (usuario, ruta))
     return jsonify({'success': True, 'vinculos': filas})
 
 

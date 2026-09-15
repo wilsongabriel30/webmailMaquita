@@ -66,6 +66,17 @@ def convertir(usuario_id, ruta_virtual, extension_destino):
     if not origen_ext or not extension_destino:
         return None
 
+    # (2026-09-04) El Document Server descarga el ORIGINAL del disco para
+    # convertirlo: si alguien lo tiene abierto, el PDF saldría de la versión
+    # anterior. Se fuerza el guardado primero.
+    try:
+        import guardado_forzado
+        from seguridad_rutas import ruta_fisica
+        guardado_forzado.guardar_si_esta_abierto(
+            usuario_id, ruta_virtual, ruta_fisica(usuario_id, ruta_virtual))
+    except Exception:
+        pass
+
     if not _SEMAFORO.acquire(timeout=_ESPERA_SEMAFORO):
         log.info('Conversor ocupado; no se convierte %s', ruta_virtual)
         return None

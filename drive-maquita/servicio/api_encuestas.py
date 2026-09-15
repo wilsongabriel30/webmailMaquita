@@ -44,6 +44,7 @@ from flask import Blueprint, jsonify, request, send_file
 import encuestas_bd as ebd
 import encuestas_imagenes as imagenes
 import encuestas_ajustes as ajustes_mod
+import encuestas_archivos as archivos_mod
 import encuestas_calificar as calificar
 import encuestas_correo as correo_mod
 import encuestas_qr as qr
@@ -237,6 +238,14 @@ def guardar():
         return error('No se pudo guardar el formulario', 500)
     fila = _sincronizar_bd(usuario, ruta, definicion)
 
+    # Cambió el título: la pestaña del libro y el vínculo le siguen (11/09/2026).
+    try:
+        if modelo.plano((previa or {}).get('titulo')) != modelo.plano(definicion.get('titulo')):
+            import formularios_titulo
+            formularios_titulo.al_cambiar_titulo(usuario, fila, definicion.get('titulo'))
+    except Exception as excepcion:
+        log.warning('título de %s: %s', ruta, excepcion)
+
     # Si el formulario tiene hoja vinculada, se rehace unos segundos después:
     # añadir o quitar una pregunta cambia las COLUMNAS del Excel, no solo las
     # filas (27/08/2026). Va con retardo porque el editor guarda solo mientras
@@ -334,7 +343,24 @@ def ajustes():
                 solo_internos=bool(solo_internos),
                 una_por_persona=bool(una_por_persona))
     ebd.guardar_ajustes(definicion['id'], nuevos)
+    # Acaba de hacerse ANÓNIMA: lo que ya se sabía de quien respondió antes se
+    # borra (usuario y correo). Es lo que promete la opción y no tiene vuelta
+    # atrás; las respuestas en sí se conservan (11/09/2026).
+    if nuevos.get('anonimo') and not antes.get('anonimo'):
+        try:
+            ebd.bd.ejecutar('UPDATE encuesta_respuestas SET usuario_id = NULL, correo = %s '
+                            'WHERE encuesta_id = %s', ('', definicion['id']))
+            log.info('formulario %s ahora anónimo: identidad borrada de sus respuestas', ruta)
+        except Exception as excepcion:
+            log.warning('anónimo %s: no se pudo borrar la identidad (%s)', ruta, excepcion)
     fila = ebd.obtener(definicion['id'])
+    # Anónimo o recoger correo cambian las COLUMNAS de la hoja de respuestas:
+    # se rehace, igual que al añadir una pregunta (11/09/2026). Antes la hoja
+    # seguía enseñando nombres hasta la siguiente respuesta.
+    try:
+        hoja_mod.refrescar_al_editar(fila, definicion)
+    except Exception as excepcion:
+        log.warning('ajustes %s: no se pudo rehacer la hoja (%s)', ruta, excepcion)
     return jsonify({'success': True, 'estado': _resumen(fila, definicion),
                     'forzados': forzados})
 
@@ -377,7 +403,9 @@ def respuestas():
     lista = [{
         'id': f['id'],
         'quien': quien_respondio(f, nombres, ajustes_vivos),
-        'correo': f.get('correo') or '',
+        # Anónima: el correo tampoco se enseña (una respuesta anterior al
+        # cambio podría tenerlo guardado; ver el borrado en `ajustes`).
+        'correo': '' if ajustes_vivos.get('anonimo') else (f.get('correo') or ''),
         'puntos': (float(f['puntos']) if f.get('puntos') is not None else None),
         'puntos_max': (float(f['puntos_max'])
                        if f.get('puntos_max') is not None else None),
@@ -442,7 +470,29 @@ def _resumen_por_pregunta(definicion, filas):
                     elif elegido not in (None, '') and pregunta.get('otro'):
                         otros.append(elegido)
             resumen[pid] = {'tipo': 'conteo', 'conteo': conteo, 'otros': otros}
-        elif pregunta['tipo'] == 'escala':
+        elif pregunta['tipo'] in modelo.TIPOS_CUADRICULA:
+            # Cada par fila-columna se cuenta como si fuera una opción suelta.
+            # Es la lectura que responde a lo que se pregunta con una
+            # cuadrícula («¿cómo valoran cada servicio?») y, además, deja el
+            # resumen en la misma forma que el de las opciones, así que las
+            # barras y el gráfico lo pintan sin saber que es una cuadrícula.
+            conteo = {}
+            for fila_pregunta in (pregunta.get('filas') or []):
+                for columna in (pregunta.get('columnas') or []):
+                    conteo['%s — %s' % (fila_pregunta, columna)] = 0
+            for fila in filas:
+                valor = (fila['datos'] or {}).get(pid)
+                if not isinstance(valor, dict):
+                    continue
+                for fila_respondida, elegido in valor.items():
+                    elegidas = elegido if isinstance(elegido, list) else [elegido]
+                    for columna in elegidas:
+                        clave = '%s — %s' % (fila_respondida, columna)
+                        if clave in conteo:
+                            conteo[clave] += 1
+            resumen[pid] = {'tipo': 'conteo', 'conteo': conteo, 'otros': []}
+
+        elif pregunta['tipo'] in ('escala', 'calificacion'):
             valores = []
             for fila in filas:
                 try:
@@ -454,7 +504,12 @@ def _resumen_por_pregunta(definicion, filas):
             # promedio: un promedio de 3 puede ser «todos eligieron 3» o «la
             # mitad 1 y la mitad 5», y son dos resultados muy distintos. Con la
             # distribución el gráfico lo enseña.
-            maximo = int(pregunta.get('escala_max') or 5)
+            # La calificación se resume igual que la escala: son lo mismo
+            # visto de dos maneras —un número del 1 al N—, solo que una se
+            # pinta con estrellas.
+            maximo = int((pregunta.get('calificacion_max')
+                          if pregunta['tipo'] == 'calificacion'
+                          else pregunta.get('escala_max')) or 5)
             conteo = {str(v): 0 for v in range(1, maximo + 1)}
             for valor in valores:
                 clave = str(int(valor))
@@ -602,6 +657,15 @@ def exportar():
 
     carpeta = ruta.rsplit('/', 1)[0] or '/'
     nombre = _titulo_desde_ruta(ruta)[:80] + ' (respuestas).xlsx'
+    # Formulario creado desde un libro (10/09/2026): su archivo de respuestas
+    # vive en la carpeta interna `.formularios` y alimenta una hoja del
+    # libro. «Exportar» lo rehace AHÍ y abre el libro, en vez de dejar una
+    # copia suelta a la vista que rompería el vínculo.
+    from archivos_internos import en_carpeta_interna
+    hoja_previa = hoja_mod.ruta_de(fila_bd)
+    if hoja_previa and en_carpeta_interna(hoja_previa):
+        carpeta = hoja_previa.rsplit('/', 1)[0] or '/'
+        nombre = hoja_previa.rsplit('/', 1)[-1]
     try:
         nucleo.subir(usuario, carpeta, nombre, memoria)
     except Exception as excepcion:
@@ -621,8 +685,82 @@ def exportar():
     except Exception as excepcion:
         log.warning('exportar %s: no se pudo refrescar el editor (%s)',
                     ruta, excepcion)
+    if en_carpeta_interna(destino_xlsx):
+        # Las respuestas ya están en el libro: se refresca su hoja y se
+        # abre el libro, que es lo que la persona quiere ver.
+        try:
+            from api_vinculos import refrescar_por_origen
+            refrescar_por_origen(usuario, destino_xlsx)
+        except Exception as excepcion:
+            log.warning('exportar %s: no se refrescó el libro (%s)', ruta, excepcion)
+        import formularios_libro as flibro
+        libro = flibro.libro_de_respuestas(destino_xlsx)
+        if libro:
+            return jsonify({'success': True, 'nombre': libro.rsplit('/', 1)[-1],
+                            'ruta': libro, 'hoja': flibro.hoja_de_respuestas(destino_xlsx)})
     return jsonify({'success': True, 'nombre': nombre,
                     'ruta': (('' if carpeta == '/' else carpeta) + '/' + nombre)})
+
+
+# ---------------------------------------------------------------------------
+# Archivos adjuntados a una respuesta
+# ---------------------------------------------------------------------------
+def _adjunto_en_drive(fila, definicion, adjunto_id):
+    """Busca en las respuestas la ficha de ese adjunto ya entregado al Drive.
+
+    Se busca por el id y no por el nombre: dos personas pueden adjuntar dos
+    archivos que se llamen igual, y el que se pide es uno concreto.
+    """
+    for respuesta in ebd.listar_respuestas(definicion['id']):
+        for valor in (respuesta['datos'] or {}).values():
+            if not isinstance(valor, list):
+                continue
+            for ficha in valor:
+                if not isinstance(ficha, dict):
+                    continue
+                if ficha.get('id') != adjunto_id or not ficha.get('ruta'):
+                    continue
+                try:
+                    fisica = ruta_fisica(fila['propietario'], ficha['ruta'])
+                except RutaInvalida:
+                    return None, None
+                if os.path.isfile(fisica):
+                    return fisica, ficha.get('nombre')
+                return None, None
+    return None, None
+
+
+@bp_encuestas.route('/encuestas/adjunto', methods=['GET'])
+def descargar_adjunto():
+    """Baja un archivo que alguien adjuntó al responder.
+
+    Exige poder LEER el `.forma`, que es el mismo permiso con el que se ven las
+    respuestas. Se sirve SIEMPRE como descarga y como `octet-stream`, nunca con
+    el tipo que dijera el navegador de quien lo subió: así un `.html` o un
+    `.svg` adjuntos se bajan en vez de ejecutarse en nuestro dominio.
+    """
+    datos, fallo = _abrir()
+    if fallo:
+        return fallo
+    usuario, ruta, definicion = datos
+    definicion = _limpiar_definicion(definicion)
+    fila = _sincronizar_bd(usuario, ruta, definicion)
+
+    adjunto_id = request.args.get('id') or ''
+
+    # Primero donde estaría si su entrega al Drive hubiera fallado; después, en
+    # el Drive del dueño, que es donde acaba lo normal.
+    camino = archivos_mod.camino_pendiente(definicion['id'], adjunto_id)
+    ficha = archivos_mod.ficha(definicion['id'], adjunto_id) if camino else None
+    nombre = (ficha or {}).get('nombre')
+    if not camino:
+        camino, nombre = _adjunto_en_drive(fila, definicion, adjunto_id)
+    if not camino:
+        return error('Ese archivo ya no está disponible', 404)
+
+    return send_file(camino, as_attachment=True,
+                     download_name=nombre or 'adjunto',
+                     mimetype='application/octet-stream')
 
 
 # ---------------------------------------------------------------------------

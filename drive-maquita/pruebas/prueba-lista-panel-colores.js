@@ -226,5 +226,47 @@ comprueba(!filas[2].classList.contains('maq-ld-arrastrando')
           && filas[2].draggable === false,
           'al soltar, la fila deja de arrastrarse');
 
+
+// ── 3. LA GAMA AMPLIADA (03/09/2026) ────────────────────────────────────
+const GAMA = window.MaquitaListaPanel.COLORES;
+
+comprueba(GAMA.length >= 40,
+          'hay gama de sobra para elegir: ' + GAMA.length + ' colores');
+
+/* Lo que MÁS importa de ampliar la gama: los diez primeros no se tocan. De
+   ahí sale el color que se reparte solo, así que cambiarlos de sitio
+   repintaría las listas que ya están hechas. */
+const LOS_DE_SIEMPRE = ['#e6e6e6', '#f4c7c3', '#ffd7b5', '#fce8b2', '#b7e1cd',
+                        '#a7ffeb', '#c6dafc', '#d7aefb', '#fdcfe8', '#cccccc'];
+comprueba(GAMA.slice(0, 10).map(t => t.color).join() === LOS_DE_SIEMPRE.join(),
+          'y los diez de siempre siguen los primeros, en el mismo orden: '
+          + 'las listas ya hechas no cambian de color');
+
+comprueba(GAMA.every(t => /^#[0-9a-f]{6}$/.test(t.color)),
+          'todos los colores están bien escritos');
+comprueba(GAMA.every(t => t.nombre && t.nombre.trim().length > 2),
+          'y todos tienen nombre, para saber cuál se elige');
+
+const repetidos = GAMA.map(t => t.color)
+    .filter((c, i, todos) => todos.indexOf(c) !== i);
+comprueba(repetidos.length === 0,
+          'no hay ningún color repetido: ' + (repetidos.join() || 'ninguno'));
+
+/* Desde la gama intensa (03/09/2026) SÍ hay colores oscuros: sobre ellos el
+   texto va en blanco (editor-contraste.js). Lo que se comprueba es que TODOS se
+   lean: cada color, con el texto que le toque, debe dar contraste suficiente. */
+require(B + 'editor-contraste.js');
+const C = window.MaquitaContraste;
+function contraste(fondo, texto) {
+    const a = C.luminancia(fondo), b = C.luminancia(texto);
+    return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+}
+const ilegibles = GAMA.filter(t => contraste(t.color, C.textoSobre(t.color)) < 3).map(t => t.nombre);
+comprueba(ilegibles.length === 0,
+          'todos se leen con el texto que les toca (contraste ≥ 3): '
+          + (ilegibles.join(', ') || 'ninguno ilegible'));
+comprueba(GAMA.some(t => C.textoSobre(t.color) === C.CLARO),
+          'y la gama trae colores intensos, que llevan el texto en blanco');
+
 console.log('\n' + bien + ' bien, ' + mal + ' mal\n');
 process.exit(mal ? 1 : 0);

@@ -34,7 +34,10 @@ import encuestas_bd as ebd
 import encuestas_calificar as calificar
 import encuestas_correo as correo_mod
 import encuestas_imagenes as imagenes
+import encuestas_archivos as archivos_mod
 import encuestas_modelo as modelo
+import encuestas_recorrido as recorrido_mod
+import encuestas_validacion as validacion_mod
 from api_encuestas import _leer_definicion, _limpiar_definicion
 
 log = logging.getLogger('almacen.encuestas.publico')
@@ -122,6 +125,18 @@ def _cargar_publico(token):
     definicion = _leer_definicion(fila['propietario'], fila['ruta'])
     if definicion is None:
         return None, _fallo('El formulario ya no está disponible.', 404)
+    # El enlace apunta a una FILA, y la fila a una ruta. Si el archivo que hay
+    # hoy en esa ruta es OTRO formulario —se borró y se creó uno nuevo con el
+    # mismo nombre, o el `.forma` se reemplazó— el enlace se queda huérfano.
+    # Antes se servía lo que hubiera allí: quien abría un enlace repartido
+    # veía un formulario distinto del que le habían compartido, y sus
+    # respuestas se guardaban en el registro del anterior (09/09/2026).
+    if definicion.get('id') != fila['id']:
+        log.warning('enlace huérfano: fila %s, ruta %s tiene %s',
+                    fila['id'], fila['ruta'], definicion.get('id'))
+        return None, _fallo('Este enlace ya no corresponde a ningún '
+                            'formulario. Pide el enlace actual a quien te lo '
+                            'compartió.', 404)
     return (fila, _limpiar_definicion(definicion)), None
 
 
@@ -192,26 +207,42 @@ def definicion_publica(token):
     if fallo:
         return fallo
     fila, definicion = datos
-    usuario = _usuario_faro()
+    return jsonify({'success': True,
+                    'formulario': carga_publica(fila, definicion, _usuario_faro())})
 
+
+def carga_publica(fila, definicion, usuario):
+    """Lo que recibe la página para pintar el formulario.
+
+    Separado del endpoint para que la vista previa del editor
+    (`api_encuestas_previa.py`) entregue EXACTAMENTE lo mismo que el enlace
+    real: si fueran dos copias, la vista previa acabaría enseñando otra cosa.
+    """
     # Se entregan las PÁGINAS ya repartidas: cada sección abre una nueva, y la
     # página pública las presenta de una en una.
     ajustes = ajustes_mod.limpiar(fila.get('ajustes'))
-    paginas = modelo.paginas(definicion)
-    if ajustes['preguntas_aleatorias']:
-        paginas = _barajar(paginas, definicion['id'])
+    # `_sin_clave` va ANTES de barajar: además de quitar la clave numera las
+    # preguntas en su orden original, y ese número tiene que ser el de antes
+    # del barajado. Copia los elementos, así que barajar no toca la definición.
+    #
     # SIEMPRE: la clave de respuestas no puede salir de aquí. Iba dentro de
     # cada pregunta y llegaba al navegador antes de contestar, así que quien
     # abriera las herramientas del navegador veía el examen resuelto.
-    paginas = _sin_clave(paginas)
+    paginas = _sin_clave(modelo.paginas(definicion))
+    if ajustes['preguntas_aleatorias']:
+        paginas = _barajar(paginas, definicion['id'])
 
-    return jsonify({'success': True, 'formulario': {
+    return {
         'titulo': definicion['titulo'],
         'descripcion': definicion['descripcion'],
         'mensaje_final': definicion['mensaje_final'],
         'tema': definicion.get('tema') or {},
         'cabecera': definicion.get('cabecera'),
         'paginas': paginas,
+        # «Después de la primera página»: el de las secciones viaja dentro de
+        # cada sección, pero el de la primera página vive en la definición y
+        # sin esta línea no llegaría a quien responde.
+        'destino_inicio': definicion.get('destino_inicio') or 'siguiente',
         # Solo lo que la página pública necesita saber para comportarse: nunca
         # los ajustes internos del formulario.
         'pide_correo': ajustes['recopilar_correo'],
@@ -227,7 +258,7 @@ def definicion_publica(token):
         'cuestionario': ajustes['cuestionario'],
         'puntos_totales': (calificar.total_posible(definicion)
                            if ajustes['cuestionario'] else 0),
-    }})
+    }
 
 
 def _sin_clave(paginas):
@@ -238,11 +269,17 @@ def _sin_clave(paginas):
     calificación se quedaría sin nada contra lo que comparar.
     """
     limpias = []
+    orden = 0
     for pagina in paginas:
         elementos = []
         for elemento in pagina:
             if 'clave' in elemento:
                 elemento = {k: v for k, v in elemento.items() if k != 'clave'}
+            if elemento.get('clase') == 'pregunta':
+                # La posición ORIGINAL, para que la página decida los saltos
+                # en el mismo orden que el servidor aunque se barajen.
+                elemento = dict(elemento, orden=elemento.get('orden', orden))
+                orden += 1
             elementos.append(elemento)
         limpias.append(elementos)
     return limpias
@@ -326,17 +363,126 @@ def _valor_limpio(pregunta, bruto):
             return None, 'Opción no válida en «%s»' % modelo.plano(pregunta['titulo'])
         return texto, None
 
-    if tipo == 'escala':
+    if tipo in ('escala', 'calificacion'):
         try:
             numero = int(bruto)
         except (TypeError, ValueError):
             return None, 'Valor no válido en «%s»' % modelo.plano(pregunta['titulo'])
-        if not 1 <= numero <= int(pregunta.get('escala_max') or 5):
+        techo = int(pregunta.get('calificacion_max')
+                    or modelo.CALIFICACION_DEFECTO) if tipo == 'calificacion' \
+            else int(pregunta.get('escala_max') or 5)
+        if not 1 <= numero <= techo:
             return None, 'Valor fuera de rango en «%s»' % modelo.plano(pregunta['titulo'])
         return numero, None
 
+    if tipo == 'archivo':
+        # Llega la lista de fichas que devolvió la subida, no los archivos. Cada
+        # id tiene que ser un pendiente DE ESTE formulario: sin esta
+        # comprobación bastaría con inventarse ids para colgar de una respuesta
+        # archivos de otro.
+        if not isinstance(bruto, list):
+            return None, 'Respuesta no válida en «%s»' % modelo.plano(pregunta['titulo'])
+        fichas = []
+        for entrada in bruto[:modelo.ARCHIVOS_MAXIMOS]:
+            if not isinstance(entrada, dict):
+                continue
+            guardada = archivos_mod.ficha(pregunta.get('_encuesta_id'),
+                                          entrada.get('id'))
+            if guardada:
+                fichas.append(guardada)
+        if len(fichas) > int(pregunta.get('archivo_max') or 1):
+            return None, ('Se adjuntaron más archivos de los que admite «%s».'
+                          % modelo.plano(pregunta['titulo']))
+        return (fichas or None), None
+
+    if tipo in modelo.TIPOS_CUADRICULA:
+        # Llega {fila: columna} o {fila: [columnas]}. Se descarta en silencio lo
+        # que no case con la cuadrícula de hoy —una fila o una columna que ya no
+        # existe— en vez de rechazar la respuesta entera: es el mismo criterio
+        # que con las casillas, y quien responde no tiene culpa de que el
+        # formulario se editara mientras lo rellenaba.
+        if not isinstance(bruto, dict):
+            return None, 'Respuesta no válida en «%s»' % modelo.plano(pregunta['titulo'])
+        filas = pregunta.get('filas') or []
+        columnas = pregunta.get('columnas') or []
+        varias = tipo == 'cuadricula_casillas'
+        limpio = {}
+        for fila, elegido in bruto.items():
+            if fila not in filas:
+                continue
+            if varias:
+                elegido = elegido if isinstance(elegido, list) else [elegido]
+                validas = [str(v)[:300] for v in elegido]
+                validas = [v for v in validas if v in columnas]
+                if validas:
+                    limpio[fila] = validas
+            else:
+                texto = str(elegido)[:300]
+                if texto in columnas:
+                    limpio[fila] = texto
+
+        # «Exigir una respuesta en cada fila». Se comprueba con la respuesta ya
+        # limpia: si una fila trajo una columna que ya no existe, cuenta como
+        # no respondida, que es lo que de verdad ha pasado.
+        if pregunta.get('exigir_fila') and limpio:
+            faltan = [f for f in filas if f not in limpio]
+            if faltan:
+                return None, ('Falta responder la fila «%s» de «%s».'
+                              % (faltan[0], modelo.plano(pregunta['titulo'])))
+
+        # «Limitar a una respuesta por columna».
+        if pregunta.get('una_por_columna'):
+            usadas = set()
+            for columna in limpio.values():
+                if columna in usadas:
+                    return None, ('En «%s» no se puede repetir la columna '
+                                  '«%s» en dos filas.'
+                                  % (modelo.plano(pregunta['titulo']), columna))
+                usadas.add(columna)
+
+        return (limpio or None), None
+
     # texto_corto, parrafo y fecha se guardan como texto acotado
     return str(bruto).strip()[:LIMITE_TEXTO], None
+
+
+def _respuestas_limpias(definicion, enviado):
+    """Valida TODAS las respuestas de un envío. Devuelve (limpias, error).
+
+    Estaba escrito dos veces, igual, en «enviar» y en «modificar». Se juntó al
+    añadir «Subir archivos» (08/09/2026), que necesitaba una línea más en el
+    bucle: con dos copias, la que se olvidara habría dejado los adjuntos sin
+    comprobar justo por el camino de modificar una respuesta.
+    """
+    limpias = {}
+    # Solo cuentan las secciones por las que pasó quien responde. Con «Ir a la
+    # sección según la respuesta», las obligatorias de la rama que NO eligió
+    # no las vio nunca: exigirlas bloqueaba el envío (10/09/2026). Lo que
+    # llegue de esas secciones —una rama que abrió y luego abandonó con
+    # «Atrás»— se descarta, como hace Google.
+    visibles = recorrido_mod.preguntas_visibles(definicion, enviado)
+    for pregunta in modelo.preguntas(definicion):
+        if pregunta['id'] not in visibles:
+            continue
+        # De qué formulario es. Lo necesita «Subir archivos» para comprobar que
+        # los adjuntos declarados son pendientes suyos y no de otro formulario.
+        pregunta['_encuesta_id'] = definicion['id']
+        valor, problema = _valor_limpio(pregunta, enviado.get(pregunta['id']))
+        if problema:
+            return None, _fallo(problema, 400)
+        if valor is None and pregunta['obligatoria']:
+            return None, _fallo('Falta responder «%s».'
+                                % modelo.plano(pregunta['titulo']), 400)
+        # La validación de la pregunta se comprueba AQUÍ, aunque el
+        # navegador ya avise: quien responde puede mandar lo que quiera
+        # saltándose la página.
+        malo = validacion_mod.comprobar(pregunta, valor)
+        if malo:
+            return None, _fallo('«%s»: %s'
+                                % (modelo.plano(pregunta['titulo']), malo), 400)
+        if valor is not None:
+            limpias[pregunta['id']] = valor
+    return limpias, None
 
 
 @bp_encuestas_publico.route('/api/f/<token>', methods=['POST'])
@@ -390,15 +536,9 @@ def enviar_respuesta(token):
                       'electrónico. Este formulario admite una sola por '
                       'persona.', 409)
 
-    limpias = {}
-    for pregunta in modelo.preguntas(definicion):
-        valor, problema = _valor_limpio(pregunta, enviado.get(pregunta['id']))
-        if problema:
-            return _fallo(problema, 400)
-        if valor is None and pregunta['obligatoria']:
-            return _fallo('Falta responder «%s».' % modelo.plano(pregunta['titulo']), 400)
-        if valor is not None:
-            limpias[pregunta['id']] = valor
+    limpias, problema = _respuestas_limpias(definicion, enviado)
+    if problema:
+        return problema
 
     # Si se puede modificar la respuesta, hace falta una llave para volver a
     # ella. Se genera solo en ese caso: sin la opción no hay nada que abrir.
@@ -416,6 +556,10 @@ def enviar_respuesta(token):
     if ajustes['anonimo']:
         usuario = None
         correo = ''
+
+    # Los adjuntos pasan al Drive del dueño ANTES de guardar, para que la
+    # respuesta quede con la ruta de cada archivo ya puesta.
+    limpias = _entregar_adjuntos(fila, definicion, limpias, usuario, correo)
 
     try:
         ebd.guardar_respuesta(definicion['id'],
@@ -476,11 +620,10 @@ def _quiza_enviar_copia(ajustes, cuerpo, correo, definicion, limpias,
 
     lineas = []
     for pregunta in modelo.preguntas(definicion):
-        valor = limpias.get(pregunta['id'])
-        if isinstance(valor, list):
-            valor = ', '.join(str(v) for v in valor)
+        # Cómo se lee cada respuesta lo decide el modelo: una cuadrícula es
+        # un mapa {fila: columna}, no un texto ni una lista.
         lineas.append((modelo.plano(pregunta['titulo']),
-                       '' if valor is None else str(valor)))
+                       modelo.texto_de(pregunta, limpias.get(pregunta['id']))))
     correo_mod.enviar_copia(correo, modelo.plano(definicion['titulo']), lineas,
                             enlace_edicion)
 
@@ -523,15 +666,14 @@ def editar_respuesta(token, edicion):
     if not isinstance(enviado, dict):
         return _fallo('No se recibió ninguna respuesta.', 400)
 
-    limpias = {}
-    for pregunta in modelo.preguntas(definicion):
-        valor, problema = _valor_limpio(pregunta, enviado.get(pregunta['id']))
-        if problema:
-            return _fallo(problema, 400)
-        if valor is None and pregunta['obligatoria']:
-            return _fallo('Falta responder «%s».' % modelo.plano(pregunta['titulo']), 400)
-        if valor is not None:
-            limpias[pregunta['id']] = valor
+    limpias, problema = _respuestas_limpias(definicion, enviado)
+    if problema:
+        return problema
+
+    # También al modificar: si se adjuntó algo nuevo, va al Drive igual que en
+    # el primer envío.
+    limpias = _entregar_adjuntos(fila, definicion, limpias, None,
+                                 respuesta.get('correo') or '')
 
     ebd.actualizar_respuesta(respuesta['id'],
                              json.dumps(limpias, ensure_ascii=False))
@@ -589,6 +731,96 @@ def resumen_publico(token):
                                   for p in modelo.preguntas(definicion)
                                   if p['id'] in seguro],
                     'resumen': seguro})
+
+
+# ---------------------------------------------------------------------------
+# Archivos adjuntos de la pregunta «Subir archivos»
+# ---------------------------------------------------------------------------
+@bp_encuestas_publico.route('/api/formulario/<token>/archivo', methods=['POST'])
+def subir_archivo_publico(token):
+    """Recibe un archivo de quien está respondiendo.
+
+    Se sube AQUÍ, en cuanto se elige, y no dentro del envío de la respuesta: una
+    respuesta con cuatro adjuntos de 10 MB sería un envío de 40 MB que, si se
+    corta, se pierde entero.
+
+    El archivo queda pendiente y **no aparece en el Drive de nadie** hasta que
+    la respuesta se registra de verdad (ver `encuestas_archivos.py`).
+    """
+    datos, fallo = _cargar_publico(token)
+    if fallo:
+        return fallo
+    fila, definicion = datos
+
+    # Las mismas puertas que para responder: si el formulario está cerrado o
+    # fuera de plazo, tampoco se le pueden dejar archivos.
+    fuera = _fuera_de_plazo(fila)
+    if fuera:
+        return fuera
+    if fila.get('solo_internos') and not _usuario_faro():
+        return _fallo('Este formulario es solo para personas de Maquita. '
+                      'Inicia sesión para responderlo.', 401)
+
+    pedida = request.form.get('pregunta') or ''
+    pregunta = None
+    for candidata in modelo.preguntas(definicion):
+        if candidata['id'] == pedida and candidata['tipo'] == 'archivo':
+            pregunta = candidata
+            break
+    if pregunta is None:
+        return _fallo('Esa pregunta no admite archivos.', 400)
+
+    entrante = request.files.get('archivo')
+    if entrante is None or not entrante.filename:
+        return _fallo('No llegó ningún archivo.', 400)
+
+    try:
+        ficha = archivos_mod.guardar_pendiente(
+            definicion['id'], entrante.stream, entrante.filename,
+            pregunta.get('archivo_mb'), pregunta.get('archivo_tipos') or [])
+    except archivos_mod.ArchivoInvalido as excepcion:
+        # Este mensaje se le enseña a quien responde: dice qué pasa y qué hacer.
+        return _fallo(str(excepcion), 400)
+    except Exception as excepcion:
+        log.error('adjunto de %s: %s', definicion['id'], excepcion)
+        return _fallo('No se pudo guardar el archivo. Inténtalo otra vez.', 500)
+
+    return jsonify({'success': True, 'archivo': ficha})
+
+
+def _entregar_adjuntos(fila, definicion, limpias, usuario, correo):
+    """Manda al Drive del dueño los archivos de esta respuesta.
+
+    Se hace antes de guardar para que la respuesta quede ya con la ruta de cada
+    archivo. Si algo falla, la ficha se queda sin `ruta` y el archivo sigue
+    pendiente: se puede bajar desde la vista de respuestas y la respuesta NO se
+    pierde, que es lo que importa.
+    """
+    con_archivos = {p['id'] for p in modelo.preguntas(definicion)
+                    if p['tipo'] == 'archivo'}
+    if not con_archivos:
+        return limpias
+
+    # De quién son, para el nombre del archivo en el Drive. En un formulario
+    # anónimo no hay usuario ni correo, y entonces el nombre lleva solo la
+    # fecha: lo que no se guarda no puede aparecer en un nombre de archivo.
+    quien = ''
+    if usuario:
+        quien = (ebd.nombres_usuarios([usuario]) or {}).get(usuario) or ''
+    if not quien:
+        quien = correo or ''
+
+    for pid, valor in list(limpias.items()):
+        if pid not in con_archivos or not isinstance(valor, list):
+            continue
+        try:
+            limpias[pid] = archivos_mod.entregar(
+                fila['propietario'], fila['ruta'], definicion['id'],
+                valor, quien)
+        except Exception as excepcion:
+            log.error('no se pudieron entregar los adjuntos de %s: %s',
+                      definicion['id'], excepcion)
+    return limpias
 
 
 # ---------------------------------------------------------------------------

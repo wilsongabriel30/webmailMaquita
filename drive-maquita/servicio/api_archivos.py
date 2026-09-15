@@ -13,7 +13,8 @@ Autoría: Equipo de Tecnología Maquita — 2026-07-03
 import logging
 import os
 
-from flask import Blueprint, jsonify, request, send_file, session
+from flask import (Blueprint, after_this_request, jsonify, request,
+                   send_file, session)
 
 import nucleo_archivos as nucleo
 import protecciones_sistema as _prot
@@ -217,6 +218,63 @@ def _refrescar_vinculos_del_origen(usuario, ruta):
         log.warning('Refresco de vínculos tras subir %s: %s', ruta, excepcion)
 
 
+def _arreglar_formato_de_google(usuario_ef, item):
+    """Un libro bajado de Google llega, además de con los gráficos torcidos, con
+    las COLUMNAS un 10 % más estrechas de lo que Google dibuja y SIN alturas de
+    fila: con «ajustar texto» puesto, las cabeceras saltan a dos líneas, las
+    filas crecen y la tabla se descuadra. Y los gráficos que Google no supo
+    convertir llegan como una imagen, no como gráfico.
+
+    Va aquí, en el endpoint de subida, y NO en `nucleo.subir()`, por la misma
+    razón que el arreglo de los gráficos: por ahí pasa también lo que guarda el
+    editor, y se estaría reescribiendo en cada guardado.
+
+    El trabajo lo hace `migracion_google.py` con las dos herramientas de
+    `almacen-maquita/herramientas/`. Best-effort: si algo falla, el archivo
+    queda exactamente como llegó.
+    """
+    try:
+        import migracion_google
+        fisica = ruta_fisica(usuario_ef, item['ruta'])
+        hecho = migracion_google.arreglar(fisica, item.get('nombre'))
+        if not hecho:
+            return
+        item['formato_google_arreglado'] = sorted(hecho.keys())
+        item['tamano_bytes'] = os.path.getsize(fisica)
+        item['tamano_humano'] = nucleo.tamano_humano(item['tamano_bytes'])
+        log.info('Subida %s: formato de Google arreglado %s',
+                 item.get('ruta'), sorted(hecho.keys()))
+    except Exception as excepcion:
+        log.warning('Formato de Google en %s: %s', item.get('ruta'), excepcion)
+
+
+def _arreglar_graficos_de_google(usuario_ef, item):
+    """Una hoja bajada de Google Sheets trae los gráficos con tres defectos que
+    en el editor se ven como «distorsión»: las etiquetas salen «0,633333333» en
+    vez de «63 %», el eje llega al 120 % y aparece una leyenda que en Google no
+    está. Se corrigen al entrar el archivo. Ver `graficos_google.py`.
+
+    Va aquí, en el endpoint de subida, y NO en `nucleo.subir()`: por ahí pasa
+    también lo que guarda el editor, y se estaría reescribiendo cada guardado
+    (la misma razón por la que los vínculos se refrescan aquí).
+
+    Best-effort: si algo falla, el archivo queda exactamente como llegó.
+    """
+    try:
+        import graficos_google
+        fisica = ruta_fisica(usuario_ef, item['ruta'])
+        informe = graficos_google.arreglar_en_sitio(fisica)
+        if not informe:
+            return
+        item['graficos_ajustados'] = len(informe)
+        item['tamano_bytes'] = os.path.getsize(fisica)
+        item['tamano_humano'] = nucleo.tamano_humano(item['tamano_bytes'])
+        log.info('Subida %s: %d gráfico(s) de Google ajustados %s',
+                 item.get('ruta'), len(informe), informe)
+    except Exception as excepcion:
+        log.warning('Gráficos de Google en %s: %s', item.get('ruta'), excepcion)
+
+
 # ── subir ────────────────────────────────────────────────────────────────
 @bp_archivos.route('/archivos', methods=['POST'])
 def subir():
@@ -251,6 +309,8 @@ def subir():
             nombre = (almacenado.filename or '').replace('\\', '/').split('/')[-1].strip()
             _usuario_ef, _carpeta_ef = _efectivo(usuario, carpeta)
             r = nucleo.subir(_usuario_ef, _carpeta_ef, nombre, almacenado.stream)
+            _arreglar_formato_de_google(_usuario_ef, r)
+            _arreglar_graficos_de_google(_usuario_ef, r)
             _pref = _prefijo(carpeta)
             if _pref:
                 from vista_compartidos import reprefijar_item
@@ -300,6 +360,39 @@ def descargar():
         return error(str(excepcion), excepcion.codigo)
     if not os.path.isfile(fisica):
         return error('Archivo no encontrado', 404)
+
+    # (2026-09-04) Si alguien lo tiene abierto en el editor, lo que hay en
+    # disco es la versión ANTERIOR: el Document Server no escribe hasta que
+    # se cierra el último editor. Se le pide un guardado forzado y se espera
+    # a que llegue. Ver guardado_forzado.py.
+    try:
+        import guardado_forzado
+        # guardar=1: viene del propio editor (editor-descarga-drive.js), que
+        # sabe seguro que el documento está abierto.
+        guardado_forzado.guardar_si_esta_abierto(
+            usuario, _ruta_pedida, fisica, forzar=request.args.get('guardar') == '1')
+    except Exception:
+        pass  # la descarga jamás se cae por esto
+
+    # (2026-09-04) Fuera del Drive, el editor deja las listas y los colores
+    # SOLO en la extensión de Microsoft: Excel las lee, Google Sheets y
+    # LibreOffice no. Se entrega una copia con la forma clásica, que
+    # entienden todos. Ver compatibilidad_xlsx.py.
+    try:
+        import compatibilidad_xlsx
+        _compatible = compatibilidad_xlsx.copia_compatible(fisica)
+    except Exception:
+        _compatible = None
+    if _compatible:
+        @after_this_request
+        def _borrar_compatible(respuesta):
+            try:
+                os.unlink(_compatible)
+            except OSError:
+                pass
+            return respuesta
+        return send_file(_compatible, as_attachment=True,
+                         download_name=os.path.basename(fisica))
 
     # (2026-08-13) Entrega por nginx (X-Accel-Redirect): tras validar sesión y
     # permisos, nginx sirve los bytes DIRECTO del NFS (location interna

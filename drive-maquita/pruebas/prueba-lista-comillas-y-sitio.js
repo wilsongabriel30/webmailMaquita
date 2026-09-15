@@ -32,7 +32,13 @@ Validacion.prototype.asc_getFormula1 = function () { return this.Formula1; };
 function Regla() { }
 Regla.prototype.asc_setType = function (v) { this.tipo = v; };
 Regla.prototype.asc_setOperator = function (v) { this.operador = v; };
-Regla.prototype.asc_setValue1 = function (v) { this.valor = v; };
+/* Como el editor DE VERDAD (03/09/2026): envuelve el texto en comillas y,
+   si ya las traía, las dobla y lo vuelve a envolver. Por eso hay que dárselo
+   SIN comillas. */
+Regla.prototype.asc_setValue1 = function (v) {
+    v = String(v);
+    this.valor = v.charAt(0) === '"' ? '"' + v.replace(/"/g, '""') + '"' : '"' + v + '"';
+};
 Regla.prototype.asc_setDxf = function (v) { this.formato = v; };
 Regla.prototype.asc_setLocation = function (v) { this.donde = v; };
 function Formato() { }
@@ -56,7 +62,13 @@ const ventanaEditor = {
         asc_CellXfs: Formato,
         referenceType: { A: 0 },
         editor: {
-            asc_setWorksheetRange: (r) => { idoA.push(r); seleccionado = r; },
+            // El cuadro de nombres: admite texto y selecciona. Es lo que se usa.
+            asc_findCell: (r) => { idoA.push(r); seleccionado = r; },
+            // Como el de verdad: con texto revienta (espera un nombre definido).
+            asc_setWorksheetRange: (r) => {
+                if (typeof r === 'string') throw new TypeError('val.asc_getSheet is not a function');
+                idoA.push(r); seleccionado = r;
+            },
             asc_getActiveRangeStr: () => seleccionado.split('!').pop(),
             asc_getWorksheetName: () => 'Hoja1',
             asc_getActiveWorksheetIndex: () => 0,
@@ -142,13 +154,25 @@ comprueba(r.ok === false && /guardó la lista de otra forma/.test(r.problemas[0]
           'si queda guardada de otra forma se avisa, en vez de dejarlo pasar');
 ventanaEditor.Asc.editor.asc_setDataValidation = comoEstaba;
 
-// ── 4. Un editor sin `asc_setWorksheetRange` no rompe nada ───────────────
+// ── 4. Un editor sin forma de ir al intervalo no rompe nada ──────────────
 const irComoEstaba = ventanaEditor.Asc.editor.asc_setWorksheetRange;
+const buscarComoEstaba = ventanaEditor.Asc.editor.asc_findCell;
 delete ventanaEditor.Asc.editor.asc_setWorksheetRange;
+delete ventanaEditor.Asc.editor.asc_findCell;
 r = L.aplicar(ventanaEditor, [{ valor: 'ENERO', color: '' }], { rango: 'Hoja1!A1' });
 comprueba(r.ok === true,
           'un editor que no sepa ir al intervalo aplica igual, donde esté');
 ventanaEditor.Asc.editor.asc_setWorksheetRange = irComoEstaba;
+ventanaEditor.Asc.editor.asc_findCell = buscarComoEstaba;
+
+// ── 5. Y si solo tiene el `asc_setWorksheetRange` viejo (que revienta con
+//      texto), se avisa por qué y se aplica donde esté ─────────────────────
+delete ventanaEditor.Asc.editor.asc_findCell;
+idoA.length = 0;
+r = L.aplicar(ventanaEditor, [{ valor: 'ENERO', color: '' }], { rango: 'Hoja1!C3' });
+comprueba(r.ok === true && idoA.length === 0,
+          'con asc_setWorksheetRange a solas no se va al intervalo, pero la lista se aplica');
+ventanaEditor.Asc.editor.asc_findCell = buscarComoEstaba;
 
 console.log('\n' + bien + ' bien, ' + mal + ' mal\n');
 process.exit(mal ? 1 : 0);

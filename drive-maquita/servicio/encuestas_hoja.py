@@ -160,6 +160,16 @@ def _rehacer(fila_encuesta, definicion, ruta_hoja):
         except Exception as excepcion:
             log.warning('hoja %s: no se pudo refrescar el editor (%s)',
                         ruta_hoja, excepcion)
+
+        # Y a los vínculos: si alguien alimenta una hoja de su libro desde este
+        # archivo de respuestas, hay que rehacerla ahora, no en la próxima
+        # edición. Es lo que hace que la hoja del libro se llene sola.
+        try:
+            from api_vinculos import refrescar_por_origen
+            refrescar_por_origen(propietario, ruta_hoja)
+        except Exception as excepcion:
+            log.warning('hoja %s: no se pudieron refrescar los vínculos (%s)',
+                        ruta_hoja, excepcion)
         log.info('hoja actualizada: %s', ruta_hoja)
     except Exception as excepcion:
         # La respuesta ya está guardada; la hoja se queda como estaba y se puede
@@ -168,6 +178,36 @@ def _rehacer(fila_encuesta, definicion, ruta_hoja):
     finally:
         with _candado:
             _en_marcha.discard(encuesta_id)
+
+
+def cabeceras(fila_encuesta, definicion):
+    """Solo la fila de cabeceras de la hoja, para quien la pinta en vivo
+    (el complemento del editor crea la hoja del libro con ellas, 10/09/2026)."""
+    import encuestas_ajustes as ajustes_mod
+    import encuestas_modelo as modelo
+    ajustes = ajustes_mod.limpiar(fila_encuesta.get('ajustes'))
+    return cabeceras_de(ajustes, modelo.preguntas(definicion))
+
+
+def recoge_correo(ajustes):
+    """¿El formulario recoge el correo de quien responde? Si no, la hoja no
+    lleva la columna «Correo» (11/09/2026: antes salía siempre, vacía)."""
+    import encuestas_ajustes as ajustes_mod
+    return (ajustes or {}).get('recopilar_correo', ajustes_mod.CORREO_NO) != ajustes_mod.CORREO_NO
+
+
+def cabeceras_de(ajustes, listado):
+    """Fecha, Quién, (Correo), (Puntuación) y una columna por pregunta."""
+    import encuestas_excel as excel
+    import encuestas_modelo as modelo
+    # Encuesta ANÓNIMA: ni «Quién» ni «Correo». Se prometió no saber quién
+    # responde y la hoja no debe insinuar lo contrario (11/09/2026).
+    return excel.encabezados_unicos(
+        ['Fecha'] +
+        ([] if ajustes.get('anonimo') else ['Quién']) +
+        (['Correo'] if recoge_correo(ajustes) and not ajustes.get('anonimo') else []) +
+        (['Puntuación'] if ajustes.get('cuestionario') else []) +
+        [modelo.plano(p['titulo']) for p in listado])
 
 
 def construir(fila_encuesta, definicion):
@@ -194,9 +234,7 @@ def construir(fila_encuesta, definicion):
     listado = modelo.preguntas(definicion)
     es_quiz = ajustes['cuestionario']
 
-    cabeceras = excel.encabezados_unicos(
-        ['Fecha', 'Quién', 'Correo'] + (['Puntuación'] if es_quiz else []) +
-        [modelo.plano(p['titulo']) for p in listado])
+    cabeceras = cabeceras_de(ajustes, listado)
 
     cuerpo = []
     for fila in reversed(filas):    # de la más antigua a la más reciente
@@ -204,19 +242,22 @@ def construir(fila_encuesta, definicion):
         celdas = [
             # Fecha de verdad, no texto: así la tabla se puede ordenar y filtrar
             # por cuándo se respondió, que es lo primero que se hace con esto.
-            fila['enviada_en'].replace(tzinfo=None) if fila['enviada_en'] else '',
-            quien_respondio(fila, nombres, ajustes),
-            '' if ajustes.get('anonimo') else (fila.get('correo') or ''),
+            fila['enviada_en'].replace(tzinfo=None, microsecond=0) if fila['enviada_en'] else '',
         ]
+        if not ajustes.get('anonimo'):
+            celdas.append(quien_respondio(fila, nombres, ajustes))
+            if recoge_correo(ajustes):
+                celdas.append(fila.get('correo') or '')
         if es_quiz:
             celdas.append(
                 '' if fila.get('puntos') is None
                 else '%s / %s' % (fila['puntos'], fila.get('puntos_max') or 0))
         for pregunta in listado:
-            valor = respuesta.get(pregunta['id'])
-            if isinstance(valor, list):
-                valor = ', '.join(str(v) for v in valor)
-            celdas.append('' if valor is None else str(valor))
+            # Cómo se lee cada respuesta lo decide el modelo, que es quien
+            # sabe qué forma tiene cada tipo (una cuadrícula es un mapa, no un
+            # texto). Antes se resolvía aquí y solo contemplaba listas.
+            celdas.append(modelo.texto_de(pregunta,
+                                          respuesta.get(pregunta['id'])))
         cuerpo.append(celdas)
 
     libro = Workbook()
