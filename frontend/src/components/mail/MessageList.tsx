@@ -2,6 +2,7 @@ import { loadOfflineMessages } from "../../hooks/useOfflineSync";
 import React, { useEffect, useCallback, useRef, useState, useMemo, memo } from 'react';
 import { useMailStore } from '../../store/mailStore';
 import { getPinnedSet, isPinned, pinKey } from '../../lib/pins';
+import { parametrosDeCarga, fusionarTanda } from '../../lib/paginacionBandeja';
 import { usePolling } from '../../hooks/usePolling';
 import { api } from '../../api/client';
 import { formatDistanceToNow } from 'date-fns';
@@ -258,7 +259,9 @@ export function MessageList() {
     // Show loading skeleton on first load or when messages are empty (folder change)
     const state = useMailStore.getState();
     if (state.messages.length === 0 && !state.loadingMessages) setLoadingMessages(true);
-    const p = new URLSearchParams({ page: '1', per_page: String(pageSize * currentPage) });
+    // Tanda siguiente (scroll) o cabecera (primera carga / refresco), ver lib/paginacionBandeja.ts
+    const tanda = parametrosDeCarga(currentPage, pageSize, state.loadingMore);
+    const p = new URLSearchParams({ page: String(tanda.page), per_page: String(tanda.per_page) });
     if (debouncedSearchQuery) p.set('search', debouncedSearchQuery);
     // Solo si se ha pedido: entrar en el texto de los mensajes cuesta minuto y medio.
     if (debouncedSearchQuery && buscarEnContenido) p.set('buscar_en_contenido', 'true');
@@ -285,7 +288,8 @@ export function MessageList() {
         document.title = unseenCount > 0 ? `(${unseenCount}) ${base}` : base;
       }
       if (filter === 'all') prevTotalRef.current = r.total;
-      setMessages(r.messages, r.total, r.page);
+      const previos = useMailStore.getState().messages;
+      setMessages(fusionarTanda(previos, r.messages, tanda), r.total, r.page);
     }).catch(async (err) => {
       console.error(err);
       // Offline fallback: load from IndexedDB cache (T-35: también si el servidor no responde: 503/red)
