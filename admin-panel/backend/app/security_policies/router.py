@@ -16,6 +16,7 @@ class CfgIn(BaseModel):
     dlp_block_cards_external: bool
     totp_required: bool = False
     totp_deadline: str | None = None
+    impersonar_admin_exige_totp: bool = True
 
 
 @router.get("")
@@ -23,7 +24,8 @@ async def get_config(request: Request, admin: dict = Depends(get_current_admin))
     db = _db(request)
     row = await db.fetchrow(
         "SELECT impersonation_enabled, impersonation_terms, dlp_block_cards_external, "
-        "COALESCE(totp_required,false) AS totp_required, totp_deadline FROM security_config WHERE id = 1")
+        "COALESCE(totp_required,false) AS totp_required, totp_deadline, "
+        "COALESCE(impersonar_admin_exige_totp,true) AS impersonar_admin_exige_totp FROM security_config WHERE id = 1")
     try:
         domains = [r["domain"] for r in await db.fetch("SELECT domain FROM domain ORDER BY domain")]
     except Exception:
@@ -34,6 +36,7 @@ async def get_config(request: Request, admin: dict = Depends(get_current_admin))
         "dlp_block_cards_external": bool(row["dlp_block_cards_external"]) if row else True,
         "totp_required": bool(row["totp_required"]) if row else False,
         "totp_deadline": row["totp_deadline"].isoformat() if row and row["totp_deadline"] else None,
+        "impersonar_admin_exige_totp": bool(row["impersonar_admin_exige_totp"]) if row else True,
         "status": {
             "anti_spoof": True,
             "protected_domains": domains,
@@ -53,6 +56,8 @@ async def save_config(body: CfgIn, request: Request, admin: dict = Depends(requi
         except ValueError: dl = None
     await db.execute(
         "UPDATE security_config SET impersonation_enabled = $1, impersonation_terms = $2, "
-        "dlp_block_cards_external = $3, totp_required = $4, totp_deadline = $5, updated_at = now() WHERE id = 1",
-        body.impersonation_enabled, terms, body.dlp_block_cards_external, bool(body.totp_required), dl)
+        "dlp_block_cards_external = $3, totp_required = $4, totp_deadline = $5, "
+        "impersonar_admin_exige_totp = $6, updated_at = now() WHERE id = 1",
+        body.impersonation_enabled, terms, body.dlp_block_cards_external, bool(body.totp_required), dl,
+        bool(body.impersonar_admin_exige_totp))
     return {"ok": True}
