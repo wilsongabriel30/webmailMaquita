@@ -58,8 +58,10 @@ async def _ensure_tables(db):
 async def _get_member_analysis(db, group_id: int):
     """Analiza miembros de un grupo: externos, grupos anidados, etc."""
     members = await db.fetch(
-        "SELECT m.*, (SELECT g.id FROM mail_groups g WHERE g.address = m.member_email) as is_group "
-        "FROM mail_group_members m WHERE m.group_id = $1 ORDER BY m.member_email", group_id)
+        "SELECT m.*, (SELECT g.id FROM mail_groups g WHERE g.address = m.member_email) as is_group, "
+        "COALESCE(NULLIF(b.name, ''), m.member_name) AS member_name "
+        "FROM mail_group_members m LEFT JOIN mailbox b ON b.username = m.member_email "
+        "WHERE m.group_id = $1 ORDER BY COALESCE(NULLIF(b.name, ''), m.member_name), m.member_email", group_id)
 
     external_members = []
     nested_groups = []
@@ -362,6 +364,9 @@ async def add_member(group_id: int, request: Request, admin: dict = Depends(requ
                            f"persona fuera de Maquita. ¿Está seguro?",
                 "requires_confirmation": True,
             })
+
+    if not name:
+        name = await db.fetchval("SELECT COALESCE(name, '') FROM mailbox WHERE username = $1", email) or ""
 
     try:
         row = await db.fetchrow("""
