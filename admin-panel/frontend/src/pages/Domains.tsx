@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { SectionHelp } from "../components/SectionHelp";
 
 interface Domain { domain: string; description: string; mailbox_count: number; alias_count: number; active: boolean; created: string }
 
 export function Domains() {
+  const navigate = useNavigate();
   const [domains, setDomains] = useState<Domain[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ domain: "", description: "", mailboxes: 0, maxquota: 0 });
@@ -28,6 +30,7 @@ export function Domains() {
             { titulo: "Agregar dominio", desc: "Registra un dominio nuevo. Antes de agregarlo, configure sus registros DNS (MX apuntando a este servidor, SPF, DKIM y DMARC); puede validarlos en la sección Verificación DNS." },
             { titulo: "Columnas Buzones y Alias", desc: "Muestran cuántas cuentas de correo y cuántos alias existen en cada dominio, para dimensionar su uso antes de cualquier cambio." },
             { titulo: "Estado", desc: "Activo significa que el dominio acepta correo entrante; Inactivo hace que el servidor lo rechace." },
+            { titulo: "Marca y portal", desc: "Abre la configuración de ese dominio en Portales por empresa: logo, icono, color, textos y el nombre de servidor propio (mail.<empresa>) por el que entra la empresa." },
             { titulo: "Eliminar", desc: "PRECAUCIÓN EXTREMA: borra el dominio y potencialmente todos sus buzones. Verifique que no queden usuarios activos antes de hacerlo. Se registra en auditoría." },
           ]} />
           <button onClick={() => setShowForm(!showForm)} title="Agrega un nuevo dominio al servidor de correo. Asegurese de que los registros DNS (MX, SPF, DKIM) esten configurados. Se registra en auditoria." className="px-3 py-1.5 bg-ms-blue text-white rounded text-sm hover:bg-ms-blue-dark">+ Agregar dominio</button>
@@ -68,6 +71,7 @@ export function Domains() {
                   <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${d.active ? "bg-green-50 text-ms-green" : "bg-red-50 text-ms-red"}`}>{d.active ? "Activo" : "Inactivo"}</span>
                 </td>
                 <td className="px-4 py-2.5 text-right">
+                  <button onClick={() => navigate(`/portales?dominio=${encodeURIComponent(d.domain)}`)} title="Logo, icono, color, textos y nombre de servidor propio de este dominio (Portales por empresa)." className="text-ms-blue hover:underline text-xs mr-4">Marca y portal</button>
                   <button onClick={() => del(d.domain)} title="PRECAUCION EXTREMA: Elimina el dominio y potencialmente todos los buzones asociados. Verificar que no haya usuarios activos antes de eliminar. Se registra en auditoria." className="text-ms-red hover:underline text-xs">Eliminar</button>
                 </td>
               </tr>
