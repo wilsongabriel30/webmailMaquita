@@ -6,6 +6,7 @@ import { useMailStore } from '../../store/mailStore';
 import { api } from '../../api/client';
 import { showToast } from '../common/Toast';
 import { accionEnLote } from '../../lib/accionesLote';
+import { aplicarEscala, escalaActual, siguienteEscala } from '../../lib/escala';
 import { Ribbon } from '../compose/Ribbon';
 import { getFolderDisplayName } from '../../folders';
 import { getCachedLabels, useLabels } from '../../hooks/useLabels';
@@ -1103,8 +1104,8 @@ export function Toolbar() {
                         ))}
                       </Dropdown>
                     </div>
-                    <ToolbarButton icon={ICONS.zoom} label="Zoom"
-                      onClick={() => showToast('Zoom actual: ' + Math.round(window.devicePixelRatio * 100) + '% — Usa Ctrl+Plus para ampliar, Ctrl+Menos para reducir, Ctrl+0 para restablecer')} />
+                    <ToolbarButton icon={ICONS.zoom} label={`Zoom ${escalaActual()}%`}
+                      onClick={() => { const v = siguienteEscala(escalaActual()); aplicarEscala(v); showToast(`Escala de la interfaz: ${v}% (se recuerda en este navegador)`); }} />
                     <ToolbarButton icon={ICONS.sync} label="Sincronizar"
                       onClick={() => window.dispatchEvent(new CustomEvent('refresh-messages'))} />
                   </Group>

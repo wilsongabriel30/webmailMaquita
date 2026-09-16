@@ -1,3 +1,4 @@
+import { aplicarEscala, escalaActual } from './lib/escala';
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 import "./lib/modoApp"
@@ -121,3 +122,5 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+// Escala de la interfaz (Vista → Zoom): 90 % por omisión en laptops de 1366×768.
+aplicarEscala(escalaActual());
