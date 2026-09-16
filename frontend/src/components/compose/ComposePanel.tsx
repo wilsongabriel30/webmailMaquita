@@ -399,7 +399,7 @@ export function ComposePanel({ win }: Props) {
     });
 
   // handleSend with 5-second undo  MUST be defined before keyboard useEffect
-  const handleSend = useCallback(async () => {
+  const enviarUnaVez = useCallback(async () => {
     if (encrypt) {
       const recipients = to.split(',').map(x => x.trim()).filter(Boolean);
       if (!recipients.length) { setError('Ingresa un destinatario'); return; }
@@ -618,6 +618,20 @@ export function ComposePanel({ win }: Props) {
     }, SEGUNDOS_PARA_ARREPENTIRSE * 1000);
     pendingSendMap.set(winId, { timerId, toastId, intervalId });
   }, [to, cc, bcc, subject, editor, win, trackingState, closeCompose, attachments, encrypt]);
+
+  // 2026-09-16: un doble clic en Enviar (o Ctrl+Enter repetido) disparaba dos
+  // envios, porque el boton solo se bloqueaba despues de la comprobacion DLP.
+  // El candado es sincrono (ref), asi que el segundo clic no llega a enviar.
+  const enviandoRef = useRef(false);
+  const handleSend = useCallback(async () => {
+    if (enviandoRef.current) return;
+    enviandoRef.current = true;
+    try {
+      await enviarUnaVez();
+    } finally {
+      enviandoRef.current = false;
+    }
+  }, [enviarUnaVez]);
 
   // Close send dropdown on click outside
   useEffect(() => {
