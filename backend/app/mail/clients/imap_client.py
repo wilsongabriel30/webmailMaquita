@@ -10,6 +10,9 @@ import re
 
 import aioimaplib
 
+from app.mail.clients.imap_acciones import expulsar_uids, mover_uids
+from app.mail.services.cache_uids import registrar_clave
+
 from app.config import get_settings
 from app.mail.errors import CredencialIMAPInvalida
 from app.mail.clients.imap_sort import uid_sort
@@ -267,6 +270,7 @@ async def list_message_uids(
                 await redis.set(
                     cache_key, json.dumps(all_uids), ex=300
                 )  # 5min TTL (era 60s)
+                await registrar_clave(redis, username, folder, cache_key)
             except Exception:
                 pass
 
@@ -554,12 +558,7 @@ async def uid_move_message(
     resp = await imap.select(_quote_folder(folder))
     if resp.result != "OK":
         return False
-    copy_resp = await imap.uid("copy", str(uid), _quote_folder(dest_folder))
-    if copy_resp.result != "OK":
-        return False
-    await imap.uid("store", str(uid), "+FLAGS", "(\\Deleted)")
-    await imap.expunge()
-    return True
+    return await mover_uids(imap, str(uid), _quote_folder(dest_folder))
 
 
 async def uid_set_flags(
@@ -590,7 +589,7 @@ async def uid_delete_message(imap: aioimaplib.IMAP4, folder: str, uid: int) -> b
     if not uid_found:
         return False
     await imap.uid("store", str(uid), "+FLAGS", "(\\Deleted)")
-    await imap.expunge()
+    await expulsar_uids(imap, str(uid))
     return True
 
 
@@ -617,13 +616,10 @@ async def uid_bulk_action(
     if action == "delete":
         target = "1:*" if empty_whole_folder else uid_set
         await imap.uid("store", target, "+FLAGS", "(\\Deleted)")
-        await imap.expunge()
+        await expulsar_uids(imap, target)
     elif action == "move" and dest_folder:
-        copy_resp = await imap.uid("copy", uid_set, _quote_folder(dest_folder))
-        if copy_resp.result != "OK":
+        if not await mover_uids(imap, uid_set, _quote_folder(dest_folder)):
             return False
-        await imap.uid("store", uid_set, "+FLAGS", "(\\Deleted)")
-        await imap.expunge()
     elif action == "mark_read":
         await imap.uid("store", uid_set, "+FLAGS", "(\\Seen)")
     elif action == "mark_unread":
@@ -633,11 +629,8 @@ async def uid_bulk_action(
     elif action == "unflag":
         await imap.uid("store", uid_set, "-FLAGS", "(\\Flagged)")
     elif action == "archive":
-        copy_resp = await imap.uid("copy", uid_set, "Archive")
-        if copy_resp.result != "OK":
+        if not await mover_uids(imap, uid_set, "Archive"):
             return False
-        await imap.uid("store", uid_set, "+FLAGS", "(\\Deleted)")
-        await imap.expunge()
     else:
         return False
     return True

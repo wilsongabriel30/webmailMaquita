@@ -5,6 +5,7 @@ import { togglePins } from '../../lib/pins';
 import { useMailStore } from '../../store/mailStore';
 import { api } from '../../api/client';
 import { showToast } from '../common/Toast';
+import { accionEnLote } from '../../lib/accionesLote';
 import { Ribbon } from '../compose/Ribbon';
 import { getFolderDisplayName } from '../../folders';
 import { getCachedLabels, useLabels } from '../../hooks/useLabels';
@@ -430,13 +431,7 @@ export function Toolbar() {
 
   const moveToFolder = async (folder: string, toast?: string) => {
     if (!uids.length) { showToast('Selecciona un mensaje'); return; }
-    try {
-      await api.post(`/mail/bulk-action/${encodeURIComponent(currentFolder)}`, { uids, action: 'move', dest_folder: folder });
-      showToast(toast || `Movido a ${getFolderDisplayName(folder)}`);
-      clearSelection();
-      useMailStore.getState().setSelectedMessage(null);
-      window.dispatchEvent(new CustomEvent('refresh-messages'));
-    } catch { showToast('Error al mover'); }
+    await accionEnLote(currentFolder, uids, 'move', folder, toast || `Movido a ${getFolderDisplayName(folder)}`, 'Error al mover');
   };
 
   const goToSettings = useCallback((tab: 'general' | 'signature' | 'identities' | 'autoreply' | 'filters' | 'password' = 'general') => {
@@ -565,25 +560,14 @@ export function Toolbar() {
       if (!window.confirm(_msg)) return;
     }
     if (currentFolder === 'Trash') {
-      try {
-        await api.post(`/mail/bulk-action/${encodeURIComponent(currentFolder)}`, { uids, action: 'delete', dest_folder: '' });
-        showToast('Eliminado permanentemente');
-        clearSelection();
-        useMailStore.getState().setSelectedMessage(null);
-        window.dispatchEvent(new CustomEvent('refresh-messages'));
-      } catch { showToast('Error al eliminar'); }
+      await accionEnLote(currentFolder, uids, 'delete', '', 'Eliminado permanentemente', 'Error al eliminar');
     } else {
       moveToFolder('Trash', 'Movido a Papelera');
     }
   };
 
   const doCleanFolder = async () => {
-    try {
-      await api.post(`/mail/bulk-action/${encodeURIComponent(currentFolder)}`, { uids: [], action: 'delete', dest_folder: '' });
-      showToast(`Carpeta ${getFolderDisplayName(currentFolder)} vaciada`);
-      clearSelection();
-      window.dispatchEvent(new CustomEvent('refresh-messages'));
-    } catch { showToast('Error al limpiar'); }
+    await accionEnLote(currentFolder, [], 'delete', '', `Carpeta ${getFolderDisplayName(currentFolder)} vaciada`, 'Error al limpiar');
     closeAllDropdowns();
   };
 
