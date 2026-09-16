@@ -28,10 +28,13 @@ interface SearchAdvancedProps {
   onSearch: (query: string) => void;
   /** Buscar tambien dentro del texto de los mensajes (lento: hay que descifrarlos uno a uno). */
   onBuscarEnContenido?: (v: boolean) => void;
+  /** Ámbito: true = todas las carpetas (buzón virtual), false = solo la carpeta actual. */
+  enTodo?: boolean;
+  onEnTodo?: (v: boolean) => void;
   placeholder?: string;
 }
 
-export function SearchAdvanced({ value, onChange, onSearch, onBuscarEnContenido, placeholder = 'Buscar correos...' }: SearchAdvancedProps) {
+export function SearchAdvanced({ value, onChange, onSearch, onBuscarEnContenido, enTodo = true, onEnTodo, placeholder = 'Buscar correos...' }: SearchAdvancedProps) {
   const [panelAbierto, setPanelAbierto] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filteredOps, setFilteredOps] = useState(OPERATORS);
@@ -127,6 +130,17 @@ export function SearchAdvanced({ value, onChange, onSearch, onBuscarEnContenido,
           className="flex-1 bg-transparent outline-none text-[13px] text-[#323130] dark:text-[#e0e0e0] placeholder-[#a19f9d] min-w-[100px]"
         />
 
+        {onEnTodo && (
+          <button
+            type="button"
+            onClick={() => onEnTodo(!enTodo)}
+            title={enTodo ? 'Buscando en todas las carpetas (entrada, enviados, papelera, no deseado y propias). Clic: solo en la carpeta actual' : 'Buscando solo en la carpeta actual. Clic: en todas las carpetas'}
+            aria-pressed={enTodo}
+            className={`shrink-0 text-[10px] font-semibold px-1.5 py-[1px] rounded border transition-colors whitespace-nowrap ${enTodo ? 'bg-[#0078d4] border-[#0078d4] text-white' : 'border-[#c8c6c4] text-[#605e5c] hover:border-[#0078d4] hover:text-[#0078d4]'}`}
+          >
+            {enTodo ? 'Todas las carpetas' : 'Esta carpeta'}
+          </button>
+        )}
         <button
           type="button"
           onClick={() => setPanelAbierto(!panelAbierto)}
