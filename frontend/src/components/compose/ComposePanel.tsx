@@ -10,6 +10,7 @@ import { SelectorRemitente } from './SelectorRemitente';
 import { cuentaDeCarpeta } from '../../lib/cuentas';
 import { sanitizeHtml, sanitizeSignatureHtml } from '../../lib/sanitize';
 import { separarCitado } from '../../lib/borradorCitado';
+import { cargarAdjuntosDelBorrador, filtrarPeligrosos, huellaAdjuntos } from '../../lib/adjuntosBorrador';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import React from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
@@ -277,6 +278,14 @@ export function ComposePanel({ win }: Props) {
         content = partes.cuerpo || '<p></p>';
         if (partes.citado) setQuotedHtml(partes.citado);
         if (sig) setSignatureHtml(sig);
+        // Los archivos guardados con el borrador vuelven al redactor.
+        if (win.draftUid && win.data.adjuntos_borrador?.length) {
+          cargarAdjuntosDelBorrador(win.draftUid, win.data.adjuntos_borrador).then(cargados => {
+            if (!cargados.length) return;
+            setAttachments(prev => [...prev, ...cargados]);
+            huellaGuardadaRef.current = huellaAdjuntos(cargados);
+          });
+        }
       } else if (win.mode === 'new') {
         // Parrafo vacio, no '<p><br></p>': ese <br> es un nodo de verdad y el texto se escribia
         // detras, de modo que el mensaje salia con un salto de linea sobrante al principio.
@@ -314,20 +323,46 @@ export function ComposePanel({ win }: Props) {
     if (editor && !initializedRef.current) { initializedRef.current = true; init(); }
   }, [editor]);
 
+  const readFileAsBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        resolve(result.split(',')[1] ?? '');
+      };
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+
+  // Huella de los adjuntos tal como quedaron en el ultimo borrador guardado:
+  // si no cambio, el guardado pide al servidor conservar los archivos en vez de resubirlos.
+  const huellaGuardadaRef = useRef<string>('');
   const saveDraft = useCallback(async () => {
     if (!to && !subject && !editor?.getHTML()) return;
     try {
+      const huella = huellaAdjuntos(attachments);
+      const cambiaron = huella !== huellaGuardadaRef.current;
+      const adjuntos = cambiaron
+        ? await Promise.all(attachments.filter(a => a.file).map(async (a) => ({
+            filename: a.name,
+            content_b64: await readFileAsBase64(a.file!),
+            content_type: a.type || 'application/octet-stream',
+          })))
+        : [];
       const res = await api.post<{ draft_uid: number | null }>('/mail/drafts', {
         to: to.split(',').map(s => s.trim()).filter(Boolean),
         subject, html_body: getDraftHtml(), text_body: '',
         existing_draft_uid: win.draftUid,
+        attachments: adjuntos,
+        mantener_adjuntos: !cambiaron && attachments.length > 0,
       });
+      huellaGuardadaRef.current = huella;
       if (res.draft_uid) updateDraftUid(win.id, res.draft_uid);
     } catch {
       /* el guardado automatico es de cortesia: si falla, el texto sigue en pantalla y se
          reintenta en el siguiente cambio, sin interrumpir a quien escribe */
     }
-  }, [to, subject, win.draftUid, win.id, editor]);
+  }, [to, subject, win.draftUid, win.id, editor, attachments]);
 
   // Share editor with main Toolbar ribbon
   React.useEffect(() => {
@@ -387,16 +422,6 @@ export function ComposePanel({ win }: Props) {
   }, [to, subject, editor, saveDraft, win.id, closeCompose]);
 
   // Convertir File a base64 para enviar adjuntos al backend
-  const readFileAsBase64 = (file: File): Promise<string> =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result as string;
-        resolve(result.split(',')[1] ?? '');
-      };
-      reader.onerror = () => reject(reader.error);
-      reader.readAsDataURL(file);
-    });
 
   // handleSend with 5-second undo  MUST be defined before keyboard useEffect
   const enviarUnaVez = useCallback(async () => {
@@ -667,19 +692,22 @@ export function ComposePanel({ win }: Props) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleAttach = () => { fileInputRef.current?.click(); };
 
+  // Rechaza ejecutables, scripts, .dat y similares antes de que entren al redactor.
+  const agregarArchivos = (archivos: File[]) => {
+    const { permitidos, aviso } = filtrarPeligrosos(archivos);
+    if (aviso) showToast(aviso);
+    if (!permitidos.length) return;
+    setAttachments(prev => [...prev, ...permitidos.map(f => ({ name: f.name, size: f.size, type: f.type, file: f }))]);
+  };
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
-    const newFiles: AttachmentFile[] = Array.from(files).map(f => ({
-      name: f.name, size: f.size, type: f.type, file: f,
-    }));
-    setAttachments(prev => [...prev, ...newFiles]);
+    agregarArchivos(Array.from(files));
     e.target.value = '';
   };
 
-  const adjuntarDesdeNube = (archivos: File[]) => {
-    setAttachments(prev => [...prev, ...archivos.map(f => ({ name: f.name, size: f.size, type: f.type, file: f }))]);
-  };
+  const adjuntarDesdeNube = (archivos: File[]) => { agregarArchivos(archivos); };
 
   const removeAttachment = (idx: number) => {
     setAttachments(prev => prev.filter((_, i) => i !== idx));
@@ -716,10 +744,10 @@ export function ComposePanel({ win }: Props) {
     dragCounter.current = 0;
     const files = e.dataTransfer.files;
     if (!files || files.length === 0) return;
-    const newFiles: AttachmentFile[] = Array.from(files).map(f => ({
-      name: f.name, size: f.size, type: f.type, file: f,
-    }));
-    setAttachments(prev => [...prev, ...newFiles]);
+    const { permitidos, aviso } = filtrarPeligrosos(Array.from(files));
+    if (aviso) showToast(aviso);
+    if (!permitidos.length) return;
+    setAttachments(prev => [...prev, ...permitidos.map(f => ({ name: f.name, size: f.size, type: f.type, file: f }))]);
   }, []);
 
   // Se conserva para la cinta de redaccion; hoy esta accion la sirve la barra principal.
