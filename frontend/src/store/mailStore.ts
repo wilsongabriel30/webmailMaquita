@@ -85,6 +85,8 @@ interface MailState {
   setSearchQuery: (q: string) => void;
   setBuscarEnContenido: (v: boolean) => void;
   setBuscarEnTodo: (v: boolean) => void;
+  /** Cambia de carpeta y fija la búsqueda en un solo paso (una sola carga, sin carrera). */
+  setCarpetaYBusqueda: (folder: string, q: string) => void;
   setDebouncedSearchQuery: (q: string) => void;
   setFilter: (f: Filter) => void;
   setViewMode: (m: ViewMode) => void;
@@ -180,6 +182,12 @@ export const useMailStore = create<MailState>((set, get) => ({
   setSearchQuery: (q) => set({ searchQuery: q, currentPage: 1 }),
   setBuscarEnContenido: (v) => set({ buscarEnContenido: v, currentPage: 1 }),
   setBuscarEnTodo: (v) => set({ buscarEnTodo: v }),
+  setCarpetaYBusqueda: (folder, q) => set({
+    composeWindows: get().composeWindows.map(w => w.minimized ? w : { ...w, minimized: true }),
+    currentFolder: folder, messages: [], selectedMessage: null,
+    currentPage: 1, selectedUids: new Set(), activeIndex: -1, threadMessages: [],
+    searchQuery: q, debouncedSearchQuery: q,
+  }),
   setDebouncedSearchQuery: (q: string) => set({ debouncedSearchQuery: q }),
   setFilter: (f) => { if (f === get().filter) return; set({ filter: f, currentPage: 1, filterChanging: true }); },
   setViewMode: (m) => set({ viewMode: m }),
