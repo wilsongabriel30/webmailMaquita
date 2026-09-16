@@ -318,7 +318,6 @@ export function Toolbar() {
   const selectedMessage = useMailStore(s => s.selectedMessage);
   const selectedUids = useMailStore(s => s.selectedUids);
   const currentFolder = useMailStore(s => s.currentFolder);
-  const clearSelection = useMailStore(s => s.clearSelection);
   const openCompose = useMailStore(s => s.openCompose);
   const folders = useMailStore(s => s.folders);
   const viewMode = useMailStore(s => s.viewMode);
