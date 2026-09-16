@@ -39,6 +39,8 @@ interface MailState {
   /** Buscar tambien dentro del texto de los mensajes. Cuesta minuto y medio en un buzon grande
    *  -hay que descifrarlos uno a uno-, asi que solo se activa si la persona lo pide. */
   buscarEnContenido: boolean;
+  /** Buscar en todas las carpetas (buzón virtual Virtual.Todo) en vez de solo en la actual. */
+  buscarEnTodo: boolean;
   debouncedSearchQuery: string;
   filter: Filter;
   filterChanging: boolean;
@@ -82,6 +84,7 @@ interface MailState {
   setLoadingMessage: (v: boolean) => void;
   setSearchQuery: (q: string) => void;
   setBuscarEnContenido: (v: boolean) => void;
+  setBuscarEnTodo: (v: boolean) => void;
   setDebouncedSearchQuery: (q: string) => void;
   setFilter: (f: Filter) => void;
   setViewMode: (m: ViewMode) => void;
@@ -125,6 +128,7 @@ export const useMailStore = create<MailState>((set, get) => ({
   activeIndex: -1,
   searchQuery: '',
   buscarEnContenido: false,
+  buscarEnTodo: (() => { try { return localStorage.getItem('maquita_buscar_en_todo') !== '0'; } catch { return true; } })(),
   debouncedSearchQuery: '',
   filter: 'all',
   filterChanging: false,
@@ -175,6 +179,7 @@ export const useMailStore = create<MailState>((set, get) => ({
   setLoadingMessage: (v) => set({ loadingMessage: v }),
   setSearchQuery: (q) => set({ searchQuery: q, currentPage: 1 }),
   setBuscarEnContenido: (v) => set({ buscarEnContenido: v, currentPage: 1 }),
+  setBuscarEnTodo: (v) => set({ buscarEnTodo: v }),
   setDebouncedSearchQuery: (q: string) => set({ debouncedSearchQuery: q }),
   setFilter: (f) => { if (f === get().filter) return; set({ filter: f, currentPage: 1, filterChanging: true }); },
   setViewMode: (m) => set({ viewMode: m }),
