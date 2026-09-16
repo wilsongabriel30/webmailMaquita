@@ -260,3 +260,10 @@
 
 /* Modo app (cliente de escritorio): sin cabecera ni burbuja de chat; el cliente trae las suyas. */
 .modo-app header[role="banner"] { display: none !important; }
+
+/* Escala de la interfaz (lib/escala.ts): con zoom en #root, las alturas de pantalla completa
+   se dividen por la escala para seguir llenando la ventana. */
+#root { --escala: 1; }
+#root .h-screen { height: calc(100vh / var(--escala)) !important; }
+#root .min-h-screen { min-height: calc(100vh / var(--escala)) !important; }
+#root .max-h-screen { max-height: calc(100vh / var(--escala)) !important; }
