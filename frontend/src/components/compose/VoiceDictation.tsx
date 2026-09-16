@@ -18,6 +18,15 @@ export function VoiceDictation({ onTranscript, disabled = false }: VoiceDictatio
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState('');
   const [mode, setMode] = useState<'whisper' | 'browser' | 'whisperlive'>('whisper');
+  // 2026-09-16: la persona elige entre «En vivo» (Web Speech del navegador: el texto aparece
+  // mientras habla, como en el celular) y «Privado» (Whisper en el servidor, frase a frase).
+  // Se recuerda en el navegador. Si el servidor no responde, se pasa solo a «En vivo».
+  const soportaVivo = typeof window !== 'undefined' && !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+  const [preferencia, setPreferencia] = useState<'vivo' | 'privado'>(() => {
+    try { return (localStorage.getItem('maquita_dictado_modo') as 'vivo' | 'privado') || (soportaVivo ? 'vivo' : 'privado'); } catch { return 'privado'; }
+  });
+  const [provisional, setProvisional] = useState('');
+  const cambiarPreferencia = (v: 'vivo' | 'privado') => { setPreferencia(v); try { localStorage.setItem('maquita_dictado_modo', v); } catch { /* sin almacenamiento */ } };
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -77,13 +86,29 @@ export function VoiceDictation({ onTranscript, disabled = false }: VoiceDictatio
       const ext = mimeType.includes('webm') ? 'webm' : mimeType.includes('mp4') ? 'mp4' : 'wav';
       formData.append('audio', blob, `recording.${ext}`);
       formData.append('language', 'es');
-      const resp = await fetch('/api/mail/transcribe', { method: 'POST', body: formData, credentials: 'include' });
+      const control = new AbortController();
+      const limite = window.setTimeout(() => control.abort(), 25000);   // antes esperaba 2 minutos con «Transcribiendo...»
+      let resp: Response;
+      try { resp = await fetch('/api/mail/transcribe', { method: 'POST', body: formData, credentials: 'include', signal: control.signal }); }
+      finally { window.clearTimeout(limite); }
       if (!resp.ok) { const e = await resp.text(); throw new Error(e || `HTTP ${resp.status}`); }
       const data = await resp.json();
       const text = data.full_text || data.text || data.transcription || data.texto || '';
       if (text.trim()) onTranscript(text.trim());
     } catch (err: any) {
-      setError(err?.message || 'Error de transcripción');
+      const lento = err?.name === 'AbortError';
+      if (soportaVivo) {
+        // Sin esperar: se pasa al dictado en vivo del navegador y se sigue dictando.
+        activeRef.current = false;
+        try { if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') mediaRecorderRef.current.stop(); } catch { /* ignore */ }
+        cleanupAudio();
+        setError(lento ? 'El servidor de dictado tardó demasiado: seguimos en vivo' : 'Servidor de dictado no disponible: seguimos en vivo');
+        cambiarPreferencia('vivo');
+        setState('idle');
+        setTimeout(() => startBrowser(), 300);
+        return;
+      }
+      setError(lento ? 'El servidor de dictado no respondió. Vuelve a intentarlo.' : (err?.message || 'Error de transcripción'));
     }
   };
 
@@ -99,7 +124,7 @@ export function VoiceDictation({ onTranscript, disabled = false }: VoiceDictatio
     const data = new Uint8Array(analyser.frequencyBinCount);
     let spoke = false;
     let silenceStart = 0;
-    const SILENCE_MS = 1300;
+    const SILENCE_MS = 900;   // pausa que cierra la frase (antes 1300 ms)
     const THRESHOLD = 6;
     const check = () => {
       if (recorder.state === 'inactive') return;
@@ -159,22 +184,27 @@ export function VoiceDictation({ onTranscript, disabled = false }: VoiceDictatio
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) { setError('Este navegador no soporta dictado en vivo (usa Chrome o Edge)'); return; }
     const rec = new SR();
-    rec.lang = 'es-ES';
+    rec.lang = 'es-EC';
     rec.continuous = true;
-    rec.interimResults = false;
+    rec.interimResults = true;
+    rec.maxAlternatives = 1;
     rec.onresult = (e: any) => {
+      let parcial = '';
       for (let i = e.resultIndex; i < e.results.length; i++) {
         if (e.results[i].isFinal) {
           const t = e.results[i][0].transcript.trim();
           if (t) onTranscript(t + ' ');
+        } else {
+          parcial += e.results[i][0].transcript;
         }
       }
+      setProvisional(parcial.trim());
     };
     rec.onerror = (e: any) => {
       if (e.error === 'not-allowed') { setError('Permiso de micrófono denegado'); activeRef.current = false; }
       else if (e.error !== 'no-speech') setError('Error de dictado');
     };
-    rec.onend = () => { if (activeRef.current) { try { rec.start(); } catch { /* ignore */ } } else setState('idle'); };
+    rec.onend = () => { setProvisional(''); if (activeRef.current) { try { rec.start(); } catch { /* ignore */ } } else setState('idle'); };
     activeRef.current = true;
     try { rec.start(); } catch { /* ignore */ }
     recognitionRef.current = rec;
@@ -244,24 +274,26 @@ export function VoiceDictation({ onTranscript, disabled = false }: VoiceDictatio
     if (state === 'recording') {
       activeRef.current = false;
       if (mode === 'whisperlive') { hardStop(); setState('idle'); }
-      else if (mode === 'browser') { try { recognitionRef.current?.stop(); } catch { /* ignore */ } setState('idle'); }
+      else if (mode === 'browser' || recognitionRef.current) { try { recognitionRef.current?.stop(); } catch { /* ignore */ } setProvisional(''); setState('idle'); }
       else {
         if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = 0; }
         try { if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') mediaRecorderRef.current.stop(); } catch { /* ignore */ }
       }
     } else if (state === 'idle') {
-      if (mode === 'browser') startBrowser();
-      else if (mode === 'whisperlive') startWhisperLive();
+      setError('');
+      if (mode === 'whisperlive') startWhisperLive();
+      else if (mode === 'browser' || (preferencia === 'vivo' && soportaVivo)) startBrowser();
       else startWhisper();
     }
   };
+  const enVivo = mode === 'browser' || mode === 'whisperlive' || (preferencia === 'vivo' && soportaVivo);
 
   const formatTime = (s: number) => { const m = Math.floor(s / 60); const sec = s % 60; return `${m}:${sec.toString().padStart(2, '0')}`; };
 
   const title = state === 'recording'
-    ? ((mode === 'browser' || mode === 'whisperlive') ? 'Dictando en vivo — clic para terminar' : 'Escuchando — habla; al callar se escribe. Clic para terminar')
+    ? (enVivo ? 'Dictando en vivo — clic para terminar' : 'Escuchando — habla; al callar se escribe. Clic para terminar')
     : state === 'processing' ? 'Transcribiendo...'
-    : (mode === 'whisperlive' ? 'Dictar en vivo (privado)' : mode === 'browser' ? 'Dictar en vivo' : 'Dictar por voz (privado)');
+    : (mode === 'whisperlive' ? 'Dictar en vivo (privado)' : enVivo ? 'Dictar en vivo' : 'Dictar por voz (privado)');
 
   return (
     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -291,11 +323,20 @@ export function VoiceDictation({ onTranscript, disabled = false }: VoiceDictatio
         )}
       </button>
 
+      {state === 'idle' && mode !== 'whisperlive' && soportaVivo && (
+        <span style={{ display: 'inline-flex', border: '1px solid #d2d0ce', borderRadius: 4, overflow: 'hidden', fontSize: 10 }} title="En vivo: el texto aparece mientras hablas (reconocimiento del navegador). Privado: se transcribe en el servidor de Maquita frase a frase.">
+          <button type="button" onClick={() => cambiarPreferencia('vivo')} style={{ padding: '2px 6px', border: 'none', cursor: 'pointer', background: preferencia === 'vivo' ? '#0078d4' : 'white', color: preferencia === 'vivo' ? 'white' : '#605e5c' }}>En vivo</button>
+          <button type="button" onClick={() => cambiarPreferencia('privado')} style={{ padding: '2px 6px', border: 'none', cursor: 'pointer', background: preferencia === 'privado' ? '#0078d4' : 'white', color: preferencia === 'privado' ? 'white' : '#605e5c' }}>Privado</button>
+        </span>
+      )}
       {state === 'recording' && (
         <span style={{ fontSize: 11, color: '#d13438', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
           <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#d13438', animation: 'pulse 1s ease-in-out infinite' }} />
-          {(mode === 'browser' || mode === 'whisperlive') ? 'En vivo' : formatTime(elapsed)}
+          {enVivo ? 'En vivo' : `Escuchando ${formatTime(elapsed)}`}
         </span>
+      )}
+      {state === 'recording' && provisional && (
+        <span style={{ fontSize: 12, color: '#605e5c', fontStyle: 'italic', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{provisional}…</span>
       )}
       {state === 'processing' && (<span style={{ fontSize: 11, color: '#605e5c' }}>Transcribiendo...</span>)}
       {error && (<span style={{ fontSize: 11, color: '#d13438', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{error}</span>)}
