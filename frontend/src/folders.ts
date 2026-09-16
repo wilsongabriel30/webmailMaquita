@@ -6,6 +6,7 @@ export const SYSTEM_FOLDER_LABELS: Record<string, string> = {
   Junk: 'Correo no deseado',
   Archive: 'Archivo',
   Snoozed: 'Pospuestos',
+  'Virtual.Todo': 'Todo el correo',
 };
 
 export function getFolderDisplayName(name: string): string {

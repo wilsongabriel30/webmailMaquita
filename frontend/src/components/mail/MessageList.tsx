@@ -898,7 +898,7 @@ export function MessageList() {
             }}
             className="w-4 h-4 shrink-0 rounded border-[#c8c6c4] text-[#0078d4] cursor-pointer accent-[#0078d4]"
             title="Seleccionar todos" aria-label="Seleccionar todos" />
-          <h2 className="text-[14px] font-semibold text-[#323130] cursor-pointer hover:text-[#0078d4] transition-colors truncate max-w-[120px] sm:max-w-none sm:whitespace-nowrap" onClick={() => { const s = useMailStore.getState(); if (s.filter !== 'all') s.setFilter('all'); setActiveTab('focused'); }}>{searchQuery ? `Buscando «${searchQuery}»` : folderLabel}</h2>
+          <h2 className="text-[14px] font-semibold text-[#323130] cursor-pointer hover:text-[#0078d4] transition-colors truncate max-w-[120px] sm:max-w-none sm:whitespace-nowrap" onClick={() => { const s = useMailStore.getState(); if (s.filter !== 'all') s.setFilter('all'); setActiveTab('focused'); }}>{searchQuery ? `Buscando «${searchQuery}»${currentFolder === 'Virtual.Todo' ? ' en todo el correo' : ''}` : folderLabel}</h2>
           <div className="flex-1" />
           <div className="flex items-center bg-[#f3f2f1] rounded-md p-0.5">
             {(['all','unread','flagged'] as const).map(f => (
