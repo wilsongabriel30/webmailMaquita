@@ -27,7 +27,8 @@ async def list_forwards(request: Request, domain: str = None, admin: dict = Depe
     else:
         rows = await db.fetch("""
             SELECT a.address, a.goto, a.domain, a.active, a.created, a.modified,
-                   CASE WHEN m.username IS NOT NULL THEN true ELSE false END as has_mailbox
+                   CASE WHEN m.username IS NOT NULL THEN true ELSE false END as has_mailbox,
+                   COALESCE(m.name, '') AS name
             FROM alias a LEFT JOIN mailbox m ON a.address = m.username
             WHERE a.address != a.goto
             ORDER BY a.domain, a.address
