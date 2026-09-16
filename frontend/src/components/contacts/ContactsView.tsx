@@ -129,8 +129,29 @@ export function ContactsView() {
     fetchContacts(1, '', filter);
     fetchDeletedCount();
     fetchSidebarData();
+    abrirDesdeParametros();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /* Llegada desde el redactor (clic derecho en un destinatario): /contacts?email=...&nombre=...&id=...
+     Si el contacto existe se abre para editar; si no, se abre «Nuevo contacto» con el correo puesto. */
+  const [nuevoInicial, setNuevoInicial] = useState<ContactFormData>(emptyFormData());
+  const abrirDesdeParametros = async () => {
+    const q = new URLSearchParams(window.location.search);
+    const email = (q.get('email') || '').trim();
+    if (!email) return;
+    const nombre = (q.get('nombre') || '').trim();
+    window.history.replaceState(null, '', '/contacts');
+    try {
+      const res = await api.get<ContactsResponse>('/contacts?' + new URLSearchParams({ search: email, per_page: '5', filter: 'all' }).toString());
+      const e = email.toLowerCase();
+      const existente = (res.contacts || []).find(c => [c.email, c.email2, c.email3].some(v => (v || '').toLowerCase() === e));
+      if (existente && !q.get('nuevo')) { setSelected(existente); setEditing(true); return; }
+    } catch { /* si la búsqueda falla, se ofrece crearlo */ }
+    const partes = nombre.split(/\s+/).filter(Boolean);
+    setNuevoInicial({ ...emptyFormData(), email, display_name: nombre, first_name: partes[0] || '', last_name: partes.slice(1).join(' ') });
+    setSelected(null); setShowNewContact(true); setEditing(true);
+  };
 
   /* Search debounce */
   const handleSearch = (val: string) => {
@@ -431,8 +452,8 @@ export function ContactsView() {
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fff', overflow: 'hidden' }}>
             {showNewContact && editing ? (
               <ContactForm
-                key="new-contact"
-                initial={emptyFormData()}
+                key={`new-contact-${nuevoInicial.email}`}
+                initial={nuevoInicial}
                 onSave={handleCreate}
                 onCancel={() => { setShowNewContact(false); setEditing(false); }}
                 saving={saving}

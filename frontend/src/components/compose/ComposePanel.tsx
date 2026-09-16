@@ -11,6 +11,7 @@ import { cuentaDeCarpeta } from '../../lib/cuentas';
 import { sanitizeHtml, sanitizeSignatureHtml } from '../../lib/sanitize';
 import { separarCitado } from '../../lib/borradorCitado';
 import { cargarAdjuntosDelBorrador, filtrarPeligrosos, huellaAdjuntos } from '../../lib/adjuntosBorrador';
+import { EVENTO_MOSTRAR_CAMPO } from './chipsArrastrables';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import React from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
@@ -363,6 +364,17 @@ export function ComposePanel({ win }: Props) {
          reintenta en el siguiente cambio, sin interrumpir a quien escribe */
     }
   }, [to, subject, win.draftUid, win.id, editor, attachments]);
+
+  // Un destinatario movido a CC/CCO desde el menú del chip: mostrar ese campo.
+  React.useEffect(() => {
+    const h = (e: Event) => {
+      const campo = (e as CustomEvent<string>).detail;
+      if (campo === 'cc') setShowCc(true);
+      if (campo === 'bcc') setShowBcc(true);
+    };
+    window.addEventListener(EVENTO_MOSTRAR_CAMPO, h);
+    return () => window.removeEventListener(EVENTO_MOSTRAR_CAMPO, h);
+  }, []);
 
   // Share editor with main Toolbar ribbon
   React.useEffect(() => {
