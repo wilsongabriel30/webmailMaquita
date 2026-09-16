@@ -2,12 +2,16 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { SectionHelp } from "../components/SectionHelp";
 
-interface Forward { address: string; goto: string; domain: string; active: boolean; has_mailbox: boolean }
+interface Forward { address: string; goto: string; domain: string; active: boolean; has_mailbox: boolean; name?: string }
 
 export function Forwarding() {
   const [forwards, setForwards] = useState<Forward[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ address: "", goto: "", keep_copy: true });
+  const [busqueda, setBusqueda] = useState("");
+  const q = busqueda.trim().toLowerCase();
+  // Se busca por cuenta de origen, nombre de la persona o cualquiera de los destinos
+  const visibles = q ? forwards.filter((f) => f.address.toLowerCase().includes(q) || (f.name || "").toLowerCase().includes(q) || f.goto.toLowerCase().includes(q)) : forwards;
 
   const load = () => api.get<Forward[]>("/forwarding").then(setForwards);
   useEffect(() => { load(); }, []);
@@ -51,6 +55,14 @@ export function Forwarding() {
         </div>
       )}
 
+      <div className="flex items-center gap-2">
+        <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar por cuenta, nombre de la persona o destino…"
+          title="Filtra la lista al escribir: cuenta de origen, nombre de la persona del buzón o dirección de destino."
+          className="w-96 px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
+        {q && <span className="text-xs text-ms-gray-60">{visibles.length} de {forwards.length}</span>}
+        {q && <button onClick={() => setBusqueda("")} className="text-xs text-ms-blue hover:underline">Limpiar</button>}
+      </div>
+
       <div className="bg-white rounded border border-ms-gray-30 overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-ms-gray-20 border-b border-ms-gray-30"><tr>
@@ -62,9 +74,9 @@ export function Forwarding() {
             <th className="text-right px-4 py-2.5 font-medium text-ms-gray-90 text-xs">Acciones</th>
           </tr></thead>
           <tbody className="divide-y divide-ms-gray-30">
-            {forwards.map((f) => (
+            {visibles.map((f) => (
               <tr key={f.address} className="hover:bg-ms-blue-lighter/50">
-                <td className="px-4 py-2.5 font-medium text-ms-gray-130">{f.address}</td>
+                <td className="px-4 py-2.5 font-medium text-ms-gray-130">{f.address}{f.name && <span className="block text-[11px] font-normal text-ms-gray-60">{f.name}</span>}</td>
                 <td className="px-4 py-2.5 text-ms-gray-60">{f.goto}</td>
                 <td className="px-4 py-2.5 text-ms-gray-60">{f.domain}</td>
                 <td className="px-4 py-2.5 text-center">{f.has_mailbox ? <span className="text-ms-green text-xs">Si</span> : <span className="text-ms-gray-60 text-xs">No</span>}</td>
@@ -75,6 +87,7 @@ export function Forwarding() {
           </tbody>
         </table>
         {forwards.length === 0 && <div className="p-8 text-center text-ms-gray-60 text-sm">Sin reenvios configurados</div>}
+        {forwards.length > 0 && visibles.length === 0 && <div className="p-8 text-center text-ms-gray-60 text-sm">Ningún reenvío coincide con «{busqueda}»</div>}
       </div>
     </div>
   );
