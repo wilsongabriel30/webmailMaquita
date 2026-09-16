@@ -319,15 +319,18 @@ export function MessageList() {
     useMailStore.getState().clearThread();
   }, [currentFolder]);
 
-  // Debounce search query — wait 400ms after user stops typing
+  // Pausa tras dejar de escribir y minimo de 3 letras (salvo que haya un operador con «:»):
+  // antes cada letra lanzaba una busqueda sobre todo el correo («P», «PO», «POS»...).
   useEffect(() => {
     if (!searchQuery) {
       useMailStore.getState().setDebouncedSearchQuery('');
       return;
     }
+    const corta = searchQuery.trim().length < 3 && !searchQuery.includes(':');
+    if (corta) return;
     const timer = setTimeout(() => {
       useMailStore.getState().setDebouncedSearchQuery(searchQuery);
-    }, 400);
+    }, 800);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
@@ -1012,7 +1015,13 @@ export function MessageList() {
 
       {/* List */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto relative" style={{ overflowAnchor: 'none' }}>
-        {loadingMessages && !filterChanging ? (
+        {loadingMessages && !filterChanging && debouncedSearchQuery ? (
+          <div className="flex flex-col items-center justify-center h-48 px-6 text-center">
+            <div className="w-6 h-6 border-2 border-[#0078d4] border-t-transparent rounded-full animate-spin" />
+            <p className="text-[13px] font-semibold text-[#323130] mt-3">Buscando «{debouncedSearchQuery}»{currentFolder === 'Virtual.Todo' ? ' en todo tu correo' : ''}…</p>
+            <p className="text-[12px] text-[#605e5c] mt-1">Un momento, por favor. La primera búsqueda en un buzón grande puede tardar unos segundos; las siguientes son inmediatas.</p>
+          </div>
+        ) : loadingMessages && !filterChanging ? (
           Array.from({length:12}).map((_,i) => (
             <div key={i} className="animate-pulse flex gap-2.5 px-4 py-[6px] border-b border-[#f3f2f1]">
               <div className="w-[32px] h-[32px] bg-[#e1dfdd] rounded-full shrink-0 mt-0.5" />
