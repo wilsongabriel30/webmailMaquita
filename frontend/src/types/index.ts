@@ -98,6 +98,8 @@ export interface ComposeData {
   in_reply_to?: string;
   references?: string;
   draft_uid?: number | null;
+  /** Adjuntos ya guardados en el borrador (se descargan al reabrirlo). */
+  adjuntos_borrador?: AttachmentInfo[];
   // Archivos del Almacén a adjuntar al abrir el redactor (accion "Enviar por correo")
   adjuntos_almacen?: { nombre: string; ruta: string }[];
   /** Cuerpo sugerido por el asistente de respuesta rápida. */

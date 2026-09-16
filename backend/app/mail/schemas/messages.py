@@ -228,6 +228,9 @@ class DraftRequest(BaseModel):
     in_reply_to: str = ""
     references: str = ""
     existing_draft_uid: int | None = None
+    # Adjuntos del borrador: se mandan cuando cambian; si no, se conservan los guardados.
+    attachments: list[AttachmentUpload] = []
+    mantener_adjuntos: bool = False
 
     @field_validator("subject", "in_reply_to", "references", mode="before")
     @classmethod
