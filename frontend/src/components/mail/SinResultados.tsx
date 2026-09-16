@@ -10,7 +10,7 @@ interface Props { consulta: string; enTodo: boolean; carpeta: string; }
 
 function primerNombre(): string {
   const st = useMailStore.getState();
-  const activa = st.cuentas.find(c => c.activa) || st.cuentas[0];
+  const activa = st.cuentas[0];  // la primera es la cuenta principal
   const auth = useAuthStore.getState() as unknown as { user?: { display_name?: string; name?: string; username?: string } | null; username?: string };
   const nombre = activa?.nombre || auth.user?.display_name || auth.user?.name || '';
   if (nombre) return nombre.trim().split(/\s+/)[0];
