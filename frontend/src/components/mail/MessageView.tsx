@@ -1,5 +1,6 @@
 import { BotonAsignarCorreo } from '../tareas/BotonAsignarCorreo';
 import SafeEmailViewer from './SafeEmailViewer';
+import { useCabeceraPlegable } from '../../hooks/useCabeceraPlegable';
 import { sanitizeHtml } from '../../lib/sanitize';
 import type { MessageFull, AttachmentInfo, CalendarInvite } from '../../types';
 
@@ -774,6 +775,8 @@ const MessageView: React.FC = () => {
 
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewAttIdx, setPreviewAttIdx] = useState(0);
+  // Cabecera que se pliega al desplazar el cuerpo (aprovecha pantallas bajas).
+  const cabecera = useCabeceraPlegable(msg?.uid);
   const [previewContext, setPreviewContext] = useState<{ folder: string; uid: number; attachments: AttachmentInfo[] }>({ folder: '', uid: 0, attachments: [] });
 
   const openAttachmentPreview = useCallback((folder: string, uid: number, attachments: AttachmentInfo[], index: number) => {
@@ -1295,8 +1298,9 @@ const MessageView: React.FC = () => {
       )}
 
       {/* Header */}
-      <div style={{ padding: '20px 24px 0', flexShrink: 0 }}>
-        <h2 style={{ fontSize: 20, fontWeight: 600, margin: '0 0 16px', color: '#323130', lineHeight: 1.3 }}>
+      <div style={{ padding: cabecera.plegada ? '8px 24px 8px' : '14px 24px 0', flexShrink: 0, borderBottom: cabecera.plegada ? '1px solid #edebe9' : 'none', transition: 'padding 120ms' }}>
+        <h2 style={{ fontSize: cabecera.plegada ? 15 : 20, fontWeight: 600, margin: cabecera.plegada ? 0 : '0 0 12px', color: '#323130', lineHeight: 1.3, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={cabecera.plegada ? { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } : { flex: 1, minWidth: 0 }} title={msg.subject}>
           {msg.subject}
           {msg.importance && msg.importance.toLowerCase() === 'high' && (
             <span style={{
@@ -1307,8 +1311,25 @@ const MessageView: React.FC = () => {
               Importancia alta
             </span>
           )}
+          </span>
+          {cabecera.plegada && (
+            <span style={{ fontSize: 12, fontWeight: 400, color: '#605e5c', whiteSpace: 'nowrap' }}>
+              {senderName} · {relDate}
+            </span>
+          )}
+          <button
+            onClick={cabecera.alternar}
+            title={cabecera.plegada ? 'Mostrar remitente, destinatarios y acciones' : 'Ocultar la cabecera (también se oculta al desplazar)'}
+            aria-expanded={!cabecera.plegada}
+            style={{ background: 'none', border: '1px solid #d2d0ce', borderRadius: 4, width: 26, height: 22, cursor: 'pointer', color: '#605e5c', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" style={{ transform: cabecera.plegada ? 'rotate(180deg)' : 'none', transition: 'transform 120ms' }}>
+              <path d="M3 10l5-5 5 5" />
+            </svg>
+          </button>
         </h2>
 
+        {!cabecera.plegada && (<>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
           <div style={{
             width: 40, height: 40, borderRadius: '50%', background: bgColor,
@@ -1380,6 +1401,7 @@ const MessageView: React.FC = () => {
             Imprimir
           </button>
         </div>
+        </>)}
 
         {showBlockedBanner && (
           <div style={{
@@ -1467,7 +1489,7 @@ const MessageView: React.FC = () => {
       )}
 
       {/* Body (scrollable; la invitación va DENTRO para poder verla completa) */}
-      <div style={{ flex: 1, overflow: 'auto' }}>
+      <div style={{ flex: 1, overflow: 'auto' }} onScroll={cabecera.onScroll}>
         {displayMsg!.calendar_invite && (
           <div style={{ padding: '16px 24px 0' }}>
             <CalendarInviteBanner invite={displayMsg!.calendar_invite} folder={currentFolder} uid={msg.uid} />
