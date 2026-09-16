@@ -9,6 +9,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ContextMenu, type MenuItem } from '../common/ContextMenu';
 import { showToast } from '../common/Toast';
+import { accionEnLote } from '../../lib/accionesLote';
 import type { MessagesResponse, MessageFull, MessageSummary } from '../../types';
 import { usePriority } from '../../hooks/usePriority';
 import { sanitizeHtml } from '../../lib/sanitize';
@@ -998,16 +999,16 @@ export function MessageList() {
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={deleteIcon} /></svg>
             <span>Eliminar</span>
           </button>
-          <button onClick={() => { const uids = Array.from(selectedUids); api.post(`/mail/bulk-action/${encodeURIComponent(currentFolder)}`, { uids, action: 'archive', dest_folder: '' }).then(() => { showToast(`${uids.length} archivado${uids.length > 1 ? 's' : ''}`); useMailStore.getState().clearSelection(); useMailStore.getState().setSelectedMessage(null); window.dispatchEvent(new CustomEvent('refresh-messages')); }); }}
+          <button onClick={() => { const uids = Array.from(selectedUids); accionEnLote(currentFolder, uids, 'archive', '', `${uids.length} archivado${uids.length > 1 ? 's' : ''}`); }}
             className="px-1.5 py-1 text-[11px] text-[#323130] hover:bg-[#c7e0f4] rounded flex items-center gap-1 shrink-0" title="Archivar">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={archiveIcon} /></svg>
             <span>Archivar</span>
           </button>
-          <button onClick={() => { const uids = Array.from(selectedUids); api.post(`/mail/bulk-action/${encodeURIComponent(currentFolder)}`, { uids, action: 'mark_read', dest_folder: '' }).then(() => { showToast('Marcados como leídos'); useMailStore.getState().clearSelection(); window.dispatchEvent(new CustomEvent('refresh-messages')); }); }}
+          <button onClick={() => { const uids = Array.from(selectedUids); accionEnLote(currentFolder, uids, 'mark_read', '', 'Marcados como leídos'); }}
             className="p-1.5 text-[#323130] hover:bg-[#c7e0f4] rounded shrink-0" title="Marcar como leídos">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21.75 9v.906a2.25 2.25 0 01-1.183 1.981l-6.478 3.488M2.25 9v.906a2.25 2.25 0 001.183 1.981l6.478 3.488m8.839 0l.415.223a.75.75 0 00.882-.264l2.197-2.989M2.25 15.577l.415.223a.75.75 0 01.882-.264l2.197-2.989" /></svg>
           </button>
-          <button onClick={() => { const uids = Array.from(selectedUids); api.post(`/mail/bulk-action/${encodeURIComponent(currentFolder)}`, { uids, action: 'move', dest_folder: 'Junk' }).then(() => { showToast('Movidos a Correo no deseado'); useMailStore.getState().clearSelection(); useMailStore.getState().setSelectedMessage(null); window.dispatchEvent(new CustomEvent('refresh-messages')); }); }}
+          <button onClick={() => { const uids = Array.from(selectedUids); accionEnLote(currentFolder, uids, 'move', 'Junk', 'Movidos a Correo no deseado'); }}
             className="p-1.5 text-[#323130] hover:bg-[#c7e0f4] rounded shrink-0" title="Marcar como spam">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
           </button>
