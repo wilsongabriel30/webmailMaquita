@@ -1,6 +1,13 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
 import { getInitials, getAvatarColor } from '../contacts/types';
+import { ContextMenu, type MenuItem } from '../common/ContextMenu';
+import { showToast } from '../common/Toast';
+import {
+  ETIQUETA_CAMPO, arrastreEnCurso, escucharMover, esArrastreDeDestinatario, idContactoDe, idDeCampo,
+  iniciarArrastre, nombreDe, pedirMostrarCampo, pedirMover, terminarArrastre, type CampoDestinatario,
+} from './chipsArrastrables';
 
 // ── Types ──
 
@@ -133,6 +140,13 @@ export function RecipientField({ label, value, onChange, onToggleExtra, showExtr
   const [selectedSuggestion, setSelectedSuggestion] = useState(0);
   const [expandingList, setExpandingList] = useState(false);
   const [hoveredChip, setHoveredChip] = useState<number | null>(null);
+  // Menú contextual del chip, nombres resueltos desde la agenda y estado del arrastre.
+  const campoId: CampoDestinatario = idDeCampo(label);
+  const navigate = useNavigate();
+  const [menu, setMenu] = useState<{ x: number; y: number; idx: number } | null>(null);
+  const [nombres, setNombres] = useState<Record<string, string>>({});
+  const [sobreCampo, setSobreCampo] = useState(false);
+  const [sobreChip, setSobreChip] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
   // Alto real de la lista abierta: es el hueco que hay que reservar debajo para que no tape nada.
@@ -232,6 +246,84 @@ export function RecipientField({ label, value, onChange, onToggleExtra, showExtr
   const removeChip = (idx: number) => {
     const newChips = chips.filter((_, i) => i !== idx);
     updateChips(newChips);
+  };
+
+  /** Inserta un chip ya formado (viene de otro campo) en la posición dada. */
+  const insertarChip = useCallback((chip: Chip, en?: number) => {
+    const sinRepetido = chips.filter(c => c.email !== chip.email);
+    const pos = en === undefined ? sinRepetido.length : Math.min(en, sinRepetido.length);
+    updateChips([...sinRepetido.slice(0, pos), chip, ...sinRepetido.slice(pos)]);
+  }, [chips, updateChips]);
+
+  // «Mover a Para/CC/CCO» desde el menú de otro campo
+  useEffect(() => escucharMover(d => { if (d.destino === campoId) insertarChip(d.chip, undefined); }), [campoId, insertarChip]);
+
+  // Nombre para el aviso al pasar el ratón cuando el chip solo trae el correo
+  useEffect(() => {
+    chips.forEach(c => {
+      if (c.display === c.email && nombres[c.email] === undefined) {
+        nombreDe(c.email).then(n => setNombres(prev => ({ ...prev, [c.email]: n })));
+      }
+    });
+  }, [chips]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const nombreVisible = (chip: Chip) => (chip.display !== chip.email ? chip.display : (nombres[chip.email] || ''));
+
+  /* Arrastre: soltar sobre el campo (al final) o sobre un chip (en su posición) */
+  const soltar = (e: React.DragEvent, en?: number) => {
+    if (!esArrastreDeDestinatario(e)) return;
+    e.preventDefault(); e.stopPropagation();
+    setSobreCampo(false); setSobreChip(null);
+    const a = arrastreEnCurso();
+    if (!a) return;
+    if (a.origen === campoId) {
+      // Reordenar dentro del mismo campo
+      const desde = chips.findIndex(c => c.email === a.chip.email);
+      if (desde === -1) return;
+      const resto = chips.filter((_, i) => i !== desde);
+      let pos = en === undefined ? resto.length : en;
+      if (en !== undefined && desde < en) pos = en - 1;
+      updateChips([...resto.slice(0, pos), chips[desde], ...resto.slice(pos)]);
+    } else {
+      a.quitar();
+      insertarChip(a.chip, en);
+    }
+    terminarArrastre();
+  };
+  const permitirSoltar = (e: React.DragEvent) => {
+    if (!esArrastreDeDestinatario(e)) return;
+    e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+  };
+
+  /* Menú contextual del chip */
+  const abrirMenu = (e: React.MouseEvent, idx: number) => {
+    e.preventDefault(); e.stopPropagation();
+    setMenu({ x: e.clientX, y: e.clientY, idx });
+  };
+  const itemsMenu = (idx: number): MenuItem[] => {
+    const chip = chips[idx];
+    if (!chip) return [];
+    const otros = (['to', 'cc', 'bcc'] as CampoDestinatario[]).filter(c => c !== campoId);
+    return [
+      { label: `Copiar ${chip.email}`, onClick: () => { navigator.clipboard?.writeText(chip.email); showToast('Dirección copiada'); } },
+      { label: 'Ver o editar en Contactos', onClick: async () => {
+          const id = await idContactoDe(chip.email);
+          const nombre = nombreVisible(chip);
+          navigate(`/contacts?email=${encodeURIComponent(chip.email)}&nombre=${encodeURIComponent(nombre)}${id ? `&id=${id}` : ''}`);
+        } },
+      { label: 'Agregar a Contactos', onClick: async () => {
+          const id = await idContactoDe(chip.email);
+          if (id) { showToast('Ya está en tus contactos'); return; }
+          navigate(`/contacts?email=${encodeURIComponent(chip.email)}&nombre=${encodeURIComponent(nombreVisible(chip))}&nuevo=1`);
+        } },
+      { label: '', onClick: () => {}, divider: true },
+      ...otros.map(destino => ({
+        label: `Mover a ${ETIQUETA_CAMPO[destino]}`,
+        onClick: () => { pedirMostrarCampo(destino); setTimeout(() => pedirMover(chip, destino), 0); removeChip(idx); },
+      })),
+      { label: '', onClick: () => {}, divider: true },
+      { label: 'Quitar', danger: true, onClick: () => removeChip(idx) },
+    ];
   };
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -351,10 +443,21 @@ export function RecipientField({ label, value, onChange, onToggleExtra, showExtr
       )}
 
       {/* Chips + input area */}
-      <div className="flex-1 flex flex-wrap items-center gap-[3px] px-2 py-[6px] min-h-[40px] cursor-text"
-        onClick={() => inputRef.current?.focus()}>
+      <div className={`flex-1 flex flex-wrap items-center gap-[3px] px-2 py-[6px] min-h-[40px] cursor-text ${sobreCampo ? 'bg-[#deecf9]' : ''}`}
+        onClick={() => inputRef.current?.focus()}
+        onDragOver={e => { permitirSoltar(e); if (esArrastreDeDestinatario(e)) setSobreCampo(true); }}
+        onDragLeave={() => setSobreCampo(false)}
+        onDrop={e => soltar(e)}>
         {chips.map((chip, i) => (
-          <div key={i} className="relative"
+          <div key={i} className={`relative ${sobreChip === i ? 'pl-1 border-l-2 border-[#0078d4]' : ''}`}
+            draggable
+            onDragStart={e => iniciarArrastre(chip, campoId, () => removeChip(i), e)}
+            onDragEnd={() => { terminarArrastre(); setSobreCampo(false); setSobreChip(null); }}
+            onDragOver={e => { permitirSoltar(e); if (esArrastreDeDestinatario(e)) { e.stopPropagation(); setSobreChip(i); } }}
+            onDragLeave={() => setSobreChip(null)}
+            onDrop={e => soltar(e, i)}
+            onContextMenu={e => abrirMenu(e, i)}
+            title=""
             onMouseEnter={() => {
               if (tooltipTimerRef.current) clearTimeout(tooltipTimerRef.current);
               tooltipTimerRef.current = setTimeout(() => setHoveredChip(i), 400);
@@ -374,10 +477,11 @@ export function RecipientField({ label, value, onChange, onToggleExtra, showExtr
               </button>
             </span>
             {/* Tooltip */}
-            {hoveredChip === i && (chip.jobTitle || chip.department || chip.phone) && (
+            {hoveredChip === i && (
               <div className="absolute left-0 top-full mt-1 z-[60] bg-[#323130] text-white rounded-md px-3 py-2 text-[11px] leading-[16px] shadow-xl whitespace-nowrap pointer-events-none">
-                <div className="font-semibold text-[12px]">{chip.display}</div>
-                <div className="text-gray-300">{chip.email}</div>
+                <div className="font-semibold text-[12px]">{nombreVisible(chip) || chip.email}</div>
+                {nombreVisible(chip) && <div className="text-gray-300">{chip.email}</div>}
+                <div className="text-gray-400 mt-1">Clic derecho: contactos, mover a {campoId === 'to' ? 'CC/CCO' : campoId === 'cc' ? 'Para/CCO' : 'Para/CC'} · Arrastra para mover u ordenar</div>
                 {chip.jobTitle && <div className="mt-1">{chip.jobTitle}{chip.department ? ` - ${chip.department}` : ''}</div>}
                 {chip.phone && <div className="mt-0.5">{chip.phone}</div>}
               </div>
@@ -436,6 +540,10 @@ export function RecipientField({ label, value, onChange, onToggleExtra, showExtr
       {/* Hueco reservado mientras la lista está abierta: baja el Asunto en vez de taparlo. */}
       {altoSugerencias > 0 && (
         <div aria-hidden="true" style={{ height: altoSugerencias }} className="shrink-0 w-0" />
+      )}
+
+      {menu && (
+        <ContextMenu x={menu.x} y={menu.y} items={itemsMenu(menu.idx)} onClose={() => setMenu(null)} />
       )}
 
       {/* CC/BCC toggle */}
