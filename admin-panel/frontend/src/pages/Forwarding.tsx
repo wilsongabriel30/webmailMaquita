@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { SectionHelp } from "../components/SectionHelp";
+import { EditorReenvio } from "../components/EditorReenvio";
 
 interface Forward { address: string; goto: string; domain: string; active: boolean; has_mailbox: boolean; name?: string }
 
@@ -9,6 +10,7 @@ export function Forwarding() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ address: "", goto: "", keep_copy: true });
   const [busqueda, setBusqueda] = useState("");
+  const [editando, setEditando] = useState<Forward | null>(null);
   const q = busqueda.trim().toLowerCase();
   // Se busca por cuenta de origen, nombre de la persona o cualquiera de los destinos
   const visibles = q ? forwards.filter((f) => f.address.toLowerCase().includes(q) || (f.name || "").toLowerCase().includes(q) || f.goto.toLowerCase().includes(q)) : forwards;
@@ -17,7 +19,7 @@ export function Forwarding() {
   useEffect(() => { load(); }, []);
 
   const create = async () => { await api.post("/forwarding", form); setShowForm(false); setForm({ address: "", goto: "", keep_copy: true }); load(); };
-  const del = async (a: string) => { if (confirm(`Se eliminara el reenvio de ${a}. Los correos dejaran de copiarse al destino. Continuar?`)) { await api.del(`/forwarding/${a}`); load(); } };
+  const del = async (a: string) => { if (confirm(`Se eliminara el reenvio de ${a}. Los correos dejaran de copiarse al destino. Continuar?`)) { await api.del(`/forwarding/${a}`); setEditando(null); load(); } };
 
   return (
     <div className="p-6 space-y-5">
@@ -31,6 +33,7 @@ export function Forwarding() {
               { titulo: "Mantener copia", desc: "Si el reenvío se crea con la casilla marcada, el correo original queda también en el buzón de origen. Si no, solo llega al destino y el buzón de origen no lo conserva." },
               { titulo: "Columna Buzón", desc: "Indica si la dirección de origen tiene un buzón real en el servidor (Sí) o es solo una dirección que redirige (No)." },
               { titulo: "Columna Estado", desc: "Activo = el reenvío está funcionando. Inactivo = está definido pero no reenvía correos." },
+              { titulo: "Editar (clic en la fila)", desc: "Al hacer clic en un reenvío se abre su editor: agregar más cuentas que lo reciban, corregir o quitar un destino, conservar o no la copia en el buzón, o eliminar el reenvío completo. Todo queda en auditoría." },
               { titulo: "Eliminar", desc: "Quita el reenvío: los correos dejan de copiarse al destino y siguen llegando solo al buzón de origen. Se registra en auditoría." },
             ]}
           />
@@ -63,6 +66,11 @@ export function Forwarding() {
         {q && <button onClick={() => setBusqueda("")} className="text-xs text-ms-blue hover:underline">Limpiar</button>}
       </div>
 
+      {editando && (
+        <EditorReenvio reenvio={editando} onCerrar={() => setEditando(null)}
+          onGuardado={() => { setEditando(null); load(); }} onEliminar={del} />
+      )}
+
       <div className="bg-white rounded border border-ms-gray-30 overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-ms-gray-20 border-b border-ms-gray-30"><tr>
@@ -75,13 +83,14 @@ export function Forwarding() {
           </tr></thead>
           <tbody className="divide-y divide-ms-gray-30">
             {visibles.map((f) => (
-              <tr key={f.address} className="hover:bg-ms-blue-lighter/50">
+              <tr key={f.address} onClick={() => setEditando(f)} title="Clic para editar este reenvío"
+                className={`cursor-pointer hover:bg-ms-blue-lighter/50 ${editando?.address === f.address ? "bg-ms-blue-lighter" : ""}`}>
                 <td className="px-4 py-2.5 font-medium text-ms-gray-130">{f.address}{f.name && <span className="block text-[11px] font-normal text-ms-gray-60">{f.name}</span>}</td>
                 <td className="px-4 py-2.5 text-ms-gray-60">{f.goto}</td>
                 <td className="px-4 py-2.5 text-ms-gray-60">{f.domain}</td>
                 <td className="px-4 py-2.5 text-center">{f.has_mailbox ? <span className="text-ms-green text-xs">Si</span> : <span className="text-ms-gray-60 text-xs">No</span>}</td>
                 <td className="px-4 py-2.5 text-center"><span className={`px-2 py-0.5 rounded text-[10px] font-medium ${f.active ? "bg-green-50 text-ms-green" : "bg-red-50 text-ms-red"}`}>{f.active ? "Activo" : "Inactivo"}</span></td>
-                <td className="px-4 py-2.5 text-right"><button onClick={() => del(f.address)} title="Elimina el reenvio. Los correos dejaran de copiarse al destino. Se registra en auditoria." className="text-ms-red text-xs hover:underline">Eliminar</button></td>
+                <td className="px-4 py-2.5 text-right"><button onClick={(e) => { e.stopPropagation(); setEditando(f); }} title="Abre el editor de este reenvío." className="text-ms-blue text-xs hover:underline mr-3">Editar</button><button onClick={(e) => { e.stopPropagation(); del(f.address); }} title="Elimina el reenvio. Los correos dejaran de copiarse al destino. Se registra en auditoria." className="text-ms-red text-xs hover:underline">Eliminar</button></td>
               </tr>
             ))}
           </tbody>
