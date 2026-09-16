@@ -6,6 +6,7 @@ import { useThemeStore } from '../../store/themeStore';
 import { useNavigate } from 'react-router-dom';
 import { getFolderDisplayName } from '../../folders';
 import { SearchAdvanced } from "../common/SearchAdvanced";
+import { aplicarBusqueda, cambiarAmbito } from "../../lib/busquedaGlobal";
 import { useResponsive } from "../../hooks/useResponsive";
 import { useNombreApp } from "../../lib/marca";
 
@@ -29,6 +30,7 @@ export function Topbar() {
   const logout = useAuthStore((s) => s.logout);
   const searchQuery = useMailStore(s => s.searchQuery);
   const setBuscarEnContenido = useMailStore(s => s.setBuscarEnContenido);
+  const buscarEnTodo = useMailStore(s => s.buscarEnTodo);
   const setSearchQuery = useMailStore(s => s.setSearchQuery);
   const folders = useMailStore(s => s.folders);
   const setCurrentFolder = useMailStore(s => s.setCurrentFolder);
@@ -160,9 +162,11 @@ export function Topbar() {
       <div className="topbar-search flex-1 max-w-[680px] mx-auto max-md:mx-1">
         <SearchAdvanced
           value={searchQuery}
-          onChange={setSearchQuery}
-          onSearch={setSearchQuery}
+          onChange={aplicarBusqueda}
+          onSearch={aplicarBusqueda}
           onBuscarEnContenido={setBuscarEnContenido}
+          enTodo={buscarEnTodo}
+          onEnTodo={cambiarAmbito}
           placeholder="Buscar en el correo (/ para enfocar)"
         />
       </div>
