@@ -12,6 +12,7 @@ import aioimaplib
 
 from app.mail.clients.imap_acciones import expulsar_uids, mover_uids
 from app.mail.services.cache_uids import registrar_clave
+from app.mail.services.busqueda_adjuntos import extraer_patrones, filtrar_uids_por_adjunto
 
 from app.config import get_settings
 from app.mail.errors import CredencialIMAPInvalida
@@ -225,17 +226,23 @@ async def list_message_uids(
 
     # Try SORT for server-side ordering (faster than SEARCH + client sort)
     use_sort = True
+    # «adjunto:nombre» / «adjunto:.pdf»: IMAP no busca por nombre de archivo; se acota a
+    # mensajes multipart y luego se filtra por BODYSTRUCTURE (busqueda_adjuntos).
+    consulta_original = search_query
+    search_query, patrones_adjunto = extraer_patrones(search_query or "")
     if search_query:
         criteria = _build_search_criteria(search_query, buscar_en_contenido)
     else:
         criteria = ["ALL"]
+    if patrones_adjunto:
+        criteria = [c for c in criteria if c != "ALL"] + ["HEADER", "Content-Type", '"multipart"']
 
     all_uids = []
 
     # FQA-002: Try Redis cache for sorted UIDs (avoids 25s+ IMAP SORT on large folders)
     cache_key = ""
     if redis and username:
-        cache_key = f"uids:{username}:{folder}:{search_query}"
+        cache_key = f"uids:{username}:{folder}:{consulta_original}"
         try:
             cached = await redis.get(cache_key)
             if cached:
@@ -263,6 +270,9 @@ async def list_message_uids(
                 if line and not line.endswith("completed."):
                     all_uids.extend(int(x) for x in line.split() if x.isdigit())
             all_uids.sort(reverse=True)
+
+        if patrones_adjunto and all_uids:
+            all_uids = await filtrar_uids_por_adjunto(imap, all_uids, patrones_adjunto)
 
         # FQA-002: Cache sorted UIDs in Redis for 60s
         if redis and username and cache_key and all_uids:
