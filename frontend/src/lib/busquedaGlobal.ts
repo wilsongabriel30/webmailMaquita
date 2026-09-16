@@ -27,11 +27,16 @@ export function aplicarBusqueda(q: string) {
   const texto = q.trim();
   if (texto && st.buscarEnTodo && st.currentFolder !== CARPETA_TODO) {
     carpetaPrevia = st.currentFolder;
-    st.setCurrentFolder(CARPETA_TODO);          // limpia la búsqueda: se vuelve a poner abajo
-  } else if (!texto && st.currentFolder === CARPETA_TODO) {
-    st.setCurrentFolder(carpetaPrevia || 'INBOX');
+    // Carpeta y búsqueda en un solo cambio: si no, la lista cargaba primero el buzón entero
+    // y luego la búsqueda, y ambas respuestas se mezclaban.
+    st.setCarpetaYBusqueda(CARPETA_TODO, q);
+    return;
   }
-  useMailStore.getState().setSearchQuery(q);
+  if (!texto && st.currentFolder === CARPETA_TODO) {
+    st.setCarpetaYBusqueda(carpetaPrevia || 'INBOX', '');
+    return;
+  }
+  st.setSearchQuery(q);
 }
 
 /** Cambia el ámbito y, si hay una búsqueda escrita, la repite en el ámbito nuevo. */
@@ -44,7 +49,6 @@ export function cambiarAmbito(enTodo: boolean) {
   if (enTodo) {
     aplicarBusqueda(q);
   } else if (st.currentFolder === CARPETA_TODO) {
-    st.setCurrentFolder(carpetaPrevia || 'INBOX');
-    useMailStore.getState().setSearchQuery(q);
+    st.setCarpetaYBusqueda(carpetaPrevia || 'INBOX', q);
   }
 }
