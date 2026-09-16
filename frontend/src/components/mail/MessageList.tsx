@@ -511,6 +511,7 @@ export function MessageList() {
           in_reply_to: msg.in_reply_to || '',
           references: msg.references || '',
           draft_uid: uid,
+          adjuntos_borrador: msg.attachments || [],
         });
         return;
       } catch (err) {
