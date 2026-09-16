@@ -85,38 +85,43 @@ def _valid_ruc(ruc: str) -> bool:
 
 
 # ── Prefijo de emisor (IIN) ──────────────────────────────────────────────
-# Luhn por si solo NO basta: el 10,3 % de los numeros de 16 digitos al azar lo
-# pasan. Eso convertia identificadores largos de otros sistemas en falsas
-# "tarjetas": las alertas del vigilante del servidor se marcaban asi.
-# Toda tarjeta real empieza por un prefijo de emisor conocido. Exigirlo ademas
-# de Luhn baja los falsos positivos al 3,9 % sin perder tarjetas de verdad.
+# Luhn por si solo NO basta: el 10,3 % de los numeros al azar lo pasan.
+# Cada marca tiene prefijo Y longitud fijos; exigir las dos cosas descarta
+# telefonos internacionales (maximo 15 digitos, cualquier pais) e
+# identificadores de otros sistemas sin depender de listas de prefijos de paises.
+_MARCAS = (
+    # (prefijos, longitudes) segun los emisores
+    (("4",), (16, 19)),                                   # Visa
+    (tuple(str(n) for n in range(51, 56)), (16,)),        # Mastercard serie 5
+    (("34", "37"), (15,)),                                # American Express
+    (("30", "36", "38", "39"), (14, 16)),                 # Diners Club
+    (tuple(str(n) for n in range(3528, 3590)), (16,)),    # JCB
+    (("6011", "65", "644", "645", "646", "647", "648", "649"), (16, 19)),  # Discover
+    (("62",), (16, 17, 18, 19)),                          # UnionPay
+    (("50", "56", "57", "58", "67"), (16, 17, 18, 19)),   # Maestro
+)
+
+
 def _prefijo_de_tarjeta(num: str) -> bool:
-    """True si el numero empieza como una tarjeta real.
-    Visa 4 · Mastercard 51-55 y 2221-2720 · Amex 34/37 · Discover 6 ·
-    Diners 30/36/38/39 · JCB 35 · UnionPay 62.
-    """
-    if not num:
+    """True si el numero tiene prefijo y longitud de una marca de tarjeta real."""
+    if not num or not num.isdigit():
         return False
-    if num[0] in "3456":
-        return True
-    # Mastercard serie 2: 2221-2720
-    if len(num) >= 4 and num[0] == "2":
-        try:
-            return 2221 <= int(num[:4]) <= 2720
-        except ValueError:
-            return False
+    largo = len(num)
+    for prefijos, longitudes in _MARCAS:
+        if largo in longitudes and num.startswith(prefijos):
+            return True
+    # Mastercard serie 2: 2221-2720, 16 digitos
+    if largo == 16 and num[0] == "2":
+        return 2221 <= int(num[:4]) <= 2720
     return False
 
 
-# Un celular ecuatoriano con codigo de pais (+593 099 266 8619 -> 13 digitos)
-# empieza por 5 y uno de cada diez pasa Luhn: aparecia como "tarjeta" en las
-# firmas citadas de los hoteles y frenaba respuestas legitimas (16/09/2026).
+# Un numero escrito como telefono internacional (+593 099 266 8619, 0044 ...)
+# nunca es una tarjeta, aunque pase Luhn (caso real del 16/09/2026).
 def _es_telefono(num: str, texto: str, inicio: int) -> bool:
-    """True si el numero es un telefono internacional y no una tarjeta."""
-    previo = texto[max(0, inicio - 2):inicio].strip()
-    if previo.endswith("+"):
-        return True
-    return num.startswith("593") and len(num) <= 13
+    """True si el numero va precedido de la marca internacional + o 00."""
+    previo = texto[max(0, inicio - 3):inicio].strip()
+    return previo.endswith("+") or previo.endswith("00")
 
 
 # ── Luhn (tarjetas de credito) ──────────────────────────────────────────────
