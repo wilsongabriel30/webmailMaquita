@@ -493,15 +493,15 @@ export function Groups() {
                     <input value={memberForm.email} onChange={(e) => searchUsers(e.target.value)}
                       onFocus={() => suggestions.length > 0 && setShowSugg(true)}
                       onKeyDown={(e) => e.key === "Enter" && (setShowSugg(false), addMember())}
-                      placeholder="Email del miembro..." title="Escriba el correo del nuevo miembro. Desde 2 letras aparecen sugerencias de buzones internos; también puede escribir una dirección externa o la de otro grupo (con confirmación). Enter agrega directamente." className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
+                      placeholder="Nombre de la persona o correo…" title="Escriba el nombre de la persona o su correo. Desde 2 letras aparecen sugerencias de buzones internos; también puede escribir una dirección externa o la de otro grupo (con confirmación). Enter agrega directamente." className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
                     {showSugg && suggestions.length > 0 && (
                       <div className="absolute z-10 w-full mt-1 bg-white border border-ms-gray-30 rounded shadow-lg max-h-40 overflow-auto">
                         {suggestions.map((s) => (
                           <button key={s.username} onClick={() => { setMemberForm({ ...memberForm, email: s.username, name: s.name }); setShowSugg(false); }}
                             title={`Selecciona ${s.username} como miembro a agregar. Solo rellena el campo; aún debe pulsar Agregar.`}
                             className="w-full text-left px-3 py-2 hover:bg-ms-blue-lighter text-sm flex justify-between">
-                            <span className="font-medium">{s.username}</span>
-                            {s.name && <span className="text-ms-gray-60 text-xs">{s.name}</span>}
+                            <span className="font-medium">{s.name || s.username}</span>
+                            <span className="text-ms-gray-60 text-xs">{s.username}</span>
                           </button>
                         ))}
                       </div>
@@ -528,7 +528,7 @@ export function Groups() {
                   {members.length > 15 && (
                     <input
                       type="text"
-                      placeholder="Buscar miembro..."
+                      placeholder="Buscar por nombre o correo…"
                       value={memberSearch}
                       onChange={(e) => setMemberSearch(e.target.value)}
                       className="flex-1 px-2.5 py-1 border border-ms-gray-40 rounded text-xs focus:outline-none focus:border-ms-blue bg-white"
@@ -538,8 +538,8 @@ export function Groups() {
                 </div>
                 <table className="w-full text-sm">
                   <thead className="bg-ms-gray-10 border-b border-ms-gray-30"><tr>
-                    <th className="text-left px-4 py-2 font-medium text-ms-gray-90 text-xs">Email</th>
-                    <th className="text-left px-4 py-2 font-medium text-ms-gray-90 text-xs">Nombre</th>
+                    <th className="text-left px-4 py-2 font-medium text-ms-gray-90 text-xs">Persona</th>
+                    <th className="text-left px-4 py-2 font-medium text-ms-gray-90 text-xs">Correo</th>
                     <th className="text-center px-4 py-2 font-medium text-ms-gray-90 text-xs">Tipo</th>
                     <th className="text-center px-4 py-2 font-medium text-ms-gray-90 text-xs">Enviar</th>
                     <th className="text-center px-4 py-2 font-medium text-ms-gray-90 text-xs">Recibir</th>
@@ -555,10 +555,11 @@ export function Groups() {
                     ).map((m) => (
                       <tr key={m.id} className={`hover:bg-ms-blue-lighter/50 ${memberTypeStyle(m.member_type)}`}>
                         <td className="px-4 py-2 text-ms-gray-130">
-                          {m.member_email}
+                          <span className="font-medium">{m.member_name && m.member_name.toLowerCase() !== m.member_email.split("@")[0] ? m.member_name : m.member_email}</span>
                           {memberTypeBadge(m.member_type)}
+                          {m.member_name && m.member_name.toLowerCase() !== m.member_email.split("@")[0] && <span className="block text-[11px] text-ms-gray-60">{m.member_email}</span>}
                         </td>
-                        <td className="px-4 py-2 text-ms-gray-60">{m.member_name || "-"}</td>
+                        <td className="px-4 py-2 text-ms-gray-60">{m.member_email}</td>
                         <td className="px-4 py-2 text-center">
                           <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${
                             m.member_type === "external" ? "bg-red-100 text-ms-red" :

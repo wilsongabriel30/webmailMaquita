@@ -50,8 +50,8 @@ async def autocomplete_mailbox(
     db = _db(request)
     rows = await db.fetch(
         """SELECT username, name, domain, active FROM mailbox
-           WHERE username ILIKE $1 OR name ILIKE $1
-           ORDER BY username LIMIT $2""",
+           WHERE active AND (username ILIKE $1 OR name ILIKE $1)
+           ORDER BY (name ILIKE $1) DESC, name, username LIMIT $2""",
         f"%{q}%", limit,
     )
     return [dict(r) for r in rows]
