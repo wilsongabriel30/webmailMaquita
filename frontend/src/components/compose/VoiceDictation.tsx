@@ -240,7 +240,7 @@ export function VoiceDictation({ onTranscript, disabled = false }: VoiceDictatio
       wsRef.current = ws;
       wlSeenRef.current = '';
       ws.onopen = () => {
-        ws.send(JSON.stringify({ uid, language: 'es', task: 'transcribe', model: 'base', use_vad: true }));
+        ws.send(JSON.stringify({ uid, language: 'es', task: 'transcribe', model: 'small', use_vad: true }));
       };
       ws.onmessage = (e) => {
         let m: any;
