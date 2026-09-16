@@ -645,20 +645,9 @@ export function MessageList() {
     const p = priorityMap[m.uid];
     if (!p) return false; // unclassified = not in otros
     return p.priority === 'low';
-  }).sort((a, b) => {
-    if (a.flagged && !b.flagged) return -1;
-    if (!a.flagged && b.flagged) return 1;
-    // In Prioritarios, sort high priority first
-    if (currentFolder === 'INBOX' && activeTab === 'focused' && hasAnyClassification) {
-      const pa = priorityMap[a.uid];
-      const pb = priorityMap[b.uid];
-      const order = { high: 0, normal: 1, low: 2 };
-      const oa = pa ? order[pa.priority] : 1;
-      const ob = pb ? order[pb.priority] : 1;
-      if (oa !== ob) return oa - ob;
-    }
-    return 0;
   });
+  // La lista respeta el orden de llegada (como Outlook y Zimbra): la prioridad
+  // y la bandera se muestran como marcas, no reordenan. Solo la chincheta fija arriba.
 
   // Los mensajes fijados con chincheta van primero (sort estable, ES2019+).
   if (pinnedSet.size > 0) {

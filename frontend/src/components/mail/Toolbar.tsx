@@ -1072,7 +1072,7 @@ export function Toolbar() {
                   {/* Group: Mensajes */}
                   <Group label="Mensajes">
                     <div className="relative">
-                      <ToolbarButton icon={ICONS.conversation} label="Conversaciones" hasDropdown
+                      <ToolbarButton icon={ICONS.conversation} label={viewMode === 'conversations' ? 'Conversaciones' : 'Mensajes'} hasDropdown
                         active={viewMode === 'conversations'}
                         onClick={() => { closeAllDropdowns(); setConvOpen(!convOpen); }} />
                       <Dropdown open={convOpen} onClose={() => setConvOpen(false)}>
