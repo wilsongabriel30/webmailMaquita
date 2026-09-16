@@ -437,7 +437,7 @@ export function MailSidebar() {
       </div>
 
       {/* Árbol de carpetas */}
-      <nav className="flex-1 overflow-y-auto px-1 text-[13px]"
+      <nav className="flex-1 min-h-0 overflow-y-auto px-1 text-[13px]"
         // Drop zone raíz: soltar carpeta aquí la mueve al nivel raíz
         onDragOver={e => {
           if (e.dataTransfer.types.includes('application/x-folder-name')) {
@@ -478,10 +478,10 @@ export function MailSidebar() {
             )}
           </>
         )}
-      </nav>
 
-      {/* Otras cuentas a cargo de la persona (delegadas) */}
-      <CuentasDelegadas />
+        {/* Otras cuentas a cargo de la persona (delegadas): se desplazan junto con las carpetas */}
+        <CuentasDelegadas />
+      </nav>
 
       {/* Mi actividad */}
       <div className="border-t border-[#edebe9] px-1 pb-1 shrink-0">
