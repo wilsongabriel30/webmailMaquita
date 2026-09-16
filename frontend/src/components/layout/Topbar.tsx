@@ -31,7 +31,6 @@ export function Topbar() {
   const searchQuery = useMailStore(s => s.searchQuery);
   const setBuscarEnContenido = useMailStore(s => s.setBuscarEnContenido);
   const buscarEnTodo = useMailStore(s => s.buscarEnTodo);
-  const setSearchQuery = useMailStore(s => s.setSearchQuery);
   const folders = useMailStore(s => s.folders);
   const setCurrentFolder = useMailStore(s => s.setCurrentFolder);
   const { dark, toggle: toggleTheme } = useThemeStore();
