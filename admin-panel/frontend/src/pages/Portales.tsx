@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import { SectionHelp } from "../components/SectionHelp";
 
@@ -62,12 +63,14 @@ function Archivo({ empresa, tipo, url, onChange, onError }: {
   );
 }
 
-function TarjetaEmpresa({ e, recargar, onError }: { e: Empresa; recargar: () => void; onError: (m: string) => void }) {
+function TarjetaEmpresa({ e, recargar, onError, abrirAlInicio }: { e: Empresa; recargar: () => void; onError: (m: string) => void; abrirAlInicio?: boolean }) {
   const [marca, setMarca] = useState<Record<string, string>>(e.marca);
   const [nuevoHost, setNuevoHost] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [ok, setOk] = useState(false);
-  const [abierta, setAbierta] = useState(e.portales.length > 0);
+  const [abierta, setAbierta] = useState(abrirAlInicio || e.portales.length > 0);
+  const tarjetaRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (abrirAlInicio) tarjetaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, [abrirAlInicio]);
   useEffect(() => { setMarca(e.marca); }, [e]);
 
   const color = marca.primary_color || "";
@@ -97,7 +100,7 @@ function TarjetaEmpresa({ e, recargar, onError }: { e: Empresa; recargar: () => 
   };
 
   return (
-    <div className="bg-white rounded border border-ms-gray-30">
+    <div ref={tarjetaRef} className={`bg-white rounded border ${abrirAlInicio ? "border-ms-blue" : "border-ms-gray-30"}`}>
       <button onClick={() => setAbierta(!abierta)} className="w-full flex items-center justify-between px-5 py-3 text-left">
         <div className="flex items-center gap-3">
           {e.logo_url ? <img src={e.logo_url} alt="" className="h-7 max-w-[80px] object-contain" />
@@ -184,6 +187,8 @@ function TarjetaEmpresa({ e, recargar, onError }: { e: Empresa; recargar: () => 
 }
 
 export function Portales() {
+  const [params] = useSearchParams();
+  const dominioPedido = (params.get("dominio") || "").toLowerCase();
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(true);
@@ -214,7 +219,7 @@ export function Portales() {
 
       {cargando ? <div className="text-sm text-ms-gray-60">Cargando...</div> : (
         <div className="space-y-3">
-          {empresas.map((e) => <div key={e.dominio}><TarjetaEmpresa e={e} recargar={load} onError={setError} /></div>)}
+          {empresas.map((e) => <div key={e.dominio}><TarjetaEmpresa e={e} recargar={load} onError={setError} abrirAlInicio={e.dominio === dominioPedido} /></div>)}
           {empresas.length === 0 && <div className="p-8 text-center text-ms-gray-60 text-sm">Sin dominios en el servidor</div>}
         </div>
       )}
