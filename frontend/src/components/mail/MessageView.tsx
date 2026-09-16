@@ -672,7 +672,7 @@ const ThreadMessageCard: React.FC<ThreadMessageCardProps> = ({
       </div>
 
       {/* Attachments */}
-      {msg.has_attachments && msg.attachments && msg.attachments.length > 0 && (
+      {msg.attachments && msg.attachments.some(a => !a.is_inline) && (
         <div style={{ padding: '4px 16px 8px', display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
           {msg.attachments.filter((a) => !a.is_inline).length > 1 && (
             <a
@@ -692,7 +692,7 @@ const ThreadMessageCard: React.FC<ThreadMessageCardProps> = ({
               Descargar todo (.zip)
             </a>
           )}
-          {msg.attachments.map((att, i: number) => (
+          {msg.attachments.map((att, i: number) => att.is_inline ? null : (
             <span key={i} style={{ display: 'inline-flex', gap: 2, alignItems: 'stretch' }}>
             <button
               onClick={() => onAttachmentClick?.(msg.folder || currentFolder, msg.uid, msg.attachments, i)}
@@ -1440,7 +1440,7 @@ const MessageView: React.FC = () => {
       </div>
 
       {/* Attachments */}
-      {msg.has_attachments && msg.attachments && msg.attachments.length > 0 && (
+      {msg.attachments && msg.attachments.some(a => !a.is_inline) && (
         <div style={{ padding: '10px 24px', borderBottom: '1px solid #edebe9', flexShrink: 0 }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
             {msg.attachments.filter(a => !a.is_inline).length > 1 && (
@@ -1461,7 +1461,7 @@ const MessageView: React.FC = () => {
                 Descargar todo (.zip)
               </a>
             )}
-            {msg.attachments.map((att, i) => (
+            {msg.attachments.map((att, i) => att.is_inline ? null : (
               <span key={i} style={{ display: 'inline-flex', gap: 2, alignItems: 'stretch' }}>
               <button
                 onClick={() => openAttachmentPreview(msg.folder, msg.uid, msg.attachments, i)}
