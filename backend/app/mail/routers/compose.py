@@ -15,6 +15,11 @@ from app.mail.clients.imap_client import get_imap_connection
 from app.mail.clients.smtp_client import OutgoingEmail
 from app.mail.firmas import preparar_envio
 from app.mail.schemas.messages import ComposeRequest, DraftRequest, ScheduleRequest
+from app.mail.services.adjuntos_borrador import (
+    adjuntos_del_borrador_anterior,
+    adjuntos_desde_peticion,
+)
+from app.mail.services.adjuntos_seguros import rechazar_peligrosos
 from app.mail.services.draft_service import delete_draft, save_draft
 from app.mail.services.large_attachments import (
     SIZE_THRESHOLD,
@@ -243,6 +248,8 @@ async def send(
             db, username, body.from_email, display_name
         )
 
+        # Tipos de archivo que nunca salen (ejecutables, scripts, .dat...)
+        rechazar_peligrosos(a.filename for a in (body.attachments or []))
         # Decodificar adjuntos base64 — los grandes van al Almacén (Drive)
         attachments = []
         large_links_html = []
@@ -567,6 +574,10 @@ async def create_draft(
     login_user = await get_imap_login_user(request, username)
     imap = await get_imap_connection(login_user, password)
     try:
+        rechazar_peligrosos(a.filename for a in body.attachments)
+        adjuntos = adjuntos_desde_peticion(body.attachments)
+        if not adjuntos and body.mantener_adjuntos and body.existing_draft_uid:
+            adjuntos = await adjuntos_del_borrador_anterior(imap, body.existing_draft_uid)
         email_data = OutgoingEmail(
             from_addr=username,
             to=body.to,
@@ -577,6 +588,7 @@ async def create_draft(
             bcc=body.bcc or [],
             in_reply_to=body.in_reply_to,
             references=body.references,
+            attachments=adjuntos,
         )
         new_uid = await save_draft(imap, email_data, body.existing_draft_uid)
         return {"status": "saved", "draft_uid": new_uid}
