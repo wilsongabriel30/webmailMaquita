@@ -104,7 +104,7 @@ export function AppLayout() {
       <div className="flex-1 flex overflow-hidden">
         {/* Desktop: show NavRail always, Sidebar only for mail */}
         {!isMobile && <nav role="navigation" aria-label="Navegación principal"><NavRail /></nav>}
-        {!isMobile && !isTablet && showMailSidebar && <aside role="complementary" aria-label="Carpetas de correo"><Sidebar /></aside>}
+        {!isMobile && !isTablet && showMailSidebar && <aside role="complementary" aria-label="Carpetas de correo" className="flex min-h-0"><Sidebar /></aside>}
 
         {/* Tablet: show Sidebar in drawer only for mail */}
         {isTablet && drawerOpen && showMailSidebar && (
