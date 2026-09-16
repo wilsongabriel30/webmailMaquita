@@ -33,6 +33,7 @@ export function Domains() {
             { titulo: "Marca y portal", desc: "Abre la configuración de ese dominio en Portales por empresa: logo, icono, color, textos y el nombre de servidor propio (mail.<empresa>) por el que entra la empresa." },
             { titulo: "Eliminar", desc: "PRECAUCIÓN EXTREMA: borra el dominio y potencialmente todos sus buzones. Verifique que no queden usuarios activos antes de hacerlo. Se registra en auditoría." },
           ]} />
+          <button onClick={() => navigate("/portales")} title="Abre Portales por empresa: logo, icono, color, textos y nombre de servidor propio de cada dominio." className="px-3 py-1.5 border border-ms-blue text-ms-blue rounded text-sm hover:bg-ms-blue-lighter">Marca y portales</button>
           <button onClick={() => setShowForm(!showForm)} title="Agrega un nuevo dominio al servidor de correo. Asegurese de que los registros DNS (MX, SPF, DKIM) esten configurados. Se registra en auditoria." className="px-3 py-1.5 bg-ms-blue text-white rounded text-sm hover:bg-ms-blue-dark">+ Agregar dominio</button>
         </div>
       </div>
