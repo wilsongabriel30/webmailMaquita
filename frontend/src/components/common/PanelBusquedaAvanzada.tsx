@@ -34,6 +34,7 @@ export function PanelBusquedaAvanzada({ onBuscar, onCerrar }: Props) {
   const [hasta, setHasta] = useState('');
   const [atajo, setAtajo] = useState('');
   const [conAdjunto, setConAdjunto] = useState(false);
+  const [adjuntoNombre, setAdjuntoNombre] = useState('');
   const [soloNoLeidos, setSoloNoLeidos] = useState(false);
   const [soloMarcados, setSoloMarcados] = useState(false);
   const [tamMin, setTamMin] = useState('');
@@ -54,7 +55,8 @@ export function PanelBusquedaAvanzada({ onBuscar, onCerrar }: Props) {
     // espera es cuantos hay. Sin fecha elegida: los ultimos tres meses (4,5 s medidos, frente a
     // 17 s del buzon entero). Quien necesite mas, pone la fecha y lo sabe.
     if (enContenido && !desde && !hasta && !atajo) partes.push('trimestre');
-    if (conAdjunto) partes.push('tiene:adjunto');
+    if (adjuntoNombre.trim()) partes.push(`adjunto:${adjuntoNombre.trim().replace(/\s+/g, '_')}`);
+    else if (conAdjunto) partes.push('tiene:adjunto');
     if (soloNoLeidos) partes.push('es:noleido');
     if (soloMarcados) partes.push('es:marcado');
     if (tamMin.trim()) partes.push(`mayor:${tamMin.trim()}`);
@@ -102,6 +104,11 @@ export function PanelBusquedaAvanzada({ onBuscar, onCerrar }: Props) {
           <label className={rotulo} htmlFor="ba-dominio">Dominio</label>
           <input id="ba-dominio" className={campo} value={dominio} onChange={(e) => setDominio(e.target.value)}
             placeholder="maquita.org — de o para cualquiera de ese dominio" />
+        </div>
+        <div className="col-span-2">
+          <label className={rotulo} htmlFor="ba-adjunto">Archivo adjunto</label>
+          <input id="ba-adjunto" className={campo} value={adjuntoNombre} onChange={(e) => setAdjuntoNombre(e.target.value)}
+            placeholder="parte del nombre (factura) o extensión (.pdf, .zip, .xlsx)" />
         </div>
       </div>
 

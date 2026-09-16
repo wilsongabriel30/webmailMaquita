@@ -6,6 +6,7 @@ const OPERATORS = [
   { op: 'to:', desc: 'Destinatario', icon: '📩' },
   { op: 'subject:', desc: 'Asunto', icon: '📋' },
   { op: 'has:attachment', desc: 'Con adjuntos', icon: '📎' },
+  { op: 'adjunto:', desc: 'Nombre o extensión del archivo adjunto (adjunto:factura, adjunto:.pdf)', icon: '📎' },
   { op: 'before:', desc: 'Antes de fecha', icon: '📅' },
   { op: 'after:', desc: 'Después de fecha', icon: '📅' },
   { op: 'is:unread', desc: 'No leídos', icon: '✉' },
@@ -207,7 +208,7 @@ interface Chip {
 
 function parseChips(query: string): Chip[] {
   const chips: Chip[] = [];
-  const opPattern = /(?:from|to|cc|subject|body|has|is|before|after|since|larger|smaller):[^\s]*/gi;
+  const opPattern = /(?:from|to|cc|subject|body|has|is|before|after|since|larger|smaller|adjunto|de|para|asunto|antes|despues|después|entre|dominio|de-dominio|mayor|menor|es|tiene|contenido):[^\s]*/gi;
   let match;
   while ((match = opPattern.exec(query)) !== null) {
     const raw = match[0];
@@ -223,5 +224,5 @@ function parseChips(query: string): Chip[] {
 
 function getInputPart(query: string): string {
   // Return the part of the query that's not a recognized operator
-  return query.replace(/(?:from|to|cc|subject|body|has|is|before|after|since|larger|smaller):[^\s]*/gi, '').trim();
+  return query.replace(/(?:from|to|cc|subject|body|has|is|before|after|since|larger|smaller|adjunto|de|para|asunto|antes|despues|después|entre|dominio|de-dominio|mayor|menor|es|tiene|contenido):[^\s]*/gi, '').trim();
 }
