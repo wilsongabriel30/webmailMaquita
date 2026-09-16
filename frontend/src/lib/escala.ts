@@ -28,6 +28,9 @@ export function aplicarEscala(v: Escala) {
   if (!raiz) return;
   // `zoom` reescala también los px de los estilos en línea; funciona en Chrome, Edge, Safari y Firefox 126+.
   (raiz.style as unknown as { zoom: string }).zoom = v === 100 ? '' : `${v}%`;
+  // Las alturas «de pantalla completa» (h-screen, 100vh) se compensan en index.css con esta variable:
+  // con zoom al 90 %, 100vh solo cubriría el 90 % de la ventana y quedaría una franja vacía abajo.
+  raiz.style.setProperty('--escala', String(v / 100));
   try { localStorage.setItem(CLAVE, String(v)); } catch { /* sin almacenamiento */ }
 }
 
