@@ -76,6 +76,37 @@ async def create_forward(request: Request, admin: dict = Depends(require_role("s
     return {"ok": True, "address": address, "goto": final_goto}
 
 
+@router.put("/{address:path}")
+async def update_forward(address: str, request: Request, admin: dict = Depends(require_role("superadmin", "admin"))):
+    """Reemplaza los destinos de un reenvío (agregar, corregir o quitar) y si se conserva copia.
+
+    Cuerpo: {"destinos": ["a@x.com", ...], "keep_copy": true}. Sin destinos y con copia, el
+    reenvío desaparece y el alias vuelve a entregar solo en su buzón. Sin destinos y sin copia
+    se rechaza: el correo se perdería.
+    """
+    data = await request.json()
+    address = address.strip().lower()
+    destinos = []
+    for d in data.get("destinos") or []:
+        d = str(d).strip().lower()
+        if not d or d == address or d in destinos:
+            continue
+        if "@" not in d or " " in d:
+            raise HTTPException(400, f"Destino no válido: {d}")
+        destinos.append(d)
+    keep_copy = bool(data.get("keep_copy", True))
+    if not destinos and not keep_copy:
+        raise HTTPException(400, "Sin destinos y sin copia el correo se perdería")
+    db = _db(request)
+    fila = await db.fetchrow("SELECT goto FROM alias WHERE address = $1", address)
+    if not fila:
+        raise HTTPException(404, "No existe un alias para esa dirección")
+    partes = ([address] if keep_copy else []) + destinos
+    await db.execute("UPDATE alias SET goto = $2, modified = NOW() WHERE address = $1", address, ",".join(partes))
+    await _audit(request, admin, "forward_update", address, {"antes": fila["goto"], "destinos": destinos, "keep_copy": keep_copy})
+    return {"ok": True, "address": address, "goto": ",".join(partes)}
+
+
 @router.delete("/{address:path}")
 async def delete_forward(address: str, request: Request, admin: dict = Depends(require_role("superadmin", "admin"))):
     db = _db(request)
