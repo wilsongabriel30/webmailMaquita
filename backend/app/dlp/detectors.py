@@ -108,6 +108,17 @@ def _prefijo_de_tarjeta(num: str) -> bool:
     return False
 
 
+# Un celular ecuatoriano con codigo de pais (+593 099 266 8619 -> 13 digitos)
+# empieza por 5 y uno de cada diez pasa Luhn: aparecia como "tarjeta" en las
+# firmas citadas de los hoteles y frenaba respuestas legitimas (16/09/2026).
+def _es_telefono(num: str, texto: str, inicio: int) -> bool:
+    """True si el numero es un telefono internacional y no una tarjeta."""
+    previo = texto[max(0, inicio - 2):inicio].strip()
+    if previo.endswith("+"):
+        return True
+    return num.startswith("593") and len(num) <= 13
+
+
 # ── Luhn (tarjetas de credito) ──────────────────────────────────────────────
 def _valid_luhn(num: str) -> bool:
     if not num.isdigit() or not (13 <= len(num) <= 19):
@@ -166,6 +177,8 @@ def detect_all(text: str, keywords: list[str] | None = None) -> list[Finding]:
     card_spans = []
     for m in _RE_CARD.finditer(text):
         raw = re.sub(r"[ -]", "", m.group(0))
+        if _es_telefono(raw, text, m.start()):
+            continue
         if _valid_luhn(raw) and _prefijo_de_tarjeta(raw):
             add("tarjeta", "Tarjeta de crédito", raw)
             card_spans.append((m.start(), m.end()))
