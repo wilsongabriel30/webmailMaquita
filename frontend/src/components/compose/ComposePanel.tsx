@@ -9,6 +9,7 @@ import { SelectorArchivosNube } from './SelectorArchivosNube';
 import { SelectorRemitente } from './SelectorRemitente';
 import { cuentaDeCarpeta } from '../../lib/cuentas';
 import { sanitizeHtml, sanitizeSignatureHtml } from '../../lib/sanitize';
+import { separarCitado } from '../../lib/borradorCitado';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import React from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
@@ -268,7 +269,13 @@ export function ComposePanel({ win }: Props) {
         // Editando un borrador: quitamos la firma incrustada (de borradores
         // guardados antes de este fix) para que NO se distorsione en el editor
         // ni se duplique; se re-aplica aparte, editable, mas abajo.
-        content = win.data.html_body.replace(/<div class="email-signature"[\s\S]*$/i, '');
+        const sinFirma = win.data.html_body.replace(/<div class="email-signature"[\s\S]*$/i, '');
+        // 2026-09-16: si el borrador era una respuesta, la cita vuelve a su sitio
+        // (fuera del editor y despues de la firma). Antes entraba entera al editor:
+        // se deformaba y la firma quedaba al final de todo.
+        const partes = separarCitado(sinFirma);
+        content = partes.cuerpo || '<p></p>';
+        if (partes.citado) setQuotedHtml(partes.citado);
         if (sig) setSignatureHtml(sig);
       } else if (win.mode === 'new') {
         // Parrafo vacio, no '<p><br></p>': ese <br> es un nodo de verdad y el texto se escribia

@@ -57,6 +57,20 @@ _EJECUTABLES_EN_NAVEGADOR = {
 }
 
 
+def _content_disposition(filename: str) -> str:
+    """Cabecera de descarga valida para nombres con tildes o eñes (RFC 5987).
+
+    Las cabeceras HTTP van en latin-1; un nombre como «Cotización.pdf» rompia la
+    descarga con UnicodeEncodeError (16/09/2026). Se envia un nombre ASCII de
+    respaldo y el nombre real codificado en UTF-8.
+    """
+    from urllib.parse import quote
+
+    ascii_name = filename.encode("ascii", "ignore").decode() or "adjunto"
+    ascii_name = ascii_name.replace('"', "").replace("\\", "")
+    return f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(filename)}"
+
+
 @router.get("/attachment/{folder}/{uid}/{part_number}/{filename}")
 async def download_attachment(
     folder: str,
@@ -95,7 +109,7 @@ async def download_attachment(
             content=data,
             media_type=content_type,
             headers={
-                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Content-Disposition": _content_disposition(filename),
                 "X-Content-Type-Options": "nosniff",
             },
         )
