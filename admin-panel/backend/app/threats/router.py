@@ -132,8 +132,12 @@ def _rspamd_block(pattern: str, who: str):
 @router.post("/block-sender")
 async def block_sender(body: BlockSenderIn, request: Request, admin: dict = Depends(require_role("superadmin", "admin"))):
     pat = (body.pattern or "").strip().lower().lstrip("@")
-    if not pat or "." not in pat:
-        raise HTTPException(status_code=400, detail="Indica un dominio válido (ej. malicioso.com)")
+    # Solo un dominio o una direccion: el patron se escribe tal cual en el mapa de Rspamd
+    # (una linea por entrada), asi que nada de espacios, saltos de linea ni comentarios.
+    # Revision Qwen ronda 3, modulo c (complemento).
+    import re as _re
+    if not pat or "." not in pat or not _re.fullmatch(r"[a-z0-9][a-z0-9.+_@*-]{0,252}", pat) or ".." in pat:
+        raise HTTPException(status_code=400, detail="Indica un dominio válido (ej. malicioso.com) o una dirección; sin espacios ni caracteres especiales")
     db = _db(request)
     await db.execute("INSERT INTO blocked_senders (pattern, note, created_by) VALUES ($1,$2,$3) ON CONFLICT (pattern) DO NOTHING",
                      pat, body.note, admin["username"])
