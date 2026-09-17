@@ -78,7 +78,19 @@ async def transcribe(
             503,
             "El dictado por voz no está configurado. Actívalo en el panel de administración.",
         )
-    data = await audio.read()
+    # Una frase dictada pesa unos cientos de KB; nadie necesita subir más de 15 MB.
+    # Se lee por trozos para no cargar en memoria un archivo enorme (hallazgo Qwen v1.7.21, H1).
+    LIMITE_AUDIO = 15 * 1024 * 1024
+    trozos, total = [], 0
+    while True:
+        trozo = await audio.read(1024 * 1024)
+        if not trozo:
+            break
+        total += len(trozo)
+        if total > LIMITE_AUDIO:
+            raise HTTPException(413, "El audio supera los 15 MB permitidos")
+        trozos.append(trozo)
+    data = b"".join(trozos)
     files = {
         "audio": (
             audio.filename or "recording.webm",
