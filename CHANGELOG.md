@@ -7,6 +7,12 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.7.22] - 2026-09-17
+
+### Seguridad
+- Revisión externa (Qwen) sobre v1.7.21: límite de 15 MB y lectura por trozos en la transcripción de audio; extensiones bloqueadas comparadas tras normalizar Unicode y quitar caracteres invisibles; IP de auditoría validada. (PR #154)
+- Nuevo `docs/REVISIONES-DE-SEGURIDAD.md`: decisiones de diseño que no son hallazgos (roles globales del panel, última extensión, antimalware fail-open, borradores por sesión propia, X-Real-IP fijada por nginx, buzón virtual por usuario) y registro de hallazgos ya corregidos, para que futuras revisiones no los repitan.
+
 ## [1.7.20] - 2026-09-10
 
 Los dos hallazgos que confirmamos de la primera auditoría externa sobre la 1.7.19. **Ninguno de

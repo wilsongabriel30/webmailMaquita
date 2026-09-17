@@ -375,6 +375,8 @@ async def send(
                 pass
 
         # Anti-malware de adjuntos salientes (safeattach: ClamAV + oletools + file-type).
+        # Decision de diseno (no es hallazgo): fail-open. Un motor caido no detiene el correo
+        # institucional; solo bloquea con veredicto malicioso y enforce. Ver docs/REVISIONES-DE-SEGURIDAD.md.
         # Escanea y registra; bloquea solo si es malicioso Y enforce. Fail-open.
         if attachments:
             try:
