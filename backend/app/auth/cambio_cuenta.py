@@ -143,10 +143,23 @@ async def cambiar(
             "INSERT INTO audit_log (admin_user, action, target, details, ip_address) VALUES ($1, $2, $3, $4::jsonb, $5::inet)",
             principal, "cambio_cuenta", cuenta,
             json.dumps({"desde": username, "hacia": cuenta}),
-            (request.headers.get("x-real-ip") or (request.client.host if request.client else None) or "0.0.0.0"),
+            _ip_valida(request),
         )
     except Exception as exc:  # la auditoría no debe impedir trabajar
         log.warning("cambio_cuenta sin auditoría: %s", exc)
 
     poner_cookies_sesion(response, request, sesion)
     return {"activa": cuenta, "principal": principal, "cambiado": True}
+
+
+def _ip_valida(request) -> str:
+    """IP del cliente como dirección válida; si la cabecera viene malformada se usa la de la conexión
+    (hallazgo Qwen v1.7.21, H5: evita que un valor extraño rompa el registro de auditoría)."""
+    import ipaddress
+
+    for candidata in (request.headers.get("x-real-ip"), request.client.host if request.client else None):
+        try:
+            return str(ipaddress.ip_address((candidata or "").strip()))
+        except ValueError:
+            continue
+    return "0.0.0.0"

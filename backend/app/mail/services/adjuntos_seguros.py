@@ -4,6 +4,9 @@ Son ejecutables, scripts o contenedores que Windows u Office abren sin preguntar
 El análisis antimalware (safeattach) sigue actuando sobre el resto de archivos.
 """
 
+import re
+import unicodedata
+
 from fastapi import HTTPException
 
 EXTENSIONES_PELIGROSAS = {
@@ -17,8 +20,14 @@ EXTENSIONES_PELIGROSAS = {
 }
 
 
+_INVISIBLES = re.compile(r"[\u200b-\u200f\u2028-\u202f\u2060-\u206f\ufeff\x00-\x1f\x7f]")
+
+
 def extension_de(nombre: str) -> str:
-    nombre = (nombre or "").strip().lower().rstrip(". ")
+    """Extensión final en minúsculas, tras normalizar Unicode (NFKC) y quitar caracteres
+    invisibles o de control con los que se intenta disfrazar la extensión (hallazgo Qwen H2)."""
+    nombre = unicodedata.normalize("NFKC", nombre or "")
+    nombre = _INVISIBLES.sub("", nombre).strip().lower().rstrip(". ")
     return nombre.rsplit(".", 1)[-1] if "." in nombre else ""
 
 
