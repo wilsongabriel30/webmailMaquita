@@ -312,7 +312,18 @@ def mi_permiso():
         # vive en un solo sitio (permisos_mover.py) y el explorador no tiene que
         # reimplementarla ni quedarse desfasado cuando cambie.
         'puede_mover': _puede_mover_aqui(usuario, ruta),
+        # 17/09/2026: aunque no pueda reorganizar la carpeta, un editor puede
+        # mover LO SUYO; la pantalla deja arrastrar y el servidor decide.
+        'puede_mover_propios': _puede_mover_propios_aqui(usuario, ruta),
     })
+
+
+def _puede_mover_propios_aqui(usuario_id, ruta):
+    try:
+        from permisos_mover import puede_mover_propios_en
+        return bool(puede_mover_propios_en(usuario_id, ruta))
+    except Exception:
+        return False
 
 
 def _puede_mover_aqui(usuario_id, ruta):
