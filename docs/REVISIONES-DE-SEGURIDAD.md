@@ -40,6 +40,8 @@ aportar evidencia nueva (una petición concreta que la rompa), no repetir el hal
 | Qwen v1.7.22 (ronda 2) | Contactos manipulables por URL | Endurecido (PR #156): validación, `nuevo=1` obligatorio para crear; el parche propuesto (regex sin tildes) habría mutilado nombres |
 | Qwen v1.7.22 (ronda 2) | Preferencias en `localStorage` sin limpiar al salir | Corregido (PR #156) |
 | Qwen v1.7.22 (ronda 2) | Cifrado de sesión, vista previa de adjuntos | Verificados como correctos por el revisor |
+| Qwen v1.7.22 (ronda 3) | Inyección de cabeceras en la notificación de cambio de titular (panel) | **Real**. Corregido (PR #157): mensaje construido con `EmailMessage`, textos sin caracteres de control, destinatario como argumento de `sendmail` (sin `-t`) |
+| Qwen v1.7.22 (ronda 3) | `almacen/sync_correo_drive.py` lee `.env` sin comprobar permisos | No aplica: los `.env` de todos los servicios son de `root` con permisos 600/640 y se despliegan así; una comprobación en el script no protege más que el sistema de archivos. Anotado como control operativo (verificar permisos en el despliegue) |
 
 ## Cómo se hace una revisión
 1. Se etiqueta el estado a revisar (`vX.Y.Z`) y el revisor trabaja sobre la etiqueta, no sobre la rama.

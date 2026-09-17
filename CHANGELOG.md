@@ -8,6 +8,7 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 ## [Sin publicar]
 
 ### Seguridad
+- Panel: la notificación de cambio de titular se construye con `EmailMessage` y sin caracteres de control en nombre, cargo y teléfono; el destinatario se pasa a `sendmail` como argumento. Cierra una inyección de cabeceras detectada en la revisión Qwen (ronda 3). (PR #157)
 - Revisión Qwen (ronda 2): Contactos por URL solo crea con `nuevo=1` y valida/acota los parámetros; las preferencias de la persona en el navegador se borran al cerrar sesión; documentadas las decisiones sobre el milter DLP (fail-open y exentos). (PR #156)
 
 ## [1.7.22] - 2026-09-17
