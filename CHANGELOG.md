@@ -7,6 +7,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Seguridad
+- Revisión Qwen (ronda 2): Contactos por URL solo crea con `nuevo=1` y valida/acota los parámetros; las preferencias de la persona en el navegador se borran al cerrar sesión; documentadas las decisiones sobre el milter DLP (fail-open y exentos). (PR #156)
+
 ## [1.7.22] - 2026-09-17
 
 ### Seguridad
