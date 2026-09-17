@@ -4,6 +4,9 @@ from fastapi import APIRouter, Request, HTTPException, Depends, Query
 from app.auth.dependencies import get_current_admin, require_role
 from app.wrappers.doveadm import generate_password_hash, verify_password, get_quota, get_mailbox_status
 import json
+import re
+from email.message import EmailMessage
+from email.utils import formataddr
 from app.wrappers.privilegios import con_sudo
 
 router = APIRouter(prefix="/api/mailboxes", tags=["mailboxes"])
@@ -179,10 +182,13 @@ async def cambiar_titular(
     data = await request.json()
     db = _db(request)
 
-    new_name = data.get("new_name", "").strip()
+    # Sin saltos de linea ni caracteres de control: estos textos van a cabeceras de correo
+    # (revision Qwen ronda 3, H1: inyeccion de cabeceras en la notificacion).
+    _limpio = lambda v: re.sub(r"[\x00-\x1f\x7f]", " ", str(v or "")).strip()
+    new_name = _limpio(data.get("new_name", ""))
     new_password = data.get("new_password", "")
-    new_cargo = data.get("new_cargo", "").strip()
-    new_phone = data.get("new_phone", "").strip()
+    new_cargo = _limpio(data.get("new_cargo", ""))
+    new_phone = _limpio(data.get("new_phone", ""))
     send_notification = data.get("send_notification", False)
     notification_message = data.get("notification_message", "")
 
@@ -289,20 +295,20 @@ async def cambiar_titular(
 
                 # Send via sendmail to each recipient (batched)
                 for recipient in list(recipients)[:200]:  # Limit to 200
-                    email_msg = (
-                        f"From: {new_name} <{username}>\n"
-                        f"To: {recipient}\n"
-                        f"Subject: {subject}\n"
-                        f"Content-Type: text/plain; charset=utf-8\n"
-                        f"X-Mailer: Maquita-Admin-Panel\n"
-                        f"\n"
-                        f"{body}\n"
-                    )
+                    # El mensaje se construye con EmailMessage: las cabeceras se codifican y ningun
+                    # valor puede abrir una cabecera nueva. El destinatario va como argumento de
+                    # sendmail (sin -t), asi que solo recibe quien esta en la lista.
+                    mensaje = EmailMessage()
+                    mensaje["From"] = formataddr((new_name, username))
+                    mensaje["To"] = recipient
+                    mensaje["Subject"] = subject
+                    mensaje["X-Mailer"] = "Maquita-Admin-Panel"
+                    mensaje.set_content(body)
                     proc = await asyncio.create_subprocess_exec(
-                        "sendmail", "-t", "-f", username,
+                        "sendmail", "-i", "-f", username, "--", recipient,
                         stdin=PIPE, stdout=PIPE, stderr=PIPE
                     )
-                    await proc.communicate(input=email_msg.encode())
+                    await proc.communicate(input=mensaje.as_bytes())
 
                 notification_sent = True
                 recipients_count = len(recipients)
