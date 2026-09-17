@@ -309,7 +309,7 @@ export function RecipientField({ label, value, onChange, onToggleExtra, showExtr
       { label: 'Ver o editar en Contactos', onClick: async () => {
           const id = await idContactoDe(chip.email);
           const nombre = nombreVisible(chip);
-          navigate(`/contacts?email=${encodeURIComponent(chip.email)}&nombre=${encodeURIComponent(nombre)}${id ? `&id=${id}` : ''}`);
+          navigate(`/contacts?email=${encodeURIComponent(chip.email)}&nombre=${encodeURIComponent(nombre)}${id ? `&id=${id}` : '&nuevo=1'}`);
         } },
       { label: 'Agregar a Contactos', onClick: async () => {
           const id = await idContactoDe(chip.email);

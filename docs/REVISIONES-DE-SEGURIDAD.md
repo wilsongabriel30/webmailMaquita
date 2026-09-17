@@ -20,6 +20,9 @@ aportar evidencia nueva (una petición concreta que la rompa), no repetir el hal
 | **Buzón virtual `Virtual.Todo`** | Es un espacio de nombres de Dovecot **por usuario** (no listado): cada persona solo ve su propio buzón virtual. No da acceso a carpetas de otras cuentas. | `dovecot-config/96-virtual.conf`; `frontend/src/lib/busquedaGlobal.ts`. |
 | **Impersonación sin TOTP** | Es un interruptor de `security_config` que solo cambian los `superadmin`, queda en `admin_audit`, y el vale de impersonación es de un solo uso y con caducidad corta. La organización lo activó por decisión de jefatura (acta firmada). | `backend/app/auth/politica_impersonacion.py`, `admin-panel/backend/app/security_policies/`. |
 | **Contraseña maestra de Dovecot en cuentas delegadas** | El backend usa `<cuenta>*admin` solo tras comprobar en `mail_delegation` que la persona tiene la cuenta delegada; nunca llega al navegador. | `backend/app/mail/services/cuentas_delegadas.py`, `auth/cambio_cuenta.py`. |
+| **Milter DLP de salida en modo *fail-open* y lista de remitentes exentos** | El milter es la **segunda** capa (la primera es la comprobación DLP del webmail al redactar, que sí bloquea). Ante un fallo del milter (base, red, análisis) el correo **se entrega** con registro del error: un DLP caído no debe detener el correo institucional de 300 cuentas. Los exentos (`/etc/maquita-mail/dlp-exempt-senders.txt`, solo `root`, 600) son cuentas de sistema que envían a cada persona sus propios datos (por ejemplo, el rol de pagos); hoy la lista está vacía y cada alta se documenta. Pasar a *fail-closed* se evaluará cuando el milter tenga vigilancia propia. | `milter/dlp_outbound.py`, `milter/maquita_milter.py`. |
+| **Contactos por parámetros de URL** | `/contacts?email=&nombre=&nuevo=1`: el correo se valida y se acota; el nombre se limpia de caracteres de control e invisibles (sin quitar tildes ni eñes); el formulario de «Nuevo contacto» solo se abre con `nuevo=1` y la persona debe pulsar Guardar. React escapa el texto. | `frontend/src/components/contacts/ContactsView.tsx`. |
+| **Preferencias en el navegador** | Al cerrar sesión se borran las preferencias de la persona (`maquita_sig_*`, `maquita_dictado_modo`, `maquita_buscar_en_todo`, `maquita_pinned_msgs`, `maquita_errors`) y `sessionStorage`; se conservan las del equipo (escala, ancho de la lista). El caché cifrado de correo se borra aparte (`limpiarCacheLocal`). | `frontend/src/lib/limpiezaPreferencias.ts`, `store/authStore.ts`. |
 | **Tamaño de subidas** | nginx limita `/api/` a 100 MB; además cada punto de entrada acota lo suyo: adjuntos 25 MB, audio de dictado 15 MB, logos del panel por tipo y tamaño. | Configuración de nginx; `routers/compose.py`, `routers/transcribe.py`, `admin-panel/.../portales/router.py`. |
 
 ## Hallazgos de revisiones anteriores ya corregidos (no volver a reportar sin evidencia nueva)
@@ -33,6 +36,10 @@ aportar evidencia nueva (una petición concreta que la rompa), no repetir el hal
 | Qwen v1.7.21 | «Admin de un dominio crea reenvíos en otro» | No aplica (roles globales; ver arriba) |
 | Qwen v1.7.21 | «Adjuntos de borradores ajenos por UID» | Falso (sesión IMAP propia y `SELECT Drafts`; ver arriba) |
 | Qwen v1.7.21 | «Log forging por X-Real-IP» | No explotable (nginx fija la cabecera; columna `inet`) |
+| Qwen v1.7.22 (ronda 2) | Milter DLP *fail-open* y exentos | Decisión de diseño (ver arriba); permisos del archivo de exentos a 600 |
+| Qwen v1.7.22 (ronda 2) | Contactos manipulables por URL | Endurecido (PR #156): validación, `nuevo=1` obligatorio para crear; el parche propuesto (regex sin tildes) habría mutilado nombres |
+| Qwen v1.7.22 (ronda 2) | Preferencias en `localStorage` sin limpiar al salir | Corregido (PR #156) |
+| Qwen v1.7.22 (ronda 2) | Cifrado de sesión, vista previa de adjuntos | Verificados como correctos por el revisor |
 
 ## Cómo se hace una revisión
 1. Se etiqueta el estado a revisar (`vX.Y.Z`) y el revisor trabaja sobre la etiqueta, no sobre la rama.

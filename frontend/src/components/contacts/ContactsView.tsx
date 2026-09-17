@@ -138,16 +138,21 @@ export function ContactsView() {
   const [nuevoInicial, setNuevoInicial] = useState<ContactFormData>(emptyFormData());
   const abrirDesdeParametros = async () => {
     const q = new URLSearchParams(window.location.search);
-    const email = (q.get('email') || '').trim();
-    if (!email) return;
-    const nombre = (q.get('nombre') || '').trim();
+    // Los parámetros vienen de la URL (pueden llegar en un enlace ajeno): se validan y se acotan.
+    // El formulario de «Nuevo contacto» solo se abre con nuevo=1 (revisión Qwen v1.7.22, H2);
+    // sin esa marca se muestra la búsqueda y la persona decide.
+    const limpiar = (v: string, max: number) => v.replace(/[\u0000-\u001f\u007f\u200b-\u200f\u2028-\u202f]/g, '').trim().slice(0, max);
+    const email = limpiar(q.get('email') || '', 254).toLowerCase();
+    if (!email || !/^[^\s@"<>]+@[^\s@"<>]+\.[^\s@"<>]+$/.test(email)) return;
+    const nombre = limpiar(q.get('nombre') || '', 120);
+    const quiereCrear = q.get('nuevo') === '1';
     window.history.replaceState(null, '', '/contacts');
     try {
       const res = await api.get<ContactsResponse>('/contacts?' + new URLSearchParams({ search: email, per_page: '5', filter: 'all' }).toString());
-      const e = email.toLowerCase();
-      const existente = (res.contacts || []).find(c => [c.email, c.email2, c.email3].some(v => (v || '').toLowerCase() === e));
-      if (existente && !q.get('nuevo')) { setSelected(existente); setEditing(true); return; }
+      const existente = (res.contacts || []).find(c => [c.email, c.email2, c.email3].some(v => (v || '').toLowerCase() === email));
+      if (existente && !quiereCrear) { setSelected(existente); setEditing(true); return; }
     } catch { /* si la búsqueda falla, se ofrece crearlo */ }
+    if (!quiereCrear) { handleSearch(email); return; }
     const partes = nombre.split(/\s+/).filter(Boolean);
     setNuevoInicial({ ...emptyFormData(), email, display_name: nombre, first_name: partes[0] || '', last_name: partes.slice(1).join(' ') });
     setSelected(null); setShowNewContact(true); setEditing(true);
