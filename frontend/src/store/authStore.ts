@@ -1,3 +1,4 @@
+import { limpiarPreferenciasLocales } from '../lib/limpiezaPreferencias';
 import { create } from 'zustand';
 import type { UserInfo } from '../types';
 import { olvidarLlave } from '../lib/cifradoLocal';
@@ -45,6 +46,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   logout: () => {
     // No se espera a que termine: cerrar la sesion en pantalla es inmediato y la limpieza va sola.
     void limpiarCacheLocal();
+    limpiarPreferenciasLocales();
     set({ user: null, loading: false });
   },
 }));
