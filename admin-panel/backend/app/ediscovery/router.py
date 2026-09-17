@@ -76,7 +76,17 @@ async def search(
         rows = await db.fetch("SELECT username FROM mailbox WHERE active = true ORDER BY username")
         targets = [r["username"] for r in rows]
 
-    # Construir criterio IMAP SEARCH
+    # Construir criterio IMAP SEARCH. Todo lo que escribe la persona va escapado o validado:
+    # una comilla en q cerraba la cadena y lo que seguia lo leia IMAP como criterio
+    # (`a" ALL "` devolvia el buzon entero). Revision Qwen ronda 3, modulo c.
+    _FECHA_IMAP = _re.compile(r"^\d{1,2}-[A-Za-z]{3}-\d{4}$")
+    for _f in (date_from, date_to):
+        if _f and not _FECHA_IMAP.match(_f):
+            raise HTTPException(400, "Fecha inválida: use el formato DD-Mon-YYYY (ej. 01-Jan-2026)")
+    if not _re.match(r"^[\w\s.\-/&+,()@]{1,200}$", folder or ""):
+        raise HTTPException(400, "Nombre de carpeta inválido")
+    q_limpio = "".join(c for c in q if c >= " " and c != "\x7f")
+    q_imap = '"' + q_limpio.replace("\\", "\\\\").replace('"', '\\"') + '"'
     search_parts = []
     if date_from:
         search_parts.append(f"SINCE {date_from}")
@@ -86,7 +96,7 @@ async def search(
     field_upper = (field or "TEXT").upper()
     if field_upper not in ("TEXT", "BODY", "SUBJECT", "FROM", "TO", "CC"):
         field_upper = "TEXT"
-    search_parts.append(f'{field_upper} "{q}"')
+    search_parts.append(f"{field_upper} {q_imap}")
     search_criteria = " ".join(search_parts)
 
     await _audit(request, admin, "ediscovery_search", details={
