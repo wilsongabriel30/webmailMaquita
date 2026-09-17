@@ -7,6 +7,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Seguridad
+- Contraseñas de aplicación opcionales: la política `contrasenas_aplicacion_obligatorias` queda en `false` (decisión documentada en `docs/REVISIONES-DE-SEGURIDAD.md`); la contraseña principal vale en IMAP/SMTP desde cualquier IP. En el cortafuegos de referencia, 465/587 se aceptan desde cualquier IP permitida por país, no solo desde la LAN.
+
 ## [1.7.23] - 2026-09-17
 
 ### Seguridad
