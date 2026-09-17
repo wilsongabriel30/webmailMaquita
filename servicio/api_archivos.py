@@ -791,7 +791,13 @@ def mover():
     from permisos_mover import puede_mover, error_no_puede_mover
     if (not puede_mover(usuario, datos['origen'])
             or not puede_mover(usuario, datos['destino'])):
-        return error(error_no_puede_mover(), 403)
+        # 17/09/2026: un editor sí puede mover LO QUE ÉL SUBIÓ (permisos_mover).
+        from permisos_mover import puede_mover_lo_propio
+        permitido, motivo = puede_mover_lo_propio(
+            usuario, datos['origen'], datos['destino'],
+            sobrescribir=bool(datos.get('sobrescribir')))
+        if not permitido:
+            return error(motivo or error_no_puede_mover(), 403)
     try:
         _usuario_ef, _origen_ef = _efectivo(usuario, datos['origen'])
         _usuario_dest, _destino_ef = _efectivo(usuario, datos['destino'])
