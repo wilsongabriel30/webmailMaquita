@@ -31,6 +31,9 @@ def extension_de(nombre: str) -> str:
     return nombre.rsplit(".", 1)[-1] if "." in nombre else ""
 
 
+# Nota para revisores: decide la ULTIMA extension (normalizada). "documento.exe.pdf" es un PDF para
+# cualquier sistema y no se bloquea; bloquear por la penultima extension rechazaria archivos legitimos.
+# El contenido lo revisa ademas el antimalware de salida. Ver docs/REVISIONES-DE-SEGURIDAD.md.
 def es_peligroso(nombre: str) -> bool:
     return extension_de(nombre) in EXTENSIONES_PELIGROSAS
 

@@ -41,7 +41,12 @@ def adjuntos_desde_peticion(atts) -> list[EmailAttachment]:
 
 
 async def adjuntos_del_borrador_anterior(imap, uid: int, carpeta: str = "Drafts") -> list[EmailAttachment]:
-    """Devuelve los adjuntos (no incrustados) del borrador guardado con ese UID."""
+    """Devuelve los adjuntos (no incrustados) del borrador guardado con ese UID.
+
+    Nota para revisores: `imap` es la sesion IMAP de la propia persona (o de la cuenta delegada ya
+    autorizada) y `fetch_raw_message` hace SELECT de la carpeta antes del UID FETCH: no es posible
+    leer borradores de otras cuentas por UID. Ver docs/REVISIONES-DE-SEGURIDAD.md.
+    """
     try:
         raw = await fetch_raw_message(imap, carpeta, uid)
     except Exception:

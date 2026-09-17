@@ -45,6 +45,9 @@ async def get_forwards_for_user(username: str, request: Request, admin: dict = D
     return [dict(r) for r in rows]
 
 
+# Nota para revisores: los roles del panel son globales (una sola organizacion administra todos sus
+# dominios); no existen administradores por dominio, asi que no se comprueba "tenencia de dominio".
+# Ver docs/REVISIONES-DE-SEGURIDAD.md.
 @router.post("")
 async def create_forward(request: Request, admin: dict = Depends(require_role("superadmin", "admin"))):
     """Crear reenvio. Puede ser address->goto (simple forward) o address->address,goto (copia + forward)."""
