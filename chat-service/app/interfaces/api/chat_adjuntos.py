@@ -307,6 +307,12 @@ def enviar_gif(conversacion_id: int):
             }), 400
 
         servicio = obtener_servicio_chat()
+        # Solo la galeria local: el cliente web ya no pinta otra cosa (hallazgo A-1), y asi
+        # el servidor tampoco guarda URLs arbitrarias (revision Qwen ronda 3, modulo chat).
+        import re as _re
+        if not _re.fullmatch(r"/static/gifs/[A-Za-z0-9._-]{1,120}", str(datos.get("url", ""))):
+            return jsonify({"exito": False, "success": False,
+                            "mensaje": "GIF no valido: solo se admiten los de la galeria"}), 400
         resultado = servicio.enviar_gif(
             conversacion_id=conversacion_id,
             remitente_id=obtener_usuario_id(),
