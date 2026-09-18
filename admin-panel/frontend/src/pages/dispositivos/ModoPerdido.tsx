@@ -3,7 +3,7 @@ import { api } from "../../api/client";
 import { Equipo, fechaHora } from "./tipos";
 
 interface Comando { id: number; tipo: string; estado: string; motivo?: string; creado_por: string; creado_en: string; entregado_en?: string; terminado_en?: string; resultado?: { detalle?: string } }
-const NOMBRE: Record<string, string> = { localizar: "Localizar ahora", alarma: "Hacer sonar", bloquear: "Bloquear pantalla", desbloquear: "Fin del modo perdido", borrar: "Borrado remoto", respaldar: "Respaldo pedido" };
+const NOMBRE: Record<string, string> = { localizar: "Localizar ahora", alarma: "Hacer sonar", bloquear: "Bloquear pantalla", desbloquear: "Fin del modo perdido", borrar: "Borrado remoto", respaldar: "Respaldo pedido", desinstalar: "Desinstalar app", bloquear_app: "Bloquear app" };
 
 /** Modo perdido y comandos a distancia. Todo pide motivo y queda en la auditoría. */
 export function ModoPerdido({ equipo, onCambio }: { equipo: Equipo; onCambio: () => void }) {

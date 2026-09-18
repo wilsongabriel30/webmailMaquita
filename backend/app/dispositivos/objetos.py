@@ -52,12 +52,23 @@ def comprobar() -> None:
         raise AlmacenNoDisponible(f"El almacén de respaldos no está montado o no se puede escribir: {raiz()}")
 
 
-def ruta(equipo_id: int, sha: str) -> Path:
-    return raiz() / str(int(equipo_id)) / "objetos" / sha[:2] / sha
+_CARPETA_OK = __import__("re").compile(r"^[A-Za-z0-9._-]{1,80}$")
 
 
-def _datos_asociados(equipo_id: int, sha: str, k: int) -> bytes:
-    return f"{int(equipo_id)}:{sha}:{k}".encode()
+def carpeta(equipo: dict) -> str:
+    """Subcarpeta del equipo dentro del almacén: la configurada, o el id si no hay ninguna."""
+    c = (equipo.get("carpeta_respaldo") or "").strip()
+    return c if _CARPETA_OK.match(c) else str(int(equipo["id"]))
+
+
+def ruta(carpeta_eq: str, sha: str) -> Path:
+    if not _CARPETA_OK.match(carpeta_eq):
+        raise ValueError("carpeta de respaldo no válida")
+    return raiz() / carpeta_eq / "objetos" / sha[:2] / sha
+
+
+def _datos_asociados(sha: str, k: int) -> bytes:
+    return f"{sha}:{k}".encode()
 
 
 def _tam_cifrado(claro: int) -> int:
@@ -65,11 +76,11 @@ def _tam_cifrado(claro: int) -> int:
     return CABECERA + claro + tramas * ETIQUETA
 
 
-def anexar(equipo_id: int, sha: str, offset: int, datos: bytes) -> None:
+def anexar(carpeta_eq: str, sha: str, offset: int, datos: bytes) -> None:
     """Cifra y añade un trozo. `offset` debe ser múltiplo de 1 MiB y coincidir con lo ya guardado."""
     if offset % TRAMA:
         raise Desfase("offset no alineado")
-    p = ruta(equipo_id, sha)
+    p = ruta(carpeta_eq, sha)
     if offset == 0:
         p.parent.mkdir(parents=True, exist_ok=True)
         prefijo = os.urandom(8)
@@ -86,16 +97,16 @@ def anexar(equipo_id: int, sha: str, offset: int, datos: bytes) -> None:
     with f:
         k = offset // TRAMA
         for i in range(0, len(datos), TRAMA):
-            f.write(c.encrypt(prefijo + k.to_bytes(4, "big"), datos[i:i + TRAMA], _datos_asociados(equipo_id, sha, k)))
+            f.write(c.encrypt(prefijo + k.to_bytes(4, "big"), datos[i:i + TRAMA], _datos_asociados(sha, k)))
             k += 1
         f.flush()
         os.fsync(f.fileno())
 
 
-def leer(equipo_id: int, sha: str, desde: int = 0):
+def leer(carpeta_eq: str, sha: str, desde: int = 0):
     """Generador de texto claro a partir de `desde` (múltiplo de 1 MiB)."""
     c = _cifrador()
-    with open(ruta(equipo_id, sha), "rb") as f:
+    with open(ruta(carpeta_eq, sha), "rb") as f:
         cab = f.read(CABECERA)
         if cab[:len(MAGIA)] != MAGIA:
             raise ValueError("objeto con formato desconocido")
@@ -106,15 +117,15 @@ def leer(equipo_id: int, sha: str, desde: int = 0):
             bloque = f.read(TRAMA + ETIQUETA)
             if not bloque:
                 return
-            yield c.decrypt(prefijo + k.to_bytes(4, "big"), bloque, _datos_asociados(equipo_id, sha, k))
+            yield c.decrypt(prefijo + k.to_bytes(4, "big"), bloque, _datos_asociados(sha, k))
             k += 1
 
 
-def verificar(equipo_id: int, sha: str, tamano: int) -> bool:
+def verificar(carpeta_eq: str, sha: str, tamano: int) -> bool:
     """Descifra todo y comprueba tamaño y SHA-256 del contenido."""
     h, n = hashlib.sha256(), 0
     try:
-        for trozo in leer(equipo_id, sha):
+        for trozo in leer(carpeta_eq, sha):
             h.update(trozo)
             n += len(trozo)
     except Exception:
@@ -122,8 +133,8 @@ def verificar(equipo_id: int, sha: str, tamano: int) -> bool:
     return n == tamano and h.hexdigest() == sha
 
 
-def borrar(equipo_id: int, sha: str) -> None:
+def borrar(carpeta_eq: str, sha: str) -> None:
     try:
-        ruta(equipo_id, sha).unlink()
+        ruta(carpeta_eq, sha).unlink()
     except FileNotFoundError:
         pass

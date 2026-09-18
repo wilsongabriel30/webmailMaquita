@@ -13,6 +13,7 @@ export interface Equipo {
   revocado_en?: string; revocado_motivo?: string; depreciacion?: Depreciacion | null;
   ubicacion_autorizada?: boolean; politica_firmada_en?: string;
   perdido_en?: string; perdido_motivo?: string; perdido_mensaje?: string; perdido_telefono?: string;
+  carpeta_respaldo?: string;
 }
 export interface Evento { id: number; tipo: string; detalle: Record<string, unknown>; recibido_en: string; visto_por?: string; visto_en?: string }
 export interface Latido { recibido_en: string; ip?: string; datos: Record<string, unknown> }
