@@ -24,7 +24,8 @@ STAGED=$(git diff --cached --name-only --diff-filter=ACMR)
 
 # 1. Patrones prohibidos definidos localmente (secretos del equipo, proveedores
 #    externos que la dirección no quiere mencionados, términos vetados).
-LISTA="$RAIZ/.git/guardian-patrones-locales"
+# En un worktree, $RAIZ/.git es un fichero: los patrones viven en el .git común.
+LISTA="$(git rev-parse --path-format=absolute --git-common-dir)/guardian-patrones-locales"
 if [ -s "$LISTA" ]; then
     while IFS= read -r patron; do
         case "$patron" in ''|'#'*) continue;; esac
