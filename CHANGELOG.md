@@ -8,6 +8,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 ## [Sin publicar]
 
 ### Añadido
+- Teléfonos institucionales: avisos push nativos con ntfy autoalojado (sin Google). Los mensajes urgentes y los comandos llegan al instante en vez de esperar el latido; la app recibe `push {servidor, tema}` al enrolarse. Ver `docs/DISPOSITIVOS.md`.
+
+### Añadido
 - Teléfonos institucionales, fase 4: inventario de aplicaciones con reglas (lista de bloqueo, instaladores de confianza, permisos de riesgo) y aviso amable para desinstalar; en control completo, desinstalación o bloqueo a distancia. Reasignación de equipos con historial de custodia (jefe → subordinado → técnico) y respaldo de cierre. Destino del respaldo configurable por equipo (carpeta en el almacén) y usuario del teléfono.
 - Teléfonos institucionales, fase 3: respaldos incrementales por contenido (SHA-256), subida reanudable por trozos, cifrado AES-256-GCM en reposo, cuota por equipo, retención de instantáneas, respaldo de cierre y restauración en otro equipo con autorización temporal y auditada. El panel solo ve totales, nunca contenido.
 - Teléfonos institucionales, fase 2: ubicación periódica (solo con política firmada o equipo perdido), bajo demanda e historial con mapa; modo perdido con bloqueo, alarma y borrado remoto; avistamientos por Bluetooth desde otros teléfonos de la organización; cada consulta y comando con motivo y auditoría.

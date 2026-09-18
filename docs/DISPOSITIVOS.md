@@ -178,3 +178,41 @@ en la reasignación o en la ficha. `PUT /api/dispositivos/equipos/{id}/respaldo-
   completo), **Custodia y reasignación** (historial y reasignar) y la carpeta de respaldo en **Respaldos**.
 Backend: `admin-panel/backend/app/dispositivos/{apps_panel,custodia}.py`; servidor:
 `backend/app/dispositivos/apps.py`; migración `2026-09-18-dispositivos-fase4.sql`.
+
+# Mejora transversal — avisos push nativos (ntfy autoalojado, sin Google)
+
+Para que los **mensajes urgentes y los comandos lleguen al instante** sin esperar el latido (hasta 15
+min), el servidor publica un aviso en un servidor **ntfy autoalojado**. No interviene Google ni ningún
+servicio externo. El aviso solo dice «sync» (sin contenido): el teléfono despierta y hace su latido
+normal, que trae los mensajes o comandos por el canal seguro de siempre.
+
+## Infraestructura (VM 130)
+- `ntfy` 2.11 (binario de GitHub) como servicio `ntfy`, escucha en `127.0.0.1:2586`, config
+  `/etc/ntfy/server.yml` (`auth-default-access: read-only`, `auth-file` con el usuario `backend`).
+- nginx sirve ntfy en el **puerto 2587** con el certificado y los nombres de mail.maquita.org
+  (`/etc/nginx/sites-available/ntfy-push.conf`). Cortafuegos: 2587 abierto solo para Ecuador (nft) y
+  NAT en el MikroTik pendiente si se quiere desde fuera de la LAN (ver más abajo).
+- Usuario `backend` con permiso de **escritura** sobre `disp_*`; su token está en
+  `admin-panel/backend/.env` (`NTFY_TOKEN`, `NTFY_URL_INTERNO=http://127.0.0.1:2586`) y hay copia en
+  `/root/ntfy-backend-token.txt`. Los teléfonos **leen** su tema sin token: el tema es un secreto de
+  128 bits (`disp_` + 32 hex) y nadie más lo conoce. El aviso no lleva datos, así que aunque se
+  filtrara un tema, solo provocaría un latido de más.
+
+## Contrato para la app
+- Al enrolar y en `GET /yo`, la respuesta trae `push: {servidor, tema, protocolo: "ntfy"}` (o `null`).
+- La app se suscribe con **UnifiedPush** (distribuidor ntfy autoalojado, `servidor`) al `tema`, o
+  directamente por el flujo de ntfy (`GET <servidor>/<tema>/json`, SSE/WebSocket). Al recibir cualquier
+  aviso, dispara un latido inmediato; con eso trae mensajes y comandos al momento.
+- El push es **best-effort y complementario**: si ntfy o la red fallan, el latido periódico entrega
+  igual lo pendiente. La app nunca debe depender solo del push.
+
+## Cuándo publica el servidor
+- Un **mensaje** nuevo a los equipos destinatarios (`disp_mensajes` → aviso a cada tema).
+- Un **comando** nuevo (localizar, alarma, bloquear, borrar, desbloquear, respaldar, desinstalar,
+  bloquear_app): el aviso sale al encolarlo (`_encolar`).
+
+## Pendiente operativo
+- Para que el push llegue con datos móviles (fuera de la Wi-Fi), falta el **NAT del puerto 2587** en el
+  MikroTik (`179.49.24.165:2587 → 193.16.0.21:2587`), como el resto de puertos del correo. Dentro de la
+  LAN ya funciona. Alternativa más limpia a futuro: subdominio `push.maquita.org` en el 443 (ntfy exige
+  un host propio, no admite sub-ruta), con su registro DNS y el nombre añadido al certificado.
