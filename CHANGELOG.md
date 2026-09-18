@@ -8,6 +8,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 ## [Sin publicar]
 
 ### Añadido
+- Cuenta del sistema de Android: descubrimiento de cuenta por dominio (`GET /api/cuenta/descubrir`) y CalDAV/CardDAV accesible desde fuera autenticando con las credenciales del correo (owner_only). Ver `docs/DISPOSITIVOS.md`.
+
+### Añadido
 - Teléfonos institucionales: avisos push nativos con ntfy autoalojado (sin Google). Los mensajes urgentes y los comandos llegan al instante en vez de esperar el latido; la app recibe `push {servidor, tema}` al enrolarse. Ver `docs/DISPOSITIVOS.md`.
 
 ### Añadido
