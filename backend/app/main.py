@@ -77,6 +77,7 @@ from app.dispositivos.router import router as dispositivos_router
 from app.dispositivos.ubicacion import router as dispositivos_ubicacion_router
 from app.dispositivos.respaldos import router as dispositivos_respaldos_router
 from app.dispositivos.apps import router as dispositivos_apps_router
+from app.cuenta.router import router as cuenta_router
 from app.onboarding.router import router as onboarding_router
 from app.phishsim.router import router as phishsim_router
 from app.presence.router import router as presence_router
@@ -770,6 +771,7 @@ app.include_router(dispositivos_router)  # teléfonos institucionales, fase 1
 app.include_router(dispositivos_ubicacion_router)  # fase 2: ubicación y avistamientos
 app.include_router(dispositivos_respaldos_router)  # fase 3: respaldos cifrados
 app.include_router(dispositivos_apps_router)  # fase 4: inventario de apps
+app.include_router(cuenta_router)  # descubrimiento de cuenta para Android
 app.include_router(ai_router)
 app.include_router(retention_router)
 app.include_router(gal_router)

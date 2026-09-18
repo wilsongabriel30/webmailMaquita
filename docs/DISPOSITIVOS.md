@@ -216,3 +216,38 @@ normal, que trae los mensajes o comandos por el canal seguro de siempre.
   MikroTik (`179.49.24.165:2587 → 193.16.0.21:2587`), como el resto de puertos del correo. Dentro de la
   LAN ya funciona. Alternativa más limpia a futuro: subdominio `push.maquita.org` en el 443 (ntfy exige
   un host propio, no admite sub-ruta), con su registro DNS y el nombre añadido al certificado.
+
+# Mejora transversal — cuenta del sistema de Android con sincronización
+
+Para que el correo Maquita aparezca en **Ajustes → Cuentas → Agregar cuenta** de Android y desde ahí se
+sincronicen contactos, calendario, correo y fotos con el servidor, casi todo es trabajo de la app
+(`AccountManager` + `SyncAdapter`). El servidor aporta dos cosas, ya en producción:
+
+## 1. Descubrimiento de cuenta por dominio (`GET /api/cuenta/descubrir?correo=<correo>`)
+Público. Dado un correo, resuelve su portal (mail.maquita.org o el de la empresa: maquitaturismo.com,
+invertiagro.com…) y devuelve en una sola llamada todo lo que necesita la cuenta del sistema:
+`{encontrado, correo, usuario, dominio, organizacion, servidor, imap{host,puerto,seguridad},
+smtp{host,puerto,seguridad,alternativo}, caldav{url,descubrimiento,auth}, carddav{...}, api{base,ws},
+push{servidor,protocolo}, auth{tipo,nota}}`. El usuario es siempre el correo completo.
+
+## 2. CalDAV/CardDAV accesible desde fuera con las credenciales del correo
+Antes (contención del 03/09/2026) `/dav/` solo se abría en la red interna. Desde el 18/09/2026 autentica
+cada petición por Basic contra las credenciales reales del correo (`auth_request → /api/auth/dav`, que
+acepta la contraseña de aplicación o la principal mientras no sea obligatoria) y solo entonces pasa
+`X-Remote-User` a Radicale (`rights owner_only`: cada quien ve lo suyo). Probado: sin clave 401, clave
+mala 401, clave correcta 207, un usuario mirando la colección de otro 403. Vale para los tres portales
+(el bloque está en `snippets/webmail-portal-comun.conf`, incluido por todos). `.well-known/caldav` y
+`.well-known/carddav` redirigen a `/dav/`.
+
+## Contrato para la app (cuenta del sistema)
+- **Tipo de cuenta** `org.maquita.correo` con `AbstractAccountAuthenticator`: la pantalla de alta pide el
+  correo, llama a `/api/cuenta/descubrir`, y guarda usuario + contraseña (o contraseña de aplicación).
+- **SyncAdapter de contactos** (`ContactsContract`, CardDAV a `carddav.url`, Basic con las credenciales).
+- **SyncAdapter de calendario** (`CalendarContract`, CalDAV a `caldav.url`).
+- **Correo**: el canal propio (`api.base`, `api.ws`) o IMAP/SMTP; interruptor de sincronización.
+- **Fotos**: respaldo de la fase 3 (no es sincronización bidireccional).
+- Cada interruptor con `ContentResolver.setSyncAutomatically`, para que aparezcan en la pantalla nativa
+  de la cuenta igual que en una cuenta de Google.
+
+Backend: `backend/app/cuenta/router.py`. DAV externo: `snippets/webmail-portal-comun.conf`
+(backup `.bak.20260918-dav`).
