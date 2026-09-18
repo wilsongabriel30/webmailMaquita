@@ -15,6 +15,7 @@ logger = logging.getLogger("dispositivos")
 _URL = os.environ.get("NTFY_URL_INTERNO", "http://127.0.0.1:2586")
 _TOKEN = os.environ.get("NTFY_TOKEN", "")
 _cliente: httpx.AsyncClient | None = None
+_tareas: set = set()
 
 
 def _c() -> httpx.AsyncClient:
@@ -38,7 +39,9 @@ async def _publicar(topic: str, motivo: str) -> None:
 def avisar(topic: str | None, motivo: str = "sync") -> None:
     """Dispara el aviso en segundo plano; nunca bloquea ni propaga errores."""
     if topic:
-        asyncio.create_task(_publicar(topic, motivo))
+        t = asyncio.create_task(_publicar(topic, motivo))
+        _tareas.add(t)
+        t.add_done_callback(_tareas.discard)
 
 
 async def avisar_equipos(db, equipo_ids: list[int], motivo: str = "sync") -> None:

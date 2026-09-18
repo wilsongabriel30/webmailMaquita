@@ -50,8 +50,8 @@ async def configurar(equipo_id: int, request: Request, admin: dict = Depends(_AD
     await _equipo(request, equipo_id)
     carpeta = texto(b.get("carpeta_respaldo"), 80)
     import re as _re
-    if carpeta is not None and not _re.fullmatch(r"[A-Za-z0-9._-]{1,80}", carpeta):
-        raise HTTPException(400, "La carpeta de respaldo solo admite letras, números, punto, guion y guion bajo")
+    if carpeta is not None and (not _re.fullmatch(r"[A-Za-z0-9._-]{1,80}", carpeta) or carpeta in (".", "..")):
+        raise HTTPException(400, "La carpeta de respaldo solo admite letras, números, punto, guion y guion bajo (no «.» ni «..»)")
     if carpeta is not None and await db(request).fetchval("SELECT 1 FROM disp_objetos WHERE equipo_id = $1 LIMIT 1", equipo_id):
         raise HTTPException(409, "No se puede cambiar la carpeta: el equipo ya tiene respaldos. Cámbiela solo antes del primero.")
     await db(request).execute("UPDATE disp_equipos SET respaldo_activo = $2, cuota_respaldo_gb = $3, carpeta_respaldo = COALESCE($4, carpeta_respaldo) WHERE id = $1",

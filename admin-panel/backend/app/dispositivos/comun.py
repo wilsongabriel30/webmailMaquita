@@ -32,9 +32,13 @@ def texto(valor, maximo: int) -> str | None:
 
 
 def imei_valido(imei: str) -> bool:
-    """15 dígitos con dígito de control de Luhn."""
-    if not re.fullmatch(r"\d{15}", imei or ""):
+    """14-17 dígitos (lo que reportan los teléfonos, también los de doble SIM); si son exactamente
+    15, se exige el dígito de control de Luhn para atrapar errores de tecleo."""
+    imei = imei or ""
+    if not re.fullmatch(r"\d{14,17}", imei):
         return False
+    if len(imei) != 15:
+        return True
     total = 0
     for i, c in enumerate(imei):
         n = int(c)
