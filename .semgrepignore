@@ -1,0 +1,16 @@
+# Lo que Semgrep no debe analizar: copias, compilados, dependencias y pruebas.
+node_modules/
+dist/
+www/
+venv/
+.venv/
+backup-*/
+backups-cleanup-*/
+deploy-backups/
+uploads/
+exports/
+descargas-app/
+*.min.js
+*.bak*
+tests/
+pruebas-navegador/
