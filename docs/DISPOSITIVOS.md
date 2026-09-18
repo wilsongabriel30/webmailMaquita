@@ -1,4 +1,4 @@
-# Teléfonos institucionales (gestión de dispositivos) — fases 1 y 2
+# Teléfonos institucionales (gestión de dispositivos) — fases 1 a 3
 
 Gestión propia de los celulares de la organización: inventario y asignación, estado que reporta
 cada equipo, mensajes urgentes con acuse de lectura y eventos de seguridad. Las fases siguientes
@@ -96,3 +96,49 @@ bloquear, borrado remoto, estado de cada comando) y bloque **Ubicación** (activ
 consultar con motivo, mapa de OpenStreetMap sin librerías, historial con origen de cada punto).
 Backend del panel: `admin-panel/backend/app/dispositivos/perdido.py`. Migración:
 `migrations/2026-09-18-dispositivos-fase2.sql`.
+
+# Fase 3 — respaldos
+
+## Cómo funciona
+Respaldo **incremental por contenido**: el teléfono envía un manifiesto (ruta, tamaño, SHA-256) y el
+servidor responde qué contenidos le faltan; lo que no cambió no se vuelve a enviar. Cada contenido se
+guarda una vez por equipo, **cifrado en reposo** (AES-256-GCM por tramas de 1 MiB; el texto claro no
+toca el disco) en `DISP_RESPALDO_DIR` (`/mnt/almacen/.respaldo-movil/<equipo>/objetos/…`). La clave
+(`DISP_RESPALDO_CLAVE`, en `backend/.env`) no está en la base de datos ni en el almacén: **sin ella
+los respaldos son ilegibles; hay que custodiarla fuera del servidor**. Una *instantánea* es la lista
+ruta → contenido de un momento; se conservan las 7 últimas completas y las 2 últimas de cierre, y los
+contenidos que ya nadie referencia se borran del disco. Cuota por equipo (64 GB por defecto).
+
+El panel **no ve contenido ni nombres de archivo**: solo fechas, tamaños y totales por categoría.
+Restaurar en otro teléfono exige una autorización temporal creada en el panel (con motivo, auditada,
+72 horas por defecto); al usarla queda un evento `restauracion` en el equipo de origen.
+
+## Contrato para la app (v3) — prefijo `/api/dispositivos/respaldos`
+El latido trae `respaldo`: `{activo, hora, solo_wifi, solo_cargando, categorias[], instantaneas}` y puede
+traer el comando `respaldar {tipo: "manual"|"cierre"}` (responder con el resultado al terminar).
+
+| Ruta | Cuerpo | Respuesta |
+|---|---|---|
+| `POST ""` | `{tipo: "programado"\|"manual"\|"cierre", version_app?}` | `{id, trozo_bytes (8 MiB sugerido), trama_bytes (1 MiB), trozo_maximo_bytes (32 MiB), cuota_bytes, usado_bytes}` · 403 respaldo desactivado · 503 almacén no disponible (reintentar más tarde) |
+| `POST /{id}/manifiesto` | `{archivos: [{ruta, categoria, tamano, sha256, mtime?}]}` (hasta 2000 por llamada; se puede llamar varias veces). `ruta` relativa, sin `..`. Categorías: `fotos, videos, documentos, descargas, contactos, llamadas, sms, whatsapp, apps, ajustes, otros` | `{faltan: [{sha256, tamano, recibido}]}` · 413 supera la cuota |
+| `PUT /objetos/{sha256}?offset=N&total=T` | Cuerpo binario crudo. `offset` = lo ya recibido; cada trozo múltiplo de 1 MiB salvo el último | `{recibido, completo}` · **409 con `recibido`** = desfase: continuar desde ese valor · 422 = al completar, el contenido no coincide con su SHA-256 (se descarta: volver a subir desde 0) |
+| `POST /{id}/cerrar` | `{errores?: [texto…]}` (p. ej. «SMS: permiso no concedido») | `{estado: "completo"\|"incompleto", faltantes, resumen}` |
+| `GET ""` | — | Instantáneas completas propias y de los equipos autorizados (`propio: false`) |
+| `GET /{id}/manifiesto?despues_de=<ruta>&limite=2000` | — | `{equipo_origen, archivos[], hay_mas}` (paginar con la última `ruta`) |
+| `GET /objetos/{sha256}?equipo_origen=<id>&desde=<múltiplo de 1 MiB>` | — | Contenido en claro (flujo binario con `Content-Length`); `desde` permite reanudar |
+
+Archivos de 0 bytes: van en el manifiesto y no se suben. Un mismo contenido no admite dos subidas a la
+vez (409). Tras un corte, volver a enviar el manifiesto: `recibido` dice por dónde seguir.
+
+### Qué respalda la app y cómo lo nombra (convención de `ruta`)
+`DCIM/…`, `Pictures/…`, `Movies/…`, `Documents/…`, `Download/…` tal cual están en el almacenamiento
+compartido; `WhatsApp/Databases/…`, `WhatsApp/Backups/…`, `WhatsApp/Media/…` (y `WhatsAppBusiness/…`)
+desde `Android/media/com.whatsapp/WhatsApp/`; datos que no son archivos, exportados a
+`_datos/contactos.vcf`, `_datos/llamadas.json`, `_datos/sms.json`, `_datos/apps.json`, `_datos/ajustes.json`.
+
+## Panel
+Ficha del equipo → **Respaldos**: último completo, respaldo de cierre, ocupación y cuota, «Respaldar
+ahora», «Pedir respaldo de cierre», activar/desactivar, tabla de instantáneas con totales por categoría y
+autorización de restauración desde otro equipo. Backend: `admin-panel/backend/app/dispositivos/respaldos.py`.
+Servidor: `backend/app/dispositivos/{respaldos,objetos,respaldos_mantenimiento}.py`, migración
+`2026-09-18-dispositivos-fase3.sql`, unidades systemd con `ReadWritePaths=-/mnt/almacen/.respaldo-movil`.
