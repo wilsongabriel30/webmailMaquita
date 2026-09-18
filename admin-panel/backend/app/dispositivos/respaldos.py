@@ -19,7 +19,7 @@ _ADMIN = require_role("superadmin", "admin")
 @router.get("/equipos/{equipo_id}/respaldos")
 async def respaldos_de(equipo_id: int, request: Request, admin: dict = Depends(get_current_admin)):
     d = db(request)
-    e = await d.fetchrow("SELECT respaldo_activo, cuota_respaldo_gb, respaldo_cierre_en FROM disp_equipos WHERE id = $1", equipo_id)
+    e = await d.fetchrow("SELECT respaldo_activo, cuota_respaldo_gb, respaldo_cierre_en, carpeta_respaldo FROM disp_equipos WHERE id = $1", equipo_id)
     if e is None:
         raise HTTPException(404, "Equipo no encontrado")
     filas = await d.fetch(
@@ -48,9 +48,15 @@ async def configurar(equipo_id: int, request: Request, admin: dict = Depends(_AD
     if not 1 <= cuota <= 2048:
         raise HTTPException(400, "La cuota debe estar entre 1 y 2048 GB")
     await _equipo(request, equipo_id)
-    await db(request).execute("UPDATE disp_equipos SET respaldo_activo = $2, cuota_respaldo_gb = $3 WHERE id = $1",
-                              equipo_id, bool(b.get("respaldo_activo", True)), cuota)
-    await auditar(request, admin, "dispositivo_respaldo_config", str(equipo_id), {"activo": bool(b.get("respaldo_activo", True)), "cuota_gb": cuota})
+    carpeta = texto(b.get("carpeta_respaldo"), 80)
+    import re as _re
+    if carpeta is not None and not _re.fullmatch(r"[A-Za-z0-9._-]{1,80}", carpeta):
+        raise HTTPException(400, "La carpeta de respaldo solo admite letras, números, punto, guion y guion bajo")
+    if carpeta is not None and await db(request).fetchval("SELECT 1 FROM disp_objetos WHERE equipo_id = $1 LIMIT 1", equipo_id):
+        raise HTTPException(409, "No se puede cambiar la carpeta: el equipo ya tiene respaldos. Cámbiela solo antes del primero.")
+    await db(request).execute("UPDATE disp_equipos SET respaldo_activo = $2, cuota_respaldo_gb = $3, carpeta_respaldo = COALESCE($4, carpeta_respaldo) WHERE id = $1",
+                              equipo_id, bool(b.get("respaldo_activo", True)), cuota, carpeta)
+    await auditar(request, admin, "dispositivo_respaldo_config", str(equipo_id), {"activo": bool(b.get("respaldo_activo", True)), "cuota_gb": cuota, "carpeta": carpeta})
     return {"ok": True}
 
 
