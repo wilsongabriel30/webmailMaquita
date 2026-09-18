@@ -604,14 +604,19 @@ class TaskService:
         important = getattr(data, "important", False) or False
         my_day = getattr(data, "my_day", False) or False
         reminder = getattr(data, "reminder", None)
-        note = getattr(data, "note", "") or ""
+        # La descripción y la nota se pintan como HTML en el cliente:
+        # se sanean igual que en create_task.
+        note = sanitize_html(getattr(data, "note", "") or "")
+        description = data.description
+        if description:
+            description = sanitize_html(description)
         row = await db.fetchrow(
             """INSERT INTO task_cards (list_id, title, description, due_date, priority, labels, position,
                assigned_to, created_by, important, my_day, reminder, note, recurrence)
                VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *""",
             list_id,
             data.title,
-            data.description,
+            description,
             data.due_date,
             data.priority,
             json.dumps(data.labels),
@@ -654,6 +659,8 @@ class TaskService:
                 val = getattr(data, field, None)
                 if val is None and field not in clearable:
                     continue
+                if field in ("description", "note") and val:
+                    val = sanitize_html(val)
                 idx += 1
                 sets.append(f"{field} = ${idx}")
                 params.append(val)
