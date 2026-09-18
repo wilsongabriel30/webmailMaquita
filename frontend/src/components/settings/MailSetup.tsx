@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../api/client';
+import DescargaAppAndroid from './DescargaAppAndroid';
 
 interface ServerCfg { host: string; port: number; security: string; }
 interface Setup {
@@ -70,6 +71,8 @@ export function MailSetup() {
         >Descargar perfil para iPhone</a>
         <p className="text-xs text-gray-400 mt-2">Abrilo en Safari. iOS dirá “perfil sin firmar”: es normal, es de tu propia organización.</p>
       </div>
+
+      <DescargaAppAndroid />
 
       {/* Manual */}
       <div className="bg-white border rounded-lg p-4">

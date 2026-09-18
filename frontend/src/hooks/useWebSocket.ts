@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { useMailStore } from '../store/mailStore';
 import { showToast } from '../components/common/Toast';
 import { avisar } from '../lib/avisosNavegador';   // T-53: icono propio y clic que lleva a la bandeja
+import { permisoNotificacion, pedirPermisoNotificacion } from '../lib/notificacionSegura';   // AM-10
 
 /**
  * WebSocket hook for real-time mail notifications.
@@ -92,7 +93,7 @@ export function useWebSocket(enabled: boolean = true) {
               playNotificationSound();
 
               // Browser notification (if permitted)
-              if (Notification.permission === 'granted') {
+              if (permisoNotificacion() === 'granted') {
                 try {
                   avisar('Maquita Mail', {
                     cuerpo: delta === 1 ? 'Nuevo correo recibido' : `${delta} correos nuevos`,
@@ -128,7 +129,7 @@ export function useWebSocket(enabled: boolean = true) {
               const taskMsg = data.message || 'Actualizacion de tarea';
               showToast(taskMsg);
               playNotificationSound();
-              if (Notification.permission === 'granted') {
+              if (permisoNotificacion() === 'granted') {
                 try {
                   avisar('Maquita · Tareas', {
                     cuerpo: taskMsg,
@@ -146,7 +147,7 @@ export function useWebSocket(enabled: boolean = true) {
               const remMsg = data.message || 'Recordatorio';
               window.dispatchEvent(new CustomEvent('show-reminder', { detail: data }));
               playNotificationSound();
-              if (Notification.permission === 'granted') {
+              if (permisoNotificacion() === 'granted') {
                 try {
                   avisar('Maquita · Recordatorio', {
                     cuerpo: remMsg,
@@ -202,8 +203,8 @@ export function useWebSocket(enabled: boolean = true) {
         connect();
       }, 1000);
       // Request notification permission once
-      if (Notification.permission === 'default') {
-        Notification.requestPermission().catch(() => {});
+      if (permisoNotificacion() === 'default') {
+        void pedirPermisoNotificacion();
       }
       return () => {
         clearTimeout(initTimer);
