@@ -1,0 +1,35 @@
+# Reglas propias del webmail. Se suman a los paquetes públicos de Semgrep.
+rules:
+  - id: maquita-html-sin-sanear
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      dangerouslySetInnerHTML con contenido que no pasa por DOMPurify.sanitize() ni sanitizeHtml().
+      El cuerpo de un correo es contenido hostil: sanear siempre antes de pintarlo.
+    patterns:
+      - pattern: '<$EL ... dangerouslySetInnerHTML={{__html: $HTML}} ... />'
+      - pattern-not: '<$EL ... dangerouslySetInnerHTML={{__html: DOMPurify.sanitize(...)}} ... />'
+      # Envoltorios propios sobre DOMPurify: sanitizeHtml(), sanitizeSignatureHtml()…
+      - pattern-not: '<$EL ... dangerouslySetInnerHTML={{__html: $SANEAR(...)}} ... />'
+    metadata:
+      category: security
+      cwe: "CWE-79"
+
+  - id: maquita-sql-por-fstring
+    languages: [python]
+    severity: WARNING
+    message: >-
+      Consulta SQL armada con f-string o concatenación. Usar parámetros ($1, $2…) de asyncpg;
+      si el nombre de tabla/columna es variable, validarlo contra una lista blanca.
+    patterns:
+      - pattern-either:
+          - pattern: $CONN.$M(f"...{$X}...", ...)
+          - pattern: $CONN.$M("..." + $X, ...)
+          - pattern: $CONN.$M("...".format(...), ...)
+      - metavariable-regex:
+          metavariable: $M
+          regex: ^(execute|executemany|fetch|fetchrow|fetchval)$
+      - pattern-regex: (?is)\b(select|insert\s+into|update|delete\s+from)\b
+    metadata:
+      category: security
+      cwe: "CWE-89"
