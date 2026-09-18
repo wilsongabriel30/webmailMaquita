@@ -155,16 +155,16 @@ async def subir_trozo(sha: str, request: Request, offset: int = Query(..., ge=0)
         raise HTTPException(409, "Ya hay una subida en curso de ese contenido")
     try:
         try:
-            await asyncio.to_thread(objetos.anexar, equipo["id"], sha, offset, bytes(datos))
+            await asyncio.to_thread(objetos.anexar, objetos.carpeta(equipo), sha, offset, bytes(datos))
         except objetos.Desfase:
-            await asyncio.to_thread(objetos.borrar, equipo["id"], sha)
+            await asyncio.to_thread(objetos.borrar, objetos.carpeta(equipo), sha)
             await db.execute("UPDATE disp_objetos SET recibido = 0 WHERE equipo_id = $1 AND sha256 = $2", equipo["id"], sha)
             return JSONResponse(status_code=409, content={"detail": "El contenido guardado no cuadra: empiece de nuevo", "recibido": 0})
         if fin < total:
             await db.execute("UPDATE disp_objetos SET recibido = $3 WHERE equipo_id = $1 AND sha256 = $2", equipo["id"], sha, fin)
             return {"recibido": fin, "completo": False}
-        if not await asyncio.to_thread(objetos.verificar, equipo["id"], sha, total):
-            await asyncio.to_thread(objetos.borrar, equipo["id"], sha)
+        if not await asyncio.to_thread(objetos.verificar, objetos.carpeta(equipo), sha, total):
+            await asyncio.to_thread(objetos.borrar, objetos.carpeta(equipo), sha)
             await db.execute("UPDATE disp_objetos SET recibido = 0 WHERE equipo_id = $1 AND sha256 = $2", equipo["id"], sha)
             raise HTTPException(422, "El contenido recibido no coincide con su SHA-256: vuelva a subirlo")
         await db.execute("UPDATE disp_objetos SET recibido = $3, estado = 'completo', completado_en = NOW() WHERE equipo_id = $1 AND sha256 = $2",
@@ -196,7 +196,7 @@ async def cerrar(rid: int, request: Request, body: Cierre, equipo: dict = Depend
     if estado == "completo" and r["tipo"] == "cierre":
         await db.execute("UPDATE disp_equipos SET respaldo_cierre_en = NOW() WHERE id = $1", equipo["id"])
     pol = await db.fetchval("SELECT valor -> 'respaldo' ->> 'instantaneas' FROM disp_config WHERE clave = 'politica'")
-    await depurar(db, equipo["id"], int(pol or 7))
+    await depurar(db, equipo["id"], int(pol or 7), objetos.carpeta(equipo))
     logger.info("respaldo_cerrado | equipo=%s | id=%s | estado=%s | faltantes=%s", equipo["id"], rid, estado, faltantes)
     return {"estado": estado, "faltantes": faltantes, "resumen": resumen}
 
@@ -244,8 +244,10 @@ async def descargar(sha: str, request: Request, equipo_origen: Optional[int] = N
     origen = equipo_origen or equipo["id"]
     if origen not in await _origenes(db, equipo):
         raise HTTPException(404, "Sin autorización de restauración vigente para ese equipo")
-    tamano = await db.fetchval("SELECT tamano FROM disp_objetos WHERE equipo_id = $1 AND sha256 = $2 AND estado = 'completo'", origen, sha)
-    if tamano is None or desde > tamano:
+    fila = await db.fetchrow("SELECT o.tamano, e.id, e.carpeta_respaldo FROM disp_objetos o JOIN disp_equipos e ON e.id = o.equipo_id "
+                             "WHERE o.equipo_id = $1 AND o.sha256 = $2 AND o.estado = 'completo'", origen, sha)
+    if fila is None or desde > fila["tamano"]:
         raise HTTPException(404, "Contenido no disponible")
-    return StreamingResponse(objetos.leer(origen, sha, desde), media_type="application/octet-stream",
+    tamano = fila["tamano"]
+    return StreamingResponse(objetos.leer(objetos.carpeta(dict(fila)), sha, desde), media_type="application/octet-stream",
                              headers={"Content-Length": str(tamano - desde), "Cache-Control": "no-store"})

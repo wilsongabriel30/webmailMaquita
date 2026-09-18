@@ -4,7 +4,7 @@ import { Equipo, fechaHora, gigas } from "./tipos";
 
 interface Resp { id: number; tipo: string; estado: string; iniciado_en: string; cerrado_en?: string; archivos_total: number; bytes_total: number; archivos_nuevos: number; bytes_nuevos: number; faltantes: number; resumen: Record<string, { archivos: number; bytes: number }>; errores: string[] }
 interface Rest { id: number; destino_id: number; origen_id: number; origen_nombre: string; origen_modelo?: string; destino_nombre: string; destino_modelo?: string; autorizado_por: string; motivo: string; caduca_en: string; anulada_en?: string }
-interface Datos { respaldo_activo: boolean; cuota_respaldo_gb: number; respaldo_cierre_en?: string; usado_bytes: number; respaldos: Resp[]; restauraciones: Rest[] }
+interface Datos { respaldo_activo: boolean; cuota_respaldo_gb: number; respaldo_cierre_en?: string; usado_bytes: number; carpeta_respaldo?: string; respaldos: Resp[]; restauraciones: Rest[] }
 const CAT: Record<string, string> = { fotos: "Fotos", videos: "Videos", documentos: "Documentos", descargas: "Descargas", contactos: "Contactos", llamadas: "Llamadas", sms: "SMS", whatsapp: "WhatsApp", apps: "Lista de apps", ajustes: "Ajustes", otros: "Otros" };
 
 /** Respaldos del equipo. El panel solo ve fechas, tamaños y totales: el contenido está cifrado. */
@@ -13,9 +13,10 @@ export function Respaldos({ equipo }: { equipo: Equipo }) {
   const [otros, setOtros] = useState<Equipo[]>([]);
   const [origen, setOrigen] = useState("");
   const [cuota, setCuota] = useState(64);
+  const [carpeta, setCarpeta] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; t: string } | null>(null);
 
-  const cargar = () => api.get<Datos>(`/dispositivos/equipos/${equipo.id}/respaldos`).then((r) => { setD(r); setCuota(r.cuota_respaldo_gb); }).catch((e) => setMsg({ ok: false, t: e.message }));
+  const cargar = () => api.get<Datos>(`/dispositivos/equipos/${equipo.id}/respaldos`).then((r) => { setD(r); setCuota(r.cuota_respaldo_gb); setCarpeta(r.carpeta_respaldo || ""); }).catch((e) => setMsg({ ok: false, t: e.message }));
   useEffect(() => { cargar(); api.get<{ equipos: Equipo[] }>("/dispositivos/equipos").then((r) => setOtros(r.equipos.filter((x) => x.id !== equipo.id))).catch(() => {}); }, [equipo.id]);
   const fallo = (e: any) => setMsg({ ok: false, t: e.message });
 
@@ -23,7 +24,7 @@ export function Respaldos({ equipo }: { equipo: Equipo }) {
     const motivo = prompt(tipo === "cierre" ? "Respaldo de cierre (antes de reasignar o restablecer el equipo) — motivo:" : "Respaldar ahora — motivo:"); if (!motivo) return;
     try { await api.post(`/dispositivos/equipos/${equipo.id}/respaldar`, { tipo, motivo }); setMsg({ ok: true, t: "Pedido enviado: el teléfono empieza en su próximo reporte (con Wi-Fi)." }); } catch (e) { fallo(e); }
   };
-  const guardar = async (activo: boolean) => { try { await api.put(`/dispositivos/equipos/${equipo.id}/respaldo-config`, { respaldo_activo: activo, cuota_respaldo_gb: cuota }); cargar(); } catch (e) { fallo(e); } };
+  const guardar = async (activo: boolean) => { try { await api.put(`/dispositivos/equipos/${equipo.id}/respaldo-config`, { respaldo_activo: activo, cuota_respaldo_gb: cuota, carpeta_respaldo: carpeta.trim() || null }); cargar(); setMsg({ ok: true, t: "Guardado." }); } catch (e) { fallo(e); } };
   const autorizar = async () => {
     const motivo = prompt("Este equipo podrá descargar durante 72 horas los respaldos del equipo elegido. Motivo (queda en la auditoría):"); if (!motivo) return;
     try { await api.post(`/dispositivos/equipos/${equipo.id}/autorizar-restauracion`, { origen_id: Number(origen), motivo }); setOrigen(""); cargar(); setMsg({ ok: true, t: "Autorizado. En la app: Mi equipo → Restaurar." }); } catch (e) { fallo(e); }
@@ -49,7 +50,8 @@ export function Respaldos({ equipo }: { equipo: Equipo }) {
           <button onClick={() => pedir("manual")} disabled={!d.respaldo_activo} className="px-3 py-1.5 text-sm rounded border border-ms-gray-40 bg-white hover:bg-ms-gray-10 disabled:opacity-40">Respaldar ahora</button>
           <button onClick={() => pedir("cierre")} disabled={!d.respaldo_activo} title="Hágalo antes de reasignar, restablecer o dar de baja el equipo" className="px-3 py-1.5 text-sm rounded border border-ms-gray-40 bg-white hover:bg-ms-gray-10 disabled:opacity-40">Pedir respaldo de cierre</button>
           <label className="text-xs ml-2">Cuota (GB) <input type="number" min={1} max={2048} value={cuota} onChange={(e) => setCuota(Number(e.target.value))} className="w-20 px-2 py-1 text-sm border border-ms-gray-40 rounded" /></label>
-          <button onClick={() => guardar(d.respaldo_activo)} className="text-xs text-ms-blue hover:underline">Guardar cuota</button>
+          <label className="text-xs ml-2">Carpeta en el almacén <input value={carpeta} onChange={(e) => setCarpeta(e.target.value)} disabled={!!d.respaldos.length} placeholder={String(equipo.id)} title="Dónde se guarda el respaldo dentro del almacén. Solo se puede fijar antes del primer respaldo." className="w-40 px-2 py-1 text-sm border border-ms-gray-40 rounded disabled:bg-ms-gray-10" /></label>
+          <button onClick={() => guardar(d.respaldo_activo)} className="text-xs text-ms-blue hover:underline">Guardar</button>
           <button onClick={() => guardar(!d.respaldo_activo)} className="text-xs text-ms-blue hover:underline">{d.respaldo_activo ? "Desactivar respaldos" : "Activar respaldos"}</button>
         </div>
       </div>
