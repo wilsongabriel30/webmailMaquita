@@ -56,6 +56,18 @@ export function AccionesCorreoNoDeseado(
     finally { setOcupado(false); }
   };
 
+  const confiar = async () => {
+    if (!correo.includes('@')) { showToast('No se pudo leer el remitente'); return; }
+    setOcupado(true);
+    try {
+      await api.post('/mail/remitentes-confiables', { correo });
+      if (enNoDeseado) { await api.post('/mail/spam/not-spam', { folder, uid }).catch(() => { }); }
+      showToast(`${correo} en confianza: sus correos llegarán siempre a la Bandeja de entrada.`);
+      refrescar();
+    } catch (e: any) { showToast(e?.message || 'No se pudo confiar en el remitente'); }
+    finally { setOcupado(false); }
+  };
+
   const bloquear = async () => {
     if (!correo.includes('@')) { showToast('No se pudo leer el remitente'); return; }
     if (!window.confirm(`¿Bloquear a ${correo}?\n\nSus próximos correos irán directo a Correo no deseado. Puedes deshacerlo en Configuración → Reglas de correo.`)) return;
@@ -85,6 +97,12 @@ export function AccionesCorreoNoDeseado(
         <button style={estilo} onClick={marcarNoDeseado} disabled={ocupado}
           title="Mover a Correo no deseado y enseñar al filtro">
           <IconoNoDeseado />No deseado
+        </button>
+      )}
+      {enNoDeseado && (
+        <button style={estilo} onClick={confiar} disabled={ocupado}
+          title="Sus correos llegarán siempre a la Bandeja de entrada, aunque parezcan spam">
+          <IconoOk />Confiar en este remitente
         </button>
       )}
       <button style={estilo} onClick={bloquear} disabled={ocupado}
