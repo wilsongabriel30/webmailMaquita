@@ -7,6 +7,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Corregido
+- Teléfonos institucionales (revisión del módulo): la carpeta de respaldo rechaza «.» y «..» (evita salir del almacén); la ficha del equipo ya no bloquea el guardado por un IMEI de 14-16 dígitos que reporta el teléfono (Luhn solo si son 15 y solo si cambió); el inventario de apps no se borra si un lote no trae paquetes válidos; el cierre de respaldo tolera una política mal tecleada; los avisos push guardan referencia para no perderse.
+
 ### Añadido
 - Cuenta del sistema de Android: descubrimiento de cuenta por dominio (`GET /api/cuenta/descubrir`) y CalDAV/CardDAV accesible desde fuera autenticando con las credenciales del correo (owner_only). Ver `docs/DISPOSITIVOS.md`.
 

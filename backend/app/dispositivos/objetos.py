@@ -53,17 +53,23 @@ def comprobar() -> None:
 
 
 _CARPETA_OK = __import__("re").compile(r"^[A-Za-z0-9._-]{1,80}$")
+_SHA_OK = __import__("re").compile(r"^[0-9a-f]{64}$")
+
+
+def carpeta_valida(c: str) -> bool:
+    # Un solo componente de ruta; "." y ".." saldrían del almacén.
+    return bool(_CARPETA_OK.match(c)) and c not in (".", "..")
 
 
 def carpeta(equipo: dict) -> str:
     """Subcarpeta del equipo dentro del almacén: la configurada, o el id si no hay ninguna."""
     c = (equipo.get("carpeta_respaldo") or "").strip()
-    return c if _CARPETA_OK.match(c) else str(int(equipo["id"]))
+    return c if carpeta_valida(c) else str(int(equipo["id"]))
 
 
 def ruta(carpeta_eq: str, sha: str) -> Path:
-    if not _CARPETA_OK.match(carpeta_eq):
-        raise ValueError("carpeta de respaldo no válida")
+    if not carpeta_valida(carpeta_eq) or not _SHA_OK.match(sha):
+        raise ValueError("carpeta o contenido no válidos")
     return raiz() / carpeta_eq / "objetos" / sha[:2] / sha
 
 
