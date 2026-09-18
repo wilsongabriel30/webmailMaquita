@@ -7,6 +7,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Añadido
+- Correo web: botón «Confiar en este remitente» (en No deseado, barra del mensaje y clic derecho). Sus correos llegan siempre a la Bandeja de entrada aunque el filtro los marque como spam. Es por usuario y reversible en Configuración → Reglas de correo. Implementado con un script sieve personal `confianza` que `global-before.sieve` incluye antes de mover el spam a No deseado.
+
 ### Corregido
 - «No es spam» devolvía error 500 (consulta SQL con texto sin comillas): corregida. Ahora, además de devolver el correo a la Bandeja de entrada, enseña al filtro que no es spam (aprende «ham»), igual que «No deseado» le enseña que sí lo es.
 
