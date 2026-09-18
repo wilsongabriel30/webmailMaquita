@@ -18,6 +18,7 @@ import { cargarEtiquetasPorTandas } from '../../lib/etiquetasPorTandas';
 import { SinResultados } from './SinResultados';
 import { AVISO_ELIMINAR_CORREO } from '../../lib/deepLinkCorreo';
 import { avisar } from '../../lib/avisosNavegador';   // T-53
+import { permisoNotificacion, pedirPermisoNotificacion } from '../../lib/notificacionSegura';   // AM-10
 
 // Agrupa acciones rápidas consecutivas (eliminar/archivar fila por fila) en UNA
 // petición bulk: N clics seguidos generaban N POSTs y disparaban el rate limit (429).
@@ -276,13 +277,13 @@ export function MessageList() {
       if (filter === 'all' && prevTotalRef.current > 0 && r.total > prevTotalRef.current && currentFolder === 'INBOX') {
         const newCount = r.total - prevTotalRef.current;
         try { (window as unknown as { __maquitaBeep?: () => void }).__maquitaBeep?.(); } catch { /* sin sonido */ }
-        if (Notification.permission === 'granted') {
+        if (permisoNotificacion() === 'granted') {
           avisar('Maquita Mail', {
             cuerpo: `${newCount} correo${newCount > 1 ? 's' : ''} nuevo${newCount > 1 ? 's' : ''}`,
             tipo: 'correo', etiqueta: 'new-mail',
           });
-        } else if (Notification.permission !== 'denied') {
-          Notification.requestPermission();
+        } else if (permisoNotificacion() !== 'denied') {
+          void pedirPermisoNotificacion();
         }
         // Update tab badge with actual unseen count from INBOX folder
         const inboxFolder = useMailStore.getState().folders.find(f => f.name === 'INBOX');
