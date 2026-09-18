@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.auth.dependencies import get_current_admin, require_role
 from app.dispositivos.comun import auditar, db, fecha, texto
+from app.dispositivos import push_panel
 
 router = APIRouter(prefix="/api/dispositivos", tags=["dispositivos"])
 _ADMIN = require_role("superadmin", "admin")
@@ -51,9 +52,11 @@ async def _encolar(con, equipo_id: int, tipo: str, parametros: dict, admin: dict
         "SELECT id FROM disp_comandos WHERE equipo_id = $1 AND tipo = $2 AND estado = 'pendiente'", equipo_id, tipo)
     if existente:
         return existente
-    return await con.fetchval(
+    cid = await con.fetchval(
         "INSERT INTO disp_comandos (equipo_id, tipo, parametros, creado_por, motivo) VALUES ($1,$2,$3::jsonb,$4,$5) RETURNING id",
         equipo_id, tipo, json.dumps(parametros), admin["username"], motivo)
+    push_panel.avisar(await con.fetchval("SELECT push_topic FROM disp_equipos WHERE id = $1", equipo_id), "comando")
+    return cid
 
 
 @router.post("/equipos/{equipo_id}/autorizacion-ubicacion")

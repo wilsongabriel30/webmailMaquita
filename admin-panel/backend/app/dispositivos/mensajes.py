@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.auth.dependencies import get_current_admin, require_role
 from app.dispositivos.comun import auditar, db, texto
+from app.dispositivos import push_panel
 
 router = APIRouter(prefix="/api/dispositivos/mensajes", tags=["dispositivos"])
 _ADMIN = require_role("superadmin", "admin")
@@ -61,5 +62,7 @@ async def enviar(request: Request, admin: dict = Depends(_ADMIN)):
                 "INSERT INTO disp_mensajes_equipos (mensaje_id, equipo_id) "
                 "SELECT $1, id FROM disp_equipos WHERE estado IN ('activo', 'perdido')", m["id"])
     total = int(n.split()[-1])
+    dest = await db(request).fetch("SELECT equipo_id AS id FROM disp_mensajes_equipos WHERE mensaje_id = $1", m["id"])
+    await push_panel.avisar_equipos(db(request), [d["id"] for d in dest], "mensaje")
     await auditar(request, admin, "dispositivo_mensaje", str(m["id"]), {"titulo": titulo, "nivel": nivel, "destinatarios": total})
     return {"id": m["id"], "destinatarios": total}
