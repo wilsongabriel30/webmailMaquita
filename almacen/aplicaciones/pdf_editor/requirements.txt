@@ -10,7 +10,7 @@ gunicorn==23.0.0
 Flask-Login==0.6.3
 Flask-WTF==1.2.2
 PyJWT==2.13.0
-redis==7.1.0
+redis==8.1.0
 # Firma digital y criptografía
 cryptography==50.0.0
 # PDF: render, extracción, conversión
