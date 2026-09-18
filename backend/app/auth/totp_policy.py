@@ -52,9 +52,14 @@ async def status(request: Request, username: str = Depends(get_current_user)):
         blocked = (pol["deadline"] is None) or (
             date.fromisoformat(pol["deadline"]) <= date.today()
         )
+    # La app propia de Maquita es un cliente de confianza: no fuerza configurar el segundo factor
+    # (se identifica en el agente de usuario). El correo web sí lo pide como hasta ahora.
+    es_app = "MaquitaMail" in (request.headers.get("user-agent", "") or "")
+    must_enroll = pol["required"] and not enrolled and not es_app
     return {
         **pol,
         "enrolled": enrolled,
-        "must_enroll": pol["required"] and not enrolled,
-        "blocked": blocked,
+        "must_enroll": must_enroll,
+        "blocked": blocked and not es_app,
+        "cliente_confianza": es_app,
     }
