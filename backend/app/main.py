@@ -73,6 +73,7 @@ from app.mail.routers.threads import router as threads_router
 from app.mail.routers.transcribe import router as transcribe_router
 from app.meetings.router import router as meetings_router
 from app.mobile.router import router as mobile_router
+from app.dispositivos.router import router as dispositivos_router
 from app.onboarding.router import router as onboarding_router
 from app.phishsim.router import router as phishsim_router
 from app.presence.router import router as presence_router
@@ -762,6 +763,7 @@ app.include_router(apikeys_router)
 app.include_router(import_router)
 app.include_router(security_router)
 app.include_router(mobile_router)
+app.include_router(dispositivos_router)  # teléfonos institucionales, fase 1
 app.include_router(ai_router)
 app.include_router(retention_router)
 app.include_router(gal_router)

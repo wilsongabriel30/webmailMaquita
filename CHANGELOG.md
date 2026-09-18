@@ -7,6 +7,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Añadido
+- Teléfonos institucionales, fase 1: API `/api/dispositivos/*` (enrolamiento con código, latidos, mensajes urgentes con acuse, eventos de seguridad) y pantalla «Teléfonos institucionales» en el panel (inventario, custodio, centro de costo, depreciación, códigos de enrolamiento). Ver `docs/DISPOSITIVOS.md`.
+
 ### Corregido
 - La interfaz ya no se rompe («Algo salió mal») donde no existe `window.Notification` (WebView de Android, Safari de iPhone fuera de la PWA): los usos pasan por `lib/notificacionSegura.ts`. (AM-10)
 
