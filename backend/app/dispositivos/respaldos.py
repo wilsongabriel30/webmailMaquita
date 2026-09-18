@@ -196,7 +196,11 @@ async def cerrar(rid: int, request: Request, body: Cierre, equipo: dict = Depend
     if estado == "completo" and r["tipo"] == "cierre":
         await db.execute("UPDATE disp_equipos SET respaldo_cierre_en = NOW() WHERE id = $1", equipo["id"])
     pol = await db.fetchval("SELECT valor -> 'respaldo' ->> 'instantaneas' FROM disp_config WHERE clave = 'politica'")
-    await depurar(db, equipo["id"], int(pol or 7), objetos.carpeta(equipo))
+    try:
+        instantaneas = int(pol)
+    except (TypeError, ValueError):
+        instantaneas = 7
+    await depurar(db, equipo["id"], instantaneas, objetos.carpeta(equipo))
     logger.info("respaldo_cerrado | equipo=%s | id=%s | estado=%s | faltantes=%s", equipo["id"], rid, estado, faltantes)
     return {"estado": estado, "faltantes": faltantes, "resumen": resumen}
 

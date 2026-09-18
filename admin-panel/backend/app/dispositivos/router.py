@@ -79,8 +79,9 @@ async def ver_equipo(equipo_id: int, request: Request, admin: dict = Depends(get
 async def guardar_equipo(equipo_id: int, request: Request, admin: dict = Depends(_ADMIN)):
     b = await request.json()
     imei = texto(b.get("imei"), 20)
-    if imei and not imei_valido(imei):
-        raise HTTPException(400, "El IMEI debe tener 15 dígitos válidos (márquelo con *#06# o léalo de la caja)")
+    actual_imei = await db(request).fetchval("SELECT imei FROM disp_equipos WHERE id = $1", equipo_id)
+    if imei and imei != actual_imei and not imei_valido(imei):
+        raise HTTPException(400, "El IMEI debe tener de 14 a 17 dígitos (márquelo con *#06# o léalo de la caja)")
     valor = b.get("valor_compra")
     if valor in ("", None):
         valor = None
