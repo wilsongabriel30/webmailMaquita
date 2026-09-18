@@ -667,6 +667,36 @@ export function MessageList() {
 
   const folderLabel = getFolderDisplayName(currentFolder);
 
+  // Clic derecho: marcar como no deseado / no es spam y bloquear remitente (mismos endpoints que la
+  // barra del mensaje). UI optimista: se quita de la lista y el servidor trabaja por detras.
+  const quitarDeLista = (uid: number) => {
+    const st = useMailStore.getState();
+    st.setMessages(st.messages.filter(m => m.uid !== uid), Math.max(0, st.totalMessages - 1), st.currentPage);
+    if (st.selectedMessage?.uid === uid) st.setSelectedMessage(null);
+  };
+  const marcarNoDeseadoCtx = async (msg: MessageSummary, esNoDeseado: boolean) => {
+    quitarDeLista(msg.uid);
+    try {
+      await api.post(esNoDeseado ? '/mail/spam/not-spam' : '/mail/spam/report', { folder: currentFolder, uid: msg.uid });
+      showToast(esNoDeseado ? 'Movido a la Bandeja de entrada — no es spam' : 'Movido a Correo no deseado — el filtro aprendio');
+    } catch { showToast('No se pudo completar la accion'); }
+    window.dispatchEvent(new CustomEvent('refresh-messages'));
+  };
+  const bloquearRemitenteCtx = async (msg: MessageSummary) => {
+    const from = msg.from || '';
+    const m = from.match(/<([^>]+)>/);
+    const correo = (m ? m[1] : from).trim().toLowerCase();
+    if (!correo.includes('@')) { showToast('No se pudo leer el remitente'); return; }
+    if (!window.confirm(`Bloquear a ${correo}?\n\nSus proximos correos iran a Correo no deseado. Puedes deshacerlo en Configuracion -> Reglas de correo.`)) return;
+    quitarDeLista(msg.uid);
+    try {
+      await api.post('/sieve/filters', { name: `Bloqueado: ${correo}`, condition: { field: 'from', operator: 'contains', value: correo }, action: { type: 'move', value: 'Junk' } });
+      await api.post('/mail/spam/report', { folder: currentFolder, uid: msg.uid }).catch(() => { /* bloqueo ya creado */ });
+      showToast(`${correo} bloqueado — sus correos iran a Correo no deseado`);
+    } catch (e: any) { showToast(e?.message || 'No se pudo bloquear el remitente'); }
+    window.dispatchEvent(new CustomEvent('refresh-messages'));
+  };
+
   const getCtxItems = (msg: MessageSummary): MenuItem[] => [
     { label: 'Responder', icon: replyIcon, onClick: () => openCompose('reply', { to: [msg.from], subject: `Re: ${msg.subject}`, text_body: '', html_body: '' }) },
     { label: 'Reenviar', icon: forwardIcon, onClick: () => openCompose('forward', { to: [], subject: `RV: ${msg.subject}`, text_body: '', html_body: '' }) },
@@ -689,6 +719,11 @@ export function MessageList() {
         };
       }),
     },
+    { label: '', icon: '', onClick: () => {}, divider: true },
+    (currentFolder === 'Junk' || currentFolder === 'Spam')
+      ? { label: 'No es spam', icon: moveIcon, onClick: () => marcarNoDeseadoCtx(msg, true) }
+      : { label: 'Marcar como no deseado', icon: moveIcon, onClick: () => marcarNoDeseadoCtx(msg, false) },
+    { label: 'Bloquear remitente', icon: deleteIcon, onClick: () => bloquearRemitenteCtx(msg) },
     { label: '', icon: '', onClick: () => {}, divider: true },
     { label: 'Eliminar', icon: deleteIcon, onClick: () => quickAction(msg.uid, currentFolder === 'Trash' ? 'delete' : 'move', 'Trash'), danger: true },
   ];
