@@ -36,6 +36,8 @@ export function Dispositivos() {
           { titulo: "Cómo entra un teléfono", desc: "Se instala la app Maquita y se escribe un código de enrolamiento creado aquí. Sin código vigente no se activa la gestión. Equipo nuevo o restaurado de fábrica: control completo. Teléfono ya en uso: modo limitado (la persona puede quitar permisos o desinstalar; si lo hace, queda un evento)." },
           { titulo: "Qué reporta", desc: "Cada 15 minutos: batería, almacenamiento, red, versión de Android y de la app, Play Protect. No se leen mensajes, fotos ni contenido." },
           { titulo: "Inventario", desc: "Nombre, custodio, centro de costo, sede, IMEI, serie, factura, fecha y valor de compra. La depreciación se calcula en línea recta con la vida útil indicada (36 meses por defecto)." },
+          { titulo: "Pérdida o robo", desc: "Al declarar un equipo perdido se le pide su posición, reporta cada 5 minutos y, si tiene control completo, se bloquea con un mensaje y un teléfono de contacto. Los demás teléfonos de la organización avisan si lo detectan cerca por Bluetooth. El borrado remoto es solo para superadministradores." },
+          { titulo: "Ubicación y privacidad", desc: "La ubicación periódica solo se guarda si el custodio firmó la política de uso (se activa por equipo con la fecha de firma) o si el equipo está perdido. Cada consulta de ubicación pide un motivo y queda en la auditoría. Se conserva 90 días." },
           { titulo: "Mensajes urgentes", desc: "Llegan al teléfono en su siguiente reporte, a pantalla completa, y exigen tocar «Leído». Aquí se ve quién lo leyó y cuándo." },
           { titulo: "Auditoría", desc: "Códigos, ediciones, bajas y mensajes quedan en la auditoría del panel." },
         ]} />
