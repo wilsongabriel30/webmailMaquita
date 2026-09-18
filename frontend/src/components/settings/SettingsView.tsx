@@ -8,6 +8,7 @@ import { IdentityManager } from './IdentityManager';
 import { SignatureManager } from './SignatureManager';
 import { TwoFactorSetup } from './TwoFactorSetup';
 import { ContrasenasAplicacion } from './ContrasenasAplicacion';
+import { MiEquipo } from './MiEquipo';
 import { MailSetup } from './MailSetup';
 import { useMailStore } from '../../store/mailStore';
 import { getFolderDisplayName } from '../../folders';
@@ -41,7 +42,7 @@ interface FilterRule {
   action: { type: string; value: string | null };
 }
 
-type Tab = 'general' | 'signature' | 'identities' | 'autoreply' | 'filters' | 'password' | 'security' | 'smime' | 'integrations' | 'mailsetup' | 'espacio';
+type Tab = 'general' | 'signature' | 'identities' | 'autoreply' | 'filters' | 'password' | 'security' | 'miequipo' | 'smime' | 'integrations' | 'mailsetup' | 'espacio';
 
 const FIELD_LABELS: Record<string, string> = { from: 'De', to: 'Para', subject: 'Asunto' };
 const OP_LABELS: Record<string, string> = { contains: 'contiene', is: 'es exactamente', matches: 'coincide con' };
@@ -201,6 +202,7 @@ export function SettingsView() {
     { id: 'filters', label: 'Reglas de correo' },
     { id: 'password', label: 'Contraseña' },
     { id: 'security', label: 'Seguridad' },
+    { id: 'miequipo', label: 'Mi teléfono' },
     { id: 'smime', label: 'Certificados S/MIME' },
     { id: 'integrations', label: 'Integraciones' },
     { id: 'mailsetup', label: 'Configurar mi correo' },
@@ -543,6 +545,7 @@ export function SettingsView() {
           </>
         )}
 
+        {tab === 'miequipo' && <MiEquipo />}
         {tab === 'integrations' && <IntegrationsSettings />}
 
         {tab === 'smime' && <SmimeSettings />}
