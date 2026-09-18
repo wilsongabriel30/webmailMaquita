@@ -91,14 +91,14 @@ def _valid_ruc(ruc: str) -> bool:
 # identificadores de otros sistemas sin depender de listas de prefijos de paises.
 _MARCAS = (
     # (prefijos, longitudes) segun los emisores
-    (("4",), (16, 19)),                                   # Visa
-    (tuple(str(n) for n in range(51, 56)), (16,)),        # Mastercard serie 5
-    (("34", "37"), (15,)),                                # American Express
-    (("30", "36", "38", "39"), (14, 16)),                 # Diners Club
-    (tuple(str(n) for n in range(3528, 3590)), (16,)),    # JCB
+    (("4",), (16, 19)),  # Visa
+    (tuple(str(n) for n in range(51, 56)), (16,)),  # Mastercard serie 5
+    (("34", "37"), (15,)),  # American Express
+    (("30", "36", "38", "39"), (14, 16)),  # Diners Club
+    (tuple(str(n) for n in range(3528, 3590)), (16,)),  # JCB
     (("6011", "65", "644", "645", "646", "647", "648", "649"), (16, 19)),  # Discover
-    (("62",), (16, 17, 18, 19)),                          # UnionPay
-    (("50", "56", "57", "58", "67"), (16, 17, 18, 19)),   # Maestro
+    (("62",), (16, 17, 18, 19)),  # UnionPay
+    (("50", "56", "57", "58", "67"), (16, 17, 18, 19)),  # Maestro
 )
 
 
@@ -120,7 +120,7 @@ def _prefijo_de_tarjeta(num: str) -> bool:
 # nunca es una tarjeta, aunque pase Luhn (caso real del 16/09/2026).
 def _es_telefono(num: str, texto: str, inicio: int) -> bool:
     """True si el numero va precedido de la marca internacional + o 00."""
-    previo = texto[max(0, inicio - 3):inicio].strip()
+    previo = texto[max(0, inicio - 3) : inicio].strip()
     return previo.endswith("+") or previo.endswith("00")
 
 

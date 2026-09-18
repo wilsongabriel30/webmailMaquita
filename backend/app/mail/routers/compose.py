@@ -244,8 +244,8 @@ async def send(
         # lo hará Postfix. Si es una cuenta delegada, la copia va a SU Enviados.
         from app.mail.services.remitente_autorizado import resolver_remitente
 
-        from_addr, display_name, imap_remitente, password_envio = await resolver_remitente(
-            db, username, body.from_email, display_name
+        from_addr, display_name, imap_remitente, password_envio = (
+            await resolver_remitente(db, username, body.from_email, display_name)
         )
 
         # Tipos de archivo que nunca salen (ejecutables, scripts, .dat...)
@@ -579,7 +579,9 @@ async def create_draft(
         rechazar_peligrosos(a.filename for a in body.attachments)
         adjuntos = adjuntos_desde_peticion(body.attachments)
         if not adjuntos and body.mantener_adjuntos and body.existing_draft_uid:
-            adjuntos = await adjuntos_del_borrador_anterior(imap, body.existing_draft_uid)
+            adjuntos = await adjuntos_del_borrador_anterior(
+                imap, body.existing_draft_uid
+            )
         email_data = OutgoingEmail(
             from_addr=username,
             to=body.to,

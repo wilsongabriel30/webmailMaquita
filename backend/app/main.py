@@ -21,6 +21,7 @@ from app.agents.router import router as agents_router
 from app.ai.router import router as ai_router
 from app.air.router import router as air_router
 from app.apikeys.router import router as apikeys_router
+from app.auth.cambio_cuenta import router as cambio_cuenta_router
 from app.auth.contrasenas_aplicacion import router as contrasenas_aplicacion_router
 from app.auth.dav_auth import router as dav_auth_router
 from app.auth.dependencies import get_current_user, require_admin
@@ -41,7 +42,12 @@ from app.config import get_settings
 from app.contacts.routers import router as contacts_router
 from app.copiloto.router import router as copiloto_router
 from app.core.logging import RequestIdMiddleware, setup_logging
+from app.cuenta.router import router as cuenta_router
 from app.database import create_db_pool
+from app.dispositivos.apps import router as dispositivos_apps_router
+from app.dispositivos.respaldos import router as dispositivos_respaldos_router
+from app.dispositivos.router import router as dispositivos_router
+from app.dispositivos.ubicacion import router as dispositivos_ubicacion_router
 from app.dlp.router import router as dlp_router
 from app.gal.router import router as gal_router
 from app.hold_ack.router import router as hold_ack_router
@@ -53,7 +59,6 @@ from app.mail.routers.attachments import router as attachments_router
 from app.mail.routers.calendar_invite import router as calendar_invite_router
 from app.mail.routers.compose import router as compose_router
 from app.mail.routers.cuentas import router as cuentas_router
-from app.auth.cambio_cuenta import router as cambio_cuenta_router
 from app.mail.routers.export import router as export_router
 from app.mail.routers.firmas import router as firmas_router
 from app.mail.routers.folders import router as folders_router
@@ -73,12 +78,6 @@ from app.mail.routers.threads import router as threads_router
 from app.mail.routers.transcribe import router as transcribe_router
 from app.meetings.router import router as meetings_router
 from app.mobile.router import router as mobile_router
-from app.dispositivos.router import router as dispositivos_router
-from app.dispositivos.ubicacion import router as dispositivos_ubicacion_router
-from app.dispositivos.respaldos import router as dispositivos_respaldos_router
-from app.dispositivos.apps import router as dispositivos_apps_router
-from app.cuenta.router import router as cuenta_router
-from app.settings_mi_equipo import router as mi_equipo_router
 from app.onboarding.router import router as onboarding_router
 from app.phishsim.router import router as phishsim_router
 from app.presence.router import router as presence_router
@@ -93,6 +92,7 @@ from app.secure_message.router import auth_router as secure_auth_router
 from app.secure_message.router import public_router as secure_public_router
 from app.security.router import router as security_router
 from app.settings.routers.preferences import router as settings_router
+from app.settings_mi_equipo import router as mi_equipo_router
 from app.sieve.router import router as sieve_router
 from app.smime.router import router as smime_router
 from app.sso.router import router as sso_router
