@@ -1,0 +1,68 @@
+# Actualizaciones de dependencias: revisión semanal (lunes), agrupada para no llenar el repo de PR.
+# Las correcciones de seguridad llegan aparte y de inmediato (Dependabot security updates).
+version: 2
+updates:
+  - package-ecosystem: pip
+    directories:
+      - /backend
+      - /chat-service
+      - /almacen
+      - /almacen/aplicaciones/bi
+      - /almacen/aplicaciones/pdf_editor
+      - /admin-panel/backend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Guayaquil
+    open-pull-requests-limit: 5
+    labels: [dependencias, python]
+    groups:
+      python-menores:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directories:
+      - /frontend
+      - /admin-panel/frontend
+      - /pruebas-navegador
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Guayaquil
+    open-pull-requests-limit: 5
+    labels: [dependencias, javascript]
+    groups:
+      tiptap:
+        patterns: ["@tiptap/*"]
+      react:
+        patterns: ["react", "react-dom", "react-router-dom", "@types/react*"]
+      herramientas-desarrollo:
+        dependency-type: development
+        update-types: [minor, patch]
+      js-menores:
+        dependency-type: production
+        update-types: [minor, patch]
+
+  - package-ecosystem: docker
+    directories:
+      - /chat-service
+      - /deploy/safeattach
+      - /deploy/z-push
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    labels: [dependencias, docker]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    labels: [dependencias, ci]
+    groups:
+      acciones:
+        patterns: ["*"]
