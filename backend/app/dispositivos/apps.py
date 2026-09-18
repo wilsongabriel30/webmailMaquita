@@ -113,8 +113,9 @@ async def inventario(request: Request, body: Inventario, equipo: dict = Depends(
                     accion = "avisar"
                 avisos.append({"paquete": app.paquete, "veredicto": veredicto, "accion": accion,
                                "texto": _texto_aviso(app.nombre or app.paquete, motivo)})
-        # Apps que ya no están: se olvidan.
-        await con.execute("DELETE FROM disp_apps WHERE equipo_id = $1 AND paquete <> ALL($2::text[])", equipo["id"], vistos)
+        # Apps que ya no están: se olvidan (nunca si el lote no trajo ningún paquete válido).
+        if vistos:
+            await con.execute("DELETE FROM disp_apps WHERE equipo_id = $1 AND paquete <> ALL($2::text[])", equipo["id"], vistos)
         if nuevas_riesgo:
             await con.execute(
                 "INSERT INTO disp_eventos (equipo_id, tipo, detalle) VALUES ($1, 'app_riesgo', $2::jsonb)",
