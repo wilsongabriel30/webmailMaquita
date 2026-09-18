@@ -7,6 +7,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Corregido
+- La respuesta de la política de verificación en dos pasos (`/api/auth/2fa-policy/status`) ya no se cachea (`Cache-Control: no-store`): evita que una app con una respuesta vieja en memoria siga mostrando la pantalla de configuración.
+
 ### Cambiado
 - La app propia de Maquita es un cliente de confianza para la política de verificación en dos pasos: no obliga a configurarla (el correo web sí, como hasta ahora). Se distingue por el agente de usuario.
 
