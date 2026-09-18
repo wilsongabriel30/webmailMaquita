@@ -76,9 +76,20 @@ async def listar(request: Request, username: str = Depends(get_current_user)):
     db = request.app.state.db_pool
     redis = request.app.state.redis
     principal, _ = await _principal_de(redis, username, request.state.sid)
-    fila = await db.fetchrow("SELECT COALESCE(name, '') AS nombre FROM mailbox WHERE username = $1", principal)
-    cuentas = [{"email": principal, "nombre": (fila["nombre"] if fila else "") or "", "principal": True}]
-    cuentas += [{**c, "principal": False} for c in await _cuentas_asignadas(db, principal)]
+    fila = await db.fetchrow(
+        "SELECT COALESCE(name, '') AS nombre FROM mailbox WHERE username = $1",
+        principal,
+    )
+    cuentas = [
+        {
+            "email": principal,
+            "nombre": (fila["nombre"] if fila else "") or "",
+            "principal": True,
+        }
+    ]
+    cuentas += [
+        {**c, "principal": False} for c in await _cuentas_asignadas(db, principal)
+    ]
     for c in cuentas:
         c["activa"] = c["email"].lower() == username.lower()
     return {"principal": principal, "activa": username, "cuentas": cuentas}
@@ -107,28 +118,55 @@ async def cambiar(
         # Volver a la cuenta con la que se entró: su clave sigue cifrada en su sesión viva.
         raw = await redis.get(f"imap_pass:{principal}:{sid_principal}")
         if not raw:
-            raise HTTPException(401, "La sesión principal venció: vuelve a iniciar sesión")
+            raise HTTPException(
+                401, "La sesión principal venció: vuelve a iniciar sesión"
+            )
         try:
             clave = decrypt_password(raw)
         except Exception:
-            raise HTTPException(401, "La sesión principal venció: vuelve a iniciar sesión")
+            raise HTTPException(
+                401, "La sesión principal venció: vuelve a iniciar sesión"
+            )
         sesion = await crear_sesion(db, redis, request, principal, clave, kind="normal")
     else:
         if not await puede_usar(db, principal, cuenta, para_enviar=True):
-            raise HTTPException(403, f"La cuenta {cuenta} no está asignada a {principal}")
-        if await db.fetchval("SELECT 1 FROM admin WHERE username = $1 AND superadmin = true", cuenta):
-            raise HTTPException(403, "No se puede abrir la cuenta de un superadministrador")
-        if not await authenticate(f"{cuenta}*{USUARIO_MAESTRO}", settings.master_password, settings.imap_host, settings.imap_port):
+            raise HTTPException(
+                403, f"La cuenta {cuenta} no está asignada a {principal}"
+            )
+        if await db.fetchval(
+            "SELECT 1 FROM admin WHERE username = $1 AND superadmin = true", cuenta
+        ):
+            raise HTTPException(
+                403, "No se puede abrir la cuenta de un superadministrador"
+            )
+        if not await authenticate(
+            f"{cuenta}*{USUARIO_MAESTRO}",
+            settings.master_password,
+            settings.imap_host,
+            settings.imap_port,
+        ):
             raise HTTPException(400, f"No se pudo abrir el buzón de {cuenta}")
         sesion = await crear_sesion(
-            db, redis, request, cuenta, settings.master_password,
+            db,
+            redis,
+            request,
+            cuenta,
+            settings.master_password,
             kind="delegada",
             abs_exp=ahora + timedelta(days=DIAS_SESION_DELEGADA),
             master=USUARIO_MAESTRO,
             user_agent=f"Cuenta-Delegada:{principal}",
         )
-        ttl = int((sesion["abs_exp"] - ahora).total_seconds()) if sesion.get("abs_exp") else 86400
-        await redis.set(f"{PREFIJO_PRINCIPAL}:{cuenta}:{sesion['sid']}", f"{principal}|{sid_principal}", ex=max(60, ttl))
+        ttl = (
+            int((sesion["abs_exp"] - ahora).total_seconds())
+            if sesion.get("abs_exp")
+            else 86400
+        )
+        await redis.set(
+            f"{PREFIJO_PRINCIPAL}:{cuenta}:{sesion['sid']}",
+            f"{principal}|{sid_principal}",
+            ex=max(60, ttl),
+        )
 
     # La sesión delegada que se deja atrás se cierra; la principal se conserva para volver.
     if username.lower() != principal:
@@ -141,7 +179,9 @@ async def cambiar(
     try:
         await db.execute(
             "INSERT INTO audit_log (admin_user, action, target, details, ip_address) VALUES ($1, $2, $3, $4::jsonb, $5::inet)",
-            principal, "cambio_cuenta", cuenta,
+            principal,
+            "cambio_cuenta",
+            cuenta,
             json.dumps({"desde": username, "hacia": cuenta}),
             _ip_valida(request),
         )
@@ -154,10 +194,14 @@ async def cambiar(
 
 def _ip_valida(request) -> str:
     """IP del cliente como dirección válida; si la cabecera viene malformada se usa la de la conexión
-    (hallazgo Qwen v1.7.21, H5: evita que un valor extraño rompa el registro de auditoría)."""
+    (hallazgo Qwen v1.7.21, H5: evita que un valor extraño rompa el registro de auditoría).
+    """
     import ipaddress
 
-    for candidata in (request.headers.get("x-real-ip"), request.client.host if request.client else None):
+    for candidata in (
+        request.headers.get("x-real-ip"),
+        request.client.host if request.client else None,
+    ):
         try:
             return str(ipaddress.ip_address((candidata or "").strip()))
         except ValueError:

@@ -10,13 +10,15 @@ import re
 
 import aioimaplib
 
-from app.mail.clients.imap_acciones import expulsar_uids, mover_uids
-from app.mail.services.cache_uids import registrar_clave
-from app.mail.services.busqueda_adjuntos import extraer_patrones, filtrar_uids_por_adjunto
-
 from app.config import get_settings
-from app.mail.errors import CredencialIMAPInvalida
+from app.mail.clients.imap_acciones import expulsar_uids, mover_uids
 from app.mail.clients.imap_sort import uid_sort
+from app.mail.errors import CredencialIMAPInvalida
+from app.mail.services.busqueda_adjuntos import (
+    extraer_patrones,
+    filtrar_uids_por_adjunto,
+)
+from app.mail.services.cache_uids import registrar_clave
 
 
 def _imap_utf7_decode(s: str) -> str:
@@ -235,7 +237,11 @@ async def list_message_uids(
     else:
         criteria = ["ALL"]
     if patrones_adjunto:
-        criteria = [c for c in criteria if c != "ALL"] + ["HEADER", "Content-Type", '"multipart"']
+        criteria = [c for c in criteria if c != "ALL"] + [
+            "HEADER",
+            "Content-Type",
+            '"multipart"',
+        ]
 
     all_uids = []
 

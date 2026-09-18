@@ -12,10 +12,22 @@ import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from app.dispositivos.esquemas import TIPOS_EVENTO, Acuse, Enrolamiento, Evento, Latido, ResultadoComando
 from app.dispositivos import ubicacion as _ubic
+from app.dispositivos.esquemas import (
+    TIPOS_EVENTO,
+    Acuse,
+    Enrolamiento,
+    Evento,
+    Latido,
+    ResultadoComando,
+)
 from app.dispositivos.seguridad import (
-    equipo_actual, hash_secreto, ip_cliente, limitar, limpiar_codigo, nuevo_token,
+    equipo_actual,
+    hash_secreto,
+    ip_cliente,
+    limitar,
+    limpiar_codigo,
+    nuevo_token,
 )
 
 logger = logging.getLogger("dispositivos")
@@ -26,7 +38,11 @@ POLITICA_BASE = {"version": 1, "latido_minutos": 15}
 
 def _push_info(pol: dict, topic):
     servidor = (pol.get("push") or {}).get("servidor")
-    return {"servidor": servidor, "tema": topic, "protocolo": "ntfy"} if servidor and topic else None
+    return (
+        {"servidor": servidor, "tema": topic, "protocolo": "ntfy"}
+        if servidor and topic
+        else None
+    )
 
 
 async def _politica(db) -> dict:
@@ -41,6 +57,7 @@ async def _custodio_de_sesion(request: Request) -> str | None:
     """Si el enrolamiento llega con la sesión de correo abierta, esa persona queda como custodia."""
     try:
         from app.auth.dependencies import get_current_user
+
         return await get_current_user(request)
     except Exception:
         return None
@@ -63,8 +80,15 @@ async def enrolar(request: Request, body: Enrolamiento):
             hash_secreto(limpiar_codigo(body.codigo)),
         )
         if codigo is None:
-            logger.warning("enrolamiento_rechazado | ip=%s | instalacion=%s", ip, body.id_instalacion)
-            raise HTTPException(403, "Código de enrolamiento no válido, agotado o caducado. Pídalo a Tecnología.")
+            logger.warning(
+                "enrolamiento_rechazado | ip=%s | instalacion=%s",
+                ip,
+                body.id_instalacion,
+            )
+            raise HTTPException(
+                403,
+                "Código de enrolamiento no válido, agotado o caducado. Pídalo a Tecnología.",
+            )
         # El modo lo decide el código (lo que autorizó Tecnología), no lo que diga el teléfono.
         modo = "limitado" if body.modo == "limitado" else codigo["modo"]
         # Un código autoservicio ya trae al custodio (el propio usuario que lo generó).
@@ -85,17 +109,35 @@ async def enrolar(request: Request, body: Enrolamiento):
                    ultimo_contacto = NOW(), ultima_ip = EXCLUDED.ultima_ip,
                    push_topic = COALESCE(disp_equipos.push_topic, EXCLUDED.push_topic)
                RETURNING id, nombre, push_topic""",
-            body.id_instalacion, hash_secreto(token), codigo["id"], modo, body.fabricante, body.modelo,
-            body.serie, body.imei, body.android, body.version_app, custodio, ip, topic,
+            body.id_instalacion,
+            hash_secreto(token),
+            codigo["id"],
+            modo,
+            body.fabricante,
+            body.modelo,
+            body.serie,
+            body.imei,
+            body.android,
+            body.version_app,
+            custodio,
+            ip,
+            topic,
         )
         await con.execute(
             "INSERT INTO disp_eventos (equipo_id, tipo, detalle) VALUES ($1, 'enrolado', $2::jsonb)",
-            equipo["id"], json.dumps({"modo": modo, "ip": ip, "custodio": custodio}),
+            equipo["id"],
+            json.dumps({"modo": modo, "ip": ip, "custodio": custodio}),
         )
-    logger.info("equipo_enrolado | id=%s | modo=%s | modelo=%s | ip=%s", equipo["id"], modo, body.modelo, ip)
+    logger.info(
+        "equipo_enrolado | id=%s | modo=%s | modelo=%s | ip=%s",
+        equipo["id"],
+        modo,
+        body.modelo,
+        ip,
+    )
     return {
         "id_equipo": equipo["id"],
-        "token_equipo": token,   # se entrega una sola vez; el servidor guarda solo su huella
+        "token_equipo": token,  # se entrega una sola vez; el servidor guarda solo su huella
         "modo": modo,
         "politica": await _politica(db),
         "push": _push_info(await _politica(db), equipo["push_topic"]),
@@ -108,7 +150,9 @@ async def latido(request: Request, body: Latido, equipo: dict = Depends(equipo_a
     ip = ip_cliente(request)
     await limitar(request, f"latido:{equipo['id']}", 30, 600)
     datos = body.model_dump(exclude_none=True)
-    datos.pop("ubicacion", None)   # la posición nunca queda en el JSON del latido: va a su tabla, y solo si procede
+    datos.pop(
+        "ubicacion", None
+    )  # la posición nunca queda en el JSON del latido: va a su tabla, y solo si procede
     async with db.acquire() as con, con.transaction():
         await con.execute(
             """UPDATE disp_equipos SET ultimo_contacto = NOW(), ultima_ip = $2,
@@ -118,15 +162,27 @@ async def latido(request: Request, body: Latido, equipo: dict = Depends(equipo_a
                    red = COALESCE($7, red), version_app = COALESCE($8, version_app),
                    android = COALESCE($9, android), play_protect = COALESCE($10, play_protect)
                WHERE id = $1""",
-            equipo["id"], ip, body.bateria, body.cargando, body.almacenamiento_libre,
-            body.almacenamiento_total, body.red, body.version_app, body.android, body.play_protect,
+            equipo["id"],
+            ip,
+            body.bateria,
+            body.cargando,
+            body.almacenamiento_libre,
+            body.almacenamiento_total,
+            body.red,
+            body.version_app,
+            body.android,
+            body.play_protect,
         )
         await con.execute(
             "INSERT INTO disp_latidos (equipo_id, ip, datos) VALUES ($1, $2, $3::jsonb)",
-            equipo["id"], ip, json.dumps(datos),
+            equipo["id"],
+            ip,
+            json.dumps(datos),
         )
         if body.ubicacion is not None:
-            await _ubic.guardar(con, equipo, [body.ubicacion], "periodica", ip, body.bateria)
+            await _ubic.guardar(
+                con, equipo, [body.ubicacion], "periodica", ip, body.bateria
+            )
         comandos = await con.fetch(
             "UPDATE disp_comandos SET estado = 'entregado', entregado_en = NOW() "
             "WHERE equipo_id = $1 AND estado = 'pendiente' RETURNING id, tipo, parametros",
@@ -144,36 +200,73 @@ async def latido(request: Request, body: Latido, equipo: dict = Depends(equipo_a
     await _ubic.limpieza_ocasional(db, pol)
     perdido = equipo["estado"] == "perdido"
     buscadas = await db.fetch(
-        "SELECT baliza_id FROM disp_equipos WHERE estado = 'perdido' AND baliza_id IS NOT NULL AND id <> $1 LIMIT 50", equipo["id"])
+        "SELECT baliza_id FROM disp_equipos WHERE estado = 'perdido' AND baliza_id IS NOT NULL AND id <> $1 LIMIT 50",
+        equipo["id"],
+    )
     return {
         "ubicacion_activa": _ubic.puede_guardar(equipo),
         "ubicacion_minutos": pol.get("ubicacion_minutos", 15),
-        "modo_perdido": ({"mensaje": equipo["perdido_mensaje"], "telefono": equipo["perdido_telefono"],
-                          "baliza_id": equipo["baliza_id"]} if perdido else None),
+        "modo_perdido": (
+            {
+                "mensaje": equipo["perdido_mensaje"],
+                "telefono": equipo["perdido_telefono"],
+                "baliza_id": equipo["baliza_id"],
+            }
+            if perdido
+            else None
+        ),
         "balizas_buscadas": [b["baliza_id"] for b in buscadas],
-        "respaldo": ({**pol.get("respaldo", {}), "activo": True} if equipo.get("respaldo_activo") else {"activo": False}),
+        "respaldo": (
+            {**pol.get("respaldo", {}), "activo": True}
+            if equipo.get("respaldo_activo")
+            else {"activo": False}
+        ),
         "comandos": [
-            {"id": c["id"], "tipo": c["tipo"],
-             "parametros": json.loads(c["parametros"]) if isinstance(c["parametros"], str) else c["parametros"]}
+            {
+                "id": c["id"],
+                "tipo": c["tipo"],
+                "parametros": (
+                    json.loads(c["parametros"])
+                    if isinstance(c["parametros"], str)
+                    else c["parametros"]
+                ),
+            }
             for c in comandos
         ],
         "mensajes": [
-            {"id": m["id"], "titulo": m["titulo"], "texto": m["texto"], "nivel": m["nivel"],
-             "requiere_acuse": m["requiere_acuse"], "creado_en": m["creado_en"].isoformat()}
+            {
+                "id": m["id"],
+                "titulo": m["titulo"],
+                "texto": m["texto"],
+                "nivel": m["nivel"],
+                "requiere_acuse": m["requiere_acuse"],
+                "creado_en": m["creado_en"].isoformat(),
+            }
             for m in mensajes
         ],
         "politica_version": pol.get("version", 1),
-        "latido_minutos": pol.get("latido_minutos_perdido", 5) if perdido else pol.get("latido_minutos", 15),
+        "latido_minutos": (
+            pol.get("latido_minutos_perdido", 5)
+            if perdido
+            else pol.get("latido_minutos", 15)
+        ),
     }
 
 
 @router.post("/comandos/{comando_id}/resultado")
-async def resultado_comando(comando_id: int, request: Request, body: ResultadoComando,
-                            equipo: dict = Depends(equipo_actual)):
+async def resultado_comando(
+    comando_id: int,
+    request: Request,
+    body: ResultadoComando,
+    equipo: dict = Depends(equipo_actual),
+):
     r = await request.app.state.db_pool.execute(
         "UPDATE disp_comandos SET estado = $3, terminado_en = NOW(), resultado = $4::jsonb "
         "WHERE id = $1 AND equipo_id = $2 AND estado IN ('entregado', 'pendiente')",
-        comando_id, equipo["id"], body.estado, json.dumps({"detalle": body.detalle}),
+        comando_id,
+        equipo["id"],
+        body.estado,
+        json.dumps({"detalle": body.detalle}),
     )
     if r.endswith(" 0"):
         raise HTTPException(404, "Comando no encontrado para este equipo")
@@ -181,11 +274,17 @@ async def resultado_comando(comando_id: int, request: Request, body: ResultadoCo
 
 
 @router.post("/mensajes/{mensaje_id}/acuse")
-async def acuse_mensaje(mensaje_id: int, request: Request, body: Acuse, equipo: dict = Depends(equipo_actual)):
+async def acuse_mensaje(
+    mensaje_id: int,
+    request: Request,
+    body: Acuse,
+    equipo: dict = Depends(equipo_actual),
+):
     r = await request.app.state.db_pool.execute(
         "UPDATE disp_mensajes_equipos SET leido_en = COALESCE(leido_en, NOW()), "
         "entregado_en = COALESCE(entregado_en, NOW()) WHERE mensaje_id = $1 AND equipo_id = $2",
-        mensaje_id, equipo["id"],
+        mensaje_id,
+        equipo["id"],
     )
     if r.endswith(" 0"):
         raise HTTPException(404, "Mensaje no encontrado para este equipo")
@@ -201,7 +300,9 @@ async def evento(request: Request, body: Evento, equipo: dict = Depends(equipo_a
         detalle = json.dumps({"truncado": True})
     await request.app.state.db_pool.execute(
         "INSERT INTO disp_eventos (equipo_id, tipo, detalle) VALUES ($1, $2, $3::jsonb)",
-        equipo["id"], tipo, detalle,
+        equipo["id"],
+        tipo,
+        detalle,
     )
     if tipo in ("admin_desactivado", "desinstalacion_intento", "sim_cambiada"):
         logger.warning("evento_seguridad | equipo=%s | tipo=%s", equipo["id"], tipo)
@@ -213,9 +314,14 @@ async def yo(request: Request, equipo: dict = Depends(equipo_actual)):
     """Lo que la app muestra en «Este equipo es de Maquita»."""
     pol = await _politica(request.app.state.db_pool)
     return {
-        "id_equipo": equipo["id"], "nombre": equipo["nombre"], "modo": equipo["modo"], "estado": equipo["estado"],
-        "custodio_email": equipo["custodio_email"], "custodio_nombre": equipo["custodio_nombre"],
-        "contacto_ti": pol.get("contacto_ti"), "telefono_ti": pol.get("telefono_ti"),
+        "id_equipo": equipo["id"],
+        "nombre": equipo["nombre"],
+        "modo": equipo["modo"],
+        "estado": equipo["estado"],
+        "custodio_email": equipo["custodio_email"],
+        "custodio_nombre": equipo["custodio_nombre"],
+        "contacto_ti": pol.get("contacto_ti"),
+        "telefono_ti": pol.get("telefono_ti"),
         "aviso_privacidad": pol.get("aviso_privacidad"),
         "ubicacion_activa": _ubic.puede_guardar(equipo),
         "push": _push_info(pol, equipo.get("push_topic")),

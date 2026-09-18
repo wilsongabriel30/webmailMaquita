@@ -49,7 +49,9 @@ def _cifrador() -> AESGCM:
 def comprobar() -> None:
     _cifrador()
     if not raiz().is_dir() or not os.access(raiz(), os.W_OK):
-        raise AlmacenNoDisponible(f"El almacén de respaldos no está montado o no se puede escribir: {raiz()}")
+        raise AlmacenNoDisponible(
+            f"El almacén de respaldos no está montado o no se puede escribir: {raiz()}"
+        )
 
 
 _CARPETA_OK = __import__("re").compile(r"^[A-Za-z0-9._-]{1,80}$")
@@ -97,13 +99,19 @@ def anexar(carpeta_eq: str, sha: str, offset: int, datos: bytes) -> None:
             raise Desfase("el archivo guardado no coincide con el offset")
         with open(p, "rb") as g:
             cab = g.read(CABECERA)
-        prefijo = cab[len(MAGIA):]
+        prefijo = cab[len(MAGIA) :]
         f = open(p, "ab")
     c = _cifrador()
     with f:
         k = offset // TRAMA
         for i in range(0, len(datos), TRAMA):
-            f.write(c.encrypt(prefijo + k.to_bytes(4, "big"), datos[i:i + TRAMA], _datos_asociados(sha, k)))
+            f.write(
+                c.encrypt(
+                    prefijo + k.to_bytes(4, "big"),
+                    datos[i : i + TRAMA],
+                    _datos_asociados(sha, k),
+                )
+            )
             k += 1
         f.flush()
         os.fsync(f.fileno())
@@ -114,16 +122,18 @@ def leer(carpeta_eq: str, sha: str, desde: int = 0):
     c = _cifrador()
     with open(ruta(carpeta_eq, sha), "rb") as f:
         cab = f.read(CABECERA)
-        if cab[:len(MAGIA)] != MAGIA:
+        if cab[: len(MAGIA)] != MAGIA:
             raise ValueError("objeto con formato desconocido")
-        prefijo = cab[len(MAGIA):]
+        prefijo = cab[len(MAGIA) :]
         k = desde // TRAMA
         f.seek(CABECERA + k * (TRAMA + ETIQUETA))
         while True:
             bloque = f.read(TRAMA + ETIQUETA)
             if not bloque:
                 return
-            yield c.decrypt(prefijo + k.to_bytes(4, "big"), bloque, _datos_asociados(sha, k))
+            yield c.decrypt(
+                prefijo + k.to_bytes(4, "big"), bloque, _datos_asociados(sha, k)
+            )
             k += 1
 
 

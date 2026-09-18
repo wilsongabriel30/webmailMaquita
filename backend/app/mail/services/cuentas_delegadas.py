@@ -31,7 +31,7 @@ def separar(folder: str | None) -> tuple[str | None, str]:
     """'Compartidos,ventas@x.com,INBOX' -> ('ventas@x.com', 'INBOX'). Sin prefijo -> (None, folder)."""
     if not folder or not folder.startswith(PREFIJO):
         return None, folder or ""
-    resto = folder[len(PREFIJO):]
+    resto = folder[len(PREFIJO) :]
     cuenta, _, carpeta = resto.partition(SEP)
     cuenta = cuenta.strip().lower()
     if "@" not in cuenta:
@@ -72,7 +72,8 @@ async def puede_usar(db, username: str, cuenta: str, para_enviar: bool = False) 
     fila = await db.fetchrow(
         "SELECT can_send_as FROM mail_delegation d JOIN mailbox m ON m.username = d.mailbox AND m.active "
         "WHERE lower(d.mailbox) = lower($1) AND lower(d.delegate) = lower($2)",
-        cuenta, username,
+        cuenta,
+        username,
     )
     if not fila:
         return False
@@ -94,7 +95,11 @@ async def cuenta_de_la_peticion(request, username: str) -> str | None:
     if cache != "sin-calcular":
         return cache
     cuenta = None
-    folder = (request.path_params or {}).get("folder") if hasattr(request, "path_params") else None
+    folder = (
+        (request.path_params or {}).get("folder")
+        if hasattr(request, "path_params")
+        else None
+    )
     posible, _ = separar(folder)
     if posible:
         db = request.app.state.db_pool
@@ -103,7 +108,9 @@ async def cuenta_de_la_peticion(request, username: str) -> str | None:
             # que el nombre se traduzca y termine abriendo la carpeta propia del mismo nombre.
             from fastapi import HTTPException
 
-            raise HTTPException(status_code=403, detail=f"No tienes acceso a la cuenta {posible}")
+            raise HTTPException(
+                status_code=403, detail=f"No tienes acceso a la cuenta {posible}"
+            )
         cuenta = posible
     request.state.cuenta_delegada = cuenta
     return cuenta

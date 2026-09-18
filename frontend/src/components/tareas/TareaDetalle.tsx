@@ -37,7 +37,7 @@ export function TareaDetalle({ tarea, yo, onCerrar, onCambio }: Props) {
   const ejecutar = async (fn: () => Promise<Tarea | void>) => {
     setOcupado(true); setError('');
     try { const t = await fn(); if (t) onCambio(t); window.dispatchEvent(new CustomEvent('refresh-tareas')); }
-    catch (e: any) { setError(e.message || 'No se pudo'); }
+    catch (e) { setError(e instanceof Error && e.message ? e.message : 'No se pudo'); }
     finally { setOcupado(false); }
   };
   const comentar = () => ejecutar(async () => { await tareasApi.comentar(tarea.id, texto); setTexto(''); setComentarios(await tareasApi.comentarios(tarea.id)); });

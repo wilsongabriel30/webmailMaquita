@@ -263,6 +263,7 @@ async def move(
     await invalidar_uids(request.app.state.redis, username, folder, body.dest_folder)
     return {"status": "moved"}
 
+
 @router.post("/flags/{folder}/{uid}")
 async def update_flags(
     folder: str,
@@ -311,6 +312,7 @@ async def remove_message(
         )
     await invalidar_uids(request.app.state.redis, username, folder)
     return {"status": "deleted"}
+
 
 @router.post("/bulk-action/{folder}")
 async def bulk_action(

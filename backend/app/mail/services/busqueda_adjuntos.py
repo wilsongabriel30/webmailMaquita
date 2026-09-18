@@ -12,14 +12,43 @@ Operadores en la barra: `adjunto:factura` (nombre) y `adjunto:.pdf` o `adjunto:p
 import re
 from email.header import decode_header, make_header
 
-_RE_TOKEN = re.compile(r'(?:^|\s)(?:adjunto|archivo|attachment|ext|extension|extensión):(?:"([^"]+)"|(\S+))', re.I)
-_RE_NOMBRE = re.compile(r'\((?:"(?:NAME|FILENAME)\*?"|(?:NAME|FILENAME)\*?)\s+"((?:[^"\\]|\\.)*)"', re.I)
+_RE_TOKEN = re.compile(
+    r'(?:^|\s)(?:adjunto|archivo|attachment|ext|extension|extensión):(?:"([^"]+)"|(\S+))',
+    re.I,
+)
+_RE_NOMBRE = re.compile(
+    r'\((?:"(?:NAME|FILENAME)\*?"|(?:NAME|FILENAME)\*?)\s+"((?:[^"\\]|\\.)*)"', re.I
+)
 _RE_UID = re.compile(r"\b(\d+) FETCH \(UID (\d+)\b")
 _EXTENSIONES_CONOCIDAS = {
-    "pdf", "zip", "rar", "7z", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "csv", "txt", "jpg",
-    "jpeg", "png", "gif", "xml", "json", "odt", "ods", "odp", "mp3", "mp4", "eml", "ics", "vcf",
+    "pdf",
+    "zip",
+    "rar",
+    "7z",
+    "doc",
+    "docx",
+    "xls",
+    "xlsx",
+    "ppt",
+    "pptx",
+    "csv",
+    "txt",
+    "jpg",
+    "jpeg",
+    "png",
+    "gif",
+    "xml",
+    "json",
+    "odt",
+    "ods",
+    "odp",
+    "mp3",
+    "mp4",
+    "eml",
+    "ics",
+    "vcf",
 }
-TOPE_CANDIDATOS = 4000   # se revisan como mucho los 4000 más recientes
+TOPE_CANDIDATOS = 4000  # se revisan como mucho los 4000 más recientes
 TANDA = 250
 
 
@@ -34,7 +63,9 @@ def extraer_patrones(query: str) -> tuple[str, list[str]]:
     def quitar(m: re.Match) -> str:
         valor = (m.group(1) or m.group(2) or "").strip().lower()
         if not valor or valor in ("si", "sí", "yes"):
-            return m.group(0)  # «adjunto:si» lo trata el analizador normal (con adjuntos)
+            return m.group(
+                0
+            )  # «adjunto:si» lo trata el analizador normal (con adjuntos)
         patrones.append(valor)
         return " "
 
@@ -52,6 +83,7 @@ def _decodificar(nombre: str) -> str:
     # RFC 2231: utf-8''nombre%20con%20espacios
     if "''" in nombre:
         from urllib.parse import unquote
+
         return unquote(nombre.split("''", 1)[1])
     return nombre
 
@@ -79,22 +111,30 @@ def coincide(nombres: list[str], patrones: list[str]) -> bool:
     return True
 
 
-async def filtrar_uids_por_adjunto(imap, uids: list[int], patrones: list[str]) -> list[int]:
+async def filtrar_uids_por_adjunto(
+    imap, uids: list[int], patrones: list[str]
+) -> list[int]:
     """Conserva, en el mismo orden, los UIDs con algún adjunto que cumpla los patrones."""
     if not patrones or not uids:
         return uids
     candidatos = uids[:TOPE_CANDIDATOS]
     resultado: list[int] = []
     for i in range(0, len(candidatos), TANDA):
-        tanda = candidatos[i:i + TANDA]
+        tanda = candidatos[i : i + TANDA]
         try:
-            resp = await imap.uid("fetch", ",".join(str(u) for u in tanda), "(BODYSTRUCTURE)")
+            resp = await imap.uid(
+                "fetch", ",".join(str(u) for u in tanda), "(BODYSTRUCTURE)"
+            )
         except Exception:
             continue
         if resp.result != "OK":
             continue
         texto = "\n".join(
-            (l.decode("utf-8", "replace") if isinstance(l, (bytes, bytearray)) else str(l))
+            (
+                l.decode("utf-8", "replace")
+                if isinstance(l, (bytes, bytearray))
+                else str(l)
+            )
             for l in resp.lines
         )
         # Cada respuesta empieza por «<seq> FETCH (UID <uid> …»; lo que sigue es su estructura.
