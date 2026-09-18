@@ -7,6 +7,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Cambiado
+- La app propia de Maquita es un cliente de confianza para la política de verificación en dos pasos: no obliga a configurarla (el correo web sí, como hasta ahora). Se distingue por el agente de usuario.
+
 ### Añadido
 - Configuración → «Mi teléfono»: cada usuario genera desde el correo web un código de un solo uso para activar la sección «Mi equipo» de la app en su propio teléfono (modo limitado, queda como custodio). Solo uno activo por persona; no da acceso al correo.
 
