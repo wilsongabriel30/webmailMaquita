@@ -11,6 +11,8 @@ export interface Equipo {
   enrolado_en: string; ultimo_contacto?: string; ultima_ip?: string; bateria?: number; cargando?: boolean;
   almacenamiento_libre?: number; almacenamiento_total?: number; red?: string; play_protect?: boolean;
   revocado_en?: string; revocado_motivo?: string; depreciacion?: Depreciacion | null;
+  ubicacion_autorizada?: boolean; politica_firmada_en?: string;
+  perdido_en?: string; perdido_motivo?: string; perdido_mensaje?: string; perdido_telefono?: string;
 }
 export interface Evento { id: number; tipo: string; detalle: Record<string, unknown>; recibido_en: string; visto_por?: string; visto_en?: string }
 export interface Latido { recibido_en: string; ip?: string; datos: Record<string, unknown> }

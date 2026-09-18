@@ -50,7 +50,8 @@ async def equipo_actual(request: Request) -> dict:
     if not cab.lower().startswith("bearer ") or len(cab) < 30:
         raise HTTPException(401, "Falta el token del equipo")
     fila = await request.app.state.db_pool.fetchrow(
-        "SELECT id, estado, modo, nombre, custodio_email, custodio_nombre FROM disp_equipos WHERE token_hash = $1",
+        "SELECT id, estado, modo, nombre, custodio_email, custodio_nombre, ubicacion_autorizada, baliza_id, "
+        "perdido_mensaje, perdido_telefono FROM disp_equipos WHERE token_hash = $1",
         hash_secreto(cab[7:].strip()),
     )
     if fila is None:
