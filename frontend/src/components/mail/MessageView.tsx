@@ -1,4 +1,5 @@
 import { BotonAsignarCorreo } from '../tareas/BotonAsignarCorreo';
+import { AccionesCorreoNoDeseado } from './AccionesCorreoNoDeseado';
 import SafeEmailViewer from './SafeEmailViewer';
 import { useCabeceraPlegable } from '../../hooks/useCabeceraPlegable';
 import { sanitizeHtml } from '../../lib/sanitize';
@@ -1233,6 +1234,7 @@ const MessageView: React.FC = () => {
               </svg>
               Reenviar
             </button>
+            <AccionesCorreoNoDeseado folder={currentFolder} uid={msg.uid} from={msg.from || (msg as MessageFull).from_addr || ''} estilo={actionBtnStyle} />
             <BotonAsignarCorreo estilo={actionBtnStyle} correo={{ folder: currentFolder, uid: msg.uid, subject: msg.subject, from: msg.from || (msg as MessageFull).from_addr || '' }} />
             <button style={{ ...actionBtnStyle, marginLeft: 'auto', color: '#8764b8' }} onClick={handleSmartReply} disabled={loadingReplies}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
@@ -1578,6 +1580,7 @@ const MessageView: React.FC = () => {
             </svg>
             Reenviar
           </button>
+          <AccionesCorreoNoDeseado folder={currentFolder} uid={msg.uid} from={msg.from || (msg as MessageFull).from_addr || ''} estilo={actionBtnStyle} />
           <button style={{ ...actionBtnStyle, marginLeft: 'auto', color: '#8764b8' }} onClick={handleSmartReply} disabled={loadingReplies}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
             {loadingReplies ? 'Generando...' : 'Respuesta IA'}
