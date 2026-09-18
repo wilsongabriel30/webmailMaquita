@@ -7,7 +7,9 @@ from pydantic import BaseModel, Field
 
 class Enrolamiento(BaseModel):
     codigo: str = Field(..., min_length=8, max_length=64)
-    id_instalacion: str = Field(..., min_length=8, max_length=80, pattern=r"^[A-Za-z0-9._:-]+$")
+    id_instalacion: str = Field(
+        ..., min_length=8, max_length=80, pattern=r"^[A-Za-z0-9._:-]+$"
+    )
     modo: Literal["propietario", "limitado"] = "limitado"
     fabricante: Optional[str] = Field(None, max_length=80)
     modelo: Optional[str] = Field(None, max_length=120)
@@ -48,7 +50,7 @@ class Acuse(BaseModel):
 
 TIPOS_EVENTO = (
     "arranque",
-    "admin_desactivado",       # alguien quitó a la app como administradora del dispositivo
+    "admin_desactivado",  # alguien quitó a la app como administradora del dispositivo
     "desinstalacion_intento",
     "permiso_revocado",
     "sim_cambiada",

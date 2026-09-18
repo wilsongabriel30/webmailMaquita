@@ -22,7 +22,7 @@ async def ask(db, question: str, days: int = 7) -> dict:
     except Exception:
         return {"answer": "IA no disponible.", "context": ctx}
     prompt = (
-        f"<datos periodo=\"{days} días\">\n"
+        f'<datos periodo="{days} días">\n'
         f"{json.dumps(ctx, ensure_ascii=False, default=str)}\n"
         "</datos>\n\n"
         f"<pregunta>\n{question}\n</pregunta>\n\n"

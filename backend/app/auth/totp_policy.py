@@ -37,7 +37,9 @@ async def get_policy(db) -> dict:
 
 
 @router.get("/status")
-async def status(request: Request, response: Response, username: str = Depends(get_current_user)):
+async def status(
+    request: Request, response: Response, username: str = Depends(get_current_user)
+):
     db = request.app.state.db_pool
     pol = await get_policy(db)
     try:
@@ -54,7 +56,9 @@ async def status(request: Request, response: Response, username: str = Depends(g
         )
     # La app propia de Maquita es un cliente de confianza: no fuerza configurar el segundo factor
     # (se identifica en el agente de usuario). El correo web sí lo pide como hasta ahora.
-    response.headers["Cache-Control"] = "no-store"   # nunca cachear: si cambia la política, se aplica al instante
+    response.headers["Cache-Control"] = (
+        "no-store"  # nunca cachear: si cambia la política, se aplica al instante
+    )
     es_app = "MaquitaMail" in (request.headers.get("user-agent", "") or "")
     must_enroll = pol["required"] and not enrolled and not es_app
     return {

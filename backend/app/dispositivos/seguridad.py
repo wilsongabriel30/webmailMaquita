@@ -26,7 +26,9 @@ def limpiar_codigo(codigo: str) -> str:
 
 
 def ip_cliente(request: Request) -> str:
-    ip = request.headers.get("X-Real-IP") or (request.client.host if request.client else "")
+    ip = request.headers.get("X-Real-IP") or (
+        request.client.host if request.client else ""
+    )
     return ip[:64]
 
 

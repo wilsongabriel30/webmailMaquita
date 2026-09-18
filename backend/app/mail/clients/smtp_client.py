@@ -176,9 +176,15 @@ def build_mime_message(email_data: OutgoingEmail) -> MIMEMultipart:
                     img_part.add_header("Content-ID", f"<{att.cid}>")
                     # Inline con nombre: Outlook, Gmail y Apple Mail la muestran dentro del
                     # texto y no como archivo para descargar (16/09/2026).
-                    ext = (att.content_type.split("/", 1)[1] if "/" in att.content_type else "png").split("+")[0]
+                    ext = (
+                        att.content_type.split("/", 1)[1]
+                        if "/" in att.content_type
+                        else "png"
+                    ).split("+")[0]
                     nombre = att.filename or f"imagen-{n_inline}.{ext}"
-                    img_part.add_header("Content-Disposition", "inline", filename=nombre)
+                    img_part.add_header(
+                        "Content-Disposition", "inline", filename=nombre
+                    )
                     related.attach(img_part)
             body_part.attach(related)
         else:
