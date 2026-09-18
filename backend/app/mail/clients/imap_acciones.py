@@ -26,7 +26,9 @@ async def expulsar_uids(imap: aioimaplib.IMAP4, uid_set: str) -> None:
     await imap.expunge()
 
 
-async def mover_uids(imap: aioimaplib.IMAP4, uid_set: str, destino_entrecomillado: str) -> bool:
+async def mover_uids(
+    imap: aioimaplib.IMAP4, uid_set: str, destino_entrecomillado: str
+) -> bool:
     """Mueve los UIDs a la carpeta destino (ya entrecomillada). Carpeta origen ya seleccionada."""
     if "MOVE" in _capacidades(imap):
         try:

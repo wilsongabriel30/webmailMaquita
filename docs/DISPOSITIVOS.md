@@ -8,7 +8,7 @@ cada equipo, mensajes urgentes con acuse de lectura y eventos de seguridad. Las 
 |---|---|---|
 | API de los teléfonos | `backend/app/dispositivos/` (`/api/dispositivos/*` del webmail) | Enrolamiento con código, latidos, entrega de comandos y mensajes, acuses, eventos |
 | Administración | `admin-panel/backend/app/dispositivos/` y `admin-panel/frontend/src/pages/Dispositivos.tsx` | Equipos, ficha de inventario y depreciación, códigos de enrolamiento, mensajes urgentes |
-| Datos | `migrations/2026-09-18-dispositivos.sql` (tablas `disp_*`) | — |
+| Datos | `migrations/2026-09-18-01-dispositivos.sql` (tablas `disp_*`) | — |
 
 ## Seguridad
 - **Código de enrolamiento** = contraseña de instalación. Lo crea un administrador del panel, se
@@ -95,7 +95,7 @@ Ficha del equipo → bloque **Pérdida o robo** (declarar perdido / recuperado, 
 bloquear, borrado remoto, estado de cada comando) y bloque **Ubicación** (activar con fecha de firma,
 consultar con motivo, mapa de OpenStreetMap sin librerías, historial con origen de cada punto).
 Backend del panel: `admin-panel/backend/app/dispositivos/perdido.py`. Migración:
-`migrations/2026-09-18-dispositivos-fase2.sql`.
+`migrations/2026-09-18-02-dispositivos-fase2.sql`.
 
 # Fase 3 — respaldos
 
@@ -141,7 +141,7 @@ Ficha del equipo → **Respaldos**: último completo, respaldo de cierre, ocupac
 ahora», «Pedir respaldo de cierre», activar/desactivar, tabla de instantáneas con totales por categoría y
 autorización de restauración desde otro equipo. Backend: `admin-panel/backend/app/dispositivos/respaldos.py`.
 Servidor: `backend/app/dispositivos/{respaldos,objetos,respaldos_mantenimiento}.py`, migración
-`2026-09-18-dispositivos-fase3.sql`, unidades systemd con `ReadWritePaths=-/mnt/almacen/.respaldo-movil`.
+`2026-09-18-03-dispositivos-fase3.sql`, unidades systemd con `ReadWritePaths=-/mnt/almacen/.respaldo-movil`.
 
 # Fase 4 — aplicaciones, reasignación y destino del respaldo
 
@@ -177,7 +177,7 @@ en la reasignación o en la ficha. `PUT /api/dispositivos/equipos/{id}/respaldo-
 - Ficha del equipo: bloque **Aplicaciones** (con las de riesgo primero y desinstalación en control
   completo), **Custodia y reasignación** (historial y reasignar) y la carpeta de respaldo en **Respaldos**.
 Backend: `admin-panel/backend/app/dispositivos/{apps_panel,custodia}.py`; servidor:
-`backend/app/dispositivos/apps.py`; migración `2026-09-18-dispositivos-fase4.sql`.
+`backend/app/dispositivos/apps.py`; migración `2026-09-18-04-dispositivos-fase4.sql`.
 
 # Mejora transversal — avisos push nativos (ntfy autoalojado, sin Google)
 

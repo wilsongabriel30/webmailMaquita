@@ -40,7 +40,9 @@ def adjuntos_desde_peticion(atts) -> list[EmailAttachment]:
     return resultado
 
 
-async def adjuntos_del_borrador_anterior(imap, uid: int, carpeta: str = "Drafts") -> list[EmailAttachment]:
+async def adjuntos_del_borrador_anterior(
+    imap, uid: int, carpeta: str = "Drafts"
+) -> list[EmailAttachment]:
     """Devuelve los adjuntos (no incrustados) del borrador guardado con ese UID.
 
     Nota para revisores: `imap` es la sesion IMAP de la propia persona (o de la cuenta delegada ya

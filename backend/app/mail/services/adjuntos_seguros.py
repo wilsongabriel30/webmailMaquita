@@ -11,21 +11,56 @@ from fastapi import HTTPException
 
 EXTENSIONES_PELIGROSAS = {
     # ejecutables y bibliotecas
-    "exe", "dll", "com", "scr", "pif", "msi", "msp", "cpl", "sys", "drv",
+    "exe",
+    "dll",
+    "com",
+    "scr",
+    "pif",
+    "msi",
+    "msp",
+    "cpl",
+    "sys",
+    "drv",
     # scripts y automatizaciones
-    "bat", "cmd", "ps1", "psm1", "vbs", "vbe", "js", "jse", "wsf", "wsh", "hta",
-    "jar", "reg", "lnk", "sh", "app", "apk", "gadget", "inf", "scf", "url",
+    "bat",
+    "cmd",
+    "ps1",
+    "psm1",
+    "vbs",
+    "vbe",
+    "js",
+    "jse",
+    "wsf",
+    "wsh",
+    "hta",
+    "jar",
+    "reg",
+    "lnk",
+    "sh",
+    "app",
+    "apk",
+    "gadget",
+    "inf",
+    "scf",
+    "url",
     # contenedores que se montan o abren solos y datos binarios sin tipo
-    "iso", "img", "vhd", "vhdx", "dat",
+    "iso",
+    "img",
+    "vhd",
+    "vhdx",
+    "dat",
 }
 
 
-_INVISIBLES = re.compile(r"[\u200b-\u200f\u2028-\u202f\u2060-\u206f\ufeff\x00-\x1f\x7f]")
+_INVISIBLES = re.compile(
+    r"[\u200b-\u200f\u2028-\u202f\u2060-\u206f\ufeff\x00-\x1f\x7f]"
+)
 
 
 def extension_de(nombre: str) -> str:
     """Extensión final en minúsculas, tras normalizar Unicode (NFKC) y quitar caracteres
-    invisibles o de control con los que se intenta disfrazar la extensión (hallazgo Qwen H2)."""
+    invisibles o de control con los que se intenta disfrazar la extensión (hallazgo Qwen H2).
+    """
     nombre = unicodedata.normalize("NFKC", nombre or "")
     nombre = _INVISIBLES.sub("", nombre).strip().lower().rstrip(". ")
     return nombre.rsplit(".", 1)[-1] if "." in nombre else ""

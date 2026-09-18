@@ -32,7 +32,9 @@ def _generar() -> tuple[str, str, str]:
 async def _equipos_del_usuario(db, username: str) -> list[dict]:
     filas = await db.fetch(
         "SELECT id, nombre, modelo, fabricante, estado, modo, ultimo_contacto FROM disp_equipos "
-        "WHERE custodio_email = $1 AND estado <> 'baja' ORDER BY enrolado_en DESC", username)
+        "WHERE custodio_email = $1 AND estado <> 'baja' ORDER BY enrolado_en DESC",
+        username,
+    )
     return [dict(f) for f in filas]
 
 
@@ -43,11 +45,14 @@ async def estado(request: Request, username: str = Depends(get_current_user)):
         "SELECT prefijo, caduca_en, usos, usos_max FROM disp_codigos "
         "WHERE custodio_email = $1 AND autoservicio = true AND revocado_en IS NULL "
         "AND usos < usos_max AND (caduca_en IS NULL OR caduca_en > NOW()) ORDER BY creado_en DESC LIMIT 1",
-        username)
+        username,
+    )
     return {
         "tiene_codigo_activo": activo is not None,
         "prefijo": activo["prefijo"] if activo else None,
-        "caduca_en": activo["caduca_en"].isoformat() if activo and activo["caduca_en"] else None,
+        "caduca_en": (
+            activo["caduca_en"].isoformat() if activo and activo["caduca_en"] else None
+        ),
         "equipos": await _equipos_del_usuario(db, username),
     }
 
@@ -60,19 +65,30 @@ async def generar(request: Request, username: str = Depends(get_current_user)):
         # Uno activo por persona: se revoca el anterior antes de dar el nuevo.
         await con.execute(
             "UPDATE disp_codigos SET revocado_en = NOW() WHERE custodio_email = $1 AND autoservicio = true AND revocado_en IS NULL",
-            username)
+            username,
+        )
         fila = await con.fetchrow(
             "INSERT INTO disp_codigos (codigo_hash, prefijo, etiqueta, modo, usos_max, creado_por, autoservicio, "
             "custodio_email, caduca_en) VALUES ($1,$2,$3,'limitado',1,$4,true,$4, NOW() + make_interval(hours => $5)) "
             "RETURNING id, caduca_en",
-            hashlib.sha256(junto.encode()).hexdigest(), prefijo, "Autoservicio (mi teléfono)", username, HORAS_VALIDEZ)
+            hashlib.sha256(junto.encode()).hexdigest(),
+            prefijo,
+            "Autoservicio (mi teléfono)",
+            username,
+            HORAS_VALIDEZ,
+        )
     logger.info("codigo_autoservicio | user=%s | id=%s", username, fila["id"])
-    return {"codigo": claro, "caduca_en": fila["caduca_en"].isoformat(), "horas": HORAS_VALIDEZ}
+    return {
+        "codigo": claro,
+        "caduca_en": fila["caduca_en"].isoformat(),
+        "horas": HORAS_VALIDEZ,
+    }
 
 
 @router.delete("")
 async def revocar(request: Request, username: str = Depends(get_current_user)):
     await request.app.state.db_pool.execute(
         "UPDATE disp_codigos SET revocado_en = NOW() WHERE custodio_email = $1 AND autoservicio = true AND revocado_en IS NULL",
-        username)
+        username,
+    )
     return {"ok": True}

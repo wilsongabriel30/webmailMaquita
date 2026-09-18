@@ -26,7 +26,10 @@ async def get_user_password(request: Request, username: str) -> str:
     Lanza HTTP 401 si la sesión expiró (no hay key en Redis).
     """
     # Cuenta delegada (Compartidos/<cuenta>/...): se abre con el usuario maestro.
-    from app.mail.services.cuentas_delegadas import credenciales_maestras, cuenta_de_la_peticion
+    from app.mail.services.cuentas_delegadas import (
+        credenciales_maestras,
+        cuenta_de_la_peticion,
+    )
 
     cuenta = await cuenta_de_la_peticion(request, username)
     if cuenta:
@@ -79,7 +82,10 @@ async def get_imap_login_user(request: Request, username: str) -> str:
     impersonación y la key quedó stale. En ese caso se limpia automáticamente
     para evitar que IMAP intente user*admin con la contraseña personal (→ 500).
     """
-    from app.mail.services.cuentas_delegadas import credenciales_maestras, cuenta_de_la_peticion
+    from app.mail.services.cuentas_delegadas import (
+        credenciales_maestras,
+        cuenta_de_la_peticion,
+    )
 
     cuenta = await cuenta_de_la_peticion(request, username)
     if cuenta:
