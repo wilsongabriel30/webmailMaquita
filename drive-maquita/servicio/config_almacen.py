@@ -9,6 +9,24 @@ Autoría: Equipo de Tecnología Maquita — 2026-07-03
 import logging
 import os
 
+
+def _cargar_entorno_local():
+    """Lee <raíz del almacén>/.env (CLAVE=valor; fuera de git, modo 600).
+    Las contraseñas NO se escriben en el código: este archivo se versiona."""
+    ruta = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
+    try:
+        with open(ruta, encoding='utf-8') as f:
+            for linea in f:
+                linea = linea.strip()
+                if linea and not linea.startswith('#') and '=' in linea:
+                    k, v = linea.split('=', 1)
+                    os.environ.setdefault(k.strip(), v.strip())
+    except OSError:
+        pass
+
+
+_cargar_entorno_local()
+
 # ── Disco ────────────────────────────────────────────────────────────────
 # Raíz donde viven los archivos: <raiz>/<usuario_id>/archivos|papelera|retencion|versiones
 # El valor por defecto (env) es el arranque; el master puede CAMBIARLO en caliente desde
@@ -87,7 +105,7 @@ BD = {
     'host': os.getenv('ALMACEN_DB_HOST', '193.16.0.132'),
     'dbname': os.getenv('ALMACEN_DB_NAME', 'almacen'),
     'user': os.getenv('ALMACEN_DB_USER', 'sistemas'),
-    'password': os.getenv('ALMACEN_DB_PASSWORD', 'Csimcchg2025.'),
+    'password': os.getenv('ALMACEN_DB_PASSWORD', ''),
 }
 
 # Base de nómina (solo LECTURA: búsqueda de usuarios para compartir)
@@ -95,7 +113,7 @@ BD_NOMINA = {
     'host': os.getenv('NOMINA_DB_HOST', '193.16.0.132'),
     'dbname': os.getenv('NOMINA_DB_NAME', 'nomina'),
     'user': os.getenv('NOMINA_DB_USER', 'sistemas'),
-    'password': os.getenv('NOMINA_DB_PASSWORD', 'Csimcchg2025.'),
+    'password': os.getenv('NOMINA_DB_PASSWORD', ''),
 }
 
 # ── Límites ──────────────────────────────────────────────────────────────
