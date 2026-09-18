@@ -682,6 +682,21 @@ export function MessageList() {
     } catch { showToast('No se pudo completar la accion'); }
     window.dispatchEvent(new CustomEvent('refresh-messages'));
   };
+  const confiarRemitenteCtx = async (msg: MessageSummary) => {
+    const from = msg.from || '';
+    const m = from.match(/<([^>]+)>/);
+    const correo = (m ? m[1] : from).trim().toLowerCase();
+    if (!correo.includes('@')) { showToast('No se pudo leer el remitente'); return; }
+    try {
+      await api.post('/mail/remitentes-confiables', { correo });
+      if (currentFolder === 'Junk' || currentFolder === 'Spam') {
+        quitarDeLista(msg.uid);
+        await api.post('/mail/spam/not-spam', { folder: currentFolder, uid: msg.uid }).catch(() => { });
+      }
+      showToast(`${correo} en confianza — sus correos iran siempre a la Bandeja`);
+    } catch (e: any) { showToast(e?.message || 'No se pudo confiar en el remitente'); }
+    window.dispatchEvent(new CustomEvent('refresh-messages'));
+  };
   const bloquearRemitenteCtx = async (msg: MessageSummary) => {
     const from = msg.from || '';
     const m = from.match(/<([^>]+)>/);
@@ -723,6 +738,9 @@ export function MessageList() {
     (currentFolder === 'Junk' || currentFolder === 'Spam')
       ? { label: 'No es spam', icon: moveIcon, onClick: () => marcarNoDeseadoCtx(msg, true) }
       : { label: 'Marcar como no deseado', icon: moveIcon, onClick: () => marcarNoDeseadoCtx(msg, false) },
+    ...(currentFolder === 'Junk' || currentFolder === 'Spam'
+      ? [{ label: 'Confiar en este remitente', icon: moveIcon, onClick: () => confiarRemitenteCtx(msg) }]
+      : []),
     { label: 'Bloquear remitente', icon: deleteIcon, onClick: () => bloquearRemitenteCtx(msg) },
     { label: '', icon: '', onClick: () => {}, divider: true },
     { label: 'Eliminar', icon: deleteIcon, onClick: () => quickAction(msg.uid, currentFolder === 'Trash' ? 'delete' : 'move', 'Trash'), danger: true },
