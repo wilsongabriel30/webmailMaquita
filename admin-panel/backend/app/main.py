@@ -38,6 +38,7 @@ from app.portales.router import router as portales_router
 from app.dispositivos.router import router as dispositivos_router
 from app.dispositivos.mensajes import router as dispositivos_mensajes_router
 from app.dispositivos.perdido import router as dispositivos_perdido_router
+from app.dispositivos.respaldos import router as dispositivos_respaldos_router
 from app import config
 from app.ai_config.router import router as ai_config_router
 from app.office_config.router import router as office_config_router
@@ -179,6 +180,7 @@ app.include_router(branding_router)
 app.include_router(portales_router)
 app.include_router(dispositivos_mensajes_router)
 app.include_router(dispositivos_perdido_router)
+app.include_router(dispositivos_respaldos_router)
 app.include_router(dispositivos_router)
 app.include_router(geoaccess_router)
 app.include_router(anomaly_router)

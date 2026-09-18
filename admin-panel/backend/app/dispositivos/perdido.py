@@ -24,6 +24,7 @@ COMANDOS = {
     "alarma": (False, False),      # sonar a todo volumen aunque esté en silencio
     "bloquear": (True, False),     # bloquear la pantalla con mensaje y teléfono de contacto
     "borrar": (True, True),        # restablecer de fábrica
+    # `respaldar` se pide desde respaldos.py y `desbloquear` al marcar el equipo como recuperado
 }
 
 
