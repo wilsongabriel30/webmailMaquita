@@ -140,6 +140,7 @@ async def latido(request: Request, body: Latido, equipo: dict = Depends(equipo_a
         "modo_perdido": ({"mensaje": equipo["perdido_mensaje"], "telefono": equipo["perdido_telefono"],
                           "baliza_id": equipo["baliza_id"]} if perdido else None),
         "balizas_buscadas": [b["baliza_id"] for b in buscadas],
+        "respaldo": ({**pol.get("respaldo", {}), "activo": True} if equipo.get("respaldo_activo") else {"activo": False}),
         "comandos": [
             {"id": c["id"], "tipo": c["tipo"],
              "parametros": json.loads(c["parametros"]) if isinstance(c["parametros"], str) else c["parametros"]}
