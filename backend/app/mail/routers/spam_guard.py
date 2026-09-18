@@ -551,33 +551,47 @@ async def mark_not_spam(
     for uid in uids:
         await db.execute(
             """INSERT INTO spam_analysis (owner, folder, message_uid, is_spam, spam_score, method, reasons, user_override)
-               VALUES ($1, $2, $3, false, 0, user_override, ARRAY[Marcado como NO spam por el usuario], not_spam)
+               VALUES ($1, $2, $3, false, 0, 'user_not_spam', ARRAY['Marcado como NO spam por el usuario'], 'not_spam')
                ON CONFLICT (owner, folder, message_uid) DO UPDATE
-               SET is_spam=false, spam_score=0, user_override=not_spam,
-                   reasons=ARRAY[Marcado como NO spam por el usuario], analyzed_at=now()""",
+               SET is_spam=false, spam_score=0, user_override='not_spam', method='user_not_spam',
+                   reasons=ARRAY['Marcado como NO spam por el usuario'], analyzed_at=now()""",
             user,
             folder,
             uid,
         )
 
-    # Mover a INBOX si está en Junk
+    # Mover a la bandeja y ENSENAR al filtro que NO es spam (aprende ham), igual que /spam/report
+    # hace al reves. Sin esto solo se movia y el filtro no aprendia (pedido del usuario, 18/09/2026).
     password = await get_user_password(request, user)
     moved = 0
-    if password and folder == "Junk":
-        from app.mail.clients.imap_client import get_imap_connection, uid_bulk_action
+    if password:
+        from app.mail.clients.imap_client import (
+            fetch_raw_message,
+            get_imap_connection,
+            uid_bulk_action,
+        )
+        from app.mail.services.spam_learning import aprender_no_spam
 
         login_user = await get_imap_login_user(request, user)
         imap = await get_imap_connection(login_user, password)
         try:
-            ok = await uid_bulk_action(imap, folder, uids, "move", "INBOX")
-            if ok:
-                moved = len(uids)
-        except:
+            for _uid in uids:
+                try:
+                    _crudo = await fetch_raw_message(imap, folder, _uid)
+                    if _crudo:
+                        await aprender_no_spam(_crudo)
+                except Exception:
+                    pass  # el aprendizaje es secundario; mover es lo importante
+            if folder in ("Junk", "Spam"):
+                ok = await uid_bulk_action(imap, folder, uids, "move", "INBOX")
+                if ok:
+                    moved = len(uids)
+        except Exception:
             pass
         finally:
             try:
                 await imap.logout()
-            except:
+            except Exception:
                 pass
 
     return {"status": "cleared", "moved": moved}
