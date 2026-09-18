@@ -11,6 +11,7 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 - La interfaz ya no se rompe («Algo salió mal») donde no existe `window.Notification` (WebView de Android, Safari de iPhone fuera de la PWA): los usos pasan por `lib/notificacionSegura.ts`. (AM-10)
 
 ### Añadido
+- Vuelve el botón de descarga de la app Android, ahora apuntando a `/webmail/descargas/` real (cerrado #16): en el menú del perfil y en Configuración (sección «App para Android» con los pasos), solo con sesión iniciada y oculto dentro de la propia app. (AM-11)
 - Configuración → Configurar mi correo: botón «Descargar app para Android», visible solo si el servidor publica `/webmail/descargas/maquita-mail.json`; muestra versión y tamaño. (AM-11)
 
 ### Seguridad
