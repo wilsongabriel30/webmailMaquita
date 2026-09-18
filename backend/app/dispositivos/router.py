@@ -12,6 +12,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.dispositivos.esquemas import TIPOS_EVENTO, Acuse, Enrolamiento, Evento, Latido, ResultadoComando
+from app.dispositivos import ubicacion as _ubic
 from app.dispositivos.seguridad import (
     equipo_actual, hash_secreto, ip_cliente, limitar, limpiar_codigo, nuevo_token,
 )
@@ -96,6 +97,7 @@ async def latido(request: Request, body: Latido, equipo: dict = Depends(equipo_a
     ip = ip_cliente(request)
     await limitar(request, f"latido:{equipo['id']}", 30, 600)
     datos = body.model_dump(exclude_none=True)
+    datos.pop("ubicacion", None)   # la posición nunca queda en el JSON del latido: va a su tabla, y solo si procede
     async with db.acquire() as con, con.transaction():
         await con.execute(
             """UPDATE disp_equipos SET ultimo_contacto = NOW(), ultima_ip = $2,
@@ -112,6 +114,8 @@ async def latido(request: Request, body: Latido, equipo: dict = Depends(equipo_a
             "INSERT INTO disp_latidos (equipo_id, ip, datos) VALUES ($1, $2, $3::jsonb)",
             equipo["id"], ip, json.dumps(datos),
         )
+        if body.ubicacion is not None:
+            await _ubic.guardar(con, equipo, [body.ubicacion], "periodica", ip, body.bateria)
         comandos = await con.fetch(
             "UPDATE disp_comandos SET estado = 'entregado', entregado_en = NOW() "
             "WHERE equipo_id = $1 AND estado = 'pendiente' RETURNING id, tipo, parametros",
@@ -126,7 +130,16 @@ async def latido(request: Request, body: Latido, equipo: dict = Depends(equipo_a
             equipo["id"],
         )
     pol = await _politica(db)
+    await _ubic.limpieza_ocasional(db, pol)
+    perdido = equipo["estado"] == "perdido"
+    buscadas = await db.fetch(
+        "SELECT baliza_id FROM disp_equipos WHERE estado = 'perdido' AND baliza_id IS NOT NULL AND id <> $1 LIMIT 50", equipo["id"])
     return {
+        "ubicacion_activa": _ubic.puede_guardar(equipo),
+        "ubicacion_minutos": pol.get("ubicacion_minutos", 15),
+        "modo_perdido": ({"mensaje": equipo["perdido_mensaje"], "telefono": equipo["perdido_telefono"],
+                          "baliza_id": equipo["baliza_id"]} if perdido else None),
+        "balizas_buscadas": [b["baliza_id"] for b in buscadas],
         "comandos": [
             {"id": c["id"], "tipo": c["tipo"],
              "parametros": json.loads(c["parametros"]) if isinstance(c["parametros"], str) else c["parametros"]}
@@ -138,7 +151,7 @@ async def latido(request: Request, body: Latido, equipo: dict = Depends(equipo_a
             for m in mensajes
         ],
         "politica_version": pol.get("version", 1),
-        "latido_minutos": pol.get("latido_minutos", 15),
+        "latido_minutos": pol.get("latido_minutos_perdido", 5) if perdido else pol.get("latido_minutos", 15),
     }
 
 
@@ -192,6 +205,7 @@ async def yo(request: Request, equipo: dict = Depends(equipo_actual)):
         "custodio_email": equipo["custodio_email"], "custodio_nombre": equipo["custodio_nombre"],
         "contacto_ti": pol.get("contacto_ti"), "telefono_ti": pol.get("telefono_ti"),
         "aviso_privacidad": pol.get("aviso_privacidad"),
+        "ubicacion_activa": _ubic.puede_guardar(equipo),
     }
 
 
