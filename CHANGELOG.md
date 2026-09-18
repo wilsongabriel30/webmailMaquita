@@ -7,6 +7,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Corregido
+- «No es spam» devolvía error 500 (consulta SQL con texto sin comillas): corregida. Ahora, además de devolver el correo a la Bandeja de entrada, enseña al filtro que no es spam (aprende «ham»), igual que «No deseado» le enseña que sí lo es.
+
 ### Añadido
 - Correo web: clic derecho sobre un correo ofrece «Marcar como no deseado» (o «No es spam») y «Bloquear remitente», además de los botones al abrir el mensaje.
 - Correo web: al abrir un mensaje aparecen botones claros para «No deseado» (o «No es spam» en esa carpeta) y «Bloquear remitente». Usan los endpoints existentes de aprendizaje del filtro y crean una regla que manda a No deseado los próximos correos del remitente.
