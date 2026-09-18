@@ -40,7 +40,9 @@ export function Dispositivos() {
           { titulo: "Ubicación y privacidad", desc: "La ubicación periódica solo se guarda si el custodio firmó la política de uso (se activa por equipo con la fecha de firma) o si el equipo está perdido. Cada consulta de ubicación pide un motivo y queda en la auditoría. Se conserva 90 días." },
           { titulo: "Respaldos", desc: "Cada noche, con Wi-Fi y cargando, el teléfono sube solo lo que cambió: fotos, videos, documentos, contactos, llamadas, SMS y la copia local de WhatsApp. Se guardan cifrados; el panel ve fechas, tamaños y totales, nunca el contenido ni los nombres. Para pasar los datos a un teléfono nuevo se autoriza la restauración desde la ficha del equipo nuevo, con motivo. Antes de reasignar o restablecer un equipo, pida el respaldo de cierre." },
           { titulo: "Mensajes urgentes", desc: "Llegan al teléfono en su siguiente reporte, a pantalla completa, y exigen tocar «Leído». Aquí se ve quién lo leyó y cuándo." },
-          { titulo: "Auditoría", desc: "Códigos, ediciones, bajas y mensajes quedan en la auditoría del panel." },
+          { titulo: "Aplicaciones", desc: "El teléfono envía su lista de apps; el servidor la cruza con las reglas (lista de bloqueo, instaladores de confianza, permisos de riesgo como accesibilidad o superposición) y avisa al custodio para desinstalar. En equipos con control completo se puede desinstalar a distancia. Play Protect debe estar activo." },
+          { titulo: "Reasignación", desc: "Un teléfono pasa de una persona a otra (jefe → subordinado → técnico) sin dejar de funcionar; cada cambio queda en el historial de custodia y puede pedir el respaldo de cierre del custodio anterior. El destino del respaldo en el almacén se fija por equipo antes del primer respaldo." },
+          { titulo: "Auditoría", desc: "Códigos, ediciones, bajas, mensajes, reglas de apps y reasignaciones quedan en la auditoría del panel." },
         ]} />
       </div>
       {error && <div className="text-sm px-3 py-2 rounded bg-red-50 text-red-700">{error}</div>}

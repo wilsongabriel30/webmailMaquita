@@ -1,4 +1,4 @@
-# Teléfonos institucionales (gestión de dispositivos) — fases 1 a 3
+# Teléfonos institucionales (gestión de dispositivos) — fases 1 a 4
 
 Gestión propia de los celulares de la organización: inventario y asignación, estado que reporta
 cada equipo, mensajes urgentes con acuse de lectura y eventos de seguridad. Las fases siguientes
@@ -142,3 +142,39 @@ ahora», «Pedir respaldo de cierre», activar/desactivar, tabla de instantánea
 autorización de restauración desde otro equipo. Backend: `admin-panel/backend/app/dispositivos/respaldos.py`.
 Servidor: `backend/app/dispositivos/{respaldos,objetos,respaldos_mantenimiento}.py`, migración
 `2026-09-18-dispositivos-fase3.sql`, unidades systemd con `ReadWritePaths=-/mnt/almacen/.respaldo-movil`.
+
+# Fase 4 — aplicaciones, reasignación y destino del respaldo
+
+## Aplicaciones (`POST /api/dispositivos/apps`)
+El teléfono envía su lista de apps `{apps: [{paquete, nombre?, version?, instalador?, firma_sha256?, permisos[], sistema}]}`
+(hasta 1000). El servidor la cruza con las reglas y responde `{avisos: [{paquete, veredicto, accion, texto}]}`.
+- **Veredicto**: `ok`, `sospechosa`, `bloqueada`. **Acción**: `ninguna`, `avisar`, `desinstalar` (esta última
+  solo en equipos con control completo; en modo limitado se degrada a `avisar`).
+- Reglas base (semilla): Google Play y Galaxy Store como instaladores de confianza; accesibilidad,
+  administrador de dispositivo y superposición como permisos de riesgo (avisar). Señales automáticas:
+  instalada fuera de una tienda conocida u origen desconocido.
+- La app muestra `texto` a la persona con un botón que abre la desinstalación. Con control completo,
+  Tecnología puede además enviar el comando `desinstalar` o `bloquear_app` con `{paquete}` (llega por el
+  latido). El teléfono debe reenviar su inventario tras instalar o desinstalar algo, y al menos cada
+  `apps.reinventariar_horas` (24). Play Protect debe estar activo (`play_protect` en el latido).
+
+## Reasignación con historial de custodia
+La reasignación la hace Tecnología en el panel (ficha del equipo → «Custodia y reasignación»): cierra el
+tramo del custodio anterior, abre el del nuevo y, opcionalmente, encola el respaldo de cierre. La app no
+necesita nada: en su próximo `GET /yo` verá el nuevo custodio. Sirve para la cadena jefe → subordinado →
+técnico sin apagar el equipo.
+
+## Destino del respaldo y usuario del teléfono
+En la ficha del equipo, bloque «Respaldos», se fija la **carpeta en el almacén** donde va el respaldo de ese
+teléfono (letras, números, punto, guion y guion bajo; por defecto el número del equipo). Solo se puede
+cambiar **antes del primer respaldo**. El **usuario del teléfono** es el custodio (correo), que se asigna
+en la reasignación o en la ficha. `PUT /api/dispositivos/equipos/{id}/respaldo-config` acepta
+`{respaldo_activo, cuota_respaldo_gb, carpeta_respaldo}`.
+
+## Panel
+- **Reglas de apps** (`GET/POST/DELETE /api/dispositivos/apps-reglas`): lista de bloqueo por paquete o
+  firma, instaladores de confianza y permisos de riesgo. Las reglas base del sistema no se borran.
+- Ficha del equipo: bloque **Aplicaciones** (con las de riesgo primero y desinstalación en control
+  completo), **Custodia y reasignación** (historial y reasignar) y la carpeta de respaldo en **Respaldos**.
+Backend: `admin-panel/backend/app/dispositivos/{apps_panel,custodia}.py`; servidor:
+`backend/app/dispositivos/apps.py`; migración `2026-09-18-dispositivos-fase4.sql`.

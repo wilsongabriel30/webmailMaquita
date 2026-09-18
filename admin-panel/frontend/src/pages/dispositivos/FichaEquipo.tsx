@@ -3,6 +3,8 @@ import { api } from "../../api/client";
 import { ModoPerdido } from "./ModoPerdido";
 import { Ubicacion } from "./Ubicacion";
 import { Respaldos } from "./Respaldos";
+import { Apps } from "./Apps";
+import { Reasignar } from "./Reasignar";
 import { Equipo, Evento, EVENTOS_GRAVES, Latido, MensajeEquipo, NOMBRE_EVENTO, dinero, fechaHora, gigas } from "./tipos";
 
 interface Detalle { equipo: Equipo; latidos: Latido[]; eventos: Evento[]; mensajes: MensajeEquipo[] }
@@ -69,6 +71,8 @@ export function FichaEquipo({ id, onCerrar, onCambio }: { id: number; onCerrar: 
       {e.estado !== "revocado" && e.estado !== "baja" && <ModoPerdido equipo={e} onCambio={() => { cargar(); onCambio(); }} />}
       {e.estado !== "revocado" && <Ubicacion equipo={e} onCambio={() => { cargar(); onCambio(); }} />}
       <Respaldos equipo={e} />
+      {e.estado !== "revocado" && <Apps equipo={e} />}
+      {e.estado !== "revocado" && <Reasignar equipo={e} onCambio={() => { cargar(); onCambio(); }} />}
 
       <div>
         <h3 className="text-sm font-semibold mb-2">Inventario y asignación</h3>
