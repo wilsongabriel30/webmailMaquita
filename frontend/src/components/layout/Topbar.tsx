@@ -9,6 +9,7 @@ import { SearchAdvanced } from "../common/SearchAdvanced";
 import { aplicarBusqueda, cambiarAmbito } from "../../lib/busquedaGlobal";
 import { useResponsive } from "../../hooks/useResponsive";
 import { useNombreApp } from "../../lib/marca";
+import OpcionDescargaApp from './OpcionDescargaApp';
 
 /** El instalador de la aplicación deja estos ganchos en `window`; se nombran para no usar `any`. */
 type VentanaConPWA = Window & {
@@ -323,6 +324,7 @@ export function Topbar() {
                 </svg>
                 Configuración
               </button>
+              <OpcionDescargaApp alPulsar={() => setShowProfile(false)} />
               <button onClick={() => {
                   setShowProfile(false);
                   // Check if installed
