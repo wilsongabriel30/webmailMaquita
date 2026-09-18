@@ -78,6 +78,7 @@ from app.dispositivos.ubicacion import router as dispositivos_ubicacion_router
 from app.dispositivos.respaldos import router as dispositivos_respaldos_router
 from app.dispositivos.apps import router as dispositivos_apps_router
 from app.cuenta.router import router as cuenta_router
+from app.settings_mi_equipo import router as mi_equipo_router
 from app.onboarding.router import router as onboarding_router
 from app.phishsim.router import router as phishsim_router
 from app.presence.router import router as presence_router
@@ -772,6 +773,7 @@ app.include_router(dispositivos_ubicacion_router)  # fase 2: ubicación y avista
 app.include_router(dispositivos_respaldos_router)  # fase 3: respaldos cifrados
 app.include_router(dispositivos_apps_router)  # fase 4: inventario de apps
 app.include_router(cuenta_router)  # descubrimiento de cuenta para Android
+app.include_router(mi_equipo_router)  # código autoservicio de Mi equipo
 app.include_router(ai_router)
 app.include_router(retention_router)
 app.include_router(gal_router)

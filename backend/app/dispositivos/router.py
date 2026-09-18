@@ -59,7 +59,7 @@ async def enrolar(request: Request, body: Enrolamiento):
         codigo = await con.fetchrow(
             "UPDATE disp_codigos SET usos = usos + 1 "
             "WHERE codigo_hash = $1 AND revocado_en IS NULL AND usos < usos_max "
-            "AND (caduca_en IS NULL OR caduca_en > NOW()) RETURNING id, modo",
+            "AND (caduca_en IS NULL OR caduca_en > NOW()) RETURNING id, modo, custodio_email",
             hash_secreto(limpiar_codigo(body.codigo)),
         )
         if codigo is None:
@@ -67,6 +67,9 @@ async def enrolar(request: Request, body: Enrolamiento):
             raise HTTPException(403, "Código de enrolamiento no válido, agotado o caducado. Pídalo a Tecnología.")
         # El modo lo decide el código (lo que autorizó Tecnología), no lo que diga el teléfono.
         modo = "limitado" if body.modo == "limitado" else codigo["modo"]
+        # Un código autoservicio ya trae al custodio (el propio usuario que lo generó).
+        if codigo["custodio_email"]:
+            custodio = codigo["custodio_email"]
         equipo = await con.fetchrow(
             """INSERT INTO disp_equipos (id_instalacion, token_hash, codigo_id, modo, fabricante, modelo, serie,
                    imei, android, version_app, custodio_email, ultimo_contacto, ultima_ip, push_topic)
