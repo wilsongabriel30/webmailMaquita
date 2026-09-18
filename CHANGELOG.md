@@ -7,6 +7,12 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Corregido
+- La interfaz ya no se rompe («Algo salió mal») donde no existe `window.Notification` (WebView de Android, Safari de iPhone fuera de la PWA): los usos pasan por `lib/notificacionSegura.ts`. (AM-10)
+
+### Añadido
+- Configuración → Configurar mi correo: botón «Descargar app para Android», visible solo si el servidor publica `/webmail/descargas/maquita-mail.json`; muestra versión y tamaño. (AM-11)
+
 ### Seguridad
 - Contraseñas de aplicación opcionales: la política `contrasenas_aplicacion_obligatorias` queda en `false` (decisión documentada en `docs/REVISIONES-DE-SEGURIDAD.md`); la contraseña principal vale en IMAP/SMTP desde cualquier IP. En el cortafuegos de referencia, 465/587 se aceptan desde cualquier IP permitida por país, no solo desde la LAN.
 

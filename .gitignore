@@ -80,3 +80,4 @@ backend/app/tareas/nombres.json
 *.sql.gz
 *.dump
 restore*.log
+descargas-app/
