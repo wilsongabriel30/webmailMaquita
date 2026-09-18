@@ -7,6 +7,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Añadido
+- Correo web: al abrir un mensaje aparecen botones claros para «No deseado» (o «No es spam» en esa carpeta) y «Bloquear remitente». Usan los endpoints existentes de aprendizaje del filtro y crean una regla que manda a No deseado los próximos correos del remitente.
+
 ### Corregido
 - La respuesta de la política de verificación en dos pasos (`/api/auth/2fa-policy/status`) ya no se cachea (`Cache-Control: no-store`): evita que una app con una respuesta vieja en memoria siga mostrando la pantalla de configuración.
 
