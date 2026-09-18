@@ -8,6 +8,7 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 ## [Sin publicar]
 
 ### Añadido
+- Teléfonos institucionales, fase 2: ubicación periódica (solo con política firmada o equipo perdido), bajo demanda e historial con mapa; modo perdido con bloqueo, alarma y borrado remoto; avistamientos por Bluetooth desde otros teléfonos de la organización; cada consulta y comando con motivo y auditoría.
 - Teléfonos institucionales, fase 1: API `/api/dispositivos/*` (enrolamiento con código, latidos, mensajes urgentes con acuse, eventos de seguridad) y pantalla «Teléfonos institucionales» en el panel (inventario, custodio, centro de costo, depreciación, códigos de enrolamiento). Ver `docs/DISPOSITIVOS.md`.
 
 ### Corregido

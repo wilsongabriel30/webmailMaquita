@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
+import { ModoPerdido } from "./ModoPerdido";
+import { Ubicacion } from "./Ubicacion";
 import { Equipo, Evento, EVENTOS_GRAVES, Latido, MensajeEquipo, NOMBRE_EVENTO, dinero, fechaHora, gigas } from "./tipos";
 
 interface Detalle { equipo: Equipo; latidos: Latido[]; eventos: Evento[]; mensajes: MensajeEquipo[] }
@@ -63,6 +65,9 @@ export function FichaEquipo({ id, onCerrar, onCambio }: { id: number; onCerrar: 
           <div key={a} className="bg-ms-gray-10 rounded p-2.5"><div className="text-[11px] text-ms-gray-60">{a}</div><div className="font-medium">{b}</div></div>))}
       </div>
 
+      {e.estado !== "revocado" && e.estado !== "baja" && <ModoPerdido equipo={e} onCambio={() => { cargar(); onCambio(); }} />}
+      {e.estado !== "revocado" && <Ubicacion equipo={e} onCambio={() => { cargar(); onCambio(); }} />}
+
       <div>
         <h3 className="text-sm font-semibold mb-2">Inventario y asignación</h3>
         <div className="grid md:grid-cols-2 gap-3">
@@ -73,9 +78,10 @@ export function FichaEquipo({ id, onCerrar, onCambio }: { id: number; onCerrar: 
                 className="mt-1 w-full px-2.5 py-1.5 text-sm border border-ms-gray-40 rounded" />
             </label>))}
           <label className="text-xs text-ms-gray-90">Estado
-            <select value={f.estado} disabled={e.estado === "revocado"} onChange={(ev) => setF({ ...f, estado: ev.target.value })}
+            <select value={f.estado} disabled={e.estado === "revocado" || e.estado === "perdido"} onChange={(ev) => setF({ ...f, estado: ev.target.value })}
               className="mt-1 w-full px-2.5 py-1.5 text-sm border border-ms-gray-40 rounded">
-              <option value="activo">Activo</option><option value="perdido">Perdido o robado</option><option value="baja">Dado de baja del inventario</option>
+              <option value="activo">Activo</option><option value="baja">Dado de baja del inventario</option>
+              {e.estado === "perdido" && <option value="perdido">Perdido o robado (se cambia desde «Pérdida o robo»)</option>}
               {e.estado === "revocado" && <option value="revocado">Revocado</option>}
             </select></label>
           <label className="text-xs text-ms-gray-90 md:col-span-2">Notas

@@ -22,6 +22,7 @@ class Ubicacion(BaseModel):
     lon: float = Field(..., ge=-180, le=180)
     precision: Optional[float] = Field(None, ge=0, le=100000)
     hora: Optional[str] = Field(None, max_length=40)
+    fuente: Optional[Literal["gps", "red", "fusion"]] = None
 
 
 class Latido(BaseModel):

@@ -19,7 +19,8 @@ _ALFABETO = "abcdefghjkmnpqrstuvwxyz23456789"   # sin 0/o/1/l/i: se teclea en un
 _CAMPOS_EQUIPO = """id, id_instalacion, modo, estado, fabricante, modelo, serie, imei, android, version_app,
     nombre, custodio_email, custodio_nombre, centro_costo, sede, fecha_compra, valor_compra, vida_util_meses,
     factura_ref, notas, enrolado_en, ultimo_contacto, ultima_ip, bateria, cargando, almacenamiento_libre,
-    almacenamiento_total, red, play_protect, revocado_en, revocado_motivo"""
+    almacenamiento_total, red, play_protect, revocado_en, revocado_motivo, ubicacion_autorizada,
+    politica_firmada_en, perdido_en, perdido_motivo, perdido_mensaje, perdido_telefono"""
 
 
 def _equipo(fila) -> dict:
@@ -94,13 +95,13 @@ async def guardar_equipo(equipo_id: int, request: Request, admin: dict = Depends
     if not 6 <= vida <= 120:
         raise HTTPException(400, "La vida útil debe estar entre 6 y 120 meses")
     estado = b.get("estado")
-    if estado not in (None, "activo", "perdido", "baja"):
+    if estado not in (None, "", "activo", "baja"):
         raise HTTPException(400, "Estado inválido")
     r = await db(request).execute(
         """UPDATE disp_equipos SET nombre = COALESCE($2, ''), custodio_email = $3, custodio_nombre = $4,
                centro_costo = $5, sede = $6, imei = COALESCE($7, imei), serie = COALESCE($8, serie),
                fecha_compra = $9, valor_compra = $10, vida_util_meses = $11, factura_ref = $12, notas = $13,
-               estado = CASE WHEN estado = 'revocado' THEN estado ELSE COALESCE($14, estado) END
+               estado = CASE WHEN estado IN ('revocado', 'perdido') THEN estado ELSE COALESCE(NULLIF($14, ''), estado) END
            WHERE id = $1""",
         equipo_id, texto(b.get("nombre"), 120), texto(b.get("custodio_email"), 255), texto(b.get("custodio_nombre"), 160),
         texto(b.get("centro_costo"), 120), texto(b.get("sede"), 120), imei, texto(b.get("serie"), 80),
