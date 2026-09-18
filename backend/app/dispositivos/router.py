@@ -8,6 +8,7 @@ escribe los códigos, mensajes y comandos; aquí solo se entregan al equipo due�
 
 import json
 import logging
+import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
@@ -21,6 +22,11 @@ logger = logging.getLogger("dispositivos")
 router = APIRouter(prefix="/api/dispositivos", tags=["dispositivos"])
 
 POLITICA_BASE = {"version": 1, "latido_minutos": 15}
+
+
+def _push_info(pol: dict, topic):
+    servidor = (pol.get("push") or {}).get("servidor")
+    return {"servidor": servidor, "tema": topic, "protocolo": "ntfy"} if servidor and topic else None
 
 
 async def _politica(db) -> dict:
@@ -47,6 +53,7 @@ async def enrolar(request: Request, body: Enrolamiento):
     db = request.app.state.db_pool
     custodio = await _custodio_de_sesion(request)
     token = nuevo_token()
+    topic = "disp_" + secrets.token_hex(16)
 
     async with db.acquire() as con, con.transaction():
         codigo = await con.fetchrow(
@@ -62,8 +69,8 @@ async def enrolar(request: Request, body: Enrolamiento):
         modo = "limitado" if body.modo == "limitado" else codigo["modo"]
         equipo = await con.fetchrow(
             """INSERT INTO disp_equipos (id_instalacion, token_hash, codigo_id, modo, fabricante, modelo, serie,
-                   imei, android, version_app, custodio_email, ultimo_contacto, ultima_ip)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NOW(),$12)
+                   imei, android, version_app, custodio_email, ultimo_contacto, ultima_ip, push_topic)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NOW(),$12,$13)
                ON CONFLICT (id_instalacion) DO UPDATE SET
                    token_hash = EXCLUDED.token_hash, codigo_id = EXCLUDED.codigo_id, modo = EXCLUDED.modo,
                    fabricante = EXCLUDED.fabricante, modelo = EXCLUDED.modelo,
@@ -72,10 +79,11 @@ async def enrolar(request: Request, body: Enrolamiento):
                    android = EXCLUDED.android, version_app = EXCLUDED.version_app,
                    custodio_email = COALESCE(disp_equipos.custodio_email, EXCLUDED.custodio_email),
                    estado = 'activo', revocado_en = NULL, revocado_motivo = NULL,
-                   ultimo_contacto = NOW(), ultima_ip = EXCLUDED.ultima_ip
-               RETURNING id, nombre""",
+                   ultimo_contacto = NOW(), ultima_ip = EXCLUDED.ultima_ip,
+                   push_topic = COALESCE(disp_equipos.push_topic, EXCLUDED.push_topic)
+               RETURNING id, nombre, push_topic""",
             body.id_instalacion, hash_secreto(token), codigo["id"], modo, body.fabricante, body.modelo,
-            body.serie, body.imei, body.android, body.version_app, custodio, ip,
+            body.serie, body.imei, body.android, body.version_app, custodio, ip, topic,
         )
         await con.execute(
             "INSERT INTO disp_eventos (equipo_id, tipo, detalle) VALUES ($1, 'enrolado', $2::jsonb)",
@@ -87,7 +95,7 @@ async def enrolar(request: Request, body: Enrolamiento):
         "token_equipo": token,   # se entrega una sola vez; el servidor guarda solo su huella
         "modo": modo,
         "politica": await _politica(db),
-        "push": None,            # fase posterior (servidor de avisos propio)
+        "push": _push_info(await _politica(db), equipo["push_topic"]),
     }
 
 
@@ -207,6 +215,7 @@ async def yo(request: Request, equipo: dict = Depends(equipo_actual)):
         "contacto_ti": pol.get("contacto_ti"), "telefono_ti": pol.get("telefono_ti"),
         "aviso_privacidad": pol.get("aviso_privacidad"),
         "ubicacion_activa": _ubic.puede_guardar(equipo),
+        "push": _push_info(pol, equipo.get("push_topic")),
     }
 
 
