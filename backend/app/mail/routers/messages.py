@@ -141,15 +141,23 @@ async def get_messages(
     password = await get_user_password(request, username)
     login_user = await get_imap_login_user(request, username)
     async with get_pooled_imap(login_user, password) as imap:
-        # Por omision la busqueda es la rapida (cabeceras: ~86 ms en un buzon de 10.000
-        # mensajes). Entrar en el texto de los mensajes cuesta minuto y medio porque hay que
-        # descifrarlos uno a uno, asi que solo se hace si quien busca lo pide.
+        # En las cuentas con indice de texto la busqueda entra tambien en el cuerpo: medido en
+        # Enviados de gerencia comercial (19.432 mensajes), 0,13 s y 586 resultados frente a 24
+        # mirando solo cabeceras. Sin indice hay que abrir y descifrar los mensajes uno a uno
+        # -minuto y medio-, asi que ahi solo se hace si quien busca lo pide.
+        # `username` hace falta para saber si la cuenta tiene indice de texto: sin el,
+        # `cuenta_indexada("")` era siempre False, la busqueda no entraba nunca en el
+        # cuerpo y `contenido:` se acotaba en silencio al ultimo ano, escondiendo el
+        # historico a quien buscaba en Enviados (21/09/2026).
+        # `redis` se deja fuera a proposito: la cache de UIDs (300 s) retrasaba la
+        # aparicion del correo recien llegado.
         result = await list_messages(
             imap,
             folder,
             page,
             per_page,
             search_query,
+            username=username,
             buscar_en_contenido=buscar_en_contenido,
         )
         if result is None:
