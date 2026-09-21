@@ -47,7 +47,12 @@ def _generar(direcciones: list[str]) -> str:
 
 
 def _parsear(script: str) -> list[str]:
-    return sorted({m.group(1).lower() for m in re.finditer(r'header :contains "from" "([^"]+)"', script or "")})
+    return sorted(
+        {
+            m.group(1).lower()
+            for m in re.finditer(r'header :contains "from" "([^"]+)"', script or "")
+        }
+    )
 
 
 async def _leer(username: str, password: str) -> list[str]:
@@ -70,7 +75,9 @@ async def _guardar(username: str, password: str, direcciones: list[str]) -> None
 async def _password(request: Request, username: str) -> str:
     password = await get_user_password(request, username)
     if not password:
-        raise HTTPException(400, "No se pudo abrir tu configuración de reglas; vuelve a iniciar sesión")
+        raise HTTPException(
+            400, "No se pudo abrir tu configuración de reglas; vuelve a iniciar sesión"
+        )
     return password
 
 
@@ -89,14 +96,20 @@ async def agregar(request: Request, username: str = Depends(get_current_user)):
     actuales = await _leer(username, password)
     if correo not in actuales:
         if len(actuales) >= MAXIMO:
-            raise HTTPException(400, f"Máximo {MAXIMO} remitentes de confianza; quita alguno")
+            raise HTTPException(
+                400, f"Máximo {MAXIMO} remitentes de confianza; quita alguno"
+            )
         actuales = sorted(set(actuales) | {correo})
         await _guardar(username, password, actuales)
     return {"remitentes": actuales, "agregado": correo}
 
 
 @router.delete("/remitentes-confiables")
-async def quitar(request: Request, correo: str = Query(...), username: str = Depends(get_current_user)):
+async def quitar(
+    request: Request,
+    correo: str = Query(...),
+    username: str = Depends(get_current_user),
+):
     correo = _limpiar(correo)
     password = await _password(request, username)
     actuales = [d for d in await _leer(username, password) if d != correo]

@@ -56,8 +56,10 @@ from app.import_export.router import router as import_router
 from app.log_ingestor.mail_log_ingestor import start_log_ingestor
 from app.mail.errors import CredencialIMAPInvalida
 from app.mail.routers.attachments import router as attachments_router
+from app.mail.routers.busqueda_capacidades import router as busqueda_capacidades_router
 from app.mail.routers.calendar_invite import router as calendar_invite_router
 from app.mail.routers.compose import router as compose_router
+from app.mail.routers.confianza import router as confianza_router
 from app.mail.routers.cuentas import router as cuentas_router
 from app.mail.routers.export import router as export_router
 from app.mail.routers.firmas import router as firmas_router
@@ -94,7 +96,6 @@ from app.security.router import router as security_router
 from app.settings.routers.preferences import router as settings_router
 from app.settings_mi_equipo import router as mi_equipo_router
 from app.sieve.router import router as sieve_router
-from app.mail.routers.confianza import router as confianza_router
 from app.smime.router import router as smime_router
 from app.sso.router import router as sso_router
 from app.tareas.modelos import asegurar_tablas as asegurar_tablas_tareas
@@ -753,6 +754,7 @@ app.include_router(autodiscover_router)
 app.include_router(contacts_router)
 app.include_router(sieve_router)
 app.include_router(confianza_router)  # remitentes de confianza
+app.include_router(busqueda_capacidades_router)  # ¿hay índice de texto?
 app.include_router(identities_router)
 app.include_router(firmas_router)
 app.include_router(grandes_router)

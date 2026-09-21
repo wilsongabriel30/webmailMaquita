@@ -36,3 +36,10 @@ def test_cabecera_con_comilla_tipografica_cabe_en_latin1():
 def test_cabecera_no_se_parte_con_saltos_de_linea():
     cabecera = _content_disposition("a\r\nX-Mala: 1.pdf")
     assert "\r" not in cabecera and "\n" not in cabecera
+
+
+def test_capacidades_esta_montado_en_la_aplicacion():
+    # El primer intento lo puso en un enrutador que nadie montaba y respondia 404.
+    from app.main import app
+
+    assert "/api/mail/search/capacidades" in {r.path for r in app.routes}
