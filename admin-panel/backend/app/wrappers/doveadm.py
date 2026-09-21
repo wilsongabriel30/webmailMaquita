@@ -1,7 +1,10 @@
 import asyncio
+import logging
 import re
 from asyncio.subprocess import PIPE
 from app.wrappers.privilegios import con_sudo
+
+_log = logging.getLogger(__name__)
 
 _USER_RE = re.compile(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$")
 
@@ -172,6 +175,109 @@ async def move_message(username: str, dest_mailbox: str, mailbox_guid: str, uid:
         "mailbox-guid", mailbox_guid, "uid", uid,
     )
     return rc == 0
+
+
+# --- Archivo de correo borrado (lazy_expunge) ---------------------------------
+#
+# Dovecot guarda una copia de todo lo que se borra en una carpeta oculta del propio buzon
+# («Expunged»). De ahi se saca el correo que alguien borro o perdio al vaciar una carpeta.
+#
+# Se COPIA, nunca se mueve: esa carpeta esta protegida y `doveadm move` responde «Permission
+# denied». Copiar es ademas lo prudente, porque deja intacta la copia de seguridad.
+
+ARCHIVO_BORRADOS = "Expunged"
+
+
+async def listar_archivados(username: str, texto: str = "", limite: int = 200) -> list[dict]:
+    """Los correos borrados que guarda el archivo, del mas reciente al mas antiguo."""
+    _validate_user(username)
+    criterio = ["mailbox", ARCHIVO_BORRADOS]
+    if texto:
+        # Los parentesis NO son adorno: sin ellos, `mailbox Expunged subject X or from X` se
+        # lee como «(archivado con ese asunto) o (ese remitente en CUALQUIER carpeta)», y la
+        # busqueda devolvia 1 de 5 correos archivados (21/09/2026).
+        criterio += ["(", "subject", texto, "or", "from", texto, ")"]
+    else:
+        criterio += ["all"]
+    _validate_query_tokens([t for t in criterio if t not in ("(", ")")])
+
+    out, _, rc = await _run(
+        "doveadm", "fetch", "-u", username,
+        "uid date.received hdr.from hdr.subject", *criterio,
+    )
+    if rc != 0:
+        return []
+
+    mensajes = []
+    # doveadm separa cada correo con un salto de pagina, no con una linea en blanco.
+    for bloque in out.split("\f"):
+        datos = {}
+        for linea in bloque.strip().split("\n"):
+            for campo, clave in (
+                ("uid: ", "uid"),
+                ("date.received: ", "fecha"),
+                ("hdr.from: ", "de"),
+                ("hdr.subject: ", "asunto"),
+            ):
+                if linea.startswith(campo):
+                    datos[clave] = linea[len(campo):].strip()
+        if datos.get("uid"):
+            mensajes.append(datos)
+    mensajes.sort(key=lambda m: m.get("fecha", ""), reverse=True)
+    return mensajes[:limite]
+
+
+async def leer_archivado(username: str, uid: str) -> dict:
+    """Cabeceras y texto de un correo archivado, para confirmar antes de devolverlo."""
+    _validate_user(username)
+    if not str(uid).isdigit():
+        raise ValueError(f"uid invalido: {uid!r}")
+    out, _, rc = await _run(
+        "doveadm", "fetch", "-u", username,
+        "hdr.from hdr.to hdr.date hdr.subject body",
+        "mailbox", ARCHIVO_BORRADOS, "uid", str(uid),
+    )
+    if rc != 0:
+        return {}
+    msg = {"cuerpo": ""}
+    en_cuerpo = False
+    for linea in out.split("\n"):
+        if linea.startswith("body:"):
+            en_cuerpo = True
+            continue
+        if en_cuerpo:
+            msg["cuerpo"] += linea + "\n"
+            continue
+        for campo, clave in (
+            ("hdr.from: ", "de"),
+            ("hdr.to: ", "para"),
+            ("hdr.date: ", "fecha"),
+            ("hdr.subject: ", "asunto"),
+        ):
+            if linea.startswith(campo):
+                msg[clave] = linea[len(campo):].strip()
+    msg["cuerpo"] = msg["cuerpo"].strip()[:4000]
+    return msg
+
+
+async def restaurar_archivado(username: str, uid: str, destino: str = "INBOX") -> bool:
+    """Devuelve a su buzon un correo del archivo. La copia archivada se queda donde esta."""
+    _validate_user(username)
+    _validate_folder(destino)
+    if not str(uid).isdigit():
+        raise ValueError(f"uid invalido: {uid!r}")
+    out, err, rc = await _run(
+        "doveadm", "copy", "-u", username, destino,
+        "mailbox", ARCHIVO_BORRADOS, "uid", str(uid),
+    )
+    if rc != 0:
+        # El motivo importa: sin esto, «no se pudo recuperar» no dice a nadie por que.
+        _log.warning(
+            "No se pudo recuperar el correo %s de %s: rc=%s %s",
+            uid, username, rc, (err or out).strip()[:300],
+        )
+        return False
+    return True
 
 
 async def expunge(username: str, query_parts: list[str]) -> bool:
