@@ -350,7 +350,7 @@ export function MessageList() {
     obs.observe(sentinel);
     return () => obs.disconnect();
   }, [messages.length, totalMessages, loadingMessages]);
-  usePolling(fetch_, 120000, true);
+  usePolling(fetch_, 45000, true);  // 45 s: con 2 min el correo recien llegado tardaba en aparecer (21/09/2026)
 
   // Fetch priority classification for INBOX
   useEffect(() => {

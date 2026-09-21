@@ -231,7 +231,11 @@ def parse_search_query(
             "TO " + _entrecomillar(text),
             "SUBJECT " + _entrecomillar(text),
         ]
-        if buscar_en_contenido:
+        # Con indice de texto (Xapian) entrar en el cuerpo cuesta milesimas -medido en el
+        # buzon de Enviados de gerencia, 19.432 mensajes: 0,13 s-, asi que la busqueda
+        # normal ya mira dentro del mensaje. Quien buscaba a una persona en Enviados no la
+        # encontraba porque el nombre solo estaba en el texto (21/09/2026).
+        if buscar_en_contenido or con_indice:
             libre = ["OR"] + libre + ["BODY " + _entrecomillar(text)]
         if criteria:
             criteria.extend(libre)
