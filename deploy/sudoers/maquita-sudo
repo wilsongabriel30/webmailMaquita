@@ -41,7 +41,10 @@ BINARIOS = {
 # Qué puede cada usuario llamante. True = todos los subcomandos que valida este programa.
 POLITICA = {
     "www-data": {
-        "doveadm": {"search", "fetch", "expunge"},
+        # `copy` es lo que permite a cada persona recuperar su propio correo borrado desde el
+        # webmail: el archivo de lazy_expunge no se puede mover (esta protegido), solo copiar.
+        # El backend nunca acepta el buzon por parametro: usa el de la sesion (21/09/2026).
+        "doveadm": {"search", "fetch", "copy", "expunge"},
         "postqueue": True,
         "postsuper": True,
     },
