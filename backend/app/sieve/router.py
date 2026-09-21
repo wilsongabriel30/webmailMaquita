@@ -45,6 +45,8 @@ router = APIRouter(prefix="/api/sieve", tags=["sieve"])
 
 SIEVE_HOST = "127.0.0.1"
 SIEVE_PORT = 4190
+from app.sieve.confianza_bloque import aplicar, extraer
+
 SCRIPT_NAME = "webmail"
 
 
@@ -507,9 +509,17 @@ async def _get_current_script(username: str, password: str) -> str:
 
 
 async def _save_script(username: str, password: str, script: str) -> None:
-    """Upload and activate the 'webmail' sieve script."""
+    """Upload and activate the 'webmail' sieve script.
+
+    El script se regenera entero a partir de vacaciones y reglas, asi que aqui se vuelve a
+    poner el bloque de remitentes de confianza que ya tuviera: vive dentro de este mismo
+    script y, sin esto, tocar un filtro borraria la lista del usuario (21/09/2026).
+    """
     reader, writer = await sieve_connect(username, password)
     try:
+        confiables = extraer(await sieve_getscript(reader, writer, SCRIPT_NAME))
+        if confiables:
+            script = aplicar(script, confiables)
         await sieve_putscript(reader, writer, SCRIPT_NAME, script)
         await sieve_setactive(reader, writer, SCRIPT_NAME)
     finally:
