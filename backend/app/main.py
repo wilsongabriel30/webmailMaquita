@@ -94,6 +94,7 @@ from app.security.router import router as security_router
 from app.settings.routers.preferences import router as settings_router
 from app.settings_mi_equipo import router as mi_equipo_router
 from app.sieve.router import router as sieve_router
+from app.mail.routers.busqueda_capacidades import router as busqueda_capacidades_router
 from app.mail.routers.confianza import router as confianza_router
 from app.smime.router import router as smime_router
 from app.sso.router import router as sso_router
@@ -753,6 +754,7 @@ app.include_router(autodiscover_router)
 app.include_router(contacts_router)
 app.include_router(sieve_router)
 app.include_router(confianza_router)  # remitentes de confianza
+app.include_router(busqueda_capacidades_router)  # ¿hay índice de texto?
 app.include_router(identities_router)
 app.include_router(firmas_router)
 app.include_router(grandes_router)
