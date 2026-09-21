@@ -8,6 +8,7 @@
  * que no se pierde correo. Lo más antiguo sigue guardado y lo recupera sistemas.
  */
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import { api } from '../../api/client';
 
@@ -82,7 +83,10 @@ export function RecuperarEliminados({ onCerrar }: { onCerrar: () => void }) {
     }
   };
 
-  return (
+  // Va por un portal a <body>: dibujado dentro de la barra lateral, la ventana quedaba
+  // atrapada en su capa y la barra de herramientas le tapaba el titulo y el buscador, por
+  // mucho z-index que se le pusiera. Comprobado en pantalla el 21/09/2026.
+  return createPortal(
     <div className="fixed inset-0 z-[10000] bg-black/30 flex items-start justify-center pt-[6vh] px-4" onClick={onCerrar}>
       <div className="bg-white rounded-lg shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="px-5 py-4 border-b border-[#edebe9]">
@@ -161,6 +165,7 @@ export function RecuperarEliminados({ onCerrar }: { onCerrar: () => void }) {
           </p>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
