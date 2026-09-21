@@ -1,7 +1,11 @@
-require ["fileinto", "mailbox", "include"];
+require ["fileinto", "mailbox"];
 
 # Remitentes de confianza del usuario: se comprueban ANTES de mover a No deseado (opcional por usuario).
-include :optional :personal "confianza";
+# NO ACTIVAR (incidente del 18-21/09/2026): con esta linea LMTP moria con segfault en
+# libdovecot-sieve (Dovecot 2.4.1) y una decena de buzones estuvo casi tres dias sin recibir
+# correo; 41 mensajes se devolvieron al remitente. Antes de volver a intentarlo, reproducirlo en
+# una cuenta de prueba y vigilar `grep "signal 11" /var/log/mail.log`.
+# include :optional :personal "confianza";
 
 # Adjunto ejecutable o malicioso detectado por el milter Safe Attachments -> cuarentena en Junk
 if exists "X-Maquita-Quarantine" {

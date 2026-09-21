@@ -6,9 +6,12 @@
 // Todo lo que hay aquí va por cabecera, que es lo que Dovecot tiene indexado: en un buzón de
 // 10.000 mensajes responde en decenas de milisegundos. La única casilla que cuesta es «buscar
 // también dentro del texto», y por eso avisa de lo que va a tardar: sin índice de texto hay que
-// abrir y descifrar los mensajes uno a uno, y eso son minuto y medio.
+// abrir y descifrar los mensajes uno a uno, y eso son minuto y medio. Las cuentas que ya tienen
+// índice de texto (lo dice /mail/search/capacidades) buscan en el buzón entero en segundos y no
+// se acotan: acotarlas escondía el histórico a quien lo buscaba.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { api } from '../../api/client';
 
 interface Props {
   /** Se llama con la consulta compuesta, lista para buscar. */
@@ -39,6 +42,15 @@ export function PanelBusquedaAvanzada({ onBuscar, onCerrar }: Props) {
   const [soloMarcados, setSoloMarcados] = useState(false);
   const [tamMin, setTamMin] = useState('');
   const [enContenido, setEnContenido] = useState(false);
+  const [conIndice, setConIndice] = useState(false);
+
+  useEffect(() => {
+    let vivo = true;
+    api.get<{ indice_texto: boolean }>('/mail/search/capacidades')
+      .then((r) => { if (vivo) setConIndice(!!r?.indice_texto); })
+      .catch(() => { /* sin respuesta: se acota, que es lo seguro */ });
+    return () => { vivo = false; };
+  }, []);
 
   function componer(): string {
     const partes: string[] = [];
@@ -54,7 +66,8 @@ export function PanelBusquedaAvanzada({ onBuscar, onCerrar }: Props) {
     // Entrar en el texto obliga a descifrar los mensajes uno a uno, asi que lo que decide la
     // espera es cuantos hay. Sin fecha elegida: los ultimos tres meses (4,5 s medidos, frente a
     // 17 s del buzon entero). Quien necesite mas, pone la fecha y lo sabe.
-    if (enContenido && !desde && !hasta && !atajo) partes.push('trimestre');
+    // Con índice de texto no hace falta acotar: el buzón entero son segundos.
+    if (enContenido && !conIndice && !desde && !hasta && !atajo) partes.push('trimestre');
     if (adjuntoNombre.trim()) partes.push(`adjunto:${adjuntoNombre.trim().replace(/\s+/g, '_')}`);
     else if (conAdjunto) partes.push('tiene:adjunto');
     if (soloNoLeidos) partes.push('es:noleido');
@@ -163,10 +176,11 @@ export function PanelBusquedaAvanzada({ onBuscar, onCerrar }: Props) {
           <span>
             Buscar también dentro del texto de los mensajes
             <span className="block text-[11px] text-[#a19f9d]">
-              Más lento: hay que abrir uno a uno los mensajes, que están cifrados. Lo que marca la
-              espera es cuántos: acotar la fecha lo cambia todo.
+              {conIndice
+                ? 'Busca en todo el buzón, también en los correos antiguos. Tarda unos segundos.'
+                : 'Más lento: hay que abrir uno a uno los mensajes, que están cifrados. Lo que marca la espera es cuántos: acotar la fecha lo cambia todo.'}
             </span>
-            {enContenido && !desde && !hasta && !atajo && (
+            {enContenido && !conIndice && !desde && !hasta && !atajo && (
               <span className="block mt-1 text-[11px] text-[#8a6d3b] bg-[#fff4ce] rounded px-2 py-1">
                 Se buscará en los últimos 3 meses (unos segundos). Para ir más atrás, elige una
                 fecha arriba: el buzón entero puede tardar medio minuto.
