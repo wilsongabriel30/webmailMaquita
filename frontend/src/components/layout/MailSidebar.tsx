@@ -12,6 +12,7 @@ import { ContextMenu } from '../common/ContextMenu';
 import type { Folder } from '../../types';
 import { getFolderDisplayName } from '../../folders';
 import { CuentasDelegadas } from './CuentasDelegadas';
+import { RecuperarEliminados } from '../mail/RecuperarEliminados';
 import { SelectorCuentas } from './SelectorCuentas';
 
 interface MailStats {
@@ -59,6 +60,7 @@ export function MailSidebar() {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [recuperarAbierto, setRecuperarAbierto] = useState(false);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; folder: Folder } | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [draggedFolder, setDraggedFolder] = useState<string | null>(null);
@@ -126,7 +128,7 @@ export function MailSidebar() {
   const handleCreate = async () => {
     if (!newName.trim()) return;
     const fullName = createParent ? `${createParent}.${newName.trim()}` : newName.trim();
-    try { await api.post('/mail/folders', { name: fullName }); showToast(`Carpeta "${newName.trim()}" creada`); } catch {}
+    try { await api.post('/mail/folders', { name: fullName }); showToast(`Carpeta "${newName.trim()}" creada`); } catch { /* el aviso de error ya lo da el backend */ }
     setNewName(''); setCreating(false); setCreateParent(''); fetchFolders();
   };
 
@@ -139,7 +141,7 @@ export function MailSidebar() {
     try {
       await api.put(`/mail/folders/${encodeURIComponent(oldName)}`, { new_name: newFull });
       showToast(`Carpeta renombrada a "${renameValue.trim()}"`);
-    } catch (e: any) { showToast(e.message || 'Error al renombrar'); }
+    } catch (e) { showToast(e instanceof Error && e.message ? e.message : 'Error al renombrar'); }
     setRenaming(null); fetchFolders();
   };
 
@@ -150,7 +152,7 @@ export function MailSidebar() {
       message: `¿Eliminar "${getFolderDisplayName(name)}" y todo su contenido? Esta acción no se puede deshacer.`,
       danger: true,
       onConfirm: async () => {
-        try { await api.del(`/mail/folders/${encodeURIComponent(name)}`); showToast('Carpeta eliminada'); } catch {}
+        try { await api.del(`/mail/folders/${encodeURIComponent(name)}`); showToast('Carpeta eliminada'); } catch { /* el aviso de error ya lo da el backend */ }
         fetchFolders();
       },
     });
@@ -202,7 +204,7 @@ export function MailSidebar() {
       await api.post(`/mail/folders/${encodeURIComponent(folderName)}/move`, { new_parent: newParent });
       showToast(`Carpeta movida a ${newParent ? getFolderDisplayName(newParent) : 'raíz'}`);
       fetchFolders();
-    } catch (e: any) { showToast(e.message || 'Error al mover carpeta'); }
+    } catch (e) { showToast(e instanceof Error && e.message ? e.message : 'Error al mover carpeta'); }
     setMoveModal(null);
   };
 
@@ -211,6 +213,14 @@ export function MailSidebar() {
     const isSystem = systemFolders.has(f.name);
     const folderList = folders.filter(fl => fl.name !== f.name && !fl.name.startsWith(f.name + '.'));
     return [
+      // La Papelera lleva primero lo que la gente viene a buscar aqui: rescatar algo que
+      // borro. Mismo nombre y mismo sitio que tenia en Zimbra (21/09/2026).
+      ...(f.name === 'Trash' ? [
+        { label: 'Recuperar elementos eliminados',
+          icon: 'M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6',
+          onClick: () => { setRecuperarAbierto(true); setCtxMenu(null); } },
+        { label: '', icon: '', onClick: () => {}, divider: true },
+      ] : []),
       // Acciones de contenido
       { label: 'Marcar todo como leído', icon: 'M3 19v-8.93a2 2 0 01.89-1.664l7-4.666a2 2 0 012.22 0l7 4.666A2 2 0 0121 10.07V19M3 19a2 2 0 002 2h14a2 2 0 002-2M3 19l6.75-4.5M21 19l-6.75-4.5M3 10l6.75 4.5M21 10l-6.75 4.5', onClick: () => handleMarkAllRead(f.name) },
       { label: '', icon: '', onClick: () => {}, divider: true },
@@ -532,6 +542,7 @@ export function MailSidebar() {
 
       {/* Context menu */}
       {ctxMenu && <ContextMenu x={ctxMenu.x} y={ctxMenu.y} items={getFolderCtxItems(ctxMenu.folder)} onClose={() => setCtxMenu(null)} />}
+      {recuperarAbierto && <RecuperarEliminados onCerrar={() => setRecuperarAbierto(false)} />}
 
       {/* Tooltip */}
       {tooltip && (
