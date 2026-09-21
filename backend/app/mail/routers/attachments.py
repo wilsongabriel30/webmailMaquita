@@ -57,7 +57,7 @@ _EJECUTABLES_EN_NAVEGADOR = {
 }
 
 
-def _content_disposition(filename: str) -> str:
+def _content_disposition(filename: str, disposicion: str = "attachment") -> str:
     """Cabecera de descarga valida para nombres con tildes o eñes (RFC 5987).
 
     Las cabeceras HTTP van en latin-1; un nombre como «Cotización.pdf» rompia la
@@ -68,10 +68,13 @@ def _content_disposition(filename: str) -> str:
 
     ascii_name = filename.encode("ascii", "ignore").decode() or "adjunto"
     ascii_name = ascii_name.replace('"', "").replace("\\", "")
-    return f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(filename)}"
+    ascii_name = _re.sub(r"[\r\n]", "_", ascii_name)
+    return (
+        f"{disposicion}; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(filename)}"
+    )
 
 
-@router.get("/attachment/{folder}/{uid}/{part_number}/{filename}")
+@router.get("/attachment/{folder}/{uid}/{part_number}/{filename:path}")
 async def download_attachment(
     folder: str,
     uid: int,
@@ -120,7 +123,7 @@ async def download_attachment(
             pass
 
 
-@router.get("/preview/{folder}/{uid}/{part_number}/{filename}")
+@router.get("/preview/{folder}/{uid}/{part_number}/{filename:path}")
 async def preview_attachment(
     folder: str,
     uid: int,
@@ -163,10 +166,12 @@ async def preview_attachment(
         peligroso = content_type in _EJECUTABLES_EN_NAVEGADOR
         # [A-11] El nombre va entre comillas en la cabecera: si trae comillas o
         # saltos de linea, se sanea para no partir la cabecera.
-        nombre_seguro = _re.sub(r'["\r\n\\]', "_", filename)
+        # Nombres con comillas tipograficas o tildes combinadas no caben en latin-1 y
+        # daban 500 en la vista previa (21/09/2026): misma cabecera que la descarga.
         cabeceras = {
-            "Content-Disposition": '%s; filename="%s"'
-            % ("attachment" if peligroso else "inline", nombre_seguro),
+            "Content-Disposition": _content_disposition(
+                filename, "attachment" if peligroso else "inline"
+            ),
             "Cache-Control": "private, max-age=300",
             "X-Content-Type-Options": "nosniff",
         }
