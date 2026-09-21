@@ -166,3 +166,17 @@ def test_si_ya_hay_fecha_no_se_toca():
 def test_la_busqueda_normal_no_se_acota():
     """Buscar por cabeceras es instantaneo: no hay razon para limitarle el alcance."""
     assert "SINCE" not in parse_search_query("factura")
+
+
+def test_con_indice_de_texto_no_se_acota_por_fecha():
+    # Con FTS el buzon entero son segundos; acotar escondia el historico (21/09/2026).
+    criterios = parse_search_query("factura", buscar_en_contenido=True, con_indice=True)
+    assert "SINCE" not in criterios
+    assert any(str(c).startswith("BODY ") for c in criterios)
+
+
+def test_sin_indice_se_sigue_acotando_al_ultimo_ano():
+    criterios = parse_search_query(
+        "factura", buscar_en_contenido=True, con_indice=False
+    )
+    assert criterios[0] == "SINCE"

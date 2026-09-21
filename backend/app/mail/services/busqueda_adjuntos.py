@@ -10,6 +10,7 @@ Operadores en la barra: `adjunto:factura` (nombre) y `adjunto:.pdf` o `adjunto:p
 """
 
 import re
+import time
 from email.header import decode_header, make_header
 
 _RE_TOKEN = re.compile(
@@ -48,7 +49,12 @@ _EXTENSIONES_CONOCIDAS = {
     "ics",
     "vcf",
 }
-TOPE_CANDIDATOS = 4000  # se revisan como mucho los 4000 más recientes
+# Antes se miraban solo los 4000 mas recientes y en buzones con historico (24.000 mensajes) los
+# adjuntos de anos atras no aparecian nunca. La estructura queda en la cache de Dovecot tras la
+# primera lectura (12.000 mensajes: 3 min 28 s en frio, 9 s en caliente), asi que lo que se limita
+# es el tiempo, no la cantidad: lo que no alcance hoy, alcanza en el siguiente intento.
+TOPE_CANDIDATOS = 60000
+PRESUPUESTO_S = 20.0  # el webmail espera 30 s
 TANDA = 250
 
 
@@ -113,13 +119,21 @@ def coincide(nombres: list[str], patrones: list[str]) -> bool:
 
 async def filtrar_uids_por_adjunto(
     imap, uids: list[int], patrones: list[str]
-) -> list[int]:
-    """Conserva, en el mismo orden, los UIDs con algún adjunto que cumpla los patrones."""
+) -> tuple[list[int], bool]:
+    """Conserva, en el mismo orden, los UIDs con algún adjunto que cumpla los patrones.
+
+    Devuelve tambien si se revisaron todos los candidatos (False: se acabo el tiempo).
+    """
     if not patrones or not uids:
-        return uids
+        return uids, True
     candidatos = uids[:TOPE_CANDIDATOS]
+    completo = len(candidatos) == len(uids)
+    limite = time.monotonic() + PRESUPUESTO_S
     resultado: list[int] = []
     for i in range(0, len(candidatos), TANDA):
+        if time.monotonic() > limite:
+            completo = False
+            break
         tanda = candidatos[i : i + TANDA]
         try:
             resp = await imap.uid(
@@ -146,4 +160,4 @@ async def filtrar_uids_por_adjunto(
             if coincide(nombres_de_estructura(trozos[j + 2]), patrones):
                 encontrados.add(uid)
         resultado.extend(u for u in tanda if u in encontrados)
-    return resultado
+    return resultado, completo

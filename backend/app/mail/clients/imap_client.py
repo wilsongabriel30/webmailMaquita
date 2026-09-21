@@ -19,6 +19,7 @@ from app.mail.services.busqueda_adjuntos import (
     filtrar_uids_por_adjunto,
 )
 from app.mail.services.cache_uids import registrar_clave
+from app.mail.services.indice_texto import cuenta_indexada
 
 
 def _imap_utf7_decode(s: str) -> str:
@@ -233,7 +234,9 @@ async def list_message_uids(
     consulta_original = search_query
     search_query, patrones_adjunto = extraer_patrones(search_query or "")
     if search_query:
-        criteria = _build_search_criteria(search_query, buscar_en_contenido)
+        criteria = _build_search_criteria(
+            search_query, buscar_en_contenido, cuenta_indexada(username)
+        )
     else:
         criteria = ["ALL"]
     if patrones_adjunto:
@@ -278,7 +281,13 @@ async def list_message_uids(
             all_uids.sort(reverse=True)
 
         if patrones_adjunto and all_uids:
-            all_uids = await filtrar_uids_por_adjunto(imap, all_uids, patrones_adjunto)
+            all_uids, completo = await filtrar_uids_por_adjunto(
+                imap, all_uids, patrones_adjunto
+            )
+            # Resultado parcial (se agoto el tiempo): no se guarda, para que el siguiente
+            # intento -ya con las estructuras en la cache de Dovecot- llegue mas atras.
+            if not completo:
+                cache_key = ""
 
         # FQA-002: Cache sorted UIDs in Redis for 60s
         if redis and username and cache_key and all_uids:
@@ -298,10 +307,14 @@ async def list_message_uids(
     return {"uids": page_uids, "total": total, "page": page, "per_page": per_page}
 
 
-def _build_search_criteria(query: str, buscar_en_contenido: bool = False) -> list[str]:
+def _build_search_criteria(
+    query: str, buscar_en_contenido: bool = False, con_indice: bool = False
+) -> list[str]:
     from app.mail.search_advanced import parse_search_query
 
-    return parse_search_query(query, buscar_en_contenido=buscar_en_contenido)
+    return parse_search_query(
+        query, buscar_en_contenido=buscar_en_contenido, con_indice=con_indice
+    )
 
 
 async def fetch_message_headers(
