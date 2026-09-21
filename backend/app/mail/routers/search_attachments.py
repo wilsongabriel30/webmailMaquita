@@ -8,7 +8,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from app.auth.dependencies import get_current_user
 from app.core.session import get_imap_login_user, get_user_password
 from app.mail.clients.imap_client import get_imap_connection
-from app.mail.services.indice_texto import cuenta_indexada
 
 logger = logging.getLogger("search_attachments")
 
@@ -39,12 +38,6 @@ async def _extract_text_tika(
     except Exception as e:
         logger.warning(f"Tika extraction failed: {e}")
     return ""
-
-
-@router.get("/capacidades")
-async def capacidades_de_busqueda(username: str = Depends(get_current_user)):
-    """Lo que la interfaz necesita saber para no acotar de mas: ¿hay indice de texto?"""
-    return {"indice_texto": cuenta_indexada(username)}
 
 
 @router.get("/attachments")
