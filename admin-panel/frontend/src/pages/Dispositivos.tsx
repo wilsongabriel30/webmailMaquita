@@ -8,6 +8,7 @@ import { Mensajes } from "./dispositivos/Mensajes";
 import { Flota } from "./dispositivos/telemetria/Flota";
 import { FichaTelemetria } from "./dispositivos/telemetria/FichaTelemetria";
 import { Alertas } from "./dispositivos/telemetria/Alertas";
+import { Depurar } from "./dispositivos/Depurar";
 import { Equipo } from "./dispositivos/tipos";
 
 // Teléfonos institucionales (fase 1): inventario y asignación, último estado que reporta cada
@@ -35,6 +36,7 @@ export function Dispositivos() {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div><h1 className="text-xl font-semibold text-ms-gray-130">Teléfonos institucionales</h1>
           <p className="text-sm text-ms-gray-60">Inventario, estado y mensajes urgentes de los celulares de la organización.</p></div>
+        <div className="flex items-center gap-3"><Depurar onHecho={cargar} />
         <SectionHelp titulo="Teléfonos institucionales" items={[
           { titulo: "Cómo entra un teléfono", desc: "Se instala la app Maquita y se escribe un código de enrolamiento creado aquí. Sin código vigente no se activa la gestión. Equipo nuevo o restaurado de fábrica: control completo. Teléfono ya en uso: modo limitado (la persona puede quitar permisos o desinstalar; si lo hace, queda un evento)." },
           { titulo: "Qué reporta", desc: "Cada 15 minutos: batería, almacenamiento, red, versión de Android y de la app, Play Protect. No se leen mensajes, fotos ni contenido." },
@@ -47,7 +49,7 @@ export function Dispositivos() {
           { titulo: "Reasignación", desc: "Un teléfono pasa de una persona a otra (jefe → subordinado → técnico) sin dejar de funcionar; cada cambio queda en el historial de custodia y puede pedir el respaldo de cierre del custodio anterior. El destino del respaldo en el almacén se fija por equipo antes del primer respaldo." },
           { titulo: "Telemetría y alertas", desc: "La pestaña «Telemetría» muestra el estado técnico de cada equipo (contacto, batería, almacenamiento, red, versiones, administración, Play Protect, eventos y acuses) con gráficas por equipo, y se puede exportar a CSV. Un trabajo del servidor evalúa cada 15 minutos y avisa por correo a Tecnología (y un resumen diario a dirección) según los umbrales de la pestaña «Alertas». Dirección puede ver todo con una cuenta de rol lector (viewer) sin poder mandar comandos ni retirar equipos." },
           { titulo: "Auditoría", desc: "Códigos, ediciones, bajas, mensajes, reglas de apps y reasignaciones quedan en la auditoría del panel." },
-        ]} />
+        ]} /></div>
       </div>
       {error && <div className="text-sm px-3 py-2 rounded bg-red-50 text-red-700">{error}</div>}
       {res && <div className="grid grid-cols-2 md:grid-cols-5 gap-3">

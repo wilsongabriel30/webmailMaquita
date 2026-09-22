@@ -66,3 +66,53 @@ async def borrar_mensaje(mensaje_id: int, request: Request, admin: dict = Depend
     await db(request).execute("DELETE FROM disp_mensajes WHERE id = $1", mensaje_id)
     await auditar(request, admin, "dispositivo_mensaje_borrar", str(mensaje_id), {"titulo": m["titulo"]})
     return {"ok": True}
+
+
+# ── Depuración en un solo paso ───────────────────────────────────────────────────────────────────
+
+_CODIGOS_SOBRANTES = """SELECT c.id FROM disp_codigos c
+     WHERE (c.revocado_en IS NOT NULL OR c.usos >= c.usos_max OR (c.caduca_en IS NOT NULL AND c.caduca_en < NOW()))
+       AND NOT EXISTS (SELECT 1 FROM disp_equipos e WHERE e.codigo_id = c.id AND e.estado IN ('activo', 'perdido'))"""
+_EQUIPOS_SOBRANTES = """SELECT e.id, e.nombre, e.fabricante, e.modelo, e.estado, e.custodio_email, e.ultimo_contacto, e.carpeta_respaldo FROM disp_equipos e
+     WHERE e.estado IN ('revocado', 'baja')
+        OR (e.ultimo_contacto IS NULL AND e.enrolado_en < NOW() - interval '1 day')"""
+_MENSAJES_SOBRANTES = """SELECT m.id, m.titulo FROM disp_mensajes m
+     WHERE (m.caduca_en IS NOT NULL AND m.caduca_en < NOW() - interval '30 days')
+        OR NOT EXISTS (SELECT 1 FROM disp_mensajes_equipos me WHERE me.mensaje_id = m.id)"""
+
+
+@router.post("/depurar")
+async def depurar(request: Request, admin: dict = Depends(_ADMIN)):
+    """Un solo paso. Cuerpo `{confirmacion?: "DEPURAR"}`: sin confirmación devuelve la vista previa
+    (qué se borraría); con ella, borra:
+    - códigos anulados, agotados o caducados sin equipo activo enrolado con ellos;
+    - equipos retirados de la gestión o dados de baja, y los que nunca reportaron en más de un día
+      (pruebas que no salieron bien); con todo su historial y sus carpetas en disco;
+    - mensajes sin destinatarios o caducados hace más de 30 días.
+    Nunca toca equipos activos ni perdidos, ni alertas o reportes de equipos vivos."""
+    b = await request.json() if int(request.headers.get("content-length") or 0) else {}
+    d = db(request)
+    codigos = [r["id"] for r in await d.fetch(_CODIGOS_SOBRANTES)]
+    equipos = [dict(r) for r in await d.fetch(_EQUIPOS_SOBRANTES)]
+    mensajes = [dict(r) for r in await d.fetch(_MENSAJES_SOBRANTES)]
+    vista = {
+        "codigos": len(codigos),
+        "equipos": [{"id": e["id"], "nombre": e["nombre"] or f"{e['fabricante'] or ''} {e['modelo'] or ''}".strip(), "estado": e["estado"], "custodio": e["custodio_email"]} for e in equipos],
+        "mensajes": [{"id": m["id"], "titulo": m["titulo"]} for m in mensajes],
+    }
+    if (b.get("confirmacion") or "").strip().upper() != "DEPURAR":
+        return {"vista_previa": True, **vista}
+    if codigos:
+        await d.execute("DELETE FROM disp_codigos WHERE id = ANY($1::int[])", codigos)
+    carpetas = []
+    for e in equipos:
+        await d.execute("DELETE FROM disp_equipos WHERE id = $1", e["id"])
+        for base, sub in ((RESPALDOS, e["carpeta_respaldo"] or str(e["id"])), (GNSS, str(e["id"]))):
+            ruta = os.path.realpath(os.path.join(base, sub))
+            if ruta.startswith(os.path.realpath(base) + os.sep) and os.path.isdir(ruta):
+                shutil.rmtree(ruta, ignore_errors=True)
+                carpetas.append(ruta)
+    if mensajes:
+        await d.execute("DELETE FROM disp_mensajes WHERE id = ANY($1::int[])", [m["id"] for m in mensajes])
+    await auditar(request, admin, "dispositivo_depurar", "todo", {**vista, "carpetas": carpetas})
+    return {"vista_previa": False, **vista, "carpetas_borradas": len(carpetas)}
