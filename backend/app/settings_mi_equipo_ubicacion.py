@@ -42,7 +42,7 @@ def _margen(p: dict) -> str:
 
 async def _mis_equipos(db, username: str) -> list[dict]:
     filas = await db.fetch(
-        "SELECT id, nombre, modelo, fabricante, estado, modo, ultimo_contacto, ubicacion_autorizada, push_topic "
+        "SELECT id, nombre, modelo, fabricante, estado, modo, ultimo_contacto, ubicacion_autorizada, push_topic, wifi_ssid, wifi_en, red "
         "FROM disp_equipos WHERE custodio_email = $1 AND estado IN ('activo', 'perdido') ORDER BY enrolado_en DESC",
         username,
     )
@@ -81,6 +81,9 @@ async def ubicacion(request: Request, username: str = Depends(get_current_user))
             "ultimo_contacto": e["ultimo_contacto"].isoformat() if e["ultimo_contacto"] else None,
             "ubicacion_permitida": bool(e["ubicacion_autorizada"]) or e["estado"] == "perdido",
             "posicion": await _mejor_posicion(db, e["id"]),
+            # Nombre del wifi al que está conectado (si la app lo manda y el último reporte fue por wifi).
+            "wifi": e["wifi_ssid"] if e["wifi_ssid"] and (e["red"] or "").lower().find("wifi") >= 0 else None,
+            "wifi_en": e["wifi_en"].isoformat() if e["wifi_ssid"] and e["wifi_en"] else None,
             "buscando": pendiente > 0,
         })
     return {"equipos": salida}

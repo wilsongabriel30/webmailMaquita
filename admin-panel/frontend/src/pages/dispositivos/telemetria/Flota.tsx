@@ -71,7 +71,7 @@ export function Flota({ onAbrir }: { onAbrir: (id: number) => void }) {
                   <td className="px-3 py-2 whitespace-nowrap"><span className={`inline-block w-2.5 h-2.5 rounded-full mr-1.5 ${COLOR_SEMAFORO[e.semaforo]}`} />{hc.texto}</td>
                   <td className="px-3 py-2">{e.bateria != null ? <span className={e.bateria < 15 && !e.cargando ? "text-red-600 font-medium" : ""}>{e.bateria}%{e.cargando ? " ⚡" : ""}</span> : "—"}</td>
                   <td className="px-3 py-2 whitespace-nowrap">{e.almacenamiento_pct != null ? <span className={e.almacenamiento_pct < 10 ? "text-red-600 font-medium" : ""}>{e.almacenamiento_pct}% · {gb(e.almacenamiento_libre)}</span> : "—"}</td>
-                  <td className="px-3 py-2">{e.red || "—"}{e.ancla_sede && <div className="text-xs text-blue-700" title="Reporta desde la red de esa sede (ancla de red)">en {e.ancla_sede}</div>}</td>
+                  <td className="px-3 py-2">{e.red || "—"}{e.wifi_ssid && (e.red || "").toLowerCase().includes("wifi") && <div className="text-xs text-ms-gray-60">«{e.wifi_ssid}»</div>}{e.ancla_sede && <div className="text-xs text-blue-700" title="Reporta desde la red de esa sede (ancla de red)">en {e.ancla_sede}</div>}</td>
                   <td className="px-3 py-2">{e.version_app ? <span className={e.version_atrasada ? "text-amber-700 font-medium" : ""} title={e.version_atrasada ? `Atrasada: la publicada es ${d.publicada.versionName}` : ""}>{e.version_app}{e.version_atrasada ? " ↓" : ""}</span> : "—"}</td>
                   <td className="px-3 py-2">{e.android || "—"}</td>
                   <td className="px-3 py-2 text-xs">{e.modo === "propietario" ? "Completo" : "Limitado"}</td>
