@@ -13,7 +13,7 @@ export interface Equipo {
   revocado_en?: string; revocado_motivo?: string; depreciacion?: Depreciacion | null;
   ubicacion_autorizada?: boolean; politica_firmada_en?: string;
   perdido_en?: string; perdido_motivo?: string; perdido_mensaje?: string; perdido_telefono?: string;
-  carpeta_respaldo?: string; imeis?: string[]; ancla_sede?: string | null; wifi_ssid?: string | null;
+  carpeta_respaldo?: string; imeis?: string[]; imeis_origen?: Record<string, string>; ancla_sede?: string | null; wifi_ssid?: string | null;
 }
 export interface Evento { id: number; tipo: string; detalle: Record<string, unknown>; recibido_en: string; visto_por?: string; visto_en?: string }
 export interface Latido { recibido_en: string; ip?: string; datos: Record<string, unknown> }
@@ -37,5 +37,5 @@ export const NOMBRE_EVENTO: Record<string, string> = {
   enrolado: "Equipo enrolado", arranque: "Arranque del teléfono",
   admin_desactivado: "Quitaron a la app como administradora del dispositivo",
   desinstalacion_intento: "Intento de desinstalar la app", permiso_revocado: "Permiso revocado",
-  sim_cambiada: "Cambio de SIM", otro: "Otro",
+  sim_cambiada: "Cambio de SIM", imei_ajeno: "Mandó un IMEI que ya es de otro equipo (rechazado)", otro: "Otro",
 };

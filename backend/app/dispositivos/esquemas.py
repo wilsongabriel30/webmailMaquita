@@ -68,6 +68,7 @@ TIPOS_EVENTO = (
     "desinstalacion_intento",
     "permiso_revocado",
     "sim_cambiada",
+    "imei_ajeno",  # el teléfono mandó un IMEI que ya pertenece a otro equipo registrado
     "otro",
 )
 
