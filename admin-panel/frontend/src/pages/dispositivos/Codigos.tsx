@@ -31,6 +31,10 @@ export function Codigos() {
     try { setError(""); setVisto(null); setNuevo(await api.post("/dispositivos/codigos", f)); cargar(); }
     catch (e: any) { setError(e.message); }
   };
+  const eliminar = async (c: Codigo) => {
+    if (!confirm(`¿Eliminar definitivamente el código ${c.prefijo}-•••• (${c.etiqueta || "sin etiqueta"})? Desaparece del historial; los equipos ya enrolados con él no se ven afectados.`)) return;
+    try { await api.del(`/dispositivos/codigos/${c.id}/definitivo`); cargar(); } catch (e: any) { setError(e.message); }
+  };
   const revocar = async (id: number) => { if (confirm("¿Anular este código? Los equipos ya enrolados con él no se ven afectados.")) { await api.del(`/dispositivos/codigos/${id}`); cargar(); } };
   const ver = async (id: number) => {
     try { setError(""); const r = await api.get<{ codigo: string }>(`/dispositivos/codigos/${id}/ver`); setVisto({ id, codigo: r.codigo }); }
@@ -85,7 +89,8 @@ export function Codigos() {
               <td className="px-4 py-2.5 text-right whitespace-nowrap">
                 {c.modo === "propietario" && estado(c) === "vigente" && <button onClick={() => setQr({ codigo_id: c.id, codigo: visto?.id === c.id ? visto.codigo : undefined, etiqueta: c.etiqueta })} className="text-xs text-ms-blue hover:underline mr-3">Ver QR</button>}
                 {c.recuperable && visto?.id !== c.id && <button onClick={() => ver(c.id)} className="text-xs text-ms-blue hover:underline mr-3" title="Queda en la auditoría">Ver</button>}
-                {estado(c) === "vigente" && <button onClick={() => revocar(c.id)} className="text-xs text-ms-red hover:underline">Anular</button>}
+                {estado(c) === "vigente" && <button onClick={() => revocar(c.id)} className="text-xs text-ms-red hover:underline mr-3">Anular</button>}
+                {!c.usado_por.length && <button onClick={() => eliminar(c)} className="text-xs text-ms-gray-60 hover:text-ms-red hover:underline" title="Borrar del historial (pruebas)">Eliminar</button>}
               </td>
             </tr>)}
             {!lista.filter((c) => todos || estado(c) === "vigente").length && <tr><td colSpan={10} className="px-4 py-6 text-center text-ms-gray-60">{lista.length ? "Sin códigos vigentes." : "Sin códigos todavía."}</td></tr>}
