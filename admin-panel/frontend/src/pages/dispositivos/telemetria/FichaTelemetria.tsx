@@ -17,6 +17,7 @@ interface Detalle {
   comandos: { id: number; tipo: string; estado: string; creado_por: string; creado_en: string; entregado_en?: string; terminado_en?: string; resultado?: Record<string, unknown> | null; motivo?: string }[];
   versiones: { version: string; desde: string; hasta: string }[];
   alertas: Alerta[];
+  redes: { red?: string | null; wifi?: string | null; sede?: string | null; desde: string; hasta: string; reportes: number }[];
 }
 const RANGOS = [["24h", "24 horas"], ["7d", "7 días"], ["30d", "30 días"]] as const;
 
@@ -83,6 +84,18 @@ export function FichaTelemetria({ id, onCerrar }: { id: number; onCerrar: () => 
                 {m.leido_en ? `leído por ${m.custodio_nombre || m.custodio_email || "el custodio"} ${fechaHora(m.leido_en)}` : m.entregado_en ? `entregado ${fechaHora(m.entregado_en)}, sin leer` : "pendiente de entrega"}</span>
             </li>)}
             {!d.mensajes.length && <li className="text-ms-gray-60">Sin mensajes.</li>}
+          </ul>
+        </div>
+        <div className="md:col-span-2">
+          <h3 className="text-sm font-semibold mb-2">Redes por las que pasó (30 días)</h3>
+          <p className="text-xs text-ms-gray-60 mb-1">Dónde estuvo conectado: sede reconocida por la red y nombre del wifi. Si alguien viajó y el teléfono sigue reportando desde la oficina de Quito o de una provincia, aquí se ve.</p>
+          <ul className="text-sm space-y-1 max-h-60 overflow-y-auto">
+            {d.redes.map((r, i) => <li key={i} className="px-2 py-1 flex flex-wrap gap-x-3">
+              <span className="text-xs text-ms-gray-60 w-64 shrink-0">{fechaHora(r.desde)} → {fechaHora(r.hasta)}</span>
+              <span>{r.sede ? <strong className="text-blue-700">en {r.sede}</strong> : <span className="text-ms-gray-60">fuera de las sedes</span>}</span>
+              <span className="text-xs text-ms-gray-60">{r.red || "?"}{r.wifi ? ` «${r.wifi}»` : ""} · {r.reportes} reportes</span>
+            </li>)}
+            {!d.redes.length && <li className="text-ms-gray-60">Sin reportes en 30 días.</li>}
           </ul>
         </div>
         <div>
