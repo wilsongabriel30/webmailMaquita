@@ -21,6 +21,7 @@ export function Codigos() {
   const [visto, setVisto] = useState<{ id: number; codigo: string } | null>(null);
   const [qr, setQr] = useState<{ codigo?: string; codigo_id?: number; etiqueta: string } | null>(null);
   const [error, setError] = useState("");
+  const [todos, setTodos] = useState(false);
 
   const cargar = () => api.get<{ codigos: Codigo[]; cifrado_disponible: boolean }>("/dispositivos/codigos")
     .then((r) => { setLista(r.codigos); setCifrado(r.cifrado_disponible); }).catch((e) => setError(e.message));
@@ -66,10 +67,14 @@ export function Codigos() {
         </div>}
       </div>
       <div className="bg-white rounded-lg border border-ms-gray-30 overflow-x-auto">
+        <div className="px-4 py-2 border-b border-ms-gray-20 flex items-center gap-3 text-xs text-ms-gray-60">
+          <span>{todos ? `${lista.length} códigos (todos)` : `${lista.filter((c) => estado(c) === "vigente").length} vigentes`}</span>
+          <button onClick={() => setTodos(!todos)} className="text-ms-blue hover:underline">{todos ? "Ocultar anulados, usados y caducados" : "Mostrar anulados, usados y caducados"}</button>
+        </div>
         <table className="w-full text-sm">
           <thead><tr className="bg-ms-gray-10">{["Código", "Asignado a", "Para qué", "Tipo", "Usos", "Usado desde", "Creado", "Caduca", "Estado", ""].map((h) => <th key={h} className="text-left px-4 py-2.5 font-medium text-ms-gray-90 text-xs">{h}</th>)}</tr></thead>
           <tbody>
-            {lista.map((c) => <tr key={c.id} className="border-t border-ms-gray-20">
+            {lista.filter((c) => todos || estado(c) === "vigente").map((c) => <tr key={c.id} className="border-t border-ms-gray-20">
               <td className="px-4 py-2.5 font-mono">{visto?.id === c.id ? <span className="text-ms-gray-130">{visto.codigo} <button onClick={() => navigator.clipboard.writeText(visto.codigo)} className="text-xs font-sans text-ms-blue hover:underline">Copiar</button></span> : `${c.prefijo}-••••-••••`}</td>
               <td className="px-4 py-2.5 text-xs">{c.custodio_email || <span className="text-ms-gray-60">—</span>}{c.autoservicio && <div className="text-ms-gray-60">(autoservicio, anterior)</div>}</td>
               <td className="px-4 py-2.5">{c.etiqueta || "—"}</td>
@@ -83,7 +88,7 @@ export function Codigos() {
                 {estado(c) === "vigente" && <button onClick={() => revocar(c.id)} className="text-xs text-ms-red hover:underline">Anular</button>}
               </td>
             </tr>)}
-            {!lista.length && <tr><td colSpan={10} className="px-4 py-6 text-center text-ms-gray-60">Sin códigos todavía.</td></tr>}
+            {!lista.filter((c) => todos || estado(c) === "vigente").length && <tr><td colSpan={10} className="px-4 py-6 text-center text-ms-gray-60">{lista.length ? "Sin códigos vigentes." : "Sin códigos todavía."}</td></tr>}
           </tbody>
         </table>
       </div>
