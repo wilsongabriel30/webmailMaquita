@@ -365,3 +365,12 @@ Uso: Configuración → «Teléfono extraviado» muestra «Está conectado al wi
 ahí lo dejó); la flota del panel lo muestra bajo la columna «Red». El `bssid` es la base de la etapa 2
 (anclas por punto de acceso). Migración `2026-09-22-04-dispositivos-wifi-ssid.sql`.
 **Pedido a la app:** mandar ambos en cada latido cuando esté en wifi.
+
+## Lotes GNSS crudos (etapa 3, 22/09/2026)
+`POST /api/dispositivos/gnss` (token del equipo): `{inicio, fin, segundos, formato: "gnsslogger-txt",
+modelo?, android?, capacidades?, fix?: {lat, lon, precision}, datos_gz: base64(gzip(texto))}` ≤ 8 MB →
+`{id, bytes}`. Se guarda en `DISP_GNSS_DIR` (por omisión `/var/lib/maquita-webmail/gnss/<equipo>/`) y en
+`disp_gnss_lotes`; el procesamiento (RINEX + RTKLIB contra la estación REGME más cercana, datos gratuitos
+del Geoportal del IGM con hasta 5 días hábiles de retraso, o REGME-IP por NTRIP en tiempo real) es fuera
+de línea y escribe `resultado`. Comando del panel **`gnss_crudo`** con `segundos` (10-900, 60 por
+omisión). Prompt para la app: `WEBMAIL-CALENDARIO/app-movil/PROMPT-APP-WIFI-ANCLAS-Y-GNSS-CRUDO.md`.
