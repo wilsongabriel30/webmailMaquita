@@ -72,6 +72,6 @@ async def generar_qr(request: Request, admin: dict = Depends(_ADMIN)):
             "AND (caduca_en IS NULL OR caduca_en > NOW())", int(codigo_id))
         codigo = codigo_cifrado.descifrar(c["codigo_cifrado"]) if c else None
     texto = json.dumps(contenido(codigo), ensure_ascii=False)
-    svg = segno.make(texto, error="m").svg_inline(scale=6, border=3, dark="#000")
+    svg = segno.make(texto, error="m").svg_inline(scale=6, border=3, dark="#000", omitsize=True, svgclass="qr-aprov", lineclass=None)
     await auditar(request, admin, "dispositivo_codigo_qr", str(codigo_id or "nuevo"), {"con_codigo": bool(codigo), "version": version_publicada.leer().get("versionName")})
     return {"svg": svg, "con_codigo": bool(codigo), "version": version_publicada.leer().get("versionName"), "json": texto}
