@@ -7,7 +7,7 @@ export interface EquipoFlota {
   bateria?: number; cargando?: boolean; almacenamiento_libre?: number; almacenamiento_total?: number; almacenamiento_pct?: number | null;
   red?: string; version_app?: string; version_atrasada: boolean; android?: string; play_protect?: boolean | null; admin_activo?: boolean | null;
   semaforo: "verde" | "amarillo" | "rojo"; eventos_rojos_7d: number; eventos_sin_revisar: number; urgentes_sin_acuse: number;
-  alertas_abiertas: number; alertas?: AlertaCorta[] | null;
+  alertas_abiertas: number; alertas?: AlertaCorta[] | null; ancla_sede?: string | null; ancla_en?: string | null;
 }
 export interface Flota { publicada: { versionName?: string; versionCode?: number; fecha?: string }; totales: { equipos: number; reportando_hoy: number; rojo: number; con_alertas: number }; equipos: EquipoFlota[] }
 

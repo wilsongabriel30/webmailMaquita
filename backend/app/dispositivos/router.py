@@ -12,6 +12,7 @@ import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
+from app.dispositivos import anclas as _anclas
 from app.dispositivos import ubicacion as _ubic
 from app.dispositivos.esquemas import (
     TIPOS_EVENTO,
@@ -187,6 +188,11 @@ async def latido(request: Request, body: Latido, equipo: dict = Depends(equipo_a
             await _ubic.guardar(
                 con, equipo, [body.ubicacion], "periodica", ip, body.bateria
             )
+        # Ancla de red: si la IP es de una sede conocida, el equipo está en esa sede (etapa 1).
+        try:
+            await _anclas.registrar(con, equipo, ip, _ubic.puede_guardar(equipo))
+        except Exception:
+            logger.exception("ancla_red_fallo | equipo=%s", equipo["id"])
         comandos = await con.fetch(
             "UPDATE disp_comandos SET estado = 'entregado', entregado_en = NOW() "
             "WHERE equipo_id = $1 AND estado = 'pendiente' RETURNING id, tipo, parametros",

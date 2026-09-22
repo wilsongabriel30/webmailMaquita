@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../../../api/client";
 import { haceCuanto } from "../tipos";
 import { COLOR_SEMAFORO, EquipoFlota, Flota as FlotaDatos, NOMBRE_ALERTA, descargar, gb } from "./tipos";
+import { Anclas } from "./Anclas";
 
 // Vista de flota: una fila por equipo con semáforo de último contacto, batería, almacenamiento, red,
 // versiones (marcando las atrasadas frente a la publicada), administración, Play Protect, eventos rojos
@@ -70,7 +71,7 @@ export function Flota({ onAbrir }: { onAbrir: (id: number) => void }) {
                   <td className="px-3 py-2 whitespace-nowrap"><span className={`inline-block w-2.5 h-2.5 rounded-full mr-1.5 ${COLOR_SEMAFORO[e.semaforo]}`} />{hc.texto}</td>
                   <td className="px-3 py-2">{e.bateria != null ? <span className={e.bateria < 15 && !e.cargando ? "text-red-600 font-medium" : ""}>{e.bateria}%{e.cargando ? " ⚡" : ""}</span> : "—"}</td>
                   <td className="px-3 py-2 whitespace-nowrap">{e.almacenamiento_pct != null ? <span className={e.almacenamiento_pct < 10 ? "text-red-600 font-medium" : ""}>{e.almacenamiento_pct}% · {gb(e.almacenamiento_libre)}</span> : "—"}</td>
-                  <td className="px-3 py-2">{e.red || "—"}</td>
+                  <td className="px-3 py-2">{e.red || "—"}{e.ancla_sede && <div className="text-xs text-blue-700" title="Reporta desde la red de esa sede (ancla de red)">en {e.ancla_sede}</div>}</td>
                   <td className="px-3 py-2">{e.version_app ? <span className={e.version_atrasada ? "text-amber-700 font-medium" : ""} title={e.version_atrasada ? `Atrasada: la publicada es ${d.publicada.versionName}` : ""}>{e.version_app}{e.version_atrasada ? " ↓" : ""}</span> : "—"}</td>
                   <td className="px-3 py-2">{e.android || "—"}</td>
                   <td className="px-3 py-2 text-xs">{e.modo === "propietario" ? "Completo" : "Limitado"}</td>
@@ -86,6 +87,7 @@ export function Flota({ onAbrir }: { onAbrir: (id: number) => void }) {
           </table>
         </div>
       </div>
+      <Anclas />
       <p className="text-xs text-ms-gray-60">Semáforo: verde reportó hace menos de 1 h · amarillo menos de 24 h · rojo más de 24 h o nunca. Telemetría del equipo, no de la persona: aquí no hay contenido, apps de uso, navegación ni ubicación.</p>
     </div>
   );

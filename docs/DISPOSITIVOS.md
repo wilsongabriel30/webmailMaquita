@@ -323,3 +323,23 @@ cierran al marcar el evento «revisado»), `play_protect_apagado`, `mensaje_sin_
 
 ## Runbook
 `docs/RUNBOOK-TELEFONOS-TELEMETRIA.md` (copia en `02-MODULOS/GESTION-DISPOSITIVOS-MOVILES/RUNBOOK-TELEMETRIA-TELEFONOS.md`).
+
+## Anclas de red por sede (etapa 1 de la triangulación propia, 22/09/2026)
+La ubicación de un celular es aproximada; para afinarla con nuestros propios puntos fijos:
+- **Etapa 1 (hecha, solo servidor):** tabla `disp_anclas_red` (`tipo` red/bssid, `valor` CIDR o BSSID,
+  `sede`, `nombre`, `lat`, `lon`, `radio_m`, `activa`). En cada latido, si la IP del teléfono cae en
+  una red ancla (`app/dispositivos/anclas.py`), se anota `disp_equipos.ancla_sede/ancla_en` (siempre,
+  es dato de red como la IP; la flota lo muestra en la columna «Red») y, **solo si la ubicación está
+  autorizada o el equipo está perdido**, se guarda una posición con `origen = 'ancla'`, `fuente = 'red'`
+  y `precision_m = radio_m`, como mucho una cada 15 min por equipo y sede. Sembradas: Maquita central
+  (193.16.0.0/24 y 179.49.24.160/28, coordenadas del GPS del NTP, 60-80 m) y las subredes internas de
+  los MikroTik de las demás sedes con coordenadas provisionales del centro de cada ciudad y radio 3 km,
+  a afinar desde el panel (Telemetría → «Anclas de red por sede»). Las IP públicas de las sucursales
+  son dinámicas y no se usan.
+- Panel: `GET/POST /api/dispositivos/anclas`, `DELETE /api/dispositivos/anclas/{id}` (alta y baja solo
+  admin, auditadas `dispositivo_ancla_*`). En la ficha, la posición por ancla se muestra en azul:
+  «En la sede: conectado a la red de Maquita».
+- **Etapa 2 (pedido a la app):** que el latido traiga `wifi: {bssid, rssi}` del punto de acceso al que
+  está conectado y que la respuesta a «localizar» traiga `wifis_vistas: [{bssid, rssi}]` (hasta 20).
+  Con anclas de tipo `bssid` (MAC de cada punto de acceso de Maquita con sus coordenadas) el servidor
+  calculará la posición por intensidad (centroide ponderado) dentro de las sedes, 5-15 m.

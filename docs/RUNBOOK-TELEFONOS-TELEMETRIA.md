@@ -56,6 +56,7 @@ antes de actuar: el equipo puede estar en **cualquier punto del círculo**, no e
 - Ámbar (hasta 200 m): wifi o GPS bajo techo; es una manzana, no una casa.
 - Rojo (más de 200 m, a veces kilómetros): por antena de celular; solo indica el sector.
 - Morado: otro teléfono de la organización lo detectó cerca por Bluetooth.
+- Azul: el teléfono está conectado a la red de una sede de Maquita (ancla de red): está en esa sede, con el margen indicado. Las sedes fuera de Quito tienen coordenadas provisionales (3 km) hasta que Tecnología cargue la ubicación exacta de cada oficina.
 La posición solo se vuelve más fiable cuando **varios teléfonos** de la organización lo detectan
 (avistamientos por Bluetooth, que se activan al declarar el equipo perdido) y sus zonas coinciden.
 Nunca dé por exacta una posición para acusar a alguien o entrar a un domicilio.
