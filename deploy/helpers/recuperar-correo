@@ -1,0 +1,131 @@
+#!/bin/bash
+# Recuperar correo borrado — Maquita
+#
+# Cuando alguien borra un correo o vacía una carpeta, Dovecot no lo tira: el plugin
+# lazy_expunge guarda una copia en una carpeta oculta («Expunged») del propio buzón. Este
+# guion sirve para buscar ahí y devolver el correo a su sitio.
+#
+# NUNCA borra nada: solo lee y copia. La copia archivada se queda donde está.
+#
+#   recuperar-correo buscar    <buzon> [texto]        qué hay guardado (texto = asunto o remitente)
+#   recuperar-correo ver       <buzon> <uid>          el correo entero, para confirmar
+#   recuperar-correo restaurar <buzon> <uid> [carpeta]  lo devuelve (por omisión, a INBOX)
+#   recuperar-correo cuanto    [buzon]                cuánto ocupa lo archivado
+#
+# Ejemplos:
+#   recuperar-correo buscar gerenciafinanzas@maquita.com.ec factura
+#   recuperar-correo ver gerenciafinanzas@maquita.com.ec 482
+#   recuperar-correo restaurar gerenciafinanzas@maquita.com.ec 482
+#   recuperar-correo restaurar gerenciafinanzas@maquita.com.ec 482 "INBOX.Recuperados"
+#
+# Nota: para devolver el correo se usa `doveadm copy`, no `move`: el archivo está protegido
+# contra escritura y `move` falla con «Permission denied». Copiar es además lo prudente, porque
+# deja intacta la copia de seguridad.
+
+set -u
+
+ARCHIVO="Expunged"
+
+uso() {
+    sed -n '2,28p' "$0" | sed 's/^# \{0,1\}//'
+    exit "${1:-1}"
+}
+
+comprobar_buzon() {
+    if [ -z "${1:-}" ]; then
+        echo "Falta el buzón. Ejemplo: recuperar-correo buscar alguien@maquita.com.ec" >&2
+        exit 1
+    fi
+    if ! doveadm user "$1" >/dev/null 2>&1; then
+        echo "No existe el buzón «$1»." >&2
+        exit 1
+    fi
+}
+
+case "${1:-}" in
+buscar)
+    buzon="${2:-}"
+    comprobar_buzon "$buzon"
+    texto="${3:-}"
+    if [ -n "$texto" ]; then
+        # Se busca en asunto y en remitente, que es como la gente recuerda un correo.
+        # Los parentesis NO son adorno: sin ellos, `mailbox Expunged subject X or from X` se
+        # lee como «(archivado y con ese asunto) o (ese remitente en CUALQUIER carpeta)», y la
+        # busqueda devolvia 1 de 5 correos archivados. Comprobado el 21/09/2026.
+        criterio=("(" subject "$texto" or from "$texto" ")")
+        echo "Correos borrados de $buzon que coinciden con «$texto»:"
+    else
+        criterio=(all)
+        echo "Correos borrados de $buzon (todo lo archivado):"
+    fi
+    echo
+    # doveadm separa cada correo con un salto de pagina (\f), no con una linea en blanco.
+    doveadm fetch -u "$buzon" "uid date.received hdr.from hdr.subject" \
+        mailbox "$ARCHIVO" "${criterio[@]}" 2>/dev/null |
+        awk -v RS='\f' -F'\n' '
+            {
+                uid=""; fecha=""; de=""; asunto=""
+                for (i = 1; i <= NF; i++) {
+                    if ($i ~ /^uid: /)           uid = substr($i, 6)
+                    else if ($i ~ /^date.received: /) fecha = substr($i, 16)
+                    else if ($i ~ /^hdr.from: /)      de = substr($i, 11)
+                    else if ($i ~ /^hdr.subject: /)   asunto = substr($i, 14)
+                }
+                if (uid != "") printf "  [%s]  %s  %s\n         %s\n", uid, fecha, de, asunto
+            }
+        '
+    echo
+    echo "Para devolver uno:  recuperar-correo restaurar $buzon <numero entre corchetes>"
+    ;;
+
+ver)
+    buzon="${2:-}"
+    comprobar_buzon "$buzon"
+    uid="${3:-}"
+    [ -z "$uid" ] && { echo "Falta el número del correo (el de los corchetes)." >&2; exit 1; }
+    doveadm fetch -u "$buzon" "hdr body" mailbox "$ARCHIVO" UID "$uid" 2>/dev/null
+    ;;
+
+restaurar)
+    buzon="${2:-}"
+    comprobar_buzon "$buzon"
+    uid="${3:-}"
+    destino="${4:-INBOX}"
+    [ -z "$uid" ] && { echo "Falta el número del correo (el de los corchetes)." >&2; exit 1; }
+
+    asunto=$(doveadm fetch -u "$buzon" "hdr.subject" mailbox "$ARCHIVO" UID "$uid" 2>/dev/null |
+        sed -n 's/^hdr.subject: //p' | head -1)
+    if [ -z "$asunto" ]; then
+        echo "No hay ningún correo archivado con el número $uid en $buzon." >&2
+        echo "Míralo con:  recuperar-correo buscar $buzon" >&2
+        exit 1
+    fi
+
+    if ! doveadm copy -u "$buzon" "$destino" mailbox "$ARCHIVO" UID "$uid" 2>&1 | grep -qiE "error|failed"; then
+        echo "Devuelto a $destino: «$asunto»"
+        echo "La copia de seguridad sigue archivada, por si acaso."
+    else
+        echo "No se pudo devolver el correo. Revisa que la carpeta «$destino» exista." >&2
+        exit 1
+    fi
+    ;;
+
+cuanto)
+    if [ -n "${2:-}" ]; then
+        comprobar_buzon "$2"
+        dom="${2#*@}"; loc="${2%@*}"
+        ruta="/var/vmail/$dom/$loc/Maildir/.$ARCHIVO"
+        if [ -d "$ruta" ]; then
+            echo "$2: $(du -sh "$ruta" 2>/dev/null | cut -f1) archivados, $(ls "$ruta"/cur "$ruta"/new 2>/dev/null | grep -c .) correos"
+        else
+            echo "$2: todavía no ha borrado nada (la carpeta se crea sola al primer borrado)"
+        fi
+    else
+        echo "Total archivado en el servidor: $(du -shc /var/vmail/*/*/Maildir/.$ARCHIVO 2>/dev/null | tail -1 | cut -f1)"
+        echo "Buzones con correo archivado:   $(ls -d /var/vmail/*/*/Maildir/.$ARCHIVO 2>/dev/null | wc -l)"
+    fi
+    ;;
+
+-h | --help | ayuda | "") uso 0 ;;
+*) echo "No conozco la orden «$1»." >&2; uso 1 ;;
+esac

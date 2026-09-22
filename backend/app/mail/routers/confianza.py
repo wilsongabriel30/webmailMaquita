@@ -1,10 +1,15 @@
 """Remitentes de confianza (por usuario): su correo llega SIEMPRE a la Bandeja de entrada, aunque el
 filtro antispam lo marque como spam. Es el opuesto de «Bloquear remitente».
 
-Se implementa como un script sieve personal aparte, `confianza`, que `global-before.sieve` incluye al
-principio (`include :optional :personal "confianza"`), ANTES de mover a No deseado los correos con
-X-Spam-Flag. Así, para un remitente de confianza, el `stop` evita que caiga en No deseado. Cada usuario
-tiene el suyo; solo afecta a su propio buzón.
+La lista vive como un bloque delimitado DENTRO del propio script sieve activo del usuario
+(ver `app.sieve.confianza_bloque`), delante de sus vacaciones y de sus reglas. El bloque hace
+`fileinto "INBOX"; stop;`, y ese `stop` corta la cadena antes del filtro global posterior
+(`after.sieve`), que es quien manda el correo no deseado a Junk.
+
+Antes era un script personal aparte que el filtro global incluía con
+`include :optional :personal "confianza"`. Eso tumbaba la entrega de correo: en Pigeonhole 2.4.1
+ese include revienta con segfault cuando el script no existe, pese al `:optional`, y solo lo tenían
+8 de los 279 buzones (21/09/2026).
 """
 
 import re
@@ -13,15 +18,17 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from app.auth.dependencies import get_current_user
 from app.core.session import get_user_password
+from app.sieve.confianza_bloque import aplicar, extraer
 from app.sieve.router import (
+    SCRIPT_NAME,
     sieve_connect,
     sieve_disconnect,
     sieve_getscript,
     sieve_putscript,
+    sieve_setactive,
 )
 
 router = APIRouter(prefix="/api/mail", tags=["confianza"])
-SCRIPT = "confianza"
 MAXIMO = 200
 _CORREO = re.compile(r"^[^@\s<>\"]{1,64}@[a-z0-9.-]{1,255}$", re.I)
 
@@ -34,40 +41,22 @@ def _limpiar(correo: str) -> str:
     return correo
 
 
-def _generar(direcciones: list[str]) -> str:
-    if not direcciones:
-        return "# Sin remitentes de confianza.\n"
-    lineas = [
-        'require ["fileinto"];',
-        "# Remitentes de confianza (Maquita): su correo llega a la Bandeja aunque parezca spam.",
-    ]
-    for d in direcciones:
-        lineas.append(f'if header :contains "from" "{d}" {{ fileinto "INBOX"; stop; }}')
-    return "\n".join(lineas) + "\n"
-
-
-def _parsear(script: str) -> list[str]:
-    return sorted(
-        {
-            m.group(1).lower()
-            for m in re.finditer(r'header :contains "from" "([^"]+)"', script or "")
-        }
-    )
-
-
 async def _leer(username: str, password: str) -> list[str]:
     reader, writer = await sieve_connect(username, password)
     try:
-        return _parsear(await sieve_getscript(reader, writer, SCRIPT))
+        return extraer(await sieve_getscript(reader, writer, SCRIPT_NAME))
     finally:
         await sieve_disconnect(writer)
 
 
 async def _guardar(username: str, password: str, direcciones: list[str]) -> None:
+    """Reescribe el bloque dentro del script activo, sin tocar vacaciones ni reglas."""
     reader, writer = await sieve_connect(username, password)
     try:
-        # No se activa (setactive): lo incluye global-before.sieve; el script activo sigue siendo "webmail".
-        await sieve_putscript(reader, writer, SCRIPT, _generar(direcciones))
+        actual = await sieve_getscript(reader, writer, SCRIPT_NAME)
+        await sieve_putscript(reader, writer, SCRIPT_NAME, aplicar(actual, direcciones))
+        # Hay que activarlo: si el usuario no tenía filtros, el script no existía aún.
+        await sieve_setactive(reader, writer, SCRIPT_NAME)
     finally:
         await sieve_disconnect(writer)
 

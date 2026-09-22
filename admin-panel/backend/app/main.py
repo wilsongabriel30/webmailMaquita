@@ -19,6 +19,7 @@ from app.aliases.router import router as aliases_router
 from app.queue.router import router as queue_router
 from app.resend.router import router as resend_router  # reenvio de correos rebotados
 from app.tracking.router import router as tracking_router
+from app.recovery.archivados import router as archivados_router
 from app.recovery.router import router as recovery_router
 from app.quarantine.router import router as quarantine_router
 from app.forwarding.router import router as forwarding_router
@@ -141,6 +142,7 @@ app.include_router(queue_router)
 app.include_router(resend_router)
 app.include_router(tracking_router)
 app.include_router(recovery_router)
+app.include_router(archivados_router)
 app.include_router(quarantine_router)
 app.include_router(forwarding_router)
 app.include_router(health_router)

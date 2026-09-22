@@ -41,13 +41,16 @@ BINARIOS = {
 # Qué puede cada usuario llamante. True = todos los subcomandos que valida este programa.
 POLITICA = {
     "www-data": {
-        "doveadm": {"search", "fetch", "expunge"},
+        # `copy` es lo que permite a cada persona recuperar su propio correo borrado desde el
+        # webmail: el archivo de lazy_expunge no se puede mover (esta protegido), solo copiar.
+        # El backend nunca acepta el buzon por parametro: usa el de la sesion (21/09/2026).
+        "doveadm": {"search", "fetch", "copy", "expunge"},
         "postqueue": True,
         "postsuper": True,
     },
     "maquita-admin": {
         "doveadm": {"pw", "auth", "quota", "search", "fetch", "acl", "mailbox", "flags",
-                    "move", "expunge", "force-resync", "who", "user"},
+                    "move", "copy", "expunge", "force-resync", "who", "user"},
         "postqueue": True, "postsuper": True, "postconf": True, "systemctl": True,
         "journalctl": True, "sievec": True, "fail2ban-client": True, "nginx": True,
         "sendmail": True,
@@ -69,7 +72,8 @@ POSTCONF_PARAMS = {
     "virtual_transport", "smtpd_milters", "milter_default_action",
 }
 FLAGS_DOVEADM = {
-    "search": {"-u"}, "fetch": {"-u"}, "expunge": {"-u"}, "move": {"-u"}, "flags": {"-u"},
+    "search": {"-u"}, "fetch": {"-u"}, "expunge": {"-u"}, "move": {"-u"}, "copy": {"-u"},
+    "flags": {"-u"},
     "quota": {"-u"}, "mailbox": {"-u"}, "acl": {"-u"}, "force-resync": {"-u"}, "user": {"-u"},
     "pw": {"-s", "-p"}, "auth": set(), "who": set(),
 }
@@ -139,7 +143,7 @@ def validar_doveadm(args, comprobar_buzon=_buzon_existe):
             i += 2
             continue
         i += 1
-    if sub in ("search", "fetch", "expunge", "move", "flags", "quota", "mailbox", "acl", "force-resync", "user") and not vio_u:
+    if sub in ("search", "fetch", "expunge", "move", "copy", "flags", "quota", "mailbox", "acl", "force-resync", "user") and not vio_u:
         raise Rechazo(f"doveadm {sub} exige -u <buzón>")
     if sub == "auth":
         if len(resto) != 3 or resto[0] != "test" or not es_buzon(resto[1]):
