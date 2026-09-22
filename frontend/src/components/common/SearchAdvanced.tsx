@@ -97,7 +97,7 @@ export function SearchAdvanced({ value, onChange, onSearch, onBuscarEnContenido,
   }, [value, onChange, onSearch]);
 
   return (
-    <div ref={containerRef} className="relative flex-1">
+    <div ref={containerRef} className="relative flex-1 min-w-0">
       {/* Search input with chips */}
       <div className="flex items-center gap-1 bg-[#f3f2f1] dark:bg-[#2d2d2d] rounded px-2 py-1 border border-transparent focus-within:border-[#0078d4] focus-within:bg-white dark:focus-within:bg-[#1e1e1e] transition-colors">
         {/* Render parsed chips */}
@@ -128,7 +128,7 @@ export function SearchAdvanced({ value, onChange, onSearch, onBuscarEnContenido,
           onKeyDown={handleKeyDown}
           onFocus={() => { if (value.split(' ').pop()?.includes(':')) setShowSuggestions(true); }}
           placeholder={chips.length ? '' : placeholder}
-          className="flex-1 bg-transparent outline-none text-[13px] text-[#323130] dark:text-[#e0e0e0] placeholder-[#a19f9d] min-w-[100px]"
+          className="flex-1 bg-transparent outline-none text-[13px] text-[#323130] dark:text-[#e0e0e0] placeholder-[#a19f9d] min-w-[100px] max-[600px]:min-w-0"
         />
 
         {onEnTodo && (
@@ -139,7 +139,8 @@ export function SearchAdvanced({ value, onChange, onSearch, onBuscarEnContenido,
             aria-pressed={enTodo}
             className={`shrink-0 text-[10px] font-semibold px-1.5 py-[1px] rounded border transition-colors whitespace-nowrap ${enTodo ? 'bg-[#0078d4] border-[#0078d4] text-white' : 'border-[#c8c6c4] text-[#605e5c] hover:border-[#0078d4] hover:text-[#0078d4]'}`}
           >
-            {enTodo ? 'Todas las carpetas' : 'Esta carpeta'}
+            <span className="max-[600px]:hidden">{enTodo ? 'Todas las carpetas' : 'Esta carpeta'}</span>
+            <span className="min-[601px]:hidden">{enTodo ? 'Todas' : 'Carpeta'}</span>
           </button>
         )}
         <button

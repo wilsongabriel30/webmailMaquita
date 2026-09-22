@@ -5,6 +5,9 @@ import { Codigos } from "./dispositivos/Codigos";
 import { Equipos } from "./dispositivos/Equipos";
 import { FichaEquipo } from "./dispositivos/FichaEquipo";
 import { Mensajes } from "./dispositivos/Mensajes";
+import { Flota } from "./dispositivos/telemetria/Flota";
+import { FichaTelemetria } from "./dispositivos/telemetria/FichaTelemetria";
+import { Alertas } from "./dispositivos/telemetria/Alertas";
 import { Equipo } from "./dispositivos/tipos";
 
 // Teléfonos institucionales (fase 1): inventario y asignación, último estado que reporta cada
@@ -12,7 +15,7 @@ import { Equipo } from "./dispositivos/tipos";
 // webmail (/api/dispositivos); aquí se administra.
 
 interface Resumen { activos: number; sin_contacto: number; perdidos: number; limitados: number; eventos_sin_revisar: number }
-type Pestana = "equipos" | "mensajes" | "codigos";
+type Pestana = "equipos" | "telemetria" | "alertas" | "mensajes" | "codigos";
 
 export function Dispositivos() {
   const [equipos, setEquipos] = useState<Equipo[]>([]);
@@ -42,6 +45,7 @@ export function Dispositivos() {
           { titulo: "Mensajes urgentes", desc: "Llegan al teléfono en su siguiente reporte, a pantalla completa, y exigen tocar «Leído». Aquí se ve quién lo leyó y cuándo." },
           { titulo: "Aplicaciones", desc: "El teléfono envía su lista de apps; el servidor la cruza con las reglas (lista de bloqueo, instaladores de confianza, permisos de riesgo como accesibilidad o superposición) y avisa al custodio para desinstalar. En equipos con control completo se puede desinstalar a distancia. Play Protect debe estar activo." },
           { titulo: "Reasignación", desc: "Un teléfono pasa de una persona a otra (jefe → subordinado → técnico) sin dejar de funcionar; cada cambio queda en el historial de custodia y puede pedir el respaldo de cierre del custodio anterior. El destino del respaldo en el almacén se fija por equipo antes del primer respaldo." },
+          { titulo: "Telemetría y alertas", desc: "La pestaña «Telemetría» muestra el estado técnico de cada equipo (contacto, batería, almacenamiento, red, versiones, administración, Play Protect, eventos y acuses) con gráficas por equipo, y se puede exportar a CSV. Un trabajo del servidor evalúa cada 15 minutos y avisa por correo a Tecnología (y un resumen diario a dirección) según los umbrales de la pestaña «Alertas». Dirección puede ver todo con una cuenta de rol lector (viewer) sin poder mandar comandos ni retirar equipos." },
           { titulo: "Auditoría", desc: "Códigos, ediciones, bajas, mensajes, reglas de apps y reasignaciones quedan en la auditoría del panel." },
         ]} />
       </div>
@@ -53,11 +57,13 @@ export function Dispositivos() {
             <div className="text-2xl font-semibold">{n}</div><div className="text-xs text-ms-gray-60">{t}</div></div>))}
       </div>}
       <div className="flex gap-1 border-b border-ms-gray-30">
-        {([["equipos", "Equipos"], ["mensajes", "Mensajes urgentes"], ["codigos", "Códigos de enrolamiento"]] as [Pestana, string][]).map(([k, t]) => (
+        {([["equipos", "Equipos"], ["telemetria", "Telemetría"], ["alertas", "Alertas"], ["mensajes", "Mensajes urgentes"], ["codigos", "Códigos de enrolamiento"]] as [Pestana, string][]).map(([k, t]) => (
           <button key={k} onClick={() => { setPestana(k); setAbierto(null); }}
             className={`px-4 py-2 text-sm -mb-px border-b-2 ${pestana === k ? "border-ms-blue text-ms-blue font-medium" : "border-transparent text-ms-gray-90 hover:text-ms-gray-130"}`}>{t}</button>))}
       </div>
       {pestana === "equipos" && (abierto ? <FichaEquipo id={abierto} onCerrar={() => setAbierto(null)} onCambio={cargar} /> : <Equipos equipos={equipos} onAbrir={setAbierto} />)}
+      {pestana === "telemetria" && (abierto ? <FichaTelemetria id={abierto} onCerrar={() => setAbierto(null)} /> : <Flota onAbrir={setAbierto} />)}
+      {pestana === "alertas" && <Alertas onAbrir={(id) => { setPestana("telemetria"); setAbierto(id); }} />}
       {pestana === "mensajes" && <Mensajes equipos={equipos} />}
       {pestana === "codigos" && <Codigos />}
     </div>

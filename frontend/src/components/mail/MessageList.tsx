@@ -18,6 +18,7 @@ import { cargarEtiquetasPorTandas } from '../../lib/etiquetasPorTandas';
 import { SinResultados } from './SinResultados';
 import { AVISO_ELIMINAR_CORREO } from '../../lib/deepLinkCorreo';
 import { avisar } from '../../lib/avisosNavegador';   // T-53
+import { getCachedMessage } from '../../lib/offlineStore';   // W-7: leer sin conexión lo ya descargado
 import { permisoNotificacion, pedirPermisoNotificacion } from '../../lib/notificacionSegura';   // AM-10
 
 // Agrupa acciones rápidas consecutivas (eliminar/archivar fila por fila) en UNA
@@ -496,6 +497,10 @@ export function MessageList() {
       showToast('Tu sesión caducó. Cierra sesión y vuelve a entrar.');
       return;
     }
+    if (!navigator.onLine || /sin conexi[oó]n/i.test(texto)) {
+      showToast('Sin conexión: este correo no está descargado. Se abrirá cuando vuelva el internet.');
+      return;
+    }
     showToast('No se pudo abrir el correo. Inténtalo de nuevo.');
   };
 
@@ -530,7 +535,23 @@ export function MessageList() {
     setLoadingMessage(true);
     clearThread();
     try {
-      const msg = await api.get<MessageFull>(`/mail/message/${encodeURIComponent(currentFolder)}/${uid}`);
+      // W-7: sin red se abre la copia descargada (últimos días en IndexedDB); si la petición falla
+      // por conexión, también se intenta la copia antes de avisar que no se pudo abrir.
+      const desdeCache = async () => (await getCachedMessage(currentFolder, uid)) as unknown as MessageFull | null;
+      let msg: MessageFull;
+      if (!navigator.onLine) {
+        const local = await desdeCache();
+        if (!local) throw new Error('Sin conexión y este correo no está descargado');
+        msg = local;
+      } else {
+        try {
+          msg = await api.get<MessageFull>(`/mail/message/${encodeURIComponent(currentFolder)}/${uid}`);
+        } catch (errRed) {
+          const local = /404|not found|no encontrado|401|sesi/i.test(String((errRed as Error)?.message || errRed)) ? null : await desdeCache();
+          if (!local) throw errRed;
+          msg = local;
+        }
+      }
       // Modo 'popout': abrir mensaje en ventana emergente
       if (useMailStore.getState().readingPane === 'popout') {
         const w = window.open('', '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
@@ -648,14 +669,10 @@ export function MessageList() {
     if (!hasAnyClassification) return true;
     // Prioritarios tab: show ALL messages (never hide anything)
     if (activeTab === 'focused') return true;
-    // Otros: todo lo que NO sea claramente importante, para que la pestana no quede vacia.
-    // Importante = 'high' o 'action_required'; el resto (normal, low, boletines, promociones,
-    // social, fyi) y lo aun sin clasificar van a Otros.
+    // Otros tab: only show low priority messages
     const p = priorityMap[m.uid];
-    if (!p) return true; // sin clasificar: se muestra en Otros
-    // priority en tiempo real puede traer categorias ademas de high/normal/low (action_required, etc.)
-    const pr = String(p.priority);
-    return pr !== 'high' && pr !== 'action_required';
+    if (!p) return false; // unclassified = not in otros
+    return p.priority === 'low';
   });
   // La lista respeta el orden de llegada (como Outlook y Zimbra): la prioridad
   // y la bandera se muestran como marcas, no reordenan. Solo la chincheta fija arriba.
@@ -1121,7 +1138,9 @@ export function MessageList() {
         {/* Centinela de scroll infinito */}
         {!loadingMessages && filtered.length > 0 && messages.length < totalMessages && (
           <div ref={loadMoreRef} className="py-4 flex justify-center">
-            {loadingMore && <div className="w-4 h-4 border-2 border-[#0078d4] border-t-transparent rounded-full animate-spin" />}
+            {!navigator.onLine
+              ? <p className="text-[11px] text-[#a19f9d] text-center px-4">Sin conexión: estos son los correos descargados (últimos {Math.min(60, Math.max(7, parseInt(localStorage.getItem('offline.dias') || '30', 10) || 30))} días). Con internet verás el resto; en Configuración puedes descargar más días.</p>
+              : loadingMore && <div className="w-4 h-4 border-2 border-[#0078d4] border-t-transparent rounded-full animate-spin" />}
           </div>
         )}
       </div>

@@ -1,32 +1,28 @@
-"""Código de enrolamiento autoservicio (Configuración del usuario).
+"""«Mi teléfono» en la Configuración del correo (solo lectura desde el 22/09/2026).
 
-La persona, ya autenticada en el webmail (incluida la verificación en dos pasos si la tiene), genera
-un código de un solo uso para activar la app «Mi equipo» en SU propio teléfono. El código:
-- es de **modo limitado** (el equipo Device Owner de fábrica lo sigue enrolando Tecnología por QR),
-- deja al propio usuario como **custodio** del equipo,
-- caduca en 24 h y solo hay uno activo por persona a la vez.
-No da acceso al correo: es solo para la gestión del equipo. La lectura del correo en la app usa el
-inicio de sesión normal (con su verificación en dos pasos).
+Decisión de dirección: el código de enrolamiento lo crea, cambia y anula ÚNICAMENTE Tecnología desde
+el panel de administración (Teléfonos institucionales → Códigos de enrolamiento), asignado a una
+persona. Aquí la persona solo lo consulta: ve su código vigente (para escribirlo en la app si hace
+falta), su vencimiento y sus teléfonos activados. La app Maquita Mail 1.2.8 llama a este mismo GET con
+la cookie del correo y, si llega `codigo`, activa la gestión sin teclear nada.
+
+Ya no existen POST (generar) ni DELETE (anular) en esta ruta: la app y el webmail no pueden crear ni
+retirar códigos por su cuenta. Cada entrega del código en claro queda en `admin_audit`
+(`dispositivo_codigo_ver_custodio`, sin admin_id: lo pidió la propia persona).
+
+No da acceso al correo: es solo para la gestión del equipo. La sesión del correo ya exige el segundo
+factor cuando la persona lo tiene activo, así que el código se entrega solo tras esa verificación.
 """
 
-import hashlib
 import logging
-import secrets
 
 from fastapi import APIRouter, Depends, Request
 
 from app.auth.dependencies import get_current_user
+from app.dispositivos.codigo_cifrado import descifrar
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/settings/mi-equipo", tags=["mi-equipo"])
-
-ALFABETO = "abcdefghjkmnpqrstuvwxyz23456789"  # sin 0/o/1/l/i: se teclea en el teléfono
-HORAS_VALIDEZ = 24
-
-
-def _generar() -> tuple[str, str, str]:
-    grupos = ["".join(secrets.choice(ALFABETO) for _ in range(4)) for _ in range(3)]
-    return "-".join(grupos), "".join(grupos), grupos[0]
 
 
 async def _equipos_del_usuario(db, username: str) -> list[dict]:
@@ -38,57 +34,38 @@ async def _equipos_del_usuario(db, username: str) -> list[dict]:
     return [dict(f) for f in filas]
 
 
+async def _auditar_lectura(db, request: Request, username: str, codigo_id: int) -> None:
+    try:
+        await db.execute(
+            "INSERT INTO admin_audit (admin_id, admin_username, action, target, details, ip_address) "
+            "VALUES (NULL, $1, 'dispositivo_codigo_ver_custodio', $2, $3::jsonb, $4)",
+            username,
+            str(codigo_id),
+            '{"origen": "configuracion-correo"}',
+            request.headers.get("X-Real-IP", request.client.host if request.client else ""),
+        )
+    except Exception:
+        logger.exception("auditoria_codigo_custodio_fallo | user=%s", username)
+
+
 @router.get("")
 async def estado(request: Request, username: str = Depends(get_current_user)):
     db = request.app.state.db_pool
     activo = await db.fetchrow(
-        "SELECT prefijo, caduca_en, usos, usos_max FROM disp_codigos "
-        "WHERE custodio_email = $1 AND autoservicio = true AND revocado_en IS NULL "
-        "AND usos < usos_max AND (caduca_en IS NULL OR caduca_en > NOW()) ORDER BY creado_en DESC LIMIT 1",
+        "SELECT id, prefijo, caduca_en, usos, usos_max, codigo_cifrado FROM disp_codigos "
+        "WHERE custodio_email = $1 AND revocado_en IS NULL AND usos < usos_max "
+        "AND (caduca_en IS NULL OR caduca_en > NOW()) ORDER BY creado_en DESC LIMIT 1",
         username,
     )
+    codigo = descifrar(activo["codigo_cifrado"]) if activo else None
+    if codigo:
+        await _auditar_lectura(db, request, username, activo["id"])
     return {
         "tiene_codigo_activo": activo is not None,
         "prefijo": activo["prefijo"] if activo else None,
         "caduca_en": (
             activo["caduca_en"].isoformat() if activo and activo["caduca_en"] else None
         ),
+        "codigo": codigo,
         "equipos": await _equipos_del_usuario(db, username),
     }
-
-
-@router.post("", status_code=201)
-async def generar(request: Request, username: str = Depends(get_current_user)):
-    db = request.app.state.db_pool
-    claro, junto, prefijo = _generar()
-    async with db.acquire() as con, con.transaction():
-        # Uno activo por persona: se revoca el anterior antes de dar el nuevo.
-        await con.execute(
-            "UPDATE disp_codigos SET revocado_en = NOW() WHERE custodio_email = $1 AND autoservicio = true AND revocado_en IS NULL",
-            username,
-        )
-        fila = await con.fetchrow(
-            "INSERT INTO disp_codigos (codigo_hash, prefijo, etiqueta, modo, usos_max, creado_por, autoservicio, "
-            "custodio_email, caduca_en) VALUES ($1,$2,$3,'limitado',1,$4,true,$4, NOW() + make_interval(hours => $5)) "
-            "RETURNING id, caduca_en",
-            hashlib.sha256(junto.encode()).hexdigest(),
-            prefijo,
-            "Autoservicio (mi teléfono)",
-            username,
-            HORAS_VALIDEZ,
-        )
-    logger.info("codigo_autoservicio | user=%s | id=%s", username, fila["id"])
-    return {
-        "codigo": claro,
-        "caduca_en": fila["caduca_en"].isoformat(),
-        "horas": HORAS_VALIDEZ,
-    }
-
-
-@router.delete("")
-async def revocar(request: Request, username: str = Depends(get_current_user)):
-    await request.app.state.db_pool.execute(
-        "UPDATE disp_codigos SET revocado_en = NOW() WHERE custodio_email = $1 AND autoservicio = true AND revocado_en IS NULL",
-        username,
-    )
-    return {"ok": True}
