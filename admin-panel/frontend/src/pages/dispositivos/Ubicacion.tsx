@@ -5,7 +5,7 @@ import { AvisoPrecision } from "./AvisoPrecision";
 import { Equipo, fechaHora } from "./tipos";
 
 interface Fila { id: number; tomada_en: string; lat: number; lon: number; precision_m?: number; fuente?: string; origen: string; bateria?: number; rssi?: number; visto_por_nombre?: string }
-const ORIGEN: Record<string, string> = { periodica: "periódica", comando: "pedida desde el panel", perdido: "modo perdido", avistamiento: "vista por otro teléfono" };
+const ORIGEN: Record<string, string> = { periodica: "periódica", comando: "pedida desde el panel", perdido: "modo perdido", avistamiento: "vista por otro teléfono", ancla: "por la red de la sede (ancla)" };
 
 /** Entre las posiciones de los últimos 15 minutos (respecto a la más nueva) se elige la de menor
  *  margen de error: la última lectura no siempre es la mejor (un primer GPS bajo techo puede dar
