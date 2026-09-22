@@ -41,9 +41,10 @@ export function Mapa({ actual, rastro }: { actual: Punto; rastro: Punto[] }) {
         <div className="absolute bottom-0 right-0 bg-white/80 text-[10px] px-1">© OpenStreetMap</div>
       </div>
       <div className="text-xs text-ms-gray-60 mt-1 text-center">
-        {actual.lat.toFixed(6)}, {actual.lon.toFixed(6)}{actual.precision_m ? ` · ±${Math.round(actual.precision_m)} m` : ""} ·{" "}
+        Posición aproximada {actual.lat.toFixed(6)}, {actual.lon.toFixed(6)}{actual.precision_m ? ` · margen ±${Math.round(actual.precision_m)} m (círculo rojo)` : ""} ·{" "}
         <a className="text-ms-blue hover:underline" target="_blank" rel="noreferrer" href={`https://www.openstreetmap.org/?mlat=${actual.lat}&mlon=${actual.lon}#map=18/${actual.lat}/${actual.lon}`}>abrir en OpenStreetMap</a> ·{" "}
-        <a className="text-ms-blue hover:underline" target="_blank" rel="noreferrer" href={`https://www.google.com/maps?q=${actual.lat},${actual.lon}`}>Google Maps</a>
+        <a className="text-ms-blue hover:underline" target="_blank" rel="noreferrer" href={`https://www.google.com/maps?q=${actual.lat},${actual.lon}`}>Google Maps</a> ·{" "}
+        <a className="text-ms-blue hover:underline" target="_blank" rel="noreferrer" href={`https://earth.google.com/web/@${actual.lat},${actual.lon},0a,600d,35y,0h,0t,0r`}>Google Earth</a>
       </div>
     </div>
   );
