@@ -653,7 +653,9 @@ export function MessageList() {
     // social, fyi) y lo aun sin clasificar van a Otros.
     const p = priorityMap[m.uid];
     if (!p) return true; // sin clasificar: se muestra en Otros
-    return p.priority !== 'high' && p.priority !== 'action_required';
+    // priority en tiempo real puede traer categorias ademas de high/normal/low (action_required, etc.)
+    const pr = String(p.priority);
+    return pr !== 'high' && pr !== 'action_required';
   });
   // La lista respeta el orden de llegada (como Outlook y Zimbra): la prioridad
   // y la bandera se muestran como marcas, no reordenan. Solo la chincheta fija arriba.
