@@ -17,7 +17,9 @@ const PASOS = [
 export function QrAprovisionamiento({ codigo, codigoId, etiqueta, onCerrar }: { codigo?: string; codigoId?: number; etiqueta: string; onCerrar: () => void }) {
   const [d, setD] = useState<{ svg: string; con_codigo: boolean; version?: string } | null>(null);
   const [error, setError] = useState("");
-  useEffect(() => { api.post<{ svg: string; con_codigo: boolean; version?: string }>("/dispositivos/codigos/qr", { codigo, codigo_id: codigoId }).then(setD).catch((e) => setError(e.message)); }, [codigo, codigoId]);
+  const [wifi, setWifi] = useState({ ssid: "", clave: "" });
+  const [wifiUsado, setWifiUsado] = useState({ ssid: "", clave: "" });
+  useEffect(() => { setD(null); api.post<{ svg: string; con_codigo: boolean; version?: string }>("/dispositivos/codigos/qr", { codigo, codigo_id: codigoId, wifi_ssid: wifiUsado.ssid, wifi_clave: wifiUsado.clave }).then(setD).catch((e) => setError(e.message)); }, [codigo, codigoId, wifiUsado]);
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 overflow-y-auto" onClick={onCerrar}>
@@ -35,6 +37,15 @@ export function QrAprovisionamiento({ codigo, codigoId, etiqueta, onCerrar }: { 
             {error && <div className="text-sm px-3 py-2 rounded bg-red-50 text-red-700">{error}</div>}
             {d ? <div dangerouslySetInnerHTML={{ __html: d.svg }} /> : !error && <div className="text-sm text-ms-gray-60 p-16 text-center">Generando el QR…</div>}
             <p className="text-xs text-ms-gray-60 mt-3 text-center">Mostrar este QR en la pantalla o impreso, a unos 20 cm de la cámara del teléfono.</p>
+            <div className="mt-3 border-t border-ms-gray-20 pt-3 print:hidden">
+              <div className="text-xs font-medium text-ms-gray-90 mb-1">Wifi de la sede (opcional): el teléfono se conecta solo durante el alta</div>
+              <div className="flex flex-wrap gap-2">
+                <input value={wifi.ssid} onChange={(e) => setWifi({ ...wifi, ssid: e.target.value })} placeholder="Nombre de la red" className="flex-1 min-w-[120px] px-2 py-1 text-xs border border-ms-gray-40 rounded" />
+                <input value={wifi.clave} onChange={(e) => setWifi({ ...wifi, clave: e.target.value })} placeholder="Clave" type="password" className="flex-1 min-w-[100px] px-2 py-1 text-xs border border-ms-gray-40 rounded" />
+                <button onClick={() => setWifiUsado(wifi)} className="px-2.5 py-1 text-xs border border-ms-gray-40 rounded hover:bg-ms-gray-10">Incluir en el QR</button>
+              </div>
+              {wifiUsado.ssid && <div className="text-xs text-ms-gray-60 mt-1">El QR incluye la red «{wifiUsado.ssid}» (la clave va dentro del QR: no lo deje impreso a la vista).</div>}
+            </div>
           </div>
           <div>
             <h3 className="text-base font-semibold mb-3">Pasos</h3>
