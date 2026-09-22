@@ -7,6 +7,8 @@ export interface PosicionAviso { lat: number; lon: number; precision_m?: number 
 
 function grado(p: PosicionAviso): { titulo: string; color: string; texto: string } {
   const m = p.precision_m ? Math.round(p.precision_m) : null;
+  if (p.origen === "ancla") return { titulo: `En la sede: conectado a la red de Maquita (margen de unos ${m ?? 60} m)`, color: "bg-blue-50 border-blue-200 text-blue-900",
+    texto: "El teléfono reportó desde la red interna de una sede de Maquita, así que está dentro de ese edificio o su wifi. Es un dato de red, no de GPS: fiable para saber en qué sede está, no en qué oficina." };
   if (p.origen === "avistamiento") return { titulo: "Ubicación por cercanía a otro teléfono", color: "bg-purple-50 border-purple-200 text-purple-900",
     texto: "Otro teléfono de la organización detectó este equipo por Bluetooth: está a unas decenas de metros de la posición de ESE teléfono, no en este punto exacto." };
   if (m == null) return { titulo: "Ubicación aproximada (margen desconocido)", color: "bg-amber-50 border-amber-200 text-amber-900",
