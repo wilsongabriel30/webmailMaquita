@@ -20,13 +20,15 @@ _CAMPOS_EQUIPO = """id, id_instalacion, modo, estado, fabricante, modelo, serie,
     nombre, custodio_email, custodio_nombre, centro_costo, sede, fecha_compra, valor_compra, vida_util_meses,
     factura_ref, notas, enrolado_en, ultimo_contacto, ultima_ip, bateria, cargando, almacenamiento_libre,
     almacenamiento_total, red, play_protect, revocado_en, revocado_motivo, ubicacion_autorizada,
-    politica_firmada_en, perdido_en, perdido_motivo, perdido_mensaje, perdido_telefono, imeis, ancla_sede, wifi_ssid"""
+    politica_firmada_en, perdido_en, perdido_motivo, perdido_mensaje, perdido_telefono, imeis, ancla_sede, wifi_ssid, imeis_origen"""
 
 
 def _equipo(fila) -> dict:
     d = dict(fila)
     if isinstance(d.get("imeis"), str):
         d["imeis"] = json.loads(d["imeis"])
+    if isinstance(d.get("imeis_origen"), str):
+        d["imeis_origen"] = json.loads(d["imeis_origen"])
     d["depreciacion"] = depreciacion(d.get("valor_compra"), d.get("fecha_compra"), d.get("vida_util_meses") or 36)
     if d.get("valor_compra") is not None:
         d["valor_compra"] = float(d["valor_compra"])
@@ -102,10 +104,13 @@ async def guardar_equipo(equipo_id: int, request: Request, admin: dict = Depends
         raise HTTPException(400, "Estado inválido")
     imeis_nuevos = None
     if "imeis" in b:
-        from app.dispositivos.imeis import normalizar
+        from app.dispositivos.imeis import ajenos, normalizar
         imeis_nuevos = normalizar(b.get("imeis"))
         if imei and imei not in imeis_nuevos and len(imeis_nuevos) < 4:
             imeis_nuevos.insert(0, imei)
+        dup = await ajenos(db(request), equipo_id, imeis_nuevos)
+        if dup:
+            raise HTTPException(409, f"IMEI ya registrado en otro equipo: {', '.join(dup)}")
     r = await db(request).execute(
         """UPDATE disp_equipos SET nombre = COALESCE($2, ''), custodio_email = $3, custodio_nombre = $4,
                centro_costo = $5, sede = $6, imei = COALESCE($7, imei), serie = COALESCE($8, serie),
@@ -120,7 +125,10 @@ async def guardar_equipo(equipo_id: int, request: Request, admin: dict = Depends
     if r.endswith(" 0"):
         raise HTTPException(404, "Equipo no encontrado")
     if imeis_nuevos is not None:
-        await db(request).execute("UPDATE disp_equipos SET imeis = $2::jsonb WHERE id = $1", equipo_id, json.dumps(imeis_nuevos))
+        from app.dispositivos.imeis import origenes
+        actual_o = await db(request).fetchval("SELECT imeis_origen FROM disp_equipos WHERE id = $1", equipo_id)
+        await db(request).execute("UPDATE disp_equipos SET imeis = $2::jsonb, imeis_origen = $3::jsonb WHERE id = $1", equipo_id, json.dumps(imeis_nuevos),
+                                  json.dumps({k: v for k, v in origenes(actual_o, imeis_nuevos, "tecnologia").items() if k in imeis_nuevos}))
     await auditar(request, admin, "dispositivo_editar", str(equipo_id),
                   {k: b.get(k) for k in ("nombre", "custodio_email", "centro_costo", "sede", "estado")})
     return {"ok": True}

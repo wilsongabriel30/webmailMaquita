@@ -70,7 +70,7 @@ export function FichaEquipo({ id, onCerrar, onCambio }: { id: number; onCerrar: 
 
       {(e.imeis?.length || e.imei) && <div className="rounded border border-ms-gray-30 bg-ms-gray-10 p-3 text-sm flex flex-wrap items-center gap-3">
         <span className="font-semibold">IMEI para la operadora:</span>
-        {(e.imeis?.length ? e.imeis : [e.imei as string]).map((i) => <code key={i} className="font-mono bg-white px-2 py-0.5 rounded border border-ms-gray-30">{i}</code>)}
+        {(e.imeis?.length ? e.imeis : [e.imei as string]).map((i) => { const o = e.imeis_origen?.[i]; return <span key={i} className="inline-flex items-center gap-1"><code className="font-mono bg-white px-2 py-0.5 rounded border border-ms-gray-30">{i}</code><span className={`text-[10px] px-1 rounded ${o === "sistema" ? "bg-green-100 text-green-800" : o === "tecnologia" ? "bg-blue-100 text-blue-800" : "bg-amber-100 text-amber-800"}`} title={o === "sistema" ? "Leído por Android (control completo): fiable" : o === "tecnologia" ? "Cargado por Tecnología" : "Escrito por la persona: verificar contra *#06# o la caja"}>{o === "sistema" ? "sistema" : o === "tecnologia" ? "Tecnología" : "escrito"}</span></span>; })}
         <button onClick={() => navigator.clipboard.writeText((e.imeis?.length ? e.imeis : [e.imei as string]).join(", "))} className="text-xs text-ms-blue hover:underline">Copiar</button>
         <span className="text-xs text-ms-gray-60">Si roban o pierden el teléfono, la operadora bloquea el equipo con estos números.</span>
       </div>}
@@ -125,7 +125,7 @@ export function FichaEquipo({ id, onCerrar, onCambio }: { id: number; onCerrar: 
           <h3 className="text-sm font-semibold mb-2">Eventos</h3>
           <ul className="text-sm space-y-1.5 max-h-64 overflow-y-auto">
             {d.eventos.map((ev) => {
-              const grave = EVENTOS_GRAVES.includes(ev.tipo);
+              const grave = (EVENTOS_GRAVES.includes(ev.tipo) || ev.tipo === "imei_ajeno");
               return <li key={ev.id} className={`flex justify-between gap-2 px-2 py-1 rounded ${grave && !ev.visto_en ? "bg-red-50" : ""}`}>
                 <span>{NOMBRE_EVENTO[ev.tipo] || ev.tipo}<span className="text-xs text-ms-gray-60"> · {fechaHora(ev.recibido_en)}</span></span>
                 {grave && !ev.visto_en ? <button onClick={() => visto(ev.id)} className="text-xs text-ms-blue hover:underline shrink-0">Marcar revisado</button>

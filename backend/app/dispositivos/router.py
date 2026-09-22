@@ -135,9 +135,19 @@ async def enrolar(request: Request, body: Enrolamiento):
         )
         lista = _imeis.unir(None, (body.imeis or []) + ([body.imei] if body.imei else []))
         if lista:
+            # AE-12: un IMEI que ya es de otro equipo no se acepta (queda un evento para el panel).
+            ajenos = await _imeis.ajenos(con, equipo["id"], lista)
+            lista = [v for v in lista if v not in ajenos]
+            if ajenos:
+                await con.execute("INSERT INTO disp_eventos (equipo_id, tipo, detalle) VALUES ($1, 'imei_ajeno', $2::jsonb)",
+                                  equipo["id"], json.dumps({"imeis": ajenos, "origen": "enrolamiento"}))
+        if lista:
+            fila_i = await con.fetchrow("SELECT imeis, imeis_origen FROM disp_equipos WHERE id = $1", equipo["id"])
+            origen = "sistema" if modo == "propietario" else "persona"
             await con.execute(
-                "UPDATE disp_equipos SET imeis = $2::jsonb, imei = COALESCE(imei, $3) WHERE id = $1",
-                equipo["id"], json.dumps(_imeis.unir(await con.fetchval("SELECT imeis FROM disp_equipos WHERE id = $1", equipo["id"]), lista)), lista[0],
+                "UPDATE disp_equipos SET imeis = $2::jsonb, imei = COALESCE(imei, $3), imeis_origen = $4::jsonb WHERE id = $1",
+                equipo["id"], json.dumps(_imeis.unir(fila_i["imeis"], lista)), lista[0],
+                json.dumps(_imeis.origenes(fila_i["imeis_origen"], lista, origen)),
             )
     logger.info(
         "equipo_enrolado | id=%s | modo=%s | modelo=%s | ip=%s",
@@ -202,11 +212,20 @@ async def latido(request: Request, body: Latido, equipo: dict = Depends(equipo_a
                 con, equipo, [body.ubicacion], "periodica", ip, body.bateria
             )
         if body.imeis:
-            actuales = await con.fetchval("SELECT imeis FROM disp_equipos WHERE id = $1", equipo["id"])
-            lista = _imeis.unir(actuales, body.imeis)
-            if lista:
-                await con.execute("UPDATE disp_equipos SET imeis = $2::jsonb, imei = COALESCE(imei, $3) WHERE id = $1",
-                                  equipo["id"], json.dumps(lista), lista[0])
+            nuevos = _imeis.normalizar(body.imeis)
+            ajenos = await _imeis.ajenos(con, equipo["id"], nuevos)
+            nuevos = [v for v in nuevos if v not in ajenos]
+            if ajenos:
+                ya = await con.fetchval("SELECT 1 FROM disp_eventos WHERE equipo_id = $1 AND tipo = 'imei_ajeno' AND recibido_en > NOW() - interval '1 day'", equipo["id"])
+                if not ya:
+                    await con.execute("INSERT INTO disp_eventos (equipo_id, tipo, detalle) VALUES ($1, 'imei_ajeno', $2::jsonb)",
+                                      equipo["id"], json.dumps({"imeis": ajenos, "origen": "latido"}))
+            if nuevos:
+                fila_i = await con.fetchrow("SELECT imeis, imeis_origen FROM disp_equipos WHERE id = $1", equipo["id"])
+                lista = _imeis.unir(fila_i["imeis"], nuevos)
+                origen = "sistema" if equipo["modo"] == "propietario" else "persona"
+                await con.execute("UPDATE disp_equipos SET imeis = $2::jsonb, imei = COALESCE(imei, $3), imeis_origen = $4::jsonb WHERE id = $1",
+                                  equipo["id"], json.dumps(lista), lista[0], json.dumps(_imeis.origenes(fila_i["imeis_origen"], nuevos, origen)))
         # Ancla de red: si la IP es de una sede conocida, el equipo está en esa sede (etapa 1).
         try:
             await _anclas.registrar(con, equipo, ip, _ubic.puede_guardar(equipo), body.wifi_bssid)

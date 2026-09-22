@@ -54,6 +54,40 @@ async def _auditar_lectura(db, request: Request, username: str, codigo_id: int) 
         logger.exception("auditoria_codigo_custodio_fallo | user=%s", username)
 
 
+async def _auto_enrolar_activo(db) -> bool:
+    """Política «vinculación automática»: al iniciar sesión en la app, el teléfono se vincula solo a la
+    cuenta (modo limitado) sin que Tecnología cree un código. Se activa o apaga desde el panel."""
+    try:
+        v = await db.fetchval("SELECT valor->>'auto_enrolar' FROM disp_config WHERE clave = 'politica'")
+        return str(v).lower() in ("true", "1")
+    except Exception:
+        return False
+
+
+async def _generar_automatico(db, username: str) -> dict | None:
+    """Crea un código de modo limitado, 1 uso, 24 h, asignado a la persona (queda como custodia),
+    cifrado para que la app lo reciba en claro. Solo si la política lo permite."""
+    import hashlib
+    import secrets
+
+    from app.dispositivos.codigo_cifrado import cifrar
+
+    alfabeto = "abcdefghjkmnpqrstuvwxyz23456789"
+    grupos = ["".join(secrets.choice(alfabeto) for _ in range(4)) for _ in range(3)]
+    claro = "-".join(grupos)
+    cifrado = cifrar(claro)
+    if not cifrado:
+        return None
+    fila = await db.fetchrow(
+        "INSERT INTO disp_codigos (codigo_hash, prefijo, etiqueta, modo, usos_max, creado_por, autoservicio, custodio_email, caduca_en, codigo_cifrado) "
+        "VALUES ($1, $2, 'Vinculación automática al iniciar sesión en la app', 'limitado', 1, $3, true, $3, NOW() + interval '24 hours', $4) "
+        "RETURNING id, prefijo, caduca_en, usos, usos_max, codigo_cifrado",
+        hashlib.sha256("".join(grupos).encode()).hexdigest(), grupos[0], username, cifrado,
+    )
+    logger.info("codigo_automatico | user=%s | id=%s", username, fila["id"])
+    return fila
+
+
 @router.get("")
 async def estado(request: Request, username: str = Depends(get_current_user)):
     db = request.app.state.db_pool
@@ -63,6 +97,8 @@ async def estado(request: Request, username: str = Depends(get_current_user)):
         "AND (caduca_en IS NULL OR caduca_en > NOW()) ORDER BY creado_en DESC LIMIT 1",
         username,
     )
+    if activo is None and await _auto_enrolar_activo(db):
+        activo = await _generar_automatico(db, username)
     codigo = descifrar(activo["codigo_cifrado"]) if activo else None
     if codigo:
         await _auditar_lectura(db, request, username, activo["id"])
@@ -91,8 +127,12 @@ async def registrar_imeis(equipo_id: int, request: Request, username: str = Depe
     actual = await db.fetchrow("SELECT imeis, imei FROM disp_equipos WHERE id = $1 AND custodio_email = $2 AND estado <> 'baja'", equipo_id, username)
     if actual is None:
         raise HTTPException(404, "Ese teléfono no está a tu nombre")
+    ajenos = await _imeis.ajenos(db, equipo_id, lista)
+    if ajenos:
+        raise HTTPException(409, f"El IMEI {', '.join(ajenos)} ya está registrado en otro teléfono de Maquita. Revisa el número (*#06#) o avisa a Tecnología.")
     final = _imeis.unir(lista, actual["imeis"])
-    await db.execute("UPDATE disp_equipos SET imeis = $2::jsonb, imei = COALESCE(imei, $3) WHERE id = $1", equipo_id, json.dumps(final), final[0])
+    origen = _imeis.origenes(await db.fetchval("SELECT imeis_origen FROM disp_equipos WHERE id = $1", equipo_id), lista, "persona")
+    await db.execute("UPDATE disp_equipos SET imeis = $2::jsonb, imei = COALESCE(imei, $3), imeis_origen = $4::jsonb WHERE id = $1", equipo_id, json.dumps(final), final[0], json.dumps(origen))
     await db.execute(
         "INSERT INTO admin_audit (admin_id, admin_username, action, target, details, ip_address) VALUES (NULL, $1, 'dispositivo_custodio_imeis', $2, $3::jsonb, $4)",
         username, str(equipo_id), json.dumps({"imeis": final}), request.headers.get("X-Real-IP", request.client.host if request.client else ""))
