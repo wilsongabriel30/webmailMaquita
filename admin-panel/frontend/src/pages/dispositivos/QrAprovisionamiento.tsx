@@ -57,7 +57,7 @@ export function QrAprovisionamiento({ codigo, codigoId, etiqueta, onCerrar }: { 
             </ol>
             <div className="mt-5 rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 leading-relaxed">
               <strong>Si al tocar 6 veces no sale nada:</strong> ese teléfono no tiene el asistente de Google (Huawei y Honor sin servicios Google). En ese modelo no hay control completo por QR; queda el modo limitado.<br />
-              <strong>El QR vale para la versión publicada ahora.</strong> Cuando se publique otra versión de la app, vuelva a abrir esta ventana.
+              <strong>El QR sirve con cualquier versión publicada</strong> (verifica la firma de Maquita, no la versión). Si el asistente dice que no pudo verificar la app, avise a Tecnología.
             </div>
             <div className="flex gap-2 pt-5 print:hidden">
               <button onClick={() => window.print()} className="px-4 py-2 text-sm border border-ms-gray-40 rounded hover:bg-ms-gray-10">Imprimir</button>
