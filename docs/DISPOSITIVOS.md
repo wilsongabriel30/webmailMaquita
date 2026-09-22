@@ -251,3 +251,75 @@ mala 401, clave correcta 207, un usuario mirando la colección de otro 403. Vale
 
 Backend: `backend/app/cuenta/router.py`. DAV externo: `snippets/webmail-portal-comun.conf`
 (backup `.bak.20260918-dav`).
+
+# Cambios del 22/09/2026 — código asignado por Tecnología (AE-04) y portal de telemetría (AE-03)
+
+## Código de enrolamiento asignado a una persona (v5)
+- **Solo Tecnología crea códigos**, desde el panel (Teléfonos institucionales → Códigos de
+  enrolamiento). Al crearlo puede **asignarlo a un buzón** (`custodio_email`, con buscador): esa persona
+  queda como custodia al enrolar, y la tabla del panel muestra a quién está asignado, si ya se usó y
+  desde qué equipo. Una persona tiene un solo código vigente: asignarle otro anula el anterior.
+- `POST` y `DELETE /api/settings/mi-equipo` **se retiraron** (405): el correo web ya no genera ni
+  anula códigos. Configuración → «Mi teléfono» es de solo lectura.
+- **`GET /api/settings/mi-equipo`** (cookie del correo) responde ahora
+  `{tiene_codigo_activo, prefijo, caduca_en, codigo, equipos}`. `codigo` es el código en claro
+  (`xxxx-xxxx-xxxx`) cuando hay uno asignado y vigente para esa persona; si no, `null`. La app 1.2.8
+  ofrece «Activar» con él. Cada entrega del código en claro queda en `admin_audit`
+  (`dispositivo_codigo_ver_custodio`, sin `admin_id`).
+- **Cómo se guarda (compromiso documentado):** el código asignado se guarda **cifrado** (Fernet) en
+  `disp_codigos.codigo_cifrado` con la llave `DISP_CODIGO_CLAVE` del `.env` del backend y del panel
+  (nunca en la base), solo mientras está vigente: se borra al agotarse los usos (en el propio
+  enrolamiento), al anularse (panel) y al caducar (trabajo de alertas). Se descifra únicamente para el
+  custodio autenticado (su sesión ya pasó el segundo factor si lo tiene) y para administradores del
+  panel (`GET /api/dispositivos/codigos/{id}/ver`, auditado como `dispositivo_codigo_ver`). Se pierde el
+  «solo se muestra una vez» a cambio de que la persona no dependa de Tecnología para volver a verlo;
+  sigue con usos limitados, caducidad y anulable. Los códigos sin persona siguen siendo «una vez» y en la
+  base solo queda su SHA-256. Sin la variable configurada, el panel avisa y no guarda nada en claro.
+- Migración: `migrations/2026-09-22-01-dispositivos-codigo-asignado.sql`.
+
+## Latido: campo nuevo opcional para la app
+`POST /api/dispositivos/latido` acepta además **`admin_activo`** (booleano: si la app sigue siendo
+administradora del dispositivo). Se guarda en `disp_equipos.admin_activo` y en el JSON del latido. La
+1.2.8 no lo manda; mientras tanto el portal lo deduce (control completo = sí; limitado = «—» o «NO» si
+hay un evento `admin_desactivado` sin revisar). **Pedido a la app:** mandarlo en cada latido.
+
+## Portal de telemetría (panel, `/dispositivos` → «Telemetría» y «Alertas»)
+Telemetría **del equipo**, no de la persona: nada de contenido, apps de uso ni navegación; la ubicación
+no aparece (sigue bajo la regla de la fase 2). Todo GET lo puede ver el rol `viewer` (dirección).
+
+| Ruta del panel | Qué devuelve |
+|---|---|
+| `GET /api/dispositivos/telemetria/flota` | `{publicada:{versionName,versionCode,fecha}, totales:{equipos,reportando_hoy,rojo,con_alertas}, equipos:[…]}`; cada equipo trae `semaforo` (verde < 1 h, amarillo < 24 h, rojo), `almacenamiento_pct`, `version_atrasada`, `admin_activo`, `play_protect`, `eventos_rojos_7d`, `eventos_sin_revisar`, `urgentes_sin_acuse`, `alertas_abiertas`, `alertas[]` |
+| `GET /api/dispositivos/telemetria/flota.csv` | La misma tabla en CSV (`;`, UTF-8 con BOM). Queda en `admin_audit` (`dispositivo_telemetria_csv`) |
+| `GET /api/dispositivos/telemetria/equipos/{id}?rango=24h\|7d\|30d` | `serie` (24h/7d: cada latido con `t, bateria, cargando, almacenamiento_libre, almacenamiento_total, red`; 30d: filas de `disp_resumen_diario`), `eventos`, `mensajes` (con `leido_en` y custodio), `comandos`, `versiones` (por las que pasó, con desde/hasta), `alertas` (30 días) |
+| `GET /api/dispositivos/alertas?abiertas=true\|false` | Alertas abiertas (o últimos 30 días) con datos del equipo, `config` (umbrales) y `estado` |
+| `PUT /api/dispositivos/alertas/config` (admin) | Umbrales: `sin_reportar_horas, bateria_pct, bateria_horas, almacenamiento_pct, version_atrasada_dias, acuse_horas, correo_ti, resumen_diario_para, resumen_hora, activo` |
+| `GET /api/dispositivos/codigos` | Ahora con `custodio_email`, `recuperable` y `usado_por[]` |
+| `GET /api/dispositivos/codigos/{id}/ver` (admin) | Código en claro de uno asignado y vigente (auditado) |
+
+La **versión publicada** se lee del disco (`descargas-app/maquita-mail.json`); una app se marca
+atrasada si su `versionName` es menor.
+
+## Alertas automáticas (`maquita-disp-alertas.timer`, cada 15 min)
+Trabajo del backend del correo (`python -m app.dispositivos.alertas_tarea`). Evalúa las reglas de
+`alertas_reglas.py` con los umbrales de `disp_config.alertas`, abre una fila en **`disp_alertas`**
+(`equipo_id, tipo, detalle, desde, hasta, avisada_en`; índice único por equipo y tipo mientras
+`hasta IS NULL`) por cada condición nueva, cierra (`hasta`) las que dejaron de cumplirse y envía **un
+solo correo** a `correo_ti` con las nuevas; si el envío falla, `avisada_en` queda NULL y se reintenta.
+Resumen diario opcional a `resumen_diario_para` a la hora `resumen_hora` (una vez por día,
+`disp_config.alertas_estado`). Tipos: `sin_reportar`, `bateria_baja`, `almacenamiento_bajo`,
+`version_atrasada`, `admin_desactivado`, `desinstalacion_intento`, `sim_cambiada` (estos tres se
+cierran al marcar el evento «revisado»), `play_protect_apagado`, `mensaje_sin_acuse`.
+
+## Retención
+- `disp_latidos`: `retencion_latidos_dias` de la política (30). Los borra el trabajo de alertas (y,
+  ocasionalmente, el propio latido).
+- **`disp_resumen_diario`** (nuevo): una fila por equipo y día (latidos, batería mín/máx/prom,
+  almacenamiento libre mín/prom y total, versión de app y Android, latidos por wifi/móvil), recalculada
+  para hoy y ayer en cada corrida; se conserva **400 días** (12 meses de tendencia). Es lo que alimenta
+  la gráfica de 30 días y el historial de versiones más allá de los 30 días de latidos.
+- `disp_alertas`: no se borra (es historial); el panel muestra 30 días.
+- Migración: `migrations/2026-09-22-02-dispositivos-telemetria.sql`.
+
+## Runbook
+`docs/RUNBOOK-TELEFONOS-TELEMETRIA.md` (copia en `02-MODULOS/GESTION-DISPOSITIVOS-MOVILES/RUNBOOK-TELEMETRIA-TELEFONOS.md`).

@@ -149,8 +149,8 @@ export function Topbar() {
         )}
       </div>
 
-      {/* Brand */}
-      <div className="flex items-center gap-2 shrink-0">
+      {/* Brand (AE-06: en pantallas estrechas se oculta para que quepan el buscador y el perfil) */}
+      <div className="flex items-center gap-2 shrink-0 max-[600px]:hidden">
         <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
             d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -159,7 +159,7 @@ export function Topbar() {
       </div>
 
       {/* Search bar */}
-      <div className="topbar-search flex-1 max-w-[680px] mx-auto max-md:mx-1">
+      <div className="topbar-search flex-1 min-w-0 max-w-[680px] mx-auto max-md:mx-1">
         <SearchAdvanced
           value={searchQuery}
           onChange={aplicarBusqueda}
@@ -174,7 +174,7 @@ export function Topbar() {
       {/* Right: Theme toggle + Notifications + Settings + Help + Profile */}
       <div className="flex items-center gap-0.5 shrink-0">
         <button onClick={toggleTheme} title={dark ? 'Modo claro' : 'Modo oscuro'}
-          className="w-8 h-8 rounded flex items-center justify-center text-white/80 hover:bg-white/15 transition-colors">
+          className="w-8 h-8 rounded flex items-center justify-center text-white/80 hover:bg-white/15 transition-colors max-[600px]:hidden">
           <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={dark ? sunIcon : moonIcon} />
           </svg>
