@@ -374,3 +374,16 @@ modelo?, android?, capacidades?, fix?: {lat, lon, precision}, datos_gz: base64(g
 del Geoportal del IGM con hasta 5 días hábiles de retraso, o REGME-IP por NTRIP en tiempo real) es fuera
 de línea y escribe `resultado`. Comando del panel **`gnss_crudo`** con `segundos` (10-900, 60 por
 omisión). Prompt para la app: `WEBMAIL-CALENDARIO/app-movil/PROMPT-APP-WIFI-ANCLAS-Y-GNSS-CRUDO.md`.
+
+## IMEI (varios por equipo) — 22/09/2026
+Doble SIM y eSIM dan 2, 3 o 4 IMEI. Sirven para que la operadora bloquee el equipo si lo roban o lo
+pierden, así que se muestran **al administrador** (ficha del panel, recuadro «IMEI para la operadora»
+con Copiar) y **a la persona** (correo web → «Mi teléfono», con Copiar y «Registrar / Agregar o corregir»).
+- `disp_equipos.imeis` (JSONB, lista ≤ 4; `imei` sigue siendo el principal). Migración `2026-09-22-06`.
+- App: `POST /enrolar` y `POST /latido` aceptan **`imeis: [..]`** (14-17 dígitos cada uno; se unen a los
+  existentes, lo que reporta el teléfono va primero). **Solo se pueden leer con control completo (Device
+  Owner) desde Android 10**; en modo limitado la app no puede y debe pedir a la persona que los escriba
+  (o mostrar la instrucción *#06#).
+- Persona: `PUT /api/settings/mi-equipo/{id}/imeis` `{imeis: "…, …" | [..]}` (custodio; auditado
+  `dispositivo_custodio_imeis`). Los que reportó el teléfono no se pierden.
+- Panel: `PUT /api/dispositivos/equipos/{id}` acepta `imeis` (texto con comas o lista).
