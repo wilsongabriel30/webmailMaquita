@@ -38,6 +38,9 @@ class Latido(BaseModel):
     play_protect: Optional[bool] = None
     # Si la app sigue siendo administradora del dispositivo (modo limitado). Opcional: la 1.2.8 aún no lo manda.
     admin_activo: Optional[bool] = None
+    # Wifi al que está conectado (nombre y MAC del punto de acceso); requiere el permiso de ubicación en Android.
+    wifi_ssid: Optional[str] = Field(None, max_length=64)
+    wifi_bssid: Optional[str] = Field(None, pattern=r"^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")
     ubicacion: Optional[Ubicacion] = None
 
 

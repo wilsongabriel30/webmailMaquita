@@ -24,7 +24,7 @@ _GRAVES = "('admin_desactivado', 'desinstalacion_intento', 'sim_cambiada')"
 _FLOTA = f"""
 SELECT e.id, e.nombre, e.fabricante, e.modelo, e.custodio_email, e.custodio_nombre, e.sede, e.centro_costo, e.estado, e.modo,
        e.ultimo_contacto, e.bateria, e.cargando, e.almacenamiento_libre, e.almacenamiento_total, e.red, e.version_app, e.android,
-       e.play_protect, e.admin_activo, e.enrolado_en, e.ancla_sede, e.ancla_en,
+       e.play_protect, e.admin_activo, e.enrolado_en, e.ancla_sede, e.ancla_en, e.wifi_ssid,
        (SELECT count(*) FROM disp_eventos ev WHERE ev.equipo_id = e.id AND ev.recibido_en > NOW() - interval '7 days' AND ev.tipo IN {_GRAVES}) AS eventos_rojos_7d,
        (SELECT count(*) FROM disp_eventos ev WHERE ev.equipo_id = e.id AND ev.visto_en IS NULL AND ev.tipo IN {_GRAVES}) AS eventos_sin_revisar,
        (SELECT count(*) FROM disp_mensajes_equipos me JOIN disp_mensajes m ON m.id = me.mensaje_id
