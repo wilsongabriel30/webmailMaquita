@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.dispositivos import anclas as _anclas
 from app.dispositivos import imeis as _imeis
+from app.dispositivos import ntrip as _ntrip
 from app.dispositivos import wifis as _wifis
 from app.dispositivos import ubicacion as _ubic
 from app.dispositivos.esquemas import (
@@ -382,6 +383,8 @@ async def yo(request: Request, equipo: dict = Depends(equipo_actual)):
         "aviso_privacidad": pol.get("aviso_privacidad"),
         "ubicacion_activa": _ubic.puede_guardar(equipo),
         "push": _push_info(pol, equipo.get("push_topic")),
+        # Medición de campo: credenciales NTRIP (REGME) solo si la ubicación está autorizada.
+        "ntrip": await _ntrip.para_equipo(request.app.state.db_pool, equipo, _ubic.puede_guardar(equipo)),
     }
 
 
