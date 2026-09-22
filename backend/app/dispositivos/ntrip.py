@@ -42,17 +42,22 @@ async def para_equipo(db, equipo: dict, permitido: bool) -> dict | None:
     if not permitido:
         return None
     cfg = await configuracion(db)
-    if not cfg.get("caster") or not cfg.get("usuario"):
-        return None
-    clave = descifrar(cfg.get("clave_cifrada")) if cfg.get("clave_cifrada") else None
-    if not clave:
+    if not cfg.get("caster"):
         return None
     pos = await db.fetchrow("SELECT lat, lon FROM disp_ubicaciones WHERE equipo_id = $1 ORDER BY tomada_en DESC LIMIT 1", equipo["id"])
     est = _estacion_para(cfg, equipo, pos["lat"] if pos else None, pos["lon"] if pos else None)
-    return {
-        "caster": cfg["caster"], "puerto": int(cfg.get("puerto") or 2101), "usuario": cfg["usuario"], "clave": clave,
+    salida = {
+        "caster": cfg["caster"], "puerto": int(cfg.get("puerto") or 2101),
         "punto": est["punto"] if est else None, "estacion_lat": est["lat"] if est else None, "estacion_lon": est["lon"] if est else None,
         "estaciones": [e["punto"] for e in cfg.get("estaciones") or []],
         "protocolo": "ntrip1-con-gga", "max_conexiones": int(cfg.get("max_conexiones") or 1),
+        "registro": cfg.get("registro") or "https://www.geoportaligm.gob.ec/ntrip/public/",
+        "credenciales": "personales",   # decisión de dirección 22/09: cada técnico se registra en el IGM y usa su propia cuenta en la app
         "regla": "Conectar solo durante la medición de campo y cerrar al terminar; nunca reintentar en bucle (el caster bloquea la cuenta).",
     }
+    # Solo si Tecnología lo activa expresamente se comparte la cuenta institucional (una conexión a la vez).
+    if cfg.get("compartir_cuenta") and cfg.get("usuario") and cfg.get("clave_cifrada"):
+        clave = descifrar(cfg["clave_cifrada"])
+        if clave:
+            salida.update(usuario=cfg["usuario"], clave=clave, credenciales="institucional")
+    return salida
