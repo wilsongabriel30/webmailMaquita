@@ -96,6 +96,7 @@ from app.secure_message.router import public_router as secure_public_router
 from app.security.router import router as security_router
 from app.settings.routers.preferences import router as settings_router
 from app.settings_mi_equipo import router as mi_equipo_router
+from app.settings_mi_equipo_ubicacion import router as mi_equipo_ubicacion_router
 from app.sieve.router import router as sieve_router
 from app.smime.router import router as smime_router
 from app.sso.router import router as sso_router
@@ -779,7 +780,8 @@ app.include_router(dispositivos_ubicacion_router)  # fase 2: ubicación y avista
 app.include_router(dispositivos_respaldos_router)  # fase 3: respaldos cifrados
 app.include_router(dispositivos_apps_router)  # fase 4: inventario de apps
 app.include_router(cuenta_router)  # descubrimiento de cuenta para Android
-app.include_router(mi_equipo_router)  # código autoservicio de Mi equipo
+app.include_router(mi_equipo_router)  # código asignado de Mi equipo (solo lectura)
+app.include_router(mi_equipo_ubicacion_router)  # «Teléfono extraviado»: última ubicación, ubicar ahora, hacer sonar
 app.include_router(ai_router)
 app.include_router(retention_router)
 app.include_router(gal_router)
