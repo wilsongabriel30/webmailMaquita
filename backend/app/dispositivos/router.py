@@ -208,7 +208,7 @@ async def latido(request: Request, body: Latido, equipo: dict = Depends(equipo_a
                                   equipo["id"], json.dumps(lista), lista[0])
         # Ancla de red: si la IP es de una sede conocida, el equipo está en esa sede (etapa 1).
         try:
-            await _anclas.registrar(con, equipo, ip, _ubic.puede_guardar(equipo))
+            await _anclas.registrar(con, equipo, ip, _ubic.puede_guardar(equipo), body.wifi_bssid)
         except Exception:
             logger.exception("ancla_red_fallo | equipo=%s", equipo["id"])
         comandos = await con.fetch(
@@ -288,6 +288,13 @@ async def resultado_comando(
     body: ResultadoComando,
     equipo: dict = Depends(equipo_actual),
 ):
+    if body.wifis_vistas:
+        # Etapa 2: redes vistas al localizar → triangulación contra los puntos de acceso de Maquita.
+        try:
+            async with request.app.state.db_pool.acquire() as con:
+                await _anclas.guardar_triangulacion(con, equipo, [w.model_dump() for w in body.wifis_vistas], ip_cliente(request), _ubic.puede_guardar(equipo))
+        except Exception:
+            logger.exception("triangulacion_fallo | equipo=%s", equipo["id"])
     r = await request.app.state.db_pool.execute(
         "UPDATE disp_comandos SET estado = $3, terminado_en = NOW(), resultado = $4::jsonb "
         "WHERE id = $1 AND equipo_id = $2 AND estado IN ('entregado', 'pendiente')",
