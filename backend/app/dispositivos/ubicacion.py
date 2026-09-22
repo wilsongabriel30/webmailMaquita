@@ -13,7 +13,7 @@ from typing import Literal, Optional
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 
-from app.dispositivos.esquemas import Ubicacion
+from app.dispositivos.esquemas import Ubicacion, WifiVista
 from app.dispositivos.seguridad import equipo_actual, ip_cliente, limitar
 
 logger = logging.getLogger("dispositivos")
@@ -23,6 +23,7 @@ router = APIRouter(prefix="/api/dispositivos", tags=["dispositivos"])
 class LoteUbicaciones(BaseModel):
     puntos: list[Ubicacion] = Field(..., min_length=1, max_length=100)
     origen: Literal["periodica", "comando", "perdido"] = "periodica"
+    wifis_vistas: Optional[list[WifiVista]] = Field(None, max_length=20)   # etapa 2: triangulación por puntos de acceso
 
 
 class Avistamiento(BaseModel):
@@ -111,6 +112,13 @@ async def enviar_ubicaciones(
     await limitar(request, f"ubic:{equipo['id']}", 120, 3600)
     async with request.app.state.db_pool.acquire() as con:
         n = await guardar(con, equipo, body.puntos, body.origen, ip_cliente(request))
+        if body.wifis_vistas:
+            from app.dispositivos import anclas as _anclas
+
+            try:
+                await _anclas.guardar_triangulacion(con, equipo, [w.model_dump() for w in body.wifis_vistas], ip_cliente(request), puede_guardar(equipo))
+            except Exception:
+                logger.exception("triangulacion_fallo | equipo=%s", equipo["id"])
     return {"guardadas": n, "ubicacion_activa": puede_guardar(equipo)}
 
 
