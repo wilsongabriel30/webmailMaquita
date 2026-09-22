@@ -14,7 +14,8 @@ const CAMPOS: { k: keyof Equipo; label: string; tipo?: string; ayuda?: string }[
   { k: "custodio_email", label: "Custodio (correo)", tipo: "email" },
   { k: "centro_costo", label: "Centro de costo" },
   { k: "sede", label: "Sede / oficina" },
-  { k: "imei", label: "IMEI", ayuda: "15 dígitos: *#06# o la caja. En equipos administrados lo reporta el teléfono." },
+  { k: "imei", label: "IMEI principal", ayuda: "15 dígitos: *#06# o la caja. En equipos administrados lo reporta el teléfono." },
+  { k: "imeis", label: "Todos los IMEI (separados por coma)", ayuda: "Doble SIM y eSIM tienen 2 a 4. Son los que se dan a la operadora para bloquear el teléfono si lo roban. La persona también puede registrarlos desde su correo." },
   { k: "serie", label: "Número de serie" },
   { k: "fecha_compra", label: "Fecha de compra", tipo: "date" },
   { k: "valor_compra", label: "Valor de compra (USD)", tipo: "number" },
@@ -61,6 +62,12 @@ export function FichaEquipo({ id, onCerrar, onCambio }: { id: number; onCerrar: 
       </div>
       {msg && <div className={`text-sm px-3 py-2 rounded ${msg.ok ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>{msg.t}</div>}
 
+      {(e.imeis?.length || e.imei) && <div className="rounded border border-ms-gray-30 bg-ms-gray-10 p-3 text-sm flex flex-wrap items-center gap-3">
+        <span className="font-semibold">IMEI para la operadora:</span>
+        {(e.imeis?.length ? e.imeis : [e.imei as string]).map((i) => <code key={i} className="font-mono bg-white px-2 py-0.5 rounded border border-ms-gray-30">{i}</code>)}
+        <button onClick={() => navigator.clipboard.writeText((e.imeis?.length ? e.imeis : [e.imei as string]).join(", "))} className="text-xs text-ms-blue hover:underline">Copiar</button>
+        <span className="text-xs text-ms-gray-60">Si roban o pierden el teléfono, la operadora bloquea el equipo con estos números.</span>
+      </div>}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
         {[["Último contacto", fechaHora(e.ultimo_contacto)], ["Batería", e.bateria != null ? `${e.bateria}%${e.cargando ? " ⚡" : ""}` : "—"],
           ["Almacenamiento libre", `${gigas(e.almacenamiento_libre)} de ${gigas(e.almacenamiento_total)}`], ["Red", e.red || "—"],

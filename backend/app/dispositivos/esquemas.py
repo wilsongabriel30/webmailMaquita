@@ -15,6 +15,7 @@ class Enrolamiento(BaseModel):
     modelo: Optional[str] = Field(None, max_length=120)
     serie: Optional[str] = Field(None, max_length=80)
     imei: Optional[str] = Field(None, pattern=r"^\d{14,17}$")
+    imeis: Optional[list[str]] = Field(None, max_length=4)   # todos los IMEI (doble SIM, eSIM), si la app puede leerlos
     android: Optional[str] = Field(None, max_length=40)
     version_app: Optional[str] = Field(None, max_length=40)
 
@@ -41,6 +42,7 @@ class Latido(BaseModel):
     # Wifi al que está conectado (nombre y MAC del punto de acceso); requiere el permiso de ubicación en Android.
     wifi_ssid: Optional[str] = Field(None, max_length=64)
     wifi_bssid: Optional[str] = Field(None, pattern=r"^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")
+    imeis: Optional[list[str]] = Field(None, max_length=4)   # cuando la app puede leerlos (control completo)
     ubicacion: Optional[Ubicacion] = None
 
 

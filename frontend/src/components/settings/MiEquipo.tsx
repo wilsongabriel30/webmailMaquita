@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../api/client';
 import { MiTelefonoExtraviado } from './MiTelefonoExtraviado';
+import { MisImeis } from './MisImeis';
 
 // «Mi teléfono»: solo lectura desde el 22/09/2026. El código de enrolamiento lo asigna Tecnología desde
 // el panel; aquí la persona solo lo ve (para escribirlo en la app si hace falta), con su vencimiento, y
 // sus teléfonos activados. No se genera ni se anula nada desde aquí. La app Maquita Mail consulta este
 // mismo dato y activa con un toque. NO da acceso al correo: es solo para la gestión del equipo.
 
-interface Equipo { id: number; nombre?: string; modelo?: string; fabricante?: string; estado: string; modo: string; ultimo_contacto?: string }
+interface Equipo { id: number; nombre?: string; modelo?: string; fabricante?: string; estado: string; modo: string; ultimo_contacto?: string; imeis?: string[] }
 interface Estado { tiene_codigo_activo: boolean; prefijo?: string; caduca_en?: string; codigo?: string | null; equipos: Equipo[] }
 
 export function MiEquipo() {
@@ -57,9 +58,12 @@ export function MiEquipo() {
           <div className="text-sm font-medium mb-2">Mis teléfonos activados</div>
           <ul className="text-sm divide-y divide-[#edebe9] border border-[#edebe9] rounded">
             {datos.equipos.map((e) => (
-              <li key={e.id} className="px-3 py-2 flex justify-between gap-2">
-                <span>{e.nombre || `${e.fabricante || ''} ${e.modelo || 'Teléfono'}`.trim()} <span className="text-xs text-[#605e5c]">· {e.modo === 'propietario' ? 'administrado' : 'modo limitado'}</span></span>
-                <span className="text-xs text-[#605e5c]">{e.estado === 'activo' ? `visto ${fecha(e.ultimo_contacto)}` : e.estado}</span>
+              <li key={e.id} className="px-3 py-2">
+                <div className="flex justify-between gap-2">
+                  <span>{e.nombre || `${e.fabricante || ''} ${e.modelo || 'Teléfono'}`.trim()} <span className="text-xs text-[#605e5c]">· {e.modo === 'propietario' ? 'administrado' : 'modo limitado'}</span></span>
+                  <span className="text-xs text-[#605e5c]">{e.estado === 'activo' ? `visto ${fecha(e.ultimo_contacto)}` : e.estado}</span>
+                </div>
+                <MisImeis equipoId={e.id} imeis={e.imeis || []} onCambio={cargar} />
               </li>
             ))}
           </ul>
