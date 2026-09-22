@@ -669,10 +669,13 @@ export function MessageList() {
     if (!hasAnyClassification) return true;
     // Prioritarios tab: show ALL messages (never hide anything)
     if (activeTab === 'focused') return true;
-    // Otros tab: only show low priority messages
+    // Otros: todo lo que NO sea claramente importante, para que la pestana no quede vacia.
+    // Importante = 'high' o 'action_required'; el resto (normal, low, boletines, promociones,
+    // social, fyi) y lo aun sin clasificar van a Otros.
     const p = priorityMap[m.uid];
-    if (!p) return false; // unclassified = not in otros
-    return p.priority === 'low';
+    if (!p) return true; // sin clasificar: se muestra en Otros
+    const pr = String(p.priority);
+    return pr !== 'high' && pr !== 'action_required';
   });
   // La lista respeta el orden de llegada (como Outlook y Zimbra): la prioridad
   // y la bandera se muestran como marcas, no reordenan. Solo la chincheta fija arriba.
