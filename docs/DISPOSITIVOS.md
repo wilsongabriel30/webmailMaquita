@@ -411,3 +411,23 @@ registre sola. Procedimiento para no técnicos en la propia ventana y en
   (peso 10^((rssi+100)/20)) de los AP conocidos → posición `origen ancla`, `fuente wifi`; margen = radio
   si es un solo AP, o radio/√n (mínimo 10 m) con varios. Si no se reconoce ningún AP, no se guarda nada.
 - Para afinar dentro de una sede: cargar todos sus puntos de acceso con la coordenada real de cada uno.
+
+## Wifi compartido con la flota (22/09/2026, 14:15, pedido de dirección)
+Los compañeros viajan entre sedes y a eventos; nadie debe pelear con claves de wifi ni depender de
+Tecnología. Tablas `disp_wifis` (clave cifrada con `DISP_CODIGO_CLAVE`; `origen` panel/telefono,
+`compartida_por`, `bssid`, `ultimo_uso`) y `disp_wifis_cambios` (quién cambió qué); versión global en
+`disp_config.wifis`. Migraciones `2026-09-22-08` y `-09`.
+| Ruta (token del equipo) | Qué hace |
+|---|---|
+| `GET /api/dispositivos/wifis` | `{version, redes:[{id, sede, ssid, clave, seguridad, oculta, version}]}` con claves en claro (solo teléfonos enrolados, por HTTPS). |
+| latido → `wifis_version` | Cuando sube, la app vuelve a pedir la lista y actualiza sus redes sugeridas. |
+| `POST /api/dispositivos/wifis/{id}/clave` `{clave, bssid?, conectado:true}` | El teléfono corrigió la clave de una red conocida y **se conectó**: se replica a todos (sube la versión, queda en cambios como «telefono»). |
+| `POST /api/dispositivos/wifis/compartir` `{ssid, clave?, seguridad, bssid?, lugar?, oculta?}` | El teléfono se conectó a una red nueva (evento, hotel, aliado) y la persona aceptó compartirla: se crea con `origen telefono` y llega a toda la flota. Si ya existe, solo actualiza la clave si cambió. |
+Panel: pestaña **«Wifi de las sedes»** (`GET/POST /api/dispositivos/wifis`, `GET /{id}/clave` auditado,
+`DELETE /{id}`): alta/edición por Tecnología, «conectados ahora», cambios recientes, redes compartidas
+por compañeros marcadas «compartida por». El lector solo ve.
+**Reglas para la app (Tarea 7 del prompt):** agregar las redes como *sugerencias* (`WifiNetworkSuggestion`,
+Android 10+; en control completo también como redes configuradas) para conectarse sola; al conectarse
+a una red que no está en la lista, preguntar una sola vez «¿Compartir esta red con los compañeros de
+Maquita?» (nunca compartir sin preguntar: puede ser el wifi de la casa); si una red conocida falla por
+clave y la persona escribe la nueva y conecta, enviarla con `/clave`.
