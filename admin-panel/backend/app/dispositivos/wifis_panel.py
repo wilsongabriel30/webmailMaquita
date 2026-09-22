@@ -20,7 +20,7 @@ async def _subir_version(d) -> int:
 @router.get("")
 async def listar(request: Request, admin: dict = Depends(get_current_admin)):
     filas = await db(request).fetch(
-        """SELECT w.id, w.sede, w.ssid, w.seguridad, w.oculta, w.activa, w.nota, w.version, w.actualizado_por, w.actualizado_en,
+        """SELECT w.id, w.sede, w.ssid, w.seguridad, w.oculta, w.activa, w.nota, w.version, w.actualizado_por, w.actualizado_en, w.origen, w.compartida_por, w.ultimo_uso,
                   (w.clave_cifrada IS NOT NULL) AS con_clave,
                   (SELECT count(*) FROM disp_equipos e WHERE e.wifi_ssid = w.ssid AND e.wifi_en > NOW() - interval '1 hour') AS conectados_ahora,
                   (SELECT json_agg(json_build_object('quien', c.quien, 'origen', c.origen, 'detalle', c.detalle, 'hecho_en', c.hecho_en) ORDER BY c.hecho_en DESC)

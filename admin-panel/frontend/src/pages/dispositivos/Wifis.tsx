@@ -8,7 +8,7 @@ import { rolActual } from "./telemetria/tipos";
 // clave y logra conectarse, se replica a todos (aparece en «Cambios»).
 
 interface Cambio { quien: string; origen: string; detalle: string; hecho_en: string }
-interface Red { id: number; sede: string; ssid: string; seguridad: string; oculta: boolean; activa: boolean; nota: string; version: number; actualizado_por: string; actualizado_en: string; con_clave: boolean; conectados_ahora: number; cambios: Cambio[] }
+interface Red { id: number; sede: string; ssid: string; seguridad: string; oculta: boolean; activa: boolean; nota: string; version: number; actualizado_por: string; actualizado_en: string; con_clave: boolean; conectados_ahora: number; cambios: Cambio[]; origen: string; compartida_por?: string | null; ultimo_uso?: string | null }
 const VACIO = { id: 0, sede: "", ssid: "", clave: "", seguridad: "WPA", oculta: false, activa: true, nota: "" };
 
 export function Wifis() {
@@ -33,7 +33,7 @@ export function Wifis() {
       {msg && <div className={`text-sm px-3 py-2 rounded ${msg.ok ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>{msg.t}</div>}
       {admin && <div className="bg-white rounded-lg border border-ms-gray-30 p-4 space-y-3">
         <h3 className="text-sm font-semibold">{f.id ? `Editar red «${f.ssid}»` : "Nueva red wifi de una sede"}</h3>
-        <p className="text-xs text-ms-gray-60">Los teléfonos institucionales reciben estas redes y se conectan solos al llegar a la sede. La clave se guarda cifrada y solo viaja a teléfonos enrolados. Si alguien cambia la clave del router, actualícela aquí (o el primer teléfono que la corrija y se conecte la replicará a todos).</p>
+        <p className="text-xs text-ms-gray-60">Los teléfonos institucionales reciben estas redes y se conectan solos al llegar. Además, cualquier red que un compañero conecte con su app (un evento, un hotel, un aliado) y acepte compartir aparece aquí sola, marcada «compartida por», y llega a toda la flota sin que Tecnología haga nada. La clave se guarda cifrada y solo viaja a teléfonos enrolados. Si alguien cambia la clave del router, actualícela aquí (o el primer teléfono que la corrija y se conecte la replicará a todos).</p>
         <div className="flex flex-wrap items-end gap-3 text-sm">
           <label className="text-xs">Sede<input value={f.sede} onChange={(e) => setF({ ...f, sede: e.target.value })} placeholder="Maquita central" className="mt-1 block w-40 px-2.5 py-1.5 text-sm border border-ms-gray-40 rounded" /></label>
           <label className="text-xs">Nombre de la red (SSID)<input value={f.ssid} onChange={(e) => setF({ ...f, ssid: e.target.value })} placeholder="MAQUITA CENTRAL" className="mt-1 block w-44 px-2.5 py-1.5 text-sm border border-ms-gray-40 rounded" /></label>
@@ -52,7 +52,7 @@ export function Wifis() {
           <thead><tr className="bg-ms-gray-10">{["Sede", "Red", "Seguridad", "Clave", "Conectados ahora", "Actualizada", "Cambios recientes", ""].map((h) => <th key={h} className="text-left px-4 py-2.5 font-medium text-ms-gray-90 text-xs">{h}</th>)}</tr></thead>
           <tbody>
             {(d?.redes || []).map((r) => <tr key={r.id} className={`border-t border-ms-gray-20 ${r.activa ? "" : "text-ms-gray-60"}`}>
-              <td className="px-4 py-2.5">{r.sede}{!r.activa && <span className="ml-1 text-xs">(inactiva)</span>}</td>
+              <td className="px-4 py-2.5">{r.sede}{!r.activa && <span className="ml-1 text-xs">(inactiva)</span>}{r.origen === "telefono" && <div className="text-xs text-blue-700">compartida por {r.compartida_por}</div>}</td>
               <td className="px-4 py-2.5 font-medium">{r.ssid}{r.oculta && <span className="ml-1 text-xs text-ms-gray-60">(oculta)</span>}{r.nota && <div className="text-xs text-ms-gray-60 font-normal">{r.nota}</div>}</td>
               <td className="px-4 py-2.5 text-xs">{r.seguridad === "NONE" ? "Abierta" : r.seguridad === "WPA3" ? "WPA3" : "WPA2"}</td>
               <td className="px-4 py-2.5 text-xs">{r.seguridad === "NONE" ? "—" : vista?.id === r.id ? <code className="font-mono">{vista.clave || "(sin clave)"}</code> : r.con_clave ? (admin ? <button onClick={() => verClave(r)} className="text-ms-blue hover:underline" title="Queda en la auditoría">Ver</button> : "••••••••") : <span className="text-red-600">sin clave</span>}</td>
