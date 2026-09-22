@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../api/client';
+import { MiTelefonoExtraviado } from './MiTelefonoExtraviado';
 
 // «Mi teléfono»: solo lectura desde el 22/09/2026. El código de enrolamiento lo asigna Tecnología desde
 // el panel; aquí la persona solo lo ve (para escribirlo en la app si hace falta), con su vencimiento, y
@@ -64,6 +65,7 @@ export function MiEquipo() {
           </ul>
         </div>
       )}
+      <MiTelefonoExtraviado />
     </div>
   );
 }
