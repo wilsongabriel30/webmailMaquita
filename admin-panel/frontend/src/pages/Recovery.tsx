@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { api } from "../api/client";
 import { SectionHelp } from "../components/SectionHelp";
+import { ArchivoBorrados } from "../components/ArchivoBorrados";
 
 interface Suggestion { username: string; name: string }
 
@@ -59,6 +60,7 @@ export function Recovery() {
             { titulo: "Lista de mensajes", desc: "Muestra remitente, asunto, fecha y la carpeta de papelera donde está cada correo. Es solo lectura hasta que decida restaurar." },
             { titulo: "Restaurar individual", desc: "El botón Restaurar de cada fila mueve ese correo de la papelera a la bandeja de entrada (INBOX) del usuario." },
             { titulo: "Restauración masiva", desc: "Marque varias casillas (o Seleccionar todos) y use Restaurar seleccionados para moverlos todos de una vez. Al final se informa cuántos se restauraron y cuántos fallaron." },
+            { titulo: "Papelera de recuperación", desc: "Debajo, la Papelera de recuperación busca el correo que ya NO está ni en la papelera: el que se borró del todo o se perdió al vaciar una carpeta. Devolverlo lo copia a su bandeja y conserva la copia de seguridad." },
             { titulo: "Auditoría", desc: "Cada restauración queda registrada en auditoría con usuario y fecha." },
           ]}
         />
@@ -135,6 +137,8 @@ export function Recovery() {
       {!loading && messages.length === 0 && username && (
         <div className="bg-white rounded border border-ms-gray-30 p-12 text-center text-ms-gray-60">Sin mensajes en papelera para {username}</div>
       )}
+
+      {username && <ArchivoBorrados username={username} />}
     </div>
   );
 }

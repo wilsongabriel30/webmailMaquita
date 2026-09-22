@@ -45,7 +45,9 @@ async def list_folders(request: Request, username: str = Depends(get_current_use
     async with get_pooled_imap(login_user, password) as imap:
         folders = await get_folders(imap)
         result = {"folders": folders}
-        await redis.set(cache_key, json.dumps(result), ex=300)  # 5min TTL (era 30s)
+        await redis.set(
+            cache_key, json.dumps(result), ex=45
+        )  # 45s: con 5 min el correo recien llegado tardaba en verse (21/09/2026)
         return result
 
 

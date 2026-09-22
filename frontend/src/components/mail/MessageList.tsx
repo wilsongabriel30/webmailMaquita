@@ -298,6 +298,7 @@ export function MessageList() {
       console.error(err);
       if (/429|Too Many/i.test(String(err?.message || err)) && useMailStore.getState().loadingMore) {
         // Límite de peticiones del servidor: se espera y se vuelve a pedir la misma tanda.
+        // eslint-disable-next-line react-hooks/immutability -- reintento diferido: fetch_ ya existe cuando corre el callback
         setTimeout(() => fetch_(), 5000);
         return;
       }
@@ -350,7 +351,7 @@ export function MessageList() {
     obs.observe(sentinel);
     return () => obs.disconnect();
   }, [messages.length, totalMessages, loadingMessages]);
-  usePolling(fetch_, 120000, true);
+  usePolling(fetch_, 45000, true);  // 45 s: con 2 min el correo recien llegado tardaba en aparecer (21/09/2026)
 
   // Fetch priority classification for INBOX
   useEffect(() => {
@@ -694,7 +695,7 @@ export function MessageList() {
         await api.post('/mail/spam/not-spam', { folder: currentFolder, uid: msg.uid }).catch(() => { });
       }
       showToast(`${correo} en confianza — sus correos iran siempre a la Bandeja`);
-    } catch (e: any) { showToast(e?.message || 'No se pudo confiar en el remitente'); }
+    } catch (e) { showToast(e instanceof Error && e.message ? e.message : 'No se pudo confiar en el remitente'); }
     window.dispatchEvent(new CustomEvent('refresh-messages'));
   };
   const bloquearRemitenteCtx = async (msg: MessageSummary) => {
@@ -708,7 +709,7 @@ export function MessageList() {
       await api.post('/sieve/filters', { name: `Bloqueado: ${correo}`, condition: { field: 'from', operator: 'contains', value: correo }, action: { type: 'move', value: 'Junk' } });
       await api.post('/mail/spam/report', { folder: currentFolder, uid: msg.uid }).catch(() => { /* bloqueo ya creado */ });
       showToast(`${correo} bloqueado — sus correos iran a Correo no deseado`);
-    } catch (e: any) { showToast(e?.message || 'No se pudo bloquear el remitente'); }
+    } catch (e) { showToast(e instanceof Error && e.message ? e.message : 'No se pudo bloquear el remitente'); }
     window.dispatchEvent(new CustomEvent('refresh-messages'));
   };
 
