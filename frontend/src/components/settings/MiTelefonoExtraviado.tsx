@@ -6,7 +6,7 @@ import { api } from '../../api/client';
 // Nada técnico: sin IP, sin redes, sin fuentes.
 
 interface Posicion { lat: number; lon: number; precision_m?: number | null; cuando: string; margen: string; minutos: number }
-interface Tel { id: number; nombre: string; estado: string; ultimo_contacto?: string | null; ubicacion_permitida: boolean; posicion: Posicion | null; buscando: boolean }
+interface Tel { id: number; nombre: string; estado: string; ultimo_contacto?: string | null; ubicacion_permitida: boolean; posicion: Posicion | null; buscando: boolean; wifi?: string | null; wifi_en?: string | null }
 
 const cuando = (iso: string) => {
   const d = new Date(iso); const hoy = new Date();
@@ -35,6 +35,7 @@ export function MiTelefonoExtraviado() {
       {lista.map((t) => (
         <div key={t.id} className="mt-3 border border-[#edebe9] rounded p-4">
           <div className="font-medium">{t.nombre}{t.estado === 'perdido' && <span className="ml-2 text-xs px-2 py-0.5 rounded bg-red-50 text-red-700">declarado perdido</span>}</div>
+          {t.wifi && <div className="mt-2 text-sm">Está conectado al wifi <strong>«{t.wifi}»</strong>{t.wifi_en ? ` (${cuando(t.wifi_en)})` : ''}. Si es el de tu casa u oficina, ahí lo dejaste.</div>}
           {t.posicion ? (
             <div className="mt-2 text-sm">
               <div><strong>Última ubicación conocida:</strong> {cuando(t.posicion.cuando)}, {t.posicion.margen}.</div>

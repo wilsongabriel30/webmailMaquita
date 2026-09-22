@@ -356,3 +356,12 @@ OpenStreetMap), «Ubicar ahora» y «Hacer sonar».
 | `POST /api/settings/mi-equipo/{id}/sonar` | Encola `alarma` |
 Auditoría: `dispositivo_custodio_localizar` / `dispositivo_custodio_alarma` (sin `admin_id`). El backend
 del correo necesita `NTFY_URL_INTERNO` y `NTFY_TOKEN` en su `.env` (los mismos del panel).
+
+## Wifi conectado (pedido de dirección, 22/09/2026)
+El latido acepta además **`wifi_ssid`** (nombre de la red, ≤ 64) y **`wifi_bssid`** (MAC del punto de
+acceso, `aa:bb:cc:dd:ee:ff`); Android exige el permiso de ubicación para leerlos. Se guardan en
+`disp_equipos.wifi_ssid/wifi_bssid/wifi_en` (solo cuando `red` es wifi; con datos móviles se limpian).
+Uso: Configuración → «Teléfono extraviado» muestra «Está conectado al wifi “X”» (si es el de su casa,
+ahí lo dejó); la flota del panel lo muestra bajo la columna «Red». El `bssid` es la base de la etapa 2
+(anclas por punto de acceso). Migración `2026-09-22-04-dispositivos-wifi-ssid.sql`.
+**Pedido a la app:** mandar ambos en cada latido cuando esté en wifi.
