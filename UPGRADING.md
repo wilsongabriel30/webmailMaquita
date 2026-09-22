@@ -10,6 +10,28 @@ servicio, reiniciar lo que cambió y correr `deploy/tools/validar-despliegue.sh`
 
 ---
 
+## Sin publicar — teléfonos: portal de telemetría, alertas y código asignado (22/09/2026)
+
+```
+for f in migrations/2026-09-22-0*.sql; do psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"; done
+# Pasarlas como el usuario de la aplicación (el de DATABASE_URL): si se corren como postgres, las
+# tablas nuevas (disp_alertas, disp_resumen_diario) quedan con otro dueño y el trabajo falla con
+# «permission denied». Arreglo: ALTER TABLE ... OWNER TO <usuario de la app>.
+python3 -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'   # DISP_CODIGO_CLAVE
+# Añadir DISP_CODIGO_CLAVE=<esa llave> en backend/.env Y en admin-panel/backend/.env (la misma).
+cp deploy/webmail/systemd/maquita-disp-alertas.{service,timer} /etc/systemd/system/
+systemctl daemon-reload && systemctl enable --now maquita-disp-alertas.timer
+bash deploy-webmail.sh                                     # backend + frontend del correo
+(cd admin-panel/frontend && npm run build) && systemctl restart maquita-admin
+```
+
+- Revisar en el panel → Teléfonos → «Alertas» el correo de Tecnología (`correo_ti`, por omisión
+  `gestiontecnologia@maquita.org`) y, si se quiere, el resumen diario a dirección.
+- La app Maquita Mail 1.2.8 ya consume el campo `codigo` de `GET /api/settings/mi-equipo`; las
+  anteriores siguen funcionando (lo ignoran).
+
+---
+
 ## De 1.7.17 a 1.7.18 — buscar deja de tardar minuto y medio, y una contraseña no puede mentir
 
 Versión sin sobresaltos: una migración idempotente y ningún paso manual en el servidor de correo.

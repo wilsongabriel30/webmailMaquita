@@ -233,6 +233,32 @@ A mano: `almacen/venv/bin/python deploy/hardening/vigilar-integraciones.py --pro
 estado sin enviar correo y sale con 1 si algo falla. Al rotar cualquier secreto compartido,
 correr esto **antes de dar la rotación por terminada**.
 
+## Teléfonos institucionales: telemetría y alertas (desde el 22/09/2026)
+
+Portal en el panel (`/dispositivos`, pestañas «Telemetría» y «Alertas»). El runbook para no técnicos
+(qué significa cada color, qué hacer ante cada alerta, cuándo declarar perdido, respaldo de cierre y
+cómo dar acceso de solo lectura a dirección) está en `docs/RUNBOOK-TELEFONOS-TELEMETRIA.md`.
+
+Lado técnico:
+- **Trabajo programado** `maquita-disp-alertas.timer` (cada 15 min, unidades en
+  `deploy/webmail/systemd/`): corre `python -m app.dispositivos.alertas_tarea` con el `.env` del
+  backend. Recalcula el resumen diario (`disp_resumen_diario`, 400 días), depura latidos vencidos y
+  códigos caducados, evalúa las reglas de `app/dispositivos/alertas_reglas.py` con los umbrales de
+  `disp_config.alertas`, abre/cierra filas en `disp_alertas` y manda un solo correo a `correo_ti` con
+  las alertas nuevas (y el resumen diario a `resumen_diario_para` a la hora `resumen_hora`).
+  Probar sin escribir ni enviar: `sudo -u www-data env $(grep "^DATABASE_URL\|^MAIL_DOMAIN" backend/.env) backend/venv/bin/python -m app.dispositivos.alertas_tarea --simular`
+  (desde `backend/`). Estado: `systemctl list-timers maquita-disp-alertas.timer` y
+  `journalctl -u maquita-disp-alertas.service -n 30`.
+- Si el correo falla, la alerta queda abierta con `avisada_en` NULL y se reintenta en la siguiente
+  corrida: nunca se pierde en silencio.
+- **Versión publicada** de la app: se lee de `descargas-app/maquita-mail.json` (`DISP_MANIFIESTO_APP`
+  para cambiar la ruta). «App atrasada» solo se alerta pasados `version_atrasada_dias` desde la
+  `fecha` del manifiesto.
+- **Códigos de enrolamiento asignados** (AE-04): `DISP_CODIGO_CLAVE` (llave Fernet, la misma en
+  `backend/.env` y `admin-panel/backend/.env`) cifra el código en claro mientras esté vigente; sin la
+  variable el panel avisa y el código vuelve a ser «solo una vez». Rotarla invalida la copia
+  recuperable de los códigos vigentes (habrá que crearlos de nuevo), nada más.
+
 ## Lo que NO está vigilado todavía
 
 Escrito para que no se olvide:

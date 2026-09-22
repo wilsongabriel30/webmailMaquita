@@ -7,8 +7,19 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Añadido
+- Panel → Teléfonos institucionales → pestaña **«Telemetría»**: flota con semáforo de último contacto (verde < 1 h, amarillo < 24 h, rojo), batería, almacenamiento, red, versión de la app frente a la publicada, Android, administración, Play Protect, eventos rojos de 7 días, urgentes sin acuse y alertas; ordenable, filtrable por sede y estado, exportable a CSV (queda en la auditoría). Ficha por equipo con gráficas SVG de batería y almacenamiento (24 h, 7 d, 30 d), línea de tiempo de eventos, mensajes con quién leyó y cuándo, comandos y versiones por las que pasó. El rol lector (viewer) lo ve todo sin poder actuar.
+- Panel → pestaña **«Alertas»** y trabajo programado `maquita-disp-alertas.timer` (cada 15 min): sin reportar, batería baja sostenida, almacenamiento casi lleno, app atrasada, eventos de seguridad sin revisar, Play Protect apagado y mensaje urgente sin acuse. Cada alerta se avisa una sola vez por correo a Tecnología, se cierra sola y queda en `disp_alertas`; resumen diario opcional a dirección. Umbrales editables desde el panel (`disp_config.alertas`). Resumen diario por equipo (`disp_resumen_diario`) que conserva la tendencia 12 meses.
+- Panel → Códigos de enrolamiento: un código puede **asignarse a una persona** (buscador de buzones). Esa persona lo ve en solo lectura en Configuración → «Mi teléfono» del correo web, la app lo recibe por `GET /api/settings/mi-equipo` (campo `codigo`) y activa con un toque; queda como custodia al enrolar. La tabla muestra a quién está asignado y desde qué equipo se usó; «Ver» lo vuelve a mostrar (auditado). Requiere `DISP_CODIGO_CLAVE` en los dos `.env`.
+- Runbook para no técnicos `docs/RUNBOOK-TELEFONOS-TELEMETRIA.md` (colores, qué hacer ante cada alerta, cuándo declarar perdido, respaldo de cierre, acceso de solo lectura).
+- Latido de la app: campo opcional `admin_activo` (si la app sigue siendo administradora del dispositivo).
+
 ### Cambiado
-- Correo web: la pestana «Otros» ya no queda vacia. Muestra todo lo que no es claramente importante (normal, baja prioridad, boletines, promociones, social y lo aun sin clasificar); solo deja fuera lo marcado como importante o que requiere accion, que se ve en «Prioritarios».
+- Configuración → «Mi teléfono» del correo web pasa a **solo lectura**: ya no se generan ni anulan códigos desde ahí (decisión de dirección del 22/09/2026); `POST` y `DELETE /api/settings/mi-equipo` se retiraron. El código lo asigna Tecnología desde el panel.
+- Correo web en pantallas estrechas (< 600 px): se ocultan la marca y el botón de tema de la barra superior, «Todas las carpetas» / «Esta carpeta» se abrevian a «Todas» / «Carpeta» y el buscador puede encoger, así el perfil vuelve a verse en el teléfono (W-5).
+
+### Corregido
+- Correo web sin conexión: al abrir un correo ya descargado se usa la copia local (`getCachedMessage`) si no hay red o la petición falla, en vez de «No se pudo abrir el correo» (W-7). Al final de la lista, sin conexión, se explica que se muestran los días descargados en lugar de dejar la rueda girando (W-6).
 
 ### Añadido
 - Correo web: botón «Confiar en este remitente» (en No deseado, barra del mensaje y clic derecho). Sus correos llegan siempre a la Bandeja de entrada aunque el filtro los marque como spam. Es por usuario y reversible en Configuración → Reglas de correo. Implementado con un script sieve personal `confianza` que `global-before.sieve` incluye antes de mover el spam a No deseado.

@@ -36,6 +36,8 @@ class Latido(BaseModel):
     version_app: Optional[str] = Field(None, max_length=40)
     android: Optional[str] = Field(None, max_length=40)
     play_protect: Optional[bool] = None
+    # Si la app sigue siendo administradora del dispositivo (modo limitado). Opcional: la 1.2.8 aún no lo manda.
+    admin_activo: Optional[bool] = None
     ubicacion: Optional[Ubicacion] = None
 
 

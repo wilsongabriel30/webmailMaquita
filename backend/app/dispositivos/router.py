@@ -74,7 +74,9 @@ async def enrolar(request: Request, body: Enrolamiento):
 
     async with db.acquire() as con, con.transaction():
         codigo = await con.fetchrow(
-            "UPDATE disp_codigos SET usos = usos + 1 "
+            # Al agotarse el código se borra su copia cifrada (AE-04): ya no hay nada que mostrar.
+            "UPDATE disp_codigos SET usos = usos + 1, "
+            "codigo_cifrado = CASE WHEN usos + 1 >= usos_max THEN NULL ELSE codigo_cifrado END "
             "WHERE codigo_hash = $1 AND revocado_en IS NULL AND usos < usos_max "
             "AND (caduca_en IS NULL OR caduca_en > NOW()) RETURNING id, modo, custodio_email",
             hash_secreto(limpiar_codigo(body.codigo)),
@@ -160,7 +162,8 @@ async def latido(request: Request, body: Latido, equipo: dict = Depends(equipo_a
                    almacenamiento_libre = COALESCE($5, almacenamiento_libre),
                    almacenamiento_total = COALESCE($6, almacenamiento_total),
                    red = COALESCE($7, red), version_app = COALESCE($8, version_app),
-                   android = COALESCE($9, android), play_protect = COALESCE($10, play_protect)
+                   android = COALESCE($9, android), play_protect = COALESCE($10, play_protect),
+                   admin_activo = COALESCE($11, admin_activo)
                WHERE id = $1""",
             equipo["id"],
             ip,
@@ -172,6 +175,7 @@ async def latido(request: Request, body: Latido, equipo: dict = Depends(equipo_a
             body.version_app,
             body.android,
             body.play_protect,
+            body.admin_activo,
         )
         await con.execute(
             "INSERT INTO disp_latidos (equipo_id, ip, datos) VALUES ($1, $2, $3::jsonb)",
