@@ -55,8 +55,8 @@ from app.identities.router import router as identities_router
 from app.import_export.router import router as import_router
 from app.log_ingestor.mail_log_ingestor import start_log_ingestor
 from app.mail.errors import CredencialIMAPInvalida
-from app.mail.routers.borrados import router as borrados_router
 from app.mail.routers.attachments import router as attachments_router
+from app.mail.routers.borrados import router as borrados_router
 from app.mail.routers.busqueda_capacidades import router as busqueda_capacidades_router
 from app.mail.routers.calendar_invite import router as calendar_invite_router
 from app.mail.routers.compose import router as compose_router

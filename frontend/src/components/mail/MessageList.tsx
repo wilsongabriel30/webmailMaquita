@@ -298,6 +298,7 @@ export function MessageList() {
       console.error(err);
       if (/429|Too Many/i.test(String(err?.message || err)) && useMailStore.getState().loadingMore) {
         // Límite de peticiones del servidor: se espera y se vuelve a pedir la misma tanda.
+        // eslint-disable-next-line react-hooks/immutability -- reintento diferido: fetch_ ya existe cuando corre el callback
         setTimeout(() => fetch_(), 5000);
         return;
       }
