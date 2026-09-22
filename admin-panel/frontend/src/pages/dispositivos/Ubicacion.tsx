@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "../../api/client";
 import { Mapa } from "./Mapa";
+import { AvisoPrecision } from "./AvisoPrecision";
 import { Equipo, fechaHora } from "./tipos";
 
 interface Fila { id: number; tomada_en: string; lat: number; lon: number; precision_m?: number; fuente?: string; origen: string; bateria?: number; rssi?: number; visto_por_nombre?: string }
@@ -46,6 +47,7 @@ export function Ubicacion({ equipo, onCambio }: { equipo: Equipo; onCambio: () =
           className="px-3 py-1.5 bg-ms-blue text-white rounded text-sm hover:bg-ms-blue-dark disabled:opacity-50">Ver ubicaciones</button>
       </div>
       {filas && !filas.length && <p className="text-sm text-ms-gray-60">No hay posiciones en ese periodo.</p>}
+      {filas && filas.length > 0 && <AvisoPrecision p={filas[sel]} corroborada={filas.some((u) => u.origen === "avistamiento" && Math.abs(new Date(u.tomada_en).getTime() - new Date(filas[sel].tomada_en).getTime()) < 3600000)} />}
       {filas && filas.length > 0 && <div className="grid md:grid-cols-2 gap-4">
         <Mapa actual={filas[sel]} rastro={filas.filter((_, i) => i !== sel)} />
         <ul className="text-sm max-h-[420px] overflow-y-auto divide-y divide-ms-gray-20">
