@@ -400,3 +400,14 @@ registre sola. Procedimiento para no técnicos en la propia ventana y en
 `QR-APROVISIONAMIENTO/COMO-ENROLAR-CON-CONTROL-COMPLETO.md`. Requiere `segno` en el venv del panel.
 **Pedido a la app:** al completar el aprovisionamiento (`PROFILE_PROVISIONING_COMPLETE` /
 `ACTION_ADMIN_POLICY_COMPLIANCE`) leer `codigo_enrolamiento` de los extras y enrolar sin teclear.
+
+## Etapa 2 operativa: anclas por punto de acceso y triangulación (22/09/2026, 13:20)
+- `disp_anclas_red` tipo `bssid`: MAC de cada punto de acceso de Maquita con sus coordenadas y radio
+  (30 m). Se cargan desde el panel (Telemetría → Anclas de red) o con la migración `2026-09-22-07`
+  (primer AP «MAQUITA CENTRAL», 74:ac:b9:6a:b8:0f, reportado por el A53).
+- Latido: si `wifi_bssid` coincide con un ancla, esa manda sobre la red IP (posición `origen ancla`,
+  `fuente wifi`, margen = radio del AP).
+- `wifis_vistas` (`POST /ubicacion` y `resultado` de «localizar»): centroide ponderado por intensidad
+  (peso 10^((rssi+100)/20)) de los AP conocidos → posición `origen ancla`, `fuente wifi`; margen = radio
+  si es un solo AP, o radio/√n (mínimo 10 m) con varios. Si no se reconoce ningún AP, no se guarda nada.
+- Para afinar dentro de una sede: cargar todos sus puntos de acceso con la coordenada real de cada uno.

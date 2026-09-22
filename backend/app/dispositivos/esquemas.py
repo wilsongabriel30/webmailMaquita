@@ -46,9 +46,16 @@ class Latido(BaseModel):
     ubicacion: Optional[Ubicacion] = None
 
 
+class WifiVista(BaseModel):
+    bssid: str = Field(..., pattern=r"^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")
+    rssi: Optional[int] = Field(None, ge=-127, le=20)
+    ssid: Optional[str] = Field(None, max_length=64)
+
+
 class ResultadoComando(BaseModel):
     estado: Literal["hecho", "fallido"]
     detalle: Optional[str] = Field(None, max_length=2000)
+    wifis_vistas: Optional[list[WifiVista]] = Field(None, max_length=20)   # etapa 2: triangulación por puntos de acceso
 
 
 class Acuse(BaseModel):
