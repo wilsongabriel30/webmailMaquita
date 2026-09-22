@@ -8,6 +8,7 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 ## [Sin publicar]
 
 ### Añadido
+- Panel → Códigos de enrolamiento: **«Ver QR»** para los códigos de control completo. Genera en el servidor el QR de aprovisionamiento Device Owner (huella del APK publicado, código de enrolamiento dentro) con los pasos para leerlo en un teléfono restaurado de fábrica.
 - Teléfonos: varios IMEI por equipo (doble SIM, eSIM). Los manda la app cuando puede leerlos (control completo) o los registra la persona desde «Mi teléfono» del correo web o Tecnología desde la ficha; ambos los ven con Copiar para darlos a la operadora si roban o pierden el teléfono.
 - Teléfonos: `POST /api/dispositivos/gnss` recibe lotes de mediciones GNSS crudas (formato GnssLogger) y comando `gnss_crudo` del panel, para el experimento de corrección diferencial con la red REGME (mediciones de campo).
 - Panel: la ficha de telemetría muestra «Redes por las que pasó» (sede por la red, wifi, horas).
