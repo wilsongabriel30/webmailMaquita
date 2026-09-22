@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.dispositivos import anclas as _anclas
 from app.dispositivos import imeis as _imeis
+from app.dispositivos import wifis as _wifis
 from app.dispositivos import ubicacion as _ubic
 from app.dispositivos.esquemas import (
     TIPOS_EVENTO,
@@ -273,6 +274,8 @@ async def latido(request: Request, body: Latido, equipo: dict = Depends(equipo_a
             for m in mensajes
         ],
         "politica_version": pol.get("version", 1),
+        # Wifi de las sedes: cuando sube, la app vuelve a pedir GET /api/dispositivos/wifis.
+        "wifis_version": await _wifis.version(db),
         "latido_minutos": (
             pol.get("latido_minutos_perdido", 5)
             if perdido
