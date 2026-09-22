@@ -7,6 +7,21 @@ import { Equipo, fechaHora } from "./tipos";
 interface Fila { id: number; tomada_en: string; lat: number; lon: number; precision_m?: number; fuente?: string; origen: string; bateria?: number; rssi?: number; visto_por_nombre?: string }
 const ORIGEN: Record<string, string> = { periodica: "periódica", comando: "pedida desde el panel", perdido: "modo perdido", avistamiento: "vista por otro teléfono" };
 
+/** Entre las posiciones de los últimos 15 minutos (respecto a la más nueva) se elige la de menor
+ *  margen de error: la última lectura no siempre es la mejor (un primer GPS bajo techo puede dar
+ *  ±160 m mientras la red wifi de minutos antes dio ±20 m). */
+export function mejorReciente(filas: Fila[]): number {
+  if (!filas.length) return 0;
+  const t0 = new Date(filas[0].tomada_en).getTime();
+  let mejor = 0;
+  filas.forEach((u, i) => {
+    if (t0 - new Date(u.tomada_en).getTime() > 15 * 60000 || u.origen === "avistamiento") return;
+    const a = filas[mejor].precision_m ?? Infinity, b = u.precision_m ?? Infinity;
+    if (b < a) mejor = i;
+  });
+  return mejor;
+}
+
 /** Ubicación de un equipo. Cada consulta pide un motivo y queda en la auditoría del panel. */
 export function Ubicacion({ equipo, onCambio }: { equipo: Equipo; onCambio: () => void }) {
   const [filas, setFilas] = useState<Fila[] | null>(null);
@@ -19,7 +34,12 @@ export function Ubicacion({ equipo, onCambio }: { equipo: Equipo; onCambio: () =
   const consultar = async () => {
     const motivo = prompt("Motivo de la consulta de ubicación (queda en la auditoría con su usuario):");
     if (!motivo) return;
-    try { setError(""); const r = await api.post<{ ubicaciones: Fila[] }>(`/dispositivos/equipos/${equipo.id}/ubicaciones`, { motivo, horas }); setFilas(r.ubicaciones); setSel(0); }
+    try {
+      setError("");
+      const r = await api.post<{ ubicaciones: Fila[] }>(`/dispositivos/equipos/${equipo.id}/ubicaciones`, { motivo, horas });
+      setFilas(r.ubicaciones);
+      setSel(mejorReciente(r.ubicaciones));
+    }
     catch (e: any) { setError(e.message); }
   };
   const autorizar = async (autorizada: boolean) => {
@@ -47,6 +67,7 @@ export function Ubicacion({ equipo, onCambio }: { equipo: Equipo; onCambio: () =
           className="px-3 py-1.5 bg-ms-blue text-white rounded text-sm hover:bg-ms-blue-dark disabled:opacity-50">Ver ubicaciones</button>
       </div>
       {filas && !filas.length && <p className="text-sm text-ms-gray-60">No hay posiciones en ese periodo.</p>}
+      {filas && filas.length > 0 && sel !== 0 && sel === mejorReciente(filas) && <p className="text-xs text-ms-gray-60 mb-1">Se muestra la posición <strong>más precisa de los últimos 15 minutos</strong> ({fechaHora(filas[sel].tomada_en)}, ±{Math.round(filas[sel].precision_m || 0)} m), no la última ({fechaHora(filas[0].tomada_en)}, {filas[0].precision_m ? `±${Math.round(filas[0].precision_m)} m` : "sin margen"}). Toque otra fila de la lista para verla.</p>}
       {filas && filas.length > 0 && <AvisoPrecision p={filas[sel]} corroborada={filas.some((u) => u.origen === "avistamiento" && Math.abs(new Date(u.tomada_en).getTime() - new Date(filas[sel].tomada_en).getTime()) < 3600000)} />}
       {filas && filas.length > 0 && <div className="grid md:grid-cols-2 gap-4">
         <Mapa actual={filas[sel]} rastro={filas.filter((_, i) => i !== sel)} />
