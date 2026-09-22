@@ -8,6 +8,7 @@ sin ubicación (esa sigue solo bajo la regla de la fase 2). Todo GET: lo puede v
 
 import csv
 import io
+import ipaddress
 import json
 from datetime import datetime, timezone
 
@@ -140,7 +141,29 @@ async def ficha(equipo_id: int, request: Request, rango: str = Query("24h"), adm
         cur = vistas.setdefault(v["version_app"], {"version": v["version_app"], "desde": v["desde"], "hasta": v["hasta"]})
         cur["desde"], cur["hasta"] = min(cur["desde"], v["desde"]), max(cur["hasta"], v["hasta"])
     alertas = await d.fetch("SELECT id, tipo, detalle, desde, hasta, avisada_en FROM disp_alertas WHERE equipo_id = $1 ORDER BY desde DESC LIMIT 50", equipo_id)
+    # Redes por las que pasó (30 días): tipo de red, wifi y sede reconocida por la IP (anclas de red).
+    # Sirve para el caso típico «se fue de viaje y el teléfono quedó en la oficina de Quito o de una provincia».
+    anclas = []
+    for a in await d.fetch("SELECT valor, sede FROM disp_anclas_red WHERE tipo = 'red' AND activa"):
+        try:
+            anclas.append((ipaddress.ip_network(a["valor"], strict=False), a["sede"]))
+        except ValueError:
+            pass
+    anclas.sort(key=lambda x: -x[0].prefixlen)
+
+    def _sede(ip):
+        try:
+            dir_ip = ipaddress.ip_address((ip or "").split("%")[0])
+        except ValueError:
+            return None
+        return next((sede for red, sede in anclas if dir_ip in red), None)
+    redes = [{"red": r["red"], "wifi": r["wifi"], "sede": _sede(r["ip"]), "desde": r["desde"], "hasta": r["hasta"], "reportes": r["n"]}
+             for r in await d.fetch(
+                 """SELECT datos->>'red' AS red, datos->>'wifi_ssid' AS wifi, ip, min(recibido_en) AS desde, max(recibido_en) AS hasta, count(*) AS n
+                      FROM disp_latidos WHERE equipo_id = $1 AND recibido_en > NOW() - interval '30 days'
+                     GROUP BY 1, 2, 3 ORDER BY max(recibido_en) DESC LIMIT 60""", equipo_id)]
     return {
+        "redes": redes,
         "equipo": dict(e), "rango": rango, "serie": serie, "publicada": version_publicada.leer(),
         "eventos": [{**dict(x), "detalle": _j(x["detalle"])} for x in eventos],
         "mensajes": [dict(x) for x in mensajes],
