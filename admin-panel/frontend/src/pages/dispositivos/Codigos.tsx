@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../../api/client";
 import { fechaHora } from "./tipos";
 import { BuscadorBuzon } from "./BuscadorBuzon";
+import { QrAprovisionamiento } from "./QrAprovisionamiento";
 
 // Códigos de enrolamiento. Desde el 22/09/2026 solo los crea Tecnología aquí y pueden asignarse a una
 // persona: ella lo ve en solo lectura en su Configuración del correo y la app lo recibe para activar con
@@ -18,6 +19,7 @@ export function Codigos() {
   const [f, setF] = useState({ etiqueta: "", modo: "limitado", usos_max: 1, horas_validez: 72, custodio_email: "" });
   const [nuevo, setNuevo] = useState<Nuevo | null>(null);
   const [visto, setVisto] = useState<{ id: number; codigo: string } | null>(null);
+  const [qr, setQr] = useState<{ codigo?: string; codigo_id?: number; etiqueta: string } | null>(null);
   const [error, setError] = useState("");
 
   const cargar = () => api.get<{ codigos: Codigo[]; cifrado_disponible: boolean }>("/dispositivos/codigos")
@@ -38,6 +40,7 @@ export function Codigos() {
 
   return (
     <div className="space-y-4">
+      {qr && <QrAprovisionamiento codigo={qr.codigo} codigoId={qr.codigo_id} etiqueta={qr.etiqueta} onCerrar={() => setQr(null)} />}
       {error && <div className="text-sm px-3 py-2 rounded bg-red-50 text-red-700">{error}</div>}
       {!cifrado && <div className="text-sm px-3 py-2 rounded bg-amber-50 text-amber-800">Falta la clave <code>DISP_CODIGO_CLAVE</code> en el <code>.env</code> del panel y del correo: los códigos asignados no quedarán recuperables ni los verá la persona en su Configuración.</div>}
       <div className="bg-white rounded-lg border border-ms-gray-30 p-4 space-y-3">
@@ -57,7 +60,8 @@ export function Codigos() {
             {nuevo.recuperable ? <>Asignado a <strong>{nuevo.custodio_email}</strong>: lo verá en su Configuración del correo y podrá volver a consultarse aquí con «Ver».</> : <>Cópielo ahora: no se volverá a mostrar.</>} Caduca {fechaHora(nuevo.caduca_en)}.
           </div>
           <div className="flex items-center gap-3"><code className="text-2xl font-mono tracking-widest">{nuevo.codigo}</code>
-            <button onClick={() => navigator.clipboard.writeText(nuevo.codigo)} className="text-xs text-ms-blue hover:underline">Copiar</button></div>
+            <button onClick={() => navigator.clipboard.writeText(nuevo.codigo)} className="text-xs text-ms-blue hover:underline">Copiar</button>
+            {f.modo === "propietario" && <button onClick={() => setQr({ codigo: nuevo.codigo, etiqueta: f.etiqueta })} className="px-2.5 py-1 text-xs bg-ms-blue text-white rounded hover:bg-ms-blue-dark">Ver QR para enrolar</button>}</div>
           {nuevo.aviso && <div className="text-xs text-red-700 mt-1">{nuevo.aviso}</div>}
         </div>}
       </div>
@@ -74,6 +78,7 @@ export function Codigos() {
               <td className="px-4 py-2.5 text-xs">{fechaHora(c.creado_en)}<div className="text-ms-gray-60">{c.creado_por}</div></td>
               <td className="px-4 py-2.5 text-xs">{fechaHora(c.caduca_en)}</td><td className="px-4 py-2.5 text-xs">{estado(c)}</td>
               <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                {c.modo === "propietario" && estado(c) === "vigente" && <button onClick={() => setQr({ codigo_id: c.id, codigo: visto?.id === c.id ? visto.codigo : undefined, etiqueta: c.etiqueta })} className="text-xs text-ms-blue hover:underline mr-3">Ver QR</button>}
                 {c.recuperable && visto?.id !== c.id && <button onClick={() => ver(c.id)} className="text-xs text-ms-blue hover:underline mr-3" title="Queda en la auditoría">Ver</button>}
                 {estado(c) === "vigente" && <button onClick={() => revocar(c.id)} className="text-xs text-ms-red hover:underline">Anular</button>}
               </td>
