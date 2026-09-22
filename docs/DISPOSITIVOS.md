@@ -334,8 +334,9 @@ La ubicación de un celular es aproximada; para afinarla con nuestros propios pu
   y `precision_m = radio_m`, como mucho una cada 15 min por equipo y sede. Sembradas: Maquita central
   (193.16.0.0/24 y 179.49.24.160/28, coordenadas del GPS del NTP, 60-80 m) y las subredes internas de
   los MikroTik de las demás sedes con coordenadas provisionales del centro de cada ciudad y radio 3 km,
-  a afinar desde el panel (Telemetría → «Anclas de red por sede»). Las IP públicas de las sucursales
-  son dinámicas y no se usan.
+  a afinar desde el panel (Telemetría → «Anclas de red por sede»). También las IP públicas fijas de cada
+  sede (`/32`, leídas en el MikroTik de Quito el 22/09): así se ancla un teléfono en el wifi de la sede
+  aunque no pase por la VPN. Si un proveedor cambia la IP, actualizarla en el panel.
 - Panel: `GET/POST /api/dispositivos/anclas`, `DELETE /api/dispositivos/anclas/{id}` (alta y baja solo
   admin, auditadas `dispositivo_ancla_*`). En la ficha, la posición por ancla se muestra en azul:
   «En la sede: conectado a la red de Maquita».
