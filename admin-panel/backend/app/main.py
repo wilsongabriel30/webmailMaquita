@@ -48,6 +48,7 @@ from app.dispositivos.alertas_panel import router as dispositivos_alertas_router
 from app.dispositivos.anclas_panel import router as dispositivos_anclas_router
 from app.dispositivos.qr_aprovisionamiento import router as dispositivos_qr_router
 from app.dispositivos.depuracion import router as dispositivos_depuracion_router
+from app.dispositivos.wifis_panel import router as dispositivos_wifis_router
 from app import config
 from app.ai_config.router import router as ai_config_router
 from app.office_config.router import router as office_config_router
@@ -199,6 +200,7 @@ app.include_router(dispositivos_alertas_router)
 app.include_router(dispositivos_anclas_router)
 app.include_router(dispositivos_qr_router)
 app.include_router(dispositivos_depuracion_router)
+app.include_router(dispositivos_wifis_router)
 app.include_router(dispositivos_router)
 app.include_router(geoaccess_router)
 app.include_router(anomaly_router)
