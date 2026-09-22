@@ -24,6 +24,9 @@ _ADMIN = require_role("superadmin", "admin")
 APK = os.environ.get("DISP_APK_PUBLICADO", "/opt/maquita-webmail/descargas-app/maquita-mail.apk")
 URL_APK = os.environ.get("DISP_APK_URL", "https://mail.maquita.org/webmail/descargas/maquita-mail.apk")
 COMPONENTE = "org.maquita.mail/org.maquita.mail.equipo.AdministradorEquipo"
+# SHA-256 del certificado de firma institucional (base64url), del equipo de la app (qr-alta/): no cambia
+# entre versiones, así el mismo QR sirve aunque se publique otra app. Cambia solo si se firma con otra clave.
+HUELLA_FIRMA = os.environ.get("DISP_APK_HUELLA_FIRMA", "WbGnfJFUYIe-Z2JYsMV-ewPQfmsMAWPqdjiSN_j2n04")
 _cache: dict = {}
 
 
@@ -44,8 +47,7 @@ def contenido(codigo: str | None, wifi_ssid: str | None = None, wifi_clave: str 
     qr = {
         "android.app.extra.PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME": COMPONENTE,
         "android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION": URL_APK,
-        "android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_CHECKSUM": _huella(),
-        "android.app.extra.PROVISIONING_SKIP_ENCRYPTION": True,
+        "android.app.extra.PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM": HUELLA_FIRMA,
         "android.app.extra.PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED": True,
         "android.app.extra.PROVISIONING_LOCALE": "es_EC",
         "android.app.extra.PROVISIONING_TIME_ZONE": "America/Guayaquil",
@@ -79,7 +81,7 @@ async def generar_qr(request: Request, admin: dict = Depends(_ADMIN)):
         codigo = codigo_cifrado.descifrar(c["codigo_cifrado"]) if c else None
     wifi_ssid = (b.get("wifi_ssid") or "").strip()[:32] or None
     wifi_clave = (b.get("wifi_clave") or "").strip()[:63] or None
-    texto = json.dumps(contenido(codigo, wifi_ssid, wifi_clave), ensure_ascii=False)
+    texto = json.dumps(contenido(codigo, wifi_ssid, wifi_clave), ensure_ascii=False, separators=(",", ":"))
     svg = segno.make(texto, error="m").svg_inline(scale=6, border=3, dark="#000", omitsize=True, svgclass="qr-aprov", lineclass=None)
     await auditar(request, admin, "dispositivo_codigo_qr", str(codigo_id or "nuevo"), {"con_codigo": bool(codigo), "con_wifi": bool(wifi_ssid), "version": version_publicada.leer().get("versionName")})
     return {"svg": svg, "con_codigo": bool(codigo), "version": version_publicada.leer().get("versionName"), "json": texto}
