@@ -344,3 +344,15 @@ La ubicación de un celular es aproximada; para afinarla con nuestros propios pu
   está conectado y que la respuesta a «localizar» traiga `wifis_vistas: [{bssid, rssi}]` (hasta 20).
   Con anclas de tipo `bssid` (MAC de cada punto de acceso de Maquita con sus coordenadas) el servidor
   calculará la posición por intensidad (centroide ponderado) dentro de las sedes, 5-15 m.
+
+## «Teléfono extraviado» en el correo web (22/09/2026)
+Configuración → «Mi teléfono». Para la persona, sin datos técnicos: última ubicación conocida (la más
+precisa de los últimos 15 min respecto a la más reciente; margen en palabras; enlaces a Google Maps y
+OpenStreetMap), «Ubicar ahora» y «Hacer sonar».
+| Ruta (cookie del correo, solo custodio) | Respuesta |
+|---|---|
+| `GET /api/settings/mi-equipo/ubicacion` | `{equipos:[{id, nombre, estado, ultimo_contacto, ubicacion_permitida, posicion:{lat, lon, precision_m, cuando, margen, minutos}|null, buscando}]}` |
+| `POST /api/settings/mi-equipo/{id}/localizar` | Encola `localizar` (con push ntfy, `push_ntfy.py`); 404 si el teléfono no es suyo; 429 si lo pidió hace < 1 min |
+| `POST /api/settings/mi-equipo/{id}/sonar` | Encola `alarma` |
+Auditoría: `dispositivo_custodio_localizar` / `dispositivo_custodio_alarma` (sin `admin_id`). El backend
+del correo necesita `NTFY_URL_INTERNO` y `NTFY_TOKEN` en su `.env` (los mismos del panel).
