@@ -37,7 +37,7 @@ export function MiTelefonoExtraviado() {
           <div className="font-medium">{t.nombre}{t.estado === 'perdido' && <span className="ml-2 text-xs px-2 py-0.5 rounded bg-red-50 text-red-700">declarado perdido</span>}</div>
           {t.posicion ? (
             <div className="mt-2 text-sm">
-              <div><strong>Última ubicación conocida:</strong> {cuando(t.posicion.cuando)} ({t.posicion.margen}).</div>
+              <div><strong>Última ubicación conocida:</strong> {cuando(t.posicion.cuando)}, {t.posicion.margen}.</div>
               <div className="text-xs text-[#605e5c] mt-1">La ubicación de un celular es aproximada: el teléfono puede estar en cualquier punto dentro de ese margen.</div>
               <div className="mt-2 flex flex-wrap gap-3 text-sm">
                 <a className="text-[#0078d4] hover:underline" target="_blank" rel="noreferrer" href={`https://www.google.com/maps?q=${t.posicion.lat},${t.posicion.lon}`}>Ver en Google Maps</a>
