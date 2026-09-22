@@ -48,6 +48,18 @@ vuelve a la normalidad. No hace falta «revisar» nada para que se cierre, salvo
   detectan cerca. Esto solo lo hace un administrador (no el rol lector).
 - Si aparece, se le quita el modo perdido desde la misma ficha.
 
+## 3b. La ubicación de un celular es SIEMPRE aproximada
+Cuando el panel muestra una posición (ficha del equipo → Ubicación), encima del mapa aparece un aviso
+con el **margen de error** y enlaces «Ver en mapa» (OpenStreetMap, Google Maps, Google Earth). Léalo
+antes de actuar: el equipo puede estar en **cualquier punto del círculo**, no en el punto exacto.
+- Verde (margen de hasta 30 m): GPS al aire libre; aun así, revise la zona completa.
+- Ámbar (hasta 200 m): wifi o GPS bajo techo; es una manzana, no una casa.
+- Rojo (más de 200 m, a veces kilómetros): por antena de celular; solo indica el sector.
+- Morado: otro teléfono de la organización lo detectó cerca por Bluetooth.
+La posición solo se vuelve más fiable cuando **varios teléfonos** de la organización lo detectan
+(avistamientos por Bluetooth, que se activan al declarar el equipo perdido) y sus zonas coinciden.
+Nunca dé por exacta una posición para acusar a alguien o entrar a un domicilio.
+
 ## 4. Cuándo pedir el respaldo de cierre
 Antes de **reasignar** un teléfono a otra persona, de **restablecerlo de fábrica** o de darlo de
 **baja**: pestaña «Equipos» → ficha → Respaldos → «Pedir respaldo de cierre». Esperar a que salga
