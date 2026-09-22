@@ -7,6 +7,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Cambiado
+- Correo web: la pestana «Otros» ya no queda vacia. Muestra todo lo que no es claramente importante (normal, baja prioridad, boletines, promociones, social y lo aun sin clasificar); solo deja fuera lo marcado como importante o que requiere accion, que se ve en «Prioritarios».
+
 ### Añadido
 - Correo web: botón «Confiar en este remitente» (en No deseado, barra del mensaje y clic derecho). Sus correos llegan siempre a la Bandeja de entrada aunque el filtro los marque como spam. Es por usuario y reversible en Configuración → Reglas de correo. Implementado con un script sieve personal `confianza` que `global-before.sieve` incluye antes de mover el spam a No deseado.
 
