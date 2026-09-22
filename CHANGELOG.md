@@ -7,6 +7,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Cambiado
+- Correo web: la pestana «Otros» ya no queda vacia. Muestra todo lo que no es claramente importante (normal, baja, boletines, promociones, social, fyi y lo sin clasificar); en «Prioritarios» queda todo, y solo se aparta de «Otros» lo importante o que requiere accion.
+
 ### Añadido
 - Teléfonos: anclas por punto de acceso wifi (BSSID) y triangulación por intensidad con las redes vistas al localizar; el latido en wifi de un AP conocido ubica el equipo con el radio del AP.
 - Panel → Códigos de enrolamiento: **«Ver QR»** para los códigos de control completo. Genera en el servidor el QR de aprovisionamiento Device Owner (huella del APK publicado, código de enrolamiento dentro) con los pasos para leerlo en un teléfono restaurado de fábrica.
