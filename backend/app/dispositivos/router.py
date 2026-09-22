@@ -164,7 +164,10 @@ async def latido(request: Request, body: Latido, equipo: dict = Depends(equipo_a
                    almacenamiento_total = COALESCE($6, almacenamiento_total),
                    red = COALESCE($7, red), version_app = COALESCE($8, version_app),
                    android = COALESCE($9, android), play_protect = COALESCE($10, play_protect),
-                   admin_activo = COALESCE($11, admin_activo)
+                   admin_activo = COALESCE($11, admin_activo),
+                   wifi_ssid = CASE WHEN $7 IS NULL THEN wifi_ssid WHEN lower($7) LIKE '%wifi%' THEN $12 ELSE NULL END,
+                   wifi_bssid = CASE WHEN $7 IS NULL THEN wifi_bssid WHEN lower($7) LIKE '%wifi%' THEN lower($13) ELSE NULL END,
+                   wifi_en = CASE WHEN $12 IS NOT NULL THEN NOW() ELSE wifi_en END
                WHERE id = $1""",
             equipo["id"],
             ip,
@@ -177,6 +180,8 @@ async def latido(request: Request, body: Latido, equipo: dict = Depends(equipo_a
             body.android,
             body.play_protect,
             body.admin_activo,
+            body.wifi_ssid,
+            body.wifi_bssid,
         )
         await con.execute(
             "INSERT INTO disp_latidos (equipo_id, ip, datos) VALUES ($1, $2, $3::jsonb)",
