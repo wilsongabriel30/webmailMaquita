@@ -387,3 +387,16 @@ con Copiar) y **a la persona** (correo web → «Mi teléfono», con Copiar y «
 - Persona: `PUT /api/settings/mi-equipo/{id}/imeis` `{imeis: "…, …" | [..]}` (custodio; auditado
   `dispositivo_custodio_imeis`). Los que reportó el teléfono no se pierden.
 - Panel: `PUT /api/dispositivos/equipos/{id}` acepta `imeis` (texto con comas o lista).
+
+## QR de aprovisionamiento desde el panel (22/09/2026)
+Códigos de enrolamiento → botón **«Ver QR»** en los códigos de control completo (y «Ver QR para
+enrolar» al crearlo). `POST /api/dispositivos/codigos/qr` `{codigo?}` o `{codigo_id?}` → `{svg, con_codigo,
+version, json}` (admin; auditado `dispositivo_codigo_qr`). El QR lleva el componente
+`org.maquita.mail/org.maquita.mail.equipo.AdministradorEquipo`, la URL del APK publicado, su huella
+SHA-256 (base64url, calculada del archivo en `descargas-app/`, así siempre es de la versión vigente),
+`es_EC`, `America/Guayaquil` y, cuando el código está en claro (recién creado o asignado y vigente),
+`PROVISIONING_ADMIN_EXTRAS_BUNDLE = {"codigo_enrolamiento": "xxxx-xxxx-xxxx"}` para que la app se
+registre sola. Procedimiento para no técnicos en la propia ventana y en
+`QR-APROVISIONAMIENTO/COMO-ENROLAR-CON-CONTROL-COMPLETO.md`. Requiere `segno` en el venv del panel.
+**Pedido a la app:** al completar el aprovisionamiento (`PROFILE_PROVISIONING_COMPLETE` /
+`ACTION_ADMIN_POLICY_COMPLIANCE`) leer `codigo_enrolamiento` de los extras y enrolar sin teclear.
