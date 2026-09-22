@@ -45,6 +45,7 @@ from app.dispositivos.custodia import router as dispositivos_custodia_router
 from app.dispositivos.codigos import router as dispositivos_codigos_router
 from app.dispositivos.telemetria import router as dispositivos_telemetria_router
 from app.dispositivos.alertas_panel import router as dispositivos_alertas_router
+from app.dispositivos.anclas_panel import router as dispositivos_anclas_router
 from app import config
 from app.ai_config.router import router as ai_config_router
 from app.office_config.router import router as office_config_router
@@ -193,6 +194,7 @@ app.include_router(dispositivos_custodia_router)
 app.include_router(dispositivos_codigos_router)
 app.include_router(dispositivos_telemetria_router)
 app.include_router(dispositivos_alertas_router)
+app.include_router(dispositivos_anclas_router)
 app.include_router(dispositivos_router)
 app.include_router(geoaccess_router)
 app.include_router(anomaly_router)
