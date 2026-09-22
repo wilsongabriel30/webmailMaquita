@@ -25,6 +25,7 @@ COMANDOS = {
     "alarma": (False, False),      # sonar a todo volumen aunque esté en silencio
     "bloquear": (True, False),     # bloquear la pantalla con mensaje y teléfono de contacto
     "borrar": (True, True),        # restablecer de fábrica
+    "gnss_crudo": (False, False),  # lote de mediciones GNSS crudas (experimento REGME, etapa 3)
     # `respaldar` se pide desde respaldos.py y `desbloquear` al marcar el equipo como recuperado
 }
 
@@ -123,6 +124,8 @@ async def enviar_comando(equipo_id: int, request: Request, admin: dict = Depends
     if exige_control and e["modo"] != "propietario":
         raise HTTPException(409, "Este equipo está en modo limitado: Android no permite esa acción sin control completo")
     parametros = {}
+    if tipo == "gnss_crudo":
+        parametros = {"segundos": max(10, min(900, int(b.get("segundos") or 60)))}
     if tipo == "bloquear":
         parametros = {"mensaje": texto(b.get("mensaje"), 255), "telefono": texto(b.get("telefono"), 40)}
     if tipo == "borrar":
