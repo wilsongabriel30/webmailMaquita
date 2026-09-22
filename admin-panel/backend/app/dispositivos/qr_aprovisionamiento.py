@@ -40,7 +40,7 @@ def _huella() -> str:
     return _cache["huella"]
 
 
-def contenido(codigo: str | None) -> dict:
+def contenido(codigo: str | None, wifi_ssid: str | None = None, wifi_clave: str | None = None) -> dict:
     qr = {
         "android.app.extra.PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME": COMPONENTE,
         "android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION": URL_APK,
@@ -52,6 +52,12 @@ def contenido(codigo: str | None) -> dict:
     }
     if codigo:
         qr["android.app.extra.PROVISIONING_ADMIN_EXTRAS_BUNDLE"] = {"codigo_enrolamiento": codigo}
+    if wifi_ssid:
+        # Wifi de la sede: el teléfono se conecta solo durante el alta (WPA/WPA2; sin clave = abierta).
+        qr["android.app.extra.PROVISIONING_WIFI_SSID"] = wifi_ssid
+        qr["android.app.extra.PROVISIONING_WIFI_SECURITY_TYPE"] = "WPA" if wifi_clave else "NONE"
+        if wifi_clave:
+            qr["android.app.extra.PROVISIONING_WIFI_PASSWORD"] = wifi_clave
     return qr
 
 
@@ -71,7 +77,9 @@ async def generar_qr(request: Request, admin: dict = Depends(_ADMIN)):
             "SELECT codigo_cifrado, modo FROM disp_codigos WHERE id = $1 AND revocado_en IS NULL AND usos < usos_max "
             "AND (caduca_en IS NULL OR caduca_en > NOW())", int(codigo_id))
         codigo = codigo_cifrado.descifrar(c["codigo_cifrado"]) if c else None
-    texto = json.dumps(contenido(codigo), ensure_ascii=False)
+    wifi_ssid = (b.get("wifi_ssid") or "").strip()[:32] or None
+    wifi_clave = (b.get("wifi_clave") or "").strip()[:63] or None
+    texto = json.dumps(contenido(codigo, wifi_ssid, wifi_clave), ensure_ascii=False)
     svg = segno.make(texto, error="m").svg_inline(scale=6, border=3, dark="#000", omitsize=True, svgclass="qr-aprov", lineclass=None)
-    await auditar(request, admin, "dispositivo_codigo_qr", str(codigo_id or "nuevo"), {"con_codigo": bool(codigo), "version": version_publicada.leer().get("versionName")})
+    await auditar(request, admin, "dispositivo_codigo_qr", str(codigo_id or "nuevo"), {"con_codigo": bool(codigo), "con_wifi": bool(wifi_ssid), "version": version_publicada.leer().get("versionName")})
     return {"svg": svg, "con_codigo": bool(codigo), "version": version_publicada.leer().get("versionName"), "json": texto}
