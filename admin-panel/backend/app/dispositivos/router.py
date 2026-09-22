@@ -138,39 +138,4 @@ async def evento_visto(evento_id: int, request: Request, admin: dict = Depends(_
         evento_id, admin["username"])
     return {"ok": True}
 
-
-# ── Códigos de enrolamiento (la «contraseña de instalación») ─────────────────────────────
-
-@router.get("/codigos")
-async def listar_codigos(request: Request, admin: dict = Depends(get_current_admin)):
-    filas = await db(request).fetch(
-        "SELECT id, prefijo, etiqueta, modo, usos_max, usos, creado_por, creado_en, caduca_en, revocado_en "
-        "FROM disp_codigos ORDER BY creado_en DESC LIMIT 200")
-    return {"codigos": [dict(f) for f in filas]}
-
-
-@router.post("/codigos")
-async def crear_codigo(request: Request, admin: dict = Depends(_ADMIN)):
-    b = await request.json()
-    modo = b.get("modo") if b.get("modo") in ("propietario", "limitado") else "propietario"
-    usos = int(b.get("usos_max") or 1)
-    horas = int(b.get("horas_validez") or 72)
-    if not 1 <= usos <= 500 or not 1 <= horas <= 24 * 90:
-        raise HTTPException(400, "Usos (1-500) u horas de validez (1-2160) fuera de rango")
-    grupos = ["".join(secrets.choice(_ALFABETO) for _ in range(4)) for _ in range(3)]
-    codigo = "-".join(grupos)
-    fila = await db(request).fetchrow(
-        "INSERT INTO disp_codigos (codigo_hash, prefijo, etiqueta, modo, usos_max, creado_por, caduca_en) "
-        "VALUES ($1,$2,$3,$4,$5,$6, NOW() + make_interval(hours => $7)) RETURNING id, caduca_en",
-        hashlib.sha256("".join(grupos).encode()).hexdigest(), grupos[0], texto(b.get("etiqueta"), 120) or "",
-        modo, usos, admin["username"], horas)
-    await auditar(request, admin, "dispositivo_codigo_crear", str(fila["id"]), {"modo": modo, "usos_max": usos, "horas": horas})
-    # El código en claro se devuelve UNA vez; en la base solo queda su huella.
-    return {"id": fila["id"], "codigo": codigo, "caduca_en": fila["caduca_en"], "modo": modo, "usos_max": usos}
-
-
-@router.delete("/codigos/{codigo_id}")
-async def revocar_codigo(codigo_id: int, request: Request, admin: dict = Depends(_ADMIN)):
-    await db(request).execute("UPDATE disp_codigos SET revocado_en = NOW() WHERE id = $1 AND revocado_en IS NULL", codigo_id)
-    await auditar(request, admin, "dispositivo_codigo_revocar", str(codigo_id))
-    return {"ok": True}
+# Los códigos de enrolamiento viven en codigos.py (asignados a una persona desde el 22/09/2026).
