@@ -46,6 +46,12 @@ export function FichaEquipo({ id, onCerrar, onCambio }: { id: number; onCerrar: 
     try { await api.post(`/dispositivos/equipos/${id}/revocar`, { motivo }); await cargar(); onCambio(); }
     catch (e: any) { setMsg({ ok: false, t: e.message }); }
   };
+  const eliminar = async () => {
+    const palabra = prompt(`Esto borra el equipo y TODO su historial (reportes, ubicaciones, respaldos, mensajes, comandos, alertas). El teléfono dejará de reportar y podrá enrolarse de nuevo con otro código. Es para pruebas fallidas o equipos que no existen.\n\nPara confirmar escribe: ELIMINAR ${id}`);
+    if (!palabra) return;
+    try { await api.del(`/dispositivos/equipos/${id}/definitivo`, { confirmacion: palabra }); onCambio(); onCerrar(); }
+    catch (e: any) { setMsg({ ok: false, t: e.message }); }
+  };
   const visto = async (ev: number) => { await api.post(`/dispositivos/eventos/${ev}/visto`); await cargar(); onCambio(); };
 
   if (!d) return <div className="p-6 text-sm text-ms-gray-60">Cargando…</div>;
@@ -104,6 +110,7 @@ export function FichaEquipo({ id, onCerrar, onCambio }: { id: number; onCerrar: 
         <div className="mt-3 flex gap-2">
           <button onClick={guardar} className="px-3 py-1.5 bg-ms-blue text-white rounded text-sm hover:bg-ms-blue-dark">Guardar</button>
           {e.estado !== "revocado" && <button onClick={revocar} className="px-3 py-1.5 text-sm text-ms-red border border-ms-red/30 rounded hover:bg-red-50">Quitar de la gestión</button>}
+          <button onClick={eliminar} className="ml-auto px-3 py-1.5 text-sm text-ms-gray-60 border border-ms-gray-30 rounded hover:text-ms-red hover:border-ms-red/30" title="Borra el equipo y todo su historial (pruebas fallidas)">Eliminar definitivamente</button>
         </div>
       </div>
 

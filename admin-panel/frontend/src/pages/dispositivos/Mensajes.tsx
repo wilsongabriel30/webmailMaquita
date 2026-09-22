@@ -59,7 +59,8 @@ export function Mensajes({ equipos }: { equipos: Equipo[] }) {
               <td className="px-4 py-2.5 text-xs">{fechaHora(m.creado_en)}<div className="text-ms-gray-60">{m.creado_por}</div></td>
               <td className="px-4 py-2.5">{m.entregados} / {m.destinatarios}</td>
               <td className={`px-4 py-2.5 ${m.leidos < m.destinatarios ? "text-amber-700" : "text-green-700"}`}>{m.leidos} / {m.destinatarios}</td>
-              <td className="px-4 py-2.5 text-right"><button onClick={() => api.get<Det>(`/dispositivos/mensajes/${m.id}`).then(setDet)} className="text-xs text-ms-blue hover:underline">Quién leyó</button></td>
+              <td className="px-4 py-2.5 text-right whitespace-nowrap"><button onClick={() => api.get<Det>(`/dispositivos/mensajes/${m.id}`).then(setDet)} className="text-xs text-ms-blue hover:underline mr-3">Quién leyó</button>
+                <button onClick={async () => { if (confirm(`¿Eliminar el mensaje «${m.titulo}» y sus acuses? Es para pruebas; desaparece del historial.`)) { try { await api.del(`/dispositivos/mensajes/${m.id}`); cargar(); } catch (e: any) { setMsg({ ok: false, t: e.message }); } } }} className="text-xs text-ms-gray-60 hover:text-ms-red hover:underline">Eliminar</button></td>
             </tr>)}
             {!lista.length && <tr><td colSpan={6} className="px-4 py-6 text-center text-ms-gray-60">Aún no se ha enviado ningún mensaje.</td></tr>}
           </tbody>
