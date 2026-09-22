@@ -83,3 +83,51 @@ async def clave_corregida(wifi_id: int, request: Request, body: ClaveCorregida, 
         v = await subir_version(con)
     logger.info("wifi_clave_corregida | wifi=%s | equipo=%s", wifi_id, equipo["id"])
     return {"ok": True, "version": v}
+
+
+class RedCompartida(BaseModel):
+    """Red a la que el teléfono se conectó (y la persona aceptó compartir con los compañeros)."""
+    ssid: str = Field(..., min_length=1, max_length=32)
+    clave: str | None = Field(None, min_length=8, max_length=63)
+    seguridad: str = Field("WPA", pattern=r"^(WPA|WPA3|NONE)$")
+    bssid: str | None = Field(None, pattern=r"^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")
+    lugar: str | None = Field(None, max_length=120)   # «Evento X», «Hotel Y»: lo escribe la persona o lo infiere la app
+    oculta: bool = False
+
+
+@router.post("/compartir")
+async def compartir(request: Request, body: RedCompartida, equipo: dict = Depends(equipo_actual)):
+    """Un teléfono conectado a una red la comparte con toda la flota (eventos, hoteles, aliados).
+    Si ya existe con ese nombre, actualiza la clave solo si cambió. Nunca pisa una red de sede del panel
+    salvo la clave (que sí se replica, como en /{id}/clave)."""
+    await limitar(request, f"wifis_compartir:{equipo['id']}", 20, 86400)
+    if body.seguridad != "NONE" and not body.clave:
+        raise HTTPException(400, "Falta la clave de la red")
+    db = request.app.state.db_pool
+    quien = equipo.get("custodio_email") or f"equipo {equipo['id']}"
+    lugar = (body.lugar or "").strip() or (equipo.get("ancla_sede") or "Compartida por un compañero")
+    cifrada = cifrar(body.clave) if body.clave and body.seguridad != "NONE" else None
+    if body.clave and body.seguridad != "NONE" and not cifrada:
+        raise HTTPException(503, "El servidor no tiene clave de cifrado configurada")
+    async with db.acquire() as con, con.transaction():
+        existente = await con.fetchrow("SELECT id, clave_cifrada, sede FROM disp_wifis WHERE ssid = $1 ORDER BY (origen = 'panel') DESC, id LIMIT 1", body.ssid)
+        if existente:
+            misma = (existente["clave_cifrada"] and descifrar(existente["clave_cifrada"]) == body.clave) or (not existente["clave_cifrada"] and not body.clave)
+            await con.execute("UPDATE disp_wifis SET ultimo_uso = NOW(), bssid = COALESCE($2, bssid), activa = TRUE WHERE id = $1", existente["id"], body.bssid)
+            if misma:
+                return {"ok": True, "id": existente["id"], "version": await version(con), "sin_cambio": True}
+            await con.execute("UPDATE disp_wifis SET clave_cifrada = $2, version = version + 1, actualizado_por = $3, actualizado_en = NOW() WHERE id = $1",
+                              existente["id"], cifrada, quien)
+            await con.execute("INSERT INTO disp_wifis_cambios (wifi_id, origen, quien, equipo_id, detalle) VALUES ($1, 'telefono', $2, $3, $4)",
+                              existente["id"], quien, equipo["id"], "Clave actualizada por un teléfono que se conectó con la nueva")
+            wid = existente["id"]
+        else:
+            wid = await con.fetchval(
+                """INSERT INTO disp_wifis (sede, ssid, clave_cifrada, seguridad, oculta, nota, actualizado_por, origen, compartida_por, equipo_id, bssid, ultimo_uso)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, 'telefono', $7, $8, $9, NOW()) RETURNING id""",
+                lugar[:120], body.ssid, cifrada, body.seguridad, body.oculta, f"Compartida desde el teléfono de {quien}"[:160], quien, equipo["id"], body.bssid)
+            await con.execute("INSERT INTO disp_wifis_cambios (wifi_id, origen, quien, equipo_id, detalle) VALUES ($1, 'telefono', $2, $3, 'Red compartida con la flota')",
+                              wid, quien, equipo["id"])
+        v = await subir_version(con)
+    logger.info("wifi_compartida | wifi=%s | equipo=%s | ssid=%s", wid, equipo["id"], body.ssid)
+    return {"ok": True, "id": wid, "version": v}
