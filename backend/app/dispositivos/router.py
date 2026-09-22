@@ -13,6 +13,7 @@ import secrets
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.dispositivos import anclas as _anclas
+from app.dispositivos import imeis as _imeis
 from app.dispositivos import ubicacion as _ubic
 from app.dispositivos.esquemas import (
     TIPOS_EVENTO,
@@ -131,6 +132,12 @@ async def enrolar(request: Request, body: Enrolamiento):
             equipo["id"],
             json.dumps({"modo": modo, "ip": ip, "custodio": custodio}),
         )
+        lista = _imeis.unir(None, (body.imeis or []) + ([body.imei] if body.imei else []))
+        if lista:
+            await con.execute(
+                "UPDATE disp_equipos SET imeis = $2::jsonb, imei = COALESCE(imei, $3) WHERE id = $1",
+                equipo["id"], json.dumps(_imeis.unir(await con.fetchval("SELECT imeis FROM disp_equipos WHERE id = $1", equipo["id"]), lista)), lista[0],
+            )
     logger.info(
         "equipo_enrolado | id=%s | modo=%s | modelo=%s | ip=%s",
         equipo["id"],
@@ -193,6 +200,12 @@ async def latido(request: Request, body: Latido, equipo: dict = Depends(equipo_a
             await _ubic.guardar(
                 con, equipo, [body.ubicacion], "periodica", ip, body.bateria
             )
+        if body.imeis:
+            actuales = await con.fetchval("SELECT imeis FROM disp_equipos WHERE id = $1", equipo["id"])
+            lista = _imeis.unir(actuales, body.imeis)
+            if lista:
+                await con.execute("UPDATE disp_equipos SET imeis = $2::jsonb, imei = COALESCE(imei, $3) WHERE id = $1",
+                                  equipo["id"], json.dumps(lista), lista[0])
         # Ancla de red: si la IP es de una sede conocida, el equipo está en esa sede (etapa 1).
         try:
             await _anclas.registrar(con, equipo, ip, _ubic.puede_guardar(equipo))

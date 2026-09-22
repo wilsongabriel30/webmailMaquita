@@ -14,9 +14,10 @@ No da acceso al correo: es solo para la gestión del equipo. La sesión del corr
 factor cuando la persona lo tiene activo, así que el código se entrega solo tras esa verificación.
 """
 
+import json
 import logging
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.auth.dependencies import get_current_user
 from app.dispositivos.codigo_cifrado import descifrar
@@ -27,11 +28,16 @@ router = APIRouter(prefix="/api/settings/mi-equipo", tags=["mi-equipo"])
 
 async def _equipos_del_usuario(db, username: str) -> list[dict]:
     filas = await db.fetch(
-        "SELECT id, nombre, modelo, fabricante, estado, modo, ultimo_contacto FROM disp_equipos "
+        "SELECT id, nombre, modelo, fabricante, estado, modo, ultimo_contacto, imeis FROM disp_equipos "
         "WHERE custodio_email = $1 AND estado <> 'baja' ORDER BY enrolado_en DESC",
         username,
     )
-    return [dict(f) for f in filas]
+    salida = []
+    for f in filas:
+        d = dict(f)
+        d["imeis"] = json.loads(d["imeis"]) if isinstance(d["imeis"], str) else (d["imeis"] or [])
+        salida.append(d)
+    return salida
 
 
 async def _auditar_lectura(db, request: Request, username: str, codigo_id: int) -> None:
@@ -69,3 +75,25 @@ async def estado(request: Request, username: str = Depends(get_current_user)):
         "codigo": codigo,
         "equipos": await _equipos_del_usuario(db, username),
     }
+
+
+@router.put("/{equipo_id}/imeis")
+async def registrar_imeis(equipo_id: int, request: Request, username: str = Depends(get_current_user)):
+    """La persona registra los IMEI de su teléfono (*#06# o la caja) para tenerlos a mano si lo roban.
+    Se aceptan de 1 a 4; los que reporta el propio teléfono no se pueden borrar desde aquí."""
+    from app.dispositivos import imeis as _imeis
+
+    db = request.app.state.db_pool
+    b = await request.json()
+    lista = _imeis.normalizar(b.get("imeis"))
+    if not lista:
+        raise HTTPException(400, "Escribe un IMEI válido: 14 a 17 dígitos (marca *#06# en el teléfono)")
+    actual = await db.fetchrow("SELECT imeis, imei FROM disp_equipos WHERE id = $1 AND custodio_email = $2 AND estado <> 'baja'", equipo_id, username)
+    if actual is None:
+        raise HTTPException(404, "Ese teléfono no está a tu nombre")
+    final = _imeis.unir(lista, actual["imeis"])
+    await db.execute("UPDATE disp_equipos SET imeis = $2::jsonb, imei = COALESCE(imei, $3) WHERE id = $1", equipo_id, json.dumps(final), final[0])
+    await db.execute(
+        "INSERT INTO admin_audit (admin_id, admin_username, action, target, details, ip_address) VALUES (NULL, $1, 'dispositivo_custodio_imeis', $2, $3::jsonb, $4)",
+        username, str(equipo_id), json.dumps({"imeis": final}), request.headers.get("X-Real-IP", request.client.host if request.client else ""))
+    return {"ok": True, "imeis": final}

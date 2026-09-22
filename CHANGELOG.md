@@ -8,6 +8,7 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 ## [Sin publicar]
 
 ### Añadido
+- Teléfonos: varios IMEI por equipo (doble SIM, eSIM). Los manda la app cuando puede leerlos (control completo) o los registra la persona desde «Mi teléfono» del correo web o Tecnología desde la ficha; ambos los ven con Copiar para darlos a la operadora si roban o pierden el teléfono.
 - Teléfonos: `POST /api/dispositivos/gnss` recibe lotes de mediciones GNSS crudas (formato GnssLogger) y comando `gnss_crudo` del panel, para el experimento de corrección diferencial con la red REGME (mediciones de campo).
 - Panel: la ficha de telemetría muestra «Redes por las que pasó» (sede por la red, wifi, horas).
 - Teléfonos: el latido acepta `wifi_ssid` y `wifi_bssid`; «Teléfono extraviado» muestra a la persona a qué wifi está conectado su teléfono (si es el de su casa, ahí lo dejó) y la flota del panel lo ve bajo «Red».

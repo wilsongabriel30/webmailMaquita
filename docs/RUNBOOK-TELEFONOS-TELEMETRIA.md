@@ -47,6 +47,11 @@ vuelve a la normalidad. No hace falta «revisar» nada para que se cierre, salvo
   mensaje y un teléfono de contacto en pantalla. Los demás teléfonos de la organización avisan si lo
   detectan cerca. Esto solo lo hace un administrador (no el rol lector).
 - Si aparece, se le quita el modo perdido desde la misma ficha.
+- **Bloqueo en la operadora:** en la ficha del equipo, el recuadro «IMEI para la operadora» tiene los
+  números (2 a 4 en teléfonos con doble SIM o eSIM) y un botón Copiar. La persona también los ve en su
+  correo web → «Mi teléfono». Con ellos, la operadora (CNT, Claro, Movistar) bloquea el teléfono aunque
+  le cambien la SIM. Si el recuadro está vacío, pedir a la persona que los registre desde su correo
+  (*#06# o la caja) o cargarlos en «Todos los IMEI» de la ficha.
 
 ## 3b. La ubicación de un celular es SIEMPRE aproximada
 Cuando el panel muestra una posición (ficha del equipo → Ubicación), encima del mapa aparece un aviso
