@@ -739,7 +739,7 @@ export function MessageList() {
 
   const getCtxItems = (msg: MessageSummary): MenuItem[] => [
     { label: 'Responder', icon: replyIcon, onClick: () => openCompose('reply', { to: [msg.from], subject: `Re: ${msg.subject}`, text_body: '', html_body: '' }) },
-    { label: 'Reenviar', icon: forwardIcon, onClick: () => openCompose('forward', { to: [], subject: `RV: ${msg.subject}`, text_body: '', html_body: '' }) },
+    { label: 'Reenviar', icon: forwardIcon, onClick: () => openCompose('forward', { to: [], subject: `RV: ${msg.subject}`, text_body: '', html_body: '', reenvio_de: { folder: msg.folder || currentFolder, uid: msg.uid } }) },
     { label: '', icon: '', onClick: () => {}, divider: true },
     { label: msg.seen ? 'Marcar como no leído' : 'Marcar como leído', icon: unreadIcon, onClick: () => quickAction(msg.uid, msg.seen ? 'mark_unread' : 'mark_read') },
     { label: msg.flagged ? 'Quitar marca' : 'Marcar con bandera', icon: flagIcon, onClick: () => handleFlag(msg.uid, msg.flagged) },
