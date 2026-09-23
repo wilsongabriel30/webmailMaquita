@@ -1,6 +1,5 @@
-import { BotonAsignarCorreo } from '../tareas/BotonAsignarCorreo';
-import { AccionesCorreoNoDeseado } from './AccionesCorreoNoDeseado';
 import SafeEmailViewer from './SafeEmailViewer';
+import { BarraAccionesCorreo } from './BarraAccionesCorreo';
 import { ImagenesEnCuerpo } from './ImagenesEnCuerpo';
 import { useCabeceraPlegable } from '../../hooks/useCabeceraPlegable';
 import { sanitizeHtml } from '../../lib/sanitize';
@@ -1206,50 +1205,13 @@ const MessageView: React.FC = () => {
         </div>
       )}
 
-        {/* Bottom reply/edit bar */}
-        <div style={{
-          padding: '12px 24px', borderTop: '1px solid #edebe9', flexShrink: 0,
-          display: 'flex', gap: 4, background: '#faf9f8',
-        }}>
-          {currentFolder === 'Drafts' ? (
-            <button style={{ ...actionBtnStyle, background: '#0078d4', color: '#fff', borderRadius: 4, padding: '8px 24px' }} onClick={handleEditDraft}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 4 }}>
-                <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
-                <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
-              </svg>
-              Editar borrador
-            </button>
-          ) : (<>
-            <button style={actionBtnStyle} onClick={handleReply}>
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style={{ marginRight: 2 }}>
-                <path d="M6.5 3L1 8l5.5 5V10c4.5 0 7 1.5 8.5 5-1-4.5-3.5-8-8.5-8.5V3z"/>
-              </svg>
-              Responder
-            </button>
-            <button style={actionBtnStyle} onClick={handleReplyAll}>
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style={{ marginRight: 2 }}>
-                <path d="M9.5 3L4 8l5.5 5V10c4.5 0 6 1.5 7.5 5-1-4.5-3-8-7.5-8.5V3zM3 8L0 5.5v5L3 8z"/>
-              </svg>
-              Responder a todos
-            </button>
-            <button style={actionBtnStyle} onClick={handleForward}>
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style={{ marginRight: 2 }}>
-                <path d="M9.5 3L15 8l-5.5 5V10C5 10 2.5 11.5 1 15c1-4.5 3.5-8 8.5-8.5V3z"/>
-              </svg>
-              Reenviar
-            </button>
-            <AccionesCorreoNoDeseado folder={currentFolder} uid={msg.uid} from={msg.from || (msg as MessageFull).from_addr || ''} estilo={actionBtnStyle} />
-            <BotonAsignarCorreo estilo={actionBtnStyle} correo={{ folder: currentFolder, uid: msg.uid, subject: msg.subject, from: msg.from || (msg as MessageFull).from_addr || '' }} />
-            <button style={{ ...actionBtnStyle, marginLeft: 'auto', color: '#8764b8' }} onClick={handleSmartReply} disabled={loadingReplies}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
-              {loadingReplies ? 'Generando...' : 'Respuesta IA'}
-            </button>
-            <button style={{ ...actionBtnStyle, color: '#498205' }} onClick={handleSummarize} disabled={loadingSummary}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" /></svg>
-              {loadingSummary ? 'Resumiendo...' : 'Resumir'}
-            </button>
-          </>)}
-        </div>
+        <BarraAccionesCorreo
+          esBorrador={currentFolder === 'Drafts'} onEditarBorrador={handleEditDraft}
+          onResponder={handleReply} onResponderTodos={handleReplyAll} onReenviar={handleForward}
+          folder={currentFolder} uid={msg.uid} from={msg.from || (msg as MessageFull).from_addr || ''} asunto={msg.subject} conAsignar
+          onRespuestaIA={handleSmartReply} generandoRespuestas={loadingReplies}
+          onResumir={handleSummarize} resumiendo={loadingSummary}
+        />
 
         {/* ================================================================
             AttachmentPreview — DEBE estar en AMBOS returns (thread + single)
@@ -1554,48 +1516,13 @@ const MessageView: React.FC = () => {
         </div>
       )}
 
-      {/* Bottom reply/edit bar */}
-      <div style={{
-        padding: '12px 24px', borderTop: '1px solid #edebe9', flexShrink: 0,
-        display: 'flex', gap: 4, background: '#faf9f8',
-      }}>
-        {currentFolder === 'Drafts' ? (
-          <button style={{ ...actionBtnStyle, background: '#0078d4', color: '#fff', borderRadius: 4, padding: '8px 24px' }} onClick={handleEditDraft}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 4 }}>
-              <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
-              <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
-            </svg>
-            Editar borrador
-          </button>
-        ) : (<>
-          <button style={actionBtnStyle} onClick={handleReply}>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style={{ marginRight: 2 }}>
-              <path d="M6.5 3L1 8l5.5 5V10c4.5 0 7 1.5 8.5 5-1-4.5-3.5-8-8.5-8.5V3z"/>
-            </svg>
-            Responder
-          </button>
-          <button style={actionBtnStyle} onClick={handleReplyAll}>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style={{ marginRight: 2 }}>
-              <path d="M9.5 3L4 8l5.5 5V10c4.5 0 6 1.5 7.5 5-1-4.5-3-8-7.5-8.5V3zM3 8L0 5.5v5L3 8z"/>
-            </svg>
-            Responder a todos
-          </button>
-          <button style={actionBtnStyle} onClick={handleForward}>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style={{ marginRight: 2 }}>
-              <path d="M9.5 3L15 8l-5.5 5V10C5 10 2.5 11.5 1 15c1-4.5 3.5-8 8.5-8.5V3z"/>
-            </svg>
-            Reenviar
-          </button>
-          <AccionesCorreoNoDeseado folder={currentFolder} uid={msg.uid} from={msg.from || (msg as MessageFull).from_addr || ''} estilo={actionBtnStyle} />
-          <button style={{ ...actionBtnStyle, marginLeft: 'auto', color: '#8764b8' }} onClick={handleSmartReply} disabled={loadingReplies}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
-            {loadingReplies ? 'Generando...' : 'Respuesta IA'}
-          </button>
-          <button style={{ ...actionBtnStyle, color: '#498205' }} onClick={handleSummarize} disabled={loadingSummary}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" /></svg>
-            {loadingSummary ? 'Resumiendo...' : 'Resumir'}
-          </button>
-        </>)}
+      <BarraAccionesCorreo
+        esBorrador={currentFolder === 'Drafts'} onEditarBorrador={handleEditDraft}
+        onResponder={handleReply} onResponderTodos={handleReplyAll} onReenviar={handleForward}
+        folder={currentFolder} uid={msg.uid} from={msg.from || (msg as MessageFull).from_addr || ''} asunto={msg.subject}
+        onRespuestaIA={handleSmartReply} generandoRespuestas={loadingReplies}
+        onResumir={handleSummarize} resumiendo={loadingSummary}
+      >
         {currentFolder === 'Sent' && (
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
             {recallStatus === 'done' ? (
@@ -1629,7 +1556,7 @@ const MessageView: React.FC = () => {
             )}
           </div>
         )}
-      </div>
+      </BarraAccionesCorreo>
 
       <AttachmentPreview
         open={previewOpen}
@@ -1643,21 +1570,6 @@ const MessageView: React.FC = () => {
       />
     </div>
   );
-};
-
-/* ---- Shared button style ---- */
-const actionBtnStyle: React.CSSProperties = {
-  background: 'none',
-  border: 'none',
-  color: '#0078d4',
-  fontWeight: 600,
-  padding: '8px 16px',
-  fontSize: 13,
-  cursor: 'pointer',
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 6,
-  borderRadius: 4,
 };
 
 export { MessageView };
