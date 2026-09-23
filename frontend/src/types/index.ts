@@ -100,6 +100,8 @@ export interface ComposeData {
   draft_uid?: number | null;
   /** Adjuntos ya guardados en el borrador (se descargan al reabrirlo). */
   adjuntos_borrador?: AttachmentInfo[];
+  /** Correo que se reenvía: sus adjuntos se descargan y viajan con el reenvío. */
+  reenvio_de?: { folder: string; uid: number; adjuntos?: AttachmentInfo[] };
   // Archivos del Almacén a adjuntar al abrir el redactor (accion "Enviar por correo")
   adjuntos_almacen?: { nombre: string; ruta: string }[];
   /** Cuerpo sugerido por el asistente de respuesta rápida. */

@@ -157,6 +157,7 @@ export function useKeyboardShortcuts() {
               subject: msg.subject.startsWith('RV:') ? msg.subject : `RV: ${msg.subject}`,
               text_body: '',
               html_body: quoteHtml,
+              reenvio_de: { folder: msg.folder || folder, uid: msg.uid, adjuntos: msg.attachments },
             });
           }
           break;
