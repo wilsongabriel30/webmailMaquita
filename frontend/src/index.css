@@ -267,3 +267,20 @@
 #root .h-screen { height: calc(100vh / var(--escala)) !important; }
 #root .min-h-screen { min-height: calc(100vh / var(--escala)) !important; }
 #root .max-h-screen { max-height: calc(100vh / var(--escala)) !important; }
+
+/* Imágenes del redactor redimensionables como en Word: tiradores en las esquinas al pasar o seleccionar. */
+.tiptap [data-resize-container] { max-width: 100%; vertical-align: bottom; }
+.tiptap [data-resize-wrapper] img { display: block; max-width: 100%; height: auto; }
+.tiptap [data-resize-handle] {
+  width: 10px; height: 10px; background: #fff; border: 1px solid #0078d4; border-radius: 2px;
+  opacity: 0; transition: opacity 0.15s; z-index: 2;
+}
+.tiptap [data-resize-handle="top-left"] { cursor: nwse-resize; margin: -5px 0 0 -5px; }
+.tiptap [data-resize-handle="bottom-right"] { cursor: nwse-resize; margin: 0 -5px -5px 0; }
+.tiptap [data-resize-handle="top-right"] { cursor: nesw-resize; margin: -5px -5px 0 0; }
+.tiptap [data-resize-handle="bottom-left"] { cursor: nesw-resize; margin: 0 0 -5px -5px; }
+.tiptap [data-resize-container]:hover [data-resize-handle],
+.tiptap [data-resize-container].ProseMirror-selectednode [data-resize-handle],
+.tiptap [data-resize-container][data-resize-state="true"] [data-resize-handle] { opacity: 1; }
+.tiptap [data-resize-container]:hover [data-resize-wrapper],
+.tiptap [data-resize-container].ProseMirror-selectednode [data-resize-wrapper] { outline: 1px solid #0078d4; }
