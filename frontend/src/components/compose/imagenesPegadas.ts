@@ -2,6 +2,7 @@
  * Imágenes pegadas en el redactor: entran DENTRO del texto (como en Word), no como adjunto.
  *
  * - Ctrl+V de una captura o de una imagen copiada la inserta donde está el cursor.
+ * - Arrastrar una imagen sobre el texto la inserta donde se suelta.
  * - Se puede redimensionar arrastrando las esquinas (extensión Image con `resize`).
  * - Las muy grandes se reducen a ANCHO_MAX para que el correo no pese de más.
  * - Al enviar, el servidor la convierte en imagen incrustada (cid), que todos los clientes muestran.
@@ -58,24 +59,51 @@ async function prepararImagen(archivo: File): Promise<{ src: string; width: numb
   return { src, width: mostrar, height: Math.round(alto * (mostrar / ancho)) };
 }
 
-/** `editorProps.handlePaste`: si el portapapeles trae imágenes, se insertan en el texto. */
-export function pegarImagenes(view: EditorView, evento: ClipboardEvent): boolean {
-  const archivos = Array.from(evento.clipboardData?.files || []).filter(f => f.type.startsWith('image/'));
-  if (!archivos.length) return false;
-  // Si además viene HTML con imágenes de la web (copiado de una página), ese pegado normal ya las trae.
-  const html = evento.clipboardData?.getData('text/html') || '';
-  if (/<img\s[^>]*src=["']https?:/i.test(html)) return false;
-  evento.preventDefault();
+/** Inserta las imágenes en `pos` (o donde está el cursor), una tras otra. */
+function insertarImagenes(view: EditorView, archivos: File[], pos?: number): void {
   const tipoImagen = view.state.schema.nodes.image;
-  if (!tipoImagen) return false;
+  if (!tipoImagen) return;
   (async () => {
     for (const archivo of archivos) {
       try {
         const attrs = await prepararImagen(archivo);
+        const nodo = tipoImagen.create(attrs);
         const { tr } = view.state;
-        view.dispatch(tr.replaceSelectionWith(tipoImagen.create(attrs)).scrollIntoView());
-      } catch { /* una imagen ilegible no impide pegar las demás */ }
+        if (pos === undefined) tr.replaceSelectionWith(nodo);
+        else { tr.insert(Math.min(pos, tr.doc.content.size), nodo); pos += nodo.nodeSize; }
+        view.dispatch(tr.scrollIntoView());
+      } catch { /* una imagen ilegible no impide insertar las demás */ }
     }
   })();
+}
+
+/** `editorProps.handlePaste`: si el portapapeles trae imágenes, se insertan en el texto. */
+export function pegarImagenes(view: EditorView, evento: ClipboardEvent): boolean {
+  const archivos = Array.from(evento.clipboardData?.files || []).filter(f => f.type.startsWith('image/'));
+  if (!archivos.length || !view.state.schema.nodes.image) return false;
+  // Si además viene HTML con imágenes de la web (copiado de una página), ese pegado normal ya las trae.
+  const html = evento.clipboardData?.getData('text/html') || '';
+  if (/<img\s[^>]*src=["']https?:/i.test(html)) return false;
+  evento.preventDefault();
+  insertarImagenes(view, archivos);
+  return true;
+}
+
+/** Marca en el evento: el editor ya insertó las imágenes soltadas; el panel adjunta solo el resto. */
+export const IMAGENES_SOLTADAS_EN_TEXTO = '__imagenesEnTexto';
+
+/**
+ * `editorProps.handleDrop`: las imágenes arrastradas sobre el texto entran donde se sueltan.
+ * Los demás archivos (PDF, Excel…) siguen como adjuntos: los agrega el `onDrop` del panel.
+ */
+export function soltarImagenes(view: EditorView, evento: DragEvent, _slice: unknown, moved: boolean): boolean {
+  if (moved) return false; // mover una imagen ya puesta dentro del texto: lo hace el editor
+  const archivos = Array.from(evento.dataTransfer?.files || []).filter(f => f.type.startsWith('image/'));
+  if (!archivos.length || !view.state.schema.nodes.image) return false;
+  const destino = view.posAtCoords({ left: evento.clientX, top: evento.clientY });
+  (evento as unknown as Record<string, boolean>)[IMAGENES_SOLTADAS_EN_TEXTO] = true;
+  insertarImagenes(view, archivos, destino?.pos);
+  // true evita que el editor pegue además la ruta del archivo como texto; el evento sigue
+  // subiendo hasta el panel, que adjunta lo que no es imagen.
   return true;
 }
