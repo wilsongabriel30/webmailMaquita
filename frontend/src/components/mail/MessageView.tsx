@@ -962,8 +962,9 @@ const MessageView: React.FC = () => {
       in_reply_to: msg.message_id || '',
       references: msg.references ? `${msg.references} ${msg.message_id}` : (msg.message_id || ''),
       html_body: quoteHtml,
+      reenvio_de: { folder: msg.folder || currentFolder, uid: msg.uid, adjuntos: msg.attachments },
     });
-  }, [msg, openCompose]);
+  }, [msg, openCompose, currentFolder]);
 
   const handleEditDraft = useCallback(() => {
     if (!msg || !openCompose) return;
