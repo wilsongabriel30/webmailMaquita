@@ -41,12 +41,33 @@ export function filtrarPeligrosos(files: File[]): { permitidos: File[]; aviso: s
 }
 
 /** Descarga los adjuntos de un borrador guardado y los devuelve como archivos del redactor. */
-export async function cargarAdjuntosDelBorrador(uid: number, adjuntos: AttachmentInfo[]): Promise<ArchivoAdjunto[]> {
+export function cargarAdjuntosDelBorrador(uid: number, adjuntos: AttachmentInfo[]): Promise<ArchivoAdjunto[]> {
+  return cargarAdjuntosDeMensaje('Drafts', uid, adjuntos);
+}
+
+/**
+ * Adjuntos del correo que se reenvía: vuelven al redactor para que la persona los vea,
+ * pueda quitar alguno y salgan con el reenvío. Si no se conoce la lista (menú contextual
+ * de la bandeja), se pide el mensaje al servidor.
+ */
+export async function cargarAdjuntosDelReenvio(origen: { folder: string; uid: number; adjuntos?: AttachmentInfo[] }): Promise<ArchivoAdjunto[]> {
+  let adjuntos = origen.adjuntos;
+  if (!adjuntos) {
+    try {
+      const res = await fetch('/api/mail/message/' + encodeURIComponent(origen.folder) + '/' + origen.uid, { credentials: 'include' });
+      if (!res.ok) return [];
+      adjuntos = ((await res.json()) as { attachments?: AttachmentInfo[] }).attachments || [];
+    } catch { return []; }
+  }
+  return cargarAdjuntosDeMensaje(origen.folder, origen.uid, adjuntos);
+}
+
+async function cargarAdjuntosDeMensaje(folder: string, uid: number, adjuntos: AttachmentInfo[]): Promise<ArchivoAdjunto[]> {
   const resultado: ArchivoAdjunto[] = [];
   for (const a of adjuntos || []) {
     if (a.is_inline || !a.filename) continue;
     try {
-      const url = '/api/mail/attachment/Drafts/' + uid + '/' + a.part_number + '/' + encodeURIComponent(a.filename);
+      const url = '/api/mail/attachment/' + encodeURIComponent(folder) + '/' + uid + '/' + a.part_number + '/' + encodeURIComponent(a.filename);
       const res = await fetch(url, { credentials: 'include' });
       if (!res.ok) continue;
       const blob = await res.blob();

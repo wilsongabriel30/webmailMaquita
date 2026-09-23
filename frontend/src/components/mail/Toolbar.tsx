@@ -515,6 +515,7 @@ export function Toolbar() {
       to: [], subject: `RV: ${msg.subject}`,
       html_body: buildQuote(), text_body: '',
       in_reply_to: msg.message_id || '', references: msg.references || '',
+      reenvio_de: { folder: msg.folder || currentFolder, uid: msg.uid, adjuntos: msg.attachments },
     });
     closeAllDropdowns();
   };

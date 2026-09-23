@@ -10,7 +10,7 @@ import { SelectorRemitente } from './SelectorRemitente';
 import { cuentaDeCarpeta } from '../../lib/cuentas';
 import { sanitizeHtml, sanitizeSignatureHtml } from '../../lib/sanitize';
 import { separarCitado } from '../../lib/borradorCitado';
-import { cargarAdjuntosDelBorrador, filtrarPeligrosos, huellaAdjuntos } from '../../lib/adjuntosBorrador';
+import { cargarAdjuntosDelBorrador, cargarAdjuntosDelReenvio, filtrarPeligrosos, huellaAdjuntos } from '../../lib/adjuntosBorrador';
 import { EVENTO_MOSTRAR_CAMPO } from './chipsArrastrables';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import React from 'react';
@@ -112,6 +112,17 @@ export function ComposePanel({ win }: Props) {
         }
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Al reenviar, los adjuntos del correo original entran al redactor y salen con el mensaje.
+  useEffect(() => {
+    const origen = win.data?.reenvio_de;
+    if (win.mode !== 'forward' || !origen) return;
+    cargarAdjuntosDelReenvio(origen).then(cargados => {
+      if (cargados.length) setAttachments(prev => [...prev, ...cargados]);
+      else if (origen.adjuntos?.some(a => !a.is_inline)) showToast('No se pudieron traer los adjuntos del correo original');
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [isDragging, setIsDragging] = useState(false);
