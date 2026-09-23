@@ -284,3 +284,9 @@
 .tiptap [data-resize-container][data-resize-state="true"] [data-resize-handle] { opacity: 1; }
 .tiptap [data-resize-container]:hover [data-resize-wrapper],
 .tiptap [data-resize-container].ProseMirror-selectednode [data-resize-wrapper] { outline: 1px solid #0078d4; }
+
+/* Barra inferior del mensaje: una fila compacta. En paneles estrechos las acciones secundarias
+   quedan solo con icono y, más estrecho aún, todas (el nombre queda en la descripción emergente). */
+.barra-acciones-correo { container-type: inline-size; }
+@container (max-width: 760px) { .barra-acciones-correo .barra-etiqueta-sec { display: none; } }
+@container (max-width: 440px) { .barra-acciones-correo .barra-etiqueta { display: none; } }
