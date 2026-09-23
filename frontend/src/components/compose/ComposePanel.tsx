@@ -12,6 +12,8 @@ import { sanitizeHtml, sanitizeSignatureHtml } from '../../lib/sanitize';
 import { separarCitado } from '../../lib/borradorCitado';
 import { cargarAdjuntosDelBorrador, cargarAdjuntosDelReenvio, filtrarPeligrosos, huellaAdjuntos } from '../../lib/adjuntosBorrador';
 import { EVENTO_MOSTRAR_CAMPO } from './chipsArrastrables';
+import { OPCIONES_RESIZE, pegarImagenes } from './imagenesPegadas';
+import { esReescritura, textoAParrafos } from '../../lib/autocompletar';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import React from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
@@ -159,7 +161,7 @@ export function ComposePanel({ win }: Props) {
     extensions: [
       StarterKit.configure({ heading: { levels: [1, 2, 3] }, link: false, underline: false }),
       Underline, Link.configure({ openOnClick: false }),
-      Image.configure({ inline: true, allowBase64: true }),
+      Image.configure({ inline: true, allowBase64: true, resize: OPCIONES_RESIZE }),
       Table.configure({ resizable: true }),
       TableRow,
       TableCell,
@@ -176,6 +178,7 @@ export function ComposePanel({ win }: Props) {
         class: 'outline-none px-6 py-2 text-[14px] leading-[22px] text-[#323130]',
         style: 'font-family: Calibri, Segoe UI, sans-serif;',
       },
+      handlePaste: (view, event) => pegarImagenes(view, event),
     },
   });
 
@@ -984,9 +987,16 @@ export function ComposePanel({ win }: Props) {
 
   const acceptComposeSuggestion = useCallback(() => {
     if (composeSuggestion && editor) {
-      editor.chain().focus().insertContent(composeSuggestion).run();
+      if (esReescritura(editor.getText(), composeSuggestion)) {
+        // La IA devolvió el correo entero: reemplaza el texto (la firma y el citado van aparte).
+        editor.chain().focus().setContent(textoAParrafos(composeSuggestion)).run();
+        showToast('Texto reemplazado por la versión de la IA');
+      } else {
+        // Al final del texto, no donde quedó el cursor.
+        editor.chain().focus('end').insertContent(' ' + composeSuggestion.trim()).run();
+        showToast('Sugerencia agregada al final');
+      }
       setComposeSuggestion('');
-      showToast('Sugerencia aceptada');
     }
   }, [editor, composeSuggestion]);
   //  VM 170: Whisper STT

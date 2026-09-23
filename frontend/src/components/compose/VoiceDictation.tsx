@@ -39,6 +39,10 @@ export function VoiceDictation({ onTranscript, disabled = false }: VoiceDictatio
   const wlCtxRef = useRef<AudioContext | null>(null);
   const wlProcRef = useRef<any>(null);
   const wlSeenRef = useRef<string>('');
+  // Frase que WhisperLive aún no da por terminada: se escribe igual al pulsar «detener»
+  // (antes se perdía y en un dictado corto no quedaba nada escrito).
+  const wlPendienteRef = useRef<string>('');
+  const [preparando, setPreparando] = useState(false);
   const activeRef = useRef<boolean>(false);
 
   // Modo configurado por el admin
@@ -63,7 +67,7 @@ export function VoiceDictation({ onTranscript, disabled = false }: VoiceDictatio
     try { if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') mediaRecorderRef.current.stop(); } catch { /* ignore */ }
     try { if (recognitionRef.current) recognitionRef.current.stop(); } catch { /* ignore */ }
     recognitionRef.current = null;
-    try { if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) { wsRef.current.send('END_OF_AUDIO'); wsRef.current.close(); } } catch { /* ignore */ }
+    try { if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) { wsRef.current.send(new TextEncoder().encode('END_OF_AUDIO')); wsRef.current.close(); } } catch { /* ignore */ }
     wsRef.current = null;
     try { if (wlProcRef.current) wlProcRef.current.disconnect(); } catch { /* ignore */ }
     try { if (wlCtxRef.current) wlCtxRef.current.close(); } catch { /* ignore */ }
@@ -214,14 +218,24 @@ export function VoiceDictation({ onTranscript, disabled = false }: VoiceDictatio
   // ---- Modo WHISPERLIVE: streaming en vivo y PRIVADO (WebSocket a tu GPU) ----
   const startWLAudio = (stream: MediaStream, ws: WebSocket) => {
     const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
-    const ctx = new AudioCtx({ sampleRate: 16000 });
+    // Contexto a la frecuencia nativa del micrófono (Firefox no permite mezclar frecuencias)
+    // y reducción a 16 kHz aquí, que es lo que espera WhisperLive.
+    const ctx = new AudioCtx();
     wlCtxRef.current = ctx;
     const source = ctx.createMediaStreamSource(stream);
     const proc = ctx.createScriptProcessor(4096, 1, 1);
+    const razon = ctx.sampleRate / 16000;
     proc.onaudioprocess = (ev: any) => {
       if (ws.readyState !== WebSocket.OPEN) return;
-      const input = ev.inputBuffer.getChannelData(0); // Float32 a 16 kHz
-      ws.send(new Float32Array(input).buffer);        // PCM float32 mono
+      const input: Float32Array = ev.inputBuffer.getChannelData(0);
+      const salida = new Float32Array(Math.floor(input.length / razon));
+      for (let i = 0; i < salida.length; i++) {
+        const desde = Math.floor(i * razon), hasta = Math.min(input.length, Math.floor((i + 1) * razon));
+        let suma = 0;
+        for (let j = desde; j < hasta; j++) suma += input[j];
+        salida[i] = hasta > desde ? suma / (hasta - desde) : 0;
+      }
+      ws.send(salida.buffer);                         // PCM float32 mono a 16 kHz
     };
     source.connect(proc);
     proc.connect(ctx.destination);
@@ -239,6 +253,8 @@ export function VoiceDictation({ onTranscript, disabled = false }: VoiceDictatio
       ws.binaryType = 'arraybuffer';
       wsRef.current = ws;
       wlSeenRef.current = '';
+      wlPendienteRef.current = '';
+      setPreparando(true);
       ws.onopen = () => {
         ws.send(JSON.stringify({ uid, language: 'es', task: 'transcribe', model: 'small', use_vad: true }));
       };
@@ -247,8 +263,12 @@ export function VoiceDictation({ onTranscript, disabled = false }: VoiceDictatio
         try { m = JSON.parse(typeof e.data === 'string' ? e.data : ''); } catch { return; }
         if (!m) return;
         if (m.uid && m.uid !== uid) return;
-        if (m.message === 'SERVER_READY') { startWLAudio(stream, ws); return; }
-        if (m.status === 'WAIT') { setError('Servidor de dictado ocupado, intenta en un momento'); return; }
+        if (m.message === 'SERVER_READY') {
+          setPreparando(false);
+          try { startWLAudio(stream, ws); } catch { setError('No se pudo usar el micrófono para el dictado'); hardStop(); setState('idle'); }
+          return;
+        }
+        if (m.status === 'WAIT') { setPreparando(false); setError('Servidor de dictado ocupado, intenta en un momento'); return; }
         if (m.segments && Array.isArray(m.segments)) {
           const completed = m.segments.filter((sg: any) => sg.completed).map((sg: any) => sg.text).join(' ').replace(/\s+/g, ' ').trim();
           if (completed && completed !== wlSeenRef.current) {
@@ -256,9 +276,12 @@ export function VoiceDictation({ onTranscript, disabled = false }: VoiceDictatio
             if (nuevo.trim()) onTranscript(nuevo.trim() + ' ');
             wlSeenRef.current = completed;
           }
+          const pendiente = (m.segments as { text: string; completed?: boolean }[]).filter(sg => !sg.completed).map(sg => sg.text).join(' ').replace(/\s+/g, ' ').trim();
+          wlPendienteRef.current = pendiente;
+          setProvisional(pendiente);
         }
       };
-      ws.onerror = () => { setError('No se pudo conectar al dictado en vivo'); activeRef.current = false; setState('idle'); };
+      ws.onerror = () => { setPreparando(false); setError('No se pudo conectar al dictado en vivo'); activeRef.current = false; setState('idle'); };
       ws.onclose = () => { if (!activeRef.current) setState('idle'); };
       activeRef.current = true;
       setState('recording');
@@ -273,7 +296,13 @@ export function VoiceDictation({ onTranscript, disabled = false }: VoiceDictatio
     if (disabled || state === 'processing') return;
     if (state === 'recording') {
       activeRef.current = false;
-      if (mode === 'whisperlive') { hardStop(); setState('idle'); }
+      if (mode === 'whisperlive') {
+        const pendiente = wlPendienteRef.current.trim();
+        if (pendiente) onTranscript(pendiente + ' ');
+        wlPendienteRef.current = '';
+        setProvisional(''); setPreparando(false);
+        hardStop(); setState('idle');
+      }
       else if (mode === 'browser' || recognitionRef.current) { try { recognitionRef.current?.stop(); } catch { /* ignore */ } setProvisional(''); setState('idle'); }
       else {
         if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = 0; }
@@ -332,7 +361,7 @@ export function VoiceDictation({ onTranscript, disabled = false }: VoiceDictatio
       {state === 'recording' && (
         <span style={{ fontSize: 11, color: '#d13438', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
           <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#d13438', animation: 'pulse 1s ease-in-out infinite' }} />
-          {enVivo ? 'En vivo' : `Escuchando ${formatTime(elapsed)}`}
+          {preparando ? 'Preparando… espera un momento' : enVivo ? 'En vivo' : `Escuchando ${formatTime(elapsed)}`}
         </span>
       )}
       {state === 'recording' && provisional && (

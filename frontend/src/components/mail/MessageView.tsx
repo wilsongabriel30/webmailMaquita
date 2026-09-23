@@ -1,6 +1,7 @@
 import { BotonAsignarCorreo } from '../tareas/BotonAsignarCorreo';
 import { AccionesCorreoNoDeseado } from './AccionesCorreoNoDeseado';
 import SafeEmailViewer from './SafeEmailViewer';
+import { ImagenesEnCuerpo } from './ImagenesEnCuerpo';
 import { useCabeceraPlegable } from '../../hooks/useCabeceraPlegable';
 import { sanitizeHtml } from '../../lib/sanitize';
 import type { MessageFull, AttachmentInfo, CalendarInvite } from '../../types';
@@ -740,6 +741,8 @@ const ThreadMessageCard: React.FC<ThreadMessageCardProps> = ({
             {decodeUnicodeEscapes(msg.text_body)}
           </pre>
         )}
+        <ImagenesEnCuerpo folder={msg.folder || currentFolder} uid={msg.uid} attachments={msg.attachments}
+          onAbrir={i => onAttachmentClick?.(msg.folder || currentFolder, msg.uid, msg.attachments, i)} />
       </div>
     </div>
   );
@@ -1512,6 +1515,8 @@ const MessageView: React.FC = () => {
               {decodeUnicodeEscapes(displayMsg!.text_body)}
             </pre>
           )}
+          <ImagenesEnCuerpo folder={displayMsg!.folder || currentFolder} uid={displayMsg!.uid} attachments={displayMsg!.attachments}
+            onAbrir={i => openAttachmentPreview(displayMsg!.folder || currentFolder, displayMsg!.uid, displayMsg!.attachments, i)} />
         </div>
       </div>
 
