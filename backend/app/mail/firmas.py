@@ -29,6 +29,7 @@ from lxml import html as lhtml
 from app.core.css import limpiar_estilo
 from app.core.sanitize import ATRIBUTOS_CORREO, ETIQUETAS_CORREO
 from app.mail import firmas_imagenes as imagenes
+from app.mail.imagenes_cuerpo import incrustar_imagenes_data
 
 ANCHO_MAX = imagenes.ANCHO_MAX
 _PX = re.compile(r"^\s*(\d{1,4})(?:px)?\s*$", re.IGNORECASE)
@@ -303,7 +304,8 @@ def preparar_envio(html: str) -> tuple[str, list[dict], list[str]]:
     try:
         raiz = _parsear(html)
     except Exception:
-        return html, [], []
+        salida, pegadas = incrustar_imagenes_data(html)
+        return salida, pegadas, []
     avisos: list[str] = []
     for bloque in [e for e in raiz.iter("div") if _es_bloque_firma(e)]:
         normalizada = normalizar_firma(_serializar(bloque))
@@ -338,4 +340,6 @@ def preparar_envio(html: str) -> tuple[str, list[dict], list[str]]:
             _es_bloque_firma(a) for a in img.iterancestors()
         ):
             _ajustar_imagen_citada(img)
-    return _serializar(raiz), list(adjuntos.values()), avisos
+    # Imágenes pegadas en el cuerpo (data:) → partes inline con cid, visibles en cualquier cliente.
+    salida, pegadas = incrustar_imagenes_data(_serializar(raiz))
+    return salida, list(adjuntos.values()) + pegadas, avisos
