@@ -14,6 +14,7 @@ import { cargarAdjuntosDelBorrador, cargarAdjuntosDelReenvio, filtrarPeligrosos,
 import { EVENTO_MOSTRAR_CAMPO } from './chipsArrastrables';
 import { IMAGENES_SOLTADAS_EN_TEXTO, OPCIONES_RESIZE, pegarImagenes, pegarImagenesFueraDelTexto, quitarImagenesLocales, soltarImagenes } from './imagenesPegadas';
 import { BarraImagen } from './BarraImagen';
+import { BotonAutocompletarIA, FranjaSugerenciaIA } from './SugerenciaIA';
 import { esReescritura, textoAParrafos } from '../../lib/autocompletar';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import React from 'react';
@@ -1243,11 +1244,12 @@ export function ComposePanel({ win }: Props) {
             <option value="Confidencial">Confidencial</option>
             <option value="Restringida">Restringida</option>
           </select>
+          <BotonAutocompletarIA onClick={requestSmartCompose} ocupado={composingSuggestion} />
           <button onClick={handleSuggestSubject} disabled={suggestingSubject}
             title="Sugerir asunto con IA"
             className="mr-2 px-2 py-1 text-[11px] text-[#0078d4] hover:bg-[#f3f2f1] rounded flex items-center gap-1 disabled:opacity-50 whitespace-nowrap">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0078d4" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
-            IA
+            Asunto
           </button>
         </div>
       </div>
@@ -1322,26 +1324,9 @@ export function ComposePanel({ win }: Props) {
           margin: 8px 0;
         }
       `}</style>
-      {/* Smart Compose — barra ON-DEMAND */}
-      <div className="flex items-center gap-2 px-4 py-1.5 bg-[#f0f6ff] border-b border-[#c7e0f4] shrink-0">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0078d4" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
-        {composingSuggestion ? (
-          <span className="text-[12px] text-[#605e5c] flex-1">Generando sugerencia con IA...</span>
-        ) : composeSuggestion ? (
-          <>
-            <span className="text-[12px] text-[#605e5c] truncate flex-1" title={composeSuggestion}>
-              {composeSuggestion.length > 80 ? composeSuggestion.slice(0, 80) + '...' : composeSuggestion}
-            </span>
-            <button onClick={acceptComposeSuggestion} className="text-[11px] font-semibold text-[#0078d4] hover:bg-[#deecf9] px-2 py-0.5 rounded">Insertar</button>
-            <button onClick={() => setComposeSuggestion('')} className="text-[11px] text-[#a19f9d] hover:text-[#605e5c] px-1">{'\u2715'}</button>
-          </>
-        ) : (
-          <>
-            <span className="text-[12px] text-[#605e5c] flex-1">Asistente de redaccion IA</span>
-            <button onClick={requestSmartCompose} className="text-[11px] font-semibold text-[#0078d4] hover:bg-[#deecf9] px-2 py-0.5 rounded">Autocompletar con IA</button>
-          </>
-        )}
-      </div>
+      {/* Asistente IA: la franja solo aparece mientras genera o con una sugerencia pendiente */}
+      <FranjaSugerenciaIA generando={composingSuggestion} sugerencia={composeSuggestion}
+        onInsertar={acceptComposeSuggestion} onDescartar={() => setComposeSuggestion('')} />
       <div className="flex-1 overflow-y-auto compose-editor-area"
         onMouseDown={(e) => {
           // Clic en el espacio en blanco del cuerpo: el cursor va al final del texto.
