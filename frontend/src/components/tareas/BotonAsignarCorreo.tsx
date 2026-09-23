@@ -9,7 +9,7 @@ export function BotonAsignarCorreo({ correo, estilo }: { correo: CorreoRef; esti
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 2 }}>
         <path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
       </svg>
-      Asignar como tarea
+      <span className="barra-etiqueta barra-etiqueta-sec">Asignar como tarea</span>
     </button>
     <AsignarTareaDialogo abierto={abierto} onCerrar={() => setAbierto(false)} correo={correo}
       onCreada={() => { try { (window as any).toastr?.success?.('Tarea asignada'); } catch {} }} />

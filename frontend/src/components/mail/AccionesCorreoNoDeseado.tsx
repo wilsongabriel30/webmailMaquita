@@ -91,23 +91,23 @@ export function AccionesCorreoNoDeseado(
       {enNoDeseado ? (
         <button style={estilo} onClick={marcarNoEsSpam} disabled={ocupado}
           title="Devolver a la bandeja de entrada y enseñar al filtro que no es spam">
-          <IconoOk />No es spam
+          <IconoOk /><span className="barra-etiqueta barra-etiqueta-sec">No es spam</span>
         </button>
       ) : (
         <button style={estilo} onClick={marcarNoDeseado} disabled={ocupado}
           title="Mover a Correo no deseado y enseñar al filtro">
-          <IconoNoDeseado />No deseado
+          <IconoNoDeseado /><span className="barra-etiqueta barra-etiqueta-sec">No deseado</span>
         </button>
       )}
       {enNoDeseado && (
         <button style={estilo} onClick={confiar} disabled={ocupado}
           title="Sus correos llegarán siempre a la Bandeja de entrada, aunque parezcan spam">
-          <IconoOk />Confiar en este remitente
+          <IconoOk /><span className="barra-etiqueta barra-etiqueta-sec">Confiar en este remitente</span>
         </button>
       )}
       <button style={estilo} onClick={bloquear} disabled={ocupado}
         title="No volver a recibir correos de este remitente">
-        <IconoNoDeseado />Bloquear remitente
+        <IconoNoDeseado /><span className="barra-etiqueta barra-etiqueta-sec">Bloquear remitente</span>
       </button>
     </>
   );
