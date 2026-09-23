@@ -77,9 +77,20 @@ function insertarImagenes(view: EditorView, archivos: File[], pos?: number): voi
   })();
 }
 
+/** Imágenes del portapapeles: por `files` y, si algún navegador lo deja vacío, por `items`. */
+function imagenesDelPortapapeles(datos: DataTransfer | null): File[] {
+  if (!datos) return [];
+  const archivos = Array.from(datos.files || []).filter(f => f.type.startsWith('image/'));
+  if (archivos.length) return archivos;
+  return Array.from(datos.items || [])
+    .filter(i => i.kind === 'file' && i.type.startsWith('image/'))
+    .map(i => i.getAsFile())
+    .filter((f): f is File => !!f);
+}
+
 /** `editorProps.handlePaste`: si el portapapeles trae imágenes, se insertan en el texto. */
 export function pegarImagenes(view: EditorView, evento: ClipboardEvent): boolean {
-  const archivos = Array.from(evento.clipboardData?.files || []).filter(f => f.type.startsWith('image/'));
+  const archivos = imagenesDelPortapapeles(evento.clipboardData);
   if (!archivos.length || !view.state.schema.nodes.image) return false;
   // Si además viene HTML con imágenes de la web (copiado de una página), ese pegado normal ya las trae.
   const html = evento.clipboardData?.getData('text/html') || '';
@@ -87,6 +98,29 @@ export function pegarImagenes(view: EditorView, evento: ClipboardEvent): boolean
   evento.preventDefault();
   insertarImagenes(view, archivos);
   return true;
+}
+
+/**
+ * Pegado con el foco FUERA del texto (en la firma, en el hueco bajo la primera línea…): la
+ * imagen va igual al cuerpo, donde quedó el cursor. Antes el Ctrl+V «no hacía nada».
+ */
+export function pegarImagenesFueraDelTexto(view: EditorView | undefined, evento: ClipboardEvent): void {
+  if (!view || view.dom.contains(evento.target as Node)) return; // dentro del texto: lo hace handlePaste
+  const archivos = imagenesDelPortapapeles(evento.clipboardData);
+  if (!archivos.length || !view.state.schema.nodes.image) return;
+  evento.preventDefault();
+  view.focus();
+  insertarImagenes(view, archivos);
+}
+
+/**
+ * `editorProps.transformPastedHTML`: Word pone sus imágenes como `file:///…/clip_image001.png`,
+ * que el navegador no puede leer (salían rotas). Se quitan y se explica cómo pegarlas.
+ */
+export function quitarImagenesLocales(html: string, avisar: (texto: string) => void): string {
+  if (!/<img\b[^>]*\ssrc=["']?file:/i.test(html)) return html;
+  avisar('Las imágenes copiadas junto con texto de Word no se pueden pegar así: cópialas solas (clic derecho sobre la imagen → Copiar) y pégalas.');
+  return html.replace(/<img\b[^>]*\ssrc=["']?file:[^>]*>/gi, '');
 }
 
 /** Marca en el evento: el editor ya insertó las imágenes soltadas; el panel adjunta solo el resto. */
@@ -98,7 +132,7 @@ export const IMAGENES_SOLTADAS_EN_TEXTO = '__imagenesEnTexto';
  */
 export function soltarImagenes(view: EditorView, evento: DragEvent, _slice: unknown, moved: boolean): boolean {
   if (moved) return false; // mover una imagen ya puesta dentro del texto: lo hace el editor
-  const archivos = Array.from(evento.dataTransfer?.files || []).filter(f => f.type.startsWith('image/'));
+  const archivos = imagenesDelPortapapeles(evento.dataTransfer);
   if (!archivos.length || !view.state.schema.nodes.image) return false;
   const destino = view.posAtCoords({ left: evento.clientX, top: evento.clientY });
   (evento as unknown as Record<string, boolean>)[IMAGENES_SOLTADAS_EN_TEXTO] = true;

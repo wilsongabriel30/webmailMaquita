@@ -12,7 +12,8 @@ import { sanitizeHtml, sanitizeSignatureHtml } from '../../lib/sanitize';
 import { separarCitado } from '../../lib/borradorCitado';
 import { cargarAdjuntosDelBorrador, cargarAdjuntosDelReenvio, filtrarPeligrosos, huellaAdjuntos } from '../../lib/adjuntosBorrador';
 import { EVENTO_MOSTRAR_CAMPO } from './chipsArrastrables';
-import { IMAGENES_SOLTADAS_EN_TEXTO, OPCIONES_RESIZE, pegarImagenes, soltarImagenes } from './imagenesPegadas';
+import { IMAGENES_SOLTADAS_EN_TEXTO, OPCIONES_RESIZE, pegarImagenes, pegarImagenesFueraDelTexto, quitarImagenesLocales, soltarImagenes } from './imagenesPegadas';
+import { BarraImagen } from './BarraImagen';
 import { esReescritura, textoAParrafos } from '../../lib/autocompletar';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import React from 'react';
@@ -179,6 +180,7 @@ export function ComposePanel({ win }: Props) {
         style: 'font-family: Calibri, Segoe UI, sans-serif;',
       },
       handlePaste: (view, event) => pegarImagenes(view, event),
+      transformPastedHTML: (html) => quitarImagenesLocales(html, showToast),
       handleDrop: (view, event, slice, moved) => soltarImagenes(view, event, slice, moved),
     },
   });
@@ -1274,8 +1276,10 @@ export function ComposePanel({ win }: Props) {
           ================================================================ */}
       <style>{`
         .compose-editor-area > div { height: auto !important; }
-        .compose-editor-area .ProseMirror { min-height: 60px !important; height: auto !important; }
-        .compose-editor-area .tiptap img {
+        .compose-editor-area .ProseMirror { min-height: 180px !important; height: auto !important; }
+        /* Solo imágenes heredadas (firmas antiguas dentro del texto). Las pegadas o insertadas van
+           envueltas en el marco redimensionable y conservan el tamaño que la persona les da. */
+        .compose-editor-area .tiptap img:not([data-resize-wrapper] > img) {
           max-width: 160px !important;
           max-height: 70px !important;
           width: auto !important;
@@ -1338,7 +1342,13 @@ export function ComposePanel({ win }: Props) {
           </>
         )}
       </div>
-      <div className="flex-1 overflow-y-auto compose-editor-area">
+      <div className="flex-1 overflow-y-auto compose-editor-area"
+        onMouseDown={(e) => {
+          // Clic en el espacio en blanco del cuerpo: el cursor va al final del texto.
+          if (e.target === e.currentTarget) { e.preventDefault(); editor?.commands.focus('end'); }
+        }}
+        onPaste={(e) => { if (editor && !editor.isDestroyed) pegarImagenesFueraDelTexto(editor.view, e.nativeEvent); }}>
+        <BarraImagen editor={editor} />
         <EditorContent editor={editor}
           className="[&_.tiptap_h1]:text-[24px] [&_.tiptap_h1]:font-bold [&_.tiptap_h1]:mb-3 [&_.tiptap_h2]:text-[20px] [&_.tiptap_h2]:font-bold [&_.tiptap_h2]:mb-2 [&_.tiptap_h3]:text-[16px] [&_.tiptap_h3]:font-bold [&_.tiptap_h3]:mb-1 [&_.tiptap_ul]:list-disc [&_.tiptap_ul]:pl-6 [&_.tiptap_ol]:list-decimal [&_.tiptap_ol]:pl-6 [&_.tiptap_blockquote]:border-l-4 [&_.tiptap_blockquote]:border-[#e1dfdd] [&_.tiptap_blockquote]:pl-4 [&_.tiptap_blockquote]:italic [&_.tiptap_blockquote]:text-[#605e5c] [&_.tiptap_a]:text-[#0078d4] [&_.tiptap_a]:underline [&_.tiptap_pre]:bg-[#f3f2f1] [&_.tiptap_pre]:p-3 [&_.tiptap_pre]:rounded [&_.tiptap_pre]:font-mono [&_.tiptap_pre]:text-[13px] [&_.tiptap_hr]:border-[#edebe9] [&_.tiptap_hr]:my-3 [&_.tiptap_p]:mb-1 [&_.tiptap_img]:max-w-full [&_.tiptap_img]:h-auto [&_.tiptap_img]:rounded" />
 
