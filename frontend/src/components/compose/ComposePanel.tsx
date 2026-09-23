@@ -12,7 +12,7 @@ import { sanitizeHtml, sanitizeSignatureHtml } from '../../lib/sanitize';
 import { separarCitado } from '../../lib/borradorCitado';
 import { cargarAdjuntosDelBorrador, cargarAdjuntosDelReenvio, filtrarPeligrosos, huellaAdjuntos } from '../../lib/adjuntosBorrador';
 import { EVENTO_MOSTRAR_CAMPO } from './chipsArrastrables';
-import { OPCIONES_RESIZE, pegarImagenes } from './imagenesPegadas';
+import { IMAGENES_SOLTADAS_EN_TEXTO, OPCIONES_RESIZE, pegarImagenes, soltarImagenes } from './imagenesPegadas';
 import { esReescritura, textoAParrafos } from '../../lib/autocompletar';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import React from 'react';
@@ -179,6 +179,7 @@ export function ComposePanel({ win }: Props) {
         style: 'font-family: Calibri, Segoe UI, sans-serif;',
       },
       handlePaste: (view, event) => pegarImagenes(view, event),
+      handleDrop: (view, event, slice, moved) => soltarImagenes(view, event, slice, moved),
     },
   });
 
@@ -768,9 +769,13 @@ export function ComposePanel({ win }: Props) {
     e.stopPropagation();
     setIsDragging(false);
     dragCounter.current = 0;
-    const files = e.dataTransfer.files;
-    if (!files || files.length === 0) return;
-    const { permitidos, aviso } = filtrarPeligrosos(Array.from(files));
+    let files = Array.from(e.dataTransfer.files || []);
+    // Imágenes soltadas sobre el texto: el editor ya las puso dentro; aquí se adjunta el resto.
+    if ((e.nativeEvent as unknown as Record<string, boolean>)[IMAGENES_SOLTADAS_EN_TEXTO]) {
+      files = files.filter(f => !f.type.startsWith('image/'));
+    }
+    if (files.length === 0) return;
+    const { permitidos, aviso } = filtrarPeligrosos(files);
     if (aviso) showToast(aviso);
     if (!permitidos.length) return;
     setAttachments(prev => [...prev, ...permitidos.map(f => ({ name: f.name, size: f.size, type: f.type, file: f }))]);
