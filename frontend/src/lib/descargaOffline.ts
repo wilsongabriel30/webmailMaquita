@@ -81,7 +81,7 @@ export async function descargarAhora(): Promise<EstadoDescarga> {
               await cacheFullMessage(carpeta, { ...ya, adjuntosBajados: true } as OfflineMessage);
             }
           } else {
-            const full = await pedir<Record<string, unknown>>(`/api/mail/message/${encodeURIComponent(carpeta)}/${m.uid}`);
+            const full = await pedir<Record<string, unknown>>(`/api/mail/message/${encodeURIComponent(carpeta)}/${m.uid}?marcar_leido=false`);
             if (full) {
               const reg = { ...full, id: `${carpeta}:${m.uid}`, uid: m.uid, folder: carpeta, cachedAt: Date.now() } as unknown as Bajable;
               await descargarAdjuntos(carpeta, m.uid, reg.attachments);

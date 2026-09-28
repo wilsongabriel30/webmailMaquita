@@ -173,14 +173,20 @@ async def read_message(
     uid: int,
     request: Request,
     load_images: bool = False,
+    marcar_leido: bool = True,
     username: str = Depends(get_current_user),
 ):
+    # marcar_leido=false: lo usa la descarga para leer sin conexion y la carga de adjuntos,
+    # que piden el correo sin que nadie lo haya abierto. Sin esto, los correos nuevos
+    # quedaban como leidos solos.
     _validate_folder(folder)
     password = await get_user_password(request, username)
     login_user = await get_imap_login_user(request, username)
     redis = request.app.state.redis
     async with get_pooled_imap(login_user, password) as imap:
-        msg = await get_message(imap, folder, uid, block_remote_images=not load_images)
+        msg = await get_message(
+            imap, folder, uid, block_remote_images=not load_images, mark_seen=marcar_leido
+        )
         if msg is None:
             from fastapi import HTTPException
 

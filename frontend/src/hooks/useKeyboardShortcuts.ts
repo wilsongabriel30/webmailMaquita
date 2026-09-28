@@ -3,6 +3,7 @@ import { useMailStore } from '../store/mailStore';
 import { api } from '../api/client';
 import type { MessageFull } from '../types';
 import { sanitizeHtml } from '../lib/sanitize';
+import { destinatariosResponderATodos } from '../lib/destinatariosRespuesta';
 import { showToast } from '../components/common/Toast';
 
 
@@ -134,9 +135,10 @@ export function useKeyboardShortcuts() {
           if (state.selectedMessage) {
             const msg = state.selectedMessage;
             const quoteHtml = buildQuoteHtml(msg, 'reply');
+            const destinatarios = destinatariosResponderATodos({ ...msg, folder: msg.folder || folder });
             state.openCompose('replyAll', {
-              to: [msg.from],
-              cc: msg.cc ? msg.cc.split(',').map(s => s.trim()) : [],
+              to: destinatarios.to,
+              cc: destinatarios.cc,
               subject: msg.subject.startsWith('Re:') ? msg.subject : `Re: ${msg.subject}`,
               text_body: '',
               html_body: quoteHtml,

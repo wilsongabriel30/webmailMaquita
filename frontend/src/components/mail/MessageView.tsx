@@ -1,4 +1,7 @@
 import SafeEmailViewer from './SafeEmailViewer';
+import AvisoImagenesBloqueadas from './AvisoImagenesBloqueadas';
+import CuerpoHtmlConImagenes from './CuerpoHtmlConImagenes';
+import { destinatariosResponderATodos } from '../../lib/destinatariosRespuesta';
 import { BarraAccionesCorreo } from './BarraAccionesCorreo';
 import { ImagenesEnCuerpo } from './ImagenesEnCuerpo';
 import { useCabeceraPlegable } from '../../hooks/useCabeceraPlegable';
@@ -728,8 +731,9 @@ const ThreadMessageCard: React.FC<ThreadMessageCardProps> = ({
       {/* Body */}
       <div style={{ padding: '0 16px 14px' }}>
         {msg.html_body ? (
-          <SafeEmailViewer
-            htmlBody={msg.html_body}
+          <CuerpoHtmlConImagenes
+            msg={msg}
+            folder={msg.folder || currentFolder}
             style={{ fontSize: 14, lineHeight: 1.6 }}
           />
         ) : (
@@ -938,16 +942,17 @@ const MessageView: React.FC = () => {
       msg.html_body || `<pre style="white-space:pre-wrap">${msg.text_body}</pre>`,
       false,
     );
+    const destinatarios = destinatariosResponderATodos({ ...msg, folder: msg.folder || currentFolder });
     openCompose('replyAll', {
-      to: [extractEmail(msg.from)],
-      cc: [msg.to, msg.cc].filter(Boolean).join(', ').split(',').map(s => s.trim()).filter(Boolean),
+      to: destinatarios.to,
+      cc: destinatarios.cc,
       subject: msg.subject.startsWith('Re:') ? msg.subject : `Re: ${msg.subject}`,
       text_body: '',
       in_reply_to: msg.message_id || '',
       references: msg.references ? `${msg.references} ${msg.message_id}` : (msg.message_id || ''),
       html_body: quoteHtml,
     });
-  }, [msg, openCompose]);
+  }, [msg, openCompose, currentFolder]);
 
   const handleForward = useCallback(() => {
     if (!msg || !openCompose) return;
@@ -1372,28 +1377,11 @@ const MessageView: React.FC = () => {
         </>)}
 
         {showBlockedBanner && (
-          <div style={{
-            marginTop: 12, padding: '8px 12px', background: '#fff4ce', borderRadius: 4,
-            display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: '#323130',
-          }}>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="#797775">
-              <path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 10.5a.75.75 0 110-1.5.75.75 0 010 1.5zM8.75 4v5h-1.5V4h1.5z"/>
-            </svg>
-            <span>
-              Se bloquearon {displayMsg!.blocked_image_count} imagen{displayMsg!.blocked_image_count > 1 ? 'es' : ''} remota{displayMsg!.blocked_image_count > 1 ? 's' : ''} por seguridad.
-            </span>
-            <button
-              onClick={handleLoadImages}
-              disabled={loadingImages}
-              style={{
-                background: '#0078d4', color: '#fff', border: 'none', borderRadius: 4,
-                padding: '4px 12px', fontSize: 12, cursor: loadingImages ? 'default' : 'pointer',
-                fontWeight: 600, marginLeft: 'auto', opacity: loadingImages ? 0.6 : 1,
-              }}
-            >
-              {loadingImages ? 'Cargando...' : 'Cargar imágenes'}
-            </button>
-          </div>
+          <AvisoImagenesBloqueadas
+            cantidad={displayMsg!.blocked_image_count}
+            cargando={loadingImages}
+            onCargar={handleLoadImages}
+          />
         )}
 
         <RemitenteExternoAviso email={senderEmail} nombre={senderName} />
