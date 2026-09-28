@@ -70,6 +70,12 @@ ejemplo: **defínelas antes de actualizar**.
 | `KEYCLOAK_SERVER_URL`, `ONLYOFFICE_PUBLIC_URL` | inicio de sesión único y editor de documentos |
 | `MAIL_SERVER`, `MAIL_USERNAME`, `MAIL_DEFAULT_SENDER` | correo saliente del chat |
 
+### La nube (drive-maquita)
+
+Lee el `.env` de su carpeta raíz. Define antes de actualizar: `ALMACEN_URL_PUBLICA`,
+`ALMACEN_URL_LINKS`, `ALMACEN_DB_HOST`, `NOMINA_DB_HOST`, `ALMACEN_URL_WEBMAIL`,
+`ALMACEN_CHAT_URL`, `CAD_CONVERSOR_URL` y `ALMACEN_EDITOR_SERVIDOR`.
+
 Para que no vuelva a pasar, el Guardián revisa los datos propios en cada confirmación:
 `deploy/hooks/instalar.sh` crea `.git/guardian-datos-propios`; rellénalo con tus dominios y
 redes.
