@@ -1,11 +1,11 @@
 import { api, enRuta } from '../api.js';
-import { el, aviso, campo, ventana } from '../ui.js';
+import { el, agregar, aviso, campo, lista, ventana } from '../ui.js';
 
 const AYUDA_DESTINOS = 'Una o varias cuentas de tus dominios, separadas por comas. Deben existir.';
 
 function formulario(dominios, actual, alTerminar) {
   const local = campo('Nombre del alias', { type: 'text', required: true, maxlength: 64, pattern: '[A-Za-z0-9][A-Za-z0-9._\\-]*', autocomplete: 'off' }, 'Ejemplo: info, ventas, contacto');
-  const dominio = el('select', null, dominios.map(d => el('option', { value: d }, '@' + d)));
+  const dominio = lista('Dominio', dominios.map(d => ({ valor: d, texto: '@' + d })));
   const destinos = campo('Entrega en', { type: 'text', required: true, maxlength: 4000, valor: actual ? actual.goto.split(',').join(', ') : '' }, AYUDA_DESTINOS);
   if (actual) {
     ventana('Editar ' + actual.address, destinos.nodo, 'Guardar', async () => {
@@ -14,8 +14,8 @@ function formulario(dominios, actual, alTerminar) {
     });
     return;
   }
-  ventana('Nuevo alias', el('div', null, local.nodo, el('label', null, 'Dominio'), dominio, destinos.nodo), 'Crear alias', async () => {
-    const direccion = `${local.entrada.value.trim()}@${dominio.value}`;
+  ventana('Nuevo alias', el('div', null, local.nodo, dominio.nodo, destinos.nodo), 'Crear alias', async () => {
+    const direccion = `${local.entrada.value.trim()}@${dominio.entrada.value}`;
     await api.post('/alias', { address: direccion, goto: destinos.entrada.value });
     alTerminar(`Alias ${direccion} creado.`);
   });
@@ -25,7 +25,8 @@ export async function vistaAlias(sesion, mensaje) {
   const lista = await api.get('/alias');
   const raiz = el('div');
   const recargar = async (texto) => raiz.replaceWith(await vistaAlias(sesion, texto));
-  raiz.append(
+  // agregar() descarta los huecos; append() a secas escribiría la palabra «null».
+  agregar(raiz,
     el('h1', null, 'Alias'),
     el('p', { clase: 'sub' }, 'Direcciones que entregan el correo en una o varias cuentas de tu dominio.'),
     mensaje ? aviso('ok', mensaje) : null,

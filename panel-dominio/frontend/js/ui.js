@@ -16,11 +16,33 @@ export function el(etiqueta, atributos, ...hijos) {
   return nodo;
 }
 
+/** Agrega hijos a un nodo que ya existe, con las mismas reglas que el(): sin huecos y todo como texto. */
+export function agregar(nodo, ...hijos) {
+  for (const h of hijos.flat()) {
+    if (h === null || h === undefined || h === false) continue;
+    nodo.append(h instanceof Node ? h : document.createTextNode(String(h)));
+  }
+  return nodo;
+}
+
 export const aviso = (tipo, texto) => el('p', { clase: 'aviso ' + tipo, role: tipo === 'error' ? 'alert' : 'status' }, texto);
 
+// Cada etiqueta va enlazada a su casilla (for/id): así la lee un lector de pantalla y
+// tocar la etiqueta lleva el cursor al campo.
+let siguienteId = 0;
+const idNuevo = () => 'c' + (++siguienteId);
+
 export function campo(etiqueta, atributos, ayuda) {
-  const entrada = el('input', atributos);
-  return { nodo: el('div', null, el('label', null, etiqueta), entrada, ayuda ? el('p', { clase: 'ayuda' }, ayuda) : null), entrada };
+  const id = idNuevo();
+  const pista = ayuda ? el('p', { clase: 'ayuda', id: id + '-ayuda' }, ayuda) : null;
+  const entrada = el('input', { ...atributos, id, 'aria-describedby': ayuda ? id + '-ayuda' : null });
+  return { nodo: el('div', null, el('label', { for: id }, etiqueta), entrada, pista), entrada };
+}
+
+export function lista(etiqueta, opciones) {
+  const id = idNuevo();
+  const entrada = el('select', { id }, opciones.map(o => el('option', { value: o.valor }, o.texto)));
+  return { nodo: el('div', null, el('label', { for: id }, etiqueta), entrada), entrada };
 }
 
 export const GIB = 1024 ** 3;
@@ -39,7 +61,7 @@ export function ventana(titulo, contenido, textoBoton, alGuardar, peligro) {
   } },
     el('h1', null, titulo), error, contenido,
     el('div', { clase: 'pie-form' }, el('button', { clase: 'boton claro', type: 'button', alClick: cerrar }, 'Cancelar'), guardar));
-  const velo = el('div', { clase: 'velo', role: 'dialog', 'aria-modal': 'true' }, formulario);
+  const velo = el('div', { clase: 'velo', role: 'dialog', 'aria-modal': 'true', 'aria-label': titulo, alKeydown: (e) => { if (e.key === 'Escape') cerrar(); } }, formulario);
   document.body.append(velo);
   const primero = formulario.querySelector('input, select');
   if (primero) primero.focus();

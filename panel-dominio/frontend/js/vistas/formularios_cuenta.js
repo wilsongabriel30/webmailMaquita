@@ -1,5 +1,5 @@
 import { api, enRuta } from '../api.js';
-import { el, campo, ventana, generarClave, GIB } from '../ui.js';
+import { el, campo, lista, ventana, generarClave, GIB } from '../ui.js';
 
 function campoClave(etiqueta) {
   const c = campo(etiqueta, { type: 'text', autocomplete: 'off', required: true, minlength: 10, maxlength: 128, spellcheck: 'false' },
@@ -10,12 +10,12 @@ function campoClave(etiqueta) {
 
 export function formularioNueva(dominios, alTerminar) {
   const local = campo('Nombre de la cuenta', { type: 'text', required: true, maxlength: 64, pattern: '[A-Za-z0-9][A-Za-z0-9._\\-]*', autocomplete: 'off' }, 'La parte antes de la arroba. Ejemplo: ana.perez');
-  const dominio = el('select', null, dominios.map(d => el('option', { value: d }, '@' + d)));
+  const dominio = lista('Dominio', dominios.map(d => ({ valor: d, texto: '@' + d })));
   const nombre = campo('Nombre de la persona', { type: 'text', required: true, maxlength: 255 });
   const clave = campoClave('Contraseña inicial');
-  ventana('Nueva cuenta', el('div', null, local.nodo, el('label', null, 'Dominio'), dominio, nombre.nodo, clave.nodo), 'Crear cuenta', async () => {
-    await api.post('/cuentas', { username: `${local.entrada.value.trim()}@${dominio.value}`, name: nombre.entrada.value, password: clave.entrada.value });
-    alTerminar(`Cuenta ${local.entrada.value.trim()}@${dominio.value} creada.`);
+  ventana('Nueva cuenta', el('div', null, local.nodo, dominio.nodo, nombre.nodo, clave.nodo), 'Crear cuenta', async () => {
+    await api.post('/cuentas', { username: `${local.entrada.value.trim()}@${dominio.entrada.value}`, name: nombre.entrada.value, password: clave.entrada.value });
+    alTerminar(`Cuenta ${local.entrada.value.trim()}@${dominio.entrada.value} creada.`);
   });
 }
 
