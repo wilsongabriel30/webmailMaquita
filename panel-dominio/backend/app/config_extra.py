@@ -12,3 +12,9 @@ MARCA_MAX_BYTES = int(os.getenv("PD_MARCA_MAX_KB", "512")) * 1024
 
 # Selectores DKIM que se consultan en la verificación DNS.
 SELECTORES_DKIM = [s.strip() for s in os.getenv("PD_SELECTORES_DKIM", "default,dkim,mail,selector1,selector2").split(",") if s.strip()]
+
+# Resolutores públicos por HTTPS para la verificación DNS, en orden de preferencia. Deben
+# responder en formato JSON (application/dns-json).
+RESOLUTORES_DOH = [u.strip() for u in os.getenv(
+    "PD_RESOLUTORES_DOH", "https://dns.google/resolve,https://cloudflare-dns.com/dns-query").split(",")
+    if u.strip().startswith("https://")]
