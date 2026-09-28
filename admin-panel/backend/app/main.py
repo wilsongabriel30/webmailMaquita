@@ -78,6 +78,7 @@ from app.risky_login.router import router as risky_login_router
 from app.antispam_avanzado.router import router as antispam_avanzado_router
 from app.zap.router import router as zap_router
 from app.safeattach.router import router as safeattach_router
+from app.admins_dominio.router import router as admins_dominio_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -140,6 +141,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 # Mount all routers
 app.include_router(auth_router)
+app.include_router(admins_dominio_router)
 app.include_router(dashboard_router)
 app.include_router(domains_router)
 app.include_router(mailboxes_router)
