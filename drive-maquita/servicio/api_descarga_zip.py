@@ -14,23 +14,25 @@ Rutas (montadas sobre bp_archivos, mismo prefijo /api/almacen):
     - sin comprobar → el ZIP como adjunto.
 
 Permisos: cada ruta pedida pasa por la misma validación que /archivos/descargar
-(_permiso_unidad + _efectivo + ruta_fisica). Límite: _ZIP_MAXIMO (2 GB), el
-mismo del ZIP de enlaces compartidos en integracion_faro.
+(_permiso_unidad + _efectivo + ruta_fisica).
+
+Sin límite de tamaño y reanudable (2026-09-28): el ZIP ya no se arma en /tmp,
+se envía en flujo y, si la descarga se corta, el navegador la continúa desde
+donde quedó (zip_reanudable.py). Antes había un tope de 2 GB.
 """
 import logging
 import os
 import tempfile
-import zipfile
+import time
 
-from flask import after_this_request, jsonify, request, send_file
+from flask import jsonify, request
 
 import api_archivos as _api
+import zip_reanudable
+import zip_reanudable_plan
 from seguridad_rutas import RutaInvalida, ruta_fisica
 
 log = logging.getLogger('almacen.api.zip')
-
-ZIP_MAXIMO = 2 * 1024 ** 3   # 2 GB por descarga (igual que integracion_faro)
-
 
 def _resolver(usuario, rutas):
     """Devuelve [(ruta_virtual, fisica)] o lanza ValueError/PermissionError."""
@@ -119,77 +121,91 @@ def descargar_zip():
     except (ValueError, RutaInvalida) as excepcion:
         return _api.error(str(excepcion), 400)
 
-    entradas, total = _inventario(resueltas)
     nombre = _nombre_zip(resueltas)
-    if total > ZIP_MAXIMO:
-        return _api.error('La descarga supera el límite de 2 GB por ZIP. '
-                          'Entra en la carpeta y descarga por partes.', 413)
 
     if request.args.get('comprobar') == '1':
+        entradas, total = _inventario(resueltas)
         return jsonify({'success': True, 'nombre': nombre, 'total_bytes': total,
                         'archivos': sum(1 for _r, f in entradas if f)})
 
     # (2026-09-04) Lo que esté abierto en el editor se guarda ANTES de
-    # empaquetar; si no, el ZIP se llevaría la versión anterior.
-    try:
-        import guardado_forzado
-        guardado_forzado.guardar_lote(usuario, _pares_virtuales(resueltas))
-    except Exception:
-        pass
-
-    token = _token_seguro(request.args.get('token', ''))
-    progreso = _Progreso(token, total)
-    temporal = tempfile.NamedTemporaryFile(prefix='almacen_zip_', suffix='.zip', delete=False)
-    temporal.close()
-    try:
-        with zipfile.ZipFile(temporal.name, 'w', zipfile.ZIP_DEFLATED) as z:
-            for ruta_zip, fisica in entradas:
-                if fisica is None:
-                    z.writestr(ruta_zip, b'')
-                else:
-                    # Las hojas salen con las listas y los colores en forma
-                    # clásica, para que se vean fuera del Drive.
-                    try:
-                        import compatibilidad_xlsx
-                        _compat = compatibilidad_xlsx.copia_compatible(fisica)
-                    except Exception:
-                        _compat = None
-                    _agregar_por_bloques(z, _compat or fisica, ruta_zip, progreso)
-                    if _compat:
-                        try:
-                            os.unlink(_compat)
-                        except OSError:
-                            pass
-        progreso.terminar()
-    except Exception:
-        log.exception('descargar-zip: fallo armando %s para usuario %s', nombre, usuario)
-        progreso.limpiar()
+    # empaquetar; si no, el ZIP se llevaría la versión anterior. Al REANUDAR
+    # no: cambiaría los archivos y la descarga tendría que empezar de nuevo.
+    if not request.headers.get('Range'):
         try:
-            os.unlink(temporal.name)
-        except OSError:
+            import guardado_forzado
+            guardado_forzado.guardar_lote(usuario, _pares_virtuales(resueltas))
+        except Exception:
             pass
+
+    entradas, total = _inventario(resueltas)
+    try:
+        plan = zip_reanudable_plan.obtener(zip_reanudable_plan.firma_de(entradas),
+                                           lambda: _construir(entradas))
+    except Exception:
+        log.exception('descargar-zip: fallo preparando %s para usuario %s', nombre, usuario)
         return _api.error('No se pudo preparar el ZIP', 500)
 
-    @after_this_request
-    def _borrar(respuesta):
-        try:
-            os.unlink(temporal.name)
-        except OSError:
-            pass
-        progreso.limpiar()
-        return respuesta
+    token = _token_seguro(request.args.get('token', ''))
+    _limpiar_progresos_viejos()
+    progreso = _Progreso(token, plan.total)
+
+    def _al_cerrar():
+        # Cancelada o fallida: el aviso desaparece. Si terminó bien, el
+        # archivo de progreso queda con listo=true para que la tarjeta lo vea.
+        if not progreso.listo:
+            progreso.limpiar()
 
     log.info('descargar-zip: usuario %s, %d elementos, %d bytes → %s',
              usuario, len(resueltas), total, nombre)
-    respuesta = send_file(temporal.name, mimetype='application/zip',
-                          as_attachment=True, download_name=nombre)
-    # Aviso «preparando la descarga» del explorador: el navegador no avisa
-    # cuando una navegación empieza a descargar, así que el cliente manda un
-    # token y vigila esta cookie para saber que el ZIP ya está saliendo.
+    respuesta = zip_reanudable.respuesta(
+        plan, nombre, al_avanzar=progreso.avanzar,
+        al_terminar=progreso.terminar, al_cerrar=_al_cerrar)
+    # La tarjeta del explorador vigila esta cookie para saber que el ZIP ya
+    # está saliendo (el navegador no avisa cuando una navegación pasa a ser
+    # descarga). Con el envío en flujo llega enseguida.
     if token:
         respuesta.set_cookie('almacen_descarga_' + token, '1', max_age=120,
                              path='/', samesite='Lax', secure=True)
     return respuesta
+
+
+def _copia_compatible(fisica):
+    """Las hojas salen con las listas y los colores en forma clásica, para
+    que se vean fuera del Drive. Devuelve un temporal o None."""
+    try:
+        import compatibilidad_xlsx
+        return compatibilidad_xlsx.copia_compatible(fisica)
+    except Exception:
+        return None
+
+
+def _construir(entradas):
+    """Lo que entra al ZIP, para el plan: (entradas, temporales). Las hojas
+    que necesitan traducción entran como su copia compatible, con la fecha
+    del original; las copias pasan a ser del plan."""
+    try:
+        from compatibilidad_xlsx import EXTENSIONES
+    except Exception:
+        EXTENSIONES = ()
+    hojas = [f for _r, f in entradas if f and EXTENSIONES and f.lower().endswith(EXTENSIONES)]
+    copias = dict(zip(hojas, zip_reanudable_plan.en_paralelo(_copia_compatible, hojas)))
+    crudas, temporales = [], []
+    for ruta_zip, fisica in entradas:
+        copia = copias.get(fisica) if fisica else None
+        if copia:
+            temporales.append(copia)
+            crudas.append((copia, ruta_zip, int(_fecha(fisica))))
+        else:
+            crudas.append((fisica, ruta_zip))
+    return crudas, temporales
+
+
+def _fecha(fisica):
+    try:
+        return os.path.getmtime(fisica)
+    except OSError:
+        return time.time()
 
 
 def _token_seguro(token):
@@ -198,11 +214,28 @@ def _token_seguro(token):
 
 
 # ── progreso del armado (porcentaje en la tarjeta del explorador) ────────────
-# Cada worker de gunicorn es un proceso distinto: el que arma el ZIP y el que
+# Cada worker de gunicorn es un proceso distinto: el que envía el ZIP y el que
 # atiende la consulta de progreso pueden no ser el mismo. Por eso el avance se
 # escribe en un archivo pequeño en /tmp identificado por el token del cliente.
-_BLOQUE = 1024 * 1024          # 1 MB por escritura al ZIP
 _DIR_PROGRESO = tempfile.gettempdir()
+_PROGRESO_VIDA = 3600          # segundos sin cambios para darlo por abandonado
+
+
+def _limpiar_progresos_viejos():
+    ahora = time.time()
+    try:
+        nombres = os.listdir(_DIR_PROGRESO)
+    except OSError:
+        return
+    for nombre in nombres:
+        if not nombre.startswith('almacen_zip_progreso_'):
+            continue
+        ruta = os.path.join(_DIR_PROGRESO, nombre)
+        try:
+            if ahora - os.path.getmtime(ruta) > _PROGRESO_VIDA:
+                os.unlink(ruta)
+        except OSError:
+            pass
 
 
 def _archivo_progreso(token):
@@ -214,10 +247,10 @@ class _Progreso:
     por segundo (para no castigar el NFS ni el disco con miles de escrituras)."""
 
     def __init__(self, token, total):
-        import time
         self.token = token
         self.total = max(total, 1)
         self.hechos = 0
+        self.listo = False
         self._ultimo = 0.0
         self._reloj = time.monotonic
         if token:
@@ -230,6 +263,7 @@ class _Progreso:
 
     def terminar(self):
         self.hechos = self.total
+        self.listo = True
         if self.token:
             self._escribir(forzar=True, listo=True)
 
@@ -258,20 +292,6 @@ class _Progreso:
                 os.unlink(_archivo_progreso(self.token) + sufijo)
             except OSError:
                 pass
-
-
-def _agregar_por_bloques(z, fisica, ruta_zip, progreso):
-    """Como z.write(), pero avisando el avance cada bloque: así el porcentaje
-    también se mueve dentro de un archivo grande (un video de 800 MB)."""
-    info = zipfile.ZipInfo.from_file(fisica, ruta_zip)
-    info.compress_type = zipfile.ZIP_DEFLATED
-    with open(fisica, 'rb') as origen, z.open(info, 'w') as destino:
-        while True:
-            bloque = origen.read(_BLOQUE)
-            if not bloque:
-                break
-            destino.write(bloque)
-            progreso.avanzar(len(bloque))
 
 
 @_api.bp_archivos.route('/archivos/descargar-zip/progreso', methods=['GET'])

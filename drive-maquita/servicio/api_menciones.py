@@ -78,7 +78,7 @@ def mencion():
 
     # El enlace lleva AL COMENTARIO, no solo al archivo: OnlyOffice manda un
     # `actionLink` que el editor entiende y usa para posicionarse. Se arma
-    # sobre URL_LINKS (siempre drive.maquita.com.ec) porque la notificación
+    # sobre URL_LINKS (siempre nube.example.org) porque la notificación
     # puede abrirse desde cualquier sitio, incluido el correo.
     destino = '%s/archivos-almacen/editar?ruta=%s' % (URL_LINKS, quote(ruta))
     enlace_accion = datos.get('enlace')

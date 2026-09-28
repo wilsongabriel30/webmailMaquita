@@ -218,7 +218,7 @@ def _destino_seguro(bruto):
 
     esquema = (partes.scheme or '').lower()
     if not esquema:
-        # Lo normal al escribirla a mano: «maquita.com.ec». Se asume https,
+        # Lo normal al escribirla a mano: «example.com». Se asume https,
         # nunca http: si el sitio no lo admite, mejor que falle a la vista que
         # mandar a la gente por una conexión sin cifrar.
         if texto.startswith('//') or texto.startswith('/'):

@@ -11,6 +11,7 @@ import io, os, sys
 from urllib.parse import quote
 sys.path.insert(0, '/home/sistemas/almacen-maquita/servicio')
 sys.path.insert(0, '/home/sistemas/almacen-maquita/servicio/consolidados')
+from config_almacen import DOMINIOS_ENLACES, URL_PUBLICA  # noqa: E402
 import openpyxl
 from openpyxl.styles import Font
 import consolidar_asc as c
@@ -24,7 +25,7 @@ if '--sandbox' in sys.argv:
 solo = sys.argv[sys.argv.index('--solo') + 1] if '--solo' in sys.argv else ''
 indice = c.indice_de_archivos()
 equiv = c.mapa_ids_google()
-EDITOR = 'https://datos.maquita.com.ec/archivos-almacen/editar?ruta='
+EDITOR = URL_PUBLICA.rstrip('/') + '/archivos-almacen/editar?ruta='
 
 
 def ruta_virtual(fisica):
@@ -51,7 +52,7 @@ for d in c.CONSOLIDADOS:
             celda.hyperlink = None          # sin texto no hay enlace (openpyxl escribiría la URL)
             continue
         destino = celda.hyperlink.target if celda.hyperlink else ''
-        if 'datos.maquita.com.ec' in (destino or ''):
+        if any(d in (destino or '') for d in DOMINIOS_ENLACES):
             continue
         referencia = texto
         m = c._RE_ID_GOOGLE.search(texto) or c._RE_ID_GOOGLE.search(destino or '')

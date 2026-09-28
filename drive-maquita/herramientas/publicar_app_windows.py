@@ -10,7 +10,7 @@ contra la URL pública, en vez de copiar a mano.
     publicar-app-windows publicar /ruta/ConectarDriveMaquita-Setup.exe 2.7.16 --notas "…"
 
 Tras publicar comprueba la descarga real: tamaño y sha256 de lo que sirve
-https://drive.maquita.com.ec/static/ deben coincidir con lo declarado.
+https://nube.example.org/static/ deben coincidir con lo declarado.
 """
 import argparse
 import datetime as dt
@@ -24,7 +24,7 @@ import sys
 ESTATICOS = '/home/sistemas/Maquita/interfaces/web/estaticos'
 NOMBRE_EXE = 'ConectarDriveMaquita-Setup.exe'
 NOMBRE_JSON = 'drive-windows-version.json'
-URL_BASE = 'https://drive.maquita.com.ec/static'
+URL_BASE = os.getenv('ALMACEN_URL_LINKS', 'https://nube.example.org').rstrip('/') + '/static'
 MINIMO_BYTES = 50 * 1024 * 1024        # un Setup real ronda los 85-90 MB
 
 

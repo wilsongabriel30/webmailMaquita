@@ -153,7 +153,7 @@ def explorador_almacen(ruta=''):
 
     # La pagina NO se guarda en cache. No es una precaucion de mas: sin esto,
     # el navegador se la quedaba por heuristica propia y seguia pidiendo los
-    # `?v=` VIEJOS de los JS y CSS. Como en drive.maquita.com.ec los estaticos
+    # `?v=` VIEJOS de los JS y CSS. Como en nube.example.org los estaticos
     # van con `Cache-Control: public, immutable` y un ano de caducidad, esos
     # archivos quedan congelados y NUNCA se revalidan: el cambio esta en el
     # servidor, se sirve bien, y aun asi la persona ve lo anterior.
@@ -177,7 +177,7 @@ def explorador_almacen(ruta=''):
 # Solo lectura: ver, navegar carpetas y descargar.
 # ---------------------------------------------------------------------------
 _EXT_IMAGEN = {'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'}
-_ZIP_MAXIMO = 2 * 1024 ** 3   # 2 GB por descarga completa
+_ZIP_MAXIMO = 2 * 1024 ** 3   # desde aqui el ZIP sale en flujo, sin cache en disco
 
 
 def _tam_humano(n):
@@ -654,7 +654,7 @@ def solicitar_acceso():
 @bp_almacen_web.route('/s/<token>/')
 @bp_almacen_web.route('/s/<token>/<path:subruta>')
 def enlace_corto_vista(token, subruta=''):
-    """Enlace CORTO de compartir (drive.maquita.com.ec/s/<token>) — redirige a la
+    """Enlace CORTO de compartir (nube.example.org/s/<token>) — redirige a la
     vista real. Así el link que ve la gente es corto y de marca (estilo Drive)."""
     from flask import redirect
     destino = f'/almacen-s/{token}' + (f'/{subruta}' if subruta else '')
@@ -663,7 +663,7 @@ def enlace_corto_vista(token, subruta=''):
 
 @bp_almacen_web.route('/e/<token>')
 def enlace_corto_editar(token):
-    """Enlace CORTO de EDICIÓN externa (drive.maquita.com.ec/e/<token>)."""
+    """Enlace CORTO de EDICIÓN externa (nube.example.org/e/<token>)."""
     from flask import redirect
     return redirect(f'/archivos-almacen/editar-publico?t={token}', 302)
 
@@ -794,6 +794,7 @@ def acceso_compartido(token, subruta=''):
 @bp_almacen_web.route('/almacen-s/<token>/archivo/<path:ruta>')
 @bp_almacen_web.route('/almacen-s/<token>/ver/<path:ruta>')
 @bp_almacen_web.route('/almacen-s/<token>/thumb/<path:ruta>')
+@bp_almacen_web.route('/almacen-s/<token>/previa/<path:ruta>')
 def descargar_compartido(token, ruta):
     """Entrega un archivo del enlace: descarga (/archivo), vista (/ver) o miniatura (/thumb)."""
     import os
@@ -815,12 +816,14 @@ def descargar_compartido(token, ruta):
     if not destino or not os.path.isfile(destino):
         abort(404)
 
-    modo = req.path.split('/')[3]  # archivo | ver | thumb
+    modo = req.path.split('/')[3]  # archivo | ver | thumb | previa
     ext = destino.rsplit('.', 1)[-1].lower() if '.' in destino else ''
-    if modo == 'thumb':
+    if modo in ('thumb', 'previa'):
+        # Foto reducida (cuadrícula y visor), no la original de varios MB.
         if ext not in _EXT_IMAGEN:
             abort(404)
-        return send_file(destino)
+        from compartido_medios import entregar_imagen
+        return entregar_imagen(destino, modo)
 
     # P-13b: dentro de un enlace de CARPETA compartido en modo «ver»/«editar»,
     # abrir el documento en OnlyOffice en vez de bajarlo. Es la misma decisión
@@ -868,7 +871,6 @@ def _compartido_ver_directo(token):
 def descargar_todo_compartido(token):
     """Descarga la carpeta compartida completa en un ZIP (como en la Nube)."""
     import os
-    import zipfile
     from datetime import datetime, timezone
     from flask import send_file, request as req, abort, after_this_request
 
@@ -889,82 +891,33 @@ def descargar_todo_compartido(token):
     if not destino or not os.path.isdir(destino):
         abort(404)
 
-    # Limite de cortesia: un ZIP gigante en un worker web es un riesgo para FARO.
-    total = 0
-    for carpeta, _dirs, archivos in os.walk(destino):
-        for nombre in archivos:
-            try:
-                total += os.path.getsize(os.path.join(carpeta, nombre))
-            except OSError:
-                pass
+    # Sin tope de tamano (28/09/2026): una carpeta grande no se arma en disco,
+    # sale en flujo y se puede reanudar si la descarga se corta.
+    import compartido_medios
+    total, firma = compartido_medios.medir_carpeta(destino)
     if total > _ZIP_MAXIMO:
-        return ('<div style="font-family:Arial;max-width:420px;margin:90px auto;text-align:center">'
-                '<h3>Carpeta muy grande</h3><p style="color:#5f6368">Esta carpeta supera el limite '
-                'de descarga en un solo ZIP. Abre el enlace y descarga los archivos que necesites.'
-                '</p></div>', 413)
+        return compartido_medios.zip_grande(destino, base, comp, req.args.get('aviso'), firma)
 
-    import tempfile
-    temporal = tempfile.NamedTemporaryFile(prefix='almacen_zip_', suffix='.zip', delete=False)
-    temporal.close()
-    # Política de macros dentro del ZIP: cada archivo con macros entra como su
-    # COPIA LIMPIA (mismos datos y fórmulas, sin la macro). Los que no se
-    # pueden limpiar no entran, y se listan en un aviso dentro del propio ZIP
-    # para que quien lo abra sepa qué falta y por qué.
-    import compartir_macros
-    omitidos = []
-    limpiados = []
-    with zipfile.ZipFile(temporal.name, 'w', zipfile.ZIP_DEFLATED) as z:
-        for carpeta, _dirs, archivos in os.walk(destino):
-            for nombre in archivos:
-                completo = os.path.join(carpeta, nombre)
-                relativo = os.path.relpath(completo, destino)
-                if not compartir_macros.con_macros(completo, nombre):
-                    z.write(completo, relativo)
-                    continue
-                virtual = None
-                try:
-                    from seguridad_rutas import normalizar_ruta_virtual
-                    virtual = normalizar_ruta_virtual(
-                        comp['ruta'] + '/' + os.path.relpath(completo, base))
-                except Exception:
-                    virtual = None
-                ruta_ok, nombre_ok, tmp = compartir_macros.entrega_segura(
-                    completo, nombre, comp['propietario_id'], virtual)
-                if not ruta_ok:
-                    omitidos.append(relativo)
-                    continue
-                destino_zip = os.path.join(os.path.dirname(relativo), nombre_ok)
-                z.write(ruta_ok, destino_zip)
-                limpiados.append(relativo)
-                if tmp:
-                    try:
-                        os.unlink(tmp)
-                    except OSError:
-                        pass
-        if omitidos or limpiados:
-            aviso = ['Archivos con macros de la Fundación Maquita', '']
-            if limpiados:
-                aviso.append('Se incluyeron SIN la macro (conservan datos, '
-                             'fórmulas y formato):')
-                aviso += ['  - ' + x for x in limpiados] + ['']
-            if omitidos:
-                aviso.append('NO se incluyeron (no se pudo quitarles la macro). '
-                             'Pídelos a quien te compartió el enlace:')
-                aviso += ['  - ' + x for x in omitidos]
-            z.writestr('LEEME - archivos con macros.txt',
-                       '\n'.join(aviso).encode('utf-8'))
+    # El ZIP de la misma carpeta sin cambios se reutiliza (2 h): la segunda
+    # persona que descarga el enlace no espera a que se arme otra vez.
+    ruta_zip = compartido_medios.zip_en_cache(firma)
+    temporal = False
+    if not ruta_zip:
+        ruta_zip, temporal = compartido_medios.armar_zip(destino, base, comp, firma, total)
     titulo = os.path.basename(destino.rstrip('/')) or 'compartido'
 
-    @after_this_request
-    def _borrar(respuesta):
-        try:
-            os.unlink(temporal.name)
-        except OSError:
-            pass
-        return respuesta
+    if temporal:
+        @after_this_request
+        def _borrar(respuesta):
+            try:
+                os.unlink(ruta_zip)
+            except OSError:
+                pass
+            return respuesta
 
-    return send_file(temporal.name, mimetype='application/zip', as_attachment=True,
-                     download_name=titulo + '.zip')
+    respuesta = send_file(ruta_zip, mimetype='application/zip', as_attachment=True,
+                          download_name=titulo + '.zip', conditional=True)
+    return compartido_medios.marcar_aviso(respuesta, req.args.get('aviso'))
 
 
 def registrar_almacen(app):
@@ -1007,6 +960,7 @@ def registrar_almacen(app):
         from api_orto import bp_orto
         from api_vinculos import bp_vinculos, asegurar_esquema_vinculos
         from api_vinculos_vivo import bp_vinculos_vivo   # respuestas en vivo (11/09/2026)
+        from api_encuestas_vivo import bp_encuestas_vivo  # filas en vivo (21/09/2026)
         from api_consolidados_latido import bp_consolidados_latido   # matrices ASC (11/09/2026)
         from api_monitor import bp_monitor
         from api_encuestas import bp_encuestas, bp_encuestas_web
@@ -1043,7 +997,8 @@ def registrar_almacen(app):
                       'para no dejar la API sin rutas: %s', _exc_esquema)
 
         # API del motor bajo /api/almacen (NO choca con /api/nextcloud)
-        for bp in (bp_archivos, bp_compartir, bp_extras, bp_admin, bp_versiones, bp_almacenamiento, bp_actividad, bp_unidades, bp_onlyoffice, bp_drawio, bp_crear, bp_oo_drive, bp_acceso_externo, bp_cad, bp_orto, bp_vinculos, bp_monitor, bp_macros, bp_menciones, bp_dav, bp_dav_compartir, bp_dav_equipo, bp_encuestas, bp_busqueda_rapida, bp_enlace_info, bp_diag_editor, bp_descomprimir, bp_formulario_libro, bp_vinculos_vivo, bp_consolidados_latido):
+        for bp in (bp_archivos, bp_compartir, bp_extras, bp_admin, bp_versiones, bp_almacenamiento, bp_actividad, bp_unidades, bp_onlyoffice, bp_drawio, bp_crear, bp_oo_drive, bp_acceso_externo, bp_cad, bp_orto, bp_vinculos, bp_monitor, bp_macros, bp_menciones, bp_dav, bp_dav_compartir, bp_dav_equipo, bp_encuestas, bp_busqueda_rapida, bp_enlace_info, bp_diag_editor, bp_descomprimir, bp_formulario_libro, bp_vinculos_vivo, bp_encuestas_vivo,
+                   bp_consolidados_latido):
             app.register_blueprint(bp, url_prefix='/api/almacen')
         # Página del explorador en modo Almacén
         app.register_blueprint(bp_almacen_web)
@@ -1090,6 +1045,7 @@ def registrar_almacen(app):
                 # Los llama la página del editor (sin token CSRF), igual que
                 # el botón: respuestas en vivo y latido de matrices (11/09/2026).
                 _csrf.exempt(bp_vinculos_vivo)
+                _csrf.exempt(bp_encuestas_vivo)
                 _csrf.exempt(bp_consolidados_latido)
         except Exception as _exc_enc:
             log.warning('No se pudo eximir los formularios públicos de CSRF: %s',

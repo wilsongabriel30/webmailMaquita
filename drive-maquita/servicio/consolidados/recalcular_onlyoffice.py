@@ -29,6 +29,7 @@ import uuid
 import requests
 
 sys.path.insert(0, '/home/sistemas/almacen-maquita/servicio')
+from config_almacen import SERVIDOR_EDITOR  # noqa: E402
 
 import api_onlyoffice as oo  # noqa: E402
 
@@ -71,7 +72,7 @@ class _Servidor(threading.Thread):
 def _ip_local():
     """IP por la que el Document Server puede volver a hablarnos."""
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sonda:
-        sonda.connect(('193.16.0.211', 80))
+        sonda.connect((SERVIDOR_EDITOR, 80))
         return sonda.getsockname()[0]
 
 
