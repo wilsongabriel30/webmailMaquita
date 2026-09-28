@@ -183,9 +183,14 @@ async def read_message(
     password = await get_user_password(request, username)
     login_user = await get_imap_login_user(request, username)
     redis = request.app.state.redis
+    from app.mail.services.imagenes_remotas import debe_bloquear
+
+    bloquear = not load_images and await debe_bloquear(
+        request.app.state.db_pool, username, folder
+    )
     async with get_pooled_imap(login_user, password) as imap:
         msg = await get_message(
-            imap, folder, uid, block_remote_images=not load_images, mark_seen=marcar_leido
+            imap, folder, uid, block_remote_images=bloquear, mark_seen=marcar_leido
         )
         if msg is None:
             from fastapi import HTTPException

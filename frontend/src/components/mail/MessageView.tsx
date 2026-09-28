@@ -757,7 +757,6 @@ const ThreadMessageCard: React.FC<ThreadMessageCardProps> = ({
 
 const MessageView: React.FC = () => {
   const msg = useMailStore(s => s.selectedMessage);
-  const blockRemoteImages = useMailStore(s => s.blockRemoteImages);
   const loadingMessage = useMailStore(s => s.loadingMessage);
   const currentFolder = useMailStore(s => s.currentFolder);
   const openCompose = useMailStore(s => s.openCompose);
@@ -832,16 +831,6 @@ const MessageView: React.FC = () => {
       setLoadingImages(false);
     }
   }, [msg, currentFolder]);
-
-  // 2026-08-31: si el usuario DESACTIVO el bloqueo de imagenes remotas,
-  // cargarlas automaticamente (mismo mecanismo que el boton manual).
-  React.useEffect(() => {
-    if (blockRemoteImages) return;
-    if (!msg) return;
-    const bloqueadas = !!(msg.has_remote_images && msg.blocked_image_count > 0);
-    const yaCargadas = imageMsg?.uid === msg.uid;
-    if (bloqueadas && !yaCargadas && !loadingImages) handleLoadImages();
-  }, [msg, blockRemoteImages, imageMsg, loadingImages, handleLoadImages]);
 
   const handleDownloadEml = useCallback(async () => {
     if (!msg) return;
