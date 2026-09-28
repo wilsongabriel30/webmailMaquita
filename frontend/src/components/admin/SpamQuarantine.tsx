@@ -266,6 +266,7 @@ function LogTab() {
       .finally(() => setLoading(false));
   };
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial de la lista al montar la pestaña
   useEffect(() => { load(); }, []);
 
   return (
