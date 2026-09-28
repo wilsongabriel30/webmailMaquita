@@ -15,8 +15,10 @@ depende por completo del autodiscover):
 - JSON v2 (`/autodiscover/autodiscover.json[/v1.0/<correo>]?Protocol=ActiveSync|AutodiscoverV1`),
   el que usa el nuevo Outlook y Outlook móvil.
 
-`<Server>` = el host canónico del correo (mismo Dovecot que sirve TODOS los dominios virtuales).
-Host canónico: env `AUTODISCOVER_MAIL_HOST`, si no `mail.<mail_domain>` del .env.
+`<Server>` = el servidor de la EMPRESA de esa cuenta, si tiene portal (`mail.<empresa>`, tabla
+`portal_empresa`); si no, el servidor general: env `AUTODISCOVER_MAIL_HOST` o `mail.<mail_domain>`.
+Por debajo es el mismo Dovecot, pero cada empresa ve su propio nombre. El nombre de un portal
+tiene que estar en el certificado de IMAP (993) y SMTP (465), no solo en el de la web.
 Anónimo (solo entrega ajustes; el email viene en el POST). Montado sin prefijo; nginx enruta
 /autodiscover/autodiscover.xml y .json al backend para CADA dominio.
 """
@@ -29,6 +31,7 @@ from fastapi import APIRouter, Request, Response
 from fastapi.responses import JSONResponse
 
 from app.config import get_settings
+from app.portales import direcciones
 
 router = APIRouter()
 
@@ -52,8 +55,14 @@ def _mail_host() -> str:
     return f"mail.{md}" if md and md != "example.com" else "mail.example.org"
 
 
-def url_activesync() -> str:
-    return f"https://{_mail_host()}/Microsoft-Server-ActiveSync"
+async def _servidor(request: Request, email: str) -> str:
+    """Servidor que se le entrega a esa cuenta: el de su empresa o el general."""
+    db = getattr(request.app.state, "db_pool", None)
+    return await direcciones.servidor_de_cuenta(db, email, general=_mail_host())
+
+
+def url_activesync(servidor: str | None = None) -> str:
+    return f"https://{servidor or _mail_host()}/Microsoft-Server-ActiveSync"
 
 
 def esquema_pedido(raw: str) -> str:
@@ -68,9 +77,9 @@ def esquema_pedido(raw: str) -> str:
     return "outlook"
 
 
-def _build_xml(email: str) -> str:
+def _build_xml(email: str, servidor: str | None = None) -> str:
     e = html.escape(email)
-    host = html.escape(_mail_host())
+    host = html.escape(servidor or _mail_host())
     return f"""<?xml version="1.0" encoding="utf-8"?>
 <Autodiscover xmlns="http://schemas.microsoft.com/exchange/autodiscover/responseschema/2006">
   <Response xmlns="{ESQUEMA_OUTLOOK}">
@@ -106,9 +115,9 @@ def _build_xml(email: str) -> str:
 """
 
 
-def _build_xml_mobilesync(email: str) -> str:
+def _build_xml_mobilesync(email: str, servidor: str | None = None) -> str:
     e = html.escape(email)
-    url = html.escape(url_activesync())
+    url = html.escape(url_activesync(servidor))
     return f"""<?xml version="1.0" encoding="utf-8"?>
 <Autodiscover xmlns="http://schemas.microsoft.com/exchange/autodiscover/responseschema/2006">
   <Response xmlns="{ESQUEMA_MOBILESYNC}">
@@ -146,11 +155,12 @@ async def _handle(request: Request) -> Response:
     email = m.group(1).strip().lower() if m else ""
     if not _VALID.match(email):
         return _error_xml("Email invalido")
+    servidor = await _servidor(request, email)
     if esquema_pedido(raw) == "mobilesync":
         return Response(
-            content=_build_xml_mobilesync(email), media_type="application/xml"
+            content=_build_xml_mobilesync(email, servidor), media_type="application/xml"
         )
-    return Response(content=_build_xml(email), media_type="application/xml")
+    return Response(content=_build_xml(email, servidor), media_type="application/xml")
 
 
 @router.post("/autodiscover/autodiscover.xml")
@@ -163,7 +173,7 @@ async def autodiscover_capitalized(request: Request):
     return await _handle(request)
 
 
-def _json_v2(email: str, protocolo: str) -> Response:
+async def _json_v2(request: Request, email: str, protocolo: str) -> Response:
     """Autodiscover v2 (JSON): el nuevo Outlook pide `Protocol=ActiveSync` (o `AutodiscoverV1`
     para saber dónde está el XML). `Email` viene en la ruta o en la query."""
     p = (protocolo or "").strip().lower()
@@ -172,13 +182,14 @@ def _json_v2(email: str, protocolo: str) -> Response:
             {"ErrorCode": "InvalidRequest", "ErrorMessage": "Email invalido"},
             status_code=400,
         )
+    servidor = await _servidor(request, email)
     if p == "activesync":
-        return JSONResponse({"Protocol": "ActiveSync", "Url": url_activesync()})
+        return JSONResponse({"Protocol": "ActiveSync", "Url": url_activesync(servidor)})
     if p == "autodiscoverv1":
         return JSONResponse(
             {
                 "Protocol": "AutodiscoverV1",
-                "Url": f"https://{_mail_host()}/autodiscover/autodiscover.xml",
+                "Url": f"https://{servidor}/autodiscover/autodiscover.xml",
             }
         )
     return JSONResponse(
@@ -194,7 +205,8 @@ def _json_v2(email: str, protocolo: str) -> Response:
 @router.get("/Autodiscover/Autodiscover.json")
 async def autodiscover_json(request: Request):
     q = request.query_params
-    return _json_v2(
+    return await _json_v2(
+        request,
         (q.get("Email") or q.get("email") or "").strip().lower(),
         q.get("Protocol") or q.get("protocol") or "",
     )
@@ -204,4 +216,6 @@ async def autodiscover_json(request: Request):
 @router.get("/Autodiscover/Autodiscover.json/v1.0/{email}")
 async def autodiscover_json_v1(email: str, request: Request):
     q = request.query_params
-    return _json_v2(email.strip().lower(), q.get("Protocol") or q.get("protocol") or "")
+    return await _json_v2(
+        request, email.strip().lower(), q.get("Protocol") or q.get("protocol") or ""
+    )

@@ -10,6 +10,24 @@ servicio, reiniciar lo que cambió y correr `deploy/tools/validar-despliegue.sh`
 
 ---
 
+## Direcciones por dominio (2026-09-28)
+
+A las cuentas de una empresa con portal activo se les entrega ahora el servidor de SU empresa
+en Outlook, en las aplicaciones móviles y en los enlaces de los avisos. Antes recibían siempre
+el general.
+
+**Antes de actualizar**, por cada portal activo comprueba que su nombre está en el certificado
+de la web, de IMAP y de SMTP:
+
+```bash
+psql -d maildb -Atc "SELECT host FROM portal_empresa WHERE activo" | while read h; do
+  echo "== $h"; python3 deploy/tools/comprobar-portal.py "$h"; done
+```
+
+Si alguno falla, corrige el certificado o desactiva ese portal; o arranca con
+`DIRECCIONES_POR_DOMINIO=0` y actívalo después. Las cuentas que ya están configuradas en
+Outlook no cambian: esto afecta a las altas nuevas. Guía: `docs/DOMINIO-NUEVO.md`.
+
 ## Datos de la organización fuera del código (2026-09-28) — LEER ANTES DE ACTUALIZAR
 
 Hasta ahora el código traía escritos los dominios, las redes y los correos de la organización
