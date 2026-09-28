@@ -2,7 +2,7 @@
 # Base oficial en su etiqueta actual y paquetes del sistema al día en cada build; se reconstruye
 # cada mes (OPERACION.md). No se migra a Alpine ni a PHP «rc». El crítico de zlib/minizip
 # (CVE-2023-45853, sin corrección en Debian, minizip no se usa) está aceptado con motivo (D-9).
-FROM php:8.3-fpm-bookworm
+FROM php:8.5-fpm-bookworm
 
 ARG ZPUSH_VERSION=2.7.6
 # Dimensionado: cada dispositivo en Ping ocupa un worker de PHP-FPM (~25-30 MB) mientras espera.
