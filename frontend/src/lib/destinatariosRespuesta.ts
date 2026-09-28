@@ -1,7 +1,8 @@
 // Destinatarios de «Responder a todos».
 //
 // Regla: quien responde no se escribe a sí mismo. Se quitan la cuenta propia y, si el correo
-// está en una cuenta delegada, también esa cuenta. Tampoco se repite nadie.
+// está en una cuenta delegada, también esa cuenta; en ambos casos con sus alias personales
+// (la misma persona con dirección en otro dominio del servidor). Tampoco se repite nadie.
 // Si el correo original lo envió la propia persona (p. ej. desde Enviados), la respuesta va a
 // quienes lo recibieron, no a ella misma.
 import { useAuthStore } from '../store/authStore';
@@ -49,9 +50,14 @@ export function direccionesPropias(carpeta?: string | null): Set<string> {
   const usuario = useAuthStore.getState().user?.username;
   if (usuario) propias.add(usuario.toLowerCase());
   const estado = useMailStore.getState();
-  for (const c of estado.cuentas || []) if (c.propia && c.email) propias.add(c.email.toLowerCase());
   const delegada = cuentaDeCarpeta(carpeta || estado.currentFolder);
   if (delegada) propias.add(delegada);
+  for (const c of estado.cuentas || []) {
+    const correo = (c.email || '').toLowerCase();
+    if (!correo || !(c.propia || correo === delegada)) continue;
+    propias.add(correo);
+    for (const a of c.alias || []) propias.add(a.toLowerCase());
+  }
   return propias;
 }
 
