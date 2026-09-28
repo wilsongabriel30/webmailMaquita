@@ -11,7 +11,6 @@ REGLAS:
 - No depende de ningun modulo especifico
 
 Autor: Wilson Arguello
-Correo: gestiontecnologia@maquita.com.ec
 Fecha: 2026-01-02
 Migrado a compartido: 2026-01-05
 """

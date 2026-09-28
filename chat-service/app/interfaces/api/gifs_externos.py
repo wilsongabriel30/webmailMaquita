@@ -33,6 +33,7 @@ from flask import jsonify, request
 
 from interfaces.api.controlador_gifs import (bp_gifs, DIR_GIFS, MAGIC, TAM_MAX, _a_dict, _conexion,
                                              _normalizar_etiquetas, _usuario_id)
+import organizacion
 
 logger = logging.getLogger(__name__)
 # Sin clave propia NO se consulta a GIPHY. Antes, si faltaba, se usaba una clave
@@ -43,7 +44,7 @@ GIPHY_KEY = (os.getenv('GIPHY_API_KEY') or '').strip()
 # Wikimedia Commons no pide clave, pero tambien es una salida a un tercero con
 # el texto que escribe la persona: se activa a proposito, no por defecto.
 COMMONS_ACTIVO = (os.getenv('GIFS_EXTERNOS_COMMONS') or '').strip().lower() in ('1', 'true', 'si')
-UA = {'User-Agent': 'RaicesMaquitaChat/1.0 (https://maquita.com.ec)'}
+UA = {'User-Agent': 'RaicesChat/1.0 (' + organizacion.url_correo() + ')'}
 TIEMPO = 12
 
 

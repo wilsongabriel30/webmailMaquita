@@ -16,6 +16,7 @@ import psycopg2.extras
 from flask import Blueprint, jsonify, request
 
 from interfaces.api.reuniones_api import _yo, _a_dict, _conexion, _evento_correo_crear, _participantes
+import organizacion
 
 bp_reuniones_vinculo = Blueprint('reuniones_vinculo', __name__, url_prefix='/api/chat/reuniones')
 
@@ -109,7 +110,7 @@ def actualizar(rid):
         ids = [u for u in usuarios_por_correo(participantes) if u != yo['id']]
         if ids:
             emitir(ids, 'reunion', f'Reunión actualizada: {asunto}', f"{yo['nombre']} · {inicio:%d/%m %H:%M}",
-                   f"https://mail.maquita.org/api/chat/reuniones/{rid}/acceso",
+                   f"{organizacion.url_correo()}/api/chat/reuniones/{rid}/acceso",
                    {'origen': 'reuniones', 'reunion_id': rid, 'sala': nuevo['nombre_sala'], 'inicio': inicio.isoformat(timespec='minutes'),
                     'avatar': avatar_usuario(yo['id']), 'actualizada': True})
     except Exception as e:

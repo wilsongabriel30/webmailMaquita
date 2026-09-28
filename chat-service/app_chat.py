@@ -261,10 +261,10 @@ _cache_uid = {}
 _cache_nombre = {}
 
 
-# Dominios institucionales equivalentes: el buzón puede ser usuario@maquita.org y en
-# nómina figurar usuario@maquita.com.ec (o viceversa). Misma parte local = misma persona.
+# Dominios institucionales equivalentes: el buzón puede ser usuario@example.org y en
+# nómina figurar usuario@example.com (o viceversa). Misma parte local = misma persona.
 _DOMINIOS_EQUIVALENTES = [d.strip().lower() for d in os.getenv(
-    "DOMINIOS_EQUIVALENTES", "maquita.org,maquita.com.ec,fundacionmaquita.org").split(",") if d.strip()]
+    "DOMINIOS_EQUIVALENTES", "example.org,example.com,fundacion-org.example").split(",") if d.strip()]
 
 
 def _uid_por_correo(correo):
@@ -341,6 +341,13 @@ def crear_app():
             self.is_authenticated = uid is not None
 
     @app.context_processor
+    def _direcciones_de_la_organizacion():
+        # Las plantillas no llevan direcciones escritas: las reciben de la configuración.
+        import organizacion
+        return {'url_reuniones': organizacion.url_reuniones(), 'url_correo': organizacion.url_correo(),
+                'url_intranet': organizacion.url_intranet()}
+
+    @app.context_processor
     def _inyectar_usuario():
         return {"current_user": _UsuarioSesion(session.get("usuario_id"))}
 
@@ -354,8 +361,8 @@ def crear_app():
     def sso_entrar():
         """Entrada del chat cuando se sirve en SU PROPIO ORIGEN.
 
-        En mail.maquita.org el chat recibía la cookie del correo porque compartían
-        origen. En mensajeria.maquita.org esa cookie ya no viaja (es host-only), y
+        En mail.example.org el chat recibía la cookie del correo porque compartían
+        origen. En mensajeria.example.org esa cookie ya no viaja (es host-only), y
         eso es justamente lo que se buscaba: un XSS en el chat deja de poder leer el
         buzón. A cambio hace falta esta puerta.
 

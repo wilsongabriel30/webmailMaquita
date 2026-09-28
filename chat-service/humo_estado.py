@@ -14,7 +14,7 @@ import urllib.request
 import jwt
 import socketio as sio_cli
 
-BASE = 'https://mail.maquita.org'
+BASE = 'https://mail.example.org'
 UA_APP = 'Mozilla/5.0 Chrome/151 MaquitaTeams/0.4.55'
 fallas = []
 
@@ -62,8 +62,8 @@ def pedir(ruta, galletas, datos=None):
 
 
 def main():
-    tok_a = token('test@maquita.org')
-    tok_b = token('gestiontecnologia@maquita.com.ec')
+    tok_a = token('test@example.org')
+    tok_b = token('tecnologia@example.com')
     ga, gb = cookies(tok_a), cookies(tok_b)
 
     # quien es cada uno

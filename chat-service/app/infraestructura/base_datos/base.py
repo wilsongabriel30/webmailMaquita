@@ -9,7 +9,6 @@ Para nuevo codigo, usar:
     from compartido.infraestructura.base_datos import Base, obtener_gestor
 
 Autor: Wilson Arguello
-Correo: gestiontecnologia@maquita.com.ec
 Fecha: 2026-01-02
 Migrado: 2026-01-05
 """

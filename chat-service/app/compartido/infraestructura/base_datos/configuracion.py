@@ -30,7 +30,7 @@ def get_db_config():
     default_port = '6432' if use_pgbouncer else '5432'
 
     config = {
-        'host': os.getenv('NOMINA_DB_HOST', '193.16.0.132'),
+        'host': os.getenv('NOMINA_DB_HOST', '192.0.2.132'),
         'port': os.getenv('NOMINA_DB_PORT', default_port),
         'database': os.getenv('NOMINA_DB_NAME', 'nomina'),
         'username': os.getenv('NOMINA_DB_USER', 'sistemas'),

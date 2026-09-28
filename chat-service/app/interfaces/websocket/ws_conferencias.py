@@ -3,6 +3,7 @@
 Los manejadores se registran al llamar registrar(socketio) desde manejador_websocket._registrar_eventos()."""
 from interfaces.websocket.manejador_websocket import *  # noqa: F401,F403
 from interfaces.websocket.manejador_websocket import _es_participante  # noqa: F401
+import organizacion
 
 
 def _marcar_llamada(usuario_id, en_llamada):
@@ -82,7 +83,7 @@ def registrar(socketio):
             from interfaces.websocket.notificaciones_globales import avatar_usuario, emitir, URL_BASE
             _avatar = avatar_usuario(usuario_id)
         except Exception:
-            _avatar, emitir, URL_BASE = None, None, 'https://mail.maquita.org'
+            _avatar, emitir, URL_BASE = None, None, organizacion.url_correo()
         _ids = []
         for p in participants:
             p_id = str(p.get('id', ''))

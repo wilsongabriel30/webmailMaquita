@@ -11,7 +11,6 @@ REGLAS:
 - Mapea entre BD y entidades de dominio
 
 Autor: Wilson Arguello
-Correo: gestiontecnologia@maquita.com.ec
 Fecha: 2026-01-02
 Migrado a arquitectura modular: 2026-01-04
 """
@@ -26,7 +25,7 @@ class ModeloUsuario(Base):
     Modelo SQLAlchemy para la tabla usuarios.
 
     Mapea a la tabla 'usuarios' existente en la base de datos
-    de nomina (193.16.0.132:5432/nomina).
+    de nomina (192.0.2.132:5432/nomina).
 
     Esquema: public.usuarios
     """

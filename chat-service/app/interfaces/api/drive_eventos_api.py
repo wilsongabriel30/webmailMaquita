@@ -17,6 +17,7 @@ import re
 import psycopg2
 import psycopg2.extras
 from flask import Blueprint, jsonify, request
+import organizacion
 
 bp_drive_eventos = Blueprint('drive_eventos_chat', __name__, url_prefix='/api/chat/drive')
 CARPETA = '/Archivos del chat'
@@ -82,7 +83,7 @@ def aplicar_ocultos(mensajes, usuario_id):
 def _notificar(usuario_id, titulo, texto):
     try:
         from interfaces.websocket.notificaciones_globales import emitir, URL_BASE
-        emitir([int(usuario_id)], 'sistema', titulo, texto, 'https://datos.maquita.com.ec/archivos-almacen?app=1', {'origen': 'drive'})
+        emitir([int(usuario_id)], 'sistema', titulo, texto, organizacion.url_intranet() + '/archivos-almacen?app=1', {'origen': 'drive'})
     except Exception as e:
         print(f'[drive-chat] aviso: {e}')
 
