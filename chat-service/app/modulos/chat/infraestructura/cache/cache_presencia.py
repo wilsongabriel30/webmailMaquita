@@ -6,7 +6,6 @@ Maneja el estado online/offline de usuarios en tiempo real.
 Latencia objetivo: < 1ms
 
 Autor: Wilson Arguello
-Correo: gestiontecnologia@maquita.com.ec
 Fecha: 2026-01-02
 """
 

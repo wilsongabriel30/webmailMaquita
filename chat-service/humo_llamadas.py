@@ -4,10 +4,10 @@ env = {}
 for l in open('/opt/maquita-webmail/chat-service/.env'):
     if '=' in l and not l.strip().startswith('#'):
         k, v = l.strip().split('=', 1); env[k] = v.strip('"\'')
-tok = jwt.encode({'sub': 'test@maquita.org', 'type': 'access', 'exp': int(time.time())+900},
+tok = jwt.encode({'sub': 'test@example.org', 'type': 'access', 'exp': int(time.time())+900},
                  env['CHAT_JWT_SECRET'], algorithm='HS256')
 UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/151 MaquitaTeams/0.4.41'
-B = 'https://mail.maquita.org'
+B = 'https://mail.example.org'
 cj = http.cookiejar.CookieJar(); op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
 fallas = []
 def check(n, ok, d=''):

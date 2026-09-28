@@ -12,12 +12,12 @@ activo, qué correos son la misma persona y cómo se arma la lista con las cuent
 """
 import os
 
-# El buzón puede ser usuario@maquita.org y en nómina figurar usuario@maquita.com.ec (o al revés).
+# El buzón puede ser usuario@example.org y en nómina figurar usuario@example.com (o al revés).
 # Misma parte local en cualquiera de estos dominios = misma persona. Igual que en app_chat.
 DOMINIOS_EQUIVALENTES = [
     d.strip().lower()
     for d in os.getenv("DOMINIOS_EQUIVALENTES",
-                       "maquita.org,maquita.com.ec,fundacionmaquita.org").split(",")
+                       "example.org,example.com,fundacion-org.example").split(",")
     if d.strip()
 ]
 

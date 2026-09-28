@@ -7,7 +7,7 @@ Cada archivo enviado por el chat se refleja en el Drive del EMISOR y de cada REC
 en pve-storage aunque se refleje a N personas) y la carpeta raíz está protegida.
 Se ejecuta en segundo plano: nunca retrasa ni rompe el envío del mensaje.
 
-Variables (.env): ALMACEN_URL (http://193.16.0.21:8788), ALMACEN_SECRETO_INTERNO.
+Variables (.env): ALMACEN_URL (http://192.0.2.21:8788), ALMACEN_SECRETO_INTERNO.
 """
 import os
 import re
@@ -18,7 +18,7 @@ import psycopg2.extras
 import requests
 
 CARPETA = 'Archivos del chat'
-_ALMACEN = os.getenv('ALMACEN_URL', 'http://193.16.0.21:8788').rstrip('/')
+_ALMACEN = os.getenv('ALMACEN_URL', 'http://192.0.2.21:8788').rstrip('/')
 _SECRETO = os.getenv('ALMACEN_SECRETO_INTERNO', '')
 _TIMEOUT = 20
 

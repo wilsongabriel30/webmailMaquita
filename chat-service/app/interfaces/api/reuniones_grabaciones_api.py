@@ -12,10 +12,11 @@ import psycopg2.extras
 from flask import Blueprint, jsonify, request
 
 from interfaces.api.reuniones_api import _yo, _conexion
+import organizacion
 
 bp_reuniones_grab = Blueprint('reuniones_grabaciones', __name__, url_prefix='/api/chat/reuniones')
-DESCARGA = 'https://datos.maquita.com.ec/api/almacen/archivos/descargar?ruta='
-DRIVE = 'https://datos.maquita.com.ec/archivos-almacen'
+DESCARGA = organizacion.url_intranet() + '/api/almacen/archivos/descargar?ruta='
+DRIVE = organizacion.url_intranet() + '/archivos-almacen'
 
 
 def _fila(g):

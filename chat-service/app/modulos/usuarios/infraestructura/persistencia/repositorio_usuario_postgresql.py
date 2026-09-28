@@ -12,7 +12,6 @@ REGLAS:
 - Traduce entre entidades de dominio y modelos de persistencia
 
 Autor: Wilson Arguello
-Correo: gestiontecnologia@maquita.com.ec
 Fecha: 2026-01-02
 Migrado a arquitectura modular: 2026-01-04
 """

@@ -15,6 +15,7 @@ from datetime import datetime
 import psycopg2
 import psycopg2.extras
 from flask import Blueprint, jsonify, request, session
+import organizacion
 
 bp_grupos = Blueprint('grupos_chat', __name__, url_prefix='/api/chat/conversations')
 
@@ -186,4 +187,4 @@ def yo():
     return jsonify({'success': True, 'usuario': {
         'id': u['id'], 'nombre': nombre, 'correo': u['email'], 'usuario': u['username'], 'rol': u['role'],
         'iniciales': iniciales, 'avatar': avatar_usuario(uid),
-        'perfil_url': 'https://datos.maquita.com.ec/auth/perfil?app=1', 'chat_url': URL_BASE + '/chat/'}})
+        'perfil_url': organizacion.url_intranet() + '/auth/perfil?app=1', 'chat_url': URL_BASE + '/chat/'}})

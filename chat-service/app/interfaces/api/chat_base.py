@@ -6,7 +6,6 @@ Maneja las rutas HTTP REST del chat.
 Es un adaptador de entrada que traduce HTTP a operaciones del ServicioChat.
 
 Autor: Wilson Arguello
-Correo: gestiontecnologia@maquita.com.ec
 Fecha: 2026-01-02
 """
 

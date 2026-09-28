@@ -6,7 +6,6 @@ CAPA: modulos/chat/dominio/entidades
 ARQUITECTURA: Hexagonal - 100%
 
 Autor: Wilson Arguello
-Correo: gestiontecnologia@maquita.com.ec
 Fecha: 2026-01-05
 Actualizado: 2026-01-06 - Agregado soporte IA Maquita
 """

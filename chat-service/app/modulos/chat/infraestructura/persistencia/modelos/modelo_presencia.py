@@ -8,7 +8,6 @@ Mapea a las tablas 'chat_user_presence' y 'chat_blocked_users'.
 CAPA: infraestructura/persistencia/modelos
 
 Autor: Wilson Arguello
-Correo: gestiontecnologia@maquita.com.ec
 Fecha: 2026-01-02
 Migrado a modulos: 2026-01-05
 """

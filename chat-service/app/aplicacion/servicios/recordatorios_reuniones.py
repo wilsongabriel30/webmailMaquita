@@ -10,6 +10,7 @@ from datetime import datetime
 
 import psycopg2
 import psycopg2.extras
+import organizacion
 
 MINUTOS_ANTES = 10
 
@@ -40,7 +41,7 @@ def _ciclo():
             minutos = max(1, int((r['fecha_hora'] - datetime.now()).total_seconds() // 60))
             emitir(ids, 'reunion', f"En {minutos} min: {r['asunto'] or 'Reunión'}",
                    f"{r['fecha_hora']:%H:%M} · Meet Maquita",
-                   f"https://mail.maquita.org/api/chat/reuniones/{r['id']}/acceso?redirigir=1",
+                   f"{organizacion.url_correo()}/api/chat/reuniones/{r['id']}/acceso?redirigir=1",
                    {'origen': 'reuniones', 'reunion_id': r['id'], 'sala': r['nombre_sala'],
                     'inicio': r['fecha_hora'].isoformat(timespec='minutes'), 'recordatorio': True})
             cur.execute("INSERT INTO reuniones_avisos (reunion_id, tipo) VALUES (%s, '10min') ON CONFLICT DO NOTHING", (r['id'],))

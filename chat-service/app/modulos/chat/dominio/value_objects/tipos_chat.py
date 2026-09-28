@@ -8,7 +8,6 @@ CAPA: modulos/chat/dominio/value_objects
 ARQUITECTURA: Hexagonal - 100%
 
 Autor: Wilson Arguello
-Correo: gestiontecnologia@maquita.com.ec
 Fecha: 2026-01-02
 Migrado: 2026-01-05
 """

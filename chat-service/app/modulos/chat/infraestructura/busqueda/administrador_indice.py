@@ -5,7 +5,6 @@ Administrador de Indice - Implementacion Elasticsearch
 Gestiona el ciclo de vida de los indices de busqueda.
 
 Autor: Wilson Arguello
-Correo: gestiontecnologia@maquita.com.ec
 Fecha: 2026-01-02
 """
 

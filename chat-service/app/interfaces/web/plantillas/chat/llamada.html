@@ -243,7 +243,8 @@
     <!-- T-52: desenfoque, fondos de Maquita y espejo de la vista propia.
          La libreria y el modelo se sirven desde AQUI, no de un CDN de fuera. -->
     <link rel="stylesheet" href="/static/css/chat-llamada-fondos.css?v=20260902-t52">
-    <script src="/static/js/llamada-fondos.js?v=20260902-t52"></script>
+    <script>window.CHAT_URL_REUNIONES = {{ url_reuniones|tojson }};</script>
+    <script src="/static/js/llamada-fondos.js?v=20260928-org"></script>
     <script>
         // Cierra la vista de llamada: window.close() si es popup; si corre en un
         // iframe (fallback por bloqueo de popups en Firefox/Safari), avisa al padre.

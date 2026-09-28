@@ -6,7 +6,6 @@ Busqueda full-text en mensajes de chat.
 Latencia objetivo: < 50ms
 
 Autor: Wilson Arguello
-Correo: gestiontecnologia@maquita.com.ec
 Fecha: 2026-01-02
 """
 

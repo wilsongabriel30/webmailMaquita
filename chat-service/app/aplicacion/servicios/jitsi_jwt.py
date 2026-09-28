@@ -12,8 +12,8 @@ from datetime import datetime
 
 import jwt
 
-JITSI_URL = os.getenv('JITSI_URL', 'https://meet.maquita.com.ec').rstrip('/')
-JITSI_DOMAIN = os.getenv('JITSI_DOMAIN', 'meet.maquita.com.ec')
+JITSI_URL = os.getenv('JITSI_URL', 'https://reuniones.example.org').rstrip('/')
+JITSI_DOMAIN = os.getenv('JITSI_DOMAIN', 'reuniones.example.org')
 JITSI_APP_ID = os.getenv('JITSI_APP_ID', 'maquita_meet')
 
 
