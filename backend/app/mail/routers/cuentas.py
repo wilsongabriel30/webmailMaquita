@@ -1,6 +1,6 @@
 """Cuentas que la persona puede usar en esta sesión: la suya y las delegadas.
 
-GET /api/mail/cuentas -> {"cuentas": [{email, nombre, propia, puede_enviar, carpetas: [...]}]}
+GET /api/mail/cuentas -> {"cuentas": [{email, nombre, propia, puede_enviar, alias: [...], carpetas: [...]}]}
 
 Las carpetas de cada cuenta delegada llegan con nombre virtual `Compartidos/<cuenta>/<carpeta>`;
 el resto de la API (mensajes, mover, marcar...) acepta esos nombres y trabaja sobre el buzón
@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, Request
 from app.auth.dependencies import get_current_user
 from app.config import get_settings
 from app.mail.clients.imap_pool import get_pooled_imap
+from app.mail.services.alias_propios import alias_de
 from app.mail.services.cuentas_delegadas import (
     carpeta_virtual,
     credenciales_maestras,
@@ -38,6 +39,7 @@ async def listar_cuentas(request: Request, username: str = Depends(get_current_u
             "nombre": (propia["nombre"] if propia else "") or "",
             "propia": True,
             "puede_enviar": True,
+            "alias": await alias_de(db, username),
             "carpetas": [],  # las propias ya las da /api/mail/folders
         }
     ]
@@ -62,5 +64,12 @@ async def listar_cuentas(request: Request, username: str = Depends(get_current_u
             log.warning(
                 "cuentas: no se pudo abrir %s para %s: %s", c["email"], username, e
             )
-        cuentas.append({**c, "propia": False, "carpetas": carpetas})
+        cuentas.append(
+            {
+                **c,
+                "propia": False,
+                "alias": await alias_de(db, c["email"]),
+                "carpetas": carpetas,
+            }
+        )
     return {"cuentas": cuentas}
