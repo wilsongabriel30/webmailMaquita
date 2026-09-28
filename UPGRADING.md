@@ -10,6 +10,51 @@ servicio, reiniciar lo que cambió y correr `deploy/tools/validar-despliegue.sh`
 
 ---
 
+## Datos de la organización fuera del código (2026-09-28) — LEER ANTES DE ACTUALIZAR
+
+Hasta ahora el código traía escritos los dominios, las redes y los correos de la organización
+que lo desarrolla. Eso se quitó: el código solo trae valores de ejemplo (`example.org`,
+`192.0.2.0/24`) y lo real vive en el servidor.
+
+**Si ya tienes el correo instalado, crea el fichero ANTES de actualizar y reiniciar.** Si no,
+al reiniciar el sistema tomará los valores de ejemplo: los avisos saldrían con enlaces a
+`mail.example.org`, tus dominios dejarían de estar protegidos contra suplantación y las
+alertas de vigilancia irían a `postmaster@localhost`.
+
+```bash
+install -m 644 deploy/webmail/configs/organizacion.env.ejemplo /etc/maquita-mail/organizacion.env
+editor /etc/maquita-mail/organizacion.env          # tus dominios, tu red, tus direcciones
+```
+
+Comprueba qué ve el sistema, antes y después de actualizar:
+
+```bash
+cd backend && venv/bin/python -c "
+from app import organizacion as o
+print('correo   ', o.url_correo())
+print('dominios ', sorted(o.dominios_propios()))
+print('redes    ', o.redes_propias())
+print('avisos a ', o.correos_de_avisos())"
+```
+
+Qué pasa a depender del fichero (o de la variable de entorno del mismo nombre):
+
+| Clave | Antes estaba escrito en | Si falta |
+|---|---|---|
+| `ORG_URL_CORREO` (o `PUBLIC_BASE_URL`) | avisos de tareas y de correo nuevo, enlaces seguros, descarga de la app | enlaces a `mail.example.org` |
+| `ORG_DOMINIOS` | suplantación de dominios, imágenes de confianza, enlaces de casa, grupos | solo el dominio principal |
+| `ORG_REDES` | inicios de sesión de riesgo | solo las redes privadas |
+| `ORG_CORREOS_AVISOS`, `ORG_REMITENTE_AVISOS` | guiones de vigilancia | `postmaster@localhost` |
+| `ORG_URL_INTRANET`, `ORG_URL_REUNIONES`, `ORG_URL_IDENTIDAD` | calendario, reuniones, inicio de sesión único | direcciones de ejemplo |
+
+Las plantillas de `deploy/` (mapas de rspamd, reglas de cortafuegos, filtros Sieve) también
+traen ahora valores de ejemplo: son plantillas, no tu configuración. Lo que ya tienes en
+`/etc` no cambia al actualizar.
+
+Para que no vuelva a pasar, el Guardián revisa los datos propios en cada confirmación:
+`deploy/hooks/instalar.sh` crea `.git/guardian-datos-propios`; rellénalo con tus dominios y
+redes.
+
 ## Sin publicar — teléfonos: portal de telemetría, alertas y código asignado (22/09/2026)
 
 ```
