@@ -5,7 +5,6 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../api/client';
-import { useMailStore } from '../../store/mailStore';
 import type { MessageFull } from '../../types';
 import AvisoImagenesBloqueadas from './AvisoImagenesBloqueadas';
 import SafeEmailViewer from './SafeEmailViewer';
@@ -17,7 +16,6 @@ interface Props {
 }
 
 export default function CuerpoHtmlConImagenes({ msg, folder, style }: Props) {
-  const bloquear = useMailStore(s => s.blockRemoteImages);
   const [htmlConImagenes, setHtmlConImagenes] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState(false);
@@ -40,11 +38,6 @@ export default function CuerpoHtmlConImagenes({ msg, folder, style }: Props) {
   }, [folder, msg.uid]);
 
   const hayBloqueadas = !!(msg.has_remote_images && msg.blocked_image_count > 0) && htmlConImagenes === null;
-
-  // Quien desactivó el bloqueo en Configuración las ve sin pulsar nada.
-  useEffect(() => {
-    if (!bloquear && hayBloqueadas && !cargando && !error) cargar();
-  }, [bloquear, hayBloqueadas, cargando, error, cargar]);
 
   return (
     <>
