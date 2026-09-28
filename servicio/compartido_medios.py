@@ -230,6 +230,23 @@ def armar_zip(destino, base, comp, firma, total):
     return temporal, True
 
 
+def zip_grande(destino, base, comp, aviso_cookie, firma):
+    """Carpeta grande: el ZIP se envía en flujo, sin tope de tamaño y sin
+    ocupar disco, y la descarga se puede reanudar si se corta."""
+    import zip_reanudable
+    import zip_reanudable_plan
+
+    def construir():
+        entradas, temporales, aviso = _planear_zip(destino, base, comp)
+        if aviso:
+            entradas.append((aviso.encode('utf-8'), 'LEEME - archivos con macros.txt'))
+        return entradas, temporales
+
+    plan = zip_reanudable_plan.obtener('publico-' + firma, construir)
+    titulo = os.path.basename(destino.rstrip('/')) or 'compartido'
+    return marcar_aviso(zip_reanudable.respuesta(plan, titulo + '.zip'), aviso_cookie)
+
+
 def marcar_aviso(respuesta, aviso):
     """Cookie que la página lee para saber que la descarga ya empezó y cerrar
     el aviso de «Preparando la descarga…»."""
