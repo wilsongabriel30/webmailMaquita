@@ -137,7 +137,7 @@ export const useMailStore = create<MailState>((set, get) => ({
   viewMode: "messages",
   readingPane: 'right',
   pageSize: 50,
-  blockRemoteImages: true,
+  blockRemoteImages: false,
   density: 'compact' as const,
   showMyDay: false,
   previewLines: 1,

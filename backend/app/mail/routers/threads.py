@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Request
 from app.auth.dependencies import get_current_user
 from app.core.session import get_imap_login_user, get_user_password
 from app.mail.clients.imap_client import get_imap_connection
+from app.mail.services.imagenes_remotas import debe_bloquear
 from app.mail.services.message_service import get_message, list_messages
 from app.mail.services.thread_service import group_by_thread
 
@@ -89,7 +90,12 @@ async def get_thread_messages(
         full_messages = []
         for summary in thread_msgs:
             msg_folder = summary.get("_source_folder", folder)
-            full = await get_message(imap, msg_folder, summary["uid"])
+            bloquear = await debe_bloquear(
+                request.app.state.db_pool, username, msg_folder
+            )
+            full = await get_message(
+                imap, msg_folder, summary["uid"], block_remote_images=bloquear
+            )
             if full:
                 full_messages.append(full)
 
