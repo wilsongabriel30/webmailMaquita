@@ -206,7 +206,12 @@ async def read_message(
 
             _sl = await sl_service.get_config(request.app.state.db_pool)
             if _sl["enabled"] and _sl["rewrite_enabled"] and msg.get("html_body"):
-                msg["html_body"] = sl_rewriter.rewrite(msg["html_body"])
+                from app.portales import direcciones
+
+                msg["html_body"] = sl_rewriter.rewrite(
+                    msg["html_body"],
+                    await direcciones.url_de_peticion(request.app.state.db_pool, request),
+                )
         except Exception:
             pass
         return msg

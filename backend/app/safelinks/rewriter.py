@@ -35,20 +35,23 @@ def verify(u_b64: str, sig: str) -> bool:
     return hmac.compare_digest(sign(u_b64), sig or "")
 
 
-def gateway_link(url: str) -> str:
+def gateway_link(url: str, base: str | None = None) -> str:
     # El href viene del HTML del correo, donde "&" se escribe "&amp;". Hay que
     # deshacer las entidades ANTES de codificar: si no, el destino recibe
     # "&amp;token=..." y lee un parametro "amp;token" en vez de "token"
     # (rompia activaciones y restablecimientos de clave con varios parametros).
     ub = encode_url(html_lib.unescape(url))
-    base = (get_settings().public_base_url or organizacion.url_correo()).rstrip("/")
+    base = (base or get_settings().public_base_url or organizacion.url_correo()).rstrip("/")
     return f"{base}/api/safelink?u={ub}&s={sign(ub)}"
 
 
 _HREF = re.compile(r'(<a\b[^>]*?\shref=")(https?://[^"]*)(")', re.IGNORECASE)
 
 
-def rewrite(html: str) -> str:
+def rewrite(html: str, base: str | None = None) -> str:
+    """`base`: dirección por la que entra quien lee (su portal). Sin ella, la general."""
     if not html or "<a" not in html.lower():
         return html
-    return _HREF.sub(lambda m: m.group(1) + gateway_link(m.group(2)) + m.group(3), html)
+    return _HREF.sub(
+        lambda m: m.group(1) + gateway_link(m.group(2), base) + m.group(3), html
+    )

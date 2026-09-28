@@ -33,8 +33,8 @@ def _hash_code(token: str, email: str, code: str) -> str:
     return hashlib.sha256(f"{token}|{email.lower()}|{code}".encode()).hexdigest()
 
 
-def portal_url(token: str) -> str:
-    base = get_settings().public_base_url.rstrip("/")
+def portal_url(token: str, base: str | None = None) -> str:
+    base = (base or get_settings().public_base_url).rstrip("/")
     return f"{base}/secure/{token}"
 
 
@@ -163,7 +163,10 @@ async def create_and_notify(
             fn,
         )
 
-    url = portal_url(token)
+    from app.portales import direcciones
+
+    # Quien recibe el aviso ve el nombre de la empresa que le escribe.
+    url = portal_url(token, await direcciones.url_de_cuenta(db, sender))
     notif = _notif_html(
         sender_name, sender, subject, url, expires_at, cfg.get("intro_text") or ""
     )
