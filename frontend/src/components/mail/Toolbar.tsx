@@ -12,6 +12,8 @@ import { getFolderDisplayName } from '../../folders';
 import { getCachedLabels, useLabels } from '../../hooks/useLabels';
 import { SnoozeModal } from './SnoozeModal';
 import { sanitizeHtml } from '../../lib/sanitize';
+import { destinatariosResponderATodos } from '../../lib/destinatariosRespuesta';
+import type { Folder, MessageFull } from '../../types';
 import { useResponsive } from '../../hooks/useResponsive';
 
 
@@ -109,19 +111,17 @@ function Dropdown({ open, onClose, children, align = 'left' }: {
     const parent = anchorRef.current.parentElement;
     if (!parent) return;
     const rect = parent.getBoundingClientRect();
-    const menuWidth = ref_width(menuRef) || 180;
+    const menuWidth = menuRef.current?.offsetWidth || 180;
     let left = align === 'right' ? rect.right - menuWidth : rect.left;
     if (left + menuWidth > window.innerWidth) left = window.innerWidth - menuWidth - 8;
     if (left < 4) left = 4;
     let top = rect.bottom + 2;
     // If menu would go below viewport, show above
     if (top + 300 > window.innerHeight) top = rect.top - 300;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- la posición depende de medir el menú ya pintado
     setPos({ top, left });
   }, [open, align]);
 
-  function ref_width(r: React.RefObject<HTMLDivElement | null>) {
-    return r.current?.offsetWidth || 0;
-  }
 
   return (
     <>
@@ -237,7 +237,7 @@ function Group({ label, children }: { label: string; children: React.ReactNode }
 function MobileToolbar({ onCompose, onDelete, onReply, onReplyAll, onForward, onArchive, onFlag, onToggleRead, onPrint, msg }: {
   onCompose: () => void; onDelete: () => void; onReply: () => void; onReplyAll: () => void;
   onForward: () => void; onArchive: () => void; onFlag: () => void; onToggleRead: () => void;
-  onPrint: () => void; msg: any;
+  onPrint: () => void; msg: MessageFull | null;
 }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
@@ -502,8 +502,9 @@ export function Toolbar() {
 
   const doReplyAll = () => {
     if (!msg) { showToast('Selecciona un mensaje'); return; }
+    const destinatarios = destinatariosResponderATodos({ ...msg, folder: msg.folder || currentFolder });
     openCompose('replyAll', {
-      to: [msg.from], cc: msg.cc?.split(',').map(s=>s.trim()) || [], subject: `Re: ${msg.subject}`,
+      to: destinatarios.to, cc: destinatarios.cc, subject: `Re: ${msg.subject}`,
       html_body: buildQuote(), text_body: '', in_reply_to: msg.message_id || '', references: msg.references || '',
     });
     closeAllDropdowns();
@@ -738,7 +739,7 @@ export function Toolbar() {
         {/* Main tabs */}
         {(['inicio', 'vista', 'ayuda'] as const).map(tab => (
           <button key={tab}
-            onClick={() => { setActiveTab(tab); if (hasCompose) setComposeRibbonTab(null as any); }}
+            onClick={() => { setActiveTab(tab); if (hasCompose) setComposeRibbonTab(null as unknown as 'message'); }}
             className={`px-3 h-[36px] text-[13px] rounded capitalize ${
               activeTab === tab && !showComposeRibbon
                 ? 'bg-white text-[#0078d4] font-semibold border-b-2 border-[#0078d4]'
@@ -931,7 +932,7 @@ export function Toolbar() {
                       <ToolbarButton icon={ICONS.move} label="Mover" hasDropdown disabled={noSel}
                         onClick={() => { closeAllDropdowns(); setMoveOpen(!moveOpen); }} />
                       <Dropdown open={moveOpen} onClose={() => setMoveOpen(false)}>
-                        {(folders || []).map((f: any) => (
+                        {(folders || []).map((f: Folder | string) => (
                           <DropdownItem key={typeof f === 'string' ? f : f.name}
                             label={getFolderDisplayName(typeof f === 'string' ? f : f.name)} icon={ICONS.move}
                             onClick={() => { moveToFolder(typeof f === 'string' ? f : f.name); setMoveOpen(false); }} />
@@ -985,7 +986,7 @@ export function Toolbar() {
                         <DropdownItem label={msg?.flagged ? 'Quitar bandera' : 'Marcar con bandera'} icon={ICONS.flag}
                           onClick={() => { toggleFlag(); setFlagOpen(false); }} />
                         <DropdownItem label="Marcar como completado" icon={ICONS.classify}
-                          onClick={() => { showToast('Marcado como completado'); try { const uid = Array.from(selectedUids)[0]; if(uid && currentFolder) { api.put('/mail/flag', { folder: currentFolder, uids: [uid], flag: '\\Flagged', action: 'remove' }).then(() => window.dispatchEvent(new CustomEvent('refresh-messages'))); } } catch {}; setFlagOpen(false); }} />
+                          onClick={() => { showToast('Marcado como completado'); try { const uid = Array.from(selectedUids)[0]; if(uid && currentFolder) { api.put('/mail/flag', { folder: currentFolder, uids: [uid], flag: '\\Flagged', action: 'remove' }).then(() => window.dispatchEvent(new CustomEvent('refresh-messages'))); } } catch { /* sin seleccion valida: no hay nada que desmarcar */ } setFlagOpen(false); }} />
                       </Dropdown>
                     </div>
                     <ToolbarButton icon={ICONS.pin} label="Chincheta" disabled={noSel}
@@ -1151,8 +1152,8 @@ export function Toolbar() {
                           <DropdownItem key={opt.value} label={opt.label} icon={ICONS.readingPane}
                             active={readingPane === opt.value}
                             onClick={async () => {
-                              setReadingPane(opt.value as any);
-                              try { await api.put('/settings', { reading_pane: opt.value }); } catch {}
+                              setReadingPane(opt.value);
+                              try { await api.put('/settings', { reading_pane: opt.value }); } catch { /* la preferencia queda solo en esta sesion */ }
                               setReadingPaneOpen(false);
                             }} />
                         ))}

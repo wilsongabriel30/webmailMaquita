@@ -208,7 +208,7 @@ async def download_all_attachments_zip(
     imap = await get_imap_connection(login_user, password)
     try:
         # Get message to find all attachments
-        msg = await get_message(imap, folder, uid, block_remote_images=False)
+        msg = await get_message(imap, folder, uid, block_remote_images=False, mark_seen=False)
         if not msg:
             raise HTTPException(status_code=404, detail="Message not found")
 

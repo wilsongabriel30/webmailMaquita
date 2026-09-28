@@ -479,13 +479,19 @@ async def fetch_full_message(
     imap: aioimaplib.IMAP4,
     folder: str,
     uid: int,
+    mark_seen: bool = True,
 ) -> dict | None:
-    """Fetch a full message by UID. Returns raw email data."""
+    """Fetch a full message by UID. Returns raw email data.
+
+    mark_seen=False: lectura que NO hace una persona (descarga para leer sin conexion,
+    adjuntos, asistente). Se pide con BODY.PEEK[] porque RFC822 marca \\Seen por si solo.
+    """
     resp = await imap.select(_quote_folder(folder))
     if resp.result != "OK":
         return None
 
-    fetch_resp = await imap.uid("fetch", str(uid), "(UID FLAGS RFC822)")
+    cuerpo = "RFC822" if mark_seen else "BODY.PEEK[]"
+    fetch_resp = await imap.uid("fetch", str(uid), f"(UID FLAGS {cuerpo})")
     if fetch_resp.result != "OK":
         return None
 
@@ -510,7 +516,8 @@ async def fetch_full_message(
     if not raw_email:
         return None
 
-    await imap.uid("store", str(uid), "+FLAGS", "(\\Seen)")
+    if mark_seen:
+        await imap.uid("store", str(uid), "+FLAGS", "(\\Seen)")
 
     return {
         "uid": actual_uid or uid,

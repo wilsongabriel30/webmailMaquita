@@ -83,9 +83,13 @@ async def get_message(
     folder: str,
     uid: int,
     block_remote_images: bool = True,
+    mark_seen: bool = True,
 ) -> dict | None:
-    """Get full message by UID with sanitized HTML."""
-    raw = await fetch_full_message(imap, folder, uid)
+    """Get full message by UID with sanitized HTML.
+
+    mark_seen=False deja el correo como estaba (no leido sigue no leido).
+    """
+    raw = await fetch_full_message(imap, folder, uid, mark_seen=mark_seen)
     if not raw:
         return None
 
@@ -128,7 +132,7 @@ async def get_message(
         "date": normalized.date,
         "size": normalized.size,
         "flags": normalized.flags,
-        "seen": True,
+        "seen": True if mark_seen else normalized.seen,
         "flagged": normalized.flagged,
         "text_body": normalized.text_body,
         "html_body": safe_html,
