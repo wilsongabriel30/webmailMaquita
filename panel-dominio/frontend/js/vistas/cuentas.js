@@ -1,5 +1,5 @@
 import { api } from '../api.js';
-import { el, aviso, enGB } from '../ui.js';
+import { el, agregar, aviso, enGB } from '../ui.js';
 import { formularioNueva, formularioEditar, formularioClave, confirmarActiva } from './formularios_cuenta.js';
 
 export async function vistaCuentas(sesion, mensaje) {
@@ -25,7 +25,8 @@ export async function vistaCuentas(sesion, mensaje) {
   };
 
   const buscar = el('input', { type: 'search', placeholder: 'Buscar por dirección o nombre', 'aria-label': 'Buscar cuentas', alInput: (e) => pintar(e.target.value) });
-  raiz.append(
+  // agregar() descarta los huecos; append() a secas escribiría la palabra «null».
+  agregar(raiz,
     el('h1', null, 'Cuentas de correo'),
     el('p', { clase: 'sub' }, sesion.dominios.join(', ')),
     mensaje ? aviso('ok', mensaje) : null,
