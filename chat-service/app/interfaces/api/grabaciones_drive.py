@@ -5,7 +5,7 @@ Al detener una grabación (LiveKit Egress): en segundo plano espera a que el MP4
 Drive del solicitante en «/Grabaciones de reuniones/<AAAA-MM>/<AAAA-MM-DD HHMM> <asunto|sala>.mp4» (dedup del almacén),
 registra `reuniones_grabaciones`, comparte en solo lectura con los participantes internos y avisa por T-03
 «Grabación lista». Retención: 12 meses (columna `vence_en`; la purga la hace `purgar_grabaciones()`, cron mensual).
-Depende de: ALMACEN_URL / ALMACEN_SECRETO_INTERNO (.env), LIVEKIT_GRABACIONES_URL (http://193.16.0.27:8081).
+Depende de: ALMACEN_URL / ALMACEN_SECRETO_INTERNO (.env), LIVEKIT_GRABACIONES_URL (http://192.0.2.27:8081).
 """
 import os
 import re
@@ -19,9 +19,10 @@ import psycopg2.extras
 import requests
 
 from interfaces.api.drive_chat import _asegurar_carpeta, _subir, _cab, _ALMACEN
+import organizacion
 
 CARPETA = 'Grabaciones de reuniones'
-_GRAB = os.getenv('LIVEKIT_GRABACIONES_URL', 'http://193.16.0.27:8081').rstrip('/')
+_GRAB = os.getenv('LIVEKIT_GRABACIONES_URL', 'http://192.0.2.27:8081').rstrip('/')
 RETENCION_DIAS = int(os.getenv('GRABACIONES_RETENCION_DIAS', '365'))
 
 
@@ -143,7 +144,7 @@ def _procesar(egress_id):
         try:
             from interfaces.websocket.notificaciones_globales import emitir
             emitir([creador], 'sistema', 'Grabación lista', f'«{nombre}» quedó en tu Drive, en {CARPETA}/{sub}. Compártela desde el Drive si lo deseas.',
-                   'https://datos.maquita.com.ec/archivos-almacen?app=1', {'origen': 'grabaciones', 'ruta': ruta_drive, 'reunion_id': reunion_id})
+                   organizacion.url_intranet() + '/archivos-almacen?app=1', {'origen': 'grabaciones', 'ruta': ruta_drive, 'reunion_id': reunion_id})
         except Exception as e:
             print(f'[grabaciones] aviso: {e}')
         print(f'[grabaciones] {egress_id} → {ruta_drive} ({tam} bytes)')

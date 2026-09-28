@@ -21,7 +21,7 @@ class NominaDBConfig:
 
     # Configuración de base de datos de Nómina
     NOMINA_DB_CONFIG = {
-        'host': os.getenv('NOMINA_DB_HOST', '193.16.0.132'),
+        'host': os.getenv('NOMINA_DB_HOST', '192.0.2.132'),
         'port': int(os.getenv('NOMINA_DB_PORT', 6432 if USE_PGBOUNCER else 5432)),
         'database': os.getenv('NOMINA_DB_NAME', 'nomina'),
         'username': os.getenv('NOMINA_DB_USER', 'sistemas'),

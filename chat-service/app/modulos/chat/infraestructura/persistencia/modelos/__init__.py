@@ -7,7 +7,6 @@ Modelos de persistencia para PostgreSQL.
 CAPA: infraestructura/persistencia/modelos
 
 Autor: Wilson Arguello
-Correo: gestiontecnologia@maquita.com.ec
 Fecha: 2026-01-02
 Migrado: 2026-01-05
 """

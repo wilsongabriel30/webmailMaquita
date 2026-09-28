@@ -23,8 +23,8 @@ import psycopg2.extras
 import requests
 
 DRY = '--dry-run' in sys.argv
-FARO = 'https://datos.maquita.com.ec'
-MAIL = 'https://mail.maquita.org'
+FARO = os.getenv('FARO_PUBLIC_URL', 'https://intranet.example.org').rstrip('/')
+MAIL = os.getenv('CHAT_URL_PUBLICA', 'https://mail.example.org').rstrip('/')
 
 
 def url_candidatas(file_path):

@@ -3,7 +3,7 @@
 Configuración centralizada del Sistema FARO
 Migrado de INTRANET para compatibilidad con módulos legacy
 
-Fundación Maquita Cushunchic (MCCH)
+la organización (MCCH)
 """
 
 import os
@@ -25,7 +25,7 @@ class Config:
     # Información de la aplicación
     APP_NAME = os.getenv('APP_NAME', 'Sistema FARO')
     APP_VERSION = os.getenv('APP_VERSION', '4.1.0')
-    FARO_PUBLIC_URL = os.getenv('FARO_PUBLIC_URL', 'https://datos.maquita.com.ec')
+    FARO_PUBLIC_URL = os.getenv('FARO_PUBLIC_URL', 'https://intranet.example.org')
     # URL interna para que OnlyOffice Document Server pueda descargar archivos
     # (OnlyOffice DS puede no tener acceso al dominio público)
     FARO_INTERNAL_URL = os.getenv('FARO_INTERNAL_URL', 'http://localhost')
@@ -260,20 +260,20 @@ class Config:
     DOCUMENT_TIMEOUT = int(os.getenv('DOCUMENT_TIMEOUT', 120))
 
     # Configuración de email (Zimbra)
-    MAIL_SERVER = os.getenv('MAIL_SERVER', 'mail.maquita.com.ec')
+    MAIL_SERVER = os.getenv('MAIL_SERVER', 'mail.example.com')
     MAIL_PORT = int(os.getenv('MAIL_PORT', 587))
     MAIL_USE_TLS = os.getenv('MAIL_USE_TLS', 'True').lower() == 'true'
-    MAIL_USERNAME = os.getenv('MAIL_USERNAME', 'gestiontecnologia@maquita.com.ec')
+    MAIL_USERNAME = os.getenv('MAIL_USERNAME', 'tecnologia@example.com')
     MAIL_PASSWORD = os.getenv('MAIL_PASSWORD')
-    MAIL_DEFAULT_SENDER = os.getenv('MAIL_DEFAULT_SENDER', 'noreply@maquita.com.ec')
+    MAIL_DEFAULT_SENDER = os.getenv('MAIL_DEFAULT_SENDER', 'noreply@example.com')
 
-    ONLYOFFICE_PUBLIC_URL = os.getenv("ONLYOFFICE_PUBLIC_URL", "https://office.maquita.com.ec")
+    ONLYOFFICE_PUBLIC_URL = os.getenv("ONLYOFFICE_PUBLIC_URL", "https://office.example.org")
 
     # =========================================================================
     # JITSI MEET - Videoconferencias
     # =========================================================================
-    JITSI_URL = os.getenv('JITSI_URL', 'https://meet.maquita.com.ec')
-    JITSI_DOMAIN = os.getenv('JITSI_DOMAIN', 'meet.maquita.com.ec')
+    JITSI_URL = os.getenv('JITSI_URL', 'https://reuniones.example.org')
+    JITSI_DOMAIN = os.getenv('JITSI_DOMAIN', 'reuniones.example.org')
     JITSI_APP_ID = os.getenv('JITSI_APP_ID', 'maquita_meet')
     JITSI_APP_SECRET = os.getenv('JITSI_APP_SECRET')
 
@@ -283,7 +283,7 @@ class Config:
     # [M-05] Sin valor por defecto para el secreto: el que traia el codigo quedo publicado.
     # Deshabilitado salvo que se pida; si se habilita sin secreto, el servicio no arranca.
     KEYCLOAK_ENABLED = os.getenv("KEYCLOAK_ENABLED", "false").lower() == "true"
-    KEYCLOAK_SERVER_URL = os.getenv("KEYCLOAK_SERVER_URL", "https://auth.maquita.org")
+    KEYCLOAK_SERVER_URL = os.getenv("KEYCLOAK_SERVER_URL", "https://auth.example.org")
     KEYCLOAK_REALM = os.getenv("KEYCLOAK_REALM", "maquita")
     KEYCLOAK_CLIENT_ID = os.getenv("KEYCLOAK_CLIENT_ID", "faro-backend")
     KEYCLOAK_CLIENT_SECRET = os.getenv("KEYCLOAK_CLIENT_SECRET", "")

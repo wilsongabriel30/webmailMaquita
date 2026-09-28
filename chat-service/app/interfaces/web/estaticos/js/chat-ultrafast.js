@@ -1,7 +1,7 @@
 /**
  * ╔══════════════════════════════════════════════════════════════════════════════╗
  * ║                     SISTEMA Raíces - CHAT ULTRA-RÁPIDO v3.0                   ║
- * ║                    Fundación Maquita Cushunchic (MCCH)                       ║
+ * ║                    la organización (MCCH)                       ║
  * ║                                                                              ║
  * ║  PROTOCOLO: WebSocket puro (sin HTTP para mensajes)                         ║
  * ║  LATENCIA: <5ms end-to-end                                                  ║
@@ -15,7 +15,7 @@
  * ║  - Sincronización entre pestañas                                            ║
  * ║                                                                              ║
  * ║  Desarrollado por: Wilson Arguello                                          ║
- * ║  Email: gestiontecnologia@maquita.com.ec                                    ║
+ * ║  Email: tecnologia@example.com                                    ║
  * ║  Año: 2026                                                                  ║
  * ╚══════════════════════════════════════════════════════════════════════════════╝
  */

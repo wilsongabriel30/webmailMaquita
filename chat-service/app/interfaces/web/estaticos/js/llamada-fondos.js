@@ -27,7 +27,8 @@
         {id: 'maquita-1-azul', nombre: 'Maquita azul', icono: '🟦'},
         {id: 'maquita-3-claro', nombre: 'Maquita claro', icono: '⬜'},
     ];
-    var URL_FONDOS = 'https://meet.maquita.com.ec/images/virtual-background/';
+    // La dirección del servidor de reuniones la escribe la plantilla (JITSI_URL del servicio).
+    var URL_FONDOS = (window.CHAT_URL_REUNIONES || '') + '/images/virtual-background/';
 
     var procesadores = null;      // la librería, una vez cargada
     var actual = 'ninguno';

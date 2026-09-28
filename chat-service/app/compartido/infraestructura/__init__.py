@@ -9,7 +9,6 @@ CONTENIDO:
 - configuracion/: Contenedor de dependencias
 
 Autor: Wilson Arguello
-Correo: gestiontecnologia@maquita.com.ec
 Fecha: 2026-01-05
 """
 

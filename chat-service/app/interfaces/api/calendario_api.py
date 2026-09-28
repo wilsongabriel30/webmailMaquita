@@ -3,7 +3,7 @@
 Calendario del correo para el cliente Teams Maquita — T-05.
 ============================================================
 El calendario VIVE en el servidor de correo (Radicale + API REST del webmail,
-`https://mail.maquita.org/api/calendar/*`). Este módulo NO copia nada: consulta esa
+`https://mail.example.org/api/calendar/*`). Este módulo NO copia nada: consulta esa
 API en nombre del usuario, con su propio JWT (`access_token`), y devuelve una
 agenda normalizada en español. Si el correo no responde, se informa el error.
 
@@ -20,7 +20,7 @@ from flask import Blueprint, jsonify, request, session
 
 bp_calendario = Blueprint('calendario_chat', __name__, url_prefix='/api/chat/calendario')
 
-CORREO_API = os.getenv('CORREO_API_URL', 'https://mail.maquita.org').rstrip('/')
+CORREO_API = os.getenv('CORREO_API_URL', 'https://mail.example.org').rstrip('/')
 URL_CALENDARIO = os.getenv('CORREO_URL_CALENDARIO', CORREO_API + '/calendar')
 TIEMPO_ESPERA = 12
 

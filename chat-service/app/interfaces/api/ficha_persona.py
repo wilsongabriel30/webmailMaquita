@@ -17,6 +17,7 @@ Autor: Wilson Arguello
 import os
 
 from flask import Blueprint, jsonify, session
+import organizacion
 
 bp_ficha = Blueprint('ficha_persona', __name__, url_prefix='/api/chat/personas')
 
@@ -71,13 +72,7 @@ def _puede_ver_personales(cur, quien, de_quien):
 
 
 def _url_foto(foto):
-    if not foto:
-        return ''
-    if foto.startswith('http') or foto.startswith('/'):
-        return foto
-    if foto.startswith('uploads/'):
-        return 'https://datos.maquita.com.ec/static/' + foto
-    return 'https://datos.maquita.com.ec/static/uploads/profiles/' + foto
+    return organizacion.url_foto(foto)
 
 
 @bp_ficha.route('/<int:usuario_id>/ficha', methods=['GET'])

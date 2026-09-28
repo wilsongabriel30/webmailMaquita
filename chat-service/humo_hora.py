@@ -15,7 +15,7 @@ from datetime import datetime, timedelta, timezone
 
 import jwt
 
-BASE = 'https://mail.maquita.org'
+BASE = 'https://mail.example.org'
 CONV = 52
 fallas = []
 
@@ -56,7 +56,7 @@ def pedir(ruta, gal, datos=None):
 
 
 def main():
-    gal = galletas('gestiontecnologia@maquita.com.ec')
+    gal = galletas('tecnologia@example.com')
     ahora = datetime.now(timezone.utc)
 
     # 1) un mensaje que estuvo 18 minutos en la cola del equipo

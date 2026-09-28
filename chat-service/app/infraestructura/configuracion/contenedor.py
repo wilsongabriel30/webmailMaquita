@@ -6,7 +6,6 @@ Centraliza la creación y configuración de todas las dependencias
 del sistema, permitiendo intercambiar implementaciones fácilmente.
 
 Autor: Wilson Arguello
-Correo: gestiontecnologia@maquita.com.ec
 Fecha: 2026-01-02
 """
 

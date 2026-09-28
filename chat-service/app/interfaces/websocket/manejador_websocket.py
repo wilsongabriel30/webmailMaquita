@@ -11,7 +11,6 @@ Arquitectura:
 - Autenticacion basada en sesion Flask
 
 Autor: Wilson Arguello
-Correo: gestiontecnologia@maquita.com.ec
 Fecha: 2026-01-02
 """
 
@@ -25,6 +24,7 @@ import logging
 import os
 import time
 import threading
+import organizacion
 
 # Configurar logging
 logger = logging.getLogger(__name__)
@@ -191,16 +191,10 @@ def crear_socketio(app, redis_url: Optional[str] = None) -> SocketIO:
     # los origenes conocidos del despliegue; nunca se vuelve a "*".
     _origenes = [o.strip() for o in os.environ.get('CHAT_CORS_ORIGENES', '').split(',') if o.strip()]
     if not _origenes:
-        # TODOS los sitios que embeben el chat. Omitir uno lo rompe para esos
-        # usuarios: al aplicar la lista blanca faltaba Raices (datos.maquita.com.ec)
-        # y sus conexiones quedaron rechazadas hasta que se anadio.
-        _origenes = [
-            'https://mensajeria.maquita.org',   # origen propio del chat
-            'https://mail.maquita.org',         # correo (hasta la fase D)
-            'https://datos.maquita.com.ec',     # Raices
-            'https://faro.maquita.org',         # Raices (nombre alterno)
-            'https://drive.maquita.com.ec',     # Drive de Raices
-        ]
+        # Sin CHAT_CORS_ORIGENES solo se admiten el correo y la intranet configurados.
+        # TODOS los sitios que embeben el chat deben estar en CHAT_CORS_ORIGENES: omitir
+        # uno lo rompe para esos usuarios (pasó al aplicar la lista blanca por primera vez).
+        _origenes = [organizacion.url_correo(), organizacion.url_intranet()]
     logger.info(f"[WebSocket] Origenes permitidos: {_origenes}")
 
     if redis_url:

@@ -19,8 +19,9 @@ from datetime import datetime
 
 import psycopg2
 import psycopg2.extras
+import organizacion
 
-URL_BASE = os.getenv('CHAT_URL_PUBLICA', 'https://mail.maquita.org').rstrip('/')
+URL_BASE = organizacion.url_correo()
 _ETIQUETA_TIPO = {'gif': '🎞️ GIF', 'image': '🖼️ Imagen', 'video': '🎬 Video', 'audio': '🎤 Audio',
                   'document': '📎 Archivo', 'file': '📎 Archivo'}
 

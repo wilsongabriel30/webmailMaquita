@@ -51,6 +51,25 @@ Las plantillas de `deploy/` (mapas de rspamd, reglas de cortafuegos, filtros Sie
 traen ahora valores de ejemplo: son plantillas, no tu configuración. Lo que ya tienes en
 `/etc` no cambia al actualizar.
 
+### El chat
+
+El chat lee su `.env`. Estas variables tenían antes un valor real por omisión y ahora uno de
+ejemplo: **defínelas antes de actualizar**.
+
+| Variable | Para qué |
+|---|---|
+| `CHAT_URL_PUBLICA` | dirección pública del correo y del chat |
+| `FARO_PUBLIC_URL` | intranet: perfiles, fotos, archivos |
+| `JITSI_URL`, `JITSI_DOMAIN` | servidor de reuniones |
+| `CHAT_CORS_ORIGENES` | todos los sitios que embeben el chat, separados por comas |
+| `CORREO_API_URL` | API del correo (calendario y tareas) |
+| `DOMINIOS_EQUIVALENTES` | dominios en los que la misma parte local es la misma persona |
+| `NOMINA_DB_HOST` | base de datos del directorio |
+| `ALMACEN_URL` | servicio de archivos |
+| `LIVEKIT_API_URL`, `LIVEKIT_GRABACIONES_URL`, `LIVEKIT_WS_URL`, `LIVEKIT_TURN_UDP_HOST`, `LIVEKIT_TURN_TLS_HOST` | llamadas y grabaciones |
+| `KEYCLOAK_SERVER_URL`, `ONLYOFFICE_PUBLIC_URL` | inicio de sesión único y editor de documentos |
+| `MAIL_SERVER`, `MAIL_USERNAME`, `MAIL_DEFAULT_SENDER` | correo saliente del chat |
+
 Para que no vuelva a pasar, el Guardián revisa los datos propios en cada confirmación:
 `deploy/hooks/instalar.sh` crea `.git/guardian-datos-propios`; rellénalo con tus dominios y
 redes.
