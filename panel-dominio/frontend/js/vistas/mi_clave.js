@@ -2,6 +2,7 @@ import { api, ficha } from '../api.js';
 import { el, aviso, campo } from '../ui.js';
 
 export function vistaMiClave(obligatorio) {
+  // Tras el cambio se cierran todas las sesiones y hay que volver a entrar.
   const actual = campo('Contraseña actual', { type: 'password', autocomplete: 'current-password', required: true, maxlength: 128 });
   const nueva = campo('Contraseña nueva', { type: 'password', autocomplete: 'new-password', required: true, minlength: 10, maxlength: 128 }, 'Mínimo 10 caracteres, combinando mayúsculas, minúsculas, números o símbolos.');
   const repetir = campo('Repite la contraseña nueva', { type: 'password', autocomplete: 'new-password', required: true, maxlength: 128 });

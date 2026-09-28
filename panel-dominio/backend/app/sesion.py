@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException, Request
 
-from app import config
+from app import config, config_extra
 
 
 def _hash(ficha: str) -> str:
@@ -48,7 +48,7 @@ async def admin_actual(request: Request) -> dict:
         raise HTTPException(401, "Sesión requerida")
     db = request.app.state.db
     fila = await db.fetchrow(
-        """SELECT s.id AS sesion_id, a.id, a.username, a.display_name, a.active, a.must_change_password
+        """SELECT s.id AS sesion_id, a.id, a.username, a.display_name, a.active, a.must_change_password, a.totp_enabled
              FROM pd_sesiones s JOIN pd_admins a ON a.id = s.admin_id
             WHERE s.token_hash = $1 AND s.revoked_at IS NULL AND s.expires_at > NOW()""",
         _hash(cabecera[7:]),
@@ -58,6 +58,9 @@ async def admin_actual(request: Request) -> dict:
     # Con la contraseña inicial solo se puede cambiarla: nada de gestionar cuentas todavía.
     if fila["must_change_password"] and not request.url.path.startswith("/api/acceso/"):
         raise HTTPException(403, "Cambia tu contraseña inicial antes de continuar")
+    # Sin segundo factor tampoco: solo puede configurarlo.
+    if config_extra.TOTP_OBLIGATORIO and not fila["totp_enabled"] and not request.url.path.startswith("/api/acceso/"):
+        raise HTTPException(403, "Activa el segundo factor antes de continuar")
     dominios = await db.fetch(
         """SELECT d.domain FROM pd_admin_dominios p JOIN domain d ON d.domain = p.domain
             WHERE p.admin_id = $1 ORDER BY d.domain""",
@@ -65,7 +68,8 @@ async def admin_actual(request: Request) -> dict:
     )
     return {
         "id": fila["id"], "username": fila["username"], "display_name": fila["display_name"],
-        "sesion_id": fila["sesion_id"], "dominios": [d["domain"] for d in dominios],
+        "sesion_id": fila["sesion_id"], "totp": fila["totp_enabled"],
+        "debe_cambiar_clave": fila["must_change_password"], "dominios": [d["domain"] for d in dominios],
     }
 
 

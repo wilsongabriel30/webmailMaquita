@@ -14,6 +14,12 @@ from fastapi.responses import JSONResponse
 from app.acceso import router as acceso_router
 from app.alias import router as alias_router
 from app.cuentas import router as cuentas_router
+from app.dns import router as dns_router
+from app.grupos import router as grupos_router
+from app.marca import router as marca_router
+from app.reenvios import router as reenvios_router
+from app.solicitudes import router as solicitudes_router
+from app.totp import router as totp_router
 from app.db import crear_pool
 from app.resumen import router as resumen_router
 
@@ -41,7 +47,13 @@ async def salud():
     return {"ok": True}
 
 
+app.include_router(totp_router)
 app.include_router(acceso_router)
 app.include_router(resumen_router)
 app.include_router(cuentas_router)
 app.include_router(alias_router)
+app.include_router(reenvios_router)
+app.include_router(grupos_router)
+app.include_router(marca_router)
+app.include_router(dns_router)
+app.include_router(solicitudes_router)

@@ -201,7 +201,12 @@ async def subir_archivo(
         raise HTTPException(400, "Archivo demasiado grande (máximo 2 MB)")
 
     carpeta = os.path.join(UPLOAD_DIR, dominio, tipo)
-    os.makedirs(carpeta, mode=0o755, exist_ok=True)
+    os.makedirs(carpeta, exist_ok=True)
+    for c in (os.path.dirname(carpeta), carpeta):
+        try:
+            os.chmod(c, 0o2775)  # grupo compartido con el portal de dominio
+        except OSError:
+            pass
     for viejo in os.listdir(carpeta):
         os.remove(os.path.join(carpeta, viejo))
     ext = os.path.splitext(nombre)[1].lower() or ".png"
@@ -210,7 +215,7 @@ async def subir_archivo(
     destino = os.path.join(carpeta, f"{tipo}{ext}")
     with open(destino, "wb") as f:
         f.write(contenido)
-    os.chmod(destino, 0o644)  # el webmail (otro usuario) tiene que poder leerlo
+    os.chmod(destino, 0o664)  # lo lee el webmail y lo puede reemplazar el portal de dominio
 
     logger.info("Portales: %s de %s subido por %s (%d bytes)", tipo, dominio, admin["username"], len(contenido))
     await _audit(request, admin, "portal_marca_archivo", dominio, {"tipo": tipo, "bytes": len(contenido)})

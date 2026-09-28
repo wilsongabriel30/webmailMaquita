@@ -27,7 +27,28 @@ async function pedir(metodo, ruta, cuerpo) {
   return datos;
 }
 
+async function imagen(ruta) {
+  const res = await fetch('/api' + ruta, { headers: { Authorization: 'Bearer ' + ficha.leer() } });
+  if (!res.ok) throw new Error('No se pudo cargar la imagen');
+  return URL.createObjectURL(await res.blob());
+}
+
+async function subir(ruta, archivo) {
+  let res;
+  try {
+    res = await fetch('/api' + ruta, { method: 'PUT', headers: { Authorization: 'Bearer ' + ficha.leer(), 'Content-Type': 'application/octet-stream' }, body: archivo });
+  } catch {
+    throw new Error('No hay conexión con el servidor. Inténtalo de nuevo.');
+  }
+  if (res.status === 413) throw new Error('La imagen pesa demasiado.');
+  const datos = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(typeof datos.detail === 'string' ? datos.detail : 'No se pudo subir la imagen');
+  return datos;
+}
+
 export const api = {
+  imagen,
+  subir,
   get: (r) => pedir('GET', r),
   post: (r, c) => pedir('POST', r, c || {}),
   put: (r, c) => pedir('PUT', r, c || {}),
