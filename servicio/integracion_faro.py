@@ -177,7 +177,7 @@ def explorador_almacen(ruta=''):
 # Solo lectura: ver, navegar carpetas y descargar.
 # ---------------------------------------------------------------------------
 _EXT_IMAGEN = {'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'}
-_ZIP_MAXIMO = 2 * 1024 ** 3   # 2 GB por descarga completa
+_ZIP_MAXIMO = 2 * 1024 ** 3   # desde aqui el ZIP sale en flujo, sin cache en disco
 
 
 def _tam_humano(n):
@@ -891,14 +891,12 @@ def descargar_todo_compartido(token):
     if not destino or not os.path.isdir(destino):
         abort(404)
 
-    # Limite de cortesia: un ZIP gigante es un riesgo para FARO.
+    # Sin tope de tamano (28/09/2026): una carpeta grande no se arma en disco,
+    # sale en flujo y se puede reanudar si la descarga se corta.
     import compartido_medios
     total, firma = compartido_medios.medir_carpeta(destino)
     if total > _ZIP_MAXIMO:
-        return ('<div style="font-family:Arial;max-width:420px;margin:90px auto;text-align:center">'
-                '<h3>Carpeta muy grande</h3><p style="color:#5f6368">Esta carpeta supera el limite '
-                'de descarga en un solo ZIP. Abre el enlace y descarga los archivos que necesites.'
-                '</p></div>', 413)
+        return compartido_medios.zip_grande(destino, base, comp, req.args.get('aviso'), firma)
 
     # El ZIP de la misma carpeta sin cambios se reutiliza (2 h): la segunda
     # persona que descarga el enlace no espera a que se arme otra vez.
