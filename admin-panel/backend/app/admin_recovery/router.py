@@ -1,3 +1,4 @@
+import hmac
 """
 Recuperacion de acceso al PANEL ADMIN mediante correo alternativo (Gmail/Hotmail/otro).
 Flujo:
@@ -161,11 +162,12 @@ async def reset_password(body: ResetReq, r: Request):
         raise HTTPException(400, "Token invalido")
     if not row["token_expires"] or row["token_expires"] < datetime.now(timezone.utc):
         raise HTTPException(400, "El token expiro")
-    if _h((body.token or "").strip()) != row["token_hash"]:
+    if not hmac.compare_digest(_h((body.token or "").strip()), row["token_hash"]):
         raise HTTPException(400, "Token invalido")
     ph = bcrypt.hashpw(body.new_password.encode(), bcrypt.gensalt()).decode()
     await _db(r).execute(
-        "UPDATE admin_users SET password_hash=$1, failed_attempts=0, locked_until=NULL, active=true WHERE username=$2",
+        # No se toca `active`: recuperar la clave no debe devolver el acceso a una cuenta desactivada.
+        "UPDATE admin_users SET password_hash=$1, failed_attempts=0, locked_until=NULL WHERE username=$2",
         ph, username)
     await _db(r).execute(
         "UPDATE admin_recovery SET token_hash=NULL, token_expires=NULL, updated_at=now() WHERE username=$1", username)

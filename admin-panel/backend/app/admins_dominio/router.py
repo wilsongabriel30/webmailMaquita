@@ -66,7 +66,7 @@ async def _audit(r: Request, a: dict, accion: str, objetivo: str, detalles: dict
 @router.get("")
 async def listar(request: Request, admin: dict = Depends(require_superadmin)):
     filas = await _db(request).fetch(
-        """SELECT a.id, a.username, a.display_name, a.active, a.must_change_password, a.last_login,
+        """SELECT a.id, a.username, a.display_name, a.active, a.must_change_password, a.totp_enabled, a.last_login,
                   a.locked_until, a.created_by, a.created_at,
                   COALESCE(array_agg(d.domain ORDER BY d.domain) FILTER (WHERE d.domain IS NOT NULL), '{}') AS dominios
              FROM pd_admins a LEFT JOIN pd_admin_dominios d ON d.admin_id = a.id
@@ -122,7 +122,11 @@ async def editar(admin_id: int, request: Request, admin: dict = Depends(require_
     dominios = await _dominios_validos(db, datos["dominios"]) if "dominios" in datos else None
     activa = bool(datos["active"]) if "active" in datos else actual["active"]
     nombre = _CONTROL.sub(" ", str(datos["display_name"])).strip()[:255] if "display_name" in datos else actual["display_name"]
+    restablecer = bool(datos.get("restablecer_segundo_factor"))
     async with db.acquire() as con, con.transaction():
+        if restablecer:
+            await con.execute(
+                "UPDATE pd_admins SET totp_secret = NULL, totp_enabled = false, totp_last_step = 0 WHERE id = $1", admin_id)
         await con.execute(
             """UPDATE pd_admins SET display_name = $2, active = $3,
                       password_hash = COALESCE($4, password_hash),
@@ -134,11 +138,12 @@ async def editar(admin_id: int, request: Request, admin: dict = Depends(require_
         if dominios is not None:
             await _asignar(con, admin_id, dominios, admin["username"])
         # Clave nueva o cuenta desactivada: sus sesiones abiertas dejan de valer al instante.
-        if nueva_clave or not activa:
+        if nueva_clave or not activa or restablecer:
             await con.execute(
                 "UPDATE pd_sesiones SET revoked_at = NOW() WHERE admin_id = $1 AND revoked_at IS NULL", admin_id)
     await _audit(request, admin, "admin_dominio_editar", actual["username"],
-                 {"dominios": dominios, "active": activa, "clave_cambiada": bool(nueva_clave)})
+                 {"dominios": dominios, "active": activa, "clave_cambiada": bool(nueva_clave),
+                  "segundo_factor_restablecido": restablecer})
     return {"ok": True}
 
 

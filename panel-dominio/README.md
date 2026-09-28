@@ -6,17 +6,25 @@ y sin entrar al panel general del servidor.
 
 ## Qué puede hacer un administrador de dominio
 
-| Sí | No |
-|---|---|
-| Ver las cuentas y alias de sus dominios | Ver o tocar otros dominios |
-| Crear cuentas | Eliminar cuentas |
-| Editar nombre, teléfono, correo alterno y cuota | Leer correo de nadie |
-| Cambiar contraseñas | Reenviar correo fuera de sus dominios |
-| Activar y desactivar cuentas | Tocar la configuración del servidor |
-| Crear, editar, pausar y eliminar alias | Crear administradores o asignarse dominios |
+| Sí, por su cuenta | Lo pide y lo confirma el administrador general | No |
+|---|---|---|
+| Ver las cuentas, alias y grupos de sus dominios | Eliminar una cuenta (queda desactivada mientras tanto) | Ver o tocar otros dominios |
+| Crear cuentas; editar nombre, teléfono y cuota | | Leer correo de nadie |
+| Cambiar contraseñas; activar y desactivar cuentas | | Tocar la configuración del servidor |
+| Alias y reenvíos, también hacia direcciones de fuera | | Crear administradores o asignarse dominios |
+| Grupos de distribución y sus miembros | | Publicar nombres de servidor (exige DNS y certificado) |
+| Marca: nombre, lema, contacto, color, logo e icono | | |
+| Verificar el DNS de su dominio (MX, SPF, DKIM, DMARC) | | |
 
 Quién administra qué lo decide el superadministrador en el panel general:
-**Administración → Administradores de dominio**.
+**Administración → Administradores de dominio**. Ahí también se confirman las eliminaciones y se
+restablece el segundo factor de quien perdió el teléfono.
+
+### Segundo factor
+
+Es obligatorio (se apaga con `PD_TOTP_OBLIGATORIO=0`, solo para pruebas). En su primera entrada,
+cada administrador cambia la contraseña que le dieron y después da de alta un código en su
+teléfono; hasta entonces el portal no le deja hacer nada más. Un código vale una sola vez.
 
 ## Por qué es un servicio aparte
 
@@ -29,7 +37,7 @@ Es la parte más expuesta del sistema: la usan personas de fuera. Por eso es la 
   las contraseñas guardadas, ni borrar buzones, ni leer la configuración ni la auditoría.
 - **Sin secretos compartidos.** Las sesiones son fichas al azar guardadas como hash; una sesión
   del portal no sirve en el panel general ni en el webmail.
-- **Sin dependencias en el navegador.** La pantalla es HTML, CSS y JavaScript a mano (unos 25 KB),
+- **Sin dependencias en el navegador.** La pantalla es HTML, CSS y JavaScript a mano (unos 45 KB),
   sin paso de compilación: carga bien en conexiones lentas y no hay cadena de suministro que vigilar.
 
 Aun si alguien tomara el control del portal, lo más que alcanzaría es lo que ya puede hacer un
@@ -50,9 +58,15 @@ cd /opt/webmail/panel-dominio/backend
 python3 -m venv venv && venv/bin/pip install -r requirements.txt
 
 # 3. Base de datos: tablas (como dueño de la base), usuario del portal y permisos
-psql -d maildb -f ../deploy/esquema.sql
+psql -d maildb -f ../deploy/esquema.sql -f ../deploy/esquema-2-autonomia.sql
 psql -d maildb -c "CREATE ROLE panel_dominio LOGIN PASSWORD 'una-clave-larga-al-azar'"
-psql -d maildb -f ../deploy/permisos.sql
+psql -d maildb -f ../deploy/permisos.sql -f ../deploy/permisos-2-autonomia.sql
+
+# 3b. Carpeta de logos, compartida con el panel general y legible por el webmail
+groupadd --system maquita-marca
+usermod -aG maquita-marca maquita-dominio && usermod -aG maquita-marca maquita-admin
+mkdir -p /opt/webmail/uploads/branding/empresas
+chgrp -R maquita-marca /opt/webmail/uploads/branding/empresas && chmod 2775 /opt/webmail/uploads/branding/empresas
 
 # 4. Entorno del servicio (solo lo lee root; systemd se lo pasa al proceso)
 install -m 600 /dev/null /etc/maquita-mail/panel-dominio.env
@@ -77,14 +91,25 @@ deba llegar.
 | `PD_DB_HOST`, `PD_DB_PORT`, `PD_DB_NAME`, `PD_DB_USER` | `127.0.0.1`, `5432`, `maildb`, `panel_dominio` | Conexión |
 | `PD_DB_SSL` | (vacío) | `require` si la base de datos está en otro equipo |
 | `PD_HORAS_SESION` | `8` | Duración de una sesión |
+| `PD_TOTP_OBLIGATORIO` | `1` | Exigir segundo factor |
+| `PD_EMISOR` | `Portal de dominio` | Nombre que muestra la aplicación de códigos |
+| `PD_DIR_MARCA` | `/opt/webmail/uploads/branding/empresas` | Carpeta de logos e iconos |
+| `PD_MARCA_MAX_KB` | `512` | Peso máximo de una imagen |
+| `PD_SELECTORES_DKIM` | `default,dkim,mail,selector1,selector2` | Selectores que consulta la verificación DNS |
 
 ## Reglas que conviene conocer
 
 - **Cuota.** El tope por cuenta es el `maxquota` del dominio; si el dominio no tiene, 5 GB. Una
   cuenta que ya tenía más la conserva, pero desde el portal no se puede subir por encima del tope.
 - **Límites del dominio.** Se respetan `mailboxes` y `aliases` de la tabla `domain` (0 = sin límite).
-- **Alias.** Los destinos deben ser cuentas existentes de los dominios propios. Las direcciones de
-  los grupos de distribución no aparecen: se gestionan en su propia sección del panel general.
+- **Destinos de alias, grupos y reenvíos.** Dentro de los dominios propios el destino tiene que
+  existir, para no perder correo por un error de tecleo. Fuera de ellos se acepta cualquier
+  dirección y queda anotada en la auditoría como destino externo. Un grupo solo admite miembros de
+  fuera si se le activa expresamente.
+- **Marca.** Imágenes PNG, JPG o WebP (ICO para el icono) de hasta 512 KB, reconocidas por su
+  contenido. SVG se rechaza: es un documento que puede llevar código. La carpeta de logos es lo
+  único del disco que el portal puede escribir.
+- **Eliminar cuentas.** El portal no puede: su usuario de base de datos no tiene ese permiso.
 - **Contraseñas.** Mínimo 10 caracteres con tres clases de carácter. La contraseña inicial de un
   administrador de dominio es temporal: hasta que la cambia, el portal no le deja hacer nada más.
 - **Bloqueo.** Cinco intentos fallidos bloquean la cuenta 15 minutos; nginx limita además los
@@ -112,7 +137,8 @@ a su casilla, un «null» impreso en pantalla y tablas incómodas en teléfono.
 
 ## Pendiente (se agradecen opiniones)
 
-- Segundo factor (TOTP) para los administradores de dominio.
-- Respuestas automáticas y reenvíos dentro del dominio.
-- Uso de espacio por cuenta (hoy exigiría dar al portal acceso a Dovecot).
+- Firmas corporativas y respuestas automáticas por dominio. Hoy exigen escribir en los buzones,
+  y eso rompería el aislamiento del portal; hay que darles otra forma.
+- Uso de espacio por cuenta (mismo motivo: exigiría dar al portal acceso a Dovecot).
+- Rastreo de mensajes del dominio («¿llegó mi correo?»).
 - Que el administrador de dominio vea su propia actividad.

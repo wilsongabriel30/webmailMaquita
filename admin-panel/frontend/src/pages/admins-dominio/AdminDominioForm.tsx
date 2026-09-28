@@ -3,7 +3,7 @@ import { api } from "../../api/client";
 
 export interface AdminDominio {
   id: number; username: string; display_name: string; active: boolean;
-  must_change_password: boolean; last_login: string | null; dominios: string[];
+  must_change_password: boolean; totp_enabled: boolean; last_login: string | null; dominios: string[];
 }
 
 interface Props { actual: AdminDominio | null; dominios: string[]; onCerrar: () => void; onGuardado: () => void }
@@ -16,6 +16,7 @@ export function AdminDominioForm({ actual, dominios, onCerrar, onGuardado }: Pro
   const [clave, setClave] = useState("");
   const [activa, setActiva] = useState(actual?.active ?? true);
   const [elegidos, setElegidos] = useState<string[]>(actual?.dominios || []);
+  const [restablecer, setRestablecer] = useState(false);
   const [error, setError] = useState("");
   const [guardando, setGuardando] = useState(false);
 
@@ -28,7 +29,7 @@ export function AdminDominioForm({ actual, dominios, onCerrar, onGuardado }: Pro
     setGuardando(true);
     try {
       if (actual) {
-        await api.put(`/admins-dominio/${actual.id}`, { display_name: nombre, active: activa, dominios: elegidos, ...(clave ? { password: clave } : {}) });
+        await api.put(`/admins-dominio/${actual.id}`, { display_name: nombre, active: activa, dominios: elegidos, ...(clave ? { password: clave } : {}), ...(restablecer ? { restablecer_segundo_factor: true } : {}) });
       } else {
         await api.post("/admins-dominio", { username: usuario, display_name: nombre, password: clave, dominios: elegidos });
       }
@@ -61,6 +62,12 @@ export function AdminDominioForm({ actual, dominios, onCerrar, onGuardado }: Pro
           <label className="flex items-center gap-2 text-sm text-ms-gray-90">
             <input type="checkbox" checked={activa} onChange={(e) => setActiva(e.target.checked)} />
             Cuenta activa (si se desmarca, no puede entrar y se cierran sus sesiones)
+          </label>
+        )}
+        {actual?.totp_enabled && (
+          <label className="flex items-center gap-2 text-sm text-ms-gray-90">
+            <input type="checkbox" checked={restablecer} onChange={(e) => setRestablecer(e.target.checked)} />
+            Restablecer segundo factor (perdió o cambió el teléfono; tendrá que configurarlo de nuevo)
           </label>
         )}
         {error && <div className="text-ms-red text-xs">{error}</div>}

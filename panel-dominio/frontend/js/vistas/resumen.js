@@ -13,5 +13,5 @@ export async function vistaResumen() {
       el('div', { clase: 'cifra' }, d.cuentas_activas, el('span', { clase: 'ayuda' }, ` de ${d.cuentas} cuentas activas`)),
       el('p', { clase: 'ayuda' }, `${d.alias} alias · límite de cuentas: ${d.max_cuentas > 0 ? d.max_cuentas : 'sin límite'}`),
       el('p', { clase: 'ayuda' }, `Cuota máxima por cuenta: ${enGB(d.cuota_maxima > 0 ? d.cuota_maxima : r.cuota_por_defecto)}`)))),
-    el('p', { clase: 'aviso nota' }, 'Desde aquí puedes crear cuentas, cambiar contraseñas, activar o desactivar cuentas y gestionar alias. Para eliminar una cuenta o reenviar correo fuera de tu dominio, escribe al administrador general.'));
+    el('p', { clase: 'aviso nota' }, 'Desde aquí administras las cuentas, alias, grupos, reenvíos y la marca de tu organización. Eliminar una cuenta se pide aquí y lo confirma el administrador general, porque no tiene vuelta atrás.'));
 }
