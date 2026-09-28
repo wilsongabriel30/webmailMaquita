@@ -46,3 +46,17 @@ td.acciones { white-space:nowrap; text-align:right; }
 .velo .caja { width:100%; max-width:460px; margin:0; }
 .pie-form { display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
 .vacio { color:var(--gris); text-align:center; padding:24px; }
+
+/* Pantallas estrechas: cada fila se vuelve una tarjeta, sin deslizar de lado. */
+@media (max-width: 640px) {
+  main { padding:16px 12px 40px; }
+  .caja.tabla-marco { padding:4px 12px; }
+  thead { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+  table, tbody, tr, td { display:block; width:100%; }
+  tr { padding:10px 0; border-bottom:1px solid #eee; }
+  tr:last-child { border-bottom:0; }
+  td { border:0; padding:2px 0; overflow-wrap:anywhere; }
+  td.acciones { text-align:left; white-space:normal; padding-top:6px; }
+  td.acciones .enlace { padding:6px 12px 6px 0; }
+  .velo { padding:12px; }
+}

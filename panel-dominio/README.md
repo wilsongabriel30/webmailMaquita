@@ -92,9 +92,23 @@ deba llegar.
 
 ## Pruebas
 
+Tres niveles, de menor a mayor:
+
 ```bash
+# 1. Unitarias: validaciones, alcance y contraseñas
 cd panel-dominio/backend && venv/bin/pip install pytest && venv/bin/python -m pytest tests -q
+
+# 2. Aislamiento contra el servicio instalado (como root en el servidor): intenta salirse
+#    del dominio por la API, por la base de datos y por el sistema de archivos
+panel-dominio/backend/venv/bin/python panel-dominio/pruebas/prueba_aislamiento.py
+
+# 3. Recorrido con navegador de verdad (Chromium, Playwright): entrada, cambio de clave
+#    obligatorio, cuentas, alias, HTML en los nombres, teléfono de 360 px y salida
+cd pruebas-navegador && npx playwright test -c playwright.portal-dominio.config.js
 ```
+
+El recorrido con navegador encontró lo que las otras dos no podían ver: etiquetas sin enlazar
+a su casilla, un «null» impreso en pantalla y tablas incómodas en teléfono.
 
 ## Pendiente (se agradecen opiniones)
 
