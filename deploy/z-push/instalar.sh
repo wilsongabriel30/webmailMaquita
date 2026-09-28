@@ -1,6 +1,6 @@
 #!/bin/bash
 # Z-Push (ActiveSync) en contenedor — instalador/actualizador para Maquita Mail.
-# Uso: bash deploy/z-push/instalar.sh [dominio-del-correo]   (p. ej. maquita.org)
+# Uso: bash deploy/z-push/instalar.sh [dominio-del-correo]   (p. ej. example.org)
 #
 # Construye la imagen (base oficial actual + apt-get upgrade), escribe las configuraciones en
 # /opt/z-push-docker (no dentro de la imagen: se editan sin reconstruir), arranca el contenedor

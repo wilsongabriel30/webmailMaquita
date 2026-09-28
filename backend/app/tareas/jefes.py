@@ -15,6 +15,7 @@ sys.path.insert(0, "/opt/maquita-webmail/backend")
 os.chdir("/opt/maquita-webmail/backend")
 import asyncpg  # noqa: E402
 
+from app import organizacion  # noqa: E402
 from app.core.database import create_db_pool  # noqa: E402
 from app.tareas import avisos  # noqa: E402
 
@@ -215,11 +216,11 @@ async def main():
             if pp.startswith("http"):
                 url = pp
             elif pp:
-                url = "https://datos.maquita.com.ec/static/" + (
+                url = organizacion.url_intranet() + "/static/" + (
                     pp if pp.startswith("uploads/") else "uploads/profiles/" + pp
                 )
             elif fp:
-                url = "https://datos.maquita.com.ec/static/" + fp
+                url = organizacion.url_intranet() + "/static/" + fp
             else:
                 continue
             for correo in {u["email"], u["email_inst"]}:

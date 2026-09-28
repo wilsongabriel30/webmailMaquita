@@ -18,7 +18,7 @@ se anula en un clic y el resto sigue funcionando.
 3. Aparece una contraseña de 16 letras y números en cuatro grupos (`abcd-efgh-jkmn-pqrs`).
    **Cópiala en ese momento**: no se vuelve a mostrar. Se puede escribir con o sin guiones.
 4. En el programa: usuario = tu correo completo, contraseña = la que acabas de crear, servidor =
-   el de siempre (`mail.maquita.org`). Nada más cambia.
+   el de siempre (`mail.example.org`). Nada más cambia.
 
 Máximo diez por cuenta. En la lista ves cuándo se usó cada una por última vez y desde qué dirección:
 si una que no reconoces aparece usada, revócala y avisa a tecnología.

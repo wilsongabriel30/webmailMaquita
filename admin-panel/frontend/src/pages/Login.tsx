@@ -164,7 +164,7 @@ export function Login() {
               </button>
             )}
           </div>
-          <p className="text-center text-ms-gray-60 text-xs mt-4">Maquita Cushunchic MCCH &middot; v2.0</p>
+          <p className="text-center text-ms-gray-60 text-xs mt-4">la organización MCCH &middot; v2.0</p>
         </div>
       </div>
     </div>

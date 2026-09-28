@@ -57,7 +57,7 @@ la base de datos y del `.env` del backend (no llevan credenciales embebidas en e
 ## Prueba real de filtros de salida y ajustes para Raíces Nómina (2026-09-03)
 
 Desde la sesión de Nómina de Raíces se probó en real el filtrado de salida enviando **72
-correos** desde la VM 101 (193.16.0.153) con una cuenta de sistema. **Los cuatro mecanismos
+correos** desde la VM 101 (192.0.2.153) con una cuenta de sistema. **Los cuatro mecanismos
 frenaron el envío** (ratelimit, contención/detector de anomalías, DLP y el límite de eventos
 por IP de Postfix): la prueba fue un éxito. A raíz de eso se ajustó la VM 130 para que el
 correo legítimo de Raíces (rol de pago con la cédula del propio trabajador + aviso de
@@ -65,7 +65,7 @@ depósito) SÍ salga, sin abrir la mano a otros remitentes. Respaldos `.bak.2026
 
 ### Los 7 cambios aplicados
 
-1. **Buzón de sistema `noreply@maquita.org`** ("Raíces Nómina (no responder)", cuota 1 GB,
+1. **Buzón de sistema `noreply@example.org`** ("Raíces Nómina (no responder)", cuota 1 GB,
    `active=t`, hash SHA512-CRYPT vía `doveadm pw`, con alias a sí mismo). Autentica por 587
    STARTTLS; el `From` debe ser la misma cuenta por `reject_sender_login_mismatch`. Clave en
    `CREDENCIALES-CAJA-FUERTE.md` y en BD `nomina` (`nomina_correo_config`). Buzón en BD `maildb`
@@ -97,10 +97,10 @@ depósito) SÍ salga, sin abrir la mano a otros remitentes. Respaldos `.bak.2026
    agrega la cabecera `X-DLP-Exempt` y **no inspecciona**. Motivo: el rol de pago lleva la
    cédula del propio destinatario y el DLP lo rechazaba con 554. `maquita-milter` reiniciado.
 
-6. **Postfix `main.cf`:** `smtpd_client_event_limit_exceptions = $mynetworks, 193.16.0.153/32`
+6. **Postfix `main.cf`:** `smtpd_client_event_limit_exceptions = $mynetworks, 192.0.2.153/32`
    (el límite de 50 mensajes/hora por IP frenaba a Raíces). Recargado.
 
-7. **Listas de exentos:** ambas contienen SOLO `noreply@maquita.org`. La whitelist de
+7. **Listas de exentos:** ambas contienen SOLO `noreply@example.org`. La whitelist de
    remitentes ENTRANTES (`whitelist_senders.map`) quedó **vacía** de cuentas nuestras (correcto).
 
 ### Rutas de los dos mapas y la lista de exentos
@@ -109,7 +109,7 @@ depósito) SÍ salga, sin abrir la mano a otros remitentes. Respaldos `.bak.2026
 - Whitelist de remitentes **ENTRANTES** (NO poner cuentas propias): `/etc/rspamd/local.d/maps/whitelist_senders.map`
 
 ### Recomendación operativa (importante)
-**Mantener las listas de exentos al mínimo.** Hoy solo `noreply@maquita.org` (cuenta de sistema
+**Mantener las listas de exentos al mínimo.** Hoy solo `noreply@example.org` (cuenta de sistema
 que solo usa Raíces). Si una persona debe escribir a todo el personal, agregarla **solo ese
 rato** y **quitarla después**. Nunca dejar cuentas de usuarios humanos exentas del DLP ni del
 ratelimit de forma permanente.

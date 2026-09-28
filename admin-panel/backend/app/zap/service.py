@@ -18,9 +18,11 @@ from datetime import datetime, timedelta
 
 import redis.asyncio as aioredis
 
+from app import organizacion
 from app.wrappers import doveadm
 
-LOCAL_DOMAINS = {"maquita.org", "maquita.com.ec"}
+# Dominios cuyos enlaces se consideran de casa: ORG_DOMINIOS_ENLACES o todos los propios.
+LOCAL_DOMAINS = set(organizacion.dominios("ORG_DOMINIOS_ENLACES"))
 WHITELIST_MAP = "/etc/rspamd/local.d/maps/whitelist_senders.map"
 _URL_RE = re.compile(r'https?://([^/"\'\s>)\]}]+)', re.IGNORECASE)
 _EMAIL_RE = re.compile(r"[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}")

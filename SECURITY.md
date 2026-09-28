@@ -15,11 +15,8 @@
 
 **NO abras un issue público en GitHub para reportar vulnerabilidades de seguridad.**
 
-En su lugar, reporta las vulnerabilidades por correo electrónico:
-
-- **Correo:** security@maquita.org
-- **Asunto:** `[SECURITY] Descripción breve`
-- **Cifrado PGP:** Solicita nuestra clave pública a través de la misma dirección de correo
+En su lugar, repórtala en privado desde la pestaña **Security** del repositorio, con el botón
+**Report a vulnerability** (avisos privados de GitHub). Solo la ven quienes mantienen el proyecto.
 
 ### Qué incluir
 

@@ -4,7 +4,9 @@
 # quedaron 5 dias reintentando y rebotaron sin que nadie se enterara.
 # Ejecutado por guardian-entregas.timer cada 30 min.
 
-DESTINO_AVISO="gestiontecnologia@maquita.com.ec"
+# Los datos de la organización (a quién avisar, con qué remitente) viven en el servidor.
+[ -r /etc/maquita-mail/organizacion.env ] && . /etc/maquita-mail/organizacion.env
+DESTINO_AVISO="${DESTINO_AVISO:-${ORG_CORREOS_AVISOS:-postmaster@localhost}}"
 HORAS_AVISO=6                 # avisar si un mensaje lleva mas de N horas en cola
 HORAS_SILENCIO=12             # no repetir el mismo aviso antes de N horas
 LOG=/var/log/guardian-entregas.log

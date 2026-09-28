@@ -219,5 +219,5 @@ define('IMAP_MEETING_USE_CALDAV', true);
 define('IMAP_SEARCH_CHARSET', 'UTF-8');
 
 // Use additional recevied mail header for remote device IP address. Example: 
-// received: from 1.2.3.123 by hostname (Z-Push); Mon, 01 Jan 2024 00:00:00 +1000
+// received: from 192.0.2.123 by hostname (Z-Push); Mon, 01 Jan 2024 00:00:00 +1000
 define('IMAP_RECEIVED', false);

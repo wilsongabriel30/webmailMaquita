@@ -63,7 +63,7 @@ Requisitos (todos costaron algo el 07/09/2026 en producción):
 - nginx: la `location` debe ser `^~ /Microsoft-Server-ActiveSync` (si no, la regex del webmail gana).
 - Si había Z-Push nativo: retirar su `location` (socket `php8.4-zpush.sock`), el pool PHP-FPM y `/opt/z-push`.
 - DNS `autodiscover.midominio.org` → el servidor, con certificado que lo cubra (`emitir-certificado.sh`).
-  Para cada dominio de correo distinto (p. ej. `maquita.com.ec`) hace falta su propio `autodiscover.`,
+  Para cada dominio de correo distinto (p. ej. `example.com`) hace falta su propio `autodiscover.`,
   `server_name` en nginx y SAN en el certificado; si no, el nuevo Outlook no puede configurar esas cuentas.
 
 Las configuraciones viven en `/opt/z-push-docker/` y se montan en el contenedor: editarlas no

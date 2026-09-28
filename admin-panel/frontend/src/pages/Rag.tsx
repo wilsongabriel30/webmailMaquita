@@ -65,14 +65,14 @@ export function Rag() {
           {!doms.length && <div className="text-xs text-ms-gray-110">Sin dominios. Agrega uno abajo.</div>}
         </div>
         <div className="flex gap-2">
-          <input value={newDom} onChange={(e) => setNewDom(e.target.value)} placeholder="dominio.com" title="Escribe el dominio de correo (ej. maquita.com.ec) que quieres agregar a la lista del RAG." className="px-3 py-2 border border-ms-gray-30 rounded text-sm flex-1" />
+          <input value={newDom} onChange={(e) => setNewDom(e.target.value)} placeholder="dominio.com" title="Escribe el dominio de correo (ej. example.com) que quieres agregar a la lista del RAG." className="px-3 py-2 border border-ms-gray-30 rounded text-sm flex-1" />
           <button onClick={addDom} title="Agrega el dominio escrito a la lista y lo deja disponible para habilitar el RAG en sus buzones." className="text-white text-sm px-4 py-2 rounded" style={{ backgroundColor: "#0078d4" }}>Agregar</button>
         </div>
       </div>
 
       <div className="bg-white border border-ms-gray-30 rounded-lg p-4 space-y-3">
         <h2 className="text-sm font-semibold text-ms-gray-160">Probar (indexar + preguntar)</h2>
-        <input value={user} onChange={(e) => setUser(e.target.value)} placeholder="buzon@maquita.com.ec" title="Correo del buzón sobre el que quieres indexar y preguntar. Debe pertenecer a un dominio habilitado arriba." className="px-3 py-2 border border-ms-gray-30 rounded text-sm w-full" />
+        <input value={user} onChange={(e) => setUser(e.target.value)} placeholder="buzon@example.com" title="Correo del buzón sobre el que quieres indexar y preguntar. Debe pertenecer a un dominio habilitado arriba." className="px-3 py-2 border border-ms-gray-30 rounded text-sm w-full" />
         <div className="flex gap-2 items-center">
           <button onClick={ingest} disabled={busy === "ingest"} title="Lee la bandeja del buzón indicado y la indexa para búsqueda semántica. Solo agrega correos nuevos al índice; no modifica ni borra correos. Puede tardar según el tamaño del buzón." className="text-sm px-3 py-2 rounded border border-ms-gray-30 disabled:opacity-50">{busy === "ingest" ? "Indexando…" : "Indexar bandeja"}</button>
           {ingestMsg && <span className="text-xs text-ms-gray-110">{ingestMsg}</span>}

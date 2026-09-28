@@ -128,14 +128,14 @@ export function OutboundProtection() {
         <label className="flex flex-col text-sm">
           <span className="text-gray-600 mb-1">Cuentas exentas del límite y del detector de envío masivo (bulk legítimo) — separadas por coma</span>
           <textarea value={wlText} onChange={(e) => setWlText(e.target.value)} rows={2}
-            placeholder="noreply@maquita.org, comunicacion@maquita.org"
+            placeholder="noreply@example.org, comunicacion@example.org"
             className="border rounded px-3 py-2 w-full" />
           <span className="text-xs text-gray-400 mt-1">Úsala también, de forma temporal, cuando alguien deba enviar un correo a todo el personal: así no se le bloquea la cuenta.</span>
         </label>
         <label className="flex flex-col text-sm">
           <span className="text-gray-600 mb-1">Cuentas de sistema exentas de la Protección de datos (DLP) hacia externos — separadas por coma</span>
           <textarea value={dlpText} onChange={(e) => setDlpText(e.target.value)} rows={2}
-            placeholder="noreply@maquita.org"
+            placeholder="noreply@example.org"
             className="border rounded px-3 py-2 w-full" />
           <span className="text-xs text-gray-400 mt-1">Solo para remitentes automáticos que por diseño envían datos personales a su propio dueño (p. ej. Raíces Nómina envía a cada trabajador su rol con cédula a su correo personal). No agregar cuentas de personas.</span>
         </label>

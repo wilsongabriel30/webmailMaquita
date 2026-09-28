@@ -35,8 +35,20 @@ import time
 
 RAIZ = os.getenv("MAQ_APP_DIR", "/opt/maquita-webmail")
 ESTADO = os.getenv("MAQ_ESTADO_INTEGRACIONES", "/var/lib/maquita-admin/estado-vigilancia-integraciones.json")
-DESTINOS = os.getenv("MAQ_ALERTAS_DESTINOS", "gestiontecnologia@maquita.org gestiontecnologia@maquita.com.ec").split()
-REMITENTE = os.getenv("MAQ_ALERTAS_REMITENTE", "postmaster@maquita.org")
+def _org(clave, defecto):
+    """Valor del fichero de la organización (CLAVE=valor), o el de respaldo."""
+    try:
+        with open(os.getenv("ORG_FICHERO", "/etc/maquita-mail/organizacion.env"), encoding="utf-8") as f:
+            for linea in f:
+                if linea.strip().startswith(clave + "="):
+                    return linea.split("=", 1)[1].strip().strip("\"'") or defecto
+    except OSError:
+        pass
+    return defecto
+
+
+DESTINOS = (os.getenv("MAQ_ALERTAS_DESTINOS") or _org("ORG_CORREOS_AVISOS", "postmaster@localhost")).replace(",", " ").split()
+REMITENTE = os.getenv("MAQ_ALERTAS_REMITENTE") or _org("ORG_REMITENTE_AVISOS", "postmaster@localhost")
 TIEMPO = 25
 
 

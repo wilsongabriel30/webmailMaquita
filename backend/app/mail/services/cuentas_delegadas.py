@@ -9,7 +9,7 @@ Cómo funciona:
   cada persona. La llena el panel de administración (Buzones compartidos) o el propio dueño
   desde el webmail (`/api/mail/delegation/grant`).
 - Las carpetas de una cuenta delegada se nombran de forma virtual:
-      Compartidos/<cuenta>/<carpeta real>      p. ej. Compartidos/ventas@maquitaturismo.com/INBOX
+      Compartidos/<cuenta>/<carpeta real>      p. ej. Compartidos/ventas@turismo.example/INBOX
   Cuando una petición trae una carpeta así, la sesión abre IMAP como `<cuenta>*admin` con la
   contraseña maestra de Dovecot (la misma que usa la impersonación del panel) y trabaja sobre
   la carpeta real. La contraseña maestra nunca sale del servidor.

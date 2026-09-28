@@ -343,7 +343,7 @@ CREATE TABLE public.phish_templates (
     subject character varying(255) NOT NULL,
     html text NOT NULL,
     sender_name character varying(120) DEFAULT 'Soporte TI'::character varying NOT NULL,
-    sender_email character varying(255) DEFAULT 'no-reply@maquita.org'::character varying NOT NULL,
+    sender_email character varying(255) DEFAULT 'no-reply@example.org'::character varying NOT NULL,
     difficulty character varying(10) DEFAULT 'media'::character varying NOT NULL,
     active boolean DEFAULT true NOT NULL,
     created_at timestamp with time zone DEFAULT now()
@@ -1103,7 +1103,7 @@ INSERT INTO public.phish_templates VALUES (1, 'Restablecer contraseña (TI)', '�
   <p style="color:#666;font-size:13px">Si no realizas esta acción, tu cuenta será bloqueada.</p>
   <p style="color:#666;font-size:13px">Departamento de Tecnología</p>
   <img src="{{PIXEL}}" width="1" height="1" alt="" />
-</div>', 'Soporte TI Maquita', 'soporte-ti@maquita.org', 'media', true, '2026-06-09 19:33:51.974979+00');
+</div>', 'Soporte TI Maquita', 'soporte-ti@example.org', 'media', true, '2026-06-09 19:33:51.974979+00');
 INSERT INTO public.phish_templates VALUES (2, 'Documento compartido', 'Te compartieron un documento: «Presupuesto 2026.xlsx»', '<div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;color:#222">
   <p>Hola,</p>
   <p>Un compañero compartió contigo un documento a través de la nube de Maquita:</p>
@@ -1114,7 +1114,7 @@ INSERT INTO public.phish_templates VALUES (2, 'Documento compartido', 'Te compar
   </p>
   <p style="color:#666;font-size:13px">Este enlace caduca en 24 horas.</p>
   <img src="{{PIXEL}}" width="1" height="1" alt="" />
-</div>', 'Documentos Maquita', 'no-reply@maquita.org', 'alta', true, '2026-06-09 19:33:51.979929+00');
+</div>', 'Documentos Maquita', 'no-reply@example.org', 'alta', true, '2026-06-09 19:33:51.979929+00');
 INSERT INTO public.phish_templates VALUES (3, 'Buzón casi lleno', 'Tu buzón está al 98% — libera espacio ahora', '<div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;color:#222">
   <p>Estimado usuario,</p>
   <p>Tu buzón de correo está al <b>98% de su capacidad</b>. Cuando llegue al 100% dejarás
@@ -1124,7 +1124,7 @@ INSERT INTO public.phish_templates VALUES (3, 'Buzón casi lleno', 'Tu buzón es
   </p>
   <p style="color:#666;font-size:13px">Servicio automático de correo. No responder.</p>
   <img src="{{PIXEL}}" width="1" height="1" alt="" />
-</div>', 'Sistema de Correo', 'postmaster@maquita.org', 'baja', true, '2026-06-09 19:33:51.98182+00');
+</div>', 'Sistema de Correo', 'postmaster@example.org', 'baja', true, '2026-06-09 19:33:51.98182+00');
 
 
 --

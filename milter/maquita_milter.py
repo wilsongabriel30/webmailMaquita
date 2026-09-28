@@ -35,7 +35,10 @@ from purepythonmilter.api.models import connection_id_context  # noqa: E402
 from app.dlp import detectors  # noqa: E402
 from app.safelinks import inbound_rewriter  # noqa: E402
 
-LOCAL_DOMAINS = {"maquita.org", "maquita.com.ec"}
+from app import organizacion  # noqa: E402
+
+# Respaldo si la base no responde: ORG_DOMINIOS_ENLACES o todos los dominios propios.
+LOCAL_DOMAINS = set(organizacion.dominios("ORG_DOMINIOS_ENLACES"))
 MAX_BODY = 12_000_000   # cuerpos mayores no se reescriben (se entregan intactos)
 
 log = logging.getLogger("maquita_milter")
@@ -395,7 +398,7 @@ async def _inbound_safeattach(st, pool) -> list:
         return []
 
 
-_secfg = {"ts": 0.0, "imp_on": True, "imp_terms": ["maquita", "mcch", "cushunchic"], "block_cards": True}
+_secfg = {"ts": 0.0, "imp_on": True, "imp_terms": ["maquita", "mcch", "la organización"], "block_cards": True}
 
 
 async def _security_config(pool):

@@ -7,7 +7,7 @@ Para cada dominio de correo (los activos de maildb, o los que se pasen): DNS pú
 redirección de respaldo por HTTP (puerto 80, lo que Outlook prueba si el TLS falla).
 
 Uso:  backend/venv/bin/python deploy/tools/comprobar-autodiscover.py [dominio ...]   (desde cualquier directorio)
-      variables: MAIL_HOST (canónico, por defecto mail.maquita.org)
+      variables: MAIL_HOST (canónico, por defecto mail.example.org)
 Sale con 1 si algún dominio cuyo correo ya entra aquí (MX) o cuyo autodiscover apunta aquí no autoconfigura.
 """
 
@@ -18,7 +18,7 @@ import sys
 
 import httpx
 
-MAIL_HOST = os.getenv("MAIL_HOST", "mail.maquita.org")
+MAIL_HOST = os.getenv("MAIL_HOST", "mail.example.org")
 DOH = "https://dns.google/resolve"
 XML = (
     '<Autodiscover xmlns="http://schemas.microsoft.com/exchange/autodiscover/mobilesync/requestschema/2006">'

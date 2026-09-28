@@ -90,7 +90,7 @@ rspamd_config:register_symbol({
     end
     if dom ~= "" and is_ours(dom) then return false end
     -- dominios propios del Zimbra tambien son legitimos
-    local zimbra = { ["maquita.com.ec"]=true, ["mcch.com.ec"]=true, ["fundmcch.com.ec"]=true }
+    local zimbra = { ["example.com"]=true, ["example.net"]=true, ["fundacion.example"]=true }
     if zimbra[dom] or dom:match("%.maquita%.com%.ec$") or dom:match("%.mcch%.com%.ec$") then return false end
     return true, 1.0, name
   end,

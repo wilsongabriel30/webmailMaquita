@@ -83,7 +83,7 @@ def test_ninguna_url_externa_ni_data_sobrevive(entorno):
     assert r.html.count('src="/api/firmas/imagen/') == 6
     assert "max-width: 100%; display: block" in r.html
     # Los enlaces sí siguen siendo externos: solo cambian las imágenes.
-    assert 'href="https://maquita.com.ec/"' in r.html
+    assert 'href="https://example.com/"' in r.html
 
 
 def test_tablas_presentacion_y_ancho_fijo(entorno):

@@ -18,4 +18,4 @@ CREATE TABLE IF NOT EXISTS rag_domains (
   enabled boolean DEFAULT true,
   created_at timestamptz DEFAULT now()
 );
-INSERT INTO rag_domains (domain, enabled) VALUES ('maquita.com.ec', true) ON CONFLICT DO NOTHING;
+INSERT INTO rag_domains (domain, enabled) VALUES ('example.com', true) ON CONFLICT DO NOTHING;

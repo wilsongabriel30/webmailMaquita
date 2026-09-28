@@ -38,7 +38,7 @@ async def crear(request: Request, admin: dict = Depends(_ADMIN)):
         try:
             valor = str(ipaddress.ip_network(valor, strict=False))
         except ValueError:
-            raise HTTPException(400, "La red debe ser un CIDR válido, p. ej. 193.16.0.0/24 o 179.49.24.170/32")
+            raise HTTPException(400, "La red debe ser un CIDR válido, p. ej. 192.0.2.0/24 o 203.0.113.170/32")
     elif not _BSSID.match(valor):
         raise HTTPException(400, "El BSSID debe tener la forma aa:bb:cc:dd:ee:ff")
     try:

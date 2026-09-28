@@ -120,7 +120,7 @@ export function ThreatDashboard() {
         <div className="bg-white border border-ms-gray-30 rounded-lg p-4">
           <div className="text-sm font-medium text-ms-gray-160 mb-2">⛔ Deshabilitar buzón</div>
           <div className="flex gap-2">
-            <input className="flex-1 px-3 py-2 border border-ms-gray-30 rounded text-sm" placeholder="usuario@maquita.org" value={disableUser} onChange={(e) => setDisableUser(e.target.value)}
+            <input className="flex-1 px-3 py-2 border border-ms-gray-30 rounded text-sm" placeholder="usuario@example.org" value={disableUser} onChange={(e) => setDisableUser(e.target.value)}
               title="Escribe la dirección completa del buzón que quieres deshabilitar, por ejemplo cuando sospechas que la cuenta fue robada." />
             <button onClick={disable} title="Deshabilita el buzón indicado: el usuario no podrá iniciar sesión ni enviar correo hasta que lo reactives. Pide confirmación antes de aplicar." className="px-3 py-2 bg-ms-gray-160 text-white rounded text-sm">Deshabilitar</button>
           </div>

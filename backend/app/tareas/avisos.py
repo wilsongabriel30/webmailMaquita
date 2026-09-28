@@ -1,7 +1,7 @@
 """Avisos de T-34 por el canal T-03 (evento `notificacion`, tipo `tarea`), FUERA del chat.
 El servicio de notificaciones vive en el chat (POST /api/chat/notificaciones, sin sesión): se autentica con la cabecera
 X-Notif-Secret = NOTIF_SECRET (mismo valor en el .env del backend y del chat). Nunca rompe la operación.
-Además de la app (T-03), cada aviso llega por CORREO (desde Raíces Tareas <tareas@maquita.org>, SMTP local) y a la
+Además de la app (T-03), cada aviso llega por CORREO (remitente ORG_REMITENTE_TAREAS, SMTP local) y a la
 campanita de Raíces (tabla `notifications` de la BD nomina, usuario por correo institucional). 28/08/2026.
 """
 
@@ -15,9 +15,11 @@ import httpx
 # de codigo, que se publica.
 RUTA_NOMBRES = "/var/lib/maquita-webmail/nombres.json"
 
+from app import organizacion  # noqa: E402
+
 log = logging.getLogger(__name__)
-CHAT = "https://mail.maquita.org"
-URL_TAREAS = "https://mail.maquita.org/webmail/tasks?app=1&vista=seguimiento"
+CHAT = organizacion.url_correo()
+URL_TAREAS = CHAT + "/webmail/tasks?app=1&vista=seguimiento"
 
 
 def url_tarea(tarea_id) -> str:
@@ -114,10 +116,10 @@ def _secreto() -> str:
     return ""
 
 
-REMITENTE = "Raíces Tareas <tareas@maquita.org>"
+REMITENTE = organizacion.remitente("ORG_REMITENTE_TAREAS", "Raíces Tareas", "tareas")
 PIE = (
     "Este aviso también llega a la app Raíces para Windows, con notificaciones en el escritorio: "
-    "descárgala en https://mail.maquita.org/app"
+    f"descárgala en {CHAT}/app"
 )
 
 
@@ -136,7 +138,7 @@ async def _correo(correos, titulo, texto, url):
         msg["To"] = ", ".join(correos)
         msg["Subject"] = f"[Tareas] {titulo}"
         msg["Date"] = formatdate(localtime=True)
-        msg["Message-ID"] = make_msgid(domain="maquita.org")
+        msg["Message-ID"] = make_msgid(domain=organizacion.dominio_principal())
         msg.attach(
             MIMEText(
                 f"{titulo}\n\n{texto}\n\nAbrir la tarea: {url}\n\n{PIE}",

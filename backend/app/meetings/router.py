@@ -16,10 +16,10 @@ router = APIRouter(prefix="/api/meetings", tags=["meetings"])
 # Use public Jitsi instance (no private Jitsi detected in infra)
 import os
 
-# Jitsi PROPIO de Maquita (soberano). Configurable vía .env si algún día cambia.
-JITSI_BASE_URL = os.environ.get("JITSI_BASE_URL", "https://meet.maquita.com.ec").rstrip(
-    "/"
-)
+from app import organizacion
+
+# Servidor de reuniones propio. Se configura con JITSI_BASE_URL (o ORG_URL_REUNIONES).
+JITSI_BASE_URL = organizacion.url_reuniones()
 
 
 def _db(request: Request):

@@ -203,8 +203,8 @@ export function Portales() {
           <p className="text-sm text-ms-gray-60 mt-1">Cada empresa entra a su correo por su propio nombre de servidor y ve su logo, su nombre y sus colores. Lo que no se defina se hereda de Personalización.</p>
         </div>
         <SectionHelp titulo="Portales por empresa" items={[
-          { titulo: "Para qué sirve", desc: "Que cada empresa de la casa (Turismo, Invertiagro...) perciba su propio servidor de correo aunque por debajo sea uno solo: su nombre de servidor, su logo, su nombre y su color en la pantalla de entrada." },
-          { titulo: "Nombre de servidor", desc: "Al agregar mail.<empresa>, quien entre por ese nombre solo podrá usar cuentas de ese dominio y, si escribe solo su usuario, se le completa con ese dominio. El portal padre (mail.maquita.org) nunca restringe." },
+          { titulo: "Para qué sirve", desc: "Que cada empresa de la casa (una filial, una marca...) perciba su propio servidor de correo aunque por debajo sea uno solo: su nombre de servidor, su logo, su nombre y su color en la pantalla de entrada." },
+          { titulo: "Nombre de servidor", desc: "Al agregar mail.<empresa>, quien entre por ese nombre solo podrá usar cuentas de ese dominio y, si escribe solo su usuario, se le completa con ese dominio. El portal padre (mail.example.org) nunca restringe." },
           { titulo: "Lo que el panel NO hace", desc: "Publicar el nombre en internet. Para que mail.<empresa> funcione hacen falta además: (1) el registro DNS A apuntando a este servidor, (2) ampliar el certificado con ese nombre, (3) un bloque de nginx igual al de Turismo. Eso lo hace Tecnología." },
           { titulo: "Logo, icono y color", desc: "Se guardan por dominio y se aplican al instante (hasta 1 minuto si el portal es nuevo). Si se quitan, vuelve a mostrarse lo de la marca general." },
           { titulo: "Auditoría", desc: "Cada alta, baja, cambio de marca y subida de archivo queda en la auditoría del panel." },
