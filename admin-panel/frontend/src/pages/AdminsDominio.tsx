@@ -4,6 +4,7 @@ import { useAuth } from "../api/auth";
 import { SectionHelp } from "../components/SectionHelp";
 import { AdminDominioForm, AdminDominio } from "./admins-dominio/AdminDominioForm";
 import { AuditoriaDominio } from "./admins-dominio/AuditoriaDominio";
+import { SolicitudesDominio } from "./admins-dominio/SolicitudesDominio";
 
 export function AdminsDominio() {
   const { user } = useAuth();
@@ -34,6 +35,8 @@ export function AdminsDominio() {
           { titulo: "Qué es", desc: "Personas que administran SOLO las cuentas y alias de los dominios que se les asignan. Entran por un portal aparte (otro puerto), no por este panel." },
           { titulo: "Qué pueden hacer", desc: "Crear cuentas, editar nombre y cuota, cambiar contraseñas, activar o desactivar cuentas y gestionar alias dentro de sus dominios." },
           { titulo: "Qué no pueden hacer", desc: "Ver otros dominios, eliminar cuentas, leer correo, reenviar fuera de su dominio ni tocar la configuración del servidor." },
+          { titulo: "Segundo factor", desc: "Es obligatorio: tras cambiar su contraseña, el portal le pide configurar un código en el teléfono. Si pierde el teléfono, edítalo aquí y marca «Restablecer segundo factor»." },
+          { titulo: "Eliminar cuentas", desc: "El administrador de dominio solo puede pedirlo; la cuenta queda desactivada y aparece abajo, en Solicitudes, para que la confirmes o la rechaces." },
           { titulo: "Contraseña inicial", desc: "La que se pone aquí es temporal: el portal obliga a cambiarla en la primera entrada." },
         ]} />
         <button onClick={() => setEditando("nuevo")} className="px-3 py-1.5 bg-ms-blue text-white rounded text-sm hover:bg-ms-blue-dark">+ Nuevo administrador de dominio</button>
@@ -58,6 +61,7 @@ export function AdminsDominio() {
                 <td className="px-4 py-2.5 text-center">
                   <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${a.active ? "bg-green-50 text-ms-green" : "bg-red-50 text-ms-red"}`}>{a.active ? "Activo" : "Inactivo"}</span>
                   {a.must_change_password && <div className="text-[10px] text-ms-gray-60 mt-0.5">clave temporal</div>}
+                  <div className={`text-[10px] mt-0.5 ${a.totp_enabled ? "text-ms-green" : "text-ms-gray-60"}`}>{a.totp_enabled ? "segundo factor activo" : "segundo factor pendiente"}</div>
                 </td>
                 <td className="px-4 py-2.5 text-xs text-ms-gray-60">{a.last_login ? new Date(a.last_login).toLocaleString() : "Nunca"}</td>
                 <td className="px-4 py-2.5 text-right space-x-3 whitespace-nowrap">
@@ -75,6 +79,8 @@ export function AdminsDominio() {
         <AdminDominioForm actual={editando === "nuevo" ? null : editando} dominios={dominios}
           onCerrar={() => setEditando(null)} onGuardado={() => { setEditando(null); cargar(); }} />
       )}
+
+      <SolicitudesDominio />
 
       <AuditoriaDominio />
     </div>

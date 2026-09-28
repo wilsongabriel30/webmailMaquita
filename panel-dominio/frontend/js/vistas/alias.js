@@ -1,7 +1,7 @@
 import { api, enRuta } from '../api.js';
 import { el, agregar, aviso, campo, lista, ventana } from '../ui.js';
 
-const AYUDA_DESTINOS = 'Una o varias cuentas de tus dominios, separadas por comas. Deben existir.';
+const AYUDA_DESTINOS = 'Una o varias direcciones separadas por comas. Las de tu dominio deben existir; también puedes poner direcciones de fuera.';
 
 function formulario(dominios, actual, alTerminar) {
   const local = campo('Nombre del alias', { type: 'text', required: true, maxlength: 64, pattern: '[A-Za-z0-9][A-Za-z0-9._\\-]*', autocomplete: 'off' }, 'Ejemplo: info, ventas, contacto');
@@ -28,7 +28,7 @@ export async function vistaAlias(sesion, mensaje) {
   // agregar() descarta los huecos; append() a secas escribiría la palabra «null».
   agregar(raiz,
     el('h1', null, 'Alias'),
-    el('p', { clase: 'sub' }, 'Direcciones que entregan el correo en una o varias cuentas de tu dominio.'),
+    el('p', { clase: 'sub' }, 'Direcciones que entregan el correo en una o varias cuentas.'),
     mensaje ? aviso('ok', mensaje) : null,
     el('div', { clase: 'fila' }, el('span', { clase: 'crece ayuda' }, `${lista.length} alias`),
       el('button', { clase: 'boton', alClick: () => formulario(sesion.dominios, null, recargar) }, 'Nuevo alias')),

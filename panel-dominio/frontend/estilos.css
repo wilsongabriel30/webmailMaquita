@@ -47,6 +47,25 @@ td.acciones { white-space:nowrap; text-align:right; }
 .pie-form { display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
 .vacio { color:var(--gris); text-align:center; padding:24px; }
 
+h2 { font-size:16px; margin:0 0 8px; }
+.marca.aviso-marca { background:#fff4ce; color:#6b5300; margin-left:6px; }
+.miembros { list-style:none; margin:8px 0 0; padding:0; }
+.miembros li { display:flex; gap:8px; align-items:flex-start; justify-content:space-between; padding:8px 0; border-top:1px solid #eee; overflow-wrap:anywhere; }
+.miembros li > button, .enlace { white-space:nowrap; flex-shrink:0; }
+.rejilla { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:0 16px; }
+.casilla input, p > input[type=checkbox] { width:auto; }
+label.en-linea { display:inline; font-size:14px; color:var(--tinta); margin:0; }
+input[type=color] { padding:2px; height:38px; }
+input[type=file] { border:0; padding:6px 0; }
+.vista-imagen { min-height:72px; display:flex; align-items:center; justify-content:center; background:#fafafa; border:1px dashed var(--borde); border-radius:4px; padding:8px; color:var(--gris); font-size:12px; text-align:center; }
+.vista-imagen img { max-width:100%; max-height:96px; }
+.imagen-marca { margin-bottom:8px; }
+.qr { display:block; margin:8px auto; background:#fff; }
+.pasos { padding-left:20px; margin:0 0 8px; }
+code { font-family:ui-monospace,Consolas,monospace; font-size:12px; overflow-wrap:anywhere; }
+code.registro { display:block; color:var(--gris); margin-top:2px; }
+[hidden] { display:none !important; }
+
 /* Pantallas estrechas: cada fila se vuelve una tarjeta, sin deslizar de lado. */
 @media (max-width: 640px) {
   main { padding:16px 12px 40px; }

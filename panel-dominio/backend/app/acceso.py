@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from app import config
+from app import config, config_extra, totp
 from app.claves import comprobar_portal, hash_portal
 from app.sesion import abrir, admin_actual, auditar, cerrar
 from app.validacion import exigir_clave_fuerte
@@ -37,16 +37,35 @@ async def entrar(request: Request):
         await auditar(request, {"id": fila["id"], "username": usuario}, "entrada_fallida")
         raise HTTPException(401, _FALLO)
 
+    paso = None
+    if fila["totp_enabled"]:
+        if not str(datos.get("codigo", "")).strip():
+            # Clave correcta, falta el código: no es un fallo ni abre sesión.
+            return {"requiere_codigo": True}
+        paso = totp.comprobar(fila["totp_secret"], datos.get("codigo"), fila["totp_last_step"])
+        if paso is None:
+            intentos = (fila["failed_attempts"] or 0) + 1
+            bloqueo = ahora + timedelta(minutes=config.MINUTOS_BLOQUEO) if intentos >= config.INTENTOS_MAXIMOS else None
+            await db.execute(
+                "UPDATE pd_admins SET failed_attempts = $2, locked_until = $3 WHERE id = $1",
+                fila["id"], 0 if bloqueo else intentos, bloqueo)
+            await auditar(request, {"id": fila["id"], "username": usuario}, "codigo_fallido")
+            raise HTTPException(401, "El código no es correcto")
+
     await db.execute(
-        "UPDATE pd_admins SET failed_attempts = 0, locked_until = NULL, last_login = NOW() WHERE id = $1", fila["id"])
+        """UPDATE pd_admins SET failed_attempts = 0, locked_until = NULL, last_login = NOW(),
+                  totp_last_step = COALESCE($2, totp_last_step) WHERE id = $1""", fila["id"], paso)
     ficha, vence = await abrir(request, fila["id"])
     await auditar(request, {"id": fila["id"], "username": usuario}, "entrada")
-    return {"token": ficha, "vence": vence.isoformat(), "debe_cambiar_clave": fila["must_change_password"]}
+    return {"token": ficha, "vence": vence.isoformat(), "debe_cambiar_clave": fila["must_change_password"],
+            "debe_activar_segundo_factor": config_extra.TOTP_OBLIGATORIO and not fila["totp_enabled"]}
 
 
 @router.get("/yo")
 async def yo(admin: dict = Depends(admin_actual)):
-    return {"username": admin["username"], "display_name": admin["display_name"], "dominios": admin["dominios"]}
+    return {"username": admin["username"], "display_name": admin["display_name"], "dominios": admin["dominios"],
+            "debe_cambiar_clave": admin["debe_cambiar_clave"],
+            "debe_activar_segundo_factor": config_extra.TOTP_OBLIGATORIO and not admin["totp"]}
 
 
 @router.post("/salir")

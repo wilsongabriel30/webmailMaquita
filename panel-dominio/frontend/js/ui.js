@@ -4,7 +4,8 @@ export function el(etiqueta, atributos, ...hijos) {
   for (const [k, v] of Object.entries(atributos || {})) {
     if (v === null || v === undefined || v === false) continue;
     if (k === 'clase') nodo.className = v;
-    else if (k.startsWith('al')) nodo.addEventListener(k.slice(2).toLowerCase(), v);
+    // Eventos: alClick, alSubmit… (al + mayúscula). «alt» y compañía son atributos normales.
+    else if (/^al[A-Z]/.test(k)) nodo.addEventListener(k.slice(2).toLowerCase(), v);
     else if (k === 'valor') nodo.value = v;
     else if (v === true) nodo.setAttribute(k, '');
     else nodo.setAttribute(k, v);
@@ -37,6 +38,13 @@ export function campo(etiqueta, atributos, ayuda) {
   const pista = ayuda ? el('p', { clase: 'ayuda', id: id + '-ayuda' }, ayuda) : null;
   const entrada = el('input', { ...atributos, id, 'aria-describedby': ayuda ? id + '-ayuda' : null });
   return { nodo: el('div', null, el('label', { for: id }, etiqueta), entrada, pista), entrada };
+}
+
+export function casilla(etiqueta, marcada) {
+  const id = idNuevo();
+  const entrada = el('input', { type: 'checkbox', id });
+  entrada.checked = !!marcada;
+  return { nodo: el('p', { clase: 'casilla' }, entrada, ' ', el('label', { for: id, clase: 'en-linea' }, etiqueta)), entrada };
 }
 
 export function lista(etiqueta, opciones) {
