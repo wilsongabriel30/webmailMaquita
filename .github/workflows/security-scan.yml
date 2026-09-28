@@ -33,14 +33,15 @@ jobs:
     # solo fichero, línea y categoría.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
         with:
           fetch-depth: 0
       - name: Líneas nuevas (BLOQUEANTE)
         if: github.event_name == 'pull_request'
         env:
           GUARDIAN_DATOS_PROPIOS: ${{ secrets.GUARDIAN_DATOS_PROPIOS }}
-        run: python3 deploy/tools/barrido-datos-propios.py --diff "origin/${{ github.base_ref }}"
+          RAMA_BASE: ${{ github.base_ref }}
+        run: python3 deploy/tools/barrido-datos-propios.py --diff "origin/$RAMA_BASE"
       # Lo que quedaba de antes se limpia por módulos. Mientras tanto este paso informa
       # cuánto falta y no bloquea; cuando llegue a cero pasa a ser bloqueante.
       - name: Todo el árbol (informe de lo pendiente)
