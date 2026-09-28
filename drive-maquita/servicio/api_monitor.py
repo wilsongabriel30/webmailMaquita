@@ -24,7 +24,7 @@ log = logging.getLogger('almacen.monitor')
 bp_monitor = Blueprint('almacen_monitor', __name__)
 
 RAIZ_ALMACEN = '/mnt/almacen'
-URL_CAD = 'http://193.16.0.211:8790/health'
+from config_almacen import URL_SALUD_CAD as URL_CAD  # noqa: E402
 
 
 def _master():

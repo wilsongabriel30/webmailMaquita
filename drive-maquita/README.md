@@ -12,7 +12,7 @@ construye el servicio que responde a su API.
 |---|---|---|
 | Bytes (plano de datos) | **nginx** (`X-Accel-Redirect`, streaming) | Componente en C probado por la industria entera durante 20 años. Descargas zero-copy desde disco. Nosotros no escribimos C: lo aprovechamos. |
 | Cerebro (plano de control) | **Python / Flask magro** | El mismo stack que ya opera FARO: un solo stack que parchar, todo el equipo lo lee. Sin clase de errores de memoria (recomendación NSA/Microsoft/Google para código nuevo). |
-| Metadatos | **PostgreSQL** (193.16.0.132) | Ya lo operamos y respaldamos. |
+| Metadatos | **PostgreSQL** (192.0.2.132) | Ya lo operamos y respaldamos. |
 | Archivos | Filesystem plano por usuario | Respaldos simples (rsync/zfs del árbol + dump de BD). |
 
 ### Política de dependencias (superficie de ataque mínima)

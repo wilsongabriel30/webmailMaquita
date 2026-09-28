@@ -14,7 +14,7 @@ log = logging.getLogger('almacen.protecciones')
 CARPETA_CHAT = '/Archivos del chat'
 CARPETAS_SISTEMA = ('/Archivos del chat', '/Grabaciones de reuniones')   # raíz intocable; su contenido sí
 CARPETA_CORREO = '/Archivos del correo'
-URL_WEBMAIL = 'https://mail.maquita.org/webmail/'
+from config_almacen import URL_WEBMAIL  # noqa: E402,F401
 
 
 def _norm(ruta) -> str:

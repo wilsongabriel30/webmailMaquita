@@ -34,7 +34,7 @@ _cargar_entorno_local()
 # datos a un disco USB, un NAS, una carpeta de red o una nube montada, sin tocar el código.
 _log = logging.getLogger('almacen.config')
 
-# Por defecto, el almacenamiento REAL (NFS de 25 TB servido por 193.16.0.26).
+# Por defecto, el almacenamiento REAL (NFS de 25 TB servido por 192.0.2.26).
 # Antes el valor por defecto era una carpeta local vacia; ver la nota de
 # seguridad en raiz_datos().
 RAIZ_DATOS_DEFAULT = os.getenv('ALMACEN_RAIZ_DATOS', '/mnt/almacen')
@@ -102,7 +102,7 @@ RAIZ_DATOS = RAIZ_DATOS_DEFAULT
 
 # ── Base de datos (metadatos: compartidos, papelera, favoritos, cuotas) ──
 BD = {
-    'host': os.getenv('ALMACEN_DB_HOST', '193.16.0.132'),
+    'host': os.getenv('ALMACEN_DB_HOST', '192.0.2.132'),
     'dbname': os.getenv('ALMACEN_DB_NAME', 'almacen'),
     'user': os.getenv('ALMACEN_DB_USER', 'sistemas'),
     'password': os.getenv('ALMACEN_DB_PASSWORD', ''),
@@ -110,7 +110,7 @@ BD = {
 
 # Base de nómina (solo LECTURA: búsqueda de usuarios para compartir)
 BD_NOMINA = {
-    'host': os.getenv('NOMINA_DB_HOST', '193.16.0.132'),
+    'host': os.getenv('NOMINA_DB_HOST', '192.0.2.132'),
     'dbname': os.getenv('NOMINA_DB_NAME', 'nomina'),
     'user': os.getenv('NOMINA_DB_USER', 'sistemas'),
     'password': os.getenv('NOMINA_DB_PASSWORD', ''),
@@ -144,8 +144,30 @@ RETENCION_DIAS_UNIDADES = int(os.getenv('ALMACEN_RETENCION_DIAS_UNIDADES', 120))
 CLAVE_SESION = os.getenv('ALMACEN_CLAVE_SESION', 'cambiar-en-produccion-almacen')
 
 # URL pública del servicio (para armar enlaces compartidos)
-URL_PUBLICA = os.getenv('ALMACEN_URL_PUBLICA', 'https://datos.maquita.com.ec')
+URL_PUBLICA = os.getenv('ALMACEN_URL_PUBLICA', 'https://intranet.example.org')
 # Dominio para los ENLACES COMPARTIDOS que ven las personas (estilo Workspace):
-# drive.maquita.com.ec (2026-07-24). Los callbacks internos de OnlyOffice siguen
+# nube.example.org (2026-07-24). Los callbacks internos de OnlyOffice siguen
 # usando URL_PUBLICA (datos) porque el Document Server resuelve ese dominio.
-URL_LINKS = os.getenv('ALMACEN_URL_LINKS', 'https://drive.maquita.com.ec')
+URL_LINKS = os.getenv('ALMACEN_URL_LINKS', 'https://nube.example.org')
+
+
+# ── Direcciones de la organización ──────────────────────────────────────────────────────────
+# El código se publica: aquí solo hay valores de ejemplo. Los reales van en el .env (arriba).
+# Los demás módulos las toman de aquí, y no del entorno, para que el .env ya esté leído.
+def _servidor(url: str) -> str:
+    """'https://nube.example.org:8443/x' -> 'nube.example.org'"""
+    return url.split('://', 1)[-1].split('/', 1)[0].split(':', 1)[0].lower()
+
+
+SERVIDOR_LINKS = _servidor(URL_LINKS)
+SERVIDOR_PUBLICO = _servidor(URL_PUBLICA)
+# Las puertas del mismo sistema: un enlace a cualquiera de ellas es un enlace interno.
+DOMINIOS_ENLACES = tuple(dict.fromkeys(
+    [d.strip().lower() for d in os.getenv('ALMACEN_DOMINIOS_ENLACES', '').split(',') if d.strip()]
+    or [SERVIDOR_LINKS, SERVIDOR_PUBLICO]))
+URL_WEBMAIL = os.getenv('ALMACEN_URL_WEBMAIL', 'https://mail.example.org/webmail/')
+URL_CHAT_EVENTOS = os.getenv('ALMACEN_CHAT_URL', 'http://127.0.0.1:8790/api/chat/drive/evento')
+URL_CONVERSOR_CAD = os.getenv('CAD_CONVERSOR_URL', 'http://127.0.0.1:8790/convert')
+URL_SALUD_CAD = os.getenv('CAD_SALUD_URL', URL_CONVERSOR_CAD.rsplit('/', 1)[0] + '/health')
+# Equipo del editor de documentos: se usa solo para averiguar por qué interfaz salimos hacia él.
+SERVIDOR_EDITOR = os.getenv('ALMACEN_EDITOR_SERVIDOR', '127.0.0.1')

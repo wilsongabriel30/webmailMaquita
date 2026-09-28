@@ -2,7 +2,7 @@
 """API CAD del Almacén Maquita — visor de planos AutoCAD (.dwg/.dxf).
 ================================================================
 Convierte planos a SVG vectorial con un contenedor LibreDWG+ezdxf (VM131,
-http://193.16.0.211:8790) y los muestra en el navegador con zoom/paneo. 100 %
+http://192.0.2.211:8790) y los muestra en el navegador con zoom/paneo. 100 %
 libre, SIN licencias de AutoCAD. Es un VISOR (solo lectura).
 
 El SVG se cachea por hash de contenido: la 2.ª apertura es instantánea y las
@@ -28,8 +28,7 @@ log = logging.getLogger('almacen.cad')
 bp_cad = Blueprint('almacen_cad', __name__)
 bp_cad_web = Blueprint('almacen_cad_web', __name__)
 
-CONVERSOR_URL = os.environ.get('CAD_CONVERSOR_URL',
-                               'http://193.16.0.211:8790/convert')
+from config_almacen import URL_CONVERSOR_CAD as CONVERSOR_URL  # noqa: E402
 CACHE_DIR = '/home/sistemas/almacen-maquita/cache/cad'
 EXT_CAD = {'dwg', 'dxf'}
 MAX_BYTES = 200 * 1024 * 1024  # 200 MB

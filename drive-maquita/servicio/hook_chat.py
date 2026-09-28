@@ -14,7 +14,7 @@ def es_de_chat(ruta) -> bool:
 
 
 def _enviar(cuerpo):
-    url = os.getenv('ALMACEN_CHAT_URL', 'http://193.16.0.136:8790/api/chat/drive/evento')
+    from config_almacen import URL_CHAT_EVENTOS as url
     secreto = os.getenv("ALMACEN_CHAT_SECRETO") or os.getenv("TEAMS_NOTIF_SECRET", "")
     if not secreto:
         return

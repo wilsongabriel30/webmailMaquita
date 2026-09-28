@@ -73,7 +73,7 @@ global.navigator = { clipboard: { writeText: () => Promise.resolve() } };
 global.setInterval = (f) => { f(); return 1; };
 const esperar = setTimeout;   // el de verdad: hay respuestas que llegan luego
 global.addEventListener = () => { };
-global.location = { href: 'https://datos.maquita.com.ec/archivos-almacen/editar' };
+global.location = { href: 'https://intranet.example.org/archivos-almacen/editar' };
 let preguntado = null;
 global.fetch = (u) => {
     preguntado = u;
@@ -160,7 +160,7 @@ bien(puesta === dentro, 'pulsar dentro de la tarjeta no la cierra');
 
 
 // ── Los enlaces del propio Drive Maquita ─────────────────────────────────
-const URL_MAQUITA = 'https://drive.maquita.com.ec/archivos-almacen/unidades/9/1%20Esmeraldas';
+const URL_MAQUITA = 'https://nube.example.org/archivos-almacen/unidades/9/1%20Esmeraldas';
 
 preguntado = null;
 abrirYEsperar();              // URL_PRUEBA es de Google Drive, no nuestra
