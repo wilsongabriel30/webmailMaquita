@@ -3,7 +3,8 @@
 # Guardián pre-commit — Maquita Webmail
 # Bloquea el commit si detecta: patrones prohibidos (secretos del equipo,
 # proveedores externos, términos vetados), .bak, coautoría automática,
-# DATOS PERSONALES, volcados de base de datos y directorios de respaldo.
+# DATOS PERSONALES, volcados de base de datos, directorios de respaldo y
+# DATOS PROPIOS de la organización (dominios, red, correos).
 #
 # Versionado en deploy/hooks/pre-commit. Instalar con deploy/hooks/instalar.sh.
 # Una instalación limpia SIN este hook no está protegida.
@@ -83,9 +84,24 @@ if [ -n "$(echo $VOLCADOS)" ]; then
     fallo=1
 fi
 
+# 7. DATOS PROPIOS de la organización: sus dominios, las direcciones de su red, sus
+#    correos. No son secretos ni datos personales, así que los barridos anteriores no
+#    los veían, y el repositorio es público. Los patrones viven fuera del repositorio
+#    (.git/guardian-datos-propios). La herramienta se busca en el árbol y, si la copia
+#    de trabajo aún no la tiene, junto a los patrones.
+BARRIDO_PROPIOS="$RAIZ/deploy/tools/barrido-datos-propios.py"
+[ -f "$BARRIDO_PROPIOS" ] || BARRIDO_PROPIOS="$(git rev-parse --path-format=absolute --git-common-dir)/guardian/barrido-datos-propios.py"
+if [ -f "$BARRIDO_PROPIOS" ]; then
+    if ! python3 "$BARRIDO_PROPIOS" --staged; then
+        fallo=1
+    fi
+else
+    echo -e "${YELLOW}⚠ Falta deploy/tools/barrido-datos-propios.py: no se comprueban datos propios de la organización.${NC}"
+fi
+
 if [ "$fallo" -eq 1 ]; then
     echo -e "${YELLOW}Corrige lo anterior y vuelve a intentar. (Para forzar, no recomendado: git commit --no-verify)${NC}"
     exit 1
 fi
-echo -e "${GREEN}✓ Guardián OK: sin patrones prohibidos, sin .bak, sin datos personales, sin volcados.${NC}"
+echo -e "${GREEN}✓ Guardián OK: sin patrones prohibidos, sin .bak, sin datos personales, sin volcados, sin datos propios.${NC}"
 exit 0

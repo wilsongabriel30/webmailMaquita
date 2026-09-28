@@ -22,4 +22,13 @@ else
     echo ".git/guardian-patrones-locales ya existe: no se toca."
 fi
 
-command -v python3 >/dev/null || echo "AVISO: sin python3 no funciona el barrido de datos personales."
+# Datos propios de la organización (dominios, red, correos): mismo criterio, otro fichero.
+if [ ! -f .git/guardian-datos-propios ]; then
+    install -m 600 deploy/hooks/guardian-datos-propios.ejemplo .git/guardian-datos-propios
+    echo "Creado .git/guardian-datos-propios a partir de la plantilla."
+    echo "RELLÉNALO con tus dominios y los rangos de tu red: hasta entonces solo se detectan direcciones IP públicas."
+else
+    echo ".git/guardian-datos-propios ya existe: no se toca."
+fi
+
+command -v python3 >/dev/null || echo "AVISO: sin python3 no funcionan los barridos de datos personales ni de datos propios."
