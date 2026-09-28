@@ -81,3 +81,5 @@ backend/app/tareas/nombres.json
 *.dump
 restore*.log
 descargas-app/
+panel-dominio/backend/venv/
+*.tsbuildinfo
