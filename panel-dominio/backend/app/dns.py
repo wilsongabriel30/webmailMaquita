@@ -19,12 +19,20 @@ router = APIRouter(prefix="/api/dns", tags=["dns"])
 _CLAVE = re.compile(r"(?:^|;)p=[A-Za-z0-9+/]{20,}")
 
 
+def orden(tipo: str, nombre: str) -> list[str]:
+    """La orden de dig. El nombre va con -q, que lo toma siempre como nombre y nunca como opción;
+    dig no entiende el separador «--» (con él no consultaba nada y todo salía «sin registro»)."""
+    return ["dig", "+short", "+time=3", "+tries=1", "-t", tipo, "-q", nombre]
+
+
 async def consultar(tipo: str, nombre: str) -> list[str]:
     try:
         proc = await asyncio.create_subprocess_exec(
-            "dig", "+short", "+time=3", "+tries=1", "-t", tipo, "--", nombre, stdout=PIPE, stderr=DEVNULL)
+            *orden(tipo, nombre), stdout=PIPE, stderr=DEVNULL)
         salida, _ = await asyncio.wait_for(proc.communicate(), timeout=8)
     except (asyncio.TimeoutError, OSError):
+        return []
+    if proc.returncode != 0:
         return []
     lineas = [l.strip() for l in salida.decode(errors="replace").splitlines() if l.strip() and not l.startswith(";")]
     # Un TXT largo llega en trozos entre comillas: "v=DKIM1; p=abc" "def"
