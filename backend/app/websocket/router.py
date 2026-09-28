@@ -90,7 +90,7 @@ async def _ultimo_sin_leer(imap) -> int | None:
 
 
 async def aviso_correo_al_canal(
-    username: str, nuevos: int, sin_leer: int, uid: int | None = None
+    username: str, nuevos: int, sin_leer: int, uid: int | None = None, db=None
 ) -> None:
     """Avisa al canal de notificaciones (lo que ve la app de escritorio) que llegó
     correo. tipo='correo' y url del webmail; nunca interrumpe la operación."""
@@ -110,6 +110,11 @@ async def aviso_correo_al_canal(
         import httpx
 
         from app import organizacion
+        from app.portales import direcciones
+
+        # El aviso se entrega por la dirección general (es una llamada entre servicios);
+        # el enlace que abre la persona lleva el nombre de su empresa.
+        suya = await direcciones.url_de_cuenta(db, username)
 
         async with httpx.AsyncClient(timeout=4) as c:
             await c.post(
@@ -121,9 +126,9 @@ async def aviso_correo_al_canal(
                     "titulo": "Correo nuevo",
                     "texto": texto,
                     "url": (
-                        organizacion.url_correo() + "/webmail/?folder=INBOX&uid=%d" % uid
+                        suya + "/webmail/?folder=INBOX&uid=%d" % uid
                         if uid
-                        else organizacion.url_correo() + "/webmail/"
+                        else suya + "/webmail/"
                     ),
                     "origen": "correo",
                 },
@@ -274,7 +279,7 @@ async def _poll_user_inbox(username: str, app_state):
                     # Aviso al canal del cliente Windows (tipo «correo»)
                     _uid_nuevo = await _ultimo_sin_leer(imap)
                     await aviso_correo_al_canal(
-                        username, unseen - prev, unseen, _uid_nuevo
+                        username, unseen - prev, unseen, _uid_nuevo, app_state.db_pool
                     )
                     # Web push (#17): notifica al navegador aunque la PWA este cerrada.
                     try:

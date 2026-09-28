@@ -64,33 +64,44 @@ async def emitir(
     )
     if not correos:
         return 0
-    cuerpo = {
-        "correos": correos,
-        "tipo": "tarea",
-        "titulo": titulo[:120],
-        "texto": texto[:300],
-        "url": url,
-        "origen": "tareas",
-        **(extra or {}),
-    }
+    # A cada empresa, el enlace con el nombre de su portal. Lo normal es un solo grupo.
+    if db is not None:
+        from app.portales import direcciones
+
+        grupos = await direcciones.agrupar_por_url(db, correos)
+    else:
+        grupos = {CHAT: correos}
     n = 0
-    try:
-        async with httpx.AsyncClient(timeout=15) as c:
-            r = await c.post(
-                f"{CHAT}/api/chat/notificaciones",
-                json=cuerpo,
-                headers={"X-Notif-Secret": _secreto()},
-            )
-            if r.status_code == 200:
-                n = int((r.json() or {}).get("destinatarios") or 0)
-            else:
-                log.warning(
-                    "aviso tarea %s: %s %s", tipo_registro, r.status_code, r.text[:120]
+    for base, del_grupo in grupos.items():
+        url_grupo = url
+        if base != CHAT and url.startswith(CHAT + "/"):
+            url_grupo = base + url[len(CHAT):]
+        cuerpo = {
+            "correos": del_grupo,
+            "tipo": "tarea",
+            "titulo": titulo[:120],
+            "texto": texto[:300],
+            "url": url_grupo,
+            "origen": "tareas",
+            **(extra or {}),
+        }
+        try:
+            async with httpx.AsyncClient(timeout=15) as c:
+                r = await c.post(
+                    f"{CHAT}/api/chat/notificaciones",
+                    json=cuerpo,
+                    headers={"X-Notif-Secret": _secreto()},
                 )
-    except Exception as e:
-        log.warning("aviso tarea %s: %s", tipo_registro, e)
-    await _correo(correos, titulo, texto, url)
-    await _campanita(correos, titulo, texto, url)
+                if r.status_code == 200:
+                    n += int((r.json() or {}).get("destinatarios") or 0)
+                else:
+                    log.warning(
+                        "aviso tarea %s: %s %s", tipo_registro, r.status_code, r.text[:120]
+                    )
+        except Exception as e:
+            log.warning("aviso tarea %s: %s", tipo_registro, e)
+        await _correo(del_grupo, titulo, texto, url_grupo)
+        await _campanita(del_grupo, titulo, texto, url_grupo)
     if db is not None:
         try:
             for a in correos:

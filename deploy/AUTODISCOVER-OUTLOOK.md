@@ -19,7 +19,7 @@ dirigirlo a nuestro servidor (donde el certificado es válido). Por CADA dominio
   certificado (SAN); si no, Outlook rechaza el TLS por hostname.
 
 ## Config
-- Host canónico: env `AUTODISCOVER_MAIL_HOST` (si no, `mail.<MAIL_DOMAIN>` del .env).
+- Servidor: el del portal de la empresa de esa cuenta, si tiene (tabla `portal_empresa`); si no, el general: env `AUTODISCOVER_MAIL_HOST` o `mail.<MAIL_DOMAIN>`. El nombre de un portal debe estar en el certificado de IMAP (993) y SMTP (465). Ver `docs/DOMINIO-NUEVO.md`.
 - nginx enruta `/autodiscover/autodiscover.xml` (cualquier mayúscula) al backend. El instalador usa
   esta plantilla; en producción el vhost hecho a mano debe cambiar el `alias .../autodiscover.xml`
   estático por este `proxy_pass` al backend.

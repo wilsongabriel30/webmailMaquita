@@ -15,20 +15,11 @@ _CORREO = re.compile(r"^[^@\s]{1,64}@([a-z0-9.-]{1,253})$", re.I)
 
 
 async def _host_de_dominio(request: Request, dominio: str) -> str:
-    """El nombre de servidor del portal de esa empresa, o el del correo canónico si no tiene portal."""
-    try:
-        fila = await request.app.state.db_pool.fetchrow(
-            "SELECT host FROM portal_empresa WHERE dominio = $1 AND activo = true ORDER BY creado_en LIMIT 1",
-            dominio,
-        )
-        if fila and fila["host"]:
-            return fila["host"]
-    except Exception:
-        pass
-    from app.config import get_settings
+    """El nombre de servidor del portal de esa empresa, o el del correo general si no tiene portal."""
+    from app.portales import direcciones
 
-    md = getattr(get_settings(), "mail_domain", "") or "example.org"
-    return f"mail.{md}" if md and md != "example.com" else "mail.example.org"
+    db = getattr(request.app.state, "db_pool", None)
+    return await direcciones.servidor_de_dominio(db, dominio) or direcciones.servidor_general()
 
 
 async def _organizacion(request: Request, dominio: str, host: str) -> str:
