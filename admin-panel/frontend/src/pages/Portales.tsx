@@ -204,6 +204,7 @@ export function Portales() {
         </div>
         <SectionHelp titulo="Portales por empresa" items={[
           { titulo: "Para qué sirve", desc: "Que cada empresa de la casa (una filial, una marca...) perciba su propio servidor de correo aunque por debajo sea uno solo: su nombre de servidor, su logo, su nombre y su color en la pantalla de entrada." },
+          { titulo: "Antes de agregar un nombre", desc: "Un portal activo hace que a las cuentas de esa empresa se les entregue ese nombre como servidor en Outlook, en el teléfono y en los enlaces de los avisos. El nombre tiene que existir en el DNS y estar en el certificado de la web, de IMAP (993) y de SMTP (465). Compruébalo con deploy/tools/comprobar-portal.py." },
           { titulo: "Nombre de servidor", desc: "Al agregar mail.<empresa>, quien entre por ese nombre solo podrá usar cuentas de ese dominio y, si escribe solo su usuario, se le completa con ese dominio. El portal padre (mail.example.org) nunca restringe." },
           { titulo: "Lo que el panel NO hace", desc: "Publicar el nombre en internet. Para que mail.<empresa> funcione hacen falta además: (1) el registro DNS A apuntando a este servidor, (2) ampliar el certificado con ese nombre, (3) un bloque de nginx igual al de Turismo. Eso lo hace Tecnología." },
           { titulo: "Logo, icono y color", desc: "Se guardan por dominio y se aplican al instante (hasta 1 minuto si el portal es nuevo). Si se quitan, vuelve a mostrarse lo de la marca general." },

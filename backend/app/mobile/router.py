@@ -9,7 +9,9 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
+from app import organizacion
 from app.config import get_settings
+from app.portales import direcciones
 
 logger = logging.getLogger("mobile")
 
@@ -25,15 +27,24 @@ class DeviceRegister(BaseModel):
 
 @router.get("/config")
 async def mobile_config(request: Request):
-    """Return server configuration for mobile apps."""
-    s = get_settings()
+    """Configuración de servidores para las aplicaciones móviles.
+
+    Con `?correo=` se entrega el servidor de la empresa de esa cuenta. Sin él, el del portal
+    por el que llega la petición; y si no es un portal, el general.
+    """
+    db = getattr(request.app.state, "db_pool", None)
+    correo = (request.query_params.get("correo") or "").strip().lower()
+    if "@" in correo:
+        servidor = await direcciones.servidor_de_cuenta(db, correo)
+    else:
+        servidor = organizacion.servidor(await direcciones.url_de_peticion(db, request))
     return {
-        "imap": {"host": s.cookie_domain, "port": 993, "ssl": True},
-        "smtp": {"host": s.cookie_domain, "port": 465, "ssl": True},
-        "caldav": {"url": f"https://{s.cookie_domain}/radicale/"},
-        "carddav": {"url": f"https://{s.cookie_domain}/radicale/"},
-        "activesync": {"url": f"https://{s.cookie_domain}/Microsoft-Server-ActiveSync"},
-        "webmail": {"url": f"https://{s.cookie_domain}"},
+        "imap": {"host": servidor, "port": 993, "ssl": True},
+        "smtp": {"host": servidor, "port": 465, "ssl": True},
+        "caldav": {"url": f"https://{servidor}/radicale/"},
+        "carddav": {"url": f"https://{servidor}/radicale/"},
+        "activesync": {"url": f"https://{servidor}/Microsoft-Server-ActiveSync"},
+        "webmail": {"url": f"https://{servidor}"},
         "api_version": "1.0",
         "features": [
             "smart-reply",

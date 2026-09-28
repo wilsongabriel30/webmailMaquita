@@ -109,3 +109,62 @@ async def test_correo_invalido_y_escape():
             and "a&amp;b@prueba.test" in r.text
             and "a&b@" not in r.text
         )
+
+
+# --- por dominio: a cada cuenta, el servidor de su empresa --------------------------------
+
+
+class _Db:
+    async def fetch(self, *_):
+        return [{"host": "mail.empresa.test", "dominio": "empresa.test"}]
+
+
+def _app_con_portales():
+    from app.portales import direcciones
+
+    direcciones.olvidar_cache()
+    app = _app()
+    app.state.db_pool = _Db()
+    return app
+
+
+async def test_cuenta_de_una_empresa_con_portal_recibe_su_servidor():
+    async with AsyncClient(transport=ASGITransport(app=_app_con_portales()), base_url="https://t") as c:
+        r = await c.post(
+            "/autodiscover/autodiscover.xml",
+            content=XML_OUTLOOK.replace("Ana@Prueba.test", "ana@empresa.test"),
+            headers={"content-type": "text/xml"},
+        )
+        m = await c.post(
+            "/autodiscover/autodiscover.xml",
+            content=XML_MOBILE.replace("Ana@Prueba.test", "ana@empresa.test"),
+            headers={"content-type": "text/xml"},
+        )
+        j = await c.get("/autodiscover/autodiscover.json/v1.0/ana@empresa.test?Protocol=ActiveSync")
+        v1 = await c.get("/autodiscover/autodiscover.json?Email=ana@empresa.test&Protocol=AutodiscoverV1")
+    assert r.text.count("<Server>mail.empresa.test</Server>") == 2
+    assert "mail.prueba.test" not in r.text
+    assert "https://mail.empresa.test/Microsoft-Server-ActiveSync" in m.text
+    assert j.json()["Url"] == "https://mail.empresa.test/Microsoft-Server-ActiveSync"
+    assert v1.json()["Url"] == "https://mail.empresa.test/autodiscover/autodiscover.xml"
+
+
+async def test_cuenta_sin_portal_sigue_recibiendo_el_servidor_general():
+    async with AsyncClient(transport=ASGITransport(app=_app_con_portales()), base_url="https://t") as c:
+        r = await c.post(
+            "/autodiscover/autodiscover.xml",
+            content=XML_OUTLOOK,
+            headers={"content-type": "text/xml"},
+        )
+    assert r.text.count("<Server>mail.prueba.test</Server>") == 2
+    assert "mail.empresa.test" not in r.text
+
+
+async def test_un_dominio_parecido_no_recibe_el_servidor_de_otra_empresa():
+    async with AsyncClient(transport=ASGITransport(app=_app_con_portales()), base_url="https://t") as c:
+        r = await c.post(
+            "/autodiscover/autodiscover.xml",
+            content=XML_OUTLOOK.replace("Ana@Prueba.test", "ana@sub.empresa.test"),
+            headers={"content-type": "text/xml"},
+        )
+    assert "mail.empresa.test" not in r.text and "<Server>mail.prueba.test</Server>" in r.text
