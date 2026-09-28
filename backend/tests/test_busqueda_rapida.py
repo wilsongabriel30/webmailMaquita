@@ -44,9 +44,9 @@ def test_dominio_mira_remitente_y_destinatario():
 
 
 def test_dominio_admite_arroba_delante():
-    """«@maquita.org» y «maquita.org» son lo mismo para quien busca."""
-    assert parse_search_query("dominio:@maquita.org") == parse_search_query(
-        "dominio:maquita.org"
+    """«@example.org» y «example.org» son lo mismo para quien busca."""
+    assert parse_search_query("dominio:@example.org") == parse_search_query(
+        "dominio:example.org"
     )
 
 
@@ -81,10 +81,10 @@ def test_atajos_de_fecha():
 
 
 def test_se_combinan_sin_tocar_el_cuerpo():
-    criterios = parse_search_query("dominio:maquita.org mes tiene:adjunto")
+    criterios = parse_search_query("dominio:example.org mes tiene:adjunto")
     juntos = " ".join(criterios)
     assert "BODY" not in juntos
-    assert "@maquita.org" in juntos
+    assert "@example.org" in juntos
     assert "SINCE" in juntos
     assert "multipart/mixed" in juntos
 

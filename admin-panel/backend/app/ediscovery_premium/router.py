@@ -16,6 +16,7 @@ from email.message import EmailMessage
 from fastapi import APIRouter, Request, Depends, HTTPException
 from pydantic import BaseModel
 
+from app import organizacion
 from app.auth.dependencies import get_current_admin, require_role
 
 router = APIRouter(prefix="/api/ediscovery-premium", tags=["ediscovery-premium"])
@@ -28,7 +29,7 @@ def _db(r: Request):
 
 def _send(to_email: str, subject: str, html: str):
     msg = EmailMessage()
-    msg["From"] = "Cumplimiento Maquita <cumplimiento@maquita.org>"
+    msg["From"] = organizacion.remitente("ORG_REMITENTE_CUMPLIMIENTO", "Cumplimiento", "cumplimiento")
     msg["To"] = to_email
     msg["Subject"] = subject
     msg.set_content("Este aviso requiere un cliente con HTML.")

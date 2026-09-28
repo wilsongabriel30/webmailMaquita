@@ -5,7 +5,7 @@
 Salen de `branding_settings`; si no están configurados se usan valores por
 defecto. Son DOS cosas distintas y conviene no mezclarlas:
 
-  org_name  — la organización. Aquí: «Fundación Maquita Cushunchic MCCH».
+  org_name  — la organización. Aquí: «la organización MCCH».
               Fallback NEUTRO a propósito: una réplica no debe mostrar la marca
               de otra organización, porque un aviso de seguridad a nombre ajeno
               parece phishing.

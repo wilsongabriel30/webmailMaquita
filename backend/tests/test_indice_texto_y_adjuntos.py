@@ -7,13 +7,13 @@ from app.mail.routers.attachments import _content_disposition
 
 def test_cuenta_indexada_lee_el_archivo_de_hechos(tmp_path, monkeypatch):
     hechos = tmp_path / "hechos.txt"
-    hechos.write_text("Gerencia@MaquitaTurismo.com\n\notra@maquita.org\n")
+    hechos.write_text("Gerencia@turismo.example\n\notra@example.org\n")
     monkeypatch.setenv("FTS_HECHOS", str(hechos))
     import app.mail.services.indice_texto as m
 
     m = importlib.reload(m)
-    assert m.cuenta_indexada("gerencia@maquitaturismo.com")
-    assert not m.cuenta_indexada("nadie@maquita.org")
+    assert m.cuenta_indexada("gerencia@turismo.example")
+    assert not m.cuenta_indexada("nadie@example.org")
     assert not m.cuenta_indexada("")
 
 
@@ -22,7 +22,7 @@ def test_sin_archivo_de_hechos_nadie_esta_indexado(tmp_path, monkeypatch):
     import app.mail.services.indice_texto as m
 
     m = importlib.reload(m)
-    assert not m.cuenta_indexada("gerencia@maquitaturismo.com")
+    assert not m.cuenta_indexada("gerencia@turismo.example")
 
 
 def test_cabecera_con_comilla_tipografica_cabe_en_latin1():

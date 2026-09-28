@@ -720,7 +720,7 @@ export function Toolbar() {
           {archivoOpen && (
             <ArchivoMenu onClose={() => setArchivoOpen(false)}>
               {[
-                { label: 'Info cuenta', icon: ICONS.info, action: () => showToast('Cuenta: gestiontecnologia@ejemplo.com') },
+                { label: 'Info cuenta', icon: ICONS.info, action: () => showToast('Cuenta: tecnologia@ejemplo.com') },
                 { label: 'Sincronizar', icon: ICONS.sync, action: () => window.dispatchEvent(new CustomEvent('refresh-messages')) },
                 { label: 'Exportar', icon: ICONS.export, action: exportSelectedMessage },
                 { label: 'Imprimir', icon: ICONS.print, action: doPrint },
@@ -1050,7 +1050,7 @@ export function Toolbar() {
                   {/* Group: Buscar */}
                   <Group label="Buscar">
                     <ToolbarButton icon={ICONS.groups} label="Descubrir grupos"
-                      onClick={() => showToast('Grupos: Usa listas de distribución para comunicarte con equipos. Contacta a gestiontecnologia@ejemplo.com para crear un grupo.')} />
+                      onClick={() => showToast('Grupos: Usa listas de distribución para comunicarte con equipos. Contacta a tecnologia@ejemplo.com para crear un grupo.')} />
                   </Group>
                   <Sep />
 

@@ -600,7 +600,7 @@ app.add_middleware(ApiRateLimitMiddleware)
 
 def _origen_de_la_cookie(origin: str) -> bool:
     """El host del Origin es el dominio de la cookie o un subdominio suyo (sufijo con
-    punto). Antes se comparaba por subcadena y 'maquita.org.atacante.com' pasaba."""
+    punto). Antes se comparaba por subcadena y 'example.org.atacante.com' pasaba."""
     from urllib.parse import urlsplit
 
     host = (urlsplit(origin).hostname or "").lower()

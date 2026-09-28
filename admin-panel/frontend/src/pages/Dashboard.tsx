@@ -28,7 +28,7 @@ export function Dashboard() {
   if (!data) return <div className="p-8 flex items-center justify-center h-full"><div className="animate-spin w-8 h-8 border-2 border-ms-blue border-t-transparent rounded-full" /></div>;
 
   const cards = [
-    { label: "Dominios", value: data.stats.domains, color: "text-ms-blue", bg: "bg-ms-blue-lighter", help: "Cantidad de dominios de correo dados de alta en el servidor (ej. maquita.com.ec). Se gestionan en la sección Dominios." },
+    { label: "Dominios", value: data.stats.domains, color: "text-ms-blue", bg: "bg-ms-blue-lighter", help: "Cantidad de dominios de correo dados de alta en el servidor (ej. example.com). Se gestionan en la sección Dominios." },
     { label: "Buzones", value: data.stats.mailboxes, color: "text-ms-purple", bg: "bg-purple-50", help: "Total de buzones (cuentas de correo) creados en el servidor, incluyendo los desactivados." },
     { label: "Activos", value: data.stats.active_mailboxes, color: "text-ms-green", bg: "bg-green-50", help: "Buzones habilitados que pueden enviar y recibir correo actualmente (excluye los desactivados)." },
     { label: "Alias", value: data.stats.aliases, color: "text-ms-orange", bg: "bg-orange-50", help: "Direcciones alias que redirigen el correo a otro buzón sin ser cuentas propias (ej. info@ que entrega a una persona)." },

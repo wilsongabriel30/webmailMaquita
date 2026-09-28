@@ -211,7 +211,7 @@ async def freebusy(
 # ── Autocompletado de ubicaciones (OpenStreetMap / Photon, sin API key) ──
 
 _PHOTON_URL = "https://photon.komoot.io/api/"
-_PLACES_UA = "MaquitaWebmail/1.0 (gestiontecnologia@ejemplo.com)"
+_PLACES_UA = "MaquitaWebmail/1.0 (tecnologia@ejemplo.com)"
 
 
 @router.get("/places/autocomplete")

@@ -36,7 +36,7 @@ SOLO = sys.argv[sys.argv.index('--usuario') + 1] if '--usuario' in sys.argv else
 DIAS_INICIALES = int(sys.argv[sys.argv.index('--dias') + 1]) if '--dias' in sys.argv else 30
 CARPETA = '/Archivos del correo'
 CARPETAS_CORREO = {'INBOX': 'Recibidos', 'Sent': 'Enviados'}
-DOMINIOS = ('maquita.org', 'maquita.com.ec', 'fundacionmaquita.org')
+DOMINIOS = tuple(d.strip().lower() for d in os.getenv('ALMACEN_DOMINIOS_INTERNOS', 'example.org').split(',') if d.strip())
 TAM_MAX = 50 * 1024 * 1024
 INLINE_MIN = 8 * 1024   # imágenes incrustadas pequeñas (firmas) no se reflejan
 
@@ -76,7 +76,8 @@ def buzones_enlazados():
             buzones = [r[0] for r in cur.fetchall()]
     finally:
         con_mail.close()
-    con_nom = psycopg2.connect(host='193.16.0.132', dbname='nomina', user='sistemas', password=os.environ['ALMACEN_DB_PASSWORD'])
+    con_nom = psycopg2.connect(host=os.getenv('NOMINA_DB_HOST', '127.0.0.1'), dbname=os.getenv('NOMINA_DB_NAME', 'nomina'),
+                               user=os.getenv('NOMINA_DB_USER', 'sistemas'), password=os.getenv('NOMINA_DB_PASSWORD') or os.environ['ALMACEN_DB_PASSWORD'])
     try:
         with con_nom.cursor() as cur:
             cur.execute("SELECT id, lower(email) FROM usuarios WHERE active = TRUE AND email IS NOT NULL")

@@ -65,7 +65,7 @@ print("\n\033[1m=== REGLA 1: text/plain siempre real ===\033[0m")
 
 msg = build_mime_message(
     OutgoingEmail(
-        from_addr="test@maquita.org",
+        from_addr="test@example.org",
         to=["x@x.com"],
         subject="T",
         html_body="<p>Hola <b>mundo</b></p>",
@@ -84,7 +84,7 @@ check(
 
 msg2 = build_mime_message(
     OutgoingEmail(
-        from_addr="test@maquita.org",
+        from_addr="test@example.org",
         to=["x@x.com"],
         subject="T",
         html_body="<ul><li>A</li><li>B</li><li>C</li></ul>",
@@ -101,7 +101,7 @@ print("\n\033[1m=== REGLA 2: HTML con estructura completa ===\033[0m")
 
 msg3 = build_mime_message(
     OutgoingEmail(
-        from_addr="test@maquita.org",
+        from_addr="test@example.org",
         to=["x@x.com"],
         subject="T",
         html_body="<p>Fragmento simple</p>",
@@ -115,7 +115,7 @@ check("Fragmento tiene </html>", html and "</html>" in html)
 
 msg4 = build_mime_message(
     OutgoingEmail(
-        from_addr="test@maquita.org",
+        from_addr="test@example.org",
         to=["x@x.com"],
         subject="T",
         html_body="<!DOCTYPE html><html><body><p>Ya completo</p></body></html>",
@@ -132,7 +132,7 @@ print("\n\033[1m=== REGLA 3: Sin headers spam ===\033[0m")
 
 msg5 = build_mime_message(
     OutgoingEmail(
-        from_addr="test@maquita.org",
+        from_addr="test@example.org",
         to=["x@x.com"],
         subject="T",
         html_body="<p>Test</p>",
@@ -168,7 +168,7 @@ check(
 
 msg_text = build_mime_message(
     OutgoingEmail(
-        from_addr="test@maquita.org",
+        from_addr="test@example.org",
         to=["x@x.com"],
         subject="T",
         text_body="Solo texto",
@@ -181,7 +181,7 @@ check(
 
 msg_att = build_mime_message(
     OutgoingEmail(
-        from_addr="test@maquita.org",
+        from_addr="test@example.org",
         to=["x@x.com"],
         subject="T",
         html_body="<p>Con adjunto</p>",
@@ -207,7 +207,7 @@ print("\n\033[1m=== REGLA 5: Charset UTF-8 ===\033[0m")
 
 msg6 = build_mime_message(
     OutgoingEmail(
-        from_addr="test@maquita.org",
+        from_addr="test@example.org",
         to=["x@x.com"],
         subject="T",
         html_body="<p>Año señor García niño José</p>",

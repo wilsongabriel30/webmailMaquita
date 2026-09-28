@@ -16,7 +16,7 @@
 # Document Server, motores de IA…). Para observar sin cortar, cambia `drop` por nada y mira
 # `nft list table inet egreso_backend` (contadores) y `journalctl -k | grep EGRESO_BACKEND_DENEGADO`.
 
-define ALLOWLIST_INTERNA = { 193.16.0.21, 193.16.0.132, 193.16.0.136, 193.16.0.153, 193.16.0.155, 193.16.0.170, 193.16.0.211 }
+define ALLOWLIST_INTERNA = { 192.0.2.21, 192.0.2.132, 192.0.2.136, 192.0.2.153, 192.0.2.155, 192.0.2.170, 192.0.2.211 }
 
 table inet egreso_backend {
     chain salida {
@@ -25,7 +25,7 @@ table inet egreso_backend {
         oif "lo" accept
         ct state established,related accept
         ip daddr $ALLOWLIST_INTERNA accept
-        ip daddr { 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16, 193.16.0.0/24 } ct state new log prefix "EGRESO_BACKEND_DENEGADO " counter drop
+        ip daddr { 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16, 192.0.2.0/24 } ct state new log prefix "EGRESO_BACKEND_DENEGADO " counter drop
         ip6 daddr { fc00::/7, fe80::/10 } ct state new log prefix "EGRESO_BACKEND_DENEGADO " counter drop
     }
 }

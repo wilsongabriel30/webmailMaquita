@@ -12,32 +12,32 @@ if exists "X-Maquita-Quarantine" {
 }
 
 # --- 2026-08-31: correo de sistema a carpetas propias -----------------------
-# Los alias postmaster@ y root@ apuntan a gestiontecnologia+<detalle>@maquita.org.
+# Los alias postmaster@ y root@ apuntan a tecnologia+<detalle>@example.org.
 # El detalle sobrevive hasta Dovecot en la cabecera Delivered-To (comprobado),
 # asi que se clasifica aqui SIN activar lmtp_save_to_detail_mailbox, que es
 # una opcion GLOBAL y habria cambiado el comportamiento de los 279 buzones.
 # El separador de jerarquia es "." -> los dominios van con guiones, no puntos.
-if header :contains "Delivered-To" "gestiontecnologia+Postmaster-maquita@" {
+if header :contains "Delivered-To" "tecnologia+Postmaster-maquita@" {
     fileinto :create "Postmaster.maquita-com-ec";
     stop;
 }
-if header :contains "Delivered-To" "gestiontecnologia+Postmaster-mcch@" {
+if header :contains "Delivered-To" "tecnologia+Postmaster-mcch@" {
     fileinto :create "Postmaster.mcch-com-ec";
     stop;
 }
-if header :contains "Delivered-To" "gestiontecnologia+Postmaster-turismo@" {
-    fileinto :create "Postmaster.maquitaturismo-com";
+if header :contains "Delivered-To" "tecnologia+Postmaster-turismo@" {
+    fileinto :create "Postmaster.turismo-example";
     stop;
 }
-if header :contains "Delivered-To" "gestiontecnologia+Postmaster-fundmcch@" {
-    fileinto :create "Postmaster.fundmcch-com-ec";
+if header :contains "Delivered-To" "tecnologia+Postmaster-fundmcch@" {
+    fileinto :create "Postmaster.fundacion-example";
     stop;
 }
-if header :contains "Delivered-To" "gestiontecnologia+Root@" {
+if header :contains "Delivered-To" "tecnologia+Root@" {
     fileinto :create "Root";
     stop;
 }
-if header :contains "Delivered-To" "gestiontecnologia+Alertas-PVE@" {
+if header :contains "Delivered-To" "tecnologia+Alertas-PVE@" {
     fileinto :create "Alertas-PVE";
     stop;
 }

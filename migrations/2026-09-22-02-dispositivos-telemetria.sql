@@ -42,5 +42,5 @@ CREATE INDEX IF NOT EXISTS disp_alertas_desde ON disp_alertas (desde DESC);
 -- Umbrales editables desde el panel (no en código). El correo de Tecnología recibe cada alerta nueva;
 -- «resumen_diario_para» (correos separados por coma) recibe un resumen a la hora indicada.
 INSERT INTO disp_config (clave, valor) VALUES
-  ('alertas', '{"activo": true, "sin_reportar_horas": 24, "bateria_pct": 15, "bateria_horas": 6, "almacenamiento_pct": 10, "version_atrasada_dias": 7, "acuse_horas": 2, "correo_ti": "gestiontecnologia@maquita.org", "resumen_diario_para": "", "resumen_hora": "07:30"}')
+  ('alertas', '{"activo": true, "sin_reportar_horas": 24, "bateria_pct": 15, "bateria_horas": 6, "almacenamiento_pct": 10, "version_atrasada_dias": 7, "acuse_horas": 2, "correo_ti": "tecnologia@example.org", "resumen_diario_para": "", "resumen_hora": "07:30"}')
 ON CONFLICT (clave) DO NOTHING;

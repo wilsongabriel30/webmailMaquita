@@ -221,7 +221,7 @@ window.PDFEditorPartes.imagen_recorte = function (E) {
 
     $('toolEnlace')?.addEventListener('click', () => {
         if (_necesitaPDF()) return;
-        const url = prompt('URL del enlace (ej: https://maquita.com.ec):');
+        const url = prompt('URL del enlace (ej: https://example.com):');
         if (!url) return;
         if (!state.annotations[state.currentPage]) state.annotations[state.currentPage] = [];
         state.annotations[state.currentPage].push({

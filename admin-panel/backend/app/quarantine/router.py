@@ -1,5 +1,6 @@
 import json
 from fastapi import APIRouter, Request, HTTPException, Depends, Query
+from app import organizacion
 from app.auth.dependencies import get_current_admin, require_role, require_operador
 from app.wrappers import rspamd, doveadm
 
@@ -37,7 +38,7 @@ async def list_junk(username: str, admin: dict = Depends(get_current_admin)):
     # Auto-append domain if not provided
     if "@" not in username:
         db = _db(admin.get("_request") if isinstance(admin, dict) else None)
-        username = username + "@maquita.org"
+        username = username + "@" + organizacion.dominio_principal()
 
     spam_folders = ["Junk", "Spam", "Correo electr\u00f3nico no deseado", "Unwanted"]
     all_msgs = []

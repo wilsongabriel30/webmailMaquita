@@ -71,10 +71,10 @@ export function SpamQuarantine() {
       />}
       {tab === 'blacklist_ips' && <TextEditorTab
         title="IPs Bloqueadas"
-        description="IPs o rangos CIDR de servidores spam. Score +8. Formato: 1.2.3.4 o 1.2.3.0/24"
+        description="IPs o rangos CIDR de servidores spam. Score +8. Formato: 203.0.113.4 o 203.0.113.0/24"
         endpoint="/admin/spam/blacklist-ips"
         fieldName="content"
-        placeholder={"# IP individual o rango CIDR\n# Score +8 = probablemente va a Junk\n# 123.45.67.89\n# 10.0.0.0/8"}
+        placeholder={"# IP individual o rango CIDR\n# Score +8 = probablemente va a Junk\n# 203.0.113.89\n# 10.0.0.0/8"}
       />}
       {tab === 'greylist' && <TextEditorTab
         title="Lista Gris de Dominios"
@@ -266,6 +266,7 @@ function LogTab() {
       .finally(() => setLoading(false));
   };
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial de la lista al montar la pestaña
   useEffect(() => { load(); }, []);
 
   return (

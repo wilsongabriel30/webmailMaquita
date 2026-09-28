@@ -14,9 +14,25 @@ from email.message import EmailMessage
 
 import psycopg2
 
+
+
+def _aviso_por_omision() -> str:
+    """Primer correo de ORG_CORREOS_AVISOS del fichero de la organización; si no hay, postmaster local."""
+    try:
+        with open(os.getenv("ORG_FICHERO", "/etc/maquita-mail/organizacion.env"), encoding="utf-8") as f:
+            for linea in f:
+                if linea.strip().startswith("ORG_CORREOS_AVISOS="):
+                    valores = linea.split("=", 1)[1].strip().strip("\"'").replace(",", " ").split()
+                    if valores:
+                        return valores[0]
+    except OSError:
+        pass
+    return "postmaster@localhost"
+
+
 COLA = os.getenv("MILTER_COLA_CUARENTENA", "/var/lib/maquita-admin/cola-cuarentena")
 PROCESADOS = os.path.join(COLA, "procesados")
-ADMIN = os.getenv("MILTER_ALERTA_ADMIN", "gestiontecnologia@maquita.com.ec")
+ADMIN = os.getenv("MILTER_ALERTA_ADMIN") or _aviso_por_omision()
 
 
 def _dsn():

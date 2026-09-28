@@ -1,7 +1,7 @@
 # Teléfonos institucionales: qué significa cada color y qué hacer ante cada alerta
 
 Guía para personas **no técnicas** (dirección, administración). Escrita el 22/09/2026 para el portal
-de telemetría del panel de administración del correo: `https://mail.maquita.org:8443/dispositivos`
+de telemetría del panel de administración del correo: `https://mail.example.org:8443/dispositivos`
 (solo desde la red de la oficina o la VPN), pestañas **«Telemetría»** y **«Alertas»**.
 
 El portal muestra el estado **del teléfono como equipo** (si reporta, batería, espacio, versión de la
@@ -78,7 +78,7 @@ autorización de Tecnología.
 2. Rol: **viewer** (lector). Con ese rol la persona ve todo (equipos, telemetría, alertas, gráficas,
    exportar CSV) pero **no puede** mandar comandos, declarar perdidos, retirar equipos, crear códigos
    ni cambiar umbrales. El panel responde «Tu rol es de solo lectura» si lo intenta.
-3. La persona entra a `https://mail.maquita.org:8443` desde la red de la oficina o la VPN y activa su
+3. La persona entra a `https://mail.example.org:8443` desde la red de la oficina o la VPN y activa su
    verificación en dos pasos (el panel se lo pide).
 4. Para que le llegue el **resumen diario por correo**: pestaña «Alertas» → «Umbrales y
    destinatarios» → «Resumen diario a» (un administrador escribe su correo y la hora).

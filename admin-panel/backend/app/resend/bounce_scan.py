@@ -35,7 +35,7 @@ async def _leer_logs() -> str:
 async def cuentas_con_rebotes() -> list[dict]:
     """Lista de cuentas con rebotes recientes y cuantos tuvieron.
 
-    Devuelve: [{"cuenta": "x@maquita.com.ec", "rebotes": 3}, ...] ordenado de mas a menos.
+    Devuelve: [{"cuenta": "x@example.com", "rebotes": 3}, ...] ordenado de mas a menos.
     """
     texto = await _leer_logs()
 

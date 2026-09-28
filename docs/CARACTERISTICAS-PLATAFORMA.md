@@ -2,7 +2,7 @@
 
 > Correo electrónico empresarial completo, **autohospedado**, con seguridad y cumplimiento de nivel corporativo — sobre software libre líder de la industria + desarrollo propio. **A costo cero de licencias.**
 
-Desarrollada por el Equipo de Tecnología de **Fundación Maquita Cushunchic MCCH** y publicada como software libre, para que cualquier organización pueda operar su propio correo con control total de sus datos.
+Desarrollada por el Equipo de Tecnología de **la organización MCCH** y publicada como software libre, para que cualquier organización pueda operar su propio correo con control total de sus datos.
 
 ---
 

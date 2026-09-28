@@ -110,7 +110,7 @@ curl -s https://autoconfig.dominio.tld/mail/config-v1.1.xml   # ¿responde el XM
 
 ## Nota sobre NUESTRA producción (Maquita)
 
-El cert de `mail.maquita.org` (Let's Encrypt) ya cubre `mail/imap/smtp/pop3/autoconfig/
+El cert de `mail.example.org` (Let's Encrypt) ya cubre `mail/imap/smtp/pop3/autoconfig/
 autodiscover`, y **autoconfig/autodiscover están publicados** → los clientes que
-autoconfiguran funcionan. El **apex `maquita.org`** aún **no** está en los SAN; añadirlo es
+autoconfiguran funcionan. El **apex `example.org`** aún **no** está en los SAN; añadirlo es
 opcional (solo lo notan clientes que insisten en el dominio pelado en vez de autoconfig).

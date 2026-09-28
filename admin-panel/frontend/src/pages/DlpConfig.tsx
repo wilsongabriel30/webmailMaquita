@@ -278,7 +278,7 @@ export function DlpConfig() {
             Estos remitentes <strong>no se bloquean</strong>, pero <strong>se siguen registrando</strong>: aparecen igual en Incidentes, para poder revisar si alguno empieza a enviar algo fuera de lo normal.
           </p>
           <div className="flex gap-2 mb-2">
-            <input className={inputCls} placeholder="ej. noreply@maquita.org" value={newExento} onChange={(e) => setNewExento(e.target.value)}
+            <input className={inputCls} placeholder="ej. noreply@example.org" value={newExento} onChange={(e) => setNewExento(e.target.value)}
               title="Escribe la dirección completa del buzón y pulsa Enter o Agregar."
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addExento(); } }} />
             <button onClick={addExento} className="px-3 py-2 bg-ms-gray-20 text-ms-gray-160 rounded text-sm whitespace-nowrap">Agregar</button>

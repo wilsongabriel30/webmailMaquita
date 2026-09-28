@@ -29,8 +29,10 @@
 
 set -uo pipefail
 
-DESTINOS="gestiontecnologia@maquita.org gestiontecnologia@maquita.com.ec"
-REMITENTE="postmaster@maquita.org"
+# Los datos de la organización (a quién avisar, con qué remitente) viven en el servidor.
+[ -r /etc/maquita-mail/organizacion.env ] && . /etc/maquita-mail/organizacion.env
+DESTINOS="${ORG_CORREOS_AVISOS:-postmaster@localhost}"
+REMITENTE="${ORG_REMITENTE_AVISOS:-postmaster@localhost}"
 UNIDAD="maquita-milter"
 PUERTO=11335
 ESTADO="/var/lib/maquita-admin/estado-vigilancia-milter"

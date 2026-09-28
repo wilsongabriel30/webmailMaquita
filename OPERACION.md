@@ -133,7 +133,7 @@ servidor responde «credenciales incorrectas».
 
 ## Canal de alertas
 
-**Destino:** `gestiontecnologia@maquita.org` y `gestiontecnologia@maquita.com.ec`
+**Destino:** `tecnologia@example.org` y `tecnologia@example.com`
 **Vía:** correo local con `sendmail`, sin depender de servicios externos.
 
 ### Por qué el correo y no otra cosa
@@ -270,7 +270,7 @@ Escrito para que no se olvide:
   Debería avisar si la cola de Postfix crece o si el filtro tarda de más.
 - **La cola de Postfix.** Hoy nadie avisa si se acumulan mensajes.
 - **Certificados.** El comodín vence en marzo de 2027 y requiere renovación
-  manual anual. El de `mta-sts.maquita.com.ec` vencía en pocos días al momento
+  manual anual. El de `mta-sts.example.com` vencía en pocos días al momento
   de escribir esto: conviene comprobarlo.
 - **Espacio en disco.** El correo ocupa 2,1 TB de 5 TB (44 %).
 
@@ -359,9 +359,9 @@ contraseña principal. No valen desde el propio servidor (webmail y app siguen c
 
 ### Certificado en producción: webroot, no `--nginx`
 `emitir-certificado.sh` usa `certbot --nginx` (instalaciones nuevas). En producción el linaje
-`mail.maquita.org` renueva por **webroot** (`/etc/letsencrypt/renewal/mail.maquita.org.conf`, hook
+`mail.example.org` renueva por **webroot** (`/etc/letsencrypt/renewal/mail.example.org.conf`, hook
 `renewal-hooks/deploy/reload-services.sh`). Para ampliar nombres allí: `certbot certonly --webroot -w
-/var/www/certbot --cert-name mail.maquita.org --expand -d <todos los nombres actuales> -d <nuevos>`.
+/var/www/certbot --cert-name mail.example.org --expand -d <todos los nombres actuales> -d <nuevos>`.
 Tras publicar un DNS nuevo, esperar el TTL (1 h) antes: los resolutores de Let's Encrypt cachean el
 valor viejo y el NXDOMAIN, y la validación falla aunque los esclavos ya respondan bien.
 
@@ -377,7 +377,7 @@ Activa con `drop` desde el 07/09/2026 tras 8 días en modo registro.
   `journalctl -k | grep EGRESO_BACKEND_DENEGADO` (DST y DPT). Un destino legítimo nuevo (otra base
   de datos, otro motor de IA) se añade a `ALLOWLIST_INTERNA` y se recarga con
   `nft -f /etc/nftables.d/egreso-backend.nft`.
-- En producción la lista incluye además `193.16.0.18` (Zimbra: la sincronización nocturna de las
+- En producción la lista incluye además `192.0.2.18` (Zimbra: la sincronización nocturna de las
   02:00 entra por IMAP 993 como `www-data`) **hasta el corte**; después se quita.
 - Si algo interno deja de funcionar tras un cambio: quitar `drop` (queda solo el registro), recargar,
   y buscar el destino en el registro.
@@ -431,26 +431,26 @@ autodiscover. El backend responde `https://autodiscover.<dominio>/autodiscover/a
 (esquema `mobilesync`) y `.../autodiscover.json?Protocol=ActiveSync` (v2). Comprobar:
 
 ```bash
-curl -s -X POST -H 'Content-Type: text/xml' https://autodiscover.maquita.org/autodiscover/autodiscover.xml \
-  -d '<Autodiscover xmlns="http://schemas.microsoft.com/exchange/autodiscover/mobilesync/requestschema/2006"><Request><EMailAddress>usuario@maquita.org</EMailAddress><AcceptableResponseSchema>http://schemas.microsoft.com/exchange/autodiscover/mobilesync/responseschema/2006</AcceptableResponseSchema></Request></Autodiscover>'
-# → <Type>MobileSync</Type> <Url>https://mail.maquita.org/Microsoft-Server-ActiveSync</Url>
-curl -s 'https://autodiscover.maquita.org/autodiscover/autodiscover.json/v1.0/usuario@maquita.org?Protocol=ActiveSync'
-# → {"Protocol":"ActiveSync","Url":"https://mail.maquita.org/Microsoft-Server-ActiveSync"}
-curl -s -o /dev/null -w '%{http_code}\n' -X OPTIONS https://mail.maquita.org/Microsoft-Server-ActiveSync   # 401
+curl -s -X POST -H 'Content-Type: text/xml' https://autodiscover.example.org/autodiscover/autodiscover.xml \
+  -d '<Autodiscover xmlns="http://schemas.microsoft.com/exchange/autodiscover/mobilesync/requestschema/2006"><Request><EMailAddress>usuario@example.org</EMailAddress><AcceptableResponseSchema>http://schemas.microsoft.com/exchange/autodiscover/mobilesync/responseschema/2006</AcceptableResponseSchema></Request></Autodiscover>'
+# → <Type>MobileSync</Type> <Url>https://mail.example.org/Microsoft-Server-ActiveSync</Url>
+curl -s 'https://autodiscover.example.org/autodiscover/autodiscover.json/v1.0/usuario@example.org?Protocol=ActiveSync'
+# → {"Protocol":"ActiveSync","Url":"https://mail.example.org/Microsoft-Server-ActiveSync"}
+curl -s -o /dev/null -w '%{http_code}\n' -X OPTIONS https://mail.example.org/Microsoft-Server-ActiveSync   # 401
 ```
 DNS: `autodiscover.<cada dominio>` → este servidor, y el certificado debe cubrirlo (N-16).
 
 ### Autodiscover por dominio (N-16)
-Hoy solo `maquita.org` apunta aquí; `autodiscover.maquita.com.ec` (y los demás dominios) son un CNAME a
+Hoy solo `example.org` apunta aquí; `autodiscover.example.com` (y los demás dominios) son un CNAME a
 `mail.<dominio>`, es decir, al servidor actual de esos dominios, que seguirá atendiendo a sus Outlook
 hasta el corte. **No se toca antes del corte** (rompería a quienes hoy usan ese servidor). El día del
-corte, por cada dominio que se traiga: CNAME `autodiscover`/`autoconfig` → `mail.maquita.org`, SRV
-`_autodiscover._tcp` → `mail.maquita.org:443`, y después `DOMINIOS_EXTRA="..." emitir-certificado.sh
-maquita.org`. Entre el cambio de DNS y el certificado, la redirección por HTTP
+corte, por cada dominio que se traiga: CNAME `autodiscover`/`autoconfig` → `mail.example.org`, SRV
+`_autodiscover._tcp` → `mail.example.org:443`, y después `DOMINIOS_EXTRA="..." emitir-certificado.sh
+example.org`. Entre el cambio de DNS y el certificado, la redirección por HTTP
 (`sites-enabled/autodiscover-dominios`, instalada en producción el 07/09/2026) ya autoconfigura Outlook.
 Verificación: `venv/bin/python ../deploy/tools/comprobar-autodiscover.py` (todos los dominios de maildb).
-Hecho el 07/09/2026 para `maquitaagro.com`, `maquitaagro.com.ec` y `relacc-la.org` (DNS por Centinela,
-certificado con 15 nombres). En producción nginx y Dovecot sirven el comodín `*.maquita.org` por
+Hecho el 07/09/2026 para `agro.example`, `agro-ec.example` y `red.example` (DNS por Centinela,
+certificado con 15 nombres). En producción nginx y Dovecot sirven el comodín `*.example.org` por
 defecto: los nombres de los otros dominios van por SNI, en nginx con el vhost `autodiscover-dominios`
 (bloque 443 con el certificado de Let's Encrypt) y en Dovecot con bloques `local_name` en
 `conf.d/10-ssl.conf` (uno por `mail.<dominio>`, el mismo certificado). Al traer un dominio nuevo:
@@ -459,13 +459,13 @@ Detalle en `docs/CERTIFICADO-Y-AUTOCONFIG.md`.
 Z-Push 2.7.6 anuncia ActiveSync 12.0, 12.1 y 14.0 (suficiente para Outlook, iOS y Android).
 
 Prueba de carga de referencia (07/09/2026, 50 dispositivos a la vez con FolderSync real, cuenta
-`prueba.carga@maquita.org`): 0 fallos, p50 3,5 s, p95 4,2 s, 112 MB de memoria en el contenedor.
+`prueba.carga@example.org`): 0 fallos, p50 3,5 s, p95 4,2 s, 112 MB de memoria en el contenedor.
 `deploy/z-push/prueba-carga.py --usuario ... --dispositivos 50` (contraseña por `CLAVE=`).
 
 ### Outlook clásico (Office 365 de escritorio)
 1. Archivo → Agregar cuenta → escribir el correo → **Opciones avanzadas → «Configurar mi cuenta
    manualmente»** → Conectar.
-2. Elegir **Exchange (o «Exchange ActiveSync»)**. Servidor: `mail.maquita.org`; usuario: el
+2. Elegir **Exchange (o «Exchange ActiveSync»)**. Servidor: `mail.example.org`; usuario: el
    **correo completo**; contraseña: la del buzón. Si Outlook pregunta por dominio\usuario, dejar
    el dominio vacío y poner el correo completo como usuario.
 3. Tras conectar: carpetas de correo, Calendario, Contactos y Tareas aparecen bajo la cuenta.

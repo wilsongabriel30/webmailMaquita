@@ -10,7 +10,7 @@
 
 **Cliente de correo web (webmail) completo, con capa de cumplimiento legal y eDiscovery, para plataformas de correo basadas en Postfix/Dovecot.**
 
-Desarrollado y mantenido por [Fundación Maquita](https://maquita.org), organización sin fines de lucro de Ecuador.
+Desarrollado y mantenido por Fundación Maquita, organización sin fines de lucro de Ecuador.
 
 ---
 
@@ -494,7 +494,7 @@ make seed-demo   # carga buzones, correos y datos de cumplimiento de ejemplo
 - Las dependencias se escanean con `pip-audit` y `npm audit` en CI
 - **Respaldos cifrados** (GPG/AES-256) con script de respaldo diario y **prueba de restauración** verificable — ver [`docs/BACKUP-RESTAURACION.md`](docs/BACKUP-RESTAURACION.md)
 
-Para reportar una vulnerabilidad de seguridad escribe a security@maquita.org. No abras un issue público. Consulta nuestra [política de seguridad](SECURITY.md) para el modelo de amenazas y las mitigaciones.
+Para reportar una vulnerabilidad de seguridad usa los avisos privados del repositorio (pestaña Security → Report a vulnerability). No abras un issue público. Consulta nuestra [política de seguridad](SECURITY.md) para el modelo de amenazas y las mitigaciones.
 
 ## Documentación
 
@@ -533,7 +533,7 @@ Este proyecto está licenciado bajo la [Licencia Pública General Affero de GNU 
 
 ## Créditos
 
-Desarrollado por el equipo de tecnología de [Fundación Maquita](https://maquita.org), Quito, Ecuador.
+Desarrollado por el equipo de tecnología de Fundación Maquita, Quito, Ecuador.
 
 ## Características
 Ver **[docs/CARACTERISTICAS-PLATAFORMA.md](docs/CARACTERISTICAS-PLATAFORMA.md)** — qué ofrece la plataforma (correo, seguridad, cumplimiento e IA), a costo cero de licencias.
@@ -551,6 +551,6 @@ Instalación completa (5 pasos) y arquitectura: **[almacen/README.md](almacen/RE
 ## Drive Maquita (`drive-maquita/`)
 
 Servicio completo del **Drive Maquita** (Almacén) que corre en la plataforma Raíces
-(`datos.maquita.com.ec/archivos-almacen`). Se publica aquí con `git subtree` desde el
+(`intranet.example.org/archivos-almacen`). Se publica aquí con `git subtree` desde el
 servidor que lo ejecuta (`herramientas/publicar-en-github.sh`). No confundir con
 `almacen/`, que es el almacén interno del correo.

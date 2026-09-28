@@ -38,7 +38,7 @@ export function Anclas() {
         </table>
         {admin && <div className="flex flex-wrap items-end gap-2 text-xs">
           <label>Tipo<select value={f.tipo} onChange={(e) => setF({ ...f, tipo: e.target.value })} className="mt-1 block px-2 py-1 border border-ms-gray-40 rounded"><option value="red">Red (CIDR)</option><option value="bssid">Punto de acceso (BSSID)</option></select></label>
-          <label>Red o BSSID<input value={f.valor} onChange={(e) => setF({ ...f, valor: e.target.value })} placeholder="193.16.5.0/24" className="mt-1 block w-40 px-2 py-1 border border-ms-gray-40 rounded font-mono" /></label>
+          <label>Red o BSSID<input value={f.valor} onChange={(e) => setF({ ...f, valor: e.target.value })} placeholder="198.51.100.0/24" className="mt-1 block w-40 px-2 py-1 border border-ms-gray-40 rounded font-mono" /></label>
           <label>Sede<input value={f.sede} onChange={(e) => setF({ ...f, sede: e.target.value })} placeholder="Guayaquil" className="mt-1 block w-36 px-2 py-1 border border-ms-gray-40 rounded" /></label>
           <label>Descripción<input value={f.nombre} onChange={(e) => setF({ ...f, nombre: e.target.value })} className="mt-1 block w-48 px-2 py-1 border border-ms-gray-40 rounded" /></label>
           <label>Latitud<input value={f.lat} onChange={(e) => setF({ ...f, lat: e.target.value })} placeholder="-0.2772" className="mt-1 block w-24 px-2 py-1 border border-ms-gray-40 rounded" /></label>

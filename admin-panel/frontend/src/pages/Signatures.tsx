@@ -65,7 +65,7 @@ export function Signatures() {
     <p style="margin:2px 0;font-size:11px;color:#666">{{cargo}}</p>
     <p style="margin:2px 0;font-size:11px">{{email}}</p>
     <p style="margin:2px 0;font-size:11px">{{teléfono}}</p>
-    <p style="margin:8px 0 0;font-size:10px;color:#999">Maquita Cushunchic MCCH</p>
+    <p style="margin:8px 0 0;font-size:10px;color:#999">la organización MCCH</p>
   </td>
 </tr>
 </table>`;

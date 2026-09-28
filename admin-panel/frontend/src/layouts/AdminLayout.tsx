@@ -118,7 +118,7 @@ export function AdminLayout() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
           </svg>
           <span className="text-white font-semibold text-sm">Centro de Administración de Correo</span>
-          <span className="text-white/60 text-xs ml-1">| Maquita Cushunchic</span>
+          <span className="text-white/60 text-xs ml-1">| la organización</span>
         </div>
         <div className="ml-auto flex items-center gap-3">
           <span className="text-white/80 text-xs hidden md:block">{user?.display_name || user?.username}</span>
