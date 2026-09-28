@@ -13,6 +13,8 @@ export interface Cuenta {
   nombre: string;
   propia: boolean;
   puede_enviar: boolean;
+  /** Otras direcciones (de cualquier dominio) que entregan solo en este buzón. */
+  alias?: string[];
 }
 
 /** 'Compartidos/ventas@x.com/INBOX' -> 'ventas@x.com'; carpeta propia -> null */
