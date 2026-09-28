@@ -26,7 +26,7 @@ from seguridad_rutas import RutaInvalida, normalizar_ruta_virtual, ruta_fisica, 
 log = logging.getLogger('almacen.enlace_info')
 
 # Las dos puertas del mismo sistema (ver explorador-enlaces-dominio.js).
-DOMINIOS = ('drive.maquita.com.ec', 'datos.maquita.com.ec')
+from config_almacen import DOMINIOS_ENLACES as DOMINIOS  # noqa: E402
 
 # Páginas que abren UN archivo; la ruta viaja en ?ruta=
 _VISORES = ('editar', 'diagrama', 'plano', 'formulario', 'formulario-respuestas')

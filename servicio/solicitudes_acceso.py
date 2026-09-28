@@ -9,6 +9,7 @@ tenía forma de hacerlo. En Drive esa pantalla ofrece un formulario para
 solicitarlo. Esto es el equivalente propio.
 """
 
+import os
 import logging
 import re
 
@@ -99,7 +100,7 @@ def _avisar(comp, email, nombre, mensaje, clave=None):
             try:
                 from config_almacen import URL_LINKS as _base
             except Exception:
-                _base = 'https://drive.maquita.com.ec'
+                _base = os.getenv('ALMACEN_URL_LINKS', 'https://nube.example.org')
             enlace = '%s/dar-acceso/%s' % (_base.rstrip('/'), clave)
             boton = (
                 '<p style="margin:24px 0;">'

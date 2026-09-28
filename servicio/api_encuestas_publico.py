@@ -47,7 +47,7 @@ bp_encuestas_publico = Blueprint('almacen_encuestas_publico', __name__)
 # Página de inicio de sesión de FARO. Está escrita aquí y no adivinada con
 # `url_for`, porque este blueprint se sirve SIN sesión y sin el contexto de los
 # módulos de FARO. Si la ruta cambiara, se cambia aquí: la comprobación es
-# `curl -o /dev/null -w '%{http_code}' https://datos.maquita.com.ec/auth/iniciar-sesion`
+# `curl -o /dev/null -w '%{http_code}' https://intranet.example.org/auth/iniciar-sesion`
 # y tiene que devolver 200.
 LOGIN = '/auth/iniciar-sesion'
 

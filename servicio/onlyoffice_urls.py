@@ -5,7 +5,7 @@ URLs del Document Server — traducción y allowlist.
 Al terminar de editar, el Document Server avisa al Almacén con la URL desde la
 que hay que descargar el documento guardado. Esa URL la construye con **el
 dominio por el que le llegó la petición**, y el Drive vive en DOS dominios
-(`datos.maquita.com.ec` y `drive.maquita.com.ec`) que apuntan al mismo servidor.
+(`intranet.example.org` y `nube.example.org`) que apuntan al mismo servidor.
 
 Quien editaba desde `drive` recibía una URL de `drive`, que no coincidía con la
 única base configurada (`datos`), la allowlist la rechazaba y el guardado

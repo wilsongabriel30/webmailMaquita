@@ -153,7 +153,7 @@ def explorador_almacen(ruta=''):
 
     # La pagina NO se guarda en cache. No es una precaucion de mas: sin esto,
     # el navegador se la quedaba por heuristica propia y seguia pidiendo los
-    # `?v=` VIEJOS de los JS y CSS. Como en drive.maquita.com.ec los estaticos
+    # `?v=` VIEJOS de los JS y CSS. Como en nube.example.org los estaticos
     # van con `Cache-Control: public, immutable` y un ano de caducidad, esos
     # archivos quedan congelados y NUNCA se revalidan: el cambio esta en el
     # servidor, se sirve bien, y aun asi la persona ve lo anterior.
@@ -654,7 +654,7 @@ def solicitar_acceso():
 @bp_almacen_web.route('/s/<token>/')
 @bp_almacen_web.route('/s/<token>/<path:subruta>')
 def enlace_corto_vista(token, subruta=''):
-    """Enlace CORTO de compartir (drive.maquita.com.ec/s/<token>) — redirige a la
+    """Enlace CORTO de compartir (nube.example.org/s/<token>) — redirige a la
     vista real. Así el link que ve la gente es corto y de marca (estilo Drive)."""
     from flask import redirect
     destino = f'/almacen-s/{token}' + (f'/{subruta}' if subruta else '')
@@ -663,7 +663,7 @@ def enlace_corto_vista(token, subruta=''):
 
 @bp_almacen_web.route('/e/<token>')
 def enlace_corto_editar(token):
-    """Enlace CORTO de EDICIÓN externa (drive.maquita.com.ec/e/<token>)."""
+    """Enlace CORTO de EDICIÓN externa (nube.example.org/e/<token>)."""
     from flask import redirect
     return redirect(f'/archivos-almacen/editar-publico?t={token}', 302)
 

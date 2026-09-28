@@ -31,6 +31,7 @@ from flask import Blueprint, jsonify, request, Response
 
 from almacen_bd import consultar, ejecutar
 from api_archivos import error, usuario_actual
+from config_almacen import SERVIDOR_LINKS, URL_LINKS
 
 log = logging.getLogger('almacen.dav')
 
@@ -172,7 +173,7 @@ net stop WebClient >nul 2>&1
 net start WebClient >nul 2>&1
 rem ===== Montar la unidad __LETRA__: =====
 net use __LETRA__: /delete /y >nul 2>&1
-net use __LETRA__: "\\drive.maquita.com.ec@SSL\dav" /user:__USUARIO__ __TOKEN__ /persistent:yes
+net use __LETRA__: "\\__SERVIDOR__@SSL\dav" /user:__USUARIO__ __TOKEN__ /persistent:yes
 if %errorlevel% neq 0 (
     echo   No se pudo conectar. Revisa tu internet y vuelve a ejecutar.
     echo   Si sigue, avisa a Tecnologia.
@@ -181,7 +182,7 @@ if %errorlevel% neq 0 (
 )
 rem ===== Logo de Maquita y nombre de la unidad =====
 if not exist "%LOCALAPPDATA%\MaquitaDrive" mkdir "%LOCALAPPDATA%\MaquitaDrive"
-powershell -Command "try{Invoke-WebRequest -UseBasicParsing -Uri 'https://drive.maquita.com.ec/static/maquita-drive.ico' -OutFile \"$env:LOCALAPPDATA\MaquitaDrive\maquita.ico\"}catch{}" >nul 2>&1
+powershell -Command "try{Invoke-WebRequest -UseBasicParsing -Uri '__URL__/static/maquita-drive.ico' -OutFile \"$env:LOCALAPPDATA\MaquitaDrive\maquita.ico\"}catch{}" >nul 2>&1
 reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\DriveIcons\__LETRA__\DefaultIcon" /ve /t REG_SZ /d "%LOCALAPPDATA%\MaquitaDrive\maquita.ico" /f >nul 2>&1
 reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\DriveIcons\__LETRA__\DefaultLabel" /ve /t REG_SZ /d "Drive Maquita" /f >nul 2>&1
 rem ===== Refrescar y abrir =====
@@ -336,9 +337,9 @@ def instalador_windows():
             'token': token,
             'solo_lectura': False,
             'letra': letra,
-            'dav_url': 'https://drive.maquita.com.ec/dav',
-            'unc': r'\\drive.maquita.com.ec@SSL\dav',
-            'icono': 'https://drive.maquita.com.ec/static/maquita-drive.ico',
+            'dav_url': URL_LINKS.rstrip('/') + '/dav',
+            'unc': '\\\\' + SERVIDOR_LINKS + r'@SSL\dav',
+            'icono': URL_LINKS.rstrip('/') + '/static/maquita-drive.ico',
         }
         respuesta.update(_perfil_del_usuario(usuario))   # P-07
         # P-17: peso del Drive personal, para que la app sepa si cabe en el
@@ -357,6 +358,8 @@ def instalador_windows():
 
     bat = (_PLANTILLA_BAT
            .replace('__LETRA__', letra)
+           .replace('__SERVIDOR__', SERVIDOR_LINKS)
+           .replace('__URL__', URL_LINKS.rstrip('/'))
            .replace('__USUARIO__', str(usuario))
            .replace('__TOKEN__', token))
     # Windows lee mejor los .bat en UTF-8 con BOM.

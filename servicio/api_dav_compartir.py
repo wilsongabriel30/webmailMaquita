@@ -38,7 +38,7 @@ def compartir_por_token():
     Auth: Basic (usuario = ID FARO, contraseña = token del equipo).
     Body: { "ruta": "/CARPETA/archivo.xlsx", "publico": true,
             "expira_dias"?: int, "clave"?: str }
-    OK:   { "success": true, "url": "https://drive.maquita.com.ec/s/..." }
+    OK:   { "success": true, "url": "https://nube.example.org/s/..." }
     """
     usuario_id = _usuario_por_token(request.authorization)
     if usuario_id is None:
