@@ -425,7 +425,7 @@ class MezclaLetras(object):
         recuadro de una palabra no es la tinta: va del ascendente al descendente que
         declara la fuente. Con el interlineado justo, el de un renglón se solapa con el
         del siguiente aunque las letras no se toquen, y así desaparecían palabras que
-        nadie había editado: en las actas de FARO, cambiar "CUSHUNCHIC" borraba "PEREZ
+        nadie había editado: en las actas de FARO, cambiar "la organización" borraba "PEREZ
         MATEOS", que está justo debajo. Ocurría desde siempre; con el re-flujo, que
         reescribe todo el resto del renglón, se habría multiplicado.
 

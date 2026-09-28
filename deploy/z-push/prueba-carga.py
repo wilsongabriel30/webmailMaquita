@@ -69,7 +69,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--usuario", required=True)
     ap.add_argument("--clave", default=os.getenv("CLAVE", ""))
-    ap.add_argument("--host", default="mail.maquita.org")
+    ap.add_argument("--host", default="mail.example.org")
     ap.add_argument("--dispositivos", type=int, default=50)
     a = ap.parse_args()
     if not a.clave:

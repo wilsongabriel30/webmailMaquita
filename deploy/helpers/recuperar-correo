@@ -13,10 +13,10 @@
 #   recuperar-correo cuanto    [buzon]                cuánto ocupa lo archivado
 #
 # Ejemplos:
-#   recuperar-correo buscar gerenciafinanzas@maquita.com.ec factura
-#   recuperar-correo ver gerenciafinanzas@maquita.com.ec 482
-#   recuperar-correo restaurar gerenciafinanzas@maquita.com.ec 482
-#   recuperar-correo restaurar gerenciafinanzas@maquita.com.ec 482 "INBOX.Recuperados"
+#   recuperar-correo buscar finanzas@example.com factura
+#   recuperar-correo ver finanzas@example.com 482
+#   recuperar-correo restaurar finanzas@example.com 482
+#   recuperar-correo restaurar finanzas@example.com 482 "INBOX.Recuperados"
 #
 # Nota: para devolver el correo se usa `doveadm copy`, no `move`: el archivo está protegido
 # contra escritura y `move` falla con «Permission denied». Copiar es además lo prudente, porque
@@ -33,7 +33,7 @@ uso() {
 
 comprobar_buzon() {
     if [ -z "${1:-}" ]; then
-        echo "Falta el buzón. Ejemplo: recuperar-correo buscar alguien@maquita.com.ec" >&2
+        echo "Falta el buzón. Ejemplo: recuperar-correo buscar alguien@example.com" >&2
         exit 1
     fi
     if ! doveadm user "$1" >/dev/null 2>&1; then

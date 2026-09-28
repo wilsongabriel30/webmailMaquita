@@ -3,7 +3,7 @@
 # Un dominio o email por línea
 
 # Internos
-maquita.org
+example.org
 mfranciscodepropaganda.com
 
 # Proveedores de confianza

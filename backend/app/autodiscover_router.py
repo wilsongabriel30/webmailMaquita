@@ -49,7 +49,7 @@ def _mail_host() -> str:
     if h:
         return h
     md = (get_settings().mail_domain or "").strip()
-    return f"mail.{md}" if md and md != "example.com" else "mail.maquita.org"
+    return f"mail.{md}" if md and md != "example.com" else "mail.example.org"
 
 
 def url_activesync() -> str:

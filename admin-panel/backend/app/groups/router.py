@@ -1,12 +1,17 @@
 import json
 import re
 from fastapi import APIRouter, Request, HTTPException, Depends, Query
+from app import organizacion
 from app.auth.dependencies import get_current_admin, require_role
 
 router = APIRouter(prefix="/api/groups", tags=["groups"])
 
-# Dominios internos de la organización
-INTERNAL_DOMAINS = {"maquita.com.ec", "mcch.com.ec", "fundmcch.com.ec", "maquitaturismo.com"}
+# Dominios internos de la organización: ORG_DOMINIOS_GRUPOS o, si no se define, todos los propios.
+INTERNAL_DOMAINS = set(organizacion.dominios("ORG_DOMINIOS_GRUPOS"))
+
+
+def _internos() -> list:
+    return sorted(INTERNAL_DOMAINS)
 
 
 def _db(r: Request):
@@ -102,10 +107,10 @@ async def list_groups(request: Request, admin: dict = Depends(get_current_admin)
              AND m.member_email IN (SELECT address FROM mail_groups)) as nested_group_count,
             (SELECT count(*) FROM mail_group_members m WHERE m.group_id = g.id
              AND m.member_email NOT IN (SELECT address FROM mail_groups)
-             AND split_part(m.member_email, '@', 2) NOT IN ('maquita.com.ec','mcch.com.ec','fundmcch.com.ec','maquitaturismo.com')
+             AND split_part(m.member_email, '@', 2) <> ALL($1::text[])
             ) as external_count
         FROM mail_groups g ORDER BY g.domain, g.address
-    """)
+    """, _internos())
     return [dict(r) for r in rows]
 
 
@@ -141,10 +146,10 @@ async def audit_groups(request: Request, admin: dict = Depends(get_current_admin
                m.member_email, m.member_name
         FROM mail_groups g
         JOIN mail_group_members m ON m.group_id = g.id
-        WHERE split_part(m.member_email, '@', 2) NOT IN ('maquita.com.ec','mcch.com.ec','fundmcch.com.ec','maquitaturismo.com')
+        WHERE split_part(m.member_email, '@', 2) <> ALL($1::text[])
         AND m.member_email NOT IN (SELECT address FROM mail_groups)
         ORDER BY g.address, m.member_email
-    """)
+    """, _internos())
 
     # Grupos anidados
     nested_issues = await db.fetch("""
@@ -268,9 +273,9 @@ async def update_group(group_id: int, request: Request, admin: dict = Depends(re
     if not new_allow_external and cur["allow_external"]:
         ext_count = await db.fetchval("""
             SELECT count(*) FROM mail_group_members m WHERE m.group_id = $1
-            AND split_part(m.member_email, '@', 2) NOT IN ('maquita.com.ec','mcch.com.ec','fundmcch.com.ec','maquitaturismo.com')
+            AND split_part(m.member_email, '@', 2) <> ALL($2::text[])
             AND m.member_email NOT IN (SELECT address FROM mail_groups)
-        """, group_id)
+        """, group_id, _internos())
         if ext_count > 0:
             raise HTTPException(400,
                 f"No se puede desactivar 'permitir externos' porque el grupo tiene {ext_count} miembro(s) externo(s). "

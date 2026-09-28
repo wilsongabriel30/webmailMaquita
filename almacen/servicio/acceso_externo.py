@@ -239,7 +239,7 @@ def _enviar_invitacion(email: str, nombre: str, link: str):
 
 
 _DOMINIOS_INTERNOS = {d.strip().lower() for d in os.getenv(
-    'ALMACEN_DOMINIOS_INTERNOS', 'maquita.org,maquita.com.ec,fundacionmaquita.org').split(',')
+    'ALMACEN_DOMINIOS_INTERNOS', 'example.org').split(',')
     if d.strip()}
 _MAILDB_DSN = os.getenv('MAILDB_DSN', '').strip()
 

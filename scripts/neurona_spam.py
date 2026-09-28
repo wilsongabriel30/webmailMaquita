@@ -19,8 +19,20 @@ def _peso_cfg():
         return 0
 
 
+def _org(clave, defecto):
+    """Valor del fichero de la organización (CLAVE=valor), o el de ejemplo."""
+    try:
+        with open(os.environ.get("ORG_FICHERO", "/etc/maquita-mail/organizacion.env"), encoding="utf-8") as f:
+            for linea in f:
+                if linea.strip().startswith(clave + "="):
+                    return linea.split("=", 1)[1].strip().strip("\"'").rstrip("/") or defecto
+    except OSError:
+        pass
+    return defecto
+
+
 NEURONA_PESO = _peso_cfg()   # 0 = log-only (advisory). Se afina desde el panel.
-IA_URL = "http://193.16.0.170:11434/api/generate"
+IA_URL = os.environ.get("MAQUITA_IA_URL") or _org("ORG_URL_IA", "http://127.0.0.1:11434") + "/api/generate"
 IA_MODEL = os.environ.get("MAQUITA_IA_MODEL", "gemma2:9b")
 
 # 8 features derivadas de las 'razones' que ya produce el filtro (costo 0)

@@ -10,7 +10,7 @@
 
 **A full-featured webmail client with a legal compliance and eDiscovery layer, for Postfix/Dovecot-based mail platforms.**
 
-Built and maintained by [Fundación Maquita](https://maquita.org), a non-profit organization in Ecuador.
+Built and maintained by [Fundación Maquita](https://example.org), a non-profit organization in Ecuador.
 
 ---
 
@@ -391,7 +391,7 @@ make seed-demo   # loads sample mailboxes, emails and compliance data
 - TLS enforced on all external connections (MTA-STS, DANE)
 - Dependencies are scanned with `pip-audit` and `npm audit` in CI
 
-To report a security vulnerability, email security@maquita.org. Do not open a public issue.
+To report a security vulnerability, use the repository's private advisories (Security tab → Report a vulnerability). Do not open a public issue.
 
 ## Documentation
 
@@ -428,4 +428,4 @@ This project is licensed under the [GNU Affero General Public License v3.0](LICE
 
 ## Credits
 
-Built by the technology team at [Fundación Maquita](https://maquita.org), Quito, Ecuador.
+Built by the technology team at [Fundación Maquita](https://example.org), Quito, Ecuador.

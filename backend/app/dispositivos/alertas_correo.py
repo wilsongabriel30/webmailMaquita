@@ -12,14 +12,15 @@ from html import escape
 
 import aiosmtplib
 
+from app import organizacion
 from app.dispositivos.alertas_reglas import NOMBRES
 
 logger = logging.getLogger("dispositivos")
-PANEL = os.environ.get("DISP_PANEL_URL", "https://mail.maquita.org:8443/dispositivos")
+PANEL = os.environ.get("DISP_PANEL_URL") or organizacion.url("ORG_URL_PANEL", "https://mail.example.org:8443") + "/dispositivos"
 
 
 def _remitente() -> str:
-    return f"no-reply@{os.environ.get('MAIL_DOMAIN', 'maquita.org')}"
+    return f"no-reply@{organizacion.dominio_principal()}"
 
 
 def _hora(v) -> str:

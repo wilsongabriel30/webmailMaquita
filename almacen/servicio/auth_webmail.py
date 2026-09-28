@@ -259,10 +259,11 @@ def _buscar_en_nomina(correo: str) -> tuple:
         ORDER BY id LIMIT 1
     """, (correo,), nomina=True)
     if not filas:
-        # Dominios institucionales equivalentes: el buzon puede ser usuario@maquita.org y el
-        # directorio tener usuario@maquita.com.ec (misma persona). Igual criterio que el chat.
+        # Dominios institucionales equivalentes: el buzon puede ser usuario@example.org y el
+        # directorio tener usuario@example.com (misma persona). Igual criterio que el chat.
         local, _, dominio = correo.partition('@')
-        equivalentes = ('maquita.org', 'maquita.com.ec', 'fundacionmaquita.org')
+        equivalentes = tuple(d.strip().lower() for d in os.getenv(
+            'ALMACEN_DOMINIOS_INTERNOS', 'example.org').split(',') if d.strip())
         if dominio in equivalentes:
             for otro in equivalentes:
                 if otro == dominio:

@@ -10,6 +10,7 @@ import hmac
 import html as html_lib
 import re
 
+from app import organizacion
 from app.config import get_settings
 
 
@@ -40,7 +41,7 @@ def gateway_link(url: str) -> str:
     # "&amp;token=..." y lee un parametro "amp;token" en vez de "token"
     # (rompia activaciones y restablecimientos de clave con varios parametros).
     ub = encode_url(html_lib.unescape(url))
-    base = (get_settings().public_base_url or "https://mail.maquita.org").rstrip("/")
+    base = (get_settings().public_base_url or organizacion.url_correo()).rstrip("/")
     return f"{base}/api/safelink?u={ub}&s={sign(ub)}"
 
 

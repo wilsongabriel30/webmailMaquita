@@ -4,7 +4,9 @@
 # (en el incidente de migracion hubo 0 logins externos por 4 dias y nadie lo noto).
 # Externo = login Dovecot con rip distinto de 127.0.0.1/::1 (el webmail entra desde localhost).
 # Uso: check-external-logins.sh [horas]   (default 24)
-ALERT_EMAIL="${ALERT_EMAIL:-gestiontecnologia@maquita.org}"
+# Los datos de la organización (a quién avisar, con qué remitente) viven en el servidor.
+[ -r /etc/maquita-mail/organizacion.env ] && . /etc/maquita-mail/organizacion.env
+ALERT_EMAIL="${ALERT_EMAIL:-${ORG_CORREOS_AVISOS:-postmaster@localhost}}"
 HOURS="${1:-24}"
 HOSTNAME=$(hostname)
 

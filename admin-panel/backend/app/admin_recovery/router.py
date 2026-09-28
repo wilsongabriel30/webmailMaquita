@@ -16,12 +16,13 @@ from email.mime.text import MIMEText
 from fastapi import APIRouter, Request, Depends, HTTPException
 from pydantic import BaseModel
 import bcrypt
+from app import organizacion
 from app.auth.dependencies import get_current_admin
 
 router = APIRouter(prefix="/api/admin-recovery", tags=["admin-recovery"])
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 MAX_PER_YEAR = 5
-FROM_ADDR = "seguridad@maquita.org"
+FROM_ADDR = organizacion.remitente("ORG_REMITENTE_SEGURIDAD", "", "seguridad")
 
 
 def _db(r: Request):

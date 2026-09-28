@@ -109,9 +109,11 @@ async def aviso_correo_al_canal(
             texto += " (%d sin leer)" % sin_leer
         import httpx
 
+        from app import organizacion
+
         async with httpx.AsyncClient(timeout=4) as c:
             await c.post(
-                "https://mail.maquita.org/api/chat/notificaciones",
+                organizacion.url_correo() + "/api/chat/notificaciones",
                 headers={"X-Notif-Secret": secreto},
                 json={
                     "correos": [username],
@@ -119,9 +121,9 @@ async def aviso_correo_al_canal(
                     "titulo": "Correo nuevo",
                     "texto": texto,
                     "url": (
-                        "https://mail.maquita.org/webmail/?folder=INBOX&uid=%d" % uid
+                        organizacion.url_correo() + "/webmail/?folder=INBOX&uid=%d" % uid
                         if uid
-                        else "https://mail.maquita.org/webmail/"
+                        else organizacion.url_correo() + "/webmail/"
                     ),
                     "origen": "correo",
                 },

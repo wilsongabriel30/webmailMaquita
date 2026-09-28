@@ -2,9 +2,9 @@
 
 Compara el dominio remitente contra una lista de dominios protegidos (propios +
 marcas sensibles) y detecta intentos de suplantación:
-  - typosquatting:   maqulta.org  ~ maquita.org   (1 edición)
+  - typosquatting:   exarnple.org ~ example.org   (1 edición)
   - homoglyphs/IDN:  bancopichіncha.com (cirílica) ~ bancopichincha.com
-  - inserción TLD:   maquita-org.com, maquita.org.secure-login.com
+  - inserción TLD:   example-org.com, example.org.secure-login.com
 
 No bloquea por sí solo: produce un veredicto para que el motor anti-phishing /
 Safe Links lo use (subir score, avisar, cuarentena).
@@ -12,17 +12,10 @@ Safe Links lo use (subir score, avisar, cuarentena).
 
 import unicodedata
 
-# Dominios propios + marcas sensibles (ampliar por instalación / .env).
-PROTECTED_DOMAINS = {
-    "maquita.org",
-    "maquita.com.ec",
-    "mcch.com.ec",
-    "fundmcch.com.ec",
-    "maquitaturismo.com",
-    "relacc-la.org",
-    "alimentaelcambio.com.ec",
-    "invertiagro.com",
-    "productoresdema.com",
+from app import organizacion
+
+# Dominios propios (los de la organización, ver app/organizacion.py) + marcas sensibles.
+PROTECTED_DOMAINS = set(organizacion.dominios_propios()) | {
     # marcas frecuentemente suplantadas (Ecuador / globales)
     "bancopichincha.com",
     "bancoguayaquil.com",

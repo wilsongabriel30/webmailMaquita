@@ -1,6 +1,6 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: Maquita Webmail
-Upstream-Contact: Wilson Gabriel Arguello Robalino <seguridad@maquita.org>
+Upstream-Contact: Wilson Gabriel Arguello Robalino <https://github.com/wilsongabriel30/webmailMaquita>
 Source: https://github.com/wilsongabriel30/webmailMaquita
 
 Files: *

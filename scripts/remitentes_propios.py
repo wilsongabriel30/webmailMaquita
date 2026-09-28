@@ -1,9 +1,9 @@
 """Correo propio verificado: remitente de un dominio de la casa que llegó por un camino de confianza.
 
-Caso real (14/09/2026): direccion@maquita.com.ec escribió a gerencia@maquitaturismo.com y el
+Caso real (14/09/2026): direccion@example.com escribió a gerencia@turismo.example y el
 correo cayó en Junk por «exceso-links(16)(+3)»: una firma con muchos enlaces bastó para llegar
 al umbral (3) aunque la red neuronal dijera «ham 0,99». El correo venía de nuestro propio
-Zimbra (193.16.0.18): no era un desconocido.
+Zimbra (192.0.2.18): no era un desconocido.
 
 Aquí se decide si un correo es «propio verificado»: el dominio del remitente es de la casa Y
 llegó por un relé interno de confianza, o por una sesión autenticada (ESMTPSA). Con eso el
@@ -11,7 +11,7 @@ filtro le aplica el mismo descuento que a un dominio de confianza (no lo exime: 
 propio con virus o palabras de estafa sigue puntuando).
 
 Ojo: la cabecera From no está autenticada. Por eso NO basta con que el dominio sea propio;
-hace falta además el camino de confianza. Un externo que escriba «From: direccion@maquita.com.ec»
+hace falta además el camino de confianza. Un externo que escriba «From: direccion@example.com»
 entra por internet, no por el relé, y no recibe el descuento (además rspamd lo rechaza por
 anti-spoofing).
 
@@ -26,12 +26,10 @@ import re
 DOMINIOS_PROPIOS_PATH = "/etc/maquita-mail/dominios-propios.txt"
 RELES_CONFIANZA_PATH = "/etc/maquita-mail/reles-confianza.txt"
 
-DOMINIOS_POR_OMISION = (
-    "maquita.org", "maquita.com.ec", "mcch.com.ec", "fundmcch.com.ec",
-    "maquitaturismo.com", "invertiagro.com", "maquitaagro.com", "maquitaagro.com.ec",
-    "alimentaelcambio.com.ec", "relacc-la.org", "productoresdema.com",
-)
-RELES_POR_OMISION = ("193.16.0.18", "193.16.0.21", "127.0.0.1")
+# Sin los ficheros de /etc/maquita-mail no hay dominios de la casa: solo el propio equipo es de
+# confianza. Una instalación sin configurar no debe fiarse de nadie por omisión.
+DOMINIOS_POR_OMISION = ()
+RELES_POR_OMISION = ("127.0.0.1",)
 
 RAZON = "propio-verificado"
 

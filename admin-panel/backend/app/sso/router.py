@@ -10,12 +10,14 @@ import subprocess
 
 from fastapi import APIRouter, Request, Depends, HTTPException
 
+from app import organizacion
 from app.auth.dependencies import get_current_admin, require_superadmin
 
 router = APIRouter(prefix="/api/sso", tags=["sso"])
 
-KC_REALM = "https://auth.maquita.org/realms/maquita"
-WEBMAIL_OIDC = "https://mail.maquita.org/api/auth/oidc/enabled"
+REINO = organizacion.valor("KC_REALM", organizacion.valor("ORG_REINO_IDENTIDAD", "correo"))
+KC_REALM = f"{organizacion.url_identidad()}/realms/{REINO}"
+WEBMAIL_OIDC = organizacion.url_correo() + "/api/auth/oidc/enabled"
 SYNC = "/opt/maquita-webmail/deploy/sso/sync-ldap-from-maildb.sh"
 
 
@@ -80,8 +82,8 @@ async def status(r: Request, a=Depends(get_current_admin)):
     kc_status, _ = await _http_estado(f"{KC_REALM}/.well-known/openid-configuration")
     _st, cuerpo = await _http_estado(WEBMAIL_OIDC)
     return {
-        "realm": "maquita",
-        "idp_url": "https://auth.maquita.org",
+        "realm": REINO,
+        "idp_url": organizacion.url_identidad(),
         "keycloak_ok": kc_status == 200,
         "oidc_enabled": '"enabled":true' in cuerpo,
         "mailbox_active": mailbox,

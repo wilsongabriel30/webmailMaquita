@@ -1,6 +1,6 @@
 """Geolocalización de IPs para detección de logins riesgosos.
 
-IPs internas/propias (LAN, VPN, rango 193.16.0.0/24) se tratan como confiables y
+IPs internas/propias (LAN, VPN y las redes de ORG_REDES) se tratan como confiables y
 NO se geolocalizan. Las públicas se resuelven con una BASE LOCAL (DB-IP City Lite,
 formato MaxMind) que vive en el servidor; se cachea en Redis 30 días para no repetir
 la misma búsqueda.
@@ -23,19 +23,25 @@ import logging
 import os
 import threading
 
-# Redes propias/confiables (su LAN usa el bloque público 193.16.0.0/24)
-_TRUSTED = [
-    ipaddress.ip_network(n)
-    for n in (
-        "10.0.0.0/8",
-        "172.16.0.0/12",
-        "192.168.0.0/16",
-        "127.0.0.0/8",
-        "169.254.0.0/16",
-        "100.64.0.0/10",
-        "193.16.0.0/24",
-    )
-]
+from app import organizacion
+
+
+def _redes(textos):
+    redes = []
+    for t in textos:
+        try:
+            redes.append(ipaddress.ip_network(t, strict=False))
+        except ValueError:
+            logging.getLogger(__name__).warning("ORG_REDES: «%s» no es una red válida; se ignora", t)
+    return redes
+
+
+# Redes confiables: las privadas de siempre y las de la organización (ORG_REDES), que pueden
+# ser públicas: hay redes internas montadas sobre un bloque público.
+_TRUSTED = _redes(
+    ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.0/8", "169.254.0.0/16", "100.64.0.0/10"]
+    + organizacion.redes_propias()
+)
 
 
 def is_internal(ip: str) -> bool:

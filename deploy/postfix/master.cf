@@ -56,7 +56,7 @@ maquita-filter unix - n n - 10 pipe
   # no_milters: la reinyeccion NO vuelve a pasar por rspamd. Sin esto el mensaje se
   # analizaba dos veces y en la segunda pasada -donde ya no consta como autenticado-
   # rspamd le reescribia el asunto con *** SPAM ***, DESPUES de haberlo firmado con
-  # DKIM en la primera. La firma quedaba rota y, con DMARC p=reject en maquita.com.ec,
+  # DKIM en la primera. La firma quedaba rota y, con DMARC p=reject en example.com,
   # un receptor estricto puede rechazar el correo. Lo detecto el equipo replica (Andes)
   # comprobando la firma sobre el mensaje recibido: quitando el prefijo, verifica.
   -o receive_override_options=no_unknown_recipient_checks,no_header_body_checks,no_milters

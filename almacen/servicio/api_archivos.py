@@ -54,7 +54,7 @@ def _error_pertenece_al_correo(usuario, ruta):
             f = filas[0]
             info = {'buzon': f['buzon'], 'carpeta': f['carpeta_correo'], 'uid': f['uid'], 'asunto': f['asunto'],
                     'remitente': f['remitente'], 'fecha': str(f['fecha_correo'] or ''),
-                    'url': f"https://mail.maquita.org/webmail/?folder={f['carpeta_correo']}&uid={f['uid']}"}
+                    'url': f"{os.getenv('ALMACEN_URL_CORREO', 'https://mail.example.org').rstrip('/')}/webmail/?folder={f['carpeta_correo']}&uid={f['uid']}"}
     except Exception as _e:
         print(f'[correo-drive] sin datos del correo: {_e!r}')
         info = None

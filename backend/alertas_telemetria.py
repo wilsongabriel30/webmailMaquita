@@ -25,8 +25,11 @@ import psycopg2
 import requests
 
 BASE = '/opt/maquita-webmail/backend'
-CHAT_NOTIF_URL = os.getenv('CHAT_NOTIF_URL', 'http://193.16.0.136:8790/api/chat/notificaciones')
-URL_VERSION = 'https://mail.maquita.org/static/teams/teams-windows-version.json'
+sys.path.insert(0, BASE)
+from app import organizacion  # noqa: E402
+
+CHAT_NOTIF_URL = os.getenv('CHAT_NOTIF_URL') or organizacion.url('ORG_URL_CHAT_INTERNO', 'http://127.0.0.1:8790') + '/api/chat/notificaciones'
+URL_VERSION = organizacion.url_correo() + '/static/teams/teams-windows-version.json'
 DESTINATARIOS = [int(x) for x in os.getenv('TELEMETRIA_ALERTAS_IDS', '17').split(',') if x.strip().isdigit()]
 
 DDL = """
@@ -83,7 +86,7 @@ def avisar(titulo, texto, url='/tecnologia/telemetria-apps', dry=False):
                           headers={'X-Notif-Secret': secreto},
                           json={'usuario_ids': DESTINATARIOS, 'tipo': 'soporte',
                                 'titulo': titulo[:120], 'texto': texto[:300],
-                                'url': 'https://datos.maquita.com.ec' + url, 'origen': 'telemetria'})
+                                'url': organizacion.url_intranet() + url, 'origen': 'telemetria'})
         print('%s -> %s' % (linea, r.status_code))
         return r.status_code == 200
     except Exception as e:

@@ -3,7 +3,7 @@ import { api } from "../api/client";
 import { SectionHelp } from "../components/SectionHelp";
 
 const FIELDS = [
-  { key: "org_name", label: "Nombre de la organización", placeholder: "Ej: Maquita Cushunchic MCCH", icon: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" },
+  { key: "org_name", label: "Nombre de la organización", placeholder: "Ej: la organización MCCH", icon: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" },
   { key: "org_slogan", label: "Eslogan / Descripción corta", placeholder: "Ej: Comercializando como Hermanos", icon: "M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" },
   { key: "org_email", label: "Email de contacto", placeholder: "Ej: info@miorganizacion.org", type: "email", icon: "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" },
   { key: "org_website", label: "Sitio web", placeholder: "Ej: https://www.miorganizacion.org", type: "url", icon: "M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" },

@@ -30,5 +30,5 @@ Test 25:    openssl s_client -connect 127.0.0.1:25 -starttls smtp -quiet
 Comprobar despues:
 
     postconf -n | grep -E '^smtpd?_tls|^tls_'
-    openssl s_client -connect mail.maquita.org:25 -starttls smtp -tls1_1   # debe fallar
-    openssl s_client -connect mail.maquita.org:25 -starttls smtp -tls1_2   # debe conectar
+    openssl s_client -connect mail.example.org:25 -starttls smtp -tls1_1   # debe fallar
+    openssl s_client -connect mail.example.org:25 -starttls smtp -tls1_2   # debe conectar

@@ -12,9 +12,9 @@
 ```python
 from app.safelinks import lookalike
 r = lookalike.check("maqulta.org")
-# {'lookalike': True, 'target': 'maquita.org', 'reason': 'typosquatting de maquita.org (distancia 1)'}
+# {'lookalike': True, 'target': 'example.org', 'reason': 'typosquatting de example.org (distancia 1)'}
 ```
-Detecta `maqulta.org`, `paypa1.com`, `maquita.org.secure-login.com`, homoglyphs
+Detecta `maqulta.org`, `paypa1.com`, `example.org.secure-login.com`, homoglyphs
 cirílicos, etc. Lista de dominios protegidos en `PROTECTED_DOMAINS` (propios +
 marcas sensibles; ampliar por instalación).
 

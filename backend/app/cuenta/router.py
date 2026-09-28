@@ -1,6 +1,6 @@
 """Descubrimiento de cuenta por dominio para la cuenta del sistema de Android (una sola llamada).
 
-Dado un correo, resuelve a qué portal pertenece (mail.maquita.org o el de su empresa) y devuelve todo
+Dado un correo, resuelve a qué portal pertenece (mail.example.org o el de su empresa) y devuelve todo
 lo que el gestor de cuentas de Android necesita para dar de alta la cuenta y sus sincronizaciones:
 IMAP/SMTP, CalDAV/CardDAV, la API del canal propio y el servidor de avisos push. Público (no expone
 datos privados: solo qué servidores usar); la contraseña se valida al conectar cada servicio.
@@ -27,8 +27,8 @@ async def _host_de_dominio(request: Request, dominio: str) -> str:
         pass
     from app.config import get_settings
 
-    md = getattr(get_settings(), "mail_domain", "") or "maquita.org"
-    return f"mail.{md}" if md and md != "example.com" else "mail.maquita.org"
+    md = getattr(get_settings(), "mail_domain", "") or "example.org"
+    return f"mail.{md}" if md and md != "example.com" else "mail.example.org"
 
 
 async def _organizacion(request: Request, dominio: str, host: str) -> str:
@@ -52,7 +52,7 @@ async def descubrir(request: Request, correo: str = Query(..., max_length=254)):
     if not m:
         return {
             "encontrado": False,
-            "detalle": "Escribe tu correo completo, por ejemplo nombre@maquita.org",
+            "detalle": "Escribe tu correo completo, por ejemplo nombre@example.org",
         }
     correo = correo.strip().lower()
     dominio = m.group(1)
