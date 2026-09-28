@@ -1,0 +1,18 @@
+# Datos propios de la organización que el Guardián debe impedir que se publiquen.
+# Una línea por patrón: «categoría: expresión regular». No distingue mayúsculas.
+# Las líneas vacías y las que empiezan por # se ignoran.
+#
+# Este fichero se copia a .git/guardian-datos-propios y NO se versiona: lo que hay que
+# impedir que se publique no puede vivir en lo publicado. En el CI, el mismo contenido va
+# en el secreto GUARDIAN_DATOS_PROPIOS del repositorio.
+#
+# Qué poner aquí, sin escribir los valores en este ejemplo:
+#   - Los dominios de correo y de los servicios de la organización.
+#   - Los rangos de su red, internos y públicos.
+#   - Correos de personas o de áreas que no deban aparecer.
+#   - Nombres de la organización, de sus sedes o de sus sistemas internos.
+#
+# Formato (valores ficticios):
+# dominio: organizacion-real\.example
+# red: 198\.18\.[0-9]+\.[0-9]+
+# correo: persona\.real@
