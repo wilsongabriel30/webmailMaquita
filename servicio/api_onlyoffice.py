@@ -31,7 +31,7 @@ tabla `onlyoffice_sesion`.
 Configuración (variable de entorno, o tabla config_kv si no hay variable):
   ALMACEN_ONLYOFFICE_SECRET      / config_kv 'onlyoffice_secret'
   ALMACEN_ONLYOFFICE_URL_PUBLICA / config_kv 'onlyoffice_url_publica'
-      (la que ve el navegador, ej. https://datos.maquita.com.ec/office-almacen)
+      (la que ve el navegador, ej. https://intranet.example.org/office-almacen)
   ALMACEN_ONLYOFFICE_URL_INTERNA / config_kv 'onlyoffice_url_interna'
       (la que usa el motor para hablar con el DS, ej. http://193.16.0.X:8080)
 
@@ -127,7 +127,7 @@ def bases_publicas_ds() -> list:
 
 def base_ds_publica(es_lectura: bool) -> str:
     """URL publica del Document Server segun el uso: el 2o DS de SOLO LECTURA
-    (/office-lectura, VM 193.16.0.6) cuando la apertura es en modo vista, o el
+    (/office-lectura, VM 192.0.2.6) cuando la apertura es en modo vista, o el
     principal de EDICION (/office-almacen, VM131) cuando se edita. Asi los
     lectores NO consumen el limite de ~20 conexiones de edicion. Si no esta el
     path esperado, cae al DS principal (comportamiento seguro)."""
@@ -373,16 +373,16 @@ def _logo_editor(publico=False):
     # El logo lo carga el NAVEGADOR, no el Document Server, así que debe salir
     # del MISMO dominio en el que está la persona. nginx envía al editor
     # `X-Forwarded-Host: $host/office-almacen`, de modo que en
-    # drive.maquita.com.ec el editor corre bajo ese dominio: apuntar el logo a
-    # datos.maquita.com.ec lo convertía en una carga entre dominios distintos, y
+    # nube.example.org el editor corre bajo ese dominio: apuntar el logo a
+    # intranet.example.org lo convertía en una carga entre dominios distintos, y
     # ahí es donde dejaba de verse. Los estáticos están en los dos dominios.
     try:
         base = f'{request.host_url.rstrip("/")}/static/uploads/logos'
     except Exception:
         base = f'{URL_PUBLICA}/static/uploads/logos'   # fuera de una petición
 
-    # Sufijo de version (?v=). NO es cosmetico: en el front, drive.maquita.com.ec
-    # NO tiene el bloque /static/ propio que si tiene datos.maquita.com.ec, asi
+    # Sufijo de version (?v=). NO es cosmetico: en el front, nube.example.org
+    # NO tiene el bloque /static/ propio que si tiene intranet.example.org, asi
     # que hereda de la VM 101: expires 1y y Cache-Control public, immutable.
     # Con immutable el navegador NO revalida NUNCA -- ni con Ctrl+F5 -- y se
     # queda con la imagen que bajo la primera vez. Ese fue el motivo real de que
@@ -409,7 +409,7 @@ def _logo_editor(publico=False):
         logo['url'] = ''
     else:
         # Trabajador con sesión: al inicio de Drive Maquita. Se usa URL_LINKS
-        # —el dominio de cara a las personas, siempre drive.maquita.com.ec— y
+        # —el dominio de cara a las personas, siempre nube.example.org— y
         # no URL_PUBLICA, que es el interno que resuelve el Document Server.
         logo['url'] = URL_LINKS
     return logo
@@ -563,7 +563,7 @@ def onlyoffice_config():
                     'text': 'Volver a Drive Maquita',
                     # Se usa el dominio DESDE EL QUE entró el usuario, no
                     # URL_PUBLICA: la aplicación se sirve en varios dominios
-                    # (drive.maquita.com.ec y datos.maquita.com.ec) y la sesión
+                    # (nube.example.org y intranet.example.org) y la sesión
                     # es por dominio. Mandarlo al otro lo rebotaría al login.
                     'url': f'{request.host_url.rstrip("/")}'
                            f'/archivos-almacen{ruta.rsplit("/", 1)[0] or ""}',

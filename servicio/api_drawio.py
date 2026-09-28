@@ -3,7 +3,7 @@
 API drawio del Almacén Maquita (edición de diagramas .drawio).
 ==============================================================
 Integra el editor open-source drawio (motor Docker en VM131, publicado bajo
-datos.maquita.com.ec/drawio/) con el explorador del Almacén. Un `.drawio` es un
+intranet.example.org/drawio/) con el explorador del Almacén. Un `.drawio` es un
 archivo XML: se carga su contenido, se edita en el iframe de drawio (modo embed,
 protocolo postMessage) y al guardar se reescribe con nucleo.subir() → hereda
 versionado y dedup, igual que cualquier documento.

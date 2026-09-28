@@ -88,7 +88,7 @@ let t = A.tokenDe('@', 1);
 bien(t && t.desde === 0 && t.busca === '', 'un «@» solo, al principio: cuenta (y aún no filtra nada)');
 t = A.tokenDe('Hola @Ro', 8);
 bien(t && t.desde === 5 && t.busca === 'Ro', 'después de un espacio: cuenta, y lo escrito es lo que filtra');
-bien(A.tokenDe('juan@maquita.org', 16) === null, 'un correo NO dispara nada («@» pegado a una palabra)');
+bien(A.tokenDe('juan@example.org', 16) === null, 'un correo NO dispara nada («@» pegado a una palabra)');
 bien(A.tokenDe('sin arroba', 10) === null, 'sin «@», nada');
 bien(A.tokenDe('@Ro', 1) && A.tokenDe('@Ro', 1).busca === '', 'con el cursor justo tras el «@», la búsqueda está vacía');
 bien(A.tokenDe('@' + 'x'.repeat(60), 61) === null, 'si lo escrito tras el «@» es larguísimo, se deja en paz');
