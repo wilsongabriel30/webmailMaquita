@@ -96,6 +96,7 @@ deba llegar.
 | `PD_DIR_MARCA` | `/opt/webmail/uploads/branding/empresas` | Carpeta de logos e iconos |
 | `PD_MARCA_MAX_KB` | `512` | Peso máximo de una imagen |
 | `PD_SELECTORES_DKIM` | `default,dkim,mail,selector1,selector2` | Selectores que consulta la verificación DNS |
+| `PD_RESOLUTORES_DOH` | `https://dns.google/resolve,https://cloudflare-dns.com/dns-query` | Resolutores públicos por HTTPS, en orden |
 
 ## Reglas que conviene conocer
 
@@ -114,6 +115,11 @@ deba llegar.
   administrador de dominio es temporal: hasta que la cambia, el portal no le deja hacer nada más.
 - **Bloqueo.** Cinco intentos fallidos bloquean la cuenta 15 minutos; nginx limita además los
   intentos por dirección IP.
+
+- **Verificación DNS.** Se pregunta por HTTPS a un resolutor público, no al del servidor: en una
+  red con DNS dividido el resolutor local enseña la zona interna, que no es la que ve el mundo.
+  El portal necesita salida HTTPS hacia esos resolutores. Distingue «el registro falta», «el
+  dominio no existe en internet» y «no se pudo consultar».
 
 ## Pruebas
 
