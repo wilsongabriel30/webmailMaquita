@@ -56,7 +56,7 @@ interface MailState {
   messageListWidth: number;
   setDensity: (d: 'compact' | 'medium' | 'full') => void;
   setPreviewLines: (lines: 1 | 2 | 3) => void;
-  setReadingPane: (p: 'right' | 'bottom' | 'off') => void;
+  setReadingPane: (p: 'right' | 'bottom' | 'off' | 'fullscreen' | 'popout') => void;
   setPageSize: (n: number) => void;
   setBlockRemoteImages: (v: boolean) => void;
   setMessageListWidth: (w: number) => void;
