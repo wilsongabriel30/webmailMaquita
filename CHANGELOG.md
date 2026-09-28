@@ -1248,7 +1248,7 @@ Candidata para la verificación externa. Incluye la remediación de seguridad de
   equipo de Correo Andes.
 
   Se distinguen **dos** valores, porque no son lo mismo:
-  - `org_name` — la organización (aquí, «Fundación Maquita Cushunchic MCCH»). Su valor por defecto
+  - `org_name` — la organización (aquí, «la organización MCCH»). Su valor por defecto
     es neutro a propósito: una réplica no debe mostrar la marca de otra organización, porque un
     aviso de seguridad a nombre ajeno parece phishing.
   - `app_name` — el producto de correo (aquí, «Maquita Mail»). Es lo que ve quien usa el sistema.

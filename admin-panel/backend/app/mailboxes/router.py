@@ -293,7 +293,7 @@ async def cambiar_titular(
                     f"{('Telefono: ' + new_phone + chr(10)) if new_phone else ''}"
                     f"\nPor favor actualice sus contactos.\n\n"
                     f"Saludos cordiales,\n"
-                    f"Administracion de Correo - Maquita Cushunchic"
+                    f"Administracion de Correo - la organización"
                 )
 
                 # Send via sendmail to each recipient (batched)

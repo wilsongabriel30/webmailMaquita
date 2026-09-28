@@ -116,7 +116,7 @@ export function PanelBusquedaAvanzada({ onBuscar, onCerrar }: Props) {
         <div className="col-span-2">
           <label className={rotulo} htmlFor="ba-dominio">Dominio</label>
           <input id="ba-dominio" className={campo} value={dominio} onChange={(e) => setDominio(e.target.value)}
-            placeholder="maquita.org — de o para cualquiera de ese dominio" />
+            placeholder="example.org — de o para cualquiera de ese dominio" />
         </div>
         <div className="col-span-2">
           <label className={rotulo} htmlFor="ba-adjunto">Archivo adjunto</label>

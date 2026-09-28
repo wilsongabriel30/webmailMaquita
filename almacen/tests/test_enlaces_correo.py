@@ -29,7 +29,7 @@ def test_el_enlace_manda_sobre_el_correo(monkeypatch):
         "WHERE id = %s": [{"id": 77, "role": "user"}],
     })
     monkeypatch.setattr(aw, "consultar", consultar)
-    assert aw._buscar_en_nomina("persona@maquita.org") == (77, "user")
+    assert aw._buscar_en_nomina("persona@example.org") == (77, "user")
     assert "enlaces_correo" in llamadas[0][0]  # el vínculo se mira antes que el correo
 
 
@@ -39,13 +39,13 @@ def test_sin_enlace_se_busca_por_correo(monkeypatch):
         "LOWER(email) = %s": [{"id": 5, "role": "user"}],
     })
     monkeypatch.setattr(aw, "consultar", consultar)
-    assert aw._buscar_en_nomina("persona@maquita.org") == (5, "user")
+    assert aw._buscar_en_nomina("persona@example.org") == (5, "user")
 
 
 def test_enlace_a_persona_inactiva_no_vale(monkeypatch):
     consultar, _ = _consultar_falso({"enlaces_correo": [{"usuario_id": 77}], "WHERE id = %s": []})
     monkeypatch.setattr(aw, "consultar", consultar)
-    assert aw._buscar_en_nomina("persona@maquita.org") == (None, None)
+    assert aw._buscar_en_nomina("persona@example.org") == (None, None)
 
 
 def test_api_panel_exige_secreto_y_loopback():

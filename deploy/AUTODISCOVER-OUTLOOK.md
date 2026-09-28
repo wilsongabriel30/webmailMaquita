@@ -3,19 +3,19 @@
 ## Qué hace
 `POST /autodiscover/autodiscover.xml` (backend) devuelve, para CUALQUIER dominio del correo:
 - `<LoginName>` = el correo COMPLETO que el cliente envió (sin tecleo del usuario; evita `user.dominio`).
-- `<Server>` = host canónico (`mail.<MAIL_DOMAIN>`, ej. mail.maquita.org), el MISMO Dovecot que sirve
-  todos los dominios virtuales (maquita.org, maquita.com.ec, maquitaturismo.com, …).
+- `<Server>` = host canónico (`mail.<MAIL_DOMAIN>`, ej. mail.example.org), el MISMO Dovecot que sirve
+  todos los dominios virtuales (example.org, example.com, turismo.example, …).
 IMAP 993 SSL / SMTP 465 SSL. Reemplaza el `autodiscover.xml` estático que tenía `<LoginName>` vacío.
 
-## Para que Outlook de un dominio (ej. maquita.com.ec) LLEGUE a este servicio
-Outlook de `foo@maquita.com.ec` consulta `autodiscover.maquita.com.ec` y `maquita.com.ec`. Hay que
+## Para que Outlook de un dominio (ej. example.com) LLEGUE a este servicio
+Outlook de `foo@example.com` consulta `autodiscover.example.com` y `example.com`. Hay que
 dirigirlo a nuestro servidor (donde el certificado es válido). Por CADA dominio registrado:
 
 - **Opción A (recomendada, sin cert extra) — registro SRV:**
-  `_autodiscover._tcp.<dominio>  SRV  0 0 443 autodiscover.maquita.org.`
-  Outlook sigue el SRV a `autodiscover.maquita.org` (cert `*.maquita.org` válido).
+  `_autodiscover._tcp.<dominio>  SRV  0 0 443 autodiscover.example.org.`
+  Outlook sigue el SRV a `autodiscover.example.org` (cert `*.example.org` válido).
 - **Opción B — CNAME + cert:**
-  `autodiscover.<dominio>  CNAME  autodiscover.maquita.org.` y agregar `autodiscover.<dominio>` al
+  `autodiscover.<dominio>  CNAME  autodiscover.example.org.` y agregar `autodiscover.<dominio>` al
   certificado (SAN); si no, Outlook rechaza el TLS por hostname.
 
 ## Config
@@ -25,6 +25,6 @@ dirigirlo a nuestro servidor (donde el certificado es válido). Por CADA dominio
   estático por este `proxy_pass` al backend.
 
 ## Nota de migración
-Apuntar el autodiscover de un dominio que aún está en Zimbra (ej. maquita.com.ec) a VM130 SOLO cuando
+Apuntar el autodiscover de un dominio que aún está en Zimbra (ej. example.com) a VM130 SOLO cuando
 sus buzones estén migrados. Thunderbird/móvil ya están cubiertos por autoconfig (`%EMAILADDRESS%`) y
 el perfil `.mobileconfig`.

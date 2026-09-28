@@ -29,8 +29,8 @@ tls_preempt_cipherlist = yes
 tls_high_cipherlist = ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256
 
 # --- Rutas de certificado (referencia del equipo actual) ---
-# smtpd_tls_cert_file = /etc/letsencrypt/live/mail.maquita.org/fullchain.pem
-# smtpd_tls_key_file  = /etc/letsencrypt/live/mail.maquita.org/privkey.pem
+# smtpd_tls_cert_file = /etc/letsencrypt/live/mail.example.org/fullchain.pem
+# smtpd_tls_key_file  = /etc/letsencrypt/live/mail.example.org/privkey.pem
 # smtp_tls_cert_file  = /etc/ssl/wildcard-maquita/fullchain.pem
 # smtp_tls_key_file   = /etc/ssl/wildcard-maquita/privkey.pem
 

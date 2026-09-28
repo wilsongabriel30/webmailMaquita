@@ -13,7 +13,7 @@ maildb (tabla mailbox, ~488 usuarios, hashes Dovecot)
 ```
 
 ## Componentes
-- **OpenLDAP** en VM181 (`193.16.0.181`), base `dc=maquita,dc=org`, `ou=people`.
+- **OpenLDAP** en VM181 (`192.0.2.181`), base `dc=maquita,dc=org`, `ou=people`.
   Módulo `pw-sha2` cargado (valida `{SSHA512}` de Dovecot).
 - **Sincronización** `deploy/sso/sync-ldap-from-maildb.sh` (corre en VM130):
   lee `mailbox` activos y los carga/actualiza en LDAP reusando los hashes.
@@ -30,7 +30,7 @@ debe re-sincronizarse a LDAP (re-correr el sync o añadir el hook).
 ## Cómo conectar una app nueva al SSO
 1. En Keycloak (realm maquita) crear un **client OIDC** para la app (redirectUris).
 2. Configurar la app como cliente OIDC apuntando a
-   `https://auth.maquita.org/realms/maquita/.well-known/openid-configuration`.
+   `https://auth.example.org/realms/maquita/.well-known/openid-configuration`.
 3. La app recibe `email`/`preferred_username`; se matchea con el buzón.
 
 ## Estado

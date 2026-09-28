@@ -6,6 +6,8 @@ IP literales, credenciales en URL, acortadores, etc.).
 
 from __future__ import annotations
 
+from app import organizacion
+
 import ipaddress
 import re
 from urllib.parse import unquote, urlparse
@@ -30,8 +32,12 @@ BRANDS = {
     "produbanco": "produbanco.com",
     "bancoguayaquil": "bancoguayaquil.com",
     "sri": "sri.gob.ec",
-    "maquita": "maquita.com.ec",
 }
+# Las marcas de la casa: ORG_MARCAS_PROTEGIDAS="marca=dominio.oficial otra=otro.dominio"
+for _par in organizacion.lista("ORG_MARCAS_PROTEGIDAS"):
+    _marca, _, _oficial = _par.partition("=")
+    if _marca and _oficial:
+        BRANDS[_marca.lower()] = _oficial.lower()
 
 SHORTENERS = {
     "bit.ly",

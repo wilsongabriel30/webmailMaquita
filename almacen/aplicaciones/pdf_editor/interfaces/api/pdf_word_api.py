@@ -110,7 +110,7 @@ def _url_interna_ds():
 def _url_publica_faro():
     """La URL con la que el Document Server ve a FARO (tiene que ser pública:
     el DS vive en otra VM y no resuelve rutas internas del editor)."""
-    return os.getenv('FARO_URL_PUBLICA', 'https://datos.maquita.com.ec').rstrip('/')
+    return os.getenv('FARO_URL_PUBLICA', 'https://intranet.example.org').rstrip('/')
 
 
 # ── JWT HS256 con la librería estándar (sin dependencias nuevas) ─────────

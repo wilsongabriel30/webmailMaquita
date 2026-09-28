@@ -8,7 +8,7 @@
 CREATE TABLE IF NOT EXISTS disp_anclas_red (
     id         SERIAL PRIMARY KEY,
     tipo       VARCHAR(8)   NOT NULL DEFAULT 'red' CHECK (tipo IN ('red', 'bssid')),
-    valor      VARCHAR(64)  NOT NULL,      -- CIDR (193.16.0.0/24) o BSSID (aa:bb:cc:dd:ee:ff)
+    valor      VARCHAR(64)  NOT NULL,      -- CIDR (192.0.2.0/24) o BSSID (aa:bb:cc:dd:ee:ff)
     sede       VARCHAR(120) NOT NULL,
     nombre     VARCHAR(160) NOT NULL DEFAULT '',
     lat        DOUBLE PRECISION NOT NULL CHECK (lat BETWEEN -90 AND 90),
@@ -22,8 +22,8 @@ CREATE TABLE IF NOT EXISTS disp_anclas_red (
 
 -- Maquita central (Quito): coordenadas del GPS del servidor NTP stratum 1 (03-INFRAESTRUCTURA/stratum1_gps_ntp.md).
 INSERT INTO disp_anclas_red (tipo, valor, sede, nombre, lat, lon, radio_m) VALUES
-  ('red', '193.16.0.0/24',     'Maquita central', 'Red interna de la oficina (wifi y cable)', -0.2772, -78.5464, 60),
-  ('red', '179.49.24.160/28',  'Maquita central', 'Bloque público de Maquita (salida a internet de la oficina)', -0.2772, -78.5464, 80)
+  ('red', '192.0.2.0/24',     'Maquita central', 'Red interna de la oficina (wifi y cable)', 0.0, 0.0, 60),
+  ('red', '203.0.113.160/28',  'Maquita central', 'Bloque público de Maquita (salida a internet de la oficina)', 0.0, 0.0, 80)
 ON CONFLICT (tipo, valor) DO NOTHING;
 
 -- Último ancla reconocida por equipo (se muestra en la flota: «wifi · Maquita central»).

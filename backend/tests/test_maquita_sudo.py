@@ -20,7 +20,7 @@ _spec = importlib.util.spec_from_loader("maquita_sudo", _loader)
 ms = importlib.util.module_from_spec(_spec)
 _loader.exec_module(ms)
 
-EXISTE = lambda b: b.endswith("@maquita.org")  # noqa: E731  doble de «doveadm user»
+EXISTE = lambda b: b.endswith("@example.org")  # noqa: E731  doble de «doveadm user»
 
 
 def _ok(usuario, programa, *args):
@@ -38,7 +38,7 @@ def test_www_data_solo_lo_del_correo():
         "doveadm",
         "search",
         "-u",
-        "ana@maquita.org",
+        "ana@example.org",
         "header",
         "message-id",
         "<x@y>",
@@ -48,7 +48,7 @@ def test_www_data_solo_lo_del_correo():
         "doveadm",
         "expunge",
         "-u",
-        "ana@maquita.org",
+        "ana@example.org",
         "mailbox",
         "INBOX",
         "header",
@@ -60,7 +60,7 @@ def test_www_data_solo_lo_del_correo():
         "doveadm",
         "fetch",
         "-u",
-        "ana@maquita.org",
+        "ana@example.org",
         "uid hdr.subject flags",
         "header",
         "message-id",
@@ -78,7 +78,7 @@ def test_el_comodin_ya_no_existe():
         "doveadm",
         "search",
         "-u",
-        "ana@maquita.org",
+        "ana@example.org",
         "-o",
         "mail_location=/etc",
     )
@@ -89,23 +89,23 @@ def test_el_comodin_ya_no_existe():
         "-c",
         "/etc/dovecot/otra.conf",
         "-u",
-        "ana@maquita.org",
+        "ana@example.org",
     )
     _no("www-data", "doveadm", "search", "-A", "header", "message-id", "<x@y>")
     _no("www-data", "doveadm", "search", "header", "message-id", "<x@y>")  # sin -u
     _no(
-        "www-data", "doveadm", "mailbox", "delete", "-u", "ana@maquita.org", "INBOX"
+        "www-data", "doveadm", "mailbox", "delete", "-u", "ana@example.org", "INBOX"
     )  # subcomando ajeno
 
 
 def test_buzon_estricto_y_de_dominio_propio():
-    _no("www-data", "doveadm", "search", "-u", "-ana@maquita.org", "header", "x", "y")
+    _no("www-data", "doveadm", "search", "-u", "-ana@example.org", "header", "x", "y")
     _no(
         "www-data",
         "doveadm",
         "search",
         "-u",
-        "ana maquita@maquita.org",
+        "ana maquita@example.org",
         "header",
         "x",
         "y",
@@ -113,9 +113,9 @@ def test_buzon_estricto_y_de_dominio_propio():
     _no(
         "www-data", "doveadm", "search", "-u", "ana@otro.example", "header", "x", "y"
     )  # no existe en Dovecot
-    _no("www-data", "doveadm", "search", "-u", "ana@maquita.org\n", "header", "x", "y")
+    _no("www-data", "doveadm", "search", "-u", "ana@example.org\n", "header", "x", "y")
     assert (
-        ms.es_buzon("Ana.Perez+x@Maquita.org")
+        ms.es_buzon("Ana.Perez+x@example.org")
         and not ms.es_buzon("ana@localhost")
         and not ms.es_buzon("")
     )
@@ -179,19 +179,19 @@ def test_panel_fail2ban_sievec_sendmail_nginx():
         "maquita-admin",
         "sendmail",
         "-f",
-        "postmaster@maquita.org",
+        "postmaster@example.org",
         "--",
-        "ana@maquita.org",
+        "ana@example.org",
     )
     _no(
         "maquita-admin",
         "sendmail",
         "-f",
-        "postmaster@maquita.org",
+        "postmaster@example.org",
         "-C",
         "/tmp/x",
         "--",
-        "ana@maquita.org",
+        "ana@example.org",
     )
     assert _ok("maquita-admin", "nginx", "-t")
     _no("maquita-admin", "nginx", "-s", "stop")
@@ -204,5 +204,5 @@ def test_contrasenas_enmascaradas_en_el_registro():
         "doveadm", ["pw", "-s", "SHA512-CRYPT", "-p", "secreta"]
     )
     assert "clave" not in ms._enmascarar(
-        "doveadm", ["auth", "test", "ana@maquita.org", "clave"]
+        "doveadm", ["auth", "test", "ana@example.org", "clave"]
     )

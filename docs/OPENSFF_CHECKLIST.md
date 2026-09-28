@@ -83,7 +83,7 @@ Solo el job de Scorecard eleva a `security-events: write`.
 
 ## Reporte de Vulnerabilidades
 
-Por favor, reporta las vulnerabilidades a: security@maquita.org
+Por favor, reporta las vulnerabilidades por los avisos privados del repositorio (pestaña Security → Report a vulnerability)
 
 NO crees issues públicos para vulnerabilidades de seguridad.
 

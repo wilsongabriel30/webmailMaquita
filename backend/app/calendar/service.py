@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 
+from app import organizacion
 from app.branding.service import app_name_cacheado, org_name_cacheado
 from app.core.sanitize import sanitize_html, strip_html
 
@@ -1032,10 +1033,10 @@ class CalendarService:
             boton = ""
             if _join_url:
                 boton_moderador = ""
-                if es_organizador and "meet.maquita.com.ec/" in _join_url:
+                if es_organizador and organizacion.servidor(organizacion.url_reuniones()) + "/" in _join_url:
                     _sala = _join_url.rstrip("/").rsplit("/", 1)[-1].split("?")[0]
                     _mod_url = (
-                        f"https://datos.maquita.com.ec/reuniones/unirse?sala={_sala}"
+                        f"{organizacion.url_intranet()}/reuniones/unirse?sala={_sala}"
                     )
                     boton_moderador = (
                         f"<br><a href='{esc(_mod_url)}' style='background:#107c10;color:#ffffff;"

@@ -15,6 +15,7 @@ import os
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
+from app import organizacion
 from app.auth.dependencies import require_role
 from app.dispositivos import codigo_cifrado, version_publicada
 from app.dispositivos.comun import auditar, db
@@ -22,7 +23,7 @@ from app.dispositivos.comun import auditar, db
 router = APIRouter(prefix="/api/dispositivos/codigos", tags=["dispositivos"])
 _ADMIN = require_role("superadmin", "admin")
 APK = os.environ.get("DISP_APK_PUBLICADO", "/opt/maquita-webmail/descargas-app/maquita-mail.apk")
-URL_APK = os.environ.get("DISP_APK_URL", "https://mail.maquita.org/webmail/descargas/maquita-mail.apk")
+URL_APK = os.environ.get("DISP_APK_URL") or organizacion.url_correo() + "/webmail/descargas/maquita-mail.apk"
 COMPONENTE = "org.maquita.mail/org.maquita.mail.equipo.AdministradorEquipo"
 # SHA-256 del certificado de firma institucional (base64url), del equipo de la app (qr-alta/): no cambia
 # entre versiones, así el mismo QR sirve aunque se publique otra app. Cambia solo si se firma con otra clave.

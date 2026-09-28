@@ -49,7 +49,7 @@ Variables al inicio de `guardian-entregas.sh`:
 
 | Variable | Por defecto | Qué controla |
 |---|---|---|
-| `DESTINO_AVISO` | `gestiontecnologia@maquita.com.ec` | A quién se avisa |
+| `DESTINO_AVISO` | `tecnologia@example.com` | A quién se avisa |
 | `HORAS_AVISO` | `6` | Antigüedad a partir de la cual un correo en cola preocupa |
 | `HORAS_SILENCIO` | `12` | Cada cuánto se puede repetir el mismo aviso |
 

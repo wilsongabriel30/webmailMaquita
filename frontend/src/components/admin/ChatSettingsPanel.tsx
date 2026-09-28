@@ -139,7 +139,7 @@ export function ChatSettingsPanel() {
             <div className="text-sm font-medium text-slate-700">Grupos que SI pueden chatear entre si</div>
             <p className="text-xs text-slate-500 mt-0.5 mb-3">
               Un grupo por linea, dominios separados por coma. Ej:
-              <code className="ml-1">maquita.com.ec, maquita.org, maquitaturismo.com</code>.
+              <code className="ml-1">example.com, example.org, turismo.example</code>.
               Los dominios que no pongas en ningun grupo quedan <b>aislados</b> (solo hablan dentro de su propio dominio).
             </p>
             {groups.map((line, i) => (

@@ -56,7 +56,7 @@ export function Agents() {
               </div>
               <div className="flex gap-2 items-center">
                 {ag.name === "bandeja" && (
-                  <input value={userInput} onChange={(e) => setUserInput(e.target.value)} placeholder="buzon@maquita.org"
+                  <input value={userInput} onChange={(e) => setUserInput(e.target.value)} placeholder="buzon@example.org"
                     title="Correo del buzón que analizará el agente de bandeja. Obligatorio para este agente; el análisis es de solo lectura."
                     className="text-sm px-2 py-1.5 border border-ms-gray-30 rounded w-56" />
                 )}

@@ -189,7 +189,7 @@ normal, que trae los mensajes o comandos por el canal seguro de siempre.
 ## Infraestructura (VM 130)
 - `ntfy` 2.11 (binario de GitHub) como servicio `ntfy`, escucha en `127.0.0.1:2586`, config
   `/etc/ntfy/server.yml` (`auth-default-access: read-only`, `auth-file` con el usuario `backend`).
-- nginx sirve ntfy en el **puerto 2587** con el certificado y los nombres de mail.maquita.org
+- nginx sirve ntfy en el **puerto 2587** con el certificado y los nombres de mail.example.org
   (`/etc/nginx/sites-available/ntfy-push.conf`). Cortafuegos: 2587 abierto solo para Ecuador (nft) y
   NAT en el MikroTik pendiente si se quiere desde fuera de la LAN (ver más abajo).
 - Usuario `backend` con permiso de **escritura** sobre `disp_*`; su token está en
@@ -213,8 +213,8 @@ normal, que trae los mensajes o comandos por el canal seguro de siempre.
 
 ## Pendiente operativo
 - Para que el push llegue con datos móviles (fuera de la Wi-Fi), falta el **NAT del puerto 2587** en el
-  MikroTik (`179.49.24.165:2587 → 193.16.0.21:2587`), como el resto de puertos del correo. Dentro de la
-  LAN ya funciona. Alternativa más limpia a futuro: subdominio `push.maquita.org` en el 443 (ntfy exige
+  MikroTik (`203.0.113.165:2587 → 192.0.2.21:2587`), como el resto de puertos del correo. Dentro de la
+  LAN ya funciona. Alternativa más limpia a futuro: subdominio `push.example.org` en el 443 (ntfy exige
   un host propio, no admite sub-ruta), con su registro DNS y el nombre añadido al certificado.
 
 # Mejora transversal — cuenta del sistema de Android con sincronización
@@ -224,8 +224,8 @@ sincronicen contactos, calendario, correo y fotos con el servidor, casi todo es 
 (`AccountManager` + `SyncAdapter`). El servidor aporta dos cosas, ya en producción:
 
 ## 1. Descubrimiento de cuenta por dominio (`GET /api/cuenta/descubrir?correo=<correo>`)
-Público. Dado un correo, resuelve su portal (mail.maquita.org o el de la empresa: maquitaturismo.com,
-invertiagro.com…) y devuelve en una sola llamada todo lo que necesita la cuenta del sistema:
+Público. Dado un correo, resuelve su portal (mail.example.org o el de la empresa: turismo.example,
+inversiones.example…) y devuelve en una sola llamada todo lo que necesita la cuenta del sistema:
 `{encontrado, correo, usuario, dominio, organizacion, servidor, imap{host,puerto,seguridad},
 smtp{host,puerto,seguridad,alternativo}, caldav{url,descubrimiento,auth}, carddav{...}, api{base,ws},
 push{servidor,protocolo}, auth{tipo,nota}}`. El usuario es siempre el correo completo.
@@ -332,7 +332,7 @@ La ubicación de un celular es aproximada; para afinarla con nuestros propios pu
   es dato de red como la IP; la flota lo muestra en la columna «Red») y, **solo si la ubicación está
   autorizada o el equipo está perdido**, se guarda una posición con `origen = 'ancla'`, `fuente = 'red'`
   y `precision_m = radio_m`, como mucho una cada 15 min por equipo y sede. Sembradas: Maquita central
-  (193.16.0.0/24 y 179.49.24.160/28, coordenadas del GPS del NTP, 60-80 m) y las subredes internas de
+  (192.0.2.0/24 y 203.0.113.160/28, coordenadas del GPS del NTP, 60-80 m) y las subredes internas de
   los MikroTik de las demás sedes con coordenadas provisionales del centro de cada ciudad y radio 3 km,
   a afinar desde el panel (Telemetría → «Anclas de red por sede»). También las IP públicas fijas de cada
   sede (`/32`, leídas en el MikroTik de Quito el 22/09): así se ancla un teléfono en el wifi de la sede

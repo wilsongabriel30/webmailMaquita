@@ -26,7 +26,7 @@ bash deploy-webmail.sh                                     # backend + frontend 
 ```
 
 - Revisar en el panel → Teléfonos → «Alertas» el correo de Tecnología (`correo_ti`, por omisión
-  `gestiontecnologia@maquita.org`) y, si se quiere, el resumen diario a dirección.
+  `tecnologia@example.org`) y, si se quiere, el resumen diario a dirección.
 - La app Maquita Mail 1.2.8 ya consume el campo `codigo` de `GET /api/settings/mi-equipo`; las
   anteriores siguen funcionando (lo ignoran).
 
@@ -691,9 +691,9 @@ y el reinicio de Radicale del paso 5. Migración: una (`2026-09-07-contrasenas-a
      login** (usuario inexistente, contraseña inventada) hasta el reinicio (informe de Andes, 07/09).
    - Comprobar SIEMPRE con un caso positivo y uno negativo. Para el positivo hace falta una contraseña de
      aplicación: crea una de prueba en `Configuración → Seguridad` de tu propia cuenta y revócala después.
-     `doveadm auth test -x rip=1.2.3.4 usuario clave-de-aplicacion` → `auth succeeded`;
-     `doveadm auth test -x rip=1.2.3.4 usuario clave-mala` → `auth failed`;
-     `doveadm auth test -x rip=1.2.3.4 noexiste@dominio x` → `auth failed`.
+     `doveadm auth test -x rip=203.0.113.4 usuario clave-de-aplicacion` → `auth succeeded`;
+     `doveadm auth test -x rip=203.0.113.4 usuario clave-mala` → `auth failed`;
+     `doveadm auth test -x rip=203.0.113.4 noexiste@dominio x` → `auth failed`.
      Si el negativo no rechaza, no sigas: reinicia Dovecot y repite.
    - Avisar al personal (guía `docs/CONTRASENAS-APLICACION.md`), dar tiempo a crear las suyas y después
      `maquita-mailadm auth apppass-policy on`: la principal deja de valer fuera del webmail.

@@ -841,7 +841,7 @@ async def _ensure_templates_table(db):
                 "Solicitud de información",
                 """<p>Estimado/a <strong>[NOMBRE]</strong>,</p>
 
-<p>Reciba un cordial saludo de parte de <strong>Maquita Cushunchic</strong>.</p>
+<p>Reciba un cordial saludo de parte de <strong>la organización</strong>.</p>
 <p>Por medio de la presente, me permito solicitar información sobre <strong>[TEMA]</strong>, con el fin de dar seguimiento a las actividades programadas.</p>
 <p>Agradezco de antemano su pronta respuesta y quedo atento/a a cualquier indicación adicional.</p>
 <p>Atentamente,</p>

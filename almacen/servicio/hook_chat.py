@@ -14,7 +14,7 @@ def es_de_chat(ruta) -> bool:
 
 
 def _enviar(cuerpo):
-    url = os.getenv('ALMACEN_CHAT_URL', 'http://193.16.0.136:8790/api/chat/drive/evento')
+    url = os.getenv('ALMACEN_CHAT_URL', 'http://127.0.0.1:8790/api/chat/drive/evento')
     secreto = os.getenv('ALMACEN_CHAT_SECRETO', '')
     if not secreto:
         return

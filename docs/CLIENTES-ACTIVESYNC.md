@@ -2,8 +2,8 @@
 
 Para el personal. Todos los clientes usan la **misma cuenta** (correo completo + una **contraseña de
 aplicación** creada en Configuración → Seguridad, ver `CONTRASENAS-APLICACION.md`; la contraseña
-principal solo sirve para el webmail y la app) y el **mismo servidor** `mail.maquita.org`; el calendario y los contactos son los mismos
-que en el webmail (`https://mail.maquita.org/webmail/`), en cualquier orden que se editen.
+principal solo sirve para el webmail y la app) y el **mismo servidor** `mail.example.org`; el calendario y los contactos son los mismos
+que en el webmail (`https://mail.example.org/webmail/`), en cualquier orden que se editen.
 
 > Las capturas de cada pantalla se toman en la prueba real de cada versión (`OPERACION.md`,
 > «Z-Push / ActiveSync», «Prueba real») y se guardan en `docs/capturas/activesync/`. Donde diga
@@ -12,7 +12,7 @@ que en el webmail (`https://mail.maquita.org/webmail/`), en cualquier orden que 
 
 ## Nuevo Outlook (Windows y Mac)
 1. Configuración (engranaje) → **Cuentas** → **Agregar cuenta**.
-2. Escribe tu correo completo (`nombre@maquita.org`) → **Continuar**. _[captura: agregar cuenta]_
+2. Escribe tu correo completo (`nombre@example.org`) → **Continuar**. _[captura: agregar cuenta]_
 3. El nuevo Outlook consulta el autodiscover del servidor y ofrece la cuenta directamente
    (Exchange/ActiveSync). Escribe la contraseña del buzón → **Continuar**. _[captura: contraseña]_
 4. En un minuto aparecen Correo, Calendario, Contactos y Tareas. _[captura: cuenta añadida]_
@@ -24,7 +24,7 @@ que en el webmail (`https://mail.maquita.org/webmail/`), en cualquier orden que 
    **Configurar mi cuenta manualmente** → **Conectar**. _[captura: opciones avanzadas]_
 2. Elige **Exchange ActiveSync** (icono de teléfono; en algunas versiones «Exchange»).
    _[captura: tipo de cuenta]_
-3. Servidor `mail.maquita.org`, usuario = tu correo completo, contraseña del buzón, «Usar SSL»
+3. Servidor `mail.example.org`, usuario = tu correo completo, contraseña del buzón, «Usar SSL»
    marcado → **Siguiente** / **Conectar**. _[captura: datos del servidor]_
 4. Espera el primer ciclo (uno o dos minutos): Correo, Calendario, Contactos y Tareas.
 5. Si Outlook sugiere IMAP/POP: cancela y repite desde el paso 1 eligiendo ActiveSync; como
@@ -35,7 +35,7 @@ que en el webmail (`https://mail.maquita.org/webmail/`), en cualquier orden que 
    Exchange**. _[captura: tipo de cuenta]_
 2. Correo completo y una descripción («Maquita») → **Siguiente** → **Configurar manualmente**
    (si iOS ofrece «Iniciar sesión», elige configurar manualmente) → contraseña → **Siguiente**.
-3. Si iOS no rellena el servidor solo, escribe `mail.maquita.org`; dominio vacío; usuario = correo
+3. Si iOS no rellena el servidor solo, escribe `mail.example.org`; dominio vacío; usuario = correo
    completo. _[captura: servidor]_
 4. Activa Correo, Contactos, Calendarios y Recordatorios (tareas) → **Guardar**.
    _[captura: qué sincronizar]_
@@ -44,7 +44,7 @@ que en el webmail (`https://mail.maquita.org/webmail/`), en cualquier orden que 
 1. Gmail → foto/menú → **Añadir otra cuenta** → **Exchange y Office 365** (en Samsung: «Exchange»).
    _[captura: tipo de cuenta]_
 2. Correo completo → **Configurar manualmente** (si aparece) → contraseña.
-3. Servidor `mail.maquita.org`, puerto 443, seguridad **SSL/TLS**, dominio vacío, usuario = correo
+3. Servidor `mail.example.org`, puerto 443, seguridad **SSL/TLS**, dominio vacío, usuario = correo
    completo → **Siguiente**. Acepta la política de seguridad si la pide (no impone PIN).
    _[captura: servidor]_
 4. Marca Correo, Contactos, Calendario y Tareas → **Listo**.

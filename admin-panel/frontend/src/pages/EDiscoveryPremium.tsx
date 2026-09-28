@@ -93,7 +93,7 @@ export function EDiscoveryPremium() {
               <div className="border-t border-ms-gray-20 p-4">
                 {/* agregar custodio */}
                 <div className="flex gap-2 items-center flex-wrap mb-3">
-                  <input className={inputCls + " flex-1 min-w-[180px]"} placeholder="correo@maquita.org" title="Correo del usuario que será designado custodio del caso." value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
+                  <input className={inputCls + " flex-1 min-w-[180px]"} placeholder="correo@example.org" title="Correo del usuario que será designado custodio del caso." value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
                   <label className="flex items-center gap-1 text-xs text-ms-gray-130"><input type="checkbox" checked={placeHold} onChange={(e) => setPlaceHold(e.target.checked)} title="Si está marcado, al agregarlo su buzón queda en retención legal: sus correos no podrán eliminarse mientras dure el caso." /> Poner en retención</label>
                   <label className="flex items-center gap-1 text-xs text-ms-gray-130"><input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} title="Si está marcado, se envía al custodio un aviso formal de retención por correo, que deberá confirmar." /> Enviar aviso</label>
                   <button onClick={() => addCustodian(c.id)} title="Agrega el custodio al caso y, según las casillas, activa la retención de su buzón y le envía el aviso formal." className="px-3 py-2 bg-ms-blue text-white rounded text-sm">Agregar custodio</button>

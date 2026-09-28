@@ -1,6 +1,6 @@
 """La bandeja se ordena por fecha, no por UID.
 
-Antecedente (15/09/2026): tras migrar invertiagro.com y maquitaturismo.com desde Zimbra, la
+Antecedente (15/09/2026): tras migrar inversiones.example y turismo.example desde Zimbra, la
 gente decía que «no estaban los correos después del 27 de marzo». Estaban todos: el listado
 caía al orden por UID porque aioimaplib rechaza `UID SORT` y la excepción se ignoraba. En un
 buzón migrado en dos pasadas el UID no sigue la fecha, así que abril–agosto quedaban al final.
