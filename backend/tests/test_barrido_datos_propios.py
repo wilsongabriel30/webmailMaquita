@@ -51,3 +51,10 @@ def test_patrones_desde_el_entorno(monkeypatch):
     monkeypatch.setenv("GUARDIAN_DATOS_PROPIOS", "# comentario\n\ndominio: uno\\.example\nsuelto-sin-categoria\nroto: (\n")
     patrones = barrido.cargar_patrones(".")
     assert [c for c, _ in patrones] == ["dominio", "dato propio"]
+
+
+def test_excluir_y_solo_se_sacan_de_los_argumentos():
+    argv = ["--arbol", ".", "--excluir", "uno/", "--excluir", "dos/", "--solo", "tres/"]
+    assert barrido._opcion(argv, "--excluir") == ["uno/", "dos/"]
+    assert barrido._opcion(argv, "--solo") == ["tres/"]
+    assert argv == ["--arbol", "."]

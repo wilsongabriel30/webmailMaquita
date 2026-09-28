@@ -42,13 +42,19 @@ jobs:
           GUARDIAN_DATOS_PROPIOS: ${{ secrets.GUARDIAN_DATOS_PROPIOS }}
           RAMA_BASE: ${{ github.base_ref }}
         run: python3 deploy/tools/barrido-datos-propios.py --diff "origin/$RAMA_BASE"
-      # Lo que quedaba de antes se limpia por módulos. Mientras tanto este paso informa
-      # cuánto falta y no bloquea; cuando llegue a cero pasa a ser bloqueante.
-      - name: Todo el árbol (informe de lo pendiente)
+      # El árbol quedó limpio el 2026-09-28: desde entonces cualquier dato propio lo rompe,
+      # venga de una solicitud de cambios o de una subida directa.
+      - name: Todo el árbol (BLOQUEANTE)
+        env:
+          GUARDIAN_DATOS_PROPIOS: ${{ secrets.GUARDIAN_DATOS_PROPIOS }}
+        run: python3 deploy/tools/barrido-datos-propios.py --arbol . --excluir drive-maquita/
+      # drive-maquita/ se publica desde otro repositorio: hay que limpiarlo en su origen.
+      # Hasta entonces se informa de lo que falta, sin bloquear.
+      - name: Carpeta publicada desde otro repositorio (informe de lo pendiente)
         continue-on-error: true
         env:
           GUARDIAN_DATOS_PROPIOS: ${{ secrets.GUARDIAN_DATOS_PROPIOS }}
-        run: python3 deploy/tools/barrido-datos-propios.py --arbol .
+        run: python3 deploy/tools/barrido-datos-propios.py --arbol . --solo drive-maquita/
 
   datos-personales:
     name: Datos personales en el repositorio

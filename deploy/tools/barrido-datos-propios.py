@@ -4,7 +4,11 @@
 Uso:
   barrido-datos-propios.py --staged          (hook pre-commit: líneas que se van a confirmar)
   barrido-datos-propios.py --diff BASE       (CI: líneas añadidas respecto de BASE)
-  barrido-datos-propios.py --arbol [RAIZ]    (todo el árbol; para medir lo que falta limpiar)
+  barrido-datos-propios.py --arbol [RAIZ]    (todo el árbol)
+
+  --excluir PREFIJO   deja fuera una carpeta (se puede repetir). Para lo que se publica
+                      desde otro repositorio y hay que limpiar en su origen.
+  --solo PREFIJO      revisa solo esa carpeta (se puede repetir).
 
 Sale con 1 si encuentra algo, 0 si no.
 
@@ -137,7 +141,21 @@ def lineas_del_arbol(raiz: str):
             continue
 
 
+def _opcion(argv: list[str], nombre: str) -> list[str]:
+    """Saca de argv todas las apariciones de «nombre VALOR» y devuelve los valores."""
+    valores = []
+    while nombre in argv:
+        i = argv.index(nombre)
+        if i + 1 >= len(argv):
+            raise SystemExit(f"Falta el valor de {nombre}")
+        valores.append(argv[i + 1])
+        del argv[i:i + 2]
+    return valores
+
+
 def main(argv: list[str]) -> int:
+    argv = list(argv)
+    excluir, solo = tuple(_opcion(argv, "--excluir")), tuple(_opcion(argv, "--solo"))
     if not argv or argv[0] not in ("--staged", "--diff", "--arbol"):
         print(__doc__)
         return 2
@@ -160,7 +178,7 @@ def main(argv: list[str]) -> int:
 
     hallazgos, por_fichero = [], {}
     for fichero, numero, linea in origen:
-        if not se_revisa(fichero):
+        if not se_revisa(fichero) or fichero.startswith(excluir) or (solo and not fichero.startswith(solo)):
             continue
         for motivo in revisar_linea(linea, patrones):
             hallazgos.append((fichero, numero, motivo))
