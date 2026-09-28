@@ -1,0 +1,49 @@
+[Unit]
+Description=Maquita Mail - Portal de administradores de dominio
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=maquita-dominio
+Group=maquita-dominio
+WorkingDirectory=/opt/webmail/panel-dominio/backend
+EnvironmentFile=/etc/maquita-mail/panel-dominio.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/webmail/panel-dominio/backend/venv/bin/gunicorn app.main:app --workers 2 --worker-class uvicorn.workers.UvicornWorker --bind 127.0.0.1:8003 --control-socket /run/maquita-panel-dominio/gunicorn.ctl --max-requests 800 --max-requests-jitter 200 --timeout 30 --graceful-timeout 15 --access-logfile - --error-logfile -
+RuntimeDirectory=maquita-panel-dominio
+RuntimeDirectoryMode=0700
+Restart=always
+RestartSec=5
+
+# Confinamiento: sin privilegios, sin escritura en disco, sin ver los buzones ni los hogares.
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+InaccessiblePaths=-/var/vmail -/opt/webmail/backend/.env -/opt/webmail/admin-panel/backend/.env
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+UMask=0077
+MemoryMax=512M
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target
