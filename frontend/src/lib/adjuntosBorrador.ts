@@ -54,7 +54,7 @@ export async function cargarAdjuntosDelReenvio(origen: { folder: string; uid: nu
   let adjuntos = origen.adjuntos;
   if (!adjuntos) {
     try {
-      const res = await fetch('/api/mail/message/' + encodeURIComponent(origen.folder) + '/' + origen.uid, { credentials: 'include' });
+      const res = await fetch('/api/mail/message/' + encodeURIComponent(origen.folder) + '/' + origen.uid + '?marcar_leido=false', { credentials: 'include' });
       if (!res.ok) return [];
       adjuntos = ((await res.json()) as { attachments?: AttachmentInfo[] }).attachments || [];
     } catch { return []; }

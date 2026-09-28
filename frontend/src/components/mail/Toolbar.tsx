@@ -12,6 +12,7 @@ import { getFolderDisplayName } from '../../folders';
 import { getCachedLabels, useLabels } from '../../hooks/useLabels';
 import { SnoozeModal } from './SnoozeModal';
 import { sanitizeHtml } from '../../lib/sanitize';
+import { destinatariosResponderATodos } from '../../lib/destinatariosRespuesta';
 import { useResponsive } from '../../hooks/useResponsive';
 
 
@@ -502,8 +503,9 @@ export function Toolbar() {
 
   const doReplyAll = () => {
     if (!msg) { showToast('Selecciona un mensaje'); return; }
+    const destinatarios = destinatariosResponderATodos({ ...msg, folder: msg.folder || currentFolder });
     openCompose('replyAll', {
-      to: [msg.from], cc: msg.cc?.split(',').map(s=>s.trim()) || [], subject: `Re: ${msg.subject}`,
+      to: destinatarios.to, cc: destinatarios.cc, subject: `Re: ${msg.subject}`,
       html_body: buildQuote(), text_body: '', in_reply_to: msg.message_id || '', references: msg.references || '',
     });
     closeAllDropdowns();

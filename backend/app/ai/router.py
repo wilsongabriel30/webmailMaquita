@@ -328,7 +328,7 @@ async def _fetch_message(request: Request, user: str, folder: str, uid: int) -> 
     login_user = await get_imap_login_user(request, user)
     imap = await get_imap_connection(login_user, password)
     try:
-        msg = await get_message(imap, folder, uid)
+        msg = await get_message(imap, folder, uid, mark_seen=False)
         if not msg:
             raise HTTPException(status_code=404, detail="Mensaje no encontrado")
         return msg
