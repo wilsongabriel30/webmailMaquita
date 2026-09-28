@@ -17,7 +17,7 @@ class UserSettings(BaseModel):
     signature_html: str = ""
     messages_per_page: int = 50
     reading_pane: str = "right"
-    block_remote_images: bool = True
+    block_remote_images: bool = False
     confirm_delete: bool = True
     auto_reply_enabled: bool = False
     auto_reply_subject: str = ""
