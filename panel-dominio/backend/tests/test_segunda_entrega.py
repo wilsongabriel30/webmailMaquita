@@ -7,7 +7,7 @@ import pytest
 from fastapi import HTTPException
 
 from app import destinos, totp
-from app.dns import juzgar, orden
+from app.dns import juzgar, leer, sin_veredicto
 from app.imagenes import formato_de, medidas
 from app.reenvios import _partes
 
@@ -112,13 +112,21 @@ def test_veredicto_dns():
     assert not any(mal[k]["bien"] for k in ("mx", "spf", "dkim", "dmarc"))
 
 
-def test_la_orden_de_dig_es_una_que_dig_acepta():
-    import shutil
-    import subprocess
+def test_lee_respuestas_de_dns_sobre_https():
+    mx = {"Status": 0, "Answer": [{"type": 15, "data": "10 mail.uno.example."}, {"type": 46, "data": "firma"}]}
+    assert leer(mx, "MX") == (0, ["10 mail.uno.example."])
+    txt = {"Status": 0, "Answer": [{"type": 16, "data": '"v=DKIM1; k=rsa; p=MIIB" "IjANBgkq"'}, {"type": 5, "data": "alias."}]}
+    assert leer(txt, "TXT") == (0, ["v=DKIM1; k=rsa; p=MIIBIjANBgkq"])
+    assert leer({"Status": 3}, "MX") == (3, [])
+    assert leer({"Status": 0}, "TXT") == (0, [])
 
-    o = orden("MX", "example.org")
-    assert "--" not in o and o[-2:] == ["-q", "example.org"]
-    if shutil.which("dig"):
-        # Sin red también vale: lo que se vigila es que dig no rechace la orden por mal escrita.
-        r = subprocess.run(o[:1] + ["+time=1"] + o[1:], capture_output=True, text=True, timeout=20)
-        assert "Invalid option" not in r.stdout + r.stderr
+
+def test_sin_consulta_no_se_afirma_nada():
+    v = sin_veredicto("No se pudo consultar")
+    assert [v[k]["bien"] for k in ("mx", "spf", "dkim", "dmarc")] == [None] * 4
+
+
+def test_los_resolutores_son_https():
+    from app import config_extra
+
+    assert config_extra.RESOLUTORES_DOH and all(u.startswith("https://") for u in config_extra.RESOLUTORES_DOH)
