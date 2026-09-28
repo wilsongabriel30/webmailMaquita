@@ -8,7 +8,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-// @ts-ignore
+// @ts-expect-error
 import sri from 'vite-plugin-sri'
 
 export default defineConfig({
