@@ -22,6 +22,9 @@ PrivateTmp=yes
 PrivateDevices=yes
 ProtectSystem=strict
 ProtectHome=yes
+# Lo único que puede escribir: los logos e iconos de las empresas, que comparte con el webmail.
+ReadWritePaths=/opt/webmail/uploads/branding/empresas
+SupplementaryGroups=maquita-marca
 InaccessiblePaths=-/var/vmail -/opt/webmail/backend/.env -/opt/webmail/admin-panel/backend/.env
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
@@ -41,7 +44,7 @@ AmbientCapabilities=
 SystemCallArchitectures=native
 SystemCallFilter=@system-service
 SystemCallFilter=~@privileged @resources
-UMask=0077
+UMask=0002
 MemoryMax=512M
 TasksMax=64
 

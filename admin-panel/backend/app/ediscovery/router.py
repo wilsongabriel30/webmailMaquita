@@ -10,9 +10,10 @@ from datetime import datetime, timezone
 import aioimaplib
 from fastapi import APIRouter, Request, Depends, Query, HTTPException
 from fastapi.responses import StreamingResponse
-from app.auth.dependencies import get_current_admin
+from app.auth.dependencies import get_current_admin, require_operador
 
-router = APIRouter(prefix="/api/ediscovery", tags=["ediscovery"])
+router = APIRouter(prefix="/api/ediscovery", tags=["ediscovery"],
+                   dependencies=[Depends(require_operador)])   # correo ajeno: nunca un viewer (A-18)
 
 # Configuración IMAP master user (Dovecot)
 IMAP_HOST = "127.0.0.1"

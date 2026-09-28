@@ -147,7 +147,10 @@ async def update_mailbox(username: str, request: Request, admin: dict = Depends(
 async def delete_mailbox(username: str, request: Request, admin: dict = Depends(require_role("superadmin"))):
     db = _db(request)
     await db.execute("DELETE FROM alias WHERE address=$1 AND goto=$1", username)
-    await db.execute("DELETE FROM alias WHERE goto LIKE $1", f"%{username}%")
+    # Se quita la cuenta de las listas de destino donde aparece ENTERA. Antes se borraba todo
+    # alias cuyo destino contuviera ese texto: eliminar ana@x se llevaba los alias de mariana@x.
+    from app.mailboxes.limpieza_alias import quitar_de_destinos
+    await quitar_de_destinos(db, username)
     r = await db.execute("DELETE FROM mailbox WHERE username = $1", username)
     if r != "DELETE 1":
         raise HTTPException(404)
