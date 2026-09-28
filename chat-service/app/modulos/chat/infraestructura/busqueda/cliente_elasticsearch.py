@@ -5,7 +5,6 @@ Cliente Elasticsearch - Conexion y Utilidades Base
 Maneja la conexion a Elasticsearch y proporciona utilidades comunes.
 
 Autor: Wilson Arguello
-Correo: gestiontecnologia@maquita.com.ec
 Fecha: 2026-01-02
 """
 

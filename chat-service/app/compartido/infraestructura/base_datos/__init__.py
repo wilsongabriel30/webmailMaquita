@@ -9,7 +9,6 @@ USO:
     from compartido.infraestructura.base_datos import get_db_url, get_db_engine
 
 Autor: Wilson Arguello
-Correo: gestiontecnologia@maquita.com.ec
 Fecha: 2026-01-05
 """
 

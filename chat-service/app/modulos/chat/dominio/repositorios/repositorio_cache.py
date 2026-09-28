@@ -20,7 +20,6 @@ IMPLEMENTACIONES ESPERADAS:
 - CacheConversacionRedis  -> infraestructura/cache/cache_conversacion.py
 
 Autor: Wilson Arguello
-Correo: gestiontecnologia@maquita.com.ec
 Fecha: 2026-01-02
 """
 

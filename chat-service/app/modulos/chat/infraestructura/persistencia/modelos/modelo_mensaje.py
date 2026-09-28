@@ -11,7 +11,6 @@ REGLAS:
 - Mapea entre BD y entidades de dominio
 
 Autor: Wilson Arguello
-Correo: gestiontecnologia@maquita.com.ec
 Fecha: 2026-01-02
 Migrado a modulos: 2026-01-05
 """

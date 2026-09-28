@@ -21,7 +21,7 @@ def _egress_twirp(metodo: str, cuerpo: dict):
 
     api_key = os.environ.get('LIVEKIT_API_KEY')
     api_secret = os.environ.get('LIVEKIT_API_SECRET')
-    api_url = os.environ.get('LIVEKIT_API_URL', 'http://193.16.0.27:7880')
+    api_url = os.environ.get('LIVEKIT_API_URL', 'http://192.0.2.27:7880')
     if not api_key or not api_secret:
         return False, 'LiveKit no configurado'
 
@@ -218,7 +218,7 @@ def descargar_grabacion(grab_id: int):
     if solicitante_id != usuario_id and not _usuario_en_sala(room, usuario_id):
         return jsonify({'exito': False, 'error': 'No autorizado'}), 403
 
-    base = os.environ.get('LIVEKIT_GRABACIONES_URL', 'http://193.16.0.27:8081')
+    base = os.environ.get('LIVEKIT_GRABACIONES_URL', 'http://192.0.2.27:8081')
     try:
         upstream = urllib.request.urlopen(f'{base}/{archivo}', timeout=20)
     except Exception:

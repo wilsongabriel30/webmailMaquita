@@ -21,6 +21,7 @@ import psycopg2.extras
 from flask import Blueprint, jsonify, request, session
 
 from aplicacion.servicios.jitsi_jwt import generar_jwt, nombre_sala_nuevo, limpiar_nombre_sala, url_sala, url_sala_app, JITSI_URL, MINUTOS_POR_DEFECTO
+import organizacion
 
 bp_reuniones = Blueprint('reuniones_chat', __name__, url_prefix='/api/chat/reuniones')
 
@@ -59,7 +60,7 @@ def _a_dict(r, yo):
         'creador_id': r['creador_id'], 'participantes': _participantes(r['participantes_emails']),
         'mensaje': r['mensaje'] or '', 'config': r['config_sala'] or {},
         'url_sala': url_sala(r['nombre_sala']),
-        'url_acceso': f"https://mail.maquita.org/api/chat/reuniones/{r['id']}/acceso",
+        'url_acceso': f"{organizacion.url_correo()}/api/chat/reuniones/{r['id']}/acceso",
     }
 
 
@@ -77,7 +78,7 @@ def _evento_correo_crear(yo, fila, asunto, inicio, duracion, participantes, mens
         cuerpo = {
             'calendar_id': por_defecto[0]['id'], 'summary': asunto,
             'description': (mensaje + '\n\n' if mensaje else '') + 'Meet Maquita: ' + url_sala(fila['nombre_sala']) +
-                           f"\nEntrar con tu usuario: https://mail.maquita.org/api/chat/reuniones/{fila['id']}/acceso?redirigir=1",
+                           f"\nEntrar con tu usuario: {organizacion.url_correo()}/api/chat/reuniones/{fila['id']}/acceso?redirigir=1",
             'location': url_sala(fila['nombre_sala']), 'dtstart': inicio.isoformat(), 'dtend': (inicio + timedelta(hours=duracion)).isoformat(),
             'all_day': False, 'timezone': 'America/Guayaquil', 'reminders': [{'minutes': 10}], 'attendees': list(participantes),
         }
@@ -165,7 +166,7 @@ def _crear(yo, asunto, inicio, duracion, participantes, mensaje, config, sala):
         if ids:
             emitir(ids, 'reunion', f'Reunión: {asunto}',
                    f"{yo['nombre']} te invitó · {inicio:%d/%m %H:%M}",
-                   f"https://mail.maquita.org/api/chat/reuniones/{fila['id']}/acceso",
+                   f"{organizacion.url_correo()}/api/chat/reuniones/{fila['id']}/acceso",
                    {'origen': 'reuniones', 'reunion_id': fila['id'], 'sala': sala, 'inicio': inicio.isoformat(timespec='minutes'),
                     'avatar': avatar_usuario(yo['id'])})
     except Exception as e:
@@ -262,7 +263,7 @@ def cancelar(rid):
         ids = [u for u in usuarios_por_correo(_participantes(r['participantes_emails'])) if u != yo['id']]
         if ids:
             emitir(ids, 'reunion', f"Reunión cancelada: {r['asunto']}", f"{yo['nombre']} canceló la reunión",
-                   'https://mail.maquita.org/chat/', {'origen': 'reuniones', 'reunion_id': rid, 'cancelada': True})
+                   organizacion.url_correo() + '/chat/', {'origen': 'reuniones', 'reunion_id': rid, 'cancelada': True})
     except Exception:
         pass
     return jsonify({'success': True, 'reunion': _a_dict(r, yo), 'evento_correo_eliminado': evento_eliminado})

@@ -7,7 +7,6 @@ Modelo de persistencia para las notificaciones del sistema.
 CAPA: infraestructura/persistencia/modelos
 
 Autor: Wilson Arguello
-Correo: gestiontecnologia@maquita.com.ec
 Fecha: 2026-01-02
 Migrado a modulos: 2026-01-05
 """

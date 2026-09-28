@@ -16,7 +16,6 @@ USO:
     from modulos.chat.aplicacion.servicios import ServicioIAChat, obtener_servicio_ia_chat
 
 Autor: Wilson Arguello
-Correo: gestiontecnologia@maquita.com.ec
 Fecha: 2026-01-02
 Actualizado: 2026-01-06 - Agregado ServicioIAChat
 """

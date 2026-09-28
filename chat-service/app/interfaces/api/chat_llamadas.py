@@ -7,7 +7,7 @@ from interfaces.api.chat_base import *  # noqa: F401,F403  (bp_chat, request, js
 # =============================================================================
 # LLAMADAS EN VIVO - LiveKit (CT 210)
 # El cliente pide un token para unirse a la sala de la llamada; la media
-# viaja por el SFU LiveKit (wss://datos.maquita.com.ec/livekit).
+# viaja por el SFU LiveKit (wss://intranet.example.org/livekit).
 # Documentacion: (documentacion interna)
 # =============================================================================
 
@@ -37,8 +37,8 @@ def _turn_ice_servers():
     secret = os.environ.get('LIVEKIT_TURN_SECRET')
     if not secret:
         return []
-    udp_host = os.environ.get('LIVEKIT_TURN_UDP_HOST', '179.49.24.167')
-    tls_host = os.environ.get('LIVEKIT_TURN_TLS_HOST', 'meet.maquita.com.ec')
+    udp_host = os.environ.get('LIVEKIT_TURN_UDP_HOST', '203.0.113.167')
+    tls_host = os.environ.get('LIVEKIT_TURN_TLS_HOST', 'reuniones.example.org')
     expiry = int(time.time()) + 12 * 3600  # credencial valida 12 h
     username = '%d:livekit' % expiry
     cred = base64.b64encode(
@@ -90,7 +90,7 @@ def obtener_token_llamada():
 
     api_key = os.environ.get('LIVEKIT_API_KEY')
     api_secret = os.environ.get('LIVEKIT_API_SECRET')
-    ws_url = os.environ.get('LIVEKIT_WS_URL', 'wss://datos.maquita.com.ec/livekit')
+    ws_url = os.environ.get('LIVEKIT_WS_URL', 'wss://intranet.example.org/livekit')
     if not api_key or not api_secret:
         return jsonify({'exito': False, 'error': 'LiveKit no configurado'}), 503
 

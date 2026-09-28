@@ -1,6 +1,6 @@
 /**
  * Cliente WebSocket para Chat en Tiempo Real
- * Raíces - Maquita Cushunchic
+ * Raíces - la organización
  *
  * Maneja la conexion WebSocket con el servidor para:
  * - Mensajes en tiempo real

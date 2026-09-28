@@ -2,7 +2,7 @@
 """
 Tareas del correo para el cliente Teams Maquita — T-15.
 ========================================================
-Las tareas viven en el correo (`https://mail.maquita.org/api/tasks/*`). Igual que el calendario,
+Las tareas viven en el correo (`https://mail.example.org/api/tasks/*`). Igual que el calendario,
 este módulo NO copia nada: consulta esa API con el JWT del usuario y devuelve una vista unificada
 en español para el riel de la app («Tareas» con contador).
 

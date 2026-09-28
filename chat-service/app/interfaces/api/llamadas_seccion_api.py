@@ -15,6 +15,7 @@ Autor: Wilson Arguello
 from interfaces.api.chat_base import *  # noqa: F401,F403  (bp_chat, request, jsonify, autenticación…)
 from sqlalchemy import text
 from flask import session
+import organizacion
 
 DDL = """
 CREATE TABLE IF NOT EXISTS chat_llamadas_favoritos (
@@ -49,13 +50,7 @@ def asegurar_tabla():
 
 
 def _foto(v):
-    if not v:
-        return ''
-    if v.startswith('http') or v.startswith('/'):
-        return v
-    if v.startswith('uploads/'):
-        return 'https://datos.maquita.com.ec/static/' + v
-    return 'https://datos.maquita.com.ec/static/uploads/profiles/' + v
+    return organizacion.url_foto(v)
 
 
 def _personas(s, ids):

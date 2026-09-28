@@ -34,7 +34,6 @@ USO:
     resultados = busqueda.buscar(filtros)
 
 Autor: Wilson Arguello
-Correo: gestiontecnologia@maquita.com.ec
 Fecha: 2026-01-02
 """
 

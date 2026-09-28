@@ -9,7 +9,6 @@ Uso:
     from interfaces.websocket import crear_socketio, emitir_mensaje_nuevo
 
 Autor: Wilson Arguello
-Correo: gestiontecnologia@maquita.com.ec
 Fecha: 2026-01-02
 """
 

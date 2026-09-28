@@ -7,7 +7,6 @@ Servicios transversales utilizados por múltiples módulos.
 CAPA: compartido/servicios
 
 Autor: Wilson Arguello
-Correo: gestiontecnologia@maquita.com.ec
 Fecha: 2026-01-05
 """
 
