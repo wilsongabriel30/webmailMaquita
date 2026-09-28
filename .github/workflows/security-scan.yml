@@ -24,6 +24,32 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  datos-propios:
+    name: Datos propios de la organización
+    # El repositorio es público. Los dominios, las direcciones de red y los correos de quien
+    # lo instala no son secretos ni datos personales, así que ningún otro barrido los busca.
+    # Los patrones van en el secreto GUARDIAN_DATOS_PROPIOS (una línea «categoría: expresión»);
+    # sin él solo se detectan direcciones IP públicas. El registro no muestra lo encontrado,
+    # solo fichero, línea y categoría.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+        with:
+          fetch-depth: 0
+      - name: Líneas nuevas (BLOQUEANTE)
+        if: github.event_name == 'pull_request'
+        env:
+          GUARDIAN_DATOS_PROPIOS: ${{ secrets.GUARDIAN_DATOS_PROPIOS }}
+          RAMA_BASE: ${{ github.base_ref }}
+        run: python3 deploy/tools/barrido-datos-propios.py --diff "origin/$RAMA_BASE"
+      # Lo que quedaba de antes se limpia por módulos. Mientras tanto este paso informa
+      # cuánto falta y no bloquea; cuando llegue a cero pasa a ser bloqueante.
+      - name: Todo el árbol (informe de lo pendiente)
+        continue-on-error: true
+        env:
+          GUARDIAN_DATOS_PROPIOS: ${{ secrets.GUARDIAN_DATOS_PROPIOS }}
+        run: python3 deploy/tools/barrido-datos-propios.py --arbol .
+
   datos-personales:
     name: Datos personales en el repositorio
     # El 2026-09-01 entro al repositorio publico un fichero con 193 correos y
