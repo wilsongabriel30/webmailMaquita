@@ -470,6 +470,12 @@ def onlyoffice_config():
 
     modo = 'edit' if (escritura and extension in EXTENSIONES_EDITABLES) else 'view'
 
+    # Hoja de respuestas de un formulario: se pone al día antes de abrirla,
+    # para que refleje lo que hay en «Respuestas» (29/09/2026).
+    if extension == 'xlsx':
+        import encuestas_hoja_al_abrir
+        encuestas_hoja_al_abrir.poner_al_dia(usuario, ruta)
+
     # Key ESTABLE de la sala de co-edición (ver nota en el encabezado)
     doc_base = _base_documento(usuario, ruta)
     # Si el archivo cambió por fuera del editor, key nueva (huella_documento.py)
@@ -525,7 +531,17 @@ def onlyoffice_config():
                     URL_PUBLICA + '/static/onlyoffice-plugins/crear-formulario/config.json?v=20260910-hoja1',
                     # Residente (isSystem): escribe en el libro abierto las
                     # respuestas que llegan de sus formularios (11/09/2026).
-                    URL_PUBLICA + '/static/onlyoffice-plugins/respuestas-vivo/config.json?v=20260911-vivo4',
+                    URL_PUBLICA + '/static/onlyoffice-plugins/respuestas-vivo/config.json?v=20260929-decimales1',
+                    URL_PUBLICA + '/static/onlyoffice-plugins/respuestas-filas/config.json?v=20260929-decimales1',
+                    # «Solo valores»: cambia las fórmulas por su resultado, para
+                    # poder llevarse una hoja a otro libro sin que se rompa
+                    # (22/09/2026).
+                    URL_PUBLICA + '/static/onlyoffice-plugins/solo-valores/config.json?v=20260929-decimales1',
+                    # «Lista desplegable» en Extensiones: abre el mismo panel que
+                    # el clic derecho (23/09/2026).
+                    URL_PUBLICA + '/static/onlyoffice-plugins/lista-desplegable/config.json?v=20260923-lista1',
+                    # «Mapa de provincias» del Ecuador en Extensiones (23/09/2026).
+                    URL_PUBLICA + '/static/onlyoffice-plugins/mapa-provincias/config.json?v=20260923-mapa1',
                 ],
             },
             'coEditing': {'mode': 'fast', 'change': False},
@@ -641,6 +657,12 @@ def onlyoffice_callback():
     except (KeyError, ValueError):
         return jsonify({'error': 1})
 
+    # Renombrado o movido mientras estaba abierto: se guarda donde está ahora.
+    import renombres_abiertos
+    ruta = renombres_abiertos.seguir(
+        usuario, ruta, lambda r: os.path.exists(ruta_fisica(usuario, r)),
+        desde=int(datos.get('exp') or 0) - DIAS_TOKEN * 86400)   # cuándo se abrió
+
     status = cuerpo.get('status')
     log.info('OnlyOffice callback ruta=%s status=%s usuario=%s', ruta, status, usuario)
 
@@ -736,6 +758,11 @@ def onlyoffice_callback():
             import guardado_forzado
             guardado_forzado.marcar_cerrado(
                 datos.get('b') or _base_documento(usuario, ruta))
+        except Exception:
+            pass
+        try:        # hoja de respuestas de un formulario: añadir lo pendiente
+            import encuestas_hoja
+            encuestas_hoja.al_cerrar_editor(usuario, ruta)
         except Exception:
             pass
         if status == 4:
@@ -960,6 +987,12 @@ def editor_almacen():
         from flask import redirect as _redir
         from urllib.parse import quote as _q
         _ruta_raw = request.args.get('ruta', '')
+        # Un formulario (.forma) va a su propio editor, no a este (28/09/2026).
+        import formularios_enlace
+        _formulario = formularios_enlace.desde_editor_de_documentos(
+            usuario_actual(), _ruta_raw)
+        if _formulario:
+            return _redir(_formulario, 302)
         _ruta = normalizar_ruta_virtual(_ruta_raw)
         # Enlace armado en el espacio del DUEÑO (?ruta=/Carpeta/x.docx): a quien
         # se lo compartieron no le existe en el suyo y el editor no abría. Se le
@@ -971,6 +1004,11 @@ def editor_almacen():
             _destino = None
         if _destino and _destino.get('ir_a'):
             return _redir('/archivos-almacen/editar?ruta=' + _q(_destino['ir_a']), 302)
+        if _destino and _destino.get('pedir_acceso'):
+            # Es de otra persona y no se lo compartieron: en vez del editor
+            # vacío, de quién es y el botón para pedírselo (29/09/2026).
+            from integracion_faro import _pagina_pedir_acceso
+            return _pagina_pedir_acceso(_destino['pedir_acceso'])
         _fis = ruta_fisica(usuario_actual(), _ruta)
         if os.path.isdir(_fis):
             return _redir('/archivos-almacen' + _q(_ruta), 302)

@@ -250,3 +250,10 @@ def oo_referencia():
     }
     datos['token'] = firmar_jwt(datos)
     return jsonify(datos)
+
+
+# Lo que el editor pide al Drive (guardar copia, imagen, nuevo, plantillas,
+# recientes): módulo aparte, montado sobre este blueprint (23/09/2026).
+import api_editor_drive  # noqa: E402,F401
+# «Publicar en la web»: la hoja como página ligera, siempre al día (23/09/2026).
+import api_publicar_web  # noqa: E402,F401

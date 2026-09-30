@@ -375,7 +375,7 @@ def subir(usuario_id: int, ruta_carpeta: str, nombre: str, flujo) -> dict:
     # Si ya existe un archivo en esa ruta, su contenido actual pasa a ser una
     # VERSIÓN antes de sobrescribir (historial estilo Google Drive).
     if os.path.isfile(fisica):
-        _guardar_version(usuario_id, ruta_final, fisica)
+        _guardar_version(usuario_id, ruta_final, fisica, en_sitio=True)
     else:
         # Archivo NUEVO: si quedaron versiones de un archivo anterior ya
         # eliminado en esta misma ruta (el file_id es hash de la ruta), se
@@ -445,9 +445,20 @@ def _publicar_con_dedup(temporal: str, fisica: str, digest: str, tamano: int) ->
             # comprobacion, el enlace duro entregaba un archivo AJENO al que se
             # acababa de subir: corrupcion silenciosa. Paso de verdad.
             if _contenido_coincide(canonica, digest, tamano):
-                if os.path.exists(fisica):
-                    os.remove(fisica)
-                os.link(canonica, fisica)     # mismo inodo, 0 bytes nuevos
+                # El enlace se crea con OTRO nombre y se pone en su sitio de un
+                # solo golpe (28/09/2026). Antes se borraba el archivo y luego
+                # se enlazaba: en ese instante el archivo no existía, y quien
+                # abría un formulario mientras su dueño lo guardaba recibía
+                # «ya no está disponible».
+                enlace = fisica + f'.enlace-{os.getpid()}-{int(time.time()*1000)}'
+                os.link(canonica, enlace)     # mismo inodo, 0 bytes nuevos
+                try:
+                    os.replace(enlace, fisica)
+                finally:
+                    # Si los dos nombres ya eran el mismo archivo, renombrar no
+                    # hace nada y el nombre provisional se queda: se retira.
+                    if os.path.lexists(enlace):
+                        os.remove(enlace)
                 os.remove(temporal)
                 return True
             log.warning('Dedup: la ruta canonica de %s ya no tiene ese contenido '
@@ -476,9 +487,10 @@ def _publicar_con_dedup(temporal: str, fisica: str, digest: str, tamano: int) ->
 MAX_VERSIONES = 100   # como Drive: se conservan hasta 100 versiones por archivo
 
 
-def _guardar_version(usuario_id: int, ruta_virtual: str, fisica_actual: str) -> None:
-    """Mueve el contenido actual del archivo a la zona 'versiones' y lo registra.
-    Se llama ANTES de sobrescribir. Poda las versiones más viejas más allá del tope
+def _guardar_version(usuario_id: int, ruta_virtual: str, fisica_actual: str,
+                     en_sitio: bool = False) -> None:
+    """Guarda el contenido actual del archivo en la zona 'versiones' y lo registra.
+    Se llama ANTES de sobrescribir. Con `en_sitio` el archivo vivo no se mueve. Poda las versiones más viejas más allá del tope
     (respetando las marcadas 'guardar_siempre'). FAIL-SILENT: nunca frena la subida."""
     try:
         file_id = _id_estable(usuario_id, ruta_virtual)
@@ -486,7 +498,22 @@ def _guardar_version(usuario_id: int, ruta_virtual: str, fisica_actual: str) -> 
         base_ver = raiz_usuario(usuario_id, 'versiones')
         destino = os.path.join(base_ver, f'{file_id}__{marca}')
         tamano = os.path.getsize(fisica_actual)
-        shutil.move(fisica_actual, destino)
+        if en_sitio:
+            # La versión se crea SIN mover el archivo vivo (28/09/2026): un
+            # enlace duro al mismo contenido. Moviéndolo, hasta que el contenido
+            # nuevo quedaba publicado el archivo no existía: quien lo leía en
+            # ese momento (un formulario que se abre mientras su dueño lo
+            # guarda) recibía «no existe».
+            # SOLO vale para quien después publica con `os.replace` (otro inodo
+            # con ese nombre), como `subir`. Quien vaya a escribir DENTRO del
+            # archivo —WebDAV, restaurar una versión— tiene que seguir
+            # moviéndolo: si no, pisaría también la versión recién guardada.
+            try:
+                os.link(fisica_actual, destino)
+            except OSError:
+                shutil.copy2(fisica_actual, destino)
+        else:
+            shutil.move(fisica_actual, destino)
         ejecutar("""
             INSERT INTO versiones (usuario_id, file_id, ruta, version_fisico, tamano_bytes)
             VALUES (%s, %s, %s, %s, %s)

@@ -57,6 +57,15 @@ def ruta_de(fila_encuesta):
     return ((fila_encuesta or {}).get('hoja_ruta') or '').strip()
 
 
+def _olvidar_sin_trabajo(usuario, ruta_hoja):
+    """La hoja deja de constar como «sin nada que escribir»."""
+    try:
+        import vivo_sin_trabajo as sin_trabajo
+        sin_trabajo.olvidar(usuario, ruta_hoja)
+    except Exception:
+        pass
+
+
 def vincular(encuesta_id, ruta_hoja):
     """Anota qué archivo es la hoja de este formulario (lo hace «Exportar»)."""
     try:
@@ -68,9 +77,24 @@ def vincular(encuesta_id, ruta_hoja):
 
 def refrescar_en_segundo_plano(fila_encuesta, definicion):
     """Rehace la hoja sin hacer esperar a quien acaba de responder."""
+    # Los libros que reciben las respuestas de este formulario («Recibir
+    # respuestas de un formulario…», 28/09/2026), tenga o no hoja propia.
+    try:
+        import formulario_destinos
+        formulario_destinos.al_llegar_respuesta((definicion or {}).get('id') or fila_encuesta['id'])
+    except Exception as excepcion:
+        log.warning('destinos de %s: %s', fila_encuesta.get('id'), excepcion)
     ruta_hoja = ruta_de(fila_encuesta)
     if not ruta_hoja:
         return          # este formulario no tiene hoja: no hay nada que rehacer
+
+    # Hay trabajo para esta hoja: si constaba como «sin nada que escribir», el
+    # puente del editor tiene que volver a preguntarlo ya (22/09/2026).
+    try:
+        import vivo_sin_trabajo as sin_trabajo
+        sin_trabajo.olvidar(fila_encuesta.get('propietario'), ruta_hoja)
+    except Exception:
+        pass
 
     encuesta_id = fila_encuesta['id']
     with _candado:
@@ -113,6 +137,17 @@ def refrescar_al_editar(fila_encuesta, definicion):
         reloj.start()
 
 
+def al_cambiar_respuestas(encuesta_id):
+    """Se borraron o se recuperaron respuestas: la hoja tiene que reflejarlo
+    sin esperar a que llegue una respuesta nueva (28/09/2026). Nunca lanza."""
+    try:
+        fila = ebd.obtener(encuesta_id)
+        if fila:
+            refrescar_al_editar(fila, None)
+    except Exception as excepcion:
+        log.warning('hoja de %s: no se pudo avisar del cambio (%s)', encuesta_id, excepcion)
+
+
 def _rehacer_leyendo(fila_encuesta):
     """Relee la definición del `.forma` y rehace la hoja."""
     encuesta_id = fila_encuesta['id']
@@ -140,17 +175,132 @@ def _rehacer_leyendo(fila_encuesta):
             _en_marcha.discard(encuesta_id)
 
 
-def _rehacer(fila_encuesta, definicion, ruta_hoja):
+# Si el Excel está abierto en el editor, se reintenta cada tanto hasta que se
+# cierre (17/09/2026). Escribirlo por fuera con gente dentro partía la sala en
+# dos y el guardado del editor borraba lo escrito.
+SEGUNDOS_REINTENTO = 120
+MAX_REINTENTOS = 360          # 12 horas; la siguiente respuesta lo relanza
+
+
+def _sala_ocupada(propietario, ruta_hoja):
+    try:
+        import sala_editor
+        from api_onlyoffice import _base_documento
+        return sala_editor.usuarios_conectados(_base_documento(propietario, ruta_hoja))
+    except Exception as excepcion:
+        log.warning('hoja %s: no se pudo consultar el editor (%s)', ruta_hoja, excepcion)
+        return None
+
+
+def _aplazar(fila_encuesta, ruta_hoja, intento):
+    encuesta_id = fila_encuesta['id']
+    if intento >= MAX_REINTENTOS:
+        log.warning('hoja %s: sigue abierta tras %d reintentos, se deja', ruta_hoja, intento)
+        return
+    with _candado:
+        if encuesta_id in _relojes:
+            return      # ya hay un refresco programado; leerá lo último
+        reloj = threading.Timer(SEGUNDOS_REINTENTO, _reintentar,
+                                args=(dict(fila_encuesta), intento + 1))
+        reloj.daemon = True
+        _relojes[encuesta_id] = reloj
+        reloj.start()
+
+
+def _reintentar(fila_encuesta, intento):
+    encuesta_id = fila_encuesta['id']
+    with _candado:
+        _relojes.pop(encuesta_id, None)
+        if encuesta_id in _en_marcha:
+            return
+        _en_marcha.add(encuesta_id)
+    try:
+        from api_encuestas import leer_definicion
+        definicion = leer_definicion(int(fila_encuesta['propietario']),
+                                     fila_encuesta['ruta'])
+    except Exception as excepcion:
+        log.warning('no se pudo releer %s: %s', fila_encuesta.get('ruta'), excepcion)
+        definicion = None
+    ruta_hoja = ruta_de(fila_encuesta)
+    if definicion is None or not ruta_hoja:
+        with _candado:
+            _en_marcha.discard(encuesta_id)
+        return
+    _rehacer(fila_encuesta, definicion, ruta_hoja, intento)
+
+
+def al_cerrar_editor(usuario, ruta):
+    """El editor acaba de soltar este archivo: si es la hoja de respuestas de
+    algún formulario, se le añade lo que llegó mientras estaba abierto
+    (17/09/2026). Los reintentos por reloj se pierden al recargar el servicio;
+    este aviso no."""
+    try:
+        # Lo que el complemento dio por escrito dentro del editor solo vale si
+        # de verdad quedó en el archivo (22/09/2026).
+        try:
+            import encuestas_hoja_confirmacion as confirmacion
+            confirmacion.revisar(usuario, ruta)
+        except Exception as excepcion:
+            log.warning('al cerrar %s: no se pudo revisar lo escrito en vivo (%s)',
+                        ruta, excepcion)
+        try:
+            import formulario_destinos
+            formulario_destinos.al_cerrar(usuario, ruta)
+        except Exception as excepcion:
+            log.warning('al cerrar %s: destinos (%s)', ruta, excepcion)
+        filas = ebd.bd.consultar(
+            "SELECT * FROM encuestas WHERE hoja_ruta = %s "
+            "AND (propietario = %s OR hoja_ruta LIKE '/unidades/%%')",
+            (ruta, int(usuario)))
+        vistos = set()
+        for fila in filas:
+            clave = (fila['propietario'], fila['ruta'])
+            if clave not in vistos:
+                vistos.add(clave)
+                refrescar_al_editar(fila, None)
+    except Exception as excepcion:
+        log.warning('al cerrar %s: %s', ruta, excepcion)
+
+
+def _rehacer(fila_encuesta, definicion, ruta_hoja, intento=0):
     encuesta_id = fila_encuesta['id']
     try:
-        contenido = construir(fila_encuesta, definicion)
-        if contenido is None:
+        dentro = _sala_ocupada(int(fila_encuesta['propietario']), ruta_hoja)
+        if dentro is None or dentro:      # sin respuesta del editor: no arriesgar
+            log.info('hoja %s abierta en el editor (%s): se rehace al cerrarse',
+                     ruta_hoja, dentro)
+            _aplazar(fila_encuesta, ruta_hoja, intento)
             return
         import nucleo_archivos as nucleo
+        import encuestas_hoja_libro as libro_mod
         propietario = int(fila_encuesta['propietario'])
+        # Rehacer desde cero borraba pestañas, fórmulas y columnas que la
+        # persona añade al libro (17/09/2026): ahora solo se AÑADEN las filas
+        # de las respuestas nuevas, como hace Google Sheets.
+        contenido, estado = libro_mod.preparar(
+            fila_encuesta, definicion, propietario, ruta_hoja)
+        if contenido is None:
+            return
         carpeta = ruta_hoja.rsplit('/', 1)[0] or '/'
         nombre = ruta_hoja.rsplit('/', 1)[-1]
         nucleo.subir(propietario, carpeta, nombre, contenido)
+        # Las filas añadidas llevan fórmulas sin resultado: OnlyOffice las
+        # calcula y guarda (si no, se veían como texto «=SUM(…», 17/09/2026).
+        import encuestas_hoja_recalculo as recalculo
+        calculado = recalculo.recalcular(propietario, ruta_hoja)
+        if calculado:
+            nucleo.subir(propietario, carpeta, nombre, io.BytesIO(calculado))
+
+        # Si alguien entró en el editor MIENTRAS se escribía, su guardado va a
+        # pisar estas filas (pasó el 21/09/2026: el editor guardó 17 s después y
+        # la respuesta se perdió). En ese caso no se da por escrita: se reintenta
+        # al cerrarse la sala. Solo se anota el estado cuando nadie está dentro.
+        if _sala_ocupada(propietario, ruta_hoja):
+            log.info('hoja %s: alguien entró al editor mientras se escribía; '
+                     'se reintenta al cerrarse', ruta_hoja)
+            _aplazar(fila_encuesta, ruta_hoja, intento)
+        elif estado is not None:
+            libro_mod.confirmar(encuesta_id, estado)
 
         # El archivo se acaba de reemplazar por fuera del editor: si no se avisa,
         # quien lo abra ve la copia guardada del Document Server.
@@ -185,8 +335,9 @@ def cabeceras(fila_encuesta, definicion):
     (el complemento del editor crea la hoja del libro con ellas, 10/09/2026)."""
     import encuestas_ajustes as ajustes_mod
     import encuestas_modelo as modelo
+    import encuestas_colaboradores as colaboradores
     ajustes = ajustes_mod.limpiar(fila_encuesta.get('ajustes'))
-    return cabeceras_de(ajustes, modelo.preguntas(definicion))
+    return cabeceras_de(ajustes, colaboradores.desplegar(modelo.preguntas(definicion)))
 
 
 def recoge_correo(ajustes):
@@ -223,48 +374,14 @@ def construir(fila_encuesta, definicion):
         log.warning('sin openpyxl: no se puede generar la hoja')
         return None
 
-    import encuestas_ajustes as ajustes_mod
     import encuestas_excel as excel
-    import encuestas_modelo as modelo
-    from api_encuestas import quien_respondio
-
-    filas = ebd.listar_respuestas(definicion['id'])
-    nombres = ebd.nombres_usuarios([f['usuario_id'] for f in filas])
-    ajustes = ajustes_mod.limpiar(fila_encuesta.get('ajustes'))
-    listado = modelo.preguntas(definicion)
-    es_quiz = ajustes['cuestionario']
-
-    cabeceras = cabeceras_de(ajustes, listado)
-
-    cuerpo = []
-    for fila in reversed(filas):    # de la más antigua a la más reciente
-        respuesta = fila['datos'] or {}
-        celdas = [
-            # Fecha de verdad, no texto: así la tabla se puede ordenar y filtrar
-            # por cuándo se respondió, que es lo primero que se hace con esto.
-            fila['enviada_en'].replace(tzinfo=None, microsecond=0) if fila['enviada_en'] else '',
-        ]
-        if not ajustes.get('anonimo'):
-            celdas.append(quien_respondio(fila, nombres, ajustes))
-            if recoge_correo(ajustes):
-                celdas.append(fila.get('correo') or '')
-        if es_quiz:
-            celdas.append(
-                '' if fila.get('puntos') is None
-                else '%s / %s' % (fila['puntos'], fila.get('puntos_max') or 0))
-        for pregunta in listado:
-            # Cómo se lee cada respuesta lo decide el modelo, que es quien
-            # sabe qué forma tiene cada tipo (una cuadrícula es un mapa, no un
-            # texto). Antes se resolvía aquí y solo contemplaba listas.
-            celdas.append(modelo.texto_de(pregunta,
-                                          respuesta.get(pregunta['id'])))
-        cuerpo.append(celdas)
+    datos = datos_de_hoja(fila_encuesta, definicion)
+    cabeceras, cuerpo = datos['cabeceras'], datos['cuerpo']
 
     libro = Workbook()
-    tema = (definicion.get('tema') or {}).get('color')
+    tema = datos['tema']
     try:
-        excel.escribir(libro, cabeceras, cuerpo,
-                       modelo.plano(definicion.get('titulo')), tema)
+        excel.escribir(libro, cabeceras, cuerpo, datos['titulo'], tema)
     except Exception as excepcion:
         # El formato no puede costar el archivo: si algo falla, se escribe la
         # rejilla de siempre y la hoja sale igual.
@@ -280,3 +397,60 @@ def construir(fila_encuesta, definicion):
     libro.save(memoria)
     memoria.seek(0)
     return memoria
+
+
+def datos_de_hoja(fila_encuesta, definicion):
+    """Cabeceras y filas de la hoja de respuestas, sin escribir ningún archivo.
+
+    Separado de `construir` el 17/09/2026: `encuestas_hoja_libro` añade estas
+    filas a un libro que ya existe en vez de rehacerlo.
+    """
+    import encuestas_ajustes as ajustes_mod
+    import encuestas_modelo as modelo
+    from api_encuestas import quien_respondio
+
+    filas = ebd.listar_respuestas(definicion['id'])
+    nombres = ebd.nombres_usuarios([f['usuario_id'] for f in filas])
+    import encuestas_colaboradores as colaboradores
+    ajustes = ajustes_mod.limpiar(fila_encuesta.get('ajustes'))
+    # La pregunta «Colaborador» ocupa varias columnas: la del nombre y una por
+    # cada dato de nómina (28/09/2026). De aquí en adelante `listado` son las
+    # COLUMNAS de la hoja, y cada respuesta se reparte igual.
+    originales = modelo.preguntas(definicion)
+    listado = colaboradores.desplegar(originales)
+    es_quiz = ajustes['cuestionario']
+
+    cabeceras = cabeceras_de(ajustes, listado)
+
+    cuerpo, enviadas, respuestas, ids = [], [], [], []
+    for fila in reversed(filas):    # de la más antigua a la más reciente
+        respuesta = colaboradores.desplegar_respuesta(originales, fila['datos'] or {})
+        enviadas.append(fila['enviada_en'])
+        ids.append(fila['id'])
+        # Lo respondido tal cual, por si hace falta una pregunta que ya no está
+        # en el formulario pero cuya columna sigue en la hoja (22/09/2026).
+        respuestas.append(respuesta)
+        celdas = [
+            # Fecha de verdad, no texto: así la tabla se puede ordenar y filtrar
+            # por cuándo se respondió, que es lo primero que se hace con esto.
+            fila['enviada_en'].replace(tzinfo=None, microsecond=0) if fila['enviada_en'] else '',
+        ]
+        if not ajustes.get('anonimo'):
+            celdas.append(quien_respondio(fila, nombres, ajustes, definicion))
+            if recoge_correo(ajustes):
+                celdas.append(fila.get('correo') or '')
+        if es_quiz:
+            celdas.append(
+                '' if fila.get('puntos') is None
+                else '%s / %s' % (fila['puntos'], fila.get('puntos_max') or 0))
+        for pregunta in listado:
+            # Cómo se lee cada respuesta lo decide el modelo, que es quien
+            # sabe qué forma tiene cada tipo (una cuadrícula es un mapa, no un
+            # texto). Antes se resolvía aquí y solo contemplaba listas.
+            celdas.append(modelo.texto_de(pregunta,
+                                          respuesta.get(pregunta['id'])))
+        cuerpo.append(celdas)
+    return {'cabeceras': cabeceras, 'cuerpo': cuerpo, 'listado': listado,
+            'enviadas': enviadas, 'respuestas': respuestas, 'ids': ids,
+            'titulo': modelo.plano(definicion.get('titulo')),
+            'tema': (definicion.get('tema') or {}).get('color')}

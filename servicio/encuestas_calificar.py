@@ -124,39 +124,53 @@ def total_posible(definicion):
     return _entero_si_procede(total)
 
 
-def para_quien_responde(definicion, calificacion, ajustes):
+def comentarios_de_opciones(pregunta, valor):
+    """La retroalimentación de cada respuesta ELEGIDA, en el orden de las
+    opciones de la pregunta. Lista vacía si no hay ninguna."""
+    por_opcion = (pregunta.get('clave') or {}).get('comentarios_opcion') or {}
+    if not por_opcion or valor in (None, '', []):
+        return []
+    elegidas = [str(v) for v in (valor if isinstance(valor, list) else [valor])]
+    return [por_opcion[o] for o in (pregunta.get('opciones') or [])
+            if o in elegidas and por_opcion.get(o)]
+
+
+def para_quien_responde(definicion, calificacion, ajustes, respuestas=None):
     """Lo que se le enseña a quien acaba de entregar, según lo configurado.
 
     Se construye a medida en vez de mandar la calificación entera: si el
     cuestionario no comparte las respuestas correctas, esas respuestas no deben
     salir del servidor, ni siquiera «ocultas» en el JSON.
+
+    `respuestas` (28/09/2026): lo respondido, para la retroalimentación por
+    respuesta. Esa retroalimentación acompaña a la pregunta aunque no se
+    comparta cómo le fue: quien la escribió la puso para que se vea. En ese caso
+    la pregunta viaja con estado «comentario»: sin acierto, puntos ni clave.
     """
-    if not ajustes.get('ver_puntuacion') and not ajustes.get('ver_falladas') \
-            and not ajustes.get('ver_correctas'):
-        return None
+    ver_puntuacion = bool(ajustes.get('ver_puntuacion'))
+    ver_falladas = bool(ajustes.get('ver_falladas'))
+    ver_correctas = bool(ajustes.get('ver_correctas'))
+    respuestas = respuestas or {}
 
-    salida = {'pendientes': calificacion['pendientes']}
+    preguntas = []
+    for pregunta in modelo.preguntas(definicion):
+        dato = calificacion['detalle'].get(pregunta['id'])
+        por_respuesta = comentarios_de_opciones(pregunta, respuestas.get(pregunta['id']))
+        # Las reglas de siempre: con «respuestas correctas» se ven todas; con
+        # solo «las que falló», las acertadas no se envían.
+        visible = bool(dato) and (
+            ver_correctas or (ver_falladas and dato['estado'] != 'correcta'))
+        if not visible and not por_respuesta:
+            continue
 
-    if ajustes.get('ver_puntuacion'):
-        salida['puntos'] = calificacion['puntos']
-        salida['puntos_max'] = calificacion['puntos_max']
-
-    if ajustes.get('ver_falladas') or ajustes.get('ver_correctas'):
-        preguntas = []
-        for pregunta in modelo.preguntas(definicion):
-            dato = calificacion['detalle'].get(pregunta['id'])
-            if not dato:
-                continue
+        ficha = {'id': pregunta['id'], 'titulo': pregunta['titulo']}
+        comentarios = list(por_respuesta)
+        if visible:
             clave = pregunta.get('clave') or {}
-            ficha = {
-                'id': pregunta['id'],
-                'titulo': pregunta['titulo'],
-                'estado': dato['estado'],
-                'posibles': dato['posibles'],
-            }
-            if ajustes.get('ver_puntuacion'):
+            ficha.update(estado=dato['estado'], posibles=dato['posibles'])
+            if ver_puntuacion:
                 ficha['puntos'] = dato['puntos']
-            if ajustes.get('ver_correctas'):
+            if ver_correctas:
                 ficha['correctas'] = clave.get('correctas') or []
             # El comentario del profesor sí acompaña siempre al resultado: es
             # la parte que enseña algo.
@@ -165,11 +179,20 @@ def para_quien_responde(definicion, calificacion, ajustes):
                           else clave.get('comentario_incorrecto'))
             if comentario:
                 ficha['comentario'] = comentario
-            preguntas.append(ficha)
+                comentarios.append(comentario)
+        else:
+            ficha['estado'] = 'comentario'
+        if comentarios:
+            ficha['comentarios'] = comentarios
+        preguntas.append(ficha)
 
-        # Si solo se comparten las falladas, las acertadas no se envían.
-        if not ajustes.get('ver_correctas'):
-            preguntas = [p for p in preguntas if p['estado'] != 'correcta']
+    if not (ver_puntuacion or ver_falladas or ver_correctas or preguntas):
+        return None
+
+    salida = {'pendientes': calificacion['pendientes']}
+    if ver_puntuacion:
+        salida['puntos'] = calificacion['puntos']
+        salida['puntos_max'] = calificacion['puntos_max']
+    if ver_falladas or ver_correctas or preguntas:
         salida['preguntas'] = preguntas
-
     return salida

@@ -827,6 +827,14 @@ def mover():
                         usuario, datos.get('origen'), datos.get('destino'), _e)
         return error('El origen no existe', 404)
     registrar_actividad(usuario, 'movio', datos['destino'], datos['origen'])
+    # Formularios, hojas de respuestas y conexiones guardan la ruta: que la
+    # sigan (28/09/2026: mover la carpeta de «prueba IFO» dejó el formulario sin
+    # poder responderse).
+    import rutas_seguidas
+    rutas_seguidas.actualizar(_usuario_ef, normalizar_ruta_virtual(_origen_ef), _final_ef)
+    import renombres_abiertos      # el guardado del editor sigue al archivo
+    renombres_abiertos.anotar(usuario, normalizar_ruta_virtual(datos['origen']),
+                              (_prefijo(datos['destino']) or '') + _final_ef)
     return jsonify({'success': True, 'message': 'Movido correctamente'})
 
 
@@ -886,6 +894,8 @@ def renombrar():
             _usuario_ef, _ruta_ef, datos['nuevo_nombre'],
             sobrescribir=bool(datos.get('sobrescribir')),
             conservar_ambos=bool(datos.get('conservar_ambos')))
+        import rutas_seguidas          # lo que guarda la ruta la sigue (28/09/2026)
+        rutas_seguidas.actualizar(_usuario_ef, normalizar_ruta_virtual(_ruta_ef), ruta_nueva)
         _pref = _prefijo(datos['ruta'])
         if _pref:
             ruta_nueva = _pref + ruta_nueva
@@ -899,6 +909,10 @@ def renombrar():
     except FileNotFoundError:
         return error('No existe el elemento', 404)
     registrar_actividad(usuario, 'renombro', ruta_nueva, datos['ruta'])
+    # Si estaba abierto en el editor, su próximo guardado debe ir al nombre
+    # nuevo y no resucitar el viejo (23/09/2026).
+    import renombres_abiertos
+    renombres_abiertos.anotar(usuario, normalizar_ruta_virtual(datos['ruta']), ruta_nueva)
     return jsonify({'success': True, 'ruta_nueva': ruta_nueva})
 
 
@@ -963,3 +977,7 @@ def cuota():
 # Rutas de descarga en ZIP (carpetas y selecciones): viven en su propio módulo
 # (api_descarga_zip.py) y se montan sobre bp_archivos al importarlo.
 import api_descarga_zip  # noqa: E402,F401
+
+# Sacar una hoja de un libro a su propio archivo, ya sin fórmulas: igual, su
+# módulo se monta sobre bp_archivos al importarlo (22/09/2026).
+import api_hoja_a_archivo  # noqa: E402,F401

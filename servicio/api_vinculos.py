@@ -65,6 +65,12 @@ def asegurar_esquema_vinculos():
                 -- libro estaba abierto al renombrarla: se aplica al cerrar.
                 ALTER TABLE vinculos_datos
                     ADD COLUMN IF NOT EXISTS destino_hoja_previa TEXT;
+                -- (30/09/2026) filtro por columna, apilado sobre el mismo
+                -- destino y alto de la última escritura (ver vinculos_filtro.py).
+                ALTER TABLE vinculos_datos ADD COLUMN IF NOT EXISTS filtro_columna TEXT;
+                ALTER TABLE vinculos_datos ADD COLUMN IF NOT EXISTS filtro_valores TEXT;
+                ALTER TABLE vinculos_datos ADD COLUMN IF NOT EXISTS apilar_id INTEGER;
+                ALTER TABLE vinculos_datos ADD COLUMN IF NOT EXISTS ultimo_alto INTEGER;
             """)
 
 
@@ -109,6 +115,10 @@ def _leer_rango(usuario, ruta, hoja, rango):
     fis = ruta_fisica(usuario, ruta)
     wb = openpyxl.load_workbook(fis, data_only=True, read_only=True)
     try:
+        # Excel recorta los nombres de hoja a 31 caracteres; los de Google no
+        # («1. BD Liderazgos (mujeres y juventudes)» llega recortado) (30/09/2026).
+        if hoja not in wb.sheetnames and hoja[:31] in wb.sheetnames:
+            hoja = hoja[:31]
         if hoja not in wb.sheetnames:
             # El archivo de respuestas de un formulario tiene UNA hoja y se
             # llama como el formulario: si cambió el título, cambió el nombre.
@@ -136,7 +146,7 @@ def _leer_rango(usuario, ruta, hoja, rango):
         wb.close()
 
 
-def _escribir_matriz(usuario, ruta, hoja, celda, matriz):
+def _escribir_matriz(usuario, ruta, hoja, celda, matriz, limpiar_alto=0):
     """Escribe la matriz como VALORES en el Destino (a partir de `celda`) y lo
     vuelve a subir versionado con nucleo.subir()."""
     fis = ruta_fisica(usuario, ruta)
@@ -147,13 +157,20 @@ def _escribir_matriz(usuario, ruta, hoja, celda, matriz):
         ws = wb[hoja]
     fila0, col0 = coordinate_to_tuple(celda)   # (row, col)
     import datetime as _dt
-    for i, fila in enumerate(matriz):
+    # Lo que sobre de la vez anterior (un origen que encogió, un filtro que
+    # deja menos filas) se limpia; si no, quedaban filas viejas colgando (30/09/2026).
+    ancho = max((len(f) for f in matriz), default=0)
+    for i in range(max(len(matriz), int(limpiar_alto or 0))):
+        fila = matriz[i] if i < len(matriz) else [None] * ancho
         for j, valor in enumerate(fila):
             # `.value` explícito: con `cell(value=None)` openpyxl NO borra la celda y
             # una columna que desaparece del origen (p. ej. «Correo» al dejar de
             # recogerlo) se quedaba con los datos viejos (11/09/2026).
             celda = ws.cell(row=fila0 + i, column=col0 + j)
-            celda.value = valor
+            try:
+                celda.value = valor
+            except AttributeError:
+                continue        # celda combinada (solo escribe su esquina)
             # Fecha legible (11/09/2026 09:13), no «yyyy-mm-dd h:mm:ss» (11/09/2026).
             if isinstance(valor, _dt.datetime):
                 celda.number_format = 'dd/mm/yyyy hh:mm'
@@ -198,12 +215,16 @@ def _refrescar(v):
             log.warning('vinculo %s: sin permiso vigente sobre el origen', v.get('id'))
             return False, ('Ya no tienes permiso sobre el archivo de origen '
                            '(el compartido fue revocado o venció)')
-        matriz = _leer_rango(v['origen_usuario'], v['origen_ruta'],
-                             v['origen_hoja'], v['origen_rango'])
-        _escribir_matriz(v['destino_usuario'], v['destino_ruta'],
-                         v['destino_hoja'], v['destino_celda'], matriz)
-        bd.ejecutar('UPDATE vinculos_datos SET actualizado_en = NOW() WHERE id = %s',
-                    (v['id'],))
+        # Con filtro o apilado (30/09/2026): la matriz la arma vinculos_filtro y
+        # se escribe siempre en el destino de la cabeza de la pila.
+        import vinculos_filtro
+        matriz, cab = vinculos_filtro.matriz_de(dict(v), _leer_rango, puede_leer)
+        _escribir_matriz(cab['destino_usuario'], cab['destino_ruta'],
+                         cab['destino_hoja'], cab['destino_celda'], matriz,
+                         limpiar_alto=cab.get('ultimo_alto') or 0)
+        bd.ejecutar('UPDATE vinculos_datos SET actualizado_en = NOW(), ultimo_alto = %s '
+                    'WHERE id = %s OR apilar_id = %s',
+                    (len(matriz), cab['id'], cab['id']))
         return True, 'ok'
     except Exception as excepcion:
         log.error('vinculo %s: %s', v.get('id'), excepcion)
@@ -213,6 +234,12 @@ def _refrescar(v):
 def refrescar_por_origen(usuario, ruta):
     """Refresca todos los vínculos cuyo ORIGEN es (usuario, ruta). Lo invoca el
     callback de OnlyOffice al guardar el origen. Nunca lanza (best-effort)."""
+    # Copias fieles de hojas completas (23/09/2026): van aparte y no fallan.
+    try:
+        import espejos_hoja
+        espejos_hoja.refrescar_por_origen(usuario, ruta)
+    except Exception as _exc_esp:
+        log.warning('espejos por origen %s: %s', ruta, _exc_esp)
     try:
         ruta = normalizar_ruta_virtual(ruta)
         filas = bd.consultar(
@@ -240,6 +267,12 @@ def refrescar_por_destino(usuario, ruta):
     con lo último. Solo se escribe si de verdad falta algo: comparar es
     barato y evita una versión nueva por cada cierre. Nunca lanza.
     """
+    # Si se editó y guardó una copia fiel, vuelve a ser fiel (23/09/2026).
+    try:
+        import espejos_hoja
+        espejos_hoja.refrescar_por_destino(usuario, ruta)
+    except Exception as _exc_esp:
+        log.warning('espejos por destino %s: %s', ruta, _exc_esp)
     try:
         ruta = normalizar_ruta_virtual(ruta)
         # En el espacio personal las rutas se repiten entre personas: hay
@@ -280,12 +313,13 @@ def _sin_cola_vacia(matriz):
 def _destino_al_dia(v):
     """¿El destino ya tiene exactamente lo que dice el origen?"""
     try:
-        origen = _sin_cola_vacia(_leer_rango(v['origen_usuario'], v['origen_ruta'],
-                                            v['origen_hoja'], v['origen_rango']))
-        from openpyxl.utils import get_column_letter, range_boundaries
+        import vinculos_filtro
+        origen, v = vinculos_filtro.matriz_de(dict(v), _leer_rango)
+        origen = _sin_cola_vacia(origen)
+        from openpyxl.utils import get_column_letter
         fila0, col0 = coordinate_to_tuple(v['destino_celda'])
-        min_c, min_r, max_c, max_r = range_boundaries(v['origen_rango'])
-        alto, ancho = max_r - min_r + 1, max_c - min_c + 1
+        alto = max(len(origen), 1)
+        ancho = max((len(f) for f in origen), default=1)
         rango = '%s%d:%s%d' % (get_column_letter(col0), fila0,
                                get_column_letter(col0 + ancho - 1), fila0 + alto - 1)
         destino = _sin_cola_vacia(_leer_rango(v['destino_usuario'], v['destino_ruta'],
@@ -358,13 +392,39 @@ def crear():
     if not _puede_escribir(usuario, carpeta_de(de_ruta)):
         return error(MOTIVO_LECTOR, 403)
 
+    # Filtro y apilado (30/09/2026): opcionales. Apilar = escribir debajo de
+    # otro vínculo de este mismo archivo; el destino pasa a ser el de aquel.
+    import vinculos_filtro
+    vinculos_filtro.asegurar_columnas()
+    filtro_columna = (d.get('filtro_columna') or '').strip() or None
+    filtro_valores = d.get('filtro_valores')
+    if isinstance(filtro_valores, list):
+        filtro_valores = '|'.join(str(x).strip() for x in filtro_valores if str(x).strip())
+    filtro_valores = (filtro_valores or '').strip() or None
+    if filtro_columna:
+        try:
+            vinculos_filtro.indice_columna(filtro_columna, o_rango)
+        except ValueError as excepcion:
+            return error(str(excepcion), 400)
+        if not filtro_valores:
+            return error('Indica el valor (o valores, separados por |) del filtro', 400)
+    apilar_id = None
+    if d.get('apilar_id'):
+        cab = bd.consultar('SELECT * FROM vinculos_datos WHERE id = %s AND activo '
+                           'AND destino_usuario = %s AND destino_ruta = %s AND apilar_id IS NULL',
+                           (int(d['apilar_id']), usuario, de_ruta))
+        if not cab:
+            return error('El vínculo sobre el que apilar no existe en este archivo', 400)
+        apilar_id = int(d['apilar_id'])
+        de_hoja, de_celda = cab[0]['destino_hoja'], cab[0]['destino_celda']
     fila = bd.ejecutar(
         """INSERT INTO vinculos_datos
            (origen_usuario, origen_ruta, origen_hoja, origen_rango,
-            destino_usuario, destino_ruta, destino_hoja, destino_celda, creado_por)
-           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *""",
+            destino_usuario, destino_ruta, destino_hoja, destino_celda, creado_por,
+            filtro_columna, filtro_valores, apilar_id)
+           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *""",
         (o_usuario, o_ruta, o_hoja, o_rango, usuario, de_ruta, de_hoja, de_celda,
-         usuario))
+         usuario, filtro_columna, filtro_valores, apilar_id))
     ok, msg = _refrescar(dict(fila))
     if not ok:
         return jsonify({'success': True, 'id': fila['id'],
@@ -384,7 +444,8 @@ def listar():
         return error(str(excepcion), excepcion.codigo)
     filas = bd.consultar(
         'SELECT id, origen_ruta, origen_hoja, origen_rango, destino_hoja, '
-        'destino_celda, actualizado_en FROM vinculos_datos WHERE activo AND '
+        'destino_celda, actualizado_en, filtro_columna, filtro_valores, apilar_id '
+        'FROM vinculos_datos WHERE activo AND '
         'destino_usuario = %s AND destino_ruta = %s AND origen_ruta <> destino_ruta '
         'ORDER BY id', (usuario, ruta))
     return jsonify({'success': True, 'vinculos': filas})
@@ -402,10 +463,15 @@ def actualizar():
     filas = bd.consultar(
         'SELECT * FROM vinculos_datos WHERE activo AND destino_usuario = %s AND '
         'destino_ruta = %s', (usuario, ruta))
-    if not filas:
+    # Copias fieles de hoja completa: el botón manual las rehace siempre.
+    import espejos_hoja
+    total_esp = len(espejos_hoja._filas('destino', usuario, ruta))
+    n_esp = espejos_hoja.refrescar_por_destino(usuario, ruta, forzar=True) if total_esp else 0
+    if not filas and not total_esp:
         return jsonify({'success': True, 'actualizados': 0,
                         'mensaje': 'Este archivo no tiene vínculos de datos'})
-    n = sum(1 for v in filas if _refrescar(dict(v))[0])
+    n = sum(1 for v in filas if _refrescar(dict(v))[0]) + n_esp
+    filas = list(filas) + [None] * total_esp
     return jsonify({'success': True, 'actualizados': n, 'total': len(filas),
                     'mensaje': 'Datos actualizados (%s/%s)' % (n, len(filas))})
 
@@ -494,3 +560,12 @@ def eliminar():
     bd.ejecutar('UPDATE vinculos_datos SET activo = FALSE WHERE id = %s AND '
                 'destino_usuario = %s', (vid, usuario))
     return jsonify({'success': True})
+
+
+# «Ver conexiones»: las de este archivo en las dos direcciones. Vive en su
+# propio módulo y se monta sobre bp_vinculos al importarlo (22/09/2026).
+import api_vinculos_mapa  # noqa: E402,F401
+# «Recibir respuestas de un formulario…» (28/09/2026): rutas sobre bp_vinculos.
+import api_formulario_destinos  # noqa: E402,F401
+# Copias «siempre al día» abiertas en el editor (28/09/2026).
+import api_espejos_vivo  # noqa: E402,F401

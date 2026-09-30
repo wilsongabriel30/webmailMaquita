@@ -168,15 +168,31 @@ def crear_compartido(usuario, datos):
         if token is None:
             token = secrets.token_urlsafe(24)
 
-    fila = ejecutar("""
-        INSERT INTO compartidos (propietario_id, ruta, tipo, destinatario, token, permisos,
-                                 expira_en, clave_hash, permite_descarga, email, puede_editar,
-                                 requiere_otp, modo)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        RETURNING id, creado_en
-    """, (usuario, ruta, tipo, destinatario, token, permisos,
-          expira_en, clave_hash, permite_descarga, email, puede_editar,
-          requiere_otp, modo))
+    # Una persona, un acceso: si ya lo tenía, se le cambia; no se le añade
+    # otro (29/09/2026, ver compartir_unico.py).
+    from compartir_unico import acceso_previo
+    _previo = acceso_previo(usuario, ruta, tipo, destinatario, email)
+    if _previo:
+        token = _previo.get('token') or token
+        fila = ejecutar("""
+            UPDATE compartidos
+            SET permisos = %s, puede_editar = %s, modo = %s, permite_descarga = %s,
+                expira_en = %s, clave_hash = %s, requiere_otp = %s, token = %s,
+                destinatario = COALESCE(%s, destinatario), email = COALESCE(%s, email)
+            WHERE id = %s AND propietario_id = %s
+            RETURNING id, creado_en
+        """, (permisos, puede_editar, modo, permite_descarga, expira_en, clave_hash,
+              requiere_otp, token, destinatario, email, _previo['id'], usuario))
+    else:
+        fila = ejecutar("""
+            INSERT INTO compartidos (propietario_id, ruta, tipo, destinatario, token, permisos,
+                                     expira_en, clave_hash, permite_descarga, email, puede_editar,
+                                     requiere_otp, modo)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id, creado_en
+        """, (usuario, ruta, tipo, destinatario, token, permisos,
+              expira_en, clave_hash, permite_descarga, email, puede_editar,
+              requiere_otp, modo))
 
     compartido = {
         'id': fila['id'],

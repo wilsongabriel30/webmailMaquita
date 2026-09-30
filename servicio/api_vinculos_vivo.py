@@ -82,16 +82,28 @@ def vivo():
         return error(str(excepcion), excepcion.codigo)
     desde = (request.args.get('desde') or '').strip()
 
+    # Un libro sin vínculos responde siempre lo mismo: se recuerda un rato para
+    # no gastar una conexión cada cinco segundos por cada libro abierto.
+    import vivo_sin_trabajo as sin_trabajo
+    if sin_trabajo.esta_vacio(usuario, ruta):
+        return jsonify({'success': True, 'vinculos': [], 'ahora': desde})
+
     filas = bd.consultar(
         'SELECT id, origen_usuario, origen_ruta, origen_hoja, origen_rango, '
-        '       destino_hoja, destino_celda, destino_hoja_previa, actualizado_en '
+        '       destino_hoja, destino_celda, destino_hoja_previa, actualizado_en, '
+        '       filtro_columna, filtro_valores, apilar_id '
         '  FROM vinculos_datos WHERE activo AND destino_ruta = %s '
         '   AND (destino_usuario = %s OR destino_ruta LIKE %s) ORDER BY id',
         (ruta, int(usuario), '/unidades/%'))
 
+    if not filas:
+        sin_trabajo.recordar_vacio(usuario, ruta)
+
     from api_vinculos import _leer_rango
     salida, ahora = [], None
     for v in filas:
+        if v.get('apilar_id'):
+            continue            # apilado: lo entrega la cabeza de su pila
         marca = v['actualizado_en'].isoformat() if v['actualizado_en'] else ''
         ahora = max(ahora or '', marca)
         item = {'id': v['id'], 'hoja': v['destino_hoja'],
@@ -119,9 +131,10 @@ def vivo():
                     log.warning('vivo %s: no se pudo leer el bloque (%s)', v['id'], excepcion)
         elif (marca > desde) if desde else True:
             try:
-                item['filas'] = _recortar(_leer_rango(
-                    v['origen_usuario'], v['origen_ruta'],
-                    v['origen_hoja'], v['origen_rango']))
+                # Con filtro o apilado (30/09/2026): la misma matriz que
+                # escribe el refresco en disco.
+                import vinculos_filtro
+                item['filas'] = _recortar(vinculos_filtro.matriz_de(dict(v), _leer_rango)[0])
             except Exception as excepcion:
                 log.warning('vivo %s: no se pudo leer el origen (%s)', v['id'], excepcion)
         salida.append(item)
