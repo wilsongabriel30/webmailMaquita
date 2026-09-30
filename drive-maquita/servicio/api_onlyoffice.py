@@ -632,6 +632,10 @@ def onlyoffice_download():
                      download_name=os.path.basename(fisica))
 
 
+def nombre_lower_es_hoja(ruta):
+    return ruta.rsplit('.', 1)[-1].lower() in ('xlsx', 'xlsm')
+
+
 @bp_onlyoffice.route('/onlyoffice/callback', methods=['POST'])
 def onlyoffice_callback():
     """POST /onlyoffice/callback?t=<token> — el Document Server avisa el estado
@@ -702,6 +706,15 @@ def onlyoffice_callback():
             log.error('OnlyOffice: descarga del editado devolvió %s', respuesta.status_code)
             return jsonify({'error': 1})
         contenido = respuesta.content
+        # El servidor de documentos 9.4 pierde el formato condicional al guardar:
+        # se le devuelven las reglas de la versión anterior (30/09/2026).
+        try:
+            import formato_condicional
+            _previo = ruta_fisica(usuario, ruta)
+            if os.path.isfile(_previo) and nombre_lower_es_hoja(ruta):
+                contenido = formato_condicional.conservar(_previo, contenido)
+        except Exception as _exc_cf:
+            log.warning('formato condicional no repuesto en %s: %s', ruta, _exc_cf)
 
         carpeta = ruta.rsplit('/', 1)[0] or '/'
         nombre = ruta.rsplit('/', 1)[-1]
