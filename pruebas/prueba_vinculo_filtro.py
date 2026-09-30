@@ -104,7 +104,7 @@ finally:
     for i in ids:
         bd.ejecutar('DELETE FROM vinculos_datos WHERE id = %s', (i,))
     try:
-        nucleo.eliminar(USUARIO, DESTINO)
+        nucleo.enviar_a_papelera(USUARIO, DESTINO)
     except Exception as e:
         try:
             os.unlink(ruta_fisica(USUARIO, DESTINO))
