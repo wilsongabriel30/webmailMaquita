@@ -27,7 +27,11 @@ def _obtener_pool():
     """Pool perezoso hacia la BD del almacén."""
     global _pool
     if _pool is None:
-        _pool = SimpleConnectionPool(minconn=1, maxconn=8, **BD)
+        # 16 y no 8: cada libro abierto en el editor pregunta dos veces cada
+        # cinco segundos, y con diez abiertos el pool se quedaba sin conexiones
+        # —el listado del Drive devolvía 500 y «Mover a» salía sin carpetas—
+        # (22/09/2026). Ver también `vivo_sin_trabajo.py`.
+        _pool = SimpleConnectionPool(minconn=1, maxconn=16, **BD)
     return _pool
 
 
