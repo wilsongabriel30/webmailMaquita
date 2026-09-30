@@ -375,6 +375,11 @@ def _valor_limpio(pregunta, bruto):
             return None, 'Valor fuera de rango en «%s»' % modelo.plano(pregunta['titulo'])
         return numero, None
 
+    if tipo == 'colaborador':
+        # Del navegador solo se cree el id: los datos se leen de nómina ahora.
+        import encuestas_colaboradores
+        return encuestas_colaboradores.valor_limpio(pregunta, bruto)
+
     if tipo == 'archivo':
         # Llega la lista de fichas que devolvió la subida, no los archivos. Cada
         # id tiene que ser un pendiente DE ESTE formulario: sin esta
@@ -540,6 +545,12 @@ def enviar_respuesta(token):
     if problema:
         return problema
 
+    # Pregunta «Colaborador»: una sola respuesta por persona elegida.
+    import encuestas_colaboradores
+    repetido = encuestas_colaboradores.repetido(definicion, limpias)
+    if repetido:
+        return _fallo(repetido, 409)
+
     # Si se puede modificar la respuesta, hace falta una llave para volver a
     # ella. Se genera solo en ese caso: sin la opción no hay nada que abrir.
     token_edicion = secrets.token_urlsafe(24) if ajustes['permitir_editar'] else None
@@ -595,12 +606,20 @@ def enviar_respuesta(token):
     if calificacion:
         # Lo que se enseña se arma a medida: si el cuestionario no comparte las
         # respuestas correctas, esas respuestas ni siquiera salen del servidor.
-        vista = calificar.para_quien_responde(definicion, calificacion, ajustes)
+        # Con la calificación «más tarde» no se enseña nada al entregar.
+        vista = (None if ajustes['publicar_nota'] == ajustes_mod.NOTA_MANUAL
+                 else calificar.para_quien_responde(definicion, calificacion,
+                                                    ajustes, limpias))
         if vista:
             respuesta['calificacion'] = vista
         elif ajustes['publicar_nota'] == ajustes_mod.NOTA_MANUAL:
             respuesta['nota_pendiente'] = ('Tu cuestionario se revisará y la '
                                            'calificación se publicará después.')
+
+    # Retroalimentación general del cuestionario, junto al resultado.
+    retroalimentacion = ajustes_mod.retroalimentacion_para(ajustes)
+    if retroalimentacion:
+        respuesta['retroalimentacion'] = retroalimentacion
 
     return jsonify(respuesta)
 
@@ -669,6 +688,13 @@ def editar_respuesta(token, edicion):
     limpias, problema = _respuestas_limpias(definicion, enviado)
     if problema:
         return problema
+
+    # Al modificar se puede cambiar de colaborador, pero no a uno que ya tenga
+    # su respuesta (la propia no cuenta).
+    import encuestas_colaboradores
+    repetido = encuestas_colaboradores.repetido(definicion, limpias, respuesta['id'])
+    if repetido:
+        return _fallo(repetido, 409)
 
     # También al modificar: si se adjuntó algo nuevo, va al Drive igual que en
     # el primer envío.
@@ -839,7 +865,9 @@ def imagen_publica(token, imagen_id):
     No se comprueba `abierta`: un formulario cerrado sigue enseñando su página
     (con el aviso de que ya no recibe respuestas) y debe verse entero.
     """
-    fila = ebd.obtener_por_token(token or '')
+    # Las DOS llaves, como el resto de la página: con el enlace corto
+    # (`/f/<código>`) las imágenes daban 404 y la cabecera salía rota (28/09/2026).
+    fila = ebd.obtener_por_token(token or '') or ebd.obtener_por_codigo(token or '')
     if not fila:
         return _fallo('No encontrada', 404)
 
@@ -950,3 +978,8 @@ def _pagina_de_aviso(motivo, codigo):
     respuesta.status_code = codigo
     respuesta.headers['X-Robots-Tag'] = 'noindex, nofollow'
     return respuesta
+
+
+# El buscador de la pregunta «Colaborador» cuelga sus rutas de este blueprint y
+# del de los formularios (28/09/2026). Va al final: necesita lo de arriba.
+import api_encuestas_colaboradores  # noqa: E402,F401

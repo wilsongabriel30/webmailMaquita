@@ -22,6 +22,7 @@ from flask import jsonify, request
 
 import api_encuestas_publico as publico
 import encuestas_ajustes as ajustes_mod
+import encuestas_calificar as calificar
 import encuestas_correo as correo_mod
 from api_archivos import error
 from api_encuestas import (_abrir, _limpiar_definicion, _pagina,
@@ -87,5 +88,14 @@ def validar_previa():
     limpias, problema = publico._respuestas_limpias(definicion, enviado)
     if problema:
         return problema
+    # Se califica como en el envío real, sin guardar nada, para que quien arma
+    # el formulario vea el resultado y la retroalimentación de esas respuestas.
+    vista = None
+    if ajustes['cuestionario'] and ajustes['publicar_nota'] != ajustes_mod.NOTA_MANUAL:
+        vista = calificar.para_quien_responde(
+            definicion, calificar.calificar(definicion, limpias), ajustes, limpias)
     return jsonify({'success': True, 'previa': True,
-                    'respondidas': len(limpias)})
+                    'respondidas': len(limpias),
+                    'calificacion': vista,
+                    # Para que quien arma el formulario vea lo que se mostrará.
+                    'retroalimentacion': ajustes_mod.retroalimentacion_para(ajustes)})

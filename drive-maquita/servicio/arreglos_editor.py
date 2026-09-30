@@ -23,7 +23,7 @@ import logging
 
 log = logging.getLogger('almacen.arreglos_editor')
 
-VERSION = '20260911-vivo5'
+VERSION = '20260930-dominios1'
 
 # Arreglos que van SIEMPRE.
 #   editor-ventanas  → la base: alcanza la ventana del editor y avisa al resto.
@@ -98,6 +98,8 @@ ARREGLOS = (
     '<script src="/static/js/almacen/editor-proteger-panel.js?v={v}"></script>\n'
     '<script src="/static/js/almacen/editor-hoja-protegida-candado.js?v={v}"></script>\n'
     '<script src="/static/js/almacen/editor-listas-desplegables.js?v={v}"></script>\n'
+    '<!-- El mismo panel de listas desde el botón de la pestaña Extensiones (23/09/2026). -->\n'
+    '<script src="/static/js/almacen/editor-lista-extensiones.js?v={v}"></script>\n'
     '<!-- Inmovilizar filas y columnas desde el clic derecho, como en Google (10/09/2026). -->\n'
     '<script src="/static/js/almacen/editor-inmovilizar.js?v={v}"></script>\n'
     '<script src="/static/js/almacen/editor-inmovilizar-menu.js?v={v}"></script>\n'
@@ -124,12 +126,27 @@ ARREGLOS = (
     '<script src="/static/js/almacen/editor-formulario-complemento.js?v={v}"></script>\n'
     '<!-- Respuestas en vivo: alimenta al complemento residente que escribe en el libro abierto (11/09/2026). -->\n'
     '<script src="/static/js/almacen/editor-respuestas-vivo.js?v={v}"></script>\n'
+    '<script src="/static/js/almacen/editor-respuestas-filas-vivo.js?v={v}"></script>\n'
     '<!-- Latido sobre las matrices ASC: guardado forzado para que el consolidado abierto de otro se actualice en segundos (11/09/2026). -->\n'
     '<script src="/static/js/almacen/editor-consolidado-latido.js?v={v}"></script>\n'
+    '<!-- Copia «siempre al día» abierta: se recarga sola cuando su original cambia (28/09/2026). -->\n'
+    '<script src="/static/js/almacen/editor-espejo-recarga.js?v={v}"></script>\n'
     '<!-- QUERY de Google, para los libros migrados desde Google Sheets (07/09/2026). -->\n'
     '<script src="/static/js/almacen/editor-funcion-query.js?v={v}"></script>\n'
     '<script src="/static/js/almacen/editor-funciones-motor.js?v={v}"></script>\n'
     '<script src="/static/js/almacen/editor-query-derrame.js?v={v}"></script>\n'
+    '<!-- El editor conectado con el Drive: menciones, enlace a un rango, guardar copia,\n'
+    '     imagen del Drive, vínculos externos, compartir, renombrar, nuevo/plantillas/recientes (23/09/2026). -->\n'
+    '<!-- Gráficos: combinado por serie, descargar (PNG/PDF/Drive) y mapa de provincias del Ecuador (23/09/2026). -->\n'
+    '<script src="/static/js/almacen/editor-descargas.js?v={v}"></script>\n'
+    '<script src="/static/js/almacen/editor-grafico-sec-combinado.js?v={v}"></script>\n'
+    '<script src="/static/js/almacen/editor-grafico-descargar.js?v={v}"></script>\n'
+    '<script src="/static/js/almacen/editor-mapa-ecuador-datos.js?v={v}"></script>\n'
+    '<script src="/static/js/almacen/editor-mapa-dibujar.js?v={v}"></script>\n'
+    '<script src="/static/js/almacen/editor-mapa-hoja.js?v={v}"></script>\n'
+    '<script src="/static/js/almacen/editor-mapa-panel.js?v={v}"></script>\n'
+    '<script src="/static/js/almacen/editor-drive-dialogos.js?v={v}"></script>\n'
+    '<script src="/static/js/almacen/editor-drive.js?v={v}"></script>\n'
 ).format(v=VERSION)
 
 # La tarjeta al pulsar un enlace. Se enciende y se apaga aparte (decisión de
@@ -138,7 +155,7 @@ TARJETA_DE_ENLACES = True
 TARJETA = (
     '<!-- Al pulsar un enlace sale una tarjeta con la informacion, en vez de\n'
     '     saltar al enlace de inmediato (31/08/2026). -->\n'
-    '<script src="/static/js/almacen/editor-enlaces.js?v=20260901-enl9"></script>\n'
+    '<script src="/static/js/almacen/editor-enlaces.js?v=20260930-dominios1"></script>\n'
 )
 
 # Marca por la que se reconoce que una página YA los lleva.
@@ -148,8 +165,20 @@ _MARCA = 'editor-ventanas.js'
 _ABRE_EL_EDITOR = 'DocsAPI'
 
 
+def _dominios_drive() -> str:
+    """Los dominios que cuentan como enlace de casa, para editor-enlaces.js:
+    salen de la configuración, no del código (30/09/2026)."""
+    import json
+    try:
+        from config_almacen import DOMINIOS_ENLACES
+        dominios = list(DOMINIOS_ENLACES)
+    except Exception:
+        dominios = []
+    return '<script>window.MAQUITA_DOMINIOS_DRIVE = %s;</script>\n' % json.dumps(dominios)
+
+
 def anadidos() -> str:
-    return ARREGLOS + (TARJETA if TARJETA_DE_ENLACES else '')
+    return _dominios_drive() + ARREGLOS + (TARJETA if TARJETA_DE_ENLACES else '')
 
 
 def poner_en(html: str) -> str:

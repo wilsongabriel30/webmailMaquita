@@ -66,7 +66,12 @@ POR_DEFECTO = {
     'ver_falladas': True,
     'ver_correctas': True,
     'ver_puntuacion': True,
+    # Retroalimentación general del cuestionario (28/09/2026): un texto que ve
+    # quien responde junto a su resultado. Texto plano, con saltos de línea.
+    'retroalimentacion': '',
 }
+
+LARGO_RETROALIMENTACION = 2000
 
 # Preferencias del usuario: se aplican a los formularios que cree a partir de
 # ahora, no a los que ya existen.
@@ -150,7 +155,30 @@ def limpiar(bruto):
         if clave in bruto:
             limpio[clave] = bool(bruto[clave])
 
+    limpio['retroalimentacion'] = _texto_largo(bruto.get('retroalimentacion'),
+                                               LARGO_RETROALIMENTACION)
     return limpio
+
+
+def _texto_largo(bruto, largo):
+    """Texto plano de varias líneas: sin caracteres de control (salvo el salto
+    de línea), sin líneas en blanco de más y acotado."""
+    texto = str(bruto or '').replace('\r\n', '\n').replace('\r', '\n')
+    texto = ''.join(c for c in texto if c == '\n' or c == '\t' or ord(c) >= 32)
+    texto = re.sub(r'\n{3,}', '\n\n', texto).strip()
+    return texto[:largo]
+
+
+def retroalimentacion_para(ajustes):
+    """La retroalimentación que se enseña al entregar, o ''. Solo en modo
+    cuestionario y cuando la calificación se publica al momento: con «más
+    tarde» no se muestra nada al entregar, y esto tampoco."""
+    if not ajustes.get('cuestionario'):
+        return ''
+    if ajustes.get('publicar_nota') == NOTA_MANUAL:
+        return ''
+    return ajustes.get('retroalimentacion') or ''
+
 
 
 def limpiar_preferencias(bruto):
@@ -164,7 +192,7 @@ def limpiar_preferencias(bruto):
 
 
 def coherentes(ajustes, solo_internos, una_por_persona, abriendo=False,
-               quitando_correo=False):
+               quitando_correo=False, por_colaborador=False):
     """Aplica las dependencias reales entre opciones.
 
     Devuelve (ajustes, solo_internos, una_por_persona) ya cuadrados, y la lista
@@ -230,7 +258,11 @@ def coherentes(ajustes, solo_internos, una_por_persona, abriendo=False,
     #    Antes solo valía la primera, así que el límite obligaba a que quien
     #    respondiera fuera de la casa; con el correo vale también para gente de
     #    fuera, que es a quien se le reparte el enlace o el QR (27/08/2026).
-    if una_por_persona and not solo_internos and \
+    #    Y una tercera (28/09/2026): la pregunta «Colaborador» con una sola
+    #    respuesta por colaborador. Quien responde queda identificado por la
+    #    persona que elige, así que no hace falta pedirle ni correo ni sesión
+    #    (`por_colaborador`).
+    if una_por_persona and not solo_internos and not por_colaborador and \
             ajustes['recopilar_correo'] == CORREO_NO:
         if quitando_correo:
             una_por_persona = False

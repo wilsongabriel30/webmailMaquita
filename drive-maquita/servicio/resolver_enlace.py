@@ -84,6 +84,35 @@ def _de_quien_es(ruta: str):
     return dueno, nombre
 
 
+def _con_dueno(usuario_id: int, limpia: str):
+    """La dirección ya dice de quién es: `/compartido/<dueño>/<ruta>`. Es la
+    que se copia desde «Copiar enlace» (29/09/2026), porque no depende de en
+    qué espacio la abra cada uno."""
+    from permisos_compartidos import compartido_de_ruta, permiso_compartido
+    dueno, subruta = compartido_de_ruta(limpia)
+    if dueno is None or subruta == '/':
+        return None
+    if dueno == int(usuario_id):
+        return {'ir_a': subruta}         # es suya: a su carpeta de siempre
+    if permiso_compartido(usuario_id, limpia):
+        return None                      # se la compartieron: entra
+    if not existe_para(dueno, subruta):
+        return None                      # de verdad no existe
+    nombre = ''
+    try:
+        from vista_compartidos import _nombres_de
+        ficha = _nombres_de({dueno}).get(dueno) or {}
+        nombre = ficha.get('nombre') or ficha.get('email') or ''
+    except Exception:
+        pass
+    return {'pedir_acceso': {
+        'propietario_id': dueno,
+        'propietario': nombre or 'otra persona',
+        'ruta': subruta,
+        'nombre': os.path.basename(subruta) or subruta,
+    }}
+
+
 def resolver(usuario_id: int, ruta: str):
     """Qué hacer con una ruta que se pide.
 
@@ -104,7 +133,7 @@ def resolver(usuario_id: int, ruta: str):
     if unidad is not None:
         return None                      # las unidades tienen su propio camino
     if limpia.startswith('/compartido/'):
-        return None                      # ya viene por el camino bueno
+        return _con_dueno(usuario_id, limpia)
     if existe_para(usuario_id, limpia):
         return None                      # todo normal
 

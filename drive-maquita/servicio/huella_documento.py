@@ -74,6 +74,16 @@ def comprobar(doc_base: str, fisica: str) -> bool:
         if anotada is None:
             registrar(doc_base, fisica)
             return False
+        # Con gente dentro NO se renueva: partiría el documento en dos salas
+        # que se pisan al guardar (17/09/2026, ver sala_editor.py). Quien abre
+        # entra en la sala de los demás; la huella se revisa en la siguiente
+        # apertura, cuando la sala ya esté vacía.
+        import sala_editor
+        dentro = sala_editor.usuarios_conectados(doc_base)
+        if dentro:
+            log.info('OnlyOffice: archivo cambiado por fuera pero la sala tiene '
+                     'gente (%s), no se renueva (%s)', dentro, doc_base)
+            return False
         ejecutar("""
             UPDATE onlyoffice_sesion
             SET version = version + 1, huella = %s, actualizado = NOW()
