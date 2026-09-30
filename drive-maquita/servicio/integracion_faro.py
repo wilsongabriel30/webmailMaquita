@@ -811,6 +811,11 @@ def descargar_compartido(token, ruta):
         abort(410)
     if not _clave_ok(token, comp):
         return _pedir_clave(token)
+    # El código al correo se pide también aquí: la vista lo exigía, pero la
+    # dirección directa del archivo lo entregaba sin él (29/09/2026).
+    from api_acceso_externo import otp_ok as _otp_archivo
+    if not _otp_archivo(token, comp):
+        return _pagina_otp(token)
 
     base, destino = _fisica_dentro(comp, ruta)
     if not destino or not os.path.isfile(destino):
@@ -884,6 +889,10 @@ def descargar_todo_compartido(token):
         abort(410)
     if not _clave_ok(token, comp):
         return _pedir_clave(token)
+    # Igual que en la vista: sin el código al correo no sale el ZIP.
+    from api_acceso_externo import otp_ok as _otp_zip
+    if not _otp_zip(token, comp):
+        return _pagina_otp(token)
     if not comp['permite_descarga']:
         abort(403)
 
@@ -978,6 +987,8 @@ def registrar_almacen(app):
         # Buzón de diagnóstico del editor (temporal, 02/09/2026).
         from api_diagnostico_editor import bp_diag_editor
         from arreglos_editor import registrar as registrar_arreglos_editor
+        # Carpetas cuya dirección interna se envió como si fuera el enlace público.
+        from ruta_publicada import registrar as registrar_ruta_publicada
         from encuestas_bd import asegurar_esquema_encuestas
 
         # Los esquemas se aseguran BEST-EFFORT: si la base de datos esta lenta o
@@ -1077,6 +1088,13 @@ def registrar_almacen(app):
                              '/api/almacen/dav/revocar',
                              '/api/almacen/dav/log-cliente',
                              '/api/almacen/dav/uso')
+
+        # Va ANTES del candado: quien llega sin sesión a una carpeta anotada como
+        # pública tiene que abrirla sin pasar por el login (29/09/2026).
+        try:
+            registrar_ruta_publicada(app)
+        except Exception as _exc_publicada:
+            log.warning("Rutas internas publicadas no activas: %s", _exc_publicada)
 
         @app.before_request
         def _candado_almacen():

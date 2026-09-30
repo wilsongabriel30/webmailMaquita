@@ -249,6 +249,15 @@ def procesar(definicion, indice, equivalencias, forzar=False, prueba=False):
             bloques_escritos.append((bloque['destino'], len(apilado),
                                      len(apilado[0]) if apilado else 0))
 
+    # Hojas por rubro (lo que en Google hacía QUERY sobre el consolidado):
+    # se rehacen sobre el mismo libro, con los bloques ya pegados (30/09/2026).
+    rubros_escritos = []
+    if not prueba and libro_salida is not None:
+        try:
+            import hojas_por_rubro
+            rubros_escritos = hojas_por_rubro.regenerar(libro_salida, definicion['archivo'])
+        except Exception as excepcion:
+            log.warning('  hojas por rubro: no se rehicieron (%s)', excepcion)
     lector.cerrar()
     for linea in resumen:
         log.info(linea)
@@ -294,6 +303,12 @@ def procesar(definicion, indice, equivalencias, forzar=False, prueba=False):
     # Si alguien tiene el consolidado abierto, que le llegue ahora (en vivo).
     vivo.registrar_bloques(USUARIO, BASE_VIRTUAL + '/' + definicion['archivo'],
                            definicion['hoja'], bloques_escritos)
+    # Y cada hoja por rubro, para quien la tenga abierta (la caché del editor
+    # ya se invalidó arriba).
+    for hoja_rubro, celda_rubro, alto_rubro, ancho_rubro in rubros_escritos:
+        vivo.registrar_bloques(USUARIO, BASE_VIRTUAL + '/' + definicion['archivo'],
+                               hoja_rubro, [(celda_rubro, alto_rubro, ancho_rubro)],
+                               invalidar=False)
     return True
 
 

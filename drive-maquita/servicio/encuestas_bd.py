@@ -135,7 +135,13 @@ def registrar(encuesta_id: str, propietario: int, ruta: str, titulo: str):
     if actual and (actual['ruta'] != ruta
                    or (not en_unidad
                        and int(actual['propietario']) != int(propietario))):
-        return None
+        # ¿Movido y no copiado? Si en la ruta registrada ya no hay nada, este
+        # archivo ES el formulario (28/09/2026): se le sigue, en vez de darle
+        # un id nuevo que lo separaría de sus respuestas y de su enlace.
+        if not _se_movio(actual, ruta, propietario):
+            return None
+        mover(encuesta_id, ruta)
+        actual = obtener(encuesta_id)
     if actual:
         bd.ejecutar(
             'UPDATE encuestas SET titulo = %s, actualizada_en = NOW() '
@@ -146,6 +152,23 @@ def registrar(encuesta_id: str, propietario: int, ruta: str, titulo: str):
         'VALUES (%s, %s, %s, %s)',
         (encuesta_id, int(propietario), ruta, titulo[:300]))
     return obtener(encuesta_id)
+
+
+def _se_movio(actual, ruta, propietario):
+    """El `.forma` registrado ya no existe donde estaba y el que aparece está en
+    el mismo espacio (misma unidad compartida o mismo dueño)."""
+    try:
+        import os
+        from seguridad_rutas import ruta_fisica, unidad_de_ruta
+        if os.path.exists(ruta_fisica(int(actual['propietario']), actual['ruta'])):
+            return False                       # el original sigue: esto es una copia
+        if ruta.startswith('/unidades/') or actual['ruta'].startswith('/unidades/'):
+            return unidad_de_ruta(ruta)[0] == unidad_de_ruta(actual['ruta'])[0]
+        return int(actual['propietario']) == int(propietario)
+    except Exception as excepcion:
+        log.warning('formulario %s: no se pudo comprobar si se movió (%s)',
+                    actual.get('id'), excepcion)
+        return False
 
 
 def mover(encuesta_id: str, ruta_nueva: str):

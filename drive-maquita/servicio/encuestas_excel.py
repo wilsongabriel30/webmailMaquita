@@ -100,13 +100,19 @@ def nombre_de_hoja(titulo):
     return limpio or 'Respuestas'
 
 
-def escribir(libro, cabeceras, filas_datos, titulo_formulario, color_tema=None):
-    """La hoja de respuestas como tabla. `filas_datos` son listas ya ordenadas."""
+def escribir(libro, cabeceras, filas_datos, titulo_formulario, color_tema=None,
+             hoja=None, nombre_tabla='Respuestas'):
+    """La hoja de respuestas como tabla. `filas_datos` son listas ya ordenadas.
+
+    `hoja` y `nombre_tabla` sirven para escribir en una pestaña ya creada de un
+    libro con varias (reparto por provincia, 17/09/2026): el nombre de una
+    Tabla de Excel no puede repetirse dentro del mismo libro."""
     from openpyxl.styles import Alignment, Border, Side
     from openpyxl.utils import get_column_letter
 
-    hoja = libro.active
-    hoja.title = nombre_de_hoja(titulo_formulario)
+    if hoja is None:
+        hoja = libro.active
+        hoja.title = nombre_de_hoja(titulo_formulario)
     color = (color_tema or '').lstrip('#').upper() or MORADO
     if not re.fullmatch(r'[0-9A-F]{6}', color):
         color = MORADO
@@ -141,7 +147,8 @@ def escribir(libro, cabeceras, filas_datos, titulo_formulario, color_tema=None):
                 celda.number_format = 'DD/MM/YYYY HH:MM'
 
     try:
-        _tabla(hoja, fila_encabezado, total_columnas, len(filas_datos))
+        _tabla(hoja, fila_encabezado, total_columnas, len(filas_datos),
+               nombre_tabla)
     except Exception as excepcion:      # el archivo sale igual, sin la tabla
         log.warning('excel: no se pudo dar formato de tabla (%s)', excepcion)
         hoja.auto_filter.ref = '%s%d:%s%d' % (
@@ -195,7 +202,7 @@ def _poner_logo(hoja):
         return False
 
 
-def _tabla(hoja, fila_encabezado, columnas, cuantas_filas):
+def _tabla(hoja, fila_encabezado, columnas, cuantas_filas, nombre='Respuestas'):
     """Convierte el rango en una Tabla de Excel (filtros + filas alternas)."""
     from openpyxl.utils import get_column_letter
     from openpyxl.worksheet.table import Table, TableStyleInfo
@@ -207,7 +214,7 @@ def _tabla(hoja, fila_encabezado, columnas, cuantas_filas):
     ultima = fila_encabezado + max(cuantas_filas, 1)
     referencia = 'A%d:%s%d' % (fila_encabezado,
                                get_column_letter(columnas), ultima)
-    tabla = Table(displayName='Respuestas', ref=referencia)
+    tabla = Table(displayName=nombre, ref=referencia)
     tabla.tableStyleInfo = TableStyleInfo(
         name='TableStyleMedium9', showRowStripes=True, showColumnStripes=False,
         showFirstColumn=False, showLastColumn=False)

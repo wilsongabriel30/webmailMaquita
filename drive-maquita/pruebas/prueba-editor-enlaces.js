@@ -58,6 +58,8 @@ ventanaEditor.parent = global;
 // ── La página ────────────────────────────────────────────────────────────
 let puesta = null;
 global.window = global;
+// Los dominios de casa los pone el servidor (30/09/2026): aquí, los de ejemplo.
+global.MAQUITA_DOMINIOS_DRIVE = ['nube.example.org', 'intranet.example.org'];
 global.innerWidth = 1365; global.innerHeight = 720;
 global.document = {
     body: {

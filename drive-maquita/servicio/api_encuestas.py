@@ -42,17 +42,19 @@ import uuid
 from flask import Blueprint, jsonify, request, send_file
 
 import encuestas_bd as ebd
+import encuestas_papelera_resp as papelera_resp
 import encuestas_imagenes as imagenes
 import encuestas_ajustes as ajustes_mod
 import encuestas_archivos as archivos_mod
 import encuestas_calificar as calificar
+import encuestas_colaboradores
 import encuestas_correo as correo_mod
 import encuestas_qr as qr
 import encuestas_excel as excel
 import encuestas_hoja as hoja_mod
 import encuestas_modelo as modelo
 import nucleo_archivos as nucleo
-from api_archivos import _permiso_unidad, error, usuario_actual
+from api_archivos import _efectivo, _permiso_unidad, error, usuario_actual
 from registro import registrar_actividad
 from seguridad_rutas import RutaInvalida, normalizar_ruta_virtual, ruta_fisica
 
@@ -149,11 +151,22 @@ def _abrir(escritura=False):
         ruta = _ruta_pedida()
     except RutaInvalida as excepcion:
         return None, error(str(excepcion), excepcion.codigo)
-    if not _permiso_unidad(usuario, ruta.rsplit('/', 1)[0] or '/',
+    # En «Compartido conmigo» el permiso se mira sobre el ARCHIVO: lo habitual
+    # es que se comparta el formulario suelto, no su carpeta (28/09/2026).
+    compartido = ruta.startswith('/compartido/')
+    if not _permiso_unidad(usuario,
+                           ruta if compartido else (ruta.rsplit('/', 1)[0] or '/'),
                            escritura=escritura):
         return None, error(
             'No tienes permiso sobre este formulario. Pide acceso a quien '
+            'te lo compartió.' if compartido else
+            'No tienes permiso sobre este formulario. Pide acceso a quien '
             'administra la unidad.', 403)
+    if compartido:
+        # Se trabaja en el espacio del DUEÑO: el formulario es uno solo, con su
+        # registro, su enlace y sus respuestas. Sin esto, abrirlo desde otra
+        # cuenta lo trataba como una copia y le cambiaba el identificador.
+        usuario, ruta = _efectivo(usuario, ruta)
     definicion = leer_definicion(usuario, ruta)
     if definicion is None:
         return None, error('Formulario no encontrado', 404)
@@ -336,7 +349,8 @@ def ajustes():
 
     nuevos, solo_internos, una_por_persona, forzados = ajustes_mod.coherentes(
         nuevos, solo_internos, una_por_persona, abriendo=abriendo,
-        quitando_correo=quitando_correo)
+        quitando_correo=quitando_correo,
+        por_colaborador=encuestas_colaboradores.limita(definicion))
 
     ebd.ajustar(definicion['id'],
                 abierta=cuerpo.get('abierta'),
@@ -365,13 +379,16 @@ def ajustes():
                     'forzados': forzados})
 
 
-def quien_respondio(fila, nombres, ajustes):
+def quien_respondio(fila, nombres, ajustes, definicion=None):
     """Cómo se llama a quien envió una respuesta, en la lista y en la ficha.
 
-    Tres casos, y cada uno dice la verdad de lo que se sabe (27/08/2026):
+    Cada caso dice la verdad de lo que se sabe (27/08/2026):
 
       anónima          → «Anónimo». No es que falte el dato: es que se prometió
                          no guardarlo, y el nombre no puede sugerir otra cosa.
+      con «Colaborador» → la persona de nómina elegida en la respuesta: en un
+                         formulario con esa pregunta, es ella quien responde
+                         (28/09/2026). Hace falta pasar `definicion`.
       con sesión FARO  → su nombre, que es lo que quien lee el formulario
                          reconoce.
       sin sesión       → el correo con el que respondió.
@@ -381,6 +398,11 @@ def quien_respondio(fila, nombres, ajustes):
     """
     if ajustes.get('anonimo'):
         return 'Anónimo'
+    if definicion:
+        import encuestas_colaboradores
+        elegido = encuestas_colaboradores.quien_responde(definicion, fila.get('datos'))
+        if elegido:
+            return elegido
     nombre = nombres.get(fila.get('usuario_id'))
     if nombre:
         return nombre
@@ -402,7 +424,7 @@ def respuestas():
     ajustes_vivos = ajustes_mod.limpiar((fila or {}).get('ajustes'))
     lista = [{
         'id': f['id'],
-        'quien': quien_respondio(f, nombres, ajustes_vivos),
+        'quien': quien_respondio(f, nombres, ajustes_vivos, definicion),
         # Anónima: el correo tampoco se enseña (una respuesta anterior al
         # cambio podría tenerlo guardado; ver el borrado en `ajustes`).
         'correo': '' if ajustes_vivos.get('anonimo') else (f.get('correo') or ''),
@@ -546,12 +568,19 @@ def borrar_respuestas():
             respuesta_id = int(cuerpo['id'])
         except (TypeError, ValueError):
             return error('Identificador de respuesta no válido', 400)
-        if not ebd.borrar_respuesta(definicion['id'], respuesta_id):
+        lote, cuantas = papelera_resp.mover_a_papelera(
+            definicion['id'], usuario, respuesta_id)
+        if not cuantas:
             return error('Esa respuesta ya no existe', 404)
-        return jsonify({'success': True, 'borradas': 1})
+        return jsonify({'success': True, 'borradas': 1, 'lote': lote})
 
-    ebd.borrar_respuestas(definicion['id'])
-    return jsonify({'success': True})
+    # Antes era un DELETE sin copia (21/09/2026 se perdieron así las de
+    # «prueba IFO»). Ahora todo pasa por la papelera y se puede deshacer.
+    lote, cuantas = papelera_resp.mover_a_papelera(definicion['id'], usuario)
+    log.info('Formulario %s: %s respuestas a la papelera (lote %s) por %s',
+             ruta, cuantas, lote, usuario)
+    return jsonify({'success': True, 'borradas': cuantas, 'lote': lote,
+                    'dias': papelera_resp.DIAS_RETENCION})
 
 
 @bp_encuestas.route('/encuestas/preferencias', methods=['GET', 'POST'])
@@ -650,11 +679,6 @@ def exportar():
     definicion = _limpiar_definicion(definicion)
     fila_bd = _sincronizar_bd(usuario, ruta, definicion)
 
-    memoria = hoja_mod.construir(fila_bd, definicion)
-    if memoria is None:
-        return error('La exportación a Excel no está disponible en el servidor '
-                     '(falta openpyxl).', 501)
-
     carpeta = ruta.rsplit('/', 1)[0] or '/'
     nombre = _titulo_desde_ruta(ruta)[:80] + ' (respuestas).xlsx'
     # Formulario creado desde un libro (10/09/2026): su archivo de respuestas
@@ -663,14 +687,56 @@ def exportar():
     # copia suelta a la vista que rompería el vínculo.
     from archivos_internos import en_carpeta_interna
     hoja_previa = hoja_mod.ruta_de(fila_bd)
-    if hoja_previa and en_carpeta_interna(hoja_previa):
+    # También si la hoja vinculada tiene otro nombre o carpeta (la persona la
+    # renombró o se vinculó otra a mano) y sigue existiendo: «Exportar» no debe
+    # crear un archivo aparte ni cambiar el vínculo (17/09/2026).
+    try:
+        previa_existe = bool(hoja_previa) and os.path.isfile(
+            nucleo.ruta_fisica(usuario, hoja_previa))
+    except Exception:
+        previa_existe = False
+    if hoja_previa and (en_carpeta_interna(hoja_previa) or previa_existe):
         carpeta = hoja_previa.rsplit('/', 1)[0] or '/'
         nombre = hoja_previa.rsplit('/', 1)[-1]
+    # Con el Excel abierto en el editor NO se escribe: el archivo cambiado por
+    # fuera partía la sala en dos y el siguiente guardado del editor borraba la
+    # exportación (17/09/2026, ver sala_editor.py).
     try:
-        nucleo.subir(usuario, carpeta, nombre, memoria)
+        import sala_editor
+        from api_onlyoffice import _base_documento
+        destino_previsto = ('' if carpeta == '/' else carpeta) + '/' + nombre
+        dentro = sala_editor.usuarios_conectados(_base_documento(usuario, destino_previsto))
+        if dentro is None or dentro:
+            return error('El Excel de respuestas está abierto en el editor. '
+                         'Ciérrenlo todos y vuelvan a pulsar «Exportar». '
+                         'Mientras tanto, cada respuesta nueva se añade sola '
+                         'al cerrarse.', 409)
     except Exception as excepcion:
-        log.error('exportar %s: %s', ruta, excepcion)
-        return error('No se pudo guardar el archivo de respuestas', 500)
+        log.warning('exportar %s: no se pudo consultar el editor (%s)', ruta, excepcion)
+    # Si el archivo ya existe NO se rehace: solo se añaden las respuestas
+    # nuevas y se respetan fórmulas, columnas y pestañas (17/09/2026).
+    import encuestas_hoja_libro as libro_mod
+    # Pulsar «Exportar» es pedir la hoja completa: vuelven las columnas de
+    # preguntas vigentes que se borraron en el Excel (29/09/2026).
+    libro_mod.restaurar_columnas(definicion['id'])
+    destino_previsto = ('' if carpeta == '/' else carpeta) + '/' + nombre
+    ya_existia = os.path.isfile(nucleo.ruta_fisica(usuario, destino_previsto))
+    memoria = libro_mod.construir_conservando(fila_bd, definicion, usuario,
+                                              destino_previsto)
+    if memoria is None and not ya_existia:
+        return error('No se pudo generar el Excel de respuestas.', 500)
+    if memoria is not None:
+        try:
+            nucleo.subir(usuario, carpeta, nombre, memoria)
+        except Exception as excepcion:
+            log.error('exportar %s: %s', ruta, excepcion)
+            return error('No se pudo guardar el archivo de respuestas', 500)
+        if ya_existia:
+            # Fórmulas de las filas añadidas, calculadas por OnlyOffice.
+            import encuestas_hoja_recalculo as recalculo
+            calculado = recalculo.recalcular(usuario, destino_previsto)
+            if calculado:
+                nucleo.subir(usuario, carpeta, nombre, io.BytesIO(calculado))
 
     # El `.xlsx` se acaba de reemplazar por fuera del editor. Sin avisar, quien
     # lo abra se encuentra la copia que el Document Server tiene guardada —la
@@ -680,8 +746,9 @@ def exportar():
     # nueva la rehace sola, sin tener que volver a pulsar «Exportar».
     hoja_mod.vincular(definicion['id'], destino_xlsx)
     try:
-        from api_onlyoffice import invalidar_cache
-        invalidar_cache(usuario, destino_xlsx)
+        if memoria is not None:
+            from api_onlyoffice import invalidar_cache
+            invalidar_cache(usuario, destino_xlsx)
     except Exception as excepcion:
         log.warning('exportar %s: no se pudo refrescar el editor (%s)',
                     ruta, excepcion)
@@ -823,13 +890,32 @@ def _pagina(nombre_plantilla):
     return respuesta
 
 
+def _por_compartido(pagina):
+    """Enlace armado en el espacio del dueño: a quien se lo compartieron se le
+    lleva por «Compartido conmigo»."""
+    try:
+        import formularios_enlace
+        from flask import redirect
+        destino = formularios_enlace.desde_pagina(
+            usuario_actual(), request.args.get('ruta', ''), pagina)
+        return redirect(destino, 302) if destino else None
+    except Exception:
+        return None
+
+
 @bp_encuestas_web.route('/archivos-almacen/formulario')
 def editor_formulario():
     """Editor visual del formulario. La ruta del `.forma` viaja en ?ruta=."""
-    return _pagina('editor_encuesta.html')
+    return _por_compartido('/archivos-almacen/formulario') or _pagina('editor_encuesta.html')
 
 
 @bp_encuestas_web.route('/archivos-almacen/formulario-respuestas')
 def vista_respuestas():
     """Resumen y tabla de respuestas del formulario."""
-    return _pagina('encuesta_respuestas.html')
+    return (_por_compartido('/archivos-almacen/formulario-respuestas')
+            or _pagina('encuesta_respuestas.html'))
+
+
+# Papelera de respuestas: ver y recuperar lo borrado (23/09/2026).
+papelera_resp.registrar_rutas(bp_encuestas, _abrir, _sincronizar_bd,
+                              _limpiar_definicion, error, ebd.nombres_usuarios)

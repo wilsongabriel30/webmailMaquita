@@ -38,7 +38,11 @@ LIMITE_OPCIONES = 60
 TIPOS_PREGUNTA = ('texto_corto', 'parrafo', 'opcion_unica', 'casillas',
                   'desplegable', 'archivo', 'escala', 'calificacion',
                   'cuadricula_opciones', 'cuadricula_casillas',
-                  'fecha', 'hora')
+                  'fecha', 'hora',
+                  # «Colaborador» (28/09/2026): se elige a una persona de la
+                  # nómina y sus datos de trabajo se rellenan solos. Todo lo
+                  # suyo vive en `encuestas_colaboradores.py`.
+                  'colaborador')
 
 # «Subir archivos» (08/09/2026). Su respuesta es una lista de FICHAS
 # —`[{id, nombre, tamano, ruta}]`—, no de textos: el archivo en sí acaba en el
@@ -296,11 +300,24 @@ def _limpiar_clave(bruto, tipo):
     correctas = correctas if isinstance(correctas, list) else []
     correctas = [_texto(v, 300) for v in correctas][:LIMITE_OPCIONES]
 
+    # Retroalimentación POR RESPUESTA (28/09/2026): qué se le dice a quien
+    # elige cada opción. Va por el TEXTO de la opción, como `correctas`. Aquí
+    # solo se sanea; `_limpiar_pregunta` descarta lo que no sea de una opción
+    # que exista.
+    por_opcion = bruto.get('comentarios_opcion')
+    por_opcion = por_opcion if isinstance(por_opcion, dict) else {}
+    comentarios = {}
+    for opcion, comentario in list(por_opcion.items())[:LIMITE_OPCIONES]:
+        opcion, comentario = _texto(opcion, 300), _rico(comentario, 1000)
+        if opcion and comentario:
+            comentarios[opcion] = comentario
+
     return {
         'puntos': puntos,
         'correctas': [v for v in correctas if v],
         'comentario_correcto': _rico(bruto.get('comentario_correcto'), 1000),
         'comentario_incorrecto': _rico(bruto.get('comentario_incorrecto'), 1000),
+        'comentarios_opcion': comentarios,
         'autocalificable': tipo in TIPOS_AUTOCALIFICABLES,
     }
 
@@ -347,12 +364,19 @@ def _limpiar_pregunta(bruto):
         'validacion': validacion_mod.limpiar(bruto.get('validacion'), tipo),
     }
 
+    if tipo not in TIPOS_CON_OPCIONES:
+        pregunta['clave']['comentarios_opcion'] = {}
+
     if tipo in TIPOS_CON_OPCIONES:
         opciones = [_texto(o, 300) for o in (bruto.get('opciones') or [])]
         pregunta['opciones'] = [o for o in opciones if o][:LIMITE_OPCIONES]
         if not pregunta['opciones']:
             pregunta['opciones'] = ['Opción 1']
         pregunta['barajar'] = bool(bruto.get('barajar'))
+        # La retroalimentación por respuesta solo vale para opciones que existen.
+        pregunta['clave']['comentarios_opcion'] = {
+            o: c for o, c in pregunta['clave']['comentarios_opcion'].items()
+            if o in pregunta['opciones']}
         # Imagen por opción (09/09/2026), como en Google. Va en una lista
         # PARALELA a `opciones` y no dentro de cada opción porque una opción
         # es un texto: convertirla en objeto obligaría a migrar todos los
@@ -435,6 +459,10 @@ def _limpiar_pregunta(bruto):
             # Con casillas no cabe: una columna se puede marcar en varias
             # filas por definición.
             pregunta['una_por_columna'] = bool(bruto.get('una_por_columna'))
+
+    elif tipo == 'colaborador':
+        import encuestas_colaboradores
+        encuestas_colaboradores.completar(pregunta, bruto, _texto)
 
     elif tipo == 'archivo':
         try:
@@ -710,6 +738,10 @@ def texto_de(pregunta, valor):
     """
     if valor is None or valor == '' or valor == [] or valor == {}:
         return ''
+
+    if pregunta.get('tipo') == 'colaborador':
+        import encuestas_colaboradores
+        return encuestas_colaboradores.texto(valor, pregunta)
 
     if isinstance(valor, dict):
         # Cuadrícula. Se recorre por el orden de las FILAS de la pregunta y no
