@@ -11,6 +11,8 @@ import { cuentaDeCarpeta } from '../../lib/cuentas';
 import { sanitizeHtml, sanitizeSignatureHtml } from '../../lib/sanitize';
 import { separarCitado } from '../../lib/borradorCitado';
 import { cargarAdjuntosDelBorrador, cargarAdjuntosDelReenvio, filtrarPeligrosos, huellaAdjuntos } from '../../lib/adjuntosBorrador';
+import { leerEstadoRedaccion } from '../../lib/estadoRedaccion';
+import { useRedaccionPersistente } from './useRedaccionPersistente';
 import { EVENTO_MOSTRAR_CAMPO } from './chipsArrastrables';
 import { IMAGENES_SOLTADAS_EN_TEXTO, OPCIONES_RESIZE, pegarImagenes, pegarImagenesFueraDelTexto, quitarImagenesLocales, soltarImagenes } from './imagenesPegadas';
 import { BarraImagen } from './BarraImagen';
@@ -75,30 +77,31 @@ function direccionesInvalidas(lista: string[]): string[] {
 export function ComposePanel({ win }: Props) {
   const closeCompose = useMailStore(s => s.closeCompose);
   const minimizeCompose = useMailStore(s => s.minimizeCompose);
-  const updateDraftUid = useMailStore(s => s.updateDraftUid);
   const updateComposeData = useMailStore(s => s.updateComposeData);
-  const [to, setTo] = useState('');
+  // Si la ventana vuelve de estar minimizada, se retoma lo que había en pantalla (estadoRedaccion.ts).
+  const [estadoPrevio] = useState(() => leerEstadoRedaccion(win.id));
+  const [to, setTo] = useState(estadoPrevio?.to ?? '');
   // Cuenta desde la que sale: la de la carpeta que se estaba viendo al abrir el redactor
-  const [fromEmail, setFromEmail] = useState(() => cuentaDeCarpeta(useMailStore.getState().currentFolder) || '');
-  const [cc, setCc] = useState('');
-  const [bcc, setBcc] = useState('');
-  const [subject, setSubject] = useState('');
+  const [fromEmail, setFromEmail] = useState(() => estadoPrevio?.fromEmail ?? (cuentaDeCarpeta(useMailStore.getState().currentFolder) || ''));
+  const [cc, setCc] = useState(estadoPrevio?.cc ?? '');
+  const [bcc, setBcc] = useState(estadoPrevio?.bcc ?? '');
+  const [subject, setSubject] = useState(estadoPrevio?.subject ?? '');
   const [sensitivity, setSensitivity] = useState('');
-  const [showCc, setShowCc] = useState(false);
-  const [showBcc, setShowBcc] = useState(false);
+  const [showCc, setShowCc] = useState(estadoPrevio?.showCc ?? false);
+  const [showBcc, setShowBcc] = useState(estadoPrevio?.showBcc ?? false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   // La importancia se reinicia al abrir; la cinta que la mostraba vive en la barra principal.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [importance, setImportance] = useState<'normal' | 'high' | 'low'>('normal');
-  const [attachments, setAttachments] = useState<AttachmentFile[]>([]);
+  const [attachments, setAttachments] = useState<AttachmentFile[]>(estadoPrevio?.attachments ?? []);
   const [mostrarNube, setMostrarNube] = useState(false);
 
   // Adjuntos provenientes de la sección Archivos (Almacén): se descargan con
   // la misma sesión y entran como adjuntos normales del mensaje.
   useEffect(() => {
     const pendientes = win.data?.adjuntos_almacen;
-    if (!pendientes?.length) return;
+    if (!pendientes?.length || estadoPrevio) return;
     (async () => {
       for (const pendiente of pendientes) {
         try {
@@ -122,7 +125,7 @@ export function ComposePanel({ win }: Props) {
   // Al reenviar, los adjuntos del correo original entran al redactor y salen con el mensaje.
   useEffect(() => {
     const origen = win.data?.reenvio_de;
-    if (win.mode !== 'forward' || !origen) return;
+    if (win.mode !== 'forward' || !origen || estadoPrevio) return;
     cargarAdjuntosDelReenvio(origen).then(cargados => {
       if (cargados.length) setAttachments(prev => [...prev, ...cargados]);
       else if (origen.adjuntos?.some(a => !a.is_inline)) showToast('No se pudieron traer los adjuntos del correo original');
@@ -135,8 +138,8 @@ export function ComposePanel({ win }: Props) {
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showDirectoryPicker, setShowDirectoryPicker] = useState(false);
   const [directoryPickerTarget, setDirectoryPickerTarget] = useState<'to' | 'cc' | 'bcc'>('to');
-  const [signatureHtml, setSignatureHtml] = useState('');
-  const [quotedHtml, setQuotedHtml] = useState('');  // Contenido citado (reply/forward) — se renderiza DESPUES de la firma
+  const [signatureHtml, setSignatureHtml] = useState(estadoPrevio?.signatureHtml ?? '');
+  const [quotedHtml, setQuotedHtml] = useState(estadoPrevio?.quotedHtml ?? '');  // Contenido citado (reply/forward) — se renderiza DESPUES de la firma
   const [showSendDropdown, setShowSendDropdown] = useState(false);
   const [encrypt, setEncrypt] = useState(false);
   const [secureEnabled, setSecureEnabled] = useState(false);
@@ -232,14 +235,6 @@ export function ComposePanel({ win }: Props) {
     return html;
   }, [editor, signatureHtml, quotedHtml]);
 
-  // Para GUARDAR borradores: cuerpo + cita, SIN la firma. La firma se conserva
-  // como estado aparte y se re-aplica al reabrir, para que no quede incrustada
-  // en el editor (donde se distorsiona) ni se duplique al enviar.
-  const getDraftHtml = useCallback(() => {
-    let html = editor?.getHTML() || '';
-    if (quotedHtml) html += quotedHtml;
-    return html;
-  }, [editor, quotedHtml]);
 
   // Initialize content
   // ==========================================================================
@@ -258,6 +253,17 @@ export function ComposePanel({ win }: Props) {
   //      en RecipientField.tsx para la solucion completa.
   // ==========================================================================
   useEffect(() => {
+    // La ventana vuelve de estar minimizada: los campos ya salieron del estado guardado;
+    // solo falta devolver el texto al editor.
+    if (estadoPrevio) {
+      if (editor && !initializedRef.current) {
+        initializedRef.current = true;
+        editor.commands.setContent(estadoPrevio.cuerpoHtml || '<p></p>');
+        cuerpoRef.current = editor.getHTML();
+        setTimeout(() => { initializingRef.current = false; }, 500);
+      }
+      return;
+    }
     // Precargar destinatarios (RecipientField sincroniza via useEffect[value])
     setTo(win.data.to?.join(', ') || '');
     setCc(win.data.cc?.join(', ') || '');
@@ -336,6 +342,7 @@ export function ComposePanel({ win }: Props) {
 
       }
       editor?.commands.setContent(content);
+      cuerpoRef.current = editor?.getHTML() || '';
       // Allow smart-compose after init is done
       setTimeout(() => { initializingRef.current = false; }, 500);
     };
@@ -353,35 +360,10 @@ export function ComposePanel({ win }: Props) {
       reader.readAsDataURL(file);
     });
 
-  // Huella de los adjuntos tal como quedaron en el ultimo borrador guardado:
-  // si no cambio, el guardado pide al servidor conservar los archivos en vez de resubirlos.
-  const huellaGuardadaRef = useRef<string>('');
-  const saveDraft = useCallback(async () => {
-    if (!to && !subject && !editor?.getHTML()) return;
-    try {
-      const huella = huellaAdjuntos(attachments);
-      const cambiaron = huella !== huellaGuardadaRef.current;
-      const adjuntos = cambiaron
-        ? await Promise.all(attachments.filter(a => a.file).map(async (a) => ({
-            filename: a.name,
-            content_b64: await readFileAsBase64(a.file!),
-            content_type: a.type || 'application/octet-stream',
-          })))
-        : [];
-      const res = await api.post<{ draft_uid: number | null }>('/mail/drafts', {
-        to: to.split(',').map(s => s.trim()).filter(Boolean),
-        subject, html_body: getDraftHtml(), text_body: '',
-        existing_draft_uid: win.draftUid,
-        attachments: adjuntos,
-        mantener_adjuntos: !cambiaron && attachments.length > 0,
-      });
-      huellaGuardadaRef.current = huella;
-      if (res.draft_uid) updateDraftUid(win.id, res.draft_uid);
-    } catch {
-      /* el guardado automatico es de cortesia: si falla, el texto sigue en pantalla y se
-         reintenta en el siguiente cambio, sin interrumpir a quien escribe */
-    }
-  }, [to, subject, win.draftUid, win.id, editor, attachments]);
+  // Guardado del borrador y conservación de lo escrito al minimizar (useRedaccionPersistente.ts).
+  const { saveDraft, cuerpoRef, huellaGuardadaRef } = useRedaccionPersistente(win, editor, estadoPrevio, {
+    to, cc, bcc, subject, showCc, showBcc, fromEmail, quotedHtml, signatureHtml, attachments,
+  });
 
   // Un destinatario movido a CC/CCO desde el menú del chip: mostrar ese campo.
   React.useEffect(() => {

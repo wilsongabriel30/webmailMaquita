@@ -1,6 +1,7 @@
 import type { Editor } from '@tiptap/react';
 import type { Cuenta } from '../lib/cuentas';
 import { create } from 'zustand';
+import { olvidarEstadoRedaccion, olvidarTodasLasRedacciones } from '../lib/estadoRedaccion';
 import type { Folder, MessageSummary, MessageFull, ComposeData } from '../types';
 
 type ComposeMode = 'new' | 'reply' | 'replyAll' | 'forward' | null;
@@ -228,7 +229,10 @@ export const useMailStore = create<MailState>((set, get) => ({
     const existing = get().composeWindows.map(w => ({ ...w, minimized: true }));
     set({ composeWindows: [...existing, win] });
   },
-  closeCompose: (id) => set({ composeWindows: get().composeWindows.filter(w => w.id !== id) }),
+  closeCompose: (id) => {
+    olvidarEstadoRedaccion(id);
+    set({ composeWindows: get().composeWindows.filter(w => w.id !== id) });
+  },
   minimizeCompose: (id) => set({
     composeWindows: get().composeWindows.map(w => w.id === id ? { ...w, minimized: true } : w),
   }),
@@ -245,7 +249,7 @@ export const useMailStore = create<MailState>((set, get) => ({
   }),
 
   // Reset all state (on account/session change)
-  reset: () => set({
+  reset: () => { olvidarTodasLasRedacciones(); set({
     folders: [],
     currentFolder: 'INBOX',
     loadingFolders: false,
@@ -265,7 +269,7 @@ export const useMailStore = create<MailState>((set, get) => ({
     threadExpanded: new Set(),
     loadingThread: false,
     composeWindows: [],
-  }),
+  }); },
   // Thread
   setThreadMessages: (msgs) => set({ threadMessages: msgs }),
   toggleThreadExpand: (uid) => {
