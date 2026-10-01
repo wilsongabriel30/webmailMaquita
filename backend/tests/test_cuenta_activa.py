@@ -46,6 +46,7 @@ def _peticion(ruta, cuenta=None, metodo="GET", kind="normal", db=None):
         app=app,
         client=SimpleNamespace(host="10.0.0.5"),
         path_params={},
+        cookies={},
     )
 
 
@@ -121,3 +122,29 @@ async def test_sesiones_especiales_no_cambian_de_cuenta(kind):
     db = _Db({(VENTAS, PERSONA): True})
     with pytest.raises(HTTPException):
         await ca.resolver(_peticion("/api/mail/folders", VENTAS, kind=kind, db=db), PERSONA)
+
+
+def _con_cookie(r, valor):
+    r.cookies = {ca.COOKIE: valor}
+    return r
+
+
+async def test_cookie_solo_para_consultas():
+    db = _Db({(VENTAS, PERSONA): True})
+    r = _con_cookie(_peticion("/api/mail/attachments-zip/INBOX/5", db=db), VENTAS)
+    assert await ca.resolver(r, PERSONA) == VENTAS
+    # Enviar con solo la cookie (sin cabecera) sale de la propia cuenta, nunca de la otra.
+    r = _con_cookie(_peticion("/api/mail/send", metodo="POST", db=db), VENTAS)
+    assert await ca.resolver(r, PERSONA) == PERSONA
+
+
+async def test_cabecera_propia_manda_sobre_la_cookie():
+    db = _Db({(VENTAS, PERSONA): True})
+    r = _con_cookie(_peticion("/api/mail/folders", "propia", db=db), VENTAS)
+    assert await ca.resolver(r, PERSONA) == PERSONA
+
+
+def test_firmas_por_cuenta_y_resto_de_ajustes_de_la_persona():
+    assert ca.aplica("/api/settings/signature")
+    assert ca.aplica("/api/settings/signatures/3")
+    assert not ca.aplica("/api/settings/preferences")

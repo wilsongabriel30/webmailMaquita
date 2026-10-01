@@ -1,4 +1,5 @@
 import { cifrar, descifrar, esPaquete } from "./cifradoLocal";
+import { cuentaActiva } from "./cuentaActiva";
 
 // T-49: lo que se guarda en el equipo va cifrado. Estas dos ayudas envuelven y
 // desenvuelven el contenido; el resto del archivo sigue trabajando igual que antes.
@@ -73,6 +74,9 @@ export interface OutboxEmail {
   attachments?: Array<{ filename: string; content_b64: string; content_type: string }>;
   request_read_receipt?: boolean;
   request_delivery_receipt?: boolean;
+  /** Multicuenta: cuenta asignada desde la que se escribió (null = la propia). Se envía
+   *  con ESA cuenta aunque la cola se vacíe más tarde desde otra pestaña o cuenta. */
+  cuenta?: string | null;
   createdAt: number;
   // «retenido»: escrito y guardado, pero aún dentro de la cuenta atrás de «Deshacer».
   // El sincronizador no lo toca hasta que vence; así el correo ya está a salvo en disco
@@ -90,6 +94,8 @@ export interface OfflineAction {
   folder: string;
   uid: number;
   data?: Record<string, unknown>;
+  /** Multicuenta: cuenta del buzón donde se hizo la acción (null = la propia). */
+  cuenta?: string | null;
   createdAt: number;
 }
 
@@ -264,6 +270,7 @@ export async function queueAction(action: Omit<OfflineAction, "id" | "createdAt"
   const db = await openDB();
   const tx = db.transaction("actions", "readwrite");
   tx.objectStore("actions").put({
+    cuenta: cuentaActiva(),
     ...action,
     id: crypto.randomUUID(),
     createdAt: Date.now()
@@ -307,6 +314,7 @@ export async function addToOutbox(
   const db = await openDB();
   const id = crypto.randomUUID();
   const record: OutboxEmail = {
+    cuenta: cuentaActiva(),
     ...email,
     id,
     createdAt: Date.now(),
