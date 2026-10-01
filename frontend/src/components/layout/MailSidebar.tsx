@@ -11,9 +11,8 @@ import { showToast } from '../common/Toast';
 import { ContextMenu } from '../common/ContextMenu';
 import type { Folder } from '../../types';
 import { getFolderDisplayName } from '../../folders';
-import { CuentasDelegadas } from './CuentasDelegadas';
 import { RecuperarEliminados } from '../mail/RecuperarEliminados';
-import { SelectorCuentas } from './SelectorCuentas';
+import { BarraCuentas } from './BarraCuentas';
 
 interface MailStats {
   inbox_total: number;
@@ -431,8 +430,8 @@ export function MailSidebar() {
 
   return (
     <div className={`bg-[#faf9f8] border-r border-[#edebe9] flex flex-col shrink-0 text-[13px] transition-all duration-200 ease-in-out z-20 overflow-hidden ${hidden ? "w-0 border-r-0" : "w-[220px]"}`}>
-      {/* Cuentas de la persona (principal + asignadas): cambia toda la sesión */}
-      <SelectorCuentas />
+      {/* Cuentas de la persona (principal + asignadas): cambia el correo de esta pestaña */}
+      <BarraCuentas />
 
       {/* Botón nuevo correo */}
       <div className="px-3 pt-2.5 pb-1.5">
@@ -489,8 +488,6 @@ export function MailSidebar() {
           </>
         )}
 
-        {/* Otras cuentas a cargo de la persona (delegadas): se desplazan junto con las carpetas */}
-        <CuentasDelegadas />
       </nav>
 
       {/* Mi actividad */}

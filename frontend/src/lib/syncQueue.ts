@@ -33,7 +33,7 @@ export async function syncOfflineActions() {
   const groups = new Map<string, OfflineAction[]>();
   for (const action of actions) {
     const dest = (action.data?.folder as string | undefined) || "";
-    const key = `${action.folder}|${action.type}|${dest}`;
+    const key = `${action.cuenta || ''}|${action.folder}|${action.type}|${dest}`;
     const list = groups.get(key) || [];
     list.push(action);
     groups.set(key, list);
@@ -43,7 +43,8 @@ export async function syncOfflineActions() {
     const dest = (first.data?.folder as string | undefined) || "";
     try {
       const res = await fetch(`/api/mail/bulk-action/${encodeURIComponent(first.folder)}`, {
-        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+        // Multicuenta: la acción se aplica en el buzón donde se hizo, no en el abierto ahora.
+        method: "POST", headers: { "Content-Type": "application/json", "X-Cuenta-Activa": first.cuenta || "propia" }, credentials: "include",
         body: JSON.stringify({ uids: group.map((a) => a.uid), action: ACTION_MAP[first.type] || first.type, dest_folder: dest || undefined }),
       });
       if (res.ok) await removeActions(group.map((a) => a.id));
@@ -75,7 +76,8 @@ export async function syncOutbox(soloId?: string): Promise<{ sent: number; faile
       window.dispatchEvent(new CustomEvent('outbox-cambio'));
       try {
         const res = await fetch('/api/mail/send', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+          // Multicuenta: sale desde la cuenta en que se escribió, no desde la abierta ahora.
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Cuenta-Activa': email.cuenta || 'propia' }, credentials: 'include',
           body: JSON.stringify({
             to: email.to, cc: email.cc, bcc: email.bcc, subject: email.subject, html_body: email.html_body, text_body: email.text_body,
             in_reply_to: email.in_reply_to || '', references: email.references || '', attachments: email.attachments || [],

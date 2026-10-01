@@ -31,8 +31,15 @@ log = logging.getLogger(__name__)
 
 CABECERA = "x-cuenta-activa"
 
+# Respaldo para lo que el navegador pide sin poder poner cabeceras (enlaces de descarga,
+# imágenes, adjuntos). Solo se acepta en consultas (GET/HEAD): enviar, mover o borrar exigen la
+# cabecera, que es por pestaña. Si la cabecera viene (aunque sea "propia"), manda la cabecera.
+COOKIE = "cuenta_activa"
+
 # Rutas donde la cuenta activa reemplaza a la persona.
-RUTAS = ("/api/mail/", "/api/firmas", "/api/sieve")
+# Firmas: /api/settings/signature y /api/settings/signatures* (cada cuenta tiene la suya); el
+# resto de /api/settings (tema, idioma...) sigue siendo de la persona.
+RUTAS = ("/api/mail/", "/api/firmas", "/api/sieve", "/api/settings/signature")
 
 # Dentro de esas rutas, lo que sigue siendo de la persona: la lista de sus cuentas, la gestión
 # de delegaciones (quien revisa una cuenta no puede repartirla) y servicios ligados a la persona.
@@ -114,9 +121,13 @@ async def _auditar(request: Request, persona: str, cuenta: str, accion: str) -> 
 async def resolver(request: Request, persona: str) -> str:
     """Usuario con el que trabaja esta petición: la persona o la cuenta activa que eligió."""
     request.state.persona = persona
-    pedida = (request.headers.get(CABECERA) or "").strip().lower()
+    pedida = request.headers.get(CABECERA)
+    if pedida is None and request.method.upper() in METODOS_LECTURA:
+        pedida = request.cookies.get(COOKIE)
+    pedida = (pedida or "").strip().lower()
     ruta = request.url.path
-    if not pedida or pedida == persona.lower() or not aplica(ruta):
+    # Sin cuenta, "propia" o la misma persona: su propio buzón.
+    if "@" not in pedida or pedida == persona.lower() or not aplica(ruta):
         return persona
 
     if getattr(request.state, "session_kind", "normal") not in SESIONES_PERMITIDAS:
