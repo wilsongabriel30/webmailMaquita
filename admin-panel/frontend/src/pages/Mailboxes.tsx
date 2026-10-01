@@ -524,12 +524,15 @@ export function Mailboxes() {
             ))}
           </tbody>
         </table>
+        {/* Ventana emergente: antes el formulario salía debajo de toda la tabla y, con cientos de buzones,
+            parecía que el botón «Contraseña» no hacía nada (01/10/2026). */}
         {editPw && (
-          <form onSubmit={(e) => { e.preventDefault(); changePw(editPw); }} className="p-4 bg-ms-blue-lighter border-t border-ms-gray-30 space-y-2">
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setEditPw(null)}>
+          <form onClick={(e) => e.stopPropagation()} onSubmit={(e) => { e.preventDefault(); changePw(editPw); }} className="p-5 bg-white rounded border border-ms-gray-30 w-[32rem] max-w-[95vw] space-y-2">
             <span className="text-sm font-medium text-ms-gray-130">Cambiar contraseña de: {editPw}</span>
             <input type="hidden" name="username" autoComplete="username" value={editPw || ""} />
             <div className="flex items-center gap-3">
-              <input type="password" placeholder="Nueva contraseña" value={newPw} onChange={(e) => setNewPw(e.target.value)}
+              <input type="password" autoFocus placeholder="Nueva contraseña" value={newPw} onChange={(e) => setNewPw(e.target.value)}
                 autoComplete="new-password" title="Escriba la nueva contraseña. Mínimo 6 caracteres."
                 className="px-3 py-1.5 border border-ms-gray-40 rounded text-sm flex-1 focus:outline-none focus:border-ms-blue" />
               <input type="password" placeholder="Confirmar contraseña" value={newPw2} onChange={(e) => setNewPw2(e.target.value)}
@@ -538,12 +541,13 @@ export function Mailboxes() {
               <button type="submit"
                 title="Aplica la nueva contraseña inmediatamente. Se registra en auditoria."
                 className="px-4 py-1.5 bg-ms-blue text-white rounded text-sm">Cambiar</button>
-              <button onClick={() => setEditPw(null)}
+              <button type="button" onClick={() => setEditPw(null)}
                 title="Cancela sin cambiar la contraseña."
                 className="px-4 py-1.5 border border-ms-gray-40 rounded text-sm text-ms-gray-90">Cancelar</button>
             </div>
             {newPw2 && newPw !== newPw2 && <span className="text-[10px] text-ms-red">Las contraseñas no coinciden</span>}
           </form>
+          </div>
         )}
       </div>
 
