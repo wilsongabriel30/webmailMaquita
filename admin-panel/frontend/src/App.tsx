@@ -55,6 +55,7 @@ import { LoginHealth } from "./pages/LoginHealth";
 import { AntispamAvanzado } from "./pages/AntispamAvanzado";
 import { OutboundProtection } from "./pages/OutboundProtection";
 import { SharedMailboxes } from "./pages/SharedMailboxes";
+import { CuentasAsignadas } from "./pages/CuentasAsignadas";
 import { EDiscovery } from "./pages/EDiscovery";
 import { Branding } from "./pages/Branding";
 import { Compliance } from "./pages/Compliance";
@@ -124,6 +125,7 @@ function App() {
             <Route path="forwarding" element={<Forwarding />} />
             <Route path="groups" element={<Groups />} />
             <Route path="shared" element={<SharedMailboxes />} />
+            <Route path="asignadas" element={<CuentasAsignadas />} />
             <Route path="tracking" element={<Tracking />} />
             <Route path="queue" element={<Queue />} />
             <Route path="rebotados" element={<Rebotados />} />

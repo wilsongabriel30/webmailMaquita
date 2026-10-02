@@ -9,9 +9,10 @@ router = APIRouter(prefix="/api/shared", tags=["shared-mailboxes"])
 
 async def _audit(request, admin, action, detail=""):
     db = request.app.state.db
+    # Misma tabla que el resto del panel (admin_audit_log nunca existió: cada alta daba 500).
     await db.execute(
-        "INSERT INTO admin_audit_log(admin_id, username, action, detail, ip) VALUES($1,$2,$3,$4,$5)",
-        admin["id"], admin["username"], action, detail,
+        "INSERT INTO admin_audit (admin_id, admin_username, action, target, details, ip_address) VALUES($1,$2,$3,$4,$5::jsonb,$6)",
+        admin["id"], admin["username"], action, detail[:255], json.dumps({"detalle": detail}),
         request.headers.get("x-real-ip", "unknown")
     )
 
