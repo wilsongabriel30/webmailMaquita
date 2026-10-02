@@ -16,8 +16,9 @@ Cómo funciona:
   (`cuentas_delegadas.credenciales_maestras`); nunca sale del servidor.
 - Se comprueba contra la base en CADA petición: quitar la asignación corta el acceso al instante.
 - `can_send_as = false` es solo lectura: se rechaza todo lo que no sea consultar.
-- Nunca se abre la cuenta de un superadministrador, ni desde una sesión de impersonación o
-  delegada (las variantes anteriores).
+- Nunca se abre la cuenta de un superadministrador, ni desde una sesión «delegada» (variante
+  anterior). Desde una impersonación (TI abriendo el buzón de alguien desde el panel) sí, para
+  poder probar y dar soporte; la auditoría guarda el tipo de sesión.
 """
 
 from __future__ import annotations
@@ -58,7 +59,7 @@ METODOS_LECTURA = frozenset({"GET", "HEAD", "OPTIONS"})
 POST_DE_CONSULTA = ("/api/mail/search", "/api/mail/recall/check")
 
 # Tipos de sesión desde los que se puede cambiar de cuenta.
-SESIONES_PERMITIDAS = frozenset({"normal", "oidc"})
+SESIONES_PERMITIDAS = frozenset({"normal", "oidc", "impersonation"})
 
 
 def aplica(ruta: str) -> bool:
@@ -111,7 +112,8 @@ async def _auditar(request: Request, persona: str, cuenta: str, accion: str) -> 
             persona,
             accion,
             cuenta,
-            json.dumps({"persona": persona, "cuenta": cuenta, "ruta": request.url.path}),
+            json.dumps({"persona": persona, "cuenta": cuenta, "ruta": request.url.path,
+                        "sesion": getattr(request.state, "session_kind", "normal")}),
             _ip(request),
         )
     except Exception as exc:
