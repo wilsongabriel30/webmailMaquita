@@ -4,7 +4,8 @@
 # Bloquea el commit si detecta: patrones prohibidos (secretos del equipo,
 # proveedores externos, términos vetados), .bak, coautoría automática,
 # DATOS PERSONALES, volcados de base de datos, directorios de respaldo y
-# DATOS PROPIOS de la organización (dominios, red, correos).
+# DATOS PROPIOS de la organización (dominios, red, correos) y backend sin formato
+# black/isort (lo mismo que exige el CI).
 #
 # Versionado en deploy/hooks/pre-commit. Instalar con deploy/hooks/instalar.sh.
 # Una instalación limpia SIN este hook no está protegida.
@@ -99,9 +100,41 @@ else
     echo -e "${YELLOW}⚠ Falta deploy/tools/barrido-datos-propios.py: no se comprueban datos propios de la organización.${NC}"
 fi
 
+# 8. FORMATO del backend (black + isort), lo mismo que comprueba «Backend Lint» en el CI.
+#    El 02/10/2026 el CI llevaba semanas en rojo por 30 ficheros sin formato: cada commit
+#    pasaba porque nadie lo comprobaba antes. Se mira lo que va en el commit (el índice),
+#    no la copia de trabajo. Si no hay black/isort a mano, avisa y no bloquea.
+PY_BACKEND=$(echo "$STAGED" | grep -E "^backend/app/.*\.py$")
+if [ -n "$PY_BACKEND" ]; then
+    # En un worktree no hay venv: se busca también en el árbol principal y en el PATH.
+    PRINCIPAL=$(git worktree list --porcelain | head -1 | sed 's/^worktree //')
+    BLACK=""; ISORT=""
+    for d in "$RAIZ/backend/venv/bin" "$PRINCIPAL/backend/venv/bin"; do
+        [ -z "$BLACK" ] && [ -x "$d/black" ] && BLACK="$d/black"
+        [ -z "$ISORT" ] && [ -x "$d/isort" ] && ISORT="$d/isort"
+    done
+    [ -n "$BLACK" ] || BLACK="$(command -v black 2>/dev/null)"
+    [ -n "$ISORT" ] || ISORT="$(command -v isort 2>/dev/null)"
+    if [ -x "$BLACK" ] && [ -x "$ISORT" ]; then
+        SIN_FORMATO=""
+        for f in $PY_BACKEND; do
+            if ! git show ":$f" | "$BLACK" --check -q - >/dev/null 2>&1; then SIN_FORMATO="$SIN_FORMATO $f"; continue; fi
+            if ! git show ":$f" | "$ISORT" --check --profile black - >/dev/null 2>&1; then SIN_FORMATO="$SIN_FORMATO $f"; fi
+        done
+        if [ -n "$SIN_FORMATO" ]; then
+            echo -e "${RED}✗ BLOQUEADO: ficheros del backend sin formato black/isort (el CI los rechazaría):${NC}"
+            echo "$SIN_FORMATO" | tr ' ' '\n' | grep . | head -10
+            echo -e "${YELLOW}  Arréglalo con:  backend/venv/bin/black$SIN_FORMATO && backend/venv/bin/isort --profile black$SIN_FORMATO && git add$SIN_FORMATO${NC}"
+            fallo=1
+        fi
+    else
+        echo -e "${YELLOW}⚠ No encuentro black/isort (backend/venv/bin): no se comprueba el formato. Instálalos: backend/venv/bin/pip install 'black==26.3.1' 'isort==6.1.0'${NC}"
+    fi
+fi
+
 if [ "$fallo" -eq 1 ]; then
     echo -e "${YELLOW}Corrige lo anterior y vuelve a intentar. (Para forzar, no recomendado: git commit --no-verify)${NC}"
     exit 1
 fi
-echo -e "${GREEN}✓ Guardián OK: sin patrones prohibidos, sin .bak, sin datos personales, sin volcados, sin datos propios.${NC}"
+echo -e "${GREEN}✓ Guardián OK: sin patrones prohibidos, sin .bak, sin datos personales, sin volcados, sin datos propios, formato del backend correcto.${NC}"
 exit 0
