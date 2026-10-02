@@ -64,7 +64,7 @@ export function BotonGuardarEnAlmacen({ folder, uid, att }: Props) {
   return (
     <>
       <button
-        onClick={e => { e.stopPropagation(); setCarpeta('/'); setAbierto(true); }}
+        onClick={e => { e.stopPropagation(); setCarpeta(carpetaCuenta || '/'); setAbierto(true); }}
         title="Guardar este adjunto en tu nube (Archivos)"
         style={{
           display: 'inline-flex', alignItems: 'center', padding: '4px 6px',
