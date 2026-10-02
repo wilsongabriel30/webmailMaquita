@@ -80,6 +80,47 @@ free -h
    ```
 3. Agregar a la lista blanca desde Admin > Anti-Spam > Whitelist
 
+### El spam llega a la bandeja de entrada (no va a Junk)
+
+Rspamd marca el correo con puntaje medio (`add_header`, 6 puntos o más) con la cabecera
+`Deliver-To: Junk` (routine `spam-header` de `milter_headers`), **no** con `X-Spam-Flag`.
+El filtro global `after.sieve` debe mover a Junk ese correo; si solo revisa `X-Spam-Flag`,
+`X-Spam-Status` o `X-Maquita-Spam`, el spam de 6 a 19 puntos llega a la bandeja de entrada
+salvo que el filtro Python también lo detecte.
+
+1. Comprobar cómo está marcando Rspamd y qué revisa el filtro:
+   ```bash
+   cat /etc/rspamd/local.d/milter_headers.conf      # debe incluir "spam-header"
+   grep -n "Deliver-To" /var/vmail/sieve/after.sieve  # debe existir la regla
+   ```
+2. Si falta, agregar la regla (está en `deploy/dovecot/global-after.sieve`) y compilar:
+   ```bash
+   cp -p /var/vmail/sieve/after.sieve /var/vmail/sieve/after.sieve.bak.$(date +%Y%m%d)
+   # editar after.sieve y añadir, antes de las reglas de X-Spam-Flag:
+   #   if header :is "Deliver-To" "Junk" { fileinto :create "Junk"; stop; }
+   sievec /var/vmail/sieve/after.sieve
+   chown vmail:vmail /var/vmail/sieve/after.sieve /var/vmail/sieve/after.svbin
+   ```
+   No hace falta reiniciar: Dovecot usa el `.svbin` nuevo en la siguiente entrega. Como
+   `after.sieve` corre después del filtro personal de cada usuario, sus remitentes de
+   confianza siguen llegando a la bandeja de entrada.
+3. Probar con una cuenta de prueba **por LMTP**, que es el camino real de Postfix.
+   `dovecot-lda` no sirve para probar: en esta instalación el plugin sieve solo está activo
+   en `protocol lmtp`. Prueba en seco (el archivo debe poder leerlo el usuario `vmail`):
+   ```bash
+   printf 'From: a@ejemplo.org\nTo: prueba@tudominio.com\nSubject: x\nDeliver-To: Junk\n\nhola\n' > /var/vmail/sieve/p.eml
+   chown vmail:vmail /var/vmail/sieve/p.eml
+   sieve-test -u prueba@tudominio.com /var/vmail/sieve/after.sieve /var/vmail/sieve/p.eml
+   # esperado: "store message in folder: Junk"
+   rm /var/vmail/sieve/p.eml
+   ```
+   Entrega real: enviar el mismo mensaje por el socket LMTP de Dovecot (`/run/dovecot/lmtp`,
+   por ejemplo con `smtplib.LMTP` de Python) y comprobar con
+   `doveadm search -u prueba@tudominio.com mailbox Junk subject x`.
+4. Para medir el problema, cruzar el log de Rspamd con el de entrega de Dovecot: los correos
+   con `add header` o `rewrite subject` en `/var/log/rspamd/rspamd.log` deben aparecer en
+   `/var/log/mail.log` guardados en `Junk`, no en `INBOX`.
+
 ### No se pueden enviar correos
 
 1. Verificar autenticación SASL:
