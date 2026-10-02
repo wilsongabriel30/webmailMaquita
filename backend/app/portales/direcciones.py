@@ -30,7 +30,11 @@ _cache_hasta: float = 0.0
 
 
 def activo() -> bool:
-    return organizacion.valor("DIRECCIONES_POR_DOMINIO", "1").strip().lower() not in ("0", "no", "false")
+    return organizacion.valor("DIRECCIONES_POR_DOMINIO", "1").strip().lower() not in (
+        "0",
+        "no",
+        "false",
+    )
 
 
 def olvidar_cache() -> None:
@@ -65,7 +69,11 @@ def servidor_general() -> str:
 
 
 def dominio_de(correo: str) -> str:
-    return (correo or "").rsplit("@", 1)[-1].strip().lower() if "@" in (correo or "") else ""
+    return (
+        (correo or "").rsplit("@", 1)[-1].strip().lower()
+        if "@" in (correo or "")
+        else ""
+    )
 
 
 async def servidor_de_dominio(db, dominio: str) -> str | None:
@@ -77,7 +85,11 @@ async def servidor_de_dominio(db, dominio: str) -> str | None:
 
 
 async def servidor_de_cuenta(db, correo: str, general: str | None = None) -> str:
-    return await servidor_de_dominio(db, dominio_de(correo)) or general or servidor_general()
+    return (
+        await servidor_de_dominio(db, dominio_de(correo))
+        or general
+        or servidor_general()
+    )
 
 
 async def url_de_cuenta(db, correo: str) -> str:
@@ -104,7 +116,7 @@ def cambiar_base(url: str, base: str) -> str:
     """Pasa un enlace de la dirección general a la de una empresa. Los demás enlaces no se tocan."""
     general = organizacion.url_correo()
     if base and base != general and url.startswith(general + "/"):
-        return base.rstrip("/") + url[len(general):]
+        return base.rstrip("/") + url[len(general) :]
     return url
 
 

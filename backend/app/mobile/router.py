@@ -8,8 +8,8 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
-from app.auth.dependencies import get_current_user
 from app import organizacion
+from app.auth.dependencies import get_current_user
 from app.config import get_settings
 from app.portales import direcciones
 

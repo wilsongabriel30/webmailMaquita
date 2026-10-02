@@ -41,7 +41,9 @@ def gateway_link(url: str, base: str | None = None) -> str:
     # "&amp;token=..." y lee un parametro "amp;token" en vez de "token"
     # (rompia activaciones y restablecimientos de clave con varios parametros).
     ub = encode_url(html_lib.unescape(url))
-    base = (base or get_settings().public_base_url or organizacion.url_correo()).rstrip("/")
+    base = (base or get_settings().public_base_url or organizacion.url_correo()).rstrip(
+        "/"
+    )
     return f"{base}/api/safelink?u={ub}&s={sign(ub)}"
 
 

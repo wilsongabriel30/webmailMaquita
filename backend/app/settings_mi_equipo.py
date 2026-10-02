@@ -35,7 +35,11 @@ async def _equipos_del_usuario(db, username: str) -> list[dict]:
     salida = []
     for f in filas:
         d = dict(f)
-        d["imeis"] = json.loads(d["imeis"]) if isinstance(d["imeis"], str) else (d["imeis"] or [])
+        d["imeis"] = (
+            json.loads(d["imeis"])
+            if isinstance(d["imeis"], str)
+            else (d["imeis"] or [])
+        )
         salida.append(d)
     return salida
 
@@ -48,7 +52,9 @@ async def _auditar_lectura(db, request: Request, username: str, codigo_id: int) 
             username,
             str(codigo_id),
             '{"origen": "configuracion-correo"}',
-            request.headers.get("X-Real-IP", request.client.host if request.client else ""),
+            request.headers.get(
+                "X-Real-IP", request.client.host if request.client else ""
+            ),
         )
     except Exception:
         logger.exception("auditoria_codigo_custodio_fallo | user=%s", username)
@@ -56,9 +62,12 @@ async def _auditar_lectura(db, request: Request, username: str, codigo_id: int) 
 
 async def _auto_enrolar_activo(db) -> bool:
     """Política «vinculación automática»: al iniciar sesión en la app, el teléfono se vincula solo a la
-    cuenta (modo limitado) sin que Tecnología cree un código. Se activa o apaga desde el panel."""
+    cuenta (modo limitado) sin que Tecnología cree un código. Se activa o apaga desde el panel.
+    """
     try:
-        v = await db.fetchval("SELECT valor->>'auto_enrolar' FROM disp_config WHERE clave = 'politica'")
+        v = await db.fetchval(
+            "SELECT valor->>'auto_enrolar' FROM disp_config WHERE clave = 'politica'"
+        )
         return str(v).lower() in ("true", "1")
     except Exception:
         return False
@@ -82,7 +91,10 @@ async def _generar_automatico(db, username: str) -> dict | None:
         "INSERT INTO disp_codigos (codigo_hash, prefijo, etiqueta, modo, usos_max, creado_por, autoservicio, custodio_email, caduca_en, codigo_cifrado) "
         "VALUES ($1, $2, 'Vinculación automática al iniciar sesión en la app', 'limitado', 1, $3, true, $3, NOW() + interval '24 hours', $4) "
         "RETURNING id, prefijo, caduca_en, usos, usos_max, codigo_cifrado",
-        hashlib.sha256("".join(grupos).encode()).hexdigest(), grupos[0], username, cifrado,
+        hashlib.sha256("".join(grupos).encode()).hexdigest(),
+        grupos[0],
+        username,
+        cifrado,
     )
     logger.info("codigo_automatico | user=%s | id=%s", username, fila["id"])
     return fila
@@ -114,26 +126,54 @@ async def estado(request: Request, username: str = Depends(get_current_user)):
 
 
 @router.put("/{equipo_id}/imeis")
-async def registrar_imeis(equipo_id: int, request: Request, username: str = Depends(get_current_user)):
+async def registrar_imeis(
+    equipo_id: int, request: Request, username: str = Depends(get_current_user)
+):
     """La persona registra los IMEI de su teléfono (*#06# o la caja) para tenerlos a mano si lo roban.
-    Se aceptan de 1 a 4; los que reporta el propio teléfono no se pueden borrar desde aquí."""
+    Se aceptan de 1 a 4; los que reporta el propio teléfono no se pueden borrar desde aquí.
+    """
     from app.dispositivos import imeis as _imeis
 
     db = request.app.state.db_pool
     b = await request.json()
     lista = _imeis.normalizar(b.get("imeis"))
     if not lista:
-        raise HTTPException(400, "Escribe un IMEI válido: 14 a 17 dígitos (marca *#06# en el teléfono)")
-    actual = await db.fetchrow("SELECT imeis, imei FROM disp_equipos WHERE id = $1 AND custodio_email = $2 AND estado <> 'baja'", equipo_id, username)
+        raise HTTPException(
+            400, "Escribe un IMEI válido: 14 a 17 dígitos (marca *#06# en el teléfono)"
+        )
+    actual = await db.fetchrow(
+        "SELECT imeis, imei FROM disp_equipos WHERE id = $1 AND custodio_email = $2 AND estado <> 'baja'",
+        equipo_id,
+        username,
+    )
     if actual is None:
         raise HTTPException(404, "Ese teléfono no está a tu nombre")
     ajenos = await _imeis.ajenos(db, equipo_id, lista)
     if ajenos:
-        raise HTTPException(409, f"El IMEI {', '.join(ajenos)} ya está registrado en otro teléfono de Maquita. Revisa el número (*#06#) o avisa a Tecnología.")
+        raise HTTPException(
+            409,
+            f"El IMEI {', '.join(ajenos)} ya está registrado en otro teléfono de Maquita. Revisa el número (*#06#) o avisa a Tecnología.",
+        )
     final = _imeis.unir(lista, actual["imeis"])
-    origen = _imeis.origenes(await db.fetchval("SELECT imeis_origen FROM disp_equipos WHERE id = $1", equipo_id), lista, "persona")
-    await db.execute("UPDATE disp_equipos SET imeis = $2::jsonb, imei = COALESCE(imei, $3), imeis_origen = $4::jsonb WHERE id = $1", equipo_id, json.dumps(final), final[0], json.dumps(origen))
+    origen = _imeis.origenes(
+        await db.fetchval(
+            "SELECT imeis_origen FROM disp_equipos WHERE id = $1", equipo_id
+        ),
+        lista,
+        "persona",
+    )
+    await db.execute(
+        "UPDATE disp_equipos SET imeis = $2::jsonb, imei = COALESCE(imei, $3), imeis_origen = $4::jsonb WHERE id = $1",
+        equipo_id,
+        json.dumps(final),
+        final[0],
+        json.dumps(origen),
+    )
     await db.execute(
         "INSERT INTO admin_audit (admin_id, admin_username, action, target, details, ip_address) VALUES (NULL, $1, 'dispositivo_custodio_imeis', $2, $3::jsonb, $4)",
-        username, str(equipo_id), json.dumps({"imeis": final}), request.headers.get("X-Real-IP", request.client.host if request.client else ""))
+        username,
+        str(equipo_id),
+        json.dumps({"imeis": final}),
+        request.headers.get("X-Real-IP", request.client.host if request.client else ""),
+    )
     return {"ok": True, "imeis": final}

@@ -61,7 +61,9 @@ class Settings(BaseSettings):
     ia_embed_model: str = "nomic-embed-text"
     ia_embed_url: str = ""  # endpoint de embeddings; vacio -> usa ia_base_url
     ollama_url: str = "http://127.0.0.1:11434"
-    public_base_url: str = organizacion.url("ORG_URL_CORREO", "https://mail.example.org")
+    public_base_url: str = organizacion.url(
+        "ORG_URL_CORREO", "https://mail.example.org"
+    )
     # SSO / OIDC (Keycloak)
     kc_oidc_enabled: bool = False
     kc_base: str = organizacion.url("ORG_URL_IDENTIDAD", "https://auth.example.org")

@@ -6,11 +6,11 @@ IP literales, credenciales en URL, acortadores, etc.).
 
 from __future__ import annotations
 
-from app import organizacion
-
 import ipaddress
 import re
 from urllib.parse import unquote, urlparse
+
+from app import organizacion
 
 # Marcas frecuentemente suplantadas (si aparecen en el host pero el dominio
 # registrable NO es el oficial -> sospechoso).

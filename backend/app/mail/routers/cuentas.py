@@ -108,5 +108,7 @@ async def no_leidos(request: Request, username: str = Depends(get_current_user))
                         if m:
                             resultado[email] = int(m.group(1))
         except Exception as e:
-            log.warning("no-leidos: no se pudo abrir %s para %s: %s", email, username, e)
+            log.warning(
+                "no-leidos: no se pudo abrir %s para %s: %s", email, username, e
+            )
     return {"no_leidos": resultado}

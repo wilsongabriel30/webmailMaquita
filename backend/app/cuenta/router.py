@@ -19,7 +19,10 @@ async def _host_de_dominio(request: Request, dominio: str) -> str:
     from app.portales import direcciones
 
     db = getattr(request.app.state, "db_pool", None)
-    return await direcciones.servidor_de_dominio(db, dominio) or direcciones.servidor_general()
+    return (
+        await direcciones.servidor_de_dominio(db, dominio)
+        or direcciones.servidor_general()
+    )
 
 
 async def _organizacion(request: Request, dominio: str, host: str) -> str:
