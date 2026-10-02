@@ -3,6 +3,9 @@ import { useMailStore } from '../store/mailStore';
 import { showToast } from '../components/common/Toast';
 import { avisar } from '../lib/avisosNavegador';   // T-53: icono propio y clic que lleva a la bandeja
 import { permisoNotificacion, pedirPermisoNotificacion } from '../lib/notificacionSegura';   // AM-10
+import { useAuthStore } from '../store/authStore';
+import { cuentaActiva, elegirCuenta } from '../lib/cuentaActiva';
+import { avisosActivos } from '../lib/avisosOtrasCuentas';
 
 /**
  * WebSocket hook for real-time mail notifications.
@@ -112,6 +115,43 @@ export function useWebSocket(enabled: boolean = true) {
               break;
             }
 
+            case 'new_mail_cuenta': {
+              // Correo nuevo en una cuenta asignada (multicuenta, fase 5).
+              const cuenta = String(data.cuenta || '').toLowerCase();
+              const delta = data.delta || 1;
+              const activa = cuentaActiva();
+              window.dispatchEvent(new CustomEvent('refresh-cuentas'));
+              if (activa && activa === cuenta) {
+                // Es la cuenta con la que se trabaja en esta pestaña: como un correo propio.
+                const folders = useMailStore.getState().folders.map(f =>
+                  f.name === 'INBOX' ? { ...f, unseen: data.unseen } : f
+                );
+                useMailStore.getState().setFolders(folders);
+                updateTabBadge(data.unseen);
+                showToast(delta === 1 ? 'Nuevo correo recibido' : `${delta} correos nuevos`);
+                playNotificationSound();
+                if (permisoNotificacion() === 'granted') {
+                  try {
+                    avisar(data.nombre || cuenta, { cuerpo: delta === 1 ? 'Nuevo correo recibido' : `${delta} correos nuevos`, tipo: 'correo', etiqueta: 'new-mail-' + cuenta, carpeta: 'INBOX', uid: data.uid });
+                  } catch { /* sin aviso */ }
+                }
+                if (useMailStore.getState().currentFolder === 'INBOX') {
+                  window.dispatchEvent(new CustomEvent('refresh-messages'));
+                }
+                break;
+              }
+              if (!avisosActivos()) break;
+              const propia = useAuthStore.getState().user?.username || '';
+              const texto = delta === 1 ? `Correo nuevo en ${cuenta}` : `${delta} correos nuevos en ${cuenta}`;
+              showToast(texto, { label: 'Ver', onClick: () => elegirCuenta(cuenta, propia) });
+              playNotificationSound();
+              if (permisoNotificacion() === 'granted') {
+                try {
+                  avisar(data.nombre || cuenta, { cuerpo: texto, tipo: 'correo', etiqueta: 'new-mail-' + cuenta, destino: `/webmail/?cuenta=${encodeURIComponent(cuenta)}&folder=INBOX${data.uid ? `&uid=${data.uid}` : ''}` });
+                } catch { /* sin aviso */ }
+              }
+              break;
+            }
             case 'folder_update': {
               const folders = useMailStore.getState().folders.map(f =>
                 f.name === data.folder ? { ...f, unseen: data.unseen } : f
