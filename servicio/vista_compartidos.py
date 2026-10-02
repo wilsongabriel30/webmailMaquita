@@ -59,13 +59,23 @@ def migas(prefijo: str, ruta_efectiva: str, nombre_raiz: str) -> list:
     return camino
 
 
+def _corto(persona):
+    from propietarios import nombre_corto
+    return nombre_corto(persona)
+
+
+def _completo(persona):
+    from propietarios import nombre_completo
+    return nombre_completo(persona)
+
+
 def _nombres_de(ids) -> dict:
     """Nombre completo de cada propietario, en una sola consulta."""
     if not ids:
         return {}
     try:
         filas = consultar("""
-            SELECT u.id, u.email,
+            SELECT u.id, u.email, t.nombres, t.apellidos,
                    COALESCE(t.nombres || ' ' || t.apellidos, u.full_name, u.username) AS nombre
             FROM usuarios u LEFT JOIN trabajadores t ON u.trabajador_id = t.id
             WHERE u.id IN %s
@@ -144,7 +154,8 @@ def listar_para(usuario_id: int) -> list:
             'compartido_id': concesion['id'],
             'token': concesion.get('token'),
             'propietario_id': dueno,
-            'propietario_nombre': persona.get('nombre') or f'Usuario {dueno}',
+            'propietario_nombre': _corto(persona) or f'Usuario {dueno}',
+            'propietario_nombre_completo': _completo(persona) or f'Usuario {dueno}',
             'propietario_email': persona.get('email') or '',
             'modificado_at': modificado,
             'creado_at': concesion['creado_en'].isoformat() if concesion.get('creado_en') else modificado,

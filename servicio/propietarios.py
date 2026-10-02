@@ -48,9 +48,46 @@ def _nombres_unidades(ids: set) -> dict:
     return {int(f['id']): f['nombre'] for f in filas}
 
 
+_PARTICULAS = {'de', 'del', 'la', 'las', 'los', 'y', 'e', 'da', 'do', 'dos', 'van', 'von'}
+
+
+def _titulo(texto: str) -> str:
+    """«ORQUIDIA DE LAS MERCEDES» → «Orquidia de las Mercedes»."""
+    palabras = []
+    for i, p in enumerate((texto or '').split()):
+        b = p.lower()
+        palabras.append(b if (i and b in _PARTICULAS) else b[:1].upper() + b[1:])
+    return ' '.join(palabras)
+
+
+def _primera(texto: str) -> str:
+    """Primera palabra que no sea partícula (nómina guarda todo en mayúsculas)."""
+    for p in (texto or '').split():
+        if p.lower() not in _PARTICULAS:
+            return p
+    return ''
+
+
+def nombre_corto(persona: dict) -> str:
+    """«Karen Armas» a partir de nombres y apellidos de nómina; si no hay
+    desglose, las dos primeras palabras del nombre completo."""
+    if not persona:
+        return ''
+    nombres, apellidos = persona.get('nombres') or '', persona.get('apellidos') or ''
+    if nombres or apellidos:
+        return _titulo(' '.join(x for x in (_primera(nombres), _primera(apellidos)) if x))
+    partes = (persona.get('nombre') or '').split()
+    return _titulo(' '.join(partes[:2]))
+
+
+def nombre_completo(persona: dict) -> str:
+    return _titulo(persona.get('nombre') or '') if persona else ''
+
+
 def _poner(item: dict, persona: dict, usuario_id):
     item['propietario_id'] = usuario_id
-    item['propietario_nombre'] = persona.get('nombre') or f'Usuario {usuario_id}'
+    item['propietario_nombre'] = nombre_corto(persona) or f'Usuario {usuario_id}'
+    item['propietario_nombre_completo'] = nombre_completo(persona) or f'Usuario {usuario_id}'
     item['propietario_email'] = persona.get('email') or ''
 
 
