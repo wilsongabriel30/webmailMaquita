@@ -119,7 +119,8 @@ if [ -n "$PY_BACKEND" ]; then
         SIN_FORMATO=""
         for f in $PY_BACKEND; do
             if ! git show ":$f" | "$BLACK" --check -q - >/dev/null 2>&1; then SIN_FORMATO="$SIN_FORMATO $f"; continue; fi
-            if ! git show ":$f" | "$ISORT" --check --profile black - >/dev/null 2>&1; then SIN_FORMATO="$SIN_FORMATO $f"; fi
+            # --filename y --src: sin ellos isort no sabe que «app» es paquete propio y da falsos positivos.
+            if ! git show ":$f" | "$ISORT" --check --profile black --filename "$f" --src "$RAIZ/backend" - >/dev/null 2>&1; then SIN_FORMATO="$SIN_FORMATO $f"; fi
         done
         if [ -n "$SIN_FORMATO" ]; then
             echo -e "${RED}✗ BLOQUEADO: ficheros del backend sin formato black/isort (el CI los rechazaría):${NC}"
