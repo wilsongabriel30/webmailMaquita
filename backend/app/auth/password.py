@@ -7,12 +7,11 @@ import subprocess
 
 logger = logging.getLogger(__name__)
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from pydantic import BaseModel, Field
-
 from app.auth.dependencies import get_current_user
 from app.config import get_settings
 from app.core.session import encrypt_password, get_user_password
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from pydantic import BaseModel, Field
 
 # Contraseñas comunes prohibidas (top 50)
 _COMMON_PASSWORDS = frozenset(
@@ -251,6 +250,10 @@ async def change_password(
     from app.auth.contrasenas_aplicacion import revocar_todas
 
     await revocar_todas(db, username, "cambio_de_contrasena")
+    # Y los teléfonos de confianza del segundo factor: con la clave nueva se vuelve a pedir el código.
+    from app.auth import dispositivos_confianza
+
+    await dispositivos_confianza.revocar_todos(db, username, "cambio_de_contrasena")
     from app.auth.bootstrap import marcar_cambio_obligatorio
 
     await marcar_cambio_obligatorio(db, redis, username, False)  # H-01

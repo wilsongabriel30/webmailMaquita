@@ -2,9 +2,6 @@ import asyncio
 import re
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from pydantic import BaseModel
-
 from app.auth.bootstrap import debe_cambiar_clave
 from app.auth.cookies import dominio_cookie, poner_cookies_sesion, quitar_cookies_sesion
 from app.auth.dependencies import get_current_user
@@ -24,6 +21,8 @@ from app.auth.totp import is_totp_enabled, validate_totp_code
 from app.config import get_settings
 from app.core.session import encrypt_password
 from app.portales.resolucion import dominio_del_portal
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from pydantic import BaseModel
 
 
 def _sanitize_username(username: str) -> str:
@@ -158,7 +157,13 @@ async def login(body: LoginRequest, request: Request, response: Response):
     # él no hay forma de saber si la contraseña era correcta.
     db = request.app.state.db_pool
     if await is_totp_enabled(db, username):
-        return await _emitir_vale_2fa(redis, username, body.password if ok else None)
+        # Teléfono de confianza (app propia, código ya pasado una vez): entra sin segundo paso.
+        from app.auth import dispositivos_confianza
+
+        if not await dispositivos_confianza.confiado(db, request, username):
+            return await _emitir_vale_2fa(
+                redis, username, body.password if ok else None
+            )
 
     # Clear rate limit on success
     await _clear_login_rate_limit(request, username, redis)
@@ -265,6 +270,10 @@ async def login_2fa(body: Login2FARequest, request: Request, response: Response)
         db, redis, request, username, decrypt_password(datos["p"])
     )
     poner_cookies_sesion(response, request, sesion)
+    # Desde la app, este teléfono queda de confianza: no vuelve a pedir el código.
+    from app.auth import dispositivos_confianza
+
+    await dispositivos_confianza.recordar(db, request, response, username)
     return {
         "message": "Login successful",
         "username": username,
