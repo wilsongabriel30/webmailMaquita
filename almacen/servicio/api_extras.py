@@ -148,6 +148,9 @@ def descargar_publico(token):
     if not filas:
         abort(404)
     comp = filas[0]
+    from congelados import esta_congelado as _congelado
+    if _congelado(comp['propietario_id']):
+        return error('Este archivo ya no está disponible', 410)
     if not comp.get('permite_descarga', True):
         return error('Este enlace es de solo lectura (descarga no permitida)', 403)
     if comp['expira_en'] is not None:

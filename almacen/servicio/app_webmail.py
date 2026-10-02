@@ -193,6 +193,10 @@ def crear_app_webmail() -> Flask:
         # re-validan por su cuenta vía es_master: defensa en profundidad).
         if '/admin/' in ruta and rol not in ('master', 'master_admin'):
             return jsonify({'success': False, 'error': 'No autorizado'}), 403
+        # Drive congelado (titular que salió, multicuenta fase 4): se avisa con claridad.
+        from congelados import MENSAJE as _MSG_CONGELADO, esta_congelado as _congelado
+        if '/admin/' not in ruta and _congelado(uid):
+            return jsonify({'success': False, 'error': 'drive_congelado', 'mensaje': _MSG_CONGELADO}), 423
         request.environ['HTTP_X_ALMACEN_USUARIO_ID'] = str(uid)
         return None
 
