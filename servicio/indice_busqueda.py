@@ -53,6 +53,9 @@ def asegurar_esquema_indice() -> None:
             PRIMARY KEY (usuario_id, ruta)
         )
     """)
+    # 02/10/2026: inodo del archivo, para contar una sola vez el contenido
+    # repetido (enlaces duros) al medir carpetas (tamanos_carpetas.py).
+    ejecutar("ALTER TABLE indice_nombres ADD COLUMN IF NOT EXISTS inodo BIGINT")
     ejecutar("""
         CREATE TABLE IF NOT EXISTS indice_estado (
             usuario_id     INTEGER     PRIMARY KEY,
@@ -89,15 +92,20 @@ def asegurar_esquema_indice() -> None:
 # Altas y bajas (se llaman desde el núcleo tras cada operación de archivos)
 # ---------------------------------------------------------------------------
 def _datos_de(fisica: str, nombre: str):
-    """(es_carpeta, extension, tamano, modificado) leídos del disco."""
+    """(es_carpeta, extension, tamano, modificado, inodo) leídos del disco.
+    `inodo` es None en carpetas o si no se pudo leer."""
     es_carpeta = os.path.isdir(fisica)
     extension = '' if es_carpeta or '.' not in nombre else nombre.rsplit('.', 1)[-1].lower()
+    inodo = None
     try:
-        tamano = 0 if es_carpeta else os.path.getsize(fisica)
-        modificado = datetime.fromtimestamp(os.path.getmtime(fisica), tz=timezone.utc)
+        st = os.stat(fisica)
+        tamano = 0 if es_carpeta else st.st_size
+        modificado = datetime.fromtimestamp(st.st_mtime, tz=timezone.utc)
+        if not es_carpeta:
+            inodo = int(st.st_ino)
     except OSError:
         tamano, modificado = 0, None
-    return es_carpeta, extension, tamano, modificado
+    return es_carpeta, extension, tamano, modificado, inodo
 
 
 def agregar(usuario_id: int, ruta_virtual: str) -> None:
@@ -117,21 +125,22 @@ def agregar(usuario_id: int, ruta_virtual: str) -> None:
             return
         usuario_id, ruta_virtual = espacios.espacio_de(usuario_id, ruta_virtual)
         nombre = os.path.basename(ruta_virtual.rstrip('/'))
-        es_carpeta, extension, tamano, modificado = _datos_de(fisica, nombre)
+        es_carpeta, extension, tamano, modificado, inodo = _datos_de(fisica, nombre)
         titulo = titulos.titulo_de(fisica, extension)
         ejecutar("""
             INSERT INTO indice_nombres
                    (usuario_id, ruta, nombre, nombre_norm, es_carpeta, extension,
-                    tamano, modificado_en, titulo_norm, titulo)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    tamano, modificado_en, titulo_norm, titulo, inodo)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (usuario_id, ruta) DO UPDATE
                SET nombre = EXCLUDED.nombre, nombre_norm = EXCLUDED.nombre_norm,
                    es_carpeta = EXCLUDED.es_carpeta, extension = EXCLUDED.extension,
                    tamano = EXCLUDED.tamano, modificado_en = EXCLUDED.modificado_en,
-                   titulo_norm = EXCLUDED.titulo_norm, titulo = EXCLUDED.titulo
+                   titulo_norm = EXCLUDED.titulo_norm, titulo = EXCLUDED.titulo,
+                   inodo = EXCLUDED.inodo
         """, (usuario_id, ruta_virtual, nombre, normalizar(nombre),
               es_carpeta, extension, tamano, modificado,
-              normalizar(titulo) or None, titulo or None))
+              normalizar(titulo) or None, titulo or None, inodo))
         if es_carpeta:
             _indexar_arbol(usuario_id, fisica, ruta_virtual)
     except Exception as e:
@@ -172,11 +181,11 @@ def _indexar_arbol(usuario_id: int, fisica_base: str, ruta_base: str) -> int:
             completo = os.path.join(carpeta, nombre)
             relativa = os.path.relpath(completo, fisica_base).replace(os.sep, '/')
             ruta = (ruta_base.rstrip('/') + '/' + relativa) if ruta_base != '/' else '/' + relativa
-            es_carpeta, extension, tamano, modificado = _datos_de(completo, nombre)
+            es_carpeta, extension, tamano, modificado, inodo = _datos_de(completo, nombre)
             titulo = titulos.titulo_de(completo, extension)
             filas.append((usuario_id, ruta, nombre, normalizar(nombre),
                           es_carpeta, extension, tamano, modificado,
-                          normalizar(titulo) or None, titulo or None))
+                          normalizar(titulo) or None, titulo or None, inodo))
     if not filas:
         return 0
     # Inserción por lotes en UNA sola conexión: reindexar un usuario con miles de
@@ -187,13 +196,14 @@ def _indexar_arbol(usuario_id: int, fisica_base: str, ruta_base: str) -> int:
             execute_values(cur, """
                 INSERT INTO indice_nombres
                        (usuario_id, ruta, nombre, nombre_norm, es_carpeta, extension,
-                        tamano, modificado_en, titulo_norm, titulo)
+                        tamano, modificado_en, titulo_norm, titulo, inodo)
                 VALUES %s
                 ON CONFLICT (usuario_id, ruta) DO UPDATE
                    SET nombre = EXCLUDED.nombre, nombre_norm = EXCLUDED.nombre_norm,
                        es_carpeta = EXCLUDED.es_carpeta, extension = EXCLUDED.extension,
                        tamano = EXCLUDED.tamano, modificado_en = EXCLUDED.modificado_en,
-                       titulo_norm = EXCLUDED.titulo_norm, titulo = EXCLUDED.titulo
+                       titulo_norm = EXCLUDED.titulo_norm, titulo = EXCLUDED.titulo,
+                       inodo = EXCLUDED.inodo
             """, filas, page_size=500)
     return len(filas)
 
