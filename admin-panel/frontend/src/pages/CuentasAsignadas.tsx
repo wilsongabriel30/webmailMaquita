@@ -82,6 +82,7 @@ export function CuentasAsignadas() {
               { titulo: "Cómo se usa", desc: "Cada fila es una persona (el correo con el que entra al webmail). Clic en la fila para ver sus cuentas asignadas; «+ Agregar» para darle otra. «Nueva persona» para alguien que todavía no tiene ninguna." },
               { titulo: "Completo o solo lectura", desc: "Completo: lee, envía como esa cuenta (con su firma) y gestiona sus carpetas. Solo lectura: solo lee." },
               { titulo: "Quitar", desc: "El acceso se corta al instante, aunque tenga el webmail abierto. La cuenta y su correo no se tocan." },
+              { titulo: "Clientes de escritorio", desc: "La asignación también pone el permiso IMAP en el servidor: en Thunderbird u Outlook la cuenta aparece como carpeta compartida con el mismo permiso." },
               { titulo: "Portal de cada dominio", desc: "El administrador de un dominio puede hacer lo mismo desde su portal, solo con cuentas de sus dominios." },
             ]}
           />

@@ -6,13 +6,38 @@ a cualquier persona. El webmail comprueba la asignación en cada petición: quit
 acceso al instante. `completo` = leer, enviar como esa cuenta y gestionarla; si no, solo lectura.
 """
 
+import asyncio
 import json
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.auth.dependencies import require_role
+from app.shared.router import _doveadm_acl_delete, _doveadm_acl_set
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/asignaciones", tags=["asignaciones"])
+
+# Permisos IMAP (ACL de Dovecot) para que un cliente de escritorio (Thunderbird, Outlook) vea
+# la cuenta como carpeta compartida. El webmail no los necesita (usa la credencial maestra),
+# pero así una sola pantalla deja todo coherente. Si una carpeta no existe, se sigue con las demás.
+_CARPETAS = ("INBOX", "Sent", "Drafts", "Trash", "Junk")
+_COMPLETO = ["lookup", "read", "write", "write-seen", "write-deleted", "insert", "expunge", "create", "delete"]
+_LECTURA = ["lookup", "read"]
+
+
+async def _acl_sincronizar(cuenta: str, persona: str, completo: bool | None) -> None:
+    """completo=None quita el permiso; True/False lo pone completo o de solo lectura."""
+    objetivo = f"user={persona}"
+    for carpeta in _CARPETAS:
+        try:
+            if completo is None:
+                await asyncio.to_thread(_doveadm_acl_delete, cuenta, carpeta, objetivo)
+            else:
+                await asyncio.to_thread(_doveadm_acl_set, cuenta, carpeta, objetivo, _COMPLETO if completo else _LECTURA)
+        except Exception as exc:  # carpeta inexistente u otro detalle: no impide la asignación
+            log.info("acl %s %s/%s -> %s: %s", "quitar" if completo is None else "poner", cuenta, carpeta, persona, exc)
 
 _SELECT = """SELECT d.id, lower(d.mailbox) AS cuenta, lower(d.delegate) AS persona,
                     COALESCE(d.can_send_as, false) AS completo, d.created_at,
@@ -81,6 +106,7 @@ async def asignar(request: Request, admin: dict = Depends(require_role("superadm
         id_ = await db.fetchval(
             "INSERT INTO mail_delegation (mailbox, delegate, can_send_as) VALUES ($1, $2, $3) RETURNING id",
             cuenta, persona, completo)
+    await _acl_sincronizar(cuenta, persona, completo)
     await _auditar(request, admin, "asignacion_guardar", cuenta,
                    {"persona": persona, "completo": completo, "antes": antes["completo"] if antes else None})
     return _fila(await _por_id(request, id_))
@@ -91,6 +117,7 @@ async def cambiar_permiso(id_: int, request: Request, admin: dict = Depends(requ
     fila = await _por_id(request, id_)
     completo = bool((await request.json()).get("completo", True))
     await request.app.state.db.execute("UPDATE mail_delegation SET can_send_as = $2 WHERE id = $1", id_, completo)
+    await _acl_sincronizar(fila["cuenta"], fila["persona"], completo)
     await _auditar(request, admin, "asignacion_permiso", fila["cuenta"],
                    {"persona": fila["persona"], "completo": completo, "antes": fila["completo"]})
     return _fila(await _por_id(request, id_))
@@ -100,5 +127,6 @@ async def cambiar_permiso(id_: int, request: Request, admin: dict = Depends(requ
 async def quitar(id_: int, request: Request, admin: dict = Depends(require_role("superadmin", "admin"))):
     fila = await _por_id(request, id_)
     await request.app.state.db.execute("DELETE FROM mail_delegation WHERE id = $1", id_)
+    await _acl_sincronizar(fila["cuenta"], fila["persona"], None)
     await _auditar(request, admin, "asignacion_quitar", fila["cuenta"], {"persona": fila["persona"], "completo": fila["completo"]})
     return {"ok": True}
