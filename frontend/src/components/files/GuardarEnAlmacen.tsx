@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api/client';
 import { showToast } from '../common/Toast';
+import { cuentaActiva } from '../../lib/cuentaActiva';
 
 /* Botón "Guardar en Archivos" para los adjuntos del correo.
    Descarga el adjunto con la sesión y lo sube al Almacén en la carpeta que
@@ -16,8 +17,11 @@ interface Props {
 interface Carpeta { nombre: string; ruta: string; }
 
 export function BotonGuardarEnAlmacen({ folder, uid, att }: Props) {
+  // Desde una cuenta asignada (multicuenta) lo guardado va a Cuentas/<cuenta>/ del Drive de la persona.
+  const asignada = cuentaActiva();
+  const carpetaCuenta = asignada ? `/Cuentas/${asignada}` : null;
   const [abierto, setAbierto] = useState(false);
-  const [carpeta, setCarpeta] = useState('/');
+  const [carpeta, setCarpeta] = useState(carpetaCuenta || '/');
   const [subcarpetas, setSubcarpetas] = useState<Carpeta[]>([]);
   const [guardando, setGuardando] = useState(false);
 
@@ -36,6 +40,11 @@ export function BotonGuardarEnAlmacen({ folder, uid, att }: Props) {
         { credentials: 'include' });
       if (!res.ok) throw new Error();
       const blob = await res.blob();
+      if (carpetaCuenta && carpeta.startsWith(carpetaCuenta)) {
+        // Carpetas Cuentas/ y Cuentas/<cuenta>/ si aún no existen (si existen, el servidor lo ignora).
+        await api.post('/almacen/carpetas', { ruta: '/', nombre: 'Cuentas' }).catch(() => {});
+        await api.post('/almacen/carpetas', { ruta: '/Cuentas', nombre: asignada }).catch(() => {});
+      }
       const fd = new FormData();
       fd.append('carpeta', carpeta);
       fd.append('archivo', new File([blob], att.filename, { type: blob.type || 'application/octet-stream' }));
