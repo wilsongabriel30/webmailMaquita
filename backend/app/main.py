@@ -21,7 +21,6 @@ from app.agents.router import router as agents_router
 from app.ai.router import router as ai_router
 from app.air.router import router as air_router
 from app.apikeys.router import router as apikeys_router
-from app.auth.cambio_cuenta import router as cambio_cuenta_router
 from app.auth.contrasenas_aplicacion import router as contrasenas_aplicacion_router
 from app.auth.dav_auth import router as dav_auth_router
 from app.auth.dependencies import get_current_user, require_admin
@@ -737,7 +736,6 @@ app.include_router(folders_router)
 app.include_router(messages_router)
 app.include_router(compose_router)
 app.include_router(cuentas_router)
-app.include_router(cambio_cuenta_router)
 app.include_router(dlp_router)
 app.include_router(secure_auth_router)
 app.include_router(secure_public_router)
