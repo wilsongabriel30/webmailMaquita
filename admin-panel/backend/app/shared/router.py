@@ -70,7 +70,9 @@ async def grant_access(username: str, request: Request, admin: dict = Depends(re
     """Grant another user access to this mailbox."""
     body = await request.json()
     delegate = body.get("delegate", "").strip().lower()
-    level = body.get("level", "read")
+    # La pantalla manda access_level (y send_as con guion bajo); antes se leia solo level y
+    # todo quedaba en lectura, se eligiera lo que se eligiera.
+    level = str(body.get("level") or body.get("access_level") or "read").replace("_", "-")
     folders = body.get("folders", ["INBOX"])
 
     if not delegate or "@" not in delegate:
@@ -130,25 +132,15 @@ async def revoke_access(username: str, request: Request, admin: dict = Depends(r
 
 @router.get("/delegates")
 async def list_all_delegations(request: Request, admin: dict = Depends(require_role("superadmin", "admin"))):
-    """List all shared mailbox delegations across the system."""
-    db = request.app.state.db
-    rows = await db.fetch("SELECT username FROM mailbox WHERE active = true ORDER BY username")
+    """Lista las delegaciones desde mail_delegation, que es lo que usa el webmail.
 
-    delegations = []
-    for row in rows:
-        username = row["username"]
-        try:
-            acls = await asyncio.to_thread(_doveadm_acl_get, username, "INBOX")
-            for acl in acls:
-                if acl["id"].startswith("user="):
-                    delegate = acl["id"].replace("user=", "")
-                    delegations.append({
-                        "mailbox": username,
-                        "delegate": delegate,
-                        "rights": acl["rights"],
-                        "folder": "INBOX"
-                    })
-        except Exception:
-            pass
-
+    Antes recorría todos los buzones activos preguntando a Dovecot uno por uno (cientos de
+    llamadas, y sin privilegios fallaban todas): la pantalla se quedaba en «Cargando…» y
+    terminaba vacía aunque hubiera delegaciones."""
+    rows = await request.app.state.db.fetch(
+        "SELECT id, mailbox, delegate, COALESCE(can_send_as, false) AS can_send_as FROM mail_delegation ORDER BY delegate, mailbox")
+    delegations = [{
+        "id": r["id"], "mailbox": r["mailbox"], "delegate": r["delegate"],
+        "access_level": "full" if r["can_send_as"] else "read", "folders": ["INBOX"],
+    } for r in rows]
     return {"delegations": delegations}
