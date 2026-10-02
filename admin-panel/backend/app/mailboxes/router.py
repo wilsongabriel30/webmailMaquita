@@ -318,6 +318,25 @@ async def cambiar_titular(
         except Exception as e:
             notification_sent = False
 
+    # Multicuenta fase 4: si el Drive estaba congelado (el titular anterior salió), con el
+    # nuevo titular se descongela y se le entrega. Mejor esfuerzo: el cambio de titular no
+    # debe fallar porque el Almacén no responda.
+    drive_descongelado = False
+    try:
+        from app.drive.router import _llamar as _almacen
+        r = await _almacen("POST", "/descongelar", json={"correo": username, "por": admin["username"]})
+        drive_descongelado = bool(r.get("estaba_congelado"))
+    except Exception:
+        pass
+    # Las sesiones del titular anterior dejan de valer (generación de sesión del buzón).
+    try:
+        await db.execute(
+            "INSERT INTO auth_estado (username, auth_version) VALUES ($1, 2) "
+            "ON CONFLICT (username) DO UPDATE SET auth_version = auth_estado.auth_version + 1, updated_at = now()",
+            username,
+        )
+    except Exception:
+        pass
     await _audit(request, admin, "mailbox_cambiar_titular", username, {
         "old_name": old_name,
         "new_name": new_name,

@@ -73,3 +73,23 @@ async def cuota(request: Request, admin: dict = Depends(require_role("superadmin
     r = await _llamar("POST", "/cuota", json={"correo": datos.get("correo"), "cuota_gb": datos.get("cuota_gb", 0)})
     await _audit(request, admin, "drive_cuota", datos.get("correo"))
     return r
+
+
+@router.post("/congelar")
+async def congelar(request: Request, admin: dict = Depends(require_role("superadmin", "admin"))):
+    """Drive congelado (titular que salió): nadie entra hasta que se descongele. Multicuenta fase 4."""
+    b = await request.json()
+    correo = str(b.get("correo", "")).strip().lower()
+    motivo = str(b.get("motivo", "titular_salio"))[:200]
+    datos = await _llamar("POST", "/congelar", json={"correo": correo, "motivo": motivo, "por": admin["username"]})
+    await _audit(request, admin, "drive_congelar", correo)
+    return datos
+
+
+@router.post("/descongelar")
+async def descongelar(request: Request, admin: dict = Depends(require_role("superadmin", "admin"))):
+    b = await request.json()
+    correo = str(b.get("correo", "")).strip().lower()
+    datos = await _llamar("POST", "/descongelar", json={"correo": correo, "por": admin["username"]})
+    await _audit(request, admin, "drive_descongelar", correo)
+    return datos
