@@ -85,6 +85,29 @@ def buzones_enlazados():
     finally:
         con_nom.close()
     salida = []
+    # Cuentas asignadas (multicuenta): un buzón SIN Drive propio (p. ej. ventas@ o un segundo
+    # correo) se refleja en el Drive de quien lo tiene asignado, bajo Cuentas/<buzón>/.
+    con_mail = psycopg2.connect(os.environ.get('MAILDB_DSN', 'dbname=maildb user=mailserver host=localhost'))
+    try:
+        with con_mail.cursor() as cur:
+            cur.execute("SELECT lower(mailbox), lower(delegate) FROM mail_delegation")
+            asignadas = cur.fetchall()
+    except Exception as e:
+        log(f'mail_delegation no disponible ({e})')
+        asignadas = []
+    finally:
+        con_mail.close()
+
+    def _uid_de(correo):
+        loc, _, dom = correo.partition('@')
+        uid = por_correo.get(correo)
+        if not uid and dom in DOMINIOS:
+            for o in DOMINIOS:
+                uid = por_correo.get(f'{loc}@{o}')
+                if uid:
+                    break
+        return uid
+
     for b in buzones:
         if SOLO and b != SOLO:
             continue
@@ -96,7 +119,14 @@ def buzones_enlazados():
                 if uid:
                     break
         if uid:
-            salida.append((b, uid))
+            salida.append((b, uid, CARPETA))
+    con_drive = {b for b, _u, _c in salida}
+    for buzon, persona in asignadas:
+        if buzon in con_drive or (SOLO and buzon != SOLO):
+            continue  # con Drive propio se refleja en el suyo, como siempre
+        uid = _uid_de(persona)
+        if uid and buzon in buzones:
+            salida.append((buzon, uid, f'/Cuentas/{buzon}{CARPETA}'))
     return salida
 
 
@@ -168,14 +198,16 @@ def _fecha(msg):
         return datetime.now()
 
 
-def reflejar(con, nucleo, usuario_id, buzon, carpeta, uid, msg, adjuntos):
+def reflejar(con, nucleo, usuario_id, buzon, carpeta, uid, msg, adjuntos, base=CARPETA):
     sub = CARPETAS_CORREO.get(carpeta, carpeta)
     fecha = _fecha(msg)
-    destino = f'{CARPETA}/{sub}/{fecha:%Y-%m}'
+    destino = f'{base}/{sub}/{fecha:%Y-%m}'
     if not DRY:
-        nucleo.crear_carpeta(usuario_id, '/', CARPETA.strip('/')) if not _existe(nucleo, usuario_id, CARPETA) else None
-        _asegurar(nucleo, usuario_id, CARPETA, sub)
-        _asegurar(nucleo, usuario_id, f'{CARPETA}/{sub}', f'{fecha:%Y-%m}')
+        # Toda la cadena de carpetas (p. ej. /Cuentas/<buzón>/Archivos del correo/Recibidos/AAAA-MM).
+        padre = ''
+        for tramo in [t for t in base.split('/') if t] + [sub, f'{fecha:%Y-%m}']:
+            _asegurar(nucleo, usuario_id, padre or '/', tramo)
+            padre = f'{padre}/{tramo}'
     n = 0
     for nombre, datos in adjuntos:
         ruta = f'{destino}/{nombre}'
@@ -272,7 +304,10 @@ def main():
     con = db_almacen()
     asegurar_tablas(con)
     total = quitados = 0
-    for buzon, usuario_id in buzones_enlazados():
+    from congelados import esta_congelado
+    for buzon, usuario_id, base in buzones_enlazados():
+        if esta_congelado(usuario_id):
+            continue  # Drive congelado (titular que salió): no se toca
         for carpeta in CARPETAS_CORREO:
             with con.cursor() as cur:
                 cur.execute("SELECT ultimo_uid FROM correo_sync_estado WHERE buzon=%s AND carpeta_correo=%s", (buzon, carpeta))
@@ -289,7 +324,7 @@ def main():
                     log(f'{buzon} {carpeta}#{uid}: no se pudo analizar ({e})')
                     continue
                 if adj:
-                    total += reflejar(con, nucleo, usuario_id, buzon, carpeta, uid, msg, adj)
+                    total += reflejar(con, nucleo, usuario_id, buzon, carpeta, uid, msg, adj, base)
             if uids and not DRY:
                 with con.cursor() as cur:
                     cur.execute("""INSERT INTO correo_sync_estado (buzon, carpeta_correo, ultimo_uid, ultima_vez) VALUES (%s,%s,%s,NOW())
