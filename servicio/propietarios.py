@@ -58,7 +58,11 @@ def nombre_corto(persona: dict) -> str:
     nombres, apellidos = persona.get('nombres') or '', persona.get('apellidos') or ''
     if nombres or apellidos:
         return _titulo(' '.join(x for x in (_primera(nombres), _primera(apellidos)) if x))
-    return _titulo(' '.join((persona.get('nombre') or '').split()[:2]))
+    nombre = persona.get('nombre') or ''
+    if '@' in nombre and ' ' not in nombre:
+        # Cuenta sin ficha de nómina: el nombre es su correo. «martin.deblire@…» → «Martin Deblire».
+        return _titulo(' '.join(nombre.split('@', 1)[0].replace('_', '.').replace('-', '.').split('.')[:2]))
+    return _titulo(' '.join(nombre.split()[:2]))
 
 
 def nombre_completo(persona: dict) -> str:
