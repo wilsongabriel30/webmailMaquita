@@ -153,6 +153,11 @@ export function SharedMailboxes() {
           + Otorgar acceso
         </button>
         </div>
+      <p className="px-3 py-2 rounded text-sm bg-ms-blue-lighter text-ms-gray-130">
+        Para que una persona vea varias cuentas en su webmail (estilo Outlook), usa{" "}
+        <a href="/asignadas" className="text-ms-blue underline">Cuentas asignadas</a>: una fila por persona, con sus cuentas y «+ Agregar».
+        Esta pantalla muestra una línea por cada permiso.
+      </p>
       </div>
 
       {/* Formulario para otorgar acceso */}
