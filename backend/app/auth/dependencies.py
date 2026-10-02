@@ -72,7 +72,10 @@ async def get_current_user(request: Request) -> str:
             sid,
             datetime.fromtimestamp(int(payload["abs_exp"]), tz=timezone.utc),
         )
-    return username
+    # Multicuenta: en las rutas de correo, la cuenta que la persona eligió (si la tiene asignada).
+    from app.mail.services.cuenta_activa import resolver
+
+    return await resolver(request, username)
 
 
 async def require_admin(request: Request) -> str:

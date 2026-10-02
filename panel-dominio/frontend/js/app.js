@@ -5,6 +5,7 @@ import { vistaResumen } from './vistas/resumen.js';
 import { vistaCuentas } from './vistas/cuentas.js';
 import { vistaAlias } from './vistas/alias.js';
 import { vistaGrupos } from './vistas/grupos.js';
+import { vistaAsignaciones } from './vistas/asignaciones.js';
 import { vistaMarca } from './vistas/marca.js';
 import { vistaDns } from './vistas/dns.js';
 import { vistaMiClave } from './vistas/mi_clave.js';
@@ -12,7 +13,7 @@ import { vistaMiCuenta } from './vistas/mi_cuenta.js';
 import { vistaSegundoFactor } from './vistas/segundo_factor.js';
 
 const raiz = document.getElementById('app');
-const SECCIONES = [['resumen', 'Resumen'], ['cuentas', 'Cuentas'], ['alias', 'Alias'], ['grupos', 'Grupos'], ['marca', 'Marca'], ['dns', 'DNS'], ['cuenta', 'Mi cuenta']];
+const SECCIONES = [['resumen', 'Resumen'], ['cuentas', 'Cuentas'], ['alias', 'Alias'], ['grupos', 'Grupos'], ['asignadas', 'Cuentas asignadas'], ['marca', 'Marca'], ['dns', 'DNS'], ['cuenta', 'Mi cuenta']];
 let sesion = null;
 
 const seccionActual = () => (SECCIONES.some(([s]) => '#' + s === location.hash) ? location.hash.slice(1) : 'resumen');
@@ -38,6 +39,7 @@ async function pintar() {
       : seccion === 'cuentas' ? await vistaCuentas(sesion)
       : seccion === 'alias' ? await vistaAlias(sesion)
       : seccion === 'grupos' ? await vistaGrupos(sesion)
+      : seccion === 'asignadas' ? await vistaAsignaciones(sesion)
       : seccion === 'marca' ? await vistaMarca(sesion)
       : seccion === 'dns' ? await vistaDns(sesion)
       : seccion === 'cuenta' ? await vistaMiCuenta(refrescar)
