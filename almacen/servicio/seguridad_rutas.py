@@ -110,6 +110,10 @@ def ruta_fisica(usuario_id: int, ruta_virtual: str, zona: str = 'archivos',
         os.makedirs(base, exist_ok=True)
         limpia = sub
     else:
+        # Drive congelado (titular que salió): nadie entra, ni por enlaces ya compartidos.
+        from congelados import esta_congelado
+        if esta_congelado(usuario_id):
+            raise RutaInvalida('Drive congelado por Tecnología', 423)
         base = raiz_usuario(usuario_id, zona)
         limpia = sub   # ya normalizada por unidad_de_ruta
 

@@ -10,7 +10,8 @@ import { api } from "../api/client";
 
 export interface DriveConfig { modo: string; cuota_defecto_gb: number }
 interface Persona { id: number; full_name: string; email: string; username?: string }
-interface Estado { usuario_id: number | null; vinculado_a: Persona | null; cuota_gb: number; cuota_efectiva_gb: number; usado_gb: number }
+interface Congelado { motivo?: string; por?: string; desde?: string }
+interface Estado { usuario_id: number | null; vinculado_a: Persona | null; cuota_gb: number; cuota_efectiva_gb: number; usado_gb: number; congelado?: Congelado | null }
 
 interface Props {
   cfg: DriveConfig;
@@ -98,6 +99,25 @@ export function DrivePanel({ cfg, correo, gb, setGb, persona, setPersona, onCerr
           </div>
         )}
       </div>
+      {!controlado && estado && estado.usuario_id && (
+        <div className={`rounded border px-3 py-2 text-xs ${estado.congelado ? "border-amber-300 bg-amber-50 text-amber-900" : "border-ms-gray-30 bg-ms-gray-10 text-ms-gray-90"}`}>
+          {estado.congelado ? (
+            <>
+              <b>Drive congelado</b> desde {estado.congelado.desde ? new Date(estado.congelado.desde).toLocaleDateString("es-EC") : "—"}
+              {estado.congelado.por ? ` por ${estado.congelado.por}` : ""}{estado.congelado.motivo ? ` · ${estado.congelado.motivo}` : ""}.
+              Nadie puede entrar (ni por enlaces compartidos). «Cambiar titular» lo descongela y lo entrega al nuevo titular.{" "}
+              <button onClick={async () => { if (!confirm("¿Descongelar el Drive? Volverá a ser accesible con la contraseña del buzón.")) return; try { await api.post("/drive/descongelar", { correo }); setMsg("Drive descongelado."); api.get<Estado>(`/drive/estado?correo=${encodeURIComponent(correo)}`).then(setEstado); } catch (e) { setMsg((e as Error).message); } }}
+                className="text-amber-900 underline">Descongelar</button>
+            </>
+          ) : (
+            <>
+              Si el titular salió de la organización y otra persona va a revisar su correo, congela el Drive: los archivos se conservan sin acceso hasta que llegue el reemplazo.{" "}
+              <button onClick={async () => { if (!confirm("¿Congelar el Drive de este buzón? Nadie podrá entrar (tampoco por enlaces ya compartidos) hasta descongelarlo o cambiar el titular.")) return; try { await api.post("/drive/congelar", { correo, motivo: "titular_salio" }); setMsg("Drive congelado."); api.get<Estado>(`/drive/estado?correo=${encodeURIComponent(correo)}`).then(setEstado); } catch (e) { setMsg((e as Error).message); } }}
+                className="text-ms-blue underline">Congelar Drive</button>
+            </>
+          )}
+        </div>
+      )}
       {!controlado && (
         <div className="flex items-center gap-3">
           <button onClick={guardar} className="px-3 py-1.5 bg-teal-600 text-white rounded text-xs font-medium hover:bg-teal-700">Guardar Drive</button>
