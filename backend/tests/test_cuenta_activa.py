@@ -117,7 +117,12 @@ async def test_envio_se_audita_siempre():
     assert "cuenta_activa_envio" in [a[1] for a in db.auditoria]
 
 
-@pytest.mark.parametrize("kind", ["impersonation", "delegada"])
+async def test_impersonacion_si_cambia_de_cuenta():
+    db = _Db({(VENTAS, PERSONA): True})
+    assert await ca.resolver(_peticion("/api/mail/folders", VENTAS, kind="impersonation", db=db), PERSONA) == VENTAS
+
+
+@pytest.mark.parametrize("kind", ["delegada"])
 async def test_sesiones_especiales_no_cambian_de_cuenta(kind):
     db = _Db({(VENTAS, PERSONA): True})
     with pytest.raises(HTTPException):
