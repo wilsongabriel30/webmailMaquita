@@ -33,6 +33,7 @@ from app.signatures.router import router as signatures_router
 from app.autoresponder.router import router as autoresponder_router
 from app.dnscheck.router import router as dnscheck_router
 from app.shared.router import router as shared_router
+from app.asignaciones.router import router as asignaciones_router
 from app.ediscovery.router import router as ediscovery_router
 from app.branding.router import router as branding_router
 from app.portales.router import router as portales_router
@@ -166,6 +167,7 @@ app.include_router(signatures_router)
 app.include_router(autoresponder_router)
 app.include_router(dnscheck_router)
 app.include_router(shared_router)
+app.include_router(asignaciones_router)
 app.include_router(ai_config_router)
 app.include_router(office_config_router)
 app.include_router(voice_config_router)

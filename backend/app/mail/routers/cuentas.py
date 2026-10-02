@@ -8,11 +8,14 @@ real con el usuario maestro (ver services/cuentas_delegadas.py).
 """
 
 import logging
+import re
 
 from fastapi import APIRouter, Depends, Request
 
 from app.auth.dependencies import get_current_user
 from app.config import get_settings
+from app.core.session import get_imap_login_user, get_user_password
+from app.mail.clients.imap_client import _decode_lines
 from app.mail.clients.imap_pool import get_pooled_imap
 from app.mail.services.alias_propios import alias_de
 from app.mail.services.cuentas_delegadas import (
@@ -73,3 +76,37 @@ async def listar_cuentas(request: Request, username: str = Depends(get_current_u
             }
         )
     return {"cuentas": cuentas}
+
+
+@router.get("/cuentas/no-leidos")
+async def no_leidos(request: Request, username: str = Depends(get_current_user)):
+    """No leídos de la bandeja de entrada de cada cuenta (la propia y las asignadas).
+
+    Para la barra de cuentas: un solo STATUS por cuenta, en lugar de recorrer todas sus
+    carpetas como `/cuentas`. Una cuenta que no abre devuelve null y no tumba la lista.
+    """
+    db = request.app.state.db_pool
+    settings = get_settings()
+    objetivos = [
+        (
+            username,
+            await get_imap_login_user(request, username),
+            await get_user_password(request, username),
+        )
+    ]
+    for c in await cuentas_de(db, username):
+        objetivos.append((c["email"], *credenciales_maestras(c["email"], settings)))
+    resultado: dict[str, int | None] = {}
+    for email, usuario, clave in objetivos:
+        resultado[email] = None
+        try:
+            async with get_pooled_imap(usuario, clave) as imap:
+                resp = await imap.status("INBOX", "(UNSEEN)")
+                if resp.result == "OK":
+                    for linea in _decode_lines(resp.lines):
+                        m = re.search(r"UNSEEN\s+(\d+)", linea)
+                        if m:
+                            resultado[email] = int(m.group(1))
+        except Exception as e:
+            log.warning("no-leidos: no se pudo abrir %s para %s: %s", email, username, e)
+    return {"no_leidos": resultado}

@@ -1,3 +1,6 @@
+// Multicuenta: antes de cualquier petición, cada fetch a /api/ lleva la cuenta de esta pestaña.
+import { instalarCuentaActiva } from './lib/cuentaActiva';
+instalarCuentaActiva();
 import { aplicarEscala, escalaActual } from './lib/escala';
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"

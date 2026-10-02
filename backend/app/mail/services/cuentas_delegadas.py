@@ -91,6 +91,10 @@ async def cuenta_de_la_peticion(request, username: str) -> str | None:
     Se mira el parámetro de ruta `folder`. El resultado se guarda en `request.state`
     para no consultar la base dos veces en la misma petición.
     """
+    # Cuenta activa elegida en la barra lateral (ver cuenta_activa.py): ya validada.
+    activa = getattr(request.state, "cuenta_activa", None)
+    if activa and username.lower() == activa:
+        return activa
     cache = getattr(request.state, "cuenta_delegada", "sin-calcular")
     if cache != "sin-calcular":
         return cache
