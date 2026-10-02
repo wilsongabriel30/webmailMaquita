@@ -216,8 +216,10 @@ async def main():
             if pp.startswith("http"):
                 url = pp
             elif pp:
-                url = organizacion.url_intranet() + "/static/" + (
-                    pp if pp.startswith("uploads/") else "uploads/profiles/" + pp
+                url = (
+                    organizacion.url_intranet()
+                    + "/static/"
+                    + (pp if pp.startswith("uploads/") else "uploads/profiles/" + pp)
                 )
             elif fp:
                 url = organizacion.url_intranet() + "/static/" + fp

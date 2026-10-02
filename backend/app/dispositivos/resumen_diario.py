@@ -31,7 +31,8 @@ async def actualizar(db) -> int:
                 latidos_wifi = EXCLUDED.latidos_wifi, latidos_movil = EXCLUDED.latidos_movil, actualizado_en = NOW()"""
     )
     await db.execute(
-        "DELETE FROM disp_resumen_diario WHERE dia < CURRENT_DATE - make_interval(days => $1)", RETENCION_DIAS
+        "DELETE FROM disp_resumen_diario WHERE dia < CURRENT_DATE - make_interval(days => $1)",
+        RETENCION_DIAS,
     )
     try:
         return int(r.split()[-1])

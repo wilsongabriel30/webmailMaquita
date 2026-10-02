@@ -210,7 +210,9 @@ async def read_message(
 
                 msg["html_body"] = sl_rewriter.rewrite(
                     msg["html_body"],
-                    await direcciones.url_de_peticion(request.app.state.db_pool, request),
+                    await direcciones.url_de_peticion(
+                        request.app.state.db_pool, request
+                    ),
                 )
         except Exception:
             pass

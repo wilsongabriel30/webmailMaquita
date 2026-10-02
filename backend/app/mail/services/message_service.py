@@ -2,8 +2,8 @@
 
 import re
 
-from app.config import get_settings
 from app import organizacion
+from app.config import get_settings
 from app.mail.clients.imap_client import (
     fetch_full_message,
     fetch_message_headers,

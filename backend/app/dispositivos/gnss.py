@@ -46,7 +46,9 @@ class LoteGnss(BaseModel):
 
 
 @router.post("")
-async def recibir(request: Request, body: LoteGnss, equipo: dict = Depends(equipo_actual)):
+async def recibir(
+    request: Request, body: LoteGnss, equipo: dict = Depends(equipo_actual)
+):
     await limitar(request, f"gnss:{equipo['id']}", 20, 3600)
     try:
         comprimido = base64.b64decode(body.datos_gz, validate=True)
@@ -59,7 +61,9 @@ async def recibir(request: Request, body: LoteGnss, equipo: dict = Depends(equip
     except Exception:
         raise HTTPException(400, "datos_gz no es gzip válido")
     if len(texto) > 4 * MAX_BYTES or b"Raw," not in texto:
-        raise HTTPException(400, "El lote no tiene líneas «Raw,» del formato GnssLogger")
+        raise HTTPException(
+            400, "El lote no tiene líneas «Raw,» del formato GnssLogger"
+        )
     carpeta = DIR / str(equipo["id"])
     carpeta.mkdir(parents=True, exist_ok=True)
     nombre = datetime.utcnow().strftime("%Y%m%d-%H%M%S") + ".txt.gz"
@@ -67,9 +71,24 @@ async def recibir(request: Request, body: LoteGnss, equipo: dict = Depends(equip
     lote_id = await request.app.state.db_pool.fetchval(
         """INSERT INTO disp_gnss_lotes (equipo_id, inicio, fin, segundos, formato, modelo, android, capacidades, fix, archivo, bytes, ip)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10, $11, $12) RETURNING id""",
-        equipo["id"], body.inicio[:40], body.fin[:40], body.segundos, body.formato, body.modelo, body.android,
-        json.dumps(body.capacidades or {}), json.dumps(body.fix.model_dump() if body.fix else None),
-        str(carpeta / nombre), len(comprimido), ip_cliente(request),
+        equipo["id"],
+        body.inicio[:40],
+        body.fin[:40],
+        body.segundos,
+        body.formato,
+        body.modelo,
+        body.android,
+        json.dumps(body.capacidades or {}),
+        json.dumps(body.fix.model_dump() if body.fix else None),
+        str(carpeta / nombre),
+        len(comprimido),
+        ip_cliente(request),
     )
-    logger.info("gnss_lote | equipo=%s | id=%s | bytes=%d | segundos=%d", equipo["id"], lote_id, len(comprimido), body.segundos)
+    logger.info(
+        "gnss_lote | equipo=%s | id=%s | bytes=%d | segundos=%d",
+        equipo["id"],
+        lote_id,
+        len(comprimido),
+        body.segundos,
+    )
     return {"id": lote_id, "bytes": len(comprimido)}

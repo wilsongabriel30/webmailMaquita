@@ -18,7 +18,9 @@ from app import organizacion
 from app.calendar.schemas import EventUpdate
 
 log = logging.getLogger(__name__)
-CHAT = organizacion.url_correo()  # mismo dominio: la cookie access_token del usuario vale para /api/chat
+CHAT = (
+    organizacion.url_correo()
+)  # mismo dominio: la cookie access_token del usuario vale para /api/chat
 MARCA = re.compile(r"X-MAQUITA-REUNION:\s*(\d+)")
 
 

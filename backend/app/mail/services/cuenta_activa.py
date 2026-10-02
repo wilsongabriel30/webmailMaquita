@@ -97,7 +97,8 @@ def _ip(request: Request) -> str | None:
 
 async def _auditar(request: Request, persona: str, cuenta: str, accion: str) -> None:
     """Primer uso de la cuenta en la sesión (`cuenta_activa_acceso`, una vez cada 12 h) y cada
-    envío como esa cuenta (`cuenta_activa_envio`). La auditoría no debe impedir trabajar."""
+    envío como esa cuenta (`cuenta_activa_envio`). La auditoría no debe impedir trabajar.
+    """
     try:
         if accion == "cuenta_activa_acceso":
             sid = getattr(request.state, "sid", "")
@@ -112,8 +113,14 @@ async def _auditar(request: Request, persona: str, cuenta: str, accion: str) -> 
             persona,
             accion,
             cuenta,
-            json.dumps({"persona": persona, "cuenta": cuenta, "ruta": request.url.path,
-                        "sesion": getattr(request.state, "session_kind", "normal")}),
+            json.dumps(
+                {
+                    "persona": persona,
+                    "cuenta": cuenta,
+                    "ruta": request.url.path,
+                    "sesion": getattr(request.state, "session_kind", "normal"),
+                }
+            ),
             _ip(request),
         )
     except Exception as exc:
@@ -141,7 +148,10 @@ async def resolver(request: Request, persona: str) -> str:
     if not fila:
         raise HTTPException(
             status_code=403,
-            detail={"detail": f"No tienes acceso a la cuenta {pedida}", "cuenta_revocada": pedida},
+            detail={
+                "detail": f"No tienes acceso a la cuenta {pedida}",
+                "cuenta_revocada": pedida,
+            },
         )
     if not fila["completo"] and es_escritura(request.method, ruta):
         raise HTTPException(

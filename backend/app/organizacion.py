@@ -19,7 +19,9 @@ import re
 from functools import lru_cache
 
 FICHERO = os.environ.get("ORG_FICHERO", "/etc/maquita-mail/organizacion.env")
-FICHERO_DOMINIOS = os.environ.get("ORG_FICHERO_DOMINIOS", "/etc/maquita-mail/dominios-propios.txt")
+FICHERO_DOMINIOS = os.environ.get(
+    "ORG_FICHERO_DOMINIOS", "/etc/maquita-mail/dominios-propios.txt"
+)
 _LINEA = re.compile(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$")
 
 
@@ -60,7 +62,11 @@ def dominios_propios() -> frozenset:
     dominios = {d.lower() for d in lista("ORG_DOMINIOS")}
     try:
         with open(FICHERO_DOMINIOS, encoding="utf-8") as f:
-            dominios |= {l.strip().lower() for l in f if l.strip() and not l.lstrip().startswith("#")}
+            dominios |= {
+                l.strip().lower()
+                for l in f
+                if l.strip() and not l.lstrip().startswith("#")
+            }
     except OSError:
         pass
     dominios.add(dominio_principal())
@@ -91,7 +97,9 @@ def url_intranet() -> str:
 
 
 def url_reuniones() -> str:
-    return url("JITSI_BASE_URL", url("ORG_URL_REUNIONES", "https://reuniones.example.org"))
+    return url(
+        "JITSI_BASE_URL", url("ORG_URL_REUNIONES", "https://reuniones.example.org")
+    )
 
 
 def url_identidad() -> str:
@@ -105,7 +113,14 @@ def servidor(direccion: str) -> str:
 
 def remitente(clave: str, nombre: str, local: str) -> str:
     """Remitente de los avisos del sistema: el configurado o «Nombre <local@dominio principal>»."""
-    return valor(clave, f"{nombre} <{local}@{dominio_principal()}>" if nombre else f"{local}@{dominio_principal()}")
+    return valor(
+        clave,
+        (
+            f"{nombre} <{local}@{dominio_principal()}>"
+            if nombre
+            else f"{local}@{dominio_principal()}"
+        ),
+    )
 
 
 def correos_de_avisos() -> list:
