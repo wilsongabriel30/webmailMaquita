@@ -216,6 +216,16 @@ async def _poll_user_inbox(username: str, app_state):
             # Check user still has active connections on this worker
             if username not in _connections or not _connections[username]:
                 break
+            # Multicuenta (fase 5): las cuentas asignadas se revisan en cada ciclo, antes y
+            # aparte de la propia (no dependen de la credencial de la persona).
+            try:
+                from app.websocket import cuentas_asignadas as _asignadas
+
+                await _asignadas.sondear(username, app_state, _ultimo_sin_leer)
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                logger.warning(f"sondeo de cuentas asignadas de {username}: {exc}")
 
             # Get cached password from Redis and decrypt
             redis = app_state.redis

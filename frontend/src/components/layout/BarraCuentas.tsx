@@ -53,9 +53,11 @@ export function BarraCuentas() {
     cargar();
     const t = setInterval(cargar, CADA_MS);
     window.addEventListener('refresh-messages', cargar);
+    window.addEventListener('refresh-cuentas', cargar);
     return () => {
       clearInterval(t);
       window.removeEventListener('refresh-messages', cargar);
+      window.removeEventListener('refresh-cuentas', cargar);
     };
   }, [cuentas.length]);
 

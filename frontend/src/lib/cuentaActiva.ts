@@ -61,6 +61,19 @@ let instalada = false;
 export function instalarCuentaActiva(): void {
   if (instalada) return;
   instalada = true;
+  // Un aviso (push, notificación) puede abrir el webmail ya en la cuenta asignada: ?cuenta=…
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const pedida = (params.get('cuenta') || '').trim().toLowerCase();
+    if (pedida) {
+      if (pedida.includes('@')) sessionStorage.setItem(CLAVE, pedida);
+      params.delete('cuenta');
+      const resto = params.toString();
+      window.history.replaceState({}, '', window.location.pathname + (resto ? `?${resto}` : '') + window.location.hash);
+    }
+  } catch {
+    /* sin URL o sin almacenamiento: se sigue con la cuenta guardada */
+  }
   ponerCookie(cuentaActiva());
   const original = window.fetch.bind(window);
   window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
