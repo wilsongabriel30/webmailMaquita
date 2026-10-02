@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { SectionHelp } from "../components/SectionHelp";
 import { DrivePanel, type DriveConfig } from "../components/DrivePanel";
+import { CuentasAsignadasBuzon } from "../components/CuentasAsignadasBuzon";
 
 interface Mailbox { username: string; name: string; domain: string; quota: number; active: boolean; phone: string; email_other: string; created: string }
 
@@ -567,6 +568,7 @@ export function Mailboxes() {
               <label className="block text-xs text-ms-gray-90 mb-1">Correo alterno (recuperación)</label>
               <input value={editBoxForm.email_other} onChange={(e) => setEditBoxForm({ ...editBoxForm, email_other: e.target.value })} title="Correo alterno personal del titular. Se usa para recuperación de contraseña." className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
             </div>
+            <CuentasAsignadasBuzon persona={editBox.username} />
             {editBoxError && <div className="text-ms-red text-xs">{editBoxError}</div>}
             <div className="flex gap-2 justify-end">
               <button onClick={() => setEditBox(null)} title="Cierra la ventana sin guardar. Se descartan los cambios." className="px-4 py-2 border border-ms-gray-40 rounded text-sm text-ms-gray-90">Cancelar</button>
