@@ -64,6 +64,11 @@ def _corto(persona):
     return nombre_corto(persona)
 
 
+def _foto(persona):
+    from propietarios import foto_de
+    return foto_de(persona)
+
+
 def _completo(persona):
     from propietarios import nombre_completo
     return nombre_completo(persona)
@@ -75,7 +80,7 @@ def _nombres_de(ids) -> dict:
         return {}
     try:
         filas = consultar("""
-            SELECT u.id, u.email, t.nombres, t.apellidos,
+            SELECT u.id, u.email, t.nombres, t.apellidos, t.foto_perfil, u.profile_picture,
                    COALESCE(t.nombres || ' ' || t.apellidos, u.full_name, u.username) AS nombre
             FROM usuarios u LEFT JOIN trabajadores t ON u.trabajador_id = t.id
             WHERE u.id IN %s
@@ -157,6 +162,7 @@ def listar_para(usuario_id: int) -> list:
             'propietario_nombre': _corto(persona) or f'Usuario {dueno}',
             'propietario_nombre_completo': _completo(persona) or f'Usuario {dueno}',
             'propietario_email': persona.get('email') or '',
+            'propietario_foto': _foto(persona),
             'modificado_at': modificado,
             'creado_at': concesion['creado_en'].isoformat() if concesion.get('creado_en') else modificado,
             'tiene_preview': tipo in ('imagen', 'video'),

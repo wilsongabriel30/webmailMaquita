@@ -132,11 +132,23 @@ def _formas(ruta: str, dueno) -> list:
 
 
 # ── principal ────────────────────────────────────────────────────────────────
+def foto_de(persona: dict) -> str:
+    """URL de la foto de perfil (nómina primero, luego la de la cuenta) o ''."""
+    if not persona:
+        return ''
+    if persona.get('foto_perfil'):
+        return '/static/' + str(persona['foto_perfil']).lstrip('/')
+    if persona.get('profile_picture'):
+        return '/static/uploads/profiles/' + str(persona['profile_picture'])
+    return ''
+
+
 def _poner(item: dict, persona: dict, usuario_id):
     item['propietario_id'] = usuario_id
     item['propietario_nombre'] = nombre_corto(persona) or f'Usuario {usuario_id}'
     item['propietario_nombre_completo'] = nombre_completo(persona) or f'Usuario {usuario_id}'
     item['propietario_email'] = persona.get('email') or ''
+    item['propietario_foto'] = foto_de(persona)
 
 
 def anotar(items: list, usuario_actual: int) -> None:
