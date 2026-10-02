@@ -93,8 +93,12 @@ def estado():
     uid = _usuario_id(correo, crear=False)
     cuota = consultar('SELECT limite_bytes FROM cuotas WHERE usuario_id = %s', (uid,)) if uid else []
     uso = consultar('SELECT usado_bytes FROM cuotas_uso WHERE usuario_id = %s', (uid,)) if uid else []
+    from congelados import info as _congelado_info
+    congelado = _congelado_info(uid) if uid else None
+    if congelado and congelado.get('desde') is not None:
+        congelado = {**congelado, 'desde': congelado['desde'].isoformat()}
     return jsonify({
-        'success': True, 'modo': _modo(), 'usuario_id': uid, 'vinculado_a': persona,
+        'success': True, 'modo': _modo(), 'usuario_id': uid, 'vinculado_a': persona, 'congelado': congelado,
         'cuota_gb': round(cuota[0]['limite_bytes'] / GB, 2) if cuota else 0,
         'cuota_efectiva_gb': round((cuota[0]['limite_bytes'] if cuota else cuota_defecto_bytes()) / GB, 2),
         'usado_gb': round(uso[0]['usado_bytes'] / GB, 2) if uso else 0,
@@ -155,3 +159,32 @@ def cuota():
         ejecutar('DELETE FROM cuotas WHERE usuario_id = %s', (uid,))
     log.info('panel: cuota del Drive de %s (usuario %s) = %s GB', correo, uid, gb or 'defecto')
     return jsonify({'success': True, 'usuario_id': uid, 'cuota_gb': gb, 'cuota_efectiva_gb': round((int(gb * GB) if gb > 0 else cuota_defecto_bytes()) / GB, 2)})
+
+
+@bp_panel.route('/congelar', methods=['POST'])
+def congelar_drive():
+    """Congela el Drive del buzón (titular que salió): nadie entra hasta descongelar."""
+    from congelados import congelar
+    datos = request.get_json(silent=True) or {}
+    correo = (datos.get('correo') or '').strip().lower()
+    if '@' not in correo:
+        return jsonify({'success': False, 'error': 'correo inválido'}), 400
+    uid = _usuario_id(correo, crear=False)
+    if not uid:
+        return jsonify({'success': False, 'error': 'Ese buzón no tiene Drive'}), 404
+    fila = congelar(uid, correo, datos.get('motivo') or 'titular_salio', datos.get('por') or 'panel')
+    return jsonify({'success': True, 'usuario_id': uid, 'congelado': {**fila, 'desde': fila['desde'].isoformat()} if fila.get('desde') else fila})
+
+
+@bp_panel.route('/descongelar', methods=['POST'])
+def descongelar_drive():
+    """Descongela el Drive del buzón (llega el reemplazo o Tecnología lo decide)."""
+    from congelados import descongelar
+    datos = request.get_json(silent=True) or {}
+    correo = (datos.get('correo') or '').strip().lower()
+    if '@' not in correo:
+        return jsonify({'success': False, 'error': 'correo inválido'}), 400
+    uid = _usuario_id(correo, crear=False)
+    if not uid:
+        return jsonify({'success': False, 'error': 'Ese buzón no tiene Drive'}), 404
+    return jsonify({'success': True, 'usuario_id': uid, 'estaba_congelado': descongelar(uid, datos.get('por') or 'panel')})
