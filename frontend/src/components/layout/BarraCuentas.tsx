@@ -1,11 +1,12 @@
 // Barra de cuentas (como en Outlook): la cuenta de la persona y las que le asignaron, de su
 // dominio o de otros. Al elegir una, el CORREO de esta pestaña pasa a esa cuenta (leer, enviar,
 // firma, filtros); Drive, chat y calendario siguen siendo de la persona. Ver lib/cuentaActiva.ts.
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../../api/client';
 import { useMailStore } from '../../store/mailStore';
 import type { Cuenta } from '../../lib/cuentas';
 import { colorDeCuenta, cuentaActiva, elegirCuenta } from '../../lib/cuentaActiva';
+import { activarAvisos, avisarCorreoNuevo, avisosActivos } from '../../lib/avisosOtrasCuentas';
 
 const CADA_MS = 60000;
 
@@ -19,7 +20,11 @@ export function BarraCuentas() {
   const redacciones = useMailStore((s) => s.composeWindows.length);
   const [cuentas, setLista] = useState<Cuenta[]>([]);
   const [noLeidos, setNoLeidos] = useState<Record<string, number | null>>({});
+  const [avisar, setAvisar] = useState(avisosActivos());
   const activa = cuentaActiva();
+  // Conteo anterior, para detectar correo nuevo en las cuentas que no están abiertas.
+  const previo = useRef<Record<string, number | null>>({});
+  const listaRef = useRef<Cuenta[]>([]);
 
   useEffect(() => {
     api
@@ -38,7 +43,12 @@ export function BarraCuentas() {
     const cargar = () =>
       api
         .get<{ no_leidos: Record<string, number | null> }>('/mail/cuentas/no-leidos')
-        .then((r) => setNoLeidos(r.no_leidos))
+        .then((r) => {
+          const propiaAhora = listaRef.current.find((c) => c.propia)?.email || '';
+          avisarCorreoNuevo(previo.current, r.no_leidos, listaRef.current, cuentaActiva() || propiaAhora, propiaAhora);
+          previo.current = r.no_leidos;
+          setNoLeidos(r.no_leidos);
+        })
         .catch(() => {});
     cargar();
     const t = setInterval(cargar, CADA_MS);
@@ -49,6 +59,9 @@ export function BarraCuentas() {
     };
   }, [cuentas.length]);
 
+  useEffect(() => {
+    listaRef.current = cuentas;
+  }, [cuentas]);
   const propia = cuentas.find((c) => c.propia);
   const emailActivo = activa || propia?.email || '';
 
@@ -83,7 +96,19 @@ export function BarraCuentas() {
       style={{ borderTop: `3px solid ${colorDeCuenta(emailActivo)}` }}
       data-prueba="barra-cuentas"
     >
-      <div className="px-1 pb-1 text-[10px] font-semibold text-[#605e5c] uppercase tracking-wide">Cuentas</div>
+      <div className="px-1 pb-1 flex items-center justify-between">
+        <span className="text-[10px] font-semibold text-[#605e5c] uppercase tracking-wide">Cuentas</span>
+        <button
+          type="button"
+          onClick={() => { activarAvisos(!avisar); setAvisar(!avisar); }}
+          aria-pressed={avisar}
+          data-prueba="avisos-otras-cuentas"
+          title={avisar ? 'Avisa cuando llega correo a otra cuenta (clic para apagar)' : 'Avisos de otras cuentas apagados (clic para encender)'}
+          className={`text-[12px] leading-none px-1 rounded ${avisar ? 'text-[#0078d4]' : 'text-[#a19f9d] line-through'}`}
+        >
+          🔔
+        </button>
+      </div>
       {cuentas.map((c) => {
         const esActiva = c.email.toLowerCase() === emailActivo.toLowerCase();
         const color = colorDeCuenta(c.email);
