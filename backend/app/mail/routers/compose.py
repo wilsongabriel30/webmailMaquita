@@ -149,7 +149,11 @@ async def send(
     _dlp = await dlp_service.scan(_dlp_db, body.subject, body.text_body, body.html_body)
     if _dlp["findings"]:
         _dlp = await dlp_policy.decide(
-            _dlp_db, _dlp, all_rcpts, await dlp_policy.is_admin(_dlp_db, username)
+            _dlp_db,
+            _dlp,
+            all_rcpts,
+            await dlp_policy.is_admin(_dlp_db, username),
+            sender=username,
         )
         _ext = bool(_dlp.get("external"))
         _ovr = bool(getattr(body, "dlp_override", False))
@@ -263,7 +267,10 @@ async def send(
                 if len(content) >= SIZE_THRESHOLD and not (att.is_inline or False):
                     # Subir al Almacén y obtener el enlace de descarga
                     share_url = await upload_and_share(
-                        _alm_token, att.filename, content
+                        _alm_token,
+                        att.filename,
+                        content,
+                        cuenta=getattr(request.state, "cuenta_activa", None),
                     )
                     if share_url:
                         large_links_html.append(
@@ -331,6 +338,7 @@ async def send(
                         _d2,
                         all_rcpts,
                         await dlp_policy.is_admin(_dlp_db, username),
+                        sender=username,
                     )
                     _ext2 = bool(_d2.get("external"))
                     _ovr2 = bool(getattr(body, "dlp_override", False))

@@ -23,7 +23,7 @@ CARPETA_ADJUNTOS = "/Adjuntos-Correo"
 
 
 async def upload_and_share(
-    access_token: str, filename: str, content: bytes
+    access_token: str, filename: str, content: bytes, cuenta: str | None = None
 ) -> str | None:
     """Sube el archivo al Almacén del usuario y devuelve la URL pública de descarga.
 
@@ -37,19 +37,30 @@ async def upload_and_share(
     cookies = {"access_token": access_token}
     try:
         async with httpx.AsyncClient(timeout=180.0) as client:
-            # 1) Asegurar la carpeta destino (idempotente: si ya existe, se ignora).
-            try:
-                await client.post(
-                    f"{API}/carpetas",
-                    json={"ruta": "/", "nombre": "Adjuntos-Correo"},
-                    cookies=cookies,
-                )
-            except Exception:
-                pass
-
+            # 1) Asegurar la carpeta destino (idempotente: si ya existe, se ignora). Desde una
+            #    cuenta asignada (multicuenta) va a Cuentas/<cuenta>/Adjuntos-Correo del Drive
+            #    de la persona.
+            carpeta = CARPETA_ADJUNTOS
+            pasos = [("/", "Adjuntos-Correo")]
+            if cuenta:
+                carpeta = f"/Cuentas/{cuenta}{CARPETA_ADJUNTOS}"
+                pasos = [
+                    ("/", "Cuentas"),
+                    ("/Cuentas", cuenta),
+                    (f"/Cuentas/{cuenta}", "Adjuntos-Correo"),
+                ]
+            for ruta, nombre in pasos:
+                try:
+                    await client.post(
+                        f"{API}/carpetas",
+                        json={"ruta": ruta, "nombre": nombre},
+                        cookies=cookies,
+                    )
+                except Exception:
+                    pass
             # 2) Subir el archivo (multipart: campo `archivo` + `carpeta`).
             files = {"archivo": (filename, content, "application/octet-stream")}
-            data = {"carpeta": CARPETA_ADJUNTOS}
+            data = {"carpeta": carpeta}
             resp = await client.post(
                 f"{API}/archivos", files=files, data=data, cookies=cookies
             )
