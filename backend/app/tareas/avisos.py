@@ -75,7 +75,7 @@ async def emitir(
     for base, del_grupo in grupos.items():
         url_grupo = url
         if base != CHAT and url.startswith(CHAT + "/"):
-            url_grupo = base + url[len(CHAT):]
+            url_grupo = base + url[len(CHAT) :]
         cuerpo = {
             "correos": del_grupo,
             "tipo": "tarea",
@@ -96,7 +96,10 @@ async def emitir(
                     n += int((r.json() or {}).get("destinatarios") or 0)
                 else:
                     log.warning(
-                        "aviso tarea %s: %s %s", tipo_registro, r.status_code, r.text[:120]
+                        "aviso tarea %s: %s %s",
+                        tipo_registro,
+                        r.status_code,
+                        r.text[:120],
                     )
         except Exception as e:
             log.warning("aviso tarea %s: %s", tipo_registro, e)

@@ -1033,7 +1033,11 @@ class CalendarService:
             boton = ""
             if _join_url:
                 boton_moderador = ""
-                if es_organizador and organizacion.servidor(organizacion.url_reuniones()) + "/" in _join_url:
+                if (
+                    es_organizador
+                    and organizacion.servidor(organizacion.url_reuniones()) + "/"
+                    in _join_url
+                ):
                     _sala = _join_url.rstrip("/").rsplit("/", 1)[-1].split("?")[0]
                     _mod_url = (
                         f"{organizacion.url_intranet()}/reuniones/unirse?sala={_sala}"

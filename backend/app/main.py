@@ -45,10 +45,10 @@ from app.core.logging import RequestIdMiddleware, setup_logging
 from app.cuenta.router import router as cuenta_router
 from app.database import create_db_pool
 from app.dispositivos.apps import router as dispositivos_apps_router
+from app.dispositivos.gnss import router as dispositivos_gnss_router
 from app.dispositivos.respaldos import router as dispositivos_respaldos_router
 from app.dispositivos.router import router as dispositivos_router
 from app.dispositivos.ubicacion import router as dispositivos_ubicacion_router
-from app.dispositivos.gnss import router as dispositivos_gnss_router
 from app.dispositivos.wifis import router as dispositivos_wifis_router
 from app.dlp.router import router as dlp_router
 from app.gal.router import router as gal_router
@@ -779,13 +779,19 @@ app.include_router(security_router)
 app.include_router(mobile_router)
 app.include_router(dispositivos_router)  # teléfonos institucionales, fase 1
 app.include_router(dispositivos_ubicacion_router)  # fase 2: ubicación y avistamientos
-app.include_router(dispositivos_gnss_router)  # etapa 3: lotes GNSS crudos (experimento REGME)
-app.include_router(dispositivos_wifis_router)  # wifi de las sedes compartido con la flota
+app.include_router(
+    dispositivos_gnss_router
+)  # etapa 3: lotes GNSS crudos (experimento REGME)
+app.include_router(
+    dispositivos_wifis_router
+)  # wifi de las sedes compartido con la flota
 app.include_router(dispositivos_respaldos_router)  # fase 3: respaldos cifrados
 app.include_router(dispositivos_apps_router)  # fase 4: inventario de apps
 app.include_router(cuenta_router)  # descubrimiento de cuenta para Android
 app.include_router(mi_equipo_router)  # código asignado de Mi equipo (solo lectura)
-app.include_router(mi_equipo_ubicacion_router)  # «Teléfono extraviado»: última ubicación, ubicar ahora, hacer sonar
+app.include_router(
+    mi_equipo_ubicacion_router
+)  # «Teléfono extraviado»: última ubicación, ubicar ahora, hacer sonar
 app.include_router(ai_router)
 app.include_router(retention_router)
 app.include_router(gal_router)
