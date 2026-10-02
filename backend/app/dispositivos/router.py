@@ -15,8 +15,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from app.dispositivos import anclas as _anclas
 from app.dispositivos import imeis as _imeis
 from app.dispositivos import ntrip as _ntrip
-from app.dispositivos import wifis as _wifis
 from app.dispositivos import ubicacion as _ubic
+from app.dispositivos import wifis as _wifis
 from app.dispositivos.esquemas import (
     TIPOS_EVENTO,
     Acuse,
@@ -134,20 +134,30 @@ async def enrolar(request: Request, body: Enrolamiento):
             equipo["id"],
             json.dumps({"modo": modo, "ip": ip, "custodio": custodio}),
         )
-        lista = _imeis.unir(None, (body.imeis or []) + ([body.imei] if body.imei else []))
+        lista = _imeis.unir(
+            None, (body.imeis or []) + ([body.imei] if body.imei else [])
+        )
         if lista:
             # AE-12: un IMEI que ya es de otro equipo no se acepta (queda un evento para el panel).
             ajenos = await _imeis.ajenos(con, equipo["id"], lista)
             lista = [v for v in lista if v not in ajenos]
             if ajenos:
-                await con.execute("INSERT INTO disp_eventos (equipo_id, tipo, detalle) VALUES ($1, 'imei_ajeno', $2::jsonb)",
-                                  equipo["id"], json.dumps({"imeis": ajenos, "origen": "enrolamiento"}))
+                await con.execute(
+                    "INSERT INTO disp_eventos (equipo_id, tipo, detalle) VALUES ($1, 'imei_ajeno', $2::jsonb)",
+                    equipo["id"],
+                    json.dumps({"imeis": ajenos, "origen": "enrolamiento"}),
+                )
         if lista:
-            fila_i = await con.fetchrow("SELECT imeis, imeis_origen FROM disp_equipos WHERE id = $1", equipo["id"])
+            fila_i = await con.fetchrow(
+                "SELECT imeis, imeis_origen FROM disp_equipos WHERE id = $1",
+                equipo["id"],
+            )
             origen = "sistema" if modo == "propietario" else "persona"
             await con.execute(
                 "UPDATE disp_equipos SET imeis = $2::jsonb, imei = COALESCE(imei, $3), imeis_origen = $4::jsonb WHERE id = $1",
-                equipo["id"], json.dumps(_imeis.unir(fila_i["imeis"], lista)), lista[0],
+                equipo["id"],
+                json.dumps(_imeis.unir(fila_i["imeis"], lista)),
+                lista[0],
                 json.dumps(_imeis.origenes(fila_i["imeis_origen"], lista, origen)),
             )
     logger.info(
@@ -217,19 +227,35 @@ async def latido(request: Request, body: Latido, equipo: dict = Depends(equipo_a
             ajenos = await _imeis.ajenos(con, equipo["id"], nuevos)
             nuevos = [v for v in nuevos if v not in ajenos]
             if ajenos:
-                ya = await con.fetchval("SELECT 1 FROM disp_eventos WHERE equipo_id = $1 AND tipo = 'imei_ajeno' AND recibido_en > NOW() - interval '1 day'", equipo["id"])
+                ya = await con.fetchval(
+                    "SELECT 1 FROM disp_eventos WHERE equipo_id = $1 AND tipo = 'imei_ajeno' AND recibido_en > NOW() - interval '1 day'",
+                    equipo["id"],
+                )
                 if not ya:
-                    await con.execute("INSERT INTO disp_eventos (equipo_id, tipo, detalle) VALUES ($1, 'imei_ajeno', $2::jsonb)",
-                                      equipo["id"], json.dumps({"imeis": ajenos, "origen": "latido"}))
+                    await con.execute(
+                        "INSERT INTO disp_eventos (equipo_id, tipo, detalle) VALUES ($1, 'imei_ajeno', $2::jsonb)",
+                        equipo["id"],
+                        json.dumps({"imeis": ajenos, "origen": "latido"}),
+                    )
             if nuevos:
-                fila_i = await con.fetchrow("SELECT imeis, imeis_origen FROM disp_equipos WHERE id = $1", equipo["id"])
+                fila_i = await con.fetchrow(
+                    "SELECT imeis, imeis_origen FROM disp_equipos WHERE id = $1",
+                    equipo["id"],
+                )
                 lista = _imeis.unir(fila_i["imeis"], nuevos)
                 origen = "sistema" if equipo["modo"] == "propietario" else "persona"
-                await con.execute("UPDATE disp_equipos SET imeis = $2::jsonb, imei = COALESCE(imei, $3), imeis_origen = $4::jsonb WHERE id = $1",
-                                  equipo["id"], json.dumps(lista), lista[0], json.dumps(_imeis.origenes(fila_i["imeis_origen"], nuevos, origen)))
+                await con.execute(
+                    "UPDATE disp_equipos SET imeis = $2::jsonb, imei = COALESCE(imei, $3), imeis_origen = $4::jsonb WHERE id = $1",
+                    equipo["id"],
+                    json.dumps(lista),
+                    lista[0],
+                    json.dumps(_imeis.origenes(fila_i["imeis_origen"], nuevos, origen)),
+                )
         # Ancla de red: si la IP es de una sede conocida, el equipo está en esa sede (etapa 1).
         try:
-            await _anclas.registrar(con, equipo, ip, _ubic.puede_guardar(equipo), body.wifi_bssid)
+            await _anclas.registrar(
+                con, equipo, ip, _ubic.puede_guardar(equipo), body.wifi_bssid
+            )
         except Exception:
             logger.exception("ancla_red_fallo | equipo=%s", equipo["id"])
         comandos = await con.fetch(
@@ -315,7 +341,13 @@ async def resultado_comando(
         # Etapa 2: redes vistas al localizar → triangulación contra los puntos de acceso de Maquita.
         try:
             async with request.app.state.db_pool.acquire() as con:
-                await _anclas.guardar_triangulacion(con, equipo, [w.model_dump() for w in body.wifis_vistas], ip_cliente(request), _ubic.puede_guardar(equipo))
+                await _anclas.guardar_triangulacion(
+                    con,
+                    equipo,
+                    [w.model_dump() for w in body.wifis_vistas],
+                    ip_cliente(request),
+                    _ubic.puede_guardar(equipo),
+                )
         except Exception:
             logger.exception("triangulacion_fallo | equipo=%s", equipo["id"])
     r = await request.app.state.db_pool.execute(
@@ -384,7 +416,9 @@ async def yo(request: Request, equipo: dict = Depends(equipo_actual)):
         "ubicacion_activa": _ubic.puede_guardar(equipo),
         "push": _push_info(pol, equipo.get("push_topic")),
         # Medición de campo: credenciales NTRIP (REGME) solo si la ubicación está autorizada.
-        "ntrip": await _ntrip.para_equipo(request.app.state.db_pool, equipo, _ubic.puede_guardar(equipo)),
+        "ntrip": await _ntrip.para_equipo(
+            request.app.state.db_pool, equipo, _ubic.puede_guardar(equipo)
+        ),
     }
 
 

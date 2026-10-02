@@ -23,7 +23,9 @@ router = APIRouter(prefix="/api/dispositivos", tags=["dispositivos"])
 class LoteUbicaciones(BaseModel):
     puntos: list[Ubicacion] = Field(..., min_length=1, max_length=100)
     origen: Literal["periodica", "comando", "perdido"] = "periodica"
-    wifis_vistas: Optional[list[WifiVista]] = Field(None, max_length=20)   # etapa 2: triangulación por puntos de acceso
+    wifis_vistas: Optional[list[WifiVista]] = Field(
+        None, max_length=20
+    )  # etapa 2: triangulación por puntos de acceso
 
 
 class Avistamiento(BaseModel):
@@ -116,7 +118,13 @@ async def enviar_ubicaciones(
             from app.dispositivos import anclas as _anclas
 
             try:
-                await _anclas.guardar_triangulacion(con, equipo, [w.model_dump() for w in body.wifis_vistas], ip_cliente(request), puede_guardar(equipo))
+                await _anclas.guardar_triangulacion(
+                    con,
+                    equipo,
+                    [w.model_dump() for w in body.wifis_vistas],
+                    ip_cliente(request),
+                    puede_guardar(equipo),
+                )
             except Exception:
                 logger.exception("triangulacion_fallo | equipo=%s", equipo["id"])
     return {"guardadas": n, "ubicacion_activa": puede_guardar(equipo)}

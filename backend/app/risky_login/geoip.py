@@ -32,14 +32,23 @@ def _redes(textos):
         try:
             redes.append(ipaddress.ip_network(t, strict=False))
         except ValueError:
-            logging.getLogger(__name__).warning("ORG_REDES: «%s» no es una red válida; se ignora", t)
+            logging.getLogger(__name__).warning(
+                "ORG_REDES: «%s» no es una red válida; se ignora", t
+            )
     return redes
 
 
 # Redes confiables: las privadas de siempre y las de la organización (ORG_REDES), que pueden
 # ser públicas: hay redes internas montadas sobre un bloque público.
 _TRUSTED = _redes(
-    ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.0/8", "169.254.0.0/16", "100.64.0.0/10"]
+    [
+        "10.0.0.0/8",
+        "172.16.0.0/12",
+        "192.168.0.0/16",
+        "127.0.0.0/8",
+        "169.254.0.0/16",
+        "100.64.0.0/10",
+    ]
     + organizacion.redes_propias()
 )
 

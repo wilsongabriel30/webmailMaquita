@@ -25,7 +25,9 @@ import asyncpg
 
 from app.dispositivos import alertas_correo, alertas_reglas, resumen_diario
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
+)
 logger = logging.getLogger("dispositivos")
 ZONA = ZoneInfo("America/Guayaquil")
 
@@ -38,40 +40,68 @@ async def _config(db, clave: str) -> dict:
 
 
 async def _depurar(db, politica: dict) -> None:
-    await db.execute("DELETE FROM disp_latidos WHERE recibido_en < NOW() - make_interval(days => $1)",
-                     int(politica.get("retencion_latidos_dias", 30)))
+    await db.execute(
+        "DELETE FROM disp_latidos WHERE recibido_en < NOW() - make_interval(days => $1)",
+        int(politica.get("retencion_latidos_dias", 30)),
+    )
     # Código caducado o anulado: su copia cifrada ya no sirve para nada (AE-04).
-    await db.execute("UPDATE disp_codigos SET codigo_cifrado = NULL WHERE codigo_cifrado IS NOT NULL "
-                     "AND (revocado_en IS NOT NULL OR usos >= usos_max OR (caduca_en IS NOT NULL AND caduca_en < NOW()))")
+    await db.execute(
+        "UPDATE disp_codigos SET codigo_cifrado = NULL WHERE codigo_cifrado IS NOT NULL "
+        "AND (revocado_en IS NOT NULL OR usos >= usos_max OR (caduca_en IS NOT NULL AND caduca_en < NOW()))"
+    )
 
 
 async def _sincronizar(db, condiciones: list[dict], simular: bool) -> list[dict]:
     """Abre las alertas nuevas y cierra las que ya no se cumplen. Devuelve las nuevas (con datos del equipo)."""
-    abiertas = {(a["equipo_id"], a["tipo"]): a["id"] for a in await db.fetch("SELECT id, equipo_id, tipo FROM disp_alertas WHERE hasta IS NULL")}
+    abiertas = {
+        (a["equipo_id"], a["tipo"]): a["id"]
+        for a in await db.fetch(
+            "SELECT id, equipo_id, tipo FROM disp_alertas WHERE hasta IS NULL"
+        )
+    }
     actuales = {(c["equipo_id"], c["tipo"]) for c in condiciones}
     nuevas_ids = []
     for c in condiciones:
         if (c["equipo_id"], c["tipo"]) in abiertas:
             if not simular:
-                await db.execute("UPDATE disp_alertas SET detalle = $2::jsonb WHERE id = $1",
-                                 abiertas[(c["equipo_id"], c["tipo"])], json.dumps(c["detalle"], default=str))
+                await db.execute(
+                    "UPDATE disp_alertas SET detalle = $2::jsonb WHERE id = $1",
+                    abiertas[(c["equipo_id"], c["tipo"])],
+                    json.dumps(c["detalle"], default=str),
+                )
             continue
-        logger.info("alerta_nueva | equipo=%s | tipo=%s | %s", c["equipo_id"], c["tipo"], c["detalle"])
+        logger.info(
+            "alerta_nueva | equipo=%s | tipo=%s | %s",
+            c["equipo_id"],
+            c["tipo"],
+            c["detalle"],
+        )
         if not simular:
-            nuevas_ids.append(await db.fetchval(
-                "INSERT INTO disp_alertas (equipo_id, tipo, detalle) VALUES ($1, $2, $3::jsonb) RETURNING id",
-                c["equipo_id"], c["tipo"], json.dumps(c["detalle"], default=str)))
+            nuevas_ids.append(
+                await db.fetchval(
+                    "INSERT INTO disp_alertas (equipo_id, tipo, detalle) VALUES ($1, $2, $3::jsonb) RETURNING id",
+                    c["equipo_id"],
+                    c["tipo"],
+                    json.dumps(c["detalle"], default=str),
+                )
+            )
     for clave, aid in abiertas.items():
         if clave not in actuales:
             logger.info("alerta_cerrada | equipo=%s | tipo=%s", *clave)
             if not simular:
-                await db.execute("UPDATE disp_alertas SET hasta = NOW() WHERE id = $1", aid)
+                await db.execute(
+                    "UPDATE disp_alertas SET hasta = NOW() WHERE id = $1", aid
+                )
     if simular:
         return []
     # Pendientes de aviso: las nuevas y las que quedaron sin avisar por un fallo de correo anterior.
-    return [dict(f) for f in await db.fetch(
-        f"SELECT a.id, a.equipo_id, a.tipo, a.detalle, a.desde, {_EQUIPO} FROM disp_alertas a JOIN disp_equipos e ON e.id = a.equipo_id "
-        "WHERE a.hasta IS NULL AND a.avisada_en IS NULL ORDER BY a.desde")]
+    return [
+        dict(f)
+        for f in await db.fetch(
+            f"SELECT a.id, a.equipo_id, a.tipo, a.detalle, a.desde, {_EQUIPO} FROM disp_alertas a JOIN disp_equipos e ON e.id = a.equipo_id "
+            "WHERE a.hasta IS NULL AND a.avisada_en IS NULL ORDER BY a.desde"
+        )
+    ]
 
 
 async def _resumen(db, u: dict, simular: bool) -> None:
@@ -85,19 +115,29 @@ async def _resumen(db, u: dict, simular: bool) -> None:
     except ValueError:
         objetivo = ahora.replace(hour=7, minute=30, second=0, microsecond=0)
     estado = await _config(db, "alertas_estado")
-    if ahora < objetivo or estado.get("resumen_enviado_dia") == ahora.date().isoformat():
+    if (
+        ahora < objetivo
+        or estado.get("resumen_enviado_dia") == ahora.date().isoformat()
+    ):
         return
     t = await db.fetchrow(
         """SELECT count(*) FILTER (WHERE estado IN ('activo','perdido')) AS total,
                   count(*) FILTER (WHERE estado IN ('activo','perdido') AND ultimo_contacto > NOW() - interval '24 hours') AS hoy,
                   count(*) FILTER (WHERE estado IN ('activo','perdido') AND (ultimo_contacto IS NULL OR ultimo_contacto < NOW() - interval '24 hours')) AS rojo,
                   (SELECT count(DISTINCT equipo_id) FROM disp_alertas WHERE hasta IS NULL) AS con_alertas
-           FROM disp_equipos""")
-    abiertas = [dict(f) for f in await db.fetch(
-        f"SELECT a.id, a.equipo_id, a.tipo, a.detalle, a.desde, {_EQUIPO} FROM disp_alertas a JOIN disp_equipos e ON e.id = a.equipo_id "
-        "WHERE a.hasta IS NULL ORDER BY e.nombre, a.desde")]
+           FROM disp_equipos"""
+    )
+    abiertas = [
+        dict(f)
+        for f in await db.fetch(
+            f"SELECT a.id, a.equipo_id, a.tipo, a.detalle, a.desde, {_EQUIPO} FROM disp_alertas a JOIN disp_equipos e ON e.id = a.equipo_id "
+            "WHERE a.hasta IS NULL ORDER BY e.nombre, a.desde"
+        )
+    ]
     for a in abiertas:
-        a["detalle"] = json.loads(a["detalle"]) if isinstance(a["detalle"], str) else a["detalle"]
+        a["detalle"] = (
+            json.loads(a["detalle"]) if isinstance(a["detalle"], str) else a["detalle"]
+        )
     logger.info("resumen_diario | para=%s | abiertas=%d", destinos, len(abiertas))
     if simular:
         return
@@ -105,11 +145,14 @@ async def _resumen(db, u: dict, simular: bool) -> None:
         await db.execute(
             "INSERT INTO disp_config (clave, valor) VALUES ('alertas_estado', $1::jsonb) "
             "ON CONFLICT (clave) DO UPDATE SET valor = EXCLUDED.valor, actualizado_en = NOW()",
-            json.dumps({"resumen_enviado_dia": ahora.date().isoformat()}))
+            json.dumps({"resumen_enviado_dia": ahora.date().isoformat()}),
+        )
 
 
 async def correr(simular: bool = False) -> int:
-    dsn = (os.environ.get("DATABASE_URL") or "").replace("postgresql+asyncpg://", "postgresql://")
+    dsn = (os.environ.get("DATABASE_URL") or "").replace(
+        "postgresql+asyncpg://", "postgresql://"
+    )
     if not dsn:
         logger.error("Falta DATABASE_URL (cargar backend/.env)")
         return 2
@@ -133,11 +176,22 @@ async def correr(simular: bool = False) -> int:
             return 0
         if pendientes:
             for a in pendientes:
-                a["detalle"] = json.loads(a["detalle"]) if isinstance(a["detalle"], str) else a["detalle"]
+                a["detalle"] = (
+                    json.loads(a["detalle"])
+                    if isinstance(a["detalle"], str)
+                    else a["detalle"]
+                )
             if await alertas_correo.avisar_nuevas(u.get("correo_ti") or "", pendientes):
-                await db.execute("UPDATE disp_alertas SET avisada_en = NOW() WHERE id = ANY($1::int[])", [a["id"] for a in pendientes])
+                await db.execute(
+                    "UPDATE disp_alertas SET avisada_en = NOW() WHERE id = ANY($1::int[])",
+                    [a["id"] for a in pendientes],
+                )
         await _resumen(db, u, simular)
-        logger.info("alertas_evaluadas | condiciones=%d | avisadas=%d", len(condiciones), len(pendientes))
+        logger.info(
+            "alertas_evaluadas | condiciones=%d | avisadas=%d",
+            len(condiciones),
+            len(pendientes),
+        )
         return 0
     finally:
         await db.close()
