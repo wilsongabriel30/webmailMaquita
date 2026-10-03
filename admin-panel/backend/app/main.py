@@ -15,6 +15,7 @@ from app.dashboard.router import router as dashboard_router
 from app.domains.router import router as domains_router
 from app.drive.router import router as drive_router
 from app.mailboxes.router import router as mailboxes_router
+from app.segundo_factor.router import router as segundo_factor_router
 from app.aliases.router import router as aliases_router
 from app.queue.router import router as queue_router
 from app.resend.router import router as resend_router  # reenvio de correos rebotados
@@ -148,6 +149,7 @@ app.include_router(admins_dominio_router)
 app.include_router(dashboard_router)
 app.include_router(domains_router)
 app.include_router(mailboxes_router)
+app.include_router(segundo_factor_router)
 app.include_router(drive_router)
 app.include_router(aliases_router)
 app.include_router(queue_router)
