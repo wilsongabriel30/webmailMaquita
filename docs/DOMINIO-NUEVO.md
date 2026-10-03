@@ -36,6 +36,11 @@ Sigue siendo general, a propósito:
    **y en IMAP (993) y SMTP (465)**.
 3. Servidor web: bloque para `mail.<empresa>` con la misma configuración que el general.
 
+> **SNI de SMTP (465).** Si el certificado del dominio nuevo se añade a
+> `/etc/postfix/vmail_sni`, el mapa se recompila con **`postmap -F`** (no con `postmap` a secas)
+> y después `systemctl restart postfix` (`reload` no basta). Con el `postmap` normal se rompe el
+> SNI de **todos** los dominios. Detalle en `docs/CERTIFICADO-Y-AUTOCONFIG.md`.
+
 Comprueba que está listo:
 
 ```bash
@@ -65,6 +70,18 @@ INSERT INTO portal_empresa (host, dominio) VALUES ('mail.empresa.example', 'empr
 INSERT INTO branding_empresa (dominio, clave, valor) VALUES ('empresa.example', 'org_name', 'Empresa de ejemplo');
 SQL
 echo empresa.example >> /etc/maquita-mail/dominios-propios.txt
+```
+
+## Cuentas migradas desde cPanel u Outlook: dos carpetas de enviados
+
+Outlook, con un perfil heredado de cPanel, guarda los enviados en `INBOX.Sent`; el webmail y el
+histórico importado usan `Sent`. La persona ve dos carpetas y puede creer que perdió sus
+enviados. No se pierde nada. Para dejar una sola, mueve el contenido y recrea el perfil de
+Outlook (así toma `Sent` como carpeta de enviados):
+
+```bash
+doveadm move -u persona@empresa.example Sent mailbox INBOX.Sent all
+doveadm mailbox delete -u persona@empresa.example INBOX.Sent
 ```
 
 ## Comprobar

@@ -8,7 +8,40 @@ anteriores a la reconstrucción del historial de 2026-09-05), aplicar las migrac
 (`migrations/*.sql`, idempotentes, en orden), revisar las variables nuevas del `.env` de cada
 servicio, reiniciar lo que cambió y correr `deploy/tools/validar-despliegue.sh`.
 
+Tres cosas de esa regla que no dan error visible si se saltan:
+
+1. **Las migraciones se aplican como el usuario de la aplicación** (el de `DATABASE_URL`), no
+   como `postgres`. Si se aplican como `postgres`, las tablas nuevas quedan con otro dueño y la
+   aplicación recibe «permission denied» en silencio (por ejemplo, los portales por empresa
+   dejan de surtir efecto). Arreglo: `ALTER TABLE <tabla> OWNER TO <usuario de la aplicación>`.
+   `validar-despliegue.sh` lo comprueba.
+2. **Cada servicio tiene su propio entorno de Python** y hay que instalar las dependencias en
+   todos; si no, el servicio no arranca («worker failed to boot»):
+
+   ```bash
+   for req in backend admin-panel/backend panel-dominio/backend chat-service almacen \
+              almacen/aplicaciones/bi almacen/aplicaciones/pdf_editor; do
+     [ -x "$req/venv/bin/pip" ] && "$req/venv/bin/pip" install -q -r "$req/requirements.txt"
+   done
+   ```
+
+   (Las aplicaciones del Drive que no tengan `venv` propio usan el de `almacen`.)
+3. **El frontend se reconstruye**: el del correo con `deploy-webmail.sh` y el del panel con
+   `npm ci && npm run build` en `admin-panel/frontend`.
+
 ---
+
+## Multicuenta en el portal de dominio (2026-10-02)
+
+Si usas el portal de administradores de dominio (`panel-dominio/`), la pantalla de cuentas
+asignadas necesita permisos nuevos para el usuario del portal. Sin este paso falla por permisos:
+
+```bash
+psql -d maildb -f panel-dominio/deploy/permisos-3-multicuenta.sql
+systemctl restart maquita-panel-dominio
+```
+
+Se aplica como dueño de la base (son `GRANT` al rol `panel_dominio`). Es idempotente.
 
 ## Direcciones por dominio (2026-09-28)
 
