@@ -13,6 +13,13 @@ if header :is "Deliver-To" "Junk" {
     stop;
 }
 
+# Sin milter_headers.conf propio, rspamd con la acción «add header» solo pone «X-Spam: Yes»
+# (ni Deliver-To ni X-Spam-Flag). Reportado por Andes, 03/10/2026.
+if header :is "X-Spam" "Yes" {
+    fileinto :create "Junk";
+    stop;
+}
+
 # Si X-Spam-Flag es YES (puesto por rspamd o filtro custom), mover a Junk
 if header :is "X-Spam-Flag" "YES" {
     fileinto :create "Junk";

@@ -30,12 +30,13 @@ from email.mime.base import MIMEBase
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from email.utils import formatdate, make_msgid, parseaddr
+from email.utils import formatdate, parseaddr
 
 import aiosmtplib
 
 from app.branding.service import app_name_cacheado, org_name_cacheado
 from app.config import get_settings
+from app.mail.msgid import msgid_del_remitente
 
 # ─── Headers que NUNCA deben estar en un correo saliente ───
 # Agregar cualquiera de estos sube el score de SpamAssassin y envía a spam.
@@ -134,7 +135,7 @@ def build_mime_message(email_data: OutgoingEmail) -> MIMEMultipart:
     msg["To"] = ", ".join(email_data.to)
     msg["Subject"] = email_data.subject
     msg["Date"] = formatdate(localtime=True)
-    msg["Message-ID"] = make_msgid(domain=settings.mail_domain)
+    msg["Message-ID"] = msgid_del_remitente(email_data.from_addr, settings.mail_domain)
     # Marca: este punto no tiene la base a mano, asi que se lee de la cache de
     # proceso. Si aun no esta rellena se usan los valores por defecto: un correo
     # nunca debe dejar de salir por consultar el nombre de la organizacion.
