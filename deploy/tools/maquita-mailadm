@@ -411,6 +411,20 @@ PYEOF
   "mfa list")
     $PSQL "SELECT username, enabled FROM user_totp ORDER BY username"
     ;;
+  "mfa reset")
+    # Quien perdió el teléfono y los códigos de respaldo: se le quita el segundo factor y se
+    # cierran sus sesiones; al entrar con su contraseña lo configura de nuevo.
+    U="$3"
+    [[ "$U" =~ ^[A-Za-z0-9._+-]+@[A-Za-z0-9.-]+$ ]] || { echo "uso: maquita-mailadm mfa reset <cuenta@dominio>"; exit 1; }
+    [ "$($PSQL "SELECT count(*) FROM mailbox WHERE username='$U'")" = "1" ] || { echo "ERROR: no existe el buzón $U"; exit 1; }
+    N=$($PSQL "WITH b AS (DELETE FROM user_totp WHERE username='$U' RETURNING 1) SELECT count(*) FROM b")
+    for T in user_totp_backup_codes dispositivos_confianza; do
+      [ -n "$($PSQL "SELECT to_regclass('public.$T')")" ] && $PSQL "DELETE FROM $T WHERE username='$U'" >/dev/null
+    done
+    $PSQL "INSERT INTO auth_estado (username, auth_version) VALUES ('$U', 2) ON CONFLICT (username) DO UPDATE SET auth_version = auth_estado.auth_version + 1, updated_at = now()" >/dev/null
+    log_audit "mfa reset $U"
+    echo "OK: segundo factor de $U restablecido (tenía: ${N:-0}); sus sesiones se cerraron."
+    ;;
 
   # ===== ESTADÍSTICAS =====
   "stats "*)
@@ -768,6 +782,7 @@ DOMINIOS:
 MFA / 2FA (TOTP):
   mfa status                           cobertura de 2FA (buzones con/sin)
   mfa list                             usuarios con 2FA
+  mfa reset <cuenta>                   quita el 2FA de un buzón (teléfono perdido) y cierra sus sesiones
 
 SERVICIOS (cont.):
   service restart <servicio>           reiniciar un servicio

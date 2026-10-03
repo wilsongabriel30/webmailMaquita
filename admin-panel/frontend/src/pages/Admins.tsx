@@ -47,6 +47,16 @@ export function Admins() {
     }
   };
 
+  const restablecer2fa = async (a: Admin) => {
+    if (!confirm(`¿Restablecer el segundo factor de "${a.username}"? Se le quita el segundo factor y se cierran sus sesiones del panel; al entrar con su contraseña deberá configurarlo de nuevo. Se registra en auditoría.`)) return;
+    try {
+      await api.post(`/segundo-factor/admin/${a.id}/restablecer`);
+      alert(`Segundo factor de "${a.username}" restablecido.`);
+    } catch (e) {
+      alert("No se pudo restablecer: " + (e instanceof Error ? e.message : "error desconocido"));
+    }
+  };
+
   const openPwForm = (a: Admin) => {
     setPwFor(a); setPwForm({ password: "", confirm: "" }); setPwError("");
   };
@@ -80,6 +90,7 @@ export function Admins() {
           { titulo: "Crear un admin", desc: "Botón + Nuevo admin: pide usuario, contraseña (mínimo 8 caracteres), nombre visible y rol. Queda registrado en auditoría." },
           { titulo: "Editar", desc: "Cambia nombre, rol o desactiva la cuenta. Una cuenta inactiva no puede iniciar sesión. No puede quitarse a sí mismo el rol superadmin ni desactivarse." },
           { titulo: "Cambiar contraseña", desc: "Asigna una nueva contraseña a otro administrador sin conocer la anterior. Se aplica de inmediato." },
+          { titulo: "Restablecer 2FA", desc: "Si otro administrador pierde el teléfono, quítele aquí el segundo factor: se cierran sus sesiones y lo configura de nuevo al entrar. No se puede usar sobre la propia cuenta y exige haber entrado con el propio segundo factor." },
           { titulo: "Eliminar", desc: "Borra el administrador definitivamente: pierde acceso al instante y no se puede deshacer. Todas las acciones quedan en el log de auditoría." },
         ]} />
         <button onClick={() => setShowForm(!showForm)} title="Crea un nuevo usuario administrador del panel. Tendra acceso segun el rol asignado. Se registra en auditoria." className="px-3 py-1.5 bg-ms-blue text-white rounded text-sm hover:bg-ms-blue-dark">+ Nuevo admin</button>
@@ -123,6 +134,7 @@ export function Admins() {
                 <td className="px-4 py-2.5 text-right space-x-3">
                   <button onClick={() => openEditForm(a)} title="Edita nombre, rol y estado (activo/inactivo) de este administrador. Se registra en auditoria." className="text-ms-blue text-xs hover:underline">Editar</button>
                   <button onClick={() => openPwForm(a)} title="Cambia la contraseña de este administrador. Se registra en auditoria." className="text-ms-blue text-xs hover:underline">Cambiar contraseña</button>
+                  {a.id !== user?.id && <button onClick={() => restablecer2fa(a)} title="Quita el segundo factor de este administrador (teléfono perdido) y cierra sus sesiones. Exige haber entrado con el propio segundo factor. Se registra en auditoría." className="text-ms-blue text-xs hover:underline">Restablecer 2FA</button>}
                   {a.id !== user?.id && <button onClick={() => del(a.id, a.username)} title="PRECAUCION: Elimina el administrador. Perdera acceso al panel inmediatamente. Se registra en auditoria." className="text-ms-red text-xs hover:underline">Eliminar</button>}
                 </td>
               </tr>

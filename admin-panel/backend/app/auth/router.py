@@ -311,6 +311,20 @@ async def totp_status(request: Request, admin: dict = Depends(get_current_admin)
     return {"enabled": bool(row and row["totp_enabled"])}
 
 
+async def _emisor_totp(db) -> str:
+    """Nombre que muestra la aplicación de códigos: ADMIN_TOTP_EMISOR, o la marca + «Admin»."""
+    import os
+
+    fijo = (os.environ.get("ADMIN_TOTP_EMISOR") or "").strip()
+    if fijo:
+        return fijo
+    try:
+        marca = await db.fetchval("SELECT value FROM branding_settings WHERE key = 'app_name'")
+    except Exception:
+        marca = None
+    return f"{(marca or '').strip() or 'Maquita Mail'} Admin"
+
+
 @router.post("/totp/setup")
 async def totp_setup(request: Request, admin: dict = Depends(get_current_admin)):
     """Genera un secreto TOTP pendiente (requiere contraseña actual). Se activa con /totp/verify."""
@@ -329,7 +343,7 @@ async def totp_setup(request: Request, admin: dict = Depends(get_current_admin))
         "UPDATE admin_users SET totp_secret = $1, totp_enabled = FALSE WHERE id = $2",
         secret, admin["id"],
     )
-    uri = pyotp.TOTP(secret).provisioning_uri(name=admin["username"], issuer_name="Maquita Mail Admin")
+    uri = pyotp.TOTP(secret).provisioning_uri(name=admin["username"], issuer_name=await _emisor_totp(db))
     img = qrcode.make(uri, image_factory=qrcode.image.svg.SvgPathImage)
     buf = io.BytesIO()
     img.save(buf)

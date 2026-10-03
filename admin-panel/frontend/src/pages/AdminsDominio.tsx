@@ -12,10 +12,13 @@ export function AdminsDominio() {
   const [dominios, setDominios] = useState<string[]>([]);
   const [editando, setEditando] = useState<AdminDominio | "nuevo" | null>(null);
   const [error, setError] = useState("");
+  const [portal, setPortal] = useState("");
+  const [copiado, setCopiado] = useState(false);
 
   const cargar = () => api.get<AdminDominio[]>("/admins-dominio").then(setLista).catch((e) => setError(e.message));
   useEffect(() => {
     cargar();
+    api.get<{ url: string | null }>("/segundo-factor/portal-dominio").then((r) => setPortal(r.url || "")).catch(() => {});
     api.get<{ domain: string }[]>("/domains").then((d) => setDominios(d.map((x) => x.domain))).catch(() => {});
   }, []);
 
@@ -32,7 +35,7 @@ export function AdminsDominio() {
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-semibold text-ms-gray-130">Administradores de dominio</h1>
         <SectionHelp titulo="Administradores de dominio" items={[
-          { titulo: "Qué es", desc: "Personas que administran SOLO las cuentas y alias de los dominios que se les asignan. Entran por un portal aparte (otro puerto), no por este panel." },
+          { titulo: "Qué es", desc: "Personas que administran SOLO las cuentas y alias de los dominios que se les asignan. Entran por un portal aparte (otro puerto), no por este panel; su dirección se muestra arriba de la lista, con un botón para copiarla." },
           { titulo: "Qué pueden hacer", desc: "Crear cuentas, editar nombre y cuota, cambiar contraseñas, activar o desactivar cuentas y gestionar alias dentro de sus dominios." },
           { titulo: "Qué no pueden hacer", desc: "Ver otros dominios, eliminar cuentas, leer correo, reenviar fuera de su dominio ni tocar la configuración del servidor." },
           { titulo: "Segundo factor", desc: "Es obligatorio: tras cambiar su contraseña, el portal le pide configurar un código en el teléfono. Si pierde el teléfono, edítalo aquí y marca «Restablecer segundo factor»." },
@@ -41,6 +44,16 @@ export function AdminsDominio() {
         ]} />
         <button onClick={() => setEditando("nuevo")} className="px-3 py-1.5 bg-ms-blue text-white rounded text-sm hover:bg-ms-blue-dark">+ Nuevo administrador de dominio</button>
       </div>
+
+      {portal && (
+        <div className="bg-ms-blue-lighter rounded border border-ms-blue/20 px-4 py-2.5 text-sm text-ms-gray-130 flex items-center gap-3 flex-wrap">
+          <span>Los administradores de dominio entran por:</span>
+          <a href={portal} target="_blank" rel="noreferrer" className="font-medium text-ms-blue hover:underline">{portal}</a>
+          <button onClick={() => { navigator.clipboard?.writeText(portal); setCopiado(true); setTimeout(() => setCopiado(false), 2000); }}
+            title="Copia la dirección del portal para enviársela al administrador de dominio"
+            className="px-2 py-0.5 border border-ms-blue/40 rounded text-xs text-ms-blue hover:bg-white">{copiado ? "Copiada" : "Copiar"}</button>
+        </div>
+      )}
 
       {error && <div className="text-ms-red text-sm">{error}</div>}
 
