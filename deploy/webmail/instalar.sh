@@ -211,6 +211,12 @@ echo "admin:${MASTER_HASH}" > /etc/dovecot/master-users
 # leer el archivo. root:root 600 daria "internal auth failure" al abrir buzones.
 chown root:dovecot /etc/dovecot/master-users
 chmod 640 /etc/dovecot/master-users
+# Filtros Sieve globales: cuarentena del milter (antes del filtro personal) y correo no
+# deseado a «Junk» (después). No se pisan si ya existen (pueden tener reglas propias).
+install -d -o vmail -g vmail -m 755 /var/vmail/sieve
+[ -f /var/vmail/sieve/before.sieve ] || install -o vmail -g vmail -m 644 "${APP_DIR}/deploy/dovecot/instalacion-before.sieve" /var/vmail/sieve/before.sieve
+[ -f /var/vmail/sieve/after.sieve ]  || install -o vmail -g vmail -m 644 "${APP_DIR}/deploy/dovecot/global-after.sieve" /var/vmail/sieve/after.sieve
+for s in before after; do sudo -u vmail sievec "/var/vmail/sieve/${s}.sieve" || echo -e "  ${RED}AVISO: ${s}.sieve no compila${NC}"; done
 doveconf -n >/dev/null && echo "  Dovecot: sintaxis OK"
 # Postfix crea /var/spool/postfix/private (sockets auth/lmtp) que Dovecot necesita
 systemctl start postfix 2>/dev/null || service postfix start 2>/dev/null || true
@@ -292,6 +298,18 @@ install -m440 "${APP_DIR}/deploy/sudoers/maquita-admin" /etc/sudoers.d/maquita-a
 rm -f /etc/sudoers.d/webmail-doveadm
 visudo -c >/dev/null || { echo -e "  ${RED}ERROR: sudoers invalido${NC}"; exit 1; }
 cp "${CFG}/rspamd-ratelimit.conf" /etc/rspamd/local.d/ratelimit.conf
+# Clasificador bayesiano: sin Redis no aprende («Marcar como spam» falla en silencio).
+# Se configura solo para este módulo (base propia) para no activar greylisting ni otros.
+if [ ! -f /etc/rspamd/local.d/classifier-bayes.conf ]; then
+  ( umask 027; cat > /etc/rspamd/local.d/classifier-bayes.conf <<BAYES
+backend = "redis";
+servers = "127.0.0.1:6379";
+database = "3";
+password = "${REDIS_PASS}";
+BAYES
+  )
+  chown root:_rspamd /etc/rspamd/local.d/classifier-bayes.conf 2>/dev/null || true
+fi
 mkdir -p /etc/rspamd/maps.d
 cp "${CFG}/rspamd-ratelimit-whitelist.map" /etc/rspamd/maps.d/ratelimit_whitelist.map
 systemctl enable --now clamav-freshclam clamav-daemon 2>/dev/null || true

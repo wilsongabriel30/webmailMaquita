@@ -137,10 +137,8 @@ export function Mailboxes() {
       // The webmail login page will detect the token and auto-authenticate
       const token = encodeURIComponent(res.token);
       const user = encodeURIComponent(u);
-      window.open(
-        `${window.location.protocol}//${window.location.hostname}/webmail/?impersonate=${token}&user=${user}`,
-        "_blank"
-      );
+      const base = res.webmail_url || `${window.location.protocol}//${window.location.hostname}`;
+      window.open(`${base}/webmail/?impersonate=${token}&user=${user}`, "_blank");
     } catch (e: any) {
       alert("Error: " + (e.message || "No se pudo impersonar"));
     }
