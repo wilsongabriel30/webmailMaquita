@@ -146,6 +146,16 @@ export function Mailboxes() {
     }
   };
 
+  const restablecer2fa = async (u: string) => {
+    if (!confirm(`¿Restablecer el segundo factor de ${u}?\n\nÚselo cuando la persona perdió el teléfono y sus códigos de respaldo. Se borran su segundo factor, sus códigos y sus equipos de confianza, y se cierran sus sesiones. Entrará con su contraseña y lo configurará de nuevo. Se registra en auditoría.`)) return;
+    try {
+      const r: any = await api.post(`/segundo-factor/buzon/${encodeURIComponent(u)}/restablecer`);
+      alert(r.tenia_segundo_factor ? `Segundo factor de ${u} restablecido. Sus sesiones se cerraron.` : `${u} no tenía segundo factor activo. Sus sesiones se cerraron.`);
+    } catch (e: any) {
+      alert("No se pudo restablecer: " + (e.message || "error desconocido"));
+    }
+  };
+
   const cambiarTitular = async () => {
     if (!titularUser) return;
     if (!titularForm.new_name.trim()) { alert("El nombre del nuevo titular es obligatorio"); return; }
@@ -506,6 +516,9 @@ export function Mailboxes() {
                   <button onClick={() => { setEditPw(editPw === m.username ? null : m.username); setNewPw(""); setNewPw2(""); }}
                     title="Abre el formulario para asignar una nueva contraseña a este buzón. La actual dejará de funcionar al confirmar."
                     className="text-ms-blue hover:underline text-xs">Contraseña</button>
+                  <button onClick={() => restablecer2fa(m.username)}
+                    title="Restablece el segundo factor de este buzón (teléfono perdido). Solo superadministradores que entraron con su propio segundo factor. Cierra las sesiones de la persona."
+                    className="text-ms-blue hover:underline text-xs">2FA</button>
                   {driveCfg && (
                     <button onClick={() => setDriveUser(driveUser === m.username ? null : m.username)}
                       title="Cuota del Drive y vínculo con una persona del directorio para este buzón"

@@ -383,7 +383,11 @@ async def impersonate_mailbox(username: str, request: Request, admin: dict = Dep
     db = _db(request)
     from app.auth.politica_impersonacion import exige_totp_para_impersonar
     if await exige_totp_para_impersonar(db) and not admin.get("totp"):
-        raise HTTPException(403, "Impersonar exige haber iniciado sesión con segundo factor (TOTP)")
+        raise HTTPException(
+            403,
+            "Abrir el buzón de otra persona exige haber entrado al panel con segundo factor. "
+            "Actívelo en «Mi cuenta → Activar 2FA», cierre sesión y vuelva a entrar con el código.",
+        )
     
     # Verify mailbox exists
     row = await db.fetchrow("SELECT username, active FROM mailbox WHERE username = $1", username)
