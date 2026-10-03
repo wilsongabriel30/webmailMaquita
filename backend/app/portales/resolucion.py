@@ -10,7 +10,10 @@ La relación entre el nombre del servidor y el dominio de correo vive en la tabl
 `portal_empresa`, no en el código, para poder añadir empresas sin tocar el programa.
 """
 
+import logging
 import time
+
+logger = logging.getLogger(__name__)
 
 CACHE_SEGUNDOS = 60
 
@@ -41,9 +44,15 @@ async def _portales(db) -> dict[str, str]:
         )
         _cache = {f["host"].lower(): f["dominio"].lower() for f in filas}
         _cache_hasta = ahora + CACHE_SEGUNDOS
-    except Exception:
+    except Exception as e:
         # Si la tabla aún no existe o la base no responde, no se restringe nada:
         # es preferible que la gente pueda entrar a dejarla fuera por un fallo interno.
+        # Pero se deja rastro: sin él, un «permission denied» (migraciones aplicadas con
+        # otro usuario) solo se notaba porque todos recibían el servidor general.
+        logger.warning(
+            "No se pudo leer portal_empresa; los portales por empresa quedan sin efecto: %s",
+            e,
+        )
         _cache = {}
         _cache_hasta = ahora + 5
     return _cache

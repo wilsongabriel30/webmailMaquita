@@ -172,13 +172,14 @@ async def _send_rsvp_reply(request, username: str, invite, response: str) -> boo
         from datetime import datetime
         from email.mime.multipart import MIMEMultipart
         from email.mime.text import MIMEText
-        from email.utils import formatdate, make_msgid
+        from email.utils import formatdate
 
         import aiosmtplib
         import vobject
 
         from app.config import get_settings
         from app.core.session import get_user_password
+        from app.mail.msgid import msgid_del_remitente
 
         settings = get_settings()
         password = await get_user_password(request, username)
@@ -232,7 +233,7 @@ async def _send_rsvp_reply(request, username: str, invite, response: str) -> boo
         msg["To"] = invite.organizer
         msg["Subject"] = f"{label}: {invite.summary}"
         msg["Date"] = formatdate(localtime=True)
-        msg["Message-ID"] = make_msgid(domain=settings.mail_domain)
+        msg["Message-ID"] = msgid_del_remitente(username, settings.mail_domain)
 
         text_body = (
             f"La invitacion '{invite.summary}' ha sido {label.lower()} por {username}."

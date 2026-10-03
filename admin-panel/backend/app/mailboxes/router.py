@@ -394,4 +394,8 @@ async def impersonate_mailbox(username: str, request: Request, admin: dict = Dep
     token = create_impersonation_token(admin["id"], admin["username"], admin["role"], admin["totp"], username)
     
     await _audit(request, admin, "mailbox_impersonate", username)
-    return {"token": token, "username": username}
+    # Dirección del webmail tomada de la configuración: si el panel se publica con nombre
+    # propio, «/webmail/» en ese nombre no es el correo. Sin configurar, el panel usa la suya.
+    from app import organizacion
+    webmail = organizacion.url("PUBLIC_BASE_URL", organizacion.url("ORG_URL_CORREO", ""))
+    return {"token": token, "username": username, "webmail_url": webmail or None}
