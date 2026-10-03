@@ -173,6 +173,34 @@ if [ -n "$DOM" ]; then
   dig +short TXT "_dmarc.$DOM" 2>/dev/null | grep -q 'v=DMARC1' && ok "DMARC presente" || warn "sin DMARC en $DOM"
 else warn "MAIL_DOMAIN no definido — omito DNS"; fi
 
+# --- Hallazgos de Andes (03/10/2026): fallos que no dan error visible ---
+hdr "Filtro de spam, aprendizaje y permisos de la base"
+# 1) Sieve global: sin él, el spam marcado cae en la bandeja de entrada.
+if doveconf -n 2>/dev/null | grep -A6 'sieve_script' | grep -q 'type = after'; then
+  ok "Dovecot tiene un filtro Sieve global «after» (correo no deseado a Junk)"
+else
+  bad "Dovecot NO tiene filtro Sieve global «after»: el spam marcado cae en la bandeja (ver bloques sieve_script en deploy/webmail/configs/dovecot.conf)"
+fi
+# 2) Bayes: que el clasificador pueda guardar lo aprendido (necesita Redis).
+if command -v rspamc >/dev/null 2>&1; then
+  if rspamc stat 2>/dev/null | grep -q 'Statfile:'; then ok "rspamd: el clasificador bayesiano responde (Redis accesible)"
+  else warn "rspamd: el clasificador bayesiano no reporta estadísticas; «Marcar como spam» no aprende (falta /etc/rspamd/local.d/classifier-bayes.conf con Redis y su contraseña)"; fi
+  if journalctl -u rspamd --since '-1 day' --no-pager 2>/dev/null | grep -q 'rspamd_redis_process_tokens: call to redis failed\|cannot learn.*redis'; then
+    bad "rspamd no puede hablar con Redis para el Bayes (ver journalctl -u rspamd): revise servidor y contraseña en classifier-bayes.conf"
+  fi
+fi
+# 3) Tablas con dueño distinto al de la aplicación: «permission denied» silencioso
+#    (migraciones aplicadas como postgres). El síntoma típico: los portales por empresa no surten efecto.
+APPROL="$(systemctl show maquita-webmail -p Environment 2>/dev/null | grep -o 'DATABASE_URL=[^ ]*' | sed -E 's#.*://([^:@/]+).*#\1#')"
+[ -n "$APPROL" ] || APPROL="$(grep -hE '^DATABASE_URL=' /opt/maquita-webmail/backend/.env 2>/dev/null | sed -E 's#.*://([^:@/]+).*#\1#' | head -1)"
+if [ -n "$APPROL" ]; then
+  SINPERM="$($PSQL "SELECT string_agg(tablename, ', ') FROM pg_tables WHERE schemaname='public' AND tablename IN ('portal_empresa','branding_empresa','domain','mailbox') AND NOT has_table_privilege('$APPROL', 'public.'||tablename, 'SELECT')" 2>/dev/null)"
+  if [ -z "$SINPERM" ]; then ok "el rol de la aplicación ($APPROL) puede leer portal_empresa y las tablas base"
+  else bad "el rol de la aplicación ($APPROL) NO puede leer: $SINPERM (¿migraciones aplicadas como postgres? GRANT o ALTER TABLE ... OWNER TO $APPROL)"; fi
+else
+  warn "no pude determinar el rol de la aplicación (DATABASE_URL) para comprobar permisos de tablas"
+fi
+
 # --- Web Push (#17/#18): la clave VAPID debe existir y NO estar vacia ---
 # Si el paso VAPID del instalador falla en silencio, el push queda muerto sin pista.
 VP=$(curl -s "$WEBMAIL/api/push/vapid-public-key" 2>/dev/null)

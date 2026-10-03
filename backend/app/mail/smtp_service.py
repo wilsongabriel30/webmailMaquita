@@ -2,12 +2,13 @@ from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from email.utils import formataddr, formatdate, make_msgid, parseaddr
+from email.utils import formataddr, formatdate, parseaddr
 from typing import Optional
 
 import aiosmtplib
 
 from app.config import get_settings
+from app.mail.msgid import msgid_del_remitente
 
 
 async def send_email(
@@ -31,7 +32,7 @@ async def send_email(
     msg["To"] = ", ".join(to)
     msg["Subject"] = subject
     msg["Date"] = formatdate(localtime=True)
-    msg["Message-ID"] = make_msgid(domain=settings.mail_domain)
+    msg["Message-ID"] = msgid_del_remitente(username, settings.mail_domain)
 
     if cc:
         msg["Cc"] = ", ".join(cc)
