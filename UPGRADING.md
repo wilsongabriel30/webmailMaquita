@@ -45,6 +45,22 @@ sudo -u maquita-admin sudo -n /usr/local/sbin/maquita-sudo maquita-outbound get-
 
 El nombre del producto (`app_name`) ya se puede editar en la pantalla de marca del panel.
 
+## Panel: «Depurar adjuntos peligrosos» y «Acceso por país» (2026-10-03)
+
+Con el panel confinado, la primera daba error 500 y la segunda guardaba el cambio en la base
+sin poder tocar el cortafuegos. Sus guiones no estaban en el repositorio. Para aplicarlo:
+
+```bash
+install -m755 deploy/sudoers/maquita-sudo /usr/local/sbin/maquita-sudo
+install -m750 deploy/tools/depurar-adjuntos-peligrosos deploy/tools/geoip-country.sh deploy/tools/geoip-rebuild.sh /usr/local/sbin/
+# confinamiento del panel: añadir  ReadWritePaths=-/etc/nftables.conf  a 10-confinamiento.conf
+systemctl daemon-reload && systemctl restart maquita-admin maquita-webmail
+```
+
+El acceso por país solo aplica si usas el conjunto `paises_permitidos` de
+`deploy/hardening/nftables/`; migración nueva `2026-10-03-acceso-por-pais.sql`. Si ya tenías
+guiones propios con esos nombres, compáralos antes de reemplazarlos.
+
 ## Protección de salida y términos de anti-suplantación (2026-10-03)
 
 **Protección de salida.** En instalaciones que no pasaron por esa parte del instalador, el

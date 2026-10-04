@@ -14,6 +14,8 @@ router = APIRouter(prefix="/api/antispam-avanzado", tags=["antispam-avanzado"])
 
 CFG_PATH = "/etc/maquita-mail/filtro-avanzado.json"
 NEURONA_JSON = "/opt/maquita-mail-filter/datos/neurona_spam.json"
+from app.wrappers.privilegios import con_sudo
+
 DEPURA_BIN = "/usr/local/sbin/depurar-adjuntos-peligrosos"
 
 DEFAULTS = {"umbral": 3, "macro_score": 2, "neurona_peso": 0,
@@ -106,10 +108,15 @@ async def depurar(body: DepuraIn, request: Request,
     if body.borrar:
         args.append("--borrar")
     try:
+        # El guion recorre todos los buzones con doveadm (root): va por maquita-sudo.
         proc = await asyncio.create_subprocess_exec(
-            *args, stdout=PIPE, stderr=asyncio.subprocess.STDOUT)
+            *con_sudo(*args), stdout=PIPE, stderr=asyncio.subprocess.STDOUT)
         out, _ = await asyncio.wait_for(proc.communicate(), timeout=180)
         salida = out.decode("utf-8", "replace")
+        if proc.returncode != 0:
+            raise HTTPException(status_code=502, detail=("La depuración no se pudo ejecutar: " + salida.strip()[-300:]))
+    except HTTPException:
+        raise
     except asyncio.TimeoutError:
         salida = "(timeout: la busqueda en buzones tardo mas de 180s; correr de noche)"
     except Exception as e:
