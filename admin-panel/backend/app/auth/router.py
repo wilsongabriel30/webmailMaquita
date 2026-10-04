@@ -322,7 +322,7 @@ async def _emisor_totp(db) -> str:
         marca = await db.fetchval("SELECT value FROM branding_settings WHERE key = 'app_name'")
     except Exception:
         marca = None
-    return f"{(marca or '').strip() or 'Maquita Mail'} Admin"
+    return f"{(marca or '').strip() or 'Correo'} Admin"
 
 
 @router.post("/totp/setup")

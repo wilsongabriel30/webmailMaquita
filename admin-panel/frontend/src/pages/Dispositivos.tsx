@@ -39,7 +39,7 @@ export function Dispositivos() {
           <p className="text-sm text-ms-gray-60">Inventario, estado y mensajes urgentes de los celulares de la organización.</p></div>
         <div className="flex items-center gap-3"><Depurar onHecho={cargar} />
         <SectionHelp titulo="Teléfonos institucionales" items={[
-          { titulo: "Cómo entra un teléfono", desc: "Se instala la app Maquita y se escribe un código de enrolamiento creado aquí. Sin código vigente no se activa la gestión. Equipo nuevo o restaurado de fábrica: control completo. Teléfono ya en uso: modo limitado (la persona puede quitar permisos o desinstalar; si lo hace, queda un evento)." },
+          { titulo: "Cómo entra un teléfono", desc: "Se instala la aplicación móvil del correo y se escribe un código de enrolamiento creado aquí. Sin código vigente no se activa la gestión. Equipo nuevo o restaurado de fábrica: control completo. Teléfono ya en uso: modo limitado (la persona puede quitar permisos o desinstalar; si lo hace, queda un evento)." },
           { titulo: "Qué reporta", desc: "Cada 15 minutos: batería, almacenamiento, red, versión de Android y de la app, Play Protect. No se leen mensajes, fotos ni contenido." },
           { titulo: "Inventario", desc: "Nombre, custodio, centro de costo, sede, IMEI, serie, factura, fecha y valor de compra. La depreciación se calcula en línea recta con la vida útil indicada (36 meses por defecto)." },
           { titulo: "Pérdida o robo", desc: "Al declarar un equipo perdido se le pide su posición, reporta cada 5 minutos y, si tiene control completo, se bloquea con un mensaje y un teléfono de contacto. Los demás teléfonos de la organización avisan si lo detectan cerca por Bluetooth. El borrado remoto es solo para superadministradores." },

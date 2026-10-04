@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { nombreApp } from '../../lib/marca';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -110,7 +111,7 @@ export function InstallPrompt() {
       <div className="fixed bottom-0 left-0 right-0 z-[200] bg-white border-t-2 border-[#0078d4] shadow-[0_-4px_20px_rgba(0,0,0,0.15)] p-4 animate-slideUp safe-bottom">
         <div className="max-w-md mx-auto">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-[15px] font-semibold text-[#323130]">Instalar Maquita Mail</h3>
+            <h3 className="text-[15px] font-semibold text-[#323130]">Instalar {nombreApp()}</h3>
             <button onClick={handleDismiss} className="text-[#605e5c] hover:text-[#323130] text-xl leading-none">&times;</button>
           </div>
           <div className="space-y-3 text-[13px] text-[#323130]">
@@ -136,9 +137,9 @@ export function InstallPrompt() {
   return (
     <div className="fixed bottom-0 left-0 right-0 z-[200] bg-white border-t-2 border-[#0078d4] shadow-[0_-4px_20px_rgba(0,0,0,0.15)] px-4 py-3 animate-slideUp safe-bottom">
       <div className="max-w-md mx-auto flex items-center gap-3">
-        <img src="/webmail/icons/icon-192.png" alt="Maquita Mail" className="w-10 h-10 rounded-xl shadow" />
+        <img src="/webmail/icons/icon-192.png" alt={nombreApp()} className="w-10 h-10 rounded-xl shadow" />
         <div className="flex-1 min-w-0">
-          <div className="text-[14px] font-semibold text-[#323130]">Maquita Mail</div>
+          <div className="text-[14px] font-semibold text-[#323130]">{nombreApp()}</div>
           <div className="text-[12px] text-[#605e5c]">Instalar como aplicaci&oacute;n</div>
         </div>
         <button

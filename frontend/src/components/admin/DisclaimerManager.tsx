@@ -1,6 +1,7 @@
 import { sanitizeHtml } from '../../lib/sanitize';
 import { useState, useEffect } from 'react';
 import { api } from '../../api/client';
+import { nombreOrg } from '../../lib/marca';
 
 interface Disclaimer {
   domain: string;
@@ -58,13 +59,13 @@ export function DisclaimerManager() {
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Footer HTML</label>
           <textarea value={htmlFooter} onChange={e => setHtmlFooter(e.target.value)} rows={4}
-            placeholder='<div style="border-top:1px solid #ccc;margin-top:16px;padding-top:8px;font-size:11px;color:#666">Fundación Maquita - Este mensaje es confidencial</div>'
+            placeholder={`<div style="border-top:1px solid #ccc;margin-top:16px;padding-top:8px;font-size:11px;color:#666">${nombreOrg()} - Este mensaje es confidencial</div>`}
             className="w-full px-3 py-2 border border-slate-300 rounded text-sm font-mono focus:ring-2 focus:ring-orange-300 outline-none" />
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Footer texto plano (opcional)</label>
           <textarea value={textFooter} onChange={e => setTextFooter(e.target.value)} rows={2}
-            placeholder="-- Fundación Maquita - Este mensaje es confidencial"
+            placeholder={`-- ${nombreOrg()} - Este mensaje es confidencial`}
             className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-orange-300 outline-none" />
         </div>
         <button onClick={save} disabled={loading || !domain || !htmlFooter}

@@ -6,6 +6,7 @@ import { permisoNotificacion, pedirPermisoNotificacion } from '../lib/notificaci
 import { useAuthStore } from '../store/authStore';
 import { cuentaActiva, elegirCuenta } from '../lib/cuentaActiva';
 import { avisosActivos } from '../lib/avisosOtrasCuentas';
+import { nombreApp } from '../lib/marca';
 
 /**
  * WebSocket hook for real-time mail notifications.
@@ -98,7 +99,7 @@ export function useWebSocket(enabled: boolean = true) {
               // Browser notification (if permitted)
               if (permisoNotificacion() === 'granted') {
                 try {
-                  avisar('Maquita Mail', {
+                  avisar(nombreApp(), {
                     cuerpo: delta === 1 ? 'Nuevo correo recibido' : `${delta} correos nuevos`,
                     tipo: 'correo',
                     etiqueta: 'new-mail',
@@ -171,7 +172,7 @@ export function useWebSocket(enabled: boolean = true) {
               playNotificationSound();
               if (permisoNotificacion() === 'granted') {
                 try {
-                  avisar('Maquita · Tareas', {
+                  avisar(`${nombreApp()} · Tareas`, {
                     cuerpo: taskMsg,
                     tipo: 'tarea',
                     etiqueta: 'task-' + (data.task_id || ''),
@@ -189,7 +190,7 @@ export function useWebSocket(enabled: boolean = true) {
               playNotificationSound();
               if (permisoNotificacion() === 'granted') {
                 try {
-                  avisar('Maquita · Recordatorio', {
+                  avisar(`${nombreApp()} · Recordatorio`, {
                     cuerpo: remMsg,
                     tipo: 'recordatorio',
                     etiqueta: data.tag || 'reminder',
