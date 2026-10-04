@@ -1,7 +1,7 @@
 {
-  "name": "Maquita Mail",
-  "short_name": "Maquita Mail",
-  "description": "Correo electrónico empresarial - Fundación Maquita",
+  "name": "Correo",
+  "short_name": "Correo",
+  "description": "Correo electrónico",
   "start_url": "/webmail/",
   "scope": "/webmail/",
   "id": "/webmail/",

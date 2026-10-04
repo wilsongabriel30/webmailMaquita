@@ -796,8 +796,8 @@ export function CalendarHeader({
               ].join('\n');
               calToast(info);
             }} />
-            <RibbonBtn icon={<IconMobile />} label="Maquita Móvil" onClick={() => {
-              calToast('Maquita Móvil: próximamente');
+            <RibbonBtn icon={<IconMobile />} label="Aplicación móvil" onClick={() => {
+              calToast('Aplicación móvil: próximamente');
             }} />
           </div>
           <span className="text-[9px] text-[#605e5c] pb-[3px] mt-[1px]">Ayuda</span>

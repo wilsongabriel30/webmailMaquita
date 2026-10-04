@@ -77,12 +77,12 @@ export function SafeLinksConfig() {
       </div>
       <h1 className="text-xl font-semibold text-ms-gray-160 mb-1">Protección de enlaces (Safe Links)</h1>
       <p className="text-sm text-ms-gray-110 mb-4">
-        Protege a los usuarios de enlaces peligrosos. Maquita <b>revisa cada enlace en el momento de hacer clic</b>:
+        Protege a los usuarios de enlaces peligrosos. El servidor <b>revisa cada enlace en el momento de hacer clic</b>:
         si es sospechoso o está en tu lista negra, muestra una advertencia en vez de abrirlo.
       </p>
 
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-5 text-sm text-ms-gray-130">
-        <b>¿Cómo funciona?</b> Los enlaces de los correos se “envuelven” en una pasarela de Maquita.
+        <b>¿Cómo funciona?</b> Los enlaces de los correos se “envuelven” en una pasarela del propio servidor.
         Al hacer clic, se evalúa el destino (imitación de marcas, dominios falsos, IPs, acortadores…)
         y, si hay riesgo, el usuario ve una página de aviso clara antes de continuar.
       </div>

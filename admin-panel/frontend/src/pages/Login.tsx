@@ -1,5 +1,5 @@
 import React from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../api/auth";
 import { api } from "../api/client";
 
@@ -17,6 +17,11 @@ export function Login() {
   const [recToken, setRecToken] = useState("");
   const [recPass, setRecPass] = useState("");
   const [recMsg, setRecMsg] = useState("");
+  // Nombre del producto tomado de la marca (el endpoint es público: lo usa esta pantalla).
+  const [nombreApp, setNombreApp] = useState("");
+  useEffect(() => {
+    fetch("/api/branding").then((r) => (r.ok ? r.json() : {})).then((b: { app_name?: string }) => setNombreApp(b.app_name || "")).catch(() => {});
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,7 +65,7 @@ export function Login() {
         <svg className="w-5 h-5 text-white mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
         </svg>
-        <span className="text-white font-semibold text-sm">Maquita Mail Admin</span>
+        <span className="text-white font-semibold text-sm">{nombreApp ? `${nombreApp} Admin` : "Administración del correo"}</span>
       </div>
 
       <div className="flex-1 flex items-center justify-center p-4">

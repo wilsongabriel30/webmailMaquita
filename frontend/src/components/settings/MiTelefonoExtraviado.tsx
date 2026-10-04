@@ -57,7 +57,7 @@ export function MiTelefonoExtraviado() {
           {t.ultimo_contacto && <div className="mt-2 text-xs text-[#605e5c]">Último reporte del teléfono: {cuando(t.ultimo_contacto)}. Si hace mucho, puede estar apagado o sin internet.</div>}
         </div>
       ))}
-      <p className="mt-2 text-xs text-[#605e5c]">Si no aparece o no responde, llama a Tecnología: pueden declararlo perdido y, con el resto de teléfonos de Maquita, ayudar a encontrarlo.</p>
+      <p className="mt-2 text-xs text-[#605e5c]">Si no aparece o no responde, llama a Tecnología: pueden declararlo perdido y, con el resto de teléfonos de la organización, ayudar a encontrarlo.</p>
     </div>
   );
 }

@@ -94,7 +94,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
   }
 }
 
-let tituloMarca = 'Maquita Mail';
+let tituloMarca = 'Correo';
 
 export default function App() {
   const { setUser, user } = useAuthStore();

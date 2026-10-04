@@ -33,7 +33,7 @@ function dispositivoCorto(ua: string): string {
     /Chrome\//.test(ua) ? 'Chrome' :
     /Firefox\//.test(ua) ? 'Firefox' :
     /Safari\//.test(ua) ? 'Safari' :
-    /Maquita/i.test(ua) ? 'App Maquita' : ua.slice(0, 40);
+    /Maquita/i.test(ua) ? 'Aplicación móvil' : ua.slice(0, 40);
   const sistema =
     /Android/.test(ua) ? 'Android' :
     /iPhone|iPad/.test(ua) ? 'iOS' :

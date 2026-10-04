@@ -168,7 +168,7 @@ export function Branding() {
           Personalización
         </h1>
         <SectionHelp titulo="Personalización" items={[
-          { titulo: "Para qué sirve", desc: "Define la identidad visual de esta instalación de Maquita Mail: cada organización que instale el proyecto configura aquí su marca, sin tocar el código." },
+          { titulo: "Para qué sirve", desc: "Define la identidad visual de esta instalación del correo: cada organización que instale el proyecto configura aquí su marca, sin tocar el código." },
           { titulo: "Favicon y logo", desc: "Suba las imágenes de su organización. El favicon aparece en la pestaña del navegador y el logo en el login y la interfaz del webmail. Los cambios de archivos se aplican al instante." },
           { titulo: "Color primario", desc: "Color principal de la interfaz (botones, acentos). Elija con el selector, escriba un código hexadecimal o use uno de los colores predefinidos; la vista previa muestra el resultado." },
           { titulo: "Datos de la organización", desc: "Nombre, eslogan, email de contacto, sitio web, teléfono y texto de pie de página. Se muestran en el login, el webmail y los correos del sistema." },
@@ -176,7 +176,7 @@ export function Branding() {
         ]} />
         </div>
         <p className="text-sm text-ms-gray-60 mt-1">
-          Configura la identidad visual de tu instalación de Maquita Mail. Estos datos se mostrarán en el login, el webmail y los correos del sistema.
+          Configura la identidad visual de tu instalación del correo. Estos datos se mostrarán en el login, el webmail y los correos del sistema.
         </p>
       </div>
 
@@ -236,7 +236,7 @@ export function Branding() {
         <div className="mt-3 flex items-center gap-3">
           <span className="text-xs text-ms-gray-60">Vista previa:</span>
           <div className="h-8 px-4 rounded flex items-center" style={{ backgroundColor: colorInput }}>
-            <span className="text-white text-xs font-medium">Maquita Mail</span>
+            <span className="text-white text-xs font-medium">{data.app_name || "Correo"}</span>
           </div>
         </div>
       </div>
@@ -293,7 +293,7 @@ export function Branding() {
       {/* Info box */}
       <div className="mt-6 p-4 bg-ms-blue-lighter rounded border border-ms-blue-light">
         <p className="text-xs text-ms-gray-90">
-          <strong>Nota:</strong> Estos datos permiten personalizar la instalación de Maquita Mail para tu organizacion.
+          <strong>Nota:</strong> Estos datos permiten personalizar la instalación del correo para tu organizacion.
           El favicon y logo se aplicarán en el login y la interfaz del webmail.
           Si publicas este proyecto en GitHub, cada organización podrá configurar su propia identidad desde aquí.
         </p>

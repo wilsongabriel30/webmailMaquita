@@ -353,7 +353,7 @@ export function VoiceDictation({ onTranscript, disabled = false }: VoiceDictatio
       </button>
 
       {state === 'idle' && mode !== 'whisperlive' && soportaVivo && (
-        <span style={{ display: 'inline-flex', border: '1px solid #d2d0ce', borderRadius: 4, overflow: 'hidden', fontSize: 10 }} title="En vivo: el texto aparece mientras hablas (reconocimiento del navegador). Privado: se transcribe en el servidor de Maquita frase a frase.">
+        <span style={{ display: 'inline-flex', border: '1px solid #d2d0ce', borderRadius: 4, overflow: 'hidden', fontSize: 10 }} title="En vivo: el texto aparece mientras hablas (reconocimiento del navegador). Privado: se transcribe en el servidor de la organización frase a frase.">
           <button type="button" onClick={() => cambiarPreferencia('vivo')} style={{ padding: '2px 6px', border: 'none', cursor: 'pointer', background: preferencia === 'vivo' ? '#0078d4' : 'white', color: preferencia === 'vivo' ? 'white' : '#605e5c' }}>En vivo</button>
           <button type="button" onClick={() => cambiarPreferencia('privado')} style={{ padding: '2px 6px', border: 'none', cursor: 'pointer', background: preferencia === 'privado' ? '#0078d4' : 'white', color: preferencia === 'privado' ? 'white' : '#605e5c' }}>Privado</button>
         </span>

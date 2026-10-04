@@ -62,7 +62,7 @@ export function SecurityPolicies() {
           items={[
             { titulo: "Qué es", desc: "Políticas de seguridad del servidor de correo (aplicadas por Rspamd) contra suplantación de identidad y fuga de datos. Los cambios guardados se aplican en unos 20 segundos." },
             { titulo: "Anti-spoofing", desc: "Siempre activo: rechaza correo que dice venir de tus propios dominios (incluidos subdominios) pero llega desde el exterior sin SPF/DKIM/DMARC válidos." },
-            { titulo: "Anti-impersonation", desc: "Pone en cuarentena correos de dominios ajenos cuyo nombre visible imita tu marca (ej. «Dirección Maquita» desde un gmail). Los términos de marca definen qué nombres se consideran suplantación." },
+            { titulo: "Anti-impersonation", desc: "Pone en cuarentena correos de dominios ajenos cuyo nombre visible imita tu marca (ej. «Gerencia General» desde un gmail). Los términos de marca definen qué nombres se consideran suplantación." },
             { titulo: "Impersonar exige segundo factor", desc: "Si está activado, un superadministrador solo puede abrir el buzón de otra persona (firmas, envíos en su nombre) habiendo entrado al panel con TOTP. Desactivarlo es una decisión de la dirección; la auditoría registra cada impersonación igual." },
             { titulo: "Bloqueo de tarjetas", desc: "Rechaza correos a destinatarios externos que contengan números de tarjeta válidos (Luhn). El correo interno nunca se bloquea." },
             { titulo: "Umbral de rechazo", desc: "Solo informativo: el correo con puntaje de spam mayor o igual al umbral se rechaza en la conexión (basura evidente). Se gestiona en Rspamd, no desde aquí." },
@@ -122,7 +122,7 @@ export function SecurityPolicies() {
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="font-semibold text-ms-gray-130">Anti-impersonation por nombre visible</h2>
-            <p className="text-sm text-ms-gray-110">Pone en cuarentena el correo de dominios ajenos cuyo nombre mostrado suplanta tu marca (ej. «Dirección Maquita &lt;x@gmail.com&gt;»).</p>
+            <p className="text-sm text-ms-gray-110">Pone en cuarentena el correo de dominios ajenos cuyo nombre mostrado suplanta tu marca (ej. «Gerencia General &lt;x@gmail.com&gt;»).</p>
           </div>
           <Toggle on={cfg.impersonation_enabled} onClick={() => setCfg({ ...cfg, impersonation_enabled: !cfg.impersonation_enabled })}
             title="Activa o desactiva el anti-impersonation: activado, los correos de dominios ajenos cuyo nombre visible imite tu marca van a cuarentena; desactivado, esos correos llegan a la bandeja normalmente. Se aplica al pulsar Guardar cambios." />
@@ -140,7 +140,7 @@ export function SecurityPolicies() {
             </div>
             <div className="flex gap-2 mt-2">
               <input value={newTerm} onChange={(e) => setNewTerm(e.target.value)} placeholder="agregar término (ej. fundacion)"
-                title="Escribe un término de tu marca (ej. maquita, fundacion): si un correo de un dominio ajeno usa un nombre visible que lo contenga, se pondrá en cuarentena. Se guarda en minúsculas."
+                title="Escribe un término de tu marca (ej. el nombre corto de tu organización): si un correo de un dominio ajeno usa un nombre visible que lo contenga, se pondrá en cuarentena. Se guarda en minúsculas."
                 className="px-2 py-1 border border-ms-gray-30 rounded text-sm flex-1" />
               <button onClick={() => { const t = newTerm.trim().toLowerCase(); if (t && !cfg.impersonation_terms.includes(t)) setCfg({ ...cfg, impersonation_terms: [...cfg.impersonation_terms, t] }); setNewTerm(""); }}
                 title="Agrega el término escrito a la lista de marca protegida contra suplantación. El cambio se aplica al pulsar Guardar cambios."

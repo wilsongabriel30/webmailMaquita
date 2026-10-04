@@ -78,7 +78,7 @@ export function SecureConfig() {
         <b>¿Cómo lo vive el destinatario?</b>
         <ol className="list-decimal ml-5 mt-2 space-y-1">
           <li>Recibe un correo normal: «Tienes un mensaje seguro» con un botón.</li>
-          <li>Hace clic y se abre una página de Maquita.</li>
+          <li>Hace clic y se abre una página segura del servidor.</li>
           <li>Pone su correo y recibe un <b>código de un solo uso</b> en su email.</li>
           <li>Escribe el código y <b>lee el mensaje</b> (y descarga adjuntos).</li>
         </ol>
@@ -113,7 +113,7 @@ export function SecureConfig() {
 
         <div className={cfg.enabled ? "" : "opacity-50 pointer-events-none"}>
           <label className="block text-sm font-medium text-ms-gray-130 mb-1">Mensaje en el correo de aviso (opcional)</label>
-          <input className={inputCls} placeholder="Ej.: Este documento es confidencial de Fundación Maquita."
+          <input className={inputCls} placeholder="Ej.: Este documento es confidencial de la organización."
             title="Texto opcional que se incluye en el correo de aviso que recibe el destinatario (el que contiene el botón para abrir el mensaje seguro). Déjalo vacío para usar el aviso estándar."
             value={cfg.intro_text} onChange={(e) => setCfg({ ...cfg, intro_text: e.target.value })} />
         </div>
