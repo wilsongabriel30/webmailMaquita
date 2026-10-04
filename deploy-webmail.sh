@@ -208,10 +208,22 @@ fi
 # --- Paso 6: Verificación final ---
 echo -e "\n${YELLOW}[5/5] Verificación...${NC}"
 # El servidor sale de la configuración, no del código: MAIL_HOST, o mail.<MAIL_DOMAIN>, o el propio equipo
-MAIL_HOST="$(grep -E '^MAIL_HOST=' "${WEBMAIL_DIR}/backend/.env" 2>/dev/null | cut -d= -f2- | tr -d '"')"
-[ -n "$MAIL_HOST" ] || MAIL_HOST="mail.$(grep -E '^MAIL_DOMAIN=' "${WEBMAIL_DIR}/backend/.env" 2>/dev/null | cut -d= -f2- | tr -d '"')"
-[ "$MAIL_HOST" != "mail." ] || MAIL_HOST="$(hostname -f)"
-HTTP_CODE=$(curl -sk -L -o /dev/null -w '%{http_code}' "https://${MAIL_HOST}/webmail/")
+# OJO con «set -euo pipefail»: un grep sin coincidencias (MAIL_HOST no definido, que es lo
+# normal) o un curl que falla cortaban el guion AQUI, sin mensaje y con codigo 1, aunque el
+# despliegue ya estaba hecho. Quien encadenaba pasos con «&&» se quedaba sin ejecutarlos
+# (reportado por Andes, 03/10/2026). Por eso cada lectura lleva «|| true».
+MAIL_HOST="$(grep -E '^MAIL_HOST=' "${WEBMAIL_DIR}/backend/.env" 2>/dev/null | cut -d= -f2- | tr -d '"' || true)"
+[ -n "$MAIL_HOST" ] || MAIL_HOST="mail.$(grep -E '^MAIL_DOMAIN=' "${WEBMAIL_DIR}/backend/.env" 2>/dev/null | cut -d= -f2- | tr -d '"' || true)"
+[ "$MAIL_HOST" != "mail." ] || MAIL_HOST="$(hostname -f 2>/dev/null || hostname)"
+HTTP_CODE=""
+for intento in 1 2 3; do
+    HTTP_CODE="$(curl -sk -L -o /dev/null -w '%{http_code}' --max-time 20 "https://${MAIL_HOST}/webmail/" || true)"
+    [ "$HTTP_CODE" = "200" ] && break
+    # Si el nombre publico no se alcanza desde el propio servidor, se prueba contra el equipo.
+    HTTP_CODE="$(curl -sk -L -o /dev/null -w '%{http_code}' --max-time 20 --resolve "${MAIL_HOST}:443:127.0.0.1" "https://${MAIL_HOST}/webmail/" || true)"
+    [ "$HTTP_CODE" = "200" ] && break
+    sleep 3
+done
 if [ "$HTTP_CODE" = "200" ]; then
     echo -e "${GREEN}Webmail respondiendo: HTTP ${HTTP_CODE}${NC}"
 else

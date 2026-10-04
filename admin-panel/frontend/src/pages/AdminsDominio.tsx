@@ -13,12 +13,14 @@ export function AdminsDominio() {
   const [editando, setEditando] = useState<AdminDominio | "nuevo" | null>(null);
   const [error, setError] = useState("");
   const [portal, setPortal] = useState("");
+  const [portales, setPortales] = useState<Record<string, string>>({});
   const [copiado, setCopiado] = useState(false);
 
   const cargar = () => api.get<AdminDominio[]>("/admins-dominio").then(setLista).catch((e) => setError(e.message));
   useEffect(() => {
     cargar();
-    api.get<{ url: string | null }>("/segundo-factor/portal-dominio").then((r) => setPortal(r.url || "")).catch(() => {});
+    api.get<{ url: string | null; por_dominio?: Record<string, string> }>("/segundo-factor/portal-dominio")
+      .then((r) => { setPortal(r.url || ""); setPortales(r.por_dominio || {}); }).catch(() => {});
     api.get<{ domain: string }[]>("/domains").then((d) => setDominios(d.map((x) => x.domain))).catch(() => {});
   }, []);
 
@@ -47,7 +49,7 @@ export function AdminsDominio() {
 
       {portal && (
         <div className="bg-ms-blue-lighter rounded border border-ms-blue/20 px-4 py-2.5 text-sm text-ms-gray-130 flex items-center gap-3 flex-wrap">
-          <span>Los administradores de dominio entran por:</span>
+          <span>{Object.keys(portales).length ? "Portal general (los dominios con portal propio muestran el suyo en la lista):" : "Los administradores de dominio entran por:"}</span>
           <a href={portal} target="_blank" rel="noreferrer" className="font-medium text-ms-blue hover:underline">{portal}</a>
           <button onClick={() => { navigator.clipboard?.writeText(portal); setCopiado(true); setTimeout(() => setCopiado(false), 2000); }}
             title="Copia la dirección del portal para enviársela al administrador de dominio"
@@ -70,7 +72,16 @@ export function AdminsDominio() {
             {lista.map((a) => (
               <tr key={a.id} className="hover:bg-ms-blue-lighter/50">
                 <td className="px-4 py-2.5"><div className="font-medium text-ms-gray-130">{a.username}</div><div className="text-xs text-ms-gray-60">{a.display_name}</div></td>
-                <td className="px-4 py-2.5 text-xs text-ms-gray-90">{a.dominios.length ? a.dominios.join(", ") : <span className="text-ms-red">Sin dominios</span>}</td>
+                <td className="px-4 py-2.5 text-xs text-ms-gray-90">
+                  {a.dominios.length ? a.dominios.join(", ") : <span className="text-ms-red">Sin dominios</span>}
+                  {/* Portal por el que entra: el de su empresa si lo tiene; si no, el general de arriba. */}
+                  {Array.from(new Set<string>(a.dominios.map((d) => portales[d.toLowerCase()]).filter((u): u is string => !!u))).map((u) => (
+                    <div key={u} className="mt-0.5 flex items-center gap-2">
+                      <a href={u} target="_blank" rel="noreferrer" className="text-ms-blue hover:underline">{u}</a>
+                      <button onClick={() => navigator.clipboard?.writeText(u)} title="Copia la dirección del portal de esta empresa" className="text-[10px] text-ms-blue border border-ms-blue/40 rounded px-1 hover:bg-ms-blue-lighter">Copiar</button>
+                    </div>
+                  ))}
+                </td>
                 <td className="px-4 py-2.5 text-center">
                   <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${a.active ? "bg-green-50 text-ms-green" : "bg-red-50 text-ms-red"}`}>{a.active ? "Activo" : "Inactivo"}</span>
                   {a.must_change_password && <div className="text-[10px] text-ms-gray-60 mt-0.5">clave temporal</div>}

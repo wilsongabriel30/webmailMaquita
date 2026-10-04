@@ -201,6 +201,18 @@ else
   warn "no pude determinar el rol de la aplicación (DATABASE_URL) para comprobar permisos de tablas"
 fi
 
+# --- Protección de salida: que el límite de envío esté actuando de verdad ---
+# Probarlo con rspamc NO sirve (el módulo ignora lo que llega por rspamc o por el controlador).
+# Lo fiable es que rspamd no diga que lo desactiva por falta de Redis.
+hdr "Protección de salida (cuenta comprometida)"
+if { journalctl -u rspamd --since '-7 days' --no-pager 2>/dev/null; tail -2000 /var/log/rspamd/rspamd.log 2>/dev/null; } | grep 'ratelimit' | tail -1 | grep -q 'disabling module'; then
+  bad "rspamd DESACTIVA el límite de envío por usuario (sin Redis para el módulo ratelimit): una cuenta robada puede enviar sin tope. Arreglo: sudo bash deploy/tools/instalar-proteccion-salida.sh"
+elif [ -f /etc/rspamd/local.d/ratelimit.conf ]; then ok "límite de envío por usuario configurado y sin avisos de desactivación"
+else bad "falta /etc/rspamd/local.d/ratelimit.conf (límite de envío por usuario). Arreglo: sudo bash deploy/tools/instalar-proteccion-salida.sh"; fi
+[ -x /usr/local/sbin/maquita-contener ] && ok "contención de cuentas instalada (maquita-contener)" || warn "falta /usr/local/sbin/maquita-contener (contención de cuentas): sudo bash deploy/tools/instalar-proteccion-salida.sh"
+if [ -f /etc/cron.d/maquita-anomalia ] && [ -x /usr/local/sbin/maquita-anomalia-salida.py ]; then ok "detector de envío masivo instalado (cron cada 2 min)"
+else warn "detector de envío masivo sin instalar: sudo bash deploy/tools/instalar-proteccion-salida.sh"; fi
+
 # --- Firmas de integridad (SRI) del webmail publicado ---
 # Un archivo retocado tras construir (marca, manifest) con la firma vieja queda bloqueado por el
 # navegador; si es el script principal, la pagina sale en blanco con HTTP 200.
