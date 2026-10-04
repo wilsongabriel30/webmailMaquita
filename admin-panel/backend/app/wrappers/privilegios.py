@@ -33,6 +33,8 @@ import shutil
 # aquí sin añadirlo allí, la orden fallará con «sudo: a password is required».
 _REQUIEREN_SUDO = {
     "maquita-outbound",
+    "depurar-adjuntos-peligrosos",
+    "geoip-country.sh",
     "systemctl",
     "journalctl",
     "doveadm",

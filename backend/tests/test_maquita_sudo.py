@@ -247,3 +247,19 @@ def test_proteccion_de_salida_solo_sus_subacciones():
     # El correo (www-data) no tiene nada que hacer con este ayudante
     _no("www-data", "maquita-outbound", "get-limits")
     _no("www-data", "maquita-outbound", "lock", "ana@example.org")
+
+
+def test_depurar_adjuntos_y_acceso_por_pais():
+    assert _ok("maquita-admin", "depurar-adjuntos-peligrosos", "--dias", "35")
+    assert _ok("maquita-admin", "depurar-adjuntos-peligrosos", "--dias", "7", "--borrar")
+    for malo in ([], ["--borrar"], ["--dias"], ["--dias", "0"], ["--dias", "9999"], ["--dias", "7; id"],
+                 ["--dias", "7", "--otra"], ["--dias", "7", "--borrar", "x"]):
+        _no("maquita-admin", "depurar-adjuntos-peligrosos", *malo)
+    _no("www-data", "depurar-adjuntos-peligrosos", "--dias", "7")
+
+    assert _ok("maquita-admin", "geoip-country.sh", "enable", "es")
+    assert _ok("www-data", "geoip-country.sh", "disable", "co")
+    for malo in ([], ["list"], ["enable"], ["enable", "ES"], ["enable", "esp"], ["enable", "e;"],
+                 ["borrar", "es"], ["enable", "es", "x"], ["enable", "$(id)"]):
+        _no("maquita-admin", "geoip-country.sh", *malo)
+

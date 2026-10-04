@@ -11,6 +11,9 @@ from pydantic import BaseModel
 from app.auth.dependencies import get_current_admin, require_superadmin
 
 router = APIRouter(prefix="/api/geo-access", tags=["geo-access"])
+from app import organizacion
+from app.wrappers.privilegios import con_sudo
+
 SCRIPT = "/usr/local/sbin/geoip-country.sh"
 _CC_RE = re.compile(r"^[a-z]{2}$")
 
@@ -37,11 +40,14 @@ async def toggle(r: Request, body: ToggleReq, a=Depends(require_superadmin)):
     code = (body.code or "").lower().strip()
     if not _CC_RE.match(code):
         raise HTTPException(400, "Código de país inválido (ISO-2, ej. 'es')")
-    if code == "ec" and not body.enabled:
-        raise HTTPException(400, "Ecuador no se puede cerrar (acceso base)")
+    base = (organizacion.valor("ORG_PAIS_BASE", "ec") or "ec").lower()
+    if code == base and not body.enabled:
+        raise HTTPException(400, "El país base no se puede cerrar")
     action = "enable" if body.enabled else "disable"
+    # El guion toca nftables (root) y el panel corre sin privilegios: va por maquita-sudo, que
+    # valida la acción y el código de país.
     proc = await asyncio.create_subprocess_exec(
-        SCRIPT, action, code,
+        *con_sudo(SCRIPT, action, code),
         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
     try:
         out, err = await asyncio.wait_for(proc.communicate(), timeout=90)

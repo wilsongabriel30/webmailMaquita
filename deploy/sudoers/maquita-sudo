@@ -12,7 +12,8 @@ puede comprobar, así que no se fía de quien llama aunque ya valide por su lado
 
 Uso:  maquita-sudo <programa> [argumentos...]
       programa ∈ doveadm, postqueue, postsuper, postconf, systemctl, journalctl, sievec,
-                 fail2ban-client, nginx, sendmail, maquita-outbound
+                 fail2ban-client, nginx, sendmail, maquita-outbound,
+                 depurar-adjuntos-peligrosos, geoip-country.sh
 La política depende de quién llama (SUDO_USER): www-data solo puede lo que necesita el correo
 (recuperar mensajes y ver/gestionar la cola); maquita-admin, lo que necesita el panel.
 Todo se registra en syslog (auth) con la marca MAQUITA_SUDO; las contraseñas se enmascaran.
@@ -38,10 +39,14 @@ BINARIOS = {
     "sendmail": "/usr/sbin/sendmail",
     # Ayudante de «Protección de salida» del panel: límites de envío, exentos y contención.
     "maquita-outbound": "/usr/local/sbin/maquita-outbound",
+    # Antispam avanzado: informe (y borrado) de correos con adjuntos dañinos.
+    "depurar-adjuntos-peligrosos": "/usr/local/sbin/depurar-adjuntos-peligrosos",
+    # Acceso por país: abrir o cerrar un país en el cortafuegos.
+    "geoip-country.sh": "/usr/local/sbin/geoip-country.sh",
 }
 
 # Programas propios: se ejecutan SOLO desde su ruta fija; si no están, no se buscan en el PATH.
-SOLO_RUTA_FIJA = {"maquita-outbound"}
+SOLO_RUTA_FIJA = {"maquita-outbound", "depurar-adjuntos-peligrosos", "geoip-country.sh"}
 
 # Qué puede cada usuario llamante. True = todos los subcomandos que valida este programa.
 POLITICA = {
@@ -52,6 +57,8 @@ POLITICA = {
         "doveadm": {"search", "fetch", "copy", "expunge"},
         "postqueue": True,
         "postsuper": True,
+        # El administrador del webmail también abre o cierra países (pantalla Cortafuegos).
+        "geoip-country.sh": True,
     },
     "maquita-admin": {
         "doveadm": {"pw", "auth", "quota", "search", "fetch", "acl", "mailbox", "flags",
@@ -60,6 +67,8 @@ POLITICA = {
         "journalctl": True, "sievec": True, "fail2ban-client": True, "nginx": True,
         "sendmail": True,
         "maquita-outbound": True,
+        "depurar-adjuntos-peligrosos": True,
+        "geoip-country.sh": True,
     },
 }
 
@@ -290,11 +299,30 @@ def validar_outbound(args):
     raise Rechazo("maquita-outbound: subacción o argumentos no permitidos")
 
 
+def validar_depurar(args):
+    """depurar-adjuntos-peligrosos --dias <1..365> [--borrar]"""
+    if len(args) in (2, 3) and args[0] == "--dias" and args[1].isdigit() and 1 <= int(args[1]) <= 365:
+        if len(args) == 2 or args[2] == "--borrar":
+            return args
+    raise Rechazo("depurar-adjuntos-peligrosos: solo --dias <1..365> [--borrar]")
+
+
+_RE_PAIS = re.compile(r"^[a-z]{2}$")
+
+
+def validar_geoip(args):
+    """geoip-country.sh enable|disable <código ISO de dos letras>"""
+    if len(args) == 2 and args[0] in ("enable", "disable") and _RE_PAIS.match(args[1]):
+        return args
+    raise Rechazo("geoip-country.sh: solo enable|disable <país en dos letras minúsculas>")
+
+
 VALIDADORES = {
     "doveadm": validar_doveadm, "postqueue": validar_postqueue, "postsuper": validar_postsuper,
     "postconf": validar_postconf, "systemctl": validar_systemctl, "journalctl": validar_journalctl,
     "sievec": validar_sievec, "fail2ban-client": validar_fail2ban, "nginx": validar_nginx,
     "sendmail": validar_sendmail, "maquita-outbound": validar_outbound,
+    "depurar-adjuntos-peligrosos": validar_depurar, "geoip-country.sh": validar_geoip,
 }
 
 
