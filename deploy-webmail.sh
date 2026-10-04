@@ -90,6 +90,18 @@ if [ ! -f "${DIST_DIR}/index.html" ]; then
     echo -e "${RED}ERROR: Build falló — no existe ${DIST_DIR}/index.html${NC}"
     exit 1
 fi
+
+# Firmas de integridad (SRI). La marca local y el nombre inyectado en manifest.json cambian
+# archivos DESPUES de que vite-plugin-sri calculara sus firmas: sin recalcularlas, index.html
+# queda con una firma que no coincide y el navegador bloquea ese archivo (reportado por Andes,
+# 03/10/2026). Se recalculan y luego se comprueba que todas coinciden.
+SRI="${WEBMAIL_DIR}/deploy/tools/integridad-sri.py"
+python3 "$SRI" "${DIST_DIR}" --corregir
+if ! python3 "$SRI" "${DIST_DIR}"; then
+    echo -e "${RED}ERROR: index.html tiene firmas de integridad que no coinciden.${NC}"
+    echo -e "${RED}Deploy ABORTADO — produccion queda INTACTA.${NC}"
+    exit 1
+fi
 FILE_COUNT=$(find "${DIST_DIR}" -type f | wc -l)
 echo -e "${GREEN}Build OK: ${FILE_COUNT} archivos generados${NC}"
 
@@ -142,6 +154,17 @@ ln -sf /opt/maquita-webmail/downloads "${DEPLOY_TARGET}/downloads"
 # Verificación post-deploy
 if [ ! -f "${DEPLOY_TARGET}/index.html" ]; then
     echo -e "${RED}ERROR CRÍTICO: Deploy falló — restaurando backup...${NC}"
+    rm -rf "${DEPLOY_TARGET}"
+    mkdir -p "${DEPLOY_TARGET}"
+    tar xzf "${BACKUP_DIR}/webmail-${TIMESTAMP}.tar.gz" -C "${WWW_DIR}"
+    echo -e "${YELLOW}Backup restaurado${NC}"
+    exit 1
+fi
+
+# Lo publicado debe cuadrar con sus firmas: una firma mala en el script principal deja la
+# pagina en blanco con HTTP 200, y eso no lo detecta ninguna comprobacion de estado.
+if ! python3 "$SRI" "${DEPLOY_TARGET}"; then
+    echo -e "${RED}ERROR CRÍTICO: firmas de integridad descuadradas en lo publicado — restaurando backup...${NC}"
     rm -rf "${DEPLOY_TARGET}"
     mkdir -p "${DEPLOY_TARGET}"
     tar xzf "${BACKUP_DIR}/webmail-${TIMESTAMP}.tar.gz" -C "${WWW_DIR}"
