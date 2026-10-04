@@ -4,6 +4,7 @@ import { SectionHelp } from "../components/SectionHelp";
 
 const FIELDS = [
   { key: "org_name", label: "Nombre de la organización", placeholder: "Ej: la organización MCCH", icon: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" },
+  { key: "app_name", label: "Nombre del producto de correo", placeholder: "Ej: Correo de Mi Organización", icon: "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" },
   { key: "org_slogan", label: "Eslogan / Descripción corta", placeholder: "Ej: Comercializando como Hermanos", icon: "M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" },
   { key: "org_email", label: "Email de contacto", placeholder: "Ej: info@miorganizacion.org", type: "email", icon: "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" },
   { key: "org_website", label: "Sitio web", placeholder: "Ej: https://www.miorganizacion.org", type: "url", icon: "M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" },
@@ -168,6 +169,7 @@ export function Branding() {
           Personalización
         </h1>
         <SectionHelp titulo="Personalización" items={[
+          { titulo: "Nombre del producto", desc: "Es el nombre que ve quien usa el correo: título y cabecera del webmail, avisos del navegador, entrada de este panel y emisor del segundo factor. En la interfaz cambia al recargar; el nombre de la aplicación instalada en el teléfono cambia en la siguiente publicación del webmail. Quien ya configuró su segundo factor seguirá viendo el nombre anterior en su aplicación de códigos." },
           { titulo: "Para qué sirve", desc: "Define la identidad visual de esta instalación del correo: cada organización que instale el proyecto configura aquí su marca, sin tocar el código." },
           { titulo: "Favicon y logo", desc: "Suba las imágenes de su organización. El favicon aparece en la pestaña del navegador y el logo en el login y la interfaz del webmail. Los cambios de archivos se aplican al instante." },
           { titulo: "Color primario", desc: "Color principal de la interfaz (botones, acentos). Elija con el selector, escriba un código hexadecimal o use uno de los colores predefinidos; la vista previa muestra el resultado." },
