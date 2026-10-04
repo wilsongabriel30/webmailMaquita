@@ -11,7 +11,6 @@ No lleva credenciales ni direcciones propias: la base sale de DATABASE_URL (back
 y el remitente y el destinatario de los avisos, de /etc/maquita-mail/organizacion.env
 (ORG_REMITENTE_AVISOS, ORG_CORREOS_AVISOS) si el panel no tiene uno configurado.
 """
-import os
 import re
 import smtplib
 import subprocess
@@ -19,9 +18,9 @@ import time
 from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 
-MAILLOG = os.environ.get("MAQUITA_MAILLOG", "/var/log/mail.log")
+MAILLOG = "/var/log/mail.log"
 LOG = "/var/log/maquita-anomalia.log"
-ENV_BACKEND = os.environ.get("MAQUITA_BACKEND_ENV", "/opt/maquita-webmail/backend/.env")
+ENV_BACKEND = "/opt/maquita-webmail/backend/.env"
 ENV_ORG = "/etc/maquita-mail/organizacion.env"
 CONTENER = "/usr/local/sbin/maquita-contener"
 EXENTOS = "/etc/rspamd/maps.d/ratelimit_whitelist.map"
