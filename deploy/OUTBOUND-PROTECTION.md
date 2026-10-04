@@ -12,6 +12,28 @@ reputacion de la IP. Capas:
 3. **Panel** (:8443 -> "Proteccion de salida"): ver/ajustar limite y whitelist, ver volumen
    por remitente, y boton Contener. El backend llama al helper privilegiado.
 
+## Instalación existente: dejarla completa en un paso
+
+Si la instalación no pasó por esta parte de `instalar.sh` (o es anterior), un solo guion,
+idempotente, deja las tres capas:
+
+```bash
+sudo bash deploy/tools/instalar-proteccion-salida.sh
+sudo bash deploy/tools/validar-despliegue.sh      # sección «Protección de salida»
+```
+
+Qué hace: copia `ratelimit.conf` y el mapa de exentos si faltan; **configura Redis para el
+módulo** (propio, base 4, salvo que rspamd ya tenga uno global en `local.d/redis.conf`);
+instala `maquita-contener`, `maquita-outbound` y su sudoers; aplica la migración
+`2026-10-03-proteccion-salida.sql` (tablas del detector); instala el detector y su cron.
+Lo que ya existe no se pisa.
+
+**Cómo saber si el límite actúa.** Sin Redis, rspamd escribe
+`ratelimit.lua: no servers are specified, disabling module` y sigue como si nada. Probarlo con
+`rspamc` no sirve: el módulo ignora lo que llega por `rspamc` o por el controlador. Lo fiable
+es que el registro no diga «disabling module» y, tras un envío autenticado real por el 587,
+que aparezcan claves `RL…` en la base de Redis del módulo.
+
 ## Privilegios
 El backend corre como `www-data`. El unico acceso privilegiado es el helper
 `/usr/local/sbin/maquita-outbound` (sudoers `deploy/webmail/configs/sudoers-maquita-outbound`,

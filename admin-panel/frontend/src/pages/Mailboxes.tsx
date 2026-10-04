@@ -140,7 +140,7 @@ export function Mailboxes() {
       const base = res.webmail_url || `${window.location.protocol}//${window.location.hostname}`;
       window.open(`${base}/webmail/?impersonate=${token}&user=${user}`, "_blank");
     } catch (e: any) {
-      alert("Error: " + (e.message || "No se pudo impersonar"));
+      alert(e.message || "No se pudo abrir el buzón");
     }
   };
 

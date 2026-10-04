@@ -31,6 +31,29 @@ Tres cosas de esa regla que no dan error visible si se saltan:
 
 ---
 
+## Protección de salida y términos de anti-suplantación (2026-10-03)
+
+**Protección de salida.** En instalaciones que no pasaron por esa parte del instalador, el
+límite de envío por usuario no actuaba (rspamd desactiva `ratelimit` sin Redis y no avisa) y
+faltaban la contención y el detector de envío masivo. Un paso, idempotente:
+
+```bash
+sudo bash deploy/tools/instalar-proteccion-salida.sh
+```
+
+Detalle en `deploy/OUTBOUND-PROTECTION.md`. `validar-despliegue.sh` ahora lo comprueba.
+
+**Anti-suplantación.** Los términos de marca por omisión eran los de la organización que
+desarrolla; en otra instalación mandaban a cuarentena cualquier correo externo con esa palabra
+en el nombre del remitente. El valor por omisión pasa a vacío, pero **las filas existentes no
+se tocan**: revisa los tuyos en el panel (Anti-suplantación y políticas) o con
+
+```bash
+psql -d maildb -c "SELECT impersonation_terms FROM security_config WHERE id = 1"
+```
+
+y deja solo los nombres de tu organización. Reinicia `maquita-milter` tras actualizar.
+
 ## Multicuenta en el portal de dominio (2026-10-02)
 
 Si usas el portal de administradores de dominio (`panel-dominio/`), la pantalla de cuentas

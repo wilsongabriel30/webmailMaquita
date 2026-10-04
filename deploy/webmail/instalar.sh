@@ -312,6 +312,10 @@ BAYES
 fi
 mkdir -p /etc/rspamd/maps.d
 cp "${CFG}/rspamd-ratelimit-whitelist.map" /etc/rspamd/maps.d/ratelimit_whitelist.map
+# Protección de salida completa: Redis para el límite de envío (sin él rspamd desactiva el
+# módulo en silencio), contención y detector de envío masivo. Idempotente; es el mismo guion
+# que se usa en una instalación existente.
+APP_DIR="${APP_DIR}" bash "${APP_DIR}/deploy/tools/instalar-proteccion-salida.sh" || echo -e "  ${RED}AVISO: la protección de salida no quedó completa${NC}"
 systemctl enable --now clamav-freshclam clamav-daemon 2>/dev/null || true
 echo "  ClamAV (antivirus de adjuntos) habilitado (las firmas se descargan en 2.º plano)"
 systemctl restart rspamd 2>/dev/null || true
