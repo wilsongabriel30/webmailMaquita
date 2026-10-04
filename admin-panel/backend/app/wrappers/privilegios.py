@@ -32,6 +32,7 @@ import shutil
 # Esta lista debe coincidir con /etc/sudoers.d/maquita-admin. Si añades uno
 # aquí sin añadirlo allí, la orden fallará con «sudo: a password is required».
 _REQUIEREN_SUDO = {
+    "maquita-outbound",
     "systemctl",
     "journalctl",
     "doveadm",

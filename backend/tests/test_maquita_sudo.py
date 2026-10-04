@@ -206,3 +206,44 @@ def test_contrasenas_enmascaradas_en_el_registro():
     assert "clave" not in ms._enmascarar(
         "doveadm", ["auth", "test", "ana@example.org", "clave"]
     )
+
+
+def test_proteccion_de_salida_solo_sus_subacciones():
+    """El ayudante del panel: cada subacción con la forma exacta de sus argumentos."""
+    assert _ok("maquita-admin", "maquita-outbound", "get-limits") == ["get-limits"]
+    assert _ok("maquita-admin", "maquita-outbound", "set-limits", "200", "3")
+    assert _ok("maquita-admin", "maquita-outbound", "set-whitelist")
+    assert _ok("maquita-admin", "maquita-outbound", "set-whitelist", "a@example.org,b@example.org")
+    assert _ok("maquita-admin", "maquita-outbound", "set-dlp-exempt", "noreply@example.org")
+    assert _ok("maquita-admin", "maquita-outbound", "activity", "24")
+    assert _ok("maquita-admin", "maquita-outbound", "lock", "ana@example.org")
+    assert _ok("maquita-admin", "maquita-outbound", "status", "ana@example.org")
+    # Una lista larga de exentos no choca con el límite general de 300 caracteres por argumento
+    larga = ",".join(f"cuenta{i}@example.org" for i in range(60))
+    assert len(larga) > 300 and _ok("maquita-admin", "maquita-outbound", "set-whitelist", larga)
+
+    for malo in (
+        [],
+        ["get-limits", "--otra"],
+        ["set-limits", "200"],
+        ["set-limits", "200", "3; rm -rf /"],
+        ["set-limits", "0", "3"],
+        ["set-limits", "200", "99999"],
+        ["set-whitelist", "a@example.org b@example.org"],
+        ["set-whitelist", "a@example.org,$(id)"],
+        ["set-whitelist", "a@example.org", "otro"],
+        ["set-dlp-exempt", "no-es-correo"],
+        ["activity", "999"],
+        ["activity", "-1"],
+        ["lock"],
+        ["lock", "ana"],
+        ["lock", "ana@example.org", "extra"],
+        ["status", "ana@example.org\nlock"],
+        ["borrar-todo"],
+        ["--help"],
+    ):
+        _no("maquita-admin", "maquita-outbound", *malo)
+
+    # El correo (www-data) no tiene nada que hacer con este ayudante
+    _no("www-data", "maquita-outbound", "get-limits")
+    _no("www-data", "maquita-outbound", "lock", "ana@example.org")

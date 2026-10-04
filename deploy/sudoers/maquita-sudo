@@ -12,7 +12,7 @@ puede comprobar, así que no se fía de quien llama aunque ya valide por su lado
 
 Uso:  maquita-sudo <programa> [argumentos...]
       programa ∈ doveadm, postqueue, postsuper, postconf, systemctl, journalctl, sievec,
-                 fail2ban-client, nginx, sendmail
+                 fail2ban-client, nginx, sendmail, maquita-outbound
 La política depende de quién llama (SUDO_USER): www-data solo puede lo que necesita el correo
 (recuperar mensajes y ver/gestionar la cola); maquita-admin, lo que necesita el panel.
 Todo se registra en syslog (auth) con la marca MAQUITA_SUDO; las contraseñas se enmascaran.
@@ -36,7 +36,12 @@ BINARIOS = {
     "fail2ban-client": "/usr/bin/fail2ban-client",
     "nginx": "/usr/sbin/nginx",
     "sendmail": "/usr/sbin/sendmail",
+    # Ayudante de «Protección de salida» del panel: límites de envío, exentos y contención.
+    "maquita-outbound": "/usr/local/sbin/maquita-outbound",
 }
+
+# Programas propios: se ejecutan SOLO desde su ruta fija; si no están, no se buscan en el PATH.
+SOLO_RUTA_FIJA = {"maquita-outbound"}
 
 # Qué puede cada usuario llamante. True = todos los subcomandos que valida este programa.
 POLITICA = {
@@ -54,6 +59,7 @@ POLITICA = {
         "postqueue": True, "postsuper": True, "postconf": True, "systemctl": True,
         "journalctl": True, "sievec": True, "fail2ban-client": True, "nginx": True,
         "sendmail": True,
+        "maquita-outbound": True,
     },
 }
 
@@ -257,11 +263,38 @@ def validar_sendmail(args):
     return list(args)
 
 
+def _lista_de_buzones(csv: str) -> bool:
+    partes = [p for p in csv.split(",") if p]
+    return 0 < len(partes) <= 200 and all(es_buzon(p) for p in partes)
+
+
+def validar_outbound(args):
+    """maquita-outbound: solo sus subacciones, cada una con la forma exacta de sus argumentos."""
+    if args == ["get-limits"]:
+        return args
+    if len(args) == 3 and args[0] == "set-limits" and all(a.isdigit() and len(a) <= 6 for a in args[1:]):
+        if 1 <= int(args[1]) <= 100000 and 1 <= int(args[2]) <= 10000:
+            return args
+        raise Rechazo("maquita-outbound set-limits: valores fuera de rango")
+    if args[:1] in (["set-whitelist"], ["set-dlp-exempt"]):
+        # Sin lista = vaciarla. Con lista: buzones separados por comas, nada más.
+        if len(args) == 1 or (len(args) == 2 and _lista_de_buzones(args[1])):
+            return args
+        raise Rechazo(f"maquita-outbound {args[0]}: solo una lista de buzones separados por comas")
+    if args[:1] == ["activity"]:
+        if len(args) == 1 or (len(args) == 2 and args[1].isdigit() and 1 <= int(args[1]) <= 168):
+            return args
+        raise Rechazo("maquita-outbound activity: horas entre 1 y 168")
+    if len(args) == 2 and args[0] in ("lock", "unlock", "status") and es_buzon(args[1]):
+        return args
+    raise Rechazo("maquita-outbound: subacción o argumentos no permitidos")
+
+
 VALIDADORES = {
     "doveadm": validar_doveadm, "postqueue": validar_postqueue, "postsuper": validar_postsuper,
     "postconf": validar_postconf, "systemctl": validar_systemctl, "journalctl": validar_journalctl,
     "sievec": validar_sievec, "fail2ban-client": validar_fail2ban, "nginx": validar_nginx,
-    "sendmail": validar_sendmail,
+    "sendmail": validar_sendmail, "maquita-outbound": validar_outbound,
 }
 
 
@@ -270,6 +303,11 @@ def autorizar(usuario: str, programa: str, args, comprobar_buzon=_buzon_existe):
     permisos = POLITICA.get(usuario)
     if not permisos or programa not in permisos:
         raise Rechazo(f"{usuario} no puede ejecutar {programa}")
+    if programa == "maquita-outbound":
+        # Sus listas de buzones pueden pasar de 300 caracteres: se validan elemento a elemento.
+        if any(not isinstance(a, str) or not a or len(a) > 12000 or re.search(r"[\x00-\x1f\x7f]", a) for a in args):
+            raise Rechazo("argumento con caracteres de control o vacío")
+        return validar_outbound(list(args))
     _tokens_limpios(args)
     if programa == "doveadm":
         salida = validar_doveadm(list(args), comprobar_buzon)
@@ -321,6 +359,10 @@ def main(argv):
         return 3
     binario = BINARIOS[programa]
     if not os.path.isfile(binario):
+        if programa in SOLO_RUTA_FIJA:
+            log.warning("MAQUITA_SUDO rechazado usuario=%s programa=%s motivo=no instalado", usuario, programa)
+            print(f"maquita-sudo: {programa} no está instalado en {binario}", file=sys.stderr)
+            return 3
         binario = shutil.which(programa) or binario
     log.info("MAQUITA_SUDO ok usuario=%s %s %s", usuario, programa, _enmascarar(programa, validados)[:500])
     os.environ.clear()
