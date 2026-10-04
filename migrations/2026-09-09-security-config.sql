@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS security_config (
     id                       integer     PRIMARY KEY DEFAULT 1,
     -- Suplantación desde el panel: activada, y sobre qué términos de correo se permite.
     impersonation_enabled    boolean     DEFAULT true,
-    impersonation_terms      text[]      DEFAULT ARRAY['maquita', 'mcch', 'la organización'],
+    impersonation_terms      text[]      DEFAULT '{}',
     -- Protección de datos: bloquear tarjetas hacia destinatarios externos.
     dlp_block_cards_external boolean     DEFAULT true,
     updated_at               timestamptz DEFAULT now(),

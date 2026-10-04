@@ -398,7 +398,9 @@ async def _inbound_safeattach(st, pool) -> list:
         return []
 
 
-_secfg = {"ts": 0.0, "imp_on": True, "imp_terms": ["maquita", "mcch", "la organización"], "block_cards": True}
+# Los términos de marca salen de security_config (panel → Anti-suplantación). Sin términos por
+# omisión: los de la organización que desarrolla ponían en cuarentena correo legítimo en otras.
+_secfg = {"ts": 0.0, "imp_on": True, "imp_terms": [], "block_cards": True}
 
 
 async def _security_config(pool):
