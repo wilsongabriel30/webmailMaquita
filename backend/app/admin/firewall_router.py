@@ -581,7 +581,16 @@ async def toggle_geo_country(
     if code == "ec" and action == "disable":
         raise HTTPException(400, "Ecuador no se puede cerrar (acceso base)")
 
-    stdout, stderr, rc = await _run_cmd(GEO_COUNTRY_SCRIPT, action, code, timeout=90)
+    # El guion toca nftables (root) y este servicio corre como www-data: va por maquita-sudo.
+    stdout, stderr, rc = await _run_cmd(
+        "sudo",
+        "-n",
+        "/usr/local/sbin/maquita-sudo",
+        "geoip-country.sh",
+        action,
+        code,
+        timeout=90,
+    )
     if rc != 0:
         raise HTTPException(500, f"Error aplicando cambio: {stderr or stdout}")
 
