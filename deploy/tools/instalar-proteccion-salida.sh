@@ -2,7 +2,7 @@
 # instalar-proteccion-salida.sh — deja completa la protección de salida (cuenta comprometida).
 #
 # Sirve para una instalación EXISTENTE que no pasó por esa parte de instalar.sh, y lo llama
-# también instalar.sh. Es idempotente: lo que ya está no se pisa.
+# también instalar.sh. Es idempotente: lo que ya está no se pisa, tampoco si difiere del repositorio.
 #
 #   1. Límite de envío por usuario (rspamd «ratelimit») CON Redis: sin servidores de Redis el
 #      módulo se desactiva solo («no servers are specified, disabling module») y nadie lo nota.
@@ -46,9 +46,12 @@ else
 fi
 
 paso "2. Contención de cuentas"
+# Un ayudante que ya existe NUNCA se sobrescribe, aunque difiera del repositorio: puede ser una
+# version mas nueva que la versionada (paso el 03/10/2026 y hubo que reconstruirlo).
 for h in maquita-contener maquita-outbound; do
-  if cmp -s "${APP_DIR}/deploy/tools/$h" "/usr/local/sbin/$h"; then estaba "/usr/local/sbin/$h"
-  else install -m 755 "${APP_DIR}/deploy/tools/$h" "/usr/local/sbin/$h"; hecho "/usr/local/sbin/$h"; fi
+  if [ ! -e "/usr/local/sbin/$h" ]; then install -m 750 "${APP_DIR}/deploy/tools/$h" "/usr/local/sbin/$h"; hecho "/usr/local/sbin/$h"
+  elif cmp -s "${APP_DIR}/deploy/tools/$h" "/usr/local/sbin/$h"; then estaba "/usr/local/sbin/$h"
+  else estaba "/usr/local/sbin/$h (distinto del repositorio: NO se sobrescribe; compárelo a mano)"; fi
 done
 if [ -f /etc/sudoers.d/maquita-outbound ]; then estaba "/etc/sudoers.d/maquita-outbound"
 else install -m 440 "${CFG}/sudoers-maquita-outbound" /etc/sudoers.d/maquita-outbound; hecho "/etc/sudoers.d/maquita-outbound"; fi
