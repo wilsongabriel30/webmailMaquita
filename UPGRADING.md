@@ -31,6 +31,20 @@ Tres cosas de esa regla que no dan error visible si se saltan:
 
 ---
 
+## Panel: «Protección de salida» vuelve a funcionar (2026-10-03)
+
+Con el panel confinado (usuario `maquita-admin`), la pantalla «Protección de salida» daba error
+500: llamaba a su ayudante sin privilegios. Ahora pasa por `maquita-sudo`, que valida la subacción
+y cada argumento. **Hay que reinstalar el envoltorio** (sudoers no cambia) y reiniciar el panel:
+
+```bash
+install -m755 deploy/sudoers/maquita-sudo /usr/local/sbin/maquita-sudo
+systemctl restart maquita-admin
+sudo -u maquita-admin sudo -n /usr/local/sbin/maquita-sudo maquita-outbound get-limits   # debe dar JSON
+```
+
+El nombre del producto (`app_name`) ya se puede editar en la pantalla de marca del panel.
+
 ## Protección de salida y términos de anti-suplantación (2026-10-03)
 
 **Protección de salida.** En instalaciones que no pasaron por esa parte del instalador, el

@@ -8,14 +8,18 @@ import asyncio, json
 from fastapi import APIRouter, Request, Depends, HTTPException
 from pydantic import BaseModel
 from app.auth.dependencies import get_current_admin, require_superadmin
+from app.wrappers.privilegios import con_sudo
 
 router = APIRouter(prefix="/api/admin/outbound", tags=["outbound"])
 HELPER = "/usr/local/sbin/maquita-outbound"
 
 
 async def _run(*args: str) -> dict:
+    # El ayudante necesita root (lee y escribe la configuración de rspamd, contiene cuentas) y el
+    # panel corre como usuario sin privilegios: va por el envoltorio maquita-sudo, que valida la
+    # subacción y cada argumento. Llamarlo directamente daba «Permission denied» → error 500.
     proc = await asyncio.create_subprocess_exec(
-        HELPER, *args,
+        *con_sudo(HELPER, *args),
         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
     out, e = await asyncio.wait_for(proc.communicate(), timeout=90)
     txt = (out or b"").decode().strip()
@@ -43,7 +47,9 @@ class LimitsReq(BaseModel):
 async def set_limits(body: LimitsReq, r: Request, a=Depends(require_superadmin)):
     res = await _run("set-limits", str(body.burst), str(body.rate_per_min))
     if body.whitelist is not None:
-        await _run("set-whitelist", ",".join(body.whitelist))
+        # Lista vacía = sin argumento (el envoltorio no admite argumentos vacíos).
+        exentos = ",".join(x.strip().lower() for x in body.whitelist if x and x.strip())
+        await _run("set-whitelist", *([exentos] if exentos else []))
     return res
 
 
