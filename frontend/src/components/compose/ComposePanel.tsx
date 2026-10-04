@@ -844,9 +844,9 @@ export function ComposePanel({ win }: Props) {
   //  VM 170: Mejorar redacción con IA - PROGRESIVO 4 NIVELES
   const [improveLevel, setImproveLevel] = useState(0);
   const MAX_LEVEL = 4;
-  const LEVEL_LABELS = ['', 'Nivel 1/4 · Corrigiendo ortografía...', 'Nivel 2/4 · Mejorando sintaxis...', 'Nivel 3/4 · Alineando a Maquita...', 'Nivel 4/4 · Pulido ejecutivo...'];
-  const LEVEL_TOASTS = ['', 'Ortografía corregida', 'Sintaxis mejorada', 'Alineado a Maquita', 'Pulido ejecutivo aplicado'];
-  const LEVEL_NEXT = ['', 'mejorar sintaxis', 'alinear a Maquita', 'pulido ejecutivo', ''];
+  const LEVEL_LABELS = ['', 'Nivel 1/4 · Corrigiendo ortografía...', 'Nivel 2/4 · Mejorando sintaxis...', 'Nivel 3/4 · Alineando al estilo institucional...', 'Nivel 4/4 · Pulido ejecutivo...'];
+  const LEVEL_TOASTS = ['', 'Ortografía corregida', 'Sintaxis mejorada', 'Alineado al estilo institucional', 'Pulido ejecutivo aplicado'];
+  const LEVEL_NEXT = ['', 'mejorar sintaxis', 'alinear al estilo institucional', 'pulido ejecutivo', ''];
 
   const [improving, setImproving] = useState(false);
 

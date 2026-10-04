@@ -14,7 +14,7 @@ interface Empresa {
 }
 
 const CAMPOS = [
-  { key: "org_name", label: "Nombre visible", placeholder: "Ej: Maquita Turismo" },
+  { key: "org_name", label: "Nombre visible", placeholder: "Ej: Empresa de ejemplo" },
   { key: "org_slogan", label: "Eslogan", placeholder: "Ej: Viajes con sentido" },
   { key: "org_website", label: "Sitio web", placeholder: "Ej: https://www.empresa.com" },
   { key: "org_email", label: "Email de contacto", placeholder: "Ej: info@empresa.com" },

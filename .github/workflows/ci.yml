@@ -135,6 +135,10 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Textos de marca (el nombre sale de la configuración, no del código)
+        working-directory: .
+        run: python3 deploy/tools/comprobar-textos-marca.py
+
       - uses: actions/setup-node@v4
         with:
           node-version: "20"

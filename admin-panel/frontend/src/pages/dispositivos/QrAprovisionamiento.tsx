@@ -9,8 +9,8 @@ import { api } from "../../api/client";
 const PASOS = [
   "Restablecer el teléfono de fábrica (o encender uno nuevo). No iniciar sesión en ninguna cuenta.",
   "En la primera pantalla de bienvenida (idioma), tocar 6 veces seguidas en un espacio vacío. Aparece «Configurar dispositivo de empresa» y se abre la cámara.",
-  "Conectar al wifi si lo pide y leer este QR en la pantalla. El teléfono descarga Maquita Mail, verifica su huella y la instala como administradora.",
-  "Terminar el asistente. Abrir Maquita Mail, iniciar sesión con el correo de la persona y entrar a «Mi equipo».",
+  "Conectar al wifi si lo pide y leer este QR en la pantalla. El teléfono descarga la aplicación del correo, verifica su huella y la instala como administradora.",
+  "Terminar el asistente. Abrir la aplicación del correo, iniciar sesión con el correo de la persona y entrar a «Mi equipo».",
   "Comprobar en este panel que el teléfono aparece como «Administrado», con serie e IMEI leídos por la app.",
 ];
 
@@ -52,12 +52,12 @@ export function QrAprovisionamiento({ codigo, codigoId, etiqueta, onCerrar }: { 
             <ol className="space-y-3">
               {PASOS.map((t, i) => <li key={i} className="flex gap-3 text-[15px] leading-relaxed text-ms-gray-130">
                 <span className="shrink-0 w-7 h-7 rounded-full bg-ms-blue text-white flex items-center justify-center text-sm font-semibold">{i + 1}</span>
-                <span>{i === 3 && d ? (d.con_codigo ? "Terminar el asistente. Abrir Maquita Mail, iniciar sesión con el correo de la persona y entrar a «Mi equipo»: se registra solo (si pide el código, escribirlo)." : t + " Escribir el código de este enrolamiento y tocar «Registrar este teléfono».") : t}</span>
+                <span>{i === 3 && d ? (d.con_codigo ? "Terminar el asistente. Abrir la aplicación del correo, iniciar sesión con el correo de la persona y entrar a «Mi equipo»: se registra solo (si pide el código, escribirlo)." : t + " Escribir el código de este enrolamiento y tocar «Registrar este teléfono».") : t}</span>
               </li>)}
             </ol>
             <div className="mt-5 rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 leading-relaxed">
               <strong>Si al tocar 6 veces no sale nada:</strong> ese teléfono no tiene el asistente de Google (Huawei y Honor sin servicios Google). En ese modelo no hay control completo por QR; queda el modo limitado.<br />
-              <strong>El QR sirve con cualquier versión publicada</strong> (verifica la firma de Maquita, no la versión). Si el asistente dice que no pudo verificar la app, avise a Tecnología.
+              <strong>El QR sirve con cualquier versión publicada</strong> (verifica la firma de la aplicación, no la versión). Si el asistente dice que no pudo verificar la app, avise a Tecnología.
             </div>
             <div className="flex gap-2 pt-5 print:hidden">
               <button onClick={() => window.print()} className="px-4 py-2 text-sm border border-ms-gray-40 rounded hover:bg-ms-gray-10">Imprimir</button>

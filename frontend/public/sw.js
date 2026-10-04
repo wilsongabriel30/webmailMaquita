@@ -6,7 +6,7 @@
 // del correo y del chat ("maquita-mail-offline", "maquita-cache") y el global
 // MaquitaAlmacen NO se derivan de aqui y no deben renombrarse: hacerlo dejaria
 // sin datos a quien ya los tenga guardados.
-const NOMBRE_APP = "Maquita Mail";
+const NOMBRE_APP = "Correo";
 const CACHE_NAME = "maquita-mail-v202609041254";  // T-49: nombre nuevo para descartar el cache anterior, que tenia correo en claro
 const API_CACHE = CACHE_NAME + "-api";
 const BASE = "/webmail/";

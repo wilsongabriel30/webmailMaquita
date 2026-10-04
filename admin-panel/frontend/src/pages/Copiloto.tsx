@@ -30,7 +30,7 @@ export function Copiloto() {
     <div className="p-6 max-w-3xl space-y-4">
       <div className="flex justify-end">
         <SectionHelp
-          titulo="Copiloto Maquita — seguridad"
+          titulo="Copiloto — seguridad"
           items={[
             { titulo: "Qué hace esta sección", desc: "Es un asistente de IA para el administrador: le preguntas en lenguaje natural sobre la seguridad del correo y responde analizando datos reales del sistema (cuentas, 2FA, phishing, etc.)." },
             { titulo: "Preguntas sugeridas", desc: "Los botones redondos son ejemplos listos: un clic envía esa pregunta directamente y muestra la respuesta abajo." },
@@ -41,7 +41,7 @@ export function Copiloto() {
         />
       </div>
       <div>
-        <h1 className="text-xl font-semibold text-ms-gray-160">Copiloto Maquita — seguridad</h1>
+        <h1 className="text-xl font-semibold text-ms-gray-160">Copiloto — seguridad</h1>
         <p className="text-sm text-ms-gray-110">Pregunta en lenguaje natural sobre la seguridad del correo. Responde la IA local (Qwen) con base en datos reales del sistema.</p>
       </div>
       <div className="flex flex-wrap gap-2">

@@ -35,7 +35,7 @@ export function LoginPage() {
   const setUser = useAuthStore((s) => s.setUser);
 
   const color = brand.primary_color || '#0078d4';
-  const orgName = brand.org_name || 'Maquita Mail';
+  const orgName = brand.org_name || 'Correo';
   const slogan = brand.org_slogan || '';
   const footerText = brand.footer_text || '';
 
