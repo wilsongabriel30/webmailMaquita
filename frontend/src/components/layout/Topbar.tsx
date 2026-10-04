@@ -10,7 +10,6 @@ import { aplicarBusqueda, cambiarAmbito } from "../../lib/busquedaGlobal";
 import { useResponsive } from "../../hooks/useResponsive";
 import { useNombreApp } from "../../lib/marca";
 import OpcionDescargaApp from './OpcionDescargaApp';
-import { nombreApp } from '../../lib/marca';
 
 /** El instalador de la aplicación deja estos ganchos en `window`; se nombran para no usar `any`. */
 type VentanaConPWA = Window & {
@@ -267,7 +266,7 @@ export function Topbar() {
             <div className="absolute right-0 top-full mt-1 w-[340px] bg-white rounded-lg shadow-xl border border-[#edebe9] z-[200] overflow-hidden">
               <div className="px-4 py-3 border-b border-[#edebe9]">
                 <p className="text-[13px] font-semibold text-[#323130]">Ayuda</p>
-                <p className="text-[11px] text-[#605e5c] mt-1">Guía rápida con funciones reales disponibles hoy en {nombreApp()}.</p>
+                <p className="text-[11px] text-[#605e5c] mt-1">Guía rápida con funciones reales disponibles hoy en {nombreApp}.</p>
               </div>
 
               <div className="px-4 py-3 border-b border-[#edebe9]">
