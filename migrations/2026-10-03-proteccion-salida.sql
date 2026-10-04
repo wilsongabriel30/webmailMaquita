@@ -25,8 +25,18 @@ CREATE TABLE IF NOT EXISTS outbound_anomaly_events (
     detail         text,
     created_at     timestamptz  DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS idx_oae_created ON outbound_anomaly_events (created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_oae_user ON outbound_anomaly_events (username, created_at DESC);
+-- Los índices se crean solo si faltan, comprobándolo antes: «CREATE INDEX IF NOT EXISTS» exige
+-- ser dueño de la tabla aunque el índice ya exista, y en la instalación de origen estas tablas
+-- se crearon a mano con otro usuario.
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname = 'public' AND indexname = 'idx_oae_created') THEN
+        CREATE INDEX idx_oae_created ON outbound_anomaly_events (created_at DESC);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname = 'public' AND indexname = 'idx_oae_user') THEN
+        CREATE INDEX idx_oae_user ON outbound_anomaly_events (username, created_at DESC);
+    END IF;
+END $$;
 
 -- Anti-suplantación: los términos de marca por omisión eran los de la organización que
 -- desarrolla. En otra instalación ponían en cuarentena a cualquier remitente externo con esa
