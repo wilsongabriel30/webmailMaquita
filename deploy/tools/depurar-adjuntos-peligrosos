@@ -1,0 +1,40 @@
+#!/bin/bash
+# depurar-adjuntos-peligrosos — revisa (y opcionalmente borra) correos con adjuntos DAÑINOS
+# detectados por el filtro de adjuntos. Por defecto SOLO REPORTA. Para borrar: --borrar
+# Lo usa el panel (Antispam avanzado) a través de maquita-sudo, o el administrador por consola.
+# Solo borra categorias inequivocas; NUNCA borra office-con-macros (requieren validacion).
+# Uso:  depurar-adjuntos-peligrosos [--borrar] [--dias N]
+set -euo pipefail
+BORRAR=0; DIAS=35
+while [ $# -gt 0 ]; do case "$1" in
+  --borrar) BORRAR=1;; --dias) shift; DIAS="${1:-}";; *) echo "arg desconocido: $1"; exit 1;; esac; shift; done
+[[ "$DIAS" =~ ^[0-9]{1,3}$ ]] || { echo "--dias debe ser un número"; exit 1; }
+SINCE=$(date -d "$DIAS days ago" +%Y-%m-%d)
+PELIGROSOS=("ejecutable-en-comprimido" "adjunto-peligroso" "comprimido-no-inspeccionable")
+LOG=/var/log/maquita-depuracion-adjuntos.log
+ts(){ date '+%Y-%m-%d %H:%M:%S'; }
+echo "===== Depuracion adjuntos peligrosos | desde $SINCE | borrar=$BORRAR ====="
+TOTAL=0
+for marca in "${PELIGROSOS[@]}"; do
+  echo "--- categoria: $marca ---"
+  # fetch: usuario, fecha, remitente, asunto de los que matchean la marca
+  while IFS=$'\t' read -r linea; do
+    [ -z "$linea" ] && continue
+    echo "  $linea"; TOTAL=$((TOTAL+1))
+  done < <(doveadm fetch -A "user date.received hdr.from hdr.subject" \
+              MAILBOX Junk HEADER X-Maquita-Spam-Reasons "$marca" SINCE "$SINCE" 2>/dev/null \
+            | awk '
+                /^user:/{u=$2} /^date.received:/{ $1=""; d=$0 }
+                /^hdr.from:/{ $1=""; f=$0 } /^hdr.subject:/{ $1=""; s=$0;
+                  printf "%s | %s | de:%s | asunto:%s\n", u, substr(d,1,20), substr(f,1,40), substr(s,1,50) }')
+  if [ "$BORRAR" = "1" ]; then
+    echo "  >> BORRANDO categoria $marca ..."
+    doveadm expunge -A MAILBOX Junk HEADER X-Maquita-Spam-Reasons "$marca" SINCE "$SINCE" 2>/dev/null \
+      && echo "$(ts) | BORRADOS '$marca' desde $SINCE" >> "$LOG" \
+      && echo "  >> hecho (registrado en $LOG)" || echo "  >> nada que borrar / error"
+  fi
+done
+echo "===== Total dañinos encontrados (categorias duras): $TOTAL ====="
+echo "NOTA: office-con-macros NO se toca aqui (validacion manual). Para verlos:"
+echo "  doveadm fetch -A 'user hdr.from hdr.subject' HEADER X-Maquita-Spam-Reasons office-con-macros SINCE $SINCE"
+[ "$BORRAR" = "0" ] && echo "(solo REPORTE. Para borrar los duros: $0 --borrar)"

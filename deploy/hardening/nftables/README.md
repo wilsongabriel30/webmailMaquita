@@ -46,3 +46,24 @@ table inet filter {
 
 > El servicio `nftables` puede mostrar `inactive (dead)` en Debian aunque las
 > reglas estén cargadas en memoria (normal). Verificar con `nft list ruleset`.
+
+## Abrir y cerrar países desde el panel
+
+La lista de países vive en la base (tabla `geo_webmail_countries`, migración
+`2026-10-03-acceso-por-pais.sql`) y se administra desde el panel («Acceso por país») o por consola:
+
+```bash
+install -m 750 deploy/tools/geoip-country.sh deploy/tools/geoip-rebuild.sh /usr/local/sbin/
+geoip-country.sh list
+geoip-country.sh enable es      # abre España; aplica al cortafuegos en el acto
+printf '#!/bin/bash\n/usr/local/sbin/geoip-rebuild.sh\n' > /etc/cron.weekly/update-geoip.sh && chmod +x /etc/cron.weekly/update-geoip.sh
+```
+
+- `geoip-rebuild.sh` reconstruye el conjunto en una sola transacción (nunca queda vacío a medias) y
+  siempre incluye las redes privadas y las de `ORG_REDES`. El país base (`ORG_PAIS_BASE`, por omisión
+  `ec`) no se puede cerrar; si sus rangos no se pueden descargar, no se cambia nada.
+- Si aplicar al cortafuegos falla, `geoip-country.sh` deshace el cambio en la base.
+- El panel y el webmail lo ejecutan a través de `maquita-sudo`, que solo admite
+  `enable|disable <país>`. Con el confinamiento del panel hace falta
+  `ReadWritePaths=-/etc/nftables.conf` (ya está en `deploy/hardening/systemd/`).
+- Este mecanismo sustituye a `update-geoip.sh` (lista de países escrita en el guion).
