@@ -56,7 +56,7 @@ async def update_branding(request: Request, admin=Depends(get_current_admin)):
     body = await request.json()
 
     allowed_keys = [
-        "org_name", "org_slogan", "org_email", "org_website",
+        "org_name", "app_name", "org_slogan", "org_email", "org_website",
         "org_phone", "primary_color", "footer_text",
     ]
 
@@ -64,6 +64,10 @@ async def update_branding(request: Request, admin=Depends(get_current_admin)):
         if key not in allowed_keys:
             continue
         val = str(value).strip()
+        if key == "app_name":
+            # Es el nombre del producto: va al título, a los avisos y al emisor del segundo factor.
+            if not 1 <= len(val) <= 60 or any(ord(c) < 32 or c in '<>"' for c in val):
+                raise HTTPException(400, "El nombre del producto debe tener entre 1 y 60 caracteres, sin < > ni comillas")
         await db.execute("""
             INSERT INTO branding_settings (key, value, updated_at)
             VALUES ($1, $2, NOW())
