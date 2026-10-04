@@ -23,6 +23,11 @@ async def _run(*args: str) -> dict:
         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
     out, e = await asyncio.wait_for(proc.communicate(), timeout=90)
     txt = (out or b"").decode().strip()
+    # Sin salida y con código distinto de cero: el envoltorio rechazó la orden (argumento no
+    # permitido) o el ayudante no está instalado. Antes eso se devolvía como «{}», un éxito falso.
+    if proc.returncode != 0 and not txt:
+        motivo = (e or b"").decode(errors="replace").strip().splitlines()
+        raise HTTPException(400, (motivo[-1] if motivo else "la orden fue rechazada")[:300])
     try:
         data = json.loads(txt) if txt else {}
     except json.JSONDecodeError:
