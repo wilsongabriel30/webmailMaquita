@@ -201,6 +201,19 @@ else
   warn "no pude determinar el rol de la aplicación (DATABASE_URL) para comprobar permisos de tablas"
 fi
 
+# --- Firmas de integridad (SRI) del webmail publicado ---
+# Un archivo retocado tras construir (marca, manifest) con la firma vieja queda bloqueado por el
+# navegador; si es el script principal, la pagina sale en blanco con HTTP 200.
+hdr "Firmas de integridad del webmail publicado"
+SRI_TOOL="$(dirname "$0")/integridad-sri.py"
+WWW_WEBMAIL="${WEBMAIL_WWW:-/opt/maquita-webmail/www/webmail}"
+if [ -f "$SRI_TOOL" ] && [ -f "$WWW_WEBMAIL/index.html" ]; then
+  if SALIDA="$(python3 "$SRI_TOOL" "$WWW_WEBMAIL" 2>&1)"; then ok "index.html: todas las firmas coinciden con sus archivos ($(echo "$SALIDA" | tail -1 | xargs))"
+  else bad "index.html tiene firmas de integridad que no coinciden: $(echo "$SALIDA" | grep -E 'DESCUADRADA|FALTA' | xargs) — corregir con: python3 $SRI_TOOL $WWW_WEBMAIL --corregir"; fi
+else
+  warn "no se pudo comprobar las firmas de integridad (falta $SRI_TOOL o $WWW_WEBMAIL/index.html)"
+fi
+
 # --- Web Push (#17/#18): la clave VAPID debe existir y NO estar vacia ---
 # Si el paso VAPID del instalador falla en silencio, el push queda muerto sin pista.
 VP=$(curl -s "$WEBMAIL/api/push/vapid-public-key" 2>/dev/null)
