@@ -15,6 +15,7 @@ import { sanitizeHtml } from '../../lib/sanitize';
 import { destinatariosResponderATodos } from '../../lib/destinatariosRespuesta';
 import type { Folder, MessageFull } from '../../types';
 import { useResponsive } from '../../hooks/useResponsive';
+import { nombreApp } from '../../lib/marca';
 
 
 function escapeHtml(str: string): string {
@@ -658,7 +659,7 @@ export function Toolbar() {
   };
 
   const showDiagnostics = () => {
-    const info = `Webmail Maquita v1.0\nNavegador: ${navigator.userAgent}\nResolución: ${window.innerWidth}x${window.innerHeight}\nFecha: ${new Date().toLocaleString('es-EC')}`;
+    const info = `${nombreApp()} v1.0\nNavegador: ${navigator.userAgent}\nResolución: ${window.innerWidth}x${window.innerHeight}\nFecha: ${new Date().toLocaleString('es-EC')}`;
     showToast(info);
   };
 
@@ -1223,7 +1224,7 @@ export function Toolbar() {
                     <ToolbarButton icon={ICONS.recommend} label="Recomendaciones"
                       onClick={() => showToast('Tip: Ctrl+N nuevo correo · Ctrl+R responder · Ctrl+Shift+R resp. todos · Ctrl+Enter enviar · E archivar · Supr eliminar')} />
                     <ToolbarButton icon={ICONS.feedback} label="Comentarios"
-                      onClick={() => { showToast('Abriendo formulario de comentarios...'); setTimeout(() => openCompose('new', { to: [], subject: 'Comentario sobre Maquita Mail', text_body: '', html_body: '' }), 300); }} />
+                      onClick={() => { showToast('Abriendo formulario de comentarios...'); setTimeout(() => openCompose('new', { to: [], subject: `Comentario sobre ${nombreApp()}`, text_body: '', html_body: '' }), 300); }} />
                   </Group>
                   <Sep />
 
@@ -1237,7 +1238,7 @@ export function Toolbar() {
                   {/* Group: Móvil */}
                   <Group label="Móvil">
                     <ToolbarButton icon={ICONS.mobile} label="Outlook móvil"
-                      onClick={() => showToast('Maquita Móvil: próximamente')} />
+                      onClick={() => showToast('Aplicación móvil: próximamente')} />
                   </Group>
                 </>
               )}

@@ -27,7 +27,7 @@ export function MiEquipo() {
 
   return (
     <div className="max-w-2xl">
-      <h3 className="text-lg font-semibold">Mi teléfono (app Maquita)</h3>
+      <h3 className="text-lg font-semibold">Mi teléfono (aplicación móvil)</h3>
       <p className="text-sm text-[#605e5c] mt-1">
         Para activar la sección <strong>Mi equipo</strong> de la app en tu teléfono hace falta un código de enrolamiento.
         Si tienes uno asignado, la app lo toma sola al tocar «Activar»; también puedes escribirlo a mano desde aquí.

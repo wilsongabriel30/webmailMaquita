@@ -80,6 +80,15 @@ json.dump(m, open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
 PYM
       echo "   Marca inyectada en manifest.json (nombre de la app instalada)"
     fi
+    # El titulo de index.html se ve un instante antes de que la interfaz pida la marca.
+    NOMBRE_APP="$NOMBRE_APP" python3 - "${DIST_DIR}/index.html" <<'PYT'
+import html, os, re, sys
+p = sys.argv[1]; s = open(p, encoding="utf-8").read(); n = html.escape(os.environ["NOMBRE_APP"], quote=True)
+s = re.sub(r"<title>[^<]*</title>", lambda m: f"<title>{n}</title>", s, count=1)
+s = re.sub(r'(<meta name="apple-mobile-web-app-title" content=")[^"]*(")', lambda m: m.group(1) + n + m.group(2), s, count=1)
+open(p, "w", encoding="utf-8").write(s)
+PYT
+    echo "   Marca inyectada en index.html (titulo de la pagina)"
   fi
   sed -i -E "s/(const CACHE_NAME = \"[^\"]*-v)[0-9A-Za-z-]*(\")/\1$(date +%Y%m%d%H%M)\2/" "$SW_DIST"
   echo "   Version de cache renovada en dist/sw.js (el fuente no se toca)"

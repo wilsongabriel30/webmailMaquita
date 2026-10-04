@@ -20,6 +20,7 @@ import { AVISO_ELIMINAR_CORREO } from '../../lib/deepLinkCorreo';
 import { avisar } from '../../lib/avisosNavegador';   // T-53
 import { getCachedMessage } from '../../lib/offlineStore';   // W-7: leer sin conexión lo ya descargado
 import { permisoNotificacion, pedirPermisoNotificacion } from '../../lib/notificacionSegura';   // AM-10
+import { nombreApp } from '../../lib/marca';
 
 // Agrupa acciones rápidas consecutivas (eliminar/archivar fila por fila) en UNA
 // petición bulk: N clics seguidos generaban N POSTs y disparaban el rate limit (429).
@@ -279,7 +280,7 @@ export function MessageList() {
         const newCount = r.total - prevTotalRef.current;
         try { (window as unknown as { __maquitaBeep?: () => void }).__maquitaBeep?.(); } catch { /* sin sonido */ }
         if (permisoNotificacion() === 'granted') {
-          avisar('Maquita Mail', {
+          avisar(nombreApp(), {
             cuerpo: `${newCount} correo${newCount > 1 ? 's' : ''} nuevo${newCount > 1 ? 's' : ''}`,
             tipo: 'correo', etiqueta: 'new-mail',
           });

@@ -604,8 +604,8 @@ function MessageTab({ editor, onAttach, onImportanceChange, importance, onSaveDr
       </RGroup>
       <GSep />
 
-      {/* IA Maquita → VM 170 mejorar redacción con IA */}
-      <RGroup label="IA Maquita">
+      {/* Asistente de IA → VM 170 mejorar redacción con IA */}
+      <RGroup label="Asistente de IA">
         <LargeBtn icon={<SparkleIcon />} label={"Mejorar\nredacción"} onClick={() => onImproveWriting?.()} />
       </RGroup>
     </>

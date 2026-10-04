@@ -25,7 +25,7 @@ envío de un correo por consultar la marca.
 """
 
 ORG_NAME_FALLBACK = "Tu organización"
-APP_NAME_FALLBACK = "Maquita Mail"
+APP_NAME_FALLBACK = "Correo"
 
 # Caché de proceso. La rellena `precargar()` al arrancar y la refrescan las
 # funciones asíncronas cada vez que consultan.
@@ -54,7 +54,7 @@ async def get_org_name(db) -> str:
 
 
 async def get_app_name(db) -> str:
-    """Nombre del producto de correo, con «Maquita Mail» por defecto."""
+    """Nombre del producto de correo, con un valor neutro («Correo») por defecto."""
     valor = await _leer(db, "app_name")
     if valor:
         _cache["app_name"] = valor

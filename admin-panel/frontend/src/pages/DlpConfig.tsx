@@ -247,7 +247,7 @@ export function DlpConfig() {
               onChange={(e) => setCfg({ ...cfg, scan_attachments: e.target.checked })} />
             <span>Revisar el contenido de los <b>adjuntos</b> (Word, Excel, PDF, ZIP)</span>
           </label>
-          <p className="text-xs text-ms-gray-110">El bloqueo solo aplica a destinatarios <b>externos</b>; entre cuentas de Maquita únicamente se avisa.</p>
+          <p className="text-xs text-ms-gray-110">El bloqueo solo aplica a destinatarios <b>externos</b>; entre cuentas de la organización únicamente se avisa.</p>
         </div>
 
         {/* Dominios de confianza */}
