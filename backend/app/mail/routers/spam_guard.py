@@ -564,6 +564,7 @@ async def mark_not_spam(
     # hace al reves. Sin esto solo se movia y el filtro no aprendia (pedido del usuario, 18/09/2026).
     password = await get_user_password(request, user)
     moved = 0
+    en_confianza: list[str] = []
     if password:
         from app.mail.clients.imap_client import (
             fetch_raw_message,
@@ -575,13 +576,30 @@ async def mark_not_spam(
         login_user = await get_imap_login_user(request, user)
         imap = await get_imap_connection(login_user, password)
         try:
+            _crudos = []
             for _uid in uids:
                 try:
                     _crudo = await fetch_raw_message(imap, folder, _uid)
                     if _crudo:
+                        _crudos.append(_crudo)
                         await aprender_no_spam(_crudo)
                 except Exception:
                     pass  # el aprendizaje es secundario; mover es lo importante
+            # La decisión de la persona se queda: el remitente pasa a su lista de confianza y sus
+            # próximos correos llegan a la Bandeja aunque algún filtro los marque (05/10/2026).
+            try:
+                from app.mail.routers import confianza as _conf
+                from app.mail.services.confianza_auto import fusionar, remitentes_de
+
+                _nuevos = remitentes_de(_crudos, user)
+                if _nuevos:
+                    _actuales = await _conf._leer(user, password)
+                    _lista = fusionar(_actuales, _nuevos, _conf.MAXIMO)
+                    if _lista != sorted(_actuales):
+                        await _conf._guardar(user, password, _lista)
+                        en_confianza = [n for n in _nuevos if n in _lista]
+            except Exception:
+                pass  # si no se pudo guardar la regla, el correo igual se rescata
             if folder in ("Junk", "Spam"):
                 ok = await uid_bulk_action(imap, folder, uids, "move", "INBOX")
                 if ok:
@@ -594,7 +612,7 @@ async def mark_not_spam(
             except Exception:
                 pass
 
-    return {"status": "cleared", "moved": moved}
+    return {"status": "cleared", "moved": moved, "en_confianza": en_confianza}
 
 
 @router.get("/spam/stats")
