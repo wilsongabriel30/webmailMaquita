@@ -2,6 +2,9 @@ import asyncio
 import re
 from datetime import datetime, timedelta, timezone
 
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from pydantic import BaseModel
+
 from app.auth.bootstrap import debe_cambiar_clave
 from app.auth.cookies import dominio_cookie, poner_cookies_sesion, quitar_cookies_sesion
 from app.auth.dependencies import get_current_user
@@ -21,8 +24,6 @@ from app.auth.totp import is_totp_enabled, validate_totp_code
 from app.config import get_settings
 from app.core.session import encrypt_password
 from app.portales.resolucion import dominio_del_portal
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from pydantic import BaseModel
 
 
 def _sanitize_username(username: str) -> str:
@@ -282,6 +283,40 @@ async def login_2fa(body: Login2FARequest, request: Request, response: Response)
     }
 
 
+VENTANA_RENOVACION_PARALELA_S = 20
+
+
+async def _renovada_en_paralelo(db, token_hash: str) -> bool:
+    """¿Este token se acaba de rotar y su sesión tiene ya un sucesor vigente?
+
+    Solo es cierto durante unos segundos tras la rotación y solo si en la MISMA sesión hay un
+    token nuevo sin revocar: una sesión cerrada, revocada o vencida no tiene sucesor vigente,
+    así que un token robado y reutilizado más tarde sigue recibiendo «expired».
+    """
+    import asyncio
+
+    sid = await db.fetchval(
+        "SELECT sid FROM refresh_tokens WHERE token_hash = $1 AND is_revoked = true",
+        token_hash,
+    )
+    if not sid:
+        return False
+    # La otra petición revoca el token viejo y, un instante después, guarda el nuevo: si se
+    # mira justo en medio todavía no hay sucesor. Se reintenta brevemente antes de rendirse.
+    for intento in range(4):
+        if await db.fetchval(
+            """SELECT 1 FROM refresh_tokens
+                WHERE sid = $1 AND is_revoked = false AND expires_at > NOW()
+                  AND created_at > NOW() - make_interval(secs => $2)""",
+            sid,
+            VENTANA_RENOVACION_PARALELA_S,
+        ):
+            return True
+        if intento < 3:
+            await asyncio.sleep(0.15)
+    return False
+
+
 @router.post("/refresh")
 async def refresh(request: Request, response: Response):
     settings = get_settings()
@@ -320,6 +355,12 @@ async def refresh(request: Request, response: Response):
                 "UPDATE refresh_tokens SET is_revoked = true WHERE id = $1", row["id"]
             )
             row = None
+    elif await _renovada_en_paralelo(db, token_hash):
+        # Dos pestañas o dispositivos renovaron a la vez con el mismo token: la otra petición ya
+        # lo rotó y dejó cookies nuevas. Esta NO debe borrarlas: antes respondía «expired» y
+        # ordenaba borrar las cookies, y si esa respuesta llegaba la última, la persona quedaba
+        # fuera del correo «sin hacer nada» (05/10/2026). No se emite ningún token aquí.
+        return {"refreshed": True, "reason": "renovada_en_paralelo"}
     if row is None:
         quitar_cookies_sesion(response, request)
         return {"refreshed": False, "reason": "expired"}
