@@ -288,6 +288,7 @@ mkdir -p /opt/maquita-mail-filter /etc/maquita-mail
 
 # Copiar archivos del repositorio
 cp scripts/spam-filter-service.py /opt/maquita-mail-filter/
+cp scripts/remitentes_propios.py scripts/rspamd_veredicto.py /opt/maquita-mail-filter/
 cp scripts/maquita-mail-config/* /etc/maquita-mail/
 chown -R vmail:vmail /etc/maquita-mail
 
