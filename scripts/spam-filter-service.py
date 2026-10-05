@@ -50,6 +50,11 @@ try:
 except Exception:  # sin el módulo, el filtro sigue igual que antes
     def es_correo_propio_verificado(_d, _ip, _m):
         return False, ""
+try:
+    from rspamd_veredicto import rescatar_por_rspamd
+except Exception:  # sin el módulo, el filtro sigue igual que antes
+    def rescatar_por_rspamd(_m, _s, _r):
+        return False, None
 SCORE_THRESHOLD = 3  # (se sobreescribe con FILTRO_CFG['umbral'] mas abajo)
 REINJECT_HOST = "127.0.0.1"
 REINJECT_PORT = 10025
@@ -808,6 +813,13 @@ def check_spam(msg, keywords, whitelist, blacklist_domains, blacklist_ips, greyl
         if _propio:
             score = max(0, score - BONO_WHITELIST_DOMINIO)
             razones.append(_propio_razon + "(-%d)" % BONO_WHITELIST_DOMINIO)
+
+    # Indicios débiles (enlaces, sin DKIM, Reply-To...) que Rspamd desmiente: a la bandeja.
+    if score >= SCORE_THRESHOLD:
+        _rescatado, _rspamd = rescatar_por_rspamd(msg, score, razones)
+        if _rescatado:
+            razones.append("rspamd-legitimo(%.2f)" % _rspamd)
+            return False, score, razones, sender_ip
 
     return score >= SCORE_THRESHOLD, score, razones, sender_ip
 
