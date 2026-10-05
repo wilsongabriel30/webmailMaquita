@@ -74,6 +74,12 @@ CRON=/etc/cron.d/maquita-anomalia
 if [ -f "$CRON" ]; then estaba "$CRON"
 else echo "*/2 * * * * root $DET >> /var/log/maquita-anomalia.log 2>&1" > "$CRON"; chmod 644 "$CRON"; hecho "$CRON (cada 2 minutos)"; fi
 
+# El detector depende de cron. NO se instala desde aquí: en un servidor que nunca lo tuvo,
+# instalarlo enciende de golpe todo lo que haya en /etc/cron.d, y eso hay que revisarlo antes.
+if [ "$(systemctl is-active cron 2>/dev/null)" != active ] && [ "$(systemctl is-active cronie 2>/dev/null)" != active ]; then
+  aviso "cron NO está activo: el detector no se ejecutará. Revise /etc/cron.d ($(ls /etc/cron.d 2>/dev/null | tr '\n' ' ')) y después: apt install cron && systemctl enable --now cron"
+fi
+
 paso "4. Aplicar y comprobar"
 if rspamadm configtest >/dev/null 2>&1; then
   systemctl restart rspamd 2>/dev/null && hecho "rspamd reiniciado" || aviso "no se pudo reiniciar rspamd"
