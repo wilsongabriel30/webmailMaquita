@@ -16,6 +16,7 @@ import { sanitizeHtml } from '../../lib/sanitize';
 import { getFolderDisplayName } from '../../folders';
 import { cargarEtiquetasPorTandas } from '../../lib/etiquetasPorTandas';
 import { SinResultados } from './SinResultados';
+import { AdelantoCarpetaActual } from './AdelantoCarpetaActual';
 import { AVISO_ELIMINAR_CORREO } from '../../lib/deepLinkCorreo';
 import { avisar } from '../../lib/avisosNavegador';   // T-53
 import { getCachedMessage } from '../../lib/offlineStore';   // W-7: leer sin conexión lo ya descargado
@@ -1097,11 +1098,14 @@ export function MessageList() {
       {/* List */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto relative" style={{ overflowAnchor: 'none' }}>
         {loadingMessages && !filterChanging && debouncedSearchQuery ? (
+          <>
           <div className="flex flex-col items-center justify-center h-48 px-6 text-center">
             <div className="w-6 h-6 border-2 border-[#0078d4] border-t-transparent rounded-full animate-spin" />
             <p className="text-[13px] font-semibold text-[#323130] mt-3">Buscando «{debouncedSearchQuery}»{currentFolder === 'Virtual.Todo' ? ' en todo tu correo' : ''}…</p>
             <p className="text-[12px] text-[#605e5c] mt-1">Un momento, por favor. La primera búsqueda en un buzón grande puede tardar unos segundos; las siguientes son inmediatas.</p>
           </div>
+          {currentFolder === 'Virtual.Todo' && <AdelantoCarpetaActual consulta={debouncedSearchQuery} />}
+          </>
         ) : loadingMessages && !filterChanging ? (
           Array.from({length:12}).map((_,i) => (
             <div key={i} className="animate-pulse flex gap-2.5 px-4 py-[6px] border-b border-[#f3f2f1]">
