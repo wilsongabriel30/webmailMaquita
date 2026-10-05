@@ -13,6 +13,11 @@ const CLAVE_PREFERENCIA = 'maquita_buscar_en_todo';
 
 let carpetaPrevia = 'INBOX';
 
+/** Carpeta en la que estaba la persona al empezar a buscar en todas las carpetas. */
+export function carpetaAnterior(): string {
+  return carpetaPrevia || 'INBOX';
+}
+
 export function leerPreferenciaTodo(): boolean {
   try { return localStorage.getItem(CLAVE_PREFERENCIA) !== '0'; } catch { return true; }
 }
