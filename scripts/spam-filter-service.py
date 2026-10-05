@@ -778,7 +778,12 @@ def check_spam(msg, keywords, whitelist, blacklist_domains, blacklist_ips, greyl
         parts = line.split("|")
         keyword = parts[0].strip()
         weight = int(parts[1].strip()) if len(parts) > 1 else 1
-        if keyword in full_text:
+        # PALABRA O FRASE COMPLETA, no subcadena. Con `keyword in full_text`, «cialis» casaba con
+        # «especialista» y «xxx» con cualquier relleno: en una semana, 43 de 103 correos marcados
+        # como no deseados lo fueron solo por eso (cotizaciones de clientes, correo de la casa).
+        if keyword and re.search(
+            r"(?<![0-9a-záéíóúüñ])" + re.escape(keyword) + r"(?![0-9a-záéíóúüñ])", full_text
+        ):
             score += weight
             razones.append(keyword + "(+" + str(weight) + ")")
 
