@@ -17,6 +17,16 @@ def worst(a, b):
     return a if order[a] >= order[b] else b
 
 
+_PROPIOS_DE_LIBREOFFICE = (".config", ".cache", ".local", ".dbus", ".fontconfig", "hsperfdata_")
+
+
+def _es_de_libreoffice(nombre):
+    """Perfil y temporales que LibreOffice crea por sí mismo en /tmp al convertir."""
+    n = nombre.lower()
+    return (n.startswith(_PROPIOS_DE_LIBREOFFICE) or n.startswith("lu") and n.endswith(".tmp")
+            or n.startswith("osl_pipe_") or n.startswith(".~lock.") or n.startswith("libreoffice"))
+
+
 def main():
     if len(sys.argv) < 2:
         print("clean"); return
@@ -50,6 +60,11 @@ def main():
             verdict = worst(verdict, "suspicious"); notes.append(f"render falló: {e}")
         dropped = set(os.listdir("/tmp")) - before
         dropped = {d for d in dropped if not d.endswith(".pdf")}
+        # Lo que crea el PROPIO LibreOffice al abrir cualquier documento (su perfil en HOME=/tmp
+        # y sus temporales) no es algo que haya soltado el adjunto. Sin este filtro, TODO Word o
+        # Excel salía «suspicious» por «archivos generados: .config,.cache» y acababa en
+        # cuarentena, también los que se envían entre sí las cuentas de la casa (05/10/2026).
+        dropped = {d for d in dropped if not _es_de_libreoffice(d)}
         if dropped:
             verdict = worst(verdict, "suspicious")
             notes.append("archivos generados: " + ",".join(list(dropped)[:5]))
