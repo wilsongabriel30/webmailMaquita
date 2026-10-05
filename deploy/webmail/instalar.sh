@@ -49,7 +49,7 @@ export DEBIAN_FRONTEND=noninteractive
 echo "postfix postfix/main_mailer_type select Internet Site" | debconf-set-selections
 echo "postfix postfix/mailname string ${MAIL_HOST}" | debconf-set-selections
 apt update && apt install -y \
-    curl wget git sudo ufw openssl \
+    curl wget git sudo ufw openssl cron \
     python3 python3-venv python3-pip \
     postgresql postgresql-contrib \
     redis-server \
@@ -60,6 +60,11 @@ apt update && apt install -y \
     dovecot-sieve dovecot-managesieved \
     ssl-cert rspamd \
     clamav clamav-daemon clamav-freshclam
+
+# Las imágenes de nube de Debian no traen cron, y varias tareas del correo viven en /etc/cron.d
+# (detector de envío masivo, vigilancia de integraciones, colecciones de Radicale, uso de disco).
+# Sin el servicio activo nadie las ejecuta y no hay ningún error que lo delate.
+systemctl enable --now cron 2>/dev/null || true
 
 # --- 2. Node.js 20 ---
 echo -e "\n${GREEN}[2/18] Instalando Node.js 20...${NC}"

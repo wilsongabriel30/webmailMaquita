@@ -18,6 +18,16 @@ hdr "Servicios"
 for s in postfix dovecot rspamd nginx clamav-daemon maquita-webmail maquita-admin maquita-milter fail2ban; do
   [ "$(systemctl is-active "$s" 2>/dev/null)" = active ] && ok "$s activo" || bad "$s NO activo"
 done
+# Tareas programadas: sin cron activo, nada de /etc/cron.d se ejecuta y no hay error que lo delate
+# (una instalación sobre imagen de nube de Debian estuvo así sin que nadie lo notara).
+if [ "$(systemctl is-active cron 2>/dev/null)" = active ] || [ "$(systemctl is-active cronie 2>/dev/null)" = active ]; then
+  ok "cron activo (tareas de /etc/cron.d)"
+  CRON_ACTIVO=1
+else
+  PENDIENTES="$(ls /etc/cron.d/ 2>/dev/null | grep -E '^(maquita-|check-external-logins)' | tr '\n' ' ')"
+  bad "cron NO está activo: no se ejecuta ninguna tarea de /etc/cron.d (${PENDIENTES:-ninguna de las del correo}). Antes de instalarlo (apt install cron) revise TODO lo que haya en /etc/cron.d: se enciende de golpe"
+  CRON_ACTIVO=0
+fi
 # Tableros/BI es una aplicación del Drive, no del correo: si no arranca es ADVERTENCIA con la causa.
 if systemctl list-unit-files maquita-bi.service >/dev/null 2>&1 && systemctl list-unit-files maquita-bi.service 2>/dev/null | grep -q maquita-bi; then
   if [ "$(systemctl is-active maquita-bi 2>/dev/null)" = active ]; then ok "maquita-bi (Tableros) activo"
@@ -210,7 +220,15 @@ if { journalctl -u rspamd --since '-7 days' --no-pager 2>/dev/null; tail -2000 /
 elif [ -f /etc/rspamd/local.d/ratelimit.conf ]; then ok "límite de envío por usuario configurado y sin avisos de desactivación"
 else bad "falta /etc/rspamd/local.d/ratelimit.conf (límite de envío por usuario). Arreglo: sudo bash deploy/tools/instalar-proteccion-salida.sh"; fi
 [ -x /usr/local/sbin/maquita-contener ] && ok "contención de cuentas instalada (maquita-contener)" || warn "falta /usr/local/sbin/maquita-contener (contención de cuentas): sudo bash deploy/tools/instalar-proteccion-salida.sh"
-if [ -f /etc/cron.d/maquita-anomalia ] && [ -x /usr/local/sbin/maquita-anomalia-salida.py ]; then ok "detector de envío masivo instalado (cron cada 2 min)"
+if [ -f /etc/cron.d/maquita-anomalia ] && [ -x /usr/local/sbin/maquita-anomalia-salida.py ]; then
+  # Que exista el archivo no basta: tiene que haberse ejecutado de verdad hace poco.
+  if [ "${CRON_ACTIVO:-0}" != 1 ]; then
+    bad "detector de envío masivo instalado pero SIN ejecutarse: cron no está activo"
+  elif journalctl -u cron -u cronie --since '-15 min' --no-pager 2>/dev/null | grep -q 'maquita-anomalia-salida'; then
+    ok "detector de envío masivo ejecutándose (última pasada hace menos de 15 min)"
+  else
+    warn "detector de envío masivo instalado, pero no hay ninguna ejecución en el registro de cron de los últimos 15 min"
+  fi
 else warn "detector de envío masivo sin instalar: sudo bash deploy/tools/instalar-proteccion-salida.sh"; fi
 
 # --- Firmas de integridad (SRI) del webmail publicado ---

@@ -45,6 +45,21 @@ sudo -u maquita-admin sudo -n /usr/local/sbin/maquita-sudo maquita-outbound get-
 
 El nombre del producto (`app_name`) ya se puede editar en la pantalla de marca del panel.
 
+## ¿Tu servidor tiene cron? (2026-10-05)
+
+Las imágenes de nube de Debian no traen el paquete `cron`. Varias tareas del correo viven en
+`/etc/cron.d` (detector de envío masivo, vigilancia de integraciones, colecciones de Radicale,
+uso de disco) y sin el servicio **no se ejecutan y no dan ningún error**. Compruébalo:
+
+```bash
+systemctl is-active cron
+```
+
+Si no está, **revisa primero todo lo que haya en `/etc/cron.d`** (al instalarlo se enciende todo de
+golpe, también tareas antiguas o propias que nunca corrieron) y después
+`apt install cron && systemctl enable --now cron`. El instalador ya lo incluye y
+`validar-despliegue.sh` lo comprueba, junto con que el detector se haya ejecutado de verdad.
+
 ## Panel: «Depurar adjuntos peligrosos» y «Acceso por país» (2026-10-03)
 
 Con el panel confinado, la primera daba error 500 y la segunda guardaba el cambio en la base
