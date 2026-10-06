@@ -975,6 +975,8 @@ const MessageView: React.FC = () => {
       in_reply_to: msg.in_reply_to || '',
       references: msg.references || '',
       draft_uid: msg.uid,
+      // Sin esto, al editar el borrador desde la vista del mensaje sus adjuntos no volvían.
+      adjuntos_borrador: msg.attachments || [],
     });
   }, [msg, openCompose]);
 
