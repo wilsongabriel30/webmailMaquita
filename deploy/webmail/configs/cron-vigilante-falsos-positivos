@@ -1,0 +1,2 @@
+# Cada mañana devuelve a la bandeja de entrada lo que cayó en no deseado viniendo de remitentes a los que el buzón ya escribió
+10 7 * * * root /usr/local/sbin/vigilante-falsos-positivos >/dev/null 2>&1
