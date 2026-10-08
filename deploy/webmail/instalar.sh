@@ -303,6 +303,11 @@ install -m440 "${APP_DIR}/deploy/sudoers/maquita-admin" /etc/sudoers.d/maquita-a
 rm -f /etc/sudoers.d/webmail-doveadm
 visudo -c >/dev/null || { echo -e "  ${RED}ERROR: sudoers invalido${NC}"; exit 1; }
 cp "${CFG}/rspamd-ratelimit.conf" /etc/rspamd/local.d/ratelimit.conf
+# El Bayes no decide solo (peso 4,0 < umbral 6). Sin esto, un clasificador sesgado manda legítimos a no deseado.
+[ -f /etc/rspamd/local.d/statistics_group.conf ] || cp "${CFG}/rspamd-statistics-group.conf" /etc/rspamd/local.d/statistics_group.conf
+# Vigilante de falsos positivos: devuelve a la bandeja lo que vino de remitentes conocidos y avisa a TI.
+install -m755 "${APP_DIR}/deploy/tools/vigilante-falsos-positivos.sh" /usr/local/sbin/vigilante-falsos-positivos
+install -m644 "${CFG}/cron-vigilante-falsos-positivos" /etc/cron.d/vigilante-falsos-positivos
 # Anti-suplantación (MAQ_DISPNAME_SPOOF y compañía). Los dominios propios y los términos protegidos
 # vienen de MAPAS que se generan desde la base del panel, no de una lista fija en el .lua: una
 # instalación que no los tenga manda a no deseado el correo legítimo de la casa (reportado 08/10/2026).
