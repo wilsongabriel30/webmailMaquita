@@ -30,7 +30,8 @@ from email.mime.base import MIMEBase
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from email.utils import formatdate, parseaddr
+from email.header import Header
+from email.utils import formataddr, formatdate, parseaddr
 
 import aiosmtplib
 
@@ -115,6 +116,26 @@ class OutgoingEmail:
     request_delivery_receipt: bool = False
 
 
+def _cabecera_direcciones(valores: list[str] | str) -> str:
+    """«Nombre <correo>» con el nombre codificado (RFC 2047) y la dirección SIEMPRE en claro.
+
+    Antes se asignaba la cadena entera y, con un nombre con tildes («Gestión TI <a@b.org>»),
+    la librería codificaba todo —dirección incluida— en una sola encoded-word, que no es válida
+    (RFC 2047 §5) y despista a filtros y clientes (08/10/2026).
+    """
+    if isinstance(valores, str):
+        valores = [valores]
+    partes = []
+    for v in valores:
+        nombre, direccion = parseaddr(v)
+        if not direccion:
+            continue
+        if nombre and not nombre.isascii():
+            nombre = str(Header(nombre, "utf-8"))
+        partes.append(formataddr((nombre, direccion)))
+    return ", ".join(partes)
+
+
 def build_mime_message(email_data: OutgoingEmail) -> MIMEMultipart:
     """Build a MIME message optimized for maximum deliverability.
 
@@ -131,8 +152,8 @@ def build_mime_message(email_data: OutgoingEmail) -> MIMEMultipart:
     msg = MIMEMultipart("mixed") if has_attachments else MIMEMultipart("alternative")
 
     # ─── Headers estándar (SOLO estos, no agregar más sin verificar spam score) ───
-    msg["From"] = email_data.from_addr
-    msg["To"] = ", ".join(email_data.to)
+    msg["From"] = _cabecera_direcciones(email_data.from_addr)
+    msg["To"] = _cabecera_direcciones(email_data.to)
     msg["Subject"] = email_data.subject
     msg["Date"] = formatdate(localtime=True)
     msg["Message-ID"] = msgid_del_remitente(email_data.from_addr, settings.mail_domain)
@@ -143,7 +164,7 @@ def build_mime_message(email_data: OutgoingEmail) -> MIMEMultipart:
     msg["Organization"] = org_name_cacheado()
 
     if email_data.cc:
-        msg["Cc"] = ", ".join(email_data.cc)
+        msg["Cc"] = _cabecera_direcciones(email_data.cc)
     if email_data.in_reply_to:
         msg["In-Reply-To"] = email_data.in_reply_to
     if email_data.references:

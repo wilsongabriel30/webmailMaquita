@@ -94,6 +94,27 @@ txt2 = get_part_content(msg2, "text/plain")
 check("Listas HTML se convierten a texto", txt2 and "A" in txt2 and "B" in txt2)
 
 # ═══════════════════════════════════════════════════════════════
+# REGLA 1b: nombres con tildes en From/To: se codifica el nombre, nunca la dirección
+# Sin esto: la dirección queda dentro de una encoded-word (inválido, RFC 2047 §5)
+# ═══════════════════════════════════════════════════════════════
+print("\n\033[1m=== REGLA 1b: From/To con tildes ===\033[0m")
+msg1b = build_mime_message(
+    OutgoingEmail(
+        from_addr="Gestión TI <gestion@example.org>",
+        to=["Mónica Noroña <monica@example.org>", "x@x.com"],
+        subject="Reunión",
+        html_body="<p>Hola</p>",
+    )
+)
+cab = msg1b.as_bytes().decode("ascii", errors="replace").split("\n\n")[0]
+from_raw = [l for l in cab.splitlines() if l.startswith("From:")][0]
+to_raw = [l for l in cab.splitlines() if l.startswith("To:")][0]
+check("From: la dirección va en claro", "<gestion@example.org>" in from_raw, from_raw)
+check("From: el nombre va codificado", "=?utf-8?" in from_raw, from_raw)
+check("To: dirección en claro y segundo destinatario intacto", "<monica@example.org>" in to_raw and "x@x.com" in to_raw, to_raw)
+check("Subject con tildes codificado", "=?utf-8?" in [l for l in cab.splitlines() if l.startswith("Subject:")][0])
+
+# ═══════════════════════════════════════════════════════════════
 # REGLA 2: HTML siempre con DOCTYPE + <html> + <body>
 # Sin esto: HTML_MIME_NO_HTML_TAG (+0.377)
 # ═══════════════════════════════════════════════════════════════
