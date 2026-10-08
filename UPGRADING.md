@@ -31,6 +31,20 @@ Tres cosas de esa regla que no dan error visible si se saltan:
 
 ---
 
+## Rspamd: el Bayes no decide solo y vigilante de falsos positivos (2026-10-08)
+
+```
+cp deploy/webmail/configs/rspamd-statistics-group.conf /etc/rspamd/local.d/statistics_group.conf
+rspamadm configtest && systemctl reload rspamd
+install -m755 deploy/tools/vigilante-falsos-positivos.sh /usr/local/sbin/vigilante-falsos-positivos
+install -m644 deploy/webmail/configs/cron-vigilante-falsos-positivos /etc/cron.d/vigilante-falsos-positivos
+/usr/local/sbin/vigilante-falsos-positivos --solo-informe   # ensayo sin mover nada
+```
+Si `rspamc learn_spam` responde «all learn conditions denied», mira `rspamc stat`: con muchos más spam que legítimos
+aprendidos y `check_balance = true` en `classifier-bayes.conf`, Rspamd se niega a aprender hasta reequilibrar (aprende
+legítimos desde buzones de confianza o pon `check_balance = false` mientras tanto). El vigilante avisa por
+`aviso-limitado` si existe; si no, define `AVISO=` con tu propio mandador.
+
 ## Rspamd: anti-suplantación por mapas y lista gris para remitentes autenticados (2026-10-08)
 
 Si instalaste `maquita-antispoof.lua` a mano, sustitúyelo por el del repositorio y genera los mapas:
