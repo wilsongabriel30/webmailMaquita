@@ -92,6 +92,17 @@ PYT
   fi
   sed -i -E "s/(const CACHE_NAME = \"[^\"]*-v)[0-9A-Za-z-]*(\")/\1$(date +%Y%m%d%H%M)\2/" "$SW_DIST"
   echo "   Version de cache renovada en dist/sw.js (el fuente no se toca)"
+  # Pentest EH-MAQ-004 (08/10/2026): lo publicado no lleva comentarios internos ni notas de desarrollo.
+  # Se minifica con rolldown (ya viene con Vite) DESPUES de los sed de arriba, que buscan las constantes por nombre.
+  if (cd "${FRONTEND_DIR}" && npx --no-install rolldown "$SW_DIST" --minify --format esm --file "${DIST_DIR}/sw.min.js" >/dev/null 2>&1) \
+     && node --check "${DIST_DIR}/sw.min.js" 2>/dev/null; then
+    mv "${DIST_DIR}/sw.min.js" "$SW_DIST"
+    echo "   Service worker minificado (sin comentarios internos)"
+  else
+    rm -f "${DIST_DIR}/sw.min.js"
+    echo -e "${RED}ERROR: no se pudo minificar dist/sw.js; no se publica con comentarios internos.${NC}"
+    exit 1
+  fi
 fi
 
 # --- Paso 2: Verificar que el build generó archivos ---
