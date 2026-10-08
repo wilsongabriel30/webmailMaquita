@@ -14,6 +14,7 @@ import { api } from "../../api/client";
 import { CommandPalette } from "../common/CommandPalette";
 import { useResponsive } from "../../hooks/useResponsive";
 import { OfflineBanner } from "../common/OfflineBanner";
+import { AvisoConexionLenta } from "../common/AvisoConexionLenta";
 import { useOfflineSync } from "../../hooks/useOfflineSync";
 import { InstallPrompt } from "../common/InstallPrompt";
 import { ReminderPopup } from "../common/ReminderPopup";
@@ -99,6 +100,7 @@ export function AppLayout() {
         Ir al contenido principal
       </a>
       <OfflineBanner />
+      <AvisoConexionLenta />
       <Topbar />
       {!esModoApp() && <ChatFlotante />}
       <div className="flex-1 flex overflow-hidden">

@@ -96,4 +96,6 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
             path=request.url.path,
         )
         response.headers["X-Request-ID"] = rid
+        # Lo que tardó el servidor: el webmail lo resta del total para saber si la lenta es la red (08/10/2026)
+        response.headers["Server-Timing"] = f"app;dur={latency:.0f}"
         return response
