@@ -303,6 +303,21 @@ install -m440 "${APP_DIR}/deploy/sudoers/maquita-admin" /etc/sudoers.d/maquita-a
 rm -f /etc/sudoers.d/webmail-doveadm
 visudo -c >/dev/null || { echo -e "  ${RED}ERROR: sudoers invalido${NC}"; exit 1; }
 cp "${CFG}/rspamd-ratelimit.conf" /etc/rspamd/local.d/ratelimit.conf
+# Anti-suplantación (MAQ_DISPNAME_SPOOF y compañía). Los dominios propios y los términos protegidos
+# vienen de MAPAS que se generan desde la base del panel, no de una lista fija en el .lua: una
+# instalación que no los tenga manda a no deseado el correo legítimo de la casa (reportado 08/10/2026).
+install -m644 "${APP_DIR}/deploy/rspamd/maquita-antispoof.lua" /etc/rspamd/rspamd.local.lua
+mkdir -p /etc/rspamd/local.d/maps
+install -m755 "${APP_DIR}/deploy/rspamd/sync-rspamd-maps.sh" /usr/local/sbin/sync-rspamd-maps.sh
+install -m644 "${APP_DIR}/deploy/rspamd/cron-sync-rspamd-maps" /etc/cron.d/sync-rspamd-maps
+APP_DIR="${APP_DIR}" /usr/local/sbin/sync-rspamd-maps.sh || echo -e "  ${RED}AVISO: no se generaron los mapas de rspamd (revisar DATABASE_URL)${NC}"
+# Lista gris: los remitentes con DMARC alineado y DKIM válido no esperan (códigos de verificación).
+if ! grep -q "MAQ_REMITENTE_AUTENTICADO" /etc/rspamd/local.d/composites.conf 2>/dev/null; then
+  cat "${APP_DIR}/deploy/rspamd/composites-maquita.conf" >> /etc/rspamd/local.d/composites.conf
+fi
+if ! grep -q "MAQ_REMITENTE_AUTENTICADO" /etc/rspamd/local.d/greylist.conf 2>/dev/null; then
+  cat "${APP_DIR}/deploy/rspamd/greylist-autenticados.conf" >> /etc/rspamd/local.d/greylist.conf
+fi
 # Clasificador bayesiano: sin Redis no aprende («Marcar como spam» falla en silencio).
 # Se configura solo para este módulo (base propia) para no activar greylisting ni otros.
 if [ ! -f /etc/rspamd/local.d/classifier-bayes.conf ]; then

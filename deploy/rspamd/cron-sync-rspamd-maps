@@ -1,0 +1,2 @@
+# Mapas de Rspamd (dominios propios y términos protegidos) desde la base del panel. Cada 10 minutos.
+*/10 * * * * root /usr/local/sbin/sync-rspamd-maps.sh >/dev/null 2>&1

@@ -8,6 +8,11 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 ## [Sin publicar]
 
 ### Añadido
+- Rspamd: el instalador instala el anti-suplantación (`deploy/rspamd/maquita-antispoof.lua`) con sus **mapas** de dominios propios y términos protegidos generados desde la base del panel (`sync-rspamd-maps.sh`, cron cada 10 min), y la lista gris deja pasar sin espera a los remitentes con DMARC alineado y DKIM válido (`MAQ_REMITENTE_AUTENTICADO`).
+
+### Corregido
+- Rspamd: `maquita-antispoof.lua` traía una lista fija de dominios de ejemplo; una instalación que no la editara mandaba a no deseado el correo legítimo de otros dominios de la casa (+6, `MAQ_DISPNAME_SPOOF`). Ahora lee `local_domains.map`.
+- Envío: con un nombre visible con tildes, `From`/`To`/`Cc` codificaban también la dirección dentro de la encoded-word (inválido según RFC 2047). Ahora solo se codifica el nombre.
 - Teléfonos: **wifi compartido con la flota**. Pestaña «Wifi de las sedes» en el panel (claves cifradas), lista para los teléfonos enrolados con versión en el latido, corrección de clave desde el teléfono con replicación y redes compartidas por los propios compañeros (eventos, hoteles, aliados) sin intervención de Tecnología.
 - Teléfonos: anclas por punto de acceso wifi (BSSID) y triangulación por intensidad con las redes vistas al localizar; el latido en wifi de un AP conocido ubica el equipo con el radio del AP.
 - Panel → Códigos de enrolamiento: **«Ver QR»** para los códigos de control completo. Genera en el servidor el QR de aprovisionamiento Device Owner (huella del APK publicado, código de enrolamiento dentro) con los pasos para leerlo en un teléfono restaurado de fábrica.

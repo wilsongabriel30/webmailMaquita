@@ -31,6 +31,24 @@ Tres cosas de esa regla que no dan error visible si se saltan:
 
 ---
 
+## Rspamd: anti-suplantación por mapas y lista gris para remitentes autenticados (2026-10-08)
+
+Si instalaste `maquita-antispoof.lua` a mano, sustitúyelo por el del repositorio y genera los mapas:
+
+```
+install -m644 deploy/rspamd/maquita-antispoof.lua /etc/rspamd/rspamd.local.lua
+install -m755 deploy/rspamd/sync-rspamd-maps.sh /usr/local/sbin/sync-rspamd-maps.sh
+install -m644 deploy/rspamd/cron-sync-rspamd-maps /etc/cron.d/sync-rspamd-maps
+/usr/local/sbin/sync-rspamd-maps.sh          # genera local_domains.map y maquita_impersonation_terms.map
+cat deploy/rspamd/composites-maquita.conf >> /etc/rspamd/local.d/composites.conf   # si no lo tienes ya
+cat deploy/rspamd/greylist-autenticados.conf >> /etc/rspamd/local.d/greylist.conf  # ídem
+rspamadm configtest && systemctl reload rspamd
+```
+
+Comprueba que `/etc/rspamd/local.d/maps/local_domains.map` lista **todos** tus dominios (tabla «domain» del panel):
+si falta uno, su correo con nombre visible de la marca cae en no deseado. Los roles protegidos se ajustan en
+`deploy/rspamd/maps/roles_protegidos.map`. El backend debe reiniciarse (`maquita-webmail`) por la corrección de cabeceras.
+
 ## Panel: «Protección de salida» vuelve a funcionar (2026-10-03)
 
 Con el panel confinado (usuario `maquita-admin`), la pantalla «Protección de salida» daba error

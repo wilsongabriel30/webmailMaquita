@@ -65,8 +65,17 @@ rspamd_config:register_symbol({
   group = 'spam',
 })
 
+-- Mapa de terminos protegidos (marcas + roles internos), alimentado desde el
+-- panel por deploy/rspamd/sync-rspamd-maps.sh (cron cada 10 min). 2026-09-01.
+local maq_imp_terms = rspamd_config:add_map({
+  url = '/etc/rspamd/maquita_impersonation_terms.map',
+  type = 'regexp',
+  description = 'Terminos institucionales y roles protegidos de impersonation',
+})
+
 -- ===== Suplantacion del nombre visible (RRHH falso 2026-07-06) =====
--- Display name menciona la marca (maquita/mcch) pero el remitente es externo
+-- Display name menciona una marca o un rol interno protegido (ambos vienen del mapa de términos)
+-- (talento humano, contabilidad, TI...) pero el remitente es externo
 -- y no es un dominio propio. Score 6 = va a Junk directo.
 rspamd_config:register_symbol({
   name = "MAQ_DISPNAME_SPOOF",
@@ -77,7 +86,8 @@ rspamd_config:register_symbol({
     local from = task:get_from("mime")
     if not (from and from[1]) then return false end
     local name = (from[1].name or ""):lower()
-    if not (name:find("maquita") or name:find("mcch")) then return false end
+    -- coincide el nombre visible con una marca o rol protegido? (mapa)
+    if not maq_imp_terms:get_key(name) then return false end
     local dom = tostring(from[1].domain or ""):lower()
     local function is_ours(d)
       while d and d ~= "" do
@@ -89,12 +99,11 @@ rspamd_config:register_symbol({
       return false
     end
     if dom ~= "" and is_ours(dom) then return false end
-    -- dominios propios del Zimbra tambien son legitimos
-    local zimbra = { ["example.com"]=true, ["example.net"]=true, ["fundacion.example"]=true }
-    if zimbra[dom] or dom:match("%.maquita%.com%.ec$") or dom:match("%.mcch%.com%.ec$") then return false end
+    -- (los dominios propios/legitimos vienen del mapa local_domains.map, que se
+    --  sincroniza desde la tabla "domain" del panel; ya no hay lista fija aqui)
     return true, 1.0, name
   end,
   score = 6.0,
-  description = "Nombre visible dice Maquita/MCCH pero remitente externo",
+  description = "Nombre visible suplanta marca/rol de Maquita, remitente externo",
   group = "spoofing",
 })
