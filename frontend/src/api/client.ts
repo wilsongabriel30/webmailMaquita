@@ -1,5 +1,6 @@
 const BASE = "/api";
 import { reportarFallo, reportarExito } from "../lib/conexion";   // T-35: estado real de conexión
+import { inicioPeticion, finPeticion, tiempoServidor, type Medida } from "../lib/conexionLenta";
 
 // Error logger for traceability
 function logError(context: string, details: Record<string, unknown>) {
@@ -44,7 +45,13 @@ async function tryRefresh(): Promise<boolean> {
 const MAX_RETRY_AFTER_S = 15;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// Aviso de conexión lenta: se mide cada petición de principio a fin (cuerpo incluido)
 async function request<T>(path: string, options: RequestInit & { skipAuth?: boolean } = {}): Promise<T> {
+  const medida = inicioPeticion(path);
+  try { return await requestMedido<T>(path, options, medida); } finally { finPeticion(medida); }
+}
+
+async function requestMedido<T>(path: string, options: RequestInit & { skipAuth?: boolean }, medida: Medida): Promise<T> {
   const { skipAuth, ...fetchOptions } = options;
 
   // Never intercept 401 on auth endpoints (login, refresh, logout)
@@ -64,6 +71,7 @@ async function request<T>(path: string, options: RequestInit & { skipAuth?: bool
     reportarFallo();   // T-35: sin red o servidor inalcanzable
     throw e;
   }
+  medida.servidorMs = res.headers.get("X-Offline-Cache") === "true" ? null : tiempoServidor(res);
   // Respuesta servida por el service worker desde su caché (X-Offline-Cache) = el servidor NO fue alcanzado
   if (res.status === 502 || res.status === 503 || res.status === 504 || res.headers.get("X-Offline-Cache") === "true") reportarFallo(); else reportarExito();
 
@@ -71,6 +79,7 @@ async function request<T>(path: string, options: RequestInit & { skipAuth?: bool
   for (let attempt = 0; res.status === 429 && attempt < 2 && !isAuthEndpoint; attempt++) {
     const retryAfter = parseInt(res.headers.get("Retry-After") || "", 10);
     if (!Number.isFinite(retryAfter) || retryAfter < 0 || retryAfter > MAX_RETRY_AFTER_S) break;
+    medida.descartar = true;
     await sleep((retryAfter || 1) * 1000);
     res = await fetch(`${BASE}${path}`, {
       credentials: "include",
@@ -83,6 +92,7 @@ async function request<T>(path: string, options: RequestInit & { skipAuth?: bool
     res.clone().json().then((b) => redirigirSiDebeCambiarClave(403, b)).catch(() => {});
   }
   if (res.status === 401 && !skipAuth && !isAuthEndpoint) {
+    medida.descartar = true;
     const refreshed = await tryRefresh();
     if (refreshed) {
       const retryRes = await fetch(`${BASE}${path}`, {
