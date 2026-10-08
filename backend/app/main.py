@@ -620,8 +620,6 @@ class StripCredentialsMiddleware(BaseHTTPMiddleware):
         return response
 
 
-app.add_middleware(StripCredentialsMiddleware)
-
 app.add_middleware(RequestIdMiddleware)
 app.add_middleware(
     CORSMiddleware,
@@ -636,6 +634,9 @@ app.add_middleware(
         "Origin",
     ],
 )
+# Debe registrarse DESPUÉS de CORSMiddleware: el último registrado es el más externo y solo así ve el
+# Allow-Credentials que añade CORS para orígenes no autorizados (pentest EH-MAQ-009, 08/10/2026).
+app.add_middleware(StripCredentialsMiddleware)
 
 
 @app.exception_handler(SMTPAuthenticationError)
