@@ -1,0 +1,14 @@
+# Roles internos que nadie de fuera debería usar como nombre visible (uno por línea, minúsculas).
+# Se suman a las marcas que el panel guarda en «Anti-suplantación» (security_config.impersonation_terms).
+# Los lee deploy/rspamd/sync-rspamd-maps.sh; ajústalo a tu organización.
+talento humano
+recursos humanos
+rrhh
+contabilidad
+tesoreria
+gerencia
+direccion
+gerente general
+tecnologia
+sistemas
+soporte tecnico
