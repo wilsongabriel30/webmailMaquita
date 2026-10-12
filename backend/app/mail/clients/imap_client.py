@@ -565,6 +565,18 @@ async def fetch_attachment(
     if resp.result != "OK":
         return None
 
+    # BINARY (RFC 3516): el servidor entrega la parte ya decodificada, sea cual sea su
+    # Content-Transfer-Encoding. Antes se suponía base64 para todo y los adjuntos en
+    # 7bit o quoted-printable (un .eml reenviado, un .md o .txt con tildes) salían
+    # corruptos en la descarga y en la vista previa (12/10/2026).
+    binario = await imap.uid("fetch", str(uid), f"(BINARY.PEEK[{part_number}])")
+    if binario.result == "OK":
+        literales = [
+            bytes(linea) for linea in binario.lines if isinstance(linea, bytearray)
+        ]
+        if literales:
+            return literales[0]
+
     fetch_resp = await imap.uid("fetch", str(uid), f"(BODY.PEEK[{part_number}])")
     if fetch_resp.result != "OK":
         return None
