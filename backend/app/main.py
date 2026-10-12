@@ -56,6 +56,7 @@ from app.identities.router import router as identities_router
 from app.import_export.router import router as import_router
 from app.log_ingestor.mail_log_ingestor import start_log_ingestor
 from app.mail.errors import CredencialIMAPInvalida
+from app.mail.routers.adjunto_correo import router as adjunto_correo_router
 from app.mail.routers.attachments import router as attachments_router
 from app.mail.routers.borrados import router as borrados_router
 from app.mail.routers.busqueda_capacidades import router as busqueda_capacidades_router
@@ -746,6 +747,7 @@ app.include_router(hold_ack_router)
 app.include_router(attachments_router)
 app.include_router(threads_router)
 app.include_router(onlyoffice_router)
+app.include_router(adjunto_correo_router)
 app.include_router(recall_router)
 app.include_router(stats_router)
 app.include_router(labels_router)
