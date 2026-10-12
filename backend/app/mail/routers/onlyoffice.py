@@ -19,6 +19,7 @@ from app.auth.dependencies import get_current_user
 from app.config import get_settings
 from app.core.session import get_imap_login_user, get_user_password
 from app.mail.clients.imap_client import fetch_attachment, get_imap_connection
+from app.mail.routers.attachments import _content_disposition
 
 settings = get_settings()
 
@@ -115,6 +116,10 @@ async def office_preview(
             "uid": body.uid,
             "part": body.part_number,
             "filename": body.filename,
+            # OnlyOffice descarga sin la cookie del navegador: la credencial IMAP en Redis
+            # va por sesión (imap_pass:{u}:{sid}), así que el vale lleva su sid (12/10/2026).
+            "sid": getattr(request.state, "sid", None),
+            "cuenta_activa": getattr(request.state, "cuenta_activa", None),
             "exp": int(time.time()) + 3600,
         },
         _DOWNLOAD_SECRET,
@@ -152,7 +157,9 @@ async def office_preview(
         content=pdf_data,
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f'inline; filename="{body.filename}.pdf"',
+            "Content-Disposition": _content_disposition(
+                f"{body.filename}.pdf", "inline"
+            ),
             "Cache-Control": "private, max-age=300",
         },
     )
@@ -182,6 +189,10 @@ async def office_editor_config(
             "uid": body.uid,
             "part": body.part_number,
             "filename": body.filename,
+            # OnlyOffice descarga sin la cookie del navegador: la credencial IMAP en Redis
+            # va por sesión (imap_pass:{u}:{sid}), así que el vale lleva su sid (12/10/2026).
+            "sid": getattr(request.state, "sid", None),
+            "cuenta_activa": getattr(request.state, "cuenta_activa", None),
             "exp": int(time.time()) + 3600,
         },
         _DOWNLOAD_SECRET,
@@ -269,6 +280,9 @@ async def onlyoffice_download(
     uid = payload["uid"]
     part_number = payload["part"]
     filename = payload["filename"]
+    request.state.sid = payload.get("sid")
+    if payload.get("cuenta_activa"):
+        request.state.cuenta_activa = payload["cuenta_activa"]
 
     # IMPORTANTE: Las contraseñas en Redis están cifradas con Fernet.
     # SIEMPRE usar get_user_password() — NUNCA redis.get() directo.
@@ -288,7 +302,7 @@ async def onlyoffice_download(
         return Response(
             content=data,
             media_type=content_type,
-            headers={"Content-Disposition": f'inline; filename="{filename}"'},
+            headers={"Content-Disposition": _content_disposition(filename, "inline")},
         )
     finally:
         try:
