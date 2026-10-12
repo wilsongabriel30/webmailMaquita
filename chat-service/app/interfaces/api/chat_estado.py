@@ -10,6 +10,10 @@ La REGLA de que puntito se ve no esta aqui, sino en interfaces/websocket/estado_
 asi la usan igual estos endpoints, la lista de conversaciones y la ficha del companero.
 """
 from interfaces.api.chat_base import *  # noqa: F401,F403  (bp_chat, request, jsonify, autenticacion)
+import sys
+
+from flask import g
+
 from interfaces.websocket import estado_presencia as regla
 
 
@@ -18,9 +22,13 @@ def _visibles(ids):
     from interfaces import relacion_chat
     from interfaces.websocket import manejador_websocket as mw
     try:
-        servicio = obtener_servicio_chat()
-        return relacion_chat.filtrar_visibles(servicio._db_session, obtener_usuario_id(), ids, mw._ws_redis)
-    except Exception:
+        # La sesión de BD de la petición REST está en g (chat_base). `servicio._db_session` solo
+        # existe en el ServicioChat del socket: aquí daba AttributeError, se tragaba, y la
+        # presencia de los demás nunca salía por REST (404 / lista vacía). 12/10/2026.
+        obtener_servicio_chat()
+        return relacion_chat.filtrar_visibles(g.db_session_chat, obtener_usuario_id(), ids, mw._ws_redis)
+    except Exception as exc:
+        print('[chat] presencia REST: fallo cerrado (%s)' % type(exc).__name__, file=sys.stderr)
         return []
 
 

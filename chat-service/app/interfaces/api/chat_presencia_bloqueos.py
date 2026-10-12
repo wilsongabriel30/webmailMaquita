@@ -3,6 +3,7 @@
 Extraído de controlador_chat.py (líneas 1991-2183) el 28/08/2026 sin cambios en las rutas. Las rutas se registran en
 bp_chat al importar este módulo (lo hace controlador_chat.py, que sigue siendo el punto de entrada)."""
 from interfaces.api.chat_base import *  # noqa: F401,F403  (bp_chat, request, jsonify, servicio, autenticación…)
+from flask import g
 
 # =============================================================================
 # PRESENCIA
@@ -87,7 +88,8 @@ def obtener_presencia_usuario(usuario_id: int):
         # [M-03] solo de quien comparte conversación conmigo
         from interfaces import relacion_chat
         from interfaces.websocket import manejador_websocket as mw
-        if not relacion_chat.puede_ver(servicio._db_session, obtener_usuario_id(), usuario_id, mw._ws_redis):
+        # la sesión de BD de la petición REST está en g, no en el servicio (12/10/2026)
+        if not relacion_chat.puede_ver(g.db_session_chat, obtener_usuario_id(), usuario_id, mw._ws_redis):
             return jsonify({'exito': False, 'success': False, 'mensaje': 'Usuario no encontrado'}), 404
         presencias = servicio.obtener_presencia([usuario_id])
         presencia = presencias.get(usuario_id, {'online': False, 'last_seen': None})
