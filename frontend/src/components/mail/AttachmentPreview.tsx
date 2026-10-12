@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import VistaPreviaCorreo from './VistaPreviaCorreo';
 
 interface AttachmentInfo {
   filename: string;
@@ -18,13 +19,18 @@ interface AttachmentPreviewProps {
   onNavigate?: (index: number) => void;
 }
 
-function getPreviewType(ct: string, filename: string = ''): 'image' | 'pdf' | 'text' | 'office' | 'unsupported' {
+// Archivos de texto que suelen llegar como application/octet-stream (12/10/2026).
+const TEXT_EXTS = new Set(['txt', 'md', 'markdown', 'log', 'json', 'xml', 'yml', 'yaml', 'ini', 'conf', 'cfg', 'sql', 'tsv']);
+
+function getPreviewType(ct: string, filename: string = ''): 'image' | 'pdf' | 'text' | 'office' | 'email' | 'unsupported' {
   const ext = filename.split('.').pop()?.toLowerCase() || '';
+  // Un .eml se abre como correo, no como texto crudo (12/10/2026).
+  if (ct === 'message/rfc822' || ext === 'eml') return 'email';
   if (ct.startsWith('image/')) return 'image';
   // Verificar PDF por MIME o por extensión (.pdf) — muchos servidores envían
   // adjuntos PDF como application/octet-stream en vez de application/pdf.
   if (ct === 'application/pdf' || ext === 'pdf') return 'pdf';
-  if (ct.startsWith('text/')) return 'text';
+  if (ct.startsWith('text/') || TEXT_EXTS.has(ext)) return 'text';
   const officeExts = new Set(['docx','doc','odt','rtf','xlsx','xls','ods','csv','pptx','ppt','odp']);
   if (officeExts.has(ext)) return 'office';
   const officeMimes = new Set([
@@ -160,6 +166,8 @@ export function AttachmentPreview({
   }, [open]);
 
 
+  const alFallarCorreo = useCallback(() => setError(true), []);
+
   // Early returns AFTER all hooks (React rules of hooks)
   if (!attachment) return null;
   if (!open) return null;
@@ -249,6 +257,9 @@ export function AttachmentPreview({
           )}
           {type === 'text' && loading && (
             <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#0078d4] border-t-transparent" />
+          )}
+          {type === 'email' && !error && (
+            <VistaPreviaCorreo folder={folder} uid={uid} partNumber={attachment.part_number} onError={alFallarCorreo} />
           )}
           {type === 'unsupported' && (
             <div className="flex flex-col items-center justify-center h-[300px] gap-4">
