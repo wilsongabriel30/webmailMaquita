@@ -282,7 +282,10 @@ export function MessageList() {
         try { (window as unknown as { __maquitaBeep?: () => void }).__maquitaBeep?.(); } catch { /* sin sonido */ }
         if (permisoNotificacion() === 'granted') {
           avisar(nombreApp(), {
-            cuerpo: `${newCount} correo${newCount > 1 ? 's' : ''} nuevo${newCount > 1 ? 's' : ''}`,
+            // MISMO texto que el aviso en tiempo real (useWebSocket): avisar() calla el
+            // repetido comparando el texto, y con «1 correo nuevo» frente a «Nuevo correo
+            // recibido» salían dos avisos por un solo correo (candado T-53, 12/10/2026).
+            cuerpo: newCount === 1 ? 'Nuevo correo recibido' : `${newCount} correos nuevos`,
             tipo: 'correo', etiqueta: 'new-mail',
           });
         } else if (permisoNotificacion() !== 'denied') {
