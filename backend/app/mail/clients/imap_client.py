@@ -327,7 +327,7 @@ async def fetch_message_headers(
 
     uid_set = ",".join(str(u) for u in uids)
     # BODYSTRUCTURE for attachment detection, BODY.PEEK[TEXT]<0.512> for snippet
-    fetch_items = "(UID FLAGS RFC822.SIZE BODY.PEEK[HEADER.FIELDS (FROM TO SUBJECT DATE MESSAGE-ID REFERENCES IN-REPLY-TO X-PRIORITY IMPORTANCE)])"
+    fetch_items = "(UID FLAGS INTERNALDATE RFC822.SIZE BODY.PEEK[HEADER.FIELDS (FROM TO SUBJECT DATE MESSAGE-ID REFERENCES IN-REPLY-TO X-PRIORITY IMPORTANCE)])"
 
     fetch_resp = await imap.uid("fetch", uid_set, fetch_items)
     if fetch_resp.result != "OK":
@@ -425,6 +425,8 @@ def _parse_uid_fetch_response(raw_lines) -> list[dict]:
             if size_m:
                 size = int(size_m.group(1))
 
+            internal_date = fecha_llegada_iso(line)
+
             # Check BODYSTRUCTURE in the FETCH line itself
             if "BODYSTRUCTURE" in line:
                 has_attach = _has_attachments_from_bodystructure(line)
@@ -467,12 +469,35 @@ def _parse_uid_fetch_response(raw_lines) -> list[dict]:
                         "raw_headers": header_data,
                         "snippet": snippet,
                         "has_attachments": has_attach,
+                        "internal_date": internal_date,
                     }
                 )
             i = j
             continue
         i += 1
     return messages
+
+
+_MESES_IMAP = {m: i for i, m in enumerate(
+    ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"), 1)}
+
+
+def fecha_llegada_iso(linea: str) -> str | None:
+    """INTERNALDATE de una línea FETCH -> ISO 8601, o None.
+
+    Es la hora en que el correo llegó a NUESTRO servidor (la pone Dovecot al entregarlo).
+    La cabecera Date la escribe el programa del remitente con el reloj de su equipo y se
+    puede falsificar cambiando la hora de Windows; esta no (13/10/2026).
+    Ej.: INTERNALDATE "13-Oct-2026 09:28:53 -0500" -> 2026-10-13T09:28:53-05:00
+    """
+    m = re.search(
+        r'INTERNALDATE\s+"\s?(\d{1,2})-(\w{3})-(\d{4}) (\d{2}):(\d{2}):(\d{2}) ([+-])(\d{2})(\d{2})"', linea
+    )
+    if not m or m.group(2) not in _MESES_IMAP:
+        return None
+    dia, mes, anio, hh, mi, ss, signo, zh, zm = m.groups()
+    return "%s-%02d-%02dT%s:%s:%s%s%s:%s" % (
+        anio, _MESES_IMAP[mes], int(dia), hh, mi, ss, signo, zh, zm)
 
 
 def bytes_a_correo(crudo: bytes | bytearray | str) -> str:
@@ -504,7 +529,7 @@ async def fetch_full_message(
         return None
 
     cuerpo = "RFC822" if mark_seen else "BODY.PEEK[]"
-    fetch_resp = await imap.uid("fetch", str(uid), f"(UID FLAGS {cuerpo})")
+    fetch_resp = await imap.uid("fetch", str(uid), f"(UID FLAGS INTERNALDATE {cuerpo})")
     if fetch_resp.result != "OK":
         return None
 
@@ -514,6 +539,7 @@ async def fetch_full_message(
     raw_email = ""
     flags = []
     actual_uid = 0
+    internal_date = None
 
     for idx, line in enumerate(lines):
         m_line = re.match(r"\d+\s+FETCH\s+\(", line)
@@ -524,6 +550,7 @@ async def fetch_full_message(
             flags_m = re.search(r"FLAGS\s+\(([^)]*)\)", line)
             if flags_m:
                 flags = flags_m.group(1).split()
+            internal_date = fecha_llegada_iso(line)
             if idx + 1 < len(lines):
                 raw_email = bytes_a_correo(originales[idx + 1])
             break
@@ -538,6 +565,7 @@ async def fetch_full_message(
         "uid": actual_uid or uid,
         "flags": flags,
         "raw_email": raw_email,
+        "internal_date": internal_date,
     }
 
 
