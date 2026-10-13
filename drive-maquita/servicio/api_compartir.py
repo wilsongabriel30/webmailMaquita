@@ -99,7 +99,7 @@ def crear_compartido(usuario, datos):
     # mismo formato, mismos datos y fórmulas, sin la macro.
     # Se comprueba por CONTENIDO, no por extensión: renombrar un .xlsm a .xlsx
     # no sirve para saltarse esto. Ver macros.py y
-    # documentacion-interna/EDICION-REFERENCIAS-Y-MACROS-ONLYOFFICE.md
+    # documentación interna/EDICION-REFERENCIAS-Y-MACROS-ONLYOFFICE.md
     # Compartir con una persona DE LA CASA (cuenta de Raíces) no saca el archivo
     # de Maquita: el enlace le pide iniciar sesión y lo abre en su propio Drive
     # (enlace_a_sesion.py). Se bloquea solo el enlace abierto y la persona

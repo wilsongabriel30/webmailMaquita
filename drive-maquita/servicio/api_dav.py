@@ -20,7 +20,7 @@ POR QUE UNA LLAVE POR EQUIPO Y NO LA CONTRASENA DE FARO
     cambiarle la contrasena a nadie ni tocar los demas dispositivos.
 
 Servidor WebDAV: /home/sistemas/almacen-dav/servidor_dav.py
-Doc: documentacion-interna/PLAN-CLIENTE-DISCO-Y-MOVIL.md
+Doc: documentación interna/PLAN-CLIENTE-DISCO-Y-MOVIL.md
 """
 
 import hashlib

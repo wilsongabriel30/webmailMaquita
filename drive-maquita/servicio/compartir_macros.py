@@ -17,7 +17,7 @@ binarios .xlsb, que necesitan conversión del Document Server) se falla CERRADO:
 ese archivo no se entrega por el enlace.
 
 Ver también: macros.py (detección y limpieza) y
-documentacion-interna/EDICION-REFERENCIAS-Y-MACROS-ONLYOFFICE.md
+documentación interna/EDICION-REFERENCIAS-Y-MACROS-ONLYOFFICE.md
 Autoría: Equipo de Tecnología Maquita — 2026-08-04
 """
 import logging
