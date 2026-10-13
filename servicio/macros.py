@@ -41,8 +41,7 @@ registro = logging.getLogger(__name__)
 
 # ── Partes internas que delatan una macro ────────────────────────────────────
 # OOXML: el proyecto VBA va siempre en <carpeta>/vbaProject.bin y sus firmas
-# digitales en vbaProjectSignature*.bin. OnlyOffice guarda SUS macros (las de
-# JavaScript) en la parte docProps/ como un documento aparte.
+# digitales en vbaProjectSignature*.bin.
 PARTES_MACRO_OOXML = re.compile(
     r'(^|/)(vbaProject\.bin|vbaProjectSignature[^/]*\.bin|vbaData\.xml)$',
     re.IGNORECASE)
@@ -50,9 +49,16 @@ PARTES_MACRO_OOXML = re.compile(
 # ODF: los módulos Basic viven bajo Basic/ y se declaran en el manifiesto.
 PARTES_MACRO_ODF = re.compile(r'^Basic/', re.IGNORECASE)
 
-# OnlyOffice: sus macros JavaScript se guardan dentro del documento.
+# OnlyOffice: sus macros JavaScript se guardan dentro del documento, en
+# xl/jsaProject.bin (word/ y ppt/ en texto y presentaciones), enlazadas desde
+# las relaciones con el tipo http://schemas.onlyoffice.com/jsaProject. Pueden
+# ir en un .xlsx normal, sin ningún VBA (comprobado el 13/10/2026 con el SIGTH).
 PARTES_MACRO_ONLYOFFICE = re.compile(
-    r'(^|/)(macros?\.(json|xml|bin)|documentMacros[^/]*)$', re.IGNORECASE)
+    r'(^|/)(jsaProject\.bin|macros?\.(json|xml|bin)|documentMacros[^/]*)$',
+    re.IGNORECASE)
+
+# Tipos de contenido propios de una macro (VBA y sus firmas).
+TIPO_CONTENIDO_MACRO = re.compile(r'vbaProject|vbaData', re.IGNORECASE)
 
 # Extensiones que declaran macros de entrada, y su equivalente SIN macros.
 # Al limpiar se cambia la extensión: un .xlsm sin vbaProject.bin es exactamente
@@ -230,10 +236,14 @@ def _limpiar_content_types(datos):
     da por dañado al abrirlo.
     """
     texto = datos.decode('utf-8', 'replace')
-    texto = re.sub(r'<Override[^>]*vbaProject[^>]*/>', '', texto,
-                   flags=re.IGNORECASE)
-    texto = re.sub(r'<Default[^>]*Extension="bin"[^>]*/>', '', texto,
-                   flags=re.IGNORECASE)
+    texto = re.sub(r'<Override[^>]*(vbaProject|vbaData|jsaProject)[^>]*/>',
+                   '', texto, flags=re.IGNORECASE)
+    # La entrada genérica de .bin solo se quita si declara el tipo VBA: en
+    # muchos libros declara printerSettings*.bin, y quitarla dejaría esas
+    # partes sin tipo y el archivo dañado para Excel.
+    texto = re.sub(r'<Default[^>]*Extension="bin"[^>]*/>',
+                   lambda m: '' if TIPO_CONTENIDO_MACRO.search(m.group(0))
+                   else m.group(0), texto, flags=re.IGNORECASE)
     # El tipo con macros pasa a ser el tipo sin macros.
     texto = texto.replace('.sheet.macroEnabled.main+xml',
                           '.sheet.main+xml')
@@ -247,10 +257,10 @@ def _limpiar_content_types(datos):
 
 
 def _limpiar_relaciones(datos):
-    """Quita las relaciones que apuntaban al proyecto VBA."""
+    """Quita las relaciones que apuntaban a la macro (VBA u OnlyOffice)."""
     texto = datos.decode('utf-8', 'replace')
-    texto = re.sub(r'<Relationship[^>]*vbaProject[^>]*/>', '', texto,
-                   flags=re.IGNORECASE)
+    texto = re.sub(r'<Relationship[^>]*(vbaProject|jsaProject)[^>]*/>', '',
+                   texto, flags=re.IGNORECASE)
     return texto.encode('utf-8')
 
 
