@@ -58,6 +58,11 @@ reinicia aparte (`maquita-chat`). No hay migraciones ni variables nuevas.
   Windows. Si no cuadran, avisa con las dos fechas. En Enviados y Borradores se sigue mostrando la
   fecha del correo.
 
+- **Redacción que sobrevive a la recarga (#307):** un correo a medio escribir ya no se pierde si la
+  página se recarga (versión nueva del webmail, cambio de cuenta, F5): al volver se reabre solo,
+  con el texto más reciente y los adjuntos. La copia va en `sessionStorage` de la pestaña, por
+  persona y cuenta. La actualización automática espera a que no haya correos abiertos. Solo frontend.
+
 ### Envíos autenticados con la fecha del servidor (Postfix)
 
 Complemento de #305, fuera de la aplicación: lo que envían tus usuarios (Outlook, celulares,
