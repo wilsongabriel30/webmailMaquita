@@ -30,6 +30,8 @@ import ListaAdjuntos from './ListaAdjuntos';
 // Aviso de enlaces con rastreo de terceros (componente aparte:
 // MessageView ya supera las 1500 lineas y no debe crecer mas).
 import TrackingNotice from './TrackingNotice';
+import AvisoFechaRemitente from './AvisoFechaRemitente';
+import { fechaMostrada } from '../../lib/fechaCorreo';
 import RemitenteExternoAviso from './RemitenteExternoAviso';
 
 
@@ -558,12 +560,14 @@ interface ThreadMessageCardProps {
 const ThreadMessageCard: React.FC<ThreadMessageCardProps> = ({
   msg, isExpanded, onToggle, currentFolder, onAttachmentClick,
 }) => {
+  const folders = useMailStore(s => s.folders);
   const senderName = extractName(msg.from);
   const senderEmail = extractEmail(msg.from);
   const bgColor = avatarColor(senderName);
   const initial = avatarInitial(senderName);
-  const relDate = msg.date ? formatDistanceToNow(new Date(msg.date), { addSuffix: true, locale: es }) : '';
-  const fullDate = msg.date ? format(new Date(msg.date), "EEEE, d 'de' MMMM 'de' yyyy, HH:mm", { locale: es }) : '';
+  const fechaVer = fechaMostrada({ ...msg, folder: msg.folder || currentFolder }, folders);
+  const relDate = fechaVer ? formatDistanceToNow(new Date(fechaVer), { addSuffix: true, locale: es }) : '';
+  const fullDate = fechaVer ? format(new Date(fechaVer), "EEEE, d 'de' MMMM 'de' yyyy, HH:mm", { locale: es }) : '';
 
   // First line of text for collapsed view
   const snippet = msg.text_body
@@ -704,6 +708,7 @@ const MessageView: React.FC = () => {
   const msg = useMailStore(s => s.selectedMessage);
   const loadingMessage = useMailStore(s => s.loadingMessage);
   const currentFolder = useMailStore(s => s.currentFolder);
+  const folders = useMailStore(s => s.folders);
   const openCompose = useMailStore(s => s.openCompose);
   const threadMessages = useMailStore(s => s.threadMessages);
   const threadExpanded = useMailStore(s => s.threadExpanded);
@@ -1181,8 +1186,9 @@ const MessageView: React.FC = () => {
   const bgColor = avatarColor(senderName);
   const initial = avatarInitial(senderName);
 
-  const relDate = msg.date ? formatDistanceToNow(new Date(msg.date), { addSuffix: true, locale: es }) : '';
-  const fullDate = msg.date ? format(new Date(msg.date), "EEEE, d 'de' MMMM 'de' yyyy, HH:mm", { locale: es }) : '';
+  const fechaVer = fechaMostrada({ ...msg, folder: msg.folder || currentFolder }, folders);
+  const relDate = fechaVer ? formatDistanceToNow(new Date(fechaVer), { addSuffix: true, locale: es }) : '';
+  const fullDate = fechaVer ? format(new Date(fechaVer), "EEEE, d 'de' MMMM 'de' yyyy, HH:mm", { locale: es }) : '';
 
   const showBlockedBanner =
     displayMsg!.has_remote_images && displayMsg!.blocked_image_count > 0 && (!imageMsg || imageMsg.uid !== msg.uid);
@@ -1280,6 +1286,9 @@ const MessageView: React.FC = () => {
                 <div><b>Para:</b> <EmailsWithContacts raw={msg.to} /></div>
                 {msg.cc && <div><b>CC:</b> <EmailsWithContacts raw={msg.cc} /></div>}
                 <div><b>Fecha:</b> {fullDate}</div>
+                {msg.received_date && msg.date && msg.received_date !== msg.date && (
+                  <div><b>Fecha que puso el remitente:</b> {format(new Date(msg.date), "EEEE, d 'de' MMMM 'de' yyyy, HH:mm", { locale: es })}</div>
+                )}
                 {msg.message_id && <div><b>ID:</b> <span style={{ wordBreak: 'break-all' }}>{msg.message_id}</span></div>}
                 {msg.importance && msg.importance.toLowerCase() !== 'normal' && (
                   <div><b>Prioridad:</b> {msg.importance}</div>
@@ -1321,6 +1330,7 @@ const MessageView: React.FC = () => {
         )}
 
         <RemitenteExternoAviso email={senderEmail} nombre={senderName} />
+        <AvisoFechaRemitente msg={{ ...msg, folder: msg.folder || currentFolder }} />
 
         <TrackingNotice
           notice={spamMarcado ? null : displayMsg?.tracking_notice}
