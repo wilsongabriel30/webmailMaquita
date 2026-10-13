@@ -73,7 +73,11 @@ MIMES_BASICOS = {
     'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
 }
-EXTENSIONES_EDITABLES = {'docx', 'xlsx', 'pptx', 'odt', 'ods', 'odp', 'txt', 'md', 'csv'}
+# .xlsm se edita (13/10/2026): en modo vista OnlyOffice no ejecuta macros, y un
+# libro que oculta sus hojas hasta que corre la macro de inicio (p. ej. el
+# SIGTH) se veía en blanco. La política de macros (macros.py) sigue
+# impidiendo que salga del Drive con la macro dentro.
+EXTENSIONES_EDITABLES = {'docx', 'xlsx', 'xlsm', 'pptx', 'odt', 'ods', 'odp', 'txt', 'md', 'csv'}
 
 
 def clasificar(nombre: str, es_carpeta: bool) -> tuple:
