@@ -13,7 +13,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.auth.dependencies import get_current_user
 from app.core.session import get_imap_login_user, get_user_password
-from app.mail.clients.imap_client import fetch_attachment, get_imap_connection
+from app.mail.clients.imap_client import (
+    bytes_a_correo,
+    fetch_attachment,
+    get_imap_connection,
+)
 from app.mail.parsers.html_sanitizer import sanitize_html
 from app.mail.parsers.mime_parser import parse_full_message
 from app.mail.rendering.policy import apply_render_policy
@@ -31,7 +35,7 @@ def correo_adjunto_a_vista(crudo: bytes) -> dict:
         raise HTTPException(
             status_code=413, detail="El correo adjunto es demasiado grande"
         )
-    normalizado = parse_full_message(crudo.decode("utf-8", errors="replace"))
+    normalizado = parse_full_message(bytes_a_correo(crudo))
 
     html = ""
     imagenes_bloqueadas = 0
