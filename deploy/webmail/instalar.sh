@@ -245,6 +245,7 @@ postconf -e \
   "virtual_mailbox_domains = pgsql:/etc/postfix/pgsql/pgsql-virtual-domains.cf" \
   "virtual_mailbox_maps = pgsql:/etc/postfix/pgsql/pgsql-virtual-mailbox.cf" \
   "virtual_alias_maps = pgsql:/etc/postfix/pgsql/pgsql-virtual-aliases.cf" \
+  "alias_maps = hash:/etc/aliases" \
   "virtual_transport = lmtp:unix:private/dovecot-lmtp" \
   "smtpd_sasl_type = dovecot" \
   "smtpd_sasl_path = private/auth" \
