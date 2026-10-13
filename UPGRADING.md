@@ -69,6 +69,14 @@ reinicia aparte (`maquita-chat`). No hay migraciones ni variables nuevas.
   `install -o root -g vmail -m 644 /dev/null /etc/dovecot/virtual/dovecot-acl-list && doveadm reload`.
   Revisa también que tu `96-virtual.conf` tenga `mailbox_list_index = no` (ver `dovecot-config/96-virtual.conf`).
 
+- **Postfix, avisos de más en `mail.log`:** el instalador ahora fija `alias_maps =
+  hash:/etc/aliases`. Por omisión Postfix incluye `nis:mail.aliases` y anota «NIS domain name not
+  set» en cada conexión. En una instalación existente: `postconf -e "alias_maps = hash:/etc/aliases"`.
+  Si además añadiste a mano un mapa de grupos con `string_agg` (los grupos del panel ya se copian a
+  la tabla `alias`, así que no hace falta), termina su consulta con `HAVING count(*) > 0`: sin eso
+  devuelve una fila vacía y Postfix anota «empty lookup result» en cada dirección que no es un
+  grupo. Después, `postfix check && postfix reload` (no corta conexiones).
+
 ### Envíos autenticados con la fecha del servidor (Postfix)
 
 Complemento de #305, fuera de la aplicación: lo que envían tus usuarios (Outlook, celulares,
