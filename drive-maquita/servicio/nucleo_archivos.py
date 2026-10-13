@@ -73,7 +73,11 @@ MIMES_BASICOS = {
     'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
 }
-EXTENSIONES_EDITABLES = {'docx', 'xlsx', 'pptx', 'odt', 'ods', 'odp', 'txt', 'md', 'csv'}
+# .xlsm se edita (13/10/2026): en modo vista OnlyOffice no ejecuta macros, y un
+# libro que oculta sus hojas hasta que corre la macro de inicio (p. ej. el
+# SIGTH) se veía en blanco. La política de macros (macros.py) sigue
+# impidiendo que salga del Drive con la macro dentro.
+EXTENSIONES_EDITABLES = {'docx', 'xlsx', 'xlsm', 'pptx', 'odt', 'ods', 'odp', 'txt', 'md', 'csv'}
 
 
 def clasificar(nombre: str, es_carpeta: bool) -> tuple:
@@ -287,14 +291,10 @@ def _tamanos_de_carpetas(usuario_id: int, ruta_virtual: str, carpetas: list) -> 
                        or ruta_virtual.startswith('/unidades/'))
         uid_indice = 0 if es_unidades else usuario_id
         prefijo = '' if ruta_virtual == '/' else ruta_virtual
-        filas = consultar("""
-            SELECT split_part(substr(ruta, %s), '/', 1) AS hijo,
-                   SUM(tamano) AS total
-            FROM indice_nombres
-            WHERE usuario_id = %s AND NOT es_carpeta AND ruta LIKE %s
-            GROUP BY 1
-        """, (len(prefijo) + 2, uid_indice, prefijo + '/%'))
-        por_hijo = {f['hijo']: int(f['total'] or 0) for f in filas}
+        # 02/10/2026: lo que la carpeta ocupa de verdad (contenido repetido
+        # una sola vez) y prefijo escapado; ver tamanos_carpetas.py.
+        from tamanos_carpetas import por_hijo as _por_hijo
+        por_hijo = _por_hijo(uid_indice, prefijo)
         for c in carpetas:
             segmento = (c.get('ruta') or '').rsplit('/', 1)[-1]
             n = por_hijo.get(segmento)

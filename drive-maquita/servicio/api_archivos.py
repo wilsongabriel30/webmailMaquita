@@ -120,6 +120,9 @@ def listar():
             from vista_compartidos import reprefijar
             reprefijar(carpetas, _prefijo_comp)
             reprefijar(archivos, _prefijo_comp)
+        # 02/10/2026: propietario real (unidades y espacio compartido), ver propietarios.py.
+        from propietarios import anotar as _anotar_propietarios
+        _anotar_propietarios(carpetas + archivos, usuario)
     except RutaInvalida as excepcion:
         return error(str(excepcion), excepcion.codigo)
     except FileNotFoundError:
