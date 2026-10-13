@@ -2,6 +2,7 @@ import type { Editor } from '@tiptap/react';
 import type { Cuenta } from '../lib/cuentas';
 import { create } from 'zustand';
 import { olvidarEstadoRedaccion, olvidarTodasLasRedacciones } from '../lib/estadoRedaccion';
+import { olvidarRedaccion } from '../lib/redaccionesRecuperables';
 import type { Folder, MessageSummary, MessageFull, ComposeData } from '../types';
 
 type ComposeMode = 'new' | 'reply' | 'replyAll' | 'forward' | null;
@@ -231,6 +232,7 @@ export const useMailStore = create<MailState>((set, get) => ({
   },
   closeCompose: (id) => {
     olvidarEstadoRedaccion(id);
+    olvidarRedaccion(id);
     set({ composeWindows: get().composeWindows.filter(w => w.id !== id) });
   },
   minimizeCompose: (id) => set({
