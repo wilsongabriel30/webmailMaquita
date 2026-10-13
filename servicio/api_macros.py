@@ -12,7 +12,7 @@ macros de OnlyOffice son JavaScript y el Excel de quien recibe el archivo no
 las ejecutaría de todos modos.
 
 Ver la política completa en
-`documentacion-interna/EDICION-REFERENCIAS-Y-MACROS-ONLYOFFICE.md`.
+`documentación interna/EDICION-REFERENCIAS-Y-MACROS-ONLYOFFICE.md`.
 """
 
 import logging

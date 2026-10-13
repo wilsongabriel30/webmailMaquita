@@ -10,7 +10,7 @@ Este módulo cierra ese hueco: convierte la mención en una notificación de FAR
 (la campanita), con un enlace que lleva al comentario exacto.
 
 Backend de la lista de personas: `api_oo_drive.oo_usuarios` (/onlyoffice/usuarios)
-Doc: documentacion-interna/EDICION-REFERENCIAS-Y-MACROS-ONLYOFFICE.md
+Doc: documentación interna/EDICION-REFERENCIAS-Y-MACROS-ONLYOFFICE.md
 """
 
 import logging
