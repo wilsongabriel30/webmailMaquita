@@ -26,28 +26,11 @@ import { es } from 'date-fns/locale';
 import { api } from '../../api/client';
 import { useMailStore } from '../../store/mailStore';
 import { AttachmentPreview } from './AttachmentPreview';
-import { BotonGuardarEnAlmacen } from '../files/GuardarEnAlmacen';
+import ListaAdjuntos from './ListaAdjuntos';
 // Aviso de enlaces con rastreo de terceros (componente aparte:
 // MessageView ya supera las 1500 lineas y no debe crecer mas).
 import TrackingNotice from './TrackingNotice';
 import RemitenteExternoAviso from './RemitenteExternoAviso';
-
-// Badge de tipo de archivo por extensión (color + etiqueta). Los ejecutables y
-// comprimidos se resaltan para que el usuario note extensiones peligrosas/raras.
-const EXT_BADGE: Record<string, { bg: string; label: string }> = {
-  pdf: { bg: '#d13438', label: 'PDF' },
-  doc: { bg: '#2b579a', label: 'DOC' }, docx: { bg: '#2b579a', label: 'DOC' }, rtf: { bg: '#2b579a', label: 'RTF' }, odt: { bg: '#2b579a', label: 'ODT' },
-  xls: { bg: '#217346', label: 'XLS' }, xlsx: { bg: '#217346', label: 'XLS' }, csv: { bg: '#217346', label: 'CSV' }, ods: { bg: '#217346', label: 'ODS' },
-  ppt: { bg: '#d24726', label: 'PPT' }, pptx: { bg: '#d24726', label: 'PPT' }, odp: { bg: '#d24726', label: 'ODP' },
-  zip: { bg: '#8661c5', label: 'ZIP' }, rar: { bg: '#8661c5', label: 'RAR' }, '7z': { bg: '#8661c5', label: '7Z' }, gz: { bg: '#8661c5', label: 'GZ' }, tar: { bg: '#8661c5', label: 'TAR' },
-  txt: { bg: '#605e5c', label: 'TXT' }, log: { bg: '#605e5c', label: 'LOG' },
-  jpg: { bg: '#0b6a0b', label: 'IMG' }, jpeg: { bg: '#0b6a0b', label: 'IMG' }, png: { bg: '#0b6a0b', label: 'PNG' }, gif: { bg: '#0b6a0b', label: 'GIF' }, webp: { bg: '#0b6a0b', label: 'IMG' }, svg: { bg: '#0b6a0b', label: 'SVG' },
-  exe: { bg: '#a80000', label: 'EXE' }, msi: { bg: '#a80000', label: 'MSI' }, bat: { bg: '#a80000', label: 'BAT' }, cmd: { bg: '#a80000', label: 'CMD' }, scr: { bg: '#a80000', label: 'SCR' }, vbs: { bg: '#a80000', label: 'VBS' }, js: { bg: '#a80000', label: 'JS' },
-};
-function attBadge(filename: string): { bg: string; label: string } {
-  const ext = (filename.split('.').pop() || '').toLowerCase();
-  return EXT_BADGE[ext] || { bg: '#605e5c', label: (ext || '?').toUpperCase().slice(0, 4) };
-}
 
 
 /* ------------------------------------------------------------------ */
@@ -675,49 +658,11 @@ const ThreadMessageCard: React.FC<ThreadMessageCardProps> = ({
         </svg>
       </div>
 
-      {/* Attachments */}
+      {/* Attachments (dos filas como mucho; «Ver los N adjuntos» despliega el resto) */}
       {msg.attachments && msg.attachments.some(a => !a.is_inline) && (
-        <div style={{ padding: '4px 16px 8px', display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-          {msg.attachments.filter((a) => !a.is_inline).length > 1 && (
-            <a
-              href={`/api/mail/attachments-zip/${encodeURIComponent(msg.folder || currentFolder)}/${msg.uid}`}
-              download
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 4,
-                padding: '4px 10px', border: '1px solid #0078d4', borderRadius: 4,
-                textDecoration: 'none', color: '#0078d4', fontSize: 11,
-                background: '#f0f6ff', cursor: 'pointer', fontWeight: 600,
-              }}
-              title="Descargar todos los adjuntos como ZIP"
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-              Descargar todo (.zip)
-            </a>
-          )}
-          {msg.attachments.map((att, i: number) => att.is_inline ? null : (
-            <span key={i} style={{ display: 'inline-flex', gap: 2, alignItems: 'stretch' }}>
-            <button
-              onClick={() => onAttachmentClick?.(msg.folder || currentFolder, msg.uid, msg.attachments, i)}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 4,
-                padding: '4px 8px', border: '1px solid #d2d0ce', borderRadius: 4,
-                textDecoration: 'none', color: '#323130', fontSize: 11,
-                background: '#faf9f8', cursor: 'pointer',
-              }}
-              title={`${att.filename} (${formatSize(att.size)})`}
-            >
-              {(() => { const b = attBadge(att.filename); return (
-                <span style={{ background: b.bg, color: '#fff', fontSize: 9, fontWeight: 700, padding: '2px 4px', borderRadius: 3, flexShrink: 0, letterSpacing: 0.3 }}>{b.label}</span>
-              ); })()}
-              <span style={{ maxWidth: 150, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'break-all', lineHeight: 1.2, textAlign: 'left' }}>
-                {att.filename}
-              </span>
-            </button>
-            {!att.is_inline && <BotonGuardarEnAlmacen folder={msg.folder || currentFolder} uid={msg.uid} att={att} />}
-            </span>
-          ))}
+        <div style={{ padding: '4px 16px 8px' }}>
+          <ListaAdjuntos compacto folder={msg.folder || currentFolder} uid={msg.uid} attachments={msg.attachments}
+            onAbrir={i => onAttachmentClick?.(msg.folder || currentFolder, msg.uid, msg.attachments, i)} />
         </div>
       )}
 
@@ -1386,52 +1331,11 @@ const MessageView: React.FC = () => {
         <div style={{ borderBottom: '1px solid #edebe9', marginTop: 16 }} />
       </div>
 
-      {/* Attachments */}
+      {/* Attachments (dos filas como mucho; «Ver los N adjuntos» despliega el resto) */}
       {msg.attachments && msg.attachments.some(a => !a.is_inline) && (
         <div style={{ padding: '10px 24px', borderBottom: '1px solid #edebe9', flexShrink: 0 }}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-            {msg.attachments.filter(a => !a.is_inline).length > 1 && (
-              <a
-                href={`/api/mail/attachments-zip/${encodeURIComponent(msg.folder)}/${msg.uid}`}
-                download
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                  padding: '6px 12px', border: '1px solid #0078d4', borderRadius: 4,
-                  textDecoration: 'none', color: 'white', fontSize: 12,
-                  background: '#0078d4', cursor: 'pointer', fontWeight: 600,
-                }}
-                title="Descargar todos los adjuntos como ZIP"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
-                </svg>
-                Descargar todo (.zip)
-              </a>
-            )}
-            {msg.attachments.map((att, i) => att.is_inline ? null : (
-              <span key={i} style={{ display: 'inline-flex', gap: 2, alignItems: 'stretch' }}>
-              <button
-                onClick={() => openAttachmentPreview(msg.folder, msg.uid, msg.attachments, i)}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                  padding: '6px 10px', border: '1px solid #d2d0ce', borderRadius: 4,
-                  textDecoration: 'none', color: '#323130', fontSize: 12,
-                  background: '#faf9f8', cursor: 'pointer',
-                }}
-                title={`${att.filename} (${formatSize(att.size)})`}
-              >
-                {(() => { const b = attBadge(att.filename); return (
-                  <span style={{ background: b.bg, color: '#fff', fontSize: 10, fontWeight: 700, padding: '2px 5px', borderRadius: 3, flexShrink: 0, letterSpacing: 0.3 }}>{b.label}</span>
-                ); })()}
-                <span style={{ maxWidth: 200, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'break-all', lineHeight: 1.25, textAlign: 'left' }}>
-                  {att.filename}
-                </span>
-                <span style={{ color: '#a19f9d' }}>({formatSize(att.size)})</span>
-              </button>
-              {!att.is_inline && <BotonGuardarEnAlmacen folder={msg.folder} uid={msg.uid} att={att} />}
-              </span>
-            ))}
-          </div>
+          <ListaAdjuntos folder={msg.folder} uid={msg.uid} attachments={msg.attachments}
+            onAbrir={i => openAttachmentPreview(msg.folder, msg.uid, msg.attachments, i)} />
         </div>
       )}
 
