@@ -18,6 +18,7 @@ import App from "./App"
 // Pase lo que pase con el cifrado, los dos se cargan: la cola de envío no puede quedarse
 // sin arrancar por un asunto de higiene del disco.
 import { migrarCacheACifrado, limpiarRestos } from "./lib/migracionCifrado"
+import { useMailStore } from './store/mailStore'
 
 async function prepararCacheLocal() {
   try {
@@ -88,6 +89,9 @@ if ("serviceWorker" in navigator) {
                   document.body.appendChild(aviso);
                 }
                 const _editing = () => {
+                  // Con un correo abierto (aunque esté minimizado o el cursor esté en un botón)
+                  // no se recarga: se espera a que se envíe o se cierre (13/10/2026).
+                  if (useMailStore.getState().composeWindows.length > 0) return true;
                   const el = document.activeElement as HTMLElement | null;
                   if (!el) return false;
                   const tag = (el.tagName || "").toLowerCase();
