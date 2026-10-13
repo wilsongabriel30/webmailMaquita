@@ -31,6 +31,50 @@ Tres cosas de esa regla que no dan error visible si se saltan:
 
 ---
 
+## Lectura de correos, fecha del servidor y otras correcciones (2026-10-12 / 13)
+
+Correcciones de los PR #299 a #305. Todas se publican con lo de siempre: **reinicio del backend del
+correo** (`maquita-webmail`) y **frontend reconstruido** (`deploy-webmail.sh`). El chat (#302) se
+reinicia aparte (`maquita-chat`). No hay migraciones ni variables nuevas.
+
+- **Visor de documentos (#299):** Word, Excel y PowerPoint no abrían en la vista previa (error
+  `-4`): OnlyOffice pide el archivo desde su servidor, sin la cookie del navegador, y desde que la
+  credencial IMAP va por sesión la descarga daba 401. Ahora el vale de descarga lleva el `sid` de la
+  sesión que pidió la vista previa. Además, los nombres con apóstrofo curvo o raya ya no dan 500.
+  Si cambias de Document Server, cambia **a la vez** `office_config.onlyoffice_secret` (panel,
+  «Configuración de Office») y `ONLYOFFICE_SECRET`; si no, ningún documento abre («el token de
+  seguridad del documento tiene un formato incorrecto»).
+- **Adjuntos .eml y de texto (#300):** el .eml se abre como un correo (mismo lector y saneado que la
+  bandeja) y los .md/.txt con tildes se ven bien. Los adjuntos se piden con `BINARY` (el servidor
+  los entrega decodificados); antes un .eml o un texto en quoted-printable salía corrupto.
+- **Un solo aviso por correo nuevo (#301)** en el navegador (antes podían salir dos).
+- **Chat (#302):** la presencia de los demás vuelve a llegar por la API REST.
+- **Lectura (#304):**
+  - El cuerpo del correo se pinta siempre sobre blanco, con cualquier tema o extensión de modo oscuro.
+  - Con muchos adjuntos, la lista muestra dos filas y «Ver los N adjuntos».
+  - Los correos con cuerpo 8bit (y los .eml adjuntos como message/rfc822) ya no pierden las tildes.
+- **Fecha de llegada (#305):** el webmail muestra la hora en que el correo **llegó a tu servidor**
+  (INTERNALDATE), no la que escribe el equipo del remitente, que se falsifica cambiando la hora de
+  Windows. Si no cuadran, avisa con las dos fechas. En Enviados y Borradores se sigue mostrando la
+  fecha del correo.
+
+### Envíos autenticados con la fecha del servidor (Postfix)
+
+Complemento de #305, fuera de la aplicación: lo que envían tus usuarios (Outlook, celulares,
+webmail; puertos 587 y 465) sale con la fecha del servidor, no con la del reloj de su equipo.
+Postfix descarta la cabecera `Date` del cliente y la vuelve a poner al recibirlo, antes de la firma
+DKIM, que sigue siendo válida. El correo que llega de fuera no se toca.
+
+```
+bash deploy/postfix/aplicar-fecha-servidor.sh --simular   # muestra qué cambiaría
+bash deploy/postfix/aplicar-fecha-servidor.sh             # respalda master.cf, aplica y recarga Postfix
+```
+
+Es idempotente (crea el servicio `cleanup_envio` y lo asigna a `submission` y `smtps`). Las
+instalaciones nuevas lo traen de serie. Comprobación: envía un correo desde un equipo con la hora
+cambiada; debe llegar con la hora real. Límite: la copia que Outlook guarda en *su* carpeta
+Enviados la hace el propio Outlook y conserva la hora del equipo.
+
 ## Rspamd: el Bayes no decide solo y vigilante de falsos positivos (2026-10-08)
 
 ```
