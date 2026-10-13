@@ -100,15 +100,25 @@ def crear_compartido(usuario, datos):
     # Se comprueba por CONTENIDO, no por extensión: renombrar un .xlsm a .xlsx
     # no sirve para saltarse esto. Ver macros.py y
     # documentacion-interna/EDICION-REFERENCIAS-Y-MACROS-ONLYOFFICE.md
+    # Compartir con una persona DE LA CASA (cuenta de Raíces) no saca el archivo
+    # de Maquita: el enlace le pide iniciar sesión y lo abre en su propio Drive
+    # (enlace_a_sesion.py). Se bloquea solo el enlace abierto y la persona
+    # externa, que reciben la copia limpia (13/10/2026).
+    from enlace_a_sesion import _destinatario_interno
+    para_la_casa = _destinatario_interno({
+        'email': datos.get('email'),
+        'destinatario': datos.get('con_quien') or datos.get('shareWith') or datos.get('destinatario'),
+    }) is not None
     try:
         fisica_origen = ruta_fisica(usuario, ruta)
         nombre_origen = ruta.rsplit('/', 1)[-1]
-        if (os.path.isfile(fisica_origen)
+        if (not para_la_casa and os.path.isfile(fisica_origen)
                 and macros.tiene_macros(fisica_origen, nombre_origen)):
             return error(
-                'Este archivo tiene macros y no se puede compartir: las '
-                'macros son de uso interno de Maquita. Descargá la copia sin '
-                'macros («%s») y compartí esa: conserva los datos, las '
+                'Este archivo tiene macros: se puede compartir con personal de '
+                'Maquita (por su correo institucional), pero no con un enlace '
+                'abierto ni con personas externas. Para alguien de fuera, '
+                'descargá la copia sin macros («%s»): conserva los datos, las '
                 'fórmulas y el formato.'
                 % macros.nombre_copia_limpia(nombre_origen), 409)
     except Exception as excepcion:
