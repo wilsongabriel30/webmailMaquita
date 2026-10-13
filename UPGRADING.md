@@ -63,6 +63,12 @@ reinicia aparte (`maquita-chat`). No hay migraciones ni variables nuevas.
   con el texto más reciente y los adjuntos. La copia va en `sessionStorage` de la pestaña, por
   persona y cuenta. La actualización automática espera a que no haya correos abiertos. Solo frontend.
 
+- **Dovecot, buzón virtual (`Virtual.Todo`):** si `mail.log` muestra
+  `open(/etc/dovecot/virtual/.temp…) failed: Read-only file system` (dos por cada entrega), falta la
+  lista de permisos vacía del buzón virtual. Créala y recarga:
+  `install -o root -g vmail -m 644 /dev/null /etc/dovecot/virtual/dovecot-acl-list && doveadm reload`.
+  Revisa también que tu `96-virtual.conf` tenga `mailbox_list_index = no` (ver `dovecot-config/96-virtual.conf`).
+
 ### Envíos autenticados con la fecha del servidor (Postfix)
 
 Complemento de #305, fuera de la aplicación: lo que envían tus usuarios (Outlook, celulares,
