@@ -8,6 +8,18 @@ anteriores a la reconstrucción del historial de 2026-09-05), aplicar las migrac
 (`migrations/*.sql`, idempotentes, en orden), revisar las variables nuevas del `.env` de cada
 servicio, reiniciar lo que cambió y correr `deploy/tools/validar-despliegue.sh`.
 
+**Ajustes del servidor en un solo comando.** Lo que corregimos fuera de la aplicación (Postfix,
+Dovecot…) no llega con `git checkout`. Después de actualizar, corre:
+
+```bash
+sudo bash deploy/ajustes/aplicar-ajustes.sh            # muestra qué le falta a tu servidor (no toca nada)
+sudo bash deploy/ajustes/aplicar-ajustes.sh --aplicar  # aplica lo que falte
+```
+
+Cada ajuste está en su archivo (`deploy/ajustes/NN-nombre.sh`), explica qué corrige, respalda lo
+que toca y no hace nada si ya está aplicado: se puede correr en cada actualización. Las notas de
+abajo siguen explicando cada cambio; los marcados con *(ajuste automático)* ya los hace el script.
+
 Tres cosas de esa regla que no dan error visible si se saltan:
 
 1. **Las migraciones se aplican como el usuario de la aplicación** (el de `DATABASE_URL`), no
@@ -63,13 +75,13 @@ reinicia aparte (`maquita-chat`). No hay migraciones ni variables nuevas.
   con el texto más reciente y los adjuntos. La copia va en `sessionStorage` de la pestaña, por
   persona y cuenta. La actualización automática espera a que no haya correos abiertos. Solo frontend.
 
-- **Dovecot, buzón virtual (`Virtual.Todo`):** si `mail.log` muestra
+- **Dovecot, buzón virtual (`Virtual.Todo`)** *(ajuste automático)*: si `mail.log` muestra
   `open(/etc/dovecot/virtual/.temp…) failed: Read-only file system` (dos por cada entrega), falta la
   lista de permisos vacía del buzón virtual. Créala y recarga:
   `install -o root -g vmail -m 644 /dev/null /etc/dovecot/virtual/dovecot-acl-list && doveadm reload`.
   Revisa también que tu `96-virtual.conf` tenga `mailbox_list_index = no` (ver `dovecot-config/96-virtual.conf`).
 
-- **Postfix, avisos de más en `mail.log`:** el instalador ahora fija `alias_maps =
+- **Postfix, avisos de más en `mail.log`** *(ajuste automático)*: el instalador ahora fija `alias_maps =
   hash:/etc/aliases`. Por omisión Postfix incluye `nis:mail.aliases` y anota «NIS domain name not
   set» en cada conexión. En una instalación existente: `postconf -e "alias_maps = hash:/etc/aliases"`.
   Si además añadiste a mano un mapa de grupos con `string_agg` (los grupos del panel ya se copian a
@@ -77,7 +89,7 @@ reinicia aparte (`maquita-chat`). No hay migraciones ni variables nuevas.
   devuelve una fila vacía y Postfix anota «empty lookup result» en cada dirección que no es un
   grupo. Después, `postfix check && postfix reload` (no corta conexiones).
 
-### Envíos autenticados con la fecha del servidor (Postfix)
+### Envíos autenticados con la fecha del servidor (Postfix) *(ajuste automático)*
 
 Complemento de #305, fuera de la aplicación: lo que envían tus usuarios (Outlook, celulares,
 webmail; puertos 587 y 465) sale con la fecha del servidor, no con la del reloj de su equipo.
