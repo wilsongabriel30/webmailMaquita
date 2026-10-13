@@ -5,6 +5,7 @@ import { CorreosGrandes } from './CorreosGrandes';
 import { MessageList } from './MessageList';
 import { MessageView } from './MessageView';
 import { ComposePanel } from '../compose/ComposePanel';
+import RecuperarRedacciones from '../compose/RecuperarRedacciones';
 import { ToastContainer } from '../common/Toast';
 import { useSearchParams } from "react-router-dom";
 import { useMailStore } from '../../store/mailStore';
@@ -329,6 +330,8 @@ export function MailView() {
 
   return (
     <div className="flex-1 flex flex-col min-h-0 relative">
+      {/* Correos a medio escribir antes de una recarga: se reabren solos */}
+      <RecuperarRedacciones />
       {/* Toolbar */}
       <div className="shrink-0 relative z-[50]">
         <Toolbar />
