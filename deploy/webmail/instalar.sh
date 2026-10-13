@@ -272,6 +272,8 @@ smtps     inet n       -       y       -       -       smtpd
   -o smtpd_recipient_restrictions=permit_sasl_authenticated,reject
 EOF
 fi
+# Envíos autenticados con la fecha del servidor, no la del equipo de quien envía
+bash "${APP_DIR}/deploy/postfix/aplicar-fecha-servidor.sh" >/dev/null
 postfix check && echo "  Postfix: configuración OK"
 # rspamd como milter (procesa y FIRMA el correo) + generación de la clave DKIM
 postconf -e \
