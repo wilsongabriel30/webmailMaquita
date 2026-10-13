@@ -475,6 +475,19 @@ def _parse_uid_fetch_response(raw_lines) -> list[dict]:
     return messages
 
 
+def bytes_a_correo(crudo: bytes | bytearray | str) -> str:
+    """Bytes de un correo -> texto para el lector de correos de Python.
+
+    Se decodifica como lo hace `email.message_from_bytes`: ASCII y los demás bytes
+    guardados tal cual (surrogateescape). Con «utf-8, errors=replace» los cuerpos en
+    8bit/binary (Zimbra, Thunderbird, o un .eml que el servidor entrega por BINARY)
+    perdían las tildes: «comité» salía «comit�» (13/10/2026).
+    """
+    if isinstance(crudo, str):
+        return crudo
+    return bytes(crudo).decode("ascii", errors="surrogateescape")
+
+
 async def fetch_full_message(
     imap: aioimaplib.IMAP4,
     folder: str,
@@ -496,6 +509,8 @@ async def fetch_full_message(
         return None
 
     lines = _decode_lines(fetch_resp.lines)
+    # Mismas líneas sin decodificar (el mismo filtro que _decode_lines, así los índices coinciden).
+    originales = [l for l in fetch_resp.lines if isinstance(l, (bytes, bytearray, str))]
     raw_email = ""
     flags = []
     actual_uid = 0
@@ -510,7 +525,7 @@ async def fetch_full_message(
             if flags_m:
                 flags = flags_m.group(1).split()
             if idx + 1 < len(lines):
-                raw_email = lines[idx + 1]
+                raw_email = bytes_a_correo(originales[idx + 1])
             break
 
     if not raw_email:
