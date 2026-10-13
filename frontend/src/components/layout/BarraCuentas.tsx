@@ -83,7 +83,7 @@ export function BarraCuentas() {
     if (
       redacciones > 0 &&
       !window.confirm(
-        'Tienes un correo en redacción. Si cambias de cuenta se cerrará; lo último guardado queda en Borradores de la cuenta actual. ¿Cambiar de cuenta?',
+        'Tienes un correo en redacción. Queda guardado y se volverá a abrir cuando regreses a esta cuenta (también está en Borradores). ¿Cambiar de cuenta?',
       )
     )
       return;
