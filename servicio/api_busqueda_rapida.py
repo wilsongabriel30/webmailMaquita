@@ -59,6 +59,7 @@ def sugerencias():
         {int(f['espacio']) for f in filas} - {0, int(usuario)})
 
     vistas, por_carpeta, por_familia, resultado = set(), {}, {}, []
+    accesible = {}
     for fila in filas:
         if len(resultado) >= CUANTAS:
             break
@@ -93,6 +94,10 @@ def sugerencias():
             'titulo': _titulo_visible(fila),
             'ruta': ruta,
             'carpeta': ruta.rsplit('/', 1)[0] or '/',
+            # Un archivo o una carpeta compartidos SUELTOS viven en la carpeta del
+            # dueño, en la que quien busca no puede entrar: la pantalla los abre
+            # directamente en vez de llevar a su ubicación (13/10/2026).
+            'carpeta_accesible': _accesible(usuario, ruta.rsplit('/', 1)[0] or '/', accesible),
             'es_carpeta': bool(fila['es_carpeta']),
             'extension': fila['extension'] or '',
             'de': _de_quien(espacio, fila['ruta'], usuario,
@@ -103,6 +108,18 @@ def sugerencias():
 
     return jsonify({'success': True, 'sugerencias': resultado,
                     'completar': _completar(termino, resultado)})
+
+
+def _accesible(usuario, carpeta, memoria):
+    """¿Puede esa persona entrar en la carpeta? Se recuerda por petición."""
+    if carpeta not in memoria:
+        try:
+            from nucleo_archivos import ruta_fisica
+            ruta_fisica(usuario, carpeta)
+            memoria[carpeta] = True
+        except Exception:
+            memoria[carpeta] = False
+    return memoria[carpeta]
 
 
 def _familia(nombre):
