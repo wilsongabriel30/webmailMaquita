@@ -29,7 +29,14 @@ export default function SafeEmailViewer({ htmlBody, className, style }: SafeEmai
   const srcDoc = `<!DOCTYPE html><html><head>
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https: data: cid:; style-src 'unsafe-inline'; font-src https:;">
+<meta name="color-scheme" content="only light">
+<meta name="darkreader-lock">
 <style>
+  /* El correo se escribe para fondo blanco: se pinta SIEMPRE en blanco, con el webmail
+     en oscuro, el navegador en oscuro o una extensión de modo oscuro. Sin fondo propio,
+     algunos navegadores dejaban ver el gris del tema detrás de un texto gris oscuro y no
+     se leía (13/10/2026). */
+  :root { color-scheme: only light; background: #fff; }
   body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.6; color: #323130; word-break: break-word; }
   a { color: #0078d4 !important; text-decoration: underline !important; cursor: pointer !important; }
   a:hover { color: #106ebe !important; }
@@ -78,6 +85,9 @@ export default function SafeEmailViewer({ htmlBody, className, style }: SafeEmai
           height: Math.min(Math.max(300, sanitized.length / 3), 2000),
           border: 'none',
           overflow: 'auto',
+          // Sin fondo aquí: el tema oscuro repinta los fondos blancos en línea. El blanco
+          // lo pone el documento del correo (:root), al que esas reglas no llegan.
+          colorScheme: 'light',
           ...style,
         }}
         title="Email content"
