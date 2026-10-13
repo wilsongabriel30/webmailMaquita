@@ -65,6 +65,8 @@ async def list_messages(
         # Use has_attachments from BODYSTRUCTURE if available
         if raw.get("has_attachments"):
             summary["has_attachments"] = True
+        # Hora de llegada a nuestro servidor (no la del equipo del remitente).
+        summary["received_date"] = raw.get("internal_date")
         messages.append(summary)
 
     # Preserve UID order (newest first)
@@ -131,6 +133,8 @@ async def get_message(
         "cc": normalized.cc_addr,
         "subject": normalized.subject,
         "date": normalized.date,
+        # Hora de llegada a nuestro servidor (no la del equipo del remitente).
+        "received_date": raw.get("internal_date"),
         "size": normalized.size,
         "flags": normalized.flags,
         "seen": True if mark_seen else normalized.seen,
