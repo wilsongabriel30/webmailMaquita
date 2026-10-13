@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     credential_encryption_key_anterior: str = ""
     ia_api_key: str = ""
     # --- IA enchufable (config central; todas las features la leen) ---
-    ia_provider: str = "gateway"  # openai | ollama | proveedor-externo | gateway
+    ia_provider: str = "gateway"  # openai | ollama | gateway
     ia_base_url: str = ""  # vacio -> usa ollama_url
     ia_model: str = ""  # sin hardcode; definir en .env o panel
     ia_timeout: int = 60

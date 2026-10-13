@@ -16,7 +16,6 @@ fi
 echo "Probando IA -> provider=$PROV base=$BASE model=$MODEL"
 case "$PROV" in
   ollama)    R=$(curl -s -m 60 "$BASE/api/generate" -H "content-type: application/json" -d "{\"model\":\"$MODEL\",\"prompt\":\"responde solo: OK\",\"stream\":false,\"think\":false,\"options\":{\"num_predict\":16}}") ;;
-  proveedor-externo) R=$(curl -s -m 30 "$BASE/v1/messages" -H "x-api-key: $KEY" -H "proveedor-externo-version: 2023-06-01" -H "content-type: application/json" -d "{\"model\":\"$MODEL\",\"max_tokens\":10,\"messages\":[{\"role\":\"user\",\"content\":\"responde solo: OK\"}]}") ;;
   gateway|custom) R=$(curl -s -m 30 "$BASE/api/v1/ia/generate" -H "X-API-Key: $KEY" -H "content-type: application/json" -d "{\"prompt\":\"responde solo: OK\",\"model\":\"$MODEL\",\"max_tokens\":10}") ;;
   *)         R=$(curl -s -m 30 "$BASE/v1/chat/completions" -H "Authorization: Bearer $KEY" -H "content-type: application/json" -d "{\"model\":\"$MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"responde solo: OK\"}],\"max_tokens\":10}") ;;
 esac

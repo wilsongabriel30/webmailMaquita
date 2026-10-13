@@ -219,13 +219,12 @@ La app **arranca sin IA** (fail-open: las funciones de IA se degradan solas; el 
 2. `bash deploy/webmail/probar-ia.sh` → debe imprimir **"IA OK"** (o el error con su causa y solución).
 3. `systemctl restart maquita-webmail`.
 
-Cambiar de proveedor (OpenAI → Ollama → proveedor-externo → gateway propio) = **2–4 líneas del `.env`, cero código**.
+Cambiar de proveedor (OpenAI → Ollama → gateway propio) = **2–4 líneas del `.env`, cero código**.
 
 | Preset | IA_PROVIDER | IA_BASE_URL | Notas |
 |---|---|---|---|
 | **[A] Ollama local (INFINITO)** | `ollama` | `http://192.168.2.4:11434` | Recomendado local · `IA_MODEL=infinito-qwen36-lora:latest` |
 | [B] OpenAI | `openai` | `https://api.openai.com` | requiere `IA_API_KEY` |
-| [C] proveedor-externo | `proveedor-externo` | `https://api.proveedor-externo.example` | requiere `IA_API_KEY` |
-| [D] OpenAI-compatible | `openai` | `http://tu-endpoint:puerto` | vLLM, LM Studio, OpenRouter, LocalAI… |
+| [C] OpenAI-compatible | `openai` | `http://tu-endpoint:puerto` | vLLM, LM Studio, OpenRouter, LocalAI… |
 
 Config central (todas las features de IA la leen): `IA_PROVIDER`, `IA_BASE_URL`, `IA_MODEL`, `IA_API_KEY`, `IA_TIMEOUT`, `IA_EMBED_MODEL` (este último, para RAG/grounding futuro). El `probar-ia.sh` está integrado en `validar-despliegue.sh` como **WARN** (no bloquea el despliegue si la IA no está).

@@ -70,7 +70,7 @@ MAQUITA_CONTEXT = (
 async def _get_ia_config():
     """Config de IA ENCHUFABLE. Lee la config central (.env: IA_PROVIDER/IA_BASE_URL/
     IA_MODEL/IA_API_KEY) y, opcionalmente, el override del panel (tabla ai_config).
-    Por defecto OpenAI-compatible; adapters finos para ollama/proveedor-externo/gateway."""
+    Por defecto OpenAI-compatible; adapters finos para ollama/gateway."""
     s = get_settings()
     provider = (s.ia_provider or "openai").lower()
     base = (s.ia_base_url or s.ollama_url or "").rstrip("/")
@@ -101,13 +101,6 @@ async def _get_ia_config():
     if provider == "ollama":
         generate_url = f"{base}/api/generate"
         headers = {"Content-Type": "application/json"}
-    elif provider == "proveedor-externo":
-        generate_url = f"{base or 'https://api.proveedor-externo.example'}/v1/messages"
-        headers = {
-            "x-api-key": api_key,
-            "proveedor-externo-version": "2023-06-01",
-            "Content-Type": "application/json",
-        }
     elif provider in ("gateway", "custom"):
         generate_url = f"{base}/api/v1/ia/generate"
         headers = {"X-API-Key": api_key, "Content-Type": "application/json"}
@@ -194,14 +187,6 @@ async def _call_llm(
             "temperature": temperature,
             "max_tokens": max_tokens,
         }
-    elif prov == "proveedor-externo":
-        payload = {
-            "model": ia["model"],
-            "system": system,
-            "max_tokens": max_tokens,
-            "temperature": temperature,
-            "messages": [{"role": "user", "content": prompt}],
-        }
     else:  # gateway / custom
         payload = {
             "prompt": prompt,
@@ -247,12 +232,6 @@ async def _call_llm(
                     and data["choices"]
                 ):
                     raw_resp = data["choices"][0].get("message", {}).get("content", "")
-                if (
-                    not raw_resp
-                    and isinstance(data.get("content"), list)
-                    and data["content"]
-                ):
-                    raw_resp = data["content"][0].get("text", "")
 
                 # Validar respuesta vacía
                 if not raw_resp or not raw_resp.strip():
