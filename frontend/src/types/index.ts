@@ -15,6 +15,8 @@ export interface MessageSummary {
   to: string;
   subject: string;
   date: string | null;
+  /** Llegada a nuestro servidor (INTERNALDATE); la fecha que vale. */
+  received_date?: string | null;
   size: number;
   flags: string[];
   seen: boolean;
