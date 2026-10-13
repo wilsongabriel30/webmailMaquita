@@ -7,6 +7,7 @@ smtpd     pass  -       -       y       -       -       smtpd
 dnsblog   unix  -       -       y       -       0       dnsblog
 tlsproxy  unix  -       -       y       -       0       tlsproxy
 submission inet n       -       y       -       -       smtpd
+  -o cleanup_service_name=cleanup_envio
   -o syslog_name=postfix/submission
   -o smtpd_tls_security_level=encrypt
   -o smtpd_sasl_auth_enable=yes
@@ -14,6 +15,7 @@ submission inet n       -       y       -       -       smtpd
   -o smtpd_recipient_restrictions=permit_sasl_authenticated,reject
   -o milter_macro_daemon_name=ORIGINATING
 smtps     inet  n       -       y       -       -       smtpd
+  -o cleanup_service_name=cleanup_envio
   -o syslog_name=postfix/smtps
   -o smtpd_tls_wrappermode=yes
   -o smtpd_sasl_auth_enable=yes
@@ -22,6 +24,10 @@ smtps     inet  n       -       y       -       -       smtpd
   -o milter_macro_daemon_name=ORIGINATING
 pickup    unix  n       -       y       60      1       pickup
 cleanup   unix  n       -       y       -       0       cleanup
+# Envíos autenticados: la fecha del correo es la del servidor (ver fecha_servidor_envio)
+cleanup_envio unix n   -       y       -       0       cleanup
+  -o header_checks=regexp:/etc/postfix/header_checks,regexp:/etc/postfix/fecha_servidor_envio
+  -o always_add_missing_headers=yes
 qmgr      unix  n       -       n       300     1       qmgr
 tlsmgr    unix  -       -       y       1000?   1       tlsmgr
 rewrite   unix  -       -       y       -       -       trivial-rewrite

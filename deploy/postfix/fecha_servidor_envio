@@ -1,0 +1,6 @@
+# Correo que envían los usuarios autenticados (submission/smtps): la fecha la pone el
+# SERVIDOR, no el reloj del equipo de quien envía. Se descarta el Date del cliente y el
+# servicio cleanup_envio (always_add_missing_headers=yes) lo vuelve a poner con la hora
+# de llegada. Así nadie puede atrasar o adelantar la fecha de un envío cambiando la hora
+# de su computadora. Se aplica antes de la firma DKIM (que sigue siendo válida).
+/^Date:/    IGNORE
