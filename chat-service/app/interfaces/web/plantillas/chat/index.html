@@ -413,6 +413,9 @@
 <!-- T-50 tanda 1: el panel de la izquierda como Teams -->
 <link rel="stylesheet" href="{{ url_for('static', filename='css/chat-lista-teams.css') }}?v=20260902-t54b">
 <script src="{{ url_for('static', filename='js/chat-lista-teams.js') }}?v=20260902-t54b"></script>
+<!-- Pestaña «Reuniones» con reflejo inmediato (avisos de Raíces por Socket.IO), 14/10/2026 -->
+<script>window.MQ_URL_INTRANET = {{ url_intranet|tojson }}; window.MQ_URL_REUNIONES = {{ url_reuniones|tojson }};</script>
+<script src="{{ url_for('static', filename='js/chat-reuniones-agenda.js') }}?v=20261014b"></script>
 <!-- T-50 tanda 2: el encabezado del chat activo como Teams -->
 <link rel="stylesheet" href="{{ url_for('static', filename='css/chat-encabezado-teams.css') }}?v=20260902-t54b">
 <script src="{{ url_for('static', filename='js/chat-encabezado-teams.js') }}?v=20260902-t54b"></script>
