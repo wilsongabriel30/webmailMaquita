@@ -7,11 +7,12 @@ import subprocess
 
 logger = logging.getLogger(__name__)
 
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from pydantic import BaseModel, Field
+
 from app.auth.dependencies import get_current_user
 from app.config import get_settings
 from app.core.session import encrypt_password, get_user_password
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from pydantic import BaseModel, Field
 
 # Contraseñas comunes prohibidas (top 50)
 _COMMON_PASSWORDS = frozenset(
