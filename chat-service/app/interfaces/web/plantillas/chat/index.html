@@ -416,6 +416,8 @@
 <!-- Pestaña «Reuniones» con reflejo inmediato (avisos de Raíces por Socket.IO), 14/10/2026 -->
 <script>window.MQ_URL_INTRANET = {{ url_intranet|tojson }}; window.MQ_URL_REUNIONES = {{ url_reuniones|tojson }};</script>
 <script src="{{ url_for('static', filename='js/chat-reuniones-agenda.js') }}?v=20261014b"></script>
+<!-- Crear reunión desde un grupo (Reunión ahora / Programar), 14/10/2026 -->
+<script src="{{ url_for('static', filename='js/chat-reunion-grupo.js') }}?v=20261014a"></script>
 <!-- T-50 tanda 2: el encabezado del chat activo como Teams -->
 <link rel="stylesheet" href="{{ url_for('static', filename='css/chat-encabezado-teams.css') }}?v=20260902-t54b">
 <script src="{{ url_for('static', filename='js/chat-encabezado-teams.js') }}?v=20260902-t54b"></script>
