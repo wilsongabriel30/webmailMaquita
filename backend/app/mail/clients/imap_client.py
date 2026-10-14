@@ -478,8 +478,26 @@ def _parse_uid_fetch_response(raw_lines) -> list[dict]:
     return messages
 
 
-_MESES_IMAP = {m: i for i, m in enumerate(
-    ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"), 1)}
+_MESES_IMAP = {
+    m: i
+    for i, m in enumerate(
+        (
+            "Jan",
+            "Feb",
+            "Mar",
+            "Apr",
+            "May",
+            "Jun",
+            "Jul",
+            "Aug",
+            "Sep",
+            "Oct",
+            "Nov",
+            "Dec",
+        ),
+        1,
+    )
+}
 
 
 def fecha_llegada_iso(linea: str) -> str | None:
@@ -491,13 +509,23 @@ def fecha_llegada_iso(linea: str) -> str | None:
     Ej.: INTERNALDATE "13-Oct-2026 09:28:53 -0500" -> 2026-10-13T09:28:53-05:00
     """
     m = re.search(
-        r'INTERNALDATE\s+"\s?(\d{1,2})-(\w{3})-(\d{4}) (\d{2}):(\d{2}):(\d{2}) ([+-])(\d{2})(\d{2})"', linea
+        r'INTERNALDATE\s+"\s?(\d{1,2})-(\w{3})-(\d{4}) (\d{2}):(\d{2}):(\d{2}) ([+-])(\d{2})(\d{2})"',
+        linea,
     )
     if not m or m.group(2) not in _MESES_IMAP:
         return None
     dia, mes, anio, hh, mi, ss, signo, zh, zm = m.groups()
     return "%s-%02d-%02dT%s:%s:%s%s%s:%s" % (
-        anio, _MESES_IMAP[mes], int(dia), hh, mi, ss, signo, zh, zm)
+        anio,
+        _MESES_IMAP[mes],
+        int(dia),
+        hh,
+        mi,
+        ss,
+        signo,
+        zh,
+        zm,
+    )
 
 
 def bytes_a_correo(crudo: bytes | bytearray | str) -> str:
