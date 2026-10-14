@@ -12,11 +12,17 @@
                  vuelvo_enseguida: 'Vuelvo enseguida', ausente: 'Ausente',
                  desconectado: 'Desconectado'};
     var ESTADOS = Object.create(null);   // usuario -> estado conocido
+    var EN_REUNION = new Set();          // quienes estan en una reunion (su estado es «ocupado»)
 
-    function pintarUno(el, estado) {
+    function textoDe(usuarioId, estado) {
+        if (estado === 'ocupado' && EN_REUNION.has(Number(usuarioId))) return 'En una reunión';
+        return TEXTO[estado] || 'Sin dato';
+    }
+
+    function pintarUno(el, estado, texto) {
         el.classList.add('mq-estado');
         el.dataset.estado = estado || 'desconocido';
-        el.title = TEXTO[estado] || 'Sin dato';
+        el.title = texto || TEXTO[estado] || 'Sin dato';
     }
 
     /* pinta a todos los que lleven data-usuario en la pantalla */
@@ -26,12 +32,12 @@
         var sel = '[data-usuario-id="' + usuarioId + '"], [data-user-id="' + usuarioId + '"]';
         Array.prototype.forEach.call(document.querySelectorAll(sel), function (el) {
             var destino = el.querySelector('.avatar, .conversation-avatar, img') || el;
-            pintarUno(destino, estado);
+            pintarUno(destino, estado, textoDe(usuarioId, estado));
         });
         var texto = document.querySelector('.mq-estado-texto[data-usuario-id="' + usuarioId + '"]');
         if (texto) {
             texto.dataset.estado = estado;
-            texto.textContent = TEXTO[estado] || 'Sin dato';
+            texto.textContent = textoDe(usuarioId, estado);
         }
     }
 
@@ -50,6 +56,8 @@
                 body: JSON.stringify({usuarios: Array.from(ids)})
             });
             var d = await r.json();
+            var reunion = new Set((d.en_reunion || []).map(Number));
+            ids.forEach(function (id) { if (reunion.has(id)) EN_REUNION.add(id); else EN_REUNION.delete(id); });
             Object.keys(d.estados || {}).forEach(function (id) { pintar(Number(id), d.estados[id]); });
         } catch (e) {
             console.warn('estados de presencia:', e);

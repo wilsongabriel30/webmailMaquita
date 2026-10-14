@@ -80,7 +80,8 @@ def estado_de_otro(usuario_id: int):
     if not _visibles([usuario_id]):
         return jsonify({'exito': False, 'success': False, 'mensaje': 'Usuario no encontrado'}), 404
     return jsonify({'exito': True, 'success': True,
-                    'usuario_id': usuario_id, 'estado': regla.estado_de(usuario_id)}), 200
+                    'usuario_id': usuario_id, 'estado': regla.estado_de(usuario_id),
+                    'en_reunion': regla.en_reunion(usuario_id)}), 200
 
 
 @bp_chat.route('/estado/varios', methods=['POST'])
@@ -89,5 +90,7 @@ def estado_de_varios():
     datos = request.get_json(silent=True) or {}
     usuarios = [int(u) for u in (datos.get('usuarios') or []) if str(u).isdigit()]
     usuarios = _visibles(usuarios)   # [M-03] los demás simplemente no salen
+    # `en_reunion`: quiénes de la lista están en una reunión (su estado sigue siendo «ocupado»; los clientes
+    # que no conocen el campo lo ignoran)
     return jsonify({'exito': True, 'success': True,
-                    'estados': regla.estados_de(usuarios)}), 200
+                    'estados': regla.estados_de(usuarios), 'en_reunion': regla.en_reunion_de(usuarios)}), 200

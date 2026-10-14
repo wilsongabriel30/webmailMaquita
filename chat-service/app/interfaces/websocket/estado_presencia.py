@@ -59,7 +59,10 @@ LATIDO_FRESCO = 60            # refrescada hace menos de un minuto = alguien est
 CLAVE_ELECCION = 'chat:estado:%s'
 CLAVE_ACTIVIDAD = 'chat:actividad:%s'
 CLAVE_LLAMADA = 'chat:enllamada:%s'
-CLAVE_CONEXION = 'chat:presence:%s'   # la que ya escribia el socket al conectarse
+CLAVE_CONEXION = 'chat:presence:%s'
+# La intranet marca cada minuto quién está dentro de una sala de reuniones (y además pone CLAVE_LLAMADA, así que el
+# estado sigue siendo OCUPADO): con esta clave el cliente puede escribir «En una reunión» en vez de «Ocupado».
+CLAVE_REUNION = 'reuniones:presente:%s'   # la que ya escribia el socket al conectarse
 
 
 def _redis():
@@ -167,6 +170,17 @@ def estado_de(usuario_id):
     return DISPONIBLE
 
 
+def en_reunion(usuario_id):
+    """Si la persona está ahora dentro de una sala de reuniones (lo marca la intranet, 150 s renovados)."""
+    r = _redis()
+    return bool(r and usuario_id and r.exists(CLAVE_REUNION % usuario_id))
+
+
+def en_reunion_de(usuario_ids):
+    """De varios usuarios, los que están en una reunión (lista ordenada)."""
+    return sorted(u for u in set(usuario_ids or []) if u and en_reunion(u))
+
+
 def estados_de(usuario_ids):
     """El estado de varios usuarios de una vez (para pintar una lista)."""
     return {uid: estado_de(uid) for uid in set(usuario_ids or []) if uid}
@@ -183,5 +197,6 @@ def detalle_de(usuario_id):
         'automatico': eleccion is None,
         'silencia_avisos': estado == NO_MOLESTAR,
         'en_llamada': bool(r and r.exists(CLAVE_LLAMADA % usuario_id)),
+        'en_reunion': en_reunion(usuario_id),
         'conectado': bool(r and r.exists(CLAVE_CONEXION % usuario_id)),
     }
