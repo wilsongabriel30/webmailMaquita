@@ -4,6 +4,9 @@ After=network.target postgresql.service redis-server.service
 Wants=postgresql.service
 
 [Service]
+WorkingDirectory=/opt/maquita-webmail/backend
+# El reescritor de Safe Links carga el .env del backend desde el directorio de trabajo; sin esto
+# rewrite_inbound falla en silencio y los enlaces entrantes no se reescriben (14/10/2026).
 ExecStart=/opt/maquita-webmail/backend/venv/bin/python /opt/maquita-webmail/milter/maquita_milter.py
 Restart=always
 RestartSec=5
