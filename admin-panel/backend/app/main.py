@@ -69,6 +69,7 @@ from app.conditional_access.router import router as condaccess_router
 from app.geo_access.router import router as geoaccess_router
 from app.outbound_anomaly.router import router as anomaly_router
 from app.outbound.router import router as outbound_router
+from app.password_audit.router import router as password_audit_router
 from app.admin_recovery.router import router as adminrec_router
 from app.rag.router import router as rag_router
 from app.retention.router import router as retention_router
@@ -105,12 +106,18 @@ async def lifespan(app: FastAPI):
                 """INSERT INTO admin_users (username, password_hash, display_name, role)
                    VALUES ($1, $2, $3, $4)""",
                 os.getenv("ADMIN_BOOTSTRAP_USER", "admin"),
-                bcrypt.hashpw(clave.encode(), bcrypt.gensalt()).decode(), "Administrador", "superadmin",
+                bcrypt.hashpw(clave.encode(), bcrypt.gensalt()).decode(),
+                "Administrador",
+                "superadmin",
             )
-            logger.warning("Superadmin inicial creado desde ADMIN_BOOTSTRAP_PASSWORD; retire esa variable del .env")
+            logger.warning(
+                "Superadmin inicial creado desde ADMIN_BOOTSTRAP_PASSWORD; retire esa variable del .env"
+            )
         else:
-            logger.error("No hay administradores: defina ADMIN_BOOTSTRAP_PASSWORD (>= 12 caracteres) "
-                         "en el .env y reinicie para crear el primer superadmin")
+            logger.error(
+                "No hay administradores: defina ADMIN_BOOTSTRAP_PASSWORD (>= 12 caracteres) "
+                "en el .env y reinicie para crear el primer superadmin"
+            )
 
     logger.info("Maquita Admin Panel ready on port 8001")
     yield
@@ -132,15 +139,23 @@ app.add_middleware(
     allow_origins=[o.strip() for o in config.CORS_ORIGINS.split(",") if o.strip()],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
+    allow_headers=[
+        "Content-Type",
+        "Authorization",
+        "X-Requested-With",
+        "Accept",
+        "Origin",
+    ],
 )
-
 
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     _logging.getLogger("admin").error(f"Unhandled: {exc}\n{traceback.format_exc()}")
-    return JSONResponse(status_code=500, content={"detail": "Error interno del servidor"})
+    return JSONResponse(
+        status_code=500, content={"detail": "Error interno del servidor"}
+    )
+
 
 # Mount all routers
 app.include_router(auth_router)
@@ -213,6 +228,7 @@ app.include_router(dispositivos_router)
 app.include_router(geoaccess_router)
 app.include_router(anomaly_router)
 app.include_router(outbound_router)
+app.include_router(password_audit_router)
 app.include_router(adminrec_router)
 
 
