@@ -71,8 +71,31 @@ fi
 
 echo ""
 echo "Emitiendo certificado (linaje: ${MAIL_HOST}) para: ${INCLUIDOS[*]}"
+# --reuse-key y --key-type ecdsa son OBLIGATORIOS (15/10/2026): sin ellos certbot genera clave nueva,
+# deja la renovacion sin reuse_key y el TLSA de DANE (_25._tcp.${MAIL_HOST}) deja de coincidir.
+# Asi paso el 07/09/2026 con este mismo script: ~5 semanas de DANE roto sin que nadie lo viera.
 certbot --nginx --non-interactive --agree-tos -m "${EMAIL}" \
-  --cert-name "${MAIL_HOST}" --keep-until-expiring --expand "${ARGS[@]}"
+  --cert-name "${MAIL_HOST}" --keep-until-expiring --expand \
+  --reuse-key --key-type ecdsa "${ARGS[@]}"
+
+# --- Comprobacion DANE: la clave que presenta el puerto 25 debe estar en el TLSA publicado ---
+# Solo si el servidor tiene la biblioteca DANE y su linaje es el que se acaba de emitir.
+DANE_LIB="${DANE_LIB:-/usr/local/lib/maquita-dane.sh}"
+if [ -f "${DANE_LIB}" ] && ( source "${DANE_LIB}"; [ "${DANE_LINAJE:-}" = "/etc/letsencrypt/live/${MAIL_HOST}" ] ); then
+  source "${DANE_LIB}"
+  systemctl reload postfix
+  sleep 2
+  if ! dane_publicada "$(dane_huella_puerto25)" "$(dane_publicadas)"; then
+    echo ""
+    echo "##########################################################################"
+    echo "ERROR GRAVE: la clave del certificado NO coincide con el TLSA de DANE."
+    echo "Los servidores que validan DANE dejaran de entregar correo. Revisar YA:"
+    echo "  /usr/local/bin/vigila-dane.sh ; tail /var/log/vigila-dane.log"
+    echo "##########################################################################"
+    exit 1
+  fi
+  echo "DANE: la clave del puerto 25 coincide con el TLSA publicado."
+fi
 
 # --- Autoconfiguracion (Thunderbird/Evolution) sobre el cert nuevo ---
 if [ -n "${BASE_AUTOCONFIG}" ] && [ -f "${BASE_AUTOCONFIG}/config-v1.1.xml.plantilla" ]; then
