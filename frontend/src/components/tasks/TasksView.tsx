@@ -44,7 +44,7 @@ export function TasksView() {
         if (l.list_type === 'smart') counts[l.name] = l.task_count;
       });
       setSmartCounts(counts);
-    } catch (e: any) {
+    } catch {
       // API not ready yet, use empty state
       setCustomLists([]);
     }
@@ -77,7 +77,7 @@ export function TasksView() {
           } else {
             result = [];
           }
-        } catch (e: any) {
+        } catch {
           result = [];
         }
       } else {
@@ -85,7 +85,7 @@ export function TasksView() {
         result = await api.get<Task[]>(`/tasks/lists/${activeView}/tasks`);
       }
       setTasks(result);
-    } catch (e: any) {
+    } catch {
       setTasks([]);
       // Don't show error if API is not ready
     } finally {
@@ -123,8 +123,8 @@ export function TasksView() {
       }
       fetchTasks();
       fetchLists();
-    } catch (e: any) {
-      setError('Error al agregar tarea: ' + (e?.message || 'desconocido'));
+    } catch (e) {
+      setError('Error al agregar tarea: ' + (e instanceof Error ? e.message : 'desconocido'));
     }
   };
 
@@ -136,7 +136,7 @@ export function TasksView() {
     try {
       await api.patch(`/tasks/tasks/${id}/toggle`);
       fetchLists();
-    } catch (e: any) {
+    } catch {
       fetchTasks(); // revert
     }
   };
@@ -148,7 +148,7 @@ export function TasksView() {
     try {
       await api.patch(`/tasks/tasks/${id}/important`);
       fetchLists();
-    } catch (e: any) {
+    } catch {
       fetchTasks();
     }
   };
@@ -163,7 +163,7 @@ export function TasksView() {
       await api.patch(`/tasks/tasks/${id}`, payload);
       if ('my_day' in data) fetchTasks();
       fetchLists();
-    } catch (e: any) {
+    } catch {
       fetchTasks();
     }
   };
@@ -175,7 +175,7 @@ export function TasksView() {
     try {
       await api.del(`/tasks/tasks/${id}`);
       fetchLists();
-    } catch (e: any) {
+    } catch {
       fetchTasks();
     }
   };
@@ -184,7 +184,7 @@ export function TasksView() {
     try {
       await api.post('/tasks/lists', { name });
       fetchLists();
-    } catch (e: any) {
+    } catch {
       setError('No se pudo crear la lista');
     }
   };
@@ -195,7 +195,7 @@ export function TasksView() {
       await api.del(`/tasks/lists/${id}`);
       if (activeView === id) setActiveView('tasks');
       fetchLists();
-    } catch (e: any) {
+    } catch {
       setError('No se pudo eliminar la lista');
     }
   };
