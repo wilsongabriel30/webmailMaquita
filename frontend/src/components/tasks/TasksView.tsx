@@ -51,6 +51,8 @@ export function TasksView() {
   }, []);
 
   const fetchTasks = useCallback(async () => {
+    // «seguimiento» es una vista (SeguimientoVista carga sus datos), no una lista: pedirla como lista daba 400
+    if (activeView === 'seguimiento') { setTasks([]); setLoading(false); return; }
     setLoading(true);
     setError('');
     try {
@@ -105,7 +107,7 @@ export function TasksView() {
 
   const addTask = async (title: string, dueDate?: string, reminder?: string) => {
     try {
-      const listId = (!['my-day', 'important', 'planned', 'assigned', 'flagged', 'tasks'].includes(activeView))
+      const listId = (!['my-day', 'important', 'planned', 'assigned', 'flagged', 'tasks', 'seguimiento'].includes(activeView))
         ? activeView : undefined;
       const payload: Record<string, unknown> = { title };
       if (dueDate) payload.due_date = dueDate;
