@@ -66,7 +66,12 @@ def ya_avisado(cur, clave, horas):
     return cur.fetchone() is not None
 
 
+SIMULACION = False   # con --dry-run no se marca nada: una prueba no puede silenciar el aviso real
+
+
 def marcar(cur, clave, detalle):
+    if SIMULACION:
+        return
     cur.execute("""INSERT INTO app_telemetria_alertas (clave, enviada, detalle) VALUES (%s, NOW(), %s)
                    ON CONFLICT (clave) DO UPDATE SET enviada = NOW(), detalle = EXCLUDED.detalle""",
                 (clave, detalle[:500]))
@@ -291,8 +296,37 @@ def regla_sin_sesion(cur, dry):
     return enviados
 
 
+def regla_wazuh_sin_registrar(cur, dry):
+    """(i) 01/10/2026: agente Wazuh instalado pero SIN REGISTRAR. El gestor no sabe que
+    existe, así que solo lo ve el propio equipo (tarea de la app como SISTEMA, cada 3 h).
+    Un aviso por equipo cada 24 h. El 1515 solo se abre por LAN/VPN: un equipo que trabaja
+    desde casa sin VPN no se registrará nunca por sí solo."""
+    cur.execute("""
+        SELECT equipo, max(usuario) AS usuario, max(version) AS version, max(left(detalle, 160)) AS motivo
+        FROM app_telemetria
+        WHERE recibido > NOW() - INTERVAL '6 hours' AND evento = 'wazuh_sin_registrar'
+        GROUP BY equipo
+    """)
+    enviados = 0
+    for equipo, usuario, version, motivo in cur.fetchall():
+        clave = 'wazuh-sin-registrar:%s' % equipo
+        if ya_avisado(cur, clave, 24):
+            continue
+        if 'authd.pass' in (motivo or '') and 'CON' in (motivo or ''):
+            que_hacer = 'Quedó la clave vieja: borrar authd.pass y reiniciar WazuhSvc (la app 0.5.8+ lo hace sola).'
+        else:
+            que_hacer = ('Conectar el equipo a la VPN o a la red de la oficina un rato: el registro (1515) '
+                         'solo se acepta desde la LAN/VPN.')
+        texto = '%s (%s, app %s): agente de seguridad instalado pero SIN REGISTRAR. %s' % (
+            equipo or 'equipo sin nombre', usuario or 'sin usuario', version or '?', que_hacer)
+        if avisar('Equipo sin vigilancia de seguridad', texto, dry=dry):
+            marcar(cur, clave, texto); enviados += 1
+    return enviados
+
+
 def main():
-    dry = '--dry-run' in sys.argv
+    global SIMULACION
+    dry = SIMULACION = '--dry-run' in sys.argv
     vigente = version_vigente()
     con = conectar()
     con.autocommit = True
@@ -305,7 +339,8 @@ def main():
                  + regla_ui_congelada(cur, dry)
                  + regla_webview_reconstruido(cur, dry)
                  + regla_socket_chat(cur, dry)
-                 + regla_sin_sesion(cur, dry))
+                 + regla_sin_sesion(cur, dry)
+                 + regla_wazuh_sin_registrar(cur, dry))
     con.close()
     print('alertas enviadas: %d (version vigente: %s)%s' % (total, vigente or '?', ' [simulacion]' if dry else ''))
 

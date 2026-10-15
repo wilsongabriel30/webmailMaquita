@@ -33,5 +33,5 @@ async def dlp_check(
     scan = await dlp_service.scan(db, body.subject, body.text_body, body.html_body)
     rcpts = list(body.to or []) + list(body.cc or []) + list(body.bcc or [])
     return await dlp_policy.decide(
-        db, scan, rcpts, await dlp_policy.is_admin(db, username)
+        db, scan, rcpts, await dlp_policy.is_admin(db, username), sender=username
     )
