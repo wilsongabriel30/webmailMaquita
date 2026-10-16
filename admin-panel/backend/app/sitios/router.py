@@ -192,3 +192,43 @@ async def actualizar(dominio: str, r: Request, admin: dict = Depends(require_sup
     res = await _ayudante("actualizar", dominio, tiempo=600)
     await _auditar(r, admin, "sitio_actualizar", dominio)
     return res
+
+
+@router.get("/{dominio}/buscadores")
+async def buscadores(dominio: str, admin: dict = Depends(get_current_admin)):
+    """Visibilidad del sitio: portada, robots.txt, mapa del sitio, llms.txt, schema.org, HTTPS."""
+    return await _ayudante("buscadores", _dominio(dominio), tiempo=120)
+
+
+@router.post("/{dominio}/avisar")
+async def avisar(dominio: str, r: Request, admin: dict = Depends(require_superadmin)):
+    """Avisa por IndexNow (Bing, Yandex…) de la portada y las direcciones del mapa del sitio."""
+    dominio = _dominio(dominio)
+    res = await _ayudante("avisar", dominio, tiempo=120)
+    await _auditar(r, admin, "sitio_avisar_buscadores", dominio, {"avisadas": res.get("avisadas")})
+    return res
+
+
+class VerificacionGoogle(BaseModel):
+    codigo: str
+
+
+@router.post("/{dominio}/google")
+async def verificacion_google(dominio: str, body: VerificacionGoogle, r: Request, admin: dict = Depends(require_superadmin)):
+    """Pone en la zona DNS el registro TXT de verificación de Google Search Console."""
+    from app.dns.ayudante import ayudante as ayudante_dns, b64
+
+    dominio = _dominio(dominio)
+    codigo = (body.codigo or "").strip()
+    m = re.search(r"google-site-verification=([A-Za-z0-9_-]{20,100})", codigo) or re.fullmatch(r"([A-Za-z0-9_-]{20,100})", codigo)
+    if not m:
+        raise HTTPException(400, "Pegue el registro TXT que da Search Console (google-site-verification=…)")
+    valor = f"google-site-verification={m.group(1)}"
+    zonas = {z["zona"] for z in (await ayudante_dns("dns", "listar"))["zonas"]}
+    if dominio not in zonas:
+        raise HTTPException(400, f"La zona DNS de {dominio} no se administra en este servidor: ponga el TXT en su proveedor de DNS")
+    zona = await ayudante_dns("dns", "ver", dominio)
+    if not any(x["tipo"] == "TXT" and x["valor"] == valor for x in zona["registros"]):
+        await ayudante_dns("dns", "agregar", dominio, b64({"nombre": "@", "tipo": "TXT", "valor": valor, "ttl": 3600}))
+    await _auditar(r, admin, "sitio_verificacion_google", dominio)
+    return {"dominio": dominio, "registro": valor, "zona": "actualizada"}

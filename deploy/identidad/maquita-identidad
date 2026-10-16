@@ -131,8 +131,7 @@ def _sitios(ide):
                                               ensure_ascii=False).encode()).decode().rstrip("=")
     hechos = []
     for s in lista.get("sitios", []):
-        if s.get("app"):
-            continue
+        # En sitios con WordPress o Joomla solo se actualizan llms.txt y los datos para buscadores.
         r = subprocess.run(["/usr/local/sbin/maquita-sitios", "inicio", s["dominio"], b64], capture_output=True, text=True, timeout=60)
         hechos.append({"dominio": s["dominio"], "ok": r.returncode == 0})
     return hechos

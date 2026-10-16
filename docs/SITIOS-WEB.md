@@ -45,6 +45,22 @@ guardan en el panel ni en la auditoría. Cada acción queda en la auditoría del
   otro vhost del servidor no se pueden usar como sitio.
 - Si el alta o la instalación fallan a medias, se deshace lo hecho.
 
+## Buscadores e IA (botón «Buscadores» de cada sitio)
+
+- **Revisión** como la haría un buscador (`curl --resolve` contra el propio servidor, con el mismo nombre y
+  certificado): portada, `robots.txt` que no bloquee, mapa del sitio (`/sitemap.xml` o `/wp-sitemap.xml`),
+  `llms.txt` (descripción para asistentes de IA), datos schema.org `Organization`, `meta description`,
+  ausencia de `noindex` y HTTPS.
+- **IndexNow** (Bing, Yandex, Seznam, Naver…): cada sitio tiene su clave (`<clave>.txt` en la raíz). «Avisar
+  ahora» manda la portada y las direcciones del mapa del sitio; WordPress además avisa solo al publicar
+  (complemento obligatorio `visibilidad-sitio.php`).
+- **Google** no admite avisos: el panel pone en la zona DNS el TXT de verificación de Search Console (si la
+  zona se administra en este servidor); luego se verifica y se envía el mapa del sitio desde Search Console.
+- **WordPress**: visible para buscadores (`blog_public`), enlaces legibles, lema por defecto «Sitio web de …»
+  (sin él no hay descripción), datos schema.org de la institución en la portada y `meta description`.
+- **Identidad**: «Aplicar en todo» de Personalización actualiza también `llms.txt` y los datos schema.org de
+  los sitios con WordPress o Joomla (sin tocar su contenido; el lema de WordPress solo si era el de fábrica).
+
 ## Protección contra ataques
 
 Por capas, de fuera hacia dentro:

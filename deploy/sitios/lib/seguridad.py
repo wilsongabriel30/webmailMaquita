@@ -17,7 +17,7 @@ import shutil
 from comun import ErrorSitio, clave, ejecutar, guardar_meta, leer_meta, todos_los_meta
 
 DIR_COMPLEMENTOS = "/usr/local/lib/maquita-sitios/wordpress"
-COMPLEMENTOS = ("acceso-panel.php", "seguridad-sitio.php")
+COMPLEMENTOS = ("acceso-panel.php", "seguridad-sitio.php", "visibilidad-sitio.php")
 # Archivos del núcleo que se borran a propósito (revelan la versión): la verificación los excluye.
 INFORMATIVOS = ("readme.html", "license.txt", "wp-config-sample.php")
 _EXCLUIR = "--exclude=" + ",".join(INFORMATIVOS)
@@ -64,6 +64,11 @@ def endurecer_wordpress(meta):
         _wp(meta, "config", "set", nombre, valor, "--raw")
     # Enlaces legibles (/nombre-de-la-entrada/): mejores para las personas y para los buscadores.
     _wp(meta, "rewrite", "structure", "/%postname%/")
+    # Visible para buscadores (WordPress permite ocultarlo) y aviso automático por IndexNow al publicar.
+    import visibilidad
+
+    _wp(meta, "option", "update", "blog_public", "1")
+    _wp(meta, "option", "update", "indexnow_clave", visibilidad.clave_indexnow(meta))
     for sobrante in ("hello", "akismet"):
         try:
             _wp(meta, "plugin", "delete", sobrante)

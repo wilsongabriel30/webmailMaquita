@@ -75,6 +75,10 @@ def _nombres_en_uso():
 def recargar_nginx():
     ejecutar(["nginx", "-t"])
     ejecutar(["systemctl", "reload", "nginx"])
+    # La recarga es gradual: un instante para que los procesos nuevos atiendan ya con la configuración nueva.
+    import time
+
+    time.sleep(1)
 
 
 def recargar_php(meta):
@@ -149,6 +153,9 @@ def crear(dominio, con_www=True, nombre=None):
         _escribir(ruta, contenido, 0o640)
         os.chown(ruta, pw.pw_uid, www.pw_gid)
     meta["nombre"] = nombre or dominio
+    import visibilidad
+
+    visibilidad.clave_indexnow(meta)  # archivo de verificación de IndexNow en la raíz
 
     guardar_meta(meta)
     try:
@@ -220,7 +227,10 @@ def rehacer_inicio(dominio, identidad):
     """
     meta = leer_meta(dominio)
     if meta.get("app"):
-        return {"dominio": dominio, "actualizada": False, "motivo": f"tiene {meta['app']}"}
+        # Un WordPress o Joomla conserva su contenido: solo recibe la identidad para buscadores e IA.
+        import visibilidad
+
+        return visibilidad.identidad_en_app(meta, identidad)
     pw = pwd.getpwnam(meta["usuario"])
     www = pwd.getpwnam("www-data")
     logo = None

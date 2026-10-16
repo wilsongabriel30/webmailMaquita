@@ -62,7 +62,8 @@ INICIALES = ("index.html", "robots.txt", "sitemap.xml", "llms.txt")
 
 def _publico_vacio(meta):
     """La carpeta pública solo puede tener la página «en construcción» y sus archivos."""
-    restos = [n for n in os.listdir(meta["publico"]) if n not in INICIALES]
+    restos = [n for n in os.listdir(meta["publico"])
+              if n not in INICIALES and not re.match(r"^[0-9a-f]{32}\.txt$", n)]  # clave de IndexNow
     if restos:
         raise ErrorSitio("la carpeta del sitio ya tiene archivos: instala la aplicación en un sitio vacío")
     # WordPress y Joomla generan su propio robots y mapa del sitio; llms.txt se conserva.
@@ -156,6 +157,8 @@ def _wordpress(meta, bd, bd_usuario, bd_clave, titulo, correo, admin_usuario, ad
     _wp(meta, "config", "set", "FS_METHOD", "direct")
     _wp(meta, "core", "install", f"--url={_url(meta)}", f"--title={titulo}", f"--admin_user={admin_usuario}",
         f"--admin_email={correo}", "--skip-email", "--prompt=admin_password", entrada=admin_clave + "\n")
+    # WordPress se instala sin lema: sin él no hay descripción para buscadores. Uno por defecto.
+    _wp(meta, "option", "update", "blogdescription", f"Sitio web de {titulo}")
     _wp(meta, "core", "verify-checksums")
     for idioma in ("es_ES", "es_EC"):
         try:

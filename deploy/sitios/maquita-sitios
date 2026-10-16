@@ -12,6 +12,8 @@ Uso:
   maquita-sitios ssl <dominio> <correo para Let's Encrypt>
   maquita-sitios borrar <dominio> <dominio repetido como confirmación>
   maquita-sitios inicio <dominio> <identidad en JSON base64url>   rehace la página «en construcción»
+  maquita-sitios buscadores <dominio>     visibilidad en buscadores e IA (robots, mapa, llms.txt, schema.org…)
+  maquita-sitios avisar <dominio>         avisa por IndexNow de la portada y el mapa del sitio
   maquita-sitios entrar <dominio>         enlace de un solo uso al escritorio de WordPress
   maquita-sitios clave-admin <dominio>    contraseña nueva del administrador de la aplicación
   maquita-sitios revisar <dominio>        versión, actualizaciones pendientes e integridad
@@ -68,6 +70,10 @@ def despachar(args):
         if args[1] != args[2]:
             raise ErrorSitio("borrar: la confirmación no coincide con el dominio")
         return sitio.borrar(v.dominio(args[1]))
+    if len(args) == 2 and args[0] in ("buscadores", "avisar"):
+        import visibilidad
+
+        return (visibilidad.revisar if args[0] == "buscadores" else visibilidad.avisar)(v.dominio(args[1]))
     if len(args) == 2 and args[0] in ("entrar", "clave-admin", "revisar", "actualizar"):
         import seguridad
 

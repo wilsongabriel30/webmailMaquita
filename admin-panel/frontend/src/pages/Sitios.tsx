@@ -4,6 +4,7 @@ import { SectionHelp } from "../components/SectionHelp";
 import { CredencialesModal, type Credencial } from "./sitios/CredencialesModal";
 import { InstalarAppForm } from "./sitios/InstalarAppForm";
 import { SeguridadModal } from "./sitios/SeguridadModal";
+import { BuscadoresModal } from "./sitios/BuscadoresModal";
 
 interface Sitio {
   dominio: string;
@@ -31,6 +32,7 @@ export function Sitios() {
   const [mostrarNuevo, setMostrarNuevo] = useState(false);
   const [instalarEn, setInstalarEn] = useState<string | null>(null);
   const [seguridadDe, setSeguridadDe] = useState<string | null>(null);
+  const [buscadoresDe, setBuscadoresDe] = useState<string | null>(null);
   const [credenciales, setCredenciales] = useState<{ titulo: string; items: Credencial[]; nota?: string } | null>(null);
 
   const cargar = () =>
@@ -116,6 +118,7 @@ export function Sitios() {
             { titulo: "Aplicaciones", desc: "WordPress o Joomla, ambos software libre (GPL). Se descarga la versión oficial vigente y se verifica antes de instalarla. El usuario y la contraseña del administrador se muestran una sola vez." },
             { titulo: "Entrar y contraseña", desc: "«Entrar» abre el escritorio de WordPress sin contraseña con un enlace de un solo uso que vence en 60 segundos. «Nueva contraseña» genera otra para el administrador (WordPress o Joomla) si se olvidó." },
             { titulo: "Seguridad", desc: "Cada sitio tiene cortafuegos de aplicación (OWASP CRS), límite de intentos de inicio de sesión y bloqueo automático de IP atacantes. En WordPress además: XML-RPC y enumeración de usuarios cerrados, versión oculta, editor de archivos apagado, segundo factor disponible y actualizaciones automáticas. «Seguridad» muestra versión, actualizaciones pendientes y si los archivos del núcleo fueron alterados." },
+            { titulo: "Buscadores", desc: "Revisa el sitio como un buscador (robots.txt, mapa del sitio, llms.txt para asistentes de IA, datos schema.org, HTTPS), avisa al momento a Bing y otros por IndexNow y pone en el DNS la verificación de Google Search Console." },
             { titulo: "FTP", desc: "Activa el acceso a los archivos por FTP cifrado (FTPS) o SFTP, encerrado en la carpeta del sitio. «Nueva clave» invalida la anterior." },
             { titulo: "HTTPS", desc: "Pide un certificado gratuito de Let's Encrypt y redirige todo a https. Se renueva solo." },
             { titulo: "Dar de baja", desc: "Deja de publicar el sitio. Archivos y base de datos van a la papelera del servidor (/srv/sitios-papelera), no se borran en el acto." },
@@ -219,7 +222,8 @@ export function Sitios() {
                     )}
                   </td>
                   <td className="px-4 py-2.5 text-right text-ms-gray-90">{s.ocupado_mb} MB</td>
-                  <td className="px-4 py-2.5 text-right">
+                  <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                    <button onClick={() => setBuscadoresDe(s.dominio)} disabled={!!ocupado} title="Visibilidad en buscadores e IA: revisión, aviso a Bing y otros, verificación de Google." className="text-ms-blue hover:underline text-xs mr-3 disabled:opacity-50">Buscadores</button>
                     <button onClick={() => borrar(s)} disabled={!!ocupado} className="text-ms-red hover:underline text-xs disabled:opacity-50">Dar de baja</button>
                   </td>
                 </tr>
@@ -230,6 +234,7 @@ export function Sitios() {
         </div>
       )}
 
+      {buscadoresDe && <BuscadoresModal dominio={buscadoresDe} onCerrar={() => setBuscadoresDe(null)} />}
       {seguridadDe && <SeguridadModal dominio={seguridadDe} onCerrar={() => { setSeguridadDe(null); cargar(); }} />}
       {credenciales && <CredencialesModal {...credenciales} onCerrar={() => setCredenciales(null)} />}
     </div>

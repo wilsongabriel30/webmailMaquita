@@ -312,7 +312,7 @@ def test_sitios_solo_panel():
 
 
 def test_sitios_mantenimiento():
-    for orden in ("entrar", "clave-admin", "revisar", "actualizar"):
+    for orden in ("entrar", "clave-admin", "revisar", "actualizar", "buscadores", "avisar"):
         assert _ok("maquita-admin", "maquita-sitios", orden, "ejemplo.org")
     # Solo el sistema: el panel no puede lanzar las tareas internas.
     for interna in (("cron",), ("regenerar",), ("entrar",), ("entrar", "ejemplo.org", "x")):
