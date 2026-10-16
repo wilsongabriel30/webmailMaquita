@@ -604,7 +604,13 @@ echo "  Editor de PDF: https://${MAIL_HOST}/herramientas/editor-pdf/"
 
 echo -e "\n${GREEN}[18/18] Iniciando y verificando...${NC}"
 systemctl restart maquita-webmail
-nginx -t && { systemctl reload nginx 2>/dev/null || systemctl enable --now nginx; }
+# Si la configuración no valida, nginx sigue con la anterior (solo puerto 80) y nada lo delata:
+# se detiene aquí con el error de nginx a la vista.
+if ! nginx -t; then
+    echo -e "${RED}✗ nginx no valida la configuración (error arriba): el webmail y el panel no abrirían por HTTPS.${NC}"
+    exit 1
+fi
+systemctl reload nginx 2>/dev/null || systemctl enable --now nginx
 sleep 3
 # El backend tarda en levantar más que un sleep corto: se reintenta en vez de mentir con
 # «sin respuesta», que hacía pensar en una instalación rota cuando estaba bien (aviso de Andes).

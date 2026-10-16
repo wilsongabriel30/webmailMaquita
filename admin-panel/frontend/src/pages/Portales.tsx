@@ -32,7 +32,7 @@ function Archivo({ empresa, tipo, url, onChange, onError }: {
     const fd = new FormData(); fd.append("file", f);
     const token = localStorage.getItem("admin_token");
     const res = await fetch(`/api/portales/marca/${empresa}/upload/${tipo}`, {
-      method: "POST", headers: { Authorization: `Bearer ${token}` }, body: fd,
+      method: "POST", headers: { "X-Admin-Token": token || "" }, body: fd,
     });
     if (!res.ok) { const e = await res.json().catch(() => ({})); onError(e.detail || "Error al subir"); return; }
     const j = await res.json(); onChange(j.url + "?t=" + Date.now());

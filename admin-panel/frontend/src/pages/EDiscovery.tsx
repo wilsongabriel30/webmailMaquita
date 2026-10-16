@@ -107,7 +107,7 @@ export function EDiscovery() {
       const token = localStorage.getItem("admin_token");
       const res = await fetch(
         `/api/ediscovery/export/${encodeURIComponent(r.mailbox)}?uid=${r.uid}&folder=${r.folder}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { "X-Admin-Token": token || "" } }
       );
       if (!res.ok) throw new Error("Error exportando");
       const blob = await res.blob();

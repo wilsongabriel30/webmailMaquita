@@ -3,7 +3,9 @@ const BASE = "/api";
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const token = localStorage.getItem("admin_token");
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
+  // X-Admin-Token y no «Authorization»: esa cabecera la usa la clave básica de nginx al entrar
+  // al panel desde fuera de la red interna, y con las dos juntas todo daba 401.
+  if (token) headers["X-Admin-Token"] = token;
 
   const res = await fetch(`${BASE}${path}`, {
     method,

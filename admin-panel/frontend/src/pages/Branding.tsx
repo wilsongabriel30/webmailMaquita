@@ -123,7 +123,7 @@ export function Branding() {
       const token = localStorage.getItem("admin_token");
       const res = await fetch(`/api/branding/upload/${type}`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { "X-Admin-Token": token || "" },
         body: formData,
       });
       if (!res.ok) {
