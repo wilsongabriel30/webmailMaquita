@@ -141,7 +141,15 @@ export function MailSidebar() {
   const handleCreate = async () => {
     if (!newName.trim()) return;
     const fullName = createParent ? `${createParent}.${newName.trim()}` : newName.trim();
-    try { await api.post('/mail/folders', { name: fullName }); showToast(`Carpeta "${newName.trim()}" creada`); } catch { /* el aviso de error ya lo da el backend */ }
+    try {
+      await api.post('/mail/folders', { name: fullName });
+      showToast(`Carpeta "${newName.trim()}" creada`);
+      // Al recargar la lista, se lleva la vista a la carpeta nueva y se resalta un momento,
+      // para poder abrirla o arrastrarle mensajes sin buscarla (antes la vista se quedaba abajo).
+      if (createParent) setTreeCollapsed(p => ({ ...p, [createParent]: false }));
+      setCollapsed(p => ({ ...p, all: false }));
+      setRecienCreada(fullName);
+    } catch { /* el aviso de error ya lo da el backend */ }
     setNewName(''); setCreating(false); setCreateParent(''); fetchFolders();
   };
 
@@ -296,6 +304,15 @@ export function MailSidebar() {
   const otherNodes = fullTree.filter(n => !favorites.includes(n.folder.name));
 
   const [treeCollapsed, setTreeCollapsed] = useState<Record<string, boolean>>({});
+  const [recienCreada, setRecienCreada] = useState<string | null>(null);
+  useEffect(() => {
+    if (!recienCreada || !folders.some(f => f.name === recienCreada)) return;
+    const el = document.querySelector<HTMLElement>(`[data-carpeta="${CSS.escape(recienCreada)}"]`);
+    if (!el) return;
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    const t = setTimeout(() => setRecienCreada(null), 4000);
+    return () => clearTimeout(t);
+  }, [recienCreada, folders]);
   const toggleTreeNode = (name: string) => setTreeCollapsed(p => ({ ...p, [name]: !p[name] }));
 
   // --- Render individual folder ---
@@ -320,6 +337,7 @@ export function MailSidebar() {
 
     return (
       <button key={f.name}
+        data-carpeta={f.name}
         onClick={() => setCurrentFolder(f.name)}
         // Doble click para renombrar (solo no-sistema)
         onDoubleClick={e => {
@@ -405,6 +423,7 @@ export function MailSidebar() {
         className={`w-full flex items-center gap-1.5 px-2 py-[4px] rounded text-[13px] transition-all duration-150 ${
           isBeingDragged ? 'opacity-40' :
           isDragOver ? 'bg-[#deecf9] ring-2 ring-[#0078d4] scale-[1.02]' :
+          recienCreada === f.name ? 'bg-[#fff4ce] ring-2 ring-[#ffb900] font-semibold text-[#323130]' :
           active ? 'bg-[#e1dfdd] font-semibold text-[#323130]' :
           'text-[#323130] hover:bg-[#e1dfdd]'
         } ${!isSystem ? 'cursor-grab active:cursor-grabbing' : ''}`}
