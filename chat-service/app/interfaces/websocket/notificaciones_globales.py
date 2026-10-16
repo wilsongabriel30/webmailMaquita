@@ -42,7 +42,7 @@ def emitir(usuario_ids, tipo, titulo, texto, url, extra=None):
         return 0
     payload = {
         'tipo': tipo or 'sistema',
-        'titulo': (titulo or 'Maquita')[:120],
+        'titulo': (titulo or __import__('organizacion').nombre_organizacion())[:120],
         'texto': (texto or '')[:300],
         'url': url or URL_BASE + '/chat/',
         'fecha': datetime.now().isoformat(timespec='seconds'),

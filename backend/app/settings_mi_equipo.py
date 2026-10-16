@@ -20,6 +20,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.auth.dependencies import get_current_user
+from app.branding.service import marca_corta
 from app.dispositivos.codigo_cifrado import descifrar
 
 logger = logging.getLogger(__name__)
@@ -152,7 +153,7 @@ async def registrar_imeis(
     if ajenos:
         raise HTTPException(
             409,
-            f"El IMEI {', '.join(ajenos)} ya está registrado en otro teléfono de Maquita. Revisa el número (*#06#) o avisa a Tecnología.",
+            f"El IMEI {', '.join(ajenos)} ya está registrado en otro teléfono de {marca_corta()}. Revisa el número (*#06#) o avisa a Tecnología.",
         )
     final = _imeis.unir(lista, actual["imeis"])
     origen = _imeis.origenes(

@@ -134,8 +134,8 @@ async def lifespan(app: FastAPI):
 _es_dev = config.ENVIRONMENT.lower() in ("development", "dev", "local")
 _docs = {} if _es_dev else {"docs_url": None, "redoc_url": None, "openapi_url": None}
 app = FastAPI(
-    title="Maquita Mail Admin",
-    description="Panel de administracion de correo - Maquita",
+    title="Panel de correo",
+    description="Panel de administracion de correo",
     version="1.0.0",
     lifespan=lifespan,
     **_docs,

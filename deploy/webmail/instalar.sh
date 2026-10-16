@@ -275,6 +275,9 @@ EOF
 fi
 # Envíos autenticados con la fecha del servidor, no la del equipo de quien envía
 bash "${APP_DIR}/deploy/postfix/aplicar-fecha-servidor.sh" >/dev/null
+# Las cabeceras internas (filtro, antispam) no salen hacia otros servidores.
+install -m644 "${APP_DIR}/deploy/postfix/cabeceras-internas-salida.regexp" /etc/postfix/cabeceras-internas-salida.regexp
+postconf -e "smtp_header_checks = regexp:/etc/postfix/cabeceras-internas-salida.regexp"
 postfix check && echo "  Postfix: configuración OK"
 # rspamd como milter (procesa y FIRMA el correo) + generación de la clave DKIM
 postconf -e \

@@ -32,7 +32,14 @@ DDL = """CREATE TABLE IF NOT EXISTS task_jefes (
 CREATE TABLE IF NOT EXISTS task_personas (
     email TEXT PRIMARY KEY, nombre TEXT NOT NULL, cargo TEXT NOT NULL DEFAULT '', departamento TEXT NOT NULL DEFAULT '',
     actualizado_en TIMESTAMPTZ NOT NULL DEFAULT NOW());"""
-INST = "@maquita."
+
+
+# Correos institucionales (cuentas que pueden ser jefes): ORG_DOMINIOS_INSTITUCIONALES de la
+# configuración de la organización; si no está, todos sus dominios propios.
+def _es_institucional(email: str) -> bool:
+    return (email or "").rsplit("@", 1)[-1].lower() in organizacion.dominios(
+        "ORG_DOMINIOS_INSTITUCIONALES"
+    )
 
 
 def _dsn():
@@ -133,7 +140,7 @@ async def main():
         por_cargo.setdefault(t["cargo_id"], []).append(t)
 
     def inst(t):
-        return t and INST in (t["email"] or "")
+        return t and _es_institucional(t["email"])
 
     def jefe_de(t):
         a = por_id.get(t["aprobador_vacaciones_id"])

@@ -11,6 +11,8 @@ import os
 
 import httpx
 
+from app.branding.service import marca_corta
+
 logger = logging.getLogger("dispositivos")
 _URL = os.environ.get("NTFY_URL_INTERNO", "http://127.0.0.1:2586")
 _TOKEN = os.environ.get("NTFY_TOKEN", "")
@@ -35,7 +37,7 @@ async def _publicar(topic: str, motivo: str) -> None:
             headers={
                 "Authorization": f"Bearer {_TOKEN}",
                 "Priority": "high",
-                "Title": "Maquita",
+                "Title": marca_corta(),
                 "X-Tags": motivo,
                 "Cache": "yes",
             },

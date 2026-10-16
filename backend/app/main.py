@@ -590,7 +590,7 @@ class SecurityAuditMiddleware(BaseHTTPMiddleware):
 
 _es_dev = get_settings().environment.lower() in ("development", "dev", "local")
 _docs = {} if _es_dev else {"docs_url": None, "redoc_url": None, "openapi_url": None}
-app = FastAPI(title="Maquita Webmail API", version="0.5.0", lifespan=lifespan, **_docs)
+app = FastAPI(title="Webmail API", version="0.5.0", lifespan=lifespan, **_docs)
 
 settings = get_settings()
 app.add_middleware(SecurityAuditMiddleware)

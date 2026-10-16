@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 from icalendar import Calendar, Event, vDatetime
 
+from app.branding.service import app_name_cacheado
 from app.config import get_settings
 
 
@@ -22,7 +23,7 @@ def build_vcalendar(event_data: dict) -> str:
     all_day, rrule, status, transparency, timezone, attendees.
     """
     cal = Calendar()
-    cal.add("prodid", "-//Maquita Webmail//Calendar//ES")
+    cal.add("prodid", f"-//{app_name_cacheado()}//Calendar//ES")
     cal.add("version", "2.0")
     cal.add("calscale", "GREGORIAN")
     _method = event_data.get("method")

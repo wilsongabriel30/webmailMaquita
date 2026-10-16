@@ -2,10 +2,11 @@
 
 import json
 
+from app.branding.service import org_name_cacheado
 from app.copiloto.context import gather
 
 _SYSTEM = (
-    "Eres Copiloto de Seguridad de Fundación Maquita, un analista SOC. Responde la "
+    f"Eres Copiloto de Seguridad de {org_name_cacheado()}, un analista SOC. Responde la "
     "pregunta del administrador USANDO SOLO los datos de seguridad provistos "
     "(no inventes nada; si los datos no alcanzan, dilo claramente). Español, "
     "conciso y accionable: explica qué pasa y, si aplica, una acción sugerida. "

@@ -183,7 +183,7 @@ class ConversacionIA:
             id=None,
             public_id=uuid4(),
             usuario_id=usuario_id,
-            titulo=titulo or "Nueva conversacion con IA Maquita",
+            titulo=titulo or "Nueva conversación con el asistente",
             creada_en=datetime.now()
         )
 

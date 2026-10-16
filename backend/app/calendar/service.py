@@ -75,12 +75,12 @@ def _row_to_calendar(row: asyncpg.Record) -> CalendarOut:
 
 def _reunion_id_de(descripcion) -> Optional[int]:
     """T-30: número de la marca X-MAQUITA-REUNION: <id> en la descripción (o None)."""
-    m = re.search(r"X-MAQUITA-REUNION:\s*(\d+)", descripcion or "")
+    m = re.search(r"(?:REUNION-ID|X-MAQUITA-REUNION):\s*(\d+)", descripcion or "")
     return int(m.group(1)) if m else None
 
 
 def _meet_url_de(descripcion, location) -> str:
-    m = re.search(r"Meet Maquita:\s*(\S+)", descripcion or "")
+    m = re.search(r"(?:Videollamada|Meet Maquita):\s*(\S+)", descripcion or "")
     if m:
         return m.group(1)
     return location if re.match(r"https?://meet\.", location or "") else ""

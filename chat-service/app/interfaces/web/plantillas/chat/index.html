@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Chat Institucional - Raíces{% endblock %}
+{% block title %}Chat institucional{% endblock %}
 
 {% block page_icon %}<i class="fas fa-comments me-2"></i>{% endblock %}
 
@@ -89,7 +89,7 @@
     <div class="chat-main">
         <div id="chatEmptyState" class="chat-empty-state">
             <i class="fas fa-comments"></i>
-            <h4>Chat Institucional Maquita</h4>
+            <h4>Chat institucional</h4>
             <p>Selecciona una conversación o inicia un nuevo chat</p>
             <button class="btn btn-primary mt-3" onclick="openNewChatModal()">
                 <i class="fas fa-plus me-2"></i>Nuevo Chat
@@ -201,7 +201,7 @@
                 <!-- GIF Picker -->
                 <div id="gifPicker" class="gif-picker" style="display: none;">
                     <div class="gif-picker-header">
-                        <h6><i class="fas fa-gift me-2"></i>GIF de la biblioteca Maquita <button type="button" class="btn btn-sm btn-light float-end" onclick="abrirSubirGif()" title="Subir GIF"><i class="fas fa-upload"></i></button></h6>
+                        <h6><i class="fas fa-gift me-2"></i>GIF de la biblioteca propia <button type="button" class="btn btn-sm btn-light float-end" onclick="abrirSubirGif()" title="Subir GIF"><i class="fas fa-upload"></i></button></h6>
                     </div>
                     <div class="gif-picker-search">
                         <input type="text" placeholder="Buscar en la biblioteca (feliz, gracias, celebrar...)" id="gifSearch" oninput="searchGifs(this.value)">
@@ -209,7 +209,7 @@
                     <div class="gif-picker-content" id="gifPickerContent">
                         <div class="gif-placeholder">
                             <i class="fas fa-search fa-3x mb-3 text-muted"></i>
-                            <p class="text-muted">Busca en la biblioteca Maquita; si no está, búscalo en fuentes externas</p>
+                            <p class="text-muted">Busca en la biblioteca propia; si no está, búscalo en fuentes externas</p>
                         </div>
                     </div>
                 </div>
@@ -387,7 +387,7 @@
 <script src="{{ url_for('static', filename='js/chat-utilidades-archivos.js') }}?v=20260828-chat1"></script>
 <script src="{{ url_for('static', filename='js/chat-opciones-mensaje.js') }}?v=20260902-t54b"></script>
 <script src="{{ url_for('static', filename='js/chat-menus-contextuales.js') }}?v=20260828-chat1"></script>
-<script src="{{ url_for('static', filename='js/chat-gifs-local.js') }}?v=20260828-externos"></script>
+<script src="{{ url_for('static', filename='js/chat-gifs-local.js') }}?v=20261016"></script>
 <script src="{{ url_for('static', filename='js/chat-responder.js') }}?v=20260827h"></script>
 <script src="{{ url_for('static', filename='js/chat-vistos.js') }}?v=20260827h"></script>
 <script src="{{ url_for('static', filename='js/chat-llamadas.js') }}?v=20260831-t15"></script>
@@ -415,7 +415,7 @@
 <script src="{{ url_for('static', filename='js/chat-lista-teams.js') }}?v=20260902-t54b"></script>
 <!-- Pestaña «Reuniones» con reflejo inmediato (avisos de Raíces por Socket.IO), 14/10/2026 -->
 <script>window.MQ_URL_INTRANET = {{ url_intranet|tojson }}; window.MQ_URL_REUNIONES = {{ url_reuniones|tojson }};</script>
-<script src="{{ url_for('static', filename='js/chat-reuniones-agenda.js') }}?v=20261014b"></script>
+<script src="{{ url_for('static', filename='js/chat-reuniones-agenda.js') }}?v=20261016"></script>
 <!-- Crear reunión desde un grupo (Reunión ahora / Programar), 14/10/2026 -->
 <script src="{{ url_for('static', filename='js/chat-reunion-grupo.js') }}?v=20261014a"></script>
 <!-- T-50 tanda 2: el encabezado del chat activo como Teams -->

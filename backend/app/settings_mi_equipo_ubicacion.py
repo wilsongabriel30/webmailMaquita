@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.auth.dependencies import get_current_user
+from app.branding.service import marca_corta
 from app.dispositivos import push_ntfy
 
 logger = logging.getLogger("dispositivos")
@@ -29,9 +30,9 @@ _VENTANA_MIN = 15
 def _margen(p: dict) -> str:
     m = p.get("precision_m")
     if p.get("origen") == "avistamiento":
-        return "cerca de otro teléfono de Maquita"
+        return f"cerca de otro teléfono de {marca_corta()}"
     if p.get("origen") == "ancla":
-        return "en la oficina (conectado a la red de Maquita)"
+        return f"en la oficina (conectado a la red de {marca_corta()})"
     if m is None:
         return "margen desconocido"
     m = int(round(m))

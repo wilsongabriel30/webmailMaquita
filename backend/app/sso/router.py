@@ -98,7 +98,7 @@ async def saml_login(request: Request):
     if not cfg or not cfg["sso_url"]:
         raise HTTPException(400, "SSO no esta configurado o inactivo")
 
-    request_id = f"_maquita_{uuid.uuid4().hex}"
+    request_id = f"_id_{uuid.uuid4().hex}"
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     authn_request = f"""<samlp:AuthnRequest
