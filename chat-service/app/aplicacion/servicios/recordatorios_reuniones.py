@@ -40,7 +40,7 @@ def _ciclo():
             ids = set(usuarios_por_correo(correos)) | {r['creador_id']}
             minutos = max(1, int((r['fecha_hora'] - datetime.now()).total_seconds() // 60))
             emitir(ids, 'reunion', f"En {minutos} min: {r['asunto'] or 'Reunión'}",
-                   f"{r['fecha_hora']:%H:%M} · Meet Maquita",
+                   f"{r['fecha_hora']:%H:%M} · Videollamada",
                    f"{organizacion.url_correo()}/api/chat/reuniones/{r['id']}/acceso?redirigir=1",
                    {'origen': 'reuniones', 'reunion_id': r['id'], 'sala': r['nombre_sala'],
                     'inicio': r['fecha_hora'].isoformat(timespec='minutes'), 'recordatorio': True})

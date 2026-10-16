@@ -110,7 +110,7 @@ URL_PUBLICA = os.getenv('ALMACEN_URL_PUBLICA', 'http://localhost')
 
 
 def drive_name() -> str:
-    """Nombre visible del Drive (config_kv['drive_name']); default 'Nube Maquita'.
+    """Nombre visible del Drive (config_kv['drive_name']); por defecto, neutro: 'Nube'.
     Una sola perilla para que cada replica ponga su marca sin editar plantillas."""
     try:
         from almacen_bd import consultar
@@ -120,4 +120,4 @@ def drive_name() -> str:
     except Exception as exc:
         import logging
         logging.getLogger('almacen.config').warning('drive_name(): %s', exc)
-    return 'Nube Maquita'
+    return 'Nube'

@@ -3,6 +3,7 @@ import re
 from fastapi import APIRouter, Request, HTTPException, Depends, Query
 from app import organizacion
 from app.auth.dependencies import get_current_admin, require_role
+from app import marca
 
 router = APIRouter(prefix="/api/groups", tags=["groups"])
 
@@ -366,7 +367,7 @@ async def add_member(group_id: int, request: Request, admin: dict = Depends(requ
                 "type": "external_warning",
                 "message": f"'{email}' es una dirección EXTERNA a la organización. "
                            f"Los correos enviados a '{group['address']}' llegarán a esta "
-                           f"persona fuera de Maquita. ¿Está seguro?",
+                           f"persona fuera de {marca.corta()}. ¿Está seguro?",
                 "requires_confirmation": True,
             })
 

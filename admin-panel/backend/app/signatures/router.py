@@ -5,6 +5,7 @@ import subprocess
 
 from fastapi import APIRouter, Request, HTTPException, Depends, Query
 from app.auth.dependencies import get_current_admin, require_role
+from app import marca
 
 router = APIRouter(prefix="/api/signatures", tags=["signatures"])
 
@@ -233,6 +234,7 @@ async def preview_signature(sig_id: int, username: str = "", request: Request = 
             html = html.replace("{{nombre}}", user_sig["custom_name"] if user_sig and user_sig["custom_name"] else user["name"])
             html = html.replace("{{email}}", username)
             html = html.replace("{{cargo}}", user_sig["custom_title"] if user_sig else "")
+            html = html.replace("{{empresa}}", marca.org())
             html = html.replace("{{telefono}}", user_sig["custom_phone"] if user_sig else "")
             html = html.replace("{{dominio}}", user["domain"])
 

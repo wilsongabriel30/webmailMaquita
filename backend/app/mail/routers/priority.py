@@ -19,6 +19,7 @@ from app.core.session import get_imap_login_user
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/mail", tags=["priority"])
 
+from app import organizacion
 from app.config import get_settings as _gs
 
 IA_CLASSIFY_URL = f"{_gs().ollama_url}/api/v1/email-assistant/classify/batch"
@@ -32,14 +33,16 @@ async def ensure_tables(db):
     pass
 
 
-def _is_maquita_domain(from_addr: str) -> bool:
-    """Verifica si el remitente es de un dominio *maquita*."""
+def _es_dominio_prioritario(from_addr: str) -> bool:
+    """¿El remitente es de un dominio de la casa? Lista ORG_DOMINIOS_PRIORIDAD de la configuración
+    de la organización; si no está, todos sus dominios propios (antes: «maquita» en el dominio).
+    """
     import re
 
     email_match = re.search(r"<([^>]+)>", from_addr)
     email = email_match.group(1).lower() if email_match else from_addr.strip().lower()
     domain = email.split("@")[-1] if "@" in email else ""
-    return "maquita" in domain
+    return domain in organizacion.dominios("ORG_DOMINIOS_PRIORIDAD")
 
 
 @router.get("/priority")
@@ -96,10 +99,10 @@ async def get_priority_inbox(
     # 3) Clasificar los que no tienen cache (en batch)
     uncached = [m for m in messages if m["uid"] not in cache_map]
     if uncached:
-        # Pre-clasificar correos de dominios *maquita* como prioritarios
+        # Pre-clasificar correos de los dominios de la casa como prioritarios
         still_uncached = []
         for m in uncached:
-            if _is_maquita_domain(m.get("from", "")):
+            if _es_dominio_prioritario(m.get("from", "")):
                 await db.execute(
                     """INSERT INTO priority_cache (owner, folder, message_uid, priority, category, confidence, reason)
                        VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -110,7 +113,7 @@ async def get_priority_inbox(
                     "high",
                     "domain_rule",
                     1.0,
-                    "Dominio Maquita - clasificado automaticamente",
+                    "Dominio propio - clasificado automaticamente",
                 )
                 # Solo insertar si no fue manual (DO NOTHING respeta manual)
                 if m["uid"] not in cache_map:
@@ -119,7 +122,7 @@ async def get_priority_inbox(
                         "priority": "high",
                         "category": "domain_rule",
                         "confidence": 1.0,
-                        "reason": "Dominio Maquita - clasificado automáticamente",
+                        "reason": "Dominio propio - clasificado automáticamente",
                     }
             else:
                 still_uncached.append(m)

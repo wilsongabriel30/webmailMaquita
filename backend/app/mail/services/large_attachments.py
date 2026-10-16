@@ -6,10 +6,13 @@ Almacén del usuario y se genera un enlace público de solo lectura. Reemplaza l
 antigua integración con la nube externa, ya retirada (N-20).
 """
 
+import html as html_lib
 import logging
 import os
 
 import httpx
+
+from app.branding.service import marca_corta
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +108,6 @@ def format_link_html(filename: str, size_bytes: int, share_url: str) -> str:
         f"<div>"
         f'<a href="{share_url}" style="color:#0078d4;text-decoration:none;font-weight:600;font-size:14px;"'
         f' target="_blank">{filename}</a>'
-        f'<div style="color:#605e5c;font-size:12px;">{size_mb:.1f} MB — Almacenado en Almacén Maquita</div>'
+        f'<div style="color:#605e5c;font-size:12px;">{size_mb:.1f} MB — Almacenado en el Drive de {html_lib.escape(marca_corta())}</div>'
         f"</div></div></div>"
     )

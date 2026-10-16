@@ -10,12 +10,14 @@ import subprocess
 
 # [S7-1] Envoltorio con validación propia; sudoers ya no tiene comodines.
 MAQUITA_SUDO = "/usr/local/sbin/maquita-sudo"
+import html as html_lib
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
+from app.branding.service import marca_corta
 from app.config import get_settings
 
 router = APIRouter(prefix="/api/mail", tags=["mail-recall"])
@@ -191,7 +193,7 @@ async def _send_external_recall_request(
                 <p><b>Por favor, considere eliminar el mensaje original de su buzon.</b></p>
                 <hr style="border:none;border-top:1px solid #edebe9;margin:20px 0">
                 <p style="font-size:11px;color:#a19f9d">
-                    Este es un mensaje automatico generado por el sistema de correo de Maquita.
+                    Este es un mensaje automatico generado por el sistema de correo de {html_lib.escape(marca_corta())}.
                     La eliminacion del mensaje original queda a discrecion del destinatario.
                 </p>
             </div>

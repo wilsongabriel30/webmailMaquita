@@ -67,7 +67,7 @@ export function ImportExportModal({ mode, onClose, onImportDone }: Props) {
       /* FIX: Nombre de archivo dinámico con fecha actual, como lo genera el backend.
          Antes usaba un nombre fijo sin fecha. */
       const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-      a.download = `contactos_maquita_${today}.${exportFormat === 'vcf' ? 'vcf' : 'csv'}`;
+      a.download = `contactos_${today}.${exportFormat === 'vcf' ? 'vcf' : 'csv'}`;
       a.click();
       URL.revokeObjectURL(url);
       onClose();

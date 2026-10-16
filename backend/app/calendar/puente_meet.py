@@ -21,7 +21,8 @@ log = logging.getLogger(__name__)
 CHAT = (
     organizacion.url_correo()
 )  # mismo dominio: la cookie access_token del usuario vale para /api/chat
-MARCA = re.compile(r"X-MAQUITA-REUNION:\s*(\d+)")
+# «REUNION-ID» desde el 16/10/2026; «X-MAQUITA-REUNION» en los eventos anteriores (se siguen reconociendo).
+MARCA = re.compile(r"(?:REUNION-ID|X-MAQUITA-REUNION):\s*(\d+)")
 
 
 def _token(request):
@@ -76,7 +77,7 @@ async def tras_crear(db, user, ev, data, request):
                 return ev
             descripcion = (
                 (ev.description + "\n\n" if ev.description else "")
-                + f"Meet Maquita: {reunion['url_sala']}\nEntrar con tu usuario: {reunion['url_acceso']}?redirigir=1\nX-MAQUITA-REUNION: {reunion['id']}"
+                + f"Videollamada: {reunion['url_sala']}\nEntrar con tu usuario: {reunion['url_acceso']}?redirigir=1\nREUNION-ID: {reunion['id']}"
             )
             from app.calendar.service import calendar_service
 

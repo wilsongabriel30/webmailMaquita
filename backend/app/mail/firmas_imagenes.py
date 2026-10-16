@@ -111,7 +111,7 @@ def _destino(url: str) -> Destino:
 
 def descargar(url: str) -> bytes:
     """Descarga acotada (5 s, 2 MB, image/*), conectando a la IP ya validada y revalidando cada salto."""
-    cabeceras = {"User-Agent": "MaquitaMail-firmas/1.0", "Accept": "image/*"}
+    cabeceras = {"User-Agent": "Webmail-firmas/1.0", "Accept": "image/*"}
     try:
         with httpx.Client(timeout=TIEMPO_S, follow_redirects=False) as cliente:
             for _salto in range(3):

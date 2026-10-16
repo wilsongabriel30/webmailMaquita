@@ -372,9 +372,7 @@ def _export_vcard(rows, today: str) -> StreamingResponse:
     return StreamingResponse(
         io.BytesIO(content.encode("utf-8")),
         media_type="text/vcard",
-        headers={
-            "Content-Disposition": f"attachment; filename=contactos_maquita_{today}.vcf"
-        },
+        headers={"Content-Disposition": f"attachment; filename=contactos_{today}.vcf"},
     )
 
 
@@ -436,7 +434,5 @@ def _export_csv(rows, today: str) -> StreamingResponse:
     return StreamingResponse(
         io.BytesIO(output.getvalue().encode("utf-8")),
         media_type="text/csv",
-        headers={
-            "Content-Disposition": f"attachment; filename=contactos_maquita_{today}.csv"
-        },
+        headers={"Content-Disposition": f"attachment; filename=contactos_{today}.csv"},
     )

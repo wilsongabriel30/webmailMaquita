@@ -119,7 +119,7 @@ async def run(st: dict, sender: str, pool, text: str, manips: list,
     if block:
         return RejectWithCode(
             primary_code=(5, 5, 4), enhanced_code=(5, 7, 1),
-            text="Bloqueado por Proteccion de datos de Maquita: el mensaje contiene datos sensibles ("
+            text="Bloqueado por la politica de proteccion de datos: el mensaje contiene datos sensibles ("
                  + ", ".join(types) + ") dirigidos a destinatarios externos. Quite esos datos o use el webmail para solicitar autorizacion.")
     manips.append(AppendHeader(headername="X-DLP-Alert",
                                headertext="posibles datos sensibles: " + ", ".join(types)

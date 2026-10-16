@@ -1,0 +1,163 @@
+#!/usr/bin/env python3
+"""maquita-identidad — aplica la identidad de la institución (panel → Personalización → «Aplicar en todo»).
+
+Corre como root y solo se llama desde el panel a través de maquita-sudo. Responde siempre JSON.
+
+  maquita-identidad aplicar <identidad en JSON base64url>
+
+Hace, con lo que se guardó en Personalización:
+1. App del correo (PWA): nombre, nombre corto, descripción y color en manifest.json, e íconos 192/512 y
+   de Apple generados desde el logo (también en branding/local/, para que un despliegue no los pise).
+2. Drive: su nombre visible («Nube <nombre corto>»).
+3. Sitios web «en construcción»: rehace su página con nombre, logo, descripción, contacto y redes.
+4. Reinicia el webmail y el Drive, que guardan el nombre en memoria al arrancar.
+"""
+
+import base64
+import glob
+import json
+import os
+import re
+import subprocess
+import sys
+
+APP = "/opt/maquita-webmail"
+LOGO = os.path.join(APP, "uploads/branding/logo")
+WWW = os.path.join(APP, "www/webmail")
+LOCAL = os.path.join(APP, "branding/local")
+PYTHON_PIL = os.path.join(APP, "backend/venv/bin/python")
+
+
+class Error(Exception):
+    pass
+
+
+def _texto(v, n):
+    v = str(v or "").strip()
+    if re.search(r"[\x00-\x1f\x7f<>\"]", v):
+        raise Error("la identidad contiene caracteres no permitidos (< > comillas o de control)")
+    return v[:n]
+
+
+def _identidad(b64):
+    try:
+        d = json.loads(base64.urlsafe_b64decode(b64 + "=" * (-len(b64) % 4)).decode())
+    except Exception:
+        raise Error("identidad no válida")
+    if not isinstance(d, dict) or not _texto(d.get("nombre"), 100):
+        raise Error("falta el nombre de la institución")
+    color = str(d.get("color") or "")
+    redes = d.get("redes") if isinstance(d.get("redes"), dict) else {}
+    return {
+        "nombre": _texto(d.get("nombre"), 100),
+        "corto": _texto(d.get("corto"), 30) or _texto(d.get("nombre"), 30),
+        "app": _texto(d.get("app"), 60) or "Correo",
+        "descripcion": _texto(d.get("descripcion"), 300),
+        "correo": _texto(d.get("correo"), 120),
+        "telefono": _texto(d.get("telefono"), 40),
+        "color": color if re.match(r"^#[0-9a-fA-F]{6}$", color) else "",
+        "redes": {_texto(k, 20): _texto(u, 200) for k, u in redes.items() if str(u).startswith("https://")},
+    }
+
+
+def _manifest(ide):
+    ruta = os.path.join(WWW, "manifest.json")
+    if not os.path.exists(ruta):
+        return "sin manifest (webmail no desplegado)"
+    with open(ruta) as f:
+        m = json.load(f)
+    m["name"] = ide["app"]
+    m["short_name"] = ide["corto"][:12] or ide["app"][:12]
+    m["description"] = ide["descripcion"] or f"Correo de {ide['nombre']}"
+    if ide["color"]:
+        m["theme_color"] = ide["color"]
+    texto = json.dumps(m, ensure_ascii=False, indent=2)
+    for destino in (ruta, os.path.join(LOCAL, "manifest.json")):
+        os.makedirs(os.path.dirname(destino), exist_ok=True)
+        with open(destino, "w") as f:
+            f.write(texto)
+    return "actualizado"
+
+
+_ICONOS = r'''
+import sys
+from PIL import Image
+logo, fondo, destinos = sys.argv[1], sys.argv[2], sys.argv[3:]
+img = Image.open(logo).convert("RGBA")
+for destino in destinos:
+    lado = 180 if destino.endswith("apple-touch-icon.png") else (512 if "512" in destino else 192)
+    lienzo = Image.new("RGBA", (lado, lado), fondo)
+    margen = int(lado * 0.12)
+    copia = img.copy()
+    copia.thumbnail((lado - 2 * margen, lado - 2 * margen))
+    lienzo.paste(copia, ((lado - copia.width) // 2, (lado - copia.height) // 2), copia)
+    lienzo.convert("RGB").save(destino, "PNG", optimize=True)
+'''
+
+
+def _iconos():
+    logos = sorted(glob.glob(os.path.join(LOGO, "*")))
+    logos = [l for l in logos if os.path.splitext(l)[1].lower() in (".png", ".jpg", ".jpeg", ".webp", ".gif")]
+    if not logos:
+        return "sin logo (o es SVG): se mantienen los íconos actuales"
+    if not os.path.exists(PYTHON_PIL):
+        return "sin Pillow: no se generaron íconos"
+    destinos = []
+    for base in (os.path.join(WWW, "icons"), os.path.join(LOCAL, "icons")):
+        os.makedirs(base, exist_ok=True)
+        destinos += [os.path.join(base, n) for n in ("icon-192.png", "icon-512.png", "apple-touch-icon.png")]
+    r = subprocess.run([PYTHON_PIL, "-c", _ICONOS, logos[0], "#ffffff", *destinos], capture_output=True, text=True, timeout=60)
+    if r.returncode != 0:
+        return "no se pudieron generar los íconos: " + (r.stderr.strip().splitlines() or ["?"])[-1][:200]
+    return "generados desde el logo"
+
+
+def _drive(ide):
+    nombre = f"Nube {ide['corto']}"[:60]
+    # El valor va como variable de psql (:'v' lo cita como literal SQL); por la entrada estándar,
+    # porque psql no sustituye variables en -c.
+    sql = ("INSERT INTO config_kv (clave, valor) VALUES ('drive_name', :'v') "
+           "ON CONFLICT (clave) DO UPDATE SET valor = EXCLUDED.valor;\n")
+    r = subprocess.run(["runuser", "-u", "postgres", "--", "psql", "-q", "-v", "ON_ERROR_STOP=1", "-d", "almacen",
+                        "-v", f"v={nombre}"], input=sql, capture_output=True, text=True, timeout=30, cwd="/tmp")
+    return nombre if r.returncode == 0 else "no se pudo cambiar: " + r.stderr.strip()[-200:]
+
+
+def _sitios(ide):
+    if not os.path.exists("/usr/local/sbin/maquita-sitios"):
+        return []
+    lista = json.loads(subprocess.run(["/usr/local/sbin/maquita-sitios", "listar"], capture_output=True, text=True, timeout=60).stdout or "{}")
+    b64 = base64.urlsafe_b64encode(json.dumps({k: ide[k] for k in ("nombre", "descripcion", "correo", "telefono", "color", "redes")},
+                                              ensure_ascii=False).encode()).decode().rstrip("=")
+    hechos = []
+    for s in lista.get("sitios", []):
+        # En sitios con WordPress o Joomla solo se actualizan llms.txt y los datos para buscadores.
+        r = subprocess.run(["/usr/local/sbin/maquita-sitios", "inicio", s["dominio"], b64], capture_output=True, text=True, timeout=60)
+        hechos.append({"dominio": s["dominio"], "ok": r.returncode == 0})
+    return hechos
+
+
+def aplicar(ide):
+    resultado = {"app": _manifest(ide), "iconos": _iconos(), "drive": _drive(ide), "sitios": _sitios(ide)}
+    for servicio in ("maquita-webmail", "maquita-almacen"):
+        subprocess.run(["systemctl", "try-restart", servicio], capture_output=True, timeout=120)
+    resultado["reiniciados"] = ["webmail", "drive"]
+    return resultado
+
+
+def main(argv):
+    if os.geteuid() != 0:
+        print(json.dumps({"error": "maquita-identidad debe ejecutarse como root"}))
+        return 1
+    try:
+        if len(argv) == 3 and argv[1] == "aplicar":
+            print(json.dumps(aplicar(_identidad(argv[2])), ensure_ascii=False))
+            return 0
+        raise Error("orden o argumentos no permitidos")
+    except Error as e:
+        print(json.dumps({"error": str(e)}, ensure_ascii=False))
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

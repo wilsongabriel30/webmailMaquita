@@ -1,0 +1,8 @@
+# Cabeceras internas del servidor (filtro de correo, antispam, simulacros): sirven a los filtros y a
+# los usuarios propios, pero no deben salir hacia otros servidores. Postfix las quita solo al
+# entregar fuera (smtp_header_checks); en la entrega local (LMTP) se conservan.
+# No rompe DKIM: las cabeceras X- no forman parte de la firma.
+/^X-Maquita-/		IGNORE
+/^X-Spamd-(Result|Bar):/	IGNORE
+/^X-Rspamd-/		IGNORE
+/^X-Spam-(Status|Level|Flag|Score):/	IGNORE

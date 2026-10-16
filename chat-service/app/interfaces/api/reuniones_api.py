@@ -53,7 +53,7 @@ def _a_dict(r, yo):
     inicio = r['fecha_hora']
     dur = r['duracion_horas'] or 1
     return {
-        'id': r['id'], 'asunto': r['asunto'] or 'Reunión Maquita Meet', 'sala': r['nombre_sala'],
+        'id': r['id'], 'asunto': r['asunto'] or 'Videollamada', 'sala': r['nombre_sala'],
         'inicio': inicio.isoformat(timespec='minutes') if inicio else None,
         'fin': (inicio + timedelta(hours=dur)).isoformat(timespec='minutes') if inicio else None,
         'duracion_horas': dur, 'estado': r['estado'], 'es_creador': r['creador_id'] == yo['id'],
@@ -77,7 +77,7 @@ def _evento_correo_crear(yo, fila, asunto, inicio, duracion, participantes, mens
             return None
         cuerpo = {
             'calendar_id': por_defecto[0]['id'], 'summary': asunto,
-            'description': (mensaje + '\n\n' if mensaje else '') + 'Meet Maquita: ' + url_sala(fila['nombre_sala']) +
+            'description': (mensaje + '\n\n' if mensaje else '') + 'Videollamada: ' + url_sala(fila['nombre_sala']) +
                            f"\nEntrar con tu usuario: {organizacion.url_correo()}/api/chat/reuniones/{fila['id']}/acceso?redirigir=1",
             'location': url_sala(fila['nombre_sala']), 'dtstart': inicio.isoformat(), 'dtend': (inicio + timedelta(hours=duracion)).isoformat(),
             'all_day': False, 'timezone': 'America/Guayaquil', 'reminders': [{'minutes': 10}], 'attendees': list(participantes),
@@ -180,7 +180,7 @@ def crear():
     if not yo:
         return jsonify({'success': False, 'error': 'No autenticado'}), 401
     d = request.get_json(silent=True) or {}
-    asunto = (d.get('asunto') or '').strip()[:200] or 'Reunión Maquita Meet'
+    asunto = (d.get('asunto') or '').strip()[:200] or 'Videollamada'
     try:
         inicio = datetime.fromisoformat(str(d.get('inicio', '')).replace('Z', ''))
     except ValueError:

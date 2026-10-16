@@ -10,6 +10,7 @@ import logging
 import os
 
 import httpx
+from app import marca
 
 logger = logging.getLogger("dispositivos")
 _URL = os.environ.get("NTFY_URL_INTERNO", "http://127.0.0.1:2586")
@@ -31,7 +32,7 @@ async def _publicar(topic: str, motivo: str) -> None:
     try:
         await _c().post(f"{_URL}/{topic.strip()}", content=b"sync",
                         headers={"Authorization": f"Bearer {_TOKEN}", "Priority": "high",
-                                 "Title": "Maquita", "X-Tags": motivo, "Cache": "yes"})
+                                 "Title": marca.corta(), "X-Tags": motivo, "Cache": "yes"})
     except Exception:
         logger.debug("push_fallo topic=%s", topic, exc_info=True)
 

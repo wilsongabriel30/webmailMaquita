@@ -13,6 +13,7 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
+from app.branding.service import marca_corta
 
 from . import service
 
@@ -214,7 +215,7 @@ def _portal_html(token: str, m: dict) -> str:
 def _page(inner: str) -> str:
     return f"""<!doctype html><html lang="es"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Mensaje seguro — Maquita</title>
+<title>Mensaje seguro — {html_lib.escape(marca_corta())}</title>
 <style>
  body{{font-family:Segoe UI,Arial,sans-serif;background:#f3f2f1;margin:0;padding:24px;color:#323130}}
  .wrap{{max-width:560px;margin:0 auto}}
@@ -231,7 +232,7 @@ def _page(inner: str) -> str:
  .file{{display:block;background:#f3f2f1;border:1px solid #e1dfdd;border-radius:6px;padding:10px 12px;margin:8px 0;text-decoration:none;color:#0078d4}}
  .foot{{text-align:center;color:#aaa;font-size:12px;margin-top:16px}}
 </style></head><body><div class="wrap">{inner}
-<div class="foot">Protegido por Maquita · El contenido viaja cifrado</div>
+<div class="foot">Protegido por {html_lib.escape(marca_corta())} · El contenido viaja cifrado</div>
 </div>
 <script>
 (function(){{

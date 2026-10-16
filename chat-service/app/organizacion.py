@@ -34,3 +34,27 @@ def url_foto(foto):
     if foto.startswith('uploads/'):
         return url_intranet() + '/static/' + foto
     return url_intranet() + '/static/uploads/profiles/' + foto
+
+
+# --- Identidad del asistente de IA del chat (16/10/2026) ---------------------------------------
+#   CHAT_ORG_NOMBRE      nombre de la organización (p. ej. «Fundación Ejemplo»)
+#   CHAT_IA_NOMBRE       nombre del asistente (p. ej. «IA Ejemplo»)
+#   CHAT_IA_INSTITUCION  fichero de texto con los datos de la institución que el asistente no debe
+#                        olvidar (país, fundación, misión, redes…). Si no existe, el asistente no
+#                        afirma nada sobre la institución que no venga en el contexto.
+
+def nombre_organizacion():
+    return (os.getenv('CHAT_ORG_NOMBRE') or 'la organización').strip()
+
+
+def nombre_asistente():
+    return (os.getenv('CHAT_IA_NOMBRE') or 'Asistente IA').strip()
+
+
+def conocimiento_institucional():
+    ruta = os.getenv('CHAT_IA_INSTITUCION') or '/etc/maquita-mail/ia-institucion.txt'
+    try:
+        with open(ruta, encoding='utf-8') as f:
+            return f.read().strip()[:4000]
+    except OSError:
+        return ''

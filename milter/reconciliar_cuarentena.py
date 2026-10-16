@@ -65,7 +65,7 @@ def main():
     try:
         conn = psycopg2.connect(_dsn())
     except Exception:
-        _avisar("[Maquita] Cuarentena: BD no disponible, %d marcador(es) pendiente(s)" % len(marcadores),
+        _avisar("[Cuarentena] BD no disponible, %d marcador(es) pendiente(s)" % len(marcadores),
                 "La cola de evidencia de cuarentena tiene marcadores pendientes y la BD no "
                 "responde. Se reintenta en el proximo ciclo. Revisar la BD.")
         return
@@ -92,7 +92,7 @@ def main():
                     fallidos += 1
     finally:
         conn.close()
-    _avisar("[Maquita] Cuarentena reconciliada: %d reinsertado(s), %d con error" % (reinsertados, fallidos),
+    _avisar("[Cuarentena] Reconciliada: %d reinsertado(s), %d con error" % (reinsertados, fallidos),
             "La evidencia de cuarentena diferida se reinserto en la BD.\n"
             "Reinsertados: %d\nCon error (quedan en la cola): %d\n"
             "Esto ocurre cuando el INSERT del milter fallo antes (BD caida)." % (reinsertados, fallidos))

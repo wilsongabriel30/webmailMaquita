@@ -112,7 +112,7 @@ def _warn_page(
     {proceed}
   </div>
 </div>
-<div class="foot">Protección de enlaces de Maquita · No ingreses contraseñas si no estás seguro</div>
+<div class="foot">Protección de enlaces de {html_lib.escape(marca_corta())} · No ingreses contraseñas si no estás seguro</div>
 </body></html>"""
 
 
@@ -124,6 +124,7 @@ from pydantic import BaseModel  # noqa: E402
 from starlette.concurrency import run_in_threadpool  # noqa: E402
 
 from app.auth.dependencies import get_current_user  # noqa: E402
+from app.branding.service import marca_corta
 
 from . import classifier  # noqa: E402
 

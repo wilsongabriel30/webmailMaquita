@@ -130,9 +130,9 @@ def _secreto() -> str:
     return ""
 
 
-REMITENTE = organizacion.remitente("ORG_REMITENTE_TAREAS", "Raíces Tareas", "tareas")
+REMITENTE = organizacion.remitente("ORG_REMITENTE_TAREAS", "Tareas", "tareas")
 PIE = (
-    "Este aviso también llega a la app Raíces para Windows, con notificaciones en el escritorio: "
+    "Este aviso también llega a la app de escritorio para Windows, con notificaciones: "
     f"descárgala en {CHAT}/app"
 )
 

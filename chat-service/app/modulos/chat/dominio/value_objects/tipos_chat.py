@@ -123,7 +123,7 @@ class ConstantesChat:
     EXTENSIONES_GIF = {'gif'}
 
     # IA Maquita - Configuracion
-    IA_MAQUITA_NOMBRE = "IA Maquita"
+    IA_MAQUITA_NOMBRE = __import__("os").getenv("CHAT_IA_NOMBRE") or "Asistente IA"  # nombre visible del asistente
     IA_MAQUITA_AVATAR = "/static/img/ia-maquita-avatar.png"
     IA_MAQUITA_MODELO = "llama3.2:3b"
     IA_TIMEOUT_RESPUESTA = 120               # segundos para esperar respuesta
