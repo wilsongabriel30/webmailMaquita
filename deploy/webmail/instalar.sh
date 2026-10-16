@@ -602,6 +602,9 @@ cp "${PDFED_DIR}/deploy/maquita-pdf-editor.service" /etc/systemd/system/
 systemctl daemon-reload && systemctl enable --now maquita-pdf-editor
 echo "  Editor de PDF: https://${MAIL_HOST}/herramientas/editor-pdf/"
 
+# Ayudante de identidad (Personalización → «Aplicar en todo»): nombre, logo, íconos, Drive y sitios.
+bash "${APP_DIR}/deploy/identidad/instalar.sh" || echo -e "${YELLOW}No se instaló el ayudante de identidad (opcional).${NC}"
+
 echo -e "\n${GREEN}[18/18] Iniciando y verificando...${NC}"
 systemctl restart maquita-webmail
 # Si la configuración no valida, nginx sigue con la anterior (solo puerto 80) y nada lo delata:

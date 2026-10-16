@@ -65,7 +65,7 @@ export function Signatures() {
     <p style="margin:2px 0;font-size:11px;color:#666">{{cargo}}</p>
     <p style="margin:2px 0;font-size:11px">{{email}}</p>
     <p style="margin:2px 0;font-size:11px">{{teléfono}}</p>
-    <p style="margin:8px 0 0;font-size:10px;color:#999">la organización MCCH</p>
+    <p style="margin:8px 0 0;font-size:10px;color:#999">{{empresa}}</p>
   </td>
 </tr>
 </table>`;
@@ -76,7 +76,7 @@ export function Signatures() {
         <h1 className="text-xl font-semibold text-ms-gray-130">Firmas de correo</h1>
         <SectionHelp titulo="Firmas de correo" items={[
           { titulo: "Para qué sirve", desc: "Administra plantillas HTML de firma corporativa y las asigna a los usuarios del servidor de correo, para que todos firmen con un formato uniforme." },
-          { titulo: "Pestaña Plantillas", desc: "Crea y edita el HTML de cada firma. Puede usar las variables {{nombre}}, {{email}}, {{cargo}}, {{teléfono}} y {{dominio}}, que se reemplazan automáticamente con los datos de cada usuario." },
+          { titulo: "Pestaña Plantillas", desc: "Crea y edita el HTML de cada firma. Puede usar las variables {{nombre}}, {{email}}, {{cargo}}, {{teléfono}}, {{dominio}} y {{empresa}} (nombre de la organización), que se reemplazan automáticamente con los datos de cada usuario." },
           { titulo: "Plantilla por defecto", desc: "La plantilla marcada como default se asigna automáticamente a los nuevos usuarios del dominio. Solo puede haber una por dominio." },
           { titulo: "Vista previa", desc: "Mientras edita el HTML, debajo del editor se muestra cómo se verá la firma renderizada." },
           { titulo: "Pestaña Asignaciones", desc: "Vincula una plantilla a un usuario concreto y permite personalizar su nombre, cargo y teléfono. La tabla inferior lista todas las asignaciones actuales." },
@@ -105,7 +105,7 @@ export function Signatures() {
                 <button onClick={() => setForm({ ...form, html_content: defaultSig })} className="text-[10px] text-ms-blue hover:underline" title="Carga un HTML de ejemplo con el formato de firma corporativa. Puede editarlo despues. Reemplazara el contenido actual del editor.">Usar plantilla ejemplo</button>
               </div>
               <textarea value={form.html_content} onChange={(e) => setForm({ ...form, html_content: e.target.value })}
-                rows={8} placeholder="HTML de la firma... Variables: {{nombre}}, {{email}}, {{cargo}}, {{teléfono}}, {{dominio}}"
+                rows={8} placeholder="HTML de la firma... Variables: {{nombre}}, {{email}}, {{cargo}}, {{teléfono}}, {{dominio}}, {{empresa}}"
                 className="w-full px-3 py-2 border border-ms-gray-40 rounded text-xs font-mono focus:outline-none focus:border-ms-blue" title="Ingrese el codigo HTML de la firma. Use las variables {{nombre}}, {{email}}, {{cargo}}, {{teléfono}}, {{dominio}} para personalizacion automatica por usuario." />
             </div>
             <div className="flex items-center gap-3">
@@ -202,7 +202,7 @@ export function Signatures() {
       )}
 
       <div className="bg-ms-blue-lighter rounded border border-ms-blue/20 p-4 text-xs text-ms-blue" title="Referencia rapida de variables disponibles para usar en las plantillas de firma HTML.">
-        <strong>Variables disponibles:</strong> {"{{nombre}}"}, {"{{email}}"}, {"{{cargo}}"}, {"{{teléfono}}"}, {"{{dominio}}"} - Se reemplazan automaticamente con los datos del usuario
+        <strong>Variables disponibles:</strong> {"{{nombre}}"}, {"{{email}}"}, {"{{cargo}}"}, {"{{teléfono}}"}, {"{{dominio}}"}, {"{{empresa}}"} - Se reemplazan automaticamente con los datos del usuario
       </div>
     </div>
   );

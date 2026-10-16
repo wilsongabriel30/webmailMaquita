@@ -26,7 +26,7 @@ KEY_PHISH = "tintel:phish"
 
 
 def _download(url: str) -> str:
-    req = urllib.request.Request(url, headers={"User-Agent": "Maquita-SafeLinks/1.0"})
+    req = urllib.request.Request(url, headers={"User-Agent": "Webmail-SafeLinks/1.0"})
     with urllib.request.urlopen(req, timeout=40) as r:
         return r.read().decode("utf-8", "replace")
 

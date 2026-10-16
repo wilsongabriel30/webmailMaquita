@@ -11,6 +11,7 @@ import uuid
 from fastapi import APIRouter, Depends, Response
 
 from app.auth.dependencies import get_current_user
+from app.branding.service import app_name_cacheado, org_name_cacheado
 
 router = APIRouter(prefix="/api/onboarding", tags=["onboarding"])
 
@@ -76,12 +77,12 @@ async def apple_profile(username: str = Depends(get_current_user)):
       <key>SMIMEEnabled</key><false/>
     </dict>
   </array>
-  <key>PayloadDisplayName</key><string>Correo Maquita ({u})</string>
+  <key>PayloadDisplayName</key><string>{html.escape(app_name_cacheado())} ({u})</string>
   <key>PayloadIdentifier</key><string>{ident}</string>
   <key>PayloadType</key><string>Configuration</string>
   <key>PayloadUUID</key><string>{prof_uuid}</string>
   <key>PayloadVersion</key><integer>1</integer>
-  <key>PayloadOrganization</key><string>Maquita</string>
+  <key>PayloadOrganization</key><string>{html.escape(org_name_cacheado())}</string>
   <key>PayloadDescription</key><string>Configura tu correo {u} en iPhone/iPad sin escribir nada.</string>
 </dict>
 </plist>
@@ -89,7 +90,5 @@ async def apple_profile(username: str = Depends(get_current_user)):
     return Response(
         content=plist,
         media_type="application/x-apple-aspen-config",
-        headers={
-            "Content-Disposition": 'attachment; filename="correo-maquita.mobileconfig"'
-        },
+        headers={"Content-Disposition": 'attachment; filename="correo.mobileconfig"'},
     )

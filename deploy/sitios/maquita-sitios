@@ -11,6 +11,7 @@ Uso:
   maquita-sitios ftp <dominio> <activar|desactivar>
   maquita-sitios ssl <dominio> <correo para Let's Encrypt>
   maquita-sitios borrar <dominio> <dominio repetido como confirmación>
+  maquita-sitios inicio <dominio> <identidad en JSON base64url>   rehace la página «en construcción»
   maquita-sitios entrar <dominio>         enlace de un solo uso al escritorio de WordPress
   maquita-sitios clave-admin <dominio>    contraseña nueva del administrador de la aplicación
   maquita-sitios revisar <dominio>        versión, actualizaciones pendientes e integridad
@@ -73,6 +74,22 @@ def despachar(args):
         funcion = {"entrar": seguridad.entrar, "clave-admin": seguridad.clave_admin,
                    "revisar": seguridad.revisar, "actualizar": seguridad.actualizar}[args[0]]
         return funcion(v.dominio(args[1]))
+    if len(args) == 3 and args[0] == "inicio":
+        import json as _json
+
+        from comun import de_base64
+
+        try:
+            identidad = _json.loads(de_base64(args[2]))
+        except ValueError:
+            raise ErrorSitio("identidad no válida")
+        if not isinstance(identidad, dict):
+            raise ErrorSitio("identidad no válida")
+        limpia = {k: str(identidad[k])[:400] for k in ("nombre", "descripcion", "correo", "telefono", "color")
+                  if identidad.get(k)}
+        if isinstance(identidad.get("redes"), dict):
+            limpia["redes"] = {str(k)[:20]: str(u)[:200] for k, u in identidad["redes"].items()}
+        return sitio.rehacer_inicio(v.dominio(args[1]), limpia)
     if args == ["cron"]:
         import seguridad
 

@@ -99,6 +99,9 @@ async def lifespan(app: FastAPI):
     app.state.db = pool
 
     await init_admin_tables(pool)
+    from app import marca
+
+    await marca.refrescar(pool)  # nombres de la personalización para textos de cara a terceros
 
     # Primer superadmin SOLO desde el entorno (A-9): sin clave literal en el código y
     # sin escribirla al log. ADMIN_BOOTSTRAP_PASSWORD se usa una vez y se retira del .env.

@@ -1,11 +1,15 @@
 import { useState, useEffect, useRef } from "react";
 import { api } from "../api/client";
 import { SectionHelp } from "../components/SectionHelp";
+import { AplicarIdentidad } from "./branding/AplicarIdentidad";
+import { RedesSociales } from "./branding/RedesSociales";
 
 const FIELDS = [
-  { key: "org_name", label: "Nombre de la organización", placeholder: "Ej: la organización MCCH", icon: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" },
+  { key: "org_name", label: "Nombre de la organización", placeholder: "Ej: Fundación Ejemplo", icon: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" },
+  { key: "org_short", label: "Nombre corto o sigla", placeholder: "Ej: Ejemplo", icon: "M7 7h10M7 12h6m-6 5h10" },
   { key: "app_name", label: "Nombre del producto de correo", placeholder: "Ej: Correo de Mi Organización", icon: "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" },
   { key: "org_slogan", label: "Eslogan / Descripción corta", placeholder: "Ej: Comercializando como Hermanos", icon: "M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" },
+  { key: "org_description", label: "Descripción (para buscadores e IA)", placeholder: "Ej: Trabajamos por … en …", icon: "M4 6h16M4 10h16M4 14h10" },
   { key: "org_email", label: "Email de contacto", placeholder: "Ej: info@miorganizacion.org", type: "email", icon: "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" },
   { key: "org_website", label: "Sitio web", placeholder: "Ej: https://www.miorganizacion.org", type: "url", icon: "M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" },
   { key: "org_phone", label: "Teléfono", placeholder: "Ej: +593 2 123 4567", icon: "M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" },
@@ -104,12 +108,13 @@ export function Branding() {
         if (data[f.key] !== undefined) payload[f.key] = data[f.key];
       }
       payload.primary_color = colorInput;
+      if (data.org_social !== undefined) payload.org_social = data.org_social;
       await api.put("/branding", payload);
       setOriginal({ ...data, primary_color: colorInput });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-    } catch {
-      setError("Error al guardar");
+    } catch (e) {
+      setError(e instanceof Error && e.message ? e.message : "Error al guardar");
     } finally {
       setSaving(false);
     }
@@ -273,6 +278,8 @@ export function Branding() {
         </div>
       </div>
 
+      <RedesSociales valor={data.org_social || "{}"} onCambio={(json) => setData(prev => ({ ...prev, org_social: json }))} />
+
       {/* Save button */}
       <div className="flex items-center gap-3">
         <button onClick={handleSave} disabled={saving}
@@ -291,6 +298,8 @@ export function Branding() {
           </span>
         )}
       </div>
+
+      <AplicarIdentidad hayCambiosSinGuardar={hasChanges} />
 
       {/* Info box */}
       <div className="mt-6 p-4 bg-ms-blue-lighter rounded border border-ms-blue-light">

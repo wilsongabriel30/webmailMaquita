@@ -16,6 +16,7 @@ from email.message import EmailMessage
 
 import aiosmtplib
 
+from app.branding.service import marca_corta
 from app.config import get_settings
 
 from . import crypto
@@ -93,7 +94,7 @@ def _notif_html(
     <div style="font-size:18px;font-weight:600">🔒 Mensaje seguro</div>
   </div>
   <div style="border:1px solid #e1dfdd;border-top:none;padding:24px;border-radius:0 0 8px 8px">
-    <p><b>{safe_from}</b> te envió un mensaje seguro de Maquita.</p>
+    <p><b>{safe_from}</b> te envió un mensaje seguro de {html_lib.escape(marca_corta())}.</p>
     <p style="color:#555"><b>Asunto:</b> {safe_subj}</p>
     {intro_html}
     <p style="text-align:center;margin:26px 0">

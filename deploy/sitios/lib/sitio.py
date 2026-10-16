@@ -210,6 +210,41 @@ def _tamano_mb(ruta):
     return round(total / 1048576, 1)
 
 
+LOGO_MARCA = "/opt/maquita-webmail/uploads/branding/logo"
+
+
+def rehacer_inicio(dominio, identidad):
+    """Rehace la página «en construcción» con la identidad de la institución (Personalización).
+
+    Solo en sitios sin aplicación: un WordPress o Joomla tiene su propio contenido.
+    """
+    meta = leer_meta(dominio)
+    if meta.get("app"):
+        return {"dominio": dominio, "actualizada": False, "motivo": f"tiene {meta['app']}"}
+    pw = pwd.getpwnam(meta["usuario"])
+    www = pwd.getpwnam("www-data")
+    logo = None
+    origen = sorted(glob.glob(os.path.join(LOGO_MARCA, "*")))
+    for viejo in glob.glob(os.path.join(meta["publico"], "logo.*")):
+        os.remove(viejo)
+    if origen:
+        extension = os.path.splitext(origen[0])[1].lower()
+        if extension in (".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif"):
+            logo = f"logo{extension}"
+            destino = os.path.join(meta["publico"], logo)
+            shutil.copyfile(origen[0], destino)
+            os.chown(destino, pw.pw_uid, www.pw_gid)
+            os.chmod(destino, 0o640)
+    # El nombre propio del sitio (asistente «Nuevo dominio») manda; si se creó sin nombre, el de la institución.
+    propio = meta.get("nombre") if meta.get("nombre") not in (None, "", dominio) else None
+    nombre = propio or identidad.get("nombre") or dominio
+    for archivo, contenido in pagina_inicio.archivos(dominio, nombre, meta.get("www", True), identidad, logo).items():
+        ruta = os.path.join(meta["publico"], archivo)
+        _escribir(ruta, contenido, 0o640)
+        os.chown(ruta, pw.pw_uid, www.pw_gid)
+    return {"dominio": dominio, "actualizada": True, "logo": bool(logo)}
+
+
 def regenerar():
     """Reescribe todos los vhosts con las plantillas vigentes (tras actualizar esta sección)."""
     hechos = []

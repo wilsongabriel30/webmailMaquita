@@ -12,6 +12,7 @@ AYUDANTES = {
     "dns": "/usr/local/sbin/maquita-dns",
     "sitios": "/usr/local/sbin/maquita-sitios",
     "cortafuegos": "/usr/local/sbin/maquita-cortafuegos",
+    "identidad": "/usr/local/sbin/maquita-identidad",
 }
 
 

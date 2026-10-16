@@ -18,6 +18,7 @@ from pydantic import BaseModel
 import bcrypt
 from app import organizacion
 from app.auth.dependencies import get_current_admin
+from app import marca
 
 router = APIRouter(prefix="/api/admin-recovery", tags=["admin-recovery"])
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -84,9 +85,9 @@ async def register(body: EmailReq, r: Request, a=Depends(get_current_admin)):
         "VALUES ($1,$2,false,$3,$4,0,now()) ON CONFLICT (username) DO UPDATE SET "
         "recovery_email=$2, verified=false, otp_hash=$3, otp_expires=$4, otp_attempts=0, updated_at=now()",
         a["username"], email, _h(otp), exp)
-    _send(email, "Codigo de verificacion — Panel Maquita",
+    _send(email, f"Codigo de verificacion — Panel {marca.corta()}",
           f"Tu codigo para activar la recuperacion del panel administrativo es:\n\n    {otp}\n\n"
-          f"Vence en 15 minutos. Si no solicitaste esto, ignora este mensaje.\n\n-- Seguridad Maquita")
+          f"Vence en 15 minutos. Si no solicitaste esto, ignora este mensaje.\n\n-- Seguridad {marca.corta()}")
     return {"ok": True, "sent_to": _mask(email)}
 
 
@@ -137,12 +138,12 @@ async def request_recovery(body: UserReq, r: Request):
     await _db(r).execute(
         "UPDATE admin_recovery SET token_hash=$1, token_expires=$2, uses_this_year=$3, counter_year=$4, updated_at=now() WHERE username=$5",
         _h(token), exp, uses + 1, year, username)
-    _send(row["recovery_email"], "Recuperacion de acceso — Panel Maquita",
+    _send(row["recovery_email"], f"Recuperacion de acceso — Panel {marca.corta()}",
           f"Se solicito recuperar el acceso al panel administrativo de: {username}\n\n"
           f"Tu token de recuperacion (valido 30 min, un solo uso):\n\n    {token}\n\n"
           f"Usalo en la pantalla de recuperacion del panel para definir una nueva contrasena.\n"
           f"Llevas {uses + 1}/{MAX_PER_YEAR} recuperaciones este anio.\n"
-          f"Si no fuiste tu, contacta a Tecnologia de inmediato.\n\n-- Seguridad Maquita")
+          f"Si no fuiste tu, contacta a Tecnologia de inmediato.\n\n-- Seguridad {marca.corta()}")
     return generic
 
 

@@ -21,10 +21,10 @@ _HTML = """<!doctype html>
 <meta property="og:title" content="{nombre}">
 <meta property="og:description" content="{descripcion}">
 <meta property="og:url" content="{url}/">
-<meta name="theme-color" content="#0f3d3e">
+<meta name="theme-color" content="{color}">{og_imagen}
 <script type="application/ld+json">{jsonld}</script>
 <style>
-:root{{--fondo:#f4f1ea;--tinta:#1d2b2c;--suave:#5b6b6c;--acento:#0f3d3e;--linea:#d9d3c4;--tarjeta:#fffdf8}}
+:root{{--fondo:#f4f1ea;--tinta:#1d2b2c;--suave:#5b6b6c;--acento:{color};--linea:#d9d3c4;--tarjeta:#fffdf8}}
 @media (prefers-color-scheme:dark){{:root{{--fondo:#0e1516;--tinta:#e8ecea;--suave:#9fb0ae;--acento:#7cc4b8;--linea:#24302f;--tarjeta:#141d1e}}}}
 *{{box-sizing:border-box;margin:0}}
 html,body{{height:100%}}
@@ -41,17 +41,19 @@ p{{color:var(--suave)}}
 a{{color:var(--acento);text-decoration:none;border-bottom:1px solid currentColor}}
 a:hover{{opacity:.8}}
 .contacto{{margin-top:28px;font-size:15px}}
+.logo{{display:block;max-width:180px;max-height:96px;margin:0 auto 24px;object-fit:contain}}
+.redes{{margin-top:14px;font-size:14px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap}}
 footer{{margin-top:28px;font-size:13px;color:var(--suave)}}
 @media (max-width:480px){{main{{padding:36px 22px}}}}
 </style>
 </head>
 <body>
 <main>
-<div class="sello" aria-hidden="true">{iniciales}</div>
+{sello}
 <h1>{nombre}</h1>
 <div class="linea"></div>
-<p>Estamos preparando nuestro sitio web. Muy pronto encontrará aquí toda nuestra información.</p>
-<p class="contacto">Escríbanos a <a href="mailto:{correo}">{correo}</a></p>
+<p>{texto}</p>
+<p class="contacto">{contacto}</p>{redes}
 </main>
 <footer>© {anio} {nombre}</footer>
 </body>
@@ -65,23 +67,56 @@ def _iniciales(nombre):
     return letras or nombre[:1].upper()
 
 
-def archivos(dominio, nombre, con_www=True):
-    """{nombre de archivo: contenido} para la carpeta pública de un sitio nuevo."""
-    nombre = (nombre or dominio).strip()
+REDES = {"facebook": "Facebook", "instagram": "Instagram", "x": "X", "youtube": "YouTube", "linkedin": "LinkedIn",
+         "tiktok": "TikTok"}
+
+
+def _color(valor):
+    v = (valor or "").strip()
+    return v if len(v) == 7 and v.startswith("#") and all(c in "0123456789abcdefABCDEF" for c in v[1:]) else "#0f3d3e"
+
+
+def archivos(dominio, nombre, con_www=True, identidad=None, logo=None):
+    """{nombre de archivo: contenido} para la carpeta pública de un sitio nuevo.
+
+    identidad (opcional, desde Personalización del panel): descripcion, correo, telefono, web,
+    color, redes {red: url}. logo: nombre del archivo de logo ya copiado en la carpeta pública.
+    """
+    ide = identidad or {}
+    nombre = (nombre or ide.get("nombre") or dominio).strip()
     url = f"https://{dominio}"
-    correo = f"info@{dominio}"
-    descripcion = f"Sitio web de {nombre}. Contacto: {correo}."
-    jsonld = json.dumps({
-        "@context": "https://schema.org",
-        "@type": "Organization",
-        "name": nombre,
-        "url": url + "/",
-        "email": correo,
-    }, ensure_ascii=False).replace("</", "<\\/")
+    correo = (ide.get("correo") or f"info@{dominio}").strip()
+    telefono = (ide.get("telefono") or "").strip()
+    descripcion = (ide.get("descripcion") or "").strip() or f"Sitio web de {nombre}. Contacto: {correo}."
+    redes = {k: v for k, v in (ide.get("redes") or {}).items() if k in REDES and str(v).startswith("https://")}
+    org = {"@context": "https://schema.org", "@type": "Organization", "name": nombre, "url": url + "/",
+           "email": correo, "description": descripcion}
+    if telefono:
+        org["telephone"] = telefono
+    if logo:
+        org["logo"] = f"{url}/{logo}"
+    if redes:
+        org["sameAs"] = list(redes.values())
+    jsonld = json.dumps(org, ensure_ascii=False).replace("</", "<\\/")
     e = html.escape
+    sello = (f'<img class="logo" src="/{e(logo)}" alt="{e(nombre)}">' if logo
+             else f'<div class="sello" aria-hidden="true">{e(_iniciales(nombre))}</div>')
+    contacto = f'Escríbanos a <a href="mailto:{e(correo)}">{e(correo)}</a>'
+    if telefono:
+        contacto += f' · <a href="tel:{e(telefono.replace(" ", ""))}">{e(telefono)}</a>'
+    enlaces = "".join(f'<a href="{e(u)}" rel="me noopener">{REDES[k]}</a>' for k, u in redes.items())
+    texto = e(ide["descripcion"]) if ide.get("descripcion") else "Estamos preparando nuestro sitio web. Muy pronto encontrará aquí toda nuestra información."
     pagina = _HTML.format(nombre=e(nombre), descripcion=e(descripcion), url=url, jsonld=jsonld,
-                          iniciales=e(_iniciales(nombre)), correo=e(correo), anio=time.strftime("%Y"))
+                          sello=sello, texto=texto, contacto=contacto,
+                          redes=f'\n<p class="redes">{enlaces}</p>' if enlaces else "",
+                          color=_color(ide.get("color")),
+                          og_imagen=f'\n<meta property="og:image" content="{url}/{e(logo)}">' if logo else "",
+                          anio=time.strftime("%Y"))
     hoy = time.strftime("%Y-%m-%d")
+    llms = [f"# {nombre}", "", f"> {descripcion}", "", "Sitio en construcción.", "", f"- Sitio: {url}/", f"- Correo: {correo}"]
+    if telefono:
+        llms.append(f"- Teléfono: {telefono}")
+    llms += [f"- {REDES[k]}: {u}" for k, u in redes.items()]
     return {
         "index.html": pagina,
         "robots.txt": f"User-agent: *\nAllow: /\n\nSitemap: {url}/sitemap.xml\n",
@@ -90,5 +125,5 @@ def archivos(dominio, nombre, con_www=True):
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
             f"  <url><loc>{url}/</loc><lastmod>{hoy}</lastmod></url>\n</urlset>\n"
         ),
-        "llms.txt": f"# {nombre}\n\n> {descripcion}\n\nSitio en construcción.\n\n- Sitio: {url}/\n- Correo: {correo}\n",
+        "llms.txt": "\n".join(llms) + "\n",
     }

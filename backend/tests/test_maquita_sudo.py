@@ -391,3 +391,16 @@ def test_cortafuegos_ordenes_permitidas():
 def test_cortafuegos_rechaza(args):
     with pytest.raises(ms.Rechazo):
         _ok("maquita-admin", "maquita-cortafuegos", *args)
+
+
+# --- Identidad (maquita-identidad) y página «en construcción» (maquita-sitios inicio) ---
+
+
+def test_identidad_y_pagina_inicio():
+    assert _ok("maquita-admin", "maquita-identidad", "aplicar", "eyJub21icmUiOiJYIn0" * 40)
+    assert _ok("maquita-admin", "maquita-sitios", "inicio", "ejemplo.org", "eyJub21icmUiOiJYIn0" * 40)
+    for malo in (("aplicar",), ("aplicar", "no base64!"), ("borrar", "x")):
+        with pytest.raises(ms.Rechazo):
+            _ok("maquita-admin", "maquita-identidad", *malo)
+    with pytest.raises(ms.Rechazo):
+        _ok("www-data", "maquita-identidad", "aplicar", "eyJ9")

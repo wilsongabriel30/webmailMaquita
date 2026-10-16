@@ -586,7 +586,7 @@ async function agregarUsuario(userId, nombre, email, tipoUsuario = 'interno', sh
                 tipoTexto = 'externo';
                 mensajeExtra = ' - Se enviará invitación por email';
             } else if (tipoUsuario === 'interno_sin_nc') {
-                tipoTexto = 'de Maquita';
+                tipoTexto = 'de la organización';
                 mensajeExtra = ' - Se enviará por email';
             }
 

@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from app.auth.dependencies import get_current_admin, require_role
 from app.dispositivos.comun import auditar, db, fecha, texto
 from app.dispositivos import push_panel
+from app import marca
 
 router = APIRouter(prefix="/api/dispositivos", tags=["dispositivos"])
 _ADMIN = require_role("superadmin", "admin")
@@ -81,7 +82,7 @@ async def declarar_perdido(equipo_id: int, request: Request, admin: dict = Depen
     b = await request.json()
     e = await _equipo(request, equipo_id)
     motivo = _motivo(b)
-    mensaje = texto(b.get("mensaje"), 255) or "Este teléfono pertenece a Fundación Maquita. Si lo encontró, por favor llame al número indicado."
+    mensaje = texto(b.get("mensaje"), 255) or f"Este teléfono pertenece a {marca.org()}. Si lo encontró, por favor llame al número indicado."
     telefono = texto(b.get("telefono"), 40)
     async with db(request).acquire() as con, con.transaction():
         await con.execute(

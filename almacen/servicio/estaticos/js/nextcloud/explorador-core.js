@@ -191,7 +191,7 @@ async function mostrarPaginaPrincipal() {
             window.cargandoMas = false;
         } else {
             mostrarEstadoVacio(
-                'Bienvenido a ' + (window.DRIVE_NAME||'Nube Maquita'),
+                'Bienvenido a ' + (window.DRIVE_NAME||'Nube'),
                 'Comienza a trabajar con tus archivos y aquí aparecerán tus documentos más relevantes'
             );
         }
@@ -626,7 +626,7 @@ function abrirConfiguracion() {
                 <div class="mb-3">
                     <label class="form-check">
                         <input type="checkbox" class="form-check-input" id="configConvertir" checked>
-                        <span class="form-check-label">Convertir archivos subidos a formato de ${window.DRIVE_NAME||'Nube Maquita'}</span>
+                        <span class="form-check-label">Convertir archivos subidos a formato de ${window.DRIVE_NAME||'Nube'}</span>
                     </label>
                 </div>
                 <div class="mb-3">
@@ -1392,7 +1392,7 @@ function renderizarArchivos(carpetas, archivos) {
         const emptyTitle = emptyState.querySelector('h2');
         const emptyText = emptyState.querySelector('p');
         if (emptyTitle && emptyText) {
-            emptyTitle.textContent = 'Bienvenido a ' + (window.DRIVE_NAME||'Nube Maquita');
+            emptyTitle.textContent = 'Bienvenido a ' + (window.DRIVE_NAME||'Nube');
             emptyText.textContent = 'Arrastra archivos y carpetas aquí, o usa el botón "Nuevo"';
         }
     }
