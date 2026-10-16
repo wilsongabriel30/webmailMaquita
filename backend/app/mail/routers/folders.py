@@ -12,7 +12,11 @@ from app.core.session import get_imap_login_user, get_user_password
 # IMPORTANTE: Todas las operaciones IMAP requieren nombres de carpeta en Modified UTF-7.
 # Los nombres llegan del frontend como UTF-8 (display name) y se convierten con _imap_utf7_encode.
 # Sin esta conversión, carpetas con tildes/ñ/caracteres especiales fallan silenciosamente.
-from app.mail.clients.imap_client import _imap_utf7_encode, get_imap_connection
+from app.mail.clients.imap_client import (
+    _imap_utf7_encode,
+    _quote_folder,
+    get_imap_connection,
+)
 from app.mail.clients.imap_pool import get_pooled_imap
 from app.mail.services.folder_service import get_folders
 
@@ -59,7 +63,9 @@ async def create_folder(
     login_user = await get_imap_login_user(request, username)
     imap = await get_imap_connection(login_user, password)
     try:
-        imap_name = _imap_utf7_encode(body.name)
+        # Entre comillas: sin ellas, «Mi carpeta» llegaba a IMAP como dos argumentos y solo se
+        # creaba «Mi» (aioimaplib pasa los argumentos tal cual al socket).
+        imap_name = _quote_folder(body.name)
         resp = await imap.create(imap_name)
         if resp.result != "OK":
             raise HTTPException(status_code=400, detail="Nombre de carpeta no valido")
@@ -208,7 +214,7 @@ async def delete_folder(
     login_user = await get_imap_login_user(request, username)
     imap = await get_imap_connection(login_user, password)
     try:
-        imap_name = _imap_utf7_encode(folder_name)
+        imap_name = _quote_folder(folder_name)  # entre comillas, igual que al crear
         await imap.unsubscribe(imap_name)
         resp = await imap.delete(imap_name)
         if resp.result != "OK":
