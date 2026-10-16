@@ -69,9 +69,29 @@ misma comprobación de propagación. Reglas:
   `admin-panel/frontend/src/pages/ZonasDns.tsx`, `DominioNuevo.tsx`, `pages/dns/`.
 - Página «en construcción»: `deploy/sitios/lib/pagina_inicio.py`.
 
+## Certificado del correo (Zonas DNS → Certificado del correo)
+
+Un solo certificado de Let's Encrypt (linaje `mail.<dominio principal>`) que cubre `mail.`,
+`autoconfig.`, `autodiscover.` (y `mta-sts.` si se publica) de **todos** los dominios con zona en el
+servidor. Solo incluye los nombres que, consultados por DNS sobre HTTPS, ya apuntan a la IP del correo.
+
+Al emitirlo:
+
+- nginx sirve el webmail también con cada `mail.<dominio>` (snippet `/etc/nginx/snippets/correo-nombres.conf`
+  incluido tras `server_name` del sitio del webmail);
+- el certificado pasa a usarse en el webmail, el panel (8443), la autoconfiguración, MTA-STS, Postfix
+  (25/465/587), Dovecot (IMAP/POP3) y vsftpd (FTPS); cada archivo tocado se respalda antes (`.bak.<fecha>`);
+- `--reuse-key --key-type ecdsa`: la clave se conserva en cada renovación (requisito si se publica DANE);
+- el gancho `/etc/letsencrypt/renewal-hooks/deploy/servicios-correo.sh` recarga esos servicios en cada renovación.
+
+Pensado para dominios de **una misma organización**: el certificado es público (Certificate
+Transparency) y lista todos sus nombres, y el saludo SMTP es el del dominio principal. Organizaciones
+que no deben relacionarse van en servidores distintos (una VM por organización).
+
+Probado con un certificado de prueba: webmail, panel, SMTP (587), IMAP (993) y FTPS presentaron el
+certificado nuevo (comparando huellas), el webmail respondió con un `mail.<otro dominio>` y todo volvió
+al estado anterior al restaurar.
+
 ## Pendiente
 
-- Nombre propio del correo por dominio (`mail.<dominio>`): certificado y SNI en nginx, Postfix y Dovecot
-  para que el webmail y los clientes de correo de cada dominio no muestren el nombre del dominio
-  principal del servidor.
 - DNSSEC opcional por zona.

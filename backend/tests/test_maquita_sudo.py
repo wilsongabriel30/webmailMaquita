@@ -337,6 +337,8 @@ def test_dns_ordenes_permitidas():
         ("borrar", "ejemplo.org", "ejemplo.org"),
         ("comprobar", "ejemplo.org"),
         ("servidor", "eyJpcF9jb3JyZW8iOiIxLjIuMy40In0"),
+        ("certificado-estado",),
+        ("certificado-correo",),
     ):
         assert _ok("maquita-admin", "maquita-dns", *args)
 

@@ -45,7 +45,7 @@ export function Comprobacion({ zona, automatica = false }: { zona: string; autom
           ))}
         </ul>
       )}
-      {datos?.lista && <p className="text-sm text-ms-green">Todo listo: ya se pueden pedir los certificados HTTPS (Sitios web → HTTPS).</p>}
+      {datos?.lista && <p className="text-sm text-ms-green">Todo listo: ya se pueden pedir los certificados (Zonas DNS → Certificado del correo y Sitios web → HTTPS).</p>}
     </div>
   );
 }

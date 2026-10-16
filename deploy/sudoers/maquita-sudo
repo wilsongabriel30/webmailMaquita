@@ -362,7 +362,7 @@ def validar_dns(args):
     """maquita-dns: subacciones con su forma exacta; los datos libres van en base64url (el ayudante revalida)."""
     zona = lambda z: bool(_RE_DOMINIO_SITIO.match(z))  # noqa: E731
     b64 = lambda v: bool(_RE_B64URL_LARGO.match(v))  # noqa: E731
-    if args in (["estado"], ["servidor-ver"], ["listar"]):
+    if args in (["estado"], ["servidor-ver"], ["listar"], ["certificado-estado"], ["certificado-correo"]):
         return args
     if len(args) == 2 and args[0] == "servidor" and b64(args[1]):
         return args

@@ -44,6 +44,20 @@ async def servidor(body: Servidor, r: Request, admin: dict = Depends(require_sup
     return res
 
 
+@router.get("/certificado/estado")
+async def certificado_estado(admin: dict = Depends(get_current_admin)):
+    """Certificado del correo: nombres que cubre, vencimiento y si los servicios ya lo usan."""
+    return await ayudante("dns", "certificado-estado")
+
+
+@router.post("/certificado")
+async def certificado_emitir(r: Request, admin: dict = Depends(require_superadmin)):
+    """Emite o amplía el certificado del correo para todos los dominios que ya apuntan aquí."""
+    res = await ayudante("dns", "certificado-correo", tiempo=600)
+    await auditar(r, admin, "dns_certificado_correo", res.get("linaje", ""), {"incluidos": res.get("incluidos")})
+    return res
+
+
 @router.get("/{zona}")
 async def ver(zona: str, admin: dict = Depends(get_current_admin)):
     return await ayudante("dns", "ver", _zona(zona))

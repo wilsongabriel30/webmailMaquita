@@ -16,6 +16,8 @@ Uso:
   maquita-dns borrar-registro <zona> <id>
   maquita-dns borrar <zona> <zona repetida como confirmación>
   maquita-dns comprobar <zona>              propagación vista desde Internet
+  maquita-dns certificado-estado            certificado del correo: nombres y vencimiento
+  maquita-dns certificado-correo            emite o amplía el certificado del correo para todos los dominios
 """
 
 import ipaddress
@@ -111,6 +113,10 @@ def despachar(a):
         return zona.borrar(registros.zona_valida(a[1]))
     if len(a) == 2 and a[0] == "comprobar":
         return comprobar.comprobar(registros.zona_valida(a[1]))
+    if a in (["certificado-estado"], ["certificado-correo"]):
+        import certificado
+
+        return certificado.estado() if a[0] == "certificado-estado" else certificado.emitir()
     raise ErrorDns("orden o argumentos no permitidos")
 
 
