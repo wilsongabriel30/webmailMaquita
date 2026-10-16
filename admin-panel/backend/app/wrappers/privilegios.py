@@ -36,6 +36,7 @@ _REQUIEREN_SUDO = {
     "depurar-adjuntos-peligrosos",
     "geoip-country.sh",
     "maquita-sitios",
+    "maquita-dns",
     "systemctl",
     "journalctl",
     "doveadm",

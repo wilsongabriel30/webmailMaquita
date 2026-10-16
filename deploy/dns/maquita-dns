@@ -1,0 +1,135 @@
+#!/usr/bin/env python3
+"""maquita-dns — zonas DNS del servidor (sección «Zonas DNS» y asistente «Nuevo dominio» del panel).
+
+Corre como root y solo se llama desde el panel a través de maquita-sudo. Responde siempre JSON.
+Los valores libres (registros, ajustes) llegan en JSON codificado en base64url.
+
+Uso:
+  maquita-dns estado
+  maquita-dns servidor-ver
+  maquita-dns servidor <json-b64>          IP pública del correo/web y servidores de nombres
+  maquita-dns listar
+  maquita-dns ver <zona>
+  maquita-dns crear <zona> [sin-web]        zona completa para correo (MX, SPF, DKIM, DMARC…) y web
+  maquita-dns agregar <zona> <json-b64>
+  maquita-dns modificar <zona> <id> <json-b64>
+  maquita-dns borrar-registro <zona> <id>
+  maquita-dns borrar <zona> <zona repetida como confirmación>
+  maquita-dns comprobar <zona>              propagación vista desde Internet
+"""
+
+import ipaddress
+import json
+import os
+import re
+import shutil
+import sys
+
+sys.path.insert(0, "/usr/local/lib/maquita-dns")
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+
+from comun import SERVIDOR, ErrorDns, de_base64, guardar_json, leer_json  # noqa: E402
+
+RE_ID = re.compile(r"^[0-9a-f]{8}$")
+RE_NS = re.compile(r"^ns[1-9]$")
+
+
+def _json(b64):
+    try:
+        datos = json.loads(de_base64(b64))
+    except ValueError:
+        raise ErrorDns("datos no válidos")
+    if not isinstance(datos, dict):
+        raise ErrorDns("datos no válidos")
+    return datos
+
+
+def _ip4(valor, campo):
+    try:
+        ip = ipaddress.ip_address(str(valor))
+    except ValueError:
+        raise ErrorDns(f"{campo}: IP no válida")
+    if ip.version != 4 or ip.is_loopback or ip.is_link_local or ip.is_unspecified:
+        raise ErrorDns(f"{campo}: debe ser una IPv4 válida")
+    return str(ip)
+
+
+def guardar_servidor(datos):
+    ns = datos.get("ns") or []
+    if not 2 <= len(ns) <= 5:
+        raise ErrorDns("indique entre 2 y 5 servidores de nombres (NIC.EC y la mayoría de registros piden al menos 2)")
+    limpio = []
+    for i, n in enumerate(ns, 1):
+        nombre = str(n.get("nombre") or f"ns{i}").lower()
+        if not RE_NS.match(nombre):
+            raise ErrorDns("los servidores de nombres se llaman ns1 … ns5")
+        limpio.append({"nombre": nombre, "ip": _ip4(n.get("ip"), nombre)})
+    if len({n["nombre"] for n in limpio}) != len(limpio):
+        raise ErrorDns("nombres de servidores repetidos")
+    srv = {"ip_correo": _ip4(datos.get("ip_correo"), "IP del correo"),
+           "ip_web": _ip4(datos.get("ip_web") or datos.get("ip_correo"), "IP de la web"),
+           "ns": limpio}
+    guardar_json(SERVIDOR, srv)
+    privadas = [x for x in [srv["ip_correo"], srv["ip_web"]] + [n["ip"] for n in limpio] if ipaddress.ip_address(x).is_private]
+    if privadas:
+        # Se admite para preparar el servidor antes de tener el enlace; desde Internet no funcionará.
+        srv = dict(srv, aviso="IP privadas (" + ", ".join(sorted(set(privadas))) + "): sirven para preparar, "
+                   "pero desde Internet nada funcionará hasta poner las IP públicas.")
+    return srv
+
+
+def estado():
+    return {"bind": bool(shutil.which("named-checkzone")), "servidor": leer_json(SERVIDOR, {}),
+            "zonas": len([z for z in os.listdir("/etc/maquita-dns") if z.endswith(".json") and z != "servidor.json"])
+            if os.path.isdir("/etc/maquita-dns") else 0}
+
+
+def despachar(a):
+    import comprobar
+    import registros
+    import zona
+
+    if a == ["estado"]:
+        return estado()
+    if a == ["servidor-ver"]:
+        return leer_json(SERVIDOR, {})
+    if len(a) == 2 and a[0] == "servidor":
+        return guardar_servidor(_json(a[1]))
+    if a == ["listar"]:
+        return {"zonas": zona.listar()}
+    if len(a) == 2 and a[0] == "ver":
+        return zona.ver(registros.zona_valida(a[1]))
+    if len(a) in (2, 3) and a[0] == "crear" and (len(a) == 2 or a[2] == "sin-web"):
+        return zona.crear(registros.zona_valida(a[1]), con_web=len(a) == 2)
+    if len(a) == 3 and a[0] == "agregar":
+        return zona.agregar(registros.zona_valida(a[1]), _json(a[2]))
+    if len(a) == 4 and a[0] == "modificar" and RE_ID.match(a[2]):
+        return zona.modificar(registros.zona_valida(a[1]), a[2], _json(a[3]))
+    if len(a) == 3 and a[0] == "borrar-registro" and RE_ID.match(a[2]):
+        return zona.borrar_registro(registros.zona_valida(a[1]), a[2])
+    if len(a) == 3 and a[0] == "borrar" and a[1] == a[2]:
+        return zona.borrar(registros.zona_valida(a[1]))
+    if len(a) == 2 and a[0] == "comprobar":
+        return comprobar.comprobar(registros.zona_valida(a[1]))
+    raise ErrorDns("orden o argumentos no permitidos")
+
+
+def main(argv):
+    if os.geteuid() != 0:
+        print(json.dumps({"error": "maquita-dns debe ejecutarse como root"}))
+        return 1
+    try:
+        resultado = despachar(argv[1:])
+    except ErrorDns as e:
+        print(json.dumps({"error": str(e)}, ensure_ascii=False))
+        return 1
+    except Exception as e:
+        print(f"maquita-dns: {type(e).__name__}: {e}", file=sys.stderr)
+        print(json.dumps({"error": "fallo interno del ayudante de DNS (ver registro del sistema)"}))
+        return 1
+    print(json.dumps(resultado, ensure_ascii=False))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

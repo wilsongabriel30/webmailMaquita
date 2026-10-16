@@ -3,15 +3,19 @@
 # YA montado, reutilizando los bloques 16-17 de instalar.sh. Idempotente: reusa la config
 # existente (SECRET_KEY y credenciales de BD del backend); no regenera secretos.
 #
-# Uso:  sudo bash deploy/webmail/instalar-app.sh <bi|pdf|onlyoffice|sitios>
+# Uso:  sudo bash deploy/webmail/instalar-app.sh <bi|pdf|onlyoffice|sitios|dns>
 set -e
 GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[1;33m'; NC='\033[0m'
 
 APP="${1:-}"
-case "$APP" in bi|pdf|onlyoffice|sitios) ;; *) echo "uso: $0 <bi|pdf|onlyoffice|sitios>"; exit 2 ;; esac
+case "$APP" in bi|pdf|onlyoffice|sitios|dns) ;; *) echo "uso: $0 <bi|pdf|onlyoffice|sitios|dns>"; exit 2 ;; esac
 # Sitios web (WordPress, Joomla, FTP seguro): tiene su propio instalador.
 if [ "$APP" = "sitios" ]; then
     exec bash "$(cd "$(dirname "$0")/../sitios" && pwd)/instalar.sh"
+fi
+# Zonas DNS (BIND autoritativo) para el asistente «Nuevo dominio».
+if [ "$APP" = "dns" ]; then
+    exec bash "$(cd "$(dirname "$0")/../dns" && pwd)/instalar.sh"
 fi
 
 # Raiz del repo (este script vive en deploy/webmail/)

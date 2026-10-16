@@ -318,3 +318,45 @@ def test_sitios_mantenimiento():
     for interna in (("cron",), ("regenerar",), ("entrar",), ("entrar", "ejemplo.org", "x")):
         with pytest.raises(ms.Rechazo):
             _ok("maquita-admin", "maquita-sitios", *interna)
+
+
+# --- Zonas DNS del panel (maquita-dns) ---
+
+
+def test_dns_ordenes_permitidas():
+    larga = "eyJ0aXBvIjoiVFhUIn0" * 30  # base64url de más de 300 caracteres (registros DKIM)
+    for args in (
+        ("listar",),
+        ("estado",),
+        ("ver", "ejemplo.org"),
+        ("crear", "ejemplo.org"),
+        ("crear", "ejemplo.org", "sin-web"),
+        ("agregar", "ejemplo.org", larga),
+        ("modificar", "ejemplo.org", "0a1b2c3d", "eyJ0aXBvIjoiQSJ9"),
+        ("borrar-registro", "ejemplo.org", "0a1b2c3d"),
+        ("borrar", "ejemplo.org", "ejemplo.org"),
+        ("comprobar", "ejemplo.org"),
+        ("servidor", "eyJpcF9jb3JyZW8iOiIxLjIuMy40In0"),
+    ):
+        assert _ok("maquita-admin", "maquita-dns", *args)
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ("ver", "../etc"),
+        ("agregar", "ejemplo.org", "no es base64 válido"),
+        ("modificar", "ejemplo.org", "x", "eyJ9"),
+        ("borrar", "ejemplo.org", "otro.org"),
+        ("crear", "ejemplo.org", "--algo"),
+        ("rndc", "reload"),
+    ],
+)
+def test_dns_rechaza(args):
+    with pytest.raises(ms.Rechazo):
+        _ok("maquita-admin", "maquita-dns", *args)
+
+
+def test_dns_solo_panel():
+    with pytest.raises(ms.Rechazo):
+        _ok("www-data", "maquita-dns", "listar")

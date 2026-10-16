@@ -15,6 +15,7 @@ import pwd
 import shutil
 import time
 
+import pagina_inicio
 import plantillas
 from comun import (
     ACME_WEBROOT,
@@ -33,14 +34,6 @@ from comun import (
     todos_los_meta,
     version_php,
 )
-
-_INICIO = """<!doctype html>
-<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{dominio}</title></head>
-<body style="font-family:system-ui,sans-serif;max-width:40rem;margin:4rem auto;padding:0 1rem;color:#222">
-<h1>{dominio}</h1><p>Sitio en preparación.</p></body></html>
-"""
-
 
 def _socket(meta):
     return f"/run/php/sitio-{meta['usuario']}.sock"
@@ -96,7 +89,7 @@ def escribir_vhost(meta):
         os.symlink(_ruta_vhost(meta["dominio"]), enlace)
 
 
-def crear(dominio, con_www=True):
+def crear(dominio, con_www=True, nombre=None):
     php = version_php()
     if not php:
         raise ErrorSitio("PHP-FPM no está instalado: ejecuta «instalar-app.sh sitios»")
@@ -150,9 +143,12 @@ def crear(dominio, con_www=True):
     os.makedirs(meta["registros"])
     os.chmod(meta["registros"], 0o750)
 
-    indice = os.path.join(meta["publico"], "index.html")
-    _escribir(indice, _INICIO.format(dominio=dominio), 0o640)
-    os.chown(indice, pw.pw_uid, www.pw_gid)
+    # Página «en construcción» con el nombre de la institución, robots.txt, sitemap.xml y llms.txt.
+    for archivo, contenido in pagina_inicio.archivos(dominio, nombre, con_www).items():
+        ruta = os.path.join(meta["publico"], archivo)
+        _escribir(ruta, contenido, 0o640)
+        os.chown(ruta, pw.pw_uid, www.pw_gid)
+    meta["nombre"] = nombre or dominio
 
     guardar_meta(meta)
     try:

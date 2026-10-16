@@ -57,14 +57,19 @@ def volcar_y_borrar_bd(meta, destino):
     _mariadb(f"DROP DATABASE IF EXISTS `{nombre}`; DROP USER IF EXISTS '{nombre}'@'localhost';")
 
 
+INICIALES = ("index.html", "robots.txt", "sitemap.xml", "llms.txt")
+
+
 def _publico_vacio(meta):
-    """La carpeta pública solo puede tener el index.html de bienvenida."""
-    restos = [n for n in os.listdir(meta["publico"]) if n != "index.html"]
+    """La carpeta pública solo puede tener la página «en construcción» y sus archivos."""
+    restos = [n for n in os.listdir(meta["publico"]) if n not in INICIALES]
     if restos:
         raise ErrorSitio("la carpeta del sitio ya tiene archivos: instala la aplicación en un sitio vacío")
-    ruta = os.path.join(meta["publico"], "index.html")
-    if os.path.exists(ruta):
-        os.remove(ruta)
+    # WordPress y Joomla generan su propio robots y mapa del sitio; llms.txt se conserva.
+    for n in ("index.html", "robots.txt", "sitemap.xml"):
+        ruta = os.path.join(meta["publico"], n)
+        if os.path.exists(ruta):
+            os.remove(ruta)
 
 
 def _deshacer_instalacion(meta):

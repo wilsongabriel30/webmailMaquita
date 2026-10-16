@@ -74,6 +74,8 @@ const navSections = [
   {
     title: "Hospedaje",
     items: [
+      { to: "/dominio-nuevo", label: "Nuevo dominio", help: "Escriba el dominio y el nombre de la institución: se crean el correo, la zona DNS completa, el sitio web y el primer buzón en un paso.", icon: "M12 4v16m8-8H4" },
+      { to: "/dns", label: "Zonas DNS", help: "Registros DNS de los dominios de este servidor (A, MX, TXT, CNAME…), ajustes de IP y servidores de nombres, y comprobación de la propagación.", icon: "M4 6h16M4 12h16M4 18h7" },
       { to: "/sitios", label: "Sitios web", help: "Páginas web en este servidor: WordPress o Joomla (software libre), FTP seguro y HTTPS gratuito para cada dominio.", icon: "M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm0 4h16M8 4v5" },
     ],
   },
