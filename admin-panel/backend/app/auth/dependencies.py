@@ -27,11 +27,24 @@ def _hash(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
-async def get_current_admin(request: Request) -> dict:
+def token_de_la_peticion(request: Request) -> str:
+    """Vale de sesión del panel: cabecera X-Admin-Token o, por compatibilidad, «Authorization: Bearer».
+
+    El navegador usa X-Admin-Token porque «Authorization» la ocupa la clave básica de nginx cuando
+    se entra al panel desde fuera de la red interna: con las dos en la misma cabecera, tras iniciar
+    sesión todas las llamadas daban 401.
+    """
+    propio = request.headers.get("X-Admin-Token", "").strip()
+    if propio:
+        return propio
     auth = request.headers.get("Authorization", "")
-    if not auth.startswith("Bearer "):
+    return auth[7:] if auth.startswith("Bearer ") else ""
+
+
+async def get_current_admin(request: Request) -> dict:
+    token = token_de_la_peticion(request)
+    if not token:
         raise HTTPException(401, "Token requerido")
-    token = auth[7:]
     payload = decode_token(token)
     if not payload or payload.get("purpose"):
         raise HTTPException(401, "Token inválido o expirado")

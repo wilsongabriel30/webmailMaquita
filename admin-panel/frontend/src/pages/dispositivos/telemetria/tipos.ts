@@ -48,7 +48,7 @@ export const gb = (b?: number | null) => (b || b === 0 ? `${(b / 1073741824).toF
 /** Descarga un GET autenticado como archivo (el CSV de la flota). */
 export async function descargar(path: string, nombre: string) {
   const token = localStorage.getItem("admin_token");
-  const r = await fetch(`/api${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  const r = await fetch(`/api${path}`, { headers: token ? { "X-Admin-Token": token } : {} });
   if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
   const url = URL.createObjectURL(await r.blob());
   const a = document.createElement("a"); a.href = url; a.download = nombre; a.click();
