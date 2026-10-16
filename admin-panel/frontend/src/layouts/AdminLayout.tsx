@@ -72,6 +72,12 @@ const navSections = [
     ],
   },
   {
+    title: "Hospedaje",
+    items: [
+      { to: "/sitios", label: "Sitios web", help: "Páginas web en este servidor: WordPress o Joomla (software libre), FTP seguro y HTTPS gratuito para cada dominio.", icon: "M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm0 4h16M8 4v5" },
+    ],
+  },
+  {
     title: "Administración",
     items: [
       { to: "/audit", label: "Auditoría", help: "Registro de todas las acciones de los administradores del panel: quién hizo qué y cuándo.", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" },

@@ -8,6 +8,7 @@ import { AdminLayout } from "./layouts/AdminLayout";
 import { Dashboard } from "./pages/Dashboard";
 import { Domains } from "./pages/Domains";
 import { Portales } from "./pages/Portales";
+import { Sitios } from "./pages/Sitios";
 import { Dispositivos } from "./pages/Dispositivos";
 import { Mailboxes } from "./pages/Mailboxes";
 import { Aliases } from "./pages/Aliases";
@@ -143,6 +144,7 @@ function App() {
             <Route path="ediscovery" element={<EDiscovery />} />
             <Route path="branding" element={<Branding />} />
             <Route path="portales" element={<Portales />} />
+            <Route path="sitios" element={<Sitios />} />
             <Route path="dispositivos" element={<Dispositivos />} />
             <Route path="ai" element={<AiConfig />} />
             <Route path="office" element={<OfficeConfig />} />

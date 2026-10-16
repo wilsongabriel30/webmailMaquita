@@ -69,6 +69,7 @@ from app.conditional_access.router import router as condaccess_router
 from app.geo_access.router import router as geoaccess_router
 from app.outbound_anomaly.router import router as anomaly_router
 from app.outbound.router import router as outbound_router
+from app.sitios.router import router as sitios_router
 from app.password_audit.router import router as password_audit_router
 from app.admin_recovery.router import router as adminrec_router
 from app.rag.router import router as rag_router
@@ -228,6 +229,7 @@ app.include_router(dispositivos_router)
 app.include_router(geoaccess_router)
 app.include_router(anomaly_router)
 app.include_router(outbound_router)
+app.include_router(sitios_router)
 app.include_router(password_audit_router)
 app.include_router(adminrec_router)
 

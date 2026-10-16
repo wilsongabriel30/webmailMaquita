@@ -263,3 +263,49 @@ def test_depurar_adjuntos_y_acceso_por_pais():
                  ["borrar", "es"], ["enable", "es", "x"], ["enable", "$(id)"]):
         _no("maquita-admin", "geoip-country.sh", *malo)
 
+
+# --- Sitios web del panel (maquita-sitios) ---
+
+
+def test_sitios_ordenes_permitidas():
+    assert _ok("maquita-admin", "maquita-sitios", "listar") == ["listar"]
+    assert _ok("maquita-admin", "maquita-sitios", "crear", "ejemplo.org.ec")
+    assert _ok("maquita-admin", "maquita-sitios", "crear", "ejemplo.org", "sin-www")
+    assert _ok(
+        "maquita-admin",
+        "maquita-sitios",
+        "app",
+        "ejemplo.org",
+        "wordpress",
+        "SG9sYQ",
+        "a@example.org",
+    )
+    assert _ok("maquita-admin", "maquita-sitios", "ftp", "ejemplo.org", "activar")
+    assert _ok("maquita-admin", "maquita-sitios", "ssl", "ejemplo.org", "a@example.org")
+    assert _ok(
+        "maquita-admin", "maquita-sitios", "borrar", "ejemplo.org", "ejemplo.org"
+    )
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ("crear", "../etc/passwd"),
+        ("crear", "ejemplo.org", "--otra"),
+        ("crear", "EJEMPLO.org"),
+        ("app", "ejemplo.org", "drupal", "SG9sYQ", "a@example.org"),
+        ("app", "ejemplo.org", "wordpress", "Hola mundo", "a@example.org"),
+        ("ftp", "ejemplo.org", "root"),
+        ("ssl", "ejemplo.org", "no-es-correo"),
+        ("borrar", "ejemplo.org", "otro.org"),
+        ("reinstalar",),
+    ],
+)
+def test_sitios_rechaza(args):
+    with pytest.raises(ms.Rechazo):
+        _ok("maquita-admin", "maquita-sitios", *args)
+
+
+def test_sitios_solo_panel():
+    with pytest.raises(ms.Rechazo):
+        _ok("www-data", "maquita-sitios", "listar")

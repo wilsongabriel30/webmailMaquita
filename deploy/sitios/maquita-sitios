@@ -1,0 +1,84 @@
+#!/usr/bin/env python3
+"""maquita-sitios — sitios web del servidor (sección «Sitios web» del panel de administración).
+
+Corre como root y solo se llama desde el panel a través de maquita-sudo. Responde siempre JSON.
+
+Uso:
+  maquita-sitios estado
+  maquita-sitios listar
+  maquita-sitios crear <dominio> [sin-www]
+  maquita-sitios app <dominio> <wordpress|joomla> <título en base64url> <correo del administrador>
+  maquita-sitios ftp <dominio> <activar|desactivar>
+  maquita-sitios ssl <dominio> <correo para Let's Encrypt>
+  maquita-sitios borrar <dominio> <dominio repetido como confirmación>
+"""
+
+import json
+import os
+import shutil
+import sys
+
+sys.path.insert(0, "/usr/local/lib/maquita-sitios")
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+
+import validacion as v  # noqa: E402
+from comun import WP_CLI, ErrorSitio, version_php  # noqa: E402
+
+
+def estado():
+    return {
+        "php": version_php(),
+        "mariadb": bool(shutil.which("mariadb")),
+        "wp_cli": os.path.exists(WP_CLI),
+        "ftp": bool(shutil.which("vsftpd")),
+        "certbot": bool(shutil.which("certbot")),
+        "aplicaciones": list(v.APLICACIONES),
+    }
+
+
+def despachar(args):
+    import acceso
+    import aplicaciones
+    import sitio
+
+    if args == ["estado"]:
+        return estado()
+    if args == ["listar"]:
+        return {"sitios": sitio.listar(), "estado": estado()}
+    if len(args) in (2, 3) and args[0] == "crear":
+        if len(args) == 3 and args[2] != "sin-www":
+            raise ErrorSitio("crear: tercer argumento no permitido")
+        return sitio.crear(v.dominio(args[1]), con_www=len(args) == 2)
+    if len(args) == 5 and args[0] == "app":
+        return aplicaciones.instalar(v.dominio(args[1]), v.aplicacion(args[2]), v.titulo(args[3]), v.correo(args[4]))
+    if len(args) == 3 and args[0] == "ftp" and args[2] in ("activar", "desactivar"):
+        return acceso.ftp(v.dominio(args[1]), args[2])
+    if len(args) == 3 and args[0] == "ssl":
+        return acceso.ssl(v.dominio(args[1]), v.correo(args[2]))
+    if len(args) == 3 and args[0] == "borrar":
+        if args[1] != args[2]:
+            raise ErrorSitio("borrar: la confirmación no coincide con el dominio")
+        return sitio.borrar(v.dominio(args[1]))
+    raise ErrorSitio("orden o argumentos no permitidos")
+
+
+def main(argv):
+    if os.geteuid() != 0:
+        print(json.dumps({"error": "maquita-sitios debe ejecutarse como root"}))
+        return 1
+    os.umask(0o022)
+    try:
+        resultado = despachar(argv[1:])
+    except ErrorSitio as e:
+        print(json.dumps({"error": str(e)}, ensure_ascii=False))
+        return 1
+    except Exception as e:  # cualquier otro fallo: sin traza hacia el panel, sí en stderr
+        print(f"maquita-sitios: {type(e).__name__}: {e}", file=sys.stderr)
+        print(json.dumps({"error": "fallo interno del ayudante de sitios (ver registro del sistema)"}))
+        return 1
+    print(json.dumps(resultado, ensure_ascii=False))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))
