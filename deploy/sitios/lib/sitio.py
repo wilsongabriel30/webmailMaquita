@@ -214,6 +214,17 @@ def _tamano_mb(ruta):
     return round(total / 1048576, 1)
 
 
+def regenerar():
+    """Reescribe todos los vhosts con las plantillas vigentes (tras actualizar esta sección)."""
+    hechos = []
+    for meta in todos_los_meta():
+        escribir_vhost(meta)
+        hechos.append(meta["dominio"])
+    if hechos:
+        recargar_nginx()
+    return {"regenerados": hechos}
+
+
 def listar():
     return [publico(m) for m in todos_los_meta()]
 

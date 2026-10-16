@@ -3,6 +3,7 @@ import { api } from "../api/client";
 import { SectionHelp } from "../components/SectionHelp";
 import { CredencialesModal, type Credencial } from "./sitios/CredencialesModal";
 import { InstalarAppForm } from "./sitios/InstalarAppForm";
+import { SeguridadModal } from "./sitios/SeguridadModal";
 
 interface Sitio {
   dominio: string;
@@ -29,6 +30,7 @@ export function Sitios() {
   const [nuevo, setNuevo] = useState({ dominio: "", con_www: true });
   const [mostrarNuevo, setMostrarNuevo] = useState(false);
   const [instalarEn, setInstalarEn] = useState<string | null>(null);
+  const [seguridadDe, setSeguridadDe] = useState<string | null>(null);
   const [credenciales, setCredenciales] = useState<{ titulo: string; items: Credencial[]; nota?: string } | null>(null);
 
   const cargar = () =>
@@ -61,6 +63,33 @@ export function Sitios() {
     }
   });
 
+  // La pestaña se abre ANTES de pedir el enlace: si se abre después del await, el navegador la bloquea.
+  const entrar = (s: Sitio) => {
+    const pestana = window.open("about:blank", "_blank");
+    accion("Generando el acceso…", async () => {
+      try {
+        const r = await api.post<{ url: string }>(`/sitios/${s.dominio}/entrar`);
+        if (pestana) { pestana.opener = null; pestana.location.href = r.url; } else { window.location.href = r.url; }
+      } catch (e) { pestana?.close(); throw e; }
+    });
+  };
+
+  const nuevaClave = (s: Sitio) => {
+    if (!confirm(`Se generará una contraseña nueva para el administrador de ${s.dominio}. La anterior deja de valer. ¿Continuar?`)) return;
+    accion("Generando la contraseña…", async () => {
+      const r = await api.post<{ usuario: string; clave: string; url_admin: string }>(`/sitios/${s.dominio}/clave-admin`);
+      setCredenciales({
+        titulo: `Nueva contraseña del administrador de ${s.dominio}`,
+        items: [
+          { etiqueta: "Administración", valor: r.url_admin },
+          { etiqueta: "Usuario", valor: r.usuario },
+          { etiqueta: "Contraseña", valor: r.clave, secreto: true },
+        ],
+        nota: "Esta contraseña no se vuelve a mostrar.",
+      });
+    });
+  };
+
   const ssl = (s: Sitio) => {
     const correo = prompt(`Correo de contacto para el certificado de ${s.dominio} (avisos de Let's Encrypt).\n\nAntes: ${s.dominio}${s.www ? ` y www.${s.dominio}` : ""} deben apuntar en el DNS a la IP pública de este servidor.`);
     if (!correo) return;
@@ -85,6 +114,8 @@ export function Sitios() {
             { titulo: "Para qué sirve", desc: "Publica páginas web en este mismo servidor, cada una con su dominio, su usuario, su PHP y su base de datos aislados del resto." },
             { titulo: "Crear sitio", desc: "Escriba el dominio sin «www.». El sitio responde también con www. Antes de pedir HTTPS, el dominio debe apuntar a la IP pública del servidor." },
             { titulo: "Aplicaciones", desc: "WordPress o Joomla, ambos software libre (GPL). Se descarga la versión oficial vigente y se verifica antes de instalarla. El usuario y la contraseña del administrador se muestran una sola vez." },
+            { titulo: "Entrar y contraseña", desc: "«Entrar» abre el escritorio de WordPress sin contraseña con un enlace de un solo uso que vence en 60 segundos. «Nueva contraseña» genera otra para el administrador (WordPress o Joomla) si se olvidó." },
+            { titulo: "Seguridad", desc: "Cada sitio tiene cortafuegos de aplicación (OWASP CRS), límite de intentos de inicio de sesión y bloqueo automático de IP atacantes. En WordPress además: XML-RPC y enumeración de usuarios cerrados, versión oculta, editor de archivos apagado, segundo factor disponible y actualizaciones automáticas. «Seguridad» muestra versión, actualizaciones pendientes y si los archivos del núcleo fueron alterados." },
             { titulo: "FTP", desc: "Activa el acceso a los archivos por FTP cifrado (FTPS) o SFTP, encerrado en la carpeta del sitio. «Nueva clave» invalida la anterior." },
             { titulo: "HTTPS", desc: "Pide un certificado gratuito de Let's Encrypt y redirige todo a https. Se renueva solo." },
             { titulo: "Dar de baja", desc: "Deja de publicar el sitio. Archivos y base de datos van a la papelera del servidor (/srv/sitios-papelera), no se borran en el acto." },
@@ -160,7 +191,15 @@ export function Sitios() {
                   </td>
                   <td className="px-4 py-2.5">
                     {s.app ? (
-                      <span>{NOMBRE_APP[s.app] || s.app}{s.app_admin && <> · <a href={s.app_admin} target="_blank" rel="noopener noreferrer" className="text-ms-blue hover:underline text-xs">administrar</a></>}</span>
+                      <div>
+                        <span>{NOMBRE_APP[s.app] || s.app}</span>
+                        <div className="text-xs mt-0.5 space-x-2">
+                          {s.app === "wordpress" && <button onClick={() => entrar(s)} disabled={!!ocupado} title="Abre el escritorio de WordPress sin contraseña (enlace de un solo uso, 60 segundos)." className="text-ms-blue hover:underline disabled:opacity-50">Entrar</button>}
+                          {s.app !== "wordpress" && s.app_admin && <a href={s.app_admin} target="_blank" rel="noopener noreferrer" className="text-ms-blue hover:underline">Administrar</a>}
+                          <button onClick={() => nuevaClave(s)} disabled={!!ocupado} className="text-ms-blue hover:underline disabled:opacity-50">Nueva contraseña</button>
+                          <button onClick={() => setSeguridadDe(s.dominio)} disabled={!!ocupado} className="text-ms-blue hover:underline disabled:opacity-50">Seguridad</button>
+                        </div>
+                      </div>
                     ) : (
                       <button onClick={() => setInstalarEn(s.dominio)} disabled={!!ocupado} className="text-ms-blue hover:underline text-xs disabled:opacity-50">Instalar WordPress o Joomla</button>
                     )}
@@ -191,6 +230,7 @@ export function Sitios() {
         </div>
       )}
 
+      {seguridadDe && <SeguridadModal dominio={seguridadDe} onCerrar={() => { setSeguridadDe(null); cargar(); }} />}
       {credenciales && <CredencialesModal {...credenciales} onCerrar={() => setCredenciales(null)} />}
     </div>
   );

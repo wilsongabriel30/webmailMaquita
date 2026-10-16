@@ -11,6 +11,13 @@ Uso:
   maquita-sitios ftp <dominio> <activar|desactivar>
   maquita-sitios ssl <dominio> <correo para Let's Encrypt>
   maquita-sitios borrar <dominio> <dominio repetido como confirmación>
+  maquita-sitios entrar <dominio>         enlace de un solo uso al escritorio de WordPress
+  maquita-sitios clave-admin <dominio>    contraseña nueva del administrador de la aplicación
+  maquita-sitios revisar <dominio>        versión, actualizaciones pendientes e integridad
+  maquita-sitios actualizar <dominio>     actualiza núcleo, complementos, temas e idioma
+Solo desde el sistema (no las admite maquita-sudo):
+  maquita-sitios cron                     tareas programadas de las aplicaciones (systemd)
+  maquita-sitios regenerar                reescribe los vhosts con las plantillas vigentes
 """
 
 import json
@@ -59,6 +66,18 @@ def despachar(args):
         if args[1] != args[2]:
             raise ErrorSitio("borrar: la confirmación no coincide con el dominio")
         return sitio.borrar(v.dominio(args[1]))
+    if len(args) == 2 and args[0] in ("entrar", "clave-admin", "revisar", "actualizar"):
+        import seguridad
+
+        funcion = {"entrar": seguridad.entrar, "clave-admin": seguridad.clave_admin,
+                   "revisar": seguridad.revisar, "actualizar": seguridad.actualizar}[args[0]]
+        return funcion(v.dominio(args[1]))
+    if args == ["cron"]:
+        import seguridad
+
+        return seguridad.cron()
+    if args == ["regenerar"]:
+        return sitio.regenerar()
     raise ErrorSitio("orden o argumentos no permitidos")
 
 

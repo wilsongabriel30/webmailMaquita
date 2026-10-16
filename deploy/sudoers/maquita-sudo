@@ -340,6 +340,8 @@ def validar_sitios(args):
         return args
     if len(args) == 3 and args[0] == "borrar" and dom(args[1]) and args[1] == args[2]:
         return args
+    if len(args) == 2 and args[0] in ("entrar", "clave-admin", "revisar", "actualizar") and dom(args[1]):
+        return args
     raise Rechazo("maquita-sitios: subacción o argumentos no permitidos")
 
 

@@ -309,3 +309,12 @@ def test_sitios_rechaza(args):
 def test_sitios_solo_panel():
     with pytest.raises(ms.Rechazo):
         _ok("www-data", "maquita-sitios", "listar")
+
+
+def test_sitios_mantenimiento():
+    for orden in ("entrar", "clave-admin", "revisar", "actualizar"):
+        assert _ok("maquita-admin", "maquita-sitios", orden, "ejemplo.org")
+    # Solo el sistema: el panel no puede lanzar las tareas internas.
+    for interna in (("cron",), ("regenerar",), ("entrar",), ("entrar", "ejemplo.org", "x")):
+        with pytest.raises(ms.Rechazo):
+            _ok("maquita-admin", "maquita-sitios", *interna)

@@ -109,7 +109,17 @@ def instalar(dominio, app, titulo, correo):
         raise
     meta["app"] = app
     meta["app_admin"] = acceso_admin
+    meta["app_usuario"] = admin_usuario
     guardar_meta(meta)
+    if app == "wordpress":
+        import seguridad
+
+        seguridad.endurecer_wordpress(meta)
+    # El vhost lleva reglas propias de cada aplicación (accesos de fuerza bruta, archivos sensibles).
+    import sitio
+
+    sitio.escribir_vhost(meta)
+    sitio.recargar_nginx()
     # Las credenciales se devuelven UNA vez para mostrarlas en el panel; no se guardan.
     return {
         "dominio": dominio,
@@ -122,8 +132,10 @@ def instalar(dominio, app, titulo, correo):
 
 
 def _wp(meta, *args, entrada=None):
+    # cwd en la carpeta del sitio: algunas órdenes lanzan subprocesos desde la carpeta actual, y la
+    # del que llama (root) no es accesible para el usuario del sitio (posix_spawn: Permission denied).
     return ejecutar([WP_CLI, f"--path={meta['publico']}", *args], como=meta["usuario"], entrada=entrada,
-                    env_extra={"WP_CLI_CACHE_DIR": os.path.join(meta["tmp"], ".wp-cli")})
+                    cwd=meta["publico"], env_extra={"WP_CLI_CACHE_DIR": os.path.join(meta["tmp"], ".wp-cli")})
 
 
 def _wordpress(meta, bd, bd_usuario, bd_clave, titulo, correo, admin_usuario, admin_clave):
@@ -251,13 +263,17 @@ def _joomla(meta, bd, bd_usuario, bd_clave, titulo, correo, admin_usuario, admin
         _extraer_zip(paquete, meta["publico"])
     ejecutar(["chown", "-R", f"{meta['usuario']}:www-data", meta["publico"]])
     ejecutar(["chmod", "-R", "u+rwX,g+rX,g-w,o-rwx", meta["publico"]])
+    prefijo = f"j{secrets.token_hex(2)}_"
     ejecutar([
         "php", "installation/joomla.php", "install",
         f"--site-name={titulo}", "--admin-user=Administrador", f"--admin-username={admin_usuario}",
         f"--admin-password={admin_clave}", f"--admin-email={correo}", "--db-type=mysqli",
         "--db-host=localhost", f"--db-user={bd_usuario}", f"--db-pass={bd_clave}", f"--db-name={bd}",
-        f"--db-prefix=j{secrets.token_hex(2)}_", "--db-encryption=0", "--no-interaction",
+        f"--db-prefix={prefijo}", "--db-encryption=0", "--no-interaction",
     ], como=meta["usuario"], cwd=meta["publico"])
+    # Sin estadísticas hacia joomla.org (el sitio no informa a terceros de su configuración).
+    _mariadb(f"UPDATE `{bd}`.`{prefijo}extensions` SET enabled = 0 "
+             "WHERE type = 'plugin' AND folder = 'system' AND element = 'stats';")
     instalacion = os.path.join(meta["publico"], "installation")
     if os.path.isdir(instalacion):
         shutil.rmtree(instalacion)

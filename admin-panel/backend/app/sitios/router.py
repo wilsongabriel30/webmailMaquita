@@ -160,3 +160,35 @@ async def borrar(dominio: str, body: Confirmacion, r: Request, admin: dict = Dep
     res = await _ayudante("borrar", dominio, dominio, tiempo=300)
     await _auditar(r, admin, "sitio_borrar", dominio, {"papelera": res.get("papelera")})
     return res
+
+
+@router.post("/{dominio}/entrar")
+async def entrar(dominio: str, r: Request, admin: dict = Depends(require_superadmin)):
+    """Enlace de un solo uso (60 s) al escritorio de WordPress, sin contraseña."""
+    dominio = _dominio(dominio)
+    res = await _ayudante("entrar", dominio)
+    await _auditar(r, admin, "sitio_entrar", dominio)
+    return res
+
+
+@router.post("/{dominio}/clave-admin")
+async def clave_admin(dominio: str, r: Request, admin: dict = Depends(require_superadmin)):
+    """Contraseña nueva para el administrador de la aplicación (se muestra una vez)."""
+    dominio = _dominio(dominio)
+    res = await _ayudante("clave-admin", dominio, tiempo=120)
+    await _auditar(r, admin, "sitio_clave_admin", dominio)
+    return res
+
+
+@router.get("/{dominio}/seguridad")
+async def revisar(dominio: str, admin: dict = Depends(get_current_admin)):
+    """Versión, actualizaciones pendientes e integridad de los archivos del núcleo."""
+    return await _ayudante("revisar", _dominio(dominio), tiempo=180)
+
+
+@router.post("/{dominio}/actualizar")
+async def actualizar(dominio: str, r: Request, admin: dict = Depends(require_superadmin)):
+    dominio = _dominio(dominio)
+    res = await _ayudante("actualizar", dominio, tiempo=600)
+    await _auditar(r, admin, "sitio_actualizar", dominio)
+    return res

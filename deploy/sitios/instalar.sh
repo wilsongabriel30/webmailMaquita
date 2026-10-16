@@ -15,11 +15,12 @@ PASV_MAX=40100
 
 [ "$EUID" -eq 0 ] || { echo -e "${RED}Ejecutar como root.${NC}"; exit 1; }
 
-echo -e "${GREEN}[1/7] Paquetes (PHP-FPM, MariaDB, vsftpd)...${NC}"
+echo -e "${GREEN}[1/9] Paquetes (PHP-FPM, MariaDB, vsftpd)...${NC}"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq php-fpm php-cli php-mysql php-xml php-mbstring php-curl php-zip php-gd \
-    php-intl php-bcmath php-imagick mariadb-server vsftpd unzip ssl-cert >/dev/null
+    php-intl php-bcmath php-imagick mariadb-server vsftpd unzip ssl-cert \
+    libnginx-mod-http-modsecurity modsecurity-crs fail2ban >/dev/null
 PHP_VER="$(ls /etc/php | sort -V | tail -1)"
 systemctl enable mariadb "php${PHP_VER}-fpm" >/dev/null 2>&1
 systemctl start mariadb
@@ -45,14 +46,14 @@ EOF
 systemctl reset-failed "php${PHP_VER}-fpm" 2>/dev/null || true
 systemctl restart "php${PHP_VER}-fpm"
 
-echo -e "${GREEN}[2/7] Grupo y carpetas...${NC}"
+echo -e "${GREEN}[2/9] Grupo y carpetas...${NC}"
 getent group sitios >/dev/null || groupadd --system sitios
 install -d -m 755 -o root -g root /srv/sitios
 install -d -m 700 -o root -g root /srv/sitios-papelera /etc/maquita-sitios
 install -d -m 755 /var/www/certbot
 touch /etc/vsftpd.sitios && chmod 644 /etc/vsftpd.sitios
 
-echo -e "${GREEN}[3/7] WP-CLI ${WP_CLI_VERSION} (verificado con su SHA-512 oficial)...${NC}"
+echo -e "${GREEN}[3/9] WP-CLI ${WP_CLI_VERSION} (verificado con su SHA-512 oficial)...${NC}"
 if ! /usr/local/bin/wp --allow-root --version 2>/dev/null | grep -q "${WP_CLI_VERSION}"; then
     TMP="$(mktemp -d)"
     BASE="https://github.com/wp-cli/wp-cli/releases/download/v${WP_CLI_VERSION}/wp-cli-${WP_CLI_VERSION}.phar"
@@ -65,7 +66,7 @@ if ! /usr/local/bin/wp --allow-root --version 2>/dev/null | grep -q "${WP_CLI_VE
     rm -rf "${TMP}"
 fi
 
-echo -e "${GREEN}[4/7] FTP seguro (vsftpd, solo con cifrado, encerrado en la carpeta del sitio)...${NC}"
+echo -e "${GREEN}[4/9] FTP seguro (vsftpd, solo con cifrado, encerrado en la carpeta del sitio)...${NC}"
 if [ -f /etc/vsftpd.conf ] && [ ! -f /etc/vsftpd.conf.original ]; then cp /etc/vsftpd.conf /etc/vsftpd.conf.original; fi
 CERT=/etc/ssl/certs/ssl-cert-snakeoil.pem; LLAVE=/etc/ssl/private/ssl-cert-snakeoil.key
 MAIL_HOST="$(grep -E '^MAIL_HOST=' "${APP_DIR}/backend/.env" 2>/dev/null | head -1 | cut -d= -f2- || true)"
@@ -121,7 +122,7 @@ EOF
 systemctl enable vsftpd >/dev/null 2>&1
 systemctl restart vsftpd
 
-echo -e "${GREEN}[5/7] SFTP encerrado para el grupo «sitios» (sin shell)...${NC}"
+echo -e "${GREEN}[5/9] SFTP encerrado para el grupo «sitios» (sin shell)...${NC}"
 # Va al FINAL de sshd_config, no en sshd_config.d/: ese directorio se incluye al principio y un
 # «Match» allí se tragaría las directivas globales que vienen detrás.
 SSHD=/etc/ssh/sshd_config
@@ -147,12 +148,68 @@ else
     echo -e "${YELLOW}sshd no aceptó la configuración de SFTP: se dejó como estaba (el FTP seguro sigue disponible).${NC}"
 fi
 
-echo -e "${GREEN}[6/7] Ayudante del panel y permisos...${NC}"
+echo -e "${GREEN}[6/9] Cortafuegos de aplicación (ModSecurity + OWASP CRS) y límites por IP...${NC}"
+install -m 644 "${SELF}/nginx/sitios-limites.conf" /etc/nginx/conf.d/sitios-limites.conf
+install -d -m 755 /etc/nginx/sitios-waf
+install -m 644 "${SELF}/nginx/waf-base.conf" /etc/nginx/sitios-waf/base.conf
+for app in general wordpress joomla; do
+    install -m 644 "${SELF}/nginx/waf-${app}.conf" "/etc/nginx/sitios-waf/${app}.conf"
+done
+touch /var/log/nginx/sitios-acceso.log /var/log/nginx/sitios-waf.log
+chown www-data:adm /var/log/nginx/sitios-acceso.log /var/log/nginx/sitios-waf.log
+cat > /etc/logrotate.d/sitios-web <<'EOF'
+/srv/sitios/*/registros/*.log {
+    weekly
+    rotate 8
+    compress
+    delaycompress
+    missingok
+    notifempty
+    sharedscripts
+    postrotate
+        [ -s /run/nginx.pid ] && kill -USR1 "$(cat /run/nginx.pid)"
+    endscript
+}
+EOF
+
+echo -e "${GREEN}[7/9] fail2ban: fuerza bruta en WordPress, escaneos y abusos...${NC}"
+install -m 644 "${SELF}/fail2ban/sitios.conf" /etc/fail2ban/jail.d/sitios-web.conf
+for f in wp-login escaneo abuso; do
+    install -m 644 "${SELF}/fail2ban/filtro-sitios-${f}.conf" "/etc/fail2ban/filter.d/sitios-${f}.conf"
+done
+
+echo -e "${GREEN}[8/9] Ayudante del panel, complementos de WordPress y tareas programadas...${NC}"
 install -d -m 755 /usr/local/lib/maquita-sitios
 install -m 644 "${SELF}"/lib/*.py /usr/local/lib/maquita-sitios/
 install -m 755 "${SELF}/maquita-sitios" /usr/local/sbin/maquita-sitios
+install -d -m 755 /usr/local/lib/maquita-sitios/wordpress
+install -m 644 "${SELF}"/wordpress/*.php /usr/local/lib/maquita-sitios/wordpress/
+# Tareas programadas de WordPress y Joomla cada 5 minutos (en vez de depender de las visitas).
+cat > /etc/systemd/system/sitios-cron.service <<'EOF'
+[Unit]
+Description=Tareas programadas de los sitios web
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/maquita-sitios cron
+EOF
+cat > /etc/systemd/system/sitios-cron.timer <<'EOF'
+[Unit]
+Description=Tareas programadas de los sitios web cada 5 minutos
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=5min
+
+[Install]
+WantedBy=timers.target
+EOF
+systemctl daemon-reload
+systemctl enable --now sitios-cron.timer >/dev/null 2>&1
 # El envoltorio sudo del panel conoce maquita-sitios desde esta versión: reinstalarlo.
 install -m 755 "${APP_DIR}/deploy/sudoers/maquita-sudo" /usr/local/sbin/maquita-sudo
+# Los sitios ya creados se regeneran con las plantillas de esta versión.
+/usr/local/sbin/maquita-sitios regenerar >/dev/null
 # fail2ban: intentos fallidos de FTP.
 if [ -d /etc/fail2ban/jail.d ]; then
     cat > /etc/fail2ban/jail.d/sitios-ftp.local <<'EOF'
@@ -162,10 +219,13 @@ backend = auto
 logpath = /var/log/vsftpd.log
 maxretry = 5
 EOF
-    systemctl reload fail2ban 2>/dev/null || true
 fi
+nginx -t
+systemctl reload nginx
+systemctl enable fail2ban >/dev/null 2>&1
+systemctl restart fail2ban
 
-echo -e "${GREEN}[7/7] Comprobación...${NC}"
+echo -e "${GREEN}[9/9] Comprobación...${NC}"
 /usr/local/sbin/maquita-sitios estado
 if command -v ufw >/dev/null && ufw status | grep -q "Status: active"; then
     ufw allow 21/tcp >/dev/null; ufw allow ${PASV_MIN}:${PASV_MAX}/tcp >/dev/null
