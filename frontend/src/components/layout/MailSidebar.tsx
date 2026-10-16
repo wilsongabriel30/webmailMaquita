@@ -56,7 +56,21 @@ export function MailSidebar() {
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [createParent, setCreateParent] = useState('');
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  // Secciones plegadas. «Mi actividad» empieza plegada para dejar sitio a las carpetas; lo que la
+  // persona abra o cierre se recuerda en este navegador.
+  const [collapsed, setCollapsedEstado] = useState<Record<string, boolean>>(() => {
+    try {
+      return { stats: true, ...JSON.parse(localStorage.getItem('sidebar_secciones_plegadas') || '{}') };
+    } catch {
+      return { stats: true };
+    }
+  });
+  const setCollapsed = (cambio: (p: Record<string, boolean>) => Record<string, boolean>) =>
+    setCollapsedEstado(p => {
+      const nuevo = cambio(p);
+      try { localStorage.setItem('sidebar_secciones_plegadas', JSON.stringify(nuevo)); } catch { /* sin almacenamiento */ }
+      return nuevo;
+    });
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [recuperarAbierto, setRecuperarAbierto] = useState(false);
