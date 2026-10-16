@@ -14,7 +14,7 @@ Uso:  maquita-sudo <programa> [argumentos...]
       programa ∈ doveadm, postqueue, postsuper, postconf, systemctl, journalctl, sievec,
                  fail2ban-client, nginx, sendmail, maquita-outbound,
                  depurar-adjuntos-peligrosos, geoip-country.sh, maquita-sitios,
-                 maquita-dns
+                 maquita-dns, maquita-cortafuegos
 La política depende de quién llama (SUDO_USER): www-data solo puede lo que necesita el correo
 (recuperar mensajes y ver/gestionar la cola); maquita-admin, lo que necesita el panel.
 Todo se registra en syslog (auth) con la marca MAQUITA_SUDO; las contraseñas se enmascaran.
@@ -48,10 +48,12 @@ BINARIOS = {
     "maquita-sitios": "/usr/local/sbin/maquita-sitios",
     # Zonas DNS del panel y asistente «Nuevo dominio».
     "maquita-dns": "/usr/local/sbin/maquita-dns",
+    # Cortafuegos del servidor (iptables) desde el panel.
+    "maquita-cortafuegos": "/usr/local/sbin/maquita-cortafuegos",
 }
 
 # Programas propios: se ejecutan SOLO desde su ruta fija; si no están, no se buscan en el PATH.
-SOLO_RUTA_FIJA = {"maquita-outbound", "depurar-adjuntos-peligrosos", "geoip-country.sh", "maquita-sitios", "maquita-dns"}
+SOLO_RUTA_FIJA = {"maquita-outbound", "depurar-adjuntos-peligrosos", "geoip-country.sh", "maquita-sitios", "maquita-dns", "maquita-cortafuegos"}
 
 # Qué puede cada usuario llamante. True = todos los subcomandos que valida este programa.
 POLITICA = {
@@ -76,6 +78,7 @@ POLITICA = {
         "geoip-country.sh": True,
         "maquita-sitios": True,
         "maquita-dns": True,
+        "maquita-cortafuegos": True,
     },
 }
 
@@ -378,6 +381,20 @@ def validar_dns(args):
     raise Rechazo("maquita-dns: subacción o argumentos no permitidos")
 
 
+_RE_IP_O_RED = re.compile(r"^[0-9a-fA-F:.]{2,45}(?:/\d{1,3})?$")
+
+
+def validar_cortafuegos(args):
+    """maquita-cortafuegos: solo lo que usa el panel; «cargar», «quitar» e «inicial» son del sistema."""
+    if args in (["estado"], ["confirmar"], ["revertir"]):
+        return args
+    if len(args) == 3 and args[0] == "aplicar" and _RE_B64URL_LARGO.match(args[1]) and _RE_IP_O_RED.match(args[2]):
+        return args
+    if len(args) == 3 and args[0] == "desbloquear" and _RE_JAIL.match(args[1]) and _RE_IP_O_RED.match(args[2]):
+        return args
+    raise Rechazo("maquita-cortafuegos: subacción o argumentos no permitidos")
+
+
 VALIDADORES = {
     "doveadm": validar_doveadm, "postqueue": validar_postqueue, "postsuper": validar_postsuper,
     "postconf": validar_postconf, "systemctl": validar_systemctl, "journalctl": validar_journalctl,
@@ -386,6 +403,7 @@ VALIDADORES = {
     "depurar-adjuntos-peligrosos": validar_depurar, "geoip-country.sh": validar_geoip,
     "maquita-sitios": validar_sitios,
     "maquita-dns": validar_dns,
+    "maquita-cortafuegos": validar_cortafuegos,
 }
 
 
@@ -399,6 +417,10 @@ def autorizar(usuario: str, programa: str, args, comprobar_buzon=_buzon_existe):
         if any(not isinstance(a, str) or not a or len(a) > 12000 or re.search(r"[\x00-\x1f\x7f]", a) for a in args):
             raise Rechazo("argumento con caracteres de control o vacío")
         return validar_outbound(list(args))
+    if programa == "maquita-cortafuegos":
+        if any(not isinstance(a, str) or not a or len(a) > 8000 or re.search(r"[\x00-\x1f\x7f]", a) for a in args):
+            raise Rechazo("argumento con caracteres de control o vacío")
+        return validar_cortafuegos(list(args))
     if programa == "maquita-dns":
         # Registros como DKIM superan los 300 caracteres: base64url validado elemento a elemento.
         if any(not isinstance(a, str) or not a or len(a) > 8000 or re.search(r"[\x00-\x1f\x7f]", a) for a in args):

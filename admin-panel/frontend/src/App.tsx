@@ -11,6 +11,7 @@ import { Portales } from "./pages/Portales";
 import { Sitios } from "./pages/Sitios";
 import { ZonasDns } from "./pages/ZonasDns";
 import { DominioNuevo } from "./pages/DominioNuevo";
+import { Cortafuegos } from "./pages/Cortafuegos";
 import { Dispositivos } from "./pages/Dispositivos";
 import { Mailboxes } from "./pages/Mailboxes";
 import { Aliases } from "./pages/Aliases";
@@ -149,6 +150,7 @@ function App() {
             <Route path="sitios" element={<Sitios />} />
             <Route path="dns" element={<ZonasDns />} />
             <Route path="dominio-nuevo" element={<DominioNuevo />} />
+            <Route path="cortafuegos" element={<Cortafuegos />} />
             <Route path="dispositivos" element={<Dispositivos />} />
             <Route path="ai" element={<AiConfig />} />
             <Route path="office" element={<OfficeConfig />} />

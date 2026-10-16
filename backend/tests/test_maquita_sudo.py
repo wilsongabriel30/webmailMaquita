@@ -360,3 +360,32 @@ def test_dns_rechaza(args):
 def test_dns_solo_panel():
     with pytest.raises(ms.Rechazo):
         _ok("www-data", "maquita-dns", "listar")
+
+
+# --- Cortafuegos del panel (maquita-cortafuegos) ---
+
+
+def test_cortafuegos_ordenes_permitidas():
+    for args in (
+        ("estado",),
+        ("confirmar",),
+        ("revertir",),
+        ("aplicar", "eyJzZXJ2aWNpb3MiOnt9fQ", "192.0.2.10"),
+        ("desbloquear", "sitios-wp-login", "203.0.113.50"),
+    ):
+        assert _ok("maquita-admin", "maquita-cortafuegos", *args)
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ("quitar",),
+        ("cargar",),
+        ("inicial", "0.0.0.0/0"),
+        ("aplicar", "eyJ9", "192.0.2.4; id"),
+        ("desbloquear", "sshd;rm", "203.0.113.50"),
+    ],
+)
+def test_cortafuegos_rechaza(args):
+    with pytest.raises(ms.Rechazo):
+        _ok("maquita-admin", "maquita-cortafuegos", *args)

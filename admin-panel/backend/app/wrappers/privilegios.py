@@ -37,6 +37,7 @@ _REQUIEREN_SUDO = {
     "geoip-country.sh",
     "maquita-sitios",
     "maquita-dns",
+    "maquita-cortafuegos",
     "systemctl",
     "journalctl",
     "doveadm",

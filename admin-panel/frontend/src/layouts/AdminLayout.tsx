@@ -46,6 +46,7 @@ const navSections = [
   {
     title: "Protección",
     items: [
+      { to: "/cortafuegos", label: "Cortafuegos", help: "Qué puertos del servidor se pueden usar desde Internet, IP de administración, bloqueos manuales e IP bloqueadas por fail2ban. Los cambios se aplican a prueba durante 60 segundos.", icon: "M3 5h18v4H3zM3 9h8v5H3zm8 0h10v5H11zM3 14h18v5H3z" },
       { to: "/risky-logins", label: "Inicios de sesión riesgosos", help: "Inicios de sesión sospechosos: IP inusual, países nuevos u horarios atípicos.", icon: "M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" },
       { to: "/threats", label: "Panel de amenazas", help: "Resumen de amenazas detectadas: spam, phishing, malware y adjuntos peligrosos.", icon: "M12 2l7 4v6c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6l7-4z M12 8v4 M12 16h.01" },
       { to: "/air", label: "AIR — investigación y respuesta", help: "Investigación y respuesta automatizada de incidentes de correo (AIR).", icon: "M9 12l2 2 4-4 M12 3a9 9 0 100 18 9 9 0 000-18z" },

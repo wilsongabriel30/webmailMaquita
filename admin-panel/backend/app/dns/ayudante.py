@@ -8,7 +8,11 @@ from fastapi import HTTPException, Request
 
 from app.wrappers.privilegios import con_sudo
 
-AYUDANTES = {"dns": "/usr/local/sbin/maquita-dns", "sitios": "/usr/local/sbin/maquita-sitios"}
+AYUDANTES = {
+    "dns": "/usr/local/sbin/maquita-dns",
+    "sitios": "/usr/local/sbin/maquita-sitios",
+    "cortafuegos": "/usr/local/sbin/maquita-cortafuegos",
+}
 
 
 def b64(datos) -> str:
