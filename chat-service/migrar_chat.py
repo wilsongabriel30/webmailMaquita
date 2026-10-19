@@ -105,3 +105,8 @@ except _DuenoAjeno as fallo:
         sys.stderr.write(_explicar_dueno(_con, fallo.tabla, fallo.error))
     sys.exit(1)
 print("Columnas añadidas: %d" % anadidas)
+
+# Disparadores (no leídos, vista previa y orden de las conversaciones): create_all no los crea.
+with gestor.engine.begin() as _con:
+    _con.exec_driver_sql(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "sql", "disparadores.sql"), encoding="utf-8").read())
+print("OK — disparadores del chat al día.")
