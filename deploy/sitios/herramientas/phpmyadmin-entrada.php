@@ -1,7 +1,8 @@
 <?php
 // Segundo servidor de phpMyAdmin: el mismo MariaDB, con entrada directa desde el panel (entrar.php deja el
 // usuario temporal en la sesión «MaquitaEntradaPMA»). El primero sigue pidiendo usuario y contraseña.
-$i++;
+// Número fijo (9), no «$i++»: la configuración de Debian deja el contador en un valor que no es el último.
+$i = 9;
 $cfg['Servers'][$i]['verbose'] = 'MariaDB (entrada desde el panel)';
 $cfg['Servers'][$i]['auth_type'] = 'signon';
 $cfg['Servers'][$i]['host'] = 'localhost';

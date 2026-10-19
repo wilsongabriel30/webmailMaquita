@@ -29,7 +29,7 @@ header('Cache-Control: no-store');
 header('Referrer-Policy: no-referrer');
 
 if ($d['herramienta'] === 'phpmyadmin') {
-    // Autenticación «signon» de phpMyAdmin (servidor 2 de conf.d/maquita-entrada.php).
+    // Autenticación «signon» de phpMyAdmin (servidor 9 de conf.d/maquita-entrada.php).
     session_name('MaquitaEntradaPMA');
     session_set_cookie_params(['lifetime' => 0, 'path' => '/herramientas/phpmyadmin/', 'secure' => true,
                                'httponly' => true, 'samesite' => 'Strict']);
@@ -38,7 +38,7 @@ if ($d['herramienta'] === 'phpmyadmin') {
     $_SESSION['PMA_single_signon_password'] = $d['clave'];
     $_SESSION['PMA_single_signon_host'] = $d['servidor'];
     session_write_close();
-    header('Location: /herramientas/phpmyadmin/index.php?server=2&db=' . rawurlencode($d['base']));
+    header('Location: /herramientas/phpmyadmin/index.php?server=9&db=' . rawurlencode($d['base']));
     exit;
 }
 
@@ -49,8 +49,8 @@ file_put_contents(VALES . '/adminer-' . $segundo, (string)time());
 $nonce = base64_encode(random_bytes(16));
 header("Content-Security-Policy: default-src 'none'; script-src 'nonce-$nonce'; form-action 'self'; base-uri 'none'");
 $campos = [
-    'auth[driver]' => $d['motor'] === 'postgresql' ? 'pgsql' : 'server',
-    'auth[server]' => $d['servidor'],
+    // El complemento de servidores fijos (adminer-plugins.php) recibe el nombre de la lista y pone él la dirección.
+    'auth[server]' => $d['motor'] === 'postgresql' ? 'PostgreSQL (este servidor)' : 'MariaDB (este servidor)',
     'auth[username]' => $d['usuario'],
     'auth[password]' => $d['clave'],
     'auth[db]' => $d['base'],
