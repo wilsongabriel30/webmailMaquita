@@ -44,6 +44,17 @@ def ejecutar(cmd, entrada=None, como=None, cwd=None, tiempo=600, env_extra=None)
     return r.stdout
 
 
+def volcar(cmd, destino, tiempo=1800):
+    """Copia de una base de datos directa al archivo (0600), en binario: hay aplicaciones (Matomo)
+    que guardan datos que no son texto UTF-8."""
+    with open(os.open(destino, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "wb") as f:
+        r = subprocess.run(cmd, stdout=f, stderr=subprocess.PIPE, timeout=tiempo, cwd="/tmp",
+                           env={"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "LANG": "C.UTF-8"})
+    if r.returncode != 0:
+        detalle = r.stderr.decode(errors="replace").strip().splitlines()
+        raise ErrorSitio("no se pudo copiar la base antes de borrarla" + (f": {detalle[-1][:200]}" if detalle else ""))
+
+
 def clave(n=20):
     """Contraseña aleatoria con letras, números y un símbolo seguro para shells y URL."""
     alfabeto = string.ascii_letters + string.digits

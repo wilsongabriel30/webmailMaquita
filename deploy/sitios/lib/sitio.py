@@ -198,6 +198,8 @@ def publico(meta):
         "app_admin": meta.get("app_admin"),
         "ssl": meta.get("ssl", False),
         "ftp": meta.get("ftp", False),
+        "tienda": meta.get("tienda", False),
+        "bases": len(meta.get("bases", [])),
         "usuario_ftp": meta["usuario"],
         "base_datos": meta.get("bd"),
         "php": meta.get("php"),
@@ -281,6 +283,11 @@ def borrar(dominio):
 
     if meta.get("bd"):
         aplicaciones.volcar_y_borrar_bd(meta, os.path.join(meta["base"], f"base-de-datos-{sello}.sql"))
+    if meta.get("bases"):
+        import bases
+
+        bases.borrar_todas(meta, meta["base"])  # copias .sql junto a los archivos, en la papelera
+        meta = leer_meta(dominio)
 
     for ruta in (os.path.join(NGINX_ACT, os.path.basename(_ruta_vhost(dominio))), _ruta_vhost(dominio), _ruta_pool(meta)):
         if os.path.lexists(ruta):

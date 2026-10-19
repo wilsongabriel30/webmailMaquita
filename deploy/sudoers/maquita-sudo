@@ -344,7 +344,7 @@ def validar_sitios(args):
             and (len(args) == 2 or args[2] in ("con-www", "sin-www"))
             and (len(args) < 4 or _RE_B64URL.match(args[3]))):
         return args
-    if (len(args) == 5 and args[0] == "app" and dom(args[1]) and args[2] in ("wordpress", "joomla")
+    if (len(args) == 5 and args[0] == "app" and dom(args[1]) and args[2] in ("wordpress", "joomla", "moodle", "dolibarr", "matomo")
             and _RE_B64URL.match(args[3]) and es_buzon(args[4])):
         return args
     if len(args) == 3 and args[0] == "ftp" and dom(args[1]) and args[2] in ("activar", "desactivar"):
@@ -356,6 +356,12 @@ def validar_sitios(args):
     if len(args) == 2 and args[0] in ("entrar", "clave-admin", "revisar", "actualizar", "buscadores", "avisar") and dom(args[1]):
         return args
     if len(args) == 3 and args[0] == "inicio" and dom(args[1]) and _RE_B64URL_LARGO.match(args[2]):
+        return args
+    if len(args) == 2 and args[0] in ("tienda", "bases") and dom(args[1]):
+        return args
+    if len(args) == 3 and args[0] == "base-crear" and dom(args[1]) and args[2] in ("mariadb", "postgresql"):
+        return args
+    if len(args) == 3 and args[0] == "base-borrar" and dom(args[1]) and re.fullmatch(r"x_[a-z0-9]+_[0-9a-f]{4}", args[2]):
         return args
     raise Rechazo("maquita-sitios: subacción o argumentos no permitidos")
 

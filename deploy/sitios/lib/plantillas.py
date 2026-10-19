@@ -44,8 +44,9 @@ _CUERPO = Template(
 $reglas_app
     location / { try_files $$uri $$uri/ /index.php?$$args; }
 
-    location ~ \.php$$ {
-        # fastcgi-php.conf ya incluye «try_files $$fastcgi_script_name =404».
+    # «archivo.php/ruta» (PATH_INFO) lo usan Moodle y otras aplicaciones; fastcgi-php.conf separa
+    # la ruta y con «try_files $$fastcgi_script_name =404» solo ejecuta archivos .php que existen.
+    location ~ [^/]\.php(/|$$) {
         include snippets/fastcgi-php.conf;
         fastcgi_pass unix:$socket;
         fastcgi_read_timeout 120s;
@@ -153,6 +154,7 @@ php_admin_value[upload_max_filesize] = 64M
 php_admin_value[post_max_size] = 64M
 php_admin_value[memory_limit] = 256M
 php_admin_value[max_execution_time] = 120
+php_admin_value[max_input_vars] = 5000
 php_admin_value[disable_functions] = exec,passthru,shell_exec,system,proc_open,popen,pcntl_exec
 php_admin_flag[expose_php] = off
 php_admin_flag[allow_url_include] = off
@@ -163,16 +165,24 @@ php_admin_flag[log_errors] = on
 
 
 def vhost(meta, socket, acme, con_ssl):
+    from apps import CATALOGO
+
     nombres = " ".join([meta["dominio"]] + (["www." + meta["dominio"]] if meta.get("www", True) else []))
     app = meta.get("app")
+    raiz = meta["publico"]
     if app == "wordpress":
         reglas, waf = _REGLAS_WORDPRESS.substitute(socket=socket), "wordpress"
     elif app == "joomla":
         reglas, waf = _REGLAS_JOOMLA.substitute(socket=socket), "joomla"
+    elif app in CATALOGO:
+        modulo = CATALOGO[app]
+        reglas, waf = Template(modulo.REGLAS_NGINX).substitute(socket=socket), "aplicacion"
+        if modulo.RAIZ_WEB:
+            raiz = f"{meta['publico']}/{modulo.RAIZ_WEB}"
     else:
         reglas, waf = "", "general"
     cuerpo = _CUERPO.substitute(
-        publico=meta["publico"], registros=meta["registros"], acme=acme, socket=socket,
+        publico=raiz, registros=meta["registros"], acme=acme, socket=socket,
         reglas_app=reglas, waf=waf,
     )
     plantilla = _HTTPS if con_ssl else _HTTP

@@ -23,7 +23,7 @@ import tempfile
 import urllib.request
 import zipfile
 
-from comun import WP_CLI, ErrorSitio, clave, ejecutar, guardar_meta, leer_meta, slug
+from comun import WP_CLI, ErrorSitio, clave, ejecutar, guardar_meta, leer_meta, slug, volcar
 
 API_WORDPRESS = "https://api.wordpress.org/core/version-check/1.7/"
 LANZAMIENTOS_JOOMLA = "https://api.github.com/repos/joomla/joomla-cms/releases/latest"
@@ -51,9 +51,7 @@ def crear_bd(meta):
 def volcar_y_borrar_bd(meta, destino):
     """Antes de borrar un sitio, guarda su base de datos junto a los archivos (papelera)."""
     nombre = meta["bd"]
-    salida = ejecutar(["mariadb-dump", "--protocol=socket", "-u", "root", "--single-transaction", nombre])
-    with open(os.open(destino, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "w") as f:
-        f.write(salida)
+    volcar(["mariadb-dump", "--protocol=socket", "-u", "root", "--single-transaction", "--hex-blob", nombre], destino)
     _mariadb(f"DROP DATABASE IF EXISTS `{nombre}`; DROP USER IF EXISTS '{nombre}'@'localhost';")
 
 
@@ -107,11 +105,24 @@ def instalar(dominio, app, titulo, correo):
         if app == "wordpress":
             _wordpress(meta, bd, bd_usuario, bd_clave, titulo, correo, admin_usuario, admin_clave)
             acceso_admin = _url(meta) + "/wp-admin/"
-        else:
+        elif app == "joomla":
             _joomla(meta, bd, bd_usuario, bd_clave, titulo, correo, admin_usuario, admin_clave)
             acceso_admin = _url(meta) + "/administrator/"
+        else:
+            from apps import CATALOGO
+
+            # meta["app"] antes de instalar: algunas aplicaciones se instalan por la web y el vhost
+            # tiene que servir ya su carpeta pública con sus reglas.
+            meta["app"] = app
+            acceso_admin = CATALOGO[app].instalar(meta, bd, bd_usuario, bd_clave, titulo, correo,
+                                                  admin_usuario, admin_clave)
     except Exception:
+        meta["app"] = None
         _deshacer_instalacion(meta)
+        import sitio
+
+        sitio.escribir_vhost(meta)  # sin las reglas de la aplicación que no llegó a instalarse
+        sitio.recargar_nginx()
         raise
     meta["app"] = app
     meta["app_admin"] = acceso_admin

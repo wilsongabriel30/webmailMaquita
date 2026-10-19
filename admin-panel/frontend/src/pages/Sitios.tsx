@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { SectionHelp } from "../components/SectionHelp";
 import { CredencialesModal, type Credencial } from "./sitios/CredencialesModal";
-import { InstalarAppForm } from "./sitios/InstalarAppForm";
+import { APPS, InstalarAppForm } from "./sitios/InstalarAppForm";
+import { BasesModal } from "./sitios/BasesModal";
 import { SeguridadModal } from "./sitios/SeguridadModal";
 import { BuscadoresModal } from "./sitios/BuscadoresModal";
 
@@ -13,6 +14,8 @@ interface Sitio {
   app_admin: string | null;
   ssl: boolean;
   ftp: boolean;
+  tienda?: boolean;
+  bases?: number;
   usuario_ftp: string;
   base_datos: string | null;
   php: string | null;
@@ -22,7 +25,7 @@ interface Sitio {
 interface Estado { php: string | null; mariadb: boolean; wp_cli: boolean; ftp: boolean; certbot: boolean }
 interface Listado { sitios: Sitio[]; estado: Estado }
 
-const NOMBRE_APP: Record<string, string> = { wordpress: "WordPress", joomla: "Joomla" };
+const NOMBRE_APP: Record<string, string> = Object.fromEntries(APPS.map((a) => [a.id, a.nombre]));
 
 export function Sitios() {
   const [datos, setDatos] = useState<Listado | null>(null);
@@ -33,6 +36,7 @@ export function Sitios() {
   const [instalarEn, setInstalarEn] = useState<string | null>(null);
   const [seguridadDe, setSeguridadDe] = useState<string | null>(null);
   const [buscadoresDe, setBuscadoresDe] = useState<string | null>(null);
+  const [basesDe, setBasesDe] = useState<string | null>(null);
   const [credenciales, setCredenciales] = useState<{ titulo: string; items: Credencial[]; nota?: string } | null>(null);
 
   const cargar = () =>
@@ -92,6 +96,15 @@ export function Sitios() {
     });
   };
 
+  const tienda = (s: Sitio) => {
+    if (!confirm(`Se instalará WooCommerce (tienda en línea, GPLv3) en ${s.dominio}. ¿Continuar?`)) return;
+    accion("Instalando WooCommerce…", async () => {
+      const r = await api.post<{ url_admin: string }>(`/sitios/${s.dominio}/tienda`);
+      setCredenciales({ titulo: `Tienda instalada en ${s.dominio}`, items: [{ etiqueta: "Configurar la tienda", valor: r.url_admin }],
+        nota: "Entre al escritorio de WordPress y siga el asistente de WooCommerce (moneda, pagos y envíos)." });
+    });
+  };
+
   const ssl = (s: Sitio) => {
     const correo = prompt(`Correo de contacto para el certificado de ${s.dominio} (avisos de Let's Encrypt).\n\nAntes: ${s.dominio}${s.www ? ` y www.${s.dominio}` : ""} deben apuntar en el DNS a la IP pública de este servidor.`);
     if (!correo) return;
@@ -118,6 +131,8 @@ export function Sitios() {
             { titulo: "Aplicaciones", desc: "WordPress o Joomla, ambos software libre (GPL). Se descarga la versión oficial vigente y se verifica antes de instalarla. El usuario y la contraseña del administrador se muestran una sola vez." },
             { titulo: "Entrar y contraseña", desc: "«Entrar» abre el escritorio de WordPress sin contraseña con un enlace de un solo uso que vence en 60 segundos. «Nueva contraseña» genera otra para el administrador (WordPress o Joomla) si se olvidó." },
             { titulo: "Seguridad", desc: "Cada sitio tiene cortafuegos de aplicación (OWASP CRS), límite de intentos de inicio de sesión y bloqueo automático de IP atacantes. En WordPress además: XML-RPC y enumeración de usuarios cerrados, versión oculta, editor de archivos apagado, segundo factor disponible y actualizaciones automáticas. «Seguridad» muestra versión, actualizaciones pendientes y si los archivos del núcleo fueron alterados." },
+            { titulo: "Aplicaciones", desc: "WordPress (con tienda WooCommerce opcional), Joomla, Moodle (aula virtual), Dolibarr (ERP y CRM) y Matomo (estadísticas). Todo software libre, descargado de su origen oficial y verificado con su suma publicada." },
+            { titulo: "Bases de datos", desc: "Cada sitio puede tener hasta 10 bases adicionales MariaDB o PostgreSQL para aplicaciones propias, con usuario propio que solo entra a su base. Su contenido se administra con phpMyAdmin o Adminer dentro del panel." },
             { titulo: "Buscadores", desc: "Revisa el sitio como un buscador (robots.txt, mapa del sitio, llms.txt para asistentes de IA, datos schema.org, HTTPS), avisa al momento a Bing y otros por IndexNow y pone en el DNS la verificación de Google Search Console." },
             { titulo: "FTP", desc: "Activa el acceso a los archivos por FTP cifrado (FTPS) o SFTP, encerrado en la carpeta del sitio. «Nueva clave» invalida la anterior." },
             { titulo: "HTTPS", desc: "Pide un certificado gratuito de Let's Encrypt y redirige todo a https. Se renueva solo." },
@@ -154,7 +169,7 @@ export function Sitios() {
           dominio={instalarEn}
           ocupado={!!ocupado}
           onCancelar={() => setInstalarEn(null)}
-          onInstalar={(app, titulo, correo) => accion(`Instalando ${NOMBRE_APP[app]} (descarga y verificación: 1–2 minutos)…`, async () => {
+          onInstalar={(app, titulo, correo) => accion(`Instalando ${NOMBRE_APP[app]} (descarga, verificación e instalación: ${app === "moodle" ? "unos 5 minutos" : "1–2 minutos"})…`, async () => {
             const r = await api.post<{ url_admin: string; admin_usuario: string; admin_clave: string; base_datos: string }>(
               `/sitios/${instalarEn}/app`, { app, titulo, correo });
             setInstalarEn(null);
@@ -201,10 +216,11 @@ export function Sitios() {
                           {s.app !== "wordpress" && s.app_admin && <a href={s.app_admin} target="_blank" rel="noopener noreferrer" className="text-ms-blue hover:underline">Administrar</a>}
                           <button onClick={() => nuevaClave(s)} disabled={!!ocupado} className="text-ms-blue hover:underline disabled:opacity-50">Nueva contraseña</button>
                           <button onClick={() => setSeguridadDe(s.dominio)} disabled={!!ocupado} className="text-ms-blue hover:underline disabled:opacity-50">Seguridad</button>
+                          {s.app === "wordpress" && !s.tienda && <button onClick={() => tienda(s)} disabled={!!ocupado} title="WooCommerce: tienda en línea libre." className="text-ms-blue hover:underline disabled:opacity-50">Tienda</button>}
                         </div>
                       </div>
                     ) : (
-                      <button onClick={() => setInstalarEn(s.dominio)} disabled={!!ocupado} className="text-ms-blue hover:underline text-xs disabled:opacity-50">Instalar WordPress o Joomla</button>
+                      <button onClick={() => setInstalarEn(s.dominio)} disabled={!!ocupado} className="text-ms-blue hover:underline text-xs disabled:opacity-50">Instalar una aplicación</button>
                     )}
                   </td>
                   <td className="px-4 py-2.5 text-center">
@@ -224,6 +240,7 @@ export function Sitios() {
                   <td className="px-4 py-2.5 text-right text-ms-gray-90">{s.ocupado_mb} MB</td>
                   <td className="px-4 py-2.5 text-right whitespace-nowrap">
                     <button onClick={() => setBuscadoresDe(s.dominio)} disabled={!!ocupado} title="Visibilidad en buscadores e IA: revisión, aviso a Bing y otros, verificación de Google." className="text-ms-blue hover:underline text-xs mr-3 disabled:opacity-50">Buscadores</button>
+                    <button onClick={() => setBasesDe(s.dominio)} disabled={!!ocupado} title="Bases de datos adicionales (MariaDB o PostgreSQL), phpMyAdmin y Adminer." className="text-ms-blue hover:underline text-xs mr-3 disabled:opacity-50">Bases{s.bases ? ` (${s.bases})` : ""}</button>
                     <button onClick={() => borrar(s)} disabled={!!ocupado} className="text-ms-red hover:underline text-xs disabled:opacity-50">Dar de baja</button>
                   </td>
                 </tr>
@@ -234,6 +251,7 @@ export function Sitios() {
         </div>
       )}
 
+      {basesDe && <BasesModal dominio={basesDe} onCerrar={() => { setBasesDe(null); cargar(); }} />}
       {buscadoresDe && <BuscadoresModal dominio={buscadoresDe} onCerrar={() => setBuscadoresDe(null)} />}
       {seguridadDe && <SeguridadModal dominio={seguridadDe} onCerrar={() => { setSeguridadDe(null); cargar(); }} />}
       {credenciales && <CredencialesModal {...credenciales} onCerrar={() => setCredenciales(null)} />}

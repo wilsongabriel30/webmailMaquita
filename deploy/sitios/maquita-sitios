@@ -14,6 +14,10 @@ Uso:
   maquita-sitios inicio <dominio> <identidad en JSON base64url>   rehace la página «en construcción»
   maquita-sitios buscadores <dominio>     visibilidad en buscadores e IA (robots, mapa, llms.txt, schema.org…)
   maquita-sitios avisar <dominio>         avisa por IndexNow de la portada y el mapa del sitio
+  maquita-sitios tienda <dominio>         WooCommerce en un sitio con WordPress
+  maquita-sitios bases <dominio>          bases de datos adicionales del sitio
+  maquita-sitios base-crear <dominio> <mariadb|postgresql>
+  maquita-sitios base-borrar <dominio> <nombre>   (la copia .sql queda en la carpeta privada del sitio)
   maquita-sitios entrar <dominio>         enlace de un solo uso al escritorio de WordPress
   maquita-sitios clave-admin <dominio>    contraseña nueva del administrador de la aplicación
   maquita-sitios revisar <dominio>        versión, actualizaciones pendientes e integridad
@@ -96,6 +100,22 @@ def despachar(args):
         if isinstance(identidad.get("redes"), dict):
             limpia["redes"] = {str(k)[:20]: str(u)[:200] for k, u in identidad["redes"].items()}
         return sitio.rehacer_inicio(v.dominio(args[1]), limpia)
+    if len(args) == 2 and args[0] == "tienda":
+        import seguridad
+
+        return seguridad.tienda(v.dominio(args[1]))
+    if len(args) == 2 and args[0] == "bases":
+        import bases
+
+        return bases.listar(v.dominio(args[1]))
+    if len(args) == 3 and args[0] == "base-crear" and args[2] in ("mariadb", "postgresql"):
+        import bases
+
+        return bases.crear(v.dominio(args[1]), args[2])
+    if len(args) == 3 and args[0] == "base-borrar":
+        import bases
+
+        return bases.borrar(v.dominio(args[1]), args[2])
     if args == ["cron"]:
         import seguridad
 

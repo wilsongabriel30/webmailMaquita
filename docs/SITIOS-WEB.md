@@ -2,7 +2,8 @@
 
 Publica páginas web en el mismo servidor del correo, cada una aislada: su dominio, su usuario de
 sistema, su pool de PHP-FPM, su base de datos y su acceso a archivos. Desde el panel se crea el
-sitio, se instala WordPress o Joomla, se activa el FTP seguro y se pide el certificado HTTPS.
+sitio, se instala una aplicación del catálogo (WordPress, Joomla, Moodle, Dolibarr, Matomo), se
+crean bases de datos adicionales, se activa el FTP seguro y se pide el certificado HTTPS.
 
 ## Instalación
 
@@ -24,17 +25,27 @@ Si el servidor está detrás de NAT, redirige al servidor los puertos **80 y 443
 | Nuevo sitio | Usuario de sistema sin shell, carpeta `/srv/sitios/<dominio>/` (`publico/` es lo que se sirve), pool de PHP propio con `open_basedir` y funciones de ejecución desactivadas, vhost de nginx con cabeceras de seguridad. Responde también con `www.` salvo que se desmarque. |
 | Instalar WordPress | Paquete `.zip` oficial verificado con la SHA-1 de downloads.wordpress.org, configurado con WP-CLI, cada archivo comprobado contra api.wordpress.org (`wp core verify-checksums`) y paquete de idioma español. XML-RPC cerrado y edición de archivos desde el escritorio desactivada. |
 | Instalar Joomla | Paquete completo oficial de la última versión estable, verificado con SHA-256 contra dos fuentes que deben coincidir (notas de la versión y GitHub), instalado con su propia línea de órdenes; la carpeta `installation/` se borra al terminar. |
+| Instalar Moodle | Paquete oficial de packaging.moodle.org (última rama estable con su SHA-256 publicada), instalado con `admin/cli/install.php`. Se sirve desde `public/` (el código y `config.php` quedan fuera de la web); `moodledata` va en la carpeta privada. Tarda unos 3 minutos. |
+| Instalar Dolibarr | Última versión estable de GitHub, paquete de SourceForge verificado con su MD5 publicado, instalado con sus pasos de línea de órdenes (`install/step1`, `step2`, `step5`). Se sirve desde `htdocs/`; documentos en la carpeta privada; `install.lock` puesto y `/install/` y `/conf/` cerrados en nginx. |
+| Instalar Matomo | Paquete oficial adjunto a la versión de GitHub (SHA-256 de GitHub). Matomo no tiene instalador por línea de órdenes: el ayudante recorre su asistente web desde el propio servidor. IP de las visitas anonimizada; solo se ejecutan los PHP de entrada (reglas oficiales de matomo-nginx). |
+| Tienda (WordPress) | WooCommerce desde wordpress.org, comprobado con `wp plugin verify-checksums` y en español. Sustituye a PrestaShop: su versión 9 no tiene paquete libre descargable y la 8 no admite PHP 8.4. |
+| Bases | Hasta 10 bases adicionales por sitio, **MariaDB o PostgreSQL**, para aplicaciones propias. Cada una con su usuario, que solo entra desde este servidor y solo a su base; la contraseña se muestra una vez. Al borrar una base se copia antes a `<carpeta privada>/<base>.sql` (del dueño del sitio, descargable por SFTP); al dar de baja el sitio, las copias van a la papelera. |
+| Herramientas | **phpMyAdmin** (paquete de Debian) y **Adminer** (versión de GitHub verificada) en `/herramientas/phpmyadmin/` y `/herramientas/adminer/` del panel (8443), con su misma protección. Pool de PHP propio (`herramientas-bd`, `open_basedir`, sin ejecución de órdenes). Adminer solo ofrece los servidores de este equipo (complemento `login-servers`): no sirve de puente hacia otras máquinas. |
 | FTP | Activa la cuenta del sitio con una clave nueva (se muestra una sola vez). Vale para **FTPS explícito** (puerto 21) y **SFTP** (puerto 22); el FTP sin cifrar se rechaza. La cuenta queda encerrada en la carpeta del sitio y no tiene consola. |
 | HTTPS | Certificado de Let's Encrypt por HTTP (el dominio ya debe apuntar a la IP pública del servidor). Si `www` aún no existe en el DNS, se emite solo para el dominio. Renovación automática. En WordPress actualiza la dirección del sitio a `https://`. |
 | Dar de baja | Hay que escribir el dominio para confirmar. Copia la base de datos a un `.sql`, la borra junto con su usuario, quita el vhost, el pool y la cuenta, y mueve los archivos a `/srv/sitios-papelera/<dominio>-<fecha>/`. |
 
 | Entrar (WordPress) | Abre el escritorio sin contraseña: el panel pide un vale aleatorio de un solo uso, WordPress guarda solo su huella SHA-256 como transitorio de 60 s y el complemento obligatorio `acceso-panel.php` inicia la sesión y lo borra. Reusar el enlace o inventar uno → 403. |
 | Nueva contraseña | Contraseña nueva para el administrador de la aplicación (WordPress con WP-CLI, Joomla con su CLI `user:reset-password`); la anterior deja de valer. |
-| Seguridad | Versión, actualizaciones pendientes de núcleo, complementos y temas, e integridad de los archivos del núcleo contra api.wordpress.org. «Actualizar ahora» lo pone todo al día. |
+| Seguridad | Versión, actualizaciones pendientes de núcleo, complementos y temas, e integridad de los archivos del núcleo contra api.wordpress.org. «Actualizar ahora» lo pone todo al día. En Moodle, Dolibarr y Matomo muestra la versión instalada (se actualizan desde su propia administración). |
 
 Las contraseñas generadas (administrador de la aplicación, FTP) se muestran una sola vez y no se
 guardan en el panel ni en la auditoría. Cada acción queda en la auditoría del panel
-(`sitio_crear`, `sitio_app`, `sitio_ftp_*`, `sitio_ssl`, `sitio_borrar`).
+(`sitio_crear`, `sitio_app`, `sitio_tienda`, `sitio_base_crear`, `sitio_base_borrar`, `sitio_ftp_*`,
+`sitio_ssl`, `sitio_borrar`).
+
+La ruta `/api/sitios` del panel tiene un tiempo de espera de 20 minutos (fragmento
+`snippets/herramientas-bd.conf`): las instalaciones largas (Moodle) superan los 120 s del resto de `/api/`.
 
 ## Seguridad
 
@@ -74,7 +85,8 @@ Por capas, de fuera hacia dentro:
 | WordPress por dentro | Complemento obligatorio `seguridad-sitio.php` (de root, el sitio no puede tocarlo): sin XML-RPC ni pingbacks, sin contraseñas de aplicación, versión oculta, enumeración de usuarios cerrada (`?author=`, `/wp-json/wp/v2/users`, mapa del sitio de usuarios), mensaje único de error de inicio de sesión, actualizaciones automáticas de todo. `wp-config`: sin editor de archivos, cron del sistema, actualización automática del núcleo, HTTPS obligatorio en el escritorio al activar el certificado. Complemento oficial «Two Factor» para el segundo factor. Sin `hello` ni `akismet`. Enlaces legibles. |
 | Joomla por dentro | Carpeta `installation` borrada, prefijo de tablas aleatorio, estadísticas hacia joomla.org apagadas. |
 | Aislamiento | Cada sitio con su usuario, su pool de PHP (`open_basedir`, sin `exec`/`system`/`proc_open`…), su base de datos y su FTP encerrado. |
-| Tareas programadas | `sitios-cron.timer` cada 5 min (WordPress `cron event run`, Joomla `scheduler:run`), no las visitas. |
+| Moodle, Dolibarr y Matomo | Perfil «aplicación» del cortafuegos: CRS completo salvo las reglas XSS en POST (los editores de contenido las disparan) y admitiendo `text/plain` (lo usa Moodle). Moodle con límite de inicio de sesión; ficheros internos de cada aplicación cerrados en nginx. |
+| Tareas programadas | `sitios-cron.timer` cada 5 min (WordPress `cron event run`, Joomla `scheduler:run`, Moodle `admin/cli/cron.php`, Matomo `core:archive`), no las visitas. |
 
 Probado con ataques simulados: SQLi, XSS, LFI, RCE y User-Agent de `sqlmap` → 403; búsqueda normal → 200;
 15 POST seguidos a `wp-login.php` → 429 desde el 7.º; IP de prueba bloqueada por fail2ban en iptables;
@@ -100,12 +112,21 @@ repositorios de Debian o se descarga del origen oficial en el momento de usarlo.
 | fail2ban | GPLv2 | Debian |
 | Two Factor (complemento de WordPress) | GPLv2 o posterior | wordpress.org |
 | Certbot / Let's Encrypt | Apache 2.0 | Debian |
+| Moodle | GPLv3 | packaging.moodle.org |
+| Dolibarr | GPLv3 o posterior | sourceforge.net/projects/dolibarr (enlazado desde dolibarr.org) |
+| Matomo | GPLv3 o posterior | github.com/matomo-org/matomo (versiones publicadas) |
+| WooCommerce | GPLv3 | wordpress.org |
+| PostgreSQL | Licencia PostgreSQL (tipo BSD) | Debian |
+| phpMyAdmin | GPLv2 | Debian |
+| Adminer y su complemento `login-servers` | Apache 2.0 o GPLv2 (a elegir) | github.com/vrana/adminer (versiones publicadas) |
 
 ## Archivos
 
 - `deploy/sitios/instalar.sh`: instalación de la sección.
 - `deploy/sitios/maquita-sitios` y `deploy/sitios/lib/`: ayudante (validación, sitios,
   aplicaciones, acceso, seguridad, plantillas de nginx y PHP-FPM).
+- `deploy/sitios/lib/apps/`: catálogo (Moodle, Dolibarr, Matomo) y descargas verificadas; `lib/bases.py`: bases adicionales.
+- `deploy/sitios/herramientas/`: phpMyAdmin y Adminer del panel.
 - `deploy/sitios/wordpress/`: complementos obligatorios de WordPress.
 - `deploy/sitios/nginx/`: límites, registro común y cortafuegos de aplicación.
 - `deploy/sitios/fail2ban/`: vigilancias y filtros.

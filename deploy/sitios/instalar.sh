@@ -19,7 +19,7 @@ echo -e "${GREEN}[1/9] Paquetes (PHP-FPM, MariaDB, vsftpd)...${NC}"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq php-fpm php-cli php-mysql php-xml php-mbstring php-curl php-zip php-gd \
-    php-intl php-bcmath php-imagick mariadb-server vsftpd unzip ssl-cert \
+    php-intl php-bcmath php-imagick php-soap php-pgsql mariadb-server vsftpd unzip ssl-cert \
     libnginx-mod-http-modsecurity modsecurity-crs fail2ban >/dev/null
 PHP_VER="$(ls /etc/php | sort -V | tail -1)"
 systemctl enable mariadb "php${PHP_VER}-fpm" >/dev/null 2>&1
@@ -152,7 +152,7 @@ echo -e "${GREEN}[6/9] Cortafuegos de aplicación (ModSecurity + OWASP CRS) y l�
 install -m 644 "${SELF}/nginx/sitios-limites.conf" /etc/nginx/conf.d/sitios-limites.conf
 install -d -m 755 /etc/nginx/sitios-waf
 install -m 644 "${SELF}/nginx/waf-base.conf" /etc/nginx/sitios-waf/base.conf
-for app in general wordpress joomla; do
+for app in general wordpress joomla aplicacion; do
     install -m 644 "${SELF}/nginx/waf-${app}.conf" "/etc/nginx/sitios-waf/${app}.conf"
 done
 touch /var/log/nginx/sitios-acceso.log /var/log/nginx/sitios-waf.log
@@ -181,6 +181,8 @@ done
 echo -e "${GREEN}[8/9] Ayudante del panel, complementos de WordPress y tareas programadas...${NC}"
 install -d -m 755 /usr/local/lib/maquita-sitios
 install -m 644 "${SELF}"/lib/*.py /usr/local/lib/maquita-sitios/
+install -d -m 755 /usr/local/lib/maquita-sitios/apps
+install -m 644 "${SELF}"/lib/apps/*.py /usr/local/lib/maquita-sitios/apps/
 install -m 755 "${SELF}/maquita-sitios" /usr/local/sbin/maquita-sitios
 install -d -m 755 /usr/local/lib/maquita-sitios/wordpress
 install -m 644 "${SELF}"/wordpress/*.php /usr/local/lib/maquita-sitios/wordpress/
@@ -224,6 +226,51 @@ nginx -t
 systemctl reload nginx
 systemctl enable fail2ban >/dev/null 2>&1
 systemctl restart fail2ban
+
+echo -e "${GREEN}[+] Herramientas de bases de datos en el panel (phpMyAdmin y Adminer)...${NC}"
+# phpMyAdmin del paquete de Debian (firmado, adaptado a PHP 8.4), sin Apache ni base de configuración.
+echo "phpmyadmin phpmyadmin/dbconfig-install boolean false" | debconf-set-selections
+echo "phpmyadmin phpmyadmin/reconfigure-webserver multiselect" | debconf-set-selections
+apt-get install -y -qq --no-install-recommends phpmyadmin postgresql-client >/dev/null
+getent passwd herramientas-bd >/dev/null || useradd --system --no-create-home --shell /usr/sbin/nologin --groups www-data herramientas-bd
+python3 "${SELF}/herramientas/instalar_adminer.py"
+install -m 644 "${SELF}/herramientas/adminer-plugins.php" /usr/local/share/adminer-panel/adminer-plugins.php
+chown -R root:herramientas-bd /usr/local/share/adminer-panel
+chmod -R u+rwX,g+rX,o-rwx /usr/local/share/adminer-panel
+# nginx (www-data) solo necesita atravesar la carpeta para encontrar index.php; leerlo lo hace el pool.
+chgrp www-data /usr/local/share/adminer-panel && chmod 750 /usr/local/share/adminer-panel
+install -d -m 750 -o herramientas-bd -g herramientas-bd /var/lib/herramientas-bd
+cat > "/etc/php/${PHP_VER}/fpm/pool.d/herramientas-bd.conf" <<EOF
+; phpMyAdmin y Adminer del panel. Usuario propio, solo sus carpetas.
+[herramientas-bd]
+user = herramientas-bd
+group = herramientas-bd
+listen = /run/php/herramientas-bd.sock
+listen.owner = www-data
+listen.group = www-data
+listen.mode = 0660
+pm = ondemand
+pm.max_children = 4
+pm.process_idle_timeout = 30s
+php_admin_value[open_basedir] = /usr/share/phpmyadmin:/etc/phpmyadmin:/var/lib/phpmyadmin:/usr/share/php:/usr/share/javascript:/usr/local/share/adminer-panel:/var/lib/herramientas-bd
+php_admin_value[upload_tmp_dir] = /var/lib/herramientas-bd
+php_admin_value[session.save_path] = /var/lib/herramientas-bd
+php_admin_value[sys_temp_dir] = /var/lib/herramientas-bd
+php_admin_value[upload_max_filesize] = 64M
+php_admin_value[post_max_size] = 64M
+php_admin_value[max_input_vars] = 5000
+php_admin_value[disable_functions] = exec,passthru,shell_exec,system,proc_open,popen,pcntl_exec
+php_admin_flag[expose_php] = off
+EOF
+chgrp herramientas-bd /var/lib/phpmyadmin/blowfish_secret.inc.php /etc/phpmyadmin/config.inc.php 2>/dev/null || true
+systemctl reload "php${PHP_VER}-fpm"
+install -m 644 "${SELF}/herramientas/nginx-herramientas.conf" /etc/nginx/snippets/herramientas-bd.conf
+# Se incluye en el server{} del panel (8443), justo después de su server_name.
+for PANEL in /etc/nginx/sites-available/*-admin; do
+    [ -f "$PANEL" ] || continue
+    grep -q "snippets/herramientas-bd.conf" "$PANEL" || sed -i '0,/^\s*server_name .*;/s//&\n    include snippets\/herramientas-bd.conf;/' "$PANEL"
+done
+nginx -t && systemctl reload nginx
 
 echo -e "${GREEN}[9/9] Comprobación...${NC}"
 /usr/local/sbin/maquita-sitios estado

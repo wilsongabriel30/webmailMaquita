@@ -24,6 +24,8 @@ from app.wrappers.privilegios import con_sudo
 router = APIRouter(prefix="/api/sitios", tags=["sitios"])
 AYUDANTE = "/usr/local/sbin/maquita-sitios"
 RE_DOMINIO = re.compile(r"^(?=.{4,200}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$")
+RE_BASE = re.compile(r"^x_[a-z0-9]+_[0-9a-f]{4}$")
+APLICACIONES = ("wordpress", "joomla", "moodle", "dolibarr", "matomo")
 RE_CORREO = re.compile(r"^[a-z0-9][a-z0-9._+-]{0,63}@([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$")
 
 
@@ -109,7 +111,7 @@ class NuevaApp(BaseModel):
 @router.post("/{dominio}/app")
 async def instalar_app(dominio: str, body: NuevaApp, r: Request, admin: dict = Depends(require_superadmin)):
     dominio = _dominio(dominio)
-    if body.app not in ("wordpress", "joomla"):
+    if body.app not in APLICACIONES:
         raise HTTPException(400, "Aplicación no disponible")
     titulo = (body.titulo or "").strip()
     if not 1 <= len(titulo) <= 100 or re.search(r"[\x00-\x1f\x7f<>]", titulo):
@@ -117,7 +119,7 @@ async def instalar_app(dominio: str, body: NuevaApp, r: Request, admin: dict = D
     titulo_b64 = base64.urlsafe_b64encode(titulo.encode()).decode().rstrip("=")
     if len(titulo_b64) > 200:
         raise HTTPException(400, "Título demasiado largo")
-    res = await _ayudante("app", dominio, body.app, titulo_b64, _correo(body.correo), tiempo=600)
+    res = await _ayudante("app", dominio, body.app, titulo_b64, _correo(body.correo), tiempo=1100)
     await _auditar(r, admin, "sitio_app", dominio, {"app": body.app})
     return res
 
@@ -214,21 +216,68 @@ class VerificacionGoogle(BaseModel):
 
 
 @router.post("/{dominio}/google")
-async def verificacion_google(dominio: str, body: VerificacionGoogle, r: Request, admin: dict = Depends(require_superadmin)):
+async def verificacion_google(
+    dominio: str, body: VerificacionGoogle, r: Request, admin: dict = Depends(require_superadmin)
+):
     """Pone en la zona DNS el registro TXT de verificación de Google Search Console."""
-    from app.dns.ayudante import ayudante as ayudante_dns, b64
+    from app.dns.ayudante import ayudante as ayudante_dns
+    from app.dns.ayudante import b64
 
     dominio = _dominio(dominio)
     codigo = (body.codigo or "").strip()
-    m = re.search(r"google-site-verification=([A-Za-z0-9_-]{20,100})", codigo) or re.fullmatch(r"([A-Za-z0-9_-]{20,100})", codigo)
+    m = re.search(r"google-site-verification=([A-Za-z0-9_-]{20,100})", codigo) or re.fullmatch(
+        r"([A-Za-z0-9_-]{20,100})", codigo
+    )
     if not m:
         raise HTTPException(400, "Pegue el registro TXT que da Search Console (google-site-verification=…)")
     valor = f"google-site-verification={m.group(1)}"
     zonas = {z["zona"] for z in (await ayudante_dns("dns", "listar"))["zonas"]}
     if dominio not in zonas:
-        raise HTTPException(400, f"La zona DNS de {dominio} no se administra en este servidor: ponga el TXT en su proveedor de DNS")
+        raise HTTPException(
+            400, f"La zona DNS de {dominio} no se administra en este servidor: ponga el TXT en su proveedor de DNS"
+        )
     zona = await ayudante_dns("dns", "ver", dominio)
     if not any(x["tipo"] == "TXT" and x["valor"] == valor for x in zona["registros"]):
         await ayudante_dns("dns", "agregar", dominio, b64({"nombre": "@", "tipo": "TXT", "valor": valor, "ttl": 3600}))
     await _auditar(r, admin, "sitio_verificacion_google", dominio)
     return {"dominio": dominio, "registro": valor, "zona": "actualizada"}
+
+
+@router.post("/{dominio}/tienda")
+async def tienda(dominio: str, r: Request, admin: dict = Depends(require_superadmin)):
+    """WooCommerce (GPLv3) sobre un sitio con WordPress, comprobado contra las sumas de wordpress.org."""
+    dominio = _dominio(dominio)
+    res = await _ayudante("tienda", dominio, tiempo=600)
+    await _auditar(r, admin, "sitio_tienda", dominio)
+    return res
+
+
+@router.get("/{dominio}/bases")
+async def bases(dominio: str, admin: dict = Depends(get_current_admin)):
+    """Bases de datos adicionales del sitio (para aplicaciones propias)."""
+    return await _ayudante("bases", _dominio(dominio))
+
+
+class NuevaBase(BaseModel):
+    motor: str  # mariadb | postgresql
+
+
+@router.post("/{dominio}/bases", status_code=201)
+async def crear_base(dominio: str, body: NuevaBase, r: Request, admin: dict = Depends(require_superadmin)):
+    dominio = _dominio(dominio)
+    if body.motor not in ("mariadb", "postgresql"):
+        raise HTTPException(400, "Motor no disponible")
+    res = await _ayudante("base-crear", dominio, body.motor)
+    await _auditar(r, admin, "sitio_base_crear", dominio, {"motor": body.motor, "base": res.get("base")})
+    return res
+
+
+@router.delete("/{dominio}/bases/{nombre}")
+async def borrar_base(dominio: str, nombre: str, r: Request, admin: dict = Depends(require_superadmin)):
+    """Se copia en la carpeta privada del sitio (.sql) antes de borrarla."""
+    dominio = _dominio(dominio)
+    if not RE_BASE.match(nombre):
+        raise HTTPException(400, "Base de datos no válida")
+    res = await _ayudante("base-borrar", dominio, nombre, tiempo=600)
+    await _auditar(r, admin, "sitio_base_borrar", dominio, {"base": nombre})
+    return res

@@ -11,7 +11,7 @@ from comun import ErrorSitio, de_base64
 RE_DOMINIO = re.compile(r"^(?=.{4,200}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$")
 RE_CORREO = re.compile(r"^[a-z0-9][a-z0-9._+-]{0,63}@([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$")
 RE_BASE64URL = re.compile(r"^[A-Za-z0-9_-]{1,200}$")
-APLICACIONES = ("wordpress", "joomla")
+APLICACIONES = ("wordpress", "joomla", "moodle", "dolibarr", "matomo")
 
 # Nombres que pertenecen al correo o al panel: nunca pueden ser un sitio.
 PREFIJOS_RESERVADOS = ("mail.", "autodiscover.", "autoconfig.", "mta-sts.", "imap.", "smtp.", "pop3.")

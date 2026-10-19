@@ -127,8 +127,12 @@ def clave_admin(dominio):
     nueva = clave(18)
     if meta["app"] == "wordpress":
         _wp(meta, "user", "update", usuario, "--skip-email", "--prompt=user_pass", entrada=nueva + "\n")
-    else:
+    elif meta["app"] == "joomla":
         _joomla_cli(meta, "user:reset-password", f"--username={usuario}", f"--password={nueva}")
+    else:
+        from apps import CATALOGO
+
+        CATALOGO[meta["app"]].clave_admin(meta, usuario, nueva)
     return {"dominio": dominio, "usuario": usuario, "clave": nueva, "url_admin": meta.get("app_admin")}
 
 
@@ -162,6 +166,12 @@ def revisar(dominio):
     if app == "joomla":
         salida = _joomla_cli(meta, "core:check-updates")
         return {"dominio": dominio, "app": app, "version": meta.get("app_version"), "detalle": salida.strip()[-500:]}
+    if app:
+        from apps import CATALOGO
+
+        modulo = CATALOGO[app]
+        return {"dominio": dominio, "app": app, "version": meta.get("app_version"),
+                "detalle": f"{modulo.NOMBRE} se actualiza desde su propia administración (avisa cuando hay versión nueva)."}
     raise ErrorSitio("el sitio no tiene una aplicación instalada")
 
 
@@ -176,6 +186,8 @@ def actualizar(dominio):
         _quitar_informativos(meta)
     elif meta.get("app") == "joomla":
         _joomla_cli(meta, "core:update")
+    elif meta.get("app"):
+        return revisar(dominio)
     else:
         raise ErrorSitio("el sitio no tiene una aplicación instalada")
     return revisar(dominio)
@@ -190,6 +202,13 @@ def cron():
                 _wp(meta, "cron", "event", "run", "--due-now", tiempo=280)
             elif meta.get("app") == "joomla":
                 _joomla_cli(meta, "scheduler:run", "--all")
+            elif meta.get("app"):
+                from apps import CATALOGO
+
+                modulo = CATALOGO.get(meta["app"])
+                if not modulo or not hasattr(modulo, "cron"):
+                    continue
+                modulo.cron(meta)
             else:
                 continue
             hechos.append(meta["dominio"])
@@ -201,3 +220,20 @@ def cron():
 def guardar_usuario_admin(meta, usuario):
     meta["app_usuario"] = usuario
     guardar_meta(meta)
+
+
+def tienda(dominio):
+    """WooCommerce (GPLv3) en un sitio con WordPress: tienda en línea libre, desde wordpress.org,
+    con cada archivo comprobado contra las sumas de wordpress.org y en español."""
+    meta = leer_meta(dominio)
+    if meta.get("app") != "wordpress":
+        raise ErrorSitio("la tienda (WooCommerce) se instala sobre un sitio con WordPress")
+    _wp(meta, "plugin", "install", "woocommerce", "--activate")
+    _wp(meta, "plugin", "verify-checksums", "woocommerce")
+    try:
+        _wp(meta, "language", "plugin", "install", "woocommerce", "es_ES")
+    except ErrorSitio:
+        pass
+    meta["tienda"] = True
+    guardar_meta(meta)
+    return {"dominio": dominio, "tienda": True, "url_admin": f"{_url(meta)}/wp-admin/admin.php?page=wc-admin"}

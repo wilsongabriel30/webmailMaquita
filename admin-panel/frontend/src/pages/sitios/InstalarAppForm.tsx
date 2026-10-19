@@ -1,8 +1,11 @@
 import { useState } from "react";
 
-const APPS = [
-  { id: "wordpress", nombre: "WordPress", desc: "Sitios, blogs y noticias. El más usado; miles de plantillas y complementos libres." },
-  { id: "joomla", nombre: "Joomla", desc: "Portales con varias secciones, usuarios registrados y varios idiomas." },
+export const APPS = [
+  { id: "wordpress", nombre: "WordPress", licencia: "GPLv2+", desc: "Sitios, blogs y noticias. El más usado; miles de plantillas y complementos libres. Admite tienda en línea (WooCommerce)." },
+  { id: "joomla", nombre: "Joomla", licencia: "GPLv2+", desc: "Portales con varias secciones, usuarios registrados y varios idiomas." },
+  { id: "moodle", nombre: "Moodle", licencia: "GPLv3", desc: "Aula virtual: cursos, tareas, evaluaciones y certificados. La instalación tarda unos minutos." },
+  { id: "dolibarr", nombre: "Dolibarr", licencia: "GPLv3", desc: "ERP y CRM: contactos, facturas, inventario, proyectos y más." },
+  { id: "matomo", nombre: "Matomo", licencia: "GPLv3", desc: "Estadísticas de visitas de sus sitios, sin entregar los datos a terceros." },
 ];
 
 /* Elegir aplicación (software libre, GPL) para un sitio vacío. */
@@ -18,11 +21,11 @@ export function InstalarAppForm({ dominio, ocupado, onCancelar, onInstalar }: {
   return (
     <div className="bg-white rounded border border-ms-gray-30 p-5 space-y-4">
       <h2 className="text-base font-semibold text-ms-gray-130">Instalar una aplicación en {dominio}</h2>
-      <div className="grid sm:grid-cols-2 gap-3">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {APPS.map((a) => (
           <label key={a.id} className={`border rounded p-3 cursor-pointer ${app === a.id ? "border-ms-blue bg-ms-blue-lighter/50" : "border-ms-gray-30"}`}>
             <input type="radio" name="app" value={a.id} checked={app === a.id} onChange={() => setApp(a.id)} className="mr-2" />
-            <span className="font-medium">{a.nombre}</span>
+            <span className="font-medium">{a.nombre}</span> <span className="text-xs text-ms-gray-60">({a.licencia})</span>
             <span className="block text-xs text-ms-gray-90 mt-1">{a.desc}</span>
           </label>
         ))}
@@ -33,7 +36,7 @@ export function InstalarAppForm({ dominio, ocupado, onCancelar, onInstalar }: {
         <input placeholder="Correo del administrador" type="email" value={correo} onChange={(e) => setCorreo(e.target.value)}
           className="px-3 py-2 border border-ms-gray-40 rounded text-sm focus:outline-none focus:border-ms-blue" />
       </div>
-      <p className="text-xs text-ms-gray-90">Software libre (licencia GPL). Se descarga la versión oficial vigente y se verifica su integridad antes de instalarla. El sitio debe estar vacío.</p>
+      <p className="text-xs text-ms-gray-90">Todo es software libre. Se descarga la versión oficial vigente y se verifica su integridad antes de instalarla. El sitio debe estar vacío.</p>
       <div className="flex gap-2">
         <button onClick={() => onInstalar(app, titulo.trim(), correo.trim())} disabled={ocupado || !titulo.trim() || !correo.trim()}
           className="px-4 py-2 bg-ms-blue text-white rounded text-sm disabled:opacity-50">Instalar</button>

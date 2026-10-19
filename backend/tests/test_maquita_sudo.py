@@ -404,3 +404,16 @@ def test_identidad_y_pagina_inicio():
             _ok("maquita-admin", "maquita-identidad", *malo)
     with pytest.raises(ms.Rechazo):
         _ok("www-data", "maquita-identidad", "aplicar", "eyJ9")
+
+
+def test_sitios_catalogo_y_bases():
+    for app in ("moodle", "dolibarr", "matomo"):
+        assert _ok("maquita-admin", "maquita-sitios", "app", "ejemplo.org", app, "SG9sYQ", "a@example.org")
+    assert _ok("maquita-admin", "maquita-sitios", "tienda", "ejemplo.org")
+    assert _ok("maquita-admin", "maquita-sitios", "bases", "ejemplo.org")
+    assert _ok("maquita-admin", "maquita-sitios", "base-crear", "ejemplo.org", "postgresql")
+    assert _ok("maquita-admin", "maquita-sitios", "base-borrar", "ejemplo.org", "x_ejemplo1234_0a1b")
+    for malo in (("base-crear", "ejemplo.org", "oracle"), ("base-borrar", "ejemplo.org", "mysql"),
+                 ("app", "ejemplo.org", "prestashop", "SG9sYQ", "a@example.org")):
+        with pytest.raises(ms.Rechazo):
+            _ok("maquita-admin", "maquita-sitios", *malo)
