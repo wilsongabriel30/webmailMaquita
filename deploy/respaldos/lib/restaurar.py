@@ -48,10 +48,11 @@ class _Cerrojo:
         os.remove(CERROJO)
 
 
-def _extraer(instantanea, rutas):
-    """Restaura solo esas rutas de la instantánea en una carpeta temporal (en el mismo disco que los respaldos)."""
-    os.makedirs(BASE, mode=0o700, exist_ok=True)
-    destino = tempfile.mkdtemp(prefix="restaurar-", dir=BASE)
+def _extraer(instantanea, rutas, dentro_de=BASE):
+    """Restaura solo esas rutas de la instantánea en una carpeta temporal (por defecto junto a los respaldos,
+    solo root; los buzones, bajo /var/vmail para que Dovecot pueda leerlos)."""
+    os.makedirs(dentro_de, mode=0o700, exist_ok=True)
+    destino = tempfile.mkdtemp(prefix=".restaurar-", dir=dentro_de)
     args = ["restore", instantanea, "--target", destino]
     for ruta in rutas:
         args += ["--include", ruta]
@@ -82,22 +83,26 @@ def sitio(dominio, instantanea):
             origen = tmp + base
             if not os.path.isdir(origen):
                 raise ErrorRespaldo(f"esa instantánea no tiene el sitio {dominio}")
+            # Todo se lee ANTES de tocar nada: si falta o no se puede leer un volcado, el sitio queda como estaba.
+            contenidos = []
             for archivo in volcados:
                 if not os.path.isfile(tmp + archivo):
                     raise ErrorRespaldo(f"esa instantánea no tiene la base {os.path.basename(archivo)}")
+                with open(tmp + archivo, "rb") as f:
+                    contenidos.append(f.read())
             # 2) Archivos: idénticos a los del respaldo (lo añadido después se quita; está en el respaldo previo).
             _cmd(["rsync", "-a", "--delete", origen + "/", base + "/"])
             # 3) Bases de datos.
-            for (motor, nombre), archivo in zip(bases, volcados):
+            for (motor, nombre), contenido in zip(bases, contenidos):
                 if motor == "mariadb":
                     _cmd(["mariadb", "--protocol=socket", "-u", "root", "-e", f"DROP DATABASE IF EXISTS `{nombre}`"])
-                    with open(tmp + archivo, "rb") as f:
-                        _cmd(["mariadb", "--protocol=socket", "-u", "root"], entrada=f.read())
+                    _cmd(["mariadb", "--protocol=socket", "-u", "root"], entrada=contenido)
                 else:
+                    # pg_restore corre como postgres: el volcado le llega por la entrada (no lee la carpeta de root).
                     _cmd(["runuser", "-u", "postgres", "--", "dropdb", "--if-exists", "--force", nombre])
                     _cmd(["runuser", "-u", "postgres", "--", "createdb", "-O", nombre, nombre])
-                    _cmd(["runuser", "-u", "postgres", "--", "pg_restore", "--no-owner", "--role", nombre, "-d", nombre,
-                          tmp + archivo])
+                    _cmd(["runuser", "-u", "postgres", "--", "pg_restore", "--no-owner", "--role", nombre, "-d", nombre],
+                         entrada=contenido)
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     # 4) Aplicación propia en marcha: que tome los archivos devueltos.
@@ -123,7 +128,7 @@ def buzon(correo, instantanea):
         raise ErrorRespaldo("ese buzón no existe en este servidor")
     carpeta = "Restaurado-" + time.strftime("%Y%m%d-%H%M")
     with _Cerrojo():
-        tmp = _extraer(instantanea, [maildir])
+        tmp = _extraer(instantanea, [maildir], dentro_de="/var/vmail")
         try:
             origen = tmp + maildir
             if not os.path.isdir(origen):
@@ -160,8 +165,9 @@ def comprobar():
         try:
             _cmd(["runuser", "-u", "postgres", "--", "dropdb", "--if-exists", prueba])
             _cmd(["runuser", "-u", "postgres", "--", "createdb", prueba])
-            subprocess.run(["runuser", "-u", "postgres", "--", "pg_restore", "--no-owner", "-d", prueba, tmp + archivo],
-                           capture_output=True, timeout=3600, cwd="/tmp")
+            with open(tmp + archivo, "rb") as f:
+                subprocess.run(["runuser", "-u", "postgres", "--", "pg_restore", "--no-owner", "-d", prueba],
+                               stdin=f, capture_output=True, timeout=3600, cwd="/tmp")
             buzones = _cmd(["runuser", "-u", "postgres", "--", "psql", "-tAc", "SELECT count(*) FROM mailbox", prueba]).strip()
         finally:
             subprocess.run(["runuser", "-u", "postgres", "--", "dropdb", "--if-exists", prueba], capture_output=True, cwd="/tmp")
