@@ -11,6 +11,7 @@ import { showToast } from '../common/Toast';
 import { ContextMenu } from '../common/ContextMenu';
 import type { Folder } from '../../types';
 import { getFolderDisplayName } from '../../folders';
+import { buscarSoloEnCarpetaActual } from '../../lib/busquedaGlobal';
 import { RecuperarEliminados } from '../mail/RecuperarEliminados';
 import { BarraCuentas } from './BarraCuentas';
 
@@ -338,7 +339,8 @@ export function MailSidebar() {
     return (
       <button key={f.name}
         data-carpeta={f.name}
-        onClick={() => setCurrentFolder(f.name)}
+        // Al elegir una carpeta, el buscador se limita a ella (aviso en la lista).
+        onClick={() => { setCurrentFolder(f.name); buscarSoloEnCarpetaActual(); }}
         // Doble click para renombrar (solo no-sistema)
         onDoubleClick={e => {
           if (isSystem) return;
