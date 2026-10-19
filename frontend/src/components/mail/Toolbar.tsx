@@ -11,6 +11,7 @@ import { Ribbon } from '../compose/Ribbon';
 import { getFolderDisplayName } from '../../folders';
 import { getCachedLabels, useLabels } from '../../hooks/useLabels';
 import { SnoozeModal } from './SnoozeModal';
+import { InfoCuentaModal } from './InfoCuentaModal';
 import { sanitizeHtml } from '../../lib/sanitize';
 import { destinatariosResponderATodos } from '../../lib/destinatariosRespuesta';
 import type { Folder, MessageFull } from '../../types';
@@ -343,6 +344,7 @@ export function Toolbar() {
   const [collapsed, setCollapsed] = useState(false);
   const [hamburgerTooltip, setHamburgerTooltip] = useState(false);
   const [archivoOpen, setArchivoOpen] = useState(false);
+  const [infoCuentaOpen, setInfoCuentaOpen] = useState(false);   // Archivo → Información de la cuenta
 
   // Dropdown states
   const [replyOpen, setReplyOpen] = useState(false);
@@ -721,11 +723,11 @@ export function Toolbar() {
           {archivoOpen && (
             <ArchivoMenu onClose={() => setArchivoOpen(false)}>
               {[
-                { label: 'Info cuenta', icon: ICONS.info, action: () => showToast('Cuenta: tecnologia@ejemplo.com') },
-                { label: 'Sincronizar', icon: ICONS.sync, action: () => window.dispatchEvent(new CustomEvent('refresh-messages')) },
-                { label: 'Exportar', icon: ICONS.export, action: exportSelectedMessage },
+                { label: 'Información de la cuenta', icon: ICONS.info, action: () => setInfoCuentaOpen(true) },
+                { label: 'Sincronizar (recargar correos)', icon: ICONS.sync, action: () => window.dispatchEvent(new CustomEvent('refresh-messages')) },
+                { label: 'Exportar correo seleccionado (.eml)', icon: ICONS.export, action: exportSelectedMessage },
                 { label: 'Imprimir', icon: ICONS.print, action: doPrint },
-                { label: 'Opciones cuenta', icon: ICONS.account, action: () => goToSettings('general') },
+                { label: 'Configuración de la cuenta', icon: ICONS.account, action: () => goToSettings('general') },
               ].map((item, i) => (
                 <button key={i} onClick={() => { item.action(); setArchivoOpen(false); }}
                   className="w-full text-left px-3 py-2 text-[13px] text-white flex items-center gap-2 hover:bg-[#106ebe]">
@@ -735,6 +737,7 @@ export function Toolbar() {
               ))}
             </ArchivoMenu>
           )}
+          {infoCuentaOpen && <InfoCuentaModal onClose={() => setInfoCuentaOpen(false)} />}
         </div>
 
         {/* Main tabs */}

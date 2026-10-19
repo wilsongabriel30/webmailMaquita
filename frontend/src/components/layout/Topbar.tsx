@@ -293,7 +293,12 @@ export function Topbar() {
 
               <div className="px-4 py-3">
                 <p className="text-[12px] font-semibold text-[#323130] mb-2">Soporte</p>
-                <p className="text-[12px] text-[#323130]">Si necesitas ayuda operativa, escribe a <span className="font-medium">tecnologia@ejemplo.com</span>.</p>
+                <p className="text-[12px] text-[#323130]">Si necesitas ayuda operativa, escribe al área de Tecnología de tu organización.</p>
+              </div>
+              {/* LOPDP: la política debe poder leerse en cualquier momento, no solo en el aviso */}
+              <div className="px-4 py-3 border-t border-[#edebe9]">
+                <p className="text-[12px] font-semibold text-[#323130] mb-2">Privacidad</p>
+                <a href="/webmail/privacidad" target="_blank" rel="noopener" className="text-[12px] text-[#0078d4] hover:underline">Política de privacidad y cookies</a>
               </div>
             </div>
           )}
@@ -354,6 +359,11 @@ export function Topbar() {
                 </svg>
                 Instalar aplicación
               </button>
+              <div className="h-px bg-[#edebe9] my-1" />
+              <a href="/webmail/privacidad" target="_blank" rel="noopener" onClick={() => setShowProfile(false)}
+                className="block w-full text-left px-4 py-2 text-[13px] text-[#323130] hover:bg-[#f3f2f1]">
+                Política de privacidad y cookies
+              </a>
               <div className="h-px bg-[#edebe9] my-1" />
               <button onClick={handleLogout}
                 className="w-full text-left px-4 py-2 text-[13px] text-[#a4262c] hover:bg-[#f3f2f1]">

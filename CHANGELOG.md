@@ -13,6 +13,8 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 - Rspamd: el instalador instala el anti-suplantación (`deploy/rspamd/maquita-antispoof.lua`) con sus **mapas** de dominios propios y términos protegidos generados desde la base del panel (`sync-rspamd-maps.sh`, cron cada 10 min), y la lista gris deja pasar sin espera a los remitentes con DMARC alineado y DKIM válido (`MAQ_REMITENTE_AUTENTICADO`).
 
 ### Cambiado
+- Correo web: enlace permanente a «Política de privacidad y cookies» en el menú de Ayuda y en el menú del perfil (LOPDP: la información debe estar siempre disponible, no solo en el aviso). El texto de Soporte ya no muestra un correo de ejemplo.
+- Correo web, menú Archivo: «Información de la cuenta» abre una ventana con los datos reales del buzón (correo, nombre, alias, cuentas compartidas, espacio usado con barra, conteos de carpetas y accesos a Configuración); antes mostraba un correo de ejemplo fijo. Los demás elementos del menú se nombran por lo que hacen: «Sincronizar (recargar correos)», «Exportar correo seleccionado (.eml)», «Imprimir», «Configuración de la cuenta».
 - Panel de administración: las acciones de Rspamd se muestran en español en el gráfico «Acciones del antispam» del Dashboard y en las tarjetas e historial de Cuarentena (Rechazado, Rechazo temporal, Marcado como spam, Asunto reescrito, Lista gris, Aceptado); el nombre técnico queda en el título emergente.
 
 ### Añadido (privacidad)
