@@ -10,12 +10,17 @@ import json
 import os
 import re
 import tarfile
+import time
+import urllib.error
 import urllib.request
 import zipfile
 
 from comun import ErrorSitio
 
 AGENTE = "instalador-sitios/1.0"
+# GitHub admite 60 consultas por hora sin cuenta y por IP (toda la red de la institución comparte una):
+# las respuestas de su API se guardan una hora.
+CACHE_GITHUB = "/var/cache/maquita-sitios/github"
 
 
 def descargar(url, destino, tope=400 * 1048576):
@@ -35,9 +40,31 @@ def descargar(url, destino, tope=400 * 1048576):
 
 
 def texto(url, tope=2 * 1048576):
+    cache = None
+    if url.startswith("https://api.github.com/"):
+        cache = os.path.join(CACHE_GITHUB, hashlib.sha256(url.encode()).hexdigest())
+        try:
+            if time.time() - os.path.getmtime(cache) < 3600:
+                with open(cache) as f:
+                    return f.read()
+        except OSError:
+            pass
     pet = urllib.request.Request(url, headers={"User-Agent": AGENTE, "Accept": "application/json"})
-    with urllib.request.urlopen(pet, timeout=60) as r:
-        return r.read(tope).decode("utf-8", "replace")
+    try:
+        with urllib.request.urlopen(pet, timeout=60) as r:
+            datos = r.read(tope).decode("utf-8", "replace")
+    except urllib.error.HTTPError as e:
+        if cache and e.code in (403, 429):
+            raise ErrorSitio("GitHub limita las consultas sin cuenta desde esta red (60 por hora): "
+                             "inténtelo de nuevo en un rato")
+        raise ErrorSitio(f"no se pudo consultar {url.split('/')[2]} (HTTP {e.code})")
+    except (urllib.error.URLError, TimeoutError) as e:
+        raise ErrorSitio(f"no se pudo consultar {url.split('/')[2]}: {getattr(e, 'reason', e)}")
+    if cache:
+        os.makedirs(CACHE_GITHUB, mode=0o700, exist_ok=True)
+        with open(cache, "w") as f:
+            f.write(datos)
+    return datos
 
 
 def suma(ruta, algoritmo="sha256"):

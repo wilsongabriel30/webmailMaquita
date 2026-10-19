@@ -8,10 +8,18 @@ import tempfile
 
 sys.path.insert(0, "/usr/local/lib/maquita-sitios")
 from apps import descargas  # noqa: E402
+from comun import ErrorSitio  # noqa: E402
 
 DESTINO = "/usr/local/share/adminer-panel"
-version, url, sha = descargas.github_ultima("vrana/adminer", r"adminer-[0-9.]+\.php")
-_, url_zip, sha_zip = descargas.github_ultima("vrana/adminer", r"adminer-[0-9.]+\.zip")
+try:
+    version, url, sha = descargas.github_ultima("vrana/adminer", r"adminer-[0-9.]+\.php")
+    _, url_zip, sha_zip = descargas.github_ultima("vrana/adminer", r"adminer-[0-9.]+\.zip")
+except ErrorSitio as e:
+    # Ya instalado: se conserva el actual y se intenta actualizar la próxima vez (no detiene la instalación).
+    if os.path.exists(os.path.join(DESTINO, "index.php")):
+        print(f"Adminer: se conserva el instalado ({e})")
+        sys.exit(0)
+    sys.exit(f"Adminer: {e}")
 with tempfile.TemporaryDirectory() as tmp:
     descargas.descargar(url, os.path.join(tmp, "adminer.php"))
     descargas.comprobar(os.path.join(tmp, "adminer.php"), sha, "sha256", "Adminer")
