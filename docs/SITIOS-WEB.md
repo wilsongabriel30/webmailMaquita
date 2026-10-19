@@ -2,7 +2,7 @@
 
 Publica páginas web en el mismo servidor del correo, cada una aislada: su dominio, su usuario de
 sistema, su pool de PHP-FPM, su base de datos y su acceso a archivos. Desde el panel se crea el
-sitio, se instala una aplicación del catálogo (WordPress, Joomla, Moodle, Dolibarr, Matomo), se
+sitio, se instala una aplicación del catálogo (29, ver «Catálogo de aplicaciones»), se
 crean bases de datos adicionales, se activa el FTP seguro y se pide el certificado HTTPS.
 
 ## Instalación
@@ -42,10 +42,55 @@ Si el servidor está detrás de NAT, redirige al servidor los puertos **80 y 443
 Las contraseñas generadas (administrador de la aplicación, FTP) se muestran una sola vez y no se
 guardan en el panel ni en la auditoría. Cada acción queda en la auditoría del panel
 (`sitio_crear`, `sitio_app`, `sitio_app_terminar`, `sitio_propia_*`, `sitio_tienda`, `sitio_base_crear`, `sitio_base_borrar`,
-`sitio_base_entrar`, `sitio_alias`, `sitio_cron_*`, `sitio_paquete`, `sitio_migracion`, `sitio_ftp_*`, `sitio_ssl`, `sitio_borrar`).
+`sitio_base_entrar`, `sitio_avanzado_*`, `sitio_alias`, `sitio_cron_*`, `sitio_paquete`, `sitio_migracion`, `sitio_ftp_*`, `sitio_ssl`, `sitio_borrar`).
 
 La ruta `/api/sitios` del panel tiene un tiempo de espera de 20 minutos (fragmento
 `snippets/herramientas-bd.conf`): las instalaciones largas (Moodle) superan los 120 s del resto de `/api/`.
+
+## Catálogo de aplicaciones («Instalar aplicación»)
+
+Cada aplicación es un archivo en `deploy/sitios/lib/apps/` (receta) que el ayudante descubre solo: basta
+añadir el archivo con `NOMBRE`, `DESCRIPCION`, `LICENCIA`, `CATEGORIA`, `VERIFICACION`, `RAIZ_WEB`, `BD`,
+`REGLAS_NGINX` e `instalar()`; las herramientas comunes están en `apps/receta.py`. El panel las muestra por
+categorías y con buscador (`GET /api/sitios/catalogo`).
+
+| Categoría | Aplicaciones |
+|---|---|
+| Sitios y blogs | WordPress, Joomla, Drupal, Backdrop CMS, Concrete CMS, Grav |
+| Wikis y documentación | MediaWiki, DokuWiki |
+| Foros y comunidad | phpBB, MyBB, Elgg |
+| Educación | Moodle, Chamilo |
+| Archivos y galerías | Nextcloud, Omeka S, Piwigo, ProjectSend |
+| Gestión y CRM | Dolibarr, EspoCRM, SuiteCRM |
+| Soporte y proyectos | GLPI, osTicket, Kanboard |
+| Encuestas y marketing | LimeSurvey, Mautic |
+| Tienda en línea | OpenCart (y WooCommerce sobre WordPress) |
+| Estadísticas y utilidades | Matomo, FreshRSS, YOURLS |
+
+- **Verificación** (por orden de preferencia): suma publicada por el proyecto, firma GPG del proyecto
+  (MediaWiki), SHA-256 que calcula GitHub del adjunto o, si el proyecto no publica nada, solo HTTPS de su
+  origen oficial (se anota la suma del archivo instalado). Una descarga que no coincide cancela la instalación.
+- Todas se instalan solas (sin asistente web). Si algo falla, el sitio vuelve a quedar vacío y sin base, y el
+  vhost se publica solo si nginx lo acepta (si lo rechaza se deja el anterior: nunca se rompe el resto de sitios).
+- Omeka S y ProjectSend entran con el **correo** del administrador (el panel lo muestra como usuario).
+- Notas: OpenCart y Mautic quedan en inglés (sus instaladores no traen español); Chamilo ocupa ~1,5 GB;
+  SuiteCRM tiene una excepción del cortafuegos solo para el campo `query` de `/api/graphql`; Nextcloud
+  admite WebDAV en todo el sitio y no analiza el cuerpo en `remote.php`/`public.php` (subidas grandes).
+- Pendiente: al activar HTTPS o añadir alias no se actualizan las direcciones que guardan algunas
+  aplicaciones (Nextcloud `trusted_domains`, Elgg `wwwroot`, ProjectSend `APP_URL`); cambiarlas en su
+  administración o en «Avanzado».
+
+## Configuración avanzada («Avanzado» de cada sitio)
+
+| Pestaña | Qué permite |
+|---|---|
+| nginx | Reglas propias que se incluyen dentro del `server {}` del sitio (`/etc/maquita-sitios/nginx-extra/<dominio>.conf`). Se rechazan `include`, `load_module`, `lua`, `perl`, `js_*`, `ssl_certificate*` y `root`/`alias` fuera de la carpeta del sitio. Se comprueba con `nginx -t`; si falla, se deja la versión anterior. |
+| PHP | Memoria, subida, tiempos, campos por formulario y mostrar errores, con límites; se aplican al pool del sitio y se comprueban con `php-fpm -t`. |
+| Archivos | Leer y editar cualquier archivo de texto de `publico/` (hasta 1 MB); se guarda con su dueño y permisos, y en los `.php` se avisa si la sintaxis falla. |
+| Versiones | Antes de cada cambio se copia lo anterior a `/var/lib/maquita-sitios/versiones/<dominio>/` (últimas 50); «Restaurar» vuelve a cualquiera (y guarda antes lo actual). |
+
+«Copiar sin contraseñas» copia al portapapeles el texto con claves, contraseñas y sales tachadas (`***`),
+para consultarlo con otra persona sin exponerlas. No sale del navegador.
 
 ## Subdominios y dominios alias («Nuevo sitio» y «Dominios»)
 

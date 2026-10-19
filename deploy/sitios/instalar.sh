@@ -21,7 +21,7 @@ apt-get update -qq
 apt-get install -y -qq php-fpm php-cli php-mysql php-xml php-mbstring php-curl php-zip php-gd \
     php-intl php-bcmath php-imagick php-soap php-pgsql php-gmp php-ldap php-apcu php-sqlite3 mariadb-server vsftpd unzip ssl-cert \
     libnginx-mod-http-modsecurity modsecurity-crs fail2ban \
-    python3-venv git >/dev/null
+    python3-venv git gpg >/dev/null
 # Aplicaciones propias en Node.js: el del sistema si no hay uno (el webmail suele traer Node 20 o posterior).
 command -v node >/dev/null || apt-get install -y -qq nodejs npm >/dev/null
 PHP_VER="$(ls /etc/php | sort -V | tail -1)"
@@ -208,8 +208,7 @@ cat > /etc/systemd/system/sitios-cron.timer <<'EOF'
 Description=Tareas programadas de los sitios web cada 5 minutos
 
 [Timer]
-OnBootSec=3min
-OnUnitActiveSec=5min
+OnCalendar=*:0/5
 
 [Install]
 WantedBy=timers.target

@@ -73,7 +73,17 @@ def _nombres_en_uso():
 
 
 def recargar_nginx():
-    ejecutar(["nginx", "-t"])
+    # Otra operación puede estar escribiendo su vhost en ese instante: se reintenta antes de dar error.
+    import time
+
+    for intento in range(3):
+        try:
+            ejecutar(["nginx", "-t"])
+            break
+        except ErrorSitio:
+            if intento == 2:
+                raise
+            time.sleep(2)
     ejecutar(["systemctl", "reload", "nginx"])
     # La recarga es gradual: un instante para que los procesos nuevos atiendan ya con la configuración nueva.
     import time
@@ -96,6 +106,23 @@ def escribir_vhost(meta):
     enlace = os.path.join(NGINX_ACT, os.path.basename(_ruta_vhost(meta["dominio"])))
     if not os.path.islink(enlace):
         os.symlink(_ruta_vhost(meta["dominio"]), enlace)
+
+
+def publicar_vhost(meta):
+    """Escribe el vhost y recarga nginx; si nginx lo rechaza, deja el anterior para no romper los demás sitios."""
+    ruta = _ruta_vhost(meta["dominio"])
+    anterior = open(ruta).read() if os.path.exists(ruta) else None
+    escribir_vhost(meta)
+    try:
+        recargar_nginx()
+    except ErrorSitio:
+        if anterior is None:
+            for r in (os.path.join(NGINX_ACT, os.path.basename(ruta)), ruta):
+                if os.path.lexists(r):
+                    os.remove(r)
+        else:
+            _escribir(ruta, anterior)
+        raise
 
 
 def crear(dominio, con_www=True, nombre=None):

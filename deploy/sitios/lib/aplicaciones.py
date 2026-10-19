@@ -19,6 +19,7 @@ import os
 import re
 import secrets
 import shutil
+import subprocess
 import tempfile
 import urllib.request
 import zipfile
@@ -51,6 +52,11 @@ def crear_bd(meta):
 def volcar_y_borrar_bd(meta, destino):
     """Antes de borrar un sitio, guarda su base de datos junto a los archivos (papelera)."""
     nombre = meta["bd"]
+    existe = subprocess.run(["mariadb", "--protocol=socket", "-u", "root", "-N", "-e", f"SHOW DATABASES LIKE '{nombre}'"],
+                            capture_output=True, text=True, timeout=60)
+    if existe.returncode == 0 and not existe.stdout.strip():
+        _mariadb(f"DROP USER IF EXISTS '{nombre}'@'localhost';")  # una baja anterior ya la borró
+        return
     volcar(["mariadb-dump", "--protocol=socket", "-u", "root", "--single-transaction", "--hex-blob", nombre], destino)
     _mariadb(f"DROP DATABASE IF EXISTS `{nombre}`; DROP USER IF EXISTS '{nombre}'@'localhost';")
 
@@ -132,8 +138,7 @@ def instalar(dominio, app, titulo, correo):
         _deshacer_instalacion(meta)
         import sitio
 
-        sitio.escribir_vhost(meta)  # sin las reglas de la aplicación que no llegó a instalarse
-        sitio.recargar_nginx()
+        sitio.publicar_vhost(meta)  # sin las reglas de la aplicación que no llegó a instalarse
         raise
     asistente = None
     if isinstance(acceso_admin, dict):
@@ -152,8 +157,15 @@ def instalar(dominio, app, titulo, correo):
     # El vhost lleva reglas propias de cada aplicación (accesos de fuerza bruta, archivos sensibles).
     import sitio
 
-    sitio.escribir_vhost(meta)
-    sitio.recargar_nginx()
+    try:
+        sitio.publicar_vhost(meta)
+    except ErrorSitio:
+        # La aplicación ya está instalada: se sirve con el vhost anterior y se dan las credenciales igual.
+        meta["aviso_vhost"] = True
+        guardar_meta(meta)
+    # Algunas aplicaciones (Omeka S, ProjectSend) entran con el correo y no con el nombre de usuario.
+    if getattr(modulo, "ENTRA_CON_CORREO", False) and admin_usuario:
+        admin_usuario = correo
     # Las credenciales se devuelven UNA vez para mostrarlas en el panel; no se guardan.
     respuesta = {
         "dominio": dominio,
@@ -182,8 +194,7 @@ def terminar(dominio):
     guardar_meta(meta)
     import sitio
 
-    sitio.escribir_vhost(meta)
-    sitio.recargar_nginx()
+    sitio.publicar_vhost(meta)
     return sitio.publico(meta)
 
 

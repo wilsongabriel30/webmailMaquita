@@ -73,7 +73,8 @@ export function InstalarAppForm({ dominio, apps, ocupado, onCancelar, onInstalar
       </div>
       <p className="text-xs text-ms-gray-90">
         Todo es software libre, descargado de su origen oficial
-        {elegida?.verificacion === "HTTPS" ? " por HTTPS (este proyecto no publica suma; se anota la del archivo instalado)" : " y verificado con su suma publicada"}.
+        {elegida?.verificacion === "HTTPS" ? " por HTTPS (este proyecto no publica suma; se anota la del archivo instalado)"
+          : elegida?.verificacion === "firma oficial" ? " y verificado con la firma del proyecto" : " y verificado con su suma publicada"}.
         {elegida?.modo === "asistente" ? " Al terminar se abre el instalador de la aplicación con los datos de su base ya preparados." : ""} El sitio debe estar vacío.
       </p>
       <div className="flex gap-2">

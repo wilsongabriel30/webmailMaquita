@@ -64,7 +64,11 @@ install_backdrop([
 ]);
 config_set('system.core', 'site_mail', $d['correo']);
 config_set('system.core', 'site_default_country', 'EC');
+// El instalador deja inglés y español sin prefijo y la URL elige inglés: el español queda sin prefijo.
+config_set('locale.settings', 'language_negotiation_url_prefixes', ['en' => 'en', 'es' => '']);
 config_set('system.core', 'file_private_path', $d['privado']);
+// Desde la línea de órdenes detecta /tmp, que PHP-FPM del sitio no puede usar (open_basedir).
+config_set('system.core', 'file_temporary_path', $d['temporal']);
 echo "INSTALADO\n";
 """
 
@@ -105,7 +109,8 @@ def instalar(meta, bd, bd_usuario, bd_clave, titulo, correo, admin_usuario, admi
     receta.escribir(meta, "settings.php", ajustes, 0o640)
     salida = _php(meta, _INSTALADOR, {"bd": bd, "bd_usuario": bd_usuario, "bd_clave": bd_clave, "titulo": titulo,
                                       "correo": correo, "usuario": admin_usuario, "clave": admin_clave,
-                                      "privado": receta.privada(meta, "backdrop-privado")})
+                                      "privado": receta.privada(meta, "backdrop-privado"),
+                                      "temporal": meta["tmp"]})
     if "INSTALADO" not in salida:
         raise ErrorSitio("la instalación de Backdrop no se completó")
     os.chmod(ajustes_ruta, 0o440)

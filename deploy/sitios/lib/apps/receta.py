@@ -13,6 +13,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 from dataclasses import dataclass
 
 from comun import ErrorSitio, ejecutar
@@ -107,10 +108,11 @@ def privada(meta, nombre):
     return ruta
 
 
-def php(meta, *args, cwd=None, tiempo=900, entrada=None):
-    """PHP de la línea de órdenes con el usuario del sitio (desde su carpeta pública por defecto)."""
+def php(meta, *args, cwd=None, tiempo=900, entrada=None, env_extra=None):
+    """PHP de la línea de órdenes con el usuario del sitio (desde su carpeta pública por defecto). Las claves se
+    pasan por `env_extra` o `entrada`, nunca como argumento (se verían en la lista de procesos)."""
     return ejecutar(["php", "-d", "memory_limit=512M", *args], como=meta["usuario"], cwd=cwd or meta["publico"],
-                    tiempo=tiempo, entrada=entrada)
+                    tiempo=tiempo, entrada=entrada, env_extra=env_extra)
 
 
 def sql(meta, consulta, base=None):
@@ -155,8 +157,7 @@ class Web:
     def __init__(self, meta):
         import sitio
 
-        sitio.escribir_vhost(meta)  # el vhost ya debe servir la aplicación con sus reglas
-        sitio.recargar_nginx()
+        sitio.publicar_vhost(meta)  # el vhost ya debe servir la aplicación con sus reglas
         self.meta = meta
         self.base = url(meta)
         self._cookies = tempfile.NamedTemporaryFile(dir=meta["tmp"], prefix=".instalacion-", delete=False).name
@@ -173,11 +174,15 @@ class Web:
             orden += ["--data-urlencode", f"{clave}={valor}"]
         if archivo_datos is not None:
             orden += ["--data-binary", "@-"]
-        r = subprocess.run(orden + [self.base + ruta], input=archivo_datos, capture_output=True, text=True,
-                           timeout=tiempo + 30)
-        cuerpo, _, final = r.stdout.rpartition("\n")
-        codigo, _, destino = final.partition(" ")
-        return codigo, cuerpo, destino
+        # PHP-FPM se recarga al crear sitios: un 502/503 al empezar se reintenta.
+        for intento in range(5):
+            r = subprocess.run(orden + [self.base + ruta], input=archivo_datos, capture_output=True, text=True,
+                               timeout=tiempo + 30)
+            cuerpo, _, final = r.stdout.rpartition("\n")
+            codigo, _, destino = final.partition(" ")
+            if codigo not in ("502", "503") or intento == 4:
+                return codigo, cuerpo, destino
+            time.sleep(3)
 
     @staticmethod
     def campo(html, nombre):

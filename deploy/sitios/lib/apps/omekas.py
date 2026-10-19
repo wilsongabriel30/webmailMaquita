@@ -19,6 +19,7 @@ DESCRIPCION = "Colecciones digitales: archivo, biblioteca o museo en línea con 
 LICENCIA = "GPLv3"
 CATEGORIA = "Archivos y galerías"
 VERIFICACION = "GitHub"
+ENTRA_CON_CORREO = True  # el panel muestra el correo como usuario de acceso
 RAIZ_WEB = ""
 BD = "mariadb"
 
