@@ -3,6 +3,7 @@ import { useNavigate , useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { api } from '../../api/client';
 import { TwoFactorSetup } from '../settings/TwoFactorSetup';
+import { AvisoCookies } from '../common/AvisoCookies';
 
 interface Branding {
   org_name?: string;
@@ -371,8 +372,12 @@ export function LoginPage() {
               <>{orgName}{slogan ? ` — ${slogan}` : ''} &middot; {new Date().getFullYear()}</>
             )}
           </p>
+          <p className="text-center text-xs mt-1">
+            <a href="/webmail/privacidad" className="underline" style={{ color: '#605e5c' }}>Política de privacidad y cookies</a>
+          </p>
         </div>
       </main>
+      <AvisoCookies />
     </div>
   );
 }
