@@ -430,7 +430,8 @@ echo "  Radicale (calendario/contactos) configurado en :5232"
 echo -e "\n${GREEN}[13/18] Creando buzón de demostración...${NC}"
 # Clave inicial ALEATORIA de un solo uso (H-01): se imprime una vez al final y el webmail
 # obliga a cambiarla en el primer ingreso. Ya no existe una clave conocida en el código.
-CLAVE_GENERICA="Mq-$(openssl rand -base64 18 | tr -dc 'A-Za-z0-9' | head -c 10)-7!"
+# CLAVE_INICIAL: la que elige quien instala (asistente de primer arranque de la plantilla); si no, una al azar.
+CLAVE_GENERICA="${CLAVE_INICIAL:-Mq-$(openssl rand -base64 18 | tr -dc 'A-Za-z0-9' | head -c 10)-7!}"
 DEMO_DOM="ejemplo.local"
 DEMO_HASH=$(doveadm pw -s SHA512-CRYPT -p "${CLAVE_GENERICA}")
 sudo -u postgres psql -d maildb >/dev/null <<SQL

@@ -26,7 +26,10 @@ ENTORNOS = ("backend", "admin-panel/backend", "panel-dominio/backend", "chat-ser
             "almacen/aplicaciones/bi", "almacen/aplicaciones/pdf_editor")
 SERVICIOS = ("maquita-webmail", "maquita-admin", "maquita-milter", "maquita-almacen", "maquita-bi",
              "maquita-pdf-editor", "maquita-chat")
-SECCIONES = ("sitios", "dns", "cortafuegos", "identidad", "actualizar")
+# Sección → archivo que indica que está instalada (solo se reinstalan las presentes).
+SECCIONES = {"sitios": "/usr/local/sbin/maquita-sitios", "dns": "/usr/local/sbin/maquita-dns",
+             "cortafuegos": "/usr/local/sbin/maquita-cortafuegos", "identidad": "/usr/local/sbin/maquita-identidad",
+             "chat": "/usr/local/sbin/maquita-chat-sincronizar", "actualizar": "/usr/local/sbin/maquita-actualizar"}
 
 
 class Proceso:
@@ -129,8 +132,8 @@ def _cambio(desde, hasta, ruta):
 
 
 def _secciones(p):
-    for seccion in SECCIONES:
-        if os.path.exists(f"/usr/local/sbin/maquita-{seccion}"):
+    for seccion, marca in SECCIONES.items():
+        if os.path.exists(marca):
             p.paso(f"Sección «{seccion}»")
             p.orden(["bash", os.path.join(REPO, "deploy/webmail/instalar-app.sh"), seccion])
     ajustes = os.path.join(REPO, "deploy/ajustes/aplicar-ajustes.sh")
