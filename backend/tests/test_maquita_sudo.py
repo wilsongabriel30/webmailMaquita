@@ -464,3 +464,14 @@ def test_sitios_alias():
     for malo in (("alias", "ejemplo.org", "a b"), ("alias", "Ejemplo..org", "W10"), ("alias", "ejemplo.org")):
         with pytest.raises(ms.Rechazo):
             _ok("maquita-admin", "maquita-sitios", *malo)
+
+
+def test_sitios_trabajos_de_cron():
+    assert _ok("maquita-admin", "maquita-sitios", "tareas", "ejemplo.org")
+    assert _ok("maquita-admin", "maquita-sitios", "tareas-guardar", "ejemplo.org", "W10")
+    assert _ok("maquita-admin", "maquita-sitios", "tarea-ejecutar", "ejemplo.org", "0a1b2c3d")
+    assert _ok("maquita-admin", "maquita-sitios", "tarea-registro", "ejemplo.org", "0a1b2c3d")
+    for malo in (("tarea-ejecutar", "ejemplo.org", "../x"), ("tareas-guardar", "ejemplo.org", "a;b"),
+                 ("tarea-registro", "ejemplo.org"), ("tareas", "ejemplo.org", "x")):
+        with pytest.raises(ms.Rechazo):
+            _ok("maquita-admin", "maquita-sitios", *malo)

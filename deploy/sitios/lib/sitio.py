@@ -293,8 +293,10 @@ def borrar(dominio):
     if meta.get("bd"):
         aplicaciones.volcar_y_borrar_bd(meta, os.path.join(meta["base"], f"base-de-datos-{sello}.sql"))
     import propias
+    import tareas
 
     propias.limpiar_para_baja(meta)
+    tareas.quitar_todos(meta)
     if meta.get("bases"):
         import bases
 

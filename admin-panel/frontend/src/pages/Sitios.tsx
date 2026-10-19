@@ -10,6 +10,7 @@ import { SeguridadModal } from "./sitios/SeguridadModal";
 import { BuscadoresModal } from "./sitios/BuscadoresModal";
 import { AvisoDns, NuevoSitioForm, type RegistroDns } from "./sitios/NuevoSitioForm";
 import { DominiosModal } from "./sitios/DominiosModal";
+import { TareasModal } from "./sitios/TareasModal";
 
 interface Sitio {
   dominio: string;
@@ -41,6 +42,7 @@ export function Sitios() {
   const [ocupado, setOcupado] = useState("");
   const [avisoDns, setAvisoDns] = useState<{ dominio: string; registros: RegistroDns[] } | null>(null);
   const [dominiosDe, setDominiosDe] = useState<Sitio | null>(null);
+  const [tareasDe, setTareasDe] = useState<string | null>(null);
   const [mostrarNuevo, setMostrarNuevo] = useState(false);
   const [instalarEn, setInstalarEn] = useState<string | null>(null);
   const [seguridadDe, setSeguridadDe] = useState<string | null>(null);
@@ -148,6 +150,7 @@ export function Sitios() {
             { titulo: "Aplicaciones propias", desc: "Su propio código: estático (HTML/JS), Python (Flask, Django, FastAPI) o Node.js, subido por SFTP o desde un repositorio git. Python y Node corren como servicio encerrado con el usuario del sitio, detrás de nginx y del cortafuegos de aplicación; variables de entorno, registros y despliegue desde «Gestionar». Si necesitan un puerto propio, el cortafuegos lo abre solo." },
             { titulo: "Bases de datos", desc: "Cada sitio puede tener hasta 10 bases adicionales MariaDB o PostgreSQL para aplicaciones propias, con usuario propio que solo entra a su base. Su contenido se administra con phpMyAdmin o Adminer dentro del panel." },
             { titulo: "Buscadores", desc: "Revisa el sitio como un buscador (robots.txt, mapa del sitio, llms.txt para asistentes de IA, datos schema.org, HTTPS), avisa al momento a Bing y otros por IndexNow y pone en el DNS la verificación de Google Search Console." },
+            { titulo: "Cron", desc: "Trabajos de cron: una orden o script que se ejecuta solo a la hora indicada (cada 5 minutos, cada noche, cada semana…), con el usuario del sitio y encerrado. Se puede ejecutar al momento y ver su salida." },
             { titulo: "FTP", desc: "Activa el acceso a los archivos por FTP cifrado (FTPS) o SFTP, encerrado en la carpeta del sitio. «Nueva clave» invalida la anterior." },
             { titulo: "HTTPS", desc: "Pide un certificado gratuito de Let's Encrypt y redirige todo a https. Se renueva solo." },
             { titulo: "Dar de baja", desc: "Deja de publicar el sitio. Archivos y base de datos van a la papelera del servidor (/srv/sitios-papelera), no se borran en el acto." },
@@ -279,6 +282,7 @@ export function Sitios() {
                   <td className="px-4 py-2.5 text-right text-ms-gray-90">{s.ocupado_mb} MB</td>
                   <td className="px-4 py-2.5 text-right whitespace-nowrap">
                     <button onClick={() => setDominiosDe(s)} disabled={!!ocupado} title="Otros dominios que muestran este mismo sitio." className="text-ms-blue hover:underline text-xs mr-3 disabled:opacity-50">Dominios{s.alias?.length ? ` (${s.alias.length})` : ""}</button>
+                    <button onClick={() => setTareasDe(s.dominio)} disabled={!!ocupado} title="Trabajos de cron: órdenes o scripts que se ejecutan solos a una hora." className="text-ms-blue hover:underline text-xs mr-3 disabled:opacity-50">Cron</button>
                     <button onClick={() => setBuscadoresDe(s.dominio)} disabled={!!ocupado} title="Visibilidad en buscadores e IA: revisión, aviso a Bing y otros, verificación de Google." className="text-ms-blue hover:underline text-xs mr-3 disabled:opacity-50">Buscadores</button>
                     <button onClick={() => setBasesDe(s.dominio)} disabled={!!ocupado} title="Bases de datos adicionales (MariaDB o PostgreSQL), phpMyAdmin y Adminer." className="text-ms-blue hover:underline text-xs mr-3 disabled:opacity-50">Bases{s.bases ? ` (${s.bases})` : ""}</button>
                     <button onClick={() => borrar(s)} disabled={!!ocupado} className="text-ms-red hover:underline text-xs disabled:opacity-50">Dar de baja</button>
@@ -294,6 +298,7 @@ export function Sitios() {
       {gestionarDe && <PropiaModal dominio={gestionarDe} onCerrar={() => { setGestionarDe(null); cargar(); }} />}
       {basesDe && <BasesModal dominio={basesDe} onCerrar={() => { setBasesDe(null); cargar(); }} />}
       {dominiosDe && <DominiosModal dominio={dominiosDe.dominio} www={dominiosDe.www} alias={dominiosDe.alias || []} sinHttps={dominiosDe.alias_sin_https || []} onCerrar={() => { setDominiosDe(null); cargar(); }} />}
+      {tareasDe && <TareasModal dominio={tareasDe} onCerrar={() => setTareasDe(null)} />}
       {buscadoresDe && <BuscadoresModal dominio={buscadoresDe} onCerrar={() => setBuscadoresDe(null)} />}
       {seguridadDe && <SeguridadModal dominio={seguridadDe} onCerrar={() => { setSeguridadDe(null); cargar(); }} />}
       {credenciales && <CredencialesModal {...credenciales} onCerrar={() => setCredenciales(null)} />}

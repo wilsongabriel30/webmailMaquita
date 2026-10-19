@@ -24,6 +24,10 @@ Uso:
   maquita-sitios propia-accion <dominio> <iniciar|detener|reiniciar|desplegar>
   maquita-sitios propia-entorno <dominio> <json-b64>   variables de entorno
   maquita-sitios propia-quitar <dominio> <dominio>     (el código queda en la papelera)
+  maquita-sitios tareas <dominio>         trabajos de cron del sitio (horario, orden, última ejecución)
+  maquita-sitios tareas-guardar <dominio> <lista JSON en base64url>
+  maquita-sitios tarea-ejecutar <dominio> <id>     la ejecuta ahora
+  maquita-sitios tarea-registro <dominio> <id>     últimas líneas de su salida
   maquita-sitios entrar <dominio>         enlace de un solo uso al escritorio de WordPress
   maquita-sitios clave-admin <dominio>    contraseña nueva del administrador de la aplicación
   maquita-sitios revisar <dominio>        versión, actualizaciones pendientes e integridad
@@ -80,6 +84,8 @@ def despachar(args):
         import alias
 
         return alias.cambiar(v.dominio(args[1]), v.json_b64(args[2]))
+    if args[:1] and args[0] in ("tareas", "tareas-guardar", "tarea-ejecutar", "tarea-registro"):
+        return _tareas(args)
     if len(args) == 3 and args[0] == "borrar":
         if args[1] != args[2]:
             raise ErrorSitio("borrar: la confirmación no coincide con el dominio")
@@ -134,6 +140,20 @@ def despachar(args):
         return seguridad.cron()
     if args == ["regenerar"]:
         return sitio.regenerar()
+    raise ErrorSitio("orden o argumentos no permitidos")
+
+
+def _tareas(args):
+    import tareas
+
+    if len(args) == 2 and args[0] == "tareas":
+        return tareas.listar(v.dominio(args[1]))
+    if len(args) == 3 and args[0] == "tareas-guardar":
+        return tareas.guardar(v.dominio(args[1]), v.json_b64(args[2], tope=40000))
+    if len(args) == 3 and args[0] == "tarea-ejecutar":
+        return tareas.ejecutar_ahora(v.dominio(args[1]), args[2])
+    if len(args) == 3 and args[0] == "tarea-registro":
+        return tareas.registro(v.dominio(args[1]), args[2])
     raise ErrorSitio("orden o argumentos no permitidos")
 
 

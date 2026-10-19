@@ -71,6 +71,7 @@ from app.geo_access.router import router as geoaccess_router
 from app.outbound_anomaly.router import router as anomaly_router
 from app.outbound.router import router as outbound_router
 from app.sitios.dominios import router as sitios_dominios_router
+from app.sitios.tareas import router as sitios_tareas_router
 from app.sitios.propias import router as sitios_propias_router
 from app.sitios.router import router as sitios_router
 from app.dns.router import router as dns_router
@@ -244,6 +245,7 @@ app.include_router(outbound_router)
 app.include_router(sitios_router)
 app.include_router(sitios_propias_router)
 app.include_router(sitios_dominios_router)
+app.include_router(sitios_tareas_router)
 app.include_router(dns_router)
 app.include_router(dominio_nuevo_router)
 app.include_router(cortafuegos_router)
