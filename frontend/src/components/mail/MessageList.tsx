@@ -1,4 +1,4 @@
-import { loadOfflineMessages } from "../../hooks/useOfflineSync";
+import { loadOfflineMessagesBuscando } from "../../hooks/useOfflineSync";
 import React, { useEffect, useCallback, useRef, useState, useMemo, memo } from 'react';
 import { useMailStore } from '../../store/mailStore';
 import { fechaMostrada, fechaParaOrdenar } from '../../lib/fechaCorreo';
@@ -313,8 +313,9 @@ export function MessageList() {
       // Offline fallback: load from IndexedDB cache (T-35: también si el servidor no responde: 503/red)
       if (!navigator.onLine || /503|502|504|Sin conexion|Failed to fetch|NetworkError/i.test(String(err?.message || err))) {
         try {
-          const cached = await loadOfflineMessages(currentFolder);
-          if (cached.length > 0) {
+          // T-73: con texto buscado se filtra lo descargado (y una lista vacía es un resultado).
+          const cached = await loadOfflineMessagesBuscando(currentFolder, debouncedSearchQuery);
+          if (cached.length > 0 || debouncedSearchQuery.trim()) {
             setMessages(cached, cached.length, 1);
             return;
           }

@@ -29,6 +29,7 @@ const RagAssistant = React.lazy(() => import('./components/rag/RagAssistant').th
 const TasksView = React.lazy(() => import('./components/tasks/TasksView').then(m => ({ default: m.TasksView })));
 const CalendarView = React.lazy(() => import('./components/calendar/CalendarView'));
 const FilesView = React.lazy(() => import('./components/files/FilesView').then(m => ({ default: m.FilesView })));
+const PoliticaPrivacidad = React.lazy(() => import('./components/legal/PoliticaPrivacidad').then(m => ({ default: m.PoliticaPrivacidad })));
 import { ComposePopup } from "./components/mail/ComposePopup";
 import { MensajeEnPestana } from "./components/mail/MensajeEnPestana";
 import { useMailStore } from "./store/mailStore";
@@ -216,6 +217,8 @@ export default function App() {
         {/* Un solo correo en su pestaña: «Abrir en una nueva pestaña» del menú contextual */}
         <Route path="/mensaje" element={<ProtectedRoute><MensajeEnPestana /></ProtectedRoute>} />
         <Route path="/drive" element={<RedirigirAlmacen />} />
+        {/* Pública: política de privacidad y cookies (LOPDP) */}
+        <Route path="/privacidad" element={<React.Suspense fallback={<Spinner />}><PoliticaPrivacidad /></React.Suspense>} />
         <Route path="/" element={<ProtectedRoute><TwoFactorGate /><AppLayout /></ProtectedRoute>}>
           <Route index element={<MailView />} />
           <Route path="contacts" element={<React.Suspense fallback={<Spinner />}><ContactsView /></React.Suspense>} />

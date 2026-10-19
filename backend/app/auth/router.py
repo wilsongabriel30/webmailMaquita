@@ -197,12 +197,23 @@ async def login(body: LoginRequest, request: Request, response: Response):
     }
 
 
-VALE_2FA_SEG = 60
+# Dos minutos para abrir la app del teléfono y copiar el código (antes 60 s: con el reloj
+# justo, abrir la app y escribir ya agotaba el vale; caso contabilidad@ 19/10/2026).
+VALE_2FA_SEG = 120
+# Códigos equivocados que admite un mismo vale antes de obligar a repetir la contraseña.
+# Antes el primer fallo consumía el vale y la pantalla seguía reintentando con él: todos
+# los códigos siguientes daban «incorrecto» aunque fueran válidos.
+INTENTOS_POR_VALE = 5
+AVISO_VALE_AGOTADO = (
+    "El tiempo para el código se agotó o se superaron los intentos: "
+    "vuelve a escribir tu contraseña."
+)
+AVISO_CODIGO_INCORRECTO = "Código incorrecto. Revisa que la hora del teléfono sea automática e inténtalo de nuevo."
 
 
 async def _emitir_vale_2fa(redis, username: str, password: str | None) -> dict:
-    """Vale del segundo paso. Con contraseña válida se guarda (cifrada) 60 s en Redis;
-    sin ella se devuelve uno ficticio con la misma forma."""
+    """Vale del segundo paso. Con contraseña válida se guarda (cifrada) VALE_2FA_SEG s en
+    Redis; sin ella se devuelve uno ficticio con la misma forma."""
     import json
     import secrets
 
@@ -229,27 +240,38 @@ class Login2FARequest(BaseModel):
 @router.post("/login/2fa")
 async def login_2fa(body: Login2FARequest, request: Request, response: Response):
     """Segundo paso del login (M-01): canjea el vale + código TOTP por una sesión.
-    Vale inexistente, ya usado, vencido o código incorrecto: la MISMA respuesta."""
+
+    El vale admite INTENTOS_POR_VALE códigos equivocados mientras no venza; se borra al
+    acertar, al agotar los intentos o al vencer. Un vale inexistente, vencido o agotado
+    recibe AVISO_VALE_AGOTADO (la pantalla vuelve a pedir la contraseña); un código
+    equivocado con vale vigente, AVISO_CODIGO_INCORRECTO. El vale es un secreto aleatorio
+    de 32 bytes: distinguir ambos casos no permite enumerar nada. El límite por usuario e
+    IP (_check_login_rate_limit) sigue aplicándose en cada intento.
+    """
     import json
 
     start_time = asyncio.get_event_loop().time()
     redis = request.app.state.redis
     db = request.app.state.db_pool
-    generico = HTTPException(
-        status_code=401, detail="Credenciales o código incorrectos"
-    )
     vale = (body.ticket or "").strip()[:128]
+    clave_vale = f"login_ticket:{vale}"
+    clave_intentos = f"login_ticket_tries:{vale}"
     datos = None
     if vale:
-        try:
-            crudo = await redis.getdel(f"login_ticket:{vale}")
-        except Exception:
-            crudo = await redis.get(f"login_ticket:{vale}")
-            await redis.delete(f"login_ticket:{vale}")
+        crudo = await redis.get(clave_vale)
         if crudo:
             try:
                 datos = json.loads(crudo)
             except Exception:
+                datos = None
+        if datos:
+            intentos = await redis.incr(clave_intentos)
+            if intentos == 1:
+                # Mismo vencimiento que el vale (al menos 1 s por si ya está a punto de vencer).
+                ttl = await redis.ttl(clave_vale)
+                await redis.expire(clave_intentos, max(int(ttl or 0), 1))
+            if intentos > INTENTOS_POR_VALE:
+                await redis.delete(clave_vale, clave_intentos)
                 datos = None
     username = (datos or {}).get("u", "")
     if username:
@@ -262,10 +284,15 @@ async def login_2fa(body: Login2FARequest, request: Request, response: Response)
     if elapsed < 1.5:
         await asyncio.sleep(1.5 - elapsed)
     if not ok:
-        raise generico
+        raise HTTPException(
+            status_code=401,
+            detail=AVISO_CODIGO_INCORRECTO if datos else AVISO_VALE_AGOTADO,
+        )
 
     from app.core.session import decrypt_password
 
+    # Vale canjeado: no sirve dos veces.
+    await redis.delete(clave_vale, clave_intentos)
     await _clear_login_rate_limit(request, username, redis)
     sesion = await crear_sesion(
         db, redis, request, username, decrypt_password(datos["p"])

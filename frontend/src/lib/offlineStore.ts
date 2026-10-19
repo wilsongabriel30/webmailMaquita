@@ -1,5 +1,6 @@
 import { cifrar, descifrar, esPaquete } from "./cifradoLocal";
 import { cuentaActiva } from "./cuentaActiva";
+import { usuarioSesion } from "./sesionActual";
 
 // T-49: lo que se guarda en el equipo va cifrado. Estas dos ayudas envuelven y
 // desenvuelven el contenido; el resto del archivo sigue trabajando igual que antes.
@@ -77,6 +78,8 @@ export interface OutboxEmail {
   /** Multicuenta: cuenta asignada desde la que se escribió (null = la propia). Se envía
    *  con ESA cuenta aunque la cola se vacíe más tarde desde otra pestaña o cuenta. */
   cuenta?: string | null;
+  /** T-73: usuario de la sesión que lo escribió. Solo esa sesión lo envía (ver sesionActual.ts). */
+  dueno?: string | null;
   createdAt: number;
   // «retenido»: escrito y guardado, pero aún dentro de la cuenta atrás de «Deshacer».
   // El sincronizador no lo toca hasta que vence; así el correo ya está a salvo en disco
@@ -315,6 +318,7 @@ export async function addToOutbox(
   const id = crypto.randomUUID();
   const record: OutboxEmail = {
     cuenta: cuentaActiva(),
+    dueno: usuarioSesion(),
     ...email,
     id,
     createdAt: Date.now(),

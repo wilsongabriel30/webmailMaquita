@@ -1,6 +1,7 @@
 // Bandeja de salida + estado del correo sin conexión (T-35). Se abre desde la franja OfflineBanner.
 import { useEffect, useState } from 'react';
 import { getOutboxEmails, removeFromOutbox, type OutboxEmail } from '../../lib/offlineStore';
+import { esDeLaSesion } from '../../lib/sesionActual';
 import { reintentarEnvio, syncOutbox, TEXTO_ESTADO, causaSinConexion, hayConexion } from '../../lib/syncQueue';
 import { estadoDescarga, descargarAhora, configurarDescarga, type EstadoDescarga } from '../../lib/descargaOffline';
 
@@ -11,7 +12,7 @@ export function BandejaSalida({ onCerrar }: { onCerrar: () => void }) {
   // Los retenidos (dentro de la cuenta atrás de «Deshacer») no se listan: están de paso
   // y verlos aquí haría pensar que el correo se quedó atascado.
   const cargar = () => getOutboxEmails()
-    .then((c) => setCola(c.filter((x) => x.status !== 'retenido')))
+    .then((c) => setCola(c.filter((x) => x.status !== 'retenido' && esDeLaSesion(x))))   // T-73: ni ver ni descartar lo de otra persona
     .catch(() => setCola([]));
   useEffect(() => {
     cargar();
