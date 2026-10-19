@@ -3,6 +3,7 @@ import { useNavigate , useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { api } from '../../api/client';
 import { TwoFactorSetup } from '../settings/TwoFactorSetup';
+import { AvisoCookies } from '../common/AvisoCookies';
 
 interface Branding {
   org_name?: string;
@@ -107,7 +108,14 @@ export function LoginPage() {
         setError('Sesión no establecida. Intenta de nuevo.');
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Error al iniciar sesion');
+      const mensaje = err instanceof Error ? err.message : 'Error al iniciar sesión';
+      // Segundo paso: si el vale venció o se agotaron los intentos, el servidor lo dice
+      // («vuelve a escribir tu contraseña»). Se regresa al primer paso para emitir un vale
+      // nuevo; reintentar con el mismo vale solo repetiría el error (caso 19/10/2026).
+      if (needs2FA && /vuelve a escribir tu contrase/i.test(mensaje)) {
+        setNeeds2FA(false); setTicket(''); setTotpCode(''); setPassword('');
+      }
+      setError(mensaje);
     } finally {
       setLoading(false);
     }
@@ -364,8 +372,12 @@ export function LoginPage() {
               <>{orgName}{slogan ? ` — ${slogan}` : ''} &middot; {new Date().getFullYear()}</>
             )}
           </p>
+          <p className="text-center text-xs mt-1">
+            <a href="/webmail/privacidad" className="underline" style={{ color: '#605e5c' }}>Política de privacidad y cookies</a>
+          </p>
         </div>
       </main>
+      <AvisoCookies />
     </div>
   );
 }

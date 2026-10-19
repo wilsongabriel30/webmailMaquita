@@ -4,6 +4,7 @@ import { formatMonthYear } from "./utils/dateHelpers";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { addDays, addWeeks, addMonths, getWeekDates } from "./utils/dateHelpers";
+import { abrirAppMovil } from "../../lib/appMovil";
 
 interface Props {
   currentDate: Date;
@@ -796,8 +797,9 @@ export function CalendarHeader({
               ].join('\n');
               calToast(info);
             }} />
-            <RibbonBtn icon={<IconMobile />} label="Aplicación móvil" onClick={() => {
-              calToast('Aplicación móvil: próximamente');
+            <RibbonBtn icon={<IconMobile />} label="App para Android" onClick={() => {
+              // Descarga del APK publicado o, si no hay versión, guía «Configurar mi correo» (lib/appMovil.ts)
+              void abrirAppMovil().then(r => { if (r === 'dentro') calToast('Ya estás usando la aplicación'); });
             }} />
           </div>
           <span className="text-[9px] text-[#605e5c] pb-[3px] mt-[1px]">Ayuda</span>

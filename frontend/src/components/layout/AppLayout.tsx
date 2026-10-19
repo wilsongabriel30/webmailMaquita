@@ -18,6 +18,7 @@ import { AvisoConexionLenta } from "../common/AvisoConexionLenta";
 import { useOfflineSync } from "../../hooks/useOfflineSync";
 import { InstallPrompt } from "../common/InstallPrompt";
 import { ReminderPopup } from "../common/ReminderPopup";
+import { AvisoCookies } from "../common/AvisoCookies";
 import { esModoApp } from "../../lib/modoApp"
 import { useDeepLinkCorreo } from "../../lib/deepLinkCorreo";
 
@@ -101,6 +102,8 @@ export function AppLayout() {
       </a>
       <OfflineBanner />
       <AvisoConexionLenta />
+      {/* LOPDP: aviso de cookies necesarias (se oculta tras «Entendido») */}
+      <AvisoCookies />
       <Topbar />
       {!esModoApp() && <ChatFlotante />}
       <div className="flex-1 flex overflow-hidden">

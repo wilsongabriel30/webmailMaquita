@@ -107,12 +107,16 @@ export async function descargarAhora(): Promise<EstadoDescarga> {
 }
 
 // Arranque automático: a los 8 s de cargar y luego cada 10 min; también al recuperar la red.
+// T-73: solo dentro de Teams Maquita (su puente window.maquitaApp). En el navegador, sin
+// internet la página ni siquiera carga; ahí queda solo el botón «Descargar ahora».
 if (typeof window !== 'undefined') {
   leerCfg();
   try { const u = localStorage.getItem('offline.ultima'); if (u) est.ultima = parseInt(u, 10); } catch { /* sin almacenamiento */ }
-  setTimeout(() => { descargarAhora(); }, 8000);
-  setInterval(() => { descargarAhora(); }, 10 * 60 * 1000);
-  window.addEventListener('online', () => setTimeout(() => descargarAhora(), 4000));
+  if (window.maquitaApp) {
+    setTimeout(() => { descargarAhora(); }, 8000);
+    setInterval(() => { descargarAhora(); }, 10 * 60 * 1000);
+    window.addEventListener('online', () => setTimeout(() => descargarAhora(), 4000));
+  }
   // Gancho para el candado (humo) y para soporte: window.__maquitaOffline
   Promise.all([import('./offlineStore'), import('./syncQueue')]).then(([store, sq]) => {
     (window as unknown as Record<string, unknown>).__maquitaOffline = { descargarAhora, estadoDescarga, configurarDescarga, ...store, ...sq };

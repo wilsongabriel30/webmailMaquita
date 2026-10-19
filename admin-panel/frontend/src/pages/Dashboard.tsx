@@ -3,6 +3,7 @@ import { api } from "../api/client";
 import { Link } from "react-router-dom";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from "recharts";
 import { SectionHelp } from "../components/SectionHelp";
+import { nombreAccionRspamd } from "../lib/accionesRspamd";
 
 interface DashData {
   stats: { domains: number; mailboxes: number; active_mailboxes: number; aliases: number; total_quota: number };
@@ -37,7 +38,8 @@ export function Dashboard() {
   ];
 
   const spamActions = data.rspamd?.actions || {};
-  const pieData = Object.entries(spamActions).filter(([, v]) => (v as number) > 0).map(([k, v]) => ({ name: k, value: v as number }));
+  // Etiquetas en español (reject → Rechazado, add header → Marcado como spam, …)
+  const pieData = Object.entries(spamActions).filter(([, v]) => (v as number) > 0).map(([k, v]) => ({ name: nombreAccionRspamd(k), value: v as number }));
 
   const svcColors: Record<string, string> = {
     active: "bg-ms-green", inactive: "bg-ms-red", failed: "bg-ms-red", unknown: "bg-ms-gray-60",
@@ -118,7 +120,7 @@ export function Dashboard() {
 
         {/* Rspamd Actions pie */}
         <div className="bg-white rounded border border-ms-gray-30 p-5">
-          <h2 className="text-sm font-semibold text-ms-gray-130 mb-3">Rspamd - Acciones</h2>
+          <h2 className="text-sm font-semibold text-ms-gray-130 mb-3">Rspamd — Acciones del antispam</h2>
           {pieData.length > 0 ? (
             <ResponsiveContainer width="100%" height={240}>
               <PieChart margin={{ top: 20, right: 20, bottom: 5, left: 20 }}>

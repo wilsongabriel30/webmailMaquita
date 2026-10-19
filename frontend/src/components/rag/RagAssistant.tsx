@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../../api/client';
 
 const SUGERENCIAS = [
@@ -7,7 +7,9 @@ const SUGERENCIAS = [
   'Resume lo más relevante de mi bandeja.',
 ];
 
-interface Status { enabled: boolean; indexed: number; }
+/** Avance de la sincronización en segundo plano (backend app/rag/ingest.py). */
+interface Sync { estado: 'en_curso' | 'listo' | 'error'; leidos: number; indexed: number; errores: number; mensaje: string; total?: number }
+interface Status { enabled: boolean; indexed: number; sync?: Sync | null }
 interface Source { subject: string; sender: string; sim: number; }
 
 export function RagAssistant() {
@@ -16,14 +18,38 @@ export function RagAssistant() {
   const [busy, setBusy] = useState<'sync' | 'ask' | ''>('');
   const [answer, setAnswer] = useState('');
   const [sources, setSources] = useState<Source[]>([]);
+  const [aviso, setAviso] = useState('');
+  const sondeo = useRef<number | null>(null);
 
-  const loadStatus = () => api.get<Status>('/rag/status').then(setStatus).catch(() => setStatus({ enabled: false, indexed: 0 }));
+  const loadStatus = () => api.get<Status>('/rag/status').then(s => { setStatus(s); return s; }).catch(() => { setStatus({ enabled: false, indexed: 0 }); return null; });
   useEffect(() => { loadStatus(); }, []);
 
+  // Mientras hay una sincronización en curso, se consulta el avance cada 3 s.
+  const pararSondeo = () => { if (sondeo.current) { window.clearInterval(sondeo.current); sondeo.current = null; } };
+  useEffect(() => () => pararSondeo(), []);
+  const seguirSincronizacion = () => {
+    pararSondeo();
+    sondeo.current = window.setInterval(async () => {
+      const s = await loadStatus();
+      const sy = s?.sync;
+      if (!sy || sy.estado !== 'en_curso') {
+        pararSondeo(); setBusy('');
+        if (sy?.estado === 'error') setAviso(sy.mensaje || 'La sincronización falló.');
+        else if (sy?.estado === 'listo') setAviso(sy.indexed > 0 ? `Listo: ${sy.indexed} correos nuevos indexados (${sy.total ?? s?.indexed ?? 0} en total).` : 'Tu bandeja ya estaba al día.');
+      }
+    }, 3000);
+  };
+
   const sync = async () => {
-    setBusy('sync');
-    try { await api.post('/rag/sync', {}); await loadStatus(); } catch { /* fail-open */ }
-    setBusy('');
+    setBusy('sync'); setAviso('');
+    try {
+      const r = await api.post<{ started: boolean; error?: string; sync?: Sync | null }>('/rag/sync', {});
+      if (r?.error) { setAviso(r.error); setBusy(''); return; }
+      seguirSincronizacion();
+    } catch (e) {
+      setAviso(e instanceof Error && e.message ? `No se pudo iniciar la sincronización: ${e.message}` : 'No se pudo iniciar la sincronización.');
+      setBusy('');
+    }
   };
   const ask = async (question?: string) => {
     const text = (question ?? q).trim();
@@ -32,7 +58,7 @@ export function RagAssistant() {
     try {
       const r = await api.post<{ answer: string; sources: Source[] }>('/rag/ask', { question: text });
       setAnswer(r?.answer || ''); setSources(r?.sources || []);
-    } catch { setAnswer('Hubo un error al consultar.'); }
+    } catch (e) { setAnswer(e instanceof Error && e.message ? `Hubo un error al consultar: ${e.message}` : 'Hubo un error al consultar.'); }
     setBusy('');
   };
 
@@ -45,6 +71,9 @@ export function RagAssistant() {
     );
   }
 
+  const sy = status?.sync;
+  const sincronizando = busy === 'sync' || sy?.estado === 'en_curso';
+
   return (
     <div className="p-6 max-w-2xl mx-auto space-y-4">
       <div>
@@ -54,7 +83,7 @@ export function RagAssistant() {
         </p>
       </div>
 
-      {status && status.indexed === 0 && (
+      {status && status.indexed === 0 && !sincronizando && (
         <div className="rounded-lg p-4 text-sm" style={{ background: '#fff4ce', color: '#7a6400' }}>
           Aún no he indexado tu bandeja. Pulsa <b>Sincronizar mi bandeja</b> para empezar.
         </div>
@@ -74,10 +103,18 @@ export function RagAssistant() {
         </button>
       </div>
 
-      <div>
-        <button onClick={sync} disabled={busy !== ''} className="text-xs px-3 py-1.5 rounded disabled:opacity-50" style={{ border: '1px solid #e1dfdd', color: '#484644' }}>
-          {busy === 'sync' ? 'Sincronizando…' : 'Sincronizar mi bandeja'}
+      <div className="flex items-center gap-3 flex-wrap">
+        <button onClick={sync} disabled={busy !== '' || sincronizando} className="text-xs px-3 py-1.5 rounded disabled:opacity-50" style={{ border: '1px solid #e1dfdd', color: '#484644' }}>
+          {sincronizando ? 'Sincronizando…' : 'Sincronizar mi bandeja'}
         </button>
+        {sincronizando && sy && (
+          <span className="text-xs" style={{ color: '#605e5c' }} role="status" aria-live="polite">
+            Leídos {sy.leidos} · indexados {sy.indexed}{sy.errores ? ` · ${sy.errores} con error` : ''}. Puedes seguir usando el correo; esto continúa solo.
+          </span>
+        )}
+        {aviso && !sincronizando && (
+          <span className="text-xs" style={{ color: /falló|No se pudo|no respondió/i.test(aviso) ? '#a4262c' : '#107c10' }} role="status" aria-live="polite">{aviso}</span>
+        )}
       </div>
 
       {answer && (

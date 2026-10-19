@@ -20,7 +20,8 @@ export function textoTamano(m: ManifiestoApp): string {
   return m.tamano ? `${(m.tamano / 1048576).toFixed(1)} MB` : '';
 }
 
-function cargar(): Promise<ManifiestoApp | null> {
+/** Manifiesto publicado (null si no hay versión); se lee una sola vez por sesión. */
+export function cargarManifiestoApp(): Promise<ManifiestoApp | null> {
   if (!cache) {
     cache = fetch(RUTA_JSON, { cache: 'no-store' })
       .then(r => (r.ok && (r.headers.get('content-type') || '').includes('json') ? r.json() : null))
@@ -36,7 +37,7 @@ export function useManifiestoApp(): ManifiestoApp | null {
   useEffect(() => {
     if (dentroDeLaApp()) return;
     let vivo = true;
-    cargar().then(v => { if (vivo) setM(v); });
+    cargarManifiestoApp().then(v => { if (vivo) setM(v); });
     return () => { vivo = false; };
   }, []);
   return m;
