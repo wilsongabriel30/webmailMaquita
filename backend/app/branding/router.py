@@ -18,6 +18,17 @@ _PUBLICAS = (
     "org_phone",
     "org_email",
     "org_website",
+    # Política de privacidad (LOPDP): datos del responsable y del delegado que la ley obliga
+    # a publicar (art. 12.8 y 12.9). Se configuran en branding_settings, no en el código.
+    "org_ruc",
+    "org_address",
+    "privacy_contact_area",
+    "privacy_contact_email",
+    "dpo_name",
+    "dpo_email",
+    "dpo_phone",
+    "privacy_updated",
+    "privacy_version",
     "primary_color",
     "secondary_color",
     "footer_text",
