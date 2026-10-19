@@ -12,6 +12,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 - Rspamd: `BAYES_SPAM` pasa a pesar 4,0 (`statistics_group.conf`): el Bayes ya no manda solo a no deseado. Nuevo `deploy/tools/vigilante-falsos-positivos.sh` (cron 07:10): lo que cayó en no deseado viniendo de un remitente al que ese buzón ya escribió vuelve a la bandeja, se aprende como legítimo y se informa a TI.
 - Rspamd: el instalador instala el anti-suplantación (`deploy/rspamd/maquita-antispoof.lua`) con sus **mapas** de dominios propios y términos protegidos generados desde la base del panel (`sync-rspamd-maps.sh`, cron cada 10 min), y la lista gris deja pasar sin espera a los remitentes con DMARC alineado y DKIM válido (`MAQ_REMITENTE_AUTENTICADO`).
 
+### Cambiado
+- Panel de administración: las acciones de Rspamd se muestran en español en el gráfico «Acciones del antispam» del Dashboard y en las tarjetas e historial de Cuarentena (Rechazado, Rechazo temporal, Marcado como spam, Asunto reescrito, Lista gris, Aceptado); el nombre técnico queda en el título emergente.
+
 ### Añadido (privacidad)
 - Aviso de cookies (LOPDP, Ecuador) en el inicio de sesión y en el correo: solo cookies necesarias, sin publicidad ni terceros; botón «Entendido» (se guarda en el navegador, no en cookie). Página pública «Política de privacidad y cookies» en `/webmail/privacidad` con responsable, finalidades, tabla de cookies, conservación, derechos y seguridad; el nombre de la organización sale de la marca configurada.
 
