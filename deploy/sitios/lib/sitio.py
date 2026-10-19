@@ -202,6 +202,8 @@ def publico(meta):
         "alias_sin_https": meta.get("alias_sin_https", []),
         "app": meta.get("app"),
         "app_admin": meta.get("app_admin"),
+        "app_pendiente": meta.get("app_pendiente", False),
+        "app_version": meta.get("app_version"),
         "ssl": meta.get("ssl", False),
         "ftp": meta.get("ftp", False),
         "tienda": meta.get("tienda", False),

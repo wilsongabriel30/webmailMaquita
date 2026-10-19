@@ -6,6 +6,7 @@ Corre como root y solo se llama desde el panel a través de maquita-sudo. Respon
 Uso:
   maquita-sitios estado
   maquita-sitios listar
+  maquita-sitios catalogo                 aplicaciones instalables (nombre, categoría, licencia, cómo se instala)
   maquita-sitios crear <dominio> [con-www|sin-www] [nombre de la institución en base64url]
   maquita-sitios app <dominio> <wordpress|joomla> <título en base64url> <correo del administrador>
   maquita-sitios ftp <dominio> <activar|desactivar>
@@ -28,6 +29,8 @@ Uso:
   maquita-sitios tareas-guardar <dominio> <lista JSON en base64url>
   maquita-sitios tarea-ejecutar <dominio> <id>     la ejecuta ahora
   maquita-sitios tarea-registro <dominio> <id>     últimas líneas de su salida
+  maquita-sitios paquete <dominio> <archivo en /var/lib/maquita-sitios/subidas> <con-bd|sin-bd>   paquete propio
+  maquita-sitios terminar <dominio>       cierra el instalador web de una aplicación instalada con asistente
   maquita-sitios entrar <dominio>         enlace de un solo uso al escritorio de WordPress
   maquita-sitios clave-admin <dominio>    contraseña nueva del administrador de la aplicación
   maquita-sitios revisar <dominio>        versión, actualizaciones pendientes e integridad
@@ -56,7 +59,7 @@ def estado():
         "wp_cli": os.path.exists(WP_CLI),
         "ftp": bool(shutil.which("vsftpd")),
         "certbot": bool(shutil.which("certbot")),
-        "aplicaciones": list(v.APLICACIONES),
+        "aplicaciones": [a["id"] for a in __import__("apps").lista()],
     }
 
 
@@ -69,6 +72,10 @@ def despachar(args):
         return estado()
     if args == ["listar"]:
         return {"sitios": sitio.listar(), "estado": estado()}
+    if args == ["catalogo"]:
+        import apps
+
+        return {"aplicaciones": apps.lista()}
     if 2 <= len(args) <= 4 and args[0] == "crear":
         if len(args) >= 3 and args[2] not in ("con-www", "sin-www"):
             raise ErrorSitio("crear: tercer argumento no permitido")
@@ -94,6 +101,12 @@ def despachar(args):
         import visibilidad
 
         return (visibilidad.revisar if args[0] == "buscadores" else visibilidad.avisar)(v.dominio(args[1]))
+    if len(args) == 4 and args[0] == "paquete" and args[3] in ("con-bd", "sin-bd"):
+        import paquete
+
+        return paquete.instalar(v.dominio(args[1]), args[2], args[3] == "con-bd")
+    if len(args) == 2 and args[0] == "terminar":
+        return aplicaciones.terminar(v.dominio(args[1]))
     if len(args) == 2 and args[0] in ("entrar", "clave-admin", "revisar", "actualizar"):
         import seguridad
 

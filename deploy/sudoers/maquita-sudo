@@ -344,13 +344,13 @@ _RE_B64URL = re.compile(r"^[A-Za-z0-9_-]{1,200}$")
 def validar_sitios(args):
     """maquita-sitios: cada subacción con la forma exacta de sus argumentos (el ayudante revalida)."""
     dom = lambda d: bool(_RE_DOMINIO_SITIO.match(d))  # noqa: E731
-    if args in (["estado"], ["listar"]):
+    if args in (["estado"], ["listar"], ["catalogo"]):
         return args
     if (args[:1] == ["crear"] and 2 <= len(args) <= 4 and dom(args[1])
             and (len(args) == 2 or args[2] in ("con-www", "sin-www"))
             and (len(args) < 4 or _RE_B64URL.match(args[3]))):
         return args
-    if (len(args) == 5 and args[0] == "app" and dom(args[1]) and args[2] in ("wordpress", "joomla", "moodle", "dolibarr", "matomo")
+    if (len(args) == 5 and args[0] == "app" and dom(args[1]) and re.fullmatch(r"[a-z0-9-]{2,30}", args[2])
             and _RE_B64URL.match(args[3]) and es_buzon(args[4])):
         return args
     if len(args) == 3 and args[0] == "ftp" and dom(args[1]) and args[2] in ("activar", "desactivar"):
@@ -358,6 +358,9 @@ def validar_sitios(args):
     if len(args) == 3 and args[0] == "ssl" and dom(args[1]) and es_buzon(args[2]):
         return args
     if len(args) == 3 and args[0] == "alias" and dom(args[1]) and _RE_B64URL_LARGO.match(args[2]):
+        return args
+    if (len(args) == 4 and args[0] == "paquete" and dom(args[1]) and re.fullmatch(r"[0-9a-f]{32}\.(zip|tar\.gz|tgz)", args[2])
+            and args[3] in ("con-bd", "sin-bd")):
         return args
     if len(args) == 2 and args[0] == "tareas" and dom(args[1]):
         return args
@@ -367,7 +370,7 @@ def validar_sitios(args):
         return args
     if len(args) == 3 and args[0] == "borrar" and dom(args[1]) and args[1] == args[2]:
         return args
-    if len(args) == 2 and args[0] in ("entrar", "clave-admin", "revisar", "actualizar", "buscadores", "avisar") and dom(args[1]):
+    if len(args) == 2 and args[0] in ("entrar", "clave-admin", "revisar", "actualizar", "buscadores", "avisar", "terminar") and dom(args[1]):
         return args
     if len(args) == 3 and args[0] == "inicio" and dom(args[1]) and _RE_B64URL_LARGO.match(args[2]):
         return args

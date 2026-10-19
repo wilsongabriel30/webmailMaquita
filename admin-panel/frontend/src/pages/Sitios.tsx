@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { SectionHelp } from "../components/SectionHelp";
 import { CredencialesModal, type Credencial } from "./sitios/CredencialesModal";
-import { APPS, InstalarAppForm } from "./sitios/InstalarAppForm";
+import { InstalarAppForm, useCatalogo } from "./sitios/InstalarAppForm";
+import { SubirPaqueteForm, type ResultadoPaquete } from "./sitios/SubirPaqueteForm";
 import { BasesModal } from "./sitios/BasesModal";
 import { AppPropiaForm, type NuevaPropia } from "./sitios/AppPropiaForm";
 import { PropiaModal } from "./sitios/PropiaModal";
@@ -19,6 +20,7 @@ interface Sitio {
   alias_sin_https?: string[];
   app: string | null;
   app_admin: string | null;
+  app_pendiente?: boolean;
   ssl: boolean;
   ftp: boolean;
   tienda?: boolean;
@@ -33,7 +35,6 @@ interface Sitio {
 interface Estado { php: string | null; mariadb: boolean; wp_cli: boolean; ftp: boolean; certbot: boolean }
 interface Listado { sitios: Sitio[]; estado: Estado }
 
-const NOMBRE_APP: Record<string, string> = Object.fromEntries(APPS.map((a) => [a.id, a.nombre]));
 const NOMBRE_PROPIA: Record<string, string> = { estatico: "Propia · estática", python: "Propia · Python", node: "Propia · Node.js" };
 
 export function Sitios() {
@@ -43,6 +44,9 @@ export function Sitios() {
   const [avisoDns, setAvisoDns] = useState<{ dominio: string; registros: RegistroDns[] } | null>(null);
   const [dominiosDe, setDominiosDe] = useState<Sitio | null>(null);
   const [tareasDe, setTareasDe] = useState<string | null>(null);
+  const [subirEn, setSubirEn] = useState<string | null>(null);
+  const catalogo = useCatalogo();
+  const NOMBRE_APP: Record<string, string> = { paquete: "Paquete propio", ...Object.fromEntries(catalogo.map((a) => [a.id, a.nombre])) };
   const [mostrarNuevo, setMostrarNuevo] = useState(false);
   const [instalarEn, setInstalarEn] = useState<string | null>(null);
   const [seguridadDe, setSeguridadDe] = useState<string | null>(null);
@@ -117,6 +121,29 @@ export function Sitios() {
       setCredenciales({ titulo: `Tienda instalada en ${s.dominio}`, items: [{ etiqueta: "Configurar la tienda", valor: r.url_admin }],
         nota: "Entre al escritorio de WordPress y siga el asistente de WooCommerce (moneda, pagos y envíos)." });
     });
+  };
+
+  const paqueteListo = (dominio: string, r: ResultadoPaquete) => {
+    setSubirEn(null); cargar();
+    setCredenciales({
+      titulo: `Paquete instalado en ${dominio}`,
+      items: [
+        { etiqueta: "Abra el sitio y siga su instalador", valor: r.url },
+        { etiqueta: "Carpeta pública", valor: r.raiz_web },
+        ...(r.base_datos ? [
+          { etiqueta: "Servidor de la base", valor: r.bd_servidor || "localhost" },
+          { etiqueta: "Base de datos", valor: r.base_datos },
+          { etiqueta: "Usuario de la base", valor: r.bd_usuario || "" },
+          { etiqueta: "Contraseña de la base", valor: r.bd_clave || "", secreto: true },
+        ] : []),
+      ],
+      nota: "Copie estos datos ahora: la contraseña de la base no se vuelve a mostrar. Al terminar el instalador, bórrelo si la aplicación lo pide (por FTP).",
+    });
+  };
+
+  const terminar = (s: Sitio) => {
+    if (!confirm(`¿Ya terminó el instalador de ${NOMBRE_APP[s.app || ""] || s.app} en ${s.dominio}? Se cerrará el instalador web.`)) return;
+    accion("Cerrando el instalador…", async () => { await api.post(`/sitios/${s.dominio}/terminar`); });
   };
 
   const ssl = (s: Sitio) => {
@@ -196,15 +223,34 @@ export function Sitios() {
         />
       )}
 
+      {subirEn && <SubirPaqueteForm dominio={subirEn} onCancelar={() => setSubirEn(null)} onListo={(r) => paqueteListo(subirEn, r)} />}
+
       {instalarEn && (
         <InstalarAppForm
           dominio={instalarEn}
+          apps={catalogo}
           ocupado={!!ocupado}
           onCancelar={() => setInstalarEn(null)}
-          onInstalar={(app, titulo, correo) => accion(`Instalando ${NOMBRE_APP[app]} (descarga, verificación e instalación: ${app === "moodle" ? "unos 5 minutos" : "1–2 minutos"})…`, async () => {
-            const r = await api.post<{ url_admin: string; admin_usuario: string; admin_clave: string; base_datos: string }>(
+          onSubirPaquete={() => { setSubirEn(instalarEn); setInstalarEn(null); }}
+          onInstalar={(app, titulo, correo) => accion(`Instalando ${NOMBRE_APP[app]} (descarga, verificación e instalación: ${app === "moodle" ? "unos 5 minutos" : "1–3 minutos"})…`, async () => {
+            const r = await api.post<{ url_admin: string; admin_usuario: string; admin_clave: string; base_datos: string;
+              asistente?: string; bd_usuario?: string; bd_clave?: string; bd_servidor?: string }>(
               `/sitios/${instalarEn}/app`, { app, titulo, correo });
             setInstalarEn(null);
+            if (r.asistente) {
+              setCredenciales({
+                titulo: `${NOMBRE_APP[app]}: termine la instalación`,
+                items: [
+                  { etiqueta: "Abra el instalador", valor: r.asistente },
+                  { etiqueta: "Servidor de la base", valor: r.bd_servidor || "localhost" },
+                  { etiqueta: "Base de datos", valor: r.base_datos },
+                  { etiqueta: "Usuario de la base", valor: r.bd_usuario || "" },
+                  { etiqueta: "Contraseña de la base", valor: r.bd_clave || "", secreto: true },
+                ],
+                nota: "Siga el instalador de la aplicación con estos datos y cree allí su administrador. Al terminar, pulse «Terminar instalación» en la lista de sitios para cerrar el instalador.",
+              });
+              return;
+            }
             setCredenciales({
               titulo: `${NOMBRE_APP[app]} instalado en ${instalarEn}`,
               items: [
@@ -252,7 +298,8 @@ export function Sitios() {
                         <div className="text-xs mt-0.5 space-x-2">
                           {s.app === "wordpress" && <button onClick={() => entrar(s)} disabled={!!ocupado} title="Abre el escritorio de WordPress sin contraseña (enlace de un solo uso, 60 segundos)." className="text-ms-blue hover:underline disabled:opacity-50">Entrar</button>}
                           {s.app !== "wordpress" && s.app_admin && <a href={s.app_admin} target="_blank" rel="noopener noreferrer" className="text-ms-blue hover:underline">Administrar</a>}
-                          <button onClick={() => nuevaClave(s)} disabled={!!ocupado} className="text-ms-blue hover:underline disabled:opacity-50">Nueva contraseña</button>
+                          {s.app_pendiente && <button onClick={() => terminar(s)} disabled={!!ocupado} className="text-amber-700 hover:underline disabled:opacity-50">Terminar instalación</button>}
+                          {s.app !== "paquete" && !s.app_pendiente && <button onClick={() => nuevaClave(s)} disabled={!!ocupado} className="text-ms-blue hover:underline disabled:opacity-50">Nueva contraseña</button>}
                           <button onClick={() => setSeguridadDe(s.dominio)} disabled={!!ocupado} className="text-ms-blue hover:underline disabled:opacity-50">Seguridad</button>
                           {s.app === "wordpress" && !s.tienda && <button onClick={() => tienda(s)} disabled={!!ocupado} title="WooCommerce: tienda en línea libre." className="text-ms-blue hover:underline disabled:opacity-50">Tienda</button>}
                         </div>
@@ -260,6 +307,8 @@ export function Sitios() {
                     ) : (
                       <span>
                       <button onClick={() => setInstalarEn(s.dominio)} disabled={!!ocupado} className="text-ms-blue hover:underline text-xs disabled:opacity-50">Instalar una aplicación</button>
+                      <span className="text-ms-gray-60 text-xs"> · </span>
+                      <button onClick={() => setSubirEn(s.dominio)} disabled={!!ocupado} title="Su propio .zip o .tar.gz de una aplicación que no está en el catálogo." className="text-ms-blue hover:underline text-xs disabled:opacity-50">Subir paquete</button>
                       <span className="text-ms-gray-60 text-xs"> · </span>
                       <button onClick={() => setPropiaEn(s.dominio)} disabled={!!ocupado} title="Su propio código: HTML/JS, Python o Node.js." className="text-ms-blue hover:underline text-xs disabled:opacity-50">Aplicación propia</button>
                       </span>

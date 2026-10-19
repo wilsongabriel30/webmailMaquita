@@ -74,7 +74,8 @@ def _publico_vacio(meta):
 def _deshacer_instalacion(meta):
     """Si la instalación falla, el sitio vuelve a quedar vacío y sin base de datos."""
     try:
-        _mariadb(f"DROP DATABASE IF EXISTS `{meta['bd']}`; DROP USER IF EXISTS '{meta['bd']}'@'localhost';")
+        if meta.get("bd"):
+            _mariadb(f"DROP DATABASE IF EXISTS `{meta['bd']}`; DROP USER IF EXISTS '{meta['bd']}'@'localhost';")
     except ErrorSitio:
         pass
     for nombre in os.listdir(meta["publico"]):
@@ -98,9 +99,15 @@ def instalar(dominio, app, titulo, correo):
     if meta.get("app"):
         raise ErrorSitio(f"el sitio ya tiene {meta['app']} instalado")
     _publico_vacio(meta)
-    bd, bd_usuario, bd_clave = crear_bd(meta)
-    meta["bd"] = bd
-    guardar_meta(meta)
+    from apps import CATALOGO
+
+    modulo = CATALOGO.get(app)
+    if modulo is not None and getattr(modulo, "BD", "mariadb") is None:
+        bd = bd_usuario = bd_clave = None  # aplicación sin base de datos (archivos planos)
+    else:
+        bd, bd_usuario, bd_clave = crear_bd(meta)
+        meta["bd"] = bd
+        guardar_meta(meta)
     admin_usuario = "admin" + secrets.token_hex(3)
     admin_clave = clave(18)
     try:
@@ -111,13 +118,10 @@ def instalar(dominio, app, titulo, correo):
             _joomla(meta, bd, bd_usuario, bd_clave, titulo, correo, admin_usuario, admin_clave)
             acceso_admin = _url(meta) + "/administrator/"
         else:
-            from apps import CATALOGO
-
             # meta["app"] antes de instalar: algunas aplicaciones se instalan por la web y el vhost
             # tiene que servir ya su carpeta pública con sus reglas.
             meta["app"] = app
-            acceso_admin = CATALOGO[app].instalar(meta, bd, bd_usuario, bd_clave, titulo, correo,
-                                                  admin_usuario, admin_clave)
+            acceso_admin = modulo.instalar(meta, bd, bd_usuario, bd_clave, titulo, correo, admin_usuario, admin_clave)
     except Exception:
         meta["app"] = None
         _deshacer_instalacion(meta)
@@ -126,9 +130,15 @@ def instalar(dominio, app, titulo, correo):
         sitio.escribir_vhost(meta)  # sin las reglas de la aplicación que no llegó a instalarse
         sitio.recargar_nginx()
         raise
+    asistente = None
+    if isinstance(acceso_admin, dict):
+        # La persona termina el instalador web de la aplicación: se le dan los datos de la base.
+        asistente, acceso_admin = acceso_admin["asistente"], acceso_admin["url_admin"]
+        admin_usuario = admin_clave = None
     meta["app"] = app
     meta["app_admin"] = acceso_admin
     meta["app_usuario"] = admin_usuario
+    meta["app_pendiente"] = bool(asistente)
     guardar_meta(meta)
     if app == "wordpress":
         import seguridad
@@ -140,7 +150,7 @@ def instalar(dominio, app, titulo, correo):
     sitio.escribir_vhost(meta)
     sitio.recargar_nginx()
     # Las credenciales se devuelven UNA vez para mostrarlas en el panel; no se guardan.
-    return {
+    respuesta = {
         "dominio": dominio,
         "app": app,
         "url_admin": acceso_admin,
@@ -148,6 +158,28 @@ def instalar(dominio, app, titulo, correo):
         "admin_clave": admin_clave,
         "base_datos": bd,
     }
+    if asistente:
+        respuesta.update({"asistente": asistente, "bd_usuario": bd_usuario, "bd_clave": bd_clave, "bd_servidor": "localhost"})
+    return respuesta
+
+
+def terminar(dominio):
+    """Cierra el instalador web de una aplicación que la persona terminó de configurar."""
+    meta = leer_meta(dominio)
+    if not meta.get("app_pendiente"):
+        raise ErrorSitio("ese sitio no tiene una instalación pendiente")
+    from apps import CATALOGO
+
+    modulo = CATALOGO[meta["app"]]
+    if hasattr(modulo, "terminar"):
+        modulo.terminar(meta)
+    meta["app_pendiente"] = False
+    guardar_meta(meta)
+    import sitio
+
+    sitio.escribir_vhost(meta)
+    sitio.recargar_nginx()
+    return sitio.publico(meta)
 
 
 def _wp(meta, *args, entrada=None):

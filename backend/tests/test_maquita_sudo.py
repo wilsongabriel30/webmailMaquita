@@ -414,7 +414,7 @@ def test_sitios_catalogo_y_bases():
     assert _ok("maquita-admin", "maquita-sitios", "base-crear", "ejemplo.org", "postgresql")
     assert _ok("maquita-admin", "maquita-sitios", "base-borrar", "ejemplo.org", "x_ejemplo1234_0a1b")
     for malo in (("base-crear", "ejemplo.org", "oracle"), ("base-borrar", "ejemplo.org", "mysql"),
-                 ("app", "ejemplo.org", "prestashop", "SG9sYQ", "a@example.org")):
+                 ("app", "ejemplo.org", "../x", "SG9sYQ", "a@example.org"), ("app", "ejemplo.org", "A b", "SG9sYQ", "a@example.org")):
         with pytest.raises(ms.Rechazo):
             _ok("maquita-admin", "maquita-sitios", *malo)
 
@@ -473,5 +473,20 @@ def test_sitios_trabajos_de_cron():
     assert _ok("maquita-admin", "maquita-sitios", "tarea-registro", "ejemplo.org", "0a1b2c3d")
     for malo in (("tarea-ejecutar", "ejemplo.org", "../x"), ("tareas-guardar", "ejemplo.org", "a;b"),
                  ("tarea-registro", "ejemplo.org"), ("tareas", "ejemplo.org", "x")):
+        with pytest.raises(ms.Rechazo):
+            _ok("maquita-admin", "maquita-sitios", *malo)
+
+
+def test_sitios_catalogo_ampliado():
+    assert _ok("maquita-admin", "maquita-sitios", "catalogo")
+    assert _ok("maquita-admin", "maquita-sitios", "terminar", "ejemplo.org")
+    assert _ok("maquita-admin", "maquita-sitios", "app", "ejemplo.org", "limesurvey", "SG9sYQ", "a@example.org")
+
+
+def test_sitios_paquete_propio():
+    assert _ok("maquita-admin", "maquita-sitios", "paquete", "ejemplo.org", "0123456789abcdef0123456789abcdef.zip", "con-bd")
+    assert _ok("maquita-admin", "maquita-sitios", "paquete", "ejemplo.org", "0123456789abcdef0123456789abcdef.tar.gz", "sin-bd")
+    for malo in (("paquete", "ejemplo.org", "../../etc/shadow", "con-bd"), ("paquete", "ejemplo.org", "x.zip", "con-bd"),
+                 ("paquete", "ejemplo.org", "0123456789abcdef0123456789abcdef.zip", "si")):
         with pytest.raises(ms.Rechazo):
             _ok("maquita-admin", "maquita-sitios", *malo)

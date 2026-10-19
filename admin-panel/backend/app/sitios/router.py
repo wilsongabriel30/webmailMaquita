@@ -25,7 +25,7 @@ router = APIRouter(prefix="/api/sitios", tags=["sitios"])
 AYUDANTE = "/usr/local/sbin/maquita-sitios"
 RE_DOMINIO = re.compile(r"^(?=.{4,200}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$")
 RE_BASE = re.compile(r"^x_[a-z0-9]+_[0-9a-f]{4}$")
-APLICACIONES = ("wordpress", "joomla", "moodle", "dolibarr", "matomo")
+RE_APLICACION = re.compile(r"^[a-z0-9-]{2,30}$")  # el ayudante comprueba que esté en su catálogo
 RE_CORREO = re.compile(r"^[a-z0-9][a-z0-9._+-]{0,63}@([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$")
 
 
@@ -88,6 +88,20 @@ async def listar(admin: dict = Depends(get_current_admin)):
     return await _ayudante("listar")
 
 
+@router.get("/catalogo")
+async def catalogo(admin: dict = Depends(get_current_admin)):
+    return await _ayudante("catalogo")
+
+
+@router.post("/{dominio}/terminar")
+async def terminar(dominio: str, r: Request, admin: dict = Depends(require_superadmin)):
+    """Cierra el instalador web de una aplicación instalada con su asistente."""
+    dominio = _dominio(dominio)
+    res = await _ayudante("terminar", dominio)
+    await _auditar(r, admin, "sitio_app_terminar", dominio)
+    return res
+
+
 class NuevoSitio(BaseModel):
     dominio: str
     con_www: bool = True
@@ -114,7 +128,7 @@ class NuevaApp(BaseModel):
 @router.post("/{dominio}/app")
 async def instalar_app(dominio: str, body: NuevaApp, r: Request, admin: dict = Depends(require_superadmin)):
     dominio = _dominio(dominio)
-    if body.app not in APLICACIONES:
+    if not RE_APLICACION.match(body.app or ""):
         raise HTTPException(400, "Aplicación no disponible")
     titulo = (body.titulo or "").strip()
     if not 1 <= len(titulo) <= 100 or re.search(r"[\x00-\x1f\x7f<>]", titulo):

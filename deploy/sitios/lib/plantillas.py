@@ -236,6 +236,11 @@ def _cuerpo(meta, socket, acme):
         reglas, waf = _REGLAS_WORDPRESS.substitute(socket=socket), "wordpress"
     elif app == "joomla":
         reglas, waf = _REGLAS_JOOMLA.substitute(socket=socket), "joomla"
+    elif app == "paquete":
+        # Paquete subido por la persona: reglas comunes y el perfil general del cortafuegos de aplicación.
+        reglas, waf = "", "aplicacion"
+        if (meta.get("paquete") or {}).get("raiz"):
+            raiz = f"{meta['publico']}/{meta['paquete']['raiz']}"
     elif app in CATALOGO:
         modulo = CATALOGO[app]
         reglas, waf = Template(modulo.REGLAS_NGINX).substitute(socket=socket), "aplicacion"

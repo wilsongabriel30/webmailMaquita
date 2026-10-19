@@ -124,7 +124,12 @@ def clave_admin(dominio):
     _no_propia(meta)
     usuario = meta.get("app_usuario")
     if not meta.get("app") or not usuario:
-        raise ErrorSitio("el sitio no tiene una aplicación con administrador registrado")
+        raise ErrorSitio("el sitio no tiene una aplicación con administrador registrado "
+                         "(si se instaló con su asistente, la contraseña se cambia desde la propia aplicación)")
+    from apps import CATALOGO
+
+    if meta["app"] not in ("wordpress", "joomla") and not hasattr(CATALOGO.get(meta["app"]), "clave_admin"):
+        raise ErrorSitio("esta aplicación cambia la contraseña desde su propia pantalla («¿Olvidó su contraseña?»)")
     nueva = clave(18)
     if meta["app"] == "wordpress":
         _wp(meta, "user", "update", usuario, "--skip-email", "--prompt=user_pass", entrada=nueva + "\n")
@@ -173,6 +178,9 @@ def revisar(dominio):
     if app == "joomla":
         salida = _joomla_cli(meta, "core:check-updates")
         return {"dominio": dominio, "app": app, "version": meta.get("app_version"), "detalle": salida.strip()[-500:]}
+    if app == "paquete":
+        return {"dominio": dominio, "app": app, "version": None,
+                "detalle": "Paquete propio: se actualiza desde la propia aplicación o subiendo los archivos por FTP."}
     if app:
         from apps import CATALOGO
 
