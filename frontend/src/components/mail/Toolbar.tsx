@@ -12,6 +12,7 @@ import { getFolderDisplayName } from '../../folders';
 import { getCachedLabels, useLabels } from '../../hooks/useLabels';
 import { SnoozeModal } from './SnoozeModal';
 import { InfoCuentaModal } from './InfoCuentaModal';
+import { abrirAppMovil } from '../../lib/appMovil';
 import { sanitizeHtml } from '../../lib/sanitize';
 import { destinatariosResponderATodos } from '../../lib/destinatariosRespuesta';
 import type { Folder, MessageFull } from '../../types';
@@ -1240,8 +1241,8 @@ export function Toolbar() {
 
                   {/* Group: Móvil */}
                   <Group label="Móvil">
-                    <ToolbarButton icon={ICONS.mobile} label="Outlook móvil"
-                      onClick={() => showToast('Aplicación móvil: próximamente')} />
+                    <ToolbarButton icon={ICONS.mobile} label="App para Android"
+                      onClick={() => { void abrirAppMovil(navigate).then(r => { if (r === 'dentro') showToast('Ya estás usando la aplicación'); }); }} />
                   </Group>
                 </>
               )}

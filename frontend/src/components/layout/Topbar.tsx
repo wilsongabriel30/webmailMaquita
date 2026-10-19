@@ -10,6 +10,8 @@ import { aplicarBusqueda, cambiarAmbito } from "../../lib/busquedaGlobal";
 import { useResponsive } from "../../hooks/useResponsive";
 import { useNombreApp } from "../../lib/marca";
 import OpcionDescargaApp from './OpcionDescargaApp';
+import { textoTamano, urlApk, useManifiestoApp } from '../../lib/appAndroid';
+import { RUTA_CONFIGURAR_CORREO } from '../../lib/appMovil';
 
 /** El instalador de la aplicación deja estos ganchos en `window`; se nombran para no usar `any`. */
 type VentanaConPWA = Window & {
@@ -40,6 +42,7 @@ export function Topbar() {
   const [showApps, setShowApps] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const manifiestoApp = useManifiestoApp();   // app Android publicada (null si no hay o ya se está dentro)
   const [showProfile, setShowProfile] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>(
     typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'unsupported'
@@ -294,6 +297,20 @@ export function Topbar() {
               <div className="px-4 py-3">
                 <p className="text-[12px] font-semibold text-[#323130] mb-2">Soporte</p>
                 <p className="text-[12px] text-[#323130]">Si necesitas ayuda operativa, escribe al área de Tecnología de tu organización.</p>
+              </div>
+              {/* Aplicaciones: APK Android publicado (manifiesto) y guía para Outlook/celular */}
+              <div className="px-4 py-3 border-t border-[#edebe9]">
+                <p className="text-[12px] font-semibold text-[#323130] mb-2">Aplicaciones</p>
+                <div className="space-y-1 text-[12px]">
+                  {manifiestoApp && (
+                    <a href={urlApk()} target="_blank" rel="noopener" className="block text-[#0078d4] hover:underline">
+                      Descargar la app para Android (versión {manifiestoApp.versionName}{manifiestoApp.tamano ? ` · ${textoTamano(manifiestoApp)}` : ''})
+                    </a>
+                  )}
+                  <button type="button" onClick={() => { setShowHelp(false); navigate(RUTA_CONFIGURAR_CORREO); }} className="block text-left text-[#0078d4] hover:underline">
+                    Configurar mi correo en Outlook, Thunderbird o el celular
+                  </button>
+                </div>
               </div>
               {/* LOPDP: la política debe poder leerse en cualquier momento, no solo en el aviso */}
               <div className="px-4 py-3 border-t border-[#edebe9]">
