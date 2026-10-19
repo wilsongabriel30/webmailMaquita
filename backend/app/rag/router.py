@@ -5,9 +5,8 @@ from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
 from app.rag import config as rag_config
-from app.rag import store
+from app.rag import ingest, store
 from app.rag.ask import ask as rag_ask
-from app.rag.ingest import ingest_user
 
 router = APIRouter(prefix="/api/rag", tags=["rag"])
 
@@ -27,6 +26,8 @@ async def status(request: Request):
     return {
         "enabled": await rag_config.domain_enabled(db, user),
         "indexed": await store.count(db, user),
+        # Progreso de la sincronización en segundo plano (ver ingest.lanzar_en_segundo_plano)
+        "sync": ingest.progreso(user),
     }
 
 
@@ -38,5 +39,18 @@ async def ask_ep(request: Request, body: AskReq):
 
 @router.post("/sync")
 async def sync_ep(request: Request):
+    """Arranca la sincronización en segundo plano y responde al instante.
+
+    Antes esperaba a indexar hasta 3000 correos en la misma petición: superaba el tiempo
+    de espera del proxy y del IMAP y la pantalla recibía un 500 sin explicación. La pantalla
+    consulta /status cada pocos segundos para mostrar el avance.
+    """
     user = await get_current_user(request)
-    return await ingest_user(_db(request), user)
+    db = _db(request)
+    if not await rag_config.domain_enabled(db, user):
+        return {
+            "started": False,
+            "error": "El asistente no está habilitado para tu dominio.",
+        }
+    started = ingest.lanzar_en_segundo_plano(db, user)
+    return {"started": started, "sync": ingest.progreso(user)}
