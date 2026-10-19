@@ -79,6 +79,62 @@ def _manifest(ide):
     return "actualizado"
 
 
+# Logo provisional con las iniciales de la institución, mientras no suba el suyo: sobrio y monocromo (sin
+# imponer colores). Se guarda como cualquier logo subido, así aparece en el panel, el webmail, los íconos y las
+# páginas; subir el logo propio lo reemplaza.
+_LOGO_INICIALES = r'''
+import sys
+from PIL import Image, ImageDraw, ImageFont
+texto, destino = sys.argv[1], sys.argv[2]
+lado = 512
+img = Image.new("RGBA", (lado, lado), (0, 0, 0, 0))
+d = ImageDraw.Draw(img)
+d.rounded_rectangle((16, 16, lado - 16, lado - 16), radius=96, fill=(38, 50, 56, 255))
+fuente = None
+for ruta in ("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf"):
+    try:
+        tam = 300 if len(texto) <= 2 else (230 if len(texto) == 3 else 180)
+        fuente = ImageFont.truetype(ruta, tam)
+        break
+    except OSError:
+        continue
+fuente = fuente or ImageFont.load_default()
+x0, y0, x1, y1 = d.textbbox((0, 0), texto, font=fuente)
+d.text(((lado - (x1 - x0)) / 2 - x0, (lado - (y1 - y0)) / 2 - y0), texto, font=fuente, fill=(255, 255, 255, 255))
+img.save(destino, "PNG", optimize=True)
+'''
+_MENORES = {"de", "del", "la", "las", "los", "el", "y", "e", "en", "para", "por", "a", "al", "the", "of", "and"}
+
+
+def iniciales(ide):
+    """Sigla corta si la hay (p. ej. «MCCH»); si no, las iniciales de las dos primeras palabras con peso."""
+    corto = re.sub(r"[^A-Za-zÁÉÍÓÚÑ]", "", ide.get("corto") or "")
+    if corto and corto.isupper() and len(corto) <= 4:
+        return corto
+    palabras = [p for p in re.findall(r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+", ide.get("nombre") or "") if p.lower() not in _MENORES]
+    return "".join(p[0] for p in palabras[:2]).upper() or "?"
+
+
+def logo_iniciales(texto, forzar=False):
+    """Crea el logo con iniciales si no hay logo (o si se fuerza). Devuelve qué hizo."""
+    texto = re.sub(r"[^A-ZÁÉÍÓÚÑ0-9]", "", texto.upper())[:4]
+    if not texto:
+        raise Error("iniciales no válidas")
+    if not forzar and os.path.isdir(LOGO) and os.listdir(LOGO):
+        return "ya hay logo"
+    if not os.path.exists(PYTHON_PIL):
+        return "sin Pillow: no se generó el logo provisional"
+    os.makedirs(LOGO, mode=0o755, exist_ok=True)
+    for viejo in os.listdir(LOGO):
+        os.remove(os.path.join(LOGO, viejo))
+    destino = os.path.join(LOGO, "logo.png")
+    r = subprocess.run([PYTHON_PIL, "-c", _LOGO_INICIALES, texto, destino], capture_output=True, text=True, timeout=60)
+    if r.returncode != 0:
+        return "no se pudo generar el logo provisional: " + (r.stderr.strip().splitlines() or ["?"])[-1][:200]
+    os.chmod(destino, 0o644)
+    return f"provisional con las iniciales «{texto}»"
+
+
 _ICONOS = r'''
 import sys
 from PIL import Image
@@ -148,7 +204,8 @@ def _reafirmar():
 
 
 def aplicar(ide):
-    resultado = {"app": _manifest(ide), "iconos": _iconos(), "drive": _drive(ide), "sitios": _sitios(ide)}
+    logo = logo_iniciales(iniciales(ide))
+    resultado = {"logo": logo, "app": _manifest(ide), "iconos": _iconos(), "drive": _drive(ide), "sitios": _sitios(ide)}
     resultado["firmas"] = _reafirmar()
     for servicio in ("maquita-webmail", "maquita-almacen"):
         subprocess.run(["systemctl", "try-restart", servicio], capture_output=True, timeout=120)
@@ -163,6 +220,10 @@ def main(argv):
     try:
         if len(argv) == 3 and argv[1] == "aplicar":
             print(json.dumps(aplicar(_identidad(argv[2])), ensure_ascii=False))
+            return 0
+        # Solo desde la consola (no la admite maquita-sudo): logo provisional con unas iniciales dadas.
+        if len(argv) == 3 and argv[1] == "logo-iniciales":
+            print(json.dumps({"logo": logo_iniciales(argv[2], forzar=True)}, ensure_ascii=False))
             return 0
         raise Error("orden o argumentos no permitidos")
     except Error as e:
