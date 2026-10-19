@@ -378,6 +378,9 @@ def validar_sitios(args):
         return args
     if len(args) == 3 and args[0] == "base-crear" and dom(args[1]) and args[2] in ("mariadb", "postgresql"):
         return args
+    if (len(args) == 4 and args[0] == "base-entrar" and dom(args[1]) and re.fullmatch(r"[wx]_[a-z0-9]+(_[0-9a-f]{4})?", args[2])
+            and args[3] in ("phpmyadmin", "adminer")):
+        return args
     if len(args) == 3 and args[0] == "base-borrar" and dom(args[1]) and re.fullmatch(r"x_[a-z0-9]+_[0-9a-f]{4}", args[2]):
         return args
     # Aplicaciones propias: la configuración y las variables viajan en base64url (el ayudante las valida).

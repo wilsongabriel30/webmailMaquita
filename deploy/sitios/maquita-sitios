@@ -19,6 +19,7 @@ Uso:
   maquita-sitios tienda <dominio>         WooCommerce en un sitio con WordPress
   maquita-sitios bases <dominio>          bases de datos adicionales del sitio
   maquita-sitios base-crear <dominio> <mariadb|postgresql>
+  maquita-sitios base-entrar <dominio> <base> <phpmyadmin|adminer>   entrada directa (usuario temporal, 2 h)
   maquita-sitios base-borrar <dominio> <nombre>   (la copia .sql queda en la carpeta privada del sitio)
   maquita-sitios propia-crear <dominio> <estatico|python|node> <json-b64>   aplicación propia
   maquita-sitios propia-estado <dominio>  estado, variables (solo nombres) y registros
@@ -142,6 +143,10 @@ def despachar(args):
         import bases
 
         return bases.crear(v.dominio(args[1]), args[2])
+    if len(args) == 4 and args[0] == "base-entrar":
+        import acceso_bd
+
+        return acceso_bd.entrar(v.dominio(args[1]), args[2], args[3])
     if len(args) == 3 and args[0] == "base-borrar":
         import bases
 
@@ -149,9 +154,10 @@ def despachar(args):
     if args[:1] and args[0].startswith("propia-"):
         return _propia(args)
     if args == ["cron"]:
+        import acceso_bd
         import seguridad
 
-        return seguridad.cron()
+        return {**seguridad.cron(), "usuarios_temporales_borrados": acceso_bd.limpiar()}
     if args == ["regenerar"]:
         return sitio.regenerar()
     raise ErrorSitio("orden o argumentos no permitidos")

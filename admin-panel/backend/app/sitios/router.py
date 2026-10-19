@@ -289,6 +289,22 @@ async def crear_base(dominio: str, body: NuevaBase, r: Request, admin: dict = De
     return res
 
 
+class EntrarBase(BaseModel):
+    herramienta: str  # phpmyadmin | adminer
+
+
+@router.post("/{dominio}/bases/{nombre}/entrar")
+async def entrar_base(dominio: str, nombre: str, body: EntrarBase, r: Request, admin: dict = Depends(require_superadmin)):
+    """Enlace de un solo uso (60 s) que abre phpMyAdmin o Adminer ya conectados con un usuario temporal (2 h)."""
+    dominio = _dominio(dominio)
+    if not re.fullmatch(r"[wx]_[a-z0-9]+(_[0-9a-f]{4})?", nombre) or body.herramienta not in ("phpmyadmin", "adminer"):
+        raise HTTPException(400, "Base o herramienta no válida")
+    res = await _ayudante("base-entrar", dominio, nombre, body.herramienta)
+    await _auditar(r, admin, "sitio_base_entrar", dominio, {"base": nombre, "herramienta": body.herramienta,
+                                                             "usuario_temporal": res.get("usuario_temporal")})
+    return res
+
+
 @router.delete("/{dominio}/bases/{nombre}")
 async def borrar_base(dominio: str, nombre: str, r: Request, admin: dict = Depends(require_superadmin)):
     """Se copia en la carpeta privada del sitio (.sql) antes de borrarla."""

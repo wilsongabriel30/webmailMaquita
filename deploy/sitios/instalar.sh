@@ -245,11 +245,16 @@ apt-get install -y -qq --no-install-recommends phpmyadmin postgresql-client >/de
 getent passwd herramientas-bd >/dev/null || useradd --system --no-create-home --shell /usr/sbin/nologin --groups www-data herramientas-bd
 python3 "${SELF}/herramientas/instalar_adminer.py"
 install -m 644 "${SELF}/herramientas/adminer-plugins.php" /usr/local/share/adminer-panel/adminer-plugins.php
+install -m 644 "${SELF}/herramientas/entrar.php" /usr/local/share/adminer-panel/entrar.php
 chown -R root:herramientas-bd /usr/local/share/adminer-panel
 chmod -R u+rwX,g+rX,o-rwx /usr/local/share/adminer-panel
 # nginx (www-data) solo necesita atravesar la carpeta para encontrar index.php; leerlo lo hace el pool.
 chgrp www-data /usr/local/share/adminer-panel && chmod 750 /usr/local/share/adminer-panel
 install -d -m 750 -o herramientas-bd -g herramientas-bd /var/lib/herramientas-bd
+# Vales de un solo uso de «Entrar» (los deja maquita-sitios; entrar.php los lee y los borra).
+install -d -m 700 -o herramientas-bd -g herramientas-bd /var/lib/herramientas-bd/vales
+install -d -m 755 /etc/phpmyadmin/conf.d
+install -m 644 "${SELF}/herramientas/phpmyadmin-entrada.php" /etc/phpmyadmin/conf.d/maquita-entrada.php
 cat > "/etc/php/${PHP_VER}/fpm/pool.d/herramientas-bd.conf" <<EOF
 ; phpMyAdmin y Adminer del panel. Usuario propio, solo sus carpetas.
 [herramientas-bd]

@@ -493,3 +493,12 @@ def test_sitios_paquete_propio():
                  ("paquete", "ejemplo.org", "0123456789abcdef0123456789abcdef.zip", "si")):
         with pytest.raises(ms.Rechazo):
             _ok("maquita-admin", "maquita-sitios", *malo)
+
+
+def test_sitios_entrada_directa_a_bases():
+    assert _ok("maquita-admin", "maquita-sitios", "base-entrar", "ejemplo.org", "w_ejemplo1234", "phpmyadmin")
+    assert _ok("maquita-admin", "maquita-sitios", "base-entrar", "ejemplo.org", "x_ejemplo1234_0a1b", "adminer")
+    for malo in (("base-entrar", "ejemplo.org", "mysql", "adminer"), ("base-entrar", "ejemplo.org", "w_x", "psql"),
+                 ("base-entrar", "ejemplo.org", "w_x';drop", "adminer")):
+        with pytest.raises(ms.Rechazo):
+            _ok("maquita-admin", "maquita-sitios", *malo)
