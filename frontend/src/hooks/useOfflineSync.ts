@@ -9,6 +9,7 @@ import {
   getCachedMessage,
   type OfflineMessage,
 } from '../lib/offlineStore';
+import { carpetaLocal, filtrarCopiaLocal } from '../lib/busquedaLocal';
 import type { MessageSummary, MessageFull, Folder } from '../types';
 
 // Convert MessageSummary to OfflineMessage format
@@ -150,6 +151,15 @@ export function useOfflineSync() {
 export async function loadOfflineMessages(folder: string): Promise<MessageSummary[]> {
   const cached = await getCachedMessages(folder);
   return cached.map(toMessageSummary);
+}
+
+/**
+ * T-73: lo descargado con el texto buscado aplicado (asunto, remitente, destinatarios, vista
+ * previa y cuerpo). En «Todas las carpetas» usa la carpeta real de antes: Virtual.Todo no se guarda.
+ */
+export async function loadOfflineMessagesBuscando(folder: string, consulta: string): Promise<MessageSummary[]> {
+  const cached = await getCachedMessages(carpetaLocal(folder));
+  return filtrarCopiaLocal(cached, consulta).map(toMessageSummary);
 }
 
 /**

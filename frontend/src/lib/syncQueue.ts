@@ -4,6 +4,7 @@
 // (4xx distinto de 401/408/429) lo marca «No se pudo entregar» (con la causa), y la persona puede reintentar o borrar.
 import { getPendingActions, removeActions, getOutboxEmails, updateOutboxStatus, removeFromOutbox, rescatarRetenidos } from "./offlineStore";
 import type { OfflineAction } from "./offlineStore";
+import { esDeLaSesion } from "./sesionActual";
 
 let isSyncing = false;
 
@@ -70,7 +71,8 @@ export async function syncOutbox(soloId?: string): Promise<{ sent: number; faile
     // vez de perderse en silencio.
     await rescatarRetenidos();
     const emails = await getOutboxEmails();
-    const pending = emails.filter(e => (soloId ? e.id === soloId : e.status === 'pending' || e.status === 'sending'));
+    // T-73: solo lo escrito con esta misma sesión; lo de otra persona espera a que ella vuelva.
+    const pending = emails.filter(e => esDeLaSesion(e) && (soloId ? e.id === soloId : e.status === 'pending' || e.status === 'sending'));
     for (const email of pending) {
       await updateOutboxStatus(email.id, 'sending');
       window.dispatchEvent(new CustomEvent('outbox-cambio'));
@@ -127,7 +129,7 @@ if (typeof window !== "undefined") {
   setTimeout(() => { syncAll(); }, 5000);
   setInterval(async () => {
     if (!navigator.onLine) return;
-    const pend = (await getOutboxEmails()).some(e => e.status === 'pending' || e.status === 'sending');
+    const pend = (await getOutboxEmails()).some(e => esDeLaSesion(e) && (e.status === 'pending' || e.status === 'sending'));
     const acc = (await getPendingActions()).length > 0;
     if (pend || acc) syncAll();
   }, 60000);

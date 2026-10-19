@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import type { UserInfo } from '../types';
 import { olvidarLlave } from '../lib/cifradoLocal';
 import { getOutboxCount } from '../lib/offlineStore';
+import { fijarUsuarioSesion } from '../lib/sesionActual';
 
 interface AuthState {
   user: UserInfo | null;
@@ -41,12 +42,16 @@ async function limpiarCacheLocal(): Promise<void> {
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   loading: true,
-  setUser: (user) => set({ user, loading: false }),
+  setUser: (user) => {
+    fijarUsuarioSesion(user?.username);   // T-73: dueño de la bandeja de salida
+    set({ user, loading: false });
+  },
   setLoading: (loading) => set({ loading }),
   logout: () => {
     // No se espera a que termine: cerrar la sesion en pantalla es inmediato y la limpieza va sola.
     void limpiarCacheLocal();
     limpiarPreferenciasLocales();
+    fijarUsuarioSesion(null);
     set({ user: null, loading: false });
   },
 }));
