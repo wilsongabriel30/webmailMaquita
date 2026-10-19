@@ -81,7 +81,7 @@ def respaldar(motivo="automático", rutas=None, etiqueta=None):
                          nuevo_mb=round((resumen.get("data_added") or 0) / 1048576, 1),
                          total_mb=round((resumen.get("total_bytes_processed") or 0) / 1048576, 1))
         c = conf["conservar"]
-        restic(REPO_LOCAL, "forget", "--host", "servidor", "--keep-daily", str(c["diarios"]), "--keep-weekly",
+        restic(REPO_LOCAL, "forget", "--host", "servidor", "--keep-last", "10", "--keep-daily", str(c["diarios"]), "--keep-weekly",
                str(c["semanales"]), "--keep-monthly", str(c["mensuales"]), "--keep-tag", "antes-de-restaurar",
                "--prune", registro=registro)
         externo = repo_externo(conf)
@@ -90,7 +90,7 @@ def respaldar(motivo="automático", rutas=None, etiqueta=None):
                 iniciar_repo(externo, desde_local=True)
                 restic(externo, "copy", "--from-repo", REPO_LOCAL, "--from-password-file", "/etc/maquita-respaldos/clave",
                        registro=registro)
-                restic(externo, "forget", "--host", "servidor", "--keep-daily", str(c["diarios"]), "--keep-weekly",
+                restic(externo, "forget", "--host", "servidor", "--keep-last", "10", "--keep-daily", str(c["diarios"]), "--keep-weekly",
                        str(c["semanales"]), "--keep-monthly", str(c["mensuales"]), "--prune", registro=registro)
                 resultado["externo"] = "copiado"
             except ErrorRespaldo as e:

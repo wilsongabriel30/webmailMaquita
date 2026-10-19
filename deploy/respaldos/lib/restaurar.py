@@ -56,7 +56,11 @@ def _extraer(instantanea, rutas, dentro_de=BASE):
     args = ["restore", instantanea, "--target", destino]
     for ruta in rutas:
         args += ["--include", ruta]
-    restic(REPO_LOCAL, *args)
+    try:
+        restic(REPO_LOCAL, *args)
+    except ErrorRespaldo:
+        shutil.rmtree(destino, ignore_errors=True)
+        raise
     return destino
 
 
@@ -143,10 +147,14 @@ def buzon(correo, instantanea):
     total = 0
     for nombre in lista:
         subprocess.run(["doveadm", "mailbox", "subscribe", "-u", correo, nombre], capture_output=True, timeout=60)
-        estado = _cmd(["doveadm", "mailbox", "status", "-u", correo, "messages", nombre])
-        n = re.search(r"messages=(\d+)", estado)
+        # «Restaurado-…» en sí solo agrupa las subcarpetas (INBOX, Sent…): no es un buzón y no tiene estado.
+        r = subprocess.run(["doveadm", "mailbox", "status", "-u", correo, "messages", nombre], capture_output=True,
+                           text=True, timeout=60)
+        n = re.search(r"messages=(\d+)", r.stdout)
         total += int(n.group(1)) if n else 0
-    return {"buzon": correo, "carpeta": carpeta, "carpetas": lista, "mensajes": total, "restaurado_desde": instantanea}
+    if not total:
+        raise ErrorRespaldo(f"no se encontraron correos de {correo} en esa instantánea")
+    return {"buzon": correo, "carpeta": carpeta, "carpetas": [c for c in lista if c != carpeta], "mensajes": total, "restaurado_desde": instantanea}
 
 
 # --- Comprobar ---
