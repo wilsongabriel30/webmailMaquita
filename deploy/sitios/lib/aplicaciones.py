@@ -84,6 +84,11 @@ def _deshacer_instalacion(meta):
             shutil.rmtree(ruta, ignore_errors=True)
         else:
             os.remove(ruta)
+    # Carpetas de datos que la receta creó en la carpeta privada (receta.privada).
+    for nombre in meta.pop("privadas", []):
+        ruta = os.path.join(meta["tmp"], nombre)
+        if "/" not in nombre and os.path.isdir(ruta) and not os.path.islink(ruta):
+            shutil.rmtree(ruta, ignore_errors=True)
     meta["bd"] = None
     guardar_meta(meta)
 

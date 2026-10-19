@@ -502,3 +502,17 @@ def test_sitios_entrada_directa_a_bases():
                  ("base-entrar", "ejemplo.org", "w_x';drop", "adminer")):
         with pytest.raises(ms.Rechazo):
             _ok("maquita-admin", "maquita-sitios", *malo)
+
+
+def test_sitios_configuracion_avanzada():
+    txt = "0123456789abcdef0123456789abcdef.txt"
+    assert _ok("maquita-admin", "maquita-sitios", "avanzado", "ejemplo.org")
+    assert _ok("maquita-admin", "maquita-sitios", "avanzado-nginx", "ejemplo.org", txt)
+    assert _ok("maquita-admin", "maquita-sitios", "avanzado-php", "ejemplo.org", "eyJtZW1vcnlfbGltaXQiOjUxMn0")
+    assert _ok("maquita-admin", "maquita-sitios", "avanzado-ver", "ejemplo.org", "d3AtY29uZmlnLnBocA")
+    assert _ok("maquita-admin", "maquita-sitios", "avanzado-archivo", "ejemplo.org", "d3AtY29uZmlnLnBocA", txt)
+    assert _ok("maquita-admin", "maquita-sitios", "avanzado-restaurar", "ejemplo.org", "20261019-153000-001")
+    for malo in (("avanzado-nginx", "ejemplo.org", "/etc/passwd"), ("avanzado-archivo", "ejemplo.org", "a b", txt),
+                 ("avanzado-restaurar", "ejemplo.org", "../x"), ("avanzado-php", "ejemplo.org", "x;y")):
+        with pytest.raises(ms.Rechazo):
+            _ok("maquita-admin", "maquita-sitios", *malo)

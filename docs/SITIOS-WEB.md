@@ -41,11 +41,56 @@ Si el servidor está detrás de NAT, redirige al servidor los puertos **80 y 443
 
 Las contraseñas generadas (administrador de la aplicación, FTP) se muestran una sola vez y no se
 guardan en el panel ni en la auditoría. Cada acción queda en la auditoría del panel
-(`sitio_crear`, `sitio_app`, `sitio_propia_*`, `sitio_tienda`, `sitio_base_crear`, `sitio_base_borrar`, `sitio_ftp_*`,
-`sitio_ssl`, `sitio_borrar`).
+(`sitio_crear`, `sitio_app`, `sitio_app_terminar`, `sitio_propia_*`, `sitio_tienda`, `sitio_base_crear`, `sitio_base_borrar`,
+`sitio_base_entrar`, `sitio_alias`, `sitio_cron_*`, `sitio_paquete`, `sitio_migracion`, `sitio_ftp_*`, `sitio_ssl`, `sitio_borrar`).
 
 La ruta `/api/sitios` del panel tiene un tiempo de espera de 20 minutos (fragmento
 `snippets/herramientas-bd.conf`): las instalaciones largas (Moodle) superan los 120 s del resto de `/api/`.
+
+## Subdominios y dominios alias («Nuevo sitio» y «Dominios»)
+
+- **Subdominio**: «Nuevo sitio» → «Subdominio» (p. ej. `blog` + `midominio.org`). Es un sitio independiente,
+  con su propia aplicación, base, FTP y certificado; por defecto sin `www.`.
+- **Registro DNS automático**: si el nombre pertenece a una zona de «Zonas DNS», el panel crea el registro A hacia
+  la IP web del servidor (o avisa si ya existía); si el DNS está en otro proveedor, indica a qué IP apuntarlo. Al dar de
+  baja el sitio, el registro DNS no se borra (puede usarse para otra cosa).
+- **Dominios alias** («Dominios» de cada sitio): hasta 10 dominios más que muestran el mismo sitio (con su `www.` si el
+  sitio lo tiene). No pueden ser de otro sitio ni del correo o el panel. Si el sitio tiene HTTPS, el certificado se
+  amplía con los alias que ya apuntan aquí; los que aún no, quedan solo por HTTP (se ve en la ventana) hasta volver
+  a guardarlos.
+
+## Trabajos de cron («Cron» de cada sitio)
+
+Como el cron de cPanel: hasta 20 trabajos por sitio con horario de cinco campos (`*/15 * * * *`, `0 3 * * 0`,
+`@daily`…; si se indica día del mes y día de la semana a la vez se rechaza, porque cron y systemd los combinan
+distinto). Cada trabajo es un temporizador de systemd (`sitio-<usuario>-cron-<id>`) que ejecuta la orden con
+`/bin/sh`, el usuario del sitio y desde su carpeta pública, con el mismo encierro que las aplicaciones propias (solo
+escribe en `publico` y la carpeta privada, sin privilegios, 512 MB, una CPU, una hora como máximo). La salida va a
+`registros/cron-<id>.log` (rotado con los demás registros) y el panel muestra la última ejecución, el resultado, la
+próxima, «Ejecutar ahora» y «Salida». Al dar de baja el sitio se quitan sus temporizadores.
+
+## Subir paquete y migrar desde otro hosting («Subir paquete»)
+
+En un sitio vacío, hasta 512 MB:
+- **Paquete propio** (.zip o .tar.gz de una aplicación que no está en el catálogo): se extrae con las mismas
+  protecciones que las descargas (sin rutas fuera del destino ni enlaces peligrosos; máximo 3 GB y 150 000 archivos
+  descomprimidos), se detecta la carpeta pública (`public/`, `htdocs/`, `web/`…) y, si se pide, se prepara una base
+  MariaDB vacía cuyos datos se muestran una vez para el instalador de la aplicación.
+- **Migración** (archivos + respaldo `.sql` o `.sql.gz` de la base): la base se importa **con el usuario del sitio**,
+  que solo entra a su base; se quitan antes `CREATE DATABASE`, `USE` y los `DEFINER`, así un respaldo no puede tocar
+  otras bases. Después se reconoce la aplicación y se le pone la conexión nueva: WordPress (`wp-config.php` y la
+  dirección vieja reemplazada por la nueva en toda la base con `wp search-replace`, respetando datos serializados;
+  el sitio pasa a ser «WordPress» en el panel, con «Entrar» y «Seguridad»), Joomla (`configuration.php`, rutas de
+  registros y temporales) o `.env` (Laravel y similares). Si algo falla, el sitio vuelve a quedar vacío y sin base.
+
+## Entrada directa a las bases («Bases» → «Entrar con phpMyAdmin / Adminer»)
+
+Abre la herramienta ya conectada a esa base, sin escribir contraseña. Las contraseñas de las bases no se guardan:
+cada «Entrar» crea un **usuario temporal** (`pv_…`) con permisos solo sobre esa base que vence a las 2 horas
+(en PostgreSQL, miembro del dueño con `SET ROLE` al dueño, así lo que cree no queda huérfano) y un **vale de un solo
+uso** de 60 s que lee `/herramientas/adminer/entrar.php`. phpMyAdmin usa su autenticación `signon` (servidor 9,
+`/etc/phpmyadmin/conf.d/maquita-entrada.php`); en Adminer un complemento acepta el vale en lugar de su ficha de
+sesión. El trabajo programado de los sitios borra los usuarios vencidos. Queda en la auditoría (`sitio_base_entrar`).
 
 ## Aplicaciones propias («Aplicación propia» y «Gestionar»)
 
@@ -167,7 +212,9 @@ repositorios de Debian o se descarga del origen oficial en el momento de usarlo.
   aplicaciones, acceso, seguridad, plantillas de nginx y PHP-FPM).
 - `deploy/sitios/lib/propias.py` y `propias_servicio.py`: aplicaciones propias (servicio, dependencias, puertos).
 - `admin-panel/backend/app/sitios/propias.py`: API `/api/sitios/<dominio>/propia`.
-- `deploy/sitios/lib/apps/`: catálogo (Moodle, Dolibarr, Matomo) y descargas verificadas; `lib/bases.py`: bases adicionales.
+- `deploy/sitios/lib/apps/`: catálogo (un archivo por aplicación, descubierto solo), `receta.py` (herramientas comunes) y descargas verificadas; `lib/bases.py`: bases adicionales; `lib/acceso_bd.py`: entrada directa.
+- `deploy/sitios/lib/alias.py`, `tareas.py`, `paquete.py` y `migracion.py`: alias, cron, paquetes propios y migraciones.
+- `admin-panel/backend/app/sitios/dominios.py`, `tareas.py` y `paquete.py`: API de alias y DNS, cron y subidas.
 - `deploy/sitios/herramientas/`: phpMyAdmin y Adminer del panel.
 - `deploy/sitios/wordpress/`: complementos obligatorios de WordPress.
 - `deploy/sitios/nginx/`: límites, registro común y cortafuegos de aplicación.

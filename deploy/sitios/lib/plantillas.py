@@ -1,5 +1,7 @@
 """Plantillas de configuración que genera el ayudante: nginx y PHP-FPM por sitio."""
 
+import os
+import re
 from string import Template
 
 # Común a todos los sitios: registros, límites, cortafuegos de aplicación, cabeceras y archivos que
@@ -213,8 +215,11 @@ php_admin_flag[log_errors] = on
 
 def vhost(meta, socket, acme, con_ssl):
     import alias
+    import avanzado
 
     cuerpo = _cuerpo(meta, socket, acme)
+    if os.path.exists(avanzado.ruta_extra(meta["dominio"])):
+        cuerpo += f"\n    # Reglas propias del sitio (panel → Avanzado)\n    include {avanzado.ruta_extra(meta['dominio'])};\n"
     if not con_ssl:
         return _HTTP.substitute(nombres=" ".join(alias.nombres(meta)), cuerpo=cuerpo)
     texto = _HTTPS.substitute(nombres=" ".join(alias.certificables(meta)), cuerpo=cuerpo, acme=acme, dominio=meta["dominio"])
@@ -264,10 +269,17 @@ def _cuerpo_propia(meta, acme):
 
 
 def pool(meta, socket):
-    return _POOL.substitute(
+    texto = _POOL.substitute(
         pool=meta["usuario"],
         usuario=meta["usuario"],
         socket=socket,
         publico=meta["publico"],
         tmp=meta["tmp"],
     )
+    # Ajustes de «Avanzado» (ya validados por avanzado.py): reemplazan los valores por defecto.
+    for nombre, valor in (meta.get("php_ajustes") or {}).items():
+        linea = f"php_admin_flag[{nombre}] = {valor}" if nombre == "display_errors" else f"php_admin_value[{nombre}] = {valor}"
+        texto, n = re.subn(rf"^php_admin_(?:value|flag)\[{nombre}\] = .*$", linea, texto, flags=re.M)
+        if not n:
+            texto += linea + "\n"
+    return texto

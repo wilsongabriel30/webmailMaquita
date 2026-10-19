@@ -99,6 +99,9 @@ def privada(meta, nombre):
     """Carpeta de datos fuera de la web (en la carpeta privada del sitio)."""
     ruta = os.path.join(meta["tmp"], nombre)
     os.makedirs(ruta, exist_ok=True)
+    # Se anota para borrarla si la instalación falla (aplicaciones._deshacer_instalacion).
+    if nombre not in meta.setdefault("privadas", []):
+        meta["privadas"].append(nombre)
     ejecutar(["chown", "-R", f"{meta['usuario']}:{meta['usuario']}", ruta])
     os.chmod(ruta, 0o700)
     return ruta

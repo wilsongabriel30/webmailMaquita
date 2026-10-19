@@ -27,16 +27,21 @@ def descargar(url, destino, tope=400 * 1048576):
     if not url.startswith("https://"):
         raise ErrorSitio("descarga rechazada: solo HTTPS")
     pet = urllib.request.Request(url, headers={"User-Agent": AGENTE})
-    with urllib.request.urlopen(pet, timeout=180) as r, open(destino, "wb") as f:
-        leidos = 0
-        while True:
-            bloque = r.read(1 << 20)
-            if not bloque:
-                break
-            leidos += len(bloque)
-            if leidos > tope:
-                raise ErrorSitio("descarga demasiado grande")
-            f.write(bloque)
+    try:
+        with urllib.request.urlopen(pet, timeout=180) as r, open(destino, "wb") as f:
+            leidos = 0
+            while True:
+                bloque = r.read(1 << 20)
+                if not bloque:
+                    break
+                leidos += len(bloque)
+                if leidos > tope:
+                    raise ErrorSitio("descarga demasiado grande")
+                f.write(bloque)
+    except urllib.error.HTTPError as e:
+        raise ErrorSitio(f"no se pudo descargar de {url.split('/')[2]} (HTTP {e.code})")
+    except (urllib.error.URLError, TimeoutError, OSError) as e:
+        raise ErrorSitio(f"no se pudo descargar de {url.split('/')[2]}: {getattr(e, 'reason', e)}")
 
 
 def texto(url, tope=2 * 1048576):

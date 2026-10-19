@@ -189,6 +189,9 @@ install -m 644 "${SELF}"/lib/apps/*.py /usr/local/lib/maquita-sitios/apps/
 install -m 755 "${SELF}/maquita-sitios" /usr/local/sbin/maquita-sitios
 # Paquetes propios subidos desde el panel (el panel escribe; el ayudante los extrae y los borra).
 install -d -o root -g "$(getent group maquita-admin >/dev/null && echo maquita-admin || echo root)" -m 2770 /var/lib/maquita-sitios/subidas
+# «Avanzado»: reglas propias de nginx por sitio y copias automáticas antes de cada cambio.
+install -d -m 755 /etc/maquita-sitios/nginx-extra
+install -d -m 700 /var/lib/maquita-sitios/versiones
 install -d -m 755 /usr/local/lib/maquita-sitios/wordpress
 install -m 644 "${SELF}"/wordpress/*.php /usr/local/lib/maquita-sitios/wordpress/
 # Tareas programadas de WordPress y Joomla cada 5 minutos (en vez de depender de las visitas).

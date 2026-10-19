@@ -85,6 +85,11 @@ def recargar_php(meta):
     ejecutar(["systemctl", "reload", f"php{meta['php']}-fpm"])
 
 
+def escribir_pool(meta):
+    """Pool de PHP-FPM del sitio (con los ajustes de «Avanzado», si los hay)."""
+    _escribir(_ruta_pool(meta), plantillas.pool(meta, _socket(meta)))
+
+
 def escribir_vhost(meta):
     texto = plantillas.vhost(meta, _socket(meta), ACME_WEBROOT, meta.get("ssl", False))
     _escribir(_ruta_vhost(meta["dominio"]), texto)
