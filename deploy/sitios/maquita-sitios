@@ -10,6 +10,7 @@ Uso:
   maquita-sitios app <dominio> <wordpress|joomla> <título en base64url> <correo del administrador>
   maquita-sitios ftp <dominio> <activar|desactivar>
   maquita-sitios ssl <dominio> <correo para Let's Encrypt>
+  maquita-sitios alias <dominio> <lista JSON en base64url>   otros dominios que muestran el mismo sitio
   maquita-sitios borrar <dominio> <dominio repetido como confirmación>
   maquita-sitios inicio <dominio> <identidad en JSON base64url>   rehace la página «en construcción»
   maquita-sitios buscadores <dominio>     visibilidad en buscadores e IA (robots, mapa, llms.txt, schema.org…)
@@ -75,6 +76,10 @@ def despachar(args):
         return acceso.ftp(v.dominio(args[1]), args[2])
     if len(args) == 3 and args[0] == "ssl":
         return acceso.ssl(v.dominio(args[1]), v.correo(args[2]))
+    if len(args) == 3 and args[0] == "alias":
+        import alias
+
+        return alias.cambiar(v.dominio(args[1]), v.json_b64(args[2]))
     if len(args) == 3 and args[0] == "borrar":
         if args[1] != args[2]:
             raise ErrorSitio("borrar: la confirmación no coincide con el dominio")

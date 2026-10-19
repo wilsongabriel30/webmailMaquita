@@ -212,15 +212,26 @@ php_admin_flag[log_errors] = on
 
 
 def vhost(meta, socket, acme, con_ssl):
+    import alias
+
+    cuerpo = _cuerpo(meta, socket, acme)
+    if not con_ssl:
+        return _HTTP.substitute(nombres=" ".join(alias.nombres(meta)), cuerpo=cuerpo)
+    texto = _HTTPS.substitute(nombres=" ".join(alias.certificables(meta)), cuerpo=cuerpo, acme=acme, dominio=meta["dominio"])
+    # Alias que todavía no apuntan a este servidor: fuera del certificado, se sirven solo por HTTP.
+    sin_https = [n for n in alias.nombres(meta) if n not in alias.certificables(meta)]
+    if sin_https:
+        texto += "\n" + _HTTP.substitute(nombres=" ".join(sin_https), cuerpo=cuerpo)
+    return texto
+
+
+def _cuerpo(meta, socket, acme):
     from apps import CATALOGO
 
-    nombres = " ".join([meta["dominio"]] + (["www." + meta["dominio"]] if meta.get("www", True) else []))
     app = meta.get("app")
     raiz = meta["publico"]
     if app == "propia":
-        cuerpo = _cuerpo_propia(meta, acme)
-        plantilla = _HTTPS if con_ssl else _HTTP
-        return plantilla.substitute(nombres=nombres, cuerpo=cuerpo, acme=acme, dominio=meta["dominio"])
+        return _cuerpo_propia(meta, acme)
     if app == "wordpress":
         reglas, waf = _REGLAS_WORDPRESS.substitute(socket=socket), "wordpress"
     elif app == "joomla":
@@ -232,12 +243,10 @@ def vhost(meta, socket, acme, con_ssl):
             raiz = f"{meta['publico']}/{modulo.RAIZ_WEB}"
     else:
         reglas, waf = "", "general"
-    cuerpo = _CUERPO.substitute(
+    return _CUERPO.substitute(
         publico=raiz, registros=meta["registros"], acme=acme, socket=socket,
         reglas_app=reglas, waf=waf,
     )
-    plantilla = _HTTPS if con_ssl else _HTTP
-    return plantilla.substitute(nombres=nombres, cuerpo=cuerpo, acme=acme, dominio=meta["dominio"])
 
 
 def _cuerpo_propia(meta, acme):

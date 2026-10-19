@@ -99,6 +99,10 @@ def crear(dominio, con_www=True, nombre=None):
         raise ErrorSitio("PHP-FPM no está instalado: ejecuta «instalar-app.sh sitios»")
     if os.path.exists(ruta_meta(dominio)):
         raise ErrorSitio(f"el sitio {dominio} ya existe")
+    import alias
+
+    if dominio in alias._ocupados(None):
+        raise ErrorSitio(f"{dominio} ya es alias del sitio {alias._ocupados(None)[dominio]}")
     usados = _nombres_en_uso()
     if dominio in usados or f"www.{dominio}" in usados:
         raise ErrorSitio(f"{dominio} ya lo usa otro servicio de este servidor (correo o panel)")
@@ -194,6 +198,8 @@ def publico(meta):
     return {
         "dominio": meta["dominio"],
         "www": meta.get("www", True),
+        "alias": meta.get("alias", []),
+        "alias_sin_https": meta.get("alias_sin_https", []),
         "app": meta.get("app"),
         "app_admin": meta.get("app_admin"),
         "ssl": meta.get("ssl", False),

@@ -457,3 +457,10 @@ def test_respaldos():
         with pytest.raises(ms.Rechazo):
             _ok("maquita-admin", "maquita-respaldos", *malo)
     assert "e30" not in ms._enmascarar("maquita-respaldos", ["credenciales", "e30"])
+
+
+def test_sitios_alias():
+    assert _ok("maquita-admin", "maquita-sitios", "alias", "ejemplo.org", "WyJlamVtcGxvLmNvbSJd")
+    for malo in (("alias", "ejemplo.org", "a b"), ("alias", "Ejemplo..org", "W10"), ("alias", "ejemplo.org")):
+        with pytest.raises(ms.Rechazo):
+            _ok("maquita-admin", "maquita-sitios", *malo)

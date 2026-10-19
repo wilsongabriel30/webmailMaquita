@@ -50,3 +50,15 @@ def titulo(valor_b64):
     if not 1 <= len(texto) <= 100 or re.search(r"[\x00-\x1f\x7f<>]", texto):
         raise ErrorSitio("el título debe tener entre 1 y 100 caracteres, sin < ni >")
     return texto
+
+
+def json_b64(valor, tope=8000):
+    """Datos JSON en base64url (listas y formularios del panel)."""
+    import json
+
+    if not isinstance(valor, str) or len(valor) > tope:
+        raise ErrorSitio("datos no válidos")
+    try:
+        return json.loads(de_base64(valor))
+    except ValueError:
+        raise ErrorSitio("datos no válidos")

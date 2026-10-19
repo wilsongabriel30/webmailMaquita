@@ -75,6 +75,11 @@ def ssl(dominio, correo):
         ejecutar(base + ["-d", dominio], tiempo=300)
         meta["www"] = False
     meta["ssl"] = True
+    meta["ssl_correo"] = correo
+    if meta.get("alias"):
+        import alias
+
+        meta["alias_sin_https"] = alias._ampliar_certificado(meta)
     guardar_meta(meta)
     sitio.escribir_vhost(meta)
     sitio.recargar_nginx()

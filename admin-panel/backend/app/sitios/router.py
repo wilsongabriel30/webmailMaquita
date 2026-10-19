@@ -98,6 +98,9 @@ async def crear(body: NuevoSitio, r: Request, admin: dict = Depends(require_supe
     dominio = _dominio(body.dominio)
     args = ["crear", dominio] + ([] if body.con_www else ["sin-www"])
     res = await _ayudante(*args)
+    from app.sitios.dominios import registrar_dns
+
+    res["dns"] = await registrar_dns([dominio], body.con_www)
     await _auditar(r, admin, "sitio_crear", dominio, {"www": body.con_www})
     return res
 

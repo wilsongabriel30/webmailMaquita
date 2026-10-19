@@ -8,10 +8,14 @@ import { AppPropiaForm, type NuevaPropia } from "./sitios/AppPropiaForm";
 import { PropiaModal } from "./sitios/PropiaModal";
 import { SeguridadModal } from "./sitios/SeguridadModal";
 import { BuscadoresModal } from "./sitios/BuscadoresModal";
+import { AvisoDns, NuevoSitioForm, type RegistroDns } from "./sitios/NuevoSitioForm";
+import { DominiosModal } from "./sitios/DominiosModal";
 
 interface Sitio {
   dominio: string;
   www: boolean;
+  alias?: string[];
+  alias_sin_https?: string[];
   app: string | null;
   app_admin: string | null;
   ssl: boolean;
@@ -35,7 +39,8 @@ export function Sitios() {
   const [datos, setDatos] = useState<Listado | null>(null);
   const [error, setError] = useState("");
   const [ocupado, setOcupado] = useState("");
-  const [nuevo, setNuevo] = useState({ dominio: "", con_www: true });
+  const [avisoDns, setAvisoDns] = useState<{ dominio: string; registros: RegistroDns[] } | null>(null);
+  const [dominiosDe, setDominiosDe] = useState<Sitio | null>(null);
   const [mostrarNuevo, setMostrarNuevo] = useState(false);
   const [instalarEn, setInstalarEn] = useState<string | null>(null);
   const [seguridadDe, setSeguridadDe] = useState<string | null>(null);
@@ -54,9 +59,10 @@ export function Sitios() {
     try { await fn(); } catch (e) { setError((e as Error).message); } finally { setOcupado(""); cargar(); }
   };
 
-  const crear = () => accion("Creando el sitio…", async () => {
-    await api.post("/sitios", nuevo);
-    setNuevo({ dominio: "", con_www: true }); setMostrarNuevo(false);
+  const crear = (dominio: string, con_www: boolean) => accion("Creando el sitio…", async () => {
+    const r = await api.post<{ dns?: RegistroDns[] }>("/sitios", { dominio, con_www });
+    setMostrarNuevo(false);
+    setAvisoDns({ dominio, registros: r.dns || [] });
   });
 
   const ftp = (s: Sitio, activar: boolean) => accion(activar ? "Generando la clave de FTP…" : "Desactivando el FTP…", async () => {
@@ -133,7 +139,8 @@ export function Sitios() {
         <div className="flex items-center gap-2">
           <SectionHelp titulo="Sitios web" items={[
             { titulo: "Para qué sirve", desc: "Publica páginas web en este mismo servidor, cada una con su dominio, su usuario, su PHP y su base de datos aislados del resto." },
-            { titulo: "Crear sitio", desc: "Escriba el dominio sin «www.». El sitio responde también con www. Antes de pedir HTTPS, el dominio debe apuntar a la IP pública del servidor." },
+            { titulo: "Crear sitio", desc: "Un dominio (sin «www.») o un subdominio (blog.midominio.org), cada uno con su propia aplicación. Si el dominio está en «Zonas DNS», el registro se crea solo. Antes de pedir HTTPS, el nombre debe apuntar a la IP pública del servidor." },
+            { titulo: "Dominios", desc: "Otros dominios que muestran el mismo sitio (p. ej. midominio.com y midominio.com.ec). Si el sitio tiene HTTPS, el certificado se amplía con ellos." },
             { titulo: "Aplicaciones", desc: "WordPress o Joomla, ambos software libre (GPL). Se descarga la versión oficial vigente y se verifica antes de instalarla. El usuario y la contraseña del administrador se muestran una sola vez." },
             { titulo: "Entrar y contraseña", desc: "«Entrar» abre el escritorio de WordPress sin contraseña con un enlace de un solo uso que vence en 60 segundos. «Nueva contraseña» genera otra para el administrador (WordPress o Joomla) si se olvidó." },
             { titulo: "Seguridad", desc: "Cada sitio tiene cortafuegos de aplicación (OWASP CRS), límite de intentos de inicio de sesión y bloqueo automático de IP atacantes. En WordPress además: XML-RPC y enumeración de usuarios cerrados, versión oculta, editor de archivos apagado, segundo factor disponible y actualizaciones automáticas. «Seguridad» muestra versión, actualizaciones pendientes y si los archivos del núcleo fueron alterados." },
@@ -160,14 +167,15 @@ export function Sitios() {
       )}
 
       {mostrarNuevo && (
-        <div className="bg-white rounded border border-ms-gray-30 p-5 flex flex-wrap items-center gap-3">
-          <input placeholder="midominio.org" value={nuevo.dominio} onChange={(e) => setNuevo({ ...nuevo, dominio: e.target.value })}
-            className="px-3 py-2 border border-ms-gray-40 rounded text-sm w-72 focus:outline-none focus:border-ms-blue" />
-          <label className="text-sm text-ms-gray-90 flex items-center gap-1.5">
-            <input type="checkbox" checked={nuevo.con_www} onChange={(e) => setNuevo({ ...nuevo, con_www: e.target.checked })} /> También www
-          </label>
-          <button onClick={crear} disabled={!!ocupado || !nuevo.dominio} className="px-4 py-2 bg-ms-blue text-white rounded text-sm disabled:opacity-50">Crear</button>
-          <button onClick={() => setMostrarNuevo(false)} className="px-4 py-2 border border-ms-gray-40 rounded text-sm text-ms-gray-90">Cancelar</button>
+        <NuevoSitioForm dominios={(datos?.sitios || []).map((s) => s.dominio)} ocupado={!!ocupado}
+          onCancelar={() => setMostrarNuevo(false)} onCrear={crear} />
+      )}
+
+      {avisoDns && avisoDns.registros.length > 0 && (
+        <div className="bg-white border border-ms-gray-30 rounded p-4 space-y-2">
+          <div className="flex justify-between"><b className="text-sm">DNS de {avisoDns.dominio}</b>
+            <button onClick={() => setAvisoDns(null)} className="text-xs text-ms-gray-90 hover:underline">Cerrar</button></div>
+          <AvisoDns registros={avisoDns.registros} />
         </div>
       )}
 
@@ -227,6 +235,7 @@ export function Sitios() {
                   <td className="px-4 py-2.5">
                     <a href={`${s.ssl ? "https" : "http"}://${s.dominio}`} target="_blank" rel="noopener noreferrer" className="font-medium text-ms-gray-130 hover:underline">{s.dominio}</a>
                     <div className="text-[11px] text-ms-gray-60">{s.www ? `y www.${s.dominio} · ` : ""}PHP {s.php} · desde {s.creado}</div>
+                    {!!s.alias?.length && <div className="text-[11px] text-ms-gray-60">también: {s.alias.join(", ")}</div>}
                   </td>
                   <td className="px-4 py-2.5">
                     {s.app === "propia" ? (
@@ -269,6 +278,7 @@ export function Sitios() {
                   </td>
                   <td className="px-4 py-2.5 text-right text-ms-gray-90">{s.ocupado_mb} MB</td>
                   <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                    <button onClick={() => setDominiosDe(s)} disabled={!!ocupado} title="Otros dominios que muestran este mismo sitio." className="text-ms-blue hover:underline text-xs mr-3 disabled:opacity-50">Dominios{s.alias?.length ? ` (${s.alias.length})` : ""}</button>
                     <button onClick={() => setBuscadoresDe(s.dominio)} disabled={!!ocupado} title="Visibilidad en buscadores e IA: revisión, aviso a Bing y otros, verificación de Google." className="text-ms-blue hover:underline text-xs mr-3 disabled:opacity-50">Buscadores</button>
                     <button onClick={() => setBasesDe(s.dominio)} disabled={!!ocupado} title="Bases de datos adicionales (MariaDB o PostgreSQL), phpMyAdmin y Adminer." className="text-ms-blue hover:underline text-xs mr-3 disabled:opacity-50">Bases{s.bases ? ` (${s.bases})` : ""}</button>
                     <button onClick={() => borrar(s)} disabled={!!ocupado} className="text-ms-red hover:underline text-xs disabled:opacity-50">Dar de baja</button>
@@ -283,6 +293,7 @@ export function Sitios() {
 
       {gestionarDe && <PropiaModal dominio={gestionarDe} onCerrar={() => { setGestionarDe(null); cargar(); }} />}
       {basesDe && <BasesModal dominio={basesDe} onCerrar={() => { setBasesDe(null); cargar(); }} />}
+      {dominiosDe && <DominiosModal dominio={dominiosDe.dominio} www={dominiosDe.www} alias={dominiosDe.alias || []} sinHttps={dominiosDe.alias_sin_https || []} onCerrar={() => { setDominiosDe(null); cargar(); }} />}
       {buscadoresDe && <BuscadoresModal dominio={buscadoresDe} onCerrar={() => setBuscadoresDe(null)} />}
       {seguridadDe && <SeguridadModal dominio={seguridadDe} onCerrar={() => { setSeguridadDe(null); cargar(); }} />}
       {credenciales && <CredencialesModal {...credenciales} onCerrar={() => setCredenciales(null)} />}

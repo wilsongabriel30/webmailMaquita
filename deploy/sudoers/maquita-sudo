@@ -357,6 +357,8 @@ def validar_sitios(args):
         return args
     if len(args) == 3 and args[0] == "ssl" and dom(args[1]) and es_buzon(args[2]):
         return args
+    if len(args) == 3 and args[0] == "alias" and dom(args[1]) and _RE_B64URL_LARGO.match(args[2]):
+        return args
     if len(args) == 3 and args[0] == "borrar" and dom(args[1]) and args[1] == args[2]:
         return args
     if len(args) == 2 and args[0] in ("entrar", "clave-admin", "revisar", "actualizar", "buscadores", "avisar") and dom(args[1]):
