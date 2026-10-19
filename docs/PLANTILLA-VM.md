@@ -27,8 +27,23 @@ secretos de sesión y las contraseñas de las bases. `sellar.sh` se niega si el 
 
 - **Clon en el mismo Proxmox**: «Clonar» (completo) y, en «Cloud-Init», la IP y la clave SSH de quien la
   administrará. Arrancar.
-- **Otro Proxmox (la sede)**: copia de seguridad de la plantilla (vzdump) y restaurarla allá; o exportar el
-  disco (`qemu-img convert … .qcow2`) e importarlo con `qm importdisk`.
+- **Otro Proxmox (la sede)**, en el Proxmox que tiene la plantilla:
+  ```bash
+  bash /opt/maquita-webmail/deploy/plantilla/exportar.sh 9001 /var/lib/vz/dump v1.8.0   # o la ruta del repositorio
+  ```
+  Deja `plantilla-servidor-v1.8.0/` (≈ 1,6 GB): la copia de Proxmox `vzdump-qemu-….vma.zst` (no cambiar
+  su nombre: `qmrestore` lo necesita), el disco `plantilla.qcow2` comprimido, `importar.sh`, `SHA256SUMS` y
+  `LEEME.txt`. La copia tarda unos 15 minutos (recorre el disco de 80 GB aunque esté casi vacío).
+  Se lleva la carpeta a la sede (disco USB, `scp`) y allá:
+  ```bash
+  bash importar.sh                         # comprueba las sumas y restaura la plantilla (vmid libre, local-lvm)
+  bash importar.sh 9001 otro-almacenamiento
+  QCOW2=1 bash importar.sh                 # desde el qcow2, si no se llevó la copia de Proxmox
+  ```
+  Una copia alterada o dañada se rechaza antes de tocar nada; si la restauración falla a medias, no queda una
+  VM a medio crear. La plantilla importada no trae la red de origen: cada clon pone la suya en Cloud-Init.
+- **Otro hipervisor** (KVM/libvirt…): `plantilla.qcow2` es el disco (Debian 13 con cloud-init); VM con
+  2 vCPU x86-64-v2, 6 GB y una fuente NoCloud de cloud-init para la red y la clave SSH.
 
 ## 3. Primer arranque
 
@@ -66,7 +81,10 @@ RED=mantener            # o: RED=fija IP=192.0.2.10/24 PUERTA=192.0.2.1 DNS="9.9
 
 ## 4. Después
 
-Panel `https://mail.<dominio>:8443`: cambiar la clave inicial, subir el logo y «Aplicar en todo», «Nuevo
+Al entrar al panel aparece **«Primeros pasos»**: subir el logo y completar la información de la institución
+(descripción, lema, teléfono, correo, web, color y redes; «Guardar y aplicar en todo» u «Omitir por ahora») y la
+lista de lo que queda, cada punto con «hecho» u «omitir». «Terminar» deja de mostrarla; «Más tarde» la pospone y un
+aviso arriba la retoma. En resumen, desde el panel `https://mail.<dominio>:8443`: cambiar la clave inicial, subir el logo y «Aplicar en todo», «Nuevo
 dominio» con el dominio principal (zona DNS, DKIM, sitio, primer buzón), registros en el registrador,
 puertos en el router y «Certificado del correo». Las versiones nuevas llegan solas cada noche
 (`docs/ACTUALIZACIONES.md`).

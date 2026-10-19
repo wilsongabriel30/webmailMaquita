@@ -66,7 +66,7 @@ if [ -f "$RESPUESTAS" ]; then
     for v in DOMINIO NOMBRE CORREO CLAVE_INICIAL CLAVE_ROOT; do [ -n "${!v:-}" ] || { echo "Falta $v en $RESPUESTAS"; exit 1; }; done
     [[ "$DOMINIO" =~ $RE_DOMINIO && "$CORREO" =~ $RE_CORREO ]] || { echo "Dominio o correo no válidos"; exit 1; }
 else
-    aviso "Bienvenido.\n\nEste asistente deja listo el servidor de su institución: correo, webmail, chat institucional, panel de administración, sitios web y DNS propios.\n\nCada instalación genera sus propias claves de cifrado y firma. Tardará entre 20 y 40 minutos según la conexión.\n\nPuede volver a empezar en cualquier momento con Esc."
+    aviso "Bienvenido.\n\nEste asistente deja listo el servidor de su institución: correo, webmail, chat institucional, panel de administración, sitios web y DNS propios.\n\nCada instalación genera sus propias claves de cifrado y firma. Tardará entre 10 y 40 minutos según la conexión.\n\nPuede volver a empezar en cualquier momento con Esc."
     if caja --yesno "Red actual:\n\n  Interfaz: ${IF:-?}\n  IP: ${IP_ACTUAL:-sin IP}\n  Puerta de enlace: ${PUERTA_ACTUAL:-?}\n\n¿Mantener esta configuración de red?\n(«No» para poner una IP fija.)" 16 74; then
         RED=mantener
     else

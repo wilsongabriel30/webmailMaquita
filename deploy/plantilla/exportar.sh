@@ -6,12 +6,13 @@
 #   bash exportar.sh 9001 /var/lib/vz/dump v1.8.0
 #
 # Deja en <carpeta>/plantilla-servidor-<etiqueta>/:
-#   plantilla.vma.zst   copia de Proxmox (se restaura con importar.sh o qmrestore): VM completa, lista
+#   vzdump-qemu-….vma.zst  copia de Proxmox (importar.sh o qmrestore; qmrestore exige ese nombre): VM completa
 #   plantilla.qcow2     solo el disco, comprimido: para otros hipervisores (KVM/libvirt, …) o Proxmox sin vzdump
 #   importar.sh         instalador en el Proxmox de destino
 #   SHA256SUMS          sumas de comprobación (importar.sh las verifica antes de nada)
 #   LEEME.txt           pasos
 set -euo pipefail
+ORIGEN="$(cd "$(dirname "$0")" && pwd)"
 VMID="${1:?uso: $0 <vmid de la plantilla> [carpeta] [etiqueta]}"
 CARPETA="${2:-/var/lib/vz/dump}"
 ETIQUETA="${3:-$(date +%Y%m%d)}"
@@ -25,22 +26,36 @@ SALIDA="${CARPETA}/plantilla-servidor-${ETIQUETA}"
 mkdir -p "$SALIDA"; cd "$SALIDA"
 TMP="$(mktemp -d "${CARPETA}/.exportar-XXXX")"; trap 'rm -rf "$TMP"' EXIT
 
-echo "[1/4] Copia de Proxmox (vzdump)..."
-vzdump "$VMID" --mode stop --compress zstd --dumpdir "$TMP" --notes-template "Plantilla de servidor ${ETIQUETA}" >/dev/null
-mv "$TMP"/vzdump-qemu-"$VMID"-*.vma.zst plantilla.vma.zst
+echo "[1/4] Copia de Proxmox (vzdump; con un disco de 80 GB tarda unos 15 minutos)..."
+# Se conserva el nombre que pone vzdump: qmrestore lo necesita para reconocer la copia.
+if ls vzdump-qemu-*.vma.zst >/dev/null 2>&1 && [ -z "${REHACER:-}" ]; then
+    echo "   ya hay una copia en esta carpeta: se reutiliza (REHACER=1 para hacerla de nuevo)"
+else
+    rm -f vzdump-qemu-*.vma.zst
+    vzdump "$VMID" --mode stop --compress zstd --dumpdir "$TMP" >/dev/null
+    mv "$TMP"/vzdump-qemu-"$VMID"-*.vma.zst .
+fi
 
 echo "[2/4] Disco qcow2 comprimido..."
 DISCO="$(qm config "$VMID" | sed -nE 's/^(scsi0|virtio0|sata0): ([^,]+).*/\2/p' | head -1)"
-qemu-img convert -p -O qcow2 -c "$(pvesm path "$DISCO")" plantilla.qcow2 >/dev/null
+RUTA="$(pvesm path "$DISCO")"
+# En LVM, el disco de una plantilla queda desactivado (y marcado para no activarse solo): se activa
+# mientras se copia y se deja como estaba.
+ACTIVADO=""
+if [ ! -e "$RUTA" ] && [[ "$RUTA" =~ ^/dev/([^/]+)/([^/]+)$ ]]; then
+    lvchange -ay -K "${BASH_REMATCH[1]}/${BASH_REMATCH[2]}" && ACTIVADO="${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
+fi
+qemu-img convert -O qcow2 -c "$RUTA" plantilla.qcow2
+[ -n "$ACTIVADO" ] && lvchange -an "$ACTIVADO"
 
 echo "[3/4] Importador y guía..."
-install -m 755 "$(cd "$(dirname "$0")" && pwd)/importar.sh" importar.sh 2>/dev/null || install -m 755 /opt/maquita-webmail/deploy/plantilla/importar.sh importar.sh
+install -m 755 "${ORIGEN}/importar.sh" importar.sh
 cat > LEEME.txt <<LEEME
 Plantilla de servidor de correo, chat, panel y sitios — ${ETIQUETA}
 Sin personalizar: cada servidor que salga de ella genera sus propias claves en el primer arranque.
 
 En el Proxmox de la sede (copiar esta carpeta, p. ej. con un disco USB o scp):
-  bash importar.sh                    # restaura la plantilla (vmid libre, almacenamiento local-lvm)
+  bash importar.sh                    # restaura la plantilla desde la copia de Proxmox (vmid libre, almacenamiento local-lvm)
   bash importar.sh 9001 otro-almacen  # vmid y almacenamiento concretos
 
 Después, en la interfaz de Proxmox:
@@ -59,6 +74,6 @@ Comprobar las sumas a mano: sha256sum -c SHA256SUMS
 LEEME
 
 echo "[4/4] Sumas de comprobación..."
-sha256sum plantilla.vma.zst plantilla.qcow2 importar.sh > SHA256SUMS
+sha256sum vzdump-qemu-*.vma.zst plantilla.qcow2 importar.sh > SHA256SUMS
 ls -lh "$SALIDA"
 echo "Listo: $SALIDA"
