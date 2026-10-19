@@ -19,7 +19,7 @@ echo -e "${GREEN}[1/9] Paquetes (PHP-FPM, MariaDB, vsftpd)...${NC}"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq php-fpm php-cli php-mysql php-xml php-mbstring php-curl php-zip php-gd \
-    php-intl php-bcmath php-imagick php-soap php-pgsql mariadb-server vsftpd unzip ssl-cert \
+    php-intl php-bcmath php-imagick php-soap php-pgsql php-gmp php-ldap php-apcu php-sqlite3 mariadb-server vsftpd unzip ssl-cert \
     libnginx-mod-http-modsecurity modsecurity-crs fail2ban \
     python3-venv git >/dev/null
 # Aplicaciones propias en Node.js: el del sistema si no hay uno (el webmail suele traer Node 20 o posterior).

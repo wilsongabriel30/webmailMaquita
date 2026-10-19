@@ -8,9 +8,18 @@ Cada módulo expone:
   terminar(meta) (cierra el instalador web). Las recetas nuevas usan apps/receta.py.
 """
 
-from . import dolibarr, matomo, moodle
+import importlib
+import pkgutil
 
-CATALOGO = {"moodle": moodle, "dolibarr": dolibarr, "matomo": matomo}
+# Cada archivo de esta carpeta con NOMBRE e instalar() es una aplicación del catálogo; su nombre de archivo es su
+# identificador. Así, agregar una aplicación es agregar un archivo (sin tocar una lista común).
+CATALOGO = {}
+for _m in sorted(pkgutil.iter_modules(__path__), key=lambda m: m.name):
+    if _m.name in ("descargas", "receta") or _m.name.startswith("_"):
+        continue
+    _modulo = importlib.import_module(f".{_m.name}", __name__)
+    if hasattr(_modulo, "NOMBRE") and hasattr(_modulo, "instalar"):
+        CATALOGO[_m.name] = _modulo
 
 # Las dos de siempre (su instalación está en aplicaciones.py).
 BASICAS = {
