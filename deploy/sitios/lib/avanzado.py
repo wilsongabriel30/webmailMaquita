@@ -14,6 +14,7 @@ comprueba la configuración: si nginx o PHP-FPM la rechazan, se vuelve sola a la
 import json
 import os
 import re
+import shutil
 import subprocess
 import time
 
@@ -28,14 +29,20 @@ CONSERVAR = 50
 SUGERIDOS = ("wp-config.php", "configuration.php", ".env", "config.php", "config/config.php", "config/database.ini",
              "local.xml", "settings.php", "sites/default/settings.php", ".user.ini", "robots.txt", "llms.txt")
 # Directivas que no tienen sentido en las reglas de un sitio o que lo sacarían de su encierro.
-PROHIBIDAS = re.compile(r"^\s*(load_module|include|user|worker_\w+|pid|env|lua_\w+|\w+_by_lua\w*|perl\w*|"
-                        r"ssl_certificate\w*|access_by_\w+|js_\w+)\b", re.M)
-RE_RUTA = re.compile(r"^\s*(root|alias)\s+([^;]+);", re.M)
+PROHIBIDAS = re.compile(r"load_module|include|user|worker_\w+|pid|env|lua_\w+|\w+_by_lua\w*|perl\w*|"
+                        r"ssl_certificate\w*|access_by_\w+|js_\w+")
 PHP_AJUSTES = {  # nombre → (tipo, mínimo, máximo)
     "memory_limit": ("M", 64, 2048), "upload_max_filesize": ("M", 2, 1024), "post_max_size": ("M", 2, 1024),
     "max_execution_time": ("s", 30, 900), "max_input_time": ("s", 30, 900), "max_input_vars": ("n", 1000, 50000),
     "display_errors": ("b", 0, 1),
 }
+
+
+def quitar(dominio):
+    """Al dar de baja el sitio: sus reglas propias y sus versiones guardadas."""
+    if os.path.exists(ruta_extra(dominio)):
+        os.remove(ruta_extra(dominio))
+    shutil.rmtree(os.path.join(VERSIONES, dominio), ignore_errors=True)
 
 
 def ruta_extra(dominio):
@@ -98,13 +105,31 @@ def _leer_subida(nombre):
 # --- nginx ---
 
 
+def _sentencias(texto):
+    """Cada directiva con sus argumentos. Se corta por «{», «}», «;» y saltos de línea, como empieza nginx una
+    directiva: así no se escapa una escrita a mitad de línea (`location /x { root /etc; }`). Si un texto entre
+    comillas lleva «;» o «#», se valida de más, nunca de menos."""
+    for trozo in re.split(r"[{};\n]", texto):
+        palabras = trozo.split(None, 1)
+        if not palabras or palabras[0].startswith("#"):
+            continue
+        yield palabras[0].strip("'\"").replace("\\", "").lower(), (palabras[1] if len(palabras) > 1 else "").strip()
+
+
 def _validar_nginx(meta, texto):
-    if PROHIBIDAS.search(texto):
-        raise ErrorSitio(f"directiva no permitida en las reglas del sitio: «{PROHIBIDAS.search(texto).group(1)}»")
-    for _, ruta in RE_RUTA.findall(texto):
-        ruta = ruta.strip().strip("'\"")
-        if "$" not in ruta and not os.path.realpath(ruta).startswith(meta["base"] + "/"):
-            raise ErrorSitio(f"root/alias solo pueden apuntar dentro de la carpeta del sitio ({meta['base']})")
+    import sitio
+
+    for directiva, argumentos in _sentencias(texto):
+        if PROHIBIDAS.fullmatch(directiva):
+            raise ErrorSitio(f"directiva no permitida en las reglas del sitio: «{directiva}»")
+        if directiva.endswith("_pass") and "unix:" in argumentos and argumentos.strip("'\"") != "unix:" + sitio._socket(meta):
+            # El socket de PHP de otro sitio ejecutaría código con el usuario de ese sitio.
+            raise ErrorSitio("solo se puede pasar al socket de PHP de este sitio")
+        if directiva in ("root", "alias"):
+            ruta = argumentos.strip("'\"")
+            dentro = ruta.startswith(meta["base"] + "/") or ruta.startswith("$document_root")
+            if ".." in ruta or not dentro or ("$" not in ruta and not os.path.realpath(ruta).startswith(meta["base"] + "/")):
+                raise ErrorSitio(f"root/alias solo pueden apuntar dentro de la carpeta del sitio ({meta['base']})")
 
 
 def guardar_nginx(dominio, subida):
@@ -133,7 +158,7 @@ def guardar_nginx(dominio, subida):
         motivo = [l for l in r.stderr.splitlines() if "emerg" in l or "error" in l]
         raise ErrorSitio("nginx rechazó las reglas y se dejaron las anteriores: "
                          + (motivo[0].split("] ", 1)[-1][:300] if motivo else "configuración no válida"))
-    ejecutar(["systemctl", "reload", "nginx"])
+    sitio.recargar_nginx()
     return ver(dominio)
 
 

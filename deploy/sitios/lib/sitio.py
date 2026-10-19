@@ -337,6 +337,9 @@ def borrar(dominio):
         bases.borrar_todas(meta, meta["base"])  # copias .sql junto a los archivos, en la papelera
         meta = leer_meta(dominio)
 
+    import avanzado
+
+    avanzado.quitar(dominio)  # reglas propias de nginx y versiones guardadas de «Avanzado»
     for ruta in (os.path.join(NGINX_ACT, os.path.basename(_ruta_vhost(dominio))), _ruta_vhost(dominio), _ruta_pool(meta)):
         if os.path.lexists(ruta):
             os.remove(ruta)
