@@ -18,6 +18,8 @@ import { getFolderDisplayName } from '../../folders';
 import { cargarEtiquetasPorTandas } from '../../lib/etiquetasPorTandas';
 import { SinResultados } from './SinResultados';
 import { AdelantoCarpetaActual } from './AdelantoCarpetaActual';
+import { AvisoBusquedaEnCarpeta } from './AvisoBusquedaEnCarpeta';
+import { abrirMensajeEnPestana } from '../../lib/abrirEnPestana';
 import { AVISO_ELIMINAR_CORREO } from '../../lib/deepLinkCorreo';
 import { avisar } from '../../lib/avisosNavegador';   // T-53
 import { getCachedMessage } from '../../lib/offlineStore';   // W-7: leer sin conexión lo ya descargado
@@ -138,6 +140,7 @@ const archiveIcon = 'M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h1
 const unreadIcon = 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z';
 const replyIcon = 'M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6';
 const forwardIcon = 'M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6';
+const nuevaPestanaIcon = 'M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14';
 const moveIcon = 'M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z';
 
 /* ---- Thread grouping helper ---- */
@@ -707,8 +710,8 @@ export function MessageList() {
     quitarDeLista(msg.uid);
     try {
       await api.post(esNoDeseado ? '/mail/spam/not-spam' : '/mail/spam/report', { folder: currentFolder, uid: msg.uid });
-      showToast(esNoDeseado ? 'Movido a la Bandeja de entrada — no es spam' : 'Movido a Correo no deseado — el filtro aprendio');
-    } catch { showToast('No se pudo completar la accion'); }
+      showToast(esNoDeseado ? 'Movido a la Bandeja de entrada — no es spam' : 'Marcado como spam y movido a Correo no deseado — el filtro aprendió');
+    } catch { showToast('No se pudo completar la acción'); }
     window.dispatchEvent(new CustomEvent('refresh-messages'));
   };
   const confiarRemitenteCtx = async (msg: MessageSummary) => {
@@ -744,6 +747,8 @@ export function MessageList() {
   const getCtxItems = (msg: MessageSummary): MenuItem[] => [
     { label: 'Responder', icon: replyIcon, onClick: () => openCompose('reply', { to: [msg.from], subject: `Re: ${msg.subject}`, text_body: '', html_body: '' }) },
     { label: 'Reenviar', icon: forwardIcon, onClick: () => openCompose('forward', { to: [], subject: `RV: ${msg.subject}`, text_body: '', html_body: '', reenvio_de: { folder: msg.folder || currentFolder, uid: msg.uid } }) },
+    // Solo ese correo en otra pestaña; la bandeja de esta no cambia (lib/abrirEnPestana.ts).
+    { label: 'Abrir en una nueva pestaña', icon: nuevaPestanaIcon, onClick: () => abrirMensajeEnPestana(msg.folder || currentFolder, msg.uid) },
     { label: '', icon: '', onClick: () => {}, divider: true },
     { label: msg.seen ? 'Marcar como no leído' : 'Marcar como leído', icon: unreadIcon, onClick: () => quickAction(msg.uid, msg.seen ? 'mark_unread' : 'mark_read') },
     { label: msg.flagged ? 'Quitar marca' : 'Marcar con bandera', icon: flagIcon, onClick: () => handleFlag(msg.uid, msg.flagged) },
@@ -766,7 +771,7 @@ export function MessageList() {
     { label: '', icon: '', onClick: () => {}, divider: true },
     (currentFolder === 'Junk' || currentFolder === 'Spam')
       ? { label: 'No es spam', icon: moveIcon, onClick: () => marcarNoDeseadoCtx(msg, true) }
-      : { label: 'Marcar como no deseado', icon: moveIcon, onClick: () => marcarNoDeseadoCtx(msg, false) },
+      : { label: 'Marcar como spam', icon: moveIcon, onClick: () => marcarNoDeseadoCtx(msg, false) },
     ...(currentFolder === 'Junk' || currentFolder === 'Spam'
       ? [{ label: 'Confiar en este remitente', icon: moveIcon, onClick: () => confiarRemitenteCtx(msg) }]
       : []),
@@ -1096,6 +1101,9 @@ export function MessageList() {
           </button>
         </div>
       )}
+
+      {/* Aviso: la búsqueda se limita a la carpeta elegida */}
+      <AvisoBusquedaEnCarpeta />
 
       {/* List */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto relative" style={{ overflowAnchor: 'none' }}>

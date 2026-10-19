@@ -30,6 +30,7 @@ const TasksView = React.lazy(() => import('./components/tasks/TasksView').then(m
 const CalendarView = React.lazy(() => import('./components/calendar/CalendarView'));
 const FilesView = React.lazy(() => import('./components/files/FilesView').then(m => ({ default: m.FilesView })));
 import { ComposePopup } from "./components/mail/ComposePopup";
+import { MensajeEnPestana } from "./components/mail/MensajeEnPestana";
 import { useMailStore } from "./store/mailStore";
 
 function RedirigirAlmacen() {
@@ -212,6 +213,8 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/compose" element={<ProtectedRoute><ComposePopup /></ProtectedRoute>} />
+        {/* Un solo correo en su pestaña: «Abrir en una nueva pestaña» del menú contextual */}
+        <Route path="/mensaje" element={<ProtectedRoute><MensajeEnPestana /></ProtectedRoute>} />
         <Route path="/drive" element={<RedirigirAlmacen />} />
         <Route path="/" element={<ProtectedRoute><TwoFactorGate /><AppLayout /></ProtectedRoute>}>
           <Route index element={<MailView />} />

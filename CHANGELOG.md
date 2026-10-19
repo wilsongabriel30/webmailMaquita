@@ -8,6 +8,7 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 ## [Sin publicar]
 
 ### Añadido
+- Correo web: la búsqueda se hace **solo en la carpeta elegida** (al pulsar una carpeta el ámbito pasa a «Esta carpeta») y la lista avisa «La búsqueda se realizará únicamente en la carpeta X», con «Buscar en todas las carpetas» a un clic. Menú contextual de la lista: **«Abrir en una nueva pestaña»** (ruta `/webmail/mensaje?folder=&uid=`, muestra solo ese correo sin tocar la bandeja), **«Marcar como spam»** (antes «Marcar como no deseado») y, en Correo no deseado, «No es spam» devuelve el correo a la Bandeja de entrada.
 - Rspamd: `BAYES_SPAM` pasa a pesar 4,0 (`statistics_group.conf`): el Bayes ya no manda solo a no deseado. Nuevo `deploy/tools/vigilante-falsos-positivos.sh` (cron 07:10): lo que cayó en no deseado viniendo de un remitente al que ese buzón ya escribió vuelve a la bandeja, se aprende como legítimo y se informa a TI.
 - Rspamd: el instalador instala el anti-suplantación (`deploy/rspamd/maquita-antispoof.lua`) con sus **mapas** de dominios propios y términos protegidos generados desde la base del panel (`sync-rspamd-maps.sh`, cron cada 10 min), y la lista gris deja pasar sin espera a los remitentes con DMARC alineado y DKIM válido (`MAQ_REMITENTE_AUTENTICADO`).
 
