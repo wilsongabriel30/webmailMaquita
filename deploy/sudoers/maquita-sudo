@@ -359,8 +359,8 @@ def validar_sitios(args):
         return args
     if len(args) == 3 and args[0] == "alias" and dom(args[1]) and _RE_B64URL_LARGO.match(args[2]):
         return args
-    if (len(args) == 4 and args[0] == "paquete" and dom(args[1]) and re.fullmatch(r"[0-9a-f]{32}\.(zip|tar\.gz|tgz)", args[2])
-            and args[3] in ("con-bd", "sin-bd")):
+    if (len(args) in (4, 5) and args[0] == "paquete" and dom(args[1]) and re.fullmatch(r"[0-9a-f]{32}\.(zip|tar\.gz|tgz)", args[2])
+            and args[3] in ("con-bd", "sin-bd") and (len(args) == 4 or re.fullmatch(r"[0-9a-f]{32}\.(sql|sql\.gz)", args[4]))):
         return args
     if len(args) == 2 and args[0] == "tareas" and dom(args[1]):
         return args

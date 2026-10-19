@@ -29,7 +29,8 @@ Uso:
   maquita-sitios tareas-guardar <dominio> <lista JSON en base64url>
   maquita-sitios tarea-ejecutar <dominio> <id>     la ejecuta ahora
   maquita-sitios tarea-registro <dominio> <id>     últimas líneas de su salida
-  maquita-sitios paquete <dominio> <archivo en /var/lib/maquita-sitios/subidas> <con-bd|sin-bd>   paquete propio
+  maquita-sitios paquete <dominio> <archivo en /var/lib/maquita-sitios/subidas> <con-bd|sin-bd> [respaldo .sql/.sql.gz]
+                                        paquete propio o migración desde otro hosting
   maquita-sitios terminar <dominio>       cierra el instalador web de una aplicación instalada con asistente
   maquita-sitios entrar <dominio>         enlace de un solo uso al escritorio de WordPress
   maquita-sitios clave-admin <dominio>    contraseña nueva del administrador de la aplicación
@@ -101,10 +102,10 @@ def despachar(args):
         import visibilidad
 
         return (visibilidad.revisar if args[0] == "buscadores" else visibilidad.avisar)(v.dominio(args[1]))
-    if len(args) == 4 and args[0] == "paquete" and args[3] in ("con-bd", "sin-bd"):
+    if len(args) in (4, 5) and args[0] == "paquete" and args[3] in ("con-bd", "sin-bd"):
         import paquete
 
-        return paquete.instalar(v.dominio(args[1]), args[2], args[3] == "con-bd")
+        return paquete.instalar(v.dominio(args[1]), args[2], args[3] == "con-bd", args[4] if len(args) == 5 else None)
     if len(args) == 2 and args[0] == "terminar":
         return aplicaciones.terminar(v.dominio(args[1]))
     if len(args) == 2 and args[0] in ("entrar", "clave-admin", "revisar", "actualizar"):

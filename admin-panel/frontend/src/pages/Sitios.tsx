@@ -125,6 +125,25 @@ export function Sitios() {
 
   const paqueteListo = (dominio: string, r: ResultadoPaquete) => {
     setSubirEn(null); cargar();
+    const m = r.migracion;
+    if (m) {
+      setCredenciales({
+        titulo: `Sitio migrado a ${dominio}`,
+        items: [
+          { etiqueta: "Sitio", valor: r.url },
+          { etiqueta: "Tablas importadas", valor: String(r.tablas ?? 0) },
+          { etiqueta: "Aplicación reconocida", valor: m.aplicacion === "env" ? "archivo .env" : m.aplicacion || "no reconocida" },
+          { etiqueta: "Conexión a la base", valor: m.conexion === "actualizada" ? "actualizada sola" : "póngala a mano con los datos de abajo" },
+          ...(m.direccion_anterior ? [{ etiqueta: "Dirección anterior reemplazada", valor: `${m.direccion_anterior} (${m.reemplazos ?? 0} cambios)` }] : []),
+          ...(m.admin_usuario ? [{ etiqueta: "Administrador de WordPress", valor: m.admin_usuario }] : []),
+          { etiqueta: "Base de datos", valor: r.base_datos || "" },
+          { etiqueta: "Usuario de la base", valor: r.bd_usuario || "" },
+          { etiqueta: "Contraseña de la base", valor: r.bd_clave || "", secreto: true },
+        ],
+        nota: `${m.aviso ? `Aviso: ${m.aviso}. ` : ""}Las contraseñas de los usuarios del sitio siguen siendo las de antes. Apunte el DNS del dominio a este servidor y active HTTPS.`,
+      });
+      return;
+    }
     setCredenciales({
       titulo: `Paquete instalado en ${dominio}`,
       items: [

@@ -293,7 +293,7 @@ def test_sitios_ordenes_permitidas():
         ("crear", "../etc/passwd"),
         ("crear", "ejemplo.org", "--otra"),
         ("crear", "EJEMPLO.org"),
-        ("app", "ejemplo.org", "drupal", "SG9sYQ", "a@example.org"),
+        ("app", "ejemplo.org", "Drupal 11", "SG9sYQ", "a@example.org"),
         ("app", "ejemplo.org", "wordpress", "Hola mundo", "a@example.org"),
         ("ftp", "ejemplo.org", "root"),
         ("ssl", "ejemplo.org", "no-es-correo"),
@@ -486,7 +486,10 @@ def test_sitios_catalogo_ampliado():
 def test_sitios_paquete_propio():
     assert _ok("maquita-admin", "maquita-sitios", "paquete", "ejemplo.org", "0123456789abcdef0123456789abcdef.zip", "con-bd")
     assert _ok("maquita-admin", "maquita-sitios", "paquete", "ejemplo.org", "0123456789abcdef0123456789abcdef.tar.gz", "sin-bd")
-    for malo in (("paquete", "ejemplo.org", "../../etc/shadow", "con-bd"), ("paquete", "ejemplo.org", "x.zip", "con-bd"),
+    assert _ok("maquita-admin", "maquita-sitios", "paquete", "ejemplo.org", "0123456789abcdef0123456789abcdef.zip", "con-bd",
+               "fedcba9876543210fedcba9876543210.sql.gz")
+    for malo in (("paquete", "ejemplo.org", "0123456789abcdef0123456789abcdef.zip", "con-bd", "../x.sql"),
+                 ("paquete", "ejemplo.org", "../../etc/shadow", "con-bd"), ("paquete", "ejemplo.org", "x.zip", "con-bd"),
                  ("paquete", "ejemplo.org", "0123456789abcdef0123456789abcdef.zip", "si")):
         with pytest.raises(ms.Rechazo):
             _ok("maquita-admin", "maquita-sitios", *malo)

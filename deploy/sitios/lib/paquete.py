@@ -48,17 +48,22 @@ def _raiz_web(publico):
     return ""
 
 
-def instalar(dominio, archivo, con_bd):
-    from aplicaciones import _publico_vacio, crear_bd
-    from apps import descargas
-    from apps.receta import permisos
+def instalar(dominio, archivo, con_bd, base=None):
+    """`base`: respaldo .sql o .sql.gz de la base (migración desde otro hosting); implica preparar la base."""
+    from aplicaciones import _publico_vacio
 
+    import migracion
     import sitio
 
     if not RE_ARCHIVO.match(archivo or ""):
         raise ErrorSitio("archivo subido no válido")
     ruta = os.path.join(SUBIDAS, archivo)
+    if base is not None and not migracion.RE_BASE.match(base):
+        raise ErrorSitio("respaldo de base no válido")
+    ruta_base = os.path.join(SUBIDAS, base) if base else None
     try:
+        if ruta_base and (not os.path.isfile(ruta_base) or os.path.islink(ruta_base)):
+            raise ErrorSitio("no se encontró el respaldo de la base subido")
         meta = leer_meta(dominio)
         if meta.get("app"):
             raise ErrorSitio("el sitio ya tiene una aplicación: suba el paquete a un sitio vacío")
@@ -68,24 +73,58 @@ def instalar(dominio, archivo, con_bd):
         if tamano > TOPE_EXTRAIDO or cantidad > TOPE_ARCHIVOS:
             raise ErrorSitio("el paquete descomprimido es demasiado grande (máximo 3 GB y 150 000 archivos)")
         _publico_vacio(meta)
-        with tempfile.TemporaryDirectory(dir=meta["tmp"]) as tmp:
-            descargas.extraer(ruta, tmp)
-            for n in os.listdir(tmp):
-                shutil.move(os.path.join(tmp, n), os.path.join(meta["publico"], n))
-        permisos(meta)
-        meta["app"] = "paquete"
-        meta["paquete"] = {"raiz": _raiz_web(meta["publico"]), "suma": descargas.suma(ruta, "sha256")}
-        respuesta = {"dominio": dominio, "app": "paquete", "raiz_web": meta["paquete"]["raiz"] or "publico",
-                     "url": ("https://" if meta.get("ssl") else "http://") + dominio + "/"}
-        if con_bd:
-            bd, usuario, clave = crear_bd(meta)
-            meta["bd"] = bd
-            respuesta.update({"base_datos": bd, "bd_usuario": usuario, "bd_clave": clave, "bd_servidor": "localhost"})
-        meta["app_admin"] = respuesta["url"]
-        guardar_meta(meta)
-        sitio.escribir_vhost(meta)
-        sitio.recargar_nginx()
-        return respuesta
+        try:
+            return _extraer_y_conectar(meta, dominio, ruta, ruta_base, con_bd)
+        except BaseException:
+            # El sitio vuelve a quedar vacío y sin base: se puede volver a intentar.
+            from aplicaciones import _deshacer_instalacion
+
+            meta["app"] = None
+            meta.pop("paquete", None)
+            _deshacer_instalacion(meta)
+            sitio.escribir_vhost(meta)
+            sitio.recargar_nginx()
+            raise
     finally:
-        if os.path.lexists(ruta):
-            os.remove(ruta)
+        for r in (ruta, ruta_base):
+            if r and os.path.lexists(r):
+                os.remove(r)
+
+
+def _extraer_y_conectar(meta, dominio, ruta, ruta_base, con_bd):
+    from aplicaciones import crear_bd
+    from apps import descargas
+    from apps.receta import permisos
+
+    import migracion
+    import sitio
+
+    with tempfile.TemporaryDirectory(dir=meta["tmp"]) as tmp:
+        descargas.extraer(ruta, tmp)
+        for n in os.listdir(tmp):
+            shutil.move(os.path.join(tmp, n), os.path.join(meta["publico"], n))
+    permisos(meta)
+    meta["app"] = "paquete"
+    meta["paquete"] = {"raiz": _raiz_web(meta["publico"]), "suma": descargas.suma(ruta, "sha256")}
+    respuesta = {"dominio": dominio, "app": "paquete", "raiz_web": meta["paquete"]["raiz"] or "publico",
+                 "url": ("https://" if meta.get("ssl") else "http://") + dominio + "/"}
+    meta["app_admin"] = respuesta["url"]
+    if con_bd or ruta_base:
+        bd, usuario, clave = crear_bd(meta)
+        meta["bd"] = bd
+        guardar_meta(meta)
+        respuesta.update({"base_datos": bd, "bd_usuario": usuario, "bd_clave": clave, "bd_servidor": "localhost"})
+        if ruta_base:
+            respuesta["tablas"] = migracion.importar(meta, ruta_base, bd, usuario, clave)
+            migrado = migracion.conectar(meta, meta["paquete"]["raiz"], bd, usuario, clave)
+            respuesta["migracion"] = migrado
+            # WordPress o Joomla en la raíz: el sitio pasa a ser de esa aplicación (reglas, «Entrar», seguridad).
+            if migrado.get("aplicacion") in ("wordpress", "joomla") and not meta["paquete"]["raiz"]:
+                meta["app"] = migrado["aplicacion"]
+                meta["app_usuario"] = migrado.get("admin_usuario")
+                meta["app_admin"] = respuesta["url"] + ("wp-admin/" if meta["app"] == "wordpress" else "administrator/")
+                respuesta["app"] = meta["app"]
+    guardar_meta(meta)
+    sitio.escribir_vhost(meta)
+    sitio.recargar_nginx()
+    return respuesta
