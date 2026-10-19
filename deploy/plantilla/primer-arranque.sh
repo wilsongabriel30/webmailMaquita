@@ -119,7 +119,9 @@ import subprocess, sys
 url, nombre, corto, correo = sys.argv[1:5]
 def lit(t): return "'" + t.replace("'", "''") + "'"
 sql = ["CREATE TABLE IF NOT EXISTS branding_settings (key VARCHAR(100) PRIMARY KEY, value TEXT NOT NULL, updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW());"]
-for clave, valor in (("org_name", nombre), ("org_short", corto), ("app_name", f"Correo {corto}"), ("org_email", correo)):
+# «primeros_pasos» pendiente: al entrar al panel se ofrece subir el logo y completar la información (se puede omitir).
+for clave, valor in (("org_name", nombre), ("org_short", corto), ("app_name", f"Correo {corto}"), ("org_email", correo),
+                     ("primeros_pasos", '{"estado": "pendiente", "pasos": {}}')):
     sql.append(f"INSERT INTO branding_settings (key, value) VALUES ({lit(clave)}, {lit(valor)}) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW();")
 subprocess.run(["psql", "-q", "-v", "ON_ERROR_STOP=1", url], input="\n".join(sql), text=True, check=True)
 PY
@@ -147,9 +149,10 @@ Webmail:  https://mail.${DOMINIO}/webmail/
 Panel:    https://mail.${DOMINIO}:8443   (usuario «admin», clave inicial elegida en el asistente)
           El navegador pide antes una clave de acceso: usuario «admin», la misma clave inicial.
 
-Primeros pasos en el panel:
+Primeros pasos: al entrar al panel aparece la pantalla «Primeros pasos» (logo, información de la
+institución y lo que queda). Cada paso se puede omitir y hacer después. En resumen:
   1. Cambiar la clave inicial (panel y navegador).
-  2. Personalización: subir el logo y pulsar «Aplicar en todo».
+  2. Subir el logo y la información de la institución (o luego en Personalización → «Aplicar en todo»).
   3. Nuevo dominio: ${DOMINIO} (zona DNS, correo con DKIM, sitio «en construcción», primer buzón).
   4. En el registrador del dominio: servidores de nombres apuntando a este servidor (o los registros
      que muestra «Zonas DNS») y, en el router, los puertos 25, 80, 443, 465, 587, 993 y 53 hacia esta IP.

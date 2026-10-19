@@ -37,6 +37,7 @@ from app.shared.router import router as shared_router
 from app.asignaciones.router import router as asignaciones_router
 from app.ediscovery.router import router as ediscovery_router
 from app.branding.router import router as branding_router
+from app.branding.primeros_pasos import router as primeros_pasos_router
 from app.portales.router import router as portales_router
 from app.dispositivos.router import router as dispositivos_router
 from app.dispositivos.mensajes import router as dispositivos_mensajes_router
@@ -220,6 +221,7 @@ app.include_router(zap_router)
 app.include_router(safeattach_router)
 app.include_router(ediscovery_router)
 app.include_router(branding_router)
+app.include_router(primeros_pasos_router)
 app.include_router(portales_router)
 app.include_router(dispositivos_mensajes_router)
 app.include_router(dispositivos_perdido_router)

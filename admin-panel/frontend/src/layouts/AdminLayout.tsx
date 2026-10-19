@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { api } from "../api/client";
 import { useAuth } from "../api/auth";
 import { MyAccountModal } from "../components/MyAccountModal";
 
@@ -109,6 +110,18 @@ export function AdminLayout() {
   const { user, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [showAccount, setShowAccount] = useState(false);
+  // Servidor recién instalado desde la plantilla: se lleva a «Primeros pasos» hasta terminarlos u omitirlos.
+  const [primerosPendientes, setPrimerosPendientes] = useState(false);
+  const navegar = useNavigate();
+  const ubicacion = useLocation();
+  useEffect(() => {
+    api.get<{ pendiente: boolean }>("/primeros-pasos").then((r) => {
+      setPrimerosPendientes(r.pendiente);
+      let masTarde = false;
+      try { masTarde = sessionStorage.getItem("primeros_pasos_mas_tarde") === "1"; } catch { /* sin almacenamiento */ }
+      if (r.pendiente && !masTarde && ubicacion.pathname === "/") navegar("/primeros-pasos");
+    }).catch(() => {});
+  }, [ubicacion.pathname === "/primeros-pasos"]);
 
   return (
     <div className="flex flex-col h-screen">
@@ -213,6 +226,11 @@ export function AdminLayout() {
 
         {/* Main */}
         <main className="flex-1 overflow-auto bg-ms-gray-10">
+          {primerosPendientes && ubicacion.pathname !== "/primeros-pasos" && (
+            <div className="mx-6 mt-4 px-4 py-2 rounded bg-amber-50 border border-amber-200 text-sm text-amber-800">
+              Quedan primeros pasos por completar (logo, información de la institución, dominio…). <NavLink to="/primeros-pasos" className="underline font-medium">Continuar</NavLink>
+            </div>
+          )}
           <Outlet />
         </main>
       </div>
