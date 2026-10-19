@@ -18,8 +18,24 @@ export function carpetaAnterior(): string {
   return carpetaPrevia || 'INBOX';
 }
 
+/**
+ * Ámbito por defecto: la carpeta en la que está la persona (19/10/2026, pedido del equipo:
+ * «cuando el usuario seleccione una carpeta y utilice el buscador, la búsqueda debe realizarse
+ * exclusivamente dentro de esa carpeta»). «Todas las carpetas» queda como opción a un clic.
+ */
 export function leerPreferenciaTodo(): boolean {
-  try { return localStorage.getItem(CLAVE_PREFERENCIA) !== '0'; } catch { return true; }
+  try { return localStorage.getItem(CLAVE_PREFERENCIA) === '1'; } catch { return false; }
+}
+
+/**
+ * Al elegir una carpeta en la barra lateral, la búsqueda se limita a esa carpeta.
+ * No repite ninguna búsqueda: cambiar de carpeta ya borra el texto buscado.
+ */
+export function buscarSoloEnCarpetaActual() {
+  const st = useMailStore.getState();
+  if (!st.buscarEnTodo) return;
+  guardarPreferenciaTodo(false);
+  st.setBuscarEnTodo(false);
 }
 
 export function guardarPreferenciaTodo(v: boolean) {
