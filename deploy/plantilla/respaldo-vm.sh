@@ -26,7 +26,7 @@ if pvesh get /cluster/backup --output-format json | grep -q "\"id\":\"${ID}\""; 
 else
     pvesh create /cluster/backup --id "$ID" --vmid "$VMID" --storage "$ALMACEN" --schedule "$CUANDO" --mode snapshot \
         --compress zstd --prune-backups "keep-weekly=4,keep-monthly=3" --enabled 1 \
-        --notes-template "{{guestname}} — respaldo completo" >/dev/null
+        --notes-template "{{guestname}}: respaldo completo" >/dev/null
     echo "Trabajo $ID creado."
 fi
 pvesh get "/cluster/backup/${ID}" --output-format json-pretty | grep -E '"(schedule|storage|vmid|prune-backups)"'
