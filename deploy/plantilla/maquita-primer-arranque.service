@@ -26,6 +26,8 @@ TTYVTDisallocate=yes
 Environment=TERM=linux
 Restart=on-failure
 RestartSec=3
+# whiptail no atiende SIGTERM: sin esto, parar el asistente tardaría 90 s.
+TimeoutStopSec=5
 
 [Install]
 WantedBy=multi-user.target

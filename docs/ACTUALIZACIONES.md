@@ -34,7 +34,7 @@ Lo mismo que `UPGRADING.md` manda hacer a mano, en este orden:
 | Dependencias | `pip install -r requirements.txt` en cada entorno de Python que exista. |
 | Frontends | Correo (`npm ci` si cambió el package-lock, `deploy-webmail.sh --solo-frontend`) y panel (`npm ci` si cambió, `vite build`). |
 | Migraciones | `migrations/*.sql` y `deploy/seeds/*.sql` como el usuario de la aplicación (idempotentes). |
-| Secciones | `instalar-app.sh` de cada sección instalada: sitios, DNS, cortafuegos, identidad y el propio actualizador. |
+| Secciones | `instalar-app.sh` de cada sección instalada: sitios, DNS, cortafuegos, identidad, chat y el propio actualizador. |
 | Ajustes | `deploy/ajustes/aplicar-ajustes.sh --aplicar`. |
 | Reinicio | Servicios de la aplicación que estén habilitados (el correo se corta unos 30 s) y recarga de nginx. |
 | Validación después | Si hay **más fallos que antes**, vuelve sola a la versión anterior (código, dependencias, frontends, secciones y reinicio). La base no se restaura sola (perdería el correo llegado entretanto): el volcado queda para hacerlo a mano. |

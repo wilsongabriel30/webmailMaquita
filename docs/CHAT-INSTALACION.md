@@ -8,6 +8,12 @@ El chat corre aparte del correo a propósito: así un fallo en el chat no alcanz
 No tiene lista de usuarios propia ni contraseñas: reconoce a cada persona por el **correo** que
 figura en la tabla `usuarios` de la plataforma.
 
+**¿El chat va en la misma máquina que el correo?** (la VM de una organización, una instalación
+pequeña): `sudo bash deploy/webmail/instalar-app.sh chat` lo hace todo sin preguntas — base y rol
+propios, rol de solo lectura sobre los buzones y temporizador que los copia al directorio del chat cada 2
+minutos, secretos, cableado con el correo y nginx en el mismo origen. Esta guía es para el chat en su
+propia máquina.
+
 ## 0. Antes de empezar
 
 Necesitas:
