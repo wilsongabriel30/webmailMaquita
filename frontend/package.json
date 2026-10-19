@@ -58,6 +58,7 @@
     "nanoid": "^3.3.16",
     "postcss": "^8.5.10",
     "@humanfs/node": "^0.16.8",
-    "undici": "^7.28.0"
+    "undici": "^7.28.0",
+    "source-map-js": "^1.2.2"
   }
 }

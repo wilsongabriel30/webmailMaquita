@@ -27,7 +27,7 @@ icalendar==7.0.3
 idna==3.19
 iniconfig==2.3.0
 libpass==1.9.3
-Mako==1.4.1
+Mako==1.4.2
 MarkupSafe==3.0.3
 msoffcrypto-tool==6.0.0
 nh3==0.2.21
