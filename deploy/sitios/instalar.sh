@@ -227,6 +227,11 @@ EOF
 fi
 nginx -t
 systemctl reload nginx
+# En una instalación nueva nadie ha usado aún el FTP ni los sitios: sin sus registros, fail2ban se niega
+# a arrancar ENTERO («Have not found any log file for vsftpd jail») y el servidor queda sin protección.
+touch /var/log/vsftpd.log /var/log/nginx/sitios-acceso.log
+chmod 600 /var/log/vsftpd.log
+fail2ban-client -t >/dev/null || { echo -e "${RED}La configuración de fail2ban no es válida (fail2ban-client -t).${NC}"; exit 1; }
 systemctl enable fail2ban >/dev/null 2>&1
 systemctl restart fail2ban
 

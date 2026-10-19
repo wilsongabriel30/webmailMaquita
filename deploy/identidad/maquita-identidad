@@ -137,8 +137,19 @@ def _sitios(ide):
     return hechos
 
 
+def _reafirmar():
+    """manifest.json e íconos cambian después de construir: sin rehacer sus firmas (SRI) en index.html, el
+    navegador los bloquea (el validador lo marca como «firma DESCUADRADA»)."""
+    sri = os.path.join(APP, "deploy/tools/integridad-sri.py")
+    if not os.path.exists(os.path.join(WWW, "index.html")) or not os.path.exists(sri):
+        return "sin webmail desplegado"
+    r = subprocess.run(["python3", sri, WWW, "--corregir", "--base", "/webmail/"], capture_output=True, text=True, timeout=60)
+    return "al día" if r.returncode == 0 else "no se pudieron rehacer: " + (r.stderr or r.stdout).strip()[-200:]
+
+
 def aplicar(ide):
     resultado = {"app": _manifest(ide), "iconos": _iconos(), "drive": _drive(ide), "sitios": _sitios(ide)}
+    resultado["firmas"] = _reafirmar()
     for servicio in ("maquita-webmail", "maquita-almacen"):
         subprocess.run(["systemctl", "try-restart", servicio], capture_output=True, timeout=120)
     resultado["reiniciados"] = ["webmail", "drive"]
