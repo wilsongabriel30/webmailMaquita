@@ -90,9 +90,15 @@ def _respaldo(p):
 
 
 def _migraciones(p):
-    url = _url_base_datos()
+    """Como el usuario de la aplicación (UPGRADING.md); la contraseña va por PGPASSWORD, no en la orden:
+    así no queda en el registro ni en la lista de procesos."""
+    from urllib.parse import unquote, urlsplit
+
+    url = urlsplit(_url_base_datos())
+    entorno = {"PGPASSWORD": unquote(url.password or ""), "PGHOST": url.hostname or "localhost",
+               "PGPORT": str(url.port or 5432), "PGUSER": unquote(url.username or ""), "PGDATABASE": url.path.lstrip("/")}
     for archivo in sorted(glob.glob(os.path.join(REPO, "migrations/*.sql"))) + sorted(glob.glob(os.path.join(REPO, "deploy/seeds/*.sql"))):
-        p.orden(["psql", "-v", "ON_ERROR_STOP=0", "-q", url, "-f", archivo], obligatoria=False)
+        p.orden(["psql", "-v", "ON_ERROR_STOP=0", "-q", "-f", archivo], obligatoria=False, entorno=entorno)
 
 
 def _codigo_y_dependencias(p, commit, desde_commit):
