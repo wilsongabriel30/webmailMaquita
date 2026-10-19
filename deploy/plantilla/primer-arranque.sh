@@ -18,7 +18,7 @@ MARCA=/etc/maquita-plantilla/sin-configurar
 RESPUESTAS=/etc/maquita-plantilla/respuestas
 REGISTRO=/root/instalacion-primer-arranque.log
 LEEME=/root/LEEME-primer-arranque.txt
-TITULO="Primer arranque — servidor de correo y sitios"
+TITULO="Primer arranque: servidor de correo y sitios"
 export NEWT_COLORS='root=,blue'
 
 [ "$EUID" -eq 0 ] || { echo "Ejecutar como root."; exit 1; }
@@ -29,8 +29,9 @@ RE_CORREO='^[a-z0-9][a-z0-9._+-]{0,63}@([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a
 RE_IPCIDR='^([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2}$'
 RE_IP='^([0-9]{1,3}\.){3}[0-9]{1,3}$'
 
-caja() { whiptail --title "$TITULO" "$@" 3>&1 1>&2 2>&3; }
-aviso() { whiptail --title "$TITULO" --msgbox "$1" 16 74; }
+BOTONES=(--yes-button "Sí" --no-button "No" --ok-button "Aceptar" --cancel-button "Cancelar")
+caja() { whiptail --title "$TITULO" "${BOTONES[@]}" "$@" 3>&1 1>&2 2>&3; }
+aviso() { whiptail --title "$TITULO" "${BOTONES[@]}" --msgbox "$1" 16 74; }
 pedir() {  # pedir <variable> <texto> <defecto> <regex> <mensaje si no vale>
     local valor="$3"
     while true; do
@@ -161,7 +162,7 @@ chmod 600 "$LEEME"
 rm -f "$MARCA"
 systemctl disable maquita-primer-arranque.service >/dev/null 2>&1 || true
 if [ -z "${SIN_PREGUNTAS:-}" ] && [ -t 0 ]; then
-    whiptail --title "$TITULO" --msgbox "Listo.\n\nWebmail: https://mail.${DOMINIO}/webmail/\nPanel:   https://mail.${DOMINIO}:8443  (usuario admin)\n\nLa clave es la que eligió. Los primeros pasos están en ${LEEME}." 16 74 || true
+    whiptail --title "$TITULO" "${BOTONES[@]}" --msgbox "Listo.\n\nWebmail: https://mail.${DOMINIO}/webmail/\nPanel:   https://mail.${DOMINIO}:8443  (usuario admin)\n\nLa clave es la que eligió. Los primeros pasos están en ${LEEME}." 16 74 || true
 fi
 echo "Listo: https://mail.${DOMINIO}:8443 — primeros pasos en ${LEEME}"
 exit 0

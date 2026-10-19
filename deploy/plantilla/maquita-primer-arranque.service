@@ -3,7 +3,8 @@
 [Unit]
 Description=Asistente de primer arranque del servidor
 ConditionPathExists=/etc/maquita-plantilla/sin-configurar
-After=network-online.target systemd-user-sessions.service cloud-init.target
+# Sin cloud-init.target: va después de multi-user.target y formaría un ciclo (systemd quitaría el asistente).
+After=network-online.target systemd-user-sessions.service cloud-config.service
 Wants=network-online.target
 Before=getty@tty1.service
 Conflicts=getty@tty1.service

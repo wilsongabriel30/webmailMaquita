@@ -13,6 +13,8 @@ REPO_URL="${REPO_URL:-https://github.com/wilsongabriel30/webmailMaquita.git}"
 APP_DIR=/opt/maquita-webmail
 [ "$EUID" -eq 0 ] || { echo "Ejecutar como root."; exit 1; }
 export DEBIAN_FRONTEND=noninteractive
+# En una imagen cloud recién creada, cloud-init sigue instalando paquetes un rato: esperar a que acabe.
+command -v cloud-init >/dev/null && cloud-init status --wait >/dev/null 2>&1 || true
 apt-get update -qq
 apt-get install -y -qq git whiptail curl ca-certificates openssh-server >/dev/null
 if [ ! -d "${APP_DIR}/.git" ]; then
@@ -26,6 +28,8 @@ if [ -z "$VERSION" ]; then
         git -c gpg.format=ssh -c gpg.ssh.allowedSignersFile=deploy/actualizar/firmantes verify-tag "$t" >/dev/null 2>&1 && { echo "$t"; break; }; done)"
     [ -n "$VERSION" ] || { echo "No hay ninguna versión estable firmada. Indique una versión o rama: bash preparar.sh <ref>"; exit 1; }
 fi
+# Una versión (vX.Y.Z) o, para probar, una rama del repositorio.
+git rev-parse -q --verify "${VERSION}^{commit}" >/dev/null || VERSION="origin/${VERSION}"
 git checkout --quiet --detach "$VERSION"
 echo "Código en $(git describe --tags --always)"
 install -d -m 755 /etc/maquita-plantilla
