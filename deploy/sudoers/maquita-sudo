@@ -53,10 +53,12 @@ BINARIOS = {
     "maquita-cortafuegos": "/usr/local/sbin/maquita-cortafuegos",
     # Identidad de la institución (Personalización → «Aplicar en todo»).
     "maquita-identidad": "/usr/local/sbin/maquita-identidad",
+    # Actualizaciones del servidor desde el repositorio (versiones firmadas).
+    "maquita-actualizar": "/usr/local/sbin/maquita-actualizar",
 }
 
 # Programas propios: se ejecutan SOLO desde su ruta fija; si no están, no se buscan en el PATH.
-SOLO_RUTA_FIJA = {"maquita-outbound", "depurar-adjuntos-peligrosos", "geoip-country.sh", "maquita-sitios", "maquita-dns", "maquita-cortafuegos", "maquita-identidad"}
+SOLO_RUTA_FIJA = {"maquita-outbound", "depurar-adjuntos-peligrosos", "geoip-country.sh", "maquita-sitios", "maquita-dns", "maquita-cortafuegos", "maquita-identidad", "maquita-actualizar"}
 
 # Qué puede cada usuario llamante. True = todos los subcomandos que valida este programa.
 POLITICA = {
@@ -83,6 +85,7 @@ POLITICA = {
         "maquita-dns": True,
         "maquita-cortafuegos": True,
         "maquita-identidad": True,
+        "maquita-actualizar": True,
     },
 }
 
@@ -426,6 +429,20 @@ def validar_identidad(args):
     raise Rechazo("maquita-identidad: solo «aplicar <identidad en base64url>»")
 
 
+_RE_REF_VERSION = re.compile(r"^(?:v\d{1,4}\.\d{1,4}\.\d{1,4}|origin/[A-Za-z0-9][A-Za-z0-9._/-]{0,99})$")
+
+
+def validar_actualizar(args):
+    """maquita-actualizar: lo que usa el panel; «ejecutar» y «automatico» son del sistema."""
+    if args in (["estado"], ["buscar"]):
+        return args
+    if len(args) == 2 and args[0] == "aplicar" and _RE_REF_VERSION.match(args[1]) and ".." not in args[1]:
+        return args
+    if len(args) == 2 and args[0] == "config" and _RE_B64URL_LARGO.match(args[1]):
+        return args
+    raise Rechazo("maquita-actualizar: solo estado, buscar, aplicar <versión> o config <json>")
+
+
 VALIDADORES = {
     "doveadm": validar_doveadm, "postqueue": validar_postqueue, "postsuper": validar_postsuper,
     "postconf": validar_postconf, "systemctl": validar_systemctl, "journalctl": validar_journalctl,
@@ -436,6 +453,7 @@ VALIDADORES = {
     "maquita-dns": validar_dns,
     "maquita-cortafuegos": validar_cortafuegos,
     "maquita-identidad": validar_identidad,
+    "maquita-actualizar": validar_actualizar,
 }
 
 

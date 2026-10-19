@@ -73,6 +73,7 @@ from app.sitios.propias import router as sitios_propias_router
 from app.sitios.router import router as sitios_router
 from app.dns.router import router as dns_router
 from app.dns.dominio_nuevo import router as dominio_nuevo_router
+from app.actualizaciones.router import router as actualizaciones_router
 from app.cortafuegos.router import router as cortafuegos_router
 from app.password_audit.router import router as password_audit_router
 from app.admin_recovery.router import router as adminrec_router
@@ -241,6 +242,7 @@ app.include_router(sitios_propias_router)
 app.include_router(dns_router)
 app.include_router(dominio_nuevo_router)
 app.include_router(cortafuegos_router)
+app.include_router(actualizaciones_router)
 app.include_router(password_audit_router)
 app.include_router(adminrec_router)
 

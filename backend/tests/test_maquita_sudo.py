@@ -436,3 +436,13 @@ def test_sitios_aplicaciones_propias():
 
 def test_valores_de_entorno_no_van_al_registro():
     assert "eyJBIjoiYiJ9" not in ms._enmascarar("maquita-sitios", ["propia-entorno", "ejemplo.org", "eyJBIjoiYiJ9"])
+
+
+def test_actualizar():
+    for args in (("estado",), ("buscar",), ("aplicar", "v1.8.0"), ("aplicar", "origin/feat/sitios-web"), ("config", "eyJhIjoxfQ")):
+        assert _ok("maquita-admin", "maquita-actualizar", *args)
+    for malo in (("ejecutar", "v1.8.0"), ("automatico",), ("aplicar", "main;rm"), ("aplicar", "origin/../x"), ("aplicar", "1.8.0")):
+        with pytest.raises(ms.Rechazo):
+            _ok("maquita-admin", "maquita-actualizar", *malo)
+    with pytest.raises(ms.Rechazo):
+        _ok("www-data", "maquita-actualizar", "estado")

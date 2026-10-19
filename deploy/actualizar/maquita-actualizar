@@ -1,0 +1,106 @@
+#!/usr/bin/env python3
+"""maquita-actualizar — actualizaciones del servidor desde el repositorio (sección «Actualizaciones»).
+
+Corre como root. El panel lo llama solo a través de maquita-sudo. Responde siempre JSON.
+
+Uso desde el panel:
+  maquita-actualizar estado              versión instalada, disponible, progreso e historial
+  maquita-actualizar buscar              consulta el repositorio (etiquetas firmadas o rama del canal)
+  maquita-actualizar aplicar <ref>       instala la versión disponible, en segundo plano
+  maquita-actualizar config <json-b64>   {"canal": "estable"|"<rama>", "automatico": true|false}
+Solo desde el sistema:
+  maquita-actualizar automatico          lo lanza el temporizador cada noche (si está activado)
+  maquita-actualizar ejecutar <ref>      el trabajo en sí (lo lanza «aplicar» como unidad aparte)
+"""
+
+import base64
+import json
+import os
+import subprocess
+import sys
+
+sys.path.insert(0, "/usr/local/lib/maquita-actualizar")
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+
+import version as v  # noqa: E402
+
+UNIDAD = "maquita-actualizar-instalar"
+
+
+def estado():
+    import proceso
+
+    progreso = v.leer_json(proceso.PROGRESO, None)
+    if progreso and progreso.get("estado") == "en curso" and not os.path.exists(proceso.CERROJO):
+        progreso["estado"] = "interrumpida"
+    return {"actual": v.actual(), "config": v.config(), "disponible": v.leer_json(v.DISPONIBLE, None),
+            "firmantes": os.path.isfile(v.FIRMANTES) and bool(open(v.FIRMANTES).read().strip()),
+            "progreso": progreso, "historial": v.leer_json(proceso.HISTORIAL, [])[:10]}
+
+
+def aplicar(ref):
+    """Comprueba y lanza la instalación como unidad de systemd aparte: así sobrevive al reinicio del panel."""
+    import proceso
+
+    v.objetivo(ref)
+    if os.path.exists(proceso.CERROJO):
+        raise v.ErrorActualizar("ya hay una actualización en curso")
+    subprocess.run(["systemctl", "reset-failed", UNIDAD], capture_output=True)
+    r = subprocess.run(["systemd-run", f"--unit={UNIDAD}", "--collect", "--quiet",
+                        "/usr/local/sbin/maquita-actualizar", "ejecutar", ref], capture_output=True, text=True, timeout=60)
+    if r.returncode != 0:
+        raise v.ErrorActualizar("no se pudo lanzar la actualización: " + r.stderr.strip()[-200:])
+    return {"lanzada": True, "ref": ref}
+
+
+def despachar(a):
+    if a == ["estado"]:
+        return estado()
+    if a == ["buscar"]:
+        return v.buscar()
+    if len(a) == 2 and a[0] == "aplicar":
+        return aplicar(a[1])
+    if len(a) == 2 and a[0] == "config":
+        try:
+            datos = json.loads(base64.urlsafe_b64decode(a[1] + "=" * (-len(a[1]) % 4)).decode())
+        except Exception:
+            raise v.ErrorActualizar("datos no válidos")
+        conf = v.validar_config(datos)
+        v.guardar_json(v.CONFIG, conf)
+        return conf
+    if len(a) == 2 and a[0] == "ejecutar":
+        import proceso
+
+        return proceso.instalar(v.objetivo(a[1]))
+    if a == ["automatico"]:
+        if not v.config()["automatico"]:
+            return {"automatico": False}
+        disponible = v.buscar()
+        if not disponible.get("nueva"):
+            return {"automatico": True, "nueva": False}
+        import proceso
+
+        return proceso.instalar(v.objetivo(disponible["ref"]))
+    raise v.ErrorActualizar("orden o argumentos no permitidos")
+
+
+def main(argv):
+    if os.geteuid() != 0:
+        print(json.dumps({"error": "maquita-actualizar debe ejecutarse como root"}))
+        return 1
+    os.umask(0o022)
+    try:
+        resultado = despachar(argv[1:])
+    except v.ErrorActualizar as e:
+        print(json.dumps({"error": str(e)}, ensure_ascii=False))
+        return 1
+    except Exception as e:
+        print(f"maquita-actualizar: {type(e).__name__}: {e}", file=sys.stderr)
+        print(json.dumps({"error": "fallo interno del actualizador"}))
+        return 1
+    print(json.dumps(resultado, ensure_ascii=False))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

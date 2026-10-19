@@ -13,6 +13,7 @@ AYUDANTES = {
     "sitios": "/usr/local/sbin/maquita-sitios",
     "cortafuegos": "/usr/local/sbin/maquita-cortafuegos",
     "identidad": "/usr/local/sbin/maquita-identidad",
+    "actualizar": "/usr/local/sbin/maquita-actualizar",
 }
 
 

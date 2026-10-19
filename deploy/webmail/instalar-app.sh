@@ -3,12 +3,12 @@
 # YA montado, reutilizando los bloques 16-17 de instalar.sh. Idempotente: reusa la config
 # existente (SECRET_KEY y credenciales de BD del backend); no regenera secretos.
 #
-# Uso:  sudo bash deploy/webmail/instalar-app.sh <bi|pdf|onlyoffice|sitios|dns|cortafuegos|identidad>
+# Uso:  sudo bash deploy/webmail/instalar-app.sh <bi|pdf|onlyoffice|sitios|dns|cortafuegos|identidad|actualizar>
 set -e
 GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[1;33m'; NC='\033[0m'
 
 APP="${1:-}"
-case "$APP" in bi|pdf|onlyoffice|sitios|dns|cortafuegos|identidad) ;; *) echo "uso: $0 <bi|pdf|onlyoffice|sitios|dns|cortafuegos|identidad>"; exit 2 ;; esac
+case "$APP" in bi|pdf|onlyoffice|sitios|dns|cortafuegos|identidad|actualizar) ;; *) echo "uso: $0 <bi|pdf|onlyoffice|sitios|dns|cortafuegos|identidad|actualizar>"; exit 2 ;; esac
 # Sitios web (WordPress, Joomla, FTP seguro): tiene su propio instalador.
 if [ "$APP" = "sitios" ]; then
     exec bash "$(cd "$(dirname "$0")/../sitios" && pwd)/instalar.sh"
@@ -18,6 +18,10 @@ if [ "$APP" = "dns" ]; then
     exec bash "$(cd "$(dirname "$0")/../dns" && pwd)/instalar.sh"
 fi
 # Cortafuegos del servidor (iptables) administrado desde el panel.
+# Actualizaciones desde el repositorio (versiones firmadas, temporizador nocturno).
+if [ "$APP" = "actualizar" ]; then
+    exec bash "$(cd "$(dirname "$0")/../actualizar" && pwd)/instalar.sh"
+fi
 if [ "$APP" = "cortafuegos" ]; then
     exec bash "$(cd "$(dirname "$0")/../cortafuegos" && pwd)/instalar.sh"
 fi

@@ -1,0 +1,4 @@
+# Quién puede firmar versiones del canal «estable» (formato allowed_signers de ssh-keygen).
+# Una etiqueta vX.Y.Z sin firma válida de una de estas claves no se instala en ningún servidor.
+# Clave privada: /root/.ssh/firma-versiones en el equipo de desarrollo del equipo de tecnología.
+wilson@maquita namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBqe/b5djXEjzR8D3UiSmSiseMGhF4L7RhmkqcIUatjA
