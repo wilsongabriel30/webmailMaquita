@@ -10,6 +10,7 @@ Uso desde el panel:
   maquita-cortafuegos revertir
   maquita-cortafuegos desbloquear <vigilancia de fail2ban> <ip>
 Solo desde el sistema:
+  maquita-cortafuegos recargar         reglas al día tras cambiar los puertos de las aplicaciones
   maquita-cortafuegos cargar           al arrancar (maquita-cortafuegos.service)
   maquita-cortafuegos quitar           desactiva el cortafuegos propio
   maquita-cortafuegos inicial <ip>...  primera configuración (instalador), con esas IP de administración
@@ -48,6 +49,13 @@ def despachar(a):
         return aplicar.revertir()
     if len(a) == 3 and a[0] == "desbloquear":
         return estado.desbloquear(a[1], a[2])
+    if a == ["recargar"]:
+        # Lo llama maquita-sitios al abrir o cerrar el puerto de una aplicación propia. Abrir un puerto
+        # público no puede dejar fuera a nadie: no necesita vuelta atrás.
+        if not os.path.exists(config.RUTA) or not estado._cadena_activa():
+            return {"recargado": False}
+        aplicar._cargar_reglas(config.leer())
+        return {"recargado": True}
     if a == ["cargar"]:
         return aplicar.cargar_al_arrancar()
     if a == ["quitar"]:

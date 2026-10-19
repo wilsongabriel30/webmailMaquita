@@ -14,6 +14,7 @@ export interface Estado {
   pendiente_hasta: number | null;
   fail2ban: Jaula[];
   escuchando: { protocolo: string; puerto: number }[];
+  apps?: { dominio: string; puertos: string; protocolo: string }[];
   su_ip: string;
 }
 
@@ -33,7 +34,8 @@ export const NOMBRE_JAULA: Record<string, string> = {
 };
 
 /* ¿Este puerto escuchando queda abierto con la configuración actual? */
-export function puertoCubierto(conf: Config, servicios: Record<string, Servicio>, proto: string, puerto: number): string | null {
+export function puertoCubierto(conf: Config, servicios: Record<string, Servicio>, proto: string, puerto: number,
+  apps: Estado["apps"] = []): string | null {
   const dentro = (lista: string) => lista.split(",").some((p) => {
     const [a, b] = p.split(":").map(Number);
     return b ? puerto >= a && puerto <= b : puerto === a;
@@ -43,5 +45,6 @@ export function puertoCubierto(conf: Config, servicios: Record<string, Servicio>
     if (lista && dentro(lista) && conf.servicios[clave] !== "cerrado") return s.titulo;
   }
   for (const e of conf.extras) if (e.protocolo === proto && dentro(e.puertos)) return e.descripcion || "Puerto adicional";
+  for (const a of apps || []) if (a.protocolo === proto && dentro(a.puertos)) return `Aplicación de ${a.dominio}`;
   return null;
 }

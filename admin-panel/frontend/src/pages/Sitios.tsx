@@ -4,6 +4,8 @@ import { SectionHelp } from "../components/SectionHelp";
 import { CredencialesModal, type Credencial } from "./sitios/CredencialesModal";
 import { APPS, InstalarAppForm } from "./sitios/InstalarAppForm";
 import { BasesModal } from "./sitios/BasesModal";
+import { AppPropiaForm, type NuevaPropia } from "./sitios/AppPropiaForm";
+import { PropiaModal } from "./sitios/PropiaModal";
 import { SeguridadModal } from "./sitios/SeguridadModal";
 import { BuscadoresModal } from "./sitios/BuscadoresModal";
 
@@ -15,6 +17,7 @@ interface Sitio {
   ssl: boolean;
   ftp: boolean;
   tienda?: boolean;
+  propia?: string | null;
   bases?: number;
   usuario_ftp: string;
   base_datos: string | null;
@@ -26,6 +29,7 @@ interface Estado { php: string | null; mariadb: boolean; wp_cli: boolean; ftp: b
 interface Listado { sitios: Sitio[]; estado: Estado }
 
 const NOMBRE_APP: Record<string, string> = Object.fromEntries(APPS.map((a) => [a.id, a.nombre]));
+const NOMBRE_PROPIA: Record<string, string> = { estatico: "Propia · estática", python: "Propia · Python", node: "Propia · Node.js" };
 
 export function Sitios() {
   const [datos, setDatos] = useState<Listado | null>(null);
@@ -37,6 +41,8 @@ export function Sitios() {
   const [seguridadDe, setSeguridadDe] = useState<string | null>(null);
   const [buscadoresDe, setBuscadoresDe] = useState<string | null>(null);
   const [basesDe, setBasesDe] = useState<string | null>(null);
+  const [propiaEn, setPropiaEn] = useState<string | null>(null);
+  const [gestionarDe, setGestionarDe] = useState<string | null>(null);
   const [credenciales, setCredenciales] = useState<{ titulo: string; items: Credencial[]; nota?: string } | null>(null);
 
   const cargar = () =>
@@ -132,6 +138,7 @@ export function Sitios() {
             { titulo: "Entrar y contraseña", desc: "«Entrar» abre el escritorio de WordPress sin contraseña con un enlace de un solo uso que vence en 60 segundos. «Nueva contraseña» genera otra para el administrador (WordPress o Joomla) si se olvidó." },
             { titulo: "Seguridad", desc: "Cada sitio tiene cortafuegos de aplicación (OWASP CRS), límite de intentos de inicio de sesión y bloqueo automático de IP atacantes. En WordPress además: XML-RPC y enumeración de usuarios cerrados, versión oculta, editor de archivos apagado, segundo factor disponible y actualizaciones automáticas. «Seguridad» muestra versión, actualizaciones pendientes y si los archivos del núcleo fueron alterados." },
             { titulo: "Aplicaciones", desc: "WordPress (con tienda WooCommerce opcional), Joomla, Moodle (aula virtual), Dolibarr (ERP y CRM) y Matomo (estadísticas). Todo software libre, descargado de su origen oficial y verificado con su suma publicada." },
+            { titulo: "Aplicaciones propias", desc: "Su propio código: estático (HTML/JS), Python (Flask, Django, FastAPI) o Node.js, subido por SFTP o desde un repositorio git. Python y Node corren como servicio encerrado con el usuario del sitio, detrás de nginx y del cortafuegos de aplicación; variables de entorno, registros y despliegue desde «Gestionar». Si necesitan un puerto propio, el cortafuegos lo abre solo." },
             { titulo: "Bases de datos", desc: "Cada sitio puede tener hasta 10 bases adicionales MariaDB o PostgreSQL para aplicaciones propias, con usuario propio que solo entra a su base. Su contenido se administra con phpMyAdmin o Adminer dentro del panel." },
             { titulo: "Buscadores", desc: "Revisa el sitio como un buscador (robots.txt, mapa del sitio, llms.txt para asistentes de IA, datos schema.org, HTTPS), avisa al momento a Bing y otros por IndexNow y pone en el DNS la verificación de Google Search Console." },
             { titulo: "FTP", desc: "Activa el acceso a los archivos por FTP cifrado (FTPS) o SFTP, encerrado en la carpeta del sitio. «Nueva clave» invalida la anterior." },
@@ -162,6 +169,20 @@ export function Sitios() {
           <button onClick={crear} disabled={!!ocupado || !nuevo.dominio} className="px-4 py-2 bg-ms-blue text-white rounded text-sm disabled:opacity-50">Crear</button>
           <button onClick={() => setMostrarNuevo(false)} className="px-4 py-2 border border-ms-gray-40 rounded text-sm text-ms-gray-90">Cancelar</button>
         </div>
+      )}
+
+      {propiaEn && (
+        <AppPropiaForm
+          dominio={propiaEn}
+          ocupado={!!ocupado}
+          onCancelar={() => setPropiaEn(null)}
+          onCrear={(datos: NuevaPropia) => accion(`Preparando la aplicación${datos.git ? " (clonando el repositorio)" : ""}${datos.tipo === "estatico" ? "" : " e instalando dependencias"}…`, async () => {
+            await api.post(`/sitios/${propiaEn}/propia`, datos);
+            const dominio = propiaEn;
+            setPropiaEn(null);
+            setGestionarDe(dominio);
+          })}
+        />
       )}
 
       {instalarEn && (
@@ -208,7 +229,12 @@ export function Sitios() {
                     <div className="text-[11px] text-ms-gray-60">{s.www ? `y www.${s.dominio} · ` : ""}PHP {s.php} · desde {s.creado}</div>
                   </td>
                   <td className="px-4 py-2.5">
-                    {s.app ? (
+                    {s.app === "propia" ? (
+                      <div>
+                        <span>{NOMBRE_PROPIA[s.propia || ""] || "Aplicación propia"}</span>
+                        <div className="text-xs mt-0.5"><button onClick={() => setGestionarDe(s.dominio)} disabled={!!ocupado} className="text-ms-blue hover:underline disabled:opacity-50">Gestionar</button></div>
+                      </div>
+                    ) : s.app ? (
                       <div>
                         <span>{NOMBRE_APP[s.app] || s.app}</span>
                         <div className="text-xs mt-0.5 space-x-2">
@@ -220,7 +246,11 @@ export function Sitios() {
                         </div>
                       </div>
                     ) : (
+                      <span>
                       <button onClick={() => setInstalarEn(s.dominio)} disabled={!!ocupado} className="text-ms-blue hover:underline text-xs disabled:opacity-50">Instalar una aplicación</button>
+                      <span className="text-ms-gray-60 text-xs"> · </span>
+                      <button onClick={() => setPropiaEn(s.dominio)} disabled={!!ocupado} title="Su propio código: HTML/JS, Python o Node.js." className="text-ms-blue hover:underline text-xs disabled:opacity-50">Aplicación propia</button>
+                      </span>
                     )}
                   </td>
                   <td className="px-4 py-2.5 text-center">
@@ -251,6 +281,7 @@ export function Sitios() {
         </div>
       )}
 
+      {gestionarDe && <PropiaModal dominio={gestionarDe} onCerrar={() => { setGestionarDe(null); cargar(); }} />}
       {basesDe && <BasesModal dominio={basesDe} onCerrar={() => { setBasesDe(null); cargar(); }} />}
       {buscadoresDe && <BuscadoresModal dominio={buscadoresDe} onCerrar={() => setBuscadoresDe(null)} />}
       {seguridadDe && <SeguridadModal dominio={seguridadDe} onCerrar={() => { setSeguridadDe(null); cargar(); }} />}

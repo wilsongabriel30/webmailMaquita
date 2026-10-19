@@ -95,6 +95,12 @@ export function Cortafuegos() {
           <input value={extra.descripcion} maxLength={80} onChange={(e) => setExtra({ ...extra, descripcion: e.target.value })} placeholder="Para qué es" className={`${campo} flex-1 min-w-[10rem]`} />
           <button disabled={!extra.puertos} onClick={() => { setConf({ ...conf, extras: [...conf.extras, extra] }); setExtra({ ...extra, puertos: "", descripcion: "" }); }} className="px-3 py-1.5 border border-ms-blue text-ms-blue rounded text-sm disabled:opacity-50">Añadir</button>
         </div>
+        {!!est.apps?.length && (
+          <div className="text-sm border-t border-ms-gray-30 pt-2">
+            <p className="text-xs text-ms-gray-90 mb-1">Abiertos por aplicaciones propias (Sitios web → Gestionar). Se cierran solos al quitar la aplicación.</p>
+            {est.apps.map((a) => <div key={a.dominio} className="flex gap-3"><span className="font-mono">{a.protocolo} {a.puertos}</span><span>Todo Internet</span><span className="text-ms-gray-60">{a.dominio}</span></div>)}
+          </div>
+        )}
       </div>
 
       <div className={caja}>
@@ -134,7 +140,7 @@ export function Cortafuegos() {
         <h2 className="font-semibold text-ms-gray-130">Programas escuchando en el servidor</h2>
         <div className="flex flex-wrap gap-2">
           {est.escuchando.map((p) => {
-            const por = puertoCubierto(conf, est.servicios, p.protocolo, p.puerto);
+            const por = puertoCubierto(conf, est.servicios, p.protocolo, p.puerto, est.apps);
             return <span key={`${p.protocolo}${p.puerto}`} title={por ? `Abierto por: ${por}` : "Escucha, pero el cortafuegos no lo deja pasar"}
               className={`px-2 py-0.5 rounded text-xs font-mono ${por ? "bg-green-50 text-ms-green" : "bg-ms-gray-20 text-ms-gray-60"}`}>{p.protocolo}/{p.puerto}</span>;
           })}

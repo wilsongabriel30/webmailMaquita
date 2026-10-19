@@ -18,6 +18,11 @@ Uso:
   maquita-sitios bases <dominio>          bases de datos adicionales del sitio
   maquita-sitios base-crear <dominio> <mariadb|postgresql>
   maquita-sitios base-borrar <dominio> <nombre>   (la copia .sql queda en la carpeta privada del sitio)
+  maquita-sitios propia-crear <dominio> <estatico|python|node> <json-b64>   aplicación propia
+  maquita-sitios propia-estado <dominio>  estado, variables (solo nombres) y registros
+  maquita-sitios propia-accion <dominio> <iniciar|detener|reiniciar|desplegar>
+  maquita-sitios propia-entorno <dominio> <json-b64>   variables de entorno
+  maquita-sitios propia-quitar <dominio> <dominio>     (el código queda en la papelera)
   maquita-sitios entrar <dominio>         enlace de un solo uso al escritorio de WordPress
   maquita-sitios clave-admin <dominio>    contraseña nueva del administrador de la aplicación
   maquita-sitios revisar <dominio>        versión, actualizaciones pendientes e integridad
@@ -116,12 +121,41 @@ def despachar(args):
         import bases
 
         return bases.borrar(v.dominio(args[1]), args[2])
+    if args[:1] and args[0].startswith("propia-"):
+        return _propia(args)
     if args == ["cron"]:
         import seguridad
 
         return seguridad.cron()
     if args == ["regenerar"]:
         return sitio.regenerar()
+    raise ErrorSitio("orden o argumentos no permitidos")
+
+
+def _propia(args):
+    import json as _json
+
+    import propias
+    from comun import de_base64
+
+    def datos(b64):
+        try:
+            return _json.loads(de_base64(b64))
+        except ValueError:
+            raise ErrorSitio("datos no válidos")
+
+    if len(args) == 4 and args[0] == "propia-crear":
+        return propias.crear(v.dominio(args[1]), args[2], datos(args[3]))
+    if len(args) == 2 and args[0] == "propia-estado":
+        return propias.estado(v.dominio(args[1]))
+    if len(args) == 3 and args[0] == "propia-accion" and args[2] in ("iniciar", "detener", "reiniciar", "desplegar"):
+        return propias.accion(v.dominio(args[1]), args[2])
+    if len(args) == 3 and args[0] == "propia-entorno":
+        return propias.entorno(v.dominio(args[1]), datos(args[2]))
+    if len(args) == 3 and args[0] == "propia-quitar":
+        if args[1] != args[2]:
+            raise ErrorSitio("quitar: la confirmación no coincide con el dominio")
+        return propias.quitar(v.dominio(args[1]))
     raise ErrorSitio("orden o argumentos no permitidos")
 
 

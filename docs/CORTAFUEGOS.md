@@ -55,6 +55,14 @@ quedan solo para el sistema). Todo queda en la auditoría (`cortafuegos_*`).
 Desactivarlo por completo (desde la consola): `maquita-cortafuegos quitar` y
 `systemctl disable maquita-cortafuegos`.
 
+## Puertos de las aplicaciones propias
+
+Una aplicación propia de un sitio (Python o Node.js, ver `docs/SITIOS-WEB.md`) puede pedir un puerto
+público. `maquita-sitios` lo deja en `/etc/maquita-cortafuegos/apps.d/<dominio>.json` y llama a
+`maquita-cortafuegos recargar`: se abre a todo Internet (regla con comentario `app <dominio>`) mientras la
+aplicación exista y se cierra al quitarla o al dar de baja el sitio. Abrir un puerto no puede dejar fuera a
+nadie, así que este cambio no lleva vuelta atrás. La pantalla del cortafuegos los muestra aparte.
+
 ## Archivos
 
 `deploy/cortafuegos/` (instalador, ayudante y `lib/`: config, reglas, aplicar, estado), configuración en

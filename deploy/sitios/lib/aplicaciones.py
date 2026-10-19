@@ -93,6 +93,8 @@ def _url(meta):
 
 def instalar(dominio, app, titulo, correo):
     meta = leer_meta(dominio)
+    if meta.get("app") == "propia":
+        raise ErrorSitio("el sitio tiene una aplicación propia: quítela antes desde «Gestionar»")
     if meta.get("app"):
         raise ErrorSitio(f"el sitio ya tiene {meta['app']} instalado")
     _publico_vacio(meta)

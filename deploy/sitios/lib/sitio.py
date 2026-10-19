@@ -199,6 +199,7 @@ def publico(meta):
         "ssl": meta.get("ssl", False),
         "ftp": meta.get("ftp", False),
         "tienda": meta.get("tienda", False),
+        "propia": (meta.get("propia") or {}).get("tipo"),
         "bases": len(meta.get("bases", [])),
         "usuario_ftp": meta["usuario"],
         "base_datos": meta.get("bd"),
@@ -228,6 +229,8 @@ def rehacer_inicio(dominio, identidad):
     Solo en sitios sin aplicación: un WordPress o Joomla tiene su propio contenido.
     """
     meta = leer_meta(dominio)
+    if meta.get("app") == "propia":
+        return {"dominio": dominio, "actualizada": False, "motivo": "aplicación propia: su contenido es suyo"}
     if meta.get("app"):
         # Un WordPress o Joomla conserva su contenido: solo recibe la identidad para buscadores e IA.
         import visibilidad
@@ -283,6 +286,9 @@ def borrar(dominio):
 
     if meta.get("bd"):
         aplicaciones.volcar_y_borrar_bd(meta, os.path.join(meta["base"], f"base-de-datos-{sello}.sql"))
+    import propias
+
+    propias.limpiar_para_baja(meta)
     if meta.get("bases"):
         import bases
 

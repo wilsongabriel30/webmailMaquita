@@ -20,7 +20,10 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq php-fpm php-cli php-mysql php-xml php-mbstring php-curl php-zip php-gd \
     php-intl php-bcmath php-imagick php-soap php-pgsql mariadb-server vsftpd unzip ssl-cert \
-    libnginx-mod-http-modsecurity modsecurity-crs fail2ban >/dev/null
+    libnginx-mod-http-modsecurity modsecurity-crs fail2ban \
+    python3-venv git >/dev/null
+# Aplicaciones propias en Node.js: el del sistema si no hay uno (el webmail suele traer Node 20 o posterior).
+command -v node >/dev/null || apt-get install -y -qq nodejs npm >/dev/null
 PHP_VER="$(ls /etc/php | sort -V | tail -1)"
 systemctl enable mariadb "php${PHP_VER}-fpm" >/dev/null 2>&1
 systemctl start mariadb

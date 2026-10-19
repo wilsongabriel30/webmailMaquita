@@ -2,14 +2,13 @@
 
 from string import Template
 
-# Bloque común a HTTP y HTTPS. WordPress y Joomla funcionan con «try_files … /index.php».
-# Las zonas de límite (sitios_*), el formato de registro «sitios» y el cortafuegos de aplicación
-# (ModSecurity + OWASP CRS, /etc/nginx/sitios-waf/) los instala deploy/sitios/instalar.sh.
-_CUERPO = Template(
-    r"""
-    root $publico;
-    index index.php index.html;
-    client_max_body_size 64m;
+# Común a todos los sitios: registros, límites, cortafuegos de aplicación, cabeceras y archivos que
+# nunca se sirven. Las zonas de límite (sitios_*), el formato de registro «sitios» y el cortafuegos de
+# aplicación (ModSecurity + OWASP CRS, /etc/nginx/sitios-waf/) los instala deploy/sitios/instalar.sh.
+_COMUN = r"""    client_max_body_size 64m;
+    # Un enlace simbólico (subido por SFTP o traído en un repositorio) solo se sigue si apunta a algo del
+    # mismo dueño: así no puede exponer archivos de otro sitio, que www-data sí puede leer.
+    disable_symlinks if_not_owner from=$$document_root;
 
     access_log $registros/acceso.log;
     # Registro común de todos los sitios: lo vigila fail2ban (fuerza bruta, escaneos, abusos).
@@ -36,7 +35,16 @@ _CUERPO = Template(
     # Archivos ocultos (.git, .env, .htaccess) y copias o volcados: nunca se sirven.
     location ~ /\.(?!well-known) { deny all; }
     location ~* \.(bak|old|orig|save|sql|sqlite|swp|ini|log|sh|dist)$$ { deny all; }
-    # Comprimidos en la raíz: el lugar típico de las copias olvidadas (backup.zip, sitio.tar.gz).
+"""
+
+# Sitios con PHP (página «en construcción», WordPress, Joomla y el catálogo): «try_files … /index.php».
+_CUERPO = Template(
+    r"""
+    root $publico;
+    index index.php index.html;
+"""
+    + _COMUN
+    + r"""    # Comprimidos en la raíz: el lugar típico de las copias olvidadas (backup.zip, sitio.tar.gz).
     # En subcarpetas (p. ej. documentos para descargar) sí se sirven.
     location ~* ^/[^/]+\.(?:zip|tar|gz|tgz|7z|rar)$$ { deny all; }
     # Nunca ejecutar PHP desde las carpetas de subidas, caché o temporales.
@@ -56,6 +64,45 @@ $reglas_app
         expires 30d;
         access_log off;
         try_files $$uri =404;
+    }
+"""
+)
+
+# Aplicación propia estática (HTML/CSS/JS): sin PHP. Con «spa», las rutas desconocidas van a index.html
+# (aplicaciones de una sola página: React, Vue, Svelte…).
+_CUERPO_ESTATICO = Template(
+    r"""
+    root $publico;
+    index index.html index.htm;
+"""
+    + _COMUN
+    + r"""    location ~* \.php$$ { deny all; }
+    location / { try_files $$uri $$uri/ $$uri.html $respaldo; }
+
+    location ~* \.(?:css|js|mjs|jpg|jpeg|gif|png|webp|avif|svg|ico|woff2?|wasm)$$ {
+        expires 30d;
+        access_log off;
+        try_files $$uri =404;
+    }
+"""
+)
+
+# Aplicación propia Python o Node.js: un servicio que escucha solo en 127.0.0.1 y recibe todo por nginx
+# (con el cortafuegos de aplicación delante). Admite WebSocket.
+_CUERPO_PROXY = Template(
+    r"""
+"""
+    + _COMUN
+    + r"""    location / {
+        proxy_pass http://127.0.0.1:$puerto;
+        proxy_http_version 1.1;
+        proxy_set_header Host $$host;
+        proxy_set_header X-Real-IP $$remote_addr;
+        proxy_set_header X-Forwarded-For $$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $$scheme;
+        proxy_set_header Upgrade $$http_upgrade;
+        proxy_set_header Connection $$http_connection;
+        proxy_read_timeout 300s;
     }
 """
 )
@@ -170,6 +217,10 @@ def vhost(meta, socket, acme, con_ssl):
     nombres = " ".join([meta["dominio"]] + (["www." + meta["dominio"]] if meta.get("www", True) else []))
     app = meta.get("app")
     raiz = meta["publico"]
+    if app == "propia":
+        cuerpo = _cuerpo_propia(meta, acme)
+        plantilla = _HTTPS if con_ssl else _HTTP
+        return plantilla.substitute(nombres=nombres, cuerpo=cuerpo, acme=acme, dominio=meta["dominio"])
     if app == "wordpress":
         reglas, waf = _REGLAS_WORDPRESS.substitute(socket=socket), "wordpress"
     elif app == "joomla":
@@ -187,6 +238,15 @@ def vhost(meta, socket, acme, con_ssl):
     )
     plantilla = _HTTPS if con_ssl else _HTTP
     return plantilla.substitute(nombres=nombres, cuerpo=cuerpo, acme=acme, dominio=meta["dominio"])
+
+
+def _cuerpo_propia(meta, acme):
+    propia = meta["propia"]
+    comunes = {"registros": meta["registros"], "acme": acme, "waf": "general"}
+    if propia["tipo"] == "estatico":
+        return _CUERPO_ESTATICO.substitute(publico=propia["raiz"], respaldo="/index.html" if propia.get("spa") else "=404",
+                                           **comunes)
+    return _CUERPO_PROXY.substitute(puerto=propia["puerto"], **comunes)
 
 
 def pool(meta, socket):

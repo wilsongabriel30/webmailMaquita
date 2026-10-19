@@ -98,6 +98,31 @@ def validar(datos):
     return {"servicios": servicios, "admin": admin, "extras": extras, "bloqueados": bloqueados}
 
 
+APPS_DIR = os.path.join(DIR, "apps.d")
+RE_DOMINIO = re.compile(r"^(?=.{4,200}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$")
+
+
+def apps():
+    """Puertos públicos de las aplicaciones propias de los sitios (los escribe maquita-sitios, uno por
+    dominio). Abiertos a todos mientras la aplicación exista; lo inválido se ignora."""
+    salida = []
+    try:
+        nombres = sorted(os.listdir(APPS_DIR))
+    except FileNotFoundError:
+        return salida
+    for nombre in nombres:
+        if not nombre.endswith(".json"):
+            continue
+        try:
+            with open(os.path.join(APPS_DIR, nombre)) as f:
+                d = json.load(f)
+            if RE_DOMINIO.match(d.get("dominio", "")) and d.get("protocolo") in ("tcp", "udp"):
+                salida.append({"dominio": d["dominio"], "puertos": puertos(d.get("puertos")), "protocolo": d["protocolo"]})
+        except (OSError, ValueError, ErrorCortafuegos):
+            continue
+    return salida
+
+
 def leer_ruta(ruta):
     with open(ruta) as f:
         return validar(json.load(f))

@@ -41,11 +41,47 @@ Si el servidor está detrás de NAT, redirige al servidor los puertos **80 y 443
 
 Las contraseñas generadas (administrador de la aplicación, FTP) se muestran una sola vez y no se
 guardan en el panel ni en la auditoría. Cada acción queda en la auditoría del panel
-(`sitio_crear`, `sitio_app`, `sitio_tienda`, `sitio_base_crear`, `sitio_base_borrar`, `sitio_ftp_*`,
+(`sitio_crear`, `sitio_app`, `sitio_propia_*`, `sitio_tienda`, `sitio_base_crear`, `sitio_base_borrar`, `sitio_ftp_*`,
 `sitio_ssl`, `sitio_borrar`).
 
 La ruta `/api/sitios` del panel tiene un tiempo de espera de 20 minutos (fragmento
 `snippets/herramientas-bd.conf`): las instalaciones largas (Moodle) superan los 120 s del resto de `/api/`.
+
+## Aplicaciones propias («Aplicación propia» y «Gestionar»)
+
+Para el código de la propia institución, en un sitio sin otra aplicación.
+
+| Tipo | Cómo se publica |
+|---|---|
+| Estática | HTML/CSS/JS (también React, Vue o Svelte ya compilados). Sin repositorio se sube por SFTP a `publico`; con repositorio git se clona en `app` y se publica la carpeta indicada (p. ej. `dist`). Opción «una sola página»: las rutas desconocidas van a `index.html`. Sin PHP. |
+| Python | WSGI (Flask, Django: gunicorn) o ASGI (FastAPI, Starlette: uvicorn). Entorno virtual propio en `entorno/`, `requirements.txt` al desplegar. Entrada `módulo:objeto` (p. ej. `app:app`, `proyecto.wsgi:application`). |
+| Node.js | `npm ci --omit=dev` (o `npm install` sin `package-lock.json`); entrada un archivo `.js` o `npm start`. |
+
+- **Código**: por SFTP en `app/` o clonado de un repositorio git **público** por HTTPS (sin usuario ni clave
+  en la dirección). «Desplegar» hace `git pull --ff-only`, instala dependencias y reinicia; sin repositorio,
+  solo dependencias y reinicio. Sin código todavía, queda una aplicación de ejemplo.
+- **Servicio** `sitio-<usuario>` de systemd con el usuario del sitio. La aplicación escucha en `HOST:PORT`
+  (127.0.0.1 y un puerto interno 20000–29999 que da el panel) y nginx la publica en el dominio, con HTTPS,
+  límites, cortafuegos de aplicación y WebSocket. Al arrancar se exige una respuesta HTTP real (gunicorn abre
+  el puerto aunque la aplicación no cargue).
+- **Encierro**: `ProtectSystem=strict` (solo escribe en `app/` y `tmp/`), sin privilegios ni capacidades,
+  `/etc/maquita-sitios` y la papelera inaccesibles, `SocketBindAllow`/`SocketBindDeny` (solo puede abrir sus
+  puertos), memoria 768 MB, CPU 150 %, 256 tareas. Probado: no lee `/etc/shadow` ni la configuración, no escribe
+  en `publico` y no abre otros puertos.
+- **Variables de entorno** desde «Gestionar»: `/etc/maquita-sitios/entorno/<dominio>.env` (solo root; systemd
+  las entrega). Los valores no vuelven al panel ni van a la auditoría ni al registro de `maquita-sudo`.
+  `PORT`, `HOST`, `PUERTO_PUBLICO`, `HOME`, `PATH`, `NODE_ENV` y `PYTHONUNBUFFERED` las pone el panel.
+- **Puerto público** opcional (servicios que no son web): 1024–65535, ni reservados ni en uso. La aplicación lo
+  recibe en `PUERTO_PUBLICO` y el cortafuegos lo abre mientras exista (ver `docs/CORTAFUEGOS.md`).
+- **Registros**: las últimas 100 líneas de `journalctl` en «Gestionar».
+- **Quitar aplicación**: para el servicio, cierra su puerto, borra el entorno virtual y deja el código en
+  `/srv/sitios-papelera/<dominio>-app-<fecha>/`; el sitio vuelve a la página con PHP. Dar de baja el sitio hace
+  lo mismo.
+- Bases de datos: las adicionales del botón «Bases» (MariaDB o PostgreSQL), con su cadena en una variable.
+
+Todos los sitios: nginx solo sigue un enlace simbólico si apunta a algo del mismo dueño
+(`disable_symlinks if_not_owner`), para que un enlace subido por SFTP o traído en un repositorio no pueda
+mostrar archivos de otro sitio.
 
 ## Seguridad
 
@@ -116,6 +152,10 @@ repositorios de Debian o se descarga del origen oficial en el momento de usarlo.
 | Dolibarr | GPLv3 o posterior | sourceforge.net/projects/dolibarr (enlazado desde dolibarr.org) |
 | Matomo | GPLv3 o posterior | github.com/matomo-org/matomo (versiones publicadas) |
 | WooCommerce | GPLv3 | wordpress.org |
+| Gunicorn (aplicaciones Python) | MIT | PyPI, en el entorno de cada aplicación |
+| Uvicorn (aplicaciones ASGI) | BSD-3 | PyPI, en el entorno de cada aplicación |
+| Node.js y npm | MIT / Artistic 2.0 | Debian o el ya instalado |
+| Git | GPLv2 | Debian |
 | PostgreSQL | Licencia PostgreSQL (tipo BSD) | Debian |
 | phpMyAdmin | GPLv2 | Debian |
 | Adminer y su complemento `login-servers` | Apache 2.0 o GPLv2 (a elegir) | github.com/vrana/adminer (versiones publicadas) |
@@ -125,6 +165,8 @@ repositorios de Debian o se descarga del origen oficial en el momento de usarlo.
 - `deploy/sitios/instalar.sh`: instalación de la sección.
 - `deploy/sitios/maquita-sitios` y `deploy/sitios/lib/`: ayudante (validación, sitios,
   aplicaciones, acceso, seguridad, plantillas de nginx y PHP-FPM).
+- `deploy/sitios/lib/propias.py` y `propias_servicio.py`: aplicaciones propias (servicio, dependencias, puertos).
+- `admin-panel/backend/app/sitios/propias.py`: API `/api/sitios/<dominio>/propia`.
 - `deploy/sitios/lib/apps/`: catálogo (Moodle, Dolibarr, Matomo) y descargas verificadas; `lib/bases.py`: bases adicionales.
 - `deploy/sitios/herramientas/`: phpMyAdmin y Adminer del panel.
 - `deploy/sitios/wordpress/`: complementos obligatorios de WordPress.

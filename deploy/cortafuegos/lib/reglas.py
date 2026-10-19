@@ -8,7 +8,7 @@ abiertos según su origen y, al final, registro limitado y descarte de todo lo d
 
 import ipaddress
 
-from config import SERVICIOS
+from config import SERVICIOS, apps
 
 CADENA = "CORTAFUEGOS"
 
@@ -56,6 +56,8 @@ def texto(conf, v6=False):
     for e in conf["extras"]:
         origenes = [None] if e["origen"] == "todos" else admin
         _abrir(lineas, e["protocolo"], e["puertos"], origenes, ("extra " + e["descripcion"]).strip()[:60])
+    for a in apps():
+        _abrir(lineas, a["protocolo"], a["puertos"], [None], f"app {a['dominio']}"[:60])
     # Difusión y multidifusión de la red local: se descartan sin llenar el registro.
     if v6:
         lineas.append(f"-A {CADENA} -d ff00::/8 -j DROP")

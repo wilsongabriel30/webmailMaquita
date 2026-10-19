@@ -60,6 +60,7 @@ def estado():
         "pendiente_hasta": pendiente,
         "fail2ban": _fail2ban(),
         "escuchando": _escuchando(),
+        "apps": config.apps(),
     }
 
 

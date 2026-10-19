@@ -34,7 +34,7 @@ def ejecutar(cmd, entrada=None, como=None, cwd=None, tiempo=600, env_extra=None)
     if env_extra:
         env.update(env_extra)
     if como:
-        env["HOME"] = "/tmp"
+        env.setdefault("HOME", "/tmp")
     r = subprocess.run(
         cmd, input=entrada, capture_output=True, text=True, cwd=cwd, timeout=tiempo, env=env
     )

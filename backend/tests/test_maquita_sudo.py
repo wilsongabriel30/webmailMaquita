@@ -417,3 +417,22 @@ def test_sitios_catalogo_y_bases():
                  ("app", "ejemplo.org", "prestashop", "SG9sYQ", "a@example.org")):
         with pytest.raises(ms.Rechazo):
             _ok("maquita-admin", "maquita-sitios", *malo)
+
+
+def test_sitios_aplicaciones_propias():
+    for tipo in ("estatico", "python", "node"):
+        assert _ok("maquita-admin", "maquita-sitios", "propia-crear", "ejemplo.org", tipo, "eyJlbnRyYWRhIjoiYXBwOmFwcCJ9")
+    assert _ok("maquita-admin", "maquita-sitios", "propia-estado", "ejemplo.org")
+    for accion in ("iniciar", "detener", "reiniciar", "desplegar"):
+        assert _ok("maquita-admin", "maquita-sitios", "propia-accion", "ejemplo.org", accion)
+    assert _ok("maquita-admin", "maquita-sitios", "propia-entorno", "ejemplo.org", "eyJBIjoiYiJ9")
+    assert _ok("maquita-admin", "maquita-sitios", "propia-quitar", "ejemplo.org", "ejemplo.org")
+    for malo in (("propia-crear", "ejemplo.org", "php", "e30"), ("propia-crear", "ejemplo.org", "node", "a b"),
+                 ("propia-accion", "ejemplo.org", "borrar"), ("propia-quitar", "ejemplo.org", "otro.org"),
+                 ("propia-entorno", "ejemplo.org", "x;rm")):
+        with pytest.raises(ms.Rechazo):
+            _ok("maquita-admin", "maquita-sitios", *malo)
+
+
+def test_valores_de_entorno_no_van_al_registro():
+    assert "eyJBIjoiYiJ9" not in ms._enmascarar("maquita-sitios", ["propia-entorno", "ejemplo.org", "eyJBIjoiYiJ9"])

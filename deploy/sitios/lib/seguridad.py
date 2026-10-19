@@ -121,6 +121,7 @@ def entrar(dominio):
 
 def clave_admin(dominio):
     meta = leer_meta(dominio)
+    _no_propia(meta)
     usuario = meta.get("app_usuario")
     if not meta.get("app") or not usuario:
         raise ErrorSitio("el sitio no tiene una aplicación con administrador registrado")
@@ -139,8 +140,14 @@ def clave_admin(dominio):
 # --- Revisión y actualización ---
 
 
+def _no_propia(meta):
+    if meta.get("app") == "propia":
+        raise ErrorSitio("es una aplicación propia: se administra desde «Gestionar»")
+
+
 def revisar(dominio):
     meta = leer_meta(dominio)
+    _no_propia(meta)
     app = meta.get("app")
     if app == "wordpress":
         version = _wp(meta, "core", "version").strip()
@@ -177,6 +184,7 @@ def revisar(dominio):
 
 def actualizar(dominio):
     meta = leer_meta(dominio)
+    _no_propia(meta)
     if meta.get("app") == "wordpress":
         _wp(meta, "core", "update")
         _wp(meta, "core", "update-db")
