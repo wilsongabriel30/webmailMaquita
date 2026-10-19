@@ -110,6 +110,7 @@ bash "${APP_DIR}/deploy/webmail/instalar-app.sh" sitios
 bash "${APP_DIR}/deploy/webmail/instalar-app.sh" dns
 ADMIN_IPS="$ADMIN_IPS" bash "${APP_DIR}/deploy/webmail/instalar-app.sh" cortafuegos
 bash "${APP_DIR}/deploy/webmail/instalar-app.sh" chat
+bash "${APP_DIR}/deploy/webmail/instalar-app.sh" respaldos
 bash "${APP_DIR}/deploy/webmail/instalar-app.sh" actualizar
 
 # --- Identidad de la institución (Personalización) y «Aplicar en todo» ---

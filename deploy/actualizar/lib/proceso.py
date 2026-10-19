@@ -29,7 +29,8 @@ SERVICIOS = ("maquita-webmail", "maquita-admin", "maquita-milter", "maquita-alma
 # Sección → archivo que indica que está instalada (solo se reinstalan las presentes).
 SECCIONES = {"sitios": "/usr/local/sbin/maquita-sitios", "dns": "/usr/local/sbin/maquita-dns",
              "cortafuegos": "/usr/local/sbin/maquita-cortafuegos", "identidad": "/usr/local/sbin/maquita-identidad",
-             "chat": "/usr/local/sbin/maquita-chat-sincronizar", "actualizar": "/usr/local/sbin/maquita-actualizar"}
+             "chat": "/usr/local/sbin/maquita-chat-sincronizar", "respaldos": "/usr/local/sbin/maquita-respaldos",
+             "actualizar": "/usr/local/sbin/maquita-actualizar"}
 
 
 class Proceso:

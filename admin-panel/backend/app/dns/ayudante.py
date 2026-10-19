@@ -14,6 +14,7 @@ AYUDANTES = {
     "cortafuegos": "/usr/local/sbin/maquita-cortafuegos",
     "identidad": "/usr/local/sbin/maquita-identidad",
     "actualizar": "/usr/local/sbin/maquita-actualizar",
+    "respaldos": "/usr/local/sbin/maquita-respaldos",
 }
 
 

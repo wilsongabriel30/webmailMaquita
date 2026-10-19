@@ -446,3 +446,14 @@ def test_actualizar():
             _ok("maquita-admin", "maquita-actualizar", *malo)
     with pytest.raises(ms.Rechazo):
         _ok("www-data", "maquita-actualizar", "estado")
+
+
+def test_respaldos():
+    for args in (("estado",), ("respaldar",), ("comprobar",), ("clave",), ("config", "eyJhIjoxfQ"), ("credenciales", "e30"),
+                 ("restaurar-sitio", "ejemplo.org", "0a1b2c3d"), ("restaurar-buzon", "ana@ejemplo.org", "0a1b2c3d")):
+        assert _ok("maquita-admin", "maquita-respaldos", *args)
+    for malo in (("automatico",), ("ejecutar", "respaldar"), ("restaurar-sitio", "ejemplo.org", "latest"),
+                 ("restaurar-buzon", "no-es-correo", "0a1b2c3d"), ("restaurar-sitio", "../etc", "0a1b2c3d")):
+        with pytest.raises(ms.Rechazo):
+            _ok("maquita-admin", "maquita-respaldos", *malo)
+    assert "e30" not in ms._enmascarar("maquita-respaldos", ["credenciales", "e30"])
