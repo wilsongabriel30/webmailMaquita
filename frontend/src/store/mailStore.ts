@@ -132,7 +132,8 @@ export const useMailStore = create<MailState>((set, get) => ({
   activeIndex: -1,
   searchQuery: '',
   buscarEnContenido: false,
-  buscarEnTodo: (() => { try { return localStorage.getItem('maquita_buscar_en_todo') !== '0'; } catch { return true; } })(),
+  // Por defecto se busca solo en la carpeta actual (misma lectura que lib/busquedaGlobal.ts).
+  buscarEnTodo: (() => { try { return localStorage.getItem('maquita_buscar_en_todo') === '1'; } catch { return false; } })(),
   debouncedSearchQuery: '',
   filter: 'all',
   filterChanging: false,

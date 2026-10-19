@@ -11,6 +11,7 @@ import { showToast } from '../common/Toast';
 import { ContextMenu } from '../common/ContextMenu';
 import type { Folder } from '../../types';
 import { getFolderDisplayName } from '../../folders';
+import { buscarSoloEnCarpetaActual } from '../../lib/busquedaGlobal';
 import { RecuperarEliminados } from '../mail/RecuperarEliminados';
 import { BarraCuentas } from './BarraCuentas';
 
@@ -56,7 +57,21 @@ export function MailSidebar() {
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [createParent, setCreateParent] = useState('');
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  // Secciones plegadas. «Mi actividad» empieza plegada para dejar sitio a las carpetas; lo que la
+  // persona abra o cierre se recuerda en este navegador.
+  const [collapsed, setCollapsedEstado] = useState<Record<string, boolean>>(() => {
+    try {
+      return { stats: true, ...JSON.parse(localStorage.getItem('sidebar_secciones_plegadas') || '{}') };
+    } catch {
+      return { stats: true };
+    }
+  });
+  const setCollapsed = (cambio: (p: Record<string, boolean>) => Record<string, boolean>) =>
+    setCollapsedEstado(p => {
+      const nuevo = cambio(p);
+      try { localStorage.setItem('sidebar_secciones_plegadas', JSON.stringify(nuevo)); } catch { /* sin almacenamiento */ }
+      return nuevo;
+    });
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [recuperarAbierto, setRecuperarAbierto] = useState(false);
@@ -127,7 +142,15 @@ export function MailSidebar() {
   const handleCreate = async () => {
     if (!newName.trim()) return;
     const fullName = createParent ? `${createParent}.${newName.trim()}` : newName.trim();
-    try { await api.post('/mail/folders', { name: fullName }); showToast(`Carpeta "${newName.trim()}" creada`); } catch { /* el aviso de error ya lo da el backend */ }
+    try {
+      await api.post('/mail/folders', { name: fullName });
+      showToast(`Carpeta "${newName.trim()}" creada`);
+      // Al recargar la lista, se lleva la vista a la carpeta nueva y se resalta un momento,
+      // para poder abrirla o arrastrarle mensajes sin buscarla (antes la vista se quedaba abajo).
+      if (createParent) setTreeCollapsed(p => ({ ...p, [createParent]: false }));
+      setCollapsed(p => ({ ...p, all: false }));
+      setRecienCreada(fullName);
+    } catch { /* el aviso de error ya lo da el backend */ }
     setNewName(''); setCreating(false); setCreateParent(''); fetchFolders();
   };
 
@@ -282,6 +305,15 @@ export function MailSidebar() {
   const otherNodes = fullTree.filter(n => !favorites.includes(n.folder.name));
 
   const [treeCollapsed, setTreeCollapsed] = useState<Record<string, boolean>>({});
+  const [recienCreada, setRecienCreada] = useState<string | null>(null);
+  useEffect(() => {
+    if (!recienCreada || !folders.some(f => f.name === recienCreada)) return;
+    const el = document.querySelector<HTMLElement>(`[data-carpeta="${CSS.escape(recienCreada)}"]`);
+    if (!el) return;
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    const t = setTimeout(() => setRecienCreada(null), 4000);
+    return () => clearTimeout(t);
+  }, [recienCreada, folders]);
   const toggleTreeNode = (name: string) => setTreeCollapsed(p => ({ ...p, [name]: !p[name] }));
 
   // --- Render individual folder ---
@@ -306,7 +338,9 @@ export function MailSidebar() {
 
     return (
       <button key={f.name}
-        onClick={() => setCurrentFolder(f.name)}
+        data-carpeta={f.name}
+        // Al elegir una carpeta, el buscador se limita a ella (aviso en la lista).
+        onClick={() => { setCurrentFolder(f.name); buscarSoloEnCarpetaActual(); }}
         // Doble click para renombrar (solo no-sistema)
         onDoubleClick={e => {
           if (isSystem) return;
@@ -391,6 +425,7 @@ export function MailSidebar() {
         className={`w-full flex items-center gap-1.5 px-2 py-[4px] rounded text-[13px] transition-all duration-150 ${
           isBeingDragged ? 'opacity-40' :
           isDragOver ? 'bg-[#deecf9] ring-2 ring-[#0078d4] scale-[1.02]' :
+          recienCreada === f.name ? 'bg-[#fff4ce] ring-2 ring-[#ffb900] font-semibold text-[#323130]' :
           active ? 'bg-[#e1dfdd] font-semibold text-[#323130]' :
           'text-[#323130] hover:bg-[#e1dfdd]'
         } ${!isSystem ? 'cursor-grab active:cursor-grabbing' : ''}`}
