@@ -395,6 +395,11 @@ sed "s/tudominio.com/${DOMAIN}/g" "${APP_DIR}/deploy/webmail/nginx/autodiscover-
     > /etc/nginx/sites-available/autodiscover-dominios
 [ -e "/etc/letsencrypt/live/${MAIL_HOST}/fullchain.pem" ] || sed -i "s|/etc/letsencrypt/live/${MAIL_HOST}/fullchain.pem|/etc/ssl/certs/ssl-cert-snakeoil.pem|; s|/etc/letsencrypt/live/${MAIL_HOST}/privkey.pem|/etc/ssl/private/ssl-cert-snakeoil.key|" /etc/nginx/sites-available/autodiscover-dominios
 ln -sf /etc/nginx/sites-available/autodiscover-dominios /etc/nginx/sites-enabled/
+# XML de autoconfiguración de Thunderbird/Evolution (lo sirve autodiscover-dominios para todos los dominios).
+mkdir -p /var/www/autoconfig/mail
+sed -e "s/__DOMINIO__/${DOMAIN}/g" -e "s/__MAIL_HOST__/${MAIL_HOST}/g" \
+    "${APP_DIR}/deploy/webmail/autoconfig/config-v1.1.xml.plantilla" > /var/www/autoconfig/mail/config-v1.1.xml
+chmod 644 /var/www/autoconfig/mail/config-v1.1.xml
 mkdir -p /var/log/webmail /var/www/certbot
 chown www-data:www-data /var/log/webmail
 # MTA-STS: política de TLS obligatorio en tránsito (sube la nota de entregabilidad)

@@ -159,3 +159,28 @@ def estado():
     vence = next((l.split("=", 1)[1] for l in salida.splitlines() if l.startswith("notAfter=")), "")
     return {"emitido": True, "linaje": host, "nombres": nombres, "vence": vence,
             "en_uso": ejecutar(["postconf", "-h", "smtpd_tls_cert_file"]).strip().startswith("/etc/letsencrypt/")}
+
+
+def automatico():
+    """Lo lanza el temporizador (cada 30 min): si algún nombre de correo de cualquier dominio ya apunta a este
+    servidor desde Internet y el certificado no lo cubre, lo emite o lo amplía. Así un servidor recién
+    conectado, o un dominio nuevo del panel, queda con HTTPS y autoconfiguración sin pulsar nada.
+
+    Solo pide a Let's Encrypt nombres que ya resuelven aquí (los fallidos cuentan para su límite)."""
+    import ipaddress
+
+    try:
+        ip = servidor()["ip_correo"]
+    except ErrorDns:
+        return {"accion": "nada", "motivo": "sin IP del servidor (Zonas DNS → Ajustes)"}
+    if not ipaddress.ip_address(ip).is_global:
+        return {"accion": "nada", "motivo": f"la IP del correo ({ip}) no es pública todavía"}
+    host, principal = _principal()
+    apuntan = [n for n in _candidatos(host, principal) if _apunta(n, ip)]
+    if host not in apuntan:
+        return {"accion": "nada", "motivo": f"{host} todavía no apunta a {ip} desde Internet"}
+    cubiertos = set(estado().get("nombres") or [])
+    nuevos = [n for n in apuntan if n not in cubiertos]
+    if not nuevos:
+        return {"accion": "nada", "motivo": "el certificado ya cubre todos los nombres que apuntan aquí"}
+    return dict(emitir(), accion="emitido", nuevos=nuevos)

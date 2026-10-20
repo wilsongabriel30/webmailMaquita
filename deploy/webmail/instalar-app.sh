@@ -3,12 +3,12 @@
 # YA montado, reutilizando los bloques 16-17 de instalar.sh. Idempotente: reusa la config
 # existente (SECRET_KEY y credenciales de BD del backend); no regenera secretos.
 #
-# Uso:  sudo bash deploy/webmail/instalar-app.sh <bi|pdf|onlyoffice|sitios|dns|cortafuegos|identidad|actualizar|chat|respaldos>
+# Uso:  sudo bash deploy/webmail/instalar-app.sh <bi|pdf|onlyoffice|sitios|dns|cortafuegos|identidad|actualizar|chat|respaldos|activesync>
 set -e
 GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[1;33m'; NC='\033[0m'
 
 APP="${1:-}"
-case "$APP" in bi|pdf|onlyoffice|sitios|dns|cortafuegos|identidad|actualizar|chat|respaldos) ;; *) echo "uso: $0 <bi|pdf|onlyoffice|sitios|dns|cortafuegos|identidad|actualizar|chat|respaldos>"; exit 2 ;; esac
+case "$APP" in bi|pdf|onlyoffice|sitios|dns|cortafuegos|identidad|actualizar|chat|respaldos|activesync) ;; *) echo "uso: $0 <bi|pdf|onlyoffice|sitios|dns|cortafuegos|identidad|actualizar|chat|respaldos|activesync>"; exit 2 ;; esac
 # Sitios web (WordPress, Joomla, FTP seguro): tiene su propio instalador.
 if [ "$APP" = "sitios" ]; then
     exec bash "$(cd "$(dirname "$0")/../sitios" && pwd)/instalar.sh"
@@ -32,6 +32,10 @@ if [ "$APP" = "actualizar" ]; then
 fi
 if [ "$APP" = "cortafuegos" ]; then
     exec bash "$(cd "$(dirname "$0")/../cortafuegos" && pwd)/instalar.sh"
+fi
+# Exchange ActiveSync (Z-Push): Outlook, iPhone y Android con correo, calendario y contactos.
+if [ "$APP" = "activesync" ]; then
+    exec bash "$(cd "$(dirname "$0")/../z-push" && pwd)/seccion.sh"
 fi
 # Identidad de la institución (Personalización → «Aplicar en todo»).
 if [ "$APP" = "identidad" ]; then

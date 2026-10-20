@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 os.environ["AUTODISCOVER_MAIL_HOST"] = "mail.prueba.test"
+os.environ["AUTODISCOVER_ACTIVESYNC"] = "1"  # como un servidor con Z-Push instalado
 from app import autodiscover_router as ad  # noqa: E402
 
 pytestmark = pytest.mark.asyncio
@@ -168,3 +169,17 @@ async def test_un_dominio_parecido_no_recibe_el_servidor_de_otra_empresa():
             headers={"content-type": "text/xml"},
         )
     assert "mail.empresa.test" not in r.text and "<Server>mail.prueba.test</Server>" in r.text
+
+
+async def test_sin_z_push_no_se_anuncia_activesync(monkeypatch):
+    """Sin Z-Push, el cliente que pide ActiveSync recibe «no disponible» y cae en IMAP/SMTP."""
+    monkeypatch.setenv("AUTODISCOVER_ACTIVESYNC", "0")
+    async with AsyncClient(transport=ASGITransport(app=_app()), base_url="https://t") as c:
+        m = await c.post("/autodiscover/autodiscover.xml", content=XML_MOBILE, headers={"content-type": "text/xml"})
+        j = await c.get("/autodiscover/autodiscover.json/v1.0/ana@prueba.test?Protocol=ActiveSync")
+        v1 = await c.get("/autodiscover/autodiscover.json/v1.0/ana@prueba.test?Protocol=AutodiscoverV1")
+        o = await c.post("/autodiscover/autodiscover.xml", content=XML_OUTLOOK, headers={"content-type": "text/xml"})
+    assert m.status_code == 404 and "Microsoft-Server-ActiveSync" not in m.text
+    assert j.status_code == 404 and j.json()["ErrorCode"] == "ProtocolNotSupported"
+    assert v1.status_code == 200 and v1.json()["Protocol"] == "AutodiscoverV1"
+    assert o.status_code == 200 and "<Type>IMAP</Type>" in o.text
