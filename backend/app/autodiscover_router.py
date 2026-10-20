@@ -202,7 +202,10 @@ async def _json_v2(request: Request, email: str, protocolo: str) -> Response:
         if not activesync_disponible():
             # El nuevo Outlook pasa entonces a IMAP/SMTP (AutodiscoverV1).
             return JSONResponse(
-                {"ErrorCode": "ProtocolNotSupported", "ErrorMessage": "ActiveSync no disponible"},
+                {
+                    "ErrorCode": "ProtocolNotSupported",
+                    "ErrorMessage": "ActiveSync no disponible",
+                },
                 status_code=404,
             )
         return JSONResponse({"Protocol": "ActiveSync", "Url": url_activesync(servidor)})
