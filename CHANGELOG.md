@@ -7,6 +7,19 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.8.1] - 2026-10-20
+
+Correo configurado solo en Outlook, celulares y Thunderbird para cualquier buzón de cualquier dominio del panel.
+
+### Añadido
+- **ActiveSync** (`instalar-app.sh activesync`, Z-Push en contenedor): correo, calendario y contactos en Outlook (clásico, nuevo y de celular), iPhone y Android. Lo instala el primer arranque de la plantilla.
+- **Certificado del correo automático** (`maquita-certificado-correo.timer`, cada 30 min): se emite o amplía en cuanto los nombres de un dominio apuntan al servidor desde Internet.
+
+### Corregido
+- Autoconfiguración de Thunderbird/Evolution: bucle de redirecciones por HTTPS en `autoconfig.<dominio>`.
+- El autodiscover anunciaba ActiveSync aunque no estuviera instalado (los clientes no caían en IMAP).
+- Z-Push respondía 503 en una instalación nueva (faltaba el archivo de versión del estado).
+
 ## [1.8.0] - 2026-10-20
 
 Panel de hospedaje propio (sección **Hospedaje** y **Protección → Cortafuegos**), actualizaciones firmadas, plantilla de VM, chat en la misma máquina y respaldos. Todo lo nuevo de hospedaje es **opcional**: en una instalación existente esas secciones responden «no instalado» hasta que se instalen con `instalar-app.sh <sección>`. Ver `UPGRADING.md`.
