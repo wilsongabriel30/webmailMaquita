@@ -7,6 +7,15 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.8.2] - 2026-10-20
+
+### Añadido
+- **Apps propias por organización** (`docs/APPS-PROPIAS.md`): ruta `/webmail/descargas/` en todos los servidores para publicar el APK de Android de la organización (solo `.apk` y `.json`; lo ausente da 404). Instaladores nuevos y ajuste `50-nginx-descargas-app.sh` para los existentes.
+- La sección de descarga muestra el nombre de la organización (`app_name`) o el `nombre` del manifiesto; la app se reconoce también por el agente genérico `CorreoApp`.
+
+### Corregido
+- «Cerrar sesiones» mostraba la app Android como Chrome.
+
 ## [1.8.1] - 2026-10-20
 
 Correo configurado solo en Outlook, celulares y Thunderbird para cualquier buzón de cualquier dominio del panel.
