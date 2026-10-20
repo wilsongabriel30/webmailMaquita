@@ -20,8 +20,10 @@ if ! command -v docker >/dev/null; then
 fi
 MAIL_HOST="$HOST_CORREO" bash "$AQUI/instalar.sh" "$DOMINIO"
 
-# El sitio del correo trae el include comentado: se activa (una sola vez, con copia previa).
-if grep -q "^\s*# include snippets/maquita-apps/activesync.conf;" "$VHOST"; then
+# El snippet entra por el include de las rutas del Drive (maquita-apps/*.conf) si el sitio lo tiene; si no,
+# se activa el include comentado (una sola vez, con copia previa). Los dos a la vez duplicarían la ruta.
+if ! grep -qE "^\s*include\s+\S*maquita-apps/\*\.conf;" "$VHOST" \
+        && grep -q "^\s*# include snippets/maquita-apps/activesync.conf;" "$VHOST"; then
     cp "$VHOST" "$VHOST.bak.$(date +%Y%m%d%H%M%S)"
     sed -i 's|^\(\s*\)# include snippets/maquita-apps/activesync.conf;|\1include snippets/maquita-apps/activesync.conf;|' "$VHOST"
 fi
@@ -31,7 +33,7 @@ if ! nginx -t >/dev/null 2>&1; then
     exit 1
 fi
 systemctl reload nginx
-sleep 2
+sleep 4  # los trabajadores nuevos de nginx tardan unos segundos (ModSecurity)
 CODIGO=$(curl -sk -o /dev/null -w '%{http_code}' -X OPTIONS "https://${HOST_CORREO}/Microsoft-Server-ActiveSync" --resolve "${HOST_CORREO}:443:127.0.0.1" || echo 000)
 [ "$CODIGO" = "401" ] || { echo -e "${RED}ActiveSync no responde como se espera (HTTP $CODIGO): docker logs zpush${NC}"; exit 1; }
 echo -e "${GREEN}ActiveSync listo${NC} en https://${HOST_CORREO}/Microsoft-Server-ActiveSync (el autodiscover ya lo anuncia)."
