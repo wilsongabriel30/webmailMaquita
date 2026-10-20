@@ -68,6 +68,13 @@ def instalar(meta, bd, bd_usuario, bd_clave, titulo, correo, admin_usuario, admi
     return receta.url(meta) + "/scp/"
 
 
+def cambiar_url(meta):
+    """osTicket guarda su dirección (helpdesk_url, con «/» final) en su tabla de configuración: la usan los
+    enlaces de los correos."""
+    receta.sql(meta, f"UPDATE ost_config SET value = {receta.literal(receta.url(meta) + '/')}, updated = NOW() "
+                     "WHERE namespace = 'core' AND `key` = 'helpdesk_url';")
+
+
 def clave_admin(meta, usuario, nueva):
     """osTicket comprueba la clave con crypt(): acepta el bcrypt de password_hash()."""
     hash_ = receta.hash_clave(nueva)

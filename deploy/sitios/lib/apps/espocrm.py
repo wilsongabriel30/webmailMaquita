@@ -97,6 +97,16 @@ def _ids(usuario):
     return p.pw_uid, p.pw_gid
 
 
+def cambiar_url(meta):
+    """siteUrl de data/config.php (enlaces de correos, portal y webhooks), con su propia orden. No tiene
+    lista de dominios de confianza: responde igual por los alias."""
+    receta.php(meta, "command.php", "config:set", "siteUrl", receta.url(meta))
+    receta.php(meta, "command.php", "clear-cache")
+    # Al reescribirla, EspoCRM la deja con sus permisos por omisión (0664).
+    for archivo in ("config.php", "config-internal.php"):
+        os.chmod(os.path.join(meta["publico"], "data", archivo), 0o600)
+
+
 def clave_admin(meta, usuario, nueva):
     salida = receta.php(meta, "command.php", "set-password", usuario, entrada=nueva + "\n")
     if "has been changed" not in salida:

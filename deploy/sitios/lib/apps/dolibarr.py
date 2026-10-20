@@ -72,7 +72,7 @@ def instalar(meta, bd, bd_usuario, bd_clave, titulo, correo, admin_usuario, admi
     instalacion = os.path.join(htdocs, "install")
 
     def paso(*args):
-        ejecutar(["php", *args], como=meta["usuario"], cwd=instalacion, tiempo=900)
+        ejecutar([receta.cli_php(meta), *args], como=meta["usuario"], cwd=instalacion, tiempo=900)
 
     # step1: conf.php y base de datos (ya creada por el panel: no crear base ni usuario).
     paso("step1.php", "set", "es_ES", htdocs, datos, sitio_url, "", "", "mysqli", "localhost", bd, bd_usuario,
@@ -92,6 +92,16 @@ def instalar(meta, bd, bd_usuario, bd_clave, titulo, correo, admin_usuario, admi
                  f"ON DUPLICATE KEY UPDATE value = '{v}';")
     meta["app_version"] = version
     return sitio_url + "/"
+
+
+def cambiar_url(meta):
+    """Dolibarr guarda su dirección en conf/conf.php ($dolibarr_main_url_root). Sus enlaces son relativos:
+    responde también por los alias sin redirigir."""
+    from . import receta
+
+    nueva = receta.url(meta)
+    receta.reemplazar(meta, "htdocs/conf/conf.php", r"^(\$dolibarr_main_url_root\s*=\s*)'[^']*';",
+                      lambda m: f"{m.group(1)}'{nueva}';")
 
 
 def clave_admin(meta, usuario, nueva):

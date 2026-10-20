@@ -20,6 +20,7 @@ DESCRIPCION = "Foro de debate: temas, respuestas, mensajes privados, moderación
 LICENCIA = "LGPLv3"
 CATEGORIA = "Foros y comunidad"
 VERIFICACION = "GitHub"
+UN_SOLO_DOMINIO = True  # enlaza siempre a su dirección (bburl): www y los alias redirigen al dominio principal
 RAIZ_WEB = ""
 BD = "mariadb"
 
@@ -100,3 +101,15 @@ def clave_admin(meta, usuario, nueva):
 def cron(meta):
     """Tareas programadas de MyBB (limpieza, copias de la base, avisos) sin depender de las visitas."""
     receta.php(meta, "task.php", tiempo=280)
+
+
+def cambiar_url(meta):
+    """MyBB guarda su dirección en mybb_settings (bburl; homeurl si es la del propio sitio) y la copia en
+    inc/settings.php, que se regenera con su propia función. Con HTTPS, las cookies solo viajan cifradas."""
+    nueva = receta.literal(receta.url(meta))
+    propia = receta.literal("^https?://" + re.escape(meta["dominio"]) + "/?$")
+    receta.sql(meta, f"UPDATE mybb_settings SET value = {nueva} WHERE name = 'bburl'; "
+                     f"UPDATE mybb_settings SET value = {nueva} WHERE name = 'homeurl' AND value REGEXP {propia}; "
+                     f"UPDATE mybb_settings SET value = '{1 if meta.get('ssl') else 0}' WHERE name = 'cookiesecureflag';")
+    if "LISTO" not in receta.php(meta, "-r", "define('IN_MYBB', 1); require 'inc/init.php'; rebuild_settings(); echo 'LISTO';"):
+        raise ErrorSitio("MyBB no regeneró inc/settings.php")

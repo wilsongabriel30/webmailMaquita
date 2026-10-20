@@ -221,7 +221,8 @@ def _wp(meta, *args, entrada=None):
     # cwd en la carpeta del sitio: algunas órdenes lanzan subprocesos desde la carpeta actual, y la
     # del que llama (root) no es accesible para el usuario del sitio (posix_spawn: Permission denied).
     return ejecutar([WP_CLI, f"--path={meta['publico']}", *args], como=meta["usuario"], entrada=entrada,
-                    cwd=meta["publico"], env_extra={"WP_CLI_CACHE_DIR": os.path.join(meta["tmp"], ".wp-cli")})
+                    cwd=meta["publico"], env_extra={"WP_CLI_CACHE_DIR": os.path.join(meta["tmp"], ".wp-cli"),
+                                                    "WP_CLI_PHP": f"/usr/bin/php{meta['php']}"})  # misma versión que el sitio
 
 
 def _wordpress(meta, bd, bd_usuario, bd_clave, titulo, correo, admin_usuario, admin_clave):

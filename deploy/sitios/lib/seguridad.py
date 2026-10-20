@@ -30,7 +30,7 @@ def _wp(meta, *args, entrada=None, tiempo=600):
 
 
 def _joomla_cli(meta, *args):
-    return ejecutar(["php", "cli/joomla.php", *args, "--no-interaction"], como=meta["usuario"], cwd=meta["publico"])
+    return ejecutar([f"/usr/bin/php{meta['php']}" if os.path.exists(f"/usr/bin/php{meta['php']}") else "php", "cli/joomla.php", *args, "--no-interaction"], como=meta["usuario"], cwd=meta["publico"])
 
 
 def _url(meta):

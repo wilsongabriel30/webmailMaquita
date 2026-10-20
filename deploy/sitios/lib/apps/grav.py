@@ -79,7 +79,7 @@ echo "LISTO\n";
 
 
 def _ajustes(meta, datos):
-    return ejecutar(["php"], entrada=_AJUSTES, como=meta["usuario"], cwd=meta["publico"],
+    return ejecutar([receta.cli_php(meta)], entrada=_AJUSTES, como=meta["usuario"], cwd=meta["publico"],
                     env_extra={"RECETA_DATOS": json.dumps(datos)})
 
 

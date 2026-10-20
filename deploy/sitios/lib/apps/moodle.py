@@ -17,6 +17,7 @@ from . import descargas
 NOMBRE = "Moodle"
 DESCRIPCION = "Aula virtual: cursos, tareas, evaluaciones y certificados."
 LICENCIA = "GPLv3"
+UN_SOLO_DOMINIO = True  # fuerza su wwwroot: www y los alias redirigen al dominio principal
 RAIZ_WEB = "public"
 BASE = "https://download.moodle.org/download.php/direct"
 
@@ -69,7 +70,7 @@ def instalar(meta, bd, bd_usuario, bd_clave, titulo, correo, admin_usuario, admi
     url = ("https://" if meta.get("ssl") else "http://") + meta["dominio"]
     corto = re.sub(r"[^A-Za-z0-9]", "", titulo)[:20] or "Aula"
     ejecutar([
-        "php", "-d", "max_input_vars=5000", "admin/cli/install.php", "--non-interactive", "--agree-license", "--lang=es",
+        receta.cli_php(meta), "-d", "max_input_vars=5000", "admin/cli/install.php", "--non-interactive", "--agree-license", "--lang=es",
         f"--wwwroot={url}", f"--dataroot={datos}", "--dbtype=mariadb", "--dbhost=localhost",
         f"--dbname={bd}", f"--dbuser={bd_usuario}", f"--dbpass={bd_clave}", "--prefix=mdl_",
         f"--fullname={titulo}", f"--shortname={corto}", f"--adminuser={admin_usuario}",
@@ -80,10 +81,23 @@ def instalar(meta, bd, bd_usuario, bd_clave, titulo, correo, admin_usuario, admi
     return url + "/login/index.php"
 
 
+def cambiar_url(meta):
+    """Moodle guarda una sola dirección ($CFG->wwwroot en config.php) y redirige a ella las peticiones
+    que llegan por otro nombre: los alias llevan al dominio principal."""
+    from . import receta
+
+    nueva = receta.url(meta)
+    receta.reemplazar(meta, "config.php", r"^(\$CFG->wwwroot\s*=\s*)'[^']*';",
+                      lambda m: f"{m.group(1)}'{nueva}';")
+    # Las cachés guardan direcciones completas (temas, menús, archivos).
+    ejecutar([receta.cli_php(meta), "-d", "max_input_vars=5000", "admin/cli/purge_caches.php"], como=meta["usuario"],
+             cwd=meta["publico"], tiempo=300)
+
+
 def clave_admin(meta, usuario, nueva):
-    ejecutar(["php", "-d", "max_input_vars=5000", "admin/cli/reset_password.php", f"--username={usuario}", f"--password={nueva}",
+    ejecutar([receta.cli_php(meta), "-d", "max_input_vars=5000", "admin/cli/reset_password.php", f"--username={usuario}", f"--password={nueva}",
               "--ignore-password-policy"], como=meta["usuario"], cwd=meta["publico"])
 
 
 def cron(meta):
-    ejecutar(["php", "-d", "max_input_vars=5000", "admin/cli/cron.php", "--keep-alive=0"], como=meta["usuario"], cwd=meta["publico"], tiempo=280)
+    ejecutar([receta.cli_php(meta), "-d", "max_input_vars=5000", "admin/cli/cron.php", "--keep-alive=0"], como=meta["usuario"], cwd=meta["publico"], tiempo=280)

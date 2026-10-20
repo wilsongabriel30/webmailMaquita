@@ -74,6 +74,7 @@ from app.sitios.dominios import router as sitios_dominios_router
 from app.sitios.tareas import router as sitios_tareas_router
 from app.sitios.paquete import router as sitios_paquete_router
 from app.sitios.avanzado import router as sitios_avanzado_router
+from app.sitios.php import router as sitios_php_router
 from app.sitios.propias import router as sitios_propias_router
 from app.sitios.router import router as sitios_router
 from app.dns.router import router as dns_router
@@ -250,6 +251,7 @@ app.include_router(sitios_dominios_router)
 app.include_router(sitios_tareas_router)
 app.include_router(sitios_paquete_router)
 app.include_router(sitios_avanzado_router)
+app.include_router(sitios_php_router)
 app.include_router(dns_router)
 app.include_router(dominio_nuevo_router)
 app.include_router(cortafuegos_router)

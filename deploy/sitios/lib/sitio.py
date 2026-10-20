@@ -84,11 +84,36 @@ def recargar_nginx():
             if intento == 2:
                 raise
             time.sleep(2)
+    antes = _trabajadores_nginx()
     ejecutar(["systemctl", "reload", "nginx"])
-    # La recarga es gradual: un instante para que los procesos nuevos atiendan ya con la configuración nueva.
-    import time
+    # La recarga es gradual (con ModSecurity, los procesos nuevos tardan unos segundos en cargar las reglas):
+    # se espera a que estén todos los trabajadores nuevos, para que lo siguiente ya vea la configuración nueva.
+    for _ in range(60):
+        time.sleep(0.25)
+        ahora = _trabajadores_nginx()
+        if antes and len(ahora - antes) >= len(antes):
+            break
+    time.sleep(0.5)
 
-    time.sleep(1)
+
+def _trabajadores_nginx():
+    try:
+        with open("/run/nginx.pid") as f:
+            maestro = f.read().strip()
+        with open(f"/proc/{maestro}/task/{maestro}/children") as f:
+            hijos = f.read().split()
+    except OSError:
+        return set()
+    trabajadores = set()
+    for pid in hijos:
+        try:
+            with open(f"/proc/{pid}/cmdline", "rb") as f:
+                titulo = f.read()
+            if b"worker process" in titulo and b"shutting down" not in titulo:  # no los viejos que se van
+                trabajadores.add(pid)
+        except OSError:
+            pass
+    return trabajadores
 
 
 def recargar_php(meta):

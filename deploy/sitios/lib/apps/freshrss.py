@@ -55,3 +55,11 @@ def clave_admin(meta, usuario, nueva):
 def cron(meta):
     """Actualiza las fuentes de todos los usuarios (FreshRSS respeta el intervalo de cada fuente)."""
     receta.php(meta, "app/actualize_script.php", tiempo=280)
+
+
+def cambiar_url(meta):
+    """FreshRSS guarda su dirección (base_url de data/config.php): se cambia con su propia línea de órdenes."""
+    _cli(meta, "reconfigure", f"--base-url={receta.url(meta)}")
+    # reconfigure reescribe data/config.php con los permisos por omisión: se dejan como al instalar.
+    receta.permisos(meta)
+    os.chmod(os.path.join(meta["publico"], "data", "config.php"), 0o640)

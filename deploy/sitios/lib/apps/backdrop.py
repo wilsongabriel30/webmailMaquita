@@ -85,7 +85,7 @@ echo "LISTO\n";
 
 
 def _php(meta, script, datos):
-    return ejecutar(["php", "-d", "memory_limit=512M", "-d", "max_execution_time=0"], entrada=script,
+    return ejecutar([receta.cli_php(meta), "-d", "memory_limit=512M", "-d", "max_execution_time=0"], entrada=script,
                     como=meta["usuario"], cwd=meta["publico"], tiempo=1200,
                     env_extra={"RECETA_DATOS": json.dumps(datos)})
 

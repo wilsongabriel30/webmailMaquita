@@ -137,10 +137,16 @@ def privada(meta, nombre):
     return ruta
 
 
+def cli_php(meta):
+    """PHP de línea de órdenes de la misma versión que usa el sitio («Avanzado» → PHP → versión)."""
+    ruta = f"/usr/bin/php{meta.get('php') or ''}"
+    return ruta if os.path.exists(ruta) else "php"
+
+
 def php(meta, *args, cwd=None, tiempo=900, entrada=None, env_extra=None):
     """PHP de la línea de órdenes con el usuario del sitio (desde su carpeta pública por defecto). Las claves se
     pasan por `env_extra` o `entrada`, nunca como argumento (se verían en la lista de procesos)."""
-    return ejecutar(["php", "-d", "memory_limit=512M", *args], como=meta["usuario"], cwd=cwd or meta["publico"],
+    return ejecutar([cli_php(meta), "-d", "memory_limit=512M", *args], como=meta["usuario"], cwd=cwd or meta["publico"],
                     tiempo=tiempo, entrada=entrada, env_extra=env_extra)
 
 

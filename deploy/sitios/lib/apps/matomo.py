@@ -102,6 +102,25 @@ def instalar(meta, bd, bd_usuario, bd_clave, titulo, correo, admin_usuario, admi
     return sitio_url + "/"
 
 
+def cambiar_url(meta):
+    """Matomo guarda los nombres de confianza (trusted_hosts) y force_ssl en config/config.ini.php, su propia
+    dirección (piwikUrl) en matomo_option y la del primer sitio medido (él mismo) en matomo_site."""
+    import json
+
+    from . import receta
+
+    nueva = receta.url(meta)
+    # force_ssl sin HTTPS daría un bucle de redirecciones: se pone a 0 al volver a http.
+    ejecutar([receta.cli_php(meta), "console", "config:set", "General.trusted_hosts=" + json.dumps(receta.nombres(meta)),
+              f"General.force_ssl={1 if meta.get('ssl') else 0}"], como=meta["usuario"], cwd=meta["publico"])
+    receta.sql(meta, f"UPDATE matomo_option SET option_value = {receta.literal(nueva + '/')} "
+                     "WHERE option_name = 'piwikUrl';")
+    # Solo si sigue siendo la dirección que puso la instalación (la persona puede haberla cambiado).
+    receta.sql(meta, f"UPDATE matomo_site SET main_url = {receta.literal(nueva)} WHERE idsite = 1 AND main_url IN "
+                     f"({receta.literal('http://' + meta['dominio'])}, {receta.literal('https://' + meta['dominio'])});")
+    ejecutar([receta.cli_php(meta), "console", "cache:clear"], como=meta["usuario"], cwd=meta["publico"])
+
+
 def clave_admin(meta, usuario, nueva):
     """Matomo guarda password_hash(md5(clave)); se actualiza en su tabla de usuarios."""
     r = subprocess.run(["php", "-r", "echo password_hash(md5(stream_get_contents(STDIN)), PASSWORD_BCRYPT);"],
@@ -117,4 +136,4 @@ def clave_admin(meta, usuario, nueva):
 def cron(meta):
     """Archivado de informes (Matomo lo omite solo si se hizo hace poco)."""
     url = ("https://" if meta.get("ssl") else "http://") + meta["dominio"]
-    ejecutar(["php", "console", "core:archive", f"--url={url}/"], como=meta["usuario"], cwd=meta["publico"], tiempo=280)
+    ejecutar([receta.cli_php(meta), "console", "core:archive", f"--url={url}/"], como=meta["usuario"], cwd=meta["publico"], tiempo=280)

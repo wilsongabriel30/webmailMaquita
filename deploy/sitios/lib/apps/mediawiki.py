@@ -99,6 +99,13 @@ def _archivo_privado(meta, contenido, sufijo=""):
     return ruta
 
 
+def _servidor(meta):
+    """Dirección del sitio: la web la toma de cada petición (HTTP, HTTPS y alias); la línea de órdenes (cron,
+    tareas pendientes, correos) usa la dirección principal en vez de «http://localhost»."""
+    return (f"$wgCanonicalServer = {_texto_php(receta.url(meta))};\n"
+            "$wgServer = PHP_SAPI === 'cli' ? $wgCanonicalServer : WebRequest::detectServer();  # HTTP, HTTPS y alias")
+
+
 def instalar(meta, bd, bd_usuario, bd_clave, titulo, correo, admin_usuario, admin_clave):
     version, rama = _ultima()
     with tempfile.TemporaryDirectory(dir=meta["tmp"]) as tmp:
@@ -127,7 +134,7 @@ def instalar(meta, bd, bd_usuario, bd_clave, titulo, correo, admin_usuario, admi
     with open(os.path.join(meta["publico"], "LocalSettings.php"), "a") as f:
         f.write(f"""
 # Ajustes del panel de hospedaje.
-$wgServer = WebRequest::detectServer();  # funciona con HTTP, HTTPS y los alias del sitio
+{_servidor(meta)}
 $wgArticlePath = "/wiki/$1";
 $wgLocaltimezone = "America/Guayaquil";
 $wgEmergencyContact = $wgPasswordSender = {_texto_php(correo)};
@@ -146,7 +153,7 @@ $wgGroupPermissions['*']['createaccount'] = false;
 def clave_admin(meta, usuario, nueva):
     ruta = _archivo_privado(meta, _CLAVE, ".php")
     try:
-        salida = ejecutar(["php", ruta], como=meta["usuario"], cwd=meta["publico"],
+        salida = ejecutar([receta.cli_php(meta), ruta], como=meta["usuario"], cwd=meta["publico"],
                           env_extra={"RECETA_DATOS": json.dumps({"usuario": usuario, "clave": nueva}),
                                      "MW_INSTALL_PATH": meta["publico"]})
     finally:
@@ -157,3 +164,13 @@ def clave_admin(meta, usuario, nueva):
 
 def cron(meta):
     receta.php(meta, "maintenance/run.php", "runJobs", "--maxtime=240", "--memory-limit=256M", tiempo=280)
+
+
+def cambiar_url(meta):
+    """La dirección del instalador ($wgServer al principio de LocalSettings.php) y la de los ajustes del panel."""
+    receta.reemplazar(meta, "LocalSettings.php", r"^\$wgServer = \"https?://[^\"]*\";$",
+                      f"$wgServer = \"{receta.url(meta)}\";", obligatorio=False)
+    # Sitios instalados antes solo tienen la línea de detectServer(); se cambia por las dos de _servidor().
+    receta.reemplazar(meta, "LocalSettings.php",
+                      r"^(?:\$wgCanonicalServer = '[^'\n]*';\n)?\$wgServer = [^\n]*WebRequest::detectServer\(\);[^\n]*$",
+                      _servidor(meta))

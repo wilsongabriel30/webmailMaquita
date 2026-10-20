@@ -79,7 +79,7 @@ def instalar(meta, bd, bd_usuario, bd_clave, titulo, correo, admin_usuario, admi
 
 def clave_admin(meta, usuario, nueva):
     """Piwigo guarda el hash de phpass (su propia clase); se calcula con ella."""
-    hash_ = ejecutar(["php", "-r", "require 'include/passwordhash.class.php'; $h = new PasswordHash(13, true); "
+    hash_ = ejecutar([receta.cli_php(meta), "-r", "require 'include/passwordhash.class.php'; $h = new PasswordHash(13, true); "
                       "echo $h->HashPassword(stream_get_contents(STDIN));"],
                      entrada=nueva, como=meta["usuario"], cwd=meta["publico"])
     if not hash_.startswith("$P$"):

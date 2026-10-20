@@ -31,11 +31,18 @@ SUGERIDOS = ("wp-config.php", "configuration.php", ".env", "config.php", "config
 # Directivas que no tienen sentido en las reglas de un sitio o que lo sacarían de su encierro.
 PROHIBIDAS = re.compile(r"load_module|include|user|worker_\w+|pid|env|lua_\w+|\w+_by_lua\w*|perl\w*|"
                         r"ssl_certificate\w*|access_by_\w+|js_\w+")
-PHP_AJUSTES = {  # nombre → (tipo, mínimo, máximo)
+PHP_AJUSTES = {  # nombre → (tipo, mínimo, máximo); «b» sí/no, «z» zona horaria, «o» lista de opciones
     "memory_limit": ("M", 64, 2048), "upload_max_filesize": ("M", 2, 1024), "post_max_size": ("M", 2, 1024),
     "max_execution_time": ("s", 30, 900), "max_input_time": ("s", 30, 900), "max_input_vars": ("n", 1000, 50000),
-    "display_errors": ("b", 0, 1),
+    "max_file_uploads": ("n", 1, 200), "session.gc_maxlifetime": ("n", 300, 604800),
+    "default_socket_timeout": ("n", 10, 600), "output_buffering": ("n", 0, 65536),
+    "opcache.revalidate_freq": ("n", 0, 3600),
+    "display_errors": ("b", 0, 1), "allow_url_fopen": ("b", 0, 1), "short_open_tag": ("b", 0, 1),
+    "opcache.enable": ("b", 0, 1), "permitir_ejecucion": ("b", 0, 1),
+    "date.timezone": ("z", None, None), "error_reporting": ("o", None, None),
 }
+# error_reporting en el pool tiene que ser numérico (las constantes E_* no se evalúan ahí).
+NIVELES_ERRORES = {"todos": "32767", "produccion": "22527", "solo_errores": "4437"}
 
 
 def quitar(dominio):
@@ -171,14 +178,44 @@ def _ajustes_php(datos):
         if nombre not in PHP_AJUSTES or valor in (None, ""):
             continue
         tipo, minimo, maximo = PHP_AJUSTES[nombre]
+        valor = str(valor).strip()
+        if tipo == "z":
+            if not re.fullmatch(r"[A-Za-z]+(?:/[A-Za-z0-9_+-]+){0,2}|UTC", valor) or not os.path.isfile(f"/usr/share/zoneinfo/{valor}"):
+                raise ErrorSitio("zona horaria no válida (p. ej. America/Guayaquil)")
+            limpio[nombre] = valor
+            continue
+        if tipo == "o":
+            if valor not in NIVELES_ERRORES:
+                raise ErrorSitio("nivel de errores no válido")
+            limpio[nombre] = valor
+            continue
         try:
-            n = int(str(valor).rstrip("Mm"))
+            n = int(valor.rstrip("Mm"))
         except ValueError:
             raise ErrorSitio(f"valor no válido para {nombre}")
         if not minimo <= n <= maximo:
             raise ErrorSitio(f"{nombre} debe estar entre {minimo} y {maximo}")
         limpio[nombre] = f"{n}M" if tipo == "M" else ("on" if n else "off") if tipo == "b" else str(n)
     return limpio
+
+
+def lineas_pool(ajustes):
+    """Líneas del pool de PHP-FPM para los ajustes ya validados (las usa plantillas.pool)."""
+    lineas = {}
+    for nombre, valor in (ajustes or {}).items():
+        tipo = PHP_AJUSTES.get(nombre, ("",))[0]
+        if nombre == "permitir_ejecucion":
+            # Con «sí», PHP puede lanzar programas del sistema (algunas aplicaciones lo piden para miniaturas o
+            # tareas); siguen corriendo con el usuario del sitio, pero ya sin el límite de open_basedir.
+            if valor == "on":
+                lineas["disable_functions"] = "php_admin_value[disable_functions] = pcntl_exec"
+        elif nombre == "error_reporting":
+            lineas[nombre] = f"php_admin_value[error_reporting] = {NIVELES_ERRORES.get(valor, '22527')}"
+        elif tipo == "b":
+            lineas[nombre] = f"php_admin_flag[{nombre}] = {valor}"
+        else:
+            lineas[nombre] = f"php_admin_value[{nombre}] = {valor}"
+    return lineas
 
 
 def guardar_php(dominio, datos):
@@ -271,7 +308,9 @@ def ver(dominio):
     extra = open(ruta_extra(dominio)).read() if os.path.exists(ruta_extra(dominio)) else ""
     sugeridos = [s for s in SUGERIDOS if os.path.isfile(os.path.join(meta["publico"], s))]
     return {"dominio": dominio, "vhost": vhost, "nginx_propias": extra, "php": meta.get("php_ajustes", {}),
-            "php_limites": {k: [v[1], v[2]] for k, v in PHP_AJUSTES.items()}, "archivos": sugeridos,
+            "php_limites": {k: [v[1], v[2]] for k, v in PHP_AJUSTES.items() if v[0] not in ("z", "o")},
+            "php_tipos": {k: v[0] for k, v in PHP_AJUSTES.items()}, "php_version": meta.get("php"),
+            "archivos": sugeridos,
             "versiones": list(reversed(_indice(dominio)))}
 
 

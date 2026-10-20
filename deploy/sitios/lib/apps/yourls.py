@@ -20,6 +20,7 @@ DESCRIPCION = "Acortador de enlaces propio (su-dominio/abc) con estadísticas de
 LICENCIA = "MIT"
 CATEGORIA = "Utilidades"
 VERIFICACION = "HTTPS"
+UN_SOLO_DOMINIO = True  # su cookie es del dominio de YOURLS_SITE: www y los alias redirigen al principal
 RAIZ_WEB = ""
 
 # Toda ruta sin punto que no sea un archivo o carpeta real es un enlace corto (también «abc+» para sus
@@ -81,6 +82,12 @@ def instalar(meta, bd, bd_usuario, bd_clave, titulo, correo, admin_usuario, admi
         raise ErrorSitio(f"el instalador de YOURLS no terminó (HTTP {codigo})")
     receta.quitar(meta, "admin/install.php")
     return sitio_url + "/admin/"
+
+
+def cambiar_url(meta):
+    """YOURLS_SITE en user/config.php: base de los enlaces cortos y dominio de su cookie de sesión."""
+    receta.reemplazar(meta, "user/config.php", r"^define\( 'YOURLS_SITE', '[^']*' \);$",
+                      f"define( 'YOURLS_SITE', {_cadena(receta.url(meta))} );")
 
 
 def clave_admin(meta, usuario, nueva):

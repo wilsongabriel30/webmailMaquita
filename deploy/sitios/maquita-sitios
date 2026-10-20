@@ -38,6 +38,12 @@ Uso:
   maquita-sitios avanzado-ver <dominio> <ruta base64url>     un archivo de texto de la carpeta pública
   maquita-sitios avanzado-archivo <dominio> <ruta base64url> <subida .txt>   guardarlo (copia previa)
   maquita-sitios avanzado-restaurar <dominio> <versión>
+  maquita-sitios php-estado [dominio]     versiones de PHP instaladas, disponibles y en uso
+  maquita-sitios php-repositorio          activa el repositorio de versiones de PHP (packages.sury.org)
+  maquita-sitios php-instalar <versión>   instala esa versión de PHP con las extensiones de serie
+  maquita-sitios php-extensiones <versión>
+  maquita-sitios php-extension <versión> <extensión> <instalar|quitar>
+  maquita-sitios php-version <dominio> <versión>   el sitio pasa a esa versión de PHP
   maquita-sitios terminar <dominio>       cierra el instalador web de una aplicación instalada con asistente
   maquita-sitios entrar <dominio>         enlace de un solo uso al escritorio de WordPress
   maquita-sitios clave-admin <dominio>    contraseña nueva del administrador de la aplicación
@@ -115,6 +121,8 @@ def despachar(args):
         return paquete.instalar(v.dominio(args[1]), args[2], args[3] == "con-bd", args[4] if len(args) == 5 else None)
     if args[:1] and args[0].startswith("avanzado"):
         return _avanzado(args)
+    if args[:1] and args[0].startswith("php-"):
+        return _php(args)
     if len(args) == 2 and args[0] == "terminar":
         return aplicaciones.terminar(v.dominio(args[1]))
     if len(args) == 2 and args[0] in ("entrar", "clave-admin", "revisar", "actualizar"):
@@ -193,6 +201,29 @@ def _avanzado(args):
         return avanzado.guardar_archivo(v.dominio(args[1]), ruta(args[2]), args[3])
     if len(args) == 3 and args[0] == "avanzado-restaurar":
         return avanzado.restaurar(v.dominio(args[1]), args[2])
+    raise ErrorSitio("orden o argumentos no permitidos")
+
+
+def _php(args):
+    import php_versiones as pv
+
+    def version(texto):
+        if not pv.RE_VERSION.match(texto):
+            raise ErrorSitio("versión de PHP no válida")
+        return texto
+
+    if len(args) in (1, 2) and args[0] == "php-estado":
+        return pv.estado(v.dominio(args[1]) if len(args) == 2 else None)
+    if args == ["php-repositorio"]:
+        return pv.activar_repositorio()
+    if len(args) == 2 and args[0] == "php-instalar":
+        return pv.instalar_version(version(args[1]))
+    if len(args) == 2 and args[0] == "php-extensiones":
+        return pv.extensiones(version(args[1]))
+    if len(args) == 4 and args[0] == "php-extension" and args[3] in ("instalar", "quitar"):
+        return (pv.instalar_extension if args[3] == "instalar" else pv.quitar_extension)(version(args[1]), args[2])
+    if len(args) == 3 and args[0] == "php-version":
+        return pv.cambiar_version(v.dominio(args[1]), version(args[2]))
     raise ErrorSitio("orden o argumentos no permitidos")
 
 

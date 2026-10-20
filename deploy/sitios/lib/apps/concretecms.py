@@ -49,7 +49,7 @@ return 0;  // c5:exec usa lo que devuelve el script como código de salida
 
 
 def _concrete(meta, *args, datos=None):
-    return ejecutar(["php", "-d", "memory_limit=512M", "concrete/bin/concrete", *args], como=meta["usuario"],
+    return ejecutar([receta.cli_php(meta), "-d", "memory_limit=512M", "concrete/bin/concrete", *args], como=meta["usuario"],
                     cwd=meta["publico"], tiempo=1200, env_extra={"RECETA_DATOS": json.dumps(datos or {})})
 
 

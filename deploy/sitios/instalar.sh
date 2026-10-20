@@ -24,7 +24,16 @@ apt-get install -y -qq php-fpm php-cli php-mysql php-xml php-mbstring php-curl p
     python3-venv git gpg >/dev/null
 # Aplicaciones propias en Node.js: el del sistema si no hay uno (el webmail suele traer Node 20 o posterior).
 command -v node >/dev/null || apt-get install -y -qq nodejs npm >/dev/null
-PHP_VER="$(ls /etc/php | sort -V | tail -1)"
+# Versión de serie: la de Debian al instalar por primera vez. Se guarda para que instalar otra versión desde
+# «Avanzado» → PHP (repositorio de versiones) no mueva las herramientas de bases ni los sitios nuevos.
+install -d -m 755 /etc/maquita-sitios
+if [ -s /etc/maquita-sitios/php-base ] && [ -d "/etc/php/$(cat /etc/maquita-sitios/php-base)/fpm" ]; then
+    PHP_VER="$(cat /etc/maquita-sitios/php-base)"
+else
+    PHP_VER="$(dpkg-query -W -f '${Depends}' php-fpm 2>/dev/null | grep -o 'php[0-9]\.[0-9]-fpm' | head -1 | sed 's/^php//;s/-fpm$//')"
+    [ -n "$PHP_VER" ] || PHP_VER="$(ls /etc/php | sort -V | tail -1)"
+    echo "$PHP_VER" > /etc/maquita-sitios/php-base
+fi
 systemctl enable mariadb "php${PHP_VER}-fpm" >/dev/null 2>&1
 systemctl start mariadb
 # Cada sitio tiene su propio pool. El «www» que trae Debian no lo usa nadie, pero PHP-FPM no

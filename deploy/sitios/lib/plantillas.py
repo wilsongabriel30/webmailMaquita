@@ -289,9 +289,10 @@ def pool(meta, socket):
         tmp=meta["tmp"],
     )
     # Ajustes de «Avanzado» (ya validados por avanzado.py): reemplazan los valores por defecto.
-    for nombre, valor in (meta.get("php_ajustes") or {}).items():
-        linea = f"php_admin_flag[{nombre}] = {valor}" if nombre == "display_errors" else f"php_admin_value[{nombre}] = {valor}"
-        texto, n = re.subn(rf"^php_admin_(?:value|flag)\[{nombre}\] = .*$", linea, texto, flags=re.M)
+    import avanzado
+
+    for nombre, linea in avanzado.lineas_pool(meta.get("php_ajustes")).items():
+        texto, n = re.subn(rf"^php_admin_(?:value|flag)\[{re.escape(nombre)}\] = .*$", lambda m: linea, texto, flags=re.M)
         if not n:
             texto += linea + "\n"
     return texto

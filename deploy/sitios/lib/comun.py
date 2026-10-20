@@ -104,8 +104,21 @@ def todos_los_meta():
     return salida
 
 
+PHP_BASE = "/etc/maquita-sitios/php-base"
+
+
 def version_php():
-    """Versión de PHP-FPM instalada (p. ej. «8.4») o None."""
+    """Versión de PHP de serie (p. ej. «8.4») o None: la de los sitios nuevos y de las herramientas de bases.
+
+    Se fija al instalar (instalar.sh la escribe en PHP_BASE): instalar otra versión desde «Avanzado» no cambia
+    la de los sitios existentes ni la de los nuevos."""
+    try:
+        with open(PHP_BASE) as f:
+            base = f.read().strip()
+        if os.path.isdir(f"/etc/php/{base}/fpm/pool.d"):
+            return base
+    except OSError:
+        pass
     versiones = sorted(
         (os.path.basename(os.path.dirname(os.path.dirname(p))) for p in glob.glob("/etc/php/*/fpm/pool.d")),
         key=lambda v: [int(x) for x in v.split(".")],

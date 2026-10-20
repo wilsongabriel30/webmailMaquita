@@ -22,6 +22,7 @@ DESCRIPCION = "Tienda en línea: catálogo de productos, carrito, pagos, envíos
 LICENCIA = "GPLv3"
 CATEGORIA = "Tienda en línea"
 VERIFICACION = "GitHub"
+UN_SOLO_DOMINIO = True  # enlaces y sesión van al dominio de HTTP_SERVER: www y alias redirigen al principal
 RAIZ_WEB = ""
 
 # system/ solo tiene código PHP; las plantillas twig y la tarea programada no se sirven.
@@ -89,6 +90,18 @@ def instalar(meta, bd, bd_usuario, bd_clave, titulo, correo, admin_usuario, admi
                          f"WHERE store_id = 0 AND `key` = {receta.literal(clave)};")
     meta["opencart_admin"] = carpeta
     return f"{sitio_url}/{carpeta}/"
+
+
+def cambiar_url(meta):
+    """HTTP_SERVER de config.php (tienda) y HTTP_SERVER/HTTP_CATALOG de la administración; se conserva la
+    ruta (/admin_xxxxxx/). La base no guarda la dirección de la tienda principal."""
+    m = re.search(r"/(admin_[0-9a-f]+)/?$", meta.get("app_admin") or "")
+    carpeta = m.group(1) if m else meta.get("opencart_admin")
+    if not carpeta or not os.path.isfile(os.path.join(meta["publico"], carpeta, "config.php")):
+        raise ErrorSitio("OpenCart: no se encontró la carpeta de administración")
+    patron = r"^(define\('HTTP_(?:SERVER|CATALOG)', ')https?://[^/']+(/[^']*'\);)$"
+    for archivo in ("config.php", f"{carpeta}/config.php"):
+        receta.reemplazar(meta, archivo, patron, lambda c: c.group(1) + receta.url(meta) + c.group(2))
 
 
 def clave_admin(meta, usuario, nueva):

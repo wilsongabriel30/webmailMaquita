@@ -124,3 +124,15 @@ def clave_admin(meta, usuario, nueva):
 
 def cron(meta):
     _cli(meta, "cron:run")
+
+
+def cambiar_url(meta):
+    """phpBB guarda protocolo, nombre y puerto del servidor y las cookies seguras en phpbb_config. El dominio
+    de las cookies queda vacío (solo el nombre por el que se entra) para poder iniciar sesión por los alias:
+    phpBB arma los enlaces con el nombre de cada petición (force_server_vars desactivado)."""
+    ssl = bool(meta.get("ssl"))
+    for clave, valor in (("server_protocol", "https://" if ssl else "http://"), ("server_name", meta["dominio"]),
+                         ("server_port", "443" if ssl else "80"), ("cookie_secure", "1" if ssl else "0"),
+                         ("cookie_domain", "")):
+        _cli(meta, "config:set", clave, valor)
+    _cli(meta, "cache:purge")

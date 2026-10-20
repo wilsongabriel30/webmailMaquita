@@ -85,7 +85,7 @@ def _fuente():
 
 def _occ(meta, *args, env=None, tiempo=900):
     # APCu es la caché local: la línea de órdenes también tiene que poder usarla.
-    return ejecutar(["php", "-d", "memory_limit=512M", "-d", "apc.enable_cli=1", "occ", "--no-interaction", *args],
+    return ejecutar([receta.cli_php(meta), "-d", "memory_limit=512M", "-d", "apc.enable_cli=1", "occ", "--no-interaction", *args],
                     como=meta["usuario"], cwd=meta["publico"], tiempo=tiempo, env_extra=env)
 
 
@@ -134,4 +134,4 @@ def clave_admin(meta, usuario, nueva):
 
 
 def cron(meta):
-    ejecutar(["php", "-d", "apc.enable_cli=1", "-f", "cron.php"], como=meta["usuario"], cwd=meta["publico"], tiempo=280)
+    ejecutar([receta.cli_php(meta), "-d", "apc.enable_cli=1", "-f", "cron.php"], como=meta["usuario"], cwd=meta["publico"], tiempo=280)

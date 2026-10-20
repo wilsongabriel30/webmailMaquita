@@ -11,6 +11,7 @@ var/ y src/ quedan fuera de la web. Reglas de nginx de su guía de instalación.
 import base64
 import json
 import os
+import re
 
 from comun import ErrorSitio, ejecutar
 
@@ -111,3 +112,17 @@ def clave_admin(meta, usuario, nueva):
     """Chamilo guarda password_hash() (bcrypt) en user.password; la sal ya no se usa con bcrypt."""
     receta.sql(meta, f"UPDATE `user` SET password = {receta.literal(receta.hash_clave(nueva))} "
                      f"WHERE username = {receta.literal(usuario)};")
+
+
+def cambiar_url(meta):
+    """Chamilo guarda su dirección en access_url (la usan la línea de órdenes y los correos programados; la
+    web la toma de cada petición) y, como dirección de la institución, en settings.institution_url y en
+    SOFTWARE_URL de .env: estas dos solo se cambian si siguen siendo la del propio sitio."""
+    nueva = receta.url(meta)
+    propia = r"https?://" + re.escape(meta["dominio"]) + "/?"
+    receta.sql(meta, f"UPDATE access_url SET url = {receta.literal(nueva + '/')} WHERE id = 1; "
+                     f"UPDATE settings SET selected_value = {receta.literal(nueva)} WHERE variable = 'institution_url' "
+                     f"AND selected_value REGEXP {receta.literal('^' + propia + '$')};")
+    receta.reemplazar(meta, ".env", r"^SOFTWARE_URL='%s'$" % propia, f"SOFTWARE_URL='{nueva}'", obligatorio=False)
+    # Los ajustes quedan en la caché de Symfony: se rehace como al instalar.
+    receta.php(meta, "-d", "memory_limit=1G", "bin/console", "cache:clear", "--env=prod", "--no-interaction")

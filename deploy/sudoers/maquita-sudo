@@ -375,6 +375,18 @@ def validar_sitios(args):
         return args
     if len(args) == 3 and args[0] == "avanzado-restaurar" and dom(args[1]) and re.fullmatch(r"\d{8}-\d{6}-\d{3}", args[2]):
         return args
+    version_php = lambda a: bool(re.fullmatch(r"[578]\.[0-9]", a))  # noqa: E731
+    if args[:1] == ["php-estado"] and (len(args) == 1 or (len(args) == 2 and dom(args[1]))):
+        return args
+    if args == ["php-repositorio"]:
+        return args
+    if len(args) == 2 and args[0] in ("php-instalar", "php-extensiones") and version_php(args[1]):
+        return args
+    if (len(args) == 4 and args[0] == "php-extension" and version_php(args[1]) and re.fullmatch(r"[a-z0-9]{2,20}", args[2])
+            and args[3] in ("instalar", "quitar")):
+        return args
+    if len(args) == 3 and args[0] == "php-version" and dom(args[1]) and version_php(args[2]):
+        return args
     if len(args) == 2 and args[0] == "tareas" and dom(args[1]):
         return args
     if len(args) == 3 and args[0] == "tareas-guardar" and dom(args[1]) and _RE_B64URL_MUY_LARGO.match(args[2]):

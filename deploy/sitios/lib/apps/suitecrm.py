@@ -83,6 +83,15 @@ def instalar(meta, bd, bd_usuario, bd_clave, titulo, correo, admin_usuario, admi
     return sitio_url + "/"
 
 
+def cambiar_url(meta):
+    """site_url de public/legacy/config.php (enlaces de correos, campañas y del propio SuiteCRM 7); .env
+    no guarda la dirección y no hay lista de hosts de confianza (TRUSTED_HOSTS sin definir)."""
+    receta.reemplazar(meta, "public/legacy/config.php", r"^(\s*'site_url' => )'[^']*',$",
+                      lambda c: f"{c.group(1)}'{receta.url(meta)}',")
+    _consola(meta, "cache:clear")
+    receta.permisos(meta)
+
+
 def clave_admin(meta, usuario, nueva):
     """SuiteCRM guarda password_hash(md5(clave)) en users.user_hash."""
     if not re.fullmatch(r"[A-Za-z0-9_]+", usuario):

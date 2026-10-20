@@ -516,3 +516,14 @@ def test_sitios_configuracion_avanzada():
                  ("avanzado-restaurar", "ejemplo.org", "../x"), ("avanzado-php", "ejemplo.org", "x;y")):
         with pytest.raises(ms.Rechazo):
             _ok("maquita-admin", "maquita-sitios", *malo)
+
+
+def test_sitios_versiones_de_php():
+    for args in (("php-estado",), ("php-estado", "ejemplo.org"), ("php-repositorio",), ("php-instalar", "8.3"),
+                 ("php-extensiones", "8.4"), ("php-extension", "8.4", "redis", "instalar"),
+                 ("php-extension", "8.2", "xdebug", "quitar"), ("php-version", "ejemplo.org", "8.2")):
+        assert _ok("maquita-admin", "maquita-sitios", *args)
+    for malo in (("php-instalar", "8.4; rm"), ("php-instalar", "10.1"), ("php-extension", "8.4", "redis;x", "instalar"),
+                 ("php-extension", "8.4", "redis", "purgar"), ("php-version", "ejemplo.org", "../8"),
+                 ("php-repositorio", "otro")):
+        _no("maquita-admin", "maquita-sitios", *malo)

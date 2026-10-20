@@ -74,6 +74,15 @@ def instalar(meta, bd, bd_usuario, bd_clave, titulo, correo, admin_usuario, admi
     return sitio_url + "/s/login"
 
 
+def cambiar_url(meta):
+    """site_url de config/local.php (enlaces de correos, formularios y seguimiento); se aplica al limpiar
+    su caché."""
+    receta.reemplazar(meta, "config/local.php", r"^(\s*'site_url' => )'[^']*',$",
+                      lambda c: c.group(1) + _cadena(receta.url(meta)) + ",")
+    _consola(meta, "cache:clear")
+    receta.permisos(meta)
+
+
 def clave_admin(meta, usuario, nueva):
     """Mautic guarda bcrypt en su tabla de usuarios."""
     if not re.fullmatch(r"[A-Za-z0-9_]+", usuario):

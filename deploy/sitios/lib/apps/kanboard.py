@@ -76,6 +76,13 @@ def instalar(meta, bd, bd_usuario, bd_clave, titulo, correo, admin_usuario, admi
     return receta.url(meta) + "/?controller=AuthController&action=login"
 
 
+def cambiar_url(meta):
+    """Kanboard guarda su dirección (application_url, con «/» final) en la tabla settings: la usan los
+    correos y los enlaces públicos."""
+    receta.sql(meta, f"INSERT INTO settings (`option`, `value`) VALUES ('application_url', "
+                     f"{receta.literal(receta.url(meta) + '/')}) ON DUPLICATE KEY UPDATE `value` = VALUES(`value`);")
+
+
 def clave_admin(meta, usuario, nueva):
     """Kanboard guarda password_hash() con bcrypt en la tabla users."""
     receta.sql(meta, f"UPDATE users SET password = {receta.literal(receta.hash_clave(nueva))} "

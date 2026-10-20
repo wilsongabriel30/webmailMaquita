@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
+import { PhpPestana } from "./PhpPestana";
 
 interface Version { id: string; fecha: string; tipo: string; ruta: string; bytes: number }
 interface Estado {
@@ -7,17 +8,13 @@ interface Estado {
   nginx_propias: string;
   php: Record<string, string>;
   php_limites: Record<string, [number, number]>;
+  php_tipos: Record<string, string>;
+  php_version: string;
   archivos: string[];
   versiones: Version[];
   aviso?: string;
 }
 
-const PHP_NOMBRES: Record<string, string> = {
-  memory_limit: "Memoria por proceso (MB)", upload_max_filesize: "Tamaño máximo de subida (MB)",
-  post_max_size: "Tamaño máximo del formulario (MB)", max_execution_time: "Tiempo máximo de ejecución (s)",
-  max_input_time: "Tiempo máximo de recepción (s)", max_input_vars: "Máximo de campos por formulario",
-  display_errors: "Mostrar errores en pantalla (1 = sí, 0 = no)",
-};
 const TIPO: Record<string, string> = { nginx: "Reglas de nginx", php: "Ajustes de PHP", archivo: "Archivo" };
 const editor = "w-full h-72 font-mono text-xs border border-ms-gray-40 rounded p-2 focus:outline-none focus:border-ms-blue";
 
@@ -26,7 +23,6 @@ export function AvanzadoModal({ dominio, onCerrar }: { dominio: string; onCerrar
   const [est, setEst] = useState<Estado | null>(null);
   const [pestana, setPestana] = useState<"nginx" | "php" | "archivo" | "versiones">("nginx");
   const [nginx, setNginx] = useState("");
-  const [php, setPhp] = useState<Record<string, string>>({});
   const [ruta, setRuta] = useState("");
   const [archivo, setArchivo] = useState<string | null>(null);
   const [mensaje, setMensaje] = useState("");
@@ -34,7 +30,7 @@ export function AvanzadoModal({ dominio, onCerrar }: { dominio: string; onCerrar
   const [ocupado, setOcupado] = useState(false);
   const [verVhost, setVerVhost] = useState(false);
 
-  const aplicar = (e: Estado) => { setEst(e); setNginx(e.nginx_propias); setPhp(e.php); };
+  const aplicar = (e: Estado) => { setEst(e); setNginx(e.nginx_propias); };
   useEffect(() => { api.get<Estado>(`/sitios/${dominio}/avanzado`).then(aplicar).catch((e) => setError(e.message)); }, [dominio]);
 
   const hacer = async (texto: string, fn: () => Promise<Estado | void>) => {
@@ -95,18 +91,9 @@ export function AvanzadoModal({ dominio, onCerrar }: { dominio: string; onCerrar
         )}
 
         {est && pestana === "php" && (
-          <div className="space-y-2">
-            <p className="text-xs text-ms-gray-90">Vacío = valor de serie. Se aplican solo a este sitio.</p>
-            <div className="grid sm:grid-cols-2 gap-2">
-              {(Object.entries(est.php_limites) as [string, [number, number]][]).map(([k, [min, max]]) => (
-                <label key={k} className="text-xs text-ms-gray-90">{PHP_NOMBRES[k] || k} <span className="text-ms-gray-60">({min}–{max})</span>
-                  <input value={(php[k] || "").replace(/M$/, "").replace(/^on$/, "1").replace(/^off$/, "0")} onChange={(e) => setPhp({ ...php, [k]: e.target.value.trim() })}
-                    className="mt-0.5 w-full px-2 py-1.5 border border-ms-gray-40 rounded text-sm font-mono" />
-                </label>
-              ))}
-            </div>
-            <button disabled={ocupado} onClick={() => hacer("Ajustes de PHP aplicados.", () => api.put<Estado>(`/sitios/${dominio}/avanzado/php`, php))} className="px-4 py-1.5 bg-ms-blue text-white rounded text-sm disabled:opacity-50">Comprobar y guardar</button>
-          </div>
+          <PhpPestana dominio={dominio} version={est.php_version} ajustes={est.php} limites={est.php_limites} tipos={est.php_tipos} ocupado={ocupado}
+            onGuardar={(ajustes) => hacer("Ajustes de PHP aplicados.", () => api.put<Estado>(`/sitios/${dominio}/avanzado/php`, ajustes))}
+            onCambio={() => api.get<Estado>(`/sitios/${dominio}/avanzado`).then(aplicar).catch(() => undefined)} />
         )}
 
         {est && pestana === "archivo" && (

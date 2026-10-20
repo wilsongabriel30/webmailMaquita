@@ -79,6 +79,12 @@ def instalar(meta, bd, bd_usuario, bd_clave, titulo, correo, admin_usuario, admi
     return sitio + "/"
 
 
+def cambiar_url(meta):
+    """GLPI guarda su dirección en glpi_configs (url_base): la usan los correos y los enlaces externos."""
+    _consola(meta, "config:set", "url_base", receta.url(meta))
+    _consola(meta, "cache:clear")
+
+
 def clave_admin(meta, usuario, nueva):
     _consola(meta, "user:reset_password", usuario, f"--password={nueva}")
 
