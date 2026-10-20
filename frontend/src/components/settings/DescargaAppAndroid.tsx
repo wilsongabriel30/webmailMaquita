@@ -1,16 +1,19 @@
 import { textoTamano, urlApk, useManifiestoApp } from '../../lib/appAndroid';
+import { useNombreApp } from '../../lib/marca';
 
 /** Sección «App para Android» (AM-11): solo aparece si el servidor tiene una versión publicada. */
 export default function DescargaAppAndroid() {
   const m = useManifiestoApp();
+  const marca = useNombreApp();
   if (!m) return null;
+  const nombre = m.nombre || marca;  // el manifiesto puede traer el nombre de la app de la organización
   const detalle = [`Versión ${m.versionName}`, textoTamano(m), m.fecha].filter(Boolean).join(' · ');
 
   return (
     <div className="bg-white border rounded-lg p-4">
-      <h4 className="font-medium mb-2">🤖 App para Android</h4>
+      <h4 className="font-medium mb-2">🤖 App para Android: {nombre}</h4>
       <p className="text-sm text-[#605e5c] mb-3">
-        La aplicación oficial entra con su correo y su contraseña y avisa de los mensajes nuevos.
+        La aplicación oficial de {nombre} entra con su correo y su contraseña y avisa de los mensajes nuevos.
       </p>
       <ol className="text-sm text-[#323130] list-decimal ml-5 mb-3 space-y-1">
         <li>Pulse <strong>Descargar app para Android</strong> desde el teléfono.</li>

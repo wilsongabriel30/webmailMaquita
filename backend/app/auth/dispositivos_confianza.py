@@ -18,9 +18,8 @@ import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from fastapi import Request, Response
-
 from app.auth.cookies import dominio_cookie
+from fastapi import Request, Response
 
 log = logging.getLogger(__name__)
 
@@ -51,8 +50,14 @@ async def _tabla(db) -> None:
         _tabla_ok = True
 
 
+# Cómo se identifica la app Android en el agente de usuario: «MaquitaMail/…» la de Maquita y
+# «CorreoApp/…» la genérica que se compila con el perfil de cada organización.
+AGENTES_APP = ("MaquitaMail", "CorreoApp")
+
+
 def es_app(request: Request) -> bool:
-    return "MaquitaMail" in (request.headers.get("user-agent", "") or "")
+    agente = request.headers.get("user-agent", "") or ""
+    return any(a in agente for a in AGENTES_APP)
 
 
 def _hash(ficha: str) -> str:

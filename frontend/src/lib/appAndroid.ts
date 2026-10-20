@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
 
 /** Manifiesto de la app Android publicado por el servidor (AM-11). */
-export interface ManifiestoApp { versionName: string; tamano?: number; fecha?: string; notas?: string; }
+export interface ManifiestoApp { versionName: string; tamano?: number; fecha?: string; notas?: string; nombre?: string; }
 
 const RUTA_JSON = '/webmail/descargas/maquita-mail.json';
 let cache: Promise<ManifiestoApp | null> | null = null;
 
 /** Dentro de la propia app no tiene sentido ofrecer su descarga. */
 export function dentroDeLaApp(): boolean {
-  return typeof navigator !== 'undefined' && /MaquitaMail(App)?\//.test(navigator.userAgent);
+  return typeof navigator !== 'undefined' && /(MaquitaMail(App)?|CorreoApp)\//.test(navigator.userAgent);
 }
 
 /** URL del APK en el host actual: vale igual en los portales por empresa. */

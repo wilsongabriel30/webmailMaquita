@@ -28,12 +28,13 @@ const TIPOS: Record<string, string> = {
 function dispositivoCorto(ua: string): string {
   if (!ua) return 'Dispositivo desconocido';
   const navegador =
+    // Primero la app: su WebView también dice «Chrome».
+    /MaquitaMail|CorreoApp/i.test(ua) ? 'Aplicación móvil' :
     /Edg\//.test(ua) ? 'Edge' :
     /OPR\//.test(ua) ? 'Opera' :
     /Chrome\//.test(ua) ? 'Chrome' :
     /Firefox\//.test(ua) ? 'Firefox' :
-    /Safari\//.test(ua) ? 'Safari' :
-    /Maquita/i.test(ua) ? 'Aplicación móvil' : ua.slice(0, 40);
+    /Safari\//.test(ua) ? 'Safari' : ua.slice(0, 40);
   const sistema =
     /Android/.test(ua) ? 'Android' :
     /iPhone|iPad/.test(ua) ? 'iOS' :
