@@ -21,7 +21,7 @@ ANTERIOR="$(git tag -l 'v*' --sort=-v:refname | head -1)"
 if [ -n "$ANTERIOR" ] && [ "$(printf '%s\n%s\n' "$ANTERIOR" "$VERSION" | sort -V | tail -1)" != "$VERSION" ]; then
     echo "$VERSION no es mayor que $ANTERIOR."; exit 1
 fi
-NOTAS="$(git log --no-merges --format='- %s' ${ANTERIOR:+$ANTERIOR..}HEAD | head -80)"
+NOTAS="$(git log --no-merges -n 80 --format='- %s' ${ANTERIOR:+$ANTERIOR..}HEAD)"  # -n y no «| head»: con pipefail, head cortaba con SIGPIPE
 git -c gpg.format=ssh -c user.signingkey="$CLAVE" tag -s "$VERSION" -m "Versión $VERSION" -m "$NOTAS"
 git -c gpg.format=ssh -c gpg.ssh.allowedSignersFile=deploy/actualizar/firmantes verify-tag "$VERSION"
 git push origin "$VERSION"
