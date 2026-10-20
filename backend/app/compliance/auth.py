@@ -95,35 +95,37 @@ async def _get_user_and_role(request: Request) -> tuple[str, str]:
     Extrae username y rol desde JWT.
 
     Orden de precedencia:
-      1. Bearer token en header Authorization (admin panel)
+      1. Vale del panel: X-Admin-Token o Bearer en Authorization (admin panel)
       2. Cookie 'access_token' (webmail)
 
     Retorna (username, role).
     """
 
     # --- 1. Intentar Bearer token (admin panel) ---
+    # El panel envía su vale en X-Admin-Token (Authorization puede llevar la clave básica de nginx).
     auth_header = request.headers.get("Authorization", "")
-    if auth_header.startswith("Bearer "):
-        raw_token = auth_header[7:].strip()
-        if raw_token:
-            payload = _decode_admin_token(raw_token)
-            username = (
-                payload.get("sub")
-                or payload.get("username")
-                or payload.get("email", "unknown")
+    raw_token = request.headers.get("X-Admin-Token", "").strip() or (
+        auth_header[7:].strip() if auth_header.startswith("Bearer ") else ""
+    )
+    if raw_token:
+        payload = _decode_admin_token(raw_token)
+        username = (
+            payload.get("sub")
+            or payload.get("username")
+            or payload.get("email", "unknown")
+        )
+        role = payload.get("role", "admin")
+        # Validar que el rol exista en nuestra tabla
+        if role not in COMPLIANCE_ROLES:
+            # Mínimo privilegio (A-18): un rol desconocido solo lee.
+            logger.warning(
+                "Rol desconocido '%s' para usuario '%s', asignando compliance_read",
+                role,
+                username,
             )
-            role = payload.get("role", "admin")
-            # Validar que el rol exista en nuestra tabla
-            if role not in COMPLIANCE_ROLES:
-                # Mínimo privilegio (A-18): un rol desconocido solo lee.
-                logger.warning(
-                    "Rol desconocido '%s' para usuario '%s', asignando compliance_read",
-                    role,
-                    username,
-                )
-                role = "compliance_read"
-            logger.info("Auth Bearer: usuario=%s rol=%s", username, role)
-            return (str(username), role)
+            role = "compliance_read"
+        logger.info("Auth Bearer: usuario=%s rol=%s", username, role)
+        return (str(username), role)
 
     # --- 2. Intentar cookie (webmail) ---
     cookie_token = request.cookies.get("access_token")

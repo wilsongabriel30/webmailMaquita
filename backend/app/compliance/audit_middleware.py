@@ -139,6 +139,9 @@ class UserActivityAuditMiddleware(BaseHTTPMiddleware):
             # From Bearer token
             if not username:
                 auth_header = request.headers.get("authorization", "")
+                propio = request.headers.get("x-admin-token", "").strip()
+                if propio:
+                    auth_header = "Bearer " + propio
                 if auth_header.startswith("Bearer "):
                     import os
 
