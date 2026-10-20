@@ -43,6 +43,43 @@ Tres cosas de esa regla que no dan error visible si se saltan:
 
 ---
 
+## v1.8.0: hospedaje, actualizaciones firmadas, plantilla y respaldos
+
+Lo de siempre: **reinicio del backend del correo** y del panel, **frontends reconstruidos** (correo con
+`deploy-webmail.sh`, panel con `npm ci && npm run build`). No hay migraciones nuevas del correo ni variables
+nuevas en los `.env`. Incluye los cambios de `main` publicados desde la 1.7.23 (ver `CHANGELOG.md`).
+
+**Antes de desplegar**, para que los textos sigan diciendo lo mismo que hoy (la marca deja de estar escrita
+en el código y sale de la configuración):
+
+1. Panel → Personalización: poner el **«Nombre corto»** (la sigla de uso diaria).
+2. Drive: `config_kv.drive_name` con el nombre visible actual del Drive.
+
+**Después de desplegar**, el ayudante root de la identidad y el filtro de `sudo` nuevo:
+
+```bash
+sudo bash deploy/webmail/instalar-app.sh identidad   # maquita-identidad y maquita-sudo nuevos
+```
+
+Todo lo demás es **opcional** y no cambia nada mientras no se instale; hasta entonces el panel muestra
+esas secciones como «no instalado»:
+
+| Sección | Instalar con `sudo bash deploy/webmail/instalar-app.sh …` | Guía |
+|---|---|---|
+| Sitios web, catálogo de aplicaciones y aplicaciones propias | `sitios` | `docs/SITIOS-WEB.md` |
+| Zonas DNS y «Nuevo dominio» | `dns` | `docs/DNS-Y-DOMINIOS.md` |
+| Cortafuegos | `cortafuegos` | `docs/CORTAFUEGOS.md` |
+| Chat en la misma máquina | `chat` | `docs/CHAT-INSTALACION.md` |
+| Actualizaciones firmadas desde el repositorio | `actualizar` | `docs/ACTUALIZACIONES.md` |
+| Respaldos con restic | `respaldos` | `docs/RESPALDOS.md` |
+
+Cuidado con el **cortafuegos** en un servidor que ya tiene reglas propias de iptables: revisar antes
+`docs/CORTAFUEGOS.md`. Con **respaldos**, guardar la clave de recuperación fuera del servidor en cuanto se
+instale (Respaldos → «Ver claves»): sin ella los respaldos no se abren.
+
+A partir de esta versión, un servidor con `actualizar` instalado se pone al día solo con cada versión
+firmada (`vX.Y.Z`); el resto de esta guía sigue valiendo para quien actualiza a mano.
+
 ## Lectura de correos, fecha del servidor y otras correcciones (2026-10-12 / 13)
 
 Correcciones de los PR #299 a #305. Todas se publican con lo de siempre: **reinicio del backend del

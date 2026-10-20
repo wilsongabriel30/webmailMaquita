@@ -18,6 +18,7 @@ from pydantic import BaseModel
 
 from app import organizacion
 from app.auth.dependencies import get_current_admin, require_role
+from app import marca
 
 router = APIRouter(prefix="/api/ediscovery-premium", tags=["ediscovery-premium"])
 PUBLIC_BASE = os.getenv("PUBLIC_BASE", "https://mail.example.org")
@@ -43,7 +44,7 @@ def _notice_html(email: str, title: str, reason: str, url: str) -> str:
   <div style="background:#5b5fc7;color:#fff;padding:16px 22px;border-radius:8px 8px 0 0;font-size:18px;font-weight:600">⚖️ Aviso de retención legal</div>
   <div style="border:1px solid #e1dfdd;border-top:none;padding:22px;border-radius:0 0 8px 8px">
     <p>Estimado/a {html_lib.escape(email)},</p>
-    <p>Ha sido designado/a <b>custodio</b> en el marco de un proceso de la Fundación Maquita.
+    <p>Ha sido designado/a <b>custodio</b> en el marco de un proceso de {html.escape(marca.org())}.
     Debe <b>conservar toda la información de su correo</b> relacionada con el asunto y
     <b>no eliminar</b> mensajes hasta nuevo aviso.</p>
     <p style="background:#f3f2fb;border-radius:6px;padding:10px 12px"><b>Caso:</b> {html_lib.escape(title)}<br><b>Motivo:</b> {html_lib.escape(reason)}</p>

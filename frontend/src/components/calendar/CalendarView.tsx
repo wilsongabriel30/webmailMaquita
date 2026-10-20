@@ -225,7 +225,7 @@ const [showScheduling, setShowScheduling] = useState(false);
     // Videollamada Maquita Meet (T-30): la reunión es UN registro del servicio de reuniones (mismo id en Raíces, en el
     // calendario y en la app). Se crea aquí y el evento lleva el enlace + la marca X-MAQUITA-REUNION:<id>.
     let reunionNueva: number | null = null;
-    if (_virtualMeeting && !/X-MAQUITA-REUNION/.test(payload.description || "") && !/https?:\/\//.test(payload.location || "")) {
+    if (_virtualMeeting && !/(REUNION-ID|X-MAQUITA-REUNION):/.test(payload.description || "") && !/https?:\/\//.test(payload.location || "")) {
       try {
         const horas = Math.max(1, Math.ceil((new Date(payload.dtend).getTime() - new Date(payload.dtstart).getTime()) / 3600000));
         const m = await api.post<{ success: boolean; reunion: { id: number; url_sala: string; url_acceso: string } }>("/chat/reuniones", {
@@ -239,14 +239,14 @@ const [showScheduling, setShowScheduling] = useState(false);
           reunionNueva = m.reunion.id;
           if (!payload.location) payload.location = m.reunion.url_sala;
           payload.description = (payload.description ? payload.description + "\n\n" : "") +
-            `Meet Maquita: ${m.reunion.url_sala}\nEntrar con tu usuario: ${m.reunion.url_acceso}?redirigir=1\nX-MAQUITA-REUNION: ${m.reunion.id}`;
+            `Videollamada: ${m.reunion.url_sala}\nEntrar con tu usuario: ${m.reunion.url_acceso}?redirigir=1\nREUNION-ID: ${m.reunion.id}`;
         }
       } catch {
         console.error("[Calendar] No se pudo crear la reunión Maquita Meet");
       }
     }
     // Evento ya vinculado a una reunión: al editarlo se actualiza la reunión (hora, asistentes, asunto)
-    const reunionVinculada = /X-MAQUITA-REUNION:\s*(\d+)/.exec((editEvent?.description || "") + " " + (payload.description || ""));
+    const reunionVinculada = /(?:REUNION-ID|X-MAQUITA-REUNION):\s*(\d+)/.exec((editEvent?.description || "") + " " + (payload.description || ""));
 
     let savedEvent: object | null = null;
     if (editEvent) {
@@ -322,7 +322,7 @@ const [showScheduling, setShowScheduling] = useState(false);
     // T-30: si el evento tiene su reunión Maquita Meet, cancelarla también (avisa a los participantes)
     try {
       const ev = await api.get<{ description?: string }>(`/calendar/events/${id}`);
-      const m = /X-MAQUITA-REUNION:\s*(\d+)/.exec(ev?.description || "");
+      const m = /(?:REUNION-ID|X-MAQUITA-REUNION):\s*(\d+)/.exec(ev?.description || "");
       if (m) await api.post(`/chat/reuniones/${m[1]}/cancelar`, {});
     } catch { /* sin reunión vinculada */ }
     await deleteEvent(id);

@@ -20,6 +20,8 @@ import logging
 
 from fastapi import APIRouter, Request, Response
 
+from app.branding.service import app_name_cacheado
+
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/auth", tags=["dav"])
 
@@ -89,7 +91,8 @@ async def verificar(db, redis, usuario: str, clave: str) -> bool:
 
 def _rechazo() -> Response:
     return Response(
-        status_code=401, headers={"WWW-Authenticate": 'Basic realm="Maquita DAV"'}
+        status_code=401,
+        headers={"WWW-Authenticate": f'Basic realm="{app_name_cacheado()} DAV"'},
     )
 
 

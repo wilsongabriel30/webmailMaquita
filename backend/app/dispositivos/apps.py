@@ -14,6 +14,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 
+from app.branding.service import marca_corta
 from app.dispositivos.seguridad import equipo_actual, limitar
 
 logger = logging.getLogger("dispositivos")
@@ -36,7 +37,7 @@ class Inventario(BaseModel):
 
 
 def _texto_aviso(nombre: str, nota: str | None) -> str:
-    base = f"Seguridad Maquita detectó en este teléfono una aplicación que puede poner en riesgo tu información: {nombre}."
+    base = f"Seguridad de {marca_corta()} detectó en este teléfono una aplicación que puede poner en riesgo tu información: {nombre}."
     if nota:
         base += f" Motivo: {nota}."
     return (

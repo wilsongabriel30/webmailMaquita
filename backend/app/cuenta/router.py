@@ -10,6 +10,8 @@ import re
 
 from fastapi import APIRouter, Query, Request
 
+from app.branding.service import org_name_cacheado
+
 router = APIRouter(prefix="/api/cuenta", tags=["cuenta"])
 _CORREO = re.compile(r"^[^@\s]{1,64}@([a-z0-9.-]{1,253})$", re.I)
 
@@ -37,7 +39,7 @@ async def _organizacion(request: Request, dominio: str, host: str) -> str:
         pass
     from app.config import get_settings
 
-    return getattr(get_settings(), "org_name", "") or "Maquita"
+    return getattr(get_settings(), "org_name", "") or org_name_cacheado()
 
 
 @router.get("/descubrir")

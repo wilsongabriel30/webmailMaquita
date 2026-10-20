@@ -3,12 +3,40 @@
 # YA montado, reutilizando los bloques 16-17 de instalar.sh. Idempotente: reusa la config
 # existente (SECRET_KEY y credenciales de BD del backend); no regenera secretos.
 #
-# Uso:  sudo bash deploy/webmail/instalar-app.sh <bi|pdf|onlyoffice>
+# Uso:  sudo bash deploy/webmail/instalar-app.sh <bi|pdf|onlyoffice|sitios|dns|cortafuegos|identidad|actualizar|chat|respaldos>
 set -e
 GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[1;33m'; NC='\033[0m'
 
 APP="${1:-}"
-case "$APP" in bi|pdf|onlyoffice) ;; *) echo "uso: $0 <bi|pdf|onlyoffice>"; exit 2 ;; esac
+case "$APP" in bi|pdf|onlyoffice|sitios|dns|cortafuegos|identidad|actualizar|chat|respaldos) ;; *) echo "uso: $0 <bi|pdf|onlyoffice|sitios|dns|cortafuegos|identidad|actualizar|chat|respaldos>"; exit 2 ;; esac
+# Sitios web (WordPress, Joomla, FTP seguro): tiene su propio instalador.
+if [ "$APP" = "sitios" ]; then
+    exec bash "$(cd "$(dirname "$0")/../sitios" && pwd)/instalar.sh"
+fi
+# Zonas DNS (BIND autoritativo) para el asistente «Nuevo dominio».
+if [ "$APP" = "dns" ]; then
+    exec bash "$(cd "$(dirname "$0")/../dns" && pwd)/instalar.sh"
+fi
+# Cortafuegos del servidor (iptables) administrado desde el panel.
+# Respaldos del servidor con restic (local y destino externo), restauración de sitios y buzones.
+if [ "$APP" = "respaldos" ]; then
+    exec bash "$(cd "$(dirname "$0")/../respaldos" && pwd)/instalar.sh"
+fi
+# Chat institucional en esta misma máquina (modo integrado, mismo origen que el correo).
+if [ "$APP" = "chat" ]; then
+    exec bash "$(cd "$(dirname "$0")/../chat" && pwd)/instalar.sh"
+fi
+# Actualizaciones desde el repositorio (versiones firmadas, temporizador nocturno).
+if [ "$APP" = "actualizar" ]; then
+    exec bash "$(cd "$(dirname "$0")/../actualizar" && pwd)/instalar.sh"
+fi
+if [ "$APP" = "cortafuegos" ]; then
+    exec bash "$(cd "$(dirname "$0")/../cortafuegos" && pwd)/instalar.sh"
+fi
+# Identidad de la institución (Personalización → «Aplicar en todo»).
+if [ "$APP" = "identidad" ]; then
+    exec bash "$(cd "$(dirname "$0")/../identidad" && pwd)/instalar.sh"
+fi
 
 # Raiz del repo (este script vive en deploy/webmail/)
 SELF="$(cd "$(dirname "$0")" && pwd)"

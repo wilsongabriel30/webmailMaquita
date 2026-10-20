@@ -29,7 +29,7 @@ APP_NAME_FALLBACK = "Correo"
 
 # Caché de proceso. La rellena `precargar()` al arrancar y la refrescan las
 # funciones asíncronas cada vez que consultan.
-_cache = {"org_name": None, "app_name": None}
+_cache = {"org_name": None, "app_name": None, "org_short": None}
 
 
 async def _leer(db, clave: str):
@@ -72,11 +72,19 @@ def app_name_cacheado() -> str:
     return _cache["app_name"] or APP_NAME_FALLBACK
 
 
+def marca_corta() -> str:
+    """Nombre corto de la organización (Personalización → «Nombre corto»), p. ej. la sigla o el
+    nombre de uso diario. Es el que va en textos breves de cara a terceros («Protección de enlaces
+    de …», «mensaje seguro de …»). Si no está configurado, el nombre del producto."""
+    return _cache["org_short"] or app_name_cacheado()
+
+
 async def precargar(db) -> None:
     """Rellena la caché al arrancar. Si falla, se sigue con los valores por
     defecto: la marca nunca debe impedir que el sistema levante."""
     try:
         _cache["org_name"] = await _leer(db, "org_name")
         _cache["app_name"] = await _leer(db, "app_name")
+        _cache["org_short"] = await _leer(db, "org_short")
     except Exception:
         pass

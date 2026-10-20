@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { api } from "../api/client";
 import { useAuth } from "../api/auth";
 import { MyAccountModal } from "../components/MyAccountModal";
 
@@ -46,6 +47,9 @@ const navSections = [
   {
     title: "Protección",
     items: [
+      { to: "/cortafuegos", label: "Cortafuegos", help: "Qué puertos del servidor se pueden usar desde Internet, IP de administración, bloqueos manuales e IP bloqueadas por fail2ban. Los cambios se aplican a prueba durante 60 segundos.", icon: "M3 5h18v4H3zM3 9h8v5H3zm8 0h10v5H11zM3 14h18v5H3z" },
+      { to: "/respaldos", label: "Respaldos", help: "Respaldo diario cifrado (local y externo), restaurar un sitio o los correos de un buzón, comprobar los respaldos y la clave de recuperación.", icon: "M4 7v10c0 2 3.6 3 8 3s8-1 8-3V7M4 7c0 2 3.6 3 8 3s8-1 8-3M4 7c0-2 3.6-3 8-3s8 1 8 3m0 5c0 2-3.6 3-8 3s-8-1-8-3" },
+      { to: "/actualizaciones", label: "Actualizaciones", help: "Versión instalada y versiones nuevas firmadas por el equipo: instalar ahora o cada noche, con respaldo y vuelta atrás automática.", icon: "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" },
       { to: "/risky-logins", label: "Inicios de sesión riesgosos", help: "Inicios de sesión sospechosos: IP inusual, países nuevos u horarios atípicos.", icon: "M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" },
       { to: "/threats", label: "Panel de amenazas", help: "Resumen de amenazas detectadas: spam, phishing, malware y adjuntos peligrosos.", icon: "M12 2l7 4v6c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6l7-4z M12 8v4 M12 16h.01" },
       { to: "/air", label: "AIR — investigación y respuesta", help: "Investigación y respuesta automatizada de incidentes de correo (AIR).", icon: "M9 12l2 2 4-4 M12 3a9 9 0 100 18 9 9 0 000-18z" },
@@ -69,6 +73,14 @@ const navSections = [
       { to: "/password-audit", label: "Cuentas sin clave válida", help: "Cuentas cuya contraseña no es válida en Dovecot: detección y corrección.", icon: "M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" },
       { to: "/login-health", label: "Accesos externos", help: "Monitoreo de accesos IMAP/POP externos; alerta si hay 0 accesos en 24 h.", icon: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" },
       { to: "/outbound", label: "Protección de salida", help: "Límite de envío por usuario (anti cuenta comprometida) y contención de cuentas.", icon: "M12 2l7 4v6c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6l7-4z M9 12l3 3M12 8v4" },
+    ],
+  },
+  {
+    title: "Hospedaje",
+    items: [
+      { to: "/dominio-nuevo", label: "Nuevo dominio", help: "Escriba el dominio y el nombre de la institución: se crean el correo, la zona DNS completa, el sitio web y el primer buzón en un paso.", icon: "M12 4v16m8-8H4" },
+      { to: "/dns", label: "Zonas DNS", help: "Registros DNS de los dominios de este servidor (A, MX, TXT, CNAME…), ajustes de IP y servidores de nombres, y comprobación de la propagación.", icon: "M4 6h16M4 12h16M4 18h7" },
+      { to: "/sitios", label: "Sitios web", help: "Páginas web en este servidor: WordPress o Joomla (software libre), FTP seguro y HTTPS gratuito para cada dominio.", icon: "M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm0 4h16M8 4v5" },
     ],
   },
   {
@@ -99,6 +111,18 @@ export function AdminLayout() {
   const { user, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [showAccount, setShowAccount] = useState(false);
+  // Servidor recién instalado desde la plantilla: se lleva a «Primeros pasos» hasta terminarlos u omitirlos.
+  const [primerosPendientes, setPrimerosPendientes] = useState(false);
+  const navegar = useNavigate();
+  const ubicacion = useLocation();
+  useEffect(() => {
+    api.get<{ pendiente: boolean }>("/primeros-pasos").then((r) => {
+      setPrimerosPendientes(r.pendiente);
+      let masTarde = false;
+      try { masTarde = sessionStorage.getItem("primeros_pasos_mas_tarde") === "1"; } catch { /* sin almacenamiento */ }
+      if (r.pendiente && !masTarde && ubicacion.pathname === "/") navegar("/primeros-pasos");
+    }).catch(() => {});
+  }, [ubicacion.pathname === "/primeros-pasos"]);
 
   return (
     <div className="flex flex-col h-screen">
@@ -203,6 +227,11 @@ export function AdminLayout() {
 
         {/* Main */}
         <main className="flex-1 overflow-auto bg-ms-gray-10">
+          {primerosPendientes && ubicacion.pathname !== "/primeros-pasos" && (
+            <div className="mx-6 mt-4 px-4 py-2 rounded bg-amber-50 border border-amber-200 text-sm text-amber-800">
+              Quedan primeros pasos por completar (logo, información de la institución, dominio…). <NavLink to="/primeros-pasos" className="underline font-medium">Continuar</NavLink>
+            </div>
+          )}
           <Outlet />
         </main>
       </div>

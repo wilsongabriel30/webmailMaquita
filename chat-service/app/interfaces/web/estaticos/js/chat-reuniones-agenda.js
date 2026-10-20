@@ -66,7 +66,7 @@
 
     function invitacion(r) {
         var d = fecha(r.inicio), c = r.config || {}, L = [];
-        L.push('Le invitan a una reunión de Maquita Meet.', '', 'Tema: ' + r.asunto);
+        L.push('Le invitan a una videollamada.', '', 'Tema: ' + r.asunto);
         if (d) { L.push('Fecha: ' + DIAS[d.getDay()] + ' ' + d.getDate() + ' de ' + MESES[d.getMonth()] + ' de ' + d.getFullYear()); L.push('Hora: ' + dosD(d.getHours()) + ':' + dosD(d.getMinutes()) + ' · Ecuador (GMT-5)'); }
         if (r.duracion_horas) L.push('Duración: ' + (r.duracion_horas === 8 ? 'Día completo (8 horas)' : r.duracion_horas + (r.duracion_horas === 1 ? ' hora' : ' horas')));
         if (r.mensaje) L.push('', 'Descripción:', r.mensaje);

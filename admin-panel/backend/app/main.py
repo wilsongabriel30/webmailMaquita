@@ -37,6 +37,7 @@ from app.shared.router import router as shared_router
 from app.asignaciones.router import router as asignaciones_router
 from app.ediscovery.router import router as ediscovery_router
 from app.branding.router import router as branding_router
+from app.branding.primeros_pasos import router as primeros_pasos_router
 from app.portales.router import router as portales_router
 from app.dispositivos.router import router as dispositivos_router
 from app.dispositivos.mensajes import router as dispositivos_mensajes_router
@@ -69,6 +70,18 @@ from app.conditional_access.router import router as condaccess_router
 from app.geo_access.router import router as geoaccess_router
 from app.outbound_anomaly.router import router as anomaly_router
 from app.outbound.router import router as outbound_router
+from app.sitios.dominios import router as sitios_dominios_router
+from app.sitios.tareas import router as sitios_tareas_router
+from app.sitios.paquete import router as sitios_paquete_router
+from app.sitios.avanzado import router as sitios_avanzado_router
+from app.sitios.php import router as sitios_php_router
+from app.sitios.propias import router as sitios_propias_router
+from app.sitios.router import router as sitios_router
+from app.dns.router import router as dns_router
+from app.dns.dominio_nuevo import router as dominio_nuevo_router
+from app.actualizaciones.router import router as actualizaciones_router
+from app.respaldos.router import router as respaldos_router
+from app.cortafuegos.router import router as cortafuegos_router
 from app.password_audit.router import router as password_audit_router
 from app.admin_recovery.router import router as adminrec_router
 from app.rag.router import router as rag_router
@@ -95,6 +108,9 @@ async def lifespan(app: FastAPI):
     app.state.db = pool
 
     await init_admin_tables(pool)
+    from app import marca
+
+    await marca.refrescar(pool)  # nombres de la personalización para textos de cara a terceros
 
     # Primer superadmin SOLO desde el entorno (A-9): sin clave literal en el código y
     # sin escribirla al log. ADMIN_BOOTSTRAP_PASSWORD se usa una vez y se retira del .env.
@@ -127,8 +143,8 @@ async def lifespan(app: FastAPI):
 _es_dev = config.ENVIRONMENT.lower() in ("development", "dev", "local")
 _docs = {} if _es_dev else {"docs_url": None, "redoc_url": None, "openapi_url": None}
 app = FastAPI(
-    title="Maquita Mail Admin",
-    description="Panel de administracion de correo - Maquita",
+    title="Panel de correo",
+    description="Panel de administracion de correo",
     version="1.0.0",
     lifespan=lifespan,
     **_docs,
@@ -211,6 +227,7 @@ app.include_router(zap_router)
 app.include_router(safeattach_router)
 app.include_router(ediscovery_router)
 app.include_router(branding_router)
+app.include_router(primeros_pasos_router)
 app.include_router(portales_router)
 app.include_router(dispositivos_mensajes_router)
 app.include_router(dispositivos_perdido_router)
@@ -228,6 +245,18 @@ app.include_router(dispositivos_router)
 app.include_router(geoaccess_router)
 app.include_router(anomaly_router)
 app.include_router(outbound_router)
+app.include_router(sitios_router)
+app.include_router(sitios_propias_router)
+app.include_router(sitios_dominios_router)
+app.include_router(sitios_tareas_router)
+app.include_router(sitios_paquete_router)
+app.include_router(sitios_avanzado_router)
+app.include_router(sitios_php_router)
+app.include_router(dns_router)
+app.include_router(dominio_nuevo_router)
+app.include_router(cortafuegos_router)
+app.include_router(actualizaciones_router)
+app.include_router(respaldos_router)
 app.include_router(password_audit_router)
 app.include_router(adminrec_router)
 

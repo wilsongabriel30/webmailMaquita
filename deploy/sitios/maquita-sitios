@@ -1,0 +1,290 @@
+#!/usr/bin/env python3
+"""maquita-sitios — sitios web del servidor (sección «Sitios web» del panel de administración).
+
+Corre como root y solo se llama desde el panel a través de maquita-sudo. Responde siempre JSON.
+
+Uso:
+  maquita-sitios estado
+  maquita-sitios listar
+  maquita-sitios catalogo                 aplicaciones instalables (nombre, categoría, licencia, cómo se instala)
+  maquita-sitios crear <dominio> [con-www|sin-www] [nombre de la institución en base64url]
+  maquita-sitios app <dominio> <wordpress|joomla> <título en base64url> <correo del administrador>
+  maquita-sitios ftp <dominio> <activar|desactivar>
+  maquita-sitios ssl <dominio> <correo para Let's Encrypt>
+  maquita-sitios alias <dominio> <lista JSON en base64url>   otros dominios que muestran el mismo sitio
+  maquita-sitios borrar <dominio> <dominio repetido como confirmación>
+  maquita-sitios inicio <dominio> <identidad en JSON base64url>   rehace la página «en construcción»
+  maquita-sitios buscadores <dominio>     visibilidad en buscadores e IA (robots, mapa, llms.txt, schema.org…)
+  maquita-sitios avisar <dominio>         avisa por IndexNow de la portada y el mapa del sitio
+  maquita-sitios tienda <dominio>         WooCommerce en un sitio con WordPress
+  maquita-sitios bases <dominio>          bases de datos adicionales del sitio
+  maquita-sitios base-crear <dominio> <mariadb|postgresql>
+  maquita-sitios base-entrar <dominio> <base> <phpmyadmin|adminer>   entrada directa (usuario temporal, 2 h)
+  maquita-sitios base-borrar <dominio> <nombre>   (la copia .sql queda en la carpeta privada del sitio)
+  maquita-sitios propia-crear <dominio> <estatico|python|node> <json-b64>   aplicación propia
+  maquita-sitios propia-estado <dominio>  estado, variables (solo nombres) y registros
+  maquita-sitios propia-accion <dominio> <iniciar|detener|reiniciar|desplegar>
+  maquita-sitios propia-entorno <dominio> <json-b64>   variables de entorno
+  maquita-sitios propia-quitar <dominio> <dominio>     (el código queda en la papelera)
+  maquita-sitios tareas <dominio>         trabajos de cron del sitio (horario, orden, última ejecución)
+  maquita-sitios tareas-guardar <dominio> <lista JSON en base64url>
+  maquita-sitios tarea-ejecutar <dominio> <id>     la ejecuta ahora
+  maquita-sitios tarea-registro <dominio> <id>     últimas líneas de su salida
+  maquita-sitios paquete <dominio> <archivo en /var/lib/maquita-sitios/subidas> <con-bd|sin-bd> [respaldo .sql/.sql.gz]
+                                        paquete propio o migración desde otro hosting
+  maquita-sitios avanzado <dominio>       vhost generado, reglas propias de nginx, ajustes de PHP, archivos y versiones
+  maquita-sitios avanzado-nginx <dominio> <subida .txt>      reglas propias (copia previa y nginx -t)
+  maquita-sitios avanzado-php <dominio> <JSON base64url>     ajustes de PHP (copia previa y php-fpm -t)
+  maquita-sitios avanzado-ver <dominio> <ruta base64url>     un archivo de texto de la carpeta pública
+  maquita-sitios avanzado-archivo <dominio> <ruta base64url> <subida .txt>   guardarlo (copia previa)
+  maquita-sitios avanzado-restaurar <dominio> <versión>
+  maquita-sitios php-estado [dominio]     versiones de PHP instaladas, disponibles y en uso
+  maquita-sitios php-repositorio          activa el repositorio de versiones de PHP (packages.sury.org)
+  maquita-sitios php-instalar <versión>   instala esa versión de PHP con las extensiones de serie
+  maquita-sitios php-extensiones <versión>
+  maquita-sitios php-extension <versión> <extensión> <instalar|quitar>
+  maquita-sitios php-version <dominio> <versión>   el sitio pasa a esa versión de PHP
+  maquita-sitios terminar <dominio>       cierra el instalador web de una aplicación instalada con asistente
+  maquita-sitios entrar <dominio>         enlace de un solo uso al escritorio de WordPress
+  maquita-sitios clave-admin <dominio>    contraseña nueva del administrador de la aplicación
+  maquita-sitios revisar <dominio>        versión, actualizaciones pendientes e integridad
+  maquita-sitios actualizar <dominio>     actualiza núcleo, complementos, temas e idioma
+Solo desde el sistema (no las admite maquita-sudo):
+  maquita-sitios cron                     tareas programadas de las aplicaciones (systemd)
+  maquita-sitios regenerar                reescribe los vhosts con las plantillas vigentes
+"""
+
+import json
+import os
+import shutil
+import sys
+
+sys.path.insert(0, "/usr/local/lib/maquita-sitios")
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+
+import validacion as v  # noqa: E402
+from comun import WP_CLI, ErrorSitio, version_php  # noqa: E402
+
+
+def estado():
+    return {
+        "php": version_php(),
+        "mariadb": bool(shutil.which("mariadb")),
+        "wp_cli": os.path.exists(WP_CLI),
+        "ftp": bool(shutil.which("vsftpd")),
+        "certbot": bool(shutil.which("certbot")),
+        "aplicaciones": [a["id"] for a in __import__("apps").lista()],
+    }
+
+
+def despachar(args):
+    import acceso
+    import aplicaciones
+    import sitio
+
+    if args == ["estado"]:
+        return estado()
+    if args == ["listar"]:
+        return {"sitios": sitio.listar(), "estado": estado()}
+    if args == ["catalogo"]:
+        import apps
+
+        return {"aplicaciones": apps.lista()}
+    if 2 <= len(args) <= 4 and args[0] == "crear":
+        if len(args) >= 3 and args[2] not in ("con-www", "sin-www"):
+            raise ErrorSitio("crear: tercer argumento no permitido")
+        nombre = v.titulo(args[3]) if len(args) == 4 else None
+        return sitio.crear(v.dominio(args[1]), con_www=len(args) == 2 or args[2] == "con-www", nombre=nombre)
+    if len(args) == 5 and args[0] == "app":
+        return aplicaciones.instalar(v.dominio(args[1]), v.aplicacion(args[2]), v.titulo(args[3]), v.correo(args[4]))
+    if len(args) == 3 and args[0] == "ftp" and args[2] in ("activar", "desactivar"):
+        return acceso.ftp(v.dominio(args[1]), args[2])
+    if len(args) == 3 and args[0] == "ssl":
+        return acceso.ssl(v.dominio(args[1]), v.correo(args[2]))
+    if len(args) == 3 and args[0] == "alias":
+        import alias
+
+        return alias.cambiar(v.dominio(args[1]), v.json_b64(args[2]))
+    if args[:1] and args[0] in ("tareas", "tareas-guardar", "tarea-ejecutar", "tarea-registro"):
+        return _tareas(args)
+    if len(args) == 3 and args[0] == "borrar":
+        if args[1] != args[2]:
+            raise ErrorSitio("borrar: la confirmación no coincide con el dominio")
+        return sitio.borrar(v.dominio(args[1]))
+    if len(args) == 2 and args[0] in ("buscadores", "avisar"):
+        import visibilidad
+
+        return (visibilidad.revisar if args[0] == "buscadores" else visibilidad.avisar)(v.dominio(args[1]))
+    if len(args) in (4, 5) and args[0] == "paquete" and args[3] in ("con-bd", "sin-bd"):
+        import paquete
+
+        return paquete.instalar(v.dominio(args[1]), args[2], args[3] == "con-bd", args[4] if len(args) == 5 else None)
+    if args[:1] and args[0].startswith("avanzado"):
+        return _avanzado(args)
+    if args[:1] and args[0].startswith("php-"):
+        return _php(args)
+    if len(args) == 2 and args[0] == "terminar":
+        return aplicaciones.terminar(v.dominio(args[1]))
+    if len(args) == 2 and args[0] in ("entrar", "clave-admin", "revisar", "actualizar"):
+        import seguridad
+
+        funcion = {"entrar": seguridad.entrar, "clave-admin": seguridad.clave_admin,
+                   "revisar": seguridad.revisar, "actualizar": seguridad.actualizar}[args[0]]
+        return funcion(v.dominio(args[1]))
+    if len(args) == 3 and args[0] == "inicio":
+        import json as _json
+
+        from comun import de_base64
+
+        try:
+            identidad = _json.loads(de_base64(args[2]))
+        except ValueError:
+            raise ErrorSitio("identidad no válida")
+        if not isinstance(identidad, dict):
+            raise ErrorSitio("identidad no válida")
+        limpia = {k: str(identidad[k])[:400] for k in ("nombre", "descripcion", "correo", "telefono", "color")
+                  if identidad.get(k)}
+        if isinstance(identidad.get("redes"), dict):
+            limpia["redes"] = {str(k)[:20]: str(u)[:200] for k, u in identidad["redes"].items()}
+        return sitio.rehacer_inicio(v.dominio(args[1]), limpia)
+    if len(args) == 2 and args[0] == "tienda":
+        import seguridad
+
+        return seguridad.tienda(v.dominio(args[1]))
+    if len(args) == 2 and args[0] == "bases":
+        import bases
+
+        return bases.listar(v.dominio(args[1]))
+    if len(args) == 3 and args[0] == "base-crear" and args[2] in ("mariadb", "postgresql"):
+        import bases
+
+        return bases.crear(v.dominio(args[1]), args[2])
+    if len(args) == 4 and args[0] == "base-entrar":
+        import acceso_bd
+
+        return acceso_bd.entrar(v.dominio(args[1]), args[2], args[3])
+    if len(args) == 3 and args[0] == "base-borrar":
+        import bases
+
+        return bases.borrar(v.dominio(args[1]), args[2])
+    if args[:1] and args[0].startswith("propia-"):
+        return _propia(args)
+    if args == ["cron"]:
+        import acceso_bd
+        import seguridad
+
+        return {**seguridad.cron(), "usuarios_temporales_borrados": acceso_bd.limpiar()}
+    if args == ["regenerar"]:
+        return sitio.regenerar()
+    raise ErrorSitio("orden o argumentos no permitidos")
+
+
+def _avanzado(args):
+    import avanzado
+    from comun import de_base64
+
+    def ruta(b64):
+        try:
+            return de_base64(b64)
+        except ValueError:
+            raise ErrorSitio("ruta no válida")
+
+    if len(args) == 2 and args[0] == "avanzado":
+        return avanzado.ver(v.dominio(args[1]))
+    if len(args) == 3 and args[0] == "avanzado-nginx":
+        return avanzado.guardar_nginx(v.dominio(args[1]), args[2])
+    if len(args) == 3 and args[0] == "avanzado-php":
+        return avanzado.guardar_php(v.dominio(args[1]), v.json_b64(args[2]))
+    if len(args) == 3 and args[0] == "avanzado-ver":
+        return avanzado.ver_archivo(v.dominio(args[1]), ruta(args[2]))
+    if len(args) == 4 and args[0] == "avanzado-archivo":
+        return avanzado.guardar_archivo(v.dominio(args[1]), ruta(args[2]), args[3])
+    if len(args) == 3 and args[0] == "avanzado-restaurar":
+        return avanzado.restaurar(v.dominio(args[1]), args[2])
+    raise ErrorSitio("orden o argumentos no permitidos")
+
+
+def _php(args):
+    import php_versiones as pv
+
+    def version(texto):
+        if not pv.RE_VERSION.match(texto):
+            raise ErrorSitio("versión de PHP no válida")
+        return texto
+
+    if len(args) in (1, 2) and args[0] == "php-estado":
+        return pv.estado(v.dominio(args[1]) if len(args) == 2 else None)
+    if args == ["php-repositorio"]:
+        return pv.activar_repositorio()
+    if len(args) == 2 and args[0] == "php-instalar":
+        return pv.instalar_version(version(args[1]))
+    if len(args) == 2 and args[0] == "php-extensiones":
+        return pv.extensiones(version(args[1]))
+    if len(args) == 4 and args[0] == "php-extension" and args[3] in ("instalar", "quitar"):
+        return (pv.instalar_extension if args[3] == "instalar" else pv.quitar_extension)(version(args[1]), args[2])
+    if len(args) == 3 and args[0] == "php-version":
+        return pv.cambiar_version(v.dominio(args[1]), version(args[2]))
+    raise ErrorSitio("orden o argumentos no permitidos")
+
+
+def _tareas(args):
+    import tareas
+
+    if len(args) == 2 and args[0] == "tareas":
+        return tareas.listar(v.dominio(args[1]))
+    if len(args) == 3 and args[0] == "tareas-guardar":
+        return tareas.guardar(v.dominio(args[1]), v.json_b64(args[2], tope=40000))
+    if len(args) == 3 and args[0] == "tarea-ejecutar":
+        return tareas.ejecutar_ahora(v.dominio(args[1]), args[2])
+    if len(args) == 3 and args[0] == "tarea-registro":
+        return tareas.registro(v.dominio(args[1]), args[2])
+    raise ErrorSitio("orden o argumentos no permitidos")
+
+
+def _propia(args):
+    import json as _json
+
+    import propias
+    from comun import de_base64
+
+    def datos(b64):
+        try:
+            return _json.loads(de_base64(b64))
+        except ValueError:
+            raise ErrorSitio("datos no válidos")
+
+    if len(args) == 4 and args[0] == "propia-crear":
+        return propias.crear(v.dominio(args[1]), args[2], datos(args[3]))
+    if len(args) == 2 and args[0] == "propia-estado":
+        return propias.estado(v.dominio(args[1]))
+    if len(args) == 3 and args[0] == "propia-accion" and args[2] in ("iniciar", "detener", "reiniciar", "desplegar"):
+        return propias.accion(v.dominio(args[1]), args[2])
+    if len(args) == 3 and args[0] == "propia-entorno":
+        return propias.entorno(v.dominio(args[1]), datos(args[2]))
+    if len(args) == 3 and args[0] == "propia-quitar":
+        if args[1] != args[2]:
+            raise ErrorSitio("quitar: la confirmación no coincide con el dominio")
+        return propias.quitar(v.dominio(args[1]))
+    raise ErrorSitio("orden o argumentos no permitidos")
+
+
+def main(argv):
+    if os.geteuid() != 0:
+        print(json.dumps({"error": "maquita-sitios debe ejecutarse como root"}))
+        return 1
+    os.umask(0o022)
+    try:
+        resultado = despachar(argv[1:])
+    except ErrorSitio as e:
+        print(json.dumps({"error": str(e)}, ensure_ascii=False))
+        return 1
+    except Exception as e:  # cualquier otro fallo: sin traza hacia el panel, sí en stderr
+        print(f"maquita-sitios: {type(e).__name__}: {e}", file=sys.stderr)
+        print(json.dumps({"error": "fallo interno del ayudante de sitios (ver registro del sistema)"}))
+        return 1
+    print(json.dumps(resultado, ensure_ascii=False))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

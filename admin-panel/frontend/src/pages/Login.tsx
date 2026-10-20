@@ -19,8 +19,9 @@ export function Login() {
   const [recMsg, setRecMsg] = useState("");
   // Nombre del producto tomado de la marca (el endpoint es público: lo usa esta pantalla).
   const [nombreApp, setNombreApp] = useState("");
+  const [nombreOrg, setNombreOrg] = useState("");
   useEffect(() => {
-    fetch("/api/branding").then((r) => (r.ok ? r.json() : {})).then((b: { app_name?: string }) => setNombreApp(b.app_name || "")).catch(() => {});
+    fetch("/api/branding").then((r) => (r.ok ? r.json() : {})).then((b: { app_name?: string; org_name?: string }) => { setNombreApp(b.app_name || ""); setNombreOrg(b.org_name || ""); }).catch(() => {});
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -169,7 +170,7 @@ export function Login() {
               </button>
             )}
           </div>
-          <p className="text-center text-ms-gray-60 text-xs mt-4">la organización MCCH &middot; v2.0</p>
+          {nombreOrg && <p className="text-center text-ms-gray-60 text-xs mt-4">{nombreOrg}</p>}
         </div>
       </div>
     </div>

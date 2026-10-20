@@ -7,6 +7,34 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.8.0]
+
+Panel de hospedaje propio (sección **Hospedaje** y **Protección → Cortafuegos**), actualizaciones firmadas, plantilla de VM, chat en la misma máquina y respaldos. Todo lo nuevo de hospedaje es **opcional**: en una instalación existente esas secciones responden «no instalado» hasta que se instalen con `instalar-app.sh <sección>`. Ver `UPGRADING.md`.
+
+### Añadido (hospedaje y administración del servidor)
+- **Sitios web** (`instalar-app.sh sitios`, `docs/SITIOS-WEB.md`): sitios aislados (usuario, PHP-FPM, MariaDB), WordPress y Joomla verificados, FTPS/SFTP encerrados, HTTPS; entrar a WordPress sin contraseña (vale de un solo uso), nueva contraseña de administrador, revisión y actualización; protección con ModSecurity + OWASP CRS, límites de nginx y fail2ban. Visibilidad en buscadores e IA (schema.org, robots, sitemap, `llms.txt`).
+- **Catálogo de aplicaciones** (29, por categorías y con buscador, como Softaculous): WordPress (y tienda WooCommerce), Joomla, Drupal, Backdrop CMS, Concrete CMS, Grav, MediaWiki, DokuWiki, phpBB, MyBB, Elgg, Moodle, Chamilo, Omeka S, Nextcloud, Piwigo, ProjectSend, Dolibarr, EspoCRM, SuiteCRM, GLPI, osTicket, Kanboard, LimeSurvey, Mautic, OpenCart, Matomo, FreshRSS y YOURLS. Cada una es un archivo en `deploy/sitios/lib/apps/` que el panel descubre solo; se descarga de su origen oficial, se verifica (suma publicada, firma del proyecto o SHA-256 de GitHub) y se instala sin asistente; si algo falla, el sitio queda vacío y sin base. **Bases adicionales** MariaDB o PostgreSQL por sitio; **phpMyAdmin y Adminer** dentro del panel, con **entrada directa** sin volver a escribir clave (usuario temporal de 2 h solo para esa base y vale de un uso).
+- **Subir paquete y migrar** («Subir paquete»): un .zip o .tar.gz propio (hasta 512 MB) y, si se quiere, la copia .sql/.sql.gz de la base; se importa con el usuario del sitio y se conecta solo (WordPress con cambio de dirección, Joomla y `.env`).
+- **Subdominios y dominios alias** («Nuevo sitio» y «Dominios»): el subdominio de una zona propia se publica solo en DNS; los alias amplían el certificado.
+- **Trabajos de cron** («Cron»): hasta 20 por sitio, con la sintaxis de cron, como temporizadores de systemd encerrados con el usuario del sitio, «Ejecutar ahora» y registro.
+- **Versiones de PHP** («Avanzado» → PHP): instalar otras versiones (repositorio firmado de packages.sury.org) y extensiones, pasar cada sitio a la versión que pida su aplicación y más ajustes por sitio (zona horaria, errores, OPcache, sesiones, ejecución de programas).
+- Al activar HTTPS o cambiar alias, las aplicaciones del catálogo actualizan la dirección que guardan; las que solo admiten un dominio redirigen los alias al principal.
+- **Configuración avanzada** («Avanzado»): reglas propias de nginx, ajustes de PHP por sitio y edición de los archivos de la aplicación; antes de cada cambio se guarda la versión anterior (restaurable) y nginx/PHP la comprueban: si la rechazan, se deja la anterior. «Copiar sin contraseñas» para consultar la configuración fuera del servidor.
+- **Aplicaciones propias**: estáticas, Python (WSGI/ASGI) y Node.js como servicio systemd encerrado, desplegables desde git, con variables de entorno y puerto público opcional que abre y cierra el cortafuegos. `disable_symlinks if_not_owner` en todos los sitios.
+- **Zonas DNS y «Nuevo dominio» en un paso** (`instalar-app.sh dns`, `docs/DNS-Y-DOMINIOS.md`): BIND autoritativo con validación previa; el asistente crea correo, DKIM, zona, sitio «en construcción», primer buzón y postmaster@.
+- **Cortafuegos** (`instalar-app.sh cortafuegos`, `docs/CORTAFUEGOS.md`): iptables desde el panel, con cambios a prueba y vuelta atrás a los 60 s; el panel no permite cerrarse el acceso a uno mismo.
+- **Certificado del correo para todos los dominios** (`mail.`, `autoconfig.` y `autodiscover.` de cada uno), usado por webmail, panel, Postfix, Dovecot y FTPS.
+- **Identidad de la institución** (Personalización → «Aplicar en todo», `maquita-identidad`): nombre corto, descripción, redes, íconos generados desde el logo, nombre del Drive y páginas «en construcción»; los textos que mostraban otra organización salen de la marca configurada. Si no hay logo, se genera uno provisional con las iniciales.
+- **Actualizaciones desde el repositorio** (`docs/ACTUALIZACIONES.md`): `maquita-actualizar` instala solo etiquetas `vX.Y.Z` firmadas por el equipo, con respaldo, validación antes y después y **vuelta atrás automática**; pantalla «Actualizaciones» y temporizador nocturno. `publicar-version.sh` crea y verifica la etiqueta firmada.
+- **Plantilla de VM y primer arranque** (`docs/PLANTILLA-VM.md`): `preparar.sh`, `sellar.sh`, asistente en la consola de Proxmox (o archivo de respuestas), pantalla «Primeros pasos» (logo e información con «Omitir por ahora») y `exportar.sh`/`importar.sh` para llevar la plantilla a otra sede.
+- **Chat institucional en la misma máquina** (`instalar-app.sh chat`).
+- **Respaldos** (`docs/RESPALDOS.md`): `maquita-respaldos` con restic (incremental y cifrado; local y destino externo SFTP/REST/S3/disco); pantalla «Respaldos» para respaldar, comprobar y restaurar un sitio o los correos de un buzón sin tocar lo actual; `respaldo-vm.sh` programa en Proxmox el respaldo semanal de la VM completa.
+
+### Corregido (hospedaje y administración del servidor)
+- Instalador: nginx no servía HTTPS por faltar el upstream `webmail_api`; el panel no arrancaba sin `cryptography` (ahora 50.0.1); la sesión del panel chocaba con la clave básica de nginx.
+- Chat: los disparadores de no leídos, vista previa y orden solo existían en la base original; ahora los crea `migrar_chat.py` en toda instalación.
+- fail2ban arranca en una instalación nueva (registros creados antes y configuración comprobada).
+
 ### Añadido
 - Correo web: la búsqueda se hace **solo en la carpeta elegida** (al pulsar una carpeta el ámbito pasa a «Esta carpeta») y la lista avisa «La búsqueda se realizará únicamente en la carpeta X», con «Buscar en todas las carpetas» a un clic. Menú contextual de la lista: **«Abrir en una nueva pestaña»** (ruta `/webmail/mensaje?folder=&uid=`, muestra solo ese correo sin tocar la bandeja), **«Marcar como spam»** (antes «Marcar como no deseado») y, en Correo no deseado, «No es spam» devuelve el correo a la Bandeja de entrada.
 - Rspamd: `BAYES_SPAM` pasa a pesar 4,0 (`statistics_group.conf`): el Bayes ya no manda solo a no deseado. Nuevo `deploy/tools/vigilante-falsos-positivos.sh` (cron 07:10): lo que cayó en no deseado viniendo de un remitente al que ese buzón ya escribió vuelve a la bandeja, se aprende como legítimo y se informa a TI.

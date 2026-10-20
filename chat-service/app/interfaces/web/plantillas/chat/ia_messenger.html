@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}IA Maquita - Asistente Virtual{% endblock %}
+{% block title %}Asistente IA{% endblock %}
 
 {% block page_icon %}<i class="fas fa-robot me-2"></i>{% endblock %}
 
@@ -655,7 +655,7 @@
     <div class="ia-sidebar">
         <div class="ia-sidebar-header">
             <div class="d-flex justify-content-between align-items-center">
-                <h5><i class="fas fa-robot me-2"></i>IA Maquita</h5>
+                <h5><i class="fas fa-robot me-2"></i>Asistente IA</h5>
                 <button class="btn-new-chat" onclick="nuevaConversacionIA()">
                     <i class="fas fa-plus me-1"></i>Nueva
                 </button>
@@ -695,7 +695,7 @@
                     <i class="fas fa-robot"></i>
                 </div>
                 <div class="ia-info">
-                    <h6>IA Maquita</h6>
+                    <h6>Asistente IA</h6>
                     <span class="ia-status" id="iaStatus">
                         <i class="fas fa-circle"></i>
                         <span>Disponible</span>
@@ -721,13 +721,13 @@
                 <div class="ia-welcome-avatar">
                     <i class="fas fa-robot"></i>
                 </div>
-                <h4>Hola! Soy IA Maquita</h4>
+                <h4>¡Hola! Soy el asistente de IA</h4>
                 <p>Tu asistente virtual de la organización.<br>
                    Estoy aqui para ayudarte con consultas, informacion y tareas.</p>
 
                 <div class="ia-suggestions">
-                    <button class="ia-suggestion-btn" onclick="enviarSugerencia('Cuales son los valores de Maquita?')">
-                        <i class="fas fa-heart me-1"></i>Valores de Maquita
+                    <button class="ia-suggestion-btn" onclick="enviarSugerencia('¿Cuáles son los valores de la institución?')">
+                        <i class="fas fa-heart me-1"></i>Valores de la institución
                     </button>
                     <button class="ia-suggestion-btn" onclick="enviarSugerencia('Ayudame a redactar un correo profesional')">
                         <i class="fas fa-envelope me-1"></i>Redactar correo
@@ -747,7 +747,7 @@
             <div class="ia-message-avatar" style="background: linear-gradient(135deg, #0061a1 0%, #10b981 100%); width: 32px; height: 32px;">
                 <i class="fas fa-robot" style="font-size: 0.8rem; color: white;"></i>
             </div>
-            <span class="text-muted ms-2">IA Maquita esta escribiendo</span>
+            <span class="text-muted ms-2">El asistente está escribiendo</span>
             <div class="ia-typing-dots">
                 <span></span><span></span><span></span>
             </div>
@@ -758,7 +758,7 @@
             <div class="ia-input-container">
                 <textarea
                     id="iaInput"
-                    placeholder="Escribe tu mensaje a IA Maquita..."
+                    placeholder="Escribe tu mensaje al asistente..."
                     rows="1"
                     onkeydown="manejarTecla(event)"
                     oninput="autoResize(this); actualizarBotonEnviar();"
@@ -770,7 +770,7 @@
             <div class="text-center mt-2">
                 <small class="text-muted">
                     <i class="fas fa-info-circle me-1"></i>
-                    IA Maquita puede cometer errores. Verifica la informacion importante.
+                    El asistente puede cometer errores. Verifica la información importante.
                 </small>
             </div>
         </div>
@@ -978,13 +978,13 @@
                 <div class="ia-welcome-avatar">
                     <i class="fas fa-robot"></i>
                 </div>
-                <h4>Hola! Soy IA Maquita</h4>
+                <h4>¡Hola! Soy el asistente de IA</h4>
                 <p>Tu asistente virtual de la organización.<br>
                    Estoy aqui para ayudarte con consultas, informacion y tareas.</p>
 
                 <div class="ia-suggestions">
-                    <button class="ia-suggestion-btn" onclick="enviarSugerencia('Cuales son los valores de Maquita?')">
-                        <i class="fas fa-heart me-1"></i>Valores de Maquita
+                    <button class="ia-suggestion-btn" onclick="enviarSugerencia('¿Cuáles son los valores de la institución?')">
+                        <i class="fas fa-heart me-1"></i>Valores de la institución
                     </button>
                     <button class="ia-suggestion-btn" onclick="enviarSugerencia('Ayudame a redactar un correo profesional')">
                         <i class="fas fa-envelope me-1"></i>Redactar correo

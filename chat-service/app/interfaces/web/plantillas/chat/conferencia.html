@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Conferencia — Raíces Maquita</title>
+    <title>Conferencia</title>
     <link rel="stylesheet" href="/static/vendor/font-awesome/css/all.min.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -185,7 +185,7 @@
          La libreria y el modelo se sirven desde AQUI, no de un CDN de fuera. -->
     <link rel="stylesheet" href="/static/css/chat-llamada-fondos.css?v=20260902-t52">
     <script>window.CHAT_URL_REUNIONES = {{ url_reuniones|tojson }};</script>
-    <script src="/static/js/llamada-fondos.js?v=20260928-org"></script>
+    <script src="/static/js/llamada-fondos.js?v=20261016"></script>
     <script>
         // Cierra la vista de llamada: window.close() si es popup; si corre en un
         // iframe (fallback por bloqueo de popups en Firefox/Safari), avisa al padre.
@@ -227,7 +227,7 @@
         const MY_NAME = {{ session.get('usuario_nombre', 'Usuario') | tojson }};
 
         document.getElementById('tituloSala').textContent = NOMBRE_SALA;
-        document.title = NOMBRE_SALA + ' — Raíces';
+        document.title = NOMBRE_SALA;
 
         const est = {
             temporizadorVacia: null,   // T-26: cierre cuando la sala queda vacía

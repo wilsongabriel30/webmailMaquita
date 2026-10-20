@@ -8,6 +8,7 @@ import re
 from email.message import EmailMessage
 from email.utils import formataddr
 from app.wrappers.privilegios import con_sudo
+from app import marca
 
 router = APIRouter(prefix="/api/mailboxes", tags=["mailboxes"])
 
@@ -305,7 +306,7 @@ async def cambiar_titular(
                     mensaje["From"] = formataddr((new_name, username))
                     mensaje["To"] = recipient
                     mensaje["Subject"] = subject
-                    mensaje["X-Mailer"] = "Maquita-Admin-Panel"
+                    mensaje["X-Mailer"] = f"{marca.app()} (panel)"
                     mensaje.set_content(body)
                     proc = await asyncio.create_subprocess_exec(
                         "sendmail", "-i", "-f", username, "--", recipient,

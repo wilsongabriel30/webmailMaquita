@@ -1,0 +1,160 @@
+#!/usr/bin/env python3
+"""maquita-respaldos — respaldos del servidor con restic (sección «Respaldos» del panel).
+
+Corre como root. El panel lo llama solo a través de maquita-sudo. Responde siempre JSON.
+
+Uso desde el panel:
+  maquita-respaldos estado                        último respaldo, destino, retención e instantáneas
+  maquita-respaldos respaldar                     respaldo ahora (en segundo plano)
+  maquita-respaldos config <json-b64>             automático, retención y destino externo
+  maquita-respaldos credenciales <json-b64>       credenciales del destino (S3/REST); no vuelven al panel
+  maquita-respaldos clave                         clave de recuperación y clave SSH pública (para guardarlas fuera)
+  maquita-respaldos restaurar-sitio <dominio> <instantánea>
+  maquita-respaldos restaurar-buzon <correo> <instantánea>
+  maquita-respaldos comprobar                     integridad y prueba de restauración (en segundo plano)
+Solo desde el sistema:
+  maquita-respaldos automatico                    lo lanza el temporizador cada noche (si está activado)
+  maquita-respaldos ejecutar <respaldar|comprobar> el trabajo en sí, como unidad aparte
+"""
+
+import base64
+import json
+import os
+import subprocess
+import sys
+
+sys.path.insert(0, "/usr/local/lib/maquita-respaldos")
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+
+import ajustes as a  # noqa: E402
+
+UNIDAD = "maquita-respaldos-tarea"
+
+
+def _json(b64):
+    try:
+        return json.loads(base64.urlsafe_b64decode(b64 + "=" * (-len(b64) % 4)).decode())
+    except Exception:
+        raise a.ErrorRespaldo("datos no válidos")
+
+
+def _en_segundo_plano(trabajo, *extra):
+    if os.path.exists(a.CERROJO):
+        raise a.ErrorRespaldo("ya hay un respaldo o una restauración en curso")
+    subprocess.run(["systemctl", "reset-failed", UNIDAD], capture_output=True)
+    r = subprocess.run(["systemd-run", f"--unit={UNIDAD}", "--collect", "--quiet", "--property=Nice=10",
+                        "--property=IOSchedulingClass=idle", "/usr/local/sbin/maquita-respaldos", "ejecutar", trabajo, *extra],
+                       capture_output=True, text=True, timeout=60)
+    if r.returncode != 0:
+        raise a.ErrorRespaldo("no se pudo lanzar: " + r.stderr.strip()[-200:])
+    return {"lanzado": trabajo, "datos": list(extra)}
+
+
+def estado():
+    from respaldo import instantaneas
+
+    datos = a.leer_json(a.ESTADO, {})
+    conf = a.config()
+    en_curso = os.path.exists(a.CERROJO)
+    try:
+        lista = instantaneas() if os.path.isdir(a.REPO_LOCAL) and not en_curso else datos.get("instantaneas", [])
+    except a.ErrorRespaldo:
+        lista = []
+    if lista:
+        datos["instantaneas"] = lista
+        a.guardar_json(a.ESTADO, datos, 0o644)
+    sitios = sorted(n[:-5] for n in os.listdir("/etc/maquita-sitios") if n.endswith(".json")) if os.path.isdir("/etc/maquita-sitios") else []
+    return {"config": conf, "en_curso": en_curso, "ultimo": datos.get("ultimo"), "ultimo_correcto": datos.get("ultimo_correcto"),
+            "comprobacion": datos.get("comprobacion"), "restauracion": datos.get("restauracion"), "instantaneas": lista[:60], "sitios": sitios,
+            "disco_libre_gb": round(os.statvfs("/").f_bavail * os.statvfs("/").f_frsize / 1024**3, 1)}
+
+
+def despachar(args):
+    if args == ["estado"]:
+        return estado()
+    if args == ["respaldar"]:
+        return _en_segundo_plano("respaldar")
+    if args == ["comprobar"]:
+        return _en_segundo_plano("comprobar")
+    if len(args) == 2 and args[0] == "config":
+        conf = a.validar_config(_json(args[1]))
+        a.guardar_json(a.CONFIG, conf)
+        return conf
+    if len(args) == 2 and args[0] == "credenciales":
+        a.guardar_secretos_destino(_json(args[1]))
+        return {"guardadas": True}
+    if args == ["clave"]:
+        with open(a.CLAVE) as f:
+            clave = f.read().strip()
+        with open(a.CLAVE_SSH + ".pub") as f:
+            publica = f.read().strip()
+        return {"clave_recuperacion": clave, "ssh_publica": publica}
+    if len(args) == 3 and args[0] in ("restaurar-sitio", "restaurar-buzon"):
+        import restaurar
+
+        restaurar._id(args[2])
+        return _en_segundo_plano(args[0], args[1], args[2])
+    if len(args) == 4 and args[0] == "ejecutar" and args[1] in ("restaurar-sitio", "restaurar-buzon"):
+        import time
+
+        import restaurar
+
+        datos = a.leer_json(a.ESTADO, {})
+        datos["restauracion"] = {"tipo": args[1], "objeto": args[2], "instantanea": args[3], "estado": "en curso",
+                                 "inicio": time.strftime("%Y-%m-%d %H:%M")}
+        a.guardar_json(a.ESTADO, datos, 0o644)
+        try:
+            resultado = (restaurar.sitio if args[1] == "restaurar-sitio" else restaurar.buzon)(args[2], args[3])
+            datos = a.leer_json(a.ESTADO, {})
+            datos["restauracion"].update(resultado, estado="terminada", fin=time.strftime("%Y-%m-%d %H:%M"))
+        except a.ErrorRespaldo as e:
+            datos = a.leer_json(a.ESTADO, {})
+            datos["restauracion"].update(estado="falló", error=str(e)[:400], fin=time.strftime("%Y-%m-%d %H:%M"))
+        a.guardar_json(a.ESTADO, datos, 0o644)
+        return datos["restauracion"]
+    if len(args) == 2 and args[0] == "ejecutar" and args[1] in ("respaldar", "comprobar"):
+        if args[1] == "respaldar":
+            from respaldo import respaldar
+
+            return respaldar(motivo="manual")
+        import restaurar
+
+        datos = a.leer_json(a.ESTADO, {})
+        try:
+            datos["comprobacion"] = dict(restaurar.comprobar(), estado="correcta")
+        except a.ErrorRespaldo as e:
+            datos["comprobacion"] = {"estado": "falló", "error": str(e)}
+        import time
+
+        datos["comprobacion"]["fecha_comprobacion"] = time.strftime("%Y-%m-%d %H:%M")
+        a.guardar_json(a.ESTADO, datos, 0o644)
+        return datos["comprobacion"]
+    if args == ["automatico"]:
+        if not a.config()["automatico"]:
+            return {"automatico": False}
+        from respaldo import respaldar
+
+        return respaldar()
+    raise a.ErrorRespaldo("orden o argumentos no permitidos")
+
+
+def main(argv):
+    if os.geteuid() != 0:
+        print(json.dumps({"error": "maquita-respaldos debe ejecutarse como root"}))
+        return 1
+    os.umask(0o077)
+    try:
+        resultado = despachar(argv[1:])
+    except a.ErrorRespaldo as e:
+        print(json.dumps({"error": str(e)}, ensure_ascii=False))
+        return 1
+    except Exception as e:
+        print(f"maquita-respaldos: {type(e).__name__}: {e}", file=sys.stderr)
+        print(json.dumps({"error": "fallo interno de los respaldos"}))
+        return 1
+    print(json.dumps(resultado, ensure_ascii=False))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

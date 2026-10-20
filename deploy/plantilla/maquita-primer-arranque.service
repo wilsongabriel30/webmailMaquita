@@ -1,0 +1,33 @@
+# Asistente de primer arranque en la consola (tty1) de una VM salida de la plantilla «sin personalizar».
+# Deja de lanzarse solo cuando el asistente termina bien (borra /etc/maquita-plantilla/sin-configurar).
+[Unit]
+Description=Asistente de primer arranque del servidor
+ConditionPathExists=/etc/maquita-plantilla/sin-configurar
+# Sin cloud-init.target: va después de multi-user.target y formaría un ciclo (systemd quitaría el asistente).
+After=network-online.target systemd-user-sessions.service cloud-config.service
+Wants=network-online.target
+Before=getty@tty1.service
+Conflicts=getty@tty1.service
+
+[Service]
+Type=simple
+# Claves SSH propias de ESTA máquina (la plantilla se sella sin ellas).
+ExecStartPre=/usr/bin/ssh-keygen -A
+ExecStartPre=-/bin/systemctl restart ssh
+ExecStart=/bin/bash /opt/maquita-webmail/deploy/plantilla/primer-arranque.sh
+ExecStopPost=-/bin/systemctl start getty@tty1.service
+StandardInput=tty
+StandardOutput=tty
+StandardError=tty
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+Environment=TERM=linux
+Restart=on-failure
+RestartSec=3
+# whiptail no atiende SIGTERM: sin esto, parar el asistente tardaría 90 s.
+TimeoutStopSec=5
+
+[Install]
+WantedBy=multi-user.target

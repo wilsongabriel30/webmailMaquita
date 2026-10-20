@@ -1,0 +1,103 @@
+#!/usr/bin/env python3
+"""maquita-cortafuegos — cortafuegos del servidor sobre iptables (sección «Cortafuegos» del panel).
+
+Corre como root. El panel lo llama solo a través de maquita-sudo. Responde siempre JSON.
+
+Uso desde el panel:
+  maquita-cortafuegos estado
+  maquita-cortafuegos aplicar <json-b64> <ip de quien aplica>   con vuelta atrás a los 60 s
+  maquita-cortafuegos confirmar
+  maquita-cortafuegos revertir
+  maquita-cortafuegos desbloquear <vigilancia de fail2ban> <ip>
+Solo desde el sistema:
+  maquita-cortafuegos recargar         reglas al día tras cambiar los puertos de las aplicaciones
+  maquita-cortafuegos cargar           al arrancar (maquita-cortafuegos.service)
+  maquita-cortafuegos quitar           desactiva el cortafuegos propio
+  maquita-cortafuegos inicial <ip>...  primera configuración (instalador), con esas IP de administración
+"""
+
+import base64
+import json
+import os
+import sys
+
+sys.path.insert(0, "/usr/local/lib/maquita-cortafuegos")
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+
+import config  # noqa: E402
+
+
+def _json(b64):
+    try:
+        datos = json.loads(base64.urlsafe_b64decode(b64 + "=" * (-len(b64) % 4)).decode())
+    except Exception:
+        raise config.ErrorCortafuegos("datos no válidos")
+    return datos
+
+
+def despachar(a):
+    import aplicar
+    import estado
+
+    if a == ["estado"]:
+        return estado.estado()
+    if len(a) in (2, 3) and a[0] == "aplicar":
+        return aplicar.aplicar(_json(a[1]), a[2] if len(a) == 3 else None)
+    if a == ["confirmar"]:
+        return aplicar.confirmar()
+    if a == ["revertir"]:
+        return aplicar.revertir()
+    if len(a) == 3 and a[0] == "desbloquear":
+        return estado.desbloquear(a[1], a[2])
+    if a == ["recargar"]:
+        # Lo llama maquita-sitios al abrir o cerrar el puerto de una aplicación propia. Abrir un puerto
+        # público no puede dejar fuera a nadie: no necesita vuelta atrás.
+        if not os.path.exists(config.RUTA) or not estado._cadena_activa():
+            return {"recargado": False}
+        aplicar._cargar_reglas(config.leer())
+        return {"recargado": True}
+    if a == ["cargar"]:
+        return aplicar.cargar_al_arrancar()
+    if a == ["quitar"]:
+        aplicar.quitar()
+        return {"quitado": True}
+    if len(a) >= 2 and a[0] == "inicial":
+        if os.path.exists(config.RUTA):
+            return {"inicial": False, "motivo": "ya estaba configurado"}
+        conf = config.por_defecto(admin=a[1:])
+        servicios_presentes(conf)
+        aplicar._cargar_reglas(config.validar(conf))
+        config.guardar(config.validar(conf))
+        return {"inicial": True, "config": conf}
+    raise config.ErrorCortafuegos("orden o argumentos no permitidos")
+
+
+def servicios_presentes(conf):
+    """En la primera configuración se cierran los servicios que no están instalados."""
+    import shutil
+
+    if not shutil.which("named"):
+        conf["servicios"]["dns"] = "cerrado"
+    if not shutil.which("vsftpd"):
+        conf["servicios"]["ftp"] = "cerrado"
+
+
+def main(argv):
+    if os.geteuid() != 0:
+        print(json.dumps({"error": "maquita-cortafuegos debe ejecutarse como root"}))
+        return 1
+    try:
+        resultado = despachar(argv[1:])
+    except config.ErrorCortafuegos as e:
+        print(json.dumps({"error": str(e)}, ensure_ascii=False))
+        return 1
+    except Exception as e:
+        print(f"maquita-cortafuegos: {type(e).__name__}: {e}", file=sys.stderr)
+        print(json.dumps({"error": "fallo interno del ayudante del cortafuegos"}))
+        return 1
+    print(json.dumps(resultado, ensure_ascii=False))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

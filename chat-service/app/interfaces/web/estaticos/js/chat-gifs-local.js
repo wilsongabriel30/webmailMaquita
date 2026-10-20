@@ -197,7 +197,7 @@
             const d = await pedir(API + '/externos?q=' + encodeURIComponent(query) + '&limit=24');
             if (!d.results.length) { c.innerHTML = vacio('Nada en las fuentes externas para «' + escapar(query) + '»'); return; }
             c.innerHTML = '<div class="gif-externos-aviso"><i class="fas fa-globe me-1"></i>Resultados externos para «' + escapar(query) +
-                '»: al elegir uno se guarda en la biblioteca Maquita. <a href="#" onclick="performGifSearch(' +
+                '»: al elegir uno se guarda en la biblioteca propia. <a href="#" onclick="performGifSearch(' +
                 JSON.stringify(query).replace(/"/g, '&quot;') + ');return false;">Volver a la biblioteca</a></div>' +
                 d.results.map(function (g, i) {
                     const t = escapar(g.titulo);

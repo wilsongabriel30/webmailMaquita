@@ -98,7 +98,7 @@ async def export_mbox(
 
     content = "\n".join(mbox_parts)
     safe_folder = folder.replace("/", "_").replace(" ", "_")
-    filename = f"maquita-{safe_folder}-{datetime.utcnow().strftime('%Y%m%d')}.mbox"
+    filename = f"correo-{safe_folder}-{datetime.utcnow().strftime('%Y%m%d')}.mbox"
 
     return StreamingResponse(
         io.BytesIO(content.encode("utf-8", errors="replace")),
@@ -138,7 +138,7 @@ EMAIL;TYPE=INTERNET:{c['email']}"""
         vcards.append(vcard)
 
     content = "\n".join(vcards)
-    filename = f"maquita-contactos-{datetime.utcnow().strftime('%Y%m%d')}.vcf"
+    filename = f"contactos-{datetime.utcnow().strftime('%Y%m%d')}.vcf"
 
     return StreamingResponse(
         io.BytesIO(content.encode("utf-8")),
@@ -195,7 +195,7 @@ async def export_eml_batch(
         except Exception:
             pass
 
-    filename = f"maquita-emails-{datetime.utcnow().strftime('%Y%m%d')}.zip"
+    filename = f"correos-{datetime.utcnow().strftime('%Y%m%d')}.zip"
     return StreamingResponse(
         buf,
         media_type="application/zip",

@@ -24,8 +24,8 @@
     var FONDOS = [
         {id: 'ninguno', nombre: 'Sin fondo', icono: '🚫'},
         {id: 'desenfoque', nombre: 'Desenfocar', icono: '🌫'},
-        {id: 'maquita-1-azul', nombre: 'Maquita azul', icono: '🟦'},
-        {id: 'maquita-3-claro', nombre: 'Maquita claro', icono: '⬜'},
+        {id: 'maquita-1-azul', nombre: 'Azul', icono: '🟦'},
+        {id: 'maquita-3-claro', nombre: 'Claro', icono: '⬜'},
     ];
     // La dirección del servidor de reuniones la escribe la plantilla (JITSI_URL del servicio).
     var URL_FONDOS = (window.CHAT_URL_REUNIONES || '') + '/images/virtual-background/';

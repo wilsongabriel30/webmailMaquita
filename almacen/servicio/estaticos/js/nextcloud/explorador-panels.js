@@ -273,11 +273,11 @@ function abrirCalendario() {
     const content = document.getElementById('rightPanelContent');
     const main = document.querySelector('.gd-main');
 
-    title.textContent = 'Maquita Calendario';
+    title.textContent = 'Calendario';
     content.innerHTML = `
         <div style="text-align: center; padding: 40px 20px;">
             <span class="material-icons" style="font-size: 64px; color: #4285f4;">calendar_today</span>
-            <h4 style="margin-top: 16px;">Maquita Calendario</h4>
+            <h4 style="margin-top: 16px;">Calendario</h4>
             <p style="color: var(--gd-text-secondary);">Próximamente: Integración con calendario</p>
         </div>
     `;
@@ -294,11 +294,11 @@ function abrirNotas() {
     const content = document.getElementById('rightPanelContent');
     const main = document.querySelector('.gd-main');
 
-    title.textContent = 'Maquita Notas';
+    title.textContent = 'Notas';
     content.innerHTML = `
         <div style="text-align: center; padding: 40px 20px;">
             <span class="material-icons" style="font-size: 64px; color: #fbbc04;">lightbulb</span>
-            <h4 style="margin-top: 16px;">Maquita Notas</h4>
+            <h4 style="margin-top: 16px;">Notas</h4>
             <p style="color: var(--gd-text-secondary);">Próximamente: Notas rápidas</p>
         </div>
     `;
@@ -315,11 +315,11 @@ function abrirTareas() {
     const content = document.getElementById('rightPanelContent');
     const main = document.querySelector('.gd-main');
 
-    title.textContent = 'Maquita Tareas';
+    title.textContent = 'Tareas';
     content.innerHTML = `
         <div style="text-align: center; padding: 40px 20px;">
             <span class="material-icons" style="font-size: 64px; color: #4285f4;">check_circle</span>
-            <h4 style="margin-top: 16px;">Maquita Tareas</h4>
+            <h4 style="margin-top: 16px;">Tareas</h4>
             <p style="color: var(--gd-text-secondary);">Próximamente: Lista de tareas</p>
         </div>
     `;
@@ -356,7 +356,7 @@ function mostrarComplementos() {
 // IA Maquita - Asistente de Inteligencia Artificial (En desarrollo)
 function abrirIAMaquita() {
     Swal.fire({
-        title: '<span class="material-icons" style="color: #0061a1; vertical-align: middle;">auto_awesome</span> IA Maquita',
+        title: '<span class="material-icons" style="color: #0061a1; vertical-align: middle;">auto_awesome</span> Asistente IA',
         html: `
             <div style="text-align: center; padding: 20px 0;">
                 <div style="background: linear-gradient(135deg, #0061a1 0%, #004a7c 100%); width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center;">
@@ -398,7 +398,7 @@ function abrirIAChat() {
     const content = document.getElementById('rightPanelContent');
     const main = document.querySelector('.gd-main');
 
-    title.textContent = 'Maquita IA';
+    title.textContent = 'Asistente IA';
     content.innerHTML = `
         <div class="gd-ia-chat-container">
             <div class="gd-ia-chat-messages" id="iaChatMessages">
@@ -406,7 +406,7 @@ function abrirIAChat() {
                     <div class="gd-ia-avatar">
                         <span class="material-icons">smart_toy</span>
                     </div>
-                    <p>¡Hola! Soy el asistente de <strong>Maquita IA</strong>. ¿En qué puedo ayudarte hoy?</p>
+                    <p>¡Hola! Soy el <strong>asistente de IA</strong>. ¿En qué puedo ayudarte hoy?</p>
                 </div>
                 <div class="gd-ia-chat-suggestions">
                     <button onclick="iaEnviarSugerencia('¿Cómo subo archivos?')">¿Cómo subo archivos?</button>
@@ -547,7 +547,7 @@ function iaEnviarMensaje() {
 
     // Simular respuesta (en desarrollo)
     setTimeout(() => {
-        agregarMensajeChat('bot', 'Esta función está en desarrollo. Pronto podré ayudarte con tus consultas sobre ' + (window.DRIVE_NAME||'Nube Maquita') + '.');
+        agregarMensajeChat('bot', 'Esta función está en desarrollo. Pronto podré ayudarte con tus consultas sobre ' + (window.DRIVE_NAME||'Nube') + '.');
     }, 500);
 }
 

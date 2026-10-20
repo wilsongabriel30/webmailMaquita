@@ -8,6 +8,13 @@ import { AdminLayout } from "./layouts/AdminLayout";
 import { Dashboard } from "./pages/Dashboard";
 import { Domains } from "./pages/Domains";
 import { Portales } from "./pages/Portales";
+import { Sitios } from "./pages/Sitios";
+import { ZonasDns } from "./pages/ZonasDns";
+import { DominioNuevo } from "./pages/DominioNuevo";
+import { Cortafuegos } from "./pages/Cortafuegos";
+import { Actualizaciones } from "./pages/Actualizaciones";
+import { PrimerosPasos } from "./pages/PrimerosPasos";
+import { Respaldos } from "./pages/Respaldos";
 import { Dispositivos } from "./pages/Dispositivos";
 import { Mailboxes } from "./pages/Mailboxes";
 import { Aliases } from "./pages/Aliases";
@@ -143,6 +150,13 @@ function App() {
             <Route path="ediscovery" element={<EDiscovery />} />
             <Route path="branding" element={<Branding />} />
             <Route path="portales" element={<Portales />} />
+            <Route path="sitios" element={<Sitios />} />
+            <Route path="dns" element={<ZonasDns />} />
+            <Route path="dominio-nuevo" element={<DominioNuevo />} />
+            <Route path="cortafuegos" element={<Cortafuegos />} />
+            <Route path="actualizaciones" element={<Actualizaciones />} />
+            <Route path="primeros-pasos" element={<PrimerosPasos />} />
+            <Route path="respaldos" element={<Respaldos />} />
             <Route path="dispositivos" element={<Dispositivos />} />
             <Route path="ai" element={<AiConfig />} />
             <Route path="office" element={<OfficeConfig />} />

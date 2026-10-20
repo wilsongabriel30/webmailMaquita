@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
+from app.branding.service import app_name_cacheado
 from app.core.session import get_imap_login_user, get_user_password
 from app.mail.clients.imap_client import fetch_full_message, get_imap_connection
 from app.mail.parsers.mime_parser import parse_full_message
@@ -187,7 +188,7 @@ async def _send_rsvp_reply(request, username: str, invite, response: str) -> boo
         # Build REPLY ICS
         cal = vobject.iCalendar()
         cal.add("method").value = "REPLY"
-        cal.add("prodid").value = "-//Maquita Webmail//NONSGML v1.0//EN"
+        cal.add("prodid").value = f"-//{app_name_cacheado()}//NONSGML v1.0//EN"
 
         vevent = vobject.newFromBehavior("vevent")
         vevent.add("uid").value = invite.event_uid

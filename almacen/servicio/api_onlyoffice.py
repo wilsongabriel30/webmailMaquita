@@ -54,6 +54,23 @@ from almacen_bd import consultar, ejecutar
 from api_archivos import _permiso_unidad, error, usuario_actual
 from config_almacen import URL_PUBLICA
 from registro import registrar_actividad
+
+
+def _logo_marca(absoluto=False):
+    """Logo de la institución (Personalización del panel), servido por /api/branding del webmail.
+
+    Sin logo configurado no se muestra ninguno (antes iba fijo el de otra organización)."""
+    import glob
+    from urllib.parse import urlsplit
+
+    archivos = sorted(glob.glob('/opt/maquita-webmail/uploads/branding/logo/*'))
+    if not archivos:
+        return None
+    ruta = '/api/branding/file/logo/' + os.path.basename(archivos[0])
+    if not absoluto:
+        return ruta
+    u = urlsplit(URL_PUBLICA)
+    return f'{u.scheme}://{u.netloc}{ruta}'
 import conversion_edicion
 import capacidad_enlace
 from seguridad_rutas import (RutaInvalida, normalizar_ruta_virtual,
@@ -388,11 +405,8 @@ def onlyoffice_config():
                 'feedback': False,
                 'forcesave': True,
                 'help': False,
-                'logo': {
-                    'image': f'{URL_PUBLICA}/static/img/maquita.jpg',
-                    'imageEmbedded': f'{URL_PUBLICA}/static/img/maquita.jpg',
-                    'url': URL_PUBLICA,
-                },
+                **({'logo': {'image': _logo_marca(absoluto=True), 'imageEmbedded': _logo_marca(absoluto=True),
+                             'url': URL_PUBLICA}} if _logo_marca() else {}),
                 'zoom': 100,
             },
         },
@@ -663,6 +677,11 @@ def editor_almacen():
     plantilla = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                              'plantillas', 'editor_onlyoffice.html')
     n = nonce()
+    import html as html_mod
+
+    import config_almacen
     with open(plantilla, encoding='utf-8') as f:
-        html = f.read().replace('__NONCE__', n)
+        html = (f.read().replace('__NONCE__', n)
+                .replace('__DRIVE__', html_mod.escape(config_almacen.drive_name()))
+                .replace('__LOGO__', html_mod.escape(_logo_marca() or '')))
     return html, 200, cabeceras_editor(url_publica_ds(), n)

@@ -25,7 +25,7 @@ router = APIRouter(prefix="/api/auth/totp", tags=["2fa"])
 BACKUP_CODES_COUNT = 8
 # Emisor que se ve en la aplicacion de autenticacion. Sale de la marca
 # (branding_settings["app_name"]); esto solo actua si no esta configurada.
-ISSUER_POR_DEFECTO = "Maquita Mail"
+ISSUER_POR_DEFECTO = "Correo"
 
 
 async def ensure_tables(db):

@@ -275,6 +275,9 @@ EOF
 fi
 # Envíos autenticados con la fecha del servidor, no la del equipo de quien envía
 bash "${APP_DIR}/deploy/postfix/aplicar-fecha-servidor.sh" >/dev/null
+# Las cabeceras internas (filtro, antispam) no salen hacia otros servidores.
+install -m644 "${APP_DIR}/deploy/postfix/cabeceras-internas-salida.regexp" /etc/postfix/cabeceras-internas-salida.regexp
+postconf -e "smtp_header_checks = regexp:/etc/postfix/cabeceras-internas-salida.regexp"
 postfix check && echo "  Postfix: configuración OK"
 # rspamd como milter (procesa y FIRMA el correo) + generación de la clave DKIM
 postconf -e \
@@ -344,6 +347,17 @@ cp "${CFG}/rspamd-ratelimit-whitelist.map" /etc/rspamd/maps.d/ratelimit_whitelis
 # módulo en silencio), contención y detector de envío masivo. Idempotente; es el mismo guion
 # que se usa en una instalación existente.
 APP_DIR="${APP_DIR}" bash "${APP_DIR}/deploy/tools/instalar-proteccion-salida.sh" || echo -e "  ${RED}AVISO: la protección de salida no quedó completa${NC}"
+# ClamAV ocupa ~1,5 GB y al recargar firmas duplicaba la memoria: sin recarga concurrente y, si el sistema lo
+# mata por memoria, vuelve solo (el correo no debe quedarse sin antivirus).
+grep -q "^ConcurrentDatabaseReload" /etc/clamav/clamd.conf 2>/dev/null || echo "ConcurrentDatabaseReload no" >> /etc/clamav/clamd.conf
+mkdir -p /etc/systemd/system/clamav-daemon.service.d
+printf '[Unit]\nStartLimitIntervalSec=0\n[Service]\nRestart=on-failure\nRestartSec=30\n' > /etc/systemd/system/clamav-daemon.service.d/reinicio.conf
+# Sin swap, cualquier pico (instalaciones de sitios, compilaciones) hace que el sistema mate procesos.
+if ! swapon --show=NAME --noheadings | grep -q . && [ ! -e /swapfile ]; then
+    fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap -q /swapfile && swapon /swapfile && echo "/swapfile none swap sw 0 0" >> /etc/fstab
+    echo "vm.swappiness=10" > /etc/sysctl.d/90-swap.conf && sysctl -q -p /etc/sysctl.d/90-swap.conf
+fi
+systemctl daemon-reload
 systemctl enable --now clamav-freshclam clamav-daemon 2>/dev/null || true
 echo "  ClamAV (antivirus de adjuntos) habilitado (las firmas se descargan en 2.º plano)"
 systemctl restart rspamd 2>/dev/null || true
@@ -427,7 +441,8 @@ echo "  Radicale (calendario/contactos) configurado en :5232"
 echo -e "\n${GREEN}[13/18] Creando buzón de demostración...${NC}"
 # Clave inicial ALEATORIA de un solo uso (H-01): se imprime una vez al final y el webmail
 # obliga a cambiarla en el primer ingreso. Ya no existe una clave conocida en el código.
-CLAVE_GENERICA="Mq-$(openssl rand -base64 18 | tr -dc 'A-Za-z0-9' | head -c 10)-7!"
+# CLAVE_INICIAL: la que elige quien instala (asistente de primer arranque de la plantilla); si no, una al azar.
+CLAVE_GENERICA="${CLAVE_INICIAL:-Mq-$(openssl rand -base64 18 | tr -dc 'A-Za-z0-9' | head -c 10)-7!}"
 DEMO_DOM="ejemplo.local"
 DEMO_HASH=$(doveadm pw -s SHA512-CRYPT -p "${CLAVE_GENERICA}")
 sudo -u postgres psql -d maildb >/dev/null <<SQL
@@ -601,6 +616,9 @@ cp "${PDFED_DIR}/deploy/nginx-pdf-editor.conf" /etc/nginx/snippets/maquita-apps/
 cp "${PDFED_DIR}/deploy/maquita-pdf-editor.service" /etc/systemd/system/
 systemctl daemon-reload && systemctl enable --now maquita-pdf-editor
 echo "  Editor de PDF: https://${MAIL_HOST}/herramientas/editor-pdf/"
+
+# Ayudante de identidad (Personalización → «Aplicar en todo»): nombre, logo, íconos, Drive y sitios.
+bash "${APP_DIR}/deploy/identidad/instalar.sh" || echo -e "${YELLOW}No se instaló el ayudante de identidad (opcional).${NC}"
 
 echo -e "\n${GREEN}[18/18] Iniciando y verificando...${NC}"
 systemctl restart maquita-webmail
