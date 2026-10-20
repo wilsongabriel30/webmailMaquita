@@ -32,6 +32,9 @@ mkdir -p "$CONF" "$ESTADO" "$LOGS"
 # hace fallar LinkUserDevice. Un estado de una instalación nativa antigua (users como carpeta) no vale.
 if [ -d "$ESTADO/users" ]; then mv "$ESTADO/users" "$ESTADO/users.nativo-$(date +%Y%m%d)"; fi
 [ -s "$ESTADO/users" ] || printf 'a:0:{}' > "$ESTADO/users"
+# Versión del estado (FileStateMachine 2): sin este archivo, una instalación nueva responde 503 a todo
+# («state version … not the latest version»).
+[ -s "$ESTADO/settings" ] || printf 'a:1:{s:7:"version";s:1:"2";}' > "$ESTADO/settings"
 chown -R 33:33 "$ESTADO" "$LOGS"        # www-data dentro del contenedor
 for f in config.php backend-imap.php backend-caldav.php backend-carddav.php backend-combined.php autodiscover.php; do
     if [ ! -f "$CONF/$f" ]; then
@@ -63,7 +66,7 @@ docker ps --format '{{.Names}} {{.Status}}' | grep -q '^zpush Up' || { echo -e "
 echo -e "${GREEN}[4/5] Snippet de nginx...${NC}"
 mkdir -p /etc/nginx/snippets/maquita-apps
 install -m644 "$AQUI/nginx/activesync.conf" /etc/nginx/snippets/maquita-apps/activesync.conf
-if grep -qE "maquita-apps/(activesync\.conf|\*\.conf)" /etc/nginx/sites-enabled/* 2>/dev/null; then
+if grep -qE "^\s*include\s+\S*maquita-apps/(activesync\.conf|\*\.conf)" /etc/nginx/sites-enabled/* 2>/dev/null; then
     # El server{} del correo incluye el snippet (por nombre o por el glob maquita-apps/*.conf del Drive):
     # un include explícito además del glob duplicaría la location (informe de Andes, 07/09).
     nginx -t >/dev/null && systemctl reload nginx && echo "  nginx recargado (el snippet entra por el include existente)"

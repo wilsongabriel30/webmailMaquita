@@ -46,6 +46,32 @@ install -m 644 "${SELF}"/lib/*.py /usr/local/lib/maquita-dns/
 install -m 755 "${SELF}/maquita-dns" /usr/local/sbin/maquita-dns
 install -m 755 "${APP_DIR}/deploy/sudoers/maquita-sudo" /usr/local/sbin/maquita-sudo
 
+# Certificado del correo automático: en cuanto los nombres de un dominio apuntan aquí desde Internet.
+cat > /etc/systemd/system/maquita-certificado-correo.service <<'EOF'
+[Unit]
+Description=Certificado del correo: emite o amplía si hay nombres nuevos que ya apuntan aquí
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/maquita-dns certificado-auto
+EOF
+cat > /etc/systemd/system/maquita-certificado-correo.timer <<'EOF'
+[Unit]
+Description=Certificado del correo automático cada 30 minutos
+
+[Timer]
+OnBootSec=5min
+OnCalendar=*:7/30
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target
+EOF
+systemctl daemon-reload
+systemctl enable --now maquita-certificado-correo.timer >/dev/null 2>&1
+
 echo -e "${GREEN}[4/4] Comprobación...${NC}"
 named-checkconf
 systemctl enable named >/dev/null 2>&1 || true

@@ -61,6 +61,19 @@ async def _servidor(request: Request, email: str) -> str:
     return await direcciones.servidor_de_cuenta(db, email, general=_mail_host())
 
 
+SNIPPET_ACTIVESYNC = "/etc/nginx/snippets/maquita-apps/activesync.conf"
+
+
+def activesync_disponible() -> bool:
+    """ActiveSync solo se anuncia si Z-Push está instalado (instalar-app.sh activesync deja el snippet de
+    nginx); si no, un cliente que lo pidiera recibiría una dirección muerta y no caería en IMAP.
+    AUTODISCOVER_ACTIVESYNC=1/0 lo fuerza."""
+    forzado = os.environ.get("AUTODISCOVER_ACTIVESYNC", "").strip()
+    if forzado in ("0", "1"):
+        return forzado == "1"
+    return os.path.exists(SNIPPET_ACTIVESYNC)
+
+
 def url_activesync(servidor: str | None = None) -> str:
     return f"https://{servidor or _mail_host()}/Microsoft-Server-ActiveSync"
 
@@ -157,6 +170,8 @@ async def _handle(request: Request) -> Response:
         return _error_xml("Email invalido")
     servidor = await _servidor(request, email)
     if esquema_pedido(raw) == "mobilesync":
+        if not activesync_disponible():
+            return _error_xml("ActiveSync no disponible: use IMAP/SMTP", status=404)
         return Response(
             content=_build_xml_mobilesync(email, servidor), media_type="application/xml"
         )
@@ -184,6 +199,15 @@ async def _json_v2(request: Request, email: str, protocolo: str) -> Response:
         )
     servidor = await _servidor(request, email)
     if p == "activesync":
+        if not activesync_disponible():
+            # El nuevo Outlook pasa entonces a IMAP/SMTP (AutodiscoverV1).
+            return JSONResponse(
+                {
+                    "ErrorCode": "ProtocolNotSupported",
+                    "ErrorMessage": "ActiveSync no disponible",
+                },
+                status_code=404,
+            )
         return JSONResponse({"Protocol": "ActiveSync", "Url": url_activesync(servidor)})
     if p == "autodiscoverv1":
         return JSONResponse(
