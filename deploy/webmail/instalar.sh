@@ -392,6 +392,8 @@ install -d -m 755 "${APP_DIR}/descargas-app"
 install -m644 "${APP_DIR}/deploy/webmail/nginx/descargas-app.conf" /etc/nginx/snippets/descargas-app.conf
 # Perfil TLS que incluyen los server{} HTTPS (webmail.conf y autodiscover-dominios.conf)
 install -m644 "${APP_DIR}/deploy/webmail/nginx/tls-intermedio.conf" /etc/nginx/snippets/tls-intermedio.conf
+# Referrer-Policy por ruta (webmail.conf usa $politica_referer): no-referrer en enlaces públicos del Almacén
+install -m644 "${APP_DIR}/deploy/hardening/seguridad-correo-web/politica-referer.conf" /etc/nginx/conf.d/maquita-politica-referer.conf
 # Autodiscover/autoconfig de CUALQUIER dominio: puerto 80 (respaldo mientras el certificado no cubra el
 # dominio) y 443 con el certificado del correo; sin Let's Encrypt todavía, con el snakeoil como el vhost principal.
 sed "s/tudominio.com/${DOMAIN}/g" "${APP_DIR}/deploy/webmail/nginx/autodiscover-dominios.conf" \
@@ -627,6 +629,9 @@ echo "  Editor de PDF: https://${MAIL_HOST}/herramientas/editor-pdf/"
 
 # Ayudante de identidad (Personalización → «Aplicar en todo»): nombre, logo, íconos, Drive y sitios.
 bash "${APP_DIR}/deploy/identidad/instalar.sh" || echo -e "${YELLOW}No se instaló el ayudante de identidad (opcional).${NC}"
+
+# Seguridad traída de producción: remitentes con metacaracteres de shell, ClamAV semanal, cuarentena diferida
+bash "${APP_DIR}/deploy/hardening/seguridad-correo-web/aplicar.sh" --sin-recargar || echo -e "${YELLOW}No se aplicó la seguridad del correo y la web (ver arriba).${NC}"
 
 echo -e "\n${GREEN}[18/18] Iniciando y verificando...${NC}"
 systemctl restart maquita-webmail
