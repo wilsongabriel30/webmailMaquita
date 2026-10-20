@@ -63,6 +63,9 @@ def cambiar(dominio, lista):
         sitio.escribir_vhost(meta)
         sitio.recargar_nginx()
         raise
+    import aplicaciones
+
+    aplicaciones.cambiar_url(meta)
     return sitio.publico(meta)
 
 

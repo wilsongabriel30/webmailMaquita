@@ -34,6 +34,35 @@ def url(meta):
     return ("https://" if meta.get("ssl") else "http://") + meta["dominio"]
 
 
+def nombres(meta):
+    """Todos los nombres por los que responde el sitio (dominio, alias y sus «www.»): para las listas de
+    dominios de confianza de las aplicaciones."""
+    import alias
+
+    return alias.nombres(meta)
+
+
+def reemplazar(meta, ruta_relativa, patron, nuevo, obligatorio=True):
+    """Cambia en un archivo de configuración de la aplicación lo que casa con `patron` (regex, MULTILINE);
+    conserva dueño y permisos. Para `cambiar_url(meta)` de las recetas."""
+    ruta = os.path.join(meta["publico"], ruta_relativa)
+    with open(ruta) as f:
+        texto = f.read()
+    # `nuevo` es texto literal (sin «\1») o una función que recibe la coincidencia.
+    cambiado, n = re.subn(patron, nuevo if callable(nuevo) else (lambda m: nuevo), texto, flags=re.M)
+    if not n and obligatorio:
+        raise ErrorSitio(f"no se encontró la dirección en {ruta_relativa}")
+    if cambiado != texto:
+        estado = os.stat(ruta)
+        tmp = ruta + ".tmp-panel"
+        with open(tmp, "w") as f:
+            f.write(cambiado)
+        os.chmod(tmp, estado.st_mode & 0o7777)
+        os.chown(tmp, estado.st_uid, estado.st_gid)
+        os.replace(tmp, ruta)
+    return n
+
+
 def github(repo, patron):
     """Archivo adjunto a la última versión estable de GitHub, con la SHA-256 que calcula GitHub."""
     version, enlace, sha = descargas.github_ultima(repo, patron)

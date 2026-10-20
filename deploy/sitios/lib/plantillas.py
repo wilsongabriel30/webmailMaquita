@@ -213,6 +213,16 @@ php_admin_flag[log_errors] = on
 )
 
 
+# Aplicaciones que solo admiten su dominio principal (rechazan otro Host): www y los alias redirigen a él,
+# salvo el desafío de Let's Encrypt (los alias también llevan certificado).
+_SOLO_PRINCIPAL = Template(r"""
+    set $$redirigir_principal 0;
+    if ($$host != "$dominio") { set $$redirigir_principal 1; }
+    if ($$uri ~ "^/\.well-known/acme-challenge/") { set $$redirigir_principal 0; }
+    if ($$redirigir_principal) { return 301 $$scheme://$dominio$$request_uri; }
+""")
+
+
 def vhost(meta, socket, acme, con_ssl):
     import alias
     import avanzado
@@ -249,6 +259,8 @@ def _cuerpo(meta, socket, acme):
     elif app in CATALOGO:
         modulo = CATALOGO[app]
         reglas, waf = Template(modulo.REGLAS_NGINX).substitute(socket=socket), "aplicacion"
+        if getattr(modulo, "UN_SOLO_DOMINIO", False):
+            reglas = _SOLO_PRINCIPAL.substitute(dominio=meta["dominio"]) + reglas
         if modulo.RAIZ_WEB:
             raiz = f"{meta['publico']}/{modulo.RAIZ_WEB}"
     else:

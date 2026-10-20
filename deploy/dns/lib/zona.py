@@ -8,6 +8,7 @@ validación falla, el archivo anterior queda intacto.
 import glob
 import grp
 import os
+import re
 import time
 
 import dkim
@@ -142,6 +143,44 @@ def borrar(zona):
     _escribir_lista()
     ejecutar(["rndc", "reconfig"])
     return {"zona": z["zona"], "borrada": True}
+
+
+def cambiar_ips(anterior, srv):
+    """Al cambiar las IP del servidor (p. ej. al llegar el enlace propio): en todas las zonas se rehacen los
+    servidores de nombres y se pasan a la IP nueva los registros A y el SPF que apuntaban a la anterior.
+    Los registros que apuntan a otros servidores no se tocan. Devuelve las zonas cambiadas."""
+    viejas = {}
+    for clave in ("ip_correo", "ip_web"):
+        if anterior.get(clave) and anterior[clave] != srv[clave]:
+            viejas.setdefault(anterior[clave], srv[clave])
+    for ns in anterior.get("ns", []):
+        viejas.setdefault(ns["ip"], srv["ip_web"])
+    nombres_ns = {ns["nombre"] for ns in anterior.get("ns", [])} | {ns["nombre"] for ns in srv["ns"]}
+    cambiadas = []
+    for ruta in sorted(glob.glob(os.path.join(DATOS, "*.json"))):
+        if os.path.basename(ruta) == "servidor.json":
+            continue
+        z = leer_json(ruta)
+        zona = z["zona"]
+        propios = [r for r in z["registros"]
+                   if not (r.get("sistema") and ((r["tipo"] == "NS" and r["nombre"] == "@")
+                                                 or (r["tipo"] == "A" and r["nombre"] in nombres_ns)))]
+        for r in propios:
+            if r["tipo"] == "A" and r["valor"] in viejas:
+                r["valor"] = viejas[r["valor"]]
+            elif r["tipo"] == "TXT" and r["valor"].startswith("v=spf1"):
+                r["valor"] = re.sub(r"ip4:([0-9.]+)", lambda m: "ip4:" + viejas.get(m.group(1), m.group(1)), r["valor"])
+        servidores = []
+        for ns in srv["ns"]:
+            servidores.append(R.normalizar({"nombre": "@", "tipo": "NS", "valor": ns["nombre"], "sistema": True}, zona))
+            servidores.append(R.normalizar({"nombre": ns["nombre"], "tipo": "A", "valor": ns["ip"], "sistema": True}, zona))
+        nuevos = servidores + propios
+        if [(r["nombre"], r["tipo"], r["valor"]) for r in nuevos] != [(r["nombre"], r["tipo"], r["valor"]) for r in z["registros"]]:
+            z["registros"] = nuevos
+            z["primario"] = f"{srv['ns'][0]['nombre']}.{zona}."
+            aplicar(z)
+            cambiadas.append(zona)
+    return cambiadas
 
 
 def _texto_zona(z):

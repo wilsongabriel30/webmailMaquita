@@ -22,6 +22,7 @@ interface Sitio {
   app: string | null;
   app_admin: string | null;
   app_pendiente?: boolean;
+  aviso_url?: string | null;
   ssl: boolean;
   ftp: boolean;
   tienda?: boolean;
@@ -317,6 +318,7 @@ export function Sitios() {
                     ) : s.app ? (
                       <div>
                         <span>{NOMBRE_APP[s.app] || s.app}</span>
+                        {s.aviso_url && <div className="text-[11px] text-amber-700">{s.aviso_url}</div>}
                         <div className="text-xs mt-0.5 space-x-2">
                           {s.app === "wordpress" && <button onClick={() => entrar(s)} disabled={!!ocupado} title="Abre el escritorio de WordPress sin contraseña (enlace de un solo uso, 60 segundos)." className="text-ms-blue hover:underline disabled:opacity-50">Entrar</button>}
                           {s.app !== "wordpress" && s.app_admin && <a href={s.app_admin} target="_blank" rel="noopener noreferrer" className="text-ms-blue hover:underline">Administrar</a>}

@@ -92,4 +92,8 @@ def ssl(dominio, correo):
         aplicaciones._wp(meta, "config", "set", "FORCE_SSL_ADMIN", "true", "--raw")
         meta["app_admin"] = f"https://{dominio}/wp-admin/"
         guardar_meta(meta)
+    else:
+        import aplicaciones
+
+        aplicaciones.cambiar_url(meta)
     return sitio.publico(meta)

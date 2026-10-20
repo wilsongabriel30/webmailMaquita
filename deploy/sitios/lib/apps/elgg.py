@@ -19,6 +19,7 @@ DESCRIPCION = "Red social propia: perfiles, grupos, blogs, foros, archivos y men
 LICENCIA = "GPLv2"
 CATEGORIA = "Foros y comunidad"
 VERIFICACION = "GitHub"
+UN_SOLO_DOMINIO = True  # rechaza otro Host: www y los alias redirigen al dominio principal
 RAIZ_WEB = ""
 BD = "mariadb"
 
@@ -97,6 +98,13 @@ def _api(meta, cuerpo):
     codigo = ("<?php require 'vendor/autoload.php'; \\Elgg\\Application::start();\n"
               "$ok = elgg_call(ELGG_IGNORE_ACCESS, function () {\n" + cuerpo + "\n});\nexit($ok ? 0 : 1);\n")
     receta.php(meta, entrada=codigo)
+
+
+def cambiar_url(meta):
+    """Elgg guarda su dirección en elgg-config/settings.php y la usa en todos los enlaces y redirecciones."""
+    receta.reemplazar(meta, "elgg-config/settings.php", r"^\$CONFIG->wwwroot = .*;$",
+                      f"$CONFIG->wwwroot = {_php(receta.url(meta) + '/')};")
+    _elgg_cli(meta, "cache:clear")
 
 
 def clave_admin(meta, usuario, nueva):

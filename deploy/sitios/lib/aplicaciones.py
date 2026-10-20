@@ -180,6 +180,25 @@ def instalar(dominio, app, titulo, correo):
     return respuesta
 
 
+def cambiar_url(meta):
+    """Tras activar HTTPS o cambiar los alias: la aplicación actualiza la dirección que guarda (receta
+    `cambiar_url(meta)`). Si falla, el sitio sigue funcionando y queda un aviso en el panel."""
+    from apps import CATALOGO
+
+    modulo = CATALOGO.get(meta.get("app") or "")
+    if modulo is None or not hasattr(modulo, "cambiar_url") or meta.get("app_pendiente"):
+        return
+    try:
+        modulo.cambiar_url(meta)
+        meta.pop("aviso_url", None)
+        if meta.get("app_admin"):
+            # La dirección de administración sigue el nuevo esquema (http → https).
+            meta["app_admin"] = re.sub(r"^https?://", "https://" if meta.get("ssl") else "http://", meta["app_admin"])
+    except Exception as e:  # noqa: BLE001 — no debe tumbar la activación de HTTPS
+        meta["aviso_url"] = f"{modulo.NOMBRE} no pudo actualizar su dirección: {str(e)[:200]}"
+    guardar_meta(meta)
+
+
 def terminar(dominio):
     """Cierra el instalador web de una aplicación que la persona terminó de configurar."""
     meta = leer_meta(dominio)

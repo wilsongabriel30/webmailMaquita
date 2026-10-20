@@ -108,6 +108,12 @@ def instalar(meta, bd, bd_usuario, bd_clave, titulo, correo, admin_usuario, admi
     return receta.url(meta) + "/login"
 
 
+def cambiar_url(meta):
+    """APP_URL de .env: Laravel la usa en los enlaces de los correos y de las descargas."""
+    receta.reemplazar(meta, ".env", r"^APP_URL=.*$", f"APP_URL={_valor(receta.url(meta))}")
+    _artisan(meta, "optimize:clear")
+
+
 def clave_admin(meta, usuario, nueva):
     """Laravel guarda password_hash() (bcrypt) en users.password; el administrador se creó con ese nombre."""
     receta.sql(meta, f"UPDATE users SET password = {receta.literal(receta.hash_clave(nueva))} "

@@ -50,6 +50,32 @@ async def registrar_dns(dominios: list[str], con_www: bool) -> list[dict]:
     return resultado
 
 
+async def quitar_dns(dominios: list[str], con_www: bool) -> list[str]:
+    """Al dar de baja un sitio: borra los registros A que el panel creó para él en las zonas propias (no los
+    del sistema de la zona, como «@» y «www» del dominio principal, ni los que apuntan a otro servidor)."""
+    try:
+        zonas = [z["zona"] for z in (await ayudante("dns", "listar"))["zonas"]]
+        srv = await ayudante("dns", "servidor-ver")
+    except HTTPException:
+        return []
+    ip = srv.get("ip_web") or srv.get("ip_correo")
+    borrados = []
+    for dominio in dominios:
+        zona = max((z for z in zonas if dominio == z or dominio.endswith("." + z)), key=len, default=None)
+        if not zona or not ip:
+            continue
+        nombres = {("@" if n == zona else n[: -len(zona) - 1]) for n in [dominio] + ([f"www.{dominio}"] if con_www else [])}
+        try:
+            registros = (await ayudante("dns", "ver", zona))["registros"]
+            for reg in registros:
+                if reg["nombre"] in nombres and reg["tipo"] == "A" and reg["valor"] == ip and not reg.get("sistema"):
+                    await ayudante("dns", "borrar-registro", zona, reg["id"])
+                    borrados.append(f"{reg['nombre']}.{zona}")
+        except HTTPException:
+            continue  # la baja del sitio no depende del DNS
+    return borrados
+
+
 class Alias(BaseModel):
     alias: list[str]
 

@@ -176,8 +176,12 @@ async def borrar(dominio: str, body: Confirmacion, r: Request, admin: dict = Dep
     dominio = _dominio(dominio)
     if (body.confirmacion or "").strip().lower() != dominio:
         raise HTTPException(400, "Escriba el dominio exacto para confirmar")
+    from app.sitios.dominios import quitar_dns
+
+    sitio = next((x for x in (await _ayudante("listar")).get("sitios", []) if x["dominio"] == dominio), {})
     res = await _ayudante("borrar", dominio, dominio, tiempo=300)
-    await _auditar(r, admin, "sitio_borrar", dominio, {"papelera": res.get("papelera")})
+    res["dns_borrados"] = await quitar_dns([dominio] + sitio.get("alias", []), sitio.get("www", True))
+    await _auditar(r, admin, "sitio_borrar", dominio, {"papelera": res.get("papelera"), "dns": res["dns_borrados"]})
     return res
 
 

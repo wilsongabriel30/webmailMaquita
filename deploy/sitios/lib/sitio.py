@@ -236,6 +236,7 @@ def publico(meta):
         "app_admin": meta.get("app_admin"),
         "app_pendiente": meta.get("app_pendiente", False),
         "app_version": meta.get("app_version"),
+        "aviso_url": meta.get("aviso_url"),
         "ssl": meta.get("ssl", False),
         "ftp": meta.get("ftp", False),
         "tienda": meta.get("tienda", False),

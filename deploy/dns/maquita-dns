@@ -71,13 +71,17 @@ def guardar_servidor(datos):
     srv = {"ip_correo": _ip4(datos.get("ip_correo"), "IP del correo"),
            "ip_web": _ip4(datos.get("ip_web") or datos.get("ip_correo"), "IP de la web"),
            "ns": limpio}
+    anterior = leer_json(SERVIDOR, {})
     guardar_json(SERVIDOR, srv)
+    import zona
+
+    cambiadas = zona.cambiar_ips(anterior, srv)
     privadas = [x for x in [srv["ip_correo"], srv["ip_web"]] + [n["ip"] for n in limpio] if ipaddress.ip_address(x).is_private]
     if privadas:
         # Se admite para preparar el servidor antes de tener el enlace; desde Internet no funcionará.
         srv = dict(srv, aviso="IP privadas (" + ", ".join(sorted(set(privadas))) + "): sirven para preparar, "
                    "pero desde Internet nada funcionará hasta poner las IP públicas.")
-    return srv
+    return dict(srv, zonas_actualizadas=cambiadas)
 
 
 def estado():

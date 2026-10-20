@@ -120,6 +120,15 @@ def instalar(meta, bd, bd_usuario, bd_clave, titulo, correo, admin_usuario, admi
     return receta.url(meta) + "/login"
 
 
+def cambiar_url(meta):
+    """Tras HTTPS o alias: dominios de confianza (si no, Nextcloud rechaza el alias) y dirección de los enlaces
+    que genera fuera de una petición web (correos, cron)."""
+    _occ(meta, "config:system:delete", "trusted_domains")
+    for i, d in enumerate(receta.nombres(meta)):
+        _occ(meta, "config:system:set", "trusted_domains", str(i), f"--value={d}")
+    _occ(meta, "config:system:set", "overwrite.cli.url", f"--value={receta.url(meta)}")
+
+
 def clave_admin(meta, usuario, nueva):
     _occ(meta, "user:resetpassword", "--password-from-env", usuario, env={"OC_PASS": nueva})
 
