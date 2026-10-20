@@ -90,6 +90,8 @@ from app.push.router import router as push_router
 from app.push.service import asegurar_tabla as asegurar_tabla_push
 from app.rag.router import router as rag_router
 from app.redis_client import create_redis
+from app.respaldos.esquema import asegurar_tablas as asegurar_tablas_respaldos
+from app.respaldos.router import router as respaldos_router
 from app.retention.router import router as retention_router
 from app.rooms.router import router as rooms_router
 from app.safelinks.router import router as safelinks_router
@@ -327,6 +329,7 @@ async def lifespan(app: FastAPI):
             await asegurar_tablas_tareas(app.state.db_pool)  # T-34
             await asegurar_tabla_telemetria(app.state.db_pool)  # telemetría de la app
             await asegurar_tabla_push(app.state.db_pool)  # suscripciones web push (#17)
+            await asegurar_tablas_respaldos(app.state.db_pool)  # T-74 alta en UrBackup
         finally:
             await _ddl_conn.execute("SELECT pg_advisory_unlock(815000)")
     # ── Validación MIME al arranque (protección anti-spam) ──
@@ -806,6 +809,7 @@ app.include_router(tareas_router, prefix="/api/tareas", tags=["tareas"])  # T-34
 app.include_router(
     telemetria_router, prefix="/api/telemetria", tags=["telemetria"]
 )  # cliente Windows
+app.include_router(respaldos_router)  # T-74 alta automática en UrBackup
 app.include_router(presence_router)
 app.include_router(branding_router)
 app.include_router(chatcfg_router)

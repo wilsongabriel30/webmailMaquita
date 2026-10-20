@@ -8,7 +8,8 @@ Corre cada 15 minutos (cron) y avisa a soporte por el canal de notificaciones
   (a) un equipo quedo con una version anterior a la vigente publicada;
   (b) el mismo error se repite 3 o mas veces;
   (c) hay una oleada de fallos de sesion / peticiones de login;
-  (d) hay una oleada de «sin conexion» de un mismo modulo (servicio caido).
+  (d) hay una oleada de «sin conexion» de un mismo modulo (servicio caido);
+  (j) T-74: un equipo informa que lleva mas de 48 h sin respaldo.
 
 Para no volverse ruido, cada alerta se guarda en `app_telemetria_alertas` y no
 se repite hasta pasada su ventana de silencio. Solo datos tecnicos: nunca
@@ -324,6 +325,44 @@ def regla_wazuh_sin_registrar(cur, dry):
     return enviados
 
 
+def _hace_mas_de_48h(iso):
+    """None si la fecha no se entiende; True/False si ya pasaron 48 h."""
+    from datetime import datetime, timedelta, timezone
+    try:
+        f = datetime.fromisoformat(str(iso).replace('Z', '+00:00'))
+    except ValueError:
+        return None
+    if f.tzinfo is None:
+        f = f.replace(tzinfo=timezone.utc)
+    return datetime.now(timezone.utc) - f > timedelta(hours=48)
+
+
+def regla_respaldo_atrasado(cur, dry):
+    """(j) T-74: la app informa `respaldo_estado` con extra.ultimo_respaldo (ISO-8601, o null si
+    nunca respaldo). Si el ultimo informe de un equipo (6 h) dice que lleva mas de 48 h sin
+    respaldo: un aviso por equipo cada 24 h. Mientras la app no lo mande, lo cubre el informe
+    diario de la VM 113."""
+    cur.execute("""
+        SELECT DISTINCT ON (equipo) equipo, usuario, extra->>'ultimo_respaldo', extra->>'cliente'
+        FROM app_telemetria
+        WHERE recibido > NOW() - INTERVAL '6 hours' AND evento = 'respaldo_estado' AND equipo <> ''
+        ORDER BY equipo, recibido DESC
+    """)
+    enviados = 0
+    for equipo, usuario, ultimo, cliente in cur.fetchall():
+        if ultimo and not _hace_mas_de_48h(ultimo):
+            continue          # al dia, o fecha ilegible (no se avisa por un dato roto)
+        clave = 'respaldo-atrasado:%s' % equipo
+        if ya_avisado(cur, clave, 24):
+            continue
+        estado = ('ultimo respaldo %s, hace mas de 48 h' % ultimo[:16]) if ultimo else 'nunca ha respaldado'
+        texto = '%s (%s, cliente %s): %s. Revisar el cliente UrBackup de ese equipo.' % (
+            equipo, usuario or 'sin usuario', cliente or '?', estado)
+        if avisar('Equipo sin respaldo', texto, dry=dry):
+            marcar(cur, clave, texto); enviados += 1
+    return enviados
+
+
 def main():
     global SIMULACION
     dry = SIMULACION = '--dry-run' in sys.argv
@@ -340,7 +379,8 @@ def main():
                  + regla_webview_reconstruido(cur, dry)
                  + regla_socket_chat(cur, dry)
                  + regla_sin_sesion(cur, dry)
-                 + regla_wazuh_sin_registrar(cur, dry))
+                 + regla_wazuh_sin_registrar(cur, dry)
+                 + regla_respaldo_atrasado(cur, dry))
     con.close()
     print('alertas enviadas: %d (version vigente: %s)%s' % (total, vigente or '?', ' [simulacion]' if dry else ''))
 
