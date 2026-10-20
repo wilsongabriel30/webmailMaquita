@@ -387,6 +387,9 @@ sed -i "s/mail\.tudominio\.com/${MAIL_HOST}/g; s/tudominio\.com/${DOMAIN}/g" "${
 sed -i "s|/etc/letsencrypt/live/${MAIL_HOST}/fullchain.pem|/etc/ssl/certs/ssl-cert-snakeoil.pem|; s|/etc/letsencrypt/live/${MAIL_HOST}/privkey.pem|/etc/ssl/private/ssl-cert-snakeoil.key|" "${NGINX_CONF}"
 ln -sf "${NGINX_CONF}" /etc/nginx/sites-enabled/
 rm -f /etc/nginx/sites-enabled/default   # evita conflicto con el server_name por defecto
+# Instaladores de las apps propias (APK): carpeta de publicación y su ruta en nginx (descargas-app.conf).
+install -d -m 755 "${APP_DIR}/descargas-app"
+install -m644 "${APP_DIR}/deploy/webmail/nginx/descargas-app.conf" /etc/nginx/snippets/descargas-app.conf
 # Perfil TLS que incluyen los server{} HTTPS (webmail.conf y autodiscover-dominios.conf)
 install -m644 "${APP_DIR}/deploy/webmail/nginx/tls-intermedio.conf" /etc/nginx/snippets/tls-intermedio.conf
 # Autodiscover/autoconfig de CUALQUIER dominio: puerto 80 (respaldo mientras el certificado no cubra el
