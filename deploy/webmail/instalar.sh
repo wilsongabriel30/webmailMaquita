@@ -347,6 +347,17 @@ cp "${CFG}/rspamd-ratelimit-whitelist.map" /etc/rspamd/maps.d/ratelimit_whitelis
 # módulo en silencio), contención y detector de envío masivo. Idempotente; es el mismo guion
 # que se usa en una instalación existente.
 APP_DIR="${APP_DIR}" bash "${APP_DIR}/deploy/tools/instalar-proteccion-salida.sh" || echo -e "  ${RED}AVISO: la protección de salida no quedó completa${NC}"
+# ClamAV ocupa ~1,5 GB y al recargar firmas duplicaba la memoria: sin recarga concurrente y, si el sistema lo
+# mata por memoria, vuelve solo (el correo no debe quedarse sin antivirus).
+grep -q "^ConcurrentDatabaseReload" /etc/clamav/clamd.conf 2>/dev/null || echo "ConcurrentDatabaseReload no" >> /etc/clamav/clamd.conf
+mkdir -p /etc/systemd/system/clamav-daemon.service.d
+printf '[Unit]\nStartLimitIntervalSec=0\n[Service]\nRestart=on-failure\nRestartSec=30\n' > /etc/systemd/system/clamav-daemon.service.d/reinicio.conf
+# Sin swap, cualquier pico (instalaciones de sitios, compilaciones) hace que el sistema mate procesos.
+if ! swapon --show=NAME --noheadings | grep -q . && [ ! -e /swapfile ]; then
+    fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap -q /swapfile && swapon /swapfile && echo "/swapfile none swap sw 0 0" >> /etc/fstab
+    echo "vm.swappiness=10" > /etc/sysctl.d/90-swap.conf && sysctl -q -p /etc/sysctl.d/90-swap.conf
+fi
+systemctl daemon-reload
 systemctl enable --now clamav-freshclam clamav-daemon 2>/dev/null || true
 echo "  ClamAV (antivirus de adjuntos) habilitado (las firmas se descargan en 2.º plano)"
 systemctl restart rspamd 2>/dev/null || true

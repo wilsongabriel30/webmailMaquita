@@ -76,16 +76,17 @@ categorías y con buscador (`GET /api/sitios/catalogo`).
 - Notas: OpenCart y Mautic quedan en inglés (sus instaladores no traen español); Chamilo ocupa ~1,5 GB;
   SuiteCRM tiene una excepción del cortafuegos solo para el campo `query` de `/api/graphql`; Nextcloud
   admite WebDAV en todo el sitio y no analiza el cuerpo en `remote.php`/`public.php` (subidas grandes).
-- Pendiente: al activar HTTPS o añadir alias no se actualizan las direcciones que guardan algunas
-  aplicaciones (Nextcloud `trusted_domains`, Elgg `wwwroot`, ProjectSend `APP_URL`); cambiarlas en su
-  administración o en «Avanzado».
+- Al activar HTTPS o cambiar los alias, cada aplicación actualiza la dirección que guarda (gancho
+  `cambiar_url(meta)` de la receta: 19 aplicaciones). Si falla, el sitio sigue y el panel muestra el aviso.
+  Las que solo admiten un dominio (`UN_SOLO_DOMINIO`: Elgg, Moodle, MyBB, OpenCart, YOURLS) redirigen
+  `www.` y los alias al dominio principal (salvo el desafío de Let's Encrypt).
 
 ## Configuración avanzada («Avanzado» de cada sitio)
 
 | Pestaña | Qué permite |
 |---|---|
 | nginx | Reglas propias que se incluyen dentro del `server {}` del sitio (`/etc/maquita-sitios/nginx-extra/<dominio>.conf`). Se rechazan `include`, `load_module`, `lua`, `perl`, `js_*`, `ssl_certificate*` y `root`/`alias` fuera de la carpeta del sitio. Se comprueba con `nginx -t`; si falla, se deja la versión anterior. |
-| PHP | Memoria, subida, tiempos, campos por formulario y mostrar errores, con límites; se aplican al pool del sitio y se comprueban con `php-fpm -t`. |
+| PHP | **Versión del sitio**: cualquier versión instalada (el pool pasa al PHP-FPM de esa versión, comprobado con `php-fpm -t`; el socket no cambia). **Más versiones**: «Activar más versiones de PHP» añade el repositorio de Ondřej Surý (`packages.sury.org`, mantenedor de PHP en Debian, paquetes firmados) y permite instalar desde la 7.4 con las extensiones de serie; se avisa de las versiones sin soporte de seguridad y de las que están en pruebas. **Extensiones** (Redis, Memcached, MongoDB, igbinary, YAML, SSH2, Xdebug…) por versión: las cargan todos los sitios de esa versión; las de serie no se quitan. **Ajustes del sitio**: memoria, subida, tiempos, campos y archivos por formulario, sesión, búfer de salida, zona horaria, nivel de errores, OPcache, `allow_url_fopen`, etiquetas cortas y «permitir ejecutar programas» (quita `exec`, `shell_exec`… de las funciones desactivadas). La versión de serie queda en `/etc/maquita-sitios/php-base`: instalar otra no cambia los sitios existentes ni los nuevos. La línea de órdenes de las aplicaciones (cron, `occ`, `artisan`, WP-CLI) usa la versión del sitio. |
 | Archivos | Leer y editar cualquier archivo de texto de `publico/` (hasta 1 MB); se guarda con su dueño y permisos, y en los `.php` se avisa si la sintaxis falla. |
 | Versiones | Antes de cada cambio se copia lo anterior a `/var/lib/maquita-sitios/versiones/<dominio>/` (últimas 50); «Restaurar» vuelve a cualquiera (y guarda antes lo actual). |
 

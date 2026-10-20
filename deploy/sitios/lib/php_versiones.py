@@ -14,6 +14,7 @@ import glob
 import os
 import re
 import subprocess
+import time
 
 from comun import ErrorSitio, ejecutar, guardar_meta, leer_meta
 
@@ -43,19 +44,41 @@ def _apt(*args, tiempo=1200):
 
 
 def instaladas():
-    return sorted((os.path.basename(os.path.dirname(os.path.dirname(p))) for p in glob.glob("/etc/php/*/fpm/php-fpm.conf")
-                   if os.path.exists(f"/usr/sbin/php-fpm{p.split('/')[3]}")), key=lambda v: tuple(map(int, v.split("."))))
+    return sorted((p.split("/")[3] for p in glob.glob("/etc/php/*/fpm/php-fpm.conf")
+                   if os.path.exists(f"/usr/sbin/php-fpm{p.split('/')[3]}")), key=_clave)
 
 
 def repositorio_activo():
     return os.path.exists(REPO_LISTA)
 
 
+# Fin del soporte de seguridad de cada versión (php.net/supported-versions). Antes de 7.4 no se ofrece.
+FIN_SOPORTE = {"7.4": "2022-11-28", "8.0": "2023-11-26", "8.1": "2025-12-31", "8.2": "2026-12-31",
+               "8.3": "2027-12-31", "8.4": "2028-12-31", "8.5": "2029-12-31"}
+
+
+def _clave(v):
+    return tuple(map(int, v.split(".")))
+
+
 def disponibles():
-    """Versiones que apt puede instalar (con el repositorio activo, todas las que publica)."""
+    """Versiones que apt puede instalar (con el repositorio activo, todas las que publica desde la 7.4)."""
     r = subprocess.run(["apt-cache", "pkgnames", "php"], capture_output=True, text=True, timeout=120)
     vs = {m.group(1) for m in (re.fullmatch(r"php([578]\.[0-9])-fpm", n) for n in r.stdout.split()) if m}
-    return sorted(vs, key=lambda v: tuple(map(int, v.split("."))))
+    return sorted((v for v in vs if _clave(v) >= (7, 4)), key=_clave)
+
+
+def notas(versiones):
+    """Aviso por versión: sin soporte de seguridad, o todavía en pruebas (posterior a las publicadas)."""
+    hoy = time.strftime("%Y-%m-%d")
+    ultima = max(FIN_SOPORTE, key=_clave)
+    salida = {}
+    for v in versiones:
+        if v in FIN_SOPORTE and FIN_SOPORTE[v] < hoy:
+            salida[v] = f"sin soporte de seguridad desde {FIN_SOPORTE[v]}"
+        elif _clave(v) > _clave(ultima):
+            salida[v] = "en pruebas: no usar en producción"
+    return salida
 
 
 def _paquete_existe(nombre):
@@ -179,8 +202,19 @@ def cambiar_version(dominio, version):
     if os.path.exists(ruta_vieja):
         os.remove(ruta_vieja)
     guardar_meta(meta)
-    ejecutar(["systemctl", "reload", f"php{version}-fpm"])
+    # Las dos versiones usan el mismo socket: primero la anterior lo suelta (al quitar el pool lo borra) y
+    # después la nueva lo crea; si fuera al revés, el sitio quedaría sin socket (502).
     ejecutar(["systemctl", "reload", f"php{anterior}-fpm"])
+    socket = sitio._socket(meta)
+    for _ in range(40):
+        if not os.path.exists(socket):
+            break
+        time.sleep(0.25)
+    ejecutar(["systemctl", "reload", f"php{version}-fpm"])
+    for _ in range(40):
+        if os.path.exists(socket):
+            break
+        time.sleep(0.25)
     return estado(dominio)
 
 
@@ -197,6 +231,7 @@ def en_uso():
 def estado(dominio=None):
     datos = {"instaladas": instaladas(), "disponibles": disponibles(), "repositorio": repositorio_activo(),
              "en_uso": en_uso()}
+    datos["notas"] = notas(set(datos["instaladas"]) | set(datos["disponibles"]))
     if dominio:
         datos["sitio"] = leer_meta(dominio).get("php")
     return datos

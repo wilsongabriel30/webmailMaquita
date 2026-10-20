@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
 
-interface EstadoPhp { instaladas: string[]; disponibles: string[]; repositorio: boolean; en_uso: Record<string, number>; sitio?: string }
+interface EstadoPhp { instaladas: string[]; disponibles: string[]; repositorio: boolean; en_uso: Record<string, number>; notas?: Record<string, string>; sitio?: string }
 interface Extensiones { version: string; cargadas: string[]; ofrecidas: { id: string; nombre: string; instalada: boolean }[] }
 
 const NOMBRES: Record<string, string> = {
@@ -60,10 +60,11 @@ export function PhpPestana({ dominio, version, ajustes, limites, tipos, ocupado,
     <div className="space-y-4">
       <section className="border border-ms-gray-30 rounded p-3 space-y-2">
         <h3 className="text-sm font-semibold text-ms-gray-130">Versión de PHP del sitio: {version}</h3>
+        {est?.notas?.[version] && <p className="text-xs text-amber-700">PHP {version}: {est.notas[version]}. Conviene pasar el sitio a una versión con soporte.</p>}
         <div className="flex flex-wrap items-end gap-2 text-sm">
           <label className="text-xs text-ms-gray-90">Pasar a
             <select value={destino} onChange={(e) => setDestino(e.target.value)} className="ml-1 px-2 py-1.5 border border-ms-gray-40 rounded text-sm">
-              {(est?.instaladas || [version]).map((v) => <option key={v} value={v}>PHP {v}{est?.en_uso[v] ? ` (${est.en_uso[v]} sitio${est.en_uso[v] > 1 ? "s" : ""})` : ""}</option>)}
+              {(est?.instaladas || [version]).map((v) => <option key={v} value={v}>PHP {v}{est?.en_uso[v] ? ` (${est.en_uso[v]} sitio${est.en_uso[v] > 1 ? "s" : ""})` : ""}{est?.notas?.[v] ? ` — ${est.notas[v]}` : ""}</option>)}
             </select>
           </label>
           <button disabled={ocupadoTodo || destino === version} onClick={() => confirm(`¿Pasar ${dominio} a PHP ${destino}? Compruebe antes que su aplicación lo admite.`) && hacer(`El sitio usa ahora PHP ${destino}.`, "version", () => api.put(`/sitios/${dominio}/php`, { version: destino }))}
@@ -81,7 +82,7 @@ export function PhpPestana({ dominio, version, ajustes, limites, tipos, ocupado,
               <label className="text-xs text-ms-gray-90">Instalar otra versión
                 <select value={nueva} onChange={(e) => setNueva(e.target.value)} className="ml-1 px-2 py-1.5 border border-ms-gray-40 rounded text-sm">
                   <option value="">Elegir…</option>
-                  {instalables.map((v) => <option key={v} value={v}>PHP {v}</option>)}
+                  {instalables.map((v) => <option key={v} value={v}>PHP {v}{est.notas?.[v] ? ` — ${est.notas[v]}` : ""}</option>)}
                 </select>
               </label>
               <button disabled={ocupadoTodo || !nueva} onClick={() => hacer(`PHP ${nueva} instalado con las extensiones de serie.`, "instalar", () => api.post(`/sitios/php/versiones/${nueva}`))}
