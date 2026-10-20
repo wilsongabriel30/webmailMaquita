@@ -58,6 +58,11 @@ etiquetas antiguas, sin firma, no se instalan.
 
 - `estable` (por defecto): etiquetas firmadas. Para todos los servidores en uso.
 - Una rama (p. ej. `main` o una rama de trabajo): solo en servidores de prueba. Sin firma; el panel lo avisa.
+- Volver de una rama de trabajo a `estable`: si la rama se fusionó con «squash», su último commit no es
+  antecesor de la etiqueta y «Buscar» no la ofrece (solo se avanza). Si el contenido es el mismo, se anota
+  una sola vez como disponible y se aplica (la firma se comprueba igual, y hay respaldo y vuelta atrás):
+  `cd /usr/local/lib/maquita-actualizar && python3 -c 'import version as v; d=v.leer_json(v.DISPONIBLE,{}); assert v.firmada(d["ref"]); d["nueva"]=True; v.guardar_json(v.DISPONIBLE,d)'`
+  y luego `maquita-actualizar aplicar <etiqueta>`. Hecho así con la VM de pruebas al publicar v1.8.0.
 
 ## Instalación
 
