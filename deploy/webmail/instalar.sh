@@ -731,3 +731,6 @@ install -d -o www-data -g "$(getent group maquita-admin >/dev/null && echo maqui
 install -m644 "${APP_DIR}/deploy/hardening/cron-radicale-colecciones" /etc/cron.d/maquita-radicale
 chmod +x /opt/maquita-webmail/deploy/tools/calc-storage.sh 2>/dev/null || true
 bash /opt/maquita-webmail/deploy/tools/calc-storage.sh >/dev/null 2>&1 || true
+# Vigilantes del correo (entrega a buzones, servicios y webmail, milter, intrusión, cola/disco/certificado).
+# Al final, para que el guardián no «repare» servicios que la instalación para y arranca a propósito.
+APP_DIR="${APP_DIR}" bash "${APP_DIR}/deploy/vigilantes/instalar.sh" || echo -e "  ${RED}AVISO: no se instalaron los vigilantes (deploy/vigilantes/instalar.sh)${NC}"

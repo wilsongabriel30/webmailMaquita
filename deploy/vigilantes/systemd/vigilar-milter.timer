@@ -1,0 +1,10 @@
+[Unit]
+Description=Comprueba cada 3 minutos que la inspección de fugas sigue activa
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=3min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

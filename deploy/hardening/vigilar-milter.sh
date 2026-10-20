@@ -1,4 +1,5 @@
 #!/bin/bash
+# maquita-vigilantes (repo)
 # Vigilancia del milter DLP — avisa si el correo empieza a pasar sin inspección.
 # =============================================================================
 # Postfix tiene `milter_default_action = accept` (decisión D-1 en DECISIONES.md):

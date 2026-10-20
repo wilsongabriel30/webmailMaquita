@@ -1,0 +1,10 @@
+[Unit]
+Description=Comprobación diaria de la alineación de la configuración del panel
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=1h
+Persistent=true
+
+[Install]
+WantedBy=timers.target
