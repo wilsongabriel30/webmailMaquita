@@ -145,16 +145,35 @@ def borrar(zona):
     return {"zona": z["zona"], "borrada": True}
 
 
+NOMBRES_CORREO = {"mail", "smtp", "imap", "pop", "pop3", "autodiscover", "autoconfig", "mta-sts"}
+
+
+def _mapa(anterior, srv, clave):
+    """{IP vieja: IP nueva} de una sola función (correo o web); vacío si esa IP no cambió."""
+    vieja, nueva = anterior.get(clave), srv.get(clave)
+    return {vieja: nueva} if vieja and nueva and vieja != nueva else {}
+
+
+def _nombres_correo(z):
+    """Nombres de la zona que son del correo: los destinos de los MX propios más los habituales."""
+    zona = z["zona"]
+    nombres = set(NOMBRES_CORREO)
+    for r in z["registros"]:
+        if r["tipo"] == "MX":
+            destino = r["valor"].rstrip(".")
+            if destino.endswith("." + zona):
+                nombres.add(destino[: -len(zona) - 1])
+    return nombres
+
+
 def cambiar_ips(anterior, srv):
     """Al cambiar las IP del servidor (p. ej. al llegar el enlace propio): en todas las zonas se rehacen los
     servidores de nombres y se pasan a la IP nueva los registros A y el SPF que apuntaban a la anterior.
+    Cada registro sigue a SU función: los del correo (destinos del MX, mail, autodiscover…) y el SPF solo
+    cambian si cambió la IP del correo; los demás, si cambió la de la web. Cambiar los NS no toca nada más
+    (20/10/2026: antes una sola tabla de IP mandaba también el correo y el SPF a la IP de la web).
     Los registros que apuntan a otros servidores no se tocan. Devuelve las zonas cambiadas."""
-    viejas = {}
-    for clave in ("ip_correo", "ip_web"):
-        if anterior.get(clave) and anterior[clave] != srv[clave]:
-            viejas.setdefault(anterior[clave], srv[clave])
-    for ns in anterior.get("ns", []):
-        viejas.setdefault(ns["ip"], srv["ip_web"])
+    correo, web = _mapa(anterior, srv, "ip_correo"), _mapa(anterior, srv, "ip_web")
     nombres_ns = {ns["nombre"] for ns in anterior.get("ns", [])} | {ns["nombre"] for ns in srv["ns"]}
     cambiadas = []
     for ruta in sorted(glob.glob(os.path.join(DATOS, "*.json"))):
@@ -165,11 +184,13 @@ def cambiar_ips(anterior, srv):
         propios = [r for r in z["registros"]
                    if not (r.get("sistema") and ((r["tipo"] == "NS" and r["nombre"] == "@")
                                                  or (r["tipo"] == "A" and r["nombre"] in nombres_ns)))]
+        de_correo = _nombres_correo(z)
         for r in propios:
-            if r["tipo"] == "A" and r["valor"] in viejas:
-                r["valor"] = viejas[r["valor"]]
+            if r["tipo"] == "A":
+                mapa = correo if r["nombre"] in de_correo else web
+                r["valor"] = mapa.get(r["valor"], r["valor"])
             elif r["tipo"] == "TXT" and r["valor"].startswith("v=spf1"):
-                r["valor"] = re.sub(r"ip4:([0-9.]+)", lambda m: "ip4:" + viejas.get(m.group(1), m.group(1)), r["valor"])
+                r["valor"] = re.sub(r"ip4:([0-9.]+)", lambda m: "ip4:" + correo.get(m.group(1), m.group(1)), r["valor"])
         servidores = []
         for ns in srv["ns"]:
             servidores.append(R.normalizar({"nombre": "@", "tipo": "NS", "valor": ns["nombre"], "sistema": True}, zona))
