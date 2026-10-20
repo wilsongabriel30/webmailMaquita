@@ -18,8 +18,9 @@ import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from app.auth.cookies import dominio_cookie
 from fastapi import Request, Response
+
+from app.auth.cookies import dominio_cookie
 
 log = logging.getLogger(__name__)
 
