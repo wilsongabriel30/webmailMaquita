@@ -7,7 +7,7 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
-## [1.8.0]
+## [1.8.0] - 2026-10-20
 
 Panel de hospedaje propio (sección **Hospedaje** y **Protección → Cortafuegos**), actualizaciones firmadas, plantilla de VM, chat en la misma máquina y respaldos. Todo lo nuevo de hospedaje es **opcional**: en una instalación existente esas secciones responden «no instalado» hasta que se instalen con `instalar-app.sh <sección>`. Ver `UPGRADING.md`.
 
