@@ -1,0 +1,9 @@
+# Búsqueda de texto completo del correo (deploy/dovecot/busqueda). Todo de noche y con prioridad baja.
+# Índice inicial de los buzones que aún no lo tienen (retoma donde quedó; ventana 19:00–05:15).
+0 20 * * * root /usr/local/sbin/busqueda-indexar-noche
+# Pasada semanal que indexa lo que falte en todos los buzones (los correos nuevos se indexan al llegar).
+0 2 * * 0 root ionice -c3 nice -n 15 doveadm index -A '*' >/dev/null 2>&1
+# Compactar los índices cada madrugada.
+15 3 * * * root ionice -c3 nice -n 10 doveadm fts optimize -A >/dev/null 2>&1
+# Caché de estructura de los mensajes con adjunto (búsqueda por adjunto).
+30 22 * * * root /usr/local/sbin/busqueda-adjuntos-precalentar >/dev/null 2>&1

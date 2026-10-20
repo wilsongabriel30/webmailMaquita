@@ -7,6 +7,12 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Añadido
+- **Búsqueda de texto completo del correo** (`deploy/dovecot/busqueda/`): Dovecot con fts-flatcurve, índice al llegar cada correo, indexación nocturna del correo antiguo, compactación diaria y caché de adjuntos. Instalador nuevo y ajuste `52-busqueda-texto-completo.sh` para los servidores existentes.
+
+### Corregido
+- `protocol lmtp` declaraba `mail_plugins = sieve`, que reemplaza los módulos globales: ahora es un bloque que se suma a ellos.
+
 ## [1.8.2] - 2026-10-20
 
 ### Añadido
