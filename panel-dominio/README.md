@@ -15,10 +15,32 @@ y sin entrar al panel general del servidor.
 | Grupos de distribución y sus miembros | | Publicar nombres de servidor (exige DNS y certificado) |
 | Marca: nombre, lema, contacto, color, logo e icono | | |
 | Verificar el DNS de su dominio (MX, SPF, DKIM, DMARC) | | |
+| **Mi sitio web**: crear sitios en sus dominios y subdominios, hasta su cuota | Dar de baja un sitio (sigue publicado mientras tanto) | Sitios de otros dominios o con nombres del correo (`mail.`, `webmail.`, `autoconfig.`…) |
+| Instalar una aplicación del catálogo, entrar sin contraseña, contraseña nueva del administrador, revisar y actualizar | Más sitios, disco o espacio de bases (cuota del dominio) | Aplicaciones propias (Python, Node), reglas propias de nginx, tienda |
+| HTTPS (Let's Encrypt) y FTP cifrado o SFTP | Versiones o extensiones de PHP que no estén instaladas | Instalar PHP, tocar puertos o el cortafuegos |
+| Trabajos de cron, bases de datos adicionales con phpMyAdmin o Adminer | | Alias de dominio de un sitio, buscadores |
+| Ajustes y versión de PHP (de las instaladas), archivos de configuración con versiones anteriores | | |
+| Subir un paquete propio o migrar un sitio con el respaldo de su base | | |
+| Registros DNS de su zona, si la sirve este servidor | Cambiar registros del correo o de los servidores de nombres (se ven, pero protegidos) | Crear o borrar zonas |
 
 Quién administra qué lo decide el superadministrador en el panel general:
 **Administración → Administradores de dominio**. Ahí también se confirman las eliminaciones y se
 restablece el segundo factor de quien perdió el teléfono.
+
+### Mi sitio web
+
+El portal no tiene privilegios, así que no instala nada por sí mismo: cada operación sobre un sitio
+la pide por un socket Unix (`/run/maquita-sitios-portal.sock`) a un intermediario root aparte,
+que vuelve a comprobar la sesión y el alcance en la base antes de llamar a `maquita-sitios`. Si
+alguien tomara el portal, seguiría sin alcanzar más que lo que puede un administrador de dominio
+con sesión válida, sobre sus dominios. El portal comprueba también el alcance antes de llamar
+(lo ajeno da 404 sin salir del portal), reenvía la ficha de la sesión y lo audita todo en
+`pd_auditoria`, nunca con contraseñas: las que se generan se muestran una sola vez.
+
+Lo subido (paquetes, respaldos de base, archivos editados) se escribe por trozos en
+`/var/lib/maquita-sitios/subidas-portal`, con un nombre al azar y un tope, y el intermediario lo
+recoge de ahí. La sección se descarga solo al abrirla, y la tarjeta del inicio se pide aparte para
+no hacer esperar al resto.
 
 ### Segundo factor
 
@@ -37,8 +59,9 @@ Es la parte más expuesta del sistema: la usan personas de fuera. Por eso es la 
   las contraseñas guardadas, ni borrar buzones, ni leer la configuración ni la auditoría.
 - **Sin secretos compartidos.** Las sesiones son fichas al azar guardadas como hash; una sesión
   del portal no sirve en el panel general ni en el webmail.
-- **Sin dependencias en el navegador.** La pantalla es HTML, CSS y JavaScript a mano (unos 45 KB),
-  sin paso de compilación: carga bien en conexiones lentas y no hay cadena de suministro que vigilar.
+- **Sin dependencias en el navegador.** La pantalla es HTML, CSS y JavaScript a mano (unos 45 KB,
+  y unos 55 KB más de «Mi sitio web», que solo se descargan al abrir esa sección), sin paso de
+  compilación: carga bien en conexiones lentas y no hay cadena de suministro que vigilar.
 
 Aun si alguien tomara el control del portal, lo más que alcanzaría es lo que ya puede hacer un
 administrador de dominio, y todo queda en `pd_auditoria`, que el portal puede escribir pero no
@@ -128,6 +151,10 @@ marca `MAQUITA_SITIOS_PORTAL` (`journalctl -t maquita-sitios-portal`).
 | `PD_DIR_MARCA` | `/opt/webmail/uploads/branding/empresas` | Carpeta de logos e iconos |
 | `PD_MARCA_MAX_KB` | `512` | Peso máximo de una imagen |
 | `PD_SELECTORES_DKIM` | `default,dkim,mail,selector1,selector2` | Selectores que consulta la verificación DNS |
+| `PD_SOCKET_SITIOS` | `/run/maquita-sitios-portal.sock` | Socket del intermediario de los sitios |
+| `PD_DIR_SUBIDAS` | `/var/lib/maquita-sitios/subidas-portal` | Carpeta donde el portal deja lo subido |
+| `PD_SUBIDA_MAX_MB` | `512` | Peso máximo de un paquete o de un respaldo de base |
+| `PD_ARCHIVO_MAX_KB` | `1024` | Peso máximo de un archivo de configuración editado en pantalla |
 | `PD_RESOLUTORES_DOH` | `https://dns.google/resolve,https://cloudflare-dns.com/dns-query` | Resolutores públicos por HTTPS, en orden |
 
 ## Reglas que conviene conocer

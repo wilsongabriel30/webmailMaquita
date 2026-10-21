@@ -150,6 +150,30 @@ try:
     espero("marca de un dominio ajeno", http("PUT", f"/marca/{OTRO}", {"org_name": "Intruso"}, f)[0], 404)
     espero("logo de un dominio ajeno", http("PUT", f"/marca/{OTRO}/archivo/logo", ficha=f, crudo=PNG)[0], 404)
     espero("DNS de un dominio ajeno", http("GET", f"/dns/{OTRO}", ficha=f)[0], 404)
+    # Mi sitio web: el portal comprueba el alcance antes de hablar con el intermediario, así que
+    # da 404 aunque los sitios no estén instalados en este servidor.
+    for nombre, metodo, ruta, cuerpo in [
+            ("crear un sitio en un dominio ajeno", "POST", "/sitios", {"sitio": f"intruso.{OTRO}"}),
+            ("crear un sitio con el dominio ajeno", "POST", "/sitios", {"sitio": OTRO}),
+            ("crear un sitio que solo se parece", "POST", "/sitios", {"sitio": f"{DOM}.{OTRO}"}),
+            ("ver la ficha de un sitio ajeno", "GET", f"/sitios/{OTRO}/estado", None),
+            ("instalar en un sitio ajeno", "POST", f"/sitios/{OTRO}/app", {"aplicacion": "wordpress", "titulo": "x", "correo": f"x@{DOM}"}),
+            ("entrar a un sitio ajeno", "POST", f"/sitios/www.{OTRO}/entrar", {}),
+            ("cambiar la clave de un sitio ajeno", "POST", f"/sitios/{OTRO}/clave-admin", {}),
+            ("activar el FTP de un sitio ajeno", "POST", f"/sitios/{OTRO}/ftp", {"accion": "activar"}),
+            ("pedir HTTPS para un sitio ajeno", "POST", f"/sitios/{OTRO}/https", {"correo": f"x@{DOM}"}),
+            ("ver las tareas de un sitio ajeno", "GET", f"/sitios/{OTRO}/tareas", None),
+            ("ver las bases de un sitio ajeno", "GET", f"/sitios/{OTRO}/bases", None),
+            ("leer un archivo de un sitio ajeno", "GET", f"/sitios/{OTRO}/archivo?ruta=wp-config.php", None),
+            ("cambiar el PHP de un sitio ajeno", "PUT", f"/sitios/{OTRO}/php/version", {"version": "8.2"}),
+            ("pedir la baja de un sitio ajeno", "POST", f"/sitios/{OTRO}/baja", {"motivo": "x"}),
+            ("ver la zona DNS ajena", "GET", f"/sitios/dns/{OTRO}", None),
+            ("agregar a la zona DNS ajena", "POST", f"/sitios/dns/{OTRO}", {"registro": {"nombre": "x", "tipo": "A", "valor": "192.0.2.1"}}),
+            ("tratar un subdominio propio como zona", "GET", f"/sitios/dns/sub.{DOM}", None)]:
+        espero(nombre, http(metodo, ruta, cuerpo, f)[0], 404)
+    espero("subir un paquete a un sitio ajeno", http("PUT", f"/sitios/{OTRO}/paquete", ficha=f, crudo=b"PK\x03\x04" + b"0" * 64)[0], 404)
+    espero("Mi sitio web responde en lo propio (instalado o no)", http("GET", "/sitios", ficha=f)[0] in (200, 503), True)
+    espero("no se pidió la baja de nada ajeno", sql(f"select count(*) from pd_solicitudes where tipo='baja_sitio' and dominio<>'{DOM}' and admin_username='{USUARIO}'"), "0")
     espero("grupo con dirección de otro dominio", http("POST", "/grupos", {"address": f"intrusos@{OTRO}", "name": "x"}, f)[0], 404)
     if grupo_ajeno:
         espero("editar un grupo ajeno", http("PUT", f"/grupos/{grupo_ajeno}", {"name": "Intruso", "active": False}, f)[0], 404)
