@@ -47,7 +47,7 @@ def _indice(papelera):
         return []
     salida = []
     for n in sorted(os.listdir(papelera)):
-        if n.endswith(".json") and RE_ID.match(n[:-5]):
+        if n.endswith(".json") and RE_ID.fullmatch(n[:-5]):
             try:
                 with open(os.path.join(papelera, n)) as f:
                     datos = json.load(f)
@@ -63,7 +63,7 @@ def listar(papelera):
 
 
 def recuperar(raiz, papelera, ident):
-    if not RE_ID.match(ident or ""):
+    if not RE_ID.fullmatch(ident or ""):
         raise ErrorSitio("elemento no válido")
     entrada = next((e for e in _indice(papelera) if e["id"] == ident), None)
     if not entrada:

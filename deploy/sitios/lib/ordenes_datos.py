@@ -37,7 +37,7 @@ def _ruta(b64):
 
 
 def _copia(ident):
-    if not RE_COPIA.match(ident or ""):
+    if not RE_COPIA.fullmatch(ident or ""):
         raise ErrorSitio("copia no válida")
     return ident
 
@@ -119,7 +119,7 @@ def _archivos(orden, dominio, resto):
         return a.permisos(dominio, _ruta(resto[0]), resto[1])
     if orden == "archivos-papelera" and n == 0:
         return a.ver_papelera(dominio)
-    if orden == "archivos-recuperar" and n == 1 and RE_PAPELERA.match(resto[0]):
+    if orden == "archivos-recuperar" and n == 1 and RE_PAPELERA.fullmatch(resto[0]):
         return a.recuperar(dominio, resto[0])
     if orden == "archivos-vaciar" and n == 0:
         return a.vaciar(dominio)
@@ -195,7 +195,7 @@ def huerfanos():
     for carpeta, quitar in ((estadisticas.DATOS, estadisticas.quitar), (copias_cliente.COPIAS, copias_a_papelera)):
         if os.path.isdir(carpeta):
             for n in os.listdir(carpeta):
-                if n not in dominios and v.RE_DOMINIO.match(n):
+                if n not in dominios and v.RE_DOMINIO.fullmatch(n):
                     quitar(n)
                     quitados.add(n)
     return {"datos_huerfanos_borrados": sorted(quitados), "descargas_borradas": descargas_viejas()}

@@ -37,7 +37,7 @@ def listar(dominio, ruta):
 
 
 def subir(dominio, ruta, subida, reemplazar=False):
-    if not RE_SUBIDA.match(subida or ""):
+    if not RE_SUBIDA.fullmatch(subida or ""):
         raise ErrorSitio("subida no válida")
     origen = os.path.join(SUBIDAS, subida)
     try:

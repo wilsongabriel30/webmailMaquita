@@ -37,7 +37,7 @@ def _carpeta(dominio):
 
 
 def _archivo(dominio, ident):
-    if not RE_ID.match(ident or ""):
+    if not RE_ID.fullmatch(ident or ""):
         raise ErrorSitio("copia no válida")
     return os.path.join(_carpeta(dominio), f"{ident}.tar.gz")
 
@@ -81,7 +81,7 @@ def _indice(dominio):
         return []
     salida = []
     for n in sorted(os.listdir(carpeta), reverse=True):
-        if not (n.endswith(".tar.gz") and RE_ID.match(n[:-7])):
+        if not (n.endswith(".tar.gz") and RE_ID.fullmatch(n[:-7])):
             continue
         ident = n[:-7]
         try:

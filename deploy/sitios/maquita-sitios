@@ -254,7 +254,7 @@ def _php(args):
     import php_versiones as pv
 
     def version(texto):
-        if not pv.RE_VERSION.match(texto):
+        if not pv.RE_VERSION.fullmatch(texto):
             raise ErrorSitio("versión de PHP no válida")
         return texto
 
