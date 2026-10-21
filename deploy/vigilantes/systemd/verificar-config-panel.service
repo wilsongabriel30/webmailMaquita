@@ -1,0 +1,8 @@
+[Unit]
+Description=Comprueba que la configuración prestada del panel sigue alineada con la del correo
+Documentation=file:/usr/local/sbin/verificar-config-panel.sh
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/verificar-config-panel.sh --avisar
+SuccessExitStatus=1

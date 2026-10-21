@@ -1,0 +1,136 @@
+#!/bin/bash
+# maquita-vigilantes (repo)
+# ============================================================================
+# Guardián del servidor de correo — cada minuto (guardian-web-correo.timer).
+# Nació de un incidente real (26/09/2026): nginx no arrancó después de un reinicio y el
+# webmail estuvo caído casi 2 días sin que nadie se enterara.
+#
+#   1. Si un servicio clave está caído, lo levanta (máx. 3 intentos por hora por servicio).
+#      nginx solo se reinicia si `nginx -t` valida la configuración.
+#   2. Prueba el webmail por HTTPS como lo haría un navegador.
+#   3. Avisa por correo cuando aparece un problema, recuerda cada 6 horas mientras siga,
+#      y avisa cuando se resuelve (tras 10 minutos estable). Todo sale por
+#      /usr/local/sbin/aviso-limitado (un buzón, tope diario) para no inundar.
+#
+# Prueba de envío: guardian-web-correo --prueba
+# Registro: /var/log/guardian-web-correo.log
+# ============================================================================
+set -u
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+. /usr/local/lib/maquita-vigilantes/lib-avisos.sh
+HOST=$(vig_servidor)
+
+SERVICIOS="nginx maquita-webmail maquita-webmail-respaldo maquita-admin postfix dovecot rspamd redis-server postgresql docker radicale"
+DIR=/var/lib/guardian-web-correo
+LOG=/var/log/guardian-web-correo.log
+MAX_REINICIOS_HORA=3
+RECORDATORIO_SEG=21600          # recordatorio cada 6 h mientras siga el problema
+ESTABLE_PARA_RESUELTO=10        # minutos seguidos sin problemas antes de avisar «resuelto»
+REPARADOS_CADA_SEG=21600        # avisos de «se reparó solo»: como máx. uno cada 6 h
+FALLOS_HTTP_PARA_AVISAR=3
+
+mkdir -p "$DIR"
+ts() { date '+%Y-%m-%d %H:%M:%S'; }
+log() { echo "$(ts) $*" >> "$LOG"; }
+
+enviar() {  # enviar "asunto" "cuerpo"
+    echo -e "$2" | /usr/local/sbin/aviso-limitado "$1"
+}
+
+if [ "${1:-}" = "--prueba" ]; then
+    enviar "[PRUEBA] Guardián del correo" "Mensaje de prueba del guardián del servidor de correo. Si lo lees, los avisos funcionan."
+    log "Aviso de prueba enviado"
+    exit 0
+fi
+
+PROBLEMAS=""
+ACCIONES=""
+
+# --- 1. Servicios caídos: intentar levantarlos --------------------------------
+for s in $SERVICIOS; do
+    systemctl list-unit-files "$s.service" --no-legend 2>/dev/null | grep -q . || continue
+    systemctl is-active --quiet "$s" && continue
+    # 01/10/2026: no confundir reinicios planificados con caídas. Si apt/dpkg está
+    # actualizando paquetes (para y arranca dovecot, postfix…) o el servicio está a
+    # mitad de un reinicio manual o de un despliegue, se espera 30 s y se vuelve a mirar.
+    # (ojo: «unattended-upgrade-shutdown» corre siempre; se mira la tarea de apt, no ese demonio)
+    if systemctl is-active --quiet apt-daily-upgrade.service apt-daily.service || pgrep -x "apt|apt-get|dpkg" >/dev/null 2>&1; then
+        log "OMITIDO: $s inactivo mientras apt/dpkg trabaja; se revisa en la próxima pasada"
+        continue
+    fi
+    sleep 30
+    systemctl is-active --quiet "$s" && { log "OMITIDO: $s estaba reiniciándose y volvió solo"; continue; }
+
+    cont="$DIR/reinicios-$s"
+    # contar solo los intentos de la última hora
+    ahora=$(date +%s)
+    [ -f "$cont" ] && awk -v l=$((ahora - 3600)) '$1 > l' "$cont" > "$cont.tmp" && mv "$cont.tmp" "$cont"
+    n=$(wc -l < "$cont" 2>/dev/null || echo 0)
+
+    if [ "$n" -ge "$MAX_REINICIOS_HORA" ]; then
+        PROBLEMAS="${PROBLEMAS}CRÍTICO: $s sigue caído tras $n intentos en la última hora (ya no se reintenta solo).\n"
+        continue
+    fi
+    if [ "$s" = "nginx" ] && ! prueba=$(nginx -t 2>&1); then
+        PROBLEMAS="${PROBLEMAS}CRÍTICO: nginx caído y su configuración NO valida; no se reinicia:\n$(echo "$prueba" | grep -v ssl_stapling | tail -4)\n"
+        continue
+    fi
+    echo "$ahora" >> "$cont"
+    systemctl reset-failed "$s" 2>/dev/null
+    if systemctl restart "$s" && sleep 3 && systemctl is-active --quiet "$s"; then
+        ACCIONES="${ACCIONES}- $s estaba caído y se levantó solo.\n"
+        log "REPARADO: $s reiniciado"
+    else
+        PROBLEMAS="${PROBLEMAS}CRÍTICO: $s caído; el reinicio falló:\n$(journalctl -u "$s" -n 5 --no-pager 2>/dev/null)\n"
+        log "FALLO: no se pudo levantar $s"
+    fi
+done
+
+# --- 2. Prueba real del webmail por HTTPS -------------------------------------
+fallo_http=""
+for ruta in /webmail/ /api/branding; do
+    c=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 10 \
+        --resolve "$HOST:443:127.0.0.1" "https://$HOST$ruta" 2>/dev/null)
+    case "$c" in 2??|3??) ;; *) fallo_http="${fallo_http}  https://$HOST$ruta → código ${c:-sin respuesta}\n" ;; esac
+done
+if [ -n "$fallo_http" ]; then
+    n=$(( $(cat "$DIR/fallos-http" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$DIR/fallos-http"
+    log "Webmail no responde bien ($n seguidos)"
+    [ "$n" -ge "$FALLOS_HTTP_PARA_AVISAR" ] && \
+        PROBLEMAS="${PROBLEMAS}CRÍTICO: el webmail no responde desde hace $n minutos (los usuarios ven la franja naranja):\n$fallo_http"
+else
+    echo 0 > "$DIR/fallos-http"
+fi
+
+# --- 3. Avisos (solo al cambiar el estado o cada 6 h) -------------------------
+ahora=$(date +%s)
+# la huella solo depende de QUÉ falla (no de minutos ni detalles), para no reenviar por cambios menores
+huella=$(echo -e "$PROBLEMAS" | grep -oE "^CRÍTICO: [a-z0-9-]+( [a-z]+)?|https://[^ ]+" | sort -u | md5sum | cut -c1-12)
+anterior=$(cat "$DIR/estado" 2>/dev/null || echo "ok")
+ultimo=$(cat "$DIR/ultimo-aviso" 2>/dev/null || echo 0)
+
+if [ -n "$PROBLEMAS" ]; then
+    echo 0 > "$DIR/minutos-ok"
+    if [ "$huella" != "$anterior" ] || [ $((ahora - ultimo)) -ge "$RECORDATORIO_SEG" ]; then
+        enviar "ALERTA: problema en el servidor de correo $HOST" \
+            "Se detectó lo siguiente:\n\n$PROBLEMAS\n${ACCIONES:+Acciones automáticas:\n$ACCIONES\n}Revisar: systemctl --failed ; journalctl -u nginx -n 30\nMientras siga, se recordará cada 6 horas."
+        echo "$huella" > "$DIR/estado"; echo "$ahora" > "$DIR/ultimo-aviso"
+    fi
+elif [ "$anterior" != "ok" ]; then
+    m=$(( $(cat "$DIR/minutos-ok" 2>/dev/null || echo 0) + 1 )); echo "$m" > "$DIR/minutos-ok"
+    if [ "$m" -ge "$ESTABLE_PARA_RESUELTO" ]; then
+        enviar "RESUELTO: el servidor de correo $HOST funciona" \
+            "El problema avisado antes ya no está (lleva $m minutos estable)."
+        echo ok > "$DIR/estado"
+    fi
+fi
+if [ -n "$ACCIONES" ]; then
+    echo -e "$ACCIONES" | sed '/^$/d' >> "$DIR/reparados-pendientes"
+    ult_rep=$(cat "$DIR/ultimo-reparado" 2>/dev/null || echo 0)
+    if [ -z "$PROBLEMAS" ] && [ $((ahora - ult_rep)) -ge "$REPARADOS_CADA_SEG" ]; then
+        enviar "AVISO: el servidor de correo se reparó solo" \
+            "El guardián encontró servicios caídos y los levantó:\n\n$(sort "$DIR/reparados-pendientes" | uniq -c)\n\nConviene revisar la causa (journalctl -u <servicio>). Estos avisos llegan como máx. cada 6 h."
+        : > "$DIR/reparados-pendientes"; echo "$ahora" > "$DIR/ultimo-reparado"
+    fi
+fi
+exit 0

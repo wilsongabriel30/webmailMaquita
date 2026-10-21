@@ -1,0 +1,2 @@
+# Informe diario del tráfico de correo (pflogsumm), sin envío
+30 6 * * * root /usr/local/bin/informe-diario-correo.sh >/dev/null 2>&1

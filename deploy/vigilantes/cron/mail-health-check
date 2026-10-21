@@ -1,0 +1,2 @@
+# Cola, disco de los buzones y certificado del correo
+*/5 * * * * root /usr/local/bin/mail-health-check.sh >/dev/null 2>&1
