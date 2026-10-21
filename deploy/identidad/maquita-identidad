@@ -6,7 +6,7 @@ Corre como root y solo se llama desde el panel a través de maquita-sudo. Respon
   maquita-identidad aplicar <identidad en JSON base64url>
 
 Hace, con lo que se guardó en Personalización:
-1. App del correo (PWA): nombre, nombre corto, descripción y color en manifest.json, e íconos 192/512 y
+1. App del correo (PWA): nombre, nombre corto, descripción y color en manifest.json, título de la página, e íconos 192/512 y
    de Apple generados desde el logo (también en branding/local/, para que un despliegue no los pise).
 2. Drive: su nombre visible («Nube <nombre corto>»).
 3. Sitios web «en construcción»: rehace su página con nombre, logo, descripción, contacto y redes.
@@ -76,6 +76,27 @@ def _manifest(ide):
         os.makedirs(os.path.dirname(destino), exist_ok=True)
         with open(destino, "w") as f:
             f.write(texto)
+    return "actualizado"
+
+
+def _titulo(ide):
+    """El título de la página del webmail (y el de la app en iPhone) se pone al desplegar desde app_name; si la
+    institución cambia el nombre después, sin esto la pestaña seguiría con el nombre anterior."""
+    import html
+
+    ruta = os.path.join(WWW, "index.html")
+    if not os.path.exists(ruta) or not ide["app"]:
+        return "sin webmail desplegado"
+    with open(ruta, encoding="utf-8") as f:
+        texto = f.read()
+    n = html.escape(ide["app"], quote=True)
+    nuevo = re.sub(r"<title>[^<]*</title>", lambda m: f"<title>{n}</title>", texto, count=1)
+    nuevo = re.sub(r'(<meta name="apple-mobile-web-app-title" content=")[^"]*(")', lambda m: m.group(1) + n + m.group(2),
+                   nuevo, count=1)
+    if nuevo == texto:
+        return "al día"
+    with open(ruta, "w", encoding="utf-8") as f:
+        f.write(nuevo)
     return "actualizado"
 
 
@@ -205,7 +226,8 @@ def _reafirmar():
 
 def aplicar(ide):
     logo = logo_iniciales(iniciales(ide))
-    resultado = {"logo": logo, "app": _manifest(ide), "iconos": _iconos(), "drive": _drive(ide), "sitios": _sitios(ide)}
+    resultado = {"logo": logo, "app": _manifest(ide), "titulo": _titulo(ide), "iconos": _iconos(), "drive": _drive(ide),
+                 "sitios": _sitios(ide)}
     resultado["firmas"] = _reafirmar()
     for servicio in ("maquita-webmail", "maquita-almacen"):
         subprocess.run(["systemctl", "try-restart", servicio], capture_output=True, timeout=120)
