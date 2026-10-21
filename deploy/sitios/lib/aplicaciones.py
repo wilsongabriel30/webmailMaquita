@@ -148,6 +148,7 @@ def instalar(dominio, app, titulo, correo):
     meta["app"] = app
     meta["app_admin"] = acceso_admin
     meta["app_usuario"] = admin_usuario
+    meta["app_correo"] = correo  # a quién avisa la vigilancia de disponibilidad del sitio
     meta["app_pendiente"] = bool(asistente)
     guardar_meta(meta)
     if app == "wordpress":

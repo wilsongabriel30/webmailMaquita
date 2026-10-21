@@ -224,6 +224,56 @@ WantedBy=timers.target
 EOF
 systemctl daemon-reload
 systemctl enable --now sitios-cron.timer >/dev/null 2>&1
+# Observación y datos: estadísticas (GoAccess, MIT, del repositorio de Debian), disponibilidad cada 5 minutos y
+# copias del sitio que controla el cliente. Datos fuera de /srv/sitios: privados (el panel los entrega) y sin
+# duplicarse en los respaldos del servidor.
+command -v goaccess >/dev/null || apt-get install -y -qq goaccess >/dev/null || \
+    echo -e "${YELLOW}No se pudo instalar GoAccess: habrá resumen de visitas, pero no el informe HTML.${NC}"
+install -d -m 700 /var/lib/maquita-sitios/estadisticas /var/lib/maquita-sitios/disponibilidad /var/lib/maquita-sitios/copias
+cat > /etc/systemd/system/sitios-disponibilidad.service <<'EOF'
+[Unit]
+Description=Disponibilidad de los sitios web (HTTPS, tiempo y certificado)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/maquita-sitios disponibilidad-comprobar
+TimeoutStartSec=600
+EOF
+cat > /etc/systemd/system/sitios-disponibilidad.timer <<'EOF'
+[Unit]
+Description=Disponibilidad de los sitios web cada 5 minutos
+
+[Timer]
+OnCalendar=*:0/5
+RandomizedDelaySec=30
+
+[Install]
+WantedBy=timers.target
+EOF
+cat > /etc/systemd/system/sitios-datos-noche.service <<'EOF'
+[Unit]
+Description=Estadísticas de visitas de los sitios (GoAccess), papeleras y descargas olvidadas
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/maquita-sitios datos-noche
+Nice=15
+IOSchedulingClass=idle
+EOF
+cat > /etc/systemd/system/sitios-datos-noche.timer <<'EOF'
+[Unit]
+Description=Estadísticas y limpieza de los sitios cada noche
+
+[Timer]
+OnCalendar=*-*-* 03:40
+RandomizedDelaySec=20min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+systemctl daemon-reload
+systemctl enable --now sitios-disponibilidad.timer sitios-datos-noche.timer >/dev/null 2>&1
 # El envoltorio sudo del panel conoce maquita-sitios desde esta versión: reinstalarlo.
 install -m 755 "${APP_DIR}/deploy/sudoers/maquita-sudo" /usr/local/sbin/maquita-sudo
 # Los sitios ya creados se regeneran con las plantillas de esta versión.
