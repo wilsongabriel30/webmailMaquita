@@ -14,6 +14,20 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 - **Instalación en un servidor que no se llama `mail.<dominio>`** (aviso de Andes): el vhost de autodiscover seguía pidiendo `/etc/letsencrypt/live/mail.<dominio>/` y nginx no arrancaba en 443; también fallaba `nginx -t` al instalar los sitios. Ahora todo vhost cuyo certificado aún no existe arranca con el provisional (`deploy/webmail/nginx/certificado-provisional.sh`) hasta emitir el real, y `emitir-certificado.sh` usa el nombre del servidor de la instalación (`MAIL_HOST`, que se guarda en `backend/.env`).
 - **`instalar.sh` no creaba `/etc/maquita-mail/organizacion.env`** (aviso de Andes): sin él, los avisos de cuota y de los vigilantes iban a direcciones de ejemplo. Ahora lo crea con el dominio, el servidor y `ORG_CORREOS_AVISOS` (nunca lo sobrescribe); ajuste `57-datos-de-la-organizacion.sh` para los servidores ya instalados.
 
+### v1.10 Hospedaje completo — funciones web por sitio (panel general)
+- **Ventana «Web» en Sitios web**, con una pestaña por función. Cada cambio se genera como include de nginx del sitio (`/etc/maquita-sitios/nginx-web/<dominio>/`) por un mecanismo común (`deploy/sitios/lib/nginx_web.py`): copia previa, `nginx -t` y vuelta atrás automática si nginx lo rechaza. Todo sale del meta del sitio, así que `maquita-sitios regenerar` conserva los ajustes.
+- **Redirecciones** 301/302 de una ruta (con o sin lo que hay debajo) o de todo el dominio (conservando la ruta), sin bucles y sin tocar la renovación del certificado.
+- **Carpetas con contraseña** (autenticación básica): usuarios por carpeta, contraseña generada (se muestra una vez) o elegida; cifrado bcrypt (`apache2-utils`) o apr1, en `claves-carpetas/` del sitio, fuera de la carpeta pública. Los `.php` de la carpeta siguen pasando por PHP.
+- **Páginas de error propias** (403, 404, 500, 502, 503) con un `.html` de la carpeta pública.
+- **Protección contra hotlinking**: extensiones, dominios permitidos y buscadores.
+- **Bloqueo de IP por sitio** (IPv4/IPv6 y redes, validadas con `ipaddress`).
+- **Optimización para ADSL rural y satélite**: gzip de serie (y brotli si nginx tiene el módulo), caché del navegador para estáticos (30 días de serie) y caché de página `fastcgi_cache` activable para sitios PHP, con purga manual; nunca con sesión iniciada, en `/wp-admin`, el carrito, las búsquedas ni los POST.
+- **Varias cuentas FTP/SFTP por sitio**, cada una encerrada en una subcarpeta (montaje bind sin seguir enlaces simbólicos, mismo UID que el sitio, raíz del encierro en `/srv/sitios-ftp/`); se vuelven a montar al arrancar (`sitios-ftp-montar.service`).
+- Órdenes nuevas de `maquita-sitios` (`web`, `web-*`, `ftp-cuentas`, `ftp-cuenta-*`) validadas una a una en `maquita-sudo` (`validar_sitios_web`); pruebas en `backend/tests/test_sitios_funciones_web.py` y `test_maquita_sudo_sitios_web.py`.
+
+### Corregido (v1.10)
+- `maquita-sudo` y la validación del ayudante de sitios aceptaban un argumento con un salto de línea al final (`$` de las expresiones regulares lo admite): ahora se compara la cadena entera.
+
 ## [1.8.3] - 2026-10-21
 
 Mejoras que existían solo en el servidor de producción llegan a todas las instalaciones (ajustes 51 a 55).
