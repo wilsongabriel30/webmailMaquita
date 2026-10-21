@@ -23,6 +23,8 @@ cmp -s "$AQUI/maquita-zpush-directorio" "$GEN" || pendiente+=("generador")
 systemctl is-enabled -q maquita-zpush-directorio.timer 2>/dev/null || pendiente+=("temporizador")
 grep -qE '^define\("SEARCH_PROVIDER", "BackendSearchMaquita"\);' "$CONF/config.php" || pendiente+=("configuración")
 docker inspect zpush --format '{{range .Mounts}}{{.Destination}} {{end}}' | grep -q "$MONTAJE" || pendiente+=("montaje")
+# La libreta personal estaba en una ruta de DAViCal (/caldav.php/...), no en la «contacts» de Radicale.
+grep -q "caldav.php/%u/addresses" "$CONF/backend-carddav.php" 2>/dev/null && pendiente+=("ruta de contactos")
 
 if [ "${#pendiente[@]}" -eq 0 ]; then
     [ "${1:-}" = "--simular" ] || MAQUITA_APP_DIR="$APP_DIR" "$GEN" >/dev/null
@@ -57,6 +59,10 @@ systemctl daemon-reload
 MAQUITA_APP_DIR="$APP_DIR" "$GEN"
 systemctl enable -q --now maquita-zpush-directorio.timer
 
+if grep -q "caldav.php/%u/addresses" "$CONF/backend-carddav.php" 2>/dev/null; then
+    cp -p "$CONF/backend-carddav.php" "$CONF/backend-carddav.php.bak.$(date +%Y%m%d%H%M%S)"
+    sed -i "s|caldav.php/%u/addresses/|%u/contacts/|" "$CONF/backend-carddav.php"
+fi
 recrear=0
 if ! grep -qE '^define\("SEARCH_PROVIDER", "BackendSearchMaquita"\);' "$CONF/config.php"; then
     cp -p "$CONF/config.php" "$CONF/config.php.bak.$(date +%Y%m%d%H%M%S)"
