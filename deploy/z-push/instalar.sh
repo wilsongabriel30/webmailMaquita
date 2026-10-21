@@ -47,21 +47,10 @@ done
 chmod 640 "$CONF"/*.php && chown root:33 "$CONF"/*.php
 
 echo -e "${GREEN}[3/5] Contenedor zpush...${NC}"
-docker rm -f zpush >/dev/null 2>&1 || true
-docker run -d --name zpush --restart unless-stopped \
-    --add-host host.docker.internal:host-gateway \
-    -p 127.0.0.1:9000:9000 \
-    -v "$ESTADO":/var/lib/z-push \
-    -v "$LOGS":/var/log/z-push \
-    -v "$CONF/config.php":/opt/z-push/src/config.php:ro \
-    -v "$CONF/backend-imap.php":/opt/z-push/src/backend/imap/config.php:ro \
-    -v "$CONF/backend-caldav.php":/opt/z-push/src/backend/caldav/config.php:ro \
-    -v "$CONF/backend-carddav.php":/opt/z-push/src/backend/carddav/config.php:ro \
-    -v "$CONF/backend-combined.php":/opt/z-push/src/backend/combined/config.php:ro \
-    -v "$CONF/autodiscover.php":/opt/z-push/src/autodiscover/config.php:ro \
-    zpush:latest >/dev/null
-sleep 2
-docker ps --format '{{.Names}} {{.Status}}' | grep -q '^zpush Up' || { echo -e "${RED}el contenedor no arrancó: docker logs zpush${NC}"; exit 1; }
+install -m 640 -o root -g 33 "$AQUI/directorio/searchmaquita.php" "$CONF/searchmaquita.php"
+# shellcheck source=contenedor.sh
+source "$AQUI/contenedor.sh"
+zpush_arrancar || { echo -e "${RED}el contenedor no arrancó: docker logs zpush${NC}"; exit 1; }
 
 echo -e "${GREEN}[4/5] Snippet de nginx...${NC}"
 mkdir -p /etc/nginx/snippets/maquita-apps
@@ -85,6 +74,9 @@ if [ -n "$PUENTE" ]; then
 else
     echo -e "  ${YELLOW}Sin docker0: instala nginx/radicale-zpush.conf a mano en la IP del puente.${NC}"
 fi
+
+# Libreta de la organización (búsqueda de destinatarios en el teléfono y en Outlook).
+bash "$AQUI/directorio/instalar.sh" || echo -e "  ${YELLOW}La libreta de la organización no se instaló: bash deploy/z-push/directorio/instalar.sh${NC}"
 
 echo -e "${GREEN}[5/5] Comprobación...${NC}"
 CODIGO=$(curl -sk -o /dev/null -w '%{http_code}' -X OPTIONS "https://${HOST_CORREO}/Microsoft-Server-ActiveSync" --resolve "${HOST_CORREO}:443:127.0.0.1" 2>/dev/null || echo 000)

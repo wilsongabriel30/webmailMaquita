@@ -10,6 +10,7 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 Hospedaje completo (v1.10): funciones web, cuentas FTP adicionales, archivos y datos por sitio en el panel general.
 
 ### Añadido
+- **Libreta de la organización en ActiveSync** (`deploy/z-push/directorio/`): al escribir un destinatario en el teléfono o en Outlook aparecen los buzones activos del propio dominio (solo nombre y correo). Antes Z-Push buscaba una colección «GAL» de CardDAV que Radicale no tiene y respondía 403. Ajuste `60-libreta-de-la-organizacion.sh` para los servidores ya instalados.
 - **Ventana «Web» en Sitios web**, con una pestaña por función. Cada cambio se genera como include de nginx del sitio (`/etc/maquita-sitios/nginx-web/<dominio>/`) por un mecanismo común (`deploy/sitios/lib/nginx_web.py`): copia previa, `nginx -t` y vuelta atrás automática si nginx lo rechaza. Todo sale del meta del sitio, así que `maquita-sitios regenerar` conserva los ajustes.
 - **Redirecciones** 301/302 de una ruta (con o sin lo que hay debajo) o de todo el dominio (conservando la ruta), sin bucles y sin tocar la renovación del certificado.
 - **Carpetas con contraseña** (autenticación básica): usuarios por carpeta, contraseña generada (se muestra una vez) o elegida; cifrado bcrypt (`apache2-utils`) o apr1, en `claves-carpetas/` del sitio, fuera de la carpeta pública. Los `.php` de la carpeta siguen pasando por PHP.
