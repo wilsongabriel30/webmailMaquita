@@ -49,7 +49,17 @@ Uso:
   maquita-sitios clave-admin <dominio>    contraseña nueva del administrador de la aplicación
   maquita-sitios revisar <dominio>        versión, actualizaciones pendientes e integridad
   maquita-sitios actualizar <dominio>     actualiza núcleo, complementos, temas e idioma
+Funciones web por sitio y cuentas FTP adicionales (v1.10; detalle en lib/funciones_web.py):
+  maquita-sitios web <dominio>            redirecciones, carpetas con contraseña, errores, hotlinking, IP y optimización
+  maquita-sitios web-redirecciones|web-errores|web-hotlink|web-bloqueo|web-optimizacion <dominio> <JSON base64url>
+  maquita-sitios web-privado-agregar <dominio> <carpeta base64url> <usuario> [contraseña base64url]
+  maquita-sitios web-privado-quitar <dominio> <carpeta base64url> [usuario]
+  maquita-sitios web-purgar <dominio>     vacía la caché de página
+  maquita-sitios ftp-cuentas <dominio>    cuentas FTP adicionales, cada una encerrada en una subcarpeta
+  maquita-sitios ftp-cuenta-crear <dominio> <nombre> <subcarpeta base64url>
+  maquita-sitios ftp-cuenta-clave|ftp-cuenta-quitar <dominio> <nombre>
 Solo desde el sistema (no las admite maquita-sudo):
+  maquita-sitios ftp-montar               vuelve a montar las carpetas de las cuentas FTP adicionales (al arrancar)
   maquita-sitios cron                     tareas programadas de las aplicaciones (systemd)
   maquita-sitios regenerar                reescribe los vhosts con las plantillas vigentes
 """
@@ -169,6 +179,11 @@ def despachar(args):
         return bases.borrar(v.dominio(args[1]), args[2])
     if args[:1] and args[0].startswith("propia-"):
         return _propia(args)
+    # --- Funciones web por sitio y cuentas FTP adicionales (v1.10): todo en lib/funciones_web.py ---
+    if args[:1] and (args[0] == "web" or args[0].startswith(("web-", "ftp-"))):
+        import funciones_web
+
+        return funciones_web.despachar(args)
     if args == ["cron"]:
         import acceso_bd
         import seguridad

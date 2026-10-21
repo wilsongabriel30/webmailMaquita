@@ -13,6 +13,7 @@ import { AvisoDns, NuevoSitioForm, type RegistroDns } from "./sitios/NuevoSitioF
 import { DominiosModal } from "./sitios/DominiosModal";
 import { TareasModal } from "./sitios/TareasModal";
 import { AvanzadoModal } from "./sitios/AvanzadoModal";
+import { FuncionesWebModal, type PestanaWeb } from "./sitios/web/FuncionesWebModal";
 
 interface Sitio {
   dominio: string;
@@ -48,6 +49,7 @@ export function Sitios() {
   const [tareasDe, setTareasDe] = useState<string | null>(null);
   const [subirEn, setSubirEn] = useState<string | null>(null);
   const [avanzadoDe, setAvanzadoDe] = useState<string | null>(null);
+  const [webDe, setWebDe] = useState<{ dominio: string; pestana?: PestanaWeb } | null>(null);
   const catalogo = useCatalogo();
   const NOMBRE_APP: Record<string, string> = { paquete: "Paquete propio", ...Object.fromEntries(catalogo.map((a) => [a.id, a.nombre])) };
   const [mostrarNuevo, setMostrarNuevo] = useState(false);
@@ -351,11 +353,13 @@ export function Sitios() {
                     ) : (
                       <button onClick={() => ftp(s, true)} disabled={!!ocupado} className="text-ms-blue hover:underline disabled:opacity-50">Activar</button>
                     )}
+                    <div><button onClick={() => setWebDe({ dominio: s.dominio, pestana: "ftp" })} disabled={!!ocupado} title="Cuentas FTP adicionales, cada una encerrada en una subcarpeta." className="text-ms-gray-90 hover:underline disabled:opacity-50">Más cuentas</button></div>
                   </td>
                   <td className="px-4 py-2.5 text-right text-ms-gray-90">{s.ocupado_mb} MB</td>
                   <td className="px-4 py-2.5 text-right whitespace-nowrap">
                     <button onClick={() => setDominiosDe(s)} disabled={!!ocupado} title="Otros dominios que muestran este mismo sitio." className="text-ms-blue hover:underline text-xs mr-3 disabled:opacity-50">Dominios{s.alias?.length ? ` (${s.alias.length})` : ""}</button>
                     <button onClick={() => setTareasDe(s.dominio)} disabled={!!ocupado} title="Trabajos de cron: órdenes o scripts que se ejecutan solos a una hora." className="text-ms-blue hover:underline text-xs mr-3 disabled:opacity-50">Cron</button>
+                    <button onClick={() => setWebDe({ dominio: s.dominio })} disabled={!!ocupado} title="Redirecciones, carpetas con contraseña, páginas de error, hotlinking, IP bloqueadas y optimización para conexiones lentas." className="text-ms-blue hover:underline text-xs mr-3 disabled:opacity-50">Web</button>
                     <button onClick={() => setAvanzadoDe(s.dominio)} disabled={!!ocupado} title="Reglas propias de nginx, ajustes de PHP y archivos de configuración, con copia automática." className="text-ms-blue hover:underline text-xs mr-3 disabled:opacity-50">Avanzado</button>
                     <button onClick={() => setBuscadoresDe(s.dominio)} disabled={!!ocupado} title="Visibilidad en buscadores e IA: revisión, aviso a Bing y otros, verificación de Google." className="text-ms-blue hover:underline text-xs mr-3 disabled:opacity-50">Buscadores</button>
                     <button onClick={() => setBasesDe(s.dominio)} disabled={!!ocupado} title="Bases de datos adicionales (MariaDB o PostgreSQL), phpMyAdmin y Adminer." className="text-ms-blue hover:underline text-xs mr-3 disabled:opacity-50">Bases{s.bases ? ` (${s.bases})` : ""}</button>
@@ -373,6 +377,7 @@ export function Sitios() {
       {basesDe && <BasesModal dominio={basesDe} onCerrar={() => { setBasesDe(null); cargar(); }} />}
       {dominiosDe && <DominiosModal dominio={dominiosDe.dominio} www={dominiosDe.www} alias={dominiosDe.alias || []} sinHttps={dominiosDe.alias_sin_https || []} onCerrar={() => { setDominiosDe(null); cargar(); }} />}
       {avanzadoDe && <AvanzadoModal dominio={avanzadoDe} onCerrar={() => setAvanzadoDe(null)} />}
+      {webDe && <FuncionesWebModal dominio={webDe.dominio} inicial={webDe.pestana} onCerrar={() => setWebDe(null)} />}
       {tareasDe && <TareasModal dominio={tareasDe} onCerrar={() => setTareasDe(null)} />}
       {buscadoresDe && <BuscadoresModal dominio={buscadoresDe} onCerrar={() => setBuscadoresDe(null)} />}
       {seguridadDe && <SeguridadModal dominio={seguridadDe} onCerrar={() => { setSeguridadDe(null); cargar(); }} />}

@@ -7,6 +7,19 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+Hospedaje completo (v1.10): funciones web por sitio en el panel general.
+
+### Añadido
+- **Ventana «Web» en Sitios web**, con una pestaña por función. Cada cambio se genera como include de nginx del sitio (`/etc/maquita-sitios/nginx-web/<dominio>/`) por un mecanismo común (`deploy/sitios/lib/nginx_web.py`): copia previa, `nginx -t` y vuelta atrás automática si nginx lo rechaza. Todo sale del meta del sitio, así que `maquita-sitios regenerar` conserva los ajustes.
+- **Redirecciones** 301/302 de una ruta (con o sin lo que hay debajo) o de todo el dominio (conservando la ruta), sin bucles y sin tocar la renovación del certificado.
+- **Carpetas con contraseña** (autenticación básica): usuarios por carpeta, contraseña generada (se muestra una vez) o elegida; cifrado bcrypt (`apache2-utils`) o apr1, en `claves-carpetas/` del sitio, fuera de la carpeta pública. Los `.php` de la carpeta siguen pasando por PHP.
+- **Páginas de error propias** (403, 404, 500, 502, 503) con un `.html` de la carpeta pública.
+- **Protección contra hotlinking**: extensiones, dominios permitidos y buscadores.
+- **Bloqueo de IP por sitio** (IPv4/IPv6 y redes, validadas con `ipaddress`).
+- **Optimización para ADSL rural y satélite**: gzip de serie (y brotli si nginx tiene el módulo), caché del navegador para estáticos (30 días de serie) y caché de página `fastcgi_cache` activable para sitios PHP, con purga manual; nunca con sesión iniciada, en `/wp-admin`, el carrito, las búsquedas ni los POST.
+- **Varias cuentas FTP/SFTP por sitio**, cada una encerrada en una subcarpeta (montaje bind sin seguir enlaces simbólicos, mismo UID que el sitio, raíz del encierro en `/srv/sitios-ftp/`); se vuelven a montar al arrancar (`sitios-ftp-montar.service`).
+- Órdenes nuevas de `maquita-sitios` (`web`, `web-*`, `ftp-cuentas`, `ftp-cuenta-*`) validadas una a una en `maquita-sudo` (`validar_sitios_web`); pruebas en `backend/tests/test_sitios_funciones_web.py` y `test_maquita_sudo_sitios_web.py`.
+
 ## [1.9.0] - 2026-10-21
 
 El cliente administra su sitio web desde el portal de su dominio, sin depender del superadministrador (pedido de Andes). Probado de punta a punta en un servidor con portal y sitios (`prueba_aislamiento.py` y `prueba_mi_sitio.py`).

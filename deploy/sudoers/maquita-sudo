@@ -420,12 +420,49 @@ def validar_sitios(args):
         return args
     if len(args) == 3 and args[0] == "propia-quitar" and dom(args[1]) and args[1] == args[2]:
         return args
+    if args[:1] and args[0] in _ORDENES_SITIOS_WEB:
+        return validar_sitios_web(args)
     raise Rechazo("maquita-sitios: subacción o argumentos no permitidos")
 
 
 _RE_B64URL_LARGO = re.compile(r"^[A-Za-z0-9_-]{1,8000}$")
 _RE_B64URL_MUY_LARGO = re.compile(r"^[A-Za-z0-9_-]{1,40000}$")
 _RE_ID_REGISTRO = re.compile(r"^[0-9a-f]{8}$")
+
+
+# --- maquita-sitios: funciones web por sitio y cuentas FTP adicionales (v1.10) ---
+# Bloque aparte de validar_sitios para que otras secciones se fusionen sin tocarlo. Los datos libres (listas,
+# carpetas, contraseñas) viajan en base64url y el ayudante los vuelve a validar uno a uno.
+_ORDENES_SITIOS_WEB_JSON = ("web-redirecciones", "web-errores", "web-hotlink", "web-bloqueo", "web-optimizacion")
+_ORDENES_SITIOS_WEB = {"web", "web-purgar", "web-privado-agregar", "web-privado-quitar", "ftp-cuentas",
+                       "ftp-cuenta-crear", "ftp-cuenta-clave", "ftp-cuenta-quitar", *_ORDENES_SITIOS_WEB_JSON}
+_RE_B64URL_LISTA = re.compile(r"^[A-Za-z0-9_-]{1,20000}$")  # hasta 200 redirecciones o 500 IP
+_RE_USUARIO_CARPETA = re.compile(r"^[A-Za-z0-9._-]{1,32}$")
+_RE_CUENTA_FTP = re.compile(r"^[a-z][a-z0-9]{1,10}$")
+
+
+def validar_sitios_web(args):
+    """maquita-sitios web…/ftp-…: forma exacta de cada argumento (ver deploy/sitios/lib/funciones_web.py)."""
+    dom = lambda d: bool(_RE_DOMINIO_SITIO.match(d))  # noqa: E731
+    b64 = lambda a: bool(_RE_B64URL.match(a))  # noqa: E731  carpeta, subcarpeta o contraseña (≤ 200)
+    if len(args) == 2 and args[0] in ("web", "web-purgar", "ftp-cuentas") and dom(args[1]):
+        return args
+    if len(args) == 3 and args[0] in ("web-redirecciones", "web-bloqueo") and dom(args[1]) and _RE_B64URL_LISTA.match(args[2]):
+        return args
+    if len(args) == 3 and args[0] in ("web-errores", "web-hotlink", "web-optimizacion") and dom(args[1]) \
+            and _RE_B64URL_LARGO.match(args[2]):
+        return args
+    if (len(args) in (4, 5) and args[0] == "web-privado-agregar" and dom(args[1]) and b64(args[2])
+            and _RE_USUARIO_CARPETA.match(args[3]) and (len(args) == 4 or b64(args[4]))):
+        return args
+    if (len(args) in (3, 4) and args[0] == "web-privado-quitar" and dom(args[1]) and b64(args[2])
+            and (len(args) == 3 or _RE_USUARIO_CARPETA.match(args[3]))):
+        return args
+    if len(args) == 4 and args[0] == "ftp-cuenta-crear" and dom(args[1]) and _RE_CUENTA_FTP.match(args[2]) and b64(args[3]):
+        return args
+    if len(args) == 3 and args[0] in ("ftp-cuenta-clave", "ftp-cuenta-quitar") and dom(args[1]) and _RE_CUENTA_FTP.match(args[2]):
+        return args
+    raise Rechazo("maquita-sitios: subacción o argumentos no permitidos")
 
 
 def validar_dns(args):
@@ -531,6 +568,11 @@ def autorizar(usuario: str, programa: str, args, comprobar_buzon=_buzon_existe):
         if any(not isinstance(a, str) or not a or len(a) > 8000 or re.search(r"[\x00-\x1f\x7f]", a) for a in args):
             raise Rechazo("argumento con caracteres de control o vacío")
         return validar_sitios(list(args))
+    if programa == "maquita-sitios" and args[:1] and args[0] in _ORDENES_SITIOS_WEB_JSON:
+        # Listas de redirecciones o de IP: pasan de 300 caracteres; se validan enteras en validar_sitios_web.
+        if any(not isinstance(a, str) or not a or len(a) > 20000 or re.search(r"[\x00-\x1f\x7f]", a) for a in args):
+            raise Rechazo("argumento con caracteres de control o vacío")
+        return validar_sitios(list(args))
     if programa in ("maquita-cortafuegos", "maquita-identidad", "maquita-respaldos"):
         if any(not isinstance(a, str) or not a or len(a) > 8000 or re.search(r"[\x00-\x1f\x7f]", a) for a in args):
             raise Rechazo("argumento con caracteres de control o vacío")
@@ -566,6 +608,8 @@ def _enmascarar(programa, args):
             out[-1] = "***"  # credenciales del destino externo
         if programa == "maquita-sitios" and args[:1] == ["propia-entorno"] and i == 2:
             out[-1] = "***"  # valores de las variables de entorno (claves de API, contraseñas)
+        if programa == "maquita-sitios" and args[:1] == ["web-privado-agregar"] and i == 4:
+            out[-1] = "***"  # contraseña elegida para una carpeta privada
     return " ".join(out)
 
 

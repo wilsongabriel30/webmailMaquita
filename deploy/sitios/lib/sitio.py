@@ -126,6 +126,9 @@ def escribir_pool(meta):
 
 
 def escribir_vhost(meta):
+    import nginx_web
+
+    nginx_web.escribir(meta)  # lo que incluye el vhost (funciones web): antes que el vhost
     texto = plantillas.vhost(meta, _socket(meta), ACME_WEBROOT, meta.get("ssl", False))
     _escribir(_ruta_vhost(meta["dominio"]), texto)
     enlace = os.path.join(NGINX_ACT, os.path.basename(_ruta_vhost(meta["dominio"])))
@@ -237,6 +240,9 @@ def _deshacer(meta):
         if os.path.lexists(ruta):
             os.remove(ruta)
     shutil.rmtree(meta["base"], ignore_errors=True)
+    import nginx_web
+
+    nginx_web.quitar(meta["dominio"])
     if os.path.exists(ruta_meta(meta["dominio"])):
         os.remove(ruta_meta(meta["dominio"]))
     try:
@@ -366,6 +372,11 @@ def borrar(dominio):
     import avanzado
 
     avanzado.quitar(dominio)  # reglas propias de nginx y versiones guardadas de «Avanzado»
+    import ftp_cuentas
+    import nginx_web
+
+    ftp_cuentas.quitar_todas(meta)  # cuentas FTP adicionales (desmonta sus carpetas antes de mover el sitio)
+    nginx_web.quitar(dominio)  # archivos de las funciones web y caché de página
     for ruta in (os.path.join(NGINX_ACT, os.path.basename(_ruta_vhost(dominio))), _ruta_vhost(dominio), _ruta_pool(meta)):
         if os.path.lexists(ruta):
             os.remove(ruta)
