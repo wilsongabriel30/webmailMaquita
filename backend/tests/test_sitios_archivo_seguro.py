@@ -5,10 +5,30 @@ import sys
 
 import pytest
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "deploy", "sitios", "lib"))
+import importlib.util
 
-import archivo_seguro  # noqa: E402
-from comun import ErrorSitio  # noqa: E402
+# deploy/dns/lib también tiene un comun.py: se cargan los de sitios con nombre propio y, mientras
+# archivo_seguro se ejecuta, «comun» apunta al de sitios; después se deja como estaba.
+_LIB = os.path.join(os.path.dirname(__file__), "..", "..", "deploy", "sitios", "lib")
+
+
+def _cargar(nombre, archivo):
+    spec = importlib.util.spec_from_file_location(nombre, os.path.join(_LIB, archivo))
+    modulo = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(modulo)
+    return modulo
+
+
+_previo = sys.modules.get("comun")
+_comun = sys.modules["comun"] = _cargar("comun_sitios_prueba", "comun.py")
+try:
+    archivo_seguro = _cargar("archivo_seguro_prueba", "archivo_seguro.py")
+finally:
+    if _previo is None:
+        sys.modules.pop("comun", None)
+    else:
+        sys.modules["comun"] = _previo
+ErrorSitio = _comun.ErrorSitio
 
 
 @pytest.fixture

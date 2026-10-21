@@ -260,7 +260,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install -r requirements.txt pytest
+          pip install -r requirements.txt pytest "httpx==0.28.1"  # el cliente de pruebas de starlette lo necesita
       - name: Run tests
         run: pytest tests --tb=short -q
 
