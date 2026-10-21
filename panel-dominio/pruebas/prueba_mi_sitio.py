@@ -7,7 +7,7 @@ todo. Se ejecuta como root en el servidor:
 
     panel-dominio/backend/venv/bin/python panel-dominio/pruebas/prueba_mi_sitio.py <dominio asignable>
 """
-import http.client, io, json, os, secrets, ssl, subprocess, sys, time, urllib.error, urllib.request, zipfile
+import http.client as cliente_http, io, json, os, secrets, ssl, subprocess, sys, time, urllib.error, urllib.request, zipfile
 
 import bcrypt
 import pyotp
@@ -62,7 +62,7 @@ def bajar(enlace):
 
 def en_el_sitio(sitio, ruta):
     """Código HTTP que da el propio sitio (por nginx en el puerto 80, sin seguir redirecciones)."""
-    c = http.client.HTTPConnection("127.0.0.1", 80, timeout=30)
+    c = cliente_http.HTTPConnection("127.0.0.1", 80, timeout=30)
     try:
         c.request("GET", ruta, headers={"Host": sitio})
         return c.getresponse().status
