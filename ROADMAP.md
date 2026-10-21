@@ -1,17 +1,39 @@
 # Hoja de ruta
 
-Este documento describe la hoja de ruta de desarrollo de Maquita Webmail. Las etiquetas de estado indican el avance:
+Maquita Webmail se usa en producción en la Fundación Maquita (Ecuador) desde **2024**: empezó como webmail
+propio y fue creciendo con el panel, el Drive y el hospedaje. El historial de cambios publicado arranca en
+**marzo de 2026**. Este documento recoge lo hecho, en qué versión llegó, y lo que viene.
 
-- **DONE** -- Completado y publicado
-- **IN PROGRESS** -- En desarrollo activo
-- **PLANNED** -- Aprobado y programado para desarrollo
-- **PROPOSED** -- En consideración, aún sin compromiso
+Estados: **DONE** (publicado) · **IN PROGRESS** (en desarrollo) · **PLANNED** (programado) · **PROPOSED** (en consideración).
 
 ---
 
-## v1.0.x -- Cumplimiento normativo y núcleo eDiscovery `DONE`
+## Historia del proyecto
 
-La versión base con capacidades completas de cumplimiento normativo.
+| Fecha | Versión | Hito |
+|---|---|---|
+| 2024 | — | Webmail propio sobre Postfix y Dovecot en producción en la Fundación Maquita |
+| 2026-03-23 | 0.9.0 | Primera versión pública del código |
+| 2026-04-12 | 1.0.0 | Cumplimiento normativo y eDiscovery: retención legal, auditoría, exportaciones firmadas |
+| 2026-05-13 | — | Preparación como proyecto abierto: licencia, guías de contribución y seguridad, hoja de ruta |
+| 2026-09-02 | 1.1.0 | Drive (Almacén) y sus aplicaciones |
+| 2026-09-03 a 09-06 | 1.3.0 a 1.7.0 | Correcciones de auditorías de seguridad externas (ASVS) |
+| 2026-09-06 | — | Repositorio público en GitHub, con todo el historial de cambios desde marzo de 2026 |
+| 2026-10-20 | 1.8.0 | Panel de hospedaje: sitios web, DNS propio, cortafuegos, actualizaciones firmadas, respaldos |
+| 2026-10-21 | 1.9.0 | Portal del cliente: cada organización administra sus sitios |
+| 2026-10-21 | 1.10.0 | Hospedaje completo (alternativa libre a cPanel), ActiveSync 16.1 |
+
+El detalle de cada versión está en [CHANGELOG.md](CHANGELOG.md) y en
+[Releases](https://github.com/wilsongabriel30/webmailMaquita/releases).
+
+---
+
+## Líneas de trabajo planteadas en mayo de 2026
+
+Al abrir el proyecto (2026-05-13) se trazaron estas líneas. Se numeraron como v1.1 a v2.0, pero las versiones
+siguieron otro orden; por eso hoy se nombran por tema y cada una indica su estado real.
+
+### Cumplimiento normativo y núcleo eDiscovery `DONE` (v1.0.0, 2026-04-12)
 
 - Webmail completo: bandeja de entrada, redacción, hilos, etiquetas, búsqueda
 - Calendario (CalDAV vía Radicale), contactos, tareas
@@ -28,7 +50,13 @@ La versión base con capacidades completas de cumplimiento normativo.
 - **Correlación de trazas de correo**: seguimiento de mensajes de extremo a extremo en MTA/MDA/MUA
 - Pipeline CI/CD con gitleaks y generación de SBOM
 
-## v1.1 -- Indexación de texto completo escalable `PLANNED`
+### Varias organizaciones y dominios `DONE` en gran parte (v1.8.0 a v1.10.0)
+
+Pensada como «multi-tenant». Ya hecho: varios dominios por servidor, administradores por dominio con su
+propio portal, cuotas por dominio (sitios, disco, bases), marca propia por organización y aislamiento de
+cada sitio. Pendiente: API de aprovisionamiento.
+
+### Indexación de texto completo escalable `PLANNED`
 
 Búsqueda de alto rendimiento en buzones grandes y datos de cumplimiento.
 
@@ -39,9 +67,10 @@ Búsqueda de alto rendimiento en buzones grandes y datos de cumplimiento.
 - Resaltado de resultados de búsqueda y puntuación de relevancia
 - Búsqueda con conciencia de cumplimiento: respeta retenciones legales y políticas de retención
 
-## v1.2 -- Extracción avanzada de adjuntos `PLANNED`
+### Extracción avanzada de adjuntos `PLANNED`
 
-Extracción profunda de contenido de formatos de documento habituales.
+Extracción profunda de contenido de formatos de documento habituales. El OCR con Tesseract ya existe en el
+editor de PDF del Drive; falta llevarlo a los adjuntos del correo.
 
 - Extracción de texto en PDF (con OCR de respaldo vía Tesseract)
 - Análisis de contenido DOCX/XLSX/PPTX
@@ -51,9 +80,9 @@ Extracción profunda de contenido de formatos de documento habituales.
 - Análisis de malware en el contenido extraído
 - Validación de tipo de archivo más allá del sniffing de MIME
 
-## v1.3 -- Integración con Wazuh y OpenSearch `PROPOSED`
+### Monitoreo de seguridad: Wazuh y OpenSearch `PROPOSED`
 
-Monitoreo de seguridad y análisis centralizado de registros.
+Hoy el servidor tiene sus propios vigilantes (salida anómala, entregas, certificados) y alertas por correo.
 
 - Despliegue y configuración del agente Wazuh
 - OpenSearch como backend de registros para eventos de correo, autenticación y cumplimiento
@@ -62,7 +91,7 @@ Monitoreo de seguridad y análisis centralizado de registros.
 - Paneles de control para visión general del estado de seguridad
 - Monitoreo de integridad de archivos para almacenamiento de correo y configuración
 
-## v1.4 -- Paneles SIEM `PROPOSED`
+### Paneles de seguridad (SIEM) `PROPOSED`
 
 Paneles de control operativos y de seguridad para administradores.
 
@@ -73,26 +102,14 @@ Paneles de control operativos y de seguridad para administradores.
 - Detección de anomalías en patrones de acceso a buzones
 - Generación de informes (PDF/CSV) para auditorías de cumplimiento
 
-## v1.5 -- Multi-tenant y multi-dominio `PROPOSED`
+### Arquitectura para gran escala `PROPOSED`
 
-Soporte para alojar múltiples organizaciones en una sola instancia.
-
-- Aislamiento a nivel de dominio para buzones, configuraciones y datos de cumplimiento
-- Roles de administrador por tenant y políticas RBAC
-- Marca y configuración específicas por tenant
-- Cuotas de recursos por tenant (almacenamiento, usuarios, límites de tasa)
-- Infraestructura compartida con garantías de aislamiento de datos
-- API de aprovisionamiento de tenants e interfaz de administración
-- Operaciones de cumplimiento entre tenants (para organizaciones matrices)
-
-## v2.0 -- Arquitectura de producción estable `PROPOSED`
-
-La primera versión de soporte a largo plazo con madurez arquitectónica.
+Versión de soporte a largo plazo con madurez arquitectónica.
 
 - Escalado horizontal: backend sin estado detrás de balanceador de carga
 - Réplicas de lectura de base de datos y agrupación de conexiones (PgBouncer)
 - Redis Sentinel o Cluster para caché de alta disponibilidad
-- Procesamiento asíncrono basado en colas (Celery o equivalente)
+- Procesamiento asíncrono basado en colas
 - Estrategia de despliegue sin tiempo de inactividad (blue-green o rolling)
 - Versionado completo de API (v1 estable, v2 en vista previa)
 - Benchmarks de rendimiento y objetivos de SLA
