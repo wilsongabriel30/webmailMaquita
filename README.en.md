@@ -62,7 +62,7 @@ Maquita Webmail solves all four.
 
 ## Current status
 
-**Production, early-stage open source.** Maquita Webmail has been in production at Fundación Maquita since 2024. The code is being prepared for broader community adoption. Expect rough edges, ongoing refactoring and breaking changes until a 1.0 release.
+**In production since 2024, free software under continuous development.** Maquita Webmail has been in production at Fundación Maquita since 2024: it started as a webmail and grew with the panel, the Drive and full hosting. Current version: v1.10.0. The project history, with dates, is in [ROADMAP.md](ROADMAP.md#historia-del-proyecto) (Spanish).
 
 - 1000+ tracked files
 - 850+ API endpoints

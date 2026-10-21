@@ -62,7 +62,7 @@ Maquita Webmail resuelve las cuatro.
 
 ## Estado actual
 
-**Producción, código abierto en etapa temprana.** Maquita Webmail está en producción en Fundación Maquita desde 2024. El código se está preparando para una adopción comunitaria más amplia. Espera detalles ásperos, refactorización continua y cambios incompatibles hasta una versión 1.0.
+**En producción desde 2024, software libre y en desarrollo continuo.** Maquita Webmail está en producción en Fundación Maquita desde 2024: empezó como webmail y fue creciendo con el panel, el Drive y el hospedaje completo. Versión actual: v1.10.0. La historia del proyecto, con fechas, está en [ROADMAP.md](ROADMAP.md#historia-del-proyecto).
 
 - Más de 1000 archivos versionados
 - Más de 850 endpoints de API
