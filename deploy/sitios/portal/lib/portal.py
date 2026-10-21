@@ -12,8 +12,10 @@ reservado (403). Cada orden de ORDENES dice qué alcance pide:
 import alcance
 import ayudantes
 import ordenes_avanzado as av
+import ordenes_datos_portal as odp
 import ordenes_dns as od
 import ordenes_sitios as os_
+import ordenes_web as ow
 import sesion
 import subidas
 from errores import ErrorPortal, no_encontrado
@@ -50,6 +52,10 @@ ORDENES = {
     "dns-agregar": ("zona", od.agregar),
     "dns-modificar": ("zona", od.modificar),
     "dns-borrar": ("zona", od.borrar),
+    # v1.10: funciones web y cuentas FTP adicionales (ordenes_web.py); observación, copias y archivos
+    # (ordenes_datos_portal.py). Cada módulo tiene su lista; aquí se juntan y no se añade nada más.
+    **ow.ORDENES,
+    **odp.ORDENES,
 }
 
 
