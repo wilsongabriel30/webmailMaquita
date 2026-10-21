@@ -7,7 +7,7 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
-Hospedaje completo (v1.10): funciones web por sitio en el panel general.
+Hospedaje completo (v1.10): funciones web, cuentas FTP adicionales, archivos y datos por sitio en el panel general.
 
 ### Añadido
 - **Ventana «Web» en Sitios web**, con una pestaña por función. Cada cambio se genera como include de nginx del sitio (`/etc/maquita-sitios/nginx-web/<dominio>/`) por un mecanismo común (`deploy/sitios/lib/nginx_web.py`): copia previa, `nginx -t` y vuelta atrás automática si nginx lo rechaza. Todo sale del meta del sitio, así que `maquita-sitios regenerar` conserva los ajustes.
@@ -19,6 +19,13 @@ Hospedaje completo (v1.10): funciones web por sitio en el panel general.
 - **Optimización para ADSL rural y satélite**: gzip de serie (y brotli si nginx tiene el módulo), caché del navegador para estáticos (30 días de serie) y caché de página `fastcgi_cache` activable para sitios PHP, con purga manual; nunca con sesión iniciada, en `/wp-admin`, el carrito, las búsquedas ni los POST.
 - **Varias cuentas FTP/SFTP por sitio**, cada una encerrada en una subcarpeta (montaje bind sin seguir enlaces simbólicos, mismo UID que el sitio, raíz del encierro en `/srv/sitios-ftp/`); se vuelven a montar al arrancar (`sitios-ftp-montar.service`).
 - Órdenes nuevas de `maquita-sitios` (`web`, `web-*`, `ftp-cuentas`, `ftp-cuenta-*`) validadas una a una en `maquita-sudo` (`validar_sitios_web`); pruebas en `backend/tests/test_sitios_funciones_web.py` y `test_maquita_sudo_sitios_web.py`.
+- **Sitios web: archivos y datos** (v1.10, «Hospedaje completo»; panel general → Sitios web → «Archivos y datos»):
+  - **Administrador de archivos** de la carpeta pública: listar, subir (hasta 512 MB), descargar por enlace de un solo uso, crear carpeta, renombrar o mover, copiar, borrar a una papelera del sitio (30 días, con recuperar), comprimir en .zip, descomprimir .zip/.tar.gz y permisos 644/755/600/700/640/750. Cada operación corre con el usuario del sitio, no como root (`deploy/sitios/lib/como_usuario.py`); las rutas se resuelven con realpath sin salir de la carpeta ni seguir enlaces que salgan, y la descompresión rechaza «zip slip», enlaces, bombas (1 GB y 20 000 archivos, contando los bytes reales) y archivos dañados.
+  - **Errores y accesos**: últimas líneas (hasta 1000, con filtro) de `error.log` y `acceso.log` del sitio y del registro de errores de PHP de su pool, sin seguir enlaces.
+  - **Visitas y ancho de banda** con GoAccess (MIT, del repositorio de Debian; el instalador de sitios lo instala): informe HTML por sitio cada noche (`sitios-datos-noche.timer`) desde los registros, también los ya rotados, entregado solo por el panel y aislado (`Content-Security-Policy: sandbox`), y resumen de visitas, páginas y bytes por día de los últimos 30 días.
+  - **Disponibilidad**: comprobación HTTPS de cada sitio cada 5 minutos (`sitios-disponibilidad.timer`: código, tiempo y días que le quedan al certificado), historial de 24 h y aviso por correo al administrador de la aplicación (o a `ORG_CORREOS_AVISOS`) tras 2 fallos seguidos y al volver, con `lib-avisos.sh` de los vigilantes y como mucho 6 avisos por sitio y día.
+  - **Copias del sitio que controla el cliente**: crear ahora (carpeta pública, código de la aplicación propia y un volcado SQL de cada base, en un .tar.gz), listar, descargar, restaurar (siempre con copia previa automática) y borrar; hasta 5 por sitio, en `/var/lib/maquita-sitios/copias`, aparte de los respaldos del servidor (restic).
+  - Validación exacta de cada subcomando nuevo en `maquita-sudo`; la baja del sitio y `maquita-sitios regenerar` limpian estadísticas, estados de disponibilidad, copias (a la papelera) y descargas olvidadas. En los servidores ya instalados se activa al volver a ejecutar `instalar-app.sh sitios`.
 
 ## [1.9.0] - 2026-10-21
 

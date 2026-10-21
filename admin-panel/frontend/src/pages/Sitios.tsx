@@ -14,6 +14,7 @@ import { DominiosModal } from "./sitios/DominiosModal";
 import { TareasModal } from "./sitios/TareasModal";
 import { AvanzadoModal } from "./sitios/AvanzadoModal";
 import { FuncionesWebModal, type PestanaWeb } from "./sitios/web/FuncionesWebModal";
+import { DatosModal } from "./sitios/DatosModal";
 
 interface Sitio {
   dominio: string;
@@ -50,6 +51,7 @@ export function Sitios() {
   const [subirEn, setSubirEn] = useState<string | null>(null);
   const [avanzadoDe, setAvanzadoDe] = useState<string | null>(null);
   const [webDe, setWebDe] = useState<{ dominio: string; pestana?: PestanaWeb } | null>(null);
+  const [datosDe, setDatosDe] = useState<string | null>(null);
   const catalogo = useCatalogo();
   const NOMBRE_APP: Record<string, string> = { paquete: "Paquete propio", ...Object.fromEntries(catalogo.map((a) => [a.id, a.nombre])) };
   const [mostrarNuevo, setMostrarNuevo] = useState(false);
@@ -202,6 +204,7 @@ export function Sitios() {
             { titulo: "Bases de datos", desc: "Cada sitio puede tener hasta 10 bases adicionales MariaDB o PostgreSQL para aplicaciones propias, con usuario propio que solo entra a su base. Su contenido se administra con phpMyAdmin o Adminer dentro del panel." },
             { titulo: "Buscadores", desc: "Revisa el sitio como un buscador (robots.txt, mapa del sitio, llms.txt para asistentes de IA, datos schema.org, HTTPS), avisa al momento a Bing y otros por IndexNow y pone en el DNS la verificación de Google Search Console." },
             { titulo: "Cron", desc: "Trabajos de cron: una orden o script que se ejecuta solo a la hora indicada (cada 5 minutos, cada noche, cada semana…), con el usuario del sitio y encerrado. Se puede ejecutar al momento y ver su salida." },
+            { titulo: "Archivos y datos", desc: "Administrador de archivos de la carpeta pública (subir, bajar, mover, copiar, comprimir y descomprimir, permisos y papelera de 30 días), con el usuario del sitio y sin poder salir de su carpeta; últimos errores y accesos de nginx y errores de PHP; visitas y ancho de banda de 30 días con informe de GoAccess; disponibilidad cada 5 minutos con aviso por correo; y copias del sitio (archivos y bases) que se descargan y restauran, hasta 5 por sitio." },
             { titulo: "Avanzado", desc: "Para usuarios expertos: reglas propias de nginx del sitio, ajustes de PHP (memoria, subidas, tiempos) y edición de archivos de configuración (wp-config.php, .env…). Antes de cada cambio se guarda la versión anterior y se comprueba la configuración; cualquier versión se puede restaurar. «Copiar sin contraseñas» permite consultarla fuera sin exponer secretos." },
             { titulo: "FTP", desc: "Activa el acceso a los archivos por FTP cifrado (FTPS) o SFTP, encerrado en la carpeta del sitio. «Nueva clave» invalida la anterior." },
             { titulo: "HTTPS", desc: "Pide un certificado gratuito de Let's Encrypt y redirige todo a https. Se renueva solo." },
@@ -360,6 +363,7 @@ export function Sitios() {
                     <button onClick={() => setDominiosDe(s)} disabled={!!ocupado} title="Otros dominios que muestran este mismo sitio." className="text-ms-blue hover:underline text-xs mr-3 disabled:opacity-50">Dominios{s.alias?.length ? ` (${s.alias.length})` : ""}</button>
                     <button onClick={() => setTareasDe(s.dominio)} disabled={!!ocupado} title="Trabajos de cron: órdenes o scripts que se ejecutan solos a una hora." className="text-ms-blue hover:underline text-xs mr-3 disabled:opacity-50">Cron</button>
                     <button onClick={() => setWebDe({ dominio: s.dominio })} disabled={!!ocupado} title="Redirecciones, carpetas con contraseña, páginas de error, hotlinking, IP bloqueadas y optimización para conexiones lentas." className="text-ms-blue hover:underline text-xs mr-3 disabled:opacity-50">Web</button>
+                    <button onClick={() => setDatosDe(s.dominio)} disabled={!!ocupado} title="Administrador de archivos, errores y accesos, visitas, disponibilidad y copias del sitio." className="text-ms-blue hover:underline text-xs mr-3 disabled:opacity-50">Archivos y datos</button>
                     <button onClick={() => setAvanzadoDe(s.dominio)} disabled={!!ocupado} title="Reglas propias de nginx, ajustes de PHP y archivos de configuración, con copia automática." className="text-ms-blue hover:underline text-xs mr-3 disabled:opacity-50">Avanzado</button>
                     <button onClick={() => setBuscadoresDe(s.dominio)} disabled={!!ocupado} title="Visibilidad en buscadores e IA: revisión, aviso a Bing y otros, verificación de Google." className="text-ms-blue hover:underline text-xs mr-3 disabled:opacity-50">Buscadores</button>
                     <button onClick={() => setBasesDe(s.dominio)} disabled={!!ocupado} title="Bases de datos adicionales (MariaDB o PostgreSQL), phpMyAdmin y Adminer." className="text-ms-blue hover:underline text-xs mr-3 disabled:opacity-50">Bases{s.bases ? ` (${s.bases})` : ""}</button>
@@ -378,6 +382,7 @@ export function Sitios() {
       {dominiosDe && <DominiosModal dominio={dominiosDe.dominio} www={dominiosDe.www} alias={dominiosDe.alias || []} sinHttps={dominiosDe.alias_sin_https || []} onCerrar={() => { setDominiosDe(null); cargar(); }} />}
       {avanzadoDe && <AvanzadoModal dominio={avanzadoDe} onCerrar={() => setAvanzadoDe(null)} />}
       {webDe && <FuncionesWebModal dominio={webDe.dominio} inicial={webDe.pestana} onCerrar={() => setWebDe(null)} />}
+      {datosDe && <DatosModal dominio={datosDe} onCerrar={() => setDatosDe(null)} />}
       {tareasDe && <TareasModal dominio={tareasDe} onCerrar={() => setTareasDe(null)} />}
       {buscadoresDe && <BuscadoresModal dominio={buscadoresDe} onCerrar={() => setBuscadoresDe(null)} />}
       {seguridadDe && <SeguridadModal dominio={seguridadDe} onCerrar={() => { setSeguridadDe(null); cargar(); }} />}

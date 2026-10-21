@@ -422,7 +422,45 @@ def validar_sitios(args):
         return args
     if args[:1] and args[0] in _ORDENES_SITIOS_WEB:
         return validar_sitios_web(args)
+    if _validar_sitios_datos(args, dom):
+        return args
     raise Rechazo("maquita-sitios: subacción o argumentos no permitidos")
+
+
+# Observación y datos de los sitios: registros, estadísticas, disponibilidad, copias del cliente y archivos.
+# Las rutas viajan en base64url (el ayudante las decodifica, las resuelve dentro del sitio y opera como su usuario).
+_ORDENES_DATOS_SOLO_DOMINIO = ("estadisticas", "estadisticas-generar", "estadisticas-informe", "disponibilidad",
+                               "copias", "copia-crear", "archivos-papelera", "archivos-vaciar")
+_RE_COPIA_SITIO = re.compile(r"^\d{8}-\d{6}$")
+_MODOS_ARCHIVO = ("644", "755", "600", "700", "640", "750")
+
+
+def _validar_sitios_datos(args, dom):
+    ruta = lambda a: bool(_RE_B64URL_LARGO.match(a))  # noqa: E731
+    if len(args) < 2 or not dom(args[1]):
+        return False
+    orden, n = args[0], len(args)
+    if orden in _ORDENES_DATOS_SOLO_DOMINIO:
+        return n == 2
+    if orden == "registros":
+        return (n in (4, 5) and args[2] in ("error", "acceso", "php") and re.fullmatch(r"[1-9][0-9]{0,3}", args[3])
+                and int(args[3]) <= 1000 and (n == 4 or bool(_RE_B64URL.match(args[4]))))
+    if orden in ("copia-descargar", "copia-restaurar", "copia-borrar"):
+        return n == 3 and bool(_RE_COPIA_SITIO.match(args[2]))
+    if orden in ("archivos-listar", "archivos-descargar", "archivos-carpeta", "archivos-borrar"):
+        return n == 3 and ruta(args[2])
+    if orden == "archivos-subir":
+        return (n in (4, 5) and ruta(args[2]) and bool(re.fullmatch(r"[0-9a-f]{32}\.subida", args[3]))
+                and (n == 4 or args[4] == "reemplazar"))
+    if orden in ("archivos-mover", "archivos-copiar", "archivos-descomprimir"):
+        return n == 4 and ruta(args[2]) and ruta(args[3])
+    if orden == "archivos-comprimir":
+        return n == 3 and bool(_RE_B64URL_MUY_LARGO.match(args[2]))
+    if orden == "archivos-permisos":
+        return n == 4 and ruta(args[2]) and args[3] in _MODOS_ARCHIVO
+    if orden == "archivos-recuperar":
+        return n == 3 and bool(re.fullmatch(r"[0-9a-f]{12}", args[2]))
+    return False
 
 
 _RE_B64URL_LARGO = re.compile(r"^[A-Za-z0-9_-]{1,8000}$")
@@ -571,6 +609,11 @@ def autorizar(usuario: str, programa: str, args, comprobar_buzon=_buzon_existe):
     if programa == "maquita-sitios" and args[:1] and args[0] in _ORDENES_SITIOS_WEB_JSON:
         # Listas de redirecciones o de IP: pasan de 300 caracteres; se validan enteras en validar_sitios_web.
         if any(not isinstance(a, str) or not a or len(a) > 20000 or re.search(r"[\x00-\x1f\x7f]", a) for a in args):
+            raise Rechazo("argumento con caracteres de control o vacío")
+        return validar_sitios(list(args))
+    if programa == "maquita-sitios" and args[:1] and str(args[0]).startswith("archivos-"):
+        # Rutas largas en base64url (hasta 40 000 caracteres la lista de «comprimir»).
+        if any(not isinstance(a, str) or not a or len(a) > 40000 or re.search(r"[\x00-\x1f\x7f]", a) for a in args):
             raise Rechazo("argumento con caracteres de control o vacío")
         return validar_sitios(list(args))
     if programa in ("maquita-cortafuegos", "maquita-identidad", "maquita-respaldos"):

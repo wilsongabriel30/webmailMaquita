@@ -393,5 +393,8 @@ def borrar(dominio):
     ejecutar(["userdel", meta["usuario"]])
     shutil.move(meta["base"], destino)
     ejecutar(["chown", "-R", "root:root", destino])
+    import ordenes_datos
+
+    ordenes_datos.limpiar_sitio(meta, destino)  # estadísticas, disponibilidad y copias del cliente (a la papelera)
     os.remove(ruta_meta(dominio))
     return {"dominio": dominio, "papelera": destino}
