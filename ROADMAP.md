@@ -147,7 +147,7 @@ se indica la alternativa libre.
 | 45 | Optimización (compresión, caché) | Parcial | v1.10 por sitio, pensando en conexiones rurales y satelitales |
 | 46 | Node.js y Python | Ya (aplicaciones propias, administrador general) | v1.11 Portal con límites |
 | 47-49, 51 | WordPress: instalar, entrar, actualizar, varios sitios | Ya | v1.9 Portal |
-| 50 | Editor visual de páginas | Fuera del plan: Sitejet es de pago y cerrado | — (el editor de WordPress cubre esa necesidad) |
+| 50 | Editor visual de páginas | No: Sitejet es de pago y cerrado, no entra | Fase posterior, solo si hace falta: primero la alternativa libre GrapesJS (BSD); si no alcanza, desarrollo propio y gratuito. Mientras tanto, el editor de WordPress |
 | 52 | Migración desde otro hosting | Ya (paquete y respaldo .sql) | v1.9 Portal |
 | 53-54 | Estadísticas de visitas y tráfico | Parcial: Matomo en el catálogo | v1.10 (GoAccess, libre, sin rastreo en el navegador) |
 | 55-56 | CPU y memoria por sitio | No (cada sitio ya tiene su propio PHP) | v1.11 |
@@ -167,6 +167,9 @@ importación de cuentas por CSV, optimización por sitio.
 **v1.11 — Para desarrolladores** `PROPOSED`: git en sitios PHP, claves SSH, fichas de API, acceso remoto
 a bases, usuarios de base con permisos, CPU y memoria por sitio, cortafuegos de aplicaciones (OWASP),
 DNS dinámico, enrutamiento de correo, Node.js y Python desde el portal.
+
+**Criterio**: lo que es de pago o cerrado no entra. Se usa una alternativa libre si hace lo mismo con la
+misma calidad; si no existe o se queda corta, se desarrolla aquí y se entrega gratis.
 
 ---
 
