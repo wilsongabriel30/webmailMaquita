@@ -6,9 +6,28 @@ un socket Unix a maquita-sitios-portal, que vuelve a comprobar la sesión y el a
 
 from fastapi import APIRouter
 
-from app.sitios import aplicacion, avanzado, bases, baja, ficha, https_ftp, inicio, paquete, tareas, zona
+from app.sitios import (
+    aplicacion,
+    archivos,
+    avanzado,
+    baja,
+    bases,
+    copias,
+    datos,
+    descargas,
+    ficha,
+    ftp_cuentas,
+    https_ftp,
+    inicio,
+    paquete,
+    tareas,
+    web,
+    zona,
+)
 
 router = APIRouter()
-# El orden importa: /api/sitios/dns/… y /api/sitios/resumen van antes que /api/sitios/{sitio}/…
-for _modulo in (zona, inicio, ficha, aplicacion, https_ftp, tareas, bases, avanzado, paquete, baja):
+# El orden importa: /api/sitios/dns/…, /api/sitios/resumen y /api/sitios/descargas/… van antes que
+# /api/sitios/{sitio}/…
+for _modulo in (zona, inicio, descargas, ficha, aplicacion, https_ftp, tareas, bases, avanzado, paquete, baja,
+                web, ftp_cuentas, archivos, datos, copias):
     router.include_router(_modulo.router)
