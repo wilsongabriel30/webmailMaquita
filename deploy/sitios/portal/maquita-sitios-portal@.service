@@ -1,0 +1,38 @@
+# Una instancia por conexión (Accept=yes): lee una petición, la atiende y termina.
+# Corre como root porque maquita-sitios lo necesita (usuarios del sistema, nginx, PHP-FPM, certificados),
+# así que el confinamiento es el que no lo rompe: sin módulos del núcleo, sin relojes ni red de bajo
+# nivel, sin ver los buzones ni las claves del correo.
+[Unit]
+Description=Maquita Mail - Sitios web desde el portal de dominio (petición %i)
+After=postgresql.service
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/local/sbin/maquita-sitios-portal
+StandardInput=socket
+StandardOutput=socket
+StandardError=journal
+RuntimeMaxSec=1200
+TimeoutStopSec=30
+UMask=0022
+
+ProtectHome=read-only
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+CapabilityBoundingSet=~CAP_SYS_MODULE CAP_SYS_RAWIO CAP_SYS_BOOT CAP_SYS_TIME CAP_SYS_PTRACE CAP_NET_ADMIN CAP_NET_RAW CAP_MAC_ADMIN CAP_MAC_OVERRIDE CAP_LINUX_IMMUTABLE CAP_SYSLOG CAP_WAKE_ALARM CAP_BPF CAP_PERFMON
+InaccessiblePaths=-/var/vmail -/mnt/almacen -/opt/maquita-webmail/admin-panel/backend/.env -/etc/maquita-mail/dlp-exempt-senders.txt
+# Los sitios crean usuarios y carpetas con setgid (publico/ es 2750): ni RestrictSUIDSGID ni
+# ProtectSystem, que lo impedirían. MemoryDenyWriteExecute rompería PHP (php -l, WP-CLI).
+TasksMax=512
