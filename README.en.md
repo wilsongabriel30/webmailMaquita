@@ -10,6 +10,8 @@
 
 **A full-featured webmail client with a legal compliance and eDiscovery layer, for Postfix/Dovecot-based mail platforms.**
 
+**Today it is also a complete hosting server — email, websites, databases, DNS and Drive — and a [free alternative to cPanel](docs/CPANEL-ALTERNATIVE.md).** Current version: [v1.10.0](https://github.com/wilsongabriel30/webmailMaquita/releases/tag/v1.10.0).
+
 Built and maintained by [Fundación Maquita](https://example.org), a non-profit organization in Ecuador.
 
 ---
@@ -81,6 +83,20 @@ On **free software and your own servers**, this repository delivers the **email 
 - **Suite in the same repo** — email + Drive + online office (OnlyOffice) + dashboards/BI + PDF editor, integrated.
 
 **Where the big suites are still ahead (honestly):** endpoint/device management (EDR/MDM), telephony, tens-of-thousands-of-users scale, and the depth of their detection engines trained on global telemetry.
+
+## A free alternative to cPanel
+
+The project started as a **webmail**; then came the **panel** to run it, then the **Drive** (Almacén) with its apps, and since v1.10 it reaches **cPanel**: websites, databases, DNS, certificates and backups, with a panel for the server administrator (like WHM) and a **portal for each client** (like cPanel).
+
+| | |
+|---|---|
+| **Sites** | App catalogue (WordPress, Joomla, Drupal, Moodle…), PHP per site, automatic HTTPS, cron, file manager, FTP/SFTP with extra accounts, redirects, password-protected directories, error pages, hotlink protection, IP blocking, compression and caching |
+| **Data** | MariaDB and PostgreSQL with phpMyAdmin/Adminer, backups clients download and restore, migration from another host |
+| **Metrics** | Visitors and bandwidth (GoAccess), error log viewer, site-down alerts |
+| **Domains** | Subdomains, aliases, own DNS server with zone editor, SPF/DKIM/DMARC/MTA-STS |
+| **Email** | Outlook-like webmail with E5-level security, spam filtering, phones over ActiveSync 16.1 |
+
+No per-account or per-domain licences, on your own servers. Full table (59 features) and installation: **[docs/CPANEL-ALTERNATIVE.md](docs/CPANEL-ALTERNATIVE.md)**.
 
 ## Screenshots
 
