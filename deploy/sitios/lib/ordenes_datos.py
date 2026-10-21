@@ -136,7 +136,8 @@ def descargas_viejas(subidas=SUBIDAS, horas=24):
         limite = time.time() - horas * 3600
         for n in os.listdir(subidas):
             ruta = os.path.join(subidas, n)
-            if re.fullmatch(r"[0-9a-f]{32}\.(descarga|subida)", n) and os.lstat(ruta).st_mtime < limite:
+            # .entregando: la que el panel había reclamado para enviarla y no llegó a borrar.
+            if re.fullmatch(r"[0-9a-f]{32}\.(descarga|subida|descarga\.\d+\.entregando)", n) and os.lstat(ruta).st_mtime < limite:
                 os.remove(ruta)
                 quitadas += 1
     return quitadas
