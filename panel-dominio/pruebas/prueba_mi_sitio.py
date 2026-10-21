@@ -157,7 +157,7 @@ try:
     print("v1.10: funciones web")
     c, r = http("GET", f"/sitios/{VACIO}/web", ficha=f)
     espero("ve las funciones web", (c, "redirecciones" in r), (200, True), r)
-    c, r = http("PUT", f"/sitios/{VACIO}/web/redirecciones", {"redirecciones": [{"origen": "/viejo-v110", "destino": "/", "codigo": 301}]}, ficha=f)
+    c, r = http("PUT", f"/sitios/{VACIO}/web/redirecciones", {"redirecciones": [{"origen": "/viejo-v110", "destino": f"https://{VACIO}/", "codigo": 301}]}, ficha=f)
     espero("guarda una redirección", c, 200, r)
     espero("la redirección funciona", en_el_sitio(VACIO, "/viejo-v110"), 301)
     c, r = http("PUT", f"/sitios/{VACIO}/web/bloqueo", {"redes": ["203.0.113.7"]}, ficha=f)

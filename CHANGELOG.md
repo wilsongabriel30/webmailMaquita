@@ -7,7 +7,11 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
-Hospedaje completo (v1.10): funciones web, cuentas FTP adicionales, archivos y datos por sitio en el panel general.
+## [1.10.0] - 2026-10-21
+
+Hospedaje completo: funciones web, cuentas FTP adicionales, archivos y datos por sitio, en el panel general y en el portal del cliente. ActiveSync 16.1 (borradores del teléfono en el servidor) y libreta de la organización en los teléfonos. Probado de punta a punta en un servidor con portal y sitios (`prueba_aislamiento.py` y `prueba_mi_sitio.py`, con el bloque de la v1.10) y con teléfonos Android reales.
+
+**Al actualizar:** la compresión gzip (y brotli si nginx tiene el módulo) queda activada de serie en todos los sitios web; se puede desactivar por sitio en «Web → Optimización». El ajuste 61 reconstruye la imagen de Z-Push: los teléfonos se reconectan solos en segundos.
 
 ### Añadido
 - **ActiveSync 16.1** (`deploy/z-push/`): Z-Push se construye con un commit fijo de su rama develop; los borradores del teléfono (Samsung Email, Gmail, app nativa de iOS) se guardan en el servidor y se ven en el webmail, como en Zimbra. Outlook para móviles sigue dejándolos en el teléfono. Parche propio: un contacto creado en el teléfono sin nombre llega con su correo como nombre (Radicale lo rechazaba). Ajuste `61-activesync-16.sh`, que vuelve a la imagen anterior si la nueva falla.
@@ -29,6 +33,9 @@ Hospedaje completo (v1.10): funciones web, cuentas FTP adicionales, archivos y d
   - **Copias del sitio que controla el cliente**: crear ahora (carpeta pública, código de la aplicación propia y un volcado SQL de cada base, en un .tar.gz), listar, descargar, restaurar (siempre con copia previa automática) y borrar; hasta 5 por sitio, en `/var/lib/maquita-sitios/copias`, aparte de los respaldos del servidor (restic).
   - Validación exacta de cada subcomando nuevo en `maquita-sudo`; la baja del sitio y `maquita-sitios regenerar` limpian estadísticas, estados de disponibilidad, copias (a la papelera) y descargas olvidadas. En los servidores ya instalados se activa al volver a ejecutar `instalar-app.sh sitios`.
 - **Lo nuevo de la v1.10 también en el portal de dominio** («Mi sitio web», puerto 8444), para el administrador de cada dominio y solo en sus sitios: pestañas nuevas «Web» (redirecciones, carpetas con contraseña, páginas de error, hotlinking, IP bloqueadas, optimización y purga de la caché), «Archivos» (administrador de archivos con papelera), «Copias» y «Visitas y registros» (registros, estadísticas con el informe de GoAccess y disponibilidad), y las cuentas FTP adicionales en «FTP»; el editor de archivos de configuración pasa a llamarse «Configuración». El intermediario `maquita-sitios-portal` tiene una lista cerrada propia para estas órdenes (`ordenes_web.py`, `ordenes_datos_portal.py`), con el mismo alcance (404 lo ajeno, 403 lo reservado) y la segunda barrera de `maquita-sudo`; `disponibilidad-comprobar`, `datos-noche` y las reglas propias de nginx siguen fuera del portal, y la disponibilidad no muestra los correos de avisos generales del servidor. Subir, copiar, comprimir, descomprimir, crear y restaurar copias respetan la cuota de disco del dominio, que ahora suma también las copias del sitio. Las descargas (archivos, copias e informe) no las lee el portal: el intermediario las hace suyas y las pasa a la carpeta de subidas del portal con un nombre nuevo al azar (`entrega.py`), y el portal las entrega con un enlace de un solo uso que caduca a los 10 minutos (`descargas.py`); el informe se sirve con `Content-Security-Policy: sandbox`. Las contraseñas de carpetas y cuentas FTP se muestran una sola vez y no se auditan. Pruebas en `backend/tests/test_sitios_portal_v110.py`, `panel-dominio/backend/tests/test_sitios_v110.py` y los bloques v1.10 de `panel-dominio/pruebas/prueba_mi_sitio.py` y `prueba_aislamiento.py`. En los servidores ya instalados se activa con `deploy/sitios/portal/instalar.sh`.
+
+### Corregido
+- El actualizador no reiniciaba el portal de dominio (`maquita-panel-dominio`): tras actualizar seguía con el código anterior.
 
 ## [1.9.0] - 2026-10-21
 
