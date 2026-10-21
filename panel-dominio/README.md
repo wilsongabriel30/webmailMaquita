@@ -69,6 +69,15 @@ leer ni borrar.
 
 ## Instalación
 
+En un servidor instalado con `deploy/webmail/instalar.sh`, todo lo de abajo lo hace un solo instalador
+(idempotente; si el servidor tiene sitios web, instala también su intermediario):
+
+```bash
+sudo bash deploy/webmail/instalar-app.sh portal-dominio
+```
+
+Lo que hace, por si hay que hacerlo a mano en otro tipo de instalación:
+
 Requisitos: el esquema de correo ya instalado (tablas `domain`, `mailbox`, `alias`), Python 3.11+,
 `openssl`, nginx y PostgreSQL. Se asume el repositorio en `/opt/webmail`.
 
