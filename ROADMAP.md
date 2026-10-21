@@ -168,6 +168,17 @@ importación de cuentas por CSV, optimización por sitio.
 a bases, usuarios de base con permisos, CPU y memoria por sitio, cortafuegos de aplicaciones (OWASP),
 DNS dinámico, enrutamiento de correo, Node.js y Python desde el portal.
 
+**v1.12 — Asistente propio del cliente para su sitio** `PROPOSED`: desde el portal, «Asistente para mi
+sitio» abre una terminal web donde el cliente usa su propio asistente de programación (con su propia cuenta:
+el costo es suyo) para crear, editar y publicar su sitio.
+- Corre como el usuario del sitio, sin root ni sudo, encerrado: solo ve la carpeta de su sitio; nada del
+  sistema, del correo ni de otros sitios.
+- Red de salida solo hacia el proveedor del asistente y los repositorios de paquetes; topes de CPU, memoria
+  y tiempo.
+- Lo que el sitio necesita del servidor (HTTPS, bases, PHP) lo pide con una ficha de API limitada a su
+  dominio (v1.11), por el mismo intermediario y con el mismo alcance que el portal (v1.9).
+- Copia del sitio antes de cada sesión para volver atrás (v1.10) y auditoría de todo lo que hace.
+
 **Criterio**: lo que es de pago o cerrado no entra. Se usa una alternativa libre si hace lo mismo con la
 misma calidad; si no existe o se queda corta, se desarrolla aquí y se entrega gratis.
 
