@@ -134,5 +134,6 @@ if ! grep -rq 'maquita-apps' /etc/nginx/sites-enabled/ 2>/dev/null; then
   echo -e "  ${YELLOW}    include /etc/nginx/snippets/maquita-apps/*.conf;${NC}"
 fi
 
+bash "${APP_DIR}/deploy/webmail/nginx/certificado-provisional.sh" --todos || true
 nginx -t && systemctl reload nginx
 echo -e "${GREEN}Listo: ${URL}${NC}"

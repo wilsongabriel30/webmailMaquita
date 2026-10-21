@@ -5,6 +5,7 @@
 # Deja un servidor de correo + webmail FUNCIONAL de extremo a extremo:
 # PostgreSQL, Redis, Postfix, Dovecot, nginx, backend y frontend.
 # Variables opcionales no interactivas:  DOMAIN=... MAIL_HOST=... bash instalar.sh
+#   ORG_CORREOS_AVISOS="ti@dominio"  a quién avisa el sistema (por defecto postmaster@DOMAIN)
 # ============================================================
 
 set -e
@@ -180,6 +181,8 @@ SMTP_PORT=587
 SIEVE_HOST=127.0.0.1
 SIEVE_PORT=4190
 MAIL_DOMAIN=${DOMAIN}
+# Nombre del servidor: lo leen los instaladores que vienen después (sitios, aplicaciones).
+MAIL_HOST=${MAIL_HOST}
 VAPID_PUBLIC_KEY=${VAPID_PUB}
 VAPID_PRIVATE_KEY_PATH=${APP_DIR}/backend/vapid_private.pem
 VAPID_SUB=mailto:admin@${DOMAIN}
@@ -227,6 +230,9 @@ bash "${APP_DIR}/deploy/dovecot/busqueda/instalar.sh" || echo -e "  ${RED}AVISO:
 # Cuotas de buzón (columna quota de mailbox) y aprendizaje del antispam al mover correos a/desde Junk
 bash "${APP_DIR}/deploy/dovecot/instalar-cuotas-antispam.sh" "${APP_DIR}" || echo -e "  ${RED}AVISO: cuotas/aprendizaje antispam sin instalar (ver deploy/dovecot)${NC}"
 # Avisos al usuario cuando su buzón cruza el 85 % y el 95 % de la cuota
+# Datos de la organización (dominios, direcciones, a quién avisar): sin ellos los avisos no llegan.
+bash "${APP_DIR}/deploy/webmail/configs/crear-organizacion-env.sh" "${DOMAIN}" "${MAIL_HOST}" "${ORG_CORREOS_AVISOS:-postmaster@${DOMAIN}}" \
+  || echo -e "  ${RED}AVISO: falta /etc/maquita-mail/organizacion.env (ver deploy/webmail/configs/organizacion.env.ejemplo)${NC}"
 bash "${APP_DIR}/deploy/dovecot/avisos-cuota/instalar.sh" || echo -e "  ${RED}AVISO: avisos de cuota sin instalar${NC}"
 doveconf -n >/dev/null && echo "  Dovecot: sintaxis OK"
 # Postfix crea /var/spool/postfix/private (sockets auth/lmtp) que Dovecot necesita
@@ -402,7 +408,7 @@ install -m644 "${APP_DIR}/deploy/webmail/nginx/tls-intermedio.conf" /etc/nginx/s
 install -m644 "${APP_DIR}/deploy/hardening/seguridad-correo-web/politica-referer.conf" /etc/nginx/conf.d/maquita-politica-referer.conf
 # Autodiscover/autoconfig de CUALQUIER dominio: puerto 80 (respaldo mientras el certificado no cubra el
 # dominio) y 443 con el certificado del correo; sin Let's Encrypt todavía, con el snakeoil como el vhost principal.
-sed "s/tudominio.com/${DOMAIN}/g" "${APP_DIR}/deploy/webmail/nginx/autodiscover-dominios.conf" \
+sed "s/mail\.tudominio\.com/${MAIL_HOST}/g; s/tudominio\.com/${DOMAIN}/g" "${APP_DIR}/deploy/webmail/nginx/autodiscover-dominios.conf" \
     > /etc/nginx/sites-available/autodiscover-dominios
 [ -e "/etc/letsencrypt/live/${MAIL_HOST}/fullchain.pem" ] || sed -i "s|/etc/letsencrypt/live/${MAIL_HOST}/fullchain.pem|/etc/ssl/certs/ssl-cert-snakeoil.pem|; s|/etc/letsencrypt/live/${MAIL_HOST}/privkey.pem|/etc/ssl/private/ssl-cert-snakeoil.key|" /etc/nginx/sites-available/autodiscover-dominios
 ln -sf /etc/nginx/sites-available/autodiscover-dominios /etc/nginx/sites-enabled/
@@ -641,6 +647,8 @@ bash "${APP_DIR}/deploy/hardening/seguridad-correo-web/aplicar.sh" --sin-recarga
 
 echo -e "\n${GREEN}[18/18] Iniciando y verificando...${NC}"
 systemctl restart maquita-webmail
+# Todo vhost cuyo certificado de Let's Encrypt aún no existe arranca con el provisional.
+bash "${APP_DIR}/deploy/webmail/nginx/certificado-provisional.sh" --todos || true
 # Si la configuración no valida, nginx sigue con la anterior (solo puerto 80) y nada lo delata:
 # se detiene aquí con el error de nginx a la vista.
 if ! nginx -t; then
