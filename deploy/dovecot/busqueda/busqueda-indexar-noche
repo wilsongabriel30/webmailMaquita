@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# Construye, de noche, el índice de búsqueda de los buzones que aún no lo tienen completo.
+# Los correos nuevos se indexan al llegar (fts_autoindex); esto cubre el correo antiguo o
+# importado. Retoma donde quedó, una cuenta a la vez, con la prioridad de CPU y disco más baja,
+# sin empezar cuentas nuevas fuera de la ventana nocturna ni con el disco cargado.
+#
+# Uso: busqueda-indexar-noche            (lo lanza cron; ver /etc/cron.d/maquita-busqueda)
+#      busqueda-indexar-noche estado     (cuántas cuentas van)
+#      HORA_FIN=0515 PRESION_MAX=45 busqueda-indexar-noche
+set -uo pipefail
+EST=/var/lib/maquita-busqueda
+LOG=/var/log/maquita-busqueda.log
+HORA_FIN=${HORA_FIN:-0515}     # no empezar cuentas nuevas pasada esta hora
+PRESION_MAX=${PRESION_MAX:-45} # % de presión de E/S (avg60) a partir del cual se espera
+mkdir -p "$EST"
+touch "$EST/hechas.txt"
+
+if [ "${1:-}" = estado ]; then
+  echo "cuentas indexadas: $(wc -l <"$EST/hechas.txt") de $(doveadm user '*' 2>/dev/null | wc -l)"
+  tail -n 3 "$LOG" 2>/dev/null
+  exit 0
+fi
+
+exec 9>"$EST/candado"
+flock -n 9 || exit 0 # una sola pasada a la vez
+
+log() { echo "$(date '+%F %T') $*" >>"$LOG"; }
+
+en_ventana() {
+  local h
+  h=$(date +%H%M)
+  [ "$h" -ge 1900 ] || [ "$h" -lt "$HORA_FIN" ]
+}
+
+esperar_disco() {
+  [ -r /proc/pressure/io ] || return 0
+  local p _
+  for _ in $(seq 1 60); do
+    p=$(awk '/^some/{split($3,a,"="); print int(a[2])}' /proc/pressure/io)
+    [ "${p:-0}" -lt "$PRESION_MAX" ] && return 0
+    sleep 30
+  done
+  return 1
+}
+
+log "inicio (hechas: $(wc -l <"$EST/hechas.txt"))"
+while read -r c; do
+  [ -n "$c" ] || continue
+  grep -qxF "$c" "$EST/hechas.txt" && continue
+  en_ventana || {
+    log "fin de la ventana nocturna"
+    break
+  }
+  esperar_disco || {
+    log "disco cargado 30 min seguidos: se sigue la próxima noche"
+    break
+  }
+  t0=$(date +%s)
+  if timeout 4h ionice -c3 nice -n 19 doveadm index -u "$c" '*' >/dev/null 2>>"$LOG" </dev/null; then
+    echo "$c" >>"$EST/hechas.txt"
+    log "OK $c ($(($(date +%s) - t0)) s)"
+  else
+    log "ERROR $c (se reintenta la próxima noche)"
+  fi
+done < <(doveadm user '*' 2>/dev/null)
+log "fin (hechas: $(wc -l <"$EST/hechas.txt"))"
+tail -n 5000 "$LOG" >"$LOG.tmp" 2>/dev/null && mv "$LOG.tmp" "$LOG"

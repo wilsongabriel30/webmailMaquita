@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Deja en la caché de Dovecot la estructura (BODYSTRUCTURE) de los mensajes con adjunto, para que
+# la búsqueda por adjunto del webmail llegue a todo el histórico en segundos (medido: en frío
+# 3 min 28 s para 12.000 mensajes; en caliente, 9 s). De noche, con prioridad mínima y tope de horas.
+# Uso: busqueda-adjuntos-precalentar [cuenta ...]   (sin argumentos: todas las cuentas)
+set -uo pipefail
+LOG=/var/log/maquita-busqueda-adjuntos.log
+FIN=$(($(date +%s) + ${HORAS_MAX:-7} * 3600))
+exec 9>/run/maquita-busqueda-adjuntos.lock
+flock -n 9 || exit 0
+
+cuentas=("$@")
+[ ${#cuentas[@]} -eq 0 ] && mapfile -t cuentas < <(doveadm user '*' 2>/dev/null)
+echo "$(date '+%F %T') inicio: ${#cuentas[@]} cuentas" >>"$LOG"
+for u in "${cuentas[@]}"; do
+  if [ "$(date +%s)" -ge "$FIN" ]; then
+    echo "$(date '+%F %T') tope de horas: se sigue mañana" >>"$LOG"
+    break
+  fi
+  t0=$(date +%s)
+  timeout 3600 ionice -c3 nice -n 19 doveadm fetch -u "$u" "uid imap.bodystructure" mailbox '*' \
+    header Content-Type multipart >/dev/null 2>>"$LOG"
+  echo "$(date '+%F %T') $u $(($(date +%s) - t0)) s" >>"$LOG"
+done
+echo "$(date '+%F %T') fin" >>"$LOG"
+tail -n 5000 "$LOG" >"$LOG.tmp" 2>/dev/null && mv "$LOG.tmp" "$LOG"
