@@ -7,10 +7,10 @@ Wants=postgresql.service
 Type=simple
 User=maquita-dominio
 Group=maquita-dominio
-WorkingDirectory=/opt/webmail/panel-dominio/backend
+WorkingDirectory=/opt/maquita-webmail/panel-dominio/backend
 EnvironmentFile=/etc/maquita-mail/panel-dominio.env
 Environment=PYTHONUNBUFFERED=1
-ExecStart=/opt/webmail/panel-dominio/backend/venv/bin/gunicorn app.main:app --workers 2 --worker-class uvicorn.workers.UvicornWorker --bind 127.0.0.1:8003 --control-socket /run/maquita-panel-dominio/gunicorn.ctl --max-requests 800 --max-requests-jitter 200 --timeout 30 --graceful-timeout 15 --access-logfile - --error-logfile -
+ExecStart=/opt/maquita-webmail/panel-dominio/backend/venv/bin/gunicorn app.main:app --workers 2 --worker-class uvicorn.workers.UvicornWorker --bind 127.0.0.1:8003 --control-socket /run/maquita-panel-dominio/gunicorn.ctl --max-requests 800 --max-requests-jitter 200 --timeout 30 --graceful-timeout 15 --access-logfile - --error-logfile -
 RuntimeDirectory=maquita-panel-dominio
 RuntimeDirectoryMode=0700
 Restart=always
@@ -23,9 +23,9 @@ PrivateDevices=yes
 ProtectSystem=strict
 ProtectHome=yes
 # Lo único que puede escribir: los logos e iconos de las empresas, que comparte con el webmail.
-ReadWritePaths=/opt/webmail/uploads/branding/empresas
+ReadWritePaths=/opt/maquita-webmail/uploads/branding/empresas
 SupplementaryGroups=maquita-marca
-InaccessiblePaths=-/var/vmail -/opt/webmail/backend/.env -/opt/webmail/admin-panel/backend/.env
+InaccessiblePaths=-/var/vmail -/mnt/almacen -/etc/maquita-mail/dlp-exempt-senders.txt -/opt/maquita-webmail/backend/.env -/opt/maquita-webmail/admin-panel/backend/.env
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
 ProtectKernelLogs=yes

@@ -1,0 +1,7 @@
+[Unit]
+Description=Vigilancia del milter DLP (avisa si el correo pasa sin inspección)
+After=postfix.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/vigilar-milter.sh

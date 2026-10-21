@@ -1,0 +1,30 @@
+# ============================================================================
+# Rechazo de remitentes con patrones de INYECCIÓN DE COMANDOS (smtpd_sender_restrictions)
+# Origen: ataque real del 24/08/2026 contra un servidor de correo (remitentes con
+# «$(curl …|sh)» en el MAIL FROM para ejecutar órdenes en el sistema).
+#
+# PRINCIPIO: ninguna dirección de correo legítima contiene metacaracteres de
+# shell. Se rechazan en la puerta, para que no lleguen ni al registro.
+#
+# Formato: regexp (POSIX extendido): no depende de que Postfix tenga pcre.
+# Lo instala deploy/hardening/seguridad-correo-web/aplicar.sh (ajuste 54).
+# ============================================================================
+
+# Punto y coma / barra vertical / acento grave -> encadenar o canalizar comandos
+/[;|`]/                                   REJECT Direccion de remitente no valida (metacaracteres de shell no permitidos)
+
+# Sustitución de comandos  $( ... )
+/\$\(/                                    REJECT Direccion de remitente no valida (sustitucion de comandos no permitida)
+
+# NOTA: no se rechazan las palabras «curl»/«wget» sueltas: daban falso positivo con
+# dominios legítimos (p. ej. wget.solutions@…) y por sí solas no ejecutan nada; el
+# peligro son los metacaracteres de arriba, que traen todos los ataques reales.
+
+# Canalización hacia un intérprete
+/\|[[:space:]]*(sh|bash|python|perl)([^a-zA-Z]|$)/i  REJECT Direccion de remitente no valida (canalizacion a interprete no permitida)
+
+# Salto de línea codificado (inyección en registros / cabeceras)
+/(%0a|%0d)/i                              REJECT Direccion de remitente no valida (salto de linea no permitido)
+
+# Dominio usado en el ataque del 24/08/2026
+/@inj\.local$/i                           REJECT Dominio de remitente bloqueado

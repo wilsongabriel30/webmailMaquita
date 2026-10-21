@@ -1,0 +1,8 @@
+[Unit]
+Description=Guardián del correo: levanta servicios caídos, prueba el webmail y avisa
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/guardian-web-correo
+TimeoutStartSec=240

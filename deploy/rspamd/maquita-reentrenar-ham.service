@@ -1,0 +1,9 @@
+[Unit]
+Description=Rspamd: aprender como legítimo el correo conservado en la bandeja de entrada
+After=rspamd.service dovecot.service postgresql.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/rspamd-reentrenar-ham.sh
+Nice=15
+IOSchedulingClass=idle

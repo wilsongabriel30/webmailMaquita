@@ -1,0 +1,2 @@
+# Aviso si el correo deja de entrar a los buzones (LMTP). Ver /usr/local/bin/vigila-entrega-local.sh
+*/5 * * * * root /usr/local/bin/vigila-entrega-local.sh

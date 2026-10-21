@@ -1,0 +1,3 @@
+# Reconciliador de la cuarentena diferida (B2): reinserta en la BD las cuarentenas que el milter
+# no pudo registrar (BD caída) y avisa al administrador. Ver milter/reconciliar_cuarentena.py
+*/7 * * * * root /opt/maquita-webmail/backend/venv/bin/python /opt/maquita-webmail/milter/reconciliar_cuarentena.py >/dev/null 2>&1

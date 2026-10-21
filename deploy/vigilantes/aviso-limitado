@@ -1,0 +1,36 @@
+#!/bin/bash
+# maquita-vigilantes (repo)
+# ============================================================================
+# aviso-limitado — salida única de correo de los vigilantes del servidor.
+# Evita inundar el buzón de TI: tope global de TOPE_DIARIO avisos por día entre todos los
+# vigilantes; el último avisa que se silencia hasta mañana y el resto queda solo en el registro.
+# Destino y remitente: lib-avisos.sh (organizacion.env → panel → postmaster@dominio).
+# Uso:  echo "cuerpo" | aviso-limitado "Asunto"
+# ============================================================================
+set -u
+. /usr/local/lib/maquita-vigilantes/lib-avisos.sh
+TOPE_DIARIO="${AVISO_TOPE_DIARIO:-8}"
+DIR=/var/lib/guardian-web-correo
+LOG=/var/log/guardian-web-correo.log
+mkdir -p "$DIR"
+ASUNTO="${1:-Aviso del servidor de correo}"
+CUERPO=$(cat)
+CONT="$DIR/avisos-$(date +%F)"
+find "$DIR" -name 'avisos-*' -mtime +3 -delete 2>/dev/null
+
+exec 9>"$DIR/.cerrojo"; flock 9
+n=$(cat "$CONT" 2>/dev/null || echo 0)
+if [ "$n" -ge "$TOPE_DIARIO" ]; then
+    echo "$(date '+%F %T') SILENCIADO (tope diario $TOPE_DIARIO): $ASUNTO" >> "$LOG"
+    exit 0
+fi
+n=$((n + 1)); echo "$n" > "$CONT"
+[ "$n" -eq "$TOPE_DIARIO" ] && CUERPO="$CUERPO
+
+— Este es el aviso $n de $n permitidos hoy. Hasta mañana los demás solo quedan en $LOG."
+DESTINOS=$(vig_destinos)
+if echo "$CUERPO" | vig_enviar "$ASUNTO" "$DESTINOS" 2>>"$LOG"; then
+    echo "$(date '+%F %T') ENVIADO a $DESTINOS ($n/$TOPE_DIARIO hoy): $ASUNTO" >> "$LOG"
+else
+    echo "$(date '+%F %T') FALLO al enviar a $DESTINOS: $ASUNTO" >> "$LOG"
+fi

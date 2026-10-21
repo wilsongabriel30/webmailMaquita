@@ -57,7 +57,7 @@ apt update && apt install -y \
     fail2ban \
     postfix postfix-pgsql \
     dovecot-core dovecot-imapd dovecot-pop3d dovecot-lmtpd dovecot-pgsql \
-    dovecot-sieve dovecot-managesieved \
+    dovecot-sieve dovecot-managesieved dovecot-flatcurve \
     ssl-cert rspamd \
     clamav clamav-daemon clamav-freshclam
 
@@ -222,6 +222,10 @@ install -d -o vmail -g vmail -m 755 /var/vmail/sieve
 [ -f /var/vmail/sieve/before.sieve ] || install -o vmail -g vmail -m 644 "${APP_DIR}/deploy/dovecot/instalacion-before.sieve" /var/vmail/sieve/before.sieve
 [ -f /var/vmail/sieve/after.sieve ]  || install -o vmail -g vmail -m 644 "${APP_DIR}/deploy/dovecot/global-after.sieve" /var/vmail/sieve/after.sieve
 for s in before after; do sudo -u vmail sievec "/var/vmail/sieve/${s}.sieve" || echo -e "  ${RED}AVISO: ${s}.sieve no compila${NC}"; done
+# Búsqueda de texto completo (fts-flatcurve) y su mantenimiento nocturno
+bash "${APP_DIR}/deploy/dovecot/busqueda/instalar.sh" || echo -e "  ${RED}AVISO: no se instaló la búsqueda de texto completo${NC}"
+# Cuotas de buzón (columna quota de mailbox) y aprendizaje del antispam al mover correos a/desde Junk
+bash "${APP_DIR}/deploy/dovecot/instalar-cuotas-antispam.sh" "${APP_DIR}" || echo -e "  ${RED}AVISO: cuotas/aprendizaje antispam sin instalar (ver deploy/dovecot)${NC}"
 doveconf -n >/dev/null && echo "  Dovecot: sintaxis OK"
 # Postfix crea /var/spool/postfix/private (sockets auth/lmtp) que Dovecot necesita
 systemctl start postfix 2>/dev/null || service postfix start 2>/dev/null || true
@@ -392,6 +396,8 @@ install -d -m 755 "${APP_DIR}/descargas-app"
 install -m644 "${APP_DIR}/deploy/webmail/nginx/descargas-app.conf" /etc/nginx/snippets/descargas-app.conf
 # Perfil TLS que incluyen los server{} HTTPS (webmail.conf y autodiscover-dominios.conf)
 install -m644 "${APP_DIR}/deploy/webmail/nginx/tls-intermedio.conf" /etc/nginx/snippets/tls-intermedio.conf
+# Referrer-Policy por ruta (webmail.conf usa $politica_referer): no-referrer en enlaces públicos del Almacén
+install -m644 "${APP_DIR}/deploy/hardening/seguridad-correo-web/politica-referer.conf" /etc/nginx/conf.d/maquita-politica-referer.conf
 # Autodiscover/autoconfig de CUALQUIER dominio: puerto 80 (respaldo mientras el certificado no cubra el
 # dominio) y 443 con el certificado del correo; sin Let's Encrypt todavía, con el snakeoil como el vhost principal.
 sed "s/tudominio.com/${DOMAIN}/g" "${APP_DIR}/deploy/webmail/nginx/autodiscover-dominios.conf" \
@@ -628,6 +634,9 @@ echo "  Editor de PDF: https://${MAIL_HOST}/herramientas/editor-pdf/"
 # Ayudante de identidad (Personalización → «Aplicar en todo»): nombre, logo, íconos, Drive y sitios.
 bash "${APP_DIR}/deploy/identidad/instalar.sh" || echo -e "${YELLOW}No se instaló el ayudante de identidad (opcional).${NC}"
 
+# Seguridad traída de producción: remitentes con metacaracteres de shell, ClamAV semanal, cuarentena diferida
+bash "${APP_DIR}/deploy/hardening/seguridad-correo-web/aplicar.sh" --sin-recargar || echo -e "${YELLOW}No se aplicó la seguridad del correo y la web (ver arriba).${NC}"
+
 echo -e "\n${GREEN}[18/18] Iniciando y verificando...${NC}"
 systemctl restart maquita-webmail
 # Si la configuración no valida, nginx sigue con la anterior (solo puerto 80) y nada lo delata:
@@ -731,3 +740,6 @@ install -d -o www-data -g "$(getent group maquita-admin >/dev/null && echo maqui
 install -m644 "${APP_DIR}/deploy/hardening/cron-radicale-colecciones" /etc/cron.d/maquita-radicale
 chmod +x /opt/maquita-webmail/deploy/tools/calc-storage.sh 2>/dev/null || true
 bash /opt/maquita-webmail/deploy/tools/calc-storage.sh >/dev/null 2>&1 || true
+# Vigilantes del correo (entrega a buzones, servicios y webmail, milter, intrusión, cola/disco/certificado).
+# Al final, para que el guardián no «repare» servicios que la instalación para y arranca a propósito.
+APP_DIR="${APP_DIR}" bash "${APP_DIR}/deploy/vigilantes/instalar.sh" || echo -e "  ${RED}AVISO: no se instalaron los vigilantes (deploy/vigilantes/instalar.sh)${NC}"
