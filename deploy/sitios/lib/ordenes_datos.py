@@ -167,9 +167,15 @@ def limpiar_sitio(meta, papelera=None):
     import disponibilidad
     import estadisticas
 
-    estadisticas.quitar(meta["dominio"])
-    disponibilidad.quitar(meta["dominio"])
-    copias_cliente.quitar(meta["dominio"], papelera)
+    import sys
+
+    # La baja no debe quedar a medias por esto: cada paso por separado y, si falla, solo se anota.
+    for paso in (lambda: estadisticas.quitar(meta["dominio"]), lambda: disponibilidad.quitar(meta["dominio"]),
+                 lambda: copias_cliente.quitar(meta["dominio"], papelera)):
+        try:
+            paso()
+        except OSError as e:
+            print(f"maquita-sitios: limpieza de datos de {meta['dominio']}: {e}", file=sys.stderr)
 
 
 def huerfanos():

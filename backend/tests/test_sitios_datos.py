@@ -191,6 +191,15 @@ def test_copia_restaurar_con_previa(copias, meta, tmp_path):
     assert primera not in [c["id"] for c in copias.listar(D)["copias"]]
 
 
+def test_restaurar_omite_enlaces_que_salen(copias, meta):
+    os.symlink("/etc", os.path.join(meta["publico"], "sistema"))
+    ident = copias.crear(D)["copia"]["id"]
+    r = copias.restaurar(D, ident)
+    assert r["enlaces_omitidos"] == ["publico/sistema"]
+    assert not os.path.lexists(os.path.join(meta["publico"], "sistema"))
+    assert os.path.isfile(os.path.join(meta["publico"], "index.html"))
+
+
 def test_restaurar_exige_sitio_para_la_previa(copias):
     for _ in range(copias.TOPE):
         ultima = copias.crear(D)["copia"]["id"]

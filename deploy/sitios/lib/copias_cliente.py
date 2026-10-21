@@ -229,9 +229,9 @@ def restaurar(dominio, ident):
         conocidas = {n: m for m, n in _bases(meta)}
         # Se extrae en la carpeta del sitio (de root, 755): mismo sistema de archivos, así el cambio es un rename.
         with tempfile.TemporaryDirectory(dir=meta["base"], prefix=".restaurando-") as tmp:
+            omitidos = []
             with tarfile.open(archivo, "r:gz") as tar:
-                # filter="data": sin rutas absolutas ni «..», sin enlaces que salgan, sin dispositivos ni setuid.
-                tar.extractall(tmp, filter="data")
+                tar.extractall(tmp, filter=lambda m, destino: _filtro(m, destino, omitidos))
             # Todo se comprueba antes de tocar el sitio.
             volcados = []
             if os.path.isdir(os.path.join(tmp, "bases")):
@@ -259,7 +259,17 @@ def restaurar(dominio, ident):
     if meta.get("app") == "propia" and (meta.get("propia") or {}).get("tipo") != "estatico":
         subprocess.run(["systemctl", "try-restart", f"sitio-{meta['usuario']}"], capture_output=True, timeout=120)
     return {"dominio": dominio, "restaurada": ident, "carpetas": restauradas,
-            "bases": [n for _, n, _ in volcados], "copia_previa": previa["id"]}
+            "bases": [n for _, n, _ in volcados], "copia_previa": previa["id"], "enlaces_omitidos": omitidos[:50]}
+
+
+def _filtro(miembro, destino, omitidos):
+    """filter="data" (sin rutas absolutas ni «..», sin dispositivos ni setuid), pero un enlace simbólico que apunta
+    fuera del sitio se omite en vez de cancelar toda la restauración (se anota para avisar)."""
+    try:
+        return tarfile.data_filter(miembro, destino)
+    except (tarfile.AbsoluteLinkError, tarfile.LinkOutsideDestinationError):
+        omitidos.append(miembro.name)
+        return None
 
 
 def quitar(dominio, papelera=None):
