@@ -1,5 +1,5 @@
 [Unit]
-Description=Fundación Maquita Webmail API
+Description=Webmail API
 After=network.target postgresql.service redis-server.service dovecot.service
 
 [Service]
@@ -9,7 +9,15 @@ Group=www-data
 WorkingDirectory=/opt/maquita-webmail/backend
 Environment=PATH=/opt/maquita-webmail/backend/venv/bin:/usr/local/bin:/usr/bin
 EnvironmentFile=/opt/maquita-webmail/backend/.env
+# Workers: 4 sirve hasta ~150 buzones activos; un servidor con más carga sube el número en un drop-in.
 ExecStart=/opt/maquita-webmail/backend/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 4 --loop uvloop
+# Parada ordenada (aprendido en producción): las conexiones abiertas tienen 3 s para cerrar y systemd no
+# espera más de 8 s; si un worker muere por un fallo nativo, su traceback queda en el journal.
+# Los servidores ya instalados lo reciben con deploy/ajustes/55-webmail-parada-ordenada.sh.
+Environment=UVICORN_TIMEOUT_GRACEFUL_SHUTDOWN=3
+Environment=PYTHONFAULTHANDLER=1
+KillMode=mixed
+TimeoutStopSec=8
 Restart=always
 RestartSec=5
 LimitNOFILE=65536
