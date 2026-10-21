@@ -42,6 +42,7 @@ export function AdminsDominio() {
           { titulo: "Qué no pueden hacer", desc: "Ver otros dominios, eliminar cuentas, leer correo, reenviar fuera de su dominio ni tocar la configuración del servidor." },
           { titulo: "Segundo factor", desc: "Es obligatorio: tras cambiar su contraseña, el portal le pide configurar un código en el teléfono. Si pierde el teléfono, edítalo aquí y marca «Restablecer segundo factor»." },
           { titulo: "Eliminar cuentas", desc: "El administrador de dominio solo puede pedirlo; la cuenta queda desactivada y aparece abajo, en Solicitudes, para que la confirmes o la rechaces." },
+          { titulo: "Sitios web", desc: "Al editar un administrador se fija, por dominio, cuántos sitios puede crear desde el portal y cuánto disco y bases de datos pueden ocupar. La baja de un sitio solo la pide: llega a Solicitudes y la confirmas tú." },
           { titulo: "Contraseña inicial", desc: "La que se pone aquí es temporal: el portal obliga a cambiarla en la primera entrada." },
         ]} />
         <button onClick={() => setEditando("nuevo")} className="px-3 py-1.5 bg-ms-blue text-white rounded text-sm hover:bg-ms-blue-dark">+ Nuevo administrador de dominio</button>

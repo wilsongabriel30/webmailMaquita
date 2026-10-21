@@ -18,9 +18,9 @@ def normalizar_direccion(valor) -> str:
     if direccion.count("@") != 1:
         raise HTTPException(400, "La dirección debe tener la forma usuario@dominio")
     local, dominio = direccion.split("@")
-    if not _LOCAL.match(local) or ".." in local:
+    if not _LOCAL.fullmatch(local) or ".." in local:
         raise HTTPException(400, "El nombre de la cuenta solo admite letras, números, punto, guion y guion bajo")
-    if not _DOMINIO.match(dominio) or ".." in dominio:
+    if not _DOMINIO.fullmatch(dominio) or ".." in dominio:
         raise HTTPException(400, "Dominio inválido")
     return direccion
 

@@ -228,6 +228,8 @@ systemctl enable --now sitios-cron.timer >/dev/null 2>&1
 install -m 755 "${APP_DIR}/deploy/sudoers/maquita-sudo" /usr/local/sbin/maquita-sudo
 # Los sitios ya creados se regeneran con las plantillas de esta versión.
 /usr/local/sbin/maquita-sitios regenerar >/dev/null
+# «Mi sitio web» en el portal de dominio: solo si el portal también está instalado (si no, no hace nada).
+bash "${SELF}/portal/instalar.sh" || echo -e "${YELLOW}No se pudo instalar el intermediario del portal de dominio: revise deploy/sitios/portal/instalar.sh.${NC}"
 # fail2ban: intentos fallidos de FTP.
 if [ -d /etc/fail2ban/jail.d ]; then
     cat > /etc/fail2ban/jail.d/sitios-ftp.local <<'EOF'
@@ -292,6 +294,7 @@ php_admin_flag[expose_php] = off
 EOF
 chgrp herramientas-bd /var/lib/phpmyadmin/blowfish_secret.inc.php /etc/phpmyadmin/config.inc.php 2>/dev/null || true
 systemctl reload "php${PHP_VER}-fpm"
+install -m 644 "${SELF}/herramientas/nginx-herramientas-rutas.conf" /etc/nginx/snippets/herramientas-bd-rutas.conf
 install -m 644 "${SELF}/herramientas/nginx-herramientas.conf" /etc/nginx/snippets/herramientas-bd.conf
 # Se incluye en el server{} del panel (8443), justo después de su server_name.
 for PANEL in /etc/nginx/sites-available/*-admin; do

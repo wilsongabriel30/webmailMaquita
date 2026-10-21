@@ -18,7 +18,8 @@ import shutil
 import subprocess
 import time
 
-from comun import ErrorSitio, ejecutar, guardar_meta, leer_meta
+import archivo_seguro
+from comun import ErrorSitio, guardar_meta, leer_meta
 
 EXTRA = "/etc/maquita-sitios/nginx-extra"
 VERSIONES = "/var/lib/maquita-sitios/versiones"
@@ -243,56 +244,55 @@ def guardar_php(dominio, datos):
 # --- Archivos de la aplicación ---
 
 
-def _ruta_archivo(meta, relativa):
+def _relativa(relativa):
     relativa = str(relativa or "").lstrip("/")
     if not relativa or "\x00" in relativa or len(relativa) > 300:
         raise ErrorSitio("ruta no válida")
-    ruta = os.path.realpath(os.path.join(meta["publico"], relativa))
-    if not ruta.startswith(os.path.realpath(meta["publico"]) + "/") or os.path.islink(os.path.join(meta["publico"], relativa)):
-        raise ErrorSitio("solo se editan archivos dentro de la carpeta pública del sitio")
-    return ruta
+    return relativa
 
 
+# Las rutas se abren componente a componente sin seguir enlaces (archivo_seguro): el usuario del
+# sitio puede cambiar sus archivos por enlaces simbólicos mientras root los lee o los guarda.
 def ver_archivo(dominio, relativa):
     meta = leer_meta(dominio)
-    ruta = _ruta_archivo(meta, relativa)
-    if not os.path.isfile(ruta):
+    relativa = _relativa(relativa)
+    existe, datos, _ = archivo_seguro.leer(meta["publico"], relativa, MAX_ARCHIVO)
+    if not existe:
         return {"ruta": relativa, "existe": False, "contenido": ""}
-    if os.path.getsize(ruta) > MAX_ARCHIVO:
+    if datos is None:
         raise ErrorSitio("el archivo supera 1 MB: edítelo por SFTP")
-    with open(ruta, "rb") as f:
-        datos = f.read()
     if b"\x00" in datos[:8192]:
         raise ErrorSitio("no es un archivo de texto")
     return {"ruta": relativa, "existe": True, "contenido": datos.decode("utf-8", "replace")}
 
 
 def guardar_archivo(dominio, relativa, subida):
-    meta = leer_meta(dominio)
-    ruta = _ruta_archivo(meta, relativa)
-    contenido = _leer_subida(subida)
-    if os.path.isfile(ruta):
-        with open(ruta, "rb") as f:
-            respaldar(dominio, "archivo", relativa, f.read())
-        estado = os.stat(ruta)
-        modo, uid, gid = estado.st_mode & 0o7777, estado.st_uid, estado.st_gid
-    else:
-        import pwd
+    import pwd
 
+    meta = leer_meta(dominio)
+    relativa = _relativa(relativa)
+    contenido = _leer_subida(subida)
+    usuario = pwd.getpwnam(meta["usuario"]).pw_uid
+    grupo_web = pwd.getpwnam("www-data").pw_gid
+    existe, previo, st = archivo_seguro.leer(meta["publico"], relativa, 64 * 1024 * 1024)
+    if existe and previo is not None:
+        respaldar(dominio, "archivo", relativa, previo)
+        modo, uid, gid = st.st_mode & 0o777, st.st_uid, st.st_gid
+    elif existe:
+        raise ErrorSitio("el archivo es demasiado grande: edítelo por SFTP")
+    else:
         respaldar(dominio, "archivo", relativa, b"")
-        modo, uid, gid = 0o640, pwd.getpwnam(meta["usuario"]).pw_uid, pwd.getpwnam("www-data").pw_gid
-        os.makedirs(os.path.dirname(ruta), exist_ok=True)
-    tmp = ruta + ".guardando"
-    with open(os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, modo), "wb") as f:
-        f.write(contenido)
-    os.chown(tmp, uid, gid)
-    os.chmod(tmp, modo)
-    os.replace(tmp, ruta)
+        modo, uid, gid = 0o640, usuario, grupo_web
+    archivo_seguro.escribir(meta["publico"], relativa, contenido, uid, gid, modo,
+                            carpetas_como=(usuario, grupo_web, 0o750))
+    ruta = os.path.join(meta["publico"], relativa)
     if ruta.endswith(".php"):
-        r = subprocess.run(["php", "-l", ruta], capture_output=True, text=True, timeout=30)
+        # Se revisa lo guardado por la entrada estándar, no releyendo la ruta (podría ser ya un enlace).
+        r = subprocess.run(["php", "-l"], input=contenido.decode("utf-8", "replace"), capture_output=True, text=True, timeout=30)
         if r.returncode != 0:
             return {**ver(dominio), "aviso": "Guardado, pero PHP encuentra un error de sintaxis: "
-                    + (r.stdout.strip().splitlines() or ["?"])[0][:300] + ". Puede restaurar la versión anterior."}
+                    + (([x for x in (r.stdout + r.stderr).splitlines() if "error" in x.lower() and "Errors parsing" not in x]
+                       or ["?"])[0].replace("PHP Parse error:", "").replace("Standard input code", "el archivo").strip()[:300]) + ". Puede restaurar la versión anterior."}
     return ver(dominio)
 
 

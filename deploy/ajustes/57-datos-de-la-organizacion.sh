@@ -10,8 +10,9 @@ DESTINO="${ORG_FICHERO:-/etc/maquita-mail/organizacion.env}"
 
 [ -e "$DESTINO" ] && { echo "Sin cambios: $DESTINO ya existe."; exit 0; }
 [ -r "$ENV" ] || { echo "Sin cambios: no hay $ENV (no es un servidor de correo instalado)."; exit 0; }
-dominio="$(grep -E '^MAIL_DOMAIN=' "$ENV" | head -1 | cut -d= -f2- | tr -d '"' | tr 'A-Z' 'a-z')"
-servidor="$(grep -E '^MAIL_HOST=' "$ENV" | head -1 | cut -d= -f2- | tr -d '"' | tr 'A-Z' 'a-z')"
+# Sin la clave, grep sale con 1: con pipefail eso cortaría el ajuste (los .env anteriores a la v1.9 no tienen MAIL_HOST).
+dominio="$({ grep -E '^MAIL_DOMAIN=' "$ENV" || true; } | head -1 | cut -d= -f2- | tr -d '"' | tr 'A-Z' 'a-z')"
+servidor="$({ grep -E '^MAIL_HOST=' "$ENV" || true; } | head -1 | cut -d= -f2- | tr -d '"' | tr 'A-Z' 'a-z')"
 [ -n "$servidor" ] || servidor="$(postconf -h myhostname 2>/dev/null || hostname -f)"
 [ -n "$dominio" ] || { echo "Sin cambios: backend/.env no dice el dominio (MAIL_DOMAIN)."; exit 0; }
 

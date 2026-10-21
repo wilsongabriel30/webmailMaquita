@@ -8,11 +8,18 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 ## [Sin publicar]
 
 ### Añadido
+- **Instalador del portal de dominio** (`instalar-app.sh portal-dominio` → `panel-dominio/deploy/instalar.sh`): usuario, entorno, rol propio de base con clave al azar, tablas y permisos, servicio y nginx del 8444, e intermediario de sitios si los hay. Antes eran pasos a mano.
+- **«Mi sitio web» en el portal de dominio** (`panel-dominio/`): cada administrador de dominio crea y administra los sitios de sus dominios y subdominios dentro de su cuota (aplicación del catálogo, entrar, contraseña nueva, revisar y actualizar, HTTPS, FTP, cron, bases con phpMyAdmin o Adminer, PHP, archivos con versiones, subir un paquete o migrar) y los registros DNS de su zona, con los del correo protegidos. La baja de un sitio se pide y la confirma el administrador general. Todo pasa por el intermediario root de los sitios; contraseñas mostradas una sola vez y nunca auditadas. Tarjeta «Mi sitio web» en el inicio.
 - **Avisos de cuota del buzón** (`deploy/dovecot/avisos-cuota/`): al cruzar el 85 % el usuario recibe un correo con los pasos para liberar espacio; al 95 %, uno urgente y Tecnología una nota (`ORG_CORREOS_AVISOS`). Como mucho uno por buzón y umbral cada 7 días. Ajuste `56-avisos-de-cuota.sh` para los servidores ya instalados.
+- **«Mi sitio web» en el portal de dominio: el intermediario** (`deploy/sitios/portal/`): `maquita-sitios-portal`, activado por socket y sin fiarse del portal (SO_PEERCRED, sesión revisada en la base, solo sitios de los dominios asignados, nombres del correo reservados, registros DNS del correo protegidos, subidas sin enlaces y validador de `maquita-sudo` como segunda barrera). Cuotas por dominio (`pd_cuotas_sitio`: sitios, disco y bases) que fija el superadministrador en «Administradores de dominio», donde también confirma o rechaza las bajas de sitio (`baja_sitio`). Ver y editar archivos de la carpeta pública no se ofrece en el portal (se hace por SFTP). Se instala con los sitios web si el portal está; ajuste `58-sitios-en-el-portal.sh` para los servidores existentes.
 
 ### Corregido
 - **Instalación en un servidor que no se llama `mail.<dominio>`** (aviso de Andes): el vhost de autodiscover seguía pidiendo `/etc/letsencrypt/live/mail.<dominio>/` y nginx no arrancaba en 443; también fallaba `nginx -t` al instalar los sitios. Ahora todo vhost cuyo certificado aún no existe arranca con el provisional (`deploy/webmail/nginx/certificado-provisional.sh`) hasta emitir el real, y `emitir-certificado.sh` usa el nombre del servidor de la instalación (`MAIL_HOST`, que se guarda en `backend/.env`).
 - **`instalar.sh` no creaba `/etc/maquita-mail/organizacion.env`** (aviso de Andes): sin él, los avisos de cuota y de los vigilantes iban a direcciones de ejemplo. Ahora lo crea con el dominio, el servidor y `ORG_CORREOS_AVISOS` (nunca lo sobrescribe); ajuste `57-datos-de-la-organizacion.sh` para los servidores ya instalados.
+
+- **Permisos de los `.env`**: `instalar.sh` dejaba `backend/.env` (clave de la base y secretos del webmail) legible por cualquier usuario del sistema, también por los de los sitios web. Ahora 640 root:www-data, y `almacen/.env` 600; ajuste `59-permisos-de-los-env.sh` para los servidores ya instalados.
+- El portal de dominio guardaba los logos en `/opt/webmail` (no existe): ahora en la carpeta del repositorio.
+- «Avanzado → Archivos» del panel ya no sigue enlaces simbólicos como root al guardar o leer un archivo del sitio.
 
 ## [1.8.3] - 2026-10-21
 

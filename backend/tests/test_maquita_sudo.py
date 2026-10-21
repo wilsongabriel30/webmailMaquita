@@ -527,3 +527,11 @@ def test_sitios_versiones_de_php():
                  ("php-extension", "8.4", "redis", "purgar"), ("php-version", "ejemplo.org", "../8"),
                  ("php-repositorio", "otro")):
         _no("maquita-admin", "maquita-sitios", *malo)
+
+
+@pytest.mark.parametrize("args", [["ftp", "example.org\n", "activar"], ["ftp", "example.org", "activar\n"],
+                                  ["entrar", "example.org\n"], ["php-version", "example.org", "8.4\n"]])
+def test_salto_de_linea_al_final_se_rechaza(args):
+    # «$» de una expresión regular admite un salto de línea final: se valida la cadena entera.
+    with pytest.raises(ms.Rechazo):
+        _ok("maquita-admin", "maquita-sitios", *args)

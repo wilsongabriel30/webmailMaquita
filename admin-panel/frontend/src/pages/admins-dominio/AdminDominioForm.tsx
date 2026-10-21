@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../../api/client";
+import { Cuota, CuotasSitio, CuotasSitioEditor, cargarCuotas, guardarCuotas } from "./CuotasSitio";
 
 export interface AdminDominio {
   id: number; username: string; display_name: string; active: boolean;
@@ -19,6 +20,9 @@ export function AdminDominioForm({ actual, dominios, onCerrar, onGuardado }: Pro
   const [restablecer, setRestablecer] = useState(false);
   const [error, setError] = useState("");
   const [guardando, setGuardando] = useState(false);
+  const [cuotas, setCuotas] = useState<CuotasSitio | null>(null);
+  const [cambiosCuota, setCambiosCuota] = useState<Record<string, Cuota>>({});
+  useEffect(() => { cargarCuotas().then(setCuotas).catch(() => {}); }, []);
 
   const alternar = (d: string) => setElegidos((e) => (e.includes(d) ? e.filter((x) => x !== d) : [...e, d]));
 
@@ -33,6 +37,8 @@ export function AdminDominioForm({ actual, dominios, onCerrar, onGuardado }: Pro
       } else {
         await api.post("/admins-dominio", { username: usuario, display_name: nombre, password: clave, dominios: elegidos });
       }
+      // Después de asignar: la cuota es del dominio (vale para todos sus administradores).
+      await guardarCuotas(cambiosCuota, elegidos);
       onGuardado();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error al guardar");
@@ -58,6 +64,8 @@ export function AdminDominioForm({ actual, dominios, onCerrar, onGuardado }: Pro
             ))}
           </div>
         </div>
+        <CuotasSitioEditor datos={cuotas} dominios={elegidos} valores={cambiosCuota}
+          onCambio={(d, c) => setCambiosCuota((x) => ({ ...x, [d]: c }))} />
         {actual && (
           <label className="flex items-center gap-2 text-sm text-ms-gray-90">
             <input type="checkbox" checked={activa} onChange={(e) => setActiva(e.target.checked)} />

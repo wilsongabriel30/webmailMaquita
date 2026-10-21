@@ -13,10 +13,11 @@ import { vistaMiCuenta } from './vistas/mi_cuenta.js';
 import { vistaSegundoFactor } from './vistas/segundo_factor.js';
 
 const raiz = document.getElementById('app');
-const SECCIONES = [['resumen', 'Resumen'], ['cuentas', 'Cuentas'], ['alias', 'Alias'], ['grupos', 'Grupos'], ['asignadas', 'Cuentas asignadas'], ['marca', 'Marca'], ['dns', 'DNS'], ['cuenta', 'Mi cuenta']];
+const SECCIONES = [['resumen', 'Resumen'], ['cuentas', 'Cuentas'], ['alias', 'Alias'], ['grupos', 'Grupos'], ['asignadas', 'Cuentas asignadas'], ['marca', 'Marca'], ['dns', 'DNS'], ['sitios', 'Mi sitio web'], ['cuenta', 'Mi cuenta']];
 let sesion = null;
 
-const seccionActual = () => (SECCIONES.some(([s]) => '#' + s === location.hash) ? location.hash.slice(1) : 'resumen');
+// «#sitios/uno.example/https»: la sección es lo que va antes de la primera barra.
+const seccionActual = () => { const s = location.hash.slice(1).split('/')[0]; return SECCIONES.some(([x]) => x === s) ? s : 'resumen'; };
 const refrescar = () => { sesion = null; pintar(); };
 
 async function pintar() {
@@ -42,6 +43,8 @@ async function pintar() {
       : seccion === 'asignadas' ? await vistaAsignaciones(sesion)
       : seccion === 'marca' ? await vistaMarca(sesion)
       : seccion === 'dns' ? await vistaDns(sesion)
+      // «Mi sitio web» se descarga solo al abrirla: quien no la usa no paga sus kilobytes.
+      : seccion === 'sitios' ? await (await import('./vistas/sitios.js')).vistaSitios(sesion)
       : seccion === 'cuenta' ? await vistaMiCuenta(refrescar)
       : await vistaResumen();
     cuerpo.replaceChildren(vista);

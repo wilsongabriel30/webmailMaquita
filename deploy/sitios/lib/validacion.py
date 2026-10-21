@@ -17,7 +17,7 @@ PREFIJOS_RESERVADOS = ("mail.", "autodiscover.", "autoconfig.", "mta-sts.", "ima
 
 
 def dominio(valor):
-    if not isinstance(valor, str) or not RE_DOMINIO.match(valor):
+    if not isinstance(valor, str) or not RE_DOMINIO.fullmatch(valor):
         raise ErrorSitio("dominio no válido (solo minúsculas, números, guiones y puntos)")
     if valor.startswith("www."):
         raise ErrorSitio("escribe el dominio sin «www.»: el sitio responde también con www")
@@ -27,7 +27,7 @@ def dominio(valor):
 
 
 def correo(valor):
-    if not isinstance(valor, str) or not RE_CORREO.match(valor):
+    if not isinstance(valor, str) or not RE_CORREO.fullmatch(valor):
         raise ErrorSitio("correo no válido")
     return valor
 
@@ -42,7 +42,7 @@ def aplicacion(valor):
 
 def titulo(valor_b64):
     """Título del sitio, codificado en base64url por el panel."""
-    if not isinstance(valor_b64, str) or not RE_BASE64URL.match(valor_b64):
+    if not isinstance(valor_b64, str) or not RE_BASE64URL.fullmatch(valor_b64):
         raise ErrorSitio("título no válido")
     try:
         texto = de_base64(valor_b64).strip()

@@ -46,9 +46,32 @@ async function subir(ruta, archivo) {
   return datos;
 }
 
+/** Sube un archivo grande (o un texto) tal cual, con PUT, avisando del avance con alAvance(0..100).
+ *  XMLHttpRequest y no fetch: fetch no informa de cuánto se ha enviado. */
+function subirGrande(ruta, cuerpo, alAvance) {
+  return new Promise((resolver, rechazar) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', '/api' + ruta);
+    xhr.setRequestHeader('Authorization', 'Bearer ' + ficha.leer());
+    xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+    if (alAvance) xhr.upload.onprogress = (e) => { if (e.lengthComputable) alAvance(Math.round((e.loaded / e.total) * 100)); };
+    xhr.onload = () => {
+      let datos = {};
+      try { datos = JSON.parse(xhr.responseText || '{}'); } catch { /* respuesta vacía o de nginx */ }
+      if (xhr.status === 401) { ficha.borrar(); window.dispatchEvent(new Event('pd-sin-sesion')); rechazar(new Error('La sesión se cerró. Vuelve a entrar.')); return; }
+      if (xhr.status >= 200 && xhr.status < 300) { resolver(datos); return; }
+      rechazar(new Error(typeof datos.detail === 'string' ? datos.detail
+        : xhr.status === 413 ? 'El archivo pesa demasiado para este servidor.' : 'No se pudo completar la subida'));
+    };
+    xhr.onerror = () => rechazar(new Error('Se cortó la conexión durante la subida. Inténtalo de nuevo.'));
+    xhr.send(cuerpo);
+  });
+}
+
 export const api = {
   imagen,
   subir,
+  subirGrande,
   get: (r) => pedir('GET', r),
   post: (r, c) => pedir('POST', r, c || {}),
   put: (r, c) => pedir('PUT', r, c || {}),

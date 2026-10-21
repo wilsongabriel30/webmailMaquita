@@ -192,6 +192,8 @@ RADICALE_URL=http://127.0.0.1:5232
 TRUSTED_NETWORKS=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.0/8
 MAX_ATTACHMENT_MB=${MAX_ATTACHMENT_MB:-25}
 ENVEOF
+# Lleva la clave de la base y los secretos: solo root y el webmail (www-data) lo leen.
+chown root:www-data .env && chmod 640 .env
 
 # --- 9. Frontend (compilar) ---
 echo -e "\n${GREEN}[9/18] Compilando frontend...${NC}"
@@ -564,6 +566,7 @@ ALMACEN_RAIZ_DATOS=/var/lib/maquita-almacen
 ALMACEN_URL_PUBLICA=https://${MAIL_HOST}
 REDIS_URL=redis://127.0.0.1:6379/0
 AENV
+chmod 600 "${APP_DIR}/almacen/.env"  # secretos del Almacén: solo root (el servicio corre como root)
 mkdir -p /etc/nginx/snippets/maquita-apps
 cp "${APP_DIR}/almacen/deploy/nginx-almacen.conf" /etc/nginx/snippets/maquita-apps/almacen.conf
 cp "${APP_DIR}/almacen/deploy/maquita-almacen.service" /etc/systemd/system/
