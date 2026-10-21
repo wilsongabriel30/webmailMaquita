@@ -77,6 +77,7 @@ from app.sitios.avanzado import router as sitios_avanzado_router
 from app.sitios.php import router as sitios_php_router
 from app.sitios.propias import router as sitios_propias_router
 from app.sitios.router import router as sitios_router
+from app.sitios.web import routers as sitios_web_routers
 from app.dns.router import router as dns_router
 from app.dns.dominio_nuevo import router as dominio_nuevo_router
 from app.actualizaciones.router import router as actualizaciones_router
@@ -252,6 +253,8 @@ app.include_router(sitios_tareas_router)
 app.include_router(sitios_paquete_router)
 app.include_router(sitios_avanzado_router)
 app.include_router(sitios_php_router)
+for _r in sitios_web_routers:  # funciones web por sitio (v1.10): un router por función
+    app.include_router(_r)
 app.include_router(dns_router)
 app.include_router(dominio_nuevo_router)
 app.include_router(cortafuegos_router)
