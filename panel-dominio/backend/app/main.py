@@ -19,6 +19,7 @@ from app.dns import router as dns_router
 from app.grupos import router as grupos_router
 from app.marca import router as marca_router
 from app.reenvios import router as reenvios_router
+from app.sitios.rutas import router as sitios_router
 from app.solicitudes import router as solicitudes_router
 from app.totp import router as totp_router
 from app.db import crear_pool
@@ -59,3 +60,4 @@ app.include_router(grupos_router)
 app.include_router(marca_router)
 app.include_router(dns_router)
 app.include_router(solicitudes_router)
+app.include_router(sitios_router)
