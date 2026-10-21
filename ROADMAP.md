@@ -147,7 +147,7 @@ se indica la alternativa libre.
 | 45 | Optimización (compresión, caché) | Parcial | v1.10 por sitio, pensando en conexiones rurales y satelitales |
 | 46 | Node.js y Python | Ya (aplicaciones propias, administrador general) | v1.11 Portal con límites |
 | 47-49, 51 | WordPress: instalar, entrar, actualizar, varios sitios | Ya | v1.9 Portal |
-| 50 | Editor visual de páginas | No (Sitejet es cerrado) | v2.0 con un editor libre; mientras tanto, el editor de WordPress |
+| 50 | Editor visual de páginas | Fuera del plan: Sitejet es de pago y cerrado | — (el editor de WordPress cubre esa necesidad) |
 | 52 | Migración desde otro hosting | Ya (paquete y respaldo .sql) | v1.9 Portal |
 | 53-54 | Estadísticas de visitas y tráfico | Parcial: Matomo en el catálogo | v1.10 (GoAccess, libre, sin rastreo en el navegador) |
 | 55-56 | CPU y memoria por sitio | No (cada sitio ya tiene su propio PHP) | v1.11 |
