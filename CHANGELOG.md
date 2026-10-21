@@ -11,6 +11,8 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 Hospedaje completo: funciones web, cuentas FTP adicionales, archivos y datos por sitio, en el panel general y en el portal del cliente. ActiveSync 16.1 (borradores del teléfono en el servidor) y libreta de la organización en los teléfonos. Probado de punta a punta en un servidor con portal y sitios (`prueba_aislamiento.py` y `prueba_mi_sitio.py`, con el bloque de la v1.10) y con teléfonos Android reales.
 
+**Seguridad — PHP2Shell** (CVE-2026-109618 y CVE-2026-109619, ejecución remota de código en PHP, 9.2): el ajuste `62-php-al-dia.sh` instala las versiones corregidas de los paquetes PHP del servidor (8.4.27, 8.5.12…) y el 61 reconstruye Z-Push con PHP 8.3.36. Actualice cuanto antes.
+
 **Al actualizar:** la compresión gzip (y brotli si nginx tiene el módulo) queda activada de serie en todos los sitios web; se puede desactivar por sitio en «Web → Optimización». El ajuste 61 reconstruye la imagen de Z-Push: los teléfonos se reconectan solos en segundos.
 
 ### Añadido
