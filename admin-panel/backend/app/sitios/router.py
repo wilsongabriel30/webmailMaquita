@@ -176,12 +176,18 @@ async def borrar(dominio: str, body: Confirmacion, r: Request, admin: dict = Dep
     dominio = _dominio(dominio)
     if (body.confirmacion or "").strip().lower() != dominio:
         raise HTTPException(400, "Escriba el dominio exacto para confirmar")
+    return await dar_de_baja(r, admin, dominio)
+
+
+async def dar_de_baja(r: Request, admin: dict, dominio: str, detalles: dict | None = None) -> dict:
+    """Borra el sitio (a la papelera) y sus registros DNS. También la usa la baja pedida desde el portal."""
     from app.sitios.dominios import quitar_dns
 
     sitio = next((x for x in (await _ayudante("listar")).get("sitios", []) if x["dominio"] == dominio), {})
     res = await _ayudante("borrar", dominio, dominio, tiempo=300)
     res["dns_borrados"] = await quitar_dns([dominio] + sitio.get("alias", []), sitio.get("www", True))
-    await _auditar(r, admin, "sitio_borrar", dominio, {"papelera": res.get("papelera"), "dns": res["dns_borrados"]})
+    await _auditar(r, admin, "sitio_borrar", dominio,
+                   {"papelera": res.get("papelera"), "dns": res["dns_borrados"], **(detalles or {})})
     return res
 
 
