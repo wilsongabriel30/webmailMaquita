@@ -91,4 +91,4 @@ def paquete(ctx):
             subidas.descartar(t)
         raise
     # Desde aquí los archivos son de maquita-sitios, que los borra al terminar (bien o mal).
-    return sitios(*args, tiempo=1100)
+    return sitios(*args, tiempo=1200)

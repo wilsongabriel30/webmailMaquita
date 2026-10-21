@@ -26,7 +26,7 @@ ORDENES = {
     "entrar": ("sitio", os_.simple("entrar")),
     "clave-admin": ("sitio", os_.simple("clave-admin")),
     "revisar": ("sitio", os_.simple("revisar")),
-    "actualizar": ("sitio", os_.simple("actualizar", tiempo=900)),
+    "actualizar": ("sitio", os_.simple("actualizar", tiempo=960)),
     "terminar": ("sitio", os_.simple("terminar")),
     "ssl": ("sitio", os_.ssl),
     "ftp": ("sitio", os_.ftp),

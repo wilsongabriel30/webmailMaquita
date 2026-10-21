@@ -88,7 +88,7 @@ def app(ctx):
         raise ErrorPortal(400, "El título es demasiado largo")
     correo = _correo(ctx)
     cuotas.comprobar_disco(ctx.dominio)
-    return sitios("app", ctx.sitio, aplicacion, b64(titulo), correo, tiempo=1100)
+    return sitios("app", ctx.sitio, aplicacion, b64(titulo), correo, tiempo=1200)
 
 
 # --- Acceso, HTTPS y mantenimiento de la aplicación ---

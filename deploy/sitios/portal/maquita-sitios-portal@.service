@@ -13,7 +13,8 @@ ExecStart=/usr/local/sbin/maquita-sitios-portal
 StandardInput=socket
 StandardOutput=socket
 StandardError=journal
-RuntimeMaxSec=1200
+RuntimeMaxSec=1500
+# El portal espera hasta 1190 s (app, paquete) y 900 s (actualizar); el intermediario, 1200 y 960.
 TimeoutStopSec=30
 UMask=0022
 

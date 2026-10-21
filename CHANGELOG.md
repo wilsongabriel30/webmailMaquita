@@ -9,6 +9,7 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Añadido
 - **Avisos de cuota del buzón** (`deploy/dovecot/avisos-cuota/`): al cruzar el 85 % el usuario recibe un correo con los pasos para liberar espacio; al 95 %, uno urgente y Tecnología una nota (`ORG_CORREOS_AVISOS`). Como mucho uno por buzón y umbral cada 7 días. Ajuste `56-avisos-de-cuota.sh` para los servidores ya instalados.
+- **«Mi sitio web» en el portal de dominio: el intermediario** (`deploy/sitios/portal/`): `maquita-sitios-portal`, activado por socket y sin fiarse del portal (SO_PEERCRED, sesión revisada en la base, solo sitios de los dominios asignados, nombres del correo reservados, registros DNS del correo protegidos, subidas sin enlaces y validador de `maquita-sudo` como segunda barrera). Cuotas por dominio (`pd_cuotas_sitio`: sitios, disco y bases) que fija el superadministrador en «Administradores de dominio», donde también confirma o rechaza las bajas de sitio (`baja_sitio`). Ver y editar archivos de la carpeta pública no se ofrece en el portal (se hace por SFTP). Se instala con los sitios web si el portal está; ajuste `58-sitios-en-el-portal.sh` para los servidores existentes.
 
 ## [1.8.3] - 2026-10-21
 
