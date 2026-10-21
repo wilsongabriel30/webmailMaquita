@@ -7,6 +7,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Añadido
+- **Avisos de cuota del buzón** (`deploy/dovecot/avisos-cuota/`): al cruzar el 85 % el usuario recibe un correo con los pasos para liberar espacio; al 95 %, uno urgente y Tecnología una nota (`ORG_CORREOS_AVISOS`). Como mucho uno por buzón y umbral cada 7 días. Ajuste `56-avisos-de-cuota.sh` para los servidores ya instalados.
+
 ## [1.8.3] - 2026-10-21
 
 Mejoras que existían solo en el servidor de producción llegan a todas las instalaciones (ajustes 51 a 55).
