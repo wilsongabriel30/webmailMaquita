@@ -7,14 +7,25 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.8.3] - 2026-10-21
+
+Mejoras que existían solo en el servidor de producción llegan a todas las instalaciones (ajustes 51 a 55).
+
 ### Añadido
 - **Búsqueda de texto completo del correo** (`deploy/dovecot/busqueda/`): Dovecot con fts-flatcurve, índice al llegar cada correo, indexación nocturna del correo antiguo, compactación diaria y caché de adjuntos. Instalador nuevo y ajuste `52-busqueda-texto-completo.sh` para los servidores existentes.
 - **Cuotas de buzón aplicadas por Dovecot 2.4** (`deploy/dovecot/cuotas-y-antispam.conf`): la cuota de la tabla `mailbox` llega como `quota_storage_size` del userdb (el `quota_rule` de la 2.3 se ignoraba y la cuota no se aplicaba); también al entregar (LMTP) y visible en los clientes (IMAP QUOTA).
 - **Aprendizaje del antispam al mover correos**: mover a «Junk» enseña spam a Rspamd y sacar de «Junk» enseña legítimo (IMAPSieve + `rspamc`); reequilibrio mensual del Bayes con el correo conservado en la bandeja (`maquita-reentrenar-ham.timer`).
 - Ajuste `51-cuotas-y-aprendizaje-antispam.sh` para los servidores ya instalados (valida con `doveconf -n` y deja todo como estaba si falla; no toca servidores con cuotas propias).
 
+- **Vigilantes del correo** (`deploy/vigilantes/`): entrega local, servicios web y correo, milter, señales de intrusión, salud del correo, configuración del panel e informe diario; ajuste `53-vigilantes.sh`.
+- **Seguridad del correo y la web** (`deploy/hardening/seguridad-correo-web/`): rechazo de remitentes con metacaracteres de shell, regla anti «../» que ya no bloquea adjuntos como `BODA..pdf`, política de referer del Almacén, escaneo ClamAV semanal y reconciliación de cuarentena; ajuste `54-seguridad-correo-web.sh`. Pruebas de humo en `deploy/pruebas-humo/`.
+- Parada ordenada del webmail (cierre en 3 s, `KillMode=mixed`); ajuste `55-webmail-parada-ordenada.sh`.
+
 ### Corregido
 - `protocol lmtp` declaraba `mail_plugins = sieve`, que reemplaza los módulos globales: ahora es un bloque que se suma a ellos.
+- El panel de dominio apuntaba a `/opt/webmail`, que no existe: ahora usa `/opt/maquita-webmail`.
+- «Aplicar en todo» de Personalización también cambia el título del webmail y de la app en iPhone.
+- `maquita-dns servidor` movía el correo y el SPF a la IP de la web al cambiar solo esta: cada registro sigue a su función.
 
 ## [1.8.2] - 2026-10-20
 
