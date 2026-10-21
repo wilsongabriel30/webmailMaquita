@@ -42,7 +42,7 @@ def _texto(ctx, nombre, maximo=200):
 def _correo(ctx):
     """Un correo válido de sus dominios o de fuera; nunca de otro dominio de este servidor."""
     correo = _texto(ctx, "correo", 254).lower()
-    if not RE_CORREO.match(correo):
+    if not RE_CORREO.fullmatch(correo):
         raise ErrorPortal(400, "Correo no válido")
     dominio = correo.split("@", 1)[1]
     propio = any(alcance.en_alcance(dominio, d) for d in ctx.admin["dominios"])
@@ -129,7 +129,7 @@ def tareas_guardar(ctx):
 def tarea(orden):
     def funcion(ctx):
         tarea = ctx.args.get("id")
-        if not isinstance(tarea, str) or not RE_TAREA.match(tarea):
+        if not isinstance(tarea, str) or not RE_TAREA.fullmatch(tarea):
             raise ErrorPortal(400, "Trabajo no válido")
         return sitios(orden, ctx.sitio, tarea)
 
@@ -149,7 +149,7 @@ def base_crear(ctx):
 
 def _base(ctx, patron=RE_BASE):
     base = ctx.args.get("base")
-    if not isinstance(base, str) or not patron.match(base):
+    if not isinstance(base, str) or not patron.fullmatch(base):
         raise ErrorPortal(400, "Base de datos no válida")
     return base
 

@@ -52,10 +52,10 @@ def _bases_de(sitios):
                 meta = json.load(f)
         except (OSError, ValueError):
             continue
-        if meta.get("bd") and RE_BASE.match(str(meta["bd"])):
+        if meta.get("bd") and RE_BASE.fullmatch(str(meta["bd"])):
             mariadb.append(meta["bd"])
         for b in meta.get("bases", []):
-            if RE_BASE.match(str(b.get("nombre", ""))):
+            if RE_BASE.fullmatch(str(b.get("nombre", ""))):
                 (postgres if b.get("motor") == "postgresql" else mariadb).append(b["nombre"])
     return mariadb, postgres
 

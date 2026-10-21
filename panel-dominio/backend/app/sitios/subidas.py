@@ -45,14 +45,14 @@ def ruta(nombre: str) -> str:
 
 def quitar(nombre: str | None) -> None:
     """Borra una subida propia si sigue aquí (el intermediario la mueve al usarla)."""
-    if nombre and RE_SUBIDA.match(nombre):
+    if nombre and RE_SUBIDA.fullmatch(nombre):
         with contextlib.suppress(FileNotFoundError):
             os.remove(ruta(nombre))
 
 
 def existe(nombre: str) -> bool:
     """Que sea una subida con forma válida, un archivo normal (no un enlace) y reciente."""
-    if not RE_SUBIDA.match(nombre or ""):
+    if not RE_SUBIDA.fullmatch(nombre or ""):
         return False
     try:
         info = os.lstat(ruta(nombre))
@@ -70,7 +70,7 @@ def limpiar_viejas() -> None:
     except OSError:
         return
     for nombre in nombres:
-        if not (RE_SUBIDA.match(nombre) or re.fullmatch(r"[0-9a-f]{32}" + re.escape(_PARCIAL), nombre)):
+        if not (RE_SUBIDA.fullmatch(nombre) or re.fullmatch(r"[0-9a-f]{32}" + re.escape(_PARCIAL), nombre)):
             continue
         with contextlib.suppress(OSError):
             if os.lstat(ruta(nombre)).st_mtime < limite:

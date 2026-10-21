@@ -41,7 +41,7 @@ def _registro(ctx):
 
 def _actual(ctx):
     reg_id = ctx.args.get("id")
-    if not isinstance(reg_id, str) or not RE_ID.match(reg_id):
+    if not isinstance(reg_id, str) or not RE_ID.fullmatch(reg_id):
         raise ErrorPortal(400, "Registro no válido")
     for r in dns("ver", ctx.dominio).get("registros", []):
         if r.get("id") == reg_id:

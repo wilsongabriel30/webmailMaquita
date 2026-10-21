@@ -19,14 +19,14 @@ TIPOS_DNS = ("A", "AAAA", "CNAME", "MX", "TXT", "SRV", "CAA")
 
 def correo(valor) -> str:
     valor = str(valor or "").strip().lower()
-    if not RE_CORREO.match(valor):
+    if not RE_CORREO.fullmatch(valor):
         raise HTTPException(400, "Correo no válido")
     return valor
 
 
 def aplicacion(valor) -> str:
     valor = str(valor or "").strip().lower()
-    if not RE_APLICACION.match(valor):
+    if not RE_APLICACION.fullmatch(valor):
         raise HTTPException(400, "Aplicación no disponible")
     return valor
 
@@ -40,7 +40,7 @@ def titulo(valor) -> str:
 
 def con_forma(regex: re.Pattern, valor, mensaje: str) -> str:
     valor = str(valor or "").strip()
-    if not regex.match(valor):
+    if not regex.fullmatch(valor):
         raise HTTPException(400, mensaje)
     return valor
 
@@ -68,7 +68,7 @@ def trabajos(lista) -> list[dict]:
         if not orden or len(orden) > 1000 or _CONTROL.search(orden):
             raise HTTPException(400, "La orden debe ocupar una sola línea (máximo 1000 caracteres)")
         ident = t.get("id")
-        if ident is not None and not RE_TAREA.match(str(ident)):
+        if ident is not None and not RE_TAREA.fullmatch(str(ident)):
             raise HTTPException(400, "Trabajo no válido")
         limpios.append({"id": ident, "horario": horario, "orden": orden,
                         "descripcion": _CONTROL.sub(" ", str(t.get("descripcion") or "")).strip()[:80],

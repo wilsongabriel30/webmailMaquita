@@ -144,7 +144,7 @@ def _buzon_existe(buzon: str) -> bool:
 
 def _tokens_limpios(args):
     for a in args:
-        if not isinstance(a, str) or not _RE_TOKEN.match(a):
+        if not isinstance(a, str) or not _RE_TOKEN.fullmatch(a):  # fullmatch: «$» admite un salto final
             raise Rechazo("argumento con caracteres de control o vacío")
 
 

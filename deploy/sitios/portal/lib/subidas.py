@@ -42,7 +42,7 @@ def tamano(nombre, tipo):
 
 
 def _abrir(nombre, tipo):
-    if not isinstance(nombre, str) or not EXTENSIONES[tipo].match(nombre):
+    if not isinstance(nombre, str) or not EXTENSIONES[tipo].fullmatch(nombre):
         raise ErrorPortal(400, "Archivo subido no válido")
     try:
         carpeta = os.open(rutas.SUBIDAS_PORTAL, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
@@ -93,7 +93,7 @@ def tomar(nombre, tipo):
 
 def quitar(nombre):
     """Borra la subida del portal (siempre: se use o no)."""
-    if isinstance(nombre, str) and any(r.match(nombre) for r in EXTENSIONES.values()):
+    if isinstance(nombre, str) and any(r.fullmatch(nombre) for r in EXTENSIONES.values()):
         try:
             os.remove(os.path.join(rutas.SUBIDAS_PORTAL, nombre))
         except OSError:

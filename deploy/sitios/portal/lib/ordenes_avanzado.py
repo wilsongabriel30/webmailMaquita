@@ -36,7 +36,7 @@ def avanzado_php(ctx):
 
 def avanzado_restaurar(ctx):
     version = ctx.args.get("version")
-    if not isinstance(version, str) or not RE_VERSION_GUARDADA.match(version):
+    if not isinstance(version, str) or not RE_VERSION_GUARDADA.fullmatch(version):
         raise ErrorPortal(400, "Versión no válida")
     guardadas = sitios("avanzado", ctx.sitio).get("versiones", [])
     entrada = next((v for v in guardadas if v.get("id") == version), None)
@@ -85,7 +85,7 @@ def php_estado(ctx):
 
 def php_version(ctx):
     version = ctx.args.get("version")
-    if not isinstance(version, str) or not RE_VERSION_PHP.match(version):
+    if not isinstance(version, str) or not RE_VERSION_PHP.fullmatch(version):
         raise ErrorPortal(400, "Versión de PHP no válida")
     if version not in _instaladas(ctx).get("instaladas", []):
         raise ErrorPortal(403, f"PHP {version} no está instalado en este servidor: pídaselo al administrador")

@@ -25,7 +25,7 @@ def dominio_de(admin: dict, sitio: str) -> str | None:
 def exigir_sitio(admin: dict, valor) -> tuple[str, str]:
     """(sitio, dominio asignado) o 404."""
     sitio = str(valor or "").strip().lower()
-    if not RE_SITIO.match(sitio):
+    if not RE_SITIO.fullmatch(sitio):
         raise HTTPException(404, NO_ENCONTRADO)
     dominio = dominio_de(admin, sitio)
     if not dominio:

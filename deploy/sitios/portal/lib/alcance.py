@@ -29,7 +29,7 @@ def nombre_valido(valor):
     valor = valor.strip().lower()
     if valor.startswith("www."):
         valor = valor[4:]
-    if not RE_NOMBRE.match(valor):
+    if not RE_NOMBRE.fullmatch(valor):
         raise no_encontrado()
     return valor
 
@@ -111,6 +111,6 @@ def sitios_de(dominio):
     salida = []
     for ruta in sorted(glob.glob(os.path.join(rutas.META_SITIOS, "*.json"))):
         nombre = os.path.basename(ruta)[:-5]
-        if RE_DOMINIO.match(nombre) and en_alcance(nombre, dominio):
+        if RE_DOMINIO.fullmatch(nombre) and en_alcance(nombre, dominio):
             salida.append(nombre)
     return salida

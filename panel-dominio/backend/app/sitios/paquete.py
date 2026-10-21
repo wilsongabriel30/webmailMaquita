@@ -34,7 +34,7 @@ async def subir_respaldo(sitio: str, request: Request, admin: dict = Depends(adm
 async def subir_paquete(sitio: str, request: Request, con_bd: int = 0, respaldo: str = "", nombre: str = "",
                         admin: dict = Depends(admin_actual)):
     sitio, _ = exigir_sitio(admin, sitio)
-    if respaldo and not (RE_RESPALDO.match(respaldo) and subidas.existe(respaldo)):
+    if respaldo and not (RE_RESPALDO.fullmatch(respaldo) and subidas.existe(respaldo)):
         raise HTTPException(400, "El respaldo de la base ya no está: vuelve a subirlo")
     guardado, llamado = None, False
     try:
