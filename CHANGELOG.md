@@ -17,6 +17,10 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 - **Instalación en un servidor que no se llama `mail.<dominio>`** (aviso de Andes): el vhost de autodiscover seguía pidiendo `/etc/letsencrypt/live/mail.<dominio>/` y nginx no arrancaba en 443; también fallaba `nginx -t` al instalar los sitios. Ahora todo vhost cuyo certificado aún no existe arranca con el provisional (`deploy/webmail/nginx/certificado-provisional.sh`) hasta emitir el real, y `emitir-certificado.sh` usa el nombre del servidor de la instalación (`MAIL_HOST`, que se guarda en `backend/.env`).
 - **`instalar.sh` no creaba `/etc/maquita-mail/organizacion.env`** (aviso de Andes): sin él, los avisos de cuota y de los vigilantes iban a direcciones de ejemplo. Ahora lo crea con el dominio, el servidor y `ORG_CORREOS_AVISOS` (nunca lo sobrescribe); ajuste `57-datos-de-la-organizacion.sh` para los servidores ya instalados.
 
+- **Permisos de los `.env`**: `instalar.sh` dejaba `backend/.env` (clave de la base y secretos del webmail) legible por cualquier usuario del sistema, también por los de los sitios web. Ahora 640 root:www-data, y `almacen/.env` 600; ajuste `59-permisos-de-los-env.sh` para los servidores ya instalados.
+- El portal de dominio guardaba los logos en `/opt/webmail` (no existe): ahora en la carpeta del repositorio.
+- «Avanzado → Archivos» del panel ya no sigue enlaces simbólicos como root al guardar o leer un archivo del sitio.
+
 ## [1.8.3] - 2026-10-21
 
 Mejoras que existían solo en el servidor de producción llegan a todas las instalaciones (ajustes 51 a 55).

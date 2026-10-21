@@ -235,7 +235,7 @@ try:
 
     seccion("DNS y eliminación de cuentas")
     c, r = http("GET", f"/dns/{DOM}", ficha=f)
-    espero("verifica el DNS de su dominio", (c, sorted(k for k in r if k != "dominio")), (200, ["dkim", "dmarc", "mx", "spf"]))
+    espero("verifica el DNS de su dominio", (c, sorted(k for k in r if k not in ("dominio", "consultado", "existe"))), (200, ["dkim", "dmarc", "mx", "spf"]))
     espero("pide eliminar una cuenta", http("POST", "/solicitudes/eliminar-cuenta", {"cuenta": f"luis@{DOM}", "motivo": "ya no trabaja aquí"}, f)[0], 201)
     espero("la cuenta queda desactivada pero existe", sql(f"select active from mailbox where username='luis@{DOM}'"), "f")
     espero("no se puede pedir dos veces", http("POST", "/solicitudes/eliminar-cuenta", {"cuenta": f"luis@{DOM}"}, f)[0], 409)
