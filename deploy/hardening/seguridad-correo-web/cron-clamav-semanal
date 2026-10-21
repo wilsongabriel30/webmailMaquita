@@ -1,0 +1,2 @@
+# Escaneo ClamAV completo del sistema: viernes 00:00, máximo 48 h (deploy/hardening/seguridad-correo-web)
+0 0 * * 5 root /usr/local/sbin/clamav-semanal.sh
