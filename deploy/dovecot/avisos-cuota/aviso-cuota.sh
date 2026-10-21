@@ -69,7 +69,7 @@ Para liberar espacio:
 4. Revise la carpeta «Enviados»: también ocupa espacio.
 5. Al terminar, vacíe otra vez la «Papelera»: mientras los correos sigan ahí, ocupan espacio.
 
-Si por su trabajo necesita conservar todo y requiere más espacio, escriba a Tecnología${TI:+ ($TI)}.
+Si por su trabajo necesita conservar todo y requiere más espacio, escriba a Tecnología${TI:+ (${TI// / o })}.
 ${URL:+
 Correo web: $URL
 }
