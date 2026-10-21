@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.sesion import admin_actual
+from app.sitios import config
 from app.sitios.comun import NO_ENCONTRADO, cuerpo, exigir_sitio, listar, llamar
 
 router = APIRouter(prefix="/api/sitios", tags=["sitios"])
@@ -48,4 +49,4 @@ async def estado(sitio: str, request: Request, admin: dict = Depends(admin_actua
     del_dominio = next((d for d in datos.get("dominios") or [] if isinstance(d, dict) and d.get("dominio") == dominio), {})
     baja = any(s["objetivo"] == sitio for s in await bajas_pendientes(request, admin))
     return {"sitio": ficha, "dominio": dominio, "cuota": del_dominio.get("cuota"), "uso": del_dominio.get("uso"),
-            "dns": bool(datos.get("dns")), "baja_pendiente": baja}
+            "dns": bool(datos.get("dns")), "baja_pendiente": baja, "subida_max_mb": config.SUBIDA_MAX_BYTES // 1048576}
