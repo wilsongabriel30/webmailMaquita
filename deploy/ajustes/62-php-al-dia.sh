@@ -7,7 +7,8 @@
 # Z-Push corre en su propio contenedor: lo pone al día el ajuste 61 al reconstruir la imagen.
 set -euo pipefail
 command -v apt-get >/dev/null || { echo "Sin cambios: el sistema no usa apt."; exit 0; }
-dpkg -l 2>/dev/null | grep -qE '^ii\s+php[0-9.]*-(cli|fpm|common) ' || { echo "Sin cambios: PHP no está instalado."; exit 0; }
+# Sin «grep -q» en tubería: con pipefail, el SIGPIPE de dpkg haría creer que no hay PHP.
+[ -n "$(dpkg-query -W -f='${Status} ${Package}\n' 'php*' 2>/dev/null | grep -E '^install ok installed php[0-9.]*-(cli|fpm|common)$' || true)" ] || { echo "Sin cambios: PHP no está instalado."; exit 0; }
 
 apt-get update -qq >/dev/null 2>&1 || echo "Aviso: apt-get update no terminó bien; se usa la lista que había."
 mapfile -t pendientes < <(apt list --upgradable 2>/dev/null | grep -E '^php' | cut -d/ -f1)
