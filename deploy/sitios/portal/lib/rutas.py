@@ -22,8 +22,11 @@ NGINX_ACTIVOS = "/etc/nginx/sites-enabled"
 PREFIJO_VHOST = "sitio-"
 
 # Subidas: el portal deja el archivo en la suya; el intermediario lo pasa a la de maquita-sitios.
+# Descargas: al revés; maquita-sitios la deja en subidas/ y el intermediario la pasa a la del portal.
 SUBIDAS_PORTAL = "/var/lib/maquita-sitios/subidas-portal"
 SUBIDAS = "/var/lib/maquita-sitios/subidas"
+# Copias del sitio que controla su dueño (cuentan para el espacio en disco del dominio).
+COPIAS = "/var/lib/maquita-sitios/copias"
 
 # Tamaño de las bases de datos de cada sitio.
 MARIADB = "/usr/bin/mariadb"

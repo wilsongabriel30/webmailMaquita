@@ -4,7 +4,10 @@
 # (CVE-2023-45853, sin corrección en Debian, minizip no se usa) está aceptado con motivo (D-9).
 FROM php:8.3-fpm-bookworm
 
-ARG ZPUSH_VERSION=2.7.6
+# Z-Push fijado a un commit de la rama develop (2026-10-18): trae ActiveSync 16.1, con el que los
+# borradores del teléfono se guardan en el servidor (las versiones publicadas, 2.7.x, llegan a 14.1).
+# Acepta también una etiqueta (p. ej. 2.7.7) para volver a una versión publicada.
+ARG ZPUSH_VERSION=92fdbdd11994538502dc592ec0291231a6a44fb0
 # Dimensionado: cada dispositivo en Ping ocupa un worker de PHP-FPM (~25-30 MB) mientras espera.
 # 200 workers cubren ~200 dispositivos simultáneos en Ping (≈ 5-6 GB en el peor caso); para ~300
 # dispositivos, PHP_MAX_CHILDREN=320 exige ~9 GB libres o un anfitrión aparte. Ver OPERACION.md.
@@ -21,10 +24,17 @@ RUN apt-get update && apt-get upgrade -y --no-install-recommends \
 
 # Z-Push en una VERSIÓN fija (la última con soporte al escribir esto), no en master.
 RUN apt-get update && apt-get install -y --no-install-recommends git \
-    && git clone --depth 1 --branch "${ZPUSH_VERSION}" https://github.com/Z-Hub/Z-Push.git /opt/z-push \
+    && git init -q /opt/z-push && git -C /opt/z-push fetch -q --depth 1 https://github.com/Z-Hub/Z-Push.git "${ZPUSH_VERSION}" \
+    && git -C /opt/z-push checkout -q FETCH_HEAD \
     && rm -rf /opt/z-push/.git && echo "${ZPUSH_VERSION}" > /opt/z-push/VERSION \
     && apt-get purge -y git && apt-get autoremove -y --purge \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Parches propios (deploy/z-push/parches): el contacto creado en el teléfono lleva siempre FN.
+COPY parches/carddav-fn.php /tmp/carddav-fn.php
+RUN sed -i '/private function ParseToVCard(\$message) {/r /tmp/carddav-fn.php' /opt/z-push/src/backend/carddav/carddav.php \
+    && grep -q "Parche de Maquita" /opt/z-push/src/backend/carddav/carddav.php \
+    && php -l /opt/z-push/src/backend/carddav/carddav.php >/dev/null && rm /tmp/carddav-fn.php
 
 # Estado y registros (se montan desde el anfitrión) y propietario
 RUN mkdir -p /var/lib/z-push /var/log/z-push \

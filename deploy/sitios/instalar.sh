@@ -24,6 +24,10 @@ apt-get install -y -qq php-fpm php-cli php-mysql php-xml php-mbstring php-curl p
     python3-venv git gpg >/dev/null
 # Aplicaciones propias en Node.js: el del sistema si no hay uno (el webmail suele traer Node 20 o posterior).
 command -v node >/dev/null || apt-get install -y -qq nodejs npm >/dev/null
+# Funciones web por sitio: htpasswd con bcrypt (carpetas con contraseña) y brotli si la distribución lo trae. Si no
+# están, se usa apr1 (openssl) y solo gzip.
+apt-get install -y -qq apache2-utils >/dev/null 2>&1 || true
+apt-get install -y -qq libnginx-mod-http-brotli-filter >/dev/null 2>&1 || true
 # Versión de serie: la de Debian al instalar por primera vez. Se guarda para que instalar otra versión desde
 # «Avanzado» → PHP (repositorio de versiones) no mueva las herramientas de bases ni los sitios nuevos.
 install -d -m 755 /etc/maquita-sitios
@@ -201,6 +205,25 @@ install -d -o root -g "$(getent group maquita-admin >/dev/null && echo maquita-a
 # «Avanzado»: reglas propias de nginx por sitio y copias automáticas antes de cada cambio.
 install -d -m 755 /etc/maquita-sitios/nginx-extra
 install -d -m 700 /var/lib/maquita-sitios/versiones
+# Funciones web por sitio (redirecciones, contraseñas, errores, hotlinking, IP, optimización), caché de página y
+# raíces de las cuentas FTP adicionales (de root: sshd y vsftpd lo exigen para el encierro).
+install -d -m 755 /etc/maquita-sitios/nginx-web
+install -d -m 755 -o www-data -g www-data /var/cache/nginx/sitios
+install -d -m 755 -o root -g root /srv/sitios-ftp
+cat > /etc/systemd/system/sitios-ftp-montar.service <<'EOF'
+[Unit]
+Description=Carpetas de las cuentas FTP adicionales de los sitios web
+After=local-fs.target
+Before=vsftpd.service ssh.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/maquita-sitios ftp-montar
+
+[Install]
+WantedBy=multi-user.target
+EOF
 install -d -m 755 /usr/local/lib/maquita-sitios/wordpress
 install -m 644 "${SELF}"/wordpress/*.php /usr/local/lib/maquita-sitios/wordpress/
 # Tareas programadas de WordPress y Joomla cada 5 minutos (en vez de depender de las visitas).
@@ -224,6 +247,57 @@ WantedBy=timers.target
 EOF
 systemctl daemon-reload
 systemctl enable --now sitios-cron.timer >/dev/null 2>&1
+systemctl enable sitios-ftp-montar.service >/dev/null 2>&1
+# Observación y datos: estadísticas (GoAccess, MIT, del repositorio de Debian), disponibilidad cada 5 minutos y
+# copias del sitio que controla el cliente. Datos fuera de /srv/sitios: privados (el panel los entrega) y sin
+# duplicarse en los respaldos del servidor.
+command -v goaccess >/dev/null || apt-get install -y -qq goaccess >/dev/null || \
+    echo -e "${YELLOW}No se pudo instalar GoAccess: habrá resumen de visitas, pero no el informe HTML.${NC}"
+install -d -m 700 /var/lib/maquita-sitios/estadisticas /var/lib/maquita-sitios/disponibilidad /var/lib/maquita-sitios/copias
+cat > /etc/systemd/system/sitios-disponibilidad.service <<'EOF'
+[Unit]
+Description=Disponibilidad de los sitios web (HTTPS, tiempo y certificado)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/maquita-sitios disponibilidad-comprobar
+TimeoutStartSec=600
+EOF
+cat > /etc/systemd/system/sitios-disponibilidad.timer <<'EOF'
+[Unit]
+Description=Disponibilidad de los sitios web cada 5 minutos
+
+[Timer]
+OnCalendar=*:0/5
+RandomizedDelaySec=30
+
+[Install]
+WantedBy=timers.target
+EOF
+cat > /etc/systemd/system/sitios-datos-noche.service <<'EOF'
+[Unit]
+Description=Estadísticas de visitas de los sitios (GoAccess), papeleras y descargas olvidadas
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/maquita-sitios datos-noche
+Nice=15
+IOSchedulingClass=idle
+EOF
+cat > /etc/systemd/system/sitios-datos-noche.timer <<'EOF'
+[Unit]
+Description=Estadísticas y limpieza de los sitios cada noche
+
+[Timer]
+OnCalendar=*-*-* 03:40
+RandomizedDelaySec=20min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+systemctl daemon-reload
+systemctl enable --now sitios-disponibilidad.timer sitios-datos-noche.timer >/dev/null 2>&1
 # El envoltorio sudo del panel conoce maquita-sitios desde esta versión: reinstalarlo.
 install -m 755 "${APP_DIR}/deploy/sudoers/maquita-sudo" /usr/local/sbin/maquita-sudo
 # Los sitios ya creados se regeneran con las plantillas de esta versión.

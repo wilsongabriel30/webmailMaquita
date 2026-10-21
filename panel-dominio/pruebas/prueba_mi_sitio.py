@@ -1,12 +1,13 @@
 """Prueba de punta a punta de «Mi sitio web» contra el servidor instalado (portal y sitios web).
 
 Crea un administrador de dominio de prueba sobre <dominio>, crea dos subdominios, instala WordPress,
-recorre las pestañas, prueba los límites (alcance, reservados, cuota, DNS protegido) y al final borra
+recorre las pestañas, prueba los límites (alcance, reservados, cuota, DNS protegido), las funciones de la
+v1.10 (web, cuentas FTP adicionales, archivos, registros, disponibilidad y copias) y al final borra
 todo. Se ejecuta como root en el servidor:
 
     panel-dominio/backend/venv/bin/python panel-dominio/pruebas/prueba_mi_sitio.py <dominio asignable>
 """
-import io, json, os, secrets, ssl, subprocess, sys, time, urllib.error, urllib.request, zipfile
+import http.client as cliente_http, io, json, os, secrets, ssl, subprocess, sys, time, urllib.error, urllib.request, zipfile
 
 import bcrypt
 import pyotp
@@ -48,6 +49,25 @@ def espero(nombre, obtenido, esperado, detalle=""):
     print(("  bien  " if ok else "  FALLO ") + nombre + ("" if ok else f"  -> {obtenido!r} {detalle}"[:400]))
     if not ok:
         fallos.append(nombre)
+
+
+def bajar(enlace):
+    """Pide un enlace de descarga de un solo uso (sin ficha, como el navegador): (código, contenido, cabeceras)."""
+    try:
+        with urllib.request.urlopen("https://127.0.0.1:8444" + enlace, context=CTX, timeout=600) as r:
+            return r.status, r.read(), dict(r.headers)
+    except urllib.error.HTTPError as e:
+        return e.code, b"", dict(e.headers)
+
+
+def en_el_sitio(sitio, ruta):
+    """Código HTTP que da el propio sitio (por nginx en el puerto 80, sin seguir redirecciones)."""
+    c = cliente_http.HTTPConnection("127.0.0.1", 80, timeout=30)
+    try:
+        c.request("GET", ruta, headers={"Host": sitio})
+        return c.getresponse().status
+    finally:
+        c.close()
 
 
 def limpiar():
@@ -134,6 +154,80 @@ try:
     portada = subprocess.run(["cat", f"/srv/sitios/{VACIO}/publico/index.html"], capture_output=True, text=True).stdout
     espero("el paquete quedó publicado", "Paquete v1.9" in portada, True, portada[:100])
 
+    print("v1.10: funciones web")
+    c, r = http("GET", f"/sitios/{VACIO}/web", ficha=f)
+    espero("ve las funciones web", (c, "redirecciones" in r), (200, True), r)
+    c, r = http("PUT", f"/sitios/{VACIO}/web/redirecciones", {"redirecciones": [{"origen": "/viejo-v110", "destino": f"https://{VACIO}/", "codigo": 301}]}, ficha=f)
+    espero("guarda una redirección", c, 200, r)
+    espero("la redirección funciona", en_el_sitio(VACIO, "/viejo-v110"), 301)
+    c, r = http("PUT", f"/sitios/{VACIO}/web/bloqueo", {"redes": ["203.0.113.7"]}, ficha=f)
+    espero("bloquea una IP", (c, (r.get("bloqueo") or {}).get("lista")), (200, ["203.0.113.7"]), r)
+    espero("no deja bloquear Internet entero", http("PUT", f"/sitios/{VACIO}/web/bloqueo", {"redes": ["0.0.0.0/0"]}, ficha=f)[0], 400)
+    espero("quita el bloqueo", http("PUT", f"/sitios/{VACIO}/web/bloqueo", {"redes": []}, ficha=f)[0], 200)
+    c, r = http("POST", f"/sitios/{VACIO}/web/privacidad", {"carpeta": "/privado-v110", "usuario": "prueba"}, ficha=f)
+    espero("protege una carpeta y da la contraseña una vez", (c, bool(r.get("clave"))), (200, True), r)
+    espero("la carpeta pide contraseña", en_el_sitio(VACIO, "/privado-v110/"), 401)
+    espero("quita la protección", http("DELETE", f"/sitios/{VACIO}/web/privacidad?carpeta=/privado-v110", ficha=f)[0], 200)
+    espero("no ve las funciones web de otro dominio", http("GET", "/sitios/example.org/web", ficha=f)[0], 404)
+
+    print("v1.10: cuenta FTP adicional")
+    espero("crea la subcarpeta", http("POST", f"/sitios/{VACIO}/archivos/carpeta", {"ruta": "ftp-v110"}, ficha=f)[0], 200)
+    c, r = http("POST", f"/sitios/{VACIO}/ftp/cuentas", {"nombre": "prueba110", "carpeta": "ftp-v110"}, ficha=f)
+    espero("crea la cuenta y da la contraseña una vez", (c, bool(r.get("clave"))), (201, True), r)
+    c, r = http("GET", f"/sitios/{VACIO}/ftp/cuentas", ficha=f)
+    espero("la cuenta aparece", [x.get("nombre") for x in r.get("cuentas", [])], ["prueba110"], r)
+    espero("quita la cuenta", http("DELETE", f"/sitios/{VACIO}/ftp/cuentas/prueba110", ficha=f)[0], 200)
+
+    print("v1.10: archivos")
+    c, r = http("GET", f"/sitios/{VACIO}/archivos", ficha=f)
+    espero("lista la carpeta pública", (c, "index.html" in [e.get("nombre") for e in r.get("entradas", [])]), (200, True), r)
+    c, r = http("PUT", f"/sitios/{VACIO}/archivos/subir?nombre=v110.txt&carpeta=.", ficha=f, crudo=b"hola v1.10\n")
+    espero("sube un archivo", c, 200, r)
+    publicado = f"/srv/sitios/{VACIO}/publico/v110.txt"
+    espero("quedó con el usuario del sitio, no de root", os.path.isfile(publicado) and os.stat(publicado).st_uid != 0, True)
+    c, r = http("POST", f"/sitios/{VACIO}/archivos/descargar", {"ruta": "v110.txt"}, ficha=f)
+    espero("prepara la descarga", (c, str(r.get("enlace", "")).startswith("/api/sitios/descargas/")), (200, True), r)
+    if c == 200:
+        espero("lo descarga con el enlace", bajar(r["enlace"])[:2], (200, b"hola v1.10\n"))
+        espero("el enlace vale una sola vez", bajar(r["enlace"])[0], 410)
+    espero("no sale de la carpeta", http("GET", f"/sitios/{VACIO}/archivos?ruta=../../../etc", ficha=f)[0], 400)
+    espero("borra el archivo (a la papelera)", http("POST", f"/sitios/{VACIO}/archivos/borrar", {"ruta": "v110.txt"}, ficha=f)[0], 200)
+    c, r = http("GET", f"/sitios/{VACIO}/archivos/papelera", ficha=f)
+    elemento = next((x["id"] for x in r.get("elementos", []) if x.get("ruta", "").endswith("v110.txt")), None)
+    espero("está en la papelera", (c, bool(elemento), os.path.exists(publicado)), (200, True, False), r)
+    if elemento:
+        espero("lo recupera", http("POST", f"/sitios/{VACIO}/archivos/papelera/{elemento}/recuperar", ficha=f)[0], 200)
+        espero("vuelve a su sitio", os.path.isfile(publicado), True)
+    http("POST", f"/sitios/{VACIO}/archivos/borrar", {"ruta": "v110.txt"}, ficha=f)
+    espero("vacía la papelera", http("DELETE", f"/sitios/{VACIO}/archivos/papelera", ficha=f)[0], 200)
+
+    print("v1.10: registros, disponibilidad y visitas")
+    c, r = http("GET", f"/sitios/{VACIO}/registros/acceso?lineas=20", ficha=f)
+    espero("lee el registro de accesos", (c, "lineas" in r), (200, True), r)
+    c, r = http("GET", f"/sitios/{VACIO}/disponibilidad", ficha=f)
+    espero("ve la disponibilidad", (c, "historial" in r), (200, True), r)
+    espero("ve las visitas", http("GET", f"/sitios/{VACIO}/estadisticas", ficha=f)[0], 200)
+
+    print("v1.10: copias")
+    c, r = http("POST", f"/sitios/{VACIO}/copias", ficha=f)
+    copia = (r.get("copia") or {}).get("id")
+    espero("crea una copia", (c, bool(copia)), (201, True), r)
+    c, r = http("GET", f"/sitios/{VACIO}/copias", ficha=f)
+    espero("la copia aparece y cuenta en el espacio", (c, copia in [x.get("id") for x in r.get("copias", [])], "espacio" in r), (200, True, True), r)
+    if copia:
+        c, r = http("POST", f"/sitios/{VACIO}/copias/{copia}/descargar", ficha=f)
+        espero("prepara la descarga de la copia", c, 200, r)
+        if c == 200:
+            codigo_, contenido, _ = bajar(r["enlace"])
+            espero("descarga la copia (.tar.gz)", (codigo_, contenido[:2]), (200, b"\x1f\x8b"))
+        espero("borra la copia", http("DELETE", f"/sitios/{VACIO}/copias/{copia}", ficha=f)[0], 200)
+    c, r = http("POST", f"/sitios/{VACIO}/estadisticas/informe", ficha=f)
+    if c == 200:
+        _, _, cab = bajar(r["enlace"])
+        espero("el informe se sirve aislado (sandbox)", (cab.get("Content-Security-Policy") or "").startswith("sandbox"), True, cab)
+    else:
+        print("  aviso: sin informe de visitas todavía", r)
+
     print("DNS")
     c, r = http("GET", f"/sitios/dns/{DOM}", ficha=f)
     espero("ve su zona", c, 200, r)
@@ -152,7 +246,9 @@ try:
     espero("el sitio sigue existiendo", http("GET", f"/sitios/{SITIO}/estado", ficha=f)[0], 200)
     espero("no repite la solicitud", http("POST", f"/sitios/{SITIO}/baja", {"motivo": "otra"}, ficha=f)[0], 409)
     hechas = set(sql(f"SELECT DISTINCT action FROM pd_auditoria WHERE admin_username = '{USUARIO}'").split())
-    falta = {"sitio_crear", "sitio_app", "sitio_entrar", "sitio_clave_admin", "sitio_avanzado_archivo", "sitio_paquete", "sitio_pedir_baja"} - hechas
+    falta = {"sitio_crear", "sitio_app", "sitio_entrar", "sitio_clave_admin", "sitio_avanzado_archivo", "sitio_paquete", "sitio_pedir_baja",
+             "sitio_web_redirecciones", "sitio_web_bloqueo", "sitio_web_privado_agregar", "sitio_ftp_cuenta_crear", "sitio_ftp_cuenta_quitar",
+             "sitio_archivo_subir", "sitio_archivo_borrar", "sitio_archivo_recuperar", "sitio_copia_crear", "sitio_copia_borrar"} - hechas
     espero("los cambios quedan en la auditoría", falta, set(), sorted(hechas))
 finally:
     limpiar()

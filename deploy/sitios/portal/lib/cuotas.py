@@ -2,7 +2,8 @@
 
 Sin fila para un dominio valen las de por defecto. El uso se mide en el momento:
 - sitios: los que cuelgan del dominio (el propio y sus subdominios);
-- disco: lo que ocupan sus carpetas en /srv/sitios (como `du`, sin seguir enlaces);
+- disco: lo que ocupan sus carpetas en /srv/sitios (como `du`, sin seguir enlaces) más sus copias del sitio
+  (v1.10: las crea y las borra el propio cliente, así que cuentan como suyas);
 - bases: el tamaño en MariaDB (information_schema) y PostgreSQL de las bases de esos sitios.
 Solo se miran al crear o hacer crecer algo: lo que ya hay no se toca.
 """
@@ -39,8 +40,29 @@ def _bytes_carpeta(ruta):
     return total
 
 
-def disco_mb(sitios):
-    return round(sum(_bytes_carpeta(os.path.join(rutas.RAIZ_SITIOS, s)) for s in sitios) / MB, 1)
+def disco_mb(sitios, con_copias=True):
+    total = sum(_bytes_carpeta(os.path.join(rutas.RAIZ_SITIOS, s)) for s in sitios)
+    if con_copias:
+        total += copias_bytes(sitios)
+    return round(total / MB, 1)
+
+
+def copias_bytes(sitios):
+    """Lo que ocupan las copias del sitio (COPIAS/<sitio>/*.tar.gz) de esos sitios."""
+    total = 0
+    for s in sitios:
+        carpeta = os.path.join(rutas.COPIAS, s)
+        try:
+            nombres = os.listdir(carpeta)
+        except OSError:
+            continue
+        for n in nombres:
+            if n.endswith(".tar.gz"):
+                try:
+                    total += os.lstat(os.path.join(carpeta, n)).st_size
+                except OSError:
+                    pass
+    return total
 
 
 def _bases_de(sitios):
@@ -111,7 +133,7 @@ def comprobar_disco(dominio, extra_bytes=0):
     limite = de(dominio)["disco_mb"]
     ocupado = disco_mb(alcance.sitios_de(dominio))
     if ocupado + extra_bytes / MB > limite:
-        raise ErrorPortal(409, f"Sin espacio: los sitios de {dominio} ocupan {ocupado:.0f} MB de {limite} MB. "
+        raise ErrorPortal(409, f"Sin espacio: los sitios de {dominio} y sus copias ocupan {ocupado:.0f} MB de {limite} MB. "
                                "Libere espacio o pida más al administrador del servidor.")
 
 

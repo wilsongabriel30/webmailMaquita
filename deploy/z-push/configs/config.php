@@ -35,7 +35,7 @@ define("LOG_SYSLOG_FACILITY", LOG_USER);
 define("BACKEND_PROVIDER", "BackendCombined");
 
 // Search
-define("SEARCH_PROVIDER", "");
+define("SEARCH_PROVIDER", "BackendSearchMaquita");  // libreta de la organización (deploy/z-push/directorio)
 define("SEARCH_WAIT", 10);
 define("SEARCH_MAXRESULTS", 10);
 

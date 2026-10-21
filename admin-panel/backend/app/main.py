@@ -77,6 +77,14 @@ from app.sitios.avanzado import router as sitios_avanzado_router
 from app.sitios.php import router as sitios_php_router
 from app.sitios.propias import router as sitios_propias_router
 from app.sitios.router import router as sitios_router
+from app.sitios.web import routers as sitios_web_routers
+# Sitios: observación y datos (registros, estadísticas, disponibilidad, copias y archivos).
+from app.sitios.entrega import router as sitios_entrega_router
+from app.sitios.registros import router as sitios_registros_router
+from app.sitios.estadisticas import router as sitios_estadisticas_router
+from app.sitios.disponibilidad import router as sitios_disponibilidad_router
+from app.sitios.copias import router as sitios_copias_router
+from app.sitios.archivos import router as sitios_archivos_router
 from app.dns.router import router as dns_router
 from app.dns.dominio_nuevo import router as dominio_nuevo_router
 from app.actualizaciones.router import router as actualizaciones_router
@@ -254,6 +262,14 @@ app.include_router(sitios_tareas_router)
 app.include_router(sitios_paquete_router)
 app.include_router(sitios_avanzado_router)
 app.include_router(sitios_php_router)
+for _r in sitios_web_routers:  # funciones web por sitio (v1.10): un router por función
+    app.include_router(_r)
+app.include_router(sitios_entrega_router)
+app.include_router(sitios_registros_router)
+app.include_router(sitios_estadisticas_router)
+app.include_router(sitios_disponibilidad_router)
+app.include_router(sitios_copias_router)
+app.include_router(sitios_archivos_router)
 app.include_router(dns_router)
 app.include_router(dominio_nuevo_router)
 app.include_router(cortafuegos_router)

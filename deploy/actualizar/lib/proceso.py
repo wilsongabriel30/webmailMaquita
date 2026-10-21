@@ -25,7 +25,7 @@ CERROJO = "/run/maquita-actualizar.lock"
 ENTORNOS = ("backend", "admin-panel/backend", "panel-dominio/backend", "chat-service", "almacen",
             "almacen/aplicaciones/bi", "almacen/aplicaciones/pdf_editor")
 SERVICIOS = ("maquita-webmail", "maquita-admin", "maquita-milter", "maquita-almacen", "maquita-bi",
-             "maquita-pdf-editor", "maquita-chat")
+             "maquita-pdf-editor", "maquita-chat", "maquita-panel-dominio")
 # Sección → archivo que indica que está instalada (solo se reinstalan las presentes).
 SECCIONES = {"sitios": "/usr/local/sbin/maquita-sitios", "dns": "/usr/local/sbin/maquita-dns",
              "cortafuegos": "/usr/local/sbin/maquita-cortafuegos", "identidad": "/usr/local/sbin/maquita-identidad",

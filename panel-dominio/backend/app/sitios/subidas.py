@@ -17,11 +17,13 @@ from fastapi import HTTPException, Request
 
 from app.sitios import config
 
-RE_SUBIDA = re.compile(r"^[0-9a-f]{32}\.(zip|tar\.gz|tgz|sql|sql\.gz|txt)$")
+RE_SUBIDA = re.compile(r"^[0-9a-f]{32}\.(zip|tar\.gz|tgz|sql|sql\.gz|txt|subida)$")
 _PARCIAL = ".parcial"
 
 
 def _extension(clase: str, cabeza: bytes) -> str | None:
+    if clase == "archivo":
+        return ".subida"  # administrador de archivos: cualquier contenido, lo copia el usuario del sitio
     if clase == "paquete":
         if cabeza.startswith(b"PK\x03\x04"):
             return ".zip"
@@ -78,7 +80,7 @@ def limpiar_viejas() -> None:
 
 
 async def recibir(request: Request, clase: str, tope: int) -> tuple[str, int]:
-    """Guarda el cuerpo de la petición. Devuelve (nombre, bytes). `clase`: paquete, respaldo o texto."""
+    """Guarda el cuerpo de la petición. Devuelve (nombre, bytes). `clase`: paquete, respaldo, texto o archivo."""
     if not os.path.isdir(config.DIR_SUBIDAS):
         raise HTTPException(503, "Falta la carpeta de subidas del portal. Avisa al administrador general.")
     limpiar_viejas()
@@ -116,7 +118,7 @@ async def recibir(request: Request, clase: str, tope: int) -> tuple[str, int]:
                 utf8.decode(b"", final=True)
             except UnicodeDecodeError:
                 raise HTTPException(400, "El archivo debe ser texto en UTF-8")
-        if total == 0 and clase != "texto":
+        if total == 0 and clase not in ("texto", "archivo"):
             raise HTTPException(400, "No llegó ningún archivo")
         extension = _extension(clase, cabeza)
         if not extension:

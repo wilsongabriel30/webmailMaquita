@@ -55,7 +55,7 @@ define('CARDDAV_PATH', '/%u/');
 // %u: replaced with the username
 // %d: replaced with the domain
 //   Add the trailing /
-define('CARDDAV_DEFAULT_PATH', '/caldav.php/%u/addresses/');
+define('CARDDAV_DEFAULT_PATH', '/%u/contacts/');   // libreta «contacts» de Radicale
 
 // Server path to the GAL addressbook. This addressbook is readonly and searchable by the user, but it will NOT be synced.
 // If you don't want GAL, comment it
@@ -63,7 +63,7 @@ define('CARDDAV_DEFAULT_PATH', '/caldav.php/%u/addresses/');
 // %u: replaced with the username
 // %d: replaced with the domain
 //  Add the trailing /
-define('CARDDAV_GAL_PATH', '/caldav.php/%d/GAL/');
+define('CARDDAV_GAL_PATH', '/%d/GAL/');   // no existe en Radicale: la libreta de la organización es BackendSearchMaquita
 
 // Minimal length for the search pattern to do the real search.
 define('CARDDAV_GAL_MIN_LENGTH', 5);

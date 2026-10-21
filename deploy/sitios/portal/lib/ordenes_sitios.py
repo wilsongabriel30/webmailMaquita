@@ -62,7 +62,8 @@ def listar(ctx):
     por_dominio = []
     for d in dominios:
         suyos = [s for s in propios if alcance.en_alcance(s["dominio"], d)]
-        uso = {"sitios": len(suyos), "disco_mb": round(sum(float(s.get("ocupado_mb") or 0) for s in suyos), 1),
+        disco = sum(float(s.get("ocupado_mb") or 0) for s in suyos) + cuotas.copias_bytes([s["dominio"] for s in suyos]) / cuotas.MB
+        uso = {"sitios": len(suyos), "disco_mb": round(disco, 1),
                "bases_mb": cuotas.bases_mb([s["dominio"] for s in suyos])}
         por_dominio.append({"dominio": d, "cuota": cuotas.de(d, guardadas), "uso": uso})
     return {"sitios": propios, "dominios": por_dominio, "dns": os.path.isfile(rutas.MAQUITA_DNS)}

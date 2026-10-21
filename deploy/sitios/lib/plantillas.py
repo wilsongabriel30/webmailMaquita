@@ -4,6 +4,8 @@ import os
 import re
 from string import Template
 
+import nginx_web
+
 # Común a todos los sitios: registros, límites, cortafuegos de aplicación, cabeceras y archivos que
 # nunca se sirven. Las zonas de límite (sitios_*), el formato de registro «sitios» y el cortafuegos de
 # aplicación (ModSecurity + OWASP CRS, /etc/nginx/sitios-waf/) los instala deploy/sitios/instalar.sh.
@@ -37,6 +39,10 @@ _COMUN = r"""    client_max_body_size 64m;
     # Archivos ocultos (.git, .env, .htaccess) y copias o volcados: nunca se sirven.
     location ~ /\.(?!well-known) { deny all; }
     location ~* \.(bak|old|orig|save|sql|sqlite|swp|ini|log|sh|dist)$$ { deny all; }
+
+    # Funciones web del sitio (panel → Web): IP bloqueadas, redirecciones, carpetas con contraseña, páginas de
+    # error y optimización. Los genera nginx_web.py a partir del meta del sitio.
+    include $web/servidor.conf;
 """
 
 # Sitios con PHP (página «en construcción», WordPress, Joomla y el catálogo): «try_files … /index.php».
@@ -60,10 +66,11 @@ $reglas_app
         include snippets/fastcgi-php.conf;
         fastcgi_pass unix:$socket;
         fastcgi_read_timeout 120s;
+        include $web/php.conf;
     }
 
     location ~* \.(?:css|js|jpg|jpeg|gif|png|webp|avif|svg|ico|woff2?)$$ {
-        expires 30d;
+        include $web/estaticos.conf;
         access_log off;
         try_files $$uri =404;
     }
@@ -82,7 +89,7 @@ _CUERPO_ESTATICO = Template(
     location / { try_files $$uri $$uri/ $$uri.html $respaldo; }
 
     location ~* \.(?:css|js|mjs|jpg|jpeg|gif|png|webp|avif|svg|ico|woff2?|wasm)$$ {
-        expires 30d;
+        include $web/estaticos.conf;
         access_log off;
         try_files $$uri =404;
     }
@@ -267,13 +274,13 @@ def _cuerpo(meta, socket, acme):
         reglas, waf = "", "general"
     return _CUERPO.substitute(
         publico=raiz, registros=meta["registros"], acme=acme, socket=socket,
-        reglas_app=reglas, waf=waf,
+        reglas_app=reglas, waf=waf, web=nginx_web.carpeta(meta["dominio"]),
     )
 
 
 def _cuerpo_propia(meta, acme):
     propia = meta["propia"]
-    comunes = {"registros": meta["registros"], "acme": acme, "waf": "general"}
+    comunes = {"registros": meta["registros"], "acme": acme, "waf": "general", "web": nginx_web.carpeta(meta["dominio"])}
     if propia["tipo"] == "estatico":
         return _CUERPO_ESTATICO.substitute(publico=propia["raiz"], respaldo="/index.html" if propia.get("spa") else "=404",
                                            **comunes)

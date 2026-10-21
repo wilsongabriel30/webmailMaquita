@@ -49,9 +49,37 @@ Uso:
   maquita-sitios clave-admin <dominio>    contraseña nueva del administrador de la aplicación
   maquita-sitios revisar <dominio>        versión, actualizaciones pendientes e integridad
   maquita-sitios actualizar <dominio>     actualiza núcleo, complementos, temas e idioma
+Funciones web por sitio y cuentas FTP adicionales (v1.10; detalle en lib/funciones_web.py):
+  maquita-sitios web <dominio>            redirecciones, carpetas con contraseña, errores, hotlinking, IP y optimización
+  maquita-sitios web-redirecciones|web-errores|web-hotlink|web-bloqueo|web-optimizacion <dominio> <JSON base64url>
+  maquita-sitios web-privado-agregar <dominio> <carpeta base64url> <usuario> [contraseña base64url]
+  maquita-sitios web-privado-quitar <dominio> <carpeta base64url> [usuario]
+  maquita-sitios web-purgar <dominio>     vacía la caché de página
+  maquita-sitios ftp-cuentas <dominio>    cuentas FTP adicionales, cada una encerrada en una subcarpeta
+  maquita-sitios ftp-cuenta-crear <dominio> <nombre> <subcarpeta base64url>
+  maquita-sitios ftp-cuenta-clave|ftp-cuenta-quitar <dominio> <nombre>
+Observación y datos (lib/ordenes_datos.py); <ruta> es relativa a la carpeta pública, en base64url («.» = raíz):
+  maquita-sitios registros <dominio> <error|acceso|php> <líneas 1-1000> [filtro en base64url]
+  maquita-sitios estadisticas <dominio>   resumen de visitas y ancho de banda (30 días, GoAccess)
+  maquita-sitios estadisticas-generar <dominio>
+  maquita-sitios estadisticas-informe <dominio>   deja el informe HTML en subidas/ para el panel
+  maquita-sitios disponibilidad <dominio> estado e historial de las comprobaciones cada 5 minutos
+  maquita-sitios copias <dominio>         copias del sitio que controla el cliente (archivos + bases)
+  maquita-sitios copia-crear <dominio>
+  maquita-sitios copia-descargar|copia-restaurar|copia-borrar <dominio> <AAAAMMDD-HHMMSS>
+  maquita-sitios archivos-listar|archivos-descargar|archivos-carpeta|archivos-borrar <dominio> <ruta>
+  maquita-sitios archivos-subir <dominio> <ruta> <subida .subida> [reemplazar]
+  maquita-sitios archivos-mover|archivos-copiar|archivos-descomprimir <dominio> <ruta> <ruta>
+  maquita-sitios archivos-comprimir <dominio> <JSON {"rutas": [...], "destino": "x.zip"} en base64url>
+  maquita-sitios archivos-permisos <dominio> <ruta> <644|755|600|700|640|750>
+  maquita-sitios archivos-papelera|archivos-vaciar <dominio>
+  maquita-sitios archivos-recuperar <dominio> <id de 12 hex>
 Solo desde el sistema (no las admite maquita-sudo):
+  maquita-sitios ftp-montar               vuelve a montar las carpetas de las cuentas FTP adicionales (al arrancar)
   maquita-sitios cron                     tareas programadas de las aplicaciones (systemd)
   maquita-sitios regenerar                reescribe los vhosts con las plantillas vigentes
+  maquita-sitios disponibilidad-comprobar comprobación de todos los sitios (temporizador, cada 5 minutos)
+  maquita-sitios datos-noche              estadísticas, papeleras de archivos y descargas olvidadas (cada noche)
 """
 
 import json
@@ -169,14 +197,32 @@ def despachar(args):
         return bases.borrar(v.dominio(args[1]), args[2])
     if args[:1] and args[0].startswith("propia-"):
         return _propia(args)
+    # --- Funciones web por sitio y cuentas FTP adicionales (v1.10): todo en lib/funciones_web.py ---
+    if args[:1] and (args[0] == "web" or args[0].startswith(("web-", "ftp-"))):
+        import funciones_web
+
+        return funciones_web.despachar(args)
     if args == ["cron"]:
         import acceso_bd
         import seguridad
 
         return {**seguridad.cron(), "usuarios_temporales_borrados": acceso_bd.limpiar()}
     if args == ["regenerar"]:
-        return sitio.regenerar()
+        import ordenes_datos
+
+        return {**sitio.regenerar(), **ordenes_datos.huerfanos()}
+    # Observación y datos: registros, estadísticas, disponibilidad, copias del sitio y archivos.
+    if args[:1] and _es_de_datos(args[0]):
+        import ordenes_datos
+
+        return ordenes_datos.despachar(args)
     raise ErrorSitio("orden o argumentos no permitidos")
+
+
+def _es_de_datos(orden):
+    import ordenes_datos
+
+    return orden in ordenes_datos.ORDENES or orden in ordenes_datos.DEL_SISTEMA
 
 
 def _avanzado(args):
@@ -208,7 +254,7 @@ def _php(args):
     import php_versiones as pv
 
     def version(texto):
-        if not pv.RE_VERSION.match(texto):
+        if not pv.RE_VERSION.fullmatch(texto):
             raise ErrorSitio("versión de PHP no válida")
         return texto
 

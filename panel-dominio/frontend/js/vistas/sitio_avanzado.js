@@ -1,4 +1,4 @@
-// Pestañas «Archivos» (configuración de la aplicación, con versiones anteriores) y «PHP» (versión
+// Pestañas «Configuración» (archivos de configuración de la aplicación, con versiones anteriores) y «PHP» (versión
 // ya instalada y ajustes del sitio). Antes de cada cambio el servidor guarda la versión anterior.
 import { api } from '../api.js';
 import { el, campo, lista } from '../ui.js';
@@ -37,7 +37,7 @@ export async function pestanaArchivos(ctx) {
   const TIPO = { php: 'Ajustes de PHP', archivo: 'Archivo' };
   return el('div', null,
     el('h2', null, 'Archivos de configuración'),
-    el('p', { clase: 'ayuda' }, 'Para quien sabe lo que hace: wp-config.php, .env, .user.ini… Los archivos de tu sitio en general se suben por FTP.'),
+    el('p', { clase: 'ayuda' }, 'Para quien sabe lo que hace: wp-config.php, .env, .user.ini… Antes de guardar se comprueba y la versión anterior queda guardada. Para el resto de los archivos del sitio, usa la pestaña «Archivos» o FTP.'),
     el('div', { clase: 'fila' }, (est.archivos || []).map(a => { const b = el('button', { clase: 'boton claro', type: 'button' }, a); b.addEventListener('click', () => abrir(a, b)); return b; })),
     el('form', { clase: 'fila', alSubmit: (e) => { e.preventDefault(); if (ruta.entrada.value.trim()) abrir(ruta.entrada.value.trim(), null); } },
       el('div', { clase: 'crece' }, ruta.nodo), el('button', { clase: 'boton claro', type: 'submit' }, 'Abrir')),
