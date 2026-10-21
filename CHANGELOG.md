@@ -10,6 +10,10 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 ### Añadido
 - **Avisos de cuota del buzón** (`deploy/dovecot/avisos-cuota/`): al cruzar el 85 % el usuario recibe un correo con los pasos para liberar espacio; al 95 %, uno urgente y Tecnología una nota (`ORG_CORREOS_AVISOS`). Como mucho uno por buzón y umbral cada 7 días. Ajuste `56-avisos-de-cuota.sh` para los servidores ya instalados.
 
+### Corregido
+- **Instalación en un servidor que no se llama `mail.<dominio>`** (aviso de Andes): el vhost de autodiscover seguía pidiendo `/etc/letsencrypt/live/mail.<dominio>/` y nginx no arrancaba en 443; también fallaba `nginx -t` al instalar los sitios. Ahora todo vhost cuyo certificado aún no existe arranca con el provisional (`deploy/webmail/nginx/certificado-provisional.sh`) hasta emitir el real, y `emitir-certificado.sh` usa el nombre del servidor de la instalación (`MAIL_HOST`, que se guarda en `backend/.env`).
+- **`instalar.sh` no creaba `/etc/maquita-mail/organizacion.env`** (aviso de Andes): sin él, los avisos de cuota y de los vigilantes iban a direcciones de ejemplo. Ahora lo crea con el dominio, el servidor y `ORG_CORREOS_AVISOS` (nunca lo sobrescribe); ajuste `57-datos-de-la-organizacion.sh` para los servidores ya instalados.
+
 ## [1.8.3] - 2026-10-21
 
 Mejoras que existían solo en el servidor de producción llegan a todas las instalaciones (ajustes 51 a 55).

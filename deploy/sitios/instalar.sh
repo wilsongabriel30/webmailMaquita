@@ -238,6 +238,8 @@ logpath = /var/log/vsftpd.log
 maxretry = 5
 EOF
 fi
+# Un vhost sin su certificado todavía (instalación nueva) no debe tumbar nginx entero.
+bash "${APP_DIR}/deploy/webmail/nginx/certificado-provisional.sh" --todos || true
 nginx -t
 systemctl reload nginx
 # En una instalación nueva nadie ha usado aún el FTP ni los sitios: sin sus registros, fail2ban se niega

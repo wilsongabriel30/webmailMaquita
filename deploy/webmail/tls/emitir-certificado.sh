@@ -15,14 +15,20 @@
 #   cuyo A apunta a la IP publica de este servidor (certbot no falla por nombres
 #   que no existen o apuntan a otro lado).
 # - Fija el nombre del linaje con --cert-name para que la ruta del cert sea
-#   siempre /etc/letsencrypt/live/mail.dominio.tld/ (aunque el apex vaya primero).
+#   siempre /etc/letsencrypt/live/<servidor>/ (aunque el apex vaya primero); el servidor es
+#   MAIL_HOST (variable o backend/.env) o, si no, mail.dominio.tld.
 # - Tras emitir, sirve el XML de autoconfiguracion (Thunderbird/Evolution) sobre
 #   el cert nuevo, para que los clientes ya no adivinen el dominio pelado.
 set -euo pipefail
 
 DOMINIO="${1:?Uso: emitir-certificado.sh dominio.tld [correo-admin]}"
 EMAIL="${2:-admin@${DOMINIO}}"
-MAIL_HOST="mail.${DOMINIO}"
+# Nombre del servidor: el de la instalación (MAIL_HOST en backend/.env) si es de este dominio;
+# si no, mail.<dominio>. Un servidor llamado hosting.<dominio> no tiene por qué tener mail.<dominio>.
+if [ -z "${MAIL_HOST:-}" ]; then
+  MAIL_HOST="$(grep -E '^MAIL_HOST=' "$(dirname "$0")/../../../backend/.env" 2>/dev/null | head -1 | cut -d= -f2- || true)"
+  case "${MAIL_HOST}" in "${DOMINIO}"|*".${DOMINIO}") ;; *) MAIL_HOST="mail.${DOMINIO}" ;; esac
+fi
 BASE_AUTOCONFIG="$(cd "$(dirname "$0")/../autoconfig" 2>/dev/null && pwd || true)"
 
 IP_PUB="$(curl -fsS4 https://api.ipify.org 2>/dev/null || curl -fsS4 https://ifconfig.me 2>/dev/null || true)"
@@ -54,6 +60,8 @@ done
 
 ARGS=()
 INCLUIDOS=()
+# Sin repetidos (el servidor puede llamarse igual que el dominio).
+mapfile -t CANDIDATOS < <(printf '%s\n' "${CANDIDATOS[@]}" | awk '!visto[$0]++')
 for n in "${CANDIDATOS[@]}"; do
   ips="$(resolver_publico "$n")"
   if echo "${ips}" | grep -qx "${IP_PUB}"; then
