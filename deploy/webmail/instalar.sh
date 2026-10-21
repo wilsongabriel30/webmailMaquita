@@ -226,6 +226,8 @@ for s in before after; do sudo -u vmail sievec "/var/vmail/sieve/${s}.sieve" || 
 bash "${APP_DIR}/deploy/dovecot/busqueda/instalar.sh" || echo -e "  ${RED}AVISO: no se instaló la búsqueda de texto completo${NC}"
 # Cuotas de buzón (columna quota de mailbox) y aprendizaje del antispam al mover correos a/desde Junk
 bash "${APP_DIR}/deploy/dovecot/instalar-cuotas-antispam.sh" "${APP_DIR}" || echo -e "  ${RED}AVISO: cuotas/aprendizaje antispam sin instalar (ver deploy/dovecot)${NC}"
+# Avisos al usuario cuando su buzón cruza el 85 % y el 95 % de la cuota
+bash "${APP_DIR}/deploy/dovecot/avisos-cuota/instalar.sh" || echo -e "  ${RED}AVISO: avisos de cuota sin instalar${NC}"
 doveconf -n >/dev/null && echo "  Dovecot: sintaxis OK"
 # Postfix crea /var/spool/postfix/private (sockets auth/lmtp) que Dovecot necesita
 systemctl start postfix 2>/dev/null || service postfix start 2>/dev/null || true
