@@ -10,11 +10,18 @@ import { pestanaBases } from './sitio_bases.js';
 import { pestanaArchivos, pestanaPhp } from './sitio_avanzado.js';
 import { pestanaPaquete } from './sitio_paquete.js';
 import { pestanaBaja } from './sitio_baja.js';
+import { pestanaWeb } from './sitio_web.js';
+import { pestanaGestor } from './sitio_archivos.js';
+import { pestanaCopias } from './sitio_copias.js';
+import { pestanaDatos } from './sitio_datos.js';
 
+// «archivos» es el editor de archivos de configuración (con versiones); el administrador de archivos es «gestor».
 const PESTANAS = [
   ['aplicacion', 'Aplicación', pestanaAplicacion], ['https', 'HTTPS', pestanaHttps], ['ftp', 'FTP', pestanaFtp],
-  ['tareas', 'Tareas', pestanaTareas], ['bases', 'Bases de datos', pestanaBases], ['archivos', 'Archivos', pestanaArchivos],
-  ['php', 'PHP', pestanaPhp], ['paquete', 'Subir y migrar', pestanaPaquete], ['baja', 'Pedir la baja', pestanaBaja],
+  ['web', 'Web', pestanaWeb], ['gestor', 'Archivos', pestanaGestor], ['copias', 'Copias', pestanaCopias],
+  ['datos', 'Visitas y registros', pestanaDatos], ['tareas', 'Tareas', pestanaTareas], ['bases', 'Bases de datos', pestanaBases],
+  ['archivos', 'Configuración', pestanaArchivos], ['php', 'PHP', pestanaPhp], ['paquete', 'Subir y migrar', pestanaPaquete],
+  ['baja', 'Pedir la baja', pestanaBaja],
 ];
 
 export async function vistaFichaSitio(sitio, pestana) {

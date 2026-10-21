@@ -1,4 +1,4 @@
-"""Subidas del portal (paquetes, respaldos .sql y textos) hacia la carpeta de maquita-sitios.
+"""Subidas del portal (paquetes, respaldos .sql, textos y archivos del sitio) hacia la carpeta de maquita-sitios.
 
 El portal solo puede escribir en su carpeta (subidas-portal, suya y 0700). Lo que deja ahí no se cree:
 se abre sin seguir enlaces (O_NOFOLLOW, relativo a la carpeta ya abierta), tiene que ser un archivo
@@ -20,8 +20,11 @@ EXTENSIONES = {
     "paquete": re.compile(r"^[0-9a-f]{32}\.(zip|tar\.gz|tgz)$"),
     "respaldo": re.compile(r"^[0-9a-f]{32}\.(sql|sql\.gz)$"),
     "texto": re.compile(r"^[0-9a-f]{32}\.txt$"),
+    # Administrador de archivos (v1.10): cualquier contenido; maquita-sitios lo copia con el usuario del sitio.
+    "archivo": re.compile(r"^[0-9a-f]{32}\.subida$"),
 }
-TOPES = {"paquete": 512 * 1024 * 1024, "respaldo": 512 * 1024 * 1024, "texto": 1024 * 1024}
+TOPES = {"paquete": 512 * 1024 * 1024, "respaldo": 512 * 1024 * 1024, "texto": 1024 * 1024,
+         "archivo": 512 * 1024 * 1024}
 BLOQUE = 1024 * 1024
 
 

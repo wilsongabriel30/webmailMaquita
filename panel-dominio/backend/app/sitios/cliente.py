@@ -24,13 +24,29 @@ MAX_RESPUESTA = 8 * 1024 * 1024
 # Segundos que se espera cada orden. Las largas descargan, verifican o instalan; el intermediario
 # corta a los 1200 s (RuntimeMaxSec), así que nada espera más.
 _LARGAS = {"app": 1190, "paquete": 1190, "actualizar": 900, "base-borrar": 600, "ssl": 400,
-           "php-version": 300, "revisar": 200, "php-estado": 200, "clave-admin": 150, "tareas-guardar": 120}
+           "php-version": 300, "revisar": 200, "php-estado": 200, "clave-admin": 150, "tareas-guardar": 120,
+           # v1.10: copias, estadísticas y archivos grandes (copiar, comprimir, subir, descargar).
+           **dict.fromkeys(("copia-crear", "copia-restaurar", "copia-descargar", "estadisticas-generar",
+                            "archivos-subir", "archivos-descargar", "archivos-copiar", "archivos-comprimir",
+                            "archivos-descomprimir", "archivos-borrar", "archivos-vaciar"), 1190),
+           **dict.fromkeys(("web-redirecciones", "web-errores", "web-hotlink", "web-bloqueo", "web-optimizacion",
+                            "web-privado-agregar", "web-privado-quitar", "web-purgar", "ftp-cuenta-crear",
+                            "ftp-cuenta-clave", "ftp-cuenta-quitar", "web"), 130)}
 ORDENES = {
     "listar", "catalogo", "crear", "app", "entrar", "clave-admin", "revisar", "actualizar", "terminar",
     "ssl", "ftp", "tareas", "tareas-guardar", "tarea-ejecutar", "tarea-registro",
     "bases", "base-crear", "base-entrar", "base-borrar",
     "avanzado", "avanzado-php", "avanzado-ver", "avanzado-archivo", "avanzado-restaurar", "php-estado", "php-version",
     "paquete", "dns-ver", "dns-agregar", "dns-modificar", "dns-borrar",
+    # v1.10: funciones web y cuentas FTP adicionales.
+    "web", "web-redirecciones", "web-errores", "web-hotlink", "web-bloqueo", "web-optimizacion", "web-purgar",
+    "web-privado-agregar", "web-privado-quitar", "ftp-cuentas", "ftp-cuenta-crear", "ftp-cuenta-clave", "ftp-cuenta-quitar",
+    # v1.10: registros, estadísticas, disponibilidad, copias del sitio y administrador de archivos.
+    "registros", "estadisticas", "estadisticas-generar", "estadisticas-informe", "disponibilidad",
+    "copias", "copia-crear", "copia-descargar", "copia-restaurar", "copia-borrar",
+    "archivos-listar", "archivos-subir", "archivos-descargar", "archivos-carpeta", "archivos-mover", "archivos-copiar",
+    "archivos-descomprimir", "archivos-borrar", "archivos-comprimir", "archivos-permisos", "archivos-papelera",
+    "archivos-recuperar", "archivos-vaciar",
 }
 
 

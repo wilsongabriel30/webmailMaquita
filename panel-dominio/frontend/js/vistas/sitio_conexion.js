@@ -1,7 +1,9 @@
-// Pestañas «HTTPS» (certificado gratuito de Let's Encrypt) y «FTP» (FTPS o SFTP, encerrado en el sitio).
+// Pestañas «HTTPS» (certificado gratuito de Let's Encrypt) y «FTP» (FTPS o SFTP, encerrado en el sitio, y las
+// cuentas adicionales de sitio_ftp_cuentas.js).
 import { api } from '../api.js';
 import { el, campo } from '../ui.js';
 import { confirmar, enRutaSitio, hacer, mensajes, unaVez } from './sitio_comun.js';
+import { seccionCuentasFtp } from './sitio_ftp_cuentas.js';
 
 export function pestanaHttps(ctx) {
   const { s, sitio } = ctx;
@@ -51,5 +53,6 @@ export function pestanaFtp(ctx) {
       return b;
     })()) : el('div', { clase: 'fila' }, boton('Activar y generar la clave', 'activar', 'boton')),
     s.ftp && s.usuario_ftp ? el('p', { clase: 'ayuda' }, 'Usuario: ', el('code', null, s.usuario_ftp), '. «Nueva clave» invalida la anterior.') : null,
-    msj.nodo);
+    msj.nodo,
+    seccionCuentasFtp(ctx));
 }

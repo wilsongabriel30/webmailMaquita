@@ -33,7 +33,7 @@ class Intermediario:
 
     def responder(self, peticion: dict) -> dict:
         orden = peticion["orden"]
-        if orden in ("paquete", "avanzado-archivo"):
+        if orden in ("paquete", "avanzado-archivo", "archivos-subir"):
             # El de verdad mueve lo subido a su carpeta; aquí se comprueba que llegó y se borra.
             args = peticion["args"]
             for clave in ("subida", "respaldo"):

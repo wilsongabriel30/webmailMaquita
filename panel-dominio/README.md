@@ -21,6 +21,9 @@ y sin entrar al panel general del servidor.
 | Trabajos de cron, bases de datos adicionales con phpMyAdmin o Adminer | | Alias de dominio de un sitio, buscadores |
 | Ajustes y versión de PHP (de las instaladas), archivos de configuración con versiones anteriores | | |
 | Subir un paquete propio o migrar un sitio con el respaldo de su base | | |
+| Web (v1.10): redirecciones, carpetas con contraseña, páginas de error, hotlinking, IP bloqueadas, optimización y caché | | |
+| Cuentas FTP adicionales encerradas en una subcarpeta, administrador de archivos con papelera | | |
+| Copias del sitio (crear, descargar, restaurar, borrar), registros, visitas (GoAccess) y disponibilidad | | Comprobaciones del sistema (`disponibilidad-comprobar`, `datos-noche`) |
 | Registros DNS de su zona, si la sirve este servidor | Cambiar registros del correo o de los servidores de nombres (se ven, pero protegidos) | Crear o borrar zonas |
 
 Quién administra qué lo decide el superadministrador en el panel general:
@@ -41,6 +44,13 @@ Lo subido (paquetes, respaldos de base, archivos editados) se escribe por trozos
 `/var/lib/maquita-sitios/subidas-portal`, con un nombre al azar y un tope, y el intermediario lo
 recoge de ahí. La sección se descarga solo al abrirla, y la tarjeta del inicio se pide aparte para
 no hacer esperar al resto.
+
+Lo que se descarga (un archivo del sitio, una copia, el informe de visitas) va por el mismo camino al
+revés: el intermediario lo hace del usuario del portal y lo deja en esa carpeta con un nombre nuevo
+al azar; el portal da un enlace de un solo uso (`/api/sitios/descargas/…`, 10 minutos) que lo
+reclama con un rename, lo envía por trozos y lo borra. El portal nunca lee la carpeta de descargas
+de `maquita-sitios`, que comparte con el panel general. El informe de GoAccess se sirve con
+`Content-Security-Policy: sandbox`. Las copias del sitio cuentan para el disco del dominio.
 
 ### Segundo factor
 
