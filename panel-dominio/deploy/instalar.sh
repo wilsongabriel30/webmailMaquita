@@ -19,9 +19,10 @@ VHOST=/etc/nginx/sites-available/panel-dominio
 MARCA="${APP_DIR}/uploads/branding/empresas"
 
 [ -r "$ENV_CORREO" ] || { echo "No hay ${ENV_CORREO}: instale antes el correo (deploy/webmail/instalar.sh)." >&2; exit 1; }
-valor() { grep -E "^$1=" "$ENV_CORREO" | head -1 | cut -d= -f2- | tr -d '"'; }
+valor() { { grep -E "^$1=" "$ENV_CORREO" || true; } | head -1 | cut -d= -f2- | tr -d '"'; }
 DOMINIO="$(valor MAIL_DOMAIN)"
 NOMBRE="${PD_NOMBRE:-$(valor MAIL_HOST)}"
+[ -n "$NOMBRE" ] || NOMBRE="$(postconf -h myhostname 2>/dev/null || true)"
 [ -n "$NOMBRE" ] || NOMBRE="mail.${DOMINIO}"
 [[ "$NOMBRE" =~ ^[a-z0-9.-]+\.[a-z]{2,63}$ ]] || { echo "Nombre de servidor no válido: $NOMBRE" >&2; exit 1; }
 
