@@ -102,6 +102,77 @@ La primera versión de soporte a largo plazo con madurez arquitectónica.
 
 ---
 
+## Hospedaje completo: lo que ofrece un panel comercial y dónde estamos
+
+Comparación con las 59 funciones de un panel de hospedaje comercial (tipo cPanel), hecha el
+2026-10-21. «Ya» = publicado (panel general o webmail); «Portal» = el cliente lo hace solo desde el
+portal de su dominio. Todo con software libre; donde el panel comercial usa un producto cerrado,
+se indica la alternativa libre.
+
+| # | Función | Hoy | Plan |
+|---|---|---|---|
+| 1 | Administrador de archivos | Parcial: ver y editar archivos de texto (Avanzado) y SFTP | v1.10: administrador web completo (subir, bajar, mover, comprimir) |
+| 2 | Cuentas FTP | Ya: FTP seguro y SFTP, una cuenta por sitio | v1.9 Portal; v1.10 varias cuentas por sitio |
+| 3 | Uso de disco | Ya en buzones | v1.9 Portal: sitio y bases, con cuotas por dominio |
+| 4 | Privacidad de directorios | No | v1.10 (usuario y contraseña por carpeta) |
+| 5-6 | Copias de seguridad y asistente | Ya (restic): el administrador general restaura sitios y buzones | v1.10 Portal: descargar y restaurar su sitio y sus bases |
+| 7 | Git | Parcial: las aplicaciones propias se despliegan desde git | v1.11: despliegue desde git también en sitios PHP |
+| 8 | Dominios | Ya (asistente «Nuevo dominio») | — |
+| 9 | Subdominios | Ya | v1.9 Portal |
+| 10 | Alias de dominios | Ya | v1.10 Portal |
+| 11 | Redireccionamientos | No | v1.10 (301/302 por dirección y de dominio completo) |
+| 12 | Editor de zona DNS | Ya | v1.9 Portal (NS, SOA y correo en solo lectura) |
+| 13 | DNS dinámico | No | v1.11 |
+| 14-17 | Cuentas, webmail, reenvíos, respuestas automáticas | Ya | — |
+| 18-19 | Filtros y antispam | Ya (Sieve y Rspamd con aprendizaje) | — |
+| 20 | SPF, DKIM, DMARC | Ya (zona y verificación en el portal) | — |
+| 21 | Listas de correo | Ya (grupos de distribución) | — |
+| 22 | Importar cuentas desde archivo | No | v1.10 Portal (CSV) |
+| 23 | Enrutamiento de correo | No | v1.11 (MX de respaldo y reenvío a otro servidor) |
+| 24-26, 28 | MariaDB, PostgreSQL, phpMyAdmin/Adminer, asistente | Ya | v1.9 Portal |
+| 27 | Usuarios de base con permisos | Parcial: un usuario por base | v1.11 |
+| 29 | Acceso remoto a bases | No | v1.11 (por IP y con TLS) |
+| 30-31 | Certificados y renovación automática | Ya (Let's Encrypt) | v1.9 Portal |
+| 32 | Bloqueo de IP | Ya en el servidor (cortafuegos, fail2ban, países) | v1.10 por sitio |
+| 33 | Cortafuegos de aplicaciones web | Parcial: reglas para WordPress y fail2ban | v1.11 (Coraza/ModSecurity con reglas OWASP) |
+| 34 | Protección contra hotlinking | No | v1.10 |
+| 35-36 | Abuso de contraseñas y segundo factor | Ya | — |
+| 37 | Claves SSH | No | v1.11 (SFTP con clave) |
+| 38 | Fichas de API | No | v1.11 |
+| 39-40 | Versiones y ajustes de PHP | Ya | v1.9 Portal (solo versiones ya instaladas) |
+| 41 | Catálogo de aplicaciones | Ya (WordPress, Joomla, Drupal y más) | v1.9 Portal |
+| 42 | Tareas cron | Ya | v1.9 Portal |
+| 43 | Páginas de error propias | No | v1.10 |
+| 44 | Manejadores de Apache | No aplica: nginx con PHP-FPM | — |
+| 45 | Optimización (compresión, caché) | Parcial | v1.10 por sitio, pensando en conexiones rurales y satelitales |
+| 46 | Node.js y Python | Ya (aplicaciones propias, administrador general) | v1.11 Portal con límites |
+| 47-49, 51 | WordPress: instalar, entrar, actualizar, varios sitios | Ya | v1.9 Portal |
+| 50 | Editor visual de páginas | No: Sitejet es de pago y cerrado, no entra | Fase posterior, solo si hace falta: primero la alternativa libre GrapesJS (BSD); si no alcanza, desarrollo propio y gratuito. Mientras tanto, el editor de WordPress |
+| 52 | Migración desde otro hosting | Ya (paquete y respaldo .sql) | v1.9 Portal |
+| 53-54 | Estadísticas de visitas y tráfico | Parcial: Matomo en el catálogo | v1.10 (GoAccess, libre, sin rastreo en el navegador) |
+| 55-56 | CPU y memoria por sitio | No (cada sitio ya tiene su propio PHP) | v1.11 |
+| 57 | Errores del sitio | Parcial: registro por sitio, solo por SFTP | v1.10 visor en el portal |
+| 58 | Monitoreo de disponibilidad | Ya del servidor (vigilantes) | v1.10 por sitio, con aviso al cliente |
+| 59 | Información del servidor | Parcial | v1.10 Portal |
+
+**v1.9 — El cliente administra su sitio** `IN PROGRESS`: pestaña «Mi sitio web» del portal de dominio
+(sitios y subdominios, aplicaciones, HTTPS, FTP, cron, bases, PHP, archivos, migración, zona DNS, cuotas
+por dominio, baja que confirma el administrador general).
+
+**v1.10 — Hospedaje completo** `PLANNED`: administrador de archivos, redirecciones, privacidad de
+directorios, páginas de error, hotlinking, bloqueo de IP por sitio, alias en el portal, copias que el
+cliente descarga y restaura, estadísticas (GoAccess), visor de errores, disponibilidad por sitio,
+importación de cuentas por CSV, optimización por sitio.
+
+**v1.11 — Para desarrolladores** `PROPOSED`: git en sitios PHP, claves SSH, fichas de API, acceso remoto
+a bases, usuarios de base con permisos, CPU y memoria por sitio, cortafuegos de aplicaciones (OWASP),
+DNS dinámico, enrutamiento de correo, Node.js y Python desde el portal.
+
+**Criterio**: lo que es de pago o cerrado no entra. Se usa una alternativa libre si hace lo mismo con la
+misma calidad; si no existe o se queda corta, se desarrolla aquí y se entrega gratis.
+
+---
+
 ## Contribuir a la hoja de ruta
 
 Las sugerencias de la comunidad son bienvenidas. Para proponer una funcionalidad:
