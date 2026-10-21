@@ -7,7 +7,9 @@ TOTP_OBLIGATORIO = os.getenv("PD_TOTP_OBLIGATORIO", "1").lower() not in ("0", "n
 EMISOR = os.getenv("PD_EMISOR", "Portal de dominio")[:40]
 
 # Carpeta que comparte con el webmail, que es quien muestra el logo en público.
-DIR_MARCA = os.getenv("PD_DIR_MARCA", "/opt/webmail/uploads/branding/empresas")
+# Por defecto, la del repositorio en que corre el portal (/opt/maquita-webmail en una instalación normal).
+_RAIZ = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+DIR_MARCA = os.getenv("PD_DIR_MARCA", os.path.join(_RAIZ, "uploads", "branding", "empresas"))
 MARCA_MAX_BYTES = int(os.getenv("PD_MARCA_MAX_KB", "512")) * 1024
 
 # Selectores DKIM que se consultan en la verificación DNS.

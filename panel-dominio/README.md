@@ -79,14 +79,14 @@ sudo bash deploy/webmail/instalar-app.sh portal-dominio
 Lo que hace, por si hay que hacerlo a mano en otro tipo de instalación:
 
 Requisitos: el esquema de correo ya instalado (tablas `domain`, `mailbox`, `alias`), Python 3.11+,
-`openssl`, nginx y PostgreSQL. Se asume el repositorio en `/opt/webmail`.
+`openssl`, nginx y PostgreSQL. Se asume el repositorio en `/opt/maquita-webmail`.
 
 ```bash
 # 1. Usuario del sistema, sin shell ni directorio propio
 useradd --system --no-create-home --shell /usr/sbin/nologin maquita-dominio
 
 # 2. Entorno de Python
-cd /opt/webmail/panel-dominio/backend
+cd /opt/maquita-webmail/panel-dominio/backend
 python3 -m venv venv && venv/bin/pip install -r requirements.txt
 
 # 3. Base de datos: tablas (como dueño de la base), usuario del portal y permisos
@@ -97,8 +97,8 @@ psql -d maildb -f ../deploy/permisos.sql -f ../deploy/permisos-2-autonomia.sql
 # 3b. Carpeta de logos, compartida con el panel general y legible por el webmail
 groupadd --system maquita-marca
 usermod -aG maquita-marca maquita-dominio && usermod -aG maquita-marca maquita-admin
-mkdir -p /opt/webmail/uploads/branding/empresas
-chgrp -R maquita-marca /opt/webmail/uploads/branding/empresas && chmod 2775 /opt/webmail/uploads/branding/empresas
+mkdir -p /opt/maquita-webmail/uploads/branding/empresas
+chgrp -R maquita-marca /opt/maquita-webmail/uploads/branding/empresas && chmod 2775 /opt/maquita-webmail/uploads/branding/empresas
 
 # 4. Entorno del servicio (solo lo lee root; systemd se lo pasa al proceso)
 install -m 600 /dev/null /etc/maquita-mail/panel-dominio.env
@@ -157,7 +157,7 @@ marca `MAQUITA_SITIOS_PORTAL` (`journalctl -t maquita-sitios-portal`).
 | `PD_HORAS_SESION` | `8` | Duración de una sesión |
 | `PD_TOTP_OBLIGATORIO` | `1` | Exigir segundo factor |
 | `PD_EMISOR` | `Portal de dominio` | Nombre que muestra la aplicación de códigos |
-| `PD_DIR_MARCA` | `/opt/webmail/uploads/branding/empresas` | Carpeta de logos e iconos |
+| `PD_DIR_MARCA` | `/opt/maquita-webmail/uploads/branding/empresas` | Carpeta de logos e iconos |
 | `PD_MARCA_MAX_KB` | `512` | Peso máximo de una imagen |
 | `PD_SELECTORES_DKIM` | `default,dkim,mail,selector1,selector2` | Selectores que consulta la verificación DNS |
 | `PD_SOCKET_SITIOS` | `/run/maquita-sitios-portal.sock` | Socket del intermediario de los sitios |
