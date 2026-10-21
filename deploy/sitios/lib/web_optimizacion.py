@@ -35,7 +35,8 @@ SIN_CACHE_COOKIES = (r"wordpress_logged_in|wordpress_sec|wp-postpass|wordpress_n
 
 
 def hay_brotli():
-    return any("brotli" in os.path.basename(p) for p in glob.glob(os.path.join(MODULOS_NGINX, "*")))
+    """El módulo que comprime al vuelo (brotli-filter); el «static» solo sirve archivos .br ya hechos."""
+    return any("brotli" in n and "filter" in n for n in map(os.path.basename, glob.glob(os.path.join(MODULOS_NGINX, "*"))))
 
 
 def _directivas_propias(meta):

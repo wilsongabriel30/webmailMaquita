@@ -112,6 +112,9 @@ def test_vhost_incluye_los_archivos_del_sitio(entorno):
 
 
 def test_brotli_si_el_modulo_esta(entorno):
+    (entorno / "modulos" / "50-mod-http-brotli-static.conf").write_text("load_module x;")
+    funciones_web.despachar(["web-optimizacion", DOMINIO, _b64({"compresion": True})])
+    assert "brotli" not in servidor(entorno)  # el «static» no comprime al vuelo
     (entorno / "modulos" / "50-mod-http-brotli-filter.conf").write_text("load_module x;")
     funciones_web.despachar(["web-optimizacion", DOMINIO, _b64({"compresion": True})])
     assert "brotli on;" in servidor(entorno)
