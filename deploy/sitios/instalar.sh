@@ -294,6 +294,7 @@ php_admin_flag[expose_php] = off
 EOF
 chgrp herramientas-bd /var/lib/phpmyadmin/blowfish_secret.inc.php /etc/phpmyadmin/config.inc.php 2>/dev/null || true
 systemctl reload "php${PHP_VER}-fpm"
+install -m 644 "${SELF}/herramientas/nginx-herramientas-rutas.conf" /etc/nginx/snippets/herramientas-bd-rutas.conf
 install -m 644 "${SELF}/herramientas/nginx-herramientas.conf" /etc/nginx/snippets/herramientas-bd.conf
 # Se incluye en el server{} del panel (8443), justo después de su server_name.
 for PANEL in /etc/nginx/sites-available/*-admin; do

@@ -197,10 +197,10 @@ def test_ordenes_fuera_de_la_lista(mundo, orden):
     assert mundo.ayudante.llamadas == []
 
 
-def test_ver_y_editar_archivos_no_se_ofrecen(mundo):
+@pytest.mark.parametrize("ruta", ["../etc/passwd", "/etc/passwd", "a/../../b", "", "a\nb"])
+def test_ver_archivo_rutas_raras(mundo, ruta):
     mundo.sitio("example.org")
-    assert codigo("avanzado-ver", "example.org", ruta="wp-config.php") == 403
-    assert codigo("avanzado-archivo", "example.org", ruta="x", subida="a" * 32 + ".txt") == 403
+    assert codigo("avanzado-ver", "example.org", ruta=ruta) == 400
     assert mundo.ayudante.llamadas == []
 
 
@@ -208,6 +208,7 @@ def test_ver_y_editar_archivos_no_se_ofrecen(mundo):
 
 TRADUCCIONES = [
     ("catalogo", None, {}, ["catalogo"]),
+    ("avanzado-ver", "example.org", {"ruta": "wp-config.php"}, ["avanzado-ver", "example.org", "d3AtY29uZmlnLnBocA"]),
     ("app", "example.org", {"aplicacion": "wordpress", "titulo": "Mi sitio", "correo": "Ana@Example.org"},
      ["app", "example.org", "wordpress", "TWkgc2l0aW8", "ana@example.org"]),
     ("entrar", "example.org", {}, ["entrar", "example.org"]),
@@ -252,21 +253,22 @@ def test_tareas_guardar_en_base64(mundo):
     assert json.loads(de_b64(datos)) == lista
 
 
-def test_avanzado_php_y_restaurar_solo_php(mundo):
+def test_avanzado_php_y_restaurar_php_y_archivos(mundo):
     mundo.sitio("example.org")
     versiones = [{"id": "20261021-101010-001", "tipo": "php"}, {"id": "20261021-101010-002", "tipo": "nginx"},
                  {"id": "20261021-101010-003", "tipo": "archivo"}]
     mundo.ayudante.respuestas[("maquita-sitios", "avanzado")] = {
         "vhost": "server {}", "nginx_propias": "location /x {}", "archivos": ["wp-config.php"], "versiones": versiones}
     datos = pedir("avanzado", "example.org")["datos"]
-    assert "nginx_propias" not in datos and "archivos" not in datos
-    assert [v["id"] for v in datos["versiones"]] == ["20261021-101010-001"]
+    assert "nginx_propias" not in datos and datos["archivos"] == ["wp-config.php"]
+    assert [v["id"] for v in datos["versiones"]] == ["20261021-101010-001", "20261021-101010-003"]
     pedir("avanzado-php", "example.org", ajustes={"memory_limit": "256"})
     assert json.loads(de_b64(mundo.ayudante.ultima[3])) == {"memory_limit": "256"}
     pedir("avanzado-restaurar", "example.org", version="20261021-101010-001")
     assert mundo.ayudante.ultima[1:] == ["avanzado-restaurar", "example.org", "20261021-101010-001"]
     assert codigo("avanzado-restaurar", "example.org", version="20261021-101010-002") == 403
-    assert codigo("avanzado-restaurar", "example.org", version="20261021-101010-003") == 403
+    pedir("avanzado-restaurar", "example.org", version="20261021-101010-003")
+    assert mundo.ayudante.ultima[1:] == ["avanzado-restaurar", "example.org", "20261021-101010-003"]
 
 
 def test_php_solo_versiones_instaladas(mundo):

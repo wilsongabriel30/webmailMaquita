@@ -19,7 +19,7 @@ import subprocess
 import time
 
 import archivo_seguro
-from comun import ErrorSitio, ejecutar, guardar_meta, leer_meta
+from comun import ErrorSitio, guardar_meta, leer_meta
 
 EXTRA = "/etc/maquita-sitios/nginx-extra"
 VERSIONES = "/var/lib/maquita-sitios/versiones"

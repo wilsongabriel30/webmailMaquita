@@ -244,6 +244,26 @@ jobs:
       - name: Run tests
         run: pytest tests --tb=short -q
 
+  panel-dominio-test:
+    name: Panel de dominio Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: panel-dominio/backend
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt pytest
+      - name: Run tests
+        run: pytest tests --tb=short -q
+
   install-smoke:
     name: Install Smoke Test
     runs-on: ubuntu-latest

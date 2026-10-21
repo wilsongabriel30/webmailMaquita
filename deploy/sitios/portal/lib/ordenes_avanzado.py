@@ -1,10 +1,9 @@
 """Órdenes de «Avanzado», versión de PHP y paquete propio, recortadas a lo que es seguro desde el portal.
 
-- Reglas propias de nginx: no se ofrecen (se quitan de la respuesta y de las versiones restaurables).
-- Ver y guardar archivos de la carpeta pública: tampoco. maquita-sitios los lee y los escribe como root
-  y comprueba la ruta antes de abrirla; quien tiene el FTP del sitio (el administrador de dominio)
-  podría cambiar una carpeta por un enlace justo en medio y leer o pisar archivos del sistema. Para eso
-  está el SFTP del sitio, que trabaja con su propio usuario.
+- Reglas propias de nginx: no se ofrecen (se quitan de la respuesta y de las versiones restaurables);
+  sí se restauran versiones de PHP y de archivos.
+- Ver y guardar archivos de la carpeta pública: sí. maquita-sitios los abre componente a componente sin
+  seguir enlaces (deploy/sitios/lib/archivo_seguro.py), así que un enlace puesto por FTP no lleva fuera.
 - PHP: solo los ajustes del sitio y elegir entre las versiones YA instaladas; nada de instalar.
 """
 
@@ -19,9 +18,9 @@ from ordenes_sitios import RE_VERSION_GUARDADA, RE_VERSION_PHP, b64, sitios
 
 def avanzado(ctx):
     datos = sitios("avanzado", ctx.sitio)
-    for clave in ("nginx_propias", "archivos"):
+    for clave in ("nginx_propias",):
         datos.pop(clave, None)
-    datos["versiones"] = [v for v in datos.get("versiones", []) if v.get("tipo") == "php"]
+    datos["versiones"] = [v for v in datos.get("versiones", []) if v.get("tipo") in ("php", "archivo")]
     return datos
 
 
@@ -43,13 +42,34 @@ def avanzado_restaurar(ctx):
     entrada = next((v for v in guardadas if v.get("id") == version), None)
     if not entrada:
         raise ErrorPortal(404, "No encontrado")
-    if entrada.get("tipo") != "php":
-        raise ErrorPortal(403, "Desde el portal solo se restauran los ajustes de PHP")
+    if entrada.get("tipo") not in ("php", "archivo"):
+        raise ErrorPortal(403, "Desde el portal solo se restauran los ajustes de PHP y los archivos")
     return sitios("avanzado-restaurar", ctx.sitio, version)
 
 
-def no_disponible(ctx):
-    raise ErrorPortal(403, "Ver y editar archivos del sitio no está disponible en el portal: use el acceso SFTP del sitio")
+def _ruta(ctx):
+    ruta = ctx.args.get("ruta")
+    if (not isinstance(ruta, str) or not ruta or len(ruta) > 300 or ruta.startswith("/")
+            or any(p == ".." for p in ruta.split("/")) or any(ord(c) < 32 for c in ruta)):
+        raise ErrorPortal(400, "Ruta no válida")
+    return b64(ruta)
+
+
+def avanzado_ver(ctx):
+    return sitios("avanzado-ver", ctx.sitio, _ruta(ctx))
+
+
+def avanzado_archivo(ctx):
+    ruta, subida = _ruta(ctx), ctx.args.get("subida")
+    cuotas.comprobar_disco(ctx.dominio, subidas.tamano(subida, "texto"))
+    tomado = subidas.tomar(subida, "texto")
+    try:
+        args = ["avanzado-archivo", ctx.sitio, ruta, tomado]
+        ayudantes.validar("maquita-sitios", args)
+    except BaseException:
+        subidas.descartar(tomado)
+        raise
+    return sitios(*args)
 
 
 def _instaladas(ctx):

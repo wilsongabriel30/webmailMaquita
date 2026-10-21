@@ -19,6 +19,10 @@ SUBIDAS=/var/lib/maquita-sitios/subidas-portal
 EXTRA="${UNIDADES}/maquita-panel-dominio.service.d/sitios-web.conf"
 ENTORNO=/etc/maquita-mail/panel-dominio.env
 CONF_REPO="${APP_DIR}/panel-dominio/deploy/nginx-panel-dominio.conf"
+REPO_HERR="${APP_DIR}/deploy/sitios/herramientas/nginx-herramientas.conf"
+REPO_RUTAS="${APP_DIR}/deploy/sitios/herramientas/nginx-herramientas-rutas.conf"
+SNIP_HERR=/etc/nginx/snippets/herramientas-bd.conf
+SNIP_RUTAS=/etc/nginx/snippets/herramientas-bd-rutas.conf
 RESPALDOS=/var/backups/maquita-sitios-portal
 SQL_DIR="${APP_DIR}/panel-dominio/deploy"
 PENDIENTE=0; [ "${1:-}" = "--pendiente" ] && PENDIENTE=1
@@ -73,6 +77,14 @@ for v in $(vhosts_portal); do
   grep -q "location /api/sitios" "$v" || falta+=("ruta /api/sitios en nginx ($v)")
 done
 if [ -f "$ENTORNO" ] && bd_local && ! tabla_cuotas; then falta+=("tabla pd_cuotas_sitio"); fi
+# «Bases → Entrar» desde el portal: las rutas de phpMyAdmin y Adminer, si el servidor las tiene.
+if [ -f "$SNIP_HERR" ]; then
+  cmp -s "$REPO_HERR" "$SNIP_HERR" || falta+=("herramientas de bases ($SNIP_HERR)")
+  cmp -s "$REPO_RUTAS" "$SNIP_RUTAS" || falta+=("rutas de las herramientas ($SNIP_RUTAS)")
+  for v in $(vhosts_portal); do
+    grep -q "herramientas-bd-rutas" "$v" || falta+=("herramientas de bases en el portal ($v)")
+  done
+fi
 
 if [ "${#falta[@]}" -eq 0 ]; then echo "Sin cambios: el intermediario de sitios del portal ya está al día."; exit 0; fi
 echo "Pendiente: $(IFS=,; echo "${falta[*]}" | sed 's/,/, /g')"
@@ -116,10 +128,27 @@ else
   echo "Aviso: la base del portal no está en este equipo. Aplique en ella esquema-4-sitios.sql y permisos-4-sitios.sql."
 fi
 
+# --- Herramientas de bases: rutas compartidas por el panel general y el portal ---
+if [ -f "$SNIP_HERR" ]; then
+  install -d -m 700 "$RESPALDOS"
+  cp -p "$SNIP_HERR" "${RESPALDOS}/herramientas-bd.conf.$(date +%Y%m%d%H%M%S)"
+  install -m 644 "$REPO_RUTAS" "$SNIP_RUTAS"
+  install -m 644 "$REPO_HERR" "$SNIP_HERR"
+fi
+
 # --- nginx: ruta /api/sitios en el sitio del portal (respaldo y vuelta atrás si nginx la rechaza) ---
 tocados=()
 for v in $(vhosts_portal); do
-  grep -q "location /api/sitios" "$v" && continue
+  if grep -q "location /api/sitios" "$v"; then
+    # Portal ya con /api/sitios de una versión anterior: solo falta incluir las herramientas de bases.
+    if ! grep -q "herramientas-bd-rutas" "$v" && grep -q "# <<< sitios web" "$v"; then
+      install -d -m 700 "$RESPALDOS"
+      cp -p "$v" "${RESPALDOS}/$(basename "$v").$(date +%Y%m%d%H%M%S)"
+      sed -i 's|^\([ \t]*\)# <<< sitios web|\1include /etc/nginx/snippets/herramientas-bd-rutas*.conf;\n\1# <<< sitios web|' "$v"
+      tocados+=("$v")
+    fi
+    continue
+  fi
   grep -qE '^\s*location /api/ \{' "$v" || { echo "Aviso: $v no tiene «location /api/ {»; añada a mano el bloque de sitios web." >&2; continue; }
   install -d -m 700 "$RESPALDOS"
   cp -p "$v" "${RESPALDOS}/$(basename "$v").$(date +%Y%m%d%H%M%S)"
@@ -135,6 +164,7 @@ if [ "${#tocados[@]}" -gt 0 ]; then
     for v in "${tocados[@]}"; do
       ultimo="$(ls -t "${RESPALDOS}/$(basename "$v")".* 2>/dev/null | head -1)"; [ -n "$ultimo" ] && cp -p "$ultimo" "$v"
     done
+    ultimo="$(ls -t "${RESPALDOS}"/herramientas-bd.conf.* 2>/dev/null | head -1)"; [ -n "$ultimo" ] && cp -p "$ultimo" "$SNIP_HERR"
     echo "Error: nginx rechazó la ruta /api/sitios; el sitio del portal quedó como estaba." >&2
     exit 1
   fi
