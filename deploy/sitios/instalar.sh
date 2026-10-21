@@ -228,6 +228,8 @@ systemctl enable --now sitios-cron.timer >/dev/null 2>&1
 install -m 755 "${APP_DIR}/deploy/sudoers/maquita-sudo" /usr/local/sbin/maquita-sudo
 # Los sitios ya creados se regeneran con las plantillas de esta versión.
 /usr/local/sbin/maquita-sitios regenerar >/dev/null
+# «Mi sitio web» en el portal de dominio: solo si el portal también está instalado (si no, no hace nada).
+bash "${SELF}/portal/instalar.sh" || echo -e "${YELLOW}No se pudo instalar el intermediario del portal de dominio: revise deploy/sitios/portal/instalar.sh.${NC}"
 # fail2ban: intentos fallidos de FTP.
 if [ -d /etc/fail2ban/jail.d ]; then
     cat > /etc/fail2ban/jail.d/sitios-ftp.local <<'EOF'

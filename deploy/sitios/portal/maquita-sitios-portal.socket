@@ -1,0 +1,16 @@
+# Socket del intermediario de sitios web del portal de dominio. Solo el grupo del portal puede
+# conectarse; quién está al otro lado lo vuelve a comprobar el intermediario (SO_PEERCRED).
+[Unit]
+Description=Maquita Mail - Sitios web desde el portal de dominio (socket)
+
+[Socket]
+ListenStream=/run/maquita-sitios-portal.sock
+SocketUser=root
+SocketGroup=maquita-dominio
+SocketMode=0660
+Accept=yes
+MaxConnections=8
+RemoveOnStop=yes
+
+[Install]
+WantedBy=sockets.target

@@ -83,6 +83,38 @@ nginx -t && systemctl reload nginx
 El portal queda en `https://<tu-servidor>:8444/`. Abre ese puerto en el cortafuegos solo a quien
 deba llegar.
 
+## Sitios web desde el portal: el intermediario
+
+El portal no tiene `sudo` ni debe tenerlo. Lo que toca el sistema en «Mi sitio web» lo hace
+`maquita-sitios-portal` (código en `deploy/sitios/portal/`), un programa de root que systemd arranca
+por cada conexión a `/run/maquita-sitios-portal.sock` (grupo `maquita-dominio`, modo 0660). No se fía
+del portal: comprueba con `SO_PEERCRED` que llama `maquita-dominio`, vuelve a verificar la sesión en
+la base con las credenciales de `panel-dominio.env`, solo acepta su lista de órdenes sobre sitios de
+los dominios asignados y pasa cada orden por el validador de `maquita-sudo` antes de ejecutarla.
+
+Se instala solo, con `deploy/sitios/instalar.sh`, cuando en el servidor están a la vez los sitios web
+y el portal. Si el portal se instala después, o en un servidor que ya tenía los dos:
+
+```bash
+sudo bash deploy/sitios/portal/instalar.sh --pendiente   # qué falta, sin tocar nada
+sudo bash deploy/sitios/portal/instalar.sh               # o el ajuste 58: deploy/ajustes/aplicar-ajustes.sh --aplicar
+```
+
+Deja: el programa y sus módulos (`/usr/local/sbin`, `/usr/local/lib/maquita-sitios-portal`), el
+socket y su servicio, la carpeta de subidas del portal (`/var/lib/maquita-sitios/subidas-portal`,
+`maquita-dominio` 0700) con su `ReadWritePaths` en la unidad del portal (archivo complementario en
+`maquita-panel-dominio.service.d/`), la ruta `/api/sitios` en el nginx del portal (520 MB y 1200 s;
+el resto sigue con 64 KB y 30 s; respaldo en `/var/backups/maquita-sitios-portal/`) y la tabla de
+cuotas. Si la base está en otro equipo, aplica allí, como dueño de la base:
+
+```bash
+psql -d maildb -f panel-dominio/deploy/esquema-4-sitios.sql -f panel-dominio/deploy/permisos-4-sitios.sql
+```
+
+Las cuotas (sitios, disco y bases por dominio; por defecto 1 sitio, 2 GB y 1 GB) se fijan en el panel
+general, al editar al administrador de dominio. Cada petición queda en el registro del sistema con la
+marca `MAQUITA_SITIOS_PORTAL` (`journalctl -t maquita-sitios-portal`).
+
 ## Variables de entorno
 
 | Variable | Por defecto | Para qué |

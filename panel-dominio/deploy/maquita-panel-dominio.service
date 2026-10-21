@@ -22,8 +22,11 @@ PrivateTmp=yes
 PrivateDevices=yes
 ProtectSystem=strict
 ProtectHome=yes
-# Lo único que puede escribir: los logos e iconos de las empresas, que comparte con el webmail.
+# Lo único que puede escribir: los logos e iconos de las empresas, que comparte con el webmail, y
+# su carpeta de subidas de sitios web (paquetes), que recoge el intermediario maquita-sitios-portal.
+# El «-»: en un servidor sin sitios web esa carpeta no existe y el portal arranca igual.
 ReadWritePaths=/opt/maquita-webmail/uploads/branding/empresas
+ReadWritePaths=-/var/lib/maquita-sitios/subidas-portal
 SupplementaryGroups=maquita-marca
 InaccessiblePaths=-/var/vmail -/mnt/almacen -/etc/maquita-mail/dlp-exempt-senders.txt -/opt/maquita-webmail/backend/.env -/opt/maquita-webmail/admin-panel/backend/.env
 ProtectKernelTunables=yes
