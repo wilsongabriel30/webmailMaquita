@@ -41,6 +41,25 @@ export async function abrirFuera(pedir) {
   } catch (e) { if (pestana) pestana.close(); throw e; }
 }
 
+/** Descarga de un solo uso (archivo, copia, informe): `pedir` devuelve { enlace, nombre }. Con `ver`, se abre
+ *  en otra pestaña (abierta ANTES de pedirla, como en abrirFuera); sin `ver`, el navegador la guarda. */
+export async function descargar(pedir, ver) {
+  const pestana = ver ? window.open('about:blank', '_blank') : null;
+  try {
+    const r = await pedir();
+    if (typeof r.enlace !== 'string' || !r.enlace.startsWith('/api/sitios/descargas/')) throw new Error('El servidor no devolvió un enlace válido');
+    if (pestana) { pestana.opener = null; pestana.location.href = r.enlace; return r; }
+    const a = el('a', { href: r.enlace, download: r.nombre || '', hidden: true });
+    document.body.append(a);
+    a.click();
+    a.remove();
+    return r;
+  } catch (e) { if (pestana) pestana.close(); throw e; }
+}
+
+/** Bytes en KB, MB o GB, para listas de archivos y copias. */
+export const tamano = (b) => (b === null || b === undefined ? '' : b < 1024 ? `${b} B` : b < 1048576 ? `${Math.round(b / 1024)} KB` : megas(b / 1048576));
+
 async function copiar(texto, boton) {
   try { await navigator.clipboard.writeText(texto); boton.textContent = 'Copiado'; }
   catch { boton.textContent = 'Selecciónalo y cópialo a mano'; }
