@@ -8,6 +8,7 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 ## [Sin publicar]
 
 ### Añadido
+- **«Mi sitio web» en el portal de dominio** (`panel-dominio/`): cada administrador de dominio crea y administra los sitios de sus dominios y subdominios dentro de su cuota (aplicación del catálogo, entrar, contraseña nueva, revisar y actualizar, HTTPS, FTP, cron, bases con phpMyAdmin o Adminer, PHP, archivos con versiones, subir un paquete o migrar) y los registros DNS de su zona, con los del correo protegidos. La baja de un sitio se pide y la confirma el administrador general. Todo pasa por el intermediario root de los sitios; contraseñas mostradas una sola vez y nunca auditadas. Tarjeta «Mi sitio web» en el inicio.
 - **Avisos de cuota del buzón** (`deploy/dovecot/avisos-cuota/`): al cruzar el 85 % el usuario recibe un correo con los pasos para liberar espacio; al 95 %, uno urgente y Tecnología una nota (`ORG_CORREOS_AVISOS`). Como mucho uno por buzón y umbral cada 7 días. Ajuste `56-avisos-de-cuota.sh` para los servidores ya instalados.
 
 ## [1.8.3] - 2026-10-21
