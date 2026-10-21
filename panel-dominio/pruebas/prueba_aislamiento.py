@@ -169,9 +169,26 @@ try:
             ("pedir la baja de un sitio ajeno", "POST", f"/sitios/{OTRO}/baja", {"motivo": "x"}),
             ("ver la zona DNS ajena", "GET", f"/sitios/dns/{OTRO}", None),
             ("agregar a la zona DNS ajena", "POST", f"/sitios/dns/{OTRO}", {"registro": {"nombre": "x", "tipo": "A", "valor": "192.0.2.1"}}),
-            ("tratar un subdominio propio como zona", "GET", f"/sitios/dns/sub.{DOM}", None)]:
+            ("tratar un subdominio propio como zona", "GET", f"/sitios/dns/sub.{DOM}", None),
+            # v1.10: funciones web, cuentas FTP adicionales, registros, copias y archivos.
+            ("ver las funciones web de un sitio ajeno", "GET", f"/sitios/{OTRO}/web", None),
+            ("redirigir un sitio ajeno", "PUT", f"/sitios/{OTRO}/web/redirecciones", {"redirecciones": [{"origen": "*", "destino": "https://example.org/"}]}),
+            ("bloquear IP en un sitio ajeno", "PUT", f"/sitios/{OTRO}/web/bloqueo", {"redes": ["203.0.113.7"]}),
+            ("proteger una carpeta de un sitio ajeno", "POST", f"/sitios/{OTRO}/web/privacidad", {"carpeta": "/x", "usuario": "intruso"}),
+            ("crear una cuenta FTP en un sitio ajeno", "POST", f"/sitios/{OTRO}/ftp/cuentas", {"nombre": "intruso", "carpeta": "x"}),
+            ("leer los registros de un sitio ajeno", "GET", f"/sitios/{OTRO}/registros/acceso", None),
+            ("ver las visitas de un sitio ajeno", "GET", f"/sitios/{OTRO}/estadisticas", None),
+            ("pedir el informe de visitas de un sitio ajeno", "POST", f"/sitios/{OTRO}/estadisticas/informe", {}),
+            ("ver las copias de un sitio ajeno", "GET", f"/sitios/{OTRO}/copias", None),
+            ("hacer una copia de un sitio ajeno", "POST", f"/sitios/{OTRO}/copias", {}),
+            ("listar los archivos de un sitio ajeno", "GET", f"/sitios/{OTRO}/archivos", None),
+            ("descargar un archivo de un sitio ajeno", "POST", f"/sitios/{OTRO}/archivos/descargar", {"ruta": "index.html"}),
+            ("borrar un archivo de un sitio ajeno", "POST", f"/sitios/{OTRO}/archivos/borrar", {"ruta": "index.html"}),
+            ("vaciar la papelera de un sitio ajeno", "DELETE", f"/sitios/{OTRO}/archivos/papelera", None)]:
         espero(nombre, http(metodo, ruta, cuerpo, f)[0], 404)
     espero("subir un paquete a un sitio ajeno", http("PUT", f"/sitios/{OTRO}/paquete", ficha=f, crudo=b"PK\x03\x04" + b"0" * 64)[0], 404)
+    espero("subir un archivo a un sitio ajeno", http("PUT", f"/sitios/{OTRO}/archivos/subir?nombre=x.php", ficha=f, crudo=b"<?php")[0], 404)
+    espero("un enlace de descarga inventado no da nada", http("GET", "/sitios/descargas/" + "0" * 32 + ".descarga")[0] in (404, 410), True)
     espero("Mi sitio web responde en lo propio (instalado o no)", http("GET", "/sitios", ficha=f)[0] in (200, 503), True)
     espero("no se pidió la baja de nada ajeno", sql(f"select count(*) from pd_solicitudes where tipo='baja_sitio' and dominio<>'{DOM}' and admin_username='{USUARIO}'"), "0")
     espero("grupo con dirección de otro dominio", http("POST", "/grupos", {"address": f"intrusos@{OTRO}", "name": "x"}, f)[0], 404)
