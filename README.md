@@ -10,6 +10,8 @@
 
 **Cliente de correo web (webmail) completo, con capa de cumplimiento legal y eDiscovery, para plataformas de correo basadas en Postfix/Dovecot.**
 
+**Hoy es además un servidor de hospedaje completo — correo, sitios web, bases de datos, DNS y Drive — y una [alternativa libre a cPanel](docs/ALTERNATIVA-CPANEL.md).** Versión actual: [v1.10.0](https://github.com/wilsongabriel30/webmailMaquita/releases/tag/v1.10.0).
+
 Desarrollado y mantenido por Fundación Maquita, organización sin fines de lucro de Ecuador.
 
 ---
@@ -81,6 +83,20 @@ En **software libre y sobre tus propios servidores**, este repositorio ofrece la
 - **Suite en el mismo repo** — correo + Drive + ofimática (OnlyOffice, se monta aparte — ver `docs/ONLYOFFICE-DOCUMENT-SERVER.md`) + tableros/BI + editor de PDF, integrados.
 
 **Donde las suites grandes siguen por delante (con honestidad):** gestión de equipos y dispositivos (EDR/MDM), telefonía, escala de decenas de miles de usuarios concurrentes, y la profundidad de sus motores de detección entrenados con telemetría global.
+
+## Alternativa libre a cPanel
+
+El proyecto nació como un **webmail**; después llegó el **panel** para administrarlo, luego el **Drive** (Almacén) con sus aplicaciones, y desde la v1.10 alcanza a **cPanel**: sitios web, bases de datos, DNS, certificados y copias, con un panel para quien administra el servidor (como WHM) y un **portal para cada cliente** (como cPanel).
+
+| | |
+|---|---|
+| **Sitios** | Catálogo de aplicaciones (WordPress, Joomla, Drupal, Moodle…), PHP por sitio, HTTPS automático, cron, administrador de archivos, FTP/SFTP con cuentas adicionales, redirecciones, carpetas con contraseña, páginas de error, hotlinking, bloqueo de IP, compresión y caché |
+| **Datos** | MariaDB y PostgreSQL con phpMyAdmin/Adminer, copias que el cliente descarga y restaura, migración desde otro hosting |
+| **Métricas** | Visitas y ancho de banda (GoAccess), visor de errores, aviso de caída del sitio |
+| **Dominios** | Subdominios, alias, servidor DNS propio con editor de zona, SPF/DKIM/DMARC/MTA-STS |
+| **Correo** | Webmail tipo Outlook con seguridad de nivel E5, antispam, celulares por ActiveSync 16.1 |
+
+Sin licencias por cuenta ni por dominio, en tus propios servidores. Tabla completa (59 funciones) e instalación: **[docs/ALTERNATIVA-CPANEL.md](docs/ALTERNATIVA-CPANEL.md)**.
 
 ## Capturas de pantalla
 
