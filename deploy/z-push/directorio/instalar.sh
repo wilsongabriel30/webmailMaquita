@@ -8,7 +8,7 @@
 set -euo pipefail
 [ "$EUID" -eq 0 ] || { echo "Ejecutar como root" >&2; exit 1; }
 AQUI="$(cd "$(dirname "$0")" && pwd)"
-APP_DIR="$(cd "$AQUI/../../.." && pwd)"
+APP_DIR="${MAQUITA_APP_DIR:-$(cd "$AQUI/../../.." && pwd)}"
 CONF=/opt/z-push-docker
 ESTADO=/var/lib/z-push
 LOGS=/var/log/z-push
