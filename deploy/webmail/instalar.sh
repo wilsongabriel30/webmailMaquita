@@ -222,6 +222,8 @@ install -d -o vmail -g vmail -m 755 /var/vmail/sieve
 [ -f /var/vmail/sieve/before.sieve ] || install -o vmail -g vmail -m 644 "${APP_DIR}/deploy/dovecot/instalacion-before.sieve" /var/vmail/sieve/before.sieve
 [ -f /var/vmail/sieve/after.sieve ]  || install -o vmail -g vmail -m 644 "${APP_DIR}/deploy/dovecot/global-after.sieve" /var/vmail/sieve/after.sieve
 for s in before after; do sudo -u vmail sievec "/var/vmail/sieve/${s}.sieve" || echo -e "  ${RED}AVISO: ${s}.sieve no compila${NC}"; done
+# Cuotas de buzón (columna quota de mailbox) y aprendizaje del antispam al mover correos a/desde Junk
+bash "${APP_DIR}/deploy/dovecot/instalar-cuotas-antispam.sh" "${APP_DIR}" || echo -e "  ${RED}AVISO: cuotas/aprendizaje antispam sin instalar (ver deploy/dovecot)${NC}"
 doveconf -n >/dev/null && echo "  Dovecot: sintaxis OK"
 # Postfix crea /var/spool/postfix/private (sockets auth/lmtp) que Dovecot necesita
 systemctl start postfix 2>/dev/null || service postfix start 2>/dev/null || true

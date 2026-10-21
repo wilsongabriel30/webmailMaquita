@@ -7,6 +7,11 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Añadido
+- **Cuotas de buzón aplicadas por Dovecot 2.4** (`deploy/dovecot/cuotas-y-antispam.conf`): la cuota de la tabla `mailbox` llega como `quota_storage_size` del userdb (el `quota_rule` de la 2.3 se ignoraba y la cuota no se aplicaba); también al entregar (LMTP) y visible en los clientes (IMAP QUOTA).
+- **Aprendizaje del antispam al mover correos**: mover a «Junk» enseña spam a Rspamd y sacar de «Junk» enseña legítimo (IMAPSieve + `rspamc`); reequilibrio mensual del Bayes con el correo conservado en la bandeja (`maquita-reentrenar-ham.timer`).
+- Ajuste `51-cuotas-y-aprendizaje-antispam.sh` para los servidores ya instalados (valida con `doveconf -n` y deja todo como estaba si falla; no toca servidores con cuotas propias).
+
 ## [1.8.2] - 2026-10-20
 
 ### Añadido
