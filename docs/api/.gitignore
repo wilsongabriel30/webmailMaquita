@@ -1,0 +1,2 @@
+# Se genera con: python3 scripts/exportar-openapi.py webmail --v1
+webmail-openapi-v1.json
