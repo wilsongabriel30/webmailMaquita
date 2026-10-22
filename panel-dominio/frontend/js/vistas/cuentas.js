@@ -41,6 +41,9 @@ export async function vistaCuentas(sesion, mensaje) {
     el('p', { clase: 'sub' }, sesion.dominios.join(', ')),
     mensaje ? aviso('ok', mensaje) : null,
     el('div', { clase: 'fila' }, el('div', { clase: 'crece' }, buscar), contador,
+      // La importación se descarga solo al abrirla, como «Mi sitio web».
+      el('button', { clase: 'boton claro', alClick: async () => raiz.replaceWith(await (await import('./importar_cuentas.js'))
+        .vistaImportar(sesion, async (nodo) => nodo.replaceWith(await vistaCuentas(sesion)))) }, 'Importar CSV'),
       el('button', { clase: 'boton', alClick: () => formularioNueva(sesion.dominios, recargar) }, 'Nueva cuenta')),
     el('div', { clase: 'caja tabla-marco' }, el('table', null,
       el('thead', null, el('tr', null, el('th', null, 'Cuenta'), el('th', null, 'Cuota'), el('th', null, 'Estado'), el('th', null, ''))),

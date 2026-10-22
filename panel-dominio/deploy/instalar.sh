@@ -68,7 +68,7 @@ SQL
 for f in esquema.sql esquema-2-autonomia.sql esquema-4-sitios.sql; do
   [ -f "${SELF}/$f" ] && como_dueno -f "${SELF}/$f"
 done
-for f in permisos.sql permisos-2-autonomia.sql permisos-3-multicuenta.sql permisos-4-sitios.sql; do
+for f in permisos.sql permisos-2-autonomia.sql permisos-3-multicuenta.sql permisos-4-sitios.sql permisos-5-enrutamiento.sql; do
   [ -f "${SELF}/$f" ] || continue
   como_dueno -f "${SELF}/$f" || echo "  Aviso: ${f} no se aplicó entero (falta alguna tabla de una sección no instalada)."
 done

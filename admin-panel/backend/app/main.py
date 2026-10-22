@@ -92,6 +92,8 @@ from app.respaldos.router import router as respaldos_router
 from app.cortafuegos.router import router as cortafuegos_router
 from app.password_audit.router import router as password_audit_router
 from app.admin_recovery.router import router as adminrec_router
+from app.importar_cuentas.router import router as importar_cuentas_router
+from app.enrutamiento.router import router as enrutamiento_router
 from app.rag.router import router as rag_router
 from app.retention.router import router as retention_router
 from app.comm_compliance.router import router as comm_router
@@ -277,6 +279,8 @@ app.include_router(actualizaciones_router)
 app.include_router(respaldos_router)
 app.include_router(password_audit_router)
 app.include_router(adminrec_router)
+app.include_router(importar_cuentas_router)
+app.include_router(enrutamiento_router)
 
 
 @app.get("/api/health-check")
