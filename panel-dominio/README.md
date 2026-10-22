@@ -9,7 +9,7 @@ y sin entrar al panel general del servidor.
 | Sí, por su cuenta | Lo pide y lo confirma el administrador general | No |
 |---|---|---|
 | Ver las cuentas, alias y grupos de sus dominios | Eliminar una cuenta (queda desactivada mientras tanto) | Ver o tocar otros dominios |
-| Crear cuentas; editar nombre, teléfono y cuota | | Leer correo de nadie |
+| Crear cuentas (también desde un CSV, dentro de los topes del dominio); editar nombre, teléfono y cuota | | Leer correo de nadie |
 | Cambiar contraseñas; activar y desactivar cuentas | | Tocar la configuración del servidor |
 | Alias y reenvíos, también hacia direcciones de fuera | | Crear administradores o asignarse dominios |
 | Grupos de distribución y sus miembros | | Publicar nombres de servidor (exige DNS y certificado) |

@@ -3,6 +3,7 @@ import { api } from "../api/client";
 import { SectionHelp } from "../components/SectionHelp";
 import { DrivePanel, type DriveConfig } from "../components/DrivePanel";
 import { CuentasAsignadasBuzon } from "../components/CuentasAsignadasBuzon";
+import { ImportarCsv } from "./buzones/ImportarCsv";
 
 interface Mailbox { username: string; name: string; domain: string; quota: number; active: boolean; phone: string; email_other: string; created: string }
 
@@ -11,6 +12,7 @@ export function Mailboxes() {
   const [quotas, setQuotas] = useState<Record<string, any>>({});
   const [filter, setFilter] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [importar, setImportar] = useState(false);
   const [form, setForm] = useState({ username: "", password: "", password2: "", name: "", quota_mb: 0 });
   // La dirección se compone: parte local + dominio del servidor (elegido de la lista, con búsqueda)
   const [dominios, setDominios] = useState<string[]>([]);
@@ -212,12 +214,15 @@ export function Mailboxes() {
               { titulo: "Eliminar", desc: "Borra el buzón y TODOS sus correos de forma permanente e irreversible. Si solo necesita suspender la cuenta, use Bloquear." },
             ]}
           />
+          <button onClick={() => setImportar(!importar)} title="Crea muchos buzones a la vez desde un archivo CSV (correo, nombre, clave, cuota_mb, alias). Primero muestra una vista previa sin crear nada. Se registra en auditoría." className="px-3 py-1.5 border border-ms-blue text-ms-blue rounded text-sm hover:bg-ms-blue-lighter">Importar CSV</button>
           <button onClick={() => setShowForm(!showForm)} title="Crea un nuevo buzón de correo. El usuario podra enviar y recibir correos inmediatamente. Se registra en auditoria." className="px-3 py-1.5 bg-ms-blue text-white rounded text-sm hover:bg-ms-blue-dark">+ Nuevo buzón</button>
         </div>
       </div>
 
       <input placeholder="Buscar por nombre o email..." value={filter} onChange={(e) => setFilter(e.target.value)} title="Filtra la lista de buzones por nombre o dirección de correo."
         className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm bg-white focus:outline-none focus:border-ms-blue focus:ring-1 focus:ring-ms-blue" />
+
+      {importar && <ImportarCsv onCerrar={() => setImportar(false)} onCreadas={load} />}
 
       {showForm && (
         <div className="bg-white rounded border border-ms-gray-30 p-5 space-y-4">

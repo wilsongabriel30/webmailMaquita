@@ -6,6 +6,7 @@ interface Registro { admin_username: string; action: string; target: string | nu
 const NOMBRES: Record<string, string> = {
   entrada: "Entró al portal", entrada_fallida: "Intento fallido de entrada", clave_propia: "Cambió su contraseña",
   cuenta_crear: "Creó la cuenta", cuenta_editar: "Editó la cuenta", cuenta_clave: "Cambió la contraseña de", cuenta_activa: "Activó o desactivó",
+  cuentas_importar: "Importó cuentas desde CSV:",
   alias_crear: "Creó el alias", alias_editar: "Editó el alias", alias_eliminar: "Eliminó el alias",
 };
 

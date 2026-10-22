@@ -16,7 +16,6 @@ AYUDANTES = {
     "actualizar": "/usr/local/sbin/maquita-actualizar",
     "respaldos": "/usr/local/sbin/maquita-respaldos",
     "fts": "/usr/local/sbin/maquita-fts",
-
     "wazuh": "/usr/local/sbin/maquita-wazuh",  # estado del agente Wazuh (solo lectura)
 }
 

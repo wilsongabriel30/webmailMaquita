@@ -164,8 +164,8 @@ se indica la alternativa libre.
 | 18-19 | Filtros y antispam | Ya (Sieve y Rspamd con aprendizaje) | — |
 | 20 | SPF, DKIM, DMARC | Ya, más MTA-STS | — |
 | 21 | Listas de correo | Ya (grupos de distribución) | — |
-| 22 | Importar cuentas desde archivo | No | v1.11 (CSV, desde el portal) |
-| 23 | Enrutamiento de correo | No | v1.11 (MX de respaldo y reenvío a otro servidor) |
+| 22 | Importar cuentas desde archivo | Ya (v1.11): CSV con vista previa — panel y portal | — |
+| 23 | Enrutamiento de correo | Ya (v1.11): MX de respaldo y reenvío a otro servidor — panel general | — |
 | 24-26, 28 | MariaDB, PostgreSQL, phpMyAdmin/Adminer, asistente | Ya — panel y portal | — |
 | 27 | Usuarios de base con permisos | Parcial: un usuario por base | v1.11 |
 | 29 | Acceso remoto a bases | No | v1.11 (por IP y con TLS) |

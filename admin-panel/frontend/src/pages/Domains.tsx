@@ -5,6 +5,8 @@ import { SectionHelp } from "../components/SectionHelp";
 import { SoporteDominio } from "../components/SoporteDominio";
 import { useAuth } from "../api/auth";
 
+import { EnrutamientoCorreo } from "./dominios/EnrutamientoCorreo";
+
 interface Domain { domain: string; description: string; mailbox_count: number; alias_count: number; active: boolean; created: string }
 
 export function Domains() {
@@ -13,6 +15,7 @@ export function Domains() {
   const [soporte, setSoporte] = useState<string | null>(null);
   const [domains, setDomains] = useState<Domain[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [enrutar, setEnrutar] = useState("");
   const [form, setForm] = useState({ domain: "", description: "", mailboxes: 0, maxquota: 0 });
 
   const load = () => api.get<Domain[]>("/domains").then(setDomains);
@@ -36,6 +39,7 @@ export function Domains() {
             { titulo: "Estado", desc: "Activo significa que el dominio acepta correo entrante; Inactivo hace que el servidor lo rechace." },
             { titulo: "Marca y portal", desc: "Abre la configuración de ese dominio en Portales por empresa: logo, icono, color, textos y el nombre de servidor propio (mail.<empresa>) por el que entra la empresa." },
             { titulo: "Entrar como soporte", desc: "Solo superadmin, con sesión abierta con segundo factor. Abre el portal de dominio (8444) como lo ve su administrador, sin su contraseña ni su código: solo lectura por defecto, o con acciones (cada una queda auditada como del soporte). Un solo uso; la sesión dura una hora como máximo." },
+            { titulo: "Enrutamiento", desc: "Para dominios cuyo correo vive en otro servidor: MX de respaldo (acepta y guarda en cola mientras el principal no responde) o reenvío fijo a otro servidor, con lista opcional de destinatarios válidos y TLS obligatorio. Se registra en auditoría." },
             { titulo: "Eliminar", desc: "PRECAUCIÓN EXTREMA: borra el dominio y potencialmente todos sus buzones. Verifique que no queden usuarios activos antes de hacerlo. Se registra en auditoría." },
           ]} />
           <button onClick={() => navigate("/portales")} title="Abre Portales por empresa: logo, icono, color, textos y nombre de servidor propio de cada dominio." className="px-3 py-1.5 border border-ms-blue text-ms-blue rounded text-sm hover:bg-ms-blue-lighter">Marca y portales</button>
@@ -53,6 +57,8 @@ export function Domains() {
           </div>
         </div>
       )}
+
+      {enrutar && <EnrutamientoCorreo dominio={enrutar} onCerrar={() => setEnrutar("")} />}
 
       <div className="bg-white rounded border border-ms-gray-30 overflow-hidden">
         <table className="w-full text-sm">
@@ -81,6 +87,8 @@ export function Domains() {
                   {user?.role === "superadmin" && (
                     <button onClick={() => setSoporte(d.domain)} title="Abre el portal de este dominio como su administrador, para darle soporte (solo lectura por defecto). Queda en la auditoría." className="text-ms-blue hover:underline text-xs mr-4">Entrar como soporte</button>
                   )}
+
+                  <button onClick={() => setEnrutar(d.domain)} title="MX de respaldo o reenvío del correo de este dominio a otro servidor." className="text-ms-blue hover:underline text-xs mr-4">Enrutamiento</button>
                   <button onClick={() => del(d.domain)} title="PRECAUCION EXTREMA: Elimina el dominio y potencialmente todos los buzones asociados. Verificar que no haya usuarios activos antes de eliminar. Se registra en auditoria." className="text-ms-red hover:underline text-xs">Eliminar</button>
                 </td>
               </tr>

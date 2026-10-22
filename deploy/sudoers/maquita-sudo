@@ -94,7 +94,6 @@ POLITICA = {
         "maquita-actualizar": True,
         "maquita-respaldos": True,
         "maquita-fts": True,
-
         "maquita-wazuh": True,
     },
 }
@@ -621,7 +620,6 @@ VALIDADORES = {
     "maquita-actualizar": validar_actualizar,
     "maquita-respaldos": validar_respaldos,
     "maquita-fts": validar_fts,
-
     "maquita-wazuh": validar_wazuh,
 }
 

@@ -17,6 +17,7 @@ from app.asignaciones import router as asignaciones_router
 from app.cuentas import router as cuentas_router
 from app.dns import router as dns_router
 from app.grupos import router as grupos_router
+from app.importar.rutas import router as importar_router
 from app.marca import router as marca_router
 from app.reenvios import router as reenvios_router
 from app.sitios.rutas import router as sitios_router
@@ -55,6 +56,7 @@ app.include_router(acceso_router)
 app.include_router(soporte_router)
 app.include_router(resumen_router)
 app.include_router(cuentas_router)
+app.include_router(importar_router)
 app.include_router(alias_router)
 app.include_router(reenvios_router)
 app.include_router(asignaciones_router)
