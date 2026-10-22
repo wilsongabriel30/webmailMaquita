@@ -10,7 +10,7 @@
 
 **Cliente de correo web (webmail) completo, con capa de cumplimiento legal y eDiscovery, para plataformas de correo basadas en Postfix/Dovecot.**
 
-**Hoy es además un servidor de hospedaje completo — correo, sitios web, bases de datos, DNS y Drive — y una [alternativa libre a cPanel](docs/ALTERNATIVA-CPANEL.md).** Versión actual: [v1.10.0](https://github.com/wilsongabriel30/webmailMaquita/releases/tag/v1.10.0).
+**Hoy es además un servidor de hospedaje completo — correo, sitios web, bases de datos, DNS y Drive — y una [alternativa libre a cPanel](docs/ALTERNATIVA-CPANEL.md).** Versión actual: [v1.11.0](https://github.com/wilsongabriel30/webmailMaquita/releases/tag/v1.11.0).
 
 Desarrollado y mantenido por Fundación Maquita, organización sin fines de lucro de Ecuador.
 
@@ -62,7 +62,7 @@ Maquita Webmail resuelve las cuatro.
 
 ## Estado actual
 
-**En producción desde 2024, software libre y en desarrollo continuo.** Maquita Webmail está en producción en Fundación Maquita desde 2024: empezó como webmail y fue creciendo con el panel, el Drive y el hospedaje completo. Versión actual: v1.10.0. La historia del proyecto, con fechas, está en [ROADMAP.md](ROADMAP.md#historia-del-proyecto).
+**En producción desde 2024, software libre y en desarrollo continuo.** Maquita Webmail está en producción en Fundación Maquita desde 2024: empezó como webmail y fue creciendo con el panel, el Drive y el hospedaje completo. Versión actual: v1.11.0. La historia del proyecto, con fechas, está en [ROADMAP.md](ROADMAP.md#historia-del-proyecto).
 
 - Más de 1000 archivos versionados
 - Más de 850 endpoints de API

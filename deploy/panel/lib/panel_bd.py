@@ -9,6 +9,7 @@ pega texto de la orden dentro del SQL, que entra por la entrada estándar.
 
 import json
 import os
+import socket
 import subprocess
 
 APP = os.environ.get("MAQUITA_APP", "/opt/maquita-webmail")
@@ -103,5 +104,10 @@ def valor_org(clave):
 
 
 def servidor_correo():
-    """MAIL_HOST del correo (backend/.env), el nombre por el que se entra al panel y al portal."""
-    return leer_entorno(ENTORNO_CORREO).get("MAIL_HOST", "").strip().lower()
+    """MAIL_HOST del correo (backend/.env), el nombre por el que se entra al panel y al portal. Sin él, el nombre
+    completo del servidor (hostname -f), que en una instalación normal es el del correo."""
+    nombre = leer_entorno(ENTORNO_CORREO).get("MAIL_HOST", "").strip().lower()
+    if not nombre:
+        completo = socket.getfqdn().strip().lower()
+        nombre = completo if "." in completo and completo != "localhost.localdomain" else ""
+    return nombre

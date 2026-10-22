@@ -8,7 +8,7 @@ con variables del `.env`.
 Esta guía es para organizaciones de **300 a 5000 buzones** que necesitan más capacidad, poder
 actualizar sin cortar el servicio o que la caída de una máquina no deje a todos sin correo.
 
-> **Estado (v1.11.0, provisional).** El backend del webmail ya puede correr en 2+ réplicas detrás de un
+> **Estado (v1.11.0).** El backend del webmail ya puede correr en 2+ réplicas detrás de un
 > balanceador (probado con varios workers y varios procesos sobre el mismo Redis). PgBouncer y Redis
 > Sentinel están soportados en la configuración del cliente y probados con pruebas automáticas (Sentinel
 > con un centinela real; PgBouncer, sin un PgBouncer real en las pruebas). La topología completa de

@@ -22,6 +22,7 @@ Estados: **DONE** (publicado) · **IN PROGRESS** (en desarrollo) · **PLANNED** 
 | 2026-10-20 | 1.8.0 | Panel de hospedaje: sitios web, DNS propio, cortafuegos, actualizaciones firmadas, respaldos |
 | 2026-10-21 | 1.9.0 | Portal del cliente: cada organización administra sus sitios |
 | 2026-10-21 | 1.10.0 | Hospedaje completo (alternativa libre a cPanel), ActiveSync 16.1 |
+| 2026-10-21 | 1.11.0 | Para desarrolladores y organizaciones grandes: búsqueda en adjuntos, tableros de seguridad y Wazuh, gran escala, OIDC, git, API y DNS dinámico |
 
 El detalle de cada versión está en [CHANGELOG.md](CHANGELOG.md) y en
 [Releases](https://github.com/wilsongabriel30/webmailMaquita/releases).
@@ -56,7 +57,7 @@ Pensada como «multi-tenant». Ya hecho: varios dominios por servidor, administr
 propio portal, cuotas por dominio (sitios, disco, bases), marca propia por organización y aislamiento de
 cada sitio. Pendiente: API de aprovisionamiento.
 
-### Indexación de texto completo escalable `DONE` (v1.11.0, provisional)
+### Indexación de texto completo escalable `DONE` (v1.11.0, 2026-10-21)
 
 Búsqueda de alto rendimiento en buzones grandes y datos de cumplimiento. Se hizo con el índice nativo de
 Dovecot 2.4 (**fts-flatcurve**, Xapian) en lugar de Solr o Manticore: medido en un buzón de 120.871 correos,
@@ -71,7 +72,7 @@ Dovecot 2.4 (**fts-flatcurve**, Xapian) en lugar de Solr o Manticore: medido en 
 - Panel: estado del índice y «Reindexar buzón»
 - Pendiente: resaltado de resultados y orden por relevancia
 
-### Extracción avanzada de adjuntos `DONE` (v1.11.0, provisional)
+### Extracción avanzada de adjuntos `DONE` (v1.11.0, 2026-10-21)
 
 Decodificador propio para el índice (`deploy/dovecot/fts/`), sin privilegios y con límites de tamaño,
 tiempo y memoria.
@@ -83,7 +84,7 @@ tiempo y memoria.
 - Validación del tipo por el contenido, no solo por el MIME declarado
 - Pendiente: análisis de malware del contenido extraído (hoy ClamAV analiza el adjunto al llegar)
 
-### Monitoreo de seguridad: Wazuh y OpenSearch `DONE` (v1.11.0, provisional)
+### Monitoreo de seguridad: Wazuh y OpenSearch `DONE` (v1.11.0, 2026-10-21)
 
 Opcional y con el manager **fuera** del servidor de correo (`docs/WAZUH.md`): `instalar-app.sh wazuh` instala
 el agente oficial con versión fija y lo registra contra el manager que indique el administrador; el manager
@@ -96,7 +97,7 @@ todo en uno (con el indexador OpenSearch y su tablero) se monta en otra máquina
 - Paneles: los del propio panel (Seguridad → Tableros) y, si se quiere un SIEM central, los de Wazuh
 - Integridad de archivos de la configuración (Postfix, Dovecot, nginx, Rspamd, `/etc/maquita-mail`, sudoers), los ayudantes y el código. El buzón (`/var/vmail`) no: cambia con cada mensaje; lo cubren los respaldos y la retención legal
 
-### Paneles de seguridad (SIEM) `DONE` (v1.11.0, provisional)
+### Paneles de seguridad (SIEM) `DONE` (v1.11.0, 2026-10-21)
 
 En el **propio panel general** (Seguridad → Tableros), sin Grafana: un recolector cada 5 minutos agrega los
 registros de Postfix, Dovecot y ActiveSync, la auditoría y Rspamd en tablas propias de PostgreSQL
@@ -109,7 +110,7 @@ registros de Postfix, Dovecot y ActiveSync, la auditoría y Rspamd en tablas pro
 - Anomalías en el acceso a buzones con reglas explicables: país nuevo, fallos seguidos de acceso, hora inusual, muchas cuentas desde una IP
 - Informes CSV y PDF (HTML imprimible) para auditorías de cumplimiento
 
-### Arquitectura para gran escala `DONE` en gran parte (v1.11.0, provisional)
+### Arquitectura para gran escala `DONE` en gran parte (v1.11.0, 2026-10-21)
 
 Para organizaciones de 300 a 5000 buzones, sin cambiar la instalación de una sola máquina. Guía:
 [docs/GRAN-ESCALA.md](docs/GRAN-ESCALA.md); soporte: [docs/SOPORTE-Y-VERSIONES.md](docs/SOPORTE-Y-VERSIONES.md).
@@ -202,7 +203,7 @@ cliente descarga y restaura, estadísticas (GoAccess), visor de errores, disponi
 optimización por sitio, en el panel general y en el portal. Además: ActiveSync 16.1 (borradores del teléfono
 en el servidor) y libreta de la organización en los teléfonos.
 
-**v1.11 — Para desarrolladores** `PLANNED`: git en sitios PHP, claves SSH, fichas de API, acceso remoto
+**v1.11.0 — Para desarrolladores** `DONE` (2026-10-21): git en sitios PHP, claves SSH, fichas de API, acceso remoto
 a bases, usuarios de base con permisos, CPU y memoria por sitio, cortafuegos de aplicaciones (OWASP),
 DNS dinámico, enrutamiento de correo, Node.js y Python desde el portal. Pasan también de la v1.10:
 importación de cuentas por CSV, alias de dominio e información del servidor en el portal.
