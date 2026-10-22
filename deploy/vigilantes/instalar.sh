@@ -18,6 +18,7 @@ FECHA=$(date +%Y%m%d%H%M%S)
 # origen|destino|permisos
 ARCHIVOS="
 $O/lib-avisos.sh|/usr/local/lib/maquita-vigilantes/lib-avisos.sh|644
+$O/lib-proxy.sh|/usr/local/lib/maquita-vigilantes/lib-proxy.sh|644
 $O/aviso-limitado|/usr/local/sbin/aviso-limitado|755
 $O/guardian-web-correo|/usr/local/sbin/guardian-web-correo|755
 $O/vigilante-correo.sh|/usr/local/sbin/vigilante-correo.sh|755

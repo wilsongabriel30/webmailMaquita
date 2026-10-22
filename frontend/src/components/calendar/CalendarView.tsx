@@ -242,7 +242,7 @@ const [showScheduling, setShowScheduling] = useState(false);
             `Videollamada: ${m.reunion.url_sala}\nEntrar con tu usuario: ${m.reunion.url_acceso}?redirigir=1\nREUNION-ID: ${m.reunion.id}`;
         }
       } catch {
-        console.error("[Calendar] No se pudo crear la reunión Maquita Meet");
+        console.error("[Calendar] No se pudo crear la videollamada de la reunión");
       }
     }
     // Evento ya vinculado a una reunión: al editarlo se actualiza la reunión (hora, asistentes, asunto)
@@ -289,7 +289,7 @@ const [showScheduling, setShowScheduling] = useState(false);
         });
       }
     } catch {
-      console.error("[Calendar] No se pudo sincronizar la reunión Maquita Meet");
+      console.error("[Calendar] No se pudo sincronizar la videollamada de la reunión");
     }
 
     loadEvents();

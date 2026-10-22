@@ -422,6 +422,7 @@ install -m644 "${APP_DIR}/deploy/hardening/seguridad-correo-web/politica-referer
 sed "s/mail\.tudominio\.com/${MAIL_HOST}/g; s/tudominio\.com/${DOMAIN}/g" "${APP_DIR}/deploy/webmail/nginx/autodiscover-dominios.conf" \
     > /etc/nginx/sites-available/autodiscover-dominios
 [ -e "/etc/letsencrypt/live/${MAIL_HOST}/fullchain.pem" ] || sed -i "s|/etc/letsencrypt/live/${MAIL_HOST}/fullchain.pem|/etc/ssl/certs/ssl-cert-snakeoil.pem|; s|/etc/letsencrypt/live/${MAIL_HOST}/privkey.pem|/etc/ssl/private/ssl-cert-snakeoil.key|" /etc/nginx/sites-available/autodiscover-dominios
+bash "${APP_DIR}/deploy/tools/nginx-http2-compatible.sh" /etc/nginx/sites-available/autodiscover-dominios
 ln -sf /etc/nginx/sites-available/autodiscover-dominios /etc/nginx/sites-enabled/
 # XML de autoconfiguración de Thunderbird/Evolution (lo sirve autodiscover-dominios para todos los dominios).
 mkdir -p /var/www/autoconfig/mail
@@ -448,6 +449,7 @@ server {
 }
 server {
     listen 443 ssl;
+    include snippets/maquita-ip-real.con[f];
     server_name mta-sts.${DOMAIN};
     ssl_certificate     /etc/ssl/certs/ssl-cert-snakeoil.pem;
     ssl_certificate_key /etc/ssl/private/ssl-cert-snakeoil.key;
@@ -673,6 +675,9 @@ if ! nginx -t; then
     exit 1
 fi
 systemctl reload nginx 2>/dev/null || systemctl enable --now nginx
+# Proxy de confianza y lista blanca de fail2ban (FAIL2BAN_IGNORAR, PROXY_CONFIABLE en organizacion.env): jail.local
+# se acaba de reescribir y su «ignoreip» no lleva las IP propias; zz-maquita-ignorar.local las añade y le gana.
+APP_DIR="${APP_DIR}" bash "${APP_DIR}/deploy/hardening/proxy/instalar.sh" || echo -e "  ${RED}AVISO: no se aplicó el proxy de confianza (deploy/hardening/proxy/instalar.sh, docs/PROXY-CONFIABLE.md)${NC}"
 sleep 3
 # El backend tarda en levantar más que un sleep corto: se reintenta en vez de mentir con
 # «sin respuesta», que hacía pensar en una instalación rota cuando estaba bien (aviso de Andes).

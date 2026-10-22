@@ -114,6 +114,8 @@ if [ -n "${BASE_AUTOCONFIG}" ] && [ -f "${BASE_AUTOCONFIG}/config-v1.1.xml.plant
     sed -e "s/__DOMINIO__/${DOMINIO}/g" -e "s/__MAIL_HOST__/${MAIL_HOST}/g" \
       "${BASE_AUTOCONFIG}/nginx-autoconfig.conf.plantilla" \
       > "/etc/nginx/sites-available/autoconfig-${DOMINIO}.conf"
+    COMPAT="$(dirname "$0")/../../tools/nginx-http2-compatible.sh"
+    [ -f "$COMPAT" ] && bash "$COMPAT" "/etc/nginx/sites-available/autoconfig-${DOMINIO}.conf"
     ln -sf "/etc/nginx/sites-available/autoconfig-${DOMINIO}.conf" \
       "/etc/nginx/sites-enabled/autoconfig-${DOMINIO}.conf"
     if nginx -t 2>/dev/null; then

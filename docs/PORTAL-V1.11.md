@@ -51,7 +51,8 @@ para las aplicaciones Node.js o Python, que tienen su propio «Desplegar»).
    carpeta del repositorio que se publica (vacía: todo), carpeta que sirve la web (p. ej. `public` en Laravel: lo
    que queda fuera, como `.env`, no se ve desde internet) y lo que el despliegue no toca nunca (lo que sube la
    aplicación: `wp-content/uploads`, `storage`…). Siempre se conservan `.well-known` y el archivo de IndexNow.
-2. **Clave de despliegue**: se genera una ed25519 por sitio; se copia la pública en el servidor de git como clave
+2. **Clave de despliegue** (o la autenticación que se elija: ver [Repositorios privados](#repositorios-privados)):
+   se genera una ed25519 por sitio; se copia la pública en el servidor de git como clave
    de **solo lectura**. La privada vive en `/srv/sitios/<sitio>/despliegues/.ssh/`, del usuario del sitio y fuera
    del alcance de PHP (`open_basedir`). La huella del servidor de git se acepta la primera vez que se conecta
    (`StrictHostKeyChecking=accept-new`) y desde entonces se exige la misma: si cambia, el despliegue falla. Al
@@ -81,12 +82,66 @@ para las aplicaciones Node.js o Python, que tienen su propio «Desplegar»).
 Quitar el despliegue desde git borra la configuración, la clave, el gancho y las versiones guardadas; lo publicado
 se queda. Órdenes: `maquita-sitios git-estado|git-configurar|git-clave|git-gancho|git-desplegar|git-volver|git-quitar`.
 
+## Repositorios privados
+
+El código de un cliente suele estar en un repositorio **privado** (GitHub, GitLab, Gitea, Forgejo, Bitbucket o un
+servidor de git propio). Tanto el despliegue de los sitios PHP como las aplicaciones Node.js, Python y estáticas
+entran en él con la **autenticación del sitio**, que se elige en «Autenticación» (pestaña «Git» del sitio PHP, o
+en el alta y en la ficha de la aplicación propia; en el panel general, en los mismos sitios). Hay una por sitio y
+se configura **antes** de crear la aplicación o de desplegar: al guardarla se prueba con `git ls-remote` contra el
+repositorio y, si el servidor de git no la acepta, se queda la anterior y el error dice por qué (credencial
+rechazada, repositorio no encontrado, servidor desconocido, huella del servidor cambiada, rama que no existe).
+
+| Método | Dirección | Ventajas | Riesgos |
+|---|---|---|---|
+| **Clave de despliegue** (recomendado) | SSH: `git@github.com:organizacion/repo.git` | La genera el servidor (ed25519): la privada nunca sale de él ni se muestra. Una por sitio o aplicación, sirve **solo para ese repositorio** y en **solo lectura**; se revoca en GitHub sin afectar a nada más. | Ninguno práctico: quien la robara del servidor solo podría leer ese repositorio. |
+| Token de acceso por HTTPS | `https://github.com/organizacion/repo.git` | Sirve donde no se puede usar SSH. Con un token *fine-grained* de GitHub limitado a **ese repositorio**, permiso **«Contents: Read-only»** y **fecha de caducidad**, el daño posible es pequeño. | Un token personal clásico abre **todos** los repositorios de la persona (y a veces escribe): no lo use. Caduca: hay que renovarlo. |
+| Clave SSH propia | SSH | Para quien ya gestiona sus claves. ed25519, ECDSA o RSA de 3072 bits o más, **sin frase de paso** (nadie la escribiría en cada despliegue). | Si es la clave de la cuenta personal, da acceso a todo lo que esa persona ve: cree una solo para este repositorio. |
+| Usuario y contraseña por HTTPS | `https://…` | Para servidores de git propios que no admiten claves ni tokens. | Es la credencial completa de una cuenta: úsela solo si no hay otra cosa, con una cuenta que únicamente pueda leer ese repositorio. |
+| Ninguna | `https://…` | Repositorios públicos. | — |
+
+Dónde se crea cada una:
+- **GitHub**, clave de despliegue: *Settings → Deploy keys → Add deploy key*, pegue la clave pública que muestra el
+  panel y deje **sin marcar «Allow write access»**. Token: *Settings → Developer settings → Personal access tokens →
+  Fine-grained tokens*, «Only select repositories», permiso *Contents: Read-only*, con caducidad (usuario: se deja
+  vacío y se usa `x-access-token`).
+- **GitLab**: *Settings → Repository → Deploy keys* (clave, sin «Grant write permissions») o *Deploy tokens* con
+  `read_repository` (el usuario es el que muestra GitLab al crearlo); un *Project access token* con
+  `read_repository` también vale (usuario vacío: `oauth2`).
+- **Gitea y Forgejo**: *Configuración del repositorio → Claves de despliegue* (solo lectura), o un token de
+  *Configuración → Aplicaciones* con `read:repository` y el nombre de usuario.
+- **Bitbucket**: *Repository settings → Access keys* (clave) o *Access tokens* con permiso *Read* (usuario vacío:
+  `x-token-auth`).
+
+**Por qué no tokens personales ni contraseñas en la dirección.** Una dirección como
+`https://usuario:token@servidor/repo.git` deja el secreto en el registro del servidor, en el historial, en
+`.git/config` de la copia clonada y a la vista con `ps`: se rechaza con un mensaje que pide la clave de despliegue.
+Un token personal o una contraseña sirven para **todo** lo que la persona puede hacer en el servidor de git (otros
+repositorios, a veces escribir o borrar); la clave de despliegue, solo para leer ese repositorio. Si el servidor
+se viera comprometido, revocar la clave en el repositorio basta y no hay que cambiar nada más.
+
+Cómo se guarda: la clave o la credencial vive en `/srv/sitios/<sitio>/despliegues/.ssh/clave` o
+`despliegues/.credencial/git`, 0600 y del usuario del sitio, fuera de la carpeta pública, de PHP (`open_basedir`) y
+de la aplicación en marcha (`InaccessiblePaths` en su unidad). Nunca vuelve por la API: solo el método, la huella
+de la clave o los cuatro últimos caracteres del token y la fecha. Viaja del panel o del portal a `maquita-sitios`
+en un archivo 0600 de `/var/lib/maquita-sitios/subidas` que se borra al leerlo (no en los argumentos, que se ven con
+`ps` y quedan en el registro de sudo), y a la auditoría va solo el método. Git la recibe en cada orden sin que pase
+por la dirección ni por `.git/config`: la clave con `GIT_SSH_COMMAND` (`-i`, `IdentitiesOnly=yes`, la huella del
+servidor fijada en la primera conexión con `StrictHostKeyChecking=accept-new`) y el token o la contraseña con un
+ayudante de credenciales que lee el archivo (`credential.helper`, puesto con `GIT_CONFIG_*` solo para esa orden);
+`GIT_ALLOW_PROTOCOL` limita a https y ssh. Se puede reemplazar o borrar en cualquier momento; al quitar la
+aplicación o el despliegue desde git se borra también (quítela además del servidor de git).
+
+Órdenes: `maquita-sitios git-credencial|git-credencial-guardar|git-credencial-borrar`
+(`deploy/sitios/lib/git_clave.py`, `git_credencial.py`; en el portal, `ordenes_git_credencial.py`).
+
 ## Aplicaciones Node.js y Python
 
 Las aplicaciones propias del panel general ([SITIOS-WEB.md](SITIOS-WEB.md#aplicaciones-propias-aplicación-propia-y-gestionar)),
 ahora también desde el portal: estática,
 Python (WSGI o ASGI, con gunicorn) o Node.js (un `.js` o `npm start`), con código por SFTP en la carpeta `app` o
-desde un repositorio público por https. Corren con el usuario del sitio en su unidad de systemd, con 768 MB de
+desde un repositorio git, público por https o privado con la autenticación del sitio
+([Repositorios privados](#repositorios-privados)). Corren con el usuario del sitio en su unidad de systemd, con 768 MB de
 memoria, 1,5 núcleos y 256 tareas como máximo, escuchando solo en 127.0.0.1 detrás de nginx y del cortafuegos de
 aplicación. Desde el portal, además: **sin puerto público** (abrir puertos lo hace el administrador general), el
 repositorio tiene que estar en Internet, crear y desplegar cuentan para el disco del dominio, y de las variables de
@@ -135,8 +190,9 @@ nombre, con TTL de 60 s, por `maquita-dns` (no se toca `deploy/dns`). Quitar una
 
 ```bash
 cd backend && pytest tests/test_sitios_git.py tests/test_sitios_recursos.py tests/test_sitios_portal_v111.py \
-  tests/test_maquita_sudo_sitios_v111.py
-cd panel-dominio/backend && PYTHONPATH=. pytest tests/test_sitios_v111.py
+  tests/test_maquita_sudo_sitios_v111.py tests/test_sitios_credencial_repo.py tests/test_sitios_portal_credencial_repo.py
+cd panel-dominio/backend && PYTHONPATH=. pytest tests/test_sitios_v111.py tests/test_sitios_credencial_repo.py
+cd admin-panel/backend && PYTHONPATH=. pytest tests/test_sitios_credencial_repo.py
 ```
 
 Las de git usan git, rsync y ssh-keygen de verdad sobre un repositorio local (exclusiones, borrado, enlaces

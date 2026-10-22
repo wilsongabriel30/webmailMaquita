@@ -4,6 +4,7 @@ import os
 import re
 from string import Template
 
+import nginx_http2
 import nginx_web
 
 # Común a todos los sitios: registros, límites, cortafuegos de aplicación, cabeceras y archivos que
@@ -175,6 +176,7 @@ server {
 server {
     listen 443 ssl;
     listen [::]:443 ssl;
+    include snippets/maquita-ip-real.con[f];  # entrada del proxy de confianza (docs/PROXY-CONFIABLE.md)
     http2 on;
     server_name $nombres;
     ssl_certificate /etc/letsencrypt/live/$dominio/fullchain.pem;
@@ -242,7 +244,7 @@ def vhost(meta, socket, acme, con_ssl):
     sin_https = [n for n in alias.nombres(meta) if n not in alias.certificables(meta)]
     if sin_https:
         texto += "\n" + _HTTP.substitute(nombres=" ".join(sin_https), cuerpo=cuerpo)
-    return texto
+    return nginx_http2.adaptar(texto)
 
 
 def _cuerpo(meta, socket, acme):

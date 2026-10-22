@@ -6,7 +6,8 @@ núcleos, 256 tareas), solo escucha en 127.0.0.1 y nginx la publica con el corta
 
 Desde el portal, además:
 - sin puerto público: abrir puertos del servidor lo hace solo el administrador general;
-- el repositorio git, si lo hay, tiene que estar en Internet (red.py);
+- el repositorio git, si lo hay, tiene que estar en Internet (red.py); si es privado, se entra con la autenticación
+  del sitio (ordenes_git_credencial.py);
 - crear una aplicación cuenta para el disco del dominio;
 - las variables de entorno se reenvían, pero ni sus valores ni sus nombres quedan en el registro del intermediario.
 """
@@ -45,7 +46,7 @@ def _conf(ctx):
                 continue
         limpia[clave] = valor
     if limpia.get("git"):
-        red.repositorio_https(limpia["git"])
+        red.repositorio(limpia["git"])
     return limpia
 
 

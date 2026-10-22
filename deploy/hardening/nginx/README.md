@@ -6,6 +6,10 @@ la IP real del cliente, el backend ve la IP del proxy y **todo parece interno**
 equivocadas.
 
 ## Instalar
+**Recomendado**: `PROXY_CONFIABLE` y `PROXY_MODO` en `/etc/maquita-mail/organizacion.env` y el ajuste
+`75-fail2ban-proxy.sh`, que genera esto en `conf.d` (también para un proxy TLS *passthrough* con PROXY
+protocol) y saca al proxy de fail2ban. Detalle: `docs/PROXY-CONFIABLE.md`. A mano:
+
 1. Editar `real-ip.conf`: poner la IP del proxy/router de borde en `set_real_ip_from`.
 2. Incluirlo dentro del `server { }` del webmail (o `include .../real-ip.conf;`).
 3. `nginx -t && systemctl reload nginx`.

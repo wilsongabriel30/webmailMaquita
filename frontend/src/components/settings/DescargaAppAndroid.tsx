@@ -1,4 +1,4 @@
-import { textoTamano, urlApk, useManifiestoApp } from '../../lib/appAndroid';
+import { descargarApk, textoTamano, useManifiestoApp } from '../../lib/appAndroid';
 import { useNombreApp } from '../../lib/marca';
 
 /** Sección «App para Android» (AM-11): solo aparece si el servidor tiene una versión publicada. */
@@ -21,7 +21,7 @@ export default function DescargaAppAndroid() {
         <li>Abra el archivo descargado e instale.</li>
       </ol>
       <button
-        onClick={() => window.open(urlApk(), '_blank')}
+        onClick={descargarApk}
         className="inline-block bg-[#0078d4] text-white px-4 py-2 rounded hover:bg-[#106ebe] text-sm"
       >Descargar app para Android</button>
       <p className="text-xs text-gray-400 mt-2">{detalle}. La app se actualiza sola cuando publicamos una versión nueva.</p>

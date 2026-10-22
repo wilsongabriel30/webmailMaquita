@@ -11,6 +11,9 @@ comprueba maquita-sudo, validar_sitios_v111):
   git-volver <dominio> <AAAAMMDD-HHMMSS>     publica otra vez una versión guardada
   git-quitar <dominio> <dominio>             quita la configuración (los archivos publicados se quedan)
   recursos <dominio>                         CPU y memoria de las últimas 24 horas
+  git-credencial|git-credencial-borrar <dominio>, git-credencial-guardar <dominio> <subida .cred>
+                                             autenticación de git del sitio (también de las aplicaciones propias):
+                                             ver, guardar (y probar) o borrar; detalle en git_credencial.py
 Solo desde el sistema (no las admite maquita-sudo):
   git-desplegar-ahora <dominio> <panel|gancho>   lo que corre en la unidad sitio-git-<usuario>
   recursos-recoger                               temporizador sitios-recursos, cada 5 minutos
@@ -29,6 +32,10 @@ def despachar(args):
 
     n = len(args)
     orden = args[0] if args else ""
+    if orden.startswith("git-credencial"):
+        import git_credencial
+
+        return git_credencial.despachar(args)
     if args == ["recursos-recoger"]:
         return recursos.recoger()
     if n == 2 and orden == "recursos":

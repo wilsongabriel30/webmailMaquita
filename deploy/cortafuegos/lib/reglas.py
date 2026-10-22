@@ -8,7 +8,7 @@ abiertos según su origen y, al final, registro limitado y descarte de todo lo d
 
 import ipaddress
 
-from config import SERVICIOS, apps, bases
+from config import PUERTOS_PROXY, SERVICIOS, apps, bases, proxy
 
 CADENA = "CORTAFUEGOS"
 
@@ -61,6 +61,10 @@ def texto(conf, v6=False):
     for b in bases():
         # Acceso remoto a las bases de un sitio: el puerto solo para esas IP o redes (nunca para todos).
         _abrir(lineas, "tcp", b["puerto"], [o for o in b["origenes"] if familia_ok(o)], f"bases {b['dominio']}"[:60])
+    # Entradas del proxy de confianza (TLS passthrough con PROXY protocol): solo desde el proxy.
+    origenes_proxy = [o for o in proxy() if familia_ok(o)]
+    if origenes_proxy:
+        _abrir(lineas, "tcp", PUERTOS_PROXY, origenes_proxy, "proxy de confianza")
     # Difusión y multidifusión de la red local: se descartan sin llenar el registro.
     if v6:
         lineas.append(f"-A {CADENA} -d ff00::/8 -j DROP")

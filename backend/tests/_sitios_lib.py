@@ -13,7 +13,9 @@ CHOQUES = ("comun", "validacion")
 NOMBRES = ("comun", "validacion", "como_usuario", "archivos_rutas", "archivos", "archivos_papelera", "archivos_zip",
            "archivos_ordenes", "visor_registros", "estadisticas", "disponibilidad", "copias_cliente", "ordenes_datos",
            # v1.11: git de los sitios PHP y CPU y memoria por sitio
-           "red_publica", "git_sitio", "git_despliegue", "recursos", "ordenes_v111")
+           "red_publica", "git_clave", "git_credencial", "git_sitio", "git_despliegue", "recursos", "ordenes_v111",
+           # repositorios privados de las aplicaciones propias
+           "propias_servicio", "propias")
 
 _cargados = None
 

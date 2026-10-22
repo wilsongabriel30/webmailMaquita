@@ -4,6 +4,7 @@
 # los clientes NO adivinen el dominio pelado (reporte externo #15).
 server {
     listen 443 ssl;
+    include snippets/maquita-ip-real.con[f];  # entrada del proxy de confianza (docs/PROXY-CONFIABLE.md)
     http2 on;
     server_name autoconfig.__DOMINIO__;
 

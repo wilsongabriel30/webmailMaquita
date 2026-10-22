@@ -1,41 +1,49 @@
-"""Certificado del correo para todos los dominios del servidor (botón «Certificado del correo»).
+"""Certificado del correo (botón «Certificado del correo» y temporizador maquita-certificado-correo).
 
-Un solo certificado de Let's Encrypt (linaje mail.<dominio principal>) que cubre mail., autoconfig.,
-autodiscover. y mta-sts. de cada dominio con zona en este servidor, solo los nombres que desde Internet
-ya apuntan a la IP del correo. Luego lo usan nginx (webmail, panel, autoconfiguración, MTA-STS), Postfix,
-Dovecot y vsftpd, y queda un gancho que los recarga en cada renovación.
+Certificado del servidor: un linaje de Let's Encrypt con el nombre del servidor tal cual (MAIL_HOST:
+mail.<dominio>, hosting.<dominio>…) que cubre mail., autoconfig., autodiscover. y mta-sts. de los
+dominios, solo con los nombres que desde Internet ya apuntan a la IP del correo. Lo usan nginx (webmail,
+panel, portal de dominio, autoconfiguración, MTA-STS), Postfix, Dovecot y vsftpd, y queda un gancho que
+los recarga en cada renovación. Su clave no cambia nunca (DANE: ver certificado_base.py).
 
-Pensado para dominios de una misma organización: el certificado es público (Certificate Transparency)
-y lista todos los nombres. Organizaciones que no deben relacionarse van en servidores distintos.
+Dos modos (CERTIFICADO_MODO en /etc/maquita-mail/organizacion.env):
+- «compartido» (por defecto, lo de siempre): el certificado del servidor cubre todos los dominios con
+  zona aquí. Pensado para dominios de una misma organización: el certificado es público (Certificate
+  Transparency) y lista todos los nombres.
+- «por-dominio» (hospedaje): el del servidor cubre solo el dominio principal y cada dominio de cliente
+  tiene el suyo, instalado por SNI (certificado_dominios.py, certificado_sni.py). Los nombres de clientes
+  que ya estaban en el del servidor siguen ahí hasta que su certificado propio existe; entonces se
+  retiran (con la misma clave).
 """
 
 import glob
+import ipaddress
 import os
-import re
-import shutil
 import subprocess
-import time
 
-import comprobar
+import certificado_base as B
+import certificado_dominios as D
+import certificado_espera as E
+import certificado_sni as S
 import zona as Z
+from certificado_base import SNAKEOIL, ErrorConfiguracion
 from comun import ErrorDns, ejecutar, escribir, servidor
 
-WEBROOT = "/var/www/certbot"
 NOMBRES_NGINX = "/etc/nginx/snippets/correo-nombres.conf"
+SITIOS = "/etc/nginx/sites-available"
 GANCHO = "/etc/letsencrypt/renewal-hooks/deploy/servicios-correo.sh"
-SNAKEOIL = ("/etc/ssl/certs/ssl-cert-snakeoil.pem", "/etc/ssl/private/ssl-cert-snakeoil.key")
 DOVECOT_PROPIO = ("/etc/dovecot/private/dovecot.pem", "/etc/dovecot/private/dovecot.key")
+_respaldar = B.respaldar
+_reemplazar = B.reemplazar
 
 
 def _principal():
-    host = ejecutar(["postconf", "-h", "myhostname"]).strip()
-    if not host.startswith("mail."):
-        raise ErrorDns(f"el nombre del servidor de correo ({host}) no empieza por «mail.»")
-    return host, host[len("mail."):]
+    return B.principal()
 
 
-def _candidatos(host, dominio_principal):
-    zonas = sorted({z["zona"] for z in Z.listar()} | {dominio_principal})
+def _candidatos(host, dominio_principal, zonas=None):
+    if zonas is None:
+        zonas = sorted({z["zona"] for z in Z.listar()} | {dominio_principal})
     nombres = [host]
     for z in zonas:
         for prefijo in ("mail", "autoconfig", "autodiscover", "mta-sts"):
@@ -47,66 +55,96 @@ def _candidatos(host, dominio_principal):
     return nombres
 
 
-def _apunta(nombre, ip):
-    respuesta, _ = comprobar._consultar(nombre, "A")
-    return bool(respuesta) and ip in respuesta
+def _de_clientes(nombres, dominios):
+    """{dominio de cliente: [nombres suyos]} de una lista de nombres."""
+    salida = {}
+    for n in nombres:
+        d = next((d for d in dominios if n == d or n.endswith("." + d)), None)
+        if d:
+            salida.setdefault(d, []).append(n)
+    return salida
 
 
-def _respaldar(ruta):
-    if os.path.exists(ruta):
-        shutil.copy2(ruta, f"{ruta}.bak.{time.strftime('%Y%m%d%H%M%S')}")
+def _candidatos_servidor(host, principal, modo):
+    """Nombres que pide el certificado del servidor. En «por-dominio», los del dominio principal más los de
+    clientes que ya estaban en él y todavía no tienen certificado propio (para no dejarlos sin cubrir)."""
+    if modo == "compartido":
+        return _candidatos(host, principal)
+    nombres = _candidatos(host, principal, [principal])
+    propios = D.activos(host, principal)
+    cubiertos = (B.leer_certificado(host) or {}).get("nombres", [])
+    for d, suyos in _de_clientes(cubiertos, D.dominios_cliente(host, principal)).items():
+        if d not in propios:
+            nombres += [n for n in suyos if n not in nombres]
+    return nombres
 
 
-def _reemplazar(ruta, cambios):
-    with open(ruta) as f:
-        texto = f.read()
-    nuevo = texto
-    for viejo, nuevo_valor in cambios:
-        nuevo = nuevo.replace(viejo, nuevo_valor)
-    if nuevo != texto:
-        _respaldar(ruta)
-        with open(ruta, "w") as f:
-            f.write(nuevo)
-        return True
-    return False
+def _sobrantes(host, principal):
+    """Nombres de clientes con certificado propio que aún figuran en el del servidor («por-dominio»)."""
+    cubiertos = (B.leer_certificado(host) or {}).get("nombres", [])
+    propios = D.activos(host, principal)
+    return sorted(n for d, suyos in _de_clientes(cubiertos, D.dominios_cliente(host, principal)).items()
+                  if d in propios for n in suyos)
 
 
 def _vhost_correo(host):
-    ruta = f"/etc/nginx/sites-available/{host}"
+    ruta = f"{SITIOS}/{host}"
     if not os.path.exists(ruta):
-        raise ErrorDns(f"no se encontró el sitio del webmail ({ruta})")
+        raise ErrorConfiguracion(f"no se encontró el sitio del webmail ({ruta})")
     return ruta
 
 
-def _nombres_en_nginx(host, nombres):
-    """Los mail.<dominio> extra se sirven con el mismo webmail (snippet incluido tras server_name)."""
-    extra = [n for n in nombres if n.startswith("mail.") and n != host]
-    escribir(NOMBRES_NGINX, "# Generado por el panel (Certificado del correo).\n"
-             + (f"server_name {' '.join(extra)};\n" if extra else ""), 0o644)
+def _snippet(host, extra):
+    """Los mail.<dominio> extra se sirven con el mismo webmail (snippet incluido tras server_name).
+    Devuelve True si cambió algo."""
+    texto = "# Generado por el panel (Certificado del correo).\n" + (f"server_name {' '.join(extra)};\n" if extra else "")
+    try:
+        with open(NOMBRES_NGINX) as f:
+            cambiado = f.read() != texto
+    except OSError:
+        cambiado = True
+    if cambiado:
+        escribir(NOMBRES_NGINX, texto, 0o644)
     ruta = _vhost_correo(host)
     with open(ruta) as f:
         lineas = f.read().split("\n")
     incluir = f"    include {NOMBRES_NGINX};"
-    salida, cambiado = [], False
+    salida, incluido = [], False
     for i, linea in enumerate(lineas):
         salida.append(linea)
         if linea.strip() == f"server_name {host};" and (i + 1 >= len(lineas) or lineas[i + 1].strip() != incluir.strip()):
             salida.append(incluir)
-            cambiado = True
-    if cambiado:
-        _respaldar(ruta)
+            incluido = True
+    if incluido:
+        _respaldar(ruta, S.RESPALDOS_NGINX)
         with open(ruta, "w") as f:
             f.write("\n".join(salida))
+    return cambiado or incluido
+
+
+def _nombres_en_nginx(host, nombres):
+    extra = [n for n in nombres if n.startswith("mail.") and n != host]
+    _snippet(host, extra)
     ejecutar(["nginx", "-t"])
     ejecutar(["systemctl", "reload", "nginx"])
 
 
+def _nombres_por_dominio(host, principal, activos):
+    """«por-dominio»: el webmail del servidor atiende el mail.<dominio> de cada zona que todavía no tiene
+    certificado propio (provisional, con el del servidor); los que ya lo tienen van en su propio bloque."""
+    zonas = {z["zona"] for z in Z.listar()} | {principal}
+    extra = sorted({f"mail.{z}" for z in zonas} - {host} - {f"mail.{d}" for d in activos})
+    if _snippet(host, extra):
+        ejecutar(["nginx", "-t"])
+        ejecutar(["systemctl", "reload", "nginx"])
+
+
 def _usar_en_servicios(host):
-    vivo = f"/etc/letsencrypt/live/{host}"
-    cadena, llave = f"{vivo}/fullchain.pem", f"{vivo}/privkey.pem"
+    cadena, llave = B.rutas(host)
     cambios = [(SNAKEOIL[0], cadena), (SNAKEOIL[1], llave)]
     for ruta in [_vhost_correo(host), f"/etc/nginx/sites-available/{host}-admin",
-                 "/etc/nginx/sites-available/autodiscover-dominios"] + glob.glob("/etc/nginx/sites-available/mta-sts.*"):
+                 "/etc/nginx/sites-available/autodiscover-dominios",
+                 "/etc/nginx/sites-available/panel-dominio"] + glob.glob("/etc/nginx/sites-available/mta-sts.*"):
         if os.path.exists(ruta) and ".bak" not in ruta:
             _reemplazar(ruta, cambios)
     ejecutar(["nginx", "-t"])
@@ -128,59 +166,141 @@ def _usar_en_servicios(host):
     subprocess.run(["sh", GANCHO], capture_output=True, timeout=120)
 
 
-def emitir():
-    host, principal = _principal()
-    ip = servidor()["ip_correo"]
-    candidatos = _candidatos(host, principal)
-    incluidos = [n for n in candidatos if _apunta(n, ip)]
+def _emitir_servidor(host, principal, ip, modo):
+    candidatos = _candidatos_servidor(host, principal, modo)
+    incluidos = [n for n in candidatos if B.apunta(n, ip)]
     omitidos = [n for n in candidatos if n not in incluidos]
     if host not in incluidos:
         raise ErrorDns(f"{host} todavía no apunta a {ip} desde Internet: espere a que propague el DNS")
-    _nombres_en_nginx(host, incluidos)
-    os.makedirs(WEBROOT, exist_ok=True)
-    args = ["certbot", "certonly", "--webroot", "-w", WEBROOT, "--non-interactive", "--agree-tos",
-            "-m", f"postmaster@{principal}", "--cert-name", host, "--expand", "--keep-until-expiring",
-            # --reuse-key: la clave no cambia en cada renovación (necesario si algún día se publica DANE).
-            "--reuse-key", "--key-type", "ecdsa"]
-    for n in incluidos:
-        args += ["-d", n]
-    ejecutar(args, tiempo=600)
+    if modo == "compartido":
+        _nombres_en_nginx(host, incluidos)
+    else:
+        _nombres_por_dominio(host, principal, D.activos(host, principal))
+    try:
+        # Siempre con --reuse-key --key-type ecdsa (certificado_base.pedir): la clave del servidor no cambia.
+        B.pedir(host, incluidos, f"postmaster@{principal}")
+    except ErrorDns as e:
+        E.fallo(host, e)
+        raise
+    E.exito(host)
     _usar_en_servicios(host)
-    return dict(estado(), incluidos=incluidos, omitidos=omitidos)
+    return incluidos, omitidos
+
+
+def _pasada_por_dominio(host, principal, ip, forzar=False):
+    """Certificados de los dominios de cliente y su instalación por SNI. Nunca lanza por un dominio."""
+    dominios = D.pasada(host, principal, ip, forzar=forzar)
+    activos = D.activos(host, principal)
+    errores = []
+    try:
+        _nombres_por_dominio(host, principal, activos)
+    except ErrorDns as e:
+        errores.append(f"nginx (nombres del webmail): {e}")
+    sni = S.instalar(host, activos)
+    sni["errores"] = errores + sni["errores"]
+    return dominios, sni
+
+
+def emitir():
+    """Botón del panel: emite o amplía el certificado del servidor (y, en «por-dominio», los de los
+    clientes, sin esperar a los reintentos)."""
+    host, principal = _principal()
+    modo = B.modo()
+    ip = servidor()["ip_correo"]
+    incluidos, omitidos = _emitir_servidor(host, principal, ip, modo)
+    salida = {"incluidos": incluidos, "omitidos": omitidos}
+    if modo == "por-dominio":
+        dominios, sni = _pasada_por_dominio(host, principal, ip, forzar=True)
+        salida.update(pasada=dominios, sni=sni)
+        E.anotar_aviso("; ".join(sni["errores"]))
+    return dict(estado(), **salida)
 
 
 def estado():
-    host, _ = _principal()
-    pem = f"/etc/letsencrypt/live/{host}/cert.pem"
-    if not os.path.exists(pem):
-        return {"emitido": False, "linaje": host}
-    salida = ejecutar(["openssl", "x509", "-in", pem, "-noout", "-enddate", "-ext", "subjectAltName"])
-    nombres = sorted(re.findall(r"DNS:([^,\s]+)", salida))
-    vence = next((l.split("=", 1)[1] for l in salida.splitlines() if l.startswith("notAfter=")), "")
-    return {"emitido": True, "linaje": host, "nombres": nombres, "vence": vence,
-            "en_uso": ejecutar(["postconf", "-h", "smtpd_tls_cert_file"]).strip().startswith("/etc/letsencrypt/")}
+    host, principal = _principal()
+    cert = B.leer_certificado(host)
+    if not cert:
+        salida = {"emitido": False, "linaje": host}
+    else:
+        salida = {"emitido": True, "linaje": host, "nombres": cert["nombres"], "vence": cert["vence"],
+                  "en_uso": ejecutar(["postconf", "-h", "smtpd_tls_cert_file"]).strip().startswith("/etc/letsencrypt/")}
+    try:
+        salida["modo"] = B.modo()
+    except ErrorConfiguracion as e:
+        salida.update(modo="compartido", aviso=str(e))
+    if salida["modo"] == "por-dominio":
+        salida["dominios"] = D.estado(host, principal)
+    previo = E.de_linaje(host)
+    if previo.get("fallos"):
+        salida.update(error=previo.get("error", ""), espera=E.espera(host))
+    aviso = E.aviso()
+    if aviso and "aviso" not in salida:
+        salida["aviso"] = aviso["texto"]
+    return salida
+
+
+def _automatico_servidor(host, principal, ip, modo):
+    apuntan = [n for n in _candidatos_servidor(host, principal, modo) if B.apunta(n, ip)]
+    if host not in apuntan:
+        return {"accion": "nada", "motivo": f"{host} todavía no apunta a {ip} desde Internet"}
+    cubiertos = set((B.leer_certificado(host) or {}).get("nombres") or [])
+    nuevos = [n for n in apuntan if n not in cubiertos]
+    sobrantes = _sobrantes(host, principal) if modo == "por-dominio" else []
+    if not nuevos and not sobrantes:
+        return {"accion": "nada", "motivo": "el certificado ya cubre todos los nombres que apuntan aquí"}
+    falta = E.espera(host)
+    if falta:
+        return {"accion": "en-espera", "motivo": f"el último intento falló ({E.de_linaje(host).get('error', '')}); "
+                f"se reintenta en {max(1, falta // 60)} min"}
+    incluidos, omitidos = _emitir_servidor(host, principal, ip, modo)
+    return dict(estado(), accion="emitido", nuevos=nuevos, retirados=sobrantes, incluidos=incluidos, omitidos=omitidos)
 
 
 def automatico():
-    """Lo lanza el temporizador (cada 30 min): si algún nombre de correo de cualquier dominio ya apunta a este
-    servidor desde Internet y el certificado no lo cubre, lo emite o lo amplía. Así un servidor recién
-    conectado, o un dominio nuevo del panel, queda con HTTPS y autoconfiguración sin pulsar nada.
+    """Lo lanza el temporizador (cada 30 min): si algún nombre de correo ya apunta a este servidor desde
+    Internet y su certificado no lo cubre, lo emite o lo amplía. Así un servidor recién conectado, o un
+    dominio nuevo del panel, queda con HTTPS y autoconfiguración sin pulsar nada.
 
-    Solo pide a Let's Encrypt nombres que ya resuelven aquí (los fallidos cuentan para su límite)."""
-    import ipaddress
+    Solo pide a Let's Encrypt nombres que ya resuelven aquí (los fallidos cuentan para su límite), y lo
+    que falla espera cada vez más antes de reintentarse. Un error de configuración (nombre del servidor,
+    CERTIFICADO_MODO, sitio del webmail que falta…) no se arregla reintentando: se responde como aviso,
+    sin código de error, para que el temporizador no quede «failed» cada media hora; el panel lo muestra
+    en «Certificado del correo»."""
+    try:
+        return _automatico()
+    except ErrorConfiguracion as e:
+        E.anotar_aviso(str(e))
+        return {"accion": "aviso", "motivo": str(e)}
 
+
+def _ip_publica(ip):
+    return ipaddress.ip_address(ip).is_global
+
+
+def _automatico():
     try:
         ip = servidor()["ip_correo"]
     except ErrorDns:
         return {"accion": "nada", "motivo": "sin IP del servidor (Zonas DNS → Ajustes)"}
-    if not ipaddress.ip_address(ip).is_global:
+    if not _ip_publica(ip):
         return {"accion": "nada", "motivo": f"la IP del correo ({ip}) no es pública todavía"}
     host, principal = _principal()
-    apuntan = [n for n in _candidatos(host, principal) if _apunta(n, ip)]
-    if host not in apuntan:
-        return {"accion": "nada", "motivo": f"{host} todavía no apunta a {ip} desde Internet"}
-    cubiertos = set(estado().get("nombres") or [])
-    nuevos = [n for n in apuntan if n not in cubiertos]
-    if not nuevos:
-        return {"accion": "nada", "motivo": "el certificado ya cubre todos los nombres que apuntan aquí"}
-    return dict(emitir(), accion="emitido", nuevos=nuevos)
+    modo = B.modo()
+    fallo = None
+    try:
+        resultado = _automatico_servidor(host, principal, ip, modo)
+    except ErrorConfiguracion:
+        raise
+    except ErrorDns as e:
+        if modo == "compartido":
+            raise
+        fallo, resultado = e, {"accion": "error", "motivo": str(e)}
+    avisos = []
+    if modo == "por-dominio":
+        dominios, sni = _pasada_por_dominio(host, principal, ip)
+        resultado = dict(resultado, dominios=dominios, sni=sni)
+        avisos = sni["errores"]
+    E.anotar_aviso("; ".join(avisos))
+    if fallo:
+        raise fallo  # el certificado del servidor falló: código de error esta vez (después, en espera)
+    return resultado

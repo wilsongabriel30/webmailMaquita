@@ -10,7 +10,7 @@
 
 **A full-featured webmail client with a legal compliance and eDiscovery layer, for Postfix/Dovecot-based mail platforms.**
 
-**Today it is also a complete hosting server — email, websites, databases, DNS and Drive — and a [free alternative to cPanel](docs/CPANEL-ALTERNATIVE.md).** Current version: [v1.11.1](https://github.com/wilsongabriel30/webmailMaquita/releases/tag/v1.11.1).
+**Today it is also a complete hosting server — email, websites, databases, DNS and Drive — and a [free alternative to cPanel](docs/CPANEL-ALTERNATIVE.md).** Current version: [v1.11.2](https://github.com/wilsongabriel30/webmailMaquita/releases/tag/v1.11.2).
 
 Built and maintained by [Fundación Maquita](https://example.org), a non-profit organization in Ecuador.
 
@@ -62,7 +62,7 @@ Maquita Webmail solves all four.
 
 ## Current status
 
-**In production since 2024, free software under continuous development.** Maquita Webmail has been in production at Fundación Maquita since 2024: it started as a webmail and grew with the panel, the Drive and full hosting. Current version: v1.11.1. The project history, with dates, is in [ROADMAP.md](ROADMAP.md#historia-del-proyecto) (Spanish).
+**In production since 2024, free software under continuous development.** Maquita Webmail has been in production at Fundación Maquita since 2024: it started as a webmail and grew with the panel, the Drive and full hosting. Current version: v1.11.2. The project history, with dates, is in [ROADMAP.md](ROADMAP.md#historia-del-proyecto) (Spanish).
 
 - 1000+ tracked files
 - 850+ API endpoints

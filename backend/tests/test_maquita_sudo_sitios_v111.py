@@ -62,3 +62,29 @@ def test_formas_rechazadas(args):
 def test_solo_el_panel():
     _no("git-estado", "example.org", usuario="www-data")
     _no("recursos", "example.org", usuario="nadie")
+
+
+# --- Autenticación de git (repositorios privados): validador aparte, deploy/sitios/lib/sudo_git_credencial.py ---
+
+
+def test_credencial_formas_permitidas():
+    assert _ok("git-credencial", "example.org") == ["git-credencial", "example.org"]
+    assert _ok("git-credencial-borrar", "example.org") == ["git-credencial-borrar", "example.org"]
+    subida = "0123456789abcdef0123456789abcdef.cred"
+    assert _ok("git-credencial-guardar", "example.org", subida) == ["git-credencial-guardar", "example.org", subida]
+
+
+@pytest.mark.parametrize("args", [
+    ["git-credencial"], ["git-credencial", "Example.org"], ["git-credencial", "example.org", "x"],
+    ["git-credencial-guardar", "example.org"], ["git-credencial-guardar", "example.org", "../x.cred"],
+    ["git-credencial-guardar", "example.org", "0123456789abcdef0123456789abcdef.txt"],
+    ["git-credencial-guardar", "example.org", b64({"metodo": "token-https", "token": "token-ficticio-de-prueba"})],
+    ["git-credencial-borrar", "example.org", "example.org"], ["git-credencial-otra", "example.org"],
+])
+def test_credencial_formas_rechazadas(args):
+    _no(*args)
+
+
+def test_credencial_sin_el_validador_no_pasa(monkeypatch):
+    monkeypatch.setattr(ms.os.path, "isfile", lambda ruta: False)
+    _no("git-credencial", "example.org")

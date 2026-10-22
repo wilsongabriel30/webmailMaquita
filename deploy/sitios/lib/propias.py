@@ -1,8 +1,10 @@
 """Aplicaciones propias de un sitio: estáticas (HTML/CSS/JS), Python (WSGI o ASGI) y Node.js.
 
 - El código va en /srv/sitios/<dominio>/app/: se sube por SFTP o se clona de un repositorio git
-  público por HTTPS («Desplegar» trae los cambios). Una estática sin repositorio se sirve desde
-  «publico», como cualquier sitio, pero sin PHP.
+  («Desplegar» trae los cambios), público por HTTPS o privado con la autenticación del sitio
+  (git_clave.py: clave de despliegue de solo lectura, clave propia, token o usuario y contraseña;
+  se configura antes de crear la aplicación con las órdenes git-credencial…). Una estática sin
+  repositorio se sirve desde «publico», como cualquier sitio, pero sin PHP.
 - Python y Node.js corren como servicio de systemd con el usuario del sitio, encerrados (ver
   propias_servicio.py), escuchando solo en 127.0.0.1:$PORT; nginx les pasa las peticiones con el
   cortafuegos de aplicación delante. Sin código propio todavía, se deja una aplicación de ejemplo.
@@ -16,11 +18,11 @@ import re
 import shutil
 import time
 
+import git_clave as gc
 import propias_servicio as srv
 from comun import PAPELERA, ErrorSitio, ejecutar, guardar_meta, leer_meta
 
 TIPOS = ("estatico", "python", "node")
-RE_GIT = re.compile(r"^https://[A-Za-z0-9.-]+(?::\d{1,5})?/[A-Za-z0-9._~/-]{1,300}$")
 RE_RAMA = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,99}$")
 RE_CARPETA = re.compile(r"^[A-Za-z0-9._-]{1,60}(?:/[A-Za-z0-9._-]{1,60}){0,5}$")
 RE_ENTRADA_PY = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]{0,99}:[A-Za-z_][A-Za-z0-9_]{0,59}$")
@@ -67,8 +69,7 @@ def _validar(dominio, tipo, conf):
     propia = {"tipo": tipo}
     git = (conf.get("git") or "").strip()
     if git:
-        if not RE_GIT.match(git) or ".." in git:
-            raise ErrorSitio("repositorio no válido: use la dirección HTTPS de un repositorio público (sin usuario ni clave)")
+        gc.validar_repo(git)  # https://, ssh:// o usuario@servidor:ruta; nunca con credenciales dentro
         propia["git"] = git
         rama = (conf.get("rama") or "").strip()
         if rama:
@@ -111,8 +112,10 @@ def _validar(dominio, tipo, conf):
 
 
 def _git(meta, *args, cwd=None):
-    return ejecutar(["git", *args], como=meta["usuario"], cwd=cwd or meta["app_dir"], tiempo=600,
-                    env_extra={"HOME": meta["tmp"], "GIT_TERMINAL_PROMPT": "0"})
+    """git con el usuario del sitio y la autenticación elegida (la credencial nunca va en la dirección ni en
+    .git/config: git la recibe para cada orden)."""
+    env = {"HOME": meta["tmp"], **gc.entorno(meta, meta["propia"]["git"], "ninguna")}
+    return gc.correr_git(meta, list(args), env, cwd=cwd or meta["app_dir"], tiempo=600)
 
 
 def _preparar_carpeta(meta, tipo):
@@ -161,6 +164,8 @@ def crear(dominio, tipo, conf):
     if meta.get("app"):
         raise ErrorSitio("el sitio ya tiene una aplicación: quítela antes")
     propia = _validar(dominio, tipo, conf)
+    if propia.get("git"):  # el método de autenticación sirve para esa dirección (antes de crear nada)
+        gc.comprobar_metodo(gc.metodo(meta, "ninguna"), gc.validar_repo(propia["git"])[0])
     meta["app_dir"] = os.path.join(meta["base"], "app")
     usa_carpeta = tipo != "estatico" or propia.get("git")
     if usa_carpeta and os.path.exists(meta["app_dir"]):
@@ -169,6 +174,7 @@ def crear(dominio, tipo, conf):
         if usa_carpeta:
             _preparar_carpeta(meta, tipo)
             if propia.get("git"):
+                meta["propia"] = propia  # _git toma de aquí el repositorio
                 _git(meta, "clone", "--depth", "1", *(["--branch", propia["rama"]] if propia.get("rama") else []),
                      "--", propia["git"], ".")
             else:
@@ -300,6 +306,7 @@ def quitar(dominio):
         shutil.move(meta["app_dir"], papelera)
         ejecutar(["chown", "-R", "root:root", papelera])
     shutil.rmtree(srv.ruta_venv(meta), ignore_errors=True)
+    gc.olvidar(meta)  # la clave o la credencial del repositorio: quítela también en el servidor de git
     meta["app"] = None
     meta.pop("propia", None)
     meta.pop("app_dir", None)

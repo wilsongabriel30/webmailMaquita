@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { SectionHelp } from "../components/SectionHelp";
+import { ArchivosSistema, type ArchivosSistemaInforme, totalesArchivos } from "./actualizaciones/ArchivosSistema";
 
 interface Disponible { buscado: string; canal: string; ref: string | null; nueva: boolean; commit?: string; firmada?: boolean | null; notas?: string; cambios?: string[] }
 interface Progreso {
   estado: string; paso?: string; desde: string; hasta: string; inicio: string; fin?: string; error?: string;
-  version?: string; fallos_antes?: number; fallos_despues?: number; registro?: string;
+  version?: string; fallos_antes?: number; fallos_despues?: number; registro?: string; archivos_sistema?: ArchivosSistemaInforme;
 }
 interface Estado {
   actual: { commit: string; version: string; cambios_locales: string[] };
@@ -63,6 +64,7 @@ export function Actualizaciones() {
       <SectionHelp titulo="Actualizaciones" items={[
         { titulo: "De dónde vienen", desc: "Del repositorio del proyecto. En el canal «estable» solo se instalan versiones (vX.Y.Z) firmadas por el equipo: una versión sin firma válida no se instala nunca, aunque aparezca en el repositorio." },
         { titulo: "Qué hace al instalar", desc: "Valida el servidor, respalda la base de datos, cambia el código, aplica migraciones, dependencias, frontends del correo y del panel, las secciones instaladas y los ajustes del servidor, reinicia y vuelve a validar. Si quedan más fallos que antes, vuelve sola a la versión anterior." },
+        { titulo: "Archivos del sistema", desc: "Al terminar se muestra qué archivos de configuración del servidor (DNS, nginx, fail2ban, correo, systemd, programas instalados, .env) creó, cambió o borró la actualización. Si alguno tenía un parche hecho a mano, se marca «tenía cambios locales» y su contenido anterior queda en una copia para recuperarlo." },
         { titulo: "Automático", desc: "Cada noche (03:30 más un margen al azar) busca y, si hay versión nueva firmada, la instala. El correo se corta unos 30 segundos al reiniciar." },
       ]} />
 
@@ -100,6 +102,8 @@ export function Actualizaciones() {
         </div>
       )}
 
+      {p?.archivos_sistema && <ArchivosSistema informe={p.archivos_sistema} />}
+
       <div className={caja}>
         <h2 className="font-semibold text-ms-gray-130">Configuración</h2>
         <label className="text-sm flex items-center gap-2"><input type="checkbox" checked={est.config.automatico} disabled={ocupado} onChange={(e) => guardar({ automatico: e.target.checked })} />
@@ -115,7 +119,8 @@ export function Actualizaciones() {
       {est.historial.length > 1 && (
         <div className={caja}>
           <h2 className="font-semibold text-ms-gray-130">Historial</h2>
-          <ul className="text-sm space-y-1">{est.historial.map((h, i) => <li key={i} className="flex gap-2 items-center"><Etiqueta estado={h.estado} /> {h.desde} → {h.hasta} <span className="text-xs text-ms-gray-60">{h.inicio}</span></li>)}</ul>
+          <ul className="text-sm space-y-1">{est.historial.map((h, i) => <li key={i} className="flex gap-2 items-center"><Etiqueta estado={h.estado} /> {h.desde} → {h.hasta} <span className="text-xs text-ms-gray-60">{h.inicio}</span>
+            {h.archivos_sistema && <span className={`text-xs ${h.archivos_sistema.cambios_locales ? "text-ms-red" : "text-ms-gray-60"}`}>· {totalesArchivos(h.archivos_sistema)}</span>}</li>)}</ul>
         </div>
       )}
       {mensaje && <p className="text-sm text-ms-red">{mensaje}</p>}

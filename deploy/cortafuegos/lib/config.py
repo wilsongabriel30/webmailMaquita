@@ -155,6 +155,23 @@ def bases():
     return salida
 
 
+PROXY_RUTA = os.path.join(DIR, "proxy.json")
+PUERTOS_PROXY = "4443,4444"
+
+
+def proxy():
+    """Entradas del proxy de confianza (puertos 4443 y 4444, con PROXY protocol): SOLO para las IP o redes de
+    PROXY_CONFIABLE. Lo escribe deploy/hardening/proxy/instalar.sh (ajuste 75) desde organizacion.env y lo borra
+    si PROXY_CONFIABLE se quita. Una red /0 o lo que no sea válido se ignora: nunca abre a todos."""
+    try:
+        with open(PROXY_RUTA) as f:
+            d = json.load(f)
+        origenes = [red(o) for o in (d.get("origenes") or [])[:20]]
+    except (OSError, ValueError, AttributeError, TypeError, ErrorCortafuegos):
+        return []
+    return [o for o in origenes if ipaddress.ip_network(o).prefixlen > 0]
+
+
 def leer_ruta(ruta):
     with open(ruta) as f:
         return validar(json.load(f))

@@ -86,6 +86,8 @@ Despliegue desde git de los sitios PHP y CPU y memoria por sitio (v1.11; detalle
   maquita-sitios git-desplegar <dominio> <panel|gancho>   en segundo plano (unidad sitio-git-<usuario>)
   maquita-sitios git-volver <dominio> <AAAAMMDD-HHMMSS>
   maquita-sitios git-quitar <dominio> <dominio>
+  maquita-sitios git-credencial|git-credencial-borrar <dominio>   autenticación de git (sitios PHP y aplicaciones propias)
+  maquita-sitios git-credencial-guardar <dominio> <subida .cred en /var/lib/maquita-sitios/subidas>   la prueba y la guarda
   maquita-sitios recursos <dominio>       CPU y memoria de las últimas 24 horas
 Solo desde el sistema (no las admite maquita-sudo):
   maquita-sitios ftp-montar               vuelve a montar las carpetas de las cuentas FTP adicionales (al arrancar)
