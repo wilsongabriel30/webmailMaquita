@@ -4,14 +4,15 @@
 import { api } from '../api.js';
 import { el, agregar, aviso, campo, casilla, lista } from '../ui.js';
 import { confirmar, enRutaSitio, hacer, mensajes, nombreApp } from './sitio_comun.js';
+import { cajaAutenticacion } from './sitio_git_autenticacion.js';
 
 const TIPOS = [{ valor: 'node', texto: 'Node.js' }, { valor: 'python', texto: 'Python (WSGI o ASGI)' }, { valor: 'estatico', texto: 'Estática (HTML, CSS y JavaScript)' }];
 const ACTIVO = { active: ['si', 'En marcha'], inactive: ['no', 'Detenida'], failed: ['no', 'Con errores'], activating: ['aviso-marca', 'Arrancando'], nginx: ['si', 'La sirve nginx'] };
 
 function crear(ctx, ruta, msj, alCrear) {
   const tipo = lista('Tipo', TIPOS);
-  const git = campo('Repositorio git (opcional)', { type: 'url', maxlength: 300, placeholder: 'https://servidor/organizacion/app.git' },
-    'Público, por https://. Sin repositorio se deja una aplicación de ejemplo y subes tu código por SFTP a la carpeta «app».');
+  const git = campo('Repositorio git (opcional)', { type: 'text', maxlength: 300, placeholder: 'git@github.com:organizacion/app.git', autocomplete: 'off' },
+    'Por SSH o https://; si es privado, elige abajo en «Autenticación» cómo entra el servidor ANTES de crear la aplicación. Sin repositorio se deja una aplicación de ejemplo y subes tu código por SFTP a la carpeta «app».');
   const rama = campo('Rama', { type: 'text', maxlength: 100, placeholder: 'la principal del repositorio' });
   const entrada = campo('Entrada', { type: 'text', maxlength: 120 });
   const modo = lista('Modo', [{ valor: 'wsgi', texto: 'WSGI (Flask, Django)' }, { valor: 'asgi', texto: 'ASGI (FastAPI, Starlette)' }]);
@@ -27,7 +28,7 @@ function crear(ctx, ruta, msj, alCrear) {
   tipo.entrada.addEventListener('change', ajustar);
   ajustar();
   const boton = el('button', { clase: 'boton', type: 'submit' }, 'Crear la aplicación');
-  return el('form', { alSubmit: async (e) => {
+  const form = el('form', { alSubmit: async (e) => {
     e.preventDefault();
     const t = tipo.entrada.value;
     const datos = { tipo: t, git: git.entrada.value.trim(), rama: rama.entrada.value.trim() };
@@ -39,6 +40,8 @@ function crear(ctx, ruta, msj, alCrear) {
     if (r) alCrear();
   } }, el('div', { clase: 'rejilla' }, tipo.nodo, git.nodo, rama.nodo, entrada.nodo, modo.nodo, carpeta.nodo), spa.nodo,
   el('div', { clase: 'pie-form' }, boton));
+  form.repo = git.entrada;
+  return form;
 }
 
 function variables(ruta, e, msj, alGuardar) {
@@ -71,9 +74,10 @@ export async function pestanaPropia(ctx, mensaje) {
     return aviso('nota', `Este sitio ya tiene ${nombreApp(ctx.s.app)}. Las aplicaciones Node.js y Python van en un sitio vacío: crea un subdominio para ella.`);
   }
   if (ctx.s.app !== 'propia') {
+    const form = crear(ctx, ruta, msj, () => ctx.recargar());
     return agregar(raiz, el('h2', null, 'Aplicación Node.js, Python o estática'),
       el('p', { clase: 'ayuda' }, 'Corre con el usuario del sitio, con hasta 768 MB de memoria y 1,5 núcleos, detrás del cortafuegos de aplicación. Cuenta para el espacio en disco del dominio.'),
-      msj.nodo, crear(ctx, ruta, msj, () => ctx.recargar()));
+      msj.nodo, form, await cajaAutenticacion(ctx, () => form.repo.value));
   }
   const e = await api.get(ruta);
   const [clase, texto] = ACTIVO[e.activo] || ['aviso-marca', e.activo || '—'];
@@ -96,6 +100,7 @@ export async function pestanaPropia(ctx, mensaje) {
       el('span', { clase: 'marca ' + clase }, texto)),
     el('div', { clase: 'fila' }, e.git || e.tipo !== 'estatico' ? boton('desplegar', e.git ? 'Traer cambios y desplegar' : 'Instalar dependencias y reiniciar', 'Desplegando (puede tardar unos minutos)…') : null, ...marcha),
     msj.nodo,
+    e.git ? el('details', { clase: 'caja' }, el('summary', null, 'Autenticación del repositorio'), await cajaAutenticacion(ctx, () => e.git)) : null,
     e.tipo === 'estatico' ? null : variables(ruta, e, msj, recargar),
     e.registros ? el('details', { clase: 'caja' }, el('summary', null, 'Registros de la aplicación'), el('pre', { clase: 'salida' }, e.registros)) : null,
     el('div', { clase: 'pie-form' }, quitar));

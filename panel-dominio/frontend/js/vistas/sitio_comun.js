@@ -60,7 +60,7 @@ export async function descargar(pedir, ver) {
 /** Bytes en KB, MB o GB, para listas de archivos y copias. */
 export const tamano = (b) => (b === null || b === undefined ? '' : b < 1024 ? `${b} B` : b < 1048576 ? `${Math.round(b / 1024)} KB` : megas(b / 1048576));
 
-async function copiar(texto, boton) {
+export async function copiar(texto, boton) {
   try { await navigator.clipboard.writeText(texto); boton.textContent = 'Copiado'; }
   catch { boton.textContent = 'Selecciónalo y cópialo a mano'; }
   setTimeout(() => { boton.textContent = 'Copiar'; }, 2500);

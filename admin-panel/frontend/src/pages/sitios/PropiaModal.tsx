@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
+import { AutenticacionGit } from "./AutenticacionGit";
 
 interface Estado {
   tipo: string; git?: string; rama?: string; carpeta?: string; spa?: boolean; modo?: string; entrada?: string;
@@ -56,6 +57,7 @@ export function PropiaModal({ dominio, onCerrar }: { dominio: string; onCerrar: 
                 {est.carpeta_servida && est.git && <> · se publica <code>{est.carpeta_servida}</code></>}{est.spa && " · una sola página"}</p>
               {est.puerto_publico && <p className="text-xs text-ms-gray-90">Puerto público {est.protocolo} {est.puerto_publico} (cortafuegos: {est.cortafuegos || "—"}).</p>}
             </div>
+            {est.git && <AutenticacionGit dominio={dominio} repo={est.git} />}
             <div className="flex flex-wrap gap-2">
               {(est.git || servicio) && <button disabled={!!ocupado} onClick={() => accion("desplegar", est.git ? "Trayendo los cambios e instalando dependencias…" : "Instalando dependencias y reiniciando…")} className="px-3 py-1.5 bg-ms-blue text-white rounded text-sm disabled:opacity-50" title={est.git ? "git pull, dependencias y reinicio" : "Dependencias (requirements.txt / package.json) y reinicio, tras subir cambios por SFTP"}>Desplegar</button>}
               {servicio && <>
