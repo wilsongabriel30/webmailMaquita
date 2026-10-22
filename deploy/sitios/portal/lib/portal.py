@@ -74,7 +74,7 @@ ORDENES_LECTURA = frozenset({
     "listar", "catalogo", "revisar", "tareas", "tarea-registro", "bases", "avanzado", "avanzado-ver",
     "php-estado", "dns-ver", "web", "ftp-cuentas", "registros", "estadisticas", "disponibilidad", "copias",
     "archivos-listar", "archivos-papelera", "bases-usuarios", "waf", "waf-bloqueos", "ssh-claves",
-    "propia-estado", "git-estado", "recursos", "servidor-info", "ddns-ver",
+    "propia-estado", "git-estado", "git-credencial", "recursos", "servidor-info", "ddns-ver",
 })
 
 
