@@ -24,7 +24,7 @@ export function EstadoWazuh() {
             {datos.manager && <span className="text-ms-gray-90">al manager {datos.manager}</span>}
           </p>
           <p className="text-xs text-ms-gray-90">
-            Versión {datos.version || "?"} · último contacto: {datos.ultimo_contacto || "—"} · bloque de Maquita en ossec.conf: {datos.reglas_maquita ? "sí" : "no (vuelva a ejecutar instalar-app.sh wazuh)"}
+            Versión {datos.version || "?"} · último contacto: {datos.ultimo_contacto || "—"} · bloque propio en ossec.conf: {datos.bloque_propio ? "sí" : "no (vuelva a ejecutar instalar-app.sh wazuh)"}
           </p>
           {!datos.conectado && <p className="text-xs text-ms-red">Compruebe que el manager acepta conexiones en 1514/TCP (eventos) y 1515/TCP (registro) y la clave de registro. Registro: /var/ossec/logs/ossec.log.</p>}
         </div>

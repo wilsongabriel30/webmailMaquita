@@ -48,7 +48,7 @@ def test_estado_conectado(tmp_path):
     e = _estado(tmp_path)
     assert e["instalado"] and e["conectado"] and e["estado"] == "connected"
     assert e["manager"] == "siem.example.org" and e["ultimo_contacto"] == "2026-10-21 10:00:00"
-    assert e["reglas_maquita"] is True
+    assert e["bloque_propio"] is True
 
 
 def test_estado_solo_acepta_estado():

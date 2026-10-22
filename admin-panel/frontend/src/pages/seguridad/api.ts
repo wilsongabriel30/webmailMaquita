@@ -50,7 +50,7 @@ export interface ConfigTableros {
 
 export interface EstadoWazuh {
   instalado: boolean; activo?: boolean; estado?: string; conectado?: boolean; ultimo_contacto?: string;
-  manager?: string; version?: string; reglas_maquita?: boolean;
+  manager?: string; version?: string; bloque_propio?: boolean;
 }
 
 export function consulta(r: Rango, extra: Record<string, string> = {}): string {

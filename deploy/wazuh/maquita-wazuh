@@ -65,7 +65,7 @@ def estado():
         "mensajes_enviados": campos.get("msg_sent", ""),
         "manager": m.group(1) if m else "",
         "version": _version(),
-        "reglas_maquita": "<!-- maquita: inicio -->" in conf,
+        "bloque_propio": "<!-- maquita: inicio -->" in conf,
     }
 
 
