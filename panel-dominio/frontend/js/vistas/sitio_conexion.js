@@ -4,6 +4,7 @@ import { api } from '../api.js';
 import { el, campo } from '../ui.js';
 import { confirmar, enRutaSitio, hacer, mensajes, unaVez } from './sitio_comun.js';
 import { seccionCuentasFtp } from './sitio_ftp_cuentas.js';
+import { seccionClavesSsh } from './sitio_claves_ssh.js';
 
 export function pestanaHttps(ctx) {
   const { s, sitio } = ctx;
@@ -54,5 +55,6 @@ export function pestanaFtp(ctx) {
     })()) : el('div', { clase: 'fila' }, boton('Activar y generar la clave', 'activar', 'boton')),
     s.ftp && s.usuario_ftp ? el('p', { clase: 'ayuda' }, 'Usuario: ', el('code', null, s.usuario_ftp), '. «Nueva clave» invalida la anterior.') : null,
     msj.nodo,
-    seccionCuentasFtp(ctx));
+    seccionCuentasFtp(ctx),
+    seccionClavesSsh(ctx));
 }
