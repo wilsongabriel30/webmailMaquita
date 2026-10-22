@@ -7,6 +7,10 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.11.1] - 2026-10-22
+
+Correcciones pedidas por Andes tras instalar la 1.11.0: el Editor de PDF y los Tableros vuelven a abrir con la sesión del webmail, llevan el nombre de la marca configurada, «Nuevo → Documento» del Drive funciona y nginx sirve el webmail como servidor por defecto.
+
 ### Corregido
 - **Editor de PDF y Tableros respondían 401 a quien tenía la sesión abierta** (pedido de Andes; desde v1.8.2): su `auth_drive.py` comprobaba en Redis `imap_pass:<usuario>`, y desde el 12/10/2026 el webmail guarda la sesión como `imap_pass:<usuario>:<sid>`. Ahora, si el token trae `sid`, vale solo la clave de esa sesión (una sesión cerrada o revocada no revive por otra ni por la clave antigua); si no lo trae, la clave antigua o cualquier `imap_pass:<usuario>:*`, buscada con SCAN, MATCH (comodines escapados) y COUNT acotado, nunca KEYS. `auth_drive.py` es idéntico en las dos aplicaciones y una prueba falla si divergen.
 - Misma comprobación vieja en otros dos sitios: las **invitaciones a reuniones** (`backend/app/meetings/router.py`) leían `imap_pass:<usuario>` y no salían nunca, sin aviso; ahora usan la credencial de la sesión (`get_user_password`, con el usuario de SMTP de las sesiones impersonadas). Y `maquita-contener lock` solo borraba `imap_pass:<usuario>`, así que no cerraba ninguna sesión: ahora borra también `imap_pass`, `imap_master` y `sess` de cada `sid` (SCAN) y `sids:<usuario>`.
@@ -17,6 +21,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 - `deploy-webmail.sh`: la comprobación final prueba el nombre configurado y el del equipo, también contra el propio equipo, y si falla dice a dónde redirige y qué hacer.
 - `instalar-app.sh bi` se detiene, con el remedio, en una CPU sin x86-64-v2 (VM de Proxmox con `kvm64`), donde NumPy no arranca; también avisa si `maquita-bi` no queda activo.
 - Guía de OIDC: `claims_policies` es opcional; Authelia 4.38 no lo conoce y el panel pide los datos a `userinfo`.
+
+### Al actualizar
+- El actualizador aplica los ajustes 73 (nginx) y 74 (Redis de las aplicaciones) y reinicia el Almacén, el Editor de PDF y los Tableros. Si los Tableros no arrancan en una VM de Proxmox, cambie su CPU a «host» (`qm set <vmid> --cpu host`).
 
 ## [1.11.0] - 2026-10-21
 
