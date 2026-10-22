@@ -32,16 +32,16 @@ foreign panels and clouds without losing features.
 | Disk usage per site, databases and backups, with per-domain quotas | ✅ |
 | Password-protected directories | ✅ |
 | Backups: clients create, download and restore their site and databases | ✅ |
-| Git deployment | ✅ custom apps · ⏳ PHP sites (v1.11) |
+| Git deployment | ✅ custom apps and PHP sites (deploy key, webhook and rollback) |
 
 ### Domains and DNS
 
 | Feature | Status |
 |---|---|
-| Domains, subdomains and domain aliases | ✅ (aliases from the portal: ⏳ v1.11) |
+| Domains, subdomains and domain aliases | ✅ (aliases from the portal too) |
 | 301/302 redirects for a path or a whole domain | ✅ |
 | DNS zone editor (own DNS server), with mail records protected | ✅ |
-| Dynamic DNS | ⏳ v1.11 |
+| Dynamic DNS | ✅ (dyndns2: routers, ddclient, inadyn) |
 
 ### Email
 
@@ -85,7 +85,7 @@ foreign panels and clouds without losing features.
 | Scheduled tasks (cron) | ✅ |
 | Custom error pages (403, 404, 500, 502, 503) | ✅ |
 | gzip/brotli compression and caching, tuned for rural and satellite links | ✅ |
-| Node.js and Python apps | ✅ general panel · ⏳ portal (v1.11) |
+| Node.js and Python apps | ✅ general panel and portal (with memory and CPU limits) |
 | Migration from another host (package and .sql dump) | ✅ |
 | Visual page builder | Later phase: free alternative (GrapesJS); Sitejet is proprietary and out of scope |
 
@@ -96,8 +96,8 @@ foreign panels and clouds without losing features.
 | Visitor and bandwidth statistics (GoAccess, no browser tracking) | ✅ |
 | Site and PHP error/access log viewer | ✅ |
 | Site-down email alerts (checked every 5 minutes, with certificate days left) | ✅ |
-| CPU and memory per site | ⏳ v1.11 |
-| Server information in the portal | ⏳ v1.11 |
+| CPU and memory per site | ✅ (last 24 h chart) |
+| Server information in the portal | ✅ |
 
 ## What cPanel does not include
 

@@ -7,6 +7,44 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+**Al actualizar:** los ajustes `69-cpu-y-memoria-de-los-sitios.sh` (temporizador `sitios-recursos`) y
+`70-git-y-dns-dinamico.sh` (git, rsync y ssh-keygen; carpetas de secretos; rutas públicas `/git-despliegue/` y
+`/nic/update` en el nginx del correo, con respaldo y vuelta atrás) se aplican con `deploy/ajustes/aplicar-ajustes.sh
+--aplicar` (el actualizador lo hace solo). Guía: [docs/PORTAL-V1.11.md](docs/PORTAL-V1.11.md).
+
+### Añadido
+- **Alias de dominio desde el portal** (pestaña «Dominios» de cada sitio): hasta 10, solo dentro de los dominios
+  asignados al cliente; los reservados dan 403 y los que ya usa otro sitio, 409 sin decir de cuál. Con HTTPS, el
+  certificado se amplía. `maquita-sudo` admite ahora listas de alias de más de 300 caracteres (antes, 10 alias
+  largos se rechazaban también en el panel general).
+- **Despliegue desde git de los sitios PHP**, en el portal (pestaña «Git») y en el panel general («Archivos y
+  datos» → «Git»): repositorio por ssh o https, rama, carpeta que se publica, carpeta que sirve la web y archivos
+  que nunca se tocan; clave de despliegue ed25519 por sitio (se muestra la pública); botón «Desplegar» en segundo
+  plano (unidad `sitio-git-<usuario>`); gancho con secreto para desplegar con cada push (GitHub, Gitea, Forgejo,
+  Gogs y GitLab), comprobado en root por el intermediario del portal; `git clone` y `rsync --checksum
+  --delay-updates --delete-delay --safe-links` con el usuario del sitio, sin ganchos de git y solo contra
+  servidores con dirección pública; copia del sitio antes del primer despliegue; registro de los últimos 10
+  despliegues y las 3 últimas versiones guardadas para volver atrás (`deploy/sitios/lib/git_sitio.py`,
+  `git_despliegue.py`, `ordenes_v111.py`).
+- **Aplicaciones Node.js, Python y estáticas desde el portal** (pestaña «Node.js y Python»), las mismas del panel
+  general con sus límites (768 MB, 1,5 núcleos, 256 tareas): sin puerto público, con git solo desde Internet y
+  contando para el disco del dominio; de las variables de entorno solo los nombres van a la auditoría.
+- **CPU y memoria por sitio** (panel y portal, pestaña «CPU y memoria»): el temporizador `sitios-recursos` mide
+  cada 5 minutos la unidad de systemd de la aplicación (grupo de control) y el resto de los procesos del usuario del
+  sitio (pool de PHP-FPM, tareas) en `/proc`, con memoria PSS; 24 horas por sitio y gráfico SVG sin bibliotecas
+  (`deploy/sitios/lib/recursos.py`).
+- **Información del servidor en el portal**: versiones de PHP, rutas, IP compartida, servidores de nombres de los
+  dominios del cliente, cuotas, puertos de FTP y SFTP y servidores IMAP y SMTP, sin datos de otros dominios.
+- **DNS dinámico**: fichas por nombre dentro de la zona de un dominio asignado (hasta 20), cada una con su usuario
+  y su contraseña (hash SHA-256 de una ficha al azar de 144 bits), y `https://<servidor>/nic/update` compatible
+  con dyndns2 (ddclient, inadyn, routers), con autenticación básica y como mucho 10 actualizaciones cada 10
+  minutos por ficha. Cambia el registro A o AAAA por `maquita-dns`, sin tocar `deploy/dns`.
+- Órdenes nuevas del intermediario (`ordenes_dominios.py`, `ordenes_propias.py`, `ordenes_git.py`,
+  `ordenes_servidor.py`, `ordenes_ddns.py`, juntas en `v111.py`) y dos sin sesión con su propia prueba
+  (`publico.py`); rutas del portal en `app/sitios/` y `app/publico.py`. Pruebas en
+  `backend/tests/test_sitios_git.py`, `test_sitios_recursos.py`, `test_sitios_portal_v111.py`,
+  `test_maquita_sudo_sitios_v111.py` y `panel-dominio/backend/tests/test_sitios_v111.py`.
+
 ## [1.10.0] - 2026-10-21
 
 Hospedaje completo: funciones web, cuentas FTP adicionales, archivos y datos por sitio, en el panel general y en el portal del cliente. ActiveSync 16.1 (borradores del teléfono en el servidor) y libreta de la organización en los teléfonos. Probado de punta a punta en un servidor con portal y sitios (`prueba_aislamiento.py` y `prueba_mi_sitio.py`, con el bloque de la v1.10) y con teléfonos Android reales.
