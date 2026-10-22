@@ -12,7 +12,10 @@ from app.sitios import (
     avanzado,
     baja,
     bases,
+    bases_usuarios,
+    claves_ssh,
     copias,
+    cortafuegos,
     datos,
     descargas,
     ficha,
@@ -29,5 +32,5 @@ router = APIRouter()
 # El orden importa: /api/sitios/dns/…, /api/sitios/resumen y /api/sitios/descargas/… van antes que
 # /api/sitios/{sitio}/…
 for _modulo in (zona, inicio, descargas, ficha, aplicacion, https_ftp, tareas, bases, avanzado, paquete, baja,
-                web, ftp_cuentas, archivos, datos, copias):
+                web, ftp_cuentas, archivos, datos, copias, bases_usuarios, cortafuegos, claves_ssh):
     router.include_router(_modulo.router)

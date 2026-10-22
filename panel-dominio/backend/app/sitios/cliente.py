@@ -31,7 +31,11 @@ _LARGAS = {"app": 1190, "paquete": 1190, "actualizar": 900, "base-borrar": 600, 
                             "archivos-descomprimir", "archivos-borrar", "archivos-vaciar"), 1190),
            **dict.fromkeys(("web-redirecciones", "web-errores", "web-hotlink", "web-bloqueo", "web-optimizacion",
                             "web-privado-agregar", "web-privado-quitar", "web-purgar", "ftp-cuenta-crear",
-                            "ftp-cuenta-clave", "ftp-cuenta-quitar", "web"), 130)}
+                            "ftp-cuenta-clave", "ftp-cuenta-quitar", "web"), 130),
+           # v1.11: bases, cortafuegos de aplicaciones y claves SSH (el intermediario espera 120 s a maquita-sitios).
+           **dict.fromkeys(("bases-usuarios", "base-usuario-crear", "base-usuario-permisos", "base-usuario-clave",
+                            "base-usuario-borrar", "base-usuario-remoto", "waf", "waf-guardar", "waf-bloqueos",
+                            "ssh-claves", "ssh-clave-agregar", "ssh-clave-borrar"), 130)}
 ORDENES = {
     "listar", "catalogo", "crear", "app", "entrar", "clave-admin", "revisar", "actualizar", "terminar",
     "ssl", "ftp", "tareas", "tareas-guardar", "tarea-ejecutar", "tarea-registro",
@@ -47,6 +51,9 @@ ORDENES = {
     "archivos-listar", "archivos-subir", "archivos-descargar", "archivos-carpeta", "archivos-mover", "archivos-copiar",
     "archivos-descomprimir", "archivos-borrar", "archivos-comprimir", "archivos-permisos", "archivos-papelera",
     "archivos-recuperar", "archivos-vaciar",
+    # v1.11: usuarios de bases con permisos y acceso remoto, cortafuegos de aplicaciones y claves SSH.
+    "bases-usuarios", "base-usuario-crear", "base-usuario-permisos", "base-usuario-clave", "base-usuario-borrar",
+    "base-usuario-remoto", "waf", "waf-guardar", "waf-bloqueos", "ssh-claves", "ssh-clave-agregar", "ssh-clave-borrar",
 }
 
 
