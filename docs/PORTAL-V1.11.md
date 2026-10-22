@@ -53,7 +53,9 @@ para las aplicaciones Node.js o Python, que tienen su propio «Desplegar»).
    aplicación: `wp-content/uploads`, `storage`…). Siempre se conservan `.well-known` y el archivo de IndexNow.
 2. **Clave de despliegue**: se genera una ed25519 por sitio; se copia la pública en el servidor de git como clave
    de **solo lectura**. La privada vive en `/srv/sitios/<sitio>/despliegues/.ssh/`, del usuario del sitio y fuera
-   del alcance de PHP (`open_basedir`).
+   del alcance de PHP (`open_basedir`). La huella del servidor de git se acepta la primera vez que se conecta
+   (`StrictHostKeyChecking=accept-new`) y desde entonces se exige la misma: si cambia, el despliegue falla. Al
+   cambiar de repositorio se olvida y se aprende otra vez.
 3. **Desplegar**: el botón arranca el despliegue en segundo plano en su unidad `sitio-git-<usuario>` (systemd no
    deja dos a la vez; además hay un cerrojo) y la pantalla consulta el estado. Cada despliegue:
    - hace `git clone --depth 1` de la rama **con el usuario del sitio**, sin ganchos de git, solo por https o ssh
@@ -81,7 +83,8 @@ se queda. Órdenes: `maquita-sitios git-estado|git-configurar|git-clave|git-ganc
 
 ## Aplicaciones Node.js y Python
 
-Las aplicaciones propias del panel general (`docs/APPS-PROPIAS.md`), ahora también desde el portal: estática,
+Las aplicaciones propias del panel general ([SITIOS-WEB.md](SITIOS-WEB.md#aplicaciones-propias-aplicación-propia-y-gestionar)),
+ahora también desde el portal: estática,
 Python (WSGI o ASGI, con gunicorn) o Node.js (un `.js` o `npm start`), con código por SFTP en la carpeta `app` o
 desde un repositorio público por https. Corren con el usuario del sitio en su unidad de systemd, con 768 MB de
 memoria, 1,5 núcleos y 256 tareas como máximo, escuchando solo en 127.0.0.1 detrás de nginx y del cortafuegos de

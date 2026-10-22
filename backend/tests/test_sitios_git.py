@@ -179,6 +179,17 @@ def test_configurar_sitio_vacio(mundo):
     assert gs.regenerar_clave(D)["clave_publica"] != datos["clave_publica"]
 
 
+@con_herramientas
+def test_otro_repositorio_olvida_la_huella(mundo):
+    gs.configurar(D, {"repo": REPO})
+    conocidos = gs.ruta_conocidos(leer_meta())
+    open(conocidos, "w").write("git.example.org ssh-ed25519 AAAA\n")
+    gs.configurar(D, {"repo": REPO, "rama": "otra"})
+    assert os.path.exists(conocidos)  # mismo repositorio: se conserva
+    gs.configurar(D, {"repo": "https://git.example.org/ana/otro.git"})
+    assert not os.path.exists(conocidos)
+
+
 @pytest.mark.parametrize("app", ["wordpress", "joomla", "propia"])
 def test_configurar_no_en_apps(mundo, app):
     meta = leer_meta()

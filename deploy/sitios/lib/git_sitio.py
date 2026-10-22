@@ -220,6 +220,9 @@ def configurar(dominio, datos):
     try:
         if not clave_publica(meta):
             generar_clave(meta)
+        elif (respaldo.get("git_php") or {}).get("repo") != conf["repo"]:
+            # Otro repositorio (quizá otro servidor de git): su huella se aprende de nuevo en el próximo despliegue.
+            ejecutar(["rm", "-f", "--", ruta_conocidos(meta)], como=meta["usuario"])
         _aplicar_raiz(meta, conf["raiz_web"])
     except ErrorSitio:
         for k, v in respaldo.items():
