@@ -44,6 +44,15 @@ Arquitectura para gran escala (v1.11.0 provisional): el webmail puede correr en 
 - `_process_scheduled_emails` sale de `main.py` a `app/mail/programados.py` (sin cambios de comportamiento).
 - `SECURITY.md`: tabla de versiones con soporte al día y enlace a la política de soporte.
 
+**Al actualizar:** el ajuste `66-entrada-oidc-y-soporte.sh` instala las órdenes de consola y, si hace falta, las tablas nuevas del panel y del portal de dominio. Detalle en `docs/ENTRADA-OIDC-Y-SOPORTE.md`.
+
+### Añadido
+- **Entrada al panel general (8443) con OpenID Connect** (pedido de Andes): configuración desde **SSO / Identidad** (solo superadmin) con emisor, client_id, client_secret cifrado con la llave de credenciales (Fernet), claim de usuario, claim y grupo requerido opcionales, texto del botón y «crear la cuenta si no existe» (apagado por defecto). Flujo *authorization code* con PKCE S256, `state` ligado al navegador y `nonce`; el `id_token` se valida con el JWKS del proveedor (solo firmas asimétricas), `iss`, `aud`/`azp`, `exp`, `iat` y `nonce`, y lo que falte se pide a `userinfo`. Se enlaza con `admin_users` por nombre de usuario o correo; si la cuenta tiene segundo factor, se le sigue pidiendo. Botón «Entrar con Identidad» en la pantalla de entrada solo si está activada. Ejemplo de Authelia en la documentación.
+- **Vale de entrada por consola**: `maquita-panel vale-entrada <admin> --vida 120` devuelve `https://<servidor>:8443/entrar?vale=…`, de un solo uso (guardado como hash, 900 s como mucho). La sesión que abre no cuenta como abierta con segundo factor.
+- **Soporte «como el cliente» en el portal de dominio (8444)**: botón «Entrar como soporte» en **Dominios** y `maquita-panel-dominio vale-soporte <dominio> [--solo-lectura|--con-acciones] [--vida 300]`. Vale de un solo uso que abre una sesión de soporte de ese dominio (60 minutos, `PD_MINUTOS_SOPORTE`), sin la clave ni el segundo factor del cliente. En solo lectura (lo normal) el portal rechaza con 403 todo POST, PUT, PATCH y DELETE salvo cerrar la sesión, y el intermediario de los sitios solo acepta su lista cerrada de órdenes de lectura; con acciones, cada una queda en `pd_auditoria` con la marca de soporte. Franja visible «Sesión de soporte (solo lectura)» en el portal.
+- Auditoría de todas las entradas: `login_oidc`, `login_oidc_fallido`, `login_vale`, `vale_entrada_emitido`, `oidc_config` y `soporte_vale_emitido` en el panel; `soporte_entrada` («el superadmin X entró como soporte de …») en `pd_auditoria`.
+- Pruebas del panel general en `admin-panel/backend/tests` (proveedor OIDC simulado) y su trabajo en el CI.
+
 ## [1.10.0] - 2026-10-21
 
 Hospedaje completo: funciones web, cuentas FTP adicionales, archivos y datos por sitio, en el panel general y en el portal del cliente. ActiveSync 16.1 (borradores del teléfono en el servidor) y libreta de la organización en los teléfonos. Probado de punta a punta en un servidor con portal y sitios (`prueba_aislamiento.py` y `prueba_mi_sitio.py`, con el bloque de la v1.10) y con teléfonos Android reales.

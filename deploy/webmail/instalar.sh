@@ -530,6 +530,8 @@ npm ci --quiet && npx vite build
 # Servicio systemd
 cp "${APP_DIR}/admin-panel/deploy/maquita-admin.service" /etc/systemd/system/
 systemctl daemon-reload && systemctl enable maquita-admin && systemctl restart maquita-admin
+# Órdenes de consola del panel: vale de entrada (maquita-panel) y de soporte (maquita-panel-dominio).
+bash "${APP_DIR}/deploy/panel/instalar.sh"
 # nginx :8443 (auth básica + snakeoil hasta certbot)
 ADMIN_NGINX="/etc/nginx/sites-available/${MAIL_HOST}-admin"
 sed "s/__MAIL_HOST__/${MAIL_HOST}/g" "${APP_DIR}/admin-panel/deploy/nginx-admin.conf" > "${ADMIN_NGINX}"

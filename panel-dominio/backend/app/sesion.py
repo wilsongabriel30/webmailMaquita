@@ -3,6 +3,9 @@
 No hay JWT ni secreto compartido con el panel general ni con el correo: una sesión de aquí
 no sirve en ningún otro sitio. Los dominios y el estado de la cuenta se leen de la base en
 cada petición; quitar un dominio o desactivar la cuenta surte efecto al instante.
+
+Las sesiones de soporte (el superadministrador entrando «como el cliente») tienen su propia
+tabla y sus propias reglas: ver sesion_soporte.py.
 """
 
 import hashlib
@@ -12,7 +15,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException, Request
 
-from app import config, config_extra
+from app import config, config_extra, sesion_soporte
 
 
 def _hash(ficha: str) -> str:
@@ -34,6 +37,10 @@ async def abrir(request: Request, admin_id: int) -> tuple[str, datetime]:
 
 
 async def cerrar(request: Request, admin: dict, todas: bool = False) -> None:
+    if admin.get("soporte"):
+        await request.app.state.db.execute(
+            "UPDATE pd_sesiones_soporte SET revoked_at = NOW() WHERE id = $1", admin["sesion_id"])
+        return
     if todas:
         await request.app.state.db.execute(
             "UPDATE pd_sesiones SET revoked_at = NOW() WHERE admin_id = $1 AND revoked_at IS NULL", admin["id"])
@@ -53,7 +60,13 @@ async def admin_actual(request: Request) -> dict:
             WHERE s.token_hash = $1 AND s.revoked_at IS NULL AND s.expires_at > NOW()""",
         _hash(cabecera[7:]),
     )
-    if not fila or not fila["active"]:
+    if not fila:
+        soporte = await sesion_soporte.buscar(db, _hash(cabecera[7:]))
+        if not soporte:
+            raise HTTPException(401, "Sesión cerrada o vencida")
+        sesion_soporte.exigir_permitido(request, soporte)
+        return soporte
+    if not fila["active"]:
         raise HTTPException(401, "Sesión cerrada o vencida")
     # Con la contraseña inicial solo se puede cambiarla: nada de gestionar cuentas todavía.
     if fila["must_change_password"] and not request.url.path.startswith("/api/acceso/"):
@@ -74,6 +87,8 @@ async def admin_actual(request: Request) -> dict:
 
 
 async def auditar(request: Request, admin: dict, accion: str, objetivo: str = "", detalles: dict | None = None):
+    # En una sesión de soporte, cada acción queda marcada con quién la hizo de verdad.
+    detalles = sesion_soporte.marcar(admin, detalles)
     await request.app.state.db.execute(
         "INSERT INTO pd_auditoria (admin_id, admin_username, action, target, details, ip) VALUES ($1,$2,$3,$4,$5::jsonb,$6)",
         admin.get("id"), admin["username"], accion, objetivo[:255],

@@ -1,12 +1,11 @@
-import hashlib
 from datetime import datetime, timezone
 
 import bcrypt
 from fastapi import APIRouter, Request, HTTPException, Depends
 import asyncpg
 
-from app.auth.jwt import create_token
 from app.auth.dependencies import get_current_admin, require_superadmin
+from app.auth.sesion import abrir_sesion
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -79,42 +78,9 @@ async def login(request: Request):
             )
             raise HTTPException(401, "Código de verificación inválido")
 
-    # Reset failed attempts
-    await db.execute(
-        "UPDATE admin_users SET failed_attempts = 0, locked_until = NULL, last_login = NOW() WHERE id = $1",
-        user["id"],
-    )
-
+    # Intentos a cero, token, sesión (A-9) y auditoría: lo mismo para toda forma de entrar.
     con_totp = bool("totp_enabled" in user.keys() and user["totp_enabled"])
-    token, expires = create_token(user["id"], user["username"], user["role"], totp=con_totp)
-
-    # Log session
-    await db.execute(
-        """INSERT INTO admin_sessions (user_id, token_hash, ip_address, user_agent, expires_at)
-           VALUES ($1, $2, $3, $4, $5)""",
-        user["id"],
-        hashlib.sha256(token.encode()).hexdigest(),
-        _ip(request),
-        request.headers.get("User-Agent", ""),
-        expires,
-    )
-
-    # Audit
-    await db.execute(
-        "INSERT INTO admin_audit (admin_id, admin_username, action, ip_address) VALUES ($1, $2, $3, $4)",
-        user["id"], user["username"], "login", _ip(request),
-    )
-
-    return {
-        "token": token,
-        "expires": expires.isoformat(),
-        "user": {
-            "id": user["id"],
-            "username": user["username"],
-            "display_name": user["display_name"],
-            "role": user["role"],
-        },
-    }
+    return await abrir_sesion(db, request, user, con_totp)
 
 
 async def _revocar_sesiones(db, user_id: int, salvo: int | None = None) -> int:

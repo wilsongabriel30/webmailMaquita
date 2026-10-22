@@ -65,10 +65,10 @@ fi
 sudo -u postgres psql -X -q -v ON_ERROR_STOP=1 -v base="$BASE" <<'SQL'
 GRANT CONNECT ON DATABASE :"base" TO panel_dominio;
 SQL
-for f in esquema.sql esquema-2-autonomia.sql esquema-4-sitios.sql; do
+for f in esquema.sql esquema-2-autonomia.sql esquema-4-sitios.sql esquema-5-soporte.sql; do
   [ -f "${SELF}/$f" ] && como_dueno -f "${SELF}/$f"
 done
-for f in permisos.sql permisos-2-autonomia.sql permisos-3-multicuenta.sql permisos-4-sitios.sql; do
+for f in permisos.sql permisos-2-autonomia.sql permisos-3-multicuenta.sql permisos-4-sitios.sql permisos-5-soporte.sql; do
   [ -f "${SELF}/$f" ] || continue
   como_dueno -f "${SELF}/$f" || echo "  Aviso: ${f} no se aplicó entero (falta alguna tabla de una sección no instalada)."
 done
@@ -95,6 +95,9 @@ systemctl reload nginx
 if [ -x /usr/local/sbin/maquita-sitios ]; then
   bash "${APP_DIR}/deploy/sitios/portal/instalar.sh"
 fi
+
+# 7. Órdenes de consola del panel (vale de entrada del superadmin y vale de soporte del portal).
+bash "${APP_DIR}/deploy/panel/instalar.sh"
 
 for _ in $(seq 1 15); do
   curl -fsS -m 3 http://127.0.0.1:8003/api/salud >/dev/null 2>&1 && break

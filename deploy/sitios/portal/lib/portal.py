@@ -59,6 +59,15 @@ ORDENES = {
 }
 
 
+# Lo que puede pedir una sesión de soporte de solo lectura: solo órdenes que no modifican nada. Lista
+# cerrada: una orden nueva queda prohibida en solo lectura hasta que se añada aquí a conciencia.
+ORDENES_LECTURA = frozenset({
+    "listar", "catalogo", "revisar", "tareas", "tarea-registro", "bases", "avanzado", "avanzado-ver",
+    "php-estado", "dns-ver", "web", "ftp-cuentas", "registros", "estadisticas", "disponibilidad", "copias",
+    "archivos-listar", "archivos-papelera",
+})
+
+
 class Contexto:
     def __init__(self, admin, args):
         self.admin, self.args = admin, args
@@ -89,6 +98,9 @@ def _atender(peticion, args):
         raise ErrorPortal(400, "Orden no permitida")
     if not isinstance(args, dict):
         raise ErrorPortal(400, "Petición no válida")
+    soporte = admin.get("soporte")
+    if soporte and soporte.get("solo_lectura") and orden not in ORDENES_LECTURA:
+        raise ErrorPortal(403, "Sesión de soporte de solo lectura: no se puede modificar nada")
     tipo, funcion = ORDENES[orden]
     ctx = Contexto(admin, args)
     if tipo != "ninguno":
@@ -102,6 +114,8 @@ def _atender(peticion, args):
             if tipo == "sitio" and not alcance.sitio_existe(ctx.sitio):
                 raise no_encontrado()
     datos = funcion(ctx)
-    ayudantes.registro().info("MAQUITA_SITIOS_PORTAL ok admin=%s orden=%s dominio=%s",
-                              admin["usuario"], orden, ctx.sitio or "-")
+    ayudantes.registro().info("MAQUITA_SITIOS_PORTAL ok admin=%s orden=%s dominio=%s%s",
+                              admin["usuario"], orden, ctx.sitio or "-",
+                              (" soporte=" + ("solo-lectura" if soporte.get("solo_lectura") else "con-acciones"))
+                              if soporte else "")
     return {"ok": True, "datos": datos}

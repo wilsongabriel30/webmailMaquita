@@ -16,7 +16,7 @@ async function pedir(metodo, ruta, cuerpo) {
   } catch {
     throw new Error('No hay conexión con el servidor. Inténtalo de nuevo.');
   }
-  if (res.status === 401 && ruta !== '/acceso/entrar') {
+  if (res.status === 401 && ruta !== '/acceso/entrar' && ruta !== '/acceso/soporte') {
     ficha.borrar();
     window.dispatchEvent(new Event('pd-sin-sesion'));
     throw new Error('La sesión se cerró. Vuelve a entrar.');

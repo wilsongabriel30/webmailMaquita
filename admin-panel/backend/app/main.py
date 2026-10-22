@@ -11,6 +11,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import create_pool, init_admin_tables
 from app.auth.router import router as auth_router
+# Entrar por OpenID Connect y con vales de un solo uso (consola y vuelta del proveedor).
+from app.entrada.oidc_config import router as oidc_config_router
+from app.entrada.oidc_rutas import router as oidc_rutas_router
+from app.entrada.vales import router as vales_entrada_router
 from app.dashboard.router import router as dashboard_router
 from app.domains.router import router as domains_router
 from app.drive.router import router as drive_router
@@ -107,6 +111,7 @@ from app.safeattach.router import router as safeattach_router
 from app.admins_dominio.router import router as admins_dominio_router
 from app.admins_dominio.solicitudes import router as solicitudes_dominio_router
 from app.admins_dominio.cuotas_sitio import router as cuotas_sitio_dominio_router
+from app.admins_dominio.soporte import router as soporte_dominio_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -186,8 +191,12 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 # Mount all routers
 app.include_router(auth_router)
+app.include_router(oidc_config_router)
+app.include_router(oidc_rutas_router)
+app.include_router(vales_entrada_router)
 app.include_router(solicitudes_dominio_router)
 app.include_router(cuotas_sitio_dominio_router)
+app.include_router(soporte_dominio_router)
 app.include_router(admins_dominio_router)
 app.include_router(dashboard_router)
 app.include_router(domains_router)
