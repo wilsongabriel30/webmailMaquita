@@ -1,0 +1,34 @@
+# =============================================================================
+# Redis Sentinel (ejemplo). Tres centinelas, cada uno en una máquina distinta
+# (pueden ser las mismas que los Redis). Copiar a /etc/redis/sentinel.conf.
+# Guía: docs/GRAN-ESCALA.md
+#
+# En el .env de cada nodo de aplicación, UNA de las dos formas:
+#   REDIS_URL=redis+sentinel://:CLAVE_REDIS@192.0.2.21:26379,192.0.2.22:26379,192.0.2.23:26379/correo/0
+# o bien:
+#   REDIS_URL=redis://:CLAVE_REDIS@ignorado:6379/0
+#   REDIS_SENTINELS=192.0.2.21:26379,192.0.2.22:26379,192.0.2.23:26379
+#   REDIS_SENTINEL_MASTER=correo
+#   REDIS_SENTINEL_PASSWORD=CLAVE_DE_LOS_CENTINELAS   (si la tienen)
+# =============================================================================
+port 26379
+bind 0.0.0.0
+protected-mode yes
+dir /var/lib/redis
+
+# «correo» = nombre del grupo; 2 = cuántos centinelas deben coincidir para declarar caído
+# al principal (con 3 centinelas, 2 es la mayoría).
+sentinel monitor correo 192.0.2.21 6379 2
+sentinel auth-pass correo CLAVE_REDIS
+sentinel down-after-milliseconds correo 5000
+sentinel failover-timeout correo 60000
+sentinel parallel-syncs correo 1
+# requirepass CLAVE_DE_LOS_CENTINELAS
+
+# En los Redis réplica (redis.conf):
+#   replicaof 192.0.2.21 6379
+#   masterauth CLAVE_REDIS
+#   requirepass CLAVE_REDIS
+# Persistencia: el webmail guarda en Redis las sesiones y los contadores de límites.
+# Perder Redis = todos vuelven a iniciar sesión; no se pierde correo. «appendonly yes»
+# en el principal reduce eso a perder el último segundo.
