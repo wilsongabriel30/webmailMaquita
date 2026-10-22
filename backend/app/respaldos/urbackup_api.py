@@ -116,13 +116,18 @@ class Panel:
         if not s.get("salt"):
             raise NoDisponible("el panel no dio salt (¿usuario inexistente?)")
         self.ses = s.get("ses", "")
-        h = hashlib.md5((s["salt"] + self._clave).encode()).hexdigest()
+        # MD5 lo impone el protocolo de entrada de UrBackup (no es una protección nuestra).
+        h = hashlib.md5(
+            (s["salt"] + self._clave).encode(), usedforsecurity=False
+        ).hexdigest()
         rondas = int(s.get("pbkdf2_rounds") or 0)
         if rondas > 0:
             h = hashlib.pbkdf2_hmac(
                 "sha256", bytes.fromhex(h), s["salt"].encode(), rondas
             ).hex()
-        h = hashlib.md5((s.get("rnd", "") + h).encode()).hexdigest()
+        h = hashlib.md5(
+            (s.get("rnd", "") + h).encode(), usedforsecurity=False
+        ).hexdigest()
         r = await self._llamar("login", username=self.usuario, password=h)
         if not r.get("success"):
             raise NoDisponible("el panel rechazó al usuario de la API")

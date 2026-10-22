@@ -116,7 +116,7 @@ def _snippet(host, extra):
             salida.append(incluir)
             incluido = True
     if incluido:
-        _respaldar(ruta, "/etc/nginx/respaldos")
+        _respaldar(ruta, S.RESPALDOS_NGINX)
         with open(ruta, "w") as f:
             f.write("\n".join(salida))
     return cambiado or incluido
