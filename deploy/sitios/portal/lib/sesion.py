@@ -13,6 +13,7 @@ import hashlib
 import json
 
 import bd
+import fichas
 from errores import ErrorPortal
 
 SQL_SESION = """
@@ -66,6 +67,8 @@ def verificar(ficha):
     """Devuelve {"id", "usuario", "dominios"} (y "soporte" si lo es) o lanza ErrorPortal(403)."""
     if not isinstance(ficha, str) or not 20 <= len(ficha) <= 200 or not ficha.isascii():
         raise ErrorPortal(403, "Sesión cerrada o vencida")
+    if fichas.es_ficha(ficha):
+        return _de_ficha(fichas.buscar(ficha))
     huella = hashlib.sha256(ficha.encode()).hexdigest()
     fila = bd.consultar(SQL_SESION, {"ficha": huella})
     if not fila:
@@ -79,6 +82,17 @@ def verificar(ficha):
     if _totp_obligatorio(bd.entorno_portal()) and not fila.get("totp"):
         raise ErrorPortal(403, "Activa el segundo factor antes de continuar")
     return {"id": fila["id"], "usuario": fila["usuario"],
+            "dominios": [str(d).lower() for d in fila.get("dominios") or []]}
+
+
+def _de_ficha(fila):
+    """Una ficha de API vale con las mismas condiciones de la cuenta que una sesión, y lleva su alcance."""
+    if not fila or not fila.get("activa") or fila.get("cambiar_clave"):
+        raise ErrorPortal(403, "Ficha de API revocada, vencida o de una cuenta desactivada")
+    if _totp_obligatorio(bd.entorno_portal()) and not fila.get("totp"):
+        raise ErrorPortal(403, "Activa el segundo factor antes de continuar")
+    return {"id": fila["id"], "usuario": fila["usuario"], "ficha_api": fila.get("ficha_api"),
+            "alcances": [str(a) for a in fila.get("alcances") or []],
             "dominios": [str(d).lower() for d in fila.get("dominios") or []]}
 
 

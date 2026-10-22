@@ -7,8 +7,9 @@ from string import Template
 import nginx_web
 
 # Común a todos los sitios: registros, límites, cortafuegos de aplicación, cabeceras y archivos que
-# nunca se sirven. Las zonas de límite (sitios_*), el formato de registro «sitios» y el cortafuegos de
-# aplicación (ModSecurity + OWASP CRS, /etc/nginx/sitios-waf/) los instala deploy/sitios/instalar.sh.
+# nunca se sirven. Las zonas de límite (sitios_*), el formato de registro «sitios» y la base del cortafuegos de
+# aplicación (ModSecurity + OWASP CRS, /etc/nginx/sitios-waf/) los instala deploy/sitios/instalar.sh; las reglas
+# de cada sitio (modo, paranoia y exclusiones) las genera waf_sitio.py.
 _COMUN = r"""    client_max_body_size 64m;
     # Un enlace simbólico (subido por SFTP o traído en un repositorio) solo se sigue si apunta a algo del
     # mismo dueño: así no puede exponer archivos de otro sitio, que www-data sí puede leer.
@@ -25,10 +26,7 @@ _COMUN = r"""    client_max_body_size 64m;
     limit_req_status 429;
     limit_conn_status 429;
 
-    # Cortafuegos de aplicación web (OWASP CRS), con las excepciones propias de la aplicación.
-    modsecurity on;
-    modsecurity_rules_file /etc/nginx/sitios-waf/$waf.conf;
-
+$waf
     add_header X-Content-Type-Options "nosniff" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     add_header X-Frame-Options "SAMEORIGIN" always;
@@ -255,32 +253,39 @@ def _cuerpo(meta, socket, acme):
     if app == "propia":
         return _cuerpo_propia(meta, acme)
     if app == "wordpress":
-        reglas, waf = _REGLAS_WORDPRESS.substitute(socket=socket), "wordpress"
+        reglas = _REGLAS_WORDPRESS.substitute(socket=socket)
     elif app == "joomla":
-        reglas, waf = _REGLAS_JOOMLA.substitute(socket=socket), "joomla"
+        reglas = _REGLAS_JOOMLA.substitute(socket=socket)
     elif app == "paquete":
-        # Paquete subido por la persona: reglas comunes y el perfil general del cortafuegos de aplicación.
-        reglas, waf = "", "aplicacion"
+        # Paquete subido por la persona: reglas comunes (perfil «aplicacion» del cortafuegos, ver waf_sitio.perfil_de).
+        reglas = ""
         if (meta.get("paquete") or {}).get("raiz"):
             raiz = f"{meta['publico']}/{meta['paquete']['raiz']}"
     elif app in CATALOGO:
         modulo = CATALOGO[app]
-        reglas, waf = Template(modulo.REGLAS_NGINX).substitute(socket=socket), "aplicacion"
+        reglas = Template(modulo.REGLAS_NGINX).substitute(socket=socket)
         if getattr(modulo, "UN_SOLO_DOMINIO", False):
             reglas = _SOLO_PRINCIPAL.substitute(dominio=meta["dominio"]) + reglas
         if modulo.RAIZ_WEB:
             raiz = f"{meta['publico']}/{modulo.RAIZ_WEB}"
     else:
-        reglas, waf = "", "general"
+        reglas = ""
     return _CUERPO.substitute(
         publico=raiz, registros=meta["registros"], acme=acme, socket=socket,
-        reglas_app=reglas, waf=waf, web=nginx_web.carpeta(meta["dominio"]),
+        reglas_app=reglas, waf=_waf(meta), web=nginx_web.carpeta(meta["dominio"]),
     )
+
+
+def _waf(meta):
+    """Cortafuegos de aplicación del sitio: su archivo de reglas (modo, paranoia y exclusiones) o apagado."""
+    import waf_sitio
+
+    return waf_sitio.directivas(meta)
 
 
 def _cuerpo_propia(meta, acme):
     propia = meta["propia"]
-    comunes = {"registros": meta["registros"], "acme": acme, "waf": "general", "web": nginx_web.carpeta(meta["dominio"])}
+    comunes = {"registros": meta["registros"], "acme": acme, "waf": _waf(meta), "web": nginx_web.carpeta(meta["dominio"])}
     if propia["tipo"] == "estatico":
         return _CUERPO_ESTATICO.substitute(publico=propia["raiz"], respaldo="/index.html" if propia.get("spa") else "=404",
                                            **comunes)

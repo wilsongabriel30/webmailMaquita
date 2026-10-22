@@ -83,6 +83,8 @@ from app.sitios.php import router as sitios_php_router
 from app.sitios.propias import router as sitios_propias_router
 from app.sitios.router import router as sitios_router
 from app.sitios.web import routers as sitios_web_routers
+from app.sitios.desarrollo import routers as sitios_desarrollo_routers
+from app.fichas_api.router import router as fichas_api_router
 # Sitios: observación y datos (registros, estadísticas, disponibilidad, copias y archivos).
 from app.sitios.entrega import router as sitios_entrega_router
 from app.sitios.registros import router as sitios_registros_router
@@ -132,6 +134,9 @@ async def lifespan(app: FastAPI):
     app.state.db = pool
 
     await init_admin_tables(pool)
+    from app.fichas_api.sesion import crear_tabla as crear_tabla_fichas
+
+    await crear_tabla_fichas(pool)  # fichas de API del panel (v1.11)
     from app import marca
 
     await marca.refrescar(pool)  # nombres de la personalización para textos de cara a terceros
@@ -284,6 +289,9 @@ app.include_router(sitios_avanzado_router)
 app.include_router(sitios_php_router)
 for _r in sitios_web_routers:  # funciones web por sitio (v1.10): un router por función
     app.include_router(_r)
+for _r in sitios_desarrollo_routers:  # usuarios de bases, cortafuegos de aplicaciones y claves SSH (v1.11)
+    app.include_router(_r)
+app.include_router(fichas_api_router)
 app.include_router(sitios_entrega_router)
 app.include_router(sitios_registros_router)
 app.include_router(sitios_estadisticas_router)

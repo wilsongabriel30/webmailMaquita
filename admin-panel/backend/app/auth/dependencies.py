@@ -15,6 +15,8 @@ import hashlib
 
 from fastapi import Request, HTTPException
 from app.auth.jwt import decode_token
+from app.fichas_api.alcance import PREFIJO as PREFIJO_FICHA
+from app.fichas_api.sesion import admin_de_ficha
 
 ROLES_OPERADORES = ("superadmin", "admin")
 METODOS_LECTURA = ("GET", "HEAD", "OPTIONS")
@@ -45,6 +47,8 @@ async def get_current_admin(request: Request) -> dict:
     token = token_de_la_peticion(request)
     if not token:
         raise HTTPException(401, "Token requerido")
+    if token.startswith(PREFIJO_FICHA):
+        return _con_rol(request, await admin_de_ficha(request, token))  # ficha de API (v1.11), con su alcance
     payload = decode_token(token)
     if not payload or payload.get("purpose"):
         raise HTTPException(401, "Token inválido o expirado")
@@ -59,18 +63,22 @@ async def get_current_admin(request: Request) -> dict:
     if not fila or not fila["active"]:
         raise HTTPException(401, "Sesión cerrada o inválida")
 
-    role = fila["role"] if fila["role"] in ROLES_OPERADORES else "viewer"
-    if role == "viewer" and request.method not in METODOS_LECTURA \
-            and not request.url.path.startswith(_CUENTA_PROPIA):
-        raise HTTPException(403, "Tu rol es de solo lectura")
-
-    return {
+    return _con_rol(request, {
         "id": fila["id"],
         "username": fila["username"],
-        "role": role,
+        "role": fila["role"],
         "session_id": fila["session_id"],
         "totp": bool(payload.get("totp")),
-    }
+    })
+
+
+def _con_rol(request: Request, admin: dict) -> dict:
+    """Rol conocido o «viewer» (mínimo privilegio); un viewer solo lee, salvo su propia cuenta."""
+    admin["role"] = admin["role"] if admin["role"] in ROLES_OPERADORES else "viewer"
+    if admin["role"] == "viewer" and request.method not in METODOS_LECTURA \
+            and not request.url.path.startswith(_CUENTA_PROPIA):
+        raise HTTPException(403, "Tu rol es de solo lectura")
+    return admin
 
 
 async def require_superadmin(request: Request) -> dict:

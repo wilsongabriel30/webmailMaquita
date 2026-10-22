@@ -58,6 +58,11 @@ Funciones web por sitio y cuentas FTP adicionales (v1.10; detalle en lib/funcion
   maquita-sitios ftp-cuentas <dominio>    cuentas FTP adicionales, cada una encerrada en una subcarpeta
   maquita-sitios ftp-cuenta-crear <dominio> <nombre> <subcarpeta base64url>
   maquita-sitios ftp-cuenta-clave|ftp-cuenta-quitar <dominio> <nombre>
+Para desarrolladores (v1.11; detalle y forma de cada orden en lib/ordenes_desarrollo.py):
+  maquita-sitios bases-usuarios|base-usuario-crear|base-usuario-permisos|base-usuario-clave|base-usuario-borrar …
+  maquita-sitios base-usuario-remoto <dominio> <usuario> <lista JSON b64> [amplia]   acceso remoto con TLS
+  maquita-sitios waf|waf-guardar|waf-bloqueos <dominio> …   cortafuegos de aplicaciones web (OWASP CRS) del sitio
+  maquita-sitios ssh-claves|ssh-clave-agregar|ssh-clave-borrar <dominio> …   claves SSH de las cuentas SFTP
 Observación y datos (lib/ordenes_datos.py); <ruta> es relativa a la carpeta pública, en base64url («.» = raíz):
   maquita-sitios registros <dominio> <error|acceso|php> <líneas 1-1000> [filtro en base64url]
   maquita-sitios estadisticas <dominio>   resumen de visitas y ancho de banda (30 días, GoAccess)
@@ -197,6 +202,11 @@ def despachar(args):
         return bases.borrar(v.dominio(args[1]), args[2])
     if args[:1] and args[0].startswith("propia-"):
         return _propia(args)
+    # --- Para desarrolladores (v1.11): bases, cortafuegos de aplicaciones y claves SSH en lib/ordenes_desarrollo.py ---
+    if args[:1] and args[0] in __import__("ordenes_desarrollo").ORDENES:
+        import ordenes_desarrollo
+
+        return ordenes_desarrollo.despachar(args)
     # --- Funciones web por sitio y cuentas FTP adicionales (v1.10): todo en lib/funciones_web.py ---
     if args[:1] and (args[0] == "web" or args[0].startswith(("web-", "ftp-"))):
         import funciones_web

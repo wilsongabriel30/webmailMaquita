@@ -47,7 +47,9 @@ def test_la_lista_tiene_exactamente_las_nuevas():
            "ftp", "tareas", "tareas-guardar", "tarea-ejecutar", "tarea-registro", "bases", "base-crear", "base-entrar",
            "base-borrar", "avanzado", "avanzado-php", "avanzado-ver", "avanzado-archivo", "avanzado-restaurar",
            "php-estado", "php-version", "paquete", "dns-ver", "dns-agregar", "dns-modificar", "dns-borrar"}
-    assert set(portal.ORDENES) == v19 | NUEVAS
+    import ordenes_desarrollo_portal  # v1.11: su lista exacta se comprueba en test_sitios_portal_v111.py
+
+    assert set(portal.ORDENES) - set(ordenes_desarrollo_portal.ORDENES) == v19 | NUEVAS
     assert all(tipo == "sitio" for o, (tipo, _f) in portal.ORDENES.items() if o in NUEVAS)
 
 

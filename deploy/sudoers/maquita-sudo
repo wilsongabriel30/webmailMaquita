@@ -428,9 +428,43 @@ def validar_sitios(args):
         return args
     if args[:1] and args[0] in _ORDENES_SITIOS_WEB:
         return validar_sitios_web(args)
-    if _validar_sitios_datos(args, dom):
+    if _validar_sitios_datos(args, dom) or _validar_sitios_desarrollo(args, dom):
         return args
     raise Rechazo("maquita-sitios: subacción o argumentos no permitidos")
+
+
+# Para desarrolladores (v1.11): usuarios de bases, acceso remoto, cortafuegos de aplicaciones y claves SSH
+# (deploy/sitios/lib/ordenes_desarrollo.py). Permisos, redes, ajustes y claves viajan en base64url (≤ 8000).
+_ORDENES_DESARROLLO_LARGAS = ("base-usuario-crear", "base-usuario-permisos", "base-usuario-remoto", "waf-guardar",
+                              "ssh-clave-agregar")
+_RE_USUARIO_BD = re.compile(r"^u_[a-z0-9]+_[a-z][a-z0-9]{1,9}$")
+
+
+def _validar_sitios_desarrollo(args, dom):
+    b64 = lambda a: bool(_RE_B64URL_LARGO.fullmatch(a))  # noqa: E731
+    if len(args) < 2 or not dom(args[1]):
+        return False
+    orden, n = args[0], len(args)
+    if orden in ("bases-usuarios", "waf", "ssh-claves"):
+        return n == 2
+    if orden == "base-usuario-crear":
+        return (n == 5 and bool(re.fullmatch(r"[wx]_[a-z0-9]+(_[0-9a-f]{4})?", args[2]))
+                and bool(re.fullmatch(r"[a-z][a-z0-9]{1,9}", args[3])) and b64(args[4]))
+    if orden in ("base-usuario-clave", "base-usuario-borrar"):
+        return n == 3 and bool(_RE_USUARIO_BD.fullmatch(args[2]))
+    if orden == "base-usuario-permisos":
+        return n == 4 and bool(_RE_USUARIO_BD.fullmatch(args[2])) and b64(args[3])
+    if orden == "base-usuario-remoto":
+        return n in (4, 5) and bool(_RE_USUARIO_BD.fullmatch(args[2])) and b64(args[3]) and (n == 4 or args[4] == "amplia")
+    if orden == "waf-guardar":
+        return n == 3 and b64(args[2])
+    if orden == "waf-bloqueos":
+        return n == 2 or (n == 3 and bool(re.fullmatch(r"[1-9][0-9]{0,2}", args[2])))
+    if orden == "ssh-clave-agregar":
+        return n == 4 and bool(re.fullmatch(r"principal|[a-z][a-z0-9]{1,10}", args[2])) and b64(args[3])
+    if orden == "ssh-clave-borrar":
+        return n == 3 and bool(re.fullmatch(r"[0-9a-f]{8}", args[2]))
+    return False
 
 
 # Observación y datos de los sitios: registros, estadísticas, disponibilidad, copias del cliente y archivos.
@@ -641,6 +675,10 @@ def autorizar(usuario: str, programa: str, args, comprobar_buzon=_buzon_existe):
     if programa == "maquita-sitios" and args[:1] and args[0] in _ORDENES_SITIOS_WEB_JSON:
         # Listas de redirecciones o de IP: pasan de 300 caracteres; se validan enteras en validar_sitios_web.
         if any(not isinstance(a, str) or not a or len(a) > 20000 or re.search(r"[\x00-\x1f\x7f]", a) for a in args):
+            raise Rechazo("argumento con caracteres de control o vacío")
+        return validar_sitios(list(args))
+    if programa == "maquita-sitios" and args[:1] and args[0] in _ORDENES_DESARROLLO_LARGAS:
+        if any(not isinstance(a, str) or not a or len(a) > 8000 or re.search(r"[\x00-\x1f\x7f]", a) for a in args):
             raise Rechazo("argumento con caracteres de control o vacío")
         return validar_sitios(list(args))
     if programa == "maquita-sitios" and args[:1] and str(args[0]).startswith("archivos-"):

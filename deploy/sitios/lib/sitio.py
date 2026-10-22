@@ -129,6 +129,9 @@ def escribir_vhost(meta):
     import nginx_web
 
     nginx_web.escribir(meta)  # lo que incluye el vhost (funciones web): antes que el vhost
+    import waf_sitio
+
+    waf_sitio.escribir(meta)  # reglas del cortafuegos de aplicación del sitio (las incluye el vhost)
     texto = plantillas.vhost(meta, _socket(meta), ACME_WEBROOT, meta.get("ssl", False))
     _escribir(_ruta_vhost(meta["dominio"]), texto)
     enlace = os.path.join(NGINX_ACT, os.path.basename(_ruta_vhost(meta["dominio"])))
@@ -357,6 +360,9 @@ def borrar(dominio):
     os.makedirs(PAPELERA, mode=0o700, exist_ok=True)
 
     if meta.get("bd"):
+        import bases_usuarios
+
+        bases_usuarios.borrar_de_base(meta, meta["bd"])  # usuarios adicionales de la base de la aplicación
         aplicaciones.volcar_y_borrar_bd(meta, os.path.join(meta["base"], f"base-de-datos-{sello}.sql"))
     import propias
     import tareas
@@ -377,6 +383,11 @@ def borrar(dominio):
 
     ftp_cuentas.quitar_todas(meta)  # cuentas FTP adicionales (desmonta sus carpetas antes de mover el sitio)
     nginx_web.quitar(dominio)  # archivos de las funciones web y caché de página
+    import claves_ssh
+    import waf_sitio
+
+    claves_ssh.quitar_todas(meta)  # claves SSH de la cuenta principal y de las adicionales
+    waf_sitio.quitar(dominio)  # reglas y registro del cortafuegos de aplicación del sitio
     for ruta in (os.path.join(NGINX_ACT, os.path.basename(_ruta_vhost(dominio))), _ruta_vhost(dominio), _ruta_pool(meta)):
         if os.path.lexists(ruta):
             os.remove(ruta)

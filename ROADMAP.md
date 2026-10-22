@@ -167,15 +167,15 @@ se indica la alternativa libre.
 | 22 | Importar cuentas desde archivo | Ya (v1.11): CSV con vista previa — panel y portal | — |
 | 23 | Enrutamiento de correo | Ya (v1.11): MX de respaldo y reenvío a otro servidor — panel general | — |
 | 24-26, 28 | MariaDB, PostgreSQL, phpMyAdmin/Adminer, asistente | Ya — panel y portal | — |
-| 27 | Usuarios de base con permisos | Parcial: un usuario por base | v1.11 |
-| 29 | Acceso remoto a bases | No | v1.11 (por IP y con TLS) |
+| 27 | Usuarios de base con permisos | Ya: usuarios adicionales con perfiles o lista fina — panel y portal ([guía](docs/BASES-WAF-CLAVES.md)) | — |
+| 29 | Acceso remoto a bases | Ya: por IP o red, solo TLS, puerto abierto solo para esas IP (ajuste 72) — panel y portal | — |
 | 30-31 | Certificados y renovación automática | Ya (Let's Encrypt) — panel y portal | — |
 | 32 | Bloqueo de IP | Ya: servidor (cortafuegos, fail2ban, países) y por sitio | — |
-| 33 | Cortafuegos de aplicaciones web | Parcial: reglas para WordPress y fail2ban | v1.11 (Coraza/ModSecurity con reglas OWASP) |
+| 33 | Cortafuegos de aplicaciones web | Ya: ModSecurity con OWASP CRS completo por sitio (modo, paranoia, exclusiones, bloqueos) y fail2ban — panel y portal | — |
 | 34 | Protección contra hotlinking | Ya — panel y portal | — |
 | 35-36 | Abuso de contraseñas y segundo factor | Ya | — |
-| 37 | Claves SSH | No | v1.11 (SFTP con clave) |
-| 38 | Fichas de API | No | v1.11 |
+| 37 | Claves SSH | Ya: SFTP con clave ed25519, ECDSA o RSA ≥ 3072, por cuenta — panel y portal | — |
+| 38 | Fichas de API | Ya: con alcance, caducidad, hash y auditoría — panel y portal | — |
 | 39-40 | Versiones y ajustes de PHP | Ya — portal con las versiones ya instaladas | — |
 | 41 | Catálogo de aplicaciones | Ya (WordPress, Joomla, Drupal y más) — panel y portal | — |
 | 42 | Tareas cron | Ya — panel y portal | — |

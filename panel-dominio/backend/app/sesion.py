@@ -15,7 +15,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException, Request
 
-from app import config, config_extra, sesion_soporte
+from app import config, config_extra, fichas_alcance, sesion_soporte
 
 
 def _hash(ficha: str) -> str:
@@ -53,6 +53,10 @@ async def admin_actual(request: Request) -> dict:
     cabecera = request.headers.get("Authorization", "")
     if not cabecera.startswith("Bearer ") or len(cabecera) > 200:
         raise HTTPException(401, "Sesión requerida")
+    if cabecera[7:].startswith(fichas_alcance.PREFIJO):
+        from app.fichas_sesion import admin_de_ficha
+
+        return await admin_de_ficha(request, cabecera[7:])  # ficha de API: con su alcance
     db = request.app.state.db
     fila = await db.fetchrow(
         """SELECT s.id AS sesion_id, a.id, a.username, a.display_name, a.active, a.must_change_password, a.totp_enabled
@@ -89,6 +93,8 @@ async def admin_actual(request: Request) -> dict:
 async def auditar(request: Request, admin: dict, accion: str, objetivo: str = "", detalles: dict | None = None):
     # En una sesión de soporte, cada acción queda marcada con quién la hizo de verdad.
     detalles = sesion_soporte.marcar(admin, detalles)
+    if admin.get("ficha_api"):
+        detalles = {**(detalles or {}), "ficha_api": admin["ficha_api"]}  # hecho con una ficha de API, no en pantalla
     await request.app.state.db.execute(
         "INSERT INTO pd_auditoria (admin_id, admin_username, action, target, details, ip) VALUES ($1,$2,$3,$4,$5::jsonb,$6)",
         admin.get("id"), admin["username"], accion, objetivo[:255],

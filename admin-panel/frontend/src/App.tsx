@@ -29,6 +29,7 @@ import { PasswordAudit } from "./pages/PasswordAudit";
 import { Health } from "./pages/Health";
 import { Audit } from "./pages/Audit";
 import { Admins } from "./pages/Admins";
+import { FichasApi } from "./pages/FichasApi";
 import { AdminsDominio } from "./pages/AdminsDominio";
 import { Services } from "./pages/Services";
 import { Groups } from "./pages/Groups";
@@ -150,6 +151,7 @@ function App() {
             <Route path="health" element={<Health />} />
             <Route path="audit" element={<Audit />} />
             <Route path="admins" element={<Admins />} />
+            <Route path="fichas-api" element={<FichasApi />} />
             <Route path="admins-dominio" element={<AdminsDominio />} />
             <Route path="ediscovery" element={<EDiscovery />} />
             <Route path="branding" element={<Branding />} />

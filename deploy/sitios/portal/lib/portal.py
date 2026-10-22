@@ -11,8 +11,10 @@ reservado (403). Cada orden de ORDENES dice qué alcance pide:
 
 import alcance
 import ayudantes
+import fichas
 import ordenes_avanzado as av
 import ordenes_datos_portal as odp
+import ordenes_desarrollo_portal as odv
 import ordenes_dns as od
 import ordenes_sitios as os_
 import ordenes_web as ow
@@ -56,6 +58,8 @@ ORDENES = {
     # (ordenes_datos_portal.py). Cada módulo tiene su lista; aquí se juntan y no se añade nada más.
     **ow.ORDENES,
     **odp.ORDENES,
+    # v1.11: usuarios de bases, acceso remoto, cortafuegos de aplicaciones y claves SSH (ordenes_desarrollo_portal.py).
+    **odv.ORDENES,
 }
 
 
@@ -64,7 +68,7 @@ ORDENES = {
 ORDENES_LECTURA = frozenset({
     "listar", "catalogo", "revisar", "tareas", "tarea-registro", "bases", "avanzado", "avanzado-ver",
     "php-estado", "dns-ver", "web", "ftp-cuentas", "registros", "estadisticas", "disponibilidad", "copias",
-    "archivos-listar", "archivos-papelera",
+    "archivos-listar", "archivos-papelera", "bases-usuarios", "waf", "waf-bloqueos", "ssh-claves",
 })
 
 
@@ -101,6 +105,7 @@ def _atender(peticion, args):
     soporte = admin.get("soporte")
     if soporte and soporte.get("solo_lectura") and orden not in ORDENES_LECTURA:
         raise ErrorPortal(403, "Sesión de soporte de solo lectura: no se puede modificar nada")
+    fichas.exigir_alcance(admin, orden)  # una ficha de API solo para lo que permite su alcance
     tipo, funcion = ORDENES[orden]
     ctx = Contexto(admin, args)
     if tipo != "ninguno":
@@ -114,8 +119,8 @@ def _atender(peticion, args):
             if tipo == "sitio" and not alcance.sitio_existe(ctx.sitio):
                 raise no_encontrado()
     datos = funcion(ctx)
-    ayudantes.registro().info("MAQUITA_SITIOS_PORTAL ok admin=%s orden=%s dominio=%s%s",
-                              admin["usuario"], orden, ctx.sitio or "-",
+    ayudantes.registro().info("MAQUITA_SITIOS_PORTAL ok admin=%s orden=%s dominio=%s ficha_api=%s%s",
+                              admin["usuario"], orden, ctx.sitio or "-", admin.get("ficha_api") or "-",
                               (" soporte=" + ("solo-lectura" if soporte.get("solo_lectura") else "con-acciones"))
                               if soporte else "")
     return {"ok": True, "datos": datos}

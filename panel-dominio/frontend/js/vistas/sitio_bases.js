@@ -3,6 +3,7 @@
 import { api } from '../api.js';
 import { el } from '../ui.js';
 import { abrirFuera, confirmar, enRutaSitio, hacer, mensajes, unaVez } from './sitio_comun.js';
+import { seccionUsuariosBases } from './sitio_bases_usuarios.js';
 
 const MOTOR = { mariadb: 'MariaDB', postgresql: 'PostgreSQL' };
 
@@ -41,5 +42,6 @@ export async function pestanaBases(ctx) {
       }))))) : el('p', { clase: 'ayuda' }, 'Ninguna.'),
     el('div', { clase: 'fila espacio' }, crear('mariadb'), crear('postgresql')),
     msj.nodo,
-    el('p', { clase: 'ayuda' }, 'Las herramientas se abren ya conectadas a esa base con un usuario temporal que vence en dos horas.'));
+    el('p', { clase: 'ayuda' }, 'Las herramientas se abren ya conectadas a esa base con un usuario temporal que vence en dos horas.'),
+    seccionUsuariosBases(ctx));
 }
