@@ -7,7 +7,7 @@ nombres propios.
 | Vigilante | Cuándo | Qué hace |
 |---|---|---|
 | `vigila-entrega-local.sh` | cron, cada 5 min | Avisa si el correo deja de entrar a los buzones (caídas de LMTP, entregas locales diferidas, cola). No usa tope diario: es crítico. |
-| `guardian-web-correo` | timer, cada minuto | Levanta servicios caídos (máx. 3 por hora; nginx solo si `nginx -t` valida) y prueba el webmail por HTTPS. |
+| `guardian-web-correo` | timer, cada minuto | Levanta servicios caídos (máx. 3 por hora; nginx solo si `nginx -t` valida) y prueba el webmail por HTTPS, contra el propio servidor y por su nombre público (DNS normal; si solo falla este, aviso «desde Internet no responde», nunca reinicio). Avisa si fail2ban tiene baneado al proxy de confianza (`lib-proxy.sh`, docs/PROXY-CONFIABLE.md). |
 | `vigilar-milter.sh` (en `deploy/hardening/`) | timer, cada 3 min | Avisa si el milter DLP no responde y el correo pasa sin inspección. |
 | `vigilante-correo.sh` | cron, cada minuto | Señales de intrusión: ejecutables en rutas temporales u ocultas, procesos borrados disfrazados, tareas de usuarios de servicio, unidades nuevas, cortafuegos abierto. Neutraliza solo lo inequívoco. |
 | `mail-health-check.sh` | cron, cada 5 min | Cola de Postfix, disco de los buzones y vencimiento del certificado del correo. |
