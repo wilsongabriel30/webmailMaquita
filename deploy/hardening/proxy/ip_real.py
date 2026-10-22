@@ -22,6 +22,9 @@ los archivos (rutas relativas a la raíz del sistema):
   etc/nginx/snippets/maquita-ip-real-defecto.conf  lo mismo con default_server (el vhost del webmail).
   etc/nginx/snippets/maquita-ip-real-portal.conf   «listen 4444 ssl proxy_protocol;» (portal de dominio, 8444).
 
+Con proxy (en los dos modos), además, el bloqueo en nginx de lo que banea fail2ban y, en modo proxy_protocol,
+los puertos 4443 y 4444 en el cortafuegos del panel solo para el proxy: baneo_proxy.py.
+
 El puerto 443 sigue directo, sin PROXY protocol: la red local, el propio servidor, el guardián y
 deploy-webmail.sh (--resolve a 127.0.0.1) siguen entrando como siempre. Los vhosts incluyen los fragmentos
 con «include snippets/maquita-ip-real.con[f];»: el corchete lo vuelve un patrón y nginx no se queja si el
@@ -36,6 +39,7 @@ archivos. Uso (lo llama deploy/hardening/proxy/instalar.sh):
                                                fragmento: escribe la versión nueva en D e imprime su ruta
   ip_real.py ips      --raiz R                 direcciones y redes que nunca deben quedar baneadas
   ip_real.py dentro   --raiz R IP...           de las IP dadas, las que caen en esas redes
+  ip_real.py modo     --raiz R                 proxy_protocol, cabecera o nada (sin proxy)
 """
 
 import argparse
@@ -46,13 +50,15 @@ import os
 import re
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import baneo_proxy  # noqa: E402
+
 ORGANIZACION = "etc/maquita-mail/organizacion.env"
 F2B_NUESTRO = "etc/fail2ban/jail.d/zz-maquita-ignorar.local"
 NGINX_HTTP = "etc/nginx/conf.d/maquita-ip-real.conf"
 SNIPPET = "etc/nginx/snippets/maquita-ip-real.conf"
 SNIPPET_DEFECTO = "etc/nginx/snippets/maquita-ip-real-defecto.conf"
 SNIPPET_PORTAL = "etc/nginx/snippets/maquita-ip-real-portal.conf"
-GESTIONADOS = (F2B_NUESTRO, NGINX_HTTP, SNIPPET, SNIPPET_DEFECTO, SNIPPET_PORTAL)
 
 PUERTO_PROXY = 4443          # HTTPS de webmail y sitios a través del proxy (PROXY protocol)
 PUERTO_PROXY_PORTAL = 4444   # portal de dominio (8444) a través del proxy
@@ -199,20 +205,23 @@ def contenido_nginx_http(cfg):
         lineas.append("real_ip_header proxy_protocol;")
     else:
         lineas += ["real_ip_header X-Forwarded-For;", "real_ip_recursive on;"]
-    return "\n".join(lineas) + "\n"
+    return "\n".join(lineas) + "\n" + baneo_proxy.GEO
 
 
 def contenido_snippet(cfg, puerto, defecto=False):
-    if cfg["modo"] != "proxy_protocol":
+    """Lo que va en cada server{} HTTPS: en modo proxy_protocol, la entrada dedicada al proxy; en los dos modos,
+    el corte de las direcciones baneadas por fail2ban."""
+    if not cfg["modo"]:
         return None
-    extra = " default_server" if defecto else ""
-    lineas = [CABECERA.rstrip("\n"),
-              f"# Entrada dedicada al proxy de confianza (PROXY protocol). Solo la debe usar el proxy: una conexión",
-              f"# directa a este puerto no trae la cabecera PROXY y nginx la corta."]
-    lineas.append(f"listen {puerto} ssl proxy_protocol{extra};")
-    if any(":" in r for r in cfg["proxy"]):
-        lineas.append(f"listen [::]:{puerto} ssl proxy_protocol{extra};")
-    return "\n".join(lineas) + "\n"
+    lineas = [CABECERA.rstrip("\n")]
+    if cfg["modo"] == "proxy_protocol":
+        extra = " default_server" if defecto else ""
+        lineas += ["# Entrada dedicada al proxy de confianza (PROXY protocol). Solo la debe usar el proxy: una conexión",
+                   "# directa a este puerto no trae la cabecera PROXY y nginx la corta.",
+                   f"listen {puerto} ssl proxy_protocol{extra};"]
+        if any(":" in r for r in cfg["proxy"]):
+            lineas.append(f"listen [::]:{puerto} ssl proxy_protocol{extra};")
+    return "\n".join(lineas) + "\n" + baneo_proxy.SI_BANEADO
 
 
 def archivos(cfg, previos=()):
@@ -223,6 +232,7 @@ def archivos(cfg, previos=()):
         SNIPPET: contenido_snippet(cfg, PUERTO_PROXY),
         SNIPPET_DEFECTO: contenido_snippet(cfg, PUERTO_PROXY, defecto=True),
         SNIPPET_PORTAL: contenido_snippet(cfg, PUERTO_PROXY_PORTAL),
+        **baneo_proxy.archivos(cfg, CABECERA),
     }
 
 
@@ -323,7 +333,7 @@ def _escribir(destino, relativa, texto):
 
 def main(argv=None):
     p = argparse.ArgumentParser(description="IP real tras un proxy de confianza y lista blanca de fail2ban.")
-    p.add_argument("orden", choices=("generar", "vhosts", "ips", "dentro"))
+    p.add_argument("orden", choices=("generar", "vhosts", "ips", "dentro", "modo"))
     p.add_argument("--raiz", default="/")
     p.add_argument("--destino")
     p.add_argument("--mail-host", default="")
@@ -343,12 +353,14 @@ def main(argv=None):
                 _escribir(a.destino, relativa, texto)
             print(relativa)
     elif a.orden == "vhosts":
-        if cfg["modo"] == "proxy_protocol":
+        if cfg["modo"]:  # los dos modos: el corte de los baneados va en los mismos snippets
             raiz = os.path.realpath(a.raiz)
             for real, texto in vhosts_pendientes(a.raiz, a.mail_host.strip().lower()):
                 relativa = os.path.relpath(real, raiz)
                 _escribir(a.destino, relativa, texto)
                 print(relativa)
+    elif a.orden == "modo":
+        print(cfg["modo"])
     elif a.orden == "ips":
         print(" ".join(protegidas(cfg)))
     else:

@@ -89,7 +89,9 @@ def test_nginx_proxy_protocol():
 def test_nginx_cabecera_sin_puertos_nuevos():
     a = ip_real.archivos(ip_real.configuracion({"PROXY_CONFIABLE": "192.0.2.51", "PROXY_MODO": "cabecera"}))
     assert "real_ip_header X-Forwarded-For;\nreal_ip_recursive on;" in a[ip_real.NGINX_HTTP]
-    assert a[ip_real.SNIPPET] is None and a[ip_real.SNIPPET_DEFECTO] is None and a[ip_real.SNIPPET_PORTAL] is None
+    # Sin puertos nuevos: los snippets solo llevan el corte de los baneados.
+    for clave in (ip_real.SNIPPET, ip_real.SNIPPET_DEFECTO, ip_real.SNIPPET_PORTAL):
+        assert "listen" not in a[clave] and "if ($maquita_baneado) { return 444; }" in a[clave]
 
 
 def test_ignoreip_previos_lee_jail_local_y_otros_local(tmp_path):

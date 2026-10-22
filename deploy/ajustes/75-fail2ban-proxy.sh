@@ -6,7 +6,9 @@
 # banearon esa IP 24 h; el webmail, el portal 8444 y los sitios quedaron 11 h fuera de Internet. jail.local fija
 # «ignoreip = 127.0.0.1/8 ::1» y los instaladores lo reescriben. Este ajuste lleva a fail2ban y a nginx lo que
 # digan FAIL2BAN_IGNORAR, PROXY_CONFIABLE y PROXY_MODO en /etc/maquita-mail/organizacion.env, y desbanea las
-# direcciones de esas listas que estén baneadas. Sin esas variables no cambia nada. Detalle y ejemplo del
+# direcciones de esas listas que estén baneadas. Con proxy, además, lo que banea fail2ban se corta también en
+# nginx (acción maquita-nginx-baneo) y el cortafuegos del panel abre 4443 y 4444 solo para el proxy (o, sin
+# ese cortafuegos, se avisa). Sin esas variables no cambia nada. Detalle y ejemplo del
 # proxy: docs/PROXY-CONFIABLE.md. El trabajo lo hace deploy/hardening/proxy/instalar.sh (copias, «nginx -t»,
 # «fail2ban-client -t» y vuelta atrás).
 set -euo pipefail
