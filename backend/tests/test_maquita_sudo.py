@@ -339,6 +339,9 @@ def test_dns_ordenes_permitidas():
         ("servidor", "eyJpcF9jb3JyZW8iOiIxLjIuMy40In0"),
         ("certificado-estado",),
         ("certificado-correo",),
+        ("transferencias-ver",),
+        ("transferencias-secreto",),
+        ("transferencias", "eyJ0cmFuc2ZlcmlyX2EiOltdfQ"),
     ):
         assert _ok("maquita-admin", "maquita-dns", *args)
 
@@ -352,6 +355,13 @@ def test_dns_ordenes_permitidas():
         ("borrar", "ejemplo.org", "otro.org"),
         ("crear", "ejemplo.org", "--algo"),
         ("rndc", "reload"),
+        # Las opciones de la consola no pasan por el panel.
+        ("servidor",),
+        ("servidor", "--transferir-a", "198.51.100.53"),
+        ("servidor", "--mostrar-secreto"),
+        ("transferencias", "--tsig"),
+        ("transferencias-importar",),
+        ("transferencias-importar", "--simular"),
     ],
 )
 def test_dns_rechaza(args):
