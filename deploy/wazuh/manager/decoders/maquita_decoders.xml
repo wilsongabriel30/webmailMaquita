@@ -1,0 +1,27 @@
+<!--
+  Decodificadores propios de Maquita para el MANAGER de Wazuh (no para el agente).
+  Se copian en /var/ossec/etc/decoders/ del manager con deploy/wazuh/manager/instalar-reglas.sh.
+
+  Postfix, Dovecot, nginx, sudo y sshd ya los trae Wazuh. El registro JSON de seguridad
+  (/var/log/maquita/seguridad.json) lo entiende el decodificador «json» de serie: aquí solo hace
+  falta maquita-sudo, que escribe en syslog (facilidad auth) líneas como:
+    maquita-sudo: MAQUITA_SUDO ok usuario=maquita-admin postqueue -p
+    maquita-sudo: MAQUITA_SUDO rechazado usuario=www-data programa=doveadm motivo=… args=…
+-->
+<decoder name="maquita-sudo">
+  <program_name>^maquita-sudo$</program_name>
+</decoder>
+
+<decoder name="maquita-sudo-ok">
+  <parent>maquita-sudo</parent>
+  <prematch>^MAQUITA_SUDO ok </prematch>
+  <regex type="pcre2">^MAQUITA_SUDO (ok) usuario=(\S*) (\S+)</regex>
+  <order>resultado, srcuser, programa</order>
+</decoder>
+
+<decoder name="maquita-sudo-rechazo">
+  <parent>maquita-sudo</parent>
+  <prematch>^MAQUITA_SUDO rechazado </prematch>
+  <regex type="pcre2">^MAQUITA_SUDO (rechazado) usuario=(\S*) programa=(\S+) motivo=(.*?)(?: args=.*)?$</regex>
+  <order>resultado, srcuser, programa, motivo</order>
+</decoder>

@@ -3,12 +3,12 @@
 # YA montado, reutilizando los bloques 16-17 de instalar.sh. Idempotente: reusa la config
 # existente (SECRET_KEY y credenciales de BD del backend); no regenera secretos.
 #
-# Uso:  sudo bash deploy/webmail/instalar-app.sh <bi|pdf|onlyoffice|sitios|dns|cortafuegos|identidad|actualizar|chat|respaldos|activesync|portal-dominio>
+# Uso:  sudo bash deploy/webmail/instalar-app.sh <bi|pdf|onlyoffice|sitios|dns|cortafuegos|identidad|actualizar|chat|respaldos|activesync|portal-dominio|wazuh>
 set -e
 GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[1;33m'; NC='\033[0m'
 
 APP="${1:-}"
-case "$APP" in bi|pdf|onlyoffice|sitios|dns|cortafuegos|identidad|actualizar|chat|respaldos|activesync|portal-dominio) ;; *) echo "uso: $0 <bi|pdf|onlyoffice|sitios|dns|cortafuegos|identidad|actualizar|chat|respaldos|activesync|portal-dominio>"; exit 2 ;; esac
+case "$APP" in bi|pdf|onlyoffice|sitios|dns|cortafuegos|identidad|actualizar|chat|respaldos|activesync|portal-dominio|wazuh) ;; *) echo "uso: $0 <bi|pdf|onlyoffice|sitios|dns|cortafuegos|identidad|actualizar|chat|respaldos|activesync|portal-dominio|wazuh>"; exit 2 ;; esac
 # Portal de administradores de dominio (8444) y, si hay sitios web, «Mi sitio web».
 if [ "$APP" = "portal-dominio" ]; then
     exec bash "$(cd "$(dirname "$0")/../../panel-dominio/deploy" && pwd)/instalar.sh"
@@ -40,6 +40,10 @@ fi
 # Exchange ActiveSync (Z-Push): Outlook, iPhone y Android con correo, calendario y contactos.
 if [ "$APP" = "activesync" ]; then
     exec bash "$(cd "$(dirname "$0")/../z-push" && pwd)/seccion.sh"
+fi
+# Agente Wazuh (opcional) contra un manager externo: WAZUH_MANAGER y WAZUH_REGISTRATION_PASSWORD.
+if [ "$APP" = "wazuh" ]; then
+    exec bash "$(cd "$(dirname "$0")/../wazuh" && pwd)/instalar.sh" "${@:2}"
 fi
 # Identidad de la institución (Personalización → «Aplicar en todo»).
 if [ "$APP" = "identidad" ]; then

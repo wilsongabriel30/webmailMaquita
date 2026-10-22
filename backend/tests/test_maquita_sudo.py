@@ -535,3 +535,17 @@ def test_salto_de_linea_al_final_se_rechaza(args):
     # «$» de una expresión regular admite un salto de línea final: se valida la cadena entera.
     with pytest.raises(ms.Rechazo):
         _ok("maquita-admin", "maquita-sitios", *args)
+
+
+# --- Estado del agente Wazuh (maquita-wazuh), tarjeta de Seguridad → Tableros ---
+
+
+def test_wazuh_solo_estado():
+    assert _ok("maquita-admin", "maquita-wazuh", "estado") == ["estado"]
+    for malo in ((), ("estado", "x"), ("estado\n",), ("Estado",), ("instalar",), ("registrar", "siem.example.org"),
+                 ("estado;id",), (" estado",)):
+        with pytest.raises(ms.Rechazo):
+            _ok("maquita-admin", "maquita-wazuh", *malo)
+    with pytest.raises(ms.Rechazo):
+        _ok("www-data", "maquita-wazuh", "estado")
+    assert "maquita-wazuh" in ms.SOLO_RUTA_FIJA
