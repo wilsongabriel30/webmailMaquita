@@ -422,6 +422,8 @@ def validar_sitios(args):
         return args
     if args[:1] and args[0] in _ORDENES_SITIOS_WEB:
         return validar_sitios_web(args)
+    if args[:1] and args[0] in _ORDENES_SITIOS_V111:
+        return validar_sitios_v111(args)
     if _validar_sitios_datos(args, dom):
         return args
     raise Rechazo("maquita-sitios: subacción o argumentos no permitidos")
@@ -499,6 +501,29 @@ def validar_sitios_web(args):
     if len(args) == 4 and args[0] == "ftp-cuenta-crear" and dom(args[1]) and _RE_CUENTA_FTP.fullmatch(args[2]) and b64(args[3]):
         return args
     if len(args) == 3 and args[0] in ("ftp-cuenta-clave", "ftp-cuenta-quitar") and dom(args[1]) and _RE_CUENTA_FTP.fullmatch(args[2]):
+        return args
+    raise Rechazo("maquita-sitios: subacción o argumentos no permitidos")
+
+
+# --- maquita-sitios: despliegue desde git de los sitios PHP y CPU y memoria por sitio (v1.11) ---
+# Ver deploy/sitios/lib/ordenes_v111.py. «git-desplegar-ahora» y «recursos-recoger» son del sistema: no pasan.
+_ORDENES_SITIOS_V111 = {"git-estado", "git-configurar", "git-clave", "git-gancho", "git-desplegar", "git-volver",
+                        "git-quitar", "recursos"}
+
+
+def validar_sitios_v111(args):
+    dom = lambda d: bool(_RE_DOMINIO_SITIO.fullmatch(d))  # noqa: E731
+    if len(args) == 2 and args[0] in ("git-estado", "git-clave", "recursos") and dom(args[1]):
+        return args
+    if len(args) == 3 and args[0] == "git-configurar" and dom(args[1]) and _RE_B64URL_LARGO.fullmatch(args[2]):
+        return args
+    if len(args) == 3 and args[0] == "git-gancho" and dom(args[1]) and args[2] in ("activar", "desactivar"):
+        return args
+    if len(args) == 3 and args[0] == "git-desplegar" and dom(args[1]) and args[2] in ("panel", "gancho"):
+        return args
+    if len(args) == 3 and args[0] == "git-volver" and dom(args[1]) and re.fullmatch(r"\d{8}-\d{6}", args[2]):
+        return args
+    if len(args) == 3 and args[0] == "git-quitar" and dom(args[1]) and args[1] == args[2]:
         return args
     raise Rechazo("maquita-sitios: subacción o argumentos no permitidos")
 
@@ -602,7 +627,9 @@ def autorizar(usuario: str, programa: str, args, comprobar_buzon=_buzon_existe):
         if any(not isinstance(a, str) or not a or len(a) > 12000 or re.search(r"[\x00-\x1f\x7f]", a) for a in args):
             raise Rechazo("argumento con caracteres de control o vacío")
         return validar_outbound(list(args))
-    if programa == "maquita-sitios" and args[:1] in (["inicio"], ["propia-crear"], ["propia-entorno"]):
+    # Datos en base64url de más de 300 caracteres (la lista de alias, 10 dominios, también los pasa).
+    if programa == "maquita-sitios" and args[:1] in (["inicio"], ["propia-crear"], ["propia-entorno"], ["git-configurar"],
+                                                     ["alias"]):
         if any(not isinstance(a, str) or not a or len(a) > 8000 or re.search(r"[\x00-\x1f\x7f]", a) for a in args):
             raise Rechazo("argumento con caracteres de control o vacío")
         return validar_sitios(list(args))

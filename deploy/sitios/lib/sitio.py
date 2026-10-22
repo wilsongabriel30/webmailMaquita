@@ -362,6 +362,9 @@ def borrar(dominio):
     import tareas
 
     propias.limpiar_para_baja(meta)
+    import git_despliegue
+
+    git_despliegue.limpiar_para_baja(meta)  # secreto del gancho (la carpeta de despliegues va con el sitio)
     tareas.quitar_todos(meta)
     if meta.get("bases"):
         import bases
