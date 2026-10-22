@@ -3,19 +3,24 @@ import { ArchivosPestana } from "./ArchivosPestana";
 import { CopiasPestana } from "./CopiasPestana";
 import { DisponibilidadPestana } from "./DisponibilidadPestana";
 import { EstadisticasPestana } from "./EstadisticasPestana";
+import { GitPestana } from "./GitPestana";
+import { RecursosPestana } from "./RecursosPestana";
 import { RegistrosPestana } from "./RegistrosPestana";
 
-type Pestana = "archivos" | "registros" | "estadisticas" | "disponibilidad" | "copias";
+type Pestana = "archivos" | "registros" | "estadisticas" | "disponibilidad" | "copias" | "recursos" | "git";
 const PESTANAS: { id: Pestana; titulo: string }[] = [
   { id: "archivos", titulo: "Archivos" },
   { id: "registros", titulo: "Errores y accesos" },
   { id: "estadisticas", titulo: "Visitas" },
   { id: "disponibilidad", titulo: "Disponibilidad" },
   { id: "copias", titulo: "Copias del sitio" },
+  { id: "recursos", titulo: "CPU y memoria" },
+  { id: "git", titulo: "Git (sitio PHP)" },
 ];
 
-/* Archivos y datos del sitio: administrador de archivos, registros, estadísticas (GoAccess), disponibilidad y
-   copias que controla el dueño del sitio. Cada pestaña es su propio componente. */
+/* Archivos y datos del sitio: administrador de archivos, registros, estadísticas (GoAccess), disponibilidad,
+   copias que controla el dueño del sitio, CPU y memoria y despliegue desde git (v1.11). Cada pestaña es su propio
+   componente. */
 export function DatosModal({ dominio, onCerrar }: { dominio: string; onCerrar: () => void }) {
   const [pestana, setPestana] = useState<Pestana>("archivos");
   const boton = (activo: boolean) => `px-3 py-1.5 text-sm rounded-t border-b-2 ${activo ? "border-ms-blue text-ms-blue" : "border-transparent text-ms-gray-90"}`;
@@ -34,6 +39,8 @@ export function DatosModal({ dominio, onCerrar }: { dominio: string; onCerrar: (
         {pestana === "estadisticas" && <EstadisticasPestana dominio={dominio} />}
         {pestana === "disponibilidad" && <DisponibilidadPestana dominio={dominio} />}
         {pestana === "copias" && <CopiasPestana dominio={dominio} />}
+        {pestana === "recursos" && <RecursosPestana dominio={dominio} />}
+        {pestana === "git" && <GitPestana dominio={dominio} />}
       </div>
     </div>
   );

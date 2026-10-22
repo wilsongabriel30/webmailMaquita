@@ -81,6 +81,7 @@ from app.sitios.paquete import router as sitios_paquete_router
 from app.sitios.avanzado import router as sitios_avanzado_router
 from app.sitios.php import router as sitios_php_router
 from app.sitios.propias import router as sitios_propias_router
+from app.sitios.git_recursos import router as sitios_git_recursos_router
 from app.sitios.router import router as sitios_router
 from app.sitios.web import routers as sitios_web_routers
 from app.sitios.desarrollo import routers as sitios_desarrollo_routers
@@ -282,6 +283,7 @@ app.include_router(anomaly_router)
 app.include_router(outbound_router)
 app.include_router(sitios_router)
 app.include_router(sitios_propias_router)
+app.include_router(sitios_git_recursos_router)  # v1.11: git de los sitios PHP y CPU y memoria
 app.include_router(sitios_dominios_router)
 app.include_router(sitios_tareas_router)
 app.include_router(sitios_paquete_router)

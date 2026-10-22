@@ -28,6 +28,18 @@ SUBIDAS = "/var/lib/maquita-sitios/subidas"
 # Copias del sitio que controla su dueño (cuentan para el espacio en disco del dominio).
 COPIAS = "/var/lib/maquita-sitios/copias"
 
+# v1.11. Secreto del gancho de git de cada sitio (lo escribe maquita-sitios git-gancho; aquí solo se lee) y
+# fichas del DNS dinámico (las escribe y lee solo el intermediario).
+GANCHOS = "/etc/maquita-sitios/ganchos"
+DDNS = "/etc/maquita-sitios/ddns"
+# Información del servidor: versión de PHP de serie y puertos de FTP y SFTP (solo se leen).
+PHP_BASE = "/etc/maquita-sitios/php-base"
+VSFTPD = "/etc/vsftpd.conf"
+SSHD = "/etc/ssh/sshd_config"
+SSHD_D = "/etc/ssh/sshd_config.d"
+# Zonas que sirve maquita-dns (solo se mira si existe la de cada dominio asignado).
+ZONAS_DNS = "/etc/maquita-dns"
+
 # Tamaño de las bases de datos de cada sitio.
 MARIADB = "/usr/bin/mariadb"
 RUNUSER = "/usr/sbin/runuser"

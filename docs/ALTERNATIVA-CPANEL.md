@@ -33,16 +33,16 @@ pagar paneles y nubes extranjeras sin perder funciones.
 | Uso de disco por sitio, bases y copias, con cuotas por dominio | ✅ |
 | Carpetas con contraseña | ✅ |
 | Copias de seguridad: el cliente crea, descarga y restaura su sitio y sus bases | ✅ |
-| Despliegue desde git | ✅ aplicaciones propias · ⏳ sitios PHP (v1.11) |
+| Despliegue desde git | ✅ aplicaciones propias y sitios PHP (clave de despliegue, gancho y vuelta atrás) |
 
 ### Dominios y DNS
 
 | Función | Estado |
 |---|---|
-| Dominios, subdominios y alias de dominio | ✅ (alias desde el portal: ⏳ v1.11) |
+| Dominios, subdominios y alias de dominio | ✅ (alias también desde el portal) |
 | Redirecciones 301/302 de una ruta o de todo el dominio | ✅ |
 | Editor de zona DNS (servidor DNS propio), con los registros del correo protegidos | ✅ |
-| DNS dinámico | ⏳ v1.11 |
+| DNS dinámico | ✅ (dyndns2: routers, ddclient, inadyn) |
 
 ### Correo
 
@@ -86,7 +86,7 @@ pagar paneles y nubes extranjeras sin perder funciones.
 | Tareas programadas (cron) | ✅ |
 | Páginas de error propias (403, 404, 500, 502, 503) | ✅ |
 | Compresión gzip/brotli y caché, pensadas para conexiones rurales y satelitales | ✅ |
-| Aplicaciones Node.js y Python | ✅ panel general · ⏳ portal (v1.11) |
+| Aplicaciones Node.js y Python | ✅ panel general y portal (con límites de memoria y CPU) |
 | Migración desde otro hosting (paquete y respaldo .sql) | ✅ |
 | Editor visual de páginas | Fase posterior: alternativa libre (GrapesJS); Sitejet es de pago y no entra |
 
@@ -97,8 +97,8 @@ pagar paneles y nubes extranjeras sin perder funciones.
 | Estadísticas de visitas y ancho de banda (GoAccess, sin rastreo en el navegador) | ✅ |
 | Visor de errores y accesos del sitio y de PHP | ✅ |
 | Aviso de caída del sitio por correo (comprobación cada 5 minutos, con días restantes del certificado) | ✅ |
-| CPU y memoria por sitio | ⏳ v1.11 |
-| Información del servidor en el portal | ⏳ v1.11 |
+| CPU y memoria por sitio | ✅ (gráfico de las últimas 24 h) |
+| Información del servidor en el portal | ✅ |
 
 ## Lo que cPanel no trae
 

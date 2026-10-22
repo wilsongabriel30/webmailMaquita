@@ -15,6 +15,10 @@ import { pestanaGestor } from './sitio_archivos.js';
 import { pestanaCopias } from './sitio_copias.js';
 import { pestanaDatos } from './sitio_datos.js';
 import { pestanaCortafuegos } from './sitio_cortafuegos.js';
+import { pestanaDominios } from './sitio_dominios.js';
+import { pestanaGit } from './sitio_git.js';
+import { pestanaPropia } from './sitio_propia.js';
+import { pestanaRecursos } from './sitio_recursos.js';
 
 // «archivos» es el editor de archivos de configuración (con versiones); el administrador de archivos es «gestor».
 const PESTANAS = [
@@ -22,14 +26,17 @@ const PESTANAS = [
   ['web', 'Web', pestanaWeb], ['cortafuegos', 'Cortafuegos', pestanaCortafuegos], ['gestor', 'Archivos', pestanaGestor], ['copias', 'Copias', pestanaCopias],
   ['datos', 'Visitas y registros', pestanaDatos], ['tareas', 'Tareas', pestanaTareas], ['bases', 'Bases de datos', pestanaBases],
   ['archivos', 'Configuración', pestanaArchivos], ['php', 'PHP', pestanaPhp], ['paquete', 'Subir y migrar', pestanaPaquete],
+  // v1.11: alias, despliegue desde git, aplicaciones Node.js y Python, y CPU y memoria.
+  ['dominios', 'Dominios', pestanaDominios], ['git', 'Git', pestanaGit], ['propia', 'Node.js y Python', pestanaPropia],
+  ['recursos', 'CPU y memoria', pestanaRecursos],
   ['baja', 'Pedir la baja', pestanaBaja],
 ];
 
-export async function vistaFichaSitio(sitio, pestana) {
+export async function vistaFichaSitio(sitio, pestana, sesion) {
   const estado = await api.get(`/sitios/${enRutaSitio(sitio)}/estado`);
   const s = estado.sitio;
   const actual = PESTANAS.find(([id]) => id === pestana) || PESTANAS[0];
-  const ctx = { sitio, estado, s, recargar: () => window.dispatchEvent(new Event('hashchange')) };
+  const ctx = { sitio, estado, s, sesion, recargar: () => window.dispatchEvent(new Event('hashchange')) };
   const cuerpo = el('section', { clase: 'caja', 'aria-label': actual[1] }, el('p', { clase: 'cargando' }, 'Cargando…'));
   const raiz = el('div', null,
     el('p', { clase: 'migas' }, el('a', { href: '#sitios' }, 'Mi sitio web'), ' › ', sitio),

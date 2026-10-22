@@ -17,13 +17,15 @@ from fastapi import HTTPException, Request
 
 from app.sitios import config
 
-RE_SUBIDA = re.compile(r"^[0-9a-f]{32}\.(zip|tar\.gz|tgz|sql|sql\.gz|txt|subida)$")
+RE_SUBIDA = re.compile(r"^[0-9a-f]{32}\.(zip|tar\.gz|tgz|sql|sql\.gz|txt|subida|gancho)$")
 _PARCIAL = ".parcial"
 
 
 def _extension(clase: str, cabeza: bytes) -> str | None:
     if clase == "archivo":
         return ".subida"  # administrador de archivos: cualquier contenido, lo copia el usuario del sitio
+    if clase == "gancho":
+        return ".gancho"  # cuerpo de un gancho de git (v1.11): el intermediario comprueba su firma
     if clase == "paquete":
         if cabeza.startswith(b"PK\x03\x04"):
             return ".zip"

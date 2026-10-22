@@ -94,6 +94,9 @@ systemctl reload nginx
 # 6. Sitios web desde el portal, si el servidor los tiene.
 if [ -x /usr/local/sbin/maquita-sitios ]; then
   bash "${APP_DIR}/deploy/sitios/portal/instalar.sh"
+  # v1.11: rutas públicas del gancho de git y del DNS dinámico, que atiende este portal.
+  bash "${APP_DIR}/deploy/sitios/publico/instalar.sh" \
+    || echo "Aviso: no se pudieron publicar las rutas del gancho y del DNS dinámico (deploy/sitios/publico/instalar.sh)." >&2
 fi
 
 # 7. Órdenes de consola del panel (vale de entrada del superadmin y vale de soporte del portal).

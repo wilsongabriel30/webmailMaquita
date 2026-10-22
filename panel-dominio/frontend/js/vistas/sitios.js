@@ -1,5 +1,5 @@
 // «Mi sitio web»: lista de sitios de tus dominios, cuotas con su uso y sitio nuevo.
-// Rutas: #sitios · #sitios/<sitio> · #sitios/<sitio>/<pestaña> · #sitios/dns/<dominio>
+// Rutas: #sitios · #sitios/<sitio> · #sitios/<sitio>/<pestaña> · #sitios/dns/<dominio> · #sitios/servidor
 import { api } from '../api.js';
 import { el, agregar, aviso, campo, casilla, lista, ventana } from '../ui.js';
 import { barraUso, dominioDe, irA, megas, nombreApp } from './sitio_comun.js';
@@ -12,6 +12,7 @@ export async function vistaSitios(sesion) {
   const partes = location.hash.slice(1).split('/').slice(1).map(decodeURIComponent);
   try {
     if (partes[0] === 'dns' && partes[1]) return await vistaZona(partes[1]);
+    if (partes[0] === 'servidor') return await (await import('./sitio_servidor.js')).vistaServidor();
     if (partes[0]) return await vistaFichaSitio(partes[0], partes[1] || '', sesion);
     return await vistaLista(sesion);
   } catch (e) {
@@ -70,7 +71,8 @@ async function vistaLista(sesion, mensaje) {
       : el('a', { clase: 'enlace', href: '#sitios/' + encodeURIComponent(s.dominio) }, 'Administrar'))));
   agregar(raiz,
     el('h1', null, 'Mi sitio web'),
-    el('p', { clase: 'sub' }, 'Las páginas web de tu organización, cada una aislada del resto, con su aplicación, su HTTPS y sus bases de datos.'),
+    el('p', { clase: 'sub' }, 'Las páginas web de tu organización, cada una aislada del resto, con su aplicación, su HTTPS y sus bases de datos. ',
+      el('a', { href: '#sitios/servidor' }, 'Información del servidor')),
     mensaje ? aviso('ok', mensaje) : null,
     el('div', { clase: 'tarjetas' }, r.dominios.map(d => tarjetaDominio(d, r.dns))),
     el('div', { clase: 'fila espacio' }, el('h2', { clase: 'crece' }, 'Sitios'),

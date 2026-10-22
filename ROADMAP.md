@@ -153,13 +153,13 @@ se indica la alternativa libre.
 | 3 | Uso de disco | Ya: sitio, bases y copias, con cuotas por dominio — panel y portal | — |
 | 4 | Privacidad de directorios | Ya: usuario y contraseña por carpeta — panel y portal | — |
 | 5-6 | Copias de seguridad y asistente | Ya: restic del servidor y copias del sitio que el cliente crea, descarga y restaura | — |
-| 7 | Git | Parcial: aplicaciones propias desde git | v1.11: también en sitios PHP |
+| 7 | Git | Ya: aplicaciones propias y sitios PHP (clave de despliegue, gancho, registro y vuelta atrás) — panel y portal | — |
 | 8 | Dominios | Ya (asistente «Nuevo dominio») | — |
 | 9 | Subdominios | Ya — panel y portal | — |
-| 10 | Alias de dominios | Ya en el panel general | v1.11: desde el portal |
+| 10 | Alias de dominios | Ya — panel y portal | — |
 | 11 | Redireccionamientos | Ya: 301/302 por dirección y de dominio completo — panel y portal | — |
 | 12 | Editor de zona DNS | Ya — portal con NS, SOA y correo en solo lectura | — |
-| 13 | DNS dinámico | No | v1.11 |
+| 13 | DNS dinámico | Ya: fichas por nombre y /nic/update (dyndns2) — portal | — |
 | 14-17 | Cuentas, webmail, reenvíos, respuestas automáticas | Ya | — |
 | 18-19 | Filtros y antispam | Ya (Sieve y Rspamd con aprendizaje) | — |
 | 20 | SPF, DKIM, DMARC | Ya, más MTA-STS | — |
@@ -182,15 +182,15 @@ se indica la alternativa libre.
 | 43 | Páginas de error propias | Ya (403, 404, 500, 502, 503) — panel y portal | — |
 | 44 | Manejadores de Apache | No aplica: nginx con PHP-FPM | — |
 | 45 | Optimización (compresión, caché) | Ya: gzip/brotli de serie, caché del navegador y de página, pensado para conexiones rurales y satelitales | — |
-| 46 | Node.js y Python | Ya en el panel general (aplicaciones propias) | v1.11: portal con límites |
+| 46 | Node.js y Python | Ya: aplicaciones propias con límites de memoria y CPU — panel y portal | — |
 | 47-49, 51 | WordPress: instalar, entrar, actualizar, varios sitios | Ya — panel y portal | — |
 | 50 | Editor visual de páginas | No: Sitejet es de pago y cerrado, no entra | Fase posterior, solo si hace falta: primero la alternativa libre GrapesJS (BSD); si no alcanza, desarrollo propio y gratuito |
 | 52 | Migración desde otro hosting | Ya (paquete y respaldo .sql) — panel y portal | — |
 | 53-54 | Estadísticas de visitas y tráfico | Ya: GoAccess, sin rastreo en el navegador — panel y portal | — |
-| 55-56 | CPU y memoria por sitio | No (cada sitio ya tiene su propio PHP) | v1.11 |
+| 55-56 | CPU y memoria por sitio | Ya: pool de PHP-FPM y unidad de la aplicación, cada 5 minutos, gráfico de 24 h — panel y portal | — |
 | 57 | Errores del sitio | Ya: visor de errores y accesos del sitio y de PHP — panel y portal | — |
 | 58 | Monitoreo de disponibilidad | Ya: por sitio cada 5 minutos, con aviso al cliente | — |
-| 59 | Información del servidor | Parcial: en el panel general | v1.11: en el portal |
+| 59 | Información del servidor | Ya — panel y portal | — |
 
 **v1.9.0 — El cliente administra su sitio** `DONE` (2026-10-21): pestaña «Mi sitio web» del portal de dominio
 (sitios y subdominios, aplicaciones, HTTPS, FTP, cron, bases, PHP, archivos, migración, zona DNS, cuotas

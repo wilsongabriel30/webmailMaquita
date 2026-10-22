@@ -18,7 +18,9 @@ import ordenes_desarrollo_portal as odv
 import ordenes_dns as od
 import ordenes_sitios as os_
 import ordenes_web as ow
+import publico
 import sesion
+import v111
 import subidas
 from errores import ErrorPortal, no_encontrado
 
@@ -60,6 +62,9 @@ ORDENES = {
     **odp.ORDENES,
     # v1.11: usuarios de bases, acceso remoto, cortafuegos de aplicaciones y claves SSH (ordenes_desarrollo_portal.py).
     **odv.ORDENES,
+    # v1.11: alias, aplicaciones Node.js y Python, git de los sitios PHP, CPU y memoria, información del servidor
+    # y DNS dinámico (v111.py junta sus módulos). Las órdenes SIN sesión van aparte, en publico.py.
+    **v111.ORDENES,
 }
 
 
@@ -69,6 +74,7 @@ ORDENES_LECTURA = frozenset({
     "listar", "catalogo", "revisar", "tareas", "tarea-registro", "bases", "avanzado", "avanzado-ver",
     "php-estado", "dns-ver", "web", "ftp-cuentas", "registros", "estadisticas", "disponibilidad", "copias",
     "archivos-listar", "archivos-papelera", "bases-usuarios", "waf", "waf-bloqueos", "ssh-claves",
+    "propia-estado", "git-estado", "recursos", "servidor-info", "ddns-ver",
 })
 
 
@@ -96,6 +102,8 @@ def atender(peticion):
 
 
 def _atender(peticion, args):
+    if isinstance(peticion.get("orden"), str) and peticion["orden"] in publico.ORDENES:
+        return publico.atender(peticion)  # gancho de git y DNS dinámico: traen su propia prueba
     admin = sesion.verificar(peticion.get("ficha"))
     orden = peticion.get("orden")
     if not isinstance(orden, str) or orden not in ORDENES:
