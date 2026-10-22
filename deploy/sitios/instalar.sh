@@ -304,6 +304,9 @@ install -m 755 "${APP_DIR}/deploy/sudoers/maquita-sudo" /usr/local/sbin/maquita-
 /usr/local/sbin/maquita-sitios regenerar >/dev/null
 # «Mi sitio web» en el portal de dominio: solo si el portal también está instalado (si no, no hace nada).
 bash "${SELF}/portal/instalar.sh" || echo -e "${YELLOW}No se pudo instalar el intermediario del portal de dominio: revise deploy/sitios/portal/instalar.sh.${NC}"
+# v1.11: CPU y memoria por sitio (temporizador) y despliegue desde git y DNS dinámico (herramientas y rutas públicas).
+bash "${SELF}/recursos/instalar.sh" || echo -e "${YELLOW}No se pudo instalar la medición de CPU y memoria: revise deploy/sitios/recursos/instalar.sh.${NC}"
+bash "${SELF}/publico/instalar.sh" || echo -e "${YELLOW}No se pudo preparar el despliegue desde git: revise deploy/sitios/publico/instalar.sh.${NC}"
 # fail2ban: intentos fallidos de FTP.
 if [ -d /etc/fail2ban/jail.d ]; then
     cat > /etc/fail2ban/jail.d/sitios-ftp.local <<'EOF'

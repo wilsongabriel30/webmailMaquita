@@ -1,0 +1,9 @@
+[Unit]
+Description=CPU y memoria de cada sitio web (una lectura de /proc y de los grupos de control)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/maquita-sitios recursos-recoger
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=120
