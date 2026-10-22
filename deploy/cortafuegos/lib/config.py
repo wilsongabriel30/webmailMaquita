@@ -123,6 +123,38 @@ def apps():
     return salida
 
 
+BASES_DIR = os.path.join(DIR, "bases.d")
+PUERTOS_BASES = (3306, 5432)
+
+
+def bases():
+    """Acceso remoto a las bases de los sitios (lo escribe maquita-sitios, uno por dominio): cada puerto de base
+    de datos se abre SOLO para sus orígenes. Una red /0 o lo que no sea válido se ignora: nunca abre a todos."""
+    salida = []
+    try:
+        nombres = sorted(os.listdir(BASES_DIR))
+    except FileNotFoundError:
+        return salida
+    for nombre in nombres:
+        if not nombre.endswith(".json"):
+            continue
+        try:
+            with open(os.path.join(BASES_DIR, nombre)) as f:
+                d = json.load(f)
+            if not RE_DOMINIO.match(d.get("dominio", "")):
+                continue
+            for regla in d.get("reglas") or []:
+                if regla.get("puerto") not in PUERTOS_BASES:
+                    continue
+                origenes = [red(o) for o in regla.get("origenes") or []]
+                origenes = [o for o in origenes if ipaddress.ip_network(o).prefixlen > 0][:20]
+                if origenes:
+                    salida.append({"dominio": d["dominio"], "puerto": str(regla["puerto"]), "origenes": origenes})
+        except (OSError, ValueError, AttributeError, ErrorCortafuegos):
+            continue
+    return salida
+
+
 def leer_ruta(ruta):
     with open(ruta) as f:
         return validar(json.load(f))

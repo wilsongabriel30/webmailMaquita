@@ -58,6 +58,10 @@ INYECCIONES = ["/a;}", "/a{", "/a}", "/a\nreturn 200", '/a"', "/a$host", "/a b",
 def entorno(tmp_path, monkeypatch):
     for nombre in ("meta", "disp", "act", "extra", "web", "confd", "cache", "modulos", "sitios"):
         (tmp_path / nombre).mkdir()
+    # v1.11: reglas del cortafuegos de aplicación por sitio, su registro y las claves SSH, también en la carpeta temporal.
+    monkeypatch.setattr(_PROPIOS["waf_sitio"], "CARPETA", str(tmp_path / "waf"))
+    monkeypatch.setattr(_PROPIOS["waf_sitio"], "REGISTROS", str(tmp_path / "waf-registros"))
+    monkeypatch.setattr(_PROPIOS["claves_ssh"], "CARPETA", str(tmp_path / "claves-ssh"))
     monkeypatch.setattr(comun, "META_DIR", str(tmp_path / "meta"))
     monkeypatch.setattr(sitio, "NGINX_DISP", str(tmp_path / "disp"))
     monkeypatch.setattr(sitio, "NGINX_ACT", str(tmp_path / "act"))

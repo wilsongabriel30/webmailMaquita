@@ -1,0 +1,13 @@
+# Registros del cortafuegos de aplicación de cada sitio (los lee el visor de bloqueos del panel y del portal).
+# copytruncate: ModSecurity mantiene el archivo abierto y no lo vuelve a abrir al recibir USR1.
+/var/log/nginx/sitios-waf/*.log /var/log/nginx/sitios-waf.log {
+    weekly
+    rotate 4
+    maxsize 50M
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+    su www-data adm
+}

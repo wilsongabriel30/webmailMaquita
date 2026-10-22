@@ -11,8 +11,10 @@ reservado (403). Cada orden de ORDENES dice qué alcance pide:
 
 import alcance
 import ayudantes
+import fichas
 import ordenes_avanzado as av
 import ordenes_datos_portal as odp
+import ordenes_desarrollo_portal as odv
 import ordenes_dns as od
 import ordenes_sitios as os_
 import ordenes_web as ow
@@ -56,6 +58,8 @@ ORDENES = {
     # (ordenes_datos_portal.py). Cada módulo tiene su lista; aquí se juntan y no se añade nada más.
     **ow.ORDENES,
     **odp.ORDENES,
+    # v1.11: usuarios de bases, acceso remoto, cortafuegos de aplicaciones y claves SSH (ordenes_desarrollo_portal.py).
+    **odv.ORDENES,
 }
 
 
@@ -89,6 +93,7 @@ def _atender(peticion, args):
         raise ErrorPortal(400, "Orden no permitida")
     if not isinstance(args, dict):
         raise ErrorPortal(400, "Petición no válida")
+    fichas.exigir_alcance(admin, orden)  # una ficha de API solo para lo que permite su alcance
     tipo, funcion = ORDENES[orden]
     ctx = Contexto(admin, args)
     if tipo != "ninguno":
@@ -102,6 +107,6 @@ def _atender(peticion, args):
             if tipo == "sitio" and not alcance.sitio_existe(ctx.sitio):
                 raise no_encontrado()
     datos = funcion(ctx)
-    ayudantes.registro().info("MAQUITA_SITIOS_PORTAL ok admin=%s orden=%s dominio=%s",
-                              admin["usuario"], orden, ctx.sitio or "-")
+    ayudantes.registro().info("MAQUITA_SITIOS_PORTAL ok admin=%s orden=%s dominio=%s ficha_api=%s",
+                              admin["usuario"], orden, ctx.sitio or "-", admin.get("ficha_api") or "-")
     return {"ok": True, "datos": datos}

@@ -210,6 +210,9 @@ def _baja(meta, c):
     except ErrorSitio:
         pass
     _quitar_carpetas(meta, c["nombre"])
+    import claves_ssh
+
+    claves_ssh.quitar_cuenta(meta, c["nombre"], c["usuario"])  # sus claves SSH dejan de valer con ella
     meta["ftp_cuentas"] = [x for x in meta.get("ftp_cuentas", []) if x["nombre"] != c["nombre"]]
 
 
