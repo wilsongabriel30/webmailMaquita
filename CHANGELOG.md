@@ -7,6 +7,12 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Corregido
+- **nginx: el webmail es el servidor por defecto** (ajuste `73-servidor-por-defecto.sh` y plantilla `webmail.conf`). Sin `default_server`, las peticiones con un nombre desconocido (la IP, o el nombre del equipo cuando no es `mail.<dominio>`) caían en el vhost del primer sitio de un cliente; `deploy-webmail.sh` veía un 301 y revertía una actualización correcta. El ajuste solo actúa si nadie es ya servidor por defecto, con copia previa y `nginx -t`.
+- `deploy-webmail.sh`: la comprobación final prueba el nombre configurado y el del equipo, también contra el propio equipo, y si falla dice a dónde redirige y qué hacer.
+- `instalar-app.sh bi` se detiene, con el remedio, en una CPU sin x86-64-v2 (VM de Proxmox con `kvm64`), donde NumPy no arranca; también avisa si `maquita-bi` no queda activo.
+- Guía de OIDC: `claims_policies` es opcional; Authelia 4.38 no lo conoce y el panel pide los datos a `userinfo`.
+
 ## [1.11.0] - 2026-10-21
 
 La versión que cierra la hoja de ruta de hospedaje: ya no queda ninguna función de la tabla «alternativa a cPanel» pendiente. Trae búsqueda en el texto de los adjuntos, tableros de seguridad con Wazuh opcional, preparación para gran escala, entrada por OpenID Connect y soporte «como el cliente», transferencias DNS configurables, importación de cuentas desde CSV, enrutamiento de correo, y para desarrolladores: git en los sitios PHP, Node.js y Python desde el portal, usuarios y acceso remoto a bases, cortafuegos OWASP por sitio, claves SSH, fichas de API y DNS dinámico.
