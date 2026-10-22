@@ -7,6 +7,10 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.11.2] - 2026-10-22
+
+Lo que pidió Andes al poner el producto delante de un proxy y para muchas organizaciones: fail2ban ya no bloquea al proxy y ve la IP real del visitante, cada cliente puede tener su propio certificado del correo, el actualizador dice qué archivos del sistema cambió y si pisó un parche local, los sitios y aplicaciones se despliegan también desde repositorios privados, y la pantalla de entrada sale con el dominio y la marca de cada organización sin configurar nada.
+
 ### Añadido
 - **El actualizador informa de los archivos del sistema que cambia** (pedido de Andes, que tenía la actualización automática apagada porque «pisa parches locales y no avisa»): antes de aplicar, `maquita-actualizar` toma las sumas sha256 de las rutas de `deploy/actualizar/vigilados.txt` (bind, nginx, fail2ban, postfix, dovecot, rspamd, systemd, sudoers, cron, `/usr/local/{bin,sbin,lib}`, `/etc/maquita*` y los `.env` de las aplicaciones) y al terminar, también tras volver atrás, lista lo creado, modificado y borrado por grupo en el registro, en `progreso.json` («archivos_sistema») y en el panel (Actualizaciones → «Archivos del sistema cambiados»). Nuevo módulo `deploy/actualizar/lib/vigilados.py`.
 - Copia del contenido anterior de cada archivo modificado o borrado en `/var/backups/maquita-actualizar/<fecha>-<versión>/archivos-sistema/` (carpetas 0700, archivos 0600 incluidos los `.env`, sin seguir enlaces, hasta 4 MB por archivo y 256 MB en total), con el informe completo en `archivos-sistema.json`.
@@ -31,6 +35,12 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 - **fail2ban baneaba al proxy TLS y dejaba el servidor entero fuera de Internet** (reportado por Andes): detrás de un nginx `stream` con SNI, las cárceles de los sitios (`sitios-escaneo`, `sitios-abuso`, `sitios-wp-login`) solo veían la IP del proxy en `sitios-acceso.log` y la banearon 24 h; el webmail, el portal 8444 y los sitios estuvieron 11 h sin servicio para Internet, y el guardián, que solo probaba `localhost`, no lo vio. `jail.local` fijaba `ignoreip = 127.0.0.1/8 ::1` sin forma de configurarlo y los instaladores lo reescribían (un `jail.d/*.conf` propio quedaba pisado). Ahora el proxy y las redes propias van en `organizacion.env` y ninguna instalación ni actualización los pisa.
 - **Restos de «Maquita» que veían los usuarios de otras organizaciones** (aviso de Andes): el comentario de las tareas devueltas por salida de personal («… ya no labora en …») y la página de la simulación de phishing usan el nombre de la organización de la marca; los mensajes de consola del webmail dicen «[correo]» y «videollamada de la reunión». El APK se descarga con el nombre del producto (`<app_name>.apk`, atributo `download`) sin cambiar la ruta del servidor, para no romper a quien ya tiene la app. Las claves internas (`maquita_*`, `maquita-mail-offline`, `window.maquitaApp`) y la detección de las apps por agente de usuario no cambian: la app Android ya se reconoce también por el agente neutro `CorreoApp`; el cliente de escritorio solo envía `MaquitaTeams`, identificador interno que no ve nadie.
 - `deploy/tools/comprobar-textos-marca.py` revisa también las cadenas de Python de `backend/app` y `panel-dominio/backend/app`, f-strings incluidas (con Python 3.12 o posterior no las veía), sin contar registros, rutas ni identificadores técnicos.
+
+### Al actualizar
+- El actualizador aplica los ajustes 75 (proxy de confianza: sin `PROXY_CONFIABLE` ni `FAIL2BAN_IGNORAR` no cambia nada), 76 (contención de cuentas al día) y 77 (repositorios privados).
+- Detrás de un proxy TLS: ponga `PROXY_CONFIABLE="<IP del proxy>"` en `/etc/maquita-mail/organizacion.env`, aplique el ajuste 75 y apunte el proxy a los puertos 4443 (HTTPS) y 4444 (portal) con `proxy_protocol on;` (`docs/PROXY-CONFIABLE.md`).
+- Certificado propio por dominio: `CERTIFICADO_MODO=por-dominio` en el mismo archivo. La clave del certificado principal no cambia (DANE).
+- El informe de archivos del sistema aparece a partir de la siguiente actualización (la primera la hace todavía el actualizador anterior).
 
 ## [1.11.1] - 2026-10-22
 
