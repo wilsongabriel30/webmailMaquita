@@ -156,6 +156,12 @@ fi
 if [ "$toca_nginx" = 1 ] && systemctl is-active --quiet nginx 2>/dev/null; then systemctl reload nginx; fi
 if [ "$toca_f2b" = 1 ] && [ -n "$(fail2ban-client ping 2>/dev/null | grep pong || true)" ]; then
   fail2ban-client reload >/dev/null
+  # «reload» no cambia las acciones de una cárcel que ya corre: las que llevan (o pierden) la acción de nginx se
+  # reinician; fail2ban 1.x vuelve a aplicar sus bloqueos vigentes desde su base de datos.
+  activas="$(fail2ban-client status 2>/dev/null | sed -n 's/.*Jail list:[[:space:]]*//p' | tr ',' ' ')"
+  for carcel in sitios-wp-login sitios-escaneo sitios-abuso nginx-http-auth nginx-limit-req maquita-webmail; do
+    case " $activas " in *" $carcel "*) fail2ban-client reload --restart "$carcel" >/dev/null 2>&1 || true ;; esac
+  done
 fi
 for ip in $desbanear; do fail2ban-client unban "$ip" >/dev/null 2>&1 || true; done
 copias=""
