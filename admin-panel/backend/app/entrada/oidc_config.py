@@ -25,7 +25,7 @@ RE_CLAIM = re.compile(r"[A-Za-z][A-Za-z0-9_.:-]{0,63}")
 RE_GRUPO = re.compile(r"[^\x00-\x1f\x7f]{1,255}")
 RE_TEXTO_BOTON = re.compile(r"[^\x00-\x1f\x7f<>]{1,60}")
 RE_SERVIDOR = re.compile(r"([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)*[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(:[0-9]{1,5})?")
-SECRETO_MAX = 512
+RE_SECRETO = re.compile(r"[^\x00-\x1f\x7f]{1,512}")
 NO_INSTALADO = "Falta la migración 2026-10-21-entrada-oidc-y-vales.sql (ajuste 66)"
 RUTA_VUELTA = "/api/auth/oidc/vuelta"
 
@@ -142,7 +142,7 @@ async def guardar(request: Request, admin: dict = Depends(require_superadmin)):
     secreto = datos.get("client_secret") if isinstance(datos, dict) else None
     cifrado_nuevo = actual.get("client_secret_cifrado", "")
     if isinstance(secreto, str) and secreto.strip():
-        if len(secreto) > SECRETO_MAX or re.search(r"[\x00-\x1f\x7f]", secreto):
+        if not RE_SECRETO.fullmatch(secreto):
             raise HTTPException(400, "client_secret no válido")
         try:
             cifrado_nuevo = cifrado.cifrar(secreto)
