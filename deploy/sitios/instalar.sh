@@ -334,6 +334,9 @@ systemctl reload nginx
 # a arrancar ENTERO («Have not found any log file for vsftpd jail») y el servidor queda sin protección.
 touch /var/log/vsftpd.log /var/log/nginx/sitios-acceso.log
 chmod 600 /var/log/vsftpd.log
+# Lista blanca de fail2ban e IP real tras el proxy de confianza (FAIL2BAN_IGNORAR, PROXY_CONFIABLE): sin ella,
+# las cárceles de los sitios banean al proxy y el servidor entero queda fuera de Internet (Andes, 22/10/2026).
+APP_DIR="${APP_DIR}" bash "${APP_DIR}/deploy/hardening/proxy/instalar.sh" || echo -e "${YELLOW}No se aplicó el proxy de confianza: revise deploy/hardening/proxy/instalar.sh.${NC}"
 fail2ban-client -t >/dev/null || { echo -e "${RED}La configuración de fail2ban no es válida (fail2ban-client -t).${NC}"; exit 1; }
 systemctl enable fail2ban >/dev/null 2>&1
 systemctl restart fail2ban

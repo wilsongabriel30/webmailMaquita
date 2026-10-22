@@ -10,6 +10,9 @@
 [DEFAULT]
 # Ignorar redes internas de Maquita para evitar bloqueos accidentales
 ignoreip = 127.0.0.1/8 ::1 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16
+# Las IP propias (proxy, oficinas) NO van aquí, que los instaladores reescriben este archivo: van en
+# FAIL2BAN_IGNORAR / PROXY_CONFIABLE de /etc/maquita-mail/organizacion.env, y deploy/hardening/proxy/instalar.sh
+# (ajuste 75) genera jail.d/zz-maquita-ignorar.local, que se lee después y gana (docs/PROXY-CONFIABLE.md).
 
 # Backend por defecto — systemd para distros modernas Debian/Ubuntu
 backend = systemd

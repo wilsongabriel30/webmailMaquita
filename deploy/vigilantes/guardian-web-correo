@@ -7,7 +7,9 @@
 #
 #   1. Si un servicio clave está caído, lo levanta (máx. 3 intentos por hora por servicio).
 #      nginx solo se reinicia si `nginx -t` valida la configuración.
-#   2. Prueba el webmail por HTTPS como lo haría un navegador.
+#   2. Prueba el webmail por HTTPS como lo haría un navegador: contra el propio servidor y, además, por su
+#      nombre público con el DNS normal (solo aviso: «desde Internet no responde»). Avisa también si fail2ban
+#      tiene baneado al proxy de confianza o una red propia (PROXY_CONFIABLE, FAIL2BAN_IGNORAR).
 #   3. Avisa por correo cuando aparece un problema, recuerda cada 6 horas mientras siga,
 #      y avisa cuando se resuelve (tras 10 minutos estable). Todo sale por
 #      /usr/local/sbin/aviso-limitado (un buzón, tope diario) para no inundar.
@@ -18,6 +20,13 @@
 set -u
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 . /usr/local/lib/maquita-vigilantes/lib-avisos.sh
+# El nombre público y el proxy de confianza (desde la versión que lo instala; sin él, solo lo de siempre).
+if [ -r /usr/local/lib/maquita-vigilantes/lib-proxy.sh ]; then
+    . /usr/local/lib/maquita-vigilantes/lib-proxy.sh
+else
+    vig_nombre_publico() { vig_servidor; }
+    vig_baneadas_protegidas() { :; }
+fi
 HOST=$(vig_servidor)
 
 SERVICIOS="nginx maquita-webmail maquita-webmail-respaldo maquita-admin postfix dovecot rspamd redis-server postgresql docker radicale"
@@ -101,6 +110,35 @@ if [ -n "$fallo_http" ]; then
 else
     echo 0 > "$DIR/fallos-http"
 fi
+
+# --- 2b. Desde Internet: el nombre público por el DNS normal (solo aviso) -----
+# 22/10/2026 (Andes): fail2ban baneó la IP del proxy TLS y el servidor quedó 11 h fuera de Internet mientras
+# la prueba por localhost salía bien. Puede que el servidor no llegue a sí mismo por su IP pública (NAT sin
+# «hairpin»): por eso nunca se reinicia nada por esto, y solo se avisa si este nombre respondió alguna vez
+# desde aquí. GUARDIAN_PROBAR_PUBLICO=no en organizacion.env la apaga.
+if [ -z "$fallo_http" ] && [ "${GUARDIAN_PROBAR_PUBLICO:-si}" != "no" ]; then
+    PUBLICO=$(vig_nombre_publico)
+    c=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 10 "https://$PUBLICO/webmail/" 2>/dev/null)
+    case "$c" in
+        2??|3??) date +%s > "$DIR/publico-ok"; echo 0 > "$DIR/fallos-publico" ;;
+        *)
+            n=$(( $(cat "$DIR/fallos-publico" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$DIR/fallos-publico"
+            if [ -s "$DIR/publico-ok" ]; then
+                log "El nombre público https://$PUBLICO/webmail/ no responde ($n seguidos; localhost sí)"
+                [ "$n" -ge "$FALLOS_HTTP_PARA_AVISAR" ] && \
+                    PROBLEMAS="${PROBLEMAS}AVISO: desde Internet no responde https://$PUBLICO/webmail/ → código ${c:-sin respuesta} desde hace $n minutos, aunque el propio servidor sí (localhost). ¿Proxy baneado por fail2ban? Revisar: fail2ban-client banned ; maquita-mailadm fail2ban status. Si este servidor no puede llegar a su IP pública (NAT sin hairpin), poner GUARDIAN_PROBAR_PUBLICO=no en /etc/maquita-mail/organizacion.env.\n"
+            elif [ $((n % 60)) -eq 1 ]; then   # una línea por hora, no una por minuto
+                log "El nombre público https://$PUBLICO/webmail/ no responde desde aquí y nunca lo hizo (¿NAT sin hairpin?): no se avisa"
+            fi ;;
+    esac
+fi
+
+# --- 2c. fail2ban no debe tener baneado al proxy ni a las redes propias ---------
+while read -r ip carcel; do
+    [ -n "$ip" ] || continue
+    PROBLEMAS="${PROBLEMAS}CRÍTICO: fail2ban tiene baneada $ip (cárcel $carcel), que está en PROXY_CONFIABLE o FAIL2BAN_IGNORAR: si es el proxy, el servidor está fuera de Internet. Desbanear: fail2ban-client unban $ip ; y aplicar el ajuste 75 (sudo bash /opt/maquita-webmail/deploy/ajustes/75-fail2ban-proxy.sh).\n"
+    log "fail2ban tiene baneada la dirección protegida $ip ($carcel)"
+done <<< "$(vig_baneadas_protegidas)"
 
 # --- 3. Avisos (solo al cambiar el estado o cada 6 h) -------------------------
 ahora=$(date +%s)

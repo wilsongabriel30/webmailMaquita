@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+# maquita-nginx-baneo — acción de fail2ban que bloquea también en nginx (docs/PROXY-CONFIABLE.md).
+#
+# Detrás de un proxy, los paquetes de un atacante llegan con la IP del proxy: el bloqueo de fail2ban en el
+# cortafuegos (por su IP real) no los alcanza. nginx sí conoce la IP real (realip), así que las cárceles que
+# leen sus registros también la apuntan aquí, y los vhosts responden 444 (cierran sin respuesta) a quien esté en
+#   /etc/nginx/maquita-baneados.conf   (lo lee «geo $maquita_baneado» de conf.d/maquita-ip-real.conf)
+# Cada cárcel guarda su lista en /var/lib/maquita-nginx-baneo/<cárcel>; el archivo de nginx es la unión, sin
+# repetidos, escrito en un temporal y movido (nunca queda a medias), con cerrojo para baneos simultáneos.
+# Las recargas de nginx se agrupan: varios baneos seguidos causan una sola recarga.
+#
+# Uso (lo llama action.d/maquita-nginx-baneo.conf):
+#   maquita-nginx-baneo iniciar <cárcel>            crea el archivo de nginx si no existe
+#   maquita-nginx-baneo banear <cárcel> <ip>
+#   maquita-nginx-baneo desbanear <cárcel> <ip>
+#   maquita-nginx-baneo parar <cárcel>              quita todo lo de esa cárcel
+set -euo pipefail
+export PATH="${PATH:-/usr/bin:/bin}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+GEO="${MAQUITA_BANEO_GEO:-/etc/nginx/maquita-baneados.conf}"
+ESTADO="${MAQUITA_BANEO_ESTADO:-/var/lib/maquita-nginx-baneo}"
+ESPERA="${MAQUITA_BANEO_ESPERA:-1}"
+
+orden="${1:-}"; carcel="${2:-}"; ip_dada="${3:-}"
+[[ "$carcel" =~ ^[A-Za-z0-9_.-]{1,64}$ ]] || { echo "maquita-nginx-baneo: cárcel no válida" >&2; exit 2; }
+
+ip_canonica() {  # la IP en forma canónica, o error: nada que no sea una IP llega al archivo de nginx
+    python3 -c 'import ipaddress, sys; print(ipaddress.ip_address(sys.argv[1]))' "$1" 2>/dev/null \
+        || { echo "maquita-nginx-baneo: «${1:0:60}» no es una dirección IP" >&2; exit 2; }
+}
+
+escribir_geo() {  # la unión de todas las cárceles → temporal → mv
+    local tmp
+    tmp="$(mktemp "$(dirname "$GEO")/.maquita-baneados.XXXXXX")"
+    {
+        echo "# Generado por maquita-nginx-baneo (acción de fail2ban). No editar a mano."
+        { cat "$ESTADO"/carcel-* 2>/dev/null || true; } | sort -u | awk 'NF == 1 { print $1 " 1;" }'
+    } > "$tmp"
+    chmod 644 "$tmp"
+    mv -f "$tmp" "$GEO"
+}
+
+recargar() {  # agrupa: quien tenga el cerrojo recarga mientras haya cambios pendientes
+    local rc=0
+    command -v nginx >/dev/null || return 0
+    touch "$ESTADO/.recargar"
+    exec 8>"$ESTADO/.cerrojo-recarga"
+    flock 8
+    while [ -e "$ESTADO/.recargar" ]; do
+        rm -f "$ESTADO/.recargar"
+        sleep "$ESPERA"
+        if nginx -t -q 2>/dev/null; then
+            systemctl is-active --quiet nginx 2>/dev/null && { systemctl reload nginx || rc=1; }
+        else
+            echo "maquita-nginx-baneo: nginx -t falla; no se recarga (el baneo queda apuntado)" >&2; rc=1
+        fi
+    done
+    return "$rc"
+}
+
+install -d -m 700 "$ESTADO"
+lista="$ESTADO/carcel-$carcel"
+exec 9>"$ESTADO/.cerrojo"
+flock 9
+case "$orden" in
+    iniciar)
+        [ -e "$GEO" ] || escribir_geo
+        exit 0 ;;
+    banear)
+        ip="$(ip_canonica "$ip_dada")"
+        if [ -n "$(grep -xF -- "$ip" "$lista" 2>/dev/null || true)" ]; then exit 0; fi
+        echo "$ip" >> "$lista" ;;
+    desbanear)
+        ip="$(ip_canonica "$ip_dada")"
+        [ -f "$lista" ] || exit 0
+        grep -vxF -- "$ip" "$lista" > "$lista.nuevo" || true
+        mv -f "$lista.nuevo" "$lista" ;;
+    parar)
+        [ -e "$lista" ] || exit 0
+        rm -f "$lista" ;;
+    *) echo "Uso: maquita-nginx-baneo iniciar|banear|desbanear|parar <cárcel> [ip]" >&2; exit 2 ;;
+esac
+escribir_geo
+flock -u 9
+recargar

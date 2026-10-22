@@ -37,6 +37,11 @@ ORG_URL_PANEL=https://${SERVIDOR}:8443
 # A quién avisa el sistema cuando algo falla (buzones al 95 %, vigilantes…), separados por espacios.
 ORG_CORREOS_AVISOS="${AVISOS}"
 ORG_REMITENTE_AVISOS=postmaster@${DOMINIO}
+# Detrás de un proxy (docs/PROXY-CONFIABLE.md; después, el ajuste 75): IP o redes que fail2ban nunca banea,
+# el proxy de confianza y cómo pasa la IP real (proxy_protocol o cabecera).
+#FAIL2BAN_IGNORAR=""
+#PROXY_CONFIABLE=""
+#PROXY_MODO=proxy_protocol
 EOF
 chmod 644 "$DESTINO"
 echo "Listo: $DESTINO creado. Revisa ORG_CORREOS_AVISOS y ORG_REDES."
