@@ -92,8 +92,18 @@ fi
 
 if [ "${APP}" = "bi" ]; then
   echo -e "${GREEN}Instalando/actualizando Tableros/BI...${NC}"
-  if ! grep -q sse4_2 /proc/cpuinfo; then
-    echo -e "  ${YELLOW}AVISO: CPU sin x86-64-v2 (sse4_2); NumPy 2.x no arrancara. En Proxmox: qm set <vmid> --cpu host.${NC}"
+  # NumPy 2.x exige x86-64-v2. Una VM de Proxmox con CPU «kvm64» no lo tiene y maquita-bi muere al
+  # arrancar sin decir por qué (Andes, 22/10/2026): se detiene aquí con el remedio, salvo BI_FORZAR=1.
+  if [ "$(uname -m)" = "x86_64" ]; then
+    FALTAN=""
+    for bandera in cx16 lahf_lm popcnt sse4_1 sse4_2 ssse3; do
+      grep -qw "$bandera" /proc/cpuinfo || FALTAN="${FALTAN} ${bandera}"
+    done
+    if [ -n "$FALTAN" ]; then
+      echo -e "  ${RED}La CPU de este equipo no es x86-64-v2 (le falta:${FALTAN}): NumPy, y con él los Tableros, no arranca.${NC}"
+      echo "  En Proxmox, con la VM apagada: qm set <vmid> --cpu host   (o --cpu x86-64-v2-AES). Luego repita esta orden."
+      [ "${BI_FORZAR:-0}" = "1" ] || exit 1
+    fi
   fi
   D="${APP_DIR}/almacen/aplicaciones/bi"
   [ -d "${D}/venv" ] || python3 -m venv "${D}/venv"
@@ -108,6 +118,12 @@ BIENV
   cp "${D}/deploy/maquita-bi.service" /etc/systemd/system/
   systemctl daemon-reload && systemctl enable maquita-bi >/dev/null 2>&1 || true
   systemctl restart maquita-bi
+  sleep 3
+  if ! systemctl is-active -q maquita-bi; then
+    echo -e "  ${RED}maquita-bi no quedó activo. Últimas líneas:${NC}"
+    journalctl -u maquita-bi -n 15 --no-pager 2>/dev/null | sed 's/^/    /' || true
+    exit 1
+  fi
   URL="https://${MAIL_HOST}/tableros/"
 else
   echo -e "${GREEN}Instalando/actualizando el Editor de PDF (dependencias pesadas: puede tardar)...${NC}"

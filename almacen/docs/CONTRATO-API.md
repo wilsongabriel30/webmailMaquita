@@ -49,7 +49,7 @@ La suite `pruebas_contrato/` verifica los marcados con ✅ (núcleo v1).
 | 32 | GET | `/onlyoffice/download-public` | onlyoffice_download_public | Endpoint para que OnlyOffice Document Server descargue archivos de shares públicos. |
 | 33 | POST | `/onlyoffice/callback-public` | onlyoffice_callback_public | Callback de OnlyOffice para guardar cambios en archivos compartidos públicamente. |
 | 34 | POST | `/archivos/favorito` | toggle_favorito | Body: {"ruta": "/archivo.txt"} Toggle favorito de un archivo o carpeta |
-| 35 | POST | `/archivos/crear` | crear_documento | Body: {"ruta": "/documento.docx", "tipo": "documento"} Crea un documento vacío del tipo especificado |
+| 35 | POST | `/archivos/crear` | crear_documento | Body: {"ruta": "/documento.docx", "tipo": "documento"} Crea un documento vacío del tipo especificado. En el Almacén del webmail desde v1.11.1 (`api_crear.py`); 409 si ya existe. |
 | 36 | GET | `/papelera` | listar_papelera | Lista archivos en la papelera del usuario |
 | 37 | POST | `/papelera/restaurar` | restaurar_de_papelera | Body: {"ruta": "/archivo.txt"} Restaura un archivo de la papelera |
 | 38 | POST | `/papelera/eliminar` | eliminar_de_papelera | Body: {"ruta": "<ruta del item en la papelera>"} Elimina DEFINITIVAMENTE un solo archivo de la papelera (sin v |
@@ -65,6 +65,7 @@ La suite `pruebas_contrato/` verifica los marcados con ✅ (núcleo v1).
 | 48 | GET | `/versiones/<file_id>` | listar_versiones | Lista versiones anteriores de un archivo |
 | 49 | POST | `/versiones/<file_id>/restaurar` | restaurar_version | Body: {"version_id": "1234567890"} Restaura una versión anterior del archivo |
 | 50 | POST | `/cambiar-dueno` | cambiar_dueno | Transfiere la propiedad de un archivo/carpeta PROPIO a otro usuario de la Nube. |
+| 51 | GET | `/marca` | marca | Sin sesión. `{"drive_name": "…"}`: el nombre del Drive configurado, para las Aplicaciones (Editor de PDF, Tableros). Desde v1.11.1. |
 
 ## Formatos clave (verificados en código)
 

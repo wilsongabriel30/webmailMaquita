@@ -85,8 +85,9 @@ identity_providers:
         algorithm: 'RS256'
         use: 'sig'
         key: {{ secret "/config/secrets/oidc/jwks/rsa.2048.key" | mindent 10 "|" | msquote }}
-    # Opcional: que el id_token traiga ya el usuario, el correo y los grupos (si no, el panel los
-    # pide a userinfo).
+    # Opcional (Authelia 4.39 o posterior): que el id_token traiga ya el usuario, el correo y los
+    # grupos. Authelia 4.38 no conoce claims_policies: quite este bloque y la línea claims_policy del
+    # cliente; el panel pide esos datos a userinfo y entra igual.
     claims_policies:
       panel:
         id_token: ['preferred_username', 'email', 'email_verified', 'groups']
@@ -97,7 +98,7 @@ identity_providers:
         client_secret: '$pbkdf2-sha512$310000$...'
         public: false
         authorization_policy: 'two_factor'
-        claims_policy: 'panel'
+        claims_policy: 'panel'          # solo con el bloque claims_policies (4.39 o posterior)
         require_pkce: true
         pkce_challenge_method: 'S256'
         redirect_uris:

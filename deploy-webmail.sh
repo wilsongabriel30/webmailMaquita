@@ -226,19 +226,33 @@ echo -e "\n${YELLOW}[5/5] Verificación...${NC}"
 MAIL_HOST="$(grep -E '^MAIL_HOST=' "${WEBMAIL_DIR}/backend/.env" 2>/dev/null | cut -d= -f2- | tr -d '"' || true)"
 [ -n "$MAIL_HOST" ] || MAIL_HOST="mail.$(grep -E '^MAIL_DOMAIN=' "${WEBMAIL_DIR}/backend/.env" 2>/dev/null | cut -d= -f2- | tr -d '"' || true)"
 [ "$MAIL_HOST" != "mail." ] || MAIL_HOST="$(hostname -f 2>/dev/null || hostname)"
+# Se prueba el nombre configurado (MAIL_HOST o mail.<dominio>) y el del equipo, también contra el propio
+# equipo (--resolve); vale el primero que dé 200 siguiendo redirecciones (/webmail → /webmail/).
+# Andes (22/10/2026): con un servidor que no se llama mail.<dominio> la petición caía en el vhost de un
+# cliente (nginx sin default_server) y se revertía un despliegue correcto (ajuste 73).
+CANDIDATOS=("$MAIL_HOST")
+[ "$MAIL_HOST" = "$(hostname -f 2>/dev/null || hostname)" ] || CANDIDATOS+=("$(hostname -f 2>/dev/null || hostname)")
 HTTP_CODE=""
+REDIRIGE=""
 for intento in 1 2 3; do
-    HTTP_CODE="$(curl -sk -L -o /dev/null -w '%{http_code}' --max-time 20 "https://${MAIL_HOST}/webmail/" || true)"
-    [ "$HTTP_CODE" = "200" ] && break
-    # Si el nombre publico no se alcanza desde el propio servidor, se prueba contra el equipo.
-    HTTP_CODE="$(curl -sk -L -o /dev/null -w '%{http_code}' --max-time 20 --resolve "${MAIL_HOST}:443:127.0.0.1" "https://${MAIL_HOST}/webmail/" || true)"
-    [ "$HTTP_CODE" = "200" ] && break
+    for nombre in "${CANDIDATOS[@]}"; do
+        HTTP_CODE="$(curl -sk -L -o /dev/null -w '%{http_code}' --max-time 20 "https://${nombre}/webmail/" || true)"
+        [ "$HTTP_CODE" = "200" ] && { MAIL_HOST="$nombre"; break 2; }
+        HTTP_CODE="$(curl -sk -L -o /dev/null -w '%{http_code}' --max-time 20 --resolve "${nombre}:443:127.0.0.1" "https://${nombre}/webmail/" || true)"
+        [ "$HTTP_CODE" = "200" ] && { MAIL_HOST="$nombre"; break 2; }
+        [ -n "$REDIRIGE" ] || REDIRIGE="$(curl -sk -o /dev/null -w '%{redirect_url}' --max-time 20 --resolve "${nombre}:443:127.0.0.1" "https://${nombre}/webmail/" || true)"
+    done
     sleep 3
 done
 if [ "$HTTP_CODE" = "200" ]; then
     echo -e "${GREEN}Webmail respondiendo: HTTP ${HTTP_CODE}${NC}"
 else
     echo -e "${RED}ALERTA: Webmail respondió HTTP ${HTTP_CODE} — verificar manualmente${NC}"
+    echo "Nombres probados: ${CANDIDATOS[*]}"
+    if [ -n "$REDIRIGE" ]; then
+        echo "Redirige a: ${REDIRIGE}"
+        echo "Si es el sitio de un cliente: fije MAIL_HOST en backend/.env y aplique el ajuste 73 (servidor por defecto de nginx)."
+    fi
     echo "Backup disponible en: ${BACKUP_DIR}/webmail-${TIMESTAMP}.tar.gz"
     echo "Para restaurar: tar xzf ${BACKUP_DIR}/webmail-${TIMESTAMP}.tar.gz -C ${WWW_DIR}"
     exit 1
