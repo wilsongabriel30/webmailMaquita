@@ -1,0 +1,8 @@
+# Postfix → PostgreSQL: destinatarios válidos de los dominios con enrutamiento (relay_recipient_maps).
+# Con verificación: solo las direcciones de la lista. Sin ella: «@dominio» acepta a cualquier
+# usuario de ESE dominio exacto (no de sus subdominios). Lo demás se rechaza en la conversación SMTP.
+hosts = localhost
+user = mailserver
+password = __DB_PASS__
+dbname = maildb
+query = SELECT 'OK' WHERE EXISTS (SELECT 1 FROM enrutamiento_destinatarios t JOIN enrutamiento_correo e ON e.dominio = t.dominio WHERE t.direccion = '%s' AND e.activo AND e.verificar_destinatarios) OR EXISTS (SELECT 1 FROM enrutamiento_correo e WHERE '@' || e.dominio = '%s' AND e.activo AND NOT e.verificar_destinatarios)

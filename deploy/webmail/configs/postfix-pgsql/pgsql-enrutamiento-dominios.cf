@@ -1,0 +1,7 @@
+# Postfix → PostgreSQL: dominios con enrutamiento (relay_domains). Solo los que el panel tiene
+# configurados y activos, con su dominio activo: nada más se acepta para entregar fuera.
+hosts = localhost
+user = mailserver
+password = __DB_PASS__
+dbname = maildb
+query = SELECT e.dominio FROM enrutamiento_correo e JOIN domain d ON d.domain = e.dominio WHERE e.dominio = '%s' AND e.activo AND d.active

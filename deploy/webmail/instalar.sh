@@ -265,6 +265,13 @@ postconf -e \
   "smtpd_sasl_path = private/auth" \
   "smtpd_sasl_auth_enable = yes" \
   "smtpd_sender_login_maps = pgsql:/etc/postfix/pgsql/pgsql-sender-login-maps.cf"
+# Enrutamiento por dominio (MX de respaldo y reenvío a otro servidor, Dominios → Enrutamiento en el
+# panel). Lo mismo que el ajuste 68 en un servidor ya instalado.
+postconf -e \
+  "relay_domains = pgsql:/etc/postfix/pgsql/pgsql-enrutamiento-dominios.cf" \
+  "relay_recipient_maps = pgsql:/etc/postfix/pgsql/pgsql-enrutamiento-destinatarios.cf" \
+  "transport_maps = pgsql:/etc/postfix/pgsql/pgsql-enrutamiento-transporte.cf" \
+  "smtp_tls_policy_maps = pgsql:/etc/postfix/pgsql/pgsql-enrutamiento-tls.cf"
 # Servicio submission (587) con SASL
 if ! grep -qE "^submission[[:space:]]+inet" /etc/postfix/master.cf; then
 cat >> /etc/postfix/master.cf <<'EOF'

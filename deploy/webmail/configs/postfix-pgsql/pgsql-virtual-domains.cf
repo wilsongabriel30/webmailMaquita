@@ -1,6 +1,7 @@
 # Postfix → PostgreSQL: dominios virtuales. __DB_PASS__ se reemplaza al instalar.
+# Un dominio con enrutamiento activo (MX de respaldo o reenvío) no entrega aquí: va en relay_domains.
 hosts = localhost
 user = mailserver
 password = __DB_PASS__
 dbname = maildb
-query = SELECT domain FROM domain WHERE domain='%s' AND active = true
+query = SELECT domain FROM domain WHERE domain='%s' AND active = true AND NOT EXISTS (SELECT 1 FROM enrutamiento_correo e WHERE e.dominio = '%s' AND e.activo)

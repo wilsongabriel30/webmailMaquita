@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { SectionHelp } from "../components/SectionHelp";
+import { EnrutamientoCorreo } from "./dominios/EnrutamientoCorreo";
 
 interface Domain { domain: string; description: string; mailbox_count: number; alias_count: number; active: boolean; created: string }
 
@@ -9,6 +10,7 @@ export function Domains() {
   const navigate = useNavigate();
   const [domains, setDomains] = useState<Domain[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [enrutar, setEnrutar] = useState("");
   const [form, setForm] = useState({ domain: "", description: "", mailboxes: 0, maxquota: 0 });
 
   const load = () => api.get<Domain[]>("/domains").then(setDomains);
@@ -31,6 +33,7 @@ export function Domains() {
             { titulo: "Columnas Buzones y Alias", desc: "Muestran cuántas cuentas de correo y cuántos alias existen en cada dominio, para dimensionar su uso antes de cualquier cambio." },
             { titulo: "Estado", desc: "Activo significa que el dominio acepta correo entrante; Inactivo hace que el servidor lo rechace." },
             { titulo: "Marca y portal", desc: "Abre la configuración de ese dominio en Portales por empresa: logo, icono, color, textos y el nombre de servidor propio (mail.<empresa>) por el que entra la empresa." },
+            { titulo: "Enrutamiento", desc: "Para dominios cuyo correo vive en otro servidor: MX de respaldo (acepta y guarda en cola mientras el principal no responde) o reenvío fijo a otro servidor, con lista opcional de destinatarios válidos y TLS obligatorio. Se registra en auditoría." },
             { titulo: "Eliminar", desc: "PRECAUCIÓN EXTREMA: borra el dominio y potencialmente todos sus buzones. Verifique que no queden usuarios activos antes de hacerlo. Se registra en auditoría." },
           ]} />
           <button onClick={() => navigate("/portales")} title="Abre Portales por empresa: logo, icono, color, textos y nombre de servidor propio de cada dominio." className="px-3 py-1.5 border border-ms-blue text-ms-blue rounded text-sm hover:bg-ms-blue-lighter">Marca y portales</button>
@@ -48,6 +51,8 @@ export function Domains() {
           </div>
         </div>
       )}
+
+      {enrutar && <EnrutamientoCorreo dominio={enrutar} onCerrar={() => setEnrutar("")} />}
 
       <div className="bg-white rounded border border-ms-gray-30 overflow-hidden">
         <table className="w-full text-sm">
@@ -73,6 +78,7 @@ export function Domains() {
                 </td>
                 <td className="px-4 py-2.5 text-right">
                   <button onClick={() => navigate(`/portales?dominio=${encodeURIComponent(d.domain)}`)} title="Logo, icono, color, textos y nombre de servidor propio de este dominio (Portales por empresa)." className="text-ms-blue hover:underline text-xs mr-4">Marca y portal</button>
+                  <button onClick={() => setEnrutar(d.domain)} title="MX de respaldo o reenvío del correo de este dominio a otro servidor." className="text-ms-blue hover:underline text-xs mr-4">Enrutamiento</button>
                   <button onClick={() => del(d.domain)} title="PRECAUCION EXTREMA: Elimina el dominio y potencialmente todos los buzones asociados. Verificar que no haya usuarios activos antes de eliminar. Se registra en auditoria." className="text-ms-red hover:underline text-xs">Eliminar</button>
                 </td>
               </tr>
