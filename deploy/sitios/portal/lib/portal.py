@@ -16,7 +16,9 @@ import ordenes_datos_portal as odp
 import ordenes_dns as od
 import ordenes_sitios as os_
 import ordenes_web as ow
+import publico
 import sesion
+import v111
 import subidas
 from errores import ErrorPortal, no_encontrado
 
@@ -56,6 +58,9 @@ ORDENES = {
     # (ordenes_datos_portal.py). Cada módulo tiene su lista; aquí se juntan y no se añade nada más.
     **ow.ORDENES,
     **odp.ORDENES,
+    # v1.11: alias, aplicaciones Node.js y Python, git de los sitios PHP, CPU y memoria, información del servidor
+    # y DNS dinámico (v111.py junta sus módulos). Las órdenes SIN sesión van aparte, en publico.py.
+    **v111.ORDENES,
 }
 
 
@@ -83,6 +88,8 @@ def atender(peticion):
 
 
 def _atender(peticion, args):
+    if isinstance(peticion.get("orden"), str) and peticion["orden"] in publico.ORDENES:
+        return publico.atender(peticion)  # gancho de git y DNS dinámico: traen su propia prueba
     admin = sesion.verificar(peticion.get("ficha"))
     orden = peticion.get("orden")
     if not isinstance(orden, str) or orden not in ORDENES:

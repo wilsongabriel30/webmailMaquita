@@ -188,8 +188,9 @@ def test_alias_de_otro_sitio_reservado(mundo):
 # --- Lista de órdenes ---
 
 
-@pytest.mark.parametrize("orden", ["borrar", "alias", "inicio", "buscadores", "avisar", "tienda", "propia-crear",
-                                   "propia-quitar", "avanzado-nginx", "php-instalar", "php-repositorio",
+# «alias» y las aplicaciones propias («propia-…») sí están desde la v1.11 (test_sitios_portal_v111.py).
+@pytest.mark.parametrize("orden", ["borrar", "inicio", "buscadores", "avisar", "tienda",
+                                   "avanzado-nginx", "php-instalar", "php-repositorio",
                                    "php-extension", "cron", "regenerar", "estado", "crear-zona", "", None])
 def test_ordenes_fuera_de_la_lista(mundo, orden):
     mundo.sitio("example.org")

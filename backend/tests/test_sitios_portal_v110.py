@@ -47,12 +47,14 @@ def test_la_lista_tiene_exactamente_las_nuevas():
            "ftp", "tareas", "tareas-guardar", "tarea-ejecutar", "tarea-registro", "bases", "base-crear", "base-entrar",
            "base-borrar", "avanzado", "avanzado-php", "avanzado-ver", "avanzado-archivo", "avanzado-restaurar",
            "php-estado", "php-version", "paquete", "dns-ver", "dns-agregar", "dns-modificar", "dns-borrar"}
-    assert set(portal.ORDENES) == v19 | NUEVAS
+    import v111  # las de la v1.11 llegan juntas por su módulo (test_sitios_portal_v111.py)
+
+    assert set(portal.ORDENES) == v19 | NUEVAS | set(v111.ORDENES)
     assert all(tipo == "sitio" for o, (tipo, _f) in portal.ORDENES.items() if o in NUEVAS)
 
 
 @pytest.mark.parametrize("orden", ["disponibilidad-comprobar", "datos-noche", "ftp-montar", "avanzado-nginx",
-                                   "propia-crear", "propia-accion", "php-instalar", "php-extension", "regenerar",
+                                   "php-instalar", "php-extension", "regenerar",
                                    "web-nginx", "archivos-", "copia", "copias-todas"])
 def test_lo_del_sistema_y_del_superadministrador_no_esta(sitio, orden):
     assert codigo(orden, "example.org") == 400
