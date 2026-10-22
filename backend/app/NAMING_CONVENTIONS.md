@@ -22,7 +22,7 @@ Diferentes tablas usan diferentes nombres para este campo (legado):
 - Nunca usar solo `user` para un string de email (confuso con objetos User)
 
 ## Variables de sesión en Redis
-- `imap_pass:{email}` → contraseña en caché para IMAP/SMTP
+- `imap_pass:{email}:{sid}` → contraseña en caché para IMAP/SMTP, una por sesión (antes `imap_pass:{email}`, ya no existe)
 - `imap_master:{email}` → indica sesión master ("admin")
 - `refresh:{hash}` → refresh token
 

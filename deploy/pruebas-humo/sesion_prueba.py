@@ -4,7 +4,7 @@
 Sesión de PRUEBAS del correo (para los candados humo-*).
 
 Los candados necesitan una sesión COMPLETA, no solo un JWT: el backend exige que
-exista la sesión IMAP en Redis (`imap_pass:<cuenta>`), que nace al iniciar sesión
+exista la sesión IMAP en Redis (`imap_pass:<cuenta>:<sid>`), que nace al iniciar sesión
 de verdad. Antes los candados reutilizaban por casualidad una sesión viva y, al
 caducar (1/09), todos fallaron con 401 sin que hubiera avería alguna.
 

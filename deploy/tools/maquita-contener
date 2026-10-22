@@ -24,8 +24,14 @@ import urllib.parse,sys,subprocess
 u=urllib.parse.urlparse(sys.argv[1]); em=sys.argv[2]
 a=['redis-cli','-h',u.hostname or 'localhost','-p',str(u.port or 6379),'-n',(u.path or '/0').lstrip('/') or '0','--no-auth-warning']
 if u.password: a+=['-a',urllib.parse.unquote(u.password)]
-a+=['DEL','imap_pass:'+em,'imap_master:'+em]
-r=subprocess.run(a,capture_output=True,text=True); print((r.stdout or r.stderr).strip())
+# Desde el 12/10/2026 la sesion va POR SID (imap_pass:<u>:<sid>, sess:<u>:<sid>...): borrar solo
+# imap_pass:<u> ya no cerraba nada. Se buscan con SCAN (nunca KEYS) y se borran todas.
+pat=''.join(chr(92)+c if c in '*?[]'+chr(92) else c for c in em)  # escapa comodines
+claves=['imap_pass:'+em,'imap_master:'+em,'sids:'+em]
+for pre in ('imap_pass:','imap_master:','sess:'):
+    s=subprocess.run(a+['--scan','--pattern',pre+pat+':*','--count','200'],capture_output=True,text=True)
+    claves+=[c for c in s.stdout.splitlines() if c.strip()]
+r=subprocess.run(a+['DEL']+claves,capture_output=True,text=True); print((r.stdout or r.stderr).strip())
 " "$url" "$EMAIL" 2>/dev/null
 }
 queue_ids_from(){
