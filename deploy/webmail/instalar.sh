@@ -448,6 +448,7 @@ server {
 }
 server {
     listen 443 ssl;
+    include snippets/maquita-ip-real.con[f];
     server_name mta-sts.${DOMAIN};
     ssl_certificate     /etc/ssl/certs/ssl-cert-snakeoil.pem;
     ssl_certificate_key /etc/ssl/private/ssl-cert-snakeoil.key;
@@ -673,6 +674,9 @@ if ! nginx -t; then
     exit 1
 fi
 systemctl reload nginx 2>/dev/null || systemctl enable --now nginx
+# Proxy de confianza y lista blanca de fail2ban (FAIL2BAN_IGNORAR, PROXY_CONFIABLE en organizacion.env): jail.local
+# se acaba de reescribir y su «ignoreip» no lleva las IP propias; zz-maquita-ignorar.local las añade y le gana.
+APP_DIR="${APP_DIR}" bash "${APP_DIR}/deploy/hardening/proxy/instalar.sh" || echo -e "  ${RED}AVISO: no se aplicó el proxy de confianza (deploy/hardening/proxy/instalar.sh, docs/PROXY-CONFIABLE.md)${NC}"
 sleep 3
 # El backend tarda en levantar más que un sleep corto: se reintenta en vez de mentir con
 # «sin respuesta», que hacía pensar en una instalación rota cuando estaba bien (aviso de Andes).

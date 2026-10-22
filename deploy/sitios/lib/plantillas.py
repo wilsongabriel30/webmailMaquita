@@ -175,6 +175,7 @@ server {
 server {
     listen 443 ssl;
     listen [::]:443 ssl;
+    include snippets/maquita-ip-real.con[f];  # entrada del proxy de confianza (docs/PROXY-CONFIABLE.md)
     http2 on;
     server_name $nombres;
     ssl_certificate /etc/letsencrypt/live/$dominio/fullchain.pem;
