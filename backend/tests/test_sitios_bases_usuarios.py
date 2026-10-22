@@ -310,3 +310,13 @@ def test_despacho_crea_con_permisos_en_b64(sql):
     r = od.despachar(["base-usuario-crear", DOMINIO, "w_example1234", "lector", _b64({"perfil": "todo"})])
     assert r["creado"]["usuario"] == _usuario()
     assert os.path.basename(comun.ruta_meta(DOMINIO)) == f"{DOMINIO}.json"
+
+
+def test_estado_del_servidor_no_cuenta_como_sitio(tmp_path, monkeypatch):
+    """bases-remoto.json vive junto a los metadatos de los sitios: listar no debe tomarlo por un sitio (fortaleza)."""
+    carpeta = tmp_path / "meta"
+    carpeta.mkdir()
+    monkeypatch.setattr(comun, "META_DIR", str(carpeta))
+    (carpeta / f"{DOMINIO}.json").write_text(json.dumps({"dominio": DOMINIO}))
+    (carpeta / "bases-remoto.json").write_text(json.dumps({"mariadb": True, "postgresql": True}))
+    assert [m["dominio"] for m in comun.todos_los_meta()] == [DOMINIO]

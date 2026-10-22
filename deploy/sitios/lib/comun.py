@@ -100,7 +100,10 @@ def todos_los_meta():
     salida = []
     for p in sorted(glob.glob(os.path.join(META_DIR, "*.json"))):
         with open(p) as f:
-            salida.append(json.load(f))
+            meta = json.load(f)
+        # En la carpeta hay también estado del servidor (p. ej. bases-remoto.json): solo cuentan los sitios.
+        if isinstance(meta, dict) and meta.get("dominio") == os.path.basename(p)[:-5]:
+            salida.append(meta)
     return salida
 
 

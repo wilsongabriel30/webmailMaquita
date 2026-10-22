@@ -30,8 +30,15 @@ CREATE INDEX IF NOT EXISTS idx_admin_fichas_api_user ON admin_fichas_api(user_id
 """
 
 
+CERROJO_ESQUEMA = 7_311_011  # pg_advisory_xact_lock: varios workers arrancan a la vez
+
+
 async def crear_tabla(pool) -> None:
-    await pool.execute(ESQUEMA)
+    # Sin el cerrojo, dos workers que crean la tabla a la vez chocan en pg_type y el panel no arranca.
+    async with pool.acquire() as conexion:
+        async with conexion.transaction():
+            await conexion.execute("SELECT pg_advisory_xact_lock($1)", CERROJO_ESQUEMA)
+            await conexion.execute(ESQUEMA)
 
 
 def _ip(request: Request) -> str:
