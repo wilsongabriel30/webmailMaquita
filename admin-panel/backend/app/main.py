@@ -90,6 +90,7 @@ from app.sitios.estadisticas import router as sitios_estadisticas_router
 from app.sitios.disponibilidad import router as sitios_disponibilidad_router
 from app.sitios.copias import router as sitios_copias_router
 from app.sitios.archivos import router as sitios_archivos_router
+from app.dns.transferencias import router as dns_transferencias_router  # antes que dns_router (/{zona})
 from app.dns.router import router as dns_router
 from app.dns.dominio_nuevo import router as dominio_nuevo_router
 from app.actualizaciones.router import router as actualizaciones_router
@@ -282,6 +283,7 @@ app.include_router(sitios_estadisticas_router)
 app.include_router(sitios_disponibilidad_router)
 app.include_router(sitios_copias_router)
 app.include_router(sitios_archivos_router)
+app.include_router(dns_transferencias_router)
 app.include_router(dns_router)
 app.include_router(dominio_nuevo_router)
 app.include_router(cortafuegos_router)

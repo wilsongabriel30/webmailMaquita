@@ -278,3 +278,91 @@ proveedor de la IP en su panel o por ticket. No lo puedes poner tú.
 > **PowerDNS, Route53, etc.:** los nombres/valores son idénticos; cambia solo la
 > herramienta (interfaz web, API o `pdnsutil`). Lo importante es que existan los 6
 > registros con esos valores.
+
+---
+
+## Apéndice: servidores secundarios (maestro oculto, secundario público y HE.net)
+
+Si las zonas las sirve este servidor (Zonas DNS del panel, BIND), otros servidores DNS pueden tener una
+copia y responder por ellas: si el principal se cae, los dominios siguen resolviendo. De serie **nadie**
+puede pedir las zonas (`allow-transfer { none; }`) y no se avisa a nadie (`notify no`): quien no configure
+nada no nota ningún cambio.
+
+La configuración vive en `/etc/maquita-dns/servidor.json` (clave `transferencias`), fuera del
+repositorio: las actualizaciones y `instalar-app.sh dns` no la tocan. La clave TSIG, si la hay, va en
+`/etc/bind/maquita-tsig.key` (root:bind, 0640).
+
+### Ejemplo: maestro oculto + secundario público + secundario externo
+
+| Servidor | Papel | IP (de ejemplo) |
+|---|---|---|
+| `hosting-v1` (este servidor: correo, web y Zonas DNS) | maestro **oculto**: solo lo consultan los secundarios | `192.0.2.10` |
+| `dns-v2` (BIND propio) | secundario público, `ns1` de cada dominio | `198.51.100.53` |
+| HE.net (dns.he.net, servicio gratuito de secundario) | secundario externo, `ns2` de cada dominio | pide la zona desde `203.0.113.2`, responde en `203.0.113.3` |
+
+**1. Servidores de nombres** (panel → Zonas DNS → Ajustes): `ns1` → `198.51.100.53` y `ns2` → `203.0.113.3`.
+Con maestro oculto **ninguno** apunta a `192.0.2.10`; el SOA de cada zona nombra a `ns1` (el primero),
+así que el maestro tampoco aparece ahí. En el registrador (NIC.EC u otro) se declaran `ns1.tudominio.com`
+y `ns2.tudominio.com` con esas IP (registros «glue»).
+
+**2. Transferencias en el maestro** (`hosting-v1`, como root):
+
+```bash
+maquita-dns servidor --transferir-a 198.51.100.53,203.0.113.2 \
+                     --notificar-a 198.51.100.53,203.0.113.2 \
+                     --maestro-oculto si
+maquita-dns servidor          # muestra lo configurado (nunca el secreto TSIG)
+```
+
+O en el panel: Zonas DNS → Ajustes → «Servidores secundarios». Cada cambio regenera la declaración de
+todas las zonas (`/etc/bind/maquita-zonas.conf`), la comprueba con `named-checkconf`, recarga BIND
+(`rndc reconfig`) y avisa a los secundarios (`rndc notify`). Si BIND la rechaza, todo vuelve a como estaba.
+
+Con `--maestro-oculto si` se comprueba que haya a quién transferir y avisar y que ningún `ns` apunte a la
+IP del correo o de la web de este servidor (si apuntara, el maestro no estaría oculto).
+
+**3. Clave TSIG** (opcional, recomendable con el secundario propio): con clave, el secundario necesita
+**la IP de la lista y la clave** a la vez.
+
+```bash
+maquita-dns servidor --tsig generar             # hmac-sha256, secreto aleatorio (no se imprime)
+maquita-dns servidor --mostrar-secreto           # orden explícita: secreto y bloque para el secundario
+maquita-dns servidor --tsig quitar               # vuelve a solo por IP
+```
+
+La clave es una sola para todas las zonas y todos los secundarios, y también firma los avisos. Si alguno
+de ellos (p. ej. el externo) no puede usarla con `hmac-sha256`, no la active: por ahora no se combina un
+secundario con clave y otro solo por IP; la transferencia queda limitada a las IP de la lista.
+
+**4. Secundario público `dns-v2`** (BIND), en su `named.conf.local`:
+
+```
+// Pegar lo que da «maquita-dns servidor --mostrar-secreto» (bloque key y server) si usa TSIG.
+zone "tudominio.com" {
+    type secondary;
+    primaries { 192.0.2.10; };
+    file "/var/cache/bind/db.tudominio.com";
+    allow-notify { 192.0.2.10; };
+};
+```
+
+**5. HE.net**: en dns.he.net, «Add a new slave», el dominio y como maestro `192.0.2.10`. HE.net pide la
+zona desde su propia IP de transferencia (la que muestra su ayuda), que es la que va en `--transferir-a`
+y `--notificar-a`.
+
+**6. Cortafuegos**: los secundarios entran al maestro por 53/TCP (transferencias) y 53/UDP (avisos).
+
+### Más opciones
+
+- `--notificar-a 203.0.113.2:5353` o `[2001:db8::53]:5353`: aviso a otro puerto.
+- `--transferir-a 2001:db8:53::/64`: una red entera (nunca `0.0.0.0/0`).
+- `--transferir-a ninguna`: vacía la lista; `--quitar-transferencias` vacía transferencias, avisos y maestro
+  oculto (la clave TSIG se quita aparte, con `--tsig quitar`).
+- Una zona distinta de las demás: `maquita-dns servidor --zona tudominio.com --transferir-a 198.51.100.53
+  --notificar-a 198.51.100.53`; vuelve a lo general con `maquita-dns servidor --zona tudominio.com --heredar`.
+  (Solo desde la consola; el panel muestra qué zonas tienen ajuste propio.)
+- Sin `--notificar-a`, los secundarios no reciben aviso y piden los cambios cuando vence el *refresh* del
+  SOA (una hora). Los avisos van solo a la lista (`notify explicit`), nunca a los NS de la zona.
+- Servidores que parcheaban `zona.py` a mano: el ajuste `deploy/ajustes/67-dns-transferencias.sh` pasa a
+  la configuración lo que hoy declara `/etc/bind/maquita-zonas.conf` (con claves TSIG o listas con nombre
+  no toca nada y pide hacerlo con las órdenes de arriba).

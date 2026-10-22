@@ -82,3 +82,5 @@ if command -v ufw >/dev/null && ufw status | grep -q "Status: active"; then
 fi
 echo -e "${GREEN}Listo.${NC} En el panel: Hospedaje → Zonas DNS (primero «Ajustes»: IP pública y servidores de nombres)."
 echo "  Si el servidor está detrás de NAT, redirige 53/UDP y 53/TCP de cada IP de los servidores de nombres."
+# Las transferencias a secundarios viven en /etc/maquita-dns/servidor.json: reinstalar no las toca.
+echo "  Secundarios (transferencias de zona): maquita-dns servidor --transferir-a IP --notificar-a IP (docs/CONFIGURAR-DNS.md)."

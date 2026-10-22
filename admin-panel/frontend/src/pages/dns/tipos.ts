@@ -29,7 +29,18 @@ export interface ServidorDns {
   aviso?: string;
 }
 
-export const TIPOS = ["A", "AAAA", "CNAME", "MX", "TXT", "SRV", "CAA", "NS"];
+export interface TransferenciasDns {
+  transferencias: {
+    transferir_a: string[];
+    notificar_a: string[];
+    maestro_oculto: boolean;
+    tsig: { nombre: string; algoritmo: string; clave_presente?: boolean; para_el_secundario?: string } | null;
+  };
+  zonas_con_ajuste_propio: Record<string, unknown>;
+  aviso?: string;
+}
+
+export const TIPOS =["A", "AAAA", "CNAME", "MX", "TXT", "SRV", "CAA", "NS"];
 
 /* Qué es cada registro, en palabras de quien no es técnico. */
 export const AYUDA_TIPO: Record<string, string> = {

@@ -8,6 +8,12 @@ Uso:
   maquita-dns estado
   maquita-dns servidor-ver
   maquita-dns servidor <json-b64>          IP pública del correo/web y servidores de nombres
+  maquita-dns servidor [--opciones]         transferencias a secundarios (ver lib/ordenes_transferencias.py):
+                                            sin opciones muestra; --transferir-a, --notificar-a, --tsig…
+  maquita-dns transferencias-ver            lo mismo que «servidor» sin opciones (panel)
+  maquita-dns transferencias <json-b64>     cambia las transferencias (panel)
+  maquita-dns transferencias-secreto        muestra el secreto TSIG para copiarlo al secundario (panel)
+  maquita-dns transferencias-importar [--simular]   pasa a la configuración lo que ya declara BIND (ajuste 67)
   maquita-dns listar
   maquita-dns ver <zona>
   maquita-dns crear <zona> [sin-web]        zona completa para correo (MX, SPF, DKIM, DMARC…) y web
@@ -73,8 +79,14 @@ def guardar_servidor(datos):
            "ip_web": _ip4(datos.get("ip_web") or datos.get("ip_correo"), "IP de la web"),
            "ns": limpio}
     anterior = leer_json(SERVIDOR, {})
-    guardar_json(SERVIDOR, srv)
+    import transferencias
     import zona
+
+    if "transferencias" in anterior:
+        # Las transferencias se cambian aparte («maquita-dns servidor --…»): aquí se conservan.
+        transferencias.comprobar_maestro_oculto(transferencias.de_servidor(anterior), srv)
+        srv["transferencias"] = anterior["transferencias"]
+    guardar_json(SERVIDOR, srv)
 
     cambiadas = zona.cambiar_ips(anterior, srv)
     privadas = [x for x in [srv["ip_correo"], srv["ip_web"]] + [n["ip"] for n in limpio] if ipaddress.ip_address(x).is_private]
@@ -82,6 +94,7 @@ def guardar_servidor(datos):
         # Se admite para preparar el servidor antes de tener el enlace; desde Internet no funcionará.
         srv = dict(srv, aviso="IP privadas (" + ", ".join(sorted(set(privadas))) + "): sirven para preparar, "
                    "pero desde Internet nada funcionará hasta poner las IP públicas.")
+    srv.pop("transferencias", None)
     return dict(srv, zonas_actualizadas=cambiadas)
 
 
@@ -93,6 +106,7 @@ def estado():
 
 def despachar(a):
     import comprobar
+    import ordenes_transferencias
     import registros
     import zona
 
@@ -100,8 +114,20 @@ def despachar(a):
         return estado()
     if a == ["servidor-ver"]:
         return leer_json(SERVIDOR, {})
+    if a[:1] == ["servidor"] and (len(a) == 1 or a[1].startswith("--")):
+        return ordenes_transferencias.orden_cli(a[1:])
     if len(a) == 2 and a[0] == "servidor":
         return guardar_servidor(_json(a[1]))
+    if a == ["transferencias-ver"]:
+        return ordenes_transferencias.mostrar()
+    if a == ["transferencias-secreto"]:
+        return ordenes_transferencias.mostrar(secreto=True)
+    if len(a) == 2 and a[0] == "transferencias":
+        return ordenes_transferencias.orden_panel(_json(a[1]))
+    if a in (["transferencias-importar"], ["transferencias-importar", "--simular"]):
+        import importar_transferencias
+
+        return importar_transferencias.importar(simular=len(a) == 2)
     if a == ["listar"]:
         return {"zonas": zona.listar()}
     if len(a) == 2 and a[0] == "ver":
