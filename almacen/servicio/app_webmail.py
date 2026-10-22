@@ -50,6 +50,7 @@ _EXENTAS = (
     '/healthz',
     '/api/almacen/salud',       # balanceador: proceso vivo
     '/api/almacen/listo',       # balanceador: base accesible
+    '/api/almacen/marca',       # nombre visible del Drive (lo piden las Aplicaciones del Drive)
 )
 
 
@@ -148,6 +149,8 @@ def crear_app_webmail() -> Flask:
     app.register_blueprint(bp_panel, url_prefix='/api/almacen/panel')   # canal del panel de administración
     from salud_balanceador import bp_salud
     app.register_blueprint(bp_salud)   # /api/almacen/salud y /api/almacen/listo
+    from api_marca import bp_marca
+    app.register_blueprint(bp_marca)   # /api/almacen/marca (nombre del Drive para las Aplicaciones)
 
     # El template del explorador viene del sistema mayor y enlaza a modulos
     # que aqui no existen (helpdesk, etc.): esos enlaces van al correo en vez

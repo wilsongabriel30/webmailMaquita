@@ -294,6 +294,15 @@ def texto_a_word():
 _CFG_IA = {'url': '', 'habilitado': False, 'ts': 0.0}
 
 
+def _nombre_drive():
+    """Nombre del Drive configurado (marca_drive.py); neutro si la app corre embebida."""
+    try:
+        from marca_drive import nombre_drive
+        return nombre_drive()
+    except Exception:
+        return 'Nube'
+
+
 def _config_ia():
     import time as _t
     if _t.time() - _CFG_IA['ts'] < 300 and _CFG_IA['url']:
@@ -342,9 +351,9 @@ def ia_consulta():
     if not cfg['habilitado'] or not cfg['url']:
         return _error('El asistente de IA no está habilitado en la configuración del sistema.', 503)
 
-    sistema = ('Eres el Asistente de IA de FARO Maquita. Responde siempre en español, '
+    sistema = ('Eres el asistente del Editor de PDF de %s. Responde siempre en español, '
                'de forma clara y concisa. Si recibes el texto de un documento, basa tu '
-               'respuesta únicamente en ese contenido.')
+               'respuesta únicamente en ese contenido.') % _nombre_drive()
     try:
         r = requests.post(cfg['url'] + '/api/chat', json={
             'model': 'qwen2.5:14b',

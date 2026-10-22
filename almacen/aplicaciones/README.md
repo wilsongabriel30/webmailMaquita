@@ -13,3 +13,17 @@ hereda los permisos, el compartir, la papelera, las versiones y la búsqueda del
 
 **Fase 2** (común a las dos últimas): configuración propia, autenticación por el
 token del usuario del Drive, y abrir/guardar archivos directamente del Drive.
+
+## Archivos comunes (copias idénticas)
+
+Cada aplicación se instala por separado, así que no comparten un paquete. Estos archivos
+son **idénticos** en `pdf_editor/` y `bi/`; si cambias uno, copia el otro (la prueba
+`almacen/tests/test_auth_drive_aplicaciones.py` falla si divergen):
+
+- `auth_drive.py` — valida el token del Drive y la sesión viva en Redis: con `sid`, solo
+  `imap_pass:<usuario>:<sid>`; sin `sid`, la clave antigua `imap_pass:<usuario>` o
+  cualquier `imap_pass:<usuario>:*` (SCAN acotado, nunca KEYS).
+- `marca_drive.py` — nombre visible del Drive: lo publica el Almacén en
+  `GET /api/almacen/marca` (perilla `config_kv['drive_name']`); si no responde, la
+  variable `DRIVE_NAME`; si tampoco, «Nube». Ningún texto lleva el nombre escrito: lo
+  vigila `deploy/tools/comprobar-textos-marca.py`.

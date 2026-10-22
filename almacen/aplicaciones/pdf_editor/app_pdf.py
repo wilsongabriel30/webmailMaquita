@@ -26,6 +26,7 @@ from flask_wtf.csrf import CSRFProtect
 
 from config import Config
 import auth_drive
+import marca_drive
 import pdf_editor  # el paquete de este directorio (registrar_modulo en __init__)
 
 
@@ -40,6 +41,7 @@ def crear_app():
 
     csrf = CSRFProtect(app)
     auth_drive.init_auth(app)
+    marca_drive.registrar_en_plantillas(app)   # {{ drive_name }} en las plantillas
 
     # Monta /api/pdf/* y /herramientas/editor-pdf/*
     pdf_editor.registrar_modulo(app, csrf)

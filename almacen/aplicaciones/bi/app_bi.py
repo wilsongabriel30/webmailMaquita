@@ -1,4 +1,4 @@
-"""App de Tableros / BI — Aplicación del Drive Maquita.
+"""App de Tableros / BI — Aplicación del Drive.
 
 Elige un archivo de datos del Drive (.xlsx/.csv) y genera tableros automáticos
 (KPIs + gráficos) con el motor de BI. Autenticación por el token del Drive.
@@ -20,11 +20,12 @@ from flask import Flask, request, jsonify, render_template_string, redirect
 
 from config import Config
 import auth_drive
+import marca_drive
 import cliente_drive
 from bi.conector_drive import ConectorDrive
 from bi.tableros import generar_tableros
 
-_SELECTOR = """<!doctype html><meta charset=utf-8><title>Tableros — Drive Maquita</title>
+_SELECTOR = """<!doctype html><meta charset=utf-8><title>Tableros — {{ drive_name }}</title>
 <style>body{font:15px system-ui;margin:2rem;color:#1b2330}a{color:#1666c4;text-decoration:none}
 li{margin:.4rem 0}h1{font-size:1.4rem}</style>
 <h1>Tableros del Drive</h1>
@@ -62,6 +63,7 @@ def crear_app():
     app.config.from_object(Config)
     app.secret_key = Config.SECRET_KEY or "cambia-esto-en-produccion"
     auth_drive.init_auth(app)
+    marca_drive.registrar_en_plantillas(app)   # {{ drive_name }} en las plantillas
 
     from flask_login import login_required
 
