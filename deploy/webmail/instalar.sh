@@ -422,6 +422,7 @@ install -m644 "${APP_DIR}/deploy/hardening/seguridad-correo-web/politica-referer
 sed "s/mail\.tudominio\.com/${MAIL_HOST}/g; s/tudominio\.com/${DOMAIN}/g" "${APP_DIR}/deploy/webmail/nginx/autodiscover-dominios.conf" \
     > /etc/nginx/sites-available/autodiscover-dominios
 [ -e "/etc/letsencrypt/live/${MAIL_HOST}/fullchain.pem" ] || sed -i "s|/etc/letsencrypt/live/${MAIL_HOST}/fullchain.pem|/etc/ssl/certs/ssl-cert-snakeoil.pem|; s|/etc/letsencrypt/live/${MAIL_HOST}/privkey.pem|/etc/ssl/private/ssl-cert-snakeoil.key|" /etc/nginx/sites-available/autodiscover-dominios
+bash "${APP_DIR}/deploy/tools/nginx-http2-compatible.sh" /etc/nginx/sites-available/autodiscover-dominios
 ln -sf /etc/nginx/sites-available/autodiscover-dominios /etc/nginx/sites-enabled/
 # XML de autoconfiguración de Thunderbird/Evolution (lo sirve autodiscover-dominios para todos los dominios).
 mkdir -p /var/www/autoconfig/mail
