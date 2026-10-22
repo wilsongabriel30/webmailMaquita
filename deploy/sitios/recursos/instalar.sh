@@ -37,7 +37,7 @@ echo "Pendiente: $(IFS=,; echo "${falta[*]}" | sed 's/,/, /g')"
 install -d -m 755 "$LIB"
 install -m 644 "${SITIOS}"/lib/*.py "$LIB/"
 install -m 755 "${SITIOS}/maquita-sitios" "$BIN"
-install -m 755 "${APP_DIR}/deploy/sudoers/maquita-sudo" /usr/local/sbin/maquita-sudo
+bash "${APP_DIR}/deploy/sudoers/instalar.sh"  # maquita-sudo y sus validadores (/usr/local/lib/maquita-sudo)
 
 # --- Carpeta de datos y temporizador ---
 install -d -m 755 /var/lib/maquita-sitios

@@ -121,7 +121,7 @@ rm -f "$nuevo"
 
 echo -e "${GREEN}[4/5] Ayudante del panel (maquita-wazuh) y maquita-sudo...${NC}"
 install -m 755 "$SELF/maquita-wazuh" /usr/local/sbin/maquita-wazuh
-install -m 755 "$APP_DIR/deploy/sudoers/maquita-sudo" /usr/local/sbin/maquita-sudo
+bash "$APP_DIR/deploy/sudoers/instalar.sh"  # maquita-sudo y sus validadores (/usr/local/lib/maquita-sudo)
 
 echo -e "${GREEN}[5/5] Arranque del agente...${NC}"
 systemctl daemon-reload

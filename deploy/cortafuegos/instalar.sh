@@ -23,7 +23,7 @@ echo -e "${GREEN}[2/3] Ayudante del panel y carga al arrancar...${NC}"
 install -d -m 755 /usr/local/lib/maquita-cortafuegos
 install -m 644 "${SELF}"/lib/*.py /usr/local/lib/maquita-cortafuegos/
 install -m 755 "${SELF}/maquita-cortafuegos" /usr/local/sbin/maquita-cortafuegos
-install -m 755 "${APP_DIR}/deploy/sudoers/maquita-sudo" /usr/local/sbin/maquita-sudo
+bash "${APP_DIR}/deploy/sudoers/instalar.sh"  # maquita-sudo y sus validadores (/usr/local/lib/maquita-sudo)
 cat > /etc/systemd/system/maquita-cortafuegos.service <<'EOF'
 [Unit]
 Description=Cortafuegos del servidor (reglas del panel)

@@ -7,5 +7,5 @@ SELF="$(cd "$(dirname "$0")" && pwd)"
 APP_DIR="$(cd "${SELF}/../.." && pwd)"
 [ "$EUID" -eq 0 ] || { echo "Ejecutar como root."; exit 1; }
 install -m 755 "${SELF}/maquita-identidad" /usr/local/sbin/maquita-identidad
-install -m 755 "${APP_DIR}/deploy/sudoers/maquita-sudo" /usr/local/sbin/maquita-sudo
+bash "${APP_DIR}/deploy/sudoers/instalar.sh"  # maquita-sudo y sus validadores (/usr/local/lib/maquita-sudo)
 echo "Identidad: listo (panel → Personalización → «Aplicar en todo»)."

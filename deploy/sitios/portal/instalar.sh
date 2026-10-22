@@ -100,7 +100,7 @@ for u in maquita-sitios-portal.socket maquita-sitios-portal@.service; do
   cmp -s "${SELF}/$u" "${UNIDADES}/$u" || { install -m 644 "${SELF}/$u" "${UNIDADES}/$u"; cambio_unidades=1; }
 done
 # El validador que hace de segunda barrera es el maquita-sudo instalado: que sea el de esta versión.
-install -m 755 "${APP_DIR}/deploy/sudoers/maquita-sudo" /usr/local/sbin/maquita-sudo
+bash "${APP_DIR}/deploy/sudoers/instalar.sh"  # maquita-sudo y sus validadores (/usr/local/lib/maquita-sudo)
 
 # --- Carpeta de subidas (del portal, 0700) y su permiso de escritura en la unidad del portal ---
 install -d -m 755 /var/lib/maquita-sitios
