@@ -2,6 +2,7 @@
 claves SSH de las cuentas SFTP. Mismo mundo sin root que test_sitios_funciones_web.py."""
 
 import os
+import shutil
 import subprocess
 
 import pytest
@@ -177,6 +178,8 @@ def _clave(tmp_path, tipo, bits=None, comentario="ana@example.org"):
 
 @pytest.fixture
 def cuentas(entorno):
+    if not shutil.which("ssh-keygen"):
+        pytest.skip("sin ssh-keygen (openssh-client) en este equipo")
     meta = comun.leer_meta(DOMINIO)
     meta["ftp"] = True
     meta["ftp_cuentas"] = [{"nombre": "disenio", "usuario": "disenio_example1234", "carpeta": "imagenes"}]
