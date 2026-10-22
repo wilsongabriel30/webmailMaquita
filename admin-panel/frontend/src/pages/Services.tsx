@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { api } from "../api/client";
 import { SectionHelp } from "../components/SectionHelp";
+import { TarjetaIndiceBusqueda } from "../components/TarjetaIndiceBusqueda";
 
 /* ── Types ── */
 interface Service {
@@ -466,6 +467,8 @@ export function Services() {
               </div>
             ))}
           </div>
+
+          <TarjetaIndiceBusqueda />
 
           {/* Log viewer */}
           {logs && (
