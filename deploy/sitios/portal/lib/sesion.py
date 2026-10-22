@@ -3,12 +3,17 @@
 Las mismas condiciones que app/sesion.py del portal: ficha (como hash) no revocada ni vencida, cuenta
 activa, sin la contraseña inicial y con segundo factor si es obligatorio. Los dominios salen de
 pd_admin_dominios en cada petición: quitar uno surte efecto al instante.
+
+Si la ficha no es de un administrador de dominio, puede ser de una sesión de soporte del superadministrador
+(pd_sesiones_soporte): alcanza solo su dominio y, en solo lectura, solo las órdenes que no modifican nada
+(portal.ORDENES_LECTURA).
 """
 
 import hashlib
 import json
 
 import bd
+import fichas
 from errores import ErrorPortal
 
 SQL_SESION = """
@@ -19,6 +24,14 @@ SELECT json_build_object(
                                  FROM pd_admin_dominios p JOIN domain d ON d.domain = p.domain
                                 WHERE p.admin_id = a.id), '[]'::json))
   FROM pd_sesiones s JOIN pd_admins a ON a.id = s.admin_id
+ WHERE s.token_hash = :'ficha' AND s.revoked_at IS NULL AND s.expires_at > NOW()
+ LIMIT 1;
+"""
+
+SQL_SOPORTE = """
+SELECT json_build_object('id', s.id, 'superadmin', s.superadmin, 'dominio', lower(s.domain),
+                         'solo_lectura', s.solo_lectura)
+  FROM pd_sesiones_soporte s JOIN domain d ON d.domain = s.domain
  WHERE s.token_hash = :'ficha' AND s.revoked_at IS NULL AND s.expires_at > NOW()
  LIMIT 1;
 """
@@ -38,11 +51,30 @@ def _totp_obligatorio(env):
     return env.get("PD_TOTP_OBLIGATORIO", "1").lower() not in ("0", "no", "false")
 
 
+def _soporte(huella):
+    """La sesión de soporte con ese hash, o None (también si este servidor aún no tiene la tabla)."""
+    try:
+        fila = bd.consultar(SQL_SOPORTE, {"ficha": huella}, tabla="pd_sesiones_soporte")
+    except bd.FaltaTabla:
+        return None
+    if not fila or not fila.get("dominio"):
+        return None
+    return {"id": None, "usuario": f"soporte:{fila.get('superadmin')}", "dominios": [str(fila["dominio"]).lower()],
+            "soporte": {"superadmin": fila.get("superadmin"), "solo_lectura": fila.get("solo_lectura") is not False}}
+
+
 def verificar(ficha):
-    """Devuelve {"id", "usuario", "dominios"} o lanza ErrorPortal(403)."""
+    """Devuelve {"id", "usuario", "dominios"} (y "soporte" si lo es) o lanza ErrorPortal(403)."""
     if not isinstance(ficha, str) or not 20 <= len(ficha) <= 200 or not ficha.isascii():
         raise ErrorPortal(403, "Sesión cerrada o vencida")
-    fila = bd.consultar(SQL_SESION, {"ficha": hashlib.sha256(ficha.encode()).hexdigest()})
+    if fichas.es_ficha(ficha):
+        return _de_ficha(fichas.buscar(ficha))
+    huella = hashlib.sha256(ficha.encode()).hexdigest()
+    fila = bd.consultar(SQL_SESION, {"ficha": huella})
+    if not fila:
+        soporte = _soporte(huella)
+        if soporte:
+            return soporte
     if not fila or not fila.get("activa"):
         raise ErrorPortal(403, "Sesión cerrada o vencida")
     if fila.get("cambiar_clave"):
@@ -50,6 +82,17 @@ def verificar(ficha):
     if _totp_obligatorio(bd.entorno_portal()) and not fila.get("totp"):
         raise ErrorPortal(403, "Activa el segundo factor antes de continuar")
     return {"id": fila["id"], "usuario": fila["usuario"],
+            "dominios": [str(d).lower() for d in fila.get("dominios") or []]}
+
+
+def _de_ficha(fila):
+    """Una ficha de API vale con las mismas condiciones de la cuenta que una sesión, y lleva su alcance."""
+    if not fila or not fila.get("activa") or fila.get("cambiar_clave"):
+        raise ErrorPortal(403, "Ficha de API revocada, vencida o de una cuenta desactivada")
+    if _totp_obligatorio(bd.entorno_portal()) and not fila.get("totp"):
+        raise ErrorPortal(403, "Activa el segundo factor antes de continuar")
+    return {"id": fila["id"], "usuario": fila["usuario"], "ficha_api": fila.get("ficha_api"),
+            "alcances": [str(a) for a in fila.get("alcances") or []],
             "dominios": [str(d).lower() for d in fila.get("dominios") or []]}
 
 

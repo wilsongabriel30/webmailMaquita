@@ -1,0 +1,7 @@
+# Postfix → PostgreSQL: reenvío de un dominio a otro servidor (transport_maps). Sin fila, el
+# correo de un MX de respaldo sigue el camino normal (el MX principal del dominio).
+hosts = localhost
+user = mailserver
+password = __DB_PASS__
+dbname = maildb
+query = SELECT 'smtp:[' || e.destino_host || ']:' || e.destino_puerto FROM enrutamiento_correo e JOIN domain d ON d.domain = e.dominio WHERE e.dominio = '%s' AND e.modo = 'reenvio' AND e.activo AND d.active

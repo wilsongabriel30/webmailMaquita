@@ -15,6 +15,7 @@ import { TareasModal } from "./sitios/TareasModal";
 import { AvanzadoModal } from "./sitios/AvanzadoModal";
 import { FuncionesWebModal, type PestanaWeb } from "./sitios/web/FuncionesWebModal";
 import { DatosModal } from "./sitios/DatosModal";
+import { DesarrolloModal } from "./sitios/desarrollo/DesarrolloModal";
 
 interface Sitio {
   dominio: string;
@@ -59,6 +60,7 @@ export function Sitios() {
   const [seguridadDe, setSeguridadDe] = useState<string | null>(null);
   const [buscadoresDe, setBuscadoresDe] = useState<string | null>(null);
   const [basesDe, setBasesDe] = useState<string | null>(null);
+  const [desarrolloDe, setDesarrolloDe] = useState<string | null>(null);
   const [propiaEn, setPropiaEn] = useState<string | null>(null);
   const [gestionarDe, setGestionarDe] = useState<string | null>(null);
   const [credenciales, setCredenciales] = useState<{ titulo: string; items: Credencial[]; nota?: string } | null>(null);
@@ -367,6 +369,7 @@ export function Sitios() {
                     <button onClick={() => setAvanzadoDe(s.dominio)} disabled={!!ocupado} title="Reglas propias de nginx, ajustes de PHP y archivos de configuración, con copia automática." className="text-ms-blue hover:underline text-xs mr-3 disabled:opacity-50">Avanzado</button>
                     <button onClick={() => setBuscadoresDe(s.dominio)} disabled={!!ocupado} title="Visibilidad en buscadores e IA: revisión, aviso a Bing y otros, verificación de Google." className="text-ms-blue hover:underline text-xs mr-3 disabled:opacity-50">Buscadores</button>
                     <button onClick={() => setBasesDe(s.dominio)} disabled={!!ocupado} title="Bases de datos adicionales (MariaDB o PostgreSQL), phpMyAdmin y Adminer." className="text-ms-blue hover:underline text-xs mr-3 disabled:opacity-50">Bases{s.bases ? ` (${s.bases})` : ""}</button>
+                    <button onClick={() => setDesarrolloDe(s.dominio)} disabled={!!ocupado} title="Usuarios de bases con permisos y acceso remoto con TLS, cortafuegos de aplicaciones web (OWASP CRS) y claves SSH." className="text-ms-blue hover:underline text-xs mr-3 disabled:opacity-50">Desarrollo</button>
                     <button onClick={() => borrar(s)} disabled={!!ocupado} className="text-ms-red hover:underline text-xs disabled:opacity-50">Dar de baja</button>
                   </td>
                 </tr>
@@ -379,6 +382,7 @@ export function Sitios() {
 
       {gestionarDe && <PropiaModal dominio={gestionarDe} onCerrar={() => { setGestionarDe(null); cargar(); }} />}
       {basesDe && <BasesModal dominio={basesDe} onCerrar={() => { setBasesDe(null); cargar(); }} />}
+      {desarrolloDe && <DesarrolloModal dominio={desarrolloDe} onCerrar={() => setDesarrolloDe(null)} />}
       {dominiosDe && <DominiosModal dominio={dominiosDe.dominio} www={dominiosDe.www} alias={dominiosDe.alias || []} sinHttps={dominiosDe.alias_sin_https || []} onCerrar={() => { setDominiosDe(null); cargar(); }} />}
       {avanzadoDe && <AvanzadoModal dominio={avanzadoDe} onCerrar={() => setAvanzadoDe(null)} />}
       {webDe && <FuncionesWebModal dominio={webDe.dominio} inicial={webDe.pestana} onCerrar={() => setWebDe(null)} />}

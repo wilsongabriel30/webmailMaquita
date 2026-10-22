@@ -17,12 +17,9 @@ import os
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from app import organizacion
 from app.auth.dependencies import require_superadmin
 
 router = APIRouter(prefix="/api/segundo-factor", tags=["segundo-factor"])
-
-PUERTO_PORTAL_DOMINIO = "8444"
 
 
 def _db(r: Request):
@@ -126,22 +123,9 @@ async def direccion_portal_dominio(request: Request, admin: dict = Depends(requi
     """Dirección del portal de administradores de dominio, para dársela a quien se da de alta.
 
     ORG_URL_PORTAL_DOMINIO si está definida; si no, el servidor del correo con el puerto del portal.
+    Por empresa, el portal propio (ver admins_dominio/direccion_portal.py).
     """
-    from urllib.parse import urlsplit
+    from app.admins_dominio.direccion_portal import direcciones
 
-    # Por empresa: si el dominio tiene portal propio, su administrador entra por ESE nombre
-    # (su certificado es el de la empresa), con el mismo puerto del portal.
-    explicita = organizacion.url("ORG_URL_PORTAL_DOMINIO", "")
-    puerto = (urlsplit(explicita).port if explicita else None) or PUERTO_PORTAL_DOMINIO
-    por_dominio = {}
-    try:
-        filas = await _db(request).fetch("SELECT host, dominio FROM portal_empresa WHERE activo = true")
-        por_dominio = {f["dominio"].lower(): f"https://{f['host'].lower()}:{puerto}" for f in filas}
-    except Exception:
-        pass  # instalación sin portales por empresa
-
-    if explicita:
-        return {"url": explicita, "por_dominio": por_dominio}
-    correo = organizacion.url("PUBLIC_BASE_URL", organizacion.url("ORG_URL_CORREO", ""))
-    servidor = urlsplit(correo).hostname if correo else None
-    return {"url": f"https://{servidor}:{puerto}" if servidor else None, "por_dominio": por_dominio}
+    general, por_dominio = await direcciones(_db(request))
+    return {"url": general, "por_dominio": por_dominio}

@@ -156,7 +156,15 @@ async def correr(simular: bool = False) -> int:
     if not dsn:
         logger.error("Falta DATABASE_URL (cargar backend/.env)")
         return 2
-    db = await asyncpg.connect(dsn)
+    # Detrás de PgBouncer (modo transaction) sin caché de sentencias preparadas.
+    pgb = (os.environ.get("PGBOUNCER") or "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "si",
+        "sí",
+    )
+    db = await asyncpg.connect(dsn, **({"statement_cache_size": 0} if pgb else {}))
     try:
         politica = await _config(db, "politica")
         u = {**alertas_reglas.UMBRALES_BASE, **await _config(db, "alertas")}

@@ -15,7 +15,7 @@ Uso:  maquita-sudo <programa> [argumentos...]
                  fail2ban-client, nginx, sendmail, maquita-outbound,
                  depurar-adjuntos-peligrosos, geoip-country.sh, maquita-sitios,
                  maquita-dns, maquita-cortafuegos,
-                 maquita-identidad
+                 maquita-identidad, maquita-fts, maquita-wazuh
 La política depende de quién llama (SUDO_USER): www-data solo puede lo que necesita el correo
 (recuperar mensajes y ver/gestionar la cola); maquita-admin, lo que necesita el panel.
 Todo se registra en syslog (auth) con la marca MAQUITA_SUDO; las contraseñas se enmascaran.
@@ -57,10 +57,14 @@ BINARIOS = {
     "maquita-actualizar": "/usr/local/sbin/maquita-actualizar",
     # Respaldos del servidor (restic) y restauración de sitios y buzones.
     "maquita-respaldos": "/usr/local/sbin/maquita-respaldos",
+    # Índice de texto completo del correo: estado y «Reindexar buzón» (deploy/dovecot/fts).
+    "maquita-fts": "/usr/local/sbin/maquita-fts",
+    # Estado del agente Wazuh (opcional) para la tarjeta de Seguridad → Tableros. Solo lectura.
+    "maquita-wazuh": "/usr/local/sbin/maquita-wazuh",
 }
 
 # Programas propios: se ejecutan SOLO desde su ruta fija; si no están, no se buscan en el PATH.
-SOLO_RUTA_FIJA = {"maquita-outbound", "depurar-adjuntos-peligrosos", "geoip-country.sh", "maquita-sitios", "maquita-dns", "maquita-cortafuegos", "maquita-identidad", "maquita-actualizar", "maquita-respaldos"}
+SOLO_RUTA_FIJA = {"maquita-outbound", "depurar-adjuntos-peligrosos", "geoip-country.sh", "maquita-sitios", "maquita-dns", "maquita-cortafuegos", "maquita-identidad", "maquita-actualizar", "maquita-respaldos", "maquita-fts", "maquita-wazuh"}
 
 # Qué puede cada usuario llamante. True = todos los subcomandos que valida este programa.
 POLITICA = {
@@ -89,6 +93,8 @@ POLITICA = {
         "maquita-identidad": True,
         "maquita-actualizar": True,
         "maquita-respaldos": True,
+        "maquita-fts": True,
+        "maquita-wazuh": True,
     },
 }
 
@@ -422,9 +428,45 @@ def validar_sitios(args):
         return args
     if args[:1] and args[0] in _ORDENES_SITIOS_WEB:
         return validar_sitios_web(args)
-    if _validar_sitios_datos(args, dom):
+    if args[:1] and args[0] in _ORDENES_SITIOS_V111:
+        return validar_sitios_v111(args)
+    if _validar_sitios_datos(args, dom) or _validar_sitios_desarrollo(args, dom):
         return args
     raise Rechazo("maquita-sitios: subacción o argumentos no permitidos")
+
+
+# Para desarrolladores (v1.11): usuarios de bases, acceso remoto, cortafuegos de aplicaciones y claves SSH
+# (deploy/sitios/lib/ordenes_desarrollo.py). Permisos, redes, ajustes y claves viajan en base64url (≤ 8000).
+_ORDENES_DESARROLLO_LARGAS = ("base-usuario-crear", "base-usuario-permisos", "base-usuario-remoto", "waf-guardar",
+                              "ssh-clave-agregar")
+_RE_USUARIO_BD = re.compile(r"^u_[a-z0-9]+_[a-z][a-z0-9]{1,9}$")
+
+
+def _validar_sitios_desarrollo(args, dom):
+    b64 = lambda a: bool(_RE_B64URL_LARGO.fullmatch(a))  # noqa: E731
+    if len(args) < 2 or not dom(args[1]):
+        return False
+    orden, n = args[0], len(args)
+    if orden in ("bases-usuarios", "waf", "ssh-claves"):
+        return n == 2
+    if orden == "base-usuario-crear":
+        return (n == 5 and bool(re.fullmatch(r"[wx]_[a-z0-9]+(_[0-9a-f]{4})?", args[2]))
+                and bool(re.fullmatch(r"[a-z][a-z0-9]{1,9}", args[3])) and b64(args[4]))
+    if orden in ("base-usuario-clave", "base-usuario-borrar"):
+        return n == 3 and bool(_RE_USUARIO_BD.fullmatch(args[2]))
+    if orden == "base-usuario-permisos":
+        return n == 4 and bool(_RE_USUARIO_BD.fullmatch(args[2])) and b64(args[3])
+    if orden == "base-usuario-remoto":
+        return n in (4, 5) and bool(_RE_USUARIO_BD.fullmatch(args[2])) and b64(args[3]) and (n == 4 or args[4] == "amplia")
+    if orden == "waf-guardar":
+        return n == 3 and b64(args[2])
+    if orden == "waf-bloqueos":
+        return n == 2 or (n == 3 and bool(re.fullmatch(r"[1-9][0-9]{0,2}", args[2])))
+    if orden == "ssh-clave-agregar":
+        return n == 4 and bool(re.fullmatch(r"principal|[a-z][a-z0-9]{1,10}", args[2])) and b64(args[3])
+    if orden == "ssh-clave-borrar":
+        return n == 3 and bool(re.fullmatch(r"[0-9a-f]{8}", args[2]))
+    return False
 
 
 # Observación y datos de los sitios: registros, estadísticas, disponibilidad, copias del cliente y archivos.
@@ -503,13 +545,38 @@ def validar_sitios_web(args):
     raise Rechazo("maquita-sitios: subacción o argumentos no permitidos")
 
 
+# --- maquita-sitios: despliegue desde git de los sitios PHP y CPU y memoria por sitio (v1.11) ---
+# Ver deploy/sitios/lib/ordenes_v111.py. «git-desplegar-ahora» y «recursos-recoger» son del sistema: no pasan.
+_ORDENES_SITIOS_V111 = {"git-estado", "git-configurar", "git-clave", "git-gancho", "git-desplegar", "git-volver",
+                        "git-quitar", "recursos"}
+
+
+def validar_sitios_v111(args):
+    dom = lambda d: bool(_RE_DOMINIO_SITIO.fullmatch(d))  # noqa: E731
+    if len(args) == 2 and args[0] in ("git-estado", "git-clave", "recursos") and dom(args[1]):
+        return args
+    if len(args) == 3 and args[0] == "git-configurar" and dom(args[1]) and _RE_B64URL_LARGO.fullmatch(args[2]):
+        return args
+    if len(args) == 3 and args[0] == "git-gancho" and dom(args[1]) and args[2] in ("activar", "desactivar"):
+        return args
+    if len(args) == 3 and args[0] == "git-desplegar" and dom(args[1]) and args[2] in ("panel", "gancho"):
+        return args
+    if len(args) == 3 and args[0] == "git-volver" and dom(args[1]) and re.fullmatch(r"\d{8}-\d{6}", args[2]):
+        return args
+    if len(args) == 3 and args[0] == "git-quitar" and dom(args[1]) and args[1] == args[2]:
+        return args
+    raise Rechazo("maquita-sitios: subacción o argumentos no permitidos")
+
+
 def validar_dns(args):
     """maquita-dns: subacciones con su forma exacta; los datos libres van en base64url (el ayudante revalida)."""
     zona = lambda z: bool(_RE_DOMINIO_SITIO.fullmatch(z))  # noqa: E731
     b64 = lambda v: bool(_RE_B64URL_LARGO.fullmatch(v))  # noqa: E731
-    if args in (["estado"], ["servidor-ver"], ["listar"], ["certificado-estado"], ["certificado-correo"]):
+    if args in (["estado"], ["servidor-ver"], ["listar"], ["certificado-estado"], ["certificado-correo"],
+                ["transferencias-ver"], ["transferencias-secreto"]):
         return args
-    if len(args) == 2 and args[0] == "servidor" and b64(args[1]):
+    # «servidor --opciones» y «transferencias-importar» son de la consola del servidor, no del panel.
+    if len(args) == 2 and args[0] in ("servidor", "transferencias") and b64(args[1]) and not args[1].startswith("-"):
         return args
     if len(args) == 2 and args[0] in ("ver", "comprobar") and zona(args[1]):
         return args
@@ -577,6 +644,28 @@ def validar_respaldos(args):
     raise Rechazo("maquita-respaldos: subacción o argumentos no permitidos")
 
 
+def validar_fts(args, comprobar_buzon=_buzon_existe):
+    """maquita-fts: «estado» o «reindexar <buzón>» (buzón existente, en minúsculas). Nada más:
+    «indexar-inicial» es del instalador, no del panel."""
+    if args == ["estado"]:
+        return args
+    if len(args) == 2 and args[0] == "reindexar" and args[1] == args[1].lower() and es_buzon(args[1]):
+        if not comprobar_buzon(args[1]):
+            raise Rechazo("maquita-fts: buzón inexistente")
+        return args
+    raise Rechazo("maquita-fts: solo estado o reindexar <buzón>")
+
+
+_RE_ORDEN_WAZUH = re.compile(r"estado")
+
+
+def validar_wazuh(args):
+    """maquita-wazuh: solo «estado» (lee el estado del agente; no cambia nada)."""
+    if len(args) == 1 and isinstance(args[0], str) and _RE_ORDEN_WAZUH.fullmatch(args[0]):
+        return args
+    raise Rechazo("maquita-wazuh: solo «estado»")
+
+
 VALIDADORES = {
     "doveadm": validar_doveadm, "postqueue": validar_postqueue, "postsuper": validar_postsuper,
     "postconf": validar_postconf, "systemctl": validar_systemctl, "journalctl": validar_journalctl,
@@ -589,6 +678,8 @@ VALIDADORES = {
     "maquita-identidad": validar_identidad,
     "maquita-actualizar": validar_actualizar,
     "maquita-respaldos": validar_respaldos,
+    "maquita-fts": validar_fts,
+    "maquita-wazuh": validar_wazuh,
 }
 
 
@@ -602,13 +693,19 @@ def autorizar(usuario: str, programa: str, args, comprobar_buzon=_buzon_existe):
         if any(not isinstance(a, str) or not a or len(a) > 12000 or re.search(r"[\x00-\x1f\x7f]", a) for a in args):
             raise Rechazo("argumento con caracteres de control o vacío")
         return validar_outbound(list(args))
-    if programa == "maquita-sitios" and args[:1] in (["inicio"], ["propia-crear"], ["propia-entorno"]):
+    # Datos en base64url de más de 300 caracteres (la lista de alias, 10 dominios, también los pasa).
+    if programa == "maquita-sitios" and args[:1] in (["inicio"], ["propia-crear"], ["propia-entorno"], ["git-configurar"],
+                                                     ["alias"]):
         if any(not isinstance(a, str) or not a or len(a) > 8000 or re.search(r"[\x00-\x1f\x7f]", a) for a in args):
             raise Rechazo("argumento con caracteres de control o vacío")
         return validar_sitios(list(args))
     if programa == "maquita-sitios" and args[:1] and args[0] in _ORDENES_SITIOS_WEB_JSON:
         # Listas de redirecciones o de IP: pasan de 300 caracteres; se validan enteras en validar_sitios_web.
         if any(not isinstance(a, str) or not a or len(a) > 20000 or re.search(r"[\x00-\x1f\x7f]", a) for a in args):
+            raise Rechazo("argumento con caracteres de control o vacío")
+        return validar_sitios(list(args))
+    if programa == "maquita-sitios" and args[:1] and args[0] in _ORDENES_DESARROLLO_LARGAS:
+        if any(not isinstance(a, str) or not a or len(a) > 8000 or re.search(r"[\x00-\x1f\x7f]", a) for a in args):
             raise Rechazo("argumento con caracteres de control o vacío")
         return validar_sitios(list(args))
     if programa == "maquita-sitios" and args[:1] and str(args[0]).startswith("archivos-"):
@@ -626,6 +723,8 @@ def autorizar(usuario: str, programa: str, args, comprobar_buzon=_buzon_existe):
             raise Rechazo("argumento con caracteres de control o vacío")
         return validar_dns(list(args))
     _tokens_limpios(args)
+    if programa == "maquita-fts":
+        return validar_fts(list(args), comprobar_buzon)
     if programa == "doveadm":
         salida = validar_doveadm(list(args), comprobar_buzon)
         if permisos["doveadm"] is not True and salida[0] not in permisos["doveadm"]:

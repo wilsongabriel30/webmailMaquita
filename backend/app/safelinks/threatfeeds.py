@@ -139,12 +139,28 @@ async def classify(redis, host: str, registrable: str = ""):
     return None
 
 
+INTERVALO_S = 43200  # 12 h
+REVISION_S = 600  # cada cuánto mira cada worker si ya toca
+ESPERA_INICIAL_S = 15  # dar tiempo a que arranque la app
+
+
 async def loop(app):
-    """Refresco periódico (arranque + cada 12 h)."""
-    await asyncio.sleep(15)  # dar tiempo a que arranque la app
+    """Refresco periódico (al arrancar y cada 12 h) UNA vez para todo el clúster.
+
+    Antes cada worker descargaba las listas por su cuenta (4 descargas idénticas con la
+    configuración de serie, N×4 con varias máquinas). Ahora el que gana el bloqueo las
+    descarga y el bloqueo dura 12 h; si ese proceso muere, otro lo hará en la próxima
+    revisión cuando caduque."""
+    from app.escala.bloqueo import una_vez_por_intervalo
+
+    await asyncio.sleep(ESPERA_INICIAL_S)
     while True:
         try:
-            await refresh(app.state.redis, app.state.db_pool)
+            async with una_vez_por_intervalo(
+                app.state.redis, "threatfeeds:refresco", INTERVALO_S - 60
+            ) as turno:
+                if turno.obtenido:
+                    await refresh(app.state.redis, app.state.db_pool)
         except Exception:
             pass
-        await asyncio.sleep(43200)  # 12 h
+        await asyncio.sleep(REVISION_S)

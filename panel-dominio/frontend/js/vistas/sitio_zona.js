@@ -3,6 +3,7 @@
 import { api } from '../api.js';
 import { el, agregar, aviso, campo, lista, ventana } from '../ui.js';
 import { confirmar, hacer, mensajes } from './sitio_comun.js';
+import { seccionDdns } from './sitio_ddns.js';
 
 const TIPOS = ['A', 'AAAA', 'CNAME', 'TXT', 'CAA', 'SRV'];
 const AYUDA_VALOR = { A: 'Dirección IPv4, p. ej. 192.0.2.10', AAAA: 'Dirección IPv6', CNAME: 'Nombre de destino, p. ej. otro.example.org',
@@ -55,6 +56,7 @@ export async function vistaZona(dominio, mensaje) {
       el('button', { clase: 'boton', type: 'button', alClick: () => formulario(dominio, null, async (reg) => { await api.post(ruta, { registro: reg }); recargar('Registro agregado. Los cambios tardan en verse en internet lo que diga su TTL.'); }) }, 'Nuevo registro')),
     el('div', { clase: 'caja tabla-marco' }, el('table', null,
       el('thead', null, el('tr', null, ['Nombre', 'Tipo', 'Valor', 'TTL', ''].map(t => el('th', null, t)))),
-      el('tbody', null, filas.length ? filas : el('tr', null, el('td', { colspan: '5', clase: 'vacio' }, 'La zona no tiene registros.'))))));
+      el('tbody', null, filas.length ? filas : el('tr', null, el('td', { colspan: '5', clase: 'vacio' }, 'La zona no tiene registros.'))))),
+    await seccionDdns(dominio));
   return raiz;
 }

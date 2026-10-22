@@ -13,7 +13,8 @@ import time
 
 import dkim
 import registros as R
-from comun import DATOS, LISTA_BIND, ZONAS_BIND, ErrorDns, ejecutar, escribir, guardar_json, leer_json, servidor
+import transferencias as T
+from comun import DATOS, LISTA_BIND, TSIG_BIND, ZONAS_BIND, ErrorDns, ejecutar, escribir, guardar_json, leer_json, servidor
 
 
 def _ruta(zona):
@@ -217,17 +218,29 @@ def _texto_zona(z):
 
 
 def _escribir_lista():
-    """Declaración de todas las zonas para BIND (named.conf.local incluye este archivo)."""
-    bloques = ["// Generado por el panel (Zonas DNS). No editar a mano."]
+    """Declaración de todas las zonas para BIND (named.conf.local incluye este archivo), con sus
+    transferencias y avisos (transferencias.py). Se comprueba con named-checkconf antes de dejarla: si
+    BIND la rechaza, vuelve la anterior y no se recarga nada."""
+    conf = T.de_servidor(leer_json(os.path.join(DATOS, "servidor.json"), {}))
+    zonas = []
     for ruta in sorted(glob.glob(os.path.join(DATOS, "*.json"))):
         if os.path.basename(ruta) == "servidor.json":
             continue
-        zona = leer_json(ruta)["zona"]
-        bloques.append(
-            f'zone "{zona}" {{\n    type primary;\n    file "{ZONAS_BIND}/db.{zona}";\n'
-            "    allow-transfer { none; };\n    notify no;\n};"
-        )
-    escribir(LISTA_BIND, "\n".join(bloques) + "\n", 0o644, grp.getgrnam("bind").gr_gid)
+        z = leer_json(ruta)
+        zonas.append((z["zona"], z.get("transferencias")))
+    texto = T.texto_lista(zonas, conf, lambda zona: f"{ZONAS_BIND}/db.{zona}", TSIG_BIND)
+    try:
+        with open(LISTA_BIND) as f:
+            anterior = f.read()
+    except FileNotFoundError:
+        anterior = "// Generado por el panel (Zonas DNS).\n"
+    gid = grp.getgrnam("bind").gr_gid
+    escribir(LISTA_BIND, texto, 0o644, gid)
+    try:
+        ejecutar(["named-checkconf"])
+    except ErrorDns as e:
+        escribir(LISTA_BIND, anterior, 0o644, gid)
+        raise ErrorDns(f"BIND rechaza la declaración de las zonas (queda la anterior): {e}")
 
 
 def aplicar(z):

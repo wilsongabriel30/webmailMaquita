@@ -238,56 +238,67 @@ async def check_snoozed(app):
             if not db:
                 continue
 
-            rows = await db.fetch("""SELECT id, owner, original_folder
-                   FROM snoozed_emails
-                   WHERE snooze_until <= NOW() AND restored = FALSE""")
-            if not rows:
-                continue
+            # Una sola revisión por minuto en todo el clúster: dos workers moviendo a la
+            # vez el mismo pospuesto lo devolverían dos veces (ver app/escala/bloqueo.py).
+            from app.escala.bloqueo import una_vez_por_intervalo
 
-            logger.info("Snooze checker: %d emails to restore", len(rows))
-
-            for r in rows:
-                try:
-                    password = await _get_password_from_redis(r["owner"])
-                    if not password:
-                        logger.debug(
-                            "Snooze: no password cached for %s, skipping", r["owner"]
-                        )
-                        continue
-
-                    imap = await get_imap_connection(r["owner"], password)
-                    try:
-                        await imap.select(SNOOZE_FOLDER)
-                        search_resp = await imap.uid_search("ALL")
-                        if search_resp.result == "OK":
-                            snoozed_uids = _parse_imap_uids(search_resp)
-                            if snoozed_uids:
-                                await uid_bulk_action(
-                                    imap,
-                                    SNOOZE_FOLDER,
-                                    snoozed_uids[:1],
-                                    "move",
-                                    r["original_folder"],
-                                )
-                                logger.info(
-                                    "Restored snoozed email %d for %s",
-                                    r["id"],
-                                    r["owner"],
-                                )
-                    finally:
-                        await imap.logout()
-
-                    await db.execute(
-                        "UPDATE snoozed_emails SET restored = TRUE WHERE id = $1",
-                        r["id"],
-                    )
-                except Exception as e:
-                    logger.error("Snooze restore error for id=%d: %s", r["id"], e)
+            async with una_vez_por_intervalo(
+                app.state.redis, "snooze:revision", 55
+            ) as turno:
+                if turno.obtenido:
+                    await _restaurar_vencidos(db)
 
         except asyncio.CancelledError:
             break
         except Exception as e:
             logger.error("Snooze checker error: %s", e)
+
+
+async def _restaurar_vencidos(db):
+    """Una vuelta del restaurador de pospuestos."""
+    rows = await db.fetch("""SELECT id, owner, original_folder
+           FROM snoozed_emails
+           WHERE snooze_until <= NOW() AND restored = FALSE""")
+    if not rows:
+        return
+
+    logger.info("Snooze checker: %d emails to restore", len(rows))
+
+    for r in rows:
+        try:
+            password = await _get_password_from_redis(r["owner"])
+            if not password:
+                logger.debug("Snooze: no password cached for %s, skipping", r["owner"])
+                continue
+
+            imap = await get_imap_connection(r["owner"], password)
+            try:
+                await imap.select(SNOOZE_FOLDER)
+                search_resp = await imap.uid_search("ALL")
+                if search_resp.result == "OK":
+                    snoozed_uids = _parse_imap_uids(search_resp)
+                    if snoozed_uids:
+                        await uid_bulk_action(
+                            imap,
+                            SNOOZE_FOLDER,
+                            snoozed_uids[:1],
+                            "move",
+                            r["original_folder"],
+                        )
+                        logger.info(
+                            "Restored snoozed email %d for %s",
+                            r["id"],
+                            r["owner"],
+                        )
+            finally:
+                await imap.logout()
+
+            await db.execute(
+                "UPDATE snoozed_emails SET restored = TRUE WHERE id = $1",
+                r["id"],
+            )
+        except Exception as e:
+            logger.error("Snooze restore error for id=%d: %s", r["id"], e)
 
 
 async def _get_password_from_redis(username: str) -> Optional[str]:

@@ -33,16 +33,16 @@ pagar paneles y nubes extranjeras sin perder funciones.
 | Uso de disco por sitio, bases y copias, con cuotas por dominio | ✅ |
 | Carpetas con contraseña | ✅ |
 | Copias de seguridad: el cliente crea, descarga y restaura su sitio y sus bases | ✅ |
-| Despliegue desde git | ✅ aplicaciones propias · ⏳ sitios PHP (v1.11) |
+| Despliegue desde git | ✅ aplicaciones propias y sitios PHP (clave de despliegue, gancho y vuelta atrás) |
 
 ### Dominios y DNS
 
 | Función | Estado |
 |---|---|
-| Dominios, subdominios y alias de dominio | ✅ (alias desde el portal: ⏳ v1.11) |
+| Dominios, subdominios y alias de dominio | ✅ (alias también desde el portal) |
 | Redirecciones 301/302 de una ruta o de todo el dominio | ✅ |
 | Editor de zona DNS (servidor DNS propio), con los registros del correo protegidos | ✅ |
-| DNS dinámico | ⏳ v1.11 |
+| DNS dinámico | ✅ (dyndns2: routers, ddclient, inadyn) |
 
 ### Correo
 
@@ -53,8 +53,8 @@ pagar paneles y nubes extranjeras sin perder funciones.
 | SPF, DKIM, DMARC y MTA-STS | ✅ |
 | Listas y grupos de distribución | ✅ |
 | Celulares por ActiveSync 16.1 (correo, calendario, contactos, borradores y libreta de la organización) | ✅ |
-| Importar cuentas desde un archivo CSV | ⏳ v1.11 |
-| Enrutamiento de correo (MX de respaldo, reenvío a otro servidor) | ⏳ v1.11 |
+| Importar cuentas desde un archivo CSV | ✅ panel y portal ([guía](IMPORTAR-CSV-Y-ENRUTAMIENTO.md)) |
+| Enrutamiento de correo (MX de respaldo, reenvío a otro servidor) | ✅ panel general ([guía](IMPORTAR-CSV-Y-ENRUTAMIENTO.md)) |
 
 ### Bases de datos
 
@@ -62,8 +62,8 @@ pagar paneles y nubes extranjeras sin perder funciones.
 |---|---|
 | MariaDB y PostgreSQL, con asistente | ✅ |
 | phpMyAdmin y Adminer con entrada directa desde el panel | ✅ |
-| Usuarios de base con permisos a medida | ⏳ v1.11 |
-| Acceso remoto a bases (por IP y con TLS) | ⏳ v1.11 |
+| Usuarios de base con permisos a medida | ✅ ([guía](BASES-WAF-CLAVES.md)) |
+| Acceso remoto a bases (por IP y con TLS) | ✅ ([guía](BASES-WAF-CLAVES.md)) |
 
 ### Seguridad
 
@@ -73,8 +73,8 @@ pagar paneles y nubes extranjeras sin perder funciones.
 | Bloqueo de IP del servidor (cortafuegos, fail2ban, países) y por sitio | ✅ |
 | Protección contra hotlinking | ✅ |
 | Protección contra ataques de contraseña y segundo factor | ✅ |
-| Cortafuegos de aplicaciones web (reglas OWASP) | Parcial: reglas para WordPress · ⏳ v1.11 |
-| Claves SSH y fichas de API | ⏳ v1.11 |
+| Cortafuegos de aplicaciones web (reglas OWASP) | ✅ OWASP CRS completo por sitio: modo, paranoia, exclusiones y bloqueos ([guía](BASES-WAF-CLAVES.md)) |
+| Claves SSH y fichas de API | ✅ ([guía](BASES-WAF-CLAVES.md)) |
 
 ### Software
 
@@ -86,7 +86,7 @@ pagar paneles y nubes extranjeras sin perder funciones.
 | Tareas programadas (cron) | ✅ |
 | Páginas de error propias (403, 404, 500, 502, 503) | ✅ |
 | Compresión gzip/brotli y caché, pensadas para conexiones rurales y satelitales | ✅ |
-| Aplicaciones Node.js y Python | ✅ panel general · ⏳ portal (v1.11) |
+| Aplicaciones Node.js y Python | ✅ panel general y portal (con límites de memoria y CPU) |
 | Migración desde otro hosting (paquete y respaldo .sql) | ✅ |
 | Editor visual de páginas | Fase posterior: alternativa libre (GrapesJS); Sitejet es de pago y no entra |
 
@@ -97,8 +97,8 @@ pagar paneles y nubes extranjeras sin perder funciones.
 | Estadísticas de visitas y ancho de banda (GoAccess, sin rastreo en el navegador) | ✅ |
 | Visor de errores y accesos del sitio y de PHP | ✅ |
 | Aviso de caída del sitio por correo (comprobación cada 5 minutos, con días restantes del certificado) | ✅ |
-| CPU y memoria por sitio | ⏳ v1.11 |
-| Información del servidor en el portal | ⏳ v1.11 |
+| CPU y memoria por sitio | ✅ (gráfico de las últimas 24 h) |
+| Información del servidor en el portal | ✅ |
 
 ## Lo que cPanel no trae
 

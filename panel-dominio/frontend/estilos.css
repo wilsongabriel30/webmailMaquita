@@ -89,6 +89,14 @@ pre.salida { background:#fafafa; border:1px solid var(--borde); border-radius:4p
 .dato { display:block; margin-top:2px; overflow-wrap:anywhere; }
 code.secreto { font-size:14px; background:#fff4ce; padding:2px 4px; border-radius:3px; user-select:all; }
 a.boton { display:inline-block; text-decoration:none; }
+/* v1.11: gráficos de CPU y memoria (SVG, colores por clase: la política del portal no admite estilos en línea) */
+svg.grafico { display:block; width:100%; height:auto; max-height:200px; margin:4px 0 12px; }
+.grafico .eje { stroke:#eee; stroke-width:1; }
+.grafico .linea { fill:none; stroke:var(--azul); stroke-width:2; stroke-linejoin:round; }
+.grafico .punto { fill:var(--azul); }
+.grafico .tope { stroke:var(--rojo); stroke-width:1; stroke-dasharray:4 4; }
+.grafico text { font-size:11px; fill:var(--gris); }
+.grafico text.tope-texto { fill:var(--rojo); }
 
 /* Pantallas estrechas: cada fila se vuelve una tarjeta, sin deslizar de lado. */
 @media (max-width: 640px) {
@@ -103,3 +111,6 @@ a.boton { display:inline-block; text-decoration:none; }
   td.acciones .enlace { padding:6px 12px 6px 0; }
   .velo { padding:12px; }
 }
+/* Sesión de soporte del superadministrador: siempre a la vista. */
+.franja-soporte { margin:0; padding:8px 16px; background:#fff4ce; color:#5c4600; border-bottom:1px solid #e8d48a; font-size:13px; text-align:center; }
+.franja-soporte.con-acciones { background:#fde7e9; color:#7a1b20; border-bottom-color:#efb5ba; }

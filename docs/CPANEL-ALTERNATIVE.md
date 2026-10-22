@@ -32,16 +32,16 @@ foreign panels and clouds without losing features.
 | Disk usage per site, databases and backups, with per-domain quotas | ✅ |
 | Password-protected directories | ✅ |
 | Backups: clients create, download and restore their site and databases | ✅ |
-| Git deployment | ✅ custom apps · ⏳ PHP sites (v1.11) |
+| Git deployment | ✅ custom apps and PHP sites (deploy key, webhook and rollback) |
 
 ### Domains and DNS
 
 | Feature | Status |
 |---|---|
-| Domains, subdomains and domain aliases | ✅ (aliases from the portal: ⏳ v1.11) |
+| Domains, subdomains and domain aliases | ✅ (aliases from the portal too) |
 | 301/302 redirects for a path or a whole domain | ✅ |
 | DNS zone editor (own DNS server), with mail records protected | ✅ |
-| Dynamic DNS | ⏳ v1.11 |
+| Dynamic DNS | ✅ (dyndns2: routers, ddclient, inadyn) |
 
 ### Email
 
@@ -52,8 +52,8 @@ foreign panels and clouds without losing features.
 | SPF, DKIM, DMARC and MTA-STS | ✅ |
 | Mailing lists and distribution groups | ✅ |
 | Phones over ActiveSync 16.1 (mail, calendar, contacts, drafts and organisation address book) | ✅ |
-| Import accounts from a CSV file | ⏳ v1.11 |
-| Email routing (backup MX, relay to another server) | ⏳ v1.11 |
+| Import accounts from a CSV file | ✅ general panel and portal ([guide, in Spanish](IMPORTAR-CSV-Y-ENRUTAMIENTO.md)) |
+| Email routing (backup MX, relay to another server) | ✅ general panel ([guide, in Spanish](IMPORTAR-CSV-Y-ENRUTAMIENTO.md)) |
 
 ### Databases
 
@@ -61,8 +61,8 @@ foreign panels and clouds without losing features.
 |---|---|
 | MariaDB and PostgreSQL, with a wizard | ✅ |
 | phpMyAdmin and Adminer with one-click sign-in | ✅ |
-| Database users with custom privileges | ⏳ v1.11 |
-| Remote database access (by IP, with TLS) | ⏳ v1.11 |
+| Database users with custom privileges | ✅ ([guide, in Spanish](BASES-WAF-CLAVES.md)) |
+| Remote database access (by IP, with TLS) | ✅ ([guide, in Spanish](BASES-WAF-CLAVES.md)) |
 
 ### Security
 
@@ -72,8 +72,8 @@ foreign panels and clouds without losing features.
 | IP blocking for the server (firewall, fail2ban, countries) and per site | ✅ |
 | Hotlink protection | ✅ |
 | Brute-force protection and two-factor authentication | ✅ |
-| Web application firewall (OWASP rules) | Partial: WordPress rules · ⏳ v1.11 |
-| SSH keys and API tokens | ⏳ v1.11 |
+| Web application firewall (OWASP rules) | ✅ full OWASP CRS per site: mode, paranoia level, rule exclusions and blocked requests ([guide, in Spanish](BASES-WAF-CLAVES.md)) |
+| SSH keys and API tokens | ✅ ([guide, in Spanish](BASES-WAF-CLAVES.md)) |
 
 ### Software
 
@@ -85,7 +85,7 @@ foreign panels and clouds without losing features.
 | Scheduled tasks (cron) | ✅ |
 | Custom error pages (403, 404, 500, 502, 503) | ✅ |
 | gzip/brotli compression and caching, tuned for rural and satellite links | ✅ |
-| Node.js and Python apps | ✅ general panel · ⏳ portal (v1.11) |
+| Node.js and Python apps | ✅ general panel and portal (with memory and CPU limits) |
 | Migration from another host (package and .sql dump) | ✅ |
 | Visual page builder | Later phase: free alternative (GrapesJS); Sitejet is proprietary and out of scope |
 
@@ -96,8 +96,8 @@ foreign panels and clouds without losing features.
 | Visitor and bandwidth statistics (GoAccess, no browser tracking) | ✅ |
 | Site and PHP error/access log viewer | ✅ |
 | Site-down email alerts (checked every 5 minutes, with certificate days left) | ✅ |
-| CPU and memory per site | ⏳ v1.11 |
-| Server information in the portal | ⏳ v1.11 |
+| CPU and memory per site | ✅ (last 24 h chart) |
+| Server information in the portal | ✅ |
 
 ## What cPanel does not include
 

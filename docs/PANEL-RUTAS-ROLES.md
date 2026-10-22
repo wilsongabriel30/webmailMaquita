@@ -200,6 +200,18 @@ EXPLÍCITA** no lleva ninguna dependencia de autenticación en la ruta: hay que 
 | POST | `/api/secure-config/messages/{token}/revoke` | `require_role` | require_role(…) — rol explícito | `app/secure_config/router.py` |
 | GET | `/api/security-policies` | `get_current_admin` | rol efectivo (viewer: solo GET) | `app/security_policies/router.py` |
 | POST | `/api/security-policies` | `get_current_admin` | rol efectivo (viewer: solo GET) | `app/security_policies/router.py` |
+| GET | `/api/seguridad/accesos` | `require_operador` | require_operador — superadmin y admin (v1.11) | `app/seguridad/router.py` |
+| GET | `/api/seguridad/alertas` | `require_operador` | require_operador — superadmin y admin (v1.11) | `app/seguridad/router_alertas.py` |
+| POST | `/api/seguridad/alertas/{aid}/cerrar` | `require_operador` | require_operador — superadmin y admin (v1.11) | `app/seguridad/router_alertas.py` |
+| POST | `/api/seguridad/alertas/{aid}/reconocer` | `require_operador` | require_operador — superadmin y admin (v1.11) | `app/seguridad/router_alertas.py` |
+| GET | `/api/seguridad/config` | `require_operador` | require_operador — superadmin y admin (v1.11) | `app/seguridad/router.py` |
+| PUT | `/api/seguridad/config` | `require_superadmin` | require_superadmin — solo superadmin | `app/seguridad/router.py` |
+| GET | `/api/seguridad/cumplimiento` | `require_operador` | require_operador — superadmin y admin (v1.11) | `app/seguridad/router.py` |
+| GET | `/api/seguridad/flujo` | `require_operador` | require_operador — superadmin y admin (v1.11) | `app/seguridad/router.py` |
+| GET | `/api/seguridad/informes/resumen.html` | `require_operador` | require_operador — superadmin y admin (v1.11) | `app/seguridad/router_informes.py` |
+| GET | `/api/seguridad/informes/{tipo}.csv` | `require_operador` | require_operador — superadmin y admin (v1.11) | `app/seguridad/router_informes.py` |
+| GET | `/api/seguridad/resumen` | `require_operador` | require_operador — superadmin y admin (v1.11) | `app/seguridad/router.py` |
+| GET | `/api/seguridad/wazuh` | `require_operador` | require_operador — superadmin y admin (v1.11) | `app/seguridad/router.py` |
 | GET | `/api/services` | `get_current_admin` | rol efectivo (viewer: solo GET) | `app/services/router.py` |
 | POST | `/api/services/fail2ban/ban` | `require_role` | require_role(…) — rol explícito | `app/services/router.py` |
 | POST | `/api/services/fail2ban/ban-all` | `require_role` | require_role(…) — rol explícito | `app/services/router.py` |

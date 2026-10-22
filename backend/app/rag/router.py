@@ -15,6 +15,10 @@ def _db(r: Request):
     return r.app.state.db_pool
 
 
+def _redis(r: Request):
+    return getattr(r.app.state, "redis", None)
+
+
 class AskReq(BaseModel):
     question: str
 
@@ -27,7 +31,7 @@ async def status(request: Request):
         "enabled": await rag_config.domain_enabled(db, user),
         "indexed": await store.count(db, user),
         # Progreso de la sincronización en segundo plano (ver ingest.lanzar_en_segundo_plano)
-        "sync": ingest.progreso(user),
+        "sync": await ingest.progreso_compartido(user, _redis(request)),
     }
 
 
@@ -52,5 +56,6 @@ async def sync_ep(request: Request):
             "started": False,
             "error": "El asistente no está habilitado para tu dominio.",
         }
-    started = ingest.lanzar_en_segundo_plano(db, user)
-    return {"started": started, "sync": ingest.progreso(user)}
+    redis = _redis(request)
+    started = await ingest.lanzar_en_segundo_plano(db, user, redis)
+    return {"started": started, "sync": await ingest.progreso_compartido(user, redis)}

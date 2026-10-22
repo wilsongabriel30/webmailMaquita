@@ -22,9 +22,11 @@ EXTENSIONES = {
     "texto": re.compile(r"^[0-9a-f]{32}\.txt$"),
     # Administrador de archivos (v1.10): cualquier contenido; maquita-sitios lo copia con el usuario del sitio.
     "archivo": re.compile(r"^[0-9a-f]{32}\.subida$"),
+    # Gancho de git (v1.11): el cuerpo que envió el servidor de git, para comprobar su firma (publico.py).
+    "gancho": re.compile(r"^[0-9a-f]{32}\.gancho$"),
 }
 TOPES = {"paquete": 512 * 1024 * 1024, "respaldo": 512 * 1024 * 1024, "texto": 1024 * 1024,
-         "archivo": 512 * 1024 * 1024}
+         "archivo": 512 * 1024 * 1024, "gancho": 1024 * 1024}
 BLOQUE = 1024 * 1024
 
 
@@ -92,6 +94,24 @@ def tomar(nombre, tipo):
         os.close(fd)
         quitar(nombre)
     return nuevo
+
+
+def leer(nombre, tipo):
+    """El contenido de una subida pequeña (con las mismas comprobaciones que tomar) y la borra."""
+    fd = _abrir(nombre, tipo)
+    try:
+        partes, total = [], 0
+        while True:
+            trozo = os.read(fd, BLOQUE)
+            if not trozo:
+                return b"".join(partes)
+            total += len(trozo)
+            if total > TOPES[tipo]:
+                raise ErrorPortal(413, "El archivo es demasiado grande")
+            partes.append(trozo)
+    finally:
+        os.close(fd)
+        quitar(nombre)
 
 
 def quitar(nombre):

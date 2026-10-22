@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthContext, AdminUser } from "./api/auth";
 import { api } from "./api/client";
 import { Login } from "./pages/Login";
+import { EntradaVale } from "./pages/EntradaVale";
 import { HelpTip } from "./components/HelpTip";
 import { AdminLayout } from "./layouts/AdminLayout";
 import { Dashboard } from "./pages/Dashboard";
@@ -28,6 +29,7 @@ import { PasswordAudit } from "./pages/PasswordAudit";
 import { Health } from "./pages/Health";
 import { Audit } from "./pages/Audit";
 import { Admins } from "./pages/Admins";
+import { FichasApi } from "./pages/FichasApi";
 import { AdminsDominio } from "./pages/AdminsDominio";
 import { Services } from "./pages/Services";
 import { Groups } from "./pages/Groups";
@@ -65,6 +67,7 @@ import { CuentasAsignadas } from "./pages/CuentasAsignadas";
 import { EDiscovery } from "./pages/EDiscovery";
 import { Branding } from "./pages/Branding";
 import { Compliance } from "./pages/Compliance";
+import { Tableros } from "./pages/seguridad/Tableros";
 
 function App() {
   const [user, setUser] = useState<AdminUser | null>(() => {
@@ -123,6 +126,8 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
+          {/* Vale de un solo uso (consola o vuelta del proveedor de identidad): abre la sesión. */}
+          <Route path="/entrar" element={<EntradaVale />} />
           <Route element={user ? <AdminLayout /> : <Navigate to="/login" />}>
             <Route index element={<Dashboard />} />
             <Route path="domains" element={<Domains />} />
@@ -146,6 +151,7 @@ function App() {
             <Route path="health" element={<Health />} />
             <Route path="audit" element={<Audit />} />
             <Route path="admins" element={<Admins />} />
+            <Route path="fichas-api" element={<FichasApi />} />
             <Route path="admins-dominio" element={<AdminsDominio />} />
             <Route path="ediscovery" element={<EDiscovery />} />
             <Route path="branding" element={<Branding />} />
@@ -185,6 +191,8 @@ function App() {
             <Route path="advanced-audit" element={<AdvancedAudit />} />
             <Route path="risky-logins" element={<RiskyLogins />} />
             <Route path="/login-health" element={<LoginHealth />} />
+            <Route path="seguridad/tableros" element={<Tableros />} />
+            <Route path="seguridad/tableros/:tablero" element={<Tableros />} />
           </Route>
         </Routes>
       </BrowserRouter>

@@ -1,12 +1,24 @@
+import os
+
 import asyncpg
 from app.config import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS
+
+
+def opciones_pool() -> dict:
+    """Detrás de PgBouncer en modo «transaction» (PGBOUNCER=true) asyncpg no puede guardar
+    sentencias preparadas: cada transacción puede ir a otra conexión del servidor."""
+    op = {"min_size": 2, "max_size": 10}
+    if os.getenv("PGBOUNCER", "").strip().lower() in ("1", "true", "yes", "si", "sí"):
+        op["statement_cache_size"] = 0
+        op["max_cached_statement_lifetime"] = 0
+    return op
 
 
 async def create_pool() -> asyncpg.Pool:
     return await asyncpg.create_pool(
         host=DB_HOST, port=DB_PORT, database=DB_NAME,
         user=DB_USER, password=DB_PASS,
-        min_size=2, max_size=10,
+        **opciones_pool(),
     )
 
 

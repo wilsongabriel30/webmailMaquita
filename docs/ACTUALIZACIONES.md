@@ -57,6 +57,9 @@ etiquetas antiguas, sin firma, no se instalan.
 ## Canales
 
 - `estable` (por defecto): etiquetas firmadas. Para todos los servidores en uso.
+- `estable-X.Y` (p. ej. `estable-1.11`): solo las etiquetas firmadas de esa serie (`v1.11.*`), es decir,
+  los parches de una versión de soporte largo sin saltar a la siguiente. Ver
+  [SOPORTE-Y-VERSIONES.md](SOPORTE-Y-VERSIONES.md).
 - Una rama (p. ej. `main` o una rama de trabajo): solo en servidores de prueba. Sin firma; el panel lo avisa.
 - Volver de una rama de trabajo a `estable`: si la rama se fusionó con «squash», su último commit no es
   antecesor de la etiqueta y «Buscar» no la ofrece (solo se avanza). Si el contenido es el mismo, se anota

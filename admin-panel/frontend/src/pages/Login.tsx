@@ -2,6 +2,7 @@ import React from "react";
 import { useEffect, useState } from "react";
 import { useAuth } from "../api/auth";
 import { api } from "../api/client";
+import { EntradaIdentidad } from "../components/EntradaIdentidad";
 
 export function Login() {
   const { login } = useAuth();
@@ -163,6 +164,7 @@ export function Login() {
               </button>
             </form>
             )}
+            {!recover && !needTotp && <EntradaIdentidad />}
             {!recover && !needTotp && (
               <button type="button" onClick={() => { setRecover(true); setError(""); }} className="w-full mt-3 text-xs text-ms-blue hover:underline"
                 title="Si perdiste el acceso al panel, recupera con el correo alternativo que registraste.">

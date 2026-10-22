@@ -58,6 +58,11 @@ Funciones web por sitio y cuentas FTP adicionales (v1.10; detalle en lib/funcion
   maquita-sitios ftp-cuentas <dominio>    cuentas FTP adicionales, cada una encerrada en una subcarpeta
   maquita-sitios ftp-cuenta-crear <dominio> <nombre> <subcarpeta base64url>
   maquita-sitios ftp-cuenta-clave|ftp-cuenta-quitar <dominio> <nombre>
+Para desarrolladores (v1.11; detalle y forma de cada orden en lib/ordenes_desarrollo.py):
+  maquita-sitios bases-usuarios|base-usuario-crear|base-usuario-permisos|base-usuario-clave|base-usuario-borrar …
+  maquita-sitios base-usuario-remoto <dominio> <usuario> <lista JSON b64> [amplia]   acceso remoto con TLS
+  maquita-sitios waf|waf-guardar|waf-bloqueos <dominio> …   cortafuegos de aplicaciones web (OWASP CRS) del sitio
+  maquita-sitios ssh-claves|ssh-clave-agregar|ssh-clave-borrar <dominio> …   claves SSH de las cuentas SFTP
 Observación y datos (lib/ordenes_datos.py); <ruta> es relativa a la carpeta pública, en base64url («.» = raíz):
   maquita-sitios registros <dominio> <error|acceso|php> <líneas 1-1000> [filtro en base64url]
   maquita-sitios estadisticas <dominio>   resumen de visitas y ancho de banda (30 días, GoAccess)
@@ -74,12 +79,22 @@ Observación y datos (lib/ordenes_datos.py); <ruta> es relativa a la carpeta pú
   maquita-sitios archivos-permisos <dominio> <ruta> <644|755|600|700|640|750>
   maquita-sitios archivos-papelera|archivos-vaciar <dominio>
   maquita-sitios archivos-recuperar <dominio> <id de 12 hex>
+Despliegue desde git de los sitios PHP y CPU y memoria por sitio (v1.11; detalle en lib/ordenes_v111.py):
+  maquita-sitios git-estado|git-clave <dominio>
+  maquita-sitios git-configurar <dominio> <JSON {repo, rama, carpeta, raiz_web, exclusiones} en base64url>
+  maquita-sitios git-gancho <dominio> <activar|desactivar>
+  maquita-sitios git-desplegar <dominio> <panel|gancho>   en segundo plano (unidad sitio-git-<usuario>)
+  maquita-sitios git-volver <dominio> <AAAAMMDD-HHMMSS>
+  maquita-sitios git-quitar <dominio> <dominio>
+  maquita-sitios recursos <dominio>       CPU y memoria de las últimas 24 horas
 Solo desde el sistema (no las admite maquita-sudo):
   maquita-sitios ftp-montar               vuelve a montar las carpetas de las cuentas FTP adicionales (al arrancar)
   maquita-sitios cron                     tareas programadas de las aplicaciones (systemd)
   maquita-sitios regenerar                reescribe los vhosts con las plantillas vigentes
   maquita-sitios disponibilidad-comprobar comprobación de todos los sitios (temporizador, cada 5 minutos)
   maquita-sitios datos-noche              estadísticas, papeleras de archivos y descargas olvidadas (cada noche)
+  maquita-sitios git-desplegar-ahora <dominio> <panel|gancho>   el despliegue en sí (lo arranca git-desplegar)
+  maquita-sitios recursos-recoger         CPU y memoria de cada sitio (temporizador, cada 5 minutos)
 """
 
 import json
@@ -197,11 +212,21 @@ def despachar(args):
         return bases.borrar(v.dominio(args[1]), args[2])
     if args[:1] and args[0].startswith("propia-"):
         return _propia(args)
+    # --- Para desarrolladores (v1.11): bases, cortafuegos de aplicaciones y claves SSH en lib/ordenes_desarrollo.py ---
+    if args[:1] and args[0] in __import__("ordenes_desarrollo").ORDENES:
+        import ordenes_desarrollo
+
+        return ordenes_desarrollo.despachar(args)
     # --- Funciones web por sitio y cuentas FTP adicionales (v1.10): todo en lib/funciones_web.py ---
     if args[:1] and (args[0] == "web" or args[0].startswith(("web-", "ftp-"))):
         import funciones_web
 
         return funciones_web.despachar(args)
+    # --- v1.11: despliegue desde git de los sitios PHP y CPU y memoria por sitio (lib/ordenes_v111.py) ---
+    if args[:1] and (args[0].startswith("git-") or args[0] in ("recursos", "recursos-recoger")):
+        import ordenes_v111
+
+        return ordenes_v111.despachar(args)
     if args == ["cron"]:
         import acceso_bd
         import seguridad

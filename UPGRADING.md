@@ -43,6 +43,20 @@ Tres cosas de esa regla que no dan error visible si se saltan:
 
 ---
 
+## v1.11 (sin publicar): tableros de seguridad y Wazuh opcional
+
+- Migración `migrations/2026-10-21-tableros-seguridad.sql` (tablas `seg_*`, como el usuario de la aplicación) y
+  `pip install -r admin-panel/backend/requirements.txt` (añade `maxminddb`). Reiniciar el panel.
+- *(ajuste automático)* `64-tableros-de-seguridad.sh` instala y activa `maquita-seguridad-recolector.timer`
+  (cada 5 minutos) y `/etc/logrotate.d/maquita`; crea las tablas si faltan. A mano:
+  `sudo bash deploy/seguridad/instalar.sh`. Los tableros empiezan vacíos y se llenan desde la primera pasada
+  (la primera lee solo los últimos 5 MB del registro y un día de auditoría).
+- Avisos: usan `lib-avisos.sh` de los vigilantes (`deploy/vigilantes/instalar.sh`, ajuste 53) y
+  `ORG_CORREOS_AVISOS`; opcional `ORG_CORREOS_ESCALAMIENTO` en `/etc/maquita-mail/organizacion.env` para las
+  alertas altas que nadie reconoce.
+- Wazuh es opcional: `sudo WAZUH_MANAGER=… WAZUH_REGISTRATION_PASSWORD=… bash deploy/webmail/instalar-app.sh wazuh`
+  (`docs/WAZUH.md`). Instala también `maquita-sudo` nuevo (con `maquita-wazuh estado`).
+
 ## v1.8.0: hospedaje, actualizaciones firmadas, plantilla y respaldos
 
 Lo de siempre: **reinicio del backend del correo** y del panel, **frontends reconstruidos** (correo con

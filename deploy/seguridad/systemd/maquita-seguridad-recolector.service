@@ -1,0 +1,21 @@
+# maquita-seguridad (repo) — una pasada del recolector de los tableros de seguridad del panel.
+# Lee los registros del correo, la auditoría y Rspamd y deja los totales por hora en PostgreSQL.
+[Unit]
+Description=Recolector de los tableros de seguridad (Seguridad → Tableros)
+After=postgresql.service rspamd.service
+Wants=postgresql.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/maquita-webmail/admin-panel/backend
+EnvironmentFile=/opt/maquita-webmail/admin-panel/backend/.env
+ExecStart=/opt/maquita-webmail/admin-panel/backend/venv/bin/python -m app.seguridad.recolector
+TimeoutStartSec=600
+Nice=10
+IOSchedulingClass=idle
+# Lee registros de root (mail.log, nginx) y usa postqueue y sendmail: corre como root, como el panel,
+# pero sin poder escribir fuera de /var (registros) ni ver /home.
+ProtectSystem=full
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes

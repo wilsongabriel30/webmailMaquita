@@ -1,0 +1,7 @@
+# Postfix → PostgreSQL: TLS obligatorio hacia el servidor de destino de un reenvío
+# (smtp_tls_policy_maps; la clave es «[servidor]:puerto»). Sin TLS, el correo espera en la cola.
+hosts = localhost
+user = mailserver
+password = __DB_PASS__
+dbname = maildb
+query = SELECT 'encrypt' FROM enrutamiento_correo e WHERE '[' || e.destino_host || ']:' || e.destino_puerto = '%s' AND e.modo = 'reenvio' AND e.activo AND e.tls_obligatorio LIMIT 1

@@ -11,7 +11,9 @@ import sys
 RUTA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "deploy", "sitios", "lib")
 CHOQUES = ("comun", "validacion")
 NOMBRES = ("comun", "validacion", "como_usuario", "archivos_rutas", "archivos", "archivos_papelera", "archivos_zip",
-           "archivos_ordenes", "visor_registros", "estadisticas", "disponibilidad", "copias_cliente", "ordenes_datos")
+           "archivos_ordenes", "visor_registros", "estadisticas", "disponibilidad", "copias_cliente", "ordenes_datos",
+           # v1.11: git de los sitios PHP y CPU y memoria por sitio
+           "red_publica", "git_sitio", "git_despliegue", "recursos", "ordenes_v111")
 
 _cargados = None
 

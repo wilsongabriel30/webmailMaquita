@@ -1,0 +1,171 @@
+<!--
+  Reglas propias de Maquita para el MANAGER de Wazuh (identificadores 100800-100899).
+  Se copian en /var/ossec/etc/rules/ del manager con deploy/wazuh/manager/instalar-reglas.sh.
+
+  Niveles: 0-3 información, 4-7 a revisar, 8-11 importante, 12+ grave (por omisión Wazuh manda
+  correo desde el nivel 12 si el manager tiene el correo configurado).
+-->
+<group name="maquita,">
+
+  <!-- ===== maquita-sudo: la única orden con sudo del panel y del correo ===== -->
+  <rule id="100800" level="0">
+    <decoded_as>maquita-sudo</decoded_as>
+    <description>maquita-sudo: orden privilegiada</description>
+    <group>maquita_sudo,</group>
+  </rule>
+
+  <rule id="100801" level="2">
+    <if_sid>100800</if_sid>
+    <field name="resultado">^ok$</field>
+    <description>maquita-sudo: $(srcuser) ejecutó $(programa)</description>
+    <group>maquita_sudo,</group>
+  </rule>
+
+  <rule id="100802" level="8">
+    <if_sid>100800</if_sid>
+    <field name="resultado">^rechazado$</field>
+    <description>maquita-sudo rechazó una orden de $(srcuser): $(programa) ($(motivo))</description>
+    <mitre><id>T1548</id></mitre>
+    <group>maquita_sudo,pci_dss_10.2.4,gdpr_IV_32.2,</group>
+  </rule>
+
+  <rule id="100803" level="12" frequency="5" timeframe="300">
+    <if_matched_sid>100802</if_matched_sid>
+    <description>maquita-sudo: 5 o más órdenes rechazadas en 5 minutos (posible intrusión en el panel o el correo)</description>
+    <mitre><id>T1548</id></mitre>
+    <group>maquita_sudo,attack,pci_dss_10.2.4,gdpr_IV_32.2,</group>
+  </rule>
+
+  <!-- ===== Registro JSON de seguridad (/var/log/maquita/seguridad.json) ===== -->
+  <rule id="100820" level="0">
+    <decoded_as>json</decoded_as>
+    <field name="origen">^maquita$</field>
+    <description>Maquita: evento de seguridad</description>
+    <group>maquita_json,</group>
+  </rule>
+
+  <!-- Alertas de anomalía de los tableros (Seguridad → Tableros → Anomalías) -->
+  <rule id="100821" level="10">
+    <if_sid>100820</if_sid>
+    <field name="tipo">^alerta$</field>
+    <field name="severidad">^alta$</field>
+    <description>Maquita (alta): $(descripcion)</description>
+    <mitre><id>T1078</id></mitre>
+    <group>maquita_anomalia,authentication_success,gdpr_IV_35.7.d,</group>
+  </rule>
+
+  <rule id="100822" level="7">
+    <if_sid>100820</if_sid>
+    <field name="tipo">^alerta$</field>
+    <field name="severidad">^media$</field>
+    <description>Maquita (media): $(descripcion)</description>
+    <group>maquita_anomalia,</group>
+  </rule>
+
+  <rule id="100823" level="4">
+    <if_sid>100820</if_sid>
+    <field name="tipo">^alerta$</field>
+    <field name="severidad">^baja$</field>
+    <description>Maquita (baja): $(descripcion)</description>
+    <group>maquita_anomalia,</group>
+  </rule>
+
+  <!-- Auditoría del panel general -->
+  <rule id="100830" level="3">
+    <if_sid>100820</if_sid>
+    <field name="tipo">^auditoria_panel$</field>
+    <field name="accion">^login$</field>
+    <description>Panel: inicio de sesión de $(administrador)</description>
+    <group>maquita_panel,authentication_success,pci_dss_10.2.5,</group>
+  </rule>
+
+  <rule id="100831" level="5">
+    <if_sid>100820</if_sid>
+    <field name="tipo">^auditoria_panel$</field>
+    <field name="accion">^login_failed$</field>
+    <description>Panel: inicio de sesión fallido ($(administrador))</description>
+    <group>maquita_panel,authentication_failed,pci_dss_10.2.4,pci_dss_10.2.5,</group>
+  </rule>
+
+  <rule id="100832" level="10" frequency="6" timeframe="300">
+    <if_matched_sid>100831</if_matched_sid>
+    <description>Panel: 6 o más inicios de sesión fallidos en 5 minutos</description>
+    <mitre><id>T1110</id></mitre>
+    <group>maquita_panel,authentication_failures,pci_dss_11.4,</group>
+  </rule>
+
+  <rule id="100833" level="2">
+    <if_sid>100820</if_sid>
+    <field name="tipo">^auditoria_panel$</field>
+    <description>Panel: $(administrador) hizo $(accion) sobre $(objetivo)</description>
+    <group>maquita_panel,</group>
+  </rule>
+
+  <rule id="100834" level="6">
+    <if_sid>100833</if_sid>
+    <field name="accion">^seguridad_config$|^cortafuegos|^respaldo_ver_clave$|^respaldo_config$|^impersonat|^admin_</field>
+    <description>Panel: cambio sensible ($(accion)) por $(administrador)</description>
+    <group>maquita_panel,pci_dss_10.2.2,</group>
+  </rule>
+
+  <!-- Cumplimiento: eDiscovery, retención legal, lectura de buzones ajenos -->
+  <rule id="100840" level="6">
+    <if_sid>100833</if_sid>
+    <field name="accion">^ediscovery_export$|^mail_export$</field>
+    <description>Cumplimiento: exportación de correo ($(accion)) por $(administrador)</description>
+    <group>maquita_cumplimiento,gdpr_IV_30.1.g,</group>
+  </rule>
+
+  <rule id="100841" level="4">
+    <if_sid>100833</if_sid>
+    <field name="accion">^ediscovery|^custodian|hold|^mail_read$|^retention</field>
+    <description>Cumplimiento: $(accion) por $(administrador)</description>
+    <group>maquita_cumplimiento,</group>
+  </rule>
+
+  <!-- Actividad de cumplimiento desde el webmail -->
+  <rule id="100845" level="4">
+    <if_sid>100820</if_sid>
+    <field name="tipo">^actividad_webmail$</field>
+    <description>Webmail (cumplimiento): $(cuenta) hizo $(accion)</description>
+    <group>maquita_cumplimiento,</group>
+  </rule>
+
+  <rule id="100846" level="8">
+    <if_sid>100845</if_sid>
+    <field name="riesgo">^critical$</field>
+    <description>Webmail (cumplimiento, crítico): $(cuenta) hizo $(accion)</description>
+    <group>maquita_cumplimiento,gdpr_IV_30.1.g,</group>
+  </rule>
+
+  <!-- ===== Vigilantes del servidor (sus propios archivos de registro) ===== -->
+  <rule id="100860" level="9">
+    <location>guardian-web-correo.log</location>
+    <match>FALLO:</match>
+    <description>Vigilante: un servicio del correo no se pudo levantar</description>
+    <group>maquita_vigilantes,service_availability,</group>
+  </rule>
+
+  <rule id="100861" level="5">
+    <location>guardian-web-correo.log</location>
+    <match>REPARADO:</match>
+    <description>Vigilante: un servicio del correo se cayó y se reinició solo</description>
+    <group>maquita_vigilantes,service_availability,</group>
+  </rule>
+
+  <rule id="100862" level="8">
+    <location>vigila-entrega-local.log</location>
+    <match> MAL </match>
+    <description>Vigilante: la entrega local del correo falla</description>
+    <group>maquita_vigilantes,service_availability,</group>
+  </rule>
+
+  <rule id="100863" level="12">
+    <location>maquita-anomalia.log</location>
+    <match>ANOMALIA </match>
+    <description>Protección de salida: envío masivo anómalo (posible cuenta comprometida)</description>
+    <mitre><id>T1078</id></mitre>
+    <group>maquita_vigilantes,maquita_anomalia,</group>
+  </rule>
+
+</group>

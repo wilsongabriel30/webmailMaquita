@@ -8,6 +8,7 @@ import asyncpg
 
 from app.config import get_settings
 from app.copiloto.asistente import ask
+from app.database import opciones_pool
 
 
 async def _main():
@@ -17,7 +18,9 @@ async def _main():
     q = sys.argv[1]
     days = int(sys.argv[2]) if len(sys.argv) > 2 and sys.argv[2].isdigit() else 7
     s = get_settings()
-    db = await asyncpg.create_pool(s.database_url, min_size=1, max_size=2)
+    db = await asyncpg.create_pool(
+        s.database_url, **opciones_pool(s, min_size=1, max_size=2)
+    )
     try:
         print(json.dumps(await ask(db, q, days=days), ensure_ascii=False, default=str))
     finally:

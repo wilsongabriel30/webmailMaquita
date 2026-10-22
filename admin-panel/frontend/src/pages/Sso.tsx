@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { SectionHelp } from "../components/SectionHelp";
+import { useAuth } from "../api/auth";
+import { EntradaOidcConfig } from "./sso/EntradaOidcConfig";
 
 interface Status {
   realm: string; idp_url: string; keycloak_ok: boolean; oidc_enabled: boolean;
@@ -17,6 +19,7 @@ function Badge({ ok, okText, noText }: { ok: boolean; okText: string; noText: st
 }
 
 export function Sso() {
+  const { user } = useAuth();
   const [st, setSt] = useState<Status | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [out, setOut] = useState("");
@@ -41,6 +44,7 @@ export function Sso() {
             { titulo: "Proveedor de identidad (Keycloak)", desc: "Servidor central de identidades. La tarjeta indica si está en línea, el realm usado y su URL. Si está caído, el SSO no funciona (queda el login local de respaldo)." },
             { titulo: "SSO del Webmail (OIDC)", desc: "Indica si el webmail tiene habilitado el inicio de sesión vía Keycloak y qué client OIDC usa. El login local break-glass sigue disponible como respaldo." },
             { titulo: "Federación LDAP", desc: "Muestra cuántos buzones activos están sincronizados en LDAP. Las contraseñas no se copian: LDAP valida los hashes Dovecot existentes." },
+            { titulo: "Entrada al panel con OpenID Connect", desc: "Solo superadmin. Permite entrar a ESTE panel con un proveedor de identidad (Authelia, Keycloak…). Las cuentas se enlazan por nombre de usuario o correo con los administradores existentes; no se crean salvo que lo active. Si la cuenta tiene segundo factor, se pide igual." },
             { titulo: "Sincronizar usuarios", desc: "El botón vuelca los buzones de correo hacia LDAP para que Keycloak los reconozca. Ejecútelo tras crear o eliminar buzones. La salida del proceso se muestra abajo." },
           ]} />
           <button onClick={sync} disabled={syncing}
@@ -79,6 +83,7 @@ export function Sso() {
           </div>
         </div>
       )}
+      {user?.role === "superadmin" && <EntradaOidcConfig />}
       {out && <pre className="text-xs p-3 rounded whitespace-pre-wrap max-h-48 overflow-auto" style={{ background: "#1e1e1e", color: "#e0e0e0" }}>{out}</pre>}
     </div>
   );

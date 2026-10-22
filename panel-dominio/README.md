@@ -9,19 +9,20 @@ y sin entrar al panel general del servidor.
 | Sí, por su cuenta | Lo pide y lo confirma el administrador general | No |
 |---|---|---|
 | Ver las cuentas, alias y grupos de sus dominios | Eliminar una cuenta (queda desactivada mientras tanto) | Ver o tocar otros dominios |
-| Crear cuentas; editar nombre, teléfono y cuota | | Leer correo de nadie |
+| Crear cuentas (también desde un CSV, dentro de los topes del dominio); editar nombre, teléfono y cuota | | Leer correo de nadie |
 | Cambiar contraseñas; activar y desactivar cuentas | | Tocar la configuración del servidor |
 | Alias y reenvíos, también hacia direcciones de fuera | | Crear administradores o asignarse dominios |
 | Grupos de distribución y sus miembros | | Publicar nombres de servidor (exige DNS y certificado) |
 | Marca: nombre, lema, contacto, color, logo e icono | | |
 | Verificar el DNS de su dominio (MX, SPF, DKIM, DMARC) | | |
 | **Mi sitio web**: crear sitios en sus dominios y subdominios, hasta su cuota | Dar de baja un sitio (sigue publicado mientras tanto) | Sitios de otros dominios o con nombres del correo (`mail.`, `webmail.`, `autoconfig.`…) |
-| Instalar una aplicación del catálogo, entrar sin contraseña, contraseña nueva del administrador, revisar y actualizar | Más sitios, disco o espacio de bases (cuota del dominio) | Aplicaciones propias (Python, Node), reglas propias de nginx, tienda |
+| Instalar una aplicación del catálogo, entrar sin contraseña, contraseña nueva del administrador, revisar y actualizar | Más sitios, disco o espacio de bases (cuota del dominio) | Reglas propias de nginx, tienda |
 | HTTPS (Let's Encrypt) y FTP cifrado o SFTP | Versiones o extensiones de PHP que no estén instaladas | Instalar PHP, tocar puertos o el cortafuegos |
-| Trabajos de cron, bases de datos adicionales con phpMyAdmin o Adminer | | Alias de dominio de un sitio, buscadores |
+| Trabajos de cron, bases de datos adicionales con phpMyAdmin o Adminer | | Buscadores |
 | Ajustes y versión de PHP (de las instaladas), archivos de configuración con versiones anteriores | | |
 | Subir un paquete propio o migrar un sitio con el respaldo de su base | | |
 | Web (v1.10): redirecciones, carpetas con contraseña, páginas de error, hotlinking, IP bloqueadas, optimización y caché | | |
+| v1.11 ([guía](../docs/PORTAL-V1.11.md)): alias de dominio en sus dominios, despliegue desde git de sitios PHP (clave, gancho, vuelta atrás), aplicaciones Node.js y Python con límites, CPU y memoria del sitio, información del servidor y DNS dinámico | | Abrir un puerto público para una aplicación |
 | Cuentas FTP adicionales encerradas en una subcarpeta, administrador de archivos con papelera | | |
 | Copias del sitio (crear, descargar, restaurar, borrar), registros, visitas (GoAccess) y disponibilidad | | Comprobaciones del sistema (`disponibilidad-comprobar`, `datos-noche`) |
 | Registros DNS de su zona, si la sirve este servidor | Cambiar registros del correo o de los servidores de nombres (se ven, pero protegidos) | Crear o borrar zonas |
@@ -51,6 +52,15 @@ al azar; el portal da un enlace de un solo uso (`/api/sitios/descargas/…`, 10 
 reclama con un rename, lo envía por trozos y lo borra. El portal nunca lee la carpeta de descargas
 de `maquita-sitios`, que comparte con el panel general. El informe de GoAccess se sirve con
 `Content-Security-Policy: sandbox`. Las copias del sitio cuentan para el disco del dominio.
+
+### Sin sesión: gancho de git y DNS dinámico (v1.11)
+
+Dos rutas no llevan sesión porque las llama alguien de fuera: el servidor de git al recibir un push
+(`/git-despliegue/<sitio>`) y el router que actualiza su IP (`/nic/update`, dyndns2). nginx las publica en el
+servidor del correo con su propio límite por IP y las pasa al portal (`/api/publico/…`), que no comprueba nada que
+dependa de un secreto: no los tiene. Las reenvía al intermediario, que comprueba en root la firma HMAC del gancho
+con el secreto del sitio o la contraseña (guardada como hash) de la ficha del DNS dinámico, y responde lo mismo
+ante cualquier fallo. Detalle en [docs/PORTAL-V1.11.md](../docs/PORTAL-V1.11.md).
 
 ### Segundo factor
 
@@ -165,6 +175,7 @@ marca `MAQUITA_SITIOS_PORTAL` (`journalctl -t maquita-sitios-portal`).
 | `PD_DB_HOST`, `PD_DB_PORT`, `PD_DB_NAME`, `PD_DB_USER` | `127.0.0.1`, `5432`, `maildb`, `panel_dominio` | Conexión |
 | `PD_DB_SSL` | (vacío) | `require` si la base de datos está en otro equipo |
 | `PD_HORAS_SESION` | `8` | Duración de una sesión |
+| `PD_MINUTOS_SOPORTE` | `60` | Duración de una sesión de soporte del superadministrador (de 5 a 240; ver `docs/ENTRADA-OIDC-Y-SOPORTE.md`) |
 | `PD_TOTP_OBLIGATORIO` | `1` | Exigir segundo factor |
 | `PD_EMISOR` | `Portal de dominio` | Nombre que muestra la aplicación de códigos |
 | `PD_DIR_MARCA` | `/opt/maquita-webmail/uploads/branding/empresas` | Carpeta de logos e iconos |

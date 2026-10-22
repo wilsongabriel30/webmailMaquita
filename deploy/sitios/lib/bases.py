@@ -25,6 +25,19 @@ def _pg(sql, base="postgres"):
         raise ErrorSitio("PostgreSQL: " + (r.stderr.strip().splitlines() or ["error"])[-1][:300])
 
 
+def _pg_valor(sql, base="postgres"):
+    """Resultado de una consulta (sin cabeceras ni alineación) como texto."""
+    r = subprocess.run(["runuser", "-u", "postgres", "--", "psql", "-v", "ON_ERROR_STOP=1", "-qtA", "-d", base],
+                       input=sql, capture_output=True, text=True, timeout=120, cwd="/tmp")
+    if r.returncode != 0:
+        raise ErrorSitio("PostgreSQL: " + (r.stderr.strip().splitlines() or ["error"])[-1][:300])
+    return r.stdout
+
+
+def _mariadb_valor(sql):
+    return ejecutar(["mariadb", "--protocol=socket", "-u", "root", "-N", "-B", "-e", sql])
+
+
 def listar(dominio):
     meta = leer_meta(dominio)
     return {"dominio": dominio, "bases": meta.get("bases", []), "principal": meta.get("bd")}
@@ -62,6 +75,9 @@ def borrar(dominio, nombre, volcar_en=None):
     base = next((b for b in meta.get("bases", []) if b["nombre"] == nombre), None)
     if not base or not re.fullmatch(r"x_[a-z0-9]+_[0-9a-f]{4}", nombre):
         raise ErrorSitio("base de datos no encontrada")
+    import bases_usuarios
+
+    bases_usuarios.borrar_de_base(meta, nombre)  # sus usuarios adicionales (y su acceso remoto), antes que la base
     destino = volcar_en or os.path.join(meta["tmp"], f"{nombre}.sql")
     if base["motor"] == "mariadb":
         from aplicaciones import _mariadb

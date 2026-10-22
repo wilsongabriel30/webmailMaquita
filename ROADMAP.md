@@ -22,6 +22,7 @@ Estados: **DONE** (publicado) · **IN PROGRESS** (en desarrollo) · **PLANNED** 
 | 2026-10-20 | 1.8.0 | Panel de hospedaje: sitios web, DNS propio, cortafuegos, actualizaciones firmadas, respaldos |
 | 2026-10-21 | 1.9.0 | Portal del cliente: cada organización administra sus sitios |
 | 2026-10-21 | 1.10.0 | Hospedaje completo (alternativa libre a cPanel), ActiveSync 16.1 |
+| 2026-10-21 | 1.11.0 | Para desarrolladores y organizaciones grandes: búsqueda en adjuntos, tableros de seguridad y Wazuh, gran escala, OIDC, git, API y DNS dinámico |
 
 El detalle de cada versión está en [CHANGELOG.md](CHANGELOG.md) y en
 [Releases](https://github.com/wilsongabriel30/webmailMaquita/releases).
@@ -56,66 +57,86 @@ Pensada como «multi-tenant». Ya hecho: varios dominios por servidor, administr
 propio portal, cuotas por dominio (sitios, disco, bases), marca propia por organización y aislamiento de
 cada sitio. Pendiente: API de aprovisionamiento.
 
-### Indexación de texto completo escalable `PLANNED`
+### Indexación de texto completo escalable `DONE` (v1.11.0, 2026-10-21)
 
-Búsqueda de alto rendimiento en buzones grandes y datos de cumplimiento.
+Búsqueda de alto rendimiento en buzones grandes y datos de cumplimiento. Se hizo con el índice nativo de
+Dovecot 2.4 (**fts-flatcurve**, Xapian) en lugar de Solr o Manticore: medido en un buzón de 120.871 correos,
+0,05–0,3 s por carpeta, sin otro servicio que mantener. Detalle en
+[docs/BUSQUEDA-TEXTO-COMPLETO.md](docs/BUSQUEDA-TEXTO-COMPLETO.md).
 
-- Integrar Apache Solr o Manticore Search para indexación de texto completo
-- Indexar cuerpos de correo, encabezados y texto de adjuntos
-- Soporte para sintaxis de consulta compleja (operadores booleanos, rangos de fechas, búsqueda por campo)
-- Actualizaciones de índice en tiempo real vía gancho LMTP
-- Resaltado de resultados de búsqueda y puntuación de relevancia
-- Búsqueda con conciencia de cumplimiento: respeta retenciones legales y políticas de retención
+- Índice de cuerpos, encabezados y texto de adjuntos; español e inglés, sin distinguir tildes ni mayúsculas
+- Actualización en tiempo real al entregar el correo (`fts_autoindex` en LMTP); papelera y no deseado fuera
+- Indexación inicial en segundo plano con prioridad mínima y pasada nocturna de lo que falte
+- Webmail (operadores `de:`, `asunto:`, `entre:`…) y eDiscovery sobre el mismo índice
+- Respeta las retenciones legales: el índice no modifica ni borra mensajes
+- Panel: estado del índice y «Reindexar buzón»
+- Pendiente: resaltado de resultados y orden por relevancia
 
-### Extracción avanzada de adjuntos `PLANNED`
+### Extracción avanzada de adjuntos `DONE` (v1.11.0, 2026-10-21)
 
-Extracción profunda de contenido de formatos de documento habituales. El OCR con Tesseract ya existe en el
-editor de PDF del Drive; falta llevarlo a los adjuntos del correo.
+Decodificador propio para el índice (`deploy/dovecot/fts/`), sin privilegios y con límites de tamaño,
+tiempo y memoria.
 
-- Extracción de texto en PDF (con OCR de respaldo vía Tesseract)
-- Análisis de contenido DOCX/XLSX/PPTX
-- Inspección de archivos comprimidos (ZIP, TAR, 7z) con extracción anidada
-- Extracción de metadatos de imagen (EXIF)
-- Indexación de contenido para integración con búsqueda de texto completo
-- Análisis de malware en el contenido extraído
-- Validación de tipo de archivo más allá del sniffing de MIME
+- Texto de PDF (OCR opcional con Tesseract para los escaneados)
+- DOCX/XLSX/PPTX (también con macros, sin ejecutarlas), ODT/ODS/ODP, Office 97-2003, RTF y HTML
+- Comprimidos ZIP, TAR, gzip, bzip2, xz y 7z con extracción anidada y defensa contra bombas de descompresión
+- Metadatos de imagen (EXIF)
+- Validación del tipo por el contenido, no solo por el MIME declarado
+- Pendiente: análisis de malware del contenido extraído (hoy ClamAV analiza el adjunto al llegar)
 
-### Monitoreo de seguridad: Wazuh y OpenSearch `PROPOSED`
+### Monitoreo de seguridad: Wazuh y OpenSearch `DONE` (v1.11.0, 2026-10-21)
 
-Hoy el servidor tiene sus propios vigilantes (salida anómala, entregas, certificados) y alertas por correo.
+Opcional y con el manager **fuera** del servidor de correo (`docs/WAZUH.md`): `instalar-app.sh wazuh` instala
+el agente oficial con versión fija y lo registra contra el manager que indique el administrador; el manager
+todo en uno (con el indexador OpenSearch y su tablero) se monta en otra máquina.
 
-- Despliegue y configuración del agente Wazuh
-- OpenSearch como backend de registros para eventos de correo, autenticación y cumplimiento
-- Reglas de alerta predefinidas para actividad sospechosa de correo
-- Integración con la auditoría de cumplimiento
-- Paneles de control para visión general del estado de seguridad
-- Monitoreo de integridad de archivos para almacenamiento de correo y configuración
+- Despliegue y configuración del agente Wazuh (`deploy/wazuh/instalar.sh`, idempotente, clave del repositorio verificada)
+- OpenSearch como backend de registros: el indexador de Wazuh en el manager externo; el servidor envía un registro JSON propio (alertas, auditoría del panel y cumplimiento), Postfix, Dovecot, nginx y autenticación
+- Reglas de alerta predefinidas (`deploy/wazuh/manager/`, 100800-100899): `maquita-sudo`, inicios de sesión del panel, anomalías, cumplimiento y vigilantes
+- Integración con la auditoría de cumplimiento: eDiscovery, custodios, retenciones y lectura de buzones llegan como eventos propios
+- Paneles: los del propio panel (Seguridad → Tableros) y, si se quiere un SIEM central, los de Wazuh
+- Integridad de archivos de la configuración (Postfix, Dovecot, nginx, Rspamd, `/etc/maquita-mail`, sudoers), los ayudantes y el código. El buzón (`/var/vmail`) no: cambia con cada mensaje; lo cubren los respaldos y la retención legal
 
-### Paneles de seguridad (SIEM) `PROPOSED`
+### Paneles de seguridad (SIEM) `DONE` (v1.11.0, 2026-10-21)
 
-Paneles de control operativos y de seguridad para administradores.
+En el **propio panel general** (Seguridad → Tableros), sin Grafana: un recolector cada 5 minutos agrega los
+registros de Postfix, Dovecot y ActiveSync, la auditoría y Rspamd en tablas propias de PostgreSQL
+(retención configurable, 400 días por omisión) y las pantallas solo leen esos totales.
 
-- Paneles Grafana para métricas de flujo de correo
-- Visualización de eventos de autenticación (éxito, fallo, geográfico)
-- Panel de actividad del módulo de cumplimiento
-- Gestión de alertas y flujos de escalamiento
-- Detección de anomalías en patrones de acceso a buzones
-- Generación de informes (PDF/CSV) para auditorías de cumplimiento
+- Flujo de correo: entregados, enviados, rechazados, spam y cola por hora o por día
+- Eventos de autenticación: correctos y fallidos por servicio y por país (GeoIP local), IP y cuentas más atacadas
+- Actividad del módulo de cumplimiento (eDiscovery, retenciones legales, políticas, auditoría)
+- Gestión de alertas y escalamiento: avisos por correo con los vigilantes, reconocer y cerrar, reaviso de las altas sin reconocer
+- Anomalías en el acceso a buzones con reglas explicables: país nuevo, fallos seguidos de acceso, hora inusual, muchas cuentas desde una IP
+- Informes CSV y PDF (HTML imprimible) para auditorías de cumplimiento
 
-### Arquitectura para gran escala `PROPOSED`
+### Arquitectura para gran escala `DONE` en gran parte (v1.11.0, 2026-10-21)
 
-Versión de soporte a largo plazo con madurez arquitectónica.
+Para organizaciones de 300 a 5000 buzones, sin cambiar la instalación de una sola máquina. Guía:
+[docs/GRAN-ESCALA.md](docs/GRAN-ESCALA.md); soporte: [docs/SOPORTE-Y-VERSIONES.md](docs/SOPORTE-Y-VERSIONES.md).
 
-- Escalado horizontal: backend sin estado detrás de balanceador de carga
-- Réplicas de lectura de base de datos y agrupación de conexiones (PgBouncer)
-- Redis Sentinel o Cluster para caché de alta disponibilidad
-- Procesamiento asíncrono basado en colas
-- Estrategia de despliegue sin tiempo de inactividad (blue-green o rolling)
-- Versionado completo de API (v1 estable, v2 en vista previa)
-- Benchmarks de rendimiento y objetivos de SLA
-- Compromiso de soporte a largo plazo (parches de seguridad por 2+ años)
-- Especificación OpenAPI completa con generación de SDK
-- Sistema de complementos/extensiones para reglas de cumplimiento personalizadas
+- **Hecho.** Escalado horizontal: backend sin estado detrás de balanceador. Inventario del estado en memoria;
+  las tareas de fondo ya no se repiten por worker (bloqueo distribuido en Redis, líder por máquina para
+  el lector de `mail.log`); progreso del asistente en Redis
+- **Hecho.** Agrupación de conexiones con PgBouncer (modo transaction, `PGBOUNCER=true`) y bloqueos de DDL
+  compatibles. Réplica de lectura: el pool existe (`DATABASE_URL_LECTURA`); **pendiente** pasar
+  consultas a ella
+- **Hecho.** Redis Sentinel en el webmail (`redis+sentinel://` o `REDIS_SENTINELS`). Redis Cluster: no
+  (no hace falta a esta escala). Panel, Drive y chat: a través de HAProxy
+- **Hecho.** Despliegue sin corte (rolling): `deploy/escala/actualizar-sin-corte.sh` con `/api/salud` y
+  `/api/listo` en webmail, panel y Drive
+- **Hecho.** API v1 estable (`/api/v1/...`, alias de las rutas actuales). v2 en vista previa: **pendiente**
+  (todavía no hay cambios que la necesiten)
+- **Hecho.** Benchmark (`deploy/escala/prueba-carga-webmail.py`) y objetivos p50/p95 y de disponibilidad.
+  **Pendiente** medirlos en un clúster real
+- **Hecho.** Soporte largo: canal `estable-X.Y`, 24 meses de parches de seguridad por serie LTS, parches
+  firmados desde ramas `estable/X.Y`
+- **Hecho.** Especificación OpenAPI exportada (`scripts/exportar-openapi.py` → `docs/api/`), con copia `/api/v1`
+  para generar clientes. **Pendiente** publicar SDK generados
+- **Pendiente.** Procesamiento asíncrono basado en colas: **pendiente** (las tareas pesadas siguen en el proceso web)
+- **Pendiente.** Archivos locales (firmas, adjuntos de calendario, marca) en almacenamiento de objetos: **pendiente**
+  (hoy, almacenamiento compartido entre réplicas)
+- **Pendiente.** Sistema de complementos/extensiones para reglas de cumplimiento personalizadas: **no empezado**
 
 ---
 
@@ -133,44 +154,44 @@ se indica la alternativa libre.
 | 3 | Uso de disco | Ya: sitio, bases y copias, con cuotas por dominio — panel y portal | — |
 | 4 | Privacidad de directorios | Ya: usuario y contraseña por carpeta — panel y portal | — |
 | 5-6 | Copias de seguridad y asistente | Ya: restic del servidor y copias del sitio que el cliente crea, descarga y restaura | — |
-| 7 | Git | Parcial: aplicaciones propias desde git | v1.11: también en sitios PHP |
+| 7 | Git | Ya: aplicaciones propias y sitios PHP (clave de despliegue, gancho, registro y vuelta atrás) — panel y portal | — |
 | 8 | Dominios | Ya (asistente «Nuevo dominio») | — |
 | 9 | Subdominios | Ya — panel y portal | — |
-| 10 | Alias de dominios | Ya en el panel general | v1.11: desde el portal |
+| 10 | Alias de dominios | Ya — panel y portal | — |
 | 11 | Redireccionamientos | Ya: 301/302 por dirección y de dominio completo — panel y portal | — |
 | 12 | Editor de zona DNS | Ya — portal con NS, SOA y correo en solo lectura | — |
-| 13 | DNS dinámico | No | v1.11 |
+| 13 | DNS dinámico | Ya: fichas por nombre y /nic/update (dyndns2) — portal | — |
 | 14-17 | Cuentas, webmail, reenvíos, respuestas automáticas | Ya | — |
 | 18-19 | Filtros y antispam | Ya (Sieve y Rspamd con aprendizaje) | — |
 | 20 | SPF, DKIM, DMARC | Ya, más MTA-STS | — |
 | 21 | Listas de correo | Ya (grupos de distribución) | — |
-| 22 | Importar cuentas desde archivo | No | v1.11 (CSV, desde el portal) |
-| 23 | Enrutamiento de correo | No | v1.11 (MX de respaldo y reenvío a otro servidor) |
+| 22 | Importar cuentas desde archivo | Ya (v1.11): CSV con vista previa — panel y portal | — |
+| 23 | Enrutamiento de correo | Ya (v1.11): MX de respaldo y reenvío a otro servidor — panel general | — |
 | 24-26, 28 | MariaDB, PostgreSQL, phpMyAdmin/Adminer, asistente | Ya — panel y portal | — |
-| 27 | Usuarios de base con permisos | Parcial: un usuario por base | v1.11 |
-| 29 | Acceso remoto a bases | No | v1.11 (por IP y con TLS) |
+| 27 | Usuarios de base con permisos | Ya: usuarios adicionales con perfiles o lista fina — panel y portal ([guía](docs/BASES-WAF-CLAVES.md)) | — |
+| 29 | Acceso remoto a bases | Ya: por IP o red, solo TLS, puerto abierto solo para esas IP (ajuste 72) — panel y portal | — |
 | 30-31 | Certificados y renovación automática | Ya (Let's Encrypt) — panel y portal | — |
 | 32 | Bloqueo de IP | Ya: servidor (cortafuegos, fail2ban, países) y por sitio | — |
-| 33 | Cortafuegos de aplicaciones web | Parcial: reglas para WordPress y fail2ban | v1.11 (Coraza/ModSecurity con reglas OWASP) |
+| 33 | Cortafuegos de aplicaciones web | Ya: ModSecurity con OWASP CRS completo por sitio (modo, paranoia, exclusiones, bloqueos) y fail2ban — panel y portal | — |
 | 34 | Protección contra hotlinking | Ya — panel y portal | — |
 | 35-36 | Abuso de contraseñas y segundo factor | Ya | — |
-| 37 | Claves SSH | No | v1.11 (SFTP con clave) |
-| 38 | Fichas de API | No | v1.11 |
+| 37 | Claves SSH | Ya: SFTP con clave ed25519, ECDSA o RSA ≥ 3072, por cuenta — panel y portal | — |
+| 38 | Fichas de API | Ya: con alcance, caducidad, hash y auditoría — panel y portal | — |
 | 39-40 | Versiones y ajustes de PHP | Ya — portal con las versiones ya instaladas | — |
 | 41 | Catálogo de aplicaciones | Ya (WordPress, Joomla, Drupal y más) — panel y portal | — |
 | 42 | Tareas cron | Ya — panel y portal | — |
 | 43 | Páginas de error propias | Ya (403, 404, 500, 502, 503) — panel y portal | — |
 | 44 | Manejadores de Apache | No aplica: nginx con PHP-FPM | — |
 | 45 | Optimización (compresión, caché) | Ya: gzip/brotli de serie, caché del navegador y de página, pensado para conexiones rurales y satelitales | — |
-| 46 | Node.js y Python | Ya en el panel general (aplicaciones propias) | v1.11: portal con límites |
+| 46 | Node.js y Python | Ya: aplicaciones propias con límites de memoria y CPU — panel y portal | — |
 | 47-49, 51 | WordPress: instalar, entrar, actualizar, varios sitios | Ya — panel y portal | — |
 | 50 | Editor visual de páginas | No: Sitejet es de pago y cerrado, no entra | Fase posterior, solo si hace falta: primero la alternativa libre GrapesJS (BSD); si no alcanza, desarrollo propio y gratuito |
 | 52 | Migración desde otro hosting | Ya (paquete y respaldo .sql) — panel y portal | — |
 | 53-54 | Estadísticas de visitas y tráfico | Ya: GoAccess, sin rastreo en el navegador — panel y portal | — |
-| 55-56 | CPU y memoria por sitio | No (cada sitio ya tiene su propio PHP) | v1.11 |
+| 55-56 | CPU y memoria por sitio | Ya: pool de PHP-FPM y unidad de la aplicación, cada 5 minutos, gráfico de 24 h — panel y portal | — |
 | 57 | Errores del sitio | Ya: visor de errores y accesos del sitio y de PHP — panel y portal | — |
 | 58 | Monitoreo de disponibilidad | Ya: por sitio cada 5 minutos, con aviso al cliente | — |
-| 59 | Información del servidor | Parcial: en el panel general | v1.11: en el portal |
+| 59 | Información del servidor | Ya — panel y portal | — |
 
 **v1.9.0 — El cliente administra su sitio** `DONE` (2026-10-21): pestaña «Mi sitio web» del portal de dominio
 (sitios y subdominios, aplicaciones, HTTPS, FTP, cron, bases, PHP, archivos, migración, zona DNS, cuotas
@@ -182,7 +203,7 @@ cliente descarga y restaura, estadísticas (GoAccess), visor de errores, disponi
 optimización por sitio, en el panel general y en el portal. Además: ActiveSync 16.1 (borradores del teléfono
 en el servidor) y libreta de la organización en los teléfonos.
 
-**v1.11 — Para desarrolladores** `PLANNED`: git en sitios PHP, claves SSH, fichas de API, acceso remoto
+**v1.11.0 — Para desarrolladores** `DONE` (2026-10-21): git en sitios PHP, claves SSH, fichas de API, acceso remoto
 a bases, usuarios de base con permisos, CPU y memoria por sitio, cortafuegos de aplicaciones (OWASP),
 DNS dinámico, enrutamiento de correo, Node.js y Python desde el portal. Pasan también de la v1.10:
 importación de cuentas por CSV, alias de dominio e información del servidor en el portal.

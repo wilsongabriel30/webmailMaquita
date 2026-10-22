@@ -229,6 +229,8 @@ install -d -o vmail -g vmail -m 755 /var/vmail/sieve
 for s in before after; do sudo -u vmail sievec "/var/vmail/sieve/${s}.sieve" || echo -e "  ${RED}AVISO: ${s}.sieve no compila${NC}"; done
 # Búsqueda de texto completo (fts-flatcurve) y su mantenimiento nocturno
 bash "${APP_DIR}/deploy/dovecot/busqueda/instalar.sh" || echo -e "  ${RED}AVISO: no se instaló la búsqueda de texto completo${NC}"
+# Texto de los adjuntos en el índice (PDF, Office, comprimidos con tope…), sin indexar papelera ni no deseado
+bash "${APP_DIR}/deploy/dovecot/fts/instalar.sh" || echo -e "  ${RED}AVISO: el índice de búsqueda no incluirá el texto de los adjuntos${NC}"
 # Cuotas de buzón (columna quota de mailbox) y aprendizaje del antispam al mover correos a/desde Junk
 bash "${APP_DIR}/deploy/dovecot/instalar-cuotas-antispam.sh" "${APP_DIR}" || echo -e "  ${RED}AVISO: cuotas/aprendizaje antispam sin instalar (ver deploy/dovecot)${NC}"
 # Avisos al usuario cuando su buzón cruza el 85 % y el 95 % de la cuota
@@ -265,6 +267,13 @@ postconf -e \
   "smtpd_sasl_path = private/auth" \
   "smtpd_sasl_auth_enable = yes" \
   "smtpd_sender_login_maps = pgsql:/etc/postfix/pgsql/pgsql-sender-login-maps.cf"
+# Enrutamiento por dominio (MX de respaldo y reenvío a otro servidor, Dominios → Enrutamiento en el
+# panel). Lo mismo que el ajuste 68 en un servidor ya instalado.
+postconf -e \
+  "relay_domains = pgsql:/etc/postfix/pgsql/pgsql-enrutamiento-dominios.cf" \
+  "relay_recipient_maps = pgsql:/etc/postfix/pgsql/pgsql-enrutamiento-destinatarios.cf" \
+  "transport_maps = pgsql:/etc/postfix/pgsql/pgsql-enrutamiento-transporte.cf" \
+  "smtp_tls_policy_maps = pgsql:/etc/postfix/pgsql/pgsql-enrutamiento-tls.cf"
 # Servicio submission (587) con SASL
 if ! grep -qE "^submission[[:space:]]+inet" /etc/postfix/master.cf; then
 cat >> /etc/postfix/master.cf <<'EOF'
@@ -528,6 +537,11 @@ npm ci --quiet && npx vite build
 # Servicio systemd
 cp "${APP_DIR}/admin-panel/deploy/maquita-admin.service" /etc/systemd/system/
 systemctl daemon-reload && systemctl enable maquita-admin && systemctl restart maquita-admin
+# Órdenes de consola del panel: vale de entrada (maquita-panel) y de soporte (maquita-panel-dominio).
+bash "${APP_DIR}/deploy/panel/instalar.sh"
+
+# Recolector de los tableros de seguridad (Seguridad → Tableros): temporizador cada 5 minutos.
+bash "${APP_DIR}/deploy/seguridad/instalar.sh" || echo "  AVISO: no se pudo activar el recolector de los tableros (deploy/seguridad/instalar.sh)"
 # nginx :8443 (auth básica + snakeoil hasta certbot)
 ADMIN_NGINX="/etc/nginx/sites-available/${MAIL_HOST}-admin"
 sed "s/__MAIL_HOST__/${MAIL_HOST}/g" "${APP_DIR}/admin-panel/deploy/nginx-admin.conf" > "${ADMIN_NGINX}"

@@ -16,11 +16,15 @@ from app.alias import router as alias_router
 from app.asignaciones import router as asignaciones_router
 from app.cuentas import router as cuentas_router
 from app.dns import router as dns_router
+from app.fichas_api import router as fichas_router
 from app.grupos import router as grupos_router
+from app.importar.rutas import router as importar_router
 from app.marca import router as marca_router
+from app.publico import router as publico_router
 from app.reenvios import router as reenvios_router
 from app.sitios.rutas import router as sitios_router
 from app.solicitudes import router as solicitudes_router
+from app.soporte import router as soporte_router
 from app.totp import router as totp_router
 from app.db import crear_pool
 from app.resumen import router as resumen_router
@@ -51,8 +55,10 @@ async def salud():
 
 app.include_router(totp_router)
 app.include_router(acceso_router)
+app.include_router(soporte_router)
 app.include_router(resumen_router)
 app.include_router(cuentas_router)
+app.include_router(importar_router)
 app.include_router(alias_router)
 app.include_router(reenvios_router)
 app.include_router(asignaciones_router)
@@ -61,3 +67,5 @@ app.include_router(marca_router)
 app.include_router(dns_router)
 app.include_router(solicitudes_router)
 app.include_router(sitios_router)
+app.include_router(fichas_router)
+app.include_router(publico_router)  # v1.11: gancho de git y DNS dinámico, sin sesión

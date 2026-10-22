@@ -142,6 +142,7 @@ echo -e "${GREEN}[5/9] SFTP encerrado para el grupo «sitios» (sin shell)...${N
 # Va al FINAL de sshd_config, no en sshd_config.d/: ese directorio se incluye al principio y un
 # «Match» allí se tragaría las directivas globales que vienen detrás.
 SSHD=/etc/ssh/sshd_config
+install -d -m 755 -o root -g root /etc/ssh/claves-sitios
 [ -f "${SSHD}.antes-sitios" ] || cp "${SSHD}" "${SSHD}.antes-sitios"
 sed -i '/^# >>> sitios-web (maquita-sitios)/,/^# <<< sitios-web/d' "${SSHD}"
 cat >> "${SSHD}" <<'EOF'
@@ -150,6 +151,9 @@ Match Group sitios
     ChrootDirectory %h
     ForceCommand internal-sftp -u 0027
     PasswordAuthentication yes
+    # Claves SSH que se añaden desde el panel o el portal: archivos de root fuera del encierro.
+    PubkeyAuthentication yes
+    AuthorizedKeysFile /etc/ssh/claves-sitios/%u
     AllowTcpForwarding no
     AllowAgentForwarding no
     X11Forwarding no
@@ -170,9 +174,14 @@ install -d -m 755 /etc/nginx/sitios-waf
 install -m 644 "${SELF}/nginx/waf-base.conf" /etc/nginx/sitios-waf/base.conf
 for app in general wordpress joomla aplicacion; do
     install -m 644 "${SELF}/nginx/waf-${app}.conf" "/etc/nginx/sitios-waf/${app}.conf"
+    install -m 644 "${SELF}/nginx/waf-perfil-${app}.conf" "/etc/nginx/sitios-waf/perfil-${app}.conf"
 done
+# Reglas de cada sitio (modo, paranoia y exclusiones; las genera maquita-sitios) y su registro de bloqueos.
+install -d -m 755 /etc/maquita-sitios/waf
+install -d -m 750 -o www-data -g adm /var/log/nginx/sitios-waf
 touch /var/log/nginx/sitios-acceso.log /var/log/nginx/sitios-waf.log
 chown www-data:adm /var/log/nginx/sitios-acceso.log /var/log/nginx/sitios-waf.log
+install -m 644 "${SELF}/nginx/logrotate-sitios-waf" /etc/logrotate.d/sitios-waf
 cat > /etc/logrotate.d/sitios-web <<'EOF'
 /srv/sitios/*/registros/*.log {
     weekly
@@ -304,6 +313,9 @@ install -m 755 "${APP_DIR}/deploy/sudoers/maquita-sudo" /usr/local/sbin/maquita-
 /usr/local/sbin/maquita-sitios regenerar >/dev/null
 # «Mi sitio web» en el portal de dominio: solo si el portal también está instalado (si no, no hace nada).
 bash "${SELF}/portal/instalar.sh" || echo -e "${YELLOW}No se pudo instalar el intermediario del portal de dominio: revise deploy/sitios/portal/instalar.sh.${NC}"
+# v1.11: CPU y memoria por sitio (temporizador) y despliegue desde git y DNS dinámico (herramientas y rutas públicas).
+bash "${SELF}/recursos/instalar.sh" || echo -e "${YELLOW}No se pudo instalar la medición de CPU y memoria: revise deploy/sitios/recursos/instalar.sh.${NC}"
+bash "${SELF}/publico/instalar.sh" || echo -e "${YELLOW}No se pudo preparar el despliegue desde git: revise deploy/sitios/publico/instalar.sh.${NC}"
 # fail2ban: intentos fallidos de FTP.
 if [ -d /etc/fail2ban/jail.d ]; then
     cat > /etc/fail2ban/jail.d/sitios-ftp.local <<'EOF'

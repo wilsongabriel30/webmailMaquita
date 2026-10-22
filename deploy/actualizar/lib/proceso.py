@@ -30,7 +30,9 @@ SERVICIOS = ("maquita-webmail", "maquita-admin", "maquita-milter", "maquita-alma
 SECCIONES = {"sitios": "/usr/local/sbin/maquita-sitios", "dns": "/usr/local/sbin/maquita-dns",
              "cortafuegos": "/usr/local/sbin/maquita-cortafuegos", "identidad": "/usr/local/sbin/maquita-identidad",
              "chat": "/usr/local/sbin/maquita-chat-sincronizar", "respaldos": "/usr/local/sbin/maquita-respaldos",
-             "actualizar": "/usr/local/sbin/maquita-actualizar"}
+             "actualizar": "/usr/local/sbin/maquita-actualizar",
+             # Agente Wazuh (opcional): se repite con el manager que ya tiene, sin pedirlo de nuevo.
+             "wazuh": "/usr/local/sbin/maquita-wazuh"}
 
 
 class Proceso:

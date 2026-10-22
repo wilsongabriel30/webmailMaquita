@@ -32,6 +32,13 @@ def quitar_de_lista_ftp(usuario):
     _guardar_lista([u for u in _lista() if u != usuario])
 
 
+def _claves(meta):
+    """Las claves SSH de la cuenta principal solo valen mientras el acceso está activado (claves_ssh.py)."""
+    import claves_ssh
+
+    claves_ssh.sincronizar(meta)
+
+
 def ftp(dominio, accion):
     """accion: activar (o nueva clave) | desactivar. Devuelve la clave nueva una sola vez."""
     meta = leer_meta(dominio)
@@ -41,6 +48,7 @@ def ftp(dominio, accion):
         quitar_de_lista_ftp(usuario)
         meta["ftp"] = False
         guardar_meta(meta)
+        _claves(meta)
         return {"dominio": dominio, "ftp": False}
     nueva = clave(16)
     ejecutar(["chpasswd"], entrada=f"{usuario}:{nueva}\n")
@@ -48,6 +56,7 @@ def ftp(dominio, accion):
     _guardar_lista(_lista() + [usuario])
     meta["ftp"] = True
     guardar_meta(meta)
+    _claves(meta)
     return {
         "dominio": dominio,
         "ftp": True,

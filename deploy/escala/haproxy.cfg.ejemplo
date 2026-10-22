@@ -1,0 +1,59 @@
+# =============================================================================
+# HAProxy delante de 2+ nodos de aplicación del webmail (ejemplo).
+# Copiar a /etc/haproxy/haproxy.cfg en el balanceador y ajustar direcciones.
+# Guía: docs/GRAN-ESCALA.md
+#
+# - TLS termina aquí; a los nodos se habla por HTTP en la red interna.
+# - Comprobación ACTIVA de /api/listo: un nodo que responde 503 (base o Redis caídos,
+#   o en drenaje durante deploy/escala/actualizar-sin-corte.sh) sale del grupo solo.
+# - Las sesiones viven en Redis: no hace falta afinidad («sticky»). Se usa
+#   «leastconn» porque hay peticiones largas (adjuntos, búsquedas en el cuerpo).
+# - WebSocket (/api/ws): HAProxy lo pasa sin configuración extra; «timeout tunnel»
+#   evita que corte las conexiones abiertas de las notificaciones.
+# =============================================================================
+global
+    log /dev/log local0
+    maxconn 20000
+
+defaults
+    mode http
+    log global
+    option httplog
+    option forwardfor          # X-Forwarded-For: lo necesitan los límites de tasa por IP
+    timeout connect 5s
+    timeout client  120s
+    timeout server  180s       # búsquedas en el cuerpo y descargas grandes
+    timeout tunnel  1h         # WebSocket
+    timeout http-request 15s
+
+frontend correo_https
+    bind :443 ssl crt /etc/haproxy/certs/mail.example.org.pem alpn h2,http/1.1
+    bind :80
+    http-request redirect scheme https unless { ssl_fc }
+    http-request set-header X-Forwarded-Proto https if { ssl_fc }
+    default_backend webmail
+
+backend webmail
+    balance leastconn
+    option httpchk GET /api/listo
+    http-check expect status 200
+    # inter: cada 3 s; fall 2: dos fallos y fuera; rise 2: dos aciertos y dentro.
+    default-server inter 3s fall 2 rise 2 slowstart 20s
+    # Cada nodo corre el nginx del proyecto (puerto 80 interno) delante de uvicorn.
+    server app1 192.0.2.11:80 check
+    server app2 192.0.2.12:80 check
+    # server app3 192.0.2.13:80 check
+
+# Redis Sentinel sin cliente compatible (servicios que solo aceptan redis://):
+# HAProxy puede mandar siempre al principal comprobando «role:master».
+# listen redis_principal
+#     bind 127.0.0.1:6380
+#     mode tcp
+#     option tcp-check
+#     tcp-check send AUTH\ CLAVE_DE_REDIS\r\n
+#     tcp-check expect string +OK
+#     tcp-check send info\ replication\r\n
+#     tcp-check expect string role:master
+#     server redis1 192.0.2.21:6379 check inter 2s
+#     server redis2 192.0.2.22:6379 check inter 2s
+#     server redis3 192.0.2.23:6379 check inter 2s

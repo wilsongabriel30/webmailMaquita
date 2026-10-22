@@ -11,6 +11,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import create_pool, init_admin_tables
 from app.auth.router import router as auth_router
+# Entrar por OpenID Connect y con vales de un solo uso (consola y vuelta del proveedor).
+from app.entrada.oidc_config import router as oidc_config_router
+from app.entrada.oidc_rutas import router as oidc_rutas_router
+from app.entrada.vales import router as vales_entrada_router
 from app.dashboard.router import router as dashboard_router
 from app.domains.router import router as domains_router
 from app.drive.router import router as drive_router
@@ -25,6 +29,7 @@ from app.recovery.router import router as recovery_router
 from app.quarantine.router import router as quarantine_router
 from app.forwarding.router import router as forwarding_router
 from app.health.router import router as health_router
+from app.health.balanceador import router as salud_router
 from app.connections.router import router as connections_router
 from app.audit.router import router as audit_router
 from app.services.router import router as services_router
@@ -76,8 +81,11 @@ from app.sitios.paquete import router as sitios_paquete_router
 from app.sitios.avanzado import router as sitios_avanzado_router
 from app.sitios.php import router as sitios_php_router
 from app.sitios.propias import router as sitios_propias_router
+from app.sitios.git_recursos import router as sitios_git_recursos_router
 from app.sitios.router import router as sitios_router
 from app.sitios.web import routers as sitios_web_routers
+from app.sitios.desarrollo import routers as sitios_desarrollo_routers
+from app.fichas_api.router import router as fichas_api_router
 # Sitios: observación y datos (registros, estadísticas, disponibilidad, copias y archivos).
 from app.sitios.entrega import router as sitios_entrega_router
 from app.sitios.registros import router as sitios_registros_router
@@ -85,13 +93,17 @@ from app.sitios.estadisticas import router as sitios_estadisticas_router
 from app.sitios.disponibilidad import router as sitios_disponibilidad_router
 from app.sitios.copias import router as sitios_copias_router
 from app.sitios.archivos import router as sitios_archivos_router
+from app.dns.transferencias import router as dns_transferencias_router  # antes que dns_router (/{zona})
 from app.dns.router import router as dns_router
 from app.dns.dominio_nuevo import router as dominio_nuevo_router
 from app.actualizaciones.router import router as actualizaciones_router
 from app.respaldos.router import router as respaldos_router
 from app.cortafuegos.router import router as cortafuegos_router
+from app.indice_busqueda.router import router as indice_busqueda_router
 from app.password_audit.router import router as password_audit_router
 from app.admin_recovery.router import router as adminrec_router
+from app.importar_cuentas.router import router as importar_cuentas_router
+from app.enrutamiento.router import router as enrutamiento_router
 from app.rag.router import router as rag_router
 from app.retention.router import router as retention_router
 from app.comm_compliance.router import router as comm_router
@@ -105,6 +117,12 @@ from app.safeattach.router import router as safeattach_router
 from app.admins_dominio.router import router as admins_dominio_router
 from app.admins_dominio.solicitudes import router as solicitudes_dominio_router
 from app.admins_dominio.cuotas_sitio import router as cuotas_sitio_dominio_router
+from app.admins_dominio.soporte import router as soporte_dominio_router
+
+# Seguridad → Tableros (flujo, inicios de sesión, cumplimiento, anomalías, informes y Wazuh).
+from app.seguridad.router import router as seguridad_router
+from app.seguridad.router_alertas import router as seguridad_alertas_router
+from app.seguridad.router_informes import router as seguridad_informes_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -117,6 +135,9 @@ async def lifespan(app: FastAPI):
     app.state.db = pool
 
     await init_admin_tables(pool)
+    from app.fichas_api.sesion import crear_tabla as crear_tabla_fichas
+
+    await crear_tabla_fichas(pool)  # fichas de API del panel (v1.11)
     from app import marca
 
     await marca.refrescar(pool)  # nombres de la personalización para textos de cara a terceros
@@ -184,8 +205,12 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 # Mount all routers
 app.include_router(auth_router)
+app.include_router(oidc_config_router)
+app.include_router(oidc_rutas_router)
+app.include_router(vales_entrada_router)
 app.include_router(solicitudes_dominio_router)
 app.include_router(cuotas_sitio_dominio_router)
+app.include_router(soporte_dominio_router)
 app.include_router(admins_dominio_router)
 app.include_router(dashboard_router)
 app.include_router(domains_router)
@@ -201,6 +226,7 @@ app.include_router(archivados_router)
 app.include_router(quarantine_router)
 app.include_router(forwarding_router)
 app.include_router(health_router)
+app.include_router(salud_router)  # /api/salud y /api/listo para balanceadores
 app.include_router(connections_router)
 app.include_router(audit_router)
 app.include_router(services_router)
@@ -257,6 +283,7 @@ app.include_router(anomaly_router)
 app.include_router(outbound_router)
 app.include_router(sitios_router)
 app.include_router(sitios_propias_router)
+app.include_router(sitios_git_recursos_router)  # v1.11: git de los sitios PHP y CPU y memoria
 app.include_router(sitios_dominios_router)
 app.include_router(sitios_tareas_router)
 app.include_router(sitios_paquete_router)
@@ -264,19 +291,29 @@ app.include_router(sitios_avanzado_router)
 app.include_router(sitios_php_router)
 for _r in sitios_web_routers:  # funciones web por sitio (v1.10): un router por función
     app.include_router(_r)
+for _r in sitios_desarrollo_routers:  # usuarios de bases, cortafuegos de aplicaciones y claves SSH (v1.11)
+    app.include_router(_r)
+app.include_router(fichas_api_router)
 app.include_router(sitios_entrega_router)
 app.include_router(sitios_registros_router)
 app.include_router(sitios_estadisticas_router)
 app.include_router(sitios_disponibilidad_router)
 app.include_router(sitios_copias_router)
 app.include_router(sitios_archivos_router)
+app.include_router(dns_transferencias_router)
 app.include_router(dns_router)
 app.include_router(dominio_nuevo_router)
 app.include_router(cortafuegos_router)
+app.include_router(indice_busqueda_router)
 app.include_router(actualizaciones_router)
 app.include_router(respaldos_router)
 app.include_router(password_audit_router)
 app.include_router(adminrec_router)
+app.include_router(seguridad_alertas_router)
+app.include_router(seguridad_informes_router)
+app.include_router(seguridad_router)
+app.include_router(importar_cuentas_router)
+app.include_router(enrutamiento_router)
 
 
 @app.get("/api/health-check")

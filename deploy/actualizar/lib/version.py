@@ -4,6 +4,10 @@ El código vive en un clon de git (/opt/maquita-webmail). El canal «estable» s
 repositorio, firmadas por el equipo (clave SSH): una etiqueta sin firma válida no se instala nunca, para
 que nadie que consiga publicar en el repositorio pueda llegar por aquí a todos los servidores. Un canal
 de rama (p. ej. «main») es solo para servidores de prueba.
+
+El canal «estable-X.Y» (p. ej. «estable-1.11») es la rama de soporte largo: solo etiquetas vX.Y.* firmadas,
+es decir, parches de seguridad y correcciones de esa versión, sin saltar a la siguiente (ver
+docs/SOPORTE-Y-VERSIONES.md).
 """
 
 import json
@@ -20,6 +24,12 @@ CONFIG = os.path.join(DIR_CONF, "config.json")
 DISPONIBLE = os.path.join(DIR_ESTADO, "disponible.json")
 RE_VERSION = re.compile(r"^v(\d{1,4})\.(\d{1,4})\.(\d{1,4})$")
 RE_RAMA = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,99}$")
+RE_SERIE = re.compile(r"^estable-(\d{1,4})\.(\d{1,4})$")
+
+
+def canal_firmado(canal):
+    """«estable» y «estable-X.Y» solo instalan etiquetas firmadas; una rama, no."""
+    return canal == "estable" or bool(RE_SERIE.match(canal or ""))
 
 
 class ErrorActualizar(Exception):
@@ -62,8 +72,11 @@ def validar_config(datos):
     if not isinstance(datos, dict):
         raise ErrorActualizar("configuración no válida")
     canal = str(datos.get("canal", "estable")).strip()
-    if canal != "estable" and (not RE_RAMA.match(canal) or ".." in canal):
-        raise ErrorActualizar("canal no válido: «estable» o el nombre de una rama")
+    if canal.startswith("estable-") and not RE_SERIE.match(canal):
+        # «estable-…» nunca se toma por una rama: sería un canal SIN firma con nombre de estable.
+        raise ErrorActualizar("canal no válido: «estable-X.Y» con la serie, p. ej. «estable-1.11»")
+    if not canal_firmado(canal) and (not RE_RAMA.match(canal) or ".." in canal):
+        raise ErrorActualizar("canal no válido: «estable», «estable-X.Y» o el nombre de una rama")
     return {"canal": canal, "automatico": bool(datos.get("automatico", True))}
 
 
@@ -96,8 +109,11 @@ def buscar():
     conf = config()
     git("fetch", "--quiet", "--tags", "--force", "--prune", "origin", tiempo=600)
     yo = actual()
-    if conf["canal"] == "estable":
+    if canal_firmado(conf["canal"]):
+        serie = RE_SERIE.match(conf["canal"])
         etiquetas = sorted((e for e in git("tag", "-l", "v*").split() if RE_VERSION.match(e)), key=_clave)
+        if serie:  # soporte largo: solo la serie X.Y
+            etiquetas = [e for e in etiquetas if _clave(e)[:2] == tuple(int(x) for x in serie.groups())]
         ref = etiquetas[-1] if etiquetas else None
         if ref:
             commit = git("rev-list", "-n", "1", ref)
@@ -130,6 +146,6 @@ def objetivo(ref=None):
         raise ErrorActualizar("no hay una versión nueva en el canal (pulse «Buscar»)")
     if ref and ref != disponible["ref"]:
         raise ErrorActualizar("solo se puede instalar la última versión disponible del canal")
-    if disponible["canal"] == "estable" and not firmada(disponible["ref"]):
+    if canal_firmado(disponible["canal"]) and not firmada(disponible["ref"]):
         raise ErrorActualizar(f"la versión {disponible['ref']} no tiene una firma válida del equipo: no se instala")
     return disponible

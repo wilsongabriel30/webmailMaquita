@@ -1,0 +1,229 @@
+#!/usr/bin/env python3
+"""maquita-fts — estado y mantenimiento del índice de texto completo del correo.
+
+Uso (como root; el panel llega por maquita-sudo, que valida cada argumento):
+  maquita-fts estado              JSON: índice activo, adjuntos, buzones indexados, herramientas.
+  maquita-fts reindexar <buzón>   Rehace el índice de un buzón (p. ej. para que entren los adjuntos
+                                  de correos antiguos). En segundo plano: no corta el servicio.
+  maquita-fts indexar-inicial     Indexa, cuenta por cuenta, los buzones que aún no tienen índice
+                                  (lo lanza el instalador con systemd-run, prioridad mínima).
+
+La papelera y el correo no deseado no se indexan por adelantado (se indexan solos si alguien busca en
+ellos). Rehacer el índice no toca los mensajes: tampoco los que están bajo retención legal.
+"""
+
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import time
+
+DOVEADM = "/usr/bin/doveadm"
+CONF_INDICE = "/etc/dovecot/maquita.d/60-busqueda.conf"
+CONF_ADJUNTOS = "/etc/dovecot/maquita.d/61-busqueda-adjuntos.conf"
+CONF_DECODIFICADOR = "/etc/maquita-fts/decodificador.conf"
+HECHOS = "/var/lib/maquita-busqueda/hechas.txt"  # compartido con busqueda-indexar-noche
+ESTADO = "/var/lib/maquita-fts"
+REGISTRO = "/var/log/maquita-fts.log"
+UNIDAD_INICIAL = "maquita-fts-indexar-inicial"
+PRESION_MAX = 45  # % de presión de E/S (avg60) a partir del cual se espera
+
+_RE_BUZON = re.compile(r"[a-z0-9][a-z0-9._+-]{0,63}@[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+")
+# Carpetas que no se indexan por adelantado (nombres habituales de papelera y no deseado).
+_EXCLUIDAS = {
+    "trash", "junk", "spam", "papelera", "deleted items", "deleted messages", "correo no deseado",
+    "elementos eliminados", "bulk mail",
+}
+HERRAMIENTAS = ("pdftotext", "catdoc", "7z", "exiftool", "tesseract")
+
+
+def es_buzon(valor: str) -> bool:
+    return isinstance(valor, str) and len(valor) <= 254 and bool(_RE_BUZON.fullmatch(valor))
+
+
+def carpeta_excluida(carpeta: str) -> bool:
+    """La papelera, el no deseado y sus subcarpetas (separador «.» o «/»)."""
+    raiz = re.split(r"[./]", carpeta, maxsplit=1)[0].strip().lower()
+    return raiz in _EXCLUIDAS
+
+
+def carpetas_a_indexar(carpetas: list[str]) -> list[str]:
+    return [c for c in carpetas if c and not carpeta_excluida(c)]
+
+
+def _registrar(texto: str) -> None:
+    try:
+        with open(REGISTRO, "a", encoding="utf-8") as f:
+            f.write(f"{time.strftime('%F %T')} {texto}\n")
+    except OSError:
+        pass
+
+
+def _doveadm(*args: str, tiempo: int = 60) -> subprocess.CompletedProcess:
+    return subprocess.run([DOVEADM, *args], capture_output=True, text=True, timeout=tiempo, stdin=subprocess.DEVNULL, check=False)
+
+
+def _usuarios() -> list[str]:
+    try:
+        r = _doveadm("user", "*", tiempo=120)
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    return [u.strip().lower() for u in r.stdout.splitlines() if es_buzon(u.strip().lower())]
+
+
+def _carpetas(buzon: str) -> list[str]:
+    r = _doveadm("mailbox", "list", "-u", buzon)
+    return carpetas_a_indexar([c.strip() for c in r.stdout.splitlines()]) if r.returncode == 0 else []
+
+
+def _hechos() -> set[str]:
+    try:
+        with open(HECHOS, encoding="utf-8", errors="replace") as f:
+            return {linea.strip().lower() for linea in f if linea.strip()}
+    except OSError:
+        return set()
+
+
+def _anotar_hecho(buzon: str) -> None:
+    os.makedirs(os.path.dirname(HECHOS), mode=0o755, exist_ok=True)
+    if buzon not in _hechos():
+        with open(HECHOS, "a", encoding="utf-8") as f:
+            f.write(buzon + "\n")
+
+
+def _unidad_activa() -> bool:
+    if not shutil.which("systemctl"):
+        return False
+    r = subprocess.run(["systemctl", "is-active", "--quiet", UNIDAD_INICIAL + ".service"], check=False)
+    return r.returncode == 0
+
+
+def _ocr_activo() -> bool:
+    try:
+        with open(CONF_DECODIFICADOR, encoding="utf-8") as f:
+            return any(linea.strip() == "OCR=1" for linea in f)
+    except OSError:
+        return False
+
+
+def estado() -> dict:
+    usuarios = _usuarios()
+    hechos = _hechos()
+    try:
+        with open(REGISTRO, encoding="utf-8", errors="replace") as f:
+            ultimas = [linea.rstrip() for linea in f.readlines()[-5:]]
+    except OSError:
+        ultimas = []
+    if _unidad_activa():
+        inicial = "en curso"
+    elif os.path.exists(os.path.join(ESTADO, "inicial-terminada")):
+        inicial = "terminada"
+    else:
+        inicial = "pendiente"
+    return {
+        "activo": os.path.exists(CONF_INDICE),
+        "motor": "flatcurve" if os.path.exists(CONF_INDICE) else None,
+        "adjuntos": os.path.exists(CONF_ADJUNTOS),
+        "ocr": _ocr_activo(),
+        "buzones_total": len(usuarios),
+        "buzones_indexados": len(hechos.intersection(usuarios)),
+        "indexacion_inicial": inicial,
+        "herramientas": {h: bool(shutil.which(h)) for h in HERRAMIENTAS},
+        "registro": ultimas,
+    }
+
+
+def reindexar(buzon: str) -> dict:
+    """Borra el índice del buzón (no sus mensajes) y encola su reconstrucción en el indexador."""
+    if not es_buzon(buzon):
+        return {"error": "buzón con formato inválido"}
+    if _doveadm("user", "-u", buzon, tiempo=15).returncode != 0:
+        return {"error": "el buzón no existe"}
+    r = _doveadm("fts", "rescan", "-u", buzon, tiempo=300)
+    if r.returncode != 0:
+        return {"error": "no se pudo vaciar el índice: " + (r.stderr.strip()[-200:] or "doveadm falló")}
+    carpetas = _carpetas(buzon)
+    for carpeta in carpetas:
+        # -q: lo hace el indexador de Dovecot (como mucho 2 a la vez), sin esperar aquí.
+        _doveadm("index", "-u", buzon, "-q", carpeta, tiempo=60)
+    _registrar(f"reindexar {buzon}: {len(carpetas)} carpetas encoladas")
+    return {"ok": True, "buzon": buzon, "carpetas": len(carpetas)}
+
+
+def _esperar_disco() -> bool:
+    if not os.path.exists("/proc/pressure/io"):
+        return True
+    for _ in range(60):
+        try:
+            with open("/proc/pressure/io", encoding="ascii") as f:
+                m = re.search(r"some avg10=[0-9.]+ avg60=([0-9.]+)", f.read())
+            if not m or float(m.group(1)) < PRESION_MAX:
+                return True
+        except OSError:
+            return True
+        time.sleep(30)
+    return False
+
+
+def indexar_inicial() -> dict:
+    """Una sola pasada a la vez (candado); el trabajo lo hace _indexar_pendientes."""
+    import fcntl
+
+    os.makedirs(ESTADO, mode=0o755, exist_ok=True)
+    with open(os.path.join(ESTADO, "candado-inicial"), "w") as candado:
+        try:
+            fcntl.flock(candado, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            return {"ok": True, "mensaje": "ya hay una indexación inicial en curso"}
+        return _indexar_pendientes()
+
+
+def _indexar_pendientes() -> dict:
+    """Una cuenta a la vez, retomando donde quedó; las ya indexadas (de noche o antes) se saltan."""
+    hechos = _hechos()
+    pendientes = [u for u in _usuarios() if u not in hechos]
+    _registrar(f"indexación inicial: {len(pendientes)} cuentas pendientes")
+    errores = 0
+    for buzon in pendientes:
+        if not _esperar_disco():
+            _registrar("disco cargado 30 min seguidos: se sigue en la próxima pasada")
+            return {"ok": False, "mensaje": "disco cargado"}
+        t0 = time.time()
+        ok = True
+        for carpeta in _carpetas(buzon):
+            try:
+                ok = _doveadm("index", "-u", buzon, carpeta, tiempo=4 * 3600).returncode == 0 and ok
+            except subprocess.TimeoutExpired:
+                ok = False
+        if ok:
+            _anotar_hecho(buzon)
+            _registrar(f"OK {buzon} ({int(time.time() - t0)} s)")
+        else:
+            errores += 1
+            _registrar(f"ERROR {buzon} (lo retoma la indexación nocturna)")
+    if not errores:
+        with open(os.path.join(ESTADO, "inicial-terminada"), "w"):
+            pass
+    _registrar(f"indexación inicial terminada ({errores} errores)")
+    return {"ok": errores == 0, "errores": errores}
+
+
+def main(argv: list[str]) -> int:
+    if argv[1:] == ["estado"]:
+        print(json.dumps(estado(), ensure_ascii=False))
+        return 0
+    if len(argv) == 3 and argv[1] == "reindexar":
+        res = reindexar(argv[2].strip().lower())
+        print(json.dumps(res, ensure_ascii=False))
+        return 0 if res.get("ok") else 1
+    if argv[1:] == ["indexar-inicial"]:
+        print(json.dumps(indexar_inicial(), ensure_ascii=False))
+        return 0
+    print("uso: maquita-fts estado | reindexar <buzón> | indexar-inicial", file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

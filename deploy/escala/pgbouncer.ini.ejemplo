@@ -1,0 +1,39 @@
+;; =============================================================================
+;; PgBouncer en modo «transaction» delante de PostgreSQL (ejemplo).
+;; Copiar a /etc/pgbouncer/pgbouncer.ini. Guía: docs/GRAN-ESCALA.md
+;;
+;; En el .env de cada nodo de aplicación:
+;;     DATABASE_URL=postgresql://mailserver:CLAVE@192.0.2.30:6432/maildb
+;;     PGBOUNCER=true      ← obligatorio: apaga la caché de sentencias preparadas de asyncpg
+;; El panel (admin-panel) y el Drive (almacen) leen también PGBOUNCER=true.
+;;
+;; Las migraciones (migrations/*.sql) y las tareas de mantenimiento largas conviene
+;; lanzarlas contra PostgreSQL directo (puerto 5432), no a través de PgBouncer.
+;; =============================================================================
+[databases]
+maildb = host=192.0.2.31 port=5432 dbname=maildb
+
+[pgbouncer]
+listen_addr = 0.0.0.0
+listen_port = 6432
+auth_type = scram-sha-256
+auth_file = /etc/pgbouncer/userlist.txt
+
+pool_mode = transaction
+;; Conexiones de clientes: (nodos × workers × DB_POOL_MAX) + panel + Drive + margen.
+;; Ejemplo: 3 nodos × 4 workers × 10 = 120, más 60 del panel y 48 del Drive.
+max_client_conn = 400
+;; Conexiones REALES a PostgreSQL por base/usuario. Es lo que protege a PostgreSQL:
+;; con 300-5000 buzones, 40-80 suele bastar (ver dimensionamiento en la guía).
+default_pool_size = 50
+reserve_pool_size = 10
+reserve_pool_timeout = 3
+server_reset_query =
+server_check_query = select 1
+server_idle_timeout = 300
+;; La aplicación no usa sentencias preparadas con nombre (statement_cache_size=0), así
+;; que no hace falta max_prepared_statements; dejarlo en 0 evita sorpresas.
+max_prepared_statements = 0
+ignore_startup_parameters = extra_float_digits,options
+admin_users = pgbouncer_admin
+stats_users = pgbouncer_stats

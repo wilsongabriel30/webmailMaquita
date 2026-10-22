@@ -8,6 +8,7 @@ import subprocess
 DATOS = "/etc/maquita-dns"  # una zona por archivo JSON + servidor.json (solo root)
 ZONAS_BIND = "/etc/bind/zonas"
 LISTA_BIND = "/etc/bind/maquita-zonas.conf"  # incluido desde named.conf.local
+TSIG_BIND = "/etc/bind/maquita-tsig.key"  # clave TSIG de las transferencias (root:bind 0640), si se generó
 SERVIDOR = os.path.join(DATOS, "servidor.json")
 DKIM_DIR = "/var/lib/rspamd/dkim"
 SELECTOR_DKIM = "mail"

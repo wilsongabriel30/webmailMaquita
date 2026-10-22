@@ -65,7 +65,8 @@ async def entrar(request: Request):
 async def yo(admin: dict = Depends(admin_actual)):
     return {"username": admin["username"], "display_name": admin["display_name"], "dominios": admin["dominios"],
             "debe_cambiar_clave": admin["debe_cambiar_clave"],
-            "debe_activar_segundo_factor": config_extra.TOTP_OBLIGATORIO and not admin["totp"]}
+            "debe_activar_segundo_factor": config_extra.TOTP_OBLIGATORIO and not admin["totp"],
+            "soporte": admin.get("soporte")}
 
 
 @router.post("/salir")
