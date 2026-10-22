@@ -148,8 +148,10 @@ Para el código de la propia institución, en un sitio sin otra aplicación.
 | Python | WSGI (Flask, Django: gunicorn) o ASGI (FastAPI, Starlette: uvicorn). Entorno virtual propio en `entorno/`, `requirements.txt` al desplegar. Entrada `módulo:objeto` (p. ej. `app:app`, `proyecto.wsgi:application`). |
 | Node.js | `npm ci --omit=dev` (o `npm install` sin `package-lock.json`); entrada un archivo `.js` o `npm start`. |
 
-- **Código**: por SFTP en `app/` o clonado de un repositorio git **público** por HTTPS (sin usuario ni clave
-  en la dirección). «Desplegar» hace `git pull --ff-only`, instala dependencias y reinicia; sin repositorio,
+- **Código**: por SFTP en `app/` o clonado de un repositorio git, público por HTTPS o **privado** con la
+  autenticación del sitio (clave de despliegue de solo lectura, recomendada; o clave propia, token o usuario y
+  contraseña: ver [Repositorios privados](PORTAL-V1.11.md#repositorios-privados)). Nunca con usuario, clave ni
+  token en la dirección. «Desplegar» hace `git pull --ff-only`, instala dependencias y reinicia; sin repositorio,
   solo dependencias y reinicio. Sin código todavía, queda una aplicación de ejemplo.
 - **Servicio** `sitio-<usuario>` de systemd con el usuario del sitio. La aplicación escucha en `HOST:PORT`
   (127.0.0.1 y un puerto interno 20000–29999 que da el panel) y nginx la publica en el dominio, con HTTPS,

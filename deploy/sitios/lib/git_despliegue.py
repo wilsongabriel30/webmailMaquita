@@ -4,7 +4,8 @@ Cada despliegue:
   1. corre en segundo plano, en su propia unidad de systemd (sitio-git-<usuario>): ni el panel ni el servidor de
      git esperan, y systemd no deja arrancar dos a la vez para el mismo sitio (además hay un cerrojo);
   2. trae la rama con «git clone --depth 1» a una carpeta nueva de versiones/, CON EL USUARIO DEL SITIO, sin
-     ganchos de git, solo por https o ssh y solo desde servidores con dirección pública (red_publica.py);
+     ganchos de git, solo por https o ssh, solo desde servidores con dirección pública (red_publica.py) y con la
+     autenticación elegida (git_clave.py: clave de despliegue, clave propia, token o usuario y contraseña);
   3. la publica con rsync, también como el usuario del sitio, hacia la carpeta pública: --delay-updates deja
      todos los archivos nuevos en su sitio al final, casi de golpe, y --delete-delay borra lo que ya no está en
      el repositorio (compara por contenido, --checksum). Las exclusiones (lo que sube la aplicación, la
@@ -21,6 +22,7 @@ import shutil
 import subprocess
 import time
 
+import git_clave as gc
 import git_sitio as gs
 import red_publica
 from comun import ErrorSitio, ejecutar
@@ -94,11 +96,9 @@ class _Cerrojo:
 # --- Órdenes con el usuario del sitio ---
 
 
-def _entorno_git(meta):
-    ssh = (f"ssh -i {gs.ruta_clave(meta)} -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=accept-new "
-           f"-o UserKnownHostsFile={gs.ruta_conocidos(meta)} -o ConnectTimeout=20")
-    return {"HOME": gs.carpeta(meta), "GIT_TERMINAL_PROMPT": "0", "GIT_CONFIG_NOSYSTEM": "1",
-            "GIT_ALLOW_PROTOCOL": "https:ssh", "GIT_SSH_COMMAND": ssh}
+def _entorno_git(meta, repo):
+    """La autenticación elegida (git_clave.py; sin elegir, la clave de despliegue generada, como en la v1.11)."""
+    return {"HOME": gs.carpeta(meta), **gc.entorno(meta, repo, "clave-generada")}
 
 
 def _correr(meta, cmd, tiempo, env_extra=None, umask=0o027):
@@ -112,14 +112,15 @@ def _correr(meta, cmd, tiempo, env_extra=None, umask=0o027):
     salida = ((r.stdout or "") + (r.stderr or "")).strip()
     if r.returncode != 0:
         lineas = [x for x in salida.splitlines() if x.strip()]
-        raise ErrorSitio(f"{os.path.basename(cmd[0])}: " + (lineas[-1][:300] if lineas else f"código {r.returncode}"))
+        causa = gc.explicar(salida) if cmd[0] == "git" else None  # la credencial, el repositorio o el servidor
+        raise ErrorSitio(causa or f"{os.path.basename(cmd[0])}: " + (lineas[-1][:300] if lineas else f"código {r.returncode}"))
     return salida
 
 
 def _traer(meta, git, destino):
     """Clona la rama en `destino` (nuevo) y devuelve {commit, autor, mensaje}."""
     red_publica.comprobar(gs.host_de(git["repo"]))
-    env = _entorno_git(meta)
+    env = _entorno_git(meta, git["repo"])
     _correr(meta, ["git", "-c", "core.hooksPath=/dev/null", "-c", "protocol.file.allow=never", "clone", "--quiet",
                    "--depth", "1", "--single-branch", "--no-tags", "--branch", git["rama"], "--", git["repo"], destino],
             TIEMPO_GIT, env)

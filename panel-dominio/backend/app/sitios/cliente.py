@@ -38,7 +38,7 @@ _LARGAS = {"app": 1190, "paquete": 1190, "actualizar": 900, "base-borrar": 600, 
                             "ssh-claves", "ssh-clave-agregar", "ssh-clave-borrar"), 130),
            # v1.11: alias (certificado), aplicaciones propias (pip, npm), git y DNS dinámico.
            "alias": 610, "propia-crear": 1160, "propia-accion": 1160, "propia-entorno": 310, "propia-quitar": 310,
-           "git-configurar": 130, "git-volver": 1195, "git-quitar": 310, "servidor-info": 190, "gancho-git": 70,
+           "git-configurar": 130, "git-credencial-guardar": 130, "git-volver": 1195, "git-quitar": 310, "servidor-info": 190, "gancho-git": 70,
            **dict.fromkeys(("ddns-crear", "ddns-actualizar"), 130)}
 ORDENES = {
     "listar", "catalogo", "crear", "app", "entrar", "clave-admin", "revisar", "actualizar", "terminar",
@@ -62,6 +62,7 @@ ORDENES = {
     # y DNS dinámico; «gancho-git» y «ddns-actualizar» van sin sesión (app/publico.py).
     "alias", "propia-crear", "propia-estado", "propia-accion", "propia-entorno", "propia-quitar",
     "git-estado", "git-configurar", "git-clave", "git-gancho", "git-desplegar", "git-volver", "git-quitar",
+    "git-credencial", "git-credencial-guardar", "git-credencial-borrar",
     "recursos", "servidor-info", "ddns-ver", "ddns-crear", "ddns-clave", "ddns-borrar", "gancho-git", "ddns-actualizar",
 }
 

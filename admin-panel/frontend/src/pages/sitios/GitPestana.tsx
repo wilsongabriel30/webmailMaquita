@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api/client";
+import { AutenticacionGit } from "./AutenticacionGit";
 import { campo } from "./datosComun";
 
 interface Version { id: string; commit: string | null; fecha: string; mensaje?: string }
@@ -73,7 +74,6 @@ export function GitPestana({ dominio }: { dominio: string }) {
         {e.configurado && <button className={`${boton} bg-ms-blue text-white`} disabled={e.en_curso} onClick={() => hacer(() => api.post(`${ruta}/desplegar`), "Despliegue iniciado.")}>{e.en_curso ? "Desplegando…" : "Desplegar ahora"}</button>}
         {e.configurado && <button className={boton} onClick={activarGancho}>{e.gancho ? "Cambiar el secreto del gancho" : "Activar el gancho"}</button>}
         {e.configurado && e.gancho && <button className={boton} onClick={() => hacer(() => api.post(`${ruta}/gancho`, { accion: "desactivar" }), "Gancho desactivado.")}>Desactivar el gancho</button>}
-        {e.configurado && <button className={boton} onClick={() => hacer(() => api.post(`${ruta}/clave`), "Clave nueva: cámbiela también en el servidor de git.")}>Clave nueva</button>}
       </div>
       {secreto && (
         <div className="bg-yellow-50 border border-yellow-200 rounded p-2 text-xs space-y-1">
@@ -81,9 +81,8 @@ export function GitPestana({ dominio }: { dominio: string }) {
           <p><b>Secreto</b> (no se vuelve a mostrar): <code className="select-all">{secreto.secreto}</code></p>
         </div>
       )}
-      {e.configurado && e.clave_publica && (
-        <div className="text-xs"><b>Clave de despliegue</b> (añádala como de solo lectura): <code className="block break-all bg-ms-gray-10 p-1 rounded select-all">{e.clave_publica}</code></div>
-      )}
+      <AutenticacionGit dominio={dominio} repo={form.repo} />
+
       {(e.versiones || []).length > 0 && (
         <div><b>Versiones guardadas</b>
           <ul className="mt-1 space-y-1">{[...(e.versiones || [])].reverse().map((v) => (

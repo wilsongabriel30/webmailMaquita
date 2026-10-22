@@ -22,6 +22,7 @@ from app.sitios import (
     dominios_alias,
     ficha,
     git,
+    git_credencial,
     ftp_cuentas,
     https_ftp,
     inicio,
@@ -38,5 +39,5 @@ router = APIRouter()
 # antes que /api/sitios/{sitio}/…
 for _modulo in (zona, ddns, inicio, servidor, descargas, ficha, aplicacion, https_ftp, tareas, bases, avanzado, paquete,
                 baja, web, ftp_cuentas, archivos, datos, copias, bases_usuarios, cortafuegos, claves_ssh, dominios_alias,
-                propias, git):
+                propias, git_credencial, git):
     router.include_router(_modulo.router)

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { AutenticacionGit } from "./AutenticacionGit";
 
 export interface NuevaPropia {
   tipo: "estatico" | "python" | "node";
@@ -48,9 +49,10 @@ export function AppPropiaForm({ dominio, ocupado, onCancelar, onCrear }: {
         <p className="text-xs text-ms-gray-90">Código: deje el repositorio vacío para subirlo por SFTP a la carpeta <code>app</code>
           {d.tipo === "estatico" ? <> (las estáticas sin repositorio se suben a <code>publico</code>)</> : <> (mientras tanto queda una aplicación de ejemplo)</>}.</p>
         <div className="grid sm:grid-cols-[1fr_10rem] gap-2">
-          <input value={d.git || ""} onChange={(e) => pon({ git: e.target.value })} placeholder="https://github.com/organizacion/proyecto.git (público)" className={campo} />
+          <input value={d.git || ""} onChange={(e) => pon({ git: e.target.value })} placeholder="git@github.com:organizacion/proyecto.git o https://… si es público" className={campo} />
           <input value={d.rama || ""} onChange={(e) => pon({ rama: e.target.value })} placeholder="Rama (opcional)" className={campo} />
         </div>
+        {d.git?.trim() && <AutenticacionGit dominio={dominio} repo={d.git} />}
       </div>
 
       {d.tipo === "estatico" ? (

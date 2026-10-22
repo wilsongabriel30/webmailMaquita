@@ -28,7 +28,7 @@ SECRETO = "s3creto-del-gancho-que-nadie-conoce-0123"
 DOC = ipaddress.ip_network("203.0.113.0/24")
 POR_SITIO = {"alias", "propia-crear", "propia-estado", "propia-accion", "propia-entorno", "propia-quitar",
              "git-estado", "git-configurar", "git-clave", "git-gancho", "git-desplegar", "git-volver", "git-quitar",
-             "recursos"}
+             "git-credencial", "git-credencial-guardar", "git-credencial-borrar", "recursos"}
 POR_ZONA = {"ddns-ver", "ddns-crear", "ddns-clave", "ddns-borrar"}
 
 
@@ -178,10 +178,18 @@ def test_propia_sin_puerto_publico(m, conf):
                                  "https://192.0.2.7/a.git", "https://127.0.0.1/a.git", "https://[::1]/a.git",
                                  "https://no-existe.example.org/a.git", "http://git.example.org/a.git",
                                  "https://ana:clave@git.example.org/a.git", "https://git.example.org/../a.git",
-                                 "file:///etc/passwd", "ssh://git@git.example.org/a.git"])
+                                 "file:///etc/passwd", "ssh://ana:clave@git.example.org/a.git",
+                                 "git@interno.example.org:ana/a.git", "ext::sh -c id"])
 def test_propia_git_solo_publico(m, publica, git):
     assert codigo("propia-crear", "example.org", tipo="node", conf={"git": git}) == 400
     assert m.ayudante.llamadas == []
+
+
+@pytest.mark.parametrize("git", ["ssh://git@git.example.org/ana/app.git", "git@git.example.org:ana/app.git"])
+def test_propia_git_privado_por_ssh(m, publica, git):
+    """Repositorios privados: por SSH, con la autenticación del sitio (la clave nunca va en la dirección)."""
+    pedir("propia-crear", "example.org", tipo="node", conf={"git": git})
+    assert json_de(m.ayudante.ultima[4]) == {"git": git}
 
 
 @pytest.mark.parametrize("tipo,conf", [("php", {}), (None, {}), ("node", {"desconocida": 1}), ("node", {"spa": "sí"}),
