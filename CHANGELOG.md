@@ -7,6 +7,19 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Añadido
+- **Búsqueda en el texto de los adjuntos** (`deploy/dovecot/fts/`, ajuste `63-busqueda-en-adjuntos.sh`, también en el instalador de servidores nuevos): el índice de texto completo de Dovecot 2.4 (fts-flatcurve) incluye ahora el texto de PDF, DOCX/XLSX/PPTX (y sus variantes con macros, sin abrir el VBA), ODT/ODS/ODP, Office 97-2003, RTF, HTML, comprimidos ZIP/TAR/gzip/bzip2/xz/7z (anidados, con nombres de archivo) y los metadatos EXIF de las fotos. Decodificador propio (`fts_decoder_driver = script`) que corre como el usuario sin privilegios `maquita-fts`, con límites de tamaño, bytes descomprimidos reales, archivos, profundidad, proporción de compresión, texto, tiempo y memoria; rechaza bombas de descompresión y XML con entidades, comprueba el tipo por los primeros bytes y nunca ejecuta macros. OCR con Tesseract opcional (`instalar.sh --con-ocr`). Detalle en `docs/BUSQUEDA-TEXTO-COMPLETO.md`.
+- La papelera y el correo no deseado ya no se indexan al llegar (siguen siendo buscables).
+- Indexación inicial de los buzones existentes en segundo plano (`systemd-run`, prioridad mínima de CPU y disco), sin cortar el servicio.
+- **Panel → Servicios → «Búsqueda de texto completo»**: estado del índice (activo, adjuntos, buzones indexados, herramientas) y botón «Reindexar buzón», por el ayudante `maquita-fts` y una orden nueva de `maquita-sudo` validada con `fullmatch` (solo `estado` y `reindexar <buzón existente>`).
+- Webmail: con el índice de adjuntos activo, la casilla de la búsqueda avanzada pasa a «Buscar también dentro del texto de los mensajes y de sus adjuntos» (`/api/mail/search/capacidades` devuelve `adjuntos`).
+
+### Corregido
+- **El índice de texto completo no se usaba** (ajuste 52): en Dovecot 2.4 el motor se activa con un bloque `fts flatcurve { }`, aunque esté vacío; sin él los módulos se cargan pero `doveadm` responde «fts not enabled for user's namespace» y cada búsqueda recorre los mensajes. `60-busqueda.conf` lo incluye y el ajuste 52 lo reinstala al actualizar. Comprobado con Dovecot 2.4.1 de Debian 13: indexar, buscar texto de un DOCX y de un PDF adjuntos, rechazo de una bomba ZIP y de un ZIP de seis niveles, `fts rescan` y reindexación encolada.
+- El decodificador termina la lista de formatos con una línea vacía, como espera Dovecot («parser script didn't send empty EOF line»).
+- El webmail no daba nunca una cuenta por indexada: leía `/var/lib/fts-indexar/hechos.txt` y la indexación nocturna escribe `/var/lib/maquita-busqueda/hechas.txt`; ahora lee los dos, así que las cuentas indexadas buscan en el texto de todo el buzón sin acotar a tres meses.
+- eDiscovery: las palabras clave van dentro de `doveadm search` (con el índice, también en los adjuntos) en vez de filtrarse después con una vista previa del cuerpo, que perdía lo que no estaba al principio; y las órdenes `doveadm` pasan por `maquita-sudo`, el único programa que sudoers concede a `www-data` (las llamadas directas a `sudo doveadm` se rechazaban).
+
 ## [1.10.0] - 2026-10-21
 
 Hospedaje completo: funciones web, cuentas FTP adicionales, archivos y datos por sitio, en el panel general y en el portal del cliente. ActiveSync 16.1 (borradores del teléfono en el servidor) y libreta de la organización en los teléfonos. Probado de punta a punta en un servidor con portal y sitios (`prueba_aislamiento.py` y `prueba_mi_sitio.py`, con el bloque de la v1.10) y con teléfonos Android reales.
