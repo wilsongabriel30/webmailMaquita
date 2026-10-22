@@ -15,7 +15,7 @@ Uso:  maquita-sudo <programa> [argumentos...]
                  fail2ban-client, nginx, sendmail, maquita-outbound,
                  depurar-adjuntos-peligrosos, geoip-country.sh, maquita-sitios,
                  maquita-dns, maquita-cortafuegos,
-                 maquita-identidad, maquita-fts
+                 maquita-identidad, maquita-fts, maquita-wazuh
 La política depende de quién llama (SUDO_USER): www-data solo puede lo que necesita el correo
 (recuperar mensajes y ver/gestionar la cola); maquita-admin, lo que necesita el panel.
 Todo se registra en syslog (auth) con la marca MAQUITA_SUDO; las contraseñas se enmascaran.
@@ -59,10 +59,12 @@ BINARIOS = {
     "maquita-respaldos": "/usr/local/sbin/maquita-respaldos",
     # Índice de texto completo del correo: estado y «Reindexar buzón» (deploy/dovecot/fts).
     "maquita-fts": "/usr/local/sbin/maquita-fts",
+    # Estado del agente Wazuh (opcional) para la tarjeta de Seguridad → Tableros. Solo lectura.
+    "maquita-wazuh": "/usr/local/sbin/maquita-wazuh",
 }
 
 # Programas propios: se ejecutan SOLO desde su ruta fija; si no están, no se buscan en el PATH.
-SOLO_RUTA_FIJA = {"maquita-outbound", "depurar-adjuntos-peligrosos", "geoip-country.sh", "maquita-sitios", "maquita-dns", "maquita-cortafuegos", "maquita-identidad", "maquita-actualizar", "maquita-respaldos", "maquita-fts"}
+SOLO_RUTA_FIJA = {"maquita-outbound", "depurar-adjuntos-peligrosos", "geoip-country.sh", "maquita-sitios", "maquita-dns", "maquita-cortafuegos", "maquita-identidad", "maquita-actualizar", "maquita-respaldos", "maquita-fts", "maquita-wazuh"}
 
 # Qué puede cada usuario llamante. True = todos los subcomandos que valida este programa.
 POLITICA = {
@@ -92,6 +94,8 @@ POLITICA = {
         "maquita-actualizar": True,
         "maquita-respaldos": True,
         "maquita-fts": True,
+
+        "maquita-wazuh": True,
     },
 }
 
@@ -594,6 +598,16 @@ def validar_fts(args, comprobar_buzon=_buzon_existe):
     raise Rechazo("maquita-fts: solo estado o reindexar <buzón>")
 
 
+_RE_ORDEN_WAZUH = re.compile(r"estado")
+
+
+def validar_wazuh(args):
+    """maquita-wazuh: solo «estado» (lee el estado del agente; no cambia nada)."""
+    if len(args) == 1 and isinstance(args[0], str) and _RE_ORDEN_WAZUH.fullmatch(args[0]):
+        return args
+    raise Rechazo("maquita-wazuh: solo «estado»")
+
+
 VALIDADORES = {
     "doveadm": validar_doveadm, "postqueue": validar_postqueue, "postsuper": validar_postsuper,
     "postconf": validar_postconf, "systemctl": validar_systemctl, "journalctl": validar_journalctl,
@@ -607,6 +621,8 @@ VALIDADORES = {
     "maquita-actualizar": validar_actualizar,
     "maquita-respaldos": validar_respaldos,
     "maquita-fts": validar_fts,
+
+    "maquita-wazuh": validar_wazuh,
 }
 
 

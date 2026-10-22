@@ -83,27 +83,31 @@ tiempo y memoria.
 - Validación del tipo por el contenido, no solo por el MIME declarado
 - Pendiente: análisis de malware del contenido extraído (hoy ClamAV analiza el adjunto al llegar)
 
-### Monitoreo de seguridad: Wazuh y OpenSearch `PROPOSED`
+### Monitoreo de seguridad: Wazuh y OpenSearch `DONE` (v1.11.0, provisional)
 
-Hoy el servidor tiene sus propios vigilantes (salida anómala, entregas, certificados) y alertas por correo.
+Opcional y con el manager **fuera** del servidor de correo (`docs/WAZUH.md`): `instalar-app.sh wazuh` instala
+el agente oficial con versión fija y lo registra contra el manager que indique el administrador; el manager
+todo en uno (con el indexador OpenSearch y su tablero) se monta en otra máquina.
 
-- Despliegue y configuración del agente Wazuh
-- OpenSearch como backend de registros para eventos de correo, autenticación y cumplimiento
-- Reglas de alerta predefinidas para actividad sospechosa de correo
-- Integración con la auditoría de cumplimiento
-- Paneles de control para visión general del estado de seguridad
-- Monitoreo de integridad de archivos para almacenamiento de correo y configuración
+- Despliegue y configuración del agente Wazuh (`deploy/wazuh/instalar.sh`, idempotente, clave del repositorio verificada)
+- OpenSearch como backend de registros: el indexador de Wazuh en el manager externo; el servidor envía un registro JSON propio (alertas, auditoría del panel y cumplimiento), Postfix, Dovecot, nginx y autenticación
+- Reglas de alerta predefinidas (`deploy/wazuh/manager/`, 100800-100899): `maquita-sudo`, inicios de sesión del panel, anomalías, cumplimiento y vigilantes
+- Integración con la auditoría de cumplimiento: eDiscovery, custodios, retenciones y lectura de buzones llegan como eventos propios
+- Paneles: los del propio panel (Seguridad → Tableros) y, si se quiere un SIEM central, los de Wazuh
+- Integridad de archivos de la configuración (Postfix, Dovecot, nginx, Rspamd, `/etc/maquita-mail`, sudoers), los ayudantes y el código. El buzón (`/var/vmail`) no: cambia con cada mensaje; lo cubren los respaldos y la retención legal
 
-### Paneles de seguridad (SIEM) `PROPOSED`
+### Paneles de seguridad (SIEM) `DONE` (v1.11.0, provisional)
 
-Paneles de control operativos y de seguridad para administradores.
+En el **propio panel general** (Seguridad → Tableros), sin Grafana: un recolector cada 5 minutos agrega los
+registros de Postfix, Dovecot y ActiveSync, la auditoría y Rspamd en tablas propias de PostgreSQL
+(retención configurable, 400 días por omisión) y las pantallas solo leen esos totales.
 
-- Paneles Grafana para métricas de flujo de correo
-- Visualización de eventos de autenticación (éxito, fallo, geográfico)
-- Panel de actividad del módulo de cumplimiento
-- Gestión de alertas y flujos de escalamiento
-- Detección de anomalías en patrones de acceso a buzones
-- Generación de informes (PDF/CSV) para auditorías de cumplimiento
+- Flujo de correo: entregados, enviados, rechazados, spam y cola por hora o por día
+- Eventos de autenticación: correctos y fallidos por servicio y por país (GeoIP local), IP y cuentas más atacadas
+- Actividad del módulo de cumplimiento (eDiscovery, retenciones legales, políticas, auditoría)
+- Gestión de alertas y escalamiento: avisos por correo con los vigilantes, reconocer y cerrar, reaviso de las altas sin reconocer
+- Anomalías en el acceso a buzones con reglas explicables: país nuevo, fallos seguidos de acceso, hora inusual, muchas cuentas desde una IP
+- Informes CSV y PDF (HTML imprimible) para auditorías de cumplimiento
 
 ### Arquitectura para gran escala `DONE` en gran parte (v1.11.0, provisional)
 

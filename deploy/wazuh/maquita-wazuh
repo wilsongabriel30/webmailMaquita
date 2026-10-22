@@ -1,0 +1,81 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""maquita-wazuh — estado del agente Wazuh de este servidor, para el panel (Seguridad → Tableros).
+
+Uso:  maquita-wazuh estado      → JSON en la salida estándar
+
+Solo lee: el archivo de estado del agente (/var/ossec/var/run/wazuh-agentd.state, legible solo por
+root y el grupo wazuh), la dirección del manager en ossec.conf, la versión instalada y si el servicio
+está activo. Lo llama el panel por maquita-sudo, que solo deja pasar «estado».
+"""
+import json
+import os
+import re
+import subprocess
+import sys
+
+OSSEC = os.environ.get("WAZUH_RAIZ", "/var/ossec")
+_RE_CAMPO = re.compile(r"(\w+)='([^']*)'")
+_RE_MANAGER = re.compile(r"<server>.*?<address>\s*([^<\s]+)\s*</address>", re.S)
+_RE_VERSION = re.compile(r'v?(\d+\.\d+\.\d+)')
+
+
+def _leer(ruta):
+    try:
+        with open(ruta, encoding="utf-8", errors="replace") as f:
+            return f.read()
+    except OSError:
+        return ""
+
+
+def _version():
+    for orden in ([os.path.join(OSSEC, "bin/wazuh-control"), "info", "-v"],
+                  ["dpkg-query", "-W", "-f=${Version}", "wazuh-agent"]):
+        try:
+            r = subprocess.run(orden, capture_output=True, text=True, timeout=10)
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+        m = _RE_VERSION.search(r.stdout or "")
+        if r.returncode == 0 and m:
+            return m.group(1)
+    return ""
+
+
+def _activo():
+    try:
+        r = subprocess.run(["systemctl", "is-active", "wazuh-agent"], capture_output=True, text=True, timeout=10)
+        return r.stdout.strip() == "active"
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
+def estado():
+    if not os.path.isdir(OSSEC) or not os.path.isfile(os.path.join(OSSEC, "etc/ossec.conf")):
+        return {"instalado": False}
+    campos = dict(_RE_CAMPO.findall(_leer(os.path.join(OSSEC, "var/run/wazuh-agentd.state"))))
+    conf = _leer(os.path.join(OSSEC, "etc/ossec.conf"))
+    m = _RE_MANAGER.search(conf)
+    return {
+        "instalado": True,
+        "activo": _activo(),
+        "estado": campos.get("status", "desconocido"),  # connected | disconnected | pending
+        "conectado": campos.get("status") == "connected",
+        "ultimo_contacto": campos.get("last_keepalive", ""),
+        "ultimo_acuse": campos.get("last_ack", ""),
+        "mensajes_enviados": campos.get("msg_sent", ""),
+        "manager": m.group(1) if m else "",
+        "version": _version(),
+        "reglas_maquita": "<!-- maquita: inicio -->" in conf,
+    }
+
+
+def main(argv):
+    if argv[1:] != ["estado"]:
+        print("uso: maquita-wazuh estado", file=sys.stderr)
+        return 2
+    print(json.dumps(estado(), ensure_ascii=False))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

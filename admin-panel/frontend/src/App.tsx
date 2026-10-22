@@ -66,6 +66,7 @@ import { CuentasAsignadas } from "./pages/CuentasAsignadas";
 import { EDiscovery } from "./pages/EDiscovery";
 import { Branding } from "./pages/Branding";
 import { Compliance } from "./pages/Compliance";
+import { Tableros } from "./pages/seguridad/Tableros";
 
 function App() {
   const [user, setUser] = useState<AdminUser | null>(() => {
@@ -188,6 +189,8 @@ function App() {
             <Route path="advanced-audit" element={<AdvancedAudit />} />
             <Route path="risky-logins" element={<RiskyLogins />} />
             <Route path="/login-health" element={<LoginHealth />} />
+            <Route path="seguridad/tableros" element={<Tableros />} />
+            <Route path="seguridad/tableros/:tablero" element={<Tableros />} />
           </Route>
         </Routes>
       </BrowserRouter>

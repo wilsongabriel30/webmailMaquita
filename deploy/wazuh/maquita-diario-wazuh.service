@@ -1,0 +1,22 @@
+# maquita-wazuh (repo) — copia del diario de systemd para el agente Wazuh en los servidores sin
+# /var/log/mail.log (solo journald): correo (facilidad mail) y autenticación (auth y authpriv, donde
+# escribe maquita-sudo) a /var/log/maquita/diario.log en formato syslog clásico. Rota con logrotate.
+[Unit]
+Description=Diario de correo y autenticación para el agente Wazuh
+After=systemd-journald.service
+
+[Service]
+Type=simple
+ExecStartPre=/usr/bin/install -d -m 750 -o root -g adm /var/log/maquita /var/lib/maquita-wazuh
+ExecStart=/usr/bin/journalctl --follow --quiet --output=short --cursor-file=/var/lib/maquita-wazuh/diario.cursor SYSLOG_FACILITY=2 SYSLOG_FACILITY=4 SYSLOG_FACILITY=10
+StandardOutput=append:/var/log/maquita/diario.log
+StandardError=journal
+Restart=always
+RestartSec=10
+Nice=10
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -26,6 +26,20 @@ def _ip(request: Request) -> str:
     return request.headers.get("X-Real-IP", request.client.host if request.client else "unknown")
 
 
+async def _auditar_fallo(db, request: Request, user_id, username: str, motivo: str) -> None:
+    """Inicio de sesión fallido en el panel (lo cuentan los tableros de seguridad y Wazuh).
+    El nombre intentado se recorta y se limpia: viene tal cual del formulario."""
+    nombre = "".join(ch for ch in username if ch.isprintable())[:100]
+    try:
+        await db.execute(
+            "INSERT INTO admin_audit (admin_id, admin_username, action, target, details, ip_address) "
+            "VALUES ($1, $2, 'login_failed', $2, jsonb_build_object('motivo', $3::text), $4)",
+            user_id, nombre, motivo, _ip(request),
+        )
+    except Exception:
+        pass  # la auditoría nunca impide responder al inicio de sesión
+
+
 @router.post("/login")
 async def login(request: Request):
     data = await request.json()
@@ -38,12 +52,15 @@ async def login(request: Request):
     )
 
     if not user:
+        await _auditar_fallo(db, request, None, username, "usuario desconocido")
         raise HTTPException(401, "Credenciales inválidas")
 
     if user["locked_until"] and user["locked_until"] > datetime.now(timezone.utc):
+        await _auditar_fallo(db, request, user["id"], username, "cuenta bloqueada")
         raise HTTPException(423, "Cuenta bloqueada temporalmente")
 
     if not user["active"]:
+        await _auditar_fallo(db, request, user["id"], username, "cuenta desactivada")
         raise HTTPException(403, "Cuenta desactivada")
 
     if not _check_pw(password, user["password_hash"]):
@@ -57,6 +74,7 @@ async def login(request: Request):
             "UPDATE admin_users SET failed_attempts = $1, locked_until = $2 WHERE id = $3",
             attempts, locked, user["id"],
         )
+        await _auditar_fallo(db, request, user["id"], username, "contraseña")
         raise HTTPException(401, "Credenciales inválidas")
 
     # 2FA (TOTP): si está habilitado, exigir código antes de emitir sesión.
@@ -76,6 +94,7 @@ async def login(request: Request):
                 "UPDATE admin_users SET failed_attempts = $1, locked_until = $2 WHERE id = $3",
                 attempts, locked, user["id"],
             )
+            await _auditar_fallo(db, request, user["id"], username, "segundo factor")
             raise HTTPException(401, "Código de verificación inválido")
 
     # Intentos a cero, token, sesión (A-9) y auditoría: lo mismo para toda forma de entrar.
