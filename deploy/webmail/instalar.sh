@@ -528,6 +528,8 @@ npm ci --quiet && npx vite build
 # Servicio systemd
 cp "${APP_DIR}/admin-panel/deploy/maquita-admin.service" /etc/systemd/system/
 systemctl daemon-reload && systemctl enable maquita-admin && systemctl restart maquita-admin
+# Recolector de los tableros de seguridad (Seguridad → Tableros): temporizador cada 5 minutos.
+bash "${APP_DIR}/deploy/seguridad/instalar.sh" || echo "  AVISO: no se pudo activar el recolector de los tableros (deploy/seguridad/instalar.sh)"
 # nginx :8443 (auth básica + snakeoil hasta certbot)
 ADMIN_NGINX="/etc/nginx/sites-available/${MAIL_HOST}-admin"
 sed "s/__MAIL_HOST__/${MAIL_HOST}/g" "${APP_DIR}/admin-panel/deploy/nginx-admin.conf" > "${ADMIN_NGINX}"

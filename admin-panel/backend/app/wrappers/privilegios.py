@@ -39,6 +39,7 @@ _REQUIEREN_SUDO = {
     "maquita-dns",
     "maquita-cortafuegos",
     "maquita-identidad",
+    "maquita-wazuh",
     "systemctl",
     "journalctl",
     "doveadm",

@@ -105,6 +105,10 @@ from app.safeattach.router import router as safeattach_router
 from app.admins_dominio.router import router as admins_dominio_router
 from app.admins_dominio.solicitudes import router as solicitudes_dominio_router
 from app.admins_dominio.cuotas_sitio import router as cuotas_sitio_dominio_router
+# Seguridad → Tableros (flujo, inicios de sesión, cumplimiento, anomalías, informes y Wazuh).
+from app.seguridad.router import router as seguridad_router
+from app.seguridad.router_alertas import router as seguridad_alertas_router
+from app.seguridad.router_informes import router as seguridad_informes_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -277,6 +281,9 @@ app.include_router(actualizaciones_router)
 app.include_router(respaldos_router)
 app.include_router(password_audit_router)
 app.include_router(adminrec_router)
+app.include_router(seguridad_alertas_router)
+app.include_router(seguridad_informes_router)
+app.include_router(seguridad_router)
 
 
 @app.get("/api/health-check")

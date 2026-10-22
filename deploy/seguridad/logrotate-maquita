@@ -1,0 +1,11 @@
+# maquita (repo) — registros de seguridad para Wazuh u otro SIEM: el JSON del recolector de los
+# tableros y la copia del diario (deploy/wazuh/maquita-diario-wazuh.service).
+/var/log/maquita/*.json /var/log/maquita/*.log {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}
