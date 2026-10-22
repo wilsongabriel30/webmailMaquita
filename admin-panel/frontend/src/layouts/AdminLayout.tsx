@@ -45,6 +45,12 @@ const navSections = [
     ],
   },
   {
+    title: "Seguridad",
+    items: [
+      { to: "/seguridad/tableros", label: "Tableros", help: "Tableros de seguridad: flujo de correo, inicios de sesión por servicio y país, actividad de cumplimiento, anomalías con avisos y escalamiento, informes CSV y PDF, y el agente Wazuh (opcional).", icon: "M3 3v18h18M7 15l3-3 3 3 5-6" },
+    ],
+  },
+  {
     title: "Protección",
     items: [
       { to: "/cortafuegos", label: "Cortafuegos", help: "Qué puertos del servidor se pueden usar desde Internet, IP de administración, bloqueos manuales e IP bloqueadas por fail2ban. Los cambios se aplican a prueba durante 60 segundos.", icon: "M3 5h18v4H3zM3 9h8v5H3zm8 0h10v5H11zM3 14h18v5H3z" },
