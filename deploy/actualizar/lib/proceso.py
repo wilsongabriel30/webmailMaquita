@@ -7,14 +7,21 @@ secciones instaladas (sitios, DNS, cortafuegos, identidad, actualizaciones) → 
 reinicio de servicios → validación. Las migraciones son aditivas (IF NOT EXISTS): al volver atrás no se
 deshacen, la base no se restaura sola (perdería el correo llegado entretanto); el volcado queda para
 hacerlo a mano si hiciera falta.
+
+Fuera del código, los archivos del sistema de vigilados.txt (bind, nginx, fail2ban, postfix, systemd…)
+se fotografían antes de cambiar nada y se comparan al terminar (vigilados.py): la lista de lo creado,
+modificado y borrado queda en progreso.json («archivos_sistema») y en el registro, con la copia del
+contenido anterior y la marca de lo que tenía parches locales.
 """
 
 import glob
 import os
 import shutil
 import subprocess
+import sys
 import time
 
+import vigilados
 from version import DIR_ESTADO, REPO, ErrorActualizar, actual, git, guardar_json, leer_json
 
 PROGRESO = os.path.join(DIR_ESTADO, "progreso.json")
@@ -95,6 +102,48 @@ def _respaldo(p):
     return destino
 
 
+def _foto_sistema(p, commit):
+    """Antes de tocar nada: sumas, copias y parches locales de los archivos del sistema vigilados."""
+    p.paso("Archivos del sistema (antes)")
+    try:
+        previa = vigilados.foto_previa(p.estado["respaldo"], commit, git)
+    except Exception as e:  # el informe es una ayuda: nunca detiene la actualización
+        p.anotar(f"!! no se pudo tomar la foto de los archivos del sistema: {type(e).__name__}: {e}")
+        return None
+    if previa is None:
+        p.anotar("(sin vigilados.txt: no se compararán los archivos del sistema)")
+        return None
+    p.anotar(f"{len(previa['foto'])} archivos vigilados; copias en {previa['copias']}")
+    parches = vigilados.locales(previa)
+    if parches:
+        p.anotar("AVISO: estos archivos instalados por el producto tienen cambios locales (no coinciden con la "
+                 "versión instalada); si la nueva versión los reinstala, el parche se pierde y queda su copia:\n  "
+                 + "\n  ".join(parches))
+    return previa
+
+
+def _informe_sistema(p, previa):
+    if previa is None:
+        return
+    try:
+        res = vigilados.informe(previa)
+    except Exception as e:
+        res = {"error": f"{type(e).__name__}: {e}"[:300]}
+    p.estado["archivos_sistema"] = res
+    informe = vigilados.texto(res)
+    p.anotar("\n== Archivos del sistema ==\n" + informe)
+    print(informe, file=sys.stderr)
+
+
+def _para_historial(estado):
+    """El historial guarda solo los totales de archivos_sistema (la lista completa está en el respaldo)."""
+    e = dict(estado)
+    a = e.get("archivos_sistema")
+    if a:
+        e["archivos_sistema"] = {k: a[k] for k in ("totales", "cambios_locales", "copias", "error") if k in a}
+    return e
+
+
 def _migraciones(p):
     """Como el usuario de la aplicación (UPGRADING.md); la contraseña va por PGPASSWORD, no en la orden:
     así no queda en el registro ni en la lista de procesos."""
@@ -165,6 +214,7 @@ def instalar(destino):
     os.write(cerrojo, str(os.getpid()).encode())
     desde = actual()
     p = Proceso(desde, destino)
+    previa = None
     try:
         if desde["cambios_locales"]:
             raise ErrorActualizar("hay cambios locales en el código (" + ", ".join(desde["cambios_locales"][:5]) +
@@ -176,6 +226,7 @@ def instalar(destino):
         p.estado["fallos_antes"] = fallos_antes
         p.paso("Respaldo")
         p.estado["respaldo"] = _respaldo(p)
+        previa = _foto_sistema(p, desde["commit"])
         _codigo_y_dependencias(p, destino["commit"], desde["commit"])
         p.paso("Migraciones de la base de datos")
         _migraciones(p)
@@ -191,9 +242,10 @@ def instalar(destino):
         p.estado.update(error=str(e)[:500])
         _volver(p, desde)
     finally:
+        _informe_sistema(p, previa)  # también tras volver atrás: lo que quedó distinto de como estaba
         guardar_json(PROGRESO, p.estado)
         historial = leer_json(HISTORIAL, [])
-        historial.insert(0, p.estado)
+        historial.insert(0, _para_historial(p.estado))
         guardar_json(HISTORIAL, historial[:30])
         os.close(cerrojo)
         os.remove(CERROJO)
