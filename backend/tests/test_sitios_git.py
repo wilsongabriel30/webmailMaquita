@@ -58,6 +58,7 @@ def mundo(tmp_path, monkeypatch, red_de_prueba):
         return "" if cmd[0] == "chown" else real(cmd, entrada=entrada, cwd=cwd, tiempo=tiempo, env_extra=env_extra)
 
     monkeypatch.setattr(gs, "ejecutar", ejecutar)
+    monkeypatch.setattr(m["git_clave"], "ejecutar", ejecutar)  # carpetas y clave: comunes con las apps propias
     monkeypatch.setattr(gd, "en_curso", lambda meta: False)
     copias = []
     monkeypatch.setattr(m["copias_cliente"], "crear", lambda dominio, motivo="manual": copias.append((dominio, motivo)))

@@ -10,10 +10,12 @@ versiones de los despliegues. En disco, todo del usuario del sitio y fuera de la
 
     /srv/sitios/<dominio>/despliegues/            <usuario> 0700 (PHP no llega: open_basedir)
     /srv/sitios/<dominio>/despliegues/.ssh/       clave de despliegue (ed25519) y servidores conocidos
+    /srv/sitios/<dominio>/despliegues/.credencial/ token o contraseña, si se eligió ese método (git_clave.py)
     /srv/sitios/<dominio>/despliegues/versiones/  las últimas versiones desplegadas, para volver atrás
 
 La clave privada la puede leer el usuario del sitio (es la de su repositorio): por eso se pide añadirla en el
-servidor de git como clave de SOLO LECTURA. El secreto del gancho no: lo guarda root en GANCHOS, y lo comprueba
+servidor de git como clave de SOLO LECTURA. Otras formas de autenticarse (clave propia, token, usuario y contraseña)
+se eligen en «Autenticación» (git_credencial.py). El secreto del gancho no: lo guarda root en GANCHOS, y lo comprueba
 el intermediario del portal (deploy/sitios/portal/lib/publico.py), que recibe las llamadas del servidor de git.
 """
 
@@ -23,40 +25,24 @@ import re
 import secrets
 import time
 
+import git_clave as gc
 import red_publica
 from comun import ErrorSitio, ejecutar, guardar_meta, leer_meta
 
 GANCHOS = "/etc/maquita-sitios/ganchos"
 RUTA_GANCHO = "/git-despliegue/"  # dirección pública: https://<servidor>/git-despliegue/<sitio>
 
-_HOST = r"[A-Za-z0-9](?:[A-Za-z0-9.-]{0,252})"
-_RUTA = r"[A-Za-z0-9._~][A-Za-z0-9._~/-]{0,299}"
-RE_HTTPS = re.compile(rf"https://(?P<host>{_HOST})(?::\d{{1,5}})?/{_RUTA}")
-RE_SSH = re.compile(rf"ssh://[A-Za-z0-9][A-Za-z0-9._-]{{0,63}}@(?P<host>{_HOST})(?::\d{{1,5}})?/{_RUTA}")
-RE_SCP = re.compile(rf"[A-Za-z0-9][A-Za-z0-9._-]{{0,63}}@(?P<host>{_HOST}):{_RUTA}")
 RE_RAMA = re.compile(r"[A-Za-z0-9][A-Za-z0-9._/-]{0,99}")
 RE_CARPETA = re.compile(r"[A-Za-z0-9._-]{1,60}(?:/[A-Za-z0-9._-]{1,60}){0,5}")
-RE_CLAVE_PUBLICA = re.compile(r"ssh-ed25519 [A-Za-z0-9+/=]{60,100}(?: [A-Za-z0-9.@_-]{1,200})?")
 MAX_EXCLUSIONES = 20
 MAX_REGISTRO = 10
 # Apps con las que convive el despliegue desde git: ninguna (sitio vacío) o un paquete propio.
 COMPATIBLES = (None, "paquete")
 
 
-def carpeta(meta):
-    return os.path.join(meta["base"], "despliegues")
-
-
-def carpeta_ssh(meta):
-    return os.path.join(carpeta(meta), ".ssh")
-
-
-def ruta_clave(meta):
-    return os.path.join(carpeta_ssh(meta), "clave")
-
-
-def ruta_conocidos(meta):
-    return os.path.join(carpeta_ssh(meta), "conocidos")
+# Carpetas, clave y autenticación: comunes con las aplicaciones propias (git_clave.py).
+carpeta, carpeta_ssh, ruta_clave, ruta_conocidos = gc.carpeta, gc.carpeta_ssh, gc.ruta_clave, gc.ruta_conocidos
+host_de, clave_publica, RE_CLAVE_PUBLICA = gc.host_de, gc.clave_publica, gc.RE_CLAVE_PUBLICA
 
 
 def carpeta_versiones(meta):
@@ -68,18 +54,6 @@ def ruta_gancho(dominio):
 
 
 # --- Validación ---
-
-
-def host_de(repo):
-    """El servidor de un repositorio con forma válida (https://, ssh:// o usuario@servidor:ruta), o ErrorSitio."""
-    if not isinstance(repo, str) or ".." in repo:
-        raise ErrorSitio("repositorio no válido")
-    for patron in (RE_HTTPS, RE_SSH, RE_SCP):
-        m = patron.fullmatch(repo)
-        if m:
-            return m.group("host")
-    raise ErrorSitio("repositorio no válido: use https://servidor/ruta.git, ssh://usuario@servidor/ruta.git "
-                     "o usuario@servidor:ruta.git (sin contraseñas en la dirección)")
 
 
 def _rama(valor):
@@ -126,36 +100,15 @@ def validar(datos):
 
 
 def _preparar(meta):
-    """despliegues/, .ssh/ y versiones/ del usuario del sitio. La crea root dentro de la carpeta del sitio (de root)."""
-    base = carpeta(meta)
-    if os.path.islink(base) or (os.path.exists(base) and not os.path.isdir(base)):
-        raise ErrorSitio("la carpeta de despliegues del sitio no es válida")
-    if not os.path.isdir(base):
-        os.mkdir(base, 0o700)
-        ejecutar(["chown", f"{meta['usuario']}:{meta['usuario']}", base])
-    for sub in (carpeta_ssh(meta), carpeta_versiones(meta)):
-        ejecutar(["mkdir", "-p", "-m", "700", sub], como=meta["usuario"])
+    """despliegues/ (con .ssh/ y .credencial/) y versiones/, del usuario del sitio."""
+    gc.preparar(meta)
+    ejecutar(["mkdir", "-p", "-m", "700", carpeta_versiones(meta)], como=meta["usuario"])
 
 
 def generar_clave(meta):
     """Clave ed25519 nueva (la anterior deja de valer en cuanto se borre del servidor de git)."""
     _preparar(meta)
-    ejecutar(["rm", "-f", "--", ruta_clave(meta), ruta_clave(meta) + ".pub"], como=meta["usuario"])
-    ejecutar(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-C", f"despliegue@{meta['dominio']}", "-f", ruta_clave(meta)],
-             como=meta["usuario"], tiempo=60)
-
-
-def clave_publica(meta):
-    """La clave pública (para el servidor de git) o None. El archivo es del usuario: se lee sin seguir enlaces."""
-    try:
-        fd = os.open(ruta_clave(meta) + ".pub", os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
-    except OSError:
-        return None
-    try:
-        texto = os.read(fd, 2048).decode("ascii", errors="replace").strip()
-    finally:
-        os.close(fd)
-    return texto if RE_CLAVE_PUBLICA.fullmatch(texto) else None
+    gc.generar_clave(meta)
 
 
 # --- Meta ---
@@ -218,8 +171,11 @@ def configurar(dominio, datos):
     git.setdefault("versiones", [])
     meta["git_php"] = git
     try:
-        if not clave_publica(meta):
+        metodo = gc.metodo(meta, "clave-generada")
+        gc.comprobar_metodo(metodo, gc.validar_repo(conf["repo"])[0])
+        if metodo == "clave-generada" and not clave_publica(meta):
             generar_clave(meta)
+            meta["git_auth"] = gc.registro_generada(meta)
         elif (respaldo.get("git_php") or {}).get("repo") != conf["repo"]:
             # Otro repositorio (quizá otro servidor de git): su huella se aprende de nuevo en el próximo despliegue.
             ejecutar(["rm", "-f", "--", ruta_conocidos(meta)], como=meta["usuario"])
@@ -239,6 +195,9 @@ def configurar(dominio, datos):
 def regenerar_clave(dominio):
     meta = de_sitio(dominio)
     generar_clave(meta)
+    meta = leer_meta(dominio)
+    meta["git_auth"] = gc.registro_generada(meta)
+    guardar_meta(meta)
     return estado(dominio)
 
 
@@ -271,6 +230,7 @@ def quitar(dominio):
         if os.path.isdir(carpeta(meta)):
             os.rmdir(carpeta(meta))
     meta.pop("git_php", None)
+    meta.pop("git_auth", None)  # la clave o la credencial se fueron con la carpeta de despliegues
     if isinstance(meta.get("paquete"), dict):
         meta["paquete"].pop("origen", None)
     guardar_meta(meta)

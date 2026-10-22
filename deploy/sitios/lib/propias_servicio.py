@@ -147,7 +147,8 @@ UMask=0027
 NoNewPrivileges=yes
 ProtectSystem=strict
 ReadWritePaths={meta['app_dir']} {meta['tmp']}
-InaccessiblePaths=-/etc/maquita-sitios -/srv/sitios-papelera -/etc/maquita-cortafuegos
+# La clave o la credencial del repositorio (despliegues/) son para git, no para la aplicación en marcha.
+InaccessiblePaths=-/etc/maquita-sitios -/srv/sitios-papelera -/etc/maquita-cortafuegos -{os.path.join(meta['base'], 'despliegues')}
 ProtectHome=yes
 PrivateTmp=yes
 PrivateDevices=yes
