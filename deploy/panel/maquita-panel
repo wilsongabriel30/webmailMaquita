@@ -1,0 +1,51 @@
+#!/usr/bin/env python3
+"""maquita-panel — órdenes de consola del panel general (puerto 8443). Corre como root en el servidor.
+
+Uso:
+  maquita-panel vale-entrada <admin> [--vida 120] [--host servidor[:puerto]] [--json]
+      Vale de un solo uso que abre la sesión de ese administrador del panel, sin contraseña ni
+      segundo factor. Devuelve https://<servidor>:8443/entrar?vale=… (caduca en --vida segundos,
+      máximo 900). Queda en la auditoría del panel («vale_entrada_emitido» y «login_vale»).
+      La sesión que abre no cuenta como abierta con segundo factor: no sirve para impersonar buzones.
+
+El servidor sale de --host, de ORG_URL_PANEL (/etc/maquita-mail/organizacion.env) o de MAIL_HOST.
+"""
+
+import json
+import os
+import sys
+
+sys.path.insert(0, "/usr/local/lib/maquita-panel")
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+
+import panel_bd  # noqa: E402
+import panel_vales  # noqa: E402
+
+
+def main(args):
+    if not args or args[0] in ("-h", "--help", "ayuda"):
+        print(__doc__.strip())
+        return 0
+    if args[0] != "vale-entrada":
+        raise panel_bd.ErrorConsola(f"orden desconocida: {args[0]} (vea maquita-panel --help)")
+    posicionales, op = panel_bd.opciones(args[1:], ("--vida", "--host"), ("--json",))
+    if len(posicionales) != 1:
+        raise panel_bd.ErrorConsola("uso: maquita-panel vale-entrada <admin> [--vida 120]")
+    if os.geteuid() != 0:
+        raise panel_bd.ErrorConsola("ejecútelo como root (sudo)")
+    r = panel_vales.vale_entrada(posicionales[0], op.get("--vida"), op.get("--host"))
+    if op.get("--json"):
+        print(json.dumps(r, ensure_ascii=False))
+    else:
+        print(f"Vale de entrada para «{r['admin']}» ({r['rol']}): un solo uso, válido {r['valido_segundos']} s.",
+              file=sys.stderr)
+        print(r["url"])
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main(sys.argv[1:]))
+    except panel_bd.ErrorConsola as e:
+        print(f"maquita-panel: {e}", file=sys.stderr)
+        sys.exit(1)

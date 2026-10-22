@@ -1,0 +1,58 @@
+#!/usr/bin/env python3
+"""maquita-panel-dominio — órdenes de consola del portal de dominio (puerto 8444). Corre como root.
+
+Uso:
+  maquita-panel-dominio vale-soporte <dominio> [--solo-lectura|--con-acciones] [--vida 300]
+                                     [--motivo texto] [--host servidor[:puerto]] [--json]
+      Vale de un solo uso que abre el portal de ese dominio como SOPORTE, sin conocer la clave ni el
+      segundo factor del cliente. Devuelve https://<portal>:8444/?vale=… (caduca en --vida segundos,
+      máximo 900; la sesión dura PD_MINUTOS_SOPORTE, 60 minutos por defecto).
+      --solo-lectura (lo normal): el portal rechaza todo lo que modifica, salvo cerrar la sesión.
+      --con-acciones: se permite modificar, y cada acción queda en pd_auditoria como del soporte.
+
+El portal sale de --host, del portal propio de la empresa, de ORG_URL_PORTAL_DOMINIO o de MAIL_HOST.
+"""
+
+import json
+import os
+import sys
+
+sys.path.insert(0, "/usr/local/lib/maquita-panel")
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+
+import panel_bd  # noqa: E402
+import panel_vales  # noqa: E402
+
+
+def main(args):
+    if not args or args[0] in ("-h", "--help", "ayuda"):
+        print(__doc__.strip())
+        return 0
+    if args[0] != "vale-soporte":
+        raise panel_bd.ErrorConsola(f"orden desconocida: {args[0]} (vea maquita-panel-dominio --help)")
+    posicionales, op = panel_bd.opciones(args[1:], ("--vida", "--host", "--motivo"),
+                                         ("--json", "--solo-lectura", "--con-acciones"))
+    if len(posicionales) != 1:
+        raise panel_bd.ErrorConsola("uso: maquita-panel-dominio vale-soporte <dominio> [--solo-lectura|--con-acciones]")
+    if op.get("--solo-lectura") and op.get("--con-acciones"):
+        raise panel_bd.ErrorConsola("elija --solo-lectura o --con-acciones, no las dos")
+    if os.geteuid() != 0:
+        raise panel_bd.ErrorConsola("ejecútelo como root (sudo)")
+    r = panel_vales.vale_soporte(posicionales[0], not op.get("--con-acciones"), op.get("--vida"),
+                                 op.get("--motivo", ""), op.get("--host"))
+    if op.get("--json"):
+        print(json.dumps(r, ensure_ascii=False))
+    else:
+        modo = "solo lectura" if r["modo"] == "solo_lectura" else "con acciones (auditadas)"
+        print(f"Vale de soporte para {r['dominio']} ({modo}): un solo uso, válido {r['valido_segundos']} s.",
+              file=sys.stderr)
+        print(r["url"])
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main(sys.argv[1:]))
+    except panel_bd.ErrorConsola as e:
+        print(f"maquita-panel-dominio: {e}", file=sys.stderr)
+        sys.exit(1)
