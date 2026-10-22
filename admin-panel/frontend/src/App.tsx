@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthContext, AdminUser } from "./api/auth";
 import { api } from "./api/client";
 import { Login } from "./pages/Login";
+import { EntradaVale } from "./pages/EntradaVale";
 import { HelpTip } from "./components/HelpTip";
 import { AdminLayout } from "./layouts/AdminLayout";
 import { Dashboard } from "./pages/Dashboard";
@@ -123,6 +124,8 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
+          {/* Vale de un solo uso (consola o vuelta del proveedor de identidad): abre la sesión. */}
+          <Route path="/entrar" element={<EntradaVale />} />
           <Route element={user ? <AdminLayout /> : <Navigate to="/login" />}>
             <Route index element={<Dashboard />} />
             <Route path="domains" element={<Domains />} />
