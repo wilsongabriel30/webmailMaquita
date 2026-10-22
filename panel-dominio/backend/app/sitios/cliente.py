@@ -31,7 +31,11 @@ _LARGAS = {"app": 1190, "paquete": 1190, "actualizar": 900, "base-borrar": 600, 
                             "archivos-descomprimir", "archivos-borrar", "archivos-vaciar"), 1190),
            **dict.fromkeys(("web-redirecciones", "web-errores", "web-hotlink", "web-bloqueo", "web-optimizacion",
                             "web-privado-agregar", "web-privado-quitar", "web-purgar", "ftp-cuenta-crear",
-                            "ftp-cuenta-clave", "ftp-cuenta-quitar", "web"), 130)}
+                            "ftp-cuenta-clave", "ftp-cuenta-quitar", "web"), 130),
+           # v1.11: alias (certificado), aplicaciones propias (pip, npm), git y DNS dinámico.
+           "alias": 610, "propia-crear": 1160, "propia-accion": 1160, "propia-entorno": 310, "propia-quitar": 310,
+           "git-configurar": 130, "git-volver": 1195, "git-quitar": 310, "servidor-info": 190, "gancho-git": 70,
+           **dict.fromkeys(("ddns-crear", "ddns-actualizar"), 130)}
 ORDENES = {
     "listar", "catalogo", "crear", "app", "entrar", "clave-admin", "revisar", "actualizar", "terminar",
     "ssl", "ftp", "tareas", "tareas-guardar", "tarea-ejecutar", "tarea-registro",
@@ -47,6 +51,11 @@ ORDENES = {
     "archivos-listar", "archivos-subir", "archivos-descargar", "archivos-carpeta", "archivos-mover", "archivos-copiar",
     "archivos-descomprimir", "archivos-borrar", "archivos-comprimir", "archivos-permisos", "archivos-papelera",
     "archivos-recuperar", "archivos-vaciar",
+    # v1.11: alias, aplicaciones Node.js y Python, git de los sitios PHP, CPU y memoria, información del servidor
+    # y DNS dinámico; «gancho-git» y «ddns-actualizar» van sin sesión (app/publico.py).
+    "alias", "propia-crear", "propia-estado", "propia-accion", "propia-entorno", "propia-quitar",
+    "git-estado", "git-configurar", "git-clave", "git-gancho", "git-desplegar", "git-volver", "git-quitar",
+    "recursos", "servidor-info", "ddns-ver", "ddns-crear", "ddns-clave", "ddns-borrar", "gancho-git", "ddns-actualizar",
 }
 
 
