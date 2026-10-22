@@ -74,16 +74,16 @@ export function Actualizaciones() {
           </div>
         </div>
         {est.actual.cambios_locales.length > 0 && <p className="text-sm text-ms-red">Hay cambios locales en el código ({est.actual.cambios_locales.join(", ")}): no se actualizará hasta quitarlos o subirlos al repositorio.</p>}
-        {!est.firmantes && est.config.canal === "estable" && <p className="text-sm text-ms-red">Falta la lista de firmantes: no se puede instalar ninguna versión estable.</p>}
+        {!est.firmantes && est.config.canal.startsWith("estable") && <p className="text-sm text-ms-red">Falta la lista de firmantes: no se puede instalar ninguna versión estable.</p>}
         {d && (
           d.nueva ? (
             <div className="border-t border-ms-gray-30 pt-3 space-y-2">
               <p className="text-sm">Disponible: <b className="font-mono">{d.ref?.replace("origin/", "rama ")}</b>
-                {d.canal === "estable" && (d.firmada ? <span className="ml-2 text-xs text-ms-green">firmada por el equipo</span> : <span className="ml-2 text-xs text-ms-red">sin firma válida: no se instalará</span>)}
+                {d.canal.startsWith("estable") && (d.firmada ? <span className="ml-2 text-xs text-ms-green">firmada por el equipo</span> : <span className="ml-2 text-xs text-ms-red">sin firma válida: no se instalará</span>)}
                 <span className="text-xs text-ms-gray-60"> · buscado {d.buscado}</span></p>
               {d.notas && <pre className="text-xs bg-ms-gray-10 p-2 rounded whitespace-pre-wrap max-h-48 overflow-auto">{d.notas}</pre>}
               {!d.notas && !!d.cambios?.length && <ul className="text-xs list-disc pl-5 max-h-48 overflow-auto">{d.cambios.map((c, i) => <li key={i}>{c}</li>)}</ul>}
-              <button onClick={() => instalar(d.ref!)} disabled={ocupado || enCurso || (d.canal === "estable" && !d.firmada) || est.actual.cambios_locales.length > 0}
+              <button onClick={() => instalar(d.ref!)} disabled={ocupado || enCurso || (d.canal.startsWith("estable") && !d.firmada) || est.actual.cambios_locales.length > 0}
                 className="px-4 py-2 bg-ms-blue text-white rounded text-sm disabled:opacity-50">Instalar ahora</button>
             </div>
           ) : <p className="text-sm text-ms-gray-90">Está al día ({d.ref ? `última del canal: ${d.ref.replace("origin/", "rama ")}` : "el canal no tiene versiones"}; buscado {d.buscado}).</p>

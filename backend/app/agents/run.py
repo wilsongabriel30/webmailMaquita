@@ -8,6 +8,7 @@ import asyncpg
 
 from app.agents.runner import list_agents, run_agent
 from app.config import get_settings
+from app.database import opciones_pool
 
 
 class _NoRedis:
@@ -28,7 +29,9 @@ async def _main():
     if "--user" in sys.argv and sys.argv.index("--user") + 1 < len(sys.argv):
         params["user"] = sys.argv[sys.argv.index("--user") + 1]
     s = get_settings()
-    db = await asyncpg.create_pool(s.database_url, min_size=1, max_size=2)
+    db = await asyncpg.create_pool(
+        s.database_url, **opciones_pool(s, min_size=1, max_size=2)
+    )
     try:
         res = await run_agent(name, db, _NoRedis(), s, dry_run=dry, params=params)
         print(json.dumps(res, ensure_ascii=False, indent=2, default=str))

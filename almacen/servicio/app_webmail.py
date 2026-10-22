@@ -48,6 +48,8 @@ _EXENTAS = (
     '/almacen-static/',         # css/js del explorador
     '/acceso-externo',          # login de cuentas Drive externas (publico)
     '/healthz',
+    '/api/almacen/salud',       # balanceador: proceso vivo
+    '/api/almacen/listo',       # balanceador: base accesible
 )
 
 
@@ -143,6 +145,8 @@ def crear_app_webmail() -> Flask:
     app.register_blueprint(bp_acceso_externo)   # /acceso-externo (login de cuentas externas)
     from api_panel import bp_panel
     app.register_blueprint(bp_panel, url_prefix='/api/almacen/panel')   # canal del panel de administración
+    from salud_balanceador import bp_salud
+    app.register_blueprint(bp_salud)   # /api/almacen/salud y /api/almacen/listo
 
     # El template del explorador viene del sistema mayor y enlaza a modulos
     # que aqui no existen (helpdesk, etc.): esos enlaces van al correo en vez

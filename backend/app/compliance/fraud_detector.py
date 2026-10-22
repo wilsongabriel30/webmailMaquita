@@ -18,6 +18,8 @@ from datetime import datetime, timedelta
 
 logger = logging.getLogger("compliance.fraud")
 
+INTERVALO_S = 300  # cada 5 minutos
+
 # Palabras clave de fraude financiero en subject/body
 FRAUD_KEYWORDS = [
     "cambio de cuenta",
@@ -40,9 +42,19 @@ INTERNAL_DOMAINS = {"ejemplo.com", "ejemplo.com"}
 
 
 class FraudDetector:
-    def __init__(self, db_pool):
+    def __init__(self, db_pool, redis=None):
         self.db = db_pool
+        # Con Redis, la revisión corre una vez cada 5 minutos en TODO el clúster (no una
+        # vez por worker, que duplicaba consultas y podía duplicar alertas en carrera).
+        self.redis = redis
         self._running = False
+
+    async def _revisar(self):
+        await self._check_mass_send()
+        await self._check_mass_delete()
+        await self._check_external_forwards()
+        await self._check_fraud_keywords()
+        await self._check_unusual_login()
 
     async def start(self):
         self._running = True
@@ -50,15 +62,20 @@ class FraudDetector:
 
         while self._running:
             try:
-                await self._check_mass_send()
-                await self._check_mass_delete()
-                await self._check_external_forwards()
-                await self._check_fraud_keywords()
-                await self._check_unusual_login()
+                if self.redis is None:
+                    await self._revisar()
+                else:
+                    from app.escala.bloqueo import una_vez_por_intervalo
+
+                    async with una_vez_por_intervalo(
+                        self.redis, "fraude:revision", INTERVALO_S - 10
+                    ) as turno:
+                        if turno.obtenido:
+                            await self._revisar()
             except Exception as exc:
                 logger.error("Fraud detector error: %s", exc)
 
-            await asyncio.sleep(300)  # Cada 5 minutos
+            await asyncio.sleep(INTERVALO_S)  # Cada 5 minutos
 
     def stop(self):
         self._running = False
@@ -204,8 +221,8 @@ class FraudDetector:
             )
 
 
-async def start_fraud_detector(db_pool) -> FraudDetector:
+async def start_fraud_detector(db_pool, redis=None) -> FraudDetector:
     """Inicia el detector de fraude como tarea background."""
-    detector = FraudDetector(db_pool)
+    detector = FraudDetector(db_pool, redis)
     asyncio.create_task(detector.start())
     return detector

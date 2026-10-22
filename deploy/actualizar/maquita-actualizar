@@ -7,7 +7,7 @@ Uso desde el panel:
   maquita-actualizar estado              versión instalada, disponible, progreso e historial
   maquita-actualizar buscar              consulta el repositorio (etiquetas firmadas o rama del canal)
   maquita-actualizar aplicar <ref>       instala la versión disponible, en segundo plano
-  maquita-actualizar config <json-b64>   {"canal": "estable"|"<rama>", "automatico": true|false}
+  maquita-actualizar config <json-b64>   {"canal": "estable"|"estable-X.Y"|"<rama>", "automatico": true|false}
 Solo desde el sistema:
   maquita-actualizar automatico          lo lanza el temporizador cada noche (si está activado)
   maquita-actualizar ejecutar <ref>      el trabajo en sí (lo lanza «aplicar» como unidad aparte)

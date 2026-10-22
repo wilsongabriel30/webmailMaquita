@@ -1,7 +1,6 @@
 """Maquita Webmail API — main entrypoint v0.5.0."""
 
 import asyncio
-import json
 import logging
 import os
 import time
@@ -42,7 +41,7 @@ from app.contacts.routers import router as contacts_router
 from app.copiloto.router import router as copiloto_router
 from app.core.logging import RequestIdMiddleware, setup_logging
 from app.cuenta.router import router as cuenta_router
-from app.database import create_db_pool
+from app.database import create_db_pool, create_read_pool
 from app.dispositivos.apps import router as dispositivos_apps_router
 from app.dispositivos.gnss import router as dispositivos_gnss_router
 from app.dispositivos.respaldos import router as dispositivos_respaldos_router
@@ -50,12 +49,16 @@ from app.dispositivos.router import router as dispositivos_router
 from app.dispositivos.ubicacion import router as dispositivos_ubicacion_router
 from app.dispositivos.wifis import router as dispositivos_wifis_router
 from app.dlp.router import router as dlp_router
+from app.escala.api_v1 import AliasApiV1
+from app.escala.ddl import ddl_serializado
+from app.escala.salud import router as salud_router
+from app.escala.tareas_fondo import iniciar_lector_registro
 from app.gal.router import router as gal_router
 from app.hold_ack.router import router as hold_ack_router
 from app.identities.router import router as identities_router
 from app.import_export.router import router as import_router
-from app.log_ingestor.mail_log_ingestor import start_log_ingestor
 from app.mail.errors import CredencialIMAPInvalida
+from app.mail.programados import procesar_programados
 from app.mail.routers.adjunto_correo import router as adjunto_correo_router
 from app.mail.routers.attachments import router as attachments_router
 from app.mail.routers.borrados import router as borrados_router
@@ -132,132 +135,6 @@ from app.tasks.models import ensure_tables as ensure_task_tables
 _REGISTER_EXCEPTION_HANDLER = True  # Flag para registrar en lifespan
 from app.calendar.attachments import router as cal_attachments_router
 
-logger = logging.getLogger("scheduler")
-
-
-async def _process_scheduled_emails(db_pool, redis):
-    """Background task: check and send scheduled emails every 30s."""
-    while True:
-        try:
-            await asyncio.sleep(30)
-            # Check if table exists
-            try:
-                rows = await db_pool.fetch("""
-                    SELECT id, username, to_list, cc_list, bcc_list, subject,
-                           html_body, text_body, in_reply_to, "references",
-                           request_read_receipt, request_delivery_receipt
-                    FROM scheduled_emails
-                    WHERE status = 'pending' AND scheduled_at <= NOW()
-                    ORDER BY scheduled_at ASC
-                    LIMIT 10
-                """)
-            except Exception:
-                # Table might not exist yet
-                continue
-
-            for row in rows:
-                try:
-                    # Reclamo atómico: solo UN worker envía cada correo programado
-                    claimed = await db_pool.fetchrow(
-                        "UPDATE scheduled_emails SET status = 'sending' "
-                        "WHERE id = $1 AND status = 'pending' RETURNING id",
-                        row["id"],
-                    )
-                    if not claimed:
-                        continue
-                    username = row["username"]
-                    # F-01: la credencial está cifrada POR SESIÓN; vale cualquiera viva.
-                    from app.auth.sesiones import credencial_de_alguna_sesion
-
-                    cred = await credencial_de_alguna_sesion(redis, username)
-                    if not cred:
-                        logger.warning(
-                            f"Scheduled email {row['id']}: no session for {username}"
-                        )
-                        await db_pool.execute(
-                            "UPDATE scheduled_emails SET status = 'pending' WHERE id = $1",
-                            row["id"],
-                        )
-                        continue
-                    _sid, password, login_user = cred
-
-                    from app.mail.clients.imap_client import get_imap_connection
-                    from app.mail.services.send_service import send_and_save
-
-                    imap = await get_imap_connection(login_user, password)
-                    try:
-                        # Get display name
-                        display_name = ""
-                        pref = await db_pool.fetchrow(
-                            "SELECT display_name FROM user_preferences WHERE username = $1",
-                            username,
-                        )
-                        if pref and pref["display_name"]:
-                            display_name = pref["display_name"]
-
-                        to_list = (
-                            json.loads(row["to_list"])
-                            if isinstance(row["to_list"], str)
-                            else row["to_list"]
-                        )
-                        cc_list = (
-                            json.loads(row["cc_list"])
-                            if isinstance(row["cc_list"], str)
-                            else row["cc_list"]
-                        )
-                        bcc_list = (
-                            json.loads(row["bcc_list"])
-                            if isinstance(row["bcc_list"], str)
-                            else row["bcc_list"]
-                        )
-
-                        from app.mail.firmas import preparar_envio
-
-                        html_body, inline_firma, _ = await asyncio.to_thread(
-                            preparar_envio, row["html_body"] or ""
-                        )
-                        await send_and_save(
-                            imap=imap,
-                            password=password,
-                            from_addr=username,
-                            to=to_list,
-                            subject=row["subject"],
-                            text_body=row["text_body"],
-                            html_body=html_body,
-                            attachments=inline_firma or None,
-                            cc=cc_list,
-                            bcc=bcc_list,
-                            in_reply_to=row["in_reply_to"],
-                            references=row["references"],
-                            display_name=display_name,
-                            request_read_receipt=row["request_read_receipt"],
-                            request_delivery_receipt=row["request_delivery_receipt"],
-                        )
-
-                        await db_pool.execute(
-                            "UPDATE scheduled_emails SET status = 'sent' WHERE id = $1",
-                            row["id"],
-                        )
-                        logger.info(f"Scheduled email {row['id']} sent successfully")
-                    finally:
-                        try:
-                            await imap.logout()
-                        except Exception:
-                            pass
-
-                except Exception as exc:
-                    logger.error(f"Scheduled email {row['id']} failed: {exc}")
-                    await db_pool.execute(
-                        "UPDATE scheduled_emails SET status = 'failed' WHERE id = $1",
-                        row["id"],
-                    )
-
-        except asyncio.CancelledError:
-            break
-        except Exception as exc:
-            logger.error(f"Scheduler loop error: {exc}")
-            await asyncio.sleep(30)
-
 
 def _validate_mime_on_startup():
     """Verifica que smtp_client.py construye MIME correcto al arrancar.
@@ -316,27 +193,28 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     setup_logging()
     app.state.db_pool = await create_db_pool()
+    # Réplica de lectura opcional (DATABASE_URL_LECTURA); sin ella, None.
+    app.state.db_pool_lectura = await create_read_pool()
     app.state.redis = await create_redis()
+    app.state.cerrando = False
     # Marca: se rellena la cache de proceso una sola vez, para los puntos que no
     # tienen la base a mano (cliente SMTP, recordatorios, calendario). Si falla,
     # se sigue con los valores por defecto: la marca nunca impide arrancar.
     await precargar_marca(app.state.db_pool)
-    # DDL serializado entre workers (evita deadlocks de arranque)
-    async with app.state.db_pool.acquire() as _ddl_conn:
-        await _ddl_conn.execute("SELECT pg_advisory_lock(815000)")
-        try:
-            await ensure_task_tables(app.state.db_pool)
-            await asegurar_tablas_tareas(app.state.db_pool)  # T-34
-            await asegurar_tabla_telemetria(app.state.db_pool)  # telemetría de la app
-            await asegurar_tabla_push(app.state.db_pool)  # suscripciones web push (#17)
-            await asegurar_tablas_respaldos(app.state.db_pool)  # T-74 alta en UrBackup
-        finally:
-            await _ddl_conn.execute("SELECT pg_advisory_unlock(815000)")
+    # DDL serializado entre workers (evita deadlocks de arranque). Bloqueo de
+    # transacción: vale también detrás de PgBouncer (ver app/escala/ddl.py).
+    async with ddl_serializado(app.state.db_pool, 815000):
+        await ensure_task_tables(app.state.db_pool)
+        await asegurar_tablas_tareas(app.state.db_pool)  # T-34
+        await asegurar_tabla_telemetria(app.state.db_pool)  # telemetría de la app
+        await asegurar_tabla_push(app.state.db_pool)  # suscripciones web push (#17)
+        await asegurar_tablas_respaldos(app.state.db_pool)  # T-74 alta en UrBackup
     # ── Validación MIME al arranque (protección anti-spam) ──
     _validate_mime_on_startup()
-    # Start scheduled email background task
+    # Tareas de fondo. Las que no pueden repetirse por worker están protegidas
+    # (reclamo atómico o bloqueo en Redis): ver app/escala/tareas_fondo.py.
     scheduler_task = asyncio.create_task(
-        _process_scheduled_emails(app.state.db_pool, app.state.redis)
+        procesar_programados(app.state.db_pool, app.state.redis)
     )
     # Start WebSocket Redis subscriber for real-time notifications
     ws_subscriber_task = await start_redis_subscriber(app.state)
@@ -345,11 +223,13 @@ async def lifespan(app: FastAPI):
 
     reminders_task = asyncio.create_task(check_reminders(app))
     # Start compliance services
-    app.state.log_ingestor = await start_log_ingestor(app.state.db_pool)
+    app.state.log_ingestor = iniciar_lector_registro(app)
     from app.safelinks import threatfeeds as _tfeeds
 
     app.state.tintel_task = asyncio.create_task(_tfeeds.loop(app))
-    app.state.fraud_detector = await start_fraud_detector(app.state.db_pool)
+    app.state.fraud_detector = await start_fraud_detector(
+        app.state.db_pool, app.state.redis
+    )
     # Start IMAP pool cleanup
     from app.mail.clients.imap_pool import start_cleanup_task
 
@@ -357,21 +237,25 @@ async def lifespan(app: FastAPI):
 
     yield
 
+    # A partir de aquí /api/listo responde 503: el balanceador deja de mandar tráfico.
+    app.state.cerrando = True
     # Shutdown IMAP pool
     from app.mail.clients.imap_pool import close_all_pools
 
     await close_all_pools()
     # Stop compliance services
-    app.state.log_ingestor.stop()
+    await app.state.log_ingestor.detener()
     app.state.fraud_detector.stop()
-    scheduler_task.cancel()
-    ws_subscriber_task.cancel()
-    snooze_task.cancel()
+    for tarea in (scheduler_task, ws_subscriber_task, snooze_task, reminders_task):
+        tarea.cancel()
+    app.state.tintel_task.cancel()
     try:
         await scheduler_task
     except asyncio.CancelledError:
         pass
     await app.state.db_pool.close()
+    if app.state.db_pool_lectura is not None:
+        await app.state.db_pool_lectura.close()
     await app.state.redis.close()
 
 
@@ -432,7 +316,14 @@ class ApiRateLimitMiddleware(BaseHTTPMiddleware):
     """
 
     SKIP_PATHS = frozenset(
-        {"/api/auth/login", "/api/auth/refresh", "/api/health", "/api/health/detailed"}
+        {
+            "/api/auth/login",
+            "/api/auth/refresh",
+            "/api/health",
+            "/api/health/detailed",
+            "/api/salud",
+            "/api/listo",
+        }
     )
     SEND_PATHS = frozenset(
         {
@@ -641,6 +532,9 @@ app.add_middleware(
 # Debe registrarse DESPUÉS de CORSMiddleware: el último registrado es el más externo y solo así ve el
 # Allow-Credentials que añade CORS para orígenes no autorizados (pentest EH-MAQ-009, 08/10/2026).
 app.add_middleware(StripCredentialsMiddleware)
+# /api/v1/... es un alias estable de /api/...; va el último para ser el más externo y que
+# el resto de middlewares (límites de tasa, auditoría) vean ya la ruta normal.
+app.add_middleware(AliasApiV1)
 
 
 @app.exception_handler(SMTPAuthenticationError)
@@ -823,6 +717,7 @@ app.include_router(mailguard_router)
 from app.security.csp_informes import router as csp_router  # noqa: E402
 
 app.include_router(csp_router)
+app.include_router(salud_router)  # /api/salud y /api/listo para balanceadores
 
 
 @app.get("/api/health")

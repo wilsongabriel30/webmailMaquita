@@ -7,12 +7,15 @@ import sys
 import asyncpg
 
 from app.config import get_settings
+from app.database import opciones_pool
 from app.rag.ingest import ingest_user
 
 
 async def _main():
     s = get_settings()
-    db = await asyncpg.create_pool(s.database_url, min_size=1, max_size=3)
+    db = await asyncpg.create_pool(
+        s.database_url, **opciones_pool(s, min_size=1, max_size=3)
+    )
     try:
         if "--ask" in sys.argv and "--user" in sys.argv:
             u = sys.argv[sys.argv.index("--user") + 1]

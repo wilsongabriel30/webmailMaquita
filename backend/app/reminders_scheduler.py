@@ -127,13 +127,12 @@ async def check_reminders(app):
             await asyncio.sleep(60)
             if not ddl_listo:
                 # DDL diferido (post-arranque) y serializado entre workers
-                async with db.acquire() as conn:
-                    await conn.execute("SELECT pg_advisory_lock($1)", _DDL_LOCK)
-                    try:
-                        for stmt in DDL:
-                            await conn.execute(stmt)
-                    finally:
-                        await conn.execute("SELECT pg_advisory_unlock($1)", _DDL_LOCK)
+                # (bloqueo de transacción: vale también detrás de PgBouncer)
+                from app.escala.ddl import ddl_serializado
+
+                async with ddl_serializado(db, _DDL_LOCK) as conn:
+                    for stmt in DDL:
+                        await conn.execute(stmt)
                 ddl_listo = True
             now = datetime.now(timezone.utc)
 

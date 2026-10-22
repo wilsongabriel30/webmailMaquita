@@ -25,6 +25,7 @@ from app.recovery.router import router as recovery_router
 from app.quarantine.router import router as quarantine_router
 from app.forwarding.router import router as forwarding_router
 from app.health.router import router as health_router
+from app.health.balanceador import router as salud_router
 from app.connections.router import router as connections_router
 from app.audit.router import router as audit_router
 from app.services.router import router as services_router
@@ -202,6 +203,7 @@ app.include_router(archivados_router)
 app.include_router(quarantine_router)
 app.include_router(forwarding_router)
 app.include_router(health_router)
+app.include_router(salud_router)  # /api/salud y /api/listo para balanceadores
 app.include_router(connections_router)
 app.include_router(audit_router)
 app.include_router(services_router)

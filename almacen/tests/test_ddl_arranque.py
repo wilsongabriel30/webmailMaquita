@@ -85,3 +85,24 @@ def test_seis_workers_no_se_solapan():
     for h in hilos:
         h.join(5)
     assert maximo[0] == 1 and pool.devueltas == 6
+
+
+def test_con_pgbouncer_usa_bloqueo_de_transaccion(monkeypatch):
+    """Con PGBOUNCER=true el bloqueo es de transacción (se suelta con el commit)."""
+    monkeypatch.setenv("PGBOUNCER", "true")
+    pool = _Pool()
+    confirmadas = []
+    original = pool.getconn
+
+    def getconn():
+        con = original()
+        con.commit = lambda: confirmadas.append(True)
+        con.rollback = lambda: None
+        return con
+
+    pool.getconn = getconn
+    with ddl_arranque.serializado(lambda: pool):
+        assert pool.registro[-1] == ("SELECT pg_advisory_xact_lock(%s)", (ddl_arranque.CLAVE_BLOQUEO,))
+    assert confirmadas == [True]
+    assert pool.devueltas == 1
+    assert not any("pg_advisory_unlock" in sql for sql, _ in pool.registro)
