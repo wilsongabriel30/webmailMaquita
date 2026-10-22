@@ -89,6 +89,14 @@ pre.salida { background:#fafafa; border:1px solid var(--borde); border-radius:4p
 .dato { display:block; margin-top:2px; overflow-wrap:anywhere; }
 code.secreto { font-size:14px; background:#fff4ce; padding:2px 4px; border-radius:3px; user-select:all; }
 a.boton { display:inline-block; text-decoration:none; }
+/* v1.11: gráficos de CPU y memoria (SVG, colores por clase: la política del portal no admite estilos en línea) */
+svg.grafico { display:block; width:100%; height:auto; max-height:200px; margin:4px 0 12px; }
+.grafico .eje { stroke:#eee; stroke-width:1; }
+.grafico .linea { fill:none; stroke:var(--azul); stroke-width:2; stroke-linejoin:round; }
+.grafico .punto { fill:var(--azul); }
+.grafico .tope { stroke:var(--rojo); stroke-width:1; stroke-dasharray:4 4; }
+.grafico text { font-size:11px; fill:var(--gris); }
+.grafico text.tope-texto { fill:var(--rojo); }
 
 /* Pantallas estrechas: cada fila se vuelve una tarjeta, sin deslizar de lado. */
 @media (max-width: 640px) {

@@ -118,7 +118,7 @@ function instalada(ctx) {
 
 export async function pestanaAplicacion(ctx) {
   if (ctx.s.app === 'propia') {
-    return el('p', { clase: 'aviso nota' }, 'Este sitio corre una aplicación propia (su propio código). Su despliegue y sus servicios los administra el administrador general.');
+    return el('p', { clase: 'aviso nota' }, 'Este sitio corre una aplicación propia (su propio código): se administra en la pestaña «Node.js y Python».');
   }
   return ctx.s.app ? instalada(ctx) : instalar(ctx);
 }
