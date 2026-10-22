@@ -89,7 +89,9 @@ cada dominio de correo del servidor hacen falta, en este orden:
 ## Varios dominios de correo en el mismo servidor (SNI)
 
 Si el servidor atiende **más de un dominio** de correo, Postfix/Dovecot deben presentar el
-cert correcto según el nombre pedido (**SNI**):
+cert correcto según el nombre pedido (**SNI**). Con `CERTIFICADO_MODO=por-dominio` en
+`/etc/maquita-mail/organizacion.env` lo hace solo el temporizador del certificado del correo, con un
+linaje `mail.<dominio>` por cliente (ver DNS-Y-DOMINIOS.md, «Modo por-dominio»). A mano sería:
 
 - **Dovecot:** un bloque `local_name mail.otrodominio.tld { ssl_cert = ...; ssl_key = ... }`
   por dominio.

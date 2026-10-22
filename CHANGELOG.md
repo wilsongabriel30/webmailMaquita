@@ -7,6 +7,14 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Añadido
+- **Certificado del correo por dominio de cliente** (pedido de Andes): con `CERTIFICADO_MODO=por-dominio` en `/etc/maquita-mail/organizacion.env`, cada dominio con zona en el servidor, salvo el principal, tiene su linaje `mail.<dominio>` (mail., webmail., autoconfig., autodiscover. y mta-sts. si se publica; solo los nombres que ya resuelven aquí, validación webroot) y deja de compartir el certificado del servidor, que es público en Certificate Transparency. Se instala por SNI en nginx (webmail, portal de dominio 8444 y autoconfiguración, en `sites-available/correo-dominio-<dominio>`), Postfix (`tls_server_sni_maps`, `postmap -F`) y Dovecot (`local_name`, sintaxis de 2.4 o 2.3 según `dovecot --version`), cada uno con copia previa, comprobación (`nginx -t`, `postfix check`, `doveconf -n`) y vuelta atrás; un gancho de renovación recompila el mapa de Postfix. Mientras el dominio no resuelve se sirve con el certificado del servidor y se reintenta en cada pasada; cuando resuelve, se emite y activa solo. Sin la variable no cambia nada (modo «compartido»). El panel muestra el modo y el estado de cada dominio.
+- Los linajes que fallan en Let's Encrypt esperan 1 h, 2 h, 4 h… hasta 7 días antes de reintentarse (`/var/lib/maquita-dns/certificados.json`), en vez de pedirse cada media hora.
+
+### Corregido
+- **`certificado-auto` fallaba cada 30 min con un servidor que no se llama `mail.<dominio>`** (aviso de Andes, `MAIL_HOST=hosting.<dominio>`): el certificado del servidor usa ahora el nombre tal cual como linaje y nombre principal, y el dominio principal sale de `mail.<dominio>`, de `ORG_DOMINIO`, de la zona más corta que lo contiene o del propio nombre. Los errores de configuración salen como aviso con código 0 (el temporizador ya no queda en `failed`) y el panel los muestra en «Certificado del correo».
+- El certificado del correo pasa también al portal de dominio (8444), que seguía con el provisional. Toda petición a certbot sigue llevando `--reuse-key --key-type ecdsa` (DANE), ahora en un único sitio (`certificado_base.pedir`).
+
 ## [1.11.1] - 2026-10-22
 
 Correcciones pedidas por Andes tras instalar la 1.11.0: el Editor de PDF y los Tableros vuelven a abrir con la sesión del webmail, llevan el nombre de la marca configurada, «Nuevo → Documento» del Drive funciona y nginx sirve el webmail como servidor por defecto.
