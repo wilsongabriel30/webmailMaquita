@@ -4,6 +4,7 @@ import { SectionHelp } from "../components/SectionHelp";
 import { AjustesServidor } from "./dns/AjustesServidor";
 import { CertificadoCorreo } from "./dns/CertificadoCorreo";
 import { EditorZona } from "./dns/EditorZona";
+import { Secundarios } from "./dns/Secundarios";
 import type { ServidorDns } from "./dns/tipos";
 
 interface Estado { bind: boolean; servidor: ServidorDns; zonas: number; lista: { zona: string; registros: number; serial: number; creada: string }[] }
@@ -34,6 +35,7 @@ export function ZonasDns() {
             { titulo: "Zona nueva", desc: "Se crean desde «Nuevo dominio»: la zona sale completa para el correo y la web." },
             { titulo: "Registros", desc: "Cada cambio se valida con BIND antes de aplicarse; si algo está mal, no se publica nada. Los marcados con ● los creó el asistente." },
             { titulo: "Ajustes", desc: "IP pública del correo y de la web y los servidores de nombres (ns1…ns5) con sus IP. Cada dominio usa sus propios ns1.dominio, ns2.dominio…" },
+            { titulo: "Servidores secundarios", desc: "En «Ajustes»: a qué servidores DNS se transfieren las zonas y a cuáles se avisa de cada cambio, con clave TSIG opcional y maestro oculto. BIND lo comprueba antes de aplicarlo." },
             { titulo: "Certificado del correo", desc: "Uno solo para mail., autoconfig. y autodiscover. de todos los dominios (webmail, IMAP, SMTP y FTP). Se emite cuando los nombres ya apuntan aquí desde Internet y se renueva solo." },
             { titulo: "Cómo lo ve Internet", desc: "Comprueba la delegación en el registrador y que el dominio, el correo y la web respondan desde fuera." },
           ]} />
@@ -46,7 +48,8 @@ export function ZonasDns() {
           <pre className="mt-2 bg-white border rounded p-2 text-xs">sudo bash deploy/webmail/instalar-app.sh dns</pre></div>
       )}
       {estado && (ajustes || sinAjustes) && <AjustesServidor actual={estado.servidor || {}} onGuardado={() => { cargar(); setAjustes(false); }} />}
-      {estado?.servidor?.aviso && <p className="text-xs text-amber-700">{estado.servidor.aviso}</p>}
+      {estado?.bind && ajustes && !sinAjustes && <Secundarios />}
+      {estado?.servidor?.aviso &&<p className="text-xs text-amber-700">{estado.servidor.aviso}</p>}
 
       {!abierta && estado?.bind && !sinAjustes && <CertificadoCorreo />}
       {abierta ? (
