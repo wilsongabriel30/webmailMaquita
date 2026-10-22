@@ -7,6 +7,12 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Añadido
+- **El actualizador informa de los archivos del sistema que cambia** (pedido de Andes, que tenía la actualización automática apagada porque «pisa parches locales y no avisa»): antes de aplicar, `maquita-actualizar` toma las sumas sha256 de las rutas de `deploy/actualizar/vigilados.txt` (bind, nginx, fail2ban, postfix, dovecot, rspamd, systemd, sudoers, cron, `/usr/local/{bin,sbin,lib}`, `/etc/maquita*` y los `.env` de las aplicaciones) y al terminar, también tras volver atrás, lista lo creado, modificado y borrado por grupo en el registro, en `progreso.json` («archivos_sistema») y en el panel (Actualizaciones → «Archivos del sistema cambiados»). Nuevo módulo `deploy/actualizar/lib/vigilados.py`.
+- Copia del contenido anterior de cada archivo modificado o borrado en `/var/backups/maquita-actualizar/<fecha>-<versión>/archivos-sistema/` (carpetas 0700, archivos 0600 incluidos los `.env`, sin seguir enlaces, hasta 4 MB por archivo y 256 MB en total), con el informe completo en `archivos-sistema.json`.
+- **Detección de parches locales**: lo que el producto instala tal cual (`/usr/local/lib/maquita-dns/*.py`, `/usr/local/sbin/maquita-*`, filtros de fail2ban y perfiles del WAF de sitios…) se compara con el archivo del repositorio en la versión instalada antes de actualizar; si no coincide y la versión lo reemplaza, se marca «tenía cambios locales» y se avisa en el registro y en el panel, sin detener la actualización.
+- `docs/ACTUALIZACIONES.md`: «Archivos del sistema cambiados» y «Si tiene parches locales» (qué se regenera, transferencias DNS con `maquita-dns servidor --transferir-a … --notificar-a …` o DNS → Secundarios, y `FAIL2BAN_IGNORAR` y `PROXY_CONFIABLE` de `organizacion.env`).
+
 ## [1.11.1] - 2026-10-22
 
 Correcciones pedidas por Andes tras instalar la 1.11.0: el Editor de PDF y los Tableros vuelven a abrir con la sesión del webmail, llevan el nombre de la marca configurada, «Nuevo → Documento» del Drive funciona y nginx sirve el webmail como servidor por defecto.
