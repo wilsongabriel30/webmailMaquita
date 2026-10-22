@@ -62,8 +62,8 @@ pagar paneles y nubes extranjeras sin perder funciones.
 |---|---|
 | MariaDB y PostgreSQL, con asistente | ✅ |
 | phpMyAdmin y Adminer con entrada directa desde el panel | ✅ |
-| Usuarios de base con permisos a medida | ⏳ v1.11 |
-| Acceso remoto a bases (por IP y con TLS) | ⏳ v1.11 |
+| Usuarios de base con permisos a medida | ✅ ([guía](BASES-WAF-CLAVES.md)) |
+| Acceso remoto a bases (por IP y con TLS) | ✅ ([guía](BASES-WAF-CLAVES.md)) |
 
 ### Seguridad
 
@@ -73,8 +73,8 @@ pagar paneles y nubes extranjeras sin perder funciones.
 | Bloqueo de IP del servidor (cortafuegos, fail2ban, países) y por sitio | ✅ |
 | Protección contra hotlinking | ✅ |
 | Protección contra ataques de contraseña y segundo factor | ✅ |
-| Cortafuegos de aplicaciones web (reglas OWASP) | Parcial: reglas para WordPress · ⏳ v1.11 |
-| Claves SSH y fichas de API | ⏳ v1.11 |
+| Cortafuegos de aplicaciones web (reglas OWASP) | ✅ OWASP CRS completo por sitio: modo, paranoia, exclusiones y bloqueos ([guía](BASES-WAF-CLAVES.md)) |
+| Claves SSH y fichas de API | ✅ ([guía](BASES-WAF-CLAVES.md)) |
 
 ### Software
 

@@ -61,8 +61,8 @@ foreign panels and clouds without losing features.
 |---|---|
 | MariaDB and PostgreSQL, with a wizard | ✅ |
 | phpMyAdmin and Adminer with one-click sign-in | ✅ |
-| Database users with custom privileges | ⏳ v1.11 |
-| Remote database access (by IP, with TLS) | ⏳ v1.11 |
+| Database users with custom privileges | ✅ ([guide, in Spanish](BASES-WAF-CLAVES.md)) |
+| Remote database access (by IP, with TLS) | ✅ ([guide, in Spanish](BASES-WAF-CLAVES.md)) |
 
 ### Security
 
@@ -72,8 +72,8 @@ foreign panels and clouds without losing features.
 | IP blocking for the server (firewall, fail2ban, countries) and per site | ✅ |
 | Hotlink protection | ✅ |
 | Brute-force protection and two-factor authentication | ✅ |
-| Web application firewall (OWASP rules) | Partial: WordPress rules · ⏳ v1.11 |
-| SSH keys and API tokens | ⏳ v1.11 |
+| Web application firewall (OWASP rules) | ✅ full OWASP CRS per site: mode, paranoia level, rule exclusions and blocked requests ([guide, in Spanish](BASES-WAF-CLAVES.md)) |
+| SSH keys and API tokens | ✅ ([guide, in Spanish](BASES-WAF-CLAVES.md)) |
 
 ### Software
 
