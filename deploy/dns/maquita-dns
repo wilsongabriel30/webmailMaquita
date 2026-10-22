@@ -24,7 +24,9 @@ Uso:
   maquita-dns comprobar <zona>              propagación vista desde Internet
   maquita-dns certificado-estado            certificado del correo: nombres y vencimiento
   maquita-dns certificado-correo            emite o amplía el certificado del correo para todos los dominios
-  maquita-dns certificado-auto              lo mismo, solo si hay nombres nuevos que ya apuntan aquí (temporizador)
+                                            (CERTIFICADO_MODO=por-dominio: uno propio por dominio de cliente)
+  maquita-dns certificado-auto              lo mismo, solo si hay nombres nuevos que ya apuntan aquí (temporizador);
+                                            un error de configuración sale como aviso, con código 0
 """
 
 import ipaddress
