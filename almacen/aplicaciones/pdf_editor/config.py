@@ -18,7 +18,7 @@ class Config:
     SECRET_KEY = os.getenv("SECRET_KEY") or os.getenv("WEBMAIL_SECRET_KEY", "")
     WEBMAIL_SECRET_KEY = os.getenv("WEBMAIL_SECRET_KEY") or os.getenv("SECRET_KEY", "")
 
-    # Redis del webmail: valida que la sesión del usuario siga viva (imap_pass:<user>).
+    # Redis del webmail: valida que la sesión del usuario siga viva (imap_pass:<user>:<sid>).
     REDIS_URL = os.getenv("REDIS_URL", "")
 
     # Base pública del Drive, para construir enlaces y llamar a su API.

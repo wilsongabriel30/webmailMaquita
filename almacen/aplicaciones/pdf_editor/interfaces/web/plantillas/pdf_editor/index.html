@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Editor PDF - Raíces Maquita{% endblock %}
+{% block title %}Editor PDF - {{ drive_name }}{% endblock %}
 
 {% block extra_css %}
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -564,7 +564,7 @@
         <div class="modal-body">
             <div style="margin-bottom:14px;">
                 <label style="font-size:12px;font-weight:600;display:block;margin-bottom:5px;">Texto de la marca de agua</label>
-                <input type="text" id="inputTextoMarcaAgua" class="form-input" value="CONFIDENCIAL" placeholder="Ej: BORRADOR, COPIA, MAQUITA" style="width:100%;font-size:13px;">
+                <input type="text" id="inputTextoMarcaAgua" class="form-input" value="CONFIDENCIAL" placeholder="Ej: BORRADOR, COPIA, CONFIDENCIAL" style="width:100%;font-size:13px;">
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
                 <div>
@@ -1239,7 +1239,7 @@
             <textarea id="inputPreguntaIA" class="form-input" rows="2" placeholder="Ej.: ¿De qué trata este documento? ¿Qué montos se mencionan?" style="width:100%;font-size:13px;resize:none;" title="Escribe tu pregunta sobre el contenido del documento"></textarea>
             <button class="btn-modal primary" id="btnPreguntarIA" style="width:100%;margin-top:8px;" title="Envía la pregunta al asistente de IA institucional"><i class="bi bi-send"></i> Preguntar</button>
             <div id="respuestaIA" style="margin-top:12px;padding:12px;background:#f7f7f7;border-radius:8px;font-size:13px;line-height:1.6;max-height:45vh;overflow-y:auto;"></div>
-            <p style="font-size:11px;color:#6d6d6d;margin:8px 0 0;"><i class="bi bi-info-circle"></i> El asistente lee el texto del documento abierto (IA institucional de Maquita, tus datos no salen de la organización).</p>
+            <p style="font-size:11px;color:#6d6d6d;margin:8px 0 0;"><i class="bi bi-info-circle"></i> El asistente lee el texto del documento abierto (IA institucional, tus datos no salen de la organización).</p>
         </div>
     </div>
 </div>
@@ -1288,7 +1288,7 @@ window.PDF_EDITOR_CFG = {
 <script src="{{ url_for('static', filename='js/pdf_editor/editor_nuevo_documento.js') }}?v=20260731e"></script>
 <script src="{{ url_for('static', filename='js/pdf_editor/editor_buscar_exportar.js') }}?v=20260818a"></script>
 <script src="{{ url_for('static', filename='js/pdf_editor/editor_asistente.js') }}?v=20260730p"></script>
-<script src="{{ url_for('static', filename='js/pdf_editor/editor_firma_p12.js') }}?v=20260730"></script>
+<script src="{{ url_for('static', filename='js/pdf_editor/editor_firma_p12.js') }}?v=20261021"></script>
 <script src="{{ url_for('static', filename='js/pdf_editor/editor_imagen_recorte.js') }}?v=20260818a"></script>
 <script src="{{ url_for('static', filename='js/pdf_editor/editor_compartir.js') }}?v=20260818a"></script>
 <script src="{{ url_for('static', filename='js/pdf_editor/editor_convertir.js') }}?v=20260818a"></script>

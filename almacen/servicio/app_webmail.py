@@ -50,6 +50,7 @@ _EXENTAS = (
     '/healthz',
     '/api/almacen/salud',       # balanceador: proceso vivo
     '/api/almacen/listo',       # balanceador: base accesible
+    '/api/almacen/marca',       # nombre visible del Drive (lo piden las Aplicaciones del Drive)
 )
 
 
@@ -135,10 +136,11 @@ def crear_app_webmail() -> Flask:
     from api_actividad import bp_actividad
     from api_almacenamiento import bp_almacenamiento
     from api_alias import bp_alias
+    from api_crear import bp_crear
 
     for bp in (bp_archivos, bp_compartir, bp_extras, bp_admin, bp_versiones,
                bp_onlyoffice, bp_unidades, bp_actividad, bp_almacenamiento,
-               bp_alias):
+               bp_alias, bp_crear):
         app.register_blueprint(bp, url_prefix='/api/almacen')
     app.register_blueprint(bp_onlyoffice_web)   # /archivos-almacen/editar
     from acceso_externo import bp_acceso_externo
@@ -147,6 +149,8 @@ def crear_app_webmail() -> Flask:
     app.register_blueprint(bp_panel, url_prefix='/api/almacen/panel')   # canal del panel de administración
     from salud_balanceador import bp_salud
     app.register_blueprint(bp_salud)   # /api/almacen/salud y /api/almacen/listo
+    from api_marca import bp_marca
+    app.register_blueprint(bp_marca)   # /api/almacen/marca (nombre del Drive para las Aplicaciones)
 
     # El template del explorador viene del sistema mayor y enlaza a modulos
     # que aqui no existen (helpdesk, etc.): esos enlaces van al correo en vez
@@ -412,8 +416,11 @@ def crear_app_webmail() -> Flask:
         return jsonify({'success': True, 'servicio': 'almacen-webmail'})
 
     # Cualquier endpoint del contrato aún no implementado responde JSON 404
-    # (nunca HTML: el frontend hace .json() sobre la respuesta).
-    @app.route('/api/almacen/<path:faltante>')
+    # (nunca HTML: el frontend hace .json() sobre la respuesta). Con TODOS los métodos:
+    # solo con GET, un POST a una ruta que faltaba salía 405 Method Not Allowed y no 404
+    # (así se escondió que faltaba POST /archivos/crear, 21/10/2026).
+    @app.route('/api/almacen/<path:faltante>',
+               methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])
     def _no_implementado(faltante):
         return jsonify({'success': False,
                         'error': f'Función no disponible: /{faltante}'}), 404

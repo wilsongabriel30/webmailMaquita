@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}PDF - Raíces Maquita{% endblock %}
+{% block title %}PDF - {{ drive_name }}{% endblock %}
 
 {% block extra_css %}
 <!-- Bootstrap Icons (local) -->
@@ -27,7 +27,7 @@
 
         <div class="sidebar-section">
             <div class="sidebar-title">Archivos</div>
-            <a href="#" class="sidebar-item" title="Tus archivos guardados en la Nube de Raíces">
+            <a href="#" class="sidebar-item" title="Tus archivos guardados en {{ drive_name }}">
                 <i class="bi bi-folder"></i>
                 <span>Mis documentos</span>
             </a>

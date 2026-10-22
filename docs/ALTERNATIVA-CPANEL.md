@@ -128,7 +128,7 @@ Otras secciones opcionales: `activesync`, `cortafuegos`, `identidad`, `respaldos
 La guía completa está en [INSTALL-NATIVE.md](INSTALL-NATIVE.md) y la configuración del DNS, paso a paso, en
 [CONFIGURAR-DNS.md](CONFIGURAR-DNS.md).
 
-**Requisitos orientativos:** 4 núcleos, 8 GB de RAM y 80 GB de disco para una organización mediana con
+**Requisitos orientativos:** 4 núcleos con x86-64-v2 (en Proxmox, CPU «host»; los Tableros lo necesitan), 8 GB de RAM y 80 GB de disco para una organización mediana con
 sus sitios; una IP pública con el puerto 25 abierto para recibir correo.
 
 ## Versiones y hoja de ruta

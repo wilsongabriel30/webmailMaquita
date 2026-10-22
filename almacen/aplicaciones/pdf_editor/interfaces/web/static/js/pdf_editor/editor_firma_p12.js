@@ -40,6 +40,12 @@ window.PDFEditorPartes.firma_p12 = function (E) {
         // -------- Aviso de privacidad / términos y condiciones --------
         let _consentimientoOK = false;
 
+        // Nombre del Drive configurado (lo deja base.html), escapado para ir en HTML.
+        function _nombreDrive() {
+            const nombre = String(window.DRIVE_NAME || 'Nube');
+            return nombre.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+
         // Garantiza que el usuario haya leído y aceptado el aviso antes de guardar
         // su certificado/contraseña en el servidor. Devuelve true si aceptó.
         async function _asegurarConsentimiento() {
@@ -60,7 +66,7 @@ window.PDFEditorPartes.firma_p12 = function (E) {
                     '<div style="background:#fff;max-width:560px;width:100%;max-height:85vh;overflow:auto;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.3);">' +
                     '<div style="padding:16px 20px;border-bottom:1px solid #eee;font-weight:700;font-size:16px;color:#0b57c9;"><i class="bi bi-shield-lock"></i> Aviso de privacidad y términos de uso — Firma electrónica</div>' +
                     '<div style="padding:16px 20px;font-size:13px;color:#333;line-height:1.5;">' +
-                    '<p>Para poder firmar desde cualquier dispositivo sin volver a subir tu certificado, Raíces puede <b>almacenar en el servidor</b> tu archivo de firma (<b>.p12/.pfx</b>) y, <b>solo si tú lo eliges</b>, su contraseña.</p>' +
+                    '<p>Para poder firmar desde cualquier dispositivo sin volver a subir tu certificado, ' + _nombreDrive() + ' puede <b>almacenar en el servidor</b> tu archivo de firma (<b>.p12/.pfx</b>) y, <b>solo si tú lo eliges</b>, su contraseña.</p>' +
                     '<ul style="margin:8px 0 8px 18px;padding:0;">' +
                     '<li>Tu certificado y contraseña se guardan <b>cifrados</b> y son <b>de uso exclusivo tuyo</b>: están aislados por tu cuenta y <b>ningún otro usuario</b> puede verlos ni usar tu firma.</li>' +
                     '<li>La contraseña (si decides guardarla) <b>nunca se muestra</b> ni sale del servidor; solo se usa para aplicar <b>tus</b> firmas.</li>' +

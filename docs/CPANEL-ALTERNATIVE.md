@@ -127,7 +127,7 @@ Other optional sections: `activesync`, `cortafuegos` (firewall), `identidad`, `r
 `bi`, `pdf`, `onlyoffice`. The full guide is in [INSTALL-NATIVE.md](INSTALL-NATIVE.md); the interface and
 documentation are in Spanish.
 
-**Indicative requirements:** 4 cores, 8 GB RAM and 80 GB disk for a medium-sized organisation with its
+**Indicative requirements:** 4 x86-64-v2 cores (on Proxmox, CPU type «host»; the dashboards need it), 8 GB RAM and 80 GB disk for a medium-sized organisation with its
 sites; a public IP with port 25 open to receive email.
 
 ## Releases and roadmap

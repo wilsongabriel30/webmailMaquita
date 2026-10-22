@@ -198,17 +198,15 @@ async def _send_invitations(
     request, creator, title, meeting_url, start_time, attendees
 ):
     """Send meeting invitation emails to attendees via SMTP."""
-    redis = request.app.state.redis
-    raw_pass = await redis.get(f"imap_pass:{creator}")
-    if not raw_pass:
-        return
-    # La credencial en Redis va cifrada; leerla cruda no sirve como contraseña.
-    from app.core.session import decrypt_password
+    # La credencial va POR SESIÓN (`imap_pass:{u}:{sid}`, 12/10/2026) y cifrada: se lee
+    # con la función común, con el sid de la petición. Antes se miraba `imap_pass:{u}`,
+    # que ya no existe, y las invitaciones no salían nunca (sin aviso: son best-effort).
+    from app.core.session import get_imap_login_user, get_user_password
 
     try:
-        password = decrypt_password(raw_pass)
-    except Exception:
-        await redis.delete(f"imap_pass:{creator}")
+        password = await get_user_password(request, creator)
+        usuario_smtp = await get_imap_login_user(request, creator)
+    except HTTPException:
         return
 
     from app.config import get_settings
@@ -250,7 +248,7 @@ async def _send_invitations(
 
         with smtplib.SMTP(settings.smtp_host, settings.smtp_port) as smtp:
             smtp.starttls()
-            smtp.login(creator, password)
+            smtp.login(usuario_smtp, password)
             smtp.sendmail(creator, attendees, msg.as_string())
     except Exception:
         pass  # Best effort

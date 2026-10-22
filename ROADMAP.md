@@ -23,6 +23,7 @@ Estados: **DONE** (publicado) · **IN PROGRESS** (en desarrollo) · **PLANNED** 
 | 2026-10-21 | 1.9.0 | Portal del cliente: cada organización administra sus sitios |
 | 2026-10-21 | 1.10.0 | Hospedaje completo (alternativa libre a cPanel), ActiveSync 16.1 |
 | 2026-10-21 | 1.11.0 | Para desarrolladores y organizaciones grandes: búsqueda en adjuntos, tableros de seguridad y Wazuh, gran escala, OIDC, git, API y DNS dinámico |
+| 2026-10-22 | 1.11.1 | Correcciones pedidas por Andes: Editor de PDF y Tableros sin 401, nombres de marca, «Nuevo → Documento», nginx por defecto |
 
 El detalle de cada versión está en [CHANGELOG.md](CHANGELOG.md) y en
 [Releases](https://github.com/wilsongabriel30/webmailMaquita/releases).

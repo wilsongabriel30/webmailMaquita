@@ -39,3 +39,9 @@ venv/bin/gunicorn 'app_bi:app' --bind 0.0.0.0:8791
   consultas** (`ejecutar_consulta` lanza *"truth value of a Series is ambiguous"* en
   rankings) — por eso `tableros.py` agrega con `pandas` y usa el motor solo para la
   visualización.
+
+## Requisito de CPU
+
+NumPy 2.x necesita una CPU **x86-64-v2**. En una VM de Proxmox con CPU genérica (`kvm64`) el servicio
+`maquita-bi` muere al arrancar. Con la VM apagada: `qm set <vmid> --cpu host` (o `x86-64-v2-AES`).
+`instalar-app.sh bi` lo comprueba y se detiene con este aviso (`BI_FORZAR=1` para seguir igualmente).

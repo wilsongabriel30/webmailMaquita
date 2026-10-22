@@ -17,9 +17,12 @@ Archivos de la app (sin credenciales en el código; todo por entorno — ver `.e
 
 - **`config.py`** — configuración desde variables de entorno (2 BD + secreto del Drive).
 - **`auth_drive.py`** — puente de autenticación: valida el **token del Drive**
-  (cookie `access_token`, JWT con `WEBMAIL_SECRET_KEY` + sesión viva en Redis) y lo
-  expone a `flask_login`, para que `@login_required`/`current_user` funcionen sin login
-  propio. Mismo contrato que el resto del Almacén.
+  (cookie `access_token`, JWT con `WEBMAIL_SECRET_KEY` + sesión viva en Redis,
+  `imap_pass:<usuario>:<sid>`) y lo expone a `flask_login`, para que
+  `@login_required`/`current_user` funcionen sin login propio. Mismo contrato que el
+  resto del Almacén. Es idéntico al de `bi/` (ver `../README.md`).
+- **`marca_drive.py`** — nombre visible del Drive (`drive_name`) para plantillas y JS,
+  el mismo que configura el Almacén. También idéntico al de `bi/`.
 - **`requirements.txt`** — dependencias (Flask, cryptography, PyMuPDF, OpenCV, etc.).
 
 ## Instalación

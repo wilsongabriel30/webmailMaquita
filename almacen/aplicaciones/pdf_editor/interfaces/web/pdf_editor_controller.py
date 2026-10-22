@@ -92,7 +92,6 @@ def index():
 
     return render_template(
         'pdf_editor/home.html',
-        titulo='PDF - FARO Maquita',
         recientes=recientes
     )
 

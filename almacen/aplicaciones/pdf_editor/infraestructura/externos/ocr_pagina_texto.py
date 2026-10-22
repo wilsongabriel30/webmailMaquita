@@ -265,7 +265,7 @@ def rehacer_con_texto(contenido_pdf, idioma='spa', dpi=DPI):
         # trazar —las que había en el papel— y no se le deduzcan columnas por
         # cómo quedó alineado el texto, que serían un espejismo
         # (ver tablas_deteccion._tablas_de).
-        salida.set_metadata({'keywords': MARCA_OCR, 'producer': 'FARO Maquita'})
+        salida.set_metadata({'keywords': MARCA_OCR, 'producer': 'Editor de PDF'})
 
         if not renglones_totales:
             logger.warning('OCR: no se reconoció ni una línea en %d página(s)', total)

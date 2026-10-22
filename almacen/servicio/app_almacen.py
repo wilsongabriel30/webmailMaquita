@@ -49,6 +49,8 @@ def crear_app_almacen() -> Flask:
     from api_admin import bp_admin
     from api_versiones import bp_versiones
     from api_onlyoffice import bp_onlyoffice
+    from api_crear import bp_crear
+    app.register_blueprint(bp_crear, url_prefix='/api/nextcloud')
     app.register_blueprint(bp_archivos, url_prefix='/api/nextcloud')
     app.register_blueprint(bp_compartir, url_prefix='/api/nextcloud')
     app.register_blueprint(bp_extras, url_prefix='/api/nextcloud')
