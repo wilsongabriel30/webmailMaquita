@@ -182,7 +182,7 @@ export default function App() {
 
     // Global error handler for unhandled promise rejections
     const handler = (e: PromiseRejectionEvent) => {
-      console.error('[Maquita] Unhandled:', e.reason);
+      console.error('[correo] Unhandled:', e.reason);
     };
     window.addEventListener('unhandledrejection', handler);
     return () => window.removeEventListener('unhandledrejection', handler);

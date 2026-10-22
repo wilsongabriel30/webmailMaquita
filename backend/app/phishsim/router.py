@@ -81,10 +81,9 @@ def _login_html(token: str, email: str, org: str = "Tu organización") -> str:
 
 def _training_html(org: str = "Tu organización") -> str:
     o = html_lib.escape(org)
-    return (
-        """<!doctype html><html lang="es"><head>
+    return """<!doctype html><html lang="es"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Simulación de phishing — Maquita</title>
+<title>Simulación de phishing — __ORG__</title>
 <style>
  body{font-family:Segoe UI,Arial,sans-serif;background:#f3f2f1;margin:0;padding:24px;color:#323130}
  .card{max-width:600px;margin:30px auto;background:#fff;border-radius:12px;border-top:6px solid #ca5010;padding:34px;box-shadow:0 3px 14px rgba(0,0,0,.08)}
@@ -100,7 +99,7 @@ def _training_html(org: str = "Tu organización") -> str:
 <div class="card">
   <div class="ico">🎣</div>
   <h1>¡Esto era una simulación de phishing!</h1>
-  <p class="lead">Tranquilo: fue una prueba interna de <b>Tecnología de Maquita</b> para entrenarnos.
+  <p class="lead">Tranquilo: fue una prueba interna de <b>Tecnología de __ORG__</b> para entrenarnos.
   No pasó nada malo y <b>no guardamos ninguna contraseña</b>. Pero en un ataque real, aquí habrían robado tus datos.</p>
 
   <div class="tip"><b>¿Cómo reconocerlo la próxima vez?</b>
@@ -114,12 +113,6 @@ def _training_html(org: str = "Tu organización") -> str:
 
   <div class="ok"><b>✅ Si dudas, repórtalo:</b> usa el botón "Reportar phishing/spam" del correo o avisa a Tecnología.
   Reportar es la mejor acción — ¡así nos proteges a todos!</div>
-  <div class="foot">Programa de concientización · Fundación Maquita</div>
+  <div class="foot">Programa de concientización · __ORG__</div>
 </div>
-</body></html>""".replace("— Maquita<", "— " + o + "<")
-        .replace("<b>Tecnología de Maquita</b>", "<b>Tecnología de " + o + "</b>")
-        .replace(
-            "Programa de concientización · Fundación Maquita",
-            "Programa de concientización · " + o,
-        )
-    )
+</body></html>""".replace("__ORG__", o)

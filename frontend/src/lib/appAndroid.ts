@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { nombreApp } from './marca';
 
 /** Manifiesto de la app Android publicado por el servidor (AM-11). */
 export interface ManifiestoApp { versionName: string; tamano?: number; fecha?: string; notas?: string; nombre?: string; }
@@ -6,7 +7,11 @@ export interface ManifiestoApp { versionName: string; tamano?: number; fecha?: s
 const RUTA_JSON = '/webmail/descargas/maquita-mail.json';
 let cache: Promise<ManifiestoApp | null> | null = null;
 
-/** Dentro de la propia app no tiene sentido ofrecer su descarga. */
+// Las rutas del servidor (maquita-mail.apk / .json) son internas: no cambian para no romper a
+// quien ya tiene la app (su actualizador las consulta). Lo que ve la persona es el nombre del
+// archivo descargado, que sigue a la marca: ver nombreArchivoApk().
+/** Dentro de la propia app no tiene sentido ofrecer su descarga. «CorreoApp» es el agente neutro
+ *  de la app genérica; «MaquitaMail» el de la app de la casa, que se sigue reconociendo. */
 export function dentroDeLaApp(): boolean {
   return typeof navigator !== 'undefined' && /(MaquitaMail(App)?|CorreoApp)\//.test(navigator.userAgent);
 }
@@ -14,6 +19,24 @@ export function dentroDeLaApp(): boolean {
 /** URL del APK en el host actual: vale igual en los portales por empresa. */
 export function urlApk(): string {
   return `${window.location.origin}/webmail/descargas/maquita-mail.apk`;
+}
+
+/** Nombre del archivo que se guarda al descargar: el del producto (`app_name`), apto para archivo. */
+export function nombreArchivoApk(nombre: string = nombreApp()): string {
+  const limpio = nombre.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^[-.]+|[-.]+$/g, '');
+  return `${limpio || 'correo'}.apk`;
+}
+
+/** Descarga el APK con el nombre de la marca (mismo origen: el atributo download se respeta). */
+export function descargarApk(): void {
+  const a = document.createElement('a');
+  a.href = urlApk();
+  a.download = nombreArchivoApk();
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 }
 
 export function textoTamano(m: ManifiestoApp): string {

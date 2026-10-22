@@ -9,7 +9,7 @@ function logError(context: string, details: Record<string, unknown>) {
     context,
     ...details,
   };
-  console.error("[Maquita]", context, details);
+  console.error("[correo]", context, details);
   // Store last 50 errors in sessionStorage for debugging
   try {
     const logs = JSON.parse(sessionStorage.getItem("maquita_errors") || "[]");

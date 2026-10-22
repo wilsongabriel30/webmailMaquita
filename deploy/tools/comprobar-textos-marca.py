@@ -13,6 +13,13 @@ También revisa las Aplicaciones del Drive (Editor de PDF y Tableros, en
 nombres del sistema central del que vienen), y se miran también las cadenas de Python
 (no los comentarios ni los docstrings, que no ve nadie).
 
+Y revisa las cadenas de Python de los backends (`backend/app`, `panel-dominio/backend/app`),
+f-strings incluidas: son los mensajes que el servidor manda a la gente (comentarios de
+tareas, avisos, páginas, correos automáticos). Ahí se permiten las rutas y nombres técnicos
+(`/opt/maquita-webmail`, `maquita-sudo`, `maquita.d`...), los registros (`logger.*`) y los
+marcadores que leen otras piezas; el nombre visible sale de `org_name` / `app_name`
+(app/branding/service.py).
+
 Uso: python3 deploy/tools/comprobar-textos-marca.py   (desde la raíz del repositorio)
 """
 import io
@@ -31,6 +38,22 @@ APLICACIONES = ["almacen/aplicaciones/pdf_editor", "almacen/aplicaciones/bi"]
 EXTENSIONES_APLICACIONES = (".html", ".js", ".py")
 NOMBRE_APLICACIONES = re.compile(r"(?i:maquita)|Ra[íi]ces\b|\bFARO\b")
 METADATOS_PY = re.compile(r"\s*__(author|copyright)__\s*=")  # metadatos del paquete: no los ve nadie
+
+# Backends: cadenas de Python que pueden acabar delante de la gente.
+BACKENDS = ["backend/app", "panel-dominio/backend/app"]
+REGISTRO_PY = re.compile(r"\b(log|logger|logging|_log|registro)\.(debug|info|warning|warn|error|exception|critical)\(")
+# Nombres técnicos de los backends: rutas, servicios, claves y marcadores que no ve nadie.
+PERMITIDO_BACKEND = [
+    re.compile(r"maquita\.(d|webmail)\b"),                 # carpeta de dovecot y nombre del registro
+    re.compile(r"\b[a-z]+-maquita\b"),                     # identificadores técnicos (cliente OIDC)
+    re.compile(r"^([rbf]*)(['\"])maquita\2$"),             # identificador técnico suelto (reino OIDC)
+    re.compile(r"Maquita Compliance"),                      # nombre de la llave GPG de las evidencias
+    re.compile(r"Meet Maquita\)"),                          # marcador de reuniones antiguo (expresión regular)
+    re.compile(r"\(generado por Maquita; no editar a mano\)"),  # marca del bloque sieve: la buscan los scripts guardados
+    re.compile(r"github\.com/\S+"),                         # agente de usuario hacia servicios externos
+    re.compile(r"^@maquita$"),                              # UID de los contactos (vCard): cambiarlo los duplica
+    re.compile(r"\borg\.maquita\.[a-z.]+"),                 # identificador del perfil de Apple: cambiarlo lo duplica
+]
 
 # Lo que SÍ puede llevar el nombre: no lo ve nadie, o es un contrato con otra pieza.
 PERMITIDO = [
@@ -89,6 +112,10 @@ def archivos_aplicaciones():
                     yield os.path.join(carpeta, n)
 
 
+# Python 3.12+ parte las f-strings en trozos: el texto literal llega como FSTRING_MIDDLE.
+_FSTRING_MIDDLE = getattr(tokenize, "FSTRING_MIDDLE", None)
+
+
 def cadenas_python(fuente: str):
     """(línea, texto) de cada cadena de Python que no es un docstring ni un comentario."""
     previo = tokenize.NEWLINE
@@ -97,10 +124,32 @@ def cadenas_python(fuente: str):
             if tok.type == tokenize.STRING and previo not in (tokenize.NEWLINE, tokenize.NL, tokenize.INDENT,
                                                              tokenize.DEDENT):
                 yield tok.start[0], tok.string
+            elif _FSTRING_MIDDLE is not None and tok.type == _FSTRING_MIDDLE:
+                yield tok.start[0], tok.string
             if tok.type not in (tokenize.COMMENT, tokenize.NL):
                 previo = tok.type
     except (tokenize.TokenError, SyntaxError):
         return
+
+
+def archivos_backend():
+    for raiz in BACKENDS:
+        for carpeta, subcarpetas, nombres in os.walk(raiz):
+            subcarpetas[:] = [d for d in subcarpetas if d not in ("tests", "__pycache__", "venv", ".venv")]
+            for n in nombres:
+                if n.endswith(".py") and not n.startswith("test_"):
+                    yield os.path.join(carpeta, n)
+
+
+def revisar_backend(ruta, fuente, hallazgos):
+    lineas = fuente.splitlines()
+    for numero, cadena in cadenas_python(fuente):
+        if REGISTRO_PY.search(lineas[numero - 1]):
+            continue  # registro del servidor: lo leen quienes administran, no la gente
+        for patron in PERMITIDO + PERMITIDO_BACKEND:
+            cadena = patron.sub("", cadena)
+        if NOMBRE.search(cadena):
+            hallazgos.append(f"{ruta}:{numero}: {cadena.strip()[:140]}")
 
 
 def revisar_lineas(ruta, lineas, nombre, hallazgos):
@@ -134,8 +183,12 @@ def main() -> int:
                     hallazgos.append(f"{ruta}:{numero}: {cadena.strip()[:140]}")
         else:
             revisar_lineas(ruta, enumerate(fuente.splitlines(), 1), NOMBRE_APLICACIONES, hallazgos)
+    for ruta in archivos_backend():
+        with open(ruta, encoding="utf-8", errors="replace") as f:
+            revisar_backend(ruta, f.read(), hallazgos)
     if hallazgos:
         print("Textos con el nombre escrito en el código (deben salir de la marca: lib/marca.ts;"
+              " en los backends, org_name/app_name de app/branding/service.py;"
               " en las Aplicaciones del Drive, drive_name de marca_drive.py):")
         print("\n".join("  " + h for h in hallazgos))
         return 1
