@@ -1,0 +1,106 @@
+# Archivos del sistema que vigila maquita-actualizar (deploy/actualizar/lib/vigilados.py).
+#
+# Antes de aplicar una versión se toman sus sumas sha256 (y una copia del contenido, en el respaldo de la
+# actualización); al terminar se comparan y se informa qué se creó, cambió o borró fuera del código.
+#
+# Formato:
+#   [grupo]                       los patrones siguientes forman ese grupo en el informe y en el panel
+#   /ruta/con/*/comodines         «*» y «?» dentro de un nombre, «**» cualquier número de carpetas,
+#                                 {a,b} alternativas
+#   /ruta  deploy/origen          segunda columna: el archivo del repositorio que el producto instala tal
+#                                 cual en esa ruta. Sirve para detectar parches locales: si el archivo
+#                                 instalado no es igual al del repositorio en la versión anterior, «tenía
+#                                 cambios locales». Si termina en «/», se le añade el nombre del archivo;
+#                                 si lleva un «*», toma lo que el «*» de la ruta abarcó. Solo para copias
+#                                 literales (no para archivos que el instalador arma o retoca).
+#   !/patrón                      excluido (vale para todos los grupos)
+#
+# Los enlaces simbólicos no se siguen: se vigila a dónde apuntan.
+
+[bind]
+/etc/bind/*
+/etc/bind/zonas/**
+
+[nginx]
+/etc/nginx/*.conf
+/etc/nginx/{conf.d,sites-available,sites-enabled,snippets,sitios-waf}/**
+/etc/nginx/sitios-waf/*.conf  deploy/sitios/nginx/waf-*.conf
+/etc/nginx/.htpasswd*
+
+[fail2ban]
+/etc/fail2ban/*.local
+/etc/fail2ban/{jail.d,filter.d,action.d}/*.{conf,local}
+/etc/fail2ban/jail.d/sitios-web.conf  deploy/sitios/fail2ban/sitios.conf
+/etc/fail2ban/filter.d/sitios-*.conf  deploy/sitios/fail2ban/filtro-sitios-*.conf
+
+[postfix]
+/etc/postfix/**
+
+[dovecot]
+/etc/dovecot/**
+/var/vmail/sieve/*.sieve
+/var/vmail/sieve/pipe-bin/*
+
+[rspamd]
+/etc/rspamd/*.map
+/etc/rspamd/{local.d,override.d,maps.d}/**
+
+[systemd]
+/etc/systemd/system/*.{service,timer,socket,path,mount}
+/etc/systemd/system/*.d/*.conf
+
+[sudoers]
+/etc/sudoers
+/etc/sudoers.d/*
+
+[cron y logrotate]
+/etc/cron.d/*
+/etc/logrotate.d/*
+
+[ssh, php y cortafuegos]
+/etc/ssh/sshd_config
+/etc/ssh/sshd_config.d/*
+/etc/php/*/fpm/pool.d/*
+/etc/nftables.conf
+
+[programas del producto]
+/usr/local/sbin/maquita-actualizar  deploy/actualizar/maquita-actualizar
+/usr/local/sbin/maquita-sudo  deploy/sudoers/maquita-sudo
+/usr/local/sbin/maquita-dns  deploy/dns/maquita-dns
+/usr/local/sbin/maquita-cortafuegos  deploy/cortafuegos/maquita-cortafuegos
+/usr/local/sbin/maquita-identidad  deploy/identidad/maquita-identidad
+/usr/local/sbin/maquita-respaldos  deploy/respaldos/maquita-respaldos
+/usr/local/sbin/maquita-sitios  deploy/sitios/maquita-sitios
+/usr/local/sbin/maquita-wazuh  deploy/wazuh/maquita-wazuh
+/usr/local/sbin/{maquita-contener,maquita-outbound}  deploy/tools/
+/usr/local/lib/maquita-actualizar/*.py  deploy/actualizar/lib/
+/usr/local/lib/maquita-actualizar/vigilados.txt  deploy/actualizar/vigilados.txt
+/usr/local/lib/maquita-dns/*.py  deploy/dns/lib/
+/usr/local/lib/maquita-cortafuegos/*.py  deploy/cortafuegos/lib/
+/usr/local/lib/maquita-respaldos/*.py  deploy/respaldos/lib/
+/usr/local/lib/maquita-sitios/*.py  deploy/sitios/lib/
+/usr/local/lib/maquita-sitios/apps/*.py  deploy/sitios/lib/apps/
+/usr/local/lib/maquita-sitios/wordpress/*.php  deploy/sitios/wordpress/
+/usr/local/lib/maquita-*/**
+/usr/local/bin/*
+/usr/local/sbin/*
+
+[configuración y .env de las aplicaciones]
+/etc/maquita*/*.{env,conf,json}
+/etc/maquita-*/**/*.{env,conf,json}
+/opt/maquita-webmail/*/.env
+/opt/maquita-webmail/*/*/.env
+/opt/maquita-webmail/almacen/aplicaciones/*/.env
+
+# Lo que cambia solo o lo deja cada instalación como copia propia: no aporta al informe.
+!/**/*.jnl
+!/**/*.{db,lmdb}
+!/**/*.{bak,bak.*,antes-*,anterior-*,original,dpkg-*,ucf-*,tmp,swp}
+!/**/*~
+!/**/__pycache__/**
+!/etc/bind/managed-keys.bind*
+!/etc/bind/*.mkeys*
+# Claves privadas: no cambian con una versión y no se copian a ningún sitio.
+!/etc/dovecot/private/**
+!/**/*.{pem,key}
+!/etc/maquita-respaldos/{clave,id_ed25519*}

@@ -15,6 +15,7 @@ APP_DIR="$(cd "${SELF}/../.." && pwd)"
 echo -e "${GREEN}[1/3] Ayudante y lista de firmantes...${NC}"
 install -d -m 755 /usr/local/lib/maquita-actualizar
 install -m 644 "${SELF}"/lib/*.py /usr/local/lib/maquita-actualizar/
+install -m 644 "${SELF}/vigilados.txt" /usr/local/lib/maquita-actualizar/vigilados.txt
 install -m 755 "${SELF}/maquita-actualizar" /usr/local/sbin/maquita-actualizar
 install -m 755 "${APP_DIR}/deploy/sudoers/maquita-sudo" /usr/local/sbin/maquita-sudo
 install -d -m 755 /etc/maquita-actualizar /var/lib/maquita-actualizar
