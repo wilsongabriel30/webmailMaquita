@@ -14,6 +14,7 @@ ESTE ARCHIVO ES IDÉNTICO en `almacen/aplicaciones/pdf_editor` y `almacen/aplica
 (cada aplicación se instala por separado). Si cambias uno, copia el otro: la prueba
 `almacen/tests/test_auth_drive_aplicaciones.py` falla si divergen.
 """
+import logging
 import os
 
 import jwt
@@ -22,6 +23,7 @@ from flask_login import LoginManager, UserMixin
 
 _SECRET = os.getenv("WEBMAIL_SECRET_KEY") or os.getenv("SECRET_KEY", "")
 _REDIS_URL = os.getenv("REDIS_URL", "")
+_log = logging.getLogger(__name__)
 _redis = None
 
 # Lote de cada vuelta de SCAN (acotado: nunca KEYS, que bloquea Redis entero).
@@ -68,7 +70,9 @@ def _sesion_viva(username, sid=None):
         for _clave in cliente.scan_iter(match=patron, count=_LOTE_SCAN):
             return True
         return False
-    except Exception:
+    except Exception as error:
+        # Sin esto, un Redis con contraseña mal puesta en el .env deja un 401 sin explicación.
+        _log.warning("Redis no responde al comprobar la sesión de %s: %s", username, type(error).__name__)
         return False
 
 
