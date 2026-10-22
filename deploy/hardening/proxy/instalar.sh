@@ -91,6 +91,25 @@ if [ "$MODO" = proxy_protocol ]; then
 fi
 mostrar_avisos() { local a; for a in "${avisos[@]}"; do echo "$a"; done; }
 
+# Cárceles en marcha que deberían llevar la acción de nginx y no la llevan («reload» no cambia las acciones de
+# una cárcel que ya corre; pasó con la primera versión de este ajuste).
+CARCELES_BANEO="sitios-wp-login sitios-escaneo sitios-abuso nginx-http-auth nginx-limit-req maquita-webmail"
+sin_accion=""
+if [ "$HAY_F2B" = 1 ] && [ -f "$(R etc/fail2ban/jail.d/zz-maquita-proxy-baneo.local)" ] \
+   && [ -n "$(fail2ban-client ping 2>/dev/null | grep pong || true)" ]; then
+  activas="$(fail2ban-client status 2>/dev/null | sed -n 's/.*Jail list:[[:space:]]*//p' | tr ',' ' ')"
+  for carcel in $CARCELES_BANEO; do
+    case " $activas " in *" $carcel "*) ;; *) continue ;; esac
+    [ -n "$(fail2ban-client get "$carcel" actions 2>/dev/null | grep maquita-nginx-baneo || true)" ] || sin_accion="$sin_accion $carcel"
+  done
+fi
+if [ "${#etiquetas[@]}" -eq 0 ] && [ -n "$sin_accion" ]; then
+  if [ "$SIMULAR" = 1 ]; then echo "Pendiente: la acción de nginx en las cárceles${sin_accion}."; mostrar_avisos; exit 0; fi
+  for carcel in $sin_accion; do fail2ban-client reload --restart "$carcel" >/dev/null 2>&1 || true; done
+  echo "Listo: la acción de nginx en las cárceles${sin_accion} (reiniciadas; sus bloqueos se restauran)."
+  mostrar_avisos
+  exit 0
+fi
 if [ "${#etiquetas[@]}" -eq 0 ]; then
   echo "Sin cambios: fail2ban y nginx ya siguen FAIL2BAN_IGNORAR, PROXY_CONFIABLE y PROXY_MODO (organizacion.env)."
   mostrar_avisos
@@ -159,7 +178,7 @@ if [ "$toca_f2b" = 1 ] && [ -n "$(fail2ban-client ping 2>/dev/null | grep pong |
   # «reload» no cambia las acciones de una cárcel que ya corre: las que llevan (o pierden) la acción de nginx se
   # reinician; fail2ban 1.x vuelve a aplicar sus bloqueos vigentes desde su base de datos.
   activas="$(fail2ban-client status 2>/dev/null | sed -n 's/.*Jail list:[[:space:]]*//p' | tr ',' ' ')"
-  for carcel in sitios-wp-login sitios-escaneo sitios-abuso nginx-http-auth nginx-limit-req maquita-webmail; do
+  for carcel in $CARCELES_BANEO; do
     case " $activas " in *" $carcel "*) fail2ban-client reload --restart "$carcel" >/dev/null 2>&1 || true ;; esac
   done
 fi

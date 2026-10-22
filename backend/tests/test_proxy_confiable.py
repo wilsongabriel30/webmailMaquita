@@ -197,6 +197,7 @@ def _raiz(tmp_path):
         '  ping) echo "Server replied: pong" ;;\n'
         '  status) if [ -z "${2:-}" ]; then echo "|- Number of jail: 2"; echo "\\`- Jail list: sshd, sitios-escaneo";\n'
         '          elif [ "$2" = sitios-escaneo ]; then echo "   \\`- Banned IP list: ${BANEADAS:-}"; else echo "   \\`- Banned IP list:"; fi ;;\n'
+        '  get) if [ -n "${SIN_ACCION:-}" ]; then echo "iptables-multiport"; else echo "iptables-multiport, maquita-nginx-baneo"; fi ;;\n'
         'esac\nexit 0\n')
     (binarios / "systemctl").write_text(f'#!/bin/bash\necho "systemctl $*" >> {registro}\nexit 0\n')
     for b in binarios.iterdir():
@@ -244,6 +245,11 @@ def test_instalador_simula_aplica_y_es_idempotente(tmp_path):
 
     rc, salida = _correr(raiz, binarios)
     assert rc == 0 and salida.startswith("Sin cambios"), salida
+
+    # Una cárcel en marcha sin la acción de nginx (reload no cambia sus acciones): se reinicia esa cárcel.
+    rc, salida = _correr(raiz, binarios, SIN_ACCION="1")
+    assert rc == 0 and salida.startswith("Listo: la acción de nginx en las cárceles sitios-escaneo"), salida
+    assert "fail2ban-client reload --restart sitios-escaneo" in registro.read_text()
 
     # Sin las variables, lo generado se retira (los include de los vhosts se quedan: sin archivo no hacen nada).
     (raiz / "etc/maquita-mail/organizacion.env").write_text("ORG_DOMINIO=example.org\n")
