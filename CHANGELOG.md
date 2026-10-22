@@ -7,6 +7,11 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Añadido
+- **Zonas DNS: transferencias a servidores secundarios** (`maquita-dns servidor --transferir-a IP[,RED] --notificar-a IP[:PUERTO] [--tsig generar|quitar] [--maestro-oculto si|no] [--quitar-transferencias]`, `--zona Z` para un ajuste propio y `--mostrar-secreto`): `allow-transfer` y `also-notify` de todas las zonas salen de `/etc/maquita-dns/servidor.json`, fuera del repositorio, así que las actualizaciones ya no los pisan. Clave TSIG `hmac-sha256` opcional en `/etc/bind/maquita-tsig.key` (con clave hacen falta la IP y la clave), nunca impresa sin orden explícita. «Maestro oculto»: comprueba que ningún servidor de nombres apunte a este servidor. Cada cambio pasa por `named-checkconf` y vuelve atrás si BIND lo rechaza; después `rndc reconfig` y aviso a los secundarios. Sin configurar nada, lo de siempre (`allow-transfer { none; }`, `notify no`). Tarjeta «Servidores secundarios» en Zonas DNS → Ajustes (`/api/dns/transferencias`). Guía en `docs/CONFIGURAR-DNS.md` (maestro oculto, secundario público y HE.net); pruebas en `backend/tests/test_dns_transferencias.py`.
+
+**Al actualizar:** quien parcheaba `zona.py` a mano para tener secundarios debe aplicar el ajuste `67-dns-transferencias.sh` antes de crear o borrar una zona: pasa a la configuración lo que hoy declara `/etc/bind/maquita-zonas.conf` (si usa claves TSIG o listas con nombre, no toca nada y pide hacerlo con `maquita-dns servidor`).
+
 ## [1.10.0] - 2026-10-21
 
 Hospedaje completo: funciones web, cuentas FTP adicionales, archivos y datos por sitio, en el panel general y en el portal del cliente. ActiveSync 16.1 (borradores del teléfono en el servidor) y libreta de la organización en los teléfonos. Probado de punta a punta en un servidor con portal y sitios (`prueba_aislamiento.py` y `prueba_mi_sitio.py`, con el bloque de la v1.10) y con teléfonos Android reales.
