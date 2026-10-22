@@ -44,7 +44,7 @@ echo -e "${GREEN}[3/4] Ayudante del panel...${NC}"
 install -d -m 755 /usr/local/lib/maquita-dns
 install -m 644 "${SELF}"/lib/*.py /usr/local/lib/maquita-dns/
 install -m 755 "${SELF}/maquita-dns" /usr/local/sbin/maquita-dns
-install -m 755 "${APP_DIR}/deploy/sudoers/maquita-sudo" /usr/local/sbin/maquita-sudo
+bash "${APP_DIR}/deploy/sudoers/instalar.sh"  # maquita-sudo y sus validadores (/usr/local/lib/maquita-sudo)
 
 # Certificado del correo automático: en cuanto los nombres de un dominio apuntan aquí desde Internet.
 cat > /etc/systemd/system/maquita-certificado-correo.service <<'EOF'

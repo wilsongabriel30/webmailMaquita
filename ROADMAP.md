@@ -25,6 +25,7 @@ Estados: **DONE** (publicado) · **IN PROGRESS** (en desarrollo) · **PLANNED** 
 | 2026-10-21 | 1.11.0 | Para desarrolladores y organizaciones grandes: búsqueda en adjuntos, tableros de seguridad y Wazuh, gran escala, OIDC, git, API y DNS dinámico |
 | 2026-10-22 | 1.11.1 | Correcciones pedidas por Andes: Editor de PDF y Tableros sin 401, nombres de marca, «Nuevo → Documento», nginx por defecto |
 | 2026-10-22 | 1.11.2 | Hospedaje para otras organizaciones: proxy de confianza, certificado por dominio, repositorios privados, entrada por dominio, informe del actualizador |
+| 2026-10-22 | 1.11.3 | `maquita-sudo` en módulos (sin cambios de comportamiento) |
 
 El detalle de cada versión está en [CHANGELOG.md](CHANGELOG.md) y en
 [Releases](https://github.com/wilsongabriel30/webmailMaquita/releases).

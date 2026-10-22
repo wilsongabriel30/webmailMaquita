@@ -19,7 +19,7 @@ echo -e "${GREEN}[2/4] Ayudante y claves...${NC}"
 install -d -m 755 /usr/local/lib/maquita-respaldos
 install -m 644 "${SELF}"/lib/*.py /usr/local/lib/maquita-respaldos/
 install -m 755 "${SELF}/maquita-respaldos" /usr/local/sbin/maquita-respaldos
-install -m 755 "${APP_DIR}/deploy/sudoers/maquita-sudo" /usr/local/sbin/maquita-sudo
+bash "${APP_DIR}/deploy/sudoers/instalar.sh"  # maquita-sudo y sus validadores (/usr/local/lib/maquita-sudo)
 install -d -m 700 /etc/maquita-respaldos /var/backups/maquita-respaldos /var/cache/maquita-respaldos
 install -d -m 755 /var/lib/maquita-respaldos
 [ -s /etc/maquita-respaldos/clave ] || ( umask 077; openssl rand -base64 33 | tr -d '\n' > /etc/maquita-respaldos/clave )

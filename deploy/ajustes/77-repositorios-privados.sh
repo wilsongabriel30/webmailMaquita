@@ -46,7 +46,7 @@ tar -czf "$RESPALDO" --ignore-failed-read -P "$LIB" /usr/local/sbin/maquita-siti
 install -d -m 755 "$LIB"
 install -m 644 "$S"/lib/*.py "$LIB/"
 install -m 755 "$S/maquita-sitios" /usr/local/sbin/maquita-sitios
-install -m 755 "$APP_DIR/deploy/sudoers/maquita-sudo" /usr/local/sbin/maquita-sudo
+bash "$APP_DIR/deploy/sudoers/instalar.sh"  # maquita-sudo y sus validadores (/usr/local/lib/maquita-sudo)
 if [ -d "$LIB_PORTAL" ] && ! portal_al_dia; then
   bash "$S/portal/instalar.sh" >/dev/null || echo "Aviso: no se pudo poner al día el intermediario del portal; ejecute $S/portal/instalar.sh." >&2
 fi

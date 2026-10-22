@@ -308,7 +308,7 @@ EOF
 systemctl daemon-reload
 systemctl enable --now sitios-disponibilidad.timer sitios-datos-noche.timer >/dev/null 2>&1
 # El envoltorio sudo del panel conoce maquita-sitios desde esta versión: reinstalarlo.
-install -m 755 "${APP_DIR}/deploy/sudoers/maquita-sudo" /usr/local/sbin/maquita-sudo
+bash "${APP_DIR}/deploy/sudoers/instalar.sh"  # maquita-sudo y sus validadores (/usr/local/lib/maquita-sudo)
 # Los sitios ya creados se regeneran con las plantillas de esta versión.
 /usr/local/sbin/maquita-sitios regenerar >/dev/null
 # «Mi sitio web» en el portal de dominio: solo si el portal también está instalado (si no, no hace nada).

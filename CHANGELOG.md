@@ -7,6 +7,17 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.11.3] - 2026-10-22
+
+`maquita-sudo` en módulos: ya pasaba de 800 líneas. Mismas reglas, sin cambios de comportamiento.
+
+### Cambiado
+- **`maquita-sudo` partido en módulos** (de 809 a 269 líneas): los validadores van en `deploy/sudoers/lib/` (`sudo_base.py`, `sudo_correo.py`, `sudo_sitios.py`, `sudo_servidor.py`), instalados en `/usr/local/lib/maquita-sudo/`. Instalado, solo los carga de esa carpeta y si ni ella ni sus archivos los puede escribir otro usuario que root; si no, no pasa ninguna orden. Corre con `python3 -I` (sin PYTHONPATH ni la carpeta actual). Las reglas se movieron tal cual: la comparación línea a línea solo cambia la ruta del validador de git y la de doveadm.
+- Un solo instalador, `deploy/sudoers/instalar.sh` (primero los módulos, después el programa), en lugar de copiar el archivo desde trece guiones.
+
+### Al actualizar
+- El ajuste `78-maquita-sudo-modular.sh` instala el programa y sus módulos, comprueba que valida y, si no, vuelve al anterior.
+
 ## [1.11.2] - 2026-10-22
 
 Lo que pidió Andes al poner el producto delante de un proxy y para muchas organizaciones: fail2ban ya no bloquea al proxy y ve la IP real del visitante, cada cliente puede tener su propio certificado del correo, el actualizador dice qué archivos del sistema cambió y si pisó un parche local, los sitios y aplicaciones se despliegan también desde repositorios privados, y la pantalla de entrada sale con el dominio y la marca de cada organización sin configurar nada.

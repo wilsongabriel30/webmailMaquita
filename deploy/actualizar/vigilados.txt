@@ -66,6 +66,7 @@
 [programas del producto]
 /usr/local/sbin/maquita-actualizar  deploy/actualizar/maquita-actualizar
 /usr/local/sbin/maquita-sudo  deploy/sudoers/maquita-sudo
+/usr/local/lib/maquita-sudo/*.py  deploy/sudoers/lib/
 /usr/local/sbin/maquita-dns  deploy/dns/maquita-dns
 /usr/local/sbin/maquita-cortafuegos  deploy/cortafuegos/maquita-cortafuegos
 /usr/local/sbin/maquita-identidad  deploy/identidad/maquita-identidad

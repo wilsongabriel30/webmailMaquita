@@ -105,7 +105,7 @@ install -d -m 755 "$LIB" "$LIB/apps"
 install -m 644 "$S"/lib/*.py "$LIB/"
 install -m 644 "$S"/lib/apps/*.py "$LIB/apps/"
 install -m 755 "$S/maquita-sitios" /usr/local/sbin/maquita-sitios
-install -m 755 "$APP_DIR/deploy/sudoers/maquita-sudo" /usr/local/sbin/maquita-sudo
+bash "$APP_DIR/deploy/sudoers/instalar.sh"  # maquita-sudo y sus validadores (/usr/local/lib/maquita-sudo)
 if [ -d /usr/local/lib/maquita-cortafuegos ]; then
   install -m 644 "$APP_DIR"/deploy/cortafuegos/lib/*.py /usr/local/lib/maquita-cortafuegos/
 fi

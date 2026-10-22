@@ -326,7 +326,7 @@ install -m755 "${APP_DIR}/deploy/tools/maquita-outbound" /usr/local/sbin/maquita
 install -m755 "${APP_DIR}/deploy/tools/maquita-mailadm" /usr/local/sbin/maquita-mailadm
 install -m440 "${APP_DIR}/deploy/webmail/configs/sudoers-maquita-outbound" /etc/sudoers.d/maquita-outbound
 # [S7-1] Envoltorio único con validación propia; sudoers sin comodines (correo y panel)
-install -m755 "${APP_DIR}/deploy/sudoers/maquita-sudo" /usr/local/sbin/maquita-sudo
+bash "${APP_DIR}/deploy/sudoers/instalar.sh"  # maquita-sudo y sus validadores (/usr/local/lib/maquita-sudo)
 install -m440 "${APP_DIR}/deploy/sudoers/maquita-webmail" /etc/sudoers.d/maquita-webmail
 install -m440 "${APP_DIR}/deploy/sudoers/maquita-admin" /etc/sudoers.d/maquita-admin
 rm -f /etc/sudoers.d/webmail-doveadm

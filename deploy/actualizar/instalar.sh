@@ -17,7 +17,7 @@ install -d -m 755 /usr/local/lib/maquita-actualizar
 install -m 644 "${SELF}"/lib/*.py /usr/local/lib/maquita-actualizar/
 install -m 644 "${SELF}/vigilados.txt" /usr/local/lib/maquita-actualizar/vigilados.txt
 install -m 755 "${SELF}/maquita-actualizar" /usr/local/sbin/maquita-actualizar
-install -m 755 "${APP_DIR}/deploy/sudoers/maquita-sudo" /usr/local/sbin/maquita-sudo
+bash "${APP_DIR}/deploy/sudoers/instalar.sh"  # maquita-sudo y sus validadores (/usr/local/lib/maquita-sudo)
 install -d -m 755 /etc/maquita-actualizar /var/lib/maquita-actualizar
 install -m 644 "${SELF}/firmantes" /etc/maquita-actualizar/firmantes
 [ -f /etc/maquita-actualizar/config.json ] || echo '{"canal": "estable", "automatico": true}' > /etc/maquita-actualizar/config.json

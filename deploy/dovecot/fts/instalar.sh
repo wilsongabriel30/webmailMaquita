@@ -100,7 +100,7 @@ install -d -m 755 "$LIB" "$ETC"
 install -m 755 "$DIR/decode2text.sh" "$LIB/decode2text.sh"
 install -m 644 "$DIR"/decodificador/*.py "$LIB/"
 install -m 750 "$DIR/maquita-fts" "$AYUDANTE"
-install -m 755 "$DIR/../../sudoers/maquita-sudo" /usr/local/sbin/maquita-sudo
+bash "$DIR/../../sudoers/instalar.sh"  # maquita-sudo y sus validadores (/usr/local/lib/maquita-sudo)
 [ -f "$ETC/decodificador.conf" ] || install -m 644 "$DIR/decodificador.conf" "$ETC/decodificador.conf"
 if [ "$OCR" = 1 ]; then
   cp -p "$ETC/decodificador.conf" "$ETC/decodificador.conf.bak.$(date +%Y%m%d%H%M%S)"
