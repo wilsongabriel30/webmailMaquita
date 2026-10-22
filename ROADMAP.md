@@ -56,29 +56,32 @@ Pensada como «multi-tenant». Ya hecho: varios dominios por servidor, administr
 propio portal, cuotas por dominio (sitios, disco, bases), marca propia por organización y aislamiento de
 cada sitio. Pendiente: API de aprovisionamiento.
 
-### Indexación de texto completo escalable `PLANNED`
+### Indexación de texto completo escalable `DONE` (v1.11.0, provisional)
 
-Búsqueda de alto rendimiento en buzones grandes y datos de cumplimiento.
+Búsqueda de alto rendimiento en buzones grandes y datos de cumplimiento. Se hizo con el índice nativo de
+Dovecot 2.4 (**fts-flatcurve**, Xapian) en lugar de Solr o Manticore: medido en un buzón de 120.871 correos,
+0,05–0,3 s por carpeta, sin otro servicio que mantener. Detalle en
+[docs/BUSQUEDA-TEXTO-COMPLETO.md](docs/BUSQUEDA-TEXTO-COMPLETO.md).
 
-- Integrar Apache Solr o Manticore Search para indexación de texto completo
-- Indexar cuerpos de correo, encabezados y texto de adjuntos
-- Soporte para sintaxis de consulta compleja (operadores booleanos, rangos de fechas, búsqueda por campo)
-- Actualizaciones de índice en tiempo real vía gancho LMTP
-- Resaltado de resultados de búsqueda y puntuación de relevancia
-- Búsqueda con conciencia de cumplimiento: respeta retenciones legales y políticas de retención
+- Índice de cuerpos, encabezados y texto de adjuntos; español e inglés, sin distinguir tildes ni mayúsculas
+- Actualización en tiempo real al entregar el correo (`fts_autoindex` en LMTP); papelera y no deseado fuera
+- Indexación inicial en segundo plano con prioridad mínima y pasada nocturna de lo que falte
+- Webmail (operadores `de:`, `asunto:`, `entre:`…) y eDiscovery sobre el mismo índice
+- Respeta las retenciones legales: el índice no modifica ni borra mensajes
+- Panel: estado del índice y «Reindexar buzón»
+- Pendiente: resaltado de resultados y orden por relevancia
 
-### Extracción avanzada de adjuntos `PLANNED`
+### Extracción avanzada de adjuntos `DONE` (v1.11.0, provisional)
 
-Extracción profunda de contenido de formatos de documento habituales. El OCR con Tesseract ya existe en el
-editor de PDF del Drive; falta llevarlo a los adjuntos del correo.
+Decodificador propio para el índice (`deploy/dovecot/fts/`), sin privilegios y con límites de tamaño,
+tiempo y memoria.
 
-- Extracción de texto en PDF (con OCR de respaldo vía Tesseract)
-- Análisis de contenido DOCX/XLSX/PPTX
-- Inspección de archivos comprimidos (ZIP, TAR, 7z) con extracción anidada
-- Extracción de metadatos de imagen (EXIF)
-- Indexación de contenido para integración con búsqueda de texto completo
-- Análisis de malware en el contenido extraído
-- Validación de tipo de archivo más allá del sniffing de MIME
+- Texto de PDF (OCR opcional con Tesseract para los escaneados)
+- DOCX/XLSX/PPTX (también con macros, sin ejecutarlas), ODT/ODS/ODP, Office 97-2003, RTF y HTML
+- Comprimidos ZIP, TAR, gzip, bzip2, xz y 7z con extracción anidada y defensa contra bombas de descompresión
+- Metadatos de imagen (EXIF)
+- Validación del tipo por el contenido, no solo por el MIME declarado
+- Pendiente: análisis de malware del contenido extraído (hoy ClamAV analiza el adjunto al llegar)
 
 ### Monitoreo de seguridad: Wazuh y OpenSearch `PROPOSED`
 

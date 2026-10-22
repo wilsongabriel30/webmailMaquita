@@ -24,3 +24,6 @@ pasó todas sus cuentas a flatcurve en octubre de 2026.
 
 **Seguridad:** el índice guarda las palabras de los mensajes. Si los buzones se cifran en disco con
 `mail_crypt`, el índice queda fuera de ese cifrado: valorarlo antes de activarlo en un servidor así.
+
+**Texto de los adjuntos:** lo añade `deploy/dovecot/fts/` (ajuste 63): decodificador de PDF, Office,
+LibreOffice, comprimidos y EXIF, sin privilegios y con límites. Ver `docs/BUSQUEDA-TEXTO-COMPLETO.md`.

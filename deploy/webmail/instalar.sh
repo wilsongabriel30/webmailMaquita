@@ -229,6 +229,8 @@ install -d -o vmail -g vmail -m 755 /var/vmail/sieve
 for s in before after; do sudo -u vmail sievec "/var/vmail/sieve/${s}.sieve" || echo -e "  ${RED}AVISO: ${s}.sieve no compila${NC}"; done
 # Búsqueda de texto completo (fts-flatcurve) y su mantenimiento nocturno
 bash "${APP_DIR}/deploy/dovecot/busqueda/instalar.sh" || echo -e "  ${RED}AVISO: no se instaló la búsqueda de texto completo${NC}"
+# Texto de los adjuntos en el índice (PDF, Office, comprimidos con tope…), sin indexar papelera ni no deseado
+bash "${APP_DIR}/deploy/dovecot/fts/instalar.sh" || echo -e "  ${RED}AVISO: el índice de búsqueda no incluirá el texto de los adjuntos${NC}"
 # Cuotas de buzón (columna quota de mailbox) y aprendizaje del antispam al mover correos a/desde Junk
 bash "${APP_DIR}/deploy/dovecot/instalar-cuotas-antispam.sh" "${APP_DIR}" || echo -e "  ${RED}AVISO: cuotas/aprendizaje antispam sin instalar (ver deploy/dovecot)${NC}"
 # Avisos al usuario cuando su buzón cruza el 85 % y el 95 % de la cuota

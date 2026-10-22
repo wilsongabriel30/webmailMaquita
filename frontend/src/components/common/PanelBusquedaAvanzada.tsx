@@ -8,7 +8,8 @@
 // también dentro del texto», y por eso avisa de lo que va a tardar: sin índice de texto hay que
 // abrir y descifrar los mensajes uno a uno, y eso son minuto y medio. Las cuentas que ya tienen
 // índice de texto (lo dice /mail/search/capacidades) buscan en el buzón entero en segundos y no
-// se acotan: acotarlas escondía el histórico a quien lo buscaba.
+// se acotan: acotarlas escondía el histórico a quien lo buscaba. Si el índice incluye los adjuntos
+// (capacidades.adjuntos), la misma casilla busca también dentro de PDF, Office y comprimidos.
 
 import { useEffect, useState } from 'react';
 import { api } from '../../api/client';
@@ -43,11 +44,16 @@ export function PanelBusquedaAvanzada({ onBuscar, onCerrar }: Props) {
   const [tamMin, setTamMin] = useState('');
   const [enContenido, setEnContenido] = useState(false);
   const [conIndice, setConIndice] = useState(false);
+  const [conAdjuntos, setConAdjuntos] = useState(false);
 
   useEffect(() => {
     let vivo = true;
-    api.get<{ indice_texto: boolean }>('/mail/search/capacidades')
-      .then((r) => { if (vivo) setConIndice(!!r?.indice_texto); })
+    api.get<{ indice_texto: boolean; adjuntos?: boolean }>('/mail/search/capacidades')
+      .then((r) => {
+        if (!vivo) return;
+        setConIndice(!!r?.indice_texto);
+        setConAdjuntos(!!r?.adjuntos);
+      })
       .catch(() => { /* sin respuesta: se acota, que es lo seguro */ });
     return () => { vivo = false; };
   }, []);
@@ -174,10 +180,14 @@ export function PanelBusquedaAvanzada({ onBuscar, onCerrar }: Props) {
           <input type="checkbox" className="mt-0.5" checked={enContenido}
             onChange={(e) => setEnContenido(e.target.checked)} />
           <span>
-            Buscar también dentro del texto de los mensajes
+            {conAdjuntos
+              ? 'Buscar también dentro del texto de los mensajes y de sus adjuntos'
+              : 'Buscar también dentro del texto de los mensajes'}
             <span className="block text-[11px] text-[#a19f9d]">
               {conIndice
-                ? 'Busca en todo el buzón, también en los correos antiguos. Tarda unos segundos.'
+                ? conAdjuntos
+                  ? 'Busca en todo el buzón, también en los correos antiguos y dentro de PDF, documentos de Office y comprimidos adjuntos. Tarda unos segundos.'
+                  : 'Busca en todo el buzón, también en los correos antiguos. Tarda unos segundos.'
                 : 'Más lento: hay que abrir uno a uno los mensajes, que están cifrados. Lo que marca la espera es cuántos: acotar la fecha lo cambia todo.'}
             </span>
             {enContenido && !conIndice && !desde && !hasta && !atajo && (

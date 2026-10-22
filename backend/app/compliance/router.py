@@ -31,6 +31,7 @@ from app.compliance.auth import (
     require_compliance_security,
     require_compliance_write,
 )
+from app.compliance.busqueda_doveadm import consulta_busqueda, orden_doveadm
 from app.compliance.content_extractor import search_maildir
 from app.compliance.evidence_signer import ensure_gpg_key, sign_export
 
@@ -463,24 +464,21 @@ async def _search_mailbox_imap(
     db,
     search_id: int,
 ) -> int:
-    """Busca en un buzón vía doveadm search (master user) y guarda resultados."""
+    """Busca en un buzón vía doveadm search y guarda resultados.
+
+    Las palabras clave van dentro de la consulta: con índice de texto completo se responden desde el
+    índice (también el texto de los adjuntos). Ver app/compliance/busqueda_doveadm.py.
+    """
     count = 0
 
-    # Construir criterio doveadm search
-    search_args = [
-        "/usr/bin/sudo",
-        "/usr/bin/doveadm",
+    search_args = orden_doveadm(
         "search",
         "-u",
         mailbox_user,
-        "mailbox",
-        folder,
-    ]
-
-    if criteria.date_from:
-        search_args += ["since", criteria.date_from[:10]]
-    if criteria.date_to:
-        search_args += ["before", criteria.date_to[:10]]
+        *consulta_busqueda(
+            folder, criteria.date_from, criteria.date_to, criteria.keywords
+        ),
+    )
 
     loop = asyncio.get_event_loop()
 
@@ -524,23 +522,8 @@ async def _search_mailbox_imap(
             if not msg_data:
                 continue
 
-            # Filtrar por keywords si hay
-            if criteria.keywords:
-                text_content = (
-                    (msg_data.get("subject", "") or "")
-                    + " "
-                    + (msg_data.get("from", "") or "")
-                    + " "
-                    + (msg_data.get("to", "") or "")
-                ).lower()
-                if not any(kw.lower() in text_content for kw in criteria.keywords):
-                    # Si hay keywords, también buscar en body
-                    body_text = await _fetch_message_body_text(
-                        mailbox_user, uid, folder, loop
-                    )
-                    full_text = text_content + " " + (body_text or "").lower()
-                    if not any(kw.lower() in full_text for kw in criteria.keywords):
-                        continue
+            # Las palabras clave ya las filtró doveadm search (cabeceras, cuerpo y adjuntos):
+            # volver a filtrarlas aquí con la vista previa descartaba lo hallado más abajo.
 
             # Filtrar por remitente/destinatario
             if criteria.senders_filter:
@@ -601,9 +584,7 @@ async def _fetch_message_headers(user: str, uid: str, folder: str, loop) -> dict
     def _do():
         try:
             result = subprocess.run(
-                [
-                    "/usr/bin/sudo",
-                    "/usr/bin/doveadm",
+                orden_doveadm(
                     "fetch",
                     "-u",
                     user,
@@ -612,7 +593,7 @@ async def _fetch_message_headers(user: str, uid: str, folder: str, loop) -> dict
                     folder,
                     "uid",
                     uid,
-                ],
+                ),
                 capture_output=True,
                 text=True,
                 timeout=30,
@@ -659,35 +640,6 @@ async def _fetch_message_headers(user: str, uid: str, folder: str, loop) -> dict
             return data
         except Exception:
             return None
-
-    return await loop.run_in_executor(None, _do)
-
-
-async def _fetch_message_body_text(user: str, uid: str, folder: str, loop) -> str:
-    """Obtiene texto del body para búsqueda por keywords."""
-
-    def _do():
-        try:
-            result = subprocess.run(
-                [
-                    "/usr/bin/sudo",
-                    "/usr/bin/doveadm",
-                    "fetch",
-                    "-u",
-                    user,
-                    "body.preview",
-                    "mailbox",
-                    folder,
-                    "uid",
-                    uid,
-                ],
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-            return result.stdout[:5000] if result.returncode == 0 else ""
-        except Exception:
-            return ""
 
     return await loop.run_in_executor(None, _do)
 
@@ -859,9 +811,7 @@ async def export_evidence(
             def _export_msg(m=mailbox, u=str(uid), f=folder):
                 try:
                     result = subprocess.run(
-                        [
-                            "/usr/bin/sudo",
-                            "/usr/bin/doveadm",
+                        orden_doveadm(
                             "fetch",
                             "-u",
                             m,
@@ -870,7 +820,7 @@ async def export_evidence(
                             f,
                             "uid",
                             u,
-                        ],
+                        ),
                         capture_output=True,
                         timeout=30,
                     )
