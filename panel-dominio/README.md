@@ -165,6 +165,7 @@ marca `MAQUITA_SITIOS_PORTAL` (`journalctl -t maquita-sitios-portal`).
 | `PD_DB_HOST`, `PD_DB_PORT`, `PD_DB_NAME`, `PD_DB_USER` | `127.0.0.1`, `5432`, `maildb`, `panel_dominio` | Conexión |
 | `PD_DB_SSL` | (vacío) | `require` si la base de datos está en otro equipo |
 | `PD_HORAS_SESION` | `8` | Duración de una sesión |
+| `PD_MINUTOS_SOPORTE` | `60` | Duración de una sesión de soporte del superadministrador (de 5 a 240; ver `docs/ENTRADA-OIDC-Y-SOPORTE.md`) |
 | `PD_TOTP_OBLIGATORIO` | `1` | Exigir segundo factor |
 | `PD_EMISOR` | `Portal de dominio` | Nombre que muestra la aplicación de códigos |
 | `PD_DIR_MARCA` | `/opt/maquita-webmail/uploads/branding/empresas` | Carpeta de logos e iconos |
