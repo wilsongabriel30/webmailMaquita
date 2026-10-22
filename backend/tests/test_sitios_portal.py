@@ -43,6 +43,8 @@ class Base:
     def __call__(self, sql, variables=None, tabla=None):
         if sql == sesion.SQL_SESION:
             return self.admin
+        if sql == sesion.SQL_SOPORTE:  # sin sesión de administrador se mira si es de soporte
+            return None
         if sql == sesion.SQL_CUOTAS:
             pedidos = json.loads(variables["dominios"])
             return {d: c for d, c in self.cuotas.items() if d in pedidos}
