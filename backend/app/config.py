@@ -9,6 +9,19 @@ from app import organizacion
 class Settings(BaseSettings):
     database_url: str = ""
     redis_url: str = ""
+    # --- Gran escala (todo opcional; los valores por defecto son los de una sola máquina) ---
+    # PgBouncer en modo «transaction»: desactiva la caché de sentencias preparadas de asyncpg.
+    pgbouncer: bool = False
+    db_pool_min: int = 2
+    db_pool_max: int = 10
+    # Réplica de lectura de PostgreSQL (vacío = se lee de la principal).
+    database_url_lectura: str = ""
+    # Redis Sentinel: «host1:26379,host2:26379». Si está vacío se usa REDIS_URL tal cual.
+    redis_sentinels: str = ""
+    redis_sentinel_master: str = "mymaster"
+    redis_sentinel_password: str = ""
+    # Nombre de este nodo en los bloqueos distribuidos (vacío = nombre de la máquina).
+    nodo_id: str = ""
     secret_key: str = ""
     imap_host: str = "127.0.0.1"
     imap_port: int = 143

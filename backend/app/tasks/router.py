@@ -621,25 +621,24 @@ async def _ensure_steps_table(db):
     if _steps_table_ready:
         return
     try:
-        # Use advisory lock to prevent deadlock with concurrent workers
-        await db.execute("SELECT pg_advisory_lock(88888)")
-        await db.execute("""
-            CREATE TABLE IF NOT EXISTS task_steps (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                card_id UUID NOT NULL REFERENCES task_cards(id) ON DELETE CASCADE,
-                title TEXT NOT NULL,
-                completed BOOLEAN NOT NULL DEFAULT FALSE,
-                position INT NOT NULL DEFAULT 0,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-            )
-        """)
-        await db.execute("SELECT pg_advisory_unlock(88888)")
+        # Serializado entre workers con un bloqueo de transacción: el de sesión pedido con
+        # pool.execute() podía quedar prendido de otra conexión del pool (y con PgBouncer,
+        # de otra conexión del servidor) y no soltarse nunca.
+        from app.escala.ddl import ddl_serializado
+
+        async with ddl_serializado(db, 88888) as con:
+            await con.execute("""
+                CREATE TABLE IF NOT EXISTS task_steps (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    card_id UUID NOT NULL REFERENCES task_cards(id) ON DELETE CASCADE,
+                    title TEXT NOT NULL,
+                    completed BOOLEAN NOT NULL DEFAULT FALSE,
+                    position INT NOT NULL DEFAULT 0,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )
+            """)
         _steps_table_ready = True
     except Exception:
-        try:
-            await db.execute("SELECT pg_advisory_unlock(88888)")
-        except Exception:
-            pass
         _steps_table_ready = True  # Table likely exists already
 
 

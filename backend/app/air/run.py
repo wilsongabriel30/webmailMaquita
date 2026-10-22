@@ -12,6 +12,7 @@ import asyncpg
 
 from app.air.engine import run_cycle
 from app.config import get_settings
+from app.database import opciones_pool
 
 
 class _NoRedis:  # detect-only no toca Redis
@@ -25,7 +26,9 @@ class _NoRedis:  # detect-only no toca Redis
 async def _main():
     hours = int(sys.argv[1]) if len(sys.argv) > 1 else 24
     s = get_settings()
-    db = await asyncpg.create_pool(s.database_url, min_size=1, max_size=2)
+    db = await asyncpg.create_pool(
+        s.database_url, **opciones_pool(s, min_size=1, max_size=2)
+    )
     try:
         inc = await run_cycle(
             db, _NoRedis(), hours=hours, use_ai=True, auto_respond=False

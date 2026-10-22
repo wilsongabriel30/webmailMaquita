@@ -78,9 +78,9 @@ async def _get_ia_config():
     model = s.ia_model
     timeout = s.ia_timeout or 60
     try:
-        import asyncpg
+        from app.database import connect_db
 
-        conn = await asyncpg.connect(s.database_url)
+        conn = await connect_db()
         try:
             row = await conn.fetchrow(
                 "SELECT provider, base_url, api_key, model FROM ai_config WHERE id = 1 AND enabled = true"
