@@ -302,7 +302,7 @@ def test_error_queda_anotado_y_no_toca_lo_publicado(mundo):
     assert estado["despliegues"][0]["estado"] == "error" and "dist" in estado["despliegues"][0]["error"]
     assert estado["versiones"] == []
     versiones = os.path.join(mundo.meta["base"], "despliegues", "versiones")
-    assert [n for n in os.listdir(versiones) if n.startswith(".nueva")] == []
+    assert os.listdir(versiones) == []  # ni la temporal ni la que no llegó a publicarse
 
 
 @con_herramientas
@@ -401,6 +401,7 @@ def test_correr_como_el_usuario_del_sitio(monkeypatch):
     assert kw["env"]["GIT_ALLOW_PROTOCOL"] == "https:ssh" and kw["env"]["GIT_TERMINAL_PROMPT"] == "0"
     assert "IdentitiesOnly=yes" in kw["env"]["GIT_SSH_COMMAND"] and "BatchMode=yes" in kw["env"]["GIT_SSH_COMMAND"]
     assert "SUDO_USER" not in kw["env"] and set(kw["env"]) >= {"PATH", "HOME"}
+    assert "/usr/sbin" in kw["env"]["PATH"].split(":")  # runuser está en /usr/sbin
     assert vistas[-1][0][4:] == ["rm", "-rf", "--", "/srv/sitios/example.org/despliegues/versiones/.nueva-x/.git"]
 
 

@@ -103,7 +103,7 @@ def _entorno_git(meta):
 
 def _correr(meta, cmd, tiempo, env_extra=None, umask=0o027):
     """Ejecuta `cmd` como el usuario del sitio. Devuelve la salida; si falla, ErrorSitio con su final."""
-    env = {"PATH": "/usr/local/bin:/usr/bin:/bin", "LANG": "C.UTF-8", "HOME": "/tmp", **(env_extra or {})}
+    env = {"PATH": "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin", "LANG": "C.UTF-8", "HOME": "/tmp", **(env_extra or {})}
     try:
         r = subprocess.run(["runuser", "-u", meta["usuario"], "--", *cmd], capture_output=True, text=True,
                            timeout=tiempo, env=env, cwd="/", umask=umask)
@@ -189,6 +189,7 @@ def desplegar(dominio, origen):
                     "origen": origen, "estado": "en curso"}
         gs.anotar(dominio, lambda g: g.setdefault("despliegues", []).append(registro))
         temporal = os.path.join(gs.carpeta_versiones(meta), f".nueva-{ident}")
+        final = os.path.join(gs.carpeta_versiones(meta), ident)
         try:
             if gs.compatible(meta):
                 raise ErrorSitio(gs.compatible(meta))
@@ -201,15 +202,15 @@ def desplegar(dominio, origen):
                     raise ErrorSitio(f"no se pudo hacer la copia del sitio antes del primer despliegue ({e})")
             gs._preparar(meta)
             datos = _traer(meta, git, temporal)
-            final = os.path.join(gs.carpeta_versiones(meta), ident)
             os.rename(temporal, final)
             salida = _publicar(meta, git, _origen(final, git.get("carpeta", "")))
         except Exception as e:
-            if os.path.lexists(temporal):
-                try:
-                    _correr(meta, ["rm", "-rf", "--", temporal], 600)
-                except ErrorSitio:
-                    pass
+            for resto in (temporal, final):  # una versión que no llegó a publicarse no se guarda
+                if os.path.lexists(resto):
+                    try:
+                        _correr(meta, ["rm", "-rf", "--", resto], 600)
+                    except ErrorSitio:
+                        pass
             texto = str(e) if isinstance(e, ErrorSitio) else f"fallo interno: {type(e).__name__}"
             _cerrar(dominio, ident, inicio, estado="error", error=texto[:400])
             raise
