@@ -53,8 +53,8 @@ pagar paneles y nubes extranjeras sin perder funciones.
 | SPF, DKIM, DMARC y MTA-STS | ✅ |
 | Listas y grupos de distribución | ✅ |
 | Celulares por ActiveSync 16.1 (correo, calendario, contactos, borradores y libreta de la organización) | ✅ |
-| Importar cuentas desde un archivo CSV | ⏳ v1.11 |
-| Enrutamiento de correo (MX de respaldo, reenvío a otro servidor) | ⏳ v1.11 |
+| Importar cuentas desde un archivo CSV | ✅ panel y portal ([guía](IMPORTAR-CSV-Y-ENRUTAMIENTO.md)) |
+| Enrutamiento de correo (MX de respaldo, reenvío a otro servidor) | ✅ panel general ([guía](IMPORTAR-CSV-Y-ENRUTAMIENTO.md)) |
 
 ### Bases de datos
 

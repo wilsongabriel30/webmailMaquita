@@ -52,8 +52,8 @@ foreign panels and clouds without losing features.
 | SPF, DKIM, DMARC and MTA-STS | ✅ |
 | Mailing lists and distribution groups | ✅ |
 | Phones over ActiveSync 16.1 (mail, calendar, contacts, drafts and organisation address book) | ✅ |
-| Import accounts from a CSV file | ⏳ v1.11 |
-| Email routing (backup MX, relay to another server) | ⏳ v1.11 |
+| Import accounts from a CSV file | ✅ general panel and portal ([guide, in Spanish](IMPORTAR-CSV-Y-ENRUTAMIENTO.md)) |
+| Email routing (backup MX, relay to another server) | ✅ general panel ([guide, in Spanish](IMPORTAR-CSV-Y-ENRUTAMIENTO.md)) |
 
 ### Databases
 
