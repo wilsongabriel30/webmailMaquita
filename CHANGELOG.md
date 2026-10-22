@@ -7,6 +7,30 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+Arquitectura para gran escala (v1.11.0 provisional): el webmail puede correr en 2+ réplicas detrás de un balanceador para organizaciones de 300 a 5000 buzones. **La instalación de una sola máquina no cambia**: todo lo nuevo se activa con variables del `.env`. Guía en `docs/GRAN-ESCALA.md`.
+
+### Añadido
+- **Bloqueo distribuido en Redis** (`backend/app/escala/bloqueo.py`): `SET NX` con caducidad, renovación y liberación solo por el titular (Lua), `una_vez_por_intervalo()` y elección de líder (`Lider`). Si Redis no responde, no se concede.
+- **Comprobaciones para balanceadores**: `GET /api/salud` (proceso vivo, sin tocar la base) y `GET /api/listo` (PostgreSQL y Redis accesibles; 503 en drenaje o al apagarse) en el webmail; `/api/salud` y `/api/listo` en el panel; `/api/almacen/salud` y `/api/almacen/listo` en el Drive. Públicas y sin detalle.
+- **PgBouncer opcional** (`PGBOUNCER=true`, modo transaction): sin caché de sentencias preparadas en asyncpg (servicio, programas `run.py`, conexiones sueltas, panel) y bloqueo de DDL de transacción en el Drive. Tamaño del pool configurable (`DB_POOL_MIN`, `DB_POOL_MAX`) y pool de réplica de lectura (`DATABASE_URL_LECTURA`).
+- **Redis Sentinel** en el webmail: `REDIS_URL=redis+sentinel://…` o `REDIS_SENTINELS`, `REDIS_SENTINEL_MASTER`, `REDIS_SENTINEL_PASSWORD`.
+- **Despliegue sin corte**: `deploy/escala/actualizar-sin-corte.sh` reinicia las réplicas una a una (drena, reinicia, espera `/api/listo`) y se detiene si una no vuelve. Ejemplos de HAProxy, nginx, PgBouncer, Sentinel y una unidad plantilla `maquita-webmail@.service` en `deploy/escala/`.
+- **API v1 estable**: `/api/v1/...` es un alias de `/api/...` (cabecera `API-Version: 1`); las rutas actuales no cambian.
+- **OpenAPI exportada**: `scripts/exportar-openapi.py` genera `docs/api/webmail-openapi.json` y `docs/api/panel-openapi.json` (`--comprobar` para el CI, `webmail --v1` para generar clientes).
+- **Prueba de carga** `deploy/escala/prueba-carga-webmail.py` (inicio de sesión, bandeja y búsqueda; p50/p95/p99) con objetivos documentados.
+- **Soporte largo**: canal de actualización `estable-X.Y` (solo parches firmados de esa serie) y `RAMA=estable/X.Y` en `publicar-version.sh`; política en `docs/SOPORTE-Y-VERSIONES.md` (24 meses de parches de seguridad por serie LTS).
+
+### Corregido
+- El lector de `/var/log/mail.log` corría en cada worker y cada línea entraba varias veces en `mail_trace` (4 con la configuración de serie). Ahora lo lleva un solo worker por máquina.
+- El detector de fraude, la descarga de listas de amenazas y el restaurador de pospuestos corrían una vez por worker (consultas y descargas repetidas, alertas duplicadas en carrera). Ahora una vez por intervalo en todo el servidor o clúster.
+- El progreso de «Sincronizar mi bandeja» del asistente vivía en la memoria de un worker: la pantalla podía ver «nada en curso» y lanzar otra sincronización a la vez. Ahora se comparte por Redis.
+- Bloqueos consultivos de DDL de sesión que podían quedarse tomados (uno se pedía con `pool.execute()` en conexiones distintas): ahora son de transacción.
+- Al apagar el webmail no se cancelaban las tareas de recordatorios ni de listas de amenazas.
+
+### Cambiado
+- `_process_scheduled_emails` sale de `main.py` a `app/mail/programados.py` (sin cambios de comportamiento).
+- `SECURITY.md`: tabla de versiones con soporte al día y enlace a la política de soporte.
+
 ## [1.10.0] - 2026-10-21
 
 Hospedaje completo: funciones web, cuentas FTP adicionales, archivos y datos por sitio, en el panel general y en el portal del cliente. ActiveSync 16.1 (borradores del teléfono en el servidor) y libreta de la organización en los teléfonos. Probado de punta a punta en un servidor con portal y sitios (`prueba_aislamiento.py` y `prueba_mi_sitio.py`, con el bloque de la v1.10) y con teléfonos Android reales.

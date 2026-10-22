@@ -96,7 +96,15 @@ En producción, use siempre `sslmode=require` o `sslmode=verify-full`.
 
 ```
 redis://[:PASSWORD@]HOST:PORT/DB
+redis+sentinel://[:PASSWORD@]CENTINELA1:26379,CENTINELA2:26379/GRUPO/DB   # Redis Sentinel
 ```
+
+## Gran escala (opcional)
+
+Variables para varias réplicas, PgBouncer, réplica de lectura y Redis Sentinel (`PGBOUNCER`,
+`DB_POOL_MIN`, `DB_POOL_MAX`, `DATABASE_URL_LECTURA`, `REDIS_SENTINELS`, `REDIS_SENTINEL_MASTER`,
+`REDIS_SENTINEL_PASSWORD`, `NODO_ID`, `ESCALA_ARCHIVO_DRENAJE`). Ninguna hace falta en una sola
+máquina; detalle en [GRAN-ESCALA.md](GRAN-ESCALA.md).
 
 Para TLS:
 

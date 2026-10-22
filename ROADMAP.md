@@ -102,20 +102,33 @@ Paneles de control operativos y de seguridad para administradores.
 - Detección de anomalías en patrones de acceso a buzones
 - Generación de informes (PDF/CSV) para auditorías de cumplimiento
 
-### Arquitectura para gran escala `PROPOSED`
+### Arquitectura para gran escala `DONE` en gran parte (v1.11.0, provisional)
 
-Versión de soporte a largo plazo con madurez arquitectónica.
+Para organizaciones de 300 a 5000 buzones, sin cambiar la instalación de una sola máquina. Guía:
+[docs/GRAN-ESCALA.md](docs/GRAN-ESCALA.md); soporte: [docs/SOPORTE-Y-VERSIONES.md](docs/SOPORTE-Y-VERSIONES.md).
 
-- Escalado horizontal: backend sin estado detrás de balanceador de carga
-- Réplicas de lectura de base de datos y agrupación de conexiones (PgBouncer)
-- Redis Sentinel o Cluster para caché de alta disponibilidad
-- Procesamiento asíncrono basado en colas
-- Estrategia de despliegue sin tiempo de inactividad (blue-green o rolling)
-- Versionado completo de API (v1 estable, v2 en vista previa)
-- Benchmarks de rendimiento y objetivos de SLA
-- Compromiso de soporte a largo plazo (parches de seguridad por 2+ años)
-- Especificación OpenAPI completa con generación de SDK
-- Sistema de complementos/extensiones para reglas de cumplimiento personalizadas
+- **Hecho.** Escalado horizontal: backend sin estado detrás de balanceador. Inventario del estado en memoria;
+  las tareas de fondo ya no se repiten por worker (bloqueo distribuido en Redis, líder por máquina para
+  el lector de `mail.log`); progreso del asistente en Redis
+- **Hecho.** Agrupación de conexiones con PgBouncer (modo transaction, `PGBOUNCER=true`) y bloqueos de DDL
+  compatibles. Réplica de lectura: el pool existe (`DATABASE_URL_LECTURA`); **pendiente** pasar
+  consultas a ella
+- **Hecho.** Redis Sentinel en el webmail (`redis+sentinel://` o `REDIS_SENTINELS`). Redis Cluster: no
+  (no hace falta a esta escala). Panel, Drive y chat: a través de HAProxy
+- **Hecho.** Despliegue sin corte (rolling): `deploy/escala/actualizar-sin-corte.sh` con `/api/salud` y
+  `/api/listo` en webmail, panel y Drive
+- **Hecho.** API v1 estable (`/api/v1/...`, alias de las rutas actuales). v2 en vista previa: **pendiente**
+  (todavía no hay cambios que la necesiten)
+- **Hecho.** Benchmark (`deploy/escala/prueba-carga-webmail.py`) y objetivos p50/p95 y de disponibilidad.
+  **Pendiente** medirlos en un clúster real
+- **Hecho.** Soporte largo: canal `estable-X.Y`, 24 meses de parches de seguridad por serie LTS, parches
+  firmados desde ramas `estable/X.Y`
+- **Hecho.** Especificación OpenAPI exportada (`scripts/exportar-openapi.py` → `docs/api/`), con copia `/api/v1`
+  para generar clientes. **Pendiente** publicar SDK generados
+- **Pendiente.** Procesamiento asíncrono basado en colas: **pendiente** (las tareas pesadas siguen en el proceso web)
+- **Pendiente.** Archivos locales (firmas, adjuntos de calendario, marca) en almacenamiento de objetos: **pendiente**
+  (hoy, almacenamiento compartido entre réplicas)
+- **Pendiente.** Sistema de complementos/extensiones para reglas de cumplimiento personalizadas: **no empezado**
 
 ---
 

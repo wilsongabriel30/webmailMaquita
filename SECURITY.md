@@ -8,8 +8,12 @@
 
 | Versión | Con soporte |
 |---------|-------------|
-| 1.0.x   | Sí          |
-| < 1.0   | No          |
+| 1.10.x  | Sí (la última publicada) |
+| 1.11.x  | Propuesta como primera serie de soporte largo (24 meses de parches de seguridad) al publicarse |
+| < 1.10  | No: actualice a la última |
+
+Duración del soporte, canales (`estable`, `estable-X.Y`) y cómo se publican los parches firmados:
+[docs/SOPORTE-Y-VERSIONES.md](docs/SOPORTE-Y-VERSIONES.md).
 
 ## Reporte de Vulnerabilidades
 
