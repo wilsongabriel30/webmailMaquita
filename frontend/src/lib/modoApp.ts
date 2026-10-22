@@ -1,7 +1,9 @@
 /**
  * Modo app (cliente de escritorio Teams Maquita).
  * Solo se activa dentro del cliente: su navegador se identifica con "MaquitaTeams" en el
- * User-Agent. Ahí, ?app=1 deja la cookie mail_app para las cargas siguientes y ?app=0 la borra.
+ * User-Agent (identificador interno del cliente, no lo ve nadie; a diferencia de la app Android,
+ * que ya tiene el agente neutro «CorreoApp», el cliente de escritorio no tiene otro todavía).
+ * Ahí, ?app=1 deja la cookie mail_app para las cargas siguientes y ?app=0 la borra.
  * Efecto: clase `modo-app` en <html> → se oculta la cabecera (el cliente ya tiene riel, perfil,
  * soporte y chat propios) y la burbuja de chat flotante.
  *

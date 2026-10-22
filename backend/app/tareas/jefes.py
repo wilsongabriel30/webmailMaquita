@@ -16,6 +16,7 @@ os.chdir("/opt/maquita-webmail/backend")
 import asyncpg  # noqa: E402
 
 from app import organizacion  # noqa: E402
+from app.branding.service import ORG_NAME_FALLBACK, get_org_name  # noqa: E402
 from app.core.database import create_db_pool  # noqa: E402
 from app.tareas import avisos  # noqa: E402
 
@@ -57,6 +58,9 @@ async def devolver_tareas_de_salidos(db, activos):
         "SELECT email, nombre FROM task_personas WHERE email <> ALL($1::text[])",
         activos,
     )
+    # El nombre de la organización sale de la marca; sin marca configurada, un texto neutro.
+    org = await get_org_name(db) if salidos else ORG_NAME_FALLBACK
+    lugar = "la organización" if org == ORG_NAME_FALLBACK else org
     for s in salidos:
         tareas = await db.fetch(
             """SELECT c.id, c.title, c.created_by, c.estado FROM task_cards c JOIN task_asignados a ON a.card_id = c.id
@@ -91,7 +95,7 @@ async def devolver_tareas_de_salidos(db, activos):
             await db.execute(
                 "INSERT INTO task_comentarios (card_id, autor, texto) VALUES ($1, 'sistema', $2)",
                 t["id"],
-                f"{s['nombre']} ya no labora en Maquita (salida registrada en nómina). Esta tarea quedó pendiente y vuelve a quien la asignó: realízala, reasígnala o elimínala.",
+                f"{s['nombre']} ya no labora en {lugar} (salida registrada en nómina). Esta tarea quedó pendiente y vuelve a quien la asignó: realízala, reasígnala o elimínala.",
             )
             por_asignador.setdefault(t["created_by"], []).append(t["title"])
         for asignador, titulos in por_asignador.items():

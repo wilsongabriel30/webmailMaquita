@@ -4,6 +4,7 @@ import { useAuthStore } from '../../store/authStore';
 import { api } from '../../api/client';
 import { TwoFactorSetup } from '../settings/TwoFactorSetup';
 import { AvisoCookies } from '../common/AvisoCookies';
+import { BienvenidaEntrada, OlvidoContrasena } from './AyudaEntrada';
 
 interface Branding {
   org_name?: string;
@@ -12,6 +13,11 @@ interface Branding {
   logo_url?: string;
   favicon_url?: string;
   footer_text?: string;
+  // Según el dominio por el que se entra (mail.<dominio>, webmail.<dominio>); ver branding/entrada.py
+  dominio?: string;
+  login_placeholder?: string;
+  bienvenida?: string;
+  contacto_admin?: string;
 }
 
 export function LoginPage() {
@@ -175,12 +181,14 @@ export function LoginPage() {
                   )}
                 </div>
               )}
+              <BienvenidaEntrada texto={brand.bienvenida} color={color} />
               <h1 className="text-xl font-semibold" style={{ color: '#323130' }}>
                 {forceChange ? 'Cambia tu contraseña' : forceSetup2fa ? 'Activa la verificación en dos pasos' : needs2FA ? 'Verificación en dos pasos' : 'Iniciar sesión'}
               </h1>
               <p className="text-sm mt-1" style={{ color: '#605e5c' }}>
                 {needs2FA
                   ? `Ingresa el código para ${savedUsername || 'tu cuenta'}`
+                  : brand.bienvenida ? 'Escribe tu correo y tu contraseña'
                   : `Correo electrónico${brand.org_name ? ' de ' + brand.org_name : ''}`}
               </p>
             </div>
@@ -240,7 +248,7 @@ export function LoginPage() {
                       type="text"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
-                      placeholder="usuario@ejemplo.com"
+                      placeholder={brand.login_placeholder || 'usuario@ejemplo.com'}
                       className="w-full px-3 py-2 pr-10 rounded text-sm outline-none transition-colors"
                       style={{ borderColor: '#d2d0ce', borderWidth: '1px', color: '#323130' }}
                       onFocus={(e) => { e.target.style.borderColor = color; e.target.style.boxShadow = `0 0 0 1px ${color}`; }}
@@ -340,8 +348,12 @@ export function LoginPage() {
             )}
 
             {!needs2FA && !forceChange && !forceSetup2fa && (
+              <OlvidoContrasena contacto={brand.contacto_admin} dominio={brand.dominio} color={color} />
+            )}
+
+            {!needs2FA && !forceChange && !forceSetup2fa && (
               <div className="mt-3 text-center">
-                <a href="/acceso-externo" className="text-sm" style={{ color: '#605e5c' }}>
+                <a href="/acceso-externo" className="text-sm" style={{ color }}>
                   ¿Colaborador externo? Ingresa al Drive
                 </a>
               </div>

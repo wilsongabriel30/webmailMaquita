@@ -3,6 +3,7 @@ import os
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import FileResponse
 
+from app.branding import entrada
 from app.portales.resolucion import dominio_del_portal
 
 router = APIRouter(prefix="/api/branding", tags=["branding"])
@@ -45,6 +46,7 @@ async def get_branding(request: Request, response: Response):
     except Exception:
         return {}
     result = {r["key"]: r["value"] for r in rows if r["key"] in _PUBLICAS}
+    org_general = result.get("org_name")
 
     # Nombre de organizacion para el frontend (TwoFactorGate, etc.), con fallback neutro
     result.setdefault("org_name", "Tu organización")
@@ -61,6 +63,9 @@ async def get_branding(request: Request, response: Response):
     dominio = await dominio_del_portal(db, request)
     if dominio:
         result.update(await _marca_de_empresa(db, dominio))
+    # Pantalla de entrada del dominio por el que se entra (mail.<dominio>, webmail.<dominio>):
+    # sugerencia del campo de correo, bienvenida, contacto y color. Ver entrada.py.
+    result.update(await entrada.datos_de_entrada(db, request, org_general))
     # La respuesta depende del nombre de servidor pedido: que nadie la reutilice
     # para otro portal.
     response.headers["Vary"] = "Host"

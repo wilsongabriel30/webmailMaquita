@@ -10,7 +10,7 @@ import { aplicarBusqueda, cambiarAmbito } from "../../lib/busquedaGlobal";
 import { useResponsive } from "../../hooks/useResponsive";
 import { useNombreApp } from "../../lib/marca";
 import OpcionDescargaApp from './OpcionDescargaApp';
-import { textoTamano, urlApk, useManifiestoApp } from '../../lib/appAndroid';
+import { nombreArchivoApk, textoTamano, urlApk, useManifiestoApp } from '../../lib/appAndroid';
 import { RUTA_CONFIGURAR_CORREO } from '../../lib/appMovil';
 
 /** El instalador de la aplicación deja estos ganchos en `window`; se nombran para no usar `any`. */
@@ -303,7 +303,7 @@ export function Topbar() {
                 <p className="text-[12px] font-semibold text-[#323130] mb-2">Aplicaciones</p>
                 <div className="space-y-1 text-[12px]">
                   {manifiestoApp && (
-                    <a href={urlApk()} target="_blank" rel="noopener" className="block text-[#0078d4] hover:underline">
+                    <a href={urlApk()} download={nombreArchivoApk()} rel="noopener" className="block text-[#0078d4] hover:underline">
                       Descargar la app para Android (versión {manifiestoApp.versionName}{manifiestoApp.tamano ? ` · ${textoTamano(manifiestoApp)}` : ''})
                     </a>
                   )}
