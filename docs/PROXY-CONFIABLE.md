@@ -127,10 +127,19 @@ server {
 servidor, es la que va en `PROXY_CONFIABLE`.) Si el proxy reenvía también el puerto 80, que apunte al 80 del
 servidor **sin** `proxy_protocol`.
 
-Si el servidor usa el cortafuegos del panel (`maquita-cortafuegos`), abra **4443 y 4444** como puertos
-adicionales con origen «admin» y con la dirección del proxy entre las IP de administración (las redes
-privadas ya lo son por defecto). No conviene abrirlos a todo Internet: aunque nginx no cree la cabecera PROXY
-de nadie más, esos puertos son solo para el proxy.
+### El cortafuegos
+
+Si el servidor usa el cortafuegos del panel (`maquita-cortafuegos`, `deploy/cortafuegos`), el ajuste escribe
+`/etc/maquita-cortafuegos/proxy.json` con las direcciones de `PROXY_CONFIABLE` y lo recarga
+(`maquita-cortafuegos recargar`): **4443 y 4444 quedan abiertos solo para el proxy**, nunca para todo
+Internet, en IPv4 y en IPv6. Es persistente: el cortafuegos lo lee también al arrancar. Si se quita
+`PROXY_CONFIABLE` (o se pasa a modo `cabecera`), el archivo se borra y los puertos se cierran. Si el
+cortafuegos instalado es de una versión anterior que no lee `proxy.json`, el ajuste lo avisa (actualícelo con
+`sudo bash deploy/webmail/instalar-app.sh cortafuegos`).
+
+Si el servidor no usa ese cortafuegos, el ajuste solo avisa: abra 4443 y 4444 solo para el proxy en el que
+use (nftables, el del hipervisor, el del router). Aunque nginx no cree la cabecera PROXY de nadie más, esos
+puertos son solo para el proxy.
 
 ## nginx en modo `cabecera` (el proxy termina el TLS)
 
@@ -138,6 +147,32 @@ El proxy descifra y vuelve a conectar al 443 del servidor como un cliente HTTPS 
 `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`. El ajuste genera solo
 `/etc/nginx/conf.d/maquita-ip-real.conf` con `set_real_ip_from <proxy>;`, `real_ip_header X-Forwarded-For;`
 y `real_ip_recursive on;`; no hay puertos nuevos. (Sustituye a editar a mano `deploy/hardening/nginx/real-ip.conf`.)
+Los snippets de los vhosts llevan solo el corte de los baneados (siguiente apartado).
+
+## Lo que banea fail2ban se corta también en nginx
+
+Tras el proxy, fail2ban banea la IP real del atacante en el cortafuegos del servidor, pero sus paquetes llegan
+desde el proxy: ese bloqueo no corta lo que entra por él. Por eso, con `PROXY_CONFIABLE` (en los dos modos),
+el ajuste añade un bloqueo en nginx, que sí conoce la IP real:
+
+- `/etc/nginx/conf.d/maquita-ip-real.conf` lleva
+  `geo $maquita_baneado { default 0; include maquita-baneados.conf; }` (geo usa la dirección del cliente,
+  la real tras `realip`), y los snippets de los vhosts, `if ($maquita_baneado) { return 444; }` (nginx cierra
+  la conexión sin responder). Vale también para el 443 directo, además del cortafuegos.
+- La acción de fail2ban `action.d/maquita-nginx-baneo.conf` (ayudante `/usr/local/sbin/maquita-nginx-baneo`)
+  apunta la IP en `/etc/nginx/maquita-baneados.conf` al banear y la quita al desbanear. Cada cárcel guarda su
+  lista en `/var/lib/maquita-nginx-baneo/` y el archivo de nginx es la unión sin repetidos; solo admite
+  direcciones IP (lo comprueba con `ipaddress`), escribe en un temporal y lo mueve (nunca queda a medias),
+  usa un cerrojo (`flock`) para los baneos simultáneos y agrupa las recargas (`nginx -t` y
+  `systemctl reload nginx`): varios baneos seguidos causan una sola recarga.
+- `jail.d/zz-maquita-proxy-baneo.local` suma esa acción a las cárceles `sitios-escaneo`, `sitios-abuso`,
+  `sitios-wp-login`, `nginx-http-auth`, `nginx-limit-req` y `maquita-webmail` con
+  `action = %(known/action)s maquita-nginx-baneo`: se **añade** a la acción que ya tenga cada cárcel (el
+  cortafuegos y, si la hay, la del MikroTik), no la sustituye. Las cárceles que no existan en el servidor no
+  se activan por esto.
+
+Sin `PROXY_CONFIABLE`, el ajuste quita `zz-maquita-proxy-baneo.local` y el `geo`; la acción y su ayudante se
+quedan instalados (una cárcel que se para todavía los llama) y no hacen nada.
 
 ## El guardián
 
@@ -150,12 +185,15 @@ alguna vez desde el propio servidor: hay redes en las que un equipo no puede lle
 Si fail2ban tiene baneada alguna dirección de `PROXY_CONFIABLE` o `FAIL2BAN_IGNORAR`, el guardián lo dice
 siempre (con la cárcel y la orden para desbanearla).
 
-## Límite conocido
+## Límites conocidos
 
-Con el proxy en modo `proxy_protocol`, fail2ban banea la IP real del atacante en el cortafuegos del servidor,
-pero sus paquetes llegan desde el proxy: ese bloqueo no corta lo que entra por el proxy (sí lo que entra
-directo). Para cortar en el borde, bloquee también en el proxy (por ejemplo, con `deny` en su `stream{}` o en
-el cortafuegos del router) las direcciones que fail2ban banea.
+- Por el 4443, el webmail atiende en HTTP/1.1, no en HTTP/2: `webmail.conf` activa HTTP/2 con el parámetro
+  `http2` de `listen 443`, que solo vale para ese puerto, y no se cambia a la directiva `http2 on;` porque
+  nginx 1.22 (Debian 12) no la admite. Los sitios de los clientes ya la usan y van en HTTP/2 por los dos
+  puertos.
+- El corte en nginx llega tras el saludo TLS: quien está baneado todavía completa la conexión con el proxy y
+  con el servidor antes de recibir el cierre. Para cortarlo en el borde, bloquee también en el proxy (por
+  ejemplo, con `deny` en su `stream{}` o en el cortafuegos del router).
 
 ## Comprobarlo en el servidor
 
@@ -163,6 +201,9 @@ el cortafuegos del router) las direcciones que fail2ban banea.
 sudo fail2ban-client -d | grep addignoreip | head -3       # la lista en cada cárcel
 sudo nginx -T 2>/dev/null | grep -E 'set_real_ip_from|real_ip_header|listen 444[34]'
 sudo ss -ltnp | grep -E ':444[34] '                          # nginx escucha en 4443 y 4444
+sudo iptables -S CORTAFUEGOS | grep 4443                     # solo con -s <proxy> (cortafuegos del panel)
+sudo fail2ban-client -d | grep "addaction', 'maquita-nginx-baneo" # la acción en las cárceles de nginx
+cat /etc/nginx/maquita-baneados.conf                         # lo baneado que nginx corta con 444
 curl -sk --haproxy-protocol --haproxy-clientip 203.0.113.7 \
      --resolve mail.example.org:4443:127.0.0.1 https://mail.example.org:4443/webmail/ -o /dev/null -w '%{http_code}\n'
 ```
