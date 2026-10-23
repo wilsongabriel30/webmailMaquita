@@ -7,6 +7,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Cambiado
+- `deploy/actualizar/lib/vigilados.py`: el SHA-1 que reproduce la suma de git de cada archivo vigilado queda marcado como no criptográfico (`usedforsecurity=False`). Aviso de Semgrep; sin cambios de comportamiento.
+
 ## [1.11.4] - 2026-10-22
 
 Drive: «Mover a…» ya no saca los archivos de una unidad de equipo, aviso al trabajar dentro de una unidad y vista dividida opcional para mover arrastrando entre dos carpetas.

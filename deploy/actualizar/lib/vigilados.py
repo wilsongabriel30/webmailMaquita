@@ -178,7 +178,10 @@ def firma(ruta, copia=None, presupuesto=None):
         datos["sha256"] = f"grande:{st.st_size}:{st.st_mtime_ns}"
         return datos
     copiar = copia is not None and st.st_size <= MAX_COPIA and (presupuesto is None or presupuesto[0] >= st.st_size)
-    suma, blob = hashlib.sha256(), hashlib.sha1(b"blob %d\0" % st.st_size)
+    # SHA-1 solo para reproducir la suma de git (git hash-object) y compararla con el árbol del repositorio;
+    # no protege nada: las versiones van firmadas y las copias se comprueban con SHA-256.
+    suma = hashlib.sha256()
+    blob = hashlib.sha1(b"blob %d\0" % st.st_size, usedforsecurity=False)  # nosemgrep: python.lang.security.insecure-hash-algorithms.insecure-hash-algorithm-sha1
     fd = os.open(ruta, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     salida = None
     try:
