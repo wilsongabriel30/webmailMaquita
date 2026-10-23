@@ -7,6 +7,20 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.11.4] - 2026-10-22
+
+Drive: «Mover a…» ya no saca los archivos de una unidad de equipo, aviso al trabajar dentro de una unidad y vista dividida opcional para mover arrastrando entre dos carpetas.
+
+### Añadido
+- **Drive: vista dividida (dos paneles)**, apagada por defecto. El botón ◫ de la barra (junto a cuadrícula y lista) abre a la derecha una segunda carpeta con su propio listado: espacio (Mis archivos o una unidad), migas, subir (sin pasar de la raíz del espacio), «ir a la carpeta de la izquierda» y cerrar. Arrastrar filas de un panel al otro, a una carpeta o a una miga mueve con la misma función que «Mover a…» (mismos avisos) y refresca los dos paneles. En pantallas de menos de 1024 px no se ofrece; la preferencia se recuerda en el navegador.
+- **Drive: aviso de carpeta compartida.** Dentro de una unidad de equipo, un aviso ámbar recuerda que es una sola carpeta real: lo que se mueve, renombra o borra lo ven los demás miembros, y para llevarse algo a los archivos propios hay que copiarlo. Usa el nombre del Drive de la marca (`drive_name`) y se puede ocultar durante la sesión.
+
+### Corregido
+- **Drive: «Mover a…» dentro de una unidad sacaba el archivo de la unidad.** El diálogo arrancaba siempre en «Mis archivos» y el destino perdía el prefijo `/unidades/<id>`: el servidor lo tomaba como un movimiento al espacio personal y el archivo desaparecía de la unidad para todo el equipo, sin error. Ahora arranca en la carpeta actual, sus migas van desde la raíz de la unidad y el destino conserva el prefijo. Pruebas: `almacen/tests/test_mover_dentro_unidad.py` y `frontend/tests/rutasEspacio.test.ts` (`node --test`, Node 22.18 o posterior).
+
+### Cambiado
+- `FilesView.tsx` baja de 1001 a 783 líneas: los tipos, los iconos, la miniatura y los diálogos de destino, versiones y miembros pasan a sus propios archivos, sin cambios de comportamiento.
+
 ## [1.11.3] - 2026-10-22
 
 `maquita-sudo` en módulos: ya pasaba de 800 líneas. Mismas reglas, sin cambios de comportamiento.
