@@ -7,6 +7,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Corregido
+- **Drive: «Eliminar definitivamente» en la papelera daba «Función no disponible: /papelera/eliminar».** El explorador y el Drive del webmail llaman a `POST /papelera/eliminar`, pero el servicio del almacén solo tenía listar, restaurar y vaciar (la ruta existía en el otro Drive y nunca se copió). Nuevo `almacen/servicio/papelera_eliminar.py`: igual que vaciar pero de a uno; no destruye, pasa el elemento a la retención (recuperable por master). 400 sin `ruta`, 404 «No está en la papelera». Prueba: `almacen/tests/test_papelera_eliminar.py`.
+
 ### Cambiado
 - `deploy/actualizar/lib/vigilados.py`: el SHA-1 que reproduce la suma de git de cada archivo vigilado queda marcado como no criptográfico (`usedforsecurity=False`). Aviso de Semgrep; sin cambios de comportamiento.
 

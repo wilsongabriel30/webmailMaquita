@@ -86,6 +86,22 @@ def vaciar_papelera():
                     'retenidos': movidos})
 
 
+@bp_extras.route('/papelera/eliminar', methods=['POST'])
+def eliminar_item_papelera():
+    """POST /papelera/eliminar — {ruta}. «Eliminar definitivamente» UN elemento.
+    'ruta' es el identificador en la papelera. NO se destruye: pasa a la retención."""
+    from papelera_eliminar import eliminar_de_papelera
+    usuario = usuario_actual()
+    datos = request.get_json() or {}
+    if not datos.get('ruta'):
+        return error('Ruta requerida', 400)
+    try:
+        eliminar_de_papelera(usuario, datos['ruta'])
+    except FileNotFoundError:
+        return error('No está en la papelera', 404)
+    return jsonify({'success': True, 'message': 'Eliminado de la papelera'})
+
+
 # ── enlaces públicos (sin login) ────────────────────────────────────────
 @bp_extras.route('/publico-info/<token>', methods=['GET', 'POST'])
 def info_publico(token):
