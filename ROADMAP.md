@@ -26,6 +26,7 @@ Estados: **DONE** (publicado) · **IN PROGRESS** (en desarrollo) · **PLANNED** 
 | 2026-10-22 | 1.11.1 | Correcciones pedidas por Andes: Editor de PDF y Tableros sin 401, nombres de marca, «Nuevo → Documento», nginx por defecto |
 | 2026-10-22 | 1.11.2 | Hospedaje para otras organizaciones: proxy de confianza, certificado por dominio, repositorios privados, entrada por dominio, informe del actualizador |
 | 2026-10-22 | 1.11.3 | `maquita-sudo` en módulos (sin cambios de comportamiento) |
+| 2026-10-22 | 1.11.4 | Drive: «Mover a…» dentro de las unidades, aviso de unidad compartida y vista dividida |
 
 El detalle de cada versión está en [CHANGELOG.md](CHANGELOG.md) y en
 [Releases](https://github.com/wilsongabriel30/webmailMaquita/releases).
