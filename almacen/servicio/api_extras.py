@@ -2,7 +2,7 @@
 """
 API de extras del Almacén Maquita.
 ==================================
-Favoritos, papelera (listar/restaurar/vaciar) y enlaces públicos servidos
+Favoritos, papelera (listar/restaurar/vaciar/eliminar) y enlaces públicos servidos
 sin login (/archivos/s/<token>). Completan el uso diario estilo Drive.
 
 Autoría: Equipo de Tecnología Maquita — 2026-07-03
@@ -84,6 +84,22 @@ def vaciar_papelera():
     movidos = nucleo.vaciar_papelera(usuario)
     return jsonify({'success': True, 'message': 'Papelera vaciada',
                     'retenidos': movidos})
+
+
+@bp_extras.route('/papelera/eliminar', methods=['POST'])
+def eliminar_item_papelera():
+    """POST /papelera/eliminar — {ruta}. Elimina UN elemento de la papelera.
+    'ruta' es el identificador en la papelera (nombre_fisico). NO se destruye:
+    pasa a la retención (recuperable solo por master)."""
+    usuario = usuario_actual()
+    datos = request.get_json(silent=True) or {}
+    if not datos.get('ruta'):
+        return error('Ruta requerida', 400)
+    try:
+        nucleo.eliminar_de_papelera(usuario, datos['ruta'])
+    except FileNotFoundError:
+        return error('No está en la papelera', 404)
+    return jsonify({'success': True, 'message': 'Eliminado de la papelera'})
 
 
 # ── enlaces públicos (sin login) ────────────────────────────────────────

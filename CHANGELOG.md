@@ -7,6 +7,13 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.11.5] - 2026-10-23
+
+Drive: «Eliminar definitivamente» un elemento de la papelera vuelve a funcionar.
+
+### Corregido
+- **Drive: «Eliminar definitivamente» respondía «Función no disponible: /papelera/eliminar».** El explorador llamaba a `POST /papelera/eliminar`, documentada en el contrato de la API (n.º 38), pero el servicio del Almacén no la implementaba: solo existía en `drive-maquita` y nunca se portó. «Vaciar papelera» sí funcionaba. Ahora el Almacén tiene la ruta (`{ruta}`; 400 sin ruta, 404 si no está en la papelera) y `eliminar_de_papelera`, que igual que vaciar **no destruye**: pasa el elemento a la retención, recuperable por un master. Si en la retención ya hay un elemento con el mismo nombre interno, se guarda con un nombre único en vez de pisarlo. Reportado por Andes con diagnóstico y parche. Pruebas: `almacen/tests/test_papelera_eliminar.py`.
+
 ## [1.11.4] - 2026-10-22
 
 Drive: «Mover a…» ya no saca los archivos de una unidad de equipo, aviso al trabajar dentro de una unidad y vista dividida opcional para mover arrastrando entre dos carpetas.
