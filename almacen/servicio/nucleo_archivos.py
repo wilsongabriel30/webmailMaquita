@@ -626,6 +626,39 @@ def vaciar_papelera(usuario_id: int) -> int:
     return movidos
 
 
+def eliminar_de_papelera(usuario_id: int, nombre_fisico: str) -> bool:
+    """
+    Elimina UN elemento de la papelera del usuario. Igual que vaciar, pero individual:
+    NO se destruye, pasa a la retención (red de seguridad de RETENCION_DIAS que solo
+    un master recupera).
+    """
+    filas = consultar('SELECT * FROM papelera WHERE usuario_id = %s AND nombre_fisico = %s',
+                      (usuario_id, nombre_fisico))
+    if not filas:
+        raise FileNotFoundError('No está en la papelera')
+    fila = filas[0]
+    origen = os.path.join(raiz_usuario(usuario_id, 'papelera'), fila['nombre_fisico'])
+    base_retencion = raiz_usuario(usuario_id, 'retencion')
+    nf = fila['nombre_fisico']
+    destino = os.path.join(base_retencion, nf)
+    if os.path.exists(origen):
+        if os.path.exists(destino):
+            # Ya hay algo con ese nombre en retención: nombre único (no pisar ni anidar).
+            raiz, ext = os.path.splitext(nf)
+            nf = '%s_%s%s' % (raiz, fila['id'], ext)
+            destino = os.path.join(base_retencion, nf)
+        shutil.move(origen, destino)
+    ejecutar("""
+        INSERT INTO retencion (usuario_id, ruta_original, nombre, nombre_fisico,
+                               es_carpeta, tamano_bytes)
+        VALUES (%s, %s, %s, %s, %s, %s)
+    """, (usuario_id, fila['ruta_original'], fila['nombre'], nf,
+          fila['es_carpeta'], fila['tamano_bytes']))
+    ejecutar('DELETE FROM papelera WHERE id = %s', (fila['id'],))
+    log.info('Elemento %s del usuario %s pasado a retención', nombre_fisico, usuario_id)
+    return True
+
+
 def listar_retencion(usuario_id: int = None) -> list:
     """
     Elementos en retención (solo master). Si usuario_id es None, de TODOS.

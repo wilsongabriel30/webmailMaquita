@@ -27,6 +27,7 @@ Estados: **DONE** (publicado) · **IN PROGRESS** (en desarrollo) · **PLANNED** 
 | 2026-10-22 | 1.11.2 | Hospedaje para otras organizaciones: proxy de confianza, certificado por dominio, repositorios privados, entrada por dominio, informe del actualizador |
 | 2026-10-22 | 1.11.3 | `maquita-sudo` en módulos (sin cambios de comportamiento) |
 | 2026-10-22 | 1.11.4 | Drive: «Mover a…» dentro de las unidades, aviso de unidad compartida y vista dividida |
+| 2026-10-23 | 1.11.5 | Drive: «Eliminar definitivamente» en la papelera (ruta que faltaba en el Almacén) |
 
 El detalle de cada versión está en [CHANGELOG.md](CHANGELOG.md) y en
 [Releases](https://github.com/wilsongabriel30/webmailMaquita/releases).
