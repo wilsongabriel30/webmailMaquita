@@ -28,6 +28,7 @@ Estados: **DONE** (publicado) · **IN PROGRESS** (en desarrollo) · **PLANNED** 
 | 2026-10-22 | 1.11.3 | `maquita-sudo` en módulos (sin cambios de comportamiento) |
 | 2026-10-22 | 1.11.4 | Drive: «Mover a…» dentro de las unidades, aviso de unidad compartida y vista dividida |
 | 2026-10-23 | 1.11.5 | Drive: «Eliminar definitivamente» en la papelera (ruta que faltaba en el Almacén) |
+| 2026-10-26 | 1.11.6 | Favicon con el logo de la organización en el panel, el webmail y el Drive (adiós al rayo de Vite) |
 
 El detalle de cada versión está en [CHANGELOG.md](CHANGELOG.md) y en
 [Releases](https://github.com/wilsongabriel30/webmailMaquita/releases).

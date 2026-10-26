@@ -193,11 +193,14 @@ export default function App() {
   useEffect(() => {
     fetch("/api/branding")
       .then(r => r.ok ? r.json() : ({}))
-      .then((b: { favicon_url?: string; app_name?: string; org_name?: string }) => {
-        if (b.favicon_url) {
+      .then((b: { favicon_url?: string; logo_url?: string; app_name?: string; org_name?: string }) => {
+        // Sin favicon propio, el logo de la organización (nunca el ícono genérico).
+        const icono = b.favicon_url || b.logo_url;
+        if (icono) {
           const link = document.querySelector("link[rel=\"icon\"]") as HTMLLinkElement;
           if (link) {
-            link.href = b.favicon_url;
+            link.removeAttribute("integrity");
+            link.href = icono;
             link.type = "";
           }
         }

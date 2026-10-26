@@ -68,6 +68,7 @@ import { EDiscovery } from "./pages/EDiscovery";
 import { Branding } from "./pages/Branding";
 import { Compliance } from "./pages/Compliance";
 import { Tableros } from "./pages/seguridad/Tableros";
+import { aplicarFavicon, cargarMarcaPublica } from "./lib/marca";
 
 function App() {
   const [user, setUser] = useState<AdminUser | null>(() => {
@@ -96,22 +97,14 @@ function App() {
   };
 
 
-  // Load branding (favicon, title)
+  // Marca: favicon (o logo) de la organización y título, también en la pantalla de entrada.
   useEffect(() => {
-    const token = localStorage.getItem("admin_token");
-    if (!token) return;
-    fetch("/api/branding", { headers: { "X-Admin-Token": token } })
-      .then(r => r.ok ? r.json() : ({} as any))
-      .then((b: any) => {
-        if (b.favicon_url) {
-          const link = document.querySelector("link[rel=\"icon\"]") as HTMLLinkElement;
-          if (link) { link.href = b.favicon_url; link.type = ""; }
-        }
-        if (b.org_name) {
-          document.title = b.org_name + " - Admin";
-        }
-      })
-      .catch(() => {});
+    cargarMarcaPublica().then((b) => {
+      aplicarFavicon(b);
+      if (b.org_name) {
+        document.title = b.org_name + " - Admin";
+      }
+    });
   }, [user]);
 
   useEffect(() => {
