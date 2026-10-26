@@ -7,6 +7,17 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.11.6] - 2026-10-26
+
+La pestaña del navegador muestra el logo de cada organización en el panel, el webmail y el Drive, también en la pantalla de entrada.
+
+### Corregido
+- **Panel de administración (`:8443`): la pestaña mostraba el ícono genérico de Vite (un rayo morado)** en la pantalla de entrada. El panel solo aplicaba el favicon de la marca después de iniciar sesión (exigía el token, aunque `/api/branding` es público). Ahora lo aplica al cargar cualquier página, con `admin-panel/frontend/src/lib/marca.ts`. Reportado en Fundación Maquita.
+- **Sin favicon propio se usa el logo de la organización**, en el panel, el webmail y el Drive. Antes, una organización que solo había subido su logo veía el rayo morado en todas partes. El favicon subido en Personalización sigue teniendo prioridad.
+
+### Cambiado
+- El ícono de reserva (`favicon.svg` del webmail y del panel), que se ve solo si no hay ni favicon ni logo, deja de ser el ícono de ejemplo de Vite: ahora es un sobre neutro en gris.
+
 ## [1.11.5] - 2026-10-23
 
 Drive: «Eliminar definitivamente» un elemento de la papelera vuelve a funcionar.

@@ -1185,7 +1185,7 @@ window.ALMACEN_OVERRIDE = { api: '/api/almacen', url: '/archivos-almacen' };
         // Branding del panel (favicon y color primario) — misma fuente que el webmail.
         fetch('/api/branding').then(function(r){return r.json();}).then(function(b){
           try {
-            if (b && b.favicon_url) { var l=document.querySelector("link[rel='icon']")||document.createElement('link'); l.rel='icon'; l.href=b.favicon_url; document.head.appendChild(l); }
+            if (b && (b.favicon_url || b.logo_url)) { b.favicon_url = b.favicon_url || b.logo_url; var l=document.querySelector("link[rel='icon']")||document.createElement('link'); l.rel='icon'; l.href=b.favicon_url; document.head.appendChild(l); }
             if (b && b.primary_color) document.documentElement.style.setProperty('--brand-primary', b.primary_color);
           } catch(e){}
         }).catch(function(){});
