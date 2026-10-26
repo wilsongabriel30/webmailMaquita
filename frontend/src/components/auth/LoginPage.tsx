@@ -81,7 +81,9 @@ export function LoginPage() {
         : await api.post<RespuestaLogin>('/auth/login', { username, password });
 
       if (res.success === false) {
-        setError(res.error || 'Credenciales incorrectas');
+        // Segundo paso: el servidor responde igual falle la contraseña o el código (M-01);
+        // se le recuerda al usuario que revise las dos cosas.
+        setError(needs2FA ? 'Código o contraseña incorrectos. Si tu código es correcto, vuelve atrás y revisa tu contraseña.' : (res.error || 'Credenciales incorrectas'));
         setLoading(false);
         return;
       }
@@ -120,8 +122,13 @@ export function LoginPage() {
       // nuevo; reintentar con el mismo vale solo repetiría el error (caso 19/10/2026).
       if (needs2FA && /vuelve a escribir tu contrase/i.test(mensaje)) {
         setNeeds2FA(false); setTicket(''); setTotpCode(''); setPassword('');
+        setError(mensaje);
+      } else if (needs2FA) {
+        // Mismo texto falle la contraseña o el código: no revela cuál de los dos fue.
+        setError('Código o contraseña incorrectos. Si tu código es correcto, vuelve atrás y revisa tu contraseña.');
+      } else {
+        setError(mensaje);
       }
-      setError(mensaje);
     } finally {
       setLoading(false);
     }
