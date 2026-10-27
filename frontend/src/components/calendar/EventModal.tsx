@@ -20,6 +20,10 @@ interface Props {
   initialDurationMinutes?: number;
   initialSummary?: string;
   initialDescription?: string;
+  /** Asistentes ya puestos al abrir (p. ej. el remitente, al crear el evento desde un correo). */
+  initialAttendees?: string[];
+  /** Videollamada activada al abrir. */
+  initialVirtualMeeting?: boolean;
   calendars: CalendarInfo[];
   onSave: (data: EventFormData) => void;
   onDelete: (id: string) => void;
@@ -70,6 +74,8 @@ export function EventModal({
   initialDurationMinutes,
   initialSummary,
   initialDescription,
+  initialAttendees,
+  initialVirtualMeeting,
   calendars,
   onSave,
   onDelete,
@@ -110,7 +116,7 @@ export function EventModal({
   const [allDay, setAllDay] = useState(event?.all_day || false);
   const [rrule, setRrule] = useState(event?.rrule || "");
   const [reminders, setReminders] = useState<EventReminder[]>(event?.reminders || []);
-  const [attendees, setAttendees] = useState<string[]>(event?.attendees?.filter((a: AsistenteCrudo) => typeof a === "string" || (a.role && a.role !== "OPT-PARTICIPANT")).map((a: AsistenteCrudo) => typeof a === "string" ? a : a.email).filter(Boolean) as string[] || []);
+  const [attendees, setAttendees] = useState<string[]>(event?.attendees?.filter((a: AsistenteCrudo) => typeof a === "string" || (a.role && a.role !== "OPT-PARTICIPANT")).map((a: AsistenteCrudo) => typeof a === "string" ? a : a.email).filter(Boolean) as string[] || initialAttendees || []);
   const [optionalAttendees, setOptionalAttendees] = useState<string[]>(event?.attendees?.filter((a: AsistenteCrudo) => typeof a !== "string" && a.role === "OPT-PARTICIPANT").map((a: AsistenteCrudo) => typeof a === "string" ? a : a.email).filter(Boolean) as string[] || []);
   const [newAttendee, setNewAttendee] = useState("");
   const [newOptionalAttendee, setNewOptionalAttendee] = useState("");
@@ -127,7 +133,7 @@ export function EventModal({
   const [activeTab, setActiveTab] = useState<"event" | "series">("event");
   const [showDatePickers, setShowDatePickers] = useState(false);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
-  const [virtualMeeting, setVirtualMeeting] = useState(false);
+  const [virtualMeeting, setVirtualMeeting] = useState(!event && !!initialVirtualMeeting);
   const [isExpanded, setIsExpanded] = useState(false);
   const descRef = useRef<HTMLTextAreaElement>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);

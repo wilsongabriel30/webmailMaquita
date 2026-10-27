@@ -10,6 +10,7 @@ import { ToastContainer } from '../common/Toast';
 import { useSearchParams } from "react-router-dom";
 import { useMailStore } from '../../store/mailStore';
 import { api } from '../../api/client';
+import { EventoDesdeCorreo } from '../calendar/EventoDesdeCorreo';
 
 function MyDayPanel({ onClose }: { onClose: () => void }) {
   const now = new Date();
@@ -436,6 +437,7 @@ export function MailView() {
 
       </div>
       {showMyDay && <MyDayPanel onClose={() => setShowMyDay(false)} />}
+      <EventoDesdeCorreo />
       </div>
 
       {/* (compose se muestra inline dentro del panel de contenido, no flotante) */}

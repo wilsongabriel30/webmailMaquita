@@ -11,6 +11,7 @@ import { WeekView } from "./WeekView";
 import { DayView } from "./DayView";
 import { AgendaView } from "./AgendaView";
 import { EventModal } from "./EventModal";
+import { guardarEvento } from "./guardarEvento";
 import {
   startOfMonth,
   endOfMonth,
@@ -118,25 +119,8 @@ export default function CalendarView() {
   const [modalInitialSummary, setModalInitialSummary] = useState<string | undefined>();
   const [modalInitialDescription, setModalInitialDescription] = useState<string | undefined>();
 
-  useEffect(() => {
-    let raw: string | null = null;
-    try { raw = sessionStorage.getItem('pending-event-from-mail'); } catch { /* ventana privada: no hay evento pendiente que recoger */ }
-    if (!raw) return;
-    try { sessionStorage.removeItem('pending-event-from-mail'); } catch { /* si no se puede borrar, se vuelve a abrir el mismo evento; inofensivo */ }
-    try {
-      const m = JSON.parse(raw);
-      setEditEvent(null);
-      setModalInitialDate(new Date());
-      setModalInitialHour(undefined);
-      setModalInitialDuration(undefined);
-      setModalInitialSummary(m.subject || 'Evento desde correo');
-      setModalInitialDescription(`Creado desde el correo de ${m.from || 'remitente desconocido'}:\n"${m.subject || ''}"`);
-      setModalOpen(true);
-    } catch { /* lo guardado no era un evento legible: se ignora en vez de romper el calendario */ }
-  }, []);
-
   const calApi = useCalendarApi();
-  const { fetchCalendars, fetchEvents, createEvent, updateEvent, deleteEvent, moveEvent, createCalendar, deleteCalendar,
+  const { fetchCalendars, fetchEvents, deleteEvent, moveEvent, createCalendar, deleteCalendar,
           shareCalendar, listSharedWithMe,
           loading, error } = calApi;
 
@@ -220,90 +204,9 @@ const [showScheduling, setShowScheduling] = useState(false);
   }
 
   async function handleSaveEvent(data: EventFormData) {
-    const { _attachments, _virtualMeeting, ...payload } = data;
-
-    // Videollamada Maquita Meet (T-30): la reunión es UN registro del servicio de reuniones (mismo id en Raíces, en el
-    // calendario y en la app). Se crea aquí y el evento lleva el enlace + la marca X-MAQUITA-REUNION:<id>.
-    let reunionNueva: number | null = null;
-    if (_virtualMeeting && !/(REUNION-ID|X-MAQUITA-REUNION):/.test(payload.description || "") && !/https?:\/\//.test(payload.location || "")) {
-      try {
-        const horas = Math.max(1, Math.ceil((new Date(payload.dtend).getTime() - new Date(payload.dtstart).getTime()) / 3600000));
-        const m = await api.post<{ success: boolean; reunion: { id: number; url_sala: string; url_acceso: string } }>("/chat/reuniones", {
-          asunto: payload.summary,
-          inicio: payload.dtstart,
-          duracion_horas: horas,
-          participantes: [...(payload.attendees || []), ...(payload.optional_attendees || [])],
-          calendario: false,
-        });
-        if (m?.reunion?.url_sala) {
-          reunionNueva = m.reunion.id;
-          if (!payload.location) payload.location = m.reunion.url_sala;
-          payload.description = (payload.description ? payload.description + "\n\n" : "") +
-            `Videollamada: ${m.reunion.url_sala}\nEntrar con tu usuario: ${m.reunion.url_acceso}?redirigir=1\nREUNION-ID: ${m.reunion.id}`;
-        }
-      } catch {
-        console.error("[Calendar] No se pudo crear la videollamada de la reunión");
-      }
-    }
-    // Evento ya vinculado a una reunión: al editarlo se actualiza la reunión (hora, asistentes, asunto)
-    const reunionVinculada = /(?:REUNION-ID|X-MAQUITA-REUNION):\s*(\d+)/.exec((editEvent?.description || "") + " " + (payload.description || ""));
-
-    let savedEvent: object | null = null;
-    if (editEvent) {
-      savedEvent = await updateEvent(editEvent.id, payload);
-    } else {
-      savedEvent = await createEvent(payload);
-    }
-    if (!savedEvent) {
-      // No cerrar modal si hubo error — el usuario debe ver que falló
-      console.error("[Calendar] Error guardando evento");
-      return;
-    }
-    setModalOpen(false);
-
-    // Subir adjuntos del evento (el endpoint requiere el id ya creado)
-    const evId = (savedEvent as { id?: string }).id || editEvent?.id;
-    if (_attachments && _attachments.length > 0 && evId) {
-      for (const file of _attachments) {
-        const fd = new FormData();
-        fd.append("file", file);
-        try {
-          await fetch(`/api/calendar/events/${evId}/attachments`, {
-            method: "POST", body: fd, credentials: "include",
-          });
-        } catch {
-          console.error("[Calendar] Error subiendo adjunto", file.name);
-        }
-      }
-    }
-
-    // T-30: vínculo evento ⇄ reunión (mismo id) y sincronía al editar
-    try {
-      if (reunionNueva && evId) {
-        await api.post(`/chat/reuniones/${reunionNueva}/vincular-evento`, { evento_id: evId, calendar_id: payload.calendar_id });
-      } else if (editEvent && reunionVinculada) {
-        const horas = Math.max(1, Math.ceil((new Date(payload.dtend).getTime() - new Date(payload.dtstart).getTime()) / 3600000));
-        await api.put(`/chat/reuniones/${reunionVinculada[1]}`, {
-          asunto: payload.summary, inicio: payload.dtstart, duracion_horas: horas,
-          participantes: [...(payload.attendees || []), ...(payload.optional_attendees || [])], sin_calendario: true,
-        });
-      }
-    } catch {
-      console.error("[Calendar] No se pudo sincronizar la videollamada de la reunión");
-    }
-
-    loadEvents();
-    // Si hay asistentes, enviar invitaciones automáticamente
-    if ((data.attendees && data.attendees.length > 0) || (data.optional_attendees && data.optional_attendees.length > 0)) {
-      const eventId = (savedEvent as { id: string }).id;
-      if (eventId) {
-        calApi.sendEventInvitations(eventId).then((res) => {
-          if (res && (res as { sent: number }).sent > 0) {
-            console.info(`Invitaciones enviadas: ${(res as { sent: number }).sent}`);
-          }
-        }).catch(() => {/* silencioso */});
-      }
-    }
+    // No cerrar el diálogo si hubo error: el usuario debe ver que falló
+    const savedEvent = await guardarEvento(calApi, data, editEvent, () => setModalOpen(false));
+    if (savedEvent) loadEvents();
   }
 
   async function handleDeleteCalendar(id: string, name: string) {
