@@ -21,6 +21,7 @@ import { ReminderPopup } from "../common/ReminderPopup";
 import { AvisoCookies } from "../common/AvisoCookies";
 import { esModoApp } from "../../lib/modoApp"
 import { useDeepLinkCorreo } from "../../lib/deepLinkCorreo";
+import { PanelAsistente } from "../asistente-lateral";
 
 export function AppLayout() {
   const nombreApp = useNombreApp();
@@ -136,6 +137,8 @@ export function AppLayout() {
           <h1 className="sr-only">{nombreApp}</h1>
           <Outlet />
         </main>
+        {/* 27/10/2026: panel lateral del asistente de IA (components/asistente-lateral) */}
+        <PanelAsistente movil={isMobile} />
         {/* Region de anuncios para lectores de pantalla */}
         <div aria-live="polite" aria-atomic="true" className="sr-only" id="a11y-announcer" />
       </div>
