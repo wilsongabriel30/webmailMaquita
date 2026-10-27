@@ -50,13 +50,28 @@ WHERE c.id = e.calendar_id
   AND e.reminder_sent_at IS NULL
   AND e.dtstart - (COALESCE(NULLIF(e.reminders->0->>'minutes', '')::int, 15)
                    * interval '1 minute') <= $1
-RETURNING e.id, e.summary, e.dtstart, c.owner_email
+RETURNING e.id, e.summary, e.dtstart, e.dtend, e.location, e.description, c.owner_email
 """
 
 
-async def _send_fallback_email(username: str, message: str):
+def _contenido_evento(r, inicio: datetime, fin: datetime | None) -> tuple[str, str]:
+    """Texto y HTML del recordatorio con el enlace de la reunión, el lugar y el horario."""
+    from app.recordatorio_evento import contenido
+
+    return contenido(
+        r["summary"],
+        _fmt_hora(inicio),
+        _fmt_hora(fin) if fin else "",
+        r["location"],
+        r["description"],
+    )
+
+
+async def _send_fallback_email(username: str, message: str, html_cuerpo: str = ""):
     """Si el usuario no tiene el webmail abierto, el recordatorio llega por correo."""
     try:
+        from html import escape
+
         from app.branding.service import app_name_cacheado
         from app.config import get_settings
 
@@ -64,11 +79,12 @@ async def _send_fallback_email(username: str, message: str):
         msg = EmailMessage()
         msg["From"] = f"no-reply@{st.mail_domain}"
         msg["To"] = username
-        msg["Subject"] = message[:140]
+        msg["Subject"] = message.splitlines()[0][:140]
         msg.set_content(message)
+        cuerpo = html_cuerpo or f'<p style="font-size:14px">{escape(message)}</p>'
         msg.add_alternative(
-            f'<p style="font-size:14px">{message}</p>'
-            f'<p style="color:#605e5c;font-size:12px">Recordatorio automático de {app_name_cacheado()} '
+            cuerpo
+            + f'<p style="color:#605e5c;font-size:12px">Recordatorio automático de {app_name_cacheado()} '
             f"(recibiste este correo porque no tenías el webmail abierto).</p>",
             subtype="html",
         )
@@ -82,7 +98,13 @@ async def _send_fallback_email(username: str, message: str):
 
 
 async def _publish(
-    redis, username: str, message: str, tag: str, kind: str = "", entity_id: str = ""
+    redis,
+    username: str,
+    message: str,
+    tag: str,
+    kind: str = "",
+    entity_id: str = "",
+    html_cuerpo: str = "",
 ):
     try:
         await redis.publish(
@@ -104,7 +126,7 @@ async def _publish(
     except Exception:
         online = True
     if not online:
-        await _send_fallback_email(username, message)
+        await _send_fallback_email(username, message, html_cuerpo)
 
 
 def _fmt_hora(dt: datetime) -> str:
@@ -149,13 +171,15 @@ async def check_reminders(app):
 
             rows = await db.fetch(CLAIM_EVENTS, now)
             for r in rows:
+                texto, html_cuerpo = _contenido_evento(r, r["dtstart"], r["dtend"])
                 await _publish(
                     redis,
                     r["owner_email"],
-                    f"📅 {r['summary']} empieza a las {_fmt_hora(r['dtstart'])}",
+                    texto,
                     f"event-rem-{r['id']}",
                     kind="event",
                     entity_id=r["id"],
+                    html_cuerpo=html_cuerpo,
                 )
 
             # ── Eventos RECURRENTES: próxima ocurrencia ──
@@ -163,8 +187,8 @@ async def check_reminders(app):
                 from dateutil.rrule import rrulestr
 
                 recs = await db.fetch(
-                    """SELECT e.id, e.summary, e.dtstart, e.rrule, e.reminders,
-                              e.reminder_sent_at, c.owner_email
+                    """SELECT e.id, e.summary, e.dtstart, e.dtend, e.rrule, e.reminders,
+                              e.location, e.description, e.reminder_sent_at, c.owner_email
                        FROM events e JOIN calendars c ON c.id = e.calendar_id
                        WHERE COALESCE(e.rrule, '') <> ''
                          AND e.all_day = FALSE
@@ -219,13 +243,20 @@ async def check_reminders(app):
                         r["id"],
                     )
                     if claimed:
+                        fin = (
+                            occ_aware + (r["dtend"] - r["dtstart"])
+                            if r["dtend"]
+                            else None
+                        )
+                        texto, html_cuerpo = _contenido_evento(r, occ_aware, fin)
                         await _publish(
                             redis,
                             r["owner_email"],
-                            f"📅 {r['summary']} empieza a las {_fmt_hora(occ_aware)}",
+                            texto,
                             f"event-rem-{r['id']}-{occ_aware.isoformat()}",
                             kind="event",
                             entity_id=r["id"],
+                            html_cuerpo=html_cuerpo,
                         )
             except Exception as exc:
                 logger.error("Error en recordatorios recurrentes: %s", exc)

@@ -4,7 +4,7 @@ import re
 from datetime import datetime, timezone
 from typing import Optional, Union
 
-from pydantic import BaseModel, ConfigDict, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 MAX_RECIPIENTS = 50  # Máximo total de destinatarios (to + cc + bcc)
 
@@ -71,6 +71,9 @@ class ComposeRequest(BaseModel):
     from_email: str | None = None
     dlp_override: bool = False
     dlp_reason: str | None = None
+    # Etiqueta de sensibilidad (Publica/Interna/Confidencial/Restringida). Faltaba aquí y, con
+    # extra="forbid", todo envío con etiqueta respondía 400 «Solicitud inválida» (27/10/2026).
+    sensitivity: str = Field(default="", max_length=20)
 
     @field_validator("to", mode="before")
     @classmethod
