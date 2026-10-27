@@ -10,7 +10,7 @@ import sys
 
 RUTA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "deploy", "sitios", "lib")
 CHOQUES = ("comun", "validacion")
-NOMBRES = ("comun", "validacion", "como_usuario", "archivos_rutas", "archivos", "archivos_papelera", "archivos_zip",
+NOMBRES = ("comun", "validacion", "como_usuario", "archivos_rutas", "archivos", "archivos_papelera", "archivos_7z", "archivos_zip",
            "archivos_ordenes", "visor_registros", "estadisticas", "disponibilidad", "copias_cliente", "ordenes_datos",
            # v1.11: git de los sitios PHP y CPU y memoria por sitio
            "red_publica", "git_clave", "git_credencial", "git_sitio", "git_despliegue", "recursos", "ordenes_v111",
@@ -35,6 +35,24 @@ def cargar():
         sys.modules.update(guardados)
     _cargados["como_usuario"].CAMBIAR_USUARIO = False  # sin root: todo en el mismo proceso
     return _cargados
+
+
+def cargar_mas(*nombres):
+    """Módulos de deploy/sitios/lib que no están en NOMBRES (p. ej. paquete y lo que importa en diferido), con el mismo
+    «comun» que el resto: así ErrorSitio y META_DIR son los de las pruebas."""
+    m = cargar()
+    guardados = {n: sys.modules.pop(n) for n in CHOQUES if n in sys.modules}
+    sys.modules.update({n: m[n] for n in CHOQUES})
+    sys.path.insert(0, RUTA)
+    try:
+        for n in nombres:
+            m.setdefault(n, importlib.import_module(n))
+    finally:
+        sys.path.remove(RUTA)
+        for n in CHOQUES:
+            sys.modules.pop(n, None)
+        sys.modules.update(guardados)
+    return m
 
 
 def sitio(tmp_path, monkeypatch, dominio="example.org", **extra):

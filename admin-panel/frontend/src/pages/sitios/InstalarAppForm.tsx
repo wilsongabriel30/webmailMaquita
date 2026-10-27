@@ -44,7 +44,7 @@ export function InstalarAppForm({ dominio, apps, ocupado, onCancelar, onInstalar
     <div className="bg-white rounded border border-ms-gray-30 p-5 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-base font-semibold text-ms-gray-130">Instalar una aplicación en {dominio}</h2>
-        <button onClick={onSubirPaquete} className="text-sm text-ms-blue hover:underline">¿Tiene su propio paquete (.zip o .tar.gz)? Súbalo</button>
+        <button onClick={onSubirPaquete} className="text-sm text-ms-blue hover:underline">¿Tiene su propio paquete (.zip, .tar.gz, .rar o .7z)? Súbalo</button>
       </div>
       <div className="flex flex-wrap gap-2">
         <input placeholder={`Buscar entre ${apps.length} aplicaciones…`} value={buscar} onChange={(e) => setBuscar(e.target.value)}
