@@ -11,7 +11,7 @@ import re
 _URL = re.compile(r"https?://[^\s<>\"')\]]+", re.IGNORECASE)
 # Servicios de videollamada: si hay varios enlaces, se prefiere uno de estos.
 _REUNION = re.compile(
-    r"meet\.google\.com|zoom\.us|teams\.microsoft\.com|teams\.live\.com|meet\.maquita|"
+    r"meet\.google\.com|zoom\.us|teams\.microsoft\.com|teams\.live\.com|//meet\.|"
     r"jitsi|whereby\.com|webex\.com|gotomeeting|meet\.jit\.si",
     re.IGNORECASE,
 )
