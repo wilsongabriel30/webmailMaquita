@@ -807,7 +807,9 @@ export function MessageList() {
             subject: msg.subject || '', from: msg.from || '', date: msg.date || '',
             uid: msg.uid, folder: currentFolder,
           }));
-          e.dataTransfer.effectAllowed = 'move';
+          // Mover a una carpeta o copiar al Calendario/Tareas (NavRail pide 'copy'): con solo 'move'
+          // el navegador rechazaba el soltado en esos íconos sin avisar.
+          e.dataTransfer.effectAllowed = 'copyMove';
           const badge = document.createElement('div');
           badge.textContent = uids.length > 1 ? `${uids.length} mensajes` : msg.subject || '1 mensaje';
           badge.style.cssText = 'padding:4px 10px;background:#0078d4;color:#fff;border-radius:4px;font-size:12px;position:absolute;top:-9999px';
