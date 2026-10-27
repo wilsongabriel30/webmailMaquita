@@ -35,6 +35,22 @@ test('el panel del asistente se abre, resume, responde y se cierra', async ({ se
     await caja.press('Enter');
     await expect(panel.getByText(/revisando tus correos/i)).toBeHidden({ timeout: 90_000 });
     await pagina.screenshot({ path: 'informe/asistente-pregunta.png' });
+
+    // Las fuentes abren el correo con un clic, también desde otra sección.
+    const fuente = panel.locator('button[title^="Abrir:"]').first();
+    if (await fuente.count()) {
+      const asunto = ((await fuente.getAttribute('title')) || '').replace(/^Abrir: /, '').split(' — ')[0];
+      await pagina.goto('/webmail/calendar').catch(() => {});
+      if (!(await panel.isVisible())) await pagina.getByRole('button', { name: /^asistente$/i }).first().click();
+      await panel.locator('button[title^="Abrir:"]').first().click().catch(async () => {
+        // Tras navegar, la conversación (en memoria) puede haberse perdido: se vuelve a preguntar.
+        await caja.fill('¿Qué tengo pendiente?');
+        await caja.press('Enter');
+        await panel.locator('button[title^="Abrir:"]').first().click({ timeout: 90_000 });
+      });
+      await expect(pagina.getByRole('heading', { name: asunto }).first()).toBeVisible({ timeout: 20_000 });
+      await pagina.screenshot({ path: 'informe/asistente-fuente-abierta.png' });
+    }
   }
 
   await pagina.keyboard.press('Escape');

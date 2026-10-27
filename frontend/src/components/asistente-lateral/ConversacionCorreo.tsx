@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '../../api/client';
 import { useAsistenteStore, type FuenteRag } from './asistenteStore';
 import { useEstadoIndice } from './useEstadoIndice';
+import { FuentesRespuesta } from './FuentesRespuesta';
 
 const SUGERENCIAS = [
   '¿Qué tengo pendiente o requiere mi atención?',
@@ -87,14 +88,7 @@ export function ConversacionCorreo() {
               ? 'max-w-[85%] rounded-lg px-3 py-2 text-[13px] bg-[#deecf9] text-[#323130]'
               : 'rounded-lg px-3 py-2 text-[13px] border border-[#edebe9] bg-[#faf9f8] text-[#323130]'}>
               <p className="whitespace-pre-wrap" style={m.error ? { color: '#a4262c' } : undefined}>{m.texto}</p>
-              {m.fuentes && m.fuentes.length > 0 && (
-                <details className="mt-2 text-[11px] text-[#605e5c]">
-                  <summary className="cursor-pointer">Basado en {m.fuentes.length} {m.fuentes.length === 1 ? 'correo' : 'correos'}</summary>
-                  <ul className="mt-1 space-y-0.5">
-                    {m.fuentes.map((f, i) => <li key={i} className="truncate" title={`${f.subject} — ${f.sender}`}>· {f.subject} <span className="text-[#a19f9d]">({f.sender})</span></li>)}
-                  </ul>
-                </details>
-              )}
+              {m.fuentes && m.fuentes.length > 0 && <FuentesRespuesta fuentes={m.fuentes} />}
             </div>
           </div>
         ))}

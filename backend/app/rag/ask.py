@@ -48,6 +48,9 @@ async def ask(db, username, question):
                 "subject": r["subject"],
                 "sender": r["sender"],
                 "sim": round(float(r["sim"]), 2),
+                # Carpeta y UID para que el panel abra el correo con un clic (27/10/2026)
+                "folder": r["folder"],
+                "uid": r["msg_uid"],
             }
             for r in rows
         ],

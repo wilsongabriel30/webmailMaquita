@@ -9,6 +9,9 @@ export interface FuenteRag {
   subject: string;
   sender: string;
   sim: number;
+  /** Carpeta y UID del correo, para abrirlo desde el panel. */
+  folder?: string;
+  uid?: string;
 }
 
 export interface MensajeAsistente {
