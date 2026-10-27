@@ -7,6 +7,10 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Corregido
+- **Enviar con etiqueta de sensibilidad fallaba siempre con «Solicitud inválida»** (400), con cualquier etiqueta (Pública, Interna, Confidencial o Restringida) y cualquier destinatario. El modelo del envío rechaza campos desconocidos y no declaraba `sensitivity`. Ahora la acepta. Si un correo «Confidencial» o «Restringida» va a destinatarios externos, la pantalla lo explica con la lista de externos (antes mostraba el JSON crudo), y un administrador puede enviarlo igual dejando el motivo registrado. Reportado en Fundación Maquita.
+- **Los recordatorios de eventos no traían el enlace de la reunión.** El correo de recordatorio decía solo «📅 <título> empieza a las HH:MM». Ahora incluye el horario, un botón «Entrar a la reunión» con el enlace (Meet, Zoom, Teams, Jitsi… tomado del lugar o de la descripción del evento) y el lugar físico si lo hay. Vale también para los eventos recurrentes. Reportado en Maquita Turismo.
+
 ## [1.11.6] - 2026-10-26
 
 La pestaña del navegador muestra el logo de cada organización en el panel, el webmail y el Drive, también en la pantalla de entrada.

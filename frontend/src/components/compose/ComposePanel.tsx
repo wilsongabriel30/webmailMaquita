@@ -7,6 +7,7 @@ import { addToOutbox, removeFromOutbox, updateOutboxStatus } from "../../lib/off
 import { syncOutbox } from "../../lib/syncQueue";
 import { SelectorArchivosNube } from './SelectorArchivosNube';
 import { SelectorRemitente } from './SelectorRemitente';
+import { leerBloqueoSensibilidad, pedirMotivoSensibilidad } from './bloqueoSensibilidad';
 import { cuentaDeCarpeta } from '../../lib/cuentas';
 import { sanitizeHtml, sanitizeSignatureHtml } from '../../lib/sanitize';
 import { separarCitado } from '../../lib/borradorCitado';
@@ -621,7 +622,19 @@ export function ComposePanel({ win }: Props) {
       try { await api.post('/mail/send', sendPayload); showToast('Mensaje enviado'); window.dispatchEvent(new CustomEvent('refresh-messages'));
       } catch (err: unknown) {
         const errMsg = err instanceof Error ? err.message : 'Error al enviar';
-        if (errMsg.includes('dlp_blocked')) {
+        const bloqueo = leerBloqueoSensibilidad(errMsg);
+        if (bloqueo) {
+          const motivo = pedirMotivoSensibilidad(bloqueo);
+          if (motivo) {
+            try {
+              await api.post('/mail/send', { ...sendPayload, dlp_override: true, dlp_reason: motivo });
+              showToast('Mensaje enviado'); window.dispatchEvent(new CustomEvent('refresh-messages'));
+              return;
+            } catch (err2: unknown) {
+              showToast('Error al enviar: ' + (err2 instanceof Error ? err2.message : ''));
+            }
+          }
+        } else if (errMsg.includes('dlp_blocked')) {
           let tipos = '';
           try {
             const d = JSON.parse(errMsg) as { findings?: HallazgoDlp[] };
