@@ -7,6 +7,12 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Seguridad
+- **Pillow 12.3.0 → 13.0.0** en el backend, el Almacén y el editor de PDF: corrige varias denegaciones de servicio con imágenes manipuladas (bucles infinitos, imágenes de tamaño cero, lectura fuera de memoria, APNG). El webmail procesa imágenes de adjuntos y del Almacén, así que el riesgo era real.
+- **certifi 2026.2.25 → 2026.10.19** en el backend (PYSEC-2026-4320).
+- **vite 8.3.5** en el panel de administración (avisos altos de vite y launch-editor; solo afectan al servidor de desarrollo).
+- Con esto vuelven a verde las auditorías pip-audit, npm audit y Trivy del «Security Scan», que fallaban también en main.
+
 ### Corregido
 - **Enviar con etiqueta de sensibilidad fallaba siempre con «Solicitud inválida»** (400), con cualquier etiqueta (Pública, Interna, Confidencial o Restringida) y cualquier destinatario. El modelo del envío rechaza campos desconocidos y no declaraba `sensitivity`. Ahora la acepta. Si un correo «Confidencial» o «Restringida» va a destinatarios externos, la pantalla lo explica con la lista de externos (antes mostraba el JSON crudo), y un administrador puede enviarlo igual dejando el motivo registrado. Reportado en Fundación Maquita.
 - **Los recordatorios de eventos no traían el enlace de la reunión.** El correo de recordatorio decía solo «📅 <título> empieza a las HH:MM». Ahora incluye el horario, un botón «Entrar a la reunión» con el enlace (Meet, Zoom, Teams, Jitsi… tomado del lugar o de la descripción del evento) y el lugar físico si lo hay. Vale también para los eventos recurrentes. Reportado en Maquita Turismo.
