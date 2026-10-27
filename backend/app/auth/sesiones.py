@@ -3,7 +3,8 @@
 Vocabulario (ver docs/DISENO-SESIONES.md):
 - sid       identificador de sesión (dispositivo/navegador); 128 bits aleatorios.
 - av        generación de autenticación del usuario; sube en cada revocación global.
-- kind      normal | impersonation | oidc | saml.
+- kind      normal | impersonation | oidc | saml | delegada | app (app de escritorio
+            Teams Maquita: ver sesion_app.py).
 - abs_exp   vencimiento absoluto de la sesión: ninguna renovación lo supera.
 
 Regla única, aplicada en toda frontera (REST, WebSocket, refresh, chat): una petición
@@ -22,6 +23,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 from app.auth.jwt import create_access_token, create_refresh_token
+from app.auth.sesion_app import KIND_APP, dias_refresh, tope_access_seg
 from app.config import get_settings
 from app.core.session import decrypt_password, encrypt_password
 
@@ -29,7 +31,9 @@ log = logging.getLogger("seguridad.sesiones")
 security_log = logging.getLogger("security")
 
 # "delegada": cuenta asignada abierta desde el selector de cuentas; se prorroga como una normal.
-KINDS = ("normal", "impersonation", "oidc", "saml", "delegada")
+KINDS = ("normal", "impersonation", "oidc", "saml", "delegada", KIND_APP)
+# Clases con keep-alive: cada petición alarga el estado en Redis (nunca más allá de abs_exp).
+KINDS_PRORROGABLES = ("normal", "delegada", KIND_APP)
 CANAL_REVOCACION = "revocacion"
 TTL_AV_CACHE = 86400
 
@@ -97,6 +101,11 @@ def _ttl_hasta(abs_exp: datetime, tope_seg: int) -> int:
     return max(1, min(tope_seg, restante))
 
 
+def ttl_access_de(kind: str, abs_exp: datetime) -> int:
+    """TTL del access y del estado en Redis para esta clase de sesión, acotado por abs_exp."""
+    return _ttl_hasta(abs_exp, tope_access_seg(kind))
+
+
 async def crear_sesion(
     db,
     redis,
@@ -120,7 +129,7 @@ async def crear_sesion(
         abs_exp = ahora + timedelta(days=s.refresh_token_expire_days)
     sid = nuevo_sid()
     av = await av_actual(db, redis, username)
-    ttl_access = _ttl_hasta(abs_exp, s.access_token_expire_minutes * 60)
+    ttl_access = ttl_access_de(kind, abs_exp)
     ttl_abs = _ttl_hasta(abs_exp, 10**9)
 
     pipe = redis.pipeline()
@@ -148,9 +157,7 @@ async def crear_sesion(
 
     access = create_access_token(username, sid=sid, av=av, kind=kind, abs_exp=abs_exp)
     refresh_raw, refresh_hash = create_refresh_token()
-    refresh_expires_at = min(
-        ahora + timedelta(days=s.refresh_token_expire_days), abs_exp
-    )
+    refresh_expires_at = min(ahora + timedelta(days=dias_refresh(kind)), abs_exp)
     await db.execute(
         """INSERT INTO refresh_tokens
              (username, token_hash, expires_at, user_agent, ip_address,
@@ -179,10 +186,11 @@ async def crear_sesion(
     }
 
 
-async def prorrogar(redis, username: str, sid: str, abs_exp: datetime) -> None:
-    """Keep-alive de una sesión `normal`: el TTL nunca supera abs_exp."""
-    s = get_settings()
-    ttl = _ttl_hasta(abs_exp, s.access_token_expire_minutes * 60)
+async def prorrogar(
+    redis, username: str, sid: str, abs_exp: datetime, kind: str = "normal"
+) -> None:
+    """Keep-alive de una sesión prorrogable (KINDS_PRORROGABLES): nunca supera abs_exp."""
+    ttl = ttl_access_de(kind, abs_exp)
     pipe = redis.pipeline()
     pipe.expire(f"imap_pass:{username}:{sid}", ttl)
     pipe.expire(f"sess:{username}:{sid}", ttl)

@@ -35,14 +35,15 @@ def poner_cookies_sesion(response, request, sesion: dict) -> None:
 
     s = get_settings()
     ahora = datetime.now(timezone.utc)
-    max_access = s.access_token_expire_minutes * 60
+    max_access = int(sesion.get("access_ttl") or s.access_token_expire_minutes * 60)
     abs_exp = sesion.get("abs_exp")
     if abs_exp is not None:
         max_access = max(1, min(max_access, int((abs_exp - ahora).total_seconds())))
     max_refresh = s.refresh_token_expire_days * 86400
     rexp = sesion.get("refresh_expires_at")
     if rexp is not None:
-        max_refresh = max(1, min(max_refresh, int((rexp - ahora).total_seconds())))
+        # Lo que dure el refresh emitido: la app de escritorio lo tiene más largo (F-04 lo acota).
+        max_refresh = max(1, int((rexp - ahora).total_seconds()))
     dom = dominio_cookie(request)
     response.set_cookie(
         key="access_token",
