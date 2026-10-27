@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { api } from '../../api/client';
 import { showToast } from '../common/Toast';
+import { EVENTO_DESDE_CORREO } from '../calendar/eventoDesdeCorreo';
 import { esModoApp } from '../../lib/modoApp';
 
 /* Outlook-style nav rail — filled icons, blue active indicator */
@@ -183,12 +184,12 @@ export function NavRail() {
               e.preventDefault();
               setDropTarget(null);
               if (item.path === '/calendar') {
+                // Como Outlook: el evento se abre encima del correo, sin cambiar de pantalla (EventoDesdeCorreo)
                 try {
-                  sessionStorage.setItem('pending-event-from-mail', meta);
+                  window.dispatchEvent(new CustomEvent(EVENTO_DESDE_CORREO, { detail: JSON.parse(meta) }));
                 } catch {
-                  /* ventana privada o almacenamiento lleno: el calendario abre igual, sin prellenar */
+                  /* lo arrastrado no era un correo legible: no se abre nada */
                 }
-                navigate('/calendar');
                 return;
               }
               // Tareas: crear directamente con el asunto del correo
