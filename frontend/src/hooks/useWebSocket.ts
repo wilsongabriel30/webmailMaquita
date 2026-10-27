@@ -7,6 +7,7 @@ import { useAuthStore } from '../store/authStore';
 import { cuentaActiva, elegirCuenta } from '../lib/cuentaActiva';
 import { avisosActivos } from '../lib/avisosOtrasCuentas';
 import { nombreApp } from '../lib/marca';
+import { enlaceReunionSeguro } from '../lib/enlaceReunion';
 
 /**
  * WebSocket hook for real-time mail notifications.
@@ -195,6 +196,7 @@ export function useWebSocket(enabled: boolean = true) {
                     tipo: 'recordatorio',
                     etiqueta: data.tag || 'reminder',
                     destino: '/webmail/calendar',
+                    enlaceExterno: enlaceReunionSeguro(data.link) || undefined,
                   });
                 } catch { /* no es crítico: se sigue sin aviso */ }
               }
