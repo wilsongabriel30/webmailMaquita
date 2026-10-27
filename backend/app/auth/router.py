@@ -11,7 +11,9 @@ from app.auth.dependencies import get_current_user
 from app.auth.dovecot_auth_service import authenticate
 from app.auth.jwt import create_access_token, create_refresh_token, hash_refresh_token
 from app.auth.segundo_factor import debe_activar_2fa
+from app.auth.sesion_app import dias_refresh, parametros_sesion
 from app.auth.sesiones import (
+    KINDS_PRORROGABLES,
     av_actual,
     cerrar_sid,
     crear_sesion,
@@ -19,6 +21,7 @@ from app.auth.sesiones import (
     prorrogar,
     revocar_todo,
     sesion_valida,
+    ttl_access_de,
 )
 from app.auth.totp import is_totp_enabled, validate_totp_code
 from app.config import get_settings
@@ -186,7 +189,9 @@ async def login(body: LoginRequest, request: Request, response: Response):
 
     # Sesión propia (sid) con la generación vigente (av). La contraseña IMAP queda
     # cifrada en Redis, por sesión: cerrar esta no toca las demás. (F-01)
-    sesion = await crear_sesion(db, redis, request, username, body.password)
+    sesion = await crear_sesion(
+        db, redis, request, username, body.password, **parametros_sesion(request)
+    )
     poner_cookies_sesion(response, request, sesion)
 
     return {
@@ -295,7 +300,12 @@ async def login_2fa(body: Login2FARequest, request: Request, response: Response)
     await redis.delete(clave_vale, clave_intentos)
     await _clear_login_rate_limit(request, username, redis)
     sesion = await crear_sesion(
-        db, redis, request, username, decrypt_password(datos["p"])
+        db,
+        redis,
+        request,
+        username,
+        decrypt_password(datos["p"]),
+        **parametros_sesion(request),
     )
     poner_cookies_sesion(response, request, sesion)
     # Desde la app, este teléfono queda de confianza: no vuelve a pedir el código.
@@ -346,7 +356,6 @@ async def _renovada_en_paralelo(db, token_hash: str) -> bool:
 
 @router.post("/refresh")
 async def refresh(request: Request, response: Response):
-    settings = get_settings()
     raw_token = request.cookies.get("refresh_token")
     if not raw_token:
         return {"refreshed": False, "reason": "no_token"}
@@ -401,15 +410,13 @@ async def refresh(request: Request, response: Response):
     av = int(row["auth_version"])
 
     # La sesión (sid) es la misma; solo se renuevan el access y el refresh.
-    if kind in ("normal", "delegada"):
-        await prorrogar(redis, username, sid, abs_exp)
+    if kind in KINDS_PRORROGABLES:
+        await prorrogar(redis, username, sid, abs_exp, kind)
     access = create_access_token(username, sid=sid, av=av, kind=kind, abs_exp=abs_exp)
     new_refresh_raw, new_refresh_hash = create_refresh_token()
     # Nunca más allá del vencimiento absoluto: una impersonación de una hora muere a la
     # hora, se renueve lo que se renueve (F-04).
-    expires_at = min(
-        ahora + timedelta(days=settings.refresh_token_expire_days), abs_exp
-    )
+    expires_at = min(ahora + timedelta(days=dias_refresh(kind)), abs_exp)
 
     await db.execute(
         """INSERT INTO refresh_tokens
@@ -434,6 +441,7 @@ async def refresh(request: Request, response: Response):
             "access": access,
             "refresh_raw": new_refresh_raw,
             "refresh_expires_at": expires_at,
+            "access_ttl": ttl_access_de(kind, abs_exp),
             "abs_exp": abs_exp,
         },
     )

@@ -29,7 +29,7 @@ from app.respaldos import codigos, limites, urbackup_api, vinculos
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/respaldos", tags=["respaldos"])
 
-SESIONES_VALIDAS = ("normal", "oidc")
+SESIONES_VALIDAS = ("normal", "oidc", "app")
 
 
 def _error(estado: int, codigo: str, texto: str) -> JSONResponse:

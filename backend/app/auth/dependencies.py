@@ -24,7 +24,7 @@ async def get_current_user(request: Request) -> str:
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token"
         )
 
-    from app.auth.sesiones import prorrogar, sesion_valida
+    from app.auth.sesiones import KINDS_PRORROGABLES, prorrogar, sesion_valida
 
     valida = await sesion_valida(
         request.app.state.db_pool, request.app.state.redis, payload
@@ -65,12 +65,13 @@ async def get_current_user(request: Request) -> str:
 
     # Keep-alive solo en sesiones normales: la impersonación (y las federadas) vencen
     # a su hora sin prórroga (A-17 / F-04).
-    if request.state.session_kind in ("normal", "delegada"):
+    if request.state.session_kind in KINDS_PRORROGABLES:
         await prorrogar(
             request.app.state.redis,
             username,
             sid,
             datetime.fromtimestamp(int(payload["abs_exp"]), tz=timezone.utc),
+            request.state.session_kind,
         )
     # Multicuenta: en las rutas de correo, la cuenta que la persona eligió (si la tiene asignada).
     from app.mail.services.cuenta_activa import resolver

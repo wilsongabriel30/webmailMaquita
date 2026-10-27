@@ -59,7 +59,7 @@ METODOS_LECTURA = frozenset({"GET", "HEAD", "OPTIONS"})
 POST_DE_CONSULTA = ("/api/mail/search", "/api/mail/recall/check")
 
 # Tipos de sesión desde los que se puede cambiar de cuenta.
-SESIONES_PERMITIDAS = frozenset({"normal", "oidc", "impersonation"})
+SESIONES_PERMITIDAS = frozenset({"normal", "oidc", "impersonation", "app"})
 
 
 def aplica(ruta: str) -> bool:
