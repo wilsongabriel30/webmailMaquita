@@ -51,3 +51,19 @@ def test_contenido_escapa_html_y_muestra_lugar_fisico():
     assert "<b>" not in html and "&lt;b&gt;" in html
     assert "Lugar: Oficina <Quito>" in texto
     assert "Oficina &lt;Quito&gt;" in html
+
+
+def test_aviso_de_pantalla_lleva_el_enlace_aparte():
+    from datetime import datetime, timezone
+
+    from app.reminders_scheduler import _contenido_evento
+
+    fila = {
+        "summary": "Reunión con proveedor",
+        "location": "",
+        "description": DESCRIPCION_GOOGLE,
+    }
+    inicio = datetime(2026, 10, 27, 14, 0, tzinfo=timezone.utc)
+    texto, html, enlace = _contenido_evento(fila, inicio, None)
+    assert enlace == "https://meet.google.com/abc-defg-hij"
+    assert "09:00" in texto

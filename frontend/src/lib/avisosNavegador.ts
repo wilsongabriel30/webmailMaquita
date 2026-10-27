@@ -64,6 +64,8 @@ interface Opciones {
   etiqueta?: string;
   /** A dónde lleva el clic. Si no se dice, a la bandeja de entrada. */
   destino?: string;
+  /** Enlace externo (p. ej. la reunión de un recordatorio): el clic lo abre en otra pestaña. */
+  enlaceExterno?: string;
   /** Correo concreto que abrir, si se sabe cuál es. */
   uid?: number;
   carpeta?: string;
@@ -95,6 +97,11 @@ export function avisar(titulo: string, o: Opciones): boolean {
     });
 
     n.onclick = () => {
+      if (o.enlaceExterno) {
+        window.open(o.enlaceExterno, '_blank', 'noopener,noreferrer');
+        n.close();
+        return;
+      }
       try {
         window.focus();                     // la ventana, al frente
         const destino = o.destino || (

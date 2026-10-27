@@ -7,6 +7,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Cambiado
+- **El aviso de recordatorio en pantalla tiene un botón «Entrar a la reunión»**, que abre el enlace en otra pestaña. Al pulsar la notificación del navegador también se abre la reunión directamente, en lugar del Calendario. El servidor envía el enlace aparte en el aviso (`link`) y la interfaz solo acepta enlaces http(s).
+
 ### Seguridad
 - **Pillow 12.3.0 → 13.0.0** en el backend, el Almacén y el editor de PDF: corrige varias denegaciones de servicio con imágenes manipuladas (bucles infinitos, imágenes de tamaño cero, lectura fuera de memoria, APNG). El webmail procesa imágenes de adjuntos y del Almacén, así que el riesgo era real.
 - **certifi 2026.2.25 → 2026.10.19** en el backend (PYSEC-2026-4320).

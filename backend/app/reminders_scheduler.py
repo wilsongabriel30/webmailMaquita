@@ -54,17 +54,20 @@ RETURNING e.id, e.summary, e.dtstart, e.dtend, e.location, e.description, c.owne
 """
 
 
-def _contenido_evento(r, inicio: datetime, fin: datetime | None) -> tuple[str, str]:
-    """Texto y HTML del recordatorio con el enlace de la reunión, el lugar y el horario."""
-    from app.recordatorio_evento import contenido
+def _contenido_evento(
+    r, inicio: datetime, fin: datetime | None
+) -> tuple[str, str, str]:
+    """Texto, HTML y enlace de la reunión del recordatorio (con lugar y horario)."""
+    from app.recordatorio_evento import contenido, enlace_reunion
 
-    return contenido(
+    texto, html_cuerpo = contenido(
         r["summary"],
         _fmt_hora(inicio),
         _fmt_hora(fin) if fin else "",
         r["location"],
         r["description"],
     )
+    return texto, html_cuerpo, enlace_reunion(r["location"], r["description"])
 
 
 async def _send_fallback_email(username: str, message: str, html_cuerpo: str = ""):
@@ -105,6 +108,7 @@ async def _publish(
     kind: str = "",
     entity_id: str = "",
     html_cuerpo: str = "",
+    enlace: str = "",
 ):
     try:
         await redis.publish(
@@ -116,6 +120,8 @@ async def _publish(
                     "tag": tag,
                     "kind": kind,
                     "entity_id": str(entity_id),
+                    # enlace de la reunión: botón directo en el aviso de pantalla
+                    "link": enlace,
                 }
             ),
         )
@@ -171,7 +177,9 @@ async def check_reminders(app):
 
             rows = await db.fetch(CLAIM_EVENTS, now)
             for r in rows:
-                texto, html_cuerpo = _contenido_evento(r, r["dtstart"], r["dtend"])
+                texto, html_cuerpo, enlace = _contenido_evento(
+                    r, r["dtstart"], r["dtend"]
+                )
                 await _publish(
                     redis,
                     r["owner_email"],
@@ -180,6 +188,7 @@ async def check_reminders(app):
                     kind="event",
                     entity_id=r["id"],
                     html_cuerpo=html_cuerpo,
+                    enlace=enlace,
                 )
 
             # ── Eventos RECURRENTES: próxima ocurrencia ──
@@ -248,7 +257,9 @@ async def check_reminders(app):
                             if r["dtend"]
                             else None
                         )
-                        texto, html_cuerpo = _contenido_evento(r, occ_aware, fin)
+                        texto, html_cuerpo, enlace = _contenido_evento(
+                            r, occ_aware, fin
+                        )
                         await _publish(
                             redis,
                             r["owner_email"],
@@ -257,6 +268,7 @@ async def check_reminders(app):
                             kind="event",
                             entity_id=r["id"],
                             html_cuerpo=html_cuerpo,
+                            enlace=enlace,
                         )
             except Exception as exc:
                 logger.error("Error en recordatorios recurrentes: %s", exc)
