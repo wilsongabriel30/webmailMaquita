@@ -24,7 +24,7 @@ from datetime import datetime, timedelta, timezone
 from app.config import get_settings
 
 KIND_APP = "app"
-MARCA_UA = "maquitateams"
+MARCA_UA = "MaquitaTeams"
 CABECERA_APP = "x-maquita-app"
 
 
@@ -32,9 +32,9 @@ def es_app(request) -> bool:
     """¿La petición viene de la app de escritorio? Ver el módulo para las señales."""
     if request is None:
         return False
-    cabeceras = request.headers
+    cabeceras = getattr(request, "headers", None) or {}
     ua = (cabeceras.get("user-agent") or "").strip()
-    if MARCA_UA in ua.lower():
+    if MARCA_UA.lower() in ua.lower():
         return True
     if (cabeceras.get(CABECERA_APP) or "").strip():
         return True
