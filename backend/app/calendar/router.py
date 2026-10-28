@@ -376,10 +376,31 @@ async def send_event_invitations(
         "password": await get_user_password(request, user),
     }
     try:
-        sent = await calendar_service.send_invitations(db, user, event_id, smtp_config)
-        return {"sent": sent}
+        resultados = await calendar_service.send_invitations(
+            db, user, event_id, smtp_config
+        )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    return {
+        "sent": sum(1 for r in resultados if r["estado"] == "aceptado"),
+        "resultados": resultados,
+    }
+
+
+@router.get("/invitaciones/estado")
+async def estado_de_invitaciones(
+    request: Request,
+    ids: str = Query(..., max_length=6000, description="Message-ID separados por coma"),
+    user: str = Depends(get_current_user),
+):
+    """Qué pasó con las invitaciones ya enviadas: entregadas, rechazadas por el destino o en espera."""
+    from app.calendar import estado_invitaciones
+
+    return {
+        "resultados": await estado_invitaciones.consultar(
+            _db(request), user, ids.split(",")
+        )
+    }
 
 
 @router.post("/events/{event_id}/respond", status_code=200)

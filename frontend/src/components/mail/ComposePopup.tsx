@@ -6,7 +6,7 @@
 import { useEffect } from 'react';
 import { ComposePanel } from '../compose/ComposePanel';
 import { Toolbar } from '../mail/Toolbar';
-import { ToastContainer } from '../common/Toast';
+import { ToastContainer } from '../common/ToastContainer';
 import { useMailStore } from '../../store/mailStore';
 import { useAuthStore } from '../../store/authStore';
 

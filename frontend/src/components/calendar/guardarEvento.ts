@@ -4,6 +4,7 @@
 import { api } from "../../api/client";
 import type { CalendarEvent, EventFormData } from "./types/calendar";
 import type { useCalendarApi } from "./hooks/useCalendarApi";
+import { avisarFalloGeneralInvitaciones, avisarResultadoInvitaciones } from "./avisoInvitaciones";
 
 type ApiCalendario = ReturnType<typeof useCalendarApi>;
 
@@ -88,10 +89,9 @@ export async function guardarEvento(
     const eventId = (savedEvent as { id: string }).id;
     if (eventId) {
       calApi.sendEventInvitations(eventId).then((res) => {
-        if (res && (res as { sent: number }).sent > 0) {
-          console.info(`Invitaciones enviadas: ${(res as { sent: number }).sent}`);
-        }
-      }).catch(() => {/* silencioso */});
+        if (res) avisarResultadoInvitaciones(res);
+        else avisarFalloGeneralInvitaciones();
+      }).catch(() => avisarFalloGeneralInvitaciones());
     }
   }
   return savedEvent;
