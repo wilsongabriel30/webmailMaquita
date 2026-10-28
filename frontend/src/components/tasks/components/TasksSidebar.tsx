@@ -145,7 +145,7 @@ export function TasksSidebar({ activeView, onViewChange, customLists, onCreateLi
                 )}
               </div>
               {count > 0 && (
-                <span style={{ fontSize: 12, color: COLORS.secondary, background: COLORS.hoverBg, borderRadius: 10, padding: '1px 8px', minWidth: 20, textAlign: 'center' }}>
+                <span aria-label={`${count} pendientes`} style={{ fontSize: 13, color: COLORS.text, minWidth: 20, textAlign: 'right' }}>
                   {count}
                 </span>
               )}
@@ -179,7 +179,7 @@ export function TasksSidebar({ activeView, onViewChange, customLists, onCreateLi
               <span style={{ color: COLORS.secondary, display: 'flex' }}><SidebarIcon icon="list" /></span>
               <span style={{ flex: 1 }}>{cl.name}</span>
               {cl.task_count > 0 && (
-                <span style={{ fontSize: 12, color: COLORS.secondary }}>{cl.task_count}</span>
+                <span aria-label={`${cl.task_count} pendientes`} style={{ fontSize: 13, color: COLORS.text, minWidth: 20, textAlign: 'right' }}>{cl.task_count}</span>
               )}
             </div>
           );

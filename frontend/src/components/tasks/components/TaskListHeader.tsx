@@ -1,12 +1,16 @@
 import { useState } from 'react';
 import type { ActiveView } from '../types';
 import { SMART_LISTS, COLORS } from '../types';
+import { SelectorVista } from './SelectorVista';
+import type { ModoVista } from './modoVista';
 
 interface Props {
   activeView: ActiveView;
   customListName?: string;
   sortBy: string;
   onSortChange: (s: string) => void;
+  modo: ModoVista;
+  onModoChange: (m: ModoVista) => void;
 }
 
 const SORT_OPTIONS = [
@@ -16,7 +20,7 @@ const SORT_OPTIONS = [
   { value: 'created', label: 'Fecha de creación', icon: 'M3 4h18M3 10h12M3 16h6' },
 ];
 
-export function TaskListHeader({ activeView, customListName, sortBy, onSortChange }: Props) {
+export function TaskListHeader({ activeView, customListName, sortBy, onSortChange, modo, onModoChange }: Props) {
   const [showSort, setShowSort] = useState(false);
   const smart = SMART_LISTS.find(s => s.id === activeView);
   const title = smart ? smart.name : (customListName || 'Tareas');
@@ -49,6 +53,7 @@ export function TaskListHeader({ activeView, customListName, sortBy, onSortChang
         }}>
           {title}
         </h1>
+        <SelectorVista modo={modo} onCambiar={onModoChange} />
         <div style={{ flex: 1 }} />
 
         {/* Sort button with dropdown */}
