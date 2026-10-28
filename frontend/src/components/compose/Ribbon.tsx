@@ -1,5 +1,5 @@
 import { useMailStore } from "../../store/mailStore";
-import React, { useState, useRef, useEffect, useLayoutEffect, type ReactNode } from 'react';
+import React, { useState, useRef, useEffect, type ReactNode } from 'react';
 import { api } from '../../api/client';
 import type { Editor } from '@tiptap/react';
 import { showToast } from '../common/Toast';
@@ -110,7 +110,7 @@ function stepFontSize(editor: Editor, direction: 'up' | 'down') {
   } else {
     next = direction === 'up' ? (SIZES[idx + 1] || 72) : (SIZES[idx - 1] || 8);
   }
-  (editor.chain().focus() as any).setFontSize(next + 'px').run();
+  editor.chain().focus().setFontSize(next + 'px').run();
 }
 
 /* ===== Helper: clipboard operations ===== */
@@ -207,18 +207,18 @@ function applyFormatSnapshot(editor: Editor, snapshot: FormatPaintSnapshot) {
   let chain = editor.chain().focus();
   chain = chain.unsetAllMarks();
 
-  if (snapshot.fontFamily) chain = (chain as any).setFontFamily(snapshot.fontFamily);
-  if (snapshot.fontSize) chain = (chain as any).setFontSize(snapshot.fontSize);
-  if (snapshot.color) chain = (chain as any).setColor(snapshot.color);
-  if (snapshot.backgroundColor) chain = (chain as any).setHighlight(snapshot.backgroundColor);
-  else chain = (chain as any).unsetHighlight();
+  if (snapshot.fontFamily) chain = chain.setFontFamily(snapshot.fontFamily);
+  if (snapshot.fontSize) chain = chain.setFontSize(snapshot.fontSize);
+  if (snapshot.color) chain = chain.setColor(snapshot.color);
+  if (snapshot.backgroundColor) chain = chain.setHighlight(snapshot.backgroundColor);
+  else chain = chain.unsetHighlight();
 
   if (snapshot.marks.includes('bold')) chain = chain.toggleBold();
   if (snapshot.marks.includes('italic')) chain = chain.toggleItalic();
-  if (snapshot.marks.includes('underline')) chain = (chain as any).toggleUnderline();
+  if (snapshot.marks.includes('underline')) chain = chain.toggleUnderline();
   if (snapshot.marks.includes('strike')) chain = chain.toggleStrike();
-  if (snapshot.marks.includes('subscript')) chain = (chain as any).toggleSubscript();
-  if (snapshot.marks.includes('superscript')) chain = (chain as any).toggleSuperscript();
+  if (snapshot.marks.includes('subscript')) chain = chain.toggleSubscript();
+  if (snapshot.marks.includes('superscript')) chain = chain.toggleSuperscript();
 
   chain.run();
   return true;
@@ -231,8 +231,8 @@ function hasHighlight(editor: Editor) {
 /* ===== Helper: insert table with interactive grid ===== */
 function insertTable(editor: Editor, rows: number = 2, cols: number = 2) {
   // Use TipTap Table extension if available
-  if ((editor.commands as any).insertTable) {
-    (editor.commands as any).insertTable({ rows, cols, withHeaderRow: true });
+  if ('insertTable' in editor.commands) {
+    editor.commands.insertTable({ rows, cols, withHeaderRow: true });
   } else {
     // Fallback: HTML insertion
     let html = '<table style="border-collapse:collapse;width:100%">';
@@ -249,11 +249,11 @@ function insertTable(editor: Editor, rows: number = 2, cols: number = 2) {
 }
 
 /* ===== Table grid selector component ===== */
-function TableGridSelector({ anchorRef, onSelect, onClose }: { anchorRef: { current: HTMLDivElement | null }; onSelect: (rows: number, cols: number) => void; onClose: () => void }) {
+function TableGridSelector({ ancla, onSelect, onClose }: { ancla: HTMLElement; onSelect: (rows: number, cols: number) => void; onClose: () => void }) {
   const [hoverRow, setHoverRow] = React.useState(0);
   const [hoverCol, setHoverCol] = React.useState(0);
   const maxRows = 6, maxCols = 6;
-  const _r = anchorRef.current?.getBoundingClientRect();
+  const _r = ancla.getBoundingClientRect();
   const _top = (_r?.bottom ?? 0) + 4;
   const _left = _r?.left ?? 0;
   return createPortal(
@@ -290,8 +290,8 @@ function TableGridSelector({ anchorRef, onSelect, onClose }: { anchorRef: { curr
 
 /* ===== Helper: subscript/superscript via inline HTML ===== */
 function toggleSubscript(editor: Editor) {
-  if ((editor.commands as any).toggleSubscript) {
-    (editor.commands as any).toggleSubscript();
+  if ('toggleSubscript' in editor.commands) {
+    editor.commands.toggleSubscript();
   } else {
     const { from, to } = editor.state.selection;
     const text = editor.state.doc.textBetween(from, to);
@@ -299,8 +299,8 @@ function toggleSubscript(editor: Editor) {
   }
 }
 function toggleSuperscript(editor: Editor) {
-  if ((editor.commands as any).toggleSuperscript) {
-    (editor.commands as any).toggleSuperscript();
+  if ('toggleSuperscript' in editor.commands) {
+    editor.commands.toggleSuperscript();
   } else {
     const { from, to } = editor.state.selection;
     const text = editor.state.doc.textBetween(from, to);
@@ -315,7 +315,7 @@ function CollapsedRibbon({ editor, onAttach, onImportanceChange, importance }: {
 }) {
   const [showColor, setShowColor] = useState(false);
   const imgRef = useRef<HTMLInputElement>(null);
-  const handleImage = mkImageHandler(editor, imgRef);
+  const handleImage = mkImageHandler(editor);
 
   return (
     <>
@@ -324,7 +324,7 @@ function CollapsedRibbon({ editor, onAttach, onImportanceChange, importance }: {
         {FONTS.map(f => <option key={f} value={f}>{f}</option>)}
       </select>
       <select className="h-[24px] px-1 text-[11px] border border-[#c8c6c4] rounded-[2px] bg-white text-[#323130] outline-none focus:border-[#0078d4] w-[38px]"
-        defaultValue="12" onChange={e => (editor.chain().focus() as any).setFontSize(e.target.value + 'px').run()}>
+        defaultValue="12" onChange={e => editor.chain().focus().setFontSize(e.target.value + 'px').run()}>
         {SIZES.map(s => <option key={s} value={s}>{s}</option>)}
       </select>
       <CSep />
@@ -368,7 +368,7 @@ function doLink(editor: Editor) {
   if (url) editor.chain().focus().setLink({ href: url }).run();
 }
 
-function mkImageHandler(editor: Editor, _imgRef: React.RefObject<HTMLInputElement | null>) {
+function mkImageHandler(editor: Editor) {
   return (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -448,14 +448,14 @@ function MessageTab({ editor, onAttach, onImportanceChange, importance, onSaveDr
   onDictate?: () => void; onOpenApps?: () => void; onReviewEditor?: () => void; onCheckAccessibility?: () => void; onImproveWriting?: () => void;
 }) {
 
-  const [showTblGrid, setShowTblGrid] = useState(false);
+  const [tblAncla, setTblAncla] = useState<HTMLElement | null>(null);
   const { onReviewEditor, onCheckAccessibility, onImproveWriting } = rest;
   const [showColor, setShowColor] = useState(false);
-  const [showEmoji, setShowEmoji] = useState(false);
+  const [emojiAncla, setEmojiAncla] = useState<HTMLElement | null>(null);
   const emojiAnchorRef = useRef<HTMLDivElement>(null);
   const tblAnchorRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLInputElement>(null);
-  const handleImage = mkImageHandler(editor, imgRef);
+  const handleImage = mkImageHandler(editor);
 
   return (
     <>
@@ -474,7 +474,7 @@ function MessageTab({ editor, onAttach, onImportanceChange, importance, onSaveDr
               {FONTS.map(f => <option key={f} value={f}>{f}</option>)}
             </select>
             <select className="h-[22px] px-1 text-[11px] border border-[#c8c6c4] rounded-[2px] bg-white text-[#323130] outline-none focus:border-[#0078d4] w-[40px]"
-              defaultValue="12" onChange={e => (editor.chain().focus() as any).setFontSize(e.target.value + 'px').run()}>
+              defaultValue="12" onChange={e => editor.chain().focus().setFontSize(e.target.value + 'px').run()}>
               {SIZES.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
             <SmBtn t="Aumentar tamaño de fuente" o={() => stepFontSize(editor, 'up')} icon={<span className="text-[10px] font-bold">aA</span>} />
@@ -495,7 +495,7 @@ function MessageTab({ editor, onAttach, onImportanceChange, importance, onSaveDr
               </button>
               {showColor && <ColorPicker editor={editor} onClose={() => setShowColor(false)} />}
             </div>
-            <SmBtn a={hasHighlight(editor)} o={() => (editor.chain().focus() as any).toggleHighlight().run()} t="Resaltado" icon={<span className="text-[9px] bg-[#fff100] px-[2px] rounded-sm font-medium">ab</span>} />
+            <SmBtn a={hasHighlight(editor)} o={() => editor.chain().focus().toggleHighlight().run()} t="Resaltado" icon={<span className="text-[9px] bg-[#fff100] px-[2px] rounded-sm font-medium">ab</span>} />
             <SmBtn o={() => editor.chain().focus().clearNodes().unsetAllMarks().run()} t="Borrar formato" icon={<SvgI d="M4 7V4h16v3M9 20h6M12 4v16" s={12} />} />
           </div>
         </div>
@@ -519,12 +519,12 @@ function MessageTab({ editor, onAttach, onImportanceChange, importance, onSaveDr
           <div className="flex items-center gap-[2px]">
             <MedBtn icon={<SvgI d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" s={16} />} label="Imágenes" onClick={() => imgRef.current?.click()} />
             <div className="relative" ref={emojiAnchorRef}>
-              <MedBtn icon={<span className="text-[14px]">&#128578;</span>} label="Emoji" onClick={() => setShowEmoji(!showEmoji)} />
-              {showEmoji && <EmojiPicker editor={editor} onClose={() => setShowEmoji(false)} anchorRef={emojiAnchorRef} />}
+              <MedBtn icon={<span className="text-[14px]">&#128578;</span>} label="Emoji" onClick={() => setEmojiAncla(emojiAncla ? null : emojiAnchorRef.current)} />
+              {emojiAncla && <EmojiPicker editor={editor} onClose={() => setEmojiAncla(null)} ancla={emojiAncla} />}
             </div>
             <div className="relative" ref={tblAnchorRef}>
-                <MedBtn icon={<SvgI d="M3 10h18M3 14h18M10 3v18M14 3v18" s={16} />} label="Tabla" onClick={() => setShowTblGrid(!showTblGrid)} hasDropdown />
-                {showTblGrid && <TableGridSelector anchorRef={tblAnchorRef} onSelect={(r,c) => insertTable(editor, r, c)} onClose={() => setShowTblGrid(false)} />}
+                <MedBtn icon={<SvgI d="M3 10h18M3 14h18M10 3v18M14 3v18" s={16} />} label="Tabla" onClick={() => setTblAncla(tblAncla ? null : tblAnchorRef.current)} hasDropdown />
+                {tblAncla && <TableGridSelector ancla={tblAncla} onSelect={(r,c) => insertTable(editor, r, c)} onClose={() => setTblAncla(null)} />}
               </div>
           </div>
         </div>
@@ -598,11 +598,11 @@ function MessageTab({ editor, onAttach, onImportanceChange, importance, onSaveDr
 function InsertTab({ editor, onAttach, onAttachCloud, onInsertSignature, onOpenApps }: { editor: Editor; onAttach?: () => void; onAttachCloud?: () => void; onInsertSignature?: (html?: string) => void; onOpenApps?: () => void }) {
   const tblAnchorRef = useRef<HTMLDivElement>(null);
 
-  const [showTblGrid, setShowTblGrid] = useState(false);
+  const [tblAncla, setTblAncla] = useState<HTMLElement | null>(null);
   const imgRef = useRef<HTMLInputElement>(null);
-  const [showEmoji, setShowEmoji] = useState(false);
+  const [emojiAncla, setEmojiAncla] = useState<HTMLElement | null>(null);
   const emojiAnchorRef = useRef<HTMLDivElement>(null);
-  const handleImage = mkImageHandler(editor, imgRef);
+  const handleImage = mkImageHandler(editor);
 
   return (
     <>
@@ -614,12 +614,12 @@ function InsertTab({ editor, onAttach, onAttachCloud, onInsertSignature, onOpenA
           <SignatureMenu onSelect={onInsertSignature} size="large" />
           <LargeBtn icon={<SvgI d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" s={22} />} label="Imágenes" onClick={() => imgRef.current?.click()} />
           <div className="relative" ref={emojiAnchorRef}>
-            <LargeBtn icon={<span className="text-[20px]">&#128578;</span>} label="Emoji" onClick={() => setShowEmoji(!showEmoji)} />
-            {showEmoji && <EmojiPicker editor={editor} onClose={() => setShowEmoji(false)} anchorRef={emojiAnchorRef} />}
+            <LargeBtn icon={<span className="text-[20px]">&#128578;</span>} label="Emoji" onClick={() => setEmojiAncla(emojiAncla ? null : emojiAnchorRef.current)} />
+            {emojiAncla && <EmojiPicker editor={editor} onClose={() => setEmojiAncla(null)} ancla={emojiAncla} />}
           </div>
           <div className="relative" ref={tblAnchorRef}>
-          <LargeBtn icon={<SvgI d="M3 10h18M3 14h18M10 3v18M14 3v18" s={22} />} label="Tabla" onClick={() => setShowTblGrid(!showTblGrid)} hasDropdown />
-                {showTblGrid && <TableGridSelector anchorRef={tblAnchorRef} onSelect={(r,c) => insertTable(editor, r, c)} onClose={() => setShowTblGrid(false)} />}
+          <LargeBtn icon={<SvgI d="M3 10h18M3 14h18M10 3v18M14 3v18" s={22} />} label="Tabla" onClick={() => setTblAncla(tblAncla ? null : tblAnchorRef.current)} hasDropdown />
+                {tblAncla && <TableGridSelector ancla={tblAncla} onSelect={(r,c) => insertTable(editor, r, c)} onClose={() => setTblAncla(null)} />}
           </div>
         </div>
         <input ref={imgRef} type="file" accept="image/*" className="hidden" onChange={handleImage} />
@@ -680,7 +680,7 @@ function FormatTab({ editor, onFormatPaint }: { editor: Editor; onFormatPaint?: 
               {FONTS.map(f => <option key={f} value={f}>{f}</option>)}
             </select>
             <select className="h-[22px] px-1 text-[11px] border border-[#c8c6c4] rounded-[2px] bg-white text-[#323130] outline-none focus:border-[#0078d4] w-[40px]"
-              defaultValue="12" onChange={e => (editor.chain().focus() as any).setFontSize(e.target.value + 'px').run()}>
+              defaultValue="12" onChange={e => editor.chain().focus().setFontSize(e.target.value + 'px').run()}>
               {SIZES.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
             <SmBtn t="Aumentar tamaño" o={() => stepFontSize(editor, 'up')} icon={<span className="text-[10px] font-bold">aA</span>} />
@@ -693,7 +693,7 @@ function FormatTab({ editor, onFormatPaint }: { editor: Editor; onFormatPaint?: 
             <SmBtn a={editor.isActive('strike')} o={() => editor.chain().focus().toggleStrike().run()} t="Tachado" icon={<span className="line-through text-[11px]">S</span>} />
             <SmBtn o={() => toggleSubscript(editor)} t="Subíndice" icon={<span className="text-[9px]">x<sub>2</sub></span>} />
             <SmBtn o={() => toggleSuperscript(editor)} t="Superíndice" icon={<span className="text-[9px]">x<sup>2</sup></span>} />
-            <SmBtn a={hasHighlight(editor)} o={() => (editor.chain().focus() as any).toggleHighlight().run()} t="Resaltado" icon={<span className="text-[9px] bg-[#fff100] px-[2px] rounded-sm">ab</span>} />
+            <SmBtn a={hasHighlight(editor)} o={() => editor.chain().focus().toggleHighlight().run()} t="Resaltado" icon={<span className="text-[9px] bg-[#fff100] px-[2px] rounded-sm">ab</span>} />
             <div className="relative">
               <button onClick={() => setShowColor(!showColor)} title="Color de fuente"
                 className="w-[22px] h-[22px] rounded-[2px] flex flex-col items-center justify-center hover:bg-[#e1dfdd]">
@@ -834,12 +834,9 @@ function OptionsTab({ editor, onShowCc, onShowBcc, showCc, showBcc, onImportance
 }
 
 /* ========== EMOJI PICKER ========== */
-function EmojiPicker({ editor, onClose, anchorRef }: { editor: Editor; onClose: () => void; anchorRef: { current: HTMLDivElement | null } }) {
-  const [pos, setPos] = useState<{ top: number; left: number }>({ top: -9999, left: -9999 });
-  useLayoutEffect(() => {
-    const r = anchorRef.current?.getBoundingClientRect();
-    if (r) setPos({ top: r.bottom + 4, left: r.left });
-  }, [anchorRef]);
+function EmojiPicker({ editor, onClose, ancla }: { editor: Editor; onClose: () => void; ancla: HTMLElement }) {
+  const r = ancla.getBoundingClientRect();
+  const pos = { top: r.bottom + 4, left: r.left };
   const emojis = ['😊','😂','❤️','👍','🎉','🔥','😍','🤔','👏','💪','✨','🙏','😎','🥳','💯','⭐','🚀','💡','📌','✅','❌','⚠️','📎','📧','🗓️','📝','🎯','💼','🤝','👋'];
   return createPortal(
     <>
