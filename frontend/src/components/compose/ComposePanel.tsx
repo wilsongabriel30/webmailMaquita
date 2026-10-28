@@ -40,6 +40,7 @@ import { Color } from '@tiptap/extension-color';
 import FontFamily from '@tiptap/extension-font-family';
 import { FontSize } from './FontSize';
 import { Highlight } from './Highlight';
+import { FormatoParrafo } from './formatoParrafo';
 
 import { useMailStore, type DraftWindow } from '../../store/mailStore';
 import { api } from '../../api/client';
@@ -176,7 +177,7 @@ export function ComposePanel({ win }: Props) {
       Superscript,
       Placeholder.configure({ placeholder: '' }),
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      TextStyle, Color, FontFamily, FontSize, Highlight,
+      TextStyle, Color, FontFamily, FontSize, Highlight, FormatoParrafo,
     ],
     content: '',
     editorProps: {
