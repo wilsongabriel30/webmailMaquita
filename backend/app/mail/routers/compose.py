@@ -452,6 +452,7 @@ async def send(
                 attachments=attachments,
                 request_read_receipt=body.request_read_receipt,
                 request_delivery_receipt=body.request_delivery_receipt,
+                importance=body.importance,
             )
         except Exception as smtp_err:
             import logging
@@ -668,8 +669,8 @@ async def schedule_send(
         INSERT INTO scheduled_emails
             (username, to_list, cc_list, bcc_list, subject, html_body, text_body,
              in_reply_to, "references", scheduled_at, status,
-             request_read_receipt, request_delivery_receipt)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::timestamptz, 'pending', $11, $12)
+             request_read_receipt, request_delivery_receipt, importance)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::timestamptz, 'pending', $11, $12, $13)
         RETURNING id, scheduled_at
     """,
         username,
@@ -684,6 +685,7 @@ async def schedule_send(
         sched_dt,
         body.request_read_receipt,
         body.request_delivery_receipt,
+        body.importance,
     )
 
     return {

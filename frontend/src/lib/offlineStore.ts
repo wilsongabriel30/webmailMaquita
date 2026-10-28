@@ -75,6 +75,7 @@ export interface OutboxEmail {
   attachments?: Array<{ filename: string; content_b64: string; content_type: string }>;
   request_read_receipt?: boolean;
   request_delivery_receipt?: boolean;
+  importance?: 'normal' | 'high' | 'low';
   /** Multicuenta: cuenta asignada desde la que se escribió (null = la propia). Se envía
    *  con ESA cuenta aunque la cola se vacíe más tarde desde otra pestaña o cuenta. */
   cuenta?: string | null;
