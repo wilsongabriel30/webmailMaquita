@@ -7,6 +7,9 @@ import { TaskInput } from './components/TaskInput';
 import { TaskItem } from './components/TaskItem';
 import { TaskDetailPanel } from './components/TaskDetailPanel';
 import { EmptyState } from './components/EmptyState';
+import { TaskGrid } from './components/TaskGrid';
+import { leerModoVista, guardarModoVista, type ModoVista } from './components/modoVista';
+import { useConteosVistas } from './hooks/useConteosVistas';
 import { api } from '../../api/client';
 import { SeguimientoVista } from '../tareas/SeguimientoVista';
 
@@ -29,7 +32,9 @@ export function TasksView() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [sortBy, setSortBy] = useState('date');
-  const [smartCounts, setSmartCounts] = useState<Record<string, number>>({});
+  const { conteos, recargarConteos } = useConteosVistas(activeView);
+  const [modo, setModo] = useState<ModoVista>(leerModoVista);
+  const cambiarModo = (m: ModoVista) => { setModo(m); guardarModoVista(m); };
 
   // ─── Data fetching ─────────────────────────────────────────────
 
@@ -38,17 +43,12 @@ export function TasksView() {
       const lists = await api.get<TaskList[]>('/tasks/lists');
       const custom = lists.filter(l => l.list_type === 'custom');
       setCustomLists(custom);
-      // Build smart counts from response
-      const counts: Record<string, number> = {};
-      lists.forEach(l => {
-        if (l.list_type === 'smart') counts[l.name] = l.task_count;
-      });
-      setSmartCounts(counts);
     } catch {
       // API not ready yet, use empty state
       setCustomLists([]);
     }
-  }, []);
+    void recargarConteos();
+  }, [recargarConteos]);
 
   const fetchTasks = useCallback(async () => {
     // «seguimiento» es una vista (SeguimientoVista carga sus datos), no una lista: pedirla como lista daba 400
@@ -265,7 +265,7 @@ export function TasksView() {
         customLists={customLists}
         onCreateList={createList}
         onDeleteList={deleteList}
-        smartCounts={smartCounts}
+        smartCounts={conteos}
       />}
 
       {/* Seguimiento de tareas asignadas (T-34) */}
@@ -276,6 +276,8 @@ export function TasksView() {
           customListName={customListName}
           sortBy={sortBy}
           onSortChange={setSortBy}
+          modo={modo}
+          onModoChange={cambiarModo}
         />
 
         {/* Error banner */}
@@ -306,6 +308,9 @@ export function TasksView() {
             </div>
           ) : sortedTasks.length === 0 ? (
             <EmptyState view={activeView} />
+          ) : modo === 'cuadricula' ? (
+            <TaskGrid tasks={sortedTasks} seleccionada={selectedTask?.id} onToggle={toggleTask}
+              onToggleImportant={toggleImportant} onOpen={setSelectedTask} onUpdate={updateTask} />
           ) : isPlanned ? (
             // Grouped view for Planned
             groupTasksForPlanned().map(group => (

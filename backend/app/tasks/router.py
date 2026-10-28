@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
+from app.tasks.conteos import router as conteos_router
 from app.tasks.schemas import (
     ActivityOut,
     BoardCreate,
@@ -39,6 +40,7 @@ from app.tasks.task_calendar_sync import (
 _sync_logger = logging.getLogger("task_sync")
 
 router = APIRouter()
+router.include_router(conteos_router)  # números de la barra lateral
 
 
 def _db(request: Request):
