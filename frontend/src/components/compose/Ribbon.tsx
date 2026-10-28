@@ -4,6 +4,7 @@ import { api } from '../../api/client';
 import type { Editor } from '@tiptap/react';
 import { showToast } from '../common/Toast';
 import { createPortal } from 'react-dom';
+import { GrupoParrafo } from './GrupoParrafo';
 
 type Tab = 'message' | 'insert' | 'format' | 'options';
 
@@ -452,8 +453,6 @@ function MessageTab({ editor, onAttach, onImportanceChange, importance, onSaveDr
   const [showColor, setShowColor] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
   const emojiAnchorRef = useRef<HTMLDivElement>(null);
-  const [showStyles, setShowStyles] = useState(false);
-  const stylesAnchorRef = useRef<HTMLDivElement>(null);
   const tblAnchorRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLInputElement>(null);
   const handleImage = mkImageHandler(editor, imgRef);
@@ -503,26 +502,9 @@ function MessageTab({ editor, onAttach, onImportanceChange, importance, onSaveDr
       </RGroup>
       <GSep />
 
-      {/* Estilos */}
-      <RGroup label="Estilos">
-        <div className="relative" ref={stylesAnchorRef}>
-          <LargeBtn icon={<SvgI d="M4 6h16M4 10h16M4 14h10M4 18h12" s={20} />} label="Estilos" onClick={() => setShowStyles(!showStyles)} hasDropdown />
-          {showStyles && createPortal(
-            <>
-              <div className="fixed inset-0 z-[9998]" onClick={() => setShowStyles(false)} />
-              <div className="fixed w-[180px] bg-white rounded shadow-lg border border-[#edebe9] z-[9999] py-1" style={{ top: (stylesAnchorRef.current?.getBoundingClientRect().bottom ?? 0) + 4, left: (stylesAnchorRef.current?.getBoundingClientRect().left ?? 0) }}>
-                <button onClick={() => { editor.chain().focus().setParagraph().run(); setShowStyles(false); }} className="w-full text-left px-3 py-[5px] text-[13px] hover:bg-[#f3f2f1]">Normal</button>
-                <button onClick={() => { editor.chain().focus().toggleHeading({level:1}).run(); setShowStyles(false); }} className="w-full text-left px-3 py-[5px] text-[20px] font-bold hover:bg-[#f3f2f1]">Título 1</button>
-                <button onClick={() => { editor.chain().focus().toggleHeading({level:2}).run(); setShowStyles(false); }} className="w-full text-left px-3 py-[5px] text-[16px] font-bold hover:bg-[#f3f2f1]">Título 2</button>
-                <button onClick={() => { editor.chain().focus().toggleHeading({level:3}).run(); setShowStyles(false); }} className="w-full text-left px-3 py-[5px] text-[14px] font-bold hover:bg-[#f3f2f1]">Título 3</button>
-                <div className="h-px bg-[#edebe9] my-1" />
-                <button onClick={() => { editor.chain().focus().toggleBlockquote().run(); setShowStyles(false); }} className="w-full text-left px-3 py-[5px] text-[13px] italic text-[#605e5c] hover:bg-[#f3f2f1]">Cita</button>
-                <button onClick={() => { editor.chain().focus().toggleCodeBlock().run(); setShowStyles(false); }} className="w-full text-left px-3 py-[5px] text-[12px] font-mono hover:bg-[#f3f2f1]">Código</button>
-              </div>
-            </>,
-            document.body
-          )}
-        </div>
+      {/* Párrafo: viñetas, numeración, sangría, estilos, cita, alinear, espaciado y dirección del texto */}
+      <RGroup label="Párrafo">
+        <GrupoParrafo editor={editor} />
       </RGroup>
       <GSep />
 
