@@ -20,6 +20,7 @@ import { BarraImagen } from './BarraImagen';
 import { BotonAutocompletarIA, FranjaSugerenciaIA } from './SugerenciaIA';
 import { esReescritura, textoAParrafos } from '../../lib/autocompletar';
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { EVENTO_IMPORTANCIA, type Importancia } from '../mail/useImportanciaRedaccion';
 import React from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -93,9 +94,8 @@ export function ComposePanel({ win }: Props) {
   const [showBcc, setShowBcc] = useState(estadoPrevio?.showBcc ?? false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
-  // La importancia se reinicia al abrir; la cinta que la mostraba vive en la barra principal.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [importance, setImportance] = useState<'normal' | 'high' | 'low'>('normal');
+  // Importancia elegida en la cinta (barra principal): llega por EVENTO_IMPORTANCIA y se reinicia al abrir.
+  const [importance, setImportance] = useState<Importancia>('normal');
   const [attachments, setAttachments] = useState<AttachmentFile[]>(estadoPrevio?.attachments ?? []);
   const [mostrarNube, setMostrarNube] = useState(false);
 
@@ -541,6 +541,7 @@ export function ComposePanel({ win }: Props) {
       dlp_reason: dlpReason || undefined,
       request_read_receipt: trackingState.read,
       request_delivery_receipt: trackingState.delivery,
+      importance,
     };
     const savedData = { mode: win.mode, data: { ...win.data, to: recipients, subject, html_body: getFullHtml(), text_body: '' } };
     const winId = win.id;
@@ -558,6 +559,7 @@ export function ComposePanel({ win }: Props) {
       attachments: sendPayload.attachments,
       request_read_receipt: sendPayload.request_read_receipt,
       request_delivery_receipt: sendPayload.request_delivery_receipt,
+      importance: sendPayload.importance,
     }, { retenidoHasta: Date.now() + SEGUNDOS_PARA_ARREPENTIRSE * 1000 })
       .catch(() => null); // Si no se pudo guardar, el envío sigue su curso como antes.
 
@@ -613,6 +615,7 @@ export function ComposePanel({ win }: Props) {
             references: sendPayload.references, attachments: sendPayload.attachments,
             request_read_receipt: sendPayload.request_read_receipt,
             request_delivery_receipt: sendPayload.request_delivery_receipt,
+            importance: sendPayload.importance,
           });
           window.dispatchEvent(new CustomEvent('outbox-cambio'));
           showToast('Sin internet: el correo quedó en cola y se enviará solo al volver la conexión (aunque cierres la app).');
@@ -655,6 +658,7 @@ export function ComposePanel({ win }: Props) {
               to: sendPayload.to, cc: sendPayload.cc, bcc: sendPayload.bcc, subject: sendPayload.subject, html_body: sendPayload.html_body,
               text_body: sendPayload.text_body, in_reply_to: sendPayload.in_reply_to, references: sendPayload.references,
               attachments: sendPayload.attachments, request_read_receipt: sendPayload.request_read_receipt, request_delivery_receipt: sendPayload.request_delivery_receipt,
+              importance: sendPayload.importance,
             });
             window.dispatchEvent(new CustomEvent('outbox-cambio'));
             showToast(navigator.onLine ? 'El servidor no responde: el correo quedó en cola y se enviará solo al restablecerse.' : 'Sin internet: el correo quedó en cola y se enviará solo al volver la conexión.');
@@ -668,7 +672,7 @@ export function ComposePanel({ win }: Props) {
       }
     }, SEGUNDOS_PARA_ARREPENTIRSE * 1000);
     pendingSendMap.set(winId, { timerId, toastId, intervalId });
-  }, [to, cc, bcc, subject, editor, win, trackingState, closeCompose, attachments, encrypt]);
+  }, [to, cc, bcc, subject, editor, win, trackingState, importance, closeCompose, attachments, encrypt]);
 
   // 2026-09-16: un doble clic en Enviar (o Ctrl+Enter repetido) disparaba dos
   // envios, porque el boton solo se bloqueaba despues de la comprobacion DLP.
@@ -1041,6 +1045,16 @@ export function ComposePanel({ win }: Props) {
     setTrackingState(t);
   }, []);
 
+  // Importancia elegida en la cinta para ESTA redacción (con varias abiertas, cada una la suya).
+  useEffect(() => {
+    const alCambiar = (e: Event) => {
+      const d = (e as CustomEvent<{ editor: unknown; valor: Importancia }>).detail;
+      if (d && d.editor === editor) setImportance(d.valor);
+    };
+    window.addEventListener(EVENTO_IMPORTANCIA, alCambiar);
+    return () => window.removeEventListener(EVENTO_IMPORTANCIA, alCambiar);
+  }, [editor]);
+
   // Schedule send
   const handleScheduleSend = useCallback(() => {
     const now = new Date(); now.setHours(now.getHours() + 1);
@@ -1068,11 +1082,12 @@ export function ComposePanel({ win }: Props) {
         in_reply_to: win.data.in_reply_to || '', references: win.data.references || '',
         scheduled_at: new Date(scheduleDate).toISOString(),
         request_read_receipt: trackingState.read, request_delivery_receipt: trackingState.delivery,
+        importance,
       });
       closeCompose(win.id); setShowScheduleModal(false);
       showToast(`Envío programado para ${new Date(scheduleDate).toLocaleString('es-EC')}`);
     } catch { showToast('Error al programar envío'); }
-  }, [to, cc, bcc, subject, editor, win, scheduleDate, trackingState, closeCompose]);
+  }, [to, cc, bcc, subject, editor, win, scheduleDate, trackingState, importance, closeCompose]);
 
   useEffect(() => {
     const scheduleHandler = () => handleScheduleSend();

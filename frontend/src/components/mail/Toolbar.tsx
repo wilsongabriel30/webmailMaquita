@@ -8,6 +8,7 @@ import { showToast } from '../common/Toast';
 import { accionEnLote } from '../../lib/accionesLote';
 import { aplicarEscala, escalaActual, siguienteEscala } from '../../lib/escala';
 import { Ribbon } from '../compose/Ribbon';
+import { useImportanciaRedaccion } from './useImportanciaRedaccion';
 import { getFolderDisplayName } from '../../folders';
 import { getCachedLabels, useLabels } from '../../hooks/useLabels';
 import { SnoozeModal } from './SnoozeModal';
@@ -336,6 +337,7 @@ export function Toolbar() {
   const setShowMyDay = useMailStore(s => s.setShowMyDay);
   const composeWindows = useMailStore(s => s.composeWindows);
   const activeEditor = useMailStore(s => s.activeEditor);
+  const { importancia, cambiar: cambiarImportancia } = useImportanciaRedaccion(activeEditor);
   const composeRibbonTab = useMailStore(s => s.composeRibbonTab);
   const setComposeRibbonTab = useMailStore(s => s.setComposeRibbonTab);
 
@@ -813,7 +815,8 @@ export function Toolbar() {
                     a.href = url; a.download = 'borrador.html'; a.click();
                     URL.revokeObjectURL(url);
                   }}
-                  onImportanceChange={(v) => showToast(`Importancia: ${v}`)}
+                  importance={importancia}
+                  onImportanceChange={cambiarImportancia}
                   onImproveWriting={() => window.dispatchEvent(new CustomEvent('compose-improve-writing'))}
                   onScheduleSend={() => window.dispatchEvent(new CustomEvent('compose-schedule-send'))}
                   onOpenApps={() => window.dispatchEvent(new CustomEvent('compose-open-apps'))}
