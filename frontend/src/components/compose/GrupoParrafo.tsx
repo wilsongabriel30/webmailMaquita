@@ -108,10 +108,10 @@ export function GrupoParrafo({ editor }: { editor: Editor }) {
   return (
     <div className="flex flex-col gap-[2px] py-[3px]">
       <div className="flex items-center gap-[1px]">
-        <Boton titulo="Viñetas" activo={estado.vinetas} alPulsar={() => cadena().toggleBulletList().run()}>
+        <Boton titulo="Viñetas" activo={estado.vinetas} alPulsar={() => cadena().alternarLista('bulletList').run()}>
           <Icono d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01" />
         </Boton>
-        <Boton titulo="Numeración" activo={estado.numeracion} alPulsar={() => cadena().toggleOrderedList().run()}>
+        <Boton titulo="Numeración" activo={estado.numeracion} alPulsar={() => cadena().alternarLista('orderedList').run()}>
           <Icono d="M10 6h10M10 12h10M10 18h10M4 5h1v3M4 8h2M4 15.5c0-.8.7-1.3 1.2-1.3.6 0 1 .4 1 .9 0 .9-2.2 1.6-2.2 2.9h2.2" />
         </Boton>
         <Boton titulo="Disminuir sangría" alPulsar={() => cadena().disminuirSangria().run()}>

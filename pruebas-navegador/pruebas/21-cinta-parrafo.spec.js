@@ -149,3 +149,59 @@ test('el grupo Párrafo aplica sus opciones y el formato llega al destinatario',
 
   sinPeticionesFallidas(ojo.fallidas, 'grupo Párrafo');
 });
+
+// Reporte 28/10/2026: con sangría, al poner viñetas o numeración el símbolo se quedaba en el margen y el
+// texto se iba a la derecha. Como en Outlook, la sangría debe mover la lista entera (símbolo junto al texto).
+test('con sangría, las viñetas y los números salen junto al texto', async ({ sesion }) => {
+  const { pagina } = sesion;
+  await abrirCorreo(pagina);
+  await pagina.getByRole('button', { name: /^Correo$/ }).first().click();
+  await pagina.getByRole('button', { name: /nuevo correo|redactar/i }).first().click();
+  await pagina.waitForTimeout(1500);
+  const boton = (nombre) => pagina.getByRole('button', { name: nombre, exact: true }).first();
+  const cuerpo = pagina.locator('.tiptap[contenteditable="true"]').first();
+  await cuerpo.click();
+  await pagina.keyboard.press('Control+Home');
+  for (const [i, t] of ['hola', 'hola', 'hola'].entries()) {
+    if (i) await pagina.keyboard.press('Enter');
+    await pagina.keyboard.type(t);
+  }
+  await pagina.keyboard.press('Control+Home');
+  for (let i = 0; i < 2; i++) await pagina.keyboard.press('Shift+ArrowDown');
+  await pagina.keyboard.press('Shift+End');
+  await boton('Aumentar sangría').click();
+  await boton('Aumentar sangría').click();
+  await boton('Viñetas').click();
+  await expect(boton('Viñetas')).toHaveAttribute('aria-pressed', 'true');
+  let html = await cuerpo.innerHTML();
+  expect(html).toMatch(/<ul style="margin-left: 80px;"><li><p>hola<\/p><\/li>/);
+  expect(html).not.toMatch(/<li><p style="margin-left/);
+
+  // En pantalla: la viñeta queda a menos de 30 px del texto (antes, unos 120 px).
+  const distancia = await pagina.evaluate(() => {
+    const li = document.querySelector('.tiptap ul > li');
+    const p = li.querySelector('p');
+    const marcador = parseFloat(getComputedStyle(li, '::marker').fontSize) || 0;
+    const ul = li.parentElement.getBoundingClientRect();
+    return { texto: p.getBoundingClientRect().left - ul.left, marcador };
+  });
+  console.log('   separación entre el borde de la lista y el texto:', distancia.texto, 'px');
+  expect(distancia.texto).toBeLessThan(60);
+  await pagina.screenshot({ path: 'informe/parrafo-vinetas-con-sangria.png' });
+
+  // Cambiar a numeración conserva la sangría.
+  await boton('Numeración').click();
+  await expect(boton('Numeración')).toHaveAttribute('aria-pressed', 'true');
+  await expect(boton('Viñetas')).toHaveAttribute('aria-pressed', 'false');
+  html = await cuerpo.innerHTML();
+  expect(html).toMatch(/<ol style="margin-left: 80px;">/);
+  await pagina.screenshot({ path: 'informe/parrafo-numeracion-con-sangria.png' });
+
+  // Escribir «- » al inicio de un párrafo con sangría también crea la lista desplazada.
+  await pagina.keyboard.press('Control+End');
+  await pagina.keyboard.press('Enter'); await pagina.keyboard.press('Enter');
+  await boton('Aumentar sangría').click();
+  await pagina.keyboard.type('- guion');
+  html = await cuerpo.innerHTML();
+  expect(html).toMatch(/<ul style="margin-left: 40px;"><li><p>guion<\/p>/);
+});

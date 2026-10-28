@@ -3,10 +3,11 @@
 // Todo se guarda como estilo en línea o atributo `dir`, que es lo que respetan los clientes de correo
 // (Outlook, Gmail, móviles): el correo recibido se ve igual que en el redactor.
 import { Extension, type CommandProps } from '@tiptap/core';
-import type { Node as NodoPM } from '@tiptap/pm/model';
-import type { EditorState } from '@tiptap/pm/state';
+import type { Node as NodoPM, ResolvedPos } from '@tiptap/pm/model';
+import { Plugin, PluginKey, type EditorState } from '@tiptap/pm/state';
 
 const BLOQUES = ['paragraph', 'heading'];
+const LISTAS = ['bulletList', 'orderedList'];
 const BLOQUES_CON_DIRECCION = [...BLOQUES, 'blockquote', 'bulletList', 'orderedList', 'listItem'];
 
 export const PASO_SANGRIA_PX = 40;
@@ -29,6 +30,8 @@ declare module '@tiptap/core' {
       alternarEspacioParrafo: (lado: 'antes' | 'despues') => ReturnType;
       /** Dirección del texto del párrafo: de izquierda a derecha o de derecha a izquierda. */
       establecerDireccion: (direccion: Direccion) => ReturnType;
+      /** Pone, cambia o quita viñetas/numeración conservando la sangría (la lista entera se mueve). */
+      alternarLista: (tipo: 'bulletList' | 'orderedList') => ReturnType;
     };
   }
 }
@@ -57,6 +60,53 @@ function cambiarBloques(
   };
 }
 
+/** La lista más externa que contiene la posición (la que se desplaza entera con la sangría). */
+function listaExterna($pos: ResolvedPos): { pos: number; nodo: NodoPM } | null {
+  for (let d = 1; d <= $pos.depth; d++) {
+    const nodo = $pos.node(d);
+    if (LISTAS.includes(nodo.type.name)) return { pos: $pos.before(d), nodo };
+  }
+  return null;
+}
+
+/** Cambia la sangría de la lista entera donde está el cursor (como Outlook con el primer elemento). */
+function sangriaDeLista(delta: number) {
+  return ({ tr, state, dispatch }: CommandProps) => {
+    const lista = listaExterna(state.selection.$from);
+    if (!lista) return false;
+    const actual = Number(lista.nodo.attrs.sangria) || 0;
+    const nueva = Math.min(MAX_SANGRIA, Math.max(0, actual + delta));
+    if (nueva === actual) return false;
+    if (dispatch) tr.setNodeMarkup(lista.pos, undefined, { ...lista.nodo.attrs, sangria: nueva || null });
+    return true;
+  };
+}
+
+/** Listas externas que toca la selección (la del cursor y las que quedan dentro de lo seleccionado). */
+function listasEnSeleccion(doc: NodoPM, desde: number, hasta: number): { pos: number; nodo: NodoPM }[] {
+  const listas = new Map<number, NodoPM>();
+  const delCursor = listaExterna(doc.resolve(desde));
+  if (delCursor) listas.set(delCursor.pos, delCursor.nodo);
+  doc.nodesBetween(desde, hasta, (nodo, pos) => {
+    if (LISTAS.includes(nodo.type.name)) { listas.set(pos, nodo); return false; }
+    return true;
+  });
+  return [...listas].map(([pos, nodo]) => ({ pos, nodo }));
+}
+
+/** Sangría que tiene la lista externa del cursor o de la selección (0 si no hay lista). */
+function sangriaListaActual(state: EditorState): number {
+  const { from, to } = state.selection;
+  return Math.max(0, ...listasEnSeleccion(state.doc, from, to).map((l) => Number(l.nodo.attrs.sangria) || 0));
+}
+
+/** Profundidad de anidamiento de la lista en el cursor (1 = elemento de primer nivel). */
+function nivelDeLista($pos: ResolvedPos): number {
+  let niveles = 0;
+  for (let d = 1; d <= $pos.depth; d++) if (LISTAS.includes($pos.node(d).type.name)) niveles++;
+  return niveles;
+}
+
 function sangriaPara(delta: number) {
   return cambiarBloques(BLOQUES, (nodo) => {
     const actual = Number(nodo.attrs.sangria) || 0;
@@ -64,6 +114,20 @@ function sangriaPara(delta: number) {
     return nueva === actual ? null : { sangria: nueva || null };
   });
 }
+
+const ATRIBUTO_SANGRIA = {
+  default: null,
+  parseHTML: (el: HTMLElement) => {
+    const px = pixeles(el.getAttribute('dir') === 'rtl' ? el.style.marginRight : el.style.marginLeft);
+    const niveles = Math.round(px / PASO_SANGRIA_PX);
+    return niveles > 0 ? Math.min(MAX_SANGRIA, niveles) : null;
+  },
+  renderHTML: (attrs: Record<string, unknown>) => {
+    if (!attrs.sangria) return {};
+    const lado = attrs.dir === 'rtl' ? 'margin-right' : 'margin-left';
+    return { style: `${lado}: ${Number(attrs.sangria) * PASO_SANGRIA_PX}px` };
+  },
+};
 
 export const FormatoParrafo = Extension.create({
   name: 'formatoParrafo',
@@ -73,19 +137,7 @@ export const FormatoParrafo = Extension.create({
       {
         types: BLOQUES,
         attributes: {
-          sangria: {
-            default: null,
-            parseHTML: (el) => {
-              const px = pixeles(el.getAttribute('dir') === 'rtl' ? el.style.marginRight : el.style.marginLeft);
-              const niveles = Math.round(px / PASO_SANGRIA_PX);
-              return niveles > 0 ? Math.min(MAX_SANGRIA, niveles) : null;
-            },
-            renderHTML: (attrs) => {
-              if (!attrs.sangria) return {};
-              const lado = attrs.dir === 'rtl' ? 'margin-right' : 'margin-left';
-              return { style: `${lado}: ${attrs.sangria * PASO_SANGRIA_PX}px` };
-            },
-          },
+          sangria: ATRIBUTO_SANGRIA,
           interlineado: {
             default: null,
             parseHTML: (el) => {
@@ -108,6 +160,8 @@ export const FormatoParrafo = Extension.create({
           },
         },
       },
+      // En una lista la sangría la lleva la lista entera: así la viñeta o el número se mueven con el texto.
+      { types: LISTAS, attributes: { sangria: ATRIBUTO_SANGRIA } },
       {
         types: BLOQUES_CON_DIRECCION,
         attributes: {
@@ -121,14 +175,56 @@ export const FormatoParrafo = Extension.create({
     ];
   },
 
+  // Si un párrafo con sangría entra en una lista (botón, numeración, «- » al escribir, pegar…), su sangría
+  // pasa a la lista externa: si se quedara en el párrafo, el texto se iría a la derecha y la viñeta no.
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: new PluginKey('sangriaEnListas'),
+        appendTransaction: (transacciones, _anterior, estado) => {
+          if (!transacciones.some((t) => t.docChanged)) return null;
+          const listas = new Map<number, number>();
+          const parrafos: number[] = [];
+          estado.doc.descendants((nodo, pos, padre) => {
+            if (!BLOQUES.includes(nodo.type.name) || !nodo.attrs.sangria || padre?.type.name !== 'listItem') return;
+            parrafos.push(pos);
+            const lista = listaExterna(estado.doc.resolve(pos));
+            if (lista) listas.set(lista.pos, Math.max(listas.get(lista.pos) || 0, Number(nodo.attrs.sangria)));
+          });
+          if (!parrafos.length) return null;
+          const tr = estado.tr;
+          for (const pos of parrafos) {
+            const nodo = tr.doc.nodeAt(pos);
+            if (nodo) tr.setNodeMarkup(pos, undefined, { ...nodo.attrs, sangria: null });
+          }
+          for (const [pos, sangria] of listas) {
+            const nodo = tr.doc.nodeAt(pos);
+            if (nodo && !nodo.attrs.sangria) tr.setNodeMarkup(pos, undefined, { ...nodo.attrs, sangria });
+          }
+          return tr;
+        },
+      }),
+    ];
+  },
+
   addCommands() {
     return {
+      // En una lista: anida el elemento si se puede; si no (primer elemento), desplaza la lista entera.
       aumentarSangria: () => (props) => {
-        if (props.editor.isActive('listItem')) return props.commands.sinkListItem('listItem');
+        if (props.editor.isActive('listItem')) {
+          if (props.editor.can().sinkListItem('listItem')) return props.commands.sinkListItem('listItem');
+          return sangriaDeLista(1)(props);
+        }
         return sangriaPara(1)(props);
       },
+      // En una lista de primer nivel con sangría, primero acerca la lista al margen; después saca el elemento.
       disminuirSangria: () => (props) => {
-        if (props.editor.isActive('listItem')) return props.commands.liftListItem('listItem');
+        if (props.editor.isActive('listItem')) {
+          if (nivelDeLista(props.state.selection.$from) === 1 && sangriaListaActual(props.state) > 0) {
+            return sangriaDeLista(-1)(props);
+          }
+          return props.commands.liftListItem('listItem');
+        }
         return sangriaPara(-1)(props);
       },
       establecerInterlineado: (valor) =>
@@ -146,6 +242,30 @@ export const FormatoParrafo = Extension.create({
       },
       // Como en Outlook, al cambiar de dirección el texto pasa al otro margen: se quita la alineación
       // izquierda/derecha que tuviera (la natural de la dirección manda); centrado y justificado se respetan.
+      alternarLista: (tipo) => ({ state, commands }) => {
+        const previa = sangriaListaActual(state);
+        const hecho = tipo === 'bulletList' ? commands.toggleBulletList() : commands.toggleOrderedList();
+        if (!hecho || !previa) return hecho;
+        // Tras el cambio: si sigue en lista (viñetas ⇄ numeración), la lista nueva hereda la sangría;
+        // si se quitó la lista, los párrafos se quedan donde estaba el texto.
+        return commands.command(({ tr, dispatch }) => {
+          const listas = listasEnSeleccion(tr.doc, tr.selection.from, tr.selection.to);
+          if (dispatch) {
+            if (listas.length) {
+              for (const l of listas) {
+                if (!l.nodo.attrs.sangria) tr.setNodeMarkup(l.pos, undefined, { ...l.nodo.attrs, sangria: previa });
+              }
+            } else {
+              tr.doc.nodesBetween(tr.selection.from, tr.selection.to, (nodo, pos) => {
+                if (BLOQUES.includes(nodo.type.name) && !nodo.attrs.sangria) {
+                  tr.setNodeMarkup(pos, undefined, { ...nodo.attrs, sangria: previa });
+                }
+              });
+            }
+          }
+          return true;
+        });
+      },
       establecerDireccion: (direccion) =>
         cambiarBloques(BLOQUES_CON_DIRECCION, (nodo) => ({
           dir: direccion === 'rtl' ? 'rtl' : null,
