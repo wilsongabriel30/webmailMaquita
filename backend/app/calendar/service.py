@@ -959,8 +959,10 @@ class CalendarService:
 
     async def send_invitations(
         self, db: asyncpg.Pool, user: str, event_id: uuid.UUID, smtp_config: dict
-    ) -> int:
-        """Enviar emails de invitación a los asistentes de un evento."""
+    ) -> list[dict]:
+        """Enviar emails de invitación a los asistentes de un evento.
+
+        Devuelve el resultado por asistente (ver `estado_invitaciones`)."""
         row = await db.fetchrow(
             """SELECT e.*, c.name AS calendar_name, c.owner_email
                FROM events e
@@ -977,7 +979,7 @@ class CalendarService:
 
             attendees_raw = _json.loads(attendees_raw)
         if not attendees_raw:
-            return 0
+            return []
         import html as _html
         import re as _re
         import smtplib
@@ -985,7 +987,9 @@ class CalendarService:
         from email.mime.text import MIMEText
         from email.utils import formatdate
 
-        sent = 0
+        from app.calendar import estado_invitaciones
+
+        resultados = []
 
         from zoneinfo import ZoneInfo
 
@@ -1129,6 +1133,7 @@ class CalendarService:
                 msg["From"] = user
                 msg["To"] = email
                 msg["Date"] = formatdate(localtime=True)
+                msg["Message-ID"] = estado_invitaciones.nuevo_message_id(user)
                 body = _cuerpo_html(_cab, es_organizador=not _con_ics)
                 msg.attach(MIMEText(body, "html"))
 
@@ -1184,10 +1189,25 @@ class CalendarService:
                         except smtplib.SMTPNotSupportedError:
                             pass
                     s.sendmail(user, [email], msg.as_string())
-                sent += 1
+                if _con_ics:
+                    resultados.append(
+                        {
+                            "email": email,
+                            "estado": "aceptado",
+                            "message_id": msg["Message-ID"],
+                        }
+                    )
             except Exception as e:
                 logger.warning("No se pudo enviar invitación a %s: %s", email, e)
-        return sent
+                if _con_ics:
+                    resultados.append(
+                        {
+                            "email": email,
+                            "estado": "fallido",
+                            "detalle": estado_invitaciones.explicar_error_envio(e),
+                        }
+                    )
+        return resultados
 
     async def respond_invitation(
         self, db: asyncpg.Pool, user: str, event_id: uuid.UUID, status: str
