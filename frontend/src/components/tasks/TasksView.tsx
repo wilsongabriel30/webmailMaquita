@@ -10,12 +10,15 @@ import { EmptyState } from './components/EmptyState';
 import { TaskGrid } from './components/TaskGrid';
 import { leerModoVista, guardarModoVista, type ModoVista } from './components/modoVista';
 import { useConteosVistas } from './hooks/useConteosVistas';
+import { agruparPlaneado } from './components/agruparPlaneado';
 import { api } from '../../api/client';
 import { SeguimientoVista } from '../tareas/SeguimientoVista';
 
 const _params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
 const VISTA_INICIAL: ActiveView | null = _params?.get('vista') === 'seguimiento' || _params?.get('tarea') ? 'seguimiento' : null;
 const TAREA_INICIAL = _params?.get('tarea') || null;
+// Listas inteligentes: cada una tiene su ruta /tasks/views/<id> («tasks» es la bandeja por defecto).
+const VISTAS_INTELIGENTES = ['my-day', 'important', 'planned', 'assigned', 'flagged', 'tasks'];
 
 export function TasksView() {
   const [activeView, setActiveView] = useState<ActiveView>(VISTA_INICIAL || 'my-day');
@@ -57,29 +60,8 @@ export function TasksView() {
     setError('');
     try {
       let result: Task[];
-      const smartViews = ['my-day', 'important', 'planned', 'assigned', 'flagged'];
-      if (smartViews.includes(activeView)) {
-        const viewMap: Record<string, string> = {
-          'my-day': '/tasks/views/my-day',
-          'important': '/tasks/views/important',
-          'planned': '/tasks/views/planned',
-          'assigned': '/tasks/views/assigned',
-          'flagged': '/tasks/views/flagged',
-        };
-        result = await api.get<Task[]>(viewMap[activeView] || '/tasks/views/my-day');
-      } else if (activeView === 'tasks') {
-        // Default list - get the "tasks" list
-        try {
-          const lists = await api.get<TaskList[]>('/tasks/lists');
-          const defaultList = lists.find(l => l.list_type === 'default');
-          if (defaultList) {
-            result = await api.get<Task[]>(`/tasks/lists/${defaultList.id}/tasks`);
-          } else {
-            result = [];
-          }
-        } catch {
-          result = [];
-        }
+      if (VISTAS_INTELIGENTES.includes(activeView)) {
+        result = await api.get<Task[]>(`/tasks/views/${activeView}`);
       } else {
         // Custom list
         result = await api.get<Task[]>(`/tasks/lists/${activeView}/tasks`);
@@ -129,7 +111,6 @@ export function TasksView() {
   };
 
   const toggleTask = async (id: string) => {
-    if (id.startsWith('mail-')) return;
     // Optimistic update
     setTasks(prev => prev.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
     if (selectedTask?.id === id) setSelectedTask(prev => prev ? { ...prev, completed: !prev.completed } : null);
@@ -142,7 +123,6 @@ export function TasksView() {
   };
 
   const toggleImportant = async (id: string) => {
-    if (id.startsWith('mail-')) return;
     setTasks(prev => prev.map(t => t.id === id ? { ...t, important: !t.important } : t));
     if (selectedTask?.id === id) setSelectedTask(prev => prev ? { ...prev, important: !prev.important } : null);
     try {
@@ -154,7 +134,6 @@ export function TasksView() {
   };
 
   const updateTask = async (id: string, data: Partial<Task>) => {
-    if (id.startsWith('mail-')) return; // mail tasks are read-only
     setTasks(prev => prev.map(t => t.id === id ? { ...t, ...data } : t));
     if (selectedTask?.id === id) setSelectedTask(prev => prev ? { ...prev, ...data } : null);
     const payload = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined));
@@ -169,7 +148,6 @@ export function TasksView() {
   };
 
   const deleteTask = async (id: string) => {
-    if (id.startsWith('mail-')) return; // mail tasks are read-only
     setSelectedTask(null);
     setTasks(prev => prev.filter(t => t.id !== id));
     try {
@@ -219,34 +197,6 @@ export function TasksView() {
     return 0;
   });
 
-  // ─── Group tasks for planned view ─────────────────────────────
-
-  const groupTasksForPlanned = () => {
-    const groups: { label: string; tasks: Task[] }[] = [];
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
-    const nextWeek = new Date(today); nextWeek.setDate(nextWeek.getDate() + 7);
-
-    const buckets: Record<string, Task[]> = { anterior: [], hoy: [], manana: [], semana: [], despues: [], sinFecha: [] };
-    sortedTasks.forEach(t => {
-      if (!t.due_date) { buckets.sinFecha.push(t); return; }
-      const d = new Date((t.due_date || '').slice(0, 10) + 'T00:00:00');
-      if (d < today) buckets.anterior.push(t);
-      else if (d.getTime() === today.getTime()) buckets.hoy.push(t);
-      else if (d.getTime() === tomorrow.getTime()) buckets.manana.push(t);
-      else if (d < nextWeek) buckets.semana.push(t);
-      else buckets.despues.push(t);
-    });
-
-    if (buckets.anterior.length) groups.push({ label: 'Anterior', tasks: buckets.anterior });
-    if (buckets.hoy.length) groups.push({ label: 'Hoy', tasks: buckets.hoy });
-    if (buckets.manana.length) groups.push({ label: 'Mañana', tasks: buckets.manana });
-    if (buckets.semana.length) groups.push({ label: 'Esta semana', tasks: buckets.semana });
-    if (buckets.despues.length) groups.push({ label: 'Después', tasks: buckets.despues });
-    if (buckets.sinFecha.length) groups.push({ label: 'Sin fecha', tasks: buckets.sinFecha });
-    return groups;
-  };
-
   // ─── Get custom list name ─────────────────────────────────────
 
   const customListName = customLists.find(l => l.id === activeView)?.name;
@@ -254,6 +204,8 @@ export function TasksView() {
   // ─── Render ────────────────────────────────────────────────────
 
   const isPlanned = activeView === 'planned';
+  const mostrarLista = VISTAS_INTELIGENTES.includes(activeView) && activeView !== 'tasks';
+  const grupos = isPlanned ? agruparPlaneado(sortedTasks) : [{ clave: 'todas', label: '', tasks: sortedTasks }];
   const showInput = activeView !== 'flagged' && activeView !== 'assigned';
 
   return (
@@ -308,13 +260,9 @@ export function TasksView() {
             </div>
           ) : sortedTasks.length === 0 ? (
             <EmptyState view={activeView} />
-          ) : modo === 'cuadricula' ? (
-            <TaskGrid tasks={sortedTasks} seleccionada={selectedTask?.id} onToggle={toggleTask}
-              onToggleImportant={toggleImportant} onOpen={setSelectedTask} onUpdate={updateTask} />
-          ) : isPlanned ? (
-            // Grouped view for Planned
-            groupTasksForPlanned().map(group => (
-              <div key={group.label}>
+          ) : grupos.map(grupo => (
+            <div key={grupo.clave}>
+              {grupo.label && (
                 <div style={{
                   padding: '8px 24px', fontSize: 14, fontWeight: 600, color: COLORS.text,
                   display: 'flex', alignItems: 'center', gap: 8,
@@ -322,19 +270,19 @@ export function TasksView() {
                   <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke={COLORS.secondary} strokeWidth={2.5}>
                     <polyline points="6 9 12 15 18 9" />
                   </svg>
-                  {group.label}
-                  <span style={{ fontSize: 12, color: COLORS.muted, fontWeight: 400 }}>({group.tasks.length})</span>
+                  {grupo.label}
+                  <span style={{ fontSize: 12, color: COLORS.muted, fontWeight: 400 }}>({grupo.tasks.length})</span>
                 </div>
-                {group.tasks.map(task => (
-                  <TaskItem key={task.id} task={task} onToggle={toggleTask} onToggleImportant={toggleImportant} onClick={setSelectedTask} />
-                ))}
-              </div>
-            ))
-          ) : (
-            sortedTasks.map(task => (
-              <TaskItem key={task.id} task={task} onToggle={toggleTask} onToggleImportant={toggleImportant} onClick={setSelectedTask} />
-            ))
-          )}
+              )}
+              {modo === 'cuadricula' ? (
+                <TaskGrid tasks={grupo.tasks} seleccionada={selectedTask?.id} onToggle={toggleTask}
+                  onToggleImportant={toggleImportant} onOpen={setSelectedTask} onUpdate={updateTask} />
+              ) : grupo.tasks.map(task => (
+                <TaskItem key={task.id} task={task} onToggle={toggleTask} onToggleImportant={toggleImportant}
+                  onClick={setSelectedTask} mostrarLista={mostrarLista} />
+              ))}
+            </div>
+          ))}
         </div>
       </div>)}
 

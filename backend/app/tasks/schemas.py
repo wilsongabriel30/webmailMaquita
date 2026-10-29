@@ -115,6 +115,15 @@ class CardMove(BaseModel):
     position: int
 
 
+class CorreoRef(BaseModel):
+    """Correo marcado del que salió la tarea (para abrirlo desde Tareas)."""
+
+    carpeta: str
+    uid: int
+    asunto: str = ""
+    remitente: str = ""
+
+
 class CardOut(BaseModel):
     id: uuid.UUID
     list_id: uuid.UUID
@@ -136,6 +145,10 @@ class CardOut(BaseModel):
     recurrence: Optional[str] = None  # daily, weekdays, weekly, monthly, yearly
     created_at: datetime
     updated_at: datetime
+    # Lo agregan las listas inteligentes (vistas.py): nombre de la lista, asignados y correo de origen.
+    list_name: Optional[str] = None
+    asignados: list[str] = Field(default_factory=list)
+    correo: Optional[CorreoRef] = None
 
 
 # Label
