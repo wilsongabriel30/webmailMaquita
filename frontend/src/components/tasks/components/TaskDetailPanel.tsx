@@ -1,9 +1,11 @@
-// Panel de detalle de una tarea (como en To Do): completar, título e importancia; pasos; Mi día; recordatorio;
-// vencimiento; repetición; archivos; nota; y, al pie, cuándo se creó y eliminar.
+// Panel de detalle de una tarea (como en To Do): completar, título e importancia; pasos; Mi día; asignar; recordatorio;
+// vencimiento; repetición; archivos; nota; actividad; y, al pie, cuándo se creó y eliminar.
 import { useState } from 'react';
 import type { Task } from '../types';
 import { COLORS } from '../types';
+import { ActividadLista } from './ActividadLista';
 import { AdjuntosTarea } from './AdjuntosTarea';
+import { AsignarTarea } from './AsignarTarea';
 import { EnlaceCorreo } from './EnlaceCorreo';
 import { RecordatorioTarea } from './RecordatorioTarea';
 import { RepeticionTarea } from './RepeticionTarea';
@@ -20,10 +22,13 @@ interface Props {
   onClose: () => void;
   /** Cambiaron los pasos o los archivos: se vuelve a pedir la lista para ver los contadores. */
   onRefrescar: () => void;
+  /** La tarea volvió del servidor con otros asignados. */
+  onAsignada: (t: Task) => void;
 }
 
-export function TaskDetailPanel({ task, onUpdate, onToggle, onToggleImportant, onDelete, onClose, onRefrescar }: Props) {
+export function TaskDetailPanel({ task, onUpdate, onToggle, onToggleImportant, onDelete, onClose, onRefrescar, onAsignada }: Props) {
   const [title, setTitle] = useState(task.title);
+  const [verActividad, setVerActividad] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [notes, setNotes] = useState(task.note || '');
   const [dueDate, setDueDate] = useState((task.due_date || '').slice(0, 10));
@@ -122,6 +127,8 @@ export function TaskDetailPanel({ task, onUpdate, onToggle, onToggleImportant, o
           </button>
         </div>
 
+        {!task.correo && <AsignarTarea task={task} onAsignada={onAsignada} />}
+
         <RecordatorioTarea valor={task.reminder} onCambiar={r => onUpdate(task.id, { reminder: r })} />
 
         <div style={{ ...seccion, gap: 8 }}>
@@ -163,6 +170,14 @@ export function TaskDetailPanel({ task, onUpdate, onToggle, onToggleImportant, o
               fontFamily: "'Segoe UI', system-ui, sans-serif",
             }}
           />
+        </div>
+
+        <div style={{ padding: '12px 20px' }}>
+          <button type="button" aria-expanded={verActividad} onClick={() => setVerActividad(!verActividad)}
+            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 13, color: COLORS.secondary, fontFamily: 'inherit' }}>
+            {verActividad ? '▾' : '▸'} Actividad
+          </button>
+          {verActividad && <ActividadLista ruta={`/tasks/tasks/${task.id}/actividad`} vacio="Sin actividad registrada." />}
         </div>
       </div>
 

@@ -32,7 +32,10 @@ export function useTareas(activeView: ActiveView, busqueda: string, alCambiar: (
 
   const fetchTasks = useCallback(async () => {
     try {
-      setTasks(await pedir());
+      const r = await pedir();
+      setTasks(r);
+      // El panel abierto se pone al día (otra persona pudo cambiar la tarea).
+      setSelectedTask(prev => (prev ? r.find(t => t.id === prev.id) ?? prev : prev));
     } catch {
       setTasks([]);
     }
@@ -142,8 +145,11 @@ export function useTareas(activeView: ActiveView, busqueda: string, alCambiar: (
     }
   };
 
+  /** La tarea volvió del servidor (p. ej. tras asignarla): se reemplaza tal cual. */
+  const reemplazarTarea = (t: Task) => cambiarLocal(t.id, () => t);
+
   return {
     tasks, setTasks, selectedTask, setSelectedTask, loading, error, setError,
-    fetchTasks, addTask, toggleTask, toggleImportant, updateTask, deleteTask, moverTarea,
+    fetchTasks, addTask, toggleTask, toggleImportant, updateTask, deleteTask, moverTarea, reemplazarTarea,
   };
 }

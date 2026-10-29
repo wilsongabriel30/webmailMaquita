@@ -185,6 +185,12 @@ export function useWebSocket(enabled: boolean = true) {
               break;
             }
 
+            case 'tareas_cambio': {
+              // Otra persona cambió algo en una lista de Tareas compartida: se recarga sin aviso.
+              window.dispatchEvent(new CustomEvent('refresh-tasks'));
+              break;
+            }
+
             case 'reminder': {
               const remMsg = data.message || 'Recordatorio';
               window.dispatchEvent(new CustomEvent('show-reminder', { detail: data }));
