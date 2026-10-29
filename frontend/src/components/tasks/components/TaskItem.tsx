@@ -1,4 +1,5 @@
 
+import type { MouseEvent } from 'react';
 import type { Task } from '../types';
 import { COLORS } from '../types';
 import { urlCorreo } from './urlCorreo';
@@ -10,9 +11,12 @@ interface Props {
   onClick: (task: Task) => void;
   /** En las listas inteligentes se muestra de qué lista es cada tarea (como en To Do). */
   mostrarLista?: boolean;
+  seleccionada?: boolean;
+  /** Clic derecho: menú de la tarea (Mover a…, Mi día, etc.). */
+  onMenu?: (task: Task, e: MouseEvent) => void;
 }
 
-export function TaskItem({ task, onToggle, onToggleImportant, onClick, mostrarLista }: Props) {
+export function TaskItem({ task, onToggle, onToggleImportant, onClick, mostrarLista, seleccionada, onMenu }: Props) {
   const formatDate = (d?: string) => {
     if (!d) return '';
     const date = new Date(d.slice(0, 10) + 'T00:00:00');
@@ -40,14 +44,16 @@ export function TaskItem({ task, onToggle, onToggleImportant, onClick, mostrarLi
   return (
     <div
       onClick={() => onClick(task)}
+      onContextMenu={onMenu ? e => { e.preventDefault(); onMenu(task, e); } : undefined}
       style={{
         display: 'flex', alignItems: 'center', gap: 12,
         padding: '10px 24px', cursor: 'pointer',
         transition: 'background 0.1s',
+        background: seleccionada ? COLORS.activeBg : 'transparent',
         fontFamily: "'Segoe UI', system-ui, sans-serif",
       }}
-      onMouseEnter={e => (e.currentTarget.style.background = COLORS.hoverBg)}
-      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+      onMouseEnter={e => { if (!seleccionada) e.currentTarget.style.background = COLORS.hoverBg; }}
+      onMouseLeave={e => { if (!seleccionada) e.currentTarget.style.background = 'transparent'; }}
     >
       {/* Checkbox */}
       <div
@@ -86,8 +92,9 @@ export function TaskItem({ task, onToggle, onToggleImportant, onClick, mostrarLi
             ) : task.list_name}
           </div>
         )}
-        {(task.due_date || task.recurrence || task.reminder) && (
-          <div style={{ fontSize: 12, color: COLORS.secondary, marginTop: 2, display: 'flex', gap: 8, alignItems: 'center' }}>
+        {(task.due_date || task.recurrence || task.reminder || task.pasos || task.adjuntos || task.note) && (
+          <div style={{ fontSize: 12, color: COLORS.secondary, marginTop: 2, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            {!!task.pasos && <span>{task.pasos_hechos ?? 0} de {task.pasos}</span>}
             {task.recurrence && (
               <span style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -109,6 +116,20 @@ export function TaskItem({ task, onToggle, onToggleImportant, onClick, mostrarLi
                   <rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" />
                 </svg>
                 {formatDate(task.due_date)}
+              </span>
+            )}
+            {!!task.adjuntos && (
+              <span title={`${task.adjuntos} archivo(s)`} style={{ display: 'flex', alignItems: 'center' }}>
+                <svg aria-label="Con archivos" width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
+                </svg>
+              </span>
+            )}
+            {!!task.note && (
+              <span title="Tiene nota" style={{ display: 'flex', alignItems: 'center' }}>
+                <svg aria-label="Con nota" width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><path d="M14 2v6h6M8 13h8M8 17h5" />
+                </svg>
               </span>
             )}
           </div>

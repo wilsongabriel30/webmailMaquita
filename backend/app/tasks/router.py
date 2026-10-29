@@ -10,8 +10,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
-from app.tasks import acceso, correo_marcado
+from app.tasks import acceso, adjuntos, correo_marcado, repeticion
 from app.tasks.rutas_listas import router as listas_router
+from app.tasks.rutas_tareas import router as f3_router
 from app.tasks.rutas_vistas import router as vistas_router
 from app.tasks.schemas import (
     ActivityOut,
@@ -42,6 +43,7 @@ _sync_logger = logging.getLogger("task_sync")
 router = APIRouter()
 router.include_router(listas_router)  # listas propias, grupos y orden
 router.include_router(vistas_router)  # listas inteligentes, «Mi día» y conteos
+router.include_router(f3_router)  # buscar, mover a otra lista y adjuntos
 
 
 def _db(request: Request):
@@ -117,6 +119,8 @@ async def todo_update_task(
 ):
     try:
         result = await task_service.update_card(_db(request), user, card_id, data)
+        if result.completed and data.completed:
+            await repeticion.tras_completar(_db(request), user, card_id)
         if data.completed is not None:
             enlace = await correo_marcado.vinculo(_db(request), card_id, user)
             await correo_marcado.poner_bandera(
@@ -151,6 +155,8 @@ async def todo_toggle_task(
 ):
     try:
         result = await task_service.toggle_card(_db(request), user, card_id)
+        if result.completed:
+            await repeticion.tras_completar(_db(request), user, card_id)
         enlace = await correo_marcado.vinculo(_db(request), card_id, user)
         await correo_marcado.poner_bandera(request, user, enlace, not result.completed)
         # Si se completo, eliminar del calendario; si se reabrio, re-sincronizar
@@ -190,7 +196,9 @@ async def todo_delete_task(
         db = _db(request)
         task_row = await db.fetchrow("SELECT * FROM task_cards WHERE id = $1", card_id)
         enlace = await correo_marcado.vinculo(db, card_id, user)
+        carpetas = await adjuntos.con_adjuntos(db, card_id=card_id)
         await task_service.delete_card(db, user, card_id)
+        await adjuntos.borrar_carpetas(carpetas)
         await correo_marcado.poner_bandera(request, user, enlace, False)
         # Limpiar calendario
         if task_row and task_row.get("due_date"):

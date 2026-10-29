@@ -6,7 +6,9 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from app.tasks.repeticion import normalizar as _regla_repeticion
 
 
 # Board (kept for backward compat)
@@ -82,6 +84,8 @@ class CardCreate(BaseModel):
     note: str = ""
     recurrence: Optional[str] = None  # daily, weekdays, weekly, monthly, yearly
 
+    _repeticion = field_validator("recurrence")(_regla_repeticion)
+
 
 class CardUpdate(BaseModel):
     title: Optional[str] = None
@@ -96,7 +100,9 @@ class CardUpdate(BaseModel):
     my_day: Optional[bool] = None
     reminder: Optional[datetime] = None
     note: Optional[str] = None
-    recurrence: Optional[str] = None
+    recurrence: Optional[str] = None  # ver app/tasks/repeticion.py
+
+    _repeticion = field_validator("recurrence")(_regla_repeticion)
 
 
 class CardMove(BaseModel):
@@ -138,6 +144,10 @@ class CardOut(BaseModel):
     list_name: Optional[str] = None
     asignados: list[str] = Field(default_factory=list)
     correo: Optional[CorreoRef] = None
+    # Pasos (hechos y en total) y adjuntos, para mostrarlos en la fila como To Do (F3).
+    pasos: int = 0
+    pasos_hechos: int = 0
+    adjuntos: int = 0
 
 
 # Label
