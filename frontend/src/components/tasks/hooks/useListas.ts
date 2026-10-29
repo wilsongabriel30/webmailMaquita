@@ -9,18 +9,23 @@ export function useListas(alCambiar: () => void) {
   const [grupos, setGrupos] = useState<TaskGroup[]>([]);
   const [error, setError] = useState('');
 
+  // Sin listas (falla de red): la barra sigue funcionando con las listas inteligentes.
+  const pedir = () => Promise.all([api.get<TaskList[]>('/tasks/lists'), api.get<TaskGroup[]>('/tasks/groups')]);
+
   const recargar = useCallback(async () => {
     try {
-      const [l, g] = await Promise.all([api.get<TaskList[]>('/tasks/lists'), api.get<TaskGroup[]>('/tasks/groups')]);
+      const [l, g] = await pedir();
       setListas(l);
       setGrupos(g);
-    } catch {
-      // sin listas: la barra sigue funcionando con las listas inteligentes
-    }
+    } catch { /* se conserva lo que había */ }
     alCambiar();
   }, [alCambiar]);
 
-  useEffect(() => { void recargar(); }, [recargar]);
+  useEffect(() => {
+    let vigente = true;
+    pedir().then(([l, g]) => { if (vigente) { setListas(l); setGrupos(g); } }).catch(() => {});
+    return () => { vigente = false; };
+  }, []);
 
   const intentar = useCallback(async (accion: () => Promise<unknown>, falla: string) => {
     try {
