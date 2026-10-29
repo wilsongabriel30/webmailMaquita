@@ -22,9 +22,14 @@ const comparar: Record<Orden, (a: Task, b: Task) => number> = {
   created: (a, b) => (b.created_at || '').localeCompare(a.created_at || ''),
 };
 
-export function ordenarTareas(tareas: Task[], orden: Orden): Task[] {
+/** `importantesArriba` (⚙ «Mover las tareas con estrella arriba», F6): las importantes primero entre las pendientes. */
+export function ordenarTareas(tareas: Task[], orden: Orden, importantesArriba = false): Task[] {
   const f = comparar[orden] ?? comparar.manual;
-  return [...tareas].sort((a, b) => (a.completed !== b.completed ? (a.completed ? 1 : -1) : f(a, b)));
+  return [...tareas].sort((a, b) => {
+    if (a.completed !== b.completed) return a.completed ? 1 : -1;
+    if (importantesArriba && !a.completed && a.important !== b.important) return a.important ? -1 : 1;
+    return f(a, b);
+  });
 }
 
 const CLAVE = (vista: string) => `tareas-orden-${vista}`;

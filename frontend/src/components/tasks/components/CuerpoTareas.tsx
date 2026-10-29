@@ -1,9 +1,9 @@
-// Cuerpo de la vista de Tareas: las pendientes (en «Planeado», agrupadas por fecha) y, al final y plegadas, las
-// completadas. Igual en vista Lista y en Cuadrícula.
+// Cuerpo de la vista de Tareas: las pendientes (agrupadas según «Grupo»; en «Planeado», por fecha) y, al final y
+// plegadas, las completadas. Igual en vista Lista y en Cuadrícula.
 import type { DragEvent, MouseEvent, ReactNode } from 'react';
 import type { Task } from '../types';
 import { COLORS } from '../types';
-import { agruparPlaneado } from './agruparPlaneado';
+import { agruparTareas, type Agrupacion } from './agruparTareas';
 import type { ModoVista } from './modoVista';
 import { SeccionCompletadas } from './SeccionCompletadas';
 import { TaskGrid } from './TaskGrid';
@@ -12,8 +12,8 @@ import { TaskItem } from './TaskItem';
 interface Props {
   tasks: Task[];
   modo: ModoVista;
-  /** «Planeado»: las pendientes van en grupos (Vencidas, Hoy, Mañana…). */
-  porFecha: boolean;
+  /** Cómo se agrupan las pendientes (botón «Grupo»). */
+  agrupar: Agrupacion;
   mostrarLista: boolean;
   seleccionada?: string;
   vacio: ReactNode;
@@ -25,11 +25,11 @@ interface Props {
   arrastre: { sobre: string | null; props: (t: Task) => { draggable?: boolean; onDragStart?: (e: DragEvent) => void } };
 }
 
-export function CuerpoTareas({ tasks, modo, porFecha, mostrarLista, seleccionada, vacio, onToggle, onToggleImportant, onOpen, onUpdate, onMenu, arrastre }: Props) {
+export function CuerpoTareas({ tasks, modo, agrupar, mostrarLista, seleccionada, vacio, onToggle, onToggleImportant, onOpen, onUpdate, onMenu, arrastre }: Props) {
   if (tasks.length === 0) return <>{vacio}</>;
   const pendientes = tasks.filter(t => !t.completed);
   const completadas = tasks.filter(t => t.completed);
-  const grupos = porFecha ? agruparPlaneado(pendientes) : [{ clave: 'todas', label: '', tasks: pendientes }];
+  const grupos = agruparTareas(pendientes, agrupar);
 
   const pintar = (lista: Task[]) => modo === 'cuadricula' ? (
     <TaskGrid tasks={lista} seleccionada={seleccionada} onToggle={onToggle} onToggleImportant={onToggleImportant}
@@ -44,7 +44,7 @@ export function CuerpoTareas({ tasks, modo, porFecha, mostrarLista, seleccionada
 
   return (
     <>
-      {grupos.filter(g => g.tasks.length > 0 || !porFecha).map(grupo => (
+      {grupos.filter(g => g.tasks.length > 0 || agrupar === 'ninguno').map(grupo => (
         <div key={grupo.clave}>
           {grupo.label && (
             <div style={{ padding: '8px 24px', fontSize: 14, fontWeight: 600, color: COLORS.text, display: 'flex', alignItems: 'center', gap: 8 }}>

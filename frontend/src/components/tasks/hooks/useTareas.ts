@@ -55,13 +55,14 @@ export function useTareas(activeView: ActiveView, busqueda: string, alCambiar: (
     setSelectedTask(prev => (prev?.id === id ? cambio(prev) : prev));
   };
 
-  const addTask = async (title: string, dueDate?: string, reminder?: string) => {
+  const addTask = async (title: string, dueDate?: string, reminder?: string, recurrence?: string) => {
     try {
       const listId = (!['my-day', 'important', 'planned', 'assigned', 'flagged', 'tasks', 'seguimiento'].includes(activeView))
         ? activeView : undefined;
       const payload: Record<string, unknown> = { title };
       if (dueDate) payload.due_date = dueDate;
       if (reminder) payload.reminder = reminder;
+      if (recurrence) payload.recurrence = recurrence;
       if (activeView === 'my-day') payload.my_day = true;
       if (activeView === 'important') payload.important = true;
       if (activeView === 'planned' && !dueDate) payload.due_date = new Date().toISOString().slice(0, 10);

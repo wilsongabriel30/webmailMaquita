@@ -13,6 +13,7 @@ from app.auth.dependencies import get_current_user
 from app.tasks import acceso, adjuntos, correo_marcado, repeticion, tiempo_real
 from app.tasks.rutas_compartir import router as f4_router
 from app.tasks.rutas_f5 import router as f5_router
+from app.tasks.rutas_f6 import router as f6_router
 from app.tasks.rutas_listas import router as listas_router
 from app.tasks.rutas_tareas import router as f3_router
 from app.tasks.rutas_vistas import router as vistas_router
@@ -49,6 +50,7 @@ router.include_router(vistas_router)  # listas inteligentes, «Mi día» y conte
 router.include_router(f3_router)  # buscar, mover a otra lista y adjuntos
 router.include_router(f4_router)  # compartir, asignar, actividad y avisos
 router.include_router(f5_router)  # duplicar listas
+router.include_router(f6_router)  # configuración y sugerencias
 
 
 def _db(request: Request):

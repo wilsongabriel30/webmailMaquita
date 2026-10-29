@@ -15,6 +15,12 @@ import { CuerpoTareas } from './components/CuerpoTareas';
 import { MenuTarea } from './components/MenuTarea';
 import { DialogoCompartir } from './components/DialogoCompartir';
 import { DialogoAsignar } from './components/DialogoAsignar';
+import { DialogoAjustes } from './components/DialogoAjustes';
+import { PanelSugerencias } from './components/PanelSugerencias';
+import { BotonGrupo } from './components/BotonGrupo';
+import { leerAgrupacion, guardarAgrupacion, type Agrupacion } from './components/agruparTareas';
+import { sonarCompletada } from './components/sonidoCompletar';
+import { useAjustes } from './hooks/useAjustes';
 import { AvisoNotificaciones } from './components/AvisoNotificaciones';
 import { imprimirLista } from './components/imprimirLista';
 import { ordenarTareas, leerOrdenVista, guardarOrdenVista } from './components/ordenarTareas';
@@ -42,8 +48,18 @@ export function TasksView() {
   const fetchLists = listas.recargar;
   const {
     tasks, setTasks, selectedTask, setSelectedTask, loading, error, setError,
-    fetchTasks, addTask, toggleTask, toggleImportant, updateTask, deleteTask, moverTarea, reemplazarTarea,
+    fetchTasks, addTask, toggleTask: alternarTarea, toggleImportant, updateTask, deleteTask, moverTarea, reemplazarTarea,
   } = useTareas(activeView, busqueda, fetchLists);
+  // ⚙ Configuración (F6): sonido al completar, confirmar al eliminar, importantes arriba y listas visibles.
+  const { ajustes, cambiar: cambiarAjustes, error: errorAjustes } = useAjustes();
+  const [verAjustes, setVerAjustes] = useState(false);
+  const cerrarAjustes = useCallback(() => setVerAjustes(false), []);
+  const [verSugerencias, setVerSugerencias] = useState(false);
+  const toggleTask = (id: string) => {
+    const t = tasks.find(x => x.id === id);
+    if (ajustes.sonido_completar && !t?.completed) sonarCompletada();
+    return alternarTarea(id);
+  };
   const [compartiendo, setCompartiendo] = useState<string | null>(null);
   const cerrarCompartir = useCallback(() => setCompartiendo(null), []);
   const listaCompartida = listas.listas.find(l => l.id === compartiendo);
@@ -85,7 +101,10 @@ export function TasksView() {
     else void moverTarea(id, destino);
   };
 
-  const sortedTasks = ordenarTareas(tasks, orden);
+  const sortedTasks = ordenarTareas(tasks, orden, ajustes.importantes_arriba);
+  const [agrupaciones, setAgrupaciones] = useState<Record<string, Agrupacion>>({});
+  const agrupar: Agrupacion = buscando ? 'ninguno' : (agrupaciones[activeView] ?? leerAgrupacion(activeView));
+  const cambiarAgrupacion = (a: Agrupacion) => { guardarAgrupacion(activeView, a); setAgrupaciones(v => ({ ...v, [activeView]: a })); };
   const arrastre = useArrastreTareas(
     listaActiva && orden === 'manual' && modo === 'lista' ? listaActiva.id : null,
     sortedTasks, setTasks, () => { void fetchTasks(); },
@@ -116,6 +135,8 @@ export function TasksView() {
         smartCounts={conteos}
         buscador={<BuscadorTareas valor={busqueda} onBuscar={buscar} />}
         onSoltarTarea={soltarTarea}
+        onAjustes={() => setVerAjustes(true)}
+        ocultas={ajustes.listas_ocultas}
         pie={<BotonesCrear
           onCrearLista={async n => { const nueva = await listas.crearLista(n); if (nueva) abrirVista(nueva.id); }}
           onCrearGrupo={n => { void listas.crearGrupo(n); }} />}
@@ -147,6 +168,22 @@ export function TasksView() {
           onCompartir={listaActiva?.list_type === 'custom' ? () => setCompartiendo(listaActiva.id) : undefined}
           onCambiarLista={listaActiva ? c => { void listas.cambiarLista(listaActiva.id, c); } : undefined}
           onImprimir={listaActiva ? () => imprimir(listaActiva) : undefined}
+          extra={buscando ? undefined : <>
+            <BotonGrupo valor={agrupar} onCambiar={cambiarAgrupacion} />
+            {activeView === 'my-day' && (
+              <button type="button" aria-pressed={verSugerencias} onClick={() => { setVerSugerencias(v => !v); setSelectedTask(null); }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 13, borderRadius: 4, cursor: 'pointer',
+                  fontFamily: 'inherit', border: 'none', color: verSugerencias ? COLORS.primary : COLORS.secondary,
+                  background: verSugerencias ? COLORS.activeBg : 'transparent',
+                }}>
+                <svg aria-hidden="true" width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+                  <path d="M9 18h6M10 22h4M12 2a7 7 0 00-4 12.7V17h8v-2.3A7 7 0 0012 2z" />
+                </svg>
+                Sugerencias
+              </button>
+            )}
+          </>}
         />
 
         <AvisoNotificaciones />
@@ -176,7 +213,7 @@ export function TasksView() {
               <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
             </div>
           ) : (
-            <CuerpoTareas tasks={sortedTasks} modo={modo} porFecha={!buscando && activeView === 'planned'}
+            <CuerpoTareas tasks={sortedTasks} modo={modo} agrupar={agrupar}
               mostrarLista={mostrarLista} seleccionada={selectedTask?.id} vacio={vacio}
               onToggle={toggleTask} onToggleImportant={toggleImportant} onOpen={setSelectedTask} onUpdate={updateTask}
               onMenu={(task: Task, e: MouseEvent) => setMenu({ task, x: e.clientX, y: e.clientY })}
@@ -194,7 +231,7 @@ export function TasksView() {
       {menu && (
         <MenuTarea task={menu.task} x={menu.x} y={menu.y} listas={listas.listas} onCerrar={() => setMenu(null)}
           onUpdate={updateTask} onToggle={toggleTask} onToggleImportant={toggleImportant}
-          onMover={moverTarea} onDelete={deleteTask} onAsignar={setAsignando} />
+          onMover={moverTarea} onDelete={deleteTask} onAsignar={setAsignando} confirmar={ajustes.confirmar_eliminar} />
       )}
 
       {asignando && <DialogoAsignar task={asignando} onCerrar={cerrarAsignar} onAsignada={reemplazarTarea} />}
@@ -211,7 +248,19 @@ export function TasksView() {
           onClose={() => setSelectedTask(null)}
           onRefrescar={() => { void fetchTasks(); }}
           onAsignada={reemplazarTarea}
+          confirmar={ajustes.confirmar_eliminar}
         />
+      )}
+
+      {/* Sugerencias de Mi día (F6): ocupan el lugar del panel de detalle */}
+      {verSugerencias && !selectedTask && activeView === 'my-day' && !buscando && (
+        <PanelSugerencias onCerrar={() => setVerSugerencias(false)}
+          onAgregarAMiDia={id => updateTask(id, { my_day: true })}
+          onCompletar={id => toggleTask(id)} />
+      )}
+
+      {verAjustes && (
+        <DialogoAjustes ajustes={ajustes} error={errorAjustes} onCerrar={cerrarAjustes} onCambiar={c => { void cambiarAjustes(c); }} />
       )}
     </div>
   );

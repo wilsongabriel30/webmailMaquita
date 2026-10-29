@@ -18,9 +18,12 @@ interface Props {
   /** Caja de búsqueda, arriba junto al botón de plegar la barra. */
   buscador?: ReactNode;
   onSoltarTarea?: (destino: ActiveView, taskId: string) => void;
+  /** ⚙ Configuración (F6) y listas inteligentes que la persona ocultó. */
+  onAjustes?: () => void;
+  ocultas?: string[];
 }
 
-export function TasksSidebar({ activeView, onViewChange, smartCounts, children, pie, buscador, onSoltarTarea }: Props) {
+export function TasksSidebar({ activeView, onViewChange, smartCounts, children, pie, buscador, onSoltarTarea, onAjustes, ocultas = [] }: Props) {
   const [sobre, setSobre] = useState<string | null>(null);
   const today = new Date();
   const dateStrRaw = today.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -46,11 +49,20 @@ export function TasksSidebar({ activeView, onViewChange, smartCounts, children, 
           </svg>
         </button>
         {buscador}
+        {onAjustes && (
+          <button type="button" aria-label="Configuración de Tareas" title="Configuración" onClick={onAjustes}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', color: COLORS.secondary, flexShrink: 0 }}>
+            <svg aria-hidden="true" width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* Smart lists */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
-        {SMART_LISTS.map(sl => {
+        {SMART_LISTS.filter(sl => !ocultas.includes(sl.id) || activeView === sl.id).map(sl => {
           const isActive = activeView === sl.id;
           const count = smartCounts[sl.id] || 0;
           const acepta = !!onSoltarTarea && ACEPTAN_TAREAS.includes(sl.id);

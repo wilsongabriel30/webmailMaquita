@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { ActiveView, Orden, TaskList } from '../types';
 import { SMART_LISTS, COLORS } from '../types';
 import { SelectorVista } from './SelectorVista';
@@ -23,11 +23,13 @@ interface Props {
   /** «⋯» junto al título (F5): cambiar el nombre o el color de la lista e imprimirla. */
   onCambiarLista?: (cambios: { name?: string; color?: string }) => void;
   onImprimir?: () => void;
+  /** Botones extra junto a «Ordenar» (F6: «Grupo» y «Sugerencias»). */
+  extra?: ReactNode;
 }
 
 const SORT_OPTIONS = ORDENES;
 
-export function TaskListHeader({ activeView, lista, orden: sortBy, onOrdenChange: onSortChange, modo, onModoChange, busqueda, onCompartir, onCambiarLista, onImprimir }: Props) {
+export function TaskListHeader({ activeView, lista, orden: sortBy, onOrdenChange: onSortChange, modo, onModoChange, busqueda, onCompartir, onCambiarLista, onImprimir, extra }: Props) {
   const [showSort, setShowSort] = useState(false);
   const [editandoNombre, setEditandoNombre] = useState(false);
   const smart = SMART_LISTS.find(s => s.id === activeView);
@@ -91,6 +93,8 @@ export function TaskListHeader({ activeView, lista, orden: sortBy, onOrdenChange
             <span>{(lista.miembros ?? 1) > 1 ? `Compartida (${lista.miembros})` : 'Compartir'}</span>
           </button>
         )}
+
+        {extra}
 
         {/* Sort button with dropdown */}
         <div style={{ position: 'relative' }}>

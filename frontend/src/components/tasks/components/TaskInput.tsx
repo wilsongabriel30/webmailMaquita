@@ -1,245 +1,116 @@
-import { useState, useRef } from 'react';
+// Barra para agregar una tarea, como en Outlook (F6): «○ Agregar una tarea» y, debajo, fecha de vencimiento,
+// recordatorio y repetición, con «Agregar» a la derecha. Enter también agrega.
+import { useRef, useState } from 'react';
 import { COLORS, type ActiveView } from '../types';
+import { REPETICIONES_SIMPLES, etiquetaRepeticion } from './repeticion';
+import { SelectorRapido } from './SelectorRapido';
 
 interface Props {
-  onAdd: (title: string, dueDate?: string, reminder?: string) => void;
+  onAdd: (title: string, dueDate?: string, reminder?: string, recurrence?: string) => void;
   activeView: ActiveView;
+}
+
+function dia(n: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+const lunes = () => { const g = new Date().getDay(); return g === 0 ? 1 : 8 - g; };
+const a9 = (n: number) => { const d = new Date(); d.setDate(d.getDate() + n); d.setHours(9, 0, 0, 0); return d.toISOString(); };
+
+const FECHAS = [
+  { etiqueta: 'Hoy', valor: () => dia(0) },
+  { etiqueta: 'Mañana', valor: () => dia(1) },
+  { etiqueta: 'La próxima semana', valor: () => dia(lunes()) },
+];
+const RECORDATORIOS = [
+  { etiqueta: 'Más tarde hoy', valor: () => new Date(Date.now() + 3 * 3600000).toISOString() },
+  { etiqueta: 'Mañana (9:00)', valor: () => a9(1) },
+  { etiqueta: 'La próxima semana (lunes 9:00)', valor: () => a9(lunes()) },
+];
+const REPETIR = REPETICIONES_SIMPLES.map(r => ({ etiqueta: r.etiqueta, valor: () => r.valor }));
+
+const icono = (d: string) => (
+  <svg aria-hidden="true" width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round"><path d={d} /></svg>
+);
+const CALENDARIO = 'M5 4h14a2 2 0 012 2v13a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2zM3 9h18M8 13h.01M12 13h.01M16 13h.01M8 17h.01M12 17h.01';
+const CAMPANA = 'M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0';
+const REPETICION = 'M17 2l4 4-4 4M3 11V9a3 3 0 013-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 01-3 3H3';
+
+function Ficha({ texto, onQuitar }: { texto: string; onQuitar: () => void }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: COLORS.primary }}>
+      {texto}
+      <button type="button" aria-label={`Quitar ${texto}`} onClick={onQuitar}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', color: COLORS.secondary, fontSize: 14, padding: 0, lineHeight: 1 }}>&times;</button>
+    </span>
+  );
 }
 
 export function TaskInput({ onAdd, activeView }: Props) {
   const [title, setTitle] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [reminder, setReminder] = useState('');
-  const [customReminder, setCustomReminder] = useState('');
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showReminderPicker, setShowReminderPicker] = useState(false);
+  const [recurrence, setRecurrence] = useState('');
+  const [aviso, setAviso] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [shake, setShake] = useState(false);
 
-  // Cerrar los selectores al cambiar de vista (evita que persistan en otra pestaña).
-  // Se ajusta durante el render, comparando con la vista anterior, en lugar de con un efecto:
-  // así la pantalla se pinta una sola vez, ya con los selectores cerrados.
+  // Al cambiar de vista se descarta lo elegido para la tarea a medio escribir.
   const [vistaAnterior, setVistaAnterior] = useState(activeView);
   if (vistaAnterior !== activeView) {
     setVistaAnterior(activeView);
-    setShowDatePicker(false);
-    setShowReminderPicker(false);
+    setDueDate(''); setReminder(''); setRecurrence('');
   }
 
   const handleAdd = () => {
-    if (title.trim()) {
-      onAdd(title.trim(), dueDate || undefined, reminder || undefined);
-      setTitle('');
-      setDueDate('');
-      setReminder('');
-      setShowDatePicker(false);
-      setShowReminderPicker(false);
-    } else {
-      // Si no hay texto, enfocar el input y hacer shake visual
+    if (!title.trim()) {
       inputRef.current?.focus();
-      setShake(true);
-      setTimeout(() => setShake(false), 600);
+      setAviso(true);
+      window.setTimeout(() => setAviso(false), 1500);
+      return;
     }
+    // Como en To Do: una tarea que se repite y no tiene fecha vence hoy.
+    onAdd(title.trim(), dueDate || (recurrence ? dia(0) : undefined), reminder || undefined, recurrence || undefined);
+    setTitle(''); setDueDate(''); setReminder(''); setRecurrence('');
   };
 
-  const setQuickReminder = (type: string) => {
-    const now = new Date();
-    let target: Date;
-    if (type === 'today') {
-      target = new Date(now.getTime() + 3 * 3600000);
-    } else if (type === 'tomorrow') {
-      target = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 9, 0);
-    } else {
-      const day = now.getDay();
-      const daysUntilMon = day === 0 ? 1 : (8 - day);
-      target = new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysUntilMon, 9, 0);
-    }
-    setReminder(target.toISOString());
-    setShowReminderPicker(false);
-  };
+  const fechaTexto = dueDate === dia(0) ? 'Hoy' : dueDate === dia(1) ? 'Mañana'
+    : dueDate ? new Date(dueDate + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : '';
+  const recordatorioTexto = reminder
+    ? new Date(reminder).toLocaleString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
 
   return (
-    <div style={{
-      margin: '0 24px', padding: '12px 16px',
-      background: 'white', borderRadius: 4,
-      border: `1px solid ${COLORS.border}`,
+    <div className="barra-agregar" style={{
+      margin: '0 24px', background: 'white', borderRadius: 4, boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
       fontFamily: "'Segoe UI', system-ui, sans-serif",
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{
-          width: 20, height: 20, borderRadius: '50%',
-          border: `1.5px solid ${COLORS.muted}`, flexShrink: 0,
-        }} />
-        <input
-          value={title}
-          onChange={e => setTitle(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }}
-          placeholder="Escriba aquí y presione Enter o Agregar..."
-          ref={inputRef}
-          autoFocus
-          className={shake ? 'task-input-shake' : ''}
+      <style>{`.barra-agregar input.nueva-tarea::placeholder { color: ${COLORS.primary}; }`}</style>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '0 16px', height: 52 }}>
+        <span aria-hidden="true" style={{ width: 18, height: 18, borderRadius: '50%', border: `1.5px solid ${COLORS.primary}`, flexShrink: 0 }} />
+        <input ref={inputRef} className="nueva-tarea" value={title} autoFocus aria-label="Agregar una tarea"
+          onChange={e => setTitle(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }}
+          placeholder="Agregar una tarea"
+          style={{ flex: 1, border: 'none', outline: 'none', fontSize: 15, color: COLORS.text, background: 'transparent', fontFamily: 'inherit' }} />
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderTop: `1px solid ${COLORS.border}`, background: '#faf9f8', flexWrap: 'wrap' }}>
+        <SelectorRapido titulo="Fecha de vencimiento" icono={icono(CALENDARIO)} activo={!!dueDate} opciones={FECHAS} campo="date" onElegir={setDueDate} />
+        <SelectorRapido titulo="Recordarme" icono={icono(CAMPANA)} activo={!!reminder} opciones={RECORDATORIOS} campo="datetime-local" onElegir={setReminder} />
+        <SelectorRapido titulo="Repetir" icono={icono(REPETICION)} activo={!!recurrence} opciones={REPETIR} onElegir={setRecurrence} />
+        {dueDate && <Ficha texto={fechaTexto} onQuitar={() => setDueDate('')} />}
+        {reminder && <Ficha texto={recordatorioTexto} onQuitar={() => setReminder('')} />}
+        {recurrence && <Ficha texto={etiquetaRepeticion(recurrence)} onQuitar={() => setRecurrence('')} />}
+        <span style={{ flex: 1 }} />
+        {aviso && <span role="status" style={{ fontSize: 12, color: '#d13438' }}>Escribe el título de la tarea</span>}
+        <button type="button" onClick={handleAdd} disabled={!title.trim()}
           style={{
-            flex: 1, border: 'none', outline: 'none', fontSize: 14,
-            color: COLORS.text, background: 'transparent',
-          }}
-        />
-        <button
-          onClick={handleAdd}
-          style={{
-            padding: '6px 16px', fontSize: 13, borderRadius: 4,
-            border: title.trim() ? 'none' : `1px solid ${COLORS.border}`,
-            background: title.trim() ? COLORS.primary : 'white',
-            color: title.trim() ? 'white' : COLORS.muted,
-            cursor: title.trim() ? 'pointer' : 'default', fontWeight: 600,
-            transition: 'all 0.15s ease',
-          }}
-        >
+            padding: '5px 14px', fontSize: 13, borderRadius: 4, fontFamily: 'inherit',
+            border: `1px solid ${title.trim() ? COLORS.primary : COLORS.border}`,
+            background: title.trim() ? COLORS.primary : 'white', color: title.trim() ? 'white' : COLORS.muted,
+            cursor: title.trim() ? 'pointer' : 'default',
+          }}>
           Agregar
         </button>
       </div>
-
-      <div style={{ display: 'flex', gap: 16, marginTop: 8, marginLeft: 32, alignItems: 'center' }}>
-        {/* Due date */}
-        <div style={{ position: 'relative' }}>
-          <button
-            onClick={() => { setShowDatePicker(!showDatePicker); setShowReminderPicker(false); }}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', color: dueDate ? COLORS.primary : COLORS.muted }}
-            title="Fecha de vencimiento"
-          >
-            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
-              <rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" />
-            </svg>
-          </button>
-          {showDatePicker && (
-            <>
-            <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setShowDatePicker(false)} />
-            <div style={{
-              position: 'absolute', top: 28, left: 0, zIndex: 100,
-              background: 'white', border: `1px solid ${COLORS.border}`,
-              borderRadius: 4, boxShadow: '0 2px 8px rgba(0,0,0,0.15)', padding: 8,
-            }}>
-              <input type="date" value={dueDate}
-                onChange={e => setDueDate(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') setShowDatePicker(false); }}
-                style={{ fontSize: 13, border: `1px solid ${COLORS.border}`, borderRadius: 4, padding: '4px 8px' }}
-                autoFocus
-              />
-              <button onClick={() => setShowDatePicker(false)}
-                style={{ marginLeft: 6, padding: '4px 10px', fontSize: 12, background: COLORS.primary, color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
-                Listo
-              </button>
-            </div>
-            </>
-          )}
-        </div>
-
-        {/* Reminder */}
-        <div style={{ position: 'relative' }}>
-          <button
-            onClick={() => { setShowReminderPicker(!showReminderPicker); setShowDatePicker(false); }}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', color: reminder ? COLORS.primary : COLORS.muted }}
-            title="Recordatorio"
-          >
-            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
-              <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 01-3.46 0" />
-            </svg>
-          </button>
-          {showReminderPicker && (
-            <>
-            <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setShowReminderPicker(false)} />
-            <div style={{
-              position: 'absolute', top: 28, left: 0, zIndex: 100,
-              background: 'white', border: `1px solid ${COLORS.border}`,
-              borderRadius: 6, boxShadow: '0 4px 12px rgba(0,0,0,0.15)', padding: 4, minWidth: 180,
-            }}>
-              <div onClick={() => setQuickReminder('today')}
-                style={{ padding: '8px 12px', fontSize: 13, cursor: 'pointer', borderRadius: 4 }}
-                onMouseEnter={e => (e.currentTarget.style.background = COLORS.hoverBg)}
-                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                Hoy (en 3h)
-              </div>
-              <div onClick={() => setQuickReminder('tomorrow')}
-                style={{ padding: '8px 12px', fontSize: 13, cursor: 'pointer', borderRadius: 4 }}
-                onMouseEnter={e => (e.currentTarget.style.background = COLORS.hoverBg)}
-                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                Mañana 9:00
-              </div>
-              <div onClick={() => setQuickReminder('monday')}
-                style={{ padding: '8px 12px', fontSize: 13, cursor: 'pointer', borderRadius: 4 }}
-                onMouseEnter={e => (e.currentTarget.style.background = COLORS.hoverBg)}
-                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                Próximo lunes 9:00
-              </div>
-              <div style={{ borderTop: `1px solid ${COLORS.border}`, margin: '4px 0' }} />
-              <div style={{ padding: '4px 8px' }}>
-                <div style={{ fontSize: 11, color: COLORS.muted, marginBottom: 4 }}>Fecha y hora personalizada</div>
-                <input type="datetime-local" value={customReminder}
-                  onChange={e => setCustomReminder(e.target.value)}
-                  style={{ width: '100%', fontSize: 12, border: `1px solid ${COLORS.border}`, borderRadius: 4, padding: '4px 6px' }}
-                />
-                <button
-                  disabled={!customReminder || isNaN(new Date(customReminder).getTime())}
-                  onClick={() => {
-                    if (customReminder && !isNaN(new Date(customReminder).getTime())) {
-                      setReminder(new Date(customReminder).toISOString());
-                      setCustomReminder('');
-                      setShowReminderPicker(false);
-                    }
-                  }}
-                  style={{
-                    marginTop: 4, width: '100%', padding: '5px', fontSize: 12,
-                    background: customReminder ? COLORS.primary : '#f3f2f1',
-                    color: customReminder ? 'white' : COLORS.muted,
-                    border: 'none', borderRadius: 4,
-                    cursor: customReminder ? 'pointer' : 'default',
-                  }}>
-                  Establecer
-                </button>
-              </div>
-            </div>
-            </>
-          )}
-        </div>
-
-        {/* Repeat - just visual info */}
-        <button style={{ background: 'none', border: 'none', cursor: 'default', padding: 2, display: 'flex', color: COLORS.muted }} title="Repetir (configurar en detalles)">
-          <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
-            <polyline points="17 1 21 5 17 9" /><path d="M3 11V9a4 4 0 014-4h14" />
-            <polyline points="7 23 3 19 7 15" /><path d="M21 13v2a4 4 0 01-4 4H3" />
-          </svg>
-        </button>
-
-        {/* Date/reminder labels */}
-        {dueDate && (
-          <span style={{ fontSize: 12, color: COLORS.primary, display: 'flex', alignItems: 'center', gap: 4 }}>
-            <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-              <rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" />
-            </svg>
-            {new Date(dueDate + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
-            <button onClick={() => setDueDate('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d13438', fontSize: 10, padding: 0 }}>&times;</button>
-          </span>
-        )}
-        {reminder && (
-          <span style={{ fontSize: 12, color: COLORS.primary, display: 'flex', alignItems: 'center', gap: 4 }}>
-            <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-              <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
-            </svg>
-            Recordatorio
-            <button onClick={() => setReminder('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d13438', fontSize: 10, padding: 0 }}>&times;</button>
-          </span>
-        )}
-      </div>
     </div>
   );
-}
-
-// Inyectar CSS de animacion shake
-if (typeof document !== 'undefined' && !document.getElementById('task-input-shake-style')) {
-  const style = document.createElement('style');
-  style.id = 'task-input-shake-style';
-  style.textContent = `
-    @keyframes task-shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-6px)} 40%{transform:translateX(6px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} }
-    .task-input-shake { animation: task-shake 0.4s ease-in-out; border-bottom: 2px solid #d13438 !important; }
-  `;
-  document.head.appendChild(style);
 }
