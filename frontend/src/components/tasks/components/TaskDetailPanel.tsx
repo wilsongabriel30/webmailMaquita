@@ -146,7 +146,7 @@ export function TaskDetailPanel({ task, onUpdate, onToggle, onToggleImportant, o
           </div>
         </TarjetaPanel>
 
-        {!task.correo && <TarjetaPanel><AsignarTarea task={task} onAsignada={onAsignada} /></TarjetaPanel>}
+        {!task.correo && !task.seguimiento && <TarjetaPanel><AsignarTarea task={task} onAsignada={onAsignada} /></TarjetaPanel>}
 
         <TarjetaPanel>
           <RecordatorioTarea valor={task.reminder} onCambiar={r => onUpdate(task.id, { reminder: r })} />

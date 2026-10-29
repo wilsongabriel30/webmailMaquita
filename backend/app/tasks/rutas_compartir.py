@@ -158,6 +158,7 @@ async def asignar_tarea(
             "Te asignaron una tarea",
             texto,
             card_id,
+            correo=True,  # asignar es directo a la persona: el correo sale siempre
         )
     tarjeta = await vistas.una(_db(request), user, card_id)
     if tarjeta is None:

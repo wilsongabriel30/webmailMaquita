@@ -50,8 +50,12 @@ async def avisar(
     titulo: str,
     texto: str,
     task_id=None,
+    correo: bool = False,
 ) -> None:
-    """Aviso a cada destinataria (nunca a quien hizo el cambio)."""
+    """Aviso a cada destinataria (nunca a quien hizo el cambio).
+
+    `correo=True` lo manda también por correo aunque la persona no lo haya pedido (asignarle una tarea a alguien).
+    """
     for d in sorted({d for d in destinatarios if d and d != por}):
         try:
             await redis.publish(
@@ -71,7 +75,7 @@ async def avisar(
                 "Aviso de lista compartida no enviado a %s", d, exc_info=True
             )
         try:
-            if await quiere_correo(db, d):
+            if correo or await quiere_correo(db, d):
                 await avisos._correo([d], titulo, texto, url_tareas())
         except Exception:
             logger.warning(

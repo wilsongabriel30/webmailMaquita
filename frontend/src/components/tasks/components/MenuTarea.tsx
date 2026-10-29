@@ -47,7 +47,9 @@ export function MenuTarea({ task, x, y, listas, onCerrar, onUpdate, onToggle, on
         <svg aria-hidden="true" width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="9" />{!task.completed && <polyline points="8 12 11 15 16 9" />}</svg>
         {task.completed ? 'Marcar como no completada' : 'Marcar como completada'}
       </OpcionMenu>
-      <OpcionMenu deshabilitada={fija} titulo={fija ? 'Las tareas de un correo marcado solo se asignan desde su lista compartida' : undefined}
+      <OpcionMenu deshabilitada={fija || !!task.seguimiento}
+        titulo={task.seguimiento ? 'Esta tarea se asigna desde «Seguimiento de tareas asignadas»'
+          : fija ? 'Las tareas de un correo marcado solo se asignan desde su lista compartida' : undefined}
         onClick={hacer(() => onAsignar(task))}>
         <SidebarIcon icon="person" size={14} /> Asignar tarea a…
       </OpcionMenu>

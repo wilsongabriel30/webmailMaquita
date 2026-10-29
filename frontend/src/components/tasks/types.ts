@@ -51,6 +51,8 @@ export interface Task {
   adjuntos?: number;
   // Categorías de color (como en Outlook, F5): nombres de categorias.ts.
   labels?: string[];
+  // Tarea de Seguimiento (T-34): se asigna desde Seguimiento, no con «Asignar tarea a».
+  seguimiento?: boolean;
 }
 
 /** Persona de una lista compartida (la propietaria o un miembro). */

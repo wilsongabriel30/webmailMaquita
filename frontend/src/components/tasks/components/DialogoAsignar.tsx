@@ -1,8 +1,9 @@
-// Recuadro «Asignar tarea a:» (F5): buscar personas de la organización en el directorio, escribir un mensaje opcional
-// y enviar. A quien la recibe le llega un aviso y la tarea le aparece en «Asignado a mí».
+// Recuadro «Asignar tarea a:» (F5): buscar personas de la organización en el directorio (o escribir el correo de una
+// cuenta de área), escribir un mensaje opcional y enviar. A quien la recibe le llega un aviso y un correo, y la tarea le
+// aparece en «Asignado a mí». Si no hay nada que cambiar, «Enviar» no hace nada a escondidas: lo explica.
 import { useEffect, useState } from 'react';
 import { api } from '../../../api/client';
-import { SelectorPersonas } from '../../tareas/SelectorPersonas';
+import { BuscadorPersonas, CORREO_VALIDO } from './BuscadorPersonas';
 import type { Task } from '../types';
 import { COLORS } from '../types';
 
@@ -21,6 +22,7 @@ const boton = (principal: boolean) => ({
 export function DialogoAsignar({ task, onCerrar, onAsignada }: Props) {
   const [personas, setPersonas] = useState<string[]>(task.asignados || []);
   const [mensaje, setMensaje] = useState('');
+  const [escrito, setEscrito] = useState('');
   const [error, setError] = useState('');
   const [enviando, setEnviando] = useState(false);
 
@@ -31,10 +33,21 @@ export function DialogoAsignar({ task, onCerrar, onAsignada }: Props) {
   }, [onCerrar]);
 
   const enviar = async () => {
+    // Un correo escrito y no agregado todavía también cuenta (antes se perdía y se enviaba la lista vacía).
+    const texto = escrito.trim().toLowerCase();
+    const emails = CORREO_VALIDO.test(texto) && !personas.includes(texto) ? [...personas, texto] : personas;
+    const antes = task.asignados || [];
+    if (emails.length === 0 && antes.length === 0) {
+      setError(escrito.trim()
+        ? 'Elige a la persona de la lista que aparece al escribir, o escribe su correo completo (con su @ y dominio).'
+        : 'Elige al menos a una persona.');
+      return;
+    }
+    if (emails.length === antes.length && emails.every(e => antes.includes(e))) { onCerrar(); return; }
     setEnviando(true);
     setError('');
     try {
-      onAsignada(await api.put<Task>(`/tasks/tasks/${task.id}/asignados`, { emails: personas, mensaje: mensaje.trim() }));
+      onAsignada(await api.put<Task>(`/tasks/tasks/${task.id}/asignados`, { emails, mensaje: mensaje.trim() }));
       onCerrar();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo asignar la tarea');
@@ -60,9 +73,9 @@ export function DialogoAsignar({ task, onCerrar, onAsignada }: Props) {
         </div>
         <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div role="group" aria-label="Personas" style={{ fontSize: 12, color: COLORS.secondary }}>
-            Personas (busca por nombre, correo o departamento)
+            Personas (busca por nombre o departamento, o escribe el correo completo)
             <div style={{ marginTop: 4 }}>
-              <SelectorPersonas valor={personas} onChange={setPersonas} placeholder="Escribe un nombre o correo…" autoFocus />
+              <BuscadorPersonas valor={personas} onChange={setPersonas} onTexto={setEscrito} />
             </div>
           </div>
           <label style={{ fontSize: 12, color: COLORS.secondary }}>
@@ -75,7 +88,7 @@ export function DialogoAsignar({ task, onCerrar, onAsignada }: Props) {
               }} />
           </label>
           <p style={{ margin: 0, fontSize: 12, color: COLORS.secondary }}>
-            Le llegará un aviso y verá la tarea en su «Asignado a mí». Para quitar una asignación, quita a la persona y envía.
+            Le llegarán un aviso y un correo, y verá la tarea en su «Asignado a mí». Para quitar una asignación, quita a la persona y envía.
           </p>
           {error && <div role="alert" style={{ fontSize: 12, color: '#d13438' }}>{error}</div>}
         </div>
