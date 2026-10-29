@@ -23,13 +23,15 @@ interface Props {
   onGuardarBarra: (barra: Elemento[]) => void;
   /** Una tarea arrastrada desde la lista se soltó sobre una lista de la barra: se mueve allí. */
   onSoltarTarea?: (listId: string, taskId: string) => void;
+  /** Abrir el diálogo de compartir (propietaria) o de personas de la lista (miembro). */
+  onCompartir?: (lista: TaskList) => void;
 }
 
 type Arrastrado = { tipo: 'grupo' | 'lista'; id: string };
 type Menu = { tipo: 'grupo' | 'lista'; id: string; x: number; y: number };
 const SIN_COLOR = '#e0e0e0';
 
-export function MisListas({ listas, grupos, activeView, onViewChange, onCambiarLista, onEliminarLista, onRenombrarGrupo, onEliminarGrupo, onGuardarBarra, onSoltarTarea }: Props) {
+export function MisListas({ listas, grupos, activeView, onViewChange, onCambiarLista, onEliminarLista, onRenombrarGrupo, onEliminarGrupo, onGuardarBarra, onSoltarTarea, onCompartir }: Props) {
   const [arrastrado, setArrastrado] = useState<Arrastrado | null>(null);
   const [sobre, setSobre] = useState<string | null>(null);
   const [recibe, setRecibe] = useState<string | null>(null);
@@ -146,6 +148,11 @@ export function MisListas({ listas, grupos, activeView, onViewChange, onCambiarL
         <MenuContextual x={menu.x} y={menu.y} etiqueta={`Opciones de la lista ${lista.name}`} onCerrar={cerrar}>
           <OpcionMenu deshabilitada={!esDueña} titulo={esDueña ? undefined : 'Solo la propietaria puede cambiarle el nombre'}
             onClick={() => { cerrar(); setEditando(lista.id); }}>Cambiar nombre</OpcionMenu>
+          {onCompartir && (
+            <OpcionMenu onClick={() => { cerrar(); onCompartir(lista); }}>
+              <SidebarIcon icon="person" size={14} /> {esDueña ? 'Compartir lista…' : 'Personas de la lista…'}
+            </OpcionMenu>
+          )}
           <TituloMenu>Color</TituloMenu>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '4px 16px 8px' }}>
             {[SIN_COLOR, ...BOARD_COLORS].map(c => (
@@ -173,8 +180,12 @@ export function MisListas({ listas, grupos, activeView, onViewChange, onCambiarL
             )}
           </>}
           <SeparadorMenu />
-          <OpcionMenu peligro deshabilitada={!esDueña} titulo={esDueña ? undefined : 'Solo la propietaria puede eliminarla'}
-            onClick={() => { cerrar(); onEliminarLista(lista); }}>Eliminar lista</OpcionMenu>
+          {esDueña ? (
+            <OpcionMenu peligro onClick={() => { cerrar(); onEliminarLista(lista); }}>Eliminar lista</OpcionMenu>
+          ) : onCompartir && (
+            <OpcionMenu peligro titulo="Dejarás de ver la lista; sus tareas siguen para las demás personas"
+              onClick={() => { cerrar(); onCompartir(lista); }}>Salir de la lista…</OpcionMenu>
+          )}
         </MenuContextual>
       )}
 

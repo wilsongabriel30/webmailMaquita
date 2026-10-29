@@ -16,11 +16,13 @@ interface Props {
   onModoChange: (m: ModoVista) => void;
   /** Texto buscado: el título pasa a ser «Resultados de …». */
   busqueda?: string;
+  /** Lista propia: botón «Compartir» (abre el diálogo de personas de la lista). */
+  onCompartir?: () => void;
 }
 
 const SORT_OPTIONS = ORDENES;
 
-export function TaskListHeader({ activeView, lista, orden: sortBy, onOrdenChange: onSortChange, modo, onModoChange, busqueda }: Props) {
+export function TaskListHeader({ activeView, lista, orden: sortBy, onOrdenChange: onSortChange, modo, onModoChange, busqueda, onCompartir }: Props) {
   const [showSort, setShowSort] = useState(false);
   const smart = SMART_LISTS.find(s => s.id === activeView);
   const nombre = lista ? separarEmoji(lista.name) : { emoji: '', texto: '' };
@@ -58,6 +60,22 @@ export function TaskListHeader({ activeView, lista, orden: sortBy, onOrdenChange
         </h1>
         <SelectorVista modo={modo} onCambiar={onModoChange} />
         <div style={{ flex: 1 }} />
+
+        {onCompartir && lista && (
+          <button type="button" onClick={onCompartir}
+            title={lista.role === 'member' ? 'Personas de la lista' : 'Compartir la lista con personas de la organización'}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 13, color: COLORS.secondary,
+              background: 'transparent', border: 'none', cursor: 'pointer', borderRadius: 4,
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = COLORS.hoverBg)}
+            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+            <svg aria-hidden="true" width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M19 8v6M22 11h-6" />
+            </svg>
+            <span>{(lista.miembros ?? 1) > 1 ? `Compartida (${lista.miembros})` : 'Compartir'}</span>
+          </button>
+        )}
 
         {/* Sort button with dropdown */}
         <div style={{ position: 'relative' }}>

@@ -13,6 +13,7 @@ import { BotonesCrear } from './components/BotonesCrear';
 import { BuscadorTareas } from './components/BuscadorTareas';
 import { CuerpoTareas } from './components/CuerpoTareas';
 import { MenuTarea } from './components/MenuTarea';
+import { DialogoCompartir } from './components/DialogoCompartir';
 import { ordenarTareas, leerOrdenVista, guardarOrdenVista } from './components/ordenarTareas';
 import { useListas } from './hooks/useListas';
 import { useArrastreTareas } from './hooks/useArrastreTareas';
@@ -38,8 +39,11 @@ export function TasksView() {
   const fetchLists = listas.recargar;
   const {
     tasks, setTasks, selectedTask, setSelectedTask, loading, error, setError,
-    fetchTasks, addTask, toggleTask, toggleImportant, updateTask, deleteTask, moverTarea,
+    fetchTasks, addTask, toggleTask, toggleImportant, updateTask, deleteTask, moverTarea, reemplazarTarea,
   } = useTareas(activeView, busqueda, fetchLists);
+  const [compartiendo, setCompartiendo] = useState<string | null>(null);
+  const cerrarCompartir = useCallback(() => setCompartiendo(null), []);
+  const listaCompartida = listas.listas.find(l => l.id === compartiendo);
   const buscando = busqueda.trim() !== '';
   const [menu, setMenu] = useState<{ task: Task; x: number; y: number } | null>(null);
 
@@ -116,7 +120,8 @@ export function TasksView() {
           onRenombrarGrupo={(id, n) => { void listas.renombrarGrupo(id, n); }}
           onEliminarGrupo={g => { if (confirm(`¿Eliminar el grupo «${g.name}»? Sus listas no se borran: quedan fuera del grupo.`)) void listas.eliminarGrupo(g.id); }}
           onGuardarBarra={b => { void listas.guardarBarra(b); }}
-          onSoltarTarea={(listId, id) => void moverTarea(id, listId)} />
+          onSoltarTarea={(listId, id) => void moverTarea(id, listId)}
+          onCompartir={l => setCompartiendo(l.id)} />
       </TasksSidebar>}
 
       {/* Seguimiento de tareas asignadas (T-34) */}
@@ -130,6 +135,7 @@ export function TasksView() {
           modo={modo}
           onModoChange={cambiarModo}
           busqueda={buscando ? busqueda.trim() : undefined}
+          onCompartir={listaActiva?.list_type === 'custom' ? () => setCompartiendo(listaActiva.id) : undefined}
         />
 
         {/* Error banner */}
@@ -166,6 +172,12 @@ export function TasksView() {
         </div>
       </div>)}
 
+      {listaCompartida && (
+        <DialogoCompartir lista={listaCompartida} yo={yo} onCerrar={cerrarCompartir}
+          onCambio={() => { void fetchLists(); }}
+          onSalir={() => { setCompartiendo(null); abrirVista('tasks'); }} />
+      )}
+
       {menu && (
         <MenuTarea task={menu.task} x={menu.x} y={menu.y} listas={listas.listas} onCerrar={() => setMenu(null)}
           onUpdate={updateTask} onToggle={toggleTask} onToggleImportant={toggleImportant}
@@ -183,6 +195,7 @@ export function TasksView() {
           onDelete={deleteTask}
           onClose={() => setSelectedTask(null)}
           onRefrescar={() => { void fetchTasks(); }}
+          onAsignada={reemplazarTarea}
         />
       )}
     </div>

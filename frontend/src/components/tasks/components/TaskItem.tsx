@@ -2,6 +2,7 @@
 import type { MouseEvent } from 'react';
 import type { Task } from '../types';
 import { COLORS } from '../types';
+import { CirculoPersona } from './CirculoPersona';
 import { urlCorreo } from './urlCorreo';
 
 interface Props {
@@ -135,6 +136,18 @@ export function TaskItem({ task, onToggle, onToggleImportant, onClick, mostrarLi
           </div>
         )}
       </div>
+
+      {/* Personas asignadas */}
+      {!!task.asignados?.length && (
+        <div style={{ display: 'flex', flexShrink: 0 }} aria-label={`Asignada a ${task.asignados.join(', ')}`}>
+          {task.asignados.slice(0, 3).map((e, i) => (
+            <span key={e} style={{ marginLeft: i ? -6 : 0, border: '2px solid white', borderRadius: '50%', display: 'flex' }}>
+              <CirculoPersona email={e} tamano={22} />
+            </span>
+          ))}
+          {task.asignados.length > 3 && <span style={{ fontSize: 11, color: COLORS.secondary, alignSelf: 'center', marginLeft: 2 }}>+{task.asignados.length - 3}</span>}
+        </div>
+      )}
 
       {/* Star */}
       <div

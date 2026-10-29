@@ -51,6 +51,24 @@ export interface Task {
   adjuntos?: number;
 }
 
+/** Persona de una lista compartida (la propietaria o un miembro). */
+export interface MiembroLista {
+  email: string;
+  nombre: string;
+  role: 'owner' | 'member';
+  added_by: string;
+  joined_at?: string | null;
+}
+
+/** Un evento del registro de actividad de una lista o de una tarea. */
+export interface EventoActividad {
+  user_email: string;
+  nombre: string;
+  action: string;
+  details: string;
+  created_at: string;
+}
+
 /** Archivo adjunto de una tarea. */
 export interface AdjuntoTarea {
   id: string;
