@@ -1,15 +1,18 @@
 
 import type { Task } from '../types';
 import { COLORS } from '../types';
+import { urlCorreo } from './urlCorreo';
 
 interface Props {
   task: Task;
   onToggle: (id: string) => void;
   onToggleImportant: (id: string) => void;
   onClick: (task: Task) => void;
+  /** En las listas inteligentes se muestra de qué lista es cada tarea (como en To Do). */
+  mostrarLista?: boolean;
 }
 
-export function TaskItem({ task, onToggle, onToggleImportant, onClick }: Props) {
+export function TaskItem({ task, onToggle, onToggleImportant, onClick, mostrarLista }: Props) {
   const formatDate = (d?: string) => {
     if (!d) return '';
     const date = new Date(d.slice(0, 10) + 'T00:00:00');
@@ -46,13 +49,14 @@ export function TaskItem({ task, onToggle, onToggleImportant, onClick }: Props) 
       onMouseEnter={e => (e.currentTarget.style.background = COLORS.hoverBg)}
       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
     >
-      {/* Checkbox / Mail icon */}
+      {/* Checkbox */}
       <div
-        onClick={e => { e.stopPropagation(); if (!task.id.startsWith('mail-')) onToggle(task.id); }}
+        role="checkbox" aria-checked={task.completed} aria-label={task.completed ? 'Marcar como no completada' : 'Marcar como completada'}
+        onClick={e => { e.stopPropagation(); onToggle(task.id); }}
         style={{
           width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
-          border: task.completed ? 'none' : task.id.startsWith('mail-') ? 'none' : `1.5px solid ${COLORS.muted}`,
-          background: task.completed ? COLORS.primary : task.id.startsWith('mail-') ? 'transparent' : 'transparent',
+          border: task.completed ? 'none' : `1.5px solid ${COLORS.muted}`,
+          background: task.completed ? COLORS.primary : 'transparent',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           cursor: 'pointer', transition: 'all 0.15s',
         }}
@@ -60,11 +64,6 @@ export function TaskItem({ task, onToggle, onToggleImportant, onClick }: Props) 
         {task.completed ? (
           <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={3}>
             <polyline points="20 6 9 17 4 12" />
-          </svg>
-        ) : task.id.startsWith('mail-') ? (
-          <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#d13438" strokeWidth={1.8}>
-            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-            <polyline points="22,6 12,13 2,6" />
           </svg>
         ) : null}
       </div>
@@ -78,9 +77,13 @@ export function TaskItem({ task, onToggle, onToggleImportant, onClick }: Props) 
         }}>
           {task.title}
         </div>
-        {task.id.startsWith('mail-') && task.description && (
-          <div style={{ fontSize: 11, color: COLORS.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {task.description}
+        {(task.correo || (mostrarLista && task.list_name)) && (
+          <div style={{ fontSize: 12, color: COLORS.secondary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {task.correo ? (
+              <a href={urlCorreo(task.correo)} onClick={e => e.stopPropagation()} style={{ color: COLORS.primary, textDecoration: 'none' }}>
+                Correo{task.correo.remitente ? ` de ${task.correo.remitente}` : ''}
+              </a>
+            ) : task.list_name}
           </div>
         )}
         {(task.due_date || task.recurrence || task.reminder) && (

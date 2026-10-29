@@ -10,6 +10,7 @@ from typing import Optional
 import asyncpg
 
 from app.core.sanitize import sanitize_html, strip_html
+from app.tasks import acceso, mi_dia
 from app.tasks.schemas import (
     ActivityOut,
     BoardCreate,
@@ -132,21 +133,10 @@ class TaskService:
         return val is not None
 
     async def _list_belongs_to_user(self, db, list_id, user):
-        row = await db.fetchrow(
-            "SELECT board_id FROM task_lists WHERE id = $1", list_id
-        )
-        if not row:
-            return False
-        return await self._user_has_access(db, row["board_id"], user)
+        return await acceso.puede_ver_lista(db, list_id, user)
 
     async def _card_belongs_to_user(self, db, card_id, user):
-        row = await db.fetchrow(
-            "SELECT tl.board_id FROM task_cards tc JOIN task_lists tl ON tl.id = tc.list_id WHERE tc.id = $1",
-            card_id,
-        )
-        if not row:
-            return False
-        return await self._user_has_access(db, row["board_id"], user)
+        return await acceso.puede_ver_tarea(db, card_id, user)
 
     async def _get_board_id_for_card(self, db, card_id):
         return await db.fetchval(
@@ -199,11 +189,12 @@ class TaskService:
             board_id,
         )
         if not default_list:
-            await db.execute(
-                "INSERT INTO task_lists (board_id, name, position, color, list_type, icon, owner) VALUES ($1, 'Tareas', 0, '#e0e0e0', 'default', '', $2)",
+            list_id = await db.fetchval(
+                "INSERT INTO task_lists (board_id, name, position, color, list_type, icon, owner) VALUES ($1, 'Tareas', 0, '#e0e0e0', 'default', '', $2) RETURNING id",
                 board_id,
                 user,
             )
+            await acceso.registrar_propietaria(db, list_id, user)
         return board_id
 
     async def _get_default_list_id(self, db, user):
@@ -220,6 +211,7 @@ class TaskService:
     async def list_user_lists(self, db, user):
         """Return all lists for the user with task counts."""
         board_id = await self.ensure_default_board(db, user)
+        await acceso.completar_propietarias(db, board_id, user)
         rows = await db.fetch(
             """SELECT tl.*, COALESCE(cnt.c, 0) as task_count
                FROM task_lists tl
@@ -246,7 +238,7 @@ class TaskService:
             data.icon,
             user,
         )
-        # get task_count (0 for new list)
+        await acceso.registrar_propietaria(db, row["id"], user, max_pos + 1)
         await self._log_activity(
             db, board_id, user, "list_created", f"Lista '{data.name}' creada"
         )
@@ -297,47 +289,7 @@ class TaskService:
                 db, board_id, user, "list_deleted", f"Lista '{row['name']}' eliminada"
             )
 
-    # ── To Do style: Smart Views ──
-
-    async def get_smart_view(self, db, user, view):
-        """Return tasks filtered by smart view type."""
-        board_id = await self.ensure_default_board(db, user)
-        if view == "my_day":
-            rows = await db.fetch(
-                """SELECT tc.* FROM task_cards tc
-                   JOIN task_lists tl ON tl.id = tc.list_id
-                   WHERE tl.board_id = $1 AND tc.my_day = TRUE
-                   ORDER BY tc.completed, tc.position""",
-                board_id,
-            )
-        elif view == "important":
-            rows = await db.fetch(
-                """SELECT tc.* FROM task_cards tc
-                   JOIN task_lists tl ON tl.id = tc.list_id
-                   WHERE tl.board_id = $1 AND tc.important = TRUE
-                   ORDER BY tc.completed, tc.position""",
-                board_id,
-            )
-        elif view == "planned":
-            rows = await db.fetch(
-                """SELECT tc.* FROM task_cards tc
-                   JOIN task_lists tl ON tl.id = tc.list_id
-                   WHERE tl.board_id = $1 AND tc.due_date IS NOT NULL
-                   ORDER BY tc.completed, tc.due_date, tc.position""",
-                board_id,
-            )
-        elif view == "assigned":
-            rows = await db.fetch(
-                """SELECT tc.* FROM task_cards tc
-                   JOIN task_lists tl ON tl.id = tc.list_id
-                   WHERE tl.board_id = $1 AND tc.assigned_to = $2
-                   ORDER BY tc.completed, tc.position""",
-                board_id,
-                user,
-            )
-        else:
-            raise ValueError(f"Unknown view: {view}")
-        return [_row_to_card(r) for r in rows]
+    # Las listas inteligentes están en vistas.py.
 
     # ── To Do style: Tasks ──
 
@@ -370,6 +322,8 @@ class TaskService:
             sanitize_html(data.note or ""),
             getattr(data, "recurrence", None),
         )
+        if data.my_day:
+            await mi_dia.poner(db, user, row["id"], True)
         board_id = await self._get_board_id_for_list(db, list_id)
         if board_id:
             await self._log_activity(
@@ -388,16 +342,6 @@ class TaskService:
             raise ValueError("Card not found")
         row = await db.fetchrow(
             "UPDATE task_cards SET important = NOT important, updated_at = NOW() WHERE id = $1 RETURNING *",
-            card_id,
-        )
-        return _row_to_card(row)
-
-    async def toggle_my_day(self, db, user, card_id):
-        """Toggle my_day flag on a task."""
-        if not await self._card_belongs_to_user(db, card_id, user):
-            raise ValueError("Card not found")
-        row = await db.fetchrow(
-            "UPDATE task_cards SET my_day = NOT my_day, updated_at = NOW() WHERE id = $1 RETURNING *",
             card_id,
         )
         return _row_to_card(row)
@@ -685,9 +629,7 @@ class TaskService:
             sets.append(f"important = ${idx}")
             params.append(data.important)
         if data.my_day is not None:
-            idx += 1
-            sets.append(f"my_day = ${idx}")
-            params.append(data.my_day)
+            await mi_dia.poner(db, user, card_id, data.my_day)
         if "recurrence" in data.model_fields_set:
             idx += 1
             sets.append(f"recurrence = ${idx}")
@@ -697,7 +639,7 @@ class TaskService:
             sets.append(f"reminder = ${idx}")
             params.append(data.reminder)
             sets.append("reminder_sent = FALSE")
-        if not sets:
+        if not sets and data.my_day is None:
             raise ValueError("Nothing to update")
         sets.append("updated_at = NOW()")
         sql = f"UPDATE task_cards SET {', '.join(sets)} WHERE id = $1 RETURNING *"
@@ -719,10 +661,6 @@ class TaskService:
                 "important"
             ):
                 changes.append("importante" if data.important else "no importante")
-            if data.my_day is not None and data.my_day != old_row.get("my_day"):
-                changes.append(
-                    "agregada a Mi Dia" if data.my_day else "removida de Mi Dia"
-                )
             if changes:
                 await self._log_activity(
                     db,

@@ -15,15 +15,26 @@ export interface Task {
   completed: boolean;
   important: boolean;
   my_day: boolean;
-  due_date?: string;
-  reminder?: string;
-  recurrence?: string;  // daily, weekdays, weekly, monthly, yearly
+  due_date?: string | null;
+  reminder?: string | null;
+  recurrence?: string | null;  // daily, weekdays, weekly, monthly, yearly
   note?: string;
   list_id?: string;
   assigned_to?: string;
   created_by?: string;
   created_at?: string;
   completed_at?: string;
+  // Listas inteligentes: lista de origen, personas asignadas y correo marcado del que salió.
+  list_name?: string;
+  asignados?: string[];
+  correo?: CorreoTarea | null;
+}
+
+export interface CorreoTarea {
+  carpeta: string;
+  uid: number;
+  asunto?: string;
+  remitente?: string;
 }
 
 export type SmartView = 'my-day' | 'important' | 'planned' | 'assigned' | 'flagged' | 'tasks' | 'seguimiento';
