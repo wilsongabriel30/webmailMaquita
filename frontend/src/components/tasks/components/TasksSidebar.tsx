@@ -1,7 +1,11 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { ActiveView } from '../types';
 import { SMART_LISTS, COLORS } from '../types';
 import { SidebarIcon } from './IconoBarra';
+import { esTarea, idTarea } from './arrastreTarea';
+
+// Soltar una tarea aquí: «Mi día» la agrega a Mi día, «Importante» la marca y «Tareas» la mueve a esa lista.
+const ACEPTAN_TAREAS = ['my-day', 'important', 'tasks'];
 
 interface Props {
   activeView: ActiveView;
@@ -11,9 +15,13 @@ interface Props {
   children?: ReactNode;
   /** Pie fijo: los botones «Nueva lista» y «Nuevo grupo». */
   pie?: ReactNode;
+  /** Caja de búsqueda, arriba junto al botón de plegar la barra. */
+  buscador?: ReactNode;
+  onSoltarTarea?: (destino: ActiveView, taskId: string) => void;
 }
 
-export function TasksSidebar({ activeView, onViewChange, smartCounts, children, pie }: Props) {
+export function TasksSidebar({ activeView, onViewChange, smartCounts, children, pie, buscador, onSoltarTarea }: Props) {
+  const [sobre, setSobre] = useState<string | null>(null);
   const today = new Date();
   const dateStrRaw = today.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
   const dateStr = dateStrRaw.charAt(0).toUpperCase() + dateStrRaw.slice(1);
@@ -37,6 +45,7 @@ export function TasksSidebar({ activeView, onViewChange, smartCounts, children, 
             <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
           </svg>
         </button>
+        {buscador}
       </div>
 
       {/* Smart lists */}
@@ -44,11 +53,16 @@ export function TasksSidebar({ activeView, onViewChange, smartCounts, children, 
         {SMART_LISTS.map(sl => {
           const isActive = activeView === sl.id;
           const count = smartCounts[sl.id] || 0;
+          const acepta = !!onSoltarTarea && ACEPTAN_TAREAS.includes(sl.id);
           return (
             <div
               key={sl.id}
               onClick={() => onViewChange(sl.id)}
+              onDragOver={acepta ? e => { if (esTarea(e)) { e.preventDefault(); setSobre(sl.id); } } : undefined}
+              onDragLeave={acepta ? () => setSobre(s => (s === sl.id ? null : s)) : undefined}
+              onDrop={acepta ? e => { if (esTarea(e)) { e.preventDefault(); onSoltarTarea!(sl.id, idTarea(e)); } setSobre(null); } : undefined}
               style={{
+                outline: sobre === sl.id ? `2px dashed ${COLORS.primary}` : 'none', outlineOffset: -2,
                 display: 'flex', alignItems: 'center', gap: 12,
                 padding: '10px 16px', cursor: 'pointer',
                 background: isActive ? COLORS.activeBg : 'transparent',

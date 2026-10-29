@@ -17,7 +17,7 @@ from typing import Literal, Optional
 from pydantic import BaseModel, Field, field_validator
 
 from app.core.sanitize import strip_html
-from app.tasks import acceso
+from app.tasks import acceso, adjuntos
 from app.tasks.service import task_service
 
 ORDENES = ("manual", "date", "important", "alpha", "created")
@@ -208,7 +208,9 @@ async def eliminar_lista(db, user: str, list_id) -> None:
         raise SinPermiso()
     if actual.list_type != "custom":
         raise ValueError("Esta lista no se puede eliminar")
+    carpetas = await adjuntos.con_adjuntos(db, list_id=list_id)
     await db.execute("DELETE FROM task_lists WHERE id = $1", list_id)
+    await adjuntos.borrar_carpetas(carpetas)
     await task_service._log_activity(
         db, actual.board_id, user, "list_deleted", f"Lista '{actual.name}' eliminada"
     )

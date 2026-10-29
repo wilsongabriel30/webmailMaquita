@@ -9,6 +9,7 @@ import { FilaLista } from './FilaLista';
 import { SidebarIcon } from './IconoBarra';
 import { MenuContextual, OpcionMenu, SeparadorMenu, TituloMenu } from './MenuContextual';
 import { NombreEditable } from './NombreEditable';
+import { esTarea, idTarea } from './arrastreTarea';
 
 interface Props {
   listas: TaskList[];
@@ -20,15 +21,18 @@ interface Props {
   onRenombrarGrupo: (id: string, nombre: string) => void;
   onEliminarGrupo: (grupo: TaskGroup) => void;
   onGuardarBarra: (barra: Elemento[]) => void;
+  /** Una tarea arrastrada desde la lista se soltó sobre una lista de la barra: se mueve allí. */
+  onSoltarTarea?: (listId: string, taskId: string) => void;
 }
 
 type Arrastrado = { tipo: 'grupo' | 'lista'; id: string };
 type Menu = { tipo: 'grupo' | 'lista'; id: string; x: number; y: number };
 const SIN_COLOR = '#e0e0e0';
 
-export function MisListas({ listas, grupos, activeView, onViewChange, onCambiarLista, onEliminarLista, onRenombrarGrupo, onEliminarGrupo, onGuardarBarra }: Props) {
+export function MisListas({ listas, grupos, activeView, onViewChange, onCambiarLista, onEliminarLista, onRenombrarGrupo, onEliminarGrupo, onGuardarBarra, onSoltarTarea }: Props) {
   const [arrastrado, setArrastrado] = useState<Arrastrado | null>(null);
   const [sobre, setSobre] = useState<string | null>(null);
+  const [recibe, setRecibe] = useState<string | null>(null);
   const [menu, setMenu] = useState<Menu | null>(null);
   const [editando, setEditando] = useState<string | null>(null);
   const [plegados, setPlegados] = useState<Set<string>>(new Set());
@@ -43,11 +47,19 @@ export function MisListas({ listas, grupos, activeView, onViewChange, onCambiarL
     setArrastrado(null);
     setSobre(null);
   };
+  // Sobre una lista también se puede soltar una tarea (la mueve a esa lista).
+  const tomaTarea = (yo: Arrastrado, e: DragEvent) => yo.tipo === 'lista' && !!onSoltarTarea && esTarea(e);
   const arrastreDe = (yo: Arrastrado, destino: Destino) => ({
     onDragStart: (e: DragEvent) => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', yo.id); setArrastrado(yo); },
-    onDragOver: (e: DragEvent) => { if (arrastrado) { e.preventDefault(); setSobre(yo.id); } },
-    onDragLeave: () => setSobre(s => (s === yo.id ? null : s)),
-    onDrop: soltar(destino),
+    onDragOver: (e: DragEvent) => {
+      if (tomaTarea(yo, e)) { e.preventDefault(); setRecibe(yo.id); return; }
+      if (arrastrado) { e.preventDefault(); setSobre(yo.id); }
+    },
+    onDragLeave: () => { setSobre(s => (s === yo.id ? null : s)); setRecibe(r => (r === yo.id ? null : r)); },
+    onDrop: (e: DragEvent) => {
+      if (tomaTarea(yo, e)) { e.preventDefault(); e.stopPropagation(); setRecibe(null); onSoltarTarea!(yo.id, idTarea(e)); return; }
+      soltar(destino)(e);
+    },
     onDragEnd: () => { setArrastrado(null); setSobre(null); },
   });
   const abrirMenu = (tipo: Menu['tipo'], id: string) => (e: MouseEvent) => {
@@ -60,7 +72,7 @@ export function MisListas({ listas, grupos, activeView, onViewChange, onCambiarL
     if (!l) return null;
     return (
       <FilaLista key={id} lista={l} activa={activeView === id} enGrupo={enGrupo}
-        editando={editando === id} resaltada={sobre === id && arrastrado?.id !== id}
+        editando={editando === id} resaltada={sobre === id && arrastrado?.id !== id} recibeTarea={recibe === id}
         onAbrir={() => onViewChange(id)} onMenu={abrirMenu('lista', id)}
         onRenombrar={n => { setEditando(null); onCambiarLista(id, { name: n }); }}
         onCancelarEdicion={() => setEditando(null)}

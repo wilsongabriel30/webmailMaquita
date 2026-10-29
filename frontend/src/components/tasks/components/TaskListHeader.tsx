@@ -14,15 +14,17 @@ interface Props {
   onOrdenChange: (o: Orden) => void;
   modo: ModoVista;
   onModoChange: (m: ModoVista) => void;
+  /** Texto buscado: el título pasa a ser «Resultados de …». */
+  busqueda?: string;
 }
 
 const SORT_OPTIONS = ORDENES;
 
-export function TaskListHeader({ activeView, lista, orden: sortBy, onOrdenChange: onSortChange, modo, onModoChange }: Props) {
+export function TaskListHeader({ activeView, lista, orden: sortBy, onOrdenChange: onSortChange, modo, onModoChange, busqueda }: Props) {
   const [showSort, setShowSort] = useState(false);
   const smart = SMART_LISTS.find(s => s.id === activeView);
   const nombre = lista ? separarEmoji(lista.name) : { emoji: '', texto: '' };
-  const title = smart ? smart.name : (nombre.texto || 'Tareas');
+  const title = busqueda ? `Resultados de «${busqueda}»` : smart ? smart.name : (nombre.texto || 'Tareas');
   const isSmartList = !!smart;
   const colorTitulo = isSmartList ? COLORS.primary : (colorDeLista(lista?.color) || COLORS.text);
 
@@ -51,7 +53,7 @@ export function TaskListHeader({ activeView, lista, orden: sortBy, onOrdenChange
           fontSize: 20, fontWeight: 600, margin: 0,
           color: colorTitulo,
         }}>
-          {nombre.emoji && <span aria-hidden="true" style={{ marginRight: 8 }}>{nombre.emoji}</span>}
+          {!busqueda && nombre.emoji && <span aria-hidden="true" style={{ marginRight: 8 }}>{nombre.emoji}</span>}
           {title}
         </h1>
         <SelectorVista modo={modo} onCambiar={onModoChange} />

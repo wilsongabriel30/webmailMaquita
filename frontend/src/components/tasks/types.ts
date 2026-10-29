@@ -33,7 +33,7 @@ export interface Task {
   my_day: boolean;
   due_date?: string | null;
   reminder?: string | null;
-  recurrence?: string | null;  // daily, weekdays, weekly, monthly, yearly
+  recurrence?: string | null;  // daily, weekdays, weekly, monthly, yearly o cada:N:unidad[:días] (repeticion.ts)
   note?: string;
   list_id?: string;
   position?: number;
@@ -45,6 +45,21 @@ export interface Task {
   list_name?: string;
   asignados?: string[];
   correo?: CorreoTarea | null;
+  // Pasos (hechos y en total) y archivos adjuntos, para mostrarlos en la fila (F3).
+  pasos?: number;
+  pasos_hechos?: number;
+  adjuntos?: number;
+}
+
+/** Archivo adjunto de una tarea. */
+export interface AdjuntoTarea {
+  id: string;
+  card_id: string;
+  nombre: string;
+  content_type: string;
+  tamano: number;
+  subido_por: string;
+  creado_en: string;
 }
 
 export interface CorreoTarea {

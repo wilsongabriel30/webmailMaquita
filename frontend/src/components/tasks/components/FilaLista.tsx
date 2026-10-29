@@ -13,6 +13,8 @@ interface Props {
   enGrupo: boolean;
   editando: boolean;
   resaltada: boolean;
+  /** Se está arrastrando una tarea encima: soltarla la mueve a esta lista. */
+  recibeTarea?: boolean;
   onAbrir: () => void;
   onMenu: (e: MouseEvent) => void;
   onRenombrar: (nombre: string) => void;
@@ -26,7 +28,7 @@ interface Props {
   };
 }
 
-export function FilaLista({ lista, activa, enGrupo, editando, resaltada, onAbrir, onMenu, onRenombrar, onCancelarEdicion, arrastre }: Props) {
+export function FilaLista({ lista, activa, enGrupo, editando, resaltada, recibeTarea, onAbrir, onMenu, onRenombrar, onCancelarEdicion, arrastre }: Props) {
   const { emoji, texto } = separarEmoji(lista.name);
   const color = colorDeLista(lista.color);
   const compartida = (lista.miembros ?? 1) > 1;
@@ -44,6 +46,7 @@ export function FilaLista({ lista, activa, enGrupo, editando, resaltada, onAbrir
         background: activa ? COLORS.activeBg : 'transparent',
         borderLeft: activa ? `3px solid ${color || COLORS.primary}` : '3px solid transparent',
         borderTop: resaltada ? `2px solid ${COLORS.primary}` : '2px solid transparent',
+        outline: recibeTarea ? `2px dashed ${COLORS.primary}` : 'none', outlineOffset: -2,
         fontWeight: activa ? 600 : 400, fontSize: 14, color: COLORS.text,
       }}
     >

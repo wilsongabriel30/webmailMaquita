@@ -1,6 +1,6 @@
 // Vista «Cuadrícula» de Tareas (como en Outlook): una tabla con Título y Fecha de vencimiento.
 // El título se edita en la misma celda, ⓘ abre el panel de detalles y la fecha se cambia en su celda.
-import { useState, type KeyboardEvent } from 'react';
+import { useState, type KeyboardEvent, type MouseEvent } from 'react';
 import type { Task } from '../types';
 import { COLORS } from '../types';
 
@@ -11,6 +11,10 @@ interface Props {
   onToggleImportant: (id: string) => void;
   onOpen: (task: Task) => void;
   onUpdate: (id: string, data: Partial<Task>) => void;
+  /** Clic derecho: menú de la tarea. */
+  onMenu?: (task: Task, e: MouseEvent) => void;
+  /** Para arrastrar la fila a otra lista de la barra (useArrastreTareas). */
+  propsFila?: (task: Task) => object;
 }
 
 const COLUMNAS = '44px minmax(260px, 1fr) 170px 56px';
@@ -114,7 +118,7 @@ function CeldaFecha({ task, onUpdate }: { task: Task; onUpdate: Props['onUpdate'
   );
 }
 
-export function TaskGrid({ tasks, seleccionada, onToggle, onToggleImportant, onOpen, onUpdate }: Props) {
+export function TaskGrid({ tasks, seleccionada, onToggle, onToggleImportant, onOpen, onUpdate, onMenu, propsFila }: Props) {
   return (
     <div style={{ margin: '0 24px 16px', background: 'white', borderRadius: 4, boxShadow: '0 1px 2px rgba(0,0,0,0.08)', overflowX: 'auto' }}>
       <div role="table" aria-label="Tareas" style={{ minWidth: 540 }}>
@@ -128,7 +132,8 @@ export function TaskGrid({ tasks, seleccionada, onToggle, onToggleImportant, onO
           <span role="columnheader" aria-label="Importancia" />
         </div>
         {tasks.map(task => (
-          <div key={task.id} role="row" className="fila-tarea" onClick={() => onOpen(task)}
+          <div key={task.id} role="row" className="fila-tarea" onClick={() => onOpen(task)} {...propsFila?.(task)}
+            onContextMenu={onMenu ? e => { e.preventDefault(); onMenu(task, e); } : undefined}
             style={{
               display: 'grid', gridTemplateColumns: COLUMNAS, alignItems: 'center', minHeight: ALTO_FILA,
               borderBottom: `1px solid ${COLORS.border}`, cursor: 'pointer',
