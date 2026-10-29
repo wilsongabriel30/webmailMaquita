@@ -5,7 +5,7 @@ import { urlCorreo } from './urlCorreo';
 
 export function EnlaceCorreo({ correo }: { correo: CorreoTarea }) {
   return (
-    <div style={{ padding: '10px 20px', borderBottom: `1px solid ${COLORS.border}`, fontSize: 13 }}>
+    <div style={{ padding: '12px 16px', fontSize: 13 }}>
       {correo.remitente && (
         <div style={{ color: COLORS.secondary, marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           De: {correo.remitente}

@@ -50,6 +50,11 @@ export function useListas(alCambiar: () => void) {
     },
     cambiarLista: (id: string, cambios: { name?: string; color?: string; sort_by?: Orden }) =>
       intentar(() => api.patch(`/tasks/lists/${id}`, cambios), 'No se pudo cambiar la lista'),
+    duplicarLista: async (id: string) => {
+      let copia: TaskList | null = null;
+      await intentar(async () => { copia = await api.post<TaskList>(`/tasks/lists/${id}/duplicar`); }, 'No se pudo duplicar la lista');
+      return copia as TaskList | null;
+    },
     eliminarLista: (id: string) => intentar(() => api.del(`/tasks/lists/${id}`), 'No se pudo eliminar la lista'),
     crearGrupo: (name: string) => intentar(() => api.post('/tasks/groups', { name }), 'No se pudo crear el grupo'),
     renombrarGrupo: (id: string, name: string) =>

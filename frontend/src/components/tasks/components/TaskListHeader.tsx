@@ -5,6 +5,8 @@ import { SelectorVista } from './SelectorVista';
 import type { ModoVista } from './modoVista';
 import { ORDENES } from './ordenarTareas';
 import { colorDeLista, separarEmoji } from './nombreLista';
+import { NombreEditable } from './NombreEditable';
+import { OpcionesLista } from './OpcionesLista';
 
 interface Props {
   activeView: ActiveView;
@@ -18,12 +20,16 @@ interface Props {
   busqueda?: string;
   /** Lista propia: botón «Compartir» (abre el diálogo de personas de la lista). */
   onCompartir?: () => void;
+  /** «⋯» junto al título (F5): cambiar el nombre o el color de la lista e imprimirla. */
+  onCambiarLista?: (cambios: { name?: string; color?: string }) => void;
+  onImprimir?: () => void;
 }
 
 const SORT_OPTIONS = ORDENES;
 
-export function TaskListHeader({ activeView, lista, orden: sortBy, onOrdenChange: onSortChange, modo, onModoChange, busqueda, onCompartir }: Props) {
+export function TaskListHeader({ activeView, lista, orden: sortBy, onOrdenChange: onSortChange, modo, onModoChange, busqueda, onCompartir, onCambiarLista, onImprimir }: Props) {
   const [showSort, setShowSort] = useState(false);
+  const [editandoNombre, setEditandoNombre] = useState(false);
   const smart = SMART_LISTS.find(s => s.id === activeView);
   const nombre = lista ? separarEmoji(lista.name) : { emoji: '', texto: '' };
   const title = busqueda ? `Resultados de «${busqueda}»` : smart ? smart.name : (nombre.texto || 'Tareas');
@@ -51,13 +57,22 @@ export function TaskListHeader({ activeView, lista, orden: sortBy, onOrdenChange
             <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
           </svg>
         </button>
-        <h1 style={{
-          fontSize: 20, fontWeight: 600, margin: 0,
-          color: colorTitulo,
-        }}>
-          {!busqueda && nombre.emoji && <span aria-hidden="true" style={{ marginRight: 8 }}>{nombre.emoji}</span>}
-          {title}
-        </h1>
+        {editandoNombre && lista && onCambiarLista ? (
+          <NombreEditable valor={lista.name} etiqueta="Nombre de la lista"
+            onGuardar={n => { setEditandoNombre(false); onCambiarLista({ name: n }); }} onCancelar={() => setEditandoNombre(false)} />
+        ) : (
+          <h1 style={{
+            fontSize: 20, fontWeight: 600, margin: 0,
+            color: colorTitulo,
+          }}>
+            {!busqueda && nombre.emoji && <span aria-hidden="true" style={{ marginRight: 8 }}>{nombre.emoji}</span>}
+            {title}
+          </h1>
+        )}
+        {lista && !busqueda && onCambiarLista && onImprimir && (
+          <OpcionesLista lista={lista} onEditarNombre={() => setEditandoNombre(true)}
+            onColor={c => onCambiarLista({ color: c })} onImprimir={onImprimir} />
+        )}
         <SelectorVista modo={modo} onCambiar={onModoChange} />
         <div style={{ flex: 1 }} />
 

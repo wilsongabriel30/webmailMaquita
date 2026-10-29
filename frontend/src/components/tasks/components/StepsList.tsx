@@ -73,7 +73,7 @@ export function StepsList({ cardId, onCambio }: Props) {
   const total = steps.length;
 
   return (
-    <div style={{ padding: '4px 20px 12px', borderBottom: `1px solid ${COLORS.border}` }}>
+    <div style={{ padding: '0 16px 10px' }}>
       {total > 0 && (
         <div style={{ fontSize: 12, color: COLORS.secondary, margin: '4px 0 6px' }}>
           Pasos: {completed} de {total}
@@ -106,14 +106,14 @@ export function StepsList({ cardId, onCambio }: Props) {
         </div>
       ))}
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-        <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={COLORS.primary} strokeWidth="2">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 4 }}>
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={COLORS.primary} strokeWidth="1.6">
           <path d="M12 5v14M5 12h14" />
         </svg>
-        <input value={newTitle} onChange={e => setNewTitle(e.target.value)} aria-label="Nuevo paso"
+        <input className="paso-nuevo" value={newTitle} onChange={e => setNewTitle(e.target.value)} aria-label="Nuevo paso"
           onKeyDown={e => { if (e.key === 'Enter') void addStep(); }}
           placeholder={total ? 'Siguiente paso' : 'Agregar paso'}
-          style={{ flex: 1, border: 'none', outline: 'none', fontSize: 13, color: COLORS.text, padding: '4px 0', fontFamily: 'inherit' }} />
+          style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 14, color: COLORS.text, padding: '6px 0', fontFamily: 'inherit' }} />
         {newTitle && (
           <button type="button" onClick={addStep} disabled={loading}
             style={{ background: 'none', border: 'none', color: COLORS.primary, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>

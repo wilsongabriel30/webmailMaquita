@@ -19,6 +19,8 @@ interface Props {
   onMenu: (e: MouseEvent) => void;
   onRenombrar: (nombre: string) => void;
   onCancelarEdicion: () => void;
+  /** Doble clic: cambiar el nombre ahí mismo (solo la propietaria). */
+  onEditar?: () => void;
   arrastre: {
     onDragStart: (e: DragEvent) => void;
     onDragOver: (e: DragEvent) => void;
@@ -28,7 +30,7 @@ interface Props {
   };
 }
 
-export function FilaLista({ lista, activa, enGrupo, editando, resaltada, recibeTarea, onAbrir, onMenu, onRenombrar, onCancelarEdicion, arrastre }: Props) {
+export function FilaLista({ lista, activa, enGrupo, editando, resaltada, recibeTarea, onAbrir, onMenu, onRenombrar, onCancelarEdicion, onEditar, arrastre }: Props) {
   const { emoji, texto } = separarEmoji(lista.name);
   const color = colorDeLista(lista.color);
   const compartida = (lista.miembros ?? 1) > 1;
@@ -38,6 +40,7 @@ export function FilaLista({ lista, activa, enGrupo, editando, resaltada, recibeT
       draggable={!editando}
       {...arrastre}
       onClick={onAbrir}
+      onDoubleClick={onEditar}
       onContextMenu={onMenu}
       className="fila-lista-tareas"
       style={{

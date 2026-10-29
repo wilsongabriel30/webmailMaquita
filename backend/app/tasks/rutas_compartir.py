@@ -147,6 +147,8 @@ async def asignar_tarea(
         raise HTTPException(status_code=400, detail=str(e))
     if nuevos:
         texto = f"{avisos.nombre(user)} te asignó la tarea «{tarea['title']}» (lista «{tarea['lista']}»)."
+        if data.mensaje.strip():
+            texto += f" Mensaje: «{data.mensaje.strip()}»"
         await avisos_listas.avisar(
             _redis(request),
             _db(request),

@@ -1,4 +1,5 @@
-// Menú de una tarea (clic derecho, como en To Do): Mi día, importancia, completar, vencimiento, «Mover a…» y eliminar.
+// Menú de una tarea (clic derecho, como en To Do): Mi día, importancia, completar, «Asignar tarea a…» (F5, en todas las
+// vistas), vencimiento, «Mover a…» y eliminar.
 import type { Task, TaskList } from '../types';
 import { COLORS } from '../types';
 import { SidebarIcon } from './IconoBarra';
@@ -17,6 +18,8 @@ interface Props {
   onToggleImportant: (id: string) => void;
   onMover: (id: string, listId: string) => void;
   onDelete: (id: string) => void;
+  /** Abrir el recuadro «Asignar tarea a:». */
+  onAsignar: (task: Task) => void;
 }
 
 function manana(): string {
@@ -25,7 +28,7 @@ function manana(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export function MenuTarea({ task, x, y, listas, onCerrar, onUpdate, onToggle, onToggleImportant, onMover, onDelete }: Props) {
+export function MenuTarea({ task, x, y, listas, onCerrar, onUpdate, onToggle, onToggleImportant, onMover, onDelete, onAsignar }: Props) {
   const hacer = (accion: () => void) => () => { onCerrar(); accion(); };
   // A dónde se puede mover: listas propias, compartidas y «Tareas» (no la del correo marcado).
   const destinos = listas.filter(l => (l.list_type === 'custom' || l.list_type === 'default') && l.id !== task.list_id);
@@ -41,6 +44,10 @@ export function MenuTarea({ task, x, y, listas, onCerrar, onUpdate, onToggle, on
       <OpcionMenu onClick={hacer(() => onToggle(task.id))}>
         <svg aria-hidden="true" width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="9" />{!task.completed && <polyline points="8 12 11 15 16 9" />}</svg>
         {task.completed ? 'Marcar como no completada' : 'Marcar como completada'}
+      </OpcionMenu>
+      <OpcionMenu deshabilitada={fija} titulo={fija ? 'Las tareas de un correo marcado solo se asignan desde su lista compartida' : undefined}
+        onClick={hacer(() => onAsignar(task))}>
+        <SidebarIcon icon="person" size={14} /> Asignar tarea a…
       </OpcionMenu>
       <SeparadorMenu />
       <OpcionMenu onClick={hacer(() => onUpdate(task.id, { due_date: hoyTexto() }))}>

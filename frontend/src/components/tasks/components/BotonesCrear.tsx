@@ -1,5 +1,5 @@
-// Pie de la barra de Tareas: «Nueva lista» y «Nuevo grupo», dos botones claramente distintos
-// (texto, ícono y descripción propios). Cada uno abre su campo para escribir el nombre.
+// Pie de la barra de Tareas, como en Outlook (F5): «+ Nueva lista» en texto azul y, a la derecha, un ícono pequeño
+// para «Nuevo grupo» (con su descripción al pasar el ratón). Cada uno abre su campo para escribir el nombre.
 import { useState } from 'react';
 import { COLORS } from '../types';
 import { SidebarIcon } from './IconoBarra';
@@ -23,7 +23,7 @@ export function BotonesCrear({ onCrearLista, onCrearGrupo }: { onCrearLista: (n:
   };
 
   return (
-    <div style={{ padding: '10px 12px', borderTop: `1px solid ${COLORS.border}` }}>
+    <div style={{ padding: '6px 12px 8px', borderTop: `1px solid ${COLORS.border}`, margin: '0 8px' }}>
       {abierto ? (
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <span aria-hidden="true" style={{ display: 'flex', color: COLORS.primary }}><SidebarIcon icon={TEXTOS[abierto].icono} size={18} /></span>
@@ -37,19 +37,25 @@ export function BotonesCrear({ onCrearLista, onCrearGrupo }: { onCrearLista: (n:
           <button type="button" aria-label="Cancelar" onClick={cerrar} style={{ background: 'none', border: 'none', cursor: 'pointer', color: COLORS.secondary, fontSize: 18, lineHeight: 1 }}>×</button>
         </div>
       ) : (
-        <div style={{ display: 'flex', gap: 8 }}>
-          {(['lista', 'grupo'] as Que[]).map(q => (
-            <button key={q} type="button" title={TEXTOS[q].ayuda} onClick={() => setAbierto(q)}
-              style={{
-                flex: q === 'lista' ? 1.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                padding: '7px 8px', fontSize: 13, fontWeight: 500, cursor: 'pointer', borderRadius: 4, fontFamily: 'inherit',
-                color: q === 'lista' ? 'white' : COLORS.primary,
-                background: q === 'lista' ? COLORS.primary : 'white',
-                border: `1px solid ${COLORS.primary}`,
-              }}>
-              <SidebarIcon icon={TEXTOS[q].icono} size={16} /> {TEXTOS[q].boton}
-            </button>
-          ))}
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <button type="button" title={TEXTOS.lista.ayuda} onClick={() => setAbierto('lista')}
+            style={{
+              flex: 1, display: 'flex', alignItems: 'center', gap: 12, padding: '6px 4px', fontSize: 14, cursor: 'pointer',
+              fontFamily: 'inherit', color: COLORS.primary, background: 'none', border: 'none', borderRadius: 4, textAlign: 'left',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = COLORS.hoverBg)}
+            onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
+            <svg aria-hidden="true" width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
+              <path d="M12 4v16M4 12h16" />
+            </svg>
+            {TEXTOS.lista.boton}
+          </button>
+          <button type="button" title={TEXTOS.grupo.ayuda} aria-label={TEXTOS.grupo.boton} onClick={() => setAbierto('grupo')}
+            style={{ display: 'flex', padding: 6, cursor: 'pointer', color: COLORS.primary, background: 'none', border: 'none', borderRadius: 4 }}
+            onMouseEnter={e => (e.currentTarget.style.background = COLORS.hoverBg)}
+            onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
+            <SidebarIcon icon={TEXTOS.grupo.icono} size={18} />
+          </button>
         </div>
       )}
     </div>

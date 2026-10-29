@@ -1,7 +1,8 @@
-"""Asignar una tarea a varias personas de su lista (como en To Do, F4 30/10/2026).
+"""Asignar una tarea a varias personas (como en To Do, F4 30/10/2026; «Asignar tarea a», F5 31/10/2026).
 
-Se asigna a personas que están en la lista (la propietaria o sus miembros), así que en una lista sin compartir solo
-cabe asignársela a una misma. La lista completa de asignados reemplaza a la anterior. `assigned_to` (heredado, una
+Desde la F5 se puede asignar a cualquier persona de la organización, esté o no en la lista: quien la recibe la ve en
+su «Asignado a mí» (solo esa tarea, no la lista). Las tareas de «Correo marcado» van ligadas a un buzón y solo se
+asignan a personas de su lista. La lista completa de asignados reemplaza a la anterior. `assigned_to` (heredado, una
 sola persona) queda con la primera, para lo que todavía lo lee. Seguimiento (T-34) asigna por su cuenta.
 """
 
@@ -10,11 +11,13 @@ from __future__ import annotations
 from pydantic import BaseModel, Field, field_validator
 
 from app.tareas import avisos
-from app.tasks import acceso, actividad
+from app.tasks import acceso, actividad, compartir
 
 
 class Asignacion(BaseModel):
     emails: list[str] = Field(default_factory=list, max_length=50)
+    # Mensaje opcional para quienes reciben la tarea (va en el aviso).
+    mensaje: str = Field(default="", max_length=500)
 
     @field_validator("emails")
     @classmethod
@@ -34,7 +37,7 @@ class NoSeAsigna(Exception):
 async def asignar(db, user: str, card_id, emails: list[str]) -> tuple[list[str], dict]:
     """Deja la tarea asignada a `emails`. Devuelve (personas recién asignadas, fila de la tarea)."""
     tarea = await db.fetchrow(
-        """SELECT tc.id, tc.title, tc.list_id, tc.asignada, tl.name AS lista
+        """SELECT tc.id, tc.title, tc.list_id, tc.asignada, tl.name AS lista, tl.list_type
              FROM task_cards tc JOIN task_lists tl ON tl.id = tc.list_id WHERE tc.id = $1""",
         card_id,
     )
@@ -50,9 +53,18 @@ async def asignar(db, user: str, card_id, emails: list[str]) -> tuple[list[str],
         )
     }
     ajenos = [e for e in emails if e not in en_lista]
-    if ajenos:
+    if ajenos and tarea["list_type"] == "flagged":
         raise NoSeAsigna(
-            "Solo se puede asignar a personas de la lista: comparte la lista primero"
+            "Las tareas de correo marcado solo se asignan a personas de su lista"
+        )
+    fuera = [
+        e
+        for e in ajenos
+        if not compartir._CORREO.match(e) or not compartir.de_la_casa(e)
+    ]
+    if fuera:
+        raise NoSeAsigna(
+            "Solo se puede asignar a personas de la organización: " + ", ".join(fuera)
         )
     antes = {
         r["email"]

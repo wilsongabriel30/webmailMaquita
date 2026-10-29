@@ -49,6 +49,8 @@ export interface Task {
   pasos?: number;
   pasos_hechos?: number;
   adjuntos?: number;
+  // Categorías de color (como en Outlook, F5): nombres de categorias.ts.
+  labels?: string[];
 }
 
 /** Persona de una lista compartida (la propietaria o un miembro). */

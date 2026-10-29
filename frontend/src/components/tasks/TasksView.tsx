@@ -14,6 +14,9 @@ import { BuscadorTareas } from './components/BuscadorTareas';
 import { CuerpoTareas } from './components/CuerpoTareas';
 import { MenuTarea } from './components/MenuTarea';
 import { DialogoCompartir } from './components/DialogoCompartir';
+import { DialogoAsignar } from './components/DialogoAsignar';
+import { AvisoNotificaciones } from './components/AvisoNotificaciones';
+import { imprimirLista } from './components/imprimirLista';
 import { ordenarTareas, leerOrdenVista, guardarOrdenVista } from './components/ordenarTareas';
 import { useListas } from './hooks/useListas';
 import { useArrastreTareas } from './hooks/useArrastreTareas';
@@ -46,6 +49,8 @@ export function TasksView() {
   const listaCompartida = listas.listas.find(l => l.id === compartiendo);
   const buscando = busqueda.trim() !== '';
   const [menu, setMenu] = useState<{ task: Task; x: number; y: number } | null>(null);
+  const [asignando, setAsignando] = useState<Task | null>(null);
+  const cerrarAsignar = useCallback(() => setAsignando(null), []);
 
   // «Tareas» es una vista inteligente, pero también una lista de verdad (la por defecto).
   const listaPorDefecto = listas.listas.find(l => l.list_type === 'default');
@@ -86,6 +91,8 @@ export function TasksView() {
     sortedTasks, setTasks, () => { void fetchTasks(); },
   );
 
+  const imprimir = (l: TaskList) => { imprimirLista(l).catch(e => setError(e instanceof Error ? e.message : 'No se pudo imprimir la lista')); };
+
   const eliminarLista = (l: TaskList) => {
     if (!confirm(`¿Eliminar la lista «${l.name}» y todas sus tareas?`)) return;
     if (activeView === l.id) setActiveView('tasks');
@@ -121,7 +128,9 @@ export function TasksView() {
           onEliminarGrupo={g => { if (confirm(`¿Eliminar el grupo «${g.name}»? Sus listas no se borran: quedan fuera del grupo.`)) void listas.eliminarGrupo(g.id); }}
           onGuardarBarra={b => { void listas.guardarBarra(b); }}
           onSoltarTarea={(listId, id) => void moverTarea(id, listId)}
-          onCompartir={l => setCompartiendo(l.id)} />
+          onCompartir={l => setCompartiendo(l.id)}
+          onDuplicar={async l => { const copia = await listas.duplicarLista(l.id); if (copia) abrirVista(copia.id); }}
+          onImprimir={imprimir} />
       </TasksSidebar>}
 
       {/* Seguimiento de tareas asignadas (T-34) */}
@@ -136,7 +145,11 @@ export function TasksView() {
           onModoChange={cambiarModo}
           busqueda={buscando ? busqueda.trim() : undefined}
           onCompartir={listaActiva?.list_type === 'custom' ? () => setCompartiendo(listaActiva.id) : undefined}
+          onCambiarLista={listaActiva ? c => { void listas.cambiarLista(listaActiva.id, c); } : undefined}
+          onImprimir={listaActiva ? () => imprimir(listaActiva) : undefined}
         />
+
+        <AvisoNotificaciones />
 
         {/* Error banner */}
         {(error || listas.error) && (
@@ -181,8 +194,10 @@ export function TasksView() {
       {menu && (
         <MenuTarea task={menu.task} x={menu.x} y={menu.y} listas={listas.listas} onCerrar={() => setMenu(null)}
           onUpdate={updateTask} onToggle={toggleTask} onToggleImportant={toggleImportant}
-          onMover={moverTarea} onDelete={deleteTask} />
+          onMover={moverTarea} onDelete={deleteTask} onAsignar={setAsignando} />
       )}
+
+      {asignando && <DialogoAsignar task={asignando} onCerrar={cerrarAsignar} onAsignada={reemplazarTarea} />}
 
       {/* Detail panel */}
       {selectedTask && (activeView !== 'seguimiento' || buscando) && (

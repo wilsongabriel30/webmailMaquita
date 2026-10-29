@@ -1,13 +1,16 @@
 // Listas propias, compartidas y grupos de la barra de Tareas (F2, como en To Do).
 // Arrastrar una lista sobre otra la coloca antes; sobre un grupo, la mete en él; al final de la barra,
-// la saca del grupo. Lo mismo se puede hacer sin arrastrar, desde «⋯ → Mover a grupo».
+// la saca del grupo. Lo mismo se puede hacer sin arrastrar, desde el menú de la lista (clic derecho o «⋯»), que desde
+// la F5 es el de To Do: compartir, mover a un grupo, quitar del grupo, mover arriba/abajo, duplicar, imprimir y
+// eliminar. Cambiar el nombre y el color se hace desde «⋯» junto al título de la lista.
 import { useState, type DragEvent, type MouseEvent } from 'react';
 import type { ActiveView, TaskGroup, TaskList } from '../types';
-import { BOARD_COLORS, COLORS } from '../types';
-import { armarBarra, mover, moverAGrupo, type Destino, type Elemento } from './barraOrden';
+import { COLORS } from '../types';
+import { armarBarra, desplazar, mover, moverAGrupo, puedeDesplazar, type Destino, type Elemento } from './barraOrden';
 import { FilaLista } from './FilaLista';
 import { SidebarIcon } from './IconoBarra';
-import { MenuContextual, OpcionMenu, SeparadorMenu, TituloMenu } from './MenuContextual';
+import { IconoMenuLista } from './IconoMenuLista';
+import { MenuContextual, OpcionMenu, SeparadorMenu, SubmenuOpcion } from './MenuContextual';
 import { NombreEditable } from './NombreEditable';
 import { esTarea, idTarea } from './arrastreTarea';
 
@@ -25,13 +28,14 @@ interface Props {
   onSoltarTarea?: (listId: string, taskId: string) => void;
   /** Abrir el diálogo de compartir (propietaria) o de personas de la lista (miembro). */
   onCompartir?: (lista: TaskList) => void;
+  onDuplicar?: (lista: TaskList) => void;
+  onImprimir?: (lista: TaskList) => void;
 }
 
 type Arrastrado = { tipo: 'grupo' | 'lista'; id: string };
 type Menu = { tipo: 'grupo' | 'lista'; id: string; x: number; y: number };
-const SIN_COLOR = '#e0e0e0';
 
-export function MisListas({ listas, grupos, activeView, onViewChange, onCambiarLista, onEliminarLista, onRenombrarGrupo, onEliminarGrupo, onGuardarBarra, onSoltarTarea, onCompartir }: Props) {
+export function MisListas({ listas, grupos, activeView, onViewChange, onCambiarLista, onEliminarLista, onRenombrarGrupo, onEliminarGrupo, onGuardarBarra, onSoltarTarea, onCompartir, onDuplicar, onImprimir }: Props) {
   const [arrastrado, setArrastrado] = useState<Arrastrado | null>(null);
   const [sobre, setSobre] = useState<string | null>(null);
   const [recibe, setRecibe] = useState<string | null>(null);
@@ -78,6 +82,7 @@ export function MisListas({ listas, grupos, activeView, onViewChange, onCambiarL
         onAbrir={() => onViewChange(id)} onMenu={abrirMenu('lista', id)}
         onRenombrar={n => { setEditando(null); onCambiarLista(id, { name: n }); }}
         onCancelarEdicion={() => setEditando(null)}
+        onEditar={l.role !== 'member' ? () => setEditando(id) : undefined}
         arrastre={arrastreDe({ tipo: 'lista', id }, { tipo: 'antesDeLista', id })} />
     );
   };
@@ -146,45 +151,55 @@ export function MisListas({ listas, grupos, activeView, onViewChange, onCambiarL
 
       {menu && lista && (
         <MenuContextual x={menu.x} y={menu.y} etiqueta={`Opciones de la lista ${lista.name}`} onCerrar={cerrar}>
-          <OpcionMenu deshabilitada={!esDueña} titulo={esDueña ? undefined : 'Solo la propietaria puede cambiarle el nombre'}
-            onClick={() => { cerrar(); setEditando(lista.id); }}>Cambiar nombre</OpcionMenu>
           {onCompartir && (
             <OpcionMenu onClick={() => { cerrar(); onCompartir(lista); }}>
-              <SidebarIcon icon="person" size={14} /> {esDueña ? 'Compartir lista…' : 'Personas de la lista…'}
+              <IconoMenuLista nombre="compartir" /> {esDueña ? 'Compartir la lista' : 'Personas de la lista'}
             </OpcionMenu>
           )}
-          <TituloMenu>Color</TituloMenu>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '4px 16px 8px' }}>
-            {[SIN_COLOR, ...BOARD_COLORS].map(c => (
-              <button key={c} type="button" disabled={!esDueña}
-                aria-label={c === SIN_COLOR ? 'Sin color' : `Color ${c}`} title={c === SIN_COLOR ? 'Sin color' : c}
-                onClick={() => { cerrar(); onCambiarLista(lista.id, { color: c }); }}
-                style={{
-                  width: 22, height: 22, borderRadius: '50%', cursor: esDueña ? 'pointer' : 'default', padding: 0,
-                  background: c === SIN_COLOR ? 'white' : c,
-                  border: (lista.color || SIN_COLOR).toLowerCase() === c.toLowerCase() ? `2px solid ${COLORS.text}` : `1px solid ${COLORS.border}`,
-                }} />
-            ))}
-          </div>
-          {grupos.length > 0 && <>
-            <SeparadorMenu />
-            <TituloMenu>Mover a grupo</TituloMenu>
-            {grupos.map(g => (
-              <OpcionMenu key={g.id} deshabilitada={lista.group_id === g.id}
-                onClick={() => { cerrar(); onGuardarBarra(moverAGrupo(barra, lista.id, g.id)); }}>
-                <SidebarIcon icon="folder" size={14} /> {g.name}
-              </OpcionMenu>
-            ))}
-            {lista.group_id && (
-              <OpcionMenu onClick={() => { cerrar(); onGuardarBarra(moverAGrupo(barra, lista.id, null)); }}>Sacar del grupo</OpcionMenu>
-            )}
-          </>}
+          {grupos.some(g => g.id !== lista.group_id) && (
+            <SubmenuOpcion etiqueta="Mover la lista a…" icono={<IconoMenuLista nombre="moverA" />}>
+              {grupos.filter(g => g.id !== lista.group_id).map(g => (
+                <OpcionMenu key={g.id} onClick={() => { cerrar(); onGuardarBarra(moverAGrupo(barra, lista.id, g.id)); }}>
+                  <SidebarIcon icon="folder" size={16} /> {g.name}
+                </OpcionMenu>
+              ))}
+            </SubmenuOpcion>
+          )}
+          {lista.group_id && (
+            <OpcionMenu onClick={() => { cerrar(); onGuardarBarra(moverAGrupo(barra, lista.id, null)); }}>
+              <IconoMenuLista nombre="quitarGrupo" /> Quitar del grupo
+            </OpcionMenu>
+          )}
+          {puedeDesplazar(barra, lista.id, -1) && (
+            <OpcionMenu onClick={() => { cerrar(); onGuardarBarra(desplazar(barra, lista.id, -1)); }}>
+              <IconoMenuLista nombre="arriba" /> Mover arriba
+            </OpcionMenu>
+          )}
+          {puedeDesplazar(barra, lista.id, 1) && (
+            <OpcionMenu onClick={() => { cerrar(); onGuardarBarra(desplazar(barra, lista.id, 1)); }}>
+              <IconoMenuLista nombre="abajo" /> Mover abajo
+            </OpcionMenu>
+          )}
+          {onDuplicar && (
+            <OpcionMenu onClick={() => { cerrar(); onDuplicar(lista); }}>
+              <IconoMenuLista nombre="duplicar" /> Duplicar lista
+            </OpcionMenu>
+          )}
+          {onImprimir && (
+            <OpcionMenu onClick={() => { cerrar(); onImprimir(lista); }}>
+              <IconoMenuLista nombre="imprimir" /> Imprimir esta lista
+            </OpcionMenu>
+          )}
           <SeparadorMenu />
           {esDueña ? (
-            <OpcionMenu peligro onClick={() => { cerrar(); onEliminarLista(lista); }}>Eliminar lista</OpcionMenu>
+            <OpcionMenu peligro onClick={() => { cerrar(); onEliminarLista(lista); }}>
+              <IconoMenuLista nombre="eliminar" /> Eliminar lista
+            </OpcionMenu>
           ) : onCompartir && (
             <OpcionMenu peligro titulo="Dejarás de ver la lista; sus tareas siguen para las demás personas"
-              onClick={() => { cerrar(); onCompartir(lista); }}>Salir de la lista…</OpcionMenu>
+              onClick={() => { cerrar(); onCompartir(lista); }}>
+              <IconoMenuLista nombre="salir" /> Salir de la lista…
+            </OpcionMenu>
           )}
         </MenuContextual>
       )}
