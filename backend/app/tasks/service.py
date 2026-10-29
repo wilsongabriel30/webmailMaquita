@@ -29,8 +29,6 @@ from app.tasks.schemas import (
     ListUpdate,
     MemberAdd,
     MemberOut,
-    TaskListCreate,
-    TaskListUpdate,
 )
 
 
@@ -208,87 +206,7 @@ class TaskService:
 
     # ── To Do style: Lists ──
 
-    async def list_user_lists(self, db, user):
-        """Return all lists for the user with task counts."""
-        board_id = await self.ensure_default_board(db, user)
-        await acceso.completar_propietarias(db, board_id, user)
-        rows = await db.fetch(
-            """SELECT tl.*, COALESCE(cnt.c, 0) as task_count
-               FROM task_lists tl
-               LEFT JOIN (SELECT list_id, COUNT(*) as c FROM task_cards WHERE completed = FALSE GROUP BY list_id) cnt
-               ON cnt.list_id = tl.id
-               WHERE tl.board_id = $1
-               ORDER BY tl.list_type DESC, tl.position, tl.name""",
-            board_id,
-        )
-        return [_row_to_list(r, task_count=r["task_count"]) for r in rows]
-
-    async def create_user_list(self, db, user, data: TaskListCreate):
-        """Create a custom list for the user."""
-        board_id = await self.ensure_default_board(db, user)
-        max_pos = await db.fetchval(
-            "SELECT COALESCE(MAX(position), -1) FROM task_lists WHERE board_id = $1",
-            board_id,
-        )
-        row = await db.fetchrow(
-            "INSERT INTO task_lists (board_id, name, position, color, list_type, icon, owner) VALUES ($1, $2, $3, '#e0e0e0', 'custom', $4, $5) RETURNING *",
-            board_id,
-            data.name,
-            max_pos + 1,
-            data.icon,
-            user,
-        )
-        await acceso.registrar_propietaria(db, row["id"], user, max_pos + 1)
-        await self._log_activity(
-            db, board_id, user, "list_created", f"Lista '{data.name}' creada"
-        )
-        return _row_to_list(row, task_count=0)
-
-    async def rename_user_list(self, db, user, list_id, data: TaskListUpdate):
-        """Rename/update a user list."""
-        if not await self._list_belongs_to_user(db, list_id, user):
-            raise ValueError("List not found")
-        # Don't allow renaming default list
-        row = await db.fetchrow(
-            "SELECT list_type FROM task_lists WHERE id = $1", list_id
-        )
-        if row and row["list_type"] == "default":
-            raise ValueError("Cannot rename default list")
-        sets, params, idx = [], [], 1
-        if data.name is not None:
-            idx += 1
-            sets.append(f"name = ${idx}")
-            params.append(data.name)
-        if data.icon is not None:
-            idx += 1
-            sets.append(f"icon = ${idx}")
-            params.append(data.icon)
-        if not sets:
-            raise ValueError("Nothing to update")
-        sql = f"UPDATE task_lists SET {', '.join(sets)} WHERE id = $1 RETURNING *"
-        row = await db.fetchrow(sql, list_id, *params)
-        cnt = await db.fetchval(
-            "SELECT COUNT(*) FROM task_cards WHERE list_id = $1 AND completed = FALSE",
-            list_id,
-        )
-        return _row_to_list(row, task_count=cnt or 0)
-
-    async def delete_user_list(self, db, user, list_id):
-        """Delete a custom list (not the default one)."""
-        if not await self._list_belongs_to_user(db, list_id, user):
-            raise ValueError("List not found")
-        row = await db.fetchrow(
-            "SELECT list_type, name FROM task_lists WHERE id = $1", list_id
-        )
-        if row and row["list_type"] == "default":
-            raise ValueError("Cannot delete default list")
-        board_id = await self._get_board_id_for_list(db, list_id)
-        await db.execute("DELETE FROM task_lists WHERE id = $1", list_id)
-        if board_id:
-            await self._log_activity(
-                db, board_id, user, "list_deleted", f"Lista '{row['name']}' eliminada"
-            )
-
+    # Listas propias y grupos: listas.py.
     # Las listas inteligentes están en vistas.py.
 
     # ── To Do style: Tasks ──
