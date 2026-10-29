@@ -68,17 +68,6 @@ class ListOut(BaseModel):
     task_count: int = 0
 
 
-# New: TaskList for To Do style
-class TaskListCreate(BaseModel):
-    name: str
-    icon: str = ""
-
-
-class TaskListUpdate(BaseModel):
-    name: Optional[str] = None
-    icon: Optional[str] = None
-
-
 # Card
 class CardCreate(BaseModel):
     title: str

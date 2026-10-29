@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { Task, TaskList, ActiveView } from './types';
+import type { Task, TaskList, ActiveView, Orden } from './types';
 import { COLORS } from './types';
 import { TasksSidebar } from './components/TasksSidebar';
 import { TaskListHeader } from './components/TaskListHeader';
@@ -11,6 +11,11 @@ import { TaskGrid } from './components/TaskGrid';
 import { leerModoVista, guardarModoVista, type ModoVista } from './components/modoVista';
 import { useConteosVistas } from './hooks/useConteosVistas';
 import { agruparPlaneado } from './components/agruparPlaneado';
+import { MisListas } from './components/MisListas';
+import { BotonesCrear } from './components/BotonesCrear';
+import { ordenarTareas, leerOrdenVista, guardarOrdenVista } from './components/ordenarTareas';
+import { useListas } from './hooks/useListas';
+import { useArrastreTareas } from './hooks/useArrastreTareas';
 import { api } from '../../api/client';
 import { SeguimientoVista } from '../tareas/SeguimientoVista';
 
@@ -30,28 +35,26 @@ export function TasksView() {
     return () => window.removeEventListener('toggle-tasks-sidebar', h);
   }, []);
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [customLists, setCustomLists] = useState<TaskList[]>([]);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [sortBy, setSortBy] = useState('date');
   const { conteos, recargarConteos } = useConteosVistas(activeView);
+  const listas = useListas(recargarConteos);
+  const fetchLists = listas.recargar;
+  // «Tareas» es una vista inteligente, pero también una lista de verdad (la por defecto).
+  const listaActiva: TaskList | undefined = activeView === 'tasks'
+    ? listas.listas.find(l => l.list_type === 'default')
+    : listas.listas.find(l => l.id === activeView);
+  const [ordenVistas, setOrdenVistas] = useState<Record<string, Orden>>({});
+  const orden: Orden = listaActiva ? (listaActiva.sort_by || 'manual') : (ordenVistas[activeView] ?? leerOrdenVista(activeView));
+  const cambiarOrden = (o: Orden) => {
+    if (listaActiva) void listas.cambiarLista(listaActiva.id, { sort_by: o });
+    else { guardarOrdenVista(activeView, o); setOrdenVistas(v => ({ ...v, [activeView]: o })); }
+  };
   const [modo, setModo] = useState<ModoVista>(leerModoVista);
   const cambiarModo = (m: ModoVista) => { setModo(m); guardarModoVista(m); };
 
   // ─── Data fetching ─────────────────────────────────────────────
-
-  const fetchLists = useCallback(async () => {
-    try {
-      const lists = await api.get<TaskList[]>('/tasks/lists');
-      const custom = lists.filter(l => l.list_type === 'custom');
-      setCustomLists(custom);
-    } catch {
-      // API not ready yet, use empty state
-      setCustomLists([]);
-    }
-    void recargarConteos();
-  }, [recargarConteos]);
 
   const fetchTasks = useCallback(async () => {
     // «seguimiento» es una vista (SeguimientoVista carga sus datos), no una lista: pedirla como lista daba 400
@@ -75,7 +78,6 @@ export function TasksView() {
     }
   }, [activeView]);
 
-  useEffect(() => { fetchLists(); }, [fetchLists]);
   useEffect(() => { fetchTasks(); }, [fetchTasks]);
 
   // Escuchar evento de refresh desde WebSocket (tarea asignada/actualizada)
@@ -158,48 +160,19 @@ export function TasksView() {
     }
   };
 
-  const createList = async (name: string) => {
-    try {
-      await api.post('/tasks/lists', { name });
-      fetchLists();
-    } catch {
-      setError('No se pudo crear la lista');
-    }
+  // ─── Orden ──────────────────────────────────────────────────────
+
+  const sortedTasks = ordenarTareas(tasks, orden);
+  const arrastre = useArrastreTareas(
+    listaActiva && orden === 'manual' && modo === 'lista' ? listaActiva.id : null,
+    sortedTasks, setTasks, () => { void fetchTasks(); },
+  );
+
+  const eliminarLista = (l: TaskList) => {
+    if (!confirm(`¿Eliminar la lista «${l.name}» y todas sus tareas?`)) return;
+    if (activeView === l.id) setActiveView('tasks');
+    void listas.eliminarLista(l.id);
   };
-
-  const deleteList = async (id: string) => {
-    if (!confirm('¿Eliminar esta lista y todas sus tareas?')) return;
-    try {
-      await api.del(`/tasks/lists/${id}`);
-      if (activeView === id) setActiveView('tasks');
-      fetchLists();
-    } catch {
-      setError('No se pudo eliminar la lista');
-    }
-  };
-
-  // ─── Sort tasks ────────────────────────────────────────────────
-
-  const sortedTasks = [...tasks].sort((a, b) => {
-    // Completed at bottom
-    if (a.completed !== b.completed) return a.completed ? 1 : -1;
-    if (sortBy === 'alpha') return a.title.localeCompare(b.title);
-    if (sortBy === 'important') return (b.important ? 1 : 0) - (a.important ? 1 : 0);
-    if (sortBy === 'created') {
-      const ca = a.created_at || '';
-      const cb = b.created_at || '';
-      return cb.localeCompare(ca);
-    }
-    // date
-    if (a.due_date && b.due_date) return a.due_date.localeCompare(b.due_date);
-    if (a.due_date) return -1;
-    if (b.due_date) return 1;
-    return 0;
-  });
-
-  // ─── Get custom list name ─────────────────────────────────────
-
-  const customListName = customLists.find(l => l.id === activeView)?.name;
 
   // ─── Render ────────────────────────────────────────────────────
 
@@ -214,33 +187,41 @@ export function TasksView() {
       {sidebarVisible && <TasksSidebar
         activeView={activeView}
         onViewChange={v => { setActiveView(v); setSelectedTask(null); }}
-        customLists={customLists}
-        onCreateList={createList}
-        onDeleteList={deleteList}
         smartCounts={conteos}
-      />}
+        pie={<BotonesCrear
+          onCrearLista={async n => { const nueva = await listas.crearLista(n); if (nueva) setActiveView(nueva.id); }}
+          onCrearGrupo={n => { void listas.crearGrupo(n); }} />}
+      >
+        <MisListas listas={listas.listas} grupos={listas.grupos} activeView={activeView}
+          onViewChange={v => { setActiveView(v); setSelectedTask(null); }}
+          onCambiarLista={(id, c) => { void listas.cambiarLista(id, c); }}
+          onEliminarLista={eliminarLista}
+          onRenombrarGrupo={(id, n) => { void listas.renombrarGrupo(id, n); }}
+          onEliminarGrupo={g => { if (confirm(`¿Eliminar el grupo «${g.name}»? Sus listas no se borran: quedan fuera del grupo.`)) void listas.eliminarGrupo(g.id); }}
+          onGuardarBarra={b => { void listas.guardarBarra(b); }} />
+      </TasksSidebar>}
 
       {/* Seguimiento de tareas asignadas (T-34) */}
       {activeView === 'seguimiento' ? <SeguimientoVista yo={yo} tareaInicial={TAREA_INICIAL} /> : (
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#faf9f8', overflow: 'hidden' }}>
         <TaskListHeader
           activeView={activeView}
-          customListName={customListName}
-          sortBy={sortBy}
-          onSortChange={setSortBy}
+          lista={activeView === 'tasks' ? undefined : listaActiva}
+          orden={orden}
+          onOrdenChange={cambiarOrden}
           modo={modo}
           onModoChange={cambiarModo}
         />
 
         {/* Error banner */}
-        {error && (
+        {(error || listas.error) && (
           <div style={{
             margin: '0 24px 8px', padding: '8px 12px', background: '#fde7e9',
             color: '#d13438', borderRadius: 4, fontSize: 13, display: 'flex',
             justifyContent: 'space-between', alignItems: 'center',
           }}>
-            <span>{error}</span>
-            <button onClick={() => setError('')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: 'bold', color: '#d13438' }}>&times;</button>
+            <span>{error || listas.error}</span>
+            <button aria-label="Cerrar aviso" onClick={() => { setError(''); listas.limpiarError(); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: 'bold', color: '#d13438' }}>&times;</button>
           </div>
         )}
 
@@ -278,8 +259,11 @@ export function TasksView() {
                 <TaskGrid tasks={grupo.tasks} seleccionada={selectedTask?.id} onToggle={toggleTask}
                   onToggleImportant={toggleImportant} onOpen={setSelectedTask} onUpdate={updateTask} />
               ) : grupo.tasks.map(task => (
-                <TaskItem key={task.id} task={task} onToggle={toggleTask} onToggleImportant={toggleImportant}
-                  onClick={setSelectedTask} mostrarLista={mostrarLista} />
+                <div key={task.id} {...arrastre.props(task)}
+                  style={{ borderTop: arrastre.sobre === task.id ? `2px solid ${COLORS.primary}` : '2px solid transparent' }}>
+                  <TaskItem task={task} onToggle={toggleTask} onToggleImportant={toggleImportant}
+                    onClick={setSelectedTask} mostrarLista={mostrarLista} />
+                </div>
               ))}
             </div>
           ))}

@@ -6,7 +6,23 @@ export interface TaskList {
   list_type: 'smart' | 'custom' | 'default';
   icon?: string;
   task_count: number;
+  color?: string;
+  sort_by?: Orden;
+  group_id?: string | null;
+  position?: number;
+  role?: 'owner' | 'member';
+  miembros?: number;
 }
+
+/** Grupo de listas de la barra lateral (cada persona arma los suyos). */
+export interface TaskGroup {
+  id: string;
+  name: string;
+  position: number;
+}
+
+/** Cómo se ordenan las tareas de una lista: manual es el orden en que se arrastraron. */
+export type Orden = 'manual' | 'date' | 'important' | 'alpha' | 'created';
 
 export interface Task {
   id: string;
@@ -20,6 +36,7 @@ export interface Task {
   recurrence?: string | null;  // daily, weekdays, weekly, monthly, yearly
   note?: string;
   list_id?: string;
+  position?: number;
   assigned_to?: string;
   created_by?: string;
   created_at?: string;

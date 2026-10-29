@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
 from app.tasks import acceso, correo_marcado
+from app.tasks.rutas_listas import router as listas_router
 from app.tasks.rutas_vistas import router as vistas_router
 from app.tasks.schemas import (
     ActivityOut,
@@ -28,8 +29,6 @@ from app.tasks.schemas import (
     ListOut,
     MemberAdd,
     MemberOut,
-    TaskListCreate,
-    TaskListUpdate,
 )
 from app.tasks.service import task_service
 from app.tasks.task_calendar_sync import (
@@ -41,9 +40,8 @@ from app.tasks.task_calendar_sync import (
 _sync_logger = logging.getLogger("task_sync")
 
 router = APIRouter()
-router.include_router(
-    vistas_router
-)  # listas inteligentes, tareas de una lista, «Mi día» y conteos
+router.include_router(listas_router)  # listas propias, grupos y orden
+router.include_router(vistas_router)  # listas inteligentes, «Mi día» y conteos
 
 
 def _db(request: Request):
@@ -58,42 +56,7 @@ def _redis(request: Request):
 #  Microsoft To Do style endpoints
 # ════════════════════════════════════════════════
 
-# ── Lists ──
-
-
-@router.get("/lists", response_model=list[ListOut])
-async def todo_list_lists(request: Request, user: str = Depends(get_current_user)):
-    return await task_service.list_user_lists(_db(request), user)
-
-
-@router.post("/lists", response_model=ListOut, status_code=201)
-async def todo_create_list(
-    data: TaskListCreate, request: Request, user: str = Depends(get_current_user)
-):
-    return await task_service.create_user_list(_db(request), user, data)
-
-
-@router.patch("/lists/{list_id}", response_model=ListOut)
-async def todo_rename_list(
-    list_id: uuid.UUID,
-    data: TaskListUpdate,
-    request: Request,
-    user: str = Depends(get_current_user),
-):
-    try:
-        return await task_service.rename_user_list(_db(request), user, list_id, data)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@router.delete("/lists/{list_id}", status_code=204)
-async def todo_delete_list(
-    list_id: uuid.UUID, request: Request, user: str = Depends(get_current_user)
-):
-    try:
-        await task_service.delete_user_list(_db(request), user, list_id)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+# Listas propias, grupos y orden: rutas_listas.py.
 
 
 # ── Tasks in lists ──
