@@ -2,6 +2,7 @@
 import type { MouseEvent } from 'react';
 import type { Task } from '../types';
 import { COLORS } from '../types';
+import { colorCategoria } from './categorias';
 import { CirculoPersona } from './CirculoPersona';
 import { urlCorreo } from './urlCorreo';
 
@@ -93,7 +94,7 @@ export function TaskItem({ task, onToggle, onToggleImportant, onClick, mostrarLi
             ) : task.list_name}
           </div>
         )}
-        {(task.due_date || task.recurrence || task.reminder || task.pasos || task.adjuntos || task.note) && (
+        {(task.due_date || task.recurrence || task.reminder || task.pasos || task.adjuntos || task.note || !!task.labels?.length) && (
           <div style={{ fontSize: 12, color: COLORS.secondary, marginTop: 2, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             {!!task.pasos && <span>{task.pasos_hechos ?? 0} de {task.pasos}</span>}
             {task.recurrence && (
@@ -126,6 +127,12 @@ export function TaskItem({ task, onToggle, onToggleImportant, onClick, mostrarLi
                 </svg>
               </span>
             )}
+            {(task.labels || []).map(c => (
+              <span key={c} title={c} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 2, background: colorCategoria(c).color }} />
+                {c.replace(/^Categoría /, '')}
+              </span>
+            ))}
             {!!task.note && (
               <span title="Tiene nota" style={{ display: 'flex', alignItems: 'center' }}>
                 <svg aria-label="Con nota" width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>

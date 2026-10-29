@@ -2,7 +2,8 @@
 
 Bucle de fondo (cada 60 s) con RECLAMO ATÓMICO (UPDATE … RETURNING), seguro
 con múltiples workers: cada recordatorio se publica exactamente una vez.
-- Tareas: task_cards.reminder vencido (ventana 1 h) y no completado.
+- Tareas: task_cards.reminder vencido (ventana 1 h) y no completado; desde la F5 de Tareas le llega a quien
+  corresponde (app/tasks/avisos_tiempo.destinatarios) y además sale el aviso «Vence hoy».
 - Eventos: aviso N minutos antes de dtstart (reminders[0].minutes o 15 por
   defecto; se omiten día completo y recurrentes).
 Publica en Redis (ws:user:<owner>) con type="reminder" → el frontend muestra
@@ -35,7 +36,7 @@ WHERE l.id = c.list_id
   AND c.reminder > $1 - interval '1 hour'
   AND c.completed = FALSE
   AND c.reminder_sent = FALSE
-RETURNING c.id, c.title, l.owner
+RETURNING c.id, c.title, c.list_id, c.created_by, c.asignada, l.owner
 """
 
 CLAIM_EVENTS = """
@@ -164,16 +165,30 @@ async def check_reminders(app):
                 ddl_listo = True
             now = datetime.now(timezone.utc)
 
+            from app.tasks import avisos_tiempo
+
             rows = await db.fetch(CLAIM_TASKS, now)
             for r in rows:
-                await _publish(
-                    redis,
-                    r["owner"],
-                    f"⏰ Recordatorio de tarea: {r['title']}",
-                    f"task-rem-{r['id']}",
-                    kind="task",
-                    entity_id=r["id"],
-                )
+                try:
+                    personas = await avisos_tiempo.destinatarios(db, r)
+                except Exception as exc:
+                    logger.warning(
+                        "Destinatarios del recordatorio %s: %s", r["id"], exc
+                    )
+                    personas = [r["owner"]]
+                for persona in personas:
+                    await _publish(
+                        redis,
+                        persona,
+                        f"⏰ Recordatorio de tarea: {r['title']}",
+                        f"task-rem-{r['id']}",
+                        kind="task",
+                        entity_id=r["id"],
+                    )
+            try:
+                await avisos_tiempo.avisar_vencimientos(db, redis, now)
+            except Exception as exc:
+                logger.error("Error en avisos de vencimiento de tareas: %s", exc)
 
             rows = await db.fetch(CLAIM_EVENTS, now)
             for r in rows:

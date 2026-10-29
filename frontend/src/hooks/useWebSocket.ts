@@ -195,13 +195,14 @@ export function useWebSocket(enabled: boolean = true) {
               const remMsg = data.message || 'Recordatorio';
               window.dispatchEvent(new CustomEvent('show-reminder', { detail: data }));
               playNotificationSound();
+              if (data.kind === 'task') window.dispatchEvent(new CustomEvent('refresh-tasks'));
               if (permisoNotificacion() === 'granted') {
                 try {
                   avisar(`${nombreApp()} · Recordatorio`, {
                     cuerpo: remMsg,
                     tipo: 'recordatorio',
                     etiqueta: data.tag || 'reminder',
-                    destino: '/webmail/calendar',
+                    destino: data.kind === 'task' ? '/webmail/tasks' : '/webmail/calendar',
                     enlaceExterno: enlaceReunionSeguro(data.link) || undefined,
                   });
                 } catch { /* no es crítico: se sigue sin aviso */ }

@@ -1,6 +1,8 @@
 """Listas inteligentes de Tareas (como en To Do) y tareas de una lista, vistas por una persona.
 
-Todas miran las listas que la persona ve (las suyas y las que le compartieron) y devuelven cada tarea
+Todas miran las listas que la persona ve (las suyas y las que le compartieron) y, desde la F5, también las tareas
+que le asignaron de otras listas («Asignar tarea a»), salvo en «Tareas» y «Correo marcado», que son listas
+propias. Devuelven cada tarea
 con lo que es propio de quien mira: si está en su «Mi día» de hoy. Agregan el nombre de la lista, las
 personas asignadas y, si la tarea viene de un correo marcado, el enlace al mensaje.
 """
@@ -8,7 +10,7 @@ personas asignadas y, si la tarea viene de un correo marcado, el enlace al mensa
 from __future__ import annotations
 
 from app.tasks import mi_dia
-from app.tasks.acceso import LISTAS_VISIBLES
+from app.tasks.acceso import ASIGNADA_A, LISTAS_VISIBLES
 from app.tasks.schemas import CardOut, CorreoRef
 from app.tasks.service import _row_to_card
 
@@ -25,7 +27,7 @@ _SELECT = f"""SELECT tc.*, tl.name AS list_name, {_EN_MI_DIA} AS en_mi_dia,
   FROM task_cards tc
   JOIN task_lists tl ON tl.id = tc.list_id
   LEFT JOIN task_correo co ON co.card_id = tc.id
- WHERE tc.list_id IN ({LISTAS_VISIBLES})"""
+ WHERE (tc.list_id IN ({LISTAS_VISIBLES}) OR {ASIGNADA_A})"""
 
 # Seguimiento (T-34) tiene su propia vista para lo que un jefe asigna: no se mezcla en «Asignado a mí».
 _ASIGNADA_A_MI = (
@@ -38,8 +40,8 @@ FILTROS = {
     "important": "tc.important",
     "planned": "(tc.due_date IS NOT NULL OR tc.reminder IS NOT NULL)",
     "assigned": _ASIGNADA_A_MI,
-    "tasks": "tl.list_type = 'default'",
-    "flagged": "tl.list_type = 'flagged'",
+    "tasks": f"tl.list_type = 'default' AND tc.list_id IN ({LISTAS_VISIBLES})",
+    "flagged": f"tl.list_type = 'flagged' AND tc.list_id IN ({LISTAS_VISIBLES})",
 }
 
 _ORDEN = {
@@ -130,7 +132,7 @@ async def contar(db, user: str) -> dict[str, int]:
                   count(*) FILTER (WHERE {FILTROS['flagged']})   AS marcado
              FROM task_cards tc
              JOIN task_lists tl ON tl.id = tc.list_id
-            WHERE tc.list_id IN ({LISTAS_VISIBLES}) AND tc.completed = FALSE""",
+            WHERE (tc.list_id IN ({LISTAS_VISIBLES}) OR {ASIGNADA_A}) AND tc.completed = FALSE""",
         user,
         mi_dia.hoy(),
     )

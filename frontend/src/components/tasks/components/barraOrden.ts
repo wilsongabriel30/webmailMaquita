@@ -81,3 +81,31 @@ export function mover(barra: Elemento[], arrastrado: { tipo: 'grupo' | 'lista'; 
 export function moverAGrupo(barra: Elemento[], listaId: string, grupoId: string | null): Elemento[] {
   return mover(barra, { tipo: 'lista', id: listaId }, grupoId ? { tipo: 'enGrupo', id: grupoId } : { tipo: 'alFinal' });
 }
+
+/** Dónde está una lista: en qué grupo (o arriba, null) y en qué lugar entre sus vecinas. */
+function lugar(barra: Elemento[], listaId: string): { grupo: string | null; i: number; total: number } | null {
+  const arriba = barra.findIndex(e => e.tipo === 'lista' && e.id === listaId);
+  if (arriba >= 0) return { grupo: null, i: arriba, total: barra.length };
+  for (const e of barra) {
+    if (e.tipo === 'grupo' && e.listas.includes(listaId)) return { grupo: e.id, i: e.listas.indexOf(listaId), total: e.listas.length };
+  }
+  return null;
+}
+
+/** «Mover arriba» (-1) o «Mover abajo» (+1) desde el menú: cambia de lugar con su vecina, dentro de su grupo. */
+export function puedeDesplazar(barra: Elemento[], listaId: string, delta: -1 | 1): boolean {
+  const l = lugar(barra, listaId);
+  return !!l && l.i + delta >= 0 && l.i + delta < l.total;
+}
+
+export function desplazar(barra: Elemento[], listaId: string, delta: -1 | 1): Elemento[] {
+  const l = lugar(barra, listaId);
+  if (!l || !puedeDesplazar(barra, listaId, delta)) return barra;
+  const cambiar = <T,>(xs: T[]): T[] => {
+    const ys = [...xs];
+    [ys[l.i], ys[l.i + delta]] = [ys[l.i + delta], ys[l.i]];
+    return ys;
+  };
+  if (l.grupo === null) return cambiar(barra);
+  return barra.map(e => (e.tipo === 'grupo' && e.id === l.grupo ? { ...e, listas: cambiar(e.listas) } : e));
+}
