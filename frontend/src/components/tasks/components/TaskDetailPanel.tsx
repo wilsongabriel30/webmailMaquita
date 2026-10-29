@@ -28,6 +28,8 @@ interface Props {
   onRefrescar: () => void;
   /** La tarea volvió del servidor con otros asignados. */
   onAsignada: (t: Task) => void;
+  /** ⚙ «Confirmar antes de eliminar» (F6). */
+  confirmar?: boolean;
 }
 
 function fechaCorta(iso: string): string {
@@ -41,7 +43,7 @@ function fechaCorta(iso: string): string {
 
 const iconoPie = { display: 'flex', background: 'none', border: 'none', cursor: 'pointer', color: COLORS.secondary, padding: 4 };
 
-export function TaskDetailPanel({ task, onUpdate, onToggle, onToggleImportant, onDelete, onClose, onRefrescar, onAsignada }: Props) {
+export function TaskDetailPanel({ task, onUpdate, onToggle, onToggleImportant, onDelete, onClose, onRefrescar, onAsignada, confirmar = true }: Props) {
   const [title, setTitle] = useState(task.title);
   const [verActividad, setVerActividad] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -79,7 +81,7 @@ export function TaskDetailPanel({ task, onUpdate, onToggle, onToggleImportant, o
     <aside aria-label="Detalles de la tarea" className="panel-tarea" style={{
       width: 360, minWidth: 360, background: FONDO_PANEL, borderLeft: `1px solid ${COLORS.border}`,
       display: 'flex', flexDirection: 'column', height: '100%',
-      fontFamily: "'Segoe UI', system-ui, sans-serif",
+      fontFamily: "'Segoe UI', system-ui, sans-serif", boxShadow: '-2px 0 8px rgba(0,0,0,0.05)',
     }}>
       <style>{`.panel-tarea input.paso-nuevo::placeholder, .panel-tarea textarea.nota-tarea::placeholder { color: ${COLORS.secondary}; }
 .panel-tarea input.paso-nuevo::placeholder { color: ${COLORS.primary}; }`}</style>
@@ -195,7 +197,7 @@ export function TaskDetailPanel({ task, onUpdate, onToggle, onToggleImportant, o
               </svg>
             </button>
             <span style={{ flex: 1, fontSize: 12, color: COLORS.secondary, textAlign: 'center' }}>{pie}</span>
-            <button type="button" aria-label="Eliminar tarea" title="Eliminar tarea" onClick={() => setConfirmDelete(true)} style={iconoPie}
+            <button type="button" aria-label="Eliminar tarea" title="Eliminar tarea" onClick={() => (confirmar ? setConfirmDelete(true) : onDelete(task.id))} style={iconoPie}
               onMouseEnter={e => { e.currentTarget.style.color = '#d13438'; }}
               onMouseLeave={e => { e.currentTarget.style.color = COLORS.secondary; }}>
               <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>

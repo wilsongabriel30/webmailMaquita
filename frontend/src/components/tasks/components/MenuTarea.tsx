@@ -20,6 +20,8 @@ interface Props {
   onDelete: (id: string) => void;
   /** Abrir el recuadro «Asignar tarea a:». */
   onAsignar: (task: Task) => void;
+  /** ⚙ «Confirmar antes de eliminar» (F6). */
+  confirmar?: boolean;
 }
 
 function manana(): string {
@@ -28,7 +30,7 @@ function manana(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export function MenuTarea({ task, x, y, listas, onCerrar, onUpdate, onToggle, onToggleImportant, onMover, onDelete, onAsignar }: Props) {
+export function MenuTarea({ task, x, y, listas, onCerrar, onUpdate, onToggle, onToggleImportant, onMover, onDelete, onAsignar, confirmar = true }: Props) {
   const hacer = (accion: () => void) => () => { onCerrar(); accion(); };
   // A dónde se puede mover: listas propias, compartidas y «Tareas» (no la del correo marcado).
   const destinos = listas.filter(l => (l.list_type === 'custom' || l.list_type === 'default') && l.id !== task.list_id);
@@ -85,7 +87,7 @@ export function MenuTarea({ task, x, y, listas, onCerrar, onUpdate, onToggle, on
         </div>
       )}
       <SeparadorMenu />
-      <OpcionMenu peligro onClick={hacer(() => { if (confirm(`¿Eliminar la tarea «${task.title}»?`)) onDelete(task.id); })}>
+      <OpcionMenu peligro onClick={hacer(() => { if (!confirmar || confirm(`¿Eliminar la tarea «${task.title}»?`)) onDelete(task.id); })}>
         Eliminar tarea
       </OpcionMenu>
     </MenuContextual>

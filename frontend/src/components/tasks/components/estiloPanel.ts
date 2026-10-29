@@ -1,15 +1,17 @@
 // Estilos compartidos por las secciones del panel de detalle de una tarea. Desde la F5 el panel va como en Outlook:
-// tarjetas sobre un fondo rosado claro, cada una con sus filas («Recordarme», «Hoy», «Repetir»… comparten tarjeta).
+// tarjetas, cada una con sus filas («Recordarme», «Hoy», «Repetir»… comparten tarjeta). Desde la F6 vuelve a los
+// colores de antes (fondo blanco y bordes grises): el rosado de las fotos era el sombreado de la indicación.
 import type { CSSProperties } from 'react';
 import { COLORS } from '../types';
 
-/** Fondo del panel y de sus tarjetas (los tonos del panel de Outlook). */
-export const FONDO_PANEL = '#fbf3f4';
-export const FONDO_TARJETA = '#f6e9eb';
-export const LINEA_TARJETA = '#ead7da';
+/** Fondo del panel y de sus tarjetas, y la línea entre filas (los colores de siempre del webmail). */
+export const FONDO_PANEL = 'white';
+export const FONDO_TARJETA = 'white';
+export const LINEA_TARJETA = COLORS.border;
 
 export const tarjeta: CSSProperties = {
-  background: FONDO_TARJETA, borderRadius: 4, margin: '0 12px 8px', display: 'flex', flexDirection: 'column',
+  background: FONDO_TARJETA, border: `1px solid ${COLORS.border}`, borderRadius: 4, margin: '0 12px 8px',
+  display: 'flex', flexDirection: 'column',
 };
 
 /** Una fila dentro de una tarjeta. */
