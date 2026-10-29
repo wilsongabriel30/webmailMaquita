@@ -11,7 +11,7 @@ import { boton, poner } from './sitio_piezas.js';
 const MODOS = [['644', 'Lectura para todos (644)'], ['640', 'De serie del sitio (640)'], ['600', 'Solo el dueño (600)'],
   ['755', 'Carpeta o programa, lectura para todos (755)'], ['750', 'Carpeta de serie del sitio (750)'], ['700', 'Carpeta solo del dueño (700)']];
 const unir = (carpeta, nombre) => (carpeta === '.' ? nombre : `${carpeta}/${nombre}`);
-const esComprimido = (n) => /\.(zip|tar\.gz|tgz)$/i.test(n);
+const esComprimido = (n) => /\.(zip|tar\.gz|tgz|rar|7z)$/i.test(n);
 
 export async function pestanaGestor(ctx) {
   const base = `/sitios/${enRutaSitio(ctx.sitio)}/archivos`;

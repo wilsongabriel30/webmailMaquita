@@ -1,4 +1,4 @@
-"""Subir su propio paquete (.zip o .tar.gz) a un sitio vacío desde el panel.
+"""Subir su propio paquete (.zip, .tar.gz, .rar o .7z) a un sitio vacío desde el panel.
 
 Para aplicaciones que no están en el catálogo: el panel deja el archivo en SUBIDAS y este módulo lo extrae en la
 carpeta pública con las mismas protecciones que los paquetes del catálogo (sin rutas fuera del destino, sin
@@ -17,7 +17,7 @@ import zipfile
 from comun import ErrorSitio, guardar_meta, leer_meta
 
 SUBIDAS = "/var/lib/maquita-sitios/subidas"
-RE_ARCHIVO = re.compile(r"^[0-9a-f]{32}\.(zip|tar\.gz|tgz)$")
+RE_ARCHIVO = re.compile(r"^[0-9a-f]{32}\.(zip|tar\.gz|tgz|rar|7z)$")
 TOPE_EXTRAIDO = 3 * 1024**3  # 3 GB descomprimido
 TOPE_ARCHIVOS = 150_000
 CARPETAS_WEB = ("public", "public_html", "htdocs", "web", "www", "html")
@@ -26,6 +26,9 @@ ENTRADAS = ("index.php", "index.html", "index.htm")
 
 def _medir(ruta):
     """Tamaño y número de archivos una vez descomprimido (sin descomprimir)."""
+    if ruta.lower().endswith((".rar", ".7z")):
+        import archivos_7z
+        return archivos_7z.medir(ruta)
     if zipfile.is_zipfile(ruta):
         with zipfile.ZipFile(ruta) as z:
             info = z.infolist()
@@ -35,7 +38,7 @@ def _medir(ruta):
             miembros = t.getmembers()
             return sum(m.size for m in miembros), len(miembros)
     except tarfile.TarError:
-        raise ErrorSitio("el archivo no es un .zip ni un .tar.gz válido")
+        raise ErrorSitio("el archivo no es un .zip, .tar.gz, .rar ni .7z válido")
 
 
 def _raiz_web(publico):

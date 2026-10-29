@@ -1,4 +1,4 @@
-"""Subir un paquete propio (.zip o .tar.gz) a un sitio vacío; con el respaldo de su base (.sql o .sql.gz) es una
+"""Subir un paquete propio (.zip, .tar.gz, .rar o .7z) a un sitio vacío; con el respaldo de su base (.sql o .sql.gz) es una
 migración desde otro hosting (se importa la base y se conecta la aplicación).
 
 Los archivos se guardan por trozos en /var/lib/maquita-sitios/subidas con un nombre aleatorio (nunca el que trae)
@@ -47,7 +47,7 @@ async def subir(dominio: str, r: Request, archivo: UploadFile = File(...), base:
     dominio = _dominio(dominio)
     if not os.path.isdir(SUBIDAS):
         raise HTTPException(503, "Falta la carpeta de subidas: actualice la sección de sitios (instalar-app.sh sitios)")
-    destino, total = await _guardar(archivo, (".tar.gz", ".tgz", ".zip"), 0)
+    destino, total = await _guardar(archivo, (".tar.gz", ".tgz", ".zip", ".rar", ".7z"), 0)
     destino_base = None
     try:
         if base is not None and base.filename:

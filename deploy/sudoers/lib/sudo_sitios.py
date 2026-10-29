@@ -26,7 +26,7 @@ def validar_sitios(args):
         return args
     if len(args) == 3 and args[0] == "alias" and dom(args[1]) and _RE_B64URL_LARGO.fullmatch(args[2]):
         return args
-    if (len(args) in (4, 5) and args[0] == "paquete" and dom(args[1]) and re.fullmatch(r"[0-9a-f]{32}\.(zip|tar\.gz|tgz)", args[2])
+    if (len(args) in (4, 5) and args[0] == "paquete" and dom(args[1]) and re.fullmatch(r"[0-9a-f]{32}\.(zip|tar\.gz|tgz|rar|7z)", args[2])
             and args[3] in ("con-bd", "sin-bd") and (len(args) == 4 or re.fullmatch(r"[0-9a-f]{32}\.(sql|sql\.gz)", args[4]))):
         return args
     texto = lambda a: bool(re.fullmatch(r"[0-9a-f]{32}\.txt", a))  # noqa: E731  contenido dejado en subidas/

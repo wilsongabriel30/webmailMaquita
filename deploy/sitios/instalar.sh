@@ -19,9 +19,16 @@ echo -e "${GREEN}[1/9] Paquetes (PHP-FPM, MariaDB, vsftpd)...${NC}"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq php-fpm php-cli php-mysql php-xml php-mbstring php-curl php-zip php-gd \
-    php-intl php-bcmath php-imagick php-soap php-pgsql php-gmp php-ldap php-apcu php-sqlite3 mariadb-server vsftpd unzip ssl-cert \
+    php-intl php-bcmath php-imagick php-soap php-pgsql php-gmp php-ldap php-apcu php-sqlite3 mariadb-server vsftpd unzip 7zip ssl-cert \
     libnginx-mod-http-modsecurity modsecurity-crs fail2ban \
     python3-venv git gpg >/dev/null
+# .rar: el códec es propietario y va en «7zip-rar» (sección non-free). Se instala solo si el servidor tiene non-free
+# habilitado; si no, .zip, .tar.gz y .7z funcionan igual y al subir un .rar el panel dice que no hay soporte.
+if apt-cache policy 7zip-rar 2>/dev/null | grep -q '^ *Candidate: [0-9]'; then
+    apt-get install -y -qq 7zip-rar >/dev/null
+else
+    echo -e "${YELLOW}Sin soporte para .rar: 7zip-rar está en non-free y este servidor no lo tiene habilitado (.zip, .tar.gz y .7z sí funcionan).${NC}"
+fi
 # Aplicaciones propias en Node.js: el del sistema si no hay uno (el webmail suele traer Node 20 o posterior).
 command -v node >/dev/null || apt-get install -y -qq nodejs npm >/dev/null
 # Funciones web por sitio: htpasswd con bcrypt (carpetas con contraseña) y brotli si la distribución lo trae. Si no
