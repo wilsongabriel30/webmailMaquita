@@ -30,6 +30,7 @@ Estados: **DONE** (publicado) · **IN PROGRESS** (en desarrollo) · **PLANNED** 
 | 2026-10-23 | 1.11.5 | Drive: «Eliminar definitivamente» en la papelera (ruta que faltaba en el Almacén) |
 | 2026-10-26 | 1.11.6 | Favicon con el logo de la organización en el panel, el webmail y el Drive (adiós al rayo de Vite) |
 | 2026-10-29 | 1.11.7 | Grupo «Párrafo» e importancia en el redactor, aviso de invitaciones no entregadas, contadores y Cuadrícula en Tareas, sitios en .rar y .7z |
+| 2026-10-30 | 1.11.8 | Tareas al estilo Microsoft To Do: listas propias y compartidas, grupos, detalle con pasos, repetición y adjuntos, asignar con plazo e indicaciones, recordatorios, Sugerencias y configuración |
 
 El detalle de cada versión está en [CHANGELOG.md](CHANGELOG.md) y en
 [Releases](https://github.com/wilsongabriel30/webmailMaquita/releases).

@@ -7,6 +7,36 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.11.8] - 2026-10-30
+
+Tareas al estilo Microsoft To Do: listas propias y compartidas, grupos, detalle con pasos, repetición y archivos, asignar tareas con plazo e indicaciones, recordatorios, Sugerencias y configuración.
+
+### Añadido
+- **Listas inteligentes** como To Do: Mi día (por persona y día, hora de Guayaquil), Importante, Planeado, Asignado a mí, Correo electrónico marcado y Tareas, con su contador.
+- **Listas propias y grupos**: crear, renombrar, colorear, duplicar, imprimir y eliminar listas; un emoji al inicio del nombre hace de ícono. Grupos de listas que se pliegan, y arrastrar para ordenar. Cinco órdenes (personalizado, vencimiento, importancia, alfabético y creación); en una lista el orden se guarda para todas sus personas.
+- **Panel de detalle**: completar, título editable, importancia, pasos («n de m» en la fila), Mi día, recordatorio, fecha de vencimiento, repetición (diaria, laborables, semanal, mensual, anual o personalizada), categoría, archivos adjuntos y nota, con la actividad de la tarea. Mover entre listas y búsqueda en título, nota y pasos.
+- **Compartir listas** con personas de la organización (propietaria y miembros), con actividad y cambios en tiempo real.
+- **«Asignar tarea a:»** desde el panel o el clic derecho, en cualquier vista: personas del directorio o cuentas de área escritas completas. Con plazo («Hoy», «Mañana», «En 3 días», «La próxima semana» o una fecha) e indicaciones de hasta 2.000 caracteres. Quien la recibe la ve en «Asignado a mí» con «Asignada por …», recibe un correo con el plazo y las indicaciones, y al marcarla como realizada avisa a quien la asignó.
+- **Recordatorios y «Vence hoy»** (desde las 08:00) en pantalla y como notificación del navegador. El recordatorio abre Tareas.
+- **Barra para agregar** como Outlook (fecha, recordatorio y repetición antes de crear), **Sugerencias** en Mi día (vencidas, para hoy, próximas y recientes), **Grupo** (por lista, vencimiento o categoría) y **⚙ Configuración** guardada en el servidor: confirmar antes de eliminar, importantes arriba, sonido al completar, listas inteligentes visibles y avisos por correo.
+
+### Corregido
+- **Tareas: tableros y listas «Tareas» duplicados.** Al abrir Tareas por primera vez, las peticiones simultáneas creaban cada una su tablero: 13 personas tenían dos listas «Tareas». «Mover a…» la repetía y, con la misma hora de creación, una tarea nueva podía ir a la lista que no se ve. Ahora se crea con un candado por persona, y una migración une los repetidos sin perder nada.
+- **Tareas en el teléfono**: la cuadrícula medía 540 px y la estrella y la fecha quedaban fuera de la pantalla. Ahora cabe en 390 px, y los botones de la cabecera bajan de línea.
+- **Tareas: la búsqueda no encontraba si faltaba una tilde.** Ahora «accion» encuentra «Acción»; la ñ se respeta.
+- **Tareas: la fecha se ve igual en Cuadrícula y Lista**: «Hoy», «Mañana» o «Ayer»; en rojo si venció, en azul si vence hoy y en gris si está completada.
+- **La burbuja del chat tapaba** la papelera del panel de detalle de Tareas y las tarjetas de recordatorio, que ahora se apilan encima de ella. La ⚙ junto al buscador de Tareas ya no queda cortada.
+- **Tildes y eñes en textos visibles**: «Confirmar recuperación», «Cada día», «Cada año» y «reenvíos». «Descubrir grupos» ya no cita una dirección de ejemplo: ahora remite al Departamento de Tecnología.
+- **Candado (pruebas de humo), prueba T-40**: salía en rojo en falso cuando caducaba la sesión de pruebas guardada.
+
+### Al actualizar
+- El actualizador aplica siete migraciones de Tareas, todas idempotentes:
+  - `2026-10-29-tareas-to-do-f0.sql`, `2026-10-30-…-f3`, `2026-10-31-…-f4`, `2026-11-01-…-f5` y `2026-11-02-…-f6`;
+  - `2026-11-03-tareas-tablero-unico.sql`, que une los tableros repetidos y crea índices únicos;
+  - `2026-11-04-tareas-asignacion-plazo.sql`.
+- Las tareas y listas existentes se conservan. Cada lista recibe a su propietaria como miembro, y lo que estaba en «Mi día» sigue ahí.
+- No hay servicios, temporizadores ni variables de entorno nuevos.
+
 ## [1.11.7] - 2026-10-29
 
 Redactor con grupo «Párrafo» como Outlook e importancia que por fin viaja en el correo; el Calendario avisa si una invitación no llega; Tareas con contadores y vista Cuadrícula; sitios en .rar y .7z (entrega de Andes).
