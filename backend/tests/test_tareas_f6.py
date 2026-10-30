@@ -69,3 +69,52 @@ def test_sugerencias_excluyen_mi_dia_completadas_y_seguimiento():
     for sql in db.sql:
         assert "NOT tc.completed" in sql and "NOT tc.asignada" in sql
         assert "NOT EXISTS (SELECT 1 FROM task_mi_dia" in sql
+
+
+# Corrección «Asignar tarea a:» (29/10/2026): el aviso de asignación sale también por correo aunque la persona no lo
+# haya pedido; los demás avisos de listas siguen dependiendo de su preferencia.
+
+
+class _RedisAviso:
+    async def publish(self, canal, msg):
+        pass
+
+
+class _DBSinPreferencia:
+    async def fetchval(self, sql, *a):
+        return False
+
+
+def test_asignar_manda_correo_siempre(monkeypatch):
+    from app.tasks import avisos_listas
+
+    enviados = []
+
+    async def _correo(destinos, titulo, texto, url):
+        enviados.append(destinos)
+
+    monkeypatch.setattr(avisos_listas.avisos, "_correo", _correo)
+    asyncio.run(
+        avisos_listas.avisar(
+            _RedisAviso(),
+            _DBSinPreferencia(),
+            ["eva@x.org"],
+            "ana@x.org",
+            "assigned",
+            "T",
+            "x",
+            correo=True,
+        )
+    )
+    asyncio.run(
+        avisos_listas.avisar(
+            _RedisAviso(),
+            _DBSinPreferencia(),
+            ["eva@x.org"],
+            "ana@x.org",
+            "updated",
+            "T",
+            "x",
+        )
+    )
+    assert enviados == [["eva@x.org"]]

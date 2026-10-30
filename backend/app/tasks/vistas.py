@@ -58,6 +58,7 @@ def a_tarjeta(row) -> CardOut:
     card.pasos = row["pasos_total"]
     card.pasos_hechos = row["pasos_hechos"]
     card.adjuntos = row["adjuntos_total"]
+    card.seguimiento = bool(row["asignada"])
     if row["correo_uid"] is not None:
         card.correo = CorreoRef(
             carpeta=row["correo_carpeta"],

@@ -148,6 +148,8 @@ class CardOut(BaseModel):
     pasos: int = 0
     pasos_hechos: int = 0
     adjuntos: int = 0
+    # Tarea de Seguimiento (T-34): se asigna desde Seguimiento, no con «Asignar tarea a».
+    seguimiento: bool = False
 
 
 # Label
