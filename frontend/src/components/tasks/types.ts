@@ -53,6 +53,15 @@ export interface Task {
   labels?: string[];
   // Tarea de Seguimiento (T-34): se asigna desde Seguimiento, no con «Asignar tarea a».
   seguimiento?: boolean;
+  // Si me la asignaron: quién, cuándo y con qué indicaciones (solo lo ve la persona asignada).
+  asignacion?: AsignacionMia | null;
+}
+
+export interface AsignacionMia {
+  por: string;
+  por_nombre: string;
+  en: string;
+  indicaciones: string;
 }
 
 /** Persona de una lista compartida (la propietaria o un miembro). */

@@ -9,9 +9,10 @@ personas asignadas y, si la tarea viene de un correo marcado, el enlace al mensa
 
 from __future__ import annotations
 
+from app.tareas import avisos
 from app.tasks import mi_dia
 from app.tasks.acceso import ASIGNADA_A, LISTAS_VISIBLES
-from app.tasks.schemas import CardOut, CorreoRef
+from app.tasks.schemas import AsignacionMia, CardOut, CorreoRef
 from app.tasks.service import _row_to_card
 
 # $1 = persona, $2 = fecha de hoy en Guayaquil.
@@ -23,10 +24,12 @@ _SELECT = f"""SELECT tc.*, tl.name AS list_name, {_EN_MI_DIA} AS en_mi_dia,
        ARRAY(SELECT a.email FROM task_asignados a WHERE a.card_id = tc.id ORDER BY a.asignado_en) AS asignados_todos,
        (SELECT count(*) FROM task_steps s WHERE s.card_id = tc.id) AS pasos_total,
        (SELECT count(*) FROM task_steps s WHERE s.card_id = tc.id AND s.completed) AS pasos_hechos,
-       (SELECT count(*) FROM task_adjuntos ad WHERE ad.card_id = tc.id) AS adjuntos_total
+       (SELECT count(*) FROM task_adjuntos ad WHERE ad.card_id = tc.id) AS adjuntos_total,
+       mia.asignado_por AS mia_por, mia.asignado_en AS mia_en, mia.indicaciones AS mia_indicaciones
   FROM task_cards tc
   JOIN task_lists tl ON tl.id = tc.list_id
   LEFT JOIN task_correo co ON co.card_id = tc.id
+  LEFT JOIN task_asignados mia ON mia.card_id = tc.id AND mia.email = $1
  WHERE (tc.list_id IN ({LISTAS_VISIBLES}) OR {ASIGNADA_A})"""
 
 # Seguimiento (T-34) tiene su propia vista para lo que un jefe asigna: no se mezcla en «Asignado a mí».
@@ -59,6 +62,13 @@ def a_tarjeta(row) -> CardOut:
     card.pasos_hechos = row["pasos_hechos"]
     card.adjuntos = row["adjuntos_total"]
     card.seguimiento = bool(row["asignada"])
+    if row["mia_por"]:
+        card.asignacion = AsignacionMia(
+            por=row["mia_por"],
+            por_nombre=avisos.nombre(row["mia_por"]),
+            en=row["mia_en"],
+            indicaciones=row["mia_indicaciones"] or "",
+        )
     if row["correo_uid"] is not None:
         card.correo = CorreoRef(
             carpeta=row["correo_carpeta"],

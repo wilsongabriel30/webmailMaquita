@@ -12,6 +12,7 @@ import { EnlaceCorreo } from './EnlaceCorreo';
 import { RecordatorioTarea } from './RecordatorioTarea';
 import { RepeticionTarea } from './RepeticionTarea';
 import { StepsList } from './StepsList';
+import { TarjetaAsignacion } from './TarjetaAsignacion';
 import { TarjetaPanel } from './TarjetaPanel';
 import { VencimientoTarea } from './VencimientoTarea';
 import { FONDO_PANEL, LINEA_TARJETA, filaSeccion, seccion } from './estiloPanel';
@@ -128,6 +129,9 @@ export function TaskDetailPanel({ task, onUpdate, onToggle, onToggleImportant, o
             <StepsList cardId={task.id} onCambio={onRefrescar} />
           </div>
         </TarjetaPanel>
+
+        {/* Me la asignaron: quién, plazo, indicaciones y «Marcar como realizada» */}
+        {task.asignacion && <TarjetaPanel><TarjetaAsignacion task={task} onToggle={onToggle} /></TarjetaPanel>}
 
         {/* Tarea que viene de un correo marcado: enlace para abrirlo */}
         {task.correo && <TarjetaPanel><EnlaceCorreo correo={task.correo} /></TarjetaPanel>}

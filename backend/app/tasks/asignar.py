@@ -4,9 +4,13 @@ Desde la F5 se puede asignar a cualquier persona de la organización, esté o no
 su «Asignado a mí» (solo esa tarea, no la lista). Las tareas de «Correo marcado» van ligadas a un buzón y solo se
 asignan a personas de su lista. La lista completa de asignados reemplaza a la anterior. `assigned_to` (heredado, una
 sola persona) queda con la primera, para lo que todavía lo lee. Seguimiento (T-34) asigna por su cuenta.
+Desde el 30/10/2026 se indica el plazo (pasa a ser la fecha de vencimiento de la tarea) y las indicaciones, que se
+guardan con cada asignación nueva y las ve quien la recibe.
 """
 
 from __future__ import annotations
+
+from datetime import datetime
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -16,8 +20,10 @@ from app.tasks import acceso, actividad, compartir
 
 class Asignacion(BaseModel):
     emails: list[str] = Field(default_factory=list, max_length=50)
-    # Mensaje opcional para quienes reciben la tarea (va en el aviso).
-    mensaje: str = Field(default="", max_length=500)
+    # Indicaciones para quienes reciben la tarea (van en el aviso, el correo y la tarea).
+    mensaje: str = Field(default="", max_length=2000)
+    # Plazo para realizarla: queda como fecha de vencimiento de la tarea.
+    plazo: datetime | None = None
 
     @field_validator("emails")
     @classmethod
@@ -34,7 +40,14 @@ class NoSeAsigna(Exception):
     pass
 
 
-async def asignar(db, user: str, card_id, emails: list[str]) -> tuple[list[str], dict]:
+async def asignar(
+    db,
+    user: str,
+    card_id,
+    emails: list[str],
+    indicaciones: str = "",
+    plazo: datetime | None = None,
+) -> tuple[list[str], dict]:
     """Deja la tarea asignada a `emails`. Devuelve (personas recién asignadas, fila de la tarea)."""
     tarea = await db.fetchrow(
         """SELECT tc.id, tc.title, tc.list_id, tc.asignada, tl.name AS lista, tl.list_type
@@ -82,15 +95,18 @@ async def asignar(db, user: str, card_id, emails: list[str]) -> tuple[list[str],
         )
     for e in nuevos:
         await db.execute(
-            "INSERT INTO task_asignados (card_id, email, asignado_por) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
+            "INSERT INTO task_asignados (card_id, email, asignado_por, indicaciones) VALUES ($1, $2, $3, $4)"
+            " ON CONFLICT DO NOTHING",
             card_id,
             e,
             user,
+            indicaciones.strip(),
         )
     await db.execute(
-        "UPDATE task_cards SET assigned_to = $2, updated_at = NOW() WHERE id = $1",
+        "UPDATE task_cards SET assigned_to = $2, due_date = COALESCE($3, due_date), updated_at = NOW() WHERE id = $1",
         card_id,
         emails[0] if emails else None,
+        plazo,
     )
     if nuevos or quitados:
         partes = []

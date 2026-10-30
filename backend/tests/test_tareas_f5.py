@@ -107,7 +107,7 @@ def test_asignacion_con_mensaje():
     assert a.emails == ["ana@x.org"] and a.mensaje == "Antes del viernes"
     assert asignar.Asignacion(emails=[]).mensaje == ""
     with pytest.raises(ValidationError):
-        asignar.Asignacion(emails=[], mensaje="x" * 501)
+        asignar.Asignacion(emails=[], mensaje="x" * 2001)
 
 
 def test_nombre_de_la_copia():
