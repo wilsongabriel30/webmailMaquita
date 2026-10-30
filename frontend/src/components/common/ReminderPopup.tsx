@@ -12,7 +12,8 @@ interface Rem {
 }
 
 /** Tarjetas de recordatorio persistentes (abajo a la derecha), estilo Outlook.
- *  Se alimentan del evento global 'show-reminder' (WebSocket type=reminder). */
+ *  Se alimentan del evento global 'show-reminder' (WebSocket type=reminder).
+ *  Van encima de la burbuja del chat (52 px a 20 px del borde) y por delante de su panel, para que no las tape. */
 export function ReminderPopup() {
   const [items, setItems] = useState<Rem[]>([]);
 
@@ -44,7 +45,7 @@ export function ReminderPopup() {
   if (items.length === 0) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-[300] flex flex-col gap-2 max-w-[340px]">
+    <div className="fixed bottom-[84px] right-5 z-[10000] flex flex-col gap-2 w-[340px] max-w-[calc(100vw-40px)] max-h-[calc(100vh-124px)] overflow-y-auto">
       {items.map(r => (
         <div key={r.id}
           className="bg-white dark:bg-[#2d2d2d] border border-[#edebe9] dark:border-[#444] rounded-lg shadow-xl p-3 flex flex-col gap-2 animate-[fadeIn_0.2s_ease]">
