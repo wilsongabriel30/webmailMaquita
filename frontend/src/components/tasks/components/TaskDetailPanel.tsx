@@ -191,8 +191,9 @@ export function TaskDetailPanel({ task, onUpdate, onToggle, onToggleImportant, o
         </div>
       </div>
 
-      {/* Pie: ocultar el panel, cuándo se creó y eliminar */}
-      <div style={{ padding: '10px 12px', borderTop: `1px solid ${LINEA_TARJETA}` }}>
+      {/* Pie: ocultar el panel, cuándo se creó y eliminar. A la derecha deja sitio al botón flotante del chat,
+          que tapaba la papelera. */}
+      <div style={{ padding: '10px 84px 10px 12px', borderTop: `1px solid ${LINEA_TARJETA}` }}>
         {!confirmDelete ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <button type="button" aria-label="Ocultar la vista de detalles" title="Ocultar la vista de detalles" onClick={onClose} style={iconoPie}>
