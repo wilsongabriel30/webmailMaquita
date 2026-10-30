@@ -10,7 +10,14 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
-from app.tasks import acceso, adjuntos, correo_marcado, repeticion, tiempo_real
+from app.tasks import (
+    acceso,
+    adjuntos,
+    aviso_asignacion,
+    correo_marcado,
+    repeticion,
+    tiempo_real,
+)
 from app.tasks.rutas_compartir import router as f4_router
 from app.tasks.rutas_f5 import router as f5_router
 from app.tasks.rutas_f6 import router as f6_router
@@ -125,9 +132,16 @@ async def todo_update_task(
     user: str = Depends(get_current_user),
 ):
     try:
+        estaba_hecha = await _db(request).fetchval(
+            "SELECT completed FROM task_cards WHERE id = $1", card_id
+        )
         result = await task_service.update_card(_db(request), user, card_id, data)
         if result.completed and data.completed:
             await repeticion.tras_completar(_db(request), user, card_id)
+            if not estaba_hecha:
+                await aviso_asignacion.avisar_realizada(
+                    _db(request), _redis(request), user, card_id
+                )
         if data.completed is not None:
             enlace = await correo_marcado.vinculo(_db(request), card_id, user)
             await correo_marcado.poner_bandera(
@@ -164,6 +178,9 @@ async def todo_toggle_task(
         result = await task_service.toggle_card(_db(request), user, card_id)
         if result.completed:
             await repeticion.tras_completar(_db(request), user, card_id)
+            await aviso_asignacion.avisar_realizada(
+                _db(request), _redis(request), user, card_id
+            )
         enlace = await correo_marcado.vinculo(_db(request), card_id, user)
         await correo_marcado.poner_bandera(request, user, enlace, not result.completed)
         # Si se completo, eliminar del calendario; si se reabrio, re-sincronizar
@@ -408,7 +425,12 @@ async def toggle_card(
     card_id: uuid.UUID, request: Request, user: str = Depends(get_current_user)
 ):
     try:
-        return await task_service.toggle_card(_db(request), user, card_id)
+        result = await task_service.toggle_card(_db(request), user, card_id)
+        if result.completed:
+            await aviso_asignacion.avisar_realizada(
+                _db(request), _redis(request), user, card_id
+            )
+        return result
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 

@@ -9,7 +9,15 @@ from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
 from app.tareas import avisos
-from app.tasks import acceso, actividad, asignar, avisos_listas, compartir, vistas
+from app.tasks import (
+    acceso,
+    actividad,
+    asignar,
+    aviso_asignacion,
+    avisos_listas,
+    compartir,
+    vistas,
+)
 from app.tasks.actividad import Evento
 from app.tasks.compartir import Miembro, NuevoMiembro
 from app.tasks.listas import NoEncontrada, SinPermiso
@@ -140,15 +148,17 @@ async def asignar_tarea(
     try:
         async with _db(request).acquire() as con:
             async with con.transaction():
-                nuevos, tarea = await asignar.asignar(con, user, card_id, data.emails)
+                nuevos, tarea = await asignar.asignar(
+                    con, user, card_id, data.emails, data.mensaje, data.plazo
+                )
     except LookupError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except asignar.NoSeAsigna as e:
         raise HTTPException(status_code=400, detail=str(e))
     if nuevos:
-        texto = f"{avisos.nombre(user)} te asignó la tarea «{tarea['title']}» (lista «{tarea['lista']}»)."
-        if data.mensaje.strip():
-            texto += f" Mensaje: «{data.mensaje.strip()}»"
+        texto = aviso_asignacion.texto_asignada(
+            user, tarea["title"], tarea["lista"], data.plazo, data.mensaje
+        )
         await avisos_listas.avisar(
             _redis(request),
             _db(request),

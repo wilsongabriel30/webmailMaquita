@@ -1,9 +1,11 @@
 // Recuadro «Asignar tarea a:» (F5): buscar personas de la organización en el directorio (o escribir el correo de una
-// cuenta de área), escribir un mensaje opcional y enviar. A quien la recibe le llega un aviso y un correo, y la tarea le
-// aparece en «Asignado a mí». Si no hay nada que cambiar, «Enviar» no hace nada a escondidas: lo explica.
+// cuenta de área), elegir el tiempo de realización (plazo), escribir las indicaciones y enviar. A quien la recibe le
+// llega un aviso y un correo con todo eso, y la tarea le aparece en «Asignado a mí». Si no hay nada que cambiar,
+// «Enviar» no hace nada a escondidas: lo explica.
 import { useEffect, useState } from 'react';
 import { api } from '../../../api/client';
 import { BuscadorPersonas, CORREO_VALIDO } from './BuscadorPersonas';
+import { PlazoAsignacion } from './PlazoAsignacion';
 import type { Task } from '../types';
 import { COLORS } from '../types';
 
@@ -22,6 +24,8 @@ const boton = (principal: boolean) => ({
 export function DialogoAsignar({ task, onCerrar, onAsignada }: Props) {
   const [personas, setPersonas] = useState<string[]>(task.asignados || []);
   const [mensaje, setMensaje] = useState('');
+  const plazoAntes = (task.due_date || '').slice(0, 10);
+  const [plazo, setPlazo] = useState(plazoAntes);
   const [escrito, setEscrito] = useState('');
   const [error, setError] = useState('');
   const [enviando, setEnviando] = useState(false);
@@ -43,11 +47,12 @@ export function DialogoAsignar({ task, onCerrar, onAsignada }: Props) {
         : 'Elige al menos a una persona.');
       return;
     }
-    if (emails.length === antes.length && emails.every(e => antes.includes(e))) { onCerrar(); return; }
+    const mismasPersonas = emails.length === antes.length && emails.every(e => antes.includes(e));
+    if (mismasPersonas && plazo === plazoAntes) { onCerrar(); return; }
     setEnviando(true);
     setError('');
     try {
-      onAsignada(await api.put<Task>(`/tasks/tasks/${task.id}/asignados`, { emails, mensaje: mensaje.trim() }));
+      onAsignada(await api.put<Task>(`/tasks/tasks/${task.id}/asignados`, { emails, mensaje: mensaje.trim(), plazo: plazo || null }));
       onCerrar();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo asignar la tarea');
@@ -78,17 +83,18 @@ export function DialogoAsignar({ task, onCerrar, onAsignada }: Props) {
               <BuscadorPersonas valor={personas} onChange={setPersonas} onTexto={setEscrito} />
             </div>
           </div>
+          <PlazoAsignacion valor={plazo} onCambiar={setPlazo} />
           <label style={{ fontSize: 12, color: COLORS.secondary }}>
-            Mensaje (opcional)
-            <textarea value={mensaje} maxLength={500} onChange={e => setMensaje(e.target.value)} rows={3}
-              placeholder="Por ejemplo: ¿me ayudas con esto antes del viernes?"
+            Indicaciones
+            <textarea value={mensaje} maxLength={2000} onChange={e => setMensaje(e.target.value)} rows={4}
+              placeholder="Qué hay que hacer, cómo y cualquier detalle que necesite saber."
               style={{
                 display: 'block', width: '100%', marginTop: 4, boxSizing: 'border-box', fontSize: 13, padding: '6px 8px',
                 border: `1px solid ${COLORS.border}`, borderRadius: 4, fontFamily: 'inherit', resize: 'vertical',
               }} />
           </label>
           <p style={{ margin: 0, fontSize: 12, color: COLORS.secondary }}>
-            Le llegarán un aviso y un correo, y verá la tarea en su «Asignado a mí». Para quitar una asignación, quita a la persona y envía.
+            Le llegarán un aviso y un correo con el plazo y las indicaciones, y verá la tarea en su «Asignado a mí». Cuando la marque como realizada, te llegará un correo. Para quitar una asignación, quita a la persona y envía.
           </p>
           {error && <div role="alert" style={{ fontSize: 12, color: '#d13438' }}>{error}</div>}
         </div>
