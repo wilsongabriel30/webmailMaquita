@@ -108,8 +108,20 @@ async def una(db, user: str, card_id) -> CardOut | None:
 MAX_RESULTADOS = 200
 
 
+# Sin tildes ni diéresis, como en To Do: «accion» encuentra «Acción». La ñ se respeta («año» no es «ano»).
+# Sin la extensión unaccent (crearla pide superusuario y las migraciones corren con el usuario de la app).
+_CON_TILDE = "áàäâéèëêíìïîóòöôúùüûÁÀÄÂÉÈËÊÍÌÏÎÓÒÖÔÚÙÜÛ"
+_SIN_TILDE = "aaaaeeeeiiiioooouuuuAAAAEEEEIIIIOOOOUUUU"
+_QUITAR_TILDES = str.maketrans(_CON_TILDE, _SIN_TILDE)
+
+
+def _sin_tildes(columna: str) -> str:
+    return f"translate({columna}, '{_CON_TILDE}', '{_SIN_TILDE}')"
+
+
 def _patron(texto: str) -> str:
-    """Patrón ILIKE que busca el texto tal cual (los comodines del usuario no cuentan)."""
+    """Patrón ILIKE que busca el texto tal cual, sin tildes (los comodines del usuario no cuentan)."""
+    texto = texto.translate(_QUITAR_TILDES)
     return (
         "%" + texto.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
     )
@@ -122,8 +134,9 @@ async def buscar(db, user: str, texto: str) -> list[CardOut]:
     """
     rows = await db.fetch(
         f"""{_SELECT} AND NOT tc.asignada
-              AND (tc.title ILIKE $3 OR tc.note ILIKE $3
-                   OR EXISTS (SELECT 1 FROM task_steps s WHERE s.card_id = tc.id AND s.title ILIKE $3))
+              AND ({_sin_tildes('tc.title')} ILIKE $3 OR {_sin_tildes('tc.note')} ILIKE $3
+                   OR EXISTS (SELECT 1 FROM task_steps s
+                               WHERE s.card_id = tc.id AND {_sin_tildes('s.title')} ILIKE $3))
             ORDER BY tc.completed, tc.updated_at DESC LIMIT {MAX_RESULTADOS}""",
         user,
         mi_dia.hoy(),

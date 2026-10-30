@@ -18,7 +18,8 @@ interface Props {
   propsFila?: (task: Task) => object;
 }
 
-const COLUMNAS = '44px minmax(260px, 1fr) 170px 56px';
+// Mínimo 328 px: cabe en un teléfono (antes 530 px y la fecha y la estrella quedaban fuera de la pantalla).
+const COLUMNAS = '44px minmax(140px, 1fr) minmax(96px, 170px) 48px';
 const ALTO_FILA = 48;
 
 function Circulo({ task, onToggle }: { task: Task; onToggle: (id: string) => void }) {
@@ -109,7 +110,7 @@ function CeldaFecha({ task, onUpdate }: { task: Task; onUpdate: Props['onUpdate'
 export function TaskGrid({ tasks, seleccionada, onToggle, onToggleImportant, onOpen, onUpdate, onMenu, propsFila }: Props) {
   return (
     <div style={{ margin: '0 24px 16px', background: 'white', borderRadius: 4, boxShadow: '0 1px 2px rgba(0,0,0,0.08)', overflowX: 'auto' }}>
-      <div role="table" aria-label="Tareas" style={{ minWidth: 540 }}>
+      <div role="table" aria-label="Tareas" style={{ minWidth: 328 }}>
         <div role="row" style={{
           display: 'grid', gridTemplateColumns: COLUMNAS, alignItems: 'center', height: 44,
           borderBottom: `1px solid ${COLORS.border}`, fontSize: 13, color: COLORS.text,

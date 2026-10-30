@@ -49,7 +49,7 @@ export function TaskListHeader({ activeView, lista, orden: sortBy, onOrdenChange
       padding: '20px 24px 12px', display: 'flex', flexDirection: 'column', gap: 8,
       fontFamily: "'Segoe UI', system-ui, sans-serif",
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', rowGap: 4 }}>
         <button
           aria-label="Alternar panel de listas"
           onClick={() => window.dispatchEvent(new CustomEvent('toggle-tasks-sidebar'))}
@@ -64,7 +64,7 @@ export function TaskListHeader({ activeView, lista, orden: sortBy, onOrdenChange
             onGuardar={n => { setEditandoNombre(false); onCambiarLista({ name: n }); }} onCancelar={() => setEditandoNombre(false)} />
         ) : (
           <h1 style={{
-            fontSize: 20, fontWeight: 600, margin: 0,
+            fontSize: 20, fontWeight: 600, margin: 0, whiteSpace: 'nowrap',
             color: colorTitulo,
           }}>
             {!busqueda && nombre.emoji && <span aria-hidden="true" style={{ marginRight: 8 }}>{nombre.emoji}</span>}

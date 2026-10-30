@@ -115,6 +115,12 @@ def _row_to_activity(row):
     )
 
 
+# El tablero de la persona (el más antiguo) y su lista «Tareas»; list_id es NULL si falta la lista.
+_TABLERO_CON_LISTA = """SELECT b.id,
+       (SELECT l.id FROM task_lists l WHERE l.board_id = b.id AND l.list_type = 'default' LIMIT 1) AS list_id
+  FROM task_boards b WHERE b."user" = $1 ORDER BY b.created_at, b.id LIMIT 1"""
+
+
 class TaskService:
 
     async def _user_has_access(self, db, board_id, user):
@@ -161,9 +167,30 @@ class TaskService:
 
     async def ensure_default_board(self, db, user):
         """Auto-create implicit board + default 'Tareas' list for a user if none exists.
-        Returns the board_id."""
+        Returns the board_id.
+
+        Al abrir Tareas la pantalla pide listas, conteos, grupos y ajustes a la vez, y cada petición pasa
+        por aquí: sin el candado por persona, todas veían «no hay tablero» y cada una creaba el suyo
+        (13 personas quedaron con dos tableros y dos listas «Tareas», 29/10/2026)."""
+        row = await db.fetchrow(_TABLERO_CON_LISTA, user)
+        if row and row["list_id"]:
+            return row["id"]
+        if hasattr(db, "acquire"):
+            async with db.acquire() as con:
+                return await self._crear_tablero(con, user)
+        return await self._crear_tablero(db, user)
+
+    async def _crear_tablero(self, con, user):
+        # Dentro de una transacción (o de un punto de guardado si ya hay una): el candado dura hasta el final.
+        async with con.transaction():
+            await con.execute(
+                "SELECT pg_advisory_xact_lock(hashtext($1))", "tareas-tablero:" + user
+            )
+            return await self._crear_tablero_sin_candado(con, user)
+
+    async def _crear_tablero_sin_candado(self, db, user):
         row = await db.fetchrow(
-            'SELECT id FROM task_boards WHERE "user" = $1 ORDER BY created_at LIMIT 1',
+            'SELECT id FROM task_boards WHERE "user" = $1 ORDER BY created_at, id LIMIT 1',
             user,
         )
         if row:
@@ -199,7 +226,7 @@ class TaskService:
         """Get the default 'Tareas' list for the user, ensuring it exists."""
         board_id = await self.ensure_default_board(db, user)
         list_id = await db.fetchval(
-            "SELECT id FROM task_lists WHERE board_id = $1 AND list_type = 'default' LIMIT 1",
+            "SELECT id FROM task_lists WHERE board_id = $1 AND list_type = 'default' ORDER BY position, id LIMIT 1",
             board_id,
         )
         return list_id

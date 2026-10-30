@@ -15,7 +15,7 @@ export function BuscadorTareas({ valor, onBuscar }: { valor: string; onBuscar: (
 
   return (
     <div role="search" style={{
-      flex: 1, display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px',
+      flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px',
       border: `1px solid ${COLORS.border}`, borderRadius: 4, background: COLORS.hoverBg,
     }}>
       <svg aria-hidden="true" width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={COLORS.secondary} strokeWidth={2}>
