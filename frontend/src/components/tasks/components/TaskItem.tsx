@@ -3,6 +3,7 @@ import type { MouseEvent } from 'react';
 import type { Task } from '../types';
 import { COLORS } from '../types';
 import { colorCategoria } from './categorias';
+import { colorVencimiento, fechaCompleta, textoVencimiento } from './fechaVencimiento';
 import { CirculoPersona } from './CirculoPersona';
 import { urlCorreo } from './urlCorreo';
 
@@ -19,30 +20,6 @@ interface Props {
 }
 
 export function TaskItem({ task, onToggle, onToggleImportant, onClick, mostrarLista, seleccionada, onMenu }: Props) {
-  const formatDate = (d?: string) => {
-    if (!d) return '';
-    const date = new Date(d.slice(0, 10) + 'T00:00:00');
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const diff = date.getTime() - today.getTime();
-    const days = Math.round(diff / 86400000);
-    if (days === 0) return 'Hoy';
-    if (days === 1) return 'Mañana';
-    if (days === -1) return 'Ayer';
-    if (days < -1) return 'Atrasado';
-    return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
-  };
-
-  const dueDateColor = () => {
-    if (!task.due_date) return COLORS.secondary;
-    const date = new Date(task.due_date.slice(0, 10) + 'T00:00:00');
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (date < today) return '#d13438';
-    if (date.getTime() === today.getTime()) return COLORS.primary;
-    return COLORS.secondary;
-  };
-
   return (
     <div
       onClick={() => onClick(task)}
@@ -114,11 +91,11 @@ export function TaskItem({ task, onToggle, onToggleImportant, onClick, mostrarLi
               </span>
             )}
             {task.due_date && (
-              <span style={{ color: dueDateColor() }}>
+              <span title={fechaCompleta(task.due_date)} style={{ color: colorVencimiento(task) }}>
                 <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} style={{ verticalAlign: -1, marginRight: 3 }}>
                   <rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" />
                 </svg>
-                {formatDate(task.due_date)}
+                {textoVencimiento(task.due_date)}
               </span>
             )}
             {!!task.adjuntos && (
