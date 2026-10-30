@@ -1058,7 +1058,7 @@ export function Toolbar() {
                   {/* Group: Buscar */}
                   <Group label="Buscar">
                     <ToolbarButton icon={ICONS.groups} label="Descubrir grupos"
-                      onClick={() => showToast('Grupos: Usa listas de distribución para comunicarte con equipos. Contacta a tecnologia@ejemplo.com para crear un grupo.')} />
+                      onClick={() => showToast('Grupos: Usa listas de distribución para comunicarte con equipos. Pide al Departamento de Tecnología que cree el grupo.')} />
                   </Group>
                   <Sep />
 

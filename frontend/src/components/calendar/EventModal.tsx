@@ -32,10 +32,10 @@ interface Props {
 
 const RECURRENCE_OPTIONS = [
   { value: "", label: "No se repite" },
-  { value: "FREQ=DAILY", label: "Cada dia" },
+  { value: "FREQ=DAILY", label: "Cada día" },
   { value: "FREQ=WEEKLY", label: "Cada semana" },
   { value: "FREQ=MONTHLY", label: "Cada mes" },
-  { value: "FREQ=YEARLY", label: "Cada ano" },
+  { value: "FREQ=YEARLY", label: "Cada año" },
   { value: "custom", label: "Personalizado..." },
 ];
 

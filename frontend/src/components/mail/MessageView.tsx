@@ -1434,7 +1434,7 @@ const MessageView: React.FC = () => {
                 {recallInfo.some((r) => r.can_recall) && (
                   <button onClick={handleRecall} disabled={recallStatus === 'recalling'}
                     style={{ padding: '5px 14px', background: '#d13438', color: 'white', border: 'none', borderRadius: 4, fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
-                    {recallStatus === 'recalling' ? 'Recuperando...' : 'Confirmar recuperacion'}
+                    {recallStatus === 'recalling' ? 'Recuperando...' : 'Confirmar recuperación'}
                   </button>
                 )}
               </div>

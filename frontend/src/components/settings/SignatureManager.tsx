@@ -174,7 +174,7 @@ export function SignatureManager() {
                 <input type="radio" name="sig_pos" checked={sigSettings.position === 'before_quote'}
                   onChange={() => saveSigSettings({ ...sigSettings, position: 'before_quote' })}
                   className="w-4 h-4 text-[#0078d4]" />
-                <span className="text-[13px] text-[#323130]">Antes del texto citado (en respuestas y reenvios)</span>
+                <span className="text-[13px] text-[#323130]">Antes del texto citado (en respuestas y reenvíos)</span>
               </label>
             </div>
           </div>
@@ -189,7 +189,7 @@ export function SignatureManager() {
               <input type="checkbox" checked={sigSettings.include_in_forward}
                 onChange={e => saveSigSettings({ ...sigSettings, include_in_forward: e.target.checked })}
                 className="w-4 h-4 rounded border-[#8a8886] text-[#0078d4]" />
-              <span className="text-[13px] text-[#323130]">Incluir firma en reenvios</span>
+              <span className="text-[13px] text-[#323130]">Incluir firma en reenvíos</span>
             </label>
           </div>
         </div>
