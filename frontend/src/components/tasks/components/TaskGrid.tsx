@@ -3,6 +3,7 @@
 import { useState, type KeyboardEvent, type MouseEvent } from 'react';
 import type { Task } from '../types';
 import { COLORS } from '../types';
+import { colorVencimiento, fechaCompleta, textoVencimiento } from './fechaVencimiento';
 
 interface Props {
   tasks: Task[];
@@ -19,19 +20,6 @@ interface Props {
 
 const COLUMNAS = '44px minmax(260px, 1fr) 170px 56px';
 const ALTO_FILA = 48;
-
-function fechaCorta(d?: string | null) {
-  if (!d) return '';
-  const [a, m, dia] = d.slice(0, 10).split('-');
-  return `${dia}/${m}/${a}`;
-}
-
-function vencida(d?: string | null) {
-  if (!d) return false;
-  const hoy = new Date();
-  const hoyTexto = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
-  return d.slice(0, 10) < hoyTexto;
-}
 
 function Circulo({ task, onToggle }: { task: Task; onToggle: (id: string) => void }) {
   return (
@@ -108,12 +96,12 @@ function CeldaFecha({ task, onUpdate }: { task: Task; onUpdate: Props['onUpdate'
   }
   return (
     <div onClick={e => { e.stopPropagation(); setEditando(true); }}
-      title={valor ? 'Cambiar la fecha de vencimiento' : 'Agregar fecha de vencimiento'}
+      title={valor ? `${fechaCompleta(task.due_date)} · Cambiar la fecha de vencimiento` : 'Agregar fecha de vencimiento'}
       style={{
         height: '100%', display: 'flex', alignItems: 'center', fontSize: 14, cursor: 'pointer',
-        color: task.completed ? COLORS.muted : vencida(task.due_date) ? '#d13438' : COLORS.text,
+        color: colorVencimiento(task, COLORS.text),
       }}>
-      {fechaCorta(task.due_date)}
+      {textoVencimiento(task.due_date)}
     </div>
   );
 }
