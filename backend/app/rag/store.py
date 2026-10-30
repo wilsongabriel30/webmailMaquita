@@ -35,7 +35,7 @@ async def upsert(db, username, folder, uid, subject, sender, content, embedding)
 
 async def search(db, username, query_emb, k=6):
     return await db.fetch(
-        "SELECT subject, sender, content, 1-(embedding <=> $1::vector) sim FROM rag_chunks "
+        "SELECT subject, sender, content, folder, msg_uid, 1-(embedding <=> $1::vector) sim FROM rag_chunks "
         "WHERE username=$2 ORDER BY embedding <=> $1::vector LIMIT $3",
         str(query_emb),
         username,

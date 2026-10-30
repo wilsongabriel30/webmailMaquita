@@ -6,6 +6,7 @@ import { BarraAccionesCorreo } from './BarraAccionesCorreo';
 import { ImagenesEnCuerpo } from './ImagenesEnCuerpo';
 import { useCabeceraPlegable } from '../../hooks/useCabeceraPlegable';
 import { sanitizeHtml } from '../../lib/sanitize';
+import { escapeHtml, extractEmail, buildQuoteHtml } from '../../lib/citaRespuesta';
 import type { MessageFull, AttachmentInfo, CalendarInvite } from '../../types';
 
 /** Abre el panel de redacción, con la firma exacta que expone el store. */
@@ -40,15 +41,6 @@ import RemitenteExternoAviso from './RemitenteExternoAviso';
 /* ------------------------------------------------------------------ */
 
 
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
-
 const AVATAR_COLORS = [
   '#0078d4', '#00b294', '#e74856', '#8764b8', '#ca5010',
   '#498205', '#005b70', '#8e562e', '#69797e', '#647c64',
@@ -73,11 +65,6 @@ function extractName(raw: string): string {
   return raw.replace(/<.*>/, '').trim() || raw;
 }
 
-function extractEmail(raw: string): string {
-  const match = raw.match(/<([^>]+)>/);
-  return match ? match[1] : raw.trim();
-}
-
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -96,43 +83,7 @@ function decodeUnicodeEscapes(text: string): string {
 }
 
 
-/* ------------------------------------------------------------------ */
-/*  Quote builder for Reply / Forward                                 */
-/* ------------------------------------------------------------------ */
-
-function buildQuoteHtml(
-  from: string,
-  date: string,
-  to: string,
-  cc: string,
-  subject: string,
-  htmlBody: string,
-  isForward: boolean,
-): string {
-  const header = isForward
-    ? '<p style="font-weight:bold;margin:0 0 8px">--- Mensaje reenviado ---</p>'
-    : '';
-
-  const ccLine = cc ? `<b>CC:</b> ${escapeHtml(cc)}<br>` : '';
-
-  // Escalar imagenes y tablas de firmas para que no se desborden en compose
-  // Bug 2026-04-10: firmas con imagenes grandes ocupaban toda la pantalla
-  // Se aplican estilos INLINE porque TipTap elimina <style> tags
-  // Imagenes/tablas se escalan via CSS en EditorContent (clase .quoted-content)
-
-  return `
-<div class="quoted-content" style="border-top:1px solid #edebe9;padding-top:12px;margin-top:20px;max-width:100%;overflow:hidden">
-  ${header}
-  <p style="font-size:12px;color:#605e5c;margin:0 0 8px">
-    <b>De:</b> ${escapeHtml(from)}<br>
-    <b>Enviado:</b> ${escapeHtml(date)}<br>
-    <b>Para:</b> ${escapeHtml(to)}<br>
-    ${ccLine}
-    <b>Asunto:</b> ${escapeHtml(subject)}
-  </p>
-  <div style="font-size:14px">${sanitizeHtml(htmlBody)}</div>
-</div>`.trim();
-}
+// buildQuoteHtml, escapeHtml y extractEmail viven en lib/citaRespuesta.ts (27/10/2026).
 
 
 /* ── Add to contacts button (Fase 1 Premium) ── */

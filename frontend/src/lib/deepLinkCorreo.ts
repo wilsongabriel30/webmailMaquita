@@ -5,6 +5,22 @@
 import { useEffect } from "react";
 import { api } from "../api/client";
 import { useMailStore } from "../store/mailStore";
+import type { MessageFull } from "../types";
+
+/** Selecciona la carpeta y abre el correo indicado. Devuelve false si no se pudo abrir.
+ *  También lo usan las fuentes del panel del asistente (27/10/2026). */
+export async function abrirCorreoPorUid(folder: string, uid: string): Promise<boolean> {
+  if (!folder || !/^\d+$/.test(uid)) return false;
+  try { useMailStore.getState().setCurrentFolder(folder); } catch { /* carpeta inválida */ }
+  try {
+    const msg = await api.get<MessageFull>(`/mail/message/${encodeURIComponent(folder)}/${uid}`);
+    if (!msg || !msg.uid) return false;
+    useMailStore.getState().setSelectedMessage(msg);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export function useDeepLinkCorreo() {
   useEffect(() => {
@@ -12,12 +28,7 @@ export function useDeepLinkCorreo() {
     try { params = new URLSearchParams(window.location.search); } catch { return; }
     const folder = params.get("folder");
     const uid = params.get("uid");
-    if (!folder || !uid || !/^\d+$/.test(uid)) return;
-    const st = useMailStore.getState();
-    try { st.setCurrentFolder(folder); } catch {}
-    api.get(`/mail/message/${encodeURIComponent(folder)}/${uid}`)
-      .then((msg: any) => { if (msg && msg.uid) useMailStore.getState().setSelectedMessage(msg); })
-      .catch(() => {});
+    if (folder && uid) abrirCorreoPorUid(folder, uid);
   }, []);
 }
 
