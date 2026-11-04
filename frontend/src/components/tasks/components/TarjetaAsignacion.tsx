@@ -3,6 +3,7 @@
 import type { Task } from '../types';
 import { COLORS } from '../types';
 import { seccion } from './estiloPanel';
+import { diaVencimiento } from './fechaVencimiento';
 
 function dia(iso: string): string {
   const d = new Date(iso.length === 10 ? iso + 'T00:00:00' : iso);
@@ -12,7 +13,7 @@ function dia(iso: string): string {
 export function TarjetaAsignacion({ task, onToggle }: { task: Task; onToggle: (id: string) => void }) {
   const a = task.asignacion;
   if (!a) return null;
-  const plazo = (task.due_date || '').slice(0, 10);
+  const plazo = diaVencimiento(task.due_date);
   const vencida = !task.completed && !!plazo && new Date(plazo + 'T23:59:59') < new Date();
   return (
     <div style={{ ...seccion, gap: 6 }}>
