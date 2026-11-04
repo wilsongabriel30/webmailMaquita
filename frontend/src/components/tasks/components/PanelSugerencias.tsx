@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../../api/client';
 import type { Task } from '../types';
 import { COLORS } from '../types';
+import { diaVencimiento } from './fechaVencimiento';
 
 interface Sugerencias { vencidas: Task[]; hoy: Task[]; proximas: Task[]; recientes: Task[] }
 
@@ -22,7 +23,7 @@ interface Props {
 
 function fecha(d?: string | null): string {
   if (!d) return '';
-  const [a, m, dia] = d.slice(0, 10).split('-').map(Number);
+  const [a, m, dia] = diaVencimiento(d).split('-').map(Number);
   return new Date(a, m - 1, dia).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 

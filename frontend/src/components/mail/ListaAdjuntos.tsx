@@ -117,7 +117,7 @@ export default function ListaAdjuntos({ folder, uid, attachments, onAbrir, compa
               <span style={{ maxWidth: compacto ? 150 : 200, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'break-all', lineHeight: compacto ? 1.2 : 1.25, textAlign: 'left' }}>
                 {att.filename}
               </span>
-              {!compacto && <span style={{ color: '#a19f9d' }}>({formatSize(att.size)})</span>}
+              {!compacto && <span style={{ color: '#605e5c' }}>({formatSize(att.size)})</span>}
             </button>
             <BotonGuardarEnAlmacen folder={folder} uid={uid} att={att} />
           </span>

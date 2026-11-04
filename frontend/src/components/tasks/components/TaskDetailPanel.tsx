@@ -17,6 +17,7 @@ import { TarjetaPanel } from './TarjetaPanel';
 import { VencimientoTarea } from './VencimientoTarea';
 import { FONDO_PANEL, LINEA_TARJETA, filaSeccion, seccion } from './estiloPanel';
 import { hoyTexto } from './repeticion';
+import { diaVencimiento } from './fechaVencimiento';
 
 interface Props {
   task: Task;
@@ -154,7 +155,7 @@ export function TaskDetailPanel({ task, onUpdate, onToggle, onToggleImportant, o
 
         <TarjetaPanel>
           <RecordatorioTarea valor={task.reminder} onCambiar={r => onUpdate(task.id, { reminder: r })} />
-          <VencimientoTarea valor={(task.due_date || '').slice(0, 10)} onCambiar={f => onUpdate(task.id, { due_date: f })} />
+          <VencimientoTarea valor={diaVencimiento(task.due_date)} onCambiar={f => onUpdate(task.id, { due_date: f })} />
           <RepeticionTarea valor={task.recurrence} onCambiar={cambiarRepeticion} />
         </TarjetaPanel>
 

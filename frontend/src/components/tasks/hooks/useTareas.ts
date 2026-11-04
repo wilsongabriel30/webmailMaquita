@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../../api/client';
 import type { ActiveView, Task } from '../types';
+import { hoyTexto } from '../components/repeticion';
 
 // Listas inteligentes: cada una tiene su ruta /tasks/views/<id> («tasks» es la bandeja por defecto).
 export const VISTAS_INTELIGENTES = ['my-day', 'important', 'planned', 'assigned', 'flagged', 'tasks'];
@@ -36,16 +37,18 @@ export function useTareas(activeView: ActiveView, busqueda: string, alCambiar: (
       setTasks(r);
       // El panel abierto se pone al día (otra persona pudo cambiar la tarea).
       setSelectedTask(prev => (prev ? r.find(t => t.id === prev.id) ?? prev : prev));
-    } catch {
-      setTasks([]);
+    } catch (e) {
+      // Se conserva lo que se veía: vaciar la lista hacía creer que las tareas se habían borrado.
+      setError('No se pudieron cargar las tareas: ' + mensaje(e, 'sin conexión con el servidor'));
     }
   }, [pedir]);
 
   useEffect(() => {
     let vigente = true;
     pedir()
-      .catch(() => [] as Task[])
-      .then(r => { if (vigente) { setTasks(r); setCargada(clave); } });
+      .then(r => { if (vigente) setTasks(r); })
+      .catch(e => { if (vigente) { setTasks([]); setError('No se pudieron cargar las tareas: ' + mensaje(e, 'sin conexión con el servidor')); } })
+      .finally(() => { if (vigente) setCargada(clave); });
     return () => { vigente = false; };
   }, [pedir, clave]);
 
@@ -65,7 +68,8 @@ export function useTareas(activeView: ActiveView, busqueda: string, alCambiar: (
       if (recurrence) payload.recurrence = recurrence;
       if (activeView === 'my-day') payload.my_day = true;
       if (activeView === 'important') payload.important = true;
-      if (activeView === 'planned' && !dueDate) payload.due_date = new Date().toISOString().slice(0, 10);
+      // Hoy en la hora local: toISOString() daba el día UTC y, desde las 19:00 de Guayaquil, la tarea vencía «Mañana».
+      if (activeView === 'planned' && !dueDate) payload.due_date = hoyTexto();
 
       if (listId) {
         await api.post(`/tasks/lists/${listId}/tasks`, payload);
@@ -87,7 +91,9 @@ export function useTareas(activeView: ActiveView, busqueda: string, alCambiar: (
       // Al completar una tarea que se repite, el servidor crea la siguiente: hay que traerla.
       if (tarea?.recurrence && !tarea.completed) fetchTasks();
       alCambiar();
-    } catch {
+    } catch (e) {
+      // Antes la marca se deshacía sin decir nada (p. ej. con el servidor reiniciándose, 503).
+      setError('No se pudo marcar la tarea: ' + mensaje(e, 'desconocido'));
       fetchTasks();
     }
   };
@@ -97,7 +103,8 @@ export function useTareas(activeView: ActiveView, busqueda: string, alCambiar: (
     try {
       await api.patch(`/tasks/tasks/${id}/important`);
       alCambiar();
-    } catch {
+    } catch (e) {
+      setError('No se pudo cambiar la importancia: ' + mensaje(e, 'desconocido'));
       fetchTasks();
     }
   };
@@ -122,7 +129,8 @@ export function useTareas(activeView: ActiveView, busqueda: string, alCambiar: (
     try {
       await api.del(`/tasks/tasks/${id}`);
       alCambiar();
-    } catch {
+    } catch (e) {
+      setError('No se pudo eliminar la tarea: ' + mensaje(e, 'desconocido'));
       fetchTasks();
     }
   };

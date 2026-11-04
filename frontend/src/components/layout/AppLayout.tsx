@@ -15,6 +15,7 @@ import { CommandPalette } from "../common/CommandPalette";
 import { useResponsive } from "../../hooks/useResponsive";
 import { OfflineBanner } from "../common/OfflineBanner";
 import { AvisoConexionLenta } from "../common/AvisoConexionLenta";
+import { BienvenidaServidorNuevo } from "../common/BienvenidaServidorNuevo";
 import { useOfflineSync } from "../../hooks/useOfflineSync";
 import { InstallPrompt } from "../common/InstallPrompt";
 import { ReminderPopup } from "../common/ReminderPopup";
@@ -94,6 +95,14 @@ export function AppLayout() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // En celular y tableta, al elegir una carpeta se cierra el cajón: si no, quedaba encima de la
+  // lista y parecía que la carpeta no se había abierto.
+  const carpetaActual = useMailStore((s) => s.currentFolder);
+  useEffect(() => {
+    if (drawerOpen) closeDrawer();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [carpetaActual]);
+
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-[#f3f2f1]">
       {/* Skip to content — accesibilidad (navegación por teclado) */}
@@ -104,6 +113,8 @@ export function AppLayout() {
       <AvisoConexionLenta />
       {/* LOPDP: aviso de cookies necesarias (se oculta tras «Entendido») */}
       <AvisoCookies />
+      {/* Bienvenida tras una migración de correo (solo si el servidor dice que corresponde) */}
+      <BienvenidaServidorNuevo />
       <Topbar />
       {!esModoApp() && <ChatFlotante />}
       <div className="flex-1 flex overflow-hidden">

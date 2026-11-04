@@ -3,13 +3,14 @@
 import { api } from '../../../api/client';
 import type { Task, TaskList } from '../types';
 import { separarEmoji } from './nombreLista';
+import { diaVencimiento } from './fechaVencimiento';
 
 const escapar = (t: string) =>
   t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 function fila(t: Task): string {
   const vence = t.due_date
-    ? ` · Vence: ${new Date(t.due_date.slice(0, 10) + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}`
+    ? ` · Vence: ${new Date(diaVencimiento(t.due_date) + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}`
     : '';
   const nota = t.note ? `<div class="nota">${escapar(t.note)}</div>` : '';
   return `<li class="${t.completed ? 'hecha' : ''}"><span class="caja">${t.completed ? '☑' : '☐'}</span>

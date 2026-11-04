@@ -5,6 +5,7 @@ import type { MessageFull } from '../types';
 import { sanitizeHtml } from '../lib/sanitize';
 import { destinatariosResponderATodos } from '../lib/destinatariosRespuesta';
 import { showToast } from '../components/common/Toast';
+import { confirmarBorradoDefinitivo } from '../lib/confirmarBorrado';
 
 
 function escapeHtml(str: string): string {
@@ -35,8 +36,15 @@ function buildQuoteHtml(msg: MessageFull, type: 'reply' | 'forward'): string {
 export function useKeyboardShortcuts() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // Si otro componente ya atendió la tecla, no se repite la acción.
+      if (e.defaultPrevented) return;
       const target = e.target as HTMLElement;
-      const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+      const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable;
+      // Con el foco en un botón, enlace o control, Enter y las flechas son de ese control: así un
+      // botón enfocado con Tab se activa con Enter. Dentro de un diálogo, las teclas son del diálogo.
+      const enControl = !!target.closest?.('button, a[href], select, summary, [role="button"], [role="link"], [role="menuitem"], [role="option"], [role="tab"], [role="checkbox"], [role="switch"], [role="slider"], [role="combobox"]');
+      const enDialogo = !!target.closest?.('[role="dialog"], [role="alertdialog"], [aria-modal="true"], dialog');
+      if (enDialogo) return;
       const state = useMailStore.getState();
 
       // Escape always works
@@ -56,7 +64,12 @@ export function useKeyboardShortcuts() {
         return;
       }
 
-      if (isInput) return;
+      if (isInput || enControl) return;
+
+      // Los atajos de una letra (N, R, F, E, /) solo valen sin Ctrl, Cmd ni Alt: Ctrl+F es
+      // «buscar en la página», Ctrl+R recarga y Ctrl+N abre ventana. Antes Ctrl+F abría un
+      // reenvío. Ctrl+A se atiende aparte, más abajo.
+      if (e.key.length === 1 && (e.ctrlKey || e.metaKey || e.altKey) && e.key.toLowerCase() !== 'a') return;
 
       const msgs = state.messages;
       const idx = state.activeIndex;
@@ -201,14 +214,21 @@ async function selectMessage(uid: number, folder: string) {
 }
 
 async function bulkAction(uids: number[], action: string, dest: string, folder: string) {
+  // La tecla Supr en la Papelera borra para siempre: se pregunta antes.
+  if (action === 'delete' && !confirmarBorradoDefinitivo(uids.length)) return;
   try {
     await api.post(`/mail/bulk-action/${encodeURIComponent(folder)}`, { uids, action, dest_folder: dest });
+    // Una tecla suelta (Supr, E) hace desaparecer el correo: se dice siempre adónde fue.
+    showToast(action === 'delete' ? 'Eliminado definitivamente'
+      : action === 'archive' ? 'Archivado (está en la carpeta Archivo)'
+      : action === 'move' && dest === 'Trash' ? 'Movido a la Papelera'
+      : 'Hecho');
     useMailStore.getState().setSelectedMessage(null);
     useMailStore.getState().clearSelection();
     window.dispatchEvent(new CustomEvent('refresh-messages'));
   } catch {
     // Archivar, borrar o mover varios correos y que falle en silencio es peor que el fallo:
     // se da por hecho lo que no ocurrio.
-    showToast('No se pudo completar la accion sobre los correos seleccionados');
+    showToast('No se pudo completar la acción sobre los correos seleccionados');
   }
 }

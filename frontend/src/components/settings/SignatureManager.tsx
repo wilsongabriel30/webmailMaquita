@@ -14,6 +14,13 @@ import { sanitizeSignatureHtml } from '../../lib/sanitize';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../../api/client';
 
+/** El redactor guarda la firma en la pestaña para no pedirla en cada correo. Al cambiarla aquí
+ *  hay que olvidarla; si no, los correos nuevos seguían saliendo con la firma anterior hasta
+ *  cerrar la pestaña. */
+function olvidarFirmaEnCache() {
+  try { sessionStorage.removeItem('maquita_sig_cache'); } catch { /* sin almacenamiento */ }
+}
+
 interface Signature {
   id: number;
   owner: string;
@@ -112,6 +119,7 @@ export function SignatureManager() {
         avisos = r?.avisos ?? [];
         flash({ type: 'success', message: 'Firma actualizada' });
       }
+      olvidarFirmaEnCache();
       // El servidor revisa la firma al guardar (imágenes, tabla, mailto); lo que quitó o dudó, se dice aquí.
       if (avisos.length) flash({ type: 'error', message: avisos.join(' ') });
       clearEdit();
@@ -124,6 +132,7 @@ export function SignatureManager() {
   const handleDelete = useCallback(async (id: number) => {
     try {
       await api.del(`/settings/signatures/${id}`);
+      olvidarFirmaEnCache();
       flash({ type: 'success', message: 'Firma eliminada' });
       setDeletingId(null);
       clearEdit();
@@ -136,6 +145,7 @@ export function SignatureManager() {
   const handleSetDefault = useCallback(async (id: number) => {
     try {
       await api.put(`/settings/signatures/${id}`, { is_default: true });
+      olvidarFirmaEnCache();
       flash({ type: 'success', message: 'Firma predeterminada actualizada' });
       await fetchSignatures();
     } catch (err: unknown) {

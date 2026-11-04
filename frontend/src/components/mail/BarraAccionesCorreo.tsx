@@ -15,8 +15,9 @@ const estiloBotonBarra: React.CSSProperties = {
   border: 'none',
   color: '#0078d4',
   fontWeight: 600,
-  padding: '5px 8px',
-  fontSize: 12,
+  padding: '7px 10px',
+  fontSize: 14,
+  minHeight: 34,
   cursor: 'pointer',
   display: 'inline-flex',
   alignItems: 'center',
@@ -55,7 +56,7 @@ export function BarraAccionesCorreo({
   return (
     <div className="barra-acciones-correo" style={{
       padding: '3px 16px', borderTop: '1px solid #edebe9', flexShrink: 0,
-      display: 'flex', alignItems: 'center', gap: 2, background: '#faf9f8', overflow: 'hidden',
+      display: 'flex', alignItems: 'center', gap: 2, background: '#faf9f8', flexWrap: 'wrap', rowGap: 0,
     }}>
       {esBorrador ? (
         <button style={{ ...estiloBotonBarra, background: '#0078d4', color: '#fff', padding: '5px 16px' }} onClick={onEditarBorrador}>
@@ -80,13 +81,16 @@ export function BarraAccionesCorreo({
         </button>
         <AccionesCorreoNoDeseado folder={folder} uid={uid} from={from} estilo={estiloBotonBarra} />
         {conAsignar && <BotonAsignarCorreo estilo={estiloBotonBarra} correo={{ folder, uid, subject: asunto, from }} />}
+        {/* «Respuesta IA» y «Resumir» conservan siempre su texto (revisión 04/11/2026, H11): solo con
+            icono no se reconocen, y en pantalla táctil no hay descripción emergente. Si falta sitio, la
+            barra pasa a una segunda fila. */}
         <button style={{ ...estiloBotonBarra, marginLeft: 'auto', color: '#8764b8' }} onClick={onRespuestaIA} disabled={generandoRespuestas} title="Respuestas sugeridas por IA">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
-          <Etiqueta texto={generandoRespuestas ? 'Generando...' : 'Respuesta IA'} secundaria />
+          <Etiqueta texto={generandoRespuestas ? 'Generando...' : 'Respuesta IA'} />
         </button>
         <button style={{ ...estiloBotonBarra, color: '#498205' }} onClick={onResumir} disabled={resumiendo} title="Resumir con IA">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" /></svg>
-          <Etiqueta texto={resumiendo ? 'Resumiendo...' : 'Resumir'} secundaria />
+          <Etiqueta texto={resumiendo ? 'Resumiendo...' : 'Resumir'} />
         </button>
       </>)}
       {children}

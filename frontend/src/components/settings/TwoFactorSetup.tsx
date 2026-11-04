@@ -51,7 +51,7 @@ export function TwoFactorSetup({ contrasenaInicial, alActivar }: { contrasenaIni
       setAskPassword(false);
       setSetupPassword('');
     } catch (e) {
-      showToast(e instanceof Error && e.message ? e.message : 'Error al configurar 2FA');
+      showToast(e instanceof Error && e.message ? e.message : 'No se pudo configurar la verificación en dos pasos');
     } finally {
       setLoading(false);
     }
@@ -62,7 +62,7 @@ export function TwoFactorSetup({ contrasenaInicial, alActivar }: { contrasenaIni
     setLoading(true);
     try {
       await api.post('/auth/totp/verify', { code: verifyCode.trim() });
-      showToast('2FA activado correctamente');
+      showToast('Verificación en dos pasos activada');
       setStep('backup');
       fetchStatus();
     } catch (e) {
@@ -77,7 +77,7 @@ export function TwoFactorSetup({ contrasenaInicial, alActivar }: { contrasenaIni
     setLoading(true);
     try {
       await api.post('/auth/totp/disable', { code: disableCode.trim() });
-      showToast('2FA desactivado');
+      showToast('Verificación en dos pasos desactivada');
       setSetupData(null);
       setStep('idle');
       setShowDisable(false);
@@ -109,16 +109,16 @@ export function TwoFactorSetup({ contrasenaInicial, alActivar }: { contrasenaIni
   }, [regenCode, fetchStatus]);
 
   if (!status) {
-    return <div className="p-4 text-[13px] text-[#605e5c]">Cargando estado 2FA...</div>;
+    return <div className="p-4 text-[13px] text-[#605e5c]">Cargando…</div>;
   }
 
   return (
     <div className="p-4 max-w-[480px]">
       <h3 className="text-[15px] font-semibold text-[#323130] dark:text-[#e0e0e0] mb-1">
-        Autenticación de dos factores (2FA)
+        Verificación en dos pasos
       </h3>
       <p className="text-[12px] text-[#605e5c] dark:text-[#999] mb-4">
-        Agrega una capa extra de seguridad a tu cuenta usando Google Authenticator, Authy u otra app TOTP.
+        Además de la contraseña, al entrar se pide un código de 6 números que muestra una aplicación del celular (Google Authenticator, Microsoft Authenticator o Authy).
       </p>
 
       {/* Status badge */}
@@ -150,7 +150,7 @@ export function TwoFactorSetup({ contrasenaInicial, alActivar }: { contrasenaIni
           disabled={loading}
           className="px-4 py-2 bg-[#0078d4] text-white text-[13px] rounded hover:bg-[#106ebe] disabled:opacity-50 transition-colors"
         >
-          Activar 2FA
+          Activar la verificación en dos pasos
         </button>
       )}
       {!status.enabled && step === 'idle' && askPassword && (
@@ -193,7 +193,7 @@ export function TwoFactorSetup({ contrasenaInicial, alActivar }: { contrasenaIni
               1. Escanea este código QR con tu app de autenticación:
             </p>
             <div className="flex justify-center mb-3">
-              <img src={setupData.qr_code} alt="QR Code" className="w-[200px] h-[200px] rounded" />
+              <img src={setupData.qr_code} alt="Código QR para escanear con la aplicación del celular" className="w-[200px] h-[200px] rounded" />
             </div>
             <p className="text-[11px] text-[#605e5c] dark:text-[#999] mb-1">
               O ingresa esta clave manualmente:
@@ -245,7 +245,7 @@ export function TwoFactorSetup({ contrasenaInicial, alActivar }: { contrasenaIni
               Guarda estos códigos de respaldo
             </p>
             <p className="text-[12px] text-[#605e5c] dark:text-[#999] mb-3">
-              Usa estos codigos si pierdes acceso a tu app de autenticacion. Cada codigo solo se puede usar una vez.
+              Usa estos códigos si pierdes el celular o la aplicación de códigos. Cada código solo se puede usar una vez. Anótalos en papel y guárdalos en un lugar seguro.
             </p>
             <div className="grid grid-cols-2 gap-1.5">
               {setupData.backup_codes.map((code, i) => (
@@ -317,12 +317,12 @@ export function TwoFactorSetup({ contrasenaInicial, alActivar }: { contrasenaIni
               onClick={() => setShowDisable(true)}
               className="text-[13px] text-[#d13438] hover:text-[#a4262c] transition-colors"
             >
-              Desactivar 2FA
+              Desactivar la verificación en dos pasos
             </button>
           ) : (
             <div className="space-y-2">
               <p className="text-[12px] text-[#323130] dark:text-[#e0e0e0]">
-                Ingresa tu código TOTP o un código de respaldo para desactivar:
+                Escribe el código de 6 números de la aplicación del celular, o un código de respaldo, para desactivarla:
               </p>
               <div className="flex gap-2">
                 <input
@@ -330,7 +330,7 @@ export function TwoFactorSetup({ contrasenaInicial, alActivar }: { contrasenaIni
                   value={disableCode}
                   onChange={e => setDisableCode(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleDisable()}
-                  placeholder="Código TOTP o de respaldo"
+                  placeholder="Código de la aplicación o de respaldo"
                   className="w-[300px] px-3 py-1.5 text-[13px] font-mono border border-[#e1dfdd] dark:border-[#555] rounded bg-white dark:bg-[#1e1e1e] text-[#323130] dark:text-[#e0e0e0] outline-none focus:border-[#d13438]"
                   autoFocus
                 />
