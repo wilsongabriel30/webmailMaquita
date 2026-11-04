@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../api/client';
 import type { ContactCategory, ContactList, SidebarFilter } from './types';
+import { teclaActiva, protegerEnter } from './tecladoContactos';
 
 interface Props {
   activeFilter: SidebarFilter;
@@ -40,9 +41,12 @@ export function ContactsSidebar({ activeFilter, onFilterChange, deletedCount, on
   }) => {
     const active = activeFilter === filter;
     return (
-      <div
+      <button
+        type="button"
         onClick={() => onFilterChange(filter)}
+        aria-current={active ? 'true' : undefined}
         style={{
+          width: '100%', border: 'none', textAlign: 'left',
           display: 'flex', alignItems: 'center', gap: 10,
           padding: '8px 16px', cursor: 'pointer',
           background: active ? '#e1dfdd' : 'transparent',
@@ -59,7 +63,7 @@ export function ContactsSidebar({ activeFilter, onFilterChange, deletedCount, on
         {badge !== undefined && badge > 0 && (
           <span style={{ fontSize: 11, color: '#a19f9d' }}>{badge}</span>
         )}
-      </div>
+      </button>
     );
   };
 
@@ -83,7 +87,7 @@ export function ContactsSidebar({ activeFilter, onFilterChange, deletedCount, on
   const trashIcon = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><polyline points="3,6 5,6 21,6" /><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" /></svg>;
 
   return (
-    <div style={{
+    <div onKeyDown={protegerEnter} style={{
       width: 228, minWidth: 228, background: '#faf9f8',
       borderRight: '1px solid #edebe9', display: 'flex', flexDirection: 'column',
       fontFamily: "'Segoe UI', Calibri, sans-serif", flexShrink: 0,
@@ -105,7 +109,9 @@ export function ContactsSidebar({ activeFilter, onFilterChange, deletedCount, on
         }}
       >
         <div
+          role="button" tabIndex={0} aria-expanded={showLists}
           onClick={() => setShowLists(!showLists)}
+          onKeyDown={teclaActiva(() => setShowLists(!showLists))}
           style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', flex: 1 }}
         >
           <Chevron open={showLists} />
@@ -118,7 +124,9 @@ export function ContactsSidebar({ activeFilter, onFilterChange, deletedCount, on
         return (
           <div
             key={l.id}
+            role="button" tabIndex={0} aria-current={active ? 'true' : undefined}
             onClick={() => onFilterChange(`list:${l.id}`)}
+            onKeyDown={teclaActiva(() => onFilterChange(`list:${l.id}`))}
             className="sidebar-list-item"
             style={{
               display: 'flex', alignItems: 'center', gap: 8,
@@ -144,7 +152,11 @@ export function ContactsSidebar({ activeFilter, onFilterChange, deletedCount, on
             <span
               className="list-gear-btn"
               title="Gestionar lista"
+              role="button" tabIndex={0} aria-label={`Gestionar la lista ${l.name}`}
               onClick={e => { e.stopPropagation(); onManageList(l.id, l.name); }}
+              onKeyDown={teclaActiva(() => onManageList(l.id, l.name))}
+              onFocus={e => { e.currentTarget.style.opacity = '1'; }}
+              onBlur={e => { e.currentTarget.style.opacity = '0'; }}
               style={{
                 opacity: 0, transition: 'opacity 0.15s',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -174,7 +186,9 @@ export function ContactsSidebar({ activeFilter, onFilterChange, deletedCount, on
         }}
       >
         <div
+          role="button" tabIndex={0} aria-expanded={showCats}
           onClick={() => setShowCats(!showCats)}
+          onKeyDown={teclaActiva(() => setShowCats(!showCats))}
           style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', flex: 1 }}
         >
           <Chevron open={showCats} />
@@ -182,7 +196,9 @@ export function ContactsSidebar({ activeFilter, onFilterChange, deletedCount, on
         </div>
         <span
           title="Gestionar categorías"
+          role="button" tabIndex={0} aria-label="Gestionar categorías"
           onClick={e => { e.stopPropagation(); onManageCategories(); }}
+          onKeyDown={teclaActiva(onManageCategories)}
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             width: 22, height: 22, borderRadius: 4, cursor: 'pointer',
@@ -197,7 +213,9 @@ export function ContactsSidebar({ activeFilter, onFilterChange, deletedCount, on
       {showCats && categories.map(cat => (
         <div
           key={cat.id}
+          role="button" tabIndex={0} aria-current={activeFilter === `category:${cat.id}` ? 'true' : undefined}
           onClick={() => onFilterChange(`category:${cat.id}`)}
+          onKeyDown={teclaActiva(() => onFilterChange(`category:${cat.id}`))}
           style={{
             display: 'flex', alignItems: 'center', gap: 8,
             padding: '6px 16px 6px 36px', cursor: 'pointer', fontSize: 12,

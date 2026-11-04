@@ -1,4 +1,37 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { protegerEnter } from './tecladoContactos';
+
+/* Estilo de cada opción de los menús «Nuevo» y «Administrar» (botones nativos, usables con teclado). */
+const estiloItemMenu: React.CSSProperties = {
+  display: 'block', width: '100%', textAlign: 'left', border: 'none', background: '#fff',
+  fontFamily: 'inherit', color: '#323130',
+};
+
+/* Teclado del menú desplegable: flechas para recorrer, Escape para cerrar y devolver el foco. */
+function useMenuTeclado(abierto: boolean, cerrar: () => void) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (abierto) ref.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+  }, [abierto]);
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (!abierto) return;
+    const items = Array.from(ref.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') || []);
+    const i = items.indexOf(document.activeElement as HTMLElement);
+    if (e.key === 'Escape') {
+      e.preventDefault(); e.stopPropagation(); cerrar();
+      // El botón se vuelve a montar al cerrar: se enfoca en el siguiente ciclo.
+      setTimeout(() => ref.current?.querySelector<HTMLElement>('button[aria-haspopup]')?.focus(), 0);
+    } else if (e.key === 'ArrowDown' && items.length) {
+      e.preventDefault(); items[(i + 1) % items.length].focus();
+    } else if (e.key === 'ArrowUp' && items.length) {
+      e.preventDefault(); items[(i - 1 + items.length) % items.length].focus();
+    }
+  };
+  const onBlur = (e: React.FocusEvent) => {
+    if (abierto && !ref.current?.contains(e.relatedTarget as Node)) cerrar();
+  };
+  return { ref, onKeyDown, onBlur };
+}
 import type { SidebarFilter } from './types';
 
 interface Props {
@@ -41,13 +74,21 @@ export function ContactsRibbon({
   const isTrash = filter === 'deleted';
   const isMulti = selectionCount > 1;
 
-  const RibbonBtn = ({ icon, label, onClick, disabled, danger }: {
+  const { ref: refMenuNuevo, onKeyDown: teclasMenuNuevo, onBlur: salirMenuNuevo } =
+    useMenuTeclado(showNewMenu, () => setShowNewMenu(false));
+  const { ref: refMenuAdmin, onKeyDown: teclasMenuAdmin, onBlur: salirMenuAdmin } =
+    useMenuTeclado(showManageMenu, () => setShowManageMenu(false));
+
+  const RibbonBtn = ({ icon, label, onClick, disabled, danger, expanded }: {
     icon: React.ReactNode; label: string; onClick: () => void;
-    disabled?: boolean; danger?: boolean;
+    disabled?: boolean; danger?: boolean; expanded?: boolean;
   }) => (
     <button
+      type="button"
       onClick={onClick}
       disabled={disabled}
+      aria-haspopup={expanded === undefined ? undefined : 'menu'}
+      aria-expanded={expanded}
       style={{
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
         padding: '6px 12px', border: 'none', borderRadius: 4,
@@ -82,7 +123,7 @@ export function ContactsRibbon({
   const tagIcon = <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" /><line x1="7" y1="7" x2="7.01" y2="7" /></svg>;
 
   return (
-    <div style={{
+    <div onKeyDown={protegerEnter} style={{
       display: 'flex', alignItems: 'center', gap: 2,
       padding: '6px 16px', borderBottom: '1px solid #edebe9',
       background: '#faf9f8', flexShrink: 0,
@@ -90,10 +131,11 @@ export function ContactsRibbon({
       flexWrap: 'wrap',
     }}>
       {/* Nuevo */}
-      <div style={{ position: 'relative' }}>
-        <RibbonBtn icon={plusIcon} label="Nuevo ▾" onClick={() => setShowNewMenu(!showNewMenu)} />
+      <div style={{ position: 'relative' }} ref={refMenuNuevo} onKeyDown={teclasMenuNuevo} onBlur={salirMenuNuevo}>
+        <RibbonBtn icon={plusIcon} label="Nuevo ▾" onClick={() => setShowNewMenu(!showNewMenu)} expanded={showNewMenu} />
         {showNewMenu && (
           <div
+            role="menu" aria-label="Nuevo"
             style={{
               position: 'absolute', top: '100%', left: 0, zIndex: 100,
               background: '#fff', border: '1px solid #edebe9', borderRadius: 4,
@@ -101,22 +143,22 @@ export function ContactsRibbon({
             }}
             onMouseLeave={() => setShowNewMenu(false)}
           >
-            <div onClick={() => { onNewContact(); setShowNewMenu(false); }}
-              style={{ padding: '8px 16px', fontSize: 13, cursor: 'pointer' }}
+            <button type="button" role="menuitem" onClick={() => { onNewContact(); setShowNewMenu(false); }}
+              style={{ ...estiloItemMenu, padding: '8px 16px', fontSize: 13, cursor: 'pointer' }}
               onMouseEnter={e => (e.currentTarget.style.background = '#f3f2f1')}
               onMouseLeave={e => (e.currentTarget.style.background = '#fff')}
-            >Nuevo contacto</div>
-            <div onClick={() => { onNewList(); setShowNewMenu(false); }}
-              style={{ padding: '8px 16px', fontSize: 13, cursor: 'pointer' }}
+            >Nuevo contacto</button>
+            <button type="button" role="menuitem" onClick={() => { onNewList(); setShowNewMenu(false); }}
+              style={{ ...estiloItemMenu, padding: '8px 16px', fontSize: 13, cursor: 'pointer' }}
               onMouseEnter={e => (e.currentTarget.style.background = '#f3f2f1')}
               onMouseLeave={e => (e.currentTarget.style.background = '#fff')}
-            >Nueva lista</div>
-            <div onClick={() => { onImportHistory(); setShowNewMenu(false); }}
-              style={{ padding: '8px 16px', fontSize: 13, cursor: 'pointer', borderTop: '1px solid #edebe9' }}
+            >Nueva lista</button>
+            <button type="button" role="menuitem" onClick={() => { onImportHistory(); setShowNewMenu(false); }}
+              style={{ ...estiloItemMenu, padding: '8px 16px', fontSize: 13, cursor: 'pointer', borderTop: '1px solid #edebe9' }}
               onMouseEnter={e => (e.currentTarget.style.background = '#f3f2f1')}
               onMouseLeave={e => (e.currentTarget.style.background = '#fff')}
               title="Crea contactos con las direcciones de tus correos recibidos y enviados"
-            >📥 Importar del historial</div>
+            >📥 Importar del historial</button>
           </div>
         )}
       </div>
@@ -178,10 +220,11 @@ export function ContactsRibbon({
       )}
 
       <Divider />
-      <div style={{ position: 'relative' }}>
-        <RibbonBtn icon={gearIcon} label="Administrar ▾" onClick={() => setShowManageMenu(!showManageMenu)} />
+      <div style={{ position: 'relative' }} ref={refMenuAdmin} onKeyDown={teclasMenuAdmin} onBlur={salirMenuAdmin}>
+        <RibbonBtn icon={gearIcon} label="Administrar ▾" onClick={() => setShowManageMenu(!showManageMenu)} expanded={showManageMenu} />
         {showManageMenu && (
           <div
+            role="menu" aria-label="Administrar"
             style={{
               position: 'absolute', top: '100%', left: 0, zIndex: 100,
               background: '#fff', border: '1px solid #edebe9', borderRadius: 4,
@@ -189,53 +232,53 @@ export function ContactsRibbon({
             }}
             onMouseLeave={() => setShowManageMenu(false)}
           >
-            <div onClick={() => { onImport(); setShowManageMenu(false); }}
-              style={{ padding: '8px 16px', fontSize: 13, cursor: 'pointer' }}
+            <button type="button" role="menuitem" onClick={() => { onImport(); setShowManageMenu(false); }}
+              style={{ ...estiloItemMenu, padding: '8px 16px', fontSize: 13, cursor: 'pointer' }}
               onMouseEnter={e => (e.currentTarget.style.background = '#f3f2f1')}
               onMouseLeave={e => (e.currentTarget.style.background = '#fff')}
-            >Importar CSV</div>
-            <div onClick={() => { onExport(); setShowManageMenu(false); }}
-              style={{ padding: '8px 16px', fontSize: 13, cursor: 'pointer' }}
+            >Importar CSV</button>
+            <button type="button" role="menuitem" onClick={() => { onExport(); setShowManageMenu(false); }}
+              style={{ ...estiloItemMenu, padding: '8px 16px', fontSize: 13, cursor: 'pointer' }}
               onMouseEnter={e => (e.currentTarget.style.background = '#f3f2f1')}
               onMouseLeave={e => (e.currentTarget.style.background = '#fff')}
-            >Exportar</div>
+            >Exportar</button>
             <div style={{ height: 1, background: '#edebe9', margin: '4px 0' }} />
-            <div onClick={() => { onManageCategories(); setShowManageMenu(false); }}
-              style={{ padding: '8px 16px', fontSize: 13, cursor: 'pointer' }}
+            <button type="button" role="menuitem" onClick={() => { onManageCategories(); setShowManageMenu(false); }}
+              style={{ ...estiloItemMenu, padding: '8px 16px', fontSize: 13, cursor: 'pointer' }}
               onMouseEnter={e => (e.currentTarget.style.background = '#f3f2f1')}
               onMouseLeave={e => (e.currentTarget.style.background = '#fff')}
-            >Categorías</div>
-            <div onClick={() => { onShowCustomFields(); setShowManageMenu(false); }}
-              style={{ padding: '8px 16px', fontSize: 13, cursor: 'pointer' }}
+            >Categorías</button>
+            <button type="button" role="menuitem" onClick={() => { onShowCustomFields(); setShowManageMenu(false); }}
+              style={{ ...estiloItemMenu, padding: '8px 16px', fontSize: 13, cursor: 'pointer' }}
               onMouseEnter={e => (e.currentTarget.style.background = '#f3f2f1')}
               onMouseLeave={e => (e.currentTarget.style.background = '#fff')}
-            >Campos personalizados</div>
-            <div onClick={() => { onShowDuplicates(); setShowManageMenu(false); }}
-              style={{ padding: '8px 16px', fontSize: 13, cursor: 'pointer' }}
+            >Campos personalizados</button>
+            <button type="button" role="menuitem" onClick={() => { onShowDuplicates(); setShowManageMenu(false); }}
+              style={{ ...estiloItemMenu, padding: '8px 16px', fontSize: 13, cursor: 'pointer' }}
               onMouseEnter={e => (e.currentTarget.style.background = '#f3f2f1')}
               onMouseLeave={e => (e.currentTarget.style.background = '#fff')}
-            >Buscar duplicados</div>
-            <div onClick={() => { onShowReminders(); setShowManageMenu(false); }}
-              style={{ padding: '8px 16px', fontSize: 13, cursor: 'pointer' }}
+            >Buscar duplicados</button>
+            <button type="button" role="menuitem" onClick={() => { onShowReminders(); setShowManageMenu(false); }}
+              style={{ ...estiloItemMenu, padding: '8px 16px', fontSize: 13, cursor: 'pointer' }}
               onMouseEnter={e => (e.currentTarget.style.background = '#f3f2f1')}
               onMouseLeave={e => (e.currentTarget.style.background = '#fff')}
-            >Recordatorios</div>
+            >Recordatorios</button>
             <div style={{ height: 1, background: '#edebe9', margin: '4px 0' }} />
-            <div onClick={() => { onShowDirectory(); setShowManageMenu(false); }}
-              style={{ padding: '8px 16px', fontSize: 13, cursor: 'pointer' }}
+            <button type="button" role="menuitem" onClick={() => { onShowDirectory(); setShowManageMenu(false); }}
+              style={{ ...estiloItemMenu, padding: '8px 16px', fontSize: 13, cursor: 'pointer' }}
               onMouseEnter={e => (e.currentTarget.style.background = '#f3f2f1')}
               onMouseLeave={e => (e.currentTarget.style.background = '#fff')}
-            >Directorio institucional</div>
-            <div onClick={() => { onShowMultiImport(); setShowManageMenu(false); }}
-              style={{ padding: '8px 16px', fontSize: 13, cursor: 'pointer' }}
+            >Directorio institucional</button>
+            <button type="button" role="menuitem" onClick={() => { onShowMultiImport(); setShowManageMenu(false); }}
+              style={{ ...estiloItemMenu, padding: '8px 16px', fontSize: 13, cursor: 'pointer' }}
               onMouseEnter={e => (e.currentTarget.style.background = '#f3f2f1')}
               onMouseLeave={e => (e.currentTarget.style.background = '#fff')}
-            >Importar multi-servicio</div>
-            <div onClick={() => { onShowCardDAV(); setShowManageMenu(false); }}
-              style={{ padding: '8px 16px', fontSize: 13, cursor: 'pointer' }}
+            >Importar multi-servicio</button>
+            <button type="button" role="menuitem" onClick={() => { onShowCardDAV(); setShowManageMenu(false); }}
+              style={{ ...estiloItemMenu, padding: '8px 16px', fontSize: 13, cursor: 'pointer' }}
               onMouseEnter={e => (e.currentTarget.style.background = '#f3f2f1')}
               onMouseLeave={e => (e.currentTarget.style.background = '#fff')}
-            >Sincronización CardDAV</div>
+            >Sincronización CardDAV</button>
           </div>
         )}
       </div>
