@@ -194,6 +194,9 @@ function assignColumns<T extends EventWithTimes>(events: T[]): OverlapGroup<T> {
 }
 
 export const WEEKDAY_SHORT = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+/** Inicial de cada día, igual que la vista Mes: miércoles es «X» para no repetir la «M». */
+export const WEEKDAY_LETTER = ["L", "M", "X", "J", "V", "S", "D"];
+export const WEEKDAY_FULL = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
 
 export const MONTH_NAMES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",

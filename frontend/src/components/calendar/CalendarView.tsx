@@ -1,4 +1,3 @@
-import { api } from "../../api/client";
 import { SchedulingAssistant } from './SchedulingAssistant';
 import { useState, useEffect, useCallback, useMemo } from "react";
 import type { ViewMode, CalendarInfo, CalendarEvent, EventFormData } from "./types/calendar";
@@ -222,12 +221,8 @@ const [showScheduling, setShowScheduling] = useState(false);
   }
 
   async function handleDeleteEvent(id: string) {
-    // T-30: si el evento tiene su reunión Maquita Meet, cancelarla también (avisa a los participantes)
-    try {
-      const ev = await api.get<{ description?: string }>(`/calendar/events/${id}`);
-      const m = /(?:REUNION-ID|X-MAQUITA-REUNION):\s*(\d+)/.exec(ev?.description || "");
-      if (m) await api.post(`/chat/reuniones/${m[1]}/cancelar`, {});
-    } catch { /* sin reunión vinculada */ }
+    // T-30: la reunión de Meet vinculada la cancela el servidor al borrar el evento (puente_meet). Cancelarla antes
+    // desde aquí borraba el evento por el otro lado y este borrado terminaba en «no encontrado».
     await deleteEvent(id);
     setModalOpen(false);
     loadEvents();

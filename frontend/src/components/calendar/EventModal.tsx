@@ -3,6 +3,7 @@ import type { CalendarInfo, CalendarEvent, EventFormData, EventReminder, FreeBus
 import { toDateInputValue, toTimeInputValue, formatTime } from "./utils/dateHelpers";
 import { parseISO, addMinutes, format } from "date-fns";
 import { useCalendarApi } from "./hooks/useCalendarApi";
+import { useVideollamadaConInvitados } from "./hooks/useVideollamadaConInvitados";
 import { api } from "../../api/client";
 import { es } from "date-fns/locale";
 
@@ -82,6 +83,19 @@ export function EventModal({
   onClose,
 }: Props) {
   const summaryRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // Al abrir, el foco pasa al título (antes se quedaba en el botón «Nuevo evento», detrás de la
+  // ventana) y al cerrar vuelve a donde estaba.
+  useEffect(() => {
+    if (!isOpen) return;
+    const anterior = document.activeElement as HTMLElement | null;
+    const t = window.setTimeout(() => summaryRef.current?.focus(), 0);
+    return () => {
+      window.clearTimeout(t);
+      if (anterior && document.contains(anterior)) anterior.focus();
+    };
+  }, [isOpen]);
   const isEdit = !!event;
 
   const getDefaultStart = useCallback(() => {
@@ -134,6 +148,8 @@ export function EventModal({
   const [showDatePickers, setShowDatePickers] = useState(false);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [virtualMeeting, setVirtualMeeting] = useState(!event && !!initialVirtualMeeting);
+  const encenderVideollamada = useCallback(() => setVirtualMeeting(true), []);
+  const videollamadaDecidida = useVideollamadaConInvitados(!event, attendees.length + optionalAttendees.length, location, !!rrule, encenderVideollamada);
   const [isExpanded, setIsExpanded] = useState(false);
   const descRef = useRef<HTMLTextAreaElement>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -153,6 +169,17 @@ export function EventModal({
   const { fetchFreeBusy } = useCalendarApi();
   const [freeBusyData, setFreeBusyData] = useState<Map<string, FreeBusySlot[]>>(new Map());
   const [loadingFreeBusy, setLoadingFreeBusy] = useState(false);
+
+  // Foto del formulario al abrir: sirve para saber si la persona cambió algo antes de cerrar.
+  const fotoFormulario = JSON.stringify({ summary, description, location, calendarId, startDate, startTime, endDate, endTime, allDay, rrule, reminders, attendees, optionalAttendees, status, virtualMeeting, adjuntos: attachments.length });
+  // Se guarda una sola vez, en el primer pintado (el diálogo se monta de cero con cada evento).
+  const [fotoInicial] = useState(fotoFormulario);
+  const hayCambios = fotoFormulario !== fotoInicial || !!newAttendee.trim() || !!newOptionalAttendee.trim();
+
+  // Única forma de cerrar la ventana (X de la cabecera y tecla Escape): si hay cambios, pregunta.
+  function cerrarConConfirmacion() {
+    if (!hayCambios || window.confirm("Tiene cambios sin guardar en la cita. ¿Desea cerrar y perderlos?")) onClose();
+  }
 
   // El formulario NO se reinicia aquí: el calendario le da una `key` que cambia con el
   // evento que se edita, así que React monta el diálogo de cero y los estados toman sus
@@ -310,7 +337,21 @@ export function EventModal({
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Escape") {
       e.preventDefault();
-      onClose();
+      // Esc sobre la lista de sugerencias de asistentes también llegaba aquí y cerraba la cita
+      // con todo lo escrito. Se pregunta antes de descartar, salvo que no haya nada escrito.
+      cerrarConConfirmacion();
+      return;
+    }
+    // Tab y Mayús+Tab no salen de la ventana mientras está abierta.
+    if (e.key === "Tab" && panelRef.current) {
+      const enfocables = Array.from(panelRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+      )).filter((el) => el.offsetParent !== null || el.classList.contains("olkm-check-oculto"));
+      if (enfocables.length) {
+        const primero = enfocables[0], ultimo = enfocables[enfocables.length - 1];
+        if (e.shiftKey && document.activeElement === primero) { e.preventDefault(); ultimo.focus(); }
+        else if (!e.shiftKey && document.activeElement === ultimo) { e.preventDefault(); primero.focus(); }
+      }
     }
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
@@ -387,14 +428,16 @@ export function EventModal({
   return (
     <div className="olkm-root" onKeyDown={handleKeyDown}>
       {/* Overlay */}
-      <div className="olkm-overlay" onClick={onClose} />
+      {/* Un clic fuera de la ventana ya NO la cierra: se perdía la cita a medio escribir. */}
+      <div className="olkm-overlay" />
 
       {/* Modal Panel */}
-      <div className={`olkm-panel${isExpanded ? " olkm-dialog-expanded" : ""}`}>
+      <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="olkm-titulo-dialogo"
+        className={`olkm-panel${isExpanded ? " olkm-dialog-expanded" : ""}`}>
         {/* Title Bar */}
         <div className="olkm-titlebar">
           <div className="olkm-titlebar-left">
-            <span className="olkm-titlebar-text">
+            <span className="olkm-titlebar-text" id="olkm-titulo-dialogo">
               {isEdit ? "Editar evento" : "Nuevo evento"}: {selectedCalendar?.name || "Calendario"}
             </span>
           </div>
@@ -407,7 +450,7 @@ export function EventModal({
                 }
               </svg>
             </button>
-            <button className="olkm-titlebar-btn olkm-close-btn" onClick={onClose} title="Cerrar">
+            <button className="olkm-titlebar-btn olkm-close-btn" onClick={cerrarConConfirmacion} title="Cerrar" aria-label="Cerrar">
               <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
                 <path d="M2.146 2.854a.5.5 0 11.708-.708L8 7.293l5.146-5.147a.5.5 0 01.708.708L8.707 8l5.147 5.146a.5.5 0 01-.708.708L8 8.707l-5.146 5.147a.5.5 0 01-.708-.708L7.293 8 2.146 2.854z"/>
               </svg>
@@ -747,7 +790,7 @@ export function EventModal({
                             type="checkbox"
                             checked={allDay}
                             onChange={(e) => setAllDay(e.target.checked)}
-                            style={{ display: "none" }}
+                            className="olkm-check-oculto"
                           />
                         </label>
                       </div>
@@ -801,13 +844,18 @@ export function EventModal({
                     </svg>
                   </div>
                   <div className="olkm-virtual-row">
-                    <span className="olkm-virtual-label">Videollamada</span>
+                    <span className="olkm-virtual-label" id="olkm-etiqueta-videollamada">Videollamada</span>
                     <label className="olkm-toggle-container">
+                      {/* Checkbox nativo, visualmente oculto pero enfocable con Tab y activable con
+                          Espacio (antes display:none lo dejaba fuera del teclado). */}
                       <input
                         type="checkbox"
+                        role="switch"
+                        aria-checked={virtualMeeting}
+                        aria-labelledby="olkm-etiqueta-videollamada"
                         checked={virtualMeeting}
-                        onChange={(e) => setVirtualMeeting(e.target.checked)}
-                        style={{ display: "none" }}
+                        onChange={(e) => { videollamadaDecidida(); setVirtualMeeting(e.target.checked); }}
+                        className="olkm-check-oculto"
                       />
                       <div className={`olkm-toggle-switch ${virtualMeeting ? "on" : ""}`}>
                         <div className="olkm-toggle-thumb" />
@@ -1077,7 +1125,7 @@ export function EventModal({
                     </svg>
                     <span style={{ fontSize: "13px", fontWeight: 600, color: "#323130" }}>Disponibilidad</span>
                     {loadingFreeBusy && (
-                      <span style={{ fontSize: "11px", color: "#a19f9d" }}>Cargando...</span>
+                      <span style={{ fontSize: "11px", color: "#605e5c" }}>Cargando...</span>
                     )}
                   </div>
 
@@ -1086,7 +1134,7 @@ export function EventModal({
                     {/* Hours header */}
                     <div style={{ display: "flex", marginLeft: "100px", marginBottom: "2px" }}>
                       {Array.from({ length: 13 }, (_, i) => i + 8).map((h) => (
-                        <div key={h} style={{ width: "40px", flexShrink: 0, fontSize: "10px", color: "#a19f9d", textAlign: "left" }}>
+                        <div key={h} style={{ width: "40px", flexShrink: 0, fontSize: "10px", color: "#605e5c", textAlign: "left" }}>
                           {h + ":00"}
                         </div>
                       ))}
@@ -1272,9 +1320,9 @@ export function EventModal({
                   )}
                   <div style={{ maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     <div style={{ fontWeight: 500 }}>{att.file.name}</div>
-                    <div style={{ fontSize: 10, color: "#a19f9d" }}>{fmtSize(att.file.size)}</div>
+                    <div style={{ fontSize: 10, color: "#605e5c" }}>{fmtSize(att.file.size)}</div>
                   </div>
-                  <button onClick={() => removeAttachment(idx)} style={{ background: "none", border: "none", cursor: "pointer", color: "#a19f9d", fontSize: 14, padding: "0 2px" }}>×</button>
+                  <button onClick={() => removeAttachment(idx)} style={{ background: "none", border: "none", cursor: "pointer", color: "#605e5c", fontSize: 14, padding: "0 2px" }} aria-label="Quitar adjunto" title="Quitar adjunto">×</button>
                 </div>
               ))}
             </div>
@@ -1496,7 +1544,7 @@ export function EventModal({
           transition: border-color 100ms;
         }
         .olkm-title-input:focus { border-bottom-color: #0078d4; }
-        .olkm-title-input::placeholder { color: #a19f9d; font-weight: 400; }
+        .olkm-title-input::placeholder { color: #605e5c; font-weight: 400; }
 
         /* Inline input */
         .olkm-inline-input {
@@ -1508,7 +1556,7 @@ export function EventModal({
           transition: border-color 100ms;
         }
         .olkm-inline-input:focus { border-bottom-color: #0078d4; }
-        .olkm-inline-input::placeholder { color: #a19f9d; }
+        .olkm-inline-input::placeholder { color: #605e5c; }
 
         /* Select */
         .olkm-select {
@@ -1522,7 +1570,7 @@ export function EventModal({
         /* Field action button (gear on location) */
         .olkm-field-action-btn {
           background: none; border: none; cursor: pointer;
-          color: #a19f9d; padding: 4px; border-radius: 4px;
+          color: #605e5c; padding: 4px; border-radius: 4px;
           display: flex; align-items: center;
           transition: color 80ms;
         }
@@ -1547,7 +1595,7 @@ export function EventModal({
         }
         .olkm-attendee-remove {
           background: none; border: none; cursor: pointer;
-          color: #a19f9d; font-size: 16px; padding: 0 2px;
+          color: #605e5c; font-size: 16px; padding: 0 2px;
           line-height: 1;
         }
         .olkm-attendee-remove:hover { color: #d13438; }
@@ -1593,7 +1641,17 @@ export function EventModal({
           margin-top: 4px; font-size: 13px; color: #605e5c;
           cursor: pointer;
         }
-        .olkm-toggle-container { cursor: pointer; }
+        .olkm-toggle-container { cursor: pointer; position: relative; display: inline-flex; }
+        .olkm-allday-toggle { position: relative; }
+        /* Oculto a la vista pero presente para el teclado y los lectores de pantalla. */
+        .olkm-check-oculto {
+          position: absolute; width: 1px; height: 1px; margin: 0; padding: 0;
+          opacity: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+        }
+        .olkm-toggle-container:has(.olkm-check-oculto:focus-visible) .olkm-toggle-switch,
+        .olkm-allday-toggle:has(.olkm-check-oculto:focus-visible) .olkm-toggle-switch {
+          outline: 2px solid #0078d4; outline-offset: 2px;
+        }
         .olkm-toggle-switch {
           width: 40px; height: 20px;
           background: #8a8886; border-radius: 10px;
@@ -1635,7 +1693,7 @@ export function EventModal({
         }
         .olkm-reminder-remove {
           background: none; border: none; cursor: pointer;
-          color: #a19f9d; font-size: 18px; padding: 0 4px;
+          color: #605e5c; font-size: 18px; padding: 0 4px;
           line-height: 1;
         }
         .olkm-reminder-remove:hover { color: #d13438; }
@@ -1667,7 +1725,7 @@ export function EventModal({
           font-family: inherit;
           line-height: 1.6;
         }
-        .olkm-textarea::placeholder { color: #a19f9d; }
+        .olkm-textarea::placeholder { color: #605e5c; }
 
         /* Series tab */
         .olkm-series-label {
@@ -1712,7 +1770,7 @@ export function EventModal({
           border-bottom: 1px solid #edebe9;
         }
         .olkm-miniday-hour {
-          width: 44px; font-size: 12px; color: #a19f9d;
+          width: 44px; font-size: 12px; color: #605e5c;
           padding: 4px 8px 0 0; text-align: right;
           flex-shrink: 0;
           font-weight: 400;
@@ -1752,7 +1810,7 @@ export function EventModal({
         }
         .olkm-bottom-btn:hover { background: #f3f2f1; color: #323130; }
         .olkm-shortcut-hint {
-          font-size: 11px; color: #a19f9d;
+          font-size: 13px; color: #605e5c;
         }
 
         /* ============= RESPONSIVE ============= */
