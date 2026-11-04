@@ -23,7 +23,7 @@
 .tiptap p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;
-  color: #a19f9d;
+  color: #6b6966;
   pointer-events: none;
   height: 0;
 }
@@ -289,4 +289,18 @@
    quedan solo con icono y, más estrecho aún, todas (el nombre queda en la descripción emergente). */
 .barra-acciones-correo { container-type: inline-size; }
 @container (max-width: 760px) { .barra-acciones-correo .barra-etiqueta-sec { display: none; } }
-@container (max-width: 440px) { .barra-acciones-correo .barra-etiqueta { display: none; } }
+/* Responder / Responder a todos / Reenviar conservan su nombre hasta 300 px (en el celular la barra pasa a dos filas si hace falta;
+   solo con iconos, una persona mayor no distingue «Responder» de «Responder a todos». */
+@container (max-width: 300px) { .barra-acciones-correo .barra-etiqueta { display: none; } }
+
+/* Contraste (revisión independiente 04/11/2026, n.º 12): el gris #a19f9d de los textos
+   auxiliares y marcadores daba 2,6:1 sobre blanco. En tema claro se sube a #6b6966
+   (5,5:1 sobre blanco; 4,9:1 sobre #f3f2f1). Va en la capa de utilidades para que hover,
+   focus y las variantes dark: sigan mandando por especificidad. */
+@layer utilities {
+  @media not (prefers-color-scheme: dark) {
+    .text-\[\#a19f9d\] { color: #6b6966; }
+    .placeholder-\[\#a19f9d\]::placeholder,
+    .placeholder\:text-\[\#a19f9d\]::placeholder { color: #6b6966; }
+  }
+}

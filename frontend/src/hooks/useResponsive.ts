@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 export type Breakpoint = "mobile" | "tablet" | "desktop";
 
 const MOBILE_MAX = 768;
-const TABLET_MAX = 1024;
+const TABLET_MAX = 900;
 
 function getBreakpoint(w: number): Breakpoint {
   if (w < MOBILE_MAX) return "mobile";

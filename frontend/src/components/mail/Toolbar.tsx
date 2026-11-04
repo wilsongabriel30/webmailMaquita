@@ -10,6 +10,7 @@ import { aplicarEscala, escalaActual, siguienteEscala } from '../../lib/escala';
 import { Ribbon } from '../compose/Ribbon';
 import { useImportanciaRedaccion } from './useImportanciaRedaccion';
 import { getFolderDisplayName } from '../../folders';
+import { confirmarBorradoDefinitivo, confirmarVaciado, esCarpetaVaciable } from '../../lib/confirmarBorrado';
 import { getCachedLabels, useLabels } from '../../hooks/useLabels';
 import { SnoozeModal } from './SnoozeModal';
 import { InfoCuentaModal } from './InfoCuentaModal';
@@ -19,6 +20,7 @@ import { destinatariosResponderATodos } from '../../lib/destinatariosRespuesta';
 import type { Folder, MessageFull } from '../../types';
 import { useResponsive } from '../../hooks/useResponsive';
 import { nombreApp } from '../../lib/marca';
+import { AccionesMoverMovil } from './AccionesMoverMovil';
 
 
 function escapeHtml(str: string): string {
@@ -214,8 +216,8 @@ function ToolbarButton({ icon, label, onClick, hasDropdown, active, primary, dan
       `}
     >
       <SvgIcon d={icon} size={28} color={danger ? '#d13438' : primary ? 'white' : active ? '#0078d4' : 'currentColor'} />
-      <span className={`text-[10px] mt-0.5 leading-tight whitespace-nowrap flex items-center gap-0.5 ${danger ? 'text-[#d13438]' : ''}`}>
-        {label}{hasDropdown && <span className="text-[8px]">&#9662;</span>}
+      <span className={`text-[12px] mt-0.5 leading-tight whitespace-nowrap flex items-center gap-0.5 ${danger ? 'text-[#d13438]' : ''}`}>
+        {label}{hasDropdown && <span className="text-[10px]">&#9662;</span>}
       </span>
     </button>
   );
@@ -231,17 +233,19 @@ function Group({ label, children }: { label: string; children: React.ReactNode }
   return (
     <div className="flex flex-col items-center">
       <div className="flex items-end gap-0.5">{children}</div>
-      <span className="text-[9px] text-[#605e5c] mt-0.5 leading-none">{label}</span>
+      <span className="text-[11px] text-[#605e5c] mt-0.5 leading-none">{label}</span>
     </div>
   );
 }
 
 
 // ── Mobile Toolbar: compact single-row with essential actions + overflow ──
-function MobileToolbar({ onCompose, onDelete, onReply, onReplyAll, onForward, onArchive, onFlag, onToggleRead, onPrint, msg }: {
+function MobileToolbar({ onCompose, onDelete, onReply, onReplyAll, onForward, onArchive, onFlag, onToggleRead, onPrint, msg, onMove, currentFolder, folders, hasSelection }: {
   onCompose: () => void; onDelete: () => void; onReply: () => void; onReplyAll: () => void;
   onForward: () => void; onArchive: () => void; onFlag: () => void; onToggleRead: () => void;
   onPrint: () => void; msg: MessageFull | null;
+  onMove: (folder: string, toast?: string) => void; currentFolder: string;
+  folders: (Folder | string)[]; hasSelection: boolean;
 }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
@@ -282,7 +286,9 @@ function MobileToolbar({ onCompose, onDelete, onReply, onReplyAll, onForward, on
       <div className="relative" ref={moreRef}>
         {iconBtn('M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z', 'Más acciones', () => setMoreOpen(!moreOpen))}
         {moreOpen && (
-          <div className="absolute right-0 top-full mt-1 bg-white border border-[#e1dfdd] rounded-lg shadow-xl z-[200] min-w-[200px] py-1">
+          <div className="absolute right-0 top-full mt-1 bg-white border border-[#e1dfdd] rounded-lg shadow-xl z-[200] min-w-[230px] max-w-[calc(100vw-16px)] max-h-[80vh] overflow-y-auto py-1">
+            <AccionesMoverMovil carpetaActual={currentFolder} carpetas={folders} hayMensaje={hasSelection}
+              onMover={onMove} onCerrar={() => setMoreOpen(false)} />
             <button onClick={() => { onReplyAll(); setMoreOpen(false); }}
               className="w-full text-left px-4 py-2.5 text-[13px] flex items-center gap-3 hover:bg-[#f3f2f1] text-[#323130]">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#605e5c" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d={ICONS.replyAll} /></svg>
@@ -299,7 +305,9 @@ function MobileToolbar({ onCompose, onDelete, onReply, onReplyAll, onForward, on
               Imprimir
             </button>
             <div className="h-px bg-[#edebe9] my-1" />
-            <button onClick={() => { window.dispatchEvent(new CustomEvent('toggle-sidebar')); setMoreOpen(false); }}
+            {/* En móvil la barra de carpetas es un cajón: el evento correcto es el del cajón
+                (con «toggle-sidebar» no pasaba nada). */}
+            <button onClick={() => { window.dispatchEvent(new CustomEvent('toggle-mobile-drawer')); setMoreOpen(false); }}
               className="w-full text-left px-4 py-2.5 text-[13px] flex items-center gap-3 hover:bg-[#f3f2f1] text-[#323130]">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#605e5c" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d={ICONS.folderPanel} /></svg>
               Carpetas
@@ -568,6 +576,9 @@ export function Toolbar() {
       if (!window.confirm(_msg)) return;
     }
     if (currentFolder === 'Trash') {
+      // Desde la Papelera el borrado es definitivo: se pregunta siempre, aunque la
+      // preferencia «confirmar al eliminar» esté apagada.
+      if (!confirmDeletePref && !confirmarBorradoDefinitivo(uids.length)) return;
       await accionEnLote(currentFolder, uids, 'delete', '', 'Eliminado permanentemente', 'Error al eliminar');
     } else {
       moveToFolder('Trash', 'Movido a Papelera');
@@ -575,8 +586,16 @@ export function Toolbar() {
   };
 
   const doCleanFolder = async () => {
-    await accionEnLote(currentFolder, [], 'delete', '', `Carpeta ${getFolderDisplayName(currentFolder)} vaciada`, 'Error al limpiar');
     closeAllDropdowns();
+    // Vaciar borra para siempre toda la carpeta (el servidor expulsa 1:*). Solo se permite en
+    // Papelera y Correo no deseado, y siempre con confirmación: un clic en «Limpiar» estando en
+    // la Bandeja de entrada no puede llevarse el buzón entero.
+    if (!esCarpetaVaciable(currentFolder)) {
+      showToast('Solo se pueden vaciar la Papelera y el Correo no deseado');
+      return;
+    }
+    if (!confirmarVaciado(currentFolder)) return;
+    await accionEnLote(currentFolder, [], 'delete', '', `Carpeta ${getFolderDisplayName(currentFolder)} vaciada`, 'Error al limpiar');
   };
 
   const doClassify = async (category: string) => {
@@ -653,11 +672,10 @@ export function Toolbar() {
       'Shift+R  Responder a todos\n' +
       'F  Reenviar\n' +
       'E  Archivar\n' +
-      'Delete  Eliminar\n' +
-      '  Navegar mensajes\n' +
+      'Supr  Eliminar\n' +
+      'Flechas  Navegar mensajes\n' +
       'Enter  Abrir mensaje\n' +
       'Ctrl+Enter  Enviar correo\n' +
-      'Esc  Cerrar redacción\n' +
       'Ctrl+A  Seleccionar todos\n' +
       '/  Buscar',
     );
@@ -689,6 +707,10 @@ export function Toolbar() {
         onToggleRead={toggleRead}
         onPrint={doPrint}
         msg={msg}
+        onMove={(folder, toast) => { void moveToFolder(folder, toast); }}
+        currentFolder={currentFolder}
+        folders={folders || []}
+        hasSelection={!noSel}
       />
     );
   }
@@ -933,7 +955,9 @@ export function Toolbar() {
                       <ToolbarButton icon={ICONS.clean} label="Limpiar" hasDropdown
                         onClick={() => { closeAllDropdowns(); setCleanOpen(!cleanOpen); }} />
                       <Dropdown open={cleanOpen} onClose={() => setCleanOpen(false)}>
-                        <DropdownItem label={`Vaciar "${getFolderDisplayName(currentFolder)}"`} icon={ICONS.clean} onClick={doCleanFolder} />
+                        {esCarpetaVaciable(currentFolder)
+                          ? <DropdownItem label={`Vaciar "${getFolderDisplayName(currentFolder)}"`} icon={ICONS.clean} onClick={doCleanFolder} />
+                          : <DropdownItem label="Solo se pueden vaciar la Papelera y el Correo no deseado" icon={ICONS.clean} onClick={() => setCleanOpen(false)} />}
                       </Dropdown>
                     </div>
                     <div className="relative">
@@ -1229,7 +1253,7 @@ export function Toolbar() {
                   <Group label="Ayuda">
                     <ToolbarButton icon={ICONS.help} label="Ayuda" onClick={showShortcuts} />
                     <ToolbarButton icon={ICONS.recommend} label="Recomendaciones"
-                      onClick={() => showToast('Tip: Ctrl+N nuevo correo · Ctrl+R responder · Ctrl+Shift+R resp. todos · Ctrl+Enter enviar · E archivar · Supr eliminar')} />
+                      onClick={() => showToast('Consejo: N nuevo correo · R responder · Shift+R responder a todos · F reenviar · Ctrl+Enter enviar · Supr eliminar')} />
                     <ToolbarButton icon={ICONS.feedback} label="Comentarios"
                       onClick={() => { showToast('Abriendo formulario de comentarios...'); setTimeout(() => openCompose('new', { to: [], subject: `Comentario sobre ${nombreApp()}`, text_body: '', html_body: '' }), 300); }} />
                   </Group>

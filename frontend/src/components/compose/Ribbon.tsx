@@ -5,6 +5,7 @@ import type { Editor } from '@tiptap/react';
 import { showToast } from '../common/Toast';
 import { createPortal } from 'react-dom';
 import { GrupoParrafo } from './GrupoParrafo';
+import { GrupoAsistenteIA } from './asistente-redaccion';
 
 type Tab = 'message' | 'insert' | 'format' | 'options';
 
@@ -508,6 +509,12 @@ function MessageTab({ editor, onAttach, onImportanceChange, importance, onSaveDr
       </RGroup>
       <GSep />
 
+      {/* Asistente de IA → VM 170: corregir ortografía o mejorar la redacción, con vista previa */}
+      <RGroup label="Asistente de IA">
+        <GrupoAsistenteIA alMejorar={onImproveWriting} />
+      </RGroup>
+      <GSep />
+
       {/* Insertar group */}
       <RGroup label="Insertar">
         <div className="flex flex-col gap-[1px] py-[2px]">
@@ -583,12 +590,6 @@ function MessageTab({ editor, onAttach, onImportanceChange, importance, onSaveDr
           <LargeBtn icon={<EditorIcon />} label="Editor" onClick={() => onReviewEditor?.()} />
           <LargeBtn icon={<AccessIcon />} label={"Comprobar\naccesibilidad"} onClick={() => onCheckAccessibility?.()} />
         </div>
-      </RGroup>
-      <GSep />
-
-      {/* Asistente de IA → VM 170 mejorar redacción con IA */}
-      <RGroup label="Asistente de IA">
-        <LargeBtn icon={<SparkleIcon />} label={"Mejorar\nredacción"} onClick={() => onImproveWriting?.()} />
       </RGroup>
     </>
   );
@@ -859,7 +860,7 @@ function RGroup({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex flex-col h-full shrink-0">
       <div className="flex-1 flex items-center px-[6px]">{children}</div>
-      <div className="text-[10px] text-[#605e5c] text-center px-1 pb-[3px] leading-[11px] whitespace-nowrap">{label}</div>
+      <div className="text-[11px] text-[#605e5c] text-center px-1 pb-[3px] leading-[12px] whitespace-nowrap">{label}</div>
     </div>
   );
 }
@@ -877,7 +878,7 @@ function LargeBtn({ icon, label, onClick, disabled, active, hasDropdown }: {
       }`}>
       <div className="h-[24px] flex items-center justify-center">{icon}</div>
       <div className="flex items-center gap-[1px] mt-[1px]">
-        <span className="text-[10px] leading-[12px] text-[#323130] text-center whitespace-pre-line">{lines.join('\n')}</span>
+        <span className="text-[12px] leading-[14px] text-[#323130] text-center whitespace-pre-line">{lines.join('\n')}</span>
         {hasDropdown && <svg className="w-[8px] h-[8px] text-[#605e5c] shrink-0 ml-[1px]" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>}
       </div>
     </button>
@@ -889,7 +890,7 @@ function MedBtn({ icon, label, onClick, hasDropdown }: { icon: ReactNode; label:
     <button onMouseDown={(e) => e.preventDefault()} onClick={onClick} title={label}
       className="flex items-center gap-[3px] h-[24px] px-[4px] rounded-[2px] hover:bg-[#e1dfdd] transition-colors">
       {icon}
-      <span className="text-[10px] text-[#323130] whitespace-nowrap">{label}</span>
+      <span className="text-[12px] text-[#323130] whitespace-nowrap">{label}</span>
       {hasDropdown && <svg className="w-[7px] h-[7px] text-[#605e5c]" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>}
     </button>
   );
@@ -900,7 +901,7 @@ function SmBtn({ a, o, t, icon, children }: { a?: boolean; o: () => void; t: str
     return (
       <button onMouseDown={(e) => e.preventDefault()} onClick={o} title={t}
         className="flex items-center gap-[3px] h-[20px] px-[3px] rounded-[2px] text-[#323130] hover:bg-[#e1dfdd] transition-colors">
-        {icon}<span className="text-[10px]">{children}</span>
+        {icon}<span className="text-[12px]">{children}</span>
       </button>
     );
   }
@@ -975,4 +976,3 @@ function SaveIcon() { return <svg width="20" height="20" viewBox="0 0 24 24" fil
 function DownloadIcon() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#323130" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>; }
 function EditorIcon() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#323130" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>; }
 function AccessIcon() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#323130" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 4a8 8 0 100 16 8 8 0 000-16z" /></svg>; }
-function SparkleIcon() { return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0078d4" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" /></svg>; }

@@ -4,6 +4,7 @@ import { useAuthStore } from '../../store/authStore';
 import { api } from '../../api/client';
 import { TwoFactorSetup } from '../settings/TwoFactorSetup';
 import { AvisoCookies } from '../common/AvisoCookies';
+import { textoErrorEntrada } from '../../lib/mensajeErrorEntrada';
 import { BienvenidaEntrada, OlvidoContrasena } from './AyudaEntrada';
 
 interface Branding {
@@ -83,7 +84,7 @@ export function LoginPage() {
       if (res.success === false) {
         // Segundo paso: el servidor responde igual falle la contraseña o el código (M-01);
         // se le recuerda al usuario que revise las dos cosas.
-        setError(needs2FA ? 'Código o contraseña incorrectos. Si tu código es correcto, vuelve atrás y revisa tu contraseña.' : (res.error || 'Credenciales incorrectas'));
+        setError(needs2FA ? 'Código o contraseña incorrectos. Si tu código es correcto, vuelve atrás y revisa tu contraseña.' : textoErrorEntrada(res.error || '', username));
         setLoading(false);
         return;
       }
@@ -127,7 +128,7 @@ export function LoginPage() {
         // Mismo texto falle la contraseña o el código: no revela cuál de los dos fue.
         setError('Código o contraseña incorrectos. Si tu código es correcto, vuelve atrás y revisa tu contraseña.');
       } else {
-        setError(mensaje);
+        setError(textoErrorEntrada(mensaje, username));
       }
     } finally {
       setLoading(false);
@@ -137,20 +138,20 @@ export function LoginPage() {
   const handleForceChange = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (newPass !== confirmPass) { setError('Las contrasenas no coinciden'); return; }
+    if (newPass !== confirmPass) { setError('Las contraseñas no coinciden'); return; }
     if (newPass.length < 10 || !/[A-Z]/.test(newPass) || !/[a-z]/.test(newPass) || !/[0-9]/.test(newPass) || !/[!@#$%^&*(),.?:{}|<>_+-]/.test(newPass)) {
       setError('Mínimo 10 caracteres, con mayúscula, minúscula, número y carácter especial'); return;
     }
     setLoading(true);
     try {
       const r = await api.post<{ success?: boolean; error?: string }>('/auth/change-password', { current_password: password, new_password: newPass });
-      if (r && r.success === false) { setError(r.error || 'No se pudo cambiar la contrasena'); setLoading(false); return; }
+      if (r && r.success === false) { setError(r.error || 'No se pudo cambiar la contraseña'); setLoading(false); return; }
       const meRes = await fetch('/api/auth/me', { credentials: 'include' });
       const meData = await meRes.json();
       if (meData.user) { setUser(meData.user); navigate(destino); }
-      else { setError('Sesion no establecida. Intenta de nuevo.'); }
+      else { setError('Sesión no establecida. Intenta de nuevo.'); }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Error al cambiar la contrasena');
+      setError(err instanceof Error ? err.message : 'Error al cambiar la contraseña');
     } finally { setLoading(false); }
   };
 
@@ -201,7 +202,7 @@ export function LoginPage() {
             </div>
 
             {error && (
-              <div className="mb-4 p-3 rounded text-sm flex items-center gap-2" style={{ backgroundColor: '#fde7e9', borderColor: 'rgba(209,52,56,0.3)', borderWidth: '1px', color: '#d13438' }}>
+              <div role="alert" className="mb-4 p-3 rounded text-[15px] flex items-center gap-2" style={{ backgroundColor: '#fde7e9', borderColor: 'rgba(209,52,56,0.3)', borderWidth: '1px', color: '#d13438' }}>
                 <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                 </svg>

@@ -11,6 +11,7 @@ import { showToast } from '../common/Toast';
 import { ContextMenu } from '../common/ContextMenu';
 import type { Folder } from '../../types';
 import { getFolderDisplayName } from '../../folders';
+import { esCarpetaVaciable } from '../../lib/confirmarBorrado';
 import { buscarSoloEnCarpetaActual } from '../../lib/busquedaGlobal';
 import { RecuperarEliminados } from '../mail/RecuperarEliminados';
 import { BarraCuentas } from './BarraCuentas';
@@ -38,7 +39,9 @@ const icons: Record<string, string> = {
   folder: 'M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z',
 };
 const systemFolders = new Set(['INBOX', 'Sent', 'Drafts', 'Trash', 'Junk', 'Archive']);
-const favorites = ['INBOX', 'Sent', 'Drafts'];
+// Como en Zimbra: las carpetas del sistema, incluidas Correo no deseado y Papelera, arriba y
+// juntas (antes Papelera quedaba en «Carpetas», que se puede plegar).
+const favorites = ['INBOX', 'Drafts', 'Sent', 'Junk', 'Trash'];
 
 export function MailSidebar() {
   const [hidden, setHidden] = useState(false);
@@ -183,7 +186,7 @@ export function MailSidebar() {
   const handleEmpty = (name: string) => {
     setConfirmModal({
       title: 'Vaciar carpeta',
-      message: `¿Eliminar todos los mensajes de "${getFolderDisplayName(name)}"?`,
+      message: `Se borrarán DEFINITIVAMENTE todos los correos de «${getFolderDisplayName(name)}». No se podrán recuperar desde la bandeja. ¿Desea continuar?`,
       danger: true,
       onConfirm: async () => {
         try {
@@ -267,7 +270,8 @@ export function MailSidebar() {
       ] : []),
       { label: '', icon: '', onClick: () => {}, divider: true },
       // Acciones peligrosas
-      { label: 'Vaciar carpeta', icon: icons.trash, onClick: () => handleEmpty(f.name) },
+      // Vaciar borra para siempre: solo en Papelera y Correo no deseado (ver lib/confirmarBorrado.ts).
+      ...(esCarpetaVaciable(f.name) ? [{ label: 'Vaciar carpeta', icon: icons.trash, onClick: () => handleEmpty(f.name) }] : []),
       ...(!isSystem ? [
         { label: 'Eliminar carpeta', icon: icons.trash, onClick: () => handleDelete(f.name), danger: true },
       ] : []),
@@ -341,13 +345,8 @@ export function MailSidebar() {
         data-carpeta={f.name}
         // Al elegir una carpeta, el buscador se limita a ella (aviso en la lista).
         onClick={() => { setCurrentFolder(f.name); buscarSoloEnCarpetaActual(); }}
-        // Doble click para renombrar (solo no-sistema)
-        onDoubleClick={e => {
-          if (isSystem) return;
-          e.preventDefault();
-          setRenaming(f.name);
-          setRenameValue(displayName);
-        }}
+        // Sin doble clic para renombrar: por costumbre de Windows se hacía doble clic para abrir
+        // y la carpeta quedaba en modo edición. Renombrar está en el menú (clic derecho).
         // Drag & drop de carpetas
         draggable={!isSystem}
         onDragStart={e => {

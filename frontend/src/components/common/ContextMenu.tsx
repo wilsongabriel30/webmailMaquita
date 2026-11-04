@@ -153,13 +153,17 @@ export function ContextMenu({ x, y, items, onClose }: Props) {
             <button
               onClick={() => {
                 if (hasChildren) {
-                  setOpenSubmenu((current) => (current === i ? null : i));
+                  // Abrir siempre, nunca alternar: el puntero ya lo abrió al pasar por encima y
+                  // el clic de quien quiere elegir carpeta lo cerraba (revisión 04/11/2026, n.º 14).
+                  setOpenSubmenu(i);
                   return;
                 }
                 item.onClick();
                 onClose();
               }}
               disabled={item.disabled}
+              aria-haspopup={hasChildren ? 'menu' : undefined}
+              aria-expanded={hasChildren ? openSubmenu === i : undefined}
               className={`w-full flex items-center gap-2.5 px-3 py-[6px] text-[13px] transition-colors text-left ${
                 item.disabled ? 'text-[#c8c6c4] cursor-default' :
                 item.danger ? 'text-[#a4262c] hover:bg-[#fde7e9]' :

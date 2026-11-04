@@ -32,7 +32,12 @@ export function PresenceSelector() {
 
   return (
     <div ref={ref} className="relative">
-      <button onClick={() => setOpen(!open)} className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-black/10 transition-colors">
+      {/* En el celular el texto del estado se oculta: el botón conserva su nombre igualmente. */}
+      <button onClick={() => setOpen(!open)}
+        aria-label={`Cambiar estado: ${STATUSES.find(s => s.value === currentStatus)?.label || 'Disponible'}`}
+        title={`Cambiar estado: ${STATUSES.find(s => s.value === currentStatus)?.label || 'Disponible'}`}
+        aria-haspopup="menu" aria-expanded={open}
+        className="flex items-center gap-1.5 px-2 py-1 min-h-[32px] min-w-[32px] justify-center rounded hover:bg-black/10 transition-colors">
         <PresenceDot status={currentStatus} size={8} />
         <span className="text-xs text-white hidden sm:inline">{STATUSES.find(s => s.value === currentStatus)?.label}</span>
       </button>

@@ -85,13 +85,18 @@ export function useRedaccionPersistente(
     if (sigueAbierta()) anotarRedaccion(paraRecuperar(estado, res.draftUid ?? uidActual()));
   }), [win.id, win.draftUid, win.data.in_reply_to, win.data.references, updateDraftUid, sigueAbierta, paraRecuperar, uidActual]);
 
-  const saveDraft = useCallback(async () => {
+  // Devuelve false si el servidor no guardó el borrador. El guardado automático lo ignora
+  // (es de cortesía y se reintenta), pero al CERRAR la ventana importa: si no se guardó, no
+  // se puede cerrar diciendo «Borrador guardado» y tirar lo escrito.
+  const saveDraft = useCallback(async (): Promise<boolean> => {
     try {
       if (editor && !editor.isDestroyed) cuerpoRef.current = editor.getHTML();
       await guardarDesdeInstantanea(instantaneaRef.current());
+      return true;
     } catch {
       /* el guardado automatico es de cortesia: si falla, el texto sigue en pantalla y se
          reintenta en el siguiente cambio, sin interrumpir a quien escribe */
+      return false;
     }
   }, [editor, guardarDesdeInstantanea]);
 

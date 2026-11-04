@@ -6,8 +6,7 @@ import { getPinnedSet, isPinned, pinKey } from '../../lib/pins';
 import { parametrosDeCarga, fusionarTanda } from '../../lib/paginacionBandeja';
 import { usePolling } from '../../hooks/usePolling';
 import { api } from '../../api/client';
-import { formatDistanceToNow } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { fechaCortaLista } from '../../lib/fechaLegible';
 import { ContextMenu, type MenuItem } from '../common/ContextMenu';
 import { showToast } from '../common/Toast';
 import { accionEnLote } from '../../lib/accionesLote';
@@ -21,6 +20,7 @@ import { AdelantoCarpetaActual } from './AdelantoCarpetaActual';
 import { AvisoBusquedaEnCarpeta } from './AvisoBusquedaEnCarpeta';
 import { abrirMensajeEnPestana } from '../../lib/abrirEnPestana';
 import { AVISO_ELIMINAR_CORREO } from '../../lib/deepLinkCorreo';
+import { confirmarBorradoDefinitivo } from '../../lib/confirmarBorrado';
 import { avisar } from '../../lib/avisosNavegador';   // T-53
 import { getCachedMessage } from '../../lib/offlineStore';   // W-7: leer sin conexión lo ya descargado
 import { permisoNotificacion, pedirPermisoNotificacion } from '../../lib/notificacionSegura';   // AM-10
@@ -40,7 +40,7 @@ function flushQuickAction(key: string, folder: string, action: string, dest: str
     .then(() => {
       const n = uids.length;
       showToast(
-        action === 'move' ? (n > 1 ? `${n} movidos a ${dest}` : `Movido a ${dest}`)
+        action === 'move' ? (n > 1 ? `${n} movidos a ${getFolderDisplayName(dest)}` : `Movido a ${getFolderDisplayName(dest)}`)
           : action === 'delete' ? (n > 1 ? `${n} eliminados` : 'Eliminado')
           : action === 'archive' ? (n > 1 ? `${n} archivados` : 'Archivado')
           : 'Hecho'
@@ -76,13 +76,9 @@ function enqueueQuickAction(folder: string, uid: number, action: string, dest = 
 function fmtDate(s: string | null): string {
   if (!s) return '';
   try {
-    const d = new Date(s), now = new Date(), diff = now.getTime() - d.getTime();
-    if (diff < 86400000 && d.toDateString() === now.toDateString())
-      return d.toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' });
-    if (diff < 604800000) return formatDistanceToNow(d, { addSuffix: false, locale: es });
-    if (d.getFullYear() === now.getFullYear())
-      return d.toLocaleDateString('es-EC', { day: 'numeric', month: 'short' });
-    return d.toLocaleDateString('es-EC', { day: 'numeric', month: 'short', year: '2-digit' });
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return '';
+    return fechaCortaLista(d);
   } catch { return ''; }
 }
 
@@ -226,6 +222,9 @@ export function MessageList() {
 
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; msg: MessageSummary } | null>(null);
   const [activeTab, setActiveTab] = useState<'focused' | 'other'>('focused');
+  // La carga falló y no hay nada que mostrar: se dice, en vez de «No hay mensajes» (que hacía
+  // creer a la persona que había perdido su correo).
+  const [errorCarga, setErrorCarga] = useState(false);
   const [avatarMap, setAvatarMap] = useState<Record<string, { name: string; initials: string }>>({});
   const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set());
   const [spamScanning, setSpamScanning] = useState(false);
@@ -277,8 +276,17 @@ export function MessageList() {
     // Send filter to backend so IMAP does server-side SEARCH UNSEEN/FLAGGED
     if (filter === 'unread') p.set('is_unread', 'true');
     if (filter === 'flagged') p.set('is_flagged', 'true');
+    // Respuesta tardía: si mientras llegaba la persona cambió de carpeta, de búsqueda o de filtro,
+    // se descarta. Si no, se pintaban los correos de la carpeta anterior bajo el nombre de la nueva
+    // (y borrar o mover desde esa lista actuaba con UIDs de otra carpeta).
+    const vigente = () => {
+      const st = useMailStore.getState();
+      return st.currentFolder === currentFolder && st.debouncedSearchQuery === debouncedSearchQuery && st.filter === filter;
+    };
     api.get<MessagesResponse>(`/mail/messages/${encodeURIComponent(currentFolder)}?${p}`)
       .then(r => {
+      if (!vigente()) return;
+      setErrorCarga(false);
       if (filter === 'all' && prevTotalRef.current > 0 && r.total > prevTotalRef.current && currentFolder === 'INBOX') {
         const newCount = r.total - prevTotalRef.current;
         try { (window as unknown as { __maquitaBeep?: () => void }).__maquitaBeep?.(); } catch { /* sin sonido */ }
@@ -304,6 +312,7 @@ export function MessageList() {
       setMessages(fusionarTanda(previos, r.messages, tanda), r.total, r.page);
     }).catch(async (err) => {
       console.error(err);
+      if (!vigente()) return;
       if (/429|Too Many/i.test(String(err?.message || err)) && useMailStore.getState().loadingMore) {
         // Límite de peticiones del servidor: se espera y se vuelve a pedir la misma tanda.
         // eslint-disable-next-line react-hooks/immutability -- reintento diferido: fetch_ ya existe cuando corre el callback
@@ -322,6 +331,7 @@ export function MessageList() {
         } catch { /* se ignora: no es crítico */ }
       }
       useMailStore.getState().setMessages(useMailStore.getState().messages, useMailStore.getState().totalMessages, useMailStore.getState().currentPage);
+      if (useMailStore.getState().messages.length === 0) setErrorCarga(true);
     });
   }, [currentFolder, currentPage, pageSize, debouncedSearchQuery, buscarEnContenido, filter]);
 
@@ -373,6 +383,10 @@ export function MessageList() {
   const scanSpam = useCallback(async (autoMove = false) => {
     if (!currentFolder) return;
     const sel = useMailStore.getState().selectedMessage;
+    // El escudo, sin texto, movía hasta 50 correos a Correo no deseado de un clic. Se pregunta.
+    if (autoMove && !window.confirm(sel?.uid
+      ? 'Se revisará este correo y, si parece correo no deseado, se moverá a «Correo no deseado». ¿Continuar?'
+      : 'Se revisarán los últimos 50 correos de esta carpeta y los que parezcan correo no deseado se moverán a «Correo no deseado». ¿Continuar?')) return;
     setSpamScanning(true);
     try {
       let url = `/mail/spam/scan?folder=${encodeURIComponent(currentFolder)}`;
@@ -648,6 +662,9 @@ export function MessageList() {
   };
 
   const quickAction = (uid: number, action: string, dest?: string) => {
+    // Borrar desde la Papelera es definitivo: el icono al pasar el ratón y el menú
+    // contextual preguntan igual que la barra de selección.
+    if (action === 'delete' && !confirmarBorradoDefinitivo()) return;
     // UI optimista: para acciones que sacan el correo de la vista actual, lo
     // quitamos de la lista de inmediato (se siente instantaneo). El servidor
     // trabaja por detras; si falla, el .catch de flushQuickAction re-sincroniza.
@@ -889,7 +906,7 @@ export function MessageList() {
             ))}
           </div>
           <p
-            className={`text-[12px] text-[#a19f9d] leading-[16px] ${previewLines === 1 ? 'truncate' : ''}`}
+            className={`text-[12px] text-[#605e5c] leading-[16px] ${previewLines === 1 ? 'truncate' : ''}`}
             style={{ ...snippetStyle, minHeight: snippetMinHeight }}
           >
             {msg.snippet || '\u00A0'}
@@ -1135,8 +1152,17 @@ export function MessageList() {
             <div className="w-5 h-5 border-2 border-[#0078d4] border-t-transparent rounded-full animate-spin" />
             <p className="text-[12px] text-[#a19f9d] mt-2">Cargando...</p>
           </div>
+        ) : filtered.length === 0 && errorCarga ? (
+          <div className="flex flex-col items-center justify-center h-40 px-4 text-center text-[#323130]" role="alert">
+            <p className="text-[14px] font-semibold">No se pudo cargar el correo</p>
+            <p className="text-[13px] text-[#605e5c] mt-1">Sus correos siguen guardados en el servidor. Revise la conexión e inténtelo de nuevo.</p>
+            <button onClick={() => { setErrorCarga(false); fetch_(); }}
+              className="mt-3 px-4 py-2 text-[14px] font-semibold text-white bg-[#0078d4] hover:bg-[#106ebe] rounded">
+              Reintentar
+            </button>
+          </div>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-40 text-[#a19f9d]">
+          <div className="flex flex-col items-center justify-center h-40 text-[#605e5c]">
             <svg className="w-10 h-10 mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
             </svg>

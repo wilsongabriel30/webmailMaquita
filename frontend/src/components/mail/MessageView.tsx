@@ -22,6 +22,7 @@ interface EstadoRetirada {
 }
 import React, { useState, useCallback } from 'react';
 import { formatDistanceToNow, format } from 'date-fns';
+import { fechaCortaLista } from '../../lib/fechaLegible';
 import { es } from 'date-fns/locale';
 import { api } from '../../api/client';
 import { useMailStore } from '../../store/mailStore';
@@ -33,6 +34,8 @@ import TrackingNotice from './TrackingNotice';
 import AvisoFechaRemitente from './AvisoFechaRemitente';
 import { fechaMostrada } from '../../lib/fechaCorreo';
 import RemitenteExternoAviso from './RemitenteExternoAviso';
+import { EsperaIACorreo } from '../ai/EsperaIACorreo';
+import { AvisoResultadoIA, type ResultadoIA } from '../ai/AvisoResultadoIA';
 
 
 /* ------------------------------------------------------------------ */
@@ -602,8 +605,8 @@ const ThreadMessageCard: React.FC<ThreadMessageCardProps> = ({
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontWeight: 600, fontSize: 13, color: '#323130' }}>{senderName}</span>
-            <span style={{ fontSize: 11, color: '#a19f9d', marginLeft: 'auto', whiteSpace: 'nowrap' }} title={fullDate}>
-              {relDate}
+            <span style={{ fontSize: 12, color: '#605e5c', marginLeft: 'auto', whiteSpace: 'nowrap' }} title={fullDate}>
+              {fechaVer ? fechaCortaLista(new Date(fechaVer)) : ''}
             </span>
           </div>
           <p style={{
@@ -648,8 +651,8 @@ const ThreadMessageCard: React.FC<ThreadMessageCardProps> = ({
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
             <span style={{ fontWeight: 600, fontSize: 14, color: '#323130' }}>{senderName}</span>
             <span style={{ fontSize: 12, color: '#605e5c' }}>&lt;{senderEmail}&gt;</span>
-            <span style={{ fontSize: 12, color: '#a19f9d', marginLeft: 'auto', whiteSpace: 'nowrap' }} title={fullDate}>
-              {relDate}
+            <span style={{ fontSize: 13, color: '#605e5c', marginLeft: 'auto', whiteSpace: 'nowrap' }} title={relDate}>
+              {fullDate}
             </span>
           </div>
           <div style={{ fontSize: 12, color: '#605e5c', marginTop: 2 }}>
@@ -726,8 +729,15 @@ const MessageView: React.FC = () => {
   // IA: Smart Reply + Summarize
   const [smartReplies, setSmartReplies] = useState<string[]>([]);
   const [loadingReplies, setLoadingReplies] = useState(false);
+  // Respuesta IA sin sugerencias o con fallo: se avisa en vez de volver en silencio.
+  const [avisoRespuesta, setAvisoRespuesta] = useState<ResultadoIA | null>(null);
   const [summary, setSummary] = useState('');
+  // Resumen sin contenido o con fallo: aviso de error con «Reintentar», nunca dentro del recuadro de resultado (H12).
+  const [avisoResumen, setAvisoResumen] = useState<ResultadoIA | null>(null);
   const [loadingSummary, setLoadingSummary] = useState(false);
+  // Permiten cancelar la espera de la IA (botón «Cancelar» del indicador, 04/11/2026)
+  const abortRespuesta = React.useRef<AbortController | null>(null);
+  const abortResumen = React.useRef<AbortController | null>(null);
 
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewAttIdx, setPreviewAttIdx] = useState(0);
@@ -963,14 +973,22 @@ const MessageView: React.FC = () => {
     if (!msg || loadingReplies) return;
     setLoadingReplies(true);
     setSmartReplies([]);
+    setAvisoRespuesta(null);
+    const ctl = new AbortController();
+    abortRespuesta.current = ctl;
     try {
       const data = await api.post<{ suggestions: string[] }>('/ai/smart-reply', {
         message_id: String(msg.uid),
         folder: currentFolder,
-      });
-      setSmartReplies(data.suggestions || []);
+      }, { signal: ctl.signal });
+      const sugerencias = Array.isArray(data?.suggestions)
+        ? data.suggestions.filter((t) => typeof t === 'string' && t.trim()) : [];
+      setSmartReplies(sugerencias);
+      if (!sugerencias.length && !ctl.signal.aborted) setAvisoRespuesta('vacio');
     } catch {
       setSmartReplies([]);
+      // Cancelar es decisión de la persona: no se presenta como fallo.
+      if (!ctl.signal.aborted) setAvisoRespuesta('error');
     }
     setLoadingReplies(false);
   }, [msg, currentFolder, loadingReplies]);
@@ -1000,18 +1018,23 @@ const MessageView: React.FC = () => {
     if (loadingSummary) return;
     setLoadingSummary(true);
     setSummary('');
+    setAvisoResumen(null);
     const uids = threadMessages.length > 1
       ? threadMessages.map(m => String(m.uid))
       : msg ? [String(msg.uid)] : [];
     if (!uids.length) { setLoadingSummary(false); return; }
+    const ctl = new AbortController();
+    abortResumen.current = ctl;
     try {
       const data = await api.post<{ summary: string }>('/ai/summarize', {
         message_ids: uids,
         folder: currentFolder,
-      });
-      setSummary(data.summary || 'No se pudo generar resumen');
+      }, { signal: ctl.signal });
+      const texto = (data?.summary || '').trim();
+      if (texto) setSummary(texto);
+      else setAvisoResumen('vacio');
     } catch {
-      setSummary('No se pudo generar resumen para este mensaje');
+      if (!ctl.signal.aborted) setAvisoResumen('error');
     }
     setLoadingSummary(false);
   }, [msg, threadMessages, currentFolder, loadingSummary]);
@@ -1019,7 +1042,10 @@ const MessageView: React.FC = () => {
   // Reset IA state when message changes
   React.useEffect(() => {
     setSmartReplies([]);
+    setAvisoRespuesta(null);
     setSummary('');
+    setAvisoResumen(null);
+    return () => { abortRespuesta.current?.abort(); abortResumen.current?.abort(); };
   }, [msg?.uid]);
 
   /* ---- Loading state ---- */
@@ -1139,13 +1165,31 @@ const MessageView: React.FC = () => {
           </div>
         </div>
       )}
+      <EsperaIACorreo respondiendo={loadingReplies} resumiendo={loadingSummary}
+        onCancelarRespuesta={() => abortRespuesta.current?.abort()} onCancelarResumen={() => abortResumen.current?.abort()} />
+      {avisoRespuesta && !loadingReplies && (
+        <AvisoResultadoIA tipo={avisoRespuesta}
+          textoVacio="Esta vez no se encontraron respuestas sugeridas para este correo. Puede intentarlo de nuevo o escribir la respuesta usted mismo."
+          textoError="No se pudo preparar la respuesta en este momento. Revise su conexión e inténtelo otra vez en unos minutos."
+          onReintentar={() => { setAvisoRespuesta(null); handleSmartReply(); }}
+          onCerrar={() => setAvisoRespuesta(null)} />
+      )}
+      {avisoResumen && !loadingSummary && (
+        <AvisoResultadoIA tipo="error"
+          textoVacio=""
+          textoError={avisoResumen === 'vacio'
+            ? 'No se pudo hacer el resumen de este correo. Puede intentarlo de nuevo o leer el mensaje completo.'
+            : 'No se pudo hacer el resumen en este momento. Revise su conexión e inténtelo otra vez en unos minutos.'}
+          onReintentar={() => { setAvisoResumen(null); handleSummarize(); }}
+          onCerrar={() => setAvisoResumen(null)} />
+      )}
       {/* IA: Summary panel (thread) */}
       {summary && (
         <div style={{ padding: '8px 24px', borderTop: '1px solid #edebe9', background: '#f8fbf5', flexShrink: 0 }}>
           <div style={{ fontSize: 11, color: '#498205', fontWeight: 600, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" /></svg>
             Resumen IA
-            <button onClick={() => setSummary('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#a19f9d', cursor: 'pointer', fontSize: 11 }}>&times;</button>
+            <button type="button" onClick={() => setSummary('')} aria-label="Cerrar resumen" title="Cerrar resumen" style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#605e5c', cursor: 'pointer', fontSize: 13 }}><span aria-hidden="true">&times;</span></button>
           </div>
           <p style={{ fontSize: 13, color: '#323130', lineHeight: 1.5, margin: 0 }}>{summary}</p>
         </div>
@@ -1229,7 +1273,7 @@ const MessageView: React.FC = () => {
           </span>
           {cabecera.plegada && (
             <span style={{ fontSize: 12, fontWeight: 400, color: '#605e5c', whiteSpace: 'nowrap' }}>
-              {senderName} · {relDate}
+              {senderName} · {fechaVer ? fechaCortaLista(new Date(fechaVer)) : ''}
             </span>
           )}
           <button
@@ -1259,8 +1303,8 @@ const MessageView: React.FC = () => {
               <span style={{ fontWeight: 600, fontSize: 14, color: '#323130' }}>{senderName}</span>
               <span style={{ fontSize: 12, color: '#605e5c' }}>&lt;{senderEmail}&gt;</span>
               <AddToContactBtn name={senderName} email={senderEmail} />
-              <span style={{ fontSize: 12, color: '#a19f9d', marginLeft: 'auto', whiteSpace: 'nowrap' }} title={fullDate}>
-                {relDate}
+              <span style={{ fontSize: 13, color: '#605e5c', marginLeft: 'auto', whiteSpace: 'nowrap' }} title={relDate}>
+                {fullDate}
               </span>
             </div>
             <div style={{ fontSize: 12, color: '#605e5c', marginTop: 2 }}>
@@ -1271,10 +1315,10 @@ const MessageView: React.FC = () => {
               onClick={() => setShowDetails((v) => !v)}
               style={{
                 background: 'none', border: 'none', padding: 0, marginTop: 4,
-                fontSize: 12, color: '#0078d4', cursor: 'pointer',
+                fontSize: 13, color: '#0078d4', cursor: 'pointer',
               }}
             >
-              {showDetails ? 'Menos' : 'Más'}
+              {showDetails ? 'Menos detalles' : 'Más detalles'}
             </button>
 
             {showDetails && (
@@ -1293,13 +1337,16 @@ const MessageView: React.FC = () => {
                 {msg.importance && msg.importance.toLowerCase() !== 'normal' && (
                   <div><b>Prioridad:</b> {msg.importance}</div>
                 )}
-                {msg.size > 0 && <div><b>Tamano:</b> {formatSize(msg.size)}</div>}
+                {msg.size > 0 && <div><b>Tamaño:</b> {formatSize(msg.size)}</div>}
               </div>
             )}
           </div>
         </div>
 
         <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+          {/* «Descargar .eml» y «Ver origen» son herramientas de soporte: solo a la vista tras
+              pulsar «Más», para que lo primero que se vea sea Imprimir y el correo. */}
+          {showDetails && (<>
           <button style={btnStyle} onClick={handleDownloadEml} title="Descargar como .eml">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
               <path d="M8 1v9.5M8 10.5l-3-3M8 10.5l3-3M2 12v2h12v-2"/>
@@ -1312,6 +1359,7 @@ const MessageView: React.FC = () => {
             </svg>
             {loadingSource ? 'Cargando...' : 'Ver origen del mensaje'}
           </button>
+          </>)}
           <button style={btnStyle} onClick={handlePrint} title="Imprimir">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
               <path d="M4 1h8v3H4zM2 5h12v7H4v3h8v-3h2V5zM4 10h8"/>
@@ -1397,13 +1445,31 @@ const MessageView: React.FC = () => {
         </div>
       )}
 
+      <EsperaIACorreo respondiendo={loadingReplies} resumiendo={loadingSummary}
+        onCancelarRespuesta={() => abortRespuesta.current?.abort()} onCancelarResumen={() => abortResumen.current?.abort()} />
+      {avisoRespuesta && !loadingReplies && (
+        <AvisoResultadoIA tipo={avisoRespuesta}
+          textoVacio="Esta vez no se encontraron respuestas sugeridas para este correo. Puede intentarlo de nuevo o escribir la respuesta usted mismo."
+          textoError="No se pudo preparar la respuesta en este momento. Revise su conexión e inténtelo otra vez en unos minutos."
+          onReintentar={() => { setAvisoRespuesta(null); handleSmartReply(); }}
+          onCerrar={() => setAvisoRespuesta(null)} />
+      )}
+      {avisoResumen && !loadingSummary && (
+        <AvisoResultadoIA tipo="error"
+          textoVacio=""
+          textoError={avisoResumen === 'vacio'
+            ? 'No se pudo hacer el resumen de este correo. Puede intentarlo de nuevo o leer el mensaje completo.'
+            : 'No se pudo hacer el resumen en este momento. Revise su conexión e inténtelo otra vez en unos minutos.'}
+          onReintentar={() => { setAvisoResumen(null); handleSummarize(); }}
+          onCerrar={() => setAvisoResumen(null)} />
+      )}
       {/* IA: Summary panel */}
       {summary && (
         <div style={{ padding: '8px 24px', borderTop: '1px solid #edebe9', background: '#f8fbf5', flexShrink: 0 }}>
           <div style={{ fontSize: 11, color: '#498205', fontWeight: 600, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" /></svg>
             Resumen IA
-            <button onClick={() => setSummary('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#a19f9d', cursor: 'pointer', fontSize: 11 }}>✕</button>
+            <button type="button" onClick={() => setSummary('')} aria-label="Cerrar resumen" title="Cerrar resumen" style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#605e5c', cursor: 'pointer', fontSize: 13 }}><span aria-hidden="true">✕</span></button>
           </div>
           <p style={{ fontSize: 13, color: '#323130', lineHeight: 1.5, margin: 0 }}>{summary}</p>
         </div>

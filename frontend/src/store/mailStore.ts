@@ -175,6 +175,10 @@ export const useMailStore = create<MailState>((set, get) => ({
       currentFolder: folder, messages: [], selectedMessage: null,
       currentPage: 1, selectedUids: new Set(), searchQuery: '', activeIndex: -1,
       threadMessages: [],
+      // Al cambiar de carpeta se quitan también la búsqueda ya aplicada y el filtro
+      // «No leídos/Marcados»: si no, la carpeta nueva salía filtrada sin que se notara
+      // (el buscador ya estaba vacío) y parecía que faltaban correos.
+      debouncedSearchQuery: '', filter: 'all',
     });
   },
   setMessages: (messages, total) => set({ messages, totalMessages: total, loadingMessages: false, loadingMore: false, filterChanging: false }),
@@ -205,7 +209,9 @@ export const useMailStore = create<MailState>((set, get) => ({
   setPage: (page) => set({ currentPage: page, loadingMessages: true }),
   loadMore: () => {
     const st = get();
-    const maxPages = Math.ceil(st.totalMessages / 50);
+    // Con el tamaño de página elegido (25, 50…): con 50 fijo, a 25 por página se dejaba de cargar
+    // a mitad del buzón.
+    const maxPages = Math.ceil(st.totalMessages / (st.pageSize || 50));
     if (st.loadingMore || st.loadingMessages) return;
     // Respiro entre tandas: sin él, al llegar al fondo se encadenaban decenas de páginas seguidas.
     const ahora = Date.now();

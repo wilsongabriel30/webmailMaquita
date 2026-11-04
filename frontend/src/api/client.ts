@@ -68,7 +68,8 @@ async function requestMedido<T>(path: string, options: RequestInit & { skipAuth?
       ...fetchOptions,
     });
   } catch (e) {
-    reportarFallo();   // T-35: sin red o servidor inalcanzable
+    // Cancelar a propósito (AbortController) no es «sin red»: no se avisa de conexión lenta.
+    if (!(e instanceof DOMException && e.name === "AbortError")) reportarFallo();   // T-35: sin red o servidor inalcanzable
     throw e;
   }
   medida.servidorMs = res.headers.get("X-Offline-Cache") === "true" ? null : tiempoServidor(res);
@@ -175,9 +176,10 @@ export const api = {
   get: <T>(path: string, opts?: { skipAuth?: boolean }) => getCacheado<T>(path, opts),
   // Las escrituras invalidan el cache de correo para no mostrar datos viejos
   // tras mover / eliminar / marcar mensajes.
-  post: <T>(path: string, data?: unknown): Promise<T> => {
+  // `signal` (opcional) permite cancelar la petición, p. ej. el botón «Cancelar» de la IA.
+  post: <T>(path: string, data?: unknown, opts?: { signal?: AbortSignal }): Promise<T> => {
     invalidarCache("/mail/");
-    return request<T>(path, { method: "POST", body: data ? JSON.stringify(data) : undefined });
+    return request<T>(path, { method: "POST", body: data ? JSON.stringify(data) : undefined, signal: opts?.signal });
   },
   put: <T>(path: string, data?: unknown): Promise<T> => {
     invalidarCache("/mail/");
