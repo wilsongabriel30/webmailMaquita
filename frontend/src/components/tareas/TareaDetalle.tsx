@@ -77,7 +77,8 @@ export function TareaDetalle({ tarea, yo, onCerrar, onCambio }: Props) {
       {/* Acciones */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 14 }}>
         {soyAsignado && tarea.aceptacion !== 'aceptada' && tarea.estado !== 'completada' && tarea.estado !== 'espera' && <>
-          <button disabled={ocupado} style={primario} onClick={() => ejecutar(() => tareasApi.aceptar(tarea.id))}>Aceptar tarea</button>
+          {/* Aceptación implícita (fase 4): empezarla o completarla ya es aceptarla; rechazar sigue a mano. */}
+          <button disabled={ocupado} style={primario} title="La pone «En curso» y cuenta como aceptarla" onClick={() => ejecutar(() => tareasApi.aceptar(tarea.id))}>Empezar</button>
           <button disabled={ocupado} style={btn} onClick={() => setRechazando(v => !v)}>Rechazar…</button>
         </>}
         {tarea.estado !== 'completada' && tarea.estado !== 'espera' && (soyAsignado || soyAsignador) && <>

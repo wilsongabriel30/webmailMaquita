@@ -107,6 +107,18 @@ def a_salida(row) -> TareaOut:
     )
 
 
+async def _aceptar_sin_pedirlo(db, row, user: str) -> None:
+    """Aceptación implícita (fase 4, 05/11/2026): si quien la recibió la pone «En curso» o la completa, la aceptó.
+
+    No se manda aviso aparte: ya sale el del cambio de estado. Una rechazada que se empieza queda aceptada.
+    """
+    if row["aceptacion"] != "aceptada" and user in (row["asignados"] or []):
+        await db.execute(
+            "UPDATE task_cards SET aceptacion = 'aceptada', motivo_rechazo = '' WHERE id = $1",
+            row["id"],
+        )
+
+
 def _creada_por(row) -> str | None:
     """Quién creó la tarea, solo si no es quien la asignó (tarea de lista asignada después, fase 2)."""
     c = row.get("creada_por")
@@ -357,6 +369,8 @@ class ServicioTareas:
         row = await self.obtener(db, tarea_id, user)
         if estado == "completada":
             return await self.completar(db, redis, user, tarea_id)
+        if estado == "en_curso":
+            await _aceptar_sin_pedirlo(db, row, user)
         completada_antes = row["completed"]
         await db.execute(
             "UPDATE task_cards SET estado = $2, completed = FALSE, completed_by = NULL, completed_at = NULL, updated_at = NOW() WHERE id = $1",
@@ -438,6 +452,7 @@ class ServicioTareas:
     # ---------- completar → recurrencia + cadena ----------
     async def completar(self, db, redis, user, tarea_id):
         row = await self.obtener(db, tarea_id, user)
+        await _aceptar_sin_pedirlo(db, row, user)
         await db.execute(
             """UPDATE task_cards SET completed = TRUE, estado = 'completada', completed_by = $2, completed_at = NOW(),
                             updated_at = NOW() WHERE id = $1""",

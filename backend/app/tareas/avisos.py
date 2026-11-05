@@ -46,6 +46,39 @@ def nombre(correo: str) -> str:
     )
 
 
+# Lo que siempre va también por correo, quiera o no avisos por correo: hay algo que hacer o se pasó el plazo
+# (fase 4, 05/11/2026). Lo demás (estados, comentarios, completada, aceptada, rechazada, recordatorio, eliminada) va
+# por correo solo a quien activó «Avisos por correo» en la ⚙ de Tareas; en pantalla y en la campanita, siempre.
+SIEMPRE_CORREO = frozenset(
+    {
+        "asignada",
+        "activada",
+        "vencida",
+        "vencida_asignador",
+        "escalada",
+        "asignado_salio",
+    }
+)
+
+
+async def _con_correo(db, correos: list[str], tipo: str) -> list[str]:
+    """De `correos`, a quiénes enviar también el correo de este aviso."""
+    if tipo in SIEMPRE_CORREO or db is None:
+        return correos
+    try:
+        quieren = {
+            r["user_email"].lower()
+            for r in await db.fetch(
+                "SELECT user_email FROM task_preferencias WHERE avisos_correo AND lower(user_email) = ANY($1::text[])",
+                [c.lower() for c in correos],
+            )
+        }
+    except Exception as e:  # sin preferencias legibles: como antes, correo a todos
+        log.warning("preferencias de aviso: %s", e)
+        return correos
+    return [c for c in correos if c.lower() in quieren]
+
+
 async def emitir(
     correos,
     titulo: str,
@@ -103,7 +136,9 @@ async def emitir(
                     )
         except Exception as e:
             log.warning("aviso tarea %s: %s", tipo_registro, e)
-        await _correo(del_grupo, titulo, texto, url_grupo)
+        por_correo = await _con_correo(db, del_grupo, tipo_registro)
+        if por_correo:
+            await _correo(por_correo, titulo, texto, url_grupo)
         await _campanita(del_grupo, titulo, texto, url_grupo)
     if db is not None:
         try:

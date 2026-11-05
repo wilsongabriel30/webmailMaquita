@@ -62,7 +62,7 @@ export function DialogoAjustes({ ajustes, error, onCambiar, onCerrar }: {
         ))}
 
         <h3 style={titulo}>Notificaciones</h3>
-        <Interruptor etiqueta="Avisos por correo" ayuda="Recibir también por correo los avisos de mis listas compartidas"
+        <Interruptor etiqueta="Avisos por correo" ayuda="Recibir también por correo los avisos de mis listas compartidas y de las tareas asignadas (cambios de estado, comentarios, completadas). Lo importante (te asignaron una tarea, venció) llega siempre por correo"
           valor={ajustes.avisos_correo} onCambiar={v => onCambiar({ avisos_correo: v })} />
 
         {error && <div role="alert" style={{ marginTop: 8, fontSize: 12, color: '#d13438' }}>{error}</div>}
