@@ -51,7 +51,7 @@ export function TasksView() {
     fetchTasks, addTask, toggleTask: alternarTarea, toggleImportant, updateTask, deleteTask, moverTarea, reemplazarTarea,
   } = useTareas(activeView, busqueda, fetchLists);
   // ⚙ Configuración (F6): sonido al completar, confirmar al eliminar, importantes arriba y listas visibles.
-  const { ajustes, cambiar: cambiarAjustes, error: errorAjustes } = useAjustes();
+  const { ajustes, cambiar: cambiarAjustes, error: errorAjustes, recargar: recargarAjustes } = useAjustes();
   const [verAjustes, setVerAjustes] = useState(false);
   const cerrarAjustes = useCallback(() => setVerAjustes(false), []);
   const [verSugerencias, setVerSugerencias] = useState(false);
@@ -135,7 +135,7 @@ export function TasksView() {
         smartCounts={conteos}
         buscador={<BuscadorTareas valor={busqueda} onBuscar={buscar} />}
         onSoltarTarea={soltarTarea}
-        onAjustes={() => setVerAjustes(true)}
+        onAjustes={() => { void recargarAjustes(); setVerAjustes(true); }}
         ocultas={ajustes.listas_ocultas}
         pie={<BotonesCrear
           onCrearLista={async n => { const nueva = await listas.crearLista(n); if (nueva) abrirVista(nueva.id); }}

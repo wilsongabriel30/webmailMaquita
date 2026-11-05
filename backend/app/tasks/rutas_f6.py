@@ -21,9 +21,11 @@ async def ver_ajustes(request: Request, user: str = Depends(get_current_user)):
 
 @router.put("/ajustes", response_model=ajustes.Ajustes)
 async def guardar_ajustes(
-    data: ajustes.Ajustes, request: Request, user: str = Depends(get_current_user)
+    data: ajustes.CambioAjustes,
+    request: Request,
+    user: str = Depends(get_current_user),
 ):
-    return await ajustes.guardar(_db(request), user, data)
+    return await ajustes.cambiar(_db(request), user, data)
 
 
 @router.get("/sugerencias", response_model=sugerencias.Sugerencias)
