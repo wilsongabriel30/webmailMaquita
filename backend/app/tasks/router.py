@@ -13,10 +13,11 @@ from app.auth.dependencies import get_current_user
 from app.tasks import (
     acceso,
     adjuntos,
-    aviso_asignacion,
     correo_marcado,
     repeticion,
+    seguimiento_en_lista,
     tiempo_real,
+    vistas,
 )
 from app.tasks.rutas_compartir import router as f4_router
 from app.tasks.rutas_desde_correo import router as desde_correo_router
@@ -127,6 +128,24 @@ async def todo_create_task_default(
 # ── Task operations ──
 
 
+async def _por_seguimiento(request, user: str, card_id, completada: bool) -> CardOut:
+    try:
+        return await seguimiento_en_lista.marcar(
+            _db(request), _redis(request), user, card_id, completada
+        )
+    except seguimiento_en_lista.NoParticipa as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+async def _por_seguimiento_tarjeta(request, user: str, card_id) -> CardOut:
+    tarjeta = await vistas.una(_db(request), user, card_id)
+    if tarjeta is None:
+        raise HTTPException(status_code=404, detail="Tarea no encontrada")
+    return tarjeta
+
+
 @router.patch("/tasks/{card_id}", response_model=CardOut)
 async def todo_update_task(
     card_id: uuid.UUID,
@@ -134,17 +153,22 @@ async def todo_update_task(
     request: Request,
     user: str = Depends(get_current_user),
 ):
-    try:
-        estaba_hecha = await _db(request).fetchval(
+    if data.completed is not None and await seguimiento_en_lista.es_seguimiento(
+        _db(request), card_id
+    ):
+        # Con seguimiento, completar o reabrir va por Seguimiento; lo demás, por la lista (fase 3, 05/11/2026).
+        hecha = await _db(request).fetchval(
             "SELECT completed FROM task_cards WHERE id = $1", card_id
         )
+        if bool(hecha) != data.completed:
+            await _por_seguimiento(request, user, card_id, data.completed)
+        data = CardUpdate(**data.model_dump(exclude_unset=True, exclude={"completed"}))
+        if not data.model_fields_set:
+            return await _por_seguimiento_tarjeta(request, user, card_id)
+    try:
         result = await task_service.update_card(_db(request), user, card_id, data)
         if result.completed and data.completed:
             await repeticion.tras_completar(_db(request), user, card_id)
-            if not estaba_hecha:
-                await aviso_asignacion.avisar_realizada(
-                    _db(request), _redis(request), user, card_id
-                )
         if data.completed is not None:
             enlace = await correo_marcado.vinculo(_db(request), card_id, user)
             await correo_marcado.poner_bandera(
@@ -177,13 +201,15 @@ async def todo_update_task(
 async def todo_toggle_task(
     card_id: uuid.UUID, request: Request, user: str = Depends(get_current_user)
 ):
+    if await seguimiento_en_lista.es_seguimiento(_db(request), card_id):
+        hecha = await _db(request).fetchval(
+            "SELECT completed FROM task_cards WHERE id = $1", card_id
+        )
+        return await _por_seguimiento(request, user, card_id, not hecha)
     try:
         result = await task_service.toggle_card(_db(request), user, card_id)
         if result.completed:
             await repeticion.tras_completar(_db(request), user, card_id)
-            await aviso_asignacion.avisar_realizada(
-                _db(request), _redis(request), user, card_id
-            )
         enlace = await correo_marcado.vinculo(_db(request), card_id, user)
         await correo_marcado.poner_bandera(request, user, enlace, not result.completed)
         # Si se completo, eliminar del calendario; si se reabrio, re-sincronizar
@@ -427,13 +453,13 @@ async def move_card(
 async def toggle_card(
     card_id: uuid.UUID, request: Request, user: str = Depends(get_current_user)
 ):
+    if await seguimiento_en_lista.es_seguimiento(_db(request), card_id):
+        hecha = await _db(request).fetchval(
+            "SELECT completed FROM task_cards WHERE id = $1", card_id
+        )
+        return await _por_seguimiento(request, user, card_id, not hecha)
     try:
-        result = await task_service.toggle_card(_db(request), user, card_id)
-        if result.completed:
-            await aviso_asignacion.avisar_realizada(
-                _db(request), _redis(request), user, card_id
-            )
-        return result
+        return await task_service.toggle_card(_db(request), user, card_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
