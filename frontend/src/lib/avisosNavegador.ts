@@ -58,21 +58,28 @@ function esRepetido(clave: string): boolean {
   return false;
 }
 
-/* El sondeo de respaldo no puede fiarse de la ventana de cuatro segundos: el aviso en tiempo real
- * pide recargar la lista y, si esa carga tarda más (IMAP lento, servidor ocupado), el sondeo ve el
- * mismo correo como nuevo y avisa otra vez (candado T-53 intermitente, 05/11/2026). Por eso cada aviso
- * en tiempo real deja un «ya avisado» de su etiqueta y el aviso de respaldo gasta uno en vez de sonar.
- * Caducan al minuto: si el tiempo real se cae, el respaldo vuelve a avisar. */
+/* El tiempo real y el sondeo de respaldo avisan del MISMO correo nuevo, y la ventana de cuatro segundos
+ * no basta: el aviso en tiempo real pide recargar la lista y, si esa carga tarda más (IMAP lento, servidor
+ * ocupado), el sondeo ve el mismo correo como nuevo y avisa otra vez (candado T-53 intermitente, 05/11/2026).
+ * Por eso cada aviso que sale deja un «ya avisado» de su etiqueta para el OTRO emisor, que lo gasta en vez de
+ * sonar. Funciona en los dos órdenes: con el servidor cargado, a veces el sondeo llega antes que el tiempo real.
+ * Caducan al minuto: si uno de los dos se cae, el otro sigue avisando. */
 const VIGENCIA_YA_AVISADO_MS = 60000;
-const yaAvisados = new Map<string, number[]>();
+const yaAvisados = { vivo: new Map<string, number[]>(), respaldo: new Map<string, number[]>() };
+type Emisor = keyof typeof yaAvisados;
 
-function respaldoSobra(etiqueta: string): boolean {
+/** ¿El otro emisor ya avisó de esto? Si es así, se gasta su «ya avisado». */
+function otroYaAviso(otro: Emisor, etiqueta: string): boolean {
   const ahora = Date.now();
-  const vigentes = (yaAvisados.get(etiqueta) || []).filter(t => ahora - t < VIGENCIA_YA_AVISADO_MS);
-  const sobra = vigentes.length > 0;
-  if (sobra) vigentes.shift();
-  yaAvisados.set(etiqueta, vigentes);
-  return sobra;
+  const vigentes = (yaAvisados[otro].get(etiqueta) || []).filter(t => ahora - t < VIGENCIA_YA_AVISADO_MS);
+  const ya = vigentes.length > 0;
+  if (ya) vigentes.shift();
+  yaAvisados[otro].set(etiqueta, vigentes);
+  return ya;
+}
+
+function anotarAviso(emisor: Emisor, etiqueta: string): void {
+  yaAvisados[emisor].set(etiqueta, [...(yaAvisados[emisor].get(etiqueta) || []), Date.now()]);
 }
 
 interface Opciones {
@@ -86,7 +93,7 @@ interface Opciones {
   /** Correo concreto que abrir, si se sabe cuál es. */
   uid?: number;
   carpeta?: string;
-  /** Aviso del sondeo de respaldo: se calla si el tiempo real ya avisó con la misma etiqueta. */
+  /** Aviso del sondeo de respaldo: se calla si el tiempo real ya avisó con la misma etiqueta (y al revés). */
   respaldo?: boolean;
 }
 
@@ -104,11 +111,9 @@ export function avisar(titulo: string, o: Opciones): boolean {
   // La clave incluye el TEXTO: dos correos distintos dicen cosas distintas y no deben
   // taparse entre sí. La etiqueta sola los hacía indistinguibles.
   const etiqueta = o.etiqueta || o.tipo || 'general';
-  if (o.respaldo) {
-    if (respaldoSobra(etiqueta)) return false;
-  } else {
-    yaAvisados.set(etiqueta, [...(yaAvisados.get(etiqueta) || []), Date.now()]);
-  }
+  const emisor: Emisor = o.respaldo ? 'respaldo' : 'vivo';
+  if (otroYaAviso(emisor === 'vivo' ? 'respaldo' : 'vivo', etiqueta)) return false;
+  anotarAviso(emisor, etiqueta);
   if (esRepetido(etiqueta + '|' + titulo + '|' + o.cuerpo)) {
     return false;
   }
