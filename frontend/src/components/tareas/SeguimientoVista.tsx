@@ -69,7 +69,7 @@ export function SeguimientoVista({ yo, tareaInicial, ambito = 'para-mi', onTarea
     if (ids.length > 1 && !confirm(`¿Quitar del tablero las ${ids.length} tareas completadas? No se borran: quedan en «Archivadas».`)) return;
     setTareas(p => p.filter(t => !ids.includes(t.id)));
     try { await tareasApi.archivar(ids); }
-    catch (e) { avisar('No se pudieron quitar del tablero: ' + (e instanceof Error ? e.message : '')); cargar(); }
+    catch (e) { await cargar(); avisar('No se pudieron quitar del tablero: ' + (e instanceof Error ? e.message : '')); }
   };
   const quitarUna = { texto: 'Quitar del tablero', titulo: 'No se borra: queda en «Archivadas»', onClick: (t: Tarea) => quitar([t.id]) };
   const verArchivadas = archivadas && pestana !== 'mi-dia';
