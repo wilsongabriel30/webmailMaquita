@@ -37,7 +37,7 @@ class _DBVista:
         ("my_day", "task_mi_dia"),
         ("important", "tc.important"),
         ("planned", "tc.reminder IS NOT NULL"),
-        ("assigned", "NOT tc.asignada"),
+        ("assigned", "FALSE"),
         ("tasks", "list_type = 'default'"),
         ("flagged", "list_type = 'flagged'"),
     ],
@@ -50,8 +50,9 @@ def test_cada_vista_filtra_lo_suyo_sobre_las_listas_visibles(nombre, fragmento):
     assert db.args == ("ana@example.org", mi_dia.hoy())
 
 
-def test_asignado_a_mi_mira_la_tabla_de_asignados():
-    assert "task_asignados" in vistas.FILTROS["assigned"]
+def test_asignado_a_mi_es_la_vista_de_seguimiento():
+    # Desde la limpieza del 05/11/2026 no hay asignaciones en tareas de lista: la vista no aporta nada aquí.
+    assert vistas.FILTROS["assigned"] == "FALSE"
 
 
 def test_vista_desconocida():

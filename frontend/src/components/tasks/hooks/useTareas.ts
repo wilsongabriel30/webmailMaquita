@@ -24,8 +24,8 @@ export function useTareas(activeView: ActiveView, busqueda: string, alCambiar: (
   const pedir = useCallback((): Promise<Task[]> => {
     const texto = busqueda.trim();
     if (texto) return api.get<Task[]>(`/tasks/buscar?q=${encodeURIComponent(texto)}`);
-    // «seguimiento» es una vista (SeguimientoVista carga sus datos), no una lista: pedirla como lista daba 400
-    if (activeView === 'seguimiento') return Promise.resolve([]);
+    // «Asignado a mí» y «seguimiento» las pinta SeguimientoVista con sus datos: aquí no hay nada que pedir.
+    if (activeView === 'seguimiento' || activeView === 'assigned') return Promise.resolve([]);
     if (VISTAS_INTELIGENTES.includes(activeView)) return api.get<Task[]>(`/tasks/views/${activeView}`);
     return api.get<Task[]>(`/tasks/lists/${activeView}/tasks`);
   }, [activeView, busqueda]);

@@ -691,7 +691,7 @@ class TaskService:
         return _row_to_card(row)
 
     async def delete_card(self, db, user, card_id):
-        # Quien solo tiene la tarea asignada (F5) no la puede borrar.
+        # Borrar exige ver la lista (las de Seguimiento, además, ser quien la asignó: ver tasks/router.py).
         if not await acceso.tarea_en_sus_listas(db, card_id, user):
             raise ValueError("Card not found")
         old_row = await db.fetchrow(

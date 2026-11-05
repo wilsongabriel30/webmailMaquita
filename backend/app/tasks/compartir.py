@@ -125,22 +125,13 @@ async def agregar(db, user: str, list_id, email: str) -> Miembro:
 
 
 async def _limpiar(db, list_id, fuera: list[str]) -> None:
-    """Quien ya no está en la lista deja de estar asignado a sus tareas y las pierde de su «Mi día»."""
-    await db.execute(
-        """DELETE FROM task_asignados WHERE email = ANY($2::text[])
-              AND card_id IN (SELECT id FROM task_cards WHERE list_id = $1 AND NOT asignada)""",
-        list_id,
-        fuera,
-    )
+    """Quien ya no está en la lista pierde sus tareas de su «Mi día».
+
+    Las tareas con seguimiento que tenga asignadas siguen siendo suyas: no dependen de la lista.
+    """
     await db.execute(
         """DELETE FROM task_mi_dia WHERE user_email = ANY($2::text[])
               AND card_id IN (SELECT id FROM task_cards WHERE list_id = $1)""",
-        list_id,
-        fuera,
-    )
-    await db.execute(
-        """UPDATE task_cards SET assigned_to = NULL, updated_at = NOW()
-            WHERE list_id = $1 AND NOT asignada AND assigned_to = ANY($2::text[])""",
         list_id,
         fuera,
     )

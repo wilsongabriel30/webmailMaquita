@@ -1,9 +1,7 @@
 """Listas inteligentes de Tareas (como en To Do) y tareas de una lista, vistas por una persona.
 
-Todas miran las listas que la persona ve (las suyas y las que le compartieron) y, desde la F5, también las tareas
-que le asignaron de otras listas («Asignar tarea a»), salvo en «Tareas» y «Correo marcado», que son listas
-propias. Devuelven cada tarea
-con lo que es propio de quien mira: si está en su «Mi día» de hoy. Agregan el nombre de la lista, las
+Todas miran las listas que la persona ve (las suyas y las que le compartieron). «Asignado a mí» es la vista de
+Seguimiento (app/tareas): aquí no aporta tareas. Devuelven cada tarea con lo que es propio de quien mira: si está en su «Mi día» de hoy. Agregan el nombre de la lista, las
 personas asignadas y, si la tarea viene de un correo marcado o soltado en Tareas, el enlace al mensaje
 (el del correo soltado solo lo ve quien lo soltó: es su buzón).
 """
@@ -11,7 +9,7 @@ personas asignadas y, si la tarea viene de un correo marcado o soltado en Tareas
 from __future__ import annotations
 
 from app.tasks import mi_dia
-from app.tasks.acceso import ASIGNADA_A, LISTAS_VISIBLES
+from app.tasks.acceso import LISTAS_VISIBLES
 from app.tasks.schemas import CardOut, CorreoRef
 from app.tasks.service import _row_to_card
 
@@ -30,19 +28,14 @@ _SELECT = f"""SELECT tc.*, tl.name AS list_name, {_EN_MI_DIA} AS en_mi_dia,
   JOIN task_lists tl ON tl.id = tc.list_id
   LEFT JOIN task_correo co ON co.card_id = tc.id
   LEFT JOIN task_correo_origen cs ON cs.card_id = tc.id AND cs.user_email = $1
- WHERE (tc.list_id IN ({LISTAS_VISIBLES}) OR {ASIGNADA_A})"""
-
-# Seguimiento (T-34) tiene su propia vista para lo que un jefe asigna: no se mezcla en «Asignado a mí».
-_ASIGNADA_A_MI = (
-    "NOT tc.asignada AND (tc.assigned_to = $1"
-    " OR EXISTS (SELECT 1 FROM task_asignados a WHERE a.card_id = tc.id AND a.email = $1))"
-)
+ WHERE tc.list_id IN ({LISTAS_VISIBLES})"""
 
 FILTROS = {
     "my_day": _EN_MI_DIA,
     "important": "tc.important",
     "planned": "(tc.due_date IS NOT NULL OR tc.reminder IS NOT NULL)",
-    "assigned": _ASIGNADA_A_MI,
+    # «Asignado a mí» es la vista de Seguimiento (SeguimientoVista): aquí no aporta tareas de lista (05/11/2026).
+    "assigned": "FALSE",
     "tasks": f"tl.list_type = 'default' AND tc.list_id IN ({LISTAS_VISIBLES})",
     "flagged": f"tl.list_type = 'flagged' AND tc.list_id IN ({LISTAS_VISIBLES})",
 }
@@ -145,16 +138,15 @@ async def contar(db, user: str) -> dict[str, int]:
         f"""SELECT count(*) FILTER (WHERE {FILTROS['my_day']})    AS mi_dia,
                   count(*) FILTER (WHERE {FILTROS['important']}) AS importante,
                   count(*) FILTER (WHERE {FILTROS['planned']})   AS planeado,
-                  count(*) FILTER (WHERE {FILTROS['assigned']})  AS asignado,
                   count(*) FILTER (WHERE {FILTROS['tasks']})     AS tareas,
                   count(*) FILTER (WHERE {FILTROS['flagged']})   AS marcado
              FROM task_cards tc
              JOIN task_lists tl ON tl.id = tc.list_id
-            WHERE (tc.list_id IN ({LISTAS_VISIBLES}) OR {ASIGNADA_A}) AND tc.completed = FALSE""",
+            WHERE tc.list_id IN ({LISTAS_VISIBLES}) AND tc.completed = FALSE""",
         user,
         mi_dia.hoy(),
     )
-    # «Asignado a mí» muestra también las tareas de Seguimiento pendientes de la persona (05/11/2026).
+    # «Asignado a mí» son las tareas de Seguimiento pendientes de la persona (05/11/2026).
     seguimiento = await db.fetchval(
         """SELECT count(*) FROM task_cards c
              JOIN task_asignados a ON a.card_id = c.id AND a.email = $1
@@ -165,7 +157,7 @@ async def contar(db, user: str) -> dict[str, int]:
         "my-day": fila["mi_dia"],
         "important": fila["importante"],
         "planned": fila["planeado"],
-        "assigned": fila["asignado"] + (seguimiento or 0),
+        "assigned": seguimiento or 0,
         "tasks": fila["tareas"],
         "flagged": fila["marcado"],
     }

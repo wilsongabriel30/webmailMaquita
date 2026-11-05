@@ -1,7 +1,7 @@
 // Tareas asignadas, en LISTA o TABLERO, con semáforo. Desde el 05/11/2026 (fase 1 de la unificación) se muestra en
 // dos vistas según el rol: «Asignado a mí» (ámbito `para-mi`: «Todas» / «Para hoy», y debajo las tareas asignadas
 // desde listas compartidas, que llegan en `otras`) y «Asignadas por mí» (ámbito `por-mi`, lo que yo asigné).
-import { type ReactNode, useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { tareasApi } from './api';
 import { AsignarTareaDialogo } from './AsignarTareaDialogo';
 import { IcoLista, IcoTablero, Punto } from './IconosSeguimiento';
@@ -17,15 +17,13 @@ interface Props {
   yo: string; tareaInicial?: string | null; ambito?: Ambito;
   /** Se llama cuando ya se abrió `tareaInicial` (para no volver a abrirla al cambiar de vista). */
   onTareaInicialAbierta?: () => void;
-  /** «Asignado a mí»: tareas asignadas desde listas compartidas, debajo de las de Seguimiento. */
-  otras?: ReactNode; hayOtras?: boolean;
   /** «Asignado a mí»: tras asignar una tarea, ir a «Asignadas por mí». */
   onAsignada?: () => void;
 }
 const TITULO: Record<Ambito, string> = { 'para-mi': 'Asignado a mí', 'por-mi': 'Asignadas por mí' };
 const tab = (activa: boolean): React.CSSProperties => ({ padding: '8px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 14, fontWeight: activa ? 700 : 400, color: activa ? '#0078d4' : '#323130', borderBottom: activa ? '3px solid #0078d4' : '3px solid transparent' });
 
-export function SeguimientoVista({ yo, tareaInicial, ambito = 'para-mi', onTareaInicialAbierta, otras, hayOtras, onAsignada }: Props) {
+export function SeguimientoVista({ yo, tareaInicial, ambito = 'para-mi', onTareaInicialAbierta, onAsignada }: Props) {
   const [pestana, setPestana] = useState<Pestana>(ambito === 'por-mi' ? 'por-mi' : 'mis');
   // Se abre en Tablero; si la persona elige Lista, se recuerda (clave nueva: la vieja guardaba «lista» a todos).
   const [modo, setModo] = useState<'lista' | 'tablero'>(() => { try { return localStorage.getItem('seguimiento.modo') === 'lista' ? 'lista' : 'tablero'; } catch { return 'tablero'; } });
@@ -100,10 +98,9 @@ export function SeguimientoVista({ yo, tareaInicial, ambito = 'para-mi', onTarea
         <div style={{ flex: 1, overflowY: 'auto', paddingTop: 8 }}>
           {verArchivadas ? <TareasArchivadas key={pestana} pestana={pestana === 'mis' ? 'mis' : 'por-mi'} onAbrir={setSel} onError={avisar} />
             : cargando && !tareas.length ? <div style={{ padding: 40, textAlign: 'center', color: '#605e5c' }}>Cargando…</div>
-            : !tareas.length ? (hayOtras ? null : <div style={{ padding: 40, textAlign: 'center', color: '#605e5c' }}>{pestana === 'por-mi' ? 'Aún no has asignado tareas. Usa «+ Asignar tarea» o «Asignar como tarea» en un correo.' : 'Nada pendiente por aquí.'}</div>)
+            : !tareas.length ? (<div style={{ padding: 40, textAlign: 'center', color: '#605e5c' }}>{pestana === 'por-mi' ? 'Aún no has asignado tareas. Usa «+ Asignar tarea» o «Asignar como tarea» en un correo.' : 'Nada pendiente por aquí.'}</div>)
             : modo === 'tablero' ? <TableroKanban tareas={tareas} onAbrir={setSel} onCambiarEstado={cambiarEstado} onQuitar={quitar} />
             : tareas.map(t => <TarjetaTarea key={t.id} tarea={t} onAbrir={setSel} accion={t.estado === 'completada' ? quitarUna : undefined} />)}
-          {!verArchivadas && otras}
         </div>
       </div>
       {sel && <TareaDetalle tarea={sel} yo={yo} onCerrar={() => setSel(null)} onCambio={t => { if (t) { setSel(t); setTareas(p => p.map(x => x.id === t.id ? t : x)); } else cargar(); }} />}
