@@ -11,7 +11,7 @@ import uuid
 import pytest
 from pydantic import ValidationError
 
-from app.tasks import asignar, compartir, tiempo_real
+from app.tasks import compartir, tiempo_real
 
 
 def test_correo_valido_y_normalizado():
@@ -31,13 +31,6 @@ def test_solo_cuentas_de_la_casa(monkeypatch):
     assert compartir.de_la_casa("ana@example.org")
     assert not compartir.de_la_casa("ana@gmail.com")
     assert not compartir.de_la_casa("ana@example.org.evil.com")
-
-
-def test_asignados_limpios():
-    a = asignar.Asignacion(emails=[" Ana@x.org", "ana@x.org", "", "beto@x.org"])
-    assert a.emails == ["ana@x.org", "beto@x.org"]
-    with pytest.raises(ValidationError):
-        asignar.Asignacion(emails=[f"p{i}@x.org" for i in range(51)])
 
 
 class _Estado:

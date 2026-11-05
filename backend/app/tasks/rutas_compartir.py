@@ -1,4 +1,4 @@
-"""Rutas de la F4 de Tareas (To Do, 30/10/2026): compartir listas, asignar tareas, actividad y avisos por correo."""
+"""Rutas de la F4 de Tareas (To Do, 30/10/2026): compartir listas, actividad y avisos por correo."""
 
 from __future__ import annotations
 
@@ -12,16 +12,12 @@ from app.tareas import avisos
 from app.tasks import (
     acceso,
     actividad,
-    asignar,
-    aviso_asignacion,
     avisos_listas,
     compartir,
-    vistas,
 )
 from app.tasks.actividad import Evento
 from app.tasks.compartir import Miembro, NuevoMiembro
 from app.tasks.listas import NoEncontrada, SinPermiso
-from app.tasks.schemas import CardOut
 
 router = APIRouter()
 
@@ -136,44 +132,6 @@ async def actividad_de_tarea(
     if not await acceso.puede_ver_tarea(_db(request), card_id, user):
         raise HTTPException(status_code=404, detail="Tarea no encontrada")
     return await actividad.de_tarea(_db(request), card_id)
-
-
-@router.put("/tasks/{card_id}/asignados", response_model=CardOut)
-async def asignar_tarea(
-    card_id: uuid.UUID,
-    data: asignar.Asignacion,
-    request: Request,
-    user: str = Depends(get_current_user),
-):
-    try:
-        async with _db(request).acquire() as con:
-            async with con.transaction():
-                nuevos, tarea = await asignar.asignar(
-                    con, user, card_id, data.emails, data.mensaje, data.plazo
-                )
-    except LookupError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except asignar.NoSeAsigna as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    if nuevos:
-        texto = aviso_asignacion.texto_asignada(
-            user, tarea["title"], tarea["lista"], data.plazo, data.mensaje
-        )
-        await avisos_listas.avisar(
-            _redis(request),
-            _db(request),
-            nuevos,
-            user,
-            "assigned",
-            "Te asignaron una tarea",
-            texto,
-            card_id,
-            correo=True,  # asignar es directo a la persona: el correo sale siempre
-        )
-    tarjeta = await vistas.una(_db(request), user, card_id)
-    if tarjeta is None:
-        raise HTTPException(status_code=404, detail="Tarea no encontrada")
-    return tarjeta
 
 
 class Preferencias(BaseModel):

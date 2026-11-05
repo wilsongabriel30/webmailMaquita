@@ -123,15 +123,6 @@ class CorreoRef(BaseModel):
     origen: Literal["marcado", "soltado"] = "marcado"
 
 
-class AsignacionMia(BaseModel):
-    """Quién me asignó la tarea, cuándo y con qué indicaciones (solo lo ve la persona asignada)."""
-
-    por: str
-    por_nombre: str
-    en: datetime
-    indicaciones: str = ""
-
-
 class CardOut(BaseModel):
     id: uuid.UUID
     list_id: uuid.UUID
@@ -163,8 +154,6 @@ class CardOut(BaseModel):
     adjuntos: int = 0
     # Tarea de Seguimiento (T-34): se asigna desde Seguimiento, no con «Asignar tarea a».
     seguimiento: bool = False
-    # Si la tarea me la asignaron a mí: quién, cuándo e indicaciones («Asignado a mí»).
-    asignacion: Optional[AsignacionMia] = None
 
 
 # Label

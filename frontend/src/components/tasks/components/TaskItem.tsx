@@ -62,14 +62,13 @@ export function TaskItem({ task, onToggle, onToggleImportant, onClick, mostrarLi
         }}>
           {task.title}
         </div>
-        {(task.correo || (mostrarLista && task.list_name) || task.asignacion) && (
+        {(task.correo || (mostrarLista && task.list_name)) && (
           <div style={{ fontSize: 12, color: COLORS.secondary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {task.correo ? (
               <a href={urlCorreo(task.correo)} onClick={e => e.stopPropagation()} style={{ color: COLORS.primary, textDecoration: 'none' }}>
                 Correo{task.correo.remitente ? ` de ${task.correo.remitente}` : ''}
               </a>
             ) : mostrarLista ? task.list_name : null}
-            {task.asignacion && <>{(task.correo || (mostrarLista && task.list_name)) ? ' · ' : ''}Asignada por {task.asignacion.por_nombre}</>}
           </div>
         )}
         {(task.due_date || task.recurrence || task.reminder || task.pasos || task.adjuntos || task.note || !!task.labels?.length) && (

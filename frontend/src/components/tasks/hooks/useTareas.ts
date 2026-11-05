@@ -87,7 +87,9 @@ export function useTareas(activeView: ActiveView, busqueda: string, alCambiar: (
       // Al completar una tarea que se repite, el servidor crea la siguiente: hay que traerla.
       if (tarea?.recurrence && !tarea.completed) fetchTasks();
       alCambiar();
-    } catch {
+    } catch (e) {
+      // Una tarea con seguimiento solo la completan quienes la recibieron o quien la asignó: se explica por qué.
+      setError('No se pudo completar la tarea: ' + mensaje(e, 'desconocido'));
       fetchTasks();
     }
   };

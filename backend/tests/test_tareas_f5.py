@@ -12,9 +12,8 @@ import uuid
 from datetime import datetime, timezone
 
 import pytest
-from pydantic import ValidationError
 
-from app.tasks import asignar, avisos_tiempo, duplicar, listas, tiempo_real
+from app.tasks import avisos_tiempo, duplicar, listas, tiempo_real
 
 
 class _DB:
@@ -100,14 +99,6 @@ def test_vence_hoy_avisa_desde_las_ocho():
     assert _correr(avisos_tiempo.avisar_vencimientos(db, redis, ocho)) == 1
     assert [c for c, _ in redis.enviados] == ["ws:user:caro@x.org"]
     assert "Vence hoy: Informe" in redis.enviados[0][1]
-
-
-def test_asignacion_con_mensaje():
-    a = asignar.Asignacion(emails=["Ana@x.org"], mensaje="Antes del viernes")
-    assert a.emails == ["ana@x.org"] and a.mensaje == "Antes del viernes"
-    assert asignar.Asignacion(emails=[]).mensaje == ""
-    with pytest.raises(ValidationError):
-        asignar.Asignacion(emails=[], mensaje="x" * 2001)
 
 
 def test_nombre_de_la_copia():
