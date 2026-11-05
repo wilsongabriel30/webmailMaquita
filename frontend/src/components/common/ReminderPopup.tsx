@@ -15,8 +15,10 @@ interface Rem {
 
 interface TareaVista { id: string; title: string; due_date?: string | null; reminder?: string | null }
 
-/** El servidor manda «⏰ Recordatorio de tarea: <título>»; el título solo, por si no se encuentra la tarea. */
-const tituloDelMensaje = (m: string) => m.replace(/^\s*⏰?\s*Recordatorio de tarea:\s*/u, '').trim() || m;
+/** El servidor manda «Recordatorio de tarea: <título>» o «Vence hoy: <título>» (antes con un emoji delante);
+ *  el título solo, por si no se encuentra la tarea. */
+const tituloDelMensaje = (m: string) =>
+  m.replace(/^\s*\p{Extended_Pictographic}?\uFE0F?\s*(Recordatorio de tarea|Vence hoy):\s*/u, '').trim() || m;
 
 function posponerHasta(minutos: number): string {
   if (minutos > 0) return new Date(Date.now() + minutos * 60000).toISOString();

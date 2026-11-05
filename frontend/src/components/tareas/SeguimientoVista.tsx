@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { tareasApi } from './api';
 import { AsignarTareaDialogo } from './AsignarTareaDialogo';
+import { IcoLista, IcoTablero, Punto } from './IconosSeguimiento';
 import { TableroKanban } from './TableroKanban';
 import { TareaDetalle } from './TareaDetalle';
 import { TarjetaTarea } from './TarjetaTarea';
@@ -56,16 +57,16 @@ export function SeguimientoVista({ yo, tareaInicial }: Props) {
           <button style={tab(pestana === 'por-mi')} onClick={() => setPestana('por-mi')}>Asignadas por mí</button>
           <button style={tab(pestana === 'mi-dia')} onClick={() => setPestana('mi-dia')}>Mi día</button>
           <span style={{ flex: 1 }} />
-          {resumen.rojo > 0 && <span style={{ fontSize: 12, color: '#d13438', fontWeight: 600, marginRight: 8 }}>● {resumen.rojo} vencida{resumen.rojo > 1 ? 's' : ''}/hoy</span>}
-          {resumen.amarillo > 0 && <span style={{ fontSize: 12, color: '#c19c00', fontWeight: 600, marginRight: 8 }}>● {resumen.amarillo} pronto</span>}
+          {resumen.rojo > 0 && <span style={{ fontSize: 12, color: '#d13438', fontWeight: 600, marginRight: 8 }}><Punto color="#d13438" />{resumen.rojo} vencida{resumen.rojo > 1 ? 's' : ''}/hoy</span>}
+          {resumen.amarillo > 0 && <span style={{ fontSize: 12, color: '#c19c00', fontWeight: 600, marginRight: 8 }}><Punto color="#c19c00" />{resumen.amarillo} pronto</span>}
           <label style={{ fontSize: 12, color: '#605e5c', marginRight: 8 }}><input type="checkbox" checked={completadas} onChange={e => setCompletadas(e.target.checked)} /> completadas</label>
-          <button onClick={() => setModo('lista')} title="Lista" style={{ ...tab(modo === 'lista'), padding: '6px 8px', borderBottom: 'none' }}>☰ Lista</button>
-          <button onClick={() => setModo('tablero')} title="Tablero" style={{ ...tab(modo === 'tablero'), padding: '6px 8px', borderBottom: 'none' }}>▦ Tablero</button>
+          <button onClick={() => setModo('lista')} title="Lista" style={{ ...tab(modo === 'lista'), padding: '6px 8px', borderBottom: 'none', display: 'inline-flex', alignItems: 'center', gap: 5 }}><IcoLista />Lista</button>
+          <button onClick={() => setModo('tablero')} title="Tablero" style={{ ...tab(modo === 'tablero'), padding: '6px 8px', borderBottom: 'none', display: 'inline-flex', alignItems: 'center', gap: 5 }}><IcoTablero />Tablero</button>
           <button onClick={() => setAsignando(true)} style={{ padding: '7px 14px', border: 'none', background: '#0078d4', color: '#fff', borderRadius: 4, cursor: 'pointer', fontWeight: 600, marginLeft: 8 }}>+ Asignar tarea</button>
         </div>
         <div style={{ flex: 1, overflowY: 'auto', paddingTop: 8 }}>
           {cargando && !tareas.length ? <div style={{ padding: 40, textAlign: 'center', color: '#605e5c' }}>Cargando…</div>
-            : !tareas.length ? <div style={{ padding: 40, textAlign: 'center', color: '#605e5c' }}>{pestana === 'por-mi' ? 'Aún no has asignado tareas. Usa «+ Asignar tarea» o «Asignar como tarea» en un correo.' : 'Nada pendiente por aquí. 🎉'}</div>
+            : !tareas.length ? <div style={{ padding: 40, textAlign: 'center', color: '#605e5c' }}>{pestana === 'por-mi' ? 'Aún no has asignado tareas. Usa «+ Asignar tarea» o «Asignar como tarea» en un correo.' : 'Nada pendiente por aquí.'}</div>
             : modo === 'tablero' ? <TableroKanban tareas={tareas} onAbrir={setSel} onCambiarEstado={cambiarEstado} />
             : tareas.map(t => <TarjetaTarea key={t.id} tarea={t} onAbrir={setSel} />)}
         </div>

@@ -180,7 +180,7 @@ async def check_reminders(app):
                     await _publish(
                         redis,
                         persona,
-                        f"⏰ Recordatorio de tarea: {r['title']}",
+                        f"Recordatorio de tarea: {r['title']}",
                         f"task-rem-{r['id']}",
                         kind="task",
                         entity_id=r["id"],

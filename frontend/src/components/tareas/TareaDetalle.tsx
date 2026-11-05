@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { tareasApi } from './api';
 import { SelectorPersonas } from './SelectorPersonas';
 import { Semaforo } from './TarjetaTarea';
+import { Dato, IcoCalendario, IcoClip, IcoRepetir } from './IconosSeguimiento';
 import type { Comentario, Tarea } from './tipos';
 import { ESTADO_NOMBRE, PRIORIDAD_NOMBRE, RECURRENCIAS, fechaCorta, nombreDe } from './tipos';
 import { StepsList } from '../tasks/components/StepsList';
@@ -56,18 +57,18 @@ export function TareaDetalle({ tarea, yo, onCerrar, onCambio }: Props) {
         <button onClick={onCerrar} aria-label="Cerrar" style={{ ...btn, border: 'none', fontSize: 18, lineHeight: 1 }}>×</button>
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, fontSize: 12, color: '#605e5c', marginTop: 8 }}>
-        <Semaforo tarea={tarea} /><span>📅 {fechaCorta(tarea.plazo)}</span><span>{PRIORIDAD_NOMBRE[tarea.prioridad]}</span>
+        <Semaforo tarea={tarea} /><Dato icono={<IcoCalendario />}>{fechaCorta(tarea.plazo)}</Dato><span>{PRIORIDAD_NOMBRE[tarea.prioridad]}</span>
         <span style={{ background: '#f3f2f1', borderRadius: 10, padding: '1px 7px' }}>{ESTADO_NOMBRE[tarea.estado]}</span>
-        {tarea.recurrencia && <span>🔁 {RECURRENCIAS.find(r => r.valor === tarea.recurrencia)?.nombre}</span>}
+        {tarea.recurrencia && <Dato icono={<IcoRepetir />}>{RECURRENCIAS.find(r => r.valor === tarea.recurrencia)?.nombre}</Dato>}
       </div>
       <div style={{ fontSize: 13, marginTop: 8 }}><b>Asignada a:</b> {tarea.asignados.map(nombreDe).join(', ')} · <b>por:</b> {nombreDe(tarea.asignado_por)}</div>
-      {tarea.aceptacion === 'aceptada' && <div style={{ fontSize: 12, color: '#107c10', marginTop: 4 }}>✔ Aceptada por el asignado</div>}
-      {tarea.aceptacion === 'rechazada' && <div style={{ fontSize: 12, color: '#a4262c', marginTop: 4 }}>✖ Rechazada: {tarea.motivo_rechazo || 'sin motivo'}</div>}
-      {tarea.escalado_en && <div style={{ fontSize: 12, color: '#a4262c', marginTop: 4 }}>⬆ Escalada al jefe el {fechaCorta(tarea.escalado_en)}</div>}
-      {tarea.estado === 'espera' && <div style={{ fontSize: 12, color: '#605e5c', marginTop: 4 }}>⏳ En espera: empieza cuando se complete la tarea anterior de la cadena.</div>}
-      {tarea.activa_tarea_id && <div style={{ fontSize: 12, color: '#605e5c', marginTop: 4 }}>⛓ Al completarse activa la siguiente tarea de la cadena.</div>}
+      {tarea.aceptacion === 'aceptada' && <div style={{ fontSize: 12, color: '#107c10', marginTop: 4 }}>Aceptada por el asignado</div>}
+      {tarea.aceptacion === 'rechazada' && <div style={{ fontSize: 12, color: '#a4262c', marginTop: 4 }}>Rechazada: {tarea.motivo_rechazo || 'sin motivo'}</div>}
+      {tarea.escalado_en && <div style={{ fontSize: 12, color: '#a4262c', marginTop: 4 }}>Escalada al jefe el {fechaCorta(tarea.escalado_en)}</div>}
+      {tarea.estado === 'espera' && <div style={{ fontSize: 12, color: '#605e5c', marginTop: 4 }}>En espera: empieza cuando se complete la tarea anterior de la cadena.</div>}
+      {tarea.activa_tarea_id && <div style={{ fontSize: 12, color: '#605e5c', marginTop: 4 }}>Al completarse activa la siguiente tarea de la cadena.</div>}
       {tarea.descripcion && <div style={{ fontSize: 13, marginTop: 10, whiteSpace: 'pre-wrap', color: '#323130' }} dangerouslySetInnerHTML={{ __html: sanitizeHtml(tarea.descripcion) }} />}
-      {tarea.correo && <button onClick={abrirCorreo} style={{ ...btn, marginTop: 8 }}>📎 Abrir el correo «{tarea.correo.subject || 'sin asunto'}»</button>}
+      {tarea.correo && <button onClick={abrirCorreo} style={{ ...btn, marginTop: 8, display: 'inline-flex', alignItems: 'center', gap: 6 }}><IcoClip />Abrir el correo «{tarea.correo.subject || 'sin asunto'}»</button>}
 
       {/* Acciones */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 14 }}>
@@ -76,11 +77,11 @@ export function TareaDetalle({ tarea, yo, onCerrar, onCambio }: Props) {
           <button disabled={ocupado} style={btn} onClick={() => setRechazando(v => !v)}>Rechazar…</button>
         </>}
         {tarea.estado !== 'completada' && tarea.estado !== 'espera' && (soyAsignado || soyAsignador) && <>
-          {tarea.estado !== 'en_curso' && <button disabled={ocupado} style={btn} onClick={() => ejecutar(() => tareasApi.estado(tarea.id, 'en_curso'))}>▶ En curso</button>}
-          <button disabled={ocupado} style={{ ...primario, background: '#107c10' }} onClick={() => ejecutar(() => tareasApi.completar(tarea.id))}>✔ Completar</button>
+          {tarea.estado !== 'en_curso' && <button disabled={ocupado} style={btn} onClick={() => ejecutar(() => tareasApi.estado(tarea.id, 'en_curso'))}>En curso</button>}
+          <button disabled={ocupado} style={{ ...primario, background: '#107c10' }} onClick={() => ejecutar(() => tareasApi.completar(tarea.id))}>Completar</button>
         </>}
         {tarea.estado === 'completada' && (soyAsignado || soyAsignador) && <button disabled={ocupado} style={btn} onClick={() => ejecutar(() => tareasApi.estado(tarea.id, 'pendiente'))}>Reabrir</button>}
-        {soyAsignador && <button style={btn} onClick={() => setEditando(v => !v)}>✎ Editar</button>}
+        {soyAsignador && <button style={btn} onClick={() => setEditando(v => !v)}>Editar</button>}
         {soyAsignador && <button style={{ ...btn, color: '#a4262c' }} onClick={eliminar}>Eliminar</button>}
       </div>
       {rechazando && (
