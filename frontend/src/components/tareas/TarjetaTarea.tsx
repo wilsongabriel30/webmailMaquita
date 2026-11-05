@@ -1,6 +1,7 @@
 // Tarjeta/fila de una tarea con semáforo, asignados, plazo, avance de subtareas y aceptación.
 import type { Tarea } from './tipos';
 import { Dato, IcoCalendario, IcoClip, IcoComentario, IcoEscalada, IcoPasos, IcoPersona } from './IconosSeguimiento';
+import { estadoGuardado } from './columnasTablero';
 import { ESTADO_NOMBRE, PRIORIDAD_COLOR, PRIORIDAD_NOMBRE, SEMAFORO_COLOR, fechaCorta, nombreDe } from './tipos';
 
 interface Props {
@@ -39,7 +40,7 @@ export function TarjetaTarea({ tarea, onAbrir, compacta, arrastrable, atenuada, 
         <Dato icono={<IcoCalendario />}>{fechaCorta(tarea.plazo)}</Dato>
         <Dato icono={<IcoPersona />} title={tarea.asignados.join(', ')}>{tarea.asignados.map(nombreDe).join(', ') || '—'}</Dato>
         {!compacta && <span>por {nombreDe(tarea.asignado_por)}</span>}
-        <span style={{ background: '#f3f2f1', borderRadius: 10, padding: '1px 7px' }}>{ESTADO_NOMBRE[tarea.estado]}</span>
+        <span style={{ background: '#f3f2f1', borderRadius: 10, padding: '1px 7px' }}>{ESTADO_NOMBRE[estadoGuardado(tarea)]}</span>
         {tarea.subtareas_total > 0 && <Dato icono={<IcoPasos />} title="Subtareas hechas">{tarea.subtareas_hechas}/{tarea.subtareas_total}</Dato>}
         {tarea.comentarios > 0 && <Dato icono={<IcoComentario />} title="Comentarios">{tarea.comentarios}</Dato>}
         {tarea.correo && <Dato icono={<IcoClip />} title={tarea.correo.subject}>correo</Dato>}
