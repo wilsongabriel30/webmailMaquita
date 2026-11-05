@@ -17,8 +17,9 @@ const lbl: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: '#605e5
 const inp: React.CSSProperties = { width: '100%', border: '1px solid #c8c6c4', borderRadius: 4, padding: '6px 8px', fontSize: 13, boxSizing: 'border-box' };
 
 export function TareaDetalle({ tarea, yo, onCerrar, onCambio }: Props) {
-  const soyAsignado = tarea.asignados.includes(yo);
-  const soyAsignador = tarea.asignado_por === yo;
+  const mio = yo.toLowerCase();
+  const soyAsignado = !!mio && tarea.asignados.some(a => a.toLowerCase() === mio);
+  const soyAsignador = !!mio && (tarea.asignado_por || '').toLowerCase() === mio;
   const [comentarios, setComentarios] = useState<Comentario[]>([]);
   const [texto, setTexto] = useState('');
   const [motivo, setMotivo] = useState('');

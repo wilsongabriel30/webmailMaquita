@@ -29,6 +29,7 @@ import { useArrastreTareas } from './hooks/useArrastreTareas';
 import { useTareas, VISTAS_INTELIGENTES } from './hooks/useTareas';
 import { SeguimientoVista } from '../tareas/SeguimientoVista';
 import { tareasApi } from '../tareas/api';
+import { useAuthStore } from '../../store/authStore';
 
 const _params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
 // Enlaces de los avisos (?vista=seguimiento&tarea=…): se abren en «Asignado a mí», que es donde estaba «Mis tareas».
@@ -39,7 +40,9 @@ const TAREA_INICIAL = _params?.get('tarea') || null;
 export function TasksView() {
   const [activeView, setActiveView] = useState<ActiveView>(VISTA_INICIAL || 'my-day');
   const [busqueda, setBusqueda] = useState('');
-  const [yo] = useState<string>(() => { try { return localStorage.getItem('user_email') || (JSON.parse(localStorage.getItem('user') || '{}').email) || ''; } catch { return ''; } });
+  // Correo de la sesión. Antes se leía `user_email` de localStorage, que nadie guarda: quedaba vacío y el detalle de
+  // Seguimiento no reconocía ni al asignado (sin «Aceptar tarea») ni a quien asignó (05/11/2026).
+  const yo = (useAuthStore(s => s.user?.username) || '').toLowerCase();
   const [sidebarVisible, setSidebarVisible] = useState(() => typeof window === 'undefined' || window.innerWidth >= 768);
   useEffect(() => {
     const h = () => setSidebarVisible(v => !v);
@@ -50,9 +53,9 @@ export function TasksView() {
   const [tareaInicial, setTareaInicial] = useState<string | null>(null);
   const limpiarTareaInicial = useCallback(() => setTareaInicial(null), []);
   useEffect(() => {
-    if (!TAREA_INICIAL) return;
+    if (!TAREA_INICIAL || !yo) return;
     tareasApi.obtener(TAREA_INICIAL)
-      .then(t => { if (!t.asignados.some(a => a.toLowerCase() === yo.toLowerCase())) setActiveView('seguimiento'); })
+      .then(t => { if (!t.asignados.some(a => a.toLowerCase() === yo)) setActiveView('seguimiento'); })
       .catch(() => {})
       .finally(() => setTareaInicial(TAREA_INICIAL));
   }, [yo]);
