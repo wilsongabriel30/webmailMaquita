@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { sanitizeHtml } from '../../lib/sanitize';
 import VisorImagenCuerpo, { type ImagenCuerpo } from './VisorImagenCuerpo';
+import { abrirEnlacePropio } from './enlacePropio';
 
 interface SafeEmailViewerProps {
   htmlBody: string;
@@ -38,8 +39,11 @@ export default function SafeEmailViewer({ htmlBody, className, style }: SafeEmai
      se leía (13/10/2026). */
   :root { color-scheme: only light; background: #fff; }
   body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.6; color: #323130; word-break: break-word; }
-  a { color: #0078d4 !important; text-decoration: underline !important; cursor: pointer !important; }
-  a:hover { color: #106ebe !important; }
+  /* Los enlaces sin color propio, en azul y subrayados. Los que traen color propio (botones, como
+     «Abrir la tarea» en verde con letra blanca) se respetan: antes salían con la letra azul (05/11/2026). */
+  a { cursor: pointer !important; }
+  a:not([style*="color"]) { color: #0078d4 !important; text-decoration: underline !important; }
+  a:not([style*="color"]):hover { color: #106ebe !important; }
   img { max-width: 100%; height: auto; }
   img[data-ampliable] { cursor: zoom-in; }
   table { max-width: 100%; }
@@ -60,6 +64,8 @@ export default function SafeEmailViewer({ htmlBody, className, style }: SafeEmai
     marcar();
     doc.querySelectorAll('img').forEach(img => img.addEventListener('load', marcar));
     doc.addEventListener('click', (e) => {
+      // Enlaces al propio webmail («Abrir la tarea»…): en esta misma pestaña, no en otra.
+      if (abrirEnlacePropio(e)) return;
       const el = e.target as HTMLElement | null;
       if (!el || el.tagName !== 'IMG' || !el.hasAttribute('data-ampliable')) return;
       e.preventDefault();
