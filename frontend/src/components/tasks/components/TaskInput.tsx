@@ -4,17 +4,14 @@ import { useRef, useState } from 'react';
 import { COLORS, type ActiveView } from '../types';
 import { REPETICIONES_SIMPLES, etiquetaRepeticion } from './repeticion';
 import { SelectorRapido } from './SelectorRapido';
+import { diaMas, textoRecordatorio, textoVencimiento } from './textoBarraAgregar';
 
 interface Props {
   onAdd: (title: string, dueDate?: string, reminder?: string, recurrence?: string) => void;
   activeView: ActiveView;
 }
 
-function dia(n: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + n);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
+const dia = (n: number) => diaMas(n);
 const lunes = () => { const g = new Date().getDay(); return g === 0 ? 1 : 8 - g; };
 const a9 = (n: number) => { const d = new Date(); d.setDate(d.getDate() + n); d.setHours(9, 0, 0, 0); return d.toISOString(); };
 
@@ -36,16 +33,6 @@ const icono = (d: string) => (
 const CALENDARIO = 'M5 4h14a2 2 0 012 2v13a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2zM3 9h18M8 13h.01M12 13h.01M16 13h.01M8 17h.01M12 17h.01';
 const CAMPANA = 'M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0';
 const REPETICION = 'M17 2l4 4-4 4M3 11V9a3 3 0 013-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 01-3 3H3';
-
-function Ficha({ texto, onQuitar }: { texto: string; onQuitar: () => void }) {
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: COLORS.primary }}>
-      {texto}
-      <button type="button" aria-label={`Quitar ${texto}`} onClick={onQuitar}
-        style={{ background: 'none', border: 'none', cursor: 'pointer', color: COLORS.secondary, fontSize: 14, padding: 0, lineHeight: 1 }}>&times;</button>
-    </span>
-  );
-}
 
 export function TaskInput({ onAdd, activeView }: Props) {
   const [title, setTitle] = useState('');
@@ -74,11 +61,6 @@ export function TaskInput({ onAdd, activeView }: Props) {
     setTitle(''); setDueDate(''); setReminder(''); setRecurrence('');
   };
 
-  const fechaTexto = dueDate === dia(0) ? 'Hoy' : dueDate === dia(1) ? 'Mañana'
-    : dueDate ? new Date(dueDate + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : '';
-  const recordatorioTexto = reminder
-    ? new Date(reminder).toLocaleString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
-
   return (
     <div className="barra-agregar" style={{
       margin: '0 24px', background: 'white', borderRadius: 4, boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
@@ -92,21 +74,23 @@ export function TaskInput({ onAdd, activeView }: Props) {
           placeholder="Agregar una tarea"
           style={{ flex: 1, border: 'none', outline: 'none', fontSize: 15, color: COLORS.text, background: 'transparent', fontFamily: 'inherit' }} />
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderTop: `1px solid ${COLORS.border}`, background: '#faf9f8', flexWrap: 'wrap' }}>
-        <SelectorRapido titulo="Fecha de vencimiento" icono={icono(CALENDARIO)} activo={!!dueDate} opciones={FECHAS} campo="date" onElegir={setDueDate} />
-        <SelectorRapido titulo="Recordarme" icono={icono(CAMPANA)} activo={!!reminder} opciones={RECORDATORIOS} campo="datetime-local" onElegir={setReminder} />
-        <SelectorRapido titulo="Repetir" icono={icono(REPETICION)} activo={!!recurrence} opciones={REPETIR} onElegir={setRecurrence} />
-        {dueDate && <Ficha texto={fechaTexto} onQuitar={() => setDueDate('')} />}
-        {reminder && <Ficha texto={recordatorioTexto} onQuitar={() => setReminder('')} />}
-        {recurrence && <Ficha texto={etiquetaRepeticion(recurrence)} onQuitar={() => setRecurrence('')} />}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderTop: `1px solid ${COLORS.border}`, background: '#faf9f8', flexWrap: 'wrap' }}>
+        <SelectorRapido titulo="Fecha de vencimiento" icono={icono(CALENDARIO)} activo={!!dueDate} opciones={FECHAS} campo="date"
+          onElegir={setDueDate} texto={textoVencimiento(dueDate)}
+          quitar={{ etiqueta: 'Quitar fecha de vencimiento', onQuitar: () => setDueDate('') }} />
+        <SelectorRapido titulo="Recordarme" icono={icono(CAMPANA)} activo={!!reminder} opciones={RECORDATORIOS} campo="datetime-local"
+          onElegir={setReminder} texto={textoRecordatorio(reminder)}
+          quitar={{ etiqueta: 'Quitar recordatorio', onQuitar: () => setReminder('') }} />
+        <SelectorRapido titulo="Repetir" icono={icono(REPETICION)} activo={!!recurrence} opciones={REPETIR}
+          onElegir={setRecurrence} texto={recurrence ? etiquetaRepeticion(recurrence) : undefined}
+          quitar={{ etiqueta: 'No repetir', onQuitar: () => setRecurrence('') }} />
         <span style={{ flex: 1 }} />
         {aviso && <span role="status" style={{ fontSize: 12, color: '#d13438' }}>Escribe el título de la tarea</span>}
         <button type="button" onClick={handleAdd} disabled={!title.trim()}
           style={{
-            padding: '5px 14px', fontSize: 13, borderRadius: 4, fontFamily: 'inherit',
-            border: `1px solid ${title.trim() ? COLORS.primary : COLORS.border}`,
-            background: title.trim() ? COLORS.primary : 'white', color: title.trim() ? 'white' : COLORS.muted,
-            cursor: title.trim() ? 'pointer' : 'default',
+            height: 32, padding: '0 12px', fontSize: 14, borderRadius: 4, fontFamily: 'inherit',
+            border: `1px solid ${COLORS.border}`, background: 'white',
+            color: title.trim() ? COLORS.primary : COLORS.muted, cursor: title.trim() ? 'pointer' : 'default',
           }}>
           Agregar
         </button>
