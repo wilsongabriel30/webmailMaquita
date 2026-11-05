@@ -54,7 +54,7 @@ export function AsignarTareaDialogo({ abierto, onCerrar, onCreada, correo, titul
       });
       window.dispatchEvent(new CustomEvent('refresh-tareas'));
       onCreada?.(t); onCerrar();
-    } catch (e: any) { setError(e.message || 'No se pudo crear la tarea'); }
+    } catch (e) { setError((e instanceof Error && e.message) || 'No se pudo crear la tarea'); }
     finally { setGuardando(false); }
   };
 
