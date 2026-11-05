@@ -23,6 +23,17 @@ async def es_seguimiento(db, card_id) -> bool:
     )
 
 
+async def puede_eliminar(db, user: str, card_id) -> None:
+    """Una tarea con seguimiento solo la elimina quien la asignó (la lista no basta): lo demás, archivarla."""
+    fila = await db.fetchrow(
+        "SELECT asignada, created_by FROM task_cards WHERE id = $1", card_id
+    )
+    if fila and fila["asignada"] and (fila["created_by"] or "").lower() != user.lower():
+        raise NoParticipa(
+            "Esta tarea tiene seguimiento: solo quien la asignó puede eliminarla"
+        )
+
+
 async def marcar(db, redis, user: str, card_id, completada: bool) -> CardOut:
     """Completa (o reabre como pendiente) la tarea por Seguimiento y devuelve la tarjeta de la lista."""
     try:

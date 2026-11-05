@@ -48,7 +48,10 @@ export function TareaDetalle({ tarea, yo, onCerrar, onCambio }: Props) {
       recurrencia: recurrencia || null, quitar_recurrencia: !recurrencia, escalar_a: escalarA[0] || '' });
     setEditando(false); return t;
   });
-  const eliminar = () => { if (!confirm('¿Eliminar esta tarea para todos?')) return; ejecutar(async () => { await tareasApi.eliminar(tarea.id); onCambio(null); onCerrar(); }); };
+  // Borrar es para siempre (con historial y comentarios): si solo estorba, mejor quitarla del tablero (se archiva).
+  const eliminar = () => { if (!confirm(tarea.estado === 'completada'
+    ? '¿Eliminarla para siempre, con su historial y comentarios? Para que solo deje de verse, usa «Quitar del tablero»: se archiva sin borrarse.'
+    : '¿Eliminar esta tarea para todos? Se borra con su historial y comentarios, y no se puede deshacer.')) return; ejecutar(async () => { await tareasApi.eliminar(tarea.id); onCambio(null); onCerrar(); }); };
   const abrirCorreo = () => { if (tarea.correo) window.location.href = `/webmail/?folder=${encodeURIComponent(tarea.correo.folder)}&uid=${tarea.correo.uid}`; };
 
   return (
@@ -62,7 +65,7 @@ export function TareaDetalle({ tarea, yo, onCerrar, onCambio }: Props) {
         <span style={{ background: '#f3f2f1', borderRadius: 10, padding: '1px 7px' }}>{ESTADO_NOMBRE[tarea.estado]}</span>
         {tarea.recurrencia && <Dato icono={<IcoRepetir />}>{RECURRENCIAS.find(r => r.valor === tarea.recurrencia)?.nombre}</Dato>}
       </div>
-      <div style={{ fontSize: 13, marginTop: 8 }}><b>Asignada a:</b> {tarea.asignados.map(nombreDe).join(', ')} · <b>por:</b> {nombreDe(tarea.asignado_por)}</div>
+      <div style={{ fontSize: 13, marginTop: 8 }}><b>Asignada a:</b> {tarea.asignados.map(nombreDe).join(', ')} · <b>por:</b> {nombreDe(tarea.asignado_por)}{tarea.creada_por && <> · <b>creada por:</b> {nombreDe(tarea.creada_por)}</>}</div>
       {tarea.aceptacion === 'aceptada' && <div style={{ fontSize: 12, color: '#107c10', marginTop: 4 }}>Aceptada por el asignado</div>}
       {tarea.aceptacion === 'rechazada' && <div style={{ fontSize: 12, color: '#a4262c', marginTop: 4 }}>Rechazada: {tarea.motivo_rechazo || 'sin motivo'}</div>}
       {tarea.escalado_en && <div style={{ fontSize: 12, color: '#a4262c', marginTop: 4 }}>Escalada al jefe el {fechaCorta(tarea.escalado_en)}</div>}
@@ -74,7 +77,8 @@ export function TareaDetalle({ tarea, yo, onCerrar, onCambio }: Props) {
       {/* Acciones */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 14 }}>
         {soyAsignado && tarea.aceptacion !== 'aceptada' && tarea.estado !== 'completada' && tarea.estado !== 'espera' && <>
-          <button disabled={ocupado} style={primario} onClick={() => ejecutar(() => tareasApi.aceptar(tarea.id))}>Aceptar tarea</button>
+          {/* Aceptación implícita (fase 4): empezarla o completarla ya es aceptarla; rechazar sigue a mano. */}
+          <button disabled={ocupado} style={primario} title="La pone «En curso» y cuenta como aceptarla" onClick={() => ejecutar(() => tareasApi.aceptar(tarea.id))}>Empezar</button>
           <button disabled={ocupado} style={btn} onClick={() => setRechazando(v => !v)}>Rechazar…</button>
         </>}
         {tarea.estado !== 'completada' && tarea.estado !== 'espera' && (soyAsignado || soyAsignador) && <>

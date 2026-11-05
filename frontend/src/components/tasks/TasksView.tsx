@@ -152,15 +152,9 @@ export function TasksView() {
       onMenu={(task: Task, e: MouseEvent) => setMenu({ task, x: e.clientX, y: e.clientY })}
       arrastre={arrastre} />
   );
-  // «Asignado a mí» (fase 1 de la unificación, 05/11/2026): las tareas de Seguimiento y, debajo, las asignadas
-  // desde listas compartidas. «Seguimiento» queda como «Asignadas por mí».
+  // «Asignado a mí» y «Asignadas por mí» son las dos vistas de Seguimiento (unificación, 05/11/2026): toda tarea
+  // asignada tiene seguimiento, venga de donde venga.
   const vistaAsignadas = (activeView === 'assigned' || activeView === 'seguimiento') && !buscando;
-  const otrasAsignadas = activeView === 'assigned' && tasks.length > 0 ? (
-    <section aria-label="Asignadas en listas compartidas" style={{ marginTop: 16 }}>
-      <h3 style={{ margin: '0 24px 4px', fontSize: 14, fontWeight: 600, color: COLORS.secondary }}>Asignadas en listas compartidas</h3>
-      {cuerpo}
-    </section>
-  ) : undefined;
 
   return (
     <div className="tasks-view" style={{ display: 'flex', height: '100%', width: '100%', overflow: 'hidden', fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
@@ -194,7 +188,7 @@ export function TasksView() {
       {vistaAsignadas ? (
         <SeguimientoVista key={activeView} yo={yo} ambito={activeView === 'seguimiento' ? 'por-mi' : 'para-mi'}
           tareaInicial={tareaInicial} onTareaInicialAbierta={limpiarTareaInicial}
-          otras={otrasAsignadas} hayOtras={!!otrasAsignadas} onAsignada={() => abrirVista('seguimiento')} />
+          onAsignada={() => abrirVista('seguimiento')} />
       ) : (
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#faf9f8', overflow: 'hidden' }}>
         <TaskListHeader

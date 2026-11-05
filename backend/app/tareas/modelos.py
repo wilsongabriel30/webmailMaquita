@@ -16,6 +16,8 @@ ALTER TABLE task_cards ADD COLUMN IF NOT EXISTS escalado_en     TIMESTAMPTZ;
 ALTER TABLE task_cards ADD COLUMN IF NOT EXISTS aviso_24h_en    TIMESTAMPTZ;
 ALTER TABLE task_cards ADD COLUMN IF NOT EXISTS aviso_vencida_en TIMESTAMPTZ;
 ALTER TABLE task_cards ADD COLUMN IF NOT EXISTS etiquetas       JSONB NOT NULL DEFAULT '[]'::jsonb;
+-- Quién creó la tarea de lista antes de asignarla (fase 2): `created_by` pasa a ser quien la asignó (05/11/2026).
+ALTER TABLE task_cards ADD COLUMN IF NOT EXISTS creada_por      TEXT;
 
 CREATE TABLE IF NOT EXISTS task_asignados (
     card_id     UUID NOT NULL REFERENCES task_cards(id) ON DELETE CASCADE,

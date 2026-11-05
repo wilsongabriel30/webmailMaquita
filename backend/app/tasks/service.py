@@ -358,6 +358,17 @@ class TaskService:
         )
         if not val:
             raise ValueError("Board not found or not owner")
+        from app.tasks import rescate_seguimiento  # evita el import circular
+
+        await rescate_seguimiento.rescatar(
+            db,
+            [
+                r["id"]
+                for r in await db.fetch(
+                    "SELECT id FROM task_lists WHERE board_id = $1", board_id
+                )
+            ],
+        )
         await db.execute("DELETE FROM task_boards WHERE id = $1", board_id)
 
     # Members
@@ -471,6 +482,9 @@ class TaskService:
     async def delete_list(self, db, user, list_id):
         if not await self._list_belongs_to_user(db, list_id, user):
             raise ValueError("List not found")
+        from app.tasks import rescate_seguimiento  # evita el import circular
+
+        await rescate_seguimiento.rescatar(db, [list_id])
         await db.execute("DELETE FROM task_lists WHERE id = $1", list_id)
 
     # Cards (legacy + updated with new fields)
@@ -677,7 +691,7 @@ class TaskService:
         return _row_to_card(row)
 
     async def delete_card(self, db, user, card_id):
-        # Quien solo tiene la tarea asignada (F5) no la puede borrar.
+        # Borrar exige ver la lista (las de Seguimiento, además, ser quien la asignó: ver tasks/router.py).
         if not await acceso.tarea_en_sus_listas(db, card_id, user):
             raise ValueError("Card not found")
         old_row = await db.fetchrow(

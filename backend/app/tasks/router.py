@@ -245,6 +245,10 @@ async def todo_delete_task(
     card_id: uuid.UUID, request: Request, user: str = Depends(get_current_user)
 ):
     try:
+        await seguimiento_en_lista.puede_eliminar(_db(request), user, card_id)
+    except seguimiento_en_lista.NoParticipa as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    try:
         # Leer tarea antes de eliminar para poder limpiar calendario
         db = _db(request)
         task_row = await db.fetchrow("SELECT * FROM task_cards WHERE id = $1", card_id)
@@ -469,7 +473,10 @@ async def delete_card(
     card_id: uuid.UUID, request: Request, user: str = Depends(get_current_user)
 ):
     try:
+        await seguimiento_en_lista.puede_eliminar(_db(request), user, card_id)
         await task_service.delete_card(_db(request), user, card_id)
+    except seguimiento_en_lista.NoParticipa as e:
+        raise HTTPException(status_code=403, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 

@@ -32,7 +32,6 @@ def test_cuenta_las_vistas_con_las_claves_del_frontend():
             "mi_dia": 1,
             "importante": 0,
             "planeado": 2,
-            "asignado": 0,
             "tareas": 3,
             "marcado": 4,
         }
@@ -52,12 +51,10 @@ def test_cuenta_las_vistas_con_las_claves_del_frontend():
 
 
 def test_asignado_a_mi_suma_las_de_seguimiento():
-    """Desde el 05/11/2026 «Asignado a mí» muestra también las tareas de Seguimiento pendientes."""
-    fila = dict.fromkeys(
-        ("mi_dia", "importante", "planeado", "tareas", "marcado"), 0
-    ) | {"asignado": 1}
+    """Desde el 05/11/2026 «Asignado a mí» son las tareas de Seguimiento pendientes."""
+    fila = dict.fromkeys(("mi_dia", "importante", "planeado", "tareas", "marcado"), 0)
     db = _DB(fila, seguimiento=2)
-    assert asyncio.run(vistas.contar(db, "ana@example.org"))["assigned"] == 3
+    assert asyncio.run(vistas.contar(db, "ana@example.org"))["assigned"] == 2
     assert "c.asignada" in db.sql_seguimiento
     assert "NOT c.completed" in db.sql_seguimiento
 
