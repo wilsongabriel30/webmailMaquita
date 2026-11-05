@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from app.core.sanitize import sanitize_html, strip_html
-from app.tareas import avisos
+from app.tareas import archivo, avisos
 from app.tareas.esquemas import (
     ESTADOS,
     PRIORIDADES,
@@ -106,6 +106,16 @@ def a_salida(row) -> TareaOut:
     )
 
 
+def _filtro_tablero(incluir_completadas: bool, archivadas: bool) -> tuple[str, str]:
+    """Qué tareas ve la persona ($1): las activas, las completadas que siguen en su tablero o las archivadas."""
+    if archivadas:
+        return " AND " + archivo.archivada(), "c.completed_at DESC NULLS LAST"
+    orden = "c.completed, c.due_date NULLS LAST, c.created_at DESC"
+    if incluir_completadas:
+        return " AND NOT " + archivo.archivada(), orden
+    return " AND NOT c.completed", orden
+
+
 class ServicioTareas:
     # ---------- lectura ----------
     async def obtener(self, db, tarea_id, user):
@@ -119,22 +129,23 @@ class ServicioTareas:
             raise PermissionError("No participas en esta tarea")
         return row
 
-    async def mis(self, db, user, incluir_completadas=False):
-        cond = "" if incluir_completadas else " AND NOT c.completed"
+    async def mis(self, db, user, incluir_completadas=False, archivadas=False):
+        cond, orden = _filtro_tablero(incluir_completadas, archivadas)
         rows = await db.fetch(
             SELECT
             + f""" WHERE c.asignada AND $1 = ANY(COALESCE(a.asignados, '{{}}')) {cond}
-                              ORDER BY c.completed, c.due_date NULLS LAST, c.created_at DESC""",
+                              ORDER BY {orden}""",
             user,
         )
         return [a_salida(r) for r in rows]
 
-    async def asignadas_por_mi(self, db, user, incluir_completadas=False):
-        cond = "" if incluir_completadas else " AND NOT c.completed"
+    async def asignadas_por_mi(
+        self, db, user, incluir_completadas=False, archivadas=False
+    ):
+        cond, orden = _filtro_tablero(incluir_completadas, archivadas)
         rows = await db.fetch(
-            SELECT
-            + f""" WHERE c.asignada AND c.created_by = $1 {cond}
-                              ORDER BY c.completed, c.due_date NULLS LAST, c.created_at DESC""",
+            SELECT + f""" WHERE c.asignada AND c.created_by = $1 {cond}
+                              ORDER BY {orden}""",
             user,
         )
         return [a_salida(r) for r in rows]
@@ -347,6 +358,7 @@ class ServicioTareas:
         )
         row = await self.obtener(db, tarea_id, user)
         if completada_antes:
+            await archivo.olvidar(db, tarea_id)  # reabierta: vuelve al tablero de todos
             await self._calendario(db, redis, row, user)
         destino = (
             [row["created_by"]]

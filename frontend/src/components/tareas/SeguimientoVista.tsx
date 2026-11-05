@@ -6,6 +6,7 @@ import { tareasApi } from './api';
 import { AsignarTareaDialogo } from './AsignarTareaDialogo';
 import { IcoLista, IcoTablero, Punto } from './IconosSeguimiento';
 import { TableroKanban } from './TableroKanban';
+import { TareasArchivadas } from './TareasArchivadas';
 import { TareaDetalle } from './TareaDetalle';
 import { TarjetaTarea } from './TarjetaTarea';
 import type { Estado, Tarea } from './tipos';
@@ -29,7 +30,8 @@ export function SeguimientoVista({ yo, tareaInicial, ambito = 'para-mi', onTarea
   // Se abre en Tablero; si la persona elige Lista, se recuerda (clave nueva: la vieja guardaba «lista» a todos).
   const [modo, setModo] = useState<'lista' | 'tablero'>(() => { try { return localStorage.getItem('seguimiento.modo') === 'lista' ? 'lista' : 'tablero'; } catch { return 'tablero'; } });
   useEffect(() => { try { localStorage.setItem('seguimiento.modo', modo); } catch { /* sin almacenamiento: vuelve a Tablero */ } }, [modo]);
-  const [completadas, setCompletadas] = useState(false);
+  // Las completadas se quedan en el tablero (trazabilidad) hasta quitarlas o a los 30 días; entonces, en «Archivadas».
+  const [archivadas, setArchivadas] = useState(false);
   const [tareas, setTareas] = useState<Tarea[]>([]);
   const [cargando, setCargando] = useState(false);
   const [sel, setSel] = useState<Tarea | null>(null);
@@ -38,12 +40,12 @@ export function SeguimientoVista({ yo, tareaInicial, ambito = 'para-mi', onTarea
   const cargar = useCallback(async () => {
     setCargando(true);
     try {
-      const r = pestana === 'mis' ? await tareasApi.mis(completadas) : pestana === 'por-mi' ? await tareasApi.asignadasPorMi(completadas) : await tareasApi.miDia();
+      const r = pestana === 'mis' ? await tareasApi.mis(true) : pestana === 'por-mi' ? await tareasApi.asignadasPorMi(true) : await tareasApi.miDia();
       setTareas(r);
       setSel(s => (s ? r.find(t => t.id === s.id) || s : s));
     } catch { setTareas([]); }
     finally { setCargando(false); }
-  }, [pestana, completadas]);
+  }, [pestana]);
 
   useEffect(() => { cargar(); }, [cargar]);
   useEffect(() => {
@@ -61,6 +63,16 @@ export function SeguimientoVista({ yo, tareaInicial, ambito = 'para-mi', onTarea
     try { const n = estado === 'completada' ? await tareasApi.completar(t.id) : await tareasApi.estado(t.id, estado); setTareas(p => p.map(x => x.id === n.id ? n : x)); }
     catch (e) { alert(e instanceof Error && e.message ? e.message : 'No se pudo cambiar el estado'); }
   };
+  const avisar = useCallback((m: string) => alert(m), []);
+  // Quitar del tablero (no borra): se van de la vista al instante; si el servidor falla, se recarga.
+  const quitar = async (ids: string[]) => {
+    if (ids.length > 1 && !confirm(`¿Quitar del tablero las ${ids.length} tareas completadas? No se borran: quedan en «Archivadas».`)) return;
+    setTareas(p => p.filter(t => !ids.includes(t.id)));
+    try { await tareasApi.archivar(ids); }
+    catch (e) { avisar('No se pudieron quitar del tablero: ' + (e instanceof Error ? e.message : '')); cargar(); }
+  };
+  const quitarUna = { texto: 'Quitar del tablero', titulo: 'No se borra: queda en «Archivadas»', onClick: (t: Tarea) => quitar([t.id]) };
+  const verArchivadas = archivadas && pestana !== 'mi-dia';
   const resumen = { rojo: tareas.filter(t => t.semaforo === 'rojo').length, amarillo: tareas.filter(t => t.semaforo === 'amarillo').length };
 
   return (
@@ -75,17 +87,23 @@ export function SeguimientoVista({ yo, tareaInicial, ambito = 'para-mi', onTarea
           <span style={{ flex: 1 }} />
           {resumen.rojo > 0 && <span style={{ fontSize: 12, color: '#d13438', fontWeight: 600, marginRight: 8 }}><Punto color="#d13438" />{resumen.rojo} vencida{resumen.rojo > 1 ? 's' : ''}/hoy</span>}
           {resumen.amarillo > 0 && <span style={{ fontSize: 12, color: '#c19c00', fontWeight: 600, marginRight: 8 }}><Punto color="#c19c00" />{resumen.amarillo} pronto</span>}
-          <label style={{ fontSize: 12, color: '#605e5c', marginRight: 8 }}><input type="checkbox" checked={completadas} onChange={e => setCompletadas(e.target.checked)} /> completadas</label>
+          {pestana !== 'mi-dia' && (
+            <button onClick={() => { if (archivadas) void cargar(); setArchivadas(!archivadas); }} aria-pressed={archivadas} title="Completadas que quitaste del tablero o con más de 30 días"
+              style={{ ...tab(archivadas), padding: '6px 8px', borderBottom: 'none', marginRight: 4 }}>
+              {archivadas ? '← Volver al tablero' : 'Archivadas'}
+            </button>
+          )}
           <button onClick={() => setModo('lista')} title="Lista" style={{ ...tab(modo === 'lista'), padding: '6px 8px', borderBottom: 'none', display: 'inline-flex', alignItems: 'center', gap: 5 }}><IcoLista />Lista</button>
           <button onClick={() => setModo('tablero')} title="Tablero" style={{ ...tab(modo === 'tablero'), padding: '6px 8px', borderBottom: 'none', display: 'inline-flex', alignItems: 'center', gap: 5 }}><IcoTablero />Tablero</button>
           <button onClick={() => setAsignando(true)} style={{ padding: '7px 14px', border: 'none', background: '#0078d4', color: '#fff', borderRadius: 4, cursor: 'pointer', fontWeight: 600, marginLeft: 8 }}>+ Asignar tarea</button>
         </div>
         <div style={{ flex: 1, overflowY: 'auto', paddingTop: 8 }}>
-          {cargando && !tareas.length ? <div style={{ padding: 40, textAlign: 'center', color: '#605e5c' }}>Cargando…</div>
+          {verArchivadas ? <TareasArchivadas key={pestana} pestana={pestana === 'mis' ? 'mis' : 'por-mi'} onAbrir={setSel} onError={avisar} />
+            : cargando && !tareas.length ? <div style={{ padding: 40, textAlign: 'center', color: '#605e5c' }}>Cargando…</div>
             : !tareas.length ? (hayOtras ? null : <div style={{ padding: 40, textAlign: 'center', color: '#605e5c' }}>{pestana === 'por-mi' ? 'Aún no has asignado tareas. Usa «+ Asignar tarea» o «Asignar como tarea» en un correo.' : 'Nada pendiente por aquí.'}</div>)
-            : modo === 'tablero' ? <TableroKanban tareas={tareas} onAbrir={setSel} onCambiarEstado={cambiarEstado} />
-            : tareas.map(t => <TarjetaTarea key={t.id} tarea={t} onAbrir={setSel} />)}
-          {otras}
+            : modo === 'tablero' ? <TableroKanban tareas={tareas} onAbrir={setSel} onCambiarEstado={cambiarEstado} onQuitar={quitar} />
+            : tareas.map(t => <TarjetaTarea key={t.id} tarea={t} onAbrir={setSel} accion={t.estado === 'completada' ? quitarUna : undefined} />)}
+          {!verArchivadas && otras}
         </div>
       </div>
       {sel && <TareaDetalle tarea={sel} yo={yo} onCerrar={() => setSel(null)} onCambio={t => { if (t) { setSel(t); setTareas(p => p.map(x => x.id === t.id ? t : x)); } else cargar(); }} />}

@@ -9,6 +9,8 @@ interface Props {
   /** Mientras se arrastra o se espera la respuesta del servidor. */
   atenuada?: boolean;
   onDragStart?: (t: Tarea, e: React.DragEvent<HTMLDivElement>) => void; onDragEnd?: () => void;
+  /** Acción discreta al pie de la tarjeta («Quitar del tablero», «Devolver al tablero»). */
+  accion?: { texto: string; titulo?: string; onClick: (t: Tarea) => void };
 }
 
 export function Semaforo({ tarea }: { tarea: Tarea }) {
@@ -23,7 +25,7 @@ export function Semaforo({ tarea }: { tarea: Tarea }) {
   );
 }
 
-export function TarjetaTarea({ tarea, onAbrir, compacta, arrastrable, atenuada, onDragStart, onDragEnd }: Props) {
+export function TarjetaTarea({ tarea, onAbrir, compacta, arrastrable, atenuada, onDragStart, onDragEnd, accion }: Props) {
   return (
     <div draggable={arrastrable} onDragStart={e => onDragStart?.(tarea, e)} onDragEnd={onDragEnd} onClick={() => onAbrir(tarea)}
       title={compacta && !arrastrable && tarea.estado === 'espera' ? 'En espera de otra tarea: se activa sola al completarla' : undefined}
@@ -48,6 +50,13 @@ export function TarjetaTarea({ tarea, onAbrir, compacta, arrastrable, atenuada, 
         {tarea.aceptacion === 'sin_responder' && tarea.estado !== 'completada' && tarea.estado !== 'espera' && <span style={{ color: '#c19c00' }}>Sin aceptar</span>}
         {tarea.escalado_en && <span style={{ color: '#a4262c', display: 'inline-flex', alignItems: 'center', gap: 4 }}><IcoEscalada />escalada</span>}
         {tarea.etiquetas.map(e => <span key={e} style={{ background: '#eff6fc', color: '#004578', borderRadius: 10, padding: '1px 7px' }}>{e}</span>)}
+        {accion && (
+          <button type="button" title={accion.titulo} draggable={false}
+            onClick={e => { e.stopPropagation(); accion.onClick(tarea); }}
+            style={{ marginLeft: 'auto', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 12, color: '#0078d4', fontFamily: 'inherit' }}>
+            {accion.texto}
+          </button>
+        )}
       </div>
     </div>
   );

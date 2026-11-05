@@ -2,6 +2,8 @@
 
 import asyncpg
 
+from app.tareas import archivo
+
 DDL = """
 ALTER TABLE task_cards ADD COLUMN IF NOT EXISTS asignada        BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE task_cards ADD COLUMN IF NOT EXISTS estado          TEXT NOT NULL DEFAULT 'pendiente';
@@ -56,3 +58,4 @@ CREATE INDEX IF NOT EXISTS idx_task_cards_asignada ON task_cards(asignada) WHERE
 
 async def asegurar_tablas(pool: asyncpg.Pool) -> None:
     await pool.execute(DDL)
+    await pool.execute(archivo.DDL)  # quitar del tablero (05/11/2026)
