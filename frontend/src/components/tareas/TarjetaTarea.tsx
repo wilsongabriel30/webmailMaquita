@@ -1,5 +1,6 @@
 // Tarjeta/fila de una tarea con semáforo, asignados, plazo, avance de subtareas y aceptación.
 import type { Tarea } from './tipos';
+import { Dato, IcoCalendario, IcoClip, IcoComentario, IcoEscalada, IcoPasos, IcoPersona } from './IconosSeguimiento';
 import { ESTADO_NOMBRE, PRIORIDAD_COLOR, PRIORIDAD_NOMBRE, SEMAFORO_COLOR, fechaCorta, nombreDe } from './tipos';
 
 interface Props {
@@ -35,16 +36,16 @@ export function TarjetaTarea({ tarea, onAbrir, compacta, arrastrable, atenuada, 
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginTop: 6, fontSize: 12, color: '#605e5c' }}>
         <Semaforo tarea={tarea} />
-        <span>📅 {fechaCorta(tarea.plazo)}</span>
-        <span title={tarea.asignados.join(', ')}>👤 {tarea.asignados.map(nombreDe).join(', ') || '—'}</span>
+        <Dato icono={<IcoCalendario />}>{fechaCorta(tarea.plazo)}</Dato>
+        <Dato icono={<IcoPersona />} title={tarea.asignados.join(', ')}>{tarea.asignados.map(nombreDe).join(', ') || '—'}</Dato>
         {!compacta && <span>por {nombreDe(tarea.asignado_por)}</span>}
         <span style={{ background: '#f3f2f1', borderRadius: 10, padding: '1px 7px' }}>{ESTADO_NOMBRE[tarea.estado]}</span>
-        {tarea.subtareas_total > 0 && <span>☑ {tarea.subtareas_hechas}/{tarea.subtareas_total}</span>}
-        {tarea.comentarios > 0 && <span>💬 {tarea.comentarios}</span>}
-        {tarea.correo && <span title={tarea.correo.subject}>📎 correo</span>}
+        {tarea.subtareas_total > 0 && <Dato icono={<IcoPasos />} title="Subtareas hechas">{tarea.subtareas_hechas}/{tarea.subtareas_total}</Dato>}
+        {tarea.comentarios > 0 && <Dato icono={<IcoComentario />} title="Comentarios">{tarea.comentarios}</Dato>}
+        {tarea.correo && <Dato icono={<IcoClip />} title={tarea.correo.subject}>correo</Dato>}
         {tarea.aceptacion === 'rechazada' && <span style={{ color: '#a4262c', fontWeight: 600 }}>Rechazada</span>}
         {tarea.aceptacion === 'sin_responder' && tarea.estado !== 'completada' && tarea.estado !== 'espera' && <span style={{ color: '#c19c00' }}>Sin aceptar</span>}
-        {tarea.escalado_en && <span style={{ color: '#a4262c' }}>⬆ escalada</span>}
+        {tarea.escalado_en && <span style={{ color: '#a4262c', display: 'inline-flex', alignItems: 'center', gap: 4 }}><IcoEscalada />escalada</span>}
         {tarea.etiquetas.map(e => <span key={e} style={{ background: '#eff6fc', color: '#004578', borderRadius: 10, padding: '1px 7px' }}>{e}</span>)}
       </div>
     </div>

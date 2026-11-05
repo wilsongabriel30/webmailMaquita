@@ -1,6 +1,7 @@
 // Diálogo «Asignar tarea»: título, descripción, asignados, plazo, prioridad, etiquetas, subtareas, recurrencia,
 // cadena (se activa al completar otra) y jefe para escalamiento. Puede nacer desde un correo (queda enlazado).
 import { useEffect, useState } from 'react';
+import { IcoClip } from './IconosSeguimiento';
 import { tareasApi } from './api';
 import { SelectorPersonas } from './SelectorPersonas';
 import type { Tarea } from './tipos';
@@ -63,7 +64,7 @@ export function AsignarTareaDialogo({ abierto, onCerrar, onCreada, correo, titul
       <div onClick={e => e.stopPropagation()} role="dialog" aria-label="Asignar tarea"
         style={{ background: '#fff', borderRadius: 8, width: 'min(560px, 96vw)', maxHeight: '92vh', overflowY: 'auto', padding: 20, boxShadow: '0 8px 32px rgba(0,0,0,.25)', fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
         <h3 style={{ margin: 0, fontSize: 18 }}>Asignar tarea</h3>
-        {correo && <div style={{ fontSize: 12, color: '#605e5c', marginTop: 4 }}>📎 Enlazada al correo «{correo.subject}»</div>}
+        {correo && <div style={{ fontSize: 12, color: '#605e5c', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}><IcoClip />Enlazada al correo «{correo.subject}»</div>}
 
         <label style={lbl}>Título</label>
         <input value={titulo} onChange={e => setTitulo(e.target.value)} style={inp} autoFocus placeholder="¿Qué hay que hacer?" />

@@ -69,7 +69,7 @@ async def avisar_vencimientos(db, redis, ahora: datetime | None = None) -> int:
                     json.dumps(
                         {
                             "type": "reminder",
-                            "message": f"📅 Vence hoy: {f['title']}",
+                            "message": f"Vence hoy: {f['title']}",
                             "tag": f"task-due-{f['id']}-{hoy.isoformat()}",
                             "kind": "task",
                             "entity_id": str(f["id"]),
