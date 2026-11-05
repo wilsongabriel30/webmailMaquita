@@ -133,7 +133,7 @@ export function TaskDetailPanel({ task, onUpdate, onToggle, onToggleImportant, o
         {/* Me la asignaron: quién, plazo, indicaciones y «Marcar como realizada» */}
         {task.asignacion && <TarjetaPanel><TarjetaAsignacion task={task} onToggle={onToggle} /></TarjetaPanel>}
 
-        {/* Tarea que viene de un correo marcado: enlace para abrirlo */}
+        {/* Tarea que viene de un correo (marcado o soltado en Tareas): enlace para abrirlo */}
         {task.correo && <TarjetaPanel><EnlaceCorreo correo={task.correo} /></TarjetaPanel>}
 
         <TarjetaPanel>
@@ -150,7 +150,7 @@ export function TaskDetailPanel({ task, onUpdate, onToggle, onToggleImportant, o
           </div>
         </TarjetaPanel>
 
-        {!task.correo && !task.seguimiento && <TarjetaPanel><AsignarTarea task={task} onAsignada={onAsignada} /></TarjetaPanel>}
+        {task.correo?.origen !== 'marcado' && !task.seguimiento && <TarjetaPanel><AsignarTarea task={task} onAsignada={onAsignada} /></TarjetaPanel>}
 
         <TarjetaPanel>
           <RecordatorioTarea valor={task.reminder} onCambiar={r => onUpdate(task.id, { reminder: r })} />

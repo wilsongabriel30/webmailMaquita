@@ -4,7 +4,8 @@ Todas miran las listas que la persona ve (las suyas y las que le compartieron) y
 que le asignaron de otras listas («Asignar tarea a»), salvo en «Tareas» y «Correo marcado», que son listas
 propias. Devuelven cada tarea
 con lo que es propio de quien mira: si está en su «Mi día» de hoy. Agregan el nombre de la lista, las
-personas asignadas y, si la tarea viene de un correo marcado, el enlace al mensaje.
+personas asignadas y, si la tarea viene de un correo marcado o soltado en Tareas, el enlace al mensaje
+(el del correo soltado solo lo ve quien lo soltó: es su buzón).
 """
 
 from __future__ import annotations
@@ -19,8 +20,9 @@ from app.tasks.service import _row_to_card
 _EN_MI_DIA = "EXISTS (SELECT 1 FROM task_mi_dia d WHERE d.card_id = tc.id AND d.user_email = $1 AND d.fecha = $2)"
 
 _SELECT = f"""SELECT tc.*, tl.name AS list_name, {_EN_MI_DIA} AS en_mi_dia,
-       co.carpeta AS correo_carpeta, co.uid AS correo_uid,
-       co.asunto AS correo_asunto, co.remitente AS correo_remitente,
+       COALESCE(co.carpeta, cs.carpeta) AS correo_carpeta, COALESCE(co.uid, cs.uid) AS correo_uid,
+       COALESCE(co.asunto, cs.asunto) AS correo_asunto, COALESCE(co.remitente, cs.remitente) AS correo_remitente,
+       CASE WHEN co.card_id IS NOT NULL THEN 'marcado' ELSE 'soltado' END AS correo_origen,
        ARRAY(SELECT a.email FROM task_asignados a WHERE a.card_id = tc.id ORDER BY a.asignado_en) AS asignados_todos,
        (SELECT count(*) FROM task_steps s WHERE s.card_id = tc.id) AS pasos_total,
        (SELECT count(*) FROM task_steps s WHERE s.card_id = tc.id AND s.completed) AS pasos_hechos,
@@ -29,6 +31,7 @@ _SELECT = f"""SELECT tc.*, tl.name AS list_name, {_EN_MI_DIA} AS en_mi_dia,
   FROM task_cards tc
   JOIN task_lists tl ON tl.id = tc.list_id
   LEFT JOIN task_correo co ON co.card_id = tc.id
+  LEFT JOIN task_correo_origen cs ON cs.card_id = tc.id AND cs.user_email = $1
   LEFT JOIN task_asignados mia ON mia.card_id = tc.id AND mia.email = $1
  WHERE (tc.list_id IN ({LISTAS_VISIBLES}) OR {ASIGNADA_A})"""
 
@@ -75,6 +78,7 @@ def a_tarjeta(row) -> CardOut:
             uid=row["correo_uid"],
             asunto=row["correo_asunto"],
             remitente=row["correo_remitente"],
+            origen=row["correo_origen"],
         )
     return card
 

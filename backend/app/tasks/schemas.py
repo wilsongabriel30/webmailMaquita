@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -111,12 +111,16 @@ class CardMove(BaseModel):
 
 
 class CorreoRef(BaseModel):
-    """Correo marcado del que salió la tarea (para abrirlo desde Tareas)."""
+    """Correo del que salió la tarea (para abrirlo desde Tareas).
+
+    origen: «marcado» (lista Correo marcado, sigue la bandera) o «soltado» (se soltó en el ícono Tareas).
+    """
 
     carpeta: str
     uid: int
     asunto: str = ""
     remitente: str = ""
+    origen: Literal["marcado", "soltado"] = "marcado"
 
 
 class AsignacionMia(BaseModel):

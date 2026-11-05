@@ -98,6 +98,8 @@ export interface CorreoTarea {
   uid: number;
   asunto?: string;
   remitente?: string;
+  // «marcado»: de la lista Correo marcado (sigue la bandera); «soltado»: se soltó el correo en el ícono Tareas.
+  origen?: 'marcado' | 'soltado';
 }
 
 export type SmartView = 'my-day' | 'important' | 'planned' | 'assigned' | 'flagged' | 'tasks' | 'seguimiento';

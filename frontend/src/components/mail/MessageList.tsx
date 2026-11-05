@@ -803,9 +803,17 @@ export function MessageList() {
             ? Array.from(selectedUids) : [msg.uid];
           e.dataTransfer.setData('application/x-mail-uids', JSON.stringify(uids));
           e.dataTransfer.setData('application/x-mail-folder', currentFolder);
+          // `correos`: todos los arrastrados, para crear una tarea por cada uno al soltarlos en Tareas.
+          const arrastrados = uids
+            .map(u => (u === msg.uid ? msg : useMailStore.getState().messages.find(m => m.uid === u)))
+            .filter((m): m is typeof msg => !!m);
           e.dataTransfer.setData('application/x-mail-meta', JSON.stringify({
             subject: msg.subject || '', from: msg.from || '', date: msg.date || '',
             uid: msg.uid, folder: currentFolder,
+            correos: arrastrados.map(m => ({
+              uid: m.uid, folder: currentFolder, subject: m.subject || '', from: m.from || '',
+              message_id: m.message_id || '',
+            })),
           }));
           // Mover a una carpeta o copiar al Calendario/Tareas (NavRail pide 'copy'): con solo 'move'
           // el navegador rechazaba el soltado en esos íconos sin avisar.

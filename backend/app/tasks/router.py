@@ -19,6 +19,7 @@ from app.tasks import (
     tiempo_real,
 )
 from app.tasks.rutas_compartir import router as f4_router
+from app.tasks.rutas_desde_correo import router as desde_correo_router
 from app.tasks.rutas_f5 import router as f5_router
 from app.tasks.rutas_f6 import router as f6_router
 from app.tasks.rutas_listas import router as listas_router
@@ -58,6 +59,8 @@ router.include_router(f3_router)  # buscar, mover a otra lista y adjuntos
 router.include_router(f4_router)  # compartir, asignar, actividad y avisos
 router.include_router(f5_router)  # duplicar listas
 router.include_router(f6_router)  # configuración y sugerencias
+# Tareas al soltar correos en el ícono Tareas.
+router.include_router(desde_correo_router)
 
 
 def _db(request: Request):
