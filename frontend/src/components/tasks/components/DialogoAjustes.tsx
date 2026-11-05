@@ -4,7 +4,8 @@ import { useEffect } from 'react';
 import { COLORS, SMART_LISTS } from '../types';
 import type { Ajustes } from '../hooks/useAjustes';
 
-const OCULTABLES = ['important', 'planned', 'assigned', 'flagged'];
+// «Asignado a mí» no se oculta: ahí llegan también las tareas de Seguimiento (05/11/2026).
+const OCULTABLES = ['important', 'planned', 'flagged'];
 
 function Interruptor({ etiqueta, ayuda, valor, onCambiar }: { etiqueta: string; ayuda?: string; valor: boolean; onCambiar: (v: boolean) => void }) {
   return (

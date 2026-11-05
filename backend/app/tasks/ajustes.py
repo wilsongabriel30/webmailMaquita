@@ -15,8 +15,9 @@ from pydantic import BaseModel, Field
 
 from app.tasks import avisos_listas
 
-# Listas inteligentes que se pueden ocultar (Mi día y Tareas siempre se ven).
-OCULTABLES = ("important", "planned", "assigned", "flagged")
+# Listas inteligentes que se pueden ocultar (Mi día y Tareas siempre se ven). «Asignado a mí» tampoco se oculta
+# desde el 05/11/2026: ahí llegan también las tareas de Seguimiento y ocultarla dejaría a la persona sin verlas.
+OCULTABLES = ("important", "planned", "flagged")
 
 
 class Ajustes(BaseModel):

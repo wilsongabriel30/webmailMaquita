@@ -30,7 +30,7 @@ export function TableroKanban({ tareas, onAbrir, onCambiarEstado }: Props) {
   };
 
   return (
-    <div style={{ display: 'flex', gap: 12, padding: '8px 24px 16px', overflowX: 'auto', height: '100%', alignItems: 'flex-start' }}>
+    <div style={{ display: 'flex', gap: 12, padding: '8px 24px 16px', overflowX: 'auto', alignItems: 'flex-start' }}>
       {columnasVisibles(tareas).map(col => {
         const lista = tareas.map(efectiva).filter(t => columnaDe(t) === col);
         const valido = destinoValido(arrastrando && efectiva(arrastrando), col);

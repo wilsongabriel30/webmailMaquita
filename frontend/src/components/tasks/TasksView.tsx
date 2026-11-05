@@ -28,9 +28,12 @@ import { useListas } from './hooks/useListas';
 import { useArrastreTareas } from './hooks/useArrastreTareas';
 import { useTareas, VISTAS_INTELIGENTES } from './hooks/useTareas';
 import { SeguimientoVista } from '../tareas/SeguimientoVista';
+import { tareasApi } from '../tareas/api';
 
 const _params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-const VISTA_INICIAL: ActiveView | null = _params?.get('vista') === 'seguimiento' || _params?.get('tarea') ? 'seguimiento' : null;
+// Enlaces de los avisos (?vista=seguimiento&tarea=…): se abren en «Asignado a mí», que es donde estaba «Mis tareas».
+// Si la tarea no es de la persona (la asignó ella), se pasa a «Asignadas por mí» al saberlo (05/11/2026).
+const VISTA_INICIAL: ActiveView | null = _params?.get('vista') === 'seguimiento' || _params?.get('tarea') ? 'assigned' : null;
 const TAREA_INICIAL = _params?.get('tarea') || null;
 
 export function TasksView() {
@@ -44,6 +47,15 @@ export function TasksView() {
     return () => window.removeEventListener('toggle-tasks-sidebar', h);
   }, []);
   const { conteos, recargarConteos } = useConteosVistas(activeView);
+  const [tareaInicial, setTareaInicial] = useState<string | null>(null);
+  const limpiarTareaInicial = useCallback(() => setTareaInicial(null), []);
+  useEffect(() => {
+    if (!TAREA_INICIAL) return;
+    tareasApi.obtener(TAREA_INICIAL)
+      .then(t => { if (!t.asignados.some(a => a.toLowerCase() === yo.toLowerCase())) setActiveView('seguimiento'); })
+      .catch(() => {})
+      .finally(() => setTareaInicial(TAREA_INICIAL));
+  }, [yo]);
   const listas = useListas(recargarConteos);
   const fetchLists = listas.recargar;
   const {
@@ -126,6 +138,23 @@ export function TasksView() {
     ? <div style={{ padding: 40, textAlign: 'center', fontSize: 14, color: COLORS.secondary }}>No hay tareas que contengan «{busqueda.trim()}».</div>
     : <EmptyState view={activeView} />;
 
+  const cuerpo = (
+    <CuerpoTareas tasks={sortedTasks} modo={modo} agrupar={agrupar}
+      mostrarLista={mostrarLista} seleccionada={selectedTask?.id} vacio={vacio}
+      onToggle={toggleTask} onToggleImportant={toggleImportant} onOpen={setSelectedTask} onUpdate={updateTask}
+      onMenu={(task: Task, e: MouseEvent) => setMenu({ task, x: e.clientX, y: e.clientY })}
+      arrastre={arrastre} />
+  );
+  // «Asignado a mí» (fase 1 de la unificación, 05/11/2026): las tareas de Seguimiento y, debajo, las asignadas
+  // desde listas compartidas. «Seguimiento» queda como «Asignadas por mí».
+  const vistaAsignadas = (activeView === 'assigned' || activeView === 'seguimiento') && !buscando;
+  const otrasAsignadas = activeView === 'assigned' && tasks.length > 0 ? (
+    <section aria-label="Asignadas en listas compartidas" style={{ marginTop: 16 }}>
+      <h3 style={{ margin: '0 24px 4px', fontSize: 14, fontWeight: 600, color: COLORS.secondary }}>Asignadas en listas compartidas</h3>
+      {cuerpo}
+    </section>
+  ) : undefined;
+
   return (
     <div className="tasks-view" style={{ display: 'flex', height: '100%', width: '100%', overflow: 'hidden', fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
       {/* Sidebar */}
@@ -155,7 +184,11 @@ export function TasksView() {
       </TasksSidebar>}
 
       {/* Seguimiento de tareas asignadas (T-34) */}
-      {activeView === 'seguimiento' && !buscando ? <SeguimientoVista yo={yo} tareaInicial={TAREA_INICIAL} /> : (
+      {vistaAsignadas ? (
+        <SeguimientoVista key={activeView} yo={yo} ambito={activeView === 'seguimiento' ? 'por-mi' : 'para-mi'}
+          tareaInicial={tareaInicial} onTareaInicialAbierta={limpiarTareaInicial}
+          otras={otrasAsignadas} hayOtras={!!otrasAsignadas} onAsignada={() => abrirVista('seguimiento')} />
+      ) : (
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#faf9f8', overflow: 'hidden' }}>
         <TaskListHeader
           activeView={buscando ? '' : activeView}
@@ -212,13 +245,7 @@ export function TasksView() {
               }} />
               <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
             </div>
-          ) : (
-            <CuerpoTareas tasks={sortedTasks} modo={modo} agrupar={agrupar}
-              mostrarLista={mostrarLista} seleccionada={selectedTask?.id} vacio={vacio}
-              onToggle={toggleTask} onToggleImportant={toggleImportant} onOpen={setSelectedTask} onUpdate={updateTask}
-              onMenu={(task: Task, e: MouseEvent) => setMenu({ task, x: e.clientX, y: e.clientY })}
-              arrastre={arrastre} />
-          )}
+          ) : cuerpo}
         </div>
       </div>)}
 
