@@ -164,7 +164,8 @@ async def _correo(correos, titulo, texto, url):
             MIMEText(
                 f'<div style="font-family:Segoe UI,Arial,sans-serif;font-size:15px;color:#233">'
                 f'<h3 style="margin:0 0 8px;color:#1b5e3a">{escape(titulo)}</h3><p>{escape(texto)}</p>'
-                f'<p><a href="{escape(url)}" style="background:#1b7f4a;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600">Abrir la tarea</a></p>'
+                f'<p><a href="{escape(url)}" style="background:#1b7f4a;color:#ffffff !important;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600">'
+                '<span style="color:#ffffff !important">Abrir la tarea</span></a></p>'
                 f'<p style="color:#667;font-size:13px">{escape(PIE)}</p></div>',
                 "html",
                 "utf-8",
