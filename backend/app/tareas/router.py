@@ -7,6 +7,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from app.auth.dependencies import get_current_user, require_admin
+from app.tareas import desde_tarea
 from app.tareas.esquemas import (
     CambioEstado,
     ComentarioNuevo,
@@ -90,6 +91,23 @@ async def asignar(
 ):
     try:
         return await svc.asignar(_db(request), _redis(request), user, d)
+    except Exception as e:
+        raise _http(e)
+
+
+@router.post("/desde-tarea/{card_id}", response_model=TareaOut)
+async def asignar_desde_tarea(
+    card_id: uuid.UUID,
+    d: TareaAsignar,
+    request: Request,
+    user: str = Depends(get_current_user),
+):
+    """«Asignar tarea a:» de una tarea de lista: la misma tarea pasa a tener seguimiento (fase 2, 05/11/2026)."""
+    try:
+        row = await desde_tarea.convertir(
+            svc, _db(request), _redis(request), user, card_id, d
+        )
+        return a_salida(row)
     except Exception as e:
         raise _http(e)
 

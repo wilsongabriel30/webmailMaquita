@@ -200,24 +200,28 @@ class ServicioTareas:
             )
         row = await self.obtener(db, card.id, user)
         if estado != "espera":
-            await self._calendario(db, redis, row, user)
-            plazo = (
-                f" · vence {row['due_date'].astimezone(EC):%d/%m %H:%M}"
-                if row["due_date"]
-                else ""
-            )
-            await avisos.emitir(
-                asignados,
-                f"Nueva tarea de {avisos.nombre(user)}",
-                f'{row["title"]}{plazo}',
-                avisos.url_tarea(card.id),
-                user,
-                {"tarea_id": str(card.id), "accion": "asignada"},
-                db,
-                card.id,
-                "asignada",
-            )
+            await self.anunciar(db, redis, user, row, asignados)
         return a_salida(row)
+
+    async def anunciar(self, db, redis, user, row, asignados):
+        """Tarea recién asignada: al calendario de cada asignado y aviso (app, correo y campanita)."""
+        await self._calendario(db, redis, row, user)
+        plazo = (
+            f" · vence {row['due_date'].astimezone(EC):%d/%m %H:%M}"
+            if row["due_date"]
+            else ""
+        )
+        await avisos.emitir(
+            asignados,
+            f"Nueva tarea de {avisos.nombre(user)}",
+            f'{row["title"]}{plazo}',
+            avisos.url_tarea(row["id"]),
+            user,
+            {"tarea_id": str(row["id"]), "accion": "asignada"},
+            db,
+            row["id"],
+            "asignada",
+        )
 
     async def _calendario(self, db, redis, row, user):
         for a in row["asignados"] or []:

@@ -14,7 +14,8 @@ import { BuscadorTareas } from './components/BuscadorTareas';
 import { CuerpoTareas } from './components/CuerpoTareas';
 import { MenuTarea } from './components/MenuTarea';
 import { DialogoCompartir } from './components/DialogoCompartir';
-import { DialogoAsignar } from './components/DialogoAsignar';
+import { AsignarTareaDialogo } from '../tareas/AsignarTareaDialogo';
+import { desdeTareaDeLista } from './components/desdeTareaDeLista';
 import { DialogoAjustes } from './components/DialogoAjustes';
 import { PanelSugerencias } from './components/PanelSugerencias';
 import { BotonGrupo } from './components/BotonGrupo';
@@ -63,8 +64,10 @@ export function TasksView() {
   const fetchLists = listas.recargar;
   const {
     tasks, setTasks, selectedTask, setSelectedTask, loading, error, setError,
-    fetchTasks, addTask, toggleTask: alternarTarea, toggleImportant, updateTask, deleteTask, moverTarea, reemplazarTarea,
+    fetchTasks, addTask, toggleTask: alternarTarea, toggleImportant, updateTask, deleteTask, moverTarea,
   } = useTareas(activeView, busqueda, fetchLists);
+  // Una tarea de lista recién asignada pasa a Seguimiento: se recargan la lista y los números.
+  const trasAsignar = () => { setSelectedTask(null); void fetchTasks(); recargarConteos(); };
   // ⚙ Configuración (F6): sonido al completar, confirmar al eliminar, importantes arriba y listas visibles.
   const { ajustes, cambiar: cambiarAjustes, error: errorAjustes, recargar: recargarAjustes } = useAjustes();
   const [verAjustes, setVerAjustes] = useState(false);
@@ -80,7 +83,8 @@ export function TasksView() {
   const listaCompartida = listas.listas.find(l => l.id === compartiendo);
   const buscando = busqueda.trim() !== '';
   const [menu, setMenu] = useState<{ task: Task; x: number; y: number } | null>(null);
-  const [asignando, setAsignando] = useState<Task | null>(null);
+  // «Asignar tarea a:» del menú: el cuadro único con la foto de la tarea al abrirlo (fase 2, 05/11/2026).
+  const [asignando, setAsignando] = useState<ReturnType<typeof desdeTareaDeLista> | null>(null);
   const cerrarAsignar = useCallback(() => setAsignando(null), []);
 
   // «Tareas» es una vista inteligente, pero también una lista de verdad (la por defecto).
@@ -261,10 +265,10 @@ export function TasksView() {
       {menu && (
         <MenuTarea task={menu.task} x={menu.x} y={menu.y} listas={listas.listas} onCerrar={() => setMenu(null)}
           onUpdate={updateTask} onToggle={toggleTask} onToggleImportant={toggleImportant}
-          onMover={moverTarea} onDelete={deleteTask} onAsignar={setAsignando} confirmar={ajustes.confirmar_eliminar} />
+          onMover={moverTarea} onDelete={deleteTask} onAsignar={t => setAsignando(desdeTareaDeLista(t))} confirmar={ajustes.confirmar_eliminar} />
       )}
 
-      {asignando && <DialogoAsignar task={asignando} onCerrar={cerrarAsignar} onAsignada={reemplazarTarea} />}
+      <AsignarTareaDialogo abierto={!!asignando} desde={asignando} onCerrar={cerrarAsignar} onCreada={trasAsignar} />
 
       {/* Detail panel */}
       {selectedTask && (activeView !== 'seguimiento' || buscando) && (
@@ -277,7 +281,7 @@ export function TasksView() {
           onDelete={deleteTask}
           onClose={() => setSelectedTask(null)}
           onRefrescar={() => { void fetchTasks(); }}
-          onAsignada={reemplazarTarea}
+          onAsignada={trasAsignar}
           confirmar={ajustes.confirmar_eliminar}
         />
       )}
