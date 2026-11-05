@@ -100,24 +100,27 @@ async function requestMedido<T>(path: string, options: RequestInit & { skipAuth?
         headers: { "Content-Type": "application/json", ...fetchOptions.headers },
         ...fetchOptions,
       });
-      if (!retryRes.ok) throw new Error(`HTTP ${retryRes.status}`);
-      return retryRes.json();
+      // Igual que la primera respuesta: 204 o cuerpo vacío no se leen como JSON y un error trae su motivo.
+      return leerRespuesta<T>(retryRes, path, fetchOptions.method || "GET");
     }
     logError("session_expired", { path, method: fetchOptions.method || "GET" });
     window.location.href = "/webmail/login";
     throw new Error("Session expired");
   }
 
+  return leerRespuesta<T>(res, path, fetchOptions.method || "GET");
+}
+
+/** Lee la respuesta: error con el motivo del servidor; 204 o cuerpo vacío (p. ej. DELETE) sin parsear JSON. */
+async function leerRespuesta<T>(res: Response, path: string, method: string): Promise<T> {
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    logError("api_error", { path, status: res.status, detail: body.detail, method: fetchOptions.method || "GET" });
+    logError("api_error", { path, status: res.status, detail: body.detail, method });
     const detail = Array.isArray(body.detail)
       ? body.detail.map((e: { msg?: string }) => e.msg || JSON.stringify(e)).join('; ')
       : (typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail));
     throw new Error(detail || `HTTP ${res.status}`);
   }
-
-  // 204 No Content o cuerpo vacío (p. ej. DELETE) → no intentar parsear JSON
   if (res.status === 204) return undefined as T;
   const text = await res.text();
   if (!text) return undefined as T;
