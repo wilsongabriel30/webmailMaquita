@@ -12,6 +12,8 @@ export interface Tarea {
   prioridad: 'low' | 'medium' | 'high' | 'urgent';
   etiquetas: string[];
   estado: Estado;
+  /** Estado guardado: el de la columna del tablero cuando `estado` es «vencida» (calculado por el plazo). */
+  estado_guardado?: Estado | '';
   semaforo: Semaforo;
   aceptacion: 'sin_responder' | 'aceptada' | 'rechazada';
   motivo_rechazo: string;

@@ -2,7 +2,12 @@
 import type { Tarea } from './tipos';
 import { ESTADO_NOMBRE, PRIORIDAD_COLOR, PRIORIDAD_NOMBRE, SEMAFORO_COLOR, fechaCorta, nombreDe } from './tipos';
 
-interface Props { tarea: Tarea; onAbrir: (t: Tarea) => void; compacta?: boolean; arrastrable?: boolean; onDragStart?: (t: Tarea) => void }
+interface Props {
+  tarea: Tarea; onAbrir: (t: Tarea) => void; compacta?: boolean; arrastrable?: boolean;
+  /** Mientras se arrastra o se espera la respuesta del servidor. */
+  atenuada?: boolean;
+  onDragStart?: (t: Tarea, e: React.DragEvent<HTMLDivElement>) => void; onDragEnd?: () => void;
+}
 
 export function Semaforo({ tarea }: { tarea: Tarea }) {
   const texto = tarea.estado === 'completada' ? 'Completada' : !tarea.plazo ? 'Sin plazo'
@@ -16,11 +21,13 @@ export function Semaforo({ tarea }: { tarea: Tarea }) {
   );
 }
 
-export function TarjetaTarea({ tarea, onAbrir, compacta, arrastrable, onDragStart }: Props) {
+export function TarjetaTarea({ tarea, onAbrir, compacta, arrastrable, atenuada, onDragStart, onDragEnd }: Props) {
   return (
-    <div draggable={arrastrable} onDragStart={() => onDragStart?.(tarea)} onClick={() => onAbrir(tarea)}
+    <div draggable={arrastrable} onDragStart={e => onDragStart?.(tarea, e)} onDragEnd={onDragEnd} onClick={() => onAbrir(tarea)}
+      title={compacta && !arrastrable && tarea.estado === 'espera' ? 'En espera de otra tarea: se activa sola al completarla' : undefined}
       style={{ background: '#fff', border: '1px solid #edebe9', borderLeft: `4px solid ${SEMAFORO_COLOR[tarea.semaforo]}`, borderRadius: 6,
-        padding: compacta ? '8px 10px' : '10px 14px', margin: compacta ? '6px 0' : '6px 24px', cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,.06)' }}
+        padding: compacta ? '8px 10px' : '10px 14px', margin: compacta ? '6px 0' : '6px 24px', cursor: arrastrable ? 'grab' : 'pointer',
+        boxShadow: '0 1px 2px rgba(0,0,0,.06)', opacity: atenuada ? 0.45 : 1 }}
       onMouseEnter={e => (e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,.12)')} onMouseLeave={e => (e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,.06)')}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: '#323130', textDecoration: tarea.estado === 'completada' ? 'line-through' : 'none' }}>{tarea.titulo}</span>
