@@ -90,6 +90,8 @@ class TareaOut(BaseModel):
     prioridad: str
     etiquetas: list[str]
     estado: str
+    # Estado guardado (sin «vencida», que se calcula por el plazo): la columna del tablero de una tarea vencida.
+    estado_guardado: str = ""
     semaforo: str  # verde | amarillo | rojo | gris
     aceptacion: str
     motivo_rechazo: str

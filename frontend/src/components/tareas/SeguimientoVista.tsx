@@ -13,7 +13,9 @@ const tab = (activa: boolean): React.CSSProperties => ({ padding: '8px 14px', bo
 
 export function SeguimientoVista({ yo, tareaInicial }: Props) {
   const [pestana, setPestana] = useState<Pestana>('mis');
-  const [modo, setModo] = useState<'lista' | 'tablero'>(() => { try { return (localStorage.getItem('tareas.modo') as 'lista' | 'tablero') || 'lista'; } catch { return 'lista'; } });
+  // Se abre en Tablero; si la persona elige Lista, se recuerda (clave nueva: la vieja guardaba «lista» a todos).
+  const [modo, setModo] = useState<'lista' | 'tablero'>(() => { try { return localStorage.getItem('seguimiento.modo') === 'lista' ? 'lista' : 'tablero'; } catch { return 'tablero'; } });
+  useEffect(() => { try { localStorage.setItem('seguimiento.modo', modo); } catch { /* sin almacenamiento: vuelve a Tablero */ } }, [modo]);
   const [completadas, setCompletadas] = useState(false);
   const [tareas, setTareas] = useState<Tarea[]>([]);
   const [cargando, setCargando] = useState(false);

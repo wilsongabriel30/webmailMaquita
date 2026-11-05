@@ -85,6 +85,7 @@ def a_salida(row) -> TareaOut:
         prioridad=row["priority"],
         etiquetas=_lista(row["etiquetas"]) or _lista(row["labels"]),
         estado=estado,
+        estado_guardado=row["estado"] or "",
         semaforo=_semaforo(row),
         aceptacion=row["aceptacion"],
         motivo_rechazo=row["motivo_rechazo"],
