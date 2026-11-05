@@ -164,11 +164,18 @@ async def contar(db, user: str) -> dict[str, int]:
         user,
         mi_dia.hoy(),
     )
+    # «Asignado a mí» muestra también las tareas de Seguimiento pendientes de la persona (05/11/2026).
+    seguimiento = await db.fetchval(
+        """SELECT count(*) FROM task_cards c
+             JOIN task_asignados a ON a.card_id = c.id AND a.email = $1
+            WHERE c.asignada AND NOT c.completed""",
+        user,
+    )
     return {
         "my-day": fila["mi_dia"],
         "important": fila["importante"],
         "planned": fila["planeado"],
-        "assigned": fila["asignado"],
+        "assigned": fila["asignado"] + (seguimiento or 0),
         "tasks": fila["tareas"],
         "flagged": fila["marcado"],
     }

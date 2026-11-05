@@ -13,12 +13,17 @@ from app.tasks import vistas
 
 
 class _DB:
-    def __init__(self, fila):
+    def __init__(self, fila, seguimiento=0):
         self.fila, self.sql, self.args = fila, "", ()
+        self.seguimiento, self.sql_seguimiento = seguimiento, ""
 
     async def fetchrow(self, sql, *args):
         self.sql, self.args = sql, args
         return self.fila
+
+    async def fetchval(self, sql, *args):
+        self.sql_seguimiento = sql
+        return self.seguimiento
 
 
 def test_cuenta_las_vistas_con_las_claves_del_frontend():
@@ -44,6 +49,17 @@ def test_cuenta_las_vistas_con_las_claves_del_frontend():
     assert db.args == ("ana@example.org", mi_dia.hoy())
     assert "tc.completed = FALSE" in db.sql  # solo pendientes, como Outlook
     assert "task_list_members" in db.sql  # también las listas compartidas
+
+
+def test_asignado_a_mi_suma_las_de_seguimiento():
+    """Desde el 05/11/2026 «Asignado a mí» muestra también las tareas de Seguimiento pendientes."""
+    fila = dict.fromkeys(
+        ("mi_dia", "importante", "planeado", "tareas", "marcado"), 0
+    ) | {"asignado": 1}
+    db = _DB(fila, seguimiento=2)
+    assert asyncio.run(vistas.contar(db, "ana@example.org"))["assigned"] == 3
+    assert "c.asignada" in db.sql_seguimiento
+    assert "NOT c.completed" in db.sql_seguimiento
 
 
 def test_las_rutas_de_conteo_estan_publicadas():

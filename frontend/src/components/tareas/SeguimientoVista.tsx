@@ -1,5 +1,7 @@
-// Seguimiento de tareas asignadas: «Mis tareas» / «Asignadas por mí» / «Mi día», en LISTA o TABLERO, con semáforo.
-import { useCallback, useEffect, useState } from 'react';
+// Tareas asignadas, en LISTA o TABLERO, con semáforo. Desde el 05/11/2026 (fase 1 de la unificación) se muestra en
+// dos vistas según el rol: «Asignado a mí» (ámbito `para-mi`: «Todas» / «Para hoy», y debajo las tareas asignadas
+// desde listas compartidas, que llegan en `otras`) y «Asignadas por mí» (ámbito `por-mi`, lo que yo asigné).
+import { type ReactNode, useCallback, useEffect, useState } from 'react';
 import { tareasApi } from './api';
 import { AsignarTareaDialogo } from './AsignarTareaDialogo';
 import { IcoLista, IcoTablero, Punto } from './IconosSeguimiento';
@@ -9,11 +11,21 @@ import { TarjetaTarea } from './TarjetaTarea';
 import type { Estado, Tarea } from './tipos';
 
 type Pestana = 'mis' | 'por-mi' | 'mi-dia';
-interface Props { yo: string; tareaInicial?: string | null }
+export type Ambito = 'para-mi' | 'por-mi';
+interface Props {
+  yo: string; tareaInicial?: string | null; ambito?: Ambito;
+  /** Se llama cuando ya se abrió `tareaInicial` (para no volver a abrirla al cambiar de vista). */
+  onTareaInicialAbierta?: () => void;
+  /** «Asignado a mí»: tareas asignadas desde listas compartidas, debajo de las de Seguimiento. */
+  otras?: ReactNode; hayOtras?: boolean;
+  /** «Asignado a mí»: tras asignar una tarea, ir a «Asignadas por mí». */
+  onAsignada?: () => void;
+}
+const TITULO: Record<Ambito, string> = { 'para-mi': 'Asignado a mí', 'por-mi': 'Asignadas por mí' };
 const tab = (activa: boolean): React.CSSProperties => ({ padding: '8px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 14, fontWeight: activa ? 700 : 400, color: activa ? '#0078d4' : '#323130', borderBottom: activa ? '3px solid #0078d4' : '3px solid transparent' });
 
-export function SeguimientoVista({ yo, tareaInicial }: Props) {
-  const [pestana, setPestana] = useState<Pestana>('mis');
+export function SeguimientoVista({ yo, tareaInicial, ambito = 'para-mi', onTareaInicialAbierta, otras, hayOtras, onAsignada }: Props) {
+  const [pestana, setPestana] = useState<Pestana>(ambito === 'por-mi' ? 'por-mi' : 'mis');
   // Se abre en Tablero; si la persona elige Lista, se recuerda (clave nueva: la vieja guardaba «lista» a todos).
   const [modo, setModo] = useState<'lista' | 'tablero'>(() => { try { return localStorage.getItem('seguimiento.modo') === 'lista' ? 'lista' : 'tablero'; } catch { return 'tablero'; } });
   useEffect(() => { try { localStorage.setItem('seguimiento.modo', modo); } catch { /* sin almacenamiento: vuelve a Tablero */ } }, [modo]);
@@ -40,7 +52,9 @@ export function SeguimientoVista({ yo, tareaInicial }: Props) {
     const iv = window.setInterval(cargar, 60000);
     return () => { window.removeEventListener('refresh-tareas', h); window.removeEventListener('refresh-tasks', h); window.clearInterval(iv); };
   }, [cargar]);
-  useEffect(() => { if (tareaInicial) tareasApi.obtener(tareaInicial).then(setSel).catch(() => {}); }, [tareaInicial]);
+  useEffect(() => {
+    if (tareaInicial) tareasApi.obtener(tareaInicial).then(setSel).catch(() => {}).finally(() => onTareaInicialAbierta?.());
+  }, [tareaInicial, onTareaInicialAbierta]);
   useEffect(() => { try { localStorage.setItem('tareas.modo', modo); } catch { /* sin almacenamiento: el modo no se recuerda */ } }, [modo]);
 
   const cambiarEstado = async (t: Tarea, estado: Estado) => {
@@ -52,10 +66,12 @@ export function SeguimientoVista({ yo, tareaInicial }: Props) {
   return (
     <div style={{ display: 'flex', flex: 1, height: '100%', overflow: 'hidden' }}>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <h2 style={{ margin: 0, padding: '16px 24px 0', fontSize: 20, fontWeight: 600, color: '#323130' }}>{TITULO[ambito]}</h2>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '8px 24px 0', borderBottom: '1px solid #edebe9', flexWrap: 'wrap' }}>
-          <button style={tab(pestana === 'mis')} onClick={() => setPestana('mis')}>Mis tareas</button>
-          <button style={tab(pestana === 'por-mi')} onClick={() => setPestana('por-mi')}>Asignadas por mí</button>
-          <button style={tab(pestana === 'mi-dia')} onClick={() => setPestana('mi-dia')}>Mi día</button>
+          {ambito === 'para-mi' && <>
+            <button style={tab(pestana === 'mis')} onClick={() => setPestana('mis')}>Todas</button>
+            <button style={tab(pestana === 'mi-dia')} onClick={() => setPestana('mi-dia')}>Para hoy</button>
+          </>}
           <span style={{ flex: 1 }} />
           {resumen.rojo > 0 && <span style={{ fontSize: 12, color: '#d13438', fontWeight: 600, marginRight: 8 }}><Punto color="#d13438" />{resumen.rojo} vencida{resumen.rojo > 1 ? 's' : ''}/hoy</span>}
           {resumen.amarillo > 0 && <span style={{ fontSize: 12, color: '#c19c00', fontWeight: 600, marginRight: 8 }}><Punto color="#c19c00" />{resumen.amarillo} pronto</span>}
@@ -66,13 +82,14 @@ export function SeguimientoVista({ yo, tareaInicial }: Props) {
         </div>
         <div style={{ flex: 1, overflowY: 'auto', paddingTop: 8 }}>
           {cargando && !tareas.length ? <div style={{ padding: 40, textAlign: 'center', color: '#605e5c' }}>Cargando…</div>
-            : !tareas.length ? <div style={{ padding: 40, textAlign: 'center', color: '#605e5c' }}>{pestana === 'por-mi' ? 'Aún no has asignado tareas. Usa «+ Asignar tarea» o «Asignar como tarea» en un correo.' : 'Nada pendiente por aquí.'}</div>
+            : !tareas.length ? (hayOtras ? null : <div style={{ padding: 40, textAlign: 'center', color: '#605e5c' }}>{pestana === 'por-mi' ? 'Aún no has asignado tareas. Usa «+ Asignar tarea» o «Asignar como tarea» en un correo.' : 'Nada pendiente por aquí.'}</div>)
             : modo === 'tablero' ? <TableroKanban tareas={tareas} onAbrir={setSel} onCambiarEstado={cambiarEstado} />
             : tareas.map(t => <TarjetaTarea key={t.id} tarea={t} onAbrir={setSel} />)}
+          {otras}
         </div>
       </div>
       {sel && <TareaDetalle tarea={sel} yo={yo} onCerrar={() => setSel(null)} onCambio={t => { if (t) { setSel(t); setTareas(p => p.map(x => x.id === t.id ? t : x)); } else cargar(); }} />}
-      <AsignarTareaDialogo abierto={asignando} onCerrar={() => setAsignando(false)} onCreada={() => { setPestana('por-mi'); cargar(); }} />
+      <AsignarTareaDialogo abierto={asignando} onCerrar={() => setAsignando(false)} onCreada={() => { if (ambito === 'por-mi') cargar(); else onAsignada?.(); }} />
     </div>
   );
 }

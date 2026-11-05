@@ -119,7 +119,7 @@ export const SMART_LISTS: SmartListDef[] = [
   { id: 'assigned', name: 'Asignado a mí', icon: 'person' },
   { id: 'flagged', name: 'Correo electrónico marcado', icon: 'flag' },
   { id: 'tasks', name: 'Tareas', icon: 'home' },
-  { id: 'seguimiento', name: 'Seguimiento de tareas asignadas', icon: 'flag', color: '#d13438' },
+  { id: 'seguimiento', name: 'Asignadas por mí', icon: 'flag', color: '#d13438' },
 ];
 
 export const COLORS = {
