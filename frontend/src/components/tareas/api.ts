@@ -12,8 +12,11 @@ async function pedir<T>(ruta: string, init?: RequestInit): Promise<T> {
 }
 
 export const tareasApi = {
-  mis: (completadas = false) => pedir<Tarea[]>(`/mis?completadas=${completadas}`),
-  asignadasPorMi: (completadas = false) => pedir<Tarea[]>(`/asignadas-por-mi?completadas=${completadas}`),
+  mis: (completadas = false, archivadas = false) => pedir<Tarea[]>(`/mis?completadas=${completadas}&archivadas=${archivadas}`),
+  asignadasPorMi: (completadas = false, archivadas = false) => pedir<Tarea[]>(`/asignadas-por-mi?completadas=${completadas}&archivadas=${archivadas}`),
+  /** Quita del tablero de quien lo pide las completadas indicadas (no las borra: pasan a «Archivadas»). */
+  archivar: (ids: string[]) => pedir<{ archivadas: number }>('/archivar', { method: 'POST', body: JSON.stringify({ ids }) }),
+  restaurar: (id: string) => pedir<void>(`/${id}/restaurar`, { method: 'POST' }),
   miDia: () => pedir<Tarea[]>('/mi-dia'),
   obtener: (id: string) => pedir<Tarea>(`/${id}`),
   asignar: (d: Record<string, unknown>) => pedir<Tarea>('/asignar', { method: 'POST', body: JSON.stringify(d) }),
