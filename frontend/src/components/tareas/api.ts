@@ -17,6 +17,8 @@ export const tareasApi = {
   miDia: () => pedir<Tarea[]>('/mi-dia'),
   obtener: (id: string) => pedir<Tarea>(`/${id}`),
   asignar: (d: Record<string, unknown>) => pedir<Tarea>('/asignar', { method: 'POST', body: JSON.stringify(d) }),
+  /** Una tarea de lista pasa a tener seguimiento (la misma, no una copia). */
+  desdeTarea: (id: string, d: Record<string, unknown>) => pedir<Tarea>(`/desde-tarea/${id}`, { method: 'POST', body: JSON.stringify(d) }),
   editar: (id: string, d: Record<string, unknown>) => pedir<Tarea>(`/${id}`, { method: 'PATCH', body: JSON.stringify(d) }),
   eliminar: (id: string) => pedir<void>(`/${id}`, { method: 'DELETE' }),
   estado: (id: string, estado: string) => pedir<Tarea>(`/${id}/estado`, { method: 'PATCH', body: JSON.stringify({ estado }) }),

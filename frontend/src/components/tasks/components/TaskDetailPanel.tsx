@@ -27,8 +27,8 @@ interface Props {
   onClose: () => void;
   /** Cambiaron los pasos o los archivos: se vuelve a pedir la lista para ver los contadores. */
   onRefrescar: () => void;
-  /** La tarea volvió del servidor con otros asignados. */
-  onAsignada: (t: Task) => void;
+  /** La tarea se asignó (pasó a tener seguimiento): hay que recargar. */
+  onAsignada: () => void;
   /** ⚙ «Confirmar antes de eliminar» (F6). */
   confirmar?: boolean;
 }
