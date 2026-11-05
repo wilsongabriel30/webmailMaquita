@@ -40,11 +40,11 @@ export function SeguimientoVista({ yo, tareaInicial }: Props) {
     return () => { window.removeEventListener('refresh-tareas', h); window.removeEventListener('refresh-tasks', h); window.clearInterval(iv); };
   }, [cargar]);
   useEffect(() => { if (tareaInicial) tareasApi.obtener(tareaInicial).then(setSel).catch(() => {}); }, [tareaInicial]);
-  useEffect(() => { try { localStorage.setItem('tareas.modo', modo); } catch {} }, [modo]);
+  useEffect(() => { try { localStorage.setItem('tareas.modo', modo); } catch { /* sin almacenamiento: el modo no se recuerda */ } }, [modo]);
 
   const cambiarEstado = async (t: Tarea, estado: Estado) => {
     try { const n = estado === 'completada' ? await tareasApi.completar(t.id) : await tareasApi.estado(t.id, estado); setTareas(p => p.map(x => x.id === n.id ? n : x)); }
-    catch (e: any) { alert(e.message || 'No se pudo cambiar el estado'); }
+    catch (e) { alert(e instanceof Error && e.message ? e.message : 'No se pudo cambiar el estado'); }
   };
   const resumen = { rojo: tareas.filter(t => t.semaforo === 'rojo').length, amarillo: tareas.filter(t => t.semaforo === 'amarillo').length };
 
