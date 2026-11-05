@@ -8,6 +8,8 @@ export interface Tarea {
   descripcion: string;
   asignados: string[];
   asignado_por: string;
+  /** Quién creó la tarea, si no es quien la asignó (tarea de lista asignada después). */
+  creada_por?: string | null;
   plazo: string | null;
   prioridad: 'low' | 'medium' | 'high' | 'urgent';
   etiquetas: string[];

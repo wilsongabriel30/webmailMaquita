@@ -3,7 +3,7 @@
 «Asignar tarea a:» de una tarea de lista abre el mismo cuadro que Seguimiento. Al guardar, la tarea NO se copia:
 pasa a ser una tarea con seguimiento (estados, aceptar o rechazar, recordatorios, aviso al vencer y escalamiento).
 Se queda en su lista; quien la asigna pasa a ser quien le da seguimiento (`created_by`, que Seguimiento muestra
-como «asignada por»). Las de «Correo marcado» no: van ligadas a un buzón y se asignan desde el correo
+como «asignada por»); quien la creó queda en `creada_por`. Las de «Correo marcado» no: van ligadas a un buzón y se asignan desde el correo
 («Asignar como tarea»), que crea una tarea enlazada.
 """
 
@@ -66,7 +66,7 @@ async def convertir(svc, db, redis, user: str, card_id, d: TareaAsignar):
                   completed = FALSE, completed_by = NULL, completed_at = NULL,
                   title = $3, description = $4, due_date = $5, priority = $6, etiquetas = $7::jsonb,
                   recurrence = $8, activa_tarea_id = $9, escalar_a = $10, assigned_to = $11,
-                  created_by = $12, updated_at = NOW()
+                  creada_por = COALESCE(creada_por, created_by), created_by = $12, updated_at = NOW()
             WHERE id = $1""",
         card_id,
         estado,

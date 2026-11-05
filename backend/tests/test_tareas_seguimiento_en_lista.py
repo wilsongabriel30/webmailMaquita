@@ -74,3 +74,26 @@ def test_la_ruta_vieja_de_asignar_ya_no_existe():
         (r.path, m) for r in router.router.routes for m in getattr(r, "methods", ())
     }
     assert not any(p.endswith("/asignados") and m == "PUT" for p, m in rutas)
+
+
+class _DBFila:
+    def __init__(self, fila):
+        self.fila = fila
+
+    async def fetchrow(self, sql, *a):
+        return self.fila
+
+
+def test_solo_quien_asigno_elimina_una_con_seguimiento():
+    fila = {"asignada": True, "created_by": "ana@example.org"}
+    asyncio.run(sel.puede_eliminar(_DBFila(fila), "Ana@example.org", ID))
+    with pytest.raises(sel.NoParticipa):
+        asyncio.run(sel.puede_eliminar(_DBFila(fila), "luis@example.org", ID))
+    # Sin seguimiento decide la lista, como siempre.
+    asyncio.run(
+        sel.puede_eliminar(
+            _DBFila({"asignada": False, "created_by": "x@example.org"}),
+            "luis@example.org",
+            ID,
+        )
+    )

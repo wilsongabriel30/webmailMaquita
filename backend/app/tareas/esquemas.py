@@ -86,6 +86,8 @@ class TareaOut(BaseModel):
     descripcion: str
     asignados: list[str]
     asignado_por: str
+    # Quién creó la tarea, si no es quien la asignó (una tarea de lista asignada después).
+    creada_por: Optional[str] = None
     plazo: Optional[datetime]
     prioridad: str
     etiquetas: list[str]

@@ -81,6 +81,7 @@ def a_salida(row) -> TareaOut:
         descripcion=row["description"],
         asignados=list(row["asignados"] or []),
         asignado_por=row["created_by"],
+        creada_por=_creada_por(row),
         plazo=row["due_date"],
         prioridad=row["priority"],
         etiquetas=_lista(row["etiquetas"]) or _lista(row["labels"]),
@@ -104,6 +105,12 @@ def a_salida(row) -> TareaOut:
         actualizada_en=row["updated_at"],
         url=avisos.url_tarea(row["id"]),
     )
+
+
+def _creada_por(row) -> str | None:
+    """Quién creó la tarea, solo si no es quien la asignó (tarea de lista asignada después, fase 2)."""
+    c = row.get("creada_por")
+    return c if c and c != row["created_by"] else None
 
 
 def _filtro_tablero(incluir_completadas: bool, archivadas: bool) -> tuple[str, str]:

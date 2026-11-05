@@ -2,6 +2,7 @@
 // importancia con sus pasos; Mi día; asignar; recordatorio, vencimiento y repetición; categoría; archivos; nota; y,
 // al pie, ocultar el panel, cuándo se creó y eliminar.
 import { useState } from 'react';
+import { useAuthStore } from '../../../store/authStore';
 import type { Task } from '../types';
 import { COLORS } from '../types';
 import { ActividadLista } from './ActividadLista';
@@ -47,6 +48,9 @@ export function TaskDetailPanel({ task, onUpdate, onToggle, onToggleImportant, o
   const [title, setTitle] = useState(task.title);
   const [verActividad, setVerActividad] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Una tarea con seguimiento solo la elimina quien la asignó; el resto de la lista no (05/11/2026).
+  const yo = (useAuthStore(st => st.user?.username) || '').toLowerCase();
+  const puedeEliminar = !task.seguimiento || (task.created_by || '').toLowerCase() === yo;
   const [notes, setNotes] = useState(task.note || '');
 
   // Si la tarea cambia desde fuera (otra tarea, o se editó en la lista), el formulario se pone al día.
@@ -198,13 +202,13 @@ export function TaskDetailPanel({ task, onUpdate, onToggle, onToggleImportant, o
               </svg>
             </button>
             <span style={{ flex: 1, fontSize: 12, color: COLORS.secondary, textAlign: 'center' }}>{pie}</span>
-            <button type="button" aria-label="Eliminar tarea" title="Eliminar tarea" onClick={() => (confirmar ? setConfirmDelete(true) : onDelete(task.id))} style={iconoPie}
+            {puedeEliminar && <button type="button" aria-label="Eliminar tarea" title="Eliminar tarea" onClick={() => (confirmar ? setConfirmDelete(true) : onDelete(task.id))} style={iconoPie}
               onMouseEnter={e => { e.currentTarget.style.color = '#d13438'; }}
               onMouseLeave={e => { e.currentTarget.style.color = COLORS.secondary; }}>
               <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
                 <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M10 11v6M14 11v6" />
               </svg>
-            </button>
+            </button>}
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
