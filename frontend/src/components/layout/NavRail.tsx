@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
-import { api } from '../../api/client';
-import { showToast } from '../common/Toast';
 import { EVENTO_DESDE_CORREO } from '../calendar/eventoDesdeCorreo';
+import { crearTareasDesdeCorreo } from '../tasks/tareasDesdeCorreo';
 import { esModoApp } from '../../lib/modoApp';
 
 /* Outlook-style nav rail — filled icons, blue active indicator */
@@ -192,19 +191,8 @@ export function NavRail() {
                 }
                 return;
               }
-              // Tareas: crear directamente con el asunto del correo
-              try {
-                const m = JSON.parse(meta);
-                api.post('/tasks/tasks', {
-                  title: m.subject || 'Tarea desde correo',
-                  note: `Creada desde el correo de ${m.from || 'remitente desconocido'}`,
-                }).then(() => {
-                  showToast(`Tarea creada: ${(m.subject || '').slice(0, 60) || 'desde correo'}`);
-                  window.dispatchEvent(new CustomEvent('refresh-tasks'));
-                }).catch(() => showToast('No se pudo crear la tarea'));
-              } catch {
-                /* soltar un correo sobre Tareas es un atajo: si algo falla, no se interrumpe nada */
-              }
+              // Tareas: una tarea por correo soltado, con el enlace al mensaje
+              void crearTareasDesdeCorreo(meta);
             }}
             className={`relative w-full flex items-center justify-center h-[44px] transition-colors group ${
               dropTarget === item.path ? 'bg-[#deecf9] ring-2 ring-inset ring-[#0078d4] rounded' : ''

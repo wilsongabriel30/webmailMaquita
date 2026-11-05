@@ -8,18 +8,21 @@ interface Props { valor: string[]; onChange: (v: string[]) => void; multiple?: b
 
 export function SelectorPersonas({ valor, onChange, multiple = true, placeholder = 'Escribe un nombre o correo…', autoFocus }: Props) {
   const [q, setQ] = useState('');
-  const [op, setOp] = useState<Persona[]>([]);
+  const [resultados, setOp] = useState<Persona[]>([]);
   const [abierto, setAbierto] = useState(false);
   const t = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     window.clearTimeout(t.current);
-    if (q.trim().length < 2) { setOp([]); return; }
+    if (q.trim().length < 2) return;  // con menos de 2 letras no se busca y no se muestra nada (ver `op`)
     t.current = window.setTimeout(async () => {
       try { setOp((await tareasApi.personas(q)).filter(p => !valor.includes(p.email))); setAbierto(true); } catch { setOp([]); }
     }, 250);
     return () => window.clearTimeout(t.current);
   }, [q, valor]);
+
+  // Opciones visibles: las de la última búsqueda, solo mientras haya algo que buscar.
+  const op = q.trim().length < 2 ? [] : resultados;
 
   const agregar = (email: string) => {
     onChange(multiple ? [...valor, email] : [email]);

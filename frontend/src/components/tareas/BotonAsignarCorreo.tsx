@@ -1,6 +1,7 @@
 // Botón «Asignar como tarea» para la vista de un correo: abre el diálogo con el correo enlazado como contexto.
 import { useState } from 'react';
 import { AsignarTareaDialogo, type CorreoRef } from './AsignarTareaDialogo';
+import { showToast } from '../common/Toast';
 
 export function BotonAsignarCorreo({ correo, estilo }: { correo: CorreoRef; estilo?: React.CSSProperties }) {
   const [abierto, setAbierto] = useState(false);
@@ -12,6 +13,6 @@ export function BotonAsignarCorreo({ correo, estilo }: { correo: CorreoRef; esti
       <span className="barra-etiqueta barra-etiqueta-sec">Asignar como tarea</span>
     </button>
     <AsignarTareaDialogo abierto={abierto} onCerrar={() => setAbierto(false)} correo={correo}
-      onCreada={() => { try { (window as any).toastr?.success?.('Tarea asignada'); } catch {} }} />
+      onCreada={() => showToast('Tarea asignada')} />
   </>);
 }
