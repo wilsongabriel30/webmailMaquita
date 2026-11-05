@@ -1,6 +1,8 @@
 // Configuración personal de Tareas (la ⚙ de la barra, F6). Vive en el servidor (GET/PUT /tasks/ajustes) para que
 // siga a la persona en cualquier equipo; mientras llega, se usan los valores de fábrica.
-import { useCallback, useEffect, useState } from 'react';
+// Se envía solo lo que cambia y se vuelve a leer al abrir la ⚙: «Avisos por correo» también se cambia desde
+// «Compartir lista» (o desde otra pestaña), y reenviar la copia vieja lo desactivaba sin aviso (05/11/2026).
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../../../api/client';
 
 export interface Ajustes {
@@ -19,6 +21,12 @@ export const AJUSTES_DE_FABRICA: Ajustes = {
 export function useAjustes() {
   const [ajustes, setAjustes] = useState<Ajustes>(AJUSTES_DE_FABRICA);
   const [error, setError] = useState('');
+  const actuales = useRef(ajustes);
+  useEffect(() => { actuales.current = ajustes; }, [ajustes]);
+
+  const recargar = useCallback(async () => {
+    try { setAjustes(await api.get<Ajustes>('/tasks/ajustes')); } catch { /* se queda lo que había */ }
+  }, []);
 
   useEffect(() => {
     let vigente = true;
@@ -27,17 +35,18 @@ export function useAjustes() {
   }, []);
 
   const cambiar = useCallback(async (cambios: Partial<Ajustes>) => {
-    const antes = ajustes;
-    const nuevos = { ...ajustes, ...cambios };
-    setAjustes(nuevos);
+    const antes = actuales.current;
+    setAjustes(a => ({ ...a, ...cambios }));
     try {
-      setAjustes(await api.put<Ajustes>('/tasks/ajustes', nuevos));
+      setAjustes(await api.put<Ajustes>('/tasks/ajustes', cambios));
       setError('');
     } catch {
-      setAjustes(antes);
+      // Se deshace solo lo que se intentó cambiar (otro cambio hecho mientras tanto se respeta).
+      const deshacer = Object.fromEntries(Object.keys(cambios).map(k => [k, antes[k as keyof Ajustes]]));
+      setAjustes(a => ({ ...a, ...deshacer }));
       setError('No se pudo guardar la configuración');
     }
-  }, [ajustes]);
+  }, []);
 
-  return { ajustes, cambiar, error };
+  return { ajustes, cambiar, error, recargar };
 }
