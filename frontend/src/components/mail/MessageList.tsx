@@ -288,7 +288,7 @@ export function MessageList() {
             // repetido comparando el texto, y con «1 correo nuevo» frente a «Nuevo correo
             // recibido» salían dos avisos por un solo correo (candado T-53, 12/10/2026).
             cuerpo: newCount === 1 ? 'Nuevo correo recibido' : `${newCount} correos nuevos`,
-            tipo: 'correo', etiqueta: 'new-mail',
+            tipo: 'correo', etiqueta: 'new-mail', respaldo: true,
           });
         } else if (permisoNotificacion() !== 'denied') {
           void pedirPermisoNotificacion();
