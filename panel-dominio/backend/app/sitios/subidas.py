@@ -17,7 +17,7 @@ from fastapi import HTTPException, Request
 
 from app.sitios import config
 
-RE_SUBIDA = re.compile(r"^[0-9a-f]{32}\.(zip|tar\.gz|tgz|sql|sql\.gz|txt|subida|gancho)$")
+RE_SUBIDA = re.compile(r"^[0-9a-f]{32}\.(zip|tar\.gz|tgz|rar|7z|sql|sql\.gz|txt|subida|gancho)$")
 _PARCIAL = ".parcial"
 
 
@@ -31,6 +31,10 @@ def _extension(clase: str, cabeza: bytes) -> str | None:
             return ".zip"
         if cabeza.startswith(b"\x1f\x8b"):
             return ".tar.gz"
+        if cabeza.startswith(b"Rar!\x1a\x07"):  # RAR 4 (…\x00) y RAR 5 (…\x01\x00)
+            return ".rar"
+        if cabeza.startswith(b"7z\xbc\xaf\x27\x1c"):
+            return ".7z"
         return None
     if clase == "respaldo":
         if cabeza.startswith(b"\x1f\x8b"):
@@ -39,7 +43,7 @@ def _extension(clase: str, cabeza: bytes) -> str | None:
     return ".txt"
 
 
-_FORMATO = {"paquete": "El paquete debe ser .zip o .tar.gz",
+_FORMATO = {"paquete": "El paquete debe ser .zip, .tar.gz, .rar o .7z",
             "respaldo": "El respaldo de la base debe ser .sql o .sql.gz"}
 
 

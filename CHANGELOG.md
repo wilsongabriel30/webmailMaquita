@@ -7,8 +7,57 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.11.8] - 2026-10-30
+
+Tareas al estilo Microsoft To Do: listas propias y compartidas, grupos, detalle con pasos, repetición y archivos, asignar tareas con plazo e indicaciones, recordatorios, Sugerencias y configuración.
+
+### Añadido
+- **Listas inteligentes** como To Do: Mi día (por persona y día, hora de Guayaquil), Importante, Planeado, Asignado a mí, Correo electrónico marcado y Tareas, con su contador.
+- **Listas propias y grupos**: crear, renombrar, colorear, duplicar, imprimir y eliminar listas; un emoji al inicio del nombre hace de ícono. Grupos de listas que se pliegan, y arrastrar para ordenar. Cinco órdenes (personalizado, vencimiento, importancia, alfabético y creación); en una lista el orden se guarda para todas sus personas.
+- **Panel de detalle**: completar, título editable, importancia, pasos («n de m» en la fila), Mi día, recordatorio, fecha de vencimiento, repetición (diaria, laborables, semanal, mensual, anual o personalizada), categoría, archivos adjuntos y nota, con la actividad de la tarea. Mover entre listas y búsqueda en título, nota y pasos.
+- **Compartir listas** con personas de la organización (propietaria y miembros), con actividad y cambios en tiempo real.
+- **«Asignar tarea a:»** desde el panel o el clic derecho, en cualquier vista: personas del directorio o cuentas de área escritas completas. Con plazo («Hoy», «Mañana», «En 3 días», «La próxima semana» o una fecha) e indicaciones de hasta 2.000 caracteres. Quien la recibe la ve en «Asignado a mí» con «Asignada por …», recibe un correo con el plazo y las indicaciones, y al marcarla como realizada avisa a quien la asignó.
+- **Recordatorios y «Vence hoy»** (desde las 08:00) en pantalla y como notificación del navegador. El recordatorio abre Tareas.
+- **Barra para agregar** como Outlook (fecha, recordatorio y repetición antes de crear), **Sugerencias** en Mi día (vencidas, para hoy, próximas y recientes), **Grupo** (por lista, vencimiento o categoría) y **⚙ Configuración** guardada en el servidor: confirmar antes de eliminar, importantes arriba, sonido al completar, listas inteligentes visibles y avisos por correo.
+
+### Corregido
+- **Tareas: tableros y listas «Tareas» duplicados.** Al abrir Tareas por primera vez, las peticiones simultáneas creaban cada una su tablero: 13 personas tenían dos listas «Tareas». «Mover a…» la repetía y, con la misma hora de creación, una tarea nueva podía ir a la lista que no se ve. Ahora se crea con un candado por persona, y una migración une los repetidos sin perder nada.
+- **Tareas en el teléfono**: la cuadrícula medía 540 px y la estrella y la fecha quedaban fuera de la pantalla. Ahora cabe en 390 px, y los botones de la cabecera bajan de línea.
+- **Tareas: la búsqueda no encontraba si faltaba una tilde.** Ahora «accion» encuentra «Acción»; la ñ se respeta.
+- **Tareas: la fecha se ve igual en Cuadrícula y Lista**: «Hoy», «Mañana» o «Ayer»; en rojo si venció, en azul si vence hoy y en gris si está completada.
+- **La burbuja del chat tapaba** la papelera del panel de detalle de Tareas y las tarjetas de recordatorio, que ahora se apilan encima de ella. La ⚙ junto al buscador de Tareas ya no queda cortada.
+- **Tildes y eñes en textos visibles**: «Confirmar recuperación», «Cada día», «Cada año» y «reenvíos». «Descubrir grupos» ya no cita una dirección de ejemplo: ahora remite al Departamento de Tecnología.
+- **Candado (pruebas de humo), prueba T-40**: salía en rojo en falso cuando caducaba la sesión de pruebas guardada.
+
+### Al actualizar
+- El actualizador aplica siete migraciones de Tareas, todas idempotentes:
+  - `2026-10-29-tareas-to-do-f0.sql`, `2026-10-30-…-f3`, `2026-10-31-…-f4`, `2026-11-01-…-f5` y `2026-11-02-…-f6`;
+  - `2026-11-03-tareas-tablero-unico.sql`, que une los tableros repetidos y crea índices únicos;
+  - `2026-11-04-tareas-asignacion-plazo.sql`.
+- Las tareas y listas existentes se conservan. Cada lista recibe a su propietaria como miembro, y lo que estaba en «Mi día» sigue ahí.
+- No hay servicios, temporizadores ni variables de entorno nuevos.
+
+## [1.11.7] - 2026-10-29
+
+Redactor con grupo «Párrafo» como Outlook e importancia que por fin viaja en el correo; el Calendario avisa si una invitación no llega; Tareas con contadores y vista Cuadrícula; sitios en .rar y .7z (entrega de Andes).
+
+### Añadido
+- **Grupo «Párrafo» completo en la pestaña Mensaje del redactor**, como en Outlook: viñetas, numeración, aumentar y disminuir sangría (también en párrafos normales; en listas la sangría acompaña a la viñeta), Estilos (Normal, Título 1–3, Cita, Código), cita, alinear, espaciado (interlineado 1,0 a 3,0 y espacio antes y después del párrafo) y dirección de izquierda a derecha o de derecha a izquierda. Todo se guarda como estilos en línea y atributo `dir`: el correo se ve igual en Outlook, Gmail y móviles. Nuevos `compose/formatoParrafo.ts` y `compose/GrupoParrafo.tsx`; prueba de navegador `pruebas-navegador/pruebas/21-cinta-parrafo.spec.js` (envía y compara el HTML recibido).
+- **Sitios: .rar y .7z en «Subir y migrar» y en el administrador de archivos** (entrega 1 de Andes). Módulo `deploy/sitios/lib/archivos_7z.py` con 7-Zip, sin shell: lista antes de extraer y rechaza enlaces, archivos especiales, contraseña y rutas peligrosas; topes de elementos y bytes, y `RLIMIT_FSIZE` sobre 7z contra bombas de descompresión. Toda la cadena los acepta: portal (`subidas.py`, por los primeros bytes), orden `paquete` de `maquita-sudo`, administrador de archivos del portal y del panel general, y formularios del panel. Los .rar necesitan el códec propietario `7zip-rar` (sección non-free); sin él, el panel dice claramente que no hay soporte para .rar.
+- **El Calendario avisa cuando una invitación no llega al destinatario** (dirección mal escrita, IP bloqueada, error de autenticación): cada invitación lleva su propio Message-ID y la pantalla muestra si quedó entregada, rechazada o en espera, con el motivo explicado. Nuevo `backend/app/calendar/estado_invitaciones.py`.
+- **Tareas: número de pendientes en cada vista de la barra lateral** (Mi día, Importante, Planeado, Asignado a mí, Correo marcado, Tareas), con `GET /api/tasks/views/counts`, y **vista Cuadrícula** como Outlook To Do (columnas Título y Fecha de vencimiento).
+- **Arrastrar un correo al Calendario abre el evento encima del correo**, como Outlook: título «RE: asunto», el remitente como asistente, la próxima media hora, videollamada activada y el correo citado en la descripción.
+- **Teams Maquita (app de escritorio): la sesión queda abierta hasta cerrar sesión desde la app.** En el navegador no cambia nada; cerrar sesión, cambiar la contraseña o revocar la sesión la cierran al instante, como siempre.
+
 ### Cambiado
 - **El aviso de recordatorio en pantalla tiene un botón «Entrar a la reunión»**, que abre el enlace en otra pestaña. Al pulsar la notificación del navegador también se abre la reunión directamente, en lugar del Calendario. El servidor envía el enlace aparte en el aviso (`link`) y la interfaz solo acepta enlaces http(s).
+
+### Corregido
+- **Los botones «Importancia alta» e «Importancia baja» no hacían nada**: el correo salía siempre sin importancia. Ahora la importancia viaja en el envío inmediato, en la cola sin conexión y en el envío programado, y las cabeceras (`Importance`, `X-Priority`, `Priority`) se agregan solo si se elige Alta o Baja.
+- **Soltar un correo en los íconos Calendario y Tareas no hacía nada**: la lista declaraba el arrastre solo como «mover» y el navegador rechazaba el soltado.
+- **Segundo paso del 2FA: mensaje único** «Código o contraseña incorrectos…». Antes, con la contraseña errónea, la pantalla decía «Credenciales incorrectas» y la persona insistía con el código. No revela cuál de los dos falló.
+- **Enviar con etiqueta de sensibilidad fallaba siempre con «Solicitud inválida»** (400), con cualquier etiqueta (Pública, Interna, Confidencial o Restringida) y cualquier destinatario. El modelo del envío rechaza campos desconocidos y no declaraba `sensitivity`. Ahora la acepta. Si un correo «Confidencial» o «Restringida» va a destinatarios externos, la pantalla lo explica con la lista de externos (antes mostraba el JSON crudo), y un administrador puede enviarlo igual dejando el motivo registrado. Reportado en Fundación Maquita.
+- **Los recordatorios de eventos no traían el enlace de la reunión.** El correo de recordatorio decía solo «📅 <título> empieza a las HH:MM». Ahora incluye el horario, un botón «Entrar a la reunión» con el enlace (Meet, Zoom, Teams, Jitsi… tomado del lugar o de la descripción del evento) y el lugar físico si lo hay. Vale también para los eventos recurrentes. Reportado en Maquita Turismo.
 
 ### Seguridad
 - **Pillow 12.3.0 → 13.0.0** en el backend, el Almacén y el editor de PDF: corrige varias denegaciones de servicio con imágenes manipuladas (bucles infinitos, imágenes de tamaño cero, lectura fuera de memoria, APNG). El webmail procesa imágenes de adjuntos y del Almacén, así que el riesgo era real.
@@ -16,9 +65,10 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 - **vite 8.3.5** en el panel de administración (avisos altos de vite y launch-editor; solo afectan al servidor de desarrollo).
 - Con esto vuelven a verde las auditorías pip-audit, npm audit y Trivy del «Security Scan», que fallaban también en main.
 
-### Corregido
-- **Enviar con etiqueta de sensibilidad fallaba siempre con «Solicitud inválida»** (400), con cualquier etiqueta (Pública, Interna, Confidencial o Restringida) y cualquier destinatario. El modelo del envío rechaza campos desconocidos y no declaraba `sensitivity`. Ahora la acepta. Si un correo «Confidencial» o «Restringida» va a destinatarios externos, la pantalla lo explica con la lista de externos (antes mostraba el JSON crudo), y un administrador puede enviarlo igual dejando el motivo registrado. Reportado en Fundación Maquita.
-- **Los recordatorios de eventos no traían el enlace de la reunión.** El correo de recordatorio decía solo «📅 <título> empieza a las HH:MM». Ahora incluye el horario, un botón «Entrar a la reunión» con el enlace (Meet, Zoom, Teams, Jitsi… tomado del lugar o de la descripción del evento) y el lugar físico si lo hay. Vale también para los eventos recurrentes. Reportado en Maquita Turismo.
+### Al actualizar
+- La migración `migrations/2026-10-28-importancia-programados.sql` (columna `importance` en `scheduled_emails`) la aplica el actualizador.
+- En servidores con sitios, la sección «sitios» instala `7zip`, y también `7zip-rar` si el servidor tiene habilitada la sección non-free de APT; si no, .zip, .tar.gz y .7z funcionan y un .rar recibe un aviso claro. El ajuste 78 instala el validador nuevo de `maquita-sudo`.
+- El grupo «Párrafo» es solo del frontend: no cambia la base de datos.
 
 ## [1.11.6] - 2026-10-26
 

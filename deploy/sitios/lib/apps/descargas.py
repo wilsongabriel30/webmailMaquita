@@ -99,14 +99,25 @@ def github_ultima(repo, patron):
     raise ErrorSitio(f"no se encontró el paquete en la última versión de {repo}")
 
 
+TOPE_7Z_BYTES = 3 * 1024**3    # igual que paquete.py (3 GB descomprimido)
+TOPE_7Z_ELEMENTOS = 150_000
+
+
+def _es_7z(ruta):
+    return str(ruta).lower().endswith((".rar", ".7z"))
+
+
 def _seguro(nombre):
     return not (nombre.startswith("/") or ".." in nombre.replace("\\", "/").split("/"))
 
 
 def extraer(paquete, destino, quitar_prefijo=True):
-    """Extrae .zip o .tar.gz rechazando rutas peligrosas. Si todo cuelga de una carpeta, la quita."""
+    """Extrae .zip, .tar.gz, .rar o .7z rechazando rutas peligrosas. Si todo cuelga de una carpeta, la quita."""
     os.makedirs(destino, exist_ok=True)
-    if zipfile.is_zipfile(paquete):
+    if _es_7z(paquete):
+        import archivos_7z
+        nombres = archivos_7z.extraer_a(paquete, destino, _seguro, TOPE_7Z_BYTES, TOPE_7Z_ELEMENTOS)
+    elif zipfile.is_zipfile(paquete):
         with zipfile.ZipFile(paquete) as z:
             nombres = z.namelist()
             if not all(_seguro(n) for n in nombres):

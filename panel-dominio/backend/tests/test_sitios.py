@@ -288,11 +288,24 @@ def test_subida_por_encima_del_tope(entorno):
     assert r.status_code == 413 and os.listdir(subidas) == []
 
 
-@pytest.mark.parametrize("contenido", [b"MZ\x90\x00" + b"0" * 50, b"", b"<?php echo 1;"])
+@pytest.mark.parametrize("contenido", [b"MZ\x90\x00" + b"0" * 50, b"", b"<?php echo 1;", b"Rar!" + b"0" * 50, b"7z" + b"0" * 50])
 def test_paquete_que_no_es_zip_ni_tar_gz(entorno, contenido):
     cliente_http, simulado, subidas = entorno
-    assert cliente_http.put("/api/sitios/uno.example/paquete", headers=CABECERA, content=contenido).status_code == 400
+    r = cliente_http.put("/api/sitios/uno.example/paquete", headers=CABECERA, content=contenido)
+    assert r.status_code == 400 and (not contenido or ".rar o .7z" in r.json()["detail"])
     assert simulado.peticiones == [] and os.listdir(subidas) == []
+
+
+@pytest.mark.parametrize("extension, cabeza", [("7z", b"7z\xbc\xaf\x27\x1c\x00\x04"), ("rar", b"Rar!\x1a\x07\x01\x00"),
+                                               ("rar", b"Rar!\x1a\x07\x00")])
+def test_paquete_7z_o_rar_se_reconoce_por_los_bytes(entorno, extension, cabeza):
+    """El nombre que trae el archivo no cuenta: la extensión sale de los primeros bytes (RAR 4 y RAR 5, 7z)."""
+    cliente_http, simulado, subidas = entorno
+    r = cliente_http.put("/api/sitios/blog.uno.example/paquete?nombre=sitio.zip", headers=CABECERA, content=cabeza + b"0" * 100)
+    assert r.status_code == 200
+    p = simulado.peticiones[-1]
+    assert p["orden"] == "paquete" and re.fullmatch(r"[0-9a-f]{32}\." + extension, p["args"]["subida"])
+    assert os.listdir(subidas) == []
 
 
 def test_archivo_de_texto(entorno):

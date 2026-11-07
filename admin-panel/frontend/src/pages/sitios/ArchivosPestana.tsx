@@ -11,7 +11,7 @@ const MODOS = [
   { modo: "644", texto: "644 — lectura para todos" }, { modo: "755", texto: "755 — carpeta o script ejecutable" },
   { modo: "600", texto: "600 — solo el dueño (la web no lo lee)" }, { modo: "700", texto: "700 — carpeta solo del dueño" },
 ];
-const COMPRIMIDO = /\.(zip|tar\.gz|tgz|tar)$/i;
+const COMPRIMIDO = /\.(zip|tar\.gz|tgz|tar|rar|7z)$/i;
 const unir = (carpeta: string, nombre: string) => (carpeta === "." ? nombre : `${carpeta}/${nombre}`);
 
 /* Administrador de archivos de la carpeta pública del sitio. Todo se hace con el usuario del sitio, nunca como root;

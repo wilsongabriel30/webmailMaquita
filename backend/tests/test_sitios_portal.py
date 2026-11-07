@@ -425,6 +425,18 @@ def test_paquete_se_copia_y_se_borra_la_subida(mundo):
     assert not origen.exists()
 
 
+@pytest.mark.parametrize("extension, cabeza", [("7z", b"7z\xbc\xaf\x27\x1c"), ("rar", b"Rar!\x1a\x07\x01\x00")])
+def test_paquete_7z_o_rar_llega_con_su_extension(mundo, extension, cabeza):
+    mundo.sitio("example.org")
+    nombre = NOMBRE.replace(".zip", "." + extension)
+    (mundo.tmp / "subidas-portal" / nombre).write_bytes(cabeza + b"contenido")
+    pedir("paquete", "example.org", subida=nombre, con_bd=False)
+    programa, orden, sitio, archivo, bd_ = mundo.ayudante.ultima
+    assert (orden, sitio, bd_) == ("paquete", "example.org", "sin-bd")
+    assert archivo != nombre and archivo.endswith("." + extension)  # maquita-sitios decide por la extensión qué abre
+    assert (mundo.tmp / "subidas" / archivo).read_bytes() == cabeza + b"contenido"
+
+
 def test_paquete_con_respaldo(mundo):
     mundo.sitio("example.org")
     (mundo.tmp / "subidas-portal" / NOMBRE).write_bytes(b"PK")

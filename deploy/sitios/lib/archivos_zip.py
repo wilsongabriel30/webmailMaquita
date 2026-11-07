@@ -1,4 +1,4 @@
-"""Comprimir en .zip y descomprimir .zip, .tar.gz, .tgz y .tar desde el administrador de archivos.
+"""Comprimir en .zip y descomprimir .zip, .tar.gz, .tgz, .tar (y .rar/.7z vía archivos_7z) desde el administrador de archivos.
 
 Corre con el usuario del sitio. Al descomprimir se rechaza el archivo entero, antes de escribir nada, si trae
 rutas absolutas o con «..» («zip slip»), enlaces simbólicos o duros, dispositivos, más de TOPE_ARCHIVOS
@@ -13,13 +13,14 @@ import tarfile
 import zipfile
 import zlib
 
+import archivos_7z
 from archivos_rutas import dentro, nombre_valido, partes, relativa, resolver, seguir
 from comun import ErrorSitio
 
 TOPE_BYTES = 1024**3        # 1 GB descomprimido
 TOPE_ARCHIVOS = 20_000
 TOPE_COMPRIMIR = 2 * 1024**3
-EXTENSIONES = (".zip", ".tar.gz", ".tgz", ".tar")
+EXTENSIONES = (".zip", ".tar.gz", ".tgz", ".tar") + archivos_7z.EXTENSIONES
 
 
 class _Bomba(ErrorSitio):
@@ -115,6 +116,14 @@ def _miembros_tar(t):
     return salida, total
 
 
+def _miembros_7z(origen):
+    salida, total = [], 0
+    for nombre, es_carpeta, tamano in archivos_7z.listar(origen):
+        total += tamano
+        salida.append((_nombre_miembro(nombre), es_carpeta, tamano, nombre))
+    return salida, total
+
+
 def _carpeta_segura(raiz, destino, trozos):
     """Crea (si hace falta) cada carpeta del camino comprobando que ninguna sea un enlace que salga."""
     actual = destino
@@ -138,7 +147,12 @@ def descomprimir(raiz, archivo, destino):
     carpeta = seguir(raiz, resolver(raiz, destino))
     if not os.path.isdir(carpeta):
         raise ErrorSitio("la carpeta de destino no existe")
-    if zipfile.is_zipfile(origen):
+    if archivos_7z.es_7z(origen):
+        miembros, total = _miembros_7z(origen)
+        _comprobar(miembros, total)
+        with archivos_7z.extraido(origen, carpeta, TOPE_BYTES) as abrir:
+            escritos = _extraer(raiz, carpeta, miembros, abrir)
+    elif zipfile.is_zipfile(origen):
         with zipfile.ZipFile(origen) as z:
             miembros, total = _miembros_zip(z)
             _comprobar(miembros, total)
@@ -150,7 +164,7 @@ def descomprimir(raiz, archivo, destino):
                 _comprobar(miembros, total)
                 escritos = _extraer(raiz, carpeta, miembros, lambda m: t.extractfile(m))
         except tarfile.TarError:
-            raise ErrorSitio("no es un .zip ni un .tar.gz válido")
+            raise ErrorSitio("no es un .zip, .tar.gz, .rar ni .7z válido")
     return {"ruta": relativa(raiz, carpeta), "archivos": escritos}
 
 
