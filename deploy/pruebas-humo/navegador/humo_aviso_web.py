@@ -136,8 +136,10 @@ def main(tok):
                 if pg.evaluate("() => window.__mqAvisos.length"):
                     pg.wait_for_timeout(9000)
                     break
+            # Desde el 06/11/2026 el aviso lleva remitente y asunto (lib/textoAvisoCorreo.ts), no el
+            # nombre de la aplicacion: el de este correo se reconoce por su asunto, unico en cada prueba.
             de_correo = [a for a in pg.evaluate("() => window.__mqAvisos")
-                         if 'Mail' in (a.get('titulo') or '')]
+                         if asunto in ((a.get('titulo') or '') + ' ' + (a.get('body') or ''))]
             check('T-53 . UN correo produce UN SOLO aviso', len(de_correo) == 1,
                   '%d avisos' % len(de_correo))
         else:
