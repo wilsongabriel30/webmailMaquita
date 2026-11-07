@@ -10,6 +10,7 @@ import { aplicarBusqueda, cambiarAmbito } from "../../lib/busquedaGlobal";
 import { useResponsive } from "../../hooks/useResponsive";
 import { useNombreApp } from "../../lib/marca";
 import OpcionDescargaApp from './OpcionDescargaApp';
+import OpcionDescargaTeams from './OpcionDescargaTeams';
 import { nombreArchivoApk, textoTamano, urlApk, useManifiestoApp } from '../../lib/appAndroid';
 import { RUTA_CONFIGURAR_CORREO } from '../../lib/appMovil';
 import { BotonAsistente } from '../asistente-lateral';
@@ -343,6 +344,7 @@ export function Topbar() {
                 Configuración
               </button>
               <OpcionDescargaApp alPulsar={() => setShowProfile(false)} />
+              <OpcionDescargaTeams alPulsar={() => setShowProfile(false)} />
               <div className="h-px bg-[#edebe9] my-1" />
               <a href="/webmail/privacidad" target="_blank" rel="noopener" onClick={() => setShowProfile(false)}
                 className="block w-full text-left px-4 py-2 text-[13px] text-[#323130] hover:bg-[#f3f2f1]">
