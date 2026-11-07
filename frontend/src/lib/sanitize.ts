@@ -11,12 +11,14 @@ export function sanitizeHtml(dirty: string): string {
       'h4', 'h5', 'h6', 'hr', 'i', 'img', 'li', 'ol', 'p', 'pre', 's',
       'small', 'span', 'strong', 'table', 'tbody', 'td', 'tfoot', 'th',
       'thead', 'tr', 'u', 'ul', 'sub', 'sup', 'center', 'font',
+      // col/colgroup (05/11/2026): anchos de columna de tablas de Excel/Outlook; nh3 ya los admite.
+      'col', 'colgroup',
     ],
     ALLOWED_ATTR: [
       'href', 'src', 'alt', 'title', 'width', 'height', 'style', 'class',
       'id', 'target', 'rel', 'colspan', 'rowspan', 'align', 'valign',
       'border', 'cellpadding', 'cellspacing', 'bgcolor', 'color', 'size',
-      'face', 'dir', 'lang',
+      'face', 'dir', 'lang', 'span',
     ],
     ALLOW_DATA_ATTR: false,
     ADD_ATTR: ['target'],

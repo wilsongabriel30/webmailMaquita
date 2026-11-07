@@ -3,6 +3,8 @@
 // navegador lo permite, una notificación del sistema) cuando sube el número de no leídos
 // de otra cuenta. Se puede apagar desde la propia barra; la preferencia queda en el equipo.
 import { showToast } from '../components/common/Toast';
+import { api } from '../api/client';
+import { textoAvisoCuenta } from './textoAvisoCorreo';   // remitente y asunto (06/11/2026)
 import { elegirCuenta } from './cuentaActiva';
 import type { Cuenta } from './cuentas';
 
@@ -51,10 +53,23 @@ export function avisarCorreoNuevo(
     const ahora = actual[c.email];
     if (typeof antes !== 'number' || typeof ahora !== 'number' || ahora <= antes) continue;
     const nuevos = ahora - antes;
-    const texto = `${nuevos === 1 ? 'Correo nuevo' : `${nuevos} correos nuevos`} en ${c.email}`;
-    showToast(texto, { label: 'Ver', onClick: () => elegirCuenta(c.email, propia) });
-    notificarSistema(c.nombre || c.email, texto);
+    avisarConDetalle(c, nuevos, propia);
     avisadas.push(c.email);
   }
   return avisadas;
+}
+
+/* 06/11/2026: el aviso dice quién envió el último correo y su asunto (como los avisos en tiempo real).
+ * Se pide al servidor solo cuando sube el conteo; si falla, sale el texto de siempre. */
+function avisarConDetalle(c: Cuenta, nuevos: number, propia: string): void {
+  const mostrar = (de?: string, asunto?: string) => {
+    const a = textoAvisoCuenta(nuevos, c.email, de, asunto);
+    const texto = de ? `${a.titulo} — ${a.cuerpo}` : a.cuerpo;
+    showToast(texto, { label: 'Ver', onClick: () => elegirCuenta(c.email, propia) });
+    notificarSistema(de ? a.titulo : (c.nombre || c.email), a.cuerpo);
+  };
+  api
+    .get<{ de?: string; asunto?: string }>(`/mail/cuentas/ultimo-sin-leer?cuenta=${encodeURIComponent(c.email)}`)
+    .then((r) => mostrar(r.de, r.asunto))
+    .catch(() => mostrar());
 }

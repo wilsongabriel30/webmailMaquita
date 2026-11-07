@@ -4,6 +4,7 @@ import { api } from '../../api/client';
 import { getInitials, getAvatarColor } from '../contacts/types';
 import { ContextMenu, type MenuItem } from '../common/ContextMenu';
 import { showToast } from '../common/Toast';
+import { partirDirecciones } from '../../lib/destinatariosRespuesta';
 import {
   ETIQUETA_CAMPO, arrastreEnCurso, escucharMover, esArrastreDeDestinatario, idContactoDe, idDeCampo,
   iniciarArrastre, nombreDe, pedirMostrarCampo, pedirMover, terminarArrastre, type CampoDestinatario,
@@ -192,18 +193,22 @@ export function RecipientField({ label, value, onChange, onToggleExtra, showExtr
   }, [onChange]);
 
   const addChip = useCallback((text: string, suggestion?: ContactSuggestion) => {
-    const email = text.trim();
-    if (!email || chips.some(c => c.email === email)) return;
-    const display = suggestion?.name || email;
-    const newChips = [...chips, {
+    // Una lista pegada desde Zimbra, Outlook o Excel («a@x.com; b@y.com») se parte en un
+    // destinatario por dirección; antes quedaba un solo destinatario inválido.
+    const piezas = suggestion
+      ? [text.trim()]
+      : partirDirecciones(text.replace(/[\r\n\t]+/g, ',')).map(p => p.trim()).filter(Boolean);
+    const nuevos = piezas.filter((email, i) => email && !chips.some(c => c.email === email) && piezas.indexOf(email) === i);
+    if (!nuevos.length) { setInput(''); return; }
+    const newChips = [...chips, ...nuevos.map(email => ({
       email,
-      display,
+      display: suggestion?.name || email,
       source: suggestion?.source,
       jobTitle: suggestion?.job_title,
       department: suggestion?.department,
       phone: suggestion?.phone,
       photoUrl: suggestion?.photo_url,
-    }];
+    }))];
     updateChips(newChips);
     setInput('');
     setSuggestions([]);
@@ -470,7 +475,8 @@ export function RecipientField({ label, value, onChange, onToggleExtra, showExtr
               <ChipAvatar chip={chip} />
               <span className="max-w-[180px] truncate">{chip.display}</span>
               <button onClick={(e) => { e.stopPropagation(); removeChip(i); }}
-                className="w-4 h-4 rounded-full flex items-center justify-center text-[#a19f9d] hover:text-[#605e5c] hover:bg-[#c8c6c4] opacity-0 group-hover:opacity-100 transition-all ml-0.5">
+                aria-label={`Quitar a ${chip.display}`} title={`Quitar a ${chip.display}`}
+                className="w-5 h-5 rounded-full flex items-center justify-center text-[#605e5c] hover:text-[#323130] hover:bg-[#c8c6c4] opacity-70 group-hover:opacity-100 transition-all ml-0.5">
                 <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
                 </svg>

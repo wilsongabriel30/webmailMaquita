@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api/client';
+import { RemitentesAutorizados } from './RemitentesAutorizados';   // quién puede enviar a la lista (06/11/2026)
 
 interface GroupMember {
   id: number;
@@ -17,6 +18,7 @@ interface Group {
   domain: string;
   active: boolean;
   allow_external: boolean;
+  allowed_senders?: string;
   member_count: number;
   members?: GroupMember[];
 }
@@ -269,6 +271,17 @@ export function GroupManager() {
               </div>
               <button onClick={() => setSelectedGroup(null)} className="text-sm text-slate-400 hover:text-slate-600">Cerrar</button>
             </div>
+
+            <RemitentesAutorizados
+              grupoId={selectedGroup.id}
+              direccion={selectedGroup.address}
+              autorizados={selectedGroup.allowed_senders || ''}
+              onGuardado={(texto) => {
+                setSelectedGroup({ ...selectedGroup, allowed_senders: texto });
+                setGroups((gs) => gs.map((x) => (x.id === selectedGroup.id ? { ...x, allowed_senders: texto } : x)));
+              }}
+            />
+            <h4 className="text-sm font-semibold text-slate-800 mb-2">Miembros (reciben los correos)</h4>
 
             <div className="flex gap-2 mb-4">
               <input value={newMember} onChange={(e) => setNewMember(e.target.value)}

@@ -34,13 +34,17 @@ export function TwoFactorGate() {
         <p className="text-sm text-gray-700 mb-3">
           {pol.blocked
             ? `Para proteger tu cuenta, ${org} exige la verificación en dos pasos. Debes activarla ahora para seguir usando el correo.`
-            : `${org} exige la verificación en dos pasos para todas las cuentas. Actívala ahora; a partir del ${fecha ?? 'plazo indicado'} será obligatoria para entrar.`}
+            : `${org} pedirá la verificación en dos pasos en todas las cuentas a partir del ${fecha ?? 'plazo indicado'}. Hasta entonces puede seguir entrando como siempre y activarla cuando le convenga (también desde Configuración → Seguridad).`}
         </p>
         <p className="text-xs text-gray-500 mb-4">Necesitas una app como Google Authenticator o Microsoft Authenticator en tu celular. Guarda los códigos de respaldo en un lugar seguro.</p>
-        <TwoFactorSetup />
+        {/* alActivar: al terminar la activación el aviso se cierra solo (antes seguía en pantalla
+            hasta pulsar «Ya la activé»). */}
+        <TwoFactorSetup alActivar={load} />
         <div className="flex justify-end gap-2 mt-4">
-          <button onClick={load} className="px-3 py-2 text-sm rounded bg-blue-600 text-white">Ya la activé</button>
-          {!pol.blocked && <button onClick={dismiss} className="px-3 py-2 text-sm rounded border">Más tarde</button>}
+          {/* «Más tarde» es el botón principal mientras no sea obligatoria: quien no quiere o no
+              puede hacerlo ahora debe poder seguir a su correo sin dudar. */}
+          <button onClick={load} className="px-4 py-2 text-[14px] rounded border">Comprobar de nuevo</button>
+          {!pol.blocked && <button onClick={dismiss} className="px-4 py-2 text-[14px] rounded bg-blue-600 text-white">Más tarde, ir a mi correo</button>}
         </div>
       </div>
     </div>

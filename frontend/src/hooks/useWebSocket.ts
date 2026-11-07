@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useMailStore } from '../store/mailStore';
 import { showToast } from '../components/common/Toast';
+import { textoAvisoCorreo, textoAvisoCuenta } from '../lib/textoAvisoCorreo';   // remitente y asunto en el aviso (06/11/2026)
 import { avisar } from '../lib/avisosNavegador';   // T-53: icono propio y clic que lleva a la bandeja
 import { permisoNotificacion, pedirPermisoNotificacion } from '../lib/notificacionSegura';   // AM-10
 import { useAuthStore } from '../store/authStore';
@@ -88,11 +89,8 @@ export function useWebSocket(enabled: boolean = true) {
 
               // Show toast notification
               const delta = data.delta || 1;
-              showToast(
-                delta === 1
-                  ? 'Nuevo correo recibido'
-                  : `${delta} correos nuevos`,
-              );
+              const aviso = textoAvisoCorreo(delta, data.de, data.asunto);   // 06/11/2026
+              showToast(aviso.cuerpo.replace(/\n/g, ' · '));
 
               // Play sound
               playNotificationSound();
@@ -100,12 +98,14 @@ export function useWebSocket(enabled: boolean = true) {
               // Browser notification (if permitted)
               if (permisoNotificacion() === 'granted') {
                 try {
-                  avisar(nombreApp(), {
-                    cuerpo: delta === 1 ? 'Nuevo correo recibido' : `${delta} correos nuevos`,
+                  avisar(aviso.titulo, {
+                    cuerpo: aviso.cuerpo,
                     tipo: 'correo',
                     etiqueta: 'new-mail',
                     carpeta: data.folder || 'INBOX',
                     uid: data.uid,
+                    // carpeta + total: si llega el mismo suceso por dos conexiones, un solo aviso (05/11/2026)
+                    claveSuceso: `${data.folder || 'INBOX'}:${data.total ?? ''}:${data.unseen ?? ''}`,
                   });
                 } catch { /* no es crítico: se sigue sin aviso */ }
               }
@@ -130,11 +130,13 @@ export function useWebSocket(enabled: boolean = true) {
                 );
                 useMailStore.getState().setFolders(folders);
                 updateTabBadge(data.unseen);
-                showToast(delta === 1 ? 'Nuevo correo recibido' : `${delta} correos nuevos`);
+                // 06/11/2026: remitente y asunto, como un correo propio.
+                const avisoActiva = textoAvisoCorreo(delta, data.de, data.asunto);
+                showToast(data.de ? `${avisoActiva.titulo} — ${avisoActiva.cuerpo}` : avisoActiva.cuerpo);
                 playNotificationSound();
                 if (permisoNotificacion() === 'granted') {
                   try {
-                    avisar(data.nombre || cuenta, { cuerpo: delta === 1 ? 'Nuevo correo recibido' : `${delta} correos nuevos`, tipo: 'correo', etiqueta: 'new-mail-' + cuenta, carpeta: 'INBOX', uid: data.uid });
+                    avisar(data.de ? avisoActiva.titulo : (data.nombre || cuenta), { cuerpo: avisoActiva.cuerpo, tipo: 'correo', etiqueta: 'new-mail-' + cuenta, carpeta: 'INBOX', uid: data.uid });
                   } catch { /* sin aviso */ }
                 }
                 if (useMailStore.getState().currentFolder === 'INBOX') {
@@ -144,12 +146,14 @@ export function useWebSocket(enabled: boolean = true) {
               }
               if (!avisosActivos()) break;
               const propia = useAuthStore.getState().user?.username || '';
-              const texto = delta === 1 ? `Correo nuevo en ${cuenta}` : `${delta} correos nuevos en ${cuenta}`;
+              // 06/11/2026: remitente, asunto y la cuenta a la que llegó.
+              const avisoCuenta = textoAvisoCuenta(delta, cuenta, data.de, data.asunto);
+              const texto = data.de ? `${avisoCuenta.titulo} — ${avisoCuenta.cuerpo}` : avisoCuenta.cuerpo;
               showToast(texto, { label: 'Ver', onClick: () => elegirCuenta(cuenta, propia) });
               playNotificationSound();
               if (permisoNotificacion() === 'granted') {
                 try {
-                  avisar(data.nombre || cuenta, { cuerpo: texto, tipo: 'correo', etiqueta: 'new-mail-' + cuenta, destino: `/webmail/?cuenta=${encodeURIComponent(cuenta)}&folder=INBOX${data.uid ? `&uid=${data.uid}` : ''}` });
+                  avisar(data.de ? avisoCuenta.titulo : (data.nombre || cuenta), { cuerpo: avisoCuenta.cuerpo, tipo: 'correo', etiqueta: 'new-mail-' + cuenta, destino: `/webmail/?cuenta=${encodeURIComponent(cuenta)}&folder=INBOX${data.uid ? `&uid=${data.uid}` : ''}` });
                 } catch { /* sin aviso */ }
               }
               break;
@@ -185,17 +189,24 @@ export function useWebSocket(enabled: boolean = true) {
               break;
             }
 
+            case 'tareas_cambio': {
+              // Otra persona cambió algo en una lista de Tareas compartida: se recarga sin aviso.
+              window.dispatchEvent(new CustomEvent('refresh-tasks'));
+              break;
+            }
+
             case 'reminder': {
               const remMsg = data.message || 'Recordatorio';
               window.dispatchEvent(new CustomEvent('show-reminder', { detail: data }));
               playNotificationSound();
+              if (data.kind === 'task') window.dispatchEvent(new CustomEvent('refresh-tasks'));
               if (permisoNotificacion() === 'granted') {
                 try {
                   avisar(`${nombreApp()} · Recordatorio`, {
                     cuerpo: remMsg,
                     tipo: 'recordatorio',
                     etiqueta: data.tag || 'reminder',
-                    destino: '/webmail/calendar',
+                    destino: data.kind === 'task' ? '/webmail/tasks' : '/webmail/calendar',
                     enlaceExterno: enlaceReunionSeguro(data.link) || undefined,
                   });
                 } catch { /* no es crítico: se sigue sin aviso */ }

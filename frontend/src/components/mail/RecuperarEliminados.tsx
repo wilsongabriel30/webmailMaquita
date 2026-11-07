@@ -35,16 +35,20 @@ export function RecuperarEliminados({ onCerrar }: { onCerrar: () => void }) {
   const [detalle, setDetalle] = useState<Detalle | null>(null);
   const [abierto, setAbierto] = useState<string | null>(null);
   const [recuperados, setRecuperados] = useState<Set<string>>(new Set());
+  // Un fallo de la consulta NO es «no hay correos»: se avisa y se ofrece reintentar.
+  const [error, setError] = useState(false);
 
   const buscar = (consulta = texto) => {
     setCargando(true);
     setDetalle(null);
+    setError(false);
     api
       .get<{ total: number; dias: number; mensajes: Eliminado[] }>(
         `/mail/borrados?texto=${encodeURIComponent(consulta)}`,
       )
       .then((r) => { setMensajes(r.mensajes || []); setDias(r.dias || 30); })
-      .catch(() => setMensajes([]))
+      // Se conservan los resultados anteriores: solo se avisa del fallo.
+      .catch(() => setError(true))
       .finally(() => setCargando(false));
   };
 
@@ -56,7 +60,7 @@ export function RecuperarEliminados({ onCerrar }: { onCerrar: () => void }) {
     api
       .get<{ total: number; dias: number; mensajes: Eliminado[] }>('/mail/borrados?texto=')
       .then((r) => { if (vivo) { setMensajes(r.mensajes || []); setDias(r.dias || 30); } })
-      .catch(() => { if (vivo) setMensajes([]); })
+      .catch(() => { if (vivo) setError(true); })
       .finally(() => { if (vivo) setCargando(false); });
     return () => { vivo = false; };
   }, []);
@@ -117,7 +121,19 @@ export function RecuperarEliminados({ onCerrar }: { onCerrar: () => void }) {
         <div className="overflow-auto flex-1">
           {cargando && <p className="text-[13px] text-[#605e5c] p-6 text-center">Buscando…</p>}
 
-          {!cargando && mensajes.length === 0 && (
+          {!cargando && error && (
+            <div role="alert" className="m-5 p-4 rounded border border-[#f1bbbc] bg-[#fdf3f4] text-center">
+              <p className="text-[13px] text-[#a4262c]">
+                No pudimos consultar los correos eliminados. Puede ser un problema pasajero de conexión.
+              </p>
+              <button onClick={() => buscar()}
+                className="mt-3 px-4 py-2 bg-[#0078d4] text-white rounded text-[13px] hover:bg-[#106ebe]">
+                Reintentar
+              </button>
+            </div>
+          )}
+
+          {!cargando && !error && mensajes.length === 0 && (
             <p className="text-[13px] text-[#605e5c] p-10 text-center">
               No hay correo eliminado que recuperar de los últimos {dias} días.
               {texto && ' Prueba con otra palabra.'}

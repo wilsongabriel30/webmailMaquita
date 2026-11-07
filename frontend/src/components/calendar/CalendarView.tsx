@@ -1,4 +1,3 @@
-import { api } from "../../api/client";
 import { SchedulingAssistant } from './SchedulingAssistant';
 import { useState, useEffect, useCallback, useMemo } from "react";
 import type { ViewMode, CalendarInfo, CalendarEvent, EventFormData } from "./types/calendar";
@@ -6,6 +5,7 @@ import { useCalendarApi } from "./hooks/useCalendarApi";
 import { CalendarHeader, type CalendarFilters } from "./CalendarHeader";
 import { CalendarSidebar } from "./CalendarSidebar";
 import type { SharedCalendarInfo } from "./CalendarSidebar";
+import { calendariosParaDialogo, unirEventosCompartidos } from "./eventosCompartidos";   // compartidos conmigo (05/11/2026)
 import { MonthView } from "./MonthView";
 import { WeekView } from "./WeekView";
 import { DayView } from "./DayView";
@@ -121,7 +121,7 @@ export default function CalendarView() {
 
   const calApi = useCalendarApi();
   const { fetchCalendars, fetchEvents, deleteEvent, moveEvent, createCalendar, deleteCalendar,
-          shareCalendar, listSharedWithMe,
+          shareCalendar, listSharedWithMe, listSharedEvents,
           loading, error } = calApi;
 
   // Compartición de calendarios
@@ -144,7 +144,12 @@ const [showScheduling, setShowScheduling] = useState(false);
       }
     });
     listSharedWithMe().then((shared) => {
-      if (shared) setSharedCalendars(shared as SharedCalendarInfo[]);
+      if (shared) {
+        const lista = shared as SharedCalendarInfo[];
+        setSharedCalendars(lista);
+        // Visibles desde el inicio, como los propios.
+        setSelectedCalendarIds((prev) => new Set([...prev, ...lista.map((s) => s.calendar_id)]));
+      }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchCalendars]);
@@ -152,11 +157,12 @@ const [showScheduling, setShowScheduling] = useState(false);
   // Load events when date/view changes
   const loadEvents = useCallback(async () => {
     const { start, end } = getDateRange(currentDate, viewMode);
-    const evts = await fetchEvents(start, end);
+    // Los eventos de los calendarios compartidos conmigo se cargan junto a los propios.
+    const [evts, compartidos] = await Promise.all([fetchEvents(start, end), listSharedEvents(start, end)]);
     if (evts) {
-      setEvents(evts);
+      setEvents(unirEventosCompartidos(evts, compartidos));
     }
-  }, [currentDate, viewMode, fetchEvents]);
+  }, [currentDate, viewMode, fetchEvents, listSharedEvents]);
 
   useEffect(() => {
     if (calendars.length > 0) {
@@ -222,12 +228,8 @@ const [showScheduling, setShowScheduling] = useState(false);
   }
 
   async function handleDeleteEvent(id: string) {
-    // T-30: si el evento tiene su reunión Maquita Meet, cancelarla también (avisa a los participantes)
-    try {
-      const ev = await api.get<{ description?: string }>(`/calendar/events/${id}`);
-      const m = /(?:REUNION-ID|X-MAQUITA-REUNION):\s*(\d+)/.exec(ev?.description || "");
-      if (m) await api.post(`/chat/reuniones/${m[1]}/cancelar`, {});
-    } catch { /* sin reunión vinculada */ }
+    // T-30: la reunión de Meet vinculada la cancela el servidor al borrar el evento (puente_meet). Cancelarla antes
+    // desde aquí borraba el evento por el otro lado y este borrado terminaba en «no encontrado».
     await deleteEvent(id);
     setModalOpen(false);
     loadEvents();
@@ -259,7 +261,12 @@ const [showScheduling, setShowScheduling] = useState(false);
     setShareModalOpen(false);
     // Recargar compartidos
     listSharedWithMe().then((shared) => {
-      if (shared) setSharedCalendars(shared as SharedCalendarInfo[]);
+      if (shared) {
+        const lista = shared as SharedCalendarInfo[];
+        setSharedCalendars(lista);
+        // Visibles desde el inicio, como los propios.
+        setSelectedCalendarIds((prev) => new Set([...prev, ...lista.map((s) => s.calendar_id)]));
+      }
     });
   }
 
@@ -452,7 +459,7 @@ const [showScheduling, setShowScheduling] = useState(false);
         initialDurationMinutes={modalInitialDuration}
         initialSummary={modalInitialSummary}
         initialDescription={modalInitialDescription}
-        calendars={calendars}
+        calendars={calendariosParaDialogo(calendars, sharedCalendars)}
         onSave={handleSaveEvent}
         onDelete={handleDeleteEvent}
         onClose={() => setModalOpen(false)}

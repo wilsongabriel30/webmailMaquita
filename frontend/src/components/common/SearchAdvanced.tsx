@@ -77,6 +77,8 @@ export function SearchAdvanced({ value, onChange, onSearch, onBuscarEnContenido,
       onSearch(value);
     }
     if (e.key === 'Escape') {
+      // Sin esto el atajo global de Escape cerraba el correo abierto o quitaba la selección (05/11/2026).
+      e.preventDefault();
       setShowSuggestions(false);
     }
   }, [value, onSearch]);
@@ -224,6 +226,11 @@ function parseChips(query: string): Chip[] {
 }
 
 function getInputPart(query: string): string {
-  // Return the part of the query that's not a recognized operator
-  return query.replace(/(?:from|to|cc|subject|body|has|is|before|after|since|larger|smaller|adjunto|de|para|asunto|antes|despues|después|entre|dominio|de-dominio|mayor|menor|es|tiene|contenido):[^\s]*/gi, '').trim();
+  // Return the part of the query that's not a recognized operator.
+  // No se recorta el espacio FINAL (05/11/2026): al ser un input controlado, el trim borraba la
+  // barra espaciadora en cuanto se pulsaba y no se podía escribir una segunda palabra.
+  return query
+    .replace(/(?:from|to|cc|subject|body|has|is|before|after|since|larger|smaller|adjunto|de|para|asunto|antes|despues|después|entre|dominio|de-dominio|mayor|menor|es|tiene|contenido):[^\s]*/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/^\s+/, '');
 }

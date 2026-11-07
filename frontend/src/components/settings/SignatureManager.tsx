@@ -13,6 +13,14 @@
 import { sanitizeSignatureHtml } from '../../lib/sanitize';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../../api/client';
+import { envolverMensaje, extraerMensaje } from './firmaMensaje';
+
+/** El redactor guarda la firma en la pestaña para no pedirla en cada correo. Al cambiarla aquí
+ *  hay que olvidarla; si no, los correos nuevos seguían saliendo con la firma anterior hasta
+ *  cerrar la pestaña. */
+function olvidarFirmaEnCache() {
+  try { sessionStorage.removeItem('maquita_sig_cache'); } catch { /* sin almacenamiento */ }
+}
 
 interface Signature {
   id: number;
@@ -112,6 +120,7 @@ export function SignatureManager() {
         avisos = r?.avisos ?? [];
         flash({ type: 'success', message: 'Firma actualizada' });
       }
+      olvidarFirmaEnCache();
       // El servidor revisa la firma al guardar (imágenes, tabla, mailto); lo que quitó o dudó, se dice aquí.
       if (avisos.length) flash({ type: 'error', message: avisos.join(' ') });
       clearEdit();
@@ -124,6 +133,7 @@ export function SignatureManager() {
   const handleDelete = useCallback(async (id: number) => {
     try {
       await api.del(`/settings/signatures/${id}`);
+      olvidarFirmaEnCache();
       flash({ type: 'success', message: 'Firma eliminada' });
       setDeletingId(null);
       clearEdit();
@@ -136,6 +146,7 @@ export function SignatureManager() {
   const handleSetDefault = useCallback(async (id: number) => {
     try {
       await api.put(`/settings/signatures/${id}`, { is_default: true });
+      olvidarFirmaEnCache();
       flash({ type: 'success', message: 'Firma predeterminada actualizada' });
       await fetchSignatures();
     } catch (err: unknown) {
@@ -174,7 +185,7 @@ export function SignatureManager() {
                 <input type="radio" name="sig_pos" checked={sigSettings.position === 'before_quote'}
                   onChange={() => saveSigSettings({ ...sigSettings, position: 'before_quote' })}
                   className="w-4 h-4 text-[#0078d4]" />
-                <span className="text-[13px] text-[#323130]">Antes del texto citado (en respuestas y reenvios)</span>
+                <span className="text-[13px] text-[#323130]">Antes del texto citado (en respuestas y reenvíos)</span>
               </label>
             </div>
           </div>
@@ -189,7 +200,7 @@ export function SignatureManager() {
               <input type="checkbox" checked={sigSettings.include_in_forward}
                 onChange={e => saveSigSettings({ ...sigSettings, include_in_forward: e.target.checked })}
                 className="w-4 h-4 rounded border-[#8a8886] text-[#0078d4]" />
-              <span className="text-[13px] text-[#323130]">Incluir firma en reenvios</span>
+              <span className="text-[13px] text-[#323130]">Incluir firma en reenvíos</span>
             </label>
           </div>
         </div>
@@ -294,12 +305,16 @@ interface SigFields {
   telefono2: string;
   email: string;
   ciudad: string;
+  /** Texto propio que va encima de los datos de contacto (una firma por tipo de mensaje). */
+  mensaje: string;
 }
 
-const EMPTY_FIELDS: SigFields = { nombre: '', cargo: '', telefono1: '', telefono2: '', email: '', ciudad: 'Quito - Ecuador' };
+const EMPTY_FIELDS: SigFields = { nombre: '', cargo: '', telefono1: '', telefono2: '', email: '', ciudad: 'Quito - Ecuador', mensaje: '' };
 
-function extractFields(html: string): SigFields {
+function extractFields(htmlCompleto: string): SigFields {
   const f = { ...EMPTY_FIELDS };
+  const { mensaje, firma: html } = extraerMensaje(htmlCompleto);
+  f.mensaje = mensaje;
   // Name: blue bold span
   const nm = html.match(/color:#0061a1">([^<]+)<\/span><\/strong>/);
   if (nm) f.nombre = nm[1].trim();
@@ -323,13 +338,13 @@ function extractFields(html: string): SigFields {
 }
 
 function applyFields(tpl: string, f: SigFields): string {
-  return tpl
+  return envolverMensaje(tpl
     .replace('{{NOMBRE}}', f.nombre)
     .replace('{{CARGO}}', f.cargo)
     .replace('{{TELEFONO1}}', f.telefono1)
     .replace('{{TELEFONO2}}', f.telefono2)
     .replace(/\{\{EMAIL\}\}/g, f.email)
-    .replace('{{CIUDAD}}', f.ciudad);
+    .replace('{{CIUDAD}}', f.ciudad), f.mensaje);
 }
 
 function VisualSignatureEditor({
@@ -491,8 +506,11 @@ function VisualSignatureEditor({
         </button>
       </div>
 
+      {/* Cada modo con su `key`: el editor visual escribe el HTML a mano (innerHTML) y, sin key,
+          React reutilizaba ese <div> para la cuadrícula de campos y la firma quedaba metida entre
+          los campos al volver a «Editar campos» (05/11/2026). */}
       {mode === 'visual' ? (
-        <div>
+        <div key="modo-visual">
           {/* Toolbar */}
           <div className="rounded-t border border-[#edebe9] bg-[#f3f2f1] px-2 py-1 flex flex-wrap items-center gap-0.5">
             <VBtn onClick={() => execCmd('bold')} title="Negrita"><strong>N</strong></VBtn>
@@ -536,7 +554,7 @@ function VisualSignatureEditor({
             style={{ fontFamily: 'Verdana, Geneva, sans-serif', fontSize: 13, color: '#323130', lineHeight: 1.5 }} />
         </div>
       ) : mode === 'html' ? (
-        <div>
+        <div key="modo-html">
           <textarea value={htmlSrc} onChange={e => setHtmlSrc(e.target.value)} rows={12}
             className="block w-full rounded border border-[#edebe9] bg-white px-3 py-2 text-[12px] text-[#323130] font-mono outline-none focus:border-[#0078d4] resize-y" />
           <button type="button" onClick={applyHtmlAndPreview}
@@ -545,7 +563,7 @@ function VisualSignatureEditor({
           </button>
         </div>
       ) : hasTemplate ? (
-        <div className="rounded border border-[#edebe9] bg-[#faf9f8] p-4">
+        <div key="modo-campos" className="rounded border border-[#edebe9] bg-[#faf9f8] p-4">
           <p className="text-[11px] text-[#605e5c] mb-3">Modifica tus datos y la vista previa se actualiza al instante:</p>
           <div className="grid grid-cols-2 gap-x-4 gap-y-3">
             <FieldInput label="Nombre completo" value={fields.nombre} onChange={v => updateField('nombre', v)} placeholder="Ej: Wilson Arguello" />
@@ -554,10 +572,17 @@ function VisualSignatureEditor({
             <FieldInput label="Celular" value={fields.telefono2} onChange={v => updateField('telefono2', v)} placeholder="Ej: (593 9) 95797062" />
             <FieldInput label="Correo electrónico" value={fields.email} onChange={v => updateField('email', v)} placeholder="usuario@ejemplo.com" />
             <FieldInput label="Ciudad" value={fields.ciudad} onChange={v => updateField('ciudad', v)} placeholder="Quito - Ecuador" />
+            <label className="col-span-2 block">
+              <span className="block text-[11px] font-semibold text-[#605e5c] mb-1">Mensaje personalizado (va encima de la firma; opcional)</span>
+              <textarea value={fields.mensaje} onChange={e => updateField('mensaje', e.target.value)} rows={4}
+                placeholder={'Ej.: Estimado proveedor, adjunto el comprobante de pago. Quedo atenta a su confirmación.'}
+                className="block w-full rounded border border-[#edebe9] bg-white px-3 py-2 text-[13px] text-[#323130] outline-none focus:border-[#0078d4] resize-y" />
+              <span className="block text-[11px] text-[#a19f9d] mt-1">Crea una firma por cada tipo de mensaje y elígela al redactar: el texto sale solo.</span>
+            </label>
           </div>
         </div>
       ) : (
-        <div>
+        <div key="modo-sin-plantilla">
           <p className="text-[11px] text-[#605e5c] mb-2">No hay plantilla cargada. Usa "Cargar plantilla predeterminada" o edita el HTML directamente.</p>
           <textarea value={htmlSrc} onChange={e => { setHtmlSrc(e.target.value); setPreviewHtml(e.target.value); }} rows={8}
             className="block w-full rounded border border-[#edebe9] bg-white px-3 py-2 text-[12px] text-[#323130] font-mono outline-none focus:border-[#0078d4] resize-y" />

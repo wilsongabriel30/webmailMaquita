@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../../api/client';
+import { IndicadorGenerando } from '../ai/IndicadorGenerando';
+import { AvisoResultadoIA, type ResultadoIA } from '../ai/AvisoResultadoIA';
 
 const SUGERENCIAS = [
   '¿Tengo algo pendiente o que requiera mi atención?',
@@ -19,7 +21,11 @@ export function RagAssistant() {
   const [answer, setAnswer] = useState('');
   const [sources, setSources] = useState<Source[]>([]);
   const [aviso, setAviso] = useState('');
+  // Pregunta sin respuesta o con fallo: se explica en vez de dejar la pantalla igual que antes.
+  const [resultado, setResultado] = useState<ResultadoIA | null>(null);
   const sondeo = useRef<number | null>(null);
+  const abortPregunta = useRef<AbortController | null>(null);
+  useEffect(() => () => abortPregunta.current?.abort(), []);
 
   const loadStatus = () => api.get<Status>('/rag/status').then(s => { setStatus(s); return s; }).catch(() => { setStatus({ enabled: false, indexed: 0 }); return null; });
   useEffect(() => { loadStatus(); }, []);
@@ -54,11 +60,18 @@ export function RagAssistant() {
   const ask = async (question?: string) => {
     const text = (question ?? q).trim();
     if (!text) return;
-    setQ(text); setBusy('ask'); setAnswer(''); setSources([]);
+    setQ(text); setBusy('ask'); setAnswer(''); setSources([]); setResultado(null);
+    const ctl = new AbortController();
+    abortPregunta.current = ctl;
     try {
-      const r = await api.post<{ answer: string; sources: Source[] }>('/rag/ask', { question: text });
-      setAnswer(r?.answer || ''); setSources(r?.sources || []);
-    } catch (e) { setAnswer(e instanceof Error && e.message ? `Hubo un error al consultar: ${e.message}` : 'Hubo un error al consultar.'); }
+      const r = await api.post<{ answer: string; sources: Source[] }>('/rag/ask', { question: text }, { signal: ctl.signal });
+      const respuesta = typeof r?.answer === 'string' ? r.answer.trim() : '';
+      setAnswer(respuesta); setSources(Array.isArray(r?.sources) ? r.sources : []);
+      if (!respuesta && !ctl.signal.aborted) setResultado('vacio');
+    } catch {
+      // Cancelar no es un fallo; el detalle técnico no se muestra a la persona.
+      if (!ctl.signal.aborted) setResultado('error');
+    }
     setBusy('');
   };
 
@@ -103,6 +116,12 @@ export function RagAssistant() {
         </button>
       </div>
 
+      {busy === 'ask' && (
+        <div className="rounded-lg overflow-hidden" style={{ border: '1px solid #e1dfdd' }}>
+          <IndicadorGenerando funcion="buscar" onCancelar={() => abortPregunta.current?.abort()} />
+        </div>
+      )}
+
       <div className="flex items-center gap-3 flex-wrap">
         <button onClick={sync} disabled={busy !== '' || sincronizando} className="text-xs px-3 py-1.5 rounded disabled:opacity-50" style={{ border: '1px solid #e1dfdd', color: '#484644' }}>
           {sincronizando ? 'Sincronizando…' : 'Sincronizar mi bandeja'}
@@ -116,6 +135,16 @@ export function RagAssistant() {
           <span className="text-xs" style={{ color: /falló|No se pudo|no respondió/i.test(aviso) ? '#a4262c' : '#107c10' }} role="status" aria-live="polite">{aviso}</span>
         )}
       </div>
+
+      {resultado && busy !== 'ask' && (
+        <div className="rounded-lg overflow-hidden" style={{ border: '1px solid #e1dfdd' }}>
+          <AvisoResultadoIA tipo={resultado}
+            textoVacio="No encontré una respuesta para esa pregunta en su correo. Pruebe a escribirla con otras palabras o pulse «Sincronizar mi bandeja» si sus correos son recientes."
+            textoError="No se pudo consultar su correo en este momento. Inténtelo de nuevo en unos minutos."
+            onReintentar={() => ask(q)}
+            onCerrar={() => setResultado(null)} />
+        </div>
+      )}
 
       {answer && (
         <div className="rounded-lg p-4 space-y-2" style={{ border: '1px solid #e1dfdd', background: '#faf9f8' }}>

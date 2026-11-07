@@ -58,8 +58,49 @@ function esRepetido(clave: string): boolean {
   return false;
 }
 
+/* El tiempo real y el sondeo de respaldo avisan del MISMO correo nuevo, y la ventana de cuatro segundos
+ * no basta: el aviso en tiempo real pide recargar la lista y, si esa carga tarda más (IMAP lento, servidor
+ * ocupado), el sondeo ve el mismo correo como nuevo y avisa otra vez (candado T-53 intermitente, 05/11/2026).
+ * Por eso cada aviso que sale deja un «ya avisado» de su etiqueta para el OTRO emisor, que lo gasta en vez de
+ * sonar. Funciona en los dos órdenes: con el servidor cargado, a veces el sondeo llega antes que el tiempo real.
+ * Caducan al minuto: si uno de los dos se cae, el otro sigue avisando. */
+const VIGENCIA_YA_AVISADO_MS = 60000;
+const yaAvisados = { vivo: new Map<string, number[]>(), respaldo: new Map<string, number[]>() };
+type Emisor = keyof typeof yaAvisados;
+
+/** ¿El otro emisor ya avisó de esto? Si es así, se gasta su «ya avisado». */
+function otroYaAviso(otro: Emisor, etiqueta: string): boolean {
+  const ahora = Date.now();
+  const vigentes = (yaAvisados[otro].get(etiqueta) || []).filter(t => ahora - t < VIGENCIA_YA_AVISADO_MS);
+  const ya = vigentes.length > 0;
+  if (ya) vigentes.shift();
+  yaAvisados[otro].set(etiqueta, vigentes);
+  return ya;
+}
+
+function anotarAviso(emisor: Emisor, etiqueta: string): void {
+  yaAvisados[emisor].set(etiqueta, [...(yaAvisados[emisor].get(etiqueta) || []), Date.now()]);
+}
+
+/* Clave del SUCESO (05/11/2026): dos conexiones en tiempo real de la misma persona (dos pestañas, o un
+ * segundo sondeo del servidor tras un reinicio/despliegue) mandan DOS `new_mail` por el mismo correo, a veces
+ * con más de cuatro segundos de diferencia, y la ventana de texto no los distinguía (candado T-53 intermitente).
+ * El emisor pasa `claveSuceso` (carpeta + total de mensajes): si ya se avisó de ese mismo suceso, se calla. */
+const VIGENCIA_SUCESO_MS = 180000;
+const sucesosAvisados = new Map<string, number>();
+
+function sucesoRepetido(clave: string): boolean {
+  const ahora = Date.now();
+  for (const [k, t] of sucesosAvisados) if (ahora - t > VIGENCIA_SUCESO_MS) sucesosAvisados.delete(k);
+  if (sucesosAvisados.has(clave)) return true;
+  sucesosAvisados.set(clave, ahora);
+  return false;
+}
+
 interface Opciones {
   cuerpo: string;
+  /** Identifica el suceso (p. ej. `INBOX:1367`, carpeta y total): un mismo suceso avisa una sola vez. */
+  claveSuceso?: string;
   tipo?: TipoAviso;
   etiqueta?: string;
   /** A dónde lleva el clic. Si no se dice, a la bandeja de entrada. */
@@ -69,6 +110,8 @@ interface Opciones {
   /** Correo concreto que abrir, si se sabe cuál es. */
   uid?: number;
   carpeta?: string;
+  /** Aviso del sondeo de respaldo: se calla si el tiempo real ya avisó con la misma etiqueta (y al revés). */
+  respaldo?: boolean;
 }
 
 /**
@@ -84,7 +127,12 @@ export function avisar(titulo: string, o: Opciones): boolean {
   // dos emisores para lo mismo no deben dar dos avisos
   // La clave incluye el TEXTO: dos correos distintos dicen cosas distintas y no deben
   // taparse entre sí. La etiqueta sola los hacía indistinguibles.
-  if (esRepetido((o.etiqueta || o.tipo || 'general') + '|' + titulo + '|' + o.cuerpo)) {
+  const etiqueta = o.etiqueta || o.tipo || 'general';
+  if (o.claveSuceso && sucesoRepetido(etiqueta + '|' + o.claveSuceso)) return false;
+  const emisor: Emisor = o.respaldo ? 'respaldo' : 'vivo';
+  if (otroYaAviso(emisor === 'vivo' ? 'respaldo' : 'vivo', etiqueta)) return false;
+  anotarAviso(emisor, etiqueta);
+  if (esRepetido(etiqueta + '|' + titulo + '|' + o.cuerpo)) {
     return false;
   }
 

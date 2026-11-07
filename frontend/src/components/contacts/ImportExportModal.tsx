@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { teclaActiva, protegerEnter } from './tecladoContactos';
 
 interface Props {
   mode: 'import' | 'export';
@@ -79,13 +80,13 @@ export function ImportExportModal({ mode, onClose, onImportDone }: Props) {
   };
 
   return (
-    <div style={{
+    <div onKeyDown={e => { protegerEnter(e); if (e.key === 'Escape') { e.stopPropagation(); onClose(); } }} style={{
       position: 'fixed', inset: 0, zIndex: 9998,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       backgroundColor: 'rgba(0,0,0,0.4)',
     }}>
-      <div style={{
-        background: '#fff', borderRadius: 8, padding: 28, width: 480,
+      <div role="dialog" aria-modal="true" aria-label={mode === 'import' ? 'Importar contactos' : 'Exportar contactos'} style={{
+        background: '#fff', borderRadius: 8, padding: 28, width: 480, maxWidth: 'calc(100vw - 32px)', boxSizing: 'border-box',
         maxHeight: '80vh', overflowY: 'auto',
         boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
         fontFamily: "'Segoe UI', Calibri, sans-serif",
@@ -94,7 +95,7 @@ export function ImportExportModal({ mode, onClose, onImportDone }: Props) {
           <h3 style={{ margin: 0, fontSize: 20, fontWeight: 600, color: '#323130' }}>
             {mode === 'import' ? 'Importar contactos' : 'Exportar contactos'}
           </h3>
-          <button onClick={onClose} style={{
+          <button type="button" onClick={onClose} aria-label="Cerrar" title="Cerrar" style={{
             border: 'none', background: 'none', fontSize: 20,
             cursor: 'pointer', color: '#605e5c', padding: 4,
           }}>&times;</button>
@@ -105,7 +106,10 @@ export function ImportExportModal({ mode, onClose, onImportDone }: Props) {
             {!result ? (
               <>
                 <div
+                  role="button" tabIndex={0}
+                  aria-label={file ? `Archivo elegido: ${file.name}. Pulse Enter para cambiarlo` : 'Elegir un archivo CSV para importar'}
                   onClick={() => fileRef.current?.click()}
+                  onKeyDown={teclaActiva(() => fileRef.current?.click())}
                   onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = '#0078d4'; }}
                   onDragLeave={e => { e.currentTarget.style.borderColor = '#8a8886'; }}
                   onDrop={e => {

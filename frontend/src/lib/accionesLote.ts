@@ -7,6 +7,7 @@
 import { api } from '../api/client';
 import { useMailStore } from '../store/mailStore';
 import { showToast } from '../components/common/Toast';
+import { agruparUidsPorCarpeta } from './carpetaReal';
 
 export type AccionLote = 'move' | 'delete' | 'archive' | 'mark_read' | 'mark_unread' | 'flag' | 'unflag';
 
@@ -45,7 +46,12 @@ export async function accionEnLote(
   const deshacer = optimista ? quitarDeLaLista(uids) : null;
   if (optimista && mensajeOk) showToast(mensajeOk);
   try {
-    await api.post(`/mail/bulk-action/${encodeURIComponent(carpeta)}`, { uids, action: accion, dest_folder: destino });
+    // Cada correo en su carpeta real: en «Todo el correo» y en la vista por etiqueta la lista
+    // mezcla carpetas (05/11/2026). Sin uids (vaciar carpeta) se usa la carpeta dada.
+    const grupos = uids.length ? agruparUidsPorCarpeta(uids, carpeta) : new Map([[carpeta, uids]]);
+    for (const [carpetaReal, lote] of grupos) {
+      await api.post(`/mail/bulk-action/${encodeURIComponent(carpetaReal)}`, { uids: lote, action: accion, dest_folder: destino });
+    }
     if (!optimista) {
       if (mensajeOk) showToast(mensajeOk);
       useMailStore.getState().clearSelection();

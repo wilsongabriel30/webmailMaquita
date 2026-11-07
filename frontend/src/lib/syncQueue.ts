@@ -84,6 +84,7 @@ export async function syncOutbox(soloId?: string): Promise<{ sent: number; faile
             to: email.to, cc: email.cc, bcc: email.bcc, subject: email.subject, html_body: email.html_body, text_body: email.text_body,
             in_reply_to: email.in_reply_to || '', references: email.references || '', attachments: email.attachments || [],
             request_read_receipt: email.request_read_receipt || false, request_delivery_receipt: email.request_delivery_receipt || false,
+            importance: email.importance || 'normal',
           }),
         });
         if (res.ok) {

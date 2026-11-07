@@ -8,10 +8,14 @@ export interface Tarea {
   descripcion: string;
   asignados: string[];
   asignado_por: string;
+  /** Quién creó la tarea, si no es quien la asignó (tarea de lista asignada después). */
+  creada_por?: string | null;
   plazo: string | null;
   prioridad: 'low' | 'medium' | 'high' | 'urgent';
   etiquetas: string[];
   estado: Estado;
+  /** Estado guardado: el de la columna del tablero cuando `estado` es «vencida» (calculado por el plazo). */
+  estado_guardado?: Estado | '';
   semaforo: Semaforo;
   aceptacion: 'sin_responder' | 'aceptada' | 'rechazada';
   motivo_rechazo: string;

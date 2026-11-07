@@ -82,9 +82,21 @@ function archivoABase64(file: File): Promise<string> {
  */
 export async function guardarBorradorEnServidor(
   e: EstadoRedaccion,
-  contexto: { draftUid: number | null; inReplyTo?: string; references?: string },
+  contexto: { draftUid: number | null; inReplyTo?: string; references?: string; mantenerAdjuntos?: boolean },
 ): Promise<{ draftUid: number | null; huella: string } | null> {
   if (redaccionVacia(e)) return null;
+  // `mantenerAdjuntos` (05/11/2026): mientras los archivos del borrador se están descargando al
+  // redactor, `e.attachments` aún está vacío; sin esto el guardado creaba un borrador SIN
+  // adjuntos y la cadena de borradores los perdía (caso Thalia Vega, 14:00).
+  if (contexto.mantenerAdjuntos) {
+    const res = await api.post<{ draft_uid: number | null }>('/mail/drafts', {
+      to: lista(e.to), cc: lista(e.cc), bcc: lista(e.bcc), subject: e.subject,
+      html_body: e.cuerpoHtml + (e.quotedHtml || ''), text_body: '',
+      in_reply_to: contexto.inReplyTo || '', references: contexto.references || '',
+      existing_draft_uid: contexto.draftUid, attachments: [], mantener_adjuntos: true,
+    });
+    return { draftUid: res.draft_uid ?? contexto.draftUid, huella: e.huellaGuardada };
+  }
   const huella = huellaAdjuntos(e.attachments);
   const cambiaron = huella !== e.huellaGuardada;
   const adjuntos = cambiaron

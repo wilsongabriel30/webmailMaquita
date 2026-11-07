@@ -32,6 +32,8 @@ export interface AttachmentInfo {
   size: number;
   part_number: string;
   is_inline: boolean;
+  /** Si viene dentro de un correo adjunto (.eml): nombre de ese .eml (06/11/2026). */
+  dentro_de?: string;
 }
 
 /** Invitación de calendario que el backend detecta dentro de un correo. */
@@ -106,6 +108,8 @@ export interface ComposeData {
   reenvio_de?: { folder: string; uid: number; adjuntos?: AttachmentInfo[] };
   // Archivos del Almacén a adjuntar al abrir el redactor (accion "Enviar por correo")
   adjuntos_almacen?: { nombre: string; ruta: string }[];
+  /** Correos que se reenvían como adjunto .eml (lib/correosComoAdjunto.ts). */
+  correos_adjuntos?: { folder: string; uid: number; subject: string }[];
   /** Cuerpo sugerido por el asistente de respuesta rápida. */
   prefill_body?: string;
 }

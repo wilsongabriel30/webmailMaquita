@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { imprimirAdjunto } from './imprimirAdjunto';
+import { showToast } from '../common/Toast';
 import VistaPreviaCorreo from './VistaPreviaCorreo';
 
 interface AttachmentInfo {
@@ -88,6 +90,20 @@ export function AttachmentPreview({
   // Convert Office files to PDF via OnlyOffice for preview
   // OnlyOffice editor state (no PDF conversion needed)
   const ooEditorRef = useRef<HTMLDivElement>(null);
+  const pdfRef = useRef<HTMLIFrameElement>(null);
+  const [imprimiendo, setImprimiendo] = useState(false);
+  const imprimir = async () => {
+    if (!attachment || imprimiendo) return;
+    setImprimiendo(true);
+    try {
+      const r = await imprimirAdjunto({ tipo: type, url, filename: attachment.filename, folder, uid, partNumber: attachment.part_number, marcoPdf: pdfRef.current, texto: textContent });
+      if (r === 'no-soportado') showToast('Este tipo de archivo no se puede imprimir desde aquí: descárgalo e imprímelo');
+    } catch {
+      showToast('No se pudo preparar el documento para imprimir; descárgalo e imprímelo');
+    } finally {
+      setTimeout(() => setImprimiendo(false), 1500);
+    }
+  };
   useEffect(() => {
     if (!open || !attachment || type !== 'office') return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- carga del texto al abrir (patrón previo)
@@ -197,6 +213,19 @@ export function AttachmentPreview({
             </span>
           </div>
           <div className="flex items-center gap-2 ml-3">
+            {(type === 'pdf' || type === 'image' || type === 'text' || type === 'office') && (
+              <button
+                onClick={imprimir}
+                disabled={imprimiendo}
+                title="Imprimir el documento tal cual (no la página)"
+                className="flex items-center gap-1 px-3 py-1.5 text-[13px] text-[#0078d4] hover:bg-[#f3f2f1] dark:hover:bg-[#383838] rounded disabled:opacity-60"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z" />
+                </svg>
+                {imprimiendo ? 'Preparando…' : 'Imprimir'}
+              </button>
+            )}
             <a
               href={url}
               download={attachment.filename}
@@ -235,6 +264,7 @@ export function AttachmentPreview({
           )}
           {type === 'pdf' && (
             <iframe
+              ref={pdfRef}
               src={'/api/mail/preview/' + encodeURIComponent(folder) + '/' + uid + '/' + attachment.part_number + '/' + encodeURIComponent(attachment.filename)}
               className="w-full h-[70vh] border-0"
               title={attachment.filename}

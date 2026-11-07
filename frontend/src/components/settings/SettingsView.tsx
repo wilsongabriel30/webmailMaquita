@@ -12,8 +12,11 @@ import { MiEquipo } from './MiEquipo';
 import { MailSetup } from './MailSetup';
 import { useMailStore } from '../../store/mailStore';
 import { getFolderDisplayName } from '../../folders';
+import { showToast } from '../common/Toast';
 import EspacioLocal from './EspacioLocal';   // T-49: cuánto ocupa el caché cifrado en el equipo
 import SmimeSettings from './SmimeSettings';   // Certificados S/MIME (por usuario)
+import { RemitentesBloqueados } from './RemitentesBloqueados';   // 05/11/2026: lo que llena «Marcar como spam»
+import MiFoto from './MiFoto';
 
 interface Settings {
   display_name: string;
@@ -42,7 +45,7 @@ interface FilterRule {
   action: { type: string; value: string | null };
 }
 
-type Tab = 'general' | 'signature' | 'identities' | 'autoreply' | 'filters' | 'password' | 'security' | 'miequipo' | 'smime' | 'integrations' | 'mailsetup' | 'espacio';
+type Tab = 'general' | 'foto' | 'signature' | 'identities' | 'autoreply' | 'filters' | 'bloqueados' | 'password' | 'security' | 'miequipo' | 'smime' | 'integrations' | 'mailsetup' | 'espacio';
 
 const FIELD_LABELS: Record<string, string> = { from: 'De', to: 'Para', subject: 'Asunto' };
 const OP_LABELS: Record<string, string> = { contains: 'contiene', is: 'es exactamente', matches: 'coincide con' };
@@ -72,6 +75,8 @@ export function SettingsView() {
   const [filters, setFilters] = useState<FilterRule[]>([]);
   const [filtersLoading, setFiltersLoading] = useState(false);
   const [filtersLoaded, setFiltersLoaded] = useState(false);
+  // Error al cargar las reglas: distinto de «no hay reglas», para no decir que hay cero cuando no se sabe.
+  const [filtersError, setFiltersError] = useState(false);
   const [newFilter, setNewFilter] = useState<FilterRule>({ name: '', condition: { field: 'from', operator: 'contains', value: '' }, action: { type: 'move', value: '' } });
   const [showAddFilter, setShowAddFilter] = useState(false);
   const [editingFilter, setEditingFilter] = useState<number | null>(null);
@@ -86,7 +91,7 @@ export function SettingsView() {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const requestedTab = params.get('tab');
-    const validTabs: Tab[] = ['general', 'signature', 'identities', 'autoreply', 'filters', 'password', 'security', 'integrations', 'mailsetup'];
+    const validTabs: Tab[] = ['general', 'foto', 'signature', 'identities', 'autoreply', 'filters', 'bloqueados', 'password', 'security', 'integrations', 'mailsetup'];
     if (requestedTab && validTabs.includes(requestedTab as Tab)) {
       setTab(requestedTab as Tab);
     }
@@ -94,13 +99,15 @@ export function SettingsView() {
 
   const fetchFilters = () => {
     setFiltersLoading(true);
+    setFiltersError(false);
     api.get<FilterRule[]>('/sieve/filters')
       .then(data => {
         // API returns array directly
         const arr = Array.isArray(data) ? data : (data as { filters?: FilterRule[] }).filters || [];
         setFilters(arr);
       })
-      .catch(() => setFilters([]))
+      // Si falla, se conservan las reglas ya conocidas y se avisa del error.
+      .catch(() => setFiltersError(true))
       .finally(() => { setFiltersLoading(false); setFiltersLoaded(true); });
   };
 
@@ -127,7 +134,8 @@ export function SettingsView() {
       if (settings.reading_pane) useMailStore.getState().setReadingPane(settings.reading_pane as 'right' | 'bottom' | 'off');
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-    } catch (err) { console.error(err); }
+      showToast('Cambios guardados');
+    } catch (err) { console.error(err); showToast('No se pudo guardar. Revise la conexión e inténtelo de nuevo.', undefined, { fijo: true }); }
     finally { setSaving(false); }
   };
 
@@ -137,7 +145,8 @@ export function SettingsView() {
       await api.put('/sieve/vacation', vacation);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-    } catch (err) { console.error(err); }
+      showToast(vacation.enabled ? 'Respuesta automática guardada y activada' : 'Respuesta automática guardada');
+    } catch (err) { console.error(err); showToast('No se pudo guardar. Revise la conexión e inténtelo de nuevo.', undefined, { fijo: true }); }
     finally { setSaving(false); }
   };
 
@@ -149,7 +158,8 @@ export function SettingsView() {
       setShowAddFilter(false);
       setPreviewResult(null);
       fetchFilters();
-    } catch (err) { console.error(err); }
+      showToast('Regla creada');
+    } catch (err) { console.error(err); showToast('No se pudo crear la regla. Inténtelo de nuevo.', undefined, { fijo: true }); }
   };
 
   const handleUpdateFilter = async (index: number) => {
@@ -163,14 +173,16 @@ export function SettingsView() {
       setEditingFilter(null);
       setEditFilter(null);
       fetchFilters();
-    } catch (err) { console.error(err); }
+      showToast('Regla guardada');
+    } catch (err) { console.error(err); showToast('No se pudo guardar la regla. Inténtelo de nuevo.', undefined, { fijo: true }); }
   };
 
   const handleDeleteFilter = async (index: number) => {
     try {
       await api.del(`/sieve/filters/${index}`);
       fetchFilters();
-    } catch (err) { console.error(err); }
+      showToast('Regla eliminada');
+    } catch (err) { console.error(err); showToast('No se pudo eliminar la regla. Inténtelo de nuevo.', undefined, { fijo: true }); }
   };
 
   const handlePreview = async (condition: { field: string; operator: string; value: string }) => {
@@ -198,8 +210,10 @@ export function SettingsView() {
     { id: 'general', label: 'General' },
     { id: 'signature', label: 'Firmas' },
     { id: 'identities', label: 'Identidades' },
-    { id: 'autoreply', label: 'Respuesta automática' },
+    { id: 'autoreply', label: 'Fuera de la oficina' },
     { id: 'filters', label: 'Reglas de correo' },
+    { id: 'bloqueados', label: 'Remitentes bloqueados' },
+    { id: 'foto', label: 'Mi foto' },
     { id: 'password', label: 'Contraseña' },
     { id: 'security', label: 'Seguridad' },
     { id: 'miequipo', label: 'Mi teléfono' },
@@ -337,7 +351,9 @@ export function SettingsView() {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-[#edebe9] overflow-x-auto">
+      {/* flex-wrap: con letra grande o zoom 150 % las pestañas del final quedaban fuera de la
+          pantalla, detrás de una barra de desplazamiento de 4 px. */}
+      <div className="flex flex-wrap border-b border-[#edebe9]">
         {tabs.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             className={`px-5 py-2.5 text-sm transition-colors whitespace-nowrap ${
@@ -388,7 +404,7 @@ export function SettingsView() {
         {tab === 'autoreply' && (
           <div className="space-y-5">
             {vacationLoading ? (
-              <div className="text-sm text-[#a19f9d]">Cargando configuración de Sieve...</div>
+              <div className="text-sm text-[#a19f9d]">Cargando…</div>
             ) : (
               <>
                 <Toggle label="Activar respuesta automática" checked={vacation.enabled}
@@ -399,7 +415,8 @@ export function SettingsView() {
                       // Apagar debe persistirse al instante (el botón Guardar solo existe encendido)
                       api.put('/sieve/vacation', next).then(() => {
                         setSaved(true); setTimeout(() => setSaved(false), 3000);
-                      }).catch(err => console.error(err));
+                        showToast('Respuesta automática desactivada');
+                      }).catch(err => { console.error(err); showToast('No se pudo guardar. Revise la conexión e inténtelo de nuevo.', undefined, { fijo: true }); });
                     }
                   }} />
                 {vacation.enabled && (
@@ -453,7 +470,7 @@ export function SettingsView() {
             </div>
 
             <div className="flex items-center justify-between">
-              <span className="text-sm text-[#605e5c]">{filters.length} regla{filters.length !== 1 ? 's' : ''} configurada{filters.length !== 1 ? 's' : ''}</span>
+              <span className="text-sm text-[#605e5c]">{filtersError ? '' : <>{filters.length} regla{filters.length !== 1 ? 's' : ''} configurada{filters.length !== 1 ? 's' : ''}</>}</span>
               <button onClick={() => { setShowAddFilter(!showAddFilter); setPreviewResult(null); }}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0078d4] text-white text-sm rounded hover:bg-[#106ebe]">
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -472,7 +489,16 @@ export function SettingsView() {
             )}
 
             {filtersLoading ? (
-              <div className="text-sm text-[#a19f9d]">Cargando reglas...</div>
+              <div className="text-sm text-[#605e5c]" role="status">Cargando reglas...</div>
+            ) : filtersError ? (
+              <div role="alert" className="p-4 rounded border border-[#a4262c] bg-[#fde7e9] text-[#323130]">
+                <p className="text-sm font-semibold text-[#a4262c]">No se pudieron cargar sus reglas de correo</p>
+                <p className="text-sm mt-1">Sus reglas no se han borrado: solo no pudimos leerlas en este momento. Revise su conexión e inténtelo de nuevo.</p>
+                <button type="button" onClick={fetchFilters}
+                  className="mt-3 px-4 py-2 bg-[#0078d4] text-white text-sm rounded hover:bg-[#106ebe]">
+                  Reintentar
+                </button>
+              </div>
             ) : filters.length === 0 && !showAddFilter ? (
               <div className="text-center py-12 text-[#a19f9d]">
                 <svg className="w-12 h-12 mx-auto mb-3 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -517,13 +543,13 @@ export function SettingsView() {
                             )}
                           </p>
                         </div>
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center gap-1">
                           <button onClick={() => { setEditingFilter(i); setEditFilter({ ...f }); setPreviewResult(null); }}
-                            className="text-xs text-[#0078d4] hover:bg-[#deecf9] px-2 py-1 rounded" title="Editar">
+                            className="text-[13px] text-[#0078d4] hover:bg-[#deecf9] px-2 py-1 rounded" title="Editar">
                             Editar
                           </button>
-                          <button onClick={() => handleDeleteFilter(i)}
-                            className="text-xs text-[#a4262c] hover:bg-[#fde7e9] px-2 py-1 rounded" title="Eliminar">
+                          <button onClick={() => { if (window.confirm(`¿Eliminar la regla «${f.name}»?`)) handleDeleteFilter(i); }}
+                            className="text-[13px] text-[#a4262c] hover:bg-[#fde7e9] px-2 py-1 rounded" title="Eliminar">
                             Eliminar
                           </button>
                         </div>
@@ -535,6 +561,9 @@ export function SettingsView() {
             )}
           </div>
         )}
+
+        {tab === 'bloqueados' && <RemitentesBloqueados />}
+        {tab === 'foto' && <MiFoto />}
 
         {tab === 'espacio' && <EspacioLocal />}
 

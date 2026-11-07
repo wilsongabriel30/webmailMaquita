@@ -1,29 +1,30 @@
-// Llamadas de T-34. Se usa fetch directo (sin la caché de lectura del cliente general) para ver siempre el estado vivo.
+// Llamadas de T-34. Van por el cliente general (`api`), que renueva la sesión cuando vence el vale (401) y explica
+// los errores del servidor. Antes iban con fetch directo: al vencer el vale, Seguimiento (que se recarga cada minuto)
+// recibía 401 y mostraba «Nada pendiente por aquí» como si no hubiera tareas. Estas rutas no tienen caché de lectura
+// en el cliente, así que siempre se ve el estado vivo.
+import { api } from '../../api/client';
 import type { Tarea, Persona, Comentario } from './tipos';
 
-const BASE = '/api/tareas';
-
-async function pedir<T>(ruta: string, init?: RequestInit): Promise<T> {
-  const r = await fetch(BASE + ruta, { credentials: 'include', headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) }, ...init });
-  if (r.status === 204) return undefined as unknown as T;
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error((j && (j.detail || j.mensaje)) || 'HTTP ' + r.status);
-  return j as T;
-}
+const B = '/tareas';
 
 export const tareasApi = {
-  mis: (completadas = false) => pedir<Tarea[]>(`/mis?completadas=${completadas}`),
-  asignadasPorMi: (completadas = false) => pedir<Tarea[]>(`/asignadas-por-mi?completadas=${completadas}`),
-  miDia: () => pedir<Tarea[]>('/mi-dia'),
-  obtener: (id: string) => pedir<Tarea>(`/${id}`),
-  asignar: (d: Record<string, unknown>) => pedir<Tarea>('/asignar', { method: 'POST', body: JSON.stringify(d) }),
-  editar: (id: string, d: Record<string, unknown>) => pedir<Tarea>(`/${id}`, { method: 'PATCH', body: JSON.stringify(d) }),
-  eliminar: (id: string) => pedir<void>(`/${id}`, { method: 'DELETE' }),
-  estado: (id: string, estado: string) => pedir<Tarea>(`/${id}/estado`, { method: 'PATCH', body: JSON.stringify({ estado }) }),
-  completar: (id: string) => pedir<Tarea>(`/${id}/completar`, { method: 'POST' }),
-  aceptar: (id: string) => pedir<Tarea>(`/${id}/aceptar`, { method: 'POST' }),
-  rechazar: (id: string, motivo: string) => pedir<Tarea>(`/${id}/rechazar`, { method: 'POST', body: JSON.stringify({ motivo }) }),
-  comentarios: (id: string) => pedir<Comentario[]>(`/${id}/comentarios`),
-  comentar: (id: string, texto: string) => pedir<Comentario>(`/${id}/comentarios`, { method: 'POST', body: JSON.stringify({ texto }) }),
-  personas: (q: string) => pedir<Persona[]>(`/personas?q=${encodeURIComponent(q)}`),
+  mis: (completadas = false, archivadas = false) => api.get<Tarea[]>(`${B}/mis?completadas=${completadas}&archivadas=${archivadas}`),
+  asignadasPorMi: (completadas = false, archivadas = false) => api.get<Tarea[]>(`${B}/asignadas-por-mi?completadas=${completadas}&archivadas=${archivadas}`),
+  /** Quita del tablero de quien lo pide las completadas indicadas (no las borra: pasan a «Archivadas»). */
+  archivar: (ids: string[]) => api.post<{ archivadas: number }>(`${B}/archivar`, { ids }),
+  restaurar: (id: string) => api.post<void>(`${B}/${id}/restaurar`),
+  miDia: () => api.get<Tarea[]>(`${B}/mi-dia`),
+  obtener: (id: string) => api.get<Tarea>(`${B}/${id}`),
+  asignar: (d: Record<string, unknown>) => api.post<Tarea>(`${B}/asignar`, d),
+  /** Una tarea de lista pasa a tener seguimiento (la misma, no una copia). */
+  desdeTarea: (id: string, d: Record<string, unknown>) => api.post<Tarea>(`${B}/desde-tarea/${id}`, d),
+  editar: (id: string, d: Record<string, unknown>) => api.patch<Tarea>(`${B}/${id}`, d),
+  eliminar: (id: string) => api.del<void>(`${B}/${id}`),
+  estado: (id: string, estado: string) => api.patch<Tarea>(`${B}/${id}/estado`, { estado }),
+  completar: (id: string) => api.post<Tarea>(`${B}/${id}/completar`),
+  aceptar: (id: string) => api.post<Tarea>(`${B}/${id}/aceptar`),
+  rechazar: (id: string, motivo: string) => api.post<Tarea>(`${B}/${id}/rechazar`, { motivo }),
+  comentarios: (id: string) => api.get<Comentario[]>(`${B}/${id}/comentarios`),
+  comentar: (id: string, texto: string) => api.post<Comentario>(`${B}/${id}/comentarios`, { texto }),
+  personas: (q: string) => api.get<Persona[]>(`${B}/personas?q=${encodeURIComponent(q)}`),
 };

@@ -1,364 +1,232 @@
-import { StepsList } from './StepsList';
-import React, { useState, useEffect } from 'react';
+// Panel de detalle de una tarea, como el de Outlook (F5): tarjetas sobre fondo rosado claro. Completar, título e
+// importancia con sus pasos; Mi día; asignar; recordatorio, vencimiento y repetición; categoría; archivos; nota; y,
+// al pie, ocultar el panel, cuándo se creó y eliminar.
+import { useState } from 'react';
+import { useAuthStore } from '../../../store/authStore';
 import type { Task } from '../types';
 import { COLORS } from '../types';
+import { ActividadLista } from './ActividadLista';
+import { AdjuntosTarea } from './AdjuntosTarea';
+import { AsignarTarea } from './AsignarTarea';
+import { CategoriaTarea } from './CategoriaTarea';
+import { EnlaceCorreo } from './EnlaceCorreo';
+import { RecordatorioTarea } from './RecordatorioTarea';
+import { RepeticionTarea } from './RepeticionTarea';
+import { StepsList } from './StepsList';
+import { TarjetaPanel } from './TarjetaPanel';
+import { VencimientoTarea } from './VencimientoTarea';
+import { FONDO_PANEL, LINEA_TARJETA, filaSeccion, seccion } from './estiloPanel';
+import { hoyTexto } from './repeticion';
+import { diaVencimiento } from './fechaVencimiento';
 
 interface Props {
   task: Task;
   onUpdate: (id: string, data: Partial<Task>) => void;
+  onToggle: (id: string) => void;
+  onToggleImportant: (id: string) => void;
   onDelete: (id: string) => void;
   onClose: () => void;
+  /** Cambiaron los pasos o los archivos: se vuelve a pedir la lista para ver los contadores. */
+  onRefrescar: () => void;
+  /** La tarea se asignó (pasó a tener seguimiento): hay que recargar. */
+  onAsignada: () => void;
+  /** ⚙ «Confirmar antes de eliminar» (F6). */
+  confirmar?: boolean;
 }
 
-const RECURRENCE_OPTIONS = [
-  { value: '', label: 'No repetir' },
-  { value: 'daily', label: 'Diariamente' },
-  { value: 'weekdays', label: 'Días laborables' },
-  { value: 'weekly', label: 'Semanalmente' },
-  { value: 'monthly', label: 'Mensualmente' },
-  { value: 'yearly', label: 'Anualmente' },
-];
-
-const REMINDER_PRESETS = [
-  { label: 'Hoy', offset: 0 },
-  { label: 'Mañana 9:00', offset: 1 },
-  { label: 'Próximo lunes 9:00', offset: -1 },
-];
-
-function formatReminder(r?: string) {
-  if (!r) return '';
-  const d = new Date(r);
-  if (isNaN(d.getTime())) return '';
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const rDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const diff = Math.round((rDate.getTime() - today.getTime()) / 86400000);
-  const time = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-  if (diff === 0) return `Hoy a las ${time}`;
-  if (diff === 1) return `Mañana a las ${time}`;
-  if (diff === -1) return `Ayer a las ${time}`;
-  return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) + ` a las ${time}`;
+function fechaCorta(iso: string): string {
+  const d = new Date(iso);
+  const hoy = new Date();
+  const ayer = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - 1);
+  if (d.toDateString() === hoy.toDateString()) return 'hoy';
+  if (d.toDateString() === ayer.toDateString()) return 'ayer';
+  return 'el ' + d.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
-function recurrenceLabel(r?: string) {
-  const opt = RECURRENCE_OPTIONS.find(o => o.value === r);
-  return opt ? opt.label : '';
-}
+const iconoPie = { display: 'flex', background: 'none', border: 'none', cursor: 'pointer', color: COLORS.secondary, padding: 4 };
 
-export function TaskDetailPanel({ task, onUpdate, onDelete, onClose }: Props) {
+export function TaskDetailPanel({ task, onUpdate, onToggle, onToggleImportant, onDelete, onClose, onRefrescar, onAsignada, confirmar = true }: Props) {
   const [title, setTitle] = useState(task.title);
+  const [verActividad, setVerActividad] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Una tarea con seguimiento solo la elimina quien la asignó; el resto de la lista no (05/11/2026).
+  const yo = (useAuthStore(st => st.user?.username) || '').toLowerCase();
+  const puedeEliminar = !task.seguimiento || (task.created_by || '').toLowerCase() === yo;
   const [notes, setNotes] = useState(task.note || '');
-  const [dueDate, setDueDate] = useState((task.due_date || '').slice(0, 10));
-  const [showReminder, setShowReminder] = useState(false);
-  const [showRecurrence, setShowRecurrence] = useState(false);
-  const [customReminder, setCustomReminder] = useState('');
 
-  const isMailTask = task.id.startsWith('mail-');
-
-  useEffect(() => {
+  // Si la tarea cambia desde fuera (otra tarea, o se editó en la lista), el formulario se pone al día.
+  const clave = `${task.id}|${task.title}|${task.note || ''}`;
+  const [claveVista, setClaveVista] = useState(clave);
+  if (claveVista !== clave) {
+    setClaveVista(clave);
     setTitle(task.title);
     setNotes(task.note || '');
-    setDueDate((task.due_date || '').slice(0, 10));
-  }, [task.id, task.title, task.note, task.due_date]);
+    if (task.id !== claveVista.split('|')[0]) setConfirmDelete(false);
+  }
 
   const saveTitle = () => {
-    if (title.trim() && title !== task.title) {
-      onUpdate(task.id, { title: title.trim() });
-    }
+    if (title.trim() && title !== task.title) onUpdate(task.id, { title: title.trim() });
   };
 
   const saveNotes = () => {
-    if (notes !== (task.note || '')) {
-      onUpdate(task.id, { note: notes });
-    }
+    if (notes !== (task.note || '')) onUpdate(task.id, { note: notes });
   };
 
-  const setReminder = (dateStr: string) => {
-    onUpdate(task.id, { reminder: dateStr || null } as any);
-    setShowReminder(false);
-    setCustomReminder('');
+  // Como en To Do: una tarea que se repite y no tiene fecha vence hoy.
+  const cambiarRepeticion = (regla: string | null) => {
+    if (regla && !task.due_date) onUpdate(task.id, { recurrence: regla, due_date: hoyTexto() });
+    else onUpdate(task.id, { recurrence: regla });
   };
 
-  const setReminderPreset = (offset: number) => {
-    const now = new Date();
-    let target: Date;
-    if (offset === 0) {
-      // Today in 3 hours
-      target = new Date(now.getTime() + 3 * 3600000);
-    } else if (offset === 1) {
-      // Tomorrow 9:00
-      target = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 9, 0);
-    } else {
-      // Next monday 9:00
-      const day = now.getDay();
-      const daysUntilMon = day === 0 ? 1 : (8 - day);
-      target = new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysUntilMon, 9, 0);
-    }
-    setReminder(target.toISOString());
-  };
-
-  const sectionStyle: React.CSSProperties = {
-    padding: '12px 20px', borderBottom: `1px solid ${COLORS.border}`,
-    display: 'flex', alignItems: 'center', gap: 12, fontSize: 14,
-    color: COLORS.text, cursor: 'pointer', position: 'relative',
-  };
+  const pie = task.completed && task.completed_at
+    ? `Completada ${fechaCorta(task.completed_at)}`
+    : task.created_at ? `Creada ${fechaCorta(task.created_at)}` : '';
 
   return (
-    <div style={{
-      width: 360, minWidth: 360, background: 'white', borderLeft: `1px solid ${COLORS.border}`,
+    <aside aria-label="Detalles de la tarea" className="panel-tarea" style={{
+      width: 360, minWidth: 360, background: FONDO_PANEL, borderLeft: `1px solid ${COLORS.border}`,
       display: 'flex', flexDirection: 'column', height: '100%',
-      fontFamily: "'Segoe UI', system-ui, sans-serif",
-      boxShadow: '-2px 0 8px rgba(0,0,0,0.05)',
+      fontFamily: "'Segoe UI', system-ui, sans-serif", boxShadow: '-2px 0 8px rgba(0,0,0,0.05)',
     }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', padding: '12px 20px', borderBottom: `1px solid ${COLORS.border}` }}>
-        <div style={{ flex: 1, fontWeight: 600, fontSize: 14 }}>
-          {isMailTask ? 'Correo marcado' : 'Detalles de la tarea'}
-        </div>
-        <button onClick={onClose} style={{
-          background: 'none', border: 'none', cursor: 'pointer', fontSize: 18,
-          color: COLORS.secondary, padding: '0 4px', lineHeight: 1,
-        }}>&times;</button>
-      </div>
+      <style>{`.panel-tarea input.paso-nuevo::placeholder, .panel-tarea textarea.nota-tarea::placeholder { color: ${COLORS.secondary}; }
+.panel-tarea input.paso-nuevo::placeholder { color: ${COLORS.primary}; }`}</style>
 
-      <div style={{ flex: 1, overflowY: 'auto' }}>
-        {/* Title */}
-        <div style={{ padding: '16px 20px', borderBottom: `1px solid ${COLORS.border}` }}>
-          {isMailTask ? (
-            <div style={{ fontSize: 16, fontWeight: 600, color: COLORS.text }}>{task.title}</div>
-          ) : (
-            <input
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-              onBlur={saveTitle}
-              onKeyDown={e => { if (e.key === 'Enter') { saveTitle(); (e.target as HTMLInputElement).blur(); } }}
-              style={{
-                width: '100%', border: 'none', outline: 'none', fontSize: 16, fontWeight: 600,
-                color: task.completed ? COLORS.muted : COLORS.text,
-                textDecoration: task.completed ? 'line-through' : 'none',
-              }}
-            />
-          )}
-        </div>
-
-        {/* Email info for flagged mail */}
-        {isMailTask && task.description && (
-          <div style={{ padding: '8px 20px', fontSize: 13, color: COLORS.secondary, borderBottom: `1px solid ${COLORS.border}` }}>
-            {task.description}
-          </div>
-        )}
-
-        {/* Mi día toggle */}
-        {!isMailTask && (
-          <div
-            style={sectionStyle}
-            onClick={() => onUpdate(task.id, { my_day: !task.my_day })}
-            onMouseEnter={e => (e.currentTarget.style.background = COLORS.hoverBg)}
-            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-          >
-            <svg width={18} height={18} viewBox="0 0 24 24" fill={task.my_day ? COLORS.primary : 'none'} stroke={task.my_day ? COLORS.primary : COLORS.secondary} strokeWidth={1.8}>
-              <circle cx="12" cy="12" r="5" /><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
-            </svg>
-            <span style={{ color: task.my_day ? COLORS.primary : COLORS.text }}>
-              {task.my_day ? 'Agregado a Mi día' : 'Agregar a Mi día'}
-            </span>
-          </div>
-        )}
-
-        {/* Due date */}
-        {!isMailTask && (
-          <div style={{ ...sectionStyle, flexDirection: 'column', alignItems: 'flex-start', gap: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
-              <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={dueDate ? COLORS.primary : COLORS.secondary} strokeWidth={1.8}>
-                <rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" />
-              </svg>
-              <span>{dueDate ? 'Fecha de vencimiento' : 'Agregar fecha de vencimiento'}</span>
-              {dueDate && (
-                <button onClick={(e) => { e.stopPropagation(); setDueDate(''); onUpdate(task.id, { due_date: null } as any); }}
-                  style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#d13438', fontSize: 12 }}>
-                  Quitar
-                </button>
-              )}
+      <div style={{ flex: 1, overflowY: 'auto', paddingTop: 16 }}>
+        {/* Completar, título e importancia, con los pasos */}
+        <TarjetaPanel>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, padding: '14px 16px 6px' }}>
+              <button type="button" role="checkbox" aria-checked={task.completed}
+                aria-label={task.completed ? 'Marcar como no completada' : 'Marcar como completada'}
+                onClick={() => onToggle(task.id)}
+                style={{
+                  width: 20, height: 20, marginTop: 3, borderRadius: '50%', padding: 0, flexShrink: 0, cursor: 'pointer',
+                  border: task.completed ? 'none' : `1.5px solid ${COLORS.primary}`,
+                  background: task.completed ? COLORS.primary : 'transparent',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                {task.completed && <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={3}><polyline points="20 6 9 17 4 12" /></svg>}
+              </button>
+              <textarea
+                aria-label="Título de la tarea"
+                value={title}
+                rows={Math.min(5, Math.max(1, Math.ceil(title.length / 26)))}
+                onChange={e => setTitle(e.target.value.replace(/\n/g, ''))}
+                onBlur={saveTitle}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); saveTitle(); e.currentTarget.blur(); } }}
+                style={{
+                  flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent', resize: 'none', padding: 0,
+                  fontSize: 17, lineHeight: '24px', fontWeight: 600, fontFamily: 'inherit',
+                  color: task.completed ? COLORS.muted : COLORS.text,
+                  textDecoration: task.completed ? 'line-through' : 'none',
+                }}
+              />
+              <button type="button" aria-label={task.important ? 'Quitar importancia' : 'Marcar como importante'}
+                onClick={() => onToggleImportant(task.id)}
+                style={{ display: 'flex', background: 'none', border: 'none', padding: 2, marginTop: 2, cursor: 'pointer' }}>
+                <svg width={20} height={20} viewBox="0 0 24 24" fill={task.important ? COLORS.primary : 'none'}
+                  stroke={COLORS.primary} strokeWidth={1.6}>
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                </svg>
+              </button>
             </div>
-            <input type="date" value={dueDate}
-              onChange={e => setDueDate(e.target.value)}
-              onBlur={() => {
-                if (dueDate !== (task.due_date || '').slice(0, 10)) {
-                  onUpdate(task.id, { due_date: dueDate || null } as any);
-                }
-              }}
-              onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-              style={{ marginLeft: 30, fontSize: 13, border: `1px solid ${COLORS.border}`, borderRadius: 4, padding: '4px 8px', color: COLORS.text }}
-            />
+            <StepsList cardId={task.id} onCambio={onRefrescar} />
           </div>
-        )}
+        </TarjetaPanel>
 
-        {/* Reminder */}
-        {!isMailTask && (
-          <div style={{ ...sectionStyle, flexDirection: 'column', alignItems: 'flex-start', gap: 0 }}>
-            <div
-              style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}
-              onClick={() => setShowReminder(!showReminder)}
-              onMouseEnter={e => (e.currentTarget.style.background = COLORS.hoverBg)}
-              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-            >
-              <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={task.reminder ? COLORS.primary : COLORS.secondary} strokeWidth={1.8}>
-                <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 01-3.46 0" />
+        {/* Tarea que viene de un correo (marcado o soltado en Tareas): enlace para abrirlo */}
+        {task.correo && <TarjetaPanel><EnlaceCorreo correo={task.correo} /></TarjetaPanel>}
+
+        <TarjetaPanel>
+          <div style={seccion}>
+            <button type="button" style={filaSeccion} onClick={() => onUpdate(task.id, { my_day: !task.my_day })}>
+              <svg aria-hidden="true" width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={task.my_day ? COLORS.primary : COLORS.secondary} strokeWidth={1.6}>
+                <circle cx="12" cy="12" r="4.5" /><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
               </svg>
-              <span style={{ flex: 1, color: task.reminder ? COLORS.primary : COLORS.text }}>
-                {task.reminder ? formatReminder(task.reminder) : 'Recordarme'}
+              <span style={{ flex: 1, color: task.my_day ? COLORS.primary : COLORS.text }}>
+                {task.my_day ? 'Agregada a Mi día' : 'Agregar a Mi día'}
               </span>
-              {task.reminder && (
-                <button onClick={(e) => { e.stopPropagation(); setReminder(''); }}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d13438', fontSize: 12 }}>
-                  Quitar
-                </button>
-              )}
-            </div>
-            {showReminder && (
-              <div style={{
-                marginTop: 8, marginLeft: 30, background: 'white', border: `1px solid ${COLORS.border}`,
-                borderRadius: 6, boxShadow: '0 4px 12px rgba(0,0,0,0.15)', padding: 4, width: 220, zIndex: 10,
-              }}>
-                {REMINDER_PRESETS.map(p => (
-                  <div key={p.label} onClick={() => setReminderPreset(p.offset)}
-                    style={{ padding: '8px 12px', fontSize: 13, cursor: 'pointer', borderRadius: 4 }}
-                    onMouseEnter={e => (e.currentTarget.style.background = COLORS.hoverBg)}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                    {p.label}
-                  </div>
-                ))}
-                <div style={{ borderTop: `1px solid ${COLORS.border}`, margin: '4px 0' }} />
-                <div style={{ padding: '4px 8px' }}>
-                  <input type="datetime-local" value={customReminder}
-                    onChange={e => setCustomReminder(e.target.value)}
-                    style={{ width: '100%', fontSize: 12, border: `1px solid ${COLORS.border}`, borderRadius: 4, padding: '4px 6px' }}
-                  />
-                  {customReminder && (
-                    <button onClick={() => setReminder(new Date(customReminder).toISOString())}
-                      style={{ marginTop: 4, width: '100%', padding: '4px', fontSize: 12, background: COLORS.primary, color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
-                      Establecer
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Recurrence */}
-        {!isMailTask && (
-          <div style={{ ...sectionStyle, flexDirection: 'column', alignItems: 'flex-start', gap: 0 }}>
-            <div
-              style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}
-              onClick={() => setShowRecurrence(!showRecurrence)}
-              onMouseEnter={e => (e.currentTarget.style.background = COLORS.hoverBg)}
-              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-            >
-              <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={task.recurrence ? COLORS.primary : COLORS.secondary} strokeWidth={1.8}>
-                <polyline points="17 1 21 5 17 9" /><path d="M3 11V9a4 4 0 014-4h14" />
-                <polyline points="7 23 3 19 7 15" /><path d="M21 13v2a4 4 0 01-4 4H3" />
-              </svg>
-              <span style={{ flex: 1, color: task.recurrence ? COLORS.primary : COLORS.text }}>
-                {task.recurrence ? recurrenceLabel(task.recurrence) : 'Repetir'}
-              </span>
-              {task.recurrence && (
-                <button onClick={(e) => { e.stopPropagation(); onUpdate(task.id, { recurrence: null } as any); setShowRecurrence(false); }}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d13438', fontSize: 12 }}>
-                  Quitar
-                </button>
-              )}
-            </div>
-            {showRecurrence && (
-              <div style={{
-                marginTop: 8, marginLeft: 30, background: 'white', border: `1px solid ${COLORS.border}`,
-                borderRadius: 6, boxShadow: '0 4px 12px rgba(0,0,0,0.15)', padding: 4, width: 200, zIndex: 10,
-              }}>
-                {RECURRENCE_OPTIONS.map(o => (
-                  <div key={o.value}
-                    onClick={() => { onUpdate(task.id, { recurrence: o.value || null } as any); setShowRecurrence(false); }}
-                    style={{
-                      padding: '8px 12px', fontSize: 13, cursor: 'pointer', borderRadius: 4,
-                      fontWeight: task.recurrence === o.value ? 600 : 400,
-                      color: task.recurrence === o.value ? COLORS.primary : COLORS.text,
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.background = COLORS.hoverBg)}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                    {o.label}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Notes */}
-        {!isMailTask && (
-          <div style={{ padding: '16px 20px', borderBottom: `1px solid ${COLORS.border}` }}>
-            <textarea
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              onBlur={saveNotes}
-              placeholder="Agregar nota"
-              style={{
-                width: '100%', minHeight: 80, border: 'none', outline: 'none',
-                fontSize: 13, color: COLORS.text, resize: 'vertical',
-                fontFamily: "'Segoe UI', system-ui, sans-serif",
-              }}
-            />
-          </div>
-        )}
-
-{/* Subtasks / Steps */}
-        {!isMailTask && <StepsList cardId={task.id} />}
-        {/* Created date */}
-        {task.created_at && (
-          <div style={{ padding: '12px 20px', fontSize: 12, color: COLORS.muted }}>
-            {isMailTask ? 'Recibido' : 'Creada'} el {new Date(task.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
-          </div>
-        )}
-      </div>
-
-      {/* Delete/action button */}
-      {!isMailTask && (
-        <div style={{ padding: '12px 20px', borderTop: `1px solid ${COLORS.border}` }}>
-          {!confirmDelete ? (
-            <button
-              onClick={() => setConfirmDelete(true)}
-              style={{
-                width: '100%', padding: '8px 16px', fontSize: 13,
-                background: 'transparent', border: `1px solid #d13438`,
-                color: '#d13438', borderRadius: 4, cursor: 'pointer',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = '#fde7e9'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
-            >
-              Eliminar tarea
+              {task.my_day && <span aria-label="Quitar de Mi día" title="Quitar de Mi día" style={{ color: COLORS.secondary, fontSize: 16 }}>&times;</span>}
             </button>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <span style={{ fontSize: 12, color: COLORS.text }}>¿Eliminar esta tarea?</span>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button
-                  onClick={() => onDelete(task.id)}
-                  style={{ flex: 1, padding: '8px 16px', fontSize: 13, background: '#d13438',
-                    border: 'none', color: 'white', borderRadius: 4, cursor: 'pointer' }}
-                >
-                  Eliminar
-                </button>
-                <button
-                  onClick={() => setConfirmDelete(false)}
-                  style={{ flex: 1, padding: '8px 16px', fontSize: 13, background: 'transparent',
-                    border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 4, cursor: 'pointer' }}
-                >
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          )}
+          </div>
+        </TarjetaPanel>
+
+        {task.correo?.origen !== 'marcado' && !task.seguimiento && <TarjetaPanel><AsignarTarea task={task} onAsignada={onAsignada} /></TarjetaPanel>}
+
+        <TarjetaPanel>
+          <RecordatorioTarea valor={task.reminder} onCambiar={r => onUpdate(task.id, { reminder: r })} />
+          <VencimientoTarea valor={diaVencimiento(task.due_date)} onCambiar={f => onUpdate(task.id, { due_date: f })} />
+          <RepeticionTarea valor={task.recurrence} onCambiar={cambiarRepeticion} />
+        </TarjetaPanel>
+
+        <TarjetaPanel>
+          <CategoriaTarea valor={task.labels || []} onCambiar={labels => onUpdate(task.id, { labels })} />
+        </TarjetaPanel>
+
+        <TarjetaPanel>
+          <AdjuntosTarea cardId={task.id} onCambio={onRefrescar} />
+        </TarjetaPanel>
+
+        <TarjetaPanel>
+          <textarea
+            aria-label="Nota"
+            className="nota-tarea"
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
+            onBlur={saveNotes}
+            placeholder="Agregar nota"
+            style={{
+              width: '100%', minHeight: 96, border: 'none', outline: 'none', background: 'transparent', boxSizing: 'border-box',
+              padding: '14px 16px', fontSize: 14, color: COLORS.text, resize: 'vertical', fontFamily: 'inherit',
+            }}
+          />
+        </TarjetaPanel>
+
+        {/* Registro de actividad de la tarea (listas compartidas, F4) */}
+        <div style={{ padding: '0 16px 16px' }}>
+          <button type="button" aria-expanded={verActividad} onClick={() => setVerActividad(!verActividad)}
+            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 12, color: COLORS.secondary, fontFamily: 'inherit' }}>
+            {verActividad ? '▾' : '▸'} Actividad
+          </button>
+          {verActividad && <ActividadLista ruta={`/tasks/tasks/${task.id}/actividad`} vacio="Sin actividad registrada." />}
         </div>
-      )}
-    </div>
+      </div>
+
+      {/* Pie: ocultar el panel, cuándo se creó y eliminar. A la derecha deja sitio al botón flotante del chat,
+          que tapaba la papelera. */}
+      <div style={{ padding: '10px 84px 10px 12px', borderTop: `1px solid ${LINEA_TARJETA}` }}>
+        {!confirmDelete ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button type="button" aria-label="Ocultar la vista de detalles" title="Ocultar la vista de detalles" onClick={onClose} style={iconoPie}>
+              <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
+                <rect x="3" y="4" width="18" height="16" rx="2" /><path d="M15 4v16M8 10l2 2-2 2" />
+              </svg>
+            </button>
+            <span style={{ flex: 1, fontSize: 12, color: COLORS.secondary, textAlign: 'center' }}>{pie}</span>
+            {puedeEliminar && <button type="button" aria-label="Eliminar tarea" title="Eliminar tarea" onClick={() => (confirmar ? setConfirmDelete(true) : onDelete(task.id))} style={iconoPie}
+              onMouseEnter={e => { e.currentTarget.style.color = '#d13438'; }}
+              onMouseLeave={e => { e.currentTarget.style.color = COLORS.secondary; }}>
+              <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
+                <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M10 11v6M14 11v6" />
+              </svg>
+            </button>}
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <span style={{ fontSize: 12, color: COLORS.text }}>¿Eliminar «{task.title}»? No se puede deshacer.</span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" onClick={() => onDelete(task.id)}
+                style={{ flex: 1, padding: '8px 16px', fontSize: 13, background: '#d13438', border: 'none', color: 'white', borderRadius: 4, cursor: 'pointer' }}>
+                Eliminar
+              </button>
+              <button type="button" onClick={() => setConfirmDelete(false)}
+                style={{ flex: 1, padding: '8px 16px', fontSize: 13, background: 'white', border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 4, cursor: 'pointer' }}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </aside>
   );
 }

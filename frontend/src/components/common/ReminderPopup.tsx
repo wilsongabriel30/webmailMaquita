@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { api } from '../../api/client';
 import { showToast } from './Toast';
 import { abrirReunion, enlaceReunionSeguro, quitarLineaEnlace } from '../../lib/enlaceReunion';
+import { TarjetaAviso, type DatosTarea } from './TarjetaAviso';
 
 interface Rem {
   id: string;
@@ -9,10 +10,26 @@ interface Rem {
   kind?: string;
   entityId?: string;
   enlace?: string;
+  tarea?: DatosTarea | null;
 }
 
-/** Tarjetas de recordatorio persistentes (abajo a la derecha), estilo Outlook.
- *  Se alimentan del evento global 'show-reminder' (WebSocket type=reminder). */
+interface TareaVista { id: string; title: string; due_date?: string | null; reminder?: string | null }
+
+/** El servidor manda «Recordatorio de tarea: <título>» o «Vence hoy: <título>» (antes con un emoji delante);
+ *  el título solo, por si no se encuentra la tarea. */
+const tituloDelMensaje = (m: string) =>
+  m.replace(/^\s*\p{Extended_Pictographic}?\uFE0F?\s*(Recordatorio de tarea|Vence hoy):\s*/u, '').trim() || m;
+
+function posponerHasta(minutos: number): string {
+  if (minutos > 0) return new Date(Date.now() + minutos * 60000).toISOString();
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  d.setHours(9, 0, 0, 0);
+  return d.toISOString();
+}
+
+/** Avisos de recordatorio persistentes, arriba a la derecha bajo la barra, como en Outlook (TarjetaAviso).
+ *  Se alimentan del evento global 'show-reminder' (WebSocket type=reminder). Van por delante de la burbuja del chat. */
 export function ReminderPopup() {
   const [items, setItems] = useState<Rem[]>([]);
 
@@ -20,62 +37,60 @@ export function ReminderPopup() {
     const h = (e: Event) => {
       const d = (e as CustomEvent).detail || {};
       const id = d.tag || `rem-${Math.random().toString(36).slice(2)}`;
-      setItems(prev => prev.some(p => p.id === id)
-        ? prev
-        : [...prev, { id, message: d.message || 'Recordatorio', kind: d.kind, entityId: d.entity_id, enlace: enlaceReunionSeguro(d.link) }]);
+      const nuevo: Rem = { id, message: d.message || 'Recordatorio', kind: d.kind, entityId: d.entity_id, enlace: enlaceReunionSeguro(d.link) };
+      if (nuevo.kind === 'task') nuevo.tarea = { titulo: tituloDelMensaje(nuevo.message) };
+      setItems(prev => prev.some(p => p.id === id) ? prev : [...prev, nuevo]);
+      // Vencimiento y recordatorio de la tarea (segunda línea del aviso): «Planeado» trae las que tienen recordatorio.
+      if (nuevo.kind === 'task' && nuevo.entityId) {
+        api.get<TareaVista[]>('/tasks/views/planned').then(lista => {
+          const t = lista.find(x => x.id === nuevo.entityId);
+          if (!t) return;
+          setItems(prev => prev.map(p => p.id === id
+            ? { ...p, tarea: { titulo: t.title, vence: t.due_date, recordatorio: t.reminder } } : p));
+        }).catch(() => { /* sin la segunda línea: el aviso sigue sirviendo */ });
+      }
     };
     window.addEventListener('show-reminder', h);
     return () => window.removeEventListener('show-reminder', h);
   }, []);
 
-  const dismiss = (id: string) => setItems(prev => prev.filter(p => p.id !== id));
+  const cerrar = (id: string) => setItems(prev => prev.filter(p => p.id !== id));
 
-  const snooze = async (r: Rem) => {
+  const posponer = async (r: Rem, minutos: number) => {
     try {
-      const when = new Date(Date.now() + 10 * 60000).toISOString();
-      await api.patch(`/tasks/tasks/${r.entityId}`, { reminder: when });
-      showToast('Recordatorio pospuesto 10 minutos');
+      await api.patch(`/tasks/tasks/${r.entityId}`, { reminder: posponerHasta(minutos) });
+      showToast(minutos > 0 ? `Aviso pospuesto ${minutos >= 60 ? `${minutos / 60} hora${minutos > 60 ? 's' : ''}` : `${minutos} minutos`}` : 'Aviso pospuesto hasta mañana a las 9:00');
+      window.dispatchEvent(new CustomEvent('refresh-tasks'));
     } catch {
-      showToast('No se pudo posponer el recordatorio');
+      showToast('No se pudo posponer el aviso');
     }
-    dismiss(r.id);
+    cerrar(r.id);
+  };
+
+  const completar = async (r: Rem) => {
+    try {
+      await api.patch(`/tasks/tasks/${r.entityId}/toggle`);
+      showToast('Tarea completada');
+      window.dispatchEvent(new CustomEvent('refresh-tasks'));
+      cerrar(r.id);
+    } catch {
+      showToast('No se pudo completar la tarea');
+    }
   };
 
   if (items.length === 0) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-[300] flex flex-col gap-2 max-w-[340px]">
+    <div className="fixed top-[56px] right-3 z-[10000] flex flex-col gap-2 w-[480px] max-w-[calc(100vw-24px)] max-h-[calc(100vh-72px)] overflow-y-auto">
       {items.map(r => (
-        <div key={r.id}
-          className="bg-white dark:bg-[#2d2d2d] border border-[#edebe9] dark:border-[#444] rounded-lg shadow-xl p-3 flex flex-col gap-2 animate-[fadeIn_0.2s_ease]">
-          <div className="flex items-start gap-2">
-            <span className="text-[18px] leading-none mt-0.5">{r.kind === 'event' ? '📅' : '⏰'}</span>
-            <span className="text-[13px] text-[#323130] dark:text-[#e0e0e0] flex-1 whitespace-pre-line break-words">{quitarLineaEnlace(r.message, r.enlace || '')}</span>
-            <button onClick={() => dismiss(r.id)} aria-label="Descartar recordatorio"
-              className="text-[#605e5c] dark:text-[#999] hover:text-[#323130] dark:hover:text-[#e0e0e0] text-[16px] leading-none px-1">
-              ×
-            </button>
-          </div>
-          <div className="flex gap-2 justify-end">
-            {r.enlace && (
-              <button onClick={() => { abrirReunion(r.enlace!); dismiss(r.id); }}
-                title={r.enlace}
-                className="px-3 py-1 text-[12px] rounded bg-[#107c10] text-white hover:bg-[#0b5a0b] transition-colors font-semibold">
-                Entrar a la reunión
-              </button>
-            )}
-            {r.kind === 'task' && r.entityId && (
-              <button onClick={() => snooze(r)}
-                className="px-3 py-1 text-[12px] rounded border border-[#0078d4] text-[#106ebe] hover:bg-[#deecf9] transition-colors">
-                Posponer 10 min
-              </button>
-            )}
-            <button onClick={() => dismiss(r.id)}
-              className="px-3 py-1 text-[12px] rounded bg-[#0078d4] text-white hover:bg-[#106ebe] transition-colors">
-              Descartar
-            </button>
-          </div>
-        </div>
+        <TarjetaAviso key={r.id} tipo={r.kind}
+          texto={quitarLineaEnlace(r.message, r.enlace || '')}
+          tarea={r.tarea}
+          enlace={r.enlace}
+          onCompletar={r.kind === 'task' && r.entityId ? () => completar(r) : undefined}
+          onPosponer={r.kind === 'task' && r.entityId ? m => posponer(r, m) : undefined}
+          onEntrar={r.enlace ? () => { abrirReunion(r.enlace!); cerrar(r.id); } : undefined}
+          onCerrar={() => cerrar(r.id)} />
       ))}
     </div>
   );

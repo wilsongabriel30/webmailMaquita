@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { tareasApi } from './api';
 import { SelectorPersonas } from './SelectorPersonas';
 import { Semaforo } from './TarjetaTarea';
+import { Dato, IcoCalendario, IcoClip, IcoRepetir } from './IconosSeguimiento';
 import type { Comentario, Tarea } from './tipos';
 import { ESTADO_NOMBRE, PRIORIDAD_NOMBRE, RECURRENCIAS, fechaCorta, nombreDe } from './tipos';
 import { StepsList } from '../tasks/components/StepsList';
@@ -15,16 +16,24 @@ const primario: React.CSSProperties = { ...btn, background: '#0078d4', color: '#
 const lbl: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: '#605e5c', margin: '12px 0 4px', display: 'block' };
 const inp: React.CSSProperties = { width: '100%', border: '1px solid #c8c6c4', borderRadius: 4, padding: '6px 8px', fontSize: 13, boxSizing: 'border-box' };
 
+/** Plazo para el campo «datetime-local»: la hora local del equipo. Al abrir se mostraba un instante en hora UTC. */
+function plazoLocal(iso?: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? '' : new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+
 export function TareaDetalle({ tarea, yo, onCerrar, onCambio }: Props) {
-  const soyAsignado = tarea.asignados.includes(yo);
-  const soyAsignador = tarea.asignado_por === yo;
+  const mio = yo.toLowerCase();
+  const soyAsignado = !!mio && tarea.asignados.some(a => a.toLowerCase() === mio);
+  const soyAsignador = !!mio && (tarea.asignado_por || '').toLowerCase() === mio;
   const [comentarios, setComentarios] = useState<Comentario[]>([]);
   const [texto, setTexto] = useState('');
   const [motivo, setMotivo] = useState('');
   const [rechazando, setRechazando] = useState(false);
   const [editando, setEditando] = useState(false);
   const [asignados, setAsignados] = useState<string[]>(tarea.asignados);
-  const [plazo, setPlazo] = useState(tarea.plazo ? new Date(tarea.plazo).toISOString().slice(0, 16) : '');
+  const [plazo, setPlazo] = useState(plazoLocal(tarea.plazo));
   const [prioridad, setPrioridad] = useState(tarea.prioridad);
   const [recurrencia, setRecurrencia] = useState(tarea.recurrencia || '');
   const [escalarA, setEscalarA] = useState<string[]>(tarea.escalar_a ? [tarea.escalar_a] : []);
@@ -32,7 +41,7 @@ export function TareaDetalle({ tarea, yo, onCerrar, onCambio }: Props) {
   const [error, setError] = useState('');
 
   useEffect(() => { tareasApi.comentarios(tarea.id).then(setComentarios).catch(() => setComentarios([])); }, [tarea.id, tarea.comentarios]);
-  useEffect(() => { setAsignados(tarea.asignados); setPrioridad(tarea.prioridad); setRecurrencia(tarea.recurrencia || ''); setEscalarA(tarea.escalar_a ? [tarea.escalar_a] : []); setPlazo(tarea.plazo ? new Date(new Date(tarea.plazo).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ''); }, [tarea]);
+  useEffect(() => { setAsignados(tarea.asignados); setPrioridad(tarea.prioridad); setRecurrencia(tarea.recurrencia || ''); setEscalarA(tarea.escalar_a ? [tarea.escalar_a] : []); setPlazo(plazoLocal(tarea.plazo)); }, [tarea]);
 
   const ejecutar = async (fn: () => Promise<Tarea | void>) => {
     setOcupado(true); setError('');
@@ -46,7 +55,10 @@ export function TareaDetalle({ tarea, yo, onCerrar, onCambio }: Props) {
       recurrencia: recurrencia || null, quitar_recurrencia: !recurrencia, escalar_a: escalarA[0] || '' });
     setEditando(false); return t;
   });
-  const eliminar = () => { if (!confirm('¿Eliminar esta tarea para todos?')) return; ejecutar(async () => { await tareasApi.eliminar(tarea.id); onCambio(null); onCerrar(); }); };
+  // Borrar es para siempre (con historial y comentarios): si solo estorba, mejor quitarla del tablero (se archiva).
+  const eliminar = () => { if (!confirm(tarea.estado === 'completada'
+    ? '¿Eliminarla para siempre, con su historial y comentarios? Para que solo deje de verse, usa «Quitar del tablero»: se archiva sin borrarse.'
+    : '¿Eliminar esta tarea para todos? Se borra con su historial y comentarios, y no se puede deshacer.')) return; ejecutar(async () => { await tareasApi.eliminar(tarea.id); onCambio(null); onCerrar(); }); };
   const abrirCorreo = () => { if (tarea.correo) window.location.href = `/webmail/?folder=${encodeURIComponent(tarea.correo.folder)}&uid=${tarea.correo.uid}`; };
 
   return (
@@ -56,31 +68,32 @@ export function TareaDetalle({ tarea, yo, onCerrar, onCambio }: Props) {
         <button onClick={onCerrar} aria-label="Cerrar" style={{ ...btn, border: 'none', fontSize: 18, lineHeight: 1 }}>×</button>
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, fontSize: 12, color: '#605e5c', marginTop: 8 }}>
-        <Semaforo tarea={tarea} /><span>📅 {fechaCorta(tarea.plazo)}</span><span>{PRIORIDAD_NOMBRE[tarea.prioridad]}</span>
+        <Semaforo tarea={tarea} /><Dato icono={<IcoCalendario />}>{fechaCorta(tarea.plazo)}</Dato><span>{PRIORIDAD_NOMBRE[tarea.prioridad]}</span>
         <span style={{ background: '#f3f2f1', borderRadius: 10, padding: '1px 7px' }}>{ESTADO_NOMBRE[tarea.estado]}</span>
-        {tarea.recurrencia && <span>🔁 {RECURRENCIAS.find(r => r.valor === tarea.recurrencia)?.nombre}</span>}
+        {tarea.recurrencia && <Dato icono={<IcoRepetir />}>{RECURRENCIAS.find(r => r.valor === tarea.recurrencia)?.nombre}</Dato>}
       </div>
-      <div style={{ fontSize: 13, marginTop: 8 }}><b>Asignada a:</b> {tarea.asignados.map(nombreDe).join(', ')} · <b>por:</b> {nombreDe(tarea.asignado_por)}</div>
-      {tarea.aceptacion === 'aceptada' && <div style={{ fontSize: 12, color: '#107c10', marginTop: 4 }}>✔ Aceptada por el asignado</div>}
-      {tarea.aceptacion === 'rechazada' && <div style={{ fontSize: 12, color: '#a4262c', marginTop: 4 }}>✖ Rechazada: {tarea.motivo_rechazo || 'sin motivo'}</div>}
-      {tarea.escalado_en && <div style={{ fontSize: 12, color: '#a4262c', marginTop: 4 }}>⬆ Escalada al jefe el {fechaCorta(tarea.escalado_en)}</div>}
-      {tarea.estado === 'espera' && <div style={{ fontSize: 12, color: '#605e5c', marginTop: 4 }}>⏳ En espera: empieza cuando se complete la tarea anterior de la cadena.</div>}
-      {tarea.activa_tarea_id && <div style={{ fontSize: 12, color: '#605e5c', marginTop: 4 }}>⛓ Al completarse activa la siguiente tarea de la cadena.</div>}
+      <div style={{ fontSize: 13, marginTop: 8 }}><b>Asignada a:</b> {tarea.asignados.map(nombreDe).join(', ')} · <b>por:</b> {nombreDe(tarea.asignado_por)}{tarea.creada_por && <> · <b>creada por:</b> {nombreDe(tarea.creada_por)}</>}</div>
+      {tarea.aceptacion === 'aceptada' && <div style={{ fontSize: 12, color: '#107c10', marginTop: 4 }}>Aceptada por el asignado</div>}
+      {tarea.aceptacion === 'rechazada' && <div style={{ fontSize: 12, color: '#a4262c', marginTop: 4 }}>Rechazada: {tarea.motivo_rechazo || 'sin motivo'}</div>}
+      {tarea.escalado_en && <div style={{ fontSize: 12, color: '#a4262c', marginTop: 4 }}>Escalada al jefe el {fechaCorta(tarea.escalado_en)}</div>}
+      {tarea.estado === 'espera' && <div style={{ fontSize: 12, color: '#605e5c', marginTop: 4 }}>En espera: empieza cuando se complete la tarea anterior de la cadena.</div>}
+      {tarea.activa_tarea_id && <div style={{ fontSize: 12, color: '#605e5c', marginTop: 4 }}>Al completarse activa la siguiente tarea de la cadena.</div>}
       {tarea.descripcion && <div style={{ fontSize: 13, marginTop: 10, whiteSpace: 'pre-wrap', color: '#323130' }} dangerouslySetInnerHTML={{ __html: sanitizeHtml(tarea.descripcion) }} />}
-      {tarea.correo && <button onClick={abrirCorreo} style={{ ...btn, marginTop: 8 }}>📎 Abrir el correo «{tarea.correo.subject || 'sin asunto'}»</button>}
+      {tarea.correo && <button onClick={abrirCorreo} style={{ ...btn, marginTop: 8, display: 'inline-flex', alignItems: 'center', gap: 6 }}><IcoClip />Abrir el correo «{tarea.correo.subject || 'sin asunto'}»</button>}
 
       {/* Acciones */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 14 }}>
         {soyAsignado && tarea.aceptacion !== 'aceptada' && tarea.estado !== 'completada' && tarea.estado !== 'espera' && <>
-          <button disabled={ocupado} style={primario} onClick={() => ejecutar(() => tareasApi.aceptar(tarea.id))}>Aceptar tarea</button>
+          {/* Aceptación implícita (fase 4): empezarla o completarla ya es aceptarla; rechazar sigue a mano. */}
+          <button disabled={ocupado} style={primario} title="La pone «En curso» y cuenta como aceptarla" onClick={() => ejecutar(() => tareasApi.aceptar(tarea.id))}>Empezar</button>
           <button disabled={ocupado} style={btn} onClick={() => setRechazando(v => !v)}>Rechazar…</button>
         </>}
         {tarea.estado !== 'completada' && tarea.estado !== 'espera' && (soyAsignado || soyAsignador) && <>
-          {tarea.estado !== 'en_curso' && <button disabled={ocupado} style={btn} onClick={() => ejecutar(() => tareasApi.estado(tarea.id, 'en_curso'))}>▶ En curso</button>}
-          <button disabled={ocupado} style={{ ...primario, background: '#107c10' }} onClick={() => ejecutar(() => tareasApi.completar(tarea.id))}>✔ Completar</button>
+          {tarea.estado !== 'en_curso' && <button disabled={ocupado} style={btn} onClick={() => ejecutar(() => tareasApi.estado(tarea.id, 'en_curso'))}>En curso</button>}
+          <button disabled={ocupado} style={{ ...primario, background: '#107c10' }} onClick={() => ejecutar(() => tareasApi.completar(tarea.id))}>Completar</button>
         </>}
         {tarea.estado === 'completada' && (soyAsignado || soyAsignador) && <button disabled={ocupado} style={btn} onClick={() => ejecutar(() => tareasApi.estado(tarea.id, 'pendiente'))}>Reabrir</button>}
-        {soyAsignador && <button style={btn} onClick={() => setEditando(v => !v)}>✎ Editar</button>}
+        {soyAsignador && <button style={btn} onClick={() => setEditando(v => !v)}>Editar</button>}
         {soyAsignador && <button style={{ ...btn, color: '#a4262c' }} onClick={eliminar}>Eliminar</button>}
       </div>
       {rechazando && (

@@ -1,100 +1,106 @@
-import { useState, useEffect, useCallback } from 'react';
-import type { Task, TaskList, ActiveView } from './types';
+import { useState, useEffect, useCallback, type MouseEvent } from 'react';
+import type { Task, TaskList, ActiveView, Orden } from './types';
 import { COLORS } from './types';
 import { TasksSidebar } from './components/TasksSidebar';
 import { TaskListHeader } from './components/TaskListHeader';
 import { TaskInput } from './components/TaskInput';
-import { TaskItem } from './components/TaskItem';
 import { TaskDetailPanel } from './components/TaskDetailPanel';
 import { EmptyState } from './components/EmptyState';
-import { api } from '../../api/client';
+import { leerModoVista, guardarModoVista, type ModoVista } from './components/modoVista';
+import { useConteosVistas } from './hooks/useConteosVistas';
+import { MisListas } from './components/MisListas';
+import { BotonesCrear } from './components/BotonesCrear';
+import { BuscadorTareas } from './components/BuscadorTareas';
+import { CuerpoTareas } from './components/CuerpoTareas';
+import { MenuTarea } from './components/MenuTarea';
+import { DialogoCompartir } from './components/DialogoCompartir';
+import { AsignarTareaDialogo } from '../tareas/AsignarTareaDialogo';
+import { desdeTareaDeLista } from './components/desdeTareaDeLista';
+import { DialogoAjustes } from './components/DialogoAjustes';
+import { PanelSugerencias } from './components/PanelSugerencias';
+import { BotonGrupo } from './components/BotonGrupo';
+import { leerAgrupacion, guardarAgrupacion, type Agrupacion } from './components/agruparTareas';
+import { sonarCompletada } from './components/sonidoCompletar';
+import { useAjustes } from './hooks/useAjustes';
+import { AvisoNotificaciones } from './components/AvisoNotificaciones';
+import { imprimirLista } from './components/imprimirLista';
+import { ordenarTareas, leerOrdenVista, guardarOrdenVista } from './components/ordenarTareas';
+import { useListas } from './hooks/useListas';
+import { useArrastreTareas } from './hooks/useArrastreTareas';
+import { useTareas, VISTAS_INTELIGENTES } from './hooks/useTareas';
 import { SeguimientoVista } from '../tareas/SeguimientoVista';
+import { tareasApi } from '../tareas/api';
+import { useAuthStore } from '../../store/authStore';
 
 const _params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-const VISTA_INICIAL: ActiveView | null = _params?.get('vista') === 'seguimiento' || _params?.get('tarea') ? 'seguimiento' : null;
+// Enlaces de los avisos (?vista=seguimiento&tarea=…): se abren en «Asignado a mí», que es donde estaba «Mis tareas».
+// Si la tarea no es de la persona (la asignó ella), se pasa a «Asignadas por mí» al saberlo (05/11/2026).
+const VISTA_INICIAL: ActiveView | null = _params?.get('vista') === 'seguimiento' || _params?.get('tarea') ? 'assigned' : null;
 const TAREA_INICIAL = _params?.get('tarea') || null;
 
 export function TasksView() {
   const [activeView, setActiveView] = useState<ActiveView>(VISTA_INICIAL || 'my-day');
-  const [yo] = useState<string>(() => { try { return localStorage.getItem('user_email') || (JSON.parse(localStorage.getItem('user') || '{}').email) || ''; } catch { return ''; } });
+  const [busqueda, setBusqueda] = useState('');
+  // Correo de la sesión. Antes se leía `user_email` de localStorage, que nadie guarda: quedaba vacío y el detalle de
+  // Seguimiento no reconocía ni al asignado (sin «Aceptar tarea») ni a quien asignó (05/11/2026).
+  const yo = (useAuthStore(s => s.user?.username) || '').toLowerCase();
   const [sidebarVisible, setSidebarVisible] = useState(() => typeof window === 'undefined' || window.innerWidth >= 768);
   useEffect(() => {
     const h = () => setSidebarVisible(v => !v);
     window.addEventListener('toggle-tasks-sidebar', h);
     return () => window.removeEventListener('toggle-tasks-sidebar', h);
   }, []);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [customLists, setCustomLists] = useState<TaskList[]>([]);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [sortBy, setSortBy] = useState('date');
-  const [smartCounts, setSmartCounts] = useState<Record<string, number>>({});
+  const { conteos, recargarConteos } = useConteosVistas(activeView);
+  const [tareaInicial, setTareaInicial] = useState<string | null>(null);
+  const limpiarTareaInicial = useCallback(() => setTareaInicial(null), []);
+  useEffect(() => {
+    if (!TAREA_INICIAL || !yo) return;
+    tareasApi.obtener(TAREA_INICIAL)
+      .then(t => { if (!t.asignados.some(a => a.toLowerCase() === yo)) setActiveView('seguimiento'); })
+      .catch(() => {})
+      .finally(() => setTareaInicial(TAREA_INICIAL));
+  }, [yo]);
+  const listas = useListas(recargarConteos);
+  const fetchLists = listas.recargar;
+  const {
+    tasks, setTasks, selectedTask, setSelectedTask, loading, error, setError,
+    fetchTasks, addTask, toggleTask: alternarTarea, toggleImportant, updateTask, deleteTask, moverTarea,
+  } = useTareas(activeView, busqueda, fetchLists);
+  // Una tarea de lista recién asignada pasa a Seguimiento: se recargan la lista y los números.
+  const trasAsignar = () => { setSelectedTask(null); void fetchTasks(); recargarConteos(); };
+  // ⚙ Configuración (F6): sonido al completar, confirmar al eliminar, importantes arriba y listas visibles.
+  const { ajustes, cambiar: cambiarAjustes, error: errorAjustes, recargar: recargarAjustes } = useAjustes();
+  const [verAjustes, setVerAjustes] = useState(false);
+  const cerrarAjustes = useCallback(() => setVerAjustes(false), []);
+  const [verSugerencias, setVerSugerencias] = useState(false);
+  const toggleTask = (id: string) => {
+    const t = tasks.find(x => x.id === id);
+    if (ajustes.sonido_completar && !t?.completed) sonarCompletada();
+    return alternarTarea(id);
+  };
+  const [compartiendo, setCompartiendo] = useState<string | null>(null);
+  const cerrarCompartir = useCallback(() => setCompartiendo(null), []);
+  const listaCompartida = listas.listas.find(l => l.id === compartiendo);
+  const buscando = busqueda.trim() !== '';
+  const [menu, setMenu] = useState<{ task: Task; x: number; y: number } | null>(null);
+  // «Asignar tarea a:» del menú: el cuadro único con la foto de la tarea al abrirlo (fase 2, 05/11/2026).
+  const [asignando, setAsignando] = useState<ReturnType<typeof desdeTareaDeLista> | null>(null);
+  const cerrarAsignar = useCallback(() => setAsignando(null), []);
 
-  // ─── Data fetching ─────────────────────────────────────────────
-
-  const fetchLists = useCallback(async () => {
-    try {
-      const lists = await api.get<TaskList[]>('/tasks/lists');
-      const custom = lists.filter(l => l.list_type === 'custom');
-      setCustomLists(custom);
-      // Build smart counts from response
-      const counts: Record<string, number> = {};
-      lists.forEach(l => {
-        if (l.list_type === 'smart') counts[l.name] = l.task_count;
-      });
-      setSmartCounts(counts);
-    } catch {
-      // API not ready yet, use empty state
-      setCustomLists([]);
-    }
-  }, []);
-
-  const fetchTasks = useCallback(async () => {
-    // «seguimiento» es una vista (SeguimientoVista carga sus datos), no una lista: pedirla como lista daba 400
-    if (activeView === 'seguimiento') { setTasks([]); setLoading(false); return; }
-    setLoading(true);
-    setError('');
-    try {
-      let result: Task[];
-      const smartViews = ['my-day', 'important', 'planned', 'assigned', 'flagged'];
-      if (smartViews.includes(activeView)) {
-        const viewMap: Record<string, string> = {
-          'my-day': '/tasks/views/my-day',
-          'important': '/tasks/views/important',
-          'planned': '/tasks/views/planned',
-          'assigned': '/tasks/views/assigned',
-          'flagged': '/tasks/views/flagged',
-        };
-        result = await api.get<Task[]>(viewMap[activeView] || '/tasks/views/my-day');
-      } else if (activeView === 'tasks') {
-        // Default list - get the "tasks" list
-        try {
-          const lists = await api.get<TaskList[]>('/tasks/lists');
-          const defaultList = lists.find(l => l.list_type === 'default');
-          if (defaultList) {
-            result = await api.get<Task[]>(`/tasks/lists/${defaultList.id}/tasks`);
-          } else {
-            result = [];
-          }
-        } catch {
-          result = [];
-        }
-      } else {
-        // Custom list
-        result = await api.get<Task[]>(`/tasks/lists/${activeView}/tasks`);
-      }
-      setTasks(result);
-    } catch {
-      setTasks([]);
-      // Don't show error if API is not ready
-    } finally {
-      setLoading(false);
-    }
-  }, [activeView]);
-
-  useEffect(() => { fetchLists(); }, [fetchLists]);
-  useEffect(() => { fetchTasks(); }, [fetchTasks]);
+  // «Tareas» es una vista inteligente, pero también una lista de verdad (la por defecto).
+  const listaPorDefecto = listas.listas.find(l => l.list_type === 'default');
+  const listaActiva: TaskList | undefined = buscando ? undefined : activeView === 'tasks'
+    ? listaPorDefecto
+    : listas.listas.find(l => l.id === activeView);
+  const claveOrden = buscando ? 'buscar' : activeView;
+  const [ordenVistas, setOrdenVistas] = useState<Record<string, Orden>>({});
+  const orden: Orden = listaActiva ? (listaActiva.sort_by || 'manual') : (ordenVistas[claveOrden] ?? leerOrdenVista(claveOrden));
+  const cambiarOrden = (o: Orden) => {
+    if (listaActiva) void listas.cambiarLista(listaActiva.id, { sort_by: o });
+    else { guardarOrdenVista(claveOrden, o); setOrdenVistas(v => ({ ...v, [claveOrden]: o })); }
+  };
+  const [modo, setModo] = useState<ModoVista>(leerModoVista);
+  const cambiarModo = (m: ModoVista) => { setModo(m); guardarModoVista(m); };
 
   // Escuchar evento de refresh desde WebSocket (tarea asignada/actualizada)
   useEffect(() => {
@@ -103,197 +109,133 @@ export function TasksView() {
     return () => window.removeEventListener('refresh-tasks', handler);
   }, [fetchTasks, fetchLists]);
 
-  // ─── Task actions ──────────────────────────────────────────────
+  const abrirVista = (v: ActiveView) => { setActiveView(v); setSelectedTask(null); setBusqueda(''); };
+  const buscar = useCallback((texto: string) => { setBusqueda(texto); setSelectedTask(null); }, [setSelectedTask]);
 
-  const addTask = async (title: string, dueDate?: string, reminder?: string) => {
-    try {
-      const listId = (!['my-day', 'important', 'planned', 'assigned', 'flagged', 'tasks', 'seguimiento'].includes(activeView))
-        ? activeView : undefined;
-      const payload: Record<string, unknown> = { title };
-      if (dueDate) payload.due_date = dueDate;
-      if (reminder) payload.reminder = reminder;
-      if (activeView === 'my-day') payload.my_day = true;
-      if (activeView === 'important') payload.important = true;
-      if (activeView === 'planned' && !dueDate) payload.due_date = new Date().toISOString().slice(0, 10);
-
-      if (listId) {
-        await api.post(`/tasks/lists/${listId}/tasks`, payload);
-      } else {
-        await api.post('/tasks/tasks', payload);
-      }
-      fetchTasks();
-      fetchLists();
-    } catch (e) {
-      setError('Error al agregar tarea: ' + (e instanceof Error ? e.message : 'desconocido'));
-    }
+  // Soltar una tarea en la barra: en una lista la mueve; en «Mi día» o «Importante» la agrega.
+  const soltarTarea = (destino: ActiveView, id: string) => {
+    if (destino === 'my-day') void updateTask(id, { my_day: true });
+    else if (destino === 'important') void updateTask(id, { important: true });
+    else if (destino === 'tasks') { if (listaPorDefecto) void moverTarea(id, listaPorDefecto.id); }
+    else void moverTarea(id, destino);
   };
 
-  const toggleTask = async (id: string) => {
-    if (id.startsWith('mail-')) return;
-    // Optimistic update
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
-    if (selectedTask?.id === id) setSelectedTask(prev => prev ? { ...prev, completed: !prev.completed } : null);
-    try {
-      await api.patch(`/tasks/tasks/${id}/toggle`);
-      fetchLists();
-    } catch {
-      fetchTasks(); // revert
-    }
+  const sortedTasks = ordenarTareas(tasks, orden, ajustes.importantes_arriba);
+  const [agrupaciones, setAgrupaciones] = useState<Record<string, Agrupacion>>({});
+  const agrupar: Agrupacion = buscando ? 'ninguno' : (agrupaciones[activeView] ?? leerAgrupacion(activeView));
+  const cambiarAgrupacion = (a: Agrupacion) => { guardarAgrupacion(activeView, a); setAgrupaciones(v => ({ ...v, [activeView]: a })); };
+  const arrastre = useArrastreTareas(
+    listaActiva && orden === 'manual' && modo === 'lista' ? listaActiva.id : null,
+    sortedTasks, setTasks, () => { void fetchTasks(); },
+  );
+
+  const imprimir = (l: TaskList) => { imprimirLista(l).catch(e => setError(e instanceof Error ? e.message : 'No se pudo imprimir la lista')); };
+
+  const eliminarLista = (l: TaskList) => {
+    if (!confirm(`¿Eliminar la lista «${l.name}» y todas sus tareas?`)) return;
+    if (activeView === l.id) setActiveView('tasks');
+    void listas.eliminarLista(l.id);
   };
-
-  const toggleImportant = async (id: string) => {
-    if (id.startsWith('mail-')) return;
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, important: !t.important } : t));
-    if (selectedTask?.id === id) setSelectedTask(prev => prev ? { ...prev, important: !prev.important } : null);
-    try {
-      await api.patch(`/tasks/tasks/${id}/important`);
-      fetchLists();
-    } catch {
-      fetchTasks();
-    }
-  };
-
-  const updateTask = async (id: string, data: Partial<Task>) => {
-    if (id.startsWith('mail-')) return; // mail tasks are read-only
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, ...data } : t));
-    if (selectedTask?.id === id) setSelectedTask(prev => prev ? { ...prev, ...data } : null);
-    const payload = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined));
-    if (Object.keys(payload).length === 0) return; // nada que actualizar -> no PATCH vacio
-    try {
-      await api.patch(`/tasks/tasks/${id}`, payload);
-      if ('my_day' in data) fetchTasks();
-      fetchLists();
-    } catch {
-      fetchTasks();
-    }
-  };
-
-  const deleteTask = async (id: string) => {
-    if (id.startsWith('mail-')) return; // mail tasks are read-only
-    setSelectedTask(null);
-    setTasks(prev => prev.filter(t => t.id !== id));
-    try {
-      await api.del(`/tasks/tasks/${id}`);
-      fetchLists();
-    } catch {
-      fetchTasks();
-    }
-  };
-
-  const createList = async (name: string) => {
-    try {
-      await api.post('/tasks/lists', { name });
-      fetchLists();
-    } catch {
-      setError('No se pudo crear la lista');
-    }
-  };
-
-  const deleteList = async (id: string) => {
-    if (!confirm('¿Eliminar esta lista y todas sus tareas?')) return;
-    try {
-      await api.del(`/tasks/lists/${id}`);
-      if (activeView === id) setActiveView('tasks');
-      fetchLists();
-    } catch {
-      setError('No se pudo eliminar la lista');
-    }
-  };
-
-  // ─── Sort tasks ────────────────────────────────────────────────
-
-  const sortedTasks = [...tasks].sort((a, b) => {
-    // Completed at bottom
-    if (a.completed !== b.completed) return a.completed ? 1 : -1;
-    if (sortBy === 'alpha') return a.title.localeCompare(b.title);
-    if (sortBy === 'important') return (b.important ? 1 : 0) - (a.important ? 1 : 0);
-    if (sortBy === 'created') {
-      const ca = a.created_at || '';
-      const cb = b.created_at || '';
-      return cb.localeCompare(ca);
-    }
-    // date
-    if (a.due_date && b.due_date) return a.due_date.localeCompare(b.due_date);
-    if (a.due_date) return -1;
-    if (b.due_date) return 1;
-    return 0;
-  });
-
-  // ─── Group tasks for planned view ─────────────────────────────
-
-  const groupTasksForPlanned = () => {
-    const groups: { label: string; tasks: Task[] }[] = [];
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
-    const nextWeek = new Date(today); nextWeek.setDate(nextWeek.getDate() + 7);
-
-    const buckets: Record<string, Task[]> = { anterior: [], hoy: [], manana: [], semana: [], despues: [], sinFecha: [] };
-    sortedTasks.forEach(t => {
-      if (!t.due_date) { buckets.sinFecha.push(t); return; }
-      const d = new Date((t.due_date || '').slice(0, 10) + 'T00:00:00');
-      if (d < today) buckets.anterior.push(t);
-      else if (d.getTime() === today.getTime()) buckets.hoy.push(t);
-      else if (d.getTime() === tomorrow.getTime()) buckets.manana.push(t);
-      else if (d < nextWeek) buckets.semana.push(t);
-      else buckets.despues.push(t);
-    });
-
-    if (buckets.anterior.length) groups.push({ label: 'Anterior', tasks: buckets.anterior });
-    if (buckets.hoy.length) groups.push({ label: 'Hoy', tasks: buckets.hoy });
-    if (buckets.manana.length) groups.push({ label: 'Mañana', tasks: buckets.manana });
-    if (buckets.semana.length) groups.push({ label: 'Esta semana', tasks: buckets.semana });
-    if (buckets.despues.length) groups.push({ label: 'Después', tasks: buckets.despues });
-    if (buckets.sinFecha.length) groups.push({ label: 'Sin fecha', tasks: buckets.sinFecha });
-    return groups;
-  };
-
-  // ─── Get custom list name ─────────────────────────────────────
-
-  const customListName = customLists.find(l => l.id === activeView)?.name;
 
   // ─── Render ────────────────────────────────────────────────────
 
-  const isPlanned = activeView === 'planned';
-  const showInput = activeView !== 'flagged' && activeView !== 'assigned';
+  const mostrarLista = buscando || (VISTAS_INTELIGENTES.includes(activeView) && activeView !== 'tasks');
+  const showInput = !buscando && activeView !== 'flagged' && activeView !== 'assigned';
+  const vacio = buscando
+    ? <div style={{ padding: 40, textAlign: 'center', fontSize: 14, color: COLORS.secondary }}>No hay tareas que contengan «{busqueda.trim()}».</div>
+    : <EmptyState view={activeView} />;
+
+  const cuerpo = (
+    <CuerpoTareas tasks={sortedTasks} modo={modo} agrupar={agrupar}
+      mostrarLista={mostrarLista} seleccionada={selectedTask?.id} vacio={vacio}
+      onToggle={toggleTask} onToggleImportant={toggleImportant} onOpen={setSelectedTask} onUpdate={updateTask}
+      onMenu={(task: Task, e: MouseEvent) => setMenu({ task, x: e.clientX, y: e.clientY })}
+      arrastre={arrastre} />
+  );
+  // «Asignado a mí» y «Asignadas por mí» son las dos vistas de Seguimiento (unificación, 05/11/2026): toda tarea
+  // asignada tiene seguimiento, venga de donde venga.
+  const vistaAsignadas = (activeView === 'assigned' || activeView === 'seguimiento') && !buscando;
 
   return (
     <div className="tasks-view" style={{ display: 'flex', height: '100%', width: '100%', overflow: 'hidden', fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
       {/* Sidebar */}
       {sidebarVisible && <TasksSidebar
-        activeView={activeView}
-        onViewChange={v => { setActiveView(v); setSelectedTask(null); }}
-        customLists={customLists}
-        onCreateList={createList}
-        onDeleteList={deleteList}
-        smartCounts={smartCounts}
-      />}
+        activeView={buscando ? '' : activeView}
+        onViewChange={abrirVista}
+        smartCounts={conteos}
+        buscador={<BuscadorTareas valor={busqueda} onBuscar={buscar} />}
+        onSoltarTarea={soltarTarea}
+        onAjustes={() => { void recargarAjustes(); setVerAjustes(true); }}
+        ocultas={ajustes.listas_ocultas}
+        pie={<BotonesCrear
+          onCrearLista={async n => { const nueva = await listas.crearLista(n); if (nueva) abrirVista(nueva.id); }}
+          onCrearGrupo={n => { void listas.crearGrupo(n); }} />}
+      >
+        <MisListas listas={listas.listas} grupos={listas.grupos} activeView={buscando ? '' : activeView}
+          onViewChange={abrirVista}
+          onCambiarLista={(id, c) => { void listas.cambiarLista(id, c); }}
+          onEliminarLista={eliminarLista}
+          onRenombrarGrupo={(id, n) => { void listas.renombrarGrupo(id, n); }}
+          onEliminarGrupo={g => { if (confirm(`¿Eliminar el grupo «${g.name}»? Sus listas no se borran: quedan fuera del grupo.`)) void listas.eliminarGrupo(g.id); }}
+          onGuardarBarra={b => { void listas.guardarBarra(b); }}
+          onSoltarTarea={(listId, id) => void moverTarea(id, listId)}
+          onCompartir={l => setCompartiendo(l.id)}
+          onDuplicar={async l => { const copia = await listas.duplicarLista(l.id); if (copia) abrirVista(copia.id); }}
+          onImprimir={imprimir} />
+      </TasksSidebar>}
 
       {/* Seguimiento de tareas asignadas (T-34) */}
-      {activeView === 'seguimiento' ? <SeguimientoVista yo={yo} tareaInicial={TAREA_INICIAL} /> : (
+      {vistaAsignadas ? (
+        <SeguimientoVista key={activeView} yo={yo} ambito={activeView === 'seguimiento' ? 'por-mi' : 'para-mi'}
+          tareaInicial={tareaInicial} onTareaInicialAbierta={limpiarTareaInicial}
+          onAsignada={() => abrirVista('seguimiento')} />
+      ) : (
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#faf9f8', overflow: 'hidden' }}>
         <TaskListHeader
-          activeView={activeView}
-          customListName={customListName}
-          sortBy={sortBy}
-          onSortChange={setSortBy}
+          activeView={buscando ? '' : activeView}
+          lista={activeView === 'tasks' ? undefined : listaActiva}
+          orden={orden}
+          onOrdenChange={cambiarOrden}
+          modo={modo}
+          onModoChange={cambiarModo}
+          busqueda={buscando ? busqueda.trim() : undefined}
+          onCompartir={listaActiva?.list_type === 'custom' ? () => setCompartiendo(listaActiva.id) : undefined}
+          onCambiarLista={listaActiva ? c => { void listas.cambiarLista(listaActiva.id, c); } : undefined}
+          onImprimir={listaActiva ? () => imprimir(listaActiva) : undefined}
+          extra={buscando ? undefined : <>
+            <BotonGrupo valor={agrupar} onCambiar={cambiarAgrupacion} />
+            {activeView === 'my-day' && (
+              <button type="button" aria-pressed={verSugerencias} onClick={() => { setVerSugerencias(v => !v); setSelectedTask(null); }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 13, borderRadius: 4, cursor: 'pointer',
+                  fontFamily: 'inherit', border: 'none', color: verSugerencias ? COLORS.primary : COLORS.secondary,
+                  background: verSugerencias ? COLORS.activeBg : 'transparent',
+                }}>
+                <svg aria-hidden="true" width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+                  <path d="M9 18h6M10 22h4M12 2a7 7 0 00-4 12.7V17h8v-2.3A7 7 0 0012 2z" />
+                </svg>
+                Sugerencias
+              </button>
+            )}
+          </>}
         />
 
+        <AvisoNotificaciones />
+
         {/* Error banner */}
-        {error && (
-          <div style={{
+        {(error || listas.error) && (
+          <div role="alert" style={{
             margin: '0 24px 8px', padding: '8px 12px', background: '#fde7e9',
             color: '#d13438', borderRadius: 4, fontSize: 13, display: 'flex',
             justifyContent: 'space-between', alignItems: 'center',
           }}>
-            <span>{error}</span>
-            <button onClick={() => setError('')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: 'bold', color: '#d13438' }}>&times;</button>
+            <span>{error || listas.error}</span>
+            <button aria-label="Cerrar aviso" onClick={() => { setError(''); listas.limpiarError(); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: 'bold', color: '#d13438' }}>&times;</button>
           </div>
         )}
 
-        {/* Task input */}
         {showInput && <TaskInput onAdd={addTask} activeView={activeView} />}
 
-        {/* Task list */}
         <div style={{ flex: 1, overflowY: 'auto', marginTop: 8 }}>
           {loading ? (
             <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
@@ -304,43 +246,49 @@ export function TasksView() {
               }} />
               <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
             </div>
-          ) : sortedTasks.length === 0 ? (
-            <EmptyState view={activeView} />
-          ) : isPlanned ? (
-            // Grouped view for Planned
-            groupTasksForPlanned().map(group => (
-              <div key={group.label}>
-                <div style={{
-                  padding: '8px 24px', fontSize: 14, fontWeight: 600, color: COLORS.text,
-                  display: 'flex', alignItems: 'center', gap: 8,
-                }}>
-                  <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke={COLORS.secondary} strokeWidth={2.5}>
-                    <polyline points="6 9 12 15 18 9" />
-                  </svg>
-                  {group.label}
-                  <span style={{ fontSize: 12, color: COLORS.muted, fontWeight: 400 }}>({group.tasks.length})</span>
-                </div>
-                {group.tasks.map(task => (
-                  <TaskItem key={task.id} task={task} onToggle={toggleTask} onToggleImportant={toggleImportant} onClick={setSelectedTask} />
-                ))}
-              </div>
-            ))
-          ) : (
-            sortedTasks.map(task => (
-              <TaskItem key={task.id} task={task} onToggle={toggleTask} onToggleImportant={toggleImportant} onClick={setSelectedTask} />
-            ))
-          )}
+          ) : cuerpo}
         </div>
       </div>)}
 
+      {listaCompartida && (
+        <DialogoCompartir lista={listaCompartida} yo={yo} onCerrar={cerrarCompartir}
+          onCambio={() => { void fetchLists(); }}
+          onSalir={() => { setCompartiendo(null); abrirVista('tasks'); }} />
+      )}
+
+      {menu && (
+        <MenuTarea task={menu.task} x={menu.x} y={menu.y} listas={listas.listas} onCerrar={() => setMenu(null)}
+          onUpdate={updateTask} onToggle={toggleTask} onToggleImportant={toggleImportant}
+          onMover={moverTarea} onDelete={deleteTask} onAsignar={t => setAsignando(desdeTareaDeLista(t))} confirmar={ajustes.confirmar_eliminar} />
+      )}
+
+      <AsignarTareaDialogo abierto={!!asignando} desde={asignando} onCerrar={cerrarAsignar} onCreada={trasAsignar} />
+
       {/* Detail panel */}
-      {selectedTask && activeView !== 'seguimiento' && (
+      {selectedTask && (activeView !== 'seguimiento' || buscando) && (
         <TaskDetailPanel
+          key={selectedTask.id}
           task={selectedTask}
           onUpdate={updateTask}
+          onToggle={toggleTask}
+          onToggleImportant={toggleImportant}
           onDelete={deleteTask}
           onClose={() => setSelectedTask(null)}
+          onRefrescar={() => { void fetchTasks(); }}
+          onAsignada={trasAsignar}
+          confirmar={ajustes.confirmar_eliminar}
         />
+      )}
+
+      {/* Sugerencias de Mi día (F6): ocupan el lugar del panel de detalle */}
+      {verSugerencias && !selectedTask && activeView === 'my-day' && !buscando && (
+        <PanelSugerencias onCerrar={() => setVerSugerencias(false)}
+          onAgregarAMiDia={id => updateTask(id, { my_day: true })}
+          onCompletar={id => toggleTask(id)} />
+      )}
+
+      {verAjustes && (
+        <DialogoAjustes ajustes={ajustes} error={errorAjustes} onCerrar={cerrarAjustes} onCambiar={c => { void cambiarAjustes(c); }} />
       )}
     </div>
   );

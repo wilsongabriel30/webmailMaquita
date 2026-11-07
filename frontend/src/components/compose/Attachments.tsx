@@ -1,7 +1,13 @@
+// 06/11/2026: cada adjunto se puede abrir ANTES de enviar (VistaPreviaAdjuntoLocal) para comprobar
+// que es el archivo correcto (pedido de Finanzas: se mandó una carta equivocada).
+import { useState } from 'react';
+import { VistaPreviaAdjuntoLocal } from './VistaPreviaAdjuntoLocal';
+
 interface AttachmentFile {
   name: string;
   size: number;
   type: string;
+  file?: File;
 }
 
 interface Props {
@@ -10,30 +16,35 @@ interface Props {
 }
 
 export function Attachments({ files, onRemove }: Props) {
+  const [verIdx, setVerIdx] = useState<number | null>(null);
   if (files.length === 0) return null;
+  const enVista = verIdx !== null ? files[verIdx]?.file : undefined;
 
   return (
     <div className="px-4 py-2 border-t border-[#edebe9] bg-[#faf9f8] shrink-0">
-      <p className="text-[11px] text-[#605e5c] mb-1.5">{files.length} archivo{files.length > 1 ? 's' : ''} adjunto{files.length > 1 ? 's' : ''}</p>
+      <p className="text-[12px] text-[#605e5c] mb-1.5">{files.length} archivo{files.length > 1 ? 's' : ''} adjunto{files.length > 1 ? 's' : ''} · pulse uno para verlo antes de enviar</p>
       <div className="flex flex-wrap gap-1.5">
         {files.map((f, i) => (
           <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 bg-white border border-[#edebe9] rounded group hover:border-[#c8c6c4] transition-colors max-w-[220px]">
             <div className="w-7 h-7 bg-[#e1dfdd] rounded flex items-center justify-center shrink-0">
               <FileIcon type={f.type} />
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-[12px] text-[#323130] truncate font-medium">{f.name}</p>
-              <p className="text-[10px] text-[#a19f9d]">{formatSize(f.size)}</p>
-            </div>
-            <button onClick={() => onRemove(i)}
-              className="w-4 h-4 rounded-full flex items-center justify-center text-[#a19f9d] hover:text-[#a4262c] hover:bg-[#fde7e9] opacity-0 group-hover:opacity-100 transition-all shrink-0">
-              <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <button type="button" onClick={() => f.file && setVerIdx(i)} disabled={!f.file}
+              title={f.file ? `Ver «${f.name}» antes de enviar` : f.name}
+              className="min-w-0 flex-1 text-left enabled:cursor-pointer disabled:cursor-default group/ver">
+              <p className="text-[12px] text-[#323130] truncate font-medium group-enabled/ver:group-hover/ver:underline">{f.name}</p>
+              <p className="text-[12px] text-[#605e5c]">{formatSize(f.size)}{f.file && <span className="text-[#0078d4]"> · Ver</span>}</p>
+            </button>
+            <button onClick={() => onRemove(i)} aria-label={`Quitar el adjunto ${f.name}`} title={`Quitar el adjunto ${f.name}`}
+              className="w-6 h-6 rounded-full flex items-center justify-center text-[#605e5c] hover:text-[#a4262c] hover:bg-[#fde7e9] transition-all shrink-0">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
         ))}
       </div>
+      {enVista && <VistaPreviaAdjuntoLocal archivo={enVista} onClose={() => setVerIdx(null)} />}
     </div>
   );
 }

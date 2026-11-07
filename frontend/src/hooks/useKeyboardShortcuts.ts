@@ -5,6 +5,9 @@ import type { MessageFull } from '../types';
 import { sanitizeHtml } from '../lib/sanitize';
 import { destinatariosResponderATodos } from '../lib/destinatariosRespuesta';
 import { showToast } from '../components/common/Toast';
+import { confirmarBorradoDefinitivo } from '../lib/confirmarBorrado';
+import { agruparUidsPorCarpeta } from '../lib/carpetaReal';
+import { abrirConFlecha, pedido, sigueVigente } from '../lib/aperturaConFlechas';
 
 
 function escapeHtml(str: string): string {
@@ -35,8 +38,15 @@ function buildQuoteHtml(msg: MessageFull, type: 'reply' | 'forward'): string {
 export function useKeyboardShortcuts() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // Si otro componente ya atendió la tecla, no se repite la acción.
+      if (e.defaultPrevented) return;
       const target = e.target as HTMLElement;
-      const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+      const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable;
+      // Con el foco en un botón, enlace o control, Enter y las flechas son de ese control: así un
+      // botón enfocado con Tab se activa con Enter. Dentro de un diálogo, las teclas son del diálogo.
+      const enControl = !!target.closest?.('button, a[href], select, summary, [role="button"], [role="link"], [role="menuitem"], [role="option"], [role="tab"], [role="checkbox"], [role="switch"], [role="slider"], [role="combobox"]');
+      const enDialogo = !!target.closest?.('[role="dialog"], [role="alertdialog"], [aria-modal="true"], dialog');
+      if (enDialogo) return;
       const state = useMailStore.getState();
 
       // Escape always works
@@ -45,30 +55,46 @@ export function useKeyboardShortcuts() {
         // llevaba por delante lo escrito: el redactor tiene su propio Escape, que guarda el
         // borrador antes de cerrar, y este atajo se le adelantaba. Las minimizadas tampoco: su
         // redactor ni siquiera esta montado, asi que nadie podria guardar por ellas.
-        if (state.composeWindows.length > 0) {
+        // Solo un redactor ABIERTO se queda con Escape. Uno minimizado (abrir un correo minimiza
+        // todos los redactores) no está montado y dejaba la tecla sin efecto: «Esc no me regresa a
+        // la bandeja» (05/11/2026). Con un correo abierto, Esc vuelve al listado antes que nada.
+        if (state.composeWindows.some(w => !w.minimized)) {
           return;
-        } else if (state.selectedUids.size > 0) {
-          state.clearSelection();
         } else if (state.selectedMessage) {
           state.setSelectedMessage(null);
+        } else if (state.selectedUids.size > 0) {
+          state.clearSelection();
         }
         e.preventDefault();
         return;
       }
 
-      if (isInput) return;
+      if (isInput || enControl) return;
 
-      const msgs = state.messages;
+      // Los atajos de una letra (N, R, F, E, /) solo valen sin Ctrl, Cmd ni Alt: Ctrl+F es
+      // «buscar en la página», Ctrl+R recarga y Ctrl+N abre ventana. Antes Ctrl+F abría un
+      // reenvío. Ctrl+A se atiende aparte, más abajo.
+      if (e.key.length === 1 && (e.ctrlKey || e.metaKey || e.altKey) && e.key.toLowerCase() !== 'a') return;
+
+      // Se navega la lista VISIBLE (05/11/2026): «Otros» y chinchetas hacen que messages[idx]
+      // no sea el correo resaltado. Ver components/mail/listaVisible.ts.
+      const uids = state.visibleUids.length ? state.visibleUids : state.messages.map(m => m.uid);
       const idx = state.activeIndex;
       const folder = state.currentFolder;
+      // Panel de lectura apagado o a pantalla completa (escritorio) y sin correo abierto: las flechas
+      // solo mueven el resaltado por la lista; Enter o doble clic abren (pedido de Gerencia, 05/11/2026).
+      const soloResaltar = (state.readingPane === 'off' || state.readingPane === 'fullscreen')
+        && !state.selectedMessage && window.innerWidth >= 768;
 
       switch (e.key) {
+        // Flecha mantenida (e.repeat): solo se mueve el resaltado y se abre el último correo al
+        // soltar; antes cada repetición pedía un correo completo (bucle de 429, 05/11/2026).
         case 'ArrowDown':
           e.preventDefault();
-          if (idx < msgs.length - 1) {
+          if (idx < uids.length - 1) {
             const newIdx = idx + 1;
             state.setActiveIndex(newIdx);
-            selectMessage(msgs[newIdx].uid, folder);
+            if (!soloResaltar) abrirConFlecha(uids[newIdx], e.repeat, (uid) => selectMessage(uid, folder));
           }
           break;
 
@@ -77,14 +103,14 @@ export function useKeyboardShortcuts() {
           if (idx > 0) {
             const newIdx = idx - 1;
             state.setActiveIndex(newIdx);
-            selectMessage(msgs[newIdx].uid, folder);
+            if (!soloResaltar) abrirConFlecha(uids[newIdx], e.repeat, (uid) => selectMessage(uid, folder));
           }
           break;
 
         case 'Enter':
           e.preventDefault();
-          if (idx >= 0 && idx < msgs.length) {
-            selectMessage(msgs[idx].uid, folder);
+          if (idx >= 0 && idx < uids.length) {
+            selectMessage(uids[idx], folder);
           }
           break;
 
@@ -94,6 +120,9 @@ export function useKeyboardShortcuts() {
             bulkAction(Array.from(state.selectedUids), folder === 'Trash' ? 'delete' : 'move', 'Trash', folder);
           } else if (state.selectedMessage) {
             bulkAction([state.selectedMessage.uid], folder === 'Trash' ? 'delete' : 'move', 'Trash', folder);
+          } else if (idx >= 0 && idx < uids.length) {
+            // Fila solo resaltada (panel de lectura apagado, 05/11/2026): Supr también la borra.
+            bulkAction([uids[idx]], folder === 'Trash' ? 'delete' : 'move', 'Trash', folder);
           }
           break;
 
@@ -189,26 +218,43 @@ export function useKeyboardShortcuts() {
 async function selectMessage(uid: number, folder: string) {
   const state = useMailStore.getState();
   state.setLoadingMessage(true);
+  pedido(uid);
   try {
     const msg = await api.get<MessageFull>(`/mail/message/${encodeURIComponent(folder)}/${uid}`);
-    state.setSelectedMessage(msg);
-    const updated = state.messages.map(m => m.uid === uid ? { ...m, seen: true, flags: m.flags.includes('\\Seen') ? m.flags : [...m.flags, '\\Seen'] } : m);
-    state.setMessages(updated, state.totalMessages, state.currentPage);
+    // Si mientras tanto se pidió otro correo, esta respuesta ya no interesa (05/11/2026).
+    if (!sigueVigente(uid)) return;
+    // Estado FRESCO tras la espera (05/11/2026): con el capturado antes se pisaban los correos
+    // llegados mientras se abría este.
+    const ahora = useMailStore.getState();
+    ahora.setSelectedMessage(msg);
+    const updated = ahora.messages.map(m => m.uid === uid ? { ...m, seen: true, flags: m.flags.includes('\\Seen') ? m.flags : [...m.flags, '\\Seen'] } : m);
+    ahora.setMessages(updated, ahora.totalMessages, ahora.currentPage);
   } catch {
+    if (!sigueVigente(uid)) return;
     // Sin esto la persona pulsa, no se abre nada y no sabe por que.
     showToast('No se pudo abrir el mensaje');
   }
 }
 
 async function bulkAction(uids: number[], action: string, dest: string, folder: string) {
+  // La tecla Supr en la Papelera borra para siempre: se pregunta antes.
+  if (action === 'delete' && !confirmarBorradoDefinitivo(uids.length)) return;
   try {
-    await api.post(`/mail/bulk-action/${encodeURIComponent(folder)}`, { uids, action, dest_folder: dest });
+    // Cada correo en su carpeta real (vista por etiqueta / Todo el correo, 05/11/2026).
+    for (const [carpetaReal, lote] of agruparUidsPorCarpeta(uids, folder)) {
+      await api.post(`/mail/bulk-action/${encodeURIComponent(carpetaReal)}`, { uids: lote, action, dest_folder: dest });
+    }
+    // Una tecla suelta (Supr, E) hace desaparecer el correo: se dice siempre adónde fue.
+    showToast(action === 'delete' ? 'Eliminado definitivamente'
+      : action === 'archive' ? 'Archivado (está en la carpeta Archivo)'
+      : action === 'move' && dest === 'Trash' ? 'Movido a la Papelera'
+      : 'Hecho');
     useMailStore.getState().setSelectedMessage(null);
     useMailStore.getState().clearSelection();
     window.dispatchEvent(new CustomEvent('refresh-messages'));
   } catch {
     // Archivar, borrar o mover varios correos y que falle en silencio es peor que el fallo:
     // se da por hecho lo que no ocurrio.
-    showToast('No se pudo completar la accion sobre los correos seleccionados');
+    showToast('No se pudo completar la acción sobre los correos seleccionados');
   }
 }

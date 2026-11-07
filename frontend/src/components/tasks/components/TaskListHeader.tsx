@@ -1,26 +1,42 @@
-import { useState } from 'react';
-import type { ActiveView } from '../types';
+import { useState, type ReactNode } from 'react';
+import type { ActiveView, Orden, TaskList } from '../types';
 import { SMART_LISTS, COLORS } from '../types';
+import { SelectorVista } from './SelectorVista';
+import type { ModoVista } from './modoVista';
+import { ORDENES } from './ordenarTareas';
+import { colorDeLista, separarEmoji } from './nombreLista';
+import { NombreEditable } from './NombreEditable';
+import { OpcionesLista } from './OpcionesLista';
 
 interface Props {
   activeView: ActiveView;
-  customListName?: string;
-  sortBy: string;
-  onSortChange: (s: string) => void;
+  /** Lista propia o compartida abierta (su nombre, emoji y color van en el título). */
+  lista?: TaskList;
+  orden: Orden;
+  onOrdenChange: (o: Orden) => void;
+  modo: ModoVista;
+  onModoChange: (m: ModoVista) => void;
+  /** Texto buscado: el título pasa a ser «Resultados de …». */
+  busqueda?: string;
+  /** Lista propia: botón «Compartir» (abre el diálogo de personas de la lista). */
+  onCompartir?: () => void;
+  /** «⋯» junto al título (F5): cambiar el nombre o el color de la lista e imprimirla. */
+  onCambiarLista?: (cambios: { name?: string; color?: string }) => void;
+  onImprimir?: () => void;
+  /** Botones extra junto a «Ordenar» (F6: «Grupo» y «Sugerencias»). */
+  extra?: ReactNode;
 }
 
-const SORT_OPTIONS = [
-  { value: 'date', label: 'Fecha de vencimiento', icon: 'M3 4h18M3 10h12M3 16h6' },
-  { value: 'alpha', label: 'Alfabéticamente', icon: 'M3 4h18M3 10h12M3 16h6' },
-  { value: 'important', label: 'Importancia', icon: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z' },
-  { value: 'created', label: 'Fecha de creación', icon: 'M3 4h18M3 10h12M3 16h6' },
-];
+const SORT_OPTIONS = ORDENES;
 
-export function TaskListHeader({ activeView, customListName, sortBy, onSortChange }: Props) {
+export function TaskListHeader({ activeView, lista, orden: sortBy, onOrdenChange: onSortChange, modo, onModoChange, busqueda, onCompartir, onCambiarLista, onImprimir, extra }: Props) {
   const [showSort, setShowSort] = useState(false);
+  const [editandoNombre, setEditandoNombre] = useState(false);
   const smart = SMART_LISTS.find(s => s.id === activeView);
-  const title = smart ? smart.name : (customListName || 'Tareas');
+  const nombre = lista ? separarEmoji(lista.name) : { emoji: '', texto: '' };
+  const title = busqueda ? `Resultados de «${busqueda}»` : smart ? smart.name : (nombre.texto || 'Tareas');
   const isSmartList = !!smart;
+  const colorTitulo = isSmartList ? COLORS.primary : (colorDeLista(lista?.color) || COLORS.text);
 
   const today = new Date();
   const dateStrRaw = today.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -33,7 +49,7 @@ export function TaskListHeader({ activeView, customListName, sortBy, onSortChang
       padding: '20px 24px 12px', display: 'flex', flexDirection: 'column', gap: 8,
       fontFamily: "'Segoe UI', system-ui, sans-serif",
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', rowGap: 4 }}>
         <button
           aria-label="Alternar panel de listas"
           onClick={() => window.dispatchEvent(new CustomEvent('toggle-tasks-sidebar'))}
@@ -43,13 +59,42 @@ export function TaskListHeader({ activeView, customListName, sortBy, onSortChang
             <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
           </svg>
         </button>
-        <h1 style={{
-          fontSize: 20, fontWeight: 600, margin: 0,
-          color: isSmartList ? COLORS.primary : COLORS.text,
-        }}>
-          {title}
-        </h1>
+        {editandoNombre && lista && onCambiarLista ? (
+          <NombreEditable valor={lista.name} etiqueta="Nombre de la lista"
+            onGuardar={n => { setEditandoNombre(false); onCambiarLista({ name: n }); }} onCancelar={() => setEditandoNombre(false)} />
+        ) : (
+          <h1 style={{
+            fontSize: 20, fontWeight: 600, margin: 0, whiteSpace: 'nowrap',
+            color: colorTitulo,
+          }}>
+            {!busqueda && nombre.emoji && <span aria-hidden="true" style={{ marginRight: 8 }}>{nombre.emoji}</span>}
+            {title}
+          </h1>
+        )}
+        {lista && !busqueda && onCambiarLista && onImprimir && (
+          <OpcionesLista lista={lista} onEditarNombre={() => setEditandoNombre(true)}
+            onColor={c => onCambiarLista({ color: c })} onImprimir={onImprimir} />
+        )}
+        <SelectorVista modo={modo} onCambiar={onModoChange} />
         <div style={{ flex: 1 }} />
+
+        {onCompartir && lista && (
+          <button type="button" onClick={onCompartir}
+            title={lista.role === 'member' ? 'Personas de la lista' : 'Compartir la lista con personas de la organización'}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 13, color: COLORS.secondary,
+              background: 'transparent', border: 'none', cursor: 'pointer', borderRadius: 4,
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = COLORS.hoverBg)}
+            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+            <svg aria-hidden="true" width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M19 8v6M22 11h-6" />
+            </svg>
+            <span>{(lista.miembros ?? 1) > 1 ? `Compartida (${lista.miembros})` : 'Compartir'}</span>
+          </button>
+        )}
+
+        {extra}
 
         {/* Sort button with dropdown */}
         <div style={{ position: 'relative' }}>
@@ -67,7 +112,7 @@ export function TaskListHeader({ activeView, customListName, sortBy, onSortChang
               <path d="M3 6h18M3 12h12M3 18h6" />
             </svg>
             <span>Ordenar</span>
-            {currentSort && sortBy !== 'date' && (
+            {currentSort && sortBy !== (lista || activeView === 'tasks' ? 'manual' : 'date') && (
               <span style={{ fontSize: 11, color: COLORS.primary, fontWeight: 500 }}>
                 ({currentSort.label})
               </span>
@@ -83,7 +128,7 @@ export function TaskListHeader({ activeView, customListName, sortBy, onSortChang
                 boxShadow: '0 4px 12px rgba(0,0,0,0.15)', padding: 4, minWidth: 200,
               }}>
                 {SORT_OPTIONS.map(opt => (
-                  <div key={opt.value}
+                  <div key={opt.value} role="menuitemradio" aria-checked={sortBy === opt.value}
                     onClick={() => { onSortChange(opt.value); setShowSort(false); }}
                     style={{
                       padding: '8px 12px', fontSize: 13, cursor: 'pointer', borderRadius: 4,

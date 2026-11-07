@@ -1,58 +1,47 @@
 
+import type { MouseEvent } from 'react';
 import type { Task } from '../types';
 import { COLORS } from '../types';
+import { colorCategoria } from './categorias';
+import { colorVencimiento, fechaCompleta, textoVencimiento } from './fechaVencimiento';
+import { CirculoPersona } from './CirculoPersona';
+import { urlCorreo } from './urlCorreo';
 
 interface Props {
   task: Task;
   onToggle: (id: string) => void;
   onToggleImportant: (id: string) => void;
   onClick: (task: Task) => void;
+  /** En las listas inteligentes se muestra de qué lista es cada tarea (como en To Do). */
+  mostrarLista?: boolean;
+  seleccionada?: boolean;
+  /** Clic derecho: menú de la tarea (Mover a…, Mi día, etc.). */
+  onMenu?: (task: Task, e: MouseEvent) => void;
 }
 
-export function TaskItem({ task, onToggle, onToggleImportant, onClick }: Props) {
-  const formatDate = (d?: string) => {
-    if (!d) return '';
-    const date = new Date(d.slice(0, 10) + 'T00:00:00');
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const diff = date.getTime() - today.getTime();
-    const days = Math.round(diff / 86400000);
-    if (days === 0) return 'Hoy';
-    if (days === 1) return 'Mañana';
-    if (days === -1) return 'Ayer';
-    if (days < -1) return 'Atrasado';
-    return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
-  };
-
-  const dueDateColor = () => {
-    if (!task.due_date) return COLORS.secondary;
-    const date = new Date(task.due_date.slice(0, 10) + 'T00:00:00');
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (date < today) return '#d13438';
-    if (date.getTime() === today.getTime()) return COLORS.primary;
-    return COLORS.secondary;
-  };
-
+export function TaskItem({ task, onToggle, onToggleImportant, onClick, mostrarLista, seleccionada, onMenu }: Props) {
   return (
     <div
       onClick={() => onClick(task)}
+      onContextMenu={onMenu ? e => { e.preventDefault(); onMenu(task, e); } : undefined}
       style={{
         display: 'flex', alignItems: 'center', gap: 12,
         padding: '10px 24px', cursor: 'pointer',
         transition: 'background 0.1s',
+        background: seleccionada ? COLORS.activeBg : 'transparent',
         fontFamily: "'Segoe UI', system-ui, sans-serif",
       }}
-      onMouseEnter={e => (e.currentTarget.style.background = COLORS.hoverBg)}
-      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+      onMouseEnter={e => { if (!seleccionada) e.currentTarget.style.background = COLORS.hoverBg; }}
+      onMouseLeave={e => { if (!seleccionada) e.currentTarget.style.background = 'transparent'; }}
     >
-      {/* Checkbox / Mail icon */}
+      {/* Checkbox */}
       <div
-        onClick={e => { e.stopPropagation(); if (!task.id.startsWith('mail-')) onToggle(task.id); }}
+        role="checkbox" aria-checked={task.completed} aria-label={task.completed ? 'Marcar como no completada' : 'Marcar como completada'}
+        onClick={e => { e.stopPropagation(); onToggle(task.id); }}
         style={{
           width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
-          border: task.completed ? 'none' : task.id.startsWith('mail-') ? 'none' : `1.5px solid ${COLORS.muted}`,
-          background: task.completed ? COLORS.primary : task.id.startsWith('mail-') ? 'transparent' : 'transparent',
+          border: task.completed ? 'none' : `1.5px solid ${COLORS.muted}`,
+          background: task.completed ? COLORS.primary : 'transparent',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           cursor: 'pointer', transition: 'all 0.15s',
         }}
@@ -60,11 +49,6 @@ export function TaskItem({ task, onToggle, onToggleImportant, onClick }: Props) 
         {task.completed ? (
           <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={3}>
             <polyline points="20 6 9 17 4 12" />
-          </svg>
-        ) : task.id.startsWith('mail-') ? (
-          <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#d13438" strokeWidth={1.8}>
-            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-            <polyline points="22,6 12,13 2,6" />
           </svg>
         ) : null}
       </div>
@@ -78,13 +62,18 @@ export function TaskItem({ task, onToggle, onToggleImportant, onClick }: Props) 
         }}>
           {task.title}
         </div>
-        {task.id.startsWith('mail-') && task.description && (
-          <div style={{ fontSize: 11, color: COLORS.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {task.description}
+        {(task.correo || (mostrarLista && task.list_name)) && (
+          <div style={{ fontSize: 12, color: COLORS.secondary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {task.correo ? (
+              <a href={urlCorreo(task.correo)} onClick={e => e.stopPropagation()} style={{ color: COLORS.primary, textDecoration: 'none' }}>
+                Correo{task.correo.remitente ? ` de ${task.correo.remitente}` : ''}
+              </a>
+            ) : mostrarLista ? task.list_name : null}
           </div>
         )}
-        {(task.due_date || task.recurrence || task.reminder) && (
-          <div style={{ fontSize: 12, color: COLORS.secondary, marginTop: 2, display: 'flex', gap: 8, alignItems: 'center' }}>
+        {(task.due_date || task.recurrence || task.reminder || task.pasos || task.adjuntos || task.note || !!task.labels?.length) && (
+          <div style={{ fontSize: 12, color: COLORS.secondary, marginTop: 2, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            {!!task.pasos && <span>{task.pasos_hechos ?? 0} de {task.pasos}</span>}
             {task.recurrence && (
               <span style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -101,16 +90,48 @@ export function TaskItem({ task, onToggle, onToggleImportant, onClick }: Props) 
               </span>
             )}
             {task.due_date && (
-              <span style={{ color: dueDateColor() }}>
+              <span title={fechaCompleta(task.due_date)} style={{ color: colorVencimiento(task) }}>
                 <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} style={{ verticalAlign: -1, marginRight: 3 }}>
                   <rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" />
                 </svg>
-                {formatDate(task.due_date)}
+                {textoVencimiento(task.due_date)}
+              </span>
+            )}
+            {!!task.adjuntos && (
+              <span title={`${task.adjuntos} archivo(s)`} style={{ display: 'flex', alignItems: 'center' }}>
+                <svg aria-label="Con archivos" width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
+                </svg>
+              </span>
+            )}
+            {(task.labels || []).map(c => (
+              <span key={c} title={c} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 2, background: colorCategoria(c).color }} />
+                {c.replace(/^Categoría /, '')}
+              </span>
+            ))}
+            {!!task.note && (
+              <span title="Tiene nota" style={{ display: 'flex', alignItems: 'center' }}>
+                <svg aria-label="Con nota" width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><path d="M14 2v6h6M8 13h8M8 17h5" />
+                </svg>
               </span>
             )}
           </div>
         )}
       </div>
+
+      {/* Personas asignadas */}
+      {!!task.asignados?.length && (
+        <div style={{ display: 'flex', flexShrink: 0 }} aria-label={`Asignada a ${task.asignados.join(', ')}`}>
+          {task.asignados.slice(0, 3).map((e, i) => (
+            <span key={e} style={{ marginLeft: i ? -6 : 0, border: '2px solid white', borderRadius: '50%', display: 'flex' }}>
+              <CirculoPersona email={e} tamano={22} />
+            </span>
+          ))}
+          {task.asignados.length > 3 && <span style={{ fontSize: 11, color: COLORS.secondary, alignSelf: 'center', marginLeft: 2 }}>+{task.asignados.length - 3}</span>}
+        </div>
+      )}
 
       {/* Star */}
       <div

@@ -41,7 +41,7 @@ export function ConversacionCorreo() {
     setPensando(true);
     try {
       const r = await api.post<{ answer: string; sources: FuenteRag[] }>('/rag/ask', { question: q });
-      agregar({ rol: 'asistente', texto: r?.answer || '(sin respuesta)', fuentes: r?.sources || [] });
+      agregar({ rol: 'asistente', texto: (typeof r?.answer === 'string' && r.answer.trim()) || 'No encontré una respuesta para esa pregunta en tu correo. Prueba a escribirla con otras palabras.', fuentes: Array.isArray(r?.sources) ? r.sources : [] });
     } catch {
       agregar({ rol: 'asistente', texto: 'No pude consultar tu bandeja ahora. Inténtalo de nuevo en un momento.', error: true });
     }

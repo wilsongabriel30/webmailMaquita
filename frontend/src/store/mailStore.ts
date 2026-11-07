@@ -17,6 +17,9 @@ export interface DraftWindow {
   minimized: boolean;
 }
 
+/** Etiqueta por la que se filtra la lista desde la barra lateral (05/11/2026). */
+export interface EtiquetaFiltro { id: number; name: string; color: string }
+
 interface MailState {
   // Cuentas que la persona puede usar (la suya + delegadas)
   cuentas: Cuenta[];
@@ -36,6 +39,9 @@ interface MailState {
   loadingMessage: boolean;
   selectedUids: Set<number>;
   activeIndex: number; // keyboard nav
+  // Lista visible y resaltado por UID (05/11/2026): ver components/mail/listaVisible.ts
+  visibleUids: number[];
+  activeUid: number | null;
   // Search & filter
   searchQuery: string;
   /** Buscar tambien dentro del texto de los mensajes. Cuesta minuto y medio en un buzon grande
@@ -46,17 +52,23 @@ interface MailState {
   debouncedSearchQuery: string;
   filter: Filter;
   filterChanging: boolean;
+  /** Vista «Etiqueta: X» (correos de todas las carpetas con esa etiqueta); null = carpeta normal. */
+  etiquetaFiltro: EtiquetaFiltro | null;
+  setEtiquetaFiltro: (e: EtiquetaFiltro | null) => void;
   // View
   viewMode: ViewMode;
   readingPane: 'right' | 'bottom' | 'off' | 'fullscreen' | 'popout';
   pageSize: number;
   blockRemoteImages: boolean;
-  density: 'compact' | 'medium' | 'full';
+  density: 'compact' | 'medium' | 'full' | 'linea';
+  /** Qué va primero en cada fila: el asunto (como siempre) o el nombre de la persona (06/11/2026). */
+  ordenFila: OrdenFila;
+  setOrdenFila: (o: OrdenFila) => void;
   showMyDay: boolean;
   setShowMyDay: (v: boolean) => void;
   previewLines: 1 | 2 | 3;
   messageListWidth: number;
-  setDensity: (d: 'compact' | 'medium' | 'full') => void;
+  setDensity: (d: 'compact' | 'medium' | 'full' | 'linea') => void;
   setPreviewLines: (lines: 1 | 2 | 3) => void;
   setReadingPane: (p: 'right' | 'bottom' | 'off' | 'fullscreen' | 'popout') => void;
   setPageSize: (n: number) => void;
@@ -96,6 +108,7 @@ interface MailState {
   selectAll: () => void;
   clearSelection: () => void;
   setActiveIndex: (i: number) => void;
+  setVisibleUids: (uids: number[], activeIndex: number) => void;
   setPage: (page: number) => void;
   // Compose
   openCompose: (mode: ComposeMode, data?: ComposeData) => void;
@@ -117,6 +130,27 @@ let composeCounter = 0;
 
 let ultimaTanda = 0;
 
+// 05/11/2026: la densidad y las líneas de vista previa se guardan (antes se perdían al recargar).
+// Sin preferencia guardada, la lista sale en «Una línea» (como Outlook): en las pantallas
+// pequeñas de la mayoría de equipos caben el doble de correos.
+type Densidad = 'compact' | 'medium' | 'full' | 'linea';
+export type OrdenFila = 'asunto' | 'remitente';
+function leerOrdenFilaGuardado(): OrdenFila {
+  try { const v = localStorage.getItem('maquita_orden_fila'); if (v === 'asunto' || v === 'remitente') return v; } catch { /* ignore */ }
+  return 'remitente'; // como Hotmail/Outlook: nombre arriba, asunto debajo con la hora (06/11/2026)
+}
+function leerDensidadGuardada(): Densidad {
+  try {
+    const v = localStorage.getItem('maquita_densidad');
+    if (v === 'compact' || v === 'medium' || v === 'full' || v === 'linea') return v;
+  } catch { /* ignore */ }
+  return 'medium'; // con panel a la derecha, dos líneas (Hotmail); sin panel a la derecha la lista va en columnas sola
+}
+function leerPreviewLinesGuardado(): 1 | 2 | 3 {
+  try { const n = Number(localStorage.getItem('maquita_preview_lines')); if (n === 1 || n === 2 || n === 3) return n; } catch { /* ignore */ }
+  return 1;
+}
+
 export const useMailStore = create<MailState>((set, get) => ({
   folders: [],
   currentFolder: 'INBOX',
@@ -130,24 +164,29 @@ export const useMailStore = create<MailState>((set, get) => ({
   loadingMessage: false,
   selectedUids: new Set(),
   activeIndex: -1,
+  visibleUids: [],
+  activeUid: null,
   searchQuery: '',
   buscarEnContenido: false,
   // Por defecto se busca solo en la carpeta actual (misma lectura que lib/busquedaGlobal.ts).
   buscarEnTodo: (() => { try { return localStorage.getItem('maquita_buscar_en_todo') === '1'; } catch { return false; } })(),
   debouncedSearchQuery: '',
   filter: 'all',
+  etiquetaFiltro: null,
   filterChanging: false,
   viewMode: "messages",
   readingPane: 'right',
   pageSize: 50,
   blockRemoteImages: false,
-  density: 'compact' as const,
+  density: leerDensidadGuardada(),
+  ordenFila: leerOrdenFilaGuardado(),
+  setOrdenFila: (o) => { try { localStorage.setItem('maquita_orden_fila', o); } catch { /* ignore */ } set({ ordenFila: o }); },
   showMyDay: false,
-  previewLines: 1,
+  previewLines: leerPreviewLinesGuardado(),
   messageListWidth: (typeof window !== 'undefined' && Number(localStorage.getItem('maquita_list_width'))) || 360,
-  setDensity: (d) => set({ density: d }),
+  setDensity: (d) => { try { localStorage.setItem('maquita_densidad', d); } catch { /* ignore */ } set({ density: d }); },
   setShowMyDay: (v) => set({ showMyDay: v }),
-  setPreviewLines: (lines) => set({ previewLines: lines }),
+  setPreviewLines: (lines) => { try { localStorage.setItem('maquita_preview_lines', String(lines)); } catch { /* ignore */ } set({ previewLines: lines }); },
   setReadingPane: (p) => set({ readingPane: p }),
   setPageSize: (n) => set({ pageSize: n }),
   cuentas: [],
@@ -169,12 +208,18 @@ export const useMailStore = create<MailState>((set, get) => ({
 
   setFolders: (folders) => set({ folders, loadingFolders: false }),
   setCurrentFolder: (folder) => {
-    if (folder === get().currentFolder) return;
+    // Con una etiqueta filtrando, pulsar la misma carpeta vuelve a ella (05/11/2026).
+    if (folder === get().currentFolder && !get().etiquetaFiltro) return;
     set({
+      etiquetaFiltro: null,
       composeWindows: get().composeWindows.map(w => w.minimized ? w : { ...w, minimized: true }),
       currentFolder: folder, messages: [], selectedMessage: null,
-      currentPage: 1, selectedUids: new Set(), searchQuery: '', activeIndex: -1,
+      currentPage: 1, selectedUids: new Set(), searchQuery: '', activeIndex: -1, activeUid: null,
       threadMessages: [],
+      // Al cambiar de carpeta se quitan también la búsqueda ya aplicada y el filtro
+      // «No leídos/Marcados»: si no, la carpeta nueva salía filtrada sin que se notara
+      // (el buscador ya estaba vacío) y parecía que faltaban correos.
+      debouncedSearchQuery: '', filter: 'all',
     });
   },
   setMessages: (messages, total) => set({ messages, totalMessages: total, loadingMessages: false, loadingMore: false, filterChanging: false }),
@@ -186,12 +231,18 @@ export const useMailStore = create<MailState>((set, get) => ({
   setBuscarEnContenido: (v) => set({ buscarEnContenido: v, currentPage: 1 }),
   setBuscarEnTodo: (v) => set({ buscarEnTodo: v }),
   setCarpetaYBusqueda: (folder, q) => set({
+    etiquetaFiltro: null,
     composeWindows: get().composeWindows.map(w => w.minimized ? w : { ...w, minimized: true }),
     currentFolder: folder, messages: [], selectedMessage: null,
-    currentPage: 1, selectedUids: new Set(), activeIndex: -1, threadMessages: [],
+    currentPage: 1, selectedUids: new Set(), activeIndex: -1, activeUid: null, threadMessages: [],
     searchQuery: q, debouncedSearchQuery: q,
   }),
   setDebouncedSearchQuery: (q: string) => set({ debouncedSearchQuery: q }),
+  setEtiquetaFiltro: (e) => set({
+    etiquetaFiltro: e, messages: [], selectedMessage: null, currentPage: 1, selectedUids: new Set(),
+    activeIndex: -1, activeUid: null, threadMessages: [], searchQuery: '', debouncedSearchQuery: '', filter: 'all',
+    loadingMessages: !!e,
+  }),
   setFilter: (f) => { if (f === get().filter) return; set({ filter: f, currentPage: 1, filterChanging: true }); },
   setViewMode: (m) => set({ viewMode: m }),
   toggleSelection: (uid) => {
@@ -199,13 +250,29 @@ export const useMailStore = create<MailState>((set, get) => ({
     if (s.has(uid)) s.delete(uid); else s.add(uid);
     set({ selectedUids: s });
   },
-  selectAll: () => set({ selectedUids: new Set(get().messages.map(m => m.uid)) }),
+  // Seleccionar todo = lo que se VE (pestaña «Otros», chinchetas), no todo el buzón cargado (05/11/2026).
+  selectAll: () => { const v = get().visibleUids; set({ selectedUids: new Set(v.length ? v : get().messages.map(m => m.uid)) }); },
   clearSelection: () => set({ selectedUids: new Set() }),
-  setActiveIndex: (i) => set({ activeIndex: i }),
+  setActiveIndex: (i) => set({ activeIndex: i, activeUid: i >= 0 ? (get().visibleUids[i] ?? null) : null }),
+  // Al cambiar la lista visible se concilia la selección (05/11/2026): se quitan los UIDs que ya no
+  // están (tras Supr, mover, archivar o el refresco de 45 s). Antes quedaban «seleccionados» correos
+  // invisibles y, como selectedUids no estaba vacío, un clic simple alternaba la selección en vez de
+  // abrir el correo. La selección es por página visible: al cambiar de página se conserva solo lo visible.
+  setVisibleUids: (uids, activeIndex) => {
+    const sel = get().selectedUids;
+    let seleccion = sel;
+    if (sel.size > 0) {
+      const visibles = new Set(uids);
+      seleccion = new Set(Array.from(sel).filter(u => visibles.has(u)));
+    }
+    set({ visibleUids: uids, activeIndex, activeUid: activeIndex >= 0 ? (uids[activeIndex] ?? null) : null, selectedUids: seleccion });
+  },
   setPage: (page) => set({ currentPage: page, loadingMessages: true }),
   loadMore: () => {
     const st = get();
-    const maxPages = Math.ceil(st.totalMessages / 50);
+    // Con el tamaño de página elegido (25, 50…): con 50 fijo, a 25 por página se dejaba de cargar
+    // a mitad del buzón.
+    const maxPages = Math.ceil(st.totalMessages / (st.pageSize || 50));
     if (st.loadingMore || st.loadingMessages) return;
     // Respiro entre tandas: sin él, al llegar al fondo se encadenaban decenas de páginas seguidas.
     const ahora = Date.now();
@@ -264,10 +331,13 @@ export const useMailStore = create<MailState>((set, get) => ({
     loadingMessage: false,
     selectedUids: new Set(),
     activeIndex: -1,
+    visibleUids: [],
+    activeUid: null,
     searchQuery: '',
     debouncedSearchQuery: '',
     filter: 'all' as const,
     filterChanging: false,
+    etiquetaFiltro: null,
     threadMessages: [],
     threadExpanded: new Set(),
     loadingThread: false,

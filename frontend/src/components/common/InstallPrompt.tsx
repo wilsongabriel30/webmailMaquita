@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import { nombreApp } from '../../lib/marca';
 
+/** Tras cerrar el aviso de instalar, no se vuelve a ofrecer en 30 días (antes, al día siguiente:
+ *  un aviso que vuelve cada mañana es ruido para quien ya dijo que no). */
+const PLAZO_TRAS_CERRAR_MS = 30 * 24 * 60 * 60 * 1000;
+
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
@@ -41,7 +45,7 @@ export function InstallPrompt() {
     if (isiOS) {
       // On iOS, show banner after 3 seconds (no beforeinstallprompt support)
       const dismissed = localStorage.getItem('pwa-install-dismissed');
-      if (dismissed && Date.now() - parseInt(dismissed) < 3 * 24 * 60 * 60 * 1000) return;
+      if (dismissed && Date.now() - parseInt(dismissed) < PLAZO_TRAS_CERRAR_MS) return;
       setTimeout(() => setShowBanner(true), 3000);
       return;
     }
@@ -55,7 +59,7 @@ export function InstallPrompt() {
 
       // Check if dismissed recently (only 1 day now, not 7)
       const dismissed = localStorage.getItem('pwa-install-dismissed');
-      if (dismissed && Date.now() - parseInt(dismissed) < 24 * 60 * 60 * 1000) return;
+      if (dismissed && Date.now() - parseInt(dismissed) < PLAZO_TRAS_CERRAR_MS) return;
 
       setTimeout(() => setShowBanner(true), 2000);
     };
@@ -112,7 +116,7 @@ export function InstallPrompt() {
         <div className="max-w-md mx-auto">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-[15px] font-semibold text-[#323130]">Instalar {nombreApp()}</h3>
-            <button onClick={handleDismiss} className="text-[#605e5c] hover:text-[#323130] text-xl leading-none">&times;</button>
+            <button onClick={handleDismiss} aria-label="Cerrar" title="Cerrar" className="text-[#605e5c] hover:text-[#323130] text-xl leading-none">&times;</button>
           </div>
           <div className="space-y-3 text-[13px] text-[#323130]">
             <div className="flex items-start gap-3">
@@ -148,7 +152,7 @@ export function InstallPrompt() {
         >
           Instalar
         </button>
-        <button onClick={handleDismiss} className="text-[#605e5c] hover:text-[#323130] text-lg leading-none shrink-0 ml-1">&times;</button>
+        <button onClick={handleDismiss} aria-label="Cerrar" title="Cerrar" className="text-[#605e5c] hover:text-[#323130] text-lg leading-none shrink-0 ml-1">&times;</button>
       </div>
     </div>
   );

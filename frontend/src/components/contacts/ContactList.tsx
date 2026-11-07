@@ -19,18 +19,20 @@ interface Props {
   onContextMenu: (c: Contact, e: React.MouseEvent) => void;
   onSearchChange: (q: string) => void;
   onPageChange: (p: number) => void;
+  /** En el celular la lista ocupa todo el ancho (sin los 320 px fijos de escritorio). */
+  anchoCompleto?: boolean;
 }
 
 export function ContactList({
   contacts, total, page, perPage, search, loading, filter,
   selectedId, checkedIds, showCheckboxes,
   onSelect, onDoubleClick, onToggleFavorite, onCheck, onContextMenu,
-  onSearchChange, onPageChange,
+  onSearchChange, onPageChange, anchoCompleto = false,
 }: Props) {
   const totalPages = Math.ceil(total / perPage);
 
   // Agrupar alfabéticamente
-  const grouped = contacts.reduce<Record<string, Contact[]>>((acc, c) => {
+  const grouped = (Array.isArray(contacts) ? contacts : []).reduce<Record<string, Contact[]>>((acc, c) => {
     const firstChar = (c.display_name || '?')[0].toUpperCase();
     const letter = /[A-Z]/.test(firstChar) ? firstChar : '#';
     if (!acc[letter]) acc[letter] = [];
@@ -51,7 +53,8 @@ export function ContactList({
 
   return (
     <div style={{
-      width: 320, minWidth: 280, borderRight: '1px solid #edebe9',
+      width: anchoCompleto ? '100%' : 320, minWidth: anchoCompleto ? 0 : 280,
+      flex: anchoCompleto ? 1 : undefined, borderRight: '1px solid #edebe9',
       display: 'flex', flexDirection: 'column', background: '#fff',
     }}>
       {/* Header */}

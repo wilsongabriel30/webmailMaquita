@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useRef } from "react";
 import { api } from "../../../api/client";
 import type { CalendarInfo, CalendarEvent, EventFormData, FreeBusyResponse } from "../types/calendar";
+import type { RespuestaInvitaciones } from "../avisoInvitaciones";
 
 interface EventsResponse {
   events: CalendarEvent[];
@@ -127,7 +128,7 @@ export function useCalendarApi() {
 
   // ── Invitaciones ──────────────────────────────────────
   const sendEventInvitations = useCallback((eventId: string) =>
-    withLoading(() => api.post<{ sent: number }>("/calendar/events/" + eventId + "/invite", {})),
+    withLoading(() => api.post<RespuestaInvitaciones>("/calendar/events/" + eventId + "/invite", {})),
   [withLoading]);
 
   const respondEventInvitation = useCallback((eventId: string, status: "accepted" | "declined" | "tentative") =>

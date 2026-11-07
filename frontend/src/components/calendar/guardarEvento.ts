@@ -4,6 +4,7 @@
 import { api } from "../../api/client";
 import type { CalendarEvent, EventFormData } from "./types/calendar";
 import type { useCalendarApi } from "./hooks/useCalendarApi";
+import { avisarFalloGeneralInvitaciones, avisarResultadoInvitaciones } from "./avisoInvitaciones";
 
 type ApiCalendario = ReturnType<typeof useCalendarApi>;
 
@@ -40,8 +41,8 @@ export async function guardarEvento(
       console.error("[Calendar] No se pudo crear la videollamada de la reunión");
     }
   }
-  // Evento ya vinculado a una reunión: al editarlo se actualiza la reunión (hora, asistentes, asunto)
-  const reunionVinculada = /(?:REUNION-ID|X-MAQUITA-REUNION):\s*(\d+)/.exec((editEvent?.description || "") + " " + (payload.description || ""));
+  // Editar, mover o borrar un evento ya vinculado lo sincroniza el servidor del correo (puente_meet), una sola
+  // vez: si el navegador también lo hacía, la reunión se actualizaba dos veces y los avisos salían repetidos.
 
   const savedEvent = editEvent
     ? await calApi.updateEvent(editEvent.id, payload)
@@ -68,19 +69,13 @@ export async function guardarEvento(
     }
   }
 
-  // T-30: vínculo evento ⇄ reunión (mismo id) y sincronía al editar
+  // T-30: vínculo evento ⇄ reunión (mismo id) para la reunión recién creada
   try {
     if (reunionNueva && evId) {
       await api.post(`/chat/reuniones/${reunionNueva}/vincular-evento`, { evento_id: evId, calendar_id: payload.calendar_id });
-    } else if (editEvent && reunionVinculada) {
-      const horas = Math.max(1, Math.ceil((new Date(payload.dtend).getTime() - new Date(payload.dtstart).getTime()) / 3600000));
-      await api.put(`/chat/reuniones/${reunionVinculada[1]}`, {
-        asunto: payload.summary, inicio: payload.dtstart, duracion_horas: horas,
-        participantes: [...(payload.attendees || []), ...(payload.optional_attendees || [])], sin_calendario: true,
-      });
     }
   } catch {
-    console.error("[Calendar] No se pudo sincronizar la videollamada de la reunión");
+    console.error("[Calendar] No se pudo vincular la videollamada con el evento");
   }
 
   // Si hay asistentes, enviar invitaciones automáticamente
@@ -88,10 +83,9 @@ export async function guardarEvento(
     const eventId = (savedEvent as { id: string }).id;
     if (eventId) {
       calApi.sendEventInvitations(eventId).then((res) => {
-        if (res && (res as { sent: number }).sent > 0) {
-          console.info(`Invitaciones enviadas: ${(res as { sent: number }).sent}`);
-        }
-      }).catch(() => {/* silencioso */});
+        if (res) avisarResultadoInvitaciones(res);
+        else avisarFalloGeneralInvitaciones();
+      }).catch(() => avisarFalloGeneralInvitaciones());
     }
   }
   return savedEvent;

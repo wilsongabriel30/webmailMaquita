@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../api/client';
 import DescargaAppAndroid from './DescargaAppAndroid';
+import DescargaTeamsWindows from './DescargaTeamsWindows';
 
 interface ServerCfg { host: string; port: number; security: string; }
 interface Setup {
@@ -50,7 +51,7 @@ export function MailSetup() {
       <div>
         <h3 className="text-lg font-semibold">Configurar mi correo en el celular / Outlook</h3>
         <p className="text-sm text-[#605e5c] mt-1">
-          Usá estos datos exactos. <strong>Tu usuario es siempre tu correo completo con @</strong>
+          Usa estos datos exactos. <strong>Tu usuario es siempre tu correo completo con @</strong>
           {' '}(no escribas <code>mail.</code> ni solo tu nombre).
         </p>
       </div>
@@ -63,14 +64,16 @@ export function MailSetup() {
       <div className="bg-white border rounded-lg p-4">
         <h4 className="font-medium mb-2">📱 iPhone / iPad — automático</h4>
         <p className="text-sm text-[#605e5c] mb-3">
-          Descargá el perfil y seguí: Ajustes → “Perfil descargado” → Instalar. Solo te pedirá tu contraseña.
+          Descarga el perfil y sigue: Ajustes → “Perfil descargado” → Instalar. Te pedirá tu contraseña. Si Outlook o el celular rechazan tu contraseña, crea una «contraseña de aplicación» en Configuración → Seguridad y escribe esa.
         </p>
         <a
           href="/api/onboarding/apple-profile"
           className="inline-block bg-[#0078d4] text-white px-4 py-2 rounded hover:bg-[#106ebe] text-sm"
         >Descargar perfil para iPhone</a>
-        <p className="text-xs text-gray-400 mt-2">Abrilo en Safari. iOS dirá “perfil sin firmar”: es normal, es de tu propia organización.</p>
+        <p className="text-xs text-[#605e5c] mt-2">Ábrelo en Safari. iOS dirá “perfil sin firmar”: es normal, es de tu propia organización.</p>
       </div>
+
+      <DescargaTeamsWindows />
 
       <DescargaAppAndroid />
 
@@ -78,20 +81,20 @@ export function MailSetup() {
       <div className="bg-white border rounded-lg p-4">
         <h4 className="font-medium mb-2">⚙️ Manual (Outlook, Thunderbird, Android)</h4>
         <div className="mt-2">
-          <div className="text-xs uppercase text-gray-400 mb-1">Entrante (IMAP)</div>
+          <div className="text-xs uppercase text-[#605e5c] mb-1">Entrante (IMAP)</div>
           <Row label="Servidor" value={s.imap.host} />
           <Row label="Puerto" value={String(s.imap.port)} />
           <Row label="Seguridad" value={s.imap.security} />
           <Row label="Usuario" value={s.username} />
         </div>
         <div className="mt-3">
-          <div className="text-xs uppercase text-gray-400 mb-1">Saliente (SMTP)</div>
+          <div className="text-xs uppercase text-[#605e5c] mb-1">Saliente (SMTP)</div>
           <Row label="Servidor" value={s.smtp.host} />
           <Row label="Puerto" value={String(s.smtp.port)} />
           <Row label="Seguridad" value={s.smtp.security} />
           <Row label="Usuario" value={s.username} />
         </div>
-        <p className="text-xs text-gray-400 mt-2">Autenticación: {s.auth}. La contraseña es la misma del webmail.</p>
+        <p className="text-xs text-[#605e5c] mt-2">Autenticación: {s.auth}. Si Outlook o el celular rechazan tu contraseña, crea una «contraseña de aplicación» en Configuración → Seguridad y escribe esa.</p>
       </div>
 
       {/* Android pasos */}
@@ -102,8 +105,8 @@ export function MailSetup() {
         {showAndroid && (
           <ol className="list-decimal list-inside text-sm text-[#323130] mt-3 space-y-1">
             <li>Ajustes → Cuentas → Añadir cuenta → <strong>Personal (IMAP)</strong>.</li>
-            <li>Escribí tu correo completo: <strong>{s.username}</strong>, y tu contraseña.</li>
-            <li>Si pregunta el tipo, elegí <strong>IMAP</strong>.</li>
+            <li>Escribe tu correo completo: <strong>{s.username}</strong>, y tu contraseña.</li>
+            <li>Si pregunta el tipo, elige <strong>IMAP</strong>.</li>
             <li>Entrante: servidor <strong>{s.imap.host}</strong>, puerto <strong>{s.imap.port}</strong>, <strong>SSL/TLS</strong>. Usuario = tu correo completo.</li>
             <li>Saliente: servidor <strong>{s.smtp.host}</strong>, puerto <strong>{s.smtp.port}</strong>, <strong>SSL/TLS</strong>, requiere inicio de sesión. Usuario = tu correo completo.</li>
           </ol>
