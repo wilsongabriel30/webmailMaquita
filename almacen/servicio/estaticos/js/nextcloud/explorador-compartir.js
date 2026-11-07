@@ -243,7 +243,7 @@ function extraerToken(share) {
 function construirUrlEnlace(token) {
     if (!token) return null;
     // Siempre construir sobre el dominio actual (window.location.origin)
-    return `${window.location.origin}/archivos/s/${token}`;
+    return `${window.location.origin}/almacen-s/${token}`;   // ruta pública del Almacén
 }
 
 // Activar vista de enlace público

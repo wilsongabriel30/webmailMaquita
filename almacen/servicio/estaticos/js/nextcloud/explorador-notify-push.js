@@ -79,6 +79,12 @@
         if (notifySocket && notifySocket.readyState === WebSocket.OPEN) {
             return;
         }
+        // Sin servidor push propio (Almacén): no abrir un WebSocket a una dirección vacía
+        // (terminaba en wss://<host>/archivos-almacen, 5 reintentos y token 404). Solo polling.
+        if (!NOTIFY_PUSH_URL) {
+            iniciarPolling();
+            return;
+        }
 
         try {
             // Obtener token de pre-autenticación desde el backend el sistema central

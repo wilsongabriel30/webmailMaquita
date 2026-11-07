@@ -166,6 +166,13 @@ def crear_app_webmail() -> Flask:
                 return '/webmail'
         return {'url_for': url_for}
 
+    # Empresas del grupo que al compartir no cuentan como externas (plantilla del explorador).
+    # ALMACEN_DOMINIOS_COMPARTIR_INTERNOS o, si no está, ALMACEN_DOMINIOS_INTERNOS (07/11/2026).
+    @app.context_processor
+    def _dominios_compartir_internos():
+        crudo = os.getenv('ALMACEN_DOMINIOS_COMPARTIR_INTERNOS') or os.getenv('ALMACEN_DOMINIOS_INTERNOS', '')
+        return {'dominios_compartir_internos': [d.strip().lower() for d in crudo.split(',') if d.strip()]}
+
     @app.before_request
     def _candado_webmail():
         # NUNCA confiar en la cabecera si viene del cliente: se limpia siempre

@@ -23,7 +23,7 @@
     <!-- Logo {{ drive_name }} -->
     <div class="gd-header-logo" onclick="navegarA('/')">
         <div class="drive-icon">
-            <img src="{{ url_for('static', filename='favicon.ico') }}" alt="{{ drive_name }}" style="width: 36px; height: 36px;">
+            <img id="logoDrive" src="{{ url_for('static', filename='favicon.ico') }}" alt="{{ drive_name }}" style="width: 36px; height: 36px; object-fit: contain;">
         </div>
         <span>Nube</span>
     </div>
@@ -1187,12 +1187,15 @@ window.ALMACEN_OVERRIDE = { api: '/api/almacen', url: '/archivos-almacen' };
           try {
             if (b && (b.favicon_url || b.logo_url)) { b.favicon_url = b.favicon_url || b.logo_url; var l=document.querySelector("link[rel='icon']")||document.createElement('link'); l.rel='icon'; l.href=b.favicon_url; document.head.appendChild(l); }
             if (b && b.primary_color) document.documentElement.style.setProperty('--brand-primary', b.primary_color);
+            // Logo de la empresa del dominio (cada empresa del grupo tiene el suyo), no siempre el de la principal.
+            var lg = document.getElementById('logoDrive');
+            if (lg && b && b.logo_url) { lg.src = b.logo_url; if (b.org_name) lg.alt = b.org_name; }
           } catch(e){}
         }).catch(function(){});
         // Clasificacion interno/externo al compartir: SIN dominio quemado.
         // Interno = mismo dominio que el usuario actual (o en DOMINIOS_INTERNOS si se define).
         window.USUARIO_DOMINIO = '{{ (current_user.email.rsplit("@",1)[1] | lower) if current_user and current_user.email and "@" in current_user.email else "" }}';
-        window.DOMINIOS_INTERNOS = window.DOMINIOS_INTERNOS || [];
+        window.DOMINIOS_INTERNOS = window.DOMINIOS_INTERNOS || {{ (dominios_compartir_internos or []) | tojson }};   // empresas del grupo (almacen/.env): no son externas
 {% endif %}
 </script>
 <script src="{{ url_for('static', filename='js/nextcloud/explorador-escape.js') }}?v=20260906"></script>
@@ -1205,8 +1208,8 @@ window.ALMACEN_OVERRIDE = { api: '/api/almacen', url: '/archivos-almacen' };
 <script src="{{ url_for('static', filename='js/nextcloud/explorador-perfil.js') }}?v=20260610k"></script>
 <script src="{{ url_for('static', filename='js/nextcloud/explorador-navegacion.js') }}?v=20261016"></script>
 <script src="{{ url_for('static', filename='js/nextcloud/explorador-panels.js') }}?v=20261016"></script>
-<script src="{{ url_for('static', filename='js/nextcloud/explorador-notify-push.js') }}?v=20261016"></script>
-<script src="{{ url_for('static', filename='js/nextcloud/explorador-compartir.js') }}?v=20261016"></script>
+<script src="{{ url_for('static', filename='js/nextcloud/explorador-notify-push.js') }}?v=20261028"></script>
+<script src="{{ url_for('static', filename='js/nextcloud/explorador-compartir.js') }}?v=20261028"></script>
 {% if almacen_modo %}
 <script src="{{ url_for('static', filename='js/nextcloud/explorador-almacen-admin.js') }}?v=20260703l"></script>
 {% endif %}
