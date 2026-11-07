@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { api } from '../../api/client';
 import DescargaAppAndroid from './DescargaAppAndroid';
 import DescargaTeamsWindows from './DescargaTeamsWindows';
+import AccesoDirectoWeb from './AccesoDirectoWeb';
 
 interface ServerCfg { host: string; port: number; security: string; }
 interface Setup {
@@ -73,9 +74,11 @@ export function MailSetup() {
         <p className="text-xs text-[#605e5c] mt-2">Ábrelo en Safari. iOS dirá “perfil sin firmar”: es normal, es de tu propia organización.</p>
       </div>
 
+      <DescargaAppAndroid />
+
       <DescargaTeamsWindows />
 
-      <DescargaAppAndroid />
+      <AccesoDirectoWeb />
 
       {/* Manual */}
       <div className="bg-white border rounded-lg p-4">
