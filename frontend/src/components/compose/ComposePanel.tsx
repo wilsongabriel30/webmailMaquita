@@ -18,7 +18,7 @@ import { CitaMarcable } from './CitaMarcable';
 import { TIPO_ARRASTRE_CORREOS, correosArrastrados, descargarCorreosComoEml } from '../../lib/correosComoAdjunto';
 import { useRedaccionPersistente } from './useRedaccionPersistente';
 import { EVENTO_MOSTRAR_CAMPO } from './chipsArrastrables';
-import { IMAGENES_SOLTADAS_EN_TEXTO, OPCIONES_RESIZE, pegarImagenes, pegarImagenesFueraDelTexto, quitarImagenesLocales, soltarImagenes } from './imagenesPegadas';
+import { IMAGENES_SOLTADAS_EN_TEXTO, OPCIONES_RESIZE, insertarImagenesEnTexto, pegarImagenes, pegarImagenesFueraDelTexto, quitarImagenesLocales, soltarImagenes } from './imagenesPegadas';
 import { BarraImagen } from './BarraImagen';
 import { BotonAutocompletarIA, FranjaSugerenciaIA } from './SugerenciaIA';
 import { VistaPreviaRedaccion } from './asistente-redaccion';
@@ -57,6 +57,7 @@ import { showToast, updateToast, dismissToast } from '../common/Toast';
 import { RecipientField } from './RecipientField';
 import { Attachments } from './Attachments';
 import { BotonDescartarRedaccion } from './BotonDescartarRedaccion';
+import { ZonaSoltarArchivos, type ZonaSoltar } from './ZonaSoltarArchivos';
 import { DirectoryPanel } from '../contacts/DirectoryPanel';
 import { textoErrorEnvio } from '../../lib/mensajeErrorEnvio';
 
@@ -157,6 +158,9 @@ export function ComposePanel({ win }: Props) {
   }, []);
   const [isDragging, setIsDragging] = useState(false);
   const dragCounter = useRef(0);
+  // Si lo arrastrado trae imágenes, dos zonas: arriba «Adjuntar», abajo «Insertar en el texto» (07/11/2026).
+  const [arrastraImagenes, setArrastraImagenes] = useState(false);
+  const [zonaSoltar, setZonaSoltar] = useState<ZonaSoltar>('adjuntar');
   const [trackingState, setTrackingState] = useState({ delivery: false, read: false, noReactions: false });
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showDirectoryPicker, setShowDirectoryPicker] = useState(false);
@@ -796,12 +800,15 @@ export function ComposePanel({ win }: Props) {
     dragCounter.current++;
     if (e.dataTransfer.types.includes("Files") || e.dataTransfer.types.includes(TIPO_ARRASTRE_CORREOS)) {
       setIsDragging(true);
+      setArrastraImagenes(Array.from(e.dataTransfer.items || []).some(i => i.kind === 'file' && i.type.startsWith('image/')));
     }
   }, []);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    const r = e.currentTarget.getBoundingClientRect();
+    setZonaSoltar(e.clientY < r.top + r.height / 2 ? 'adjuntar' : 'insertar');
   }, []);
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
@@ -828,6 +835,12 @@ export function ComposePanel({ win }: Props) {
       return;
     }
     let files = Array.from(e.dataTransfer.files || []);
+    // Zona «Insertar en el texto»: las imágenes van dentro del cuerpo; el resto, como adjunto.
+    const imagenes = files.filter(f => f.type.startsWith('image/'));
+    if (imagenes.length && zonaSoltar === 'insertar' && editor && !editor.isDestroyed) {
+      insertarImagenesEnTexto(editor.view, imagenes);
+      files = files.filter(f => !f.type.startsWith('image/'));
+    }
     // Imágenes soltadas sobre el texto: el editor ya las puso dentro; aquí se adjunta el resto.
     if ((e.nativeEvent as unknown as Record<string, boolean>)[IMAGENES_SOLTADAS_EN_TEXTO]) {
       files = files.filter(f => !f.type.startsWith('image/'));
@@ -837,7 +850,7 @@ export function ComposePanel({ win }: Props) {
     if (aviso) showToast(aviso);
     if (!permitidos.length) return;
     setAttachments(prev => [...prev, ...permitidos.map(f => ({ name: f.name, size: f.size, type: f.type, file: f }))]);
-  }, []);
+  }, [zonaSoltar, editor]);
 
   // Se conserva para la cinta de redaccion; hoy esta accion la sirve la barra principal.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -1145,19 +1158,7 @@ export function ComposePanel({ win }: Props) {
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}>
       {/* Zona para soltar archivos (07/11/2026, al estilo Outlook pero más ligera) */}
-      {isDragging && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none bg-[#f3f9fd]/95"
-          style={{ border: "2px dashed #0078d4", borderRadius: 10, margin: 8 }}>
-          <div className="text-center">
-            <svg className="w-14 h-14 mx-auto mb-3 text-[#0078d4]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.4}
-                d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
-            </svg>
-            <p className="text-[18px] font-semibold text-[#0078d4]">Adjuntar archivos</p>
-<p className="text-[13px] text-[#605e5c] mt-1">Suéltelos aquí: quedan arriba, debajo del asunto</p>
-          </div>
-        </div>
-      )}
+      {isDragging && <ZonaSoltarArchivos conImagenes={arrastraImagenes} zona={zonaSoltar} />}
       {/* Ribbon (tabs + toolbar) */}
       {/* Ribbon rendered in main Toolbar */}
 

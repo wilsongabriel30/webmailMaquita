@@ -78,6 +78,11 @@ function insertarImagenes(view: EditorView, archivos: File[], pos?: number): voi
   })();
 }
 
+/** Zona «Insertar en el texto» al soltar (ZonaSoltarArchivos.tsx): donde está el cursor. */
+export function insertarImagenesEnTexto(view: EditorView, archivos: File[]): void {
+  insertarImagenes(view, archivos);
+}
+
 /** Imágenes del portapapeles: por `files` y, si algún navegador lo deja vacío, por `items`. */
 function imagenesDelPortapapeles(datos: DataTransfer | null): File[] {
   if (!datos) return [];
