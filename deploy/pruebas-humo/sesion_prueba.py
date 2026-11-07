@@ -86,13 +86,29 @@ def _sesion_viva(token):
         return False
 
 
+def _configuracion_backend():
+    """Configuración del backend leída desde SU carpeta.
+
+    `app.config` busca el `.env` con ruta relativa: si el candado se lanza desde otra carpeta
+    (p. ej. /opt/maquita-webmail) no lo encuentra y la sesión de pruebas no se abre (falso rojo de
+    T-40 al caducar la sesión guardada). Se lee desde APP_BACKEND y se deja la carpeta como estaba,
+    porque otras pruebas importan este módulo.
+    """
+    anterior = os.getcwd()
+    os.chdir(APP_BACKEND)
+    try:
+        from app.config import get_settings
+        return get_settings()
+    finally:
+        os.chdir(anterior)
+
+
 def abrir(cuenta=CUENTA):
     reutilizada = _guardada(cuenta)
     if reutilizada and _sesion_viva(reutilizada):
         return reutilizada
     import jwt as pyjwt
-    from app.config import get_settings
-    s = get_settings()
+    s = _configuracion_backend()
     # Desde A-17 (04/09) el correo solo acepta un VALE de impersonación: para un buzón concreto,
     # de un solo uso (jti) y de 5 minutos. Se emite aquí igual que lo hace el panel.
     import uuid

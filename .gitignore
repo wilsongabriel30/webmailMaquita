@@ -83,3 +83,7 @@ restore*.log
 descargas-app/
 panel-dominio/backend/venv/
 *.tsbuildinfo
+
+# Datos locales del servidor (07/11/2026): firmas de personas (las sirve nginx) y capturas de pruebas.
+firmas-publicas/
+pruebas-navegador/informe/

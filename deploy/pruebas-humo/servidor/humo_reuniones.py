@@ -19,6 +19,7 @@ import urllib.error
 import urllib.request
 from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
+from zoneinfo import ZoneInfo
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from comun import BASE, HOST, CUENTA, DESTINO, PERSONA, CONVERSACION, UID_CORREO  # noqa: E402,F401
@@ -112,10 +113,12 @@ def main(cuenta=CUENTA):
     if rid:
         est, r2 = reunion_en_agenda(rid)
         hora = json.dumps(r2) if r2 else ''
-        check('T-30 (2) . la reunión refleja el cambio de hora',
-              bool(r2) and (nuevo_inicio.strftime('%H:%M') in hora or nuevo_inicio.strftime('%Y-%m-%dT%H') in hora
-                            or nuevo_inicio.strftime('%Y-%m-%d %H') in hora),
-              'agenda=%s' % hora[:120])
+        # El servicio de reuniones guarda la hora LOCAL del evento (04/11/2026). Antes la prueba buscaba la
+        # hora UTC: daba por buena la reunión corrida 5 horas que dejaba el puente del calendario.
+        local = nuevo_inicio.astimezone(ZoneInfo('America/Guayaquil'))
+        check('T-30 (2) . la reunión refleja el cambio de hora (hora local de Ecuador)',
+              bool(r2) and str(r2.get('inicio') or '').startswith(local.strftime('%Y-%m-%dT%H:%M')),
+              'esperada=%s agenda=%s' % (local.strftime('%Y-%m-%dT%H:%M'), hora[:120]))
 
     # 4) eliminar el evento cancela la reunión
     est, _ = api(tok, 'DELETE', '/api/calendar/events/%s' % ev_id)
