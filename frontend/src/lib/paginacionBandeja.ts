@@ -37,6 +37,10 @@ export function fusionarTanda(
     return [...existentes, ...recibidos.filter((m) => !vistos.has(m.uid))];
   }
   // Cabecera refrescada: reemplaza la parte ya cubierta y conserva el resto por debajo.
+  // Si el servidor devolvió MENOS de lo pedido, esa es la lista entera: no se le pega nada
+  // debajo. Antes, al pasar a «No leídos» con 4 resultados y 50 en pantalla, se quedaban los 46
+  // anteriores (ya leídos) bajo los 4 nuevos y parecía que el filtro no hacía nada (07/11/2026).
+  if (recibidos.length < parametros.per_page) return recibidos;
   const cubiertos = Math.min(existentes.length, recibidos.length);
   const cola = existentes.slice(cubiertos).filter((m) => !ids.has(m.uid));
   return [...recibidos, ...cola];

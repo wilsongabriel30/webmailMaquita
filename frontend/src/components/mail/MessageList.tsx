@@ -24,13 +24,15 @@ import { SinResultados } from './SinResultados';
 import { AvisoFiltroSinResultados } from './AvisoFiltroSinResultados';
 import { AdelantoCarpetaActual } from './AdelantoCarpetaActual';
 import { AvisoBusquedaEnCarpeta } from './AvisoBusquedaEnCarpeta';
-import { abrirMensajeEnPestana } from '../../lib/abrirEnPestana';
+import { abrirMensajeEnPestana, abrirMensajeEnVentana } from '../../lib/abrirEnPestana';
 import { AVISO_ELIMINAR_CORREO } from '../../lib/deepLinkCorreo';
 import { confirmarBorradoDefinitivo } from '../../lib/confirmarBorrado';
 import { avisar } from '../../lib/avisosNavegador';   // T-53
 import { getCachedMessage } from '../../lib/offlineStore';   // W-7: leer sin conexión lo ya descargado
 import { permisoNotificacion, pedirPermisoNotificacion } from '../../lib/notificacionSegura';   // AM-10
 import { FilaCorreoLinea } from './FilaCorreoLinea';
+import { AvisoOtrosSinLeer } from './AvisoOtrosSinLeer';   // «Otros: N sin leer» (07/11/2026)
+import { ChipsAdjuntosFila } from './ChipsAdjuntosFila';   // nombres de adjuntos en la fila (07/11/2026)
 import { usePublicarListaVisible } from './listaVisible';   // lista visible y resaltado por UID (05/11/2026)
 import { responderDesdeLista, reenviarDesdeLista } from './citarDesdeLista';
 import { ICONO_CORREO_ADJUNTO, correosDeSeleccion, reenviarComoAdjunto } from '../../lib/correosComoAdjunto';   // .eml dentro de otro correo (05/11/2026)   // menú contextual con cita (05/11/2026)
@@ -827,8 +829,10 @@ export function MessageList() {
   // Check if there are any high-priority messages before filtering
 
   // Pestañas Prioritarios / Otros: regla en lib/pestanaPrioritarios.ts (06/11/2026).
+  // Con «No leídos» o «Marcados» se ven TODOS los que cumplen, sean de Prioritarios o de Otros:
+  // antes los de Otros salían un instante y desaparecían al llegar la clasificación (07/11/2026).
   const filtered = messages.filter(m => {
-    if (currentFolder !== 'INBOX') return true;
+    if (currentFolder !== 'INBOX' || filter !== 'all') return true;
     return pestanaDe(m, priorityMap[m.uid]) === activeTab;
   });
   // La lista respeta el orden de llegada (como Outlook y Zimbra): la prioridad
@@ -841,6 +845,10 @@ export function MessageList() {
     );
   }
 
+  // Sin leer que están en «Otros» (aviso arriba de Prioritarios y número en la pestaña, 07/11/2026).
+  const otrosSinLeer = currentFolder === 'INBOX'
+    ? messages.filter(m => !m.seen && pestanaDe(m, priorityMap[m.uid]) === 'other')
+    : [];
   // Publica en el store los UIDs visibles en su orden real y mantiene el resaltado por UID.
   usePublicarListaVisible(filtered);
 
@@ -983,7 +991,7 @@ export function MessageList() {
     if (unaLinea) {
       const spam = spamResults.find(s => s.uid === msg.uid);
       return (
-        <FilaCorreoLinea key={msg.uid} msg={msg} threadCount={threadCount} idx={idx} asuntoPrimero={asuntoPrimero} onDoubleClick={() => handleSelect(msg.uid)}
+        <FilaCorreoLinea key={msg.uid} msg={msg} threadCount={threadCount} idx={idx} asuntoPrimero={asuntoPrimero} onDoubleClick={() => abrirMensajeEnVentana(msg.folder || currentFolder, msg.uid)}
           nombre={nombreQuien} iniciales={getInitials(quien, avatarMap)}
           color={getColor(quien)} fecha={fecha} activo={active} marcado={checked}
           fijado={isPinned(currentFolder, msg.uid)} esSpam={!!spam} motivoSpam={spam?.reasons?.join(', ')}
@@ -1004,12 +1012,12 @@ export function MessageList() {
         draggable
         onDragStart={alArrastrar}
         onClick={(e) => handleRowClick(msg.uid, idx, e)}
-        onDoubleClick={() => handleSelect(msg.uid)}
+        onDoubleClick={() => abrirMensajeEnVentana(msg.folder || currentFolder, msg.uid)}
         data-idx={idx}
         onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, msg }); }}
         className={`group relative flex gap-2.5 pl-2 pr-3 ${density === "full" ? "py-[14px]" : density === "medium" ? "py-[10px]" : "py-[6px]"} cursor-pointer border-b border-[#f3f2f1] transition-all ${
           checked ? 'bg-[#deecf9]' : active ? 'bg-[#eff6fc]' : 'hover:bg-[#f3f2f1]'
-        }`}>
+        } ${!msg.seen ? "before:content-[''] before:absolute before:left-0 before:top-0 before:-bottom-px before:w-[3px] before:bg-[#0078d4] before:z-[1]" : ''}`}>
 
         {/* Unread dot + spam indicator */}
         <div className="w-[4px] shrink-0 flex items-start pt-4">
@@ -1019,14 +1027,21 @@ export function MessageList() {
         </div>
 
         {/* Checkbox / Avatar */}
-        <div className="shrink-0 pt-0.5"
+        <div className="shrink-0 pt-0.5" title={checked ? 'Quitar de la selección' : 'Seleccionar'}
           onClick={e => { e.stopPropagation(); handleShiftClick(idx, e); }}>
-          <div className={`w-[32px] h-[32px] rounded-full flex items-center justify-center text-[11px] font-semibold cursor-pointer transition-all ${
-            checked ? 'bg-[#0078d4] text-white' : 'text-white group-hover:ring-2 group-hover:ring-[#c8c6c4]'
+          {/* Como Outlook (07/11/2026): al pasar el ratón el círculo se cambia por una casilla cuadrada blanca;
+              marcado = casilla azul con visto. Varias marcadas → la cinta actúa sobre todas o se arrastran juntas. */}
+          <div className={`w-[32px] h-[32px] rounded-full flex items-center justify-center text-[11px] font-semibold text-white cursor-pointer ${
+            checked ? '' : 'group-hover:!bg-transparent'
           }`} style={checked ? {} : { backgroundColor: getColor(quien) }}>
             {checked ? (
-              <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-            ) : getInitials(quien, avatarMap)}
+              <span className="w-[18px] h-[18px] rounded-[3px] bg-[#0078d4] flex items-center justify-center">
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+              </span>
+            ) : (<>
+              <span className="group-hover:hidden">{getInitials(quien, avatarMap)}</span>
+              <span className="hidden group-hover:block w-[18px] h-[18px] rounded-[3px] bg-white border-[1.5px] border-[#605e5c] hover:border-[#0078d4]" />
+            </>)}
           </div>
         </div>
 
@@ -1035,7 +1050,8 @@ export function MessageList() {
           <div className="flex items-center justify-between">
             {/* Primera línea: asunto o nombre según la preferencia de la persona (06/11/2026) */}
             <div className="flex items-center gap-1.5 min-w-0 flex-1">
-              <span className={`text-[13px] truncate ${!msg.seen ? 'font-semibold text-[#323130]' : 'text-[#605e5c]'}`}>
+              {/* No leído como Outlook (07/11/2026): el asunto en azul y negrita */}
+              <span className={`text-[13px] truncate ${!msg.seen ? (asuntoPrimero ? 'font-semibold text-[#0078d4]' : 'font-semibold text-[#323130]') : 'text-[#605e5c]'}`}>
                 {asuntoPrimero ? (msg.subject || '(Sin asunto)') : nombreQuien}
               </span>
               {asuntoPrimero && (msgLabelsMap[claveEtiquetas(msg, currentFolder)] || []).map((lbl) => (
@@ -1073,7 +1089,7 @@ export function MessageList() {
             </div>
           </div>
           <div className="flex items-center gap-1.5 min-w-0">
-            <p className={`text-[13px] truncate leading-[18px] ${!msg.seen ? 'font-medium text-[#323130]' : 'text-[#605e5c]'}`}>
+            <p className={`text-[13px] truncate leading-[18px] ${!msg.seen ? (asuntoPrimero ? 'font-medium text-[#323130]' : 'font-semibold text-[#0078d4]') : 'text-[#605e5c]'}`}>
               {asuntoPrimero ? nombreQuien : (msg.subject || '(Sin asunto)')}
             </p>
             {!asuntoPrimero && (msgLabelsMap[claveEtiquetas(msg, currentFolder)] || []).map((lbl) => (
@@ -1092,6 +1108,7 @@ export function MessageList() {
           >
             {msg.snippet || '\u00A0'}
           </p>
+          <ChipsAdjuntosFila nombres={msg.adjuntos} />
         </div>
 
         {/* Flag */}
@@ -1211,7 +1228,9 @@ export function MessageList() {
               <button key={tab} onClick={() => setActiveTab(tab)} title={AYUDA_PESTANAS[tab]}
                 className={`px-3 py-1.5 text-[13px] border-b-2 transition-colors ${
                   activeTab === tab ? 'border-[#0078d4] text-[#0078d4] font-medium' : 'border-transparent text-[#605e5c] hover:text-[#323130]'
-                }`}>{tab === 'focused' ? 'Prioritarios' : 'Otros'}</button>
+                }`}>{tab === 'focused' ? 'Prioritarios' : 'Otros'}{tab === 'other' && otrosSinLeer.length > 0 && (
+                  <span className="ml-1 text-[11px] font-semibold text-[#0078d4]">{otrosSinLeer.length}</span>
+                )}</button>
             ))}
             <div className="flex-1" />
             <button
@@ -1252,6 +1271,9 @@ export function MessageList() {
               </svg>
             </button>
           </div>
+        )}
+        {currentFolder === 'INBOX' && activeTab === 'focused' && filter === 'all' && (
+          <AvisoOtrosSinLeer correos={otrosSinLeer} onVer={() => setActiveTab('other')} />
         )}
         {/* Action icons for non-INBOX folders */}
         {currentFolder !== 'INBOX' && (

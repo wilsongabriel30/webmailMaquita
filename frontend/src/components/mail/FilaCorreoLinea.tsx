@@ -99,7 +99,7 @@ export const FilaCorreoLinea = memo(function FilaCorreoLinea(p: FilaCorreoLineaP
       onContextMenu={p.onContextMenu}
       className={`group relative flex items-center gap-2 pl-1.5 pr-2 h-[32px] cursor-pointer border-b border-[#f3f2f1] ${
         p.marcado ? 'bg-[#deecf9]' : p.activo ? 'bg-[#eff6fc]' : 'hover:bg-[#f3f2f1]'
-      }`}
+      } ${noLeido ? "before:content-[''] before:absolute before:left-0 before:top-0 before:-bottom-px before:w-[3px] before:bg-[#0078d4] before:z-[1]" : ''}`}
     >
       {/* Punto de no leído / aviso de spam */}
       <div className="w-[4px] shrink-0 flex items-center">
@@ -108,14 +108,22 @@ export const FilaCorreoLinea = memo(function FilaCorreoLinea(p: FilaCorreoLineaP
       </div>
 
       {/* Casilla pequeña: avatar con iniciales que al pasar el ratón se vuelve casilla */}
-      <div className="shrink-0" onClick={p.onMarcar}>
-        <div className={`w-[20px] h-[20px] rounded-full flex items-center justify-center text-[9px] font-semibold text-white transition-all ${
-          p.marcado ? 'bg-[#0078d4]' : 'group-hover:ring-2 group-hover:ring-[#c8c6c4]'
-        }`} style={p.marcado ? {} : { backgroundColor: p.color }}>
-          {p.marcado
-            ? <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-            : p.iniciales}
-        </div>
+      <div className="shrink-0" title={p.marcado ? 'Quitar de la selección' : 'Seleccionar'}
+          onClick={p.onMarcar}>
+          {/* Como Outlook (07/11/2026): al pasar el ratón el círculo se cambia por una casilla cuadrada blanca;
+              marcado = casilla azul con visto. Varias marcadas → la cinta actúa sobre todas o se arrastran juntas. */}
+          <div className={`w-[20px] h-[20px] rounded-full flex items-center justify-center text-[9px] font-semibold text-white cursor-pointer ${
+            p.marcado ? '' : 'group-hover:!bg-transparent'
+          }`} style={p.marcado ? {} : { backgroundColor: p.color }}>
+            {p.marcado ? (
+              <span className="w-[16px] h-[16px] rounded-[3px] bg-[#0078d4] flex items-center justify-center">
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+              </span>
+            ) : (<>
+              <span className="group-hover:hidden">{p.iniciales}</span>
+              <span className="hidden group-hover:block w-[16px] h-[16px] rounded-[3px] bg-white border-[1.5px] border-[#605e5c] hover:border-[#0078d4]" />
+            </>)}
+          </div>
       </div>
 
       {/* Orden elegido por la persona (06/11/2026): asunto primero (lo habitual) o nombre primero (como Outlook) */}

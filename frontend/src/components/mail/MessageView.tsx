@@ -29,6 +29,8 @@ import { fechaCortaLista } from '../../lib/fechaLegible';
 import { es } from 'date-fns/locale';
 import { api } from '../../api/client';
 import { useMailStore } from '../../store/mailStore';
+import { AccionesRapidasCorreo } from './AccionesRapidasCorreo';
+import { BotonCerrarCorreo, FlechasCorreo } from './NavegacionCorreo';
 import { AttachmentPreview } from './AttachmentPreview';
 import ListaAdjuntos from './ListaAdjuntos';
 // Aviso de enlaces con rastreo de terceros (componente aparte:
@@ -1057,8 +1059,10 @@ const MessageView: React.FC = () => {
 
         {/* Thread header */}
         <div style={{ padding: '16px 20px 12px', borderBottom: '1px solid #edebe9', flexShrink: 0 }}>
-          <h2 style={{ fontSize: 20, fontWeight: 600, margin: '0 0 6px', color: '#323130', lineHeight: 1.3 }}>
-            {subject}
+          <h2 style={{ fontSize: 20, fontWeight: 600, margin: '0 0 6px', color: '#323130', lineHeight: 1.3, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <BotonCerrarCorreo />
+            <span style={{ flex: 1, minWidth: 0 }}>{subject}</span>
+            <FlechasCorreo />
           </h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <svg style={{ width: 16, height: 16, color: '#0078d4' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1226,6 +1230,7 @@ const MessageView: React.FC = () => {
       {/* Header */}
       <div style={{ padding: cabecera.plegada ? '8px 24px 8px' : '14px 24px 0', flexShrink: 0, borderBottom: cabecera.plegada ? '1px solid #edebe9' : 'none', transition: 'padding 120ms' }}>
         <h2 style={{ fontSize: cabecera.plegada ? 15 : 20, fontWeight: 600, margin: cabecera.plegada ? 0 : '0 0 12px', color: '#323130', lineHeight: 1.3, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <BotonCerrarCorreo />
           <span style={cabecera.plegada ? { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } : { flex: 1, minWidth: 0 }} title={msg.subject}>
           {msg.subject}
           {msg.importance && msg.importance.toLowerCase() === 'high' && (
@@ -1243,6 +1248,7 @@ const MessageView: React.FC = () => {
               <DireccionConNombre texto={msg.from} /> · {fechaVer ? fechaCortaLista(new Date(fechaVer)) : ''}
             </span>
           )}
+          <FlechasCorreo />
           <button
             onClick={cabecera.alternar}
             title={cabecera.plegada ? 'Mostrar remitente, destinatarios y acciones' : 'Ocultar la cabecera (también se oculta al desplazar)'}
@@ -1270,8 +1276,15 @@ const MessageView: React.FC = () => {
               <span style={{ fontWeight: 600, fontSize: 14, color: '#323130' }}><DireccionConNombre texto={msg.from} /></span>
               <span style={{ fontSize: 12, color: '#605e5c' }}>&lt;{senderEmail}&gt;</span>
               <AddToContactBtn name={senderName} email={senderEmail} />
-              <span style={{ fontSize: 13, color: '#605e5c', marginLeft: 'auto', whiteSpace: 'nowrap' }} title={relDate}>
-                {fullDate}
+              {/* Como Outlook (07/11/2026): acciones rápidas arriba a la derecha y la fecha debajo */}
+              <span style={{ marginLeft: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                <AccionesRapidasCorreo folder={msg.folder || currentFolder} uid={msg.uid} from={msg.from || ''}
+                  seen={msg.seen} flagged={msg.flagged} enVentana={window.location.pathname.endsWith('/mensaje')}
+                  onResponder={handleReply} onResponderTodos={handleReplyAll} onReenviar={handleForward}
+                  onImprimir={handlePrint} onDescargarEml={handleDownloadEml} />
+                <span style={{ fontSize: 13, color: '#605e5c', whiteSpace: 'nowrap' }} title={relDate}>
+                  {fullDate}
+                </span>
               </span>
             </div>
             <div style={{ fontSize: 12, color: '#605e5c', marginTop: 2 }}>
@@ -1311,8 +1324,8 @@ const MessageView: React.FC = () => {
         </div>
 
         <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-          {/* «Descargar .eml» y «Ver origen» son herramientas de soporte: solo a la vista tras
-              pulsar «Más», para que lo primero que se vea sea Imprimir y el correo. */}
+          {/* «Descargar .eml», «Ver origen» e «Imprimir» solo tras «Más detalles» (07/11/2026): Imprimir y
+              Guardar como ya están en «⋯» arriba a la derecha, como en Outlook. */}
           {showDetails && (<>
           <button style={btnStyle} onClick={handleDownloadEml} title="Descargar como .eml">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
@@ -1326,13 +1339,13 @@ const MessageView: React.FC = () => {
             </svg>
             {loadingSource ? 'Cargando...' : 'Ver origen del mensaje'}
           </button>
-          </>)}
           <button style={btnStyle} onClick={handlePrint} title="Imprimir">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
               <path d="M4 1h8v3H4zM2 5h12v7H4v3h8v-3h2V5zM4 10h8"/>
             </svg>
             Imprimir
           </button>
+          </>)}
         </div>
         </>)}
 

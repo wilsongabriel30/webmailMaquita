@@ -12,6 +12,7 @@ from app.mail.clients.imap_client import (
 from app.mail.parsers.html_sanitizer import sanitize_html
 from app.mail.parsers.mime_parser import parse_full_message, parse_headers
 from app.mail.rendering.policy import apply_render_policy
+from app.mail.services.adjuntos_lista import adjuntos_por_uid
 
 
 async def list_messages(
@@ -51,6 +52,8 @@ async def list_messages(
         }
 
     raw_headers = await fetch_message_headers(imap, uid_result["uids"])
+    # Adjuntos de cada correo (clip y nombres en la fila, como Outlook; 07/11/2026)
+    adjuntos = await adjuntos_por_uid(imap, uid_result["uids"])
 
     messages = []
     for raw in raw_headers:
@@ -67,6 +70,11 @@ async def list_messages(
         # Use has_attachments from BODYSTRUCTURE if available
         if raw.get("has_attachments"):
             summary["has_attachments"] = True
+        hay_adjuntos, nombres_adjuntos = adjuntos.get(raw["uid"], (False, []))
+        if hay_adjuntos:
+            summary["has_attachments"] = True
+        if nombres_adjuntos:
+            summary["adjuntos"] = nombres_adjuntos
         # Hora de llegada a nuestro servidor (no la del equipo del remitente).
         summary["received_date"] = raw.get("internal_date")
         messages.append(summary)
