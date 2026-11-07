@@ -32,10 +32,32 @@ from purepythonmilter import (  # noqa: E402
     PurePythonMilter, Continue, AppendHeader, ReplaceBodyChunk, RejectWithCode,
 )
 from purepythonmilter.api.models import connection_id_context  # noqa: E402
+
+# 06/11/2026: purepythonmilter 0.0.1 marca «manipulaciones enviadas» por CONEXIÓN y nunca lo reinicia,
+# y tampoco vacía la lista de manipulaciones pendientes. Postfix reutiliza la conexión del milter para
+# varios mensajes de una misma sesión SMTP: del segundo mensaje en adelante se ignoraban las cabeceras
+# y reescrituras nuevas (1.300-2.700 avisos/día «Adding manipulations after End of Message callback»)
+# y se reenviaban las del primero. Se reinicia el estado en cada MAIL FROM.
+from purepythonmilter.server import session as _ppm_session  # noqa: E402
+_ppm_commands = _ppm_session.commands  # el módulo de comandos que ya usa la sesión
+
+_handle_original = _ppm_session.MtaMilterSession.handle_command_in_app
+
+
+async def _handle_reiniciando_por_mensaje(self, command):
+    if isinstance(command, _ppm_commands.MailFrom):
+        self._manipulations_sent = False
+        self._pending_manipulations.clear()
+    return await _handle_original(self, command)
+
+
+_ppm_session.MtaMilterSession.handle_command_in_app = _handle_reiniciando_por_mensaje
 from app.dlp import detectors  # noqa: E402
 from app.safelinks import inbound_rewriter  # noqa: E402
 
 from app import organizacion  # noqa: E402
+import cuerpo_trozos  # noqa: E402  (05/11/2026: cuerpo reescrito en trozos de 64 KB)
+import tiempo_analisis  # noqa: E402  (05/11/2026: presupuesto de tiempo por mensaje)
 
 # Respaldo si la base no responde: ORG_DOMINIOS_ENLACES o todos los dominios propios.
 LOCAL_DOMAINS = set(organizacion.dominios("ORG_DOMINIOS_ENLACES"))
@@ -347,37 +369,71 @@ async def _inbound_safeattach(st, pool) -> list:
         msg = message_from_bytes(raw)
         mid = next((v for n, v in st["headers"] if n.lower() == "message-id"), "")
         flagged = []
-        for part in msg.walk():
+        presupuesto = tiempo_analisis.Presupuesto()
+        partes = [p for p in msg.walk() if p.get_filename()]
+        # 06/11/2026: los adjuntos se analizan EN PARALELO (antes uno tras otro: 7 imágenes de firma
+        # + 1 PDF = 13 s de espera al enviar) y un archivo idéntico ya analizado y limpio no se repite
+        # (cache_adjuntos.py). Mismo presupuesto de tiempo y misma política fail-open/cerrada.
+        import cache_adjuntos
+        resultados = []   # (archivo, tipo, tamaño, motivo)
+        trabajos = []
+        for part in partes:
             fn = part.get_filename()
-            if not fn:
-                continue
             ext = _os.path.splitext(fn)[1].lower()
             ct = part.get_content_type() or ""
-            reason = ""
-            psize = 0
             if ext in _EXE_EXT:
-                reason = "ejecutable (" + ext + ")"   # por extension: sin importar tamaño/truncamiento
-            else:
-                try:
-                    payload = part.get_payload(decode=True) or b""
-                except Exception:
-                    continue
-                psize = len(payload)
-                if not payload or psize > 25_000_000:
-                    continue
+                resultados.append((fn, ct, 0, "ejecutable (" + ext + ")"))   # por extensión, siempre
+                continue
+            try:
+                payload = part.get_payload(decode=True) or b""
+            except Exception:
+                continue
+            if not payload or len(payload) > 25_000_000:
+                continue
+            trabajos.append((fn, ct, payload))
+
+        limite = _aio.Semaphore(int(_os.getenv("MILTER_ADJUNTOS_SIMULTANEOS", "4")))
+        sin_analizar = [0]
+
+        async def _analizar(fn, ct, payload):
+            psize = len(payload)
+            h = cache_adjuntos.huella(payload)
+            if cache_adjuntos.es_limpio(h):
+                tiempo_analisis.anotar_adjunto(fn, time.monotonic(), "limpio-ya-analizado", psize)
+                return (fn, ct, psize, "")
+            async with limite:
+                t_adj = presupuesto.timeout_adjunto()
+                if t_adj <= 0:
+                    st["parcial_tiempo"] = True
+                    sin_analizar[0] += 1
+                    return (fn, ct, psize, "")
+                t_ini = time.monotonic()
                 try:
                     from app.safeattach import scan_attachment
-                    rep = await _aio.wait_for(_aio.to_thread(scan_attachment, payload, fn, ct), timeout=15)
+                    rep = await _aio.wait_for(_aio.to_thread(scan_attachment, payload, fn, ct), timeout=t_adj)
                     res = (rep or {}).get("result")
                     errs = [str(e) for e in ((rep or {}).get("errors") or [])]
+                    reason = ""
                     if res in ("malicious", "suspicious") or errs:
                         thr = "; ".join(str(t.get("threat", "")) for t in (rep.get("threats") or [])[:2])
                         reason = (res or "suspicious") + ": " + thr
                         if errs:
                             # R-04: un motor obligatorio caido es fallo CERRADO, no un adjunto limpio
                             reason += "; motor obligatorio caido: " + ",".join(errs)
-                except Exception:
-                    reason = ""
+                    elif res == "clean":
+                        cache_adjuntos.guardar_limpio(h)
+                    tiempo_analisis.anotar_adjunto(fn, t_ini, res or "limpio", psize)
+                    return (fn, ct, psize, reason)
+                except Exception as _e_scan:
+                    tiempo_analisis.anotar_adjunto(fn, t_ini, "timeout" if isinstance(_e_scan, _aio.TimeoutError) else "error", psize)
+                    return (fn, ct, psize, "")
+
+        if trabajos:
+            resultados += await _aio.gather(*(_analizar(*t) for t in trabajos))
+        if sin_analizar[0]:
+            tiempo_analisis.anotar_parcial(st.get("from", ""), sin_analizar[0], presupuesto)
+
+        for fn, ct, psize, reason in resultados:
             if reason:
                 flagged.append((fn, reason))
                 try:
@@ -471,7 +527,7 @@ async def _inbound_safelinks(st, pool, locals_) -> Continue:
         raw = _reconstruct(st["headers"], bytes(st["body"]))
         new_body = inbound_rewriter.rewrite_inbound(raw)
         if new_body:
-            manips.append(ReplaceBodyChunk(chunk=new_body))   # Safe Links
+            manips.extend(cuerpo_trozos.trocear(new_body))   # Safe Links (trozos de 64 KB, 05/11/2026)
     manips.extend(await _inbound_phishing(st, pool))          # Anti-phishing (default off)
     manips.extend(await _inbound_attachments(st, pool))      # Macros en adjuntos (default off)
     manips.extend(await _inbound_safeattach(st, pool))     # Safe Attachments inline + ejecutables -> cuarentena
@@ -495,6 +551,7 @@ async def on_end_of_message(cmd) -> Continue:
     st = _state.pop(_cid(), None)
     if not st:
         return Continue()
+    t_msg = time.monotonic()
     try:
         pool = await _get_pool()
         locals_ = await _local_domains(pool)
@@ -504,9 +561,14 @@ async def on_end_of_message(cmd) -> Continue:
             res = await _outbound_dlp(st, sender)        # SALIENTE: DLP
         else:
             res = await _inbound_safelinks(st, pool, locals_)  # ENTRANTE
-        if st.get("scan_partial"):
+        # Duración de cada mensaje en el registro (05/11/2026): antes no se sabía cuánto retenía el DATA.
+        tiempo_analisis.anotar_mensaje(sender, "saliente" if dom in locals_ else "entrante", t_msg, bool(st.get("parcial_tiempo")))
+        if st.get("scan_partial") or st.get("parcial_tiempo"):
             manips = list(getattr(res, "manipulations", None) or [])
-            manips.append(AppendHeader(headername="X-Maquita-Scan", headertext="partial"))
+            if st.get("scan_partial"):
+                manips.append(AppendHeader(headername="X-Maquita-Scan", headertext="partial"))
+            if st.get("parcial_tiempo"):
+                manips.append(AppendHeader(headername="X-Maquita-Scan", headertext="parcial-tiempo"))
             return Continue(manipulations=manips)
         return res
     except Exception as exc:
@@ -537,6 +599,7 @@ milter = PurePythonMilter(
 if __name__ == "__main__":
     import logging
     logging.basicConfig(level=logging.WARNING)
+    logging.getLogger("maquita_milter").setLevel(logging.INFO)   # duraciones (05/11/2026)
     _load_env_keys()
     if not _dsn():
         raise RuntimeError(

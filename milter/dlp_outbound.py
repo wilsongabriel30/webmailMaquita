@@ -98,8 +98,15 @@ async def run(st: dict, sender: str, pool, text: str, manips: list,
     types = sorted({f["type"] for f in findings})
     has_card = "tarjeta" in types
 
-    block = (dec["action"] == "block" and bool(cfg.get("milter_enforce"))) \
-        or (legacy_block_cards and has_card and ext)
+    # 05/11/2026: el interruptor antiguo security_config.dlp_block_cards_external solo manda
+    # cuando el panel DLP (dlp_config.rules.tarjeta) tiene accion 'block'. Si el panel dice
+    # 'warn' o 'audit', el correo sale con cabecera X-DLP-Alert y queda registrado (milter_warn),
+    # igual que el resto de categorias. Antes rechazaba con 554 aunque el panel dijera 'warn'.
+    regla_tarjeta = ((cfg.get("rules") or {}).get("tarjeta") or {})
+    accion_tarjeta = regla_tarjeta.get("action") or cfg.get("default_action") or "warn"
+    bloquea_tarjeta = bool(legacy_block_cards and has_card and ext and accion_tarjeta == "block")
+
+    block = (dec["action"] == "block" and bool(cfg.get("milter_enforce"))) or bloquea_tarjeta
     subj = next((t for n, t in st["headers"] if n.lower() == "subject"), "")
     try:
         await pool.execute(
