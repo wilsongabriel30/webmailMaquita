@@ -9,14 +9,16 @@
 import React from 'react';
 import { AccionesCorreoNoDeseado } from './AccionesCorreoNoDeseado';
 import { BotonAsignarCorreo } from '../tareas/BotonAsignarCorreo';
+import { BotonEtiquetasCorreo } from '../labels/BotonEtiquetasCorreo';
 
 const estiloBotonBarra: React.CSSProperties = {
   background: 'none',
   border: 'none',
   color: '#0078d4',
   fontWeight: 600,
-  padding: '5px 8px',
-  fontSize: 12,
+  padding: '7px 10px',
+  fontSize: 14,
+  minHeight: 34,
   cursor: 'pointer',
   display: 'inline-flex',
   alignItems: 'center',
@@ -31,7 +33,7 @@ const Etiqueta = ({ texto, secundaria }: { texto: string; secundaria?: boolean }
 );
 
 export function BarraAccionesCorreo({
-  esBorrador, onEditarBorrador, onResponder, onResponderTodos, onReenviar,
+  esBorrador, onEditarBorrador, onResponder, onResponderTodos, onReenviar, onReenviarAdjunto,
   folder, uid, from, asunto, conAsignar,
   onRespuestaIA, generandoRespuestas, onResumir, resumiendo, children,
 }: {
@@ -40,6 +42,8 @@ export function BarraAccionesCorreo({
   onResponder: () => void;
   onResponderTodos: () => void;
   onReenviar: () => void;
+  /** «Reenviar como adjunto»: el correo sale como .eml dentro de uno nuevo. */
+  onReenviarAdjunto?: () => void;
   folder: string;
   uid: number;
   from: string;
@@ -55,7 +59,7 @@ export function BarraAccionesCorreo({
   return (
     <div className="barra-acciones-correo" style={{
       padding: '3px 16px', borderTop: '1px solid #edebe9', flexShrink: 0,
-      display: 'flex', alignItems: 'center', gap: 2, background: '#faf9f8', overflow: 'hidden',
+      display: 'flex', alignItems: 'center', gap: 2, background: '#faf9f8', flexWrap: 'wrap', rowGap: 0,
     }}>
       {esBorrador ? (
         <button style={{ ...estiloBotonBarra, background: '#0078d4', color: '#fff', padding: '5px 16px' }} onClick={onEditarBorrador}>
@@ -78,15 +82,25 @@ export function BarraAccionesCorreo({
           <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M9.5 3L15 8l-5.5 5V10C5 10 2.5 11.5 1 15c1-4.5 3.5-8 8.5-8.5V3z"/></svg>
           <Etiqueta texto="Reenviar" />
         </button>
+        {onReenviarAdjunto && (
+          <button style={estiloBotonBarra} onClick={onReenviarAdjunto} title="Reenviar como adjunto (.eml)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+            <Etiqueta texto="Como adjunto" secundaria />
+          </button>
+        )}
         <AccionesCorreoNoDeseado folder={folder} uid={uid} from={from} estilo={estiloBotonBarra} />
         {conAsignar && <BotonAsignarCorreo estilo={estiloBotonBarra} correo={{ folder, uid, subject: asunto, from }} />}
+        <BotonEtiquetasCorreo folder={folder} uid={uid} estilo={estiloBotonBarra} />
+        {/* «Respuesta IA» y «Resumir» conservan siempre su texto (revisión 04/11/2026, H11): solo con
+            icono no se reconocen, y en pantalla táctil no hay descripción emergente. Si falta sitio, la
+            barra pasa a una segunda fila. */}
         <button style={{ ...estiloBotonBarra, marginLeft: 'auto', color: '#8764b8' }} onClick={onRespuestaIA} disabled={generandoRespuestas} title="Respuestas sugeridas por IA">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
-          <Etiqueta texto={generandoRespuestas ? 'Generando...' : 'Respuesta IA'} secundaria />
+          <Etiqueta texto={generandoRespuestas ? 'Generando...' : 'Respuesta IA'} />
         </button>
         <button style={{ ...estiloBotonBarra, color: '#498205' }} onClick={onResumir} disabled={resumiendo} title="Resumir con IA">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" /></svg>
-          <Etiqueta texto={resumiendo ? 'Resumiendo...' : 'Resumir'} secundaria />
+          <Etiqueta texto={resumiendo ? 'Resumiendo...' : 'Resumir'} />
         </button>
       </>)}
       {children}

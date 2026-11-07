@@ -6,11 +6,15 @@ import { useMailStore } from '../../store/mailStore';
 import { api } from '../../api/client';
 import { showToast } from '../common/Toast';
 import { accionEnLote } from '../../lib/accionesLote';
+import { ICONO_CORREO_ADJUNTO, correosDeSeleccion, reenviarComoAdjunto } from '../../lib/correosComoAdjunto';
 import { aplicarEscala, escalaActual, siguienteEscala } from '../../lib/escala';
 import { Ribbon } from '../compose/Ribbon';
 import { useImportanciaRedaccion } from './useImportanciaRedaccion';
 import { getFolderDisplayName } from '../../folders';
+import { confirmarBorradoDefinitivo, confirmarVaciado, esCarpetaVaciable } from '../../lib/confirmarBorrado';
 import { getCachedLabels, useLabels } from '../../hooks/useLabels';
+import { agruparUidsPorCarpeta, CARPETA_VIRTUAL, AVISO_SIN_ETIQUETAS_EN_TODO } from '../../lib/carpetaReal';
+import { asignarEtiquetaA } from '../labels/asignarEtiquetas';
 import { SnoozeModal } from './SnoozeModal';
 import { InfoCuentaModal } from './InfoCuentaModal';
 import { abrirAppMovil } from '../../lib/appMovil';
@@ -19,6 +23,7 @@ import { destinatariosResponderATodos } from '../../lib/destinatariosRespuesta';
 import type { Folder, MessageFull } from '../../types';
 import { useResponsive } from '../../hooks/useResponsive';
 import { nombreApp } from '../../lib/marca';
+import { AccionesMoverMovil } from './AccionesMoverMovil';
 
 
 function escapeHtml(str: string): string {
@@ -214,8 +219,8 @@ function ToolbarButton({ icon, label, onClick, hasDropdown, active, primary, dan
       `}
     >
       <SvgIcon d={icon} size={28} color={danger ? '#d13438' : primary ? 'white' : active ? '#0078d4' : 'currentColor'} />
-      <span className={`text-[10px] mt-0.5 leading-tight whitespace-nowrap flex items-center gap-0.5 ${danger ? 'text-[#d13438]' : ''}`}>
-        {label}{hasDropdown && <span className="text-[8px]">&#9662;</span>}
+      <span className={`text-[12px] mt-0.5 leading-tight whitespace-nowrap flex items-center gap-0.5 ${danger ? 'text-[#d13438]' : ''}`}>
+        {label}{hasDropdown && <span className="text-[10px]">&#9662;</span>}
       </span>
     </button>
   );
@@ -231,17 +236,19 @@ function Group({ label, children }: { label: string; children: React.ReactNode }
   return (
     <div className="flex flex-col items-center">
       <div className="flex items-end gap-0.5">{children}</div>
-      <span className="text-[9px] text-[#605e5c] mt-0.5 leading-none">{label}</span>
+      <span className="text-[11px] text-[#605e5c] mt-0.5 leading-none">{label}</span>
     </div>
   );
 }
 
 
 // ── Mobile Toolbar: compact single-row with essential actions + overflow ──
-function MobileToolbar({ onCompose, onDelete, onReply, onReplyAll, onForward, onArchive, onFlag, onToggleRead, onPrint, msg }: {
+function MobileToolbar({ onCompose, onDelete, onReply, onReplyAll, onForward, onArchive, onFlag, onToggleRead, onPrint, msg, onMove, currentFolder, folders, hasSelection }: {
   onCompose: () => void; onDelete: () => void; onReply: () => void; onReplyAll: () => void;
   onForward: () => void; onArchive: () => void; onFlag: () => void; onToggleRead: () => void;
   onPrint: () => void; msg: MessageFull | null;
+  onMove: (folder: string, toast?: string) => void; currentFolder: string;
+  folders: (Folder | string)[]; hasSelection: boolean;
 }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
@@ -282,7 +289,9 @@ function MobileToolbar({ onCompose, onDelete, onReply, onReplyAll, onForward, on
       <div className="relative" ref={moreRef}>
         {iconBtn('M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z', 'Más acciones', () => setMoreOpen(!moreOpen))}
         {moreOpen && (
-          <div className="absolute right-0 top-full mt-1 bg-white border border-[#e1dfdd] rounded-lg shadow-xl z-[200] min-w-[200px] py-1">
+          <div className="absolute right-0 top-full mt-1 bg-white border border-[#e1dfdd] rounded-lg shadow-xl z-[200] min-w-[230px] max-w-[calc(100vw-16px)] max-h-[80vh] overflow-y-auto py-1">
+            <AccionesMoverMovil carpetaActual={currentFolder} carpetas={folders} hayMensaje={hasSelection}
+              onMover={onMove} onCerrar={() => setMoreOpen(false)} />
             <button onClick={() => { onReplyAll(); setMoreOpen(false); }}
               className="w-full text-left px-4 py-2.5 text-[13px] flex items-center gap-3 hover:bg-[#f3f2f1] text-[#323130]">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#605e5c" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d={ICONS.replyAll} /></svg>
@@ -299,7 +308,9 @@ function MobileToolbar({ onCompose, onDelete, onReply, onReplyAll, onForward, on
               Imprimir
             </button>
             <div className="h-px bg-[#edebe9] my-1" />
-            <button onClick={() => { window.dispatchEvent(new CustomEvent('toggle-sidebar')); setMoreOpen(false); }}
+            {/* En móvil la barra de carpetas es un cajón: el evento correcto es el del cajón
+                (con «toggle-sidebar» no pasaba nada). */}
+            <button onClick={() => { window.dispatchEvent(new CustomEvent('toggle-mobile-drawer')); setMoreOpen(false); }}
               className="w-full text-left px-4 py-2.5 text-[13px] flex items-center gap-3 hover:bg-[#f3f2f1] text-[#323130]">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#605e5c" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d={ICONS.folderPanel} /></svg>
               Carpetas
@@ -319,7 +330,7 @@ function MobileToolbar({ onCompose, onDelete, onReply, onReplyAll, onForward, on
 //  Main Toolbar Component
 export function Toolbar() {
   const navigate = useNavigate();
-  const { labels, loading: labelsLoading, supported: labelsSupported, fetchLabels, createLabel, assignLabel, unassignLabel } = useLabels();
+  const { labels, loading: labelsLoading, supported: labelsSupported, fetchLabels, createLabel } = useLabels();
   const selectedMessage = useMailStore(s => s.selectedMessage);
   const selectedUids = useMailStore(s => s.selectedUids);
   const currentFolder = useMailStore(s => s.currentFolder);
@@ -331,6 +342,8 @@ export function Toolbar() {
   const setReadingPane = useMailStore(s => s.setReadingPane);
   const density = useMailStore(s => s.density);
   const setDensity = useMailStore(s => s.setDensity);
+  const ordenFila = useMailStore(s => s.ordenFila);
+  const setOrdenFila = useMailStore(s => s.setOrdenFila);
   const previewLines = useMailStore(s => s.previewLines);
   const setPreviewLines = useMailStore(s => s.setPreviewLines);
   const showMyDay = useMailStore(s => s.showMyDay);
@@ -363,6 +376,7 @@ export function Toolbar() {
   const [folderPanelOpen, setFolderPanelOpen] = useState(false);
   const [readingPaneOpen, setReadingPaneOpen] = useState(false);
   const [densityOpen, setDensityOpen] = useState(false);
+  const [ordenOpen, setOrdenOpen] = useState(false);
   const [, setMyDayOpen] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [addinsOpen, setAddinsOpen] = useState(false);
@@ -426,7 +440,7 @@ export function Toolbar() {
     setMoveOpen(false); setClassifyOpen(false); setFlagOpen(false);
     setSnoozeOpen(false); setConvOpen(false); setPreviewLinesOpen(false);
     setRibbonMenuOpen(false); setFolderPanelOpen(false); setReadingPaneOpen(false);
-    setDensityOpen(false); setMyDayOpen(false); setRulesOpen(false);
+    setDensityOpen(false); setOrdenOpen(false); setMyDayOpen(false); setRulesOpen(false);
     setArchivoOpen(false); setAddinsOpen(false);
   }, []);
 
@@ -449,7 +463,9 @@ export function Toolbar() {
     if (!uids.length) { showToast('Selecciona un mensaje'); return; }
     const seen = msg?.seen ? false : true;
     try {
-      await api.post(`/mail/bulk-action/${encodeURIComponent(currentFolder)}`, { uids, action: seen ? 'mark_read' : 'mark_unread', dest_folder: '' });
+      for (const [carpeta, lote] of agruparUidsPorCarpeta(uids, currentFolder)) {
+        await api.post(`/mail/bulk-action/${encodeURIComponent(carpeta)}`, { uids: lote, action: seen ? 'mark_read' : 'mark_unread', dest_folder: '' });
+      }
       showToast(seen ? 'Marcado como leído' : 'Marcado como no leído');
       window.dispatchEvent(new CustomEvent('refresh-messages'));
     } catch { showToast('Error'); }
@@ -459,7 +475,9 @@ export function Toolbar() {
     if (!uids.length) { showToast('Selecciona un mensaje'); return; }
     const flagged = msg?.flagged ? false : true;
     try {
-      await api.post(`/mail/bulk-action/${encodeURIComponent(currentFolder)}`, { uids, action: flagged ? 'flag' : 'unflag', dest_folder: '' });
+      for (const [carpeta, lote] of agruparUidsPorCarpeta(uids, currentFolder)) {
+        await api.post(`/mail/bulk-action/${encodeURIComponent(carpeta)}`, { uids: lote, action: flagged ? 'flag' : 'unflag', dest_folder: '' });
+      }
       showToast(flagged ? 'Marcado con bandera' : 'Bandera eliminada');
       window.dispatchEvent(new CustomEvent('refresh-messages'));
     } catch { showToast('Error'); }
@@ -516,6 +534,13 @@ export function Toolbar() {
     closeAllDropdowns();
   };
 
+  // Los correos seleccionados (uno o varios) salen como .eml dentro de un correo nuevo.
+  const doForwardAsAttachment = () => {
+    if (!uids.length) { showToast('Selecciona un mensaje'); return; }
+    reenviarComoAdjunto(correosDeSeleccion(msg, uids, currentFolder));
+    closeAllDropdowns();
+  };
+
   const doForward = () => {
     if (!msg) { showToast('Selecciona un mensaje'); return; }
     openCompose('forward', {
@@ -568,6 +593,9 @@ export function Toolbar() {
       if (!window.confirm(_msg)) return;
     }
     if (currentFolder === 'Trash') {
+      // Desde la Papelera el borrado es definitivo: se pregunta siempre, aunque la
+      // preferencia «confirmar al eliminar» esté apagada.
+      if (!confirmDeletePref && !confirmarBorradoDefinitivo(uids.length)) return;
       await accionEnLote(currentFolder, uids, 'delete', '', 'Eliminado permanentemente', 'Error al eliminar');
     } else {
       moveToFolder('Trash', 'Movido a Papelera');
@@ -575,8 +603,16 @@ export function Toolbar() {
   };
 
   const doCleanFolder = async () => {
-    await accionEnLote(currentFolder, [], 'delete', '', `Carpeta ${getFolderDisplayName(currentFolder)} vaciada`, 'Error al limpiar');
     closeAllDropdowns();
+    // Vaciar borra para siempre toda la carpeta (el servidor expulsa 1:*). Solo se permite en
+    // Papelera y Correo no deseado, y siempre con confirmación: un clic en «Limpiar» estando en
+    // la Bandeja de entrada no puede llevarse el buzón entero.
+    if (!esCarpetaVaciable(currentFolder)) {
+      showToast('Solo se pueden vaciar la Papelera y el Correo no deseado');
+      return;
+    }
+    if (!confirmarVaciado(currentFolder)) return;
+    await accionEnLote(currentFolder, [], 'delete', '', `Carpeta ${getFolderDisplayName(currentFolder)} vaciada`, 'Error al limpiar');
   };
 
   const doClassify = async (category: string) => {
@@ -586,6 +622,11 @@ export function Toolbar() {
       closeAllDropdowns();
       return;
     }
+    // En «Todo el correo» los uids son virtuales: la etiqueta se guardaba con una clave que nunca
+    // se volvía a ver en la carpeta real (05/11/2026).
+    if (currentFolder === CARPETA_VIRTUAL) { showToast(AVISO_SIN_ETIQUETAS_EN_TODO); closeAllDropdowns(); return; }
+    const correos = useMailStore.getState().messages.filter((m) => uids.includes(m.uid)).map((m) => ({ folder: m.folder, uid: m.uid }));
+    const correosDeLaSeleccion = correos.length ? correos : uids.map((uid) => ({ folder: currentFolder, uid }));
     try {
       const categoryColors: Record<string, string> = {
         'Categoría azul': '#0078d4',
@@ -603,7 +644,7 @@ export function Toolbar() {
       const categoryLabels = currentLabels.filter((label) => categoryNames.includes(label.name));
 
       if (!category) {
-        await Promise.all(categoryLabels.map((label) => unassignLabel(label.id, currentFolder, uids)));
+        await Promise.all(categoryLabels.map((label) => asignarEtiquetaA(label.id, correosDeLaSeleccion, currentFolder, true)));
         showToast('Categorías borradas');
       } else {
         let label = currentLabels.find((item) => item.name === category);
@@ -617,7 +658,7 @@ export function Toolbar() {
             if (!label) throw new Error('Label sync failed');
           }
         }
-        await assignLabel(label.id, currentFolder, uids);
+        await asignarEtiquetaA(label.id, correosDeLaSeleccion, currentFolder);
         showToast(`Clasificado: ${category}`);
       }
       window.dispatchEvent(new CustomEvent('refresh-messages'));
@@ -653,11 +694,10 @@ export function Toolbar() {
       'Shift+R  Responder a todos\n' +
       'F  Reenviar\n' +
       'E  Archivar\n' +
-      'Delete  Eliminar\n' +
-      '  Navegar mensajes\n' +
+      'Supr  Eliminar\n' +
+      'Flechas  Navegar mensajes\n' +
       'Enter  Abrir mensaje\n' +
       'Ctrl+Enter  Enviar correo\n' +
-      'Esc  Cerrar redacción\n' +
       'Ctrl+A  Seleccionar todos\n' +
       '/  Buscar',
     );
@@ -689,6 +729,10 @@ export function Toolbar() {
         onToggleRead={toggleRead}
         onPrint={doPrint}
         msg={msg}
+        onMove={(folder, toast) => { void moveToFolder(folder, toast); }}
+        currentFolder={currentFolder}
+        folders={folders || []}
+        hasSelection={!noSel}
       />
     );
   }
@@ -865,13 +909,9 @@ export function Toolbar() {
                             const m = from.match(/<([^>]+)>/);
                             const email = (m ? m[1] : from).trim();
                             if (email && email.includes('@')) {
-                              api.post('/sieve/filters', {
-                                name: `Bloqueado: ${email}`,
-                                condition: { field: 'from', operator: 'contains', value: email },
-                                action: { type: 'move', value: 'Junk' },
-                              }).then(() => {
+                              api.post('/mail/remitentes-bloqueados', { correo: email }).then(() => {
                                 showToast(`Remitente ${email} bloqueado: sus correos irán a Correo no deseado`);
-                              }).catch(() => showToast('No se pudo crear la regla de bloqueo'));
+                              }).catch((e: unknown) => showToast(e instanceof Error && e.message ? e.message : 'No se pudo bloquear el remitente'));
                             }
                             moveToFolder('Junk', 'Remitente bloqueado');
                           }} />
@@ -922,6 +962,7 @@ export function Toolbar() {
                         <DropdownItem label="Responder" icon={ICONS.reply} onClick={doReply} />
                         <DropdownItem label="Responder a todos" icon={ICONS.replyAll} onClick={doReplyAll} />
                         <DropdownItem label="Reenviar" icon={ICONS.forward} onClick={doForward} />
+                        <DropdownItem label="Reenviar como adjunto" icon={ICONO_CORREO_ADJUNTO} onClick={doForwardAsAttachment} />
                       </Dropdown>
                     </div>
                   </Group>
@@ -933,7 +974,9 @@ export function Toolbar() {
                       <ToolbarButton icon={ICONS.clean} label="Limpiar" hasDropdown
                         onClick={() => { closeAllDropdowns(); setCleanOpen(!cleanOpen); }} />
                       <Dropdown open={cleanOpen} onClose={() => setCleanOpen(false)}>
-                        <DropdownItem label={`Vaciar "${getFolderDisplayName(currentFolder)}"`} icon={ICONS.clean} onClick={doCleanFolder} />
+                        {esCarpetaVaciable(currentFolder)
+                          ? <DropdownItem label={`Vaciar "${getFolderDisplayName(currentFolder)}"`} icon={ICONS.clean} onClick={doCleanFolder} />
+                          : <DropdownItem label="Solo se pueden vaciar la Papelera y el Correo no deseado" icon={ICONS.clean} onClick={() => setCleanOpen(false)} />}
                       </Dropdown>
                     </div>
                     <div className="relative">
@@ -980,6 +1023,15 @@ export function Toolbar() {
                             className="w-full text-left px-3 py-1.5 text-[13px] flex items-center gap-2 hover:bg-[#f3f2f1] text-[#323130]">
                             <div className="w-4 h-4 rounded-sm" style={{ backgroundColor: cat.color }} />
                             <span>{cat.label}</span>
+                          </button>
+                        ))}
+                        {/* Etiquetas propias (migradas de Zimbra o creadas en la barra lateral), 05/11/2026 */}
+                        {labels.filter((l) => !/^Categoría /.test(l.name)).length > 0 && <div className="border-t border-[#edebe9] my-1" />}
+                        {labels.filter((l) => !/^Categoría /.test(l.name)).map((l) => (
+                          <button key={l.id} onClick={() => doClassify(l.name)}
+                            className="w-full text-left px-3 py-1.5 text-[13px] flex items-center gap-2 hover:bg-[#f3f2f1] text-[#323130]">
+                            <div className="w-4 h-4 rounded-sm" style={{ backgroundColor: l.color }} />
+                            <span className="truncate">{l.name}</span>
                           </button>
                         ))}
                         <div className="border-t border-[#edebe9] my-1" />
@@ -1177,6 +1229,7 @@ export function Toolbar() {
                         onClick={() => { closeAllDropdowns(); setDensityOpen(!densityOpen); }} />
                       <Dropdown open={densityOpen} onClose={() => setDensityOpen(false)}>
                         {([
+                          { label: 'Una línea (como Outlook)', value: 'linea' },
                           { label: 'Compacta', value: 'compact' },
                           { label: 'Media', value: 'medium' },
                           { label: 'Completa', value: 'full' },
@@ -1184,6 +1237,21 @@ export function Toolbar() {
                           <DropdownItem key={opt.value} label={opt.label} icon={ICONS.density}
                             active={density === opt.value}
                             onClick={() => { setDensity(opt.value); setDensityOpen(false); }} />
+                        ))}
+                      </Dropdown>
+                    </div>
+                    {/* Qué va primero en cada correo: asunto (lo habitual) o nombre (06/11/2026, pedido general) */}
+                    <div className="relative">
+                      <ToolbarButton icon={ICONS.density} label="Orden" hasDropdown
+                        onClick={() => { closeAllDropdowns(); setOrdenOpen(!ordenOpen); }} />
+                      <Dropdown open={ordenOpen} onClose={() => setOrdenOpen(false)}>
+                        {([
+                          { label: 'Asunto primero, después el nombre', value: 'asunto' },
+                          { label: 'Nombre primero, después el asunto', value: 'remitente' },
+                        ] as const).map(opt => (
+                          <DropdownItem key={opt.value} label={opt.label} icon={ICONS.density}
+                            active={ordenFila === opt.value}
+                            onClick={() => { setOrdenFila(opt.value); setOrdenOpen(false); }} />
                         ))}
                       </Dropdown>
                     </div>
@@ -1229,7 +1297,7 @@ export function Toolbar() {
                   <Group label="Ayuda">
                     <ToolbarButton icon={ICONS.help} label="Ayuda" onClick={showShortcuts} />
                     <ToolbarButton icon={ICONS.recommend} label="Recomendaciones"
-                      onClick={() => showToast('Tip: Ctrl+N nuevo correo · Ctrl+R responder · Ctrl+Shift+R resp. todos · Ctrl+Enter enviar · E archivar · Supr eliminar')} />
+                      onClick={() => showToast('Consejo: N nuevo correo · R responder · Shift+R responder a todos · F reenviar · Ctrl+Enter enviar · Supr eliminar')} />
                     <ToolbarButton icon={ICONS.feedback} label="Comentarios"
                       onClick={() => { showToast('Abriendo formulario de comentarios...'); setTimeout(() => openCompose('new', { to: [], subject: `Comentario sobre ${nombreApp()}`, text_body: '', html_body: '' }), 300); }} />
                   </Group>

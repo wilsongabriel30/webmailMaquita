@@ -6,6 +6,7 @@ en un parte breve para el administrador. Read-only.
 
 from app.agents.base import Agent
 from app.agents.llm import ask
+from app.ai import estilo_institucional as estilo
 from app.branding.service import org_name_cacheado
 
 
@@ -41,8 +42,10 @@ class BriefingAgent(Agent):
             f"Datos de seguridad del correo en las últimas 24h: {d}. "
             "Redacta un parte breve (4-6 líneas) para el administrador: qué pasó, "
             "si hay algo urgente, y una acción sugerida.",
-            system=f"Eres el analista de seguridad de {org_name_cacheado()}. Parte conciso y claro, en español.",
+            system=f"Eres el analista de seguridad de {org_name_cacheado()}. Parte conciso y claro, en español. "
+            + estilo.instrucciones("analisis"),
         )
+        texto = estilo.institucionalizar(texto, modo="analisis")
         return {
             "agent": self.name,
             "descripcion": self.descripcion,

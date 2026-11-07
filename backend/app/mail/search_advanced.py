@@ -35,7 +35,10 @@ def _entrecomillar(valor: str) -> str:
 
 
 def parse_search_query(
-    query: str, buscar_en_contenido: bool = False, con_indice: bool = False
+    query: str,
+    buscar_en_contenido: bool = False,
+    con_indice: bool = False,
+    direcciones_nombre: tuple | list = (),
 ) -> list[str]:
     """
     Parse a search query with operators into IMAP SEARCH criteria.
@@ -237,6 +240,11 @@ def parse_search_query(
         # encontraba porque el nombre solo estaba en el texto (21/09/2026).
         if buscar_en_contenido or con_indice:
             libre = ["OR"] + libre + ["BODY " + _entrecomillar(text)]
+        # 06/11/2026: también lo de/para/cc de las personas que se llaman así (busqueda_por_nombre.py),
+        # aunque el correo traiga un cargo o solo la dirección.
+        for direccion in list(direcciones_nombre or [])[:8]:
+            for campo in ("FROM", "TO", "CC"):
+                libre = ["OR"] + libre + [campo + " " + _entrecomillar(direccion)]
         if criteria:
             criteria.extend(libre)
         else:

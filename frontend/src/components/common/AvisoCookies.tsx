@@ -24,7 +24,7 @@ export function AvisoCookies() {
   };
   return (
     <div role="region" aria-label="Aviso de cookies"
-      className="fixed bottom-0 inset-x-0 z-[9998] px-4 py-3 bg-[#323130] text-white text-[13px] shadow-[0_-2px_8px_rgba(0,0,0,.25)]">
+      className="aviso-cookies fixed bottom-0 inset-x-0 z-[9998] px-4 py-3 bg-[#323130] text-white text-[13px] shadow-[0_-2px_8px_rgba(0,0,0,.25)]">
       <div className="max-w-[960px] mx-auto flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
         <p className="flex-1 leading-snug">
           Este correo usa solo cookies <strong>necesarias</strong> para mantener tu sesión y protegerla
@@ -39,6 +39,9 @@ export function AvisoCookies() {
           Entendido
         </button>
       </div>
+      {/* Mientras haya una ventana modal abierta (p. ej. Nuevo evento) el aviso se aparta: en el
+          celular tapaba el pie de la ventana con sus botones. Vuelve al cerrarla. */}
+      <style>{'body:has([aria-modal="true"]) .aviso-cookies{display:none}'}</style>
     </div>
   );
 }

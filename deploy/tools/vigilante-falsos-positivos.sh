@@ -20,6 +20,13 @@ for u in $(sudo -u postgres psql -d maildb -tAc "select username from mailbox wh
     total_junk=$((total_junk+1))
     de=$(doveadm fetch -u "$u" hdr.from mailbox Junk uid "$uid" 2>/dev/null | grep -oE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+' | head -1 | tr 'A-Z' 'a-z')
     [ -z "$de" ] && continue
+    # Remitente = el propio buzón: es la suplantación típica de las extorsiones («A la espera del pago.»,
+    # 03/11/2026, 49 buzones). Se queda en no deseado: nadie se escribe a sí mismo desde fuera.
+    [ "$de" = "$u" ] && continue
+    # Puntaje de spam muy alto (el filtro de origen ya lo dio por spam sin duda): no se devuelve.
+    puntaje=$(doveadm fetch -u "$u" hdr mailbox Junk uid "$uid" 2>/dev/null \
+      | sed -nE 's/^X-(Spam|Rspamd)-Score: *(-?[0-9]+).*/\2/Ip' | sort -n | tail -1)
+    [ "${puntaje:-0}" -ge "${PUNTAJE_MAX:-15}" ] && continue
     # ¿Este buzón le ha escrito antes a ese remitente? (Enviados = correspondencia real)
     conocido=0
     for mb in Sent Enviados "Sent Items"; do

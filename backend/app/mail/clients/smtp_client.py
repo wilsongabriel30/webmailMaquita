@@ -24,6 +24,7 @@ Supports text+HTML multipart, file attachments, inline CID images.
 """
 
 import hmac
+import os as _os
 import re as _re
 from dataclasses import dataclass, field
 from email import encoders
@@ -36,8 +37,16 @@ from email.utils import formataddr, formatdate, parseaddr
 
 import aiosmtplib
 
+# Tiempo máximo de la sesión SMTP (05/11/2026): aiosmtplib cortaba a los 60 s por defecto mientras los
+# milters aún analizaban adjuntos y el usuario veía «error» con el correo ya encolado.
+SMTP_ENVIO_TIMEOUT_S = int(_os.getenv("SMTP_ENVIO_TIMEOUT_S", "180"))
+
 from app.branding.service import app_name_cacheado, org_name_cacheado
 from app.config import get_settings
+from app.mail.clients.parte_correo_adjunto import (
+    construir_parte_correo,
+    es_correo_adjunto,
+)
 from app.mail.msgid import msgid_del_remitente
 
 # ─── Headers que NUNCA deben estar en un correo saliente ───
@@ -141,12 +150,32 @@ def _cabecera_direcciones(valores: list[str] | str) -> str:
     partes = []
     for v in valores:
         nombre, direccion = parseaddr(v)
-        if not direccion:
-            continue
+        if not direccion or "@" not in direccion:
+            continue  # texto a medio escribir («Rosa»), no es una dirección
         if nombre and not nombre.isascii():
             nombre = str(Header(nombre, "utf-8"))
+        if not direccion.isascii():
+            direccion = _direccion_ascii(direccion)
+            if not direccion:
+                continue
         partes.append(formataddr((nombre, direccion)))
     return ", ".join(partes)
+
+
+def _direccion_ascii(direccion: str) -> str:
+    """Deja la dirección en ASCII: dominio en IDNA. Si no hay «@» o la parte local tiene
+    caracteres no ASCII (p. ej. «Ramírez», un nombre a medio escribir que el autoguardado del
+    borrador manda como destinatario) devuelve «» y se omite: antes `formataddr` lanzaba
+    UnicodeEncodeError y el envío o el borrador fallaban con 500 (05/11/2026)."""
+    if "@" not in direccion:
+        return ""
+    local, _, dominio = direccion.rpartition("@")
+    if not local.isascii():
+        return ""
+    try:
+        return local + "@" + dominio.encode("idna").decode("ascii")
+    except Exception:
+        return ""
 
 
 def build_mime_message(email_data: OutgoingEmail) -> MIMEMultipart:
@@ -272,6 +301,11 @@ def _build_attachment_part(att: EmailAttachment) -> MIMEBase:
         if "/" in att.content_type
         else ("application", "octet-stream")
     )
+    if es_correo_adjunto(att.content_type):
+        # Correo reenviado como adjunto (.eml): anidado, nunca en base64 (RFC 2046).
+        parte_correo = construir_parte_correo(att.content)
+        if parte_correo is not None:
+            return parte_correo
     if maintype == "image":
         part = MIMEImage(att.content, _subtype=subtype)
     else:
@@ -311,6 +345,7 @@ async def send_email(email_data: OutgoingEmail, password: str) -> dict:
         start_tls=True,
         tls_context=tls_context,
         recipients=all_recipients,
+        timeout=SMTP_ENVIO_TIMEOUT_S,
     )
 
     return {

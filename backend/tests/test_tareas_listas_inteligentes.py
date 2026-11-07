@@ -85,6 +85,10 @@ class _Con:
     async def fetchval(self, sql, *args):
         if "RETURNING id" in sql:
             return "tarea-nueva"
+        if "RETURNING card_id" in sql:
+            # Vínculo tarea-correo: INSERT … ON CONFLICT DO NOTHING RETURNING card_id (05/11/2026).
+            self.escrito.append((" ".join(sql.split())[:40], args))
+            return args[0]
         return 0
 
 

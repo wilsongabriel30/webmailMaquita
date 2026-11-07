@@ -6,6 +6,7 @@ Actualizado 2026-04-12: incluye org_contacts y meeting_rooms como fuentes.
 from fastapi import APIRouter, Depends, Request
 
 from app.auth.dependencies import get_current_user
+from app.contacts.orden_sugerencias import ordenar as ordenar_sugerencias
 
 router = APIRouter(prefix="/api/contacts", tags=["contacts"])
 
@@ -136,8 +137,10 @@ async def search_contacts(
                 )
                 seen_emails.add(row["email"])
 
-    # Fuente 4: Directorio global (mailbox activos)
-    remaining = limit - len(contacts)
+    # Fuente 4: Directorio global (mailbox activos). 06/11/2026: se consulta SIEMPRE (antes solo si
+    # quedaba sitio tras los contactos personales) para que la dirección oficial salga primero.
+    remaining = limit
+    activos: set[str] = set()
     if remaining > 0:
         rows = await db.fetch(
             """
@@ -159,6 +162,7 @@ async def search_contacts(
             remaining,
         )
         for row in rows:
+            activos.add(row["email"])
             if row["email"] not in seen_emails:
                 subtitle_parts = [p for p in [row["title"], row["department"]] if p]
                 contacts.append(
@@ -174,7 +178,7 @@ async def search_contacts(
                 seen_emails.add(row["email"])
 
     # Fuente 5: Historial de envios
-    remaining = limit - len(contacts)
+    remaining = max(0, limit - len(contacts))
     if remaining > 0:
         rows = await db.fetch(
             """
@@ -199,7 +203,7 @@ async def search_contacts(
                 seen_emails.add(row["email"])
 
     # Fuente 6: Salas de reuniones
-    remaining = limit - len(contacts)
+    remaining = max(0, limit - len(contacts))
     if remaining > 0:
         room_rows = await db.fetch(
             """
@@ -229,4 +233,5 @@ async def search_contacts(
                 )
                 seen_emails.add(row["email"])
 
-    return {"contacts": contacts}
+    # 06/11/2026: dirección oficial primero (orden_sugerencias.py)
+    return {"contacts": ordenar_sugerencias(contacts, activos, limit, username)}

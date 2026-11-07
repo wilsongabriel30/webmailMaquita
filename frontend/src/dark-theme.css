@@ -375,7 +375,7 @@ html.dark .olkm-miniday-cell    { background: #1e1e1e !important; border-color: 
 html.dark .olkm-bottom          { background: #1e1e1e !important; border-color: #3a3a3a !important; }
 html.dark .olkm-bottom-btn      { color: #a0a0a0 !important; }
 html.dark .olkm-bottom-btn:hover{ background: #333 !important; color: #e0e0e0 !important; }
-html.dark .olkm-shortcut-hint   { color: #808080 !important; }
+html.dark .olkm-shortcut-hint   { color: #c8c6c4 !important; }
 
 /* 2) CONTACTOS + TAREAS — inline-styles serializados a rgb() */
 html.dark [style*="background: #faf9f8"],

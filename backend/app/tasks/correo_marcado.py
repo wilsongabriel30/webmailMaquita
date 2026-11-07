@@ -89,6 +89,10 @@ async def aplicar(
             continue
         message_id = (m.get("message_id") or "").strip()
         clave = _clave(message_id, uid)
+        if clave in vistos:
+            # Dos copias del mismo correo (mismo Message-ID) marcadas a la vez: con una tarea basta.
+            # Antes la segunda intentaba otra tarea y chocaba con uq_task_correo_mensaje (05/11/2026).
+            continue
         vistos.add(clave)
         fila = existentes.get(clave)
         if fila is None:
@@ -105,9 +109,13 @@ async def aplicar(
                 user,
                 posicion,
             )
-            await con.execute(
+            # Si ese Message-ID ya tiene tarea (p. ej. en otra carpeta), no se duplica: se deshace
+            # la tarjeta recién creada y se sigue; el conteo nunca debe fallar por esto.
+            enlazada = await con.fetchval(
                 """INSERT INTO task_correo (card_id, user_email, carpeta, uid, message_id, asunto, remitente)
-                   VALUES ($1, $2, $3, $4, $5, $6, $7)""",
+                   VALUES ($1, $2, $3, $4, $5, $6, $7)
+                   ON CONFLICT (user_email, message_id) WHERE message_id <> '' DO NOTHING
+                   RETURNING card_id""",
                 card_id,
                 user,
                 CARPETA,
@@ -116,6 +124,14 @@ async def aplicar(
                 titulo,
                 strip_html(m.get("from") or "")[:300],
             )
+            if enlazada is None:
+                await con.execute("DELETE FROM task_cards WHERE id = $1", card_id)
+                logger.info(
+                    "Correo marcado: %s ya tenía tarea para %s; no se duplica",
+                    user,
+                    message_id,
+                )
+                continue
             await task_service._log_activity(
                 con,
                 board_id,
@@ -194,9 +210,18 @@ async def sincronizar(request, user: str) -> None:
     marcados = resultado.get("messages") or []
     completo = int(resultado.get("total") or 0) <= MAX_CORREOS
     pool = request.app.state.db_pool
-    async with pool.acquire() as con:
-        async with con.transaction():
-            await aplicar(con, user, marcados, completo)
+    try:
+        async with pool.acquire() as con:
+            async with con.transaction():
+                await aplicar(con, user, marcados, completo)
+    except Exception:
+        # La comparación es un favor al conteo y a la vista: si falla, se sirven como estaban.
+        # Antes un fallo aquí devolvía 500 en /views/flagged/count (05/11/2026).
+        logger.warning(
+            "Correo marcado: no se pudieron actualizar las tareas de %s",
+            user,
+            exc_info=True,
+        )
 
 
 async def vinculo(db, card_id, user: str):

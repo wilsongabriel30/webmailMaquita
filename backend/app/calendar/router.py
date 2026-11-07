@@ -151,7 +151,10 @@ async def move_event(
 ):
     db = _db(request)
     try:
-        return await calendar_service.move_event(db, user, event_id, data)
+        ev = await calendar_service.move_event(db, user, event_id, data)
+        # Arrastrar el evento también mueve la reunión de Meet Maquita vinculada.
+        await puente_meet.tras_actualizar(ev, request)
+        return ev
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 

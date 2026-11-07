@@ -17,6 +17,22 @@ def hoy() -> date:
     return datetime.now(ZONA).date()
 
 
+def medianoche(dia: date) -> datetime:
+    """Comienzo del día en Guayaquil: así se guarda una fecha de vencimiento sin hora (04/11/2026)."""
+    return datetime(dia.year, dia.month, dia.day, tzinfo=ZONA)
+
+
+def en_guayaquil(valor: datetime | None) -> datetime | None:
+    """Una fecha u hora sin zona («AAAA-MM-DD» del formulario) se entiende en hora de Guayaquil.
+
+    Sin esto, asyncpg la guardaba en la zona del proceso: medianoche de Guayaquil en este servidor, pero medianoche
+    UTC en uno configurado en UTC, y entonces «Vence hoy», Sugerencias y el Calendario la ponían el día anterior.
+    """
+    if valor is not None and valor.tzinfo is None:
+        return valor.replace(tzinfo=ZONA)
+    return valor
+
+
 async def poner(db, user: str, card_id, en_mi_dia: bool) -> None:
     if en_mi_dia:
         await db.execute(

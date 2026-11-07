@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import { sanitizeHtml } from '../../lib/sanitize';
+import { corregirTablasSinAncho } from '../../lib/tablasSinAncho';   // tablas de Excel con width:0 (05/11/2026)
 import VisorImagenCuerpo, { type ImagenCuerpo } from './VisorImagenCuerpo';
 import { abrirEnlacePropio } from './enlacePropio';
 
@@ -25,7 +26,7 @@ export default function SafeEmailViewer({ htmlBody, className, style }: SafeEmai
   const [imagenes, setImagenes] = useState<ImagenCuerpo[]>([]);
   const [indice, setIndice] = useState<number | null>(null);
 
-  const sanitized = sanitizeHtml(htmlBody);
+  const sanitized = corregirTablasSinAncho(sanitizeHtml(htmlBody));
 
   const srcDoc = `<!DOCTYPE html><html><head>
 <meta charset="utf-8">

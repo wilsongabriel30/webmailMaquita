@@ -82,8 +82,25 @@ function anotarAviso(emisor: Emisor, etiqueta: string): void {
   yaAvisados[emisor].set(etiqueta, [...(yaAvisados[emisor].get(etiqueta) || []), Date.now()]);
 }
 
+/* Clave del SUCESO (05/11/2026): dos conexiones en tiempo real de la misma persona (dos pestañas, o un
+ * segundo sondeo del servidor tras un reinicio/despliegue) mandan DOS `new_mail` por el mismo correo, a veces
+ * con más de cuatro segundos de diferencia, y la ventana de texto no los distinguía (candado T-53 intermitente).
+ * El emisor pasa `claveSuceso` (carpeta + total de mensajes): si ya se avisó de ese mismo suceso, se calla. */
+const VIGENCIA_SUCESO_MS = 180000;
+const sucesosAvisados = new Map<string, number>();
+
+function sucesoRepetido(clave: string): boolean {
+  const ahora = Date.now();
+  for (const [k, t] of sucesosAvisados) if (ahora - t > VIGENCIA_SUCESO_MS) sucesosAvisados.delete(k);
+  if (sucesosAvisados.has(clave)) return true;
+  sucesosAvisados.set(clave, ahora);
+  return false;
+}
+
 interface Opciones {
   cuerpo: string;
+  /** Identifica el suceso (p. ej. `INBOX:1367`, carpeta y total): un mismo suceso avisa una sola vez. */
+  claveSuceso?: string;
   tipo?: TipoAviso;
   etiqueta?: string;
   /** A dónde lleva el clic. Si no se dice, a la bandeja de entrada. */
@@ -111,6 +128,7 @@ export function avisar(titulo: string, o: Opciones): boolean {
   // La clave incluye el TEXTO: dos correos distintos dicen cosas distintas y no deben
   // taparse entre sí. La etiqueta sola los hacía indistinguibles.
   const etiqueta = o.etiqueta || o.tipo || 'general';
+  if (o.claveSuceso && sucesoRepetido(etiqueta + '|' + o.claveSuceso)) return false;
   const emisor: Emisor = o.respaldo ? 'respaldo' : 'vivo';
   if (otroYaAviso(emisor === 'vivo' ? 'respaldo' : 'vivo', etiqueta)) return false;
   anotarAviso(emisor, etiqueta);

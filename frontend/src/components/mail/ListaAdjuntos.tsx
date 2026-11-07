@@ -109,7 +109,7 @@ export default function ListaAdjuntos({ folder, uid, attachments, onAbrir, compa
                 textDecoration: 'none', color: '#323130', fontSize: fs,
                 background: '#faf9f8', cursor: 'pointer',
               }}
-              title={`${att.filename} (${formatSize(att.size)})`}
+              title={`${att.filename} (${formatSize(att.size)})${att.dentro_de ? ` — viene dentro del correo adjunto «${att.dentro_de}»` : ''}`}
             >
               {(() => { const b = attBadge(att.filename); return (
                 <span style={{ background: b.bg, color: '#fff', fontSize: compacto ? 9 : 10, fontWeight: 700, padding: compacto ? '2px 4px' : '2px 5px', borderRadius: 3, flexShrink: 0, letterSpacing: 0.3 }}>{b.label}</span>
@@ -117,8 +117,21 @@ export default function ListaAdjuntos({ folder, uid, attachments, onAbrir, compa
               <span style={{ maxWidth: compacto ? 150 : 200, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'break-all', lineHeight: compacto ? 1.2 : 1.25, textAlign: 'left' }}>
                 {att.filename}
               </span>
-              {!compacto && <span style={{ color: '#a19f9d' }}>({formatSize(att.size)})</span>}
+              {!compacto && <span style={{ color: '#605e5c' }}>({formatSize(att.size)})</span>}
             </button>
+            {/* Descarga directa de este adjunto, sin abrir la vista previa (pedido 06/11/2026) */}
+            <a
+              href={`/api/mail/attachment/${encodeURIComponent(folder)}/${uid}/${att.part_number}/${encodeURIComponent(att.filename)}`}
+              download={att.filename}
+              title={`Descargar ${att.filename}`}
+              aria-label={`Descargar ${att.filename}`}
+              onClick={(e) => e.stopPropagation()}
+              style={{ display: 'inline-flex', alignItems: 'center', padding: compacto ? '0 6px' : '0 8px', border: '1px solid #d2d0ce', borderRadius: 4, background: '#faf9f8', color: '#0078d4' }}
+            >
+              <svg width={compacto ? 13 : 15} height={compacto ? 13 : 15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+            </a>
             <BotonGuardarEnAlmacen folder={folder} uid={uid} att={att} />
           </span>
         ))}

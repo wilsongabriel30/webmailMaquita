@@ -7,6 +7,8 @@ export interface ToastData {
   action?: { label: string; onClick: () => void };
   /** Si es true, no se cierra solo: queda hasta que la persona lo cierre (avisos de error importantes). */
   fijo?: boolean;
+  /** Avisos con la misma clave se funden en uno (p. ej. «Enviados a la papelera: 3») en vez de apilarse. */
+  clave?: string;
 }
 
 interface Oyentes {
@@ -23,9 +25,9 @@ export function suscribirAvisos(o: Oyentes) {
   return () => { if (oyentes === o) oyentes = null; };
 }
 
-export function showToast(message: string, action?: { label: string; onClick: () => void }, opciones?: { fijo?: boolean }) {
+export function showToast(message: string, action?: { label: string; onClick: () => void }, opciones?: { fijo?: boolean; clave?: string }) {
   const id = Math.random().toString(36).slice(2);
-  oyentes?.mostrar({ id, message, action, fijo: opciones?.fijo });
+  oyentes?.mostrar({ id, message, action, fijo: opciones?.fijo, clave: opciones?.clave });
   return id;
 }
 

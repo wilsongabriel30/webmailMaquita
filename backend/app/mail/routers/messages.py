@@ -1,6 +1,8 @@
 """Messages router — list, read, move, flag, bulk, download .eml, view source."""
 
+import asyncio
 import re as _re
+import time
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -8,6 +10,7 @@ from fastapi.responses import Response
 
 from app.auth.dependencies import get_current_user
 from app.core.session import get_imap_login_user, get_user_password
+from app.mail import telemetria_busqueda
 from app.mail.clients.imap_client import (
     fetch_raw_message,
     get_imap_connection,
@@ -151,6 +154,17 @@ async def get_messages(
         # historico a quien buscaba en Enviados (21/09/2026).
         # `redis` se deja fuera a proposito: la cache de UIDs (300 s) retrasaba la
         # aparicion del correo recien llegado.
+        t0 = time.monotonic()
+        # 06/11/2026: «Gissela» encuentra también los correos de su dirección aunque traigan un cargo.
+        from app.mail.busqueda_por_nombre import direcciones_de_nombre
+
+        direcciones = (
+            await direcciones_de_nombre(
+                request.app.state.db_pool, username, search_query
+            )
+            if search_query.strip()
+            else []
+        )
         result = await list_messages(
             imap,
             folder,
@@ -159,11 +173,27 @@ async def get_messages(
             search_query,
             username=username,
             buscar_en_contenido=buscar_en_contenido,
+            direcciones_nombre=direcciones,
         )
         if result is None:
             from fastapi import HTTPException
 
             raise HTTPException(status_code=404, detail=f"Folder '{folder}' not found")
+        if search_query.strip():
+            # Telemetría de búsqueda (05/11/2026): queda qué se buscó, dónde y con qué resultado.
+            total = result.get("total") if isinstance(result, dict) else None
+            asyncio.create_task(
+                telemetria_busqueda.registrar(
+                    request.app.state.db_pool,
+                    username,
+                    folder,
+                    search_query,
+                    total,
+                    int((time.monotonic() - t0) * 1000),
+                    buscar_en_contenido,
+                    page,
+                )
+            )
         return result
 
 

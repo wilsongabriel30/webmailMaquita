@@ -23,6 +23,7 @@ import { CustomFieldsManager as CustomFieldsManagerModal } from './CustomFieldsM
 import { DirectoryPanel } from './DirectoryPanel';
 import { MultiImportModal } from './MultiImportModal';
 import { CardDAVSync } from './CardDAVSync';
+import { useResponsive } from '../../hooks/useResponsive';
 
 export function ContactsView() {
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -36,6 +37,11 @@ export function ContactsView() {
   const [selected, setSelected] = useState<Contact | null>(null);
   const [editing, setEditing] = useState(false);
   const [showNewContact, setShowNewContact] = useState(false);
+  // Celular: una sola columna (lista o ficha/formulario) y los filtros en un panel aparte.
+  // Antes se apilaban en horizontal la barra lateral, la lista y el formulario, y este
+  // quedaba fuera de la pantalla (revisión 04/11/2026, n.º 15).
+  const { isMobile } = useResponsive();
+  const [filtrosMovil, setFiltrosMovil] = useState(false);
   const [showNewList, setShowNewList] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [showImportExport, setShowImportExport] = useState<'import' | 'export' | null>(null);
@@ -97,9 +103,13 @@ export function ContactsView() {
       if (q) params.set('search', q);
       const res = await api.get<ContactsResponse>('/contacts?' + params.toString());
       if (myId === fetchIdRef.current) {
-        setContacts(res.contacts);
-        setTotal(res.total);
-        setPage(res.page);
+        // Tolerante con la forma de la respuesta: un [] suelto o sin `contacts` es una lista
+        // vacía, no una pantalla de error técnico (revisión 04/11/2026, n.º 5).
+        const lista = Array.isArray(res) ? res as Contact[]
+          : Array.isArray(res?.contacts) ? res.contacts : [];
+        setContacts(lista);
+        setTotal(typeof res?.total === 'number' ? res.total : lista.length);
+        setPage(typeof res?.page === 'number' ? res.page : p);
       }
     } catch { /* silently */ } finally {
       if (myId === fetchIdRef.current) setLoading(false);
@@ -109,7 +119,7 @@ export function ContactsView() {
   const fetchDeletedCount = useCallback(async () => {
     try {
       const res = await api.get<ContactsResponse>('/contacts?filter=deleted&per_page=1');
-      setDeletedCount(res.total);
+      setDeletedCount(typeof res?.total === 'number' ? res.total : 0);
     } catch { /* silently */ }
   }, []);
 
@@ -141,7 +151,8 @@ export function ContactsView() {
     // Los parámetros vienen de la URL (pueden llegar en un enlace ajeno): se validan y se acotan.
     // El formulario de «Nuevo contacto» solo se abre con nuevo=1 (revisión Qwen v1.7.22, H2);
     // sin esa marca se muestra la búsqueda y la persona decide.
-    const limpiar = (v: string, max: number) => v.replace(/[\u0000-\u001f\u007f\u200b-\u200f\u2028-\u202f]/g, '').trim().slice(0, max);
+    const invisible = (n: number) => n <= 0x1f || n === 0x7f || (n >= 0x200b && n <= 0x200f) || (n >= 0x2028 && n <= 0x202f);
+    const limpiar = (v: string, max: number) => Array.from(v).filter(c => !invisible(c.charCodeAt(0))).join('').trim().slice(0, max);
     const email = limpiar(q.get('email') || '', 254).toLowerCase();
     if (!email || !/^[^\s@"<>]+@[^\s@"<>]+\.[^\s@"<>]+$/.test(email)) return;
     const nombre = limpiar(q.get('nombre') || '', 120);
@@ -388,17 +399,35 @@ export function ContactsView() {
       fontFamily: "'Segoe UI', Calibri, sans-serif",
     }}>
       {/* Sidebar */}
+      {(!isMobile || filtrosMovil) && (
       <ContactsSidebar
         activeFilter={filter}
-        onFilterChange={handleFilterChange}
+        onFilterChange={(f) => { setFiltrosMovil(false); handleFilterChange(f); }}
         deletedCount={deletedCount}
         onRefreshRef={(fn) => { sidebarRefreshRef.current = fn; }}
         onManageCategories={() => setShowCategoryManager('manage')}
         onManageList={(id, name) => setManagingList({ id, name })}
       />
+      )}
 
       {/* Main content */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ flex: 1, minWidth: 0, display: isMobile && filtrosMovil ? 'none' : 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {isMobile && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: '#fff', borderBottom: '1px solid #edebe9' }}>
+            {(selected || (showNewContact && editing)) ? (
+              <button type="button"
+                onClick={() => { setSelected(null); setEditing(false); setShowNewContact(false); }}
+                style={{ border: '1px solid #8a8886', borderRadius: 4, background: '#fff', color: '#323130', fontSize: 14, padding: '8px 12px', cursor: 'pointer' }}>
+                ← Volver a la lista
+              </button>
+            ) : (
+              <button type="button" onClick={() => setFiltrosMovil(true)} aria-label="Mostrar carpetas y filtros de contactos"
+                style={{ border: '1px solid #8a8886', borderRadius: 4, background: '#fff', color: '#323130', fontSize: 14, padding: '8px 12px', cursor: 'pointer' }}>
+                ☰ Carpetas y filtros
+              </button>
+            )}
+          </div>
+        )}
         {/* Ribbon */}
         <ContactsRibbon
           filter={filter}
@@ -433,7 +462,9 @@ export function ContactsView() {
         {/* Content area */}
         <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
           {/* Contact list */}
+          {(!isMobile || !(selected || (showNewContact && editing))) && (
           <ContactListPanel
+            anchoCompleto={isMobile}
             contacts={contacts}
             total={total}
             page={page}
@@ -452,9 +483,11 @@ export function ContactsView() {
             onSearchChange={handleSearch}
             onPageChange={(p) => fetchContacts(p, search, filter)}
           />
+          )}
 
           {/* Detail / Form */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fff', overflow: 'hidden' }}>
+          {(!isMobile || selected || (showNewContact && editing)) && (
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', background: '#fff', overflow: isMobile ? 'auto' : 'hidden' }}>
             {showNewContact && editing ? (
               <ContactForm
                 key={`new-contact-${nuevoInicial.email}`}
@@ -497,6 +530,7 @@ export function ContactsView() {
               </div>
             )}
           </div>
+          )}
         </div>
       </div>
 

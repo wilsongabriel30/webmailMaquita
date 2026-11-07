@@ -23,7 +23,8 @@ HORA_AVISO = time(8, 0)
 _ASIGNADOS = "SELECT email FROM task_asignados WHERE card_id = $1 ORDER BY asignado_en"
 _EN_LISTA = "SELECT 1 FROM task_list_members WHERE list_id = $1 AND user_email = $2"
 
-# $1 = medianoche UTC de hoy (así se guardan los vencimientos), $2 = fecha de hoy.
+# $1 = comienzo de hoy en Guayaquil (así se guardan los vencimientos sin hora), $2 = fecha de hoy.
+# Con medianoche UTC, un plazo de hoy desde las 19:00 avisaba «Vence hoy» al día siguiente, ya vencido.
 CLAIM_VENCE = """
 UPDATE task_cards c SET vence_avisado = $2
 FROM task_lists l
@@ -59,8 +60,7 @@ async def avisar_vencimientos(db, redis, ahora: datetime | None = None) -> int:
     if not toca_avisar(ahora.astimezone(mi_dia.ZONA)):
         return 0
     hoy = ahora.astimezone(mi_dia.ZONA).date()
-    medianoche = datetime(hoy.year, hoy.month, hoy.day, tzinfo=timezone.utc)
-    filas = await db.fetch(CLAIM_VENCE, medianoche, hoy)
+    filas = await db.fetch(CLAIM_VENCE, mi_dia.medianoche(hoy), hoy)
     for f in filas:
         for persona in await destinatarios(db, f):
             try:

@@ -12,6 +12,7 @@ import { useNombreApp } from "../../lib/marca";
 import OpcionDescargaApp from './OpcionDescargaApp';
 import { nombreArchivoApk, textoTamano, urlApk, useManifiestoApp } from '../../lib/appAndroid';
 import { RUTA_CONFIGURAR_CORREO } from '../../lib/appMovil';
+import { BotonAsistente } from '../asistente-lateral';
 
 /** El instalador de la aplicación deja estos ganchos en `window`; se nombran para no usar `any`. */
 type VentanaConPWA = Window & {
@@ -182,6 +183,7 @@ export function Topbar() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={dark ? sunIcon : moonIcon} />
           </svg>
         </button>
+        <BotonAsistente />
         <div ref={notificationsRef} className="relative">
           <button onClick={() => setShowNotifications(!showNotifications)} title="Notificaciones"
             className="relative w-8 h-8 rounded flex items-center justify-center text-white/80 hover:bg-white/15 transition-colors">

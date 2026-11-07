@@ -4,10 +4,10 @@ import { useMailStore } from '../../store/mailStore';
 import { fechaMostrada, fechaParaOrdenar } from '../../lib/fechaCorreo';
 import { getPinnedSet, isPinned, pinKey } from '../../lib/pins';
 import { parametrosDeCarga, fusionarTanda } from '../../lib/paginacionBandeja';
+import { recordarLeido, olvidarLeido, conservarLeidosRecientes } from './graciaNoLeidos';
 import { usePolling } from '../../hooks/usePolling';
 import { api } from '../../api/client';
-import { formatDistanceToNow } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { fechaCortaLista } from '../../lib/fechaLegible';
 import { ContextMenu, type MenuItem } from '../common/ContextMenu';
 import { showToast } from '../common/Toast';
 import { accionEnLote } from '../../lib/accionesLote';
@@ -15,21 +15,57 @@ import type { MessagesResponse, MessageFull, MessageSummary } from '../../types'
 import { usePriority } from '../../hooks/usePriority';
 import { sanitizeHtml } from '../../lib/sanitize';
 import { getFolderDisplayName } from '../../folders';
-import { cargarEtiquetasPorTandas } from '../../lib/etiquetasPorTandas';
+import { cargarEtiquetasDeMensajes, claveEtiquetas } from '../../lib/etiquetasDeMensajes';   // por carpeta real (05/11/2026)
+import { cargarCorreosDeEtiqueta } from '../../lib/correosPorEtiqueta';   // vista «Etiqueta: X» (05/11/2026)
+import { carpetaDeUid } from '../../lib/carpetaReal';
+import { useEtiquetasContextual } from '../labels/useEtiquetasContextual';
+import { CabeceraEtiqueta } from '../labels/CabeceraEtiqueta';
 import { SinResultados } from './SinResultados';
+import { AvisoFiltroSinResultados } from './AvisoFiltroSinResultados';
 import { AdelantoCarpetaActual } from './AdelantoCarpetaActual';
 import { AvisoBusquedaEnCarpeta } from './AvisoBusquedaEnCarpeta';
 import { abrirMensajeEnPestana } from '../../lib/abrirEnPestana';
 import { AVISO_ELIMINAR_CORREO } from '../../lib/deepLinkCorreo';
+import { confirmarBorradoDefinitivo } from '../../lib/confirmarBorrado';
 import { avisar } from '../../lib/avisosNavegador';   // T-53
 import { getCachedMessage } from '../../lib/offlineStore';   // W-7: leer sin conexión lo ya descargado
 import { permisoNotificacion, pedirPermisoNotificacion } from '../../lib/notificacionSegura';   // AM-10
-import { nombreApp } from '../../lib/marca';
+import { FilaCorreoLinea } from './FilaCorreoLinea';
+import { usePublicarListaVisible } from './listaVisible';   // lista visible y resaltado por UID (05/11/2026)
+import { responderDesdeLista, reenviarDesdeLista } from './citarDesdeLista';
+import { ICONO_CORREO_ADJUNTO, correosDeSeleccion, reenviarComoAdjunto } from '../../lib/correosComoAdjunto';   // .eml dentro de otro correo (05/11/2026)   // menú contextual con cita (05/11/2026)
+import { quienMostrar } from './quienMostrar';   // Enviados/Borradores muestran «Para» (05/11/2026)   // densidad «Una línea» (05/11/2026)
+import { useResponsive } from '../../hooks/useResponsive';
+import { textoAvisoCorreo, nombreRemitente } from '../../lib/textoAvisoCorreo';
+import { EnviosEnCurso } from './EnviosEnCurso';   // «Enviando…» al instante (06/11/2026)   // aviso con remitente y asunto (06/11/2026)
+import { pestanaDe, cargarDominiosPropios, AYUDA_PESTANAS } from '../../lib/pestanaPrioritarios';   // Prioritarios / Otros (06/11/2026)
 
 // Agrupa acciones rápidas consecutivas (eliminar/archivar fila por fila) en UNA
 // petición bulk: N clics seguidos generaban N POSTs y disparaban el rate limit (429).
+// Ancho mínimo del panel de lista para la fila de UNA línea. Con el panel de lectura al lado la lista
+// mide ~400 px y en una sola línea el asunto quedaba sin sitio: «la lista está por nombres de personas»
+// (queja general del 06/11/2026). Por debajo se usa la fila normal, con el asunto a la vista.
+const ANCHO_MINIMO_UNA_LINEA = 640;
 const QUICK_BATCH_MS = 500;
 const quickBatches = new Map<string, { uids: number[]; timer: ReturnType<typeof setTimeout> }>();
+
+// Un solo aviso que va contando («Enviados a la papelera: 3») en vez de un aviso por cada correo
+// borrado seguido, que apilaba avisos hasta tapar la pantalla (reporte 06/11/2026).
+const CONTADOR_AVISO_MS = 20000;
+const contadoresAviso = new Map<string, { n: number; desde: number }>();
+function avisoAcumulado(key: string, action: string, dest: string, n: number) {
+  const ahora = Date.now();
+  const previo = contadoresAviso.get(key);
+  const total = previo && ahora - previo.desde < CONTADOR_AVISO_MS ? previo.n + n : n;
+  contadoresAviso.set(key, { n: total, desde: previo && ahora - previo.desde < CONTADOR_AVISO_MS ? previo.desde : ahora });
+  const destino = getFolderDisplayName(dest);
+  const texto =
+    action === 'move' ? (total > 1 ? `Enviados a ${destino}: ${total}` : `Movido a ${destino}`)
+      : action === 'delete' ? (total > 1 ? `Eliminados: ${total}` : 'Eliminado')
+      : action === 'archive' ? (total > 1 ? `Archivados: ${total}` : 'Archivado')
+      : 'Hecho';
+  showToast(texto, undefined, { clave: `rapida:${key}` });
+}
 
 function flushQuickAction(key: string, folder: string, action: string, dest: string) {
   const batch = quickBatches.get(key);
@@ -38,13 +74,7 @@ function flushQuickAction(key: string, folder: string, action: string, dest: str
   const uids = batch.uids;
   api.post(`/mail/bulk-action/${encodeURIComponent(folder)}`, { uids, action, dest_folder: dest })
     .then(() => {
-      const n = uids.length;
-      showToast(
-        action === 'move' ? (n > 1 ? `${n} movidos a ${dest}` : `Movido a ${dest}`)
-          : action === 'delete' ? (n > 1 ? `${n} eliminados` : 'Eliminado')
-          : action === 'archive' ? (n > 1 ? `${n} archivados` : 'Archivado')
-          : 'Hecho'
-      );
+      avisoAcumulado(key, action, dest, uids.length);
       const sel = useMailStore.getState().selectedMessage;
       if (sel && uids.includes(sel.uid)) {
         useMailStore.getState().setSelectedMessage(null);
@@ -76,13 +106,9 @@ function enqueueQuickAction(folder: string, uid: number, action: string, dest = 
 function fmtDate(s: string | null): string {
   if (!s) return '';
   try {
-    const d = new Date(s), now = new Date(), diff = now.getTime() - d.getTime();
-    if (diff < 86400000 && d.toDateString() === now.toDateString())
-      return d.toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' });
-    if (diff < 604800000) return formatDistanceToNow(d, { addSuffix: false, locale: es });
-    if (d.getFullYear() === now.getFullYear())
-      return d.toLocaleDateString('es-EC', { day: 'numeric', month: 'short' });
-    return d.toLocaleDateString('es-EC', { day: 'numeric', month: 'short', year: '2-digit' });
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return '';
+    return fechaCortaLista(d);
   } catch { return ''; }
 }
 
@@ -205,8 +231,42 @@ export function MessageList() {
   const selectedMessage = useMailStore(s => s.selectedMessage);
   const selectedUids = useMailStore(s => s.selectedUids);
   const toggleSelection = useMailStore(s => s.toggleSelection);
+  const etiquetaFiltro = useMailStore(s => s.etiquetaFiltro);
   const openCompose = useMailStore(s => s.openCompose);
   const density = useMailStore(s => s.density);
+  const asuntoPrimero = useMailStore(s => s.ordenFila) !== 'remitente';
+  const setOrdenFila = useMailStore(s => s.setOrdenFila);
+  // Cabecera de columnas arrastrable (06/11/2026): soltar «De» sobre «Asunto» (o al revés) intercambia el orden.
+  const [columnaArrastrada, setColumnaArrastrada] = useState<'de' | 'asunto' | null>(null);
+  const celdaCabecera = (col: 'de' | 'asunto', texto: string, clase: string) => (
+    <div
+      draggable
+      title="Arrastra esta columna para cambiar el orden"
+      onDragStart={(e) => { e.dataTransfer.setData('text/columna', col); e.dataTransfer.effectAllowed = 'move'; setColumnaArrastrada(col); }}
+      onDragEnd={() => setColumnaArrastrada(null)}
+      onDragOver={(e) => { if (e.dataTransfer.types.includes('text/columna')) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; } }}
+      onDrop={(e) => {
+        const origen = e.dataTransfer.getData('text/columna');
+        if (origen && origen !== col) { e.preventDefault(); setOrdenFila(asuntoPrimero ? 'remitente' : 'asunto'); }
+        setColumnaArrastrada(null);
+      }}
+      className={`${clase} cursor-move rounded px-1 -mx-1 hover:bg-[#edebe9] ${columnaArrastrada && columnaArrastrada !== col ? 'outline-dashed outline-1 outline-[#0078d4]' : ''}`}
+    >{texto}</div>
+  );
+  const { isMobile: pantallaEstrecha } = useResponsive();
+  // En celular la fila de una línea no cabe: se usa la fila de siempre.
+  const [anchoLista, setAnchoLista] = useState(0);
+  // Sin panel de lectura a la derecha (abajo, apagado, pantalla completa o emergentes) la lista va en columnas
+  // De | Asunto | Recibido, como Hotmail (06/11/2026); con panel a la derecha solo si la densidad es «Una línea».
+  const panelDerecha = useMailStore(s => s.readingPane) === 'right';
+  const unaLinea = (density === 'linea' || !panelDerecha) && !pantallaEstrecha && (anchoLista === 0 || anchoLista >= ANCHO_MINIMO_UNA_LINEA);
+  // Panel de lectura apagado o a pantalla completa (escritorio): un clic solo resalta la fila,
+  // doble clic o Enter abren el correo y las flechas recorren la lista (pedido de Gerencia, 05/11/2026).
+  // Antes un clic cargaba el correo y tapaba la lista. En celular un toque sigue abriendo.
+  const panelLectura = useMailStore(s => s.readingPane);
+  const soloSeleccionar = (panelLectura === 'off' || panelLectura === 'fullscreen') && !pantallaEstrecha;
+  const activeIndex = useMailStore(s => s.activeIndex);
+  const setActiveIndex = useMailStore(s => s.setActiveIndex);
   const previewLines = useMailStore(s => s.previewLines);
   const viewMode = useMailStore(s => s.viewMode);
   const setThreadMessages = useMailStore(s => s.setThreadMessages);
@@ -226,6 +286,9 @@ export function MessageList() {
 
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; msg: MessageSummary } | null>(null);
   const [activeTab, setActiveTab] = useState<'focused' | 'other'>('focused');
+  // La carga falló y no hay nada que mostrar: se dice, en vez de «No hay mensajes» (que hacía
+  // creer a la persona que había perdido su correo).
+  const [errorCarga, setErrorCarga] = useState(false);
   const [avatarMap, setAvatarMap] = useState<Record<string, { name: string; initials: string }>>({});
   const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set());
   const [spamScanning, setSpamScanning] = useState(false);
@@ -234,7 +297,27 @@ export function MessageList() {
   const prevTotalRef = useRef<number>(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
+  // Mide el ancho real del panel de lista (cambia al mover el separador o al abrir/cerrar el panel de lectura).
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver((entradas) => {
+      const w = Math.round(entradas[0]?.contentRect.width || 0);
+      setAnchoLista((prev) => (prev === w ? prev : w));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  // Con el teclado, la fila resaltada se mantiene a la vista.
+  useEffect(() => {
+    if (activeIndex < 0) return;
+    const el = scrollRef.current?.querySelector(`[data-idx="${activeIndex}"]`) as HTMLElement | null;
+    el?.scrollIntoView({ block: 'nearest' });
+  }, [activeIndex]);
   const { priorityMap, fetchPriority } = usePriority();
+  // Dominios de la casa para la pestaña Prioritarios; al llegar, se vuelve a pintar la lista.
+  const [, setDominiosListos] = useState(false);
+  useEffect(() => { cargarDominiosPropios().then(() => setDominiosListos(true)); }, []);
 
   // Initialize notification sound
   useEffect(() => {
@@ -265,6 +348,26 @@ export function MessageList() {
 
   const fetch_ = useCallback(() => {
     if (!currentFolder) return;
+    if (etiquetaFiltro) {
+      // Vista «Etiqueta: X»: correos de todas las carpetas con esa etiqueta (05/11/2026).
+      const st0 = useMailStore.getState();
+      if (st0.messages.length === 0 && !st0.loadingMessages) setLoadingMessages(true);
+      const tandaE = parametrosDeCarga(currentPage, pageSize, st0.loadingMore);
+      const sigueVigente = () => useMailStore.getState().etiquetaFiltro?.id === etiquetaFiltro.id;
+      cargarCorreosDeEtiqueta(etiquetaFiltro.id, tandaE.page, tandaE.per_page)
+        .then((r) => {
+          if (!sigueVigente()) return;
+          setErrorCarga(false);
+          setMessages(fusionarTanda(useMailStore.getState().messages, r.messages, tandaE), r.total, r.page);
+        })
+        .catch(() => {
+          if (!sigueVigente()) return;
+          const st = useMailStore.getState();
+          st.setMessages(st.messages, st.totalMessages, st.currentPage);
+          if (st.messages.length === 0) setErrorCarga(true);
+        });
+      return;
+    }
     // Show loading skeleton on first load or when messages are empty (folder change)
     const state = useMailStore.getState();
     if (state.messages.length === 0 && !state.loadingMessages) setLoadingMessages(true);
@@ -277,18 +380,28 @@ export function MessageList() {
     // Send filter to backend so IMAP does server-side SEARCH UNSEEN/FLAGGED
     if (filter === 'unread') p.set('is_unread', 'true');
     if (filter === 'flagged') p.set('is_flagged', 'true');
+    // Respuesta tardía: si mientras llegaba la persona cambió de carpeta, de búsqueda o de filtro,
+    // se descarta. Si no, se pintaban los correos de la carpeta anterior bajo el nombre de la nueva
+    // (y borrar o mover desde esa lista actuaba con UIDs de otra carpeta).
+    const vigente = () => {
+      const st = useMailStore.getState();
+      return st.currentFolder === currentFolder && st.debouncedSearchQuery === debouncedSearchQuery && st.filter === filter;
+    };
     api.get<MessagesResponse>(`/mail/messages/${encodeURIComponent(currentFolder)}?${p}`)
       .then(r => {
+      if (!vigente()) return;
+      setErrorCarga(false);
       if (filter === 'all' && prevTotalRef.current > 0 && r.total > prevTotalRef.current && currentFolder === 'INBOX') {
         const newCount = r.total - prevTotalRef.current;
         try { (window as unknown as { __maquitaBeep?: () => void }).__maquitaBeep?.(); } catch { /* sin sonido */ }
         if (permisoNotificacion() === 'granted') {
-          avisar(nombreApp(), {
-            // MISMO texto que el aviso en tiempo real (useWebSocket): avisar() calla el
-            // repetido comparando el texto, y con «1 correo nuevo» frente a «Nuevo correo
-            // recibido» salían dos avisos por un solo correo (candado T-53, 12/10/2026).
-            cuerpo: newCount === 1 ? 'Nuevo correo recibido' : `${newCount} correos nuevos`,
-            tipo: 'correo', etiqueta: 'new-mail', respaldo: true,
+          // MISMO texto que el aviso en tiempo real (lib/textoAvisoCorreo.ts): remitente y asunto
+          // del correo sin leer más reciente (06/11/2026; antes solo «N correos nuevos»).
+          const reciente = r.messages.find(x => !x.seen) ?? r.messages[0];
+          const aviso = textoAvisoCorreo(newCount, nombreRemitente(reciente?.from), reciente?.subject);
+          avisar(aviso.titulo, {
+            cuerpo: aviso.cuerpo,
+            tipo: 'correo', etiqueta: 'new-mail', respaldo: true, uid: reciente?.uid, carpeta: 'INBOX',
           });
         } else if (permisoNotificacion() !== 'denied') {
           void pedirPermisoNotificacion();
@@ -301,9 +414,13 @@ export function MessageList() {
       }
       if (filter === 'all') prevTotalRef.current = r.total;
       const previos = useMailStore.getState().messages;
-      setMessages(fusionarTanda(previos, r.messages, tanda), r.total, r.page);
+      let lista = fusionarTanda(previos, r.messages, tanda);
+      // En «No leídos», el correo recién abierto sigue 40 s en la lista (ver graciaNoLeidos.ts).
+      if (filter === 'unread') lista = conservarLeidosRecientes(previos, lista, currentFolder);
+      setMessages(lista, r.total, r.page);
     }).catch(async (err) => {
       console.error(err);
+      if (!vigente()) return;
       if (/429|Too Many/i.test(String(err?.message || err)) && useMailStore.getState().loadingMore) {
         // Límite de peticiones del servidor: se espera y se vuelve a pedir la misma tanda.
         // eslint-disable-next-line react-hooks/immutability -- reintento diferido: fetch_ ya existe cuando corre el callback
@@ -322,13 +439,15 @@ export function MessageList() {
         } catch { /* se ignora: no es crítico */ }
       }
       useMailStore.getState().setMessages(useMailStore.getState().messages, useMailStore.getState().totalMessages, useMailStore.getState().currentPage);
+      if (useMailStore.getState().messages.length === 0) setErrorCarga(true);
     });
-  }, [currentFolder, currentPage, pageSize, debouncedSearchQuery, buscarEnContenido, filter]);
+  }, [currentFolder, currentPage, pageSize, debouncedSearchQuery, buscarEnContenido, filter, etiquetaFiltro]);
 
   // Limpiar selección al cambiar de carpeta
   useEffect(() => {
     useMailStore.getState().setSelectedMessage(null);
     useMailStore.getState().clearThread();
+    lastClickIdx.current = -1; // el ancla del Shift+clic no vale en otra carpeta (05/11/2026)
   }, [currentFolder]);
 
   // Pausa tras dejar de escribir y minimo de 3 letras (salvo que haya un operador con «:»):
@@ -339,7 +458,9 @@ export function MessageList() {
       return;
     }
     const corta = searchQuery.trim().length < 3 && !searchQuery.includes(':');
-    if (corta) return;
+    // Texto corto: se retira la búsqueda larga anterior; si no, al borrar «factura» hasta «fa»
+    // seguían saliendo los resultados de «factura» (05/11/2026).
+    if (corta) { useMailStore.getState().setDebouncedSearchQuery(''); return; }
     const timer = setTimeout(() => {
       useMailStore.getState().setDebouncedSearchQuery(searchQuery);
     }, 800);
@@ -373,6 +494,10 @@ export function MessageList() {
   const scanSpam = useCallback(async (autoMove = false) => {
     if (!currentFolder) return;
     const sel = useMailStore.getState().selectedMessage;
+    // El escudo, sin texto, movía hasta 50 correos a Correo no deseado de un clic. Se pregunta.
+    if (autoMove && !window.confirm(sel?.uid
+      ? 'Se revisará este correo y, si parece correo no deseado, se moverá a «Correo no deseado». ¿Continuar?'
+      : 'Se revisarán los últimos 50 correos de esta carpeta y los que parezcan correo no deseado se moverán a «Correo no deseado». ¿Continuar?')) return;
     setSpamScanning(true);
     try {
       let url = `/mail/spam/scan?folder=${encodeURIComponent(currentFolder)}`;
@@ -431,10 +556,12 @@ export function MessageList() {
     let cancelled = false;
     const load = async (todos: boolean) => {
       if (!currentFolder) { if (!cancelled) setMsgLabelsMap({}); return; }
+      // La «vista» cambia con la carpeta o con la etiqueta filtrada (05/11/2026).
+      const vista = etiquetaFiltro ? `etiqueta:${etiquetaFiltro.id}` : currentFolder;
       const ref = etiquetasPedidasRef.current;
-      if (ref.carpeta !== currentFolder || todos) {
-        etiquetasPedidasRef.current = { carpeta: currentFolder, uids: new Set() };
-        if (ref.carpeta !== currentFolder && !cancelled) setMsgLabelsMap({});
+      if (ref.carpeta !== vista || todos) {
+        etiquetasPedidasRef.current = { carpeta: vista, uids: new Set() };
+        if (ref.carpeta !== vista && !cancelled) setMsgLabelsMap({});
       }
       const pedidos = etiquetasPedidasRef.current.uids;
       const nuevos = messages.map((m) => m.uid).filter((u) => !pedidos.has(u));
@@ -442,7 +569,9 @@ export function MessageList() {
       nuevos.forEach((u) => pedidos.add(u));
       try {
         // Por tandas: con miles de correos cargados una sola URL era rechazada (503).
-        const mapa = await cargarEtiquetasPorTandas<EtiquetaMsg>(currentFolder, nuevos);
+        // Por carpeta REAL de cada correo: en «Todo el correo» no se piden (uids virtuales).
+        const nuevosSet = new Set(nuevos);
+        const mapa = await cargarEtiquetasDeMensajes<EtiquetaMsg>(messages.filter((m) => nuevosSet.has(m.uid)), currentFolder);
         if (!cancelled) setMsgLabelsMap((prev) => (todos ? mapa : { ...prev, ...mapa }));
       } catch { /* sin etiquetas en esta tanda */ }
     };
@@ -450,7 +579,7 @@ export function MessageList() {
     const handler = () => load(true);
     window.addEventListener('refresh-message-labels', handler);
     return () => { cancelled = true; window.removeEventListener('refresh-message-labels', handler); };
-  }, [currentFolder, messageIds]);
+  }, [currentFolder, messageIds, etiquetaFiltro]);
   useEffect(() => {
     if (!messages.length) return;
     const emails = [...new Set(messages.map(m => extractEmail(m.from)))];
@@ -464,7 +593,7 @@ export function MessageList() {
 
   const handleFlag = async (uid: number, flagged: boolean) => {
     try {
-      await api.post(`/mail/flags/${encodeURIComponent(currentFolder)}/${uid}`, { flags: '\\Flagged', add: !flagged });
+      await api.post(`/mail/flags/${encodeURIComponent(carpetaDeUid(uid, currentFolder))}/${uid}`, { flags: '\\Flagged', add: !flagged });
       const updated = useMailStore.getState().messages.map(m => m.uid === uid ? { ...m, flagged: !flagged } : m);
       useMailStore.getState().setMessages(updated, totalMessages, currentPage);
     } catch { /* se ignora: no es crítico */ }
@@ -485,8 +614,14 @@ export function MessageList() {
     if (selectedUids.size > 0) {
       toggleSelection(uid);
       lastClickIdx.current = idx;
+      setActiveIndex(idx);
       return;
     }
+    // Ancla del rango (05/11/2026): un clic normal también vale como inicio para el
+    // siguiente Shift+clic, como en Outlook. Antes solo lo guardaban Ctrl y la casilla.
+    lastClickIdx.current = idx;
+    setActiveIndex(idx);
+    if (soloSeleccionar) return;   // resaltar; abre con doble clic o Enter
     handleSelect(uid);
   };
 
@@ -501,7 +636,12 @@ export function MessageList() {
       window.dispatchEvent(new CustomEvent('refresh-messages'));
       return;
     }
-    if (/401|session|sesi[oó]n/i.test(texto)) {
+    if (/reinici/i.test(texto) || /^HTTP 50[234]$/.test(texto)) {
+      showToast('El servidor se está reiniciando. Inténtalo de nuevo en unos segundos.');
+      return;
+    }
+    // Solo cuando el cliente confirmó que el refresco fue rechazado (no por un fallo temporal).
+    if (texto === 'Session expired') {
       showToast('Tu sesión caducó. Cierra sesión y vuelve a entrar.');
       return;
     }
@@ -513,11 +653,13 @@ export function MessageList() {
   };
 
   const handleSelect = async (uid: number) => {
+    // Carpeta real del correo (vista por etiqueta / Todo el correo, 05/11/2026).
+    const carpeta = carpetaDeUid(uid, currentFolder);
     // If in Drafts folder, open in compose for editing
-    if (currentFolder === 'Drafts') {
+    if (carpeta === 'Drafts') {
       setLoadingMessage(true);
       try {
-        const msg = await api.get<MessageFull>(`/mail/message/${encodeURIComponent(currentFolder)}/${uid}`);
+        const msg = await api.get<MessageFull>(`/mail/message/${encodeURIComponent(carpeta)}/${uid}`);
         setLoadingMessage(false);
         const toList = msg.to ? msg.to.split(',').map(s => s.trim()).filter(Boolean) : [];
         const ccList = msg.cc ? msg.cc.split(',').map(s => s.trim()).filter(Boolean) : [];
@@ -545,7 +687,7 @@ export function MessageList() {
     try {
       // W-7: sin red se abre la copia descargada (últimos días en IndexedDB); si la petición falla
       // por conexión, también se intenta la copia antes de avisar que no se pudo abrir.
-      const desdeCache = async () => (await getCachedMessage(currentFolder, uid)) as unknown as MessageFull | null;
+      const desdeCache = async () => (await getCachedMessage(carpeta, uid)) as unknown as MessageFull | null;
       let msg: MessageFull;
       if (!navigator.onLine) {
         const local = await desdeCache();
@@ -553,7 +695,7 @@ export function MessageList() {
         msg = local;
       } else {
         try {
-          msg = await api.get<MessageFull>(`/mail/message/${encodeURIComponent(currentFolder)}/${uid}`);
+          msg = await api.get<MessageFull>(`/mail/message/${encodeURIComponent(carpeta)}/${uid}`);
         } catch (errRed) {
           const local = /404|not found|no encontrado|401|sesi/i.test(String((errRed as Error)?.message || errRed)) ? null : await desdeCache();
           if (!local) throw errRed;
@@ -593,7 +735,8 @@ export function MessageList() {
       const updated = useMailStore.getState().messages.map(m => m.uid === uid ? { ...m, seen: true, flags: m.flags.includes('\\Seen') ? m.flags : [...m.flags, '\\Seen'] } : m);
       useMailStore.getState().setMessages(updated, totalMessages, currentPage);
       if (wasUnseen) {
-        const flds = useMailStore.getState().folders.map(f => f.name === currentFolder && f.unseen > 0 ? { ...f, unseen: f.unseen - 1 } : f);
+        recordarLeido(carpeta, uid);
+        const flds = useMailStore.getState().folders.map(f => f.name === carpeta && f.unseen > 0 ? { ...f, unseen: f.unseen - 1 } : f);
         useMailStore.getState().setFolders(flds);
       }
     } catch (err) {
@@ -648,42 +791,45 @@ export function MessageList() {
   };
 
   const quickAction = (uid: number, action: string, dest?: string) => {
+    if (action === 'mark_unread') olvidarLeido(currentFolder, uid);
+    // Borrar desde la Papelera es definitivo: el icono al pasar el ratón y el menú
+    // contextual preguntan igual que la barra de selección.
+    if (action === 'delete' && !confirmarBorradoDefinitivo()) return;
+    // Si la fila forma parte de una selección (Shift/Ctrl), el icono al pasar el ratón y el menú
+    // contextual actúan sobre TODOS los seleccionados, como en Outlook (06/11/2026: antes solo
+    // borraba esa fila y había que ir uno por uno).
+    const seleccion = useMailStore.getState().selectedUids;
+    const enLote = seleccion.size > 1 && seleccion.has(uid) && (action === 'delete' || action === 'move' || action === 'archive' || action === 'mark_read' || action === 'mark_unread');
+    const objetivos = enLote ? Array.from(seleccion) : [uid];
     // UI optimista: para acciones que sacan el correo de la vista actual, lo
     // quitamos de la lista de inmediato (se siente instantaneo). El servidor
     // trabaja por detras; si falla, el .catch de flushQuickAction re-sincroniza.
     if (action === 'delete' || action === 'move' || action === 'archive') {
       const st = useMailStore.getState();
-      const restantes = st.messages.filter(m => m.uid !== uid);
+      const fuera = new Set(objetivos);
+      const restantes = st.messages.filter(m => !fuera.has(m.uid));
       if (restantes.length !== st.messages.length) {
-        st.setMessages(restantes, Math.max(0, st.totalMessages - 1), st.currentPage);
+        st.setMessages(restantes, Math.max(0, st.totalMessages - (st.messages.length - restantes.length)), st.currentPage);
       }
-      if (st.selectedMessage && st.selectedMessage.uid === uid) {
+      if (st.selectedMessage && fuera.has(st.selectedMessage.uid)) {
         st.setSelectedMessage(null);
       }
     }
-    enqueueQuickAction(currentFolder, uid, action, dest || '');
+    for (const u of objetivos) {
+      if (action === 'mark_unread' && u !== uid) olvidarLeido(currentFolder, u);
+      enqueueQuickAction(carpetaDeUid(u, currentFolder), u, action, dest || '');
+    }
+    if (enLote) useMailStore.getState().clearSelection();
   };
 
   // Note: unread/flagged filtering is done server-side via IMAP SEARCH
   // Do NOT re-filter here — backend results are already correct
   // Check if there are any high-priority messages before filtering
-  const classifiedUids = Object.keys(priorityMap).map(Number);
-  const hasAnyClassification = classifiedUids.length > 0;
 
+  // Pestañas Prioritarios / Otros: regla en lib/pestanaPrioritarios.ts (06/11/2026).
   const filtered = messages.filter(m => {
-    // Apply priority filter only in INBOX
     if (currentFolder !== 'INBOX') return true;
-    // If no classification data at all, show everything
-    if (!hasAnyClassification) return true;
-    // Prioritarios tab: show ALL messages (never hide anything)
-    if (activeTab === 'focused') return true;
-    // Otros: todo lo que NO sea claramente importante, para que la pestana no quede vacia.
-    // Importante = 'high' o 'action_required'; el resto (normal, low, boletines, promociones,
-    // social, fyi) y lo aun sin clasificar van a Otros.
-    const p = priorityMap[m.uid];
-    if (!p) return true; // sin clasificar: se muestra en Otros
-    const pr = String(p.priority);
-    return pr !== 'high' && pr !== 'action_required';
+    return pestanaDe(m, priorityMap[m.uid]) === activeTab;
   });
   // La lista respeta el orden de llegada (como Outlook y Zimbra): la prioridad
   // y la bandera se muestran como marcas, no reordenan. Solo la chincheta fija arriba.
@@ -695,10 +841,13 @@ export function MessageList() {
     );
   }
 
+  // Publica en el store los UIDs visibles en su orden real y mantiene el resaltado por UID.
+  usePublicarListaVisible(filtered);
+
   const isConversationMode = viewMode === 'conversations';
   const threadGroups = isConversationMode ? groupByThread(filtered) : null;
 
-  const folderLabel = getFolderDisplayName(currentFolder);
+  const folderLabel = etiquetaFiltro ? `Etiqueta: ${etiquetaFiltro.name}` : getFolderDisplayName(currentFolder);
 
   // Clic derecho: marcar como no deseado / no es spam y bloquear remitente (mismos endpoints que la
   // barra del mensaje). UI optimista: se quita de la lista y el servidor trabaja por detras.
@@ -735,24 +884,29 @@ export function MessageList() {
     const m = from.match(/<([^>]+)>/);
     const correo = (m ? m[1] : from).trim().toLowerCase();
     if (!correo.includes('@')) { showToast('No se pudo leer el remitente'); return; }
-    if (!window.confirm(`Bloquear a ${correo}?\n\nSus proximos correos iran a Correo no deseado. Puedes deshacerlo en Configuracion -> Reglas de correo.`)) return;
+    if (!window.confirm(`Bloquear a ${correo}?\n\nSus proximos correos iran a Correo no deseado. Puedes deshacerlo en Configuración → Remitentes bloqueados.`)) return;
     quitarDeLista(msg.uid);
     try {
-      await api.post('/sieve/filters', { name: `Bloqueado: ${correo}`, condition: { field: 'from', operator: 'contains', value: correo }, action: { type: 'move', value: 'Junk' } });
+      await api.post('/mail/remitentes-bloqueados', { correo });
       await api.post('/mail/spam/report', { folder: currentFolder, uid: msg.uid }).catch(() => { /* bloqueo ya creado */ });
       showToast(`${correo} bloqueado — sus correos iran a Correo no deseado`);
     } catch (e) { showToast(e instanceof Error && e.message ? e.message : 'No se pudo bloquear el remitente'); }
     window.dispatchEvent(new CustomEvent('refresh-messages'));
   };
 
+  const etiquetasCtx = useEtiquetasContextual(currentFolder);   // submenú «Etiquetas» (05/11/2026)
   const getCtxItems = (msg: MessageSummary): MenuItem[] => [
-    { label: 'Responder', icon: replyIcon, onClick: () => openCompose('reply', { to: [msg.from], subject: `Re: ${msg.subject}`, text_body: '', html_body: '' }) },
-    { label: 'Reenviar', icon: forwardIcon, onClick: () => openCompose('forward', { to: [], subject: `RV: ${msg.subject}`, text_body: '', html_body: '', reenvio_de: { folder: msg.folder || currentFolder, uid: msg.uid } }) },
+    // Con el correo completo y su cita (05/11/2026): antes el reenvío salía sin el contenido original.
+    { label: 'Responder', icon: replyIcon, onClick: () => { void responderDesdeLista(msg, currentFolder); } },
+    { label: 'Reenviar', icon: forwardIcon, onClick: () => { void reenviarDesdeLista(msg, currentFolder); } },
+    // El correo (o toda la selección si este forma parte de ella) viaja como .eml dentro de uno nuevo.
+    { label: 'Reenviar como adjunto', icon: ICONO_CORREO_ADJUNTO, onClick: () => reenviarComoAdjunto(correosDeSeleccion(msg, Array.from(selectedUids), currentFolder)) },
     // Solo ese correo en otra pestaña; la bandeja de esta no cambia (lib/abrirEnPestana.ts).
     { label: 'Abrir en una nueva pestaña', icon: nuevaPestanaIcon, onClick: () => abrirMensajeEnPestana(msg.folder || currentFolder, msg.uid) },
     { label: '', icon: '', onClick: () => {}, divider: true },
     { label: msg.seen ? 'Marcar como no leído' : 'Marcar como leído', icon: unreadIcon, onClick: () => quickAction(msg.uid, msg.seen ? 'mark_unread' : 'mark_read') },
     { label: msg.flagged ? 'Quitar marca' : 'Marcar con bandera', icon: flagIcon, onClick: () => handleFlag(msg.uid, msg.flagged) },
+    etiquetasCtx.itemMenu(msg, msgLabelsMap[claveEtiquetas(msg, currentFolder)] || []),
     { label: '', icon: '', onClick: () => {}, divider: true },
     { label: 'Archivar', icon: archiveIcon, onClick: () => quickAction(msg.uid, 'archive') },
     {
@@ -783,7 +937,7 @@ export function MessageList() {
 
   /* ---- Render a single message row (memoized) ---- */
   const renderMessageRow = useCallback((msg: MessageSummary, idx: number, threadCount?: number) => {
-    const active = selectedMessage?.uid === msg.uid;
+    const active = selectedMessage?.uid === msg.uid || (soloSeleccionar && activeIndex === idx);
     const checked = selectedUids.has(msg.uid);
     const snippetStyle = previewLines === 1
       ? undefined
@@ -795,10 +949,7 @@ export function MessageList() {
           whiteSpace: 'normal' as const,
         };
     const snippetMinHeight = previewLines === 1 ? undefined : `${previewLines * 16}px`;
-    return (
-      <div key={msg.uid}
-        draggable
-        onDragStart={(e) => {
+    const alArrastrar = (e: React.DragEvent) => {
           const uids = selectedUids.has(msg.uid) && selectedUids.size > 0
             ? Array.from(selectedUids) : [msg.uid];
           e.dataTransfer.setData('application/x-mail-uids', JSON.stringify(uids));
@@ -824,8 +975,37 @@ export function MessageList() {
           document.body.appendChild(badge);
           e.dataTransfer.setDragImage(badge, 0, 0);
           setTimeout(() => document.body.removeChild(badge), 0);
-        }}
+    };
+    // En Enviados y Borradores la fila dice a quién se envió, no quién lo envió (como Outlook)
+    const { quien, otros } = quienMostrar(msg, currentFolder, folders);
+    const nombreQuien = extractName(quien, avatarMap) + (otros > 0 ? ` y ${otros} más` : '');
+    const fecha = fmtDate(fechaMostrada({ ...msg, folder: msg.folder || currentFolder }, folders));
+    if (unaLinea) {
+      const spam = spamResults.find(s => s.uid === msg.uid);
+      return (
+        <FilaCorreoLinea key={msg.uid} msg={msg} threadCount={threadCount} idx={idx} asuntoPrimero={asuntoPrimero} onDoubleClick={() => handleSelect(msg.uid)}
+          nombre={nombreQuien} iniciales={getInitials(quien, avatarMap)}
+          color={getColor(quien)} fecha={fecha} activo={active} marcado={checked}
+          fijado={isPinned(currentFolder, msg.uid)} esSpam={!!spam} motivoSpam={spam?.reasons?.join(', ')}
+          etiquetas={msgLabelsMap[claveEtiquetas(msg, currentFolder)] || []}
+          onClick={(e) => handleRowClick(msg.uid, idx, e)}
+          onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, msg }); }}
+          onDragStart={alArrastrar}
+          onMarcar={(e) => { e.stopPropagation(); handleShiftClick(idx, e); }}
+          onBandera={(e) => { e.stopPropagation(); handleFlag(msg.uid, msg.flagged); }}
+          onEliminar={(e) => { e.stopPropagation(); quickAction(msg.uid, currentFolder === 'Trash' ? 'delete' : 'move', 'Trash'); }}
+          onArchivar={(e) => { e.stopPropagation(); quickAction(msg.uid, 'archive'); }}
+          onLeido={(e) => { e.stopPropagation(); quickAction(msg.uid, msg.seen ? 'mark_unread' : 'mark_read'); }}
+        />
+      );
+    }
+    return (
+      <div key={msg.uid}
+        draggable
+        onDragStart={alArrastrar}
         onClick={(e) => handleRowClick(msg.uid, idx, e)}
+        onDoubleClick={() => handleSelect(msg.uid)}
+        data-idx={idx}
         onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, msg }); }}
         className={`group relative flex gap-2.5 pl-2 pr-3 ${density === "full" ? "py-[14px]" : density === "medium" ? "py-[10px]" : "py-[6px]"} cursor-pointer border-b border-[#f3f2f1] transition-all ${
           checked ? 'bg-[#deecf9]' : active ? 'bg-[#eff6fc]' : 'hover:bg-[#f3f2f1]'
@@ -843,20 +1023,28 @@ export function MessageList() {
           onClick={e => { e.stopPropagation(); handleShiftClick(idx, e); }}>
           <div className={`w-[32px] h-[32px] rounded-full flex items-center justify-center text-[11px] font-semibold cursor-pointer transition-all ${
             checked ? 'bg-[#0078d4] text-white' : 'text-white group-hover:ring-2 group-hover:ring-[#c8c6c4]'
-          }`} style={checked ? {} : { backgroundColor: getColor(msg.from || '') }}>
+          }`} style={checked ? {} : { backgroundColor: getColor(quien) }}>
             {checked ? (
               <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-            ) : getInitials(msg.from || '', avatarMap)}
+            ) : getInitials(quien, avatarMap)}
           </div>
         </div>
 
         {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
+            {/* Primera línea: asunto o nombre según la preferencia de la persona (06/11/2026) */}
             <div className="flex items-center gap-1.5 min-w-0 flex-1">
               <span className={`text-[13px] truncate ${!msg.seen ? 'font-semibold text-[#323130]' : 'text-[#605e5c]'}`}>
-                {extractName(msg.from || '', avatarMap)}
+                {asuntoPrimero ? (msg.subject || '(Sin asunto)') : nombreQuien}
               </span>
+              {asuntoPrimero && (msgLabelsMap[claveEtiquetas(msg, currentFolder)] || []).map((lbl) => (
+                <span key={lbl.id} title={lbl.name}
+                  className="shrink-0 inline-flex items-center px-1.5 h-[15px] rounded-[3px] text-[10px] font-medium text-white capitalize leading-none"
+                  style={{ backgroundColor: lbl.color }}>
+                  {String(lbl.name).replace(/^Categor[ií]a\s+/i, '') || lbl.name}
+                </span>
+              ))}
               {/* Thread count badge */}
               {threadCount && threadCount > 1 && (
                 <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[#0078d4] text-white text-[10px] font-semibold shrink-0">
@@ -881,23 +1069,25 @@ export function MessageList() {
                   <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                 </svg>
               )}
-              <span className="text-[11px] text-[#605e5c] group-hover:hidden">{fmtDate(fechaMostrada({ ...msg, folder: msg.folder || currentFolder }, folders))}</span>
+              {asuntoPrimero && <span className="text-[11px] text-[#605e5c] group-hover:hidden">{fecha}</span>}
             </div>
           </div>
           <div className="flex items-center gap-1.5 min-w-0">
             <p className={`text-[13px] truncate leading-[18px] ${!msg.seen ? 'font-medium text-[#323130]' : 'text-[#605e5c]'}`}>
-              {msg.subject || '(Sin asunto)'}
+              {asuntoPrimero ? nombreQuien : (msg.subject || '(Sin asunto)')}
             </p>
-            {(msgLabelsMap[String(msg.uid)] || []).map((lbl) => (
+            {!asuntoPrimero && (msgLabelsMap[claveEtiquetas(msg, currentFolder)] || []).map((lbl) => (
               <span key={lbl.id} title={lbl.name}
                 className="shrink-0 inline-flex items-center px-1.5 h-[15px] rounded-[3px] text-[10px] font-medium text-white capitalize leading-none"
                 style={{ backgroundColor: lbl.color }}>
                 {String(lbl.name).replace(/^Categor[ií]a\s+/i, '') || lbl.name}
               </span>
             ))}
+            {/* Hora de recibido junto al asunto, como Hotmail (06/11/2026) */}
+            {!asuntoPrimero && <span className={`ml-auto pl-2 text-[11px] shrink-0 group-hover:hidden ${!msg.seen ? 'text-[#0078d4] font-semibold' : 'text-[#605e5c]'}`}>{fecha}</span>}
           </div>
           <p
-            className={`text-[12px] text-[#a19f9d] leading-[16px] ${previewLines === 1 ? 'truncate' : ''}`}
+            className={`text-[12px] text-[#605e5c] leading-[16px] ${previewLines === 1 ? 'truncate' : ''}`}
             style={{ ...snippetStyle, minHeight: snippetMinHeight }}
           >
             {msg.snippet || '\u00A0'}
@@ -926,7 +1116,9 @@ export function MessageList() {
         </div>
       </div>
     );
-  }, [selectedMessage?.uid, selectedUids, previewLines, density, currentFolder, avatarMap, folders, spamResults, filter, activeTab, priorityMap]);
+  // msgLabelsMap: sin él la fila leía las etiquetas de un cierre viejo y el chip no se repintaba
+  // al asignar o quitar desde el menú (prueba Playwright, 05/11/2026).
+  }, [selectedMessage?.uid, selectedUids, previewLines, density, unaLinea, asuntoPrimero, soloSeleccionar, activeIndex, currentFolder, avatarMap, folders, spamResults, filter, activeTab, priorityMap, msgLabelsMap]);
 
   /* ---- Render thread group (conversation mode) ---- */
   const renderThreadGroup = (group: ThreadGroup, gIdx: number) => {
@@ -1016,7 +1208,7 @@ export function MessageList() {
         {currentFolder === 'INBOX' && (
           <div className="flex items-center px-3 mt-1">
             {(['focused','other'] as const).map(tab => (
-              <button key={tab} onClick={() => setActiveTab(tab)}
+              <button key={tab} onClick={() => setActiveTab(tab)} title={AYUDA_PESTANAS[tab]}
                 className={`px-3 py-1.5 text-[13px] border-b-2 transition-colors ${
                   activeTab === tab ? 'border-[#0078d4] text-[#0078d4] font-medium' : 'border-transparent text-[#605e5c] hover:text-[#323130]'
                 }`}>{tab === 'focused' ? 'Prioritarios' : 'Otros'}</button>
@@ -1115,9 +1307,24 @@ export function MessageList() {
 
       {/* Aviso: la búsqueda se limita a la carpeta elegida */}
       <AvisoBusquedaEnCarpeta />
+      <CabeceraEtiqueta />
 
       {/* List */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto relative" style={{ overflowAnchor: 'none' }}>
+        <EnviosEnCurso />
+        {unaLinea && filtered.length > 0 && (
+          /* Cabecera de columnas (06/11/2026): los anchos siguen a FilaCorreoLinea */
+          <div className="sticky top-0 z-10 flex items-center gap-2 pl-1.5 pr-2 h-[28px] text-[12px] font-semibold text-[#605e5c] bg-[#faf9f8] border-b border-[#e1dfdd] select-none">
+            <div className="w-[32px] shrink-0" />
+            {asuntoPrimero ? (
+              <>{celdaCabecera('asunto', 'Asunto', 'flex-1 min-w-0')}{celdaCabecera('de', 'De', 'w-[150px] lg:w-[190px] xl:w-[220px] shrink-0')}</>
+            ) : (
+              <>{celdaCabecera('de', 'De', 'w-[150px] lg:w-[190px] xl:w-[220px] shrink-0')}{celdaCabecera('asunto', 'Asunto', 'flex-1 min-w-0')}</>
+            )}
+            <div className="w-[72px] text-right shrink-0">Recibido</div>
+            <div className="w-[13px] shrink-0" />
+          </div>
+        )}
         {loadingMessages && !filterChanging && debouncedSearchQuery ? (
           <>
           <div className="flex flex-col items-center justify-center h-48 px-6 text-center">
@@ -1143,20 +1350,30 @@ export function MessageList() {
             <div className="w-5 h-5 border-2 border-[#0078d4] border-t-transparent rounded-full animate-spin" />
             <p className="text-[12px] text-[#a19f9d] mt-2">Cargando...</p>
           </div>
+        ) : filtered.length === 0 && errorCarga ? (
+          <div className="flex flex-col items-center justify-center h-40 px-4 text-center text-[#323130]" role="alert">
+            <p className="text-[14px] font-semibold">No se pudo cargar el correo</p>
+            <p className="text-[13px] text-[#605e5c] mt-1">Sus correos siguen guardados en el servidor. Revise la conexión e inténtelo de nuevo.</p>
+            <button onClick={() => { setErrorCarga(false); fetch_(); }}
+              className="mt-3 px-4 py-2 text-[14px] font-semibold text-white bg-[#0078d4] hover:bg-[#106ebe] rounded">
+              Reintentar
+            </button>
+          </div>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-40 text-[#a19f9d]">
+          <div className="flex flex-col items-center justify-center h-40 text-[#605e5c]">
             <svg className="w-10 h-10 mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
             </svg>
+            {/* Pestaña «No leídos»/«Marcados» activa (05/11/2026): avisar antes de las sugerencias,
+                con «Ver todos»; si no, la gente cree que el buscador no encuentra nada. */}
+            {(filter === 'unread' || filter === 'flagged') && (
+              <AvisoFiltroSinResultados filtro={filter} consulta={searchQuery} carpeta={currentFolder} buscarEnContenido={buscarEnContenido} />
+            )}
             {searchQuery ? (
               <SinResultados consulta={searchQuery} enTodo={currentFolder === 'Virtual.Todo'} carpeta={folderLabel} />
-            ) : (
-              <p className="text-[13px]">
-                {filter === 'flagged' ? 'No hay correos con bandera'
-                  : filter === 'unread' ? 'No hay correos sin leer'
-                    : 'No hay mensajes'}
-              </p>
-            )}
+            ) : filter === 'all' ? (
+              <p className="text-[13px]">No hay mensajes</p>
+            ) : null}
             {!searchQuery && filter === 'flagged' && <p className="text-[11px] mt-1 text-[#a19f9d]">Usa el icono de bandera en un correo para marcarlo</p>}
           </div>
         ) : isConversationMode && threadGroups ? (
@@ -1175,6 +1392,7 @@ export function MessageList() {
       </div>
 
       {ctxMenu && <ContextMenu x={ctxMenu.x} y={ctxMenu.y} items={getCtxItems(ctxMenu.msg)} onClose={() => setCtxMenu(null)} />}
+      {etiquetasCtx.dialogo}
     </div>
   );
 }

@@ -44,8 +44,11 @@ UPDATE events e SET reminder_sent_at = $1
 FROM calendars c
 WHERE c.id = e.calendar_id
   AND e.dtstart > $1
-  AND e.dtstart <= $1 + interval '12 hours'
-  AND e.all_day = FALSE
+  -- Ventana amplia: Zimbra traía avisos de 1 a 4 días antes (04/11/2026); con 12 h llegaban tarde.
+  AND e.dtstart <= $1 + interval '8 days'
+  -- Día completo solo con aviso propio (p. ej. el de Zimbra a las 6:00 del día anterior); sin él, el
+  -- valor por defecto de 15 min avisaría a las 23:45 de la víspera.
+  AND (e.all_day = FALSE OR jsonb_array_length(COALESCE(e.reminders, '[]'::jsonb)) > 0)
   AND COALESCE(e.rrule, '') = ''
   AND e.status <> 'CANCELLED'
   AND e.reminder_sent_at IS NULL

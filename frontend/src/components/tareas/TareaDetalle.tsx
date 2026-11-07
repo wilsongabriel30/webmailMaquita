@@ -16,6 +16,13 @@ const primario: React.CSSProperties = { ...btn, background: '#0078d4', color: '#
 const lbl: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: '#605e5c', margin: '12px 0 4px', display: 'block' };
 const inp: React.CSSProperties = { width: '100%', border: '1px solid #c8c6c4', borderRadius: 4, padding: '6px 8px', fontSize: 13, boxSizing: 'border-box' };
 
+/** Plazo para el campo «datetime-local»: la hora local del equipo. Al abrir se mostraba un instante en hora UTC. */
+function plazoLocal(iso?: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? '' : new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+
 export function TareaDetalle({ tarea, yo, onCerrar, onCambio }: Props) {
   const mio = yo.toLowerCase();
   const soyAsignado = !!mio && tarea.asignados.some(a => a.toLowerCase() === mio);
@@ -26,7 +33,7 @@ export function TareaDetalle({ tarea, yo, onCerrar, onCambio }: Props) {
   const [rechazando, setRechazando] = useState(false);
   const [editando, setEditando] = useState(false);
   const [asignados, setAsignados] = useState<string[]>(tarea.asignados);
-  const [plazo, setPlazo] = useState(tarea.plazo ? new Date(tarea.plazo).toISOString().slice(0, 16) : '');
+  const [plazo, setPlazo] = useState(plazoLocal(tarea.plazo));
   const [prioridad, setPrioridad] = useState(tarea.prioridad);
   const [recurrencia, setRecurrencia] = useState(tarea.recurrencia || '');
   const [escalarA, setEscalarA] = useState<string[]>(tarea.escalar_a ? [tarea.escalar_a] : []);
@@ -34,7 +41,7 @@ export function TareaDetalle({ tarea, yo, onCerrar, onCambio }: Props) {
   const [error, setError] = useState('');
 
   useEffect(() => { tareasApi.comentarios(tarea.id).then(setComentarios).catch(() => setComentarios([])); }, [tarea.id, tarea.comentarios]);
-  useEffect(() => { setAsignados(tarea.asignados); setPrioridad(tarea.prioridad); setRecurrencia(tarea.recurrencia || ''); setEscalarA(tarea.escalar_a ? [tarea.escalar_a] : []); setPlazo(tarea.plazo ? new Date(new Date(tarea.plazo).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ''); }, [tarea]);
+  useEffect(() => { setAsignados(tarea.asignados); setPrioridad(tarea.prioridad); setRecurrencia(tarea.recurrencia || ''); setEscalarA(tarea.escalar_a ? [tarea.escalar_a] : []); setPlazo(plazoLocal(tarea.plazo)); }, [tarea]);
 
   const ejecutar = async (fn: () => Promise<Tarea | void>) => {
     setOcupado(true); setError('');

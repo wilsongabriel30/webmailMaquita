@@ -3,6 +3,7 @@ import { api } from "../api/client";
 import { SectionHelp } from "../components/SectionHelp";
 import { DrivePanel, type DriveConfig } from "../components/DrivePanel";
 import { CuentasAsignadasBuzon } from "../components/CuentasAsignadasBuzon";
+import { BotonDesbloqueo, useBloqueosAcceso } from "../components/BotonDesbloqueo";
 import { ImportarCsv } from "./buzones/ImportarCsv";
 
 interface Mailbox { username: string; name: string; domain: string; quota: number; active: boolean; phone: string; email_other: string; created: string }
@@ -88,6 +89,7 @@ export function Mailboxes() {
 
   const load = () => { api.get<Mailbox[]>("/mailboxes").then(setMailboxes); api.get<Record<string, any>>("/mailboxes/quota/all").then(setQuotas).catch(() => {}); };
   useEffect(() => { load(); }, []);
+  const bloqueos = useBloqueosAcceso();
 
   const [createError, setCreateError] = useState("");
   const create = async () => {
@@ -209,6 +211,7 @@ export function Mailboxes() {
               { titulo: "Para qué sirve", desc: "Administra las cuentas de correo reales del servidor: crear, editar, bloquear, cambiar contraseñas y eliminar buzones. Cada fila es una cuenta que puede enviar y recibir correos." },
               { titulo: "Columnas Cuota y Uso", desc: "Cuota es el espacio máximo asignado (Sin límite si es 0). Uso muestra cuánto ocupa el buzón hoy; la barra se pone amarilla sobre 70% y roja sobre 90%." },
               { titulo: "Estado y Bloquear", desc: "Un buzón Inactivo queda bloqueado: no envía ni recibe, pero sus correos se conservan. Útil para suspender sin borrar nada." },
+              { titulo: "Desbloquear", desc: "Tras más de 10 contraseñas equivocadas en 15 minutos el webmail bloquea el ingreso de ese buzón. La fila muestra «Bloqueado · N min» y el botón Desbloquear lo quita en el acto. Queda registrado en auditoría." },
               { titulo: "Abrir buzón", desc: "Entra al webmail del usuario como administrador (impersonación) sin conocer su contraseña, para soporte o revisión. Queda registrado en auditoría." },
               { titulo: "Cambiar titular", desc: "Cuando un colaborador sale y otro toma su correo: cambia nombre, contraseña, firma y avisa a los contactos internos en un solo paso." },
               { titulo: "Eliminar", desc: "Borra el buzón y TODOS sus correos de forma permanente e irreversible. Si solo necesita suspender la cuenta, use Bloquear." },
@@ -507,6 +510,7 @@ export function Mailboxes() {
                   </button>
                 </td>
                 <td className="px-4 py-2.5 text-right space-x-1">
+                  <BotonDesbloqueo username={m.username} estado={bloqueos.mapa[m.username]} onHecho={bloqueos.recargar} />
                   <button onClick={() => impersonate(m.username)}
                     title="Abrir el buzón de este usuario en el webmail como administrador"
                     className="text-green-600 hover:underline text-xs font-medium">Abrir buzón</button>

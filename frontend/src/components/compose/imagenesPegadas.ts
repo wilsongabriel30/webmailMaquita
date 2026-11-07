@@ -8,6 +8,7 @@
  * - Al enviar, el servidor la convierte en imagen incrustada (cid), que todos los clientes muestran.
  */
 import type { EditorView } from '@tiptap/pm/view';
+import { preguntarTablaOImagen } from './elegirPegado';   // «¿tabla o imagen?» (05/11/2026)
 
 const ANCHO_MAX = 1600;
 // Ancho con que aparece en el cuerpo; la persona la agranda o achica desde las esquinas.
@@ -95,6 +96,17 @@ export function pegarImagenes(view: EditorView, evento: ClipboardEvent): boolean
   // Si además viene HTML con imágenes de la web (copiado de una página), ese pegado normal ya las trae.
   const html = evento.clipboardData?.getData('text/html') || '';
   if (/<img\s[^>]*src=["']https?:/i.test(html)) return false;
+  // Un cuadro copiado de Excel / Hojas de cálculo / Word viene como tabla en HTML Y como imagen:
+  // se pregunta cómo pegarlo. «Tabla» = editable y liviana; «Imagen» = idéntica a la hoja (05/11/2026).
+  if (/<table[\s>]/i.test(html)) {
+    evento.preventDefault();
+    preguntarTablaOImagen(view.dom, (opcion) => {
+      view.focus();
+      if (opcion === 'tabla') view.pasteHTML(html);
+      else insertarImagenes(view, archivos);
+    });
+    return true;
+  }
   evento.preventDefault();
   insertarImagenes(view, archivos);
   return true;
@@ -110,6 +122,15 @@ export function pegarImagenesFueraDelTexto(view: EditorView | undefined, evento:
   if (!archivos.length || !view.state.schema.nodes.image) return;
   evento.preventDefault();
   view.focus();
+  const html = evento.clipboardData?.getData('text/html') || '';
+  if (/<table[\s>]/i.test(html)) {
+    preguntarTablaOImagen(view.dom, (opcion) => {
+      view.focus();
+      if (opcion === 'tabla') view.pasteHTML(html);
+      else insertarImagenes(view, archivos);
+    });
+    return;
+  }
   insertarImagenes(view, archivos);
 }
 

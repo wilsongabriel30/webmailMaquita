@@ -144,7 +144,7 @@ async def get_imap_connection(username: str, password: str) -> aioimaplib.IMAP4:
             resp = await imap.login(base_user, password)
             if resp.result == "OK":
                 return imap
-        raise CredencialIMAPInvalida("IMAP login failed")
+        raise CredencialIMAPInvalida.desde_respuesta(resp, username)
     return imap
 
 
@@ -211,6 +211,7 @@ async def list_message_uids(
     redis=None,
     username: str = "",
     buscar_en_contenido: bool = False,
+    direcciones_nombre: tuple | list = (),
 ) -> dict:
     """List message UIDs with pagination (newest first).
 
@@ -235,7 +236,10 @@ async def list_message_uids(
     search_query, patrones_adjunto = extraer_patrones(search_query or "")
     if search_query:
         criteria = _build_search_criteria(
-            search_query, buscar_en_contenido, cuenta_indexada(username)
+            search_query,
+            buscar_en_contenido,
+            cuenta_indexada(username),
+            direcciones_nombre,
         )
     else:
         criteria = ["ALL"]
@@ -308,12 +312,18 @@ async def list_message_uids(
 
 
 def _build_search_criteria(
-    query: str, buscar_en_contenido: bool = False, con_indice: bool = False
+    query: str,
+    buscar_en_contenido: bool = False,
+    con_indice: bool = False,
+    direcciones_nombre: tuple | list = (),
 ) -> list[str]:
     from app.mail.search_advanced import parse_search_query
 
     return parse_search_query(
-        query, buscar_en_contenido=buscar_en_contenido, con_indice=con_indice
+        query,
+        buscar_en_contenido=buscar_en_contenido,
+        con_indice=con_indice,
+        direcciones_nombre=direcciones_nombre,
     )
 
 

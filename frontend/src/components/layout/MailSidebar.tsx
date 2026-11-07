@@ -4,16 +4,21 @@
 // menú contextual completo, renombrar con doble click, confirmaciones,
 // modal de mover carpeta, estadísticas.
 // ===========================================================================
+import { createPortal } from 'react-dom';
 import { useEffect, useState, useRef } from 'react';
 import { useMailStore } from '../../store/mailStore';
 import { api } from '../../api/client';
 import { showToast } from '../common/Toast';
+import { marcarCarpetaLeida } from './marcarCarpetaLeida';
 import { ContextMenu } from '../common/ContextMenu';
 import type { Folder } from '../../types';
 import { getFolderDisplayName } from '../../folders';
+import { esCarpetaVaciable } from '../../lib/confirmarBorrado';
 import { buscarSoloEnCarpetaActual } from '../../lib/busquedaGlobal';
 import { RecuperarEliminados } from '../mail/RecuperarEliminados';
 import { BarraCuentas } from './BarraCuentas';
+import { EtiquetasSidebar } from './EtiquetasSidebar';
+import { useDesplazarAlArrastrar } from '../../hooks/useDesplazarAlArrastrar';   // carpetas se desplazan al arrastrar (06/11/2026)
 
 interface MailStats {
   inbox_total: number;
@@ -38,7 +43,9 @@ const icons: Record<string, string> = {
   folder: 'M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z',
 };
 const systemFolders = new Set(['INBOX', 'Sent', 'Drafts', 'Trash', 'Junk', 'Archive']);
-const favorites = ['INBOX', 'Sent', 'Drafts'];
+// Como en Zimbra: las carpetas del sistema, incluidas Correo no deseado y Papelera, arriba y
+// juntas (antes Papelera quedaba en «Carpetas», que se puede plegar).
+const favorites = ['INBOX', 'Drafts', 'Sent', 'Junk', 'Trash'];
 
 export function MailSidebar() {
   const [hidden, setHidden] = useState(false);
@@ -84,6 +91,8 @@ export function MailSidebar() {
   const [confirmModal, setConfirmModal] = useState<{ title: string; message: string; onConfirm: () => void; danger?: boolean } | null>(null);
   const [tooltip, setTooltip] = useState<{ x: number; y: number; folder: Folder } | null>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
+  const arbolRef = useRef<HTMLElement>(null);
+  useDesplazarAlArrastrar(arbolRef);
 
   // Limpiar tooltip al hacer scroll o al salir del sidebar
   useEffect(() => {
@@ -183,7 +192,7 @@ export function MailSidebar() {
   const handleEmpty = (name: string) => {
     setConfirmModal({
       title: 'Vaciar carpeta',
-      message: `¿Eliminar todos los mensajes de "${getFolderDisplayName(name)}"?`,
+      message: `Se borrarán DEFINITIVAMENTE todos los correos de «${getFolderDisplayName(name)}». No se podrán recuperar desde la bandeja. ¿Desea continuar?`,
       danger: true,
       onConfirm: async () => {
         try {
@@ -207,11 +216,10 @@ export function MailSidebar() {
 
   const handleMarkAllRead = async (name: string) => {
     try {
-      const res = await api.get<{ messages: { uid: number; seen: boolean }[]; total: number }>(`/mail/messages/${encodeURIComponent(name)}?per_page=999`);
-      const unread = res.messages.filter(m => !m.seen);
-      if (unread.length > 0) {
-        await api.post(`/mail/bulk-action/${encodeURIComponent(name)}`, { uids: unread.map(m => m.uid), action: 'mark_read', dest_folder: '' });
-        showToast(`${unread.length} mensaje(s) marcados como leídos`);
+      // Carpeta entera, no solo la primera página (05/11/2026): ver marcarCarpetaLeida.ts.
+      const marcados = await marcarCarpetaLeida(name);
+      if (marcados > 0) {
+        showToast(`${marcados} mensaje(s) marcados como leídos`);
         window.dispatchEvent(new CustomEvent('refresh-messages'));
         fetchFolders();
       } else {
@@ -267,7 +275,8 @@ export function MailSidebar() {
       ] : []),
       { label: '', icon: '', onClick: () => {}, divider: true },
       // Acciones peligrosas
-      { label: 'Vaciar carpeta', icon: icons.trash, onClick: () => handleEmpty(f.name) },
+      // Vaciar borra para siempre: solo en Papelera y Correo no deseado (ver lib/confirmarBorrado.ts).
+      ...(esCarpetaVaciable(f.name) ? [{ label: 'Vaciar carpeta', icon: icons.trash, onClick: () => handleEmpty(f.name) }] : []),
       ...(!isSystem ? [
         { label: 'Eliminar carpeta', icon: icons.trash, onClick: () => handleDelete(f.name), danger: true },
       ] : []),
@@ -341,13 +350,8 @@ export function MailSidebar() {
         data-carpeta={f.name}
         // Al elegir una carpeta, el buscador se limita a ella (aviso en la lista).
         onClick={() => { setCurrentFolder(f.name); buscarSoloEnCarpetaActual(); }}
-        // Doble click para renombrar (solo no-sistema)
-        onDoubleClick={e => {
-          if (isSystem) return;
-          e.preventDefault();
-          setRenaming(f.name);
-          setRenameValue(displayName);
-        }}
+        // Sin doble clic para renombrar: por costumbre de Windows se hacía doble clic para abrir
+        // y la carpeta quedaba en modo edición. Renombrar está en el menú (clic derecho).
         // Drag & drop de carpetas
         draggable={!isSystem}
         onDragStart={e => {
@@ -481,7 +485,7 @@ export function MailSidebar() {
       </div>
 
       {/* Árbol de carpetas */}
-      <nav className="flex-1 min-h-0 overflow-y-auto px-1 text-[13px]"
+      <nav ref={arbolRef} className="flex-1 min-h-0 overflow-y-auto px-1 text-[13px]"
         // Drop zone raíz: soltar carpeta aquí la mueve al nivel raíz
         onDragOver={e => {
           if (e.dataTransfer.types.includes('application/x-folder-name')) {
@@ -522,6 +526,9 @@ export function MailSidebar() {
             )}
           </>
         )}
+
+        {/* Etiquetas del usuario (05/11/2026) */}
+        <EtiquetasSidebar />
 
       </nav>
 
@@ -592,7 +599,7 @@ export function MailSidebar() {
       )}
 
       {/* Modal mover carpeta */}
-      {moveModal && (
+      {moveModal && createPortal(
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50" onClick={() => setMoveModal(null)}>
           <div className="bg-white rounded-lg shadow-xl p-4 w-[320px] max-h-[420px] flex flex-col" onClick={e => e.stopPropagation()}>
             <h3 className="text-sm font-semibold text-[#323130] mb-1">
@@ -628,11 +635,11 @@ export function MailSidebar() {
               Cancelar
             </button>
           </div>
-        </div>
+        </div>, document.body
       )}
 
-      {/* Modal de confirmación */}
-      {confirmModal && (
+      {/* Modal de confirmación (en <body>: dentro del panel lo tapaba la barra superior, 04/11/2026) */}
+      {confirmModal && createPortal(
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50" onClick={() => setConfirmModal(null)}>
           <div className="bg-white rounded-lg shadow-xl p-5 w-[340px]" onClick={e => e.stopPropagation()}>
             <h3 className={`text-sm font-semibold mb-2 ${confirmModal.danger ? 'text-[#a4262c]' : 'text-[#323130]'}`}>
@@ -652,7 +659,7 @@ export function MailSidebar() {
               </button>
             </div>
           </div>
-        </div>
+        </div>, document.body
       )}
     </div>
   );

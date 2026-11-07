@@ -10,7 +10,7 @@ import html as html_lib
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from . import rewriter, service
+from . import propios, rewriter, service
 
 router = APIRouter(tags=["safelinks"])
 
@@ -33,6 +33,8 @@ async def safelink(request: Request, u: str = "", s: str = "", go: int = 0):
         # unescape defensivo: los enlaces firmados antes de 2026-08-05 llevan
         # las entidades HTML sin deshacer (&amp;) y se abrian sin sus parametros.
         url = html_lib.unescape(rewriter.decode_url(u))
+        # Pasarela anidada (05/11/2026): se evalúa y se muestra el destino REAL, nunca otra pasarela.
+        url = propios.desenvolver(url)
     except Exception:
         return HTMLResponse(
             _warn_page("", "Enlace inválido", "blocked", None, org), status_code=400

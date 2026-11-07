@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import SafeEmailViewer from './SafeEmailViewer';
+import { DireccionConNombre } from './DireccionConNombre';   // personas por su nombre (06/11/2026)
 
 /**
  * Vista previa de un correo adjunto (.eml / message/rfc822), 12/10/2026.
@@ -68,19 +69,43 @@ export default function VistaPreviaCorreo({ folder, uid, partNumber, onError }: 
       </div>
     ) : null;
 
+  // De/Para/CC por el nombre de cada persona (contactos propios → directorio → cabecera).
+  const personas = (etiqueta: string, valor: string) =>
+    valor ? (
+      <div className="flex gap-2 text-[13px]">
+        <span className="w-14 flex-shrink-0 text-[#605e5c] dark:text-[#999]">{etiqueta}</span>
+        <span className="text-[#323130] dark:text-[#e0e0e0] break-all">
+          {valor.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map(x => x.trim()).filter(Boolean).map((x, i) => (
+            <span key={i}>{i > 0 && ', '}<DireccionConNombre texto={x} /></span>
+          ))}
+        </span>
+      </div>
+    ) : null;
+
   return (
     <div className="w-full h-[70vh] overflow-auto self-stretch bg-white dark:bg-[#2d2d2d] rounded border border-[#edebe9] dark:border-[#444]">
       <div className="px-4 py-3 border-b border-[#edebe9] dark:border-[#444] space-y-1">
         <h2 className="text-[16px] font-semibold text-[#323130] dark:text-[#e0e0e0] mb-2">{correo.subject}</h2>
-        {fila('De', correo.from)}
-        {fila('Para', correo.to)}
-        {fila('CC', correo.cc)}
+        {personas('De', correo.from)}
+        {personas('Para', correo.to)}
+        {personas('CC', correo.cc)}
         {fila('Fecha', formatoFecha(correo.date))}
         {correo.attachments.length > 0 && (
           <div className="flex gap-2 text-[13px] pt-1">
             <span className="w-14 flex-shrink-0 text-[#605e5c] dark:text-[#999]">Adjuntos</span>
-            <span className="text-[#323130] dark:text-[#e0e0e0]">
-              {correo.attachments.map((a) => `${a.filename} (${formatoTamano(a.size)})`).join(' · ')}
+            {/* 06/11/2026: cada archivo del correo adjunto se descarga con un clic
+                (antes solo se nombraban y «no llegaban los adjuntos»). */}
+            <span className="flex flex-wrap gap-1.5">
+              {correo.attachments.map((a, i) => (
+                <a key={i} download={a.filename}
+                  href={'/api/mail/attachment-message/' + encodeURIComponent(folder) + '/' + uid + '/'
+                    + encodeURIComponent(partNumber) + '/archivo?nombre=' + encodeURIComponent(a.filename)}
+                  title={`Descargar «${a.filename}»`}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-[#c8c6c4] dark:border-[#555] text-[#0078d4] hover:bg-[#f3f2f1] dark:hover:bg-[#3a3a3a] no-underline">
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M8 1v9.5M8 10.5l-3-3M8 10.5l3-3M2 12v2h12v-2" /></svg>
+                  {a.filename} ({formatoTamano(a.size)})
+                </a>
+              ))}
             </span>
           </div>
         )}

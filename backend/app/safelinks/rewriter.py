@@ -13,6 +13,8 @@ import re
 from app import organizacion
 from app.config import get_settings
 
+from . import propios
+
 
 def _secret() -> bytes:
     return (get_settings().secret_key or "maquita-fallback").encode()
@@ -40,6 +42,10 @@ def gateway_link(url: str, base: str | None = None) -> str:
     # deshacer las entidades ANTES de codificar: si no, el destino recibe
     # "&amp;token=..." y lee un parametro "amp;token" en vez de "token"
     # (rompia activaciones y restablecimientos de clave con varios parametros).
+    # Ya es un enlace de la pasarela (correo citado o reenviado): no se envuelve otra vez
+    # (05/11/2026; la doble envoltura hacía saltar el aviso contra nuestro propio dominio).
+    if propios.es_pasarela(html_lib.unescape(url)):
+        return html_lib.unescape(url)
     ub = encode_url(html_lib.unescape(url))
     base = (base or get_settings().public_base_url or organizacion.url_correo()).rstrip(
         "/"

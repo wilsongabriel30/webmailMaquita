@@ -112,6 +112,12 @@ def crear_cliente(cfg: ConfigRedis, **kw):
     import redis.asyncio as aioredis
 
     kw.setdefault("decode_responses", True)
+    # 06/11/2026: redis-py 8 limita el grupo a 100 conexiones por proceso; cada persona conectada
+    # (aviso en vivo del correo/chat) retiene una y a media tarde se agotaba: «Too many connections»,
+    # fallaba /api/auth/refresh y sacaba a todos. Tope configurable (REDIS_MAX_CONEXIONES).
+    import os
+
+    kw.setdefault("max_connections", int(os.getenv("REDIS_MAX_CONEXIONES", "2000")))
     if cfg.modo == "simple":
         return aioredis.from_url(cfg.url, **kw)
     from redis.asyncio.sentinel import Sentinel

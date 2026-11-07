@@ -2,7 +2,8 @@ import { useState } from "react";
 import type { CalendarInfo } from "./types/calendar";
 import {
   getMonthGrid,
-  WEEKDAY_SHORT,
+  WEEKDAY_LETTER,
+  WEEKDAY_FULL,
   isToday,
   isSameDay,
   addMonths,
@@ -104,9 +105,9 @@ export function CalendarSidebar({
 
         {/* Weekday header (single letters) */}
         <div className="grid grid-cols-7 gap-0">
-          {WEEKDAY_SHORT.map((d) => (
-            <div key={d} className="text-center text-[10px] text-[#a19f9d] font-medium py-0.5">
-              {d.charAt(0)}
+          {WEEKDAY_LETTER.map((d, i) => (
+            <div key={d} title={WEEKDAY_FULL[i]} aria-label={WEEKDAY_FULL[i]} className="text-center text-[10px] text-[#a19f9d] font-medium py-0.5">
+              {d}
             </div>
           ))}
         </div>

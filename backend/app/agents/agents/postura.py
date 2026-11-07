@@ -5,6 +5,7 @@ Reúne hechos de configuración y pide a la IA 3 recomendaciones priorizadas.
 
 from app.agents.base import Agent
 from app.agents.llm import ask
+from app.ai import estilo_institucional as estilo
 
 
 class PostureAgent(Agent):
@@ -43,8 +44,10 @@ class PostureAgent(Agent):
         rec = await ask(
             f"Postura de seguridad del correo institucional (hechos): {facts}. "
             "Da exactamente 3 recomendaciones concretas y priorizadas (alta/media/baja).",
-            system="Eres un consultor de ciberseguridad de correo. Conciso, accionable, en español.",
+            system="Eres un consultor de ciberseguridad de correo. Conciso, accionable, en español. "
+            + estilo.instrucciones("analisis"),
         )
+        rec = estilo.institucionalizar(rec, modo="analisis")
         return {
             "agent": self.name,
             "descripcion": self.descripcion,

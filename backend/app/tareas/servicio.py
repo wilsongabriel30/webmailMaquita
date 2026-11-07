@@ -623,10 +623,13 @@ class ServicioTareas:
         """Directorio para «Asignar a»: consulta NÓMINA EN VIVO (Raíces, VM 132): solo trabajadores con estado Activo y correo
         institucional; quien ingresa a nómina aparece al instante. Caché de 60 s por proceso; si nómina no responde, se usa
         la copia sincronizada (task_personas). Busca por nombre, correo, cargo o departamento, sin importar tildes.
+        Se le suman los buzones activos del correo y solo quedan los dominios de la casa (ver directorio.py).
         """
         import time
 
         import asyncpg
+
+        from app.tareas import directorio
 
         ahora = time.time()
         if not hasattr(self, "_nom_cache") or ahora - self._nom_cache[0] > 60:
@@ -641,7 +644,12 @@ class ServicioTareas:
                         ORDER BY nombre""")
                 finally:
                     await con.close()
-                self._nom_cache = (ahora, [dict(f) for f in filas])
+                self._nom_cache = (
+                    ahora,
+                    directorio.unir(
+                        [dict(f) for f in filas], await directorio.buzones(db)
+                    ),
+                )
             except Exception as e:
                 import logging
 
@@ -653,7 +661,9 @@ class ServicioTareas:
                 )
                 self._nom_cache = (
                     ahora - 50,
-                    [dict(f) for f in filas],
+                    directorio.unir(
+                        [dict(f) for f in filas], await directorio.buzones(db)
+                    ),
                 )  # reintenta pronto
         import unicodedata
 

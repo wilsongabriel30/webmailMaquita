@@ -20,26 +20,45 @@ function logError(context: string, details: Record<string, unknown>) {
 }
 
 let isRefreshing = false;
-let refreshPromise: Promise<boolean> | null = null;
+// 05/11/2026: el refresco distingue «vencida» (el servidor dijo que no) de «temporal» (sin red,
+// 5xx o 429: el servidor se está reiniciando o no responde). Antes cualquier fallo del refresco
+// mandaba al login: cada reinicio del backend expulsaba a quien justo necesitaba refrescar.
+type Refresco = "ok" | "vencida" | "temporal";
+let refreshPromise: Promise<Refresco> | null = null;
 
-async function tryRefresh(): Promise<boolean> {
+async function tryRefresh(): Promise<Refresco> {
   if (isRefreshing && refreshPromise) return refreshPromise;
   isRefreshing = true;
   refreshPromise = fetch(`${BASE}/auth/refresh`, {
     method: "POST",
     credentials: "include",
   })
-    .then((res) => {
-      if (!res.ok) return false;
-      return res.json().then((data: { refreshed?: boolean }) => data.refreshed !== false);
+    .then((res): Promise<Refresco> | Refresco => {
+      if (res.status === 401 || res.status === 403) return "vencida";
+      if (!res.ok) return "temporal";
+      return res.json().then((data: { refreshed?: boolean }) => (data.refreshed !== false ? "ok" : "vencida"))
+        .catch((): Refresco => "temporal");
     })
-    .catch(() => false)
+    .catch((): Refresco => "temporal")
     .finally(() => {
       isRefreshing = false;
       refreshPromise = null;
     });
   return refreshPromise;
 }
+
+/** Refresca y, si el fallo es temporal (reinicio del servidor), insiste unos segundos antes de rendirse. */
+async function refrescarConPaciencia(): Promise<Refresco> {
+  const esperas = [1500, 2500, 4000];   // ≈ 8 s en total: lo que tarda en arrancar el backend
+  let r = await tryRefresh();
+  for (const ms of esperas) {
+    if (r !== "temporal") break;
+    await sleep(ms);
+    r = await tryRefresh();
+  }
+  return r;
+}
+export const ERROR_SERVIDOR_REINICIANDO = "El servidor se está reiniciando. Inténtalo de nuevo en unos segundos.";
 
 // Máxima espera (s) que aceptamos para reintentar automáticamente tras un 429
 const MAX_RETRY_AFTER_S = 15;
@@ -68,12 +87,28 @@ async function requestMedido<T>(path: string, options: RequestInit & { skipAuth?
       ...fetchOptions,
     });
   } catch (e) {
-    reportarFallo();   // T-35: sin red o servidor inalcanzable
+    // Cancelar a propósito (AbortController) no es «sin red»: no se avisa de conexión lenta.
+    if (!(e instanceof DOMException && e.name === "AbortError")) reportarFallo();   // T-35: sin red o servidor inalcanzable
     throw e;
   }
   medida.servidorMs = res.headers.get("X-Offline-Cache") === "true" ? null : tiempoServidor(res);
   // Respuesta servida por el service worker desde su caché (X-Offline-Cache) = el servidor NO fue alcanzado
   if (res.status === 502 || res.status === 503 || res.status === 504 || res.headers.get("X-Offline-Cache") === "true") reportarFallo(); else reportarExito();
+
+  // 502/503/504 en lecturas (GET): el backend se está reiniciando; se reintenta en silencio
+  // 2 veces (1,5 s y 3 s) antes de dar error. Las escrituras no se repiten solas.
+  for (let intento = 0; (res.status === 502 || res.status === 503 || res.status === 504) && intento < 2
+       && (fetchOptions.method || "GET") === "GET" && res.headers.get("X-Offline-Cache") !== "true"; intento++) {
+    medida.descartar = true;
+    await sleep(intento === 0 ? 1500 : 3000);
+    try {
+      res = await fetch(`${BASE}${path}`, {
+        credentials: "include",
+        headers: { "Content-Type": "application/json", ...fetchOptions.headers },
+        ...fetchOptions,
+      });
+    } catch { break; }
+  }
 
   // 429: respetar Retry-After y reintentar (hasta 2 veces) si la espera es corta
   for (let attempt = 0; res.status === 429 && attempt < 2 && !isAuthEndpoint; attempt++) {
@@ -93,8 +128,8 @@ async function requestMedido<T>(path: string, options: RequestInit & { skipAuth?
   }
   if (res.status === 401 && !skipAuth && !isAuthEndpoint) {
     medida.descartar = true;
-    const refreshed = await tryRefresh();
-    if (refreshed) {
+    const refresco = await refrescarConPaciencia();
+    if (refresco === "ok") {
       const retryRes = await fetch(`${BASE}${path}`, {
         credentials: "include",
         headers: { "Content-Type": "application/json", ...fetchOptions.headers },
@@ -102,6 +137,11 @@ async function requestMedido<T>(path: string, options: RequestInit & { skipAuth?
       });
       // Igual que la primera respuesta: 204 o cuerpo vacío no se leen como JSON y un error trae su motivo.
       return leerRespuesta<T>(retryRes, path, fetchOptions.method || "GET");
+    }
+    if (refresco === "temporal") {
+      // El servidor no respondió al refresco: NO es sesión vencida. Se conserva la sesión y se avisa.
+      logError("refresh_temporal", { path, method: fetchOptions.method || "GET" });
+      throw new Error(ERROR_SERVIDOR_REINICIANDO);
     }
     logError("session_expired", { path, method: fetchOptions.method || "GET" });
     window.location.href = "/webmail/login";
@@ -178,9 +218,10 @@ export const api = {
   get: <T>(path: string, opts?: { skipAuth?: boolean }) => getCacheado<T>(path, opts),
   // Las escrituras invalidan el cache de correo para no mostrar datos viejos
   // tras mover / eliminar / marcar mensajes.
-  post: <T>(path: string, data?: unknown): Promise<T> => {
+  // `signal` (opcional) permite cancelar la petición, p. ej. el botón «Cancelar» de la IA.
+  post: <T>(path: string, data?: unknown, opts?: { signal?: AbortSignal }): Promise<T> => {
     invalidarCache("/mail/");
-    return request<T>(path, { method: "POST", body: data ? JSON.stringify(data) : undefined });
+    return request<T>(path, { method: "POST", body: data ? JSON.stringify(data) : undefined, signal: opts?.signal });
   },
   put: <T>(path: string, data?: unknown): Promise<T> => {
     invalidarCache("/mail/");

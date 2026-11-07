@@ -65,6 +65,8 @@ export async function cargarAdjuntosDelReenvio(origen: { folder: string; uid: nu
 async function cargarAdjuntosDeMensaje(folder: string, uid: number, adjuntos: AttachmentInfo[]): Promise<ArchivoAdjunto[]> {
   const resultado: ArchivoAdjunto[] = [];
   for (const a of adjuntos || []) {
+    // Los archivos de un correo adjunto ya viajan dentro de su .eml: no se duplican (06/11/2026).
+    if (a.dentro_de) continue;
     if (a.is_inline || !a.filename) continue;
     try {
       const url = '/api/mail/attachment/' + encodeURIComponent(folder) + '/' + uid + '/' + a.part_number + '/' + encodeURIComponent(a.filename);

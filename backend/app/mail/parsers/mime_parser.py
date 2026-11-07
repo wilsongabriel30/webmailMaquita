@@ -18,6 +18,8 @@ class AttachmentInfo:
     part_number: str
     is_inline: bool = False
     cid: str = ""
+    # Nombre del correo adjunto (.eml) que lo contiene; vacío si es un adjunto directo (06/11/2026).
+    dentro_de: str = ""
 
 
 @dataclass
@@ -103,7 +105,12 @@ def parse_full_message(
     raw_email: str, uid: int = 0, flags: list[str] | None = None
 ) -> NormalizedMessage:
     """Parse a complete raw email into NormalizedMessage with body and attachments."""
-    msg = email.message_from_string(raw_email, policy=email.policy.default)
+    # Límite MIME mal declarado (SRI): se corrige antes de interpretar (05/11/2026).
+    from app.mail.parsers.mime_reparar import reparar_limite_mime
+
+    msg = email.message_from_string(
+        reparar_limite_mime(raw_email), policy=email.policy.default
+    )
     flags = flags or []
 
     date_str = msg.get("Date", "")
@@ -169,16 +176,19 @@ def _extract_parts(
                     except Exception:
                         pass
                 payload = part.get_payload(decode=True)
+                nombre_adjunto = part.get_filename() or "unnamed"
+                internos = _archivos_de_correo_adjunto(part, part_num, nombre_adjunto)
                 attachments.append(
                     AttachmentInfo(
-                        filename=part.get_filename() or "unnamed",
+                        filename=nombre_adjunto,
                         content_type=content_type,
-                        size=len(payload) if payload else 0,
+                        size=len(payload) if payload else _tamano_correo_adjunto(part),
                         part_number=part_num,
                         is_inline=False,
                         cid=cid,
                     )
                 )
+                attachments.extend(internos)
             elif part.is_multipart():
                 t, h, a, cm, ci = _extract_parts(part, part_num + ".")
                 if not text_body:
@@ -238,6 +248,53 @@ def _extract_parts(
             text_body = _decode_payload(msg)
 
     return text_body, html_body, attachments, cid_map, calendar_invite
+
+
+def _correo_anidado(part):
+    """El correo que va dentro de una parte message/rfc822, o None."""
+    if part.get_content_type() != "message/rfc822":
+        return None
+    contenido = part.get_payload()
+    if isinstance(contenido, list) and contenido:
+        return contenido[0]
+    return None
+
+
+def _tamano_correo_adjunto(part) -> int:
+    """Tamaño real de un .eml adjunto (decode=True da None y salía «0 B»)."""
+    interno = _correo_anidado(part)
+    if interno is None:
+        return 0
+    try:
+        return len(interno.as_bytes())
+    except Exception:
+        try:
+            return len(str(interno))
+        except Exception:
+            return 0
+
+
+def _archivos_de_correo_adjunto(part, part_num: str, nombre: str) -> list:
+    """Archivos de un correo reenviado «como adjunto», con numeración IMAP (2.2, 2.3…).
+
+    Antes solo se veía el .eml y nadie encontraba los archivos que mencionaba el
+    correo (06/11/2026). Nunca rompe la lectura del mensaje: ante cualquier fallo, nada.
+    """
+    interno = _correo_anidado(part)
+    if interno is None or not interno.is_multipart():
+        return []
+    try:
+        _t, _h, adjuntos, _cm, _ci = _extract_parts(interno, part_num + ".")
+    except Exception:
+        return []
+    salida = []
+    for a in adjuntos:
+        if a.is_inline:
+            continue
+        if not a.dentro_de:
+            a.dentro_de = nombre
+        salida.append(a)
+    return salida
 
 
 def _decode_payload(part) -> str:

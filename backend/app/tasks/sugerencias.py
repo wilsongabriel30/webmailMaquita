@@ -7,7 +7,7 @@ fecha. Las de Seguimiento (T-34) no salen: tienen su propia vista.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 
 from pydantic import BaseModel
 
@@ -16,7 +16,7 @@ from app.tasks.schemas import CardOut
 
 POR_GRUPO = 20
 
-# $3 = medianoche UTC de hoy (así se guardan los vencimientos), $4 = dentro de siete días.
+# $3 = comienzo de hoy en Guayaquil (así se guardan los vencimientos sin hora), $4 = dentro de siete días.
 _GRUPOS = {
     "vencidas": ("tc.due_date < $3::timestamptz", "tc.due_date DESC"),
     "hoy": (
@@ -43,7 +43,7 @@ class Sugerencias(BaseModel):
 
 async def sugerencias(db, user: str) -> Sugerencias:
     hoy = mi_dia.hoy()
-    medianoche = datetime(hoy.year, hoy.month, hoy.day, tzinfo=timezone.utc)
+    medianoche = mi_dia.medianoche(hoy)
     grupos = {}
     valores = (user, hoy, medianoche, medianoche + timedelta(days=7))
     for nombre, (filtro, orden) in _GRUPOS.items():

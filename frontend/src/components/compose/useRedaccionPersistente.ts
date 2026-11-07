@@ -32,6 +32,11 @@ export function useRedaccionPersistente(
   // si no cambió, el guardado pide al servidor conservar los archivos en vez de resubirlos.
   const huellaGuardadaRef = useRef<string>(estadoPrevio?.huellaGuardada ?? '');
 
+  // Mientras ComposePanel descarga los archivos de un borrador abierto, cualquier guardado
+  // (automático, minimizar, cambio de adjuntos) debe pedir al servidor que CONSERVE los del
+  // borrador anterior: el estado aún no los tiene (05/11/2026).
+  const adjuntosEnCargaRef = useRef<boolean>(false);
+
   // Último HTML del editor. Se lleva aparte porque al desmontar el panel el editor ya puede
   // estar destruido y no se le puede pedir el contenido.
   const cuerpoRef = useRef<string>(estadoPrevio?.cuerpoHtml ?? '');
@@ -69,15 +74,22 @@ export function useRedaccionPersistente(
   const sigueAbierta = useCallback(
     () => useMailStore.getState().composeWindows.some(w => w.id === win.id), [win.id]);
 
+  // Último borrador guardado por ESTA ventana (06/11/2026). Si la ventana se cierra mientras hay
+  // otro guardado en cola (p. ej. «Cerrar» y cambiar de carpeta enseguida), ya no está en el
+  // store y se usaba el UID inicial (null): se creaba un segundo borrador igual en vez de
+  // reemplazar el primero.
+  const ultimoUidRef = useRef<number | null>(win.draftUid ?? null);
   const guardarDesdeInstantanea = useCallback((estado: EstadoRedaccion) => enColaDeGuardado(win.id, async () => {
     // El UID se lee al empezar, no al encolar: el guardado anterior puede haberlo creado.
     const actual = useMailStore.getState().composeWindows.find(w => w.id === win.id);
     const res = await guardarBorradorEnServidor(estado, {
-      draftUid: actual?.draftUid ?? win.draftUid,
+      draftUid: actual?.draftUid ?? ultimoUidRef.current ?? win.draftUid,
       inReplyTo: win.data.in_reply_to,
       references: win.data.references,
+      mantenerAdjuntos: adjuntosEnCargaRef.current || undefined,
     });
     if (!res) return;
+    if (res.draftUid) ultimoUidRef.current = res.draftUid;
     huellaGuardadaRef.current = res.huella;
     const enMemoria = leerEstadoRedaccion(win.id);
     if (enMemoria) enMemoria.huellaGuardada = res.huella;
@@ -85,13 +97,18 @@ export function useRedaccionPersistente(
     if (sigueAbierta()) anotarRedaccion(paraRecuperar(estado, res.draftUid ?? uidActual()));
   }), [win.id, win.draftUid, win.data.in_reply_to, win.data.references, updateDraftUid, sigueAbierta, paraRecuperar, uidActual]);
 
-  const saveDraft = useCallback(async () => {
+  // Devuelve false si el servidor no guardó el borrador. El guardado automático lo ignora
+  // (es de cortesía y se reintenta), pero al CERRAR la ventana importa: si no se guardó, no
+  // se puede cerrar diciendo «Borrador guardado» y tirar lo escrito.
+  const saveDraft = useCallback(async (): Promise<boolean> => {
     try {
       if (editor && !editor.isDestroyed) cuerpoRef.current = editor.getHTML();
       await guardarDesdeInstantanea(instantaneaRef.current());
+      return true;
     } catch {
       /* el guardado automatico es de cortesia: si falla, el texto sigue en pantalla y se
          reintenta en el siguiente cambio, sin interrumpir a quien escribe */
+      return false;
     }
   }, [editor, guardarDesdeInstantanea]);
 
@@ -141,5 +158,5 @@ export function useRedaccionPersistente(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return { saveDraft, cuerpoRef, huellaGuardadaRef };
+  return { saveDraft, cuerpoRef, huellaGuardadaRef, adjuntosEnCargaRef };
 }

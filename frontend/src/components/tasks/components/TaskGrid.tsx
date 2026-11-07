@@ -3,7 +3,7 @@
 import { useState, type KeyboardEvent, type MouseEvent } from 'react';
 import type { Task } from '../types';
 import { COLORS } from '../types';
-import { colorVencimiento, fechaCompleta, textoVencimiento } from './fechaVencimiento';
+import { colorVencimiento, diaVencimiento, fechaCompleta, textoVencimiento } from './fechaVencimiento';
 
 interface Props {
   tasks: Task[];
@@ -84,7 +84,7 @@ function CeldaTitulo({ task, onOpen, onUpdate }: { task: Task; onOpen: (t: Task)
 
 function CeldaFecha({ task, onUpdate }: { task: Task; onUpdate: Props['onUpdate'] }) {
   const [editando, setEditando] = useState(false);
-  const valor = (task.due_date || '').slice(0, 10);
+  const valor = diaVencimiento(task.due_date);
 
   if (editando) {
     return (

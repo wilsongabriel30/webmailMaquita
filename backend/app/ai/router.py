@@ -8,18 +8,24 @@ respuestas inteligentes, autocompletado, resumenes y sugerencias de asunto.
 import json
 import logging
 import re
+import time
 from typing import Optional
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
+from app.ai import alfabeto
+from app.ai import estilo_institucional as estilo
+from app.ai import idioma, medicion_llm, textos_en
+from app.ai import union_palabra as union
 from app.ai.contenido_hostil import (
     INSTRUCCION_DATOS,
     bloque_correo,
     json_de_cadenas,
     texto_valido,
 )
+from app.ai.llm_calidad import config_calidad, config_respaldo
 from app.auth.dependencies import get_current_user
 from app.config import get_settings
 from app.core.session import get_imap_login_user
@@ -65,6 +71,8 @@ MAQUITA_CONTEXT = (
     "(por ejemplo: Saludos cordiales, Un cordial saludo, Reciba un cordial saludo, Quedamos atentos), sin nombre ni firma. "
     "No inventes datos, cifras, fechas, precios ni compromisos que no aparezcan en el texto del usuario. "
 )
+# El estilo institucional (estilo.instrucciones) lo añade cada función con su alcance:
+# reglas largas confunden al modelo pequeño y lo hacen cambiar de idioma (04/11/2026).
 
 
 async def _get_ia_config():
@@ -135,15 +143,22 @@ class SmartComposeRequest(BaseModel):
     context: str
     subject: Optional[str] = ""
     to: Optional[str] = ""
+    # Idioma del corrector del redactor («es-EC», «en»…): decide si el texto escrito es corto o
+    # ambiguo. Si lo escrito es claramente de un idioma, manda lo escrito.
+    idioma: Optional[str] = ""
 
 
 class SmartComposeResponse(BaseModel):
     suggestion: str
+    # True: la sugerencia continúa la palabra que la persona dejó a medias y se pega sin espacio.
+    continua_palabra: bool = False
 
 
 class SummarizeRequest(BaseModel):
     message_ids: list[str]
     folder: str = "INBOX"
+    # Idioma de la persona (no del correo): el resumen sale en español salvo que pida «en».
+    idioma: Optional[str] = ""
 
 
 class SummarizeResponse(BaseModel):
@@ -160,10 +175,45 @@ class SuggestSubjectResponse(BaseModel):
 
 # --- Utilidad: llamar al LLM ---
 async def _call_llm(
-    prompt: str, system: str = "", temperature: float = 0.7, max_tokens: int = 800
+    prompt: str,
+    system: str = "",
+    temperature: float = 0.7,
+    max_tokens: int = 800,
+    calidad: bool = False,
 ) -> str:
-    """Llama al endpoint /api/v1/ia/generate del servidor IA con retry automático."""
+    """Llama al servidor IA con retry automático.
+
+    `calidad=True` (redactar, resumir, «Conversa con tu correo») usa IA_MODEL_CALIDAD en
+    IA_GPU_CALIDAD si está definido; si falla o vuelve vacío, reintenta UNA vez con el modelo
+    normal (ver app/ai/llm_calidad.py)."""
     ia = await _get_ia_config()
+    ia_cal = config_calidad(ia, get_settings()) if calidad else None
+    if not ia_cal:
+        return await _generar(ia, prompt, system, temperature, max_tokens)
+    inicio = time.monotonic()
+    try:
+        return await _generar(ia_cal, prompt, system, temperature, max_tokens, 1)
+    except HTTPException as e:
+        logger.warning(
+            "IA_CALIDAD_RESPALDO modelo=%s gpu=%s motivo=%s: se reintenta con %s",
+            ia_cal["model"],
+            ia_cal["preferir_gpu"],
+            e.detail,
+            ia.get("model"),
+        )
+    respaldo = config_respaldo(ia, inicio)
+    return await _generar(respaldo, prompt, system, temperature, max_tokens, 1)
+
+
+async def _generar(
+    ia: dict,
+    prompt: str,
+    system: str,
+    temperature: float,
+    max_tokens: int,
+    intentos: int = 2,
+) -> str:
+    """Una petición de generación con la config `ia` (hasta `intentos` veces)."""
     prov = ia["provider"]
     if prov == "ollama":
         payload = {
@@ -195,11 +245,12 @@ async def _call_llm(
             "max_tokens": max_tokens,
             "usar_rag": False,
             "model": ia["model"],
-            "preferir_gpu": "remota",
+            "preferir_gpu": ia.get("preferir_gpu") or "remota",
         }
     last_error = None
 
-    for intento in range(2):  # max 2 intentos
+    for intento in range(intentos):  # max 2 intentos
+        crono = medicion_llm.Cronometro(ia, intento + 1)
         try:
             async with httpx.AsyncClient(
                 timeout=ia.get("timeout") or IA_TIMEOUT
@@ -212,6 +263,7 @@ async def _call_llm(
 
                 # Error explícito del gateway (ambas GPUs fallaron)
                 if "error" in data:
+                    crono.anotar("gateway_error", data)
                     logger.warning(
                         f"LLM gateway error (intento {intento+1}): {data['error']}"
                     )
@@ -235,6 +287,7 @@ async def _call_llm(
 
                 # Validar respuesta vacía
                 if not raw_resp or not raw_resp.strip():
+                    crono.anotar("vacia", data)
                     logger.warning(
                         f"LLM respuesta vacia (intento {intento+1}, modelo={data.get('modelo', '?')})"
                     )
@@ -251,14 +304,17 @@ async def _call_llm(
                     flags=_re.DOTALL | _re.IGNORECASE,
                 )
                 raw_resp = raw_resp[:5000]
+                crono.anotar("ok", data)
                 return raw_resp
 
         except httpx.TimeoutException:
+            crono.anotar("timeout")
             logger.error(f"LLM timeout (intento {intento+1})")
             last_error = "timeout"
         except HTTPException:
             raise
         except Exception as e:
+            crono.anotar("error")
             logger.error(f"LLM error (intento {intento+1}): {e}")
             last_error = str(e)
 
@@ -349,6 +405,8 @@ async def smart_reply(
         text = f"Invitación: {subject}"
     text = text[:1500]
     sender = msg.get("from", "")
+    # Se responde en el idioma del correo (inglés o, por defecto, español).
+    lengua = idioma.elegir(idioma.detectar(f"{subject}\n{text}"))
 
     prompt = (
         "Lee el siguiente correo y genera exactamente 3 respuestas DIFERENTES en espanol.\n"
@@ -367,25 +425,47 @@ async def smart_reply(
 
     system = (
         MAQUITA_CONTEXT
+        + estilo.instrucciones("redaccion")
         + "Generas respuestas de correo contextualizadas basadas en el contenido real del mensaje. "
         "NUNCA generas respuestas genericas como 'Gracias por tu mensaje'. "
         "Respondes SOLO con JSON valido, sin texto adicional." + INSTRUCCION_DATOS
     )
+    if lengua == idioma.EN:
+        prompt, system = textos_en.smart_reply(sender, subject, text)
+        system = (
+            textos_en.contexto() + estilo.instrucciones("redaccion", lengua) + system
+        )
 
-    raw = await _call_llm(prompt, system=system, temperature=0.8, max_tokens=1200)
+    raw = await alfabeto.generar(
+        lambda t: _call_llm(
+            # 700 tokens bastan para 3 respuestas de 2-5 oraciones (antes 1200: más espera, 05/11/2026)
+            prompt,
+            system=system,
+            temperature=t,
+            max_tokens=700,
+            calidad=True,
+        ),
+        0.8,
+        "smart_reply",
+    )
     # [S7-2] Solo se acepta el JSON esperado; cualquier otra cosa se rechaza (reserva contextual)
     suggestions = json_de_cadenas(raw, 3)
     if suggestions is None:
         logger.warning("IA_SALIDA_RECHAZADA funcion=smart_reply user=%s", user)
         suggestions = []
+    fuente = f"{sender}\n{subject}\n{text}"
+    suggestions = [estilo.institucionalizar(s, fuente) for s in suggestions]
+    suggestions = [s for s in suggestions if s]  # sin texto válido: se usa la reserva
 
     # Asegurar que siempre haya 3 sugerencias
     # Fallbacks contextualizados si el LLM no genero suficientes
     fallbacks = [
-        f'Gracias por tu correo sobre "{subject}". Lo revisare y te respondo a la brevedad.',
-        f'Recibi tu mensaje sobre "{subject}". Podrias ampliar los detalles?',
-        f"Agradezco la informacion. Coordinaremos internamente y te confirmo pronto.",
+        f'Gracias por su correo sobre "{subject}". Lo revisaré y le responderé a la brevedad.',
+        f'Recibí su mensaje sobre "{subject}". ¿Podría ampliar los detalles, por favor?',
+        "Agradezco la información. Coordinaremos internamente y le confirmaré pronto.",
     ]
+    if lengua == idioma.EN:
+        fallbacks = textos_en.respuestas_reserva(subject)
     fb_idx = 0
     while len(suggestions) < 3:
         suggestions.append(fallbacks[fb_idx % len(fallbacks)])
@@ -413,7 +493,7 @@ async def smart_compose(
     subject_field = body.subject or "(sin asunto)"
 
     prompt = (
-        "Completa este correo empresarial en espanol de forma profesional y breve. "
+        "Completa este correo institucional en espanol de forma profesional y breve. "
         "Solo devuelve la continuacion, no repitas lo que ya esta escrito.\n\n"
         f"Para: {to_field}\n"
         f"Asunto: {subject_field}\n"
@@ -423,18 +503,38 @@ async def smart_compose(
 
     system = (
         MAQUITA_CONTEXT
+        + estilo.instrucciones("minimo")
         + "Tu tarea: continuar el correo. Solo devuelves la continuacion del texto, sin repetir lo ya escrito."
     )
+    # Idioma: el de lo escrito; si es corto o ambiguo, el del corrector; si no, español.
+    lengua = idioma.elegir(idioma.detectar(body.context), body.idioma)
+    if lengua == idioma.EN:
+        prompt, system = textos_en.smart_compose(
+            body.context, body.to or "(recipient)", body.subject or "(no subject)"
+        )
+        system = textos_en.contexto() + estilo.instrucciones("minimo", lengua) + system
 
-    raw = await _call_llm(prompt, system=system, temperature=0.6, max_tokens=64)
+    raw = await alfabeto.generar(
+        lambda t: _call_llm(prompt, system=system, temperature=t, max_tokens=64),
+        0.6,
+        "smart_compose",
+    )
+    con_espacio = raw[:1].isspace()
     suggestion = raw.strip()
 
     # Limpiar si el LLM repitio el contexto
     ctx_prefix = body.context.strip().lower()[:30]
     if suggestion.lower().startswith(ctx_prefix):
-        suggestion = suggestion[len(body.context) :].strip()
+        resto = suggestion[len(body.context) :]
+        con_espacio, suggestion = resto[:1].isspace(), resto.strip()
+    # ¿Continúa la palabra a medias («Estimad» + «as»)? (antes: siempre con espacio delante)
+    base, continua = union.unir(body.context, suggestion, con_espacio)
+    suggestion = estilo.institucionalizar_continuacion(
+        body.context, base, f"{body.context}\n{subject_field}", body.to or ""
+    )
+    continua = union.reevaluar(body.context, base, suggestion, continua)
 
-    return SmartComposeResponse(suggestion=suggestion)
+    return SmartComposeResponse(suggestion=suggestion, continua_palabra=continua)
 
 
 # =====================================================
@@ -488,14 +588,31 @@ async def summarize_thread(
 
     system = (
         MAQUITA_CONTEXT
-        + "Tu tarea ahora: resumir el hilo de correo de forma concisa en espanol."
+        + estilo.instrucciones("analisis")
+        + "Tu tarea ahora: resumir el hilo de correo de forma concisa en espanol. "
+        "Aunque los correos estén en otro idioma, el resumen va en español."
         + INSTRUCCION_DATOS
     )
+    # El resumen es para la persona: en su idioma (español por defecto), no en el del correo.
+    if idioma.elegir(body.idioma) == idioma.EN:
+        prompt, system = textos_en.summarize(thread_content)
+        system = textos_en.contexto() + estilo.instrucciones("analisis", "en") + system
 
-    raw = await _call_llm(prompt, system=system, temperature=0.3, max_tokens=800)
+    raw = await alfabeto.generar(
+        lambda t: _call_llm(
+            prompt, system=system, temperature=t, max_tokens=800, calidad=True
+        ),
+        0.3,
+        "summarize",
+    )
     resumen = texto_valido(raw)  # [S7-2]
     if resumen is None:
         logger.warning("IA_SALIDA_RECHAZADA funcion=summarize user=%s", user)
+        raise HTTPException(
+            status_code=502, detail="La IA no devolvio un resumen valido"
+        )
+    resumen = estilo.institucionalizar(resumen, thread_content, modo="analisis")
+    if not resumen:  # todo estaba en otro alfabeto
         raise HTTPException(
             status_code=502, detail="La IA no devolvio un resumen valido"
         )
@@ -527,14 +644,29 @@ async def suggest_subject(
 
     system = (
         MAQUITA_CONTEXT
+        + estilo.instrucciones("minimo")
         + "Tu tarea ahora: sugerir asuntos de correo profesionales en espanol. Solo respondes con JSON."
     )
+    en_ingles = (
+        idioma.detectar(body.body) == idioma.EN
+    )  # asuntos en el idioma del correo
+    if en_ingles:
+        prompt, system = textos_en.suggest_subject(body.body)
+        system = textos_en.contexto() + estilo.instrucciones("minimo", "en") + system
 
-    raw = await _call_llm(prompt, system=system, temperature=0.7, max_tokens=200)
+    raw = await alfabeto.generar(
+        lambda t: _call_llm(prompt, system=system, temperature=t, max_tokens=200),
+        0.7,
+        "suggest_subject",
+    )
     suggestions = json_de_cadenas(raw, 3) or []  # [S7-2] solo el JSON esperado
+    suggestions = [estilo.institucionalizar(s, body.body) for s in suggestions]
+    suggestions = [s for s in suggestions if s]
 
     while len(suggestions) < 2:
-        suggestions.append("Informacion importante")
+        suggestions.append(
+            "Important information" if en_ingles else "Informacion importante"
+        )
 
     return SuggestSubjectResponse(suggestions=suggestions[:3])
 

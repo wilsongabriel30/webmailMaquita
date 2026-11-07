@@ -65,6 +65,23 @@ async def rsvp_calendar_invite(
         # 2. Send RSVP reply email to organizer
         reply_sent = await _send_rsvp_reply(request, username, invite, body.response)
 
+        # 3. Si el organizador está en este mismo sistema, que vea la respuesta en su copia
+        #    (05/11/2026): mismo recorrido que respond_invitation en app/calendar/service.py.
+        #    El UID del ICS es events.uid, así que se anota en todas las copias de ese uid.
+        try:
+            from app.calendar import respuestas
+
+            await respuestas.propagar(
+                request.app.state.db_pool,
+                invite.event_uid,
+                username,
+                body.response.lower(),
+            )
+        except Exception as e:  # noqa: BLE001  (nunca frena la respuesta al usuario)
+            logger.warning(
+                "rsvp %s: no se pudo propagar al organizador: %s", invite.event_uid, e
+            )
+
         return {
             "status": "ok",
             "response": body.response,

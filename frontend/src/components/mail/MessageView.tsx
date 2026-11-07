@@ -3,9 +3,12 @@ import AvisoImagenesBloqueadas from './AvisoImagenesBloqueadas';
 import CuerpoHtmlConImagenes from './CuerpoHtmlConImagenes';
 import { destinatariosResponderATodos } from '../../lib/destinatariosRespuesta';
 import { BarraAccionesCorreo } from './BarraAccionesCorreo';
+import { reenviarComoAdjunto } from '../../lib/correosComoAdjunto';
 import { ImagenesEnCuerpo } from './ImagenesEnCuerpo';
 import { useCabeceraPlegable } from '../../hooks/useCabeceraPlegable';
 import { sanitizeHtml } from '../../lib/sanitize';
+import { escapeHtml, extractEmail, buildQuoteHtml } from '../../lib/citaRespuesta';
+import { DireccionConNombre } from './DireccionConNombre';   // personas por su nombre (06/11/2026)
 import type { MessageFull, AttachmentInfo, CalendarInvite } from '../../types';
 
 /** Abre el panel de redacción, con la firma exacta que expone el store. */
@@ -22,6 +25,7 @@ interface EstadoRetirada {
 }
 import React, { useState, useCallback } from 'react';
 import { formatDistanceToNow, format } from 'date-fns';
+import { fechaCortaLista } from '../../lib/fechaLegible';
 import { es } from 'date-fns/locale';
 import { api } from '../../api/client';
 import { useMailStore } from '../../store/mailStore';
@@ -33,21 +37,14 @@ import TrackingNotice from './TrackingNotice';
 import AvisoFechaRemitente from './AvisoFechaRemitente';
 import { fechaMostrada } from '../../lib/fechaCorreo';
 import RemitenteExternoAviso from './RemitenteExternoAviso';
+import { EsperaIACorreo } from '../ai/EsperaIACorreo';
+import { AvisoResultadoIA, type ResultadoIA } from '../ai/AvisoResultadoIA';
 
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                           */
 /* ------------------------------------------------------------------ */
 
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
 
 const AVATAR_COLORS = [
   '#0078d4', '#00b294', '#e74856', '#8764b8', '#ca5010',
@@ -73,11 +70,6 @@ function extractName(raw: string): string {
   return raw.replace(/<.*>/, '').trim() || raw;
 }
 
-function extractEmail(raw: string): string {
-  const match = raw.match(/<([^>]+)>/);
-  return match ? match[1] : raw.trim();
-}
-
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -96,43 +88,7 @@ function decodeUnicodeEscapes(text: string): string {
 }
 
 
-/* ------------------------------------------------------------------ */
-/*  Quote builder for Reply / Forward                                 */
-/* ------------------------------------------------------------------ */
-
-function buildQuoteHtml(
-  from: string,
-  date: string,
-  to: string,
-  cc: string,
-  subject: string,
-  htmlBody: string,
-  isForward: boolean,
-): string {
-  const header = isForward
-    ? '<p style="font-weight:bold;margin:0 0 8px">--- Mensaje reenviado ---</p>'
-    : '';
-
-  const ccLine = cc ? `<b>CC:</b> ${escapeHtml(cc)}<br>` : '';
-
-  // Escalar imagenes y tablas de firmas para que no se desborden en compose
-  // Bug 2026-04-10: firmas con imagenes grandes ocupaban toda la pantalla
-  // Se aplican estilos INLINE porque TipTap elimina <style> tags
-  // Imagenes/tablas se escalan via CSS en EditorContent (clase .quoted-content)
-
-  return `
-<div class="quoted-content" style="border-top:1px solid #edebe9;padding-top:12px;margin-top:20px;max-width:100%;overflow:hidden">
-  ${header}
-  <p style="font-size:12px;color:#605e5c;margin:0 0 8px">
-    <b>De:</b> ${escapeHtml(from)}<br>
-    <b>Enviado:</b> ${escapeHtml(date)}<br>
-    <b>Para:</b> ${escapeHtml(to)}<br>
-    ${ccLine}
-    <b>Asunto:</b> ${escapeHtml(subject)}
-  </p>
-  <div style="font-size:14px">${sanitizeHtml(htmlBody)}</div>
-</div>`.trim();
-}
+// buildQuoteHtml, escapeHtml y extractEmail viven en lib/citaRespuesta.ts (27/10/2026).
 
 
 /* ── Add to contacts button (Fase 1 Premium) ── */
@@ -162,7 +118,7 @@ const AddToContactBtn: React.FC<{ name: string; email: string }> = ({ name, emai
 
 
 /* ── Render email addresses with add-to-contacts button ── */
-const EmailsWithContacts: React.FC<{ raw: string }> = ({ raw }) => {
+const EmailsWithContacts: React.FC<{ raw: string; completo?: boolean }> = ({ raw, completo }) => {
   if (!raw || !raw.trim()) return <span style={{ color: '#a19f9d', fontStyle: 'italic' }}>(destinatarios ocultos)</span>;
   // Split by comma, preserve "Name <email>" format
   const addrs = raw.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map(s => s.trim()).filter(Boolean);
@@ -174,7 +130,7 @@ const EmailsWithContacts: React.FC<{ raw: string }> = ({ raw }) => {
         return (
           <span key={i}>
             {i > 0 && ', '}
-            <span>{addr}</span>
+            <DireccionConNombre texto={addr} completo={completo} />
             <AddToContactBtn name={name} email={email} />
           </span>
         );
@@ -601,9 +557,9 @@ const ThreadMessageCard: React.FC<ThreadMessageCardProps> = ({
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontWeight: 600, fontSize: 13, color: '#323130' }}>{senderName}</span>
-            <span style={{ fontSize: 11, color: '#a19f9d', marginLeft: 'auto', whiteSpace: 'nowrap' }} title={fullDate}>
-              {relDate}
+            <span style={{ fontWeight: 600, fontSize: 13, color: '#323130' }}><DireccionConNombre texto={msg.from} /></span>
+            <span style={{ fontSize: 12, color: '#605e5c', marginLeft: 'auto', whiteSpace: 'nowrap' }} title={fullDate}>
+              {fechaVer ? fechaCortaLista(new Date(fechaVer)) : ''}
             </span>
           </div>
           <p style={{
@@ -646,10 +602,10 @@ const ThreadMessageCard: React.FC<ThreadMessageCardProps> = ({
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-            <span style={{ fontWeight: 600, fontSize: 14, color: '#323130' }}>{senderName}</span>
+            <span style={{ fontWeight: 600, fontSize: 14, color: '#323130' }}><DireccionConNombre texto={msg.from} /></span>
             <span style={{ fontSize: 12, color: '#605e5c' }}>&lt;{senderEmail}&gt;</span>
-            <span style={{ fontSize: 12, color: '#a19f9d', marginLeft: 'auto', whiteSpace: 'nowrap' }} title={fullDate}>
-              {relDate}
+            <span style={{ fontSize: 13, color: '#605e5c', marginLeft: 'auto', whiteSpace: 'nowrap' }} title={relDate}>
+              {fullDate}
             </span>
           </div>
           <div style={{ fontSize: 12, color: '#605e5c', marginTop: 2 }}>
@@ -726,13 +682,28 @@ const MessageView: React.FC = () => {
   // IA: Smart Reply + Summarize
   const [smartReplies, setSmartReplies] = useState<string[]>([]);
   const [loadingReplies, setLoadingReplies] = useState(false);
+  // Respuesta IA sin sugerencias o con fallo: se avisa en vez de volver en silencio.
+  const [avisoRespuesta, setAvisoRespuesta] = useState<ResultadoIA | null>(null);
   const [summary, setSummary] = useState('');
+  // Resumen sin contenido o con fallo: aviso de error con «Reintentar», nunca dentro del recuadro de resultado (H12).
+  const [avisoResumen, setAvisoResumen] = useState<ResultadoIA | null>(null);
   const [loadingSummary, setLoadingSummary] = useState(false);
+  // Permiten cancelar la espera de la IA (botón «Cancelar» del indicador, 04/11/2026)
+  const abortRespuesta = React.useRef<AbortController | null>(null);
+  const abortResumen = React.useRef<AbortController | null>(null);
 
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewAttIdx, setPreviewAttIdx] = useState(0);
   // Cabecera que se pliega al desplazar el cuerpo (aprovecha pantallas bajas).
   const cabecera = useCabeceraPlegable(msg?.uid);
+  // La rueda sobre la cabecera o los adjuntos también desplaza el cuerpo (04/11/2026).
+  const cuerpoRef = React.useRef<HTMLDivElement>(null);
+  const ruedaEnVisor = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
+    const cuerpo = cuerpoRef.current;
+    const destino = e.target as HTMLElement;
+    if (!cuerpo || cuerpo.contains(destino) || destino.closest('[role="dialog"], .fixed')) return;
+    cuerpo.scrollTop += e.deltaY;
+  }, []);
   const [previewContext, setPreviewContext] = useState<{ folder: string; uid: number; attachments: AttachmentInfo[] }>({ folder: '', uid: 0, attachments: [] });
 
   const openAttachmentPreview = useCallback((folder: string, uid: number, attachments: AttachmentInfo[], index: number) => {
@@ -912,6 +883,12 @@ const MessageView: React.FC = () => {
     });
   }, [msg, openCompose, currentFolder]);
 
+  // «Reenviar como adjunto»: el correo viaja como .eml dentro de uno nuevo (lib/correosComoAdjunto.ts).
+  const handleForwardAsAttachment = useCallback(() => {
+    if (!msg) return;
+    reenviarComoAdjunto([{ folder: msg.folder || currentFolder, uid: msg.uid, subject: msg.subject || '' }]);
+  }, [msg, currentFolder]);
+
   const handleEditDraft = useCallback(() => {
     if (!msg || !openCompose) return;
     const toList = msg.to ? msg.to.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
@@ -963,14 +940,22 @@ const MessageView: React.FC = () => {
     if (!msg || loadingReplies) return;
     setLoadingReplies(true);
     setSmartReplies([]);
+    setAvisoRespuesta(null);
+    const ctl = new AbortController();
+    abortRespuesta.current = ctl;
     try {
       const data = await api.post<{ suggestions: string[] }>('/ai/smart-reply', {
         message_id: String(msg.uid),
         folder: currentFolder,
-      });
-      setSmartReplies(data.suggestions || []);
+      }, { signal: ctl.signal });
+      const sugerencias = Array.isArray(data?.suggestions)
+        ? data.suggestions.filter((t) => typeof t === 'string' && t.trim()) : [];
+      setSmartReplies(sugerencias);
+      if (!sugerencias.length && !ctl.signal.aborted) setAvisoRespuesta('vacio');
     } catch {
       setSmartReplies([]);
+      // Cancelar es decisión de la persona: no se presenta como fallo.
+      if (!ctl.signal.aborted) setAvisoRespuesta('error');
     }
     setLoadingReplies(false);
   }, [msg, currentFolder, loadingReplies]);
@@ -1000,18 +985,23 @@ const MessageView: React.FC = () => {
     if (loadingSummary) return;
     setLoadingSummary(true);
     setSummary('');
+    setAvisoResumen(null);
     const uids = threadMessages.length > 1
       ? threadMessages.map(m => String(m.uid))
       : msg ? [String(msg.uid)] : [];
     if (!uids.length) { setLoadingSummary(false); return; }
+    const ctl = new AbortController();
+    abortResumen.current = ctl;
     try {
       const data = await api.post<{ summary: string }>('/ai/summarize', {
         message_ids: uids,
         folder: currentFolder,
-      });
-      setSummary(data.summary || 'No se pudo generar resumen');
+      }, { signal: ctl.signal });
+      const texto = (data?.summary || '').trim();
+      if (texto) setSummary(texto);
+      else setAvisoResumen('vacio');
     } catch {
-      setSummary('No se pudo generar resumen para este mensaje');
+      if (!ctl.signal.aborted) setAvisoResumen('error');
     }
     setLoadingSummary(false);
   }, [msg, threadMessages, currentFolder, loadingSummary]);
@@ -1019,7 +1009,10 @@ const MessageView: React.FC = () => {
   // Reset IA state when message changes
   React.useEffect(() => {
     setSmartReplies([]);
+    setAvisoRespuesta(null);
     setSummary('');
+    setAvisoResumen(null);
+    return () => { abortRespuesta.current?.abort(); abortResumen.current?.abort(); };
   }, [msg?.uid]);
 
   /* ---- Loading state ---- */
@@ -1139,13 +1132,31 @@ const MessageView: React.FC = () => {
           </div>
         </div>
       )}
+      <EsperaIACorreo respondiendo={loadingReplies} resumiendo={loadingSummary}
+        onCancelarRespuesta={() => abortRespuesta.current?.abort()} onCancelarResumen={() => abortResumen.current?.abort()} />
+      {avisoRespuesta && !loadingReplies && (
+        <AvisoResultadoIA tipo={avisoRespuesta}
+          textoVacio="Esta vez no se encontraron respuestas sugeridas para este correo. Puede intentarlo de nuevo o escribir la respuesta usted mismo."
+          textoError="No se pudo preparar la respuesta en este momento. Revise su conexión e inténtelo otra vez en unos minutos."
+          onReintentar={() => { setAvisoRespuesta(null); handleSmartReply(); }}
+          onCerrar={() => setAvisoRespuesta(null)} />
+      )}
+      {avisoResumen && !loadingSummary && (
+        <AvisoResultadoIA tipo="error"
+          textoVacio=""
+          textoError={avisoResumen === 'vacio'
+            ? 'No se pudo hacer el resumen de este correo. Puede intentarlo de nuevo o leer el mensaje completo.'
+            : 'No se pudo hacer el resumen en este momento. Revise su conexión e inténtelo otra vez en unos minutos.'}
+          onReintentar={() => { setAvisoResumen(null); handleSummarize(); }}
+          onCerrar={() => setAvisoResumen(null)} />
+      )}
       {/* IA: Summary panel (thread) */}
       {summary && (
         <div style={{ padding: '8px 24px', borderTop: '1px solid #edebe9', background: '#f8fbf5', flexShrink: 0 }}>
           <div style={{ fontSize: 11, color: '#498205', fontWeight: 600, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" /></svg>
             Resumen IA
-            <button onClick={() => setSummary('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#a19f9d', cursor: 'pointer', fontSize: 11 }}>&times;</button>
+            <button type="button" onClick={() => setSummary('')} aria-label="Cerrar resumen" title="Cerrar resumen" style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#605e5c', cursor: 'pointer', fontSize: 13 }}><span aria-hidden="true">&times;</span></button>
           </div>
           <p style={{ fontSize: 13, color: '#323130', lineHeight: 1.5, margin: 0 }}>{summary}</p>
         </div>
@@ -1153,7 +1164,7 @@ const MessageView: React.FC = () => {
 
         <BarraAccionesCorreo
           esBorrador={currentFolder === 'Drafts'} onEditarBorrador={handleEditDraft}
-          onResponder={handleReply} onResponderTodos={handleReplyAll} onReenviar={handleForward}
+          onResponder={handleReply} onResponderTodos={handleReplyAll} onReenviar={handleForward} onReenviarAdjunto={handleForwardAsAttachment}
           folder={currentFolder} uid={msg.uid} from={msg.from || (msg as MessageFull).from_addr || ''} asunto={msg.subject} conAsignar
           onRespuestaIA={handleSmartReply} generandoRespuestas={loadingReplies}
           onResumir={handleSummarize} resumiendo={loadingSummary}
@@ -1207,7 +1218,7 @@ const MessageView: React.FC = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#fff' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#fff' }} onWheel={ruedaEnVisor}>
       {sourceText !== null && (
         <SourceModal source={sourceText} onClose={() => setSourceText(null)} />
       )}
@@ -1229,7 +1240,7 @@ const MessageView: React.FC = () => {
           </span>
           {cabecera.plegada && (
             <span style={{ fontSize: 12, fontWeight: 400, color: '#605e5c', whiteSpace: 'nowrap' }}>
-              {senderName} · {relDate}
+              <DireccionConNombre texto={msg.from} /> · {fechaVer ? fechaCortaLista(new Date(fechaVer)) : ''}
             </span>
           )}
           <button
@@ -1256,11 +1267,11 @@ const MessageView: React.FC = () => {
 
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-              <span style={{ fontWeight: 600, fontSize: 14, color: '#323130' }}>{senderName}</span>
+              <span style={{ fontWeight: 600, fontSize: 14, color: '#323130' }}><DireccionConNombre texto={msg.from} /></span>
               <span style={{ fontSize: 12, color: '#605e5c' }}>&lt;{senderEmail}&gt;</span>
               <AddToContactBtn name={senderName} email={senderEmail} />
-              <span style={{ fontSize: 12, color: '#a19f9d', marginLeft: 'auto', whiteSpace: 'nowrap' }} title={fullDate}>
-                {relDate}
+              <span style={{ fontSize: 13, color: '#605e5c', marginLeft: 'auto', whiteSpace: 'nowrap' }} title={relDate}>
+                {fullDate}
               </span>
             </div>
             <div style={{ fontSize: 12, color: '#605e5c', marginTop: 2 }}>
@@ -1271,10 +1282,10 @@ const MessageView: React.FC = () => {
               onClick={() => setShowDetails((v) => !v)}
               style={{
                 background: 'none', border: 'none', padding: 0, marginTop: 4,
-                fontSize: 12, color: '#0078d4', cursor: 'pointer',
+                fontSize: 13, color: '#0078d4', cursor: 'pointer',
               }}
             >
-              {showDetails ? 'Menos' : 'Más'}
+              {showDetails ? 'Menos detalles' : 'Más detalles'}
             </button>
 
             {showDetails && (
@@ -1282,9 +1293,9 @@ const MessageView: React.FC = () => {
                 marginTop: 8, padding: 12, background: '#faf9f8', borderRadius: 4,
                 fontSize: 12, lineHeight: 1.8, color: '#323130',
               }}>
-                <div><b>De:</b> <EmailsWithContacts raw={msg.from} /></div>
-                <div><b>Para:</b> <EmailsWithContacts raw={msg.to} /></div>
-                {msg.cc && <div><b>CC:</b> <EmailsWithContacts raw={msg.cc} /></div>}
+                <div><b>De:</b> <EmailsWithContacts raw={msg.from} completo /></div>
+                <div><b>Para:</b> <EmailsWithContacts raw={msg.to} completo /></div>
+                {msg.cc && <div><b>CC:</b> <EmailsWithContacts raw={msg.cc} completo /></div>}
                 <div><b>Fecha:</b> {fullDate}</div>
                 {msg.received_date && msg.date && msg.received_date !== msg.date && (
                   <div><b>Fecha que puso el remitente:</b> {format(new Date(msg.date), "EEEE, d 'de' MMMM 'de' yyyy, HH:mm", { locale: es })}</div>
@@ -1293,13 +1304,16 @@ const MessageView: React.FC = () => {
                 {msg.importance && msg.importance.toLowerCase() !== 'normal' && (
                   <div><b>Prioridad:</b> {msg.importance}</div>
                 )}
-                {msg.size > 0 && <div><b>Tamano:</b> {formatSize(msg.size)}</div>}
+                {msg.size > 0 && <div><b>Tamaño:</b> {formatSize(msg.size)}</div>}
               </div>
             )}
           </div>
         </div>
 
         <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+          {/* «Descargar .eml» y «Ver origen» son herramientas de soporte: solo a la vista tras
+              pulsar «Más», para que lo primero que se vea sea Imprimir y el correo. */}
+          {showDetails && (<>
           <button style={btnStyle} onClick={handleDownloadEml} title="Descargar como .eml">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
               <path d="M8 1v9.5M8 10.5l-3-3M8 10.5l3-3M2 12v2h12v-2"/>
@@ -1312,6 +1326,7 @@ const MessageView: React.FC = () => {
             </svg>
             {loadingSource ? 'Cargando...' : 'Ver origen del mensaje'}
           </button>
+          </>)}
           <button style={btnStyle} onClick={handlePrint} title="Imprimir">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
               <path d="M4 1h8v3H4zM2 5h12v7H4v3h8v-3h2V5zM4 10h8"/>
@@ -1350,7 +1365,7 @@ const MessageView: React.FC = () => {
       )}
 
       {/* Body (scrollable; la invitación va DENTRO para poder verla completa) */}
-      <div style={{ flex: 1, overflow: 'auto' }} onScroll={cabecera.onScroll}>
+      <div ref={cuerpoRef} style={{ flex: 1, overflow: 'auto' }} onScroll={cabecera.onScroll}>
         {displayMsg!.calendar_invite && (
           <div style={{ padding: '16px 24px 0' }}>
             <CalendarInviteBanner invite={displayMsg!.calendar_invite} folder={currentFolder} uid={msg.uid} />
@@ -1397,13 +1412,31 @@ const MessageView: React.FC = () => {
         </div>
       )}
 
+      <EsperaIACorreo respondiendo={loadingReplies} resumiendo={loadingSummary}
+        onCancelarRespuesta={() => abortRespuesta.current?.abort()} onCancelarResumen={() => abortResumen.current?.abort()} />
+      {avisoRespuesta && !loadingReplies && (
+        <AvisoResultadoIA tipo={avisoRespuesta}
+          textoVacio="Esta vez no se encontraron respuestas sugeridas para este correo. Puede intentarlo de nuevo o escribir la respuesta usted mismo."
+          textoError="No se pudo preparar la respuesta en este momento. Revise su conexión e inténtelo otra vez en unos minutos."
+          onReintentar={() => { setAvisoRespuesta(null); handleSmartReply(); }}
+          onCerrar={() => setAvisoRespuesta(null)} />
+      )}
+      {avisoResumen && !loadingSummary && (
+        <AvisoResultadoIA tipo="error"
+          textoVacio=""
+          textoError={avisoResumen === 'vacio'
+            ? 'No se pudo hacer el resumen de este correo. Puede intentarlo de nuevo o leer el mensaje completo.'
+            : 'No se pudo hacer el resumen en este momento. Revise su conexión e inténtelo otra vez en unos minutos.'}
+          onReintentar={() => { setAvisoResumen(null); handleSummarize(); }}
+          onCerrar={() => setAvisoResumen(null)} />
+      )}
       {/* IA: Summary panel */}
       {summary && (
         <div style={{ padding: '8px 24px', borderTop: '1px solid #edebe9', background: '#f8fbf5', flexShrink: 0 }}>
           <div style={{ fontSize: 11, color: '#498205', fontWeight: 600, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" /></svg>
             Resumen IA
-            <button onClick={() => setSummary('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#a19f9d', cursor: 'pointer', fontSize: 11 }}>✕</button>
+            <button type="button" onClick={() => setSummary('')} aria-label="Cerrar resumen" title="Cerrar resumen" style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#605e5c', cursor: 'pointer', fontSize: 13 }}><span aria-hidden="true">✕</span></button>
           </div>
           <p style={{ fontSize: 13, color: '#323130', lineHeight: 1.5, margin: 0 }}>{summary}</p>
         </div>
@@ -1411,7 +1444,7 @@ const MessageView: React.FC = () => {
 
       <BarraAccionesCorreo
         esBorrador={currentFolder === 'Drafts'} onEditarBorrador={handleEditDraft}
-        onResponder={handleReply} onResponderTodos={handleReplyAll} onReenviar={handleForward}
+        onResponder={handleReply} onResponderTodos={handleReplyAll} onReenviar={handleForward} onReenviarAdjunto={handleForwardAsAttachment}
         folder={currentFolder} uid={msg.uid} from={msg.from || (msg as MessageFull).from_addr || ''} asunto={msg.subject}
         onRespuestaIA={handleSmartReply} generandoRespuestas={loadingReplies}
         onResumir={handleSummarize} resumiendo={loadingSummary}

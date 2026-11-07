@@ -124,6 +124,28 @@ def _es_telefono(num: str, texto: str, inicio: int) -> bool:
     return previo.endswith("+") or previo.endswith("00")
 
 
+# Luhn + prefijo de marca tampoco bastan: un numero de lote, guia o certificado de 16 digitos
+# que empiece por 4 o 5 pasa las dos cosas (PDF de Cacao Lab, 05/11/2026, 52 rechazos). Una tarjeta
+# real en un correo casi siempre va agrupada (4-4-4-4) o acompanada de su contexto (tarjeta, visa,
+# vencimiento, cvv...). Un numero pegado sin contexto no se considera tarjeta (06/11/2026).
+_RE_CTX_TARJETA = re.compile(
+    r"tarjeta|t\.?\s*de\s*cr[eé]dito|d[eé]bito|visa|master\s*card|mastercard|amex|american\s+express|"
+    r"diners|discover|credit\s+card|card\s*(?:no|number|#)|cvv|cvc|c[oó]digo\s+de\s+seguridad|"
+    r"vencimiento|expira|exp\.?\s*date|valid\s+thru|titular|pan\b",
+    re.IGNORECASE,
+)
+_CTX_VENTANA = 160  # caracteres a cada lado del numero
+
+
+def _tarjeta_con_contexto(texto: str, inicio: int, fin: int) -> bool:
+    """True si el numero va agrupado (espacios o guiones) o tiene palabras de tarjeta cerca."""
+    crudo = texto[inicio:fin]
+    if re.search(r"\d[ -]\d", crudo):
+        return True
+    ventana = texto[max(0, inicio - _CTX_VENTANA) : fin + _CTX_VENTANA]
+    return bool(_RE_CTX_TARJETA.search(ventana))
+
+
 # ── Luhn (tarjetas de credito) ──────────────────────────────────────────────
 def _valid_luhn(num: str) -> bool:
     if not num.isdigit() or not (13 <= len(num) <= 19):
@@ -184,7 +206,11 @@ def detect_all(text: str, keywords: list[str] | None = None) -> list[Finding]:
         raw = re.sub(r"[ -]", "", m.group(0))
         if _es_telefono(raw, text, m.start()):
             continue
-        if _valid_luhn(raw) and _prefijo_de_tarjeta(raw):
+        if (
+            _valid_luhn(raw)
+            and _prefijo_de_tarjeta(raw)
+            and _tarjeta_con_contexto(text, m.start(), m.end())
+        ):
             add("tarjeta", "Tarjeta de crédito", raw)
             card_spans.append((m.start(), m.end()))
 

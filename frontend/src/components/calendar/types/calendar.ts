@@ -6,6 +6,8 @@ export interface CalendarInfo {
   color: string;
   timezone: string;
   is_default: boolean;
+  /** Calendario compartido conmigo sin permiso de escritura (05/11/2026). */
+  solo_lectura?: boolean;
 }
 
 export interface CalendarEvent {

@@ -23,6 +23,7 @@ async def list_messages(
     redis=None,
     username: str = "",
     buscar_en_contenido: bool = False,
+    direcciones_nombre: tuple | list = (),
 ) -> dict:
     """List messages with snippets, newest first."""
     uid_result = await list_message_uids(
@@ -34,6 +35,7 @@ async def list_messages(
         redis=redis,
         username=username,
         buscar_en_contenido=buscar_en_contenido,
+        direcciones_nombre=direcciones_nombre,
     )
 
     # If folder select failed, uid_result will have folder_error flag
@@ -148,6 +150,7 @@ async def get_message(
                 "size": a.size,
                 "part_number": a.part_number,
                 "is_inline": a.is_inline,
+                "dentro_de": a.dentro_de,
             }
             for a in normalized.attachments
         ],

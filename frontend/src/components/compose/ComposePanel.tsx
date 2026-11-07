@@ -5,20 +5,28 @@
 // @ts-nocheck
 import { addToOutbox, removeFromOutbox, updateOutboxStatus } from "../../lib/offlineStore";
 import { syncOutbox } from "../../lib/syncQueue";
+import { enviarCorreo } from "../../lib/envioSegundoPlano";   // envío inmediato (06/11/2026)
 import { SelectorArchivosNube } from './SelectorArchivosNube';
 import { SelectorRemitente } from './SelectorRemitente';
 import { leerBloqueoSensibilidad, pedirMotivoSensibilidad } from './bloqueoSensibilidad';
 import { cuentaDeCarpeta } from '../../lib/cuentas';
-import { sanitizeHtml, sanitizeSignatureHtml } from '../../lib/sanitize';
+import { sanitizeSignatureHtml } from '../../lib/sanitize';
 import { separarCitado } from '../../lib/borradorCitado';
 import { cargarAdjuntosDelBorrador, cargarAdjuntosDelReenvio, filtrarPeligrosos, huellaAdjuntos } from '../../lib/adjuntosBorrador';
 import { leerEstadoRedaccion } from '../../lib/estadoRedaccion';
+import { CitaMarcable } from './CitaMarcable';
+import { TIPO_ARRASTRE_CORREOS, correosArrastrados, descargarCorreosComoEml } from '../../lib/correosComoAdjunto';
 import { useRedaccionPersistente } from './useRedaccionPersistente';
 import { EVENTO_MOSTRAR_CAMPO } from './chipsArrastrables';
 import { IMAGENES_SOLTADAS_EN_TEXTO, OPCIONES_RESIZE, pegarImagenes, pegarImagenesFueraDelTexto, quitarImagenesLocales, soltarImagenes } from './imagenesPegadas';
 import { BarraImagen } from './BarraImagen';
 import { BotonAutocompletarIA, FranjaSugerenciaIA } from './SugerenciaIA';
+import { VistaPreviaRedaccion } from './asistente-redaccion';
 import { esReescritura, textoAParrafos } from '../../lib/autocompletar';
+import { insertarContinuacion } from './insertarSugerencia';
+import { IndicadorOrtografia } from './ortografia/IndicadorOrtografia';
+import { useIdiomaOrtografia } from './ortografia/useIdiomaOrtografia';
+import { aTexto } from './ortografia/idiomas';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { EVENTO_IMPORTANCIA, type Importancia } from '../mail/useImportanciaRedaccion';
 import React from 'react';
@@ -49,6 +57,7 @@ import { showToast, updateToast, dismissToast } from '../common/Toast';
 import { RecipientField } from './RecipientField';
 import { Attachments } from './Attachments';
 import { DirectoryPanel } from '../contacts/DirectoryPanel';
+import { textoErrorEnvio } from '../../lib/mensajeErrorEnvio';
 
 // Module-level pending send map (persists after compose unmounts)
 interface PendingSend { timerId: ReturnType<typeof setTimeout>; toastId: string; intervalId: ReturnType<typeof setInterval>; }
@@ -124,6 +133,17 @@ export function ComposePanel({ win }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // «Reenviar como adjunto»: los correos elegidos entran como .eml (lib/correosComoAdjunto.ts).
+  useEffect(() => {
+    const correos = win.data?.correos_adjuntos;
+    if (!correos?.length || estadoPrevio) return;
+    descargarCorreosComoEml(correos).then(({ cargados, fallidos }) => {
+      if (cargados.length) setAttachments(prev => [...prev, ...cargados]);
+      if (fallidos.length) showToast(`No se pudo adjuntar: ${fallidos.join(', ')}`);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Al reenviar, los adjuntos del correo original entran al redactor y salen con el mensaje.
   useEffect(() => {
     const origen = win.data?.reenvio_de;
@@ -183,6 +203,8 @@ export function ComposePanel({ win }: Props) {
     editorProps: {
       attributes: {
         class: 'outline-none px-6 py-2 text-[14px] leading-[22px] text-[#323130]',
+        // Corrector del navegador; el idioma (atributo lang) lo pone useIdiomaOrtografia.
+        spellcheck: 'true',
         style: 'font-family: Calibri, Segoe UI, sans-serif;',
       },
       handlePaste: (view, event) => pegarImagenes(view, event),
@@ -307,11 +329,14 @@ export function ComposePanel({ win }: Props) {
         if (sig) setSignatureHtml(sig);
         // Los archivos guardados con el borrador vuelven al redactor.
         if (win.draftUid && win.data.adjuntos_borrador?.length) {
+          // Hasta que termine la descarga, los guardados conservan los adjuntos del borrador
+          // en el servidor (05/11/2026; antes el primer autoguardado los perdía).
+          adjuntosEnCargaRef.current = true;
           cargarAdjuntosDelBorrador(win.draftUid, win.data.adjuntos_borrador).then(cargados => {
             if (!cargados.length) return;
             setAttachments(prev => [...prev, ...cargados]);
             huellaGuardadaRef.current = huellaAdjuntos(cargados);
-          });
+          }).finally(() => { adjuntosEnCargaRef.current = false; });
         }
       } else if (win.mode === 'new') {
         // Parrafo vacio, no '<p><br></p>': ese <br> es un nodo de verdad y el texto se escribia
@@ -363,7 +388,7 @@ export function ComposePanel({ win }: Props) {
     });
 
   // Guardado del borrador y conservación de lo escrito al minimizar (useRedaccionPersistente.ts).
-  const { saveDraft, cuerpoRef, huellaGuardadaRef } = useRedaccionPersistente(win, editor, estadoPrevio, {
+  const { saveDraft, cuerpoRef, huellaGuardadaRef, adjuntosEnCargaRef } = useRedaccionPersistente(win, editor, estadoPrevio, {
     to, cc, bcc, subject, showCc, showBcc, fromEmail, quotedHtml, signatureHtml, attachments,
   });
 
@@ -419,20 +444,24 @@ export function ComposePanel({ win }: Props) {
   // Close with save confirmation
   const handleClose = useCallback(async () => {
     const hasContent = !!(to || subject || (editor && editor.getText().trim()));
+    const cerrar = () => {
+      // Destruir editor antes de cerrar para evitar HTML residual
+      if (editor && !editor.isDestroyed) editor.commands.clearContent();
+      closeCompose(win.id);
+    };
     if (hasContent) {
-      // Auto-guardar borrador silenciosamente al cerrar (sin diálogo intrusivo)
-      try {
-        await saveDraft();
-        showToast('Borrador guardado');
-      } catch {
-        // Si falla el guardado, cerrar de todas formas
+      // Auto-guardar borrador al cerrar (sin diálogo intrusivo). Si el servidor no lo guardó
+      // (sin red, error), la ventana NO se cierra: cerrarla borraría también la copia local
+      // y la persona perdería lo escrito creyendo que quedó en Borradores.
+      const guardado = await saveDraft();
+      if (!guardado) {
+        showToast('No se pudo guardar el borrador (revise la conexión). La ventana sigue abierta para que no pierda lo escrito.',
+          { label: 'Cerrar sin guardar', onClick: cerrar }, { fijo: true });
+        return;
       }
+      showToast('Borrador guardado en «Borradores»');
     }
-    // Destruir editor antes de cerrar para evitar HTML residual
-    if (editor) {
-      editor.commands.clearContent();
-    }
-    closeCompose(win.id);
+    cerrar();
   }, [to, subject, editor, saveDraft, win.id, closeCompose]);
 
   // Convertir File a base64 para enviar adjuntos al backend
@@ -521,6 +550,9 @@ export function ComposePanel({ win }: Props) {
         }
       }
     } catch { /* si DLP no responde, no bloqueamos el env\u00edo */ }
+    // UID del borrador VIGENTE (05/11/2026): `win.draftUid` es el de cuando se abrió la ventana;
+    // los autoguardados lo van cambiando y con el viejo el envío no borraba el borrador.
+    const draftUidVigente = useMailStore.getState().composeWindows.find(w => w.id === win.id)?.draftUid ?? win.draftUid;
     const sendPayload = {
       from_email: fromEmail || undefined,
       to: recipients,
@@ -536,7 +568,7 @@ export function ComposePanel({ win }: Props) {
           content_type: a.type || 'application/octet-stream',
         }))
       ),
-      draft_uid: win.draftUid,
+      draft_uid: draftUidVigente,
       dlp_override: dlpOverride,
       dlp_reason: dlpReason || undefined,
       request_read_receipt: trackingState.read,
@@ -623,7 +655,7 @@ export function ComposePanel({ win }: Props) {
         return;
       }
       clearInterval(intervalId); pendingSendMap.delete(winId); dismissToast(toastId);
-      try { await api.post('/mail/send', sendPayload); showToast('Mensaje enviado'); window.dispatchEvent(new CustomEvent('refresh-messages'));
+      try { await enviarCorreo(sendPayload); showToast('Mensaje enviado'); window.dispatchEvent(new CustomEvent('refresh-messages'));
       } catch (err: unknown) {
         const errMsg = err instanceof Error ? err.message : 'Error al enviar';
         const bloqueo = leerBloqueoSensibilidad(errMsg);
@@ -631,11 +663,11 @@ export function ComposePanel({ win }: Props) {
           const motivo = pedirMotivoSensibilidad(bloqueo);
           if (motivo) {
             try {
-              await api.post('/mail/send', { ...sendPayload, dlp_override: true, dlp_reason: motivo });
+              await enviarCorreo({ ...sendPayload, dlp_override: true, dlp_reason: motivo });
               showToast('Mensaje enviado'); window.dispatchEvent(new CustomEvent('refresh-messages'));
               return;
             } catch (err2: unknown) {
-              showToast('Error al enviar: ' + (err2 instanceof Error ? err2.message : ''));
+              showToast(textoErrorEnvio(err2 instanceof Error ? err2.message : ''), undefined, { fijo: true });
             }
           }
         } else if (errMsg.includes('dlp_blocked')) {
@@ -648,9 +680,9 @@ export function ComposePanel({ win }: Props) {
           }
           window.alert('\uD83D\uDD12 Env\u00edo bloqueado por Protecci\u00f3n de datos (revisi\u00f3n de adjuntos).\n\n' + tipos + '\n\nQuita esos datos de los adjuntos o solicita autorizaci\u00f3n a Tecnolog\u00eda.');
         } else if (errMsg.includes('413')) {
-          showToast(`El correo supera el tamaño máximo (${MAX_ATTACH_MB} MB). Reduce los adjuntos.`);
+          showToast(`No se envió: el correo supera el tamaño máximo (${MAX_ATTACH_MB} MB). Quite algún adjunto.`, undefined, { fijo: true });
         } else if (errMsg.includes('Session expired') || errMsg.includes('SMTP expirada') || errMsg.includes('401')) {
-          showToast('Sesión expirada. Cierra sesión y vuelve a iniciar.');
+          showToast('No se envió: su sesión caducó. El correo se volvió a abrir; copie el texto, cierre sesión y vuelva a entrar.', undefined, { fijo: true });
         } else if (!navigator.onLine || /Failed to fetch|NetworkError|Sin conexion|offline|50[234]|timeout|abort/i.test(errMsg)) {
           // T-35: el servidor no responde o se fue la red a mitad del envío: a la cola persistente, nunca se pierde
           try {
@@ -664,9 +696,10 @@ export function ComposePanel({ win }: Props) {
             showToast(navigator.onLine ? 'El servidor no responde: el correo quedó en cola y se enviará solo al restablecerse.' : 'Sin internet: el correo quedó en cola y se enviará solo al volver la conexión.');
             return;
           } catch { /* si no se pudo encolar, se reabre el borrador abajo */ }
-          showToast('No se pudo enviar ni guardar en cola: ' + errMsg);
+          showToast('No se pudo enviar ni guardar en la cola de salida. El correo se volvió a abrir; inténtelo de nuevo en unos minutos.', undefined, { fijo: true });
+          console.warn('[correo] detalle del error al enviar:', errMsg);
         } else {
-          showToast('Error al enviar: ' + errMsg);
+          showToast(textoErrorEnvio(errMsg), undefined, { fijo: true });
         }
         useMailStore.getState().openCompose(savedData.mode, savedData.data);
       }
@@ -700,7 +733,7 @@ export function ComposePanel({ win }: Props) {
     return () => document.removeEventListener('mousedown', handleClick);
   }, [showSendDropdown]);
 
-  // Keyboard shortcuts: Ctrl+Enter  send, Esc  close
+  // Keyboard shortcuts: Ctrl+Enter envía; Esc solo cierra el desplegable de Enviar
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); handleSend(); }
@@ -710,8 +743,8 @@ export function ComposePanel({ win }: Props) {
         if (hasOpenPopup) { e.stopPropagation(); return; }
         // Si hay send dropdown abierto, cerrarlo en vez de cerrar compose
         if (showSendDropdown) { setShowSendDropdown(false); e.preventDefault(); return; }
-        e.preventDefault();
-        handleClose();
+        // Esc ya NO cierra la redacción: se pulsaba para cerrar las sugerencias de contactos
+        // y se cerraba el correo entero (Zimbra no cierra con Esc). Se cierra con su botón.
       }
     };
     window.addEventListener('keydown', handler);
@@ -748,7 +781,7 @@ export function ComposePanel({ win }: Props) {
     e.preventDefault();
     e.stopPropagation();
     dragCounter.current++;
-    if (e.dataTransfer.types.includes("Files")) {
+    if (e.dataTransfer.types.includes("Files") || e.dataTransfer.types.includes(TIPO_ARRASTRE_CORREOS)) {
       setIsDragging(true);
     }
   }, []);
@@ -772,6 +805,15 @@ export function ComposePanel({ win }: Props) {
     e.stopPropagation();
     setIsDragging(false);
     dragCounter.current = 0;
+    // Correos arrastrados desde la lista: entran como adjuntos .eml.
+    const correos = correosArrastrados(e.dataTransfer);
+    if (correos.length) {
+      descargarCorreosComoEml(correos).then(({ cargados, fallidos }) => {
+        if (cargados.length) setAttachments(prev => [...prev, ...cargados]);
+        if (fallidos.length) showToast(`No se pudo adjuntar: ${fallidos.join(', ')}`);
+      });
+      return;
+    }
     let files = Array.from(e.dataTransfer.files || []);
     // Imágenes soltadas sobre el texto: el editor ya las puso dentro; aquí se adjunta el resto.
     if ((e.nativeEvent as unknown as Record<string, boolean>)[IMAGENES_SOLTADAS_EN_TEXTO]) {
@@ -841,64 +883,8 @@ export function ComposePanel({ win }: Props) {
     return res.json();
   }, []);
 
-  //  VM 170: Mejorar redacción con IA - PROGRESIVO 4 NIVELES
-  const [improveLevel, setImproveLevel] = useState(0);
-  const MAX_LEVEL = 4;
-  const LEVEL_LABELS = ['', 'Nivel 1/4 · Corrigiendo ortografía...', 'Nivel 2/4 · Mejorando sintaxis...', 'Nivel 3/4 · Alineando al estilo institucional...', 'Nivel 4/4 · Pulido ejecutivo...'];
-  const LEVEL_TOASTS = ['', 'Ortografía corregida', 'Sintaxis mejorada', 'Alineado al estilo institucional', 'Pulido ejecutivo aplicado'];
-  const LEVEL_NEXT = ['', 'mejorar sintaxis', 'alinear al estilo institucional', 'pulido ejecutivo', ''];
-
-  const [improving, setImproving] = useState(false);
-
-  const handleImproveWriting = useCallback(async () => {
-    const text = editor?.getText() || '';
-    if (!text.trim() || text.trim().length < 10) {
-      showToast('Escribe al menos una oración para mejorar');
-      return;
-    }
-    if (improving) return;
-    // BLINDAJE: guardamos el contenido original; NUNCA se reemplaza salvo mejora valida.
-    const originalHtml = editor?.getHTML() || '';
-    const nextLevel = improveLevel >= MAX_LEVEL ? 1 : improveLevel + 1;
-    setImproving(true);
-    const progressId = showToast(LEVEL_LABELS[nextLevel]);
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 30000);
-
-    try {
-      const res = await fetch('/api/ia/improve', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: originalHtml || text, tone: 'professional', level: nextLevel }),
-        signal: controller.signal,
-      });
-      if (!res.ok) throw new Error(`IA ${res.status}`);
-      const data = await res.json();
-      const improved = ((data && data.improved_text) || '').trim();
-      const plainLen = improved.replace(/<[^>]+>/g, '').trim().length;
-      // Solo reemplazamos si la IA devolvio una mejora con contenido REAL. Si no, mantenemos el texto del usuario.
-      if (improved && plainLen >= 5) {
-        editor?.commands.setContent(improved);
-        if (data.subject_suggestion && !subject) setSubject(data.subject_suggestion);
-        setImproveLevel(nextLevel);
-        dismissToast(progressId);
-        const next = LEVEL_NEXT[nextLevel];
-        showToast(next
-          ? `${LEVEL_TOASTS[nextLevel]} (${data.changes_summary || ''}). Click para ${next}.`
-          : `${LEVEL_TOASTS[nextLevel]}: ${data.changes_summary || ''}`
-        );
-      } else {
-        dismissToast(progressId);
-        showToast('La IA no devolvió una mejora válida. Tu texto se mantiene intacto.');
-      }
-    } catch {
-      dismissToast(progressId);
-      showToast('No se pudo mejorar (IA ocupada). Tu texto se mantiene intacto.');
-    } finally {
-      clearTimeout(timer);
-      setImproving(false);
-    }
-  }, [editor, subject, improveLevel, improving]);
+  //  «Mejorar redacción» y «Corregir ortografía»: asistente-redaccion/ (vista previa antes de aplicar,
+  //  sobre la selección o todo el mensaje). Antes reemplazaba el texto sin mostrar la propuesta.
 
   //  VM 170: Revisión IA del texto - FUNCIONAL
   const handleReviewEditor = useCallback(async () => {
@@ -967,8 +953,12 @@ export function ComposePanel({ win }: Props) {
     setSuggestingSubject(false);
   }, [editor, api, suggestingSubject]);
 
+  // Corrector ortográfico: español de Ecuador por defecto; inglés si el correo o el texto lo están.
+  const ortografia = useIdiomaOrtografia(editor, `ventana:${win.id}`, win.draftUid ? `borrador:${win.draftUid}` : null, quotedHtml);
+
   //  VM 170: Smart Compose — autocompletado IA
   const [composeSuggestion, setComposeSuggestion] = useState('');
+  const [continuaPalabra, setContinuaPalabra] = useState(false);
   const [composingSuggestion, setComposingSuggestion] = useState(false);
   // Se conserva para la cinta de redaccion; hoy esta accion la sirve la barra principal.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -982,16 +972,20 @@ export function ComposePanel({ win }: Props) {
   const requestSmartCompose = useCallback(async () => {
     if (!editor) return;
     const context = editor.getText();
-    if (context.trim().length < 10) { showToast('Escribe algo de texto primero'); return; }
+    // Basta el comienzo de una palabra («Estimad», «Dear»). Solo se pide al pulsar el botón y
+    // no mientras hay otra petición en curso, así que no satura la IA.
+    if (context.trim().length < 4) { showToast('Escriba al menos unas letras para empezar'); return; }
+    if (composingSuggestion) return;
     setComposingSuggestion(true);
     setComposeSuggestion('');
     try {
-      const data = await api.post<{ suggestion: string }>('/ai/smart-compose', { context, subject, to });
-      if (data.suggestion) setComposeSuggestion(data.suggestion);
+      const data = await api.post<{ suggestion: string; continua_palabra?: boolean }>('/ai/smart-compose',
+        { context, subject, to, idioma: aTexto(ortografia.idioma) });
+      if (data.suggestion) { setComposeSuggestion(data.suggestion); setContinuaPalabra(!!data.continua_palabra); }
       else showToast('La IA no devolvio una sugerencia');
     } catch { showToast('No se pudo generar (IA ocupada, reintenta)'); }
     finally { setComposingSuggestion(false); }
-  }, [editor, subject, to]);
+  }, [editor, subject, to, ortografia.idioma, composingSuggestion]);
 
   const acceptComposeSuggestion = useCallback(() => {
     if (composeSuggestion && editor) {
@@ -1000,13 +994,13 @@ export function ComposePanel({ win }: Props) {
         editor.chain().focus().setContent(textoAParrafos(composeSuggestion)).run();
         showToast('Texto reemplazado por la versión de la IA');
       } else {
-        // Al final del texto, no donde quedó el cursor.
-        editor.chain().focus('end').insertContent(' ' + composeSuggestion.trim()).run();
+        // Al final del texto, no donde quedó el cursor; unida a la palabra a medias o con espacio.
+        insertarContinuacion(editor, composeSuggestion, continuaPalabra);
         showToast('Sugerencia agregada al final');
       }
       setComposeSuggestion('');
     }
-  }, [editor, composeSuggestion]);
+  }, [editor, composeSuggestion, continuaPalabra]);
   //  VM 170: Whisper STT
   const [dictating, setDictating] = useState(false);
   const handleDictate = useCallback(() => {
@@ -1064,6 +1058,12 @@ export function ComposePanel({ win }: Props) {
 
   const handleConfirmSchedule = useCallback(async () => {
     if (!scheduleDate) { showToast('Selecciona fecha y hora'); return; }
+    // El envío programado del servidor todavía no admite adjuntos: los descartaba sin avisar
+    // y el correo salía horas después sin ellos. Mientras tanto, se impide.
+    if (attachments.length > 0) {
+      showToast('Por ahora no se pueden programar correos con adjuntos. Envíelo directamente con «Enviar».', undefined, { fijo: true });
+      return;
+    }
     const recipients = to.split(',').map(s => s.trim()).filter(Boolean);
     if (!recipients.length) { setError('Ingresa un destinatario'); return; }
     // Programar un envio a una direccion invalida es peor: el fallo aparece horas despues.
@@ -1086,14 +1086,13 @@ export function ComposePanel({ win }: Props) {
       });
       closeCompose(win.id); setShowScheduleModal(false);
       showToast(`Envío programado para ${new Date(scheduleDate).toLocaleString('es-EC')}`);
-    } catch { showToast('Error al programar envío'); }
-  }, [to, cc, bcc, subject, editor, win, scheduleDate, trackingState, importance, closeCompose]);
+    } catch { showToast('No se pudo programar el envío. Inténtelo de nuevo.', undefined, { fijo: true }); }
+  }, [to, cc, bcc, subject, editor, win, scheduleDate, trackingState, importance, closeCompose, attachments]);
 
   useEffect(() => {
     const scheduleHandler = () => handleScheduleSend();
     const reviewHandler = () => handleReviewEditor();
     const accessibilityHandler = () => handleCheckAccessibility();
-    const improveHandler = () => handleImproveWriting();
     const dictateHandler = () => handleDictate();
     const openAppsHandler = () => handleOpenApps();
     const trackingHandler = (event: Event) => {
@@ -1106,7 +1105,6 @@ export function ComposePanel({ win }: Props) {
     window.addEventListener('compose-check-accessibility', accessibilityHandler);
     const suggestSubjectHandler = () => handleSuggestSubject();
     const acceptComposeHandler = () => acceptComposeSuggestion();
-    window.addEventListener('compose-improve-writing', improveHandler);
     window.addEventListener('compose-suggest-subject', suggestSubjectHandler);
     window.addEventListener('compose-accept-suggestion', acceptComposeHandler);
     window.addEventListener('compose-dictate', dictateHandler);
@@ -1117,14 +1115,13 @@ export function ComposePanel({ win }: Props) {
       window.removeEventListener('compose-schedule-send', scheduleHandler);
       window.removeEventListener('compose-review-editor', reviewHandler);
       window.removeEventListener('compose-check-accessibility', accessibilityHandler);
-      window.removeEventListener('compose-improve-writing', improveHandler);
       window.removeEventListener('compose-suggest-subject', suggestSubjectHandler);
       window.removeEventListener('compose-accept-suggestion', acceptComposeHandler);
       window.removeEventListener('compose-dictate', dictateHandler);
       window.removeEventListener('compose-open-apps', openAppsHandler);
       window.removeEventListener('compose-tracking-change', trackingHandler as EventListener);
     };
-  }, [handleScheduleSend, handleReviewEditor, handleCheckAccessibility, handleImproveWriting, handleDictate, handleOpenApps, handleTrackingChange, handleSuggestSubject, acceptComposeSuggestion]);
+  }, [handleScheduleSend, handleReviewEditor, handleCheckAccessibility, handleDictate, handleOpenApps, handleTrackingChange, handleSuggestSubject, acceptComposeSuggestion]);
 
   if (!editor) return null;
 
@@ -1168,7 +1165,9 @@ export function ComposePanel({ win }: Props) {
           </button>
             <button
               onClick={() => setShowSendDropdown(!showSendDropdown)}
-              className="h-[32px] px-[6px] bg-[#0078d4] text-white rounded-r-[4px] border-l border-[#ffffff40] hover:bg-[#106ebe] transition-colors"
+              aria-label="Opciones de envío" title="Opciones de envío"
+              aria-haspopup="menu" aria-expanded={showSendDropdown}
+              className="h-[32px] min-w-[28px] px-[8px] bg-[#0078d4] text-white rounded-r-[4px] border-l border-[#ffffff40] hover:bg-[#106ebe] transition-colors"
             >
               <svg className="w-[10px] h-[10px]" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
@@ -1211,13 +1210,15 @@ export function ComposePanel({ win }: Props) {
 
         {/* Right icons: delete draft + minimize/save */}
         <div className="flex items-center gap-[2px]">
-          <button onClick={handleClose} title="Descartar"
+          {/* Este botón NO descarta: guarda en Borradores y cierra. Antes decía «Descartar» con
+              icono de papelera y la persona creía haber borrado un correo que seguía en Borradores. */}
+          <button onClick={handleClose} title="Cerrar (se guarda en Borradores)" aria-label="Cerrar (se guarda en Borradores)"
             className="w-[32px] h-[32px] rounded-[3px] flex items-center justify-center text-[#605e5c] hover:bg-[#f3f2f1] hover:text-[#323130] transition-colors">
             <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
-          <button onClick={() => minimizeCompose(win.id)} title="Minimizar"
+          <button onClick={() => minimizeCompose(win.id)} title="Minimizar" aria-label="Minimizar"
             className="w-[32px] h-[32px] rounded-[3px] flex items-center justify-center text-[#605e5c] hover:bg-[#f3f2f1] hover:text-[#323130] transition-colors">
             <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
@@ -1241,13 +1242,16 @@ export function ComposePanel({ win }: Props) {
 
       {/* Subject */}
       <div className="border-b border-[#edebe9] shrink-0">
-        <div className="flex items-center">
+        {/* En paneles estrechos (celular, zoom 150 %) los controles bajan a una segunda fila en
+            vez de recortarse por la derecha (revisión 04/11/2026, n.º 6). */}
+        <div className="flex flex-wrap items-center">
           <input value={subject} onChange={e => { setSubject(e.target.value); updateComposeData(win.id, { subject: e.target.value }); }}
-            placeholder="Agregar un asunto"
-            className="flex-1 text-[15px] px-4 py-2.5 outline-none text-[#323130] placeholder-[#a19f9d]"
+            placeholder="Agregar un asunto" lang={ortografia.idioma} spellCheck
+            className="flex-[1_1_14rem] min-w-0 text-[15px] px-4 py-2.5 outline-none text-[#323130] placeholder-[#605e5c]"
             style={{ fontFamily: 'Segoe UI, Calibri, sans-serif' }} />
+          <div className="flex items-center flex-wrap gap-y-1 pl-2 pb-1 sm:pb-0 ml-auto">
           <select value={sensitivity} onChange={e => setSensitivity(e.target.value)}
-            title="Etiqueta de sensibilidad"
+            title="Etiqueta de sensibilidad" aria-label="Etiqueta de sensibilidad"
             className="mr-2 text-[11px] px-1.5 py-1 rounded border border-[#edebe9] text-[#605e5c] bg-white outline-none">
             <option value="">Sensibilidad…</option>
             <option value="Publica">Pública</option>
@@ -1262,6 +1266,7 @@ export function ComposePanel({ win }: Props) {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0078d4" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
             Asunto
           </button>
+          </div>
         </div>
       </div>
 
@@ -1345,6 +1350,7 @@ export function ComposePanel({ win }: Props) {
         }}
         onPaste={(e) => { if (editor && !editor.isDestroyed) pegarImagenesFueraDelTexto(editor.view, e.nativeEvent); }}>
         <BarraImagen editor={editor} />
+        <VistaPreviaRedaccion editor={editor} asunto={subject} activo={!win.minimized} />
         <EditorContent editor={editor}
           className="[&_.tiptap_h1]:text-[24px] [&_.tiptap_h1]:font-bold [&_.tiptap_h1]:mb-3 [&_.tiptap_h2]:text-[20px] [&_.tiptap_h2]:font-bold [&_.tiptap_h2]:mb-2 [&_.tiptap_h3]:text-[16px] [&_.tiptap_h3]:font-bold [&_.tiptap_h3]:mb-1 [&_.tiptap_ul]:list-disc [&_.tiptap_ul]:pl-6 [&_.tiptap_ol]:list-decimal [&_.tiptap_ol]:pl-6 [&_.tiptap_blockquote]:border-l-4 [&_.tiptap_blockquote]:border-[#e1dfdd] [&_.tiptap_blockquote]:pl-4 [&_.tiptap_blockquote]:italic [&_.tiptap_blockquote]:text-[#605e5c] [&_.tiptap_a]:text-[#0078d4] [&_.tiptap_a]:underline [&_.tiptap_pre]:bg-[#f3f2f1] [&_.tiptap_pre]:p-3 [&_.tiptap_pre]:rounded [&_.tiptap_pre]:font-mono [&_.tiptap_pre]:text-[13px] [&_.tiptap_hr]:border-[#edebe9] [&_.tiptap_hr]:my-3 [&_.tiptap_p]:mb-1 [&_.tiptap_img]:max-w-full [&_.tiptap_img]:h-auto [&_.tiptap_img]:rounded" />
 
@@ -1370,15 +1376,11 @@ export function ComposePanel({ win }: Props) {
           </div>
         )}
         {/* Contenido citado (reply/forward) — se muestra DESPUES de la firma */}
-        {quotedHtml && (
-          <div
-            contentEditable={false}
-            className="compose-quoted-content"
-            style={{ padding: '0 24px 16px', color: '#605e5c', userSelect: 'text', cursor: 'default', fontSize: 13 }}
-            dangerouslySetInnerHTML={{ __html: sanitizeHtml(quotedHtml) }}
-          />
-        )}
+        {/* 07/11/2026: no se modifica (antifraude) pero se puede resaltar/subrayar (CitaMarcable.tsx) */}
+        {quotedHtml && <CitaMarcable html={quotedHtml} onCambiar={setQuotedHtml} />}
       </div>
+
+      <IndicadorOrtografia idioma={ortografia.idioma} manual={ortografia.manual} onCambiar={ortografia.elegir} />
 
       {/* Attachments */}
       <Attachments files={attachments} onRemove={removeAttachment} />

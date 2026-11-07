@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import { colocarMenu, colocarSubmenu, type Colocacion, type ColocacionSubmenu } from '../../lib/posicionMenu';
 
@@ -87,14 +88,31 @@ export function ContextMenu({ x, y, items, onClose }: Props) {
   // el lateral) quedarían recortados, así que no se activa cuando no hace falta.
   const [desborda, setDesborda] = useState(false);
 
+  // Se cierra con cualquier clic fuera del menú. Se escucha en fase de captura: antes, una zona que
+  // cortaba la propagación del mousedown (o el correo abierto, que va en un iframe y no avisa al
+  // documento) dejaba el menú fijo en pantalla hasta volver a hacer clic en el mismo correo
+  // (queja de usuarios, 05/11/2026). El iframe se cubre con «blur»: al hacer clic dentro, la ventana
+  // pierde el foco. También se cierra al desplazar la página fuera del menú o cambiar de pestaña.
   useEffect(() => {
-    const handle = (e: MouseEvent) => {
+    const fuera = (e: Event) => {
       if (ref.current && !ref.current.contains(e.target as Node)) onClose();
     };
     const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('mousedown', handle);
+    const cerrar = () => onClose();
+    document.addEventListener('pointerdown', fuera, true);
+    document.addEventListener('mousedown', fuera, true);
+    document.addEventListener('wheel', fuera, { capture: true, passive: true });
     document.addEventListener('keydown', esc);
-    return () => { document.removeEventListener('mousedown', handle); document.removeEventListener('keydown', esc); };
+    window.addEventListener('blur', cerrar);
+    document.addEventListener('visibilitychange', cerrar);
+    return () => {
+      document.removeEventListener('pointerdown', fuera, true);
+      document.removeEventListener('mousedown', fuera, true);
+      document.removeEventListener('wheel', fuera, true);
+      document.removeEventListener('keydown', esc);
+      window.removeEventListener('blur', cerrar);
+      document.removeEventListener('visibilitychange', cerrar);
+    };
   }, [onClose]);
 
   // Se mide el menú ya dibujado y se coloca donde entre entero: hacia arriba si no hay hueco
@@ -128,7 +146,9 @@ export function ContextMenu({ x, y, items, onClose }: Props) {
     visibility: sitio ? 'visible' : 'hidden',
   };
 
-  return (
+  // Se dibuja en <body>: dentro de la lista quedaba en su capa y la barra superior lo tapaba
+  // al abrirse hacia arriba (04/11/2026).
+  return createPortal(
     <div ref={ref} style={style}
       className="min-w-[200px] bg-white rounded-md shadow-xl border border-[#e1dfdd] py-1 animate-in fade-in duration-100">
       {items.map((item, i) => {
@@ -153,13 +173,17 @@ export function ContextMenu({ x, y, items, onClose }: Props) {
             <button
               onClick={() => {
                 if (hasChildren) {
-                  setOpenSubmenu((current) => (current === i ? null : i));
+                  // Abrir siempre, nunca alternar: el puntero ya lo abrió al pasar por encima y
+                  // el clic de quien quiere elegir carpeta lo cerraba (revisión 04/11/2026, n.º 14).
+                  setOpenSubmenu(i);
                   return;
                 }
                 item.onClick();
                 onClose();
               }}
               disabled={item.disabled}
+              aria-haspopup={hasChildren ? 'menu' : undefined}
+              aria-expanded={hasChildren ? openSubmenu === i : undefined}
               className={`w-full flex items-center gap-2.5 px-3 py-[6px] text-[13px] transition-colors text-left ${
                 item.disabled ? 'text-[#c8c6c4] cursor-default' :
                 item.danger ? 'text-[#a4262c] hover:bg-[#fde7e9]' :
@@ -185,5 +209,5 @@ export function ContextMenu({ x, y, items, onClose }: Props) {
         );
       })}
     </div>
-  );
+  , document.body);
 }

@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import calendar
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Optional
 
 from app.tasks import mi_dia
@@ -100,10 +100,13 @@ def siguiente(regla: str, base: datetime) -> datetime:
     return _sumar_meses(base, 12 * cada)
 
 
-def _hoy_utc() -> datetime:
-    """Hoy (Guayaquil) como medianoche UTC, igual que se guardan los vencimientos."""
-    h = mi_dia.hoy()
-    return datetime(h.year, h.month, h.day, tzinfo=timezone.utc)
+def _hoy() -> datetime:
+    """Hoy, a medianoche de Guayaquil, igual que se guardan los vencimientos sin hora.
+
+    Antes era medianoche UTC (19:00 del día anterior en Guayaquil): la siguiente repetición de una tarea sin fecha
+    salía en el Calendario y en Seguimiento un día antes.
+    """
+    return mi_dia.medianoche(mi_dia.hoy())
 
 
 async def al_completar(db, user: str, card_id):
@@ -127,7 +130,7 @@ async def al_completar(db, user: str, card_id):
         return None
     if regla is None:
         return None
-    base = fila["due_date"] or _hoy_utc()
+    base = fila["due_date"] or _hoy()
     vence = siguiente(regla, base)
     recordatorio = fila["reminder"] + (vence - base) if fila["reminder"] else None
     nueva = await db.fetchval(

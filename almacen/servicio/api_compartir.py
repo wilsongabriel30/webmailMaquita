@@ -13,6 +13,7 @@ import secrets
 
 from flask import Blueprint, jsonify, request
 
+import compartir_dialogo
 from almacen_bd import consultar, ejecutar
 from api_archivos import error, usuario_actual
 from config_almacen import URL_PUBLICA
@@ -33,6 +34,9 @@ def compartir():
     """
     usuario = usuario_actual()
     datos = request.get_json() or {}
+    aviso = compartir_dialogo.adaptar_peticion(datos)   # contrato del diálogo «Compartir»
+    if aviso:
+        return error(aviso, 400)
     try:
         ruta = normalizar_ruta_virtual(datos.get('ruta', ''))
     except RutaInvalida as excepcion:
@@ -116,8 +120,15 @@ def compartir():
 @bp_compartir.route('/shares', methods=['GET'])
 @bp_compartir.route('/compartidos', methods=['GET'])
 def listar_compartidos():
-    """GET /compartidos — lo que YO he compartido (ambas rutas del contrato)."""
+    """GET /compartidos — lo que YO he compartido (ambas rutas del contrato).
+    Con ?ruta= responde quién tiene acceso a ese elemento (diálogo «Compartir»)."""
     usuario = usuario_actual()
+    if request.args.get('ruta'):
+        try:
+            ruta = normalizar_ruta_virtual(request.args['ruta'])
+        except RutaInvalida as excepcion:
+            return error(str(excepcion), excepcion.codigo)
+        return compartir_dialogo.shares_de_ruta(usuario, ruta)
     filas = consultar("""
         SELECT id, ruta, tipo, destinatario AS con_quien, token, permisos, creado_en
         FROM compartidos WHERE propietario_id = %s ORDER BY creado_en DESC
@@ -222,12 +233,16 @@ def buscar_usuarios():
         WHERE u.active = TRUE
           AND (LOWER(u.username) LIKE LOWER(%s) || '%%'
                OR LOWER(COALESCE(t.nombres, '')) LIKE LOWER(%s) || '%%'
-               OR LOWER(COALESCE(t.apellidos, '')) LIKE LOWER(%s) || '%%')
+               OR LOWER(COALESCE(t.apellidos, '')) LIKE LOWER(%s) || '%%'
+               OR LOWER(COALESCE(u.email, '')) LIKE LOWER(%s) || '%%')
         ORDER BY u.username
         LIMIT %s
-    """, (consulta, consulta, consulta, limite), nomina=True)
+    """, (consulta, consulta, consulta, consulta, limite), nomina=True)
 
     usuarios = [{'id': f['id'], 'usuario_id': f['usuario_id'], 'nombre': f['nombre'],
                  'email': f['email'], 'tipo': 'usuario'} for f in filas]
     return jsonify({'success': True, 'usuarios': usuarios, 'grupos': [],
                     'total': len(usuarios)})
+
+
+compartir_dialogo.registrar(bp_compartir)

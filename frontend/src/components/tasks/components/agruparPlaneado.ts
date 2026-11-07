@@ -2,6 +2,7 @@
 // Los días se cuentan en la hora de Guayaquil, la misma con la que «Mi día» se vacía a medianoche.
 // Una tarea sin fecha de vencimiento se ubica por su recordatorio. Las completadas van al final.
 import type { Task } from '../types';
+import { diaVencimiento } from './fechaVencimiento';
 
 const ZONA = 'America/Guayaquil';
 
@@ -18,7 +19,7 @@ function sumarDias(dia: string, n: number): string {
 
 /** Día de la tarea: la fecha de vencimiento es un día; el recordatorio, una hora concreta. */
 export function diaDeTarea(t: Task): string | null {
-  if (t.due_date) return t.due_date.slice(0, 10);
+  if (t.due_date) return diaVencimiento(t.due_date);
   if (t.reminder) {
     const r = new Date(t.reminder);
     return isNaN(r.getTime()) ? null : diaEC(r);

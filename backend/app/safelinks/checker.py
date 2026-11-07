@@ -12,6 +12,8 @@ from urllib.parse import unquote, urlparse
 
 from app import organizacion
 
+from . import propios
+
 # Marcas frecuentemente suplantadas (si aparecen en el host pero el dominio
 # registrable NO es el oficial -> sospechoso).
 BRANDS = {
@@ -109,6 +111,12 @@ def analyze(url: str) -> dict:
             "reason": "El dominio usa caracteres internacionales (posible imitación)",
             "host": host,
         }
+
+    # De la casa o de confianza (SRI…): seguro antes de mirar marcas (05/11/2026). Antes
+    # el portal del correo (mail.<dominio de la casa>) se marcaba como imitación de la marca por
+    # no ser el dominio oficial.
+    if propios.es_confiable(host):
+        return {"verdict": "safe", "reason": "", "host": host}
 
     reg = _registrable(host)
 

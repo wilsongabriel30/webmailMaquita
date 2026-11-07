@@ -8,6 +8,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.tasks.mi_dia import en_guayaquil as _en_guayaquil
 from app.tasks.repeticion import normalizar as _regla_repeticion
 
 
@@ -85,6 +86,8 @@ class CardCreate(BaseModel):
     recurrence: Optional[str] = None  # daily, weekdays, weekly, monthly, yearly
 
     _repeticion = field_validator("recurrence")(_regla_repeticion)
+    # «AAAA-MM-DD» sin hora = ese día en Guayaquil, sea cual sea la zona del proceso (ver mi_dia.en_guayaquil).
+    _zona = field_validator("due_date", "reminder")(_en_guayaquil)
 
 
 class CardUpdate(BaseModel):
@@ -103,6 +106,7 @@ class CardUpdate(BaseModel):
     recurrence: Optional[str] = None  # ver app/tasks/repeticion.py
 
     _repeticion = field_validator("recurrence")(_regla_repeticion)
+    _zona = field_validator("due_date", "reminder")(_en_guayaquil)
 
 
 class CardMove(BaseModel):

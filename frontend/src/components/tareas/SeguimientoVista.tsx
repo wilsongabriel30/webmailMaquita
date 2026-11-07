@@ -34,6 +34,7 @@ export function SeguimientoVista({ yo, tareaInicial, ambito = 'para-mi', onTarea
   const [cargando, setCargando] = useState(false);
   const [sel, setSel] = useState<Tarea | null>(null);
   const [asignando, setAsignando] = useState(false);
+  const [aviso, setAviso] = useState('');
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -41,7 +42,11 @@ export function SeguimientoVista({ yo, tareaInicial, ambito = 'para-mi', onTarea
       const r = pestana === 'mis' ? await tareasApi.mis(true) : pestana === 'por-mi' ? await tareasApi.asignadasPorMi(true) : await tareasApi.miDia();
       setTareas(r);
       setSel(s => (s ? r.find(t => t.id === s.id) || s : s));
-    } catch { setTareas([]); }
+      setAviso('');
+    } catch (e) {
+      // Se conserva lo que se veía y se explica: vaciar la lista decía «Nada pendiente por aquí» sin serlo.
+      setAviso('No se pudieron cargar las tareas: ' + (e instanceof Error && e.message ? e.message : 'sin conexión con el servidor'));
+    }
     finally { setCargando(false); }
   }, [pestana]);
 
@@ -52,16 +57,19 @@ export function SeguimientoVista({ yo, tareaInicial, ambito = 'para-mi', onTarea
     const iv = window.setInterval(cargar, 60000);
     return () => { window.removeEventListener('refresh-tareas', h); window.removeEventListener('refresh-tasks', h); window.clearInterval(iv); };
   }, [cargar]);
+  // Enlace de un aviso o de un correo: si la tarea ya no existe (o no es de esta persona), se dice en lugar de no abrir nada.
   useEffect(() => {
-    if (tareaInicial) tareasApi.obtener(tareaInicial).then(setSel).catch(() => {}).finally(() => onTareaInicialAbierta?.());
+    if (tareaInicial) tareasApi.obtener(tareaInicial).then(setSel)
+      .catch(() => setAviso('La tarea del enlace ya no existe o no está asignada a esta cuenta.'))
+      .finally(() => onTareaInicialAbierta?.());
   }, [tareaInicial, onTareaInicialAbierta]);
   useEffect(() => { try { localStorage.setItem('tareas.modo', modo); } catch { /* sin almacenamiento: el modo no se recuerda */ } }, [modo]);
 
   const cambiarEstado = async (t: Tarea, estado: Estado) => {
     try { const n = estado === 'completada' ? await tareasApi.completar(t.id) : await tareasApi.estado(t.id, estado); setTareas(p => p.map(x => x.id === n.id ? n : x)); }
-    catch (e) { alert(e instanceof Error && e.message ? e.message : 'No se pudo cambiar el estado'); }
+    catch (e) { setAviso(e instanceof Error && e.message ? e.message : 'No se pudo cambiar el estado'); }
   };
-  const avisar = useCallback((m: string) => alert(m), []);
+  const avisar = useCallback((m: string) => setAviso(m), []);
   // Quitar del tablero (no borra): se van de la vista al instante; si el servidor falla, se recarga.
   const quitar = async (ids: string[]) => {
     if (ids.length > 1 && !confirm(`¿Quitar del tablero las ${ids.length} tareas completadas? No se borran: quedan en «Archivadas».`)) return;
@@ -95,6 +103,12 @@ export function SeguimientoVista({ yo, tareaInicial, ambito = 'para-mi', onTarea
           <button onClick={() => setModo('tablero')} title="Tablero" style={{ ...tab(modo === 'tablero'), padding: '6px 8px', borderBottom: 'none', display: 'inline-flex', alignItems: 'center', gap: 5 }}><IcoTablero />Tablero</button>
           <button onClick={() => setAsignando(true)} style={{ padding: '7px 14px', border: 'none', background: '#0078d4', color: '#fff', borderRadius: 4, cursor: 'pointer', fontWeight: 600, marginLeft: 8 }}>+ Asignar tarea</button>
         </div>
+        {aviso && (
+          <div role="alert" style={{ margin: '8px 24px 0', padding: '8px 12px', background: '#fde7e9', color: '#a4262c', borderRadius: 4, fontSize: 13, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>{aviso}</span>
+            <button type="button" aria-label="Cerrar aviso" onClick={() => setAviso('')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: 'bold', color: '#a4262c' }}>&times;</button>
+          </div>
+        )}
         <div style={{ flex: 1, overflowY: 'auto', paddingTop: 8 }}>
           {verArchivadas ? <TareasArchivadas key={pestana} pestana={pestana === 'mis' ? 'mis' : 'por-mi'} onAbrir={setSel} onError={avisar} />
             : cargando && !tareas.length ? <div style={{ padding: 40, textAlign: 'center', color: '#605e5c' }}>Cargando…</div>
