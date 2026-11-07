@@ -73,7 +73,7 @@ export function AccionesCorreoNoDeseado(
       if (enNoDeseado) { await api.post('/mail/spam/not-spam', { folder, uid }).catch(() => { }); }
       showToast(`${correo} en confianza: sus correos llegarán siempre a la Bandeja de entrada.`);
       refrescar();
-    } catch (e: any) { showToast(e?.message || 'No se pudo confiar en el remitente'); }
+    } catch (e) { showToast((e as { message?: string } | null)?.message || 'No se pudo confiar en el remitente'); }
     finally { setOcupado(false); }
   };
 
@@ -86,8 +86,8 @@ export function AccionesCorreoNoDeseado(
       await api.post('/mail/spam/report', { folder, uid }).catch(() => { /* el bloqueo ya se creó */ });
       showToast(`${correo} bloqueado. Sus correos irán a Correo no deseado.`);
       refrescar();
-    } catch (e: any) {
-      showToast(e?.message || 'No se pudo bloquear el remitente');
+    } catch (e) {
+      showToast((e as { message?: string } | null)?.message || 'No se pudo bloquear el remitente');
     } finally { setOcupado(false); }
   };
 

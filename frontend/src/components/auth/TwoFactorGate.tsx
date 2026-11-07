@@ -11,14 +11,13 @@ interface Policy { required: boolean; deadline: string | null; enrolled: boolean
 
 export function TwoFactorGate() {
   const [pol, setPol] = useState<Policy | null>(null);
-  const [hidden, setHidden] = useState(false);
+  const [hidden, setHidden] = useState(() => { try { return sessionStorage.getItem('twofa_gate_dismissed') === '1'; } catch { return false; } });
   const [org, setOrg] = useState('Tu organización');
 
   const load = () => api.get<Policy>('/auth/2fa-policy/status').then(setPol).catch(() => {});
   useEffect(() => {
     load();
     fetch('/api/branding').then(r => r.json()).then(b => { if (b && b.org_name) setOrg(b.org_name); }).catch(() => {});
-    try { if (sessionStorage.getItem('twofa_gate_dismissed') === '1') setHidden(true); } catch { /* sin storage */ }
   }, []);
 
   if (!pol || !pol.must_enroll) return null;

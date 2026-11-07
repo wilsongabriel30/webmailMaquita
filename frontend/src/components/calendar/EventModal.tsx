@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { EstadoAsistente, estadoDeAsistente } from "./EstadoAsistente";   // respuesta de cada asistente (05/11/2026)
+import { EstadoAsistente } from "./EstadoAsistente";
+import { estadoDeAsistente } from "./estadoDeAsistente";   // respuesta de cada asistente (05/11/2026)
 import type { CalendarInfo, CalendarEvent, EventFormData, EventReminder, FreeBusySlot } from "./types/calendar";
 import { toDateInputValue, toTimeInputValue, formatTime } from "./utils/dateHelpers";
 import { parseISO, addMinutes, format } from "date-fns";
@@ -176,9 +177,8 @@ export function EventModal({
 
   // Foto del formulario al abrir: sirve para saber si la persona cambió algo antes de cerrar.
   const fotoFormulario = JSON.stringify({ summary, description, location, calendarId, startDate, startTime, endDate, endTime, allDay, rrule, reminders, attendees, optionalAttendees, status, virtualMeeting, adjuntos: attachments.length });
-  const fotoInicialRef = useRef<string | null>(null);
-  if (fotoInicialRef.current === null) fotoInicialRef.current = fotoFormulario;
-  const hayCambios = fotoFormulario !== fotoInicialRef.current || !!newAttendee.trim() || !!newOptionalAttendee.trim();
+  const [fotoInicial] = useState(fotoFormulario);
+  const hayCambios = fotoFormulario !== fotoInicial || !!newAttendee.trim() || !!newOptionalAttendee.trim();
 
   // Única forma de cerrar la ventana (X de la cabecera y tecla Escape): si hay cambios, pregunta.
   function cerrarConConfirmacion() {

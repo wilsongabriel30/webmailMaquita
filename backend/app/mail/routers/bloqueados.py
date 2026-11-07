@@ -68,7 +68,7 @@ async def agregar(request: Request, username: str = Depends(get_current_user)):
     if correo.rsplit("@", 1)[-1] in DOMINIOS_PROPIOS:
         raise HTTPException(
             400,
-            "No se bloquean direcciones de Maquita: si es un correo falso, márcalo como spam",
+            "No se bloquean direcciones de la organización: si es un correo falso, márcalo como spam",
         )
     password = await _password(request, username)
     actuales = await _leer(username, password)

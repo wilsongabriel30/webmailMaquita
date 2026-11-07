@@ -151,7 +151,8 @@ export function ContactsView() {
     // Los parámetros vienen de la URL (pueden llegar en un enlace ajeno): se validan y se acotan.
     // El formulario de «Nuevo contacto» solo se abre con nuevo=1 (revisión Qwen v1.7.22, H2);
     // sin esa marca se muestra la búsqueda y la persona decide.
-    const limpiar = (v: string, max: number) => v.replace(/[\u0000-\u001f\u007f\u200b-\u200f\u2028-\u202f]/g, '').trim().slice(0, max);
+    const invisible = (n: number) => n <= 0x1f || n === 0x7f || (n >= 0x200b && n <= 0x200f) || (n >= 0x2028 && n <= 0x202f);
+    const limpiar = (v: string, max: number) => Array.from(v).filter(c => !invisible(c.charCodeAt(0))).join('').trim().slice(0, max);
     const email = limpiar(q.get('email') || '', 254).toLowerCase();
     if (!email || !/^[^\s@"<>]+@[^\s@"<>]+\.[^\s@"<>]+$/.test(email)) return;
     const nombre = limpiar(q.get('nombre') || '', 120);

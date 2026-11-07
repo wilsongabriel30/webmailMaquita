@@ -18,7 +18,7 @@ const TEXTO = new Set([
 const OFFICE = new Set(['docx', 'doc', 'odt', 'rtf', 'xlsx', 'xls', 'ods', 'pptx', 'ppt', 'odp']);
 const MAX_TEXTO = 2 * 1024 * 1024;
 
-export function tipoVistaPrevia(nombre: string, mime: string): Tipo {
+function tipoVistaPrevia(nombre: string, mime: string): Tipo {
   const ext = (nombre.split('.').pop() || '').toLowerCase();
   if (OFFICE.has(ext)) return 'office';
   if (ext === 'pdf' || mime === 'application/pdf') return 'pdf';
@@ -45,9 +45,10 @@ export function VistaPreviaAdjuntoLocal({ archivo, onClose }: Props) {
   useEffect(() => {
     if (tipo !== 'imagen' && tipo !== 'pdf') return;
     const u = URL.createObjectURL(archivo);
-    setUrl(u);
-    setEstado('listo');
-    return () => URL.revokeObjectURL(u);
+    let vivo = true;
+    // La dirección blob: es un recurso externo: se crea aquí y se publica al estado en la siguiente microtarea.
+    queueMicrotask(() => { if (vivo) { setUrl(u); setEstado('listo'); } });
+    return () => { vivo = false; URL.revokeObjectURL(u); };
   }, [archivo, tipo]);
 
   // Texto y código: se leen los primeros 2 MB.

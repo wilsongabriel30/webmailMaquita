@@ -10,7 +10,7 @@ import { SelectorArchivosNube } from './SelectorArchivosNube';
 import { SelectorRemitente } from './SelectorRemitente';
 import { leerBloqueoSensibilidad, pedirMotivoSensibilidad } from './bloqueoSensibilidad';
 import { cuentaDeCarpeta } from '../../lib/cuentas';
-import { sanitizeHtml, sanitizeSignatureHtml } from '../../lib/sanitize';
+import { sanitizeSignatureHtml } from '../../lib/sanitize';
 import { separarCitado } from '../../lib/borradorCitado';
 import { cargarAdjuntosDelBorrador, cargarAdjuntosDelReenvio, filtrarPeligrosos, huellaAdjuntos } from '../../lib/adjuntosBorrador';
 import { leerEstadoRedaccion } from '../../lib/estadoRedaccion';

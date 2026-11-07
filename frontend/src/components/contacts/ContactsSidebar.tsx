@@ -15,6 +15,54 @@ interface Props {
   onManageList: (listId: number, listName: string) => void;
 }
 
+// Fuera del componente: definidos dentro se recreaban en cada render (react-hooks/static-components).
+const Item = ({ label, icon, filter, badge, activeFilter, onFilterChange }: {
+  label: string; icon: React.ReactNode; filter: SidebarFilter; badge?: number;
+  activeFilter: SidebarFilter; onFilterChange: (f: SidebarFilter) => void;
+}) => {
+  const active = activeFilter === filter;
+  return (
+    <button
+      type="button"
+      onClick={() => onFilterChange(filter)}
+      aria-current={active ? 'true' : undefined}
+      style={{
+        width: '100%', border: 'none', textAlign: 'left',
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '8px 16px', cursor: 'pointer',
+        background: active ? '#e1dfdd' : 'transparent',
+        borderLeft: active ? '3px solid #0078d4' : '3px solid transparent',
+        color: active ? '#0078d4' : '#323130',
+        fontSize: 13, fontFamily: "'Segoe UI', Calibri, sans-serif",
+        transition: 'background 0.1s',
+      }}
+      onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = '#f3f2f1'; }}
+      onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+    >
+      <span style={{ display: 'flex', width: 16, justifyContent: 'center' }}>{icon}</span>
+      <span style={{ flex: 1 }}>{label}</span>
+      {badge !== undefined && badge > 0 && (
+        <span style={{ fontSize: 11, color: '#a19f9d' }}>{badge}</span>
+      )}
+    </button>
+  );
+};
+
+const Chevron = ({ open }: { open: boolean }) => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+    style={{ transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }}>
+    <polyline points="9,18 15,12 9,6" />
+  </svg>
+);
+
+const GearIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+    <circle cx="12" cy="12" r="3" />
+    <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
+  </svg>
+);
+
+
 export function ContactsSidebar({ activeFilter, onFilterChange, deletedCount, onRefreshRef, onManageCategories, onManageList }: Props) {
   const [categories, setCategories] = useState<ContactCategory[]>([]);
   const [lists, setLists] = useState<ContactList[]>([]);
@@ -36,51 +84,6 @@ export function ContactsSidebar({ activeFilter, onFilterChange, deletedCount, on
     onRefreshRef?.(refresh);
   }, [onRefreshRef, refresh]);
 
-  const Item = ({ label, icon, filter, badge }: {
-    label: string; icon: React.ReactNode; filter: SidebarFilter; badge?: number;
-  }) => {
-    const active = activeFilter === filter;
-    return (
-      <button
-        type="button"
-        onClick={() => onFilterChange(filter)}
-        aria-current={active ? 'true' : undefined}
-        style={{
-          width: '100%', border: 'none', textAlign: 'left',
-          display: 'flex', alignItems: 'center', gap: 10,
-          padding: '8px 16px', cursor: 'pointer',
-          background: active ? '#e1dfdd' : 'transparent',
-          borderLeft: active ? '3px solid #0078d4' : '3px solid transparent',
-          color: active ? '#0078d4' : '#323130',
-          fontSize: 13, fontFamily: "'Segoe UI', Calibri, sans-serif",
-          transition: 'background 0.1s',
-        }}
-        onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = '#f3f2f1'; }}
-        onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-      >
-        <span style={{ display: 'flex', width: 16, justifyContent: 'center' }}>{icon}</span>
-        <span style={{ flex: 1 }}>{label}</span>
-        {badge !== undefined && badge > 0 && (
-          <span style={{ fontSize: 11, color: '#a19f9d' }}>{badge}</span>
-        )}
-      </button>
-    );
-  };
-
-  const Chevron = ({ open }: { open: boolean }) => (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-      style={{ transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }}>
-      <polyline points="9,18 15,12 9,6" />
-    </svg>
-  );
-
-  const GearIcon = () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
-    </svg>
-  );
-
   const starIcon = <svg width="16" height="16" viewBox="0 0 24 24" fill="#ffb900" stroke="#ffb900" strokeWidth="1"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" /></svg>;
   const peopleIcon = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 00-3-3.87" /><path d="M16 3.13a4 4 0 010 7.75" /></svg>;
   const groupIcon = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>;
@@ -97,8 +100,8 @@ export function ContactsSidebar({ activeFilter, onFilterChange, deletedCount, on
         <h2 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#323130' }}>Contactos</h2>
       </div>
 
-      <Item label="Favoritos" icon={starIcon} filter="favorites" />
-      <Item label="Todos los contactos" icon={peopleIcon} filter="all" />
+      <Item activeFilter={activeFilter} onFilterChange={onFilterChange} label="Favoritos" icon={starIcon} filter="favorites" />
+      <Item activeFilter={activeFilter} onFilterChange={onFilterChange} label="Todos los contactos" icon={peopleIcon} filter="all" />
 
       {/* Listas */}
       <div
@@ -172,7 +175,7 @@ export function ContactsSidebar({ activeFilter, onFilterChange, deletedCount, on
         );
       })}
 
-      <Item label="Eliminados" icon={trashIcon} filter="deleted" badge={deletedCount} />
+      <Item activeFilter={activeFilter} onFilterChange={onFilterChange} label="Eliminados" icon={trashIcon} filter="deleted" badge={deletedCount} />
 
       {/* Separador */}
       <div style={{ borderTop: '1px solid #edebe9', margin: '8px 16px' }} />

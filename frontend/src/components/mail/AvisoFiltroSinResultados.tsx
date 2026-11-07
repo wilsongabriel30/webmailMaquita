@@ -31,17 +31,18 @@ async function totalSinFiltro(carpeta: string, consulta: string, buscarEnConteni
 
 export function AvisoFiltroSinResultados({ filtro, consulta, carpeta, buscarEnContenido }: Props) {
   const setFilter = useMailStore((s) => s.setFilter);
-  const [total, setTotal] = useState<number | null>(null);
+  const busqueda = `${carpeta}\n${consulta}\n${buscarEnContenido}`;
+  const [resultado, setResultado] = useState<{ busqueda: string; total: number | null }>({ busqueda: '', total: null });
+  const total = resultado.busqueda === busqueda ? resultado.total : null;
   const hayBusqueda = consulta.trim().length > 0;
   const queFiltra = filtro === 'unread' ? 'no leídos' : 'marcados con bandera';
 
   useEffect(() => {
-    setTotal(null);
     if (!hayBusqueda) return;
     let vivo = true;
-    totalSinFiltro(carpeta, consulta, buscarEnContenido).then((t) => { if (vivo) setTotal(t); });
+    totalSinFiltro(carpeta, consulta, buscarEnContenido).then((t) => { if (vivo) setResultado({ busqueda, total: t }); });
     return () => { vivo = false; };
-  }, [carpeta, consulta, buscarEnContenido, hayBusqueda]);
+  }, [carpeta, consulta, buscarEnContenido, hayBusqueda, busqueda]);
 
   const texto = hayBusqueda
     ? `Estás viendo solo los correos ${queFiltra}. Puede que el correo que buscas ya esté ${filtro === 'unread' ? 'leído' : 'sin bandera'}.`

@@ -10,7 +10,7 @@
  */
 const ETIQUETAS = /<(table|td|th|tr|col|colgroup|div)\b[^>]*>/gi;
 const ANCHO_CERO_ESTILO = /(^|[;\s"'])(width|min-width)\s*:\s*0(?:px|pt|em|%)?\s*(?=;|"|'|$)/gi;
-const ANCHO_CERO_ATRIBUTO = /\swidth\s*=\s*(["']?)0(?:px)?\1(?=[\s>\/])/gi;
+const ANCHO_CERO_ATRIBUTO = /\swidth\s*=\s*(["']?)0(?:px)?\1(?=[\s>/])/gi;
 
 export function corregirTablasSinAncho(html: string): string {
   if (!html || !/width\s*[:=]\s*["']?0/i.test(html)) return html;

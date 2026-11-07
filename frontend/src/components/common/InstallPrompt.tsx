@@ -18,29 +18,29 @@ declare global {
   }
 }
 
+/** Ya abierta como aplicación instalada (Android/escritorio o «Añadir a pantalla de inicio» en iOS). */
+function yaInstalada(): boolean {
+  return window.matchMedia('(display-mode: standalone)').matches
+    || (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
+}
+
+function esIOS(): boolean {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
 export function InstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showBanner, setShowBanner] = useState(false);
-  const [isIOS, setIsIOS] = useState(false);
+  const [isIOS] = useState(esIOS);
   const [showIOSGuide, setShowIOSGuide] = useState(false);
-  const [isInstalled, setIsInstalled] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(yaInstalada);
 
   useEffect(() => {
     // Check if already installed as standalone
-    if (window.matchMedia('(display-mode: standalone)').matches) {
-      setIsInstalled(true);
-      return;
-    }
-    // @ts-ignore
-    if (window.navigator.standalone === true) {
-      setIsInstalled(true);
-      return;
-    }
+    if (yaInstalada()) return;
 
     // iOS detection
-    const ua = navigator.userAgent;
-    const isiOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    setIsIOS(isiOS);
+    const isiOS = esIOS();
 
     if (isiOS) {
       // On iOS, show banner after 3 seconds (no beforeinstallprompt support)

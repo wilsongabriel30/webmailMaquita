@@ -22,7 +22,12 @@ export function useCabeceraPlegable(claveMensaje: string | number | undefined) {
   const previoRef = useRef(0);
 
   // Cada mensaje empieza con la cabecera completa.
-  useEffect(() => { setPlegada(false); previoRef.current = 0; }, [claveMensaje]);
+  const [claveVista, setClaveVista] = useState(claveMensaje);
+  if (claveVista !== claveMensaje) {
+    setClaveVista(claveMensaje);
+    setPlegada(false);
+  }
+  useEffect(() => { previoRef.current = 0; }, [claveMensaje]);
 
   const plegadaEnRef = useRef(0);
 

@@ -40,7 +40,7 @@ export function MailSetup() {
   const [showAndroid, setShowAndroid] = useState(false);
 
   useEffect(() => {
-    api.get<Setup>('/onboarding/settings').then(setS).catch((e: any) => setErr(e.message));
+    api.get<Setup>('/onboarding/settings').then(setS).catch((e: Error) => setErr(e.message));
   }, []);
 
   if (err) return <div className="text-red-700 text-sm">{err}</div>;

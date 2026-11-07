@@ -21,7 +21,9 @@ export const ICONO_CORREO_ADJUNTO = 'M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l
 
 /** Nombre de archivo seguro a partir del asunto: «Factura 123.eml». */
 export function nombreArchivoEml(asunto: string): string {
-  const base = (asunto || '').replace(/[\\/:*?"<>|\u0000-\u001f]+/g, '_').replace(/\s+/g, ' ').trim().slice(0, 120);
+  // Los caracteres de control cuentan como prohibidos (se cambian por «|», que la expresión ya reemplaza).
+  const sinControl = Array.from(asunto || '').map(c => (c.charCodeAt(0) <= 0x1f ? '|' : c)).join('');
+  const base = sinControl.replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, ' ').trim().slice(0, 120);
   return (base || 'correo') + '.eml';
 }
 
