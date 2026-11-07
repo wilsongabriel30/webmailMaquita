@@ -36,10 +36,13 @@ export interface FilaCorreoLineaProps {
   onEliminar: (e: React.MouseEvent) => void;
   onArchivar: (e: React.MouseEvent) => void;
   onLeido: (e: React.MouseEvent) => void;
+  /** Chincheta: anclar arriba de la lista (07/11/2026). */
+  onFijar?: (e: React.MouseEvent) => void;
 }
 
 const flagIcon = 'M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2z';
 const deleteIcon = 'M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16';
+const pinIcon = 'M14.5 3.5l6 6-2.6.9-3.7 3.7.4 4.1-1.6 1.6-3.6-3.6L4.5 21l-1.5-1.5 4.8-4.9-3.6-3.6 1.6-1.6 4.1.4 3.7-3.7z';
 const archiveIcon = 'M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4';
 const unreadIcon = 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z';
 
@@ -156,9 +159,10 @@ export const FilaCorreoLinea = memo(function FilaCorreoLinea(p: FilaCorreoLineaP
 
       {/* Acciones rápidas (escritorio) */}
       <div className="hidden group-hover:flex max-md:hidden items-center gap-0.5 absolute right-7 top-[3px] bg-[#f3f2f1] rounded shadow-sm border border-[#e1dfdd] px-0.5">
-        <Rapida d={deleteIcon} title="Eliminar" onClick={p.onEliminar} />
-        <Rapida d={archiveIcon} title="Archivar" onClick={p.onArchivar} />
         <Rapida d={unreadIcon} title={msg.seen ? 'Marcar como no leído' : 'Marcar como leído'} onClick={p.onLeido} />
+        {p.onFijar && <Rapida d={pinIcon} title={p.fijado ? 'Desanclar' : 'Anclar arriba'} filled={p.fijado} onClick={p.onFijar} />}
+        <Rapida d={archiveIcon} title="Archivar" onClick={p.onArchivar} />
+        <Rapida d={deleteIcon} title="Eliminar" onClick={p.onEliminar} />
       </div>
     </div>
   );

@@ -30,6 +30,7 @@ import { es } from 'date-fns/locale';
 import { api } from '../../api/client';
 import { useMailStore } from '../../store/mailStore';
 import { AccionesRapidasCorreo } from './AccionesRapidasCorreo';
+import { showToast } from '../common/Toast';
 import { BotonCerrarCorreo, FlechasCorreo } from './NavegacionCorreo';
 import { AttachmentPreview } from './AttachmentPreview';
 import ListaAdjuntos from './ListaAdjuntos';
@@ -791,6 +792,13 @@ const MessageView: React.FC = () => {
     }
   }, [msg]);
 
+  // «Traducir» del menú «⋯» (07/11/2026): igual que el Traductor de la cinta, abre el traductor con el texto.
+  const handleTraducir = useCallback(() => {
+    const texto = (displayMsg?.text_body || '').trim();
+    if (!texto) { showToast('Este correo no tiene texto para traducir'); return; }
+    window.open('https://translate.google.com/?sl=auto&tl=es&text=' + encodeURIComponent(texto.slice(0, 2000)), '_blank', 'noopener,noreferrer');
+  }, [displayMsg]);
+
   const handlePrint = useCallback(() => {
     if (!displayMsg) return;
     const printWindow = window.open('', '_blank');
@@ -1281,7 +1289,8 @@ const MessageView: React.FC = () => {
                 <AccionesRapidasCorreo folder={msg.folder || currentFolder} uid={msg.uid} from={msg.from || ''}
                   seen={msg.seen} flagged={msg.flagged} enVentana={window.location.pathname.endsWith('/mensaje')}
                   onResponder={handleReply} onResponderTodos={handleReplyAll} onReenviar={handleForward}
-                  onImprimir={handlePrint} onDescargarEml={handleDownloadEml} />
+                  onImprimir={handlePrint} onDescargarEml={handleDownloadEml} onReenviarAdjunto={handleForwardAsAttachment}
+                  onTraducir={handleTraducir} onVerOrigen={handleViewSource} />
                 <span style={{ fontSize: 13, color: '#605e5c', whiteSpace: 'nowrap' }} title={relDate}>
                   {fullDate}
                 </span>

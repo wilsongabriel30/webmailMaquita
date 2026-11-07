@@ -28,12 +28,18 @@ const estiloBotonBarra: React.CSSProperties = {
   flexShrink: 0,
 };
 
+// Botones principales con borde, como Outlook (07/11/2026): icono azul y texto oscuro.
+const estiloPrincipal: React.CSSProperties = {
+  ...estiloBotonBarra, border: '1px solid #d2d0ce', color: '#323130', fontWeight: 400,
+  padding: '5px 14px', background: '#fff', gap: 6,
+};
+
 const Etiqueta = ({ texto, secundaria }: { texto: string; secundaria?: boolean }) => (
   <span className={secundaria ? 'barra-etiqueta barra-etiqueta-sec' : 'barra-etiqueta'}>{texto}</span>
 );
 
 export function BarraAccionesCorreo({
-  esBorrador, onEditarBorrador, onResponder, onResponderTodos, onReenviar, onReenviarAdjunto,
+  esBorrador, onEditarBorrador, onResponder, onResponderTodos, onReenviar,
   folder, uid, from, asunto, conAsignar,
   onRespuestaIA, generandoRespuestas, onResumir, resumiendo, children,
 }: {
@@ -58,8 +64,8 @@ export function BarraAccionesCorreo({
 }) {
   return (
     <div className="barra-acciones-correo" style={{
-      padding: '3px 16px', borderTop: '1px solid #edebe9', flexShrink: 0,
-      display: 'flex', alignItems: 'center', gap: 2, background: '#faf9f8', flexWrap: 'wrap', rowGap: 0,
+      padding: '8px 24px 10px', borderTop: '1px solid #f3f2f1', flexShrink: 0,
+      display: 'flex', alignItems: 'center', gap: 6, background: '#fff', flexWrap: 'wrap', rowGap: 4,
     }}>
       {esBorrador ? (
         <button style={{ ...estiloBotonBarra, background: '#0078d4', color: '#fff', padding: '5px 16px' }} onClick={onEditarBorrador}>
@@ -70,25 +76,21 @@ export function BarraAccionesCorreo({
           Editar borrador
         </button>
       ) : (<>
-        <button style={estiloBotonBarra} onClick={onResponder} title="Responder">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M6.5 3L1 8l5.5 5V10c4.5 0 7 1.5 8.5 5-1-4.5-3.5-8-8.5-8.5V3z"/></svg>
+        <button className="hover:!bg-[#f3f2f1]" style={estiloPrincipal} onClick={onResponder} title="Responder">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="#0078d4"><path d="M6.5 3L1 8l5.5 5V10c4.5 0 7 1.5 8.5 5-1-4.5-3.5-8-8.5-8.5V3z"/></svg>
           <Etiqueta texto="Responder" />
         </button>
-        <button style={estiloBotonBarra} onClick={onResponderTodos} title="Responder a todos">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M9.5 3L4 8l5.5 5V10c4.5 0 6 1.5 7.5 5-1-4.5-3-8-7.5-8.5V3zM3 8L0 5.5v5L3 8z"/></svg>
+        <button className="hover:!bg-[#f3f2f1]" style={estiloPrincipal} onClick={onResponderTodos} title="Responder a todos">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="#0078d4"><path d="M9.5 3L4 8l5.5 5V10c4.5 0 6 1.5 7.5 5-1-4.5-3-8-7.5-8.5V3zM3 8L0 5.5v5L3 8z"/></svg>
           <Etiqueta texto="Responder a todos" />
         </button>
-        <button style={estiloBotonBarra} onClick={onReenviar} title="Reenviar">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M9.5 3L15 8l-5.5 5V10C5 10 2.5 11.5 1 15c1-4.5 3.5-8 8.5-8.5V3z"/></svg>
+        <button className="hover:!bg-[#f3f2f1]" style={estiloPrincipal} onClick={onReenviar} title="Reenviar">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="#0078d4"><path d="M9.5 3L15 8l-5.5 5V10C5 10 2.5 11.5 1 15c1-4.5 3.5-8 8.5-8.5V3z"/></svg>
           <Etiqueta texto="Reenviar" />
         </button>
-        {onReenviarAdjunto && (
-          <button style={estiloBotonBarra} onClick={onReenviarAdjunto} title="Reenviar como adjunto (.eml)">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
-            <Etiqueta texto="Como adjunto" secundaria />
-          </button>
-        )}
-        <AccionesCorreoNoDeseado folder={folder} uid={uid} from={from} estilo={estiloBotonBarra} />
+        {/* «Como adjunto», «No deseado» y «Bloquear» están en «⋯» arriba a la derecha (07/11/2026).
+            En Correo no deseado se quedan aquí «No es spam» y «Confiar». */}
+        {(folder === 'Junk' || folder === 'Spam') && <AccionesCorreoNoDeseado folder={folder} uid={uid} from={from} estilo={estiloBotonBarra} />}
         {conAsignar && <BotonAsignarCorreo estilo={estiloBotonBarra} correo={{ folder, uid, subject: asunto, from }} />}
         <BotonEtiquetasCorreo folder={folder} uid={uid} estilo={estiloBotonBarra} />
         {/* «Respuesta IA» y «Resumir» conservan siempre su texto (revisión 04/11/2026, H11): solo con

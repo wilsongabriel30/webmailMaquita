@@ -2,7 +2,7 @@ import { loadOfflineMessagesBuscando } from "../../hooks/useOfflineSync";
 import React, { useEffect, useCallback, useRef, useState, useMemo, memo } from 'react';
 import { useMailStore } from '../../store/mailStore';
 import { fechaMostrada, fechaParaOrdenar } from '../../lib/fechaCorreo';
-import { getPinnedSet, isPinned, pinKey } from '../../lib/pins';
+import { getPinnedSet, isPinned, pinKey, togglePins } from '../../lib/pins';
 import { parametrosDeCarga, fusionarTanda } from '../../lib/paginacionBandeja';
 import { recordarLeido, olvidarLeido, conservarLeidosRecientes } from './graciaNoLeidos';
 import { usePolling } from '../../hooks/usePolling';
@@ -40,7 +40,9 @@ import { quienMostrar } from './quienMostrar';   // Enviados/Borradores muestran
 import { useResponsive } from '../../hooks/useResponsive';
 import { textoAvisoCorreo, nombreRemitente } from '../../lib/textoAvisoCorreo';
 import { EnviosEnCurso } from './EnviosEnCurso';   // «Enviando…» al instante (06/11/2026)   // aviso con remitente y asunto (06/11/2026)
-import { pestanaDe, cargarDominiosPropios, AYUDA_PESTANAS } from '../../lib/pestanaPrioritarios';   // Prioritarios / Otros (06/11/2026)
+import { pestanaDe, cargarDominiosPropios, AYUDA_PESTANAS } from '../../lib/pestanaPrioritarios';
+import { useOrdenLista, ordenarCorreos } from '../../lib/ordenLista';
+import { BotonFavoritoCarpeta, BotonOrdenLista } from './CabeceraFavoritoOrden';   // Prioritarios / Otros (06/11/2026)
 
 // Agrupa acciones rápidas consecutivas (eliminar/archivar fila por fila) en UNA
 // petición bulk: N clics seguidos generaban N POSTs y disparaban el rate limit (429).
@@ -164,6 +166,8 @@ function getColor(s: string) { let h=0; for(let i=0;i<s.length;i++) h=s.charCode
 // Icons
 const flagIcon = 'M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2z';
 const deleteIcon = 'M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16';
+// Chincheta de las acciones al pasar el ratón (07/11/2026, como Outlook).
+const pinIcon = 'M14.5 3.5l6 6-2.6.9-3.7 3.7.4 4.1-1.6 1.6-3.6-3.6L4.5 21l-1.5-1.5 4.8-4.9-3.6-3.6 1.6-1.6 4.1.4 3.7-3.7z';
 const archiveIcon = 'M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4';
 const unreadIcon = 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z';
 const replyIcon = 'M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6';
@@ -831,6 +835,7 @@ export function MessageList() {
   // Pestañas Prioritarios / Otros: regla en lib/pestanaPrioritarios.ts (06/11/2026).
   // Con «No leídos» o «Marcados» se ven TODOS los que cumplen, sean de Prioritarios o de Otros:
   // antes los de Otros salían un instante y desaparecían al llegar la clasificación (07/11/2026).
+  const ordenLista = useOrdenLista();
   const filtered = messages.filter(m => {
     if (currentFolder !== 'INBOX' || filter !== 'all') return true;
     return pestanaDe(m, priorityMap[m.uid]) === activeTab;
@@ -838,6 +843,8 @@ export function MessageList() {
   // La lista respeta el orden de llegada (como Outlook y Zimbra): la prioridad
   // y la bandera se muestran como marcas, no reordenan. Solo la chincheta fija arriba.
 
+  // Orden elegido con ↑↓ (por defecto, fecha: no toca nada). La chincheta sigue mandando arriba.
+  ordenarCorreos(filtered, ordenLista);
   // Los mensajes fijados con chincheta van primero (sort estable, ES2019+).
   if (pinnedSet.size > 0) {
     filtered.sort((a, b) =>
@@ -994,7 +1001,7 @@ export function MessageList() {
         <FilaCorreoLinea key={msg.uid} msg={msg} threadCount={threadCount} idx={idx} asuntoPrimero={asuntoPrimero} onDoubleClick={() => abrirMensajeEnVentana(msg.folder || currentFolder, msg.uid)}
           nombre={nombreQuien} iniciales={getInitials(quien, avatarMap)}
           color={getColor(quien)} fecha={fecha} activo={active} marcado={checked}
-          fijado={isPinned(currentFolder, msg.uid)} esSpam={!!spam} motivoSpam={spam?.reasons?.join(', ')}
+          fijado={pinnedSet.has(pinKey(currentFolder, msg.uid))} esSpam={!!spam} motivoSpam={spam?.reasons?.join(', ')}
           etiquetas={msgLabelsMap[claveEtiquetas(msg, currentFolder)] || []}
           onClick={(e) => handleRowClick(msg.uid, idx, e)}
           onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, msg }); }}
@@ -1004,6 +1011,7 @@ export function MessageList() {
           onEliminar={(e) => { e.stopPropagation(); quickAction(msg.uid, currentFolder === 'Trash' ? 'delete' : 'move', 'Trash'); }}
           onArchivar={(e) => { e.stopPropagation(); quickAction(msg.uid, 'archive'); }}
           onLeido={(e) => { e.stopPropagation(); quickAction(msg.uid, msg.seen ? 'mark_unread' : 'mark_read'); }}
+          onFijar={(e) => { e.stopPropagation(); showToast(togglePins(currentFolder, [msg.uid]) ? 'Anclado arriba de la lista' : 'Desanclado'); }}
         />
       );
     }
@@ -1015,12 +1023,12 @@ export function MessageList() {
         onDoubleClick={() => abrirMensajeEnVentana(msg.folder || currentFolder, msg.uid)}
         data-idx={idx}
         onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, msg }); }}
-        className={`group relative flex gap-2.5 pl-2 pr-3 ${density === "full" ? "py-[14px]" : density === "medium" ? "py-[10px]" : "py-[6px]"} cursor-pointer border-b border-[#f3f2f1] transition-all ${
+        className={`group relative flex gap-2.5 pl-2 pr-3 ${density === "full" ? "py-[10px]" : density === "medium" ? "py-[7px]" : "py-[4px]"} cursor-pointer border-b border-[#f3f2f1] transition-all ${
           checked ? 'bg-[#deecf9]' : active ? 'bg-[#eff6fc]' : 'hover:bg-[#f3f2f1]'
         } ${!msg.seen ? "before:content-[''] before:absolute before:left-0 before:top-0 before:-bottom-px before:w-[3px] before:bg-[#0078d4] before:z-[1]" : ''}`}>
 
         {/* Unread dot + spam indicator */}
-        <div className="w-[4px] shrink-0 flex items-start pt-4">
+        <div className="w-[4px] shrink-0 flex items-start pt-3">
           <div className={`w-[6px] h-[6px] rounded-full ${
             spamResults.some(s => s.uid === msg.uid) ? 'bg-[#ca5010]' : !msg.seen ? 'bg-[#0078d4]' : ''
           }`} title={spamResults.find(s => s.uid === msg.uid)?.reasons?.join(', ') || ''} />
@@ -1124,18 +1132,21 @@ export function MessageList() {
 
         {/* Quick actions on hover */}
         <div className="hidden group-hover:flex max-md:hidden items-start gap-0.5 absolute right-2 top-1 bg-[#f3f2f1] rounded shadow-sm border border-[#e1dfdd] p-0.5">
-          <QA icon={deleteIcon} title="Eliminar" onClick={e => { e.stopPropagation(); quickAction(msg.uid, currentFolder === 'Trash' ? 'delete' : 'move', 'Trash'); }} />
-          <QA icon={archiveIcon} title="Archivar" onClick={e => { e.stopPropagation(); quickAction(msg.uid, 'archive'); }} />
-          <QA icon={unreadIcon} title={msg.seen ? 'No leído' : 'Leído'}
+          {/* Orden de Outlook (07/11/2026): leído, bandera, chincheta, archivar y eliminar */}
+          <QA icon={unreadIcon} title={msg.seen ? 'Marcar como no leído' : 'Marcar como leído'}
             onClick={e => { e.stopPropagation(); quickAction(msg.uid, msg.seen ? 'mark_unread' : 'mark_read'); }} />
-          <QA icon={flagIcon} title="Marcar" filled={msg.flagged}
+          <QA icon={flagIcon} title={msg.flagged ? 'Quitar la bandera' : 'Marcar con bandera'} filled={msg.flagged}
             onClick={e => { e.stopPropagation(); handleFlag(msg.uid, msg.flagged); }} />
+          <QA icon={pinIcon} title={pinnedSet.has(pinKey(currentFolder, msg.uid)) ? 'Desanclar' : 'Anclar arriba'} filled={pinnedSet.has(pinKey(currentFolder, msg.uid))}
+            onClick={e => { e.stopPropagation(); showToast(togglePins(currentFolder, [msg.uid]) ? 'Anclado arriba de la lista' : 'Desanclado'); }} />
+          <QA icon={archiveIcon} title="Archivar" onClick={e => { e.stopPropagation(); quickAction(msg.uid, 'archive'); }} />
+          <QA icon={deleteIcon} title="Eliminar" onClick={e => { e.stopPropagation(); quickAction(msg.uid, currentFolder === 'Trash' ? 'delete' : 'move', 'Trash'); }} />
         </div>
       </div>
     );
   // msgLabelsMap: sin él la fila leía las etiquetas de un cierre viejo y el chip no se repintaba
   // al asignar o quitar desde el menú (prueba Playwright, 05/11/2026).
-  }, [selectedMessage?.uid, selectedUids, previewLines, density, unaLinea, asuntoPrimero, soloSeleccionar, activeIndex, currentFolder, avatarMap, folders, spamResults, filter, activeTab, priorityMap, msgLabelsMap]);
+  }, [selectedMessage?.uid, selectedUids, previewLines, density, unaLinea, asuntoPrimero, soloSeleccionar, activeIndex, currentFolder, avatarMap, folders, spamResults, filter, activeTab, priorityMap, msgLabelsMap, pinnedSet]);
 
   /* ---- Render thread group (conversation mode) ---- */
   const renderThreadGroup = (group: ThreadGroup, gIdx: number) => {
@@ -1211,7 +1222,9 @@ export function MessageList() {
             className="w-4 h-4 shrink-0 rounded border-[#c8c6c4] text-[#0078d4] cursor-pointer accent-[#0078d4]"
             title="Seleccionar todos" aria-label="Seleccionar todos" />
           <h2 className="text-[14px] font-semibold text-[#323130] cursor-pointer hover:text-[#0078d4] transition-colors truncate max-w-[120px] sm:max-w-none sm:whitespace-nowrap" onClick={() => { const s = useMailStore.getState(); if (s.filter !== 'all') s.setFilter('all'); setActiveTab('focused'); }}>{searchQuery ? `Buscando «${searchQuery}»${currentFolder === 'Virtual.Todo' ? ' en todo el correo' : ''}` : folderLabel}</h2>
+                    {!searchQuery && <BotonFavoritoCarpeta carpeta={currentFolder} />}
           <div className="flex-1" />
+          <BotonOrdenLista />
           <div className="flex items-center bg-[#f3f2f1] rounded-md p-0.5">
             {(['all','unread','flagged'] as const).map(f => (
               <button key={f} onClick={() => useMailStore.getState().setFilter(f)}

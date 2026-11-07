@@ -15,6 +15,7 @@ import {
   enColaDeGuardado, guardarBorradorEnServidor, guardarEstadoRedaccion, leerEstadoRedaccion, type EstadoRedaccion,
 } from '../../lib/estadoRedaccion';
 import { huellaAdjuntos } from '../../lib/adjuntosBorrador';
+import { api } from '../../api/client';
 import { anotarRedaccion, registrarFuente, type RedaccionGuardada } from '../../lib/redaccionesRecuperables';
 
 /** Lo que el panel tiene en su estado; el cuerpo y la huella los lleva el hook. */
@@ -158,5 +159,13 @@ export function useRedaccionPersistente(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return { saveDraft, cuerpoRef, huellaGuardadaRef, adjuntosEnCargaRef };
+  // «Descartar» (07/11/2026): borra el borrador del servidor. Va en la MISMA cola que los
+  // guardados: si había uno en curso, primero termina y luego se borra el UID que dejó; así un
+  // autoguardado tardío no vuelve a dejar el mensaje en Borradores.
+  const descartarBorrador = useCallback(() => enColaDeGuardado(win.id, async () => {
+    const uid = ultimoUidRef.current ?? win.draftUid;
+    if (uid) await api.del(`/mail/drafts/${uid}`);
+  }), [win.id, win.draftUid]);
+
+  return { saveDraft, cuerpoRef, huellaGuardadaRef, adjuntosEnCargaRef, descartarBorrador };
 }

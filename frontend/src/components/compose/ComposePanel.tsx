@@ -56,6 +56,7 @@ import { api } from '../../api/client';
 import { showToast, updateToast, dismissToast } from '../common/Toast';
 import { RecipientField } from './RecipientField';
 import { Attachments } from './Attachments';
+import { BotonDescartarRedaccion } from './BotonDescartarRedaccion';
 import { DirectoryPanel } from '../contacts/DirectoryPanel';
 import { textoErrorEnvio } from '../../lib/mensajeErrorEnvio';
 
@@ -388,7 +389,7 @@ export function ComposePanel({ win }: Props) {
     });
 
   // Guardado del borrador y conservación de lo escrito al minimizar (useRedaccionPersistente.ts).
-  const { saveDraft, cuerpoRef, huellaGuardadaRef, adjuntosEnCargaRef } = useRedaccionPersistente(win, editor, estadoPrevio, {
+  const { saveDraft, cuerpoRef, huellaGuardadaRef, adjuntosEnCargaRef, descartarBorrador } = useRedaccionPersistente(win, editor, estadoPrevio, {
     to, cc, bcc, subject, showCc, showBcc, fromEmail, quotedHtml, signatureHtml, attachments,
   });
 
@@ -463,6 +464,18 @@ export function ComposePanel({ win }: Props) {
     }
     cerrar();
   }, [to, subject, editor, saveDraft, win.id, closeCompose]);
+
+  // Papelera «Descartar» (07/11/2026): cierra SIN guardar y borra el borrador si ya existía.
+  const handleDescartar = useCallback(async () => {
+    const hayAlgo = !!(to || subject || (editor && editor.getText().trim()) || attachments.length);
+    if (hayAlgo && !window.confirm('¿Descartar este mensaje?\n\nNo se guardará en Borradores.')) return;
+    if (autosaveTimer.current) clearInterval(autosaveTimer.current);
+    if (editor && !editor.isDestroyed) editor.commands.clearContent();
+    closeCompose(win.id);
+    try { await descartarBorrador(); } catch { /* si falla, el borrador queda en Borradores y se puede borrar allí */ }
+    window.dispatchEvent(new CustomEvent('refresh-messages'));
+    showToast('Mensaje descartado');
+  }, [to, subject, editor, attachments.length, closeCompose, win.id, descartarBorrador]);
 
   // Convertir File a base64 para enviar adjuntos al backend
 
@@ -1131,17 +1144,17 @@ export function ComposePanel({ win }: Props) {
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}>
-      {/* Drop overlay */}
+      {/* Zona para soltar archivos (07/11/2026, al estilo Outlook pero más ligera) */}
       {isDragging && (
-        <div className="absolute inset-0 z-50 bg-white/90 flex items-center justify-center pointer-events-none"
-          style={{ border: "3px dashed #0078d4", borderRadius: 8, margin: 4 }}>
+        <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none bg-[#f3f9fd]/95"
+          style={{ border: "2px dashed #0078d4", borderRadius: 10, margin: 8 }}>
           <div className="text-center">
-            <svg className="w-16 h-16 mx-auto mb-3 text-[#0078d4]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            <svg className="w-14 h-14 mx-auto mb-3 text-[#0078d4]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.4}
+                d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
             </svg>
-            <p className="text-[16px] font-semibold text-[#0078d4]">Soltar archivos aquí</p>
-            <p className="text-[13px] text-[#605e5c] mt-1">Se agregarán como adjuntos</p>
+            <p className="text-[18px] font-semibold text-[#0078d4]">Adjuntar archivos</p>
+<p className="text-[13px] text-[#605e5c] mt-1">Suéltelos aquí: quedan arriba, debajo del asunto</p>
           </div>
         </div>
       )}
@@ -1212,6 +1225,7 @@ export function ComposePanel({ win }: Props) {
         <div className="flex items-center gap-[2px]">
           {/* Este botón NO descarta: guarda en Borradores y cierra. Antes decía «Descartar» con
               icono de papelera y la persona creía haber borrado un correo que seguía en Borradores. */}
+          <BotonDescartarRedaccion onDescartar={handleDescartar} />
           <button onClick={handleClose} title="Cerrar (se guarda en Borradores)" aria-label="Cerrar (se guarda en Borradores)"
             className="w-[32px] h-[32px] rounded-[3px] flex items-center justify-center text-[#605e5c] hover:bg-[#f3f2f1] hover:text-[#323130] transition-colors">
             <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1269,6 +1283,9 @@ export function ComposePanel({ win }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Adjuntos debajo del asunto y antes del texto, como Outlook (07/11/2026; antes iban al pie) */}
+      <Attachments files={attachments} onRemove={removeAttachment} />
 
       {/* Error */}
       {error && (
@@ -1382,8 +1399,6 @@ export function ComposePanel({ win }: Props) {
 
       <IndicadorOrtografia idioma={ortografia.idioma} manual={ortografia.manual} onCambiar={ortografia.elegir} />
 
-      {/* Attachments */}
-      <Attachments files={attachments} onRemove={removeAttachment} />
 
       {/* Schedule send modal */}
       {showScheduleModal && (

@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react';
-import { BotonGuardarEnAlmacen } from '../files/GuardarEnAlmacen';
+import { TarjetaAdjunto } from './TarjetaAdjunto';
+import { formatSize } from '../../lib/tamanoAdjunto';
 import type { AttachmentInfo } from '../../types';
 
 /**
@@ -10,29 +11,6 @@ import type { AttachmentInfo } from '../../types';
  * mínima, difícil de leer y de usar. Ahora muestra como mucho dos filas y un botón
  * «Ver los N adjuntos» que despliega el resto con su propio desplazamiento.
  */
-
-// Badge de tipo de archivo por extensión (color + etiqueta). Los ejecutables y
-// comprimidos se resaltan para que el usuario note extensiones peligrosas/raras.
-const EXT_BADGE: Record<string, { bg: string; label: string }> = {
-  pdf: { bg: '#d13438', label: 'PDF' },
-  doc: { bg: '#2b579a', label: 'DOC' }, docx: { bg: '#2b579a', label: 'DOC' }, rtf: { bg: '#2b579a', label: 'RTF' }, odt: { bg: '#2b579a', label: 'ODT' },
-  xls: { bg: '#217346', label: 'XLS' }, xlsx: { bg: '#217346', label: 'XLS' }, csv: { bg: '#217346', label: 'CSV' }, ods: { bg: '#217346', label: 'ODS' },
-  ppt: { bg: '#d24726', label: 'PPT' }, pptx: { bg: '#d24726', label: 'PPT' }, odp: { bg: '#d24726', label: 'ODP' },
-  zip: { bg: '#8661c5', label: 'ZIP' }, rar: { bg: '#8661c5', label: 'RAR' }, '7z': { bg: '#8661c5', label: '7Z' }, gz: { bg: '#8661c5', label: 'GZ' }, tar: { bg: '#8661c5', label: 'TAR' },
-  txt: { bg: '#605e5c', label: 'TXT' }, log: { bg: '#605e5c', label: 'LOG' },
-  jpg: { bg: '#0b6a0b', label: 'IMG' }, jpeg: { bg: '#0b6a0b', label: 'IMG' }, png: { bg: '#0b6a0b', label: 'PNG' }, gif: { bg: '#0b6a0b', label: 'GIF' }, webp: { bg: '#0b6a0b', label: 'IMG' }, svg: { bg: '#0b6a0b', label: 'SVG' },
-  exe: { bg: '#a80000', label: 'EXE' }, msi: { bg: '#a80000', label: 'MSI' }, bat: { bg: '#a80000', label: 'BAT' }, cmd: { bg: '#a80000', label: 'CMD' }, scr: { bg: '#a80000', label: 'SCR' }, vbs: { bg: '#a80000', label: 'VBS' }, js: { bg: '#a80000', label: 'JS' },
-};
-function attBadge(filename: string): { bg: string; label: string } {
-  const ext = (filename.split('.').pop() || '').toLowerCase();
-  return EXT_BADGE[ext] || { bg: '#605e5c', label: (ext || '?').toUpperCase().slice(0, 4) };
-}
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 interface Props {
   folder: string;
@@ -52,7 +30,7 @@ export default function ListaAdjuntos({ folder, uid, attachments, onAbrir, compa
   const [desborda, setDesborda] = useState(false);
   const visibles = attachments.filter(a => !a.is_inline).length;
   // Dos filas de botones (los nombres largos ocupan hasta dos líneas).
-  const altoPlegado = compacto ? 68 : 96;
+  const altoPlegado = compacto ? 76 : 100;
 
   useLayoutEffect(() => {
     const el = lista.current;
@@ -66,8 +44,21 @@ export default function ListaAdjuntos({ folder, uid, attachments, onAbrir, compa
   if (visibles === 0) return null;
 
   const fs = compacto ? 11 : 12;
+  const total = attachments.filter(a => !a.is_inline).reduce((s, a) => s + (a.size || 0), 0);
   return (
     <div>
+      {/* Como Outlook (07/11/2026): «N archivos adjuntos (tamaño)» y «Descargar todo» arriba de las tarjetas */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: fs, color: '#605e5c', marginBottom: 6 }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" style={{ flexShrink: 0 }} aria-hidden="true"><path d="M13.5 7.5l-5 5a3 3 0 01-4.2-4.2l5.6-5.6a2 2 0 012.8 2.8l-5.6 5.6a1 1 0 01-1.4-1.4l5-5" /></svg>
+          {visibles === 1 ? '1 archivo adjunto' : `${visibles} archivos adjuntos`} ({formatSize(total)})
+        </span>
+        {visibles > 1 && (
+          <a href={`/api/mail/attachments-zip/${encodeURIComponent(folder)}/${uid}`} download
+            title="Descargar todos los adjuntos como ZIP"
+            style={{ color: '#0078d4', textDecoration: 'none', fontWeight: 600 }}>Descargar todo (.zip)</a>
+        )}
+      </div>
       <div
         ref={lista}
         style={{
@@ -76,64 +67,8 @@ export default function ListaAdjuntos({ folder, uid, attachments, onAbrir, compa
           overflowY: abierta ? 'auto' : 'hidden',
         }}
       >
-        {visibles > 1 && (
-          <a
-            href={`/api/mail/attachments-zip/${encodeURIComponent(folder)}/${uid}`}
-            download
-            style={compacto ? {
-              display: 'inline-flex', alignItems: 'center', gap: 4,
-              padding: '4px 10px', border: '1px solid #0078d4', borderRadius: 4,
-              textDecoration: 'none', color: '#0078d4', fontSize: 11,
-              background: '#f0f6ff', cursor: 'pointer', fontWeight: 600,
-            } : {
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              padding: '6px 12px', border: '1px solid #0078d4', borderRadius: 4,
-              textDecoration: 'none', color: 'white', fontSize: 12,
-              background: '#0078d4', cursor: 'pointer', fontWeight: 600,
-            }}
-            title="Descargar todos los adjuntos como ZIP"
-          >
-            <svg width={compacto ? 12 : 14} height={compacto ? 12 : 14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-            Descargar todo (.zip)
-          </a>
-        )}
         {attachments.map((att, i) => att.is_inline ? null : (
-          <span key={i} style={{ display: 'inline-flex', gap: 2, alignItems: 'stretch' }}>
-            <button
-              onClick={() => onAbrir(i)}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: compacto ? 4 : 6,
-                padding: compacto ? '4px 8px' : '6px 10px', border: '1px solid #d2d0ce', borderRadius: 4,
-                textDecoration: 'none', color: '#323130', fontSize: fs,
-                background: '#faf9f8', cursor: 'pointer',
-              }}
-              title={`${att.filename} (${formatSize(att.size)})${att.dentro_de ? ` — viene dentro del correo adjunto «${att.dentro_de}»` : ''}`}
-            >
-              {(() => { const b = attBadge(att.filename); return (
-                <span style={{ background: b.bg, color: '#fff', fontSize: compacto ? 9 : 10, fontWeight: 700, padding: compacto ? '2px 4px' : '2px 5px', borderRadius: 3, flexShrink: 0, letterSpacing: 0.3 }}>{b.label}</span>
-              ); })()}
-              <span style={{ maxWidth: compacto ? 150 : 200, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'break-all', lineHeight: compacto ? 1.2 : 1.25, textAlign: 'left' }}>
-                {att.filename}
-              </span>
-              {!compacto && <span style={{ color: '#605e5c' }}>({formatSize(att.size)})</span>}
-            </button>
-            {/* Descarga directa de este adjunto, sin abrir la vista previa (pedido 06/11/2026) */}
-            <a
-              href={`/api/mail/attachment/${encodeURIComponent(folder)}/${uid}/${att.part_number}/${encodeURIComponent(att.filename)}`}
-              download={att.filename}
-              title={`Descargar ${att.filename}`}
-              aria-label={`Descargar ${att.filename}`}
-              onClick={(e) => e.stopPropagation()}
-              style={{ display: 'inline-flex', alignItems: 'center', padding: compacto ? '0 6px' : '0 8px', border: '1px solid #d2d0ce', borderRadius: 4, background: '#faf9f8', color: '#0078d4' }}
-            >
-              <svg width={compacto ? 13 : 15} height={compacto ? 13 : 15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-            </a>
-            <BotonGuardarEnAlmacen folder={folder} uid={uid} att={att} />
-          </span>
+          <TarjetaAdjunto key={i} folder={folder} uid={uid} att={att} compacto={compacto} onAbrir={() => onAbrir(i)} />
         ))}
       </div>
       {(desborda || abierta) && (
