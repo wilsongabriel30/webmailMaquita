@@ -30,7 +30,10 @@ LADO = 256
 def ruta_foto(email: str) -> str:
     return os.path.join(
         DIR_FOTOS,
-        hashlib.sha1(email.strip().lower().encode("utf-8")).hexdigest() + ".webp",
+        hashlib.sha1(
+            email.strip().lower().encode("utf-8"), usedforsecurity=False
+        ).hexdigest()
+        + ".webp",
     )
 
 
